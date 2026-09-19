@@ -10,8 +10,7 @@ import { getFpsDistrict } from './game/fps-districts';
 import type { LanSession } from './game/lan-peer';
 import ArmoryShop from './components/ArmoryShop';
 import { useArmory } from './game/use-armory';
-import QueenstownGame from './components/QueenstownGame';
-import RafflesGame from './components/RafflesGame';
+import RegionGame from './components/RegionGame';
 import SingaporeMap from './components/SingaporeMap';
 import { hasRegionGame, regionModeLabel } from './game/region-selection';
 import { locations, type Location } from './data/locations';
@@ -84,7 +83,7 @@ export default function App() {
         </aside>
 
         <div className="experience">
-          {expeditionOpen ? <ExpeditionGame initialZone={expeditionStart} destination={destination} onZoneChange={zone => setLocation(locations.find(place => place.id === zone)!)} profile={armory.profile} onExit={openFps} suspended={dialog !== null} /> : lobbyOpen ? <LanLobby onLaunch={launchArena} onBack={openFps} /> : armoryOpen ? <ArmoryShop store={armory} rangeLabel={getFpsDistrict(location.id).label} onEnterRange={openFps} /> : fpsOpen ? <FpsGame key={arena?.session.id || `practice-${location.id}`} region={location.id} arena={arena} onLeaveArena={openLobby} profile={armory.profile} onReward={armory.award} onElimination={armory.awardElimination} onOpenShop={openArmory} suspended={dialog !== null} /> : regionOpen && hasRegionGame(location.id) ? (location.id === 'raffles-place' ? <RafflesGame key={location.id} /> : location.id === 'queenstown' ? <QueenstownGame key={location.id} /> : <MarinaGame key={location.id} />) : <>
+          {expeditionOpen ? <ExpeditionGame initialZone={expeditionStart} destination={destination} onZoneChange={zone => setLocation(locations.find(place => place.id === zone)!)} profile={armory.profile} onExit={openFps} suspended={dialog !== null} /> : lobbyOpen ? <LanLobby onLaunch={launchArena} onBack={openFps} /> : armoryOpen ? <ArmoryShop store={armory} rangeLabel={getFpsDistrict(location.id).label} onEnterRange={openFps} /> : fpsOpen ? <FpsGame key={arena?.session.id || `practice-${location.id}`} region={location.id} arena={arena} onLeaveArena={openLobby} profile={armory.profile} onReward={armory.award} onElimination={armory.awardElimination} onOpenShop={openArmory} suspended={dialog !== null} /> : regionOpen && hasRegionGame(location.id) ? (location.id === 'marina-bay' ? <MarinaGame key={location.id} /> : <RegionGame key={location.id} region={location.id} />) : <>
           <div className="viewport"><StreetView key={location.id} location={location} /></div>
           <div className="experience-toolbar"><div className="experience-title"><span className="mode-icon"><Globe2 size={22} /></span><div><h3>The real {location.name}</h3><p>Google Street View · Drag to look, use arrows to travel</p></div></div></div>
           </>}

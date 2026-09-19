@@ -1,12 +1,12 @@
-export type PlayableRegionId = 'marina-bay' | 'queenstown' | 'raffles-place';
+import { getRegion, isRegionId, type RegionId } from './regions';
+
+export type PlayableRegionId = RegionId;
 
 export function hasRegionGame(locationId: string): locationId is PlayableRegionId {
-  return locationId === 'marina-bay' || locationId === 'queenstown' || locationId === 'raffles-place';
+  return isRegionId(locationId);
 }
 
 export function regionModeLabel(locationId: PlayableRegionId) {
-  if (locationId === 'raffles-place') return { name: 'Raffles 3D', subtitle: 'Explore the city core' };
-  return locationId === 'marina-bay'
-    ? { name: 'Marina 3D', subtitle: 'Explore the expanded bay' }
-    : { name: 'Queenstown 3D', subtitle: 'Walk and drive the estate' };
+  const region = getRegion(locationId);
+  return { name: region.modeName, subtitle: region.modeSubtitle };
 }

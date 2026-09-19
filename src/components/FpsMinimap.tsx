@@ -1,27 +1,24 @@
 import { useId } from 'react';
-import { MARINA_MAP_ROADS } from '../game/marina-scene';
-import { RAFFLES_MAP_ROADS } from '../game/raffles-scene';
-import { QUEENSTOWN_MAP_ROADS } from '../game/queenstown-scene';
-import { MARINA_BOUNDS } from '../game/marina-collision';
-import { RAFFLES_BOUNDS } from '../game/raffles-collision';
-import { QUEENSTOWN_BOUNDS } from '../game/queenstown-collision';
+import { getRegion, type RegionMapShape } from '../game/regions';
 import { localMinimapBounds, minimapHeading, minimapProjection, type MinimapMarker } from '../game/minimap';
 import { getWorldZone, type WorldZoneId } from '../game/world-zones';
 import './fps-minimap.css';
 
-const districts = {
-  'marina-bay': { bounds: MARINA_BOUNDS, roads: MARINA_MAP_ROADS },
-  'raffles-place': { bounds: RAFFLES_BOUNDS, roads: RAFFLES_MAP_ROADS },
-  queenstown: { bounds: QUEENSTOWN_BOUNDS, roads: QUEENSTOWN_MAP_ROADS },
-};
+/** Only district furniture with an FPS palette is drawn on the dark minimap. */
+function FpsMapShapes({ shapes }: { shapes: readonly RegionMapShape[] }) {
+  return <>{shapes.map((shape, index) => shape.kind === 'rect'
+    ? <rect key={index} x={shape.x} y={shape.z} width={shape.width} height={shape.depth} rx={shape.radius} fill={shape.fpsFill} />
+    : null)}</>;
+}
 
 /** Presentation only: callers decide which markers the player may see. */
 export default function FpsMinimap({ zone, player, markers = [], mode }: {
   zone: WorldZoneId; player: { x: number; z: number; yaw: number };
   markers?: readonly MinimapMarker[]; mode: 'practice' | 'expedition' | 'arena';
 }) {
-  const clip = useId(), title = useId(), district = districts[zone];
+  const clip = useId(), title = useId(), district = getRegion(zone);
   const bounds = localMinimapBounds(district.bounds, player), map = minimapProjection(bounds);
+  const decor = (layer: 'under' | 'over') => district.decor.filter(shape => shape.kind === 'rect' && shape.fpsFill && (shape.fpsLayer ?? shape.layer ?? 'over') === layer);
   return <div className="fps-minimap" data-map-zone={zone} aria-label={`${getWorldZone(zone).name} local minimap`}>
     <div className="fps-minimap-heading"><strong>{getWorldZone(zone).name}</strong><span>↑ N</span></div>
     <svg viewBox="0 0 200 160" role="img" aria-labelledby={title}>
@@ -30,9 +27,9 @@ export default function FpsMinimap({ zone, player, markers = [], mode }: {
       <rect x="6" y="6" width="188" height="148" rx="5" fill="#273b35" />
       <g clipPath={`url(#${clip})`}>
         <g transform={map.transform}>
-          {zone === 'marina-bay' && <rect x="-80" y="-90" width="160" height="140" fill="#315e65" />}
-          {district.roads.map((road, index) => <polyline key={index} points={road.points.map(p => `${p.x},${p.z}`).join(' ')} fill="none" stroke="#63766a" strokeWidth="12" />)}
-          {zone === 'raffles-place' && <rect x="-42" y="-65" width="92" height="78" fill="#3d5840" />}
+          <FpsMapShapes shapes={decor('under')} />
+          {district.mapRoads.map((road, index) => <polyline key={index} points={road.points.map(p => `${p.x},${p.z}`).join(' ')} fill="none" stroke="#63766a" strokeWidth="12" />)}
+          <FpsMapShapes shapes={decor('over')} />
         </g>
         {markers.map(marker => {
           const x = map.x(marker.x), y = map.y(marker.z);

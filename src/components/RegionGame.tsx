@@ -1,25 +1,34 @@
 import RegionGuide from './RegionGuide';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { defaultDriveLook, dragDriveLook, driveCameraOffset, settleDriveLook } from '../game/drive-camera';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CarFront, Footprints, RotateCcw, Flag } from 'lucide-react';
-import { buildRafflesScene, RAFFLES_SPAWN, RAFFLES_STAMPS, RAFFLES_MAP_ROADS } from '../game/raffles-scene';
-import { moveInRaffles } from '../game/raffles-collision';
-
-import { RAFFLES_BOUNDS } from '../game/raffles-collision';
+import { getRegion, regionObjective, regionResetLabel, type RegionId, type RegionMapShape } from '../game/regions';
 import { minimapProjection } from '../game/minimap';
-const map = minimapProjection(RAFFLES_BOUNDS);
+import type { GuideRegion } from '../game/adventure';
 
-const initialHud = { distance: 0, speed: 0, x: RAFFLES_SPAWN.x as number, z: RAFFLES_SPAWN.z as number, collected: [] as number[] };
+/** Schematic furniture is authored in world metres; the map transform places it. */
+export function RegionMapShapes({ shapes }: { shapes: readonly RegionMapShape[] }) {
+  return <>{shapes.map((shape, index) => shape.kind === 'rect'
+    ? <rect key={index} x={shape.x} y={shape.z} width={shape.width} height={shape.depth} rx={shape.radius} fill={shape.fill} />
+    : <path key={index} d={`M${shape.from.x} ${shape.from.z} L${shape.to.x} ${shape.to.z}`} stroke={shape.stroke} strokeWidth={shape.width} fill="none" />)}</>;
+}
 
-export default function RafflesGame() {
+/**
+ * One walk/drive harness for every authored district. Regions differ only by
+ * their descriptor, so a new map needs a scene builder and a registry entry.
+ */
+export default function RegionGame({ region: regionId }: { region: Exclude<RegionId, 'marina-bay'> }) {
+  const region = getRegion(regionId);
+  const map = useMemo(() => minimapProjection(region.bounds), [region]);
+  const stamps = region.stamps;
   const host = useRef<HTMLDivElement>(null);
   const [error, setError] = useState('');
   const [travel, setTravel] = useState<'walk' | 'drive'>('walk');
   const travelRef = useRef(travel);
   const keys = useRef(new Set<string>());
   const reset = useRef(() => {});
-  const [hud, setHud] = useState(initialHud);
+  const [hud, setHud] = useState({ distance: 0, speed: 0, x: region.spawn.x, z: region.spawn.z, collected: [] as number[] });
   const [guideSession, setGuideSession] = useState(0);
   useEffect(() => { travelRef.current = travel; keys.current.clear(); }, [travel]);
 
@@ -28,28 +37,32 @@ export default function RafflesGame() {
     let renderer: THREE.WebGLRenderer;
     try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
     catch { setError('WebGL could not start. Try a browser with hardware acceleration enabled.'); return; }
-    const world = buildRafflesScene();
+    const world = region.build();
     renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.9;
     const canvas = renderer.domElement; canvas.tabIndex = 0; container.appendChild(canvas);
-    canvas.setAttribute('aria-label', 'Modeled Raffles Place game. Click and use WASD to move; drag to look.');
-    const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 800); camera.rotation.order = 'YXZ';
-    let position = { x: RAFFLES_SPAWN.x as number, z: RAFFLES_SPAWN.z as number };
-    let yaw = RAFFLES_SPAWN.yaw, pitch = 0.14, speed = 0, distance = 0;
+    canvas.setAttribute('aria-label', `Modeled ${region.name} game. Click and use WASD to move; drag to look.`);
+    const camera = new THREE.PerspectiveCamera(65, 1, 0.1, region.cameraFar); camera.rotation.order = 'YXZ';
+    let position = { x: region.spawn.x, z: region.spawn.z };
+    let yaw = region.spawn.yaw, pitch = 0.14, speed = 0, distance = 0;
     let driveLook = defaultDriveLook(), lastLookAt = 0;
     let lastTravel = travelRef.current;
     const collected = new Set<number>();
     const report = () => setHud({ distance, speed, ...position, collected: [...collected] });
     reset.current = () => {
       setGuideSession(value => value + 1);
-      position = { x: RAFFLES_SPAWN.x, z: RAFFLES_SPAWN.z }; yaw = RAFFLES_SPAWN.yaw; pitch = 0.14; speed = 0; distance = 0; collected.clear();
+      position = { x: region.spawn.x, z: region.spawn.z }; yaw = region.spawn.yaw; pitch = 0.14; speed = 0; distance = 0; collected.clear();
       driveLook = defaultDriveLook(); drag = undefined; lastLookAt = 0;
       world.stamps.forEach(stamp => { stamp.visible = true; }); keys.current.clear(); report();
     };
     let drag: { x: number; y: number; pointerId: number } | undefined;
-    const pointerDown = (event: PointerEvent) => { if (!event.isPrimary || event.button !== 0 || drag) return; canvas.focus(); canvas.setPointerCapture(event.pointerId); drag = { x: event.clientX, y: event.clientY, pointerId: event.pointerId }; };
+    const pointerDown = (event: PointerEvent) => {
+      if (!event.isPrimary || event.button !== 0 || drag) return;
+      canvas.focus(); canvas.setPointerCapture(event.pointerId);
+      drag = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
+    };
     const pointerMove = (event: PointerEvent) => {
       if (!drag || drag.pointerId !== event.pointerId) return;
       if (travelRef.current === 'drive') {
@@ -91,7 +104,7 @@ export default function RafflesGame() {
         dx = (-Math.sin(yaw) * forward + Math.cos(yaw) * side) / normal * rate * dt;
         dz = (-Math.cos(yaw) * forward - Math.sin(yaw) * side) / normal * rate * dt;
       }
-      const next = moveInRaffles(position, dx, dz, driving ? 1.35 : 0.65, world.obstacles);
+      const next = region.move(position, dx, dz, driving ? 1.35 : 0.65, world.obstacles);
       const step = Math.hypot(next.x - position.x, next.z - position.z);
       if (driving && step < Math.hypot(dx, dz) * 0.2) speed = 0;
       distance += step; position = next;
@@ -104,7 +117,7 @@ export default function RafflesGame() {
       } else {
         camera.position.set(position.x, 1.75, position.z); camera.rotation.set(pitch, yaw, 0, 'YXZ');
       }
-      RAFFLES_STAMPS.forEach((stamp, i) => {
+      stamps.forEach((stamp, i) => {
         if (!collected.has(i) && Math.hypot(stamp.x - position.x, stamp.z - position.z) < 4) { collected.add(i); world.stamps[i].visible = false; }
       });
       world.animate(now / 1000); renderer.render(world.scene, camera);
@@ -118,29 +131,32 @@ export default function RafflesGame() {
       canvas.removeEventListener('keydown', keyDown); canvas.removeEventListener('blur', blur); window.removeEventListener('keyup', keyUp); window.removeEventListener('blur', blur);
       world.dispose(); renderer.dispose(); canvas.remove();
     };
-  }, []);
+  }, [region, stamps]);
 
-  return <div className="marina-reconstruction marina-game raffles-game">
+  const resetLabel = regionResetLabel(region);
+  const under = region.decor.filter(shape => (shape.layer ?? 'over') === 'under');
+  const over = region.decor.filter(shape => (shape.layer ?? 'over') === 'over');
+  return <div className={`marina-reconstruction marina-game ${region.className}`} data-region={region.id}>
     <div className="viewport marina-viewport"><div ref={host} className="world" />
       {error ? <div className="viewer-message" role="alert"><p>{error}</p></div> : <>
-        <div className="scene-top"><span className="scene-badge"><span className="status-dot" /> RAFFLES · PLACE · GAME WORLD</span><span className="marina-stamp-count"><Flag size={14} />{hud.collected.length} / {RAFFLES_STAMPS.length} stamps</span></div>
-        <div className="marina-map" aria-label="Game map showing player position and collectible stamps"><span>THE CITY & QUAYS</span>
+        <div className="scene-top"><span className="scene-badge"><span className="status-dot" /> {region.badge}</span><span className="marina-stamp-count"><Flag size={14} />{hud.collected.length} / {stamps.length} stamps</span></div>
+        <div className="marina-map" aria-label="Game map showing player position and collectible stamps"><span>{region.mapTitle}</span>
           <svg viewBox="0 0 200 160" role="img" aria-label="Schematic game map">
-            <rect x="6" y="6" width="188" height="148" rx="5" fill="#dedbcf" />
+            <rect x="6" y="6" width="188" height="148" rx="5" fill={region.mapPaper} />
             <g transform={map.transform}>
-              <rect x="-290" y="-168" width="580" height="32" fill="#76a8b1" />
-              {RAFFLES_MAP_ROADS.map((road,i)=><polyline key={i} points={road.points.map(p=>`${p.x},${p.z}`).join(' ')} fill="none" stroke="#8b938e" strokeWidth="16" />)}
-              <rect x="-42" y="-65" width="92" height="78" fill="#98ab78" />
+              <RegionMapShapes shapes={under} />
+              {region.mapRoads.map((road, i) => <polyline key={i} points={road.points.map(point => `${point.x},${point.z}`).join(' ')} fill="none" stroke={region.roadStroke} strokeWidth={region.roadWidth} />)}
+              <RegionMapShapes shapes={over} />
             </g>
-            {RAFFLES_STAMPS.map((stamp, i) => <circle key={stamp.name} cx={map.x(stamp.x)} cy={map.y(stamp.z)} r="3" fill={hud.collected.includes(i) ? '#4f7960' : '#d78853'} />)}
+            {stamps.map((stamp, i) => <circle key={stamp.name} cx={map.x(stamp.x)} cy={map.y(stamp.z)} r="3" fill={hud.collected.includes(i) ? '#4f7960' : '#d78853'} />)}
             <circle cx={map.x(hud.x)} cy={map.y(hud.z)} r="4" stroke="#fffdf0" strokeWidth="2" fill="#244832" />
           </svg>
         </div>
-        <div className="marina-objective">{hud.collected.length === RAFFLES_STAMPS.length ? 'All district stamps. Shiok! Keep exploring or reset to play again.' : `Find the orange rings · Explore the square and quays and collect ${RAFFLES_STAMPS.length} stamps.`}</div>
+        <div className="marina-objective">{regionObjective(region, hud.collected.length)}</div>
       </>}
     </div>
-    <RegionGuide key={guideSession} region="raffles-place" hud={hud} stops={RAFFLES_STAMPS} />
-    <div className="experience-toolbar"><div className="experience-title"><span className="mode-icon">{travel === 'walk' ? <Footprints size={20} /> : <CarFront size={20} />}</span><div><h3>Raffles · the financial district</h3><p>Low-poly game map · authored skyline, square and riverfront</p></div></div><div className="toolbar-actions"><button className="session-button" aria-pressed={travel === 'walk'} onClick={() => setTravel('walk')}>Walk</button><button className="session-button" aria-pressed={travel === 'drive'} onClick={() => setTravel('drive')}>Drive</button><button className="icon-button" aria-label="Reset Raffles progress (clears stamps and conversation)" title="Reset Raffles progress (clears stamps and conversation)" onClick={() => reset.current()}><RotateCcw size={16} /></button></div></div>
-    <div className="session-strip"><div><span>EXPLORED</span><strong>{Math.round(hud.distance)}<small>m</small></strong></div><p className="marina-hint">Click scene, then WASD · {travel === 'walk' ? 'Drag to look · Shift to run' : `Drag to orbit · A/D steer · ${Math.round(Math.abs(hud.speed) * 3.6)} km/h · Space to brake`}</p><div className="touch-controls">{(['a', 'w', 's', 'd'] as const).map((key, index) => { const Icon = [ArrowLeft, ArrowUp, ArrowDown, ArrowRight][index]; return <button key={key} disabled={!!error} aria-label={`Raffles ${['left', 'forward', 'backward', 'right'][index]}`} onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); keys.current.add(key); }} onPointerUp={() => keys.current.delete(key)} onPointerCancel={() => keys.current.delete(key)} onLostPointerCapture={() => keys.current.delete(key)}><Icon size={15} /></button>; })}</div></div>
+    {region.hasGuide && <RegionGuide key={guideSession} region={region.id as Exclude<GuideRegion, 'marina-bay'>} hud={hud} stops={[...stamps]} />}
+    <div className="experience-toolbar"><div className="experience-title"><span className="mode-icon">{travel === 'walk' ? <Footprints size={20} /> : <CarFront size={20} />}</span><div><h3>{region.title}</h3><p>{region.subtitle}</p></div></div><div className="toolbar-actions"><button className="session-button" aria-pressed={travel === 'walk'} onClick={() => setTravel('walk')}>Walk</button><button className="session-button" aria-pressed={travel === 'drive'} onClick={() => setTravel('drive')}>Drive</button><button className="icon-button" aria-label={resetLabel} title={resetLabel} onClick={() => reset.current()}><RotateCcw size={16} /></button></div></div>
+    <div className="session-strip"><div><span>EXPLORED</span><strong>{Math.round(hud.distance)}<small>m</small></strong></div><p className="marina-hint">Click scene, then WASD · {travel === 'walk' ? 'Drag to look · Shift to run' : `Drag to orbit · A/D steer · ${Math.round(Math.abs(hud.speed) * 3.6)} km/h · Space to brake`}</p><div className="touch-controls">{(['a', 'w', 's', 'd'] as const).map((key, index) => { const Icon = [ArrowLeft, ArrowUp, ArrowDown, ArrowRight][index]; return <button key={key} disabled={!!error} aria-label={`${region.shortName} ${['left', 'forward', 'backward', 'right'][index]}`} onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); keys.current.add(key); }} onPointerUp={() => keys.current.delete(key)} onPointerCancel={() => keys.current.delete(key)} onLostPointerCapture={() => keys.current.delete(key)}><Icon size={15} /></button>; })}</div></div>
   </div>;
 }

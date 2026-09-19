@@ -5,6 +5,10 @@ import { mkdir, writeFile } from 'node:fs/promises';
 const origin = process.env.REGION_APP_ORIGIN || 'http://127.0.0.1:5173';
 const chrome = process.env.CHROME_DEBUG_ORIGIN || 'http://127.0.0.1:9223';
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+// Software renderers (CI containers, SwiftShader) draw a few frames a second.
+// Scale every wait so the same assertions still observe real movement.
+const pace = Math.max(1, Number(process.env.REGION_SMOKE_PACE) || 1);
+const beat = ms => delay(ms * pace);
 const connect = async url => {
   const socket = new WebSocket(url), pending = new Map(), listeners = []; let next = 0;
   await new Promise((resolve, reject) => { socket.addEventListener('open', resolve, { once: true }); socket.addEventListener('error', () => reject(new Error('Chrome unavailable')), { once: true }); });
@@ -100,7 +104,7 @@ try {
     await page.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', buttons: 1, clickCount: 1 });
     await page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x + 160, y: point.y + 35, button: 'left', buttons: 1 });
     await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x + 160, y: point.y + 35, button: 'left', buttons: 0, clickCount: 1 });
-    await delay(180);
+    await beat(180);
   };
   for (const [name, resetLabel] of regions) {
     for (let attempt = 0; attempt < 100; attempt++) {
@@ -116,34 +120,34 @@ try {
     assert(await evaluate(`!!document.querySelector('[aria-label=${JSON.stringify(resetLabel)}]')`), `${name}: correct region`);
     assert.equal(await evaluate(`document.querySelector('[data-map-location][data-selected="true"]')?.getAttribute('data-map-location')`), name.toLowerCase().replaceAll(' ', '-'), `${name}: Singapore locator follows selection`);
     await evaluate(`document.querySelector('.marina-viewport canvas').focus()`);
-    await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'w', code: 'KeyW' }); await delay(1000);
-    await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'w', code: 'KeyW' }); await delay(180);
+    await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'w', code: 'KeyW' }); await beat(1000);
+    await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'w', code: 'KeyW' }); await beat(180);
     assert(await evaluate(`parseFloat(document.querySelector('.marina-reconstruction .session-strip strong').textContent)>0`), `${name}: walk`);
-    await evaluate(`document.querySelector('[aria-label=${JSON.stringify(resetLabel)}]').click()`); await delay(180);
+    await evaluate(`document.querySelector('[aria-label=${JSON.stringify(resetLabel)}]').click()`); await beat(180);
     assert.equal(await evaluate(`parseFloat(document.querySelector('.marina-reconstruction .session-strip strong').textContent)`), 0, `${name}: reset`);
-    await evaluate(`Array.from(document.querySelectorAll('.marina-reconstruction button')).find(b=>b.textContent==='Drive').click()`); await delay(100);
+    await evaluate(`Array.from(document.querySelectorAll('.marina-reconstruction button')).find(b=>b.textContent==='Drive').click()`); await beat(100);
     await evaluate(`document.querySelector('.marina-viewport canvas').focus()`);
-    await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'w', code: 'KeyW' }); await delay(1200);
-    await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'w', code: 'KeyW' }); await delay(180);
+    await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'w', code: 'KeyW' }); await beat(1200);
+    await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'w', code: 'KeyW' }); await beat(180);
     assert(await evaluate(`parseFloat(document.querySelector('.marina-reconstruction .session-strip strong').textContent)>0`), `${name}: drive`);
-    const reset = async () => { await evaluate(`document.querySelector('[aria-label=${JSON.stringify(resetLabel)}]').click()`); await delay(220); };
+    const reset = async () => { await evaluate(`document.querySelector('[aria-label=${JSON.stringify(resetLabel)}]').click()`); await beat(220); };
     await reset();
     const defaultCamera = await rotation(), spawn = await player();
     await drag();
     assert(difference(defaultCamera, await rotation()) > 0.3, `${name}: stationary drag changes camera`);
     assert(difference(spawn, await player()) < 0.01, `${name}: stationary drag does not move car`);
-    await delay(1000);
+    await beat(1000);
     assert(difference(defaultCamera, await rotation()) > 0.3, `${name}: stationary look is retained`);
     await reset();
     const resetCamera = await rotation();
     assert(difference(defaultCamera, resetCamera) < 0.01, `${name}: reset recenters camera`);
     await evaluate(`document.querySelector('.marina-viewport canvas').focus()`);
     await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'w', code: 'KeyW' });
-    await delay(600);
+    await beat(600);
     const beforeDrag = await player();
     await drag();
     assert(difference(defaultCamera, await rotation()) > 0.3, `${name}: moving drag changes camera`);
-    await delay(1500);
+    await beat(1500);
     const afterDrag = await player();
     await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'w', code: 'KeyW' });
     const beforeVector = beforeDrag.map((v, i) => v - spawn[i]), afterVector = afterDrag.map((v, i) => v - spawn[i]);
@@ -153,7 +157,7 @@ try {
     assert(difference(defaultCamera, await rotation()) < 0.3, `${name}: moving camera settles behind car`);
     await reset(); await drag();
     for (const mode of ['Walk', 'Drive']) {
-      await evaluate(`Array.from(document.querySelectorAll('.marina-reconstruction button')).find(b=>b.textContent===${JSON.stringify(mode)}).click()`); await delay(180);
+      await evaluate(`Array.from(document.querySelectorAll('.marina-reconstruction button')).find(b=>b.textContent===${JSON.stringify(mode)}).click()`); await beat(180);
     }
     assert(difference(defaultCamera, await rotation()) < 0.01, `${name}: switching modes clears camera orbit`);
     const shot = await page.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
@@ -162,15 +166,15 @@ try {
   }
   await page.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   for (const [name] of regions) {
-    await evaluate(`Array.from(document.querySelectorAll('.location-card')).find(b=>b.textContent.includes(${JSON.stringify(name)})).click()`); await delay(300);
+    await evaluate(`Array.from(document.querySelectorAll('.location-card')).find(b=>b.textContent.includes(${JSON.stringify(name)})).click()`); await beat(300);
     assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth`), `${name}: mobile width`);
   }
   // Map controls use the same region selection action as the original cards.
-  await evaluate(`document.querySelector('[data-map-location="queenstown"]').dispatchEvent(new MouseEvent('click',{bubbles:true}))`); await delay(350);
+  await evaluate(`document.querySelector('[data-map-location="queenstown"]').dispatchEvent(new MouseEvent('click',{bubbles:true}))`); await beat(350);
   assert.equal(await evaluate(`document.querySelector('.location-card[aria-pressed="true"] strong')?.textContent`), 'Queenstown', 'map click selects region');
   await evaluate(`document.querySelector('[data-map-location="marina-bay"]').focus()`);
   await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter' });
-  await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter' }); await delay(350);
+  await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter' }); await beat(350);
   assert.equal(await evaluate(`document.querySelector('.location-card[aria-pressed="true"] strong')?.textContent`), 'Marina Bay', 'map keyboard selection');
   const mobileShot = await page.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
   await writeFile('.cache/browser-checks/singapore-map-mobile.png', Buffer.from(mobileShot.data, 'base64'));

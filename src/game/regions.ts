@@ -1,0 +1,129 @@
+import type * as THREE from 'three';
+import { REGION_IDS, isRegionId, type RegionId } from './region-ids';
+import type { Obstacle, Position2D, RegionBounds } from './region-collision';
+import { MARINA_BOUNDS, moveInMarina, canOccupy as canOccupyMarina } from './marina-collision';
+import { RAFFLES_BOUNDS, moveInRaffles, canOccupy as canOccupyRaffles } from './raffles-collision';
+import { QUEENSTOWN_BOUNDS, moveInQueenstown, canOccupy as canOccupyQueenstown } from './queenstown-collision';
+import { buildMarinaScene, MARINA_MAP_ROADS, MARINA_SPAWN } from './marina-scene';
+import { buildRafflesScene, RAFFLES_MAP_ROADS, RAFFLES_SPAWN } from './raffles-scene';
+import { buildQueenstownScene, QUEENSTOWN_MAP_ROADS, QUEENSTOWN_SPAWN } from './queenstown-scene';
+import { MARINA_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS } from '../data/region-stamps.ts';
+
+export { REGION_IDS, isRegionId };
+export type { RegionId };
+
+export interface RegionStamp { readonly name: string; readonly x: number; readonly z: number }
+export interface RegionRoad { readonly points: readonly Position2D[] }
+/** Ground spawn shared by the region game, the expedition zone and the tests. */
+export interface RegionSpawn { readonly x: number; readonly z: number; readonly yaw: number }
+
+/** Built scene handle. Every region builder returns this shape. */
+export interface RegionWorld {
+  scene: THREE.Scene;
+  obstacles: Obstacle[];
+  car: THREE.Object3D;
+  stamps: THREE.Object3D[];
+  animate(time: number): void;
+  dispose(): void;
+}
+
+type MapLayer = 'under' | 'over';
+/** Schematic map furniture in world coordinates, drawn under or over the roads. */
+export type RegionMapShape =
+  | { kind: 'rect'; x: number; z: number; width: number; depth: number; fill: string; radius?: number; layer?: MapLayer; fpsFill?: string; fpsLayer?: MapLayer }
+  | { kind: 'line'; from: Position2D; to: Position2D; stroke: string; width: number; layer?: MapLayer; fpsStroke?: string; fpsLayer?: MapLayer };
+
+export interface RegionDefinition {
+  readonly id: RegionId;
+  /** Full display name; `shortName` labels controls where the district is implied. */
+  readonly name: string;
+  readonly shortName: string;
+  readonly modeName: string;
+  readonly modeSubtitle: string;
+  readonly className: string;
+  readonly badge: string;
+  readonly title: string;
+  readonly subtitle: string;
+  readonly mapTitle: string;
+  /** "All <stampNoun>." and "Explore <exploreNoun> and collect N stamps." */
+  readonly stampNoun: string;
+  readonly exploreNoun: string;
+  readonly cameraFar: number;
+  readonly spawn: RegionSpawn;
+  readonly stamps: readonly RegionStamp[];
+  readonly bounds: RegionBounds;
+  readonly mapRoads: readonly RegionRoad[];
+  readonly mapPaper: string;
+  readonly roadStroke: string;
+  readonly roadWidth: number;
+  readonly decor: readonly RegionMapShape[];
+  /** Regions with a reviewed, source-linked learning catalog show the guide panel. */
+  readonly hasGuide: boolean;
+  readonly build: () => RegionWorld;
+  readonly move: (position: Position2D, dx: number, dz: number, radius: number, obstacles: readonly Obstacle[]) => Position2D;
+  readonly canOccupy: (x: number, z: number, radius: number, obstacles: readonly Obstacle[]) => boolean;
+}
+
+const definitions: Record<RegionId, RegionDefinition> = {
+  'marina-bay': {
+    id: 'marina-bay', name: 'Marina Bay', shortName: 'Marina', modeName: 'Marina 3D', modeSubtitle: 'Explore the expanded bay',
+    className: 'marina-game', badge: 'MARINA BAY · GAME WORLD', title: 'Marina Bay · waterfront & gardens',
+    subtitle: 'Expanded low-poly map · inner and outer road loops', mapTitle: 'THE BAY & GARDENS',
+    stampNoun: 'stamps collected', exploreNoun: 'the bay', cameraFar: 1400,
+    spawn: MARINA_SPAWN, stamps: MARINA_STAMPS, bounds: MARINA_BOUNDS, mapRoads: MARINA_MAP_ROADS,
+    mapPaper: '#d7dfc8', roadStroke: '#929f8d', roadWidth: 15,
+    decor: [
+      { kind: 'rect', x: -80, z: -90, width: 160, depth: 140, fill: '#7db5b3', layer: 'over', fpsFill: '#315e65', fpsLayer: 'under' },
+      ...[-65, -15, 35].map((z): RegionMapShape => ({ kind: 'rect', x: 139, z: z - 15, width: 24, depth: 30, fill: '#eee7ce', layer: 'over' })),
+      { kind: 'rect', x: 141, z: -107, width: 20, depth: 184, radius: 4, fill: '#819872', layer: 'over' },
+    ],
+    hasGuide: false, build: buildMarinaScene, move: moveInMarina, canOccupy: canOccupyMarina,
+  },
+  'raffles-place': {
+    id: 'raffles-place', name: 'Raffles Place', shortName: 'Raffles', modeName: 'Raffles 3D', modeSubtitle: 'Explore the city core',
+    className: 'raffles-game', badge: 'RAFFLES · PLACE · GAME WORLD', title: 'Raffles · the financial district',
+    subtitle: 'Low-poly game map · authored skyline, square and riverfront', mapTitle: 'THE CITY & QUAYS',
+    stampNoun: 'district stamps', exploreNoun: 'the square and quays', cameraFar: 800,
+    spawn: RAFFLES_SPAWN, stamps: RAFFLES_STAMPS, bounds: RAFFLES_BOUNDS, mapRoads: RAFFLES_MAP_ROADS,
+    mapPaper: '#dedbcf', roadStroke: '#8b938e', roadWidth: 16,
+    decor: [
+      { kind: 'rect', x: -290, z: -168, width: 580, depth: 32, fill: '#76a8b1', layer: 'under' },
+      { kind: 'rect', x: -42, z: -65, width: 92, depth: 78, fill: '#98ab78', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+    ],
+    hasGuide: true, build: buildRafflesScene, move: moveInRaffles, canOccupy: canOccupyRaffles,
+  },
+  queenstown: {
+    id: 'queenstown', name: 'Queenstown', shortName: 'Queenstown', modeName: 'Queenstown 3D', modeSubtitle: 'Walk and drive the estate',
+    className: 'queenstown-game', badge: 'QUEENSTOWN · GAME WORLD', title: 'Queenstown · the neighborhood loop',
+    subtitle: 'Low-poly game map · authored heritage-inspired neighborhood', mapTitle: 'ESTATE & DISTRICTS',
+    stampNoun: 'estate stamps', exploreNoun: 'the estate', cameraFar: 1400,
+    spawn: QUEENSTOWN_SPAWN, stamps: QUEENSTOWN_STAMPS, bounds: QUEENSTOWN_BOUNDS, mapRoads: QUEENSTOWN_MAP_ROADS,
+    mapPaper: '#d7dfc8', roadStroke: '#929f8d', roadWidth: 14,
+    decor: [
+      { kind: 'line', from: { x: -180, z: 22 }, to: { x: 180, z: 22 }, stroke: '#ddd5c5', width: 5, layer: 'over' },
+      { kind: 'rect', x: -44, z: 12, width: 88, depth: 20, fill: '#498877', layer: 'over' },
+      ...([[-73, -44], [73, -44], [-73, 64], [73, 64]] as const).map(([x, z]): RegionMapShape =>
+        ({ kind: 'rect', x: x - 23, z: z - 9, width: 46, depth: 18, fill: '#eee7ce', layer: 'over' })),
+      { kind: 'line', from: { x: -157, z: -133 }, to: { x: -157, z: 133 }, stroke: '#5d9b57', width: 5, layer: 'over' },
+    ],
+    hasGuide: true, build: buildQueenstownScene, move: moveInQueenstown, canOccupy: canOccupyQueenstown,
+  },
+};
+
+export const REGIONS: readonly RegionDefinition[] = REGION_IDS.map(id => definitions[id]);
+
+export function getRegion(id: RegionId): RegionDefinition {
+  const region = definitions[id];
+  if (!region) throw new Error(`Unknown region: ${String(id)}`);
+  return region;
+}
+
+/** Progress copy shared by the region game and its accessible description. */
+export function regionObjective(region: RegionDefinition, collected: number) {
+  return collected === region.stamps.length
+    ? `All ${region.stampNoun}. Shiok! Keep exploring or reset to play again.`
+    : `Find the orange rings · Explore ${region.exploreNoun} and collect ${region.stamps.length} stamps.`;
+}
+
+export const regionResetLabel = (region: RegionDefinition) =>
+  `Reset ${region.shortName} ${region.id === 'marina-bay' ? 'adventure' : 'progress'} (clears stamps and conversation)`;

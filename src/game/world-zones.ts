@@ -1,5 +1,7 @@
+import { isRegionId, type RegionId } from './region-ids';
+
 /** Connected authored districts. Coordinates are local game metres, not GPS. */
-export type WorldZoneId = 'marina-bay' | 'raffles-place' | 'queenstown';
+export type WorldZoneId = RegionId;
 export interface ZonePosition { readonly x: number; readonly z: number }
 /** Ground position and first-person orientation; eye height belongs to the engine. */
 export interface ZoneSpawn extends ZonePosition { readonly yaw: number; readonly pitch: number }
@@ -52,7 +54,7 @@ export const WORLD_GATEWAYS: readonly WorldGateway[] = [
 ];
 
 export function isWorldZoneId(value: unknown): value is WorldZoneId {
-  return typeof value === 'string' && WORLD_ZONES.some(zone => zone.id === value);
+  return isRegionId(value) && WORLD_ZONES.some(zone => zone.id === value);
 }
 
 export function getWorldZone(id: WorldZoneId): WorldZone {
