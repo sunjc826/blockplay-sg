@@ -29,8 +29,10 @@ try {
  await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable');
  await send('Emulation.setFocusEmulationEnabled',{enabled:true});
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
- const regions=[['queenstown','Queenstown','Queenstown FPS'],['raffles-place','Raffles Place','Raffles FPS'],['marina-bay','Marina Bay','Marina FPS']];
- await wait(`document.querySelectorAll('.location-card').length===3`);
+ await wait(`document.querySelectorAll('.location-card').length>=3`);
+ // Every registered district is exercised, so a new map needs no edit here.
+ const regions=await evaluate(`import('/src/game/regions.ts').then(async m=>{const d=await import('/src/game/fps-districts.ts');return m.REGIONS.map(r=>[r.id,r.name,d.getFpsDistrict(r.id).label])})`);
+ assert(regions.length>=3,'the developed districts are selectable');
  for(const [index,[id,name,label]] of regions.entries()) {
    await click(`[...document.querySelectorAll('.location-card')].find(b=>b.querySelector('strong')?.textContent===${JSON.stringify(name)})`);
    if(index===0) await click(`[...document.querySelectorAll('.mode-card')].find(b=>b.querySelector('strong')?.textContent===${JSON.stringify(label)})`);

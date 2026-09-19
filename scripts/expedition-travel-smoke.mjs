@@ -38,7 +38,10 @@ ws.onmessage = event => {
 function send(method, params = {}) { return new Promise((resolve, reject) => { const n = ++id; const timer = setTimeout(() => { pending.delete(n); reject(new Error(`CDP timeout: ${method}`)); }, 30000); pending.set(n, { resolve, reject, timer }); ws.send(JSON.stringify({ id: n, method, params })); }); }
 async function evaluate(expression) { const r = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (r.exceptionDetails) throw new Error(r.exceptionDetails.text); return r.result.value; }
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-async function wait(expression, timeout = 20000) { const start = Date.now(); while (Date.now() - start < timeout) { if (await evaluate(expression)) return; await delay(150); } throw new Error(`Timed out waiting for ${expression}`); }
+// Software renderers draw a few frames a second, so a fixed key hold covers
+// almost no ground. Scale the holds and waits; the assertions are unchanged.
+const pace = Math.max(1, Number(process.env.EXPEDITION_SMOKE_PACE) || 1);
+async function wait(expression, timeout = 20000 * pace) { const start = Date.now(); while (Date.now() - start < timeout) { if (await evaluate(expression)) return; await delay(150); } throw new Error(`Timed out waiting for ${expression}`); }
 const button = name => `[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(name)})`;
 async function point(expression) { return evaluate(`(()=>{const e=${expression}; if(!e) throw Error('Missing control');e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`); }
 async function click(expression) { const p = await point(expression); await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...p, button: 'left', clickCount: 1 }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...p, button: 'left', clickCount: 1 }); }
@@ -68,7 +71,7 @@ try {
   assert.equal(await evaluate('!!document.pointerLockElement'),false,'Transition releases capture until the next user gesture');
   await screenshot('cbd-arrival');
   await click(`document.querySelector('#enter')`);await wait(`hud.phase==='playing'`);
-  await key('s','KeyS',2500);await wait(`!!hud.travelPrompt`);await key('t','KeyT');
+  await key('s','KeyS',2500*pace);await wait(`!!hud.travelPrompt`);await key('t','KeyT');
   await wait(`zone==='marina-bay' && hud.phase==='ready' && hud.arenaSelf`);
   assert.equal(await evaluate('hud.fieldLoot.length'),7,'Re-entry does not reroll collected crates');
   assert(await evaluate('!hud.fieldLoot.some(item=>item.id===firstLoot.id)'));
@@ -85,7 +88,7 @@ try {
   assert(await evaluate('hud.arena.actors.filter(a=>a.bot).every(a=>a.role==="assault")'));
   assert.equal(await evaluate('hud.magazine'),ammunition);assert.equal(await evaluate('document.querySelectorAll("canvas").length'),1);
   await screenshot('queenstown-arrival');
-  await click(`document.querySelector('#enter')`);await wait(`hud.phase==='playing'`);await key('s','KeyS',2500);await wait('!!hud.travelPrompt');await key('t','KeyT');
+  await click(`document.querySelector('#enter')`);await wait(`hud.phase==='playing'`);await key('s','KeyS',2500*pace);await wait('!!hud.travelPrompt');await key('t','KeyT');
   await wait(`zone==='raffles-place' && hud.phase==='ready' && hud.arenaSelf`);
   assert.equal(await evaluate('transfers.length'),4);assert.equal(await evaluate('hud.fieldLoot.length'),10);
   assert.equal(await evaluate('localStorage.getItem("expedition-test-permanent")'),await evaluate('original'));
