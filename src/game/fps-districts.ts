@@ -24,5 +24,11 @@ const districts: Record<WorldZoneId, FpsDistrict> = {
     vehicles: { car: { x: -19, z: 120, yaw: -Math.PI / 2 }, helicopter: { x: 0, z: 116, yaw: 0 } },
     props: [[3, -17, 124, .77, .52], [4, -12, 120, 1.87, .41], [5, -16, 125, .37, .37], [5, -14, 125, .37, .37]],
   },
+  chinatown: {
+    label: 'Chinatown FPS', setting: 'temple forecourt', spawn: { x: -124, z: 100, yaw: 0, pitch: -.03 },
+    targets: [{ x: -124, z: 70 }, { x: -130, z: 69 }, { x: -118, z: 69 }, { x: -136, z: 74 }, { x: -112, z: 74 }, { x: -138, z: 82 }, { x: -110, z: 82 }, { x: -124, z: 58 }],
+    vehicles: { car: { x: -130, z: 104, yaw: -Math.PI / 2 }, helicopter: { x: -104, z: 88, yaw: 0 } },
+    props: [[3, -126, 106, .77, .52], [4, -120, 103, 1.87, .41], [5, -125, 107, .37, .37], [5, -123, 107, .37, .37]],
+  },
 };
 export const getFpsDistrict = (region: WorldZoneId): FpsDistrict => districts[region];

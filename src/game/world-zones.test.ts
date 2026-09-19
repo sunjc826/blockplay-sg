@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMarinaScene, MARINA_SPAWN } from './marina-scene';
-import { buildRafflesScene, RAFFLES_SPAWN } from './raffles-scene';
-import { buildQueenstownScene, QUEENSTOWN_SPAWN } from './queenstown-scene';
-import { canOccupy as canMarina, moveInMarina } from './marina-collision';
-import { canOccupy as canRaffles, moveInRaffles } from './raffles-collision';
-import { canOccupy as canQueenstown, moveInQueenstown } from './queenstown-collision';
+import { REGIONS } from './regions';
 import { WORLD_GATEWAYS, WORLD_ZONES, findWorldGateway, findWorldRoute, getWorldZone, isWorldZoneId, resolveWorldTransition } from './world-zones';
 
 describe('connected world travel', () => {
@@ -12,6 +7,7 @@ describe('connected world travel', () => {
     expect(findWorldRoute('marina-bay', 'queenstown').map(step => step.id)).toEqual(['marina-to-raffles', 'raffles-to-queenstown']);
     expect(findWorldRoute('queenstown', 'marina-bay').map(step => step.id)).toEqual(['queenstown-to-raffles', 'raffles-to-marina']);
     expect(findWorldRoute('raffles-place', 'marina-bay')).toHaveLength(1);
+    expect(findWorldRoute('marina-bay', 'chinatown').map(step => step.id)).toEqual(['marina-to-raffles', 'raffles-to-chinatown']);
     expect(findWorldRoute('queenstown', 'queenstown')).toEqual([]);
     for (const from of WORLD_ZONES) for (const to of WORLD_ZONES) {
       let current = from.id;
@@ -61,11 +57,7 @@ describe('connected world travel', () => {
   });
 });
 
-const scenes = [
-  { id: 'marina-bay', build: buildMarinaScene, canOccupy: canMarina, move: moveInMarina, spawn: MARINA_SPAWN },
-  { id: 'raffles-place', build: buildRafflesScene, canOccupy: canRaffles, move: moveInRaffles, spawn: RAFFLES_SPAWN },
-  { id: 'queenstown', build: buildQueenstownScene, canOccupy: canQueenstown, move: moveInQueenstown, spawn: QUEENSTOWN_SPAWN },
-] as const;
+const scenes = REGIONS.map(region => ({ id: region.id, build: region.build, canOccupy: region.canOccupy, move: region.move, spawn: region.spawn }));
 
 for (const adapter of scenes) it(`${adapter.id}: checkpoints and arrivals are clear and connected to the authored spawn`, () => {
   const world = adapter.build();

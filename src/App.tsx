@@ -14,6 +14,7 @@ import RegionGame from './components/RegionGame';
 import SingaporeMap from './components/SingaporeMap';
 import { hasRegionGame, regionModeLabel } from './game/region-selection';
 import { locations, type Location } from './data/locations';
+import { REGIONS } from './game/regions';
 import { IS_STATIC_SITE, HAS_LAN_SERVER } from './lib/deployment';
 
 export default function App() {
@@ -73,7 +74,7 @@ export default function App() {
           <div className="mode-list">
             {hasRegionGame(location.id) && <button className={`mode-card ${regionOpen ? 'selected' : ''}`} aria-pressed={regionOpen} onClick={() => { leaveSession(); setArmoryOpen(false); setFpsOpen(false); setRegionOpen(true); }}><Globe2 size={20} /><span><strong>{regionModeLabel(location.id).name}</strong><small>{regionModeLabel(location.id).subtitle}</small></span><span className="radio-dot" /></button>}
             {hasRegionGame(location.id) && <button className={`mode-card ${fpsOpen && !arena ? 'selected' : ''}`} aria-pressed={fpsOpen && !arena} onClick={openFps}><Crosshair size={20} /><span><strong>{getFpsDistrict(location.id).label}</strong><small>Weapons ready. Range open.</small></span><span className="radio-dot" /></button>}
-            <button className={`mode-card ${expeditionOpen ? 'selected' : ''}`} aria-pressed={expeditionOpen} onClick={openExpedition}><Globe2 size={20} /><span><strong>Open world</strong><small>Three districts. Find your way.</small></span><span className="radio-dot" /></button>
+            <button className={`mode-card ${expeditionOpen ? 'selected' : ''}`} aria-pressed={expeditionOpen} onClick={openExpedition}><Globe2 size={20} /><span><strong>Open world</strong><small>{REGIONS.length} districts. Find your way.</small></span><span className="radio-dot" /></button>
             <button className={`mode-card ${lobbyOpen || arena ? 'selected' : ''}`} aria-pressed={lobbyOpen || !!arena} onClick={openLobby}><Users size={20} /><span><strong>{HAS_LAN_SERVER ? 'LAN arena' : 'Solo arena'}</strong><small>{HAS_LAN_SERVER ? 'Your squad. Live opponents.' : 'Take on the bots.'}</small></span><span className="radio-dot" /></button>
             <button disabled={IS_STATIC_SITE} className={`mode-card ${!expeditionOpen && !lobbyOpen && !fpsOpen && !regionOpen ? 'selected' : ''}`} onClick={openStreetView} aria-pressed={!expeditionOpen && !lobbyOpen && !fpsOpen && !regionOpen}>
               <Globe2 size={20} /><span><strong>Street View</strong><small>{IS_STATIC_SITE ? 'Unavailable in this demo' : 'See the real neighborhood'}</small></span><span className="radio-dot" />

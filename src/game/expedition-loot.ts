@@ -22,6 +22,7 @@ export const ZONE_LOOT_RULES: Readonly<Record<WorldZoneId, Readonly<ZoneLootRule
   queenstown: { eliteChance: 0.05, fieldChance: 0.3, weaponCount: 2, ammoCount: 2, medicalCount: 1, armorCount: 1, ammoAmount: 45, medicalAmount: 25 },
   'marina-bay': { eliteChance: 0.15, fieldChance: 0.55, weaponCount: 3, ammoCount: 2, medicalCount: 2, armorCount: 1, ammoAmount: 60, medicalAmount: 40 },
   'raffles-place': { eliteChance: 0.5, fieldChance: 0.4, weaponCount: 4, ammoCount: 3, medicalCount: 1, armorCount: 2, ammoAmount: 90, medicalAmount: 60 },
+  chinatown: { eliteChance: 0.12, fieldChance: 0.5, weaponCount: 3, ammoCount: 3, medicalCount: 2, armorCount: 1, ammoAmount: 55, medicalAmount: 35 },
 };
 const finitePosition = (p: ZonePosition) => Number.isFinite(p.x) && Number.isFinite(p.z);
 const hash = (text: string) => {

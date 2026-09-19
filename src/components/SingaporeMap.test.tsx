@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import SingaporeMap from './SingaporeMap';
 import { locations } from '../data/locations';
+import { WORLD_GATEWAYS } from '../game/world-zones';
 
 it('keeps location selection in exploration and distinguishes route targets from the current expedition district', () => {
   const marina = locations.find(place => place.id === 'marina-bay')!;
@@ -12,7 +13,8 @@ it('keeps location selection in exploration and distinguishes route targets from
   expect(expedition).toContain('data-map-active="marina-bay"');
   expect(expedition).toContain('data-map-location="queenstown" data-selected="false" data-destination="true"');
   expect(expedition).toContain('Marina Bay → Raffles Place → Queenstown');
-  expect(expedition.match(/data-map-link=/g)).toHaveLength(2);
+  // One drawn link per reversible checkpoint pair.
+  expect(expedition.match(/data-map-link=/g)).toHaveLength(WORLD_GATEWAYS.length / 2);
   expect(expedition).toContain('Press T within 4m');
   expect(expedition).toContain('Queenstown · low threat · Loot tier 1');
 });

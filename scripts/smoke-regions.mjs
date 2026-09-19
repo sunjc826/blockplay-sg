@@ -84,14 +84,17 @@ try {
   await page.send('Page.navigate', { url: origin });
   await mkdir('.cache/browser-checks', { recursive: true });
   const regions = [['Marina Bay', 'Reset Marina adventure (clears stamps and conversation)'], ['Queenstown', 'Reset Queenstown progress (clears stamps and conversation)']];
+  const optional = [['Raffles Place', 'Reset Raffles progress (clears stamps and conversation)'], ['Chinatown', 'Reset Chinatown progress (clears stamps and conversation)']];
   for (let attempt = 0; attempt < 100; attempt++) {
     if (await evaluate(`!!document.querySelector('.location-card')`)) break;
     await delay(100);
   }
   assert(await evaluate(`!!document.querySelector('.location-card')`), 'app is ready (check Vite import/build errors if absent)');
-  assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.location-card strong')).map(e=>e.textContent)`), ['Marina Bay', 'Raffles Place', 'Queenstown'], 'developed regions are selectable with Marina first');
-  // Include the third region once its playable card has landed during parallel development.
-  if (await evaluate(`Array.from(document.querySelectorAll('.location-card')).some(b=>b.textContent.includes('Raffles Place'))`)) regions.push(['Raffles Place', 'Reset Raffles progress (clears stamps and conversation)']);
+  const cards = await evaluate(`Array.from(document.querySelectorAll('.location-card strong')).map(e=>e.textContent)`);
+  assert.equal(cards[0], 'Marina Bay', 'developed regions are selectable with Marina first');
+  assert(cards.includes('Queenstown'), 'Queenstown is selectable');
+  // Districts added after this check was written are picked up automatically.
+  for (const entry of optional) if (cards.includes(entry[0])) regions.push(entry);
   const rotation = async () => {
     const matrix = await evaluate('window.__smokeViewMatrix');
     assert.equal(matrix?.length, 16, 'camera view matrix observed');

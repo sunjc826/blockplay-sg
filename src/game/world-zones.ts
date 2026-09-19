@@ -41,6 +41,8 @@ export const WORLD_ZONES: readonly WorldZone[] = [
     risk: 'high', lootTier: 3, botCount: 6, composition: 'mixed', encounterSpawns: [{ x: -75, z: 45 }, { x: 80, z: 45 }, { x: -170, z: 45 }, { x: 170, z: 45 }, { x: 0, z: -115 }, { x: 0, z: 135 }] },
   { id: 'queenstown', name: 'Queenstown', description: 'Residential courtyards, lighter patrols and starter supplies.', spawn: { x: -18, z: 83, yaw: -0.35, pitch: 0 },
     risk: 'low', lootTier: 1, botCount: 3, composition: 'assault', encounterSpawns: [{ x: -15, z: 116 }, { x: 140, z: 116 }, { x: -140, z: 116 }, { x: 140, z: 22 }, { x: -140, z: 22 }, { x: -15, z: 165 }] },
+  { id: 'chinatown', name: 'Chinatown', description: 'Tight market lanes and temple forecourts; mid-tier supplies, close quarters.', spawn: { x: -55, z: 80, yaw: -Math.PI / 2, pitch: 0 },
+    risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: 0, z: 80 }, { x: -15, z: -15 }, { x: -120, z: 14 }, { x: 95, z: 20 }, { x: -124, z: 78 }, { x: 134, z: 74 }] },
 ];
 
 // These connections compress travel between districts. They do not claim that
@@ -51,6 +53,8 @@ export const WORLD_GATEWAYS: readonly WorldGateway[] = [
   { id: 'raffles-to-marina', from: 'raffles-place', to: 'marina-bay', name: 'Marina Bay checkpoint', position: { x: 258, z: 45 }, radius: 4, arrival: { x: -91, z: 94, yaw: -Math.PI / 2, pitch: 0 } },
   { id: 'raffles-to-queenstown', from: 'raffles-place', to: 'queenstown', name: 'Queenstown checkpoint', position: { x: -258, z: 45 }, radius: 4, arrival: { x: 223, z: 22, yaw: Math.PI / 2, pitch: 0 } },
   { id: 'queenstown-to-raffles', from: 'queenstown', to: 'raffles-place', name: 'Raffles Place checkpoint', position: { x: 235, z: 22 }, radius: 4, arrival: { x: -246, z: 45, yaw: -Math.PI / 2, pitch: 0 } },
+  { id: 'raffles-to-chinatown', from: 'raffles-place', to: 'chinatown', name: 'Chinatown checkpoint', position: { x: 0, z: 238 }, radius: 4, arrival: { x: 100, z: -168, yaw: Math.PI, pitch: 0 } },
+  { id: 'chinatown-to-raffles', from: 'chinatown', to: 'raffles-place', name: 'Raffles Place checkpoint', position: { x: 100, z: -180 }, radius: 4, arrival: { x: 0, z: 226, yaw: 0, pitch: 0 } },
 ];
 
 export function isWorldZoneId(value: unknown): value is WorldZoneId {

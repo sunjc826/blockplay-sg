@@ -1,13 +1,14 @@
 import type * as THREE from 'three';
 import { REGION_IDS, isRegionId, type RegionId } from './region-ids';
-import type { Obstacle, Position2D, RegionBounds } from './region-collision';
+import { createRegionMovement, type Obstacle, type Position2D, type RegionBounds } from './region-collision';
 import { MARINA_BOUNDS, moveInMarina, canOccupy as canOccupyMarina } from './marina-collision';
 import { RAFFLES_BOUNDS, moveInRaffles, canOccupy as canOccupyRaffles } from './raffles-collision';
 import { QUEENSTOWN_BOUNDS, moveInQueenstown, canOccupy as canOccupyQueenstown } from './queenstown-collision';
 import { buildMarinaScene, MARINA_MAP_ROADS, MARINA_SPAWN } from './marina-scene';
 import { buildRafflesScene, RAFFLES_MAP_ROADS, RAFFLES_SPAWN } from './raffles-scene';
 import { buildQueenstownScene, QUEENSTOWN_MAP_ROADS, QUEENSTOWN_SPAWN } from './queenstown-scene';
-import { MARINA_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS } from '../data/region-stamps.ts';
+import { buildChinatownScene, CHINATOWN_BOUNDS, CHINATOWN_MAP_ROADS, CHINATOWN_SPAWN } from './chinatown-scene';
+import { CHINATOWN_STAMPS, MARINA_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -64,6 +65,8 @@ export interface RegionDefinition {
   readonly canOccupy: (x: number, z: number, radius: number, obstacles: readonly Obstacle[]) => boolean;
 }
 
+const chinatownMovement = createRegionMovement(CHINATOWN_BOUNDS);
+
 const definitions: Record<RegionId, RegionDefinition> = {
   'marina-bay': {
     id: 'marina-bay', name: 'Marina Bay', shortName: 'Marina', modeName: 'Marina 3D', modeSubtitle: 'Explore the expanded bay',
@@ -107,6 +110,22 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'line', from: { x: -157, z: -133 }, to: { x: -157, z: 133 }, stroke: '#5d9b57', width: 5, layer: 'over' },
     ],
     hasGuide: true, build: buildQueenstownScene, move: moveInQueenstown, canOccupy: canOccupyQueenstown,
+  },
+  chinatown: {
+    id: 'chinatown', name: 'Chinatown', shortName: 'Chinatown', modeName: 'Chinatown 3D', modeSubtitle: 'Shophouse streets and temples',
+    className: 'chinatown-game', badge: 'CHINATOWN · GAME WORLD', title: 'Chinatown · shophouses & temples',
+    subtitle: 'Low-poly game map · authored market lanes, terraces and temple halls', mapTitle: 'LANES & TEMPLES',
+    stampNoun: 'lane stamps', exploreNoun: 'the market lanes', cameraFar: 1100,
+    spawn: CHINATOWN_SPAWN, stamps: CHINATOWN_STAMPS, bounds: CHINATOWN_BOUNDS, mapRoads: CHINATOWN_MAP_ROADS,
+    mapPaper: '#e2d9c8', roadStroke: '#9a9188', roadWidth: 14,
+    decor: [
+      { kind: 'rect', x: -158, z: 49, width: 76, depth: 58, fill: '#c4b79e', layer: 'over' },
+      { kind: 'rect', x: 53, z: -41, width: 84, depth: 62, fill: '#cbbfa6', layer: 'over' },
+      { kind: 'rect', x: 170, z: -75, width: 44, depth: 150, fill: '#9fb37c', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+      { kind: 'line', from: { x: -46, z: -15 }, to: { x: 22, z: -15 }, stroke: '#b8342c', width: 7, layer: 'over' },
+      { kind: 'line', from: { x: -46, z: 80 }, to: { x: 22, z: 80 }, stroke: '#b8342c', width: 7, layer: 'over' },
+    ],
+    hasGuide: false, build: buildChinatownScene, move: chinatownMovement.move, canOccupy: chinatownMovement.canOccupy,
   },
 };
 

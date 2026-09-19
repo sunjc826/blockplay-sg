@@ -32,6 +32,17 @@ export const locations = [
       { label: 'A little further', lat: 1.2928, lng: 103.8075, heading: 0 },
     ],
   },
+  {
+    id: 'chinatown', name: 'Chinatown', subtitle: 'Lanes, lanterns and temples', district: 'CENTRAL',
+    description: 'Shophouse terraces, a covered market lane and two temples, as an authored low-poly world. Compressed for play, not surveyed.',
+    lat: 1.2829, lng: 103.8446, heading: 30, color: '#c58d6d', block: 5,
+    tags: ['Shophouse streets', 'Market lanes'],
+    viewpoints: [
+      { label: 'Pagoda Street', lat: 1.2843, lng: 103.8443, heading: 240 },
+      { label: 'South Bridge Road', lat: 1.2822, lng: 103.8450, heading: 30 },
+      { label: 'Kreta Ayer', lat: 1.2812, lng: 103.8425, heading: 120 },
+    ],
+  },
 ] as const;
 
 export type Location = (typeof locations)[number];

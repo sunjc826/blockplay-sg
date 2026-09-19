@@ -19,11 +19,15 @@ const centralPoint = (location: Location) => ({
   x: 24 + (location.lng - 103.795) / 0.076 * 272,
   y: 268 - (location.lat - 1.278) / 0.028 * 72,
 });
-const labels: Record<Location['id'], { x: number; y: number; width: number }> = {
-  queenstown: { x: 10, y: 187, width: 113 },
-  'marina-bay': { x: 203, y: 187, width: 106 },
-  'raffles-place': { x: 167, y: 271, width: 121 },
+// Districts inside the enlarged central area are labelled in the inset; the
+// rest are labelled on the island overview, where they actually sit.
+const labels: Record<Location['id'], { x: number; y: number; width: number; area: 'central' | 'island' }> = {
+  queenstown: { x: 10, y: 187, width: 113, area: 'central' },
+  'marina-bay': { x: 203, y: 187, width: 106, area: 'central' },
+  'raffles-place': { x: 167, y: 271, width: 121, area: 'central' },
+  chinatown: { x: 10, y: 229, width: 104, area: 'central' },
 };
+const isCentral = (location: Location) => labels[location.id].area === 'central';
 
 export default function SingaporeMap({ selected, onSelect, expedition = false, destination }: Props) {
   const titleId = useId();
@@ -45,6 +49,21 @@ export default function SingaporeMap({ selected, onSelect, expedition = false, d
         const marker = islandPoint(location);
         return <circle key={location.id} className="singapore-map-dot" cx={marker.x} cy={marker.y} r="2.5" />;
       })}
+      {locations.filter(location => !isCentral(location)).map(location => {
+        const marker = islandPoint(location);
+        const label = labels[location.id];
+        const active = selected.id === location.id;
+        return <g key={`island-${location.id}`} className="singapore-map-stop singapore-map-outer" data-map-location={location.id} data-selected={active ? 'true' : 'false'} data-destination={expedition && destination === location.id ? 'true' : 'false'} role="button" tabIndex={0}
+          aria-label={expedition ? `Plan route to ${location.name}, ${getWorldZone(location.id).risk} threat, loot tier ${getWorldZone(location.id).lootTier}` : `Select ${location.name} on Singapore map`} aria-pressed={expedition ? destination === location.id : active} aria-current={expedition && active ? 'location' : undefined}
+          onClick={() => onSelect(location)} onKeyDown={event => {
+            if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); onSelect(location); }
+          }}>
+          <path className="singapore-map-leader" d={`M${marker.x} ${marker.y} L${label.x + label.width / 2} ${label.y + 9}`} />
+          <circle className="singapore-map-pin" cx={marker.x} cy={marker.y} r={active ? 4.5 : 3} />
+          <rect className="singapore-map-callout" x={label.x} y={label.y} width={label.width} height="18" rx="5" />
+          <text x={label.x + label.width / 2} y={label.y + 12.5} textAnchor="middle">{location.name}</text>
+        </g>;
+      })}
       <g className="singapore-map-active" aria-hidden="true" data-map-active={selected.id}>
         <circle cx={point.x} cy={point.y} r="11" className="singapore-map-halo" />
         <circle cx={point.x} cy={point.y} r="5" className="singapore-map-pin" />
@@ -58,7 +77,7 @@ export default function SingaporeMap({ selected, onSelect, expedition = false, d
         const planned = route.some(step => step.from === gateway.from && step.to === gateway.to || step.from === gateway.to && step.to === gateway.from);
         return <path key={gateway.id} className={`singapore-checkpoint-link ${planned ? 'planned' : ''}`} data-map-link={`${gateway.from}:${gateway.to}`} d={`M${from.x} ${from.y} L${to.x} ${to.y}`}><title>{`${getWorldZone(gateway.from).name} ↔ ${getWorldZone(gateway.to).name} checkpoint link`}</title></path>;
       })}
-      {locations.map(location => {
+      {locations.filter(isCentral).map(location => {
         const marker = centralPoint(location);
         const label = labels[location.id];
         const active = selected.id === location.id;

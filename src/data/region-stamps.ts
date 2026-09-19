@@ -37,3 +37,19 @@ export const RAFFLES_STAMPS = [
   { name: 'Robinson colonnade', x: 100, z: 222 },
   { name: 'Collyer boulevard', x: 247, z: 16 },
 ];
+
+// Chinatown and the districts below are authored from general knowledge of the
+// neighbourhood; they carry no street-level reference capture of their own.
+export const CHINATOWN_STAMPS = [
+  { name: 'Smith Street food street', x: 0, z: 80 },
+  { name: 'Pagoda Street market', x: -15, z: -15 },
+  { name: 'Buddha Tooth temple', x: -120, z: 14 },
+  { name: 'Sri Mariamman gopuram', x: 134, z: -92 },
+  { name: 'People’s Park Complex', x: -120, z: -70 },
+  { name: 'Chinatown Complex', x: 95, z: 20 },
+  { name: 'Kreta Ayer square', x: -124, z: 78 },
+  { name: 'Club Street terraces', x: 134, z: 74 },
+  { name: 'Chinatown station', x: -90, z: 88 },
+  { name: 'Telok Ayer green', x: 192, z: 0 },
+  { name: 'Bukit Pasoh lane', x: -196, z: -104 },
+];
