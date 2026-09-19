@@ -42,5 +42,11 @@ const districts: Record<WorldZoneId, FpsDistrict> = {
     vehicles: { car: { x: -70, z: -187, yaw: -Math.PI / 2 }, helicopter: { x: -20, z: -170, yaw: 0 } },
     props: [[3, -62, -189, .77, .52], [4, -56, -186, 1.87, .41], [5, -61, -190, .37, .37], [5, -59, -190, .37, .37]],
   },
+  changi: {
+    label: 'Changi FPS', setting: 'aircraft apron', spawn: { x: 60, z: 198, yaw: 0, pitch: -.03 },
+    targets: [{ x: 60, z: 172 }, { x: 54, z: 173 }, { x: 66, z: 173 }, { x: 48, z: 178 }, { x: 72, z: 178 }, { x: 46, z: 186 }, { x: 74, z: 186 }, { x: 60, z: 162 }],
+    vehicles: { car: { x: 50, z: 200, yaw: -Math.PI / 2 }, helicopter: { x: 100, z: 190, yaw: 0 } },
+    props: [[3, 58, 200, .77, .52], [4, 64, 197, 1.87, .41], [5, 59, 201, .37, .37], [5, 61, 201, .37, .37]],
+  },
 };
 export const getFpsDistrict = (region: WorldZoneId): FpsDistrict => districts[region];

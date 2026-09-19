@@ -83,18 +83,17 @@ try {
   await page.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await page.send('Page.navigate', { url: origin });
   await mkdir('.cache/browser-checks', { recursive: true });
-  const regions = [['Marina Bay', 'Reset Marina adventure (clears stamps and conversation)'], ['Queenstown', 'Reset Queenstown progress (clears stamps and conversation)']];
-  const optional = [['Raffles Place', 'Reset Raffles progress (clears stamps and conversation)'], ['Chinatown', 'Reset Chinatown progress (clears stamps and conversation)']];
+
   for (let attempt = 0; attempt < 100; attempt++) {
     if (await evaluate(`!!document.querySelector('.location-card')`)) break;
     await delay(100);
   }
   assert(await evaluate(`!!document.querySelector('.location-card')`), 'app is ready (check Vite import/build errors if absent)');
-  const cards = await evaluate(`Array.from(document.querySelectorAll('.location-card strong')).map(e=>e.textContent)`);
-  assert.equal(cards[0], 'Marina Bay', 'developed regions are selectable with Marina first');
-  assert(cards.includes('Queenstown'), 'Queenstown is selectable');
-  // Districts added after this check was written are picked up automatically.
-  for (const entry of optional) if (cards.includes(entry[0])) regions.push(entry);
+  // Every district on the picker is exercised, so new maps need no edit here.
+  const regions = await evaluate(`Array.from(document.querySelectorAll('.location-card strong')).map(e=>e.textContent)`);
+  assert.equal(regions[0], 'Marina Bay', 'developed regions are selectable with Marina first');
+  assert(regions.length >= 3, 'the developed regions are selectable');
+  const resetSelector = `document.querySelector('.marina-reconstruction [aria-label^="Reset "][aria-label$="(clears stamps and conversation)"]')`;
   const rotation = async () => {
     const matrix = await evaluate('window.__smokeViewMatrix');
     assert.equal(matrix?.length, 16, 'camera view matrix observed');
@@ -109,18 +108,20 @@ try {
     await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x + 160, y: point.y + 35, button: 'left', buttons: 0, clickCount: 1 });
     await beat(180);
   };
-  for (const [name, resetLabel] of regions) {
+  for (const name of regions) {
     for (let attempt = 0; attempt < 100; attempt++) {
       if (await evaluate(`!!document.querySelector('.location-card')`)) break;
       await delay(100);
     }
     await evaluate(`Array.from(document.querySelectorAll('.location-card')).find(b=>b.textContent.includes(${JSON.stringify(name)})).click()`);
     for (let attempt = 0; attempt < 100; attempt++) {
-      if (await evaluate(`!!document.querySelector('[aria-label=${JSON.stringify(resetLabel)}]') && !!document.querySelector('.marina-viewport canvas')`)) break;
+      if (await evaluate(`!!${resetSelector} && !!document.querySelector('.marina-viewport canvas')`)) break;
       await delay(100);
     }
     assert.equal(await evaluate(`document.querySelectorAll('.marina-viewport canvas').length`), 1, `${name}: one renderer`);
-    assert(await evaluate(`!!document.querySelector('[aria-label=${JSON.stringify(resetLabel)}]')`), `${name}: correct region`);
+    const resetLabel = await evaluate(`${resetSelector}?.getAttribute('aria-label')`);
+    assert(resetLabel, `${name}: reset control present`);
+    assert.equal(await evaluate(`document.querySelector('.marina-reconstruction')?.dataset.region`), name.toLowerCase().replaceAll(' ', '-'), `${name}: correct region mounted`);
     assert.equal(await evaluate(`document.querySelector('[data-map-location][data-selected="true"]')?.getAttribute('data-map-location')`), name.toLowerCase().replaceAll(' ', '-'), `${name}: Singapore locator follows selection`);
     await evaluate(`document.querySelector('.marina-viewport canvas').focus()`);
     await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'w', code: 'KeyW' }); await beat(1000);

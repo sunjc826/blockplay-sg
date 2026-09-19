@@ -10,7 +10,8 @@ import { buildQueenstownScene, QUEENSTOWN_MAP_ROADS, QUEENSTOWN_SPAWN } from './
 import { buildChinatownScene, CHINATOWN_BOUNDS, CHINATOWN_MAP_ROADS, CHINATOWN_SPAWN } from './chinatown-scene';
 import { buildKampongGlamScene, KAMPONG_GLAM_BOUNDS, KAMPONG_GLAM_MAP_ROADS, KAMPONG_GLAM_SPAWN } from './kampong-glam-scene';
 import { buildJurongLakeScene, JURONG_LAKE_BOUNDS, JURONG_LAKE_MAP_ROADS, JURONG_LAKE_SPAWN } from './jurong-lake-scene';
-import { CHINATOWN_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS } from '../data/region-stamps.ts';
+import { buildChangiScene, CHANGI_BOUNDS, CHANGI_MAP_ROADS, CHANGI_SPAWN } from './changi-scene';
+import { CHANGI_STAMPS, CHINATOWN_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -70,6 +71,7 @@ export interface RegionDefinition {
 const chinatownMovement = createRegionMovement(CHINATOWN_BOUNDS);
 const kampongGlamMovement = createRegionMovement(KAMPONG_GLAM_BOUNDS);
 const jurongLakeMovement = createRegionMovement(JURONG_LAKE_BOUNDS);
+const changiMovement = createRegionMovement(CHANGI_BOUNDS);
 
 const definitions: Record<RegionId, RegionDefinition> = {
   'marina-bay': {
@@ -163,6 +165,23 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'line', from: { x: -245, z: 140 }, to: { x: 245, z: 140 }, stroke: '#b9b2a2', width: 6, layer: 'over' },
     ],
     hasGuide: false, build: buildJurongLakeScene, move: jurongLakeMovement.move, canOccupy: jurongLakeMovement.canOccupy,
+  },
+  changi: {
+    id: 'changi', name: 'Changi', shortName: 'Changi', modeName: 'Changi 3D', modeSubtitle: 'Glazed dome and the apron',
+    className: 'changi-game', badge: 'CHANGI · GAME WORLD', title: 'Changi · the dome & the apron',
+    subtitle: 'Low-poly game map · authored glazed roof, terminal frontage and stands', mapTitle: 'DOME & APRON',
+    stampNoun: 'landside stamps', exploreNoun: 'the dome and the apron', cameraFar: 1600,
+    spawn: CHANGI_SPAWN, stamps: CHANGI_STAMPS, bounds: CHANGI_BOUNDS, mapRoads: CHANGI_MAP_ROADS,
+    mapPaper: '#d8ddd8', roadStroke: '#8f9691', roadWidth: 14,
+    decor: [
+      { kind: 'rect', x: 252, z: -120, width: 28, depth: 260, fill: '#7fb0bd', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: 202, z: -120, width: 52, depth: 260, fill: '#ddd2a8', layer: 'over' },
+      { kind: 'rect', x: -260, z: 145, width: 520, depth: 60, fill: '#8f9490', layer: 'over' },
+      { kind: 'rect', x: -220, z: -200, width: 440, depth: 30, fill: '#ddd8ca', layer: 'over' },
+      { kind: 'rect', x: -141, z: -116, width: 172, depth: 172, radius: 86, fill: '#9fc3ce', layer: 'over' },
+      { kind: 'rect', x: -262, z: -90, width: 60, depth: 240, fill: '#9cba7f', layer: 'over' },
+    ],
+    hasGuide: false, build: buildChangiScene, move: changiMovement.move, canOccupy: changiMovement.canOccupy,
   },
 };
 

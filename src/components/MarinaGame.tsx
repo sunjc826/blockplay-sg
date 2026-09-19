@@ -131,7 +131,7 @@ export default function MarinaGame() {
     };
   }, [adventure]);
 
-  return <div className="marina-reconstruction marina-game">
+  return <div className="marina-reconstruction marina-game" data-region="marina-bay">
     <div className="viewport marina-viewport"><div ref={host} className="world" />
       {error ? <div className="viewer-message" role="alert"><p>{error}</p></div> : <>
         <div className="scene-top"><span className="scene-badge"><span className="status-dot" /> MARINA BAY · GAME WORLD</span><span className="marina-stamp-count"><Flag size={14} />{hud.collected.length} / {MARINA_STAMPS.length} stamps</span></div>

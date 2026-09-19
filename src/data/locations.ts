@@ -65,6 +65,17 @@ export const locations = [
       { label: 'Jurong East', lat: 1.3331, lng: 103.7423, heading: 90 },
     ],
   },
+  {
+    id: 'changi', name: 'Changi', subtitle: 'Under the glass and rain', district: 'EAST',
+    description: 'A glazed dome with water falling through its oculus, a terminal frontage under a departure viaduct, a control tower and an apron. Authored and compressed for play.',
+    lat: 1.3601, lng: 103.9896, heading: 200, color: '#8fb7c4', block: 1,
+    tags: ['Glazed dome', 'Apron views'],
+    viewpoints: [
+      { label: 'Jewel', lat: 1.3601, lng: 103.9896, heading: 200 },
+      { label: 'Terminal 3', lat: 1.3560, lng: 103.9865, heading: 20 },
+      { label: 'Changi Beach', lat: 1.3900, lng: 103.9880, heading: 90 },
+    ],
+  },
 ] as const;
 
 export type Location = (typeof locations)[number];

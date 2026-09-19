@@ -28,6 +28,7 @@ const labels: Record<Location['id'], { x: number; y: number; width: number; area
   chinatown: { x: 14, y: 264, width: 100, area: 'central' },
   'kampong-glam': { x: 198, y: 172, width: 118, area: 'central' },
   'jurong-lake': { x: 26, y: 96, width: 92, area: 'island' },
+  changi: { x: 206, y: 46, width: 96, area: 'island' },
 };
 const isCentral = (location: Location) => labels[location.id].area === 'central';
 
@@ -37,6 +38,15 @@ export default function SingaporeMap({ selected, onSelect, expedition = false, d
   const route = expedition && destination ? findWorldRoute(selected.id, destination) : [];
   const next = route[0];
   const target = destination ? getWorldZone(destination) : undefined;
+  const at = (id: WorldZoneId) => locations.find(location => location.id === id)!;
+  const planned = (gateway: { from: WorldZoneId; to: WorldZoneId }) => route.some(step =>
+    step.from === gateway.from && step.to === gateway.to || step.from === gateway.to && step.to === gateway.from);
+  // A link is drawn in whichever view holds both of its districts.
+  const links = WORLD_GATEWAYS.filter(gateway => gateway.from < gateway.to);
+  const link = (gateway: typeof links[number], point: (location: Location) => { x: number; y: number }) => {
+    const from = point(at(gateway.from)), to = point(at(gateway.to));
+    return <path key={gateway.id} className={`singapore-checkpoint-link ${planned(gateway) ? 'planned' : ''}`} data-map-link={`${gateway.from}:${gateway.to}`} d={`M${from.x} ${from.y} L${to.x} ${to.y}`}><title>{`${getWorldZone(gateway.from).name} ↔ ${getWorldZone(gateway.to).name} checkpoint link`}</title></path>;
+  };
   return <section className="singapore-locator" aria-label="Singapore location map">
     <div className="singapore-locator-heading"><strong>{expedition ? 'EXPEDITION ROUTES' : 'YOUR PLACE ON THE ISLAND'}</strong><span>SG</span></div>
     <svg viewBox="0 0 320 309" aria-labelledby={titleId}>
@@ -51,6 +61,7 @@ export default function SingaporeMap({ selected, onSelect, expedition = false, d
         const marker = islandPoint(location);
         return <circle key={location.id} className="singapore-map-dot" cx={marker.x} cy={marker.y} r="2.5" />;
       })}
+      {expedition && links.filter(gateway => !isCentral(at(gateway.from)) || !isCentral(at(gateway.to))).map(gateway => link(gateway, islandPoint))}
       {locations.filter(location => !isCentral(location)).map(location => {
         const marker = islandPoint(location);
         const label = labels[location.id];
@@ -73,12 +84,7 @@ export default function SingaporeMap({ selected, onSelect, expedition = false, d
       <rect className="singapore-map-inset" x="1" y="163" width="318" height="145" rx="9" />
       <text className="singapore-map-caption" x="12" y="179">CENTRAL AREA · ENLARGED</text>
       <path className="singapore-map-water" d="M278 214 Q236 222 247 242 T303 267 L318 269 V307 H290 Q271 270 235 269 T202 244 Q212 223 241 218 Z" />
-      {expedition && WORLD_GATEWAYS.filter(gateway => gateway.from < gateway.to).map(gateway => {
-        const from = centralPoint(locations.find(location => location.id === gateway.from)!);
-        const to = centralPoint(locations.find(location => location.id === gateway.to)!);
-        const planned = route.some(step => step.from === gateway.from && step.to === gateway.to || step.from === gateway.to && step.to === gateway.from);
-        return <path key={gateway.id} className={`singapore-checkpoint-link ${planned ? 'planned' : ''}`} data-map-link={`${gateway.from}:${gateway.to}`} d={`M${from.x} ${from.y} L${to.x} ${to.y}`}><title>{`${getWorldZone(gateway.from).name} ↔ ${getWorldZone(gateway.to).name} checkpoint link`}</title></path>;
-      })}
+      {expedition && links.filter(gateway => isCentral(at(gateway.from)) && isCentral(at(gateway.to))).map(gateway => link(gateway, centralPoint))}
       {locations.filter(isCentral).map(location => {
         const marker = centralPoint(location);
         const label = labels[location.id];

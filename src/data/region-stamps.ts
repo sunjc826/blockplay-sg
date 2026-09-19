@@ -81,3 +81,17 @@ export const JURONG_LAKE_STAMPS = [
   { name: 'Japanese garden', x: -200, z: 152 },
   { name: 'Jurong green', x: -60, z: -160 },
 ];
+
+export const CHANGI_STAMPS = [
+  { name: 'Vortex basin walk', x: -55, z: 14 },
+  { name: 'Canopy park', x: 4, z: -30 },
+  { name: 'Terminal kerbside', x: -75, z: -166 },
+  { name: 'Departure viaduct', x: 93, z: -150 },
+  { name: 'Control tower apron', x: 190, z: -20 },
+  { name: 'Aircraft stand', x: 60, z: 170 },
+  { name: 'Runway threshold', x: -200, z: 175 },
+  { name: 'Airport station', x: -215, z: -10 },
+  { name: 'Hotel court', x: 120, z: 30 },
+  { name: 'Coastal palms', x: 234, z: 120 },
+  { name: 'Arrival garden', x: -232, z: 100 },
+];
