@@ -43,6 +43,8 @@ export const WORLD_ZONES: readonly WorldZone[] = [
     risk: 'low', lootTier: 1, botCount: 3, composition: 'assault', encounterSpawns: [{ x: -15, z: 116 }, { x: 140, z: 116 }, { x: -140, z: 116 }, { x: 140, z: 22 }, { x: -140, z: 22 }, { x: -15, z: 165 }] },
   { id: 'chinatown', name: 'Chinatown', description: 'Tight market lanes and temple forecourts; mid-tier supplies, close quarters.', spawn: { x: -55, z: 80, yaw: -Math.PI / 2, pitch: 0 },
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: 0, z: 80 }, { x: -15, z: -15 }, { x: -120, z: 14 }, { x: 95, z: 20 }, { x: -124, z: 78 }, { x: 134, z: 74 }] },
+  { id: 'kampong-glam', name: 'Kampong Glam', description: 'Open mall and courtyards; long sightlines between the terraces.', spawn: { x: 10, z: -85, yaw: Math.PI, pitch: 0 },
+    risk: 'low', lootTier: 1, botCount: 3, composition: 'assault', encounterSpawns: [{ x: 10, z: -14 }, { x: 10, z: -75 }, { x: -90, z: -75 }, { x: 110, z: -92 }, { x: -90, z: -20 }, { x: 110, z: 50 }] },
 ];
 
 // These connections compress travel between districts. They do not claim that
@@ -55,6 +57,8 @@ export const WORLD_GATEWAYS: readonly WorldGateway[] = [
   { id: 'queenstown-to-raffles', from: 'queenstown', to: 'raffles-place', name: 'Raffles Place checkpoint', position: { x: 235, z: 22 }, radius: 4, arrival: { x: -246, z: 45, yaw: -Math.PI / 2, pitch: 0 } },
   { id: 'raffles-to-chinatown', from: 'raffles-place', to: 'chinatown', name: 'Chinatown checkpoint', position: { x: 0, z: 238 }, radius: 4, arrival: { x: 100, z: -168, yaw: Math.PI, pitch: 0 } },
   { id: 'chinatown-to-raffles', from: 'chinatown', to: 'raffles-place', name: 'Raffles Place checkpoint', position: { x: 100, z: -180 }, radius: 4, arrival: { x: 0, z: 226, yaw: 0, pitch: 0 } },
+  { id: 'chinatown-to-kampong-glam', from: 'chinatown', to: 'kampong-glam', name: 'Kampong Glam checkpoint', position: { x: 0, z: 180 }, radius: 4, arrival: { x: 0, z: -163, yaw: Math.PI, pitch: 0 } },
+  { id: 'kampong-glam-to-chinatown', from: 'kampong-glam', to: 'chinatown', name: 'Chinatown checkpoint', position: { x: 0, z: -175 }, radius: 4, arrival: { x: 0, z: 168, yaw: 0, pitch: 0 } },
 ];
 
 export function isWorldZoneId(value: unknown): value is WorldZoneId {

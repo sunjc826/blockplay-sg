@@ -102,6 +102,38 @@ export function createSceneKit(options: SceneKitOptions) {
     }
     group.visible = false; return group;
   }
+  /**
+   * Orthogonal street grid with centre lines, kerbs and a perimeter loop.
+   * Returns nothing to collide with: districts place their own footprints
+   * clear of these centrelines.
+   */
+  function streetGrid(options: {
+    ew: readonly number[]; ns: readonly number[]; edgeX: number; edgeZ: number;
+    asphalt: THREE.Material; line: THREE.Material; kerb?: THREE.Material; width?: number; loop?: boolean;
+  }) {
+    const { ew, ns, edgeX, edgeZ, asphalt, line, kerb, loop = true } = options;
+    const width = options.width ?? 16, half = width / 2 + 2.5;
+    for (const z of ew) {
+      box(0, 0, z, edgeX * 2, 0.12, width, asphalt);
+      for (let x = -edgeX + 6; x < edgeX; x += 12) box(x, 0.09, z, 5, 0.025, 0.16, line);
+      if (kerb) for (const side of [-half, half]) box(0, 0.12, z + side, edgeX * 2, 0.22, 3, kerb);
+    }
+    for (const x of ns) {
+      box(x, 0, 0, width, 0.12, edgeZ * 2, asphalt);
+      for (let z = -edgeZ + 6; z < edgeZ; z += 12) box(x, 0.09, z, 0.16, 0.025, 5, line);
+      if (kerb) for (const side of [-half, half]) box(x + side, 0.12, 0, 3, 0.22, edgeZ * 2, kerb);
+    }
+    if (!loop) return;
+    for (const z of [-edgeZ, edgeZ]) {
+      box(0, 0, z, edgeX * 2 + width, 0.12, width, asphalt);
+      for (let x = -edgeX; x < edgeX; x += 12) box(x, 0.09, z, 5, 0.025, 0.16, line);
+    }
+    for (const x of [-edgeX, edgeX]) {
+      box(x, 0, 0, width, 0.12, edgeZ * 2, asphalt);
+      for (let z = -edgeZ; z < edgeZ; z += 12) box(x, 0.09, z, 0.16, 0.025, 5, line);
+    }
+  }
+
   function stampRings(list: readonly RegionStamp[], material: THREE.Material) {
     const stampGeo = geo(new THREE.TorusGeometry(1.15, 0.16, 5, 20));
     return list.map(stamp => {
@@ -148,6 +180,6 @@ export function createSceneKit(options: SceneKitOptions) {
     };
   }
 
-  return { scene, obstacles, geo, mat, box, cylinder, beam, blob, solid, sign, tree, walker, car, stampRings, finish, THREE };
+  return { scene, obstacles, geo, mat, box, cylinder, beam, blob, solid, sign, tree, walker, car, streetGrid, stampRings, finish, THREE };
 }
 export type SceneKit = ReturnType<typeof createSceneKit>;

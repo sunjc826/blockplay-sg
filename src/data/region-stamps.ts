@@ -53,3 +53,17 @@ export const CHINATOWN_STAMPS = [
   { name: 'Telok Ayer green', x: 192, z: 0 },
   { name: 'Bukit Pasoh lane', x: -196, z: -104 },
 ];
+
+export const KAMPONG_GLAM_STAMPS = [
+  { name: 'Mosque forecourt', x: 10, z: -14 },
+  { name: 'Bussorah palms', x: 10, z: -75 },
+  { name: 'Haji Lane murals', x: -90, z: -75 },
+  { name: 'Arab Street textiles', x: 110, z: -92 },
+  { name: 'Heritage Centre lawn', x: -90, z: -20 },
+  { name: 'Bugis mall plaza', x: 110, z: 50 },
+  { name: 'Sultan Gate car park', x: 110, z: 98 },
+  { name: 'Baghdad Street cafes', x: 10, z: 110 },
+  { name: 'Kandahar pocket park', x: -82, z: 110 },
+  { name: 'Rochor canal walk', x: 173, z: 12 },
+  { name: 'Jalan Pisang green', x: -180, z: 30 },
+];

@@ -43,6 +43,17 @@ export const locations = [
       { label: 'Kreta Ayer', lat: 1.2812, lng: 103.8425, heading: 120 },
     ],
   },
+  {
+    id: 'kampong-glam', name: 'Kampong Glam', subtitle: 'A dome above the shophouses', district: 'ROCHOR',
+    description: 'A domed mosque closing a palm-lined mall, painted lanes and textile streets, as an authored low-poly quarter. Compressed for play, not surveyed.',
+    lat: 1.3020, lng: 103.8590, heading: 350, color: '#d5b45e', block: 3,
+    tags: ['Heritage quarter', 'Painted lanes'],
+    viewpoints: [
+      { label: 'Bussorah Street', lat: 1.3020, lng: 103.8590, heading: 350 },
+      { label: 'Arab Street', lat: 1.3010, lng: 103.8597, heading: 60 },
+      { label: 'Kandahar Street', lat: 1.3029, lng: 103.8604, heading: 200 },
+    ],
+  },
 ] as const;
 
 export type Location = (typeof locations)[number];

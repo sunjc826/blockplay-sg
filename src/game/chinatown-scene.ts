@@ -40,18 +40,7 @@ export function buildChinatownScene() {
 
   // Ground, streets and lane markings. Footpaths stay clear of every centreline.
   box(0, -0.6, 0, 560, 1, 480, paving);
-  for (const z of EW_ROADS) {
-    box(0, 0, z, EDGE_X * 2, 0.12, 16, asphalt);
-    for (let x = -EDGE_X + 6; x < EDGE_X; x += 12) box(x, 0.09, z, 5, 0.025, 0.16, white);
-    for (const side of [-10.5, 10.5]) box(0, 0.12, z + side, EDGE_X * 2, 0.22, 3, kerb);
-  }
-  for (const x of NS_ROADS) {
-    box(x, 0, 0, 16, 0.12, EDGE_Z * 2, asphalt);
-    for (let z = -EDGE_Z + 6; z < EDGE_Z; z += 12) box(x, 0.09, z, 0.16, 0.025, 5, white);
-    for (const side of [-10.5, 10.5]) box(x + side, 0.12, 0, 3, 0.22, EDGE_Z * 2, kerb);
-  }
-  for (const z of [-EDGE_Z, EDGE_Z]) { box(0, 0, z, EDGE_X * 2 + 16, 0.12, 16, asphalt); for (let x = -EDGE_X; x < EDGE_X; x += 12) box(x, 0.09, z, 5, 0.025, 0.16, white); }
-  for (const x of [-EDGE_X, EDGE_X]) { box(x, 0, 0, 16, 0.12, EDGE_Z * 2, asphalt); for (let z = -EDGE_Z; z < EDGE_Z; z += 12) box(x, 0.09, z, 0.16, 0.025, 5, white); }
+  kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });
 
   /** Two-storey terrace with a five-foot way, shutters and a pitched roof. */
   function shophouseRow(startX: number, z: number, count: number, facing: 1 | -1, width = 12) {

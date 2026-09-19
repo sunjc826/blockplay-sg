@@ -22,10 +22,11 @@ const centralPoint = (location: Location) => ({
 // Districts inside the enlarged central area are labelled in the inset; the
 // rest are labelled on the island overview, where they actually sit.
 const labels: Record<Location['id'], { x: number; y: number; width: number; area: 'central' | 'island' }> = {
-  queenstown: { x: 10, y: 187, width: 113, area: 'central' },
-  'marina-bay': { x: 203, y: 187, width: 106, area: 'central' },
-  'raffles-place': { x: 167, y: 271, width: 121, area: 'central' },
-  chinatown: { x: 10, y: 229, width: 104, area: 'central' },
+  queenstown: { x: 6, y: 186, width: 108, area: 'central' },
+  'marina-bay': { x: 206, y: 212, width: 100, area: 'central' },
+  'raffles-place': { x: 196, y: 274, width: 116, area: 'central' },
+  chinatown: { x: 14, y: 264, width: 100, area: 'central' },
+  'kampong-glam': { x: 198, y: 172, width: 118, area: 'central' },
 };
 const isCentral = (location: Location) => labels[location.id].area === 'central';
 

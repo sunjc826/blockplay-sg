@@ -8,7 +8,8 @@ import { buildMarinaScene, MARINA_MAP_ROADS, MARINA_SPAWN } from './marina-scene
 import { buildRafflesScene, RAFFLES_MAP_ROADS, RAFFLES_SPAWN } from './raffles-scene';
 import { buildQueenstownScene, QUEENSTOWN_MAP_ROADS, QUEENSTOWN_SPAWN } from './queenstown-scene';
 import { buildChinatownScene, CHINATOWN_BOUNDS, CHINATOWN_MAP_ROADS, CHINATOWN_SPAWN } from './chinatown-scene';
-import { CHINATOWN_STAMPS, MARINA_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS } from '../data/region-stamps.ts';
+import { buildKampongGlamScene, KAMPONG_GLAM_BOUNDS, KAMPONG_GLAM_MAP_ROADS, KAMPONG_GLAM_SPAWN } from './kampong-glam-scene';
+import { CHINATOWN_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -66,6 +67,7 @@ export interface RegionDefinition {
 }
 
 const chinatownMovement = createRegionMovement(CHINATOWN_BOUNDS);
+const kampongGlamMovement = createRegionMovement(KAMPONG_GLAM_BOUNDS);
 
 const definitions: Record<RegionId, RegionDefinition> = {
   'marina-bay': {
@@ -126,6 +128,22 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'line', from: { x: -46, z: 80 }, to: { x: 22, z: 80 }, stroke: '#b8342c', width: 7, layer: 'over' },
     ],
     hasGuide: false, build: buildChinatownScene, move: chinatownMovement.move, canOccupy: chinatownMovement.canOccupy,
+  },
+  'kampong-glam': {
+    id: 'kampong-glam', name: 'Kampong Glam', shortName: 'Kampong Glam', modeName: 'Kampong Glam 3D', modeSubtitle: 'Mosque, malls and painted lanes',
+    className: 'kampong-glam-game', badge: 'KAMPONG GLAM · GAME WORLD', title: 'Kampong Glam · mosque & lanes',
+    subtitle: 'Low-poly game map · authored dome, palm mall and textile streets', mapTitle: 'QUARTER & CANAL',
+    stampNoun: 'quarter stamps', exploreNoun: 'the quarter', cameraFar: 1100,
+    spawn: KAMPONG_GLAM_SPAWN, stamps: KAMPONG_GLAM_STAMPS, bounds: KAMPONG_GLAM_BOUNDS, mapRoads: KAMPONG_GLAM_MAP_ROADS,
+    mapPaper: '#ded7c6', roadStroke: '#98918a', roadWidth: 14,
+    decor: [
+      { kind: 'rect', x: 180, z: -160, width: 12, depth: 320, fill: '#5f8f9a', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: -202, z: -150, width: 44, depth: 300, fill: '#9db97c', layer: 'over' },
+      { kind: 'rect', x: -138, z: -32, width: 96, depth: 84, fill: '#a7c186', layer: 'over' },
+      { kind: 'rect', x: -25, z: -7, width: 70, depth: 54, fill: '#cfa73f', layer: 'over' },
+      { kind: 'line', from: { x: 10, z: -118 }, to: { x: 10, z: -34 }, stroke: '#c9bfa6', width: 9, layer: 'over' },
+    ],
+    hasGuide: false, build: buildKampongGlamScene, move: kampongGlamMovement.move, canOccupy: kampongGlamMovement.canOccupy,
   },
 };
 

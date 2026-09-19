@@ -30,5 +30,11 @@ const districts: Record<WorldZoneId, FpsDistrict> = {
     vehicles: { car: { x: -130, z: 104, yaw: -Math.PI / 2 }, helicopter: { x: -104, z: 88, yaw: 0 } },
     props: [[3, -126, 106, .77, .52], [4, -120, 103, 1.87, .41], [5, -125, 107, .37, .37], [5, -123, 107, .37, .37]],
   },
+  'kampong-glam': {
+    label: 'Kampong Glam FPS', setting: 'palm mall', spawn: { x: 10, z: -112, yaw: Math.PI, pitch: -.03 },
+    targets: [{ x: 10, z: -72 }, { x: 4, z: -71 }, { x: 16, z: -71 }, { x: -1, z: -76 }, { x: 21, z: -76 }, { x: -1, z: -84 }, { x: 21, z: -84 }, { x: 10, z: -62 }],
+    vehicles: { car: { x: 0, z: -114, yaw: -Math.PI / 2 }, helicopter: { x: -20, z: -100, yaw: 0 } },
+    props: [[3, 8, -116, .77, .52], [4, 14, -113, 1.87, .41], [5, 9, -117, .37, .37], [5, 11, -117, .37, .37]],
+  },
 };
 export const getFpsDistrict = (region: WorldZoneId): FpsDistrict => districts[region];
