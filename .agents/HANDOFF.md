@@ -1,5 +1,16 @@
 # Blockplay: portable agent handoff
 
+**Latest: four authored districts and a region platform (2026-09-19).** Seven
+districts are playable. Adding one is now a registry entry in
+`src/game/regions.ts` plus a scene file built with `src/game/scene-kit.ts`;
+`RegionGame.tsx` is the single walk/drive harness and `regions.test.ts` holds
+every district to the same reachability, drivable-road and batching bar.
+Chinatown, Kampong Glam, Jurong Lake and Changi were authored from general
+knowledge with **no reference capture and no Google API requests**, and record
+an empty `referenceFeatures` list; they have no learning cards and no guide
+panel. Read `docs/DISTRICTS.md` before adding or describing a district. 274
+tests, build and a seven-district browser smoke pass.
+
 **Latest: counter-fire freeze fix (2026-09-13).** Reproduced the first incoming-shot line-of-sight check crashing the frame loop: floating vehicle label sprites were included in camera-free raycasts, but `Sprite.raycast` requires a camera. Opening audio only coincided with the first attack. Vehicle labels now opt out of raycasting; physical vehicles remain cover. Added a regression using the actual vehicle scene and `test:fps:counter-fire`, which passes repeated damage, movement and Escape checks in all three districts with no uncaught errors or live map requests. 240 unit tests and Cloudflare build/dry run pass.
 
 **Latest: simultaneous mouse aim/fire fix (2026-09-13).** Reproduced RMB-held then LMB missing fire: pointer events report only the first mouse press/final release in a button chord. Shared FPS engine now uses captured `mousedown`/`mouseup` for independent mouse buttons; touch/pen drag remains on pointer events, Q retains its own aim latch, and mouse handlers ignore AI control. Disposal removes both new listeners. Expanded `test:fps:aim-toggle` reproduces the failure before the fix and passes both press/release orders, repeated LMB firing under held RMB, no stuck fire/aim, Q+RMB coexistence, reload/switch/pause reset and AI isolation with eight targets cleared. Single-click test waits for ammo change instead of a short VM-sensitive sleep. 239 unit tests and Cloudflare build/dry run passed.

@@ -8,6 +8,53 @@ User authorized 25 additional Raffles Place Static API image attempts after docu
 
 # Blockplay project plan
 
+## Completed: four authored districts and a region platform (2026-09-19)
+
+Seven districts are now playable. Chinatown, Kampong Glam, Jurong Lake and
+Changi join Marina Bay, Raffles Place and Queenstown, each with stamps, an FPS
+range, an expedition zone with a loot profile, and reversible checkpoints that
+keep the district graph connected (Marina → Changi runs Raffles → Chinatown →
+Kampong Glam → Changi).
+
+**Provenance, explicitly.** The four new districts were composed from general
+knowledge of those neighbourhoods. **No reference capture, no Google API
+requests of any kind, and no change to any allowance or ledger.** Their scenes
+record an empty `referenceFeatures` list so the distinction is checkable in
+code rather than only in prose. They carry no source-linked learning cards, so
+they show no educational companion panel; adding one means researched, reviewed
+sources, as the first three had, not generated facts. `docs/DISTRICTS.md`
+states this split, and the README and the in-app About dialog now say it too.
+
+**Platform.** Queenstown and Raffles Place duplicated Marina's walk/drive
+component almost line for line, and eight modules hard-coded the same three
+ids. `src/game/regions.ts` is now the registry (scene builder, bounds,
+movement, spawn, stamps, map roads, schematic furniture, copy);
+`RegionGame.tsx` is the one walk/drive harness, replacing QueenstownGame and
+RafflesGame; `region-collision.ts` holds the shared movement core;
+`scene-kit.ts` holds the primitives new scenes are composed from. Marina keeps
+its bespoke component for the adventure companion and objective beacon. Region
+selection, the FPS minimap and district world read the registry.
+
+**Tests.** `regions.test.ts` runs every registered district through the same
+bar: spawn/stamp/checkpoint/FPS reachability by collision-aware flood fill,
+drivable roads, batching, bounds. Generalising the road check surfaced that
+Queenstown's displayed carriageway has viaduct piers down its median, so the
+shared check asserts a drivable lane rather than an empty centreline; Raffles
+keeps its own stricter check. Two tests that hard-coded region counts now
+derive them. The region browser smoke iterates whatever the picker offers and
+reads each district's reset control from the page, so a new map needs no edit
+there, and scales its waits by `REGION_SMOKE_PACE` for software renderers.
+
+274 unit tests, typecheck and production build pass; the browser smoke passes
+all seven districts on walk, drive, camera orbit, reset and mobile width with
+zero Google Maps requests and no uncaught errors.
+
+**Follow-ups.** The four new districts have no learning catalog, no reference
+review and no visual-comparison evidence — they are not comparable to the
+reference-informed three and should not be presented as such. The Queenstown AI
+pilot still stalls at 5/8 targets. All scene builders are still statically
+imported, so every district ships in the main bundle (651 kB, 217 kB gzipped).
+
 ## Completed: regional FPS practice (2026-09-13)
 
 - Direct FPS entry now exists on Marina Bay, Queenstown and Raffles Place, with eight targets and regional vehicles/minimaps. Shared scene adapters, range configuration and physics retain Marina defaults.

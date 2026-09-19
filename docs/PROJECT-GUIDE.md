@@ -49,7 +49,7 @@ The armory is accessed from each region’s FPS briefing or pause screen. It inc
 
 ### Open world and solo arena
 
-**Open world** connects all three districts through checkpoints. E collects supplies and T crosses a nearby checkpoint. Temporary gear, health and ammo carry between districts; permanent armory purchases remain separate. The island locator previews routes and threat/loot tiers without resetting the expedition. See [zones and loot](WORLD-ZONES.md).
+**Open world** connects every district through checkpoints. E collects supplies and T crosses a nearby checkpoint. Temporary gear, health and ammo carry between districts; permanent armory purchases remain separate. The island locator previews routes and threat/loot tiers without resetting the expedition. See [zones and loot](WORLD-ZONES.md).
 
 **Solo arena** runs locally against up to six bots with mixed, assault, tank or sniper compositions. The full local build labels this entry **LAN arena**; choose **Solo vs bots** inside it. Multiplayer host/join requires the separate LAN server.
 
@@ -81,7 +81,7 @@ Set private `OPENAI_API_KEY` in `.env` or `.env.local`, then run `pnpm server` a
 The key needs access to **gpt-5.6-luna** for request interpretation and **gpt-live-1** for voice. Never put an OpenAI secret in a `VITE_*` variable or browser code.
 
 - **Marina 3D:** “give me something closer”, “take me to the museum” and “skip this stop” change an existing objective and its HUD/minimap/in-world highlight. Stamps are preserved.
-- **All three regional worlds:** educational questions select from 18 curated, source-linked learning cards. Queenstown and Raffles Place guides are education-only.
+- **Marina Bay, Queenstown and Raffles Place:** educational questions select from 18 curated, source-linked learning cards. Queenstown and Raffles Place guides are education-only. The four later districts have no reviewed cards yet and show no guide; see [districts](DISTRICTS.md).
 - **Voice:** requires microphone permission and HTTPS or localhost. Plain HTTP at another computer’s LAN address is insufficient. Audio failure leaves text usable.
 
 “Closer” uses deterministic straight-line distance, not navigable route finding. Local game logic validates destination IDs, checks arrival and rejects stale responses after resets or region changes. See [companion architecture and tests](ADVENTURE.md).

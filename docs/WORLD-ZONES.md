@@ -1,6 +1,6 @@
 # Connected Singapore districts
 
-The existing Marina Bay, Raffles Place and Queenstown scenes can support an open-world loop built from connected areas. Each district uses its own local coordinates and collision geometry. Load one district at a time and cross an explicit checkpoint to load the next. This keeps rendering and memory costs close to the existing single-scene game on the VM.
+Every playable district is an expedition zone; [districts](DISTRICTS.md) lists them and how a new one is added. The Marina Bay, Raffles Place and Queenstown scenes established that these worlds can support an open-world loop built from connected areas. Each district uses its own local coordinates and collision geometry. Load one district at a time and cross an explicit checkpoint to load the next. This keeps rendering and memory costs close to the existing single-scene game on the VM.
 
 The design borrows the connected-area structure of survival shooters. Singapore locations, equipment and world content remain the project's own. The links compress travel distances; they are not a surveyed route between real streets.
 
@@ -12,7 +12,7 @@ The supply scanner lists the nearest remaining crates with their tier, distance 
 
 ## Singapore locator integration
 
-The sidebar locator retains its normal click/keyboard region selection outside expeditions. During an expedition, the location cards and map instead select a route destination without unmounting the current scene or clearing loot. The purple current-district marker follows actual checkpoint arrivals; an orange outline marks the planned destination. Dashed links derive from `WORLD_GATEWAYS`, and `findWorldRoute` chooses the fewest checkpoint crossings. Marina-to-Queenstown trips therefore pass through Raffles CBD.
+The sidebar locator retains its normal click/keyboard region selection outside expeditions. During an expedition, the location cards and map instead select a route destination without unmounting the current scene or clearing loot. The purple current-district marker follows actual checkpoint arrivals; an orange outline marks the planned destination. Dashed links derive from `WORLD_GATEWAYS`, and `findWorldRoute` chooses the fewest checkpoint crossings. Marina-to-Queenstown trips therefore pass through Raffles CBD, and Marina-to-Changi runs Raffles → Chinatown → Kampong Glam → Changi.
 
 The selected destination displays threat, loot tier, patrol count, the route and the next checkpoint's local coordinates. The expedition HUD prioritizes that checkpoint's distance. Map selection never calls travel: the existing living-player/proximity validation and T interaction still govern transitions. Arriving updates the route from the new district and retains the planned destination. These island-map links represent compressed district connections, not street routing or a live local minimap.
 
@@ -27,8 +27,12 @@ Each expedition gets a fresh seed. Each district rolls its contents and position
 | District | Weapon crates | Issued | Field | Elite | Total supplies |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Queenstown | 2 | 65% | 30% | 5% | 6 |
+| Kampong Glam | 2 | 54% | 38% | 8% | 7 |
+| Chinatown | 3 | 38% | 50% | 12% | 9 |
 | Marina Bay | 3 | 30% | 55% | 15% | 8 |
+| Jurong Lake | 3 | 36% | 46% | 18% | 9 |
 | Raffles CBD | 4 | 10% | 40% | 50% | 10 |
+| Changi | 4 | 14% | 44% | 42% | 11 |
 
 Other crates contain ammunition for the selected gun, medical supplies or armor plates. Elite odds apply to weapon rolls; a particular visit does not guarantee an elite drop. Supply locations are checked against each district's bounds and obstacles. Colored case labels show item and tier. Pickups require a living player within 2.8 metres; medkits remain available if health is full.
 
@@ -40,9 +44,13 @@ A found weapon replaces its family slot and uses existing catalog stats. Plates 
 
 | District | Threat | Loot tier | Patrol preset | Routes |
 | --- | --- | --- | --- | --- |
-| Queenstown | Low | 1 | 3 assault bots | Raffles Place |
+| Queenstown | Low | 1 | 3 assault bots | Raffles Place, Jurong Lake |
+| Kampong Glam | Low | 1 | 3 assault bots | Chinatown, Changi |
 | Marina Bay | Medium | 2 | 4 mixed-role bots | Raffles Place |
-| Raffles Place / CBD | High | 3 | 6 mixed-role bots | Marina Bay and Queenstown |
+| Chinatown | Medium | 2 | 4 mixed-role bots | Raffles Place, Kampong Glam |
+| Jurong Lake | Medium | 2 | 4 mixed-role bots | Queenstown |
+| Raffles Place / CBD | High | 3 | 6 mixed-role bots | Marina Bay, Queenstown, Chinatown |
+| Changi | High | 3 | 5 mixed-role bots | Kampong Glam |
 
 The mixed preset includes the existing heavy and sniper behaviors. These values describe an initial encounter budget, not a guarantee of a particular item drop. Raffles is the contested hub with the most defenders and access to the highest tier. Loot generation consumes this metadata separately.
 
@@ -56,6 +64,14 @@ The mixed preset includes the existing heavy and sniper behaviors. These values 
 | Raffles → Marina | 258, 45 | -91, 94 |
 | Raffles → Queenstown | -258, 45 | 223, 22 |
 | Queenstown → Raffles | 235, 22 | -246, 45 |
+| Raffles → Chinatown | 0, 238 | 100, -168 |
+| Chinatown → Raffles | 100, -180 | 0, 226 |
+| Chinatown → Kampong Glam | 0, 180 | 0, -163 |
+| Kampong Glam → Chinatown | 0, -175 | 0, 168 |
+| Queenstown → Jurong Lake | -235, 22 | 233, 20 |
+| Jurong Lake → Queenstown | 245, 20 | -223, 22 |
+| Kampong Glam → Changi | 0, 175 | -243, -30 |
+| Changi → Kampong Glam | -255, -30 | 0, 163 |
 
 These positions lie on the authored Marina inner road, Raffles Market road and Queenstown Commonwealth road. Each trigger has a four-metre radius. Arrival is twelve metres inside the destination's reverse checkpoint and faces into the district, preventing immediate return travel. Marina's checkpoint is roughly 65 metres from its default spawn; crossing the CBD between checkpoints is a longer exposed journey.
 

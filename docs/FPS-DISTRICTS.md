@@ -1,6 +1,6 @@
 # FPS on all three maps
 
-Select Marina Bay, Queenstown or Raffles Place, then choose **Marina FPS**, **Queenstown FPS** or **Raffles FPS**. Each range uses the selected authored map, eight targets, the same weapon/loadout system, optional counter-fire, XP/rewards, Encik recordings, minimap, debug health controls and fullscreen. Each has its own parked car and helicopter.
+Select any district, then choose its FPS range — Marina, Raffles, Queenstown, Chinatown, Kampong Glam, Jurong or Changi. Every range uses its district's authored map, eight targets, the same weapon/loadout system, optional counter-fire, XP/rewards, Encik recordings, minimap, debug health controls and fullscreen. Each has its own parked car and helicopter.
 
 Changing regions while in a practice FPS session starts a fresh range on the newly selected map. Permanent equipment and progression remain in the shared armory. Opening the shop and deploying returns to the selected region. Selecting the current region again does not restart the session. Open-world checkpoint travel retains its existing session behavior. LAN/solo arena matchmaking still uses Marina; district practice does not change the multiplayer map protocol.
 
