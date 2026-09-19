@@ -36,5 +36,11 @@ const districts: Record<WorldZoneId, FpsDistrict> = {
     vehicles: { car: { x: 0, z: -114, yaw: -Math.PI / 2 }, helicopter: { x: -20, z: -100, yaw: 0 } },
     props: [[3, 8, -116, .77, .52], [4, 14, -113, 1.87, .41], [5, 9, -117, .37, .37], [5, 11, -117, .37, .37]],
   },
+  'jurong-lake': {
+    label: 'Jurong FPS', setting: 'lakeside park', spawn: { x: -60, z: -185, yaw: Math.PI, pitch: -.03 },
+    targets: [{ x: -60, z: -150 }, { x: -66, z: -151 }, { x: -54, z: -151 }, { x: -72, z: -156 }, { x: -48, z: -156 }, { x: -74, z: -164 }, { x: -46, z: -164 }, { x: -60, z: -140 }],
+    vehicles: { car: { x: -70, z: -187, yaw: -Math.PI / 2 }, helicopter: { x: -20, z: -170, yaw: 0 } },
+    props: [[3, -62, -189, .77, .52], [4, -56, -186, 1.87, .41], [5, -61, -190, .37, .37], [5, -59, -190, .37, .37]],
+  },
 };
 export const getFpsDistrict = (region: WorldZoneId): FpsDistrict => districts[region];

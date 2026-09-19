@@ -9,7 +9,8 @@ import { buildRafflesScene, RAFFLES_MAP_ROADS, RAFFLES_SPAWN } from './raffles-s
 import { buildQueenstownScene, QUEENSTOWN_MAP_ROADS, QUEENSTOWN_SPAWN } from './queenstown-scene';
 import { buildChinatownScene, CHINATOWN_BOUNDS, CHINATOWN_MAP_ROADS, CHINATOWN_SPAWN } from './chinatown-scene';
 import { buildKampongGlamScene, KAMPONG_GLAM_BOUNDS, KAMPONG_GLAM_MAP_ROADS, KAMPONG_GLAM_SPAWN } from './kampong-glam-scene';
-import { CHINATOWN_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS } from '../data/region-stamps.ts';
+import { buildJurongLakeScene, JURONG_LAKE_BOUNDS, JURONG_LAKE_MAP_ROADS, JURONG_LAKE_SPAWN } from './jurong-lake-scene';
+import { CHINATOWN_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -68,6 +69,7 @@ export interface RegionDefinition {
 
 const chinatownMovement = createRegionMovement(CHINATOWN_BOUNDS);
 const kampongGlamMovement = createRegionMovement(KAMPONG_GLAM_BOUNDS);
+const jurongLakeMovement = createRegionMovement(JURONG_LAKE_BOUNDS);
 
 const definitions: Record<RegionId, RegionDefinition> = {
   'marina-bay': {
@@ -144,6 +146,23 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'line', from: { x: 10, z: -118 }, to: { x: 10, z: -34 }, stroke: '#c9bfa6', width: 9, layer: 'over' },
     ],
     hasGuide: false, build: buildKampongGlamScene, move: kampongGlamMovement.move, canOccupy: kampongGlamMovement.canOccupy,
+  },
+  'jurong-lake': {
+    id: 'jurong-lake', name: 'Jurong Lake', shortName: 'Jurong', modeName: 'Jurong 3D', modeSubtitle: 'Garden lake and mall cluster',
+    className: 'jurong-lake-game', badge: 'JURONG LAKE · GAME WORLD', title: 'Jurong · lake, pagoda & malls',
+    subtitle: 'Low-poly game map · authored garden island, causeway and eastern shore', mapTitle: 'LAKE & GARDENS',
+    stampNoun: 'lakeside stamps', exploreNoun: 'the lake and its shore', cameraFar: 1500,
+    spawn: JURONG_LAKE_SPAWN, stamps: JURONG_LAKE_STAMPS, bounds: JURONG_LAKE_BOUNDS, mapRoads: JURONG_LAKE_MAP_ROADS,
+    mapPaper: '#d3ddcb', roadStroke: '#8f968c', roadWidth: 14,
+    decor: [
+      { kind: 'rect', x: -230, z: -80, width: 200, depth: 200, fill: '#7fb0bd', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: -175, z: -25, width: 65, depth: 90, fill: '#93ac74', layer: 'over' },
+      { kind: 'rect', x: -248, z: 112, width: 96, depth: 76, fill: '#9cba7f', layer: 'over' },
+      { kind: 'rect', x: -150, z: -195, width: 180, depth: 70, fill: '#9cba7f', layer: 'over' },
+      { kind: 'line', from: { x: -110, z: 20 }, to: { x: -30, z: 20 }, stroke: '#cdc6b4', width: 10, layer: 'over' },
+      { kind: 'line', from: { x: -245, z: 140 }, to: { x: 245, z: 140 }, stroke: '#b9b2a2', width: 6, layer: 'over' },
+    ],
+    hasGuide: false, build: buildJurongLakeScene, move: jurongLakeMovement.move, canOccupy: jurongLakeMovement.canOccupy,
   },
 };
 

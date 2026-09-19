@@ -45,6 +45,8 @@ export const WORLD_ZONES: readonly WorldZone[] = [
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: 0, z: 80 }, { x: -15, z: -15 }, { x: -120, z: 14 }, { x: 95, z: 20 }, { x: -124, z: 78 }, { x: 134, z: 74 }] },
   { id: 'kampong-glam', name: 'Kampong Glam', description: 'Open mall and courtyards; long sightlines between the terraces.', spawn: { x: 10, z: -85, yaw: Math.PI, pitch: 0 },
     risk: 'low', lootTier: 1, botCount: 3, composition: 'assault', encounterSpawns: [{ x: 10, z: -14 }, { x: 10, z: -75 }, { x: -90, z: -75 }, { x: 110, z: -92 }, { x: -90, z: -20 }, { x: 110, z: 50 }] },
+  { id: 'jurong-lake', name: 'Jurong Lake', description: 'Open shoreline and a single causeway; the island is a hard place to leave.', spawn: { x: -20, z: 20, yaw: Math.PI / 2, pitch: 0 },
+    risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: -142, z: 50 }, { x: -70, z: 20 }, { x: -18, z: 60 }, { x: 65, z: -10 }, { x: 170, z: -20 }, { x: -60, z: -160 }] },
 ];
 
 // These connections compress travel between districts. They do not claim that
@@ -59,6 +61,8 @@ export const WORLD_GATEWAYS: readonly WorldGateway[] = [
   { id: 'chinatown-to-raffles', from: 'chinatown', to: 'raffles-place', name: 'Raffles Place checkpoint', position: { x: 100, z: -180 }, radius: 4, arrival: { x: 0, z: 226, yaw: 0, pitch: 0 } },
   { id: 'chinatown-to-kampong-glam', from: 'chinatown', to: 'kampong-glam', name: 'Kampong Glam checkpoint', position: { x: 0, z: 180 }, radius: 4, arrival: { x: 0, z: -163, yaw: Math.PI, pitch: 0 } },
   { id: 'kampong-glam-to-chinatown', from: 'kampong-glam', to: 'chinatown', name: 'Chinatown checkpoint', position: { x: 0, z: -175 }, radius: 4, arrival: { x: 0, z: 168, yaw: 0, pitch: 0 } },
+  { id: 'queenstown-to-jurong-lake', from: 'queenstown', to: 'jurong-lake', name: 'Jurong Lake checkpoint', position: { x: -235, z: 22 }, radius: 4, arrival: { x: 233, z: 20, yaw: Math.PI / 2, pitch: 0 } },
+  { id: 'jurong-lake-to-queenstown', from: 'jurong-lake', to: 'queenstown', name: 'Queenstown checkpoint', position: { x: 245, z: 20 }, radius: 4, arrival: { x: -223, z: 22, yaw: -Math.PI / 2, pitch: 0 } },
 ];
 
 export function isWorldZoneId(value: unknown): value is WorldZoneId {

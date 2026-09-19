@@ -67,3 +67,17 @@ export const KAMPONG_GLAM_STAMPS = [
   { name: 'Rochor canal walk', x: 173, z: 12 },
   { name: 'Jalan Pisang green', x: -180, z: 30 },
 ];
+
+export const JURONG_LAKE_STAMPS = [
+  { name: 'Pagoda island', x: -142, z: 50 },
+  { name: 'Lake causeway', x: -70, z: 20 },
+  { name: 'Lakeside promenade', x: -18, z: 60 },
+  { name: 'Science Centre plaza', x: 170, z: -20 },
+  { name: 'JEM concourse', x: 65, z: -10 },
+  { name: 'Westgate atrium', x: 65, z: 110 },
+  { name: 'IMM service court', x: 172, z: 135 },
+  { name: 'Lakeside station', x: 65, z: 158 },
+  { name: 'Bus interchange', x: 115, z: 187 },
+  { name: 'Japanese garden', x: -200, z: 152 },
+  { name: 'Jurong green', x: -60, z: -160 },
+];

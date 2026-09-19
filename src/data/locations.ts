@@ -54,6 +54,17 @@ export const locations = [
       { label: 'Kandahar Street', lat: 1.3029, lng: 103.8604, heading: 200 },
     ],
   },
+  {
+    id: 'jurong-lake', name: 'Jurong Lake', subtitle: 'A pagoda across the water', district: 'WEST',
+    description: 'A garden lake with a tiered pagoda on a causeway island, a boardwalk shore and the mall cluster beyond. An authored low-poly world, compressed for play.',
+    lat: 1.3396, lng: 103.7297, heading: 270, color: '#7fb0bd', block: 2,
+    tags: ['Garden lake', 'Mall cluster'],
+    viewpoints: [
+      { label: 'Lakeside', lat: 1.3396, lng: 103.7297, heading: 270 },
+      { label: 'Chinese Garden', lat: 1.3411, lng: 103.7302, heading: 180 },
+      { label: 'Jurong East', lat: 1.3331, lng: 103.7423, heading: 90 },
+    ],
+  },
 ] as const;
 
 export type Location = (typeof locations)[number];

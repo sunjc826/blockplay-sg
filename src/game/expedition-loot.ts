@@ -24,6 +24,7 @@ export const ZONE_LOOT_RULES: Readonly<Record<WorldZoneId, Readonly<ZoneLootRule
   'raffles-place': { eliteChance: 0.5, fieldChance: 0.4, weaponCount: 4, ammoCount: 3, medicalCount: 1, armorCount: 2, ammoAmount: 90, medicalAmount: 60 },
   chinatown: { eliteChance: 0.12, fieldChance: 0.5, weaponCount: 3, ammoCount: 3, medicalCount: 2, armorCount: 1, ammoAmount: 55, medicalAmount: 35 },
   'kampong-glam': { eliteChance: 0.08, fieldChance: 0.38, weaponCount: 2, ammoCount: 2, medicalCount: 2, armorCount: 1, ammoAmount: 50, medicalAmount: 30 },
+  'jurong-lake': { eliteChance: 0.18, fieldChance: 0.46, weaponCount: 3, ammoCount: 2, medicalCount: 2, armorCount: 2, ammoAmount: 65, medicalAmount: 45 },
 };
 const finitePosition = (p: ZonePosition) => Number.isFinite(p.x) && Number.isFinite(p.z);
 const hash = (text: string) => {

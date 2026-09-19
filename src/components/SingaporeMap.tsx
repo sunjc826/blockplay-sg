@@ -27,6 +27,7 @@ const labels: Record<Location['id'], { x: number; y: number; width: number; area
   'raffles-place': { x: 196, y: 274, width: 116, area: 'central' },
   chinatown: { x: 14, y: 264, width: 100, area: 'central' },
   'kampong-glam': { x: 198, y: 172, width: 118, area: 'central' },
+  'jurong-lake': { x: 26, y: 96, width: 92, area: 'island' },
 };
 const isCentral = (location: Location) => labels[location.id].area === 'central';
 
