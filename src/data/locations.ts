@@ -99,6 +99,17 @@ export const locations = [
     ],
   },
   {
+    id: 'harbourfront', name: 'HarbourFront', subtitle: 'Where the island leaves', district: 'SOUTH',
+    description: 'A stepped waterfront mall with a rooftop deck, a cruise hall with a liner alongside, container gantries down the wharf and a cable line crossing overhead. Authored and compressed for play.',
+    lat: 1.2653, lng: 103.8220, heading: 160, color: '#7f9db0', block: 1,
+    tags: ['Cruise quay', 'Cable line'],
+    viewpoints: [
+      { label: 'HarbourFront quay', lat: 1.2653, lng: 103.8220, heading: 160 },
+      { label: 'Mount Faber', lat: 1.2713, lng: 103.8170, heading: 200 },
+      { label: 'Keppel wharf', lat: 1.2685, lng: 103.8330, heading: 90 },
+    ],
+  },
+  {
     id: 'orchard', name: 'Orchard Road', subtitle: 'The shopping belt', district: 'CENTRAL',
     description: 'A planted median under rain trees, a faceted glass mall at the junction and a peranakan side lane. An authored low-poly boulevard, compressed for play.',
     lat: 1.3040, lng: 103.8320, heading: 90, color: '#c9a9b8', block: 2,

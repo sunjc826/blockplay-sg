@@ -13,8 +13,9 @@ import { buildJurongLakeScene, JURONG_LAKE_BOUNDS, JURONG_LAKE_MAP_ROADS, JURONG
 import { buildChangiScene, CHANGI_BOUNDS, CHANGI_MAP_ROADS, CHANGI_SPAWN } from './changi-scene';
 import { buildUpperThomsonScene, UPPER_THOMSON_BOUNDS, UPPER_THOMSON_MAP_ROADS, UPPER_THOMSON_SPAWN } from './upper-thomson-scene';
 import { buildPunggolScene, PUNGGOL_BOUNDS, PUNGGOL_MAP_ROADS, PUNGGOL_SPAWN } from './punggol-scene';
+import { buildHarbourfrontScene, HARBOURFRONT_BOUNDS, HARBOURFRONT_MAP_ROADS, HARBOURFRONT_SPAWN } from './harbourfront-scene';
 import { buildOrchardScene, ORCHARD_BOUNDS, ORCHARD_MAP_ROADS, ORCHARD_SPAWN } from './orchard-scene';
-import { CHANGI_STAMPS, CHINATOWN_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
+import { CHANGI_STAMPS, CHINATOWN_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -77,6 +78,7 @@ const jurongLakeMovement = createRegionMovement(JURONG_LAKE_BOUNDS);
 const changiMovement = createRegionMovement(CHANGI_BOUNDS);
 const upperThomsonMovement = createRegionMovement(UPPER_THOMSON_BOUNDS);
 const punggolMovement = createRegionMovement(PUNGGOL_BOUNDS);
+const harbourfrontMovement = createRegionMovement(HARBOURFRONT_BOUNDS);
 const orchardMovement = createRegionMovement(ORCHARD_BOUNDS);
 
 const definitions: Record<RegionId, RegionDefinition> = {
@@ -223,6 +225,24 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'line', from: { x: 215, z: 156 }, to: { x: 215, z: 192 }, stroke: '#b08a5c', width: 4, layer: 'over' },
     ],
     hasGuide: false, build: buildPunggolScene, move: punggolMovement.move, canOccupy: punggolMovement.canOccupy,
+  },
+  harbourfront: {
+    id: 'harbourfront', name: 'HarbourFront', shortName: 'HarbourFront', modeName: 'HarbourFront 3D', modeSubtitle: 'Quay, wharf and the ridge',
+    className: 'harbourfront-game', badge: 'HARBOURFRONT · GAME WORLD', title: 'HarbourFront · quay & cable line',
+    subtitle: 'Low-poly game map · authored stepped mall, cruise berth, gantries and ridge', mapTitle: 'QUAY & WHARF',
+    stampNoun: 'harbour stamps', exploreNoun: 'the quay and the ridge', cameraFar: 1600,
+    spawn: HARBOURFRONT_SPAWN, stamps: HARBOURFRONT_STAMPS, bounds: HARBOURFRONT_BOUNDS, mapRoads: HARBOURFRONT_MAP_ROADS,
+    mapPaper: '#d3dbd8', roadStroke: '#8e958f', roadWidth: 14,
+    decor: [
+      { kind: 'rect', x: -128, z: 140, width: 228, depth: 40, fill: '#5f97ab', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: 10, z: 0, width: 100, depth: 100, fill: '#c6bfae', layer: 'over' },
+      { kind: 'rect', x: -120, z: 0, width: 90, depth: 100, fill: '#d3ccbb', layer: 'over' },
+      { kind: 'rect', x: -210, z: -130, width: 50, depth: 90, fill: '#87a86a', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+      { kind: 'rect', x: 150, z: 0, width: 60, depth: 100, fill: '#9fb37c', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+      { kind: 'line', from: { x: 5, z: -70 }, to: { x: 5, z: 170 }, stroke: '#c0ccd2', width: 4, layer: 'over' },
+      { kind: 'line', from: { x: 109, z: 138 }, to: { x: 109, z: 192 }, stroke: '#b08a5c', width: 5, layer: 'over' },
+    ],
+    hasGuide: false, build: buildHarbourfrontScene, move: harbourfrontMovement.move, canOccupy: harbourfrontMovement.canOccupy,
   },
   orchard: {
     id: 'orchard', name: 'Orchard Road', shortName: 'Orchard', modeName: 'Orchard 3D', modeSubtitle: 'Walk the shopping belt',

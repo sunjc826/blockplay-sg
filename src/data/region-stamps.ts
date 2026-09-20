@@ -110,6 +110,20 @@ export const PUNGGOL_STAMPS = [
   { name: 'Park connector', x: -212, z: 40 },
 ];
 
+export const HARBOURFRONT_STAMPS = [
+  { name: 'HarbourFront quay', x: 20, z: 134 },
+  { name: 'VivoCity terraces', x: 60, z: -6 },
+  { name: 'Cruise terminal hall', x: -75, z: -6 },
+  { name: 'Liner berth', x: -75, z: 134 },
+  { name: 'Gantry wharf', x: 180, z: 134 },
+  { name: 'Mount Faber path', x: -185, z: -10 },
+  { name: 'Cable car tower', x: 5, z: 60 },
+  { name: 'Sentosa boardwalk', x: 109, z: 165 },
+  { name: 'Telok Blangah green', x: -185, z: 50 },
+  { name: 'HarbourFront station', x: 60, z: 108 },
+  { name: 'Harbour depot', x: 180, z: -60 },
+];
+
 export const ORCHARD_STAMPS = [
   { name: 'Orchard crossing', x: -8, z: 5 },
   { name: 'ION frontage', x: -115, z: -18 },

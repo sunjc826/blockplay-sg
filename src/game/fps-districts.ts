@@ -54,6 +54,12 @@ const districts: Record<WorldZoneId, FpsDistrict> = {
     vehicles: { car: { x: 130, z: -8, yaw: -Math.PI / 2 }, helicopter: { x: 152, z: -4, yaw: 0 } },
     props: [[3, 137, -6, .77, .52], [4, 143, -9, 1.87, .41], [5, 138, -5, .37, .37], [5, 140, -5, .37, .37]],
   },
+  harbourfront: {
+    label: 'HarbourFront FPS', setting: 'gateway lawn', spawn: { x: 180, z: 88, yaw: 0, pitch: -.03 },
+    targets: [{ x: 180, z: 58 }, { x: 174, z: 59 }, { x: 186, z: 59 }, { x: 168, z: 64 }, { x: 192, z: 64 }, { x: 166, z: 72 }, { x: 194, z: 72 }, { x: 180, z: 48 }],
+    vehicles: { car: { x: 171, z: 92, yaw: -Math.PI / 2 }, helicopter: { x: 192, z: 96, yaw: 0 } },
+    props: [[3, 178, 94, .77, .52], [4, 184, 91, 1.87, .41], [5, 179, 95, .37, .37], [5, 181, 95, .37, .37]],
+  },
   orchard: {
     label: 'Orchard FPS', setting: 'park lawn', spawn: { x: 205, z: 150, yaw: 0, pitch: -.03 },
     targets: [{ x: 205, z: 120 }, { x: 199, z: 121 }, { x: 211, z: 121 }, { x: 193, z: 126 }, { x: 217, z: 126 }, { x: 191, z: 134 }, { x: 219, z: 134 }, { x: 205, z: 110 }],
