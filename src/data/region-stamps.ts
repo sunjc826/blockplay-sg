@@ -166,6 +166,20 @@ export const TUAS_STAMPS = [
   { name: 'Tuas Link platform', x: 235, z: 44 },
 ];
 
+export const WOODLANDS_STAMPS = [
+  { name: 'Causeway checkpoint', x: 0, z: -140 },
+  { name: 'Waterfront promenade', x: 0, z: -100 },
+  { name: 'Woodlands jetty', x: -120, z: -170 },
+  { name: 'Rail embankment', x: -24, z: -140 },
+  { name: 'Causeway Point atrium', x: -45, z: 32 },
+  { name: 'Civic square', x: -25, z: 52 },
+  { name: 'Marsiling precinct', x: -182, z: 12 },
+  { name: 'Admiralty woods', x: -182, z: -90 },
+  { name: 'Woodlands station', x: 200, z: 34 },
+  { name: 'Woodlands interchange', x: 137, z: 32 },
+  { name: 'Northpoint green', x: 137, z: 130 },
+];
+
 export const ORCHARD_STAMPS = [
   { name: 'Orchard crossing', x: -8, z: 5 },
   { name: 'ION frontage', x: -115, z: -18 },

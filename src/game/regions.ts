@@ -17,8 +17,9 @@ import { buildHarbourfrontScene, HARBOURFRONT_BOUNDS, HARBOURFRONT_MAP_ROADS, HA
 import { buildSentosaScene, SENTOSA_BOUNDS, SENTOSA_MAP_ROADS, SENTOSA_SPAWN } from './sentosa-scene';
 import { buildGeylangScene, GEYLANG_BOUNDS, GEYLANG_MAP_ROADS, GEYLANG_SPAWN } from './geylang-scene';
 import { buildTuasScene, TUAS_BOUNDS, TUAS_MAP_ROADS, TUAS_SPAWN } from './tuas-scene';
+import { buildWoodlandsScene, WOODLANDS_BOUNDS, WOODLANDS_MAP_ROADS, WOODLANDS_SPAWN } from './woodlands-scene';
 import { buildOrchardScene, ORCHARD_BOUNDS, ORCHARD_MAP_ROADS, ORCHARD_SPAWN } from './orchard-scene';
-import { CHANGI_STAMPS, CHINATOWN_STAMPS, GEYLANG_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, TUAS_STAMPS, UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
+import { CHANGI_STAMPS, CHINATOWN_STAMPS, GEYLANG_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, TUAS_STAMPS, UPPER_THOMSON_STAMPS, WOODLANDS_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -85,6 +86,7 @@ const harbourfrontMovement = createRegionMovement(HARBOURFRONT_BOUNDS);
 const sentosaMovement = createRegionMovement(SENTOSA_BOUNDS);
 const geylangMovement = createRegionMovement(GEYLANG_BOUNDS);
 const tuasMovement = createRegionMovement(TUAS_BOUNDS);
+const woodlandsMovement = createRegionMovement(WOODLANDS_BOUNDS);
 const orchardMovement = createRegionMovement(ORCHARD_BOUNDS);
 
 const definitions: Record<RegionId, RegionDefinition> = {
@@ -308,6 +310,25 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'line', from: { x: 200, z: -200 }, to: { x: 200, z: 200 }, stroke: '#b0b8ba', width: 4, layer: 'over' },
     ],
     hasGuide: false, build: buildTuasScene, move: tuasMovement.move, canOccupy: tuasMovement.canOccupy,
+  },
+  woodlands: {
+    id: 'woodlands', name: 'Woodlands', shortName: 'Woodlands', modeName: 'Woodlands 3D', modeSubtitle: 'The causeway and the north shore',
+    className: 'woodlands-game', badge: 'WOODLANDS · GAME WORLD', title: 'Woodlands · the causeway',
+    subtitle: 'Low-poly game map · authored causeway, checkpoint, waterfront and precincts', mapTitle: 'CAUSEWAY & SHORE',
+    stampNoun: 'northern stamps', exploreNoun: 'the causeway and the shore', cameraFar: 1700,
+    spawn: WOODLANDS_SPAWN, stamps: WOODLANDS_STAMPS, bounds: WOODLANDS_BOUNDS, mapRoads: WOODLANDS_MAP_ROADS,
+    mapPaper: '#d6dcd2', roadStroke: '#8f958e', roadWidth: 14,
+    decor: [
+      { kind: 'rect', x: -215, z: -200, width: 430, depth: 55, fill: '#5c95ab', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: -215, z: -224, width: 430, depth: 22, fill: '#b9b3a2', layer: 'under' },
+      { kind: 'rect', x: -145, z: -131, width: 200, depth: 38, fill: '#9fb37c', layer: 'over' },
+      { kind: 'rect', x: -93, z: -46, width: 96, depth: 72, fill: '#c6bfae', layer: 'over' },
+      { kind: 'rect', x: -214, z: -120, width: 64, depth: 110, fill: '#6f9457', layer: 'over', fpsFill: '#33512f', fpsLayer: 'over' },
+      { kind: 'rect', x: 72, z: 53, width: 130, depth: 70, fill: '#9fb37c', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+      { kind: 'line', from: { x: 0, z: -130 }, to: { x: 0, z: -200 }, stroke: '#cfc8b6', width: 9, layer: 'over' },
+      { kind: 'line', from: { x: -120, z: -140 }, to: { x: -120, z: -196 }, stroke: '#b08a5c', width: 5, layer: 'over' },
+    ],
+    hasGuide: false, build: buildWoodlandsScene, move: woodlandsMovement.move, canOccupy: woodlandsMovement.canOccupy,
   },
   orchard: {
     id: 'orchard', name: 'Orchard Road', shortName: 'Orchard', modeName: 'Orchard 3D', modeSubtitle: 'Walk the shopping belt',

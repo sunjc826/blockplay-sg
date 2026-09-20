@@ -143,6 +143,17 @@ export const locations = [
     ],
   },
   {
+    id: 'woodlands', name: 'Woodlands', subtitle: 'The road out, and back', district: 'NORTH',
+    description: 'The causeway and its checkpoint running north across the strait, a waterfront park and jetty, a mall and civic square, and the precincts and linkways behind them. Authored and compressed for play.',
+    lat: 1.4360, lng: 103.7860, heading: 340, color: '#8fb0a4', block: 1,
+    tags: ['Causeway', 'North shore'],
+    viewpoints: [
+      { label: 'Causeway', lat: 1.4470, lng: 103.7690, heading: 340 },
+      { label: 'Waterfront', lat: 1.4490, lng: 103.7860, heading: 20 },
+      { label: 'Town centre', lat: 1.4360, lng: 103.7860, heading: 180 },
+    ],
+  },
+  {
     id: 'orchard', name: 'Orchard Road', subtitle: 'The shopping belt', district: 'CENTRAL',
     description: 'A planted median under rain trees, a faceted glass mall at the junction and a peranakan side lane. An authored low-poly boulevard, compressed for play.',
     lat: 1.3040, lng: 103.8320, heading: 90, color: '#c9a9b8', block: 2,
