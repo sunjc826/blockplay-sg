@@ -96,6 +96,12 @@ const districts: Record<WorldZoneId, FpsDistrict> = {
     vehicles: { car: { x: -197, z: 172, yaw: -Math.PI / 2 }, helicopter: { x: -175, z: 174, yaw: 0 } },
     props: [[3, -190, 174, .77, .52], [4, -184, 171, 1.87, .41], [5, -189, 175, .37, .37], [5, -187, 175, .37, .37]],
   },
+  'toa-payoh': {
+    label: 'Toa Payoh FPS', setting: 'school field', spawn: { x: 170, z: 88, yaw: 0, pitch: -.03 },
+    targets: [{ x: 170, z: 58 }, { x: 164, z: 59 }, { x: 176, z: 59 }, { x: 158, z: 64 }, { x: 182, z: 64 }, { x: 156, z: 72 }, { x: 184, z: 72 }, { x: 170, z: 48 }],
+    vehicles: { car: { x: 161, z: 92, yaw: -Math.PI / 2 }, helicopter: { x: 183, z: 94, yaw: 0 } },
+    props: [[3, 168, 94, .77, .52], [4, 174, 91, 1.87, .41], [5, 169, 95, .37, .37], [5, 171, 95, .37, .37]],
+  },
   orchard: {
     label: 'Orchard FPS', setting: 'park lawn', spawn: { x: 205, z: 150, yaw: 0, pitch: -.03 },
     targets: [{ x: 205, z: 120 }, { x: 199, z: 121 }, { x: 211, z: 121 }, { x: 193, z: 126 }, { x: 217, z: 126 }, { x: 191, z: 134 }, { x: 219, z: 134 }, { x: 205, z: 110 }],

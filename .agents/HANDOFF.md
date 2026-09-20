@@ -1,6 +1,28 @@
 # Blockplay: portable agent handoff
 
-**Latest: Tuas (2026-09-20).** Fourteen districts, 154 stamps. Added after a
+**Latest: the three coverage gaps filled (2026-09-20).** Seventeen districts,
+187 stamps. Woodlands, Tampines and Toa Payoh close the three holes the
+coverage review named. Woodlands puts the causeway and its checkpoint across
+the strait, crossed in exactly two places, both gaps in the water rather than
+decks over it. Tampines has the round market — a drum of outward stall bays
+under a radial roof — with a banked stadium bowl and a filled quarry. Toa Payoh
+is the first-generation new town the set lacked: balcony access decks, a
+Y-plan point block, the mosaic dragon and the spiral park lookout. Queenstown
+is no longer the only housing estate.
+
+Watch the FPS district test, not just regions.test: Tampines passed the region
+bar but failed `fps-districts.test.ts`, whose sightline and helicopter
+climb-out checks caught scrub and a tree crown laid through the practice range.
+And `region-selection.test.ts` had used 'tampines' as its example of an unbuilt
+district, which building one quietly falsified; it now names places kept off
+the roadmap.
+
+Coverage after this: the remaining thin spots are the north-west (Choa Chu
+Kang, Bukit Panjang, Clementi, Bukit Timah) and the north-east belt (Ang Mo
+Kio, Hougang, Sengkang, Serangoon). Bedok and Pasir Ris are still unbuilt in
+the east, though Tampines now represents it.
+
+**Earlier: Tuas (2026-09-20).** Fourteen districts, 154 stamps. Added after a
 coverage review showed nine of thirteen districts sat within 6 km of Raffles
 Place, with nothing at all in the far west. Tuas is the first district with no
 housing or shopfronts in it: tank farms behind bunds, trayed columns under a

@@ -165,6 +165,17 @@ export const locations = [
     ],
   },
   {
+    id: 'toa-payoh', name: 'Toa Payoh', subtitle: 'The first new town', district: 'CENTRAL-NORTH',
+    description: 'First-generation blocks with balcony access decks and a Y-shaped point block, a mosaic dragon over its sand pit, a town park with a spiral lookout, and the hub and interchange at the centre. Authored and compressed for play.',
+    lat: 1.3340, lng: 103.8500, heading: 150, color: '#c98f7a', block: 53,
+    tags: ['First new town', 'Dragon playground'],
+    viewpoints: [
+      { label: 'Town centre', lat: 1.3340, lng: 103.8500, heading: 150 },
+      { label: 'Town park', lat: 1.3370, lng: 103.8470, heading: 40 },
+      { label: 'Lorong 6', lat: 1.3320, lng: 103.8540, heading: 250 },
+    ],
+  },
+  {
     id: 'orchard', name: 'Orchard Road', subtitle: 'The shopping belt', district: 'CENTRAL',
     description: 'A planted median under rain trees, a faceted glass mall at the junction and a peranakan side lane. An authored low-poly boulevard, compressed for play.',
     lat: 1.3040, lng: 103.8320, heading: 90, color: '#c9a9b8', block: 2,

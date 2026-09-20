@@ -194,6 +194,20 @@ export const TAMPINES_STAMPS = [
   { name: 'Tampines station', x: 110, z: 44 },
 ];
 
+export const TOA_PAYOH_STAMPS = [
+  { name: 'Dragon playground', x: 50, z: -36 },
+  { name: 'Town park tower', x: -180, z: -4 },
+  { name: 'Park pond', x: -140, z: -66 },
+  { name: 'Y-block courtyard', x: -70, z: 24 },
+  { name: 'Town hub plaza', x: 50, z: 24 },
+  { name: 'Bus berths', x: 50, z: 100 },
+  { name: 'Lorong hawker centre', x: 170, z: -16 },
+  { name: 'Braddell precinct', x: 170, z: 24 },
+  { name: 'Toa Payoh station', x: 110, z: 24 },
+  { name: 'Lorong 8 blocks', x: 50, z: 132 },
+  { name: 'Braddell flyover', x: -10, z: -150 },
+];
+
 export const ORCHARD_STAMPS = [
   { name: 'Orchard crossing', x: -8, z: 5 },
   { name: 'ION frontage', x: -115, z: -18 },

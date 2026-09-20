@@ -19,8 +19,9 @@ import { buildGeylangScene, GEYLANG_BOUNDS, GEYLANG_MAP_ROADS, GEYLANG_SPAWN } f
 import { buildTuasScene, TUAS_BOUNDS, TUAS_MAP_ROADS, TUAS_SPAWN } from './tuas-scene';
 import { buildWoodlandsScene, WOODLANDS_BOUNDS, WOODLANDS_MAP_ROADS, WOODLANDS_SPAWN } from './woodlands-scene';
 import { buildTampinesScene, TAMPINES_BOUNDS, TAMPINES_MAP_ROADS, TAMPINES_SPAWN } from './tampines-scene';
+import { buildToaPayohScene, TOA_PAYOH_BOUNDS, TOA_PAYOH_MAP_ROADS, TOA_PAYOH_SPAWN } from './toa-payoh-scene';
 import { buildOrchardScene, ORCHARD_BOUNDS, ORCHARD_MAP_ROADS, ORCHARD_SPAWN } from './orchard-scene';
-import { CHANGI_STAMPS, CHINATOWN_STAMPS, GEYLANG_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, TAMPINES_STAMPS, TUAS_STAMPS, UPPER_THOMSON_STAMPS, WOODLANDS_STAMPS } from '../data/region-stamps.ts';
+import { CHANGI_STAMPS, CHINATOWN_STAMPS, GEYLANG_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, TAMPINES_STAMPS, TOA_PAYOH_STAMPS, TUAS_STAMPS, UPPER_THOMSON_STAMPS, WOODLANDS_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -89,6 +90,7 @@ const geylangMovement = createRegionMovement(GEYLANG_BOUNDS);
 const tuasMovement = createRegionMovement(TUAS_BOUNDS);
 const woodlandsMovement = createRegionMovement(WOODLANDS_BOUNDS);
 const tampinesMovement = createRegionMovement(TAMPINES_BOUNDS);
+const toaPayohMovement = createRegionMovement(TOA_PAYOH_BOUNDS);
 const orchardMovement = createRegionMovement(ORCHARD_BOUNDS);
 
 const definitions: Record<RegionId, RegionDefinition> = {
@@ -349,6 +351,24 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'line', from: { x: -20, z: -170 }, to: { x: -52, z: 96 }, stroke: '#b98a68', width: 4, layer: 'over' },
     ],
     hasGuide: false, build: buildTampinesScene, move: tampinesMovement.move, canOccupy: tampinesMovement.canOccupy,
+  },
+  'toa-payoh': {
+    id: 'toa-payoh', name: 'Toa Payoh', shortName: 'Toa Payoh', modeName: 'Toa Payoh 3D', modeSubtitle: 'The dragon and the town park',
+    className: 'toa-payoh-game', badge: 'TOA PAYOH · GAME WORLD', title: 'Toa Payoh · the first new town',
+    subtitle: 'Low-poly game map · authored balcony slabs, mosaic dragon, park lookout and hub', mapTitle: 'TOWN & PARK',
+    stampNoun: 'estate stamps', exploreNoun: 'the estate and its park', cameraFar: 1500,
+    spawn: TOA_PAYOH_SPAWN, stamps: TOA_PAYOH_STAMPS, bounds: TOA_PAYOH_BOUNDS, mapRoads: TOA_PAYOH_MAP_ROADS,
+    mapPaper: '#ded8c6', roadStroke: '#95918a', roadWidth: 14,
+    decor: [
+      { kind: 'rect', x: -206, z: -86, width: 52, depth: 40, fill: '#5f97ac', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: -222, z: -114, width: 84, depth: 96, fill: '#9cba7f', layer: 'over' },
+      { kind: 'rect', x: 22, z: -70, width: 56, depth: 40, fill: '#ddcda4', layer: 'over' },
+      { kind: 'rect', x: 6, z: 34, width: 88, depth: 56, fill: '#c6bfae', layer: 'over' },
+      { kind: 'rect', x: 130, z: 30, width: 80, depth: 70, fill: '#9fb37c', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+      { kind: 'rect', x: 141, z: -70, width: 58, depth: 40, fill: '#cfc0a2', layer: 'over' },
+      { kind: 'line', from: { x: 26, z: -50 }, to: { x: 84, z: -50 }, stroke: '#b8453a', width: 5, layer: 'over' },
+    ],
+    hasGuide: false, build: buildToaPayohScene, move: toaPayohMovement.move, canOccupy: toaPayohMovement.canOccupy,
   },
   orchard: {
     id: 'orchard', name: 'Orchard Road', shortName: 'Orchard', modeName: 'Orchard 3D', modeSubtitle: 'Walk the shopping belt',
