@@ -47,6 +47,8 @@ export const WORLD_ZONES: readonly WorldZone[] = [
     risk: 'low', lootTier: 1, botCount: 3, composition: 'assault', encounterSpawns: [{ x: 10, z: -14 }, { x: 10, z: -75 }, { x: -90, z: -75 }, { x: 110, z: -92 }, { x: -90, z: -20 }, { x: 110, z: 50 }] },
   { id: 'jurong-lake', name: 'Jurong Lake', description: 'Open shoreline and a single causeway; the island is a hard place to leave.', spawn: { x: -20, z: 20, yaw: Math.PI / 2, pitch: 0 },
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: -142, z: 50 }, { x: -70, z: 20 }, { x: -18, z: 60 }, { x: 65, z: -10 }, { x: 170, z: -20 }, { x: -60, z: -160 }] },
+  { id: 'upper-thomson', name: 'Upper Thomson', description: 'A thin eating strip with the reservoir forest behind it; cover runs out at the causeway.', spawn: { x: -50, z: -12, yaw: Math.PI / 2, pitch: 0 },
+    risk: 'low', lootTier: 1, botCount: 3, composition: 'assault', encounterSpawns: [{ x: -50, z: -14 }, { x: -92, z: -46 }, { x: 85, z: -14 }, { x: -190, z: 5 }, { x: -162, z: -64 }, { x: 192, z: 60 }] },
   { id: 'orchard', name: 'Orchard Road', description: 'Wide boulevard and mall forecourts; long sightlines beneath the rain trees.', spawn: { x: 30, z: 5, yaw: Math.PI / 2, pitch: 0 },
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: -8, z: 5 }, { x: -115, z: -18 }, { x: -24, z: 22 }, { x: 117, z: -20 }, { x: 205, z: 60 }, { x: -170, z: 5 }] },
   { id: 'changi', name: 'Changi', description: 'Long apron sightlines outside; tight terraces and walkways under the dome.', spawn: { x: 16, z: -11, yaw: 1.31, pitch: 0 },
@@ -70,6 +72,8 @@ export const WORLD_GATEWAYS: readonly WorldGateway[] = [
   { id: 'kampong-glam-to-changi', from: 'kampong-glam', to: 'changi', name: 'Changi checkpoint', position: { x: 0, z: 175 }, radius: 4, arrival: { x: -243, z: -30, yaw: -Math.PI / 2, pitch: 0 } },
   { id: 'chinatown-to-orchard', from: 'chinatown', to: 'orchard', name: 'Orchard checkpoint', position: { x: -100, z: -180 }, radius: 4, arrival: { x: -223, z: 5, yaw: -Math.PI / 2, pitch: 0 } },
   { id: 'orchard-to-chinatown', from: 'orchard', to: 'chinatown', name: 'Chinatown checkpoint', position: { x: -235, z: 5 }, radius: 4, arrival: { x: -100, z: -168, yaw: Math.PI, pitch: 0 } },
+  { id: 'orchard-to-upper-thomson', from: 'orchard', to: 'upper-thomson', name: 'Upper Thomson checkpoint', position: { x: 235, z: 5 }, radius: 4, arrival: { x: -223, z: 5, yaw: -Math.PI / 2, pitch: 0 } },
+  { id: 'upper-thomson-to-orchard', from: 'upper-thomson', to: 'orchard', name: 'Orchard checkpoint', position: { x: -235, z: 5 }, radius: 4, arrival: { x: 223, z: 5, yaw: Math.PI / 2, pitch: 0 } },
   { id: 'changi-to-kampong-glam', from: 'changi', to: 'kampong-glam', name: 'Kampong Glam checkpoint', position: { x: -255, z: -30 }, radius: 4, arrival: { x: 0, z: 163, yaw: 0, pitch: 0 } },
 ];
 

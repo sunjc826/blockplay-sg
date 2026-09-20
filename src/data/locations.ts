@@ -77,6 +77,17 @@ export const locations = [
     ],
   },
   {
+    id: 'upper-thomson', name: 'Upper Thomson', subtitle: 'Kopi, then the forest', district: 'NORTH-CENTRAL',
+    description: 'A low-rise eating strip under zinc awnings, with a reservoir causeway, a pile boardwalk and a suspension bridge through the canopy behind it. Authored and compressed for play.',
+    lat: 1.3540, lng: 103.8340, heading: 200, color: '#8fae8a', block: 2,
+    tags: ['Eating strip', 'Reservoir forest'],
+    viewpoints: [
+      { label: 'Thomson shops', lat: 1.3540, lng: 103.8340, heading: 200 },
+      { label: 'Reservoir edge', lat: 1.3480, lng: 103.8230, heading: 90 },
+      { label: 'Springleaf', lat: 1.3970, lng: 103.8180, heading: 0 },
+    ],
+  },
+  {
     id: 'orchard', name: 'Orchard Road', subtitle: 'The shopping belt', district: 'CENTRAL',
     description: 'A planted median under rain trees, a faceted glass mall at the junction and a peranakan side lane. An authored low-poly boulevard, compressed for play.',
     lat: 1.3040, lng: 103.8320, heading: 90, color: '#c9a9b8', block: 2,

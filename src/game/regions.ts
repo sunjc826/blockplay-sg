@@ -11,8 +11,9 @@ import { buildChinatownScene, CHINATOWN_BOUNDS, CHINATOWN_MAP_ROADS, CHINATOWN_S
 import { buildKampongGlamScene, KAMPONG_GLAM_BOUNDS, KAMPONG_GLAM_MAP_ROADS, KAMPONG_GLAM_SPAWN } from './kampong-glam-scene';
 import { buildJurongLakeScene, JURONG_LAKE_BOUNDS, JURONG_LAKE_MAP_ROADS, JURONG_LAKE_SPAWN } from './jurong-lake-scene';
 import { buildChangiScene, CHANGI_BOUNDS, CHANGI_MAP_ROADS, CHANGI_SPAWN } from './changi-scene';
+import { buildUpperThomsonScene, UPPER_THOMSON_BOUNDS, UPPER_THOMSON_MAP_ROADS, UPPER_THOMSON_SPAWN } from './upper-thomson-scene';
 import { buildOrchardScene, ORCHARD_BOUNDS, ORCHARD_MAP_ROADS, ORCHARD_SPAWN } from './orchard-scene';
-import { CHANGI_STAMPS, CHINATOWN_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS } from '../data/region-stamps.ts';
+import { CHANGI_STAMPS, CHINATOWN_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -73,6 +74,7 @@ const chinatownMovement = createRegionMovement(CHINATOWN_BOUNDS);
 const kampongGlamMovement = createRegionMovement(KAMPONG_GLAM_BOUNDS);
 const jurongLakeMovement = createRegionMovement(JURONG_LAKE_BOUNDS);
 const changiMovement = createRegionMovement(CHANGI_BOUNDS);
+const upperThomsonMovement = createRegionMovement(UPPER_THOMSON_BOUNDS);
 const orchardMovement = createRegionMovement(ORCHARD_BOUNDS);
 
 const definitions: Record<RegionId, RegionDefinition> = {
@@ -184,6 +186,23 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'rect', x: -262, z: -90, width: 60, depth: 240, fill: '#9cba7f', layer: 'over' },
     ],
     hasGuide: false, build: buildChangiScene, move: changiMovement.move, canOccupy: changiMovement.canOccupy,
+  },
+  'upper-thomson': {
+    id: 'upper-thomson', name: 'Upper Thomson', shortName: 'Thomson', modeName: 'Thomson 3D', modeSubtitle: 'Eating strip and reservoir',
+    className: 'upper-thomson-game', badge: 'UPPER THOMSON · GAME WORLD', title: 'Upper Thomson · strip & reservoir',
+    subtitle: 'Low-poly game map · authored shop row, causeway and canopy bridge', mapTitle: 'STRIP & RESERVOIR',
+    stampNoun: 'Thomson stamps', exploreNoun: 'the strip and the reservoir', cameraFar: 1500,
+    spawn: UPPER_THOMSON_SPAWN, stamps: UPPER_THOMSON_STAMPS, bounds: UPPER_THOMSON_BOUNDS, mapRoads: UPPER_THOMSON_MAP_ROADS,
+    mapPaper: '#d5ddcd', roadStroke: '#8f968c', roadWidth: 14,
+    decor: [
+      { kind: 'rect', x: -215, z: -120, width: 47, depth: 106, fill: '#6f9fae', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: -215, z: 14, width: 47, depth: 106, fill: '#6f9fae', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: -158, z: -136, width: 26, depth: 272, fill: '#6f9457', layer: 'over', fpsFill: '#33512f', fpsLayer: 'over' },
+      { kind: 'rect', x: 41, z: -118, width: 88, depth: 96, fill: '#c3bcab', layer: 'over' },
+      { kind: 'rect', x: 169, z: -150, width: 46, depth: 300, fill: '#9fb37c', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+      { kind: 'line', from: { x: -146, z: -70 }, to: { x: -146, z: 70 }, stroke: '#d8cfb6', width: 5, layer: 'over' },
+    ],
+    hasGuide: false, build: buildUpperThomsonScene, move: upperThomsonMovement.move, canOccupy: upperThomsonMovement.canOccupy,
   },
   orchard: {
     id: 'orchard', name: 'Orchard Road', shortName: 'Orchard', modeName: 'Orchard 3D', modeSubtitle: 'Walk the shopping belt',

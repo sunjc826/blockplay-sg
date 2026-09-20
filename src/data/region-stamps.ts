@@ -82,6 +82,20 @@ export const JURONG_LAKE_STAMPS = [
   { name: 'Jurong green', x: -60, z: -160 },
 ];
 
+export const UPPER_THOMSON_STAMPS = [
+  { name: 'Thomson shop row', x: -50, z: -14 },
+  { name: 'Coffee shop corner', x: -92, z: -46 },
+  { name: 'Thomson Plaza forecourt', x: 85, z: -14 },
+  { name: 'Reservoir causeway', x: -190, z: 5 },
+  { name: 'Boardwalk jetty', x: -162, z: -64 },
+  { name: 'Treetop bridge', x: -146, z: -40 },
+  { name: 'Forest trailhead', x: -128, z: 40 },
+  { name: 'Upper Thomson station', x: 85, z: 36 },
+  { name: 'Landed terrace', x: -50, z: 22 },
+  { name: 'Thomson bus bay', x: 150, z: -40 },
+  { name: 'Springleaf green', x: 192, z: 60 },
+];
+
 export const ORCHARD_STAMPS = [
   { name: 'Orchard crossing', x: -8, z: 5 },
   { name: 'ION frontage', x: -115, z: -18 },
