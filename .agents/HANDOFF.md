@@ -1,5 +1,50 @@
 # Blockplay: portable agent handoff
 
+**Latest: sectors, piloted on HarbourFront (2026-09-20).** A district has until
+now been one uniform tactical unit: `risk`, `lootTier`, `botCount` and the loot
+rules are per-district scalars, and the six `encounterSpawns` do double duty as
+bot spawns and loot anchors (`fps-engine.ts:127`). So a map had no interior
+structure any system could read, even though every zone description already
+names two or three places in prose. `src/game/zone-sectors.ts` is that structure:
+named sub-areas with bounds, a cover character, loot and patrol weights, a tier
+bias and curated anchors.
+
+Data only so far — nothing consumes it yet. The consumers are loot allocation
+(weight the `kinds` array across sectors, which needs its own RNG stream or it
+breaks the existing "contents and positions are separate streams" guarantee),
+patrol seeding in `createArena`, minimap tinting via the existing `decor`
+rects, and a sector-name callout on crossing.
+
+Sectors live in their own module rather than in the scene files, for the reason
+the zone spawns do: `world-zones.ts` and `zone-sectors.ts` stay free of three.js,
+and the test builds the real scene so a geometry change cannot silently wall a
+sector off.
+
+Two things worth keeping. **Cover labels must be measured, not eyeballed** —
+`measureSectorCover` samples usable cover (anything under 1.5 m is a lamp post,
+not cover) and `coverFor` bands it; the test holds every declared label to it.
+Three of nine hand-written labels were wrong, including Keppel wharf, which was
+declared `dense` on the strength of its gantries and measures **4% solid**. That
+is a real finding, not a naming slip: the zone description promises "the wharf
+end has cover" and the geometry does not deliver it. The fix is deepening the
+container stack, not a kinder label. **Telok Blangah green measures 0% usable
+cover** — four tree trunks — so arriving from the Queenstown checkpoint means
+arriving in the open.
+
+HarbourFront now reads 2 dense / 2 broken / 5 open, which is coherent with its
+`risk: high` rating: it is dangerous because there is nowhere to hide, not
+because it is crowded.
+
+353 unit tests (+6) and typecheck pass; build not re-run as nothing touched the
+Vite config, entrypoints or worker, and browser/FPS smokes still not run here.
+
+**Note on the branch.** `CLAUDE.md` says to commit straight to `main`, but
+`origin/main` is 25 commits behind this branch and does not contain
+`harbourfront-scene.ts` — sixteen of the nineteen districts, and the CLAUDE.md
+workflow note itself, exist only here. Pushing this to `main` would not compile.
+`main` can fast-forward cleanly (no divergence), but that deploys 25 commits, so
+it is the owner's call.
+
 **Latest: Bukit Timah and Bishan (2026-09-20).** Nineteen districts, 209
 stamps. These close the two thin regions the last coverage pass left: the
 north-west and the north-east belt. One district each rather than one per town
