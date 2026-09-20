@@ -78,7 +78,7 @@ FPS engine, arena and expedition cannot drift apart.
 *Files:* `fps-rules.ts`, `armory-state.ts`, new `fps-ballistics.ts`.
 *Risk:* low. *Feelable:* no, by design.
 
-### Phase 1 — Range matters
+### Phase 1 — Range matters *(landed)*
 
 Wire ballistics into the solo path only: drills and expedition, arena still
 instant. Add damage falloff (`hit.distance` is already in hand) and hit zones
@@ -95,7 +95,7 @@ This is the first phase a player feels, and it needs no new art.
 *Files:* `fps-engine.ts`, `fps-ballistics.ts`, `armory-catalog.ts`.
 *Risk:* medium. *Feelable:* yes.
 
-### Phase 1b — Pilot compensation
+### Phase 1b — Pilot compensation *(landed)*
 
 `PilotContact` gains target range and an aim-point offset so the bot leads and
 compensates for drop. Ships with Phase 1, not after it.

@@ -19,10 +19,14 @@ export function parsePilotObservation(value: unknown): PilotObservation | null {
     typeof o.lootPrompt !== 'string' || o.lootPrompt.length > 180 || typeof o.travelPrompt !== 'string' || o.travelPrompt.length > 180 ||
     !Array.isArray(o.contacts) || o.contacts.length > 20 || !Array.isArray(o.waypoints) || o.waypoints.length > 40) return null;
   const id = (v: unknown) => typeof v === 'string' && v.length > 0 && v.length <= 100;
-  if (!o.contacts.every(c => c && id(c.id) && finite(c.yawError) && finite(c.pitchError) && finite(c.angularRadius)) ||
+  if (!o.ballistics || typeof o.ballistics !== 'object' || !finite(o.ballistics.drop) || o.ballistics.drop < 0 ||
+    !o.contacts.every(c => c && id(c.id) && finite(c.yawError) && finite(c.pitchError) && finite(c.angularRadius) && finite(c.distance)) ||
     !o.waypoints.every(w => w && id(w.id) && finite(w.x) && finite(w.z) && ['medical', 'ammo', 'armor', 'weapon', 'checkpoint', 'target'].includes(w.kind))) return null;
   return { time: o.time, alive: o.alive, health: o.health, maxHealth: o.maxHealth, armor: o.armor, magazine: o.magazine, reserve: o.reserve,
     reloading: o.reloading, aiming: o.aiming, weapon: o.weapon, position: { x: o.position.x, z: o.position.z }, yaw: o.yaw, pitch: o.pitch,
-    contacts: o.contacts.map(c => ({ id: c.id, yawError: c.yawError, pitchError: c.pitchError, angularRadius: c.angularRadius })),
+    // JSON carries no Infinity, so a hitscan velocity arrives as null over the
+    // wire. Anything that is not a finite speed means instant, not malformed.
+    ballistics: { velocity: finite(o.ballistics.velocity) ? o.ballistics.velocity : Infinity, drop: o.ballistics.drop },
+    contacts: o.contacts.map(c => ({ id: c.id, yawError: c.yawError, pitchError: c.pitchError, angularRadius: c.angularRadius, distance: c.distance })),
     waypoints: o.waypoints.map(w => ({ id: w.id, x: w.x, z: w.z, kind: w.kind })), lootPrompt: o.lootPrompt, travelPrompt: o.travelPrompt };
 }

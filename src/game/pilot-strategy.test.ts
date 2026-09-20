@@ -2,8 +2,9 @@ import { expect, it, vi } from 'vitest';
 import { createStrategyPlanner, llmPilotStrategy } from './pilot-strategy';
 import { parsePilotObservation, validPilotPlan, type PilotPlan } from './pilot-strategy-contract';
 import type { PilotObservation } from './fps-pilot';
+import { HITSCAN } from './fps-ballistics';
 const observation: PilotObservation = { time: 1, alive: true, health: 100, maxHealth: 100, armor: 0, magazine: 30, reserve: 120, weapon: 0,
-  reloading: false, aiming: false, position: { x: 0, z: 0 }, yaw: 0, pitch: 0, contacts: [], waypoints: [], lootPrompt: '', travelPrompt: '' };
+  reloading: false, aiming: false, position: { x: 0, z: 0 }, yaw: 0, pitch: 0, contacts: [], waypoints: [], lootPrompt: '', travelPrompt: '', ballistics: HITSCAN };
 const plan: PilotPlan = { goal: 'explore', waypointId: null, summary: 'Scout for supplies' };
 const flush = async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); };
 it('uses local planning while a strategy is pending, throttles calls and cancels stale replies', async () => {
@@ -25,7 +26,7 @@ it('falls back after service errors and rejects invented waypoints', async () =>
   planner.reset();
 });
 it('whitelists observations and keeps private actor fields out of model input', () => {
-  const parsed = parsePilotObservation({ ...observation, arena: { actors: ['hidden'] }, contacts: [{ id: 'seen', yawError: 0, pitchError: 0, angularRadius: .1, health: 90, x: 12 }] });
+  const parsed = parsePilotObservation({ ...observation, arena: { actors: ['hidden'] }, contacts: [{ id: 'seen', yawError: 0, pitchError: 0, angularRadius: .1, distance: 30, health: 90, x: 12 }] });
   expect(parsed).not.toHaveProperty('arena'); expect(parsed?.contacts[0]).not.toHaveProperty('health'); expect(parsed?.contacts[0]).not.toHaveProperty('x');
   expect(parsePilotObservation({ ...observation, health: Infinity })).toBeNull();
   expect(parsePilotObservation({ ...observation, waypoints: [null] })).toBeNull();
@@ -49,4 +50,21 @@ it('discards plans for waypoints removed while the request was in flight and cle
   planner.chooseGoal(observation);
   expect(planner.preferredWaypoint?.()).toBeNull(); expect(planner.status()).toContain('finished or expired');
   planner.reset();
+});
+
+it('carries contact range and ballistics through the observation whitelist', () => {
+  // The whitelist drops unknown fields silently, so a compensation input that is
+  // not copied here would leave the bot aiming straight with no error anywhere.
+  const parsed = parsePilotObservation({ ...observation, ballistics: { velocity: 350, drop: 25 },
+    contacts: [{ id: 'a', yawError: .1, pitchError: -.2, angularRadius: .02, distance: 44 }] });
+  expect(parsed?.contacts[0].distance).toBe(44);
+  expect(parsed?.ballistics).toEqual({ velocity: 350, drop: 25 });
+  // Infinity does not survive JSON, so a hitscan spec arrives as null and must
+  // come back as instant rather than being rejected as malformed.
+  const overWire = JSON.parse(JSON.stringify({ ...observation, ballistics: { velocity: Infinity, drop: 0 } }));
+  expect(overWire.ballistics.velocity).toBeNull();
+  expect(parsePilotObservation(overWire)?.ballistics.velocity).toBe(Infinity);
+  expect(parsePilotObservation({ ...observation, ballistics: { velocity: 350, drop: -1 } })).toBeNull();
+  expect(parsePilotObservation({ ...observation, ballistics: undefined })).toBeNull();
+  expect(parsePilotObservation({ ...observation, contacts: [{ id: 'a', yawError: 0, pitchError: 0, angularRadius: .02 }] })).toBeNull();
 });

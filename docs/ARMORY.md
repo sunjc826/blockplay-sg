@@ -64,6 +64,41 @@ Arena damage stays host-authoritative and unchanged: zones and falloff apply to
 drills and expedition only until the arena resolves shots per tick. See
 [the armory roadmap](ARMORY-ROADMAP.md).
 
+## Travelling rounds
+
+A weapon's `ballistics` gives a muzzle velocity and a downward acceleration.
+Hitscan is the degenerate case, not a separate path: infinite velocity and no
+drop collapse the arc to the single straight segment the engine has always
+raycast, and an instant weapon never enters the in-flight list, so a hitscan
+loadout costs exactly the one raycast it always did.
+
+Anything with a finite velocity is stepped per frame and raycast segment by
+segment, so it can be blocked in mid-air and arrives late. Falloff reads the
+whole arc a round travelled rather than its final segment. Rounds in flight are
+capped, and they share one batched draw rather than an object each.
+
+| Weapon | Muzzle velocity | Drop |
+| --- | --- | --- |
+| Issued and Field variants | instant | none |
+| SAR 21 · Marksman | 620 u/s | 9 u/s² |
+| Ultimax · Bastion | 520 u/s | 12 u/s² |
+
+At drill ranges the elite variants' travel time is a few hundredths of a second
+and their drop is under a centimetre, so they stay a straight upgrade there; the
+hold-over only becomes real across an expedition district. Velocity and drop are
+catalog values: setting a variant's velocity back to `Infinity` makes it purely
+instant again.
+
+The AI pilot compensates. `PilotContact` carries the range to a target and the
+observation carries the equipped ballistics, so the controller holds over by the
+drop at that range and tests its firing gate against the compensated error
+rather than the raw one. Both fields pass through the strategy whitelist, which
+copies fields explicitly; a hitscan velocity survives JSON as `null` and is
+restored to instant rather than rejected. With no drop the hold-over is zero and
+the pilot behaves exactly as before.
+
+Arena shots stay instant and host-authoritative.
+
 ## Armor and counter-fire
 
 The rig slot supplies reserve capacity; the insert slot supplies armor points and absorption. Enhanced LBS adds 60 reserve rounds per weapon at a 2% movement cost; Sentinel adds 90 without a movement penalty. A bare ILBV-inspired carrying rig has zero armor points.

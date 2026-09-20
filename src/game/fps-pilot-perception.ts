@@ -27,7 +27,7 @@ export function visiblePilotContacts(camera: THREE.PerspectiveCamera, scene: THR
       const hit = ray.intersectObjects(surfaces, false)[0];
       if (!hit || !belongsTo(hit.object, subject.root)) continue;
       local.copy(point).applyMatrix4(camera.matrixWorldInverse);
-      contacts.push({ id: subject.id, yawError: Math.atan2(-local.x, -local.z), pitchError: Math.atan2(local.y, Math.hypot(local.x, local.z)), angularRadius: Math.atan(subject.radius / distance) });
+      contacts.push({ id: subject.id, yawError: Math.atan2(-local.x, -local.z), pitchError: Math.atan2(local.y, Math.hypot(local.x, local.z)), angularRadius: Math.atan(subject.radius / distance), distance });
       break;
     }
   }

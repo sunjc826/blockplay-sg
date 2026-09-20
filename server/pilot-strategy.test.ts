@@ -3,7 +3,7 @@ import { Readable } from 'node:stream';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createAdventureHandler } from './adventure-api';
 const observation = { time: 1, alive: true, health: 40, maxHealth: 100, armor: 0, magazine: 30, reserve: 120, weapon: 0,
-  reloading: false, aiming: false, position: { x: 0, z: 0 }, yaw: 0, pitch: 0, contacts: [], waypoints: [{ id: 'med', kind: 'medical', x: 5, z: 0 }], lootPrompt: '', travelPrompt: '' };
+  reloading: false, aiming: false, position: { x: 0, z: 0 }, yaw: 0, pitch: 0, contacts: [], waypoints: [{ id: 'med', kind: 'medical', x: 5, z: 0 }], lootPrompt: '', travelPrompt: '', ballistics: { velocity: Infinity, drop: 0 } };
 async function call(body: unknown, fetcher: typeof fetch) {
   let status = 0, text = '';
   const request = Object.assign(Readable.from([JSON.stringify(body)]), { method: 'POST', url: '/api/adventure/pilot-plan', headers: { origin: 'http://localhost:5173', 'content-type': 'application/json' } });

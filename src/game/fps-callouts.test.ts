@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { createEncikRadio } from './fps-callouts';
 import { createPlayerPilot, normalizePilotAction, type PilotObservation } from './fps-pilot';
+import { HITSCAN } from './fps-ballistics';
 it('throttles frame-rate events, prioritizes urgent calls and expires subtitles without a queue', () => {
   const radio = createEncikRadio(() => 0);
   expect(radio.emit('moving', 0)?.event).toBe('moving');
@@ -28,8 +29,8 @@ it('allows escalating kill chains and death to interrupt routine radio traffic',
   expect(radio.emit('death', 3.1)?.event).toBe('death');
 });
 it('lets the pilot request observable contact and stuck callouts through bounded actions', () => {
-  const o: PilotObservation = { time: 1, alive: true, health: 100, maxHealth: 100, armor: 0, magazine: 30, reserve: 120, weapon: 0, reloading: false, aiming: false, position: { x: 0, z: 0 }, yaw: 0, pitch: 0, contacts: [], waypoints: [], lootPrompt: '', travelPrompt: '' };
-  expect(createPlayerPilot().decide({ ...o, contacts: [{ id: 'seen', yawError: 0, pitchError: 0, angularRadius: .1 }] }).action.callout).toBe('contact');
+  const o: PilotObservation = { time: 1, alive: true, health: 100, maxHealth: 100, armor: 0, magazine: 30, reserve: 120, weapon: 0, reloading: false, aiming: false, position: { x: 0, z: 0 }, yaw: 0, pitch: 0, contacts: [], waypoints: [], lootPrompt: '', travelPrompt: '', ballistics: HITSCAN };
+  expect(createPlayerPilot().decide({ ...o, contacts: [{ id: 'seen', yawError: 0, pitchError: 0, angularRadius: .1, distance: 20 }] }).action.callout).toBe('contact');
   const pilot = createPlayerPilot(); let action;
   for (let i = 0; i < 12; i++) action = pilot.decide({ ...o, time: 1 + i * .1 }).action;
   expect(action?.callout).toBe('stuck');

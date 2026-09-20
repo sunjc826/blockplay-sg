@@ -9,7 +9,9 @@ it('only exposes on-screen, unobstructed contacts, with no world coordinates or 
   const subject = { id: 'visible', root: target, points: [new THREE.Vector3(0, 0, -12)], radius: .3 };
   const observe = () => visiblePilotContacts(camera, scene, [subject]);
   expect(observe()).toHaveLength(1);
-  expect(Object.keys(observe()[0]).sort()).toEqual(['angularRadius', 'id', 'pitchError', 'yawError']);
+  // Range is deliberate: without it a controller cannot compensate for drop.
+  // World coordinates and actor stats still stop at the sensor.
+  expect(Object.keys(observe()[0]).sort()).toEqual(['angularRadius', 'distance', 'id', 'pitchError', 'yawError']);
   const wall = new THREE.Mesh(new THREE.BoxGeometry(4, 4, .5), material); wall.position.z = -6; scene.add(wall);
   expect(observe()).toEqual([]);
   wall.visible = false; expect(observe()).toHaveLength(1);

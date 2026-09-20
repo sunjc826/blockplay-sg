@@ -1,6 +1,9 @@
 /** Controller contract: no scene objects, authoritative actors, or hidden coordinates. */
+import { dropCompensation, type BallisticSpec } from './fps-ballistics';
 export type PilotGoal = 'engage' | 'resupply' | 'travel' | 'explore';
-export interface PilotContact { id: string; yawError: number; pitchError: number; angularRadius: number }
+/** `distance` is what lets a controller compensate for a round's drop; without it
+ * the sensor gives angles alone and the bot can only point straight at a target. */
+export interface PilotContact { id: string; yawError: number; pitchError: number; angularRadius: number; distance: number }
 export interface PilotWaypoint { id: string; x: number; z: number; kind: 'medical' | 'ammo' | 'armor' | 'weapon' | 'checkpoint' | 'target' }
 export interface PilotObservation {
   time: number; alive: boolean; health: number; maxHealth: number; armor: number;
@@ -8,6 +11,8 @@ export interface PilotObservation {
   position: { x: number; z: number }; yaw: number; pitch: number;
   contacts: readonly PilotContact[]; waypoints: readonly PilotWaypoint[];
   lootPrompt: string; travelPrompt: string;
+  /** The equipped weapon's ballistics, so the controller can work out its own hold-over. */
+  ballistics: BallisticSpec;
 }
 export interface PilotAction {
   forward?: boolean; backward?: boolean; left?: boolean; right?: boolean;
@@ -78,10 +83,17 @@ export function createPlayerPilot(planner: PilotPlanner = localPilotPlanner): Pl
       lastSeenAt = o.time;
       if (target !== contact.id) { target = contact.id; seenSince = o.time; }
       const sensitivity = o.aiming ? .0013 : .0023;
-      const aligned = Math.hypot(contact.yawError, contact.pitchError) < Math.max(.004, Math.min(.025, contact.angularRadius * .65));
+      // Hold over by the round's drop at this range. A raised aim puts the target
+      // lower in view, so the error to null is the sighting error plus that angle,
+      // and the firing gate has to test the compensated error rather than the raw
+      // one: on a dropping round the two disagree by more than the gate's floor.
+      const holdOver = dropCompensation(contact.distance, o.ballistics);
+      const aimPitch = contact.pitchError + holdOver;
+      const error = Math.hypot(contact.yawError, aimPitch);
+      const aligned = error < Math.max(.004, Math.min(.025, contact.angularRadius * .65));
       return result('Engaging visible target', {
-        callout: 'contact', lookX: -contact.yawError / sensitivity * .7, lookY: -contact.pitchError / sensitivity * .7,
-        aim: o.time >= adsBlockedUntil && Math.hypot(contact.yawError, contact.pitchError) < (o.aiming ? .15 : .035), fire: aligned && o.time - seenSince >= .35,
+        callout: 'contact', lookX: -contact.yawError / sensitivity * .7, lookY: -aimPitch / sensitivity * .7,
+        aim: o.time >= adsBlockedUntil && error < (o.aiming ? .15 : .035), fire: aligned && o.time - seenSince >= .35,
       });
     }
     target = ''; // Never track an enemy once it leaves view.

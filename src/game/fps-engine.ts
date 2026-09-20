@@ -3,6 +3,7 @@ import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook } from './fp
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { advanceWeapon, beginReload, createLoadout, fireWeapon, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, type WeaponState } from './fps-rules';
 import { firstVisibleHit } from './fps-raycast';
+import { advanceRound, createRound, needsFlight, MAX_ROUNDS_IN_FLIGHT, type InFlightRound } from './fps-projectiles';
 import { applyArmorDamage, createProfile, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile } from './armory-state';
 import { registerElimination, ELIMINATION_XP, type KillChain } from './progression';
 import { createFpsVehicles } from './fps-vehicles';
@@ -120,6 +121,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const tracerGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
   const tracerMaterial = new THREE.LineBasicMaterial({ color: '#ffe8b0', transparent: true, opacity: 0.6 });
   const tracer = new THREE.Line(tracerGeometry, tracerMaterial); tracer.frustumCulled = false; tracer.visible = false; tracer.userData.fpsEffect = true; world.scene.add(tracer);
+  const roundTracerGeometry = new THREE.BufferGeometry();
+  roundTracerGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_ROUNDS_IN_FLIGHT * 6), 3));
+  roundTracerGeometry.setDrawRange(0, 0);
+  // One batched draw for every round in the air, rather than a line object each.
+  const roundTracers = new THREE.LineSegments(roundTracerGeometry, tracerMaterial);
+  roundTracers.frustumCulled = false; roundTracers.visible = false; roundTracers.userData.fpsEffect = true; world.scene.add(roundTracers);
   const impactGeometry = new THREE.SphereGeometry(0.05, 8, 6), impactMaterial = new THREE.MeshBasicMaterial({ color: '#f3ae59' });
   const impact = new THREE.Mesh(impactGeometry, impactMaterial); impact.visible = false; impact.userData.fpsEffect = true; world.scene.add(impact);
   const debugAvailable = !options.arena || options.arena.session.role === 'solo';
@@ -138,7 +145,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const healthGeometry = new THREE.PlaneGeometry(.54, .055), healthMaterial = new THREE.MeshBasicMaterial({ color: "#e1a74e", side: THREE.DoubleSide });
   let disposed = false, loadout = createLoadout(specs), position = { x: spawn.x, z: spawn.z };
   let yaw: number = spawn.yaw, pitch: number = spawn.pitch, vertical = 0, velocityY = 0;
-  let trigger = false, ads = false, touchAim = false, actualAim = false, kick = 0, bob = 0, flashTime = 0, hitTime = 0, effectTime = 0, impactActive = false;
+  let trigger = false, ads = false, touchAim = false, actualAim = false, kick = 0, bob = 0, flashTime = 0, hitTime = 0, effectTime = 0, tracerTime = 0, impactActive = false;
+  // Rounds still in the air. Instant weapons never enter this list, so a hitscan
+  // loadout costs exactly the single raycast it always did.
+  const rounds: InFlightRound[] = []; let roundSerial = 0;
+  const ROUND_RANGE = 180;
+  const roundRay = new THREE.Raycaster(), roundOrigin = new THREE.Vector3(), roundDirection = new THREE.Vector3();
   let strategyMode: 'local' | 'llm' = expedition?.checkpoint?.pilotStrategy ?? 'local';
   let strategicPlanner = strategyMode === 'llm' ? createStrategyPlanner(llmPilotStrategy()) : null;
   let pilot = options.playerPilot ?? createPlayerPilot(strategicPlanner ?? undefined);
@@ -287,10 +299,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     roundId = randomRoundId(); attackTimer = 3; pendingAttack = null; hurtTime = 0;
     if (document.pointerLockElement === canvas) document.exitPointerLock();
     vehicles.reset(); loadout = createLoadout(specs); position = { x: spawn.x, z: spawn.z }; yaw = spawn.yaw; pitch = spawn.pitch;
-    vertical = velocityY = kick = bob = hitTime = effectTime = flashTime = 0; clearInput();
+    vertical = velocityY = kick = bob = hitTime = effectTime = tracerTime = flashTime = 0; clearInput();
+    rounds.length = 0; roundTracerGeometry.setDrawRange(0, 0);
     aimProgress = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; });
     targets.forEach(t => { t.alive = true; t.root.visible = true; t.health = t.maxHealth; t.bar.scale.x = 1; });
-    flash.visible = tracer.visible = impact.visible = false; updateCameras(0, false, false); publish();
+    flash.visible = tracer.visible = impact.visible = roundTracers.visible = false; updateCameras(0, false, false); publish();
   }
   function interactVehicle() {
     if (hud.phase !== 'playing' || options.arena) return;
@@ -499,7 +512,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     return { time, alive: hud.arenaSelf?.alive !== false, health: hud.health, maxHealth: hud.maxHealth, armor: hud.armor,
       magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining > 0, aiming: actualAim, weapon: hud.weapon,
       position: { x: position.x, z: position.z }, yaw, pitch,
-      contacts: visiblePilotContacts(camera, world.scene, subjects, screenBlocked), waypoints,
+      contacts: visiblePilotContacts(camera, world.scene, subjects, screenBlocked), waypoints, ballistics: specs[hud.weapon].ballistics,
       lootPrompt: hud.lootPrompt, travelPrompt: hud.travelPrompt };
   }
   function updatePilot(time: number) {
@@ -568,6 +581,68 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.weaponVisible = String(rig.visible);
     viewScene.updateMatrixWorld(true);
   }
+  function gameplayCandidates() {
+    // Effects and the viewmodel never obstruct a gameplay ray.
+    return world.scene.children.filter(o => o !== tracer && o !== impact && !o.userData.fpsEffect);
+  }
+  function applyTargetDamage(hit: THREE.Intersection, weapon: number, range: number) {
+    const index = hit.object.userData.fpsTarget as number, target = targets[index];
+    if (!target?.alive) return;
+    // Falloff reads how far the round actually travelled, which for one in flight
+    // is its whole arc rather than the length of its final segment.
+    const damage = hitDamage(specs[weapon], range, hit.object.userData.fpsZone);
+    hud.landed++; hud.lastDamage = Math.min(target.health, damage); target.health = Math.max(0, target.health - damage);
+    target.bar.scale.x = target.health / target.maxHealth; hitTime = .20; hud.hitKind = target.health === 0 ? 'kill' : 'hit';
+    if (target.health > 0) return;
+    target.alive = false; target.root.visible = false; hud.hits++;
+    const chain = registerElimination(killChain, hud.elapsed); killChain = chain; hud.chain = chain.count;
+    hud.callout = chain.label; calloutTime = hud.callout ? 2.4 : 0; hud.earnedXp += ELIMINATION_XP;
+    options.onElimination?.(`${roundId}:kill:${hud.hits}`);
+    comms.add('kills', pilotEnabled ? 'AI pilot' : 'You', `Target ${index + 1} eliminated${chain.label ? ' · ' + chain.label : ''}.`);
+    announce(hud.callout, killChain.count);
+  }
+  function checkCompletion() {
+    if (options.arena || hud.phase === 'complete' || hud.hits !== targetPositions.length) return;
+    hud.phase = 'complete'; hud.incoming = false; clearInput(); radioCall('complete');
+    const reward = { id: roundId, hits: hud.hits, shots: hud.shots, landed: hud.landed, elapsed: hud.elapsed, combat: !!options.combat };
+    hud.earned = rewardAmount(reward); hud.earnedXp += completionXp(reward); options.onComplete?.(reward);
+    if (document.pointerLockElement === canvas) document.exitPointerLock();
+  }
+  function updateRoundTracers() {
+    const attr = roundTracerGeometry.getAttribute('position');
+    // A short streak behind each round, so a slow shot reads as travelling.
+    rounds.forEach((round, i) => {
+      const tail = Math.min(round.travelled, 2.5);
+      attr.setXYZ(i * 2, round.position.x - round.direction.x * tail, round.position.y - round.direction.y * tail, round.position.z - round.direction.z * tail);
+      attr.setXYZ(i * 2 + 1, round.position.x, round.position.y, round.position.z);
+    });
+    attr.needsUpdate = true; roundTracerGeometry.setDrawRange(0, rounds.length * 2);
+    roundTracers.visible = rounds.length > 0;
+  }
+  /** Steps every round still in the air and resolves whatever it reaches first. */
+  function advanceRounds(dt: number) {
+    if (!rounds.length) return;
+    world.scene.updateMatrixWorld(true);
+    const candidates = gameplayCandidates();
+    let struck = false;
+    for (let i = rounds.length - 1; i >= 0; i--) {
+      const round = rounds[i], step = advanceRound(round, dt, ROUND_RANGE);
+      if (step.distance > 1e-6) {
+        roundDirection.set(step.to.x - step.from.x, step.to.y - step.from.y, step.to.z - step.from.z).normalize();
+        roundRay.set(roundOrigin.set(step.from.x, step.from.y, step.from.z), roundDirection);
+        roundRay.near = 0; roundRay.far = step.distance;
+        const hit = firstVisibleHit(roundRay, candidates);
+        if (hit) {
+          if (typeof hit.object.userData.fpsTarget === 'number') applyTargetDamage(hit, round.weapon, round.travelled);
+          impact.position.copy(hit.point); impactActive = true; effectTime = .055;
+          rounds.splice(i, 1); struck = true; continue;
+        }
+      }
+      if (step.expired) rounds.splice(i, 1);
+    }
+    updateRoundTracers();
+    if (struck) { checkCompletion(); publish(); }
+  }
   function shoot() {
     if (vehicles.active || (options.arena && !hud.arenaSelf?.alive) || !fireWeapon(loadout[hud.weapon], hud.weapon, specs)) return;
     hud.shots++; shotSound();
@@ -576,40 +651,27 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     shotRight.set(1, 0, 0).applyQuaternion(camera.quaternion); shotUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
     ray.ray.direction.addScaledVector(shotRight, dispersion.x).addScaledVector(shotUp, dispersion.y).normalize();
     recordBloomShot(bloom[hud.weapon], hud.weapon);
-    // Effects/viewmodel never obstruct the gameplay ray.
-    const hit = firstVisibleHit(ray, world.scene.children.filter(o => o !== tracer && o !== impact && !o.userData.fpsEffect));
+    const muzzle = weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_muzzle`);
+    if (muzzle) { muzzle.getWorldPosition(muzzlePoint); camera.localToWorld(muzzlePoint); }
+    else muzzlePoint.copy(camera.position);
+    kick = Math.min(kick + specs[hud.weapon].recoil, 0.10); flashTime = 0.045; flash.visible = true;
+    // The arena host owns its own shot resolution and stays instant until it can
+    // step rounds per tick; everything else with a finite muzzle velocity flies.
+    if (!arenaRuntime && needsFlight(specs[hud.weapon].ballistics)) {
+      if (rounds.length < MAX_ROUNDS_IN_FLIGHT)
+        rounds.push(createRound(++roundSerial, hud.weapon, camera.position.clone(), ray.ray.direction.clone(), specs[hud.weapon].ballistics));
+      publish(); return;
+    }
+    const hit = firstVisibleHit(ray, gameplayCandidates());
     if (arenaRuntime) {
       let hitActor = false;
       for (let object: THREE.Object3D | null = hit?.object ?? null; object; object = object.parent) if (object.userData.arenaActorId) hitActor = true;
       arenaRuntime.shoot(camera.position, ray.ray.direction, hud.weapon, hit ? hit.distance + (hitActor ? 0.7 : 0) : 125);
-    } else if (hit && typeof hit.object.userData.fpsTarget === 'number') {
-      const target = targets[hit.object.userData.fpsTarget];
-      if (target.alive) {
-        const damage = hitDamage(specs[hud.weapon], hit.distance, hit.object.userData.fpsZone);
-        hud.landed++; hud.lastDamage = Math.min(target.health, damage); target.health = Math.max(0, target.health - damage);
-        target.bar.scale.x = target.health / target.maxHealth; hitTime = .20; hud.hitKind = target.health === 0 ? 'kill' : 'hit';
-        if (target.health === 0) { target.alive = false; target.root.visible = false; hud.hits++;
-          const chain = registerElimination(killChain, hud.elapsed); killChain = chain; hud.chain = chain.count;
-          hud.callout = chain.label;
-          calloutTime = hud.callout ? 2.4 : 0; hud.earnedXp += ELIMINATION_XP;
-          options.onElimination?.(`${roundId}:kill:${hud.hits}`);
-          comms.add('kills', pilotEnabled ? 'AI pilot' : 'You', `Target ${hit.object.userData.fpsTarget + 1} eliminated${chain.label ? ' · ' + chain.label : ''}.`);
-          announce(hud.callout, killChain.count); }
-      }
-    }
+    } else if (hit && typeof hit.object.userData.fpsTarget === 'number') applyTargetDamage(hit, hud.weapon, hit.distance);
     const end = hit?.point ?? ray.ray.at(180, new THREE.Vector3());
-    const muzzle = weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_muzzle`);
-    if (muzzle) { muzzle.getWorldPosition(muzzlePoint); camera.localToWorld(muzzlePoint); }
-    else muzzlePoint.copy(camera.position);
     const attr = tracerGeometry.getAttribute('position'); attr.setXYZ(0, muzzlePoint.x, muzzlePoint.y, muzzlePoint.z); attr.setXYZ(1, end.x, end.y, end.z); attr.needsUpdate = true;
-    tracer.visible = true; impactActive = !!hit; impact.visible = impactActive; impact.position.copy(end); effectTime = 0.055;
-    kick = Math.min(kick + specs[hud.weapon].recoil, 0.10); flashTime = 0.045; flash.visible = true;
-    if (!options.arena && hud.hits === targetPositions.length) {
-      hud.phase = 'complete'; hud.incoming = false; clearInput(); radioCall('complete');
-      const reward = { id: roundId, hits: hud.hits, shots: hud.shots, landed: hud.landed, elapsed: hud.elapsed, combat: !!options.combat };
-      hud.earned = rewardAmount(reward); hud.earnedXp += completionXp(reward); options.onComplete?.(reward);
-      if (document.pointerLockElement === canvas) document.exitPointerLock();
-    }
+    tracerTime = 0.055; impactActive = !!hit; impact.position.copy(end); effectTime = 0.055;
+    checkCompletion();
     publish();
   }
 
@@ -756,8 +818,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     if (expedition) { updateExpeditionPrompts(); lootNoticeTime = Math.max(0, lootNoticeTime - realDt); if (!lootNoticeTime) hud.lootNotice = ''; }
     hurtTime = Math.max(0, hurtTime - dt); hud.hurt = hurtTime > 0;
-    hitTime = Math.max(0, hitTime - dt); flashTime = Math.max(0, flashTime - dt); effectTime = Math.max(0, effectTime - dt);
-    flash.visible = flashTime > 0; tracer.visible = effectTime > 0; impact.visible = effectTime > 0 && impactActive;
+    hitTime = Math.max(0, hitTime - dt); flashTime = Math.max(0, flashTime - dt); effectTime = Math.max(0, effectTime - dt); tracerTime = Math.max(0, tracerTime - dt);
+    advanceRounds(realDt);
+    flash.visible = flashTime > 0; tracer.visible = tracerTime > 0; impact.visible = effectTime > 0 && impactActive;
     if (motor && motorGain && audio) {
       const active = hud.phase === 'playing' && vehicles.mounted && !hud.muted;
       motorGain.gain.setTargetAtTime(active ? .035 : 0, audio.currentTime, .08);
@@ -840,7 +903,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility);
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); world.dispose();
       healthGeometry.dispose(); healthMaterial.dispose();
-      targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); flashGeometry.dispose(); flashMaterial.dispose(); tracerGeometry.dispose(); tracerMaterial.dispose(); impactGeometry.dispose(); impactMaterial.dispose();
+      targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); roundTracerGeometry.dispose(); flashGeometry.dispose(); flashMaterial.dispose(); tracerGeometry.dispose(); tracerMaterial.dispose(); impactGeometry.dispose(); impactMaterial.dispose();
       scopeRenderer.dispose(); renderer.dispose(); canvas.remove();
     },
   };
