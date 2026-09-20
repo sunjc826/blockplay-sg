@@ -132,6 +132,17 @@ export const locations = [
     ],
   },
   {
+    id: 'tuas', name: 'Tuas', subtitle: 'Where the island runs out', district: 'FAR WEST',
+    description: 'A tank farm behind its bunds, a process plant of columns and pipe racks under a flare, a dry dock with a hull in it, and automated container stacks along the strait. Authored and compressed for play.',
+    lat: 1.3210, lng: 103.6360, heading: 250, color: '#9aa7ab', block: 1,
+    tags: ['Heavy industry', 'Container wharf'],
+    viewpoints: [
+      { label: 'Tuas Road', lat: 1.3210, lng: 103.6360, heading: 250 },
+      { label: 'Tuas South', lat: 1.2960, lng: 103.6300, heading: 180 },
+      { label: 'Tuas Link', lat: 1.3405, lng: 103.6367, heading: 20 },
+    ],
+  },
+  {
     id: 'orchard', name: 'Orchard Road', subtitle: 'The shopping belt', district: 'CENTRAL',
     description: 'A planted median under rain trees, a faceted glass mall at the junction and a peranakan side lane. An authored low-poly boulevard, compressed for play.',
     lat: 1.3040, lng: 103.8320, heading: 90, color: '#c9a9b8', block: 2,

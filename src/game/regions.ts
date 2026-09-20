@@ -16,8 +16,9 @@ import { buildPunggolScene, PUNGGOL_BOUNDS, PUNGGOL_MAP_ROADS, PUNGGOL_SPAWN } f
 import { buildHarbourfrontScene, HARBOURFRONT_BOUNDS, HARBOURFRONT_MAP_ROADS, HARBOURFRONT_SPAWN } from './harbourfront-scene';
 import { buildSentosaScene, SENTOSA_BOUNDS, SENTOSA_MAP_ROADS, SENTOSA_SPAWN } from './sentosa-scene';
 import { buildGeylangScene, GEYLANG_BOUNDS, GEYLANG_MAP_ROADS, GEYLANG_SPAWN } from './geylang-scene';
+import { buildTuasScene, TUAS_BOUNDS, TUAS_MAP_ROADS, TUAS_SPAWN } from './tuas-scene';
 import { buildOrchardScene, ORCHARD_BOUNDS, ORCHARD_MAP_ROADS, ORCHARD_SPAWN } from './orchard-scene';
-import { CHANGI_STAMPS, CHINATOWN_STAMPS, GEYLANG_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
+import { CHANGI_STAMPS, CHINATOWN_STAMPS, GEYLANG_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, TUAS_STAMPS, UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -83,6 +84,7 @@ const punggolMovement = createRegionMovement(PUNGGOL_BOUNDS);
 const harbourfrontMovement = createRegionMovement(HARBOURFRONT_BOUNDS);
 const sentosaMovement = createRegionMovement(SENTOSA_BOUNDS);
 const geylangMovement = createRegionMovement(GEYLANG_BOUNDS);
+const tuasMovement = createRegionMovement(TUAS_BOUNDS);
 const orchardMovement = createRegionMovement(ORCHARD_BOUNDS);
 
 const definitions: Record<RegionId, RegionDefinition> = {
@@ -286,6 +288,26 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'line', from: { x: -215, z: -45 }, to: { x: 215, z: -45 }, stroke: '#cdc6b4', width: 4, layer: 'over' },
     ],
     hasGuide: false, build: buildGeylangScene, move: geylangMovement.move, canOccupy: geylangMovement.canOccupy,
+  },
+  tuas: {
+    id: 'tuas', name: 'Tuas', shortName: 'Tuas', modeName: 'Tuas 3D', modeSubtitle: 'Tanks, gantries and the dry dock',
+    className: 'tuas-game', badge: 'TUAS · GAME WORLD', title: 'Tuas · the industrial west',
+    subtitle: 'Low-poly game map · authored tank farm, process plant, dock and container yard', mapTitle: 'PLANT & WHARF',
+    stampNoun: 'works stamps', exploreNoun: 'the plants and the wharf', cameraFar: 1700,
+    spawn: TUAS_SPAWN, stamps: TUAS_STAMPS, bounds: TUAS_BOUNDS, mapRoads: TUAS_MAP_ROADS,
+    mapPaper: '#d6d5cb', roadStroke: '#8d918d', roadWidth: 16,
+    decor: [
+      { kind: 'rect', x: -280, z: -230, width: 32, depth: 460, fill: '#4d8ba0', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: -210, z: -88, width: 56, depth: 96, fill: '#7d8894', layer: 'over', fpsFill: '#3a4a56', fpsLayer: 'over' },
+      { kind: 'rect', x: -113, z: -82, width: 110, depth: 40, fill: '#cac6b6', layer: 'over' },
+      { kind: 'rect', x: -113, z: -38, width: 76, depth: 40, fill: '#cac6b6', layer: 'over' },
+      { kind: 'rect', x: 62, z: -50, width: 150, depth: 20, fill: '#b58a5a', layer: 'over' },
+      { kind: 'rect', x: 62, z: 100, width: 150, depth: 80, fill: '#b9b4a6', layer: 'over', fpsFill: '#4a4f44', fpsLayer: 'over' },
+      { kind: 'rect', x: 82, z: -170, width: 110, depth: 20, fill: '#c8c2b2', layer: 'over' },
+      { kind: 'line', from: { x: -110, z: 140 }, to: { x: 20, z: 140 }, stroke: '#9aa2a4', width: 6, layer: 'over' },
+      { kind: 'line', from: { x: 200, z: -200 }, to: { x: 200, z: 200 }, stroke: '#b0b8ba', width: 4, layer: 'over' },
+    ],
+    hasGuide: false, build: buildTuasScene, move: tuasMovement.move, canOccupy: tuasMovement.canOccupy,
   },
   orchard: {
     id: 'orchard', name: 'Orchard Road', shortName: 'Orchard', modeName: 'Orchard 3D', modeSubtitle: 'Walk the shopping belt',

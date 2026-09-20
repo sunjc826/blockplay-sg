@@ -1,6 +1,23 @@
 # Blockplay: portable agent handoff
 
-**Latest: scene code-splitting measured, then dropped (2026-09-20).** The
+**Latest: Tuas (2026-09-20).** Fourteen districts, 154 stamps. Added after a
+coverage review showed nine of thirteen districts sat within 6 km of Raffles
+Place, with nothing at all in the far west. Tuas is the first district with no
+housing or shopfronts in it: tank farms behind bunds, trayed columns under a
+guyed flare, a pipe rack with an expansion loop, a stepped dry dock with a hull
+on keel blocks, rail stacking gantries over container rows, and a pylon run
+down the eastern aisle. The strait sits outside the perimeter loop so no street
+runs into it, and the Tuas Link terminus rides over the coast road on piers
+rather than blocking it. Links to Jurong Lake only — it is the end of the
+island. 317 unit tests, typecheck and build pass; browser and FPS smokes still
+not run here.
+
+Coverage after this: the north is still empty (no Woodlands, Sembawang,
+Yishun), as are the eastern heartlands (Bedok, Tampines, Pasir Ris) and the
+mature HDB belt (Ang Mo Kio, Bishan, Toa Payoh). Queenstown remains the only
+housing estate, and it is the atypical heritage one.
+
+**Earlier: scene code-splitting measured, then dropped (2026-09-20).** The
 standing follow-up — every scene builder statically imported, so all districts
 ship in the main bundle — was measured rather than acted on, and is not worth
 doing. Cold load is 412 kB gzipped: 241 kB `index` plus 181 kB `three`. Each

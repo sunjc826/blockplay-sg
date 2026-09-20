@@ -152,6 +152,20 @@ export const GEYLANG_STAMPS = [
   { name: 'Paya Lebar park', x: 185, z: -60 },
 ];
 
+export const TUAS_STAMPS = [
+  { name: 'Tank farm', x: -45, z: 18 },
+  { name: 'Dry dock', x: -182, z: 18 },
+  { name: 'Container stacks', x: 137, z: 18 },
+  { name: 'Flare stack', x: -96, z: 60 },
+  { name: 'Pipe rack crossing', x: -45, z: 140 },
+  { name: 'Laydown yard', x: 137, z: 115 },
+  { name: 'Coast road', x: -235, z: -40 },
+  { name: 'Benoi truck park', x: 0, z: -168 },
+  { name: 'Transmission line', x: 200, z: 18 },
+  { name: 'Workers quarters', x: 137, z: -180 },
+  { name: 'Tuas Link platform', x: 235, z: 44 },
+];
+
 export const ORCHARD_STAMPS = [
   { name: 'Orchard crossing', x: -8, z: 5 },
   { name: 'ION frontage', x: -115, z: -18 },

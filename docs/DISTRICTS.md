@@ -1,6 +1,6 @@
 # Districts
 
-Thirteen Singapore districts are playable. Every one is an authored, compressed
+Fourteen Singapore districts are playable. Every one is an authored, compressed
 interpretation built for play — none is a surveyed map, a reconstruction or a
 navigation tool. Real place names label stylised counterparts.
 
@@ -18,6 +18,7 @@ navigation tool. Real place names label stylised counterparts.
 | HarbourFront | South | 11 | Authored, no reference capture |
 | Sentosa | Island | 11 | Authored, no reference capture |
 | Geylang | East-central | 11 | Authored, no reference capture |
+| Tuas | Far west | 11 | Authored, no reference capture |
 | Orchard Road | Central | 11 | Authored, no reference capture |
 
 ## Two kinds of provenance
@@ -29,14 +30,14 @@ capture ledger, per-image acceptance records and before/after evidence are in
 and [`docs/evidence`](evidence/). The image allowances those passes consumed are
 exhausted; see [the plan](../.agents/PLAN.md).
 
-The ten districts added afterwards were composed **from general knowledge of
+The eleven districts added afterwards were composed **from general knowledge of
 those neighbourhoods, with no reference capture and no Google API requests of
 any kind**. They make no claim to resemble a specific street, facade or
 building, and their scenes record an empty `referenceFeatures` list so the
 distinction stays machine-checkable rather than a matter of memory. Treat their
 resemblance as thematic: a shophouse terrace, a domed mosque, a tiered pagoda, a
 glazed roof with water falling through it, a planted median under rain trees, a
-channel with an arch over it, a liner at a quay.
+channel with an arch over it, a liner at a quay, a tank farm behind its bunds.
 
 They also have no source-linked learning catalog yet, so they show no
 educational companion panel. Adding one means researching and reviewing cards

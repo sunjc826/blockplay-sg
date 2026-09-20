@@ -30,6 +30,7 @@ export const ZONE_LOOT_RULES: Readonly<Record<WorldZoneId, Readonly<ZoneLootRule
   harbourfront: { eliteChance: 0.38, fieldChance: 0.44, weaponCount: 4, ammoCount: 3, medicalCount: 2, armorCount: 2, ammoAmount: 80, medicalAmount: 52 },
   sentosa: { eliteChance: 0.34, fieldChance: 0.46, weaponCount: 3, ammoCount: 3, medicalCount: 2, armorCount: 2, ammoAmount: 72, medicalAmount: 50 },
   geylang: { eliteChance: 0.16, fieldChance: 0.5, weaponCount: 3, ammoCount: 3, medicalCount: 2, armorCount: 1, ammoAmount: 58, medicalAmount: 38 },
+  tuas: { eliteChance: 0.36, fieldChance: 0.42, weaponCount: 4, ammoCount: 3, medicalCount: 1, armorCount: 2, ammoAmount: 78, medicalAmount: 45 },
   orchard: { eliteChance: 0.2, fieldChance: 0.48, weaponCount: 3, ammoCount: 3, medicalCount: 2, armorCount: 1, ammoAmount: 60, medicalAmount: 40 },
   changi: { eliteChance: 0.42, fieldChance: 0.44, weaponCount: 4, ammoCount: 3, medicalCount: 2, armorCount: 2, ammoAmount: 85, medicalAmount: 55 },
 };
