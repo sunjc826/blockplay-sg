@@ -11,7 +11,8 @@ import { buildChinatownScene, CHINATOWN_BOUNDS, CHINATOWN_MAP_ROADS, CHINATOWN_S
 import { buildKampongGlamScene, KAMPONG_GLAM_BOUNDS, KAMPONG_GLAM_MAP_ROADS, KAMPONG_GLAM_SPAWN } from './kampong-glam-scene';
 import { buildJurongLakeScene, JURONG_LAKE_BOUNDS, JURONG_LAKE_MAP_ROADS, JURONG_LAKE_SPAWN } from './jurong-lake-scene';
 import { buildChangiScene, CHANGI_BOUNDS, CHANGI_MAP_ROADS, CHANGI_SPAWN } from './changi-scene';
-import { CHANGI_STAMPS, CHINATOWN_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS } from '../data/region-stamps.ts';
+import { buildOrchardScene, ORCHARD_BOUNDS, ORCHARD_MAP_ROADS, ORCHARD_SPAWN } from './orchard-scene';
+import { CHANGI_STAMPS, CHINATOWN_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -72,6 +73,7 @@ const chinatownMovement = createRegionMovement(CHINATOWN_BOUNDS);
 const kampongGlamMovement = createRegionMovement(KAMPONG_GLAM_BOUNDS);
 const jurongLakeMovement = createRegionMovement(JURONG_LAKE_BOUNDS);
 const changiMovement = createRegionMovement(CHANGI_BOUNDS);
+const orchardMovement = createRegionMovement(ORCHARD_BOUNDS);
 
 const definitions: Record<RegionId, RegionDefinition> = {
   'marina-bay': {
@@ -182,6 +184,24 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'rect', x: -262, z: -90, width: 60, depth: 240, fill: '#9cba7f', layer: 'over' },
     ],
     hasGuide: false, build: buildChangiScene, move: changiMovement.move, canOccupy: changiMovement.canOccupy,
+  },
+  orchard: {
+    id: 'orchard', name: 'Orchard Road', shortName: 'Orchard', modeName: 'Orchard 3D', modeSubtitle: 'Walk the shopping belt',
+    className: 'orchard-game', badge: 'ORCHARD ROAD · GAME WORLD', title: 'Orchard · the shopping belt',
+    subtitle: 'Low-poly game map · authored boulevard, malls and a peranakan lane', mapTitle: 'BOULEVARD & MALLS',
+    stampNoun: 'boulevard stamps', exploreNoun: 'the shopping belt', cameraFar: 1400,
+    spawn: ORCHARD_SPAWN, stamps: ORCHARD_STAMPS, bounds: ORCHARD_BOUNDS, mapRoads: ORCHARD_MAP_ROADS,
+    mapPaper: '#ded9cc', roadStroke: '#95918a', roadWidth: 16,
+    decor: [
+      { kind: 'rect', x: 183, z: -45, width: 44, depth: 210, fill: '#9fb37c', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+      { kind: 'rect', x: -148, z: -104, width: 66, depth: 78, fill: '#b9c8d2', layer: 'over' },
+      { kind: 'rect', x: -38, z: -107, width: 76, depth: 84, fill: '#cdc6b4', layer: 'over' },
+      { kind: 'rect', x: 82, z: -102, width: 70, depth: 74, fill: '#d8cdb2', layer: 'over' },
+      { kind: 'rect', x: -38, z: 30, width: 76, depth: 80, fill: '#b5b2ab', layer: 'over' },
+      { kind: 'rect', x: 80, z: 29, width: 74, depth: 82, fill: '#c6bfae', layer: 'over' },
+      { kind: 'line', from: { x: -215, z: 0 }, to: { x: 215, z: 0 }, stroke: '#7f9f66', width: 5, layer: 'over' },
+    ],
+    hasGuide: false, build: buildOrchardScene, move: orchardMovement.move, canOccupy: orchardMovement.canOccupy,
   },
 };
 

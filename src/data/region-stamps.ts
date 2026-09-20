@@ -82,6 +82,20 @@ export const JURONG_LAKE_STAMPS = [
   { name: 'Jurong green', x: -60, z: -160 },
 ];
 
+export const ORCHARD_STAMPS = [
+  { name: 'Orchard crossing', x: -8, z: 5 },
+  { name: 'ION frontage', x: -115, z: -18 },
+  { name: 'Orchard terraces', x: 0, z: -19 },
+  { name: 'Tangs rotunda', x: 117, z: -20 },
+  { name: 'Ngee Ann forecourt', x: -24, z: 22 },
+  { name: 'Somerset plaza', x: 117, z: 22 },
+  { name: 'Emerald Hill terrace', x: -115, z: 36 },
+  { name: 'Orchard station', x: -33, z: -24 },
+  { name: 'Scotts junction', x: -170, z: 5 },
+  { name: 'Orchard underpass', x: 60, z: -40 },
+  { name: 'Dhoby Ghaut green', x: 205, z: 60 },
+];
+
 export const CHANGI_STAMPS = [
   { name: 'Vortex basin walk', x: -55, z: 14 },
   { name: 'Canopy park', x: 4, z: -30 },

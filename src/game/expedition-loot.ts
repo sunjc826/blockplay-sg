@@ -25,6 +25,7 @@ export const ZONE_LOOT_RULES: Readonly<Record<WorldZoneId, Readonly<ZoneLootRule
   chinatown: { eliteChance: 0.12, fieldChance: 0.5, weaponCount: 3, ammoCount: 3, medicalCount: 2, armorCount: 1, ammoAmount: 55, medicalAmount: 35 },
   'kampong-glam': { eliteChance: 0.08, fieldChance: 0.38, weaponCount: 2, ammoCount: 2, medicalCount: 2, armorCount: 1, ammoAmount: 50, medicalAmount: 30 },
   'jurong-lake': { eliteChance: 0.18, fieldChance: 0.46, weaponCount: 3, ammoCount: 2, medicalCount: 2, armorCount: 2, ammoAmount: 65, medicalAmount: 45 },
+  orchard: { eliteChance: 0.2, fieldChance: 0.48, weaponCount: 3, ammoCount: 3, medicalCount: 2, armorCount: 1, ammoAmount: 60, medicalAmount: 40 },
   changi: { eliteChance: 0.42, fieldChance: 0.44, weaponCount: 4, ammoCount: 3, medicalCount: 2, armorCount: 2, ammoAmount: 85, medicalAmount: 55 },
 };
 const finitePosition = (p: ZonePosition) => Number.isFinite(p.x) && Number.isFinite(p.z);

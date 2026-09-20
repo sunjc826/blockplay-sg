@@ -76,6 +76,17 @@ export const locations = [
       { label: 'Changi Beach', lat: 1.3900, lng: 103.9880, heading: 90 },
     ],
   },
+  {
+    id: 'orchard', name: 'Orchard Road', subtitle: 'The shopping belt', district: 'CENTRAL',
+    description: 'A planted median under rain trees, a faceted glass mall at the junction and a peranakan side lane. An authored low-poly boulevard, compressed for play.',
+    lat: 1.3040, lng: 103.8320, heading: 90, color: '#c9a9b8', block: 2,
+    tags: ['Shopping belt', 'Rain trees'],
+    viewpoints: [
+      { label: 'Orchard junction', lat: 1.3040, lng: 103.8320, heading: 90 },
+      { label: 'Somerset', lat: 1.3006, lng: 103.8389, heading: 270 },
+      { label: 'Emerald Hill', lat: 1.3021, lng: 103.8375, heading: 0 },
+    ],
+  },
 ] as const;
 
 export type Location = (typeof locations)[number];
