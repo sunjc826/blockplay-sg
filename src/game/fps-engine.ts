@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { advanceWeapon, beginReload, createLoadout, findTrait, fireWeapon, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponState } from './fps-rules';
 import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { advanceRound, createRound, needsFlight, MAX_ROUNDS_IN_FLIGHT, type InFlightRound } from './fps-projectiles';
-import { applyArmorDamage, createProfile, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile } from './armory-state';
+import { aimSpeedScale, applyArmorDamage, createProfile, jumpScale, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile } from './armory-state';
 import { registerElimination, ELIMINATION_XP, type KillChain } from './progression';
 import { createFpsVehicles } from './fps-vehicles';
 import type { MinimapMarker } from './minimap';
@@ -370,7 +370,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, health: hud.health, armor: hud.armor, weapon: hud.weapon, ammunition: loadout.map(state => ({ ...state, cooldown: 0, reloadRemaining: 0 })) };
     travelPending = true; pause(); expedition.onTravel(transition, checkpoint);
   }
-  function jump() { if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && vertical === 0 && !keys.has('c')) velocityY = 5.2; } }
+  function jump() { if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && vertical === 0 && !keys.has('c')) velocityY = 5.2 * jumpScale(equipment.mobility); } }
   function setInput(key: string, held: boolean) {
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) return;
     if (key === 'fire') trigger = held && !vehicles.active;
@@ -557,7 +557,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     const aiming = (ads || touchAim) && !sprinting && loadout[hud.weapon].reloadRemaining === 0;
     actualAim = aiming;
-    aimProgress = THREE.MathUtils.damp(aimProgress, aiming ? 1 : 0, 15, dt);
+    // Heavier carry costs time to settle the sights as well as ground speed.
+    aimProgress = THREE.MathUtils.damp(aimProgress, aiming ? 1 : 0, 15 * (aiming ? aimSpeedScale(equipment.mobility) : 1), dt);
     const aim = smoothStep(aimProgress);
     rig.visible = !options.arena || hud.arenaSelf?.alive !== false;
     const crouching = keys.has('c');

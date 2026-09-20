@@ -95,6 +95,14 @@ export function isEquipped(profile: ArmoryProfile, item: ShopItem, family: numbe
  */
 export const collectTraits = (...sources: readonly (readonly WeaponTrait[] | undefined)[]) => sources.flatMap(source => source ?? []);
 export interface EquippedWeapon extends WeaponSpec { equipment: GunEquipment; accent?: string; traits: readonly WeaponTrait[] }
+/**
+ * What a rig and its inserts cost in movement. `mobility` scales walking speed;
+ * carrying weight also costs vertical reach and time to aim in, so protection is
+ * a decision rather than a free 100 points.
+ */
+export const carriedWeight = (mobility: number) => 1 - (Number.isFinite(mobility) ? Math.max(0, Math.min(1, mobility)) : 1);
+export const jumpScale = (mobility: number) => 1 - carriedWeight(mobility) * 2.2;
+export const aimSpeedScale = (mobility: number) => 1 - carriedWeight(mobility) * 1.8;
 export interface ResolvedLoadout { weapons: EquippedWeapon[]; armor: number; absorption: number; mobility: number; rigName: string; plateName: string; vehicleSkins: Record<VehicleKind, string>;
   quickItem?: ShopItem; quickCount: number }
 export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {

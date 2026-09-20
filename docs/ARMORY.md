@@ -138,6 +138,17 @@ reserve goes to the weapon in hand. Using one with nothing to restore reports
 that and spends nothing. `resolveLoadout` carries the selected supply and its
 count, so the shop, HUD and engine read the same selection everything else does.
 
+## Carried weight
+
+A rig and its inserts scale walking speed, and now also vertical reach and how
+fast the sights settle, so protection is a decision rather than free points. The
+heaviest combination gives up roughly 17% of its jump and 14% of its aim-in
+speed; the premium inserts are lighter, so they cost less of both while
+protecting more. An unencumbered loadout pays nothing.
+
+The shop's armor dossier shows jump height and aim-in speed beside the armor
+pool, so the trade is visible before buying.
+
 ## Armor and counter-fire
 
 The rig slot supplies reserve capacity; the insert slot supplies armor points and absorption. Enhanced LBS adds 60 reserve rounds per weapon at a 2% movement cost; Sentinel adds 90 without a movement penalty. A bare ILBV-inspired carrying rig has zero armor points.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyArmorDamage, claimElimination, claimReward, collectTraits, consumeItem, createProfile, equip, previewLoadout, purchase, resolveLoadout, restoreProfile, unequipAttachment, type ArmoryProfile, type ExerciseReward } from './armory-state';
+import { aimSpeedScale, applyArmorDamage, claimElimination, claimReward, collectTraits, consumeItem, jumpScale, createProfile, equip, previewLoadout, purchase, resolveLoadout, restoreProfile, unequipAttachment, type ArmoryProfile, type ExerciseReward } from './armory-state';
 import { CONSUMABLE_LIMIT, itemById } from './armory-catalog';
 import { progression, registerElimination, xpForLevel } from './progression';
 import { advanceWeapon, beginReload, createLoadout, findTrait, FPS_WEAPONS, hitDamage, type WeaponTrait } from './fps-rules';
@@ -152,5 +152,33 @@ describe('supplies', () => {
     const back = restoreProfile(saved);
     expect(back.consumables).toEqual({ 'kit-dressing': 2, 'kit-plates': CONSUMABLE_LIMIT });
     expect(restoreProfile(JSON.stringify({ ...createProfile(), quickItem: 'sar-issued' })).quickItem).toBe('');
+  });
+});
+
+describe('carried weight', () => {
+  it('costs nothing when the loadout is unencumbered', () => {
+    const light = resolveLoadout(createProfile());
+    expect(light.mobility).toBe(1);
+    expect(jumpScale(light.mobility)).toBe(1); expect(aimSpeedScale(light.mobility)).toBe(1);
+  });
+  it('takes more from vertical reach and aim-in as protection goes up', () => {
+    const heavy = ['rig-lbs', 'plate-ceramic'].reduce((p, id) => equip(purchase(p, id).profile, id, 0), veteran());
+    const loadout = resolveLoadout(heavy);
+    expect(loadout.armor).toBe(75);
+    expect(loadout.mobility).toBeLessThan(1);
+    expect(jumpScale(loadout.mobility)).toBeLessThan(1);
+    expect(aimSpeedScale(loadout.mobility)).toBeLessThan(1);
+    // The premium inserts are lighter, so they cost less of both.
+    const elite = ['rig-sentinel', 'plate-elite'].reduce((p, id) => equip(purchase(p, id).profile, id, 0), veteran());
+    const premium = resolveLoadout(elite);
+    expect(premium.armor).toBeGreaterThan(loadout.armor);
+    expect(jumpScale(premium.mobility)).toBeGreaterThan(jumpScale(loadout.mobility));
+  });
+  it('never inverts a jump or an aim, whatever a malformed mobility says', () => {
+    for (const mobility of [0, -3, 5, Number.NaN]) {
+      expect(jumpScale(mobility)).toBeLessThanOrEqual(1);
+      expect(Number.isFinite(jumpScale(mobility))).toBe(true);
+      expect(Number.isFinite(aimSpeedScale(mobility))).toBe(true);
+    }
   });
 });
