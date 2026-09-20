@@ -192,12 +192,12 @@ export function buildTampinesScene() {
 
   // Eco green: rough grassland with scattered scrub, and the range within it.
   box(-188, 0.18, 150, 80, 0.35, 56, lawn);
-  for (let x = -215; x <= -160; x += 9) for (let z = 44; z <= 106; z += 9) {
+  for (let x = -228; x <= -212; x += 9) for (let z = 124; z <= 176; z += 9) {
     if ((Math.round(x) + Math.round(z)) % 4) continue;
     for (let r = 0; r < 3; r++) blob(x + r * 0.9, 0.9, z, 0.7, 1.8, 0.6, reed);
   }
   for (const z of [-160, -128]) { tree(-206, z, 9, wood, leaf); tree(-170, z + 14, 8, wood, fern); }
-  for (const z of [156, 178]) { tree(-206, z, 9, wood, fern); tree(-170, z - 8, 8, wood, leaf); }
+  for (const z of [130, 160]) { tree(-222, z, 9, wood, fern); tree(-154, z + 12, 8, wood, leaf); }
 
   // Town green at the north, and perimeter planting along the outer loop.
   box(-80, 0.18, 158, 110, 0.35, 40, lawn);
