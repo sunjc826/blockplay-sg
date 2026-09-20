@@ -43,6 +43,7 @@ Each expedition gets a fresh seed. Each district rolls its contents and position
 | Tampines | 3 | 38% | 47% | 15% | 9 |
 | Toa Payoh | 2 | 58% | 35% | 7% | 7 |
 | Bukit Timah | 3 | 38% | 44% | 18% | 8 |
+| Bishan | 2 | 56% | 36% | 8% | 7 |
 | Orchard Road | 3 | 32% | 48% | 20% | 9 |
 
 Other crates contain ammunition for the selected gun, medical supplies or armor plates. Elite odds apply to weapon rolls; a particular visit does not guarantee an elite drop. Supply locations are checked against each district's bounds and obstacles. Colored case labels show item and tier. Pickups require a living player within 2.8 metres; medkits remain available if health is full.

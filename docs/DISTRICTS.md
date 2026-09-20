@@ -1,6 +1,6 @@
 # Districts
 
-Eighteen Singapore districts are playable. Every one is an authored, compressed
+Nineteen Singapore districts are playable. Every one is an authored, compressed
 interpretation built for play — none is a surveyed map, a reconstruction or a
 navigation tool. Real place names label stylised counterparts.
 
@@ -23,6 +23,7 @@ navigation tool. Real place names label stylised counterparts.
 | Tampines | East | 11 | Authored, no reference capture |
 | Toa Payoh | Central-north | 11 | Authored, no reference capture |
 | Bukit Timah | North-west | 11 | Authored, no reference capture |
+| Bishan | Central-north | 11 | Authored, no reference capture |
 | Orchard Road | Central | 11 | Authored, no reference capture |
 
 ## Two kinds of provenance
@@ -34,7 +35,7 @@ capture ledger, per-image acceptance records and before/after evidence are in
 and [`docs/evidence`](evidence/). The image allowances those passes consumed are
 exhausted; see [the plan](../.agents/PLAN.md).
 
-The fifteen districts added afterwards were composed **from general knowledge of
+The sixteen districts added afterwards were composed **from general knowledge of
 those neighbourhoods, with no reference capture and no Google API requests of
 any kind**. They make no claim to resemble a specific street, facade or
 building, and their scenes record an empty `referenceFeatures` list so the
@@ -105,6 +106,11 @@ a pair either side of the arch bridge, which is what makes that bridge a real
 crossing instead of scenery. Upper Thomson's reservoir is two pools with the
 road between them. Anything drawn along the bank — a bund, reeds, a promenade
 rail — has to stop at the same gaps, or it re-closes what the water left open.
+
+Water does not have to be a rectangle. Bishan's river is a chain of short
+boxes stepped along a sine curve, each overlapping its neighbours, so a
+meander collides as one continuous bank while every box stays axis-aligned.
+The same gap rule applies to the chain.
 
 **The grid helper runs every road edge to edge.** `streetGrid` draws each street
 across the whole district, so a street that has to stop short — at a quay, a

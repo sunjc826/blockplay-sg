@@ -21,8 +21,9 @@ import { buildWoodlandsScene, WOODLANDS_BOUNDS, WOODLANDS_MAP_ROADS, WOODLANDS_S
 import { buildTampinesScene, TAMPINES_BOUNDS, TAMPINES_MAP_ROADS, TAMPINES_SPAWN } from './tampines-scene';
 import { buildToaPayohScene, TOA_PAYOH_BOUNDS, TOA_PAYOH_MAP_ROADS, TOA_PAYOH_SPAWN } from './toa-payoh-scene';
 import { buildBukitTimahScene, BUKIT_TIMAH_BOUNDS, BUKIT_TIMAH_MAP_ROADS, BUKIT_TIMAH_SPAWN } from './bukit-timah-scene';
+import { buildBishanScene, BISHAN_BOUNDS, BISHAN_MAP_ROADS, BISHAN_SPAWN } from './bishan-scene';
 import { buildOrchardScene, ORCHARD_BOUNDS, ORCHARD_MAP_ROADS, ORCHARD_SPAWN } from './orchard-scene';
-import { BUKIT_TIMAH_STAMPS, CHANGI_STAMPS, CHINATOWN_STAMPS, GEYLANG_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, TAMPINES_STAMPS, TOA_PAYOH_STAMPS, TUAS_STAMPS, UPPER_THOMSON_STAMPS, WOODLANDS_STAMPS } from '../data/region-stamps.ts';
+import { BISHAN_STAMPS, BUKIT_TIMAH_STAMPS, CHANGI_STAMPS, CHINATOWN_STAMPS, GEYLANG_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, TAMPINES_STAMPS, TOA_PAYOH_STAMPS, TUAS_STAMPS, UPPER_THOMSON_STAMPS, WOODLANDS_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -93,6 +94,7 @@ const woodlandsMovement = createRegionMovement(WOODLANDS_BOUNDS);
 const tampinesMovement = createRegionMovement(TAMPINES_BOUNDS);
 const toaPayohMovement = createRegionMovement(TOA_PAYOH_BOUNDS);
 const bukitTimahMovement = createRegionMovement(BUKIT_TIMAH_BOUNDS);
+const bishanMovement = createRegionMovement(BISHAN_BOUNDS);
 const orchardMovement = createRegionMovement(ORCHARD_BOUNDS);
 
 const definitions: Record<RegionId, RegionDefinition> = {
@@ -389,6 +391,24 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'line', from: { x: 60, z: -190 }, to: { x: 60, z: 190 }, stroke: '#a89f8a', width: 6, layer: 'over' },
     ],
     hasGuide: false, build: buildBukitTimahScene, move: bukitTimahMovement.move, canOccupy: bukitTimahMovement.canOccupy,
+  },
+  bishan: {
+    id: 'bishan', name: 'Bishan', shortName: 'Bishan', modeName: 'Bishan 3D', modeSubtitle: 'The river park and the town',
+    className: 'bishan-game', badge: 'BISHAN · GAME WORLD', title: 'Bishan · the river park',
+    subtitle: 'Low-poly game map · authored meander, planted banks, town centre and precincts', mapTitle: 'RIVER & TOWN',
+    stampNoun: 'park stamps', exploreNoun: 'the river park and the town', cameraFar: 1500,
+    spawn: BISHAN_SPAWN, stamps: BISHAN_STAMPS, bounds: BISHAN_BOUNDS, mapRoads: BISHAN_MAP_ROADS,
+    mapPaper: '#d7ddcd', roadStroke: '#8f958c', roadWidth: 14,
+    decor: [
+      { kind: 'rect', x: -235, z: -81, width: 470, depth: 92, fill: '#9cba7f', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+      { kind: 'rect', x: 30, z: 70, width: 90, depth: 70, fill: '#c6bfae', layer: 'over' },
+      { kind: 'rect', x: 160, z: 50, width: 50, depth: 110, fill: '#9fb37c', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+      { kind: 'rect', x: -217, z: -156, width: 84, depth: 42, fill: '#c8c2b2', layer: 'over' },
+      { kind: 'rect', x: -217, z: 84, width: 84, depth: 42, fill: '#c8c2b2', layer: 'over' },
+      { kind: 'line', from: { x: -215, z: -35 }, to: { x: 215, z: -35 }, stroke: '#5f97a0', width: 12, layer: 'over' },
+      { kind: 'line', from: { x: -210, z: -74 }, to: { x: 210, z: -74 }, stroke: '#b09a72', width: 4, layer: 'over' },
+    ],
+    hasGuide: false, build: buildBishanScene, move: bishanMovement.move, canOccupy: bishanMovement.canOccupy,
   },
   orchard: {
     id: 'orchard', name: 'Orchard Road', shortName: 'Orchard', modeName: 'Orchard 3D', modeSubtitle: 'Walk the shopping belt',

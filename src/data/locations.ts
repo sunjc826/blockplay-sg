@@ -187,6 +187,17 @@ export const locations = [
     ],
   },
   {
+    id: 'bishan', name: 'Bishan', subtitle: 'A canal let out into a river', district: 'CENTRAL-NORTH',
+    description: 'A river park where a straightened channel has been opened into a meander with planted banks and stepping stones, the town centre and interchange north of it, and slab precincts around. Authored and compressed for play.',
+    lat: 1.3510, lng: 103.8480, heading: 60, color: '#86ab8e', block: 1,
+    tags: ['River park', 'Mature town'],
+    viewpoints: [
+      { label: 'River park', lat: 1.3620, lng: 103.8480, heading: 60 },
+      { label: 'Town centre', lat: 1.3510, lng: 103.8480, heading: 240 },
+      { label: 'Ang Mo Kio', lat: 1.3690, lng: 103.8450, heading: 0 },
+    ],
+  },
+  {
     id: 'orchard', name: 'Orchard Road', subtitle: 'The shopping belt', district: 'CENTRAL',
     description: 'A planted median under rain trees, a faceted glass mall at the junction and a peranakan side lane. An authored low-poly boulevard, compressed for play.',
     lat: 1.3040, lng: 103.8320, heading: 90, color: '#c9a9b8', block: 2,

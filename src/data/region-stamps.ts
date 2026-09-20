@@ -222,6 +222,20 @@ export const BUKIT_TIMAH_STAMPS = [
   { name: 'Upper Bukit Timah shops', x: -55, z: 130 },
 ];
 
+export const BISHAN_STAMPS = [
+  { name: 'Meander bend', x: 75, z: -74 },
+  { name: 'Stepping stones', x: 10, z: -35 },
+  { name: 'River park path', x: -150, z: -74 },
+  { name: 'Town centre atrium', x: 75, z: 40 },
+  { name: 'Bus berths', x: 75, z: 170 },
+  { name: 'Bishan precinct', x: -60, z: 40 },
+  { name: 'Sin Ming slabs', x: -175, z: 40 },
+  { name: 'Ang Mo Kio field', x: 185, z: 40 },
+  { name: 'Braddell court', x: -60, z: -110 },
+  { name: 'Upper river', x: -190, z: 0 },
+  { name: 'Bishan station', x: 140, z: 40 },
+];
+
 export const ORCHARD_STAMPS = [
   { name: 'Orchard crossing', x: -8, z: 5 },
   { name: 'ION frontage', x: -115, z: -18 },
