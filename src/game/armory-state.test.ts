@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { applyArmorDamage, claimElimination, claimReward, createProfile, equip, previewLoadout, purchase, resolveLoadout, restoreProfile, unequipAttachment, type ExerciseReward } from './armory-state';
+import { applyArmorDamage, claimElimination, claimReward, collectTraits, createProfile, equip, previewLoadout, purchase, resolveLoadout, restoreProfile, unequipAttachment, type ExerciseReward } from './armory-state';
 import { itemById } from './armory-catalog';
 import { progression, registerElimination, xpForLevel } from './progression';
-import { advanceWeapon, beginReload, createLoadout } from './fps-rules';
+import { advanceWeapon, beginReload, createLoadout, findTrait, FPS_WEAPONS, type WeaponTrait } from './fps-rules';
+import { HITSCAN } from './fps-ballistics';
 const veteran = () => ({ ...createProfile(), xp: 5000, credits: 10000, tokens: 1000 });
 const unlock = (id: string) => purchase(veteran(), id).profile;
 const result: ExerciseReward = { id: 'round-1', hits: 8, shots: 30, landed: 28, elapsed: 20, combat: false };
@@ -69,5 +70,33 @@ describe('levels and arcade announcements', () => {
   it('escalates through rampage and caps the callout text for longer chains', () => {
     let chain = registerElimination({ count: 0, lastAt: -Infinity }, 0); for (let i = 1; i < 10; i++) chain = registerElimination(chain, i);
     expect(chain.count).toBe(10); expect(chain.label).toBe('RAMPAGE');
+  });
+});
+
+describe('behavioral trait resolution', () => {
+  const falloff: WeaponTrait = { kind: 'falloff', near: 20, far: 80, minScale: .5 };
+  const softer: WeaponTrait = { kind: 'falloff', near: 30, far: 120, minScale: .7 };
+  const precision: WeaponTrait = { kind: 'precision', multiplier: 3 };
+  it('flattens sources in precedence order and ignores empty ones', () => {
+    expect(collectTraits([falloff], undefined, [precision], [])).toEqual([falloff, precision]);
+    expect(collectTraits()).toEqual([]); expect(collectTraits(undefined, undefined)).toEqual([]);
+  });
+  it('lets a later source override an earlier trait of the same kind', () => {
+    expect(findTrait(collectTraits([falloff], [softer]), 'falloff')).toBe(softer);
+    expect(findTrait([falloff, precision], 'precision')).toBe(precision);
+    expect(findTrait([falloff], 'on-kill')).toBeUndefined();
+    expect(findTrait(undefined, 'falloff')).toBeUndefined();
+  });
+  it('resolves a traits array and hitscan ballistics for every equipped weapon', () => {
+    const loadout = resolveLoadout(createProfile());
+    for (const weapon of loadout.weapons) { expect(weapon.traits).toEqual([]); expect(weapon.ballistics).toEqual(HITSCAN); }
+  });
+  it('keeps attachment scalars unchanged while carrying traits through the fold', () => {
+    const bought = ['mag-extended', 'handling-stable'].reduce((profile, id) => purchase(profile, id).profile, veteran());
+    const owner = ['mag-extended', 'handling-stable'].reduce((profile, id) => equip(profile, id, 0), bought);
+    const [rifle] = resolveLoadout(owner).weapons;
+    expect(rifle.capacity).toBe(FPS_WEAPONS[0].capacity + 10);
+    expect(rifle.recoil).toBeCloseTo(FPS_WEAPONS[0].recoil * .75, 10);
+    expect(rifle.traits).toEqual([]);
   });
 });

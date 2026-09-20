@@ -63,7 +63,7 @@ and raycast a pre-filtered candidate list.
 
 Each phase is independently shippable. Files listed are the primary ones.
 
-### Phase 0 — Trait and ballistics foundations
+### Phase 0 — Trait and ballistics foundations *(landed)*
 
 No gameplay change. `WeaponSpec` gains ballistic fields and a trait list;
 `ResolvedLoadout` carries `traits` per weapon, collected by the same fold that

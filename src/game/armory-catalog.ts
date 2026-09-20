@@ -1,9 +1,11 @@
-import type { WeaponSpec } from './fps-rules';
+import type { WeaponSpec, WeaponTrait } from './fps-rules';
 export type ShopCategory = 'weapon' | 'skin' | 'attachment' | 'rig' | 'plate' | 'vehicleSkin';
 export type AttachmentSlot = 'optic' | 'magazine' | 'handling';
 export interface ShopItem {
   id: string; name: string; category: ShopCategory; description: string; price: number; currency: 'credits' | 'tokens';
-  tier: 'Issued' | 'Field' | 'Elite'; requiredLevel?: number; family?: number; slot?: AttachmentSlot; stats?: Partial<WeaponSpec>;
+  tier: 'Issued' | 'Field' | 'Elite'; requiredLevel?: number; family?: number; slot?: AttachmentSlot;
+  /** Scalar overrides. Traits live in `traits` so the two never resolve twice. */
+  stats?: Partial<Omit<WeaponSpec, 'traits'>>; traits?: readonly WeaponTrait[];
   modifiers?: { capacity?: number; reload?: number; recoil?: number; aimFov?: number; mobility?: number };
   palette?: string[]; accent?: string; protection?: number; absorption?: number; mobility?: number; carry?: number;
 }

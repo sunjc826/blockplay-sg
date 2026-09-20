@@ -1,12 +1,35 @@
 /** Arcade tuning, intentionally independent of real equipment specifications. */
+import { HITSCAN, type BallisticSpec } from './fps-ballistics';
 export type WeaponOptic = 'integrated' | 'reflex' | 'precision';
 export const HIP_FOV = 65;
 export const magnifiedFov = (zoom: number) => 2 * Math.atan(Math.tan(HIP_FOV * Math.PI / 360) / zoom) * 180 / Math.PI;
 export const opticMagnification = (weapon: WeaponSpec) => Math.tan(HIP_FOV * Math.PI / 360) / Math.tan(weapon.aimFov * Math.PI / 360);
-export interface WeaponSpec { id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic }
+/**
+ * Behavior an item grants, as opposed to the numbers it shifts. The shop folds
+ * these alongside the scalar modifiers and the engine reads them at the point of
+ * use, so a catalog entry can change how a weapon acts rather than only how it
+ * scores. Not every kind is wired into the engine yet; see docs/ARMORY-ROADMAP.md.
+ */
+export type WeaponTrait =
+  | { kind: 'falloff'; near: number; far: number; minScale: number }
+  | { kind: 'precision'; multiplier: number }
+  | { kind: 'projectile'; splash: number; selfKnockback: number }
+  | { kind: 'penetration'; surfaces: number; decay: number }
+  | { kind: 'reload-single'; shellSeconds: number }
+  | { kind: 'zeroing'; distance: number }
+  | { kind: 'on-kill'; heal?: number; ammo?: number };
+export type WeaponTraitKind = WeaponTrait['kind'];
+/** Later sources win, matching how an attachment optic replaces the weapon's own. */
+export function findTrait<K extends WeaponTraitKind>(traits: readonly WeaponTrait[] | undefined, kind: K) {
+  let found: Extract<WeaponTrait, { kind: K }> | undefined;
+  // The comparison cannot narrow a generic key, so the match is asserted once here.
+  for (const trait of traits ?? []) if (trait.kind === kind) found = trait as Extract<WeaponTrait, { kind: K }>;
+  return found;
+}
+export interface WeaponSpec { id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
 export const FPS_WEAPONS: readonly WeaponSpec[] = [
-  { id: 'sar21-inspired', name: 'SAR 21', role: 'Bullpup rifle', capacity: 30, reserve: 120, interval: 0.12, reload: 1.8, recoil: 0.018, sightHeight: 0.328, damage: 36, aimFov: magnifiedFov(1.5), mobility: 1, optic: 'integrated' },
-  { id: 'ultimax-inspired', name: 'Ultimax', role: 'Support weapon', capacity: 60, reserve: 180, interval: 0.085, reload: 2.5, recoil: 0.026, sightHeight: 0.28, damage: 30, aimFov: HIP_FOV, mobility: 1, optic: 'reflex' },
+  { id: 'sar21-inspired', name: 'SAR 21', role: 'Bullpup rifle', capacity: 30, reserve: 120, interval: 0.12, reload: 1.8, recoil: 0.018, sightHeight: 0.328, damage: 36, aimFov: magnifiedFov(1.5), mobility: 1, optic: 'integrated', ballistics: HITSCAN },
+  { id: 'ultimax-inspired', name: 'Ultimax', role: 'Support weapon', capacity: 60, reserve: 180, interval: 0.085, reload: 2.5, recoil: 0.026, sightHeight: 0.28, damage: 30, aimFov: HIP_FOV, mobility: 1, optic: 'reflex', ballistics: HITSCAN },
 ];
 
 export interface WeaponState { magazine: number; reserve: number; cooldown: number; reloadRemaining: number }

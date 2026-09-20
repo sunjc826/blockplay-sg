@@ -1,7 +1,8 @@
 import { ARMORY_CATALOG, issuedItems, itemById, type AttachmentSlot, type ShopItem } from './armory-catalog';
 import type { VehicleKind } from './vehicle-rules';
 import { progression, ELIMINATION_XP } from './progression';
-import { FPS_WEAPONS, type WeaponSpec } from './fps-rules';
+import { FPS_WEAPONS, type WeaponSpec, type WeaponTrait } from './fps-rules';
+export const ATTACHMENT_SLOTS = ['optic', 'magazine', 'handling'] as const;
 export interface GunEquipment { variant: string; skin: string; attachments: Partial<Record<AttachmentSlot, string>> }
 export interface ArmoryProfile { version: 1; xp: number; vehicleSkins: Record<VehicleKind, string>; credits: number; tokens: number; owned: string[]; guns: [GunEquipment, GunEquipment]; rig: string; plate: string; rewarded: string[]; exercises: number }
 export const STORAGE_KEY = 'blockplay.armory.v1';
@@ -19,7 +20,7 @@ export function restoreProfile(raw: string | null): ArmoryProfile {
       const gun = value.guns?.[i]; if (!gun) continue;
       if (valid(gun.variant, 'weapon') && itemById(gun.variant)?.family === i) base.guns[i].variant = gun.variant;
       if (valid(gun.skin, 'skin')) base.guns[i].skin = gun.skin;
-      for (const slot of ['optic', 'magazine', 'handling'] as const) {
+      for (const slot of ATTACHMENT_SLOTS) {
         const id = gun.attachments?.[slot]; if (valid(id, 'attachment') && itemById(id)?.slot === slot) base.guns[i].attachments[slot] = id;
       }
     }
@@ -58,17 +59,27 @@ export function isEquipped(profile: ArmoryProfile, item: ShopItem, family: numbe
   const gun = profile.guns[family];
   return item.category === 'vehicleSkin' ? profile.vehicleSkins[vehicle] === item.id : item.category === 'rig' ? profile.rig === item.id : item.category === 'plate' ? profile.plate === item.id : item.category === 'weapon' ? gun.variant === item.id : item.category === 'skin' ? gun.skin === item.id : !!item.slot && gun.attachments[item.slot] === item.id;
 }
-export interface EquippedWeapon extends WeaponSpec { equipment: GunEquipment; accent?: string }
+/**
+ * Flattens trait sources in precedence order: base weapon, then variant, then
+ * attachments by slot. `findTrait` takes the last of a kind, so a later source
+ * overrides an earlier one exactly as an attachment optic replaces the weapon's.
+ */
+export const collectTraits = (...sources: readonly (readonly WeaponTrait[] | undefined)[]) => sources.flatMap(source => source ?? []);
+export interface EquippedWeapon extends WeaponSpec { equipment: GunEquipment; accent?: string; traits: readonly WeaponTrait[] }
 export interface ResolvedLoadout { weapons: EquippedWeapon[]; armor: number; absorption: number; mobility: number; rigName: string; plateName: string; vehicleSkins: Record<VehicleKind, string> }
 export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
   const rig = itemById(profile.rig)!, plate = itemById(profile.plate)!;
   const weapons = profile.guns.map((gun, i) => {
     const variant = itemById(gun.variant)!;
-    const spec: EquippedWeapon = { ...FPS_WEAPONS[i], ...variant.stats, name: variant.name, equipment: gun, accent: variant.accent, reserve: FPS_WEAPONS[i].reserve + (rig.carry || 0) };
-    for (const id of Object.values(gun.attachments)) {
-      const attachment = itemById(id);
-      if (attachment?.slot === 'optic' && attachment.stats?.optic) spec.optic = attachment.stats.optic;
-      const mod = attachment?.modifiers; if (!mod) continue;
+    // Fixed slot order, so that "later source wins" is deterministic rather than
+    // dependent on the order the attachments happened to be equipped in.
+    const attachments = ATTACHMENT_SLOTS.flatMap(slot => { const item = itemById(gun.attachments[slot] || ''); return item ? [item] : []; });
+    const spec: EquippedWeapon = { ...FPS_WEAPONS[i], ...variant.stats, name: variant.name, equipment: gun, accent: variant.accent,
+      reserve: FPS_WEAPONS[i].reserve + (rig.carry || 0),
+      traits: collectTraits(FPS_WEAPONS[i].traits, variant.traits, ...attachments.map(item => item.traits)) };
+    for (const attachment of attachments) {
+      if (attachment.slot === 'optic' && attachment.stats?.optic) spec.optic = attachment.stats.optic;
+      const mod = attachment.modifiers; if (!mod) continue;
       spec.capacity += mod.capacity || 0; spec.reload *= mod.reload || 1; spec.recoil *= mod.recoil || 1; spec.mobility *= mod.mobility || 1;
       if (mod.aimFov) spec.aimFov = mod.aimFov;
     }
