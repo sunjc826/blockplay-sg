@@ -208,6 +208,20 @@ export const TOA_PAYOH_STAMPS = [
   { name: 'Braddell flyover', x: -10, z: -150 },
 ];
 
+export const BUKIT_TIMAH_STAMPS = [
+  { name: 'Rail corridor bridge', x: 60, z: 40 },
+  { name: 'Bukit Timah summit', x: -130, z: -25 },
+  { name: 'Nature reserve trail', x: -187, z: -96 },
+  { name: 'Beauty World market', x: -55, z: 28 },
+  { name: 'Black-and-white bungalows', x: -52, z: 60 },
+  { name: 'Canal bridge', x: 130, z: -44 },
+  { name: 'Canal walk', x: 80, z: -66 },
+  { name: 'Dunearn shophouses', x: 175, z: -6 },
+  { name: 'Sixth Avenue green', x: 175, z: 130 },
+  { name: 'Corridor north', x: 60, z: 130 },
+  { name: 'Upper Bukit Timah shops', x: -55, z: 130 },
+];
+
 export const ORCHARD_STAMPS = [
   { name: 'Orchard crossing', x: -8, z: 5 },
   { name: 'ION frontage', x: -115, z: -18 },

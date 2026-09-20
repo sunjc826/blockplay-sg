@@ -176,6 +176,17 @@ export const locations = [
     ],
   },
   {
+    id: 'bukit-timah', name: 'Bukit Timah', subtitle: 'The ridge and the old line', district: 'NORTH-WEST',
+    description: 'A forested ridge over the western half, the old rail corridor crossing the road on a steel truss, black-and-white bungalows on their piers, a market hall at the junction and the storm canal behind. Authored and compressed for play.',
+    lat: 1.3290, lng: 103.8020, heading: 300, color: '#84a37a', block: 1,
+    tags: ['Forested ridge', 'Rail corridor'],
+    viewpoints: [
+      { label: 'Bukit Timah Road', lat: 1.3290, lng: 103.8020, heading: 300 },
+      { label: 'Rail corridor', lat: 1.3340, lng: 103.7830, heading: 180 },
+      { label: 'Beauty World', lat: 1.3410, lng: 103.7760, heading: 60 },
+    ],
+  },
+  {
     id: 'orchard', name: 'Orchard Road', subtitle: 'The shopping belt', district: 'CENTRAL',
     description: 'A planted median under rain trees, a faceted glass mall at the junction and a peranakan side lane. An authored low-poly boulevard, compressed for play.',
     lat: 1.3040, lng: 103.8320, heading: 90, color: '#c9a9b8', block: 2,

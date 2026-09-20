@@ -102,6 +102,12 @@ const districts: Record<WorldZoneId, FpsDistrict> = {
     vehicles: { car: { x: 161, z: 92, yaw: -Math.PI / 2 }, helicopter: { x: 183, z: 94, yaw: 0 } },
     props: [[3, 168, 94, .77, .52], [4, 174, 91, 1.87, .41], [5, 169, 95, .37, .37], [5, 171, 95, .37, .37]],
   },
+  'bukit-timah': {
+    label: 'Bukit Timah FPS', setting: 'avenue green', spawn: { x: 175, z: 103, yaw: 0, pitch: -.03 },
+    targets: [{ x: 175, z: 75 }, { x: 169, z: 76 }, { x: 181, z: 76 }, { x: 163, z: 81 }, { x: 187, z: 81 }, { x: 161, z: 89 }, { x: 189, z: 89 }, { x: 175, z: 65 }],
+    vehicles: { car: { x: 166, z: 107, yaw: -Math.PI / 2 }, helicopter: { x: 188, z: 109, yaw: 0 } },
+    props: [[3, 173, 109, .77, .52], [4, 179, 106, 1.87, .41], [5, 174, 110, .37, .37], [5, 176, 110, .37, .37]],
+  },
   orchard: {
     label: 'Orchard FPS', setting: 'park lawn', spawn: { x: 205, z: 150, yaw: 0, pitch: -.03 },
     targets: [{ x: 205, z: 120 }, { x: 199, z: 121 }, { x: 211, z: 121 }, { x: 193, z: 126 }, { x: 217, z: 126 }, { x: 191, z: 134 }, { x: 219, z: 134 }, { x: 205, z: 110 }],

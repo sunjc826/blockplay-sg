@@ -67,6 +67,8 @@ export const WORLD_ZONES: readonly WorldZone[] = [
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: -80, z: 8 }, { x: 55, z: 8 }, { x: 40, z: 44 }, { x: -188, z: 0 }, { x: 172, z: 0 }, { x: -52, z: 50 }] },
   { id: 'toa-payoh', name: 'Toa Payoh', description: 'Void decks and balcony runs give cover everywhere; the town park is the one open crossing.', spawn: { x: 50, z: -2, yaw: Math.PI / 2, pitch: 0 },
     risk: 'low', lootTier: 1, botCount: 3, composition: 'assault', encounterSpawns: [{ x: 50, z: -36 }, { x: -180, z: -4 }, { x: -70, z: 24 }, { x: 50, z: 24 }, { x: 170, z: -16 }, { x: 110, z: 24 }] },
+  { id: 'bukit-timah', name: 'Bukit Timah', description: 'The ridge overlooks everything; the corridor is a long straight run with nowhere to break.', spawn: { x: 60, z: 16, yaw: Math.PI / 2, pitch: 0 },
+    risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: 60, z: 40 }, { x: -130, z: -25 }, { x: -55, z: 28 }, { x: -52, z: 60 }, { x: 130, z: -44 }, { x: 175, z: -6 }] },
   { id: 'orchard', name: 'Orchard Road', description: 'Wide boulevard and mall forecourts; long sightlines beneath the rain trees.', spawn: { x: 30, z: 5, yaw: Math.PI / 2, pitch: 0 },
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: -8, z: 5 }, { x: -115, z: -18 }, { x: -24, z: 22 }, { x: 117, z: -20 }, { x: 205, z: 60 }, { x: -170, z: 5 }] },
 ];
@@ -116,6 +118,10 @@ export const WORLD_GATEWAYS: readonly WorldGateway[] = [
   { id: 'toa-payoh-to-upper-thomson', from: 'toa-payoh', to: 'upper-thomson', name: 'Upper Thomson checkpoint', position: { x: 0, z: -180 }, radius: 4, arrival: { x: 20, z: -183, yaw: Math.PI, pitch: 0 } },
   { id: 'orchard-to-toa-payoh', from: 'orchard', to: 'toa-payoh', name: 'Toa Payoh checkpoint', position: { x: 0, z: -180 }, radius: 4, arrival: { x: -60, z: 168, yaw: 0, pitch: 0 } },
   { id: 'toa-payoh-to-orchard', from: 'toa-payoh', to: 'orchard', name: 'Orchard checkpoint', position: { x: -60, z: 180 }, radius: 4, arrival: { x: 0, z: -168, yaw: Math.PI, pitch: 0 } },
+  { id: 'queenstown-to-bukit-timah', from: 'queenstown', to: 'bukit-timah', name: 'Bukit Timah checkpoint', position: { x: 0, z: -185 }, radius: 4, arrival: { x: -60, z: 168, yaw: 0, pitch: 0 } },
+  { id: 'bukit-timah-to-queenstown', from: 'bukit-timah', to: 'queenstown', name: 'Queenstown checkpoint', position: { x: -60, z: 180 }, radius: 4, arrival: { x: 0, z: -173, yaw: Math.PI, pitch: 0 } },
+  { id: 'toa-payoh-to-bukit-timah', from: 'toa-payoh', to: 'bukit-timah', name: 'Bukit Timah checkpoint', position: { x: 230, z: 0 }, radius: 4, arrival: { x: 218, z: -25, yaw: Math.PI / 2, pitch: 0 } },
+  { id: 'bukit-timah-to-toa-payoh', from: 'bukit-timah', to: 'toa-payoh', name: 'Toa Payoh checkpoint', position: { x: 230, z: -25 }, radius: 4, arrival: { x: 218, z: 0, yaw: Math.PI / 2, pitch: 0 } },
   { id: 'changi-to-kampong-glam', from: 'changi', to: 'kampong-glam', name: 'Kampong Glam checkpoint', position: { x: -255, z: -30 }, radius: 4, arrival: { x: 0, z: 163, yaw: 0, pitch: 0 } },
 ];
 

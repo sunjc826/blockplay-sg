@@ -20,8 +20,9 @@ import { buildTuasScene, TUAS_BOUNDS, TUAS_MAP_ROADS, TUAS_SPAWN } from './tuas-
 import { buildWoodlandsScene, WOODLANDS_BOUNDS, WOODLANDS_MAP_ROADS, WOODLANDS_SPAWN } from './woodlands-scene';
 import { buildTampinesScene, TAMPINES_BOUNDS, TAMPINES_MAP_ROADS, TAMPINES_SPAWN } from './tampines-scene';
 import { buildToaPayohScene, TOA_PAYOH_BOUNDS, TOA_PAYOH_MAP_ROADS, TOA_PAYOH_SPAWN } from './toa-payoh-scene';
+import { buildBukitTimahScene, BUKIT_TIMAH_BOUNDS, BUKIT_TIMAH_MAP_ROADS, BUKIT_TIMAH_SPAWN } from './bukit-timah-scene';
 import { buildOrchardScene, ORCHARD_BOUNDS, ORCHARD_MAP_ROADS, ORCHARD_SPAWN } from './orchard-scene';
-import { CHANGI_STAMPS, CHINATOWN_STAMPS, GEYLANG_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, TAMPINES_STAMPS, TOA_PAYOH_STAMPS, TUAS_STAMPS, UPPER_THOMSON_STAMPS, WOODLANDS_STAMPS } from '../data/region-stamps.ts';
+import { BUKIT_TIMAH_STAMPS, CHANGI_STAMPS, CHINATOWN_STAMPS, GEYLANG_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, TAMPINES_STAMPS, TOA_PAYOH_STAMPS, TUAS_STAMPS, UPPER_THOMSON_STAMPS, WOODLANDS_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -91,6 +92,7 @@ const tuasMovement = createRegionMovement(TUAS_BOUNDS);
 const woodlandsMovement = createRegionMovement(WOODLANDS_BOUNDS);
 const tampinesMovement = createRegionMovement(TAMPINES_BOUNDS);
 const toaPayohMovement = createRegionMovement(TOA_PAYOH_BOUNDS);
+const bukitTimahMovement = createRegionMovement(BUKIT_TIMAH_BOUNDS);
 const orchardMovement = createRegionMovement(ORCHARD_BOUNDS);
 
 const definitions: Record<RegionId, RegionDefinition> = {
@@ -369,6 +371,24 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'line', from: { x: 26, z: -50 }, to: { x: 84, z: -50 }, stroke: '#b8453a', width: 5, layer: 'over' },
     ],
     hasGuide: false, build: buildToaPayohScene, move: toaPayohMovement.move, canOccupy: toaPayohMovement.canOccupy,
+  },
+  'bukit-timah': {
+    id: 'bukit-timah', name: 'Bukit Timah', shortName: 'Bukit Timah', modeName: 'Bukit Timah 3D', modeSubtitle: 'The ridge and the rail corridor',
+    className: 'bukit-timah-game', badge: 'BUKIT TIMAH · GAME WORLD', title: 'Bukit Timah · ridge & corridor',
+    subtitle: 'Low-poly game map · authored forested ridge, truss bridge, bungalows and canal', mapTitle: 'RIDGE & CORRIDOR',
+    stampNoun: 'ridge stamps', exploreNoun: 'the ridge and the corridor', cameraFar: 1500,
+    spawn: BUKIT_TIMAH_SPAWN, stamps: BUKIT_TIMAH_STAMPS, bounds: BUKIT_TIMAH_BOUNDS, mapRoads: BUKIT_TIMAH_MAP_ROADS,
+    mapPaper: '#d8ddcc', roadStroke: '#8d938a', roadWidth: 14,
+    decor: [
+      { kind: 'rect', x: 30, z: -56, width: 88, depth: 24, fill: '#5f939c', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: 142, z: -56, width: 73, depth: 24, fill: '#5f939c', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: -210, z: -70, width: 70, depth: 90, fill: '#6f9457', layer: 'over', fpsFill: '#33512f', fpsLayer: 'over' },
+      { kind: 'rect', x: -222, z: -160, width: 70, depth: 56, fill: '#5d8449', layer: 'over', fpsFill: '#2c4a2a', fpsLayer: 'over' },
+      { kind: 'rect', x: -87, z: -48, width: 64, depth: 46, fill: '#cfc0a2', layer: 'over' },
+      { kind: 'rect', x: 143, z: 57, width: 64, depth: 56, fill: '#9fb37c', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+      { kind: 'line', from: { x: 60, z: -190 }, to: { x: 60, z: 190 }, stroke: '#a89f8a', width: 6, layer: 'over' },
+    ],
+    hasGuide: false, build: buildBukitTimahScene, move: bukitTimahMovement.move, canOccupy: bukitTimahMovement.canOccupy,
   },
   orchard: {
     id: 'orchard', name: 'Orchard Road', shortName: 'Orchard', modeName: 'Orchard 3D', modeSubtitle: 'Walk the shopping belt',
