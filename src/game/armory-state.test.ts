@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyArmorDamage, claimElimination, claimReward, collectTraits, createProfile, equip, previewLoadout, purchase, resolveLoadout, restoreProfile, unequipAttachment, type ExerciseReward } from './armory-state';
 import { itemById } from './armory-catalog';
 import { progression, registerElimination, xpForLevel } from './progression';
-import { advanceWeapon, beginReload, createLoadout, findTrait, FPS_WEAPONS, type WeaponTrait } from './fps-rules';
+import { advanceWeapon, beginReload, createLoadout, findTrait, FPS_WEAPONS, hitDamage, type WeaponTrait } from './fps-rules';
 import { HITSCAN } from './fps-ballistics';
 const veteran = () => ({ ...createProfile(), xp: 5000, credits: 10000, tokens: 1000 });
 const unlock = (id: string) => purchase(veteran(), id).profile;
@@ -87,9 +87,21 @@ describe('behavioral trait resolution', () => {
     expect(findTrait([falloff], 'on-kill')).toBeUndefined();
     expect(findTrait(undefined, 'falloff')).toBeUndefined();
   });
-  it('resolves a traits array and hitscan ballistics for every equipped weapon', () => {
+  it('resolves the base weapon traits and hitscan ballistics for a fresh profile', () => {
     const loadout = resolveLoadout(createProfile());
-    for (const weapon of loadout.weapons) { expect(weapon.traits).toEqual([]); expect(weapon.ballistics).toEqual(HITSCAN); }
+    loadout.weapons.forEach((weapon, i) => {
+      expect(weapon.ballistics).toEqual(HITSCAN);
+      expect(weapon.traits).toEqual(FPS_WEAPONS[i].traits);
+      expect(findTrait(weapon.traits, 'falloff')).toBeDefined();
+    });
+  });
+  it('lets a purchased variant override the base falloff and precision bands', () => {
+    const [rifle] = resolveLoadout(equip(unlock('sar-marksman'), 'sar-marksman', 0)).weapons;
+    expect(findTrait(rifle.traits, 'falloff')).toEqual({ kind: 'falloff', near: 45, far: 130, minScale: .75 });
+    expect(findTrait(rifle.traits, 'precision')?.multiplier).toBe(2.2);
+    // Strictly better than the issued rifle at every range and on precise hits.
+    for (const range of [10, 45, 90, 130]) expect(hitDamage(rifle, range)).toBeGreaterThan(hitDamage(FPS_WEAPONS[0], range));
+    expect(hitDamage(rifle, 20, 'head')).toBeGreaterThan(hitDamage(FPS_WEAPONS[0], 20, 'head'));
   });
   it('keeps attachment scalars unchanged while carrying traits through the fold', () => {
     const bought = ['mag-extended', 'handling-stable'].reduce((profile, id) => purchase(profile, id).profile, veteran());
@@ -97,6 +109,6 @@ describe('behavioral trait resolution', () => {
     const [rifle] = resolveLoadout(owner).weapons;
     expect(rifle.capacity).toBe(FPS_WEAPONS[0].capacity + 10);
     expect(rifle.recoil).toBeCloseTo(FPS_WEAPONS[0].recoil * .75, 10);
-    expect(rifle.traits).toEqual([]);
+    expect(rifle.traits).toEqual(FPS_WEAPONS[0].traits);
   });
 });

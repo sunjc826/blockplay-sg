@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceWeapon, beginReload, createLoadout, fireWeapon, FPS_WEAPONS, movementInput, FPS_SPAWN, FPS_TARGETS } from './fps-rules';
+import { advanceWeapon, beginReload, createLoadout, fireWeapon, FPS_WEAPONS, hitDamage, movementInput, FPS_SPAWN, FPS_TARGETS } from './fps-rules';
 import { buildMarinaScene } from './marina-scene';
 import { canOccupy } from './marina-collision';
 
@@ -45,4 +45,29 @@ it('places FPS spawn and all target stands clear of Marina obstacles', () => {
   try {
     for (const p of [FPS_SPAWN, ...FPS_TARGETS]) expect(canOccupy(p.x, p.z, 0.38, world.obstacles), JSON.stringify(p)).toBe(true);
   } finally { world.dispose(); }
+});
+
+describe('range and zone damage', () => {
+  const [rifle, support] = FPS_WEAPONS;
+  it('returns flat damage for a weapon with no falloff trait', () => {
+    const plain = { ...rifle, traits: [] };
+    expect(hitDamage(plain, 5)).toBe(rifle.damage); expect(hitDamage(plain, 500)).toBe(rifle.damage);
+  });
+  it('leaves the rifle untouched across the drill but degrades the support weapon', () => {
+    // Drill targets sit 12.0-30.3 units out; the rifle's band starts past that.
+    expect(hitDamage(rifle, 12)).toBe(rifle.damage); expect(hitDamage(rifle, 30)).toBe(rifle.damage);
+    expect(hitDamage(support, 12)).toBe(support.damage);
+    expect(hitDamage(support, 30)).toBeLessThan(support.damage);
+  });
+  it('applies precision only to a head zone, and composes it with falloff', () => {
+    expect(hitDamage(rifle, 12, 'head')).toBe(Math.round(rifle.damage * 1.6));
+    expect(hitDamage(rifle, 12, 'body')).toBe(rifle.damage);
+    expect(hitDamage(rifle, 12, undefined)).toBe(rifle.damage);
+    expect(hitDamage(support, 40, 'head')).toBeLessThan(hitDamage(support, 14, 'head'));
+  });
+  it('always lands at least one point of damage and always a whole number', () => {
+    const feeble = { ...rifle, damage: 2, traits: [{ kind: 'falloff', near: 1, far: 2, minScale: 0 } as const] };
+    expect(hitDamage(feeble, 900)).toBe(1);
+    for (const range of [7, 23, 41, 88]) expect(Number.isInteger(hitDamage(support, range))).toBe(true);
+  });
 });

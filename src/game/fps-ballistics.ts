@@ -75,3 +75,14 @@ export function ballisticSegments(origin: BallisticPoint, direction: BallisticPo
  */
 export const dropCompensation = (distance: number, spec: BallisticSpec) =>
   isFlat(spec) ? 0 : Math.atan(spec.drop * Math.max(0, distance) / (2 * spec.velocity * spec.velocity));
+
+/**
+ * Damage multiplier at a range: full inside `near`, interpolating down to
+ * `minScale` at `far` and holding there. A non-positive band collapses to a
+ * step at `near`, so a malformed catalog entry still yields a finite scale.
+ */
+export function falloffScale(distance: number, near: number, far: number, minScale: number) {
+  const floor = Math.max(0, Math.min(1, minScale)), range = Math.max(0, distance);
+  if (!(far > near)) return range > near ? floor : 1;
+  return 1 + (floor - 1) * Math.max(0, Math.min(1, (range - near) / (far - near)));
+}

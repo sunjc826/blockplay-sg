@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook } from './fps-pointer';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { advanceWeapon, beginReload, createLoadout, fireWeapon, FPS_SPAWN, FPS_WEAPONS, movementInput, type WeaponState } from './fps-rules';
+import { advanceWeapon, beginReload, createLoadout, fireWeapon, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, type WeaponState } from './fps-rules';
 import { firstVisibleHit } from './fps-raycast';
 import { applyArmorDamage, createProfile, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile } from './armory-state';
 import { registerElimination, ELIMINATION_XP, type KillChain } from './progression';
@@ -112,6 +112,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const targets: { root: THREE.Group; hitZone: THREE.Mesh; alive: boolean; health: number; maxHealth: number; bar: THREE.Mesh }[] = [];
   const decorations = new THREE.Group(); world.scene.add(decorations);
   const targetGeometry = new THREE.CircleGeometry(0.265, 32);
+  const headGeometry = new THREE.CircleGeometry(0.115, 20);
   const targetMaterial = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: THREE.DoubleSide });
   const flashGeometry = new THREE.SphereGeometry(0.028, 8, 6);
   const flashMaterial = new THREE.MeshBasicMaterial({ color: '#ffd382', transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -584,7 +585,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     } else if (hit && typeof hit.object.userData.fpsTarget === 'number') {
       const target = targets[hit.object.userData.fpsTarget];
       if (target.alive) {
-        hud.landed++; hud.lastDamage = Math.min(target.health, specs[hud.weapon].damage); target.health = Math.max(0, target.health - specs[hud.weapon].damage);
+        const damage = hitDamage(specs[hud.weapon], hit.distance, hit.object.userData.fpsZone);
+        hud.landed++; hud.lastDamage = Math.min(target.health, damage); target.health = Math.max(0, target.health - damage);
         target.bar.scale.x = target.health / target.maxHealth; hitTime = .20; hud.hitKind = target.health === 0 ? 'kill' : 'hit';
         if (target.health === 0) { target.alive = false; target.root.visible = false; hud.hits++;
           const chain = registerElimination(killChain, hud.elapsed); killChain = chain; hud.chain = chain.count;
@@ -791,6 +793,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       root.rotation.y = Math.atan2(spawn.x - p.x, spawn.z - p.z);
       root.add(loaded[2].clone(true));
       const hitZone = new THREE.Mesh(targetGeometry, targetMaterial); hitZone.position.set(0, 1.3, 0.026); hitZone.userData.fpsTarget = i; root.add(hitZone);
+      // A separate, smaller collider above centre mass. It never overlaps the body
+      // zone, so the nearest-surface rule picks exactly one of the two.
+      const headZone = new THREE.Mesh(headGeometry, targetMaterial); headZone.position.set(0, 1.72, 0.026);
+      headZone.userData.fpsTarget = i; headZone.userData.fpsZone = 'head'; root.add(headZone);
       const maxHealth = i % 2 ? 115 : 100;
       const bar = new THREE.Mesh(healthGeometry, healthMaterial); bar.position.set(0, 1.91, .04); root.add(bar);
       world.scene.add(root); targets.push({ root, hitZone, alive: true, health: maxHealth, maxHealth, bar });
@@ -834,7 +840,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility);
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); world.dispose();
       healthGeometry.dispose(); healthMaterial.dispose();
-      targetGeometry.dispose(); targetMaterial.dispose(); flashGeometry.dispose(); flashMaterial.dispose(); tracerGeometry.dispose(); tracerMaterial.dispose(); impactGeometry.dispose(); impactMaterial.dispose();
+      targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); flashGeometry.dispose(); flashMaterial.dispose(); tracerGeometry.dispose(); tracerMaterial.dispose(); impactGeometry.dispose(); impactMaterial.dispose();
       scopeRenderer.dispose(); renderer.dispose(); canvas.remove();
     },
   };

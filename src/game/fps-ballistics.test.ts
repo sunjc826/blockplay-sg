@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BALLISTIC_STEP, MAX_BALLISTIC_SEGMENTS, HITSCAN, ballisticPoint, ballisticSegments, dropCompensation, flightTime, isFlat, isInstant } from './fps-ballistics';
+import { BALLISTIC_STEP, MAX_BALLISTIC_SEGMENTS, HITSCAN, ballisticPoint, ballisticSegments, dropCompensation, falloffScale, flightTime, isFlat, isInstant } from './fps-ballistics';
 
 const origin = { x: 0, y: 1.75, z: 0 }, forward = { x: 0, y: 0, z: -1 };
 const arcade = { velocity: 350, drop: 25 };
@@ -56,5 +56,22 @@ describe('ballistic solver', () => {
     expect(dropCompensation(120, arcade)).toBeCloseTo(Math.atan(25 * 120 / (2 * 350 * 350)), 10);
     // A faster round needs less elevation at the same range.
     expect(dropCompensation(120, { velocity: 700, drop: 25 })).toBeLessThan(dropCompensation(120, arcade));
+  });
+});
+
+describe('damage falloff', () => {
+  it('holds full damage inside the near band and the floor beyond the far band', () => {
+    expect(falloffScale(0, 20, 60, .5)).toBe(1); expect(falloffScale(20, 20, 60, .5)).toBe(1);
+    expect(falloffScale(60, 20, 60, .5)).toBe(.5); expect(falloffScale(400, 20, 60, .5)).toBe(.5);
+  });
+  it('interpolates linearly across the band', () => {
+    expect(falloffScale(40, 20, 60, .5)).toBeCloseTo(.75, 10);
+    expect(falloffScale(30, 20, 60, .5)).toBeCloseTo(.875, 10);
+  });
+  it('stays finite for a malformed band, an inverted band or a clamped floor', () => {
+    expect(falloffScale(70, 60, 20, .5)).toBe(.5); expect(falloffScale(50, 60, 20, .5)).toBe(1);
+    expect(falloffScale(50, 30, 30, .5)).toBe(.5);
+    expect(falloffScale(80, 20, 60, -2)).toBe(0); expect(falloffScale(80, 20, 60, 4)).toBe(1);
+    expect(falloffScale(-5, 20, 60, .5)).toBe(1);
   });
 });

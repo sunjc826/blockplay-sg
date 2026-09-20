@@ -1,6 +1,6 @@
 # Field exchange, progression and FPS equipment
 
-The Armory sidebar offers 27 permanent items: six weapon variants across two platforms, five cosmetic finishes, four attachments, three carrying rigs, four insert choices and five vehicle wraps. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase.
+The Armory sidebar offers 29 permanent items: eight weapon variants across two platforms, five cosmetic finishes, four attachments, three carrying rigs, four insert choices and five vehicle wraps. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase.
 
 ## Play loop
 
@@ -17,8 +17,10 @@ The Armory sidebar offers 27 permanent items: six weapon variants across two pla
 | 3 | Vanguard, gold skin, extended magazine |
 | 4 | Orchid skin, Sentinel rig, Aegis ceramic inserts |
 | 5 | Centurion |
+| 6 | Marksman |
+| 7 | Bastion |
 
-No additional item gates currently follow level 5; ranks and XP continue to level 50. Purchases, XP and equipped items persist under `blockplay.armory.v1` in local storage. Old saves without XP migrate to zero XP while retaining valid owned items. Malformed saves fall back to issued equipment; malformed fields and unknown item IDs are sanitized. Existing ownership remains usable. Clearing browser site data resets the profile.
+No additional item gates currently follow level 7; ranks and XP continue to level 50. Purchases, XP and equipped items persist under `blockplay.armory.v1` in local storage. Old saves without XP migrate to zero XP while retaining valid owned items. Malformed saves fall back to issued equipment; malformed fields and unknown item IDs are sanitized. Existing ownership remains usable. Clearing browser site data resets the profile.
 
 ## Weapon differences
 
@@ -32,6 +34,35 @@ No additional item gates currently follow level 5; ranks and XP continue to leve
 | Ultimax Centurion | 35 | 75 | .079 s | 2.10 s | .020 |
 
 Targets alternate 100 and 115 health. Vanguard clears a 115-health target in three landed shots versus four for the issued SAR. Attachments modify reload, capacity, recoil, aiming FOV or movement. The quick-change and extended magazines share one slot, so one replaces the other. Unlocks fit both weapons, with equipment saved separately for each platform. Skin palettes change only materials. Variant accents and equipped attachment markers appear in the preview and viewmodel.
+
+## Range and hit zones
+
+Damage is no longer a single number per weapon. `hitDamage` resolves each round
+from the range it travelled and the zone it struck, and both the engine and the
+shop dossier call it, so a purchased band cannot mean one thing in the range and
+another on the item card. Results are rounded, so shots-to-kill breakpoints stay
+predictable.
+
+Falloff holds full damage inside `near`, interpolates linearly to `minScale` at
+`far`, and holds that floor beyond it. Each target carries a second, smaller
+collider above centre mass; a hit there multiplies damage by the weapon's
+precision trait. The two colliders never overlap, so the nearest-surface rule
+picks exactly one.
+
+| Weapon | Full damage to | Floor at | Floor | Precision |
+| --- | --- | --- | --- | --- |
+| SAR 21 · Issued | 30 m | 90 m | 55% | 1.6x |
+| SAR 21 · Marksman | 45 m | 130 m | 75% | 2.2x |
+| Ultimax · Issued | 14 m | 45 m | 40% | 1.5x |
+| Ultimax · Bastion | 24 m | 70 m | 60% | 1.9x |
+
+Drill targets sit 12.0-30.3 units from the spawn, so the rifle's band does not
+bite inside the range while the support weapon's does. Both paid variants are
+strictly better than their platform's issued band at every distance.
+
+Arena damage stays host-authoritative and unchanged: zones and falloff apply to
+drills and expedition only until the arena resolves shots per tick. See
+[the armory roadmap](ARMORY-ROADMAP.md).
 
 ## Armor and counter-fire
 

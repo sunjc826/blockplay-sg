@@ -1,5 +1,5 @@
 /** Arcade tuning, intentionally independent of real equipment specifications. */
-import { HITSCAN, type BallisticSpec } from './fps-ballistics';
+import { falloffScale, HITSCAN, type BallisticSpec } from './fps-ballistics';
 export type WeaponOptic = 'integrated' | 'reflex' | 'precision';
 export const HIP_FOV = 65;
 export const magnifiedFov = (zoom: number) => 2 * Math.atan(Math.tan(HIP_FOV * Math.PI / 360) / zoom) * 180 / Math.PI;
@@ -28,8 +28,12 @@ export function findTrait<K extends WeaponTraitKind>(traits: readonly WeaponTrai
 }
 export interface WeaponSpec { id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
 export const FPS_WEAPONS: readonly WeaponSpec[] = [
-  { id: 'sar21-inspired', name: 'SAR 21', role: 'Bullpup rifle', capacity: 30, reserve: 120, interval: 0.12, reload: 1.8, recoil: 0.018, sightHeight: 0.328, damage: 36, aimFov: magnifiedFov(1.5), mobility: 1, optic: 'integrated', ballistics: HITSCAN },
-  { id: 'ultimax-inspired', name: 'Ultimax', role: 'Support weapon', capacity: 60, reserve: 180, interval: 0.085, reload: 2.5, recoil: 0.026, sightHeight: 0.28, damage: 30, aimFov: HIP_FOV, mobility: 1, optic: 'reflex', ballistics: HITSCAN },
+  // The rifle holds its damage to twice the support weapon's range; the support
+  // weapon trades that away for its volume of fire. Paid variants lift both bands.
+  { id: 'sar21-inspired', name: 'SAR 21', role: 'Bullpup rifle', capacity: 30, reserve: 120, interval: 0.12, reload: 1.8, recoil: 0.018, sightHeight: 0.328, damage: 36, aimFov: magnifiedFov(1.5), mobility: 1, optic: 'integrated', ballistics: HITSCAN,
+    traits: [{ kind: 'falloff', near: 30, far: 90, minScale: 0.55 }, { kind: 'precision', multiplier: 1.6 }] },
+  { id: 'ultimax-inspired', name: 'Ultimax', role: 'Support weapon', capacity: 60, reserve: 180, interval: 0.085, reload: 2.5, recoil: 0.026, sightHeight: 0.28, damage: 30, aimFov: HIP_FOV, mobility: 1, optic: 'reflex', ballistics: HITSCAN,
+    traits: [{ kind: 'falloff', near: 14, far: 45, minScale: 0.40 }, { kind: 'precision', multiplier: 1.5 }] },
 ];
 
 export interface WeaponState { magazine: number; reserve: number; cooldown: number; reloadRemaining: number }
@@ -62,3 +66,15 @@ export const FPS_TARGETS = [
   { x: -44, z: 56 }, { x: -50, z: 57 }, { x: -38, z: 57 }, { x: -56, z: 62 },
   { x: -32, z: 62 }, { x: -60, z: 55 }, { x: -26, z: 55 }, { x: -14, z: 64 },
 ];
+
+/**
+ * Damage a single round lands, given the range it travelled and the zone it
+ * struck. Both the engine and the shop's preview read this, so a purchased
+ * falloff or precision trait cannot mean one thing in the range and another on
+ * the dossier. Rounded, so shots-to-kill breakpoints stay predictable.
+ */
+export function hitDamage(weapon: WeaponSpec, distance: number, zone?: string) {
+  const falloff = findTrait(weapon.traits, 'falloff'), precision = findTrait(weapon.traits, 'precision');
+  const ranged = weapon.damage * (falloff ? falloffScale(distance, falloff.near, falloff.far, falloff.minScale) : 1);
+  return Math.max(1, Math.round(ranged * (zone === 'head' && precision ? precision.multiplier : 1)));
+}
