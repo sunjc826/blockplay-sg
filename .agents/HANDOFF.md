@@ -1,6 +1,23 @@
 # Blockplay: portable agent handoff
 
-**Latest: Geylang (2026-09-20).** Thirteen districts are playable, 143 stamps.
+**Latest: scene code-splitting measured, then dropped (2026-09-20).** The
+standing follow-up — every scene builder statically imported, so all districts
+ship in the main bundle — was measured rather than acted on, and is not worth
+doing. Cold load is 412 kB gzipped: 241 kB `index` plus 181 kB `three`. Each
+district costs ~4 kB gzipped (measured: six districts added 25 kB), so all
+thirteen are ~54 kB, and splitting still loads whichever district you enter, so
+the real saving is ~50 kB **once**, on a cold visit, against filenames that are
+content-hashed and cached indefinitely after that.
+
+Against that: `build()` is synchronous and called from `RegionGame`,
+`district-world.ts` and `fps-engine.ts`, so splitting makes it async through the
+FPS startup path; and the expedition crosses checkpoints between districts at
+runtime, which is instant today and would become a fetch on each first
+crossing. Prefetching neighbours to avoid the stall gives the saving back. If
+bundle size ever matters, `three` is 44% of the total and is the only target
+worth attacking — and measure time-to-interactive first.
+
+**Earlier: Geylang (2026-09-20).** Thirteen districts are playable, 143 stamps.
 The lorong grid is the district: six close-set numbered lanes at 56-metre
 spacing, terraces turned outward onto them with a back lane between, and a
 canal along the rear bridged at every lane. It links Kampong Glam to Changi,
