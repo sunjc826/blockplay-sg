@@ -35,7 +35,7 @@ export function buildUpperThomsonScene() {
     sun: { x: 150, y: 210, z: -120 }, shadow: { extent: 260, far: 660 },
     hemisphere: { sky: '#f3f9fb', ground: '#6f7360', intensity: 1.82 },
   });
-  const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat, geo } = kit;
+  const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat } = kit;
 
   const asphalt = mat('#575d5f'), white = mat('#e9e7d8'), paving = mat('#bab5a8'), kerb = mat('#cdc7b9');
   const water = mat('#4f8496', 0.42), shallow = mat('#659cab', 0.4), grass = mat('#87a06c'), lawn = mat('#93ac74');

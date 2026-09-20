@@ -124,6 +124,20 @@ export const HARBOURFRONT_STAMPS = [
   { name: 'Harbour depot', x: 180, z: -60 },
 ];
 
+export const SENTOSA_STAMPS = [
+  { name: 'Boardwalk landing', x: 108, z: -150 },
+  { name: 'Sentosa monorail', x: 60, z: -130 },
+  { name: 'Fort ramparts', x: -90, z: 8 },
+  { name: 'Resort forecourt', x: 30, z: 8 },
+  { name: 'Hotel podium', x: 165, z: 8 },
+  { name: 'Lagoon shore', x: -90, z: 32 },
+  { name: 'Beach club deck', x: 30, z: 32 },
+  { name: 'Palm grove', x: -187, z: 8 },
+  { name: 'Siloso beach', x: 0, z: 192 },
+  { name: 'Observation tower', x: -187, z: -20 },
+  { name: 'Island spine', x: -30, z: 100 },
+];
+
 export const ORCHARD_STAMPS = [
   { name: 'Orchard crossing', x: -8, z: 5 },
   { name: 'ION frontage', x: -115, z: -18 },

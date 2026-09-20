@@ -47,16 +47,18 @@ export const WORLD_ZONES: readonly WorldZone[] = [
     risk: 'low', lootTier: 1, botCount: 3, composition: 'assault', encounterSpawns: [{ x: 10, z: -14 }, { x: 10, z: -75 }, { x: -90, z: -75 }, { x: 110, z: -92 }, { x: -90, z: -20 }, { x: 110, z: 50 }] },
   { id: 'jurong-lake', name: 'Jurong Lake', description: 'Open shoreline and a single causeway; the island is a hard place to leave.', spawn: { x: -20, z: 20, yaw: Math.PI / 2, pitch: 0 },
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: -142, z: 50 }, { x: -70, z: 20 }, { x: -18, z: 60 }, { x: 65, z: -10 }, { x: 170, z: -20 }, { x: -60, z: -160 }] },
+  { id: 'changi', name: 'Changi', description: 'Long apron sightlines outside; tight terraces and walkways under the dome.', spawn: { x: 16, z: -11, yaw: 1.31, pitch: 0 },
+    risk: 'high', lootTier: 3, botCount: 5, composition: 'mixed', encounterSpawns: [{ x: -55, z: 14 }, { x: 4, z: -30 }, { x: -75, z: -166 }, { x: 190, z: -20 }, { x: 60, z: 170 }, { x: 120, z: 30 }] },
   { id: 'upper-thomson', name: 'Upper Thomson', description: 'A thin eating strip with the reservoir forest behind it; cover runs out at the causeway.', spawn: { x: -50, z: -12, yaw: Math.PI / 2, pitch: 0 },
     risk: 'low', lootTier: 1, botCount: 3, composition: 'assault', encounterSpawns: [{ x: -50, z: -14 }, { x: -92, z: -46 }, { x: 85, z: -14 }, { x: -190, z: 5 }, { x: -162, z: -64 }, { x: 192, z: 60 }] },
   { id: 'punggol', name: 'Punggol', description: 'Open water and long promenades; the crossings are few and every one is watched.', spawn: { x: 20, z: -58, yaw: 0, pitch: 0 },
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: 20, z: -60 }, { x: 20, z: -90 }, { x: 20, z: 36 }, { x: -100, z: 30 }, { x: 215, z: 75 }, { x: 139, z: -20 }] },
   { id: 'harbourfront', name: 'HarbourFront', description: 'Open quay with the ridge above it; the wharf end has cover, the water end has none.', spawn: { x: 20, z: 134, yaw: Math.PI / 2, pitch: 0 },
     risk: 'high', lootTier: 3, botCount: 5, composition: 'mixed', encounterSpawns: [{ x: 20, z: 134 }, { x: 60, z: -6 }, { x: -75, z: -6 }, { x: -185, z: -10 }, { x: 180, z: 50 }, { x: 109, z: 165 }] },
+  { id: 'sentosa', name: 'Sentosa', description: 'One way on and one way off; open beach and lawn with the battery holding the high ground.', spawn: { x: 108, z: -168, yaw: Math.PI, pitch: 0 },
+    risk: 'high', lootTier: 3, botCount: 5, composition: 'mixed', encounterSpawns: [{ x: 108, z: -150 }, { x: 30, z: 8 }, { x: -90, z: 8 }, { x: 165, z: 8 }, { x: 0, z: 192 }, { x: -30, z: 100 }] },
   { id: 'orchard', name: 'Orchard Road', description: 'Wide boulevard and mall forecourts; long sightlines beneath the rain trees.', spawn: { x: 30, z: 5, yaw: Math.PI / 2, pitch: 0 },
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: -8, z: 5 }, { x: -115, z: -18 }, { x: -24, z: 22 }, { x: 117, z: -20 }, { x: 205, z: 60 }, { x: -170, z: 5 }] },
-  { id: 'changi', name: 'Changi', description: 'Long apron sightlines outside; tight terraces and walkways under the dome.', spawn: { x: 16, z: -11, yaw: 1.31, pitch: 0 },
-    risk: 'high', lootTier: 3, botCount: 5, composition: 'mixed', encounterSpawns: [{ x: -55, z: 14 }, { x: 4, z: -30 }, { x: -75, z: -166 }, { x: 190, z: -20 }, { x: 60, z: 170 }, { x: 120, z: 30 }] },
 ];
 
 // These connections compress travel between districts. They do not claim that
@@ -84,6 +86,8 @@ export const WORLD_GATEWAYS: readonly WorldGateway[] = [
   { id: 'changi-to-punggol', from: 'changi', to: 'punggol', name: 'Punggol checkpoint', position: { x: 80, z: 210 }, radius: 4, arrival: { x: 233, z: 20, yaw: Math.PI / 2, pitch: 0 } },
   { id: 'queenstown-to-harbourfront', from: 'queenstown', to: 'harbourfront', name: 'HarbourFront checkpoint', position: { x: -15, z: 185 }, radius: 4, arrival: { x: -218, z: -20, yaw: -Math.PI / 2, pitch: 0 } },
   { id: 'harbourfront-to-queenstown', from: 'harbourfront', to: 'queenstown', name: 'Queenstown checkpoint', position: { x: -230, z: -20 }, radius: 4, arrival: { x: -15, z: 173, yaw: 0, pitch: 0 } },
+  { id: 'harbourfront-to-sentosa', from: 'harbourfront', to: 'sentosa', name: 'Sentosa checkpoint', position: { x: 109, z: 185 }, radius: 4, arrival: { x: 108, z: -184, yaw: Math.PI, pitch: 0 } },
+  { id: 'sentosa-to-harbourfront', from: 'sentosa', to: 'harbourfront', name: 'HarbourFront checkpoint', position: { x: 108, z: -196 }, radius: 4, arrival: { x: 109, z: 173, yaw: 0, pitch: 0 } },
   { id: 'changi-to-kampong-glam', from: 'changi', to: 'kampong-glam', name: 'Kampong Glam checkpoint', position: { x: -255, z: -30 }, radius: 4, arrival: { x: 0, z: 163, yaw: 0, pitch: 0 } },
 ];
 

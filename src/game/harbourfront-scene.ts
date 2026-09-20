@@ -39,7 +39,7 @@ export function buildHarbourfrontScene() {
     sun: { x: 130, y: 210, z: 140 }, shadow: { extent: 265, far: 680 },
     hemisphere: { sky: '#f2f9fc', ground: '#74776a', intensity: 1.86 },
   });
-  const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat, geo } = kit;
+  const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat } = kit;
 
   const asphalt = mat('#565d61'), white = mat('#eae8da'), paving = mat('#bdb8ab'), kerb = mat('#cfc9bb');
   const water = mat('#3f7e95', 0.42), shallow = mat('#589cae', 0.38), lawn = mat('#8aa56c'), grass = mat('#7b9560');

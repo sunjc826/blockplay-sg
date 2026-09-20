@@ -14,8 +14,9 @@ import { buildChangiScene, CHANGI_BOUNDS, CHANGI_MAP_ROADS, CHANGI_SPAWN } from 
 import { buildUpperThomsonScene, UPPER_THOMSON_BOUNDS, UPPER_THOMSON_MAP_ROADS, UPPER_THOMSON_SPAWN } from './upper-thomson-scene';
 import { buildPunggolScene, PUNGGOL_BOUNDS, PUNGGOL_MAP_ROADS, PUNGGOL_SPAWN } from './punggol-scene';
 import { buildHarbourfrontScene, HARBOURFRONT_BOUNDS, HARBOURFRONT_MAP_ROADS, HARBOURFRONT_SPAWN } from './harbourfront-scene';
+import { buildSentosaScene, SENTOSA_BOUNDS, SENTOSA_MAP_ROADS, SENTOSA_SPAWN } from './sentosa-scene';
 import { buildOrchardScene, ORCHARD_BOUNDS, ORCHARD_MAP_ROADS, ORCHARD_SPAWN } from './orchard-scene';
-import { CHANGI_STAMPS, CHINATOWN_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
+import { CHANGI_STAMPS, CHINATOWN_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -79,6 +80,7 @@ const changiMovement = createRegionMovement(CHANGI_BOUNDS);
 const upperThomsonMovement = createRegionMovement(UPPER_THOMSON_BOUNDS);
 const punggolMovement = createRegionMovement(PUNGGOL_BOUNDS);
 const harbourfrontMovement = createRegionMovement(HARBOURFRONT_BOUNDS);
+const sentosaMovement = createRegionMovement(SENTOSA_BOUNDS);
 const orchardMovement = createRegionMovement(ORCHARD_BOUNDS);
 
 const definitions: Record<RegionId, RegionDefinition> = {
@@ -243,6 +245,26 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'line', from: { x: 109, z: 138 }, to: { x: 109, z: 192 }, stroke: '#b08a5c', width: 5, layer: 'over' },
     ],
     hasGuide: false, build: buildHarbourfrontScene, move: harbourfrontMovement.move, canOccupy: harbourfrontMovement.canOccupy,
+  },
+  sentosa: {
+    id: 'sentosa', name: 'Sentosa', shortName: 'Sentosa', modeName: 'Sentosa 3D', modeSubtitle: 'Across the strait to the beaches',
+    className: 'sentosa-game', badge: 'SENTOSA · GAME WORLD', title: 'Sentosa · the resort island',
+    subtitle: 'Low-poly game map · authored landing, monorail, battery and beach strip', mapTitle: 'ISLAND & BEACHES',
+    stampNoun: 'island stamps', exploreNoun: 'the island and its beaches', cameraFar: 1600,
+    spawn: SENTOSA_SPAWN, stamps: SENTOSA_STAMPS, bounds: SENTOSA_BOUNDS, mapRoads: SENTOSA_MAP_ROADS,
+    mapPaper: '#d9dcc9', roadStroke: '#93968b', roadWidth: 14,
+    decor: [
+      { kind: 'rect', x: -215, z: 196, width: 430, depth: 14, fill: '#5f9fb5', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: -215, z: -210, width: 315, depth: 20, fill: '#5f9fb5', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: 116, z: -210, width: 99, depth: 20, fill: '#5f9fb5', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: -215, z: 185, width: 430, depth: 12, fill: '#ded0a6', layer: 'over' },
+      { kind: 'rect', x: -121, z: 53, width: 62, depth: 44, fill: '#6fa8bd', layer: 'over', fpsFill: '#2f5a63', fpsLayer: 'over' },
+      { kind: 'rect', x: -8, z: -86, width: 76, depth: 82, fill: '#d6cdb6', layer: 'over' },
+      { kind: 'rect', x: -128, z: -88, width: 76, depth: 86, fill: '#93a374', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+      { kind: 'rect', x: 120, z: 40, width: 90, depth: 70, fill: '#9fb37c', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+      { kind: 'line', from: { x: -200, z: -145 }, to: { x: 200, z: -145 }, stroke: '#cfc8b6', width: 5, layer: 'over' },
+    ],
+    hasGuide: false, build: buildSentosaScene, move: sentosaMovement.move, canOccupy: sentosaMovement.canOccupy,
   },
   orchard: {
     id: 'orchard', name: 'Orchard Road', shortName: 'Orchard', modeName: 'Orchard 3D', modeSubtitle: 'Walk the shopping belt',

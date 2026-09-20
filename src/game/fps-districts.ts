@@ -42,6 +42,12 @@ const districts: Record<WorldZoneId, FpsDistrict> = {
     vehicles: { car: { x: -70, z: -187, yaw: -Math.PI / 2 }, helicopter: { x: -20, z: -170, yaw: 0 } },
     props: [[3, -62, -189, .77, .52], [4, -56, -186, 1.87, .41], [5, -61, -190, .37, .37], [5, -59, -190, .37, .37]],
   },
+  changi: {
+    label: 'Changi FPS', setting: 'aircraft apron', spawn: { x: 60, z: 198, yaw: 0, pitch: -.03 },
+    targets: [{ x: 60, z: 172 }, { x: 54, z: 173 }, { x: 66, z: 173 }, { x: 48, z: 178 }, { x: 72, z: 178 }, { x: 46, z: 186 }, { x: 74, z: 186 }, { x: 60, z: 162 }],
+    vehicles: { car: { x: 50, z: 200, yaw: -Math.PI / 2 }, helicopter: { x: 100, z: 190, yaw: 0 } },
+    props: [[3, 58, 200, .77, .52], [4, 64, 197, 1.87, .41], [5, 59, 201, .37, .37], [5, 61, 201, .37, .37]],
+  },
   'upper-thomson': {
     label: 'Thomson FPS', setting: 'park lawn', spawn: { x: 192, z: -30, yaw: 0, pitch: -.03 },
     targets: [{ x: 192, z: -60 }, { x: 186, z: -59 }, { x: 198, z: -59 }, { x: 180, z: -64 }, { x: 204, z: -64 }, { x: 178, z: -72 }, { x: 206, z: -72 }, { x: 192, z: -50 }],
@@ -60,17 +66,17 @@ const districts: Record<WorldZoneId, FpsDistrict> = {
     vehicles: { car: { x: 171, z: 92, yaw: -Math.PI / 2 }, helicopter: { x: 192, z: 96, yaw: 0 } },
     props: [[3, 178, 94, .77, .52], [4, 184, 91, 1.87, .41], [5, 179, 95, .37, .37], [5, 181, 95, .37, .37]],
   },
+  sentosa: {
+    label: 'Sentosa FPS', setting: 'island lawn', spawn: { x: 165, z: 100, yaw: 0, pitch: -.03 },
+    targets: [{ x: 165, z: 70 }, { x: 159, z: 71 }, { x: 171, z: 71 }, { x: 153, z: 76 }, { x: 177, z: 76 }, { x: 151, z: 84 }, { x: 179, z: 84 }, { x: 165, z: 60 }],
+    vehicles: { car: { x: 156, z: 104, yaw: -Math.PI / 2 }, helicopter: { x: 178, z: 106, yaw: 0 } },
+    props: [[3, 163, 106, .77, .52], [4, 169, 103, 1.87, .41], [5, 164, 107, .37, .37], [5, 166, 107, .37, .37]],
+  },
   orchard: {
     label: 'Orchard FPS', setting: 'park lawn', spawn: { x: 205, z: 150, yaw: 0, pitch: -.03 },
     targets: [{ x: 205, z: 120 }, { x: 199, z: 121 }, { x: 211, z: 121 }, { x: 193, z: 126 }, { x: 217, z: 126 }, { x: 191, z: 134 }, { x: 219, z: 134 }, { x: 205, z: 110 }],
     vehicles: { car: { x: 196, z: 154, yaw: -Math.PI / 2 }, helicopter: { x: 214, z: 162, yaw: 0 } },
     props: [[3, 203, 156, .77, .52], [4, 209, 153, 1.87, .41], [5, 204, 157, .37, .37], [5, 206, 157, .37, .37]],
-  },
-  changi: {
-    label: 'Changi FPS', setting: 'aircraft apron', spawn: { x: 60, z: 198, yaw: 0, pitch: -.03 },
-    targets: [{ x: 60, z: 172 }, { x: 54, z: 173 }, { x: 66, z: 173 }, { x: 48, z: 178 }, { x: 72, z: 178 }, { x: 46, z: 186 }, { x: 74, z: 186 }, { x: 60, z: 162 }],
-    vehicles: { car: { x: 50, z: 200, yaw: -Math.PI / 2 }, helicopter: { x: 100, z: 190, yaw: 0 } },
-    props: [[3, 58, 200, .77, .52], [4, 64, 197, 1.87, .41], [5, 59, 201, .37, .37], [5, 61, 201, .37, .37]],
   },
 };
 export const getFpsDistrict = (region: WorldZoneId): FpsDistrict => districts[region];

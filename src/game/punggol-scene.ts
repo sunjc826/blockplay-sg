@@ -41,7 +41,7 @@ export function buildPunggolScene() {
     sun: { x: -150, y: 215, z: 130 }, shadow: { extent: 270, far: 700 },
     hemisphere: { sky: '#f4fafd', ground: '#757a66', intensity: 1.86 },
   });
-  const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat, geo } = kit;
+  const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat } = kit;
 
   const asphalt = mat('#575d61'), white = mat('#eae8da'), paving = mat('#bcb7aa'), kerb = mat('#cfc9bb');
   const water = mat('#4e8ba1', 0.4), shallow = mat('#63a2b2', 0.38), lawn = mat('#8ba76c'), grass = mat('#7d9761');

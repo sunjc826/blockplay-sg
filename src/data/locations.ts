@@ -110,6 +110,17 @@ export const locations = [
     ],
   },
   {
+    id: 'sentosa', name: 'Sentosa', subtitle: 'One boardwalk across', district: 'ISLAND',
+    description: 'A boardwalk landing across the strait, a monorail down the spine, a resort podium and hotel pair, a headland battery and the beach strip beyond. Authored and compressed for play.',
+    lat: 1.2494, lng: 103.8303, heading: 180, color: '#e0c489', block: 1,
+    tags: ['Resort island', 'Beach strip'],
+    viewpoints: [
+      { label: 'Boardwalk', lat: 1.2600, lng: 103.8210, heading: 180 },
+      { label: 'Siloso', lat: 1.2570, lng: 103.8100, heading: 90 },
+      { label: 'Imbiah', lat: 1.2540, lng: 103.8180, heading: 0 },
+    ],
+  },
+  {
     id: 'orchard', name: 'Orchard Road', subtitle: 'The shopping belt', district: 'CENTRAL',
     description: 'A planted median under rain trees, a faceted glass mall at the junction and a peranakan side lane. An authored low-poly boulevard, compressed for play.',
     lat: 1.3040, lng: 103.8320, heading: 90, color: '#c9a9b8', block: 2,
