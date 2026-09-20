@@ -1,6 +1,6 @@
 # Field exchange, progression and FPS equipment
 
-The Armory sidebar offers 29 permanent items: eight weapon variants across two platforms, five cosmetic finishes, four attachments, three carrying rigs, four insert choices and five vehicle wraps. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase.
+The Armory sidebar offers 30 permanent items: eight weapon variants across two platforms, five cosmetic finishes, four attachments, three carrying rigs, four insert choices and five vehicle wraps. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase.
 
 ## Play loop
 
@@ -17,7 +17,7 @@ The Armory sidebar offers 29 permanent items: eight weapon variants across two p
 | 3 | Vanguard, gold skin, extended magazine |
 | 4 | Orchid skin, Sentinel rig, Aegis ceramic inserts |
 | 5 | Centurion |
-| 6 | Marksman |
+| 6 | Marksman, Penetrator magazine |
 | 7 | Bastion |
 
 No additional item gates currently follow level 7; ranks and XP continue to level 50. Purchases, XP and equipped items persist under `blockplay.armory.v1` in local storage. Old saves without XP migrate to zero XP while retaining valid owned items. Malformed saves fall back to issued equipment; malformed fields and unknown item IDs are sanitized. Existing ownership remains usable. Clearing browser site data resets the profile.
@@ -98,6 +98,21 @@ restored to instant rather than rejected. With no drop the hold-over is zero and
 the pilot behaves exactly as before.
 
 Arena shots stay instant and host-authoritative.
+
+## Penetration
+
+A shot resolves every surface it passes through rather than stopping at the
+first. Its damage decays once per surface, so a round that reaches a target
+through cover lands for less than one that arrives clean, and a round that
+lines up two targets damages both. The Penetrator magazine grants two surfaces
+at 60% damage each; without it a shot stops at the first surface exactly as
+before.
+
+Thickness is not modelled: each intersected face spends one surface, so a solid
+prop with front and back faces costs two while a thin panel costs one. A round
+in flight carries its remaining budget and its decayed damage between frames,
+so piercing works the same whether the shot was instant or travelling. The
+arena host still resolves only the nearest surface.
 
 ## Armor and counter-fire
 

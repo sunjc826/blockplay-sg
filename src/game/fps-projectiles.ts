@@ -10,12 +10,16 @@ export interface InFlightRound {
   id: number; weapon: number; ballistics: BallisticSpec;
   origin: BallisticPoint; direction: BallisticPoint;
   position: BallisticPoint; time: number; travelled: number;
+  /** Surfaces this round may still pass through before it stops. */
+  pierced: number;
+  /** Damage multiplier left after the surfaces it has already pierced. */
+  scale: number;
 }
 /** Keeps the per-frame raycast budget bounded on a software renderer. */
 export const MAX_ROUNDS_IN_FLIGHT = 24;
 
-export function createRound(id: number, weapon: number, origin: BallisticPoint, direction: BallisticPoint, ballistics: BallisticSpec): InFlightRound {
-  return { id, weapon, ballistics, origin, direction, position: origin, time: 0, travelled: 0 };
+export function createRound(id: number, weapon: number, origin: BallisticPoint, direction: BallisticPoint, ballistics: BallisticSpec, pierced = 0): InFlightRound {
+  return { id, weapon, ballistics, origin, direction, position: origin, time: 0, travelled: 0, pierced: Math.max(0, pierced), scale: 1 };
 }
 export interface RoundStep { from: BallisticPoint; to: BallisticPoint; distance: number; expired: boolean }
 /**

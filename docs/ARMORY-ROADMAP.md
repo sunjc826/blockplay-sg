@@ -113,7 +113,7 @@ in-flight rounds and use a filtered candidate list.
 *Files:* `fps-ballistics.ts`, `fps-engine.ts`, `armory-catalog.ts`.
 *Risk:* medium-high, mostly performance. *Feelable:* yes, strongly.
 
-### Phase 3 — Penetration, reload kinds and optics
+### Phase 3 — Penetration, reload kinds and optics *(penetration landed)*
 
 Three cheap traits on the Phase 0 foundation:
 
@@ -121,11 +121,15 @@ Three cheap traits on the Phase 0 foundation:
   stopping at the nearest. A small change to a small pure function, and a
   strictly-better paid axis.
 - **Reload kind** — cancellable single-shell reload alongside magazine swap.
-  `beginReload`/`advanceWeapon` are pure and already tested. A different combat
-  rhythm for roughly twenty lines.
+  `beginReload`/`advanceWeapon` are pure and already tested. Deferred rather than
+  built: no shipped weapon is shell-fed, so it would be engine complexity and a
+  mismatched reload animation in service of data nothing reads. It lands with a
+  weapon that wants it.
 - **Scope zeroing** — sights zeroed at a distance, with adjustable zeroing as
   the purchasable upgrade. `aimFov`, `opticMagnification` and the PiP reticle
-  already exist.
+  already exist. Still open, and it is not free: a zeroed sight already holds
+  over, so the pilot must subtract the zero from its own compensation or it will
+  double-count and shoot high.
 
 *Files:* `fps-raycast.ts`, `fps-rules.ts`, `weapon-optics.ts`.
 *Risk:* low. *Feelable:* yes.

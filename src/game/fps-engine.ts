@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook } from './fps-pointer';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { advanceWeapon, beginReload, createLoadout, fireWeapon, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, type WeaponState } from './fps-rules';
-import { firstVisibleHit } from './fps-raycast';
+import { advanceWeapon, beginReload, createLoadout, findTrait, fireWeapon, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, type WeaponState } from './fps-rules';
+import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { advanceRound, createRound, needsFlight, MAX_ROUNDS_IN_FLIGHT, type InFlightRound } from './fps-projectiles';
 import { applyArmorDamage, createProfile, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile } from './armory-state';
 import { registerElimination, ELIMINATION_XP, type KillChain } from './progression';
@@ -585,12 +585,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // Effects and the viewmodel never obstruct a gameplay ray.
     return world.scene.children.filter(o => o !== tracer && o !== impact && !o.userData.fpsEffect);
   }
-  function applyTargetDamage(hit: THREE.Intersection, weapon: number, range: number) {
+  function applyTargetDamage(hit: THREE.Intersection, weapon: number, range: number, scale = 1) {
     const index = hit.object.userData.fpsTarget as number, target = targets[index];
     if (!target?.alive) return;
     // Falloff reads how far the round actually travelled, which for one in flight
     // is its whole arc rather than the length of its final segment.
-    const damage = hitDamage(specs[weapon], range, hit.object.userData.fpsZone);
+    const damage = Math.max(1, Math.round(hitDamage(specs[weapon], range, hit.object.userData.fpsZone) * scale));
     hud.landed++; hud.lastDamage = Math.min(target.health, damage); target.health = Math.max(0, target.health - damage);
     target.bar.scale.x = target.health / target.maxHealth; hitTime = .20; hud.hitKind = target.health === 0 ? 'kill' : 'hit';
     if (target.health > 0) return;
@@ -600,6 +600,21 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     options.onElimination?.(`${roundId}:kill:${hud.hits}`);
     comms.add('kills', pilotEnabled ? 'AI pilot' : 'You', `Target ${index + 1} eliminated${chain.label ? ' · ' + chain.label : ''}.`);
     announce(hud.callout, killChain.count);
+  }
+  /** Surfaces a shot may strike: one, plus whatever its ammunition pierces. */
+  const pierceBudget = (weapon: number) => findTrait(specs[weapon].traits, 'penetration')?.surfaces ?? 0;
+  /**
+   * Resolves every surface a shot passes through, decaying its damage per
+   * surface. Returns the damage scale left over, so a round still in flight can
+   * carry it into the next segment.
+   */
+  function resolveSurfaces(hits: THREE.Intersection[], weapon: number, rangeAt: (hit: THREE.Intersection) => number, scale: number) {
+    const decay = findTrait(specs[weapon].traits, 'penetration')?.decay ?? 1;
+    for (const hit of hits) {
+      if (typeof hit.object.userData.fpsTarget === 'number') applyTargetDamage(hit, weapon, rangeAt(hit), scale);
+      scale *= decay;
+    }
+    return scale;
   }
   function checkCompletion() {
     if (options.arena || hud.phase === 'complete' || hud.hits !== targetPositions.length) return;
@@ -631,11 +646,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         roundDirection.set(step.to.x - step.from.x, step.to.y - step.from.y, step.to.z - step.from.z).normalize();
         roundRay.set(roundOrigin.set(step.from.x, step.from.y, step.from.z), roundDirection);
         roundRay.near = 0; roundRay.far = step.distance;
-        const hit = firstVisibleHit(roundRay, candidates);
-        if (hit) {
-          if (typeof hit.object.userData.fpsTarget === 'number') applyTargetDamage(hit, round.weapon, round.travelled);
-          impact.position.copy(hit.point); impactActive = true; effectTime = .055;
-          rounds.splice(i, 1); struck = true; continue;
+        const segmentHits = visibleHits(roundRay, candidates, 1 + round.pierced);
+        if (segmentHits.length) {
+          // travelled already covers the arc up to this segment's start.
+          const start = round.travelled - step.distance;
+          round.scale = resolveSurfaces(segmentHits, round.weapon, surface => start + surface.distance, round.scale);
+          const last = segmentHits[segmentHits.length - 1];
+          impact.position.copy(last.point); impactActive = true; effectTime = .055; struck = true;
+          // Stopped once it has struck more surfaces than it could pass through.
+          if (segmentHits.length > round.pierced) { rounds.splice(i, 1); continue; }
+          round.pierced -= segmentHits.length;
         }
       }
       if (step.expired) rounds.splice(i, 1);
@@ -659,16 +679,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // step rounds per tick; everything else with a finite muzzle velocity flies.
     if (!arenaRuntime && needsFlight(specs[hud.weapon].ballistics)) {
       if (rounds.length < MAX_ROUNDS_IN_FLIGHT)
-        rounds.push(createRound(++roundSerial, hud.weapon, camera.position.clone(), ray.ray.direction.clone(), specs[hud.weapon].ballistics));
+        rounds.push(createRound(++roundSerial, hud.weapon, camera.position.clone(), ray.ray.direction.clone(), specs[hud.weapon].ballistics, pierceBudget(hud.weapon)));
       publish(); return;
     }
-    const hit = firstVisibleHit(ray, gameplayCandidates());
+    const candidates = gameplayCandidates();
+    // The arena host resolves its own shot, so it only needs the nearest surface.
+    const hits = arenaRuntime ? visibleHits(ray, candidates, 1) : visibleHits(ray, candidates, 1 + pierceBudget(hud.weapon));
+    const hit = hits[0];
     if (arenaRuntime) {
       let hitActor = false;
       for (let object: THREE.Object3D | null = hit?.object ?? null; object; object = object.parent) if (object.userData.arenaActorId) hitActor = true;
       arenaRuntime.shoot(camera.position, ray.ray.direction, hud.weapon, hit ? hit.distance + (hitActor ? 0.7 : 0) : 125);
-    } else if (hit && typeof hit.object.userData.fpsTarget === 'number') applyTargetDamage(hit, hud.weapon, hit.distance);
-    const end = hit?.point ?? ray.ray.at(180, new THREE.Vector3());
+    } else resolveSurfaces(hits, hud.weapon, surface => surface.distance, 1);
+    const end = hits[hits.length - 1]?.point ?? ray.ray.at(180, new THREE.Vector3());
     const attr = tracerGeometry.getAttribute('position'); attr.setXYZ(0, muzzlePoint.x, muzzlePoint.y, muzzlePoint.z); attr.setXYZ(1, end.x, end.y, end.z); attr.needsUpdate = true;
     tracerTime = 0.055; impactActive = !!hit; impact.position.copy(end); effectTime = 0.055;
     checkCompletion();
