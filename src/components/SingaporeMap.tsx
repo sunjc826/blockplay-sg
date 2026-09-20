@@ -36,6 +36,7 @@ const labels: Record<Location['id'], { x: number; y: number; width: number; area
   geylang: { x: 200, y: 116, width: 90, area: 'island' },
   tuas: { x: 6, y: 70, width: 88, area: 'island' },
   woodlands: { x: 96, y: 20, width: 100, area: 'island' },
+  tampines: { x: 232, y: 96, width: 86, area: 'island' },
   orchard: { x: 6, y: 218, width: 110, area: 'central' },
 };
 const isCentral = (location: Location) => labels[location.id].area === 'central';

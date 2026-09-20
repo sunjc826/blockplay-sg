@@ -18,8 +18,9 @@ import { buildSentosaScene, SENTOSA_BOUNDS, SENTOSA_MAP_ROADS, SENTOSA_SPAWN } f
 import { buildGeylangScene, GEYLANG_BOUNDS, GEYLANG_MAP_ROADS, GEYLANG_SPAWN } from './geylang-scene';
 import { buildTuasScene, TUAS_BOUNDS, TUAS_MAP_ROADS, TUAS_SPAWN } from './tuas-scene';
 import { buildWoodlandsScene, WOODLANDS_BOUNDS, WOODLANDS_MAP_ROADS, WOODLANDS_SPAWN } from './woodlands-scene';
+import { buildTampinesScene, TAMPINES_BOUNDS, TAMPINES_MAP_ROADS, TAMPINES_SPAWN } from './tampines-scene';
 import { buildOrchardScene, ORCHARD_BOUNDS, ORCHARD_MAP_ROADS, ORCHARD_SPAWN } from './orchard-scene';
-import { CHANGI_STAMPS, CHINATOWN_STAMPS, GEYLANG_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, TUAS_STAMPS, UPPER_THOMSON_STAMPS, WOODLANDS_STAMPS } from '../data/region-stamps.ts';
+import { CHANGI_STAMPS, CHINATOWN_STAMPS, GEYLANG_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, TAMPINES_STAMPS, TUAS_STAMPS, UPPER_THOMSON_STAMPS, WOODLANDS_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -87,6 +88,7 @@ const sentosaMovement = createRegionMovement(SENTOSA_BOUNDS);
 const geylangMovement = createRegionMovement(GEYLANG_BOUNDS);
 const tuasMovement = createRegionMovement(TUAS_BOUNDS);
 const woodlandsMovement = createRegionMovement(WOODLANDS_BOUNDS);
+const tampinesMovement = createRegionMovement(TAMPINES_BOUNDS);
 const orchardMovement = createRegionMovement(ORCHARD_BOUNDS);
 
 const definitions: Record<RegionId, RegionDefinition> = {
@@ -329,6 +331,24 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'line', from: { x: -120, z: -140 }, to: { x: -120, z: -196 }, stroke: '#b08a5c', width: 5, layer: 'over' },
     ],
     hasGuide: false, build: buildWoodlandsScene, move: woodlandsMovement.move, canOccupy: woodlandsMovement.canOccupy,
+  },
+  tampines: {
+    id: 'tampines', name: 'Tampines', shortName: 'Tampines', modeName: 'Tampines 3D', modeSubtitle: 'Round market, stadium and malls',
+    className: 'tampines-game', badge: 'TAMPINES · GAME WORLD', title: 'Tampines · the eastern town',
+    subtitle: 'Low-poly game map · authored round market, stadium bowl, malls and quarry', mapTitle: 'TOWN & QUARRY',
+    stampNoun: 'town stamps', exploreNoun: 'the town centre and the quarry', cameraFar: 1600,
+    spawn: TAMPINES_SPAWN, stamps: TAMPINES_STAMPS, bounds: TAMPINES_BOUNDS, mapRoads: TAMPINES_MAP_ROADS,
+    mapPaper: '#dbd9c9', roadStroke: '#93968d', roadWidth: 14,
+    decor: [
+      { kind: 'rect', x: 137, z: 47, width: 70, depth: 55, fill: '#5f9aac', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: -106, z: -66, width: 52, depth: 52, radius: 26, fill: '#c98a5c', layer: 'over' },
+      { kind: 'rect', x: 11, z: -80, width: 88, depth: 80, radius: 30, fill: '#8fae7a', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+      { kind: 'rect', x: 3, z: 53, width: 102, depth: 44, fill: '#c6bfae', layer: 'over' },
+      { kind: 'rect', x: -228, z: 122, width: 80, depth: 56, fill: '#9fb37c', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+      { kind: 'rect', x: -135, z: 138, width: 110, depth: 40, fill: '#9cba7f', layer: 'over' },
+      { kind: 'line', from: { x: -20, z: -170 }, to: { x: -52, z: 96 }, stroke: '#b98a68', width: 4, layer: 'over' },
+    ],
+    hasGuide: false, build: buildTampinesScene, move: tampinesMovement.move, canOccupy: tampinesMovement.canOccupy,
   },
   orchard: {
     id: 'orchard', name: 'Orchard Road', shortName: 'Orchard', modeName: 'Orchard 3D', modeSubtitle: 'Walk the shopping belt',

@@ -180,6 +180,20 @@ export const WOODLANDS_STAMPS = [
   { name: 'Northpoint green', x: 137, z: 130 },
 ];
 
+export const TAMPINES_STAMPS = [
+  { name: 'Round Market', x: -80, z: 8 },
+  { name: 'Tampines Hub stadium', x: 55, z: 8 },
+  { name: 'Mall concourse', x: 40, z: 44 },
+  { name: 'Bus interchange', x: 40, z: 105 },
+  { name: 'Quarry pond', x: 172, z: 32 },
+  { name: 'Eco green', x: -188, z: 32 },
+  { name: 'Tampines North precinct', x: -188, z: 0 },
+  { name: 'Simei precinct', x: 172, z: 0 },
+  { name: 'Cycle path', x: -52, z: 50 },
+  { name: 'Town green', x: -80, z: 158 },
+  { name: 'Tampines station', x: 110, z: 44 },
+];
+
 export const ORCHARD_STAMPS = [
   { name: 'Orchard crossing', x: -8, z: 5 },
   { name: 'ION frontage', x: -115, z: -18 },

@@ -63,6 +63,8 @@ export const WORLD_ZONES: readonly WorldZone[] = [
     risk: 'high', lootTier: 3, botCount: 5, composition: 'mixed', encounterSpawns: [{ x: -45, z: 18 }, { x: -182, z: 18 }, { x: 137, z: 18 }, { x: -96, z: 60 }, { x: 0, z: -168 }, { x: 137, z: 115 }] },
   { id: 'woodlands', name: 'Woodlands', description: 'The causeway is a single long approach with no cover; the precincts behind it have plenty.', spawn: { x: 0, z: -110, yaw: 0, pitch: 0 },
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: 0, z: -140 }, { x: 0, z: -100 }, { x: -120, z: -170 }, { x: -45, z: 32 }, { x: -182, z: 12 }, { x: 137, z: 32 }] },
+  { id: 'tampines', name: 'Tampines', description: 'A wide town centre with the stadium and market as hard cover; the quarry edge has none.', spawn: { x: -20, z: 8, yaw: Math.PI / 2, pitch: 0 },
+    risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: -80, z: 8 }, { x: 55, z: 8 }, { x: 40, z: 44 }, { x: -188, z: 0 }, { x: 172, z: 0 }, { x: -52, z: 50 }] },
   { id: 'orchard', name: 'Orchard Road', description: 'Wide boulevard and mall forecourts; long sightlines beneath the rain trees.', spawn: { x: 30, z: 5, yaw: Math.PI / 2, pitch: 0 },
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: -8, z: 5 }, { x: -115, z: -18 }, { x: -24, z: 22 }, { x: 117, z: -20 }, { x: 205, z: 60 }, { x: -170, z: 5 }] },
 ];
@@ -104,6 +106,10 @@ export const WORLD_GATEWAYS: readonly WorldGateway[] = [
   { id: 'woodlands-to-upper-thomson', from: 'woodlands', to: 'upper-thomson', name: 'Upper Thomson checkpoint', position: { x: 0, z: 130 }, radius: 4, arrival: { x: 223, z: 5, yaw: Math.PI / 2, pitch: 0 } },
   { id: 'punggol-to-woodlands', from: 'punggol', to: 'woodlands', name: 'Woodlands checkpoint', position: { x: -245, z: 20 }, radius: 4, arrival: { x: 223, z: -10, yaw: Math.PI / 2, pitch: 0 } },
   { id: 'woodlands-to-punggol', from: 'woodlands', to: 'punggol', name: 'Punggol checkpoint', position: { x: 235, z: -10 }, radius: 4, arrival: { x: -233, z: 20, yaw: -Math.PI / 2, pitch: 0 } },
+  { id: 'changi-to-tampines', from: 'changi', to: 'tampines', name: 'Tampines checkpoint', position: { x: 255, z: 80 }, radius: 4, arrival: { x: 223, z: -60, yaw: Math.PI / 2, pitch: 0 } },
+  { id: 'tampines-to-changi', from: 'tampines', to: 'changi', name: 'Changi checkpoint', position: { x: 235, z: -60 }, radius: 4, arrival: { x: 243, z: 80, yaw: Math.PI / 2, pitch: 0 } },
+  { id: 'geylang-to-tampines', from: 'geylang', to: 'tampines', name: 'Tampines checkpoint', position: { x: 230, z: -90 }, radius: 4, arrival: { x: -223, z: -100, yaw: -Math.PI / 2, pitch: 0 } },
+  { id: 'tampines-to-geylang', from: 'tampines', to: 'geylang', name: 'Geylang checkpoint', position: { x: -235, z: -100 }, radius: 4, arrival: { x: 218, z: -90, yaw: Math.PI / 2, pitch: 0 } },
   { id: 'changi-to-kampong-glam', from: 'changi', to: 'kampong-glam', name: 'Kampong Glam checkpoint', position: { x: -255, z: -30 }, radius: 4, arrival: { x: 0, z: 163, yaw: 0, pitch: 0 } },
 ];
 

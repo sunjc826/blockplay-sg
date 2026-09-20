@@ -154,6 +154,17 @@ export const locations = [
     ],
   },
   {
+    id: 'tampines', name: 'Tampines', subtitle: 'A town with a round market', district: 'EAST',
+    description: 'A round market under a radial roof, a stadium bowl beside the town centre, three malls over the interchange, slab precincts on hawker decks, and a filled quarry. Authored and compressed for play.',
+    lat: 1.3530, lng: 103.9450, heading: 120, color: '#c8a678', block: 1,
+    tags: ['Town centre', 'Round market'],
+    viewpoints: [
+      { label: 'Town centre', lat: 1.3530, lng: 103.9450, heading: 120 },
+      { label: 'Round market', lat: 1.3490, lng: 103.9390, heading: 300 },
+      { label: 'Tampines Quarry', lat: 1.3480, lng: 103.9280, heading: 20 },
+    ],
+  },
+  {
     id: 'orchard', name: 'Orchard Road', subtitle: 'The shopping belt', district: 'CENTRAL',
     description: 'A planted median under rain trees, a faceted glass mall at the junction and a peranakan side lane. An authored low-poly boulevard, compressed for play.',
     lat: 1.3040, lng: 103.8320, heading: 90, color: '#c9a9b8', block: 2,
