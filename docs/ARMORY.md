@@ -149,6 +149,30 @@ protecting more. An unencumbered loadout pays nothing.
 The shop's armor dossier shows jump height and aim-in speed beside the armor
 pool, so the trade is visible before buying.
 
+## Breakpoint analysis
+
+Damage alone does not tell you whether a purchase is felt: only crossing a
+shots-to-kill threshold does. A tier that adds damage without removing a shot
+reads as a spreadsheet entry, which is why `hitDamage` returns whole numbers.
+
+`pnpm analyse:weapons` prints shots-to-kill and time-to-kill for every
+purchasable variant across seven ranges, both health pools and both zones, and
+says what each tier removes versus the tier below it on its own platform. Pass
+`--json` for the raw rows. The analysis lives in `src/game/armory-balance.ts`
+and resolves through the same catalog and `hitDamage` the engine fires through,
+so it cannot drift from the game; the script only formats it.
+
+It reports two problems:
+
+- **Dead buy** — removes no shot at any range. None currently exist, and
+  `armory-balance.test.ts` fails if one appears.
+- **Unfelt in the drill** — removes no shot between 12 and 30 m, so a player who
+  never leaves the range cannot tell it apart from the tier below. Three tiers
+  are in this state today: Vanguard, Marksman and Patrol. The test pins that
+  list, so adding a fourth is a deliberate decision rather than an accident.
+
+Run it after any damage, falloff or precision change.
+
 ## Armor and counter-fire
 
 The rig slot supplies reserve capacity; the insert slot supplies armor points and absorption. Enhanced LBS adds 60 reserve rounds per weapon at a 2% movement cost; Sentinel adds 90 without a movement penalty. A bare ILBV-inspired carrying rig has zero armor points.

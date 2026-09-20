@@ -152,9 +152,12 @@ The missing sink, and the part that keeps the shop alive past level 5.
   replay-safe dedupe.
 - **Earned behavioral items** — gate one or two behind play conditions (clear a
   drill without reloading, three precision kills in a round) rather than credits.
-- **Breakpoint tuning** — purchased power must cross shots-to-kill thresholds or
-  it is invisible. A +17% damage upgrade that leaves a three-shot kill at three
-  shots reads as a spreadsheet entry, not power.
+- **Breakpoint tuning** *(measurement landed; rebalance open)* — `pnpm
+  analyse:weapons` now reports shots-to-kill and time-to-kill per variant, per
+  range, per pool, and names the tiers that remove no threshold. It found three
+  tiers that are identical to the tier below them inside the drill: Vanguard,
+  Marksman and Patrol. Deciding what to do about those is a balance call for the
+  owner; the measurement and its guard test are in.
 
 *Files:* `armory-catalog.ts`, `armory-state.ts`, `expedition-loot.ts`.
 *Risk:* low-medium. *Feelable:* yes.
