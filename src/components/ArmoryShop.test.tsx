@@ -20,7 +20,12 @@ it('lists a premium weapon’s fitted hardware and marks those slots fixed', () 
   const base = createProfile();
   const owner = equip({ ...base, xp: xpForLevel(8), owned: [...base.owned, 'sar-marksman'] }, 'sar-marksman', 0);
   const html = renderToStaticMarkup(<ArmoryShop store={storeFor(owner)} onEnterRange={() => {}} />);
-  expect(html).toContain('FITTED AT THE ARMOURY');
+  expect(html).toContain('BUILT FROM');
+  // The dossier describes the selected item, which defaults to the Vanguard,
+  // and attributes its figures to the hardware responsible for them.
+  expect(html).toContain('Match barrel and chamber');
+  expect(html).toContain('+14 damage');
+  expect(html).toContain('15ms quicker between shots');
   expect(html).toContain('Fitted 1.75x match scope');
   expect(html).toContain('Free-floated barrel and match trigger');
   // The loadout slots it fills are shown fixed, and carry no remove control.

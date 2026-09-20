@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { itemById } from './armory-catalog';
-import { createProfile } from './armory-state';
+import { createProfile, variantSpec } from './armory-state';
 import {
   createExpeditionLoot, createFieldEquipment, equipFieldLoot, resolveExpeditionLoadout, rollZoneWeapon,
   ZONE_LOOT_RULES, type FieldLoot, type LootZoneGeometry,
@@ -94,7 +94,7 @@ describe('temporary expedition equipment', () => {
     const resolved = resolveExpeditionLoadout(profile, armored);
     // Read from the catalog: this test is about field loot applying a variant's
     // stats, not about what those stats are currently balanced to.
-    const vanguard = itemById('sar-vanguard')!.stats!;
+    const vanguard = variantSpec(itemById('sar-vanguard')!)!;
     expect(resolved.weapons[0].damage).toBe(vanguard.damage); expect(resolved.weapons[0].capacity).toBe(vanguard.capacity);
     expect(resolved.armor).toBe(75); expect(resolved.absorption).toBe(0.65);
     expect(JSON.stringify(profile)).toBe(before); expect(profile.owned).not.toContain('sar-vanguard');

@@ -14,6 +14,7 @@ upgrade path, so variety never costs the ladder anything.
 | Strict upgrades are intended | Pay-to-win is a design goal, not an accident. Elite really is better than Field. |
 | No sidegrades, no downside-bearing items | Rejected: it contradicts the ladder. |
 | No per-weapon upgrade points or mods | Rejected: upgrading means buying a new weapon or variant. One purchase concept, not two. |
+| A weapon's figures are the sum of its parts | There is an attachment system behind every weapon; only the finished weapon is sold. A number in the shop is attributable to named hardware rather than written beside the weapon. |
 | Premium weapons arrive pre-upgraded | Their fitted hardware justifies their numbers and fixes those slots, rather than being modded together from a parts bin. Never worse than what it blocks, and never the magazine. |
 | No weapon condition or jamming | Rejected: no repair loop exists, and upkeep chores cut against a power ladder. |
 | Ballistic stats are the preferred paid axis | Velocity, drop, penetration and precision are naturally strictly-orderable, so they need no balancing argument. |

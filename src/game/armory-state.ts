@@ -1,4 +1,4 @@
-import { ARMORY_CATALOG, CONSUMABLE_LIMIT, issuedItems, itemById, type AttachmentSlot, type FittedPart, type ShopItem } from './armory-catalog';
+import { ARMORY_CATALOG, CONSUMABLE_LIMIT, issuedItems, itemById, type AttachmentSlot, type FittedPart, type InternalPart, type ShopItem } from './armory-catalog';
 import type { VehicleKind } from './vehicle-rules';
 import { progression, ELIMINATION_XP } from './progression';
 import { FPS_WEAPONS, type WeaponSpec, type WeaponTrait } from './fps-rules';
@@ -104,6 +104,25 @@ export function isEquipped(profile: ArmoryProfile, item: ShopItem, family: numbe
  * overrides an earlier one exactly as an attachment optic replaces the weapon's.
  */
 export const collectTraits = (...sources: readonly (readonly WeaponTrait[] | undefined)[]) => sources.flatMap(source => source ?? []);
+/**
+ * Builds a variant's figures from the platform and the hardware it is made of,
+ * so a number in the shop is the sum of named parts rather than a value written
+ * beside the weapon's name. Deltas add; mobility multiplies; ballistics replace.
+ */
+export function applyBuild(base: WeaponSpec, parts: readonly InternalPart[] = []): WeaponSpec {
+  const spec: WeaponSpec = { ...base, traits: [...base.traits ?? []] };
+  for (const part of parts) {
+    spec.damage += part.damage ?? 0; spec.capacity += part.capacity ?? 0;
+    spec.interval += part.interval ?? 0; spec.reload += part.reload ?? 0; spec.recoil += part.recoil ?? 0;
+    spec.mobility *= part.mobility ?? 1;
+    if (part.ballistics) spec.ballistics = part.ballistics;
+    if (part.traits) spec.traits = [...spec.traits ?? [], ...part.traits];
+  }
+  return spec;
+}
+/** A variant as it leaves the armoury, before anything is bolted into an open slot. */
+export const variantSpec = (item: ShopItem) =>
+  item.category === 'weapon' && item.family !== undefined ? applyBuild(FPS_WEAPONS[item.family], item.build) : null;
 export interface EquippedWeapon extends WeaponSpec { equipment: GunEquipment; accent?: string; traits: readonly WeaponTrait[] }
 /**
  * What a rig and its inserts cost in movement. `mobility` scales walking speed;
@@ -130,9 +149,10 @@ export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
       const item = itemById(gun.attachments[slot] || '');
       return item ? [item] : [];
     });
-    const spec: EquippedWeapon = { ...FPS_WEAPONS[i], ...variant.stats, name: variant.name, equipment: gun, accent: variant.accent,
+    const built = applyBuild(FPS_WEAPONS[i], variant.build);
+    const spec: EquippedWeapon = { ...built, name: variant.name, equipment: gun, accent: variant.accent,
       reserve: FPS_WEAPONS[i].reserve + (rig.carry || 0),
-      traits: collectTraits(FPS_WEAPONS[i].traits, variant.traits, ...attachments.map(item => item.traits)) };
+      traits: collectTraits(built.traits, ...attachments.map(item => item.traits)) };
     for (const attachment of attachments) {
       if (attachment.slot === 'optic' && attachment.stats?.optic) spec.optic = attachment.stats.optic;
       const mod = attachment.modifiers; if (!mod) continue;

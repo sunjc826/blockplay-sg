@@ -54,11 +54,23 @@ a shot off the count outright: Vanguard drops a standard target in two hits at
 close range, Marksman drops the tougher one in two. `armory-balance.test.ts`
 asserts that time to kill never rises with tier and falls at every step.
 
-## Fitted hardware
+## How a weapon is built
 
-Premium weapons are not platforms to be modded; they arrive already upgraded,
-and the hardware that justifies their numbers is listed in the dossier. A fitted
-part fills its attachment slot permanently, so those slots cannot be re-modded.
+There is an attachment system behind every weapon; only the finished weapon is
+sold. A variant's figures are not written beside its name, they are computed
+from the hardware it is made of, so the shop can say which part is responsible
+for which gain: the Vanguard's 50 damage is its match barrel's +14 on the
+platform's 36, and the dossier says so.
+
+`applyBuild` folds a variant's internal parts onto the platform. Numeric fields
+add, `mobility` multiplies and `ballistics` replaces. Issued weapons have no
+parts and are the platform itself. `armory-variants.test.ts` pins what every
+weapon resolves to, so a change to a part that moves a figure fails there
+first, and it holds that no weapon carries a hand-written `stats` block.
+
+Internal parts take no attachment slot and are never sold separately. Premium
+weapons additionally arrive with hardware that does fill a slot, which is then
+fixed.
 
 | Weapon | Fitted | Slot |
 | --- | --- | --- |
