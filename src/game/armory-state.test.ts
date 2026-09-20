@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { applyArmorDamage, claimElimination, claimReward, collectTraits, createProfile, equip, previewLoadout, purchase, resolveLoadout, restoreProfile, unequipAttachment, type ExerciseReward } from './armory-state';
-import { itemById } from './armory-catalog';
+import { applyArmorDamage, claimElimination, claimReward, collectTraits, consumeItem, createProfile, equip, previewLoadout, purchase, resolveLoadout, restoreProfile, unequipAttachment, type ArmoryProfile, type ExerciseReward } from './armory-state';
+import { CONSUMABLE_LIMIT, itemById } from './armory-catalog';
 import { progression, registerElimination, xpForLevel } from './progression';
 import { advanceWeapon, beginReload, createLoadout, findTrait, FPS_WEAPONS, hitDamage, type WeaponTrait } from './fps-rules';
 import { HITSCAN } from './fps-ballistics';
@@ -110,5 +110,47 @@ describe('behavioral trait resolution', () => {
     expect(rifle.capacity).toBe(FPS_WEAPONS[0].capacity + 10);
     expect(rifle.recoil).toBeCloseTo(FPS_WEAPONS[0].recoil * .75, 10);
     expect(rifle.traits).toEqual(FPS_WEAPONS[0].traits);
+  });
+});
+
+describe('supplies', () => {
+  const stocked = () => ['kit-dressing', 'kit-dressing'].reduce((p, id) => purchase(p, id).profile, veteran());
+  it('stacks on repeat purchase instead of refusing as already owned', () => {
+    const once = purchase(veteran(), 'kit-dressing').profile, twice = purchase(once, 'kit-dressing').profile;
+    expect(once.consumables['kit-dressing']).toBe(1); expect(twice.consumables['kit-dressing']).toBe(2);
+    expect(once.owned).not.toContain('kit-dressing');
+    expect(twice.credits).toBe(veteran().credits - 600);
+  });
+  it('selects the first supply bought and refuses to carry more than the limit', () => {
+    expect(purchase(veteran(), 'kit-dressing').profile.quickItem).toBe('kit-dressing');
+    const many = Array.from({ length: CONSUMABLE_LIMIT + 3 }).reduce<ArmoryProfile>(p => purchase(p, 'kit-ammo').profile, veteran());
+    expect(many.consumables['kit-ammo']).toBe(CONSUMABLE_LIMIT);
+    expect(purchase(many, 'kit-ammo').profile).toBe(many);
+  });
+  it('only puts a supply in the quick slot once one is held', () => {
+    const empty = veteran();
+    expect(equip(empty, 'kit-trauma', 0)).toBe(empty);
+    const holder = purchase(empty, 'kit-trauma').profile;
+    expect(equip(holder, 'kit-trauma', 0).quickItem).toBe('kit-trauma');
+  });
+  it('spends one at a time and drops the entry when the last is used', () => {
+    const two = stocked();
+    const one = consumeItem(two, 'kit-dressing');
+    expect(one.consumables['kit-dressing']).toBe(1);
+    const none = consumeItem(one, 'kit-dressing');
+    expect(none.consumables['kit-dressing']).toBeUndefined();
+    expect(consumeItem(none, 'kit-dressing')).toBe(none);
+    expect(consumeItem(none, 'not-a-kit')).toBe(none);
+  });
+  it('resolves the selected supply and its count alongside the loadout', () => {
+    const loadout = resolveLoadout(stocked());
+    expect(loadout.quickItem?.id).toBe('kit-dressing'); expect(loadout.quickCount).toBe(2);
+    expect(resolveLoadout(veteran()).quickCount).toBe(0);
+  });
+  it('restores held supplies and discards junk counts and unknown ids', () => {
+    const saved = JSON.stringify({ ...stocked(), consumables: { 'kit-dressing': 2, 'kit-ammo': -4, 'kit-plates': 999, 'sar-issued': 3, bogus: 2 } });
+    const back = restoreProfile(saved);
+    expect(back.consumables).toEqual({ 'kit-dressing': 2, 'kit-plates': CONSUMABLE_LIMIT });
+    expect(restoreProfile(JSON.stringify({ ...createProfile(), quickItem: 'sar-issued' })).quickItem).toBe('');
   });
 });

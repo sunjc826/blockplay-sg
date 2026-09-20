@@ -137,7 +137,7 @@ Three cheap traits on the Phase 0 foundation:
 *Files:* `fps-raycast.ts`, `fps-rules.ts`, `weapon-optics.ts`.
 *Risk:* low. *Feelable:* yes.
 
-### Phase 4 — Economy depth
+### Phase 4 — Economy depth *(consumables landed)*
 
 The missing sink, and the part that keeps the shop alive past level 5.
 

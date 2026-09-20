@@ -1,12 +1,14 @@
-import { ARMORY_CATALOG, issuedItems, itemById, type AttachmentSlot, type ShopItem } from './armory-catalog';
+import { ARMORY_CATALOG, CONSUMABLE_LIMIT, issuedItems, itemById, type AttachmentSlot, type ShopItem } from './armory-catalog';
 import type { VehicleKind } from './vehicle-rules';
 import { progression, ELIMINATION_XP } from './progression';
 import { FPS_WEAPONS, type WeaponSpec, type WeaponTrait } from './fps-rules';
 export const ATTACHMENT_SLOTS = ['optic', 'magazine', 'handling'] as const;
 export interface GunEquipment { variant: string; skin: string; attachments: Partial<Record<AttachmentSlot, string>> }
-export interface ArmoryProfile { version: 1; xp: number; vehicleSkins: Record<VehicleKind, string>; credits: number; tokens: number; owned: string[]; guns: [GunEquipment, GunEquipment]; rig: string; plate: string; rewarded: string[]; exercises: number }
+export interface ArmoryProfile { version: 1; xp: number; vehicleSkins: Record<VehicleKind, string>; credits: number; tokens: number; owned: string[]; guns: [GunEquipment, GunEquipment]; rig: string; plate: string; rewarded: string[]; exercises: number;
+  /** Supplies held, by catalog id, and which one the quick-use key spends. */
+  consumables: Record<string, number>; quickItem: string }
 export const STORAGE_KEY = 'blockplay.armory.v1';
-export function createProfile(): ArmoryProfile { return { version: 1, xp: 0, vehicleSkins: { car: 'paint-issued', helicopter: 'paint-issued' }, credits: 1600, tokens: 300, owned: [...issuedItems], guns: [{ variant: 'sar-issued', skin: 'skin-issued', attachments: {} }, { variant: 'ult-issued', skin: 'skin-issued', attachments: {} }], rig: 'rig-ilbv', plate: 'plate-none', rewarded: [], exercises: 0 }; }
+export function createProfile(): ArmoryProfile { return { version: 1, xp: 0, vehicleSkins: { car: 'paint-issued', helicopter: 'paint-issued' }, credits: 1600, tokens: 300, owned: [...issuedItems], guns: [{ variant: 'sar-issued', skin: 'skin-issued', attachments: {} }, { variant: 'ult-issued', skin: 'skin-issued', attachments: {} }], rig: 'rig-ilbv', plate: 'plate-none', rewarded: [], exercises: 0, consumables: {}, quickItem: '' }; }
 const finiteBalance = (n: unknown, fallback: number) => typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(1000000, Math.floor(n))) : fallback;
 export function restoreProfile(raw: string | null): ArmoryProfile {
   const base = createProfile(); if (!raw) return base;
@@ -28,19 +30,37 @@ export function restoreProfile(raw: string | null): ArmoryProfile {
     if (valid(value.rig, 'rig')) base.rig = value.rig;
     if (valid(value.plate, 'plate')) base.plate = value.plate;
     base.rewarded = Array.isArray(value.rewarded) ? value.rewarded.filter((id: unknown) => typeof id === 'string').slice(-100) : [];
-    base.exercises = finiteBalance(value.exercises, 0); return base;
+    base.exercises = finiteBalance(value.exercises, 0);
+    if (value.consumables && typeof value.consumables === 'object') for (const [id, held] of Object.entries(value.consumables)) {
+      if (itemById(id)?.category !== 'consumable') continue;
+      const count = typeof held === 'number' && Number.isFinite(held) ? Math.max(0, Math.min(CONSUMABLE_LIMIT, Math.floor(held))) : 0;
+      if (count) base.consumables[id] = count;
+    }
+    if (typeof value.quickItem === 'string' && itemById(value.quickItem)?.category === 'consumable') base.quickItem = value.quickItem;
+    return base;
   } catch { return base; }
 }
 export function purchase(profile: ArmoryProfile, id: string) {
   const item = itemById(id);
   if (!item) return { profile, message: 'Item unavailable.' };
-  if (profile.owned.includes(id)) return { profile, message: 'Already owned. Equip it below.' };
+  const supply = item.category === 'consumable';
+  if (!supply && profile.owned.includes(id)) return { profile, message: 'Already owned. Equip it below.' };
   if (progression(profile.xp).level < (item.requiredLevel || 1)) return { profile, message: `Unlocks at level ${item.requiredLevel}. Earn XP in the range.` };
   if (profile[item.currency] < item.price) return { profile, message: `Not enough ${item.currency}.` };
+  if (supply) {
+    const held = profile.consumables[id] || 0;
+    if (held >= CONSUMABLE_LIMIT) return { profile, message: `You can carry ${CONSUMABLE_LIMIT} of those.` };
+    return { profile: { ...profile, [item.currency]: profile[item.currency] - item.price,
+      consumables: { ...profile.consumables, [id]: held + 1 }, quickItem: profile.quickItem || id },
+      message: `${item.name} added to your supplies.` };
+  }
   return { profile: { ...profile, [item.currency]: profile[item.currency] - item.price, owned: [...profile.owned, id] }, message: `${item.name} unlocked permanently.` };
 }
 export function equip(profile: ArmoryProfile, id: string, family: number, vehicle: VehicleKind = 'car'): ArmoryProfile {
-  const item = itemById(id); if (!item || !profile.owned.includes(id) || (family !== 0 && family !== 1)) return profile;
+  const item = itemById(id);
+  // Supplies are held by count rather than owned, so they select on that instead.
+  if (item?.category === 'consumable') return profile.consumables[id] ? { ...profile, quickItem: id } : profile;
+  if (!item || !profile.owned.includes(id) || (family !== 0 && family !== 1)) return profile;
   if (item.category === 'vehicleSkin') return { ...profile, vehicleSkins: { ...profile.vehicleSkins, [vehicle]: id } };
   if (item.category === 'rig' || item.category === 'plate') return { ...profile, [item.category]: id };
   if (item.category === 'weapon' && item.family !== family) return profile;
@@ -50,6 +70,14 @@ export function equip(profile: ArmoryProfile, id: string, family: number, vehicl
   if (item.category === 'attachment' && item.slot) gun.attachments[item.slot] = id;
   const guns: ArmoryProfile['guns'] = [...profile.guns]; guns[family] = gun; return { ...profile, guns };
 }
+/** Spends one of a held supply. Unknown or empty ids leave the profile untouched. */
+export function consumeItem(profile: ArmoryProfile, id: string): ArmoryProfile {
+  const held = profile.consumables[id] || 0;
+  if (!held) return profile;
+  const consumables = { ...profile.consumables };
+  if (held > 1) consumables[id] = held - 1; else delete consumables[id];
+  return { ...profile, consumables };
+}
 export function unequipAttachment(profile: ArmoryProfile, family: number, slot: AttachmentSlot): ArmoryProfile {
   if (family !== 0 && family !== 1) return profile;
   const gun = { ...profile.guns[family], attachments: { ...profile.guns[family].attachments } }; delete gun.attachments[slot];
@@ -57,6 +85,7 @@ export function unequipAttachment(profile: ArmoryProfile, family: number, slot: 
 }
 export function isEquipped(profile: ArmoryProfile, item: ShopItem, family: number, vehicle: VehicleKind = 'car') {
   const gun = profile.guns[family];
+  if (item.category === 'consumable') return profile.quickItem === item.id;
   return item.category === 'vehicleSkin' ? profile.vehicleSkins[vehicle] === item.id : item.category === 'rig' ? profile.rig === item.id : item.category === 'plate' ? profile.plate === item.id : item.category === 'weapon' ? gun.variant === item.id : item.category === 'skin' ? gun.skin === item.id : !!item.slot && gun.attachments[item.slot] === item.id;
 }
 /**
@@ -66,7 +95,8 @@ export function isEquipped(profile: ArmoryProfile, item: ShopItem, family: numbe
  */
 export const collectTraits = (...sources: readonly (readonly WeaponTrait[] | undefined)[]) => sources.flatMap(source => source ?? []);
 export interface EquippedWeapon extends WeaponSpec { equipment: GunEquipment; accent?: string; traits: readonly WeaponTrait[] }
-export interface ResolvedLoadout { weapons: EquippedWeapon[]; armor: number; absorption: number; mobility: number; rigName: string; plateName: string; vehicleSkins: Record<VehicleKind, string> }
+export interface ResolvedLoadout { weapons: EquippedWeapon[]; armor: number; absorption: number; mobility: number; rigName: string; plateName: string; vehicleSkins: Record<VehicleKind, string>;
+  quickItem?: ShopItem; quickCount: number }
 export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
   const rig = itemById(profile.rig)!, plate = itemById(profile.plate)!;
   const weapons = profile.guns.map((gun, i) => {
@@ -85,7 +115,8 @@ export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
     }
     return spec;
   });
-  return { weapons, vehicleSkins: { ...profile.vehicleSkins }, armor: plate.protection || 0, absorption: plate.absorption || 0, mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };
+  const quickItem = itemById(profile.quickItem);
+  return { weapons, vehicleSkins: { ...profile.vehicleSkins }, quickItem, quickCount: profile.consumables[profile.quickItem] || 0, armor: plate.protection || 0, absorption: plate.absorption || 0, mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };
 }
 /** Preview may temporarily own the selected item; it never mutates the actual wallet. */
 export function previewLoadout(profile: ArmoryProfile, item: ShopItem, family: number) {
@@ -110,6 +141,6 @@ export function claimReward(profile: ArmoryProfile, result: ExerciseReward): Arm
   return { ...profile, xp: Math.min(1000000, profile.xp + completionXp(result)), credits: Math.min(1000000, profile.credits + rewardAmount(result)), rewarded: [...profile.rewarded, result.id].slice(-100), exercises: profile.exercises + 1 };
 }
 export const SHOP_CATEGORIES = [
-  { id: 'weapon', label: 'Weapons' }, { id: 'skin', label: 'Skins' }, { id: 'attachment', label: 'Attachments' }, { id: 'armor', label: 'Armor' }, { id: 'vehicleSkin', label: 'Vehicles' },
+  { id: 'weapon', label: 'Weapons' }, { id: 'skin', label: 'Skins' }, { id: 'attachment', label: 'Attachments' }, { id: 'armor', label: 'Armor' }, { id: 'consumable', label: 'Supplies' }, { id: 'vehicleSkin', label: 'Vehicles' },
 ] as const;
 export const catalogSize = ARMORY_CATALOG.length;

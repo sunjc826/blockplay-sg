@@ -1,5 +1,5 @@
 import type { WeaponSpec, WeaponTrait } from './fps-rules';
-export type ShopCategory = 'weapon' | 'skin' | 'attachment' | 'rig' | 'plate' | 'vehicleSkin';
+export type ShopCategory = 'weapon' | 'skin' | 'attachment' | 'rig' | 'plate' | 'vehicleSkin' | 'consumable';
 export type AttachmentSlot = 'optic' | 'magazine' | 'handling';
 export interface ShopItem {
   id: string; name: string; category: ShopCategory; description: string; price: number; currency: 'credits' | 'tokens';
@@ -8,6 +8,8 @@ export interface ShopItem {
   stats?: Partial<Omit<WeaponSpec, 'traits'>>; traits?: readonly WeaponTrait[];
   modifiers?: { capacity?: number; reload?: number; recoil?: number; aimFov?: number; mobility?: number };
   palette?: string[]; accent?: string; protection?: number; absorption?: number; mobility?: number; carry?: number;
+  /** Consumables only: what one use restores. Reserve is per equipped weapon. */
+  effect?: { health?: number; armor?: number; reserve?: number };
 }
 export const ARMORY_CATALOG: readonly ShopItem[] = [
   { id: 'paint-issued', name: 'Motor pool olive', category: 'vehicleSkin', tier: 'Issued', price: 0, currency: 'credits', description: 'Issued matte olive. Fits the Utility 01 and Falcon 01; equip each vehicle separately. Cosmetic only.' },
@@ -38,6 +40,12 @@ export const ARMORY_CATALOG: readonly ShopItem[] = [
   { id: 'rig-ilbv', name: 'ILBV · Field rig', category: 'rig', tier: 'Issued', price: 0, currency: 'credits', carry: 0, mobility: 1, description: 'Integrated load-bearing vest. The starting carrying rig; armor protection comes from the insert slot.' },
   { id: 'rig-lbs', requiredLevel: 2, name: 'LBS · Enhanced', category: 'rig', tier: 'Field', price: 1000, currency: 'credits', carry: 60, mobility: .98, description: 'A modular carrying setup inspired by the LBS. +60 reserve rounds per weapon, with a 2% movement cost.' },
   { id: 'rig-sentinel', requiredLevel: 4, name: 'LBS · Sentinel', category: 'rig', tier: 'Elite', price: 180, currency: 'tokens', carry: 90, mobility: 1, description: 'Premium carrying rig: +90 reserve rounds per weapon without a movement penalty. Inserts sold separately.' },
+  // Supplies stack and are spent, so they are the shop's repeatable purchase
+  // rather than a one-time unlock.
+  { id: 'kit-ammo', name: 'Ammunition pouch', category: 'consumable', tier: 'Issued', price: 260, currency: 'credits', effect: { reserve: 90 }, description: 'Ninety reserve rounds for the weapon in your hands. Carried into an exercise and spent when used.' },
+  { id: 'kit-dressing', name: 'Field dressing', category: 'consumable', tier: 'Field', requiredLevel: 2, price: 300, currency: 'credits', effect: { health: 45 }, description: 'Restores 45 health. Carried into an exercise and spent when used.' },
+  { id: 'kit-plates', requiredLevel: 3, name: 'Spare inserts', category: 'consumable', tier: 'Field', price: 380, currency: 'credits', effect: { armor: 45 }, description: 'Restores 45 armor points, up to the protection your inserts provide.' },
+  { id: 'kit-trauma', requiredLevel: 4, name: 'Trauma kit', category: 'consumable', tier: 'Elite', price: 90, currency: 'tokens', effect: { health: 100, armor: 60 }, description: 'Restores full health and 60 armor points in one use. The premium supply.' },
   { id: 'plate-none', name: 'No armor inserts', category: 'plate', tier: 'Issued', price: 0, currency: 'credits', protection: 0, absorption: 0, mobility: 1, description: 'The lightest setup. The vest carries equipment but has no protection pool.' },
   { id: 'plate-soft', name: 'Soft armor inserts', category: 'plate', tier: 'Field', price: 400, currency: 'credits', protection: 35, absorption: .45, mobility: .98, description: '35 armor points. Absorbs 45% of incoming drill damage until depleted; 2% movement cost.' },
   { id: 'plate-ceramic', requiredLevel: 2, name: 'Ceramic plate set', category: 'plate', tier: 'Field', price: 900, currency: 'credits', protection: 75, absorption: .65, mobility: .94, description: '75 armor points. Absorbs 65% of drill damage until depleted; 6% movement cost.' },
@@ -45,3 +53,5 @@ export const ARMORY_CATALOG: readonly ShopItem[] = [
 ];
 export const itemById = (id: string) => ARMORY_CATALOG.find(item => item.id === id);
 export const issuedItems = ARMORY_CATALOG.filter(item => item.price === 0).map(item => item.id);
+/** Supplies stack; this caps how many of one kind a profile may hold. */
+export const CONSUMABLE_LIMIT = 9;

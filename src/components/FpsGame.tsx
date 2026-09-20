@@ -22,11 +22,12 @@ function Scoreboard({ snapshot, selfId }: { snapshot: ArenaSnapshot; selfId: str
   return <div className="arena-scoreboard"><table><caption>MATCH STANDINGS <span>{actors.filter(actor => !actor.bot).length} PLAYERS · {actors.filter(actor => actor.bot).length} BOTS</span></caption><thead><tr><th scope="col">OPERATOR</th><th scope="col">ROLE</th><th scope="col">K</th><th scope="col">D</th></tr></thead><tbody>{actors.map((actor, index) => <tr key={actor.id} className={actor.id === selfId ? 'is-self' : ''}><td><span className="arena-place">{index + 1}</span>{actor.name}{actor.id === selfId && <small>YOU</small>}{actor.bot && <small>BOT</small>}</td><td>{actor.role === 'player' ? 'Operator' : actor.role}</td><td>{actor.kills}</td><td>{actor.deaths}</td></tr>)}</tbody></table></div>;
 }
 
-export default function FpsGame({ region = 'marina-bay', suspended = false, profile, onReward, onElimination, onOpenShop, arena, onLeaveArena }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; onReward: (result: ExerciseReward) => void; onElimination: (id: string) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
+export default function FpsGame({ region = 'marina-bay', suspended = false, profile, onReward, onElimination, onConsume, onOpenShop, arena, onLeaveArena }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; onReward: (result: ExerciseReward) => void; onElimination: (id: string) => void; onConsume: (id: string) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
   const district = getFpsDistrict(region), zone = getWorldZone(region);
   const rank = progression(profile.xp);
   const startingLevel = useRef(rank.level);
   const eliminationCallback = useRef(onElimination); eliminationCallback.current = onElimination;
+  const consumeCallback = useRef(onConsume); consumeCallback.current = onConsume;
   const [equipment] = useState(() => resolveLoadout(profile));
   const [arenaOptions] = useState(() => arena ? { ...arena, profile } : undefined);
   const [combat, setCombat] = useState(false);
@@ -37,7 +38,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
   const [hud, setHud] = useState(initialFpsHud), [epoch, setEpoch] = useState(0);
   useEffect(() => {
     setHud({ ...initialFpsHud });
-    try { engine.current = createFpsEngine(host.current!, setHud, { region, loadout: equipment, combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onElimination: id => eliminationCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); } }); }
+    try { engine.current = createFpsEngine(host.current!, setHud, { region, loadout: equipment, combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onElimination: id => eliminationCallback.current(id), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); } }); }
     catch { setHud(h => ({ ...h, phase: 'error', message: '3D graphics could not start. Check that WebGL is enabled, then retry.' })); }
     return () => { engine.current?.dispose(); engine.current = null; };
   }, [epoch, combat, equipment, arenaOptions, region]);
@@ -129,7 +130,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
     <FpsCommsLog entries={hud.comms} />
     <FpsRadioVoice hud={hud} engine={engine.current} />
     <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
-    <div className="fps-loadout" aria-label="Weapon selection">{equipment.weapons.map((w, i) => <button key={w.id} aria-pressed={i === hud.weapon} disabled={hud.phase === 'loading' || hud.phase === 'error'} onClick={() => engine.current?.switchWeapon(i)}><kbd>{i + 1}</kbd><span>{w.name}<small>{w.role}</small></span><span className="fps-selected">{i === hud.weapon ? 'EQUIPPED' : 'EQUIP'}</span></button>)}<div className="fps-accuracy"><span>ACCURACY</span><strong>{accuracy}%</strong></div></div>
+    <div className="fps-loadout" aria-label="Weapon selection">{equipment.weapons.map((w, i) => <button key={w.id} aria-pressed={i === hud.weapon} disabled={hud.phase === 'loading' || hud.phase === 'error'} onClick={() => engine.current?.switchWeapon(i)}><kbd>{i + 1}</kbd><span>{w.name}<small>{w.role}</small></span><span className="fps-selected">{i === hud.weapon ? 'EQUIPPED' : 'EQUIP'}</span></button>)}{hud.quickItem && <button className="fps-supply" data-testid="quick-item" disabled={!hud.quickCount || hud.phase !== 'playing'} onClick={() => engine.current?.useQuickItem()}><kbd>G</kbd><span>{hud.quickItem}<small>SUPPLY</small></span><span className="fps-selected">x{hud.quickCount}</span></button>}<div className="fps-accuracy"><span>ACCURACY</span><strong>{accuracy}%</strong></div></div>
     <div className="fps-inputs" aria-label="On-screen FPS controls">
       <div className="fps-dpad">{(['a', 'w', 's', 'd'] as const).map((key, i) => { const Icon = [ArrowLeft, ArrowUp, ArrowDown, ArrowRight][i]; return <button key={key} disabled={!canFight} aria-label={`FPS ${['left', 'forward', 'backward', 'right'][i]}`} {...hold(key)}><Icon size={18} /></button>; })}</div>
       <button disabled={!canFight} {...hold('shift')}>{hud.vehicle === 'helicopter' ? 'Boost' : 'Sprint'}</button><button disabled={!canFight} {...hold('c')}>{hud.vehicle === 'helicopter' ? 'Descend' : 'Crouch'}</button>{mounted ? <button disabled={!canFight} {...hold(' ')}>{hud.vehicle === 'car' ? 'Brake' : 'Climb'}</button> : <button disabled={!canFight} onClick={() => engine.current?.jump()}>Jump</button>}{!isArena && <button disabled={!playing || !hud.interact} onClick={() => engine.current?.interactVehicle()}>{mounted ? 'Exit vehicle' : 'Enter vehicle'}</button>}<button disabled={!canFight || mounted} onClick={() => engine.current?.reload()}>Reload</button><button disabled={!canFight || mounted} title="Toggle aim (Q)" aria-pressed={hud.aiming} onClick={() => engine.current?.toggleAim()}>Aim</button><button className="fps-fire-button" disabled={!canFight || mounted} {...hold('fire')}>Fire</button>

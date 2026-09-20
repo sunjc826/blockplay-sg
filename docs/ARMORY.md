@@ -1,6 +1,6 @@
 # Field exchange, progression and FPS equipment
 
-The Armory sidebar offers 31 permanent items: eight weapon variants across two platforms, five cosmetic finishes, four attachments, three carrying rigs, four insert choices and five vehicle wraps. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase.
+The Armory sidebar offers 31 permanent unlocks and four repeatable supplies: eight weapon variants across two platforms, five cosmetic finishes, four attachments, three carrying rigs, four insert choices and five vehicle wraps. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase.
 
 ## Play loop
 
@@ -118,6 +118,25 @@ a round spent on penetration carries its reduced damage into its burst. A round
 in flight carries its remaining budget and its decayed damage between frames,
 so piercing works the same whether the shot was instant or travelling. The
 arena host still resolves only the nearest surface.
+
+## Supplies
+
+Supplies are the shop's repeatable purchase. They are held by count rather than
+unlocked once, so buying the same one again stacks it up to a carry limit of
+nine, and spending one debits the saved profile. One sits in a quick slot and is
+used with `G` or the HUD button.
+
+| Supply | Restores | Price |
+| --- | --- | --- |
+| Ammunition pouch | 90 reserve rounds | 260 CR |
+| Field dressing | 45 health | 300 CR |
+| Spare inserts | 45 armor points | 380 CR |
+| Trauma kit | full health and 60 armor | 90 TK |
+
+Armor is restored only up to the protection the equipped inserts provide, and
+reserve goes to the weapon in hand. Using one with nothing to restore reports
+that and spends nothing. `resolveLoadout` carries the selected supply and its
+count, so the shop, HUD and engine read the same selection everything else does.
 
 ## Armor and counter-fire
 

@@ -140,3 +140,8 @@
 .singapore-map-stop[data-destination=true] .singapore-map-callout{stroke:#b86523;stroke-width:3}
 .singapore-route-details{margin:10px 0;padding:8px;border:1px solid #c6d3c0;border-radius:5px;background:#fbfcf6;color:#3e5947;font-size:10px;line-height:1.5}
 .singapore-route-details p{margin:5px 0}.singapore-route-details strong{font-size:10px}
+
+/* Supply controls: the quick-use slot in the HUD and the shop's secondary action. */
+.fps-supply { display: flex; align-items: center; gap: .5rem; }
+.fps-supply:disabled { opacity: .5; }
+.armory-secondary { margin-top: .4rem; opacity: .9; }

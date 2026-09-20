@@ -47,7 +47,7 @@ export interface FpsHud {
   pilotEnabled: boolean; pilotStatus: string; pilotGoal: PilotGoal | null; pilotContacts: number;
   debug: FpsDebugSettings; debugAvailable: boolean; maxHealth: number;
   aimProgress: number; reloadEmpty: boolean;
-  crosshairSpread: number; hitKind: 'hit' | 'kill';
+  crosshairSpread: number; hitKind: 'hit' | 'kill'; quickItem: string; quickCount: number;
   phase: 'loading' | 'ready' | 'playing' | 'paused' | 'complete' | 'defeated' | 'error';
   weapon: number; magazine: number; reserve: number; reloading: number;
   hits: number; shots: number; landed: number; health: number; armor: number; incoming: boolean; hurt: boolean; lastDamage: number; earned: number; earnedXp: number; callout: string; chain: number; elapsed: number; aiming: boolean; hit: boolean;
@@ -56,7 +56,7 @@ export interface FpsHud {
   arena: ArenaSnapshot | null; arenaSelf: ArenaActor | null; arenaConnected: boolean; arenaStarted: boolean;
   expeditionZone: WorldZoneId | null; lootPrompt: string; travelPrompt: string; lootNotice: string; fieldLoot: FieldLoot[];
 }
-export const initialFpsHud: FpsHud = { encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [] };
+export const initialFpsHud: FpsHud = { quickItem: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [] };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -72,7 +72,7 @@ function disposeAssets(roots: THREE.Object3D[]) {
   textures.forEach(t => { t.dispose(); if (typeof ImageBitmap !== 'undefined' && t.source.data instanceof ImageBitmap) t.source.data.close(); });
 }
 
-export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { region?: WorldZoneId; playerPilot?: PlayerPilot; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string) => void; onFullscreen?: () => void } = {}) {
+export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { region?: WorldZoneId; playerPilot?: PlayerPilot; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string) => void; onConsume?: (id: string) => void; onFullscreen?: () => void } = {}) {
   const expedition = options.expedition;
   const region = expedition?.zone ?? options.region ?? 'marina-bay';
   const district = getFpsDistrict(region), spawn = district.spawn, targetPositions = district.targets;
@@ -131,7 +131,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const impact = new THREE.Mesh(impactGeometry, impactMaterial); impact.visible = false; impact.userData.fpsEffect = true; world.scene.add(impact);
   const debugAvailable = !options.arena || options.arena.session.role === 'solo';
   let debug = debugAvailable ? readFpsDebug() : { ...DEFAULT_FPS_DEBUG }, recoveryDelay = 0;
-  const keys = new Set<string>(); const hud: FpsHud = { ...initialFpsHud, debug, debugAvailable, health: 100 * debug.healthMultiplier, maxHealth: 100 * debug.healthMultiplier, armor: equipment.armor, expeditionZone: expedition?.zone ?? null };
+  const keys = new Set<string>(); const hud: FpsHud = { ...initialFpsHud, debug, debugAvailable, quickItem: equipment.quickItem?.name || '', quickCount: equipment.quickCount, health: 100 * debug.healthMultiplier, maxHealth: 100 * debug.healthMultiplier, armor: equipment.armor, expeditionZone: expedition?.zone ?? null };
   if (expedition && zoneWorld) hud.fieldLoot = expedition.loot.enterZone({ id: expedition.zone, spawn: zoneWorld.zone.spawn, bounds: zoneWorld.bounds, obstacles: world.obstacles, anchors: zoneWorld.zone.encounterSpawns });
   const markers = expedition ? createExpeditionMarkers(world.scene, expedition.zone, hud.fieldLoot) : null;
   let checkpointPending = expedition?.checkpoint;
@@ -149,6 +149,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // Rounds still in the air. Instant weapons never enter this list, so a hitscan
   // loadout costs exactly the single raycast it always did.
   const rounds: InFlightRound[] = []; let roundSerial = 0;
+  // Supplies carried into this exercise. Spending one reports out so the
+  // permanent profile can debit it; the count here is what the HUD shows.
+  let quickRemaining = equipment.quickCount;
   const ROUND_RANGE = 180;
   const roundRay = new THREE.Raycaster(), roundOrigin = new THREE.Vector3(), roundDirection = new THREE.Vector3(), splashPoint = new THREE.Vector3();
   let strategyMode: 'local' | 'llm' = expedition?.checkpoint?.pilotStrategy ?? 'local';
@@ -377,7 +380,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (pilotEnabled || hud.phase !== 'playing' || vehicles.active || hud.arenaSelf?.alive === false || loadout[hud.weapon].reloadRemaining > 0) return;
     touchAim = !touchAim; canvas.focus({ preventScroll: true }); publish();
   }
-  const keyboardKeys = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', ' ', 'r', 'q', '1', '2', 'e', 't', 'f', 'control', 'escape'];
+  const keyboardKeys = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', ' ', 'r', 'q', 'g', '1', '2', 'e', 't', 'f', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
     if (key === 'f' && !event.repeat) { event.preventDefault(); options.onFullscreen?.(); return; }
@@ -389,6 +392,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     else if (key === 'e') { if (!event.repeat) expedition ? interactLoot() : interactVehicle(); }
     else if (key === 't') { if (!event.repeat) travelZone(); }
     else if (key === 'r') reload();
+    else if (key === 'g') { if (!event.repeat) useQuickItem(); }
     else if (key === '1' || key === '2') switchWeapon(Number(key) - 1);
     else if (key === ' ') { if (vehicles.active) keys.add(' '); else if (!event.repeat) jump(); }
     else keys.add(key);
@@ -629,6 +633,20 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const share = splashScale(splashPoint.distanceTo(point), splash.radius, splash.minScale);
       if (share > 0) damageTarget(index, weapon, range, undefined, scale * share);
     });
+  }
+  function useQuickItem() {
+    const supply = equipment.quickItem;
+    if (hud.phase !== 'playing' || !supply?.effect || quickRemaining <= 0 || hud.health <= 0) return;
+    const { health = 0, armor = 0, reserve = 0 } = supply.effect;
+    const full = hud.health >= hud.maxHealth && (!armor || hud.armor >= equipment.armor) && (!reserve || loadout[hud.weapon].reserve >= 999);
+    if (full) { hud.message = 'Nothing to restore right now.'; publish(); return; }
+    if (health) { hud.health = Math.min(hud.maxHealth, hud.health + health); arenaRuntime?.setVitals({ health: hud.health }); recoveryDelay = 0; }
+    if (armor) { hud.armor = Math.min(equipment.armor, hud.armor + armor); arenaRuntime?.setVitals({ armor: hud.armor }); }
+    if (reserve) loadout[hud.weapon].reserve = Math.min(999, loadout[hud.weapon].reserve + reserve);
+    quickRemaining--; hud.quickCount = quickRemaining;
+    hud.message = `${supply.name} used.`;
+    options.onConsume?.(supply.id);
+    publish();
   }
   function checkCompletion() {
     if (options.arena || hud.phase === 'complete' || hud.hits !== targetPositions.length) return;
@@ -925,7 +943,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   });
 
   return {
-    start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, switchWeapon, jump, setInput, interactVehicle, interactLoot, travelZone, configureDebug, refillHealth,
+    start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, switchWeapon, useQuickItem, jump, setInput, interactVehicle, interactLoot, travelZone, configureDebug, refillHealth,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
     toggleAim,
