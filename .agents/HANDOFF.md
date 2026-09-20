@@ -1,6 +1,30 @@
 # Blockplay: portable agent handoff
 
-**Latest: the three coverage gaps filled (2026-09-20).** Seventeen districts,
+**Latest: Bukit Timah and Bishan (2026-09-20).** Nineteen districts, 209
+stamps. These close the two thin regions the last coverage pass left: the
+north-west and the north-east belt. One district each rather than one per town
+— Choa Chu Kang, Bukit Panjang and Clementi are much the same as each other,
+and so are Ang Mo Kio, Hougang and Sengkang; Bukit Timah and Bishan are the
+ones with distinct material.
+
+Bukit Timah brings the first real topography: a ridge terracing up to a trig
+marker, the old rail corridor on ballast and sleepers crossing the road on a
+Warren-web truss, and black-and-white bungalows on pier undercrofts.
+
+Bishan added a pattern worth reusing. Every channel before it was an
+axis-aligned rectangle or a list of them, which a meander cannot be; its river
+is a chain of short boxes stepped along a sine curve, overlapping so the chain
+collides as one continuous bank while each box stays axis-aligned. The
+gap-at-every-street rule still applies to the chain. `docs/DISTRICTS.md` records
+it, since it is the general answer to curved water.
+
+Coverage now: 79% of the mainland north-south, 80% east-west, mean
+nearest-neighbour 3.8 km, every planning region represented. Bedok and Pasir
+Ris are the only named towns still unbuilt, and Tampines carries that region.
+347 unit tests, typecheck and build pass; browser and FPS smokes still not run
+here.
+
+**Earlier: the three coverage gaps filled (2026-09-20).** Seventeen districts,
 187 stamps. Woodlands, Tampines and Toa Payoh close the three holes the
 coverage review named. Woodlands puts the causeway and its checkpoint across
 the strait, crossed in exactly two places, both gaps in the water rather than
