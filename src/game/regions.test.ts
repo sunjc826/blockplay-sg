@@ -42,6 +42,29 @@ it('registers every playable district exactly once, in picker order', () => {
   }
 });
 
+/**
+ * The provenance split is the project's load-bearing claim about these scenes,
+ * so it is asserted from the built scenes rather than left to prose that goes
+ * stale every time a district lands. Three districts were built against
+ * reviewed street-level references; every other scene records an empty list.
+ */
+const REFERENCE_INFORMED: readonly string[] = ['marina-bay', 'raffles-place', 'queenstown'];
+
+it('keeps reference-informed and authored districts telling themselves apart', () => {
+  for (const region of REGIONS) {
+    const world = region.build();
+    try {
+      const features = world.scene.userData.referenceFeatures;
+      const informed = REFERENCE_INFORMED.includes(region.id);
+      expect(Array.isArray(features), `${region.id} records referenceFeatures`).toBe(true);
+      expect(features.length > 0, `${region.id} referenceFeatures non-empty`).toBe(informed);
+      // Marina carries its guide in MarinaGame, not the shared harness, so it
+      // is the one reference-informed district with hasGuide false.
+      expect(region.hasGuide, `${region.id} hasGuide`).toBe(informed && region.id !== 'marina-bay');
+    } finally { world.dispose(); }
+  }
+});
+
 describe.each(REGIONS.map(region => [region.id] as const))('%s', id => {
   const region = getRegion(id);
 

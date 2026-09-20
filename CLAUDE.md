@@ -45,11 +45,16 @@ Two provenances, and they are not interchangeable:
 
 - **Reference-informed** — Marina Bay, Raffles Place, Queenstown. Built against
   reviewed Street View references. Those image allowances are **exhausted**.
-- **Authored from general knowledge** — Chinatown, Kampong Glam, Jurong Lake,
-  Changi. No reference capture, no Google API requests, and an empty
-  `referenceFeatures` list so that stays checkable. They have no source-linked
-  learning cards, hence no companion panel; adding one needs researched sources,
-  not generated facts.
+- **Authored from general knowledge** — every other district. No reference
+  capture, no Google API requests, and an empty `referenceFeatures` list so that
+  stays checkable. They have no source-linked learning cards, hence no companion
+  panel; adding one needs researched sources, not generated facts.
+
+Don't keep a second list of which is which — `referenceFeatures` is empty for
+exactly the authored set, and `hasGuide` marks the three with learning cards.
+Prose that names them (the README, `docs/DISTRICTS.md`, the in-app About
+dialog in `src/App.tsx`) goes stale every time a district lands, so check those
+three when you add one.
 
 Never describe an authored district as reference-informed, and don't make new
 reference-capture requests or Google API calls without asking first.
