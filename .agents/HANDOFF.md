@@ -1,5 +1,17 @@
 # Blockplay: portable agent handoff
 
+**Armory roadmap (2026-09-20).** Planning only, no code. `docs/ARMORY-ROADMAP.md`
+records the decision that the shop sells power on a strict ladder and behavior on
+a second axis, and sequences the work in seven phases. Key constraints found while
+scoping: `resolveLoadout` is a scalar fold over five numeric fields, so no catalog
+item can express behavior; drill targets sit 12.0-30.3 units from spawn, making
+realistic muzzle velocities invisible in the range; `simulation.shoot()` returns an
+`ArenaShot` in the same tick, so travel time forces deferred host resolution; and
+`fps-pilot.ts` nulls aim error without leading, so ballistics would worsen the
+recorded 5/8 stall. Sidegrades, per-weapon upgrade points and weapon condition were
+considered and rejected by the owner. The token level-gate bypass is left open as an
+owner decision. See [armory roadmap](../docs/ARMORY-ROADMAP.md).
+
 **Latest: Bukit Timah and Bishan (2026-09-20).** Nineteen districts, 209
 stamps. These close the two thin regions the last coverage pass left: the
 north-west and the north-east belt. One district each rather than one per town

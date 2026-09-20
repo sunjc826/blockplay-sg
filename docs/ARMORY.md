@@ -83,3 +83,9 @@ Utility 01 is a driveable 4×4 at the starting promenade. Falcon 01 is a flyable
 The Fullscreen toolbar button and F shortcut expand the existing FPS/vehicle session. Desktop play fills the display with the game and HUD; the toolbar returns when paused. Escape releases the captured mouse and pauses, and native browser fullscreen exits according to the browser's Escape behavior. The pause screen includes an explicit Exit fullscreen control. Unsupported/denied native requests fall back to a viewport-filling view with an explanatory notice. Exiting restores page scrolling. Touch controls remain available in immersive view.
 
 `use-fps-fullscreen.ts` owns native/fallback state and cleanup. `pnpm test:fullscreen` verifies native entry, FPS/car play, F toggling, Escape capture release, session continuity, denial fallback, scroll restoration and renderer cleanup. These browser checks passed locally. The combined checkout rebased onto `2f27af2` passes all 75 tests and the production build.
+
+## Planned work
+
+Behavioral weapon traits, ballistics, penetration, consumables and the economy
+sink are planned but not implemented. See [the armory roadmap](ARMORY-ROADMAP.md)
+for the phases, their dependencies and the design decisions already taken.
