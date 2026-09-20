@@ -15,8 +15,9 @@ import { buildUpperThomsonScene, UPPER_THOMSON_BOUNDS, UPPER_THOMSON_MAP_ROADS, 
 import { buildPunggolScene, PUNGGOL_BOUNDS, PUNGGOL_MAP_ROADS, PUNGGOL_SPAWN } from './punggol-scene';
 import { buildHarbourfrontScene, HARBOURFRONT_BOUNDS, HARBOURFRONT_MAP_ROADS, HARBOURFRONT_SPAWN } from './harbourfront-scene';
 import { buildSentosaScene, SENTOSA_BOUNDS, SENTOSA_MAP_ROADS, SENTOSA_SPAWN } from './sentosa-scene';
+import { buildGeylangScene, GEYLANG_BOUNDS, GEYLANG_MAP_ROADS, GEYLANG_SPAWN } from './geylang-scene';
 import { buildOrchardScene, ORCHARD_BOUNDS, ORCHARD_MAP_ROADS, ORCHARD_SPAWN } from './orchard-scene';
-import { CHANGI_STAMPS, CHINATOWN_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
+import { CHANGI_STAMPS, CHINATOWN_STAMPS, GEYLANG_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -81,6 +82,7 @@ const upperThomsonMovement = createRegionMovement(UPPER_THOMSON_BOUNDS);
 const punggolMovement = createRegionMovement(PUNGGOL_BOUNDS);
 const harbourfrontMovement = createRegionMovement(HARBOURFRONT_BOUNDS);
 const sentosaMovement = createRegionMovement(SENTOSA_BOUNDS);
+const geylangMovement = createRegionMovement(GEYLANG_BOUNDS);
 const orchardMovement = createRegionMovement(ORCHARD_BOUNDS);
 
 const definitions: Record<RegionId, RegionDefinition> = {
@@ -265,6 +267,25 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'line', from: { x: -200, z: -145 }, to: { x: 200, z: -145 }, stroke: '#cfc8b6', width: 5, layer: 'over' },
     ],
     hasGuide: false, build: buildSentosaScene, move: sentosaMovement.move, canOccupy: sentosaMovement.canOccupy,
+  },
+  geylang: {
+    id: 'geylang', name: 'Geylang', shortName: 'Geylang', modeName: 'Geylang 3D', modeSubtitle: 'Lorongs, terraces and the market',
+    className: 'geylang-game', badge: 'GEYLANG · GAME WORLD', title: 'Geylang · the lorongs',
+    subtitle: 'Low-poly game map · authored lane grid, terraces, market hall and canal', mapTitle: 'LORONGS & CANAL',
+    stampNoun: 'lorong stamps', exploreNoun: 'the lorongs', cameraFar: 1400,
+    spawn: GEYLANG_SPAWN, stamps: GEYLANG_STAMPS, bounds: GEYLANG_BOUNDS, mapRoads: GEYLANG_MAP_ROADS,
+    mapPaper: '#ded6c4', roadStroke: '#97918a', roadWidth: 12,
+    decor: [
+      { kind: 'rect', x: -215, z: -148, width: 430, depth: 24, fill: '#5f97a0', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: -130, z: 27, width: 36, depth: 66, fill: '#d3c9ae', layer: 'over' },
+      { kind: 'rect', x: -73, z: 32, width: 34, depth: 56, fill: '#cfd6cc', layer: 'over' },
+      { kind: 'rect', x: 39, z: 36, width: 34, depth: 48, fill: '#c08a78', layer: 'over' },
+      { kind: 'rect', x: 97, z: 48, width: 30, depth: 24, fill: '#bfb9a9', layer: 'over' },
+      { kind: 'rect', x: -200, z: 48, width: 30, depth: 24, fill: '#bfb9a9', layer: 'over' },
+      { kind: 'rect', x: 160, z: -120, width: 50, depth: 280, fill: '#9fb37c', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+      { kind: 'line', from: { x: -215, z: -45 }, to: { x: 215, z: -45 }, stroke: '#cdc6b4', width: 4, layer: 'over' },
+    ],
+    hasGuide: false, build: buildGeylangScene, move: geylangMovement.move, canOccupy: geylangMovement.canOccupy,
   },
   orchard: {
     id: 'orchard', name: 'Orchard Road', shortName: 'Orchard', modeName: 'Orchard 3D', modeSubtitle: 'Walk the shopping belt',

@@ -37,6 +37,7 @@ Each expedition gets a fresh seed. Each district rolls its contents and position
 | Punggol | 3 | 42% | 44% | 14% | 8 |
 | HarbourFront | 4 | 18% | 44% | 38% | 11 |
 | Sentosa | 3 | 20% | 46% | 34% | 10 |
+| Geylang | 3 | 34% | 50% | 16% | 9 |
 | Orchard Road | 3 | 32% | 48% | 20% | 9 |
 
 Other crates contain ammunition for the selected gun, medical supplies or armor plates. Elite odds apply to weapon rolls; a particular visit does not guarantee an elite drop. Supply locations are checked against each district's bounds and obstacles. Colored case labels show item and tier. Pickups require a living player within 2.8 metres; medkits remain available if health is full.

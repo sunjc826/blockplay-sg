@@ -1,6 +1,6 @@
 # Districts
 
-Twelve Singapore districts are playable. Every one is an authored, compressed
+Thirteen Singapore districts are playable. Every one is an authored, compressed
 interpretation built for play — none is a surveyed map, a reconstruction or a
 navigation tool. Real place names label stylised counterparts.
 
@@ -17,6 +17,7 @@ navigation tool. Real place names label stylised counterparts.
 | Punggol | North-east | 11 | Authored, no reference capture |
 | HarbourFront | South | 11 | Authored, no reference capture |
 | Sentosa | Island | 11 | Authored, no reference capture |
+| Geylang | East-central | 11 | Authored, no reference capture |
 | Orchard Road | Central | 11 | Authored, no reference capture |
 
 ## Two kinds of provenance
@@ -28,7 +29,7 @@ capture ledger, per-image acceptance records and before/after evidence are in
 and [`docs/evidence`](evidence/). The image allowances those passes consumed are
 exhausted; see [the plan](../.agents/PLAN.md).
 
-The nine districts added afterwards were composed **from general knowledge of
+The ten districts added afterwards were composed **from general knowledge of
 those neighbourhoods, with no reference capture and no Google API requests of
 any kind**. They make no claim to resemble a specific street, facade or
 building, and their scenes record an empty `referenceFeatures` list so the

@@ -138,6 +138,20 @@ export const SENTOSA_STAMPS = [
   { name: 'Island spine', x: -30, z: 100 },
 ];
 
+export const GEYLANG_STAMPS = [
+  { name: 'Geylang Road', x: -14, z: -10 },
+  { name: 'Lorong back lane', x: 0, z: -45 },
+  { name: 'Geylang Serai market', x: -112, z: 14 },
+  { name: 'Masjid forecourt', x: -56, z: 14 },
+  { name: 'Kopitiam corner', x: 0, z: 14 },
+  { name: 'Temple courtyard', x: 56, z: 14 },
+  { name: 'Aljunied blocks', x: 112, z: 14 },
+  { name: 'Guillemard bend', x: -185, z: 14 },
+  { name: 'Canal bridge', x: -28, z: -136 },
+  { name: 'Quay stalls', x: -56, z: -120 },
+  { name: 'Paya Lebar park', x: 185, z: -60 },
+];
+
 export const ORCHARD_STAMPS = [
   { name: 'Orchard crossing', x: -8, z: 5 },
   { name: 'ION frontage', x: -115, z: -18 },

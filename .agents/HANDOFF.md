@@ -1,6 +1,14 @@
 # Blockplay: portable agent handoff
 
-**Latest: five more authored districts (2026-09-20).** Twelve districts are
+**Latest: Geylang (2026-09-20).** Thirteen districts are playable, 143 stamps.
+The lorong grid is the district: six close-set numbered lanes at 56-metre
+spacing, terraces turned outward onto them with a back lane between, and a
+canal along the rear bridged at every lane. It links Kampong Glam to Changi,
+which is the first time a new district has been slotted between two existing
+ones rather than hung off the end. 310 unit tests, typecheck and the build
+pass; browser and FPS smokes still not run here.
+
+**Earlier: five more authored districts (2026-09-20).** Twelve districts were
 playable, 132 stamps. Upper Thomson, Punggol, HarbourFront, Sentosa and Orchard
 Road were added on the existing platform — a registry entry plus a scene file
 each, with no change to `RegionGame.tsx`, the minimaps or the harness. All five

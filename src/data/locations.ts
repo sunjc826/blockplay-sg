@@ -121,6 +121,17 @@ export const locations = [
     ],
   },
   {
+    id: 'geylang', name: 'Geylang', subtitle: 'Down the numbered lanes', district: 'EAST-CENTRAL',
+    description: 'Ornate shophouse terraces down close-set numbered lorongs, a market hall under a steep gabled roof, a mosque and a temple on the main road, and a canal bridged at every lane. Authored and compressed for play.',
+    lat: 1.3140, lng: 103.8870, heading: 70, color: '#c2a06a', block: 17,
+    tags: ['Lorong grid', 'Shophouse terraces'],
+    viewpoints: [
+      { label: 'Geylang Road', lat: 1.3140, lng: 103.8870, heading: 70 },
+      { label: 'Geylang Serai', lat: 1.3170, lng: 103.8980, heading: 200 },
+      { label: 'A lorong', lat: 1.3125, lng: 103.8845, heading: 340 },
+    ],
+  },
+  {
     id: 'orchard', name: 'Orchard Road', subtitle: 'The shopping belt', district: 'CENTRAL',
     description: 'A planted median under rain trees, a faceted glass mall at the junction and a peranakan side lane. An authored low-poly boulevard, compressed for play.',
     lat: 1.3040, lng: 103.8320, heading: 90, color: '#c9a9b8', block: 2,

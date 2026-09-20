@@ -12,14 +12,14 @@ Explore familiar Singapore neighborhoods as stylized 3D game worlds, created usi
 
 ## What you can play
 
-- Walk or drive around **twelve districts** — Marina Bay, Raffles Place, Queenstown, Chinatown, Kampong Glam, Jurong Lake, Changi, Upper Thomson, Punggol, HarbourFront, Sentosa and Orchard Road — collecting stamps.
+- Walk or drive around **thirteen districts** — Marina Bay, Raffles Place, Queenstown, Chinatown, Kampong Glam, Jurong Lake, Changi, Upper Thomson, Punggol, HarbourFront, Sentosa, Geylang and Orchard Road — collecting stamps.
 - Explore the connected districts in **Open world**, finding equipment and facing bots.
 - Play each district's **FPS range**, with a shared armory, vehicles and target ranges.
 - Play **Solo arena** against configurable bots.
 
 The public demo is game-only: AI companions, multiplayer host/join and live Street View are unavailable. These optional features are supported in the local project with additional setup.
 
-The worlds are authored, compressed interpretations—not surveyed maps or navigation tools. Marina Bay, Raffles Place and Queenstown were built against reviewed street-level references. The other nine districts were composed from general knowledge of those neighbourhoods, without reference capture; see [districts](docs/DISTRICTS.md).
+The worlds are authored, compressed interpretations—not surveyed maps or navigation tools. Marina Bay, Raffles Place and Queenstown were built against reviewed street-level references. The other ten districts were composed from general knowledge of those neighbourhoods, without reference capture; see [districts](docs/DISTRICTS.md).
 
 ## How we build locations
 
@@ -27,7 +27,7 @@ Our workflow starts with a place and its Google Maps Street View imagery. We sel
 
 We connect each scene to reusable walking and driving controls, collision rules, collectible objectives and minimaps. Comparing rendered views with the references, running automated checks and playtesting lets us refine both resemblance and playability. See the [build story](docs/BUILD-STORY.md) and [three reference-to-game comparisons](docs/visual-understanding.md).
 
-The same agentic workflow could support many more neighbourhoods and cities. Reference review, layout decisions, scene implementation and validation are already part of the Astra-assisted development process: region agents build and refine worlds in parallel, while shared browser capture and visual QA are coordinated in sequence. New locations can follow this process and reuse the existing gameplay systems, with human direction and review. We have demonstrated it across three reference-informed Singapore regions, and added nine further districts as authored interpretations without new capture; reliable generation for arbitrary places has not yet been validated.
+The same agentic workflow could support many more neighbourhoods and cities. Reference review, layout decisions, scene implementation and validation are already part of the Astra-assisted development process: region agents build and refine worlds in parallel, while shared browser capture and visual QA are coordinated in sequence. New locations can follow this process and reuse the existing gameplay systems, with human direction and review. We have demonstrated it across three reference-informed Singapore regions, and added ten further districts as authored interpretations without new capture; reliable generation for arbitrary places has not yet been validated.
 
 ## Run locally
 
