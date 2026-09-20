@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceWeapon, beginReload, createLoadout, fireWeapon, FPS_WEAPONS, hitDamage, movementInput, FPS_SPAWN, FPS_TARGETS } from './fps-rules';
+import { advanceWeapon, beginReload, createLoadout, fireWeapon, FPS_WEAPONS, hitDamage, movementInput, splashScale, FPS_SPAWN, FPS_TARGETS } from './fps-rules';
 import { buildMarinaScene } from './marina-scene';
 import { canOccupy } from './marina-collision';
 
@@ -69,5 +69,19 @@ describe('range and zone damage', () => {
     const feeble = { ...rifle, damage: 2, traits: [{ kind: 'falloff', near: 1, far: 2, minScale: 0 } as const] };
     expect(hitDamage(feeble, 900)).toBe(1);
     for (const range of [7, 23, 41, 88]) expect(Number.isInteger(hitDamage(support, range))).toBe(true);
+  });
+});
+
+describe('burst damage', () => {
+  it('is full at the centre, the floor at the edge and nothing beyond', () => {
+    expect(splashScale(0, 3, .35)).toBe(1);
+    expect(splashScale(3, 3, .35)).toBeCloseTo(.35, 10);
+    expect(splashScale(3.01, 3, .35)).toBe(0);
+    expect(splashScale(1.5, 3, .35)).toBeCloseTo(.675, 10);
+  });
+  it('stays finite for a zero radius, a negative distance or a clamped floor', () => {
+    expect(splashScale(0, 0, .5)).toBe(0);
+    expect(splashScale(-4, 3, .5)).toBe(1);
+    expect(splashScale(3, 3, -2)).toBe(0); expect(splashScale(3, 3, 5)).toBe(1);
   });
 });

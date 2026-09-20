@@ -103,12 +103,15 @@ compensates for drop. Ships with Phase 1, not after it.
 *Files:* `fps-pilot.ts`, `fps-pilot-perception.ts`, `pilot-strategy.ts`.
 *Risk:* medium. *Feelable:* only as the absence of a regression.
 
-### Phase 2 — Projectile class
+### Phase 2 — Splash *(landed, without self-knockback)*
 
-A travelling entity with splash radius and self-knockback, giving rocket-jump
-movement as an emergent consequence of a weapon choice. Its own behavioral class
-with its own upgrade ladder. Geometry is trivial and needs no GLB. Cap
-in-flight rounds and use a filtered candidate list.
+A shot bursts where it stops, damaging everything else within a radius on a
+linear falloff to an edge floor. The directly struck target is excluded, since
+it already took the round itself.
+
+Self-knockback and rocket-jumping were dropped at the owner's request. The
+movement system is therefore untouched, and the trait carries a radius and an
+edge floor only.
 
 *Files:* `fps-ballistics.ts`, `fps-engine.ts`, `armory-catalog.ts`.
 *Risk:* medium-high, mostly performance. *Feelable:* yes, strongly.

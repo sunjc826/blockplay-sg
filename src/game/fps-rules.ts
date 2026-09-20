@@ -13,7 +13,7 @@ export const opticMagnification = (weapon: WeaponSpec) => Math.tan(HIP_FOV * Mat
 export type WeaponTrait =
   | { kind: 'falloff'; near: number; far: number; minScale: number }
   | { kind: 'precision'; multiplier: number }
-  | { kind: 'projectile'; splash: number; selfKnockback: number }
+  | { kind: 'splash'; radius: number; minScale: number }
   | { kind: 'penetration'; surfaces: number; decay: number }
   | { kind: 'reload-single'; shellSeconds: number }
   | { kind: 'zeroing'; distance: number }
@@ -77,4 +77,14 @@ export function hitDamage(weapon: WeaponSpec, distance: number, zone?: string) {
   const falloff = findTrait(weapon.traits, 'falloff'), precision = findTrait(weapon.traits, 'precision');
   const ranged = weapon.damage * (falloff ? falloffScale(distance, falloff.near, falloff.far, falloff.minScale) : 1);
   return Math.max(1, Math.round(ranged * (zone === 'head' && precision ? precision.multiplier : 1)));
+}
+
+/**
+ * Damage multiplier for a target caught `distance` from a burst's centre: full
+ * at the centre, `minScale` at the edge, nothing beyond it.
+ */
+export function splashScale(distance: number, radius: number, minScale: number) {
+  const reach = Math.max(0, radius), range = Math.max(0, distance);
+  if (range > reach || reach === 0) return 0;
+  return 1 + (Math.max(0, Math.min(1, minScale)) - 1) * (range / reach);
 }

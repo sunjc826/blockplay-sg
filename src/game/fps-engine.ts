@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook } from './fps-pointer';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { advanceWeapon, beginReload, createLoadout, findTrait, fireWeapon, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, type WeaponState } from './fps-rules';
+import { advanceWeapon, beginReload, createLoadout, findTrait, fireWeapon, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponState } from './fps-rules';
 import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { advanceRound, createRound, needsFlight, MAX_ROUNDS_IN_FLIGHT, type InFlightRound } from './fps-projectiles';
 import { applyArmorDamage, createProfile, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile } from './armory-state';
@@ -150,7 +150,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // loadout costs exactly the single raycast it always did.
   const rounds: InFlightRound[] = []; let roundSerial = 0;
   const ROUND_RANGE = 180;
-  const roundRay = new THREE.Raycaster(), roundOrigin = new THREE.Vector3(), roundDirection = new THREE.Vector3();
+  const roundRay = new THREE.Raycaster(), roundOrigin = new THREE.Vector3(), roundDirection = new THREE.Vector3(), splashPoint = new THREE.Vector3();
   let strategyMode: 'local' | 'llm' = expedition?.checkpoint?.pilotStrategy ?? 'local';
   let strategicPlanner = strategyMode === 'llm' ? createStrategyPlanner(llmPilotStrategy()) : null;
   let pilot = options.playerPilot ?? createPlayerPilot(strategicPlanner ?? undefined);
@@ -585,12 +585,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // Effects and the viewmodel never obstruct a gameplay ray.
     return world.scene.children.filter(o => o !== tracer && o !== impact && !o.userData.fpsEffect);
   }
-  function applyTargetDamage(hit: THREE.Intersection, weapon: number, range: number, scale = 1) {
-    const index = hit.object.userData.fpsTarget as number, target = targets[index];
-    if (!target?.alive) return;
+  function damageTarget(index: number, weapon: number, range: number, zone: string | undefined, scale = 1) {
+    const target = targets[index];
+    if (!target?.alive || scale <= 0) return;
     // Falloff reads how far the round actually travelled, which for one in flight
     // is its whole arc rather than the length of its final segment.
-    const damage = Math.max(1, Math.round(hitDamage(specs[weapon], range, hit.object.userData.fpsZone) * scale));
+    const damage = Math.max(1, Math.round(hitDamage(specs[weapon], range, zone) * scale));
     hud.landed++; hud.lastDamage = Math.min(target.health, damage); target.health = Math.max(0, target.health - damage);
     target.bar.scale.x = target.health / target.maxHealth; hitTime = .20; hud.hitKind = target.health === 0 ? 'kill' : 'hit';
     if (target.health > 0) return;
@@ -611,10 +611,24 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function resolveSurfaces(hits: THREE.Intersection[], weapon: number, rangeAt: (hit: THREE.Intersection) => number, scale: number) {
     const decay = findTrait(specs[weapon].traits, 'penetration')?.decay ?? 1;
     for (const hit of hits) {
-      if (typeof hit.object.userData.fpsTarget === 'number') applyTargetDamage(hit, weapon, rangeAt(hit), scale);
+      if (typeof hit.object.userData.fpsTarget === 'number') damageTarget(hit.object.userData.fpsTarget, weapon, rangeAt(hit), hit.object.userData.fpsZone, scale);
       scale *= decay;
     }
     return scale;
+  }
+  /**
+   * Damages everything else standing near where a shot stopped. The directly
+   * struck target is excluded, since it already took the round itself.
+   */
+  function applySplash(point: THREE.Vector3, weapon: number, range: number, scale: number, direct?: number) {
+    const splash = findTrait(specs[weapon].traits, 'splash');
+    if (!splash || scale <= 0) return;
+    targets.forEach((target, index) => {
+      if (!target.alive || index === direct) return;
+      target.hitZone.getWorldPosition(splashPoint);
+      const share = splashScale(splashPoint.distanceTo(point), splash.radius, splash.minScale);
+      if (share > 0) damageTarget(index, weapon, range, undefined, scale * share);
+    });
   }
   function checkCompletion() {
     if (options.arena || hud.phase === 'complete' || hud.hits !== targetPositions.length) return;
@@ -652,6 +666,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           const start = round.travelled - step.distance;
           round.scale = resolveSurfaces(segmentHits, round.weapon, surface => start + surface.distance, round.scale);
           const last = segmentHits[segmentHits.length - 1];
+          applySplash(last.point, round.weapon, start + last.distance, round.scale, last.object.userData.fpsTarget);
           impact.position.copy(last.point); impactActive = true; effectTime = .055; struck = true;
           // Stopped once it has struck more surfaces than it could pass through.
           if (segmentHits.length > round.pierced) { rounds.splice(i, 1); continue; }
@@ -690,7 +705,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       let hitActor = false;
       for (let object: THREE.Object3D | null = hit?.object ?? null; object; object = object.parent) if (object.userData.arenaActorId) hitActor = true;
       arenaRuntime.shoot(camera.position, ray.ray.direction, hud.weapon, hit ? hit.distance + (hitActor ? 0.7 : 0) : 125);
-    } else resolveSurfaces(hits, hud.weapon, surface => surface.distance, 1);
+    } else {
+      const left = resolveSurfaces(hits, hud.weapon, surface => surface.distance, 1);
+      const last = hits[hits.length - 1];
+      if (last) applySplash(last.point, hud.weapon, last.distance, left, last.object.userData.fpsTarget);
+    }
     const end = hits[hits.length - 1]?.point ?? ray.ray.at(180, new THREE.Vector3());
     const attr = tracerGeometry.getAttribute('position'); attr.setXYZ(0, muzzlePoint.x, muzzlePoint.y, muzzlePoint.z); attr.setXYZ(1, end.x, end.y, end.z); attr.needsUpdate = true;
     tracerTime = 0.055; impactActive = !!hit; impact.position.copy(end); effectTime = 0.055;
