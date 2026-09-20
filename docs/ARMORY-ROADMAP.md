@@ -14,6 +14,7 @@ upgrade path, so variety never costs the ladder anything.
 | Strict upgrades are intended | Pay-to-win is a design goal, not an accident. Elite really is better than Field. |
 | No sidegrades, no downside-bearing items | Rejected: it contradicts the ladder. |
 | No per-weapon upgrade points or mods | Rejected: upgrading means buying a new weapon or variant. One purchase concept, not two. |
+| Premium weapons arrive pre-upgraded | Their fitted hardware justifies their numbers and fixes those slots, rather than being modded together from a parts bin. Never worse than what it blocks, and never the magazine. |
 | No weapon condition or jamming | Rejected: no repair loop exists, and upkeep chores cut against a power ladder. |
 | Ballistic stats are the preferred paid axis | Velocity, drop, penetration and precision are naturally strictly-orderable, so they need no balancing argument. |
 | Expedition field loot is the prototyping sandbox | `expedition-loot.ts` grants temporary weapons that never touch the permanent profile. |

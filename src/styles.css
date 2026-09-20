@@ -162,3 +162,13 @@
 .armory-curve-tag { font-size:8px; font-weight:600; }
 /* The table is the chart's accessible equivalent, not a second visual. */
 .armory-curve-table { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+
+/* Hardware a premium weapon arrives with: shown as a fixed slot, not a choice. */
+.armory-fitted { border:1px solid #ffffff14; background:#101a19; padding:11px 12px; margin-bottom:18px; }
+.armory-fitted>div { margin-top:9px; }
+.armory-fitted strong { display:block; font-size:11px; font-weight:500; color:#e4e0cd; }
+.armory-fitted small { display:block; font-size:8px; letter-spacing:.5px; color:#93a698; margin-top:3px; text-transform:uppercase; }
+.armory-fitted p { font-size:10px; line-height:1.7; color:#a6b3a8; margin:5px 0 0; }
+.armory-fitted-note { text-transform:none!important; letter-spacing:0!important; line-height:1.6; margin-top:11px!important; }
+.armory-slot.fitted { border-color:#bfa06444; background:#17201b; }
+.armory-slot em { font-style:normal; font-size:7px; letter-spacing:.8px; color:#d0b075; margin-left:6px; }

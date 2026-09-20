@@ -54,6 +54,35 @@ a shot off the count outright: Vanguard drops a standard target in two hits at
 close range, Marksman drops the tougher one in two. `armory-balance.test.ts`
 asserts that time to kill never rises with tier and falls at every step.
 
+## Fitted hardware
+
+Premium weapons are not platforms to be modded; they arrive already upgraded,
+and the hardware that justifies their numbers is listed in the dossier. A fitted
+part fills its attachment slot permanently, so those slots cannot be re-modded.
+
+| Weapon | Fitted | Slot |
+| --- | --- | --- |
+| SAR 21 · Vanguard | Match trigger group | handling |
+| SAR 21 · Marksman | Fitted 1.75x match scope, free-floated barrel and match trigger | optic, handling |
+| Ultimax · Centurion | Reinforced feed tray and buffer | handling |
+| Ultimax · Bastion | Heavy barrel, bipod and buffered carrier | handling |
+
+Two rules keep this from being a downgrade dressed as flavour, and
+`armory-state.test.ts` holds both:
+
+- **A fitted part is never worse than anything buyable for its slot**, compared
+  part against part on every modifier it could carry, and it must bring any
+  trait a rival would have. Giving up the choice gives up nothing.
+- **The magazine slot is never fitted.** It carries the ammunition traits, so
+  taking it would cost a premium weapon its penetration and burst. Ammunition
+  stays the open axis on every weapon, which is also what keeps a purchase
+  worth making once the platform is bought.
+
+An attachment already saved in a slot a new platform fits is suppressed rather
+than erased, so it comes back when a platform without that hardware is equipped
+again. Field and issued weapons keep every slot open: cheap guns are platforms,
+premium ones are finished pieces.
+
 ## Range and hit zones
 
 Damage is no longer a single number per weapon. `hitDamage` resolves each round

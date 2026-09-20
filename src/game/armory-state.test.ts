@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { aimSpeedScale, applyArmorDamage, claimElimination, claimReward, collectTraits, consumeItem, jumpScale, createProfile, equip, previewLoadout, purchase, resolveLoadout, restoreProfile, unequipAttachment, type ArmoryProfile, type ExerciseReward } from './armory-state';
-import { CONSUMABLE_LIMIT, itemById } from './armory-catalog';
+import { aimSpeedScale, applyArmorDamage, claimElimination, claimReward, collectTraits, consumeItem, isEquipped, jumpScale, slotIsFitted, createProfile, equip, previewLoadout, purchase, resolveLoadout, restoreProfile, unequipAttachment, type ArmoryProfile, type ExerciseReward } from './armory-state';
+import { ARMORY_CATALOG, CONSUMABLE_LIMIT, itemById } from './armory-catalog';
 import { progression, registerElimination, xpForLevel } from './progression';
-import { advanceWeapon, beginReload, createLoadout, findTrait, FPS_WEAPONS, hitDamage, type WeaponTrait } from './fps-rules';
+import { advanceWeapon, beginReload, createLoadout, findTrait, FPS_WEAPONS, hitDamage, HIP_FOV, type WeaponTrait } from './fps-rules';
 import { HITSCAN } from './fps-ballistics';
 const veteran = () => ({ ...createProfile(), xp: 5000, credits: 10000, tokens: 1000 });
 const unlock = (id: string) => purchase(veteran(), id).profile;
@@ -179,6 +179,66 @@ describe('carried weight', () => {
       expect(jumpScale(mobility)).toBeLessThanOrEqual(1);
       expect(Number.isFinite(jumpScale(mobility))).toBe(true);
       expect(Number.isFinite(aimSpeedScale(mobility))).toBe(true);
+    }
+  });
+});
+
+describe('fitted hardware', () => {
+  const owning = (id: string) => { const base = veteran(); return equip({ ...base, owned: [...base.owned, id] }, id, itemById(id)!.family!); };
+  const fittedVariants = ARMORY_CATALOG.filter(entry => entry.fitted?.length);
+  it('is only on premium weapons, and never takes the magazine slot', () => {
+    expect(fittedVariants.map(entry => entry.id)).toEqual(['sar-vanguard', 'ult-centurion', 'sar-marksman', 'ult-bastion']);
+    for (const entry of fittedVariants) {
+      expect(entry.tier).toBe('Elite');
+      // The magazine carries penetration and burst, so fitting it would cost a
+      // premium weapon traits it should be gaining.
+      expect(entry.fitted!.some(part => part.slot === 'magazine')).toBe(false);
+    }
+  });
+  it('fills its slot and refuses a bought attachment there', () => {
+    const owner = owning('sar-marksman');
+    expect(slotIsFitted('sar-marksman', 'optic')).toBe(true);
+    expect(slotIsFitted('sar-marksman', 'magazine')).toBe(false);
+    const withOptic = equip({ ...owner, owned: [...owner.owned, 'optic-reflex'] }, 'optic-reflex', 0);
+    expect(withOptic.guns[0].attachments.optic).toBeUndefined();
+    // The open slot still takes one.
+    const withMag = equip({ ...owner, owned: [...owner.owned, 'mag-fragmenting'] }, 'mag-fragmenting', 0);
+    expect(withMag.guns[0].attachments.magazine).toBe('mag-fragmenting');
+    expect(findTrait(resolveLoadout(withMag).weapons[0].traits, 'splash')).toBeDefined();
+  });
+  it('suppresses an attachment saved underneath without destroying it', () => {
+    // Bought on the issued rifle, then a fitted platform is equipped over it.
+    let profile = veteran();
+    profile = equip(purchase(profile, 'handling-stable').profile, 'handling-stable', 0);
+    const openRecoil = resolveLoadout(profile).weapons[0].recoil;
+    profile = equip({ ...profile, owned: [...profile.owned, 'sar-marksman'] }, 'sar-marksman', 0);
+    expect(profile.guns[0].attachments.handling).toBe('handling-stable');
+    expect(isEquipped(profile, itemById('handling-stable')!, 0)).toBe(false);
+    // Back to a platform without fitted hardware and the grip is live again.
+    const back = equip(profile, 'sar-issued', 0);
+    expect(resolveLoadout(back).weapons[0].recoil).toBe(openRecoil);
+    expect(isEquipped(back, itemById('handling-stable')!, 0)).toBe(true);
+  });
+  it('is never worse than anything buyable for the slot it takes', () => {
+    // The invariant that makes a fixed weapon safe: giving up the choice must
+    // not give up anything. Compared part against part, so this measures the
+    // hardware itself rather than the tier it happens to sit on.
+    const better = (fitted: number | undefined, rival: number | undefined, lowerIsBetter: boolean, unit = 1) => {
+      const a = fitted ?? unit, b = rival ?? unit;
+      return lowerIsBetter ? a <= b : a >= b;
+    };
+    for (const entry of fittedVariants) for (const part of entry.fitted!) {
+      const rivals = ARMORY_CATALOG.filter(other => other.category === 'attachment' && other.slot === part.slot);
+      expect(rivals.length).toBeGreaterThan(0);
+      for (const rival of rivals) {
+        expect(better(part.modifiers?.recoil, rival.modifiers?.recoil, true)).toBe(true);
+        expect(better(part.modifiers?.reload, rival.modifiers?.reload, true)).toBe(true);
+        expect(better(part.modifiers?.mobility, rival.modifiers?.mobility, false)).toBe(true);
+        expect(better(part.modifiers?.capacity, rival.modifiers?.capacity, false, 0)).toBe(true);
+        if (part.slot === 'optic') expect(better(part.modifiers?.aimFov, rival.modifiers?.aimFov, true, HIP_FOV)).toBe(true);
+        // A fitted part must also carry any trait the rival would have brought.
+        for (const trait of rival.traits ?? []) expect(findTrait(part.traits, trait.kind)).toBeDefined();
+      }
     }
   });
 });

@@ -1,8 +1,12 @@
-import { ARMORY_CATALOG, CONSUMABLE_LIMIT, issuedItems, itemById, type AttachmentSlot, type ShopItem } from './armory-catalog';
+import { ARMORY_CATALOG, CONSUMABLE_LIMIT, issuedItems, itemById, type AttachmentSlot, type FittedPart, type ShopItem } from './armory-catalog';
 import type { VehicleKind } from './vehicle-rules';
 import { progression, ELIMINATION_XP } from './progression';
 import { FPS_WEAPONS, type WeaponSpec, type WeaponTrait } from './fps-rules';
 export const ATTACHMENT_SLOTS = ['optic', 'magazine', 'handling'] as const;
+/** Hardware a variant already carries, by the slot it permanently fills. */
+export const fittedParts = (variantId: string): Partial<Record<AttachmentSlot, FittedPart>> =>
+  Object.fromEntries((itemById(variantId)?.fitted ?? []).map(part => [part.slot, part]));
+export const slotIsFitted = (variantId: string, slot: AttachmentSlot) => !!fittedParts(variantId)[slot];
 export interface GunEquipment { variant: string; skin: string; attachments: Partial<Record<AttachmentSlot, string>> }
 export interface ArmoryProfile { version: 1; xp: number; vehicleSkins: Record<VehicleKind, string>; credits: number; tokens: number; owned: string[]; guns: [GunEquipment, GunEquipment]; rig: string; plate: string; rewarded: string[]; exercises: number;
   /** Supplies held, by catalog id, and which one the quick-use key spends. */
@@ -67,7 +71,11 @@ export function equip(profile: ArmoryProfile, id: string, family: number, vehicl
   const gun: GunEquipment = { ...profile.guns[family], attachments: { ...profile.guns[family].attachments } };
   if (item.category === 'weapon') gun.variant = id;
   if (item.category === 'skin') gun.skin = id;
-  if (item.category === 'attachment' && item.slot) gun.attachments[item.slot] = id;
+  // A finished weapon's fitted hardware cannot be swapped out for a bought part.
+  if (item.category === 'attachment' && item.slot) {
+    if (slotIsFitted(gun.variant, item.slot)) return profile;
+    gun.attachments[item.slot] = id;
+  }
   const guns: ArmoryProfile['guns'] = [...profile.guns]; guns[family] = gun; return { ...profile, guns };
 }
 /** Spends one of a held supply. Unknown or empty ids leave the profile untouched. */
@@ -86,7 +94,9 @@ export function unequipAttachment(profile: ArmoryProfile, family: number, slot: 
 export function isEquipped(profile: ArmoryProfile, item: ShopItem, family: number, vehicle: VehicleKind = 'car') {
   const gun = profile.guns[family];
   if (item.category === 'consumable') return profile.quickItem === item.id;
-  return item.category === 'vehicleSkin' ? profile.vehicleSkins[vehicle] === item.id : item.category === 'rig' ? profile.rig === item.id : item.category === 'plate' ? profile.plate === item.id : item.category === 'weapon' ? gun.variant === item.id : item.category === 'skin' ? gun.skin === item.id : !!item.slot && gun.attachments[item.slot] === item.id;
+  return item.category === 'vehicleSkin' ? profile.vehicleSkins[vehicle] === item.id : item.category === 'rig' ? profile.rig === item.id : item.category === 'plate' ? profile.plate === item.id : item.category === 'weapon' ? gun.variant === item.id : item.category === 'skin' ? gun.skin === item.id :
+    // An attachment saved under fitted hardware is suppressed, not equipped.
+    !!item.slot && !slotIsFitted(gun.variant, item.slot) && gun.attachments[item.slot] === item.id;
 }
 /**
  * Flattens trait sources in precedence order: base weapon, then variant, then
@@ -111,7 +121,15 @@ export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
     const variant = itemById(gun.variant)!;
     // Fixed slot order, so that "later source wins" is deterministic rather than
     // dependent on the order the attachments happened to be equipped in.
-    const attachments = ATTACHMENT_SLOTS.flatMap(slot => { const item = itemById(gun.attachments[slot] || ''); return item ? [item] : []; });
+    const fitted = fittedParts(gun.variant);
+    // Fitted hardware fills its slot; any attachment saved underneath is kept
+    // rather than erased, so it returns if a platform without it is equipped.
+    const attachments = ATTACHMENT_SLOTS.flatMap(slot => {
+      const part = fitted[slot];
+      if (part) return [{ ...part, category: 'attachment', id: `fitted:${gun.variant}:${slot}`, tier: variant.tier, price: 0, currency: 'credits' } as ShopItem];
+      const item = itemById(gun.attachments[slot] || '');
+      return item ? [item] : [];
+    });
     const spec: EquippedWeapon = { ...FPS_WEAPONS[i], ...variant.stats, name: variant.name, equipment: gun, accent: variant.accent,
       reserve: FPS_WEAPONS[i].reserve + (rig.carry || 0),
       traits: collectTraits(FPS_WEAPONS[i].traits, variant.traits, ...attachments.map(item => item.traits)) };
