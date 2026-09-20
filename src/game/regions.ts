@@ -12,8 +12,9 @@ import { buildKampongGlamScene, KAMPONG_GLAM_BOUNDS, KAMPONG_GLAM_MAP_ROADS, KAM
 import { buildJurongLakeScene, JURONG_LAKE_BOUNDS, JURONG_LAKE_MAP_ROADS, JURONG_LAKE_SPAWN } from './jurong-lake-scene';
 import { buildChangiScene, CHANGI_BOUNDS, CHANGI_MAP_ROADS, CHANGI_SPAWN } from './changi-scene';
 import { buildUpperThomsonScene, UPPER_THOMSON_BOUNDS, UPPER_THOMSON_MAP_ROADS, UPPER_THOMSON_SPAWN } from './upper-thomson-scene';
+import { buildPunggolScene, PUNGGOL_BOUNDS, PUNGGOL_MAP_ROADS, PUNGGOL_SPAWN } from './punggol-scene';
 import { buildOrchardScene, ORCHARD_BOUNDS, ORCHARD_MAP_ROADS, ORCHARD_SPAWN } from './orchard-scene';
-import { CHANGI_STAMPS, CHINATOWN_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
+import { CHANGI_STAMPS, CHINATOWN_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -75,6 +76,7 @@ const kampongGlamMovement = createRegionMovement(KAMPONG_GLAM_BOUNDS);
 const jurongLakeMovement = createRegionMovement(JURONG_LAKE_BOUNDS);
 const changiMovement = createRegionMovement(CHANGI_BOUNDS);
 const upperThomsonMovement = createRegionMovement(UPPER_THOMSON_BOUNDS);
+const punggolMovement = createRegionMovement(PUNGGOL_BOUNDS);
 const orchardMovement = createRegionMovement(ORCHARD_BOUNDS);
 
 const definitions: Record<RegionId, RegionDefinition> = {
@@ -203,6 +205,24 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'line', from: { x: -146, z: -70 }, to: { x: -146, z: 70 }, stroke: '#d8cfb6', width: 5, layer: 'over' },
     ],
     hasGuide: false, build: buildUpperThomsonScene, move: upperThomsonMovement.move, canOccupy: upperThomsonMovement.canOccupy,
+  },
+  punggol: {
+    id: 'punggol', name: 'Punggol', shortName: 'Punggol', modeName: 'Punggol 3D', modeSubtitle: 'Waterway, precincts and the point',
+    className: 'punggol-game', badge: 'PUNGGOL · GAME WORLD', title: 'Punggol · waterway & waterfront',
+    subtitle: 'Low-poly game map · authored channel, arch crossing, precincts and jetty', mapTitle: 'WATERWAY & POINT',
+    stampNoun: 'waterway stamps', exploreNoun: 'the waterway and the point', cameraFar: 1600,
+    spawn: PUNGGOL_SPAWN, stamps: PUNGGOL_STAMPS, bounds: PUNGGOL_BOUNDS, mapRoads: PUNGGOL_MAP_ROADS,
+    mapPaper: '#d4ddd4', roadStroke: '#909790', roadWidth: 14,
+    decor: [
+      { kind: 'rect', x: -233, z: -105, width: 466, depth: 30, fill: '#6f9fae', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: 202, z: 160, width: 36, depth: 33, fill: '#6f9fae', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
+      { kind: 'rect', x: -20, z: 40, width: 80, depth: 100, fill: '#c6bfae', layer: 'over' },
+      { kind: 'rect', x: 100, z: -57, width: 78, depth: 58, fill: '#9fb37c', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
+      { kind: 'rect', x: -237, z: -35, width: 50, depth: 150, fill: '#9cba7f', layer: 'over' },
+      { kind: 'line', from: { x: 215, z: -150 }, to: { x: 215, z: 120 }, stroke: '#c9c2b0', width: 5, layer: 'over' },
+      { kind: 'line', from: { x: 215, z: 156 }, to: { x: 215, z: 192 }, stroke: '#b08a5c', width: 4, layer: 'over' },
+    ],
+    hasGuide: false, build: buildPunggolScene, move: punggolMovement.move, canOccupy: punggolMovement.canOccupy,
   },
   orchard: {
     id: 'orchard', name: 'Orchard Road', shortName: 'Orchard', modeName: 'Orchard 3D', modeSubtitle: 'Walk the shopping belt',

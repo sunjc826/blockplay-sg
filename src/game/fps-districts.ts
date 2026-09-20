@@ -48,6 +48,12 @@ const districts: Record<WorldZoneId, FpsDistrict> = {
     vehicles: { car: { x: 183, z: -26, yaw: -Math.PI / 2 }, helicopter: { x: 202, z: -18, yaw: 0 } },
     props: [[3, 190, -24, .77, .52], [4, 196, -27, 1.87, .41], [5, 191, -23, .37, .37], [5, 193, -23, .37, .37]],
   },
+  punggol: {
+    label: 'Punggol FPS', setting: 'waterfront lawn', spawn: { x: 139, z: -12, yaw: 0, pitch: -.03 },
+    targets: [{ x: 139, z: -40 }, { x: 133, z: -39 }, { x: 145, z: -39 }, { x: 127, z: -44 }, { x: 151, z: -44 }, { x: 125, z: -52 }, { x: 153, z: -52 }, { x: 139, z: -30 }],
+    vehicles: { car: { x: 130, z: -8, yaw: -Math.PI / 2 }, helicopter: { x: 152, z: -4, yaw: 0 } },
+    props: [[3, 137, -6, .77, .52], [4, 143, -9, 1.87, .41], [5, 138, -5, .37, .37], [5, 140, -5, .37, .37]],
+  },
   orchard: {
     label: 'Orchard FPS', setting: 'park lawn', spawn: { x: 205, z: 150, yaw: 0, pitch: -.03 },
     targets: [{ x: 205, z: 120 }, { x: 199, z: 121 }, { x: 211, z: 121 }, { x: 193, z: 126 }, { x: 217, z: 126 }, { x: 191, z: 134 }, { x: 219, z: 134 }, { x: 205, z: 110 }],

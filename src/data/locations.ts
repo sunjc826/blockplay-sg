@@ -88,6 +88,17 @@ export const locations = [
     ],
   },
   {
+    id: 'punggol', name: 'Punggol', subtitle: 'A town built around water', district: 'NORTH-EAST',
+    description: 'A planted waterway with promenades on both banks and an arched crossing, precinct slabs on void decks, an elevated light rail and a jetty into a sheltered bay. Authored and compressed for play.',
+    lat: 1.4050, lng: 103.9020, heading: 20, color: '#7fa8c4', block: 1,
+    tags: ['Waterway', 'Waterfront town'],
+    viewpoints: [
+      { label: 'Waterway', lat: 1.4050, lng: 103.9020, heading: 20 },
+      { label: 'Punggol Point', lat: 1.4170, lng: 103.9070, heading: 340 },
+      { label: 'Town centre', lat: 1.4052, lng: 103.9022, heading: 200 },
+    ],
+  },
+  {
     id: 'orchard', name: 'Orchard Road', subtitle: 'The shopping belt', district: 'CENTRAL',
     description: 'A planted median under rain trees, a faceted glass mall at the junction and a peranakan side lane. An authored low-poly boulevard, compressed for play.',
     lat: 1.3040, lng: 103.8320, heading: 90, color: '#c9a9b8', block: 2,

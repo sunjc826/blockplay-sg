@@ -96,6 +96,20 @@ export const UPPER_THOMSON_STAMPS = [
   { name: 'Springleaf green', x: 192, z: 60 },
 ];
 
+export const PUNGGOL_STAMPS = [
+  { name: 'Waterway promenade', x: 20, z: -60 },
+  { name: 'Arch bridge', x: 20, z: -90 },
+  { name: 'Waterway Point atrium', x: 20, z: 36 },
+  { name: 'Town bus berths', x: 20, z: -26 },
+  { name: 'Precinct court', x: -100, z: 30 },
+  { name: 'Punggol LRT line', x: 215, z: 75 },
+  { name: 'Punggol Point jetty', x: 215, z: 180 },
+  { name: 'Waterfront lawn', x: 139, z: -20 },
+  { name: 'Community club', x: -100, z: -122 },
+  { name: 'Reed bank', x: -100, z: -60 },
+  { name: 'Park connector', x: -212, z: 40 },
+];
+
 export const ORCHARD_STAMPS = [
   { name: 'Orchard crossing', x: -8, z: 5 },
   { name: 'ION frontage', x: -115, z: -18 },
