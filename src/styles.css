@@ -145,3 +145,20 @@
 .fps-supply { display: flex; align-items: center; gap: .5rem; }
 .fps-supply:disabled { opacity: .5; }
 .armory-secondary { margin-top: .4rem; opacity: .9; }
+
+/* Falloff curve in the weapon dossier. The armory panel is always dark, so this
+   chart has one selected mode rather than a light/dark pair. */
+.armory-curve { margin:0 0 20px; }
+.armory-curve>figcaption { font-size:8px; letter-spacing:.5px; color:#c4ceb9; text-transform:uppercase; }
+.armory-curve-legend { display:flex; flex-direction:column; gap:3px; margin:7px 0 4px; font-size:9px; color:#b5c0b7;
+  min-height:26px; font-variant-numeric:tabular-nums; }
+.armory-curve-legend span { display:flex; align-items:center; gap:5px; }
+.armory-curve-legend i { width:8px; height:2px; border-radius:1px; flex-shrink:0; }
+.armory-curve-legend b { margin-left:auto; font-weight:500; color:#dce4df; }
+.armory-curve-plot { position:relative; }
+.armory-curve-plot svg { width:100%; height:auto; display:block; touch-action:none; }
+.armory-curve-axis { font-size:7px; fill:#8ea095; font-variant-numeric:tabular-nums; }
+.armory-curve-band { font-size:7px; fill:#9fb0a4; letter-spacing:.3px; }
+.armory-curve-tag { font-size:8px; font-weight:600; }
+/* The table is the chart's accessible equivalent, not a second visual. */
+.armory-curve-table { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }

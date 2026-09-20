@@ -1,7 +1,7 @@
 import { ARMORY_CATALOG, itemById, type ShopItem } from './armory-catalog';
 import { applyArmorDamage, createProfile, equip, resolveLoadout } from './armory-state';
 import { listArenaRoles } from './arena-roles';
-import { findTrait, hitDamage } from './fps-rules';
+import { findTrait, hitDamage, type WeaponSpec } from './fps-rules';
 import { xpForLevel } from './progression';
 
 /**
@@ -131,3 +131,34 @@ export function analyseBreakpoints(opponents: readonly Opponent[] = DRILL_OPPONE
 export const deadBuys = (rows: BreakpointRow[] = analyseBreakpoints()) => rows.filter(row => row.gains && !row.gains.length).map(row => row.name);
 /** Paid tiers a player never feels without leaving the drill. */
 export const unfeltInDrill = (rows: BreakpointRow[] = analyseBreakpoints()) => rows.filter(row => row.gains?.length && !row.drillGains.length).map(row => row.name);
+
+/** The shop's reference opponent: an unarmored standard target. */
+export const STOCK_OPPONENT: Opponent = { id: 'stock-100', name: 'Stock 100hp target', health: 100, armor: 0, absorption: 0 };
+export const CURVE_MAX_RANGE = 130;
+/** Sampled finely enough that a falloff band's corners read as corners. */
+export const curveRanges = (max = CURVE_MAX_RANGE, step = 2) =>
+  Array.from({ length: Math.floor(max / step) + 1 }, (_, i) => i * step);
+
+export interface CurvePoint { range: number; damage: number; shots: number }
+export const falloffCurve = (weapon: WeaponSpec, opponent: Opponent = STOCK_OPPONENT, ranges = curveRanges()): CurvePoint[] =>
+  ranges.map(range => {
+    const damage = hitDamage(weapon, range);
+    return { range, damage, shots: shotsToKillOpponent(opponent, damage) };
+  });
+
+export interface ShotBand { shots: number; from: number; to: number }
+/**
+ * Damage ranges that share a shots-to-kill count, found by scanning rather than
+ * by dividing health, so the bands stay correct for an armored opponent whose
+ * plates absorb part of each hit.
+ */
+export function shotBands(opponent: Opponent = STOCK_OPPONENT, maxDamage = 100): ShotBand[] {
+  const bands: ShotBand[] = [];
+  for (let damage = 1; damage <= Math.max(1, Math.round(maxDamage)); damage++) {
+    const shots = shotsToKillOpponent(opponent, damage);
+    const last = bands[bands.length - 1];
+    if (last && last.shots === shots) last.to = damage;
+    else bands.push({ shots, from: damage, to: damage });
+  }
+  return bands;
+}

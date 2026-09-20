@@ -201,6 +201,19 @@ It reports two problems:
 
 Run it after any damage, falloff or precision change.
 
+The weapon dossier carries the same reading as a chart: damage against range for
+the previewed weapon and the one already equipped, drawn over bands showing how
+many hits each damage level needs against a stock 100 hp target. The bands are
+the point, because a tier is only felt where the curve crosses into a lower one.
+Hovering moves a crosshair and puts the values in the legend rather than a
+floating tooltip, so nothing ever covers the lines. Bands too thin to label
+collapse into a single floor.
+
+The two series use validated categorical steps for the panel's dark surface
+(worst-pair CVD delta E 26.8, normal-vision 31.8, both clear of the floors), and
+identity is carried by a legend and an end-of-line label as well as by hue. A
+visually hidden table gives the same numbers to a screen reader.
+
 ## Armor and counter-fire
 
 The rig slot supplies reserve capacity; the insert slot supplies armor points and absorption. Enhanced LBS adds 60 reserve rounds per weapon at a 2% movement cost; Sentinel adds 90 without a movement penalty. A bare ILBV-inspired carrying rig has zero armor points.
