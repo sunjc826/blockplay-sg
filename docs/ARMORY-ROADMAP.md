@@ -159,17 +159,31 @@ The missing sink, and the part that keeps the shop alive past level 5.
 *Files:* `armory-catalog.ts`, `armory-state.ts`, `expedition-loot.ts`.
 *Risk:* low-medium. *Feelable:* yes.
 
-### Phase 5 — Slots and weight
+### Phase 5 — Slots and weight *(weight landed; third slot open)*
 
-- **Third weapon slot**, sold. Note `guns: [GunEquipment, GunEquipment]` is a
-  fixed 2-tuple and `family: 0 | 1` appears in the catalog, `restoreProfile`,
-  `equip` and `resolveLoadout`; widening it is the most invasive change here.
-- **Armor weight** — extend rig and plate `mobility` to scale jump height and
-  ADS time, not just walk speed. Aegis currently costs 3% walk speed for 100 AP,
-  which is not a decision.
+- **Armor weight** *(landed)* — rig and plate `mobility` now scale vertical
+  reach and aim-in time as well as walking speed. The heaviest combination gives
+  up roughly 17% of its jump and 14% of its aim-in; the premium inserts are
+  lighter, so they cost less of both while protecting more.
+- **Third weapon slot** — not built, and the tuple is not the reason. Two things
+  stand in the way, and the second is the real one:
+  1. `family` doubles as the slot index in 47 places across the catalog,
+     `restoreProfile`, `equip`, `resolveLoadout`, `isEquipped`, the shop and the
+     engine. Slots and platforms have to become separate ideas first, which
+     means `GunEquipment` carrying which platform it holds.
+  2. There are only two weapon platforms and two GLBs, so a third slot can only
+     hold a second configuration of one already carried. Widening
+     `ArenaRolePlugin.weaponIndex`, the arena host's `slice(0, 2)`,
+     `PilotAction.weapon` and the strategy whitelist's `[0, 1]` check buys a
+     duplicate weapon until a third platform exists.
+
+  A cheaper unlock with the same "more capacity" feel is a **saved loadout
+  preset**: a second configuration of the two weapons, switched in the shop. It
+  uses the existing tuple and touches none of the arena, pilot or loot
+  contracts. The owner decides which of the two to take.
 
 *Files:* `armory-state.ts`, `armory-catalog.ts`, `fps-engine.ts`.
-*Risk:* medium. *Feelable:* yes.
+*Risk:* medium for weight, high for the slot. *Feelable:* yes.
 
 ### Phase 6 — Arena deferred resolution
 
