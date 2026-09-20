@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyseBreakpoints, deadBuys, shotsToKill, timeToKill, unfeltInDrill } from './armory-balance';
+import { analyseBreakpoints, deadBuys, DRILL_OPPONENTS, DRILL_POOLS, namedOpponents, plateOpponent, shotsToKill, shotsToKillOpponent, timeToKill, TTK_MARGIN, unfeltInDrill } from './armory-balance';
 
 describe('weapon ladder breakpoints', () => {
   const rows = analyseBreakpoints();
@@ -11,11 +11,30 @@ describe('weapon ladder breakpoints', () => {
     // A tier that crosses no threshold anywhere is damage the player cannot feel.
     expect(deadBuys(rows)).toEqual([]);
   });
-  it('pins which tiers are only felt outside the drill', () => {
-    // A ratchet, not an endorsement: these three are identical to the tier below
-    // at 12-30m and only pay off further out. Changing the list should be a
-    // deliberate balance decision, so adding to it fails here first.
-    expect(unfeltInDrill(rows)).toEqual(['SAR 21 · Vanguard', 'SAR 21 · Marksman', 'Ultimax · Patrol']);
+  it('leaves no tier that a player cannot feel without leaving the drill', () => {
+    // Most play never leaves 12-30m, so a tier that is identical to the one below
+    // it in that band is a purchase nobody can perceive. Adding one fails here.
+    expect(unfeltInDrill(rows)).toEqual([]);
+  });
+  it('counts a faster kill as felt even when the shot count is unchanged', () => {
+    // Time to kill is what a player experiences, not the number of trigger pulls.
+    const quicker = timeToKill(3, .105), slower = timeToKill(3, .126);
+    expect((slower - quicker) / slower).toBeGreaterThanOrEqual(TTK_MARGIN);
+    expect(timeToKill(3, .12)).toBeCloseTo(.24, 10);
+  });
+  it('shortens time to kill at drill range with every step up a platform', () => {
+    for (const family of [0, 1]) {
+      const ladder = rows.filter(row => row.family === family);
+      const drillTtk = (row: typeof ladder[number]) => {
+        const at = row.ranges.find(range => range.range === 20)!;
+        return DRILL_POOLS.map((_, p) => timeToKill(at.stk[p], row.interval));
+      };
+      ladder.slice(1).forEach((row, i) => {
+        const here = drillTtk(row), before = drillTtk(ladder[i]);
+        here.forEach((ttk, p) => expect(ttk).toBeLessThanOrEqual(before[p]));
+        expect(here.some((ttk, p) => ttk < before[p])).toBe(true);
+      });
+    }
   });
   it('keeps damage monotonic with tier at every sampled range', () => {
     for (const family of [0, 1]) {
@@ -29,5 +48,42 @@ describe('weapon ladder breakpoints', () => {
     expect(shotsToKill(100, 36)).toBe(3); expect(shotsToKill(115, 36)).toBe(4);
     expect(shotsToKill(100, 0)).toBe(100); expect(shotsToKill(100, -5)).toBe(100);
     expect(timeToKill(3, .12)).toBeCloseTo(.24, 10); expect(timeToKill(1, .12)).toBe(0);
+  });
+});
+
+describe('hypothetical opponents', () => {
+  const bare = { id: 'bare', name: 'bare', health: 100, armor: 0, absorption: 0 };
+  it('matches plain division when there is no armor to absorb anything', () => {
+    expect(shotsToKillOpponent(bare, 36)).toBe(shotsToKill(100, 36));
+    expect(shotsToKillOpponent({ ...bare, health: 115 }, 36)).toBe(shotsToKill(115, 36));
+  });
+  it('costs more shots through inserts, and more again as absorption rises', () => {
+    const soft = plateOpponent('plate-soft')!, aegis = plateOpponent('plate-elite')!;
+    expect(shotsToKillOpponent(soft, 36)).toBeGreaterThan(shotsToKillOpponent(bare, 36));
+    expect(shotsToKillOpponent(aegis, 36)).toBeGreaterThan(shotsToKillOpponent(soft, 36));
+  });
+  it('is not health divided by damage once plates are involved', () => {
+    // The whole reason the model steps the engine's own armor maths.
+    const aegis = plateOpponent('plate-elite')!;
+    expect(shotsToKillOpponent(aegis, 50)).not.toBe(shotsToKill(aegis.health, 50));
+  });
+  it('refuses a non-plate and terminates on a harmless weapon', () => {
+    expect(plateOpponent('sar-issued')).toBeNull();
+    expect(plateOpponent('not-an-item')).toBeNull();
+    expect(shotsToKillOpponent(bare, 0)).toBe(Infinity);
+    expect(shotsToKillOpponent(bare, -12)).toBe(Infinity);
+  });
+  it('offers the drill targets, the bot roles and every insert as opponents', () => {
+    const ids = namedOpponents().map(foe => foe.id);
+    expect(ids).toEqual(expect.arrayContaining([...DRILL_OPPONENTS.map(f => f.id), 'assault', 'tank', 'sniper', 'plate-elite']));
+    expect(namedOpponents().every(foe => foe.health > 0 && foe.absorption >= 0 && foe.absorption <= 1)).toBe(true);
+  });
+  it('measures the ladder against whichever opponent is asked for', () => {
+    const tank = namedOpponents().find(foe => foe.id === 'tank')!;
+    const [issued] = analyseBreakpoints([tank]);
+    const [drillIssued] = analyseBreakpoints();
+    // The same rifle needs far more hits through 100 armor points at 65%.
+    expect(issued.ranges[0].stk[0]).toBeGreaterThan(drillIssued.ranges[0].stk[0]);
+    expect(analyseBreakpoints([tank], [20]).every(row => row.ranges.length === 1)).toBe(true);
   });
 });

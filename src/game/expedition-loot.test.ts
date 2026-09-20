@@ -92,7 +92,10 @@ describe('temporary expedition equipment', () => {
     const rifle = equipFieldLoot(createFieldEquipment(), pickup('sar-vanguard'));
     const armored = equipFieldLoot(rifle, pickup('plate-ceramic', 'armor'));
     const resolved = resolveExpeditionLoadout(profile, armored);
-    expect(resolved.weapons[0].damage).toBe(42); expect(resolved.weapons[0].capacity).toBe(36);
+    // Read from the catalog: this test is about field loot applying a variant's
+    // stats, not about what those stats are currently balanced to.
+    const vanguard = itemById('sar-vanguard')!.stats!;
+    expect(resolved.weapons[0].damage).toBe(vanguard.damage); expect(resolved.weapons[0].capacity).toBe(vanguard.capacity);
     expect(resolved.armor).toBe(75); expect(resolved.absorption).toBe(0.65);
     expect(JSON.stringify(profile)).toBe(before); expect(profile.owned).not.toContain('sar-vanguard');
     expect(rifle.plate).toBeUndefined();

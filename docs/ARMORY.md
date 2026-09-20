@@ -36,6 +36,24 @@ No additional item gates currently follow level 7; ranks and XP continue to leve
 
 Targets alternate 100 and 115 health. Vanguard clears a 115-health target in three landed shots versus four for the issued SAR. Attachments modify reload, capacity, recoil, aiming FOV or movement. The quick-change and extended magazines share one slot, so one replaces the other. Unlocks fit both weapons, with equipment saved separately for each platform. Skin palettes change only materials. Variant accents and equipped attachment markers appear in the preview and viewmodel.
 
+## Platform tiers
+
+Each platform is a four-step ladder, and every weapon's description says where
+it sits ("Tier 3 of 4 on this platform"), so the ordering is legible in the shop
+without comparing stat rows.
+
+| Tier | SAR 21 | Ultimax |
+| --- | --- | --- |
+| 1 | Issued, 36 dmg | Issued, 30 dmg |
+| 2 | Ranger, 39 dmg | Patrol, 34 dmg |
+| 3 | Vanguard, 50 dmg | Centurion, 40 dmg |
+| 4 | Marksman, 58 dmg | Bastion, 50 dmg |
+
+Each step shortens time to kill inside the drill, and the two premium tiers buy
+a shot off the count outright: Vanguard drops a standard target in two hits at
+close range, Marksman drops the tougher one in two. `armory-balance.test.ts`
+asserts that time to kill never rises with tier and falls at every step.
+
 ## Range and hit zones
 
 Damage is no longer a single number per weapon. `hitDamage` resolves each round
@@ -162,14 +180,24 @@ says what each tier removes versus the tier below it on its own platform. Pass
 and resolves through the same catalog and `hitDamage` the engine fires through,
 so it cannot drift from the game; the script only formats it.
 
+By default it measures against the drill's two target pools. `--opponent <id>`
+measures against a named one instead, `--list-opponents` shows them, and
+`--plate <id> [--health N]` builds a hypothetical one wearing any catalog
+insert. Armor is stepped through the engine's own `applyArmorDamage`, so
+absorption and the moment the plates break are modelled rather than
+approximated: against the Tank squad's 100 points at 65%, the issued rifle needs
+seven hits where a bare drill target takes three. `--fine` samples every 5 m out
+to 125 m for a smooth curve.
+
 It reports two problems:
 
 - **Dead buy** — removes no shot at any range. None currently exist, and
   `armory-balance.test.ts` fails if one appears.
-- **Unfelt in the drill** — removes no shot between 12 and 30 m, so a player who
-  never leaves the range cannot tell it apart from the tier below. Three tiers
-  are in this state today: Vanguard, Marksman and Patrol. The test pins that
-  list, so adding a fourth is a deliberate decision rather than an accident.
+- **Unfelt in the drill** — neither removes a shot nor meaningfully shortens
+  time to kill between 12 and 30 m, so a player who never leaves the range
+  cannot tell it apart from the tier below. None are in this state, and the test
+  fails if one appears. Time to kill counts because it is what a player
+  experiences; a faster cycle is felt even when the shot count is unchanged.
 
 Run it after any damage, falloff or precision change.
 
