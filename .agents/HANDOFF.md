@@ -1,5 +1,35 @@
 # Blockplay: portable agent handoff
 
+**Latest: ballistics, range damage and penetration (2026-09-20).** The armory
+roadmap's phases 0, 1, 1b and penetration are in; 2, 4, 5, 6 and zeroing are not
+started. Weapons carry a `ballistics` spec and a trait list, and `resolveLoadout`
+folds traits beside the scalars, so the shop, engine, arena and expedition cannot
+disagree about what an item does. Hitscan is the degenerate case, not a second
+path: infinite velocity and no drop collapse to the single straight raycast, and
+an instant weapon never enters the in-flight list.
+
+`hitDamage` resolves every round from the range it travelled and the zone it
+struck; targets gained a head collider above centre mass. Rifle and support
+weapon now have different effective bands, and drill targets at 12.0-30.3 units
+sit inside the rifle's but across the support weapon's. Marksman and Bastion
+extend the ladder to levels 6 and 7 and carry the first finite muzzle
+velocities; the Penetrator magazine sells shots that carry through cover.
+
+The AI pilot holds over for drop and tests its firing gate against the
+compensated error. `PilotContact` carries range and the observation carries
+ballistics, both copied explicitly through the strategy whitelist, which drops
+what it does not name. JSON has no Infinity, so a hitscan velocity crosses the
+wire as null and is restored to instant.
+
+**378 tests, typecheck and build pass.** Browser: armory, FPS and optics smokes
+pass, plus a seeded ballistic loadout resolving a kill across frames. Chromium
+here needs `--use-angle=swiftshader --enable-unsafe-swiftshader` for WebGL, and
+the fixed key-hold smokes are pace-sensitive on it: a first cold run can fail on
+movement and pass on re-run. `pnpm test:fps:pilot` times out clearing eight
+targets, verified identical on the previous commit, so it is the known
+software-renderer pilot limit rather than a regression. See
+[armory roadmap](../docs/ARMORY-ROADMAP.md).
+
 **Armory roadmap (2026-09-20).** Planning only, no code. `docs/ARMORY-ROADMAP.md`
 records the decision that the shop sells power on a strict ladder and behavior on
 a second axis, and sequences the work in seven phases. Key constraints found while
