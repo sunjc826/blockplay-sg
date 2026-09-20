@@ -1,6 +1,23 @@
 # Blockplay: portable agent handoff
 
-**Latest: four authored districts and a region platform (2026-09-19).** Seven
+**Latest: five more authored districts (2026-09-20).** Twelve districts are
+playable, 132 stamps. Upper Thomson, Punggol, HarbourFront, Sentosa and Orchard
+Road were added on the existing platform — a registry entry plus a scene file
+each, with no change to `RegionGame.tsx`, the minimaps or the harness. All five
+were authored from general knowledge with **no reference capture and no Google
+API requests**, so nine of the twelve now record an empty `referenceFeatures`
+list and only Marina, Raffles and Queenstown are reference-informed. Three new
+checkpoint pairs link them in: Chinatown to Orchard to Upper Thomson to Punggol
+to Changi, and Queenstown to HarbourFront to Sentosa, which is reachable only
+across its boardwalk. Water is now cast as a list of spans wherever a road has
+to cross it, and HarbourFront's middle street is laid by hand so it stops at
+the quay; `docs/DISTRICTS.md` has both patterns. 304 unit tests, typecheck and
+the production build pass; the browser and FPS smokes have not been run in this
+environment (they need Vite plus Chrome with remote debugging). The main bundle
+is now 711 kB / 238 kB gzipped, since every scene builder is still statically
+imported.
+
+**Earlier: four authored districts and a region platform (2026-09-19).** Seven
 districts are playable. Adding one is now a registry entry in
 `src/game/regions.ts` plus a scene file built with `src/game/scene-kit.ts`;
 `RegionGame.tsx` is the single walk/drive harness and `regions.test.ts` holds
