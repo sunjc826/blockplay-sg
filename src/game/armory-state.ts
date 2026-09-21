@@ -1,7 +1,8 @@
 import { ARMORY_CATALOG, CONSUMABLE_LIMIT, issuedItems, itemById, type AttachmentSlot, type FittedPart, type InternalPart, type ShopItem } from './armory-catalog';
 import type { VehicleKind } from './vehicle-rules';
 import { progression, levelSkip, xpForLevel, ELIMINATION_XP, MAX_LEVEL } from './progression';
-import { DEFAULT_RANK_SET, isRankSet } from './rank-insignia';
+import { DEFAULT_RANK_SET, isRankSet, rankInsignia } from './rank-insignia';
+import { DEFAULT_ENCIK_TONE, type EncikAddress, type EncikTone } from './encik-registers';
 import { FPS_WEAPONS, type WeaponSpec, type WeaponTrait } from './fps-rules';
 export const ATTACHMENT_SLOTS = ['optic', 'magazine', 'handling'] as const;
 /** Hardware a variant already carries, by the slot it permanently fills. */
@@ -13,9 +14,11 @@ export interface ArmoryProfile { version: 1; xp: number; vehicleSkins: Record<Ve
   /** Supplies held, by catalog id, and which one the quick-use key spends. */
   consumables: Record<string, number>; quickItem: string;
   /** Which set of rank titles and badges the profile wears. */
-  rankSet: string }
+  rankSet: string;
+  /** Whether the Encik's tone follows your rank, or stays the way he greets a recruit. */
+  encikTone: EncikTone }
 export const STORAGE_KEY = 'blockplay.armory.v1';
-export function createProfile(): ArmoryProfile { return { version: 1, xp: 0, vehicleSkins: { car: 'paint-issued', helicopter: 'paint-issued' }, credits: 1600, tokens: 300, owned: [...issuedItems], guns: [{ variant: 'sar-issued', skin: 'skin-issued', attachments: {} }, { variant: 'ult-issued', skin: 'skin-issued', attachments: {} }], rig: 'rig-ilbv', plate: 'plate-none', rewarded: [], exercises: 0, consumables: {}, quickItem: '', rankSet: DEFAULT_RANK_SET }; }
+export function createProfile(): ArmoryProfile { return { version: 1, xp: 0, vehicleSkins: { car: 'paint-issued', helicopter: 'paint-issued' }, credits: 1600, tokens: 300, owned: [...issuedItems], guns: [{ variant: 'sar-issued', skin: 'skin-issued', attachments: {} }, { variant: 'ult-issued', skin: 'skin-issued', attachments: {} }], rig: 'rig-ilbv', plate: 'plate-none', rewarded: [], exercises: 0, consumables: {}, quickItem: '', rankSet: DEFAULT_RANK_SET, encikTone: DEFAULT_ENCIK_TONE }; }
 const finiteBalance = (n: unknown, fallback: number) => typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(1000000, Math.floor(n))) : fallback;
 export function restoreProfile(raw: string | null): ArmoryProfile {
   const base = createProfile(); if (!raw) return base;
@@ -46,6 +49,7 @@ export function restoreProfile(raw: string | null): ArmoryProfile {
     if (typeof value.quickItem === 'string' && itemById(value.quickItem)?.category === 'consumable') base.quickItem = value.quickItem;
     // A set registered by code that is no longer loaded falls back to the default.
     if (isRankSet(value.rankSet)) base.rankSet = value.rankSet;
+    if (value.encikTone === 'recruit' || value.encikTone === 'rank') base.encikTone = value.encikTone;
     return base;
   } catch { return base; }
 }
@@ -80,6 +84,18 @@ export function purchaseLevel(profile: ArmoryProfile) {
   if (profile.tokens < skip.price) return { profile, message: `Not enough tokens. Level ${skip.next} costs ${skip.price}.` };
   return { profile: { ...profile, tokens: profile.tokens - skip.price, xp: xpForLevel(skip.next) },
     message: `Level ${skip.next} reached. Its equipment is purchasable now.` };
+}
+/**
+ * Who the Encik is addressing. The rank is the *title* rather than the graded
+ * label, because "Nice work, Corporal III" is not how anybody speaks, and a
+ * set with no titles at all falls back to what he calls a stranger.
+ */
+export function encikAddress(profile: ArmoryProfile): EncikAddress {
+  const level = progression(profile.xp).level;
+  return { level, rank: rankInsignia(level, profile.rankSet).title, tone: profile.encikTone };
+}
+export function chooseEncikTone(profile: ArmoryProfile, tone: EncikTone): ArmoryProfile {
+  return tone !== profile.encikTone && (tone === 'rank' || tone === 'recruit') ? { ...profile, encikTone: tone } : profile;
 }
 /** Rank sets are a free choice of dress, not a purchase; an unknown id is ignored. */
 export function chooseRankSet(profile: ArmoryProfile, id: string): ArmoryProfile {

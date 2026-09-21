@@ -2,9 +2,50 @@
 
 The user selected **round 4 candidate 3** on 2026-09-13, ahead of round 4 #1 and round 3 #1. The selected synthetic voice is saved in the ElevenLabs account as **Blockplay Encik — Round 4 Candidate 3**.
 
-The pack contains all **48 existing lines** in `src/game/fps-callouts.ts` (16 events, three variants each). It was generated with Eleven v3, natural stability 0.5, using the selected voice. The subtitle script was preserved exactly. The MP3s total **2,534,088 bytes** and approximately **157 seconds**, at mono 44.1kHz/128kbps. Each clip decoded successfully and passed non-silence and checksum checks; individual delivery remains subject to listening review.
+The pack contains all **48 existing lines** of the base register in `src/game/encik-registers.ts` (16 events, three variants each). It was generated with Eleven v3, natural stability 0.5, using the selected voice. The subtitle script was preserved exactly. The MP3s total **2,534,088 bytes** and approximately **157 seconds**, at mono 44.1kHz/128kbps. Each clip decoded successfully and passed non-silence and checksum checks; individual delivery remains subject to listening review.
 
 Listen to the complete pack at `/audio/encik/index.html` on the running game server, or open `public/audio/encik/index.html` locally. `src/audio/encik/manifest.json` records each event, variant, exact text, filename, size and SHA-256 checksum. Content hashes in filenames prevent stale browser audio after a clip is replaced.
+
+## Registers: he defers as you outrank him
+
+The recorded pack is one register — a sergeant-major shouting at a recruit —
+and it is what a new player hears. Above it sit three more, and the arc is the
+joke: at level 12 he drops the insults, at 20 he calls you by rank and offers
+rather than orders, at 35 he apologises for speaking and asks what he should
+tell the recruits. The thresholds line up with the default insignia ladder, so
+a promotion and a change of tone land together.
+
+| Register | From | He |
+| --- | ---: | --- |
+| Recruit | 1 | Shouts. The recorded pack. |
+| Noticed | 12 | Drops the insults. Still gruff. |
+| Respect | 20 | Uses your rank. Offers rather than orders. |
+| Defers | 35 | Apologises for speaking at all. |
+
+**The lines above Recruit have no recordings, and that is the design rather
+than an omission.** `encikRecordingUrl` matches on exact subtitle text, so an
+unrecorded line simply finds nothing and the Encik subtitles in silence. Two
+tests hold the ends of that: every base line must still resolve to a clip, and
+no line in a higher register may collide with a recorded one — a collision
+would play a shout over a deferential subtitle. Recording them later needs no
+code, only clips whose text matches.
+
+`{rank}` in a line is replaced with whatever the player's chosen insignia set
+calls them, so he defers to a Colonel, a Marksman or a Legend in their own
+words. It is the band *title* rather than the graded label, because "Nice work,
+Corporal III" is not how anybody speaks, and a set with no titles at all (the
+Numerals set) falls back to `boss`. Substitution happens at callout time, which
+is also why a substituted line can never accidentally match a recording.
+
+**The opt-out is absolute.** `encikTone: 'recruit'` on the profile pins him to
+the recorded register at any level, for a player who liked being shouted at.
+The setting sits in the shop's ENCIK row with a sample of each tone in the
+player's own rank. A register is resolved per callout rather than per session,
+so a level bought or earned mid-exercise is heard in the next line.
+
+Registers overlay rather than replace: one declares only the events whose
+wording changes and the rest fall through to the register below, so a new one
+is as small as the joke needs.
 
 ## Game playback
 

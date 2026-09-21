@@ -9,7 +9,7 @@ import { advanceRound, createRound, needsFlight, MAX_ROUNDS_IN_FLIGHT, type InFl
 import { createFpsEffects, type ImpactKind } from './fps-effects';
 import { advanceRecoil, createRecoil, recoilView, recordRecoilShot, resetRecoil } from './fps-recoil';
 import { effectStyleForWeapon } from './fps-effect-styles';
-import { aimSpeedScale, applyArmorDamage, createProfile, jumpScale, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile } from './armory-state';
+import { aimSpeedScale, applyArmorDamage, createProfile, encikAddress, jumpScale, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile } from './armory-state';
 import { registerElimination, ELIMINATION_XP, type KillChain } from './progression';
 import { createFpsVehicles } from './fps-vehicles';
 import type { MinimapMarker } from './minimap';
@@ -29,7 +29,7 @@ import { createWeaponHandling } from './fps-viewmodel';
 import { createScopeRenderer, getWeaponSight } from './weapon-optics';
 import { reloadMotion, reloadStage, smoothStep } from './fps-weapon-motion';
 import { createFpsComms, type CommsEntry } from './fps-comms';
-import { createEncikRadio, type EncikCallout, type EncikEvent } from './fps-callouts';
+import { createEncikRadio, type EncikAddress, type EncikCallout, type EncikEvent } from './fps-callouts';
 import { createEncikAudio } from './encik-audio';
 import { encikRecordingUrl } from './encik-recordings';
 import { createPlayerPilot, normalizePilotAction, PILOT_INTERVAL, type PilotObservation, type PilotGoal, type PlayerPilot } from './fps-pilot';
@@ -81,7 +81,9 @@ function disposeAssets(roots: THREE.Object3D[]) {
   textures.forEach(t => { t.dispose(); if (typeof ImageBitmap !== 'undefined' && t.source.data instanceof ImageBitmap) t.source.data.close(); });
 }
 
-export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { region?: WorldZoneId; playerPilot?: PlayerPilot; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string) => void; onConsume?: (id: string) => void; onFullscreen?: () => void } = {}) {
+export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { region?: WorldZoneId; playerPilot?: PlayerPilot; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string) => void; onConsume?: (id: string) => void; onFullscreen?: () => void;
+  /** Read per callout, so a level-up mid-exercise is heard immediately. */
+  encik?: () => EncikAddress } = {}) {
   const expedition = options.expedition;
   const region = expedition?.zone ?? options.region ?? 'marina-bay';
   const district = getFpsDistrict(region), spawn = district.spawn, targetPositions = district.targets;
@@ -139,7 +141,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const markers = expedition ? createExpeditionMarkers(world.scene, expedition.zone, hud.fieldLoot) : null;
   let checkpointPending = expedition?.checkpoint;
   let travelPending = false, lootNoticeTime = 0;
-  const encik = createEncikRadio(), comms = createFpsComms(expedition?.checkpoint?.comms);
+  const encik = createEncikRadio(Math.random, () => options.encik?.() ?? encikAddress(fieldProfile)), comms = createFpsComms(expedition?.checkpoint?.comms);
   hud.encikVoice = expedition?.checkpoint?.encikVoice ?? true;
   let killChain: KillChain = { count: 0, lastAt: -Infinity }, calloutTime = 0;
   let roundId = randomRoundId(), attackTimer = 3, hurtTime = 0;

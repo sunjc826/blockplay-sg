@@ -29,13 +29,14 @@ try {
  await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable');
  await send('Emulation.setFocusEmulationEnabled',{enabled:true});
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
- await evaluate(`(()=>{
+ const INSTRUMENT=`(()=>{
    window.__encikQA={starts:0,stops:0,tts:0};
    const start=AudioBufferSourceNode.prototype.start,stop=AudioBufferSourceNode.prototype.stop;
    AudioBufferSourceNode.prototype.start=function(...args){if(this.buffer?.duration>1)window.__encikQA.starts++;return start.apply(this,args)};
    AudioBufferSourceNode.prototype.stop=function(...args){if(this.buffer?.duration>1)window.__encikQA.stops++;return stop.apply(this,args)};
    if(window.speechSynthesis) { const speak=speechSynthesis.speak.bind(speechSynthesis); speechSynthesis.speak=(...args)=>{window.__encikQA.tts++;return speak(...args)}; }
- })()`);
+ })()`;
+ await evaluate(INSTRUMENT);
  await wait(`!![...document.querySelectorAll('button')].find(b=>b.querySelector('strong')?.textContent==='Marina FPS')`);
  await click(`[...document.querySelectorAll('button')].find(b=>b.querySelector('strong')?.textContent==='Marina FPS')`);
  await wait(phase('ready'));
@@ -66,6 +67,36 @@ try {
  assert.equal(voiceApiRequests,0); assert.equal(mapRequests,0);
  assert.deepEqual(errors,[]);
  await screenshot('recorded-callouts-paused');
- console.log(JSON.stringify({result:'PASS: real recorded playback, voice mute, master mute, pause cancellation, subtitles and no browser TTS',audit:await evaluate('window.__encikQA'),recordingRequests:requests.length}));
+ // A rank the Encik defers to. His deferential lines are unrecorded by design,
+ // so the proof is three-sided: he uses the player's own rank, he plays no
+ // audio saying it, and pinning him back to Recruit restores both.
+ const radioText = `[...document.querySelectorAll('.fps-comms-entry.channel-radio')].map(e=>e.textContent).join(' | ')`;
+ // Written, then reloaded through the page domain: evaluating location.reload()
+ // races its own execution context being torn down.
+ const seed = async tone => {
+   await evaluate(`(()=>{const k='blockplay.armory.v1';const p=JSON.parse(localStorage.getItem(k))||{version:1};
+     localStorage.setItem(k,JSON.stringify({...p,version:1,xp:122400,rankSet:'field',encikTone:${JSON.stringify(tone)}}))})()`);
+   await send('Page.reload'); await delay(1500); await evaluate(INSTRUMENT);
+ };
+ const playOut = async () => {
+   await wait(`!![...document.querySelectorAll('button')].find(b=>b.querySelector('strong')?.textContent==='Marina FPS')`);
+   await click(`[...document.querySelectorAll('button')].find(b=>b.querySelector('strong')?.textContent==='Marina FPS')`);
+   await wait(phase('ready')); await click(button('Watch AI play')); await wait(phase('playing'));
+   await wait(`document.querySelectorAll('.fps-comms-entry.channel-radio').length>0`);
+ };
+ await seed('rank'); await playOut();
+ await delay(1500);
+ const deferential = await evaluate(radioText);
+ assert(deferential.includes('Legend'), `Encik addresses a Legend by rank: ${deferential}`);
+ assert(!/lah!|Oi,|don’t blur/.test(deferential), `No recruit-register shouting at a Legend: ${deferential}`);
+ assert.equal(await evaluate('window.__encikQA.starts'), 0, 'Unrecorded deferential lines play no audio');
+ await screenshot('encik-defers');
+ // The opt-out: same rank, the shouting and the recorded pack come back.
+ await seed('recruit'); await playOut();
+ await wait('window.__encikQA.starts>0', 25000);
+ const rude = await evaluate(radioText);
+ assert(!rude.includes('Legend'), `Recruit tone never uses the rank: ${rude}`);
+ assert.deepEqual(errors, []);
+ console.log(JSON.stringify({result:'PASS: rank-aware deference and its silence, the recruit opt-out, real recorded playback, voice mute, master mute, pause cancellation, subtitles and no browser TTS',audit:await evaluate('window.__encikQA'),recordingRequests:requests.length}));
 } catch(error) {console.log(errors); await screenshot('playback-failure'); throw error;}
 finally {ws.close(); await fetch(`${chrome}/json/close/${tab.id}`);}

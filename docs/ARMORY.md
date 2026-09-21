@@ -59,6 +59,12 @@ Crossing into a new band is a promotion rather than a level: the range's
 completion card reads `PROMOTED` on the level a band starts and `LEVEL UP`
 inside one, from the same `promoted` flag.
 
+The Encik notices too. His lines have registers keyed to your level — he stops
+insulting you, then starts using your rank, then starts apologising for
+speaking — and the shop's ENCIK row switches between that and the recorded
+shouting he greets a recruit with. See
+[Registers](ENCIK-VOICE.md#registers-he-defers-as-you-outrank-him).
+
 **On drawing a wreath at 40 pixels.** Two attempts failed the same way and the
 shape is worth keeping: a *stroked* wreath with tick-mark leaves aliases into a
 bowl with rays, and any mark above it then reads as a pair of eyes over a
@@ -413,6 +419,7 @@ Desktop Enter/Resume requests browser pointer lock directly from the user click.
 - `src/game/armory-state.ts`, `use-armory.ts`: pure purchase/equip/reward rules, validated persistence, immediate state references to prevent repeated clicks charging twice.
 - `src/game/progression.ts`: XP thresholds, level pricing and timed elimination chains.
 - `src/game/rank-insignia.ts`: the rank sets and their bands; `RankBadge.tsx` draws them.
+- `src/game/encik-registers.ts`: what the Encik says, and how it changes with your rank.
 - `src/game/armory-visuals.ts`: shared procedural skins, accents, markers and rig/insert models. Preview resources are disposed on selection changes.
 - `src/game/weapon-hardware.ts`, `weapon-fittings.ts`: what a variant's parts put on the model, and the geometry that puts it there. Both the shop preview and the viewmodel dress through `dressWeapon`, so they agree.
 - `src/components/ArmoryShop.tsx`, `ArmoryPreview.tsx`: catalog, comparisons, preview and saved loadout.

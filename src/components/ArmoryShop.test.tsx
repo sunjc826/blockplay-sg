@@ -8,14 +8,14 @@ import type { ArmoryStore } from '../game/use-armory';
 
 it('shows maximum-level copy instead of asking level 50 players to keep climbing', () => {
   const profile = createProfile(); profile.xp = xpForLevel(50);
-  const store: ArmoryStore = { profile, buy: vi.fn(), buyLevel: vi.fn(), wearRankSet: vi.fn(), equipItem: vi.fn(), remove: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), message: '', saveError: false };
+  const store: ArmoryStore = { profile, buy: vi.fn(), buyLevel: vi.fn(), wearRankSet: vi.fn(), setEncikTone: vi.fn(), equipItem: vi.fn(), remove: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), message: '', saveError: false };
   const html = renderToStaticMarkup(<ArmoryShop store={store} onEnterRange={() => {}} />);
   expect(html).toContain('Maximum level reached');
   expect(html).not.toContain('Keep climbing to level 50');
 });
 
 const storeFor = (profile: ReturnType<typeof createProfile>): ArmoryStore =>
-  ({ profile, buy: vi.fn(), buyLevel: vi.fn(), wearRankSet: vi.fn(), equipItem: vi.fn(), remove: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), message: '', saveError: false });
+  ({ profile, buy: vi.fn(), buyLevel: vi.fn(), wearRankSet: vi.fn(), setEncikTone: vi.fn(), equipItem: vi.fn(), remove: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), message: '', saveError: false });
 
 it('lists a premium weapon’s fitted hardware and marks those slots fixed', () => {
   const base = createProfile();
@@ -76,4 +76,18 @@ it('says what each part puts on the model, and labels the same hardware on the p
   expect(html).toContain('Hardware fitted to this weapon');
   expect(html).toContain('<li>Heavy barrel</li>');
   expect(html).toContain('<li>Buffer pad</li>');
+});
+
+it('lets a high rank keep the recorded shouting, and samples both tones in their own words', () => {
+  const legend = { ...createProfile(), xp: xpForLevel(35), rankSet: 'military' };
+  const html = renderToStaticMarkup(<ArmoryShop store={storeFor(legend)} onEnterRange={() => {}} />);
+  expect(html).toContain('data-tone="rank"'); expect(html).toContain('data-tone="recruit"');
+  // The deferential sample is in this player's own rank, and the recruit
+  // sample is the line the recorded pack actually says.
+  expect(html).toContain('Textbook, Captain.');
+  expect(html).toContain('One down. Good shot, carry on!');
+  expect(html).toContain('Not voiced yet, so he subtitles.');
+  const rude = renderToStaticMarkup(<ArmoryShop store={storeFor({ ...legend, encikTone: 'recruit' })} onEnterRange={() => {}} />);
+  expect(rude).toContain('Recorded pack, every level.');
+  expect(rude).not.toContain('Not voiced yet');
 });

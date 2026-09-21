@@ -1,5 +1,43 @@
 # Blockplay: portable agent handoff
 
+**Latest: the Encik defers as you outrank him (2026-09-21).** He used to shout
+at a Legend exactly as he shouts at a recruit. Now his lines have four
+registers — Recruit (the recorded pack), Noticed at 12, Respect at 20, Defers
+at 35 — and the arc is the joke: he drops the insults, then starts using your
+rank, then starts apologising for speaking. "Oi, front! This one not
+sightseeing tour!" becomes "Contact, Legend. Ignore me, carry on."
+
+**The recorded pack is the constraint that shaped this.** 48 clips are keyed by
+*exact subtitle text*, so the base register is frozen: edit a character of it
+and the lookup silently mutes a line. Everything above it is an overlay that
+declares only the events whose wording changes, and the new lines have no
+recordings **by design** — `encikRecordingUrl` finds nothing and he subtitles
+in silence. Two tests hold the ends of that: every base line must still resolve
+to a clip, and no higher-register line may collide with a recorded one, which
+would play a shout over a deferential subtitle. Recording them later needs no
+code, only clips whose text matches.
+
+`{rank}` is substituted at callout time with what the player's *own* insignia
+set calls them, which is why this and the rank work fit together: he defers to
+a Colonel, a Marksman or a Legend in their words. It is the band title rather
+than the graded label, because "Nice work, Corporal III" is not speech, and the
+Numerals set (no titles) falls back to `boss`. Substituting at callout time is
+also what makes a substituted line unable to match a recording by accident.
+
+**Two things worth knowing before extending this.** The address is read per
+callout rather than captured, so a level bought mid-exercise is heard in the
+next line — `createEncikRadio` takes a getter, and `FpsGame` backs it with a
+ref because the engine outlives the render that built it. And the opt-out is
+absolute: `encikTone: 'recruit'` pins the recorded register at any level, for
+a player who liked being shouted at. It is a profile field beside `rankSet`,
+with the setting in the shop's ENCIK row showing a sample of each tone in the
+player's own rank.
+
+659 unit tests (+9), typecheck and build pass. `pnpm test:fps:voice` now proves
+the whole thing in the browser three ways: at Legend his lines carry the rank
+and none of the recruit shouting, they play *zero* audio, and flipping to
+Recruit brings back both the shouting and the recorded playback.
+
 **Latest: a weapon tier looks like what it is made of (2026-09-21).** The eight
 variants shared two GLBs, so the shop preview separated them by accent colour
 alone: the dossier said the Marksman was a different rifle and the picture said

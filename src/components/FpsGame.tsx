@@ -6,7 +6,7 @@ import { getWorldZone, type WorldZoneId } from '../game/world-zones';
 import { useFpsFullscreen } from '../game/use-fps-fullscreen';
 import { progression } from '../game/progression';
 import { rankInsignia } from '../game/rank-insignia';
-import { resolveLoadout, type ArmoryProfile, type ExerciseReward } from '../game/armory-state';
+import { encikAddress, resolveLoadout, type ArmoryProfile, type ExerciseReward } from '../game/armory-state';
 import type { LanSession } from '../game/lan-peer';
 import { ARENA_DURATION, ARENA_KILL_LIMIT, type ArenaSnapshot } from '../game/arena-rules';
 import FpsMinimap from './FpsMinimap';
@@ -30,6 +30,9 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
   const district = getFpsDistrict(region), zone = getWorldZone(region);
   const rank = progression(profile.xp);
   const insignia = rankInsignia(rank.level, profile.rankSet);
+  // The engine is built once per session; the Encik reads this each callout,
+  // so a level bought or earned mid-exercise changes his tone straight away.
+  const speaking = useRef(encikAddress(profile)); speaking.current = encikAddress(profile);
   const startingLevel = useRef(rank.level);
   const eliminationCallback = useRef(onElimination); eliminationCallback.current = onElimination;
   const consumeCallback = useRef(onConsume); consumeCallback.current = onConsume;
@@ -43,7 +46,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
   const [hud, setHud] = useState(initialFpsHud), [epoch, setEpoch] = useState(0);
   useEffect(() => {
     setHud({ ...initialFpsHud });
-    try { engine.current = createFpsEngine(host.current!, setHud, { region, loadout: equipment, combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onElimination: id => eliminationCallback.current(id), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); } }); }
+    try { engine.current = createFpsEngine(host.current!, setHud, { region, loadout: equipment, combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onElimination: id => eliminationCallback.current(id), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); }, encik: () => speaking.current }); }
     catch { setHud(h => ({ ...h, phase: 'error', message: '3D graphics could not start. Check that WebGL is enabled, then retry.' })); }
     return () => { engine.current?.dispose(); engine.current = null; };
   }, [epoch, combat, equipment, arenaOptions, region]);
