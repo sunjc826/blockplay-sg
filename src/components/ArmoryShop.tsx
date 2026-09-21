@@ -10,6 +10,7 @@ import RankBadge from './RankBadge';
 import ArmoryPreview from './ArmoryPreview';
 import FalloffCurve from './FalloffCurve';
 import { hitDamage, opticMagnification } from '../game/fps-rules';
+import { hardwareByPart } from '../game/weapon-hardware';
 
 function Silhouette({ item }: { item: ShopItem }) {
   const armor = item.category === 'rig' || item.category === 'plate';
@@ -58,6 +59,8 @@ export default function ArmoryShop({ store, onEnterRange, rangeLabel = 'Marina F
   const armor = category === 'armor', locked = !owned && level.level < (item.requiredLevel || 1);
   const nextUnlocks = ARMORY_CATALOG.filter(i => (i.requiredLevel || 1) > level.level);
   const nextLevel = Math.min(...nextUnlocks.map(i => i.requiredLevel!));
+  // The preview shows the build; this says which part of it each line paid for.
+  const fittings = hardwareByPart(item.id);
   return <section className="armory" aria-label="Equipment shop">
     <div className="armory-header"><div><span className="armory-kicker">blockplaySG / ARMORY 01</span><h2>Field exchange<span>®</span></h2><p>Choose your edge. Make it yours.</p></div><div className="armory-wallet"><span title="Earned by completing FPS exercises"><Coins size={16} /><b data-testid="credits">{profile.credits.toLocaleString()}</b><small>CR</small></span><span className="premium"><Gem size={16} /><b data-testid="tokens">{profile.tokens.toLocaleString()}</b><small>TK</small></span></div></div>
     <div className="armory-demo"><span>DEMO WALLET · No real payments</span><button onClick={store.demoTopUp}>+250 demo tokens</button></div>
@@ -74,8 +77,8 @@ export default function ArmoryShop({ store, onEnterRange, rangeLabel = 'Marina F
       </div>
       <aside className="armory-details"><span className="armory-kicker">EQUIPMENT DOSSIER</span><h3>{item.name}</h3><p>{item.description}</p>{locked && <div className="armory-level-lock">LEVEL {item.requiredLevel} REQUIRED<small>{Math.max(0, xpForLevel(item.requiredLevel || 1) - level.xp).toLocaleString()} XP to unlock purchasing, or {skipCostFrom(profile.xp, item.requiredLevel || 1).toLocaleString()} TK of levels above. Either way the item still costs its own price.</small></div>}
 {(!!item.build?.length || !!item.fitted?.length) && <div className="armory-fitted"><span className="armory-kicker">BUILT FROM</span>
-          {item.build?.map(part => <div key={part.id}><strong>{part.name}</strong><small>{partCredits(part)}</small><p>{part.description}</p></div>)}
-          {item.fitted?.map(part => <div key={part.slot}><strong>{part.name}</strong><small>{part.slot} slot · fixed</small><p>{part.description}</p></div>)}
+          {item.build?.map(part => <div key={part.id}><strong>{part.name}</strong><small>{partCredits(part)}</small><p>{part.description}</p>{fittings.has(part.id) && <em>On the model: {fittings.get(part.id)!.visual}.</em>}</div>)}
+          {item.fitted?.map(part => <div key={part.slot}><strong>{part.name}</strong><small>{part.slot} slot · fixed</small><p>{part.description}</p>{fittings.has(`fitted:${part.slot}`) && <em>On the model: {fittings.get(`fitted:${part.slot}`)!.visual}.</em>}</div>)}
           <small className="armory-fitted-note">{item.fitted?.length
             ? 'Its figures are the sum of this hardware. The slots it fills come installed and cannot be swapped; nothing buyable for them would beat it. The magazine slot stays open.'
             : 'Its figures are the sum of this hardware. Every attachment slot stays open.'}</small></div>}

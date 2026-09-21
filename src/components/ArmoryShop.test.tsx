@@ -67,3 +67,13 @@ it('offers every registered insignia set, previewed at the level you are', () =>
   expect(html).toContain('Veteran');
   expect(html).toContain('>12</text>');
 });
+it('says what each part puts on the model, and labels the same hardware on the preview', () => {
+  // The shop opens on the Vanguard, so that is the build both panels describe.
+  const html = renderToStaticMarkup(<ArmoryShop store={storeFor(createProfile())} onEnterRange={() => {}} />);
+  expect(html).toContain('On the model: a noticeably thicker barrel with a machined chamber collar.');
+  expect(html).toContain('On the model: a longer magazine on an extended baseplate.');
+  expect(html).toContain('On the model: a buffer pad on the butt.');
+  expect(html).toContain('Hardware fitted to this weapon');
+  expect(html).toContain('<li>Heavy barrel</li>');
+  expect(html).toContain('<li>Buffer pad</li>');
+});

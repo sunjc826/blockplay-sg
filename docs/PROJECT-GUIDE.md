@@ -101,6 +101,17 @@ WASD moves, mouse looks, left mouse fires, Q toggles aim, right mouse holds aim,
 
 Tap **Q** once to aim and again to lower the scope; left-click fires while aim stays toggled on. This works with a trackpad without holding two buttons. Holding Q does not repeatedly toggle. You can also hold right mouse to aim or use the on-screen Aim button. Reloading, switching weapons, pausing and handing control to/from the AI clear toggled aim. The human toggle is ignored while the AI pilot is running; its direct aim commands are unchanged. The issued SAR 21 uses its integrated 1.5× picture-in-picture sight with an etched reticle and unzoomed peripheral vision. In the armory’s Attachments tab, the 350 CR red-dot conversion replaces the scope and bridge with a rail-mounted 1× reflex sight. Removing the optic attachment restores the integrated sight. The level-2 precision lens kit uses 1.75× PiP; only one optic attachment can be equipped per weapon. Shop previews and gameplay use the same optic model. PiP uses one reusable 384×384 render target and renders only while aiming; red dots use no extra world pass. Reloads animate a magazine swap and gloved hands; empty reloads add a chambering gesture. Sustained fire builds real shot spread and widens the hip-fire crosshair. Releasing the trigger lets accuracy recover; aiming and crouching tighten the cone. White hit markers confirm hits; amber marks confirm eliminations.
 
+**Weapon hardware.** A tier looks like what it is made of. The parts a variant's
+figures are built from decide the geometry on its model: a part that adds damage
+is a thicker barrel (ported and fluted where it carries its own muzzle velocity,
+slotted and vented where it took weight out instead), one that adds rounds is a
+longer magazine or a deeper drum, one that shortens the cycle is a gas block and
+tube, and fitted handling hardware is a bipod, a free-float nut or a buffer pad.
+`weapon-hardware.ts` derives that from the catalog and `weapon-fittings.ts`
+builds it, so a variant added later wears its build with no code to write. The
+preview labels each fitting over the model and the dossier says what to look for
+beside the stat that bought it. See [armory details](ARMORY.md).
+
 **Shot effects.** Firing lights a flare at the muzzle that is re-rolled every
 round — roll, core and star length — over a 75 ms envelope with a fast attack
 and a fall steeper than linear, lit by a point light in the viewmodel scene and

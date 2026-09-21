@@ -112,13 +112,15 @@ XP like any other: it advances rank titles and persists in the same profile.
 | Variant | Damage | Magazine | Cycle | Reload | Recoil |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | SAR issued | 36 | 30 | .120 s | 1.80 s | .018 |
-| SAR Ranger | 39 | 30 | .126 s | 1.65 s | .016 |
-| SAR Vanguard | 42 | 36 | .108 s | 1.53 s | .014 |
+| SAR Ranger | 39 | 30 | .115 s | 1.65 s | .016 |
+| SAR Vanguard | 50 | 36 | .105 s | 1.53 s | .0101 |
+| SAR Marksman | 58 | 36 | .100 s | 1.50 s | .0082 |
 | Ultimax issued | 30 | 60 | .085 s | 2.50 s | .026 |
-| Ultimax Patrol | 32 | 50 | .085 s | 2.10 s | .022 |
-| Ultimax Centurion | 35 | 75 | .079 s | 2.10 s | .020 |
+| Ultimax Patrol | 34 | 50 | .080 s | 2.10 s | .022 |
+| Ultimax Centurion | 40 | 75 | .075 s | 2.10 s | .0148 |
+| Ultimax Bastion | 50 | 80 | .072 s | 2.00 s | .0119 |
 
-Targets alternate 100 and 115 health. Vanguard clears a 115-health target in three landed shots versus four for the issued SAR. Attachments modify reload, capacity, recoil, aiming FOV or movement. The quick-change and extended magazines share one slot, so one replaces the other. Unlocks fit both weapons, with equipment saved separately for each platform. Skin palettes change only materials. Variant accents and equipped attachment markers appear in the preview and viewmodel.
+Targets alternate 100 and 115 health. Vanguard clears a 115-health target in three landed shots versus four for the issued SAR. Attachments modify reload, capacity, recoil, aiming FOV or movement. The quick-change and extended magazines share one slot, so one replaces the other. Unlocks fit both weapons, with equipment saved separately for each platform. Skin palettes change only materials. Variant accents, the hardware a variant is built from and equipped attachment markers all appear in the preview and viewmodel.
 
 ## Platform tiers
 
@@ -178,6 +180,51 @@ An attachment already saved in a slot a new platform fits is suppressed rather
 than erased, so it comes back when a platform without that hardware is equipped
 again. Field and issued weapons keep every slot open: cheap guns are platforms,
 premium ones are finished pieces.
+
+## What the build looks like
+
+There is one GLB per platform, so a tier used to reach the preview as the same
+silhouette in a different accent: the figures said the Marksman was a different
+rifle and the picture said it was a repaint. A variant now wears its parts.
+
+`weapon-hardware.ts` derives that from the build rather than from a second list
+keyed on weapon ids, so a variant added tomorrow arrives wearing its hardware
+with nothing to update. A part is read by what it does:
+
+| A part that… | reads as | and shows up as |
+| --- | --- | --- |
+| adds damage | a barrel | a thicker profile, flutes past half weight, a machined chamber collar |
+| adds damage *and* movement | a lightened barrel | a slotted shroud with cooling ports, since weight removed cannot look like weight added |
+| carries its own `ballistics` | a match barrel | the longest profile, behind a ported muzzle brake |
+| adds or gives up rounds | a magazine | a longer magazine and baseplate on the rifle, a deeper or shallower drum with an accent band on the support weapon |
+| shortens the cycle | a gas system | a gas block, regulator and tube above the barrel, vents scaling with how much quicker |
+| is fitted to the handling slot | a bipod, a free-float nut or a buffer | legs stowed forward under the barrel, a barrel nut with daylight behind it, or a pad on the butt |
+
+How pronounced a fitting is comes from the share of the *platform's own* figure
+its part shifts, against the share that reads as the heaviest hardware on the
+ladder (`REFERENCE`). Relative to the platform rather than to the rest of the
+catalog, so a heavier barrel added later cannot quietly reshape every weapon
+already on the shelf.
+
+`weapon-fittings.ts` turns that plan into geometry, and `dressWeapon` calls it,
+so the shop preview and the FPS viewmodel show the same weapon. Every fitting
+lands in a zone the authored mesh leaves empty — the bare barrel ahead of the
+handguard, past the muzzle, under that barrel, on the magazine node, or off the
+back of the butt — so nothing has to intersect geometry it cannot see. The
+anchors in `ANCHORS` were measured off the GLBs themselves, by binning vertex
+positions of each primitive along the model's -Z axis to find where the mesh
+stops and where the empty air is; re-measure the same way if the assets are
+re-exported. The magazine is the one authored node the fittings touch: a drum
+scales in place and a box magazine grows downward through a child mesh, so the
+viewmodel's reload animation, which reads position and rotation only, still
+plays over the change.
+
+The words follow the geometry. The preview chips each fitting over the model
+("Match barrel", "Deeper drum"), and the dossier prints what to look for under
+the part that paid for it, next to the stat it bought. `weapon-hardware.test.ts`
+covers the plan without a renderer and `weapon-fittings.test.ts` covers the
+scene graph headlessly — which meshes land where, what the magazine ends up
+scaled to, and that a teardown puts the model back exactly as it was found.
 
 ## Range and hit zones
 
@@ -367,6 +414,7 @@ Desktop Enter/Resume requests browser pointer lock directly from the user click.
 - `src/game/progression.ts`: XP thresholds, level pricing and timed elimination chains.
 - `src/game/rank-insignia.ts`: the rank sets and their bands; `RankBadge.tsx` draws them.
 - `src/game/armory-visuals.ts`: shared procedural skins, accents, markers and rig/insert models. Preview resources are disposed on selection changes.
+- `src/game/weapon-hardware.ts`, `weapon-fittings.ts`: what a variant's parts put on the model, and the geometry that puts it there. Both the shop preview and the viewmodel dress through `dressWeapon`, so they agree.
 - `src/components/ArmoryShop.tsx`, `ArmoryPreview.tsx`: catalog, comparisons, preview and saved loadout.
 - `fps-engine.ts`, `FpsGame.tsx`: snapshot the equipped loadout on entry. XP updates do not recreate the engine. Target health, ammo, handling, armor damage, rewards and callouts use that snapshot. Enter the Armory to change equipment for the next exercise.
 

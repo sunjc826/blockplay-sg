@@ -7,11 +7,15 @@ import type { VehicleKind } from '../game/vehicle-rules';
 import type { ShopItem } from '../game/armory-catalog';
 import type { EquippedWeapon } from '../game/armory-state';
 import { armorModel, disposeModel, dressWeapon } from '../game/armory-visuals';
+import { weaponHardware } from '../game/weapon-hardware';
 
 export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item: ShopItem; weapon: EquippedWeapon; vehicle?: VehicleKind }) {
   const host = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState('Loading equipment…'), [retry, setRetry] = useState(0);
   const signature = JSON.stringify(weapon);
+  // Names what the variant's parts put on the model, so the differences between
+  // one tier and the next are findable rather than only visible.
+  const fittings = item.category === 'rig' || item.category === 'plate' || item.category === 'vehicleSkin' ? [] : weaponHardware(weapon.equipment.variant);
   useEffect(() => {
     let disposed = false, model: THREE.Object3D | undefined, undress: (() => void) | undefined, frame = 0;
     const node = host.current!; setStatus('Loading equipment…');
@@ -42,5 +46,5 @@ export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item:
     const render = () => { if (disposed) return; controls.update(); renderer.render(scene, camera); frame = requestAnimationFrame(render); }; render();
     return () => { disposed = true; cancelAnimationFrame(frame); observer.disconnect(); controls.dispose(); undress?.(); if (model) disposeModel(model); renderer.dispose(); renderer.domElement.remove(); };
   }, [item.id, item.category, item.name, signature, vehicle, retry]);
-  return <div className="armory-preview"><div ref={host} className="armory-preview-canvas" />{status ? <div className="armory-preview-status" role="status">{status}{status.includes('failed') && <button onClick={() => setRetry(n => n + 1)}>Retry preview</button>}</div> : <span className="armory-orbit-hint">DRAG TO INSPECT · SCROLL TO ZOOM</span>}<span className="armory-preview-mark">SG / EQUIPMENT DIVISION</span></div>;
+  return <div className="armory-preview"><div ref={host} className="armory-preview-canvas" />{status ? <div className="armory-preview-status" role="status">{status}{status.includes('failed') && <button onClick={() => setRetry(n => n + 1)}>Retry preview</button>}</div> : <span className="armory-orbit-hint">DRAG TO INSPECT · SCROLL TO ZOOM</span>}{!!fittings.length && <ul className="armory-preview-fittings" aria-label="Hardware fitted to this weapon">{fittings.map(fitting => <li key={fitting.part}>{fitting.label}</li>)}</ul>}<span className="armory-preview-mark">SG / EQUIPMENT DIVISION</span></div>;
 }

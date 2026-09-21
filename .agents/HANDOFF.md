@@ -1,5 +1,45 @@
 # Blockplay: portable agent handoff
 
+**Latest: a weapon tier looks like what it is made of (2026-09-21).** The eight
+variants shared two GLBs, so the shop preview separated them by accent colour
+alone: the dossier said the Marksman was a different rifle and the picture said
+it was a repaint. A variant now wears its build.
+
+`weapon-hardware.ts` is pure and derives the hardware from the parts a variant's
+figures already come from, rather than a second list keyed on weapon ids — a
+part that adds damage is a barrel, one that adds rounds is a magazine or a drum,
+one that shortens the cycle is a gas system, and a fitted handling part is a
+bipod, a free-float nut or a buffer pad by what the armoury called it. A variant
+added tomorrow arrives wearing its build with nothing here to update.
+`weapon-fittings.ts` builds the geometry, `dressWeapon` calls it, and so the FPS
+viewmodel shows the same weapon the shop previewed, for free.
+
+**The part worth knowing before extending this:** the fittings only go where the
+authored mesh leaves air — the bare barrel ahead of the handguard, past the
+muzzle, under that barrel, on the magazine node, or off the back of the butt.
+Those anchors were measured out of the GLBs by binning vertex positions along
+-Z (see `docs/ARMORY.md`), because nothing else says where the polymer stops. A
+fitting placed by eye will end up inside the receiver on one of the two models.
+
+How pronounced a fitting is scales off the share of the *platform's own* figure
+its part shifts, not off the catalog's current maximum, so adding a heavier
+barrel later cannot silently reshape every weapon already on the shelf.
+
+The magazine is the one authored node touched: a drum scales in place, a box
+magazine grows through a child mesh, and both are restored on teardown. Anything
+hung off a model node rather than off the `equipped-hardware` group has to be
+detached by hand or it survives the next dressing — the teardown test caught
+exactly that.
+
+Words follow the geometry: the preview chips each fitting over the model and the
+dossier prints what to look for under the part that paid for it.
+
+647 unit tests (+20), typecheck and build pass. Verified by screenshotting all
+eight variants in the real shop preview and the top tier of each platform in the
+range, on swiftshader. `pnpm test:fps:handling` still fails here at its
+sustained-fire spread assertion, which is this VM's 3 fps software renderer, not
+this change — it fails the same way on a clean tree.
+
 **Latest: ranks are a pluggable set, and levels have badges (2026-09-21).**
 `progression()` used to end in a ternary chain that turned a level into one of
 six words. Those words are now one *set* of four — Field (the originals, kept
