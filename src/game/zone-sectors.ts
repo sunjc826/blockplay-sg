@@ -1,38 +1,8 @@
-import type { CoverMass, SectorCover } from './cover-metrics';
-import { measureCover } from './cover-metrics';
+import type { SectorCover } from './cover-metrics';
 import type { RegionBounds } from './region-collision';
 import type { WorldZoneId, ZonePosition } from './world-zones';
 
 export type { SectorCover };
-
-/**
- * How the ground reads to someone being shot at. The bands are numeric rather
- * than a matter of judgement, because nineteen districts will be labelled
- * against them and eyeballing the scene gets it wrong — of the nine labels
- * written by hand for HarbourFront, three were wrong on the first measurement
- * and four more moved when the metric was corrected.
- *
- * Measured on crouch cover: a player can always crouch, so a chest-high wall is
- * real cover, merely bought at half movement speed. `zone-sectors.test.ts`
- * holds every declared label to `coverFor`, so a label cannot drift from the
- * geometry it describes.
- *
- * Median metres from open ground to the nearest mass that breaks a silhouette.
- * `dense` is cover essentially at hand, `broken` is cover a short sprint away,
- * `open` is exposed. The thresholds are tight because they describe a district
- * that has had a cover pass: before HarbourFront's, every sector sat between
- * 12 m and no cover at all, and any banding would have called the whole map
- * open. Expect an unpassed district to read `open` almost throughout — that is
- * the point, not a miscalibration.
- */
-export const COVER_BANDS = { dense: 6, broken: 12 } as const;
-
-/** The band the geometry actually falls in, which is what a label must match. */
-export function coverFor(bounds: RegionBounds, masses: readonly CoverMass[], standable?: (x: number, z: number) => boolean): SectorCover {
-  const { median } = measureCover(bounds, masses, standable);
-  if (median <= COVER_BANDS.dense) return 'dense';
-  return median <= COVER_BANDS.broken ? 'broken' : 'open';
-}
 
 /**
  * A named sub-area of one district. Districts are currently a single tactical

@@ -87,6 +87,7 @@ export default function ExpeditionGame({ profile, onExit, suspended = false, ini
         <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} />
         <div className="fps-objective">Explore. Find supplies. Reach the next district.<small>E · PICK UP & EQUIP / T · CROSS CHECKPOINT</small></div>
         <div className="expedition-prompts" role="status">{hud.lootPrompt && <strong>{hud.lootPrompt}</strong>}{hud.travelPrompt && <strong>{hud.travelPrompt}</strong>}{hud.lootNotice && <span>{hud.lootNotice}</span>}</div>
+        {hud.sector && <div className="expedition-sector" role="status"><span>LOCATION</span><strong>{hud.sector}</strong></div>}
         <div className="expedition-route-hud">{nextCheckpoint && <strong>ROUTE TO {getWorldZone(destination!).name.toUpperCase()}</strong>}{(nextCheckpoint ? [nextCheckpoint] : gateways).map(gateway => <span key={gateway.id}>{getWorldZone(gateway.to).name} <b>{distance(gateway.position)}m</b></span>)}</div>
       </>}
       {!playing && <div className="fps-overlay"><div className="fps-start-card">

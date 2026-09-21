@@ -1,5 +1,54 @@
 # Blockplay: portable agent handoff
 
+**Latest: sectors wired into the open world (2026-09-21).** Sector data was
+inert; it now drives four things in expedition mode. Only HarbourFront carries
+sectors, and the other eighteen districts are provably unchanged — the
+regression test asserts an unsectored district's loot is bit-identical with and
+without the new code path.
+
+**Loot is allocated across sectors** by `lootWeight`, drawing from that sector's
+anchors, with `tierBias` leaning the roll. Measured over 400 seeds:
+
+    keppel-wharf  w3.0 bias+1   21% of crates   68% elite weapons
+    vivocity      w2.5 bias 0   17%             36%
+    cruise-centre w2.0 bias 0   14%             40%
+    harbour-depot w2.0 bias 0   14%             39%
+    faber-ridge   w1.5 bias+1   10%             72%
+    quay          w1.0 bias-1    7%             12%
+    boardwalk     w0.5 bias+1    4%             60%
+
+The boardwalk is the shape of the intent: a crate lands there rarely, it is
+good when it does, and you are in the open for the whole crossing. The quay you
+spawn on is the opposite. Bias leans odds and never guarantees a tier — the
+test holds both ends off 0% and 100%.
+
+Sector choice runs on its own RNG stream (`:sectors`), so the existing
+`:contents` and `:positions` streams are undisturbed and a district gaining
+sectors cannot silently reroll gear. Bias follows where a crate came to rest,
+not how it got there, so a fallback position in an exposed sector is rewarded
+the same way.
+
+Note a property rather than a bug: with 43 anchors for 11 crates, nothing in
+HarbourFront now lands outside a sector, so the perimeter margins are dead
+ground for looting. That is arguably right — loot belongs in places — but it is
+a choice, not an accident.
+
+**The HUD names where you are.** `hud.sector` comes from `sectorAt`, shows in
+the expedition HUD, and posts one comms line on crossing. **Patrols** spawn from
+sector anchors as well as the six zone points (`patrolSpawns`), so encounters
+stop recurring in the same handful of spots; `createArena` still picks the point
+furthest from the living, so `botWeight` controls how much ground a sector
+offers rather than how likely it is. **The minimap** tints sectors by cover band
+under the roads, in expedition mode only.
+
+`zone-sectors.ts` is now genuinely a pure data module — `coverFor` and
+`COVER_BANDS` moved to `cover-metrics.ts`, so importing sector data no longer
+drags three.js in through the cover metric.
+
+444 unit tests (+8), typecheck and build pass. Browser and FPS smokes still not
+run here, and the expedition UI smoke would be the one worth running for the new
+HUD element.
+
 **Latest: cover measured honestly, and HarbourFront passed (2026-09-21).**
 
 **The earlier cover table was wrong and is superseded.** It measured the

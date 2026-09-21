@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getRegion, type RegionDefinition } from './regions';
-import { coverFor, sectorAt, zoneSectors, ZONE_SECTORS } from './zone-sectors';
-import { coverMasses, measureCover } from './cover-metrics';
+import { sectorAt, zoneSectors, ZONE_SECTORS } from './zone-sectors';
+import { coverFor, coverMasses, measureCover } from './cover-metrics';
 import { ZONE_LOOT_RULES } from './expedition-loot';
 import { getWorldZone, type WorldZoneId } from './world-zones';
 import type { Obstacle } from './region-collision';

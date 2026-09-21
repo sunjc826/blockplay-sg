@@ -2,21 +2,37 @@ import { ARMORY_CATALOG, itemById, type ShopItem } from './armory-catalog';
 import { resolveLoadout, type ArmoryProfile, type GunEquipment } from './armory-state';
 import type { Obstacle } from './marina-collision';
 import type { WorldZoneId, ZonePosition } from './world-zones';
+import type { ZoneSector } from './zone-sectors';
 
 export type FieldLootKind = 'weapon' | 'ammo' | 'medical' | 'armor';
 export interface FieldLoot {
   id: string; zoneId: WorldZoneId; kind: FieldLootKind; catalogId?: string;
   name: string; tier: ShopItem['tier']; x: number; z: number; amount: number;
+  /** The sector it came to rest in, for the HUD and the pickup callout. */
+  sectorId?: string;
 }
 export interface LootZoneGeometry {
   id: WorldZoneId; spawn: ZonePosition;
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
   obstacles: readonly Obstacle[]; anchors?: readonly ZonePosition[];
+  /** Named sub-areas. Absent leaves placement exactly as it was before sectors. */
+  sectors?: readonly ZoneSector[];
 }
 export interface ZoneLootRules {
   eliteChance: number; fieldChance: number; weaponCount: number; ammoCount: number;
   medicalCount: number; armorCount: number; ammoAmount: number; medicalAmount: number;
 }
+/**
+ * A sector's `tierBias` leans the roll without ever guaranteeing an outcome:
+ * the exposed ground a player has to cross for a crate is worth better odds,
+ * not a better item. Elite moves most because it is the rarest.
+ */
+export function biasedChances(rules: ZoneLootRules, tierBias: -1 | 0 | 1 = 0) {
+  const elite = Math.min(1, Math.max(0, rules.eliteChance * (tierBias > 0 ? 1.8 : tierBias < 0 ? 0.35 : 1)));
+  const field = Math.min(1 - elite, Math.max(0, rules.fieldChance * (tierBias < 0 ? 0.7 : 1)));
+  return { elite, field };
+}
+
 /** Tier probabilities apply to each weapon crate, independently. CBD means Raffles Place. */
 export const ZONE_LOOT_RULES: Readonly<Record<WorldZoneId, Readonly<ZoneLootRules>>> = {
   queenstown: { eliteChance: 0.05, fieldChance: 0.3, weaponCount: 2, ammoCount: 2, medicalCount: 1, armorCount: 1, ammoAmount: 45, medicalAmount: 25 },
@@ -56,10 +72,11 @@ function clearGround(point: ZonePosition, geometry: LootZoneGeometry, radius = 0
   return !geometry.obstacles.some(o => point.x + radius > o.minX && point.x - radius < o.maxX && point.z + radius > o.minZ && point.z - radius < o.maxZ);
 }
 function choose<T>(items: readonly T[], random: () => number): T { return items[Math.floor(random() * items.length)]; }
-export function rollZoneWeapon(zoneId: WorldZoneId, random: () => number): ShopItem {
+export function rollZoneWeapon(zoneId: WorldZoneId, random: () => number, tierBias: -1 | 0 | 1 = 0): ShopItem {
   const rules = ZONE_LOOT_RULES[zoneId];
+  const { elite, field } = biasedChances(rules, tierBias);
   const roll = random();
-  const tier: ShopItem['tier'] = roll < rules.eliteChance ? 'Elite' : roll < rules.eliteChance + rules.fieldChance ? 'Field' : 'Issued';
+  const tier: ShopItem['tier'] = roll < elite ? 'Elite' : roll < elite + field ? 'Field' : 'Issued';
   return choose(ARMORY_CATALOG.filter(item => item.category === 'weapon' && item.tier === tier && (item.family === 0 || item.family === 1)), random);
 }
 
@@ -79,27 +96,63 @@ export function createExpeditionLoot(seed: string | number) {
       ...Array<FieldLootKind>(rules.medicalCount).fill('medical'), ...Array<FieldLootKind>(rules.armorCount).fill('armor'),
     ];
     const points: ZonePosition[] = [];
-    const candidates = (geometry.anchors ?? []).filter(p => clearGround(p, geometry)).map(p => ({ ...p }));
-    // Fisher-Yates keeps curated safe anchors random without moving them into scenery.
-    for (let i = candidates.length - 1; i > 0; i--) { const j = Math.floor(positionRandom() * (i + 1)); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
+    const shuffle = <T,>(list: T[]) => {
+      // Fisher-Yates keeps curated safe anchors random without moving them into scenery.
+      for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(positionRandom() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
+      return list;
+    };
     function accept(point: ZonePosition) {
       if (!clearGround(point, geometry) || points.some(p => Math.hypot(p.x - point.x, p.z - point.z) < 3)) return false;
       points.push(point); return true;
     }
-    for (const candidate of candidates) { if (points.length >= kinds.length) break; accept(candidate); }
+    // Sector choice runs on its own stream, so a district gaining sectors cannot
+    // disturb the gear an existing expedition seed already rolled.
+    const sectorRandom = randomFor(`${seedText}:${geometry.id}:sectors`);
+    const sectors = (geometry.sectors ?? []).filter(sector => sector.lootWeight > 0 && sector.anchors.length);
+    const queues = new Map(sectors.map(sector =>
+      [sector.id, shuffle(sector.anchors.filter(p => clearGround(p, geometry)).map(p => ({ ...p })))]));
+    const weightTotal = sectors.reduce((total, sector) => total + sector.lootWeight, 0);
+    const pickSector = () => {
+      let roll = sectorRandom() * weightTotal;
+      for (const sector of sectors) { roll -= sector.lootWeight; if (roll <= 0) return sector; }
+      return sectors[sectors.length - 1];
+    };
+    // Draw each crate's home sector by weight, then take an anchor from it. A
+    // sector that runs out simply loses its turn; the pools below still fill.
+    for (let placed = points.length; sectors.length && points.length < kinds.length; ) {
+      for (let attempt = 0; attempt < sectors.length * 3 && points.length === placed; attempt++) {
+        const queue = queues.get(pickSector().id);
+        while (queue?.length && points.length === placed) accept(queue.shift()!);
+      }
+      if (points.length === placed) break;
+      placed = points.length;
+    }
+    for (const candidate of shuffle((geometry.anchors ?? []).filter(p => clearGround(p, geometry)).map(p => ({ ...p })))) {
+      if (points.length >= kinds.length) break;
+      accept(candidate);
+    }
     for (let attempt = 0; points.length < kinds.length && attempt < 1000; attempt++) {
       const angle = positionRandom() * Math.PI * 2; const distance = 15 + positionRandom() * 30;
       accept({ x: Math.round((geometry.spawn.x + Math.cos(angle) * distance) * 100) / 100, z: Math.round((geometry.spawn.z + Math.sin(angle) * distance) * 100) / 100 });
     }
+    /** Smallest containing sector wins, matching `sectorAt`. */
+    const sectorOf = (point: ZonePosition) => (geometry.sectors ?? [])
+      .filter(s => point.x >= s.bounds.minX && point.x <= s.bounds.maxX && point.z >= s.bounds.minZ && point.z <= s.bounds.maxZ)
+      .sort((a, b) => (a.bounds.maxX - a.bounds.minX) * (a.bounds.maxZ - a.bounds.minZ)
+        - (b.bounds.maxX - b.bounds.minX) * (b.bounds.maxZ - b.bounds.minZ))[0] ?? null;
     const loot: FieldLoot[] = points.map((point, index) => {
       const kind = kinds[index];
-      const common = { id: `loot-${hash(seedText).toString(36)}-${geometry.id}-${index}`, zoneId: geometry.id, kind, ...point };
+      // Bias follows where the crate ended up, not how it got there, so a
+      // fallback position in an exposed sector is rewarded the same way.
+      const sector = sectorOf(point);
+      const bias = sector?.tierBias ?? 0;
+      const common = { id: `loot-${hash(seedText).toString(36)}-${geometry.id}-${index}`, zoneId: geometry.id, kind, sectorId: sector?.id, ...point };
       if (kind === 'weapon') {
-        const item = rollZoneWeapon(geometry.id, random);
+        const item = rollZoneWeapon(geometry.id, random, bias);
         return { ...common, catalogId: item.id, name: item.name, tier: item.tier, amount: 1 };
       }
       if (kind === 'armor') {
-        const elite = random() < rules.eliteChance;
+        const elite = random() < biasedChances(rules, bias).elite;
         const item = itemById(elite ? 'plate-elite' : random() < 0.55 ? 'plate-soft' : 'plate-ceramic')!;
         return { ...common, catalogId: item.id, name: item.name, tier: item.tier, amount: 1 };
       }

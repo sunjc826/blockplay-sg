@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { getRegion, type RegionMapShape } from '../game/regions';
 import { localMinimapBounds, minimapHeading, minimapProjection, type MinimapMarker } from '../game/minimap';
 import { getWorldZone, type WorldZoneId } from '../game/world-zones';
+import { zoneSectors } from '../game/zone-sectors';
 import './fps-minimap.css';
 
 /** Only district furniture with an FPS palette is drawn on the dark minimap. */
@@ -10,6 +11,9 @@ function FpsMapShapes({ shapes }: { shapes: readonly RegionMapShape[] }) {
     ? <rect key={index} x={shape.x} y={shape.z} width={shape.width} height={shape.depth} rx={shape.radius} fill={shape.fpsFill} />
     : null)}</>;
 }
+
+/** Sector tints sit under the roads, so named places read at a glance. */
+const SECTOR_FILL = { dense: '#31473b', broken: '#2c3f3a', open: '#354036' } as const;
 
 /** Presentation only: callers decide which markers the player may see. */
 export default function FpsMinimap({ zone, player, markers = [], mode }: {
@@ -27,6 +31,10 @@ export default function FpsMinimap({ zone, player, markers = [], mode }: {
       <rect x="6" y="6" width="188" height="148" rx="5" fill="#273b35" />
       <g clipPath={`url(#${clip})`}>
         <g transform={map.transform}>
+          {mode === 'expedition' && zoneSectors(zone).map(sector => <rect key={sector.id}
+            x={sector.bounds.minX} y={sector.bounds.minZ}
+            width={sector.bounds.maxX - sector.bounds.minX} height={sector.bounds.maxZ - sector.bounds.minZ}
+            rx={6} fill={SECTOR_FILL[sector.cover]} />)}
           <FpsMapShapes shapes={decor('under')} />
           {district.mapRoads.map((road, index) => <polyline key={index} points={road.points.map(p => `${p.x},${p.z}`).join(' ')} fill="none" stroke="#63766a" strokeWidth="12" />)}
           <FpsMapShapes shapes={decor('over')} />
