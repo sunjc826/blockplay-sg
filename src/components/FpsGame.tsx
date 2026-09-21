@@ -62,7 +62,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
     onPointerCancel: () => engine.current?.setInput(key, false),
     onLostPointerCapture: () => engine.current?.setInput(key, false),
   });
-  return <div className={`fps-game ${isArena ? 'is-arena' : ''} ${fullscreen.immersive ? 'is-immersive' : ''}`} ref={stage} data-touch={touch ? 'on' : undefined} data-map-zone={region} data-phase={hud.phase} data-pointer-locked={hud.locked} data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-vehicle={hud.vehicle} data-speed={hud.vehicleSpeed.toFixed(2)} data-altitude={hud.altitude.toFixed(2)} data-player-x={hud.x.toFixed(3)} data-player-z={hud.z.toFixed(3)} data-arena={isArena || undefined} data-arena-connected={isArena ? hud.arenaConnected : undefined} data-arena-alive={hud.arenaSelf?.alive} data-arena-kills={hud.arenaSelf?.kills}>
+  return <div className={`fps-game ${isArena ? 'is-arena' : ''} ${fullscreen.immersive ? 'is-immersive' : ''}`} ref={stage} data-touch={touch ? 'on' : undefined} data-map-zone={region} data-phase={hud.phase} data-pilot={hud.pilotEnabled || undefined} data-pointer-locked={hud.locked} data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-vehicle={hud.vehicle} data-speed={hud.vehicleSpeed.toFixed(2)} data-altitude={hud.altitude.toFixed(2)} data-player-x={hud.x.toFixed(3)} data-player-z={hud.z.toFixed(3)} data-arena={isArena || undefined} data-arena-connected={isArena ? hud.arenaConnected : undefined} data-arena-alive={hud.arenaSelf?.alive} data-arena-kills={hud.arenaSelf?.kills}>
     <div className="viewport fps-viewport">
       <div className="world" ref={host} />
       {fullscreen.immersive && fullscreen.notice && <div className="fps-screen-notice" role="status">{fullscreen.notice}</div>}
@@ -74,14 +74,14 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus} · ESC TO STOP</div>}
       {playing && <>
         <FpsMinimap zone={region} player={hud} markers={isArena ? [] : hud.mapMarkers} mode={isArena ? 'arena' : 'practice'} />
-        <div className="fps-vitals"><span>HP <b>{Math.ceil(hud.health)}</b>{hud.maxHealth > 100 && <small> / {hud.maxHealth}</small>}</span><span>ARMOR <b>{Math.ceil(hud.armor)}</b></span><span aria-label="Mouse capture status">{hud.pilotEnabled ? 'AI PILOT' : hud.locked ? 'MOUSE LOCKED' : 'TOUCH LOOK'}</span></div>
+        <div className="fps-vitals"><span>HP <b>{Math.ceil(hud.health)}</b>{hud.maxHealth > 100 && <small> / {hud.maxHealth}</small>}</span><span>ARMOR <b>{Math.ceil(hud.armor)}</b></span><span className="fps-capture-state" aria-label="Mouse capture status">{hud.pilotEnabled ? 'AI PILOT' : hud.locked ? 'MOUSE LOCKED' : 'TOUCH LOOK'}</span></div>
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}
         {hud.incoming && <div className="fps-incoming">INCOMING · MOVE OR TAKE COVER</div>}
         {hud.hit && <div className="fps-hit-label" aria-hidden="true">HIT −{hud.lastDamage}</div>}
         {hud.callout && <div key={`${hud.hits}-${hud.callout}`} className="fps-kill-callout" role="status"><span>ELIMINATION CHAIN ×{hud.chain}</span><strong>{hud.callout}</strong>{!isArena && <small>+25 XP</small>}</div>}
         <div className="fps-compass">SG <span>· · ·</span> {district.setting.toUpperCase()} <span>· · ·</span> 01</div>
         {!mounted && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} />}
-        <div className="fps-objective">{isArena ? `FREE FOR ALL · First to ${ARENA_KILL_LIMIT} eliminations` : mounted ? hud.vehicle === 'car' ? 'W / S throttle · A / D steer · Space brake' : 'W / S cruise · A / D yaw · Space climb · C / Ctrl descend' : `Clear the ${district.targets.length} round targets around the ${district.setting}.`}<small>{hud.locked ? isArena ? 'ESC opens menu · Match keeps running' : 'ESC pauses and releases the mouse' : touch ? 'Left stick moves · Right stick looks · Hold FIRE and slide to aim' : 'Drag to look · On-screen controls available'}</small></div>
+        <div className="fps-objective">{isArena ? `FREE FOR ALL · First to ${ARENA_KILL_LIMIT} eliminations` : mounted ? hud.vehicle === 'car' ? 'W / S throttle · A / D steer · Space brake' : 'W / S cruise · A / D yaw · Space climb · C / Ctrl descend' : `Clear the ${district.targets.length} round targets around the ${district.setting}.`}<small>{hud.locked ? isArena ? 'ESC opens menu · Match keeps running' : 'ESC pauses and releases the mouse' : touch ? 'Left stick moves · Drag the scene to look · Hold FIRE and slide to aim' : 'Drag to look · On-screen controls available'}</small></div>
         {!isArena && <div className="fps-vehicle-locator">CAR {Math.round(hud.carDistance)}m <span>·</span> HELI {Math.round(hud.helicopterDistance)}m</div>}
         {!isArena && hud.interact && <div className="fps-interact-prompt">{hud.interact}</div>}
         {!isArena && hud.vehicleNotice && <div className="fps-vehicle-notice" role="status">{hud.vehicleNotice}</div>}
@@ -122,7 +122,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         </button>
         <button className="fps-shop-link" onClick={onOpenShop}>Open armory · change equipment →</button>
         <div className="fps-control-guide"><span><kbd>WASD</kbd> Move</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>C</kbd> Crouch</span><span><kbd>Space</kbd> Jump</span><span><kbd>1 / 2</kbd> Switch</span><span><kbd>E</kbd> Enter / exit vehicle</span><span><kbd>Space / C</kbd> Fly up / down</span><span><kbd>F</kbd> Fullscreen</span></div>
-        <small className="fps-touch-note">{touch ? 'On-screen sticks appear once the range opens: left thumb moves, right thumb looks, and holding FIRE lets you keep aiming.' : 'On touchscreens, drag the scene to look and use the controls below.'}</small>
+        <small className="fps-touch-note">{touch ? 'Thumb controls appear once the range opens: the left stick moves, dragging the scene looks around, and the actions sit on the arc around the trigger.' : 'On touchscreens, drag the scene to look and use the controls below.'}</small>
       </div></div>}
     </div>
     <div className="experience-toolbar fps-toolbar"><div className="experience-title"><span className="mode-icon">{isArena ? <Users size={22} /> : <Crosshair size={22} />}</span><div><h3>{`${district.label} · ${isArena ? 'arena' : 'field range'}`}</h3><p>{isArena ? `${arenaOptions.session.role === 'solo' ? 'Solo vs bots' : 'P2P LAN'} · Free for all · ${ARENA_KILL_LIMIT} eliminations` : `${combat ? 'Counter-fire drill' : 'Practice drill'} · Custom loadout · 8 targets`}</p></div></div><div className="toolbar-actions">

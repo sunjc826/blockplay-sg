@@ -32,13 +32,30 @@ instead of below it:
 - **Left stick** moves. It is analog, so a half-pushed stick walks at half pace,
   and pushing it out to the ring runs (or boosts a helicopter). The base is
   planted wherever your thumb lands inside the left zone.
-- **Right stick** looks. Dragging any free part of the scene still looks too,
-  and both share the range's sensitivity curve.
+- **The scene looks.** In the FPS modes there is no look stick: dragging
+  anywhere the controls are not turns the camera, which is what a phone shooter
+  does and what frees the right side of the screen. `dragLook` gives a dragged
+  pixel the gain a thumb needs — unscaled it would take three swipes of a
+  portrait phone to turn round — and aiming down the sights still halves it.
+  The walk/drive districts keep their second stick, because ORBIT on a chase
+  camera is not the same gesture.
 - **FIRE** can be held and slid: the same thumb keeps the trigger down and goes
   on aiming, which one thumb otherwise cannot do.
-- **Action buttons** cover aim, reload, jump, crouch (a latch, not a hold),
-  weapon swap, vehicles, supplies, checkpoints and the menu. On short screens
-  they shrink to icons; their names stay on the elements for screen readers.
+- **The actions sit on the thumb's sweep**, not in a row — a quarter turn from
+  beside the trigger to above it, which is as far as a hand holding a phone
+  reaches. `thumbArc` gives each one a direction and the stylesheet the radius,
+  so the same arrangement redraws smaller on a short screen; spacing is what is
+  held constant, so a sixth action pushes the sweep out rather than crowding
+  onto the fifth. Infantry get aim, reload, crouch (a latch, not a hold), jump
+  and weapon swap; a mounted vehicle swaps in its own. They are icon-only, so
+  the names live on the elements for screen readers.
+- **Contextual actions are a prompt**, in the middle of the screen, and only
+  while they can be pressed: entering a vehicle, picking up a crate, crossing a
+  checkpoint. They are not sweep slots because a button that came and went as
+  you walked would move its neighbours under your thumb. The prompt says what
+  it does rather than which key a keyboard would use.
+- **The menu** sits above the left stick, off both sweeps: a mis-hit there costs
+  the round rather than a magazine.
 
 Entering a mode by touch skips pointer capture entirely, and the round pauses if
 a real mouse shows up, so a convertible can switch either way mid-session. The
@@ -61,10 +78,18 @@ carry the inset themselves. The thumb layer insets itself already, so inside
 the padded shell it drops back to plain margins rather than counting the same
 notch twice.
 
+A landscape phone has around 350px of height for badges, vitals, a minimap, the
+ammo block, a callout and two control clusters, so some of it stands aside
+there: the scrollable comms log (the callout already carries the line that just
+arrived), the expedition's sector label (the badge row names the district), and
+the mouse-capture chip, which answers a question a phone does not ask. Portrait
+keeps the log and stacks the sector between the vitals and the map.
+
 `pnpm test:touch` drives all of it through real touch events in an emulated
-phone, and `pnpm test:fullscreen:mobile` checks the immersive layout in both
-orientations against a stand-in notch; they need Vite plus Chrome with remote
-debugging, as the other browser smokes do.
+phone — including that the sweep is an arc rather than a row, and that dragging
+the bare scene turns — and `pnpm test:fullscreen:mobile` checks the immersive
+layout in both orientations against a stand-in notch; they need Vite plus Chrome
+with remote debugging, as the other browser smokes do.
 
 ### Regional FPS and armory
 

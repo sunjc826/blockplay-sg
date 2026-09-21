@@ -70,7 +70,7 @@ export default function ExpeditionGame({ profile, onExit, suspended = false, ini
     onLostPointerCapture: () => engine.current?.setInput(key, false),
   });
   return <div className={`fps-game expedition-game ${fullscreen.immersive ? 'is-immersive' : ''}`} ref={stage} data-touch={touch ? 'on' : undefined}
-    data-phase={hud.phase} data-pointer-locked={hud.locked} data-zone={scene.zone} data-player-x={hud.x.toFixed(3)} data-player-z={hud.z.toFixed(3)}
+    data-phase={hud.phase} data-pilot={hud.pilotEnabled || undefined} data-pointer-locked={hud.locked} data-zone={scene.zone} data-player-x={hud.x.toFixed(3)} data-player-z={hud.z.toFixed(3)}
     data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-alive={alive} data-loot-count={hud.fieldLoot?.length ?? 0} data-bot-count={hud.arena?.actors.filter(actor => actor.bot).length ?? 0}>
     <div className="viewport fps-viewport">
       <div className="world" ref={host} />
@@ -81,7 +81,7 @@ export default function ExpeditionGame({ profile, onExit, suspended = false, ini
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus} · ESC TO STOP</div>}
       {playing && <>
         <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} mode="expedition" />
-        <div className="fps-vitals"><span>HP <b>{Math.ceil(hud.health)}</b>{hud.maxHealth > 100 && <small> / {hud.maxHealth}</small>}</span><span>ARMOR <b>{Math.ceil(hud.armor)}</b></span><span aria-label="Mouse capture status">{hud.pilotEnabled ? 'AI PILOT' : hud.locked ? 'MOUSE LOCKED' : 'TOUCH LOOK'}</span></div>
+        <div className="fps-vitals"><span>HP <b>{Math.ceil(hud.health)}</b>{hud.maxHealth > 100 && <small> / {hud.maxHealth}</small>}</span><span>ARMOR <b>{Math.ceil(hud.armor)}</b></span><span className="fps-capture-state" aria-label="Mouse capture status">{hud.pilotEnabled ? 'AI PILOT' : hud.locked ? 'MOUSE LOCKED' : 'TOUCH LOOK'}</span></div>
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}
         {hud.incoming && <div className="fps-incoming">INCOMING · FIND COVER</div>}
         {hud.hit && <div className="fps-hit-label">HIT −{hud.lastDamage}</div>}
@@ -106,7 +106,7 @@ export default function ExpeditionGame({ profile, onExit, suspended = false, ini
         <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => hud.phase === 'error' ? setScene(current => ({ ...current, revision: current.revision + 1 })) : engine.current?.start()}><Play size={16} />{hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry district' : hud.phase === 'paused' ? 'Resume expedition' : 'Enter district'}<ArrowRight size={17} /></button>
         <button className="fps-shop-link" onClick={onExit}>Leave expedition →</button>
         <div className="fps-control-guide"><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>E</kbd> Take supplies</span><span><kbd>T</kbd> Travel</span><span><kbd>F</kbd> Fullscreen</span></div>
-        <small className="fps-touch-note">{touch ? 'On-screen sticks appear once you enter the district. ' : ''}Field equipment lasts for this expedition. Your permanent Armory stays saved.</small>
+        <small className="fps-touch-note">{touch ? 'Thumb controls appear once you enter the district. ' : ''}Field equipment lasts for this expedition. Your permanent Armory stays saved.</small>
       </div></div>}
     </div>
     <div className="experience-toolbar fps-toolbar"><div className="experience-title"><span className="mode-icon"><Compass size={22} /></span><div><h3>{zone.name} · expedition</h3><p>Connected districts · Random supplies · Solo survival</p></div></div><div className="toolbar-actions">
@@ -127,6 +127,6 @@ export default function ExpeditionGame({ profile, onExit, suspended = false, ini
       <section><h3>Supply scanner</h3>{nearbyLoot.length ? nearbyLoot.map(item => <p key={item.id}><strong>{item.name} · {distance(item)}m</strong><br /><span>{item.tier.toUpperCase()} · X {Math.round(item.x)}, Z {Math.round(item.z)}</span></p>) : <p>{hud.phase === 'loading' ? 'Scanning the district…' : 'No supplies remain nearby.'}</p>}<small>Ground crates: walk close and press E. Picked-up crates stay collected when you return.</small></section>
     </div>
     <div className="expedition-footer"><span>Field gear is temporary · Armory purchases stay saved</span><button onClick={onExit}>Leave expedition <ArrowRight size={14} /></button></div>
-    <p className="fps-message" role="status">{fullscreen.notice || hud.message || (touch ? 'Left stick moves, right stick looks, and holding FIRE keeps the aim correctable. The Menu button pauses you; the district stays active.' : 'Drag the scene to look on touchscreens. ESC opens the menu; the district remains active.')}</p>
+    <p className="fps-message" role="status">{fullscreen.notice || hud.message || (touch ? 'The left stick moves, dragging the scene looks around, and holding FIRE keeps the aim correctable. The Menu button pauses you; the district stays active.' : 'Drag the scene to look on touchscreens. ESC opens the menu; the district remains active.')}</p>
   </div>;
 }

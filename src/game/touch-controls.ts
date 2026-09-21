@@ -109,6 +109,73 @@ export function lookDelta(stick: StickVector | null | undefined, dt: number, sca
 export const REGION_LOOK_SCALE = 0.55;
 
 /**
+ * Touch look is a drag across the scene, not a stick: the glass under the right
+ * thumb is the look surface, the way every phone shooter does it.
+ *
+ * A dragged pixel has to be worth several mouse pixels or the camera crawls.
+ * `turnFpsLook` reads .0023 radians per pixel, so an unscaled drag would need
+ * about 1370px — three full swipes of a portrait phone — for a half turn. At
+ * this gain a thumb that crosses half a landscape screen comes round roughly
+ * 140°, which is the reach phone shooters settle on. The vertical gain keeps
+ * the sticks' own X:Y ratio, so a thumb that wanders while turning does not
+ * fling the pitch, and aiming down the sights still halves both inside
+ * `turnFpsLook`.
+ */
+export const TOUCH_LOOK_GAIN_X = 2.6;
+export const TOUCH_LOOK_GAIN_Y = (TOUCH_LOOK_GAIN_X * LOOK_RATE_Y) / LOOK_RATE_X;
+
+/** Mouse-pixel look travel for a thumb that dragged (dx, dy) across the glass. */
+export function dragLook(dx: number, dy: number) {
+  return { dx: finite(dx) * TOUCH_LOOK_GAIN_X, dy: finite(dy) * TOUCH_LOOK_GAIN_Y };
+}
+
+/**
+ * The sweep a right thumb covers without the hand letting go of the phone: a
+ * quarter turn, from straight beside the trigger to straight above it. It stops
+ * there because the trigger sits hard in the corner — a slot past vertical would
+ * hang off the edge of the phone.
+ */
+const ARC_FROM = Math.PI, ARC_TO = Math.PI / 2;
+/** Centre-to-centre spacing between buttons on the sweep, in CSS pixels. */
+const ARC_STEP = 52;
+/** The radius the stylesheet draws at spread 1; it shrinks with the screen. */
+const ARC_BASE = 110;
+
+/**
+ * Where a set of action buttons sits around the trigger.
+ *
+ * Each slot is a unit direction from the trigger's centre — the stylesheet
+ * multiplies it by a radius, so the same layout holds when a short screen draws
+ * everything smaller. Screen y grows downwards, so `y` is negative above the
+ * trigger, and the first slot is always the one beside the resting thumb.
+ *
+ * Spacing is what is held constant, not the span: four buttons sit at the same
+ * pitch as five, and a sixth pushes the whole sweep further out rather than
+ * crowding onto its neighbour. `spread` is that push, and the caller hands it
+ * to the stylesheet so the cluster reserves the room it actually uses.
+ */
+export function thumbArc(count: number): { spread: number; slots: { x: number; y: number }[] } {
+  const total = Math.max(1, Math.floor(finite(count)));
+  const span = ARC_FROM - ARC_TO, step = ARC_STEP / ARC_BASE, wanted = (total - 1) * step;
+  const spread = wanted > span ? wanted / span : 1;
+  const gap = total > 1 ? Math.min(step, span / (total - 1)) : 0;
+  const round = (value: number) => Math.round(value * 1e4) / 1e4;
+  const slots = Array.from({ length: total }, (_, index) => {
+    const angle = ARC_FROM - index * gap;
+    return { x: round(Math.cos(angle) * spread), y: round(-Math.sin(angle) * spread) };
+  });
+  return { spread: round(spread), slots };
+}
+
+/**
+ * A prompt with its keyboard hint dropped. The HUD writes "E · Drive Utility 01"
+ * for a keyboard; a thumb has no E to press, so the button says what it does.
+ */
+export function promptLabel(prompt: string | null | undefined): string {
+  return String(prompt ?? '').replace(/^\s*\S+\s*·\s*/, '').trim();
+}
+
+/**
  * Whether this device wants the thumb layer. Media queries describe the primary
  * pointer, so a touch laptop reports `fine` and keeps the mouse layout until it
  * actually sees a touch — which the engine reports back through the HUD.

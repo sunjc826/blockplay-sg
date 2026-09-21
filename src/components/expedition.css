@@ -9,9 +9,11 @@
 .expedition-prompts span{color:#e7c67e;font-size:11px}
 .expedition-route-hud{position:absolute;top:70px;right:20px;display:grid;gap:6px;font-size:10px;text-align:right;color:#e2eadf;pointer-events:none;text-shadow:0 1px 3px #000}
 .expedition-route-hud b{color:#e7c67e;margin-left:8px}
-.expedition-sector{position:absolute;top:70px;left:20px;display:grid;gap:2px;pointer-events:none;text-shadow:0 1px 3px #000}
+.expedition-sector{position:absolute;top:104px;left:20px;display:grid;gap:2px;pointer-events:none;text-shadow:0 1px 3px #000}
 .expedition-sector span{font-size:8px;letter-spacing:.14em;color:#9fb3a6}
 .expedition-sector strong{font-size:13px;letter-spacing:.04em;color:#e7c67e}
+/* The sector now sits between the vitals and the map, so the map starts below it. */
+.expedition-game .fps-minimap{top:142px}
 .expedition-respawn{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#15191a99;gap:10px;z-index:7;pointer-events:none}
 .expedition-respawn span{letter-spacing:.2em;color:#f0ae91;font-size:12px}.expedition-respawn strong{font-size:26px}
 .expedition-intel{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:22px;padding:22px;border-top:1px solid #ffffff18}
@@ -22,4 +24,4 @@
 .expedition-footer button{display:flex;align-items:center;gap:7px;border:0;background:none;color:#d6e1c3;cursor:pointer;font:inherit}
 .expedition-game.is-immersive .expedition-intel,.expedition-game.is-immersive .expedition-footer{display:none}
 .expedition-game.is-immersive .fps-viewport{min-height:0}
-@media(max-width:700px){.expedition-intel{grid-template-columns:1fr;gap:18px;padding:18px}.expedition-network{grid-template-columns:repeat(3,minmax(0,1fr))}.expedition-network>div{padding:8px 5px}.expedition-risk{font-size:8px;padding:6px}.expedition-footer{flex-wrap:wrap}.expedition-route-hud{top:62px;right:12px}.expedition-sector{top:62px;left:12px}.expedition-sector strong{font-size:11px}.expedition-game .fps-viewport{min-height:520px}.expedition-game .fps-top{gap:8px}.expedition-game .fps-badge{font-size:8px}.expedition-game .fps-objective{max-width:52%;font-size:10px}}
+@media(max-width:700px){.expedition-intel{grid-template-columns:1fr;gap:18px;padding:18px}.expedition-network{grid-template-columns:repeat(3,minmax(0,1fr))}.expedition-network>div{padding:8px 5px}.expedition-risk{font-size:8px;padding:6px}.expedition-footer{flex-wrap:wrap}.expedition-route-hud{top:62px;right:12px}.expedition-sector{top:92px;left:12px}.expedition-game .fps-minimap{top:128px}.expedition-sector strong{font-size:11px}.expedition-game .fps-viewport{min-height:520px}.expedition-game .fps-top{gap:8px}.expedition-game .fps-badge{font-size:8px}.expedition-game .fps-objective{max-width:52%;font-size:10px}}

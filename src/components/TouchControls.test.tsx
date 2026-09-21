@@ -10,27 +10,42 @@ const layer = (hud: FpsHud, mode: 'range' | 'arena' | 'expedition' = 'range') =>
 /** One button's opening tag, so assertions do not depend on attribute order. */
 const control = (html: string, action: string) => html.match(new RegExp(`<button[^>]*data-touch-action="${action}"[^>]*>`))?.[0] ?? '';
 
-it('gives every mode two sticks, a trigger and a way back to the menu', () => {
+it('gives every mode one stick, a trigger and a way back to the menu', () => {
   for (const mode of ['range', 'arena', 'expedition'] as const) {
     const html = layer(playing(), mode);
     expect(html).toContain('data-touch-stick="move"');
-    expect(html).toContain('data-touch-stick="look"');
     expect(html).toContain('data-touch-action="fire"');
     expect(html).toContain('data-touch-action="menu"');
-    // The scene has to stay reachable between the controls, or drag-look dies.
+    // The scene is the look surface: a second stick would only take a corner
+    // of it back, and dragging anywhere the controls are not already turns.
+    expect(html).not.toContain('data-touch-stick="look"');
     expect(html).toContain('touch-layer');
   }
 });
 
+it('lays the actions on the thumb\'s sweep, not in a row', () => {
+  const html = layer(playing());
+  const sweep = [...html.matchAll(/data-touch-action="(aim|reload|crouch|jump|weapon)"/g)].map(match => match[1]);
+  expect(sweep).toEqual(['aim', 'reload', 'crouch', 'jump', 'weapon']);
+  // Every one of them is placed by `thumbArc`, so none is left in flow.
+  for (const action of sweep) expect(control(html, action)).toMatch(/--arc-x:-?[\d.]+;--arc-y:-?[\d.]+/);
+  // The trigger keeps the corner; the sweep is measured from its centre.
+  expect(html).toMatch(/--arc-spread:[\d.]+/);
+});
+
 it('offers the expedition its supplies and checkpoints, and the range its vehicles', () => {
-  const expedition = layer(playing({ quickItem: 'Field dressing', quickCount: 2 }), 'expedition');
+  const expedition = layer(playing({ quickItem: 'Field dressing', quickCount: 2, lootPrompt: 'E · rare Combat stim', travelPrompt: 'T · Travel to Raffles Place' }), 'expedition');
   expect(expedition).toContain('data-touch-action="loot"');
   expect(expedition).toContain('data-touch-action="travel"');
   expect(expedition).toContain('data-touch-action="supply"');
   expect(expedition).not.toContain('data-touch-action="vehicle"');
+  // The prompt says what it does; the keyboard hint is no use to a thumb.
+  expect(expedition).toContain('>rare Combat stim<');
+  expect(expedition).not.toContain('E · rare Combat stim');
 
-  const range = layer(playing());
+  const range = layer(playing({ interact: 'E · Drive Utility 01' }));
   expect(range).toContain('data-touch-action="vehicle"');
+  expect(range).toContain('>Drive Utility 01<');
   expect(range).not.toContain('data-touch-action="travel"');
 
   // The arena is infantry only, so it must not offer a car it cannot sync.
@@ -39,10 +54,15 @@ it('offers the expedition its supplies and checkpoints, and the range its vehicl
   expect(arena).not.toContain('data-touch-action="loot"');
 });
 
-it('greys out what the player cannot reach yet', () => {
-  expect(control(layer(playing()), 'vehicle')).toContain('disabled');
-  expect(control(layer(playing({ interact: 'E · Enter Utility 01' })), 'vehicle')).not.toContain('disabled');
-  expect(control(layer(playing({ quickItem: 'Field dressing', quickCount: 0 }), 'expedition'), 'supply')).toContain('disabled');
+it('shows a contextual action only while it can be pressed', () => {
+  // A button that appeared and shifted its neighbours as you walked past a
+  // crate would be worse than none, so these are prompts rather than sweep
+  // slots, and the sweep keeps the same five whatever you are standing next to.
+  expect(layer(playing())).not.toContain('data-touch-action="vehicle"');
+  expect(layer(playing({ interact: 'E · Enter Utility 01' }))).toContain('data-touch-action="vehicle"');
+  expect(layer(playing({ quickItem: 'Field dressing', quickCount: 0 }), 'expedition')).not.toContain('data-touch-action="supply"');
+  expect(layer(playing({ quickItem: 'Field dressing', quickCount: 1 }), 'expedition')).toContain('data-touch-action="supply"');
+  expect(layer(playing({ lootPrompt: '' }), 'expedition')).not.toContain('data-touch-action="loot"');
 });
 
 it('swaps the infantry actions for driving ones once mounted, and locks the trigger', () => {
@@ -52,6 +72,8 @@ it('swaps the infantry actions for driving ones once mounted, and locks the trig
   expect(car).not.toContain('data-touch-action="reload"');
   expect(control(car, 'fire')).toContain('disabled');
   expect(car).toContain('data-mounted="true"');
+  // Getting out is contextual too, and says which vehicle it is leaving.
+  expect(car).toContain('>Leave Utility 01<');
 
   const helicopter = layer(playing({ vehicle: 'helicopter' }));
   expect(helicopter).toContain('data-touch-action="descend"');
@@ -79,10 +101,12 @@ it('keeps the walk/drive districts to a stick each, with a brake only in the car
   expect(driving).toContain('ORBIT');
 });
 
-it('hides the bare drag surfaces from assistive tech, but never the buttons', () => {
+it('hides the bare drag surface from assistive tech, but never the buttons', () => {
   const html = layer(playing());
   expect(html).toContain('aria-hidden="true"');
-  // Every command still has a labelled button here and in the bar below the scene.
-  expect(html).not.toMatch(/aria-hidden="true"[^>]*>\s*<div class="touch-actions"/);
-  expect(html).toContain('<button type="button" class="touch-button"');
+  // The sweep is icon-only, so the name has to live on the element itself.
+  for (const [action, label] of [['aim', 'Aim'], ['reload', 'Reload'], ['jump', 'Jump'], ['weapon', 'Swap'], ['fire', 'Fire'], ['menu', 'Pause']] as const) {
+    expect(control(html, action)).toContain(`aria-label="${label}"`);
+  }
+  expect(html).toContain('class="touch-button"');
 });

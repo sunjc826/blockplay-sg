@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   LOOK_RATE_X, NEUTRAL_STICK, STICK_DEAD_ZONE, STICK_RADIUS, STICK_SPRINT,
-  lookDelta, resolveMovement, stickKeys, stickOffset, stickVector,
+  TOUCH_LOOK_GAIN_X, TOUCH_LOOK_GAIN_Y,
+  dragLook, lookDelta, promptLabel, resolveMovement, stickKeys, stickOffset, stickVector, thumbArc,
 } from './touch-controls';
 import { movementInput } from './fps-rules';
 import { turnFpsLook } from './fps-pointer';
@@ -139,5 +140,101 @@ describe('lookDelta', () => {
   it('caps a long frame so a stall does not throw the view across the map', () => {
     const stick = stickVector(0, 0, STICK_RADIUS, 0);
     expect(lookDelta(stick, 5)).toEqual(lookDelta(stick, 0.1));
+  });
+});
+
+describe('dragLook', () => {
+  it('turns a thumb-sized swipe into a useful part of a turn', () => {
+    // The whole point of the gain: an unscaled drag needs about 1370px for a
+    // half turn, which is three swipes of a portrait phone.
+    const bare = turnFpsLook(0, 0, 200, 0, false);
+    expect(Math.abs(bare.yaw)).toBeLessThan(0.5);
+    const swipe = dragLook(200, 0);
+    const turned = turnFpsLook(0, 0, swipe.dx, swipe.dy, false);
+    expect(Math.abs(turned.yaw)).toBeGreaterThan(1);
+    // Half a landscape screen comes round far enough to face someone behind you.
+    const across = dragLook(422, 0);
+    expect(Math.abs(turnFpsLook(0, 0, across.dx, across.dy, false).yaw)).toBeGreaterThan(2);
+  });
+
+  it('keeps the sticks\' own ratio, so turning never flings the pitch', () => {
+    expect(TOUCH_LOOK_GAIN_Y).toBeLessThan(TOUCH_LOOK_GAIN_X);
+    const square = dragLook(100, 100);
+    expect(Math.abs(square.dy)).toBeLessThan(Math.abs(square.dx));
+    // Aiming down the sights still halves both, inside `turnFpsLook`.
+    const hip = turnFpsLook(0, 0, square.dx, square.dy, false);
+    const aimed = turnFpsLook(0, 0, square.dx, square.dy, true);
+    expect(Math.abs(aimed.yaw)).toBeLessThan(Math.abs(hip.yaw));
+  });
+
+  it('survives a pointer event with nothing useful in it', () => {
+    expect(dragLook(NaN, Infinity)).toEqual({ dx: 0, dy: 0 });
+  });
+});
+
+describe('thumbArc', () => {
+  const reach = (slot: { x: number; y: number }) => Math.hypot(slot.x, slot.y);
+
+  it('starts beside the trigger and sweeps up, never across to its right', () => {
+    const { slots, spread } = thumbArc(5);
+    expect(slots).toHaveLength(5);
+    // The first slot is exactly beside the trigger, and the last exactly above
+    // it: a quarter turn, because the trigger is hard against the screen edge.
+    expect(slots[0]).toEqual({ x: -spread, y: -0 });
+    expect(slots[4].x).toBeCloseTo(0, 3);
+    expect(slots[4].y).toBeCloseTo(-spread, 3);
+    for (const slot of slots) {
+      // Left of the trigger and no lower than it: the rest of the screen is
+      // scene, and anything to its right would be off the edge of the phone.
+      expect(slot.x).toBeLessThanOrEqual(0.001);
+      expect(slot.y).toBeLessThanOrEqual(0.001);
+      expect(reach(slot)).toBeCloseTo(spread, 3);
+    }
+  });
+
+  it('holds the spacing rather than the span as actions are added', () => {
+    const gap = (count: number) => {
+      const { slots } = thumbArc(count);
+      return Math.hypot(slots[1].x - slots[0].x, slots[1].y - slots[0].y);
+    };
+    // Two, four and five buttons sit at the same pitch; the sweep just gets longer.
+    expect(gap(4)).toBeCloseTo(gap(2), 3);
+    expect(gap(5)).toBeCloseTo(gap(2), 2);
+  });
+
+  it('pushes the whole sweep out rather than crowding another button on', () => {
+    // Up to four fit the quarter turn at the radius the stylesheet draws; past
+    // that the sweep moves outwards so the spacing never has to give.
+    expect(thumbArc(3).spread).toBe(1);
+    expect(thumbArc(4).spread).toBe(1);
+    const counts = [4, 5, 6, 7].map(count => thumbArc(count));
+    for (let index = 1; index < counts.length; index++) {
+      expect(counts[index].spread).toBeGreaterThan(counts[index - 1].spread);
+    }
+    const pitch = (slots: { x: number; y: number }[]) => Math.hypot(slots[1].x - slots[0].x, slots[1].y - slots[0].y);
+    for (const { slots } of counts) expect(pitch(slots)).toBeCloseTo(pitch(counts[0].slots), 2);
+  });
+
+  it('gives a lone action the easy slot and never divides by zero', () => {
+    const one = thumbArc(1);
+    expect(one.slots).toHaveLength(1);
+    expect(one.spread).toBe(1);
+    expect(reach(one.slots[0])).toBeCloseTo(1, 5);
+    expect(thumbArc(0).slots).toHaveLength(1);
+    expect(thumbArc(Number.NaN).slots).toHaveLength(1);
+  });
+});
+
+describe('promptLabel', () => {
+  it('drops the key a thumb cannot press', () => {
+    expect(promptLabel('E · Drive Utility 01')).toBe('Drive Utility 01');
+    expect(promptLabel('T · Travel to Raffles Place')).toBe('Travel to Raffles Place');
+    expect(promptLabel('E · rare Combat stim')).toBe('rare Combat stim');
+  });
+
+  it('leaves a prompt that never had one alone', () => {
+    expect(promptLabel('Pick up')).toBe('Pick up');
+    expect(promptLabel('')).toBe('');
+    expect(promptLabel(null)).toBe('');
   });
 });

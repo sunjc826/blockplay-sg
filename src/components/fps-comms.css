@@ -12,6 +12,11 @@
    full width — it covered the start / pause card and the button on it. The
    menu and the log swap, the way the toolbar and the hint already do. */
 .fps-game.is-immersive:not([data-phase=playing])>.fps-comms{display:none}
+/* A landscape phone has around 350px of height to spend on badges, vitals,
+   a minimap, the ammo block and two control clusters. The scrollable log is
+   the one thing there with nowhere left to go, and `.fps-radio` already puts
+   the line that just arrived across the middle of the screen. */
+@media(max-height:560px){.fps-game[data-touch=on].is-immersive>.fps-comms{display:none}}
 .fps-game.is-immersive>.fps-comms .fps-comms-entry{display:block}.fps-game.is-immersive>.fps-comms .fps-comms-entry time,.fps-game.is-immersive>.fps-comms .fps-comms-entry b{margin-right:6px}
 .fps-game.is-immersive>.fps-radio-voice{display:none}
 @media(max-width:720px){.fps-comms>header{gap:6px;padding:6px}.fps-comms button{padding:3px 5px}.fps-comms-entry{display:block;font-size:10px}.fps-comms-entry time,.fps-comms-entry b{margin-right:6px}.fps-game.is-immersive>.fps-comms{width:calc(100% - 24px - var(--safe-left) - var(--safe-right));left:calc(12px + var(--safe-left));bottom:calc(235px + var(--safe-bottom))}.fps-game.is-immersive>.fps-comms .fps-comms-entries{height:56px}.fps-game.is-immersive>.fps-comms.is-expanded .fps-comms-entries{height:150px}}

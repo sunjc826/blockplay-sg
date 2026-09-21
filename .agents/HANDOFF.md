@@ -1,5 +1,62 @@
 # Blockplay: portable agent handoff
 
+**Latest: the thumb layer is laid out like a phone shooter (2026-09-21).** The
+repo owner's note was that the buttons were "just laid out in a row, not very
+friendly", and that a look stick makes no sense in an FPS when dragging the
+right of the screen should look.
+
+**The look stick is gone.** The engine already had drag-to-look on the canvas
+(`pointerdown`/`pointermove` set `drag` for touch and pen only), and
+`.touch-layer` is `pointer-events:none`, so the scene was always a look surface
+wherever a control was not — the stick was taking a corner of the screen to do
+what the rest of it already did. What it was missing is gain: `turnFpsLook`
+reads .0023 rad/px, so a bare drag needs about 1370px for a half turn, three
+swipes of a portrait phone. `dragLook` (in `touch-controls.ts`, tested) scales
+both touch paths — the scene drag and the trigger's own slide — by 2.6, with
+the vertical gain holding the sticks' X:Y ratio so a wandering thumb does not
+fling the pitch. `setLookAxis` and the per-frame `lookStick` branch in the
+animation loop are deleted; nothing else called them. The walk/drive districts
+keep their two sticks: ORBIT on a chase camera is a different gesture, and they
+were not what the note was about.
+
+**The actions moved onto the thumb's sweep.** `thumbArc` returns a unit
+direction per slot and a `spread`; the stylesheet supplies the radius, so one
+arrangement redraws smaller on a short screen without new maths. Two decisions
+worth keeping:
+
+- **The sweep is a quarter turn, no more.** The trigger sits hard in the corner,
+  so a slot past vertical hangs off the edge of the phone. A unit test pins
+  that: every slot is left of and above the trigger.
+- **Spacing is held constant, not the span.** Four buttons sit at the same pitch
+  as five; a sixth pushes the whole sweep outwards instead of landing on its
+  neighbour. That is what `spread` is, and why the cluster's reserved box —
+  and the `--touch-inset` the HUD is lifted by — is computed from it.
+
+**Contextual actions became a prompt** in the middle of the screen, shown only
+while they can be pressed, saying what they do rather than which key a keyboard
+would use (`promptLabel` drops the "E · "). They are not sweep slots because a
+button that appeared as you walked past a crate would move its neighbours under
+your thumb. The read-only HUD line they replace is hidden while the layer is
+up, which is what the new `data-pilot` attribute on the root is for: with the
+AI playing there is no layer, so the line has to stay.
+
+**What a landscape phone gives up.** 844x390 cannot hold badges, vitals, a
+sector label, a minimap, an ammo block, a callout and two clusters. The
+scrollable comms log stands aside there (`.fps-radio` already prints the line
+that just arrived across the middle), as does the expedition's sector label,
+and the mouse-capture chip goes on every touchscreen — it answers a question a
+phone does not ask, and it was widening the vitals row into the callout.
+Portrait keeps the log and stacks the sector between the vitals and the map;
+that sector/vitals collision was there on the desktop too and is fixed at
+source in `expedition.css`.
+
+591 unit tests (+10), typecheck and build pass. `pnpm test:touch` was rewritten
+around the change — it now asserts the five infantry actions are equidistant
+from the trigger and not in one row, and that dragging the bare scene turns far
+enough — and it, `test:fullscreen`, `test:fullscreen:mobile` and `test:fps` all
+pass. `pnpm test:pointer` fails here on the unmodified tree too (pointer lock
+never engages in this container), so it is not from this work.
+
 **Latest: fullscreen on a phone is actually fullscreen (2026-09-21).** Two
 things the repo owner hit on a phone, both in immersive FPS play.
 

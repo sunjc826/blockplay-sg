@@ -60,7 +60,17 @@ try {
   await wait(phase('playing'));
   assert.equal(await evaluate('window.captureRequests'), 0, 'Touch play never requests pointer capture');
   assert.equal(await evaluate(`document.querySelectorAll('.touch-layer').length`), 1, 'The thumb layer is drawn over the scene');
-  assert.equal(await evaluate(`document.querySelectorAll('[data-touch-stick]').length`), 2, 'Both sticks are present');
+  assert.equal(await evaluate(`document.querySelectorAll('[data-touch-stick]').length`), 1, 'One stick: the scene itself is the look surface');
+  assert.equal(await evaluate(`document.querySelectorAll('[data-touch-stick=look]').length`), 0, 'The look stick is gone');
+  // The actions sit on the thumb's sweep, not in a row: every one of them is
+  // placed from the trigger's centre, and none shares the trigger's own row.
+  const sweep = await evaluate(`[...document.querySelectorAll('.touch-combat .touch-button')].map(b=>{const r=b.getBoundingClientRect();return {action:b.dataset.touchAction,x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})`);
+  assert.deepEqual(sweep.map(item => item.action), ['aim', 'reload', 'crouch', 'jump', 'weapon'], `The infantry sweep is the five that matter (${JSON.stringify(sweep)})`);
+  const trigger = await evaluate(`(()=>{const r=document.querySelector('[data-touch-action=fire]').getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()`);
+  const radius = sweep.map(item => Math.round(Math.hypot(item.x - trigger.x, item.y - trigger.y)));
+  assert(Math.max(...radius) - Math.min(...radius) <= 2, `Every action is the same reach from the trigger (${JSON.stringify(radius)})`);
+  assert(new Set(sweep.map(item => item.y)).size > 1, 'The actions are on an arc, not laid out in one row');
+  for (const item of sweep) assert(item.x <= trigger.x + 2 && item.y <= trigger.y + 2, `${item.action} stays left of and above the trigger`);
   await screenshot('range-touch-layer');
 
   // Moving: a pushed stick walks, and letting go stops.
@@ -80,13 +90,19 @@ try {
   const full = travelled(beforeFull, await evaluate(where));
   assert(half > 0.2 && half < full * 0.75, `A half-pushed stick walks slower than a full one (${JSON.stringify({ half, full })})`);
 
-  // Looking: the right stick turns the camera, and the minimap heading follows.
+  // Looking: a drag on the bare scene turns the camera, which is the whole
+  // reason the right thumb no longer spends a corner on a stick.
   const beforeLook = await evaluate(where);
-  await push(stick('look'), 60, 0, 500);
+  await push(`document.querySelector('.fps-viewport canvas')`, 120, 0, 120);
   const afterLook = await evaluate(where);
-  assert(afterLook.yaw < beforeLook.yaw - 0.15, `The look stick turns right (${JSON.stringify({ beforeLook, afterLook })})`);
+  assert(afterLook.yaw < beforeLook.yaw - 0.3, `Dragging the scene turns right (${JSON.stringify({ beforeLook, afterLook })})`);
   await delay(300);
   assert(Math.abs((await evaluate(where)).yaw - afterLook.yaw) < 0.01, 'Lifting the thumb stops the turn');
+  // A thumb-sized swipe has to be worth a real part of a turn, or looking round
+  // takes three of them.
+  const beforeSwipe = await evaluate(where);
+  await push(`document.querySelector('.fps-viewport canvas')`, -200, 0, 120);
+  assert(Math.abs((await evaluate(where)).yaw - beforeSwipe.yaw) > 0.9, 'A 200px swipe covers a useful part of a turn');
 
   // The trigger fires, and the same thumb can still correct the aim mid-burst.
   const ammo = `Number(document.querySelector('.fps-ammo strong')?.firstChild.textContent)`;

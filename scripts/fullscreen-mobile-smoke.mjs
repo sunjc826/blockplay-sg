@@ -42,7 +42,7 @@ const layout = () => evaluate(LAYOUT);
 /** Stand in for env(safe-area-inset-*), which CDP cannot emulate. */
 const notch = insets => evaluate(`(()=>{const g=document.querySelector('.fps-game');${Object.entries(insets).map(([side, px]) => `g.style.setProperty('--safe-${side}','${px}px');`).join('')}})()`);
 
-async function orientation(label, width, height, insets) {
+async function orientation(label, width, height, insets, { commsWhilePlaying } = { commsWhilePlaying: true }) {
   await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 2, mobile: true });
   await send('Page.reload'); await delay(900);
   await wait(`document.querySelectorAll('.mode-card').length>2`);
@@ -74,7 +74,9 @@ async function orientation(label, width, height, insets) {
   const playing = await layout();
   assert.deepEqual(playing.flow, [], `${label}: play leaves nothing in flow either`);
   assert.deepEqual(playing.canvas, safe, `${label}: the scene still clears the cutout while playing`);
-  assert(playing.commsShown, `${label}: the comms log returns once the menu closes`);
+  assert.equal(playing.commsShown, commsWhilePlaying, commsWhilePlaying
+    ? `${label}: the comms log returns once the menu closes`
+    : `${label}: a landscape phone has no room for the log, and the callout carries the line instead`);
   // The thumb layer insets itself; inside the padded shell that would double up.
   assert(playing.stick.left >= safe.left && playing.stick.bottom <= safe.bottom,
     `${label}: the move stick is inside the safe area (${JSON.stringify(playing.stick)})`);
@@ -89,7 +91,7 @@ try {
   // A notched phone upright, then the same phone turned: the cutout moves to
   // the sides and the home indicator shrinks.
   await orientation('portrait', 390, 844, { top: 47, right: 0, bottom: 34, left: 0 });
-  await orientation('landscape', 844, 390, { top: 0, right: 47, bottom: 21, left: 47 });
+  await orientation('landscape', 844, 390, { top: 0, right: 47, bottom: 21, left: 47 }, { commsWhilePlaying: false });
   assert.equal(mapRequests, 0);
   assert.deepEqual(errors, []);
   console.log('PASS: immersive phone play — the scene owns the screen, no flow bar survives fullscreen, the comms log yields to the menu, and the HUD, toolbar and thumb sticks stay inside the safe area in both orientations.');

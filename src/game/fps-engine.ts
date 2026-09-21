@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook } from './fps-pointer';
-import { lookDelta, resolveMovement, stickKeys, type StickVector } from './touch-controls';
+import { dragLook, resolveMovement, stickKeys, type StickVector } from './touch-controls';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { advanceWeapon, beginReload, createLoadout, findTrait, fireWeapon, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponState } from './fps-rules';
 import { firstVisibleHit, visibleHits } from './fps-raycast';
@@ -170,9 +170,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let lastPointerType = 'mouse', inputMode: 'mouse' | 'touch' = 'mouse';
   let lastTime = performance.now(), frame = 0, lastReport = 0, wasLocked = false;
   let drag: { id: number; x: number; y: number } | null = null;
-  // On-screen thumb sticks. They sit beside the keyboard rather than replacing
-  // it, so a tablet with a keyboard attached can use whichever is to hand.
-  let moveStick: StickVector | null = null, lookStick: StickVector | null = null;
+  // The on-screen movement stick. It sits beside the keyboard rather than
+  // replacing it, so a tablet with a keyboard attached can use whichever is to
+  // hand; looking is a drag on the scene, which `pointermove` below handles.
+  let moveStick: StickVector | null = null;
   // Reused so translating a stick into vehicle keys allocates nothing per frame.
   const mountedKeys = new Set<string>();
   let motor: OscillatorNode | null = null, motorGain: GainNode | null = null;
@@ -189,7 +190,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       ],
     });
   };
-  const clearInput = () => { keys.clear(); trigger = false; ads = false; touchAim = false; drag = null; moveStick = null; lookStick = null; };
+  const clearInput = () => { keys.clear(); trigger = false; ads = false; touchAim = false; drag = null; moveStick = null; };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -419,16 +420,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    */
   function lookBy(dx: number, dy: number) {
     if (pilotEnabled || hud.phase !== 'playing') return;
-    look(dx, dy);
-  }
-  /**
-   * Analog look from the right thumb stick. The rate is applied per frame in the
-   * animation loop rather than per pointer event, so a stick held at one angle
-   * turns at the same speed whatever rate the touchscreen reports at.
-   */
-  function setLookAxis(stick: StickVector | null) {
-    if (hud.phase !== 'playing' || pilotEnabled) { lookStick = null; return; }
-    lookStick = stick && stick.magnitude > 0 ? stick : null;
+    const travel = dragLook(dx, dy);
+    look(travel.dx, travel.dy);
   }
   function toggleAim() {
     if (pilotEnabled || hud.phase !== 'playing' || vehicles.active || hud.arenaSelf?.alive === false || loadout[hud.weapon].reloadRemaining > 0) return;
@@ -490,7 +483,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   };
   const pointermove = (event: PointerEvent) => {
     if (document.pointerLockElement === canvas || !drag || event.pointerId !== drag.id) return;
-    look(event.clientX - drag.x, event.clientY - drag.y); drag.x = event.clientX; drag.y = event.clientY;
+    // The scene is the look surface on a touchscreen: a drag anywhere the thumb
+    // layer is not turns the camera, at the gain a thumb needs rather than a mouse's.
+    const travel = dragLook(event.clientX - drag.x, event.clientY - drag.y);
+    look(travel.dx, travel.dy); drag.x = event.clientX; drag.y = event.clientY;
   };
   const pointerup = (event: PointerEvent) => {
     if (drag?.id === event.pointerId) drag = null;
@@ -906,7 +902,6 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       calloutTime = Math.max(0, calloutTime - realDt); if (!calloutTime) hud.callout = '';
       if (!options.arena) hud.elapsed += realDt;
       if (!options.arena) loadout.forEach((state, i) => advanceWeapon(state, i, realDt, specs));
-      if (!pilotEnabled && lookStick) { const turn = lookDelta(lookStick, dt); look(turn.dx, turn.dy); }
       if (vehicles.mounted) {
         yaw += vehicles.step(drivingKeys(), dt); position = { x: vehicles.mounted.x, z: vehicles.mounted.z };
       } else {
@@ -999,7 +994,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   });
 
   return {
-    start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, switchWeapon, useQuickItem, jump, setInput, setMoveAxis, setLookAxis, lookBy, interactVehicle, interactLoot, travelZone, configureDebug, refillHealth,
+    start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, switchWeapon, useQuickItem, jump, setInput, setMoveAxis, lookBy, interactVehicle, interactLoot, travelZone, configureDebug, refillHealth,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
     toggleAim,
