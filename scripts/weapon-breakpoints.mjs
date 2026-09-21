@@ -50,7 +50,8 @@ for (const family of [0, 1]) {
   console.log('─'.repeat(96));
   for (const row of rows.filter(r => r.family === family)) {
     const band = row.band ? `full to ${row.band.near}m, ${Math.round(row.band.floor * 100)}% floor at ${row.band.far}m` : 'no falloff';
-    console.log(`${pad(row.name, 22)} ${pad(row.tier, 7)} LV${pad(row.level, 3)} ${pad(row.price, 8)} ${pad(row.precision + 'x head', 10)} ${band}`);
+    const gate = row.tokensToUnlock ? `LV${row.level} (+${row.tokensToUnlock}TK)` : `LV${row.level}`;
+    console.log(`${pad(row.name, 22)} ${pad(row.tier, 7)} ${pad(gate, 14)} ${pad(row.price, 8)} ${pad(row.precision + 'x head', 10)} ${band}`);
     console.log(`  ${pad('range', 9)}${ranges.map(r => pad(r + 'm', 9)).join('')}`);
     console.log(`  ${pad('body dmg', 9)}${row.ranges.map(r => pad(r.body, 9)).join('')}`);
     for (const [p, foe] of opponents.entries())

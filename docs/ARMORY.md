@@ -1,6 +1,6 @@
 # Field exchange, progression and FPS equipment
 
-The Armory sidebar offers 31 permanent unlocks and four repeatable supplies: eight weapon variants across two platforms, five cosmetic finishes, four attachments, three carrying rigs, four insert choices and five vehicle wraps. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase.
+The Armory sidebar offers 31 permanent unlocks, four repeatable supplies and a token-priced level skip: eight weapon variants across two platforms, five cosmetic finishes, four attachments, three carrying rigs, four insert choices and five vehicle wraps. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase.
 
 ## Play loop
 
@@ -8,7 +8,7 @@ The Armory sidebar offers 31 permanent unlocks and four repeatable supplies: eig
 2. Completion earns `250 + round(accuracy × 100) + max(0, 100 − floor(seconds))` credits. Accuracy counts successful damage hits divided by shots, rather than kills divided by shots. Counter-fire adds 100 credits.
 3. Completion also adds `200 + round(accuracy × 100)` XP, plus 100 XP in counter-fire. A fully cleared practice drill earns 400–500 XP in total, including its eight eliminations.
 4. Level 2 begins at 300 XP, level 3 at 800, level 4 at 1,500 and level 5 at 2,400. The threshold for level `L` is `100 × (L − 1) × (L + 1)`, capped at level 50. Rank titles are Recruit, Operator, Specialist, Veteran, Elite and Legend.
-5. Reaching a level unlocks purchasing, not ownership. Credits/tokens are still required. Tokens do not bypass level requirements. Previewing any item is free, even when locked. Buying and equipping are separate actions.
+5. Reaching a level unlocks purchasing, not ownership. Credits/tokens are still required. A level can be earned in the range or bought with tokens (below), but neither discounts the item behind it. Previewing any item is free, even when locked. Buying and equipping are separate actions.
 
 | Level | Newly purchasable equipment |
 | --- | --- |
@@ -22,6 +22,47 @@ The Armory sidebar offers 31 permanent unlocks and four repeatable supplies: eig
 | 8 | Fragmenting rounds |
 
 No additional item gates currently follow level 7; ranks and XP continue to level 50. Purchases, XP and equipped items persist under `blockplay.armory.v1` in local storage. Old saves without XP migrate to zero XP while retaining valid owned items. Malformed saves fall back to issued equipment; malformed fields and unknown item IDs are sanitized. Existing ownership remains usable. Clearing browser site data resets the profile.
+
+## Buying levels
+
+Levels are for sale as well as earnable. The control sits in the shop's
+progression strip and buys the next level only — there is no jump to an
+arbitrary one, so the climb is visible a step at a time.
+
+**Tokens buy XP at one flat rate, and a level's price is the gap it closes**
+(`XP_PER_TOKEN = 25`, floored at `MIN_SKIP_PRICE = 5`). Nothing is written
+beside a level number, which gives two properties a price table would not:
+
+- **Earning discounts the skip.** Standing halfway up a level halves what the
+  rest of it costs, so playing and paying combine rather than competing. The
+  strip's price falls as you shoot.
+- **Higher levels cost more, without a second rule.** The gap from level `L` to
+  `L + 1` is `100 × (2L + 1)`, so the price rises with it.
+
+A bought level lands exactly on its threshold and opens at zero progress: you
+are charged for the XP you were missing and credited with precisely that.
+
+| Skip | XP gap | Price |
+| --- | ---: | ---: |
+| 1 → 2 | 300 | 12 TK |
+| 2 → 3 | 500 | 20 TK |
+| 3 → 4 | 700 | 28 TK |
+| 4 → 5 | 900 | 36 TK |
+| 7 → 8 | 1,500 | 60 TK |
+| 1 → 8, from zero | 6,300 | 252 TK |
+
+Level 8 is the last equipment gate, so 252 TK buys the right to purchase
+everything in the catalog — less than the 340 TK Fragmenting rounds that gate
+holds back, and less than the 360 TK Bastion behind level 7 (192 TK). That
+ordering is deliberate: levels are a shortcut past the climb, not the sink.
+
+Each item still costs its own price, a locked item's dossier names both the
+XP and the token climb in front of it (`skipCostFrom`), and the breakpoint
+report prints the same figure beside a tier's gate (`LV7 (+192TK)`), so the
+true cost of reaching a weapon is legible rather than implied.
+
+Level 50 is the ceiling and the control disappears there. XP bought this way is
+XP like any other: it advances rank titles and persists in the same profile.
 
 ## Weapon differences
 

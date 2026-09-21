@@ -199,12 +199,14 @@ host-side; feel-only traits may stay client-side. Last, and alone.
 *Files:* `arena-rules.ts`, `arena-runtime.ts`, `arena-roles.ts`.
 *Risk:* high. *Feelable:* yes, in LAN play only.
 
-## Open question for the owner
+## Answered: pay to skip the grind
 
-`purchase()` enforces `progression(profile.xp).level < requiredLevel`, and
-ARMORY.md states tokens do not bypass levels. Pay-to-skip-the-grind is standard
-for the genre and this is a one-condition change (a token surcharge to unlock
-early). The gate looks deliberate, so it stays until the owner decides.
+The owner asked for it, and it landed as `purchaseLevel()` — but not as the
+token surcharge proposed here. A surcharge would have unlocked one item early
+and left `purchase()`'s condition to grow a second branch; buying the *level*
+instead leaves that condition exactly as it was, and the gate keeps meaning one
+thing. Tokens buy XP at a flat rate, so a level costs the gap it closes and
+earning discounts it. See "Buying levels" in ARMORY.md.
 
 ## Sequencing summary
 

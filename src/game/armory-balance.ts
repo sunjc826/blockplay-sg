@@ -2,7 +2,7 @@ import { ARMORY_CATALOG, itemById, type ShopItem } from './armory-catalog';
 import { applyArmorDamage, createProfile, equip, resolveLoadout } from './armory-state';
 import { listArenaRoles } from './arena-roles';
 import { findTrait, hitDamage, type WeaponSpec } from './fps-rules';
-import { xpForLevel } from './progression';
+import { skipCostToLevel, xpForLevel } from './progression';
 
 /**
  * Breakpoint analysis for the weapon ladder. Damage alone does not tell you
@@ -68,6 +68,8 @@ export interface RangeRow { range: number; body: number; head: number; stk: numb
 export interface BreakpointRow {
   id: string; name: string; family: number; tier: ShopItem['tier']; level: number;
   price: string; xpToUnlock: number; interval: number;
+  /** Tokens to buy the levels up to this tier's gate, earning no XP at all. */
+  tokensToUnlock: number;
   band: { near: number; far: number; floor: number } | null; precision: number;
   ranges: RangeRow[];
   /** The tier this one is measured against, or null for a family's baseline. */
@@ -92,7 +94,7 @@ export function analyseBreakpoints(opponents: readonly Opponent[] = DRILL_OPPONE
       return {
         id: item.id, name: item.name, family: item.family!, tier: item.tier, level,
         price: `${item.price}${item.currency === 'tokens' ? 'TK' : 'CR'}`,
-        xpToUnlock: xpForLevel(level), interval: weapon.interval,
+        xpToUnlock: xpForLevel(level), tokensToUnlock: skipCostToLevel(level), interval: weapon.interval,
         band: falloff ? { near: falloff.near, far: falloff.far, floor: falloff.minScale } : null,
         precision: precision?.multiplier ?? 1,
         ranges: ranges.map(range => ({

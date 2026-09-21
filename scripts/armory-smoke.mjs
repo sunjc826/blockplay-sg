@@ -42,6 +42,16 @@ try {
   await click(button('+250 demo tokens'));
   assert(await evaluate(`${action}.disabled`), 'Token top-ups never bypass levels');
   await evaluate(`document.querySelector('.armory').scrollIntoView({block:'start'})`); await screenshot('recruit-lock');
+  // Levels are purchasable as well, at the price of the XP still owed. Two skips
+  // off a fresh profile reach the Vanguard's gate, which the tokens alone could not.
+  const levelBuy = `document.querySelector('[data-testid="buy-level"]')`;
+  assert(await evaluate(`${levelBuy}.textContent.includes('Skip to level 2') && ${levelBuy}.textContent.includes('12 TK')`), 'The next level is offered at the price of its gap');
+  await click(levelBuy); await wait(`${wallet}.xp===300`);
+  assert(await evaluate(`${levelBuy}.textContent.includes('Skip to level 3') && ${levelBuy}.textContent.includes('20 TK')`), 'A higher level costs more, because its gap is wider');
+  await click(levelBuy); await wait(`${wallet}.xp===800`);
+  assert.equal(await evaluate(`${wallet}.tokens`), 518, 'Each skip charges only the gap it closed');
+  assert(await evaluate(`!${action}.disabled && ${action}.textContent.includes('Unlock for 240')`), 'A bought level opens the gate at the item\'s own price');
+  await evaluate(`document.querySelector('.armory').scrollIntoView({block:'start'})`); await screenshot('bought-levels');
   // Saved veteran fixture supplies XP only. All inventory changes below use real shop controls.
   await evaluate(`(()=>{const p=${wallet};p.xp=800;p.tokens=300;localStorage.setItem('blockplay.armory.v1',JSON.stringify(p));location.reload()})()`);
   await delay(1000); await wait(`!!${fpsMode}`); await openShop();
@@ -91,6 +101,6 @@ try {
   await click(button('Open armory · change equipment →')); await wait(`!!document.querySelector('.armory')`);
   assert.equal(await evaluate('document.querySelectorAll("canvas").length'), 1, 'Leaving range removes its renderer');
   assert.equal(mapRequests, 0); assert.deepEqual(errors, []);
-  console.log('PASS: level locks, demo wallet, purchases, equip, insufficient funds, skins, armor previews, persistence, mobile layout, gameplay stats, strict pointer capture / denial / Escape, counter-fire absorption and defeat, reset, cleanup.');
+  console.log('PASS: level locks, demo wallet, bought levels, purchases, equip, insufficient funds, skins, armor previews, persistence, mobile layout, gameplay stats, strict pointer capture / denial / Escape, counter-fire absorption and defeat, reset, cleanup.');
 } catch(error) { await screenshot('shop-failure'); throw error; }
 finally { ws.close(); await fetch(`${chrome}/json/close/${tab.id}`); }

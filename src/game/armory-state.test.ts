@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { aimSpeedScale, applyArmorDamage, claimElimination, claimReward, collectTraits, consumeItem, isEquipped, jumpScale, slotIsFitted, createProfile, equip, previewLoadout, purchase, resolveLoadout, restoreProfile, unequipAttachment, type ArmoryProfile, type ExerciseReward } from './armory-state';
+import { aimSpeedScale, applyArmorDamage, claimElimination, claimReward, collectTraits, consumeItem, isEquipped, jumpScale, slotIsFitted, createProfile, equip, previewLoadout, purchase, purchaseLevel, resolveLoadout, restoreProfile, unequipAttachment, type ArmoryProfile, type ExerciseReward } from './armory-state';
 import { ARMORY_CATALOG, CONSUMABLE_LIMIT, itemById } from './armory-catalog';
-import { progression, registerElimination, xpForLevel } from './progression';
+import { levelSkip, MAX_LEVEL, MIN_SKIP_PRICE, progression, registerElimination, skipCostFrom, skipCostToLevel, xpForLevel } from './progression';
 import { advanceWeapon, beginReload, createLoadout, findTrait, FPS_WEAPONS, hitDamage, HIP_FOV, type WeaponTrait } from './fps-rules';
 import { HITSCAN } from './fps-ballistics';
 const veteran = () => ({ ...createProfile(), xp: 5000, credits: 10000, tokens: 1000 });
@@ -30,6 +30,44 @@ describe('persistent armory economy', () => {
     const base = createProfile(), killed = claimElimination(base, 'round-1:kill:1'); expect(killed.xp).toBe(25); expect(claimElimination(killed, 'round-1:kill:1')).toBe(killed);
     const rewarded = claimReward(killed, result); expect(rewarded.credits).toBeGreaterThan(base.credits); expect(rewarded.xp).toBeGreaterThan(300); expect(claimReward(rewarded, result)).toBe(rewarded);
     expect(claimReward(base, { ...result, hits: 7 })).toBe(base); expect(claimReward(base, { ...result, shots: Infinity })).toBe(base); expect(claimReward(base, { ...result, landed: 31 })).toBe(base);
+  });
+});
+describe('tokens buy levels', () => {
+  it('charges the gap and lands exactly on the threshold', () => {
+    const base = createProfile(), { profile } = purchaseLevel(base);
+    expect(levelSkip(base.xp).price).toBe(12);
+    expect(profile.tokens).toBe(base.tokens - 12); expect(profile.xp).toBe(xpForLevel(2)); expect(progression(profile.xp).level).toBe(2);
+    // A bought level opens at zero progress, and the input is untouched.
+    expect(progression(profile.xp).progress).toBe(0); expect(base.xp).toBe(0);
+  });
+  it('prices the XP that is left, so earning discounts the skip', () => {
+    expect(levelSkip(0).price).toBe(12); expect(levelSkip(150).price).toBe(6);
+    // The floor stops the last few XP of a level rounding down to free.
+    expect(levelSkip(xpForLevel(2) - 1).price).toBe(MIN_SKIP_PRICE);
+    expect(purchaseLevel({ ...createProfile(), xp: 150 }).profile.xp).toBe(xpForLevel(2));
+  });
+  it('costs more the higher the level, because the gaps themselves grow', () => {
+    expect([1, 2, 3, 4, 5].map(level => levelSkip(xpForLevel(level)).price)).toEqual([12, 20, 28, 36, 44]);
+    expect(skipCostToLevel(1)).toBe(0); expect(skipCostToLevel(3)).toBe(32); expect(skipCostToLevel(8)).toBe(252);
+    // The climb in front of a player is discounted by the XP already banked.
+    expect(skipCostFrom(0, 3)).toBe(32); expect(skipCostFrom(150, 3)).toBe(26); expect(skipCostFrom(xpForLevel(3), 3)).toBe(0);
+  });
+  it('refuses a short wallet and the level ceiling without touching the profile', () => {
+    const poor = { ...createProfile(), tokens: 11 }; expect(purchaseLevel(poor).profile).toBe(poor);
+    const capped = { ...createProfile(), xp: xpForLevel(MAX_LEVEL) };
+    expect(levelSkip(capped.xp).atMax).toBe(true); expect(purchaseLevel(capped).profile).toBe(capped);
+  });
+  it('opens a gate the same wallet could not reach before, without discounting the item', () => {
+    const base = { ...createProfile(), tokens: 400 };
+    expect(purchase(base, 'sar-vanguard').profile).toBe(base);
+    const climbed = purchaseLevel(purchaseLevel(base).profile).profile;
+    expect(progression(climbed.xp).level).toBe(3); expect(climbed.tokens).toBe(368);
+    const bought = purchase(climbed, 'sar-vanguard').profile;
+    expect(bought.owned).toContain('sar-vanguard'); expect(bought.tokens).toBe(128);
+  });
+  it('persists a bought level through a save and reload', () => {
+    const climbed = purchaseLevel(createProfile()).profile;
+    expect(restoreProfile(JSON.stringify(climbed))).toEqual(climbed);
   });
 });
 describe('equipment reaches gameplay', () => {

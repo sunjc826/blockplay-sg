@@ -1,6 +1,6 @@
 import { ARMORY_CATALOG, CONSUMABLE_LIMIT, issuedItems, itemById, type AttachmentSlot, type FittedPart, type InternalPart, type ShopItem } from './armory-catalog';
 import type { VehicleKind } from './vehicle-rules';
-import { progression, ELIMINATION_XP } from './progression';
+import { progression, levelSkip, xpForLevel, ELIMINATION_XP, MAX_LEVEL } from './progression';
 import { FPS_WEAPONS, type WeaponSpec, type WeaponTrait } from './fps-rules';
 export const ATTACHMENT_SLOTS = ['optic', 'magazine', 'handling'] as const;
 /** Hardware a variant already carries, by the slot it permanently fills. */
@@ -59,6 +59,22 @@ export function purchase(profile: ArmoryProfile, id: string) {
       message: `${item.name} added to your supplies.` };
   }
   return { profile: { ...profile, [item.currency]: profile[item.currency] - item.price, owned: [...profile.owned, id] }, message: `${item.name} unlocked permanently.` };
+}
+/**
+ * Buys the XP standing between a profile and its next level. The wallet pays
+ * for exactly the gap `levelSkip` priced and the XP lands on the threshold, so
+ * a bought level opens at zero progress rather than carrying a remainder
+ * nobody paid for, and buying twice costs what the two gaps cost separately.
+ *
+ * A level still only unlocks the right to buy: the item's own price is
+ * untouched, so this shortens the climb to a gate rather than opening it.
+ */
+export function purchaseLevel(profile: ArmoryProfile) {
+  const skip = levelSkip(profile.xp);
+  if (skip.atMax) return { profile, message: `Level ${MAX_LEVEL} is the ceiling.` };
+  if (profile.tokens < skip.price) return { profile, message: `Not enough tokens. Level ${skip.next} costs ${skip.price}.` };
+  return { profile: { ...profile, tokens: profile.tokens - skip.price, xp: xpForLevel(skip.next) },
+    message: `Level ${skip.next} reached. Its equipment is purchasable now.` };
 }
 export function equip(profile: ArmoryProfile, id: string, family: number, vehicle: VehicleKind = 'car'): ArmoryProfile {
   const item = itemById(id);

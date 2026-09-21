@@ -1,5 +1,43 @@
 # Blockplay: portable agent handoff
 
+**Latest: levels are for sale, priced by the gap they close (2026-09-21).** The
+roadmap's open question — tokens do not bypass level gates, should they? — is
+answered. They still don't: `purchase()`'s condition is untouched and an item
+behind level 8 costs exactly what it always did. What tokens buy now is the
+*level*, through `purchaseLevel()` and a control in the shop's progression
+strip.
+
+**The price is not written beside a level number, it is derived from the XP
+still owed** (`levelSkip` in `progression.ts`: 25 XP per token, floored at 5).
+That one decision is where the design is. Earning and paying stop competing —
+standing halfway up a level halves what the rest of it costs, and the strip's
+price visibly falls as you shoot. And a level costs more the higher it is for
+free, because the gaps themselves grow (`100 x (2L + 1)` from L to L+1), so
+there is no second rule to keep in step with the first. A bought level lands
+exactly on its threshold and opens at zero progress: you are charged for the XP
+you were missing and credited with precisely that, so buying two levels costs
+what the two gaps cost separately.
+
+**The thing worth knowing before extending this:** a level gate is now a price,
+so anywhere that states one has to state both halves or it lies. Three places
+do. The locked-item dossier used to read "Tokens do not bypass levels" and now
+names the XP *and* the token climb in front of that item, discounted by XP
+already banked (`skipCostFrom(xp, level)`). The breakpoint report prints the
+same figure beside a tier's gate (`LV7 (+192TK)`), because what a premium
+weapon costs to reach is no longer just its own price. ARMORY.md's play loop
+said the same thing the dossier did and says the truth now. Adding a gated item
+means checking those three, the way a new district means checking the three
+prose files.
+
+The anchor, if the rate is ever retuned: 252 TK buys every gate in the catalog
+(level 8 is the last), which is less than the 340 TK item that gate holds back.
+Levels are meant to be a shortcut past the climb, not the sink — invert that
+and the gear stops being the purchase.
+
+635 unit tests (+8), typecheck and build pass. `pnpm test:armory` passes here
+against Chromium on a software renderer, and now buys two levels through the
+real control mid-run and asserts the Vanguard's gate opens at its own price.
+
 **Latest: a weapon's shots are data now, not constants (2026-09-21).** The shot
 effects that landed earlier today had their colours written into the renderer.
 They are an `EffectStyle` now — flare core/star/cone/light, tracer, spark ramp,
