@@ -1,6 +1,7 @@
 import { ARMORY_CATALOG, CONSUMABLE_LIMIT, issuedItems, itemById, type AttachmentSlot, type FittedPart, type InternalPart, type ShopItem } from './armory-catalog';
 import type { VehicleKind } from './vehicle-rules';
 import { progression, levelSkip, xpForLevel, ELIMINATION_XP, MAX_LEVEL } from './progression';
+import { DEFAULT_RANK_SET, isRankSet } from './rank-insignia';
 import { FPS_WEAPONS, type WeaponSpec, type WeaponTrait } from './fps-rules';
 export const ATTACHMENT_SLOTS = ['optic', 'magazine', 'handling'] as const;
 /** Hardware a variant already carries, by the slot it permanently fills. */
@@ -10,9 +11,11 @@ export const slotIsFitted = (variantId: string, slot: AttachmentSlot) => !!fitte
 export interface GunEquipment { variant: string; skin: string; attachments: Partial<Record<AttachmentSlot, string>> }
 export interface ArmoryProfile { version: 1; xp: number; vehicleSkins: Record<VehicleKind, string>; credits: number; tokens: number; owned: string[]; guns: [GunEquipment, GunEquipment]; rig: string; plate: string; rewarded: string[]; exercises: number;
   /** Supplies held, by catalog id, and which one the quick-use key spends. */
-  consumables: Record<string, number>; quickItem: string }
+  consumables: Record<string, number>; quickItem: string;
+  /** Which set of rank titles and badges the profile wears. */
+  rankSet: string }
 export const STORAGE_KEY = 'blockplay.armory.v1';
-export function createProfile(): ArmoryProfile { return { version: 1, xp: 0, vehicleSkins: { car: 'paint-issued', helicopter: 'paint-issued' }, credits: 1600, tokens: 300, owned: [...issuedItems], guns: [{ variant: 'sar-issued', skin: 'skin-issued', attachments: {} }, { variant: 'ult-issued', skin: 'skin-issued', attachments: {} }], rig: 'rig-ilbv', plate: 'plate-none', rewarded: [], exercises: 0, consumables: {}, quickItem: '' }; }
+export function createProfile(): ArmoryProfile { return { version: 1, xp: 0, vehicleSkins: { car: 'paint-issued', helicopter: 'paint-issued' }, credits: 1600, tokens: 300, owned: [...issuedItems], guns: [{ variant: 'sar-issued', skin: 'skin-issued', attachments: {} }, { variant: 'ult-issued', skin: 'skin-issued', attachments: {} }], rig: 'rig-ilbv', plate: 'plate-none', rewarded: [], exercises: 0, consumables: {}, quickItem: '', rankSet: DEFAULT_RANK_SET }; }
 const finiteBalance = (n: unknown, fallback: number) => typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(1000000, Math.floor(n))) : fallback;
 export function restoreProfile(raw: string | null): ArmoryProfile {
   const base = createProfile(); if (!raw) return base;
@@ -41,6 +44,8 @@ export function restoreProfile(raw: string | null): ArmoryProfile {
       if (count) base.consumables[id] = count;
     }
     if (typeof value.quickItem === 'string' && itemById(value.quickItem)?.category === 'consumable') base.quickItem = value.quickItem;
+    // A set registered by code that is no longer loaded falls back to the default.
+    if (isRankSet(value.rankSet)) base.rankSet = value.rankSet;
     return base;
   } catch { return base; }
 }
@@ -75,6 +80,10 @@ export function purchaseLevel(profile: ArmoryProfile) {
   if (profile.tokens < skip.price) return { profile, message: `Not enough tokens. Level ${skip.next} costs ${skip.price}.` };
   return { profile: { ...profile, tokens: profile.tokens - skip.price, xp: xpForLevel(skip.next) },
     message: `Level ${skip.next} reached. Its equipment is purchasable now.` };
+}
+/** Rank sets are a free choice of dress, not a purchase; an unknown id is ignored. */
+export function chooseRankSet(profile: ArmoryProfile, id: string): ArmoryProfile {
+  return isRankSet(id) && id !== profile.rankSet ? { ...profile, rankSet: id } : profile;
 }
 export function equip(profile: ArmoryProfile, id: string, family: number, vehicle: VehicleKind = 'car'): ArmoryProfile {
   const item = itemById(id);

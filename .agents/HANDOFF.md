@@ -1,5 +1,42 @@
 # Blockplay: portable agent handoff
 
+**Latest: ranks are a pluggable set, and levels have badges (2026-09-21).**
+`progression()` used to end in a ternary chain that turned a level into one of
+six words. Those words are now one *set* of four — Field (the originals, kept
+exactly), Numerals, Service and Shadows — and `progression()` no longer returns
+`rank` at all: it is pure XP arithmetic again, and every display goes through
+`rankInsignia(level, profile.rankSet)`. The choice is dress rather than
+equipment: free, saved under `rankSet`, previewed at your own level in the
+shop's INSIGNIA row.
+
+**Two decisions make fifty badges cheap, and both are the reason not to add art
+files if this grows.** The emblem is a *vocabulary* — numeral, chevron, bar,
+diamond, star, weapon shadow, each with a count and an optional wreath — and
+`RankBadge` generates it, so `{ kind: 'star', count: 3, wreath: true }` is a
+rank nobody drew. And grades come from the band rather than from more bands: a
+band over levels 10-13 has four grades, so `Corporal II` needs no entry, and
+`grade: 'roman' | 'arabic' | 'level' | 'none'` decides how it reads. A set is
+about twelve lines. `registerRankSet` takes one at runtime; it sorts the bands
+and refuses a set that does not cover level 1, because the alternative is a new
+player with no badge.
+
+**The thing worth knowing before drawing anything else at this size:** a
+stroked wreath with tick-mark leaves aliases into a bowl with rays at 40px, and
+whatever mark sits above it then reads as two eyes over a smile. I shipped that
+twice before looking at a contact sheet of all four sets at once — which is the
+real lesson, since each badge looked fine on its own. Filled leaves fanned
+along a stem read as laurel, because a leaf is then a shape rather than two
+converging lines. A wreathed mark is scaled into the opening rather than laid
+over it, or the outer stars foul the branches.
+
+Crossing into a band is a promotion rather than a level, so the completion card
+reads PROMOTED on a band's first level and LEVEL UP inside one, off the same
+`promoted` flag.
+
+650 unit tests (+15), typecheck and build pass. `pnpm test:armory` switches all
+four sets through the real controls and asserts the strip, the badge's
+accessible name and the saved profile all follow.
+
 **Latest: levels are for sale, priced by the gap they close (2026-09-21).** The
 roadmap's open question — tokens do not bypass level gates, should they? — is
 answered. They still don't: `purchase()`'s condition is untouched and an item

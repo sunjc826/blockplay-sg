@@ -5,8 +5,9 @@ export function progression(xp: number) {
   const total = Number.isFinite(xp) ? Math.max(0, Math.floor(xp)) : 0;
   let level = 1; while (level < MAX_LEVEL && total >= xpForLevel(level + 1)) level++;
   const floor = xpForLevel(level), next = level === MAX_LEVEL ? floor : xpForLevel(level + 1);
-  const rank = level < 3 ? 'Recruit' : level < 6 ? 'Operator' : level < 12 ? 'Specialist' : level < 20 ? 'Veteran' : level < 35 ? 'Elite' : 'Legend';
-  return { level, rank, xp: total, floor, next, remaining: Math.max(0, next - total), progress: level === MAX_LEVEL ? 1 : (total - floor) / (next - floor) };
+  // What a level is called lives in `rank-insignia`, where it is one of several
+  // sets a player can choose between; this stays the pure XP arithmetic.
+  return { level, xp: total, floor, next, remaining: Math.max(0, next - total), progress: level === MAX_LEVEL ? 1 : (total - floor) / (next - floor) };
 }
 /**
  * Tokens buy XP at one flat rate, so what a level costs is the gap it closes

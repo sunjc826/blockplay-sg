@@ -23,6 +23,49 @@ The Armory sidebar offers 31 permanent unlocks, four repeatable supplies and a t
 
 No additional item gates currently follow level 7; ranks and XP continue to level 50. Purchases, XP and equipped items persist under `blockplay.armory.v1` in local storage. Old saves without XP migrate to zero XP while retaining valid owned items. Malformed saves fall back to issued equipment; malformed fields and unknown item IDs are sanitized. Existing ownership remains usable. Clearing browser site data resets the profile.
 
+## Rank insignia
+
+What a level is *called* is a set, and there are four of them. The choice is
+free — insignia is dress, not equipment, so nothing is bought and nothing is
+gated — and it is saved with the profile under `rankSet`. The shop's INSIGNIA
+row previews every set at the level you are, so you pick by looking at your own
+badge rather than at an example.
+
+| Set | Reads as | Ladder |
+| --- | --- | --- |
+| **Field** (default) | `Specialist` | Six unnumbered steps, Recruit to Legend. What the range always called you. |
+| **Numerals** | `37` | No titles at all. The level number, in a badge that deepens every ten levels. |
+| **Service** | `Corporal III` | Twelve graded ranks: chevrons, bars, diamonds, stars. |
+| **Shadows** | `Marksman VI` | Gun silhouettes, sidearm up to crossed rifles. |
+
+A set is a list of **bands** over the fifty levels, and two decisions keep fifty
+badges cheap to define:
+
+- **The emblem is a vocabulary, not a drawing.** `{ kind: 'star', count: 3,
+  wreath: true }` is a rank. `RankBadge` generates the art — a star is polar
+  arithmetic, three chevrons are one chevron three times — so a band is one
+  line and no set needs fifty pictures.
+- **Grades come from the band, not from more bands.** A band covering levels
+  10–13 has four grades, so `Corporal II` needs no entry. `grade` picks how
+  that reads: `roman`, `arabic`, the `level` itself, or `none` for a set whose
+  titles stand alone.
+
+`registerRankSet(set)` adds one at runtime, so a set can ship from anywhere
+that knows the shape. Bands are sorted on the way in, a set that does not cover
+level 1 is refused rather than left to resolve to nothing, and a profile naming
+a set that is no longer registered falls back to Field instead of breaking.
+
+Crossing into a new band is a promotion rather than a level: the range's
+completion card reads `PROMOTED` on the level a band starts and `LEVEL UP`
+inside one, from the same `promoted` flag.
+
+**On drawing a wreath at 40 pixels.** Two attempts failed the same way and the
+shape is worth keeping: a *stroked* wreath with tick-mark leaves aliases into a
+bowl with rays, and any mark above it then reads as a pair of eyes over a
+smile. Filled leaves fanned along a stem read as laurel at badge size, because
+each leaf is a shape rather than two converging lines. A wreathed mark is also
+scaled into the laurel's opening rather than laid over it.
+
 ## Buying levels
 
 Levels are for sale as well as earnable. The control sits in the shop's
@@ -321,7 +364,8 @@ Desktop Enter/Resume requests browser pointer lock directly from the user click.
 
 - `src/game/armory-catalog.ts`: item definitions, prices, level requirements and modifiers.
 - `src/game/armory-state.ts`, `use-armory.ts`: pure purchase/equip/reward rules, validated persistence, immediate state references to prevent repeated clicks charging twice.
-- `src/game/progression.ts`: XP thresholds, rank names and timed elimination chains.
+- `src/game/progression.ts`: XP thresholds, level pricing and timed elimination chains.
+- `src/game/rank-insignia.ts`: the rank sets and their bands; `RankBadge.tsx` draws them.
 - `src/game/armory-visuals.ts`: shared procedural skins, accents, markers and rig/insert models. Preview resources are disposed on selection changes.
 - `src/components/ArmoryShop.tsx`, `ArmoryPreview.tsx`: catalog, comparisons, preview and saved loadout.
 - `fps-engine.ts`, `FpsGame.tsx`: snapshot the equipped loadout on entry. XP updates do not recreate the engine. Target health, ammo, handling, armor damage, rewards and callouts use that snapshot. Enter the Armory to change equipment for the next exercise.

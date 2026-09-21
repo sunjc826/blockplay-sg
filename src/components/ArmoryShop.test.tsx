@@ -3,18 +3,19 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ArmoryShop from './ArmoryShop';
 import { createProfile, equip } from '../game/armory-state';
 import { levelSkip, xpForLevel } from '../game/progression';
+import { rankSets } from '../game/rank-insignia';
 import type { ArmoryStore } from '../game/use-armory';
 
 it('shows maximum-level copy instead of asking level 50 players to keep climbing', () => {
   const profile = createProfile(); profile.xp = xpForLevel(50);
-  const store: ArmoryStore = { profile, buy: vi.fn(), buyLevel: vi.fn(), equipItem: vi.fn(), remove: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), message: '', saveError: false };
+  const store: ArmoryStore = { profile, buy: vi.fn(), buyLevel: vi.fn(), wearRankSet: vi.fn(), equipItem: vi.fn(), remove: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), message: '', saveError: false };
   const html = renderToStaticMarkup(<ArmoryShop store={store} onEnterRange={() => {}} />);
   expect(html).toContain('Maximum level reached');
   expect(html).not.toContain('Keep climbing to level 50');
 });
 
 const storeFor = (profile: ReturnType<typeof createProfile>): ArmoryStore =>
-  ({ profile, buy: vi.fn(), buyLevel: vi.fn(), equipItem: vi.fn(), remove: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), message: '', saveError: false });
+  ({ profile, buy: vi.fn(), buyLevel: vi.fn(), wearRankSet: vi.fn(), equipItem: vi.fn(), remove: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), message: '', saveError: false });
 
 it('lists a premium weapon’s fitted hardware and marks those slots fixed', () => {
   const base = createProfile();
@@ -55,4 +56,14 @@ it('says how far a short wallet is from the next level rather than offering it',
   const html = renderToStaticMarkup(<ArmoryShop store={storeFor({ ...createProfile(), tokens: 5 })} onEnterRange={() => {}} />);
   expect(html).toContain('7 TK short');
   expect(html).not.toContain('Skip to level 2');
+});
+
+it('offers every registered insignia set, previewed at the level you are', () => {
+  const veteran = { ...createProfile(), xp: xpForLevel(12), rankSet: 'military' };
+  const html = renderToStaticMarkup(<ArmoryShop store={storeFor(veteran)} onEnterRange={() => {}} />);
+  for (const set of rankSets()) expect(html).toContain(`data-set="${set.id}"`);
+  // The strip wears the chosen set, and each choice previews this same level.
+  expect(html).toContain('Corporal III');
+  expect(html).toContain('Veteran');
+  expect(html).toContain('>12</text>');
 });

@@ -5,10 +5,12 @@ import { getFpsDistrict } from '../game/fps-districts';
 import { getWorldZone, type WorldZoneId } from '../game/world-zones';
 import { useFpsFullscreen } from '../game/use-fps-fullscreen';
 import { progression } from '../game/progression';
+import { rankInsignia } from '../game/rank-insignia';
 import { resolveLoadout, type ArmoryProfile, type ExerciseReward } from '../game/armory-state';
 import type { LanSession } from '../game/lan-peer';
 import { ARENA_DURATION, ARENA_KILL_LIMIT, type ArenaSnapshot } from '../game/arena-rules';
 import FpsMinimap from './FpsMinimap';
+import RankBadge from './RankBadge';
 import FpsWeaponHud from './FpsWeaponHud';
 import FpsDebugPanel from './FpsDebugPanel';
 import FpsPilotPanel from './FpsPilotPanel';
@@ -27,6 +29,7 @@ function Scoreboard({ snapshot, selfId }: { snapshot: ArenaSnapshot; selfId: str
 export default function FpsGame({ region = 'marina-bay', suspended = false, profile, onReward, onElimination, onConsume, onOpenShop, arena, onLeaveArena }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; onReward: (result: ExerciseReward) => void; onElimination: (id: string) => void; onConsume: (id: string) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
   const district = getFpsDistrict(region), zone = getWorldZone(region);
   const rank = progression(profile.xp);
+  const insignia = rankInsignia(rank.level, profile.rankSet);
   const startingLevel = useRef(rank.level);
   const eliminationCallback = useRef(onElimination); eliminationCallback.current = onElimination;
   const consumeCallback = useRef(onConsume); consumeCallback.current = onConsume;
@@ -116,7 +119,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         <FpsRadioVoice hud={hud} engine={engine.current} />
         <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
         {hud.phase !== 'loading' && hud.phase !== 'error' && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP<br />{combat ? 'Targets return simulated fire. Move when warned to dodge.' : 'Practice mode: targets do not return fire.'}</p>}
-        {hud.phase === 'complete' && <div className="fps-reward">+{hud.earned} CR · +{hud.earnedXp} XP earned{rank.level > startingLevel.current && <strong className="fps-level-up">LEVEL UP · LV {rank.level} {rank.rank.toUpperCase()}</strong>}{hud.callout && <span className="fps-final-callout">{hud.callout}</span>}</div>}
+        {hud.phase === 'complete' && <div className="fps-reward">+{hud.earned} CR · +{hud.earnedXp} XP earned{rank.level > startingLevel.current && <strong className="fps-level-up">{insignia.promoted ? 'PROMOTED' : 'LEVEL UP'} · LV {rank.level} {insignia.label.toUpperCase()}</strong>}{hud.callout && <span className="fps-final-callout">{hud.callout}</span>}</div>}
         <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') setEpoch(n => n + 1); else if (hud.phase === 'complete' || hud.phase === 'defeated') resetExercise(); else engine.current?.start(); }}>
           {hud.phase === 'complete' || hud.phase === 'defeated' || hud.phase === 'error' ? <RotateCcw size={16} /> : <Play size={16} />} {hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry' : hud.phase === 'complete' || hud.phase === 'defeated' ? 'Reset exercise' : hud.phase === 'paused' ? 'Resume exercise' : 'Enter range'} <ArrowRight size={17} />
         </button>
@@ -140,7 +143,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
       <button disabled={!canFight} {...hold('shift')}>{hud.vehicle === 'helicopter' ? 'Boost' : 'Sprint'}</button><button disabled={!canFight} {...hold('c')}>{hud.vehicle === 'helicopter' ? 'Descend' : 'Crouch'}</button>{mounted ? <button disabled={!canFight} {...hold(' ')}>{hud.vehicle === 'car' ? 'Brake' : 'Climb'}</button> : <button disabled={!canFight} onClick={() => engine.current?.jump()}>Jump</button>}{!isArena && <button disabled={!playing || !hud.interact} onClick={() => engine.current?.interactVehicle()}>{mounted ? 'Exit vehicle' : 'Enter vehicle'}</button>}<button disabled={!canFight || mounted} onClick={() => engine.current?.reload()}>Reload</button><button disabled={!canFight || mounted} title="Toggle aim (Q)" aria-pressed={hud.aiming} onClick={() => engine.current?.toggleAim()}>Aim</button><button className="fps-fire-button" disabled={!canFight || mounted} {...hold('fire')}>Fire</button>
     </div>
     {isArena && hud.arena && hud.phase !== 'complete' && <details className="arena-standings" open={!playing}><summary>Match scoreboard <span>{hud.arena.actors.length} combatants</span></summary><Scoreboard snapshot={hud.arena} selfId={arenaOptions.session.id} /></details>}
-    {isArena ? <div className="arena-session-footer"><span>{arenaOptions.session.role === 'solo' ? 'LOCAL BOT MATCH' : hud.arenaConnected ? 'P2P CONNECTED' : 'CONNECTING'} · {arenaOptions.session.name}</span><button onClick={onLeaveArena}>Leave match <ArrowRight size={13} /></button></div> : <div className="fps-progression-summary"><b>LV {rank.level} · {rank.rank}</b><progress value={rank.progress} max={1} aria-label="FPS level progress" /><span>{rank.remaining ? `${rank.remaining} XP to next level` : 'Maximum level'}</span></div>}
+    {isArena ? <div className="arena-session-footer"><span>{arenaOptions.session.role === 'solo' ? 'LOCAL BOT MATCH' : hud.arenaConnected ? 'P2P CONNECTED' : 'CONNECTING'} · {arenaOptions.session.name}</span><button onClick={onLeaveArena}>Leave match <ArrowRight size={13} /></button></div> : <div className="fps-progression-summary"><RankBadge insignia={insignia} size={17} /><b>LV {rank.level} · {insignia.label}</b><progress value={rank.progress} max={1} aria-label="FPS level progress" /><span>{rank.remaining ? `${rank.remaining} XP to next level` : 'Maximum level'}</span></div>}
     <p className="fps-message" role="status">{fullscreen.notice || hud.message || (isArena ? 'Match scores are session-only · Armor and ammunition replenish on respawn' : 'Game balance stats · Scenery blocks shots · Armor replenishes each exercise')}</p>
   </div>;
 }

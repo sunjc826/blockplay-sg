@@ -52,6 +52,20 @@ try {
   assert.equal(await evaluate(`${wallet}.tokens`), 518, 'Each skip charges only the gap it closed');
   assert(await evaluate(`!${action}.disabled && ${action}.textContent.includes('Unlock for 240')`), 'A bought level opens the gate at the item\'s own price');
   await evaluate(`document.querySelector('.armory').scrollIntoView({block:'start'})`); await screenshot('bought-levels');
+  // Insignia is a free choice of dress: the strip, the badge and the saved
+  // profile all follow it, and every set previews at the level you are.
+  const badge = `document.querySelector('.armory-level-badge svg')`;
+  const rankLine = `document.querySelector('.armory-xp strong').textContent`;
+  assert.equal(await evaluate(rankLine), 'Operator', 'Level 3 wears the shipped title by default');
+  await click(`document.querySelector('[data-set="military"]')`); await wait(`${wallet}.rankSet==='military'`);
+  assert.equal(await evaluate(rankLine), 'Private I', 'A graded set numbers the level inside its band');
+  await click(`document.querySelector('[data-set="weapons"]')`); await wait(`${wallet}.rankSet==='weapons'`);
+  assert.equal(await evaluate(rankLine), 'Sidearm III');
+  assert(await evaluate(`${badge}.getAttribute('aria-label')==='Rank Sidearm III, level 3'`), 'The badge names the rank for a screen reader');
+  await click(`document.querySelector('[data-set="numerals"]')`); await wait(`${wallet}.rankSet==='numerals'`);
+  assert.equal(await evaluate(rankLine), '3', 'A set with no titles shows the level itself');
+  await evaluate(`document.querySelector('.armory').scrollIntoView({block:'start'})`); await screenshot('insignia');
+  await click(`document.querySelector('[data-set="field"]')`); await wait(`${wallet}.rankSet==='field'`);
   // Saved veteran fixture supplies XP only. All inventory changes below use real shop controls.
   await evaluate(`(()=>{const p=${wallet};p.xp=800;p.tokens=300;localStorage.setItem('blockplay.armory.v1',JSON.stringify(p));location.reload()})()`);
   await delay(1000); await wait(`!!${fpsMode}`); await openShop();
@@ -101,6 +115,6 @@ try {
   await click(button('Open armory · change equipment →')); await wait(`!!document.querySelector('.armory')`);
   assert.equal(await evaluate('document.querySelectorAll("canvas").length'), 1, 'Leaving range removes its renderer');
   assert.equal(mapRequests, 0); assert.deepEqual(errors, []);
-  console.log('PASS: level locks, demo wallet, bought levels, purchases, equip, insufficient funds, skins, armor previews, persistence, mobile layout, gameplay stats, strict pointer capture / denial / Escape, counter-fire absorption and defeat, reset, cleanup.');
+  console.log('PASS: level locks, demo wallet, bought levels, insignia sets, purchases, equip, insufficient funds, skins, armor previews, persistence, mobile layout, gameplay stats, strict pointer capture / denial / Escape, counter-fire absorption and defeat, reset, cleanup.');
 } catch(error) { await screenshot('shop-failure'); throw error; }
 finally { ws.close(); await fetch(`${chrome}/json/close/${tab.id}`); }
