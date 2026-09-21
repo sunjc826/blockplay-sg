@@ -46,9 +46,25 @@ button bar below the scene still carries every command for keyboard and
 assistive-technology users, and it is hidden only in immersive fullscreen, where
 the overlay already covers the same ground.
 
+Immersive fullscreen on a phone is all scene: every bar that sits below it on
+the page — the loadout, the message line, the progression summary and the AI
+pilot controls — is hidden, and the comms log stands aside while the start or
+pause card is up rather than covering the button on it. The pilot controls stay
+on that card, so fullscreen reaches them through the menu.
+
+`index.html` asks for `viewport-fit=cover`, so an immersive screen would
+otherwise run under a status bar, a notch or the home indicator. The immersive
+shell pads itself by `env(safe-area-inset-*)`: the scene is a flow child and
+moves in with the HUD inside it, while the toolbar and the comms log — which
+are positioned against the shell, whose padding box padding does not move —
+carry the inset themselves. The thumb layer insets itself already, so inside
+the padded shell it drops back to plain margins rather than counting the same
+notch twice.
+
 `pnpm test:touch` drives all of it through real touch events in an emulated
-phone; it needs Vite plus Chrome with remote debugging, as the other browser
-smokes do.
+phone, and `pnpm test:fullscreen:mobile` checks the immersive layout in both
+orientations against a stand-in notch; they need Vite plus Chrome with remote
+debugging, as the other browser smokes do.
 
 ### Regional FPS and armory
 
@@ -189,6 +205,7 @@ Browser checks require a running app and a separate Chrome profile with remote d
 | `pnpm test:fps`, `test:armory`, `test:vehicles`, `test:fullscreen` | 5175 / 9224 | Override with `FPS_APP_ORIGIN` and `FPS_CHROME_ORIGIN` |
 | `pnpm test:arena:solo`, `test:expedition` | 5175 / 9228 | See script headers for origin overrides |
 | `pnpm test:touch` | 5175 / 9224 | Thumb sticks, analog pace, trigger-drag aim and the district sticks, in an emulated phone. `TOUCH_SMOKE_PACE=4` on a software renderer |
+| `pnpm test:fullscreen:mobile` | 5175 / 9224 | Immersive phone play in both orientations: the scene owns the screen and the HUD stays inside a stand-in safe area |
 
 Use the normal development build for full-feature browser checks; the Sites build intentionally disables online features. `pnpm test:adventure --live` spends real model credits for text checks; other failure/voice checks remain mocked. Actual microphone and listening quality need human verification.
 

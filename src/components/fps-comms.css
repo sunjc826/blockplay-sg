@@ -7,7 +7,11 @@
 .fps-comms.is-expanded .fps-comms-entries{height:220px}.fps-comms-entry{display:flex;gap:7px;align-items:baseline;margin:3px 0;overflow-wrap:anywhere}
 .fps-comms-entry time{font:9px monospace;color:#8ca393;flex-shrink:0}.fps-comms-entry b{font-size:10px;flex-shrink:0;color:#ddc084}.fps-comms-entry span{min-width:0}
 .fps-comms-entry.channel-kills b{color:#efad92}.fps-comms-entry.channel-system b{color:#9fc9de}.fps-comms-empty{margin:5px 0;color:#95a79a;font-size:10px}
-.fps-game.is-immersive>.fps-comms{position:absolute;bottom:230px;left:16px;width:min(360px,40%);z-index:4;margin:0}
+.fps-game.is-immersive>.fps-comms{position:absolute;bottom:calc(230px + var(--safe-bottom));left:calc(16px + var(--safe-left));width:min(360px,40%);z-index:4;margin:0}
+/* The log sits above the scene on z:4, so on a phone — where it is nearly
+   full width — it covered the start / pause card and the button on it. The
+   menu and the log swap, the way the toolbar and the hint already do. */
+.fps-game.is-immersive:not([data-phase=playing])>.fps-comms{display:none}
 .fps-game.is-immersive>.fps-comms .fps-comms-entry{display:block}.fps-game.is-immersive>.fps-comms .fps-comms-entry time,.fps-game.is-immersive>.fps-comms .fps-comms-entry b{margin-right:6px}
 .fps-game.is-immersive>.fps-radio-voice{display:none}
-@media(max-width:720px){.fps-comms>header{gap:6px;padding:6px}.fps-comms button{padding:3px 5px}.fps-comms-entry{display:block;font-size:10px}.fps-comms-entry time,.fps-comms-entry b{margin-right:6px}.fps-game.is-immersive>.fps-comms{width:calc(100% - 24px);left:12px;bottom:235px}.fps-game.is-immersive>.fps-comms .fps-comms-entries{height:56px}.fps-game.is-immersive>.fps-comms.is-expanded .fps-comms-entries{height:150px}}
+@media(max-width:720px){.fps-comms>header{gap:6px;padding:6px}.fps-comms button{padding:3px 5px}.fps-comms-entry{display:block;font-size:10px}.fps-comms-entry time,.fps-comms-entry b{margin-right:6px}.fps-game.is-immersive>.fps-comms{width:calc(100% - 24px - var(--safe-left) - var(--safe-right));left:calc(12px + var(--safe-left));bottom:calc(235px + var(--safe-bottom))}.fps-game.is-immersive>.fps-comms .fps-comms-entries{height:56px}.fps-game.is-immersive>.fps-comms.is-expanded .fps-comms-entries{height:150px}}

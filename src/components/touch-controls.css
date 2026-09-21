@@ -40,7 +40,7 @@
 /* Windowed play keeps the button bar below the scene; immersive play is all
    scene, so the bar would only steal the pixels the layer already covers. */
 .fps-game[data-touch=on].is-immersive .fps-inputs{display:none}
-.fps-game[data-touch=on].is-immersive .fps-toolbar{bottom:12px}
+.fps-game[data-touch=on].is-immersive .fps-toolbar{bottom:calc(12px + var(--safe-bottom))}
 
 /* A phone in landscape has around 350px of height in total: shrink everything
    and drop the button labels, which the aria-label keeps announcing. */
@@ -89,7 +89,7 @@
 .fps-game[data-touch=on] .fps-vehicle-notice{bottom:calc(76px + var(--touch-inset))}
 /* Clear of the action row as well as the sticks, which the inset alone covers. */
 .fps-game[data-touch=on] .fps-radio{bottom:calc(66px + var(--touch-inset))}
-.fps-game[data-touch=on].is-immersive>.fps-comms{bottom:calc(95px + var(--touch-inset))}
+.fps-game[data-touch=on].is-immersive>.fps-comms{bottom:calc(95px + var(--touch-inset) + var(--safe-bottom))}
 /* Lifting the map instead of moving it would push it off a short screen. */
 [data-touch=on].marina-reconstruction .marina-map{top:56px;bottom:auto}
 [data-touch=on].marina-reconstruction .marina-objective{bottom:calc(12px + var(--touch-inset));max-width:calc(100% - 175px)}
@@ -108,6 +108,10 @@
    instead, and the briefing line steps aside — the pause card still carries it. */
 @media(max-width:520px){
   .fps-game[data-touch=on] .fps-objective{display:none}
+  /* The vitals row reaches past the middle of a 390px screen, so the centred
+     setting line was printed straight through it. The minimap under it already
+     carries the heading, which is the part you steer by. */
+  .fps-game[data-touch=on] .fps-compass{display:none}
   .fps-game[data-touch=on] .fps-ammo,.fps-game[data-touch=on] .fps-vehicle-hud{top:128px;bottom:auto;right:12px}
   .fps-game[data-touch=on] .fps-radio{bottom:calc(96px + var(--touch-inset))}
   .fps-game[data-touch=on] .fps-interact-prompt{bottom:calc(58px + var(--touch-inset))}

@@ -1,5 +1,47 @@
 # Blockplay: portable agent handoff
 
+**Latest: fullscreen on a phone is actually fullscreen (2026-09-21).** Two
+things the repo owner hit on a phone, both in immersive FPS play.
+
+The "Watch AI play" bar was still on screen. `FpsPilotPanel` renders twice — on
+the start / pause card and as a flow sibling below the scene — and the immersive
+rule that hides the loadout, the message line and the progression summary never
+listed it. So it kept a static strip of the screen: measured at 136px of 844 in
+portrait and 96px of 390 in landscape, roughly a third of a landscape phone, and
+the immersive toolbar was drawn straight over it. It is hidden by
+`.fps-game.is-immersive>.fps-pilot-panel` (a child selector: the copy on the card
+is a descendant and has to stay). Fullscreen now reaches the AI through the
+menu, which is where the loadout already lives.
+
+The top of the game was cut off because `index.html` asks for
+`viewport-fit=cover`, so an immersive screen runs under the status bar, the notch
+and the home indicator, and only the thumb layer was safe-area aware. The
+immersive shell now pads itself by `env(safe-area-inset-*)`. **The mechanism
+worth remembering:** padding a box does not move its absolutely positioned
+descendants, which resolve against its *padding box*. The first attempt padded
+`.fps-viewport` and pushed the canvas 47px off the top — the original bug, worse.
+What works is padding the shell, because `.fps-viewport` is a *flow* child and
+takes the whole HUD in with it; anything positioned against the shell — the
+toolbar, the comms log — carries `var(--safe-bottom)`/`--safe-left` itself. The
+thumb layer, which insets itself, drops to plain margins inside the padded shell
+so the same notch is not counted twice.
+
+Two smaller things from the same screenshots: the comms log sits at `z-index:4`
+above the scene and is nearly full width on a phone, so it covered the start card
+and the button on it — it and the menu now swap, the way the toolbar and the hint
+already do. And in portrait the centred setting line (`.fps-compass`) printed
+straight through the vitals row, which reaches past the middle of a 390px
+screen; the minimap under it already carries the heading, so it is hidden there.
+
+`pnpm test:fullscreen:mobile` is the new smoke: an emulated phone in both
+orientations, asserting nothing but the scene is left in flow, the canvas fills
+the screen, the AI controls stay on the card, the comms log yields to the menu,
+and the badges, toolbar, card and thumb sticks all sit inside a stand-in notch
+(CDP cannot emulate `env()`, so it sets the custom properties directly). It
+fails on the unfixed tree with `["fps-pilot-panel"]` left in flow. 581 unit
+tests, typecheck and build pass; `pnpm test:fullscreen` and `pnpm test:touch`
+still pass, so the desktop and touch paths are intact.
+
 **Correction: blockplaysg.fun is the Cloudflare Worker, not the Sites build
 (2026-09-21).** The docs had said the public demo was the GPT Sites static
 deployment; the repo owner confirms the custom domain is attached to the Worker,
