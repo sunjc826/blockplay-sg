@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getRegion, type RegionDefinition } from './regions';
-import { coverFor, measureSectorCover, sectorAt, zoneSectors, ZONE_SECTORS } from './zone-sectors';
+import { coverFor, sectorAt, zoneSectors, ZONE_SECTORS } from './zone-sectors';
+import { coverMasses, measureCover } from './cover-metrics';
 import { ZONE_LOOT_RULES } from './expedition-loot';
 import { getWorldZone, type WorldZoneId } from './world-zones';
 import type { Obstacle } from './region-collision';
@@ -112,10 +113,16 @@ describe.each(SECTORED.map(id => [id] as const))('%s cover labels', id => {
   it('declares the cover band the geometry actually falls in', () => {
     const region = getRegion(id), world = region.build();
     try {
+      // Cover comes from the rendered geometry, not the movement colliders:
+      // a round is resolved by raycasting meshes, and water stops feet only.
+      const masses = coverMasses(world.scene).crouch;
+      // Same narrowing the report applies, so `pnpm analyse:cover` and this
+      // guard cannot disagree about a sector by a fraction of a metre.
+      const standable = (x: number, z: number) => region.canOccupy(x, z, 0.4, world.obstacles);
       for (const sector of zoneSectors(id)) {
-        const measured = measureSectorCover(sector.bounds, world.obstacles);
-        const detail = `${sector.id}: solid=${(measured.solid * 100).toFixed(0)}% median=${measured.median.toFixed(1)}m`;
-        expect(coverFor(sector.bounds, world.obstacles), detail).toBe(sector.cover);
+        const measured = measureCover(sector.bounds, masses, standable);
+        const detail = `${sector.id}: median=${measured.median.toFixed(1)}m p90=${measured.p90.toFixed(1)}m`;
+        expect(coverFor(sector.bounds, masses, standable), detail).toBe(sector.cover);
       }
     } finally { world.dispose(); }
   });

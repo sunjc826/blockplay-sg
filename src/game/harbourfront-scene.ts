@@ -206,6 +206,134 @@ export function buildHarbourfrontScene() {
     sign('NE1 / CC29  HARBOURFRONT', x, 5.2, z - 5.8, 15, 1.5, '#7b2b8f');
   }
 
+  /**
+   * Quay furniture. The promenade was the most exposed ground in the district:
+   * four hundred metres of paving with nothing on it but a 1.3 m harbour wall,
+   * so anyone crossing it was in the open for the whole run. Shelters, baggage
+   * cages and planter walls give it something to break the line, spaced so the
+   * promenade still reads as a promenade and stays driveable end to end.
+   */
+  function quayFurniture() {
+    for (const [i, x] of [-215, -185, -155, -125, -95, -65, -35, -5, 32, 62, 88, 132].entries()) {
+      if (i % 3 === 0) {
+        // Passenger shelter: solid end panels and a back wall under a canopy.
+        box(x, 2.5, 131.5, 9.4, 0.28, 5.2, steel, scene, true);
+        for (const dx of [-4.3, 4.3]) { box(x + dx, 1.2, 131.5, 0.45, 2.4, 4.8, pale); solid(x + dx, 131.5, 0.7, 5); }
+        box(x, 1.2, 133.5, 8.6, 2.4, 0.45, pale); solid(x, 133.5, 8.8, 0.7);
+        for (const dx of [-2.2, 2.2]) box(x + dx, 0.75, 130.2, 3, 0.5, 1.2, plank);
+      } else if (i % 3 === 1) {
+        // Baggage cages off the ferry hall, stacked two high.
+        for (let n = 0; n < 2; n++) {
+          box(x + n * 3.4, 1.3 + n * 2.5, 131.2, 3.1, 2.5, 2.5, container[(i + n) % container.length], scene, true);
+        }
+        solid(x, 131.2, 3.3, 2.7); solid(x + 3.4, 131.2, 3.3, 2.7);
+      } else {
+        // Planter wall, chest high, hedged along the top.
+        box(x, 0.7, 131.2, 10, 1.4, 2.1, stone); solid(x, 131.2, 10.2, 2.3);
+        for (const dx of [-3, 0, 3]) blob(x + dx, 1.9, 131.2, 1.9, 0.8, 0.95, dx ? leaf : fern);
+      }
+    }
+  }
+
+  /**
+   * The boardwalk was fifty-six metres of eleven-metre-wide pier with water on
+   * both sides and a checkpoint at the end — the one stretch you could not
+   * leave. Planter beds and two shelter pods alternate along it, off-centre, so
+   * the crossing has something to break behind without narrowing the lane.
+   */
+  function boardwalkCover() {
+    for (const [i, z] of [144, 152, 160, 170, 178, 186].entries()) {
+      const x = BOARDWALK_X + (i % 2 ? 4.2 : -4.2);
+      if (i === 1 || i === 4) {
+        // Shelter pod: a standing-height back panel with a light roof.
+        box(x, 1.25, z, 2.6, 2.5, 4.4, plank, scene, true); solid(x, z, 2.8, 4.6);
+        box(x + (i % 2 ? -1.6 : 1.6), 2.7, z, 3.4, 0.22, 4.8, steel);
+      } else {
+        box(x, 0.75, z, 2.8, 1.4, 4.2, plank); solid(x, z, 3, 4.4);
+        blob(x, 1.8, z, 1.2, 0.7, 1.9, fern);
+      }
+    }
+  }
+
+  /**
+   * The green measured no usable cover at all — four tree trunks, and the
+   * Queenstown checkpoint lands you in the middle of it. Shelters, a terraced
+   * planter run and boulder clusters, in the idiom of the ridge walk that
+   * continues south into Mount Faber.
+   */
+  function ridgeWalkCover() {
+    // Four trail columns rather than two: the green is seventy-six metres
+    // across, and a single file of shelters down the middle left most of it
+    // as exposed as before.
+    const columns = [-210, -196, -172, -158];
+    for (const [row, z] of [-20, -2, 16, 34, 52, 70, 88, 104].entries()) {
+      for (const [n, x] of columns.entries()) {
+        if ((row + n) % 4 === 3) continue;
+        const kind = (row * columns.length + n) % 3;
+        if (kind === 0) {
+          // Trailside shelter on a low plinth.
+          box(x, 0.3, z, 7.6, 0.6, 6.6, stone); solid(x, z, 7.8, 6.8);
+          box(x, 1.5, z - 2.6, 7, 2.4, 0.5, wood); box(x, 3, z, 8.4, 0.3, 7.4, plank, scene, true);
+          for (const dx of [-3.2, 3.2]) cylinder(x + dx, 1.6, z + 3, 0.22, 3.2, wood);
+        } else if (kind === 1) {
+          // Terraced planter: two courses stepping across the slope.
+          box(x, 0.55, z, 9, 1.1, 2.4, stone); solid(x, z, 9.2, 2.6);
+          box(x - 1.5, 1.35, z + 3.4, 6.4, 1.3, 2.2, stone); solid(x - 1.5, z + 3.4, 6.6, 2.4);
+          for (const dx of [-2.6, 0.4, 3]) blob(x + dx, 2.2, z + 0.4, 1.8, 1, 1.2, dx > 0 ? fern : leaf);
+        } else {
+          // Boulder cluster left in the grass.
+          for (const [dx, dz, r] of [[0, 0, 2.1], [3.4, 1.8, 1.6], [-3, 2.1, 1.4]] as const) {
+            blob(x + dx, r * 0.55, z + dz, r, r * 0.85, r * 0.9, stone);
+            solid(x + dx, z + dz, r * 1.7, r * 1.6);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Gateway lawn: open grass that the practice range is laid out across, so
+   * cover here has to stay clear of the firing lanes. Everything sits west of
+   * x 162, east of x 200 or south of z 44 — outside the cone from the range
+   * spawn to its furthest target, and clear of the helicopter's climb-out.
+   */
+  function gatewayYard() {
+    for (const [i, z] of [-4, 16, 36, 56, 76, 96].entries()) for (const x of [152, 210]) {
+      if (i % 2 === (x > 200 ? 1 : 0)) {
+        // Container flats on the hardstanding, overflow from the terminal.
+        for (let n = 0; n < 2; n++) box(x, 1.3 + n * 2.5, z + n * 0.4, 3, 2.5, 8.4, container[(i + n) % container.length], scene, true);
+        solid(x, z, 3.2, 8.8);
+      } else {
+        box(x, 0.8, z, 2.6, 1.6, 7, concrete); solid(x, z, 2.8, 7.2);
+      }
+    }
+    // Service compound short of the firing lanes, which begin at z 48.
+    for (const [i, x] of [163, 176, 189, 200].entries()) {
+      box(x, 1.4, 22 + (i % 2) * 12, 7.4, 2.8, 3, i % 2 ? pale : concrete, scene, true);
+      solid(x, 22 + (i % 2) * 12, 7.6, 3.2);
+    }
+  }
+
+  /**
+   * Depot row: three sheds forty metres apart with nothing between them. Parked
+   * trailers and pallet stacks on the apron in front, which is what the ground
+   * in front of a distripark actually carries.
+   */
+  function depotYard() {
+    for (const [i, x] of [-110, -82, -54, -26, 2, 30, 58, 86, 114, 142, 170, 198].entries()) {
+      const z = -76 + (i % 2) * 10;
+      if (i % 2) {
+        box(x, 1.55, z, 11, 2.9, 2.6, i % 4 ? pale : concrete, scene, true); solid(x, z, 11.2, 2.8);
+        for (const dx of [-3.6, 3.6]) cylinder(x + dx, 0.45, z + 1.5, 0.34, 0.9, dark);
+      } else {
+        for (let n = 0; n < 2; n++) box(x, 0.7 + n * 1.5, z, 4.4, 1.4, 3.4, container[(i + n) % container.length]);
+        solid(x, z, 4.6, 3.6);
+      }
+    }
+  }
+
+  quayFurniture(); boardwalkCover(); ridgeWalkCover(); gatewayYard(); depotYard();
+
   steppedMall(60, 50);
   cruiseTerminal(-75, 50);
   liner(-40, 158);

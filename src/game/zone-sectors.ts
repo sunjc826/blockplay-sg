@@ -1,55 +1,35 @@
-import type { Obstacle, RegionBounds } from './region-collision';
+import type { CoverMass, SectorCover } from './cover-metrics';
+import { measureCover } from './cover-metrics';
+import type { RegionBounds } from './region-collision';
 import type { WorldZoneId, ZonePosition } from './world-zones';
 
+export type { SectorCover };
+
 /**
- * How the ground reads to someone being shot at, which is the only thing a
- * sector's character has to encode. The bands are numeric rather than a matter
- * of judgement, because nineteen districts will be labelled against them and
- * eyeballing the scene gets it wrong: the gantry legs on Keppel wharf look like
- * hard cover and measure at four per cent solid.
+ * How the ground reads to someone being shot at. The bands are numeric rather
+ * than a matter of judgement, because nineteen districts will be labelled
+ * against them and eyeballing the scene gets it wrong — of the nine labels
+ * written by hand for HarbourFront, three were wrong on the first measurement
+ * and four more moved when the metric was corrected.
  *
- * `measureSectorCover` is the arbiter and `zone-sectors.test.ts` holds every
- * declared label to it, so a label cannot drift from the geometry it describes.
+ * Measured on crouch cover: a player can always crouch, so a chest-high wall is
+ * real cover, merely bought at half movement speed. `zone-sectors.test.ts`
+ * holds every declared label to `coverFor`, so a label cannot drift from the
+ * geometry it describes.
+ *
+ * Median metres from open ground to the nearest mass that breaks a silhouette.
+ * `dense` is cover essentially at hand, `broken` is cover a short sprint away,
+ * `open` is exposed. The thresholds are tight because they describe a district
+ * that has had a cover pass: before HarbourFront's, every sector sat between
+ * 12 m and no cover at all, and any banding would have called the whole map
+ * open. Expect an unpassed district to read `open` almost throughout — that is
+ * the point, not a miscalibration.
  */
-export type SectorCover = 'dense' | 'broken' | 'open';
-
-/** Narrower than this and it is a lamp post or a tree trunk, not cover. */
-const MIN_COVER_SPAN = 1.5;
-/**
- * Median metres from open ground to the nearest usable cover. Distance alone,
- * deliberately: an earlier version also gated `dense` on a quarter of the
- * ground being solid, and the measurements show that reads backwards. VivoCity
- * is 57% solid with an 8.2 m median because its solid is one mass you run
- * around; Keppel wharf is 9% solid with a 4.5 m median because its solid is
- * scattered container rows. The second is better cover. How far you must run
- * is the thing that matters, so it is the only thing measured.
- */
-export const COVER_BANDS = { dense: 6, broken: 20 } as const;
-
-/**
- * Median distance from open ground in the sector to the nearest obstacle big
- * enough to hide behind, plus the share of the sector that is solid. Sampled on
- * a two-metre lattice, which is the same step the reachability flood fill uses.
- */
-export function measureSectorCover(bounds: RegionBounds, obstacles: readonly Obstacle[]) {
-  const usable = obstacles.filter(o => Math.min(o.maxX - o.minX, o.maxZ - o.minZ) >= MIN_COVER_SPAN);
-  const open: { x: number; z: number }[] = [], cover: { x: number; z: number }[] = [];
-  for (let x = bounds.minX; x <= bounds.maxX; x += 2) for (let z = bounds.minZ; z <= bounds.maxZ; z += 2) {
-    (usable.some(o => x > o.minX && x < o.maxX && z > o.minZ && z < o.maxZ) ? cover : open).push({ x, z });
-  }
-  const total = open.length + cover.length;
-  // Infinity, not a large number: a sector with no cover at all is not merely
-  // a long run from it, and callers should not average that in.
-  const distances = open.map(p => Math.min(...cover.map(c => Math.hypot(c.x - p.x, c.z - p.z)), Infinity)).sort((a, b) => a - b);
-  return {
-    solid: total ? cover.length / total : 0,
-    median: distances.length ? distances[Math.floor(distances.length / 2)] : Infinity,
-  };
-}
+export const COVER_BANDS = { dense: 6, broken: 12 } as const;
 
 /** The band the geometry actually falls in, which is what a label must match. */
-export function coverFor(bounds: RegionBounds, obstacles: readonly Obstacle[]): SectorCover {
-  const { median } = measureSectorCover(bounds, obstacles);
+export function coverFor(bounds: RegionBounds, masses: readonly CoverMass[], standable?: (x: number, z: number) => boolean): SectorCover {
+  const { median } = measureCover(bounds, masses, standable);
   if (median <= COVER_BANDS.dense) return 'dense';
   return median <= COVER_BANDS.broken ? 'broken' : 'open';
 }
@@ -100,9 +80,9 @@ const HARBOURFRONT_SECTORS: readonly ZoneSector[] = [
   // The promenade strip you spawn on: twelve metres of paving between the
   // frontage and the basin wall, running most of the district's width. It is
   // the fastest way east or west and there is nothing on it to hide behind.
-  { id: 'quay', name: 'HarbourFront quay', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1.5,
+  { id: 'quay', name: 'HarbourFront quay', cover: 'broken', lootWeight: 1, tierBias: -1, botWeight: 1.5,
     bounds: { minX: -232, maxX: 146, minZ: 122, maxZ: 140 },
-    anchors: [{ x: 20, z: 134 }, { x: -75, z: 134 }, { x: -200, z: 132 }, { x: -140, z: 132 }, { x: 75, z: 132 }, { x: 128, z: 132 }] },
+    anchors: [{ x: 20, z: 134 }, { x: -75, z: 134 }, { x: -200, z: 132 }, { x: -140, z: 132 }, { x: 75, z: 132 }, { x: 122, z: 132 }] },
   // The mall is one solid stepped mass, so its sector is the ring of ten- to
   // fourteen-metre lanes around it, plus the amphitheatre and the station
   // entrance at its quay corner. Central, so everyone passes through it.
@@ -125,7 +105,7 @@ const HARBOURFRONT_SECTORS: readonly ZoneSector[] = [
     anchors: [{ x: 180, z: 134 }, { x: 180, z: 160 }, { x: 155, z: 155 }, { x: 155, z: 175 }, { x: 180, z: 178 }] },
   // Eleven metres wide, fifty-six long, water on both sides and the Sentosa
   // checkpoint at the far end. A crate here is a dare rather than a supply.
-  { id: 'boardwalk', name: 'Sentosa boardwalk', cover: 'open', lootWeight: 0.5, tierBias: 1, botWeight: 0.5,
+  { id: 'boardwalk', name: 'Sentosa boardwalk', cover: 'dense', lootWeight: 0.5, tierBias: 1, botWeight: 0.5,
     bounds: { minX: 100, maxX: 120, minZ: 132, maxZ: 196 },
     anchors: [{ x: 109, z: 165 }, { x: 109, z: 145 }, { x: 109, z: 180 }] },
   // Terraces stacked to a lookout. They are impassable, so the fighting is in
@@ -137,7 +117,7 @@ const HARBOURFRONT_SECTORS: readonly ZoneSector[] = [
   // The green continuing north off the ridge, and the ground the Queenstown
   // checkpoint lands you on. Four tree trunks and nothing else wide enough to
   // hide behind, so arriving here means arriving in the open.
-  { id: 'telok-blangah', name: 'Telok Blangah green', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 0.5,
+  { id: 'telok-blangah', name: 'Telok Blangah green', cover: 'broken', lootWeight: 1, tierBias: -1, botWeight: 0.5,
     bounds: { minX: -226, maxX: -150, minZ: -25, maxZ: 110 },
     anchors: [{ x: -185, z: 50 }, { x: -185, z: -10 }, { x: -218, z: -20 }, { x: -185, z: 20 }, { x: -152, z: 50 }] },
   // Annexe, car-park deck and depot along the inland edge, with a gap at the
@@ -148,7 +128,7 @@ const HARBOURFRONT_SECTORS: readonly ZoneSector[] = [
     anchors: [{ x: 180, z: -60 }, { x: 60, z: -60 }, { x: -75, z: -60 }, { x: 0, z: -70 }, { x: 130, z: -70 }, { x: -10, z: -105 }] },
   // Open lawn between the depot row and the wharf: the eastern approach, and
   // the ground the practice range is laid out on. Four trees and two benches.
-  { id: 'gateway-lawn', name: 'Gateway lawn', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
+  { id: 'gateway-lawn', name: 'Gateway lawn', cover: 'broken', lootWeight: 1, tierBias: -1, botWeight: 1,
     bounds: { minX: 146, maxX: 218, minZ: -10, maxZ: 110 },
     anchors: [{ x: 180, z: 50 }, { x: 180, z: 88 }, { x: 155, z: 20 }, { x: 205, z: 70 }] },
 ];

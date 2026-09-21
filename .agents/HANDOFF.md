@@ -1,5 +1,72 @@
 # Blockplay: portable agent handoff
 
+**Latest: cover measured honestly, and HarbourFront passed (2026-09-21).**
+
+**The earlier cover table was wrong and is superseded.** It measured the
+movement collision list, which is the wrong set: `Obstacle` is a flat footprint
+with no height — what stops your feet — whereas a round is resolved by
+raycasting scene meshes (`fps-engine.ts` -> `firstVisibleHit`). The two
+disagree both ways. HarbourFront's basin is a 228x40 m collider whose box tops
+out at y=0.14, so the whole harbour counted as cover and Jurong Lake read 12.8 m
+better than it is; meanwhile loggia bands and bridge decks that never call
+`solid()` stop rounds but were invisible. A second bug: the span filter required
+1.5 m on the *shorter* plan axis, which throws away every wall, hoarding and
+parapet while keeping nothing useful.
+
+`src/game/cover-metrics.ts` now measures from rendered geometry with real
+heights. A mass is cover if its longer plan axis is >= 1.5 m, it starts at or
+below 1.0 m, and it reaches 1.15 m (crouch) or 1.75 m (stand) — the engine's two
+eye heights. Water, kerbs, canopies and lamp posts drop out on their own.
+Distances come from an exact squared-distance transform over a 2 m lattice,
+O(cells) rather than pairwise: Queenstown alone yields ~14,700 instance boxes.
+`standable` narrows "open" to ground a player could occupy, so a district does
+not read worse for having water in it.
+
+**Corrected baseline** (crouch median, worst first):
+
+    bukit-timah 42.0  upper-thomson 41.2  tampines 41.2  queenstown 37.7
+    sentosa 37.2  jurong-lake 36.2  toa-payoh 36.2  woodlands 32.3
+    marina-bay 30.1  changi 30.1  punggol 30.0  chinatown 26.8  tuas 26.1
+    bishan 26.0  raffles-place 24.1  geylang 22.8  orchard 20.9
+    kampong-glam 20.0  harbourfront 20.0
+
+**HarbourFront has had the pass.** 32.0 m -> 20.0 m district-wide, and every
+sector now sits between 4.5 m and 10.0 m, against a target of 8-12 m. It is the
+best-covered district in the set. Added in the idiom of the place, not as
+crates: quay shelters, baggage cages and planter walls down the promenade;
+planter beds and shelter pods along the boardwalk; a four-column ridge-walk of
+shelters, terraced planters and boulders across the Telok Blangah green;
+container flats and a service compound on the gateway lawn; parked trailers and
+pallet stacks on the depot apron.
+
+The gateway lawn carries the practice range, so everything there sits west of
+x 162, east of x 200 or south of z 44 — outside the cone from the range spawn to
+its furthest target, and clear of the helicopter climb-out. The FPS sightline
+and departure guards passed unchanged, which is what proves it.
+
+The district-wide 20.0 m does not go lower because the bare perimeter margin
+outside the loop road is standable and has nothing on it. That is honest: the
+sectored places are covered, the leftover ground is not.
+
+**Tooling, committed.** `pnpm analyse:cover` (`scripts/cover-report.mjs`) reports
+per district and, with `--sectors`, per sector; `--json` for machine use;
+`--district <id>` for one. Formatting only — the measurement lives in
+`cover-metrics.ts`, so the report and the `zone-sectors.test.ts` label guard
+cannot disagree, following the `analyse:weapons` precedent. Both apply the same
+`standable` narrowing; they were briefly out by 0.2 m before that was fixed, and
+a sector sitting exactly on a band edge is worth nudging rather than leaving.
+
+**Bands are recalibrated** to dense <= 6 m, broken <= 12 m, open > 12 m. They
+describe a district that has had a pass; expect an unpassed one to read `open`
+almost throughout. That is the point, not a miscalibration.
+
+Still open, and it bears on using this as a design target: the Penetrator
+magazine sells rounds that carry through cover, so cover's worth is now partly a
+function of what the shooter bought. The geometry metric does not model that.
+
+436 unit tests (+7), typecheck and build pass. Browser and FPS smokes still not
+run here.
+
 **Latest: the cover measurement, and what it says about every map (2026-09-21).**
 Sectors gave us an instrument, and the first thing it measured is the real
 problem with these districts. Across all nineteen:

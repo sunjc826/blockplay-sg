@@ -49,7 +49,8 @@
     "deploy:cloudflare": "pnpm build:cloudflare && CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false wrangler deploy",
     "test:cloudflare": "node scripts/cloudflare-check.mjs",
     "test:fps:counter-fire": "node scripts/fps-counter-fire-smoke.mjs",
-    "analyse:weapons": "node --experimental-strip-types scripts/weapon-breakpoints.mjs"
+    "analyse:weapons": "node --experimental-strip-types scripts/weapon-breakpoints.mjs",
+    "analyse:cover": "node --experimental-strip-types scripts/cover-report.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
