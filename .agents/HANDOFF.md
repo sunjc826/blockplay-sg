@@ -1,5 +1,46 @@
 # Blockplay: portable agent handoff
 
+**Latest: every district sectored (2026-09-21).** 195 sectors across nineteen
+districts, nine to eleven each, in `src/data/region-sectors.ts` beside the stamp
+lists. Loot spreads across every sector of every district and none falls outside
+one; the pilot is over.
+
+**The anchors were placed by a tool, not by hand.** `pnpm sector:anchors` takes
+the creative part as input — where a sector is, what it is called, what it is
+worth — and does the mechanical part: it seeds each sector from the district's
+own stamps and encounter spawns, fills the rest by farthest-point sampling over
+the reachable set, insets fill anchors off the rectangle edges so crates do not
+land on sector corners, and measures the cover band so no label is a guess.
+Five hundred hand-picked positions would not have been reliable. It caught two
+of its own bugs on the first run: an apostrophe in "People's Park Complex" broke
+the quoting, and a stamp sitting on an encounter spawn emitted a duplicate
+anchor, which silently costs a crate slot under the 3 m spacing rule. The test
+now guards anchor uniqueness.
+
+Sector names come from each district's stamps and the weights from its zone
+description, both of which already named the places and their character. The
+lorongs are five narrow sectors in a row across Geylang; Jurong's causeway and
+Bishan's stepping stones are the thinnest sectors in the set, deliberately.
+
+**Cover: 137 of 186 new sectors read `open`.** Only HarbourFront has had a cover
+pass, so that is the honest state of the maps. Orchard is the best unpassed
+district (two dense, six broken); Queenstown and Sentosa measure open
+throughout. That list is the work order for the next cover pass, and
+`pnpm analyse:cover -- --sectors` regenerates it.
+
+Two test assertions had to change, both because they encoded the pilot rather
+than the design. The cover-variety check required two distinct bands per
+district, which an unpassed district honestly cannot meet; it now checks
+differentiation across the whole tactical tuple (cover, loot weight, tier bias).
+And the regression guard asserted named districts had no sectors — now none
+qualify, so it pins the useful guarantee instead: the sector path is inert when
+a caller supplies no sectors, which is what protects a district whose data is
+withdrawn.
+
+535 unit tests (+91, mostly the per-district suite now running nineteen times),
+typecheck and build pass. `docs/WORLD-ZONES.md` gained a Sectors section.
+Browser and FPS smokes still not run here.
+
 **Latest: sectors wired into the open world (2026-09-21).** Sector data was
 inert; it now drives four things in expedition mode. Only HarbourFront carries
 sectors, and the other eighteen districts are provably unchanged — the

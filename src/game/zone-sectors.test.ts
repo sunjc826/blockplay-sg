@@ -3,7 +3,7 @@ import { getRegion, type RegionDefinition } from './regions';
 import { sectorAt, zoneSectors, ZONE_SECTORS } from './zone-sectors';
 import { coverFor, coverMasses, measureCover } from './cover-metrics';
 import { ZONE_LOOT_RULES } from './expedition-loot';
-import { getWorldZone, type WorldZoneId } from './world-zones';
+import { getWorldZone, WORLD_ZONES, type WorldZoneId } from './world-zones';
 import type { Obstacle } from './region-collision';
 
 /** Districts carrying sector data; the rest are untouched and stay whole. */
@@ -29,10 +29,12 @@ function reachable(region: RegionDefinition, obstacles: readonly Obstacle[]) {
   return queue;
 }
 
-it('sectors only districts that exist, and leaves the rest whole', () => {
+it('sectors every district, and still answers for ground that belongs to none', () => {
   for (const id of SECTORED) expect(() => getWorldZone(id)).not.toThrow();
-  expect(zoneSectors('queenstown')).toEqual([]);
-  expect(sectorAt('queenstown', 0, 0)).toBeNull();
+  // Every district now carries sectors; the pilot is over.
+  for (const zone of WORLD_ZONES) expect(zoneSectors(zone.id).length, zone.id).toBeGreaterThan(1);
+  // Far outside any district's bounds belongs to no sector, and must not throw.
+  expect(sectorAt('queenstown', 99999, 99999)).toBeNull();
 });
 
 describe.each(SECTORED.map(id => [id] as const))('%s sectors', id => {
@@ -68,6 +70,8 @@ describe.each(SECTORED.map(id => [id] as const))('%s sectors', id => {
         // Loot draws from anchors before the spawn-ring fallback, so a sector
         // wants more anchors than the district has crates to place.
         expect(sector.anchors.length, `${sector.id} anchors`).toBeGreaterThanOrEqual(3);
+        // A repeated anchor silently costs a crate slot at the 3 m spacing rule.
+        expect(new Set(sector.anchors.map(a => `${a.x},${a.z}`)).size, `${sector.id} distinct anchors`).toBe(sector.anchors.length);
         for (const anchor of sector.anchors) {
           const where = `${sector.id} ${JSON.stringify(anchor)}`;
           expect(anchor.x, where).toBeGreaterThanOrEqual(sector.bounds.minX);
@@ -86,8 +90,12 @@ describe.each(SECTORED.map(id => [id] as const))('%s sectors', id => {
     const rules = ZONE_LOOT_RULES[id];
     const crates = rules.weaponCount + rules.ammoCount + rules.medicalCount + rules.armorCount;
     expect(sectors.reduce((total, s) => total + s.anchors.length, 0)).toBeGreaterThanOrEqual(crates);
-    // A district whose sectors all read the same way has not been sectored.
-    expect(new Set(sectors.map(s => s.cover)).size).toBeGreaterThan(1);
+    // A district whose sectors are all the same in every respect has not been
+    // sectored. Cover alone cannot carry this: a district that has not had a
+    // cover pass honestly reads `open` throughout, so differentiation is
+    // checked across the whole tactical tuple.
+    const character = new Set(sectors.map(s => `${s.cover}:${s.lootWeight}:${s.tierBias ?? 0}`));
+    expect(character.size).toBeGreaterThan(1);
   });
 
   it('resolves a point to the sector a player would name', () => {

@@ -51,14 +51,19 @@ describe('loot placement across sectors', () => {
     }
   });
 
-  /** The eighteen districts without sector data must be bit-identical. */
-  it('leaves an unsectored district exactly as it was', () => {
+  /**
+   * Every district is sectored now, so the guarantee worth pinning is that the
+   * sector path is inert when no sectors are supplied — which is what keeps a
+   * caller that predates sectors, or a district whose data is withdrawn,
+   * placing loot exactly as it always did.
+   */
+  it('is inert when a caller supplies no sectors', () => {
     for (const id of ['bishan', 'tuas', 'queenstown'] as const) {
-      expect(zoneSectors(id)).toEqual([]);
-      const withField = createExpeditionLoot('regression').enterZone(geometry(id));
-      const without = createExpeditionLoot('regression').enterZone({ ...geometry(id), sectors: undefined });
-      expect(withField).toEqual(without);
-      expect(withField.every(crate => crate.sectorId === undefined)).toBe(true);
+      const absent = createExpeditionLoot('regression').enterZone({ ...geometry(id), sectors: undefined });
+      const empty = createExpeditionLoot('regression').enterZone({ ...geometry(id), sectors: [] });
+      expect(absent).toEqual(empty);
+      expect(absent.every(crate => crate.sectorId === undefined)).toBe(true);
+      expect(absent.length).toBeGreaterThan(0);
     }
   });
 });
@@ -90,15 +95,24 @@ describe('tier bias', () => {
 });
 
 describe('patrol spawns', () => {
-  it('offers a sectored district more ground to appear on, all of it clear', () => {
-    const plain = patrolSpawns('bishan'), sectored = patrolSpawns(SECTORED);
-    expect(plain).toEqual(getWorldZone('bishan').encounterSpawns);
-    expect(sectored.length).toBeGreaterThan(getWorldZone(SECTORED).encounterSpawns.length);
-    const region = getRegion(SECTORED), world = region.build();
-    try {
-      // createArena rejects a spawn inside geometry, so an unclear one is a
-      // point the patrols silently lose rather than an outright failure.
-      for (const spawn of sectored) expect(region.canOccupy(spawn.x, spawn.z, 0.5, world.obstacles), JSON.stringify(spawn)).toBe(true);
-    } finally { world.dispose(); }
+  it('keeps every district\'s own spawns and adds ground from its sectors', () => {
+    for (const zone of WORLD_ZONES) {
+      const spawns = patrolSpawns(zone.id);
+      for (const own of zone.encounterSpawns) expect(spawns, zone.id).toContainEqual(own);
+      expect(spawns.length, zone.id).toBeGreaterThan(zone.encounterSpawns.length);
+    }
+  });
+
+  it('offers only ground a patrol can actually stand on', () => {
+    // createArena rejects a spawn inside geometry, so an unclear one is a point
+    // the patrols silently lose rather than an outright failure.
+    for (const id of [SECTORED, 'bishan', 'changi'] as const) {
+      const region = getRegion(id), world = region.build();
+      try {
+        for (const spawn of patrolSpawns(id)) {
+          expect(region.canOccupy(spawn.x, spawn.z, 0.5, world.obstacles), `${id} ${JSON.stringify(spawn)}`).toBe(true);
+        }
+      } finally { world.dispose(); }
+    }
   });
 });

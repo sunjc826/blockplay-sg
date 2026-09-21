@@ -20,6 +20,36 @@ The selected destination displays threat, loot tier, patrol count, the route and
 
 While playing, the upper-left minimap follows the operator in the current district using its authored roads and collision bounds. The arrow points in the view direction; the map keeps north up. Nearby remaining loot appears as green squares. Gold diamonds show checkpoints; outlined diamonds on the map edge indicate distant exits. The planned route's next checkpoint is highlighted. Loot markers disappear on collection and update from the cached remaining supplies when returning to a district. Each zone uses the same SVG component with different map data; no additional renderer or Google request is created.
 
+## Sectors
+
+Every district is divided into named sub-areas — nine to eleven each, 195 in
+all. A sector carries bounds, a measured cover band, a loot weight, an optional
+tier bias, a patrol weight and curated anchor positions. They are listed in
+`src/data/region-sectors.ts`.
+
+Sectors do not partition a district. Water, road margins and the ground outside
+the perimeter loop belong to no sector, which is deliberate: those are places to
+cross, not places to be.
+
+What they change while playing:
+
+- **Supplies** are allocated across sectors by loot weight and placed on that
+  sector's anchors. A tier bias leans the roll where ground is worth crossing
+  for — HarbourFront's Keppel wharf takes about a fifth of the district's
+  crates at high elite odds, while its Sentosa boardwalk takes a twentieth at
+  similar odds and leaves you exposed for the whole crossing. Bias never
+  guarantees a tier.
+- **Patrols** spawn from sector anchors as well as the district's own encounter
+  points, so encounters stop recurring in the same few spots.
+- **The HUD** names the sector you are standing in and the comms log records
+  each crossing.
+- **The minimap** tints sectors by cover band beneath the roads.
+
+Cover bands are measured from the scene geometry, not declared by hand: run
+`pnpm analyse:cover -- --sectors` to see them, and `zone-sectors.test.ts` holds
+every label to the built scene. Most sectors read `open`, because only
+HarbourFront has had a cover pass so far.
+
 ## Random supplies
 
 Each expedition gets a fresh seed. Each district rolls its contents and positions once; re-entry reuses the same remaining crates. Weapon rarity is rolled per crate:
@@ -46,7 +76,7 @@ Each expedition gets a fresh seed. Each district rolls its contents and position
 | Bishan | 2 | 56% | 36% | 8% | 7 |
 | Orchard Road | 3 | 32% | 48% | 20% | 9 |
 
-Other crates contain ammunition for the selected gun, medical supplies or armor plates. Elite odds apply to weapon rolls; a particular visit does not guarantee an elite drop. Supply locations are checked against each district's bounds and obstacles. Colored case labels show item and tier. Pickups require a living player within 2.8 metres; medkits remain available if health is full.
+Other crates contain ammunition for the selected gun, medical supplies or armor plates. Elite odds apply to weapon rolls; a particular visit does not guarantee an elite drop. Supply locations are checked against each district's bounds and obstacles, and are distributed across the district's sectors rather than scattered around the spawn. Colored case labels show item and tier. Pickups require a living player within 2.8 metres; medkits remain available if health is full.
 
 A found weapon replaces its family slot and uses existing catalog stats. Plates equip and replenish their protection pool. Field changes apply to a private profile copy and never award permanent ownership, levels, credits or tokens. Health, armor, selected weapon and ammunition carry across checkpoints. Patrols repopulate when a district is reloaded; picked-up loot does not. No inventory or expedition state is retained after leaving this mode or reloading the browser.
 
