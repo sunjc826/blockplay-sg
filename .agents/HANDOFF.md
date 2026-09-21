@@ -1,5 +1,54 @@
 # Blockplay: portable agent handoff
 
+**Latest: the game is playable with thumbs (2026-09-21).** Every 3D mode now
+draws twin floating sticks and its actions over the scene on a touchscreen,
+instead of the row of arrow buttons under it. `src/game/touch-controls.ts` holds
+the whole feel as pure functions, so the range, the expedition and the
+walk/drive districts cannot drift apart, and the tuning is testable without a
+browser.
+
+Three decisions worth keeping:
+
+- **The stick wins over the keys, it is never summed with them.**
+  `resolveMovement` returns one intent; a key left stuck down by a lost keyup
+  therefore cannot drag a touch player sideways. Analog magnitude survives into
+  `movementInput`, which only normalises vectors longer than one — so a
+  half-pushed stick walks at half pace for free, and the sprint is the outer
+  ring rather than a button.
+- **Look is a rate, applied per frame, in mouse pixels.** `lookDelta` feeds
+  `turnFpsLook`, so touch and mouse share one sensitivity curve and one clamp.
+  The districts pass `REGION_LOOK_SCALE` because their own per-pixel constant is
+  nearly twice the range's. The response is squared: small pushes aim, full
+  pushes spin.
+- **FIRE forwards its own drag as look travel** (`engine.lookBy`). One thumb
+  otherwise has to choose between holding the trigger and correcting the aim,
+  which is the single worst thing about touch shooters.
+
+Layout was the fiddly half. The HUD assumed free bottom corners, so everything
+anchored there is lifted by one `--touch-inset` variable; portrait has no room
+for two sticks and a trigger across 390px, so the trigger stacks above its stick
+and the readouts move to the top-right. A landscape phone also now gets the
+stacked page layout — the `max-width:720px` block gained an
+`(orientation:landscape) and (max-height:560px)` arm — rather than the desktop
+two columns squeezed into 844px.
+
+The sticks are aria-hidden (a bare drag surface announces nothing useful) but
+every action button keeps `aria-label`, because short screens drop the visible
+labels. The bar below the scene stays as the keyboard/AT path and is hidden only
+in immersive fullscreen.
+
+`pnpm test:touch` is the new browser smoke: an emulated phone, real
+`Input.dispatchTouchEvent` sequences, asserting the sticks walk and turn, that a
+half-push covers less ground than a full one, that FIRE-and-slide both shoots
+and aims, that the crouch latches, and that entering by touch never requests
+pointer capture. 581 unit tests (+25), typecheck and build pass; `pnpm
+test:pointer` and `pnpm test:fps` still pass, so the mouse path is intact.
+
+Two failures in this container are not from this work: `pnpm test:vehicles`
+fails identically on the unmodified tree (fixed 1.1s key-holds against a
+software renderer, no pace knob), and `pnpm test:expedition` asserts three
+districts in the network list when there are now nineteen.
+
 **Latest: blockplaySG installs as an app (2026-09-21).** A web app manifest,
 four generated icons, and a service worker built by `scripts/service-worker-plugin.mjs`
 out of `src/sw/service-worker.ts`. No new dependency: the plugin runs a second

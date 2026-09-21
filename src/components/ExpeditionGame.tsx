@@ -11,6 +11,8 @@ import FpsDebugPanel from './FpsDebugPanel';
 import FpsPilotPanel from './FpsPilotPanel';
 import FpsCommsLog from './FpsCommsLog';
 import FpsRadio, { FpsRadioVoice } from './FpsRadio';
+import TouchControls from './TouchControls';
+import { useTouchControls } from '../game/use-touch-controls';
 import type { MinimapMarker } from '../game/minimap';
 import './expedition.css';
 
@@ -60,13 +62,14 @@ export default function ExpeditionGame({ profile, onExit, suspended = false, ini
   ];
   const nearbyLoot = [...(hud.fieldLoot ?? [])].sort((a, b) => Math.hypot(a.x - hud.x, a.z - hud.z) - Math.hypot(b.x - hud.x, b.z - hud.z)).slice(0, 5);
   const distance = (point: { x: number; z: number }) => Math.round(Math.hypot(point.x - hud.x, point.z - hud.z));
+  const touch = useTouchControls(hud.inputMode);
   const hold = (key: string) => ({
     onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); engine.current?.setInput(key, true); },
     onPointerUp: () => engine.current?.setInput(key, false),
     onPointerCancel: () => engine.current?.setInput(key, false),
     onLostPointerCapture: () => engine.current?.setInput(key, false),
   });
-  return <div className={`fps-game expedition-game ${fullscreen.immersive ? 'is-immersive' : ''}`} ref={stage}
+  return <div className={`fps-game expedition-game ${fullscreen.immersive ? 'is-immersive' : ''}`} ref={stage} data-touch={touch ? 'on' : undefined}
     data-phase={hud.phase} data-pointer-locked={hud.locked} data-zone={scene.zone} data-player-x={hud.x.toFixed(3)} data-player-z={hud.z.toFixed(3)}
     data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-alive={alive} data-loot-count={hud.fieldLoot?.length ?? 0} data-bot-count={hud.arena?.actors.filter(actor => actor.bot).length ?? 0}>
     <div className="viewport fps-viewport">
@@ -88,6 +91,7 @@ export default function ExpeditionGame({ profile, onExit, suspended = false, ini
         <div className="fps-objective">Explore. Find supplies. Reach the next district.<small>E · PICK UP & EQUIP / T · CROSS CHECKPOINT</small></div>
         <div className="expedition-prompts" role="status">{hud.lootPrompt && <strong>{hud.lootPrompt}</strong>}{hud.travelPrompt && <strong>{hud.travelPrompt}</strong>}{hud.lootNotice && <span>{hud.lootNotice}</span>}</div>
         {hud.sector && <div className="expedition-sector" role="status"><span>LOCATION</span><strong>{hud.sector}</strong></div>}
+        {touch && !hud.pilotEnabled && <TouchControls hud={hud} engine={engine.current} mode="expedition" onMenu={() => engine.current?.pause()} />}
         <div className="expedition-route-hud">{nextCheckpoint && <strong>ROUTE TO {getWorldZone(destination!).name.toUpperCase()}</strong>}{(nextCheckpoint ? [nextCheckpoint] : gateways).map(gateway => <span key={gateway.id}>{getWorldZone(gateway.to).name} <b>{distance(gateway.position)}m</b></span>)}</div>
       </>}
       {!playing && <div className="fps-overlay"><div className="fps-start-card">
@@ -102,7 +106,7 @@ export default function ExpeditionGame({ profile, onExit, suspended = false, ini
         <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => hud.phase === 'error' ? setScene(current => ({ ...current, revision: current.revision + 1 })) : engine.current?.start()}><Play size={16} />{hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry district' : hud.phase === 'paused' ? 'Resume expedition' : 'Enter district'}<ArrowRight size={17} /></button>
         <button className="fps-shop-link" onClick={onExit}>Leave expedition →</button>
         <div className="fps-control-guide"><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>E</kbd> Take supplies</span><span><kbd>T</kbd> Travel</span><span><kbd>F</kbd> Fullscreen</span></div>
-        <small className="fps-touch-note">Field equipment lasts for this expedition. Your permanent Armory stays saved.</small>
+        <small className="fps-touch-note">{touch ? 'On-screen sticks appear once you enter the district. ' : ''}Field equipment lasts for this expedition. Your permanent Armory stays saved.</small>
       </div></div>}
     </div>
     <div className="experience-toolbar fps-toolbar"><div className="experience-title"><span className="mode-icon"><Compass size={22} /></span><div><h3>{zone.name} · expedition</h3><p>Connected districts · Random supplies · Solo survival</p></div></div><div className="toolbar-actions">
@@ -123,6 +127,6 @@ export default function ExpeditionGame({ profile, onExit, suspended = false, ini
       <section><h3>Supply scanner</h3>{nearbyLoot.length ? nearbyLoot.map(item => <p key={item.id}><strong>{item.name} · {distance(item)}m</strong><br /><span>{item.tier.toUpperCase()} · X {Math.round(item.x)}, Z {Math.round(item.z)}</span></p>) : <p>{hud.phase === 'loading' ? 'Scanning the district…' : 'No supplies remain nearby.'}</p>}<small>Ground crates: walk close and press E. Picked-up crates stay collected when you return.</small></section>
     </div>
     <div className="expedition-footer"><span>Field gear is temporary · Armory purchases stay saved</span><button onClick={onExit}>Leave expedition <ArrowRight size={14} /></button></div>
-    <p className="fps-message" role="status">{fullscreen.notice || hud.message || 'Drag the scene to look on touchscreens. ESC opens the menu; the district remains active.'}</p>
+    <p className="fps-message" role="status">{fullscreen.notice || hud.message || (touch ? 'Left stick moves, right stick looks, and holding FIRE keeps the aim correctable. The Menu button pauses you; the district stays active.' : 'Drag the scene to look on touchscreens. ESC opens the menu; the district remains active.')}</p>
   </div>;
 }

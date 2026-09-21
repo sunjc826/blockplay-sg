@@ -5,6 +5,9 @@ import { defaultDriveLook, dragDriveLook, driveCameraOffset, settleDriveLook } f
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CarFront, Footprints, RotateCcw, Flag } from 'lucide-react';
 import { getRegion, regionObjective, regionResetLabel, type RegionId, type RegionMapShape } from '../game/regions';
 import { minimapProjection } from '../game/minimap';
+import { lookDelta, REGION_LOOK_SCALE, resolveMovement, type StickVector } from '../game/touch-controls';
+import { useTouchControls } from '../game/use-touch-controls';
+import WorldTouchControls from './WorldTouchControls';
 import type { GuideRegion } from '../game/adventure';
 
 /** Schematic furniture is authored in world metres; the map transform places it. */
@@ -27,10 +30,13 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
   const [travel, setTravel] = useState<'walk' | 'drive'>('walk');
   const travelRef = useRef(travel);
   const keys = useRef(new Set<string>());
+  // Thumb sticks live outside the scene effect, which never re-runs for input.
+  const moveStick = useRef<StickVector | null>(null), lookStick = useRef<StickVector | null>(null);
+  const touch = useTouchControls();
   const reset = useRef(() => {});
   const [hud, setHud] = useState({ distance: 0, speed: 0, x: region.spawn.x, z: region.spawn.z, collected: [] as number[] });
   const [guideSession, setGuideSession] = useState(0);
-  useEffect(() => { travelRef.current = travel; keys.current.clear(); }, [travel]);
+  useEffect(() => { travelRef.current = travel; keys.current.clear(); moveStick.current = null; lookStick.current = null; }, [travel]);
 
   useEffect(() => {
     const container = host.current!;
@@ -78,7 +84,7 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
     const supported = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'shift'];
     const keyDown = (event: KeyboardEvent) => { const key = event.key.toLowerCase(); if (supported.includes(key)) { event.preventDefault(); keys.current.add(key); } };
     const keyUp = (event: KeyboardEvent) => keys.current.delete(event.key.toLowerCase());
-    const blur = () => { keys.current.clear(); speed = 0; drag = undefined; };
+    const blur = () => { keys.current.clear(); moveStick.current = null; lookStick.current = null; speed = 0; drag = undefined; };
     canvas.addEventListener('pointerdown', pointerDown); canvas.addEventListener('pointermove', pointerMove); canvas.addEventListener('pointerup', pointerUp); canvas.addEventListener('pointercancel', pointerUp); canvas.addEventListener('lostpointercapture', pointerUp);
     canvas.addEventListener('keydown', keyDown); canvas.addEventListener('blur', blur); window.addEventListener('keyup', keyUp); window.addEventListener('blur', blur);
     const resize = () => { const { width, height } = container.getBoundingClientRect(); renderer.setSize(width, height); camera.aspect = width / Math.max(1, height); camera.updateProjectionMatrix(); };
@@ -87,12 +93,21 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
     const animate = (now: number) => {
       const dt = Math.min((now - last) / 1000, 0.05); last = now;
       const held = keys.current;
-      const forward = Number(held.has('w') || held.has('arrowup')) - Number(held.has('s') || held.has('arrowdown'));
-      const side = Number(held.has('d') || held.has('arrowright')) - Number(held.has('a') || held.has('arrowleft'));
+      // One intent from the keys and the thumb stick; a pushed stick wins, and
+      // its magnitude survives, so a half-pushed stick walks at half pace.
+      const move = resolveMovement(held, moveStick.current);
+      const forward = move.forward, side = move.side;
       const driving = travelRef.current === 'drive';
       if (lastTravel !== travelRef.current) {
         driveLook = defaultDriveLook(); drag = undefined; lastLookAt = 0;
         lastTravel = travelRef.current;
+      }
+      if (lookStick.current) {
+        // A drag is a displacement and the stick is a rate, but both end up in
+        // the same per-pixel constants, scaled to land on the same feel.
+        const turn = lookDelta(lookStick.current, dt, REGION_LOOK_SCALE);
+        if (driving) { driveLook = dragDriveLook(driveLook, turn.dx, turn.dy); lastLookAt = now; }
+        else { yaw -= turn.dx * 0.004; pitch = THREE.MathUtils.clamp(pitch - turn.dy * 0.003, -0.7, 1.1); }
       }
       let dx = 0, dz = 0;
       if (driving) {
@@ -100,7 +115,7 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
         yaw -= side * Math.min(Math.abs(speed) / 8, 1.5) * Math.sign(speed) * dt;
         dx = -Math.sin(yaw) * speed * dt; dz = -Math.cos(yaw) * speed * dt;
       } else {
-        speed = 0; const rate = held.has('shift') ? 8 : 4.2, normal = Math.max(1, Math.hypot(forward, side));
+        speed = 0; const rate = move.sprint ? 8 : 4.2, normal = Math.max(1, Math.hypot(forward, side));
         dx = (-Math.sin(yaw) * forward + Math.cos(yaw) * side) / normal * rate * dt;
         dz = (-Math.cos(yaw) * forward - Math.sin(yaw) * side) / normal * rate * dt;
       }
@@ -136,7 +151,7 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
   const resetLabel = regionResetLabel(region);
   const under = region.decor.filter(shape => (shape.layer ?? 'over') === 'under');
   const over = region.decor.filter(shape => (shape.layer ?? 'over') === 'over');
-  return <div className={`marina-reconstruction marina-game ${region.className}`} data-region={region.id}>
+  return <div className={`marina-reconstruction marina-game ${region.className}`} data-touch={touch ? 'on' : undefined} data-region={region.id}>
     <div className="viewport marina-viewport"><div ref={host} className="world" />
       {error ? <div className="viewer-message" role="alert"><p>{error}</p></div> : <>
         <div className="scene-top"><span className="scene-badge"><span className="status-dot" /> {region.badge}</span><span className="marina-stamp-count"><Flag size={14} />{hud.collected.length} / {stamps.length} stamps</span></div>
@@ -154,9 +169,13 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
         </div>
         <div className="marina-objective">{regionObjective(region, hud.collected.length)}</div>
       </>}
+      {touch && !error && <WorldTouchControls travel={travel}
+        onMove={stick => { moveStick.current = stick.magnitude > 0 ? stick : null; }}
+        onLook={stick => { lookStick.current = stick.magnitude > 0 ? stick : null; }}
+        onBrake={brake => { if (brake) keys.current.add(' '); else keys.current.delete(' '); }} />}
     </div>
     {region.hasGuide && <RegionGuide key={guideSession} region={region.id as Exclude<GuideRegion, 'marina-bay'>} hud={hud} stops={[...stamps]} />}
     <div className="experience-toolbar"><div className="experience-title"><span className="mode-icon">{travel === 'walk' ? <Footprints size={20} /> : <CarFront size={20} />}</span><div><h3>{region.title}</h3><p>{region.subtitle}</p></div></div><div className="toolbar-actions"><button className="session-button" aria-pressed={travel === 'walk'} onClick={() => setTravel('walk')}>Walk</button><button className="session-button" aria-pressed={travel === 'drive'} onClick={() => setTravel('drive')}>Drive</button><button className="icon-button" aria-label={resetLabel} title={resetLabel} onClick={() => reset.current()}><RotateCcw size={16} /></button></div></div>
-    <div className="session-strip"><div><span>EXPLORED</span><strong>{Math.round(hud.distance)}<small>m</small></strong></div><p className="marina-hint">Click scene, then WASD · {travel === 'walk' ? 'Drag to look · Shift to run' : `Drag to orbit · A/D steer · ${Math.round(Math.abs(hud.speed) * 3.6)} km/h · Space to brake`}</p><div className="touch-controls">{(['a', 'w', 's', 'd'] as const).map((key, index) => { const Icon = [ArrowLeft, ArrowUp, ArrowDown, ArrowRight][index]; return <button key={key} disabled={!!error} aria-label={`${region.shortName} ${['left', 'forward', 'backward', 'right'][index]}`} onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); keys.current.add(key); }} onPointerUp={() => keys.current.delete(key)} onPointerCancel={() => keys.current.delete(key)} onLostPointerCapture={() => keys.current.delete(key)}><Icon size={15} /></button>; })}</div></div>
+    <div className="session-strip"><div><span>EXPLORED</span><strong>{Math.round(hud.distance)}<small>m</small></strong></div><p className="marina-hint">{touch ? (travel === 'walk' ? 'Left stick walks · push it to the ring to run · right stick looks' : 'Left stick drives and steers · right stick orbits · Brake to stop') : `Click scene, then WASD · ${travel === 'walk' ? 'Drag to look · Shift to run' : `Drag to orbit · A/D steer · ${Math.round(Math.abs(hud.speed) * 3.6)} km/h · Space to brake`}`}</p><div className="touch-controls">{(['a', 'w', 's', 'd'] as const).map((key, index) => { const Icon = [ArrowLeft, ArrowUp, ArrowDown, ArrowRight][index]; return <button key={key} disabled={!!error} aria-label={`${region.shortName} ${['left', 'forward', 'backward', 'right'][index]}`} onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); keys.current.add(key); }} onPointerUp={() => keys.current.delete(key)} onPointerCancel={() => keys.current.delete(key)} onLostPointerCapture={() => keys.current.delete(key)}><Icon size={15} /></button>; })}</div></div>
   </div>;
 }

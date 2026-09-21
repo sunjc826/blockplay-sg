@@ -23,13 +23,40 @@ Marina includes waterfront landmarks, gardens and road circuits. Queenstown incl
 
 Water and buildings block movement. Layouts are deliberately compressed and handling is arcade-style. Distances are game coordinates, not surveyed distances. Playing these worlds makes no Google API requests.
 
+### Touch controls
+
+On a touchscreen — anything the browser reports as a coarse pointer, plus any
+session you start with a tap — every 3D mode draws its controls over the scene
+instead of below it:
+
+- **Left stick** moves. It is analog, so a half-pushed stick walks at half pace,
+  and pushing it out to the ring runs (or boosts a helicopter). The base is
+  planted wherever your thumb lands inside the left zone.
+- **Right stick** looks. Dragging any free part of the scene still looks too,
+  and both share the range's sensitivity curve.
+- **FIRE** can be held and slid: the same thumb keeps the trigger down and goes
+  on aiming, which one thumb otherwise cannot do.
+- **Action buttons** cover aim, reload, jump, crouch (a latch, not a hold),
+  weapon swap, vehicles, supplies, checkpoints and the menu. On short screens
+  they shrink to icons; their names stay on the elements for screen readers.
+
+Entering a mode by touch skips pointer capture entirely, and the round pauses if
+a real mouse shows up, so a convertible can switch either way mid-session. The
+button bar below the scene still carries every command for keyboard and
+assistive-technology users, and it is hidden only in immersive fullscreen, where
+the overlay already covers the same ground.
+
+`pnpm test:touch` drives all of it through real touch events in an emulated
+phone; it needs Vite plus Chrome with remote debugging, as the other browser
+smokes do.
+
 ### Regional FPS and armory
 
 [Map setup and validation](FPS-DISTRICTS.md).
 
 Select Marina Bay, Queenstown or Raffles Place → its FPS mode → Enter range. Each map has eight practice targets, optional counter-fire, a car and a helicopter. Switching regions while in FPS starts a fresh range on the selected map; the armory returns to that same map.
 
-WASD moves, mouse looks, left mouse fires, Q toggles aim, right mouse holds aim, R reloads and 1/2 switches weapons. Shift sprints, C crouches and Space jumps. Escape pauses and releases the pointer. Desktop play requires pointer capture; touch devices use drag-look controls.
+WASD moves, mouse looks, left mouse fires, Q toggles aim, right mouse holds aim, R reloads and 1/2 switches weapons. Shift sprints, C crouches and Space jumps. Escape pauses and releases the pointer. Desktop play requires pointer capture; touch devices get twin thumb sticks and on-screen actions over the scene (see [touch controls](#touch-controls)).
 
 Tap **Q** once to aim and again to lower the scope; left-click fires while aim stays toggled on. This works with a trackpad without holding two buttons. Holding Q does not repeatedly toggle. You can also hold right mouse to aim or use the on-screen Aim button. Reloading, switching weapons, pausing and handing control to/from the AI clear toggled aim. The human toggle is ignored while the AI pilot is running; its direct aim commands are unchanged. The issued SAR 21 uses its integrated 1.5× picture-in-picture sight with an etched reticle and unzoomed peripheral vision. In the armory’s Attachments tab, the 350 CR red-dot conversion replaces the scope and bridge with a rail-mounted 1× reflex sight. Removing the optic attachment restores the integrated sight. The level-2 precision lens kit uses 1.75× PiP; only one optic attachment can be equipped per weapon. Shop previews and gameplay use the same optic model. PiP uses one reusable 384×384 render target and renders only while aiming; red dots use no extra world pass. Reloads animate a magazine swap and gloved hands; empty reloads add a chambering gesture. Sustained fire builds real shot spread and widens the hip-fire crosshair. Releasing the trigger lets accuracy recover; aiming and crouching tighten the cone. White hit markers confirm hits; amber marks confirm eliminations.
 
@@ -161,6 +188,7 @@ Browser checks require a running app and a separate Chrome profile with remote d
 | `pnpm test:adventure` | 5173 / 9223 | Mocked companion, voice, failure and race checks |
 | `pnpm test:fps`, `test:armory`, `test:vehicles`, `test:fullscreen` | 5175 / 9224 | Override with `FPS_APP_ORIGIN` and `FPS_CHROME_ORIGIN` |
 | `pnpm test:arena:solo`, `test:expedition` | 5175 / 9228 | See script headers for origin overrides |
+| `pnpm test:touch` | 5175 / 9224 | Thumb sticks, analog pace, trigger-drag aim and the district sticks, in an emulated phone. `TOUCH_SMOKE_PACE=4` on a software renderer |
 
 Use the normal development build for full-feature browser checks; the Sites build intentionally disables online features. `pnpm test:adventure --live` spends real model credits for text checks; other failure/voice checks remain mocked. Actual microphone and listening quality need human verification.
 

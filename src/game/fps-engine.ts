@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook } from './fps-pointer';
+import { lookDelta, resolveMovement, stickKeys, type StickVector } from './touch-controls';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { advanceWeapon, beginReload, createLoadout, findTrait, fireWeapon, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponState } from './fps-rules';
 import { firstVisibleHit, visibleHits } from './fps-raycast';
@@ -54,12 +55,14 @@ export interface FpsHud {
   hits: number; shots: number; landed: number; health: number; armor: number; incoming: boolean; hurt: boolean; lastDamage: number; earned: number; earnedXp: number; callout: string; chain: number; elapsed: number; aiming: boolean; hit: boolean;
   vehicle: VehicleKind | 'on-foot'; vehicleSpeed: number; altitude: number; interact: string; vehicleNotice: string; carDistance: number; helicopterDistance: number;
   locked: boolean; message: string; muted: boolean; x: number; z: number; yaw: number; mapMarkers: MinimapMarker[];
+  /** Which control scheme the round is running under; 'touch' skips pointer capture. */
+  inputMode: 'mouse' | 'touch';
   arena: ArenaSnapshot | null; arenaSelf: ArenaActor | null; arenaConnected: boolean; arenaStarted: boolean;
   expeditionZone: WorldZoneId | null; lootPrompt: string; travelPrompt: string; lootNotice: string; fieldLoot: FieldLoot[];
   /** Named sub-area the player is standing in; '' on ground that belongs to none. */
   sector: string;
 }
-export const initialFpsHud: FpsHud = { quickItem: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], sector: '' };
+export const initialFpsHud: FpsHud = { quickItem: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], sector: '' };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -167,6 +170,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let lastPointerType = 'mouse', inputMode: 'mouse' | 'touch' = 'mouse';
   let lastTime = performance.now(), frame = 0, lastReport = 0, wasLocked = false;
   let drag: { id: number; x: number; y: number } | null = null;
+  // On-screen thumb sticks. They sit beside the keyboard rather than replacing
+  // it, so a tablet with a keyboard attached can use whichever is to hand.
+  let moveStick: StickVector | null = null, lookStick: StickVector | null = null;
+  // Reused so translating a stick into vehicle keys allocates nothing per frame.
+  const mountedKeys = new Set<string>();
   let motor: OscillatorNode | null = null, motorGain: GainNode | null = null;
   let audio: AudioContext | null = null, soundBuffer: AudioBuffer | null = null;
   const ray = new THREE.Raycaster(); ray.far = 250;
@@ -174,14 +182,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const publish = () => {
     if (disposed) return;
     const state = loadout[hud.weapon];
-    onHud({ ...hud, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], ...(!options.arena ? vehicles.hud(position) : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / specs[hud.weapon].reload, aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, x: position.x, z: position.z, yaw,
+    onHud({ ...hud, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], ...(!options.arena ? vehicles.hud(position) : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / specs[hud.weapon].reload, aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw,
       mapMarkers: options.arena ? [] : [
         ...targetPositions.flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
       ],
     });
   };
-  const clearInput = () => { keys.clear(); trigger = false; ads = false; touchAim = false; drag = null; };
+  const clearInput = () => { keys.clear(); trigger = false; ads = false; touchAim = false; drag = null; moveStick = null; lookStick = null; };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -385,6 +393,42 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) return;
     if (key === 'fire') trigger = held && !vehicles.active;
     else if (held) keys.add(key); else keys.delete(key);
+  }
+  /** Analog movement from the left thumb stick; a null or centred stick hands control back to the keys. */
+  function setMoveAxis(stick: StickVector | null) {
+    if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) { moveStick = null; return; }
+    moveStick = stick && stick.magnitude > 0 ? stick : null;
+  }
+  /**
+   * Keys a mounted vehicle should see. The vehicle model reads a held-key set,
+   * so the stick is translated into one rather than that model growing a second
+   * input path; held keys stay in the set beside it. Full forward deflection
+   * reads as shift, which is the run on foot and the rotor boost in the air.
+   */
+  function drivingKeys(): ReadonlySet<string> {
+    if (!moveStick) return keys;
+    mountedKeys.clear();
+    for (const key of keys) mountedKeys.add(key);
+    for (const key of stickKeys(moveStick)) mountedKeys.add(key);
+    return mountedKeys;
+  }
+  /**
+   * Relative look travel, in the same pixels a mouse would have moved. The fire
+   * button forwards its own drag through here, so a thumb can hold the trigger
+   * and correct its aim at the same time without a second finger.
+   */
+  function lookBy(dx: number, dy: number) {
+    if (pilotEnabled || hud.phase !== 'playing') return;
+    look(dx, dy);
+  }
+  /**
+   * Analog look from the right thumb stick. The rate is applied per frame in the
+   * animation loop rather than per pointer event, so a stick held at one angle
+   * turns at the same speed whatever rate the touchscreen reports at.
+   */
+  function setLookAxis(stick: StickVector | null) {
+    if (hud.phase !== 'playing' || pilotEnabled) { lookStick = null; return; }
+    lookStick = stick && stick.magnitude > 0 ? stick : null;
   }
   function toggleAim() {
     if (pilotEnabled || hud.phase !== 'playing' || vehicles.active || hud.arenaSelf?.alive === false || loadout[hud.weapon].reloadRemaining > 0) return;
@@ -862,13 +906,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       calloutTime = Math.max(0, calloutTime - realDt); if (!calloutTime) hud.callout = '';
       if (!options.arena) hud.elapsed += realDt;
       if (!options.arena) loadout.forEach((state, i) => advanceWeapon(state, i, realDt, specs));
+      if (!pilotEnabled && lookStick) { const turn = lookDelta(lookStick, dt); look(turn.dx, turn.dy); }
       if (vehicles.mounted) {
-        yaw += vehicles.step(keys, dt); position = { x: vehicles.mounted.x, z: vehicles.mounted.z };
+        yaw += vehicles.step(drivingKeys(), dt); position = { x: vehicles.mounted.x, z: vehicles.mounted.z };
       } else {
       vehicles.step(keys, dt);
-      const forward = Number(keys.has('w') || keys.has('arrowup')) - Number(keys.has('s') || keys.has('arrowdown'));
-      const side = Number(keys.has('d') || keys.has('arrowright')) - Number(keys.has('a') || keys.has('arrowleft'));
-      sprinting = keys.has('shift') && forward > 0 && !keys.has('c');
+      const move = resolveMovement(keys, moveStick);
+      const forward = move.forward, side = move.side;
+      sprinting = move.sprint && forward > 0.5 && !keys.has('c');
       const speed = keys.has('c') ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2;
       const delta = movementInput(forward, side, yaw, speed * equipment.mobility * specs[hud.weapon].mobility, dt), next = footMove(position, delta.x, delta.z, 0.38, options.arena ? world.obstacles : vehicles.footObstacles());
       moving = Math.hypot(next.x - position.x, next.z - position.z) > 0.0001; position = next;
@@ -954,7 +999,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   });
 
   return {
-    start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, switchWeapon, useQuickItem, jump, setInput, interactVehicle, interactLoot, travelZone, configureDebug, refillHealth,
+    start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, switchWeapon, useQuickItem, jump, setInput, setMoveAxis, setLookAxis, lookBy, interactVehicle, interactLoot, travelZone, configureDebug, refillHealth,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
     toggleAim,

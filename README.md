@@ -16,6 +16,7 @@ Explore familiar Singapore neighborhoods as stylized 3D game worlds, created usi
 - Explore the connected districts in **Open world**, finding equipment and facing bots.
 - Play each district's **FPS range**, with a shared armory, vehicles and target ranges.
 - Play **Solo arena** against configurable bots.
+- Play on a **phone or tablet**: every 3D mode draws twin thumb sticks and on-screen actions over the scene.
 - **Install it** to your home screen or desktop and keep playing offline.
 
 The public demo is game-only: AI companions, multiplayer host/join and live Street View are unavailable. These optional features are supported in the local project with additional setup.

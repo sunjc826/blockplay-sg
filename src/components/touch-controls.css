@@ -1,0 +1,114 @@
+/* The thumb layer sits over the scene, so it is sized in safe-area-aware
+   insets: a notch or a home indicator must never sit under a stick. */
+.touch-layer{position:absolute;inset:0;z-index:2;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;pointer-events:none;touch-action:none;user-select:none;-webkit-user-select:none;
+  padding:0 max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+.touch-side{display:flex;flex-direction:column;gap:10px;min-width:0}
+.touch-side.is-right{align-items:flex-end}
+.touch-primary{display:flex;align-items:flex-end;gap:10px;pointer-events:none}
+
+/* The zone is the whole thumb-sized rectangle; only the planted base is drawn. */
+.touch-stick{position:relative;width:146px;height:146px;pointer-events:auto;touch-action:none;flex:none}
+.touch-stick[data-disabled]{pointer-events:none;opacity:.4}
+.touch-stick-base{position:absolute;left:50%;top:50%;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;
+  background:radial-gradient(circle,#0d1a1266 0%,#0d1a1233 70%,#0d1a1200 100%);border:1px solid #f4f4e94d;
+  opacity:.5;transition:opacity .15s ease,border-color .15s ease}
+.touch-stick[data-active=true] .touch-stick-base{opacity:.95}
+/* The outer ring is the sprint threshold, so the run is somewhere you can see. */
+.touch-stick-base>i{position:absolute;inset:3px;border-radius:50%;border:1px dashed #f4f4e940}
+.touch-stick[data-sprint=true] .touch-stick-base{border-color:#e0bb72}
+.touch-stick[data-sprint=true] .touch-stick-base>i{border-color:#e0bb72cc;border-style:solid}
+.touch-stick-thumb{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;
+  background:#f4f4e9d9;border:1px solid #17231daa;box-shadow:0 3px 10px #0a140d66}
+.touch-stick[data-sprint=true] .touch-stick-thumb{background:#f0d9a8ee}
+.touch-stick-label{position:absolute;left:0;right:0;bottom:-2px;text-align:center;font:7px monospace;letter-spacing:2px;color:#f4f4e9;opacity:.55;text-shadow:0 1px 3px #000}
+
+.touch-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:flex-end;gap:6px;max-width:430px;pointer-events:none}
+.touch-button{pointer-events:auto;touch-action:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  min-width:56px;min-height:44px;padding:6px 8px;border-radius:7px;border:1px solid #c7d1bb44;background:#16271ecc;color:#f4f4e9;
+  font:8px monospace;letter-spacing:1px;text-transform:uppercase;backdrop-filter:blur(3px)}
+.touch-button>span{max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.touch-button:active,.touch-button[data-on]{background:#e0bb72e6;color:#17231d;border-color:#e0bb72}
+.touch-button:disabled{opacity:.35}
+.touch-button:focus-visible{outline:2px solid #d79545;outline-offset:2px}
+
+.touch-fire{pointer-events:auto;touch-action:none;width:86px;height:86px;border-radius:50%;border:2px solid #ffffff38;
+  background:#c56e37e0;color:#fff8e5;font:11px monospace;letter-spacing:2.5px;box-shadow:0 6px 18px #0a140d55;flex:none}
+.touch-fire:active{background:#e08a4ce6;transform:scale(.96)}
+.touch-fire:disabled{opacity:.3}
+.touch-fire:focus-visible{outline:2px solid #ffd489;outline-offset:3px}
+
+/* Windowed play keeps the button bar below the scene; immersive play is all
+   scene, so the bar would only steal the pixels the layer already covers. */
+.fps-game[data-touch=on].is-immersive .fps-inputs{display:none}
+.fps-game[data-touch=on].is-immersive .fps-toolbar{bottom:12px}
+
+/* A phone in landscape has around 350px of height in total: shrink everything
+   and drop the button labels, which the aria-label keeps announcing. */
+@media(max-height:560px){
+  .touch-layer{padding-bottom:max(8px,env(safe-area-inset-bottom))}
+  .touch-stick{width:118px;height:118px}
+  .touch-stick-base{width:76px;height:76px;margin:-38px 0 0 -38px}
+  .touch-stick-thumb{width:38px;height:38px;margin:-19px 0 0 -19px}
+  .touch-fire{width:72px;height:72px;font-size:10px}
+  .touch-button>span{display:none}
+  .touch-button{min-width:42px;min-height:38px;padding:5px 6px}
+  .touch-actions{gap:5px;max-width:470px}
+}
+/* Portrait has the opposite problem — height to spare, no width. Two sticks and
+   a trigger will not fit across 390px, so the trigger stacks above its stick. */
+@media(max-width:520px){
+  .touch-primary{flex-direction:column;align-items:flex-end;gap:8px}
+  .touch-stick{width:118px;height:118px}
+  .touch-stick-base{width:76px;height:76px;margin:-38px 0 0 -38px}
+  .touch-stick-thumb{width:38px;height:38px;margin:-19px 0 0 -19px}
+  .touch-fire{width:68px;height:68px;font-size:9px;letter-spacing:1.5px}
+  .touch-button>span{display:none}
+  .touch-button{min-width:42px;min-height:38px;padding:5px 6px}
+  .touch-actions{gap:5px;max-width:250px}
+}
+@media(prefers-reduced-motion:reduce){.touch-stick-base{transition:none}.touch-fire:active{transform:none}}
+
+/* ---- Room for the thumbs -------------------------------------------------
+   The HUD was laid out for a mouse, with the bottom corners free. The sticks
+   now own those corners, so anything anchored there is lifted clear by the
+   height the layer reserves. One variable, so the two stick sizes above and
+   these offsets can never drift apart. */
+.fps-game[data-touch=on],[data-touch=on].marina-reconstruction{--touch-inset:170px}
+@media(max-height:560px){.fps-game[data-touch=on],[data-touch=on].marina-reconstruction{--touch-inset:140px}}
+@media(max-width:520px){.fps-game[data-touch=on],[data-touch=on].marina-reconstruction{--touch-inset:205px}}
+
+/* The bottom corners are the sticks' now, so the briefing text moves to the
+   centre, above them, where nothing else on the HUD is anchored. */
+.fps-game[data-touch=on] .fps-objective{left:50%;right:auto;transform:translateX(-50%);text-align:center;font-size:9px;
+  bottom:calc(6px + var(--touch-inset));max-width:min(430px,62%)}
+.fps-game[data-touch=on] .fps-minimap{width:112px;padding:5px}
+/* Above the action row, which the inset does not account for on its own. */
+.fps-game[data-touch=on] .fps-ammo{bottom:calc(62px + var(--touch-inset))}
+.fps-game[data-touch=on] .fps-vehicle-hud{bottom:calc(62px + var(--touch-inset))}
+.fps-game[data-touch=on] .fps-interact-prompt{bottom:calc(30px + var(--touch-inset))}
+.fps-game[data-touch=on] .fps-vehicle-notice{bottom:calc(76px + var(--touch-inset))}
+/* Clear of the action row as well as the sticks, which the inset alone covers. */
+.fps-game[data-touch=on] .fps-radio{bottom:calc(66px + var(--touch-inset))}
+.fps-game[data-touch=on].is-immersive>.fps-comms{bottom:calc(95px + var(--touch-inset))}
+/* Lifting the map instead of moving it would push it off a short screen. */
+[data-touch=on].marina-reconstruction .marina-map{top:56px;bottom:auto}
+[data-touch=on].marina-reconstruction .marina-objective{bottom:calc(12px + var(--touch-inset));max-width:calc(100% - 175px)}
+
+/* The scene is a fixed pixel height on a desktop page. On a phone it has to
+   share the screen with its own controls, so it is capped against what is
+   actually visible — otherwise the sticks sit below the fold. */
+.fps-game[data-touch=on]:not(.is-immersive) .fps-viewport{height:min(520px,66dvh);min-height:300px}
+[data-touch=on].marina-reconstruction .viewport{height:min(520px,66dvh);min-height:300px}
+@media(orientation:landscape) and (max-height:600px){
+  .fps-game[data-touch=on]:not(.is-immersive) .fps-viewport,[data-touch=on].marina-reconstruction .viewport{height:min(460px,88dvh);min-height:240px}
+}
+
+/* Portrait leaves no free strip along the bottom: the sticks, the trigger and
+   the action row already spend it. The readouts move to the top-right column
+   instead, and the briefing line steps aside — the pause card still carries it. */
+@media(max-width:520px){
+  .fps-game[data-touch=on] .fps-objective{display:none}
+  .fps-game[data-touch=on] .fps-ammo,.fps-game[data-touch=on] .fps-vehicle-hud{top:128px;bottom:auto;right:12px}
+  .fps-game[data-touch=on] .fps-radio{bottom:calc(96px + var(--touch-inset))}
+  .fps-game[data-touch=on] .fps-interact-prompt{bottom:calc(58px + var(--touch-inset))}
+}

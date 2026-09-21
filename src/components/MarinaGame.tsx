@@ -5,6 +5,9 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CarFront, Footprints, Rotate
 import { buildMarinaScene, MARINA_MAP_ROADS, MARINA_SPAWN, MARINA_STAMPS } from '../game/marina-scene';
 import { MARINA_BOUNDS, moveInMarina } from '../game/marina-collision';
 import { minimapProjection } from '../game/minimap';
+import { lookDelta, REGION_LOOK_SCALE, resolveMovement, type StickVector } from '../game/touch-controls';
+import { useTouchControls } from '../game/use-touch-controls';
+import WorldTouchControls from './WorldTouchControls';
 import { createAdventure, destinationId } from '../game/adventure';
 import AdventureCompanion from './AdventureCompanion';
 import { createObjectiveHighlight } from '../game/objective-highlight';
@@ -19,11 +22,14 @@ export default function MarinaGame() {
   const [travel, setTravel] = useState<'walk' | 'drive'>('walk');
   const travelRef = useRef(travel);
   const keys = useRef(new Set<string>());
+  // Thumb sticks live outside the scene effect, which never re-runs for input.
+  const moveStick = useRef<StickVector | null>(null), lookStick = useRef<StickVector | null>(null);
+  const touch = useTouchControls();
   const reset = useRef(() => {});
   const [adventure] = useState(() => createAdventure(destinations, MARINA_SPAWN));
   const [hud, setHud] = useState(() => ({ ...initialHud, activeId: adventure.read().activeId, sessionId: adventure.read().sessionId }));
   const active = destinations.find(d => d.id === hud.activeId);
-  useEffect(() => { travelRef.current = travel; keys.current.clear(); }, [travel]);
+  useEffect(() => { travelRef.current = travel; keys.current.clear(); moveStick.current = null; lookStick.current = null; }, [travel]);
 
   useEffect(() => {
     const container = host.current!;
@@ -74,7 +80,7 @@ export default function MarinaGame() {
     const supported = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'shift'];
     const keyDown = (event: KeyboardEvent) => { const key = event.key.toLowerCase(); if (supported.includes(key)) { event.preventDefault(); keys.current.add(key); } };
     const keyUp = (event: KeyboardEvent) => keys.current.delete(event.key.toLowerCase());
-    const blur = () => { keys.current.clear(); speed = 0; drag = undefined; };
+    const blur = () => { keys.current.clear(); moveStick.current = null; lookStick.current = null; speed = 0; drag = undefined; };
     canvas.addEventListener('pointerdown', pointerDown); canvas.addEventListener('pointermove', pointerMove); canvas.addEventListener('pointerup', pointerUp); canvas.addEventListener('pointercancel', pointerUp); canvas.addEventListener('lostpointercapture', pointerUp);
     canvas.addEventListener('keydown', keyDown); canvas.addEventListener('blur', blur); window.addEventListener('keyup', keyUp); window.addEventListener('blur', blur);
     const resize = () => { const { width, height } = container.getBoundingClientRect(); renderer.setSize(width, height); camera.aspect = width / Math.max(1, height); camera.updateProjectionMatrix(); };
@@ -83,12 +89,21 @@ export default function MarinaGame() {
     const animate = (now: number) => {
       const dt = Math.min((now - last) / 1000, 0.05); last = now;
       const held = keys.current;
-      const forward = Number(held.has('w') || held.has('arrowup')) - Number(held.has('s') || held.has('arrowdown'));
-      const side = Number(held.has('d') || held.has('arrowright')) - Number(held.has('a') || held.has('arrowleft'));
+      // One intent from the keys and the thumb stick; a pushed stick wins, and
+      // its magnitude survives, so a half-pushed stick walks at half pace.
+      const move = resolveMovement(held, moveStick.current);
+      const forward = move.forward, side = move.side;
       const driving = travelRef.current === 'drive';
       if (lastTravel !== travelRef.current) {
         driveLook = defaultDriveLook(); drag = undefined; lastLookAt = 0;
         lastTravel = travelRef.current;
+      }
+      if (lookStick.current) {
+        // A drag is a displacement and the stick is a rate, but both end up in
+        // the same per-pixel constants, scaled to land on the same feel.
+        const turn = lookDelta(lookStick.current, dt, REGION_LOOK_SCALE);
+        if (driving) { driveLook = dragDriveLook(driveLook, turn.dx, turn.dy); lastLookAt = now; }
+        else { yaw -= turn.dx * 0.004; pitch = THREE.MathUtils.clamp(pitch - turn.dy * 0.003, -0.7, 1.1); }
       }
       let dx = 0, dz = 0;
       if (driving) {
@@ -96,7 +111,7 @@ export default function MarinaGame() {
         yaw -= side * Math.min(Math.abs(speed) / 8, 1.5) * Math.sign(speed) * dt;
         dx = -Math.sin(yaw) * speed * dt; dz = -Math.cos(yaw) * speed * dt;
       } else {
-        speed = 0; const rate = held.has('shift') ? 8 : 4.2, normal = Math.max(1, Math.hypot(forward, side));
+        speed = 0; const rate = move.sprint ? 8 : 4.2, normal = Math.max(1, Math.hypot(forward, side));
         dx = (-Math.sin(yaw) * forward + Math.cos(yaw) * side) / normal * rate * dt;
         dz = (-Math.cos(yaw) * forward - Math.sin(yaw) * side) / normal * rate * dt;
       }
@@ -131,7 +146,7 @@ export default function MarinaGame() {
     };
   }, [adventure]);
 
-  return <div className="marina-reconstruction marina-game" data-region="marina-bay">
+  return <div className="marina-reconstruction marina-game" data-touch={touch ? 'on' : undefined} data-region="marina-bay">
     <div className="viewport marina-viewport"><div ref={host} className="world" />
       {error ? <div className="viewer-message" role="alert"><p>{error}</p></div> : <>
         <div className="scene-top"><span className="scene-badge"><span className="status-dot" /> MARINA BAY · GAME WORLD</span><span className="marina-stamp-count"><Flag size={14} />{hud.collected.length} / {MARINA_STAMPS.length} stamps</span></div>
@@ -157,9 +172,13 @@ export default function MarinaGame() {
         </div>
         <div className="marina-objective" data-active-objective={hud.activeId ?? ''}>{hud.collected.length === MARINA_STAMPS.length ? 'All stamps collected. Shiok! Keep exploring or reset to play again.' : active ? `◆ Next: ${active.name} · follow the purple beacon · ${Math.round(Math.hypot(active.x - hud.x, active.z - hud.z))} game units straight-line` : 'Choose your next adventure below.'}</div>
       </>}
+      {touch && !error && <WorldTouchControls travel={travel}
+        onMove={stick => { moveStick.current = stick.magnitude > 0 ? stick : null; }}
+        onLook={stick => { lookStick.current = stick.magnitude > 0 ? stick : null; }}
+        onBrake={brake => { if (brake) keys.current.add(' '); else keys.current.delete(' '); }} />}
     </div>
     {!error && <AdventureCompanion key={hud.sessionId} game={adventure} />}
     <div className="experience-toolbar"><div className="experience-title"><span className="mode-icon">{travel === 'walk' ? <Footprints size={20} /> : <CarFront size={20} />}</span><div><h3>Marina Bay · waterfront & gardens</h3><p>Expanded low-poly map · inner and outer road loops</p></div></div><div className="toolbar-actions"><button className="session-button" aria-pressed={travel === 'walk'} onClick={() => setTravel('walk')}>Walk</button><button className="session-button" aria-pressed={travel === 'drive'} onClick={() => setTravel('drive')}>Drive</button><button className="icon-button" aria-label="Reset Marina adventure (clears stamps and conversation)" title="Reset Marina adventure (clears stamps and conversation)" onClick={() => reset.current()}><RotateCcw size={16} /></button></div></div>
-    <div className="session-strip"><div><span>EXPLORED</span><strong>{Math.round(hud.distance)}<small>m</small></strong></div><p className="marina-hint">Click scene, then WASD · {travel === 'walk' ? 'Drag to look' : 'Drag to orbit · A/D steer'} · {travel === 'walk' ? 'Shift to run' : `${Math.round(Math.abs(hud.speed) * 3.6)} km/h · Space to brake`}</p><div className="touch-controls">{(['a', 'w', 's', 'd'] as const).map((key, index) => { const Icon = [ArrowLeft, ArrowUp, ArrowDown, ArrowRight][index]; return <button key={key} disabled={!!error} aria-label={`Marina ${['left', 'forward', 'backward', 'right'][index]}`} onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); keys.current.add(key); }} onPointerUp={() => keys.current.delete(key)} onPointerCancel={() => keys.current.delete(key)} onLostPointerCapture={() => keys.current.delete(key)}><Icon size={15} /></button>; })}</div></div>
+    <div className="session-strip"><div><span>EXPLORED</span><strong>{Math.round(hud.distance)}<small>m</small></strong></div><p className="marina-hint">{touch ? (travel === 'walk' ? 'Left stick walks · push it to the ring to run · right stick looks' : 'Left stick drives and steers · right stick orbits · Brake to stop') : `Click scene, then WASD · ${travel === 'walk' ? 'Drag to look · Shift to run' : `Drag to orbit · A/D steer · ${Math.round(Math.abs(hud.speed) * 3.6)} km/h · Space to brake`}`}</p><div className="touch-controls">{(['a', 'w', 's', 'd'] as const).map((key, index) => { const Icon = [ArrowLeft, ArrowUp, ArrowDown, ArrowRight][index]; return <button key={key} disabled={!!error} aria-label={`Marina ${['left', 'forward', 'backward', 'right'][index]}`} onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); keys.current.add(key); }} onPointerUp={() => keys.current.delete(key)} onPointerCancel={() => keys.current.delete(key)} onLostPointerCapture={() => keys.current.delete(key)}><Icon size={15} /></button>; })}</div></div>
   </div>;
 }

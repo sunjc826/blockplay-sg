@@ -34,6 +34,7 @@
     "lan": "pnpm build && node scripts/lan-server.mjs",
     "test:lan": "node --test scripts/lan-server-check.mjs && node scripts/lan-transport-smoke.mjs",
     "test:pointer": "node scripts/pointer-smoke.mjs",
+    "test:touch": "node scripts/touch-controls-smoke.mjs",
     "test:arena:lan": "node scripts/arena-lan-smoke.mjs",
     "test:arena:solo": "node scripts/arena-solo-smoke.mjs",
     "test:expedition": "node scripts/expedition-ui-smoke.mjs",
