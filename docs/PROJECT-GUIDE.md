@@ -55,6 +55,15 @@ The armory is accessed from each region’s FPS briefing or pause screen. It inc
 
 FPS modes share a lightweight local minimap using regional road data: practice shows targets and parked vehicles, expeditions show loot/checkpoints, and LAN hides opponents. Regional collectible maps and companions remain separate. Expedition and arena modes are infantry-only; cars and helicopters are available in FPS practice. See [mode comparison](FEATURE-PARITY.md).
 
+## Install it
+
+blockplaySG is an installable app. Use **Install** in the header on Chromium
+browsers, or Share → Add to Home Screen on iOS. An installed copy keeps the
+build on the device: districts you have already opened play with no network,
+since each district's geometry is built in the browser. The optional companion,
+live Street View and LAN rooms still need one. See [installable app and offline
+play](PWA.md) for what is cached, how updates are offered and how it is tested.
+
 ## Local setup
 
 For HTTPS hosting with the companion backend, see [Cloudflare deployment](CLOUDFLARE.md). It includes CLI deployment, private runtime secrets, local Worker preview and GitHub build settings.

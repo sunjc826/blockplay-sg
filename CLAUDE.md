@@ -29,7 +29,8 @@ pnpm typecheck # tsc --noEmit
 ```
 
 `pnpm build` before any change touching the Vite config, entrypoints or
-Cloudflare worker. Browser smokes (`pnpm test:browser`, `pnpm test:fps:districts`)
+Cloudflare worker. Browser smokes (`pnpm test:browser`, `pnpm test:fps:districts`,
+`pnpm test:pwa` — that one needs `pnpm build` first, and serves `dist` itself)
 need Vite plus Chrome with remote debugging; on a software renderer pass
 `REGION_SMOKE_PACE=6` / `EXPEDITION_SMOKE_PACE=6` or the fixed key-holds
 register no movement. If a check can't run in the current environment, say so

@@ -172,3 +172,11 @@
 .armory-fitted-note { text-transform:none!important; letter-spacing:0!important; line-height:1.6; margin-top:11px!important; }
 .armory-slot.fitted { border-color:#bfa06444; background:#17201b; }
 .armory-slot em { font-style:normal; font-size:7px; letter-spacing:.8px; color:#d0b075; margin-left:6px; }
+
+/* Install and update affordances for the installed app. */
+.header-actions { display:flex; align-items:center; gap:16px; }
+.install-button { display:flex; align-items:center; gap:7px; border:1px solid #cbd6c2; background:transparent; border-radius:5px; padding:7px 11px; font-size:11px; }
+.install-button:hover { background:#eaf0e2; }
+.update-toast { position:fixed; left:20px; bottom:20px; z-index:11; display:flex; align-items:center; gap:14px; background:#1d3327; color:#f2f4e6; border-radius:7px; padding:11px 13px; font-size:11px; box-shadow:0 12px 40px #16271c40; }
+.update-toast button { border:0; border-radius:4px; background:#e9bf79; color:#20331f; padding:6px 10px; font-size:10px; font-weight:600; }
+@media(max-width:720px){ .header-actions { gap:10px; } .install-button span { display:none; } .install-button { padding:7px; } .update-toast { left:12px; right:12px; bottom:12px; } }

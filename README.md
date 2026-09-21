@@ -16,6 +16,7 @@ Explore familiar Singapore neighborhoods as stylized 3D game worlds, created usi
 - Explore the connected districts in **Open world**, finding equipment and facing bots.
 - Play each district's **FPS range**, with a shared armory, vehicles and target ranges.
 - Play **Solo arena** against configurable bots.
+- **Install it** to your home screen or desktop and keep playing offline.
 
 The public demo is game-only: AI companions, multiplayer host/join and live Street View are unavailable. These optional features are supported in the local project with additional setup.
 
@@ -50,6 +51,7 @@ Built with React, TypeScript, Vite and Three.js.
 ## Documentation
 
 - [Project guide](docs/PROJECT-GUIDE.md) — controls, optional services, testing and deployment.
+- [Installable app](docs/PWA.md) — home-screen install, what is cached and offline play.
 - [Cloudflare deployment](docs/CLOUDFLARE.md) — game hosting, companion API, secrets and GitHub builds.
 - [Adventure companions](docs/ADVENTURE.md) — objective changes, educational guides and voice.
 - [Districts](docs/DISTRICTS.md) — what each world is, how they differ in provenance, and how to add one.

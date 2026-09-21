@@ -1,5 +1,43 @@
 # Blockplay: portable agent handoff
 
+**Latest: blockplaySG installs as an app (2026-09-21).** A web app manifest,
+four generated icons, and a service worker built by `scripts/service-worker-plugin.mjs`
+out of `src/sw/service-worker.ts`. No new dependency: the plugin runs a second
+Vite build in `closeBundle`, after the app bundle exists, so the worker can
+precache that build's hashed filenames and land unhashed at `/sw.js` — a worker
+only controls its own directory and below.
+
+**What is cached is a decision, not a default.** The 1.6 MB shell (HTML, JS, CSS,
+manifest, icons) is precached at install; the ~10 MB under `public/` — district
+geometry, weapon models, the 2.6 MB voice pack — is cached the first time it is
+used, so installing does not download nineteen districts for a player who opens
+two. `/api/*` is never cached: a cached companion answer would make an
+unreachable backend look like a working one. On activation the worker drops
+older shell caches and any media whose filename carries no content hash, because
+a rebuilt `scene.json` or `.glb` changes under the same URL while the hashed
+voice files do not.
+
+Routing lives in `src/lib/sw-policy.ts` rather than in the worker, so it is
+ordinary tested code. The rule that earned its test: a navigation to
+`/audio/encik/` or `/connection-check.html` is a real page, not a client-side
+route, and must not be answered with the app shell.
+
+An update installs in the background and waits behind a **Reload** pill instead
+of swapping code under a running game; `skipWaiting()` only fires when the
+player accepts. The header **Install** button appears only while the browser is
+offering `beforeinstallprompt`, which is why `src/lib/pwa.ts` builds its store at
+import time — the event beats React's first render. iOS has no such event; the
+About dialog names Add to Home Screen.
+
+`pnpm test:pwa` serves `dist` from its own static server so it can stop it and
+reload. With the server stopped, the district list, the mode cards and the
+Marina Bay scene (live WebGL context, `0 / 14 stamps`) all came up, a warmed
+`.glb` still loaded, `/api/health` correctly failed, and nothing reached the
+absent server. 556 unit tests (+21), typecheck, build and `pnpm test:cloudflare`
+against a local Worker preview pass; the Cloudflare check now also asserts
+`/sw.js`, the manifest and an icon are served from the root. `docs/PWA.md` has
+the full design. Other browser and FPS smokes were not run here.
+
 **Latest: every district sectored (2026-09-21).** 195 sectors across nineteen
 districts, nine to eleven each, in `src/data/region-sectors.ts` beside the stamp
 lists. Loot spreads across every sector of every district and none falls outside

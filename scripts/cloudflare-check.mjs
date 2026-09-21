@@ -12,6 +12,17 @@ for (const path of [...html.matchAll(/(?:src|href)="(\/assets\/[^"\s]+)"/g)].map
   const asset = await get(path); assert.equal(asset.status, 200, path);
   assert(!asset.headers.get('content-type')?.includes('text/html'), path);
 }
+// The installable app: both files must come from the site root, because a
+// service worker only controls its own directory and below.
+const worker = await get('/sw.js'); assert.equal(worker.status, 200);
+const workerBody = await worker.text();
+assert.match(workerBody, /blockplay-shell-/, 'sw.js is the built worker, not the SPA fallback page');
+assert.match(workerBody, /\/assets\/[^"']+\.js/, 'the worker precaches this build');
+const webmanifest = await get('/manifest.webmanifest'); assert.equal(webmanifest.status, 200);
+assert.equal(JSON.parse(await webmanifest.text()).display, 'standalone');
+const icon = await get('/icons/icon-512.png'); assert.equal(icon.status, 200);
+assert.match(icon.headers.get('content-type'), /image\/png/);
+
 const model = await get('/models/field-kit/sar21-inspired.glb'); assert.equal(model.status, 200);
 assert.equal(new TextDecoder().decode((await model.arrayBuffer()).slice(0, 4)), 'glTF');
 const voicePage = await (await get('/audio/encik/')).text();
@@ -35,4 +46,4 @@ const local = await get('/api/adventure/pilot-plan', {
 });
 assert([400, 503].includes(local.status), `same-origin API response: ${local.status}`);
 assert.match(local.headers.get('content-type'), /application\/json/);
-console.log('PASS Cloudflare: production JS/CSS, GLB, recorded MP3, SPA fallback, API routing, origin checks and companion availability. No paid API requests.');
+console.log('PASS Cloudflare: production JS/CSS, service worker, web app manifest, GLB, recorded MP3, SPA fallback, API routing, origin checks and companion availability. No paid API requests.');
