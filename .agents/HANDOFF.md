@@ -1,5 +1,50 @@
 # Blockplay: portable agent handoff
 
+**Latest: a weapon's shots are data now, not constants (2026-09-21).** The shot
+effects that landed earlier today had their colours written into the renderer.
+They are an `EffectStyle` now — flare core/star/cone/light, tracer, spark ramp,
+impact ring, dust, smoke, brass and scorch bite — and `fps-effects` draws
+whatever it is handed. A premium weapon flares, traces and ejects in its own
+accent without the engine knowing anything beyond "weapon 0" and "weapon 1".
+
+Three ways in, each weaker and more specific, none needing the others: the
+catalog **tier** picks the base (a new Elite variant looks premium the day it is
+added, with no code), the variant's **accent** — the same colour the armoury
+paints its receiver — is mixed through the flare, tracer and the cooling end of
+the sparks, and `registerEffectStyle(id, patch)` lays a partial over the result,
+keyed on a weapon or skin catalog id. A skin outranks a weapon, because a skin
+is bought for how it looks.
+
+**The part worth knowing before extending this:** the pools are shared, and a
+player can switch weapons while their last burst is still in the air. So every
+spawn carries the *id* of the style that made it, and the renderer looks the
+style back up per record per frame rather than reading "current". Switching
+weapons does not retint the brass already on the floor or the marks already on
+the wall, and a round still flying when you swap lands in the colours of the
+weapon that fired it. That is also why `resolveEffectStyle` derives its id from
+the request (`elite:sar-vanguard:skin-issued`) rather than inventing one: two
+calls for the same loadout have to agree or a spawn loses its style.
+
+The tag is an opaque `style?: string` on `Casing`, `Impact`, `Spark` and
+`Scorch`. The pure modules never read it — they are still renderer-free and
+their tests still run without three.js.
+
+Brass needed a per-instance colour for this, so `casingMesh` now carries
+`instanceColor` over a white base material and two weapons can leave two
+colours of case in the same instanced draw. Metalness and roughness still come
+from the weapon in hand, since they cannot vary per instance.
+
+`fps-effects.test.ts` is new and is the first test over that layer: three.js
+only needs a GPU to *draw*, so building the scene graph and reading back which
+colour landed on which instance works headless. It is a better instrument than
+screenshots here — a 75 ms flare at 3 fps is not reliably catchable. The browser
+smoke gained the end-to-end half: it asserts the style id follows a weapon
+switch, then seeds a Vanguard into the stored profile, reloads, and checks the
+range comes up as `elite:sar-vanguard:skin-issued` and still throws brass.
+
+627 unit tests (+22), typecheck and build pass; `pnpm test:fps:effects` passes
+with `EFFECTS_SMOKE_PACE=6`.
+
 **Latest: the FPS shoots like something from this decade (2026-09-21).** Every
 visible part of a shot was one object with a boolean: one additive sphere at the
 muzzle shown for a fixed 45 ms, one line for the tracer, one amber sphere moved

@@ -14,6 +14,12 @@ export interface Casing {
   /** Tumble axis (unit) and the angle it has turned through. */
   ax: number; ay: number; az: number; angle: number; spin: number;
   age: number; life: number; bounces: number; resting: boolean;
+  /**
+   * Opaque tag naming the look this case was thrown with. Nothing here reads
+   * it; it exists so the renderer can keep drawing brass in the colour of the
+   * weapon that ejected it after the player has switched to another one.
+   */
+  style?: string;
 }
 
 /** Brass on the ground at once. The oldest case is recycled past this. */
@@ -36,7 +42,7 @@ const unit = (v: CasingVector): CasingVector => {
  * `right`, `up` and `back` are the weapon's axes in world space.
  */
 export function ejectCasing(list: Casing[], origin: CasingVector, right: CasingVector, up: CasingVector, back: CasingVector,
-  carry: CasingVector = { x: 0, y: 0, z: 0 }, random: () => number = Math.random): Casing {
+  carry: CasingVector = { x: 0, y: 0, z: 0 }, random: () => number = Math.random, style?: string): Casing {
   const r = unit(right), u = unit(up), b = unit(back);
   const side = 2.0 + random() * 1.3, lift = 1.5 + random() * 0.9, drift = (random() * 2 - 1) * 0.6;
   const axis = unit({ x: random() * 2 - 1, y: random() * 2 - 1, z: random() * 2 - 1 });
@@ -46,7 +52,7 @@ export function ejectCasing(list: Casing[], origin: CasingVector, right: CasingV
     vy: r.y * side + u.y * lift + b.y * drift + carry.y,
     vz: r.z * side + u.z * lift + b.z * drift + carry.z,
     ax: axis.x, ay: axis.y, az: axis.z, angle: random() * Math.PI * 2, spin: 14 + random() * 16,
-    age: 0, life: CASING_LIFE, bounces: 0, resting: false,
+    age: 0, life: CASING_LIFE, bounces: 0, resting: false, style,
   };
   if (list.length >= MAX_CASINGS) {
     // Oldest by age, which is the one that has least left to show.

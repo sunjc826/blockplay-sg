@@ -14,9 +14,15 @@
 export interface ImpactVector { x: number; y: number; z: number }
 export type ImpactKind = 'surface' | 'target';
 
-export interface Impact { x: number; y: number; z: number; nx: number; ny: number; nz: number; age: number; life: number; kind: ImpactKind; spin: number }
-export interface Spark { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number }
-export interface Scorch { x: number; y: number; z: number; nx: number; ny: number; nz: number; radius: number; spin: number; age: number; life: number }
+/**
+ * `style` on each record is an opaque tag naming the look the round that made
+ * it was fired with. Nothing in this module reads it: it is here so the
+ * renderer can go on drawing a mark in the colours of the weapon that left it
+ * once the player has switched to another one.
+ */
+export interface Impact { x: number; y: number; z: number; nx: number; ny: number; nz: number; age: number; life: number; kind: ImpactKind; spin: number; style?: string }
+export interface Spark { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number; style?: string }
+export interface Scorch { x: number; y: number; z: number; nx: number; ny: number; nz: number; radius: number; spin: number; age: number; life: number; style?: string }
 export interface ImpactField { impacts: Impact[]; sparks: Spark[]; scorches: Scorch[] }
 
 export const MAX_IMPACTS = 14, MAX_SPARKS = 120, MAX_SCORCHES = 48;
@@ -50,11 +56,11 @@ const push = <T>(list: T[], item: T, ceiling: number) => {
  * already punched through a wall lands visibly weaker on the far side.
  */
 export function recordImpact(field: ImpactField, point: ImpactVector, normal: ImpactVector, kind: ImpactKind = 'surface',
-  energy = 1, random: () => number = Math.random): Impact {
+  energy = 1, random: () => number = Math.random, style?: string): Impact {
   const n = unit(normal), scale = Math.max(0.25, Math.min(1.5, energy));
   const impact = push(field.impacts, {
     x: point.x, y: point.y, z: point.z, nx: n.x, ny: n.y, nz: n.z,
-    age: 0, life: kind === 'target' ? TARGET_IMPACT_LIFE : IMPACT_LIFE, kind, spin: random() * Math.PI * 2,
+    age: 0, life: kind === 'target' ? TARGET_IMPACT_LIFE : IMPACT_LIFE, kind, spin: random() * Math.PI * 2, style,
   }, MAX_IMPACTS);
   const u = tangent(n), v = { x: n.y * u.z - n.z * u.y, y: n.z * u.x - n.x * u.z, z: n.x * u.y - n.y * u.x };
   for (let i = 0; i < SPARKS_PER_IMPACT; i++) {
@@ -67,12 +73,12 @@ export function recordImpact(field: ImpactField, point: ImpactVector, normal: Im
     const d = unit({ x: dx, y: dy, z: dz });
     push(field.sparks, {
       x: point.x, y: point.y, z: point.z, vx: d.x * speed, vy: d.y * speed, vz: d.z * speed,
-      age: 0, life: (kind === 'target' ? 0.12 : 0.18) + random() * 0.2,
+      age: 0, life: (kind === 'target' ? 0.12 : 0.18) + random() * 0.2, style,
     }, MAX_SPARKS);
   }
   if (kind === 'surface') push(field.scorches, {
     x: point.x, y: point.y, z: point.z, nx: n.x, ny: n.y, nz: n.z,
-    radius: (0.03 + random() * 0.022) * scale, spin: random() * Math.PI * 2, age: 0, life: SCORCH_LIFE,
+    radius: (0.03 + random() * 0.022) * scale, spin: random() * Math.PI * 2, age: 0, life: SCORCH_LIFE, style,
   }, MAX_SCORCHES);
   return impact;
 }

@@ -8,6 +8,7 @@ import { sectorAt, zoneSectors } from './zone-sectors';
 import { advanceRound, createRound, needsFlight, MAX_ROUNDS_IN_FLIGHT, type InFlightRound } from './fps-projectiles';
 import { createFpsEffects, type ImpactKind } from './fps-effects';
 import { advanceRecoil, createRecoil, recoilView, recordRecoilShot, resetRecoil } from './fps-recoil';
+import { effectStyleForWeapon } from './fps-effect-styles';
 import { aimSpeedScale, applyArmorDamage, createProfile, jumpScale, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile } from './armory-state';
 import { registerElimination, ELIMINATION_XP, type KillChain } from './progression';
 import { createFpsVehicles } from './fps-vehicles';
@@ -123,9 +124,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const targetGeometry = new THREE.CircleGeometry(0.265, 32);
   const headGeometry = new THREE.CircleGeometry(0.115, 20);
   const targetMaterial = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: THREE.DoubleSide });
+  // How each equipped weapon's shots look, resolved from the armoury: a premium
+  // variant flares, traces and ejects in its own accent without the engine
+  // knowing anything beyond "weapon 0" and "weapon 1". See fps-effect-styles.
+  const weaponStyles = specs.map(effectStyleForWeapon);
   // Muzzle flare, brass, sparks, dust, scorches and tracers, pooled and batched.
   // Its whole world-space tree carries `fpsEffect`, so gameplay rays skip it.
-  const effects = createFpsEffects(world.scene, viewScene);
+  const effects = createFpsEffects(world.scene, viewScene, { style: weaponStyles[0] });
+  effects.setStyles(weaponStyles, 0);
   const debugAvailable = !options.arena || options.arena.session.role === 'solo';
   let debug = debugAvailable ? readFpsDebug() : { ...DEFAULT_FPS_DEBUG }, recoveryDelay = 0;
   const keys = new Set<string>(); const hud: FpsHud = { ...initialFpsHud, debug, debugAvailable, quickItem: equipment.quickItem?.name || '', quickCount: equipment.quickCount, health: 100 * debug.healthMultiplier, maxHealth: 100 * debug.healthMultiplier, armor: equipment.armor, expeditionZone: expedition?.zone ?? null };
@@ -304,7 +310,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     trigger = false; ads = false; touchAim = false; resetRecoil(kick);
     hud.weapon = index; weapons.forEach((w, i) => w.visible = i === index);
     if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
-    effects.attachMuzzle(weapons[index]?.getObjectByName(`${FPS_WEAPONS[index].id}__socket_muzzle`)); publish();
+    effects.attachMuzzle(weapons[index]?.getObjectByName(`${FPS_WEAPONS[index].id}__socket_muzzle`));
+    effects.setStyles(weaponStyles, index); publish();
   }
   function reset() {
     if (hud.phase === 'loading' || hud.phase === 'error') return;
@@ -754,7 +761,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           round.scale = resolveSurfaces(segmentHits, round.weapon, hit => start + hit.distance, round.scale);
           const last = segmentHits[segmentHits.length - 1];
           applySplash(last.point, round.weapon, start + last.distance, round.scale, last.object.userData.fpsTarget);
-          effects.impact(last.point, surfaceNormal(last, roundDirection), impactKind(last), round.scale); struck = true;
+          effects.impact(last.point, surfaceNormal(last, roundDirection), impactKind(last), round.scale, weaponStyles[round.weapon]?.id); struck = true;
           // Stopped once it has struck more surfaces than it could pass through.
           if (segmentHits.length > round.pierced) { rounds.splice(i, 1); continue; }
           round.pierced -= segmentHits.length;
@@ -875,6 +882,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           hud.weapon = checkpointPending.weapon === 1 ? 1 : 0; checkpointPending = undefined;
           weapons.forEach((weapon, index) => weapon.visible = index === hud.weapon);
           effects.attachMuzzle(weapons[hud.weapon]?.getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_muzzle`));
+          effects.setStyles(weaponStyles, hud.weapon);
         }
         resetRecoil(kick); effects.reset(); hitTime = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; }); updateCameras(0, false, false);
       } else if (frame.correction) {
@@ -974,6 +982,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (census !== canvas.dataset.fxCensus) canvas.dataset.fxCensus = census;
     const climb = kick.pitch.toFixed(4);
     if (climb !== canvas.dataset.fxRecoil) canvas.dataset.fxRecoil = climb;
+    if (effects.style.id !== canvas.dataset.fxStyle) canvas.dataset.fxStyle = effects.style.id;
     if (motor && motorGain && audio) {
       const active = hud.phase === 'playing' && vehicles.mounted && !hud.muted;
       motorGain.gain.setTargetAtTime(active ? .035 : 0, audio.currentTime, .08);

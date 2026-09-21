@@ -3,6 +3,7 @@ import { advanceCasings, casingFade, ejectCasing, MAX_CASINGS, type Casing } fro
 import { advanceImpacts, clearImpactField, createImpactField, impactDust, impactRing, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordImpact, scorchAlpha, sparkHeat, sparkStreak, type ImpactKind } from './fps-impacts';
 import { advanceMuzzle, createMuzzle, igniteMuzzle, muzzleShape, resetMuzzle } from './fps-muzzle';
 import { MAX_ROUNDS_IN_FLIGHT } from './fps-projectiles';
+import { ISSUED_STYLE, type EffectStyle } from './fps-effect-styles';
 
 /**
  * Everything a shot leaves behind, drawn. The arcs, lifetimes and shapes are
@@ -18,15 +19,20 @@ import { MAX_ROUNDS_IN_FLIGHT } from './fps-projectiles';
  *
  * The whole world-space tree is flagged `fpsEffect`, so the engine's raycasts
  * filter it out wholesale: brass on the floor can never stop a bullet.
+ *
+ * Every colour comes from an `EffectStyle` rather than from a constant here, so
+ * a premium weapon flares, traces and ejects in its own colours without this
+ * file knowing anything about the armoury. Because the pools are shared and a
+ * player can switch weapons while their last burst is still in the air, each
+ * spawn is tagged with the style that made it and is drawn in that style for
+ * the rest of its life — switching weapons never retints the brass already on
+ * the floor or the marks already on the wall.
  */
 export type { ImpactKind };
 
 /** Wisps of barrel smoke alight at once, beyond the dust the impacts throw. */
 const MAX_SMOKE = 10;
 const PUFF_CAPACITY = MAX_IMPACTS + MAX_SMOKE;
-const SPARK_HOT = new THREE.Color('#fff4d2'), SPARK_COLD = new THREE.Color('#ff5714');
-const RING_SURFACE = new THREE.Color('#ffd7a0'), RING_TARGET = new THREE.Color('#fff4e2');
-const DUST_TINT = new THREE.Color('#bfb49c'), SMOKE_TINT = new THREE.Color('#8d949b');
 
 interface Smoke { x: number; y: number; z: number; vy: number; drift: number; age: number; life: number }
 
@@ -52,12 +58,20 @@ function radialTexture(size: number, edge: number, channel: 'alpha' | 'colour' =
   return texture;
 }
 
-export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options: { worldLight?: boolean } = {}) {
+export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options: { worldLight?: boolean; style?: EffectStyle } = {}) {
   const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [], textures: THREE.Texture[] = [];
   const keep = <T extends THREE.BufferGeometry>(g: T) => { geometries.push(g); return g; };
   const hold = <T extends THREE.Material>(m: T) => { materials.push(m); return m; };
   const paint = <T extends THREE.Texture>(t: T) => { textures.push(t); return t; };
 
+  // Every style this round can draw in, by id. A spawn stores its style's id
+  // and looks it back up here, so a case thrown by the rifle keeps its brass
+  // after the player has swapped to the support weapon. Two entries in
+  // practice, one per equipped weapon.
+  const known = new Map<string, EffectStyle>();
+  let current: EffectStyle = options.style ?? ISSUED_STYLE;
+  known.set(current.id, current);
+  const styleOf = (tag?: string) => (tag && known.get(tag)) || current;
   const root = new THREE.Group(); root.name = 'fps-effects'; root.userData.fpsEffect = true; root.frustumCulled = false; world.add(root);
   const soft = paint(radialTexture(64, 1.6)), blob = paint(radialTexture(64, .9)), mark = paint(radialTexture(64, 1.1, 'colour'));
 
@@ -85,18 +99,23 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
 
   // --- brass --------------------------------------------------------------
   const casings: Casing[] = [];
-  const casingMesh = new THREE.InstancedMesh(keep(new THREE.CylinderGeometry(.0048, .0055, .023, 6)),
-    hold(new THREE.MeshStandardMaterial({ color: '#c9a656', metalness: .85, roughness: .34 })), MAX_CASINGS);
+  // White base colour, because the brass tint arrives per instance: two weapons
+  // firing into the same pool can leave two different colours of case on the floor.
+  const casingMaterial = hold(new THREE.MeshStandardMaterial({ color: '#ffffff', metalness: .85, roughness: .34 }));
+  const casingMesh = new THREE.InstancedMesh(keep(new THREE.CylinderGeometry(.0048, .0055, .023, 6)), casingMaterial, MAX_CASINGS);
+  casingMesh.name = 'fps-brass';
   casingMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); casingMesh.frustumCulled = false; casingMesh.userData.fpsEffect = true; root.add(casingMesh);
 
   // --- impacts ------------------------------------------------------------
   const field = createImpactField();
   const quad = keep(new THREE.PlaneGeometry(1, 1));
   const ringMesh = new THREE.InstancedMesh(quad, additive('#ffffff', blob), MAX_IMPACTS);
+  ringMesh.name = 'fps-impact-rings';
   ringMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); ringMesh.frustumCulled = false; ringMesh.userData.fpsEffect = true; root.add(ringMesh);
 
   const puffGeometry = keep(new THREE.PlaneGeometry(1, 1));
   const puffMesh = new THREE.InstancedMesh(puffGeometry, additive('#ffffff', soft), PUFF_CAPACITY);
+  puffMesh.name = 'fps-puffs';
   puffMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); puffMesh.frustumCulled = false; puffMesh.userData.fpsEffect = true; root.add(puffMesh);
 
   const scorchGeometry = keep(new THREE.PlaneGeometry(1, 1));
@@ -118,6 +137,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
     polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
   }));
   const scorchMesh = new THREE.InstancedMesh(scorchGeometry, scorchMaterial, MAX_SCORCHES);
+  scorchMesh.name = 'fps-scorches';
   scorchMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scorchMesh.frustumCulled = false; scorchMesh.userData.fpsEffect = true; root.add(scorchMesh);
 
   const sparkGeometry = keep(new THREE.BufferGeometry());
@@ -125,6 +145,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
   sparkGeometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(MAX_SPARKS * 6), 3));
   sparkGeometry.setDrawRange(0, 0);
   const sparkMesh = new THREE.LineSegments(sparkGeometry, hold(new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })));
+  sparkMesh.name = 'fps-sparks';
   sparkMesh.frustumCulled = false; sparkMesh.userData.fpsEffect = true; root.add(sparkMesh);
 
   // --- tracers ------------------------------------------------------------
@@ -140,7 +161,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
   let beamTime = 0;
 
   const smoke: Smoke[] = [];
-  const matrix = new THREE.Matrix4(), quaternion = new THREE.Quaternion(), position = new THREE.Vector3(), scale = new THREE.Vector3(), colour = new THREE.Color();
+  const matrix = new THREE.Matrix4(), quaternion = new THREE.Quaternion(), position = new THREE.Vector3(), scale = new THREE.Vector3(), colour = new THREE.Color(), hotSpark = new THREE.Color();
   const axis = new THREE.Vector3(), forward = new THREE.Vector3(0, 0, 1), spin = new THREE.Quaternion();
   const right = new THREE.Vector3(), up = new THREE.Vector3(), back = new THREE.Vector3();
   const hidden = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -148,14 +169,40 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
     for (let i = 0; i < mesh.count; i++) mesh.setMatrixAt(i, hidden);
     mesh.instanceMatrix.needsUpdate = true;
   });
-  [ringMesh, puffMesh, scorchMesh].forEach(mesh => { for (let i = 0; i < mesh.count; i++) mesh.setColorAt(i, colour.setRGB(0, 0, 0)); mesh.instanceColor!.needsUpdate = true; });
+  [ringMesh, puffMesh, scorchMesh, casingMesh].forEach(mesh => { for (let i = 0; i < mesh.count; i++) mesh.setColorAt(i, colour.setRGB(0, 0, 0)); mesh.instanceColor!.needsUpdate = true; });
+
+  /**
+   * Paints the parts of the rig that only ever belong to the weapon in hand:
+   * the flare, its two lights and the tracer. Everything else is painted per
+   * spawn in `update`, from the style that spawn was tagged with.
+   */
+  function applyStyle(style: EffectStyle) {
+    current = style; known.set(style.id, style);
+    flashCore.color.set(style.flare.core); flashStar.color.set(style.flare.star); flashCone.color.set(style.flare.cone);
+    viewLight.color.set(style.flare.light);
+    tracerMaterial.color.set(style.tracer.colour); tracerMaterial.opacity = style.tracer.opacity;
+    casingMaterial.metalness = style.brass.metalness; casingMaterial.roughness = style.brass.roughness;
+    if (worldLight) { worldLight.color.set(style.flare.light); worldLight.distance = 13 * style.flare.reach; }
+  }
+  applyStyle(current);
 
   return {
     root, flare,
+    get style() { return current; },
     /** Live counts, surfaced so a browser smoke can assert the effects ran. */
     get counts() { return { casings: casings.length, impacts: field.impacts.length, sparks: field.sparks.length, scorches: field.scorches.length, smoke: smoke.length }; },
     /** Re-parents the flare when the equipped weapon changes. */
     attachMuzzle(socket?: THREE.Object3D | null) { if (socket) socket.add(flare); else flare.removeFromParent(); },
+    /**
+     * Declares every look this round can draw in and picks the one in hand.
+     * Called once per weapon change; the whole list is passed each time so the
+     * styles of weapons not currently held stay resolvable for anything they
+     * left lying in the world.
+     */
+    setStyles(styles: readonly EffectStyle[], active = 0) {
+      styles.forEach(style => known.set(style.id, style));
+      applyStyle(styles[active] ?? styles[0] ?? current);
+    },
     /**
      * One round leaves the barrel: the flare lights, a case leaves the port on
      * the weapon's own axes, and the barrel takes on a little heat.
@@ -168,7 +215,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
       shot.eject.getWorldQuaternion(quaternion).premultiply(shot.camera.quaternion);
       shot.eject.getWorldPosition(position); shot.camera.localToWorld(position);
       right.set(1, 0, 0).applyQuaternion(quaternion); up.set(0, 1, 0).applyQuaternion(quaternion); back.set(0, 0, 1).applyQuaternion(quaternion);
-      ejectCasing(casings, position, right, up, back, shot.carry ?? { x: 0, y: 0, z: 0 });
+      ejectCasing(casings, position, right, up, back, shot.carry ?? { x: 0, y: 0, z: 0 }, Math.random, current.id);
     },
     /** The streak a hitscan round leaves between the muzzle and where it stopped. */
     beam(from: THREE.Vector3, to: THREE.Vector3) {
@@ -187,8 +234,12 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
       }
       attribute.needsUpdate = true; trailGeometry.setDrawRange(0, count * 2); trails.visible = count > 0;
     },
-    impact(point: THREE.Vector3, normal: THREE.Vector3, kind: ImpactKind = 'surface', energy = 1) {
-      recordImpact(field, point, normal, kind, energy);
+    /**
+     * `style` names the look of the weapon that fired the round, which for one
+     * still in the air need not be the weapon now in hand.
+     */
+    impact(point: THREE.Vector3, normal: THREE.Vector3, kind: ImpactKind = 'surface', energy = 1, style?: string) {
+      recordImpact(field, point, normal, kind, energy, Math.random, style ?? current.id);
     },
     /**
      * Advances every pool and writes it into the buffers the renderer reads.
@@ -212,15 +263,16 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
       const shape = muzzleShape(muzzle);
       flare.visible = shape.live;
       if (shape.live) {
+        const size = current.flare.size;
         flare.rotation.z = shape.roll;
-        core.scale.set(shape.core, shape.core, shape.core * 2.6);
-        star.scale.setScalar(.10 + shape.core * .26);
-        petals.forEach((petal, i) => petal.scale.set(.16 + shape.petal * (i === 2 ? .34 : .52), 1, 1));
-        cone.scale.set(shape.core, shape.petal * 1.2 + .2, shape.core);
+        core.scale.set(shape.core * size, shape.core * size, shape.core * 2.6 * size);
+        star.scale.setScalar((.10 + shape.core * .26) * size);
+        petals.forEach((petal, i) => petal.scale.set((.16 + shape.petal * (i === 2 ? .34 : .52)) * size, size, 1));
+        cone.scale.set(shape.core * size, (shape.petal * 1.2 + .2) * size, shape.core * size);
         flashCore.opacity = Math.min(1, shape.core); flashStar.opacity = Math.min(1, shape.glow * .9); flashCone.opacity = Math.min(1, shape.glow * .7);
         flare.getWorldPosition(position);
-        viewLight.position.copy(position); viewLight.intensity = shape.light * 5.5;
-        if (worldLight) { camera.localToWorld(position); worldLight.position.copy(position); worldLight.intensity = shape.light * 26; }
+        viewLight.position.copy(position); viewLight.intensity = shape.light * 5.5 * current.flare.reach;
+        if (worldLight) { camera.localToWorld(position); worldLight.position.copy(position); worldLight.intensity = shape.light * 26 * current.flare.reach; }
       } else {
         viewLight.intensity = 0; if (worldLight) worldLight.intensity = 0;
       }
@@ -230,9 +282,10 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
         if (!casing) { casingMesh.setMatrixAt(i, hidden); continue; }
         const fade = casingFade(casing);
         quaternion.setFromAxisAngle(axis.set(casing.ax, casing.ay, casing.az), casing.angle);
+        casingMesh.setColorAt(i, colour.set(styleOf(casing.style).brass.colour));
         casingMesh.setMatrixAt(i, matrix.compose(position.set(casing.x, casing.y, casing.z), quaternion, scale.setScalar(fade)));
       }
-      casingMesh.instanceMatrix.needsUpdate = true;
+      casingMesh.instanceMatrix.needsUpdate = true; casingMesh.instanceColor!.needsUpdate = true;
 
       for (let i = 0; i < MAX_IMPACTS; i++) {
         const impact = field.impacts[i];
@@ -243,7 +296,8 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
         ringMesh.setMatrixAt(i, matrix.compose(
           position.set(impact.x + impact.nx * .008, impact.y + impact.ny * .008, impact.z + impact.nz * .008),
           quaternion, scale.set(ring.scale, ring.scale, 1)));
-        ringMesh.setColorAt(i, colour.copy(impact.kind === 'target' ? RING_TARGET : RING_SURFACE).multiplyScalar(Math.min(1, ring.brightness)));
+        const ringStyle = styleOf(impact.style).ring;
+        ringMesh.setColorAt(i, colour.set(impact.kind === 'target' ? ringStyle.target : ringStyle.surface).multiplyScalar(Math.min(1, ring.brightness)));
       }
       ringMesh.instanceMatrix.needsUpdate = true; ringMesh.instanceColor!.needsUpdate = true;
 
@@ -252,14 +306,15 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
         const impact = i < MAX_IMPACTS ? field.impacts[i] : undefined;
         const wisp = i >= MAX_IMPACTS ? smoke[i - MAX_IMPACTS] : undefined;
         if (impact) {
-          const dust = impactDust(impact);
-          puffMesh.setColorAt(i, colour.copy(DUST_TINT).multiplyScalar(Math.max(0, Math.min(1, dust.brightness))));
-          puffMesh.setMatrixAt(i, dust.scale > 0 ? matrix.compose(
+          const dust = impactDust(impact), dustStyle = styleOf(impact.style);
+          const spread = dust.scale * dustStyle.dustScale;
+          puffMesh.setColorAt(i, colour.set(dustStyle.dust).multiplyScalar(Math.max(0, Math.min(1, dust.brightness))));
+          puffMesh.setMatrixAt(i, spread > 0 ? matrix.compose(
             position.set(impact.x + impact.nx * dust.rise, impact.y + impact.ny * dust.rise + dust.rise * .35, impact.z + impact.nz * dust.rise),
-            quaternion, scale.set(dust.scale, dust.scale, 1)) : hidden);
+            quaternion, scale.set(spread, spread, 1)) : hidden);
         } else if (wisp) {
           const t = wisp.age / wisp.life, size = .06 + t * .3;
-          puffMesh.setColorAt(i, colour.copy(SMOKE_TINT).multiplyScalar(Math.max(0, .34 * Math.min(1, t / .15) * Math.pow(1 - t, 1.4))));
+          puffMesh.setColorAt(i, colour.set(current.smoke).multiplyScalar(Math.max(0, .34 * Math.min(1, t / .15) * Math.pow(1 - t, 1.4))));
           puffMesh.setMatrixAt(i, matrix.compose(position.set(wisp.x, wisp.y, wisp.z), quaternion, scale.set(size, size, 1)));
         } else { puffMesh.setColorAt(i, colour.setScalar(0)); puffMesh.setMatrixAt(i, hidden); }
       }
@@ -271,7 +326,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
         quaternion.setFromUnitVectors(forward, axis.set(scorch.nx, scorch.ny, scorch.nz));
         quaternion.multiply(spin.setFromAxisAngle(forward, scorch.spin));
         // Grey: how much of the surface's own colour this mark takes away.
-        scorchMesh.setColorAt(i, colour.setScalar(scorchAlpha(scorch) * .7));
+        scorchMesh.setColorAt(i, colour.setScalar(scorchAlpha(scorch) * styleOf(scorch.style).scorch));
         scorchMesh.setMatrixAt(i, matrix.compose(
           position.set(scorch.x + scorch.nx * .006, scorch.y + scorch.ny * .006, scorch.z + scorch.nz * .006),
           quaternion, scale.set(scorch.radius * 2, scorch.radius * 2, 1)));
@@ -280,10 +335,11 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
 
       const sparkPosition = sparkGeometry.getAttribute('position'), sparkColour = sparkGeometry.getAttribute('color');
       field.sparks.forEach((spark, i) => {
-        const heat = sparkHeat(spark), streak = sparkStreak(spark), speed = Math.max(1e-6, Math.hypot(spark.vx, spark.vy, spark.vz));
+        const sparkStyle = styleOf(spark.style).spark;
+        const heat = sparkHeat(spark), streak = sparkStreak(spark) * sparkStyle.streak, speed = Math.max(1e-6, Math.hypot(spark.vx, spark.vy, spark.vz));
         sparkPosition.setXYZ(i * 2, spark.x, spark.y, spark.z);
         sparkPosition.setXYZ(i * 2 + 1, spark.x - spark.vx / speed * streak, spark.y - spark.vy / speed * streak, spark.z - spark.vz / speed * streak);
-        colour.copy(SPARK_COLD).lerp(SPARK_HOT, heat).multiplyScalar(Math.pow(heat, 1.4));
+        colour.set(sparkStyle.cold).lerp(hotSpark.set(sparkStyle.hot), heat).multiplyScalar(Math.pow(heat, 1.4));
         sparkColour.setXYZ(i * 2, colour.r, colour.g, colour.b);
         // The tail is dimmer than the head, which is what makes it read as motion.
         sparkColour.setXYZ(i * 2 + 1, colour.r * .15, colour.g * .15, colour.b * .15);
@@ -301,7 +357,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
         for (let i = 0; i < mesh.count; i++) mesh.setMatrixAt(i, hidden);
         mesh.instanceMatrix.needsUpdate = true;
       });
-      [ringMesh, puffMesh, scorchMesh].forEach(mesh => {
+      [ringMesh, puffMesh, scorchMesh, casingMesh].forEach(mesh => {
         for (let i = 0; i < mesh.count; i++) mesh.setColorAt(i, colour.setScalar(0));
         mesh.instanceColor!.needsUpdate = true;
       });

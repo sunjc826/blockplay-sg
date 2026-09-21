@@ -58,6 +58,10 @@ try {
   await click(button('Enter range')); await wait(phase('playing'));
   assert(await evaluate('!!document.pointerLockElement'), 'Effects smoke drives captured mouse input');
   assert.equal(await evaluate(`${canvas}.dataset.fxCensus`), '0/0/0/0', 'A fresh range starts with every effect pool empty');
+  assert.equal(await evaluate(`${canvas}.dataset.fxStyle`), 'issued:sar-issued:skin-issued', 'Issued kit draws the issued style');
+  await key('2', 'Digit2'); await delay(400);
+  assert.equal(await evaluate(`${canvas}.dataset.fxStyle`), 'issued:ult-issued:skin-issued', 'Switching weapons switches the style with it');
+  await key('1', 'Digit1'); await delay(400);
 
   // Down at the ground first, where every round marks concrete.
   await look(0, 470); await delay(250);
@@ -108,8 +112,27 @@ try {
   // The attributes are written by the next frame, which on a software renderer
   // is not the next millisecond.
   await wait(`${canvas}.dataset.fxCensus==='0/0/0/0' && ${canvas}.dataset.fxRecoil==='0.0000'`, 6000);
+  // A premium weapon draws its own shot. Equipping one is an armoury change, so
+  // it goes through the stored profile and a reload, the way a player's would.
+  await evaluate(`(()=>{const p=JSON.parse(localStorage.getItem('blockplay.armory.v1'));
+    p.xp=20000; p.owned=[...new Set([...p.owned,'sar-vanguard'])];
+    p.guns[0]={variant:'sar-vanguard',skin:'skin-issued',attachments:{}};
+    localStorage.setItem('blockplay.armory.v1',JSON.stringify(p)); location.reload()})()`);
+  await delay(1500);
+  await wait(`!![...document.querySelectorAll('button')].find(b=>b.textContent.includes('Marina FPS'))`);
+  await click(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Marina FPS'))`);
+  await wait(phase('ready'));
+  await click(button('Enter range')); await wait(phase('playing'));
+  assert.equal(await evaluate(`${canvas}.dataset.fxStyle`), 'elite:sar-vanguard:skin-issued', 'A premium weapon draws its own style');
+  await evaluate(watch);
+  await look(0, 470); await delay(250);
+  await hold(600);
+  const premium = await evaluate('window.fx');
+  assert(premium.sparks > 0 && premium.casings > 0, `A premium weapon still throws brass and sparks (saw ${JSON.stringify(premium)})`);
+  await screenshot('premium-weapon');
+
   assert.equal(mapRequests, 0, 'No map API requests'); assert.deepEqual(errors, [], 'No browser exceptions');
-  console.log('PASS: muzzle flare, brass ejection, sparks, scorches and recoil climb/settle; target hits leave no mark; spent effects obstruct nothing; reset clears the pools.');
+  console.log('PASS: muzzle flare, brass ejection, sparks, scorches and recoil climb/settle; target hits leave no mark; spent effects obstruct nothing; reset clears the pools; styles follow the weapon, issued and premium.');
   console.log('Screenshots: .cache/fps-effects-smoke/');
 } catch (error) { await screenshot('effects-failure'); throw error; }
 finally { await evaluate('window.fxObserver?.disconnect()').catch(() => {}); ws.close(); await fetch(`${chrome}/json/close/${tab.id}`); }

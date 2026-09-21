@@ -84,5 +84,6 @@ it('holds a scorch before fading it, and stays finite through absurd frames', ()
   expect(scorchAlpha(scorch)).toBeGreaterThan(0);
   expect(scorchAlpha(scorch)).toBeLessThan(1);
   advanceImpacts(field, 0); advanceImpacts(field, -1); advanceImpacts(field, 9);
-  field.sparks.forEach(spark => Object.values(spark).forEach(v => expect(Number.isFinite(v)).toBe(true)));
+  // `style` is an opaque tag rather than a number; every other field is one.
+  field.sparks.forEach(spark => Object.values(spark).forEach(v => expect(typeof v === 'number' ? Number.isFinite(v) : true).toBe(true)));
 });

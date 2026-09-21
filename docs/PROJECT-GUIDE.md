@@ -127,13 +127,40 @@ Ceilings on the accumulated climb keep the aim displacement a burst costs the
 same as it was before, and shot spread is still owned separately by the
 accuracy model — recoil never widens a cone.
 
+**Swapping the look.** None of those colours live in the renderer. A weapon's
+shots are described by an *effect style* — the flare's core, petals, cone and
+light, the tracer, the spark ramp, the impact ring, the dust, the smoke, the
+brass and how hard a scorch bites — and `fps-effects` draws whatever style it is
+handed. There are three ways to change one, each weaker and more specific than
+the last, and none of them needs the others:
+
+1. **By tier.** A weapon's catalog tier picks the base style, so a new Elite
+   variant fires like premium kit the day it is added, with no code at all:
+   a hotter, shorter, brighter flash that throws its light further.
+2. **By accent.** The colour the armoury already paints a variant's receiver is
+   mixed through the flare, the tracer and the cooling end of the sparks, so a
+   gold Vanguard flares gold and a steel Marksman flares pale. The heart of the
+   flash stays near-white whatever the accent — a flash that is entirely its
+   accent colour stops reading as ignition and starts reading as a bulb.
+3. **By registration.** `registerEffectStyle(id, patch)` lays a patch over
+   whatever the first two resolved, keyed on a catalog id for a weapon variant
+   or a skin. A patch names only what it changes, and a skin outranks a weapon,
+   since a skin is bought for how it looks.
+
+Because the pools are shared and you can switch weapons while your last burst is
+still in the air, every spawn is tagged with the style that made it and is drawn
+in that style for the rest of its life: switching weapons never retints the
+brass already on the floor or the marks already on the wall, and a round still
+flying when you swap lands in the colours of the weapon that fired it.
+
 Every pool is allocated once at a fixed ceiling and drawn as a single object:
 one instanced draw each for the brass, the rings, the dust and the scorches,
 and one batched line list for every spark in the air. Nothing is allocated or
 disposed while the trigger is down. The whole world-space tree is flagged so
 gameplay raycasts skip it — brass on the floor can never stop a bullet.
-`pnpm test:fps:effects` drives a real browser through it; on a software renderer
-pass `EFFECTS_SMOKE_PACE=6`, as the other browser smokes need.
+`pnpm test:fps:effects` drives a real browser through it, issued kit and a
+premium weapon both; on a software renderer pass `EFFECTS_SMOKE_PACE=6`, as the
+other browser smokes need.
 
 In the ready/pause menu, open **Debug survival** for 1×, 5× or 10× maximum health, a health refill, and optional regeneration (10% of maximum HP per second after three seconds without damage). These tab-local settings persist through zone changes and apply to practice, solo bots and expeditions. Network rooms keep their normal health rules.
 
