@@ -81,7 +81,24 @@ jobs:
       # origin checks, against what is now live. It spends no companion, voice or
       # map credits. Set the CLOUDFLARE_APP_ORIGIN variable if the Worker moves
       # to a custom domain.
+      #
+      # A new version takes a few seconds to propagate, and mid-propagation an
+      # edge can serve the new index.html beside the previous version's asset
+      # manifest: the hashed bundle it names is not there yet, so it falls
+      # through to the SPA handler and the check sees HTML where JavaScript
+      # should be. Hence a settle and a few attempts before a failure is
+      # believed. A site that is genuinely broken fails all of them.
       - name: Verify the deployment
         env:
           CLOUDFLARE_APP_ORIGIN: ${{ vars.CLOUDFLARE_APP_ORIGIN || 'https://blockplay-sg.sunjc826.workers.dev' }}
-        run: pnpm test:cloudflare
+        run: |
+          sleep 10
+          for attempt in 1 2 3 4 5; do
+            if pnpm test:cloudflare; then exit 0; fi
+            if [ "$attempt" -lt 5 ]; then
+              echo "::notice::Attempt $attempt failed. Retrying in 15s in case the new version is still propagating."
+              sleep 15
+            fi
+          done
+          echo "::error::The deployed site failed its checks after five attempts over a minute, so this is not propagation. The Worker is live on the version deployed above; the assertion names what it served."
+          exit 1

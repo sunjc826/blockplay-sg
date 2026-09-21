@@ -61,6 +61,13 @@ Wrangler version pinned in the lockfile, and then runs `pnpm test:cloudflare`
 against the live origin, so a deploy that breaks routing, the service worker or
 the API fails the run rather than sitting there green.
 
+That last check retries for about a minute. A new Worker version takes a few
+seconds to propagate, and in between an edge can serve the new `index.html`
+beside the previous version's asset manifest: the hashed bundle it names is not
+there yet, so the request falls through to the SPA handler and the check sees
+HTML where JavaScript should be. A site that is genuinely broken fails every
+attempt.
+
 One-time setup:
 
 1. In Cloudflare, **My Profile → API Tokens → Create Token → Edit Cloudflare
