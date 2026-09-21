@@ -1,6 +1,6 @@
 # Deploy to Cloudflare Workers
 
-Live deployment: **https://blockplay-sg.sunjc826.workers.dev** in the Sunjc826 account. `wrangler.jsonc` selects that account explicitly. Pushes to `main` deploy automatically through [GitHub Actions](#github-actions-this-repositorys-default); `pnpm deploy:cloudflare` from a local checkout does the same thing by hand, with no repository privileges needed. To deploy a separate copy in another account, change `account_id` and, if needed, `name` first.
+Live deployment: **https://blockplaysg.fun** — the public demo — served by this Worker in the Sunjc826 account through a custom domain, and also reachable at its `https://blockplay-sg.sunjc826.workers.dev` origin. `wrangler.jsonc` selects that account explicitly. Pushes to `main` deploy automatically through [GitHub Actions](#github-actions-this-repositorys-default); `pnpm deploy:cloudflare` from a local checkout does the same thing by hand, with no repository privileges needed. To deploy a separate copy in another account, change `account_id` and, if needed, `name` first.
 
 This deployment serves the Vite game and companion API together on HTTPS. It includes all three maps, FPS, open world, solo bots, loadouts, vehicles and bundled Encik recordings. Text/voice companions and the optional LLM strategist use a private Worker secret. Without that secret, gameplay still works and companion requests return a clear unavailable response.
 
@@ -84,7 +84,7 @@ Two optional settings:
 | Name | Kind | Purpose |
 | --- | --- | --- |
 | `GOOGLE_MAPS_DEMO_API_KEY` | Secret | Enables live Street View in the deployed build. Unset means the build disables it, as it does today. |
-| `CLOUDFLARE_APP_ORIGIN` | Variable | Where the post-deploy check looks. Defaults to the workers.dev URL above; set it when the Worker moves to a custom domain. |
+| `CLOUDFLARE_APP_ORIGIN` | Variable | Where the post-deploy check looks. Defaults to `https://blockplaysg.fun`, the public URL. Set it to override — the `workers.dev` origin, or a different custom domain. |
 
 Deploys run one at a time and a queued run waits rather than cancelling one
 mid-upload. Pushes from forks are ignored. The browser smokes are not part of
@@ -121,9 +121,10 @@ Live Street View is optional. The cloud build only exposes
 its Google HTTP referrers to the deployed hostname. Authored maps need no Google
 key or live map requests.
 
-For your own hostname, use the Worker's **Settings → Domains & Routes → Add →
-Custom Domain** once the domain is in the Cloudflare account. Same-origin
-companion routing needs no frontend URL changes.
+`blockplaysg.fun` is attached this way, under the Worker's **Settings → Domains
+& Routes**. For another hostname, add it there once the domain is in the
+Cloudflare account. Same-origin companion routing needs no frontend URL changes,
+and the `workers.dev` origin keeps working alongside it.
 
 ## Implementation and references
 

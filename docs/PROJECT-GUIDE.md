@@ -136,7 +136,7 @@ The LAN and companion servers are separate. Neither automatically proxies the ot
 
 ### Optional Street View
 
-The live viewer is separate from the authored worlds and is disabled in the public demo.
+The live viewer is separate from the authored worlds. The public deployment ships no Google browser key unless a `GOOGLE_MAPS_DEMO_API_KEY` build variable is set, so the viewer reports itself unavailable there; the authored districts never need one.
 
 1. Enable Maps JavaScript API in a Google Cloud project with billing.
 2. Restrict a browser key to the required APIs and your localhost/deployment referrers.
@@ -196,15 +196,39 @@ LAN transport/multiplayer and checkpoint-travel checks have separate prerequisit
 
 ## Deployment
 
-### Current GPT Sites demo
+### Public deployment: Cloudflare Workers
 
-The [public deployment](https://blockplaysg.fun/) contains solo gameplay only.
+The [public demo](https://blockplaysg.fun/) is the Cloudflare Worker, reached
+through the custom domain `blockplaysg.fun` and also at
+`blockplay-sg.sunjc826.workers.dev`. Every push to `main` builds and publishes
+it through [GitHub Actions](CLOUDFLARE.md#github-actions-this-repositorys-default),
+then verifies the live site; `pnpm deploy:cloudflare` does the same by hand.
 
-`pnpm build:sites` emits `dist`; `.openai/hosting.json` identifies the existing Site and its static output. The build disables AI companions, host/join and Street View, and deliberately excludes the local Google browser key. Do not include `.env` files or server secrets in an archive.
+The Worker serves the game and the companion API from one origin. Multiplayer
+host/join is unavailable there — the LAN rendezvous server is not deployed — and
+live Street View needs a `GOOGLE_MAPS_DEMO_API_KEY` build variable. The
+companions answer only while the Worker carries its private `OPENAI_API_KEY`
+secret, and return a clear unavailable response without one; `/api/health`
+reports which. See [Cloudflare deployment](CLOUDFLARE.md) for secrets, the
+custom domain and preview.
 
-Reuse the existing Site when publishing updates. Save and deploy output built from the exact source revision pushed to Sites. GitHub pushes alone do not update the live game. New Sites start private; this project’s audience was explicitly changed to public. Preserve that audience unless asked to change it.
+### GPT Sites static build
 
-Adding a key alone does not enable AI here: the companion backend must first be adapted to the Sites runtime, configured with server-only secrets and re-enabled in the client.
+`pnpm build:sites` emits a `dist` for a static, game-only host, and
+`.openai/hosting.json` identifies the Site it was published to. That build
+disables AI companions, host/join and Street View, and deliberately excludes the
+local Google browser key. Do not include `.env` files or server secrets in an
+archive.
+
+This path is **not** what `blockplaysg.fun` serves, and nothing publishes it
+automatically: reuse the existing Site, and deploy output built from the exact
+source revision. GitHub pushes alone do not update it. New Sites start private;
+this project's audience was explicitly changed to public. Preserve that audience
+unless asked to change it.
+
+Adding a key alone does not enable AI there: the companion backend must first be
+adapted to the Sites runtime, configured with server-only secrets and re-enabled
+in the client.
 
 ### Other hosts
 

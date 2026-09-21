@@ -1,5 +1,25 @@
 # Blockplay: portable agent handoff
 
+**Correction: blockplaysg.fun is the Cloudflare Worker, not the Sites build
+(2026-09-21).** The docs had said the public demo was the GPT Sites static
+deployment; the repo owner confirms the custom domain is attached to the Worker,
+so every push to `main` has been updating the public URL since the deploy
+workflow landed. `docs/PROJECT-GUIDE.md`, `docs/CLOUDFLARE.md`, `README.md`,
+`docs/AI-PILOT.md` and a dated note in `docs/BUILD-STORY.md` now say so, and the
+post-deploy check defaults to `https://blockplaysg.fun` — the URL people
+actually open — rather than the `workers.dev` origin.
+
+`pnpm build:sites` and `.openai/hosting.json` are still in the tree for a
+static, game-only copy; the guide now marks that path as not what the domain
+serves and not published by anything automatic.
+
+Two consequences worth knowing. The Worker build leaves the companion UI
+enabled, so the public demo shows it and answers only while the Worker carries
+`OPENAI_API_KEY`; `/api/health` reports which. And Street View is reachable
+there rather than hidden — with no `GOOGLE_MAPS_DEMO_API_KEY` build variable it
+falls into `loadGoogleMaps`'s developer-facing "add it to .env.local" message,
+which is the wrong audience for a public page.
+
 **Latest: main deploys itself (2026-09-21).**
 `.github/workflows/deploy-cloudflare.yml` — the repository's first workflow —
 typechecks, tests, builds and publishes the Cloudflare Worker on every push to

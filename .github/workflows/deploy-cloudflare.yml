@@ -78,9 +78,10 @@ jobs:
         run: pnpm exec wrangler deploy
 
       # Routing, production assets, the service worker, the manifest and the API
-      # origin checks, against what is now live. It spends no companion, voice or
-      # map credits. Set the CLOUDFLARE_APP_ORIGIN variable if the Worker moves
-      # to a custom domain.
+      # origin checks, against the public URL — the custom domain people actually
+      # open, so a broken route there fails the run even when the workers.dev
+      # origin is fine. It spends no companion, voice or map credits. The
+      # CLOUDFLARE_APP_ORIGIN variable overrides the default.
       #
       # A new version takes a few seconds to propagate, and mid-propagation an
       # edge can serve the new index.html beside the previous version's asset
@@ -90,7 +91,7 @@ jobs:
       # believed. A site that is genuinely broken fails all of them.
       - name: Verify the deployment
         env:
-          CLOUDFLARE_APP_ORIGIN: ${{ vars.CLOUDFLARE_APP_ORIGIN || 'https://blockplay-sg.sunjc826.workers.dev' }}
+          CLOUDFLARE_APP_ORIGIN: ${{ vars.CLOUDFLARE_APP_ORIGIN || 'https://blockplaysg.fun' }}
         run: |
           sleep 10
           for attempt in 1 2 3 4 5; do

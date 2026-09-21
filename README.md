@@ -19,7 +19,7 @@ Explore familiar Singapore neighborhoods as stylized 3D game worlds, created usi
 - Play on a **phone or tablet**: every 3D mode draws twin thumb sticks and on-screen actions over the scene.
 - **Install it** to your home screen or desktop and keep playing offline.
 
-The public demo is game-only: AI companions, multiplayer host/join and live Street View are unavailable. These optional features are supported in the local project with additional setup.
+The public demo runs on Cloudflare Workers and redeploys from `main` on every push. Multiplayer host/join and live Street View are unavailable there; the AI companions answer only while the deployment carries a private key, and return a clear unavailable response without one. All of it is supported in the local project with additional setup.
 
 The worlds are authored, compressed interpretations—not surveyed maps or navigation tools. Marina Bay, Raffles Place and Queenstown were built against reviewed street-level references. The other sixteen districts were composed from general knowledge of those neighbourhoods, without reference capture; see [districts](docs/DISTRICTS.md).
 
