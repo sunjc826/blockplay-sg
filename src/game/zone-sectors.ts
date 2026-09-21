@@ -15,11 +15,16 @@ export type SectorCover = 'dense' | 'broken' | 'open';
 
 /** Narrower than this and it is a lamp post or a tree trunk, not cover. */
 const MIN_COVER_SPAN = 1.5;
-/** median metres to the nearest usable cover, and the floor on built-up ground. */
-export const COVER_BANDS = {
-  dense: { maxMedian: 10, minSolid: 0.25 },
-  broken: { maxMedian: 20, minSolid: 0 },
-} as const;
+/**
+ * Median metres from open ground to the nearest usable cover. Distance alone,
+ * deliberately: an earlier version also gated `dense` on a quarter of the
+ * ground being solid, and the measurements show that reads backwards. VivoCity
+ * is 57% solid with an 8.2 m median because its solid is one mass you run
+ * around; Keppel wharf is 9% solid with a 4.5 m median because its solid is
+ * scattered container rows. The second is better cover. How far you must run
+ * is the thing that matters, so it is the only thing measured.
+ */
+export const COVER_BANDS = { dense: 6, broken: 20 } as const;
 
 /**
  * Median distance from open ground in the sector to the nearest obstacle big
@@ -44,9 +49,9 @@ export function measureSectorCover(bounds: RegionBounds, obstacles: readonly Obs
 
 /** The band the geometry actually falls in, which is what a label must match. */
 export function coverFor(bounds: RegionBounds, obstacles: readonly Obstacle[]): SectorCover {
-  const { solid, median } = measureSectorCover(bounds, obstacles);
-  if (median <= COVER_BANDS.dense.maxMedian && solid >= COVER_BANDS.dense.minSolid) return 'dense';
-  return median <= COVER_BANDS.broken.maxMedian ? 'broken' : 'open';
+  const { median } = measureSectorCover(bounds, obstacles);
+  if (median <= COVER_BANDS.dense) return 'dense';
+  return median <= COVER_BANDS.broken ? 'broken' : 'open';
 }
 
 /**
@@ -101,21 +106,21 @@ const HARBOURFRONT_SECTORS: readonly ZoneSector[] = [
   // The mall is one solid stepped mass, so its sector is the ring of ten- to
   // fourteen-metre lanes around it, plus the amphitheatre and the station
   // entrance at its quay corner. Central, so everyone passes through it.
-  { id: 'vivocity', name: 'VivoCity terraces', cover: 'dense', lootWeight: 2.5, botWeight: 2,
+  { id: 'vivocity', name: 'VivoCity terraces', cover: 'broken', lootWeight: 2.5, botWeight: 2,
     bounds: { minX: 0, maxX: 124, minZ: -14, maxZ: 114 },
     anchors: [{ x: 60, z: -6 }, { x: 60, z: 108 }, { x: 117, z: 40 }, { x: 117, z: 86 }, { x: 117, z: -6 }] },
   // The cruise hall and its two boarding gangways, west of the quay street.
   // Same shape as VivoCity — a big mass with lanes round it — one street over.
-  { id: 'cruise-centre', name: 'Cruise Centre', cover: 'dense', lootWeight: 2, botWeight: 1.5,
+  { id: 'cruise-centre', name: 'Cruise Centre', cover: 'broken', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: -130, maxX: -20, minZ: -14, maxZ: 114 },
     anchors: [{ x: -75, z: -6 }, { x: -25, z: 50 }, { x: -75, z: 108 }, { x: -124, z: 50 }, { x: -25, z: -6 }] },
-  // The furthest ground from the spawn, so it carries the reward. Note the
-  // measured cover: the zone description promises "the wharf end has cover" and
-  // the geometry does not deliver it — two gantries' worth of 2.4-metre legs and
-  // a single container row leave the apron four per cent solid. Labelled for
-  // what it is until the stack is deepened, which is the fix rather than a
-  // kinder label.
-  { id: 'keppel-wharf', name: 'Keppel wharf', cover: 'broken', lootWeight: 3, tierBias: 1, botWeight: 2,
+  // The furthest ground from the spawn, so it carries the reward — and since
+  // the container rows were laid out properly it is also the only ground in the
+  // district with cover worth the name: 4.5 m to the nearest hard edge, against
+  // 8 m at the malls and nothing at all on the quay. That is what the zone
+  // description always promised by "the wharf end has cover, the water end has
+  // none", and it is now true rather than aspirational.
+  { id: 'keppel-wharf', name: 'Keppel wharf', cover: 'dense', lootWeight: 3, tierBias: 1, botWeight: 2,
     bounds: { minX: 146, maxX: 218, minZ: 132, maxZ: 188 },
     anchors: [{ x: 180, z: 134 }, { x: 180, z: 160 }, { x: 155, z: 155 }, { x: 155, z: 175 }, { x: 180, z: 178 }] },
   // Eleven metres wide, fifty-six long, water on both sides and the Sentosa
@@ -126,7 +131,7 @@ const HARBOURFRONT_SECTORS: readonly ZoneSector[] = [
   // Terraces stacked to a lookout. They are impassable, so the fighting is in
   // the lanes between their skirts and the perimeter: short sightlines, and the
   // one place in the district that is not overlooked by something else.
-  { id: 'faber-ridge', name: 'Mount Faber ridge', cover: 'dense', lootWeight: 1.5, tierBias: 1, botWeight: 1,
+  { id: 'faber-ridge', name: 'Mount Faber ridge', cover: 'broken', lootWeight: 1.5, tierBias: 1, botWeight: 1,
     bounds: { minX: -226, maxX: -150, minZ: -146, maxZ: -30 },
     anchors: [{ x: -185, z: -140 }, { x: -152, z: -85 }, { x: -218, z: -85 }, { x: -185, z: -35 }] },
   // The green continuing north off the ridge, and the ground the Queenstown

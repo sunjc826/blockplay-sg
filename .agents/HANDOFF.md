@@ -1,5 +1,61 @@
 # Blockplay: portable agent handoff
 
+**Latest: the cover measurement, and what it says about every map (2026-09-21).**
+Sectors gave us an instrument, and the first thing it measured is the real
+problem with these districts. Across all nineteen:
+
+    district        playable      median run to cover
+    bukit-timah      189k m²           43.9 m
+    tampines         190k m²           42.0 m
+    toa-payoh        190k m²           39.4 m
+    upper-thomson    192k m²           38.4 m
+    queenstown       205k m²           36.0 m
+    harbourfront     169k m²           32.0 m
+    kampong-glam     149k m²           18.0 m   (the best one)
+
+A competitive FPS map is on the order of a hundred metres square with cover a
+step or two away. These are 15-30x that playable area with a median run to
+cover of 18-44 m — five to eight seconds fully exposed at the engine's 4.2 m/s
+walk. That, not a shortage of named places, is why the maps do not fight well.
+**Median-to-cover is the number to drive down; 8-12 m is the target.**
+`measureSectorCover` computes it for any bounds, so progress is checkable.
+
+Sector granularity is capped by this: you cannot name a pit that does not
+exist. Nine sectors on HarbourFront is not too many, but five of them measured
+zero usable cover, so they are nine names for four places and five fields.
+
+**Keppel wharf is the worked example.** Its container row stepped x by a fifth
+of the loop index, so five eleven-metre boxes landed within eight metres of
+each other and collided as one blob — the apron measured 4% solid under a zone
+description promising cover there. Relaid as four rows with driving lanes
+between them: **8.9 m -> 4.5 m median**, and it is now the only ground in the
+district with cover worth the name. The zone description is true rather than
+aspirational for the first time.
+
+**The cover bands are distance-only, and that correction matters.** The first
+version also gated `dense` on a quarter of the ground being solid. The
+measurements read backwards: VivoCity is 57% solid with an 8.2 m median because
+its solid is one mass you run around; the wharf is 9% solid with 4.5 m because
+its solid is scattered rows. The second is better cover. Only distance is
+measured now.
+
+Worth keeping: **cover labels must be measured, not eyeballed.** Of nine
+hand-written labels, three were wrong on the first pass and three more moved
+when the bands were corrected. `zone-sectors.test.ts` holds every label to the
+built scene, so one cannot drift from the geometry it describes.
+
+353 unit tests and typecheck pass. The scene change is geometry, so the road,
+reachability, sightline, helicopter-departure and draw-call guards all
+exercised it. Build not re-run (nothing touched the Vite config, entrypoints or
+worker); browser and FPS smokes still not run here.
+
+**Note on the branch.** `CLAUDE.md` says to commit straight to `main`, but
+`origin/main` is 25 commits behind this branch and does not contain
+`harbourfront-scene.ts` — sixteen of the nineteen districts, and the CLAUDE.md
+workflow note itself, exist only here. Pushing this to `main` would not
+compile. `main` can fast-forward cleanly, but that deploys 25 commits, so it is
+the owner's call.
+
 **Latest: sectors, piloted on HarbourFront (2026-09-20).** A district has until
 now been one uniform tactical unit: `risk`, `lootTier`, `botCount` and the loot
 rules are per-district scalars, and the six `encounterSpawns` do double duty as
@@ -37,13 +93,6 @@ because it is crowded.
 
 353 unit tests (+6) and typecheck pass; build not re-run as nothing touched the
 Vite config, entrypoints or worker, and browser/FPS smokes still not run here.
-
-**Note on the branch.** `CLAUDE.md` says to commit straight to `main`, but
-`origin/main` is 25 commits behind this branch and does not contain
-`harbourfront-scene.ts` — sixteen of the nineteen districts, and the CLAUDE.md
-workflow note itself, exist only here. Pushing this to `main` would not compile.
-`main` can fast-forward cleanly (no divergence), but that deploys 25 commits, so
-it is the owner's call.
 
 **Latest: Bukit Timah and Bishan (2026-09-20).** Nineteen districts, 209
 stamps. These close the two thin regions the last coverage pass left: the
