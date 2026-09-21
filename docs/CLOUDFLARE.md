@@ -1,6 +1,6 @@
 # Deploy to Cloudflare Workers
 
-Live deployment: **https://blockplay-sg.sunjc826.workers.dev** in the Sunjc826 account. `wrangler.jsonc` selects that account explicitly. This is a direct CLI deployment from the local checkout: no GitHub integration or repository administrator privileges are required. Ryan only needs to authorize repository access if you later enable the GitHub integration below. To deploy a separate copy in another account, change `account_id` and, if needed, `name` first.
+Live deployment: **https://blockplay-sg.sunjc826.workers.dev** in the Sunjc826 account. `wrangler.jsonc` selects that account explicitly. Pushes to `main` deploy automatically through [GitHub Actions](#github-actions-this-repositorys-default); `pnpm deploy:cloudflare` from a local checkout does the same thing by hand, with no repository privileges needed. To deploy a separate copy in another account, change `account_id` and, if needed, `name` first.
 
 This deployment serves the Vite game and companion API together on HTTPS. It includes all three maps, FPS, open world, solo bots, loadouts, vehicles and bundled Encik recordings. Text/voice companions and the optional LLM strategist use a private Worker secret. Without that secret, gameplay still works and companion requests return a clear unavailable response.
 
@@ -49,7 +49,46 @@ CLOUDFLARE_APP_ORIGIN=https://blockplay-sg.YOUR-SUBDOMAIN.workers.dev pnpm test:
 
 ## Automatic deployments from GitHub
 
-In Cloudflare Workers & Pages, connect this repository to a **Worker**, with these build settings:
+There are two ways to deploy on every push to `main`, and you want exactly one
+of them: running both means two systems racing to publish the same commit.
+
+### GitHub Actions (this repository's default)
+
+`.github/workflows/deploy-cloudflare.yml` builds and deploys on every push to
+`main`, and on demand from the Actions tab. It runs the checks that gate a local
+push — `pnpm typecheck`, `pnpm test` — before it builds, deploys with the
+Wrangler version pinned in the lockfile, and then runs `pnpm test:cloudflare`
+against the live origin, so a deploy that breaks routing, the service worker or
+the API fails the run rather than sitting there green.
+
+One-time setup:
+
+1. In Cloudflare, **My Profile → API Tokens → Create Token → Edit Cloudflare
+   Workers**, scoped to the account in `wrangler.jsonc`. Copy the token once.
+2. In GitHub, **Settings → Secrets and variables → Actions → New repository
+   secret**, named `CLOUDFLARE_API_TOKEN`.
+
+That is all it needs. The account comes from `account_id` in `wrangler.jsonc`,
+and runtime secrets set with `wrangler secret put` — `OPENAI_API_KEY` — survive
+every deploy, so the workflow never sees them.
+
+Two optional settings:
+
+| Name | Kind | Purpose |
+| --- | --- | --- |
+| `GOOGLE_MAPS_DEMO_API_KEY` | Secret | Enables live Street View in the deployed build. Unset means the build disables it, as it does today. |
+| `CLOUDFLARE_APP_ORIGIN` | Variable | Where the post-deploy check looks. Defaults to the workers.dev URL above; set it when the Worker moves to a custom domain. |
+
+Deploys run one at a time and a queued run waits rather than cancelling one
+mid-upload. Pushes from forks are ignored. The browser smokes are not part of
+this workflow: they need a running Vite server and a Chrome with remote
+debugging, so they remain a local step.
+
+### Cloudflare's own Git integration (alternative)
+
+If you would rather Cloudflare build it, connect this repository to a **Worker**
+in Workers & Pages instead, and delete or disable the workflow above. Build
+settings:
 
 | Setting | Value |
 | --- | --- |
@@ -61,11 +100,23 @@ In Cloudflare Workers & Pages, connect this repository to a **Worker**, with the
 | Build variable `PNPM_VERSION` | `11.22.0` |
 | Build variable `NODE_VERSION` | `24.21.0` |
 
-The build output is `dist`, configured in `wrangler.jsonc`. Set runtime secrets in the Worker's **Settings → Variables and Secrets**, independently from build variables. The checked-in `vars` are the source of truth for non-secret runtime settings; copy dashboard changes into the config so subsequent deployments preserve them.
+The build output is `dist`, configured in `wrangler.jsonc`. Set runtime secrets
+in the Worker's **Settings → Variables and Secrets**, independently from build
+variables. The checked-in `vars` are the source of truth for non-secret runtime
+settings; copy dashboard changes into the config so subsequent deployments
+preserve them.
 
-Live Street View is optional. The cloud build only exposes `GOOGLE_MAPS_DEMO_API_KEY`, never the fallback capture key `VITE_GOOGLE_MAPS_API_KEY`. For Street View, provide the demo key as a build variable and restrict its Google HTTP referrers to the deployed hostname. Authored maps need no Google key or live map requests.
+### Either way
 
-For your own hostname, use the Worker's **Settings → Domains & Routes → Add → Custom Domain** once the domain is in the Cloudflare account. Same-origin companion routing needs no frontend URL changes.
+Live Street View is optional. The cloud build only exposes
+`GOOGLE_MAPS_DEMO_API_KEY`, never the fallback capture key
+`VITE_GOOGLE_MAPS_API_KEY`. For Street View, provide the demo key and restrict
+its Google HTTP referrers to the deployed hostname. Authored maps need no Google
+key or live map requests.
+
+For your own hostname, use the Worker's **Settings → Domains & Routes → Add →
+Custom Domain** once the domain is in the Cloudflare account. Same-origin
+companion routing needs no frontend URL changes.
 
 ## Implementation and references
 

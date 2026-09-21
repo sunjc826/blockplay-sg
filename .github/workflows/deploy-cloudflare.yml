@@ -1,0 +1,87 @@
+# `main` is what deploys, and nothing else gates it, so this workflow runs the
+# same checks a local push runs before it uploads anything, and verifies the
+# live site afterwards. See docs/CLOUDFLARE.md.
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches: [main]
+  # Redeploy the current main without a commit: reverting a bad Worker secret,
+  # or re-running after a Cloudflare outage.
+  workflow_dispatch:
+
+# One deploy at a time. A queued run waits rather than cancelling one that is
+# already uploading, which would leave the Worker on a half-published version.
+concurrency:
+  group: cloudflare-worker
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # Wrangler's first run otherwise asks about telemetry, which CI cannot answer.
+  WRANGLER_SEND_METRICS: "false"
+
+jobs:
+  deploy:
+    # A fork's own main has no credentials and no business deploying this Worker.
+    if: github.repository == 'sunjc826/blockplay-sg'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # Before the four minutes of install, build and tests, so a missing
+      # credential fails with the instruction instead of a Wrangler auth dump.
+      - name: Check the deploy credential is present
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Missing the CLOUDFLARE_API_TOKEN repository secret. Create one from Cloudflare's 'Edit Cloudflare Workers' template, scoped to the account in wrangler.jsonc, then add it under Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      # The pnpm version comes from packageManager in package.json, so it cannot
+      # drift from the one the lockfile was written with.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # The version docs/CLOUDFLARE.md pins for Cloudflare's own build image.
+          node-version: "24.21.0"
+          cache: pnpm
+
+      # minimumReleaseAge in pnpm-workspace.yaml only governs resolution; a
+      # frozen install takes exactly what the lockfile already pinned.
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+      - run: pnpm test
+
+      # Street View is optional and its key is a build-time value. Without the
+      # secret the cloudflare build disables it, which is the current behaviour.
+      - name: Build the Worker's assets
+        env:
+          GOOGLE_MAPS_DEMO_API_KEY: ${{ secrets.GOOGLE_MAPS_DEMO_API_KEY }}
+        run: pnpm build:cloudflare
+
+      # `pnpm deploy:cloudflare` without its rebuild: the bundle above is exactly
+      # what ships. Runtime secrets (OPENAI_API_KEY) are set once with
+      # `wrangler secret put` and survive every later deploy, so nothing here
+      # needs to know them.
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: "false"
+        run: pnpm exec wrangler deploy
+
+      # Routing, production assets, the service worker, the manifest and the API
+      # origin checks, against what is now live. It spends no companion, voice or
+      # map credits. Set the CLOUDFLARE_APP_ORIGIN variable if the Worker moves
+      # to a custom domain.
+      - name: Verify the deployment
+        env:
+          CLOUDFLARE_APP_ORIGIN: ${{ vars.CLOUDFLARE_APP_ORIGIN || 'https://blockplay-sg.sunjc826.workers.dev' }}
+        run: pnpm test:cloudflare

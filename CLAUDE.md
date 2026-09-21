@@ -19,8 +19,10 @@ Single maintainer (@sunjc826), so the branch-and-review dance is overhead:
 
 ## Before pushing
 
-`main` is what deploys, and nothing else gates it, so the checks are the safety
-net. Run at minimum:
+`main` is what deploys: a push runs `.github/workflows/deploy-cloudflare.yml`,
+which typechecks, tests, builds and publishes the Cloudflare Worker, then checks
+the live site. A red run leaves the previous deploy serving, so a broken push is
+recoverable — but run the checks here first rather than using CI to find out:
 
 ```sh
 pnpm install   # only when the lockfile changed

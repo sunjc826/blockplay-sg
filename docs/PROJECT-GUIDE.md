@@ -93,7 +93,7 @@ play](PWA.md) for what is cached, how updates are offered and how it is tested.
 
 ## Local setup
 
-For HTTPS hosting with the companion backend, see [Cloudflare deployment](CLOUDFLARE.md). It includes CLI deployment, private runtime secrets, local Worker preview and GitHub build settings.
+For HTTPS hosting with the companion backend, see [Cloudflare deployment](CLOUDFLARE.md). It includes the GitHub Actions deploy that runs on every push to `main`, CLI deployment, private runtime secrets and local Worker preview.
 
 Use Node 22.12+ and pnpm 11.22.0, pinned in `package.json`.
 

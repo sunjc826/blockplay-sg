@@ -1,5 +1,33 @@
 # Blockplay: portable agent handoff
 
+**Latest: main deploys itself (2026-09-21).**
+`.github/workflows/deploy-cloudflare.yml` — the repository's first workflow —
+typechecks, tests, builds and publishes the Cloudflare Worker on every push to
+`main`, then runs `pnpm test:cloudflare` against the live origin, so a deploy
+that breaks routing, the service worker or the API fails the run instead of
+sitting there green. It needs one repository secret, `CLOUDFLARE_API_TOKEN`; the
+account comes from `wrangler.jsonc` and `OPENAI_API_KEY` stays a Worker secret
+that deploys do not touch.
+
+It deploys with the Wrangler pinned in the lockfile rather than an action that
+fetches its own, which keeps the two-week cooldown meaningful for the thing that
+publishes the site. The deploy step is `pnpm deploy:cloudflare` minus its
+rebuild, so the bundle that was tested is the bundle that ships. Deploys are
+serialised and a queued run waits rather than cancelling one mid-upload.
+
+**This and Cloudflare's own Git integration are alternatives.** If the Worker is
+also connected to the repository in the Cloudflare dashboard, two systems will
+publish the same commit; `docs/CLOUDFLARE.md` now documents both paths and says
+to pick one.
+
+Verified here as far as the container allows: the YAML parses, `pnpm
+check:cloudflare` bundles and validates the Worker config, and `pnpm
+test:cloudflare` passes against a local `wrangler dev` serving that bundle. Not
+verified: Node 24.21.0 (only 22 is installed here — the workflow pins the
+version `docs/CLOUDFLARE.md` gives for Cloudflare's own build image), and the
+upload itself, which needs the account token. The first run on `main` is the
+real check, and a failure leaves the previous deploy serving.
+
 **Latest: the game is playable with thumbs (2026-09-21).** Every 3D mode now
 draws twin floating sticks and its actions over the scene on a touchscreen,
 instead of the row of arrow buttons under it. `src/game/touch-controls.ts` holds
