@@ -213,13 +213,28 @@ export function buildHarbourfrontScene() {
   cableRun();
   stationEntrance(85, 106);
 
-  // Wharf: apron, rails, three gantries and a stack of boxes behind them.
+  // Wharf: apron, rails, two gantries and the container yard between them.
   box(180, 0.2, 160, 60, 0.4, 44, concrete);
   for (const dz of [-11, 11]) box(180, 0.42, 160 + dz, 58, 0.06, 1, steel);
   for (const z of [146, 174]) gantryCrane(180, z);
-  for (let dx = -20; dx <= 20; dx += 10) for (let dz = -6; dz <= 6; dz += 13) for (let level = 0; level < 2; level++) {
-    box(206 + dx * 0.2, 1.4 + level * 2.7, 152 + dz, 9, 2.6, 2.6, container[(Math.abs(Math.round(dx / 10)) + level) % container.length]);
-    if (!level) solid(206 + dx * 0.2, 152 + dz, 9.2, 2.8);
+  /**
+   * Stacks in rows along the quay with running lanes between them, which is
+   * both how a terminal is laid out and the only thing that makes this end of
+   * the district defensible. The previous row stepped by a fifth of its index,
+   * so five eleven-metre boxes landed within eight metres of each other and
+   * collided as one blob: the apron measured four per cent solid against a
+   * zone description promising cover here. Rows avoid the gantry leg lines at
+   * z 135/157/163/185, and the five-metre gaps in x stay wide enough to drive.
+   */
+  for (const [row, z] of [142, 152, 168, 178].entries()) {
+    for (const [bay, x] of [156, 172, 188, 204].entries()) {
+      // One gap per row, walked along, so no lane runs the full width unbroken.
+      if ((bay + row) % 4 === 3) continue;
+      for (let level = 0; level < 3 - (bay + row) % 2; level++) {
+        box(x, 1.4 + level * 2.7, z, 11, 2.6, 2.6, container[(bay + row + level) % container.length]);
+      }
+      solid(x, z, 11.2, 2.8);
+    }
   }
 
   // South band: terminal annexe, a car-park deck and a harbour depot.
@@ -245,7 +260,7 @@ export function buildHarbourfrontScene() {
     .flatMap((shirt, index) => [walker(-40 + index * 26, 133, shirt, skin, dark), walker(BOARDWALK_X, 144 + index * 11, shirt, skin, dark)]);
   const car = kit.car(mat('#7d97a4'), glass, mat('#dad5c5'), dark);
   const stamps = stampRings(HARBOURFRONT_STAMPS, orange);
-  scene.userData.districtFeatures = ['stepped-retail-terraces', 'rooftop-water-deck', 'quay-amphitheatre', 'wave-vault-hall', 'boarding-gangways', 'raked-liner-hull', 'portal-gantry-boom', 'container-stack', 'ridge-terraces', 'cable-span-cabins'];
+  scene.userData.districtFeatures = ['stepped-retail-terraces', 'rooftop-water-deck', 'quay-amphitheatre', 'wave-vault-hall', 'boarding-gangways', 'raked-liner-hull', 'portal-gantry-boom', 'container-yard-rows', 'ridge-terraces', 'cable-span-cabins'];
   scene.userData.referenceFeatures = [];
 
   return kit.finish({
