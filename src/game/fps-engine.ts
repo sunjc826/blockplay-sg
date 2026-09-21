@@ -6,6 +6,8 @@ import { advanceWeapon, beginReload, createLoadout, findTrait, fireWeapon, FPS_S
 import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { sectorAt, zoneSectors } from './zone-sectors';
 import { advanceRound, createRound, needsFlight, MAX_ROUNDS_IN_FLIGHT, type InFlightRound } from './fps-projectiles';
+import { createFpsEffects, type ImpactKind } from './fps-effects';
+import { advanceRecoil, createRecoil, recoilView, recordRecoilShot, resetRecoil } from './fps-recoil';
 import { aimSpeedScale, applyArmorDamage, createProfile, jumpScale, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile } from './armory-state';
 import { registerElimination, ELIMINATION_XP, type KillChain } from './progression';
 import { createFpsVehicles } from './fps-vehicles';
@@ -121,20 +123,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const targetGeometry = new THREE.CircleGeometry(0.265, 32);
   const headGeometry = new THREE.CircleGeometry(0.115, 20);
   const targetMaterial = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: THREE.DoubleSide });
-  const flashGeometry = new THREE.SphereGeometry(0.028, 8, 6);
-  const flashMaterial = new THREE.MeshBasicMaterial({ color: '#ffd382', transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
-  const flash = new THREE.Mesh(flashGeometry, flashMaterial); flash.scale.set(1, 1, 2.6); flash.visible = false;
-  const tracerGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
-  const tracerMaterial = new THREE.LineBasicMaterial({ color: '#ffe8b0', transparent: true, opacity: 0.6 });
-  const tracer = new THREE.Line(tracerGeometry, tracerMaterial); tracer.frustumCulled = false; tracer.visible = false; tracer.userData.fpsEffect = true; world.scene.add(tracer);
-  const roundTracerGeometry = new THREE.BufferGeometry();
-  roundTracerGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_ROUNDS_IN_FLIGHT * 6), 3));
-  roundTracerGeometry.setDrawRange(0, 0);
-  // One batched draw for every round in the air, rather than a line object each.
-  const roundTracers = new THREE.LineSegments(roundTracerGeometry, tracerMaterial);
-  roundTracers.frustumCulled = false; roundTracers.visible = false; roundTracers.userData.fpsEffect = true; world.scene.add(roundTracers);
-  const impactGeometry = new THREE.SphereGeometry(0.05, 8, 6), impactMaterial = new THREE.MeshBasicMaterial({ color: '#f3ae59' });
-  const impact = new THREE.Mesh(impactGeometry, impactMaterial); impact.visible = false; impact.userData.fpsEffect = true; world.scene.add(impact);
+  // Muzzle flare, brass, sparks, dust, scorches and tracers, pooled and batched.
+  // Its whole world-space tree carries `fpsEffect`, so gameplay rays skip it.
+  const effects = createFpsEffects(world.scene, viewScene);
   const debugAvailable = !options.arena || options.arena.session.role === 'solo';
   let debug = debugAvailable ? readFpsDebug() : { ...DEFAULT_FPS_DEBUG }, recoveryDelay = 0;
   const keys = new Set<string>(); const hud: FpsHud = { ...initialFpsHud, debug, debugAvailable, quickItem: equipment.quickItem?.name || '', quickCount: equipment.quickCount, health: 100 * debug.healthMultiplier, maxHealth: 100 * debug.healthMultiplier, armor: equipment.armor, expeditionZone: expedition?.zone ?? null };
@@ -148,10 +139,22 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let roundId = randomRoundId(), attackTimer = 3, hurtTime = 0;
   let pendingAttack: { target: number; remaining: number; aim: THREE.Vector3 } | null = null;
   const attackRay = new THREE.Raycaster(), attackOrigin = new THREE.Vector3();
+  // Brass has to land on the deck the player is standing on, not on y = 0: a
+  // plaza, a bridge or a rooftop all sit above it. One downward cast every
+  // three-quarters of a second is far cheaper than one per case and follows the
+  // player up and down stairs closely enough for something that lies there for
+  // four seconds.
+  const floorRay = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 0, 8);
+  let brassFloor = 0, floorCheck = 0;
   const healthGeometry = new THREE.PlaneGeometry(.54, .055), healthMaterial = new THREE.MeshBasicMaterial({ color: "#e1a74e", side: THREE.DoubleSide });
   let disposed = false, loadout = createLoadout(specs), position = { x: spawn.x, z: spawn.z };
   let yaw: number = spawn.yaw, pitch: number = spawn.pitch, vertical = 0, velocityY = 0;
-  let trigger = false, ads = false, touchAim = false, actualAim = false, kick = 0, bob = 0, flashTime = 0, hitTime = 0, effectTime = 0, tracerTime = 0, impactActive = false;
+  let trigger = false, ads = false, touchAim = false, actualAim = false, bob = 0, hitTime = 0;
+  // Two-stage recoil: see fps-recoil. The view still couples through the same
+  // scale the old scalar did, so a burst costs the aim it always did.
+  const kick = createRecoil();
+  // The shooter's own ground speed, so walking fire throws brass along with them.
+  const carry = new THREE.Vector3();
   // Rounds still in the air. Instant weapons never enter this list, so a hitscan
   // loadout costs exactly the single raycast it always did.
   const rounds: InFlightRound[] = []; let roundSerial = 0;
@@ -298,10 +301,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function switchWeapon(index: number) {
     if (hud.phase === 'loading' || hud.phase === 'error' || index === hud.weapon || index < 0 || index >= FPS_WEAPONS.length) return;
     loadout[hud.weapon].reloadRemaining = 0;
-    trigger = false; ads = false; touchAim = false; kick = 0;
+    trigger = false; ads = false; touchAim = false; resetRecoil(kick);
     hud.weapon = index; weapons.forEach((w, i) => w.visible = i === index);
     if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
-    weapons[index]?.getObjectByName(`${FPS_WEAPONS[index].id}__socket_muzzle`)?.add(flash); publish();
+    effects.attachMuzzle(weapons[index]?.getObjectByName(`${FPS_WEAPONS[index].id}__socket_muzzle`)); publish();
   }
   function reset() {
     if (hud.phase === 'loading' || hud.phase === 'error') return;
@@ -314,18 +317,18 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     roundId = randomRoundId(); attackTimer = 3; pendingAttack = null; hurtTime = 0;
     if (document.pointerLockElement === canvas) document.exitPointerLock();
     vehicles.reset(); loadout = createLoadout(specs); position = { x: spawn.x, z: spawn.z }; yaw = spawn.yaw; pitch = spawn.pitch;
-    vertical = velocityY = kick = bob = hitTime = effectTime = tracerTime = flashTime = 0; clearInput();
-    rounds.length = 0; roundTracerGeometry.setDrawRange(0, 0);
+    vertical = velocityY = bob = hitTime = 0; resetRecoil(kick); carry.set(0, 0, 0); clearInput();
+    rounds.length = 0; effects.reset();
     aimProgress = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; });
     targets.forEach(t => { t.alive = true; t.root.visible = true; t.health = t.maxHealth; t.bar.scale.x = 1; });
-    flash.visible = tracer.visible = impact.visible = roundTracers.visible = false; updateCameras(0, false, false); publish();
+    updateCameras(0, false, false); publish();
   }
   function interactVehicle() {
     if (hud.phase !== 'playing' || options.arena) return;
     const change = vehicles.interact(position);
     if (change) {
       clearInput(); actualAim = false; loadout[hud.weapon].reloadRemaining = 0;
-      position = { x: change.x, z: change.z }; vertical = velocityY = kick = 0;
+      position = { x: change.x, z: change.z }; vertical = velocityY = 0; resetRecoil(kick); carry.set(0, 0, 0);
       if (change.entered) { yaw = change.yaw; pitch = -.23; }
       else pitch = -.03;
       updateCameras(0, false, false);
@@ -601,7 +604,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const direction = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
       const wanted = target.clone().addScaledVector(direction, distance); wanted.y = Math.max(.7, wanted.y);
       const offset = wanted.clone().sub(target); chaseRay.set(target, offset.clone().normalize()); chaseRay.near = .2; chaseRay.far = offset.length();
-      const obstruction = firstVisibleHit(chaseRay, world.scene.children.filter(o => o !== vehicles.root && o !== tracer && o !== impact));
+      const obstruction = firstVisibleHit(chaseRay, world.scene.children.filter(o => o !== vehicles.root && !o.userData.fpsEffect));
       camera.position.copy(obstruction ? target.clone().addScaledVector(offset.normalize(), Math.max(.5, obstruction.distance - .4)) : wanted);
       camera.lookAt(target); camera.fov = THREE.MathUtils.damp(camera.fov, 68, 8, dt); camera.updateProjectionMatrix(); camera.updateMatrixWorld(true); return;
     }
@@ -613,7 +616,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     rig.visible = !options.arena || hud.arenaSelf?.alive !== false;
     const crouching = keys.has('c');
     camera.position.set(position.x, (crouching ? 1.15 : 1.75) + vertical, position.z);
-    camera.rotation.set(pitch + kick * 0.22, yaw, 0, 'YXZ');
+    const view = recoilView(kick);
+    camera.rotation.set(pitch + view.pitch, yaw + view.yaw, 0, 'YXZ');
     camera.fov = THREE.MathUtils.lerp(sprinting ? 71 : 65, 65, aim);
     camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
     viewCamera.fov = THREE.MathUtils.lerp(65, 54, aim); viewCamera.updateProjectionMatrix();
@@ -626,8 +630,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const progress = remaining > 0 ? 1 - remaining : null, motion = reloadMotion(progress ?? 0);
     rig.position.set(THREE.MathUtils.lerp(.20, 0, aim) + sway + motion.x,
       THREE.MathUtils.lerp(-.32, -(handling[hud.weapon]?.aimHeight ?? .435), aim) + Math.abs(sway) - (sprinting ? .08 : 0) + motion.y,
-      THREE.MathUtils.lerp(-.78, handling[hud.weapon]?.aimDepth ?? -.47, aim) + kick * .6 + motion.z);
-    rig.rotation.set(kick * (1 - aim * .8) + (sprinting ? -.18 : 0) + motion.pitch, motion.yaw, motion.roll);
+      THREE.MathUtils.lerp(-.78, handling[hud.weapon]?.aimDepth ?? -.47, aim) + kick.punch * .6 + motion.z);
+    // The weapon carries the sideways half of the pattern and the roll that
+    // goes with it; the camera only ever takes the view coupling above.
+    rig.rotation.set(kick.punch * (1 - aim * .8) + (sprinting ? -.18 : 0) + motion.pitch,
+      motion.yaw + kick.yaw * .5 * (1 - aim * .6), motion.roll + kick.roll * 2.2 * (1 - aim * .5));
     handling.forEach((model, i) => model.update(i === hud.weapon ? progress : null, emptyReload[i]));
     const stage = reloadStage(remaining, emptyReload[hud.weapon]);
     if (stage && stage !== lastReloadStage && hud.phase === 'playing') handlingSound(stage);
@@ -638,8 +645,30 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function gameplayCandidates() {
     // Effects and the viewmodel never obstruct a gameplay ray.
-    return world.scene.children.filter(o => o !== tracer && o !== impact && !o.userData.fpsEffect);
+    return world.scene.children.filter(o => !o.userData.fpsEffect);
   }
+  const normalMatrix = new THREE.Matrix3(), surface = new THREE.Vector3();
+  /**
+   * The world-space normal of whatever a ray struck, for orienting an impact.
+   * A raycast reports the face normal in the struck object's own space, so it
+   * has to go through that object's normal matrix before it means anything in
+   * the map; a hit with no face at all (a sprite, a degenerate triangle) falls
+   * back to facing the shooter.
+   */
+  function surfaceNormal(hit: THREE.Intersection, direction: THREE.Vector3) {
+    const local = hit.normal ?? hit.face?.normal;
+    if (local) {
+      surface.copy(local).applyNormalMatrix(normalMatrix.getNormalMatrix(hit.object.matrixWorld));
+      if (surface.lengthSq() > 1e-12) {
+        surface.normalize();
+        // Always the side the round arrived from, whatever the winding says.
+        if (surface.dot(direction) > 0) surface.negate();
+        return surface;
+      }
+    }
+    return surface.copy(direction).negate().normalize();
+  }
+  const impactKind = (hit: THREE.Intersection): ImpactKind => typeof hit.object.userData.fpsTarget === 'number' ? 'target' : 'surface';
   function damageTarget(index: number, weapon: number, range: number, zone: string | undefined, scale = 1) {
     const target = targets[index];
     if (!target?.alive || scale <= 0) return;
@@ -706,17 +735,6 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.earned = rewardAmount(reward); hud.earnedXp += completionXp(reward); options.onComplete?.(reward);
     if (document.pointerLockElement === canvas) document.exitPointerLock();
   }
-  function updateRoundTracers() {
-    const attr = roundTracerGeometry.getAttribute('position');
-    // A short streak behind each round, so a slow shot reads as travelling.
-    rounds.forEach((round, i) => {
-      const tail = Math.min(round.travelled, 2.5);
-      attr.setXYZ(i * 2, round.position.x - round.direction.x * tail, round.position.y - round.direction.y * tail, round.position.z - round.direction.z * tail);
-      attr.setXYZ(i * 2 + 1, round.position.x, round.position.y, round.position.z);
-    });
-    attr.needsUpdate = true; roundTracerGeometry.setDrawRange(0, rounds.length * 2);
-    roundTracers.visible = rounds.length > 0;
-  }
   /** Steps every round still in the air and resolves whatever it reaches first. */
   function advanceRounds(dt: number) {
     if (!rounds.length) return;
@@ -733,10 +751,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         if (segmentHits.length) {
           // travelled already covers the arc up to this segment's start.
           const start = round.travelled - step.distance;
-          round.scale = resolveSurfaces(segmentHits, round.weapon, surface => start + surface.distance, round.scale);
+          round.scale = resolveSurfaces(segmentHits, round.weapon, hit => start + hit.distance, round.scale);
           const last = segmentHits[segmentHits.length - 1];
           applySplash(last.point, round.weapon, start + last.distance, round.scale, last.object.userData.fpsTarget);
-          impact.position.copy(last.point); impactActive = true; effectTime = .055; struck = true;
+          effects.impact(last.point, surfaceNormal(last, roundDirection), impactKind(last), round.scale); struck = true;
           // Stopped once it has struck more surfaces than it could pass through.
           if (segmentHits.length > round.pierced) { rounds.splice(i, 1); continue; }
           round.pierced -= segmentHits.length;
@@ -744,7 +762,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       }
       if (step.expired) rounds.splice(i, 1);
     }
-    updateRoundTracers();
+    effects.trails(rounds);
     if (struck) { checkCompletion(); publish(); }
   }
   function shoot() {
@@ -758,7 +776,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const muzzle = weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_muzzle`);
     if (muzzle) { muzzle.getWorldPosition(muzzlePoint); camera.localToWorld(muzzlePoint); }
     else muzzlePoint.copy(camera.position);
-    kick = Math.min(kick + specs[hud.weapon].recoil, 0.10); flashTime = 0.045; flash.visible = true;
+    recordRecoilShot(kick, specs[hud.weapon].recoil, hud.weapon);
+    effects.fire({ recoil: specs[hud.weapon].recoil, eject: weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_eject`), camera, carry });
     // The arena host owns its own shot resolution and stays instant until it can
     // step rounds per tick; everything else with a finite muzzle velocity flies.
     if (!arenaRuntime && needsFlight(specs[hud.weapon].ballistics)) {
@@ -770,18 +789,21 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // The arena host resolves its own shot, so it only needs the nearest surface.
     const hits = arenaRuntime ? visibleHits(ray, candidates, 1) : visibleHits(ray, candidates, 1 + pierceBudget(hud.weapon));
     const hit = hits[0];
+    // What the round has left when it stops, which scales the spray it throws.
+    let energy = 1;
     if (arenaRuntime) {
       let hitActor = false;
       for (let object: THREE.Object3D | null = hit?.object ?? null; object; object = object.parent) if (object.userData.arenaActorId) hitActor = true;
       arenaRuntime.shoot(camera.position, ray.ray.direction, hud.weapon, hit ? hit.distance + (hitActor ? 0.7 : 0) : 125);
     } else {
-      const left = resolveSurfaces(hits, hud.weapon, surface => surface.distance, 1);
+      energy = resolveSurfaces(hits, hud.weapon, hit => hit.distance, 1);
       const last = hits[hits.length - 1];
-      if (last) applySplash(last.point, hud.weapon, last.distance, left, last.object.userData.fpsTarget);
+      if (last) applySplash(last.point, hud.weapon, last.distance, energy, last.object.userData.fpsTarget);
     }
-    const end = hits[hits.length - 1]?.point ?? ray.ray.at(180, new THREE.Vector3());
-    const attr = tracerGeometry.getAttribute('position'); attr.setXYZ(0, muzzlePoint.x, muzzlePoint.y, muzzlePoint.z); attr.setXYZ(1, end.x, end.y, end.z); attr.needsUpdate = true;
-    tracerTime = 0.055; impactActive = !!hit; impact.position.copy(end); effectTime = 0.055;
+    const struck = hits[hits.length - 1];
+    const end = struck?.point ?? ray.ray.at(180, new THREE.Vector3());
+    effects.beam(muzzlePoint, end);
+    if (struck) effects.impact(struck.point, surfaceNormal(struck, ray.ray.direction), impactKind(struck), energy);
     checkCompletion();
     publish();
   }
@@ -794,7 +816,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const direction = playerPoint().sub(attackOrigin), distance = direction.length();
     if (distance > 65) return false;
     attackRay.set(attackOrigin, direction.normalize()); attackRay.near = .07; attackRay.far = Math.max(.07, distance - .1);
-    return !firstVisibleHit(attackRay, world.scene.children.filter(o => o !== target.root && o !== tracer && o !== impact && (!vehicles.active || o !== vehicles.root)));
+    return !firstVisibleHit(attackRay, world.scene.children.filter(o => o !== target.root && !o.userData.fpsEffect && (!vehicles.active || o !== vehicles.root)));
   }
   function counterFire(dt: number) {
     if (pendingAttack) {
@@ -852,9 +874,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           });
           hud.weapon = checkpointPending.weapon === 1 ? 1 : 0; checkpointPending = undefined;
           weapons.forEach((weapon, index) => weapon.visible = index === hud.weapon);
-          weapons[hud.weapon]?.getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_muzzle`)?.add(flash);
+          effects.attachMuzzle(weapons[hud.weapon]?.getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_muzzle`));
         }
-        kick = 0; hitTime = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; }); updateCameras(0, false, false);
+        resetRecoil(kick); effects.reset(); hitTime = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; }); updateCameras(0, false, false);
       } else if (frame.correction) {
         position = { x: frame.self.x, z: frame.self.z };
         vertical = Math.max(0, frame.self.y - (keys.has('c') ? 1.15 : 1.75)); velocityY = 0;
@@ -903,7 +925,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (!options.arena) hud.elapsed += realDt;
       if (!options.arena) loadout.forEach((state, i) => advanceWeapon(state, i, realDt, specs));
       if (vehicles.mounted) {
-        yaw += vehicles.step(drivingKeys(), dt); position = { x: vehicles.mounted.x, z: vehicles.mounted.z };
+        yaw += vehicles.step(drivingKeys(), dt); position = { x: vehicles.mounted.x, z: vehicles.mounted.z }; carry.set(0, 0, 0);
       } else {
       vehicles.step(keys, dt);
       const move = resolveMovement(keys, moveStick);
@@ -911,15 +933,21 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       sprinting = move.sprint && forward > 0.5 && !keys.has('c');
       const speed = keys.has('c') ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2;
       const delta = movementInput(forward, side, yaw, speed * equipment.mobility * specs[hud.weapon].mobility, dt), next = footMove(position, delta.x, delta.z, 0.38, options.arena ? world.obstacles : vehicles.footObstacles());
-      moving = Math.hypot(next.x - position.x, next.z - position.z) > 0.0001; position = next;
+      moving = Math.hypot(next.x - position.x, next.z - position.z) > 0.0001;
+      carry.set((next.x - position.x) / Math.max(dt, 1e-4), 0, (next.z - position.z) / Math.max(dt, 1e-4));
+      position = next;
       // Ground-plane jump; map obstacle collision remains active at every height.
       velocityY -= 15 * dt; vertical = Math.max(0, vertical + velocityY * dt); if (vertical === 0) velocityY = 0;
       }
-      kick = THREE.MathUtils.damp(kick, 0, 12, dt);
+      // Recoil and the effect pools run on wall-clock time, as the weapon
+      // cooldowns already do: on a renderer slow enough that `dt` is clamped,
+      // rounds still leave at their real rate, so anything the shot throws off
+      // has to settle at its real rate too or it piles up.
+      advanceRecoil(kick, realDt);
       updateCameras(dt, moving, sprinting);
       if (trigger && !sprinting && !vehicles.active) shoot();
       if (hud.phase === 'playing' && options.combat && !options.arena) counterFire(realDt);
-    } else updateCameras(dt, false, false);
+    } else { advanceRecoil(kick, realDt); carry.set(0, 0, 0); updateCameras(dt, false, false); }
     updateArena(realDt);
     if (debugAvailable && hud.phase === 'playing' && hud.health > 0) {
       recoveryDelay = Math.max(0, recoveryDelay - dt);
@@ -929,9 +957,23 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     if (expedition) { updateExpeditionPrompts(); lootNoticeTime = Math.max(0, lootNoticeTime - realDt); if (!lootNoticeTime) hud.lootNotice = ''; }
     hurtTime = Math.max(0, hurtTime - dt); hud.hurt = hurtTime > 0;
-    hitTime = Math.max(0, hitTime - dt); flashTime = Math.max(0, flashTime - dt); effectTime = Math.max(0, effectTime - dt); tracerTime = Math.max(0, tracerTime - dt);
+    hitTime = Math.max(0, hitTime - dt);
     advanceRounds(realDt);
-    flash.visible = flashTime > 0; tracer.visible = tracerTime > 0; impact.visible = effectTime > 0 && impactActive;
+    floorCheck -= realDt;
+    if (floorCheck <= 0 && hud.phase === 'playing' && !vehicles.mounted) {
+      floorCheck = .75;
+      floorRay.ray.origin.copy(camera.position);
+      const ground = firstVisibleHit(floorRay, gameplayCandidates());
+      brassFloor = ground ? ground.point.y : 0;
+    }
+    // A hair proud of the deck, so a case lies on it rather than in it.
+    effects.update(realDt, camera, brassFloor + .004);
+    // One string, written only when it changes, so a browser smoke can watch
+    // the pools without the frame paying for four attribute writes.
+    const live = effects.counts, census = `${live.casings}/${live.impacts}/${live.sparks}/${live.scorches}`;
+    if (census !== canvas.dataset.fxCensus) canvas.dataset.fxCensus = census;
+    const climb = kick.pitch.toFixed(4);
+    if (climb !== canvas.dataset.fxRecoil) canvas.dataset.fxRecoil = climb;
     if (motor && motorGain && audio) {
       const active = hud.phase === 'playing' && vehicles.mounted && !hud.muted;
       motorGain.gain.setTargetAtTime(active ? .035 : 0, audio.currentTime, .08);
@@ -961,7 +1003,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   })).then(loaded => {
     if (disposed) return;
     weapons.push(loaded[0], loaded[1]); weapons.forEach((w, i) => { undress.push(dressWeapon(w, specs[i])); handling.push(createWeaponHandling(w, i)); rig.add(w); w.visible = i === 0; });
-    weapons[0].getObjectByName('sar21-inspired__socket_muzzle')?.add(flash);
+    effects.attachMuzzle(weapons[0].getObjectByName('sar21-inspired__socket_muzzle'));
     if (!options.arena) targetPositions.forEach((p, i) => {
       const root = new THREE.Group(); root.position.set(p.x, 0.13, p.z);
       root.rotation.y = Math.atan2(spawn.x - p.x, spawn.z - p.z);
@@ -1014,7 +1056,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility);
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); world.dispose();
       healthGeometry.dispose(); healthMaterial.dispose();
-      targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); roundTracerGeometry.dispose(); flashGeometry.dispose(); flashMaterial.dispose(); tracerGeometry.dispose(); tracerMaterial.dispose(); impactGeometry.dispose(); impactMaterial.dispose();
+      targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       scopeRenderer.dispose(); renderer.dispose(); canvas.remove();
     },
   };

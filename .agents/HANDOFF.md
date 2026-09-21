@@ -1,5 +1,72 @@
 # Blockplay: portable agent handoff
 
+**Latest: the FPS shoots like something from this decade (2026-09-21).** Every
+visible part of a shot was one object with a boolean: one additive sphere at the
+muzzle shown for a fixed 45 ms, one line for the tracer, one amber sphere moved
+to wherever the last round stopped, and a single `kick` scalar damped toward
+zero. No brass at all. That is now five modules.
+
+The pure ones — `fps-recoil`, `fps-casings`, `fps-impacts`, `fps-muzzle` — own
+the arcs, the lifetimes and the shapes, and are tested without a renderer (24
+new unit tests). `fps-effects` is the only file that knows what an
+`InstancedMesh` is, and the engine got *smaller*: it hands the effects layer a
+shot and a frame and gets its filters back as one `fpsEffect` flag.
+
+**Recoil is two-stage.** A shot adds an impulse to a *target* offset; what the
+camera and viewmodel read chases that target fast while the target itself decays
+slowly. The gap between the two rates is the whole effect — the muzzle snaps up
+as the round leaves and then settles, where one damped scalar can only slide
+back down from an instant jump. Horizontal travel is a fixed per-weapon pattern
+with a small jitter, so a burst is learnable; it restarts after a third of a
+second off the trigger. Ceilings and the same `VIEW_SCALE` coupling keep the aim
+displacement a burst costs exactly what it was, and spread stays owned by
+`fps-accuracy` — nothing here widens a cone.
+
+Three things cost real time to get right, and are worth knowing before touching
+this again:
+
+**Effect pools are wall-clock, not physics.** They started out advancing on the
+engine's `dt`, which is clamped to 50 ms. On this VM's software renderer, which
+runs the range at 3–4 fps, rounds still left the barrel at their real rate while
+everything they threw off aged six times too slowly, so brass piled up and
+nothing expired. Recoil had the same fault. Both now take `realDt`, as the
+weapon cooldowns already did, and the pools' internal step ceilings went to
+250 ms so one stalled frame still advances most of the way.
+
+**A decal cannot be additive and `instanceColor` cannot fade one.** A scorch has
+to *darken* the wall, which additive blending cannot do, and `instanceColor`
+tints an instance rather than setting its coverage, so it cannot fade a normally
+blended one either. The blend does the work instead: `dst x (1 - src)` through
+`CustomBlending` with `ZeroFactor` / `OneMinusSrcColorFactor`, which turns the
+per-instance colour into the fade with no patched shader and nothing extra per
+vertex. **The alpha factors matter as much as the colour ones** — left to follow
+the colour blend they multiply the framebuffer's own alpha to nothing, and the
+page underneath shows through as a pale square around every mark. Alpha is
+passed through with `ZeroFactor` / `OneFactor`.
+
+**Brass does not land on y = 0.** Marina's plaza deck sits at about y = 0.11, so
+cases dropped to the engine's ground plane sank out of sight. One downward
+raycast every three-quarters of a second tracks the floor the player is actually
+standing on — far cheaper than one cast per case, and it follows you up stairs
+closely enough for something that lies there four seconds.
+
+One cost to keep an eye on: the map now carries a point light for the muzzle
+flash (`createFpsEffects(..., { worldLight: false })` is the one switch if it
+ever matters). It is what makes a shot brighten the wall next to you. I could
+not measure its cost here — this VM drifts from 3 to 9 fps across consecutive
+samples, so the instrument is useless at that resolution.
+
+`pnpm test:fps:effects` is the new smoke: it fires into concrete and asserts
+brass, sparks, scorches and a recoil climb that settles, then fires at a target
+and asserts it sprays sparks but leaves the map behind it unmarked, then checks
+that a shot crosses the brass and marks it just laid to reach that target, and
+that resetting the exercise clears every pool. It needs `EFFECTS_SMOKE_PACE=6`
+on a software renderer. 605 unit tests, typecheck and build pass; `pnpm test:fps`
+and `pnpm test:fps:optics` still pass. `pnpm test:fps:handling` fails here on
+its "sustained fire spreads crosshair" assertion — it fails identically on the
+unmodified tree, because a fixed 1400 ms trigger hold at 3 fps fires four rounds
+instead of eleven.
+
 **Latest: the thumb layer is laid out like a phone shooter (2026-09-21).** The
 repo owner's note was that the buttons were "just laid out in a row, not very
 friendly", and that a look stick makes no sense in an FPS when dragging the

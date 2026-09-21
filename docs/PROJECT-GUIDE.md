@@ -101,6 +101,40 @@ WASD moves, mouse looks, left mouse fires, Q toggles aim, right mouse holds aim,
 
 Tap **Q** once to aim and again to lower the scope; left-click fires while aim stays toggled on. This works with a trackpad without holding two buttons. Holding Q does not repeatedly toggle. You can also hold right mouse to aim or use the on-screen Aim button. Reloading, switching weapons, pausing and handing control to/from the AI clear toggled aim. The human toggle is ignored while the AI pilot is running; its direct aim commands are unchanged. The issued SAR 21 uses its integrated 1.5× picture-in-picture sight with an etched reticle and unzoomed peripheral vision. In the armory’s Attachments tab, the 350 CR red-dot conversion replaces the scope and bridge with a rail-mounted 1× reflex sight. Removing the optic attachment restores the integrated sight. The level-2 precision lens kit uses 1.75× PiP; only one optic attachment can be equipped per weapon. Shop previews and gameplay use the same optic model. PiP uses one reusable 384×384 render target and renders only while aiming; red dots use no extra world pass. Reloads animate a magazine swap and gloved hands; empty reloads add a chambering gesture. Sustained fire builds real shot spread and widens the hip-fire crosshair. Releasing the trigger lets accuracy recover; aiming and crouching tighten the cone. White hit markers confirm hits; amber marks confirm eliminations.
 
+**Shot effects.** Firing lights a flare at the muzzle that is re-rolled every
+round — roll, core and star length — over a 75 ms envelope with a fast attack
+and a fall steeper than linear, lit by a point light in the viewmodel scene and
+one in the map, so a shot brightens your hands and the wall beside you. A case
+leaves the ejection port on the weapon's own axes, carrying the shooter's own
+ground speed, and tumbles, bounces and settles on the deck you are standing on.
+Where a round stops it opens a bright ring on the surface, sprays sparks that
+cool from white to ember as they fall, lifts a dust puff and leaves a scorch
+that outlives all three. A round that stops on a range target reads differently:
+brighter, shorter sparks, no dust and no mark on the map behind it. A round that
+has already punched through a wall lands visibly weaker on the far side, because
+the spray is scaled by the damage the round has left. A worked barrel gives off
+smoke; a single aimed shot does not.
+
+Recoil runs in two stages. A shot adds an impulse to a target offset; what the
+camera and the viewmodel use chases that target fast while the target itself
+settles back slowly, so the muzzle snaps up as the round leaves rather than
+sliding down from an instant jump. Horizontal travel follows a fixed per-weapon
+pattern with only a small random jitter, so a burst walks the same way every
+time and can be learned and held against; the pattern restarts after a third of
+a second off the trigger. The camera takes the vertical and horizontal climb;
+the weapon additionally rolls away from the side it is being pushed towards.
+Ceilings on the accumulated climb keep the aim displacement a burst costs the
+same as it was before, and shot spread is still owned separately by the
+accuracy model — recoil never widens a cone.
+
+Every pool is allocated once at a fixed ceiling and drawn as a single object:
+one instanced draw each for the brass, the rings, the dust and the scorches,
+and one batched line list for every spark in the air. Nothing is allocated or
+disposed while the trigger is down. The whole world-space tree is flagged so
+gameplay raycasts skip it — brass on the floor can never stop a bullet.
+`pnpm test:fps:effects` drives a real browser through it; on a software renderer
+pass `EFFECTS_SMOKE_PACE=6`, as the other browser smokes need.
+
 In the ready/pause menu, open **Debug survival** for 1×, 5× or 10× maximum health, a health refill, and optional regeneration (10% of maximum HP per second after three seconds without damage). These tab-local settings persist through zone changes and apply to practice, solo bots and expeditions. Network rooms keep their normal health rules.
 
 **Encik radio** adds Singaporean callouts for combat, reloads, low health/ammo, supplies and AI movement. The pilot can request contact and stuck callouts through its action interface. Voice uses the bundled [48-line Encik recording pack](ENCIK-VOICE.md); **Encik on/off** mutes only speech, with subtitles retained. The existing sound mute silences speech too. No API key is needed.
