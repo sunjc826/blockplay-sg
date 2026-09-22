@@ -1,6 +1,7 @@
 import type { WeaponSpec, WeaponTrait } from './fps-rules';
 import type { BallisticSpec } from './fps-ballistics';
 export type ShopCategory = 'weapon' | 'skin' | 'attachment' | 'rig' | 'plate' | 'vehicleSkin' | 'consumable';
+export type SupplyType = 'food' | 'medical' | 'field-utility';
 export type AttachmentSlot = 'optic' | 'magazine' | 'handling';
 /**
  * Internal hardware a variant is built from: a barrel, a carrier, a drum. It
@@ -40,6 +41,8 @@ export interface ShopItem {
   fitted?: readonly FittedPart[];
   modifiers?: { capacity?: number; reload?: number; recoil?: number; recoilRecovery?: number; aimFov?: number; mobility?: number };
   palette?: string[]; accent?: string; protection?: number; absorption?: number; mobility?: number; carry?: number;
+  /** Consumables share the quick slot, but the exchange presents local food separately from field utilities. */
+  supplyType?: SupplyType;
   /** Consumables only: what one use restores. Reserve is per equipped weapon. */
   effect?: { health?: number; armor?: number; reserve?: number };
 }
@@ -80,10 +83,14 @@ export const ARMORY_CATALOG: readonly ShopItem[] = [
   { id: 'rig-sentinel', requiredLevel: 4, name: 'LBS · Sentinel', category: 'rig', tier: 'Elite', price: 180, currency: 'tokens', carry: 90, mobility: 1, description: 'Premium carrying rig: +90 reserve rounds per weapon without a movement penalty. Inserts sold separately.' },
   // Supplies stack and are spent, so they are the shop's repeatable purchase
   // rather than a one-time unlock.
-  { id: 'kit-ammo', name: 'Ammunition pouch', category: 'consumable', tier: 'Issued', price: 260, currency: 'credits', effect: { reserve: 90 }, description: 'Ninety reserve rounds for the weapon in your hands. Carried into an exercise and spent when used.' },
-  { id: 'kit-dressing', name: 'Field dressing', category: 'consumable', tier: 'Field', requiredLevel: 2, price: 300, currency: 'credits', effect: { health: 45 }, description: 'Restores 45 health. Carried into an exercise and spent when used.' },
-  { id: 'kit-plates', requiredLevel: 3, name: 'Spare inserts', category: 'consumable', tier: 'Field', price: 380, currency: 'credits', effect: { armor: 45 }, description: 'Restores 45 armor points, up to the protection your inserts provide.' },
-  { id: 'kit-trauma', requiredLevel: 4, name: 'Trauma kit', category: 'consumable', tier: 'Elite', price: 90, currency: 'tokens', effect: { health: 100, armor: 60 }, description: 'Restores full health and 60 armor points in one use. The premium supply.' },
+  { id: 'food-kaya-toast', name: 'Kaya toast set', category: 'consumable', supplyType: 'food', tier: 'Issued', price: 90, currency: 'credits', effect: { health: 20 }, description: 'Crisp toast, kaya and a kopi from the neighbourhood kopitiam. Restores 20 health.' },
+  { id: 'food-curry-puff', name: 'Curry puff', category: 'consumable', supplyType: 'food', tier: 'Issued', price: 130, currency: 'credits', effect: { health: 30 }, description: 'A warm potato-and-egg curry puff packed for the route. Restores 30 health.' },
+  { id: 'food-chicken-rice', name: 'Chicken rice packet', category: 'consumable', supplyType: 'food', tier: 'Field', requiredLevel: 2, price: 240, currency: 'credits', effect: { health: 60 }, description: 'A hawker-centre favourite packed to go, chilli on the side. Restores 60 health.' },
+  { id: 'food-field-ration', name: 'Malt field-ration set', category: 'consumable', supplyType: 'food', tier: 'Elite', requiredLevel: 4, price: 70, currency: 'tokens', effect: { health: 100 }, description: 'A full field-ration meal finished with a warm malt drink. Restores health to the normal maximum.' },
+  { id: 'kit-ammo', name: 'SAF ammunition pouch', category: 'consumable', supplyType: 'field-utility', tier: 'Issued', price: 260, currency: 'credits', effect: { reserve: 90 }, description: 'A field pouch with ninety reserve rounds for the weapon in your hands. Carried into an exercise and spent when used.' },
+  { id: 'kit-dressing', name: 'SAF field dressing', category: 'consumable', supplyType: 'medical', tier: 'Field', requiredLevel: 2, price: 300, currency: 'credits', effect: { health: 45 }, description: 'An issued-style emergency dressing. Restores 45 health and is spent when used.' },
+  { id: 'kit-plates', requiredLevel: 3, name: 'LBS spare inserts', category: 'consumable', supplyType: 'field-utility', tier: 'Field', price: 380, currency: 'credits', effect: { armor: 45 }, description: 'Replacement inserts carried on the load-bearing system. Restores 45 armor points, up to the protection your inserts provide.' },
+  { id: 'kit-trauma', requiredLevel: 4, name: 'Combat medic pack', category: 'consumable', supplyType: 'medical', tier: 'Elite', price: 90, currency: 'tokens', effect: { health: 100, armor: 60 }, description: 'A complete field medical pack. Restores full health and 60 armor points in one use.' },
   { id: 'plate-none', name: 'No armor inserts', category: 'plate', tier: 'Issued', price: 0, currency: 'credits', protection: 0, absorption: 0, mobility: 1, description: 'The lightest setup. The vest carries equipment but has no protection pool.' },
   { id: 'plate-soft', name: 'Soft armor inserts', category: 'plate', tier: 'Field', price: 400, currency: 'credits', protection: 35, absorption: .45, mobility: .98, description: '35 armor points. Absorbs 45% of incoming drill damage until depleted; 2% movement cost.' },
   { id: 'plate-ceramic', requiredLevel: 2, name: 'Ceramic plate set', category: 'plate', tier: 'Field', price: 900, currency: 'credits', protection: 75, absorption: .65, mobility: .94, description: '75 armor points. Absorbs 65% of drill damage until depleted; 6% movement cost.' },
