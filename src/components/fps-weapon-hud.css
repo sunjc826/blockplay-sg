@@ -13,6 +13,17 @@
 .fps-weapon-hud .fps-ammo p{font-size:8px;letter-spacing:.7px;color:var(--hud-dim)}
 .fps-weapon-hud .fps-ammo.is-empty{border-color:var(--hud-alert)}
 .fps-weapon-hud .fps-ammo.is-empty strong{color:var(--hud-alert-ink)}
+/* The magazine as a bar, in the slot the reload progress takes over while a
+   reload runs, so the two never sweep at once. Scaled, not widened: it
+   restyles on every shot. */
+.fps-weapon-hud .fps-magazine-bar{height:2px;margin-top:8px;background:#ffffff26;overflow:hidden}
+.fps-weapon-hud .fps-magazine-bar i{display:block;height:100%;background:var(--hud-gold);transform-origin:left;transition:transform .12s ease-out}
+.fps-weapon-hud .fps-ammo.is-empty .fps-magazine-bar i{background:var(--hud-alert)}
+/* One round, one tick. The digits are keyed on the shot count, so each shot
+   remounts them and replays this; a reload changes the number without a
+   remount, and the count simply climbs. */
+.fps-weapon-hud .fps-ammo strong{animation:fps-ammo-tick .13s ease-out}
+@keyframes fps-ammo-tick{from{transform:translateY(-3px);opacity:.6}}
 .fps-reload-cue{position:absolute;left:50%;top:calc(50% + 62px);transform:translateX(-50%);width:112px;text-align:center;font:8px monospace;letter-spacing:2px;color:var(--hud-gold-soft);text-shadow:0 1px 4px #000}
 .fps-reload-cue>div{height:2px;margin-top:8px;background:#ffffff30}
 .fps-reload-cue i{display:block;height:100%;background:var(--hud-gold-soft);transition:width .1s linear}

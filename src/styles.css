@@ -101,7 +101,21 @@
 .fps-vitals[data-armor-state=depleted] .is-armor { opacity:.55; border-style:dashed; }
 .fps-vitals[data-armor-state=depleted] .is-armor b { color:var(--hud-dim); }
 @keyframes fps-vital-pulse { 50% { border-color:#ffb9a2; box-shadow:0 0 12px #e9826555; } }
-@media(prefers-reduced-motion:reduce) { .fps-vitals .is-health { animation:none; } }
+/* The bar under the digits is what moves. Two layers: the fill tracks health
+   at once, and the ghost behind it leaves for a beat before following, so a
+   burst shows what it cost as a red sliver that then closes. Both are scaled
+   with a transform rather than a width — these restyle on every engine frame,
+   and a width would lay out the chip each time. The fill takes the chip's own
+   colour, so it turns gold and then alert with the band, for free. */
+.fps-vital { position:relative; overflow:hidden; }
+.fps-vital-ghost,.fps-vital-fill { position:absolute; left:0; right:0; bottom:0; height:2px; transform-origin:left; pointer-events:none; }
+.fps-vital-ghost { background:var(--hud-alert); transition:transform .5s ease-out .15s; }
+.fps-vital-fill { background:currentColor; opacity:.85; transition:transform .14s ease-out; }
+/* A hit flashes the chip itself; re-adding the attribute on the next hit is
+   what replays it, so a burst reads as a burst rather than one long smear. */
+.fps-vitals .is-health[data-hurt] { animation:fps-vital-hit .3s ease-out; }
+@keyframes fps-vital-hit { from { background:#c0402ee0; border-color:#ffb9a2; color:#fff; } }
+@media(prefers-reduced-motion:reduce) { .fps-vitals .is-health { animation:none; }.fps-vital-ghost,.fps-vital-fill { transition:none; } }
 .fps-damage-overlay { position:absolute; inset:0; box-shadow:inset 0 0 100px #c3403080; pointer-events:none; }.fps-incoming { position:absolute; top:111px; left:24px; padding:6px 9px; font-size:10px; letter-spacing:1px; background:var(--hud-alert-bg); border-color:var(--hud-alert); color:var(--hud-alert-ink); }.fps-drill-choice { display:flex; justify-content:center; gap:8px; margin:14px 0; }.fps-drill-choice button { border:1px solid #ffffff40; background:#ffffff0c; color:#e5e4d6; padding:9px 12px; border-radius:4px; font:inherit; font-size:11px; cursor:pointer; }.fps-drill-choice button[aria-pressed=true] { background:#b5c692; color:#213124; border-color:#b5c692; }.fps-shop-link { background:none; border:0; color:#e1d0a4; padding:13px; font:inherit; font-size:12px; cursor:pointer; }.fps-reward { color:#d5e9ac; font-weight:600; margin:12px 0; }.fps-start-card .fps-armor-note { color:#b9c7ad; font-size:11px; margin:8px 0 16px; }.fps-health-summary { font-size:10px; color:#6b7b67; padding:0 4px 8px; }
 @media(max-width:1100px) { .armory-body { grid-template-columns:minmax(0,1fr) 215px; padding:17px; gap:16px; }.armory-details { padding-left:15px; }.armory-header { padding:22px 17px; }.armory-wallet { flex-direction:column; gap:4px; }.armory-wallet>span { padding:6px 9px; }.armory-header h2 { font-size:30px; }.armory-preview { height:215px; }.armory-section-heading { flex-wrap:wrap; }.armory-footer { padding:16px; gap:12px; } }
 @media(max-width:700px) { .armory-body { grid-template-columns:1fr; }.armory-details { border-left:0; padding:20px 0 0; border-top:1px solid var(--armory-line); }.armory-wallet { flex-direction:row; }.armory-header { flex-wrap:wrap; }.armory-header h2 { font-size:30px; }.armory-navigation { padding:0 17px; }.armory-navigation [role=tablist] { gap:22px; }.armory-demo { padding:8px 17px; }.armory-demo>span { font-size:8px; }.armory-footer { flex-direction:column; align-items:stretch; }.armory-preview { height:260px; }.armory-item>strong { font-size:12px; }.armory-section-heading { flex-wrap:nowrap; }.fps-vitals { left:12px; top:56px; gap:5px; font-size:9px; }.fps-vitals span { padding:5px 7px; }.fps-vitals b { font-size:13px; }.fps-incoming { left:12px; top:95px; }.fps-drill-choice { margin:8px 0; }.fps-start-card .fps-armor-note { font-size:9px; margin:5px 0; } }

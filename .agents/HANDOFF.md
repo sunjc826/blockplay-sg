@@ -1,5 +1,31 @@
 # Blockplay: portable agent handoff
 
+**Latest: the ammunition and health readouts move (2026-09-22).**
+Digits that lag behind the engine are a hazard in a shooter — reading 12 while
+holding 9 loses the fight — so the numbers stay the engine's own and the motion
+is carried by bars under them, plus a one-frame tick on the digits keyed to
+`hud.shots` so each round fired reads as a round fired.
+
+**The magazine through a reload is the one exception, and it is safe because
+`weaponFire` refuses while `reloadRemaining > 0`.** Nothing a player decides
+rests on the digits for that window, so `magazineDisplay` climbs them — to what
+the reload will *actually* transfer, which is the capacity or whatever the
+reserve can spare, so the count lands on the engine's number instead of
+snapping to it. `useReducedMotion` turns the climb off, since the stylesheets
+cannot reach a computed value.
+
+**Health drains in two layers.** The fill tracks health at once; the ghost
+behind it leaves 150ms later over 500ms, so a burst shows what it cost as a red
+sliver that then closes. Regeneration is already gradual in the engine, so
+refilling needed nothing extra — the same fill grows. Both are `scaleX`, never
+`width`: they restyle on every engine frame and a width would lay the chip out
+each time, which is the same lesson the backdrop-filter taught. The fill takes
+the chip's `currentColor`, so it turns gold and then alert with the band for
+free. The magazine bar shares its slot with the reload progressbar rather than
+sweeping alongside it, so only one thing moves there at a time.
+
+687 unit tests (+4), typecheck, build and `pnpm test:fps` pass.
+
 **Latest: the HUD speaks with one voice, and health is a state (2026-09-22).**
 Every readout over the scene used to carry its own dark green, its own radius
 and its own type — ten near-identical panel backgrounds and eleven golds within
