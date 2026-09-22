@@ -1,6 +1,6 @@
 # Field exchange, progression and FPS equipment
 
-The Armory sidebar offers 31 permanent unlocks, four repeatable supplies and a token-priced level skip: eight weapon variants across two platforms, five cosmetic finishes, four attachments, three carrying rigs, four insert choices and five vehicle wraps. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase.
+The Armory sidebar offers 34 permanent unlocks, four repeatable supplies and a token-priced level skip: eight weapon variants across two platforms, five cosmetic finishes, nine attachments, three carrying rigs, four insert choices and five vehicle wraps. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase.
 
 ## Play loop
 
@@ -126,7 +126,7 @@ XP like any other: it advances rank titles and persists in the same profile.
 | Ultimax Centurion | 40 | 75 | .075 s | 2.10 s | .0148 |
 | Ultimax Bastion | 50 | 80 | .072 s | 2.00 s | .0119 |
 
-Targets alternate 100 and 115 health. Vanguard clears a 115-health target in three landed shots versus four for the issued SAR. Attachments modify reload, capacity, recoil, aiming FOV or movement. The quick-change and extended magazines share one slot, so one replaces the other. Unlocks fit both weapons, with equipment saved separately for each platform. Skin palettes change only materials. Variant accents, the hardware a variant is built from and equipped attachment markers all appear in the preview and viewmodel.
+Targets alternate 100 and 115 health. Vanguard clears a 115-health target in three landed shots versus four for the issued SAR. Attachments modify reload, capacity, recoil, recoil recovery, aiming FOV or movement. The quick-change and extended magazines share one slot, so one replaces the other, and the three foregrips share the handling slot on a strict ladder — recoil is what that slot sells. Unlocks fit both weapons, with equipment saved separately for each platform. Skin palettes change only materials. Variant accents, the hardware a variant is built from and equipped attachment markers all appear in the preview and viewmodel.
 
 ## Platform tiers
 

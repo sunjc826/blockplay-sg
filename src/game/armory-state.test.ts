@@ -270,6 +270,7 @@ describe('fitted hardware', () => {
       expect(rivals.length).toBeGreaterThan(0);
       for (const rival of rivals) {
         expect(better(part.modifiers?.recoil, rival.modifiers?.recoil, true)).toBe(true);
+        expect(better(part.modifiers?.recoilRecovery, rival.modifiers?.recoilRecovery, false)).toBe(true);
         expect(better(part.modifiers?.reload, rival.modifiers?.reload, true)).toBe(true);
         expect(better(part.modifiers?.mobility, rival.modifiers?.mobility, false)).toBe(true);
         expect(better(part.modifiers?.capacity, rival.modifiers?.capacity, false, 0)).toBe(true);
