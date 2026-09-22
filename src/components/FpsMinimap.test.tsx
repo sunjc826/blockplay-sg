@@ -8,11 +8,13 @@ it('uses each district map and clips distant loot while keeping distant checkpoi
     const player = zone.spawn;
     const html = renderToStaticMarkup(<FpsMinimap zone={zone.id} player={player} mode="expedition" markers={[
       { id: 'near', kind: 'loot', label: 'Medical supplies', x: player.x + 10, z: player.z },
+      { id: 'npc', kind: 'npc', label: 'Kopi stall', x: player.x + 12, z: player.z },
       { id: 'distant-loot', kind: 'loot', label: 'Distant loot', x: player.x + 500, z: player.z },
       { id: 'exit', kind: 'checkpoint', label: 'Next district', x: player.x + 500, z: player.z, active: true },
     ]} />);
     expect(html).toContain(`data-map-zone="${zone.id}"`);
     expect(html).toContain('data-minimap-marker="near"');
+    expect(html).toContain('data-minimap-marker="npc" data-marker-kind="npc"');
     expect(html).not.toContain('distant-loot');
     expect(html).toContain('data-minimap-marker="exit" data-marker-kind="checkpoint" data-edge="true" data-active="true"');
     expect(html).toContain('data-minimap-player');

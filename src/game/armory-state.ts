@@ -69,6 +69,21 @@ export function purchase(profile: ArmoryProfile, id: string) {
   }
   return { profile: { ...profile, [item.currency]: profile[item.currency] - item.price, owned: [...profile.owned, id] }, message: `${item.name} unlocked permanently.` };
 }
+
+/** Street vendors sell carried supplies only and put the purchase straight in the quick slot. */
+export interface VendorPurchaseResult { profile: ArmoryProfile; message: string; purchased: boolean }
+export function purchaseFromVendor(profile: ArmoryProfile, id: string, price?: number): VendorPurchaseResult {
+  const item = itemById(id);
+  if (item?.category !== 'consumable') return { profile, message: 'That item is not sold by this vendor.', purchased: false };
+  const cost = typeof price === 'number' && Number.isFinite(price) ? Math.max(1, Math.floor(price)) : item.price;
+  if (progression(profile.xp).level < (item.requiredLevel || 1)) return { profile, message: `Unlocks at level ${item.requiredLevel}. Earn XP in the range.`, purchased: false };
+  if (profile[item.currency] < cost) return { profile, message: `Not enough ${item.currency}.`, purchased: false };
+  const held = profile.consumables[id] || 0;
+  if (held >= CONSUMABLE_LIMIT) return { profile, message: `You can carry ${CONSUMABLE_LIMIT} of those.`, purchased: false };
+  const next = { ...profile, [item.currency]: profile[item.currency] - cost,
+    consumables: { ...profile.consumables, [id]: held + 1 }, quickItem: id };
+  return { profile: next, message: `${item.name} bought for ${cost} ${item.currency === 'tokens' ? 'TK' : 'CR'} and readied.`, purchased: true };
+}
 /**
  * Buys the XP standing between a profile and its next level. The wallet pays
  * for exactly the gap `levelSkip` priced and the XP lands on the threshold, so

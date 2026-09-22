@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDownToLine, ChevronsUp, Crosshair, Footprints, Hand, Menu, Move3d, PackageOpen, RefreshCw, Rocket, Repeat2 } from 'lucide-react';
+import { ArrowDownToLine, ChevronsUp, Crosshair, Footprints, Hand, Menu, MessageCircle, Move3d, PackageOpen, RefreshCw, Rocket, Repeat2 } from 'lucide-react';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
 import { promptLabel, thumbArc, type StickVector } from '../game/touch-controls';
 import TouchStick from './TouchStick';
@@ -96,6 +96,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
     if (mode === 'expedition') {
       if (hud.quickItem && hud.quickCount > 0) sweep.push(act('supply', hud.quickItem, <Hand size={17} />, { onClick: () => engine?.useQuickItem() }));
       if (hud.lootPrompt) prompts.push(act('loot', promptLabel(hud.lootPrompt), <PackageOpen size={16} />, { onClick: () => engine?.interactLoot() }));
+      if (hud.npcPrompt) prompts.push(act('npc', promptLabel(hud.npcPrompt), <MessageCircle size={16} />, { onClick: () => engine?.interactNpc() }));
       if (hud.travelPrompt) prompts.push(act('travel', promptLabel(hud.travelPrompt), <Move3d size={16} />, { onClick: () => engine?.travelZone() }));
     } else if (mode === 'range' && hud.interact) {
       prompts.push(act('vehicle', promptLabel(hud.interact), <Move3d size={16} />, { onClick: () => engine?.interactVehicle() }));

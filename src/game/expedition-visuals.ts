@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import type { FieldLoot } from './expedition-loot';
+import type { ExpeditionNpc } from './expedition-npcs';
 import { itemById } from './armory-catalog';
 import { WORLD_GATEWAYS, getWorldZone, type WorldZoneId } from './world-zones';
 
-export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, loot: readonly FieldLoot[]) {
+export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, loot: readonly FieldLoot[], npcs: readonly ExpeditionNpc[] = []) {
   const root = new THREE.Group(); root.name = 'expedition-markers'; root.userData.fpsEffect = true; scene.add(root);
   const resources: { dispose(): void }[] = [];
   const pickups = new Map<string, THREE.Group>();
@@ -31,6 +32,22 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
       mesh(group,new THREE.CylinderGeometry(.1,.1,.27,10),'#c99668',.18,.64,0);
     } else if (item.kind === 'medical') { mesh(group,new THREE.BoxGeometry(.1,.24,.03),'#dbeee2',0,.26,-.292); mesh(group,new THREE.BoxGeometry(.24,.1,.03),'#dbeee2',0,.26,-.294); }
     label(group,`${item.tier.toUpperCase()} / ${item.name}`,color,1.32);
+  }
+  for (const npc of npcs) {
+    const group = new THREE.Group(); group.position.set(npc.x, .13, npc.z); root.add(group);
+    const interaction = npc.interaction;
+    const vendor = interaction.kind === 'vendor';
+    const action = interaction.kind === 'vendor'
+      ? `${itemById(interaction.catalogId)?.name ?? 'SUPPLIES'} / ${interaction.price} ${interaction.currency === 'tokens' ? 'TK' : 'CR'}`
+      : npc.role;
+    for (const x of [-.17, .17]) mesh(group, new THREE.CylinderGeometry(.09,.1,.72,8),'#27352f',x,.36,0);
+    mesh(group,new THREE.BoxGeometry(.58,.78,.34),vendor ? '#536f5d' : '#506b7c',0,1.05,0);
+    mesh(group,new THREE.BoxGeometry(.46,.62,.04),vendor ? '#e0c991' : '#bdd4df',0,1.03,-.19);
+    mesh(group,new THREE.SphereGeometry(.23,12,8),'#b9896e',0,1.68,0);
+    mesh(group,new THREE.BoxGeometry(.48,.08,.42),'#2d4137',0,1.9,0);
+    const accent = vendor ? '#efd077' : '#9bdcf0';
+    const ring = mesh(group,new THREE.TorusGeometry(.55,.035,6,28),accent,0,.04,0); ring.rotation.x = Math.PI/2;
+    label(group,`N / ${npc.name} / ${action}`,accent,2.38);
   }
   for (const gateway of WORLD_GATEWAYS.filter(gateway=>gateway.from===zone)) {
     const group = new THREE.Group(); group.position.set(gateway.position.x,.12,gateway.position.z); root.add(group);

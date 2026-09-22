@@ -756,6 +756,7 @@ const ORCHARD_SECTORS: readonly ZoneSector[] = [
     anchors: [{ x: -40, z: 97 }, { x: -66, z: 51 }, { x: -40, z: 67 }, { x: -66, z: 81 }, { x: -48, z: 51 }] },
   { id: 'somerset-plaza', name: 'Somerset plaza', cover: 'broken', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: 75, maxX: 170, minZ: 0, maxZ: 80 },
+    foodAnchors: [{ x: 117, z: 22 }, { x: 162, z: 71 }, { x: 84, z: 71 }],
     anchors: [{ x: 117, z: 22 }, { x: 162, z: 71 }, { x: 84, z: 71 }, { x: 162, z: 9 }, { x: 122, z: 61 }] },
   { id: 'emerald-hill', name: 'Emerald Hill terrace', cover: 'broken', lootWeight: 1.5, tierBias: 1, botWeight: 1,
     bounds: { minX: -165, maxX: -70, minZ: 20, maxZ: 95 },

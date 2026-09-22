@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aimSpeedScale, applyArmorDamage, claimElimination, claimReward, collectTraits, consumeItem, isEquipped, jumpScale, slotIsFitted, createProfile, equip, previewLoadout, purchase, purchaseLevel, resolveLoadout, restoreProfile, unequipAttachment, type ArmoryProfile, type ExerciseReward } from './armory-state';
+import { aimSpeedScale, applyArmorDamage, claimElimination, claimReward, collectTraits, consumeItem, isEquipped, jumpScale, slotIsFitted, createProfile, equip, previewLoadout, purchase, purchaseFromVendor, purchaseLevel, resolveLoadout, restoreProfile, unequipAttachment, type ArmoryProfile, type ExerciseReward } from './armory-state';
 import { ARMORY_CATALOG, CONSUMABLE_LIMIT, itemById } from './armory-catalog';
 import { levelSkip, MAX_LEVEL, MIN_SKIP_PRICE, progression, registerElimination, skipCostFrom, skipCostToLevel, xpForLevel } from './progression';
 import { advanceWeapon, beginReload, createLoadout, findTrait, FPS_WEAPONS, hitDamage, HIP_FOV, type WeaponTrait } from './fps-rules';
@@ -199,6 +199,16 @@ describe('supplies', () => {
     const packed = purchase(veteran(), 'food-chicken-rice').profile;
     expect(resolveLoadout(packed).quickItem?.name).toBe('Chicken rice packet');
     expect(resolveLoadout(packed).quickItem?.effect?.health).toBe(60);
+  });
+  it('charges a vendor-specific price and readies the bought item without mutating failures', () => {
+    const base = veteran(), bought = purchaseFromVendor(base, 'food-kaya-toast', 140);
+    expect(bought.purchased).toBe(true);
+    expect(bought.profile.credits).toBe(base.credits - 140);
+    expect(bought.profile.consumables['food-kaya-toast']).toBe(1);
+    expect(bought.profile.quickItem).toBe('food-kaya-toast');
+    const poor = { ...base, credits: 139 }, refused = purchaseFromVendor(poor, 'food-kaya-toast', 140);
+    expect(refused.purchased).toBe(false); expect(refused.profile).toBe(poor);
+    expect(purchaseFromVendor(base, 'sar-issued', 1).purchased).toBe(false);
   });
 });
 

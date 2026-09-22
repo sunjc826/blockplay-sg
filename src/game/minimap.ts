@@ -13,7 +13,7 @@ export function minimapHeading(yaw: number) { return -yaw * 180 / Math.PI; }
 
 export interface MinimapMarker {
   id: string; x: number; z: number; label: string;
-  kind: 'target' | 'car' | 'helicopter' | 'loot' | 'checkpoint';
+  kind: 'target' | 'car' | 'helicopter' | 'loot' | 'npc' | 'checkpoint';
   active?: boolean;
 }
 

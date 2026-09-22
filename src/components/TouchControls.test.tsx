@@ -34,14 +34,17 @@ it('lays the actions on the thumb\'s sweep, not in a row', () => {
 });
 
 it('offers the expedition its supplies and checkpoints, and the range its vehicles', () => {
-  const expedition = layer(playing({ quickItem: 'Field dressing', quickCount: 2, lootPrompt: 'E · rare Combat stim', travelPrompt: 'T · Travel to Raffles Place' }), 'expedition');
+  const expedition = layer(playing({ quickItem: 'Field dressing', quickCount: 2, lootPrompt: 'E · rare Combat stim', npcPrompt: 'N · Buy Kaya toast · 140 CR', travelPrompt: 'T · Travel to Raffles Place' }), 'expedition');
   expect(expedition).toContain('data-touch-action="loot"');
   expect(expedition).toContain('data-touch-action="travel"');
   expect(expedition).toContain('data-touch-action="supply"');
+  expect(expedition).toContain('data-touch-action="npc"');
   expect(expedition).not.toContain('data-touch-action="vehicle"');
   // The prompt says what it does; the keyboard hint is no use to a thumb.
   expect(expedition).toContain('>rare Combat stim<');
   expect(expedition).not.toContain('E · rare Combat stim');
+  expect(expedition).toContain('>Buy Kaya toast · 140 CR<');
+  expect(layer(playing({ npcPrompt: 'N · Talk to Community volunteer' }), 'expedition')).toContain('>Talk to Community volunteer<');
 
   const range = layer(playing({ interact: 'E · Drive Utility 01' }));
   expect(range).toContain('data-touch-action="vehicle"');

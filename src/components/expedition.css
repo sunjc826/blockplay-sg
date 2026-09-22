@@ -3,6 +3,7 @@
 .expedition-game .fps-toolbar h3{color:#dce7d7}.expedition-game .fps-toolbar p{color:#a5b69e}
 .expedition-game .fps-viewport{min-height:520px}
 .expedition-risk{font-size:10px;font-weight:800;letter-spacing:.12em;padding:8px 11px;border:1px solid currentColor;border-radius:3px;background:#10211ce6}
+.expedition-wallet{margin-left:auto;font-size:10px;font-weight:800;letter-spacing:.08em;color:#efd077;background:#10211ce6;border:1px solid #efd07755;border-radius:3px;padding:8px 10px}
 .risk-low{color:#a6caa7}.risk-medium{color:#ebc079}.risk-high{color:#f39982}
 .expedition-prompts{position:absolute;top:62%;left:50%;transform:translate(-50%,-50%);display:grid;gap:7px;text-align:center;pointer-events:none;max-width:80%;z-index:5}
 .expedition-prompts strong,.expedition-prompts span{background:#14231de8;color:#eaf1e6;padding:9px 15px;font-size:12px;border:1px solid #75988466;border-radius:4px}
@@ -24,4 +25,4 @@
 .expedition-footer button{display:flex;align-items:center;gap:7px;border:0;background:none;color:#d6e1c3;cursor:pointer;font:inherit}
 .expedition-game.is-immersive .expedition-intel,.expedition-game.is-immersive .expedition-footer{display:none}
 .expedition-game.is-immersive .fps-viewport{min-height:0}
-@media(max-width:700px){.expedition-intel{grid-template-columns:1fr;gap:18px;padding:18px}.expedition-network{grid-template-columns:repeat(3,minmax(0,1fr))}.expedition-network>div{padding:8px 5px}.expedition-risk{font-size:8px;padding:6px}.expedition-footer{flex-wrap:wrap}.expedition-route-hud{top:62px;right:12px}.expedition-sector{top:92px;left:12px}.expedition-game .fps-minimap{top:128px}.expedition-sector strong{font-size:11px}.expedition-game .fps-viewport{min-height:520px}.expedition-game .fps-top{gap:8px}.expedition-game .fps-badge{font-size:8px}.expedition-game .fps-objective{max-width:52%;font-size:10px}}
+@media(max-width:700px){.expedition-intel{grid-template-columns:1fr;gap:18px;padding:18px}.expedition-network{grid-template-columns:repeat(3,minmax(0,1fr))}.expedition-network>div{padding:8px 5px}.expedition-risk,.expedition-wallet{font-size:8px;padding:6px}.expedition-footer{flex-wrap:wrap}.expedition-route-hud{top:62px;right:12px}.expedition-sector{top:92px;left:12px}.expedition-game .fps-minimap{top:128px}.expedition-sector strong{font-size:11px}.expedition-game .fps-viewport{min-height:520px}.expedition-game .fps-top{gap:8px}.expedition-game .fps-badge{font-size:8px}.expedition-game .fps-objective{max-width:52%;font-size:10px}}

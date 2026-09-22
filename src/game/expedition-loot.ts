@@ -3,6 +3,7 @@ import { resolveLoadout, type ArmoryProfile, type GunEquipment } from './armory-
 import type { Obstacle } from './marina-collision';
 import type { WorldZoneId, ZonePosition } from './world-zones';
 import type { ZoneSector } from './zone-sectors';
+import { expeditionNpcs } from './expedition-npcs';
 
 export type FieldLootKind = 'weapon' | 'ammo' | 'medical' | 'armor';
 export interface FieldLoot {
@@ -107,7 +108,9 @@ export function createExpeditionLoot(seed: string | number) {
       ...Array<FieldLootKind>(rules.weaponCount).fill('weapon'), ...Array<FieldLootKind>(rules.ammoCount).fill('ammo'),
       ...Array<FieldLootKind>(rules.medicalCount).fill('medical'), ...Array<FieldLootKind>(rules.armorCount).fill('armor'),
     ];
-    const occupied: ZonePosition[] = [];
+    // NPCs reserve their authored position before any random crate is drawn.
+    // They do not consume a loot slot; they only prevent visual overlap.
+    const occupied: ZonePosition[] = expeditionNpcs(geometry.id, geometry.sectors ?? []).map(npc => ({ x: npc.x, z: npc.z }));
     const shuffle = <T,>(list: T[]) => {
       // Fisher-Yates keeps curated safe anchors random without moving them into scenery.
       for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(positionRandom() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }

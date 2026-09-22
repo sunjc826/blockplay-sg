@@ -3,6 +3,7 @@ import { createExpeditionLoot, ZONE_LOOT_RULES } from './expedition-loot';
 import { buildExpeditionWorld } from './expedition-world';
 import { WORLD_ZONES } from './world-zones';
 import { zoneSectors } from './zone-sectors';
+import { expeditionNpcs } from './expedition-npcs';
 
 describe('expedition loot in authored scenes', () => {
   for (const zone of WORLD_ZONES) it(`${zone.id}: all crates are clear and reachable across several seeds`, () => {
@@ -14,6 +15,8 @@ describe('expedition loot in authored scenes', () => {
         const rules = ZONE_LOOT_RULES[zone.id];
         const expected = rules.weaponCount + rules.ammoCount + rules.medicalCount + rules.armorCount;
         expect(loot, `${zone.id}/${seed} crate count`).toHaveLength(expected);
+        for (const npc of expeditionNpcs(zone.id, zoneSectors(zone.id))) for (const item of loot)
+          expect(Math.hypot(item.x - npc.x, item.z - npc.z), `${zone.id}/${seed} loot clear of ${npc.id}`).toBeGreaterThanOrEqual(3);
         return loot;
       }));
       const radius = .38;

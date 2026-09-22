@@ -49,6 +49,7 @@ export default function FpsMinimap({ zone, player, markers = [], mode }: {
             {marker.active && <circle r="9" fill="#efd07733" stroke="#efd077" strokeWidth="1" />}
             {marker.kind === 'checkpoint' ? <path d="M0 -6 L6 0 L0 6 L-6 0 Z" fill={outside ? '#26362c' : '#efd077'} stroke="#efd077" strokeWidth="2" />
               : marker.kind === 'loot' ? <rect x="-3" y="-3" width="6" height="6" fill="#91dcb0" stroke="#172820" />
+              : marker.kind === 'npc' ? <><circle r="5" fill="#9bdcf0" stroke="#263f49" /><text y="3" textAnchor="middle" fill="#18303a" fontSize="7" fontWeight="800">N</text></>
               : marker.kind === 'target' ? <circle r="3" fill="#ee967c" stroke="#401e18" />
               : <><rect x="-6" y="-6" width="12" height="12" rx="2" fill="#182d35" stroke="#9bdcf0" /><text y="3" textAnchor="middle" fill="#c7f3ff" fontSize="9" fontWeight="700">{marker.kind === 'car' ? 'C' : 'H'}</text></>}
           </g>;
@@ -60,6 +61,6 @@ export default function FpsMinimap({ zone, player, markers = [], mode }: {
       </g>
       <path d={`M14 142 v4 h${map.scale * 25} v-4`} fill="none" stroke="#dde7cd" strokeWidth="1" /><text x="14" y="138" fontSize="7" fill="#dde7cd">25m</text>
     </svg>
-    <div className="fps-minimap-legend">{mode === 'arena' ? '▲ You · Opponents hidden' : mode === 'expedition' ? '▲ You · ■ Loot · ◆ Exit' : '▲ You · ● Targets · C/H Vehicles'}</div>
+    <div className="fps-minimap-legend">{mode === 'arena' ? '▲ You · Opponents hidden' : mode === 'expedition' ? '▲ You · ■ Loot · ● NPC · ◆ Exit' : '▲ You · ● Targets · C/H Vehicles'}</div>
   </div>;
 }
