@@ -28,6 +28,10 @@ const server = createServer(async (request, response) => {
     response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     response.end(JSON.stringify({ service: 'blockplay-pwa-smoke' })); return;
   }
+  // Cloudflare's asset server redirects /index.html to /, and a cached
+  // redirected response cannot answer a navigation. Mirror it, or this check
+  // is kinder than the deployment it stands in for.
+  if (path === '/index.html') { response.writeHead(307, { Location: '/' }); response.end(); return; }
   let file = dist + path.replace(/^\/+/, '');
   try {
     if ((await stat(file)).isDirectory()) file += 'index.html';
@@ -81,7 +85,11 @@ const reload = async () => {
 
 try {
   await send('Page.enable'); await send('Runtime.enable');
-  await wait(`document.readyState==='complete'`);
+  // Start from a clean origin. A worker or cache left by an earlier run would
+  // make this run's first load a repeat load, and hide the difference between
+  // the two — which is where the bugs live.
+  await send('Storage.clearDataForOrigin', { origin, storageTypes: 'all' });
+  await reload();
 
   // The registration happens on load; claiming the page needs no reload.
   await wait(`!!navigator.serviceWorker.controller`, 30000);
@@ -106,9 +114,18 @@ try {
 
   const shellCache = (await evaluate(`caches.keys()`)).find(name => name.startsWith('blockplay-shell-'));
   assert(shellCache, 'the build was precached under a versioned cache name');
-  const shell = await evaluate(`caches.open(${JSON.stringify(shellCache)}).then(c=>c.keys()).then(k=>k.map(r=>new URL(r.url).pathname))`);
-  assert(shell.includes('/index.html'), 'the app shell document');
+  const open = `caches.open(${JSON.stringify(shellCache)})`;
+  const shell = await evaluate(`${open}.then(c=>c.keys()).then(k=>k.map(r=>new URL(r.url).pathname))`);
+  assert(shell.includes('/'), 'the app shell document, cached under the URL a navigation asks for');
   assert(shell.some(path => path.endsWith('.js')) && shell.some(path => path.endsWith('.css')), 'the build output');
+  // A response that arrived through a redirect is refused for a navigation.
+  assert.equal(await evaluate(`${open}.then(c=>c.match('/')).then(r=>r.redirected)`), false, 'the cached shell is not a redirect result');
+
+  // The second load is the one the worker answers, and the one that broke.
+  await reload();
+  await wait(`document.querySelector('.brand')?.textContent.includes('blockplaySG')`);
+  assert(await evaluate(`!!navigator.serviceWorker.controller`), 'the worker controls the reloaded page');
+  assert.deepEqual(errors, [], 'no uncaught errors on a worker-served load');
 
   // Media is cached on use, not on install: open the model the FPS range loads.
   await evaluate(`fetch('/models/field-kit/sar21-inspired.glb').then(r=>r.arrayBuffer())`);
@@ -139,7 +156,7 @@ try {
   assert.deepEqual(errors, [], 'no uncaught errors offline');
   assert.equal(served, before, 'nothing was requested from the server after it stopped');
 
-  console.log('PASS PWA: manifest and icons install-ready, build precached, media cached on use, and the game runs with the server stopped. No map or companion requests.');
+  console.log('PASS PWA: manifest and icons install-ready, build precached, repeat loads served by the worker, media cached on use, and the game runs with the server stopped. No map or companion requests.');
 } finally {
   ws.close();
   await fetch(`${chrome}/json/close/${tab.id}`).catch(() => {});

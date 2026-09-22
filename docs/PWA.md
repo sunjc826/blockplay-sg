@@ -32,7 +32,7 @@ build's hashed files.
 
 | Cache | Holds | Filled |
 | --- | --- | --- |
-| `blockplay-shell-<version>` | `index.html`, the JS and CSS chunks, the manifest and icons — about 1.6 MB | At install |
+| `blockplay-shell-<version>` | the page at `/`, the JS and CSS chunks, the manifest and icons — about 1.6 MB | At install |
 | `blockplay-media` | Scene geometry, weapon models, the Encik voice pack | The first time each file is used |
 | — | `/api/*` | Never |
 
@@ -50,16 +50,36 @@ when only a doc moved.
 Routing lives in `src/lib/sw-policy.ts`, away from worker globals so it can be
 tested (`src/lib/sw-policy.test.ts`):
 
-- **Navigations** to a client-side route are answered from the cached
-  `index.html`. Paths that are real files — `/connection-check.html`, the
-  `/audio/encik/` listening page — are not, or they would be replaced by the
-  game.
+- **Navigations** to a client-side route are answered from the cached shell.
+  Paths that are real files — `/connection-check.html`, the `/audio/encik/`
+  listening page — are passed to the network instead, or they would be replaced
+  by the game.
 - **Precached build output** is served cache-first; it is immutable by name.
 - **Everything else same-origin** is cache-first into the media cache, which is
   trimmed to 320 entries oldest-first.
 - **Other origins** (Google Maps, OpenAI voice), non-GET requests and ranged
   media requests are passed straight through. The Cache API cannot answer a
   range request with a 206, so caching those would break audio seeking.
+
+### The shell is cached as `/`, not `/index.html`
+
+This one cost a production outage, so it is worth stating plainly. **A response
+that arrived through a redirect cannot answer a navigation request** — the
+browser refuses it and reports a network error — and the Cache API remembers
+that flag across a `put`.
+
+Cloudflare's asset server redirects `/index.html` to `/`. Precaching the shell
+under that name therefore stored a response with `redirected: true`, and every
+load after the first — the ones the worker answers — failed with
+`net::ERR_FAILED` until the visitor cleared site data. The first load always
+looked fine, because the worker is not yet controlling the page.
+
+Two things prevent it now: the shell is fetched and stored under `/`, the URL a
+navigation actually asks for and the manifest's `start_url`; and
+`withoutRedirect()` rebuilds any redirected response before it is cached or
+served, so a host that redirects differently cannot reintroduce the fault.
+`routeFor` also decides navigations before consulting the precache list, so
+`/?room=abc` gets the shell rather than missing an exact-URL lookup.
 
 On activation the worker deletes older shell caches, and drops media whose
 filename carries no content hash — a rebuilt `scene.json` or `.glb` can change
@@ -98,10 +118,17 @@ pnpm test:pwa      # needs Chrome on --remote-debugging-port=9226
 ```
 
 `scripts/pwa-smoke.mjs` serves `dist` from its own static server so it can
-**stop that server** and reload — the only honest offline test. It checks the
-manifest's fields, decodes every icon it declares at its declared size, confirms
-the shell cache holds the build, warms a model into the media cache, then with
-the server stopped asserts that the district list and the Marina scene still
+**stop that server** and reload — the only honest offline test. That server
+mirrors Cloudflare where it matters (`/index.html` redirects to `/`, unknown
+paths fall back to the shell) and the check clears the origin's storage first,
+so its first load really is a first load; both were needed to catch the redirect
+bug above, since a kinder test server and a reused browser profile each hid it.
+
+It checks the manifest's fields, decodes every icon it declares at its declared
+size, confirms the shell cache holds the build and that its shell is not a
+redirect result, reloads once **with the server still running** (the load that
+broke), warms a model into the media cache, then with the server stopped
+asserts that the district list and the Marina scene still
 come up, that a client-side route still resolves, that the warmed model still
 loads, that `/api/health` correctly fails, and that nothing reached the (absent)
 server.

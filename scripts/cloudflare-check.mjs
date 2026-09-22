@@ -18,6 +18,12 @@ const worker = await get('/sw.js'); assert.equal(worker.status, 200);
 const workerBody = await worker.text();
 assert.match(workerBody, /blockplay-shell-/, 'sw.js is the built worker, not the SPA fallback page');
 assert.match(workerBody, /\/assets\/[^"']+\.js/, 'the worker precaches this build');
+// The shell must be cached as '/', and '/' must be served without a redirect:
+// this host redirects /index.html to it, and a response that arrived through a
+// redirect cannot answer a navigation, which breaks every load after the first.
+assert(workerBody.includes('"/"'), 'the worker precaches the site root as its app shell');
+const root = await get('/', { redirect: 'manual' });
+assert.equal(root.status, 200, `the site root should be served directly, not as a ${root.status}`);
 const webmanifest = await get('/manifest.webmanifest'); assert.equal(webmanifest.status, 200);
 assert.equal(JSON.parse(await webmanifest.text()).display, 'standalone');
 const icon = await get('/icons/icon-512.png'); assert.equal(icon.status, 200);

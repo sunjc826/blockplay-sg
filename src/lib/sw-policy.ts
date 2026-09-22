@@ -48,9 +48,14 @@ export function routeFor(input: RouteInput, precached: ReadonlySet<string>): Rou
   // cached answer would claim the backend is reachable when it is not.
   if (path.startsWith('/api/')) return 'bypass';
   if (input.range) return 'bypass';
-  if (precached.has(path)) return 'precache';
   const isFile = hasFileExtension.test(path) || STATIC_PREFIXES.some(prefix => path.startsWith(prefix));
-  if (input.navigate) return isFile ? 'runtime' : 'shell';
+  // Navigations are decided before the precache lookup: `/?room=…` is the same
+  // app as `/`, and a cache lookup for that exact URL would miss it. A
+  // navigation to a real page (`/connection-check.html`, the `/audio/encik/`
+  // listening page) is left to the browser, which can follow the redirects and
+  // content negotiation a cached response cannot carry.
+  if (input.navigate) return isFile ? 'bypass' : 'shell';
+  if (precached.has(path)) return 'precache';
   return 'runtime';
 }
 

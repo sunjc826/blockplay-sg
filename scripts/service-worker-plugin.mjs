@@ -24,7 +24,7 @@ export default function serviceWorkerPlugin() {
       order: 'post',
       handler(_options, bundle) {
         shell = shellPaths(Object.keys(bundle), publicShellFiles(new URL(`file://${publicDir}/`)));
-        if (!shell.includes('/index.html')) this.error('service worker: the build emitted no index.html to use as the app shell');
+        if (!shell.includes('/')) this.error('service worker: the build emitted no index.html to use as the app shell');
       },
     },
     async closeBundle() {
