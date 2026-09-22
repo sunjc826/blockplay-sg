@@ -7,6 +7,7 @@ import { findWorldRoute, getWorldZone, WORLD_GATEWAYS, WORLD_ZONES, type WorldZo
 import { useFpsFullscreen } from '../game/use-fps-fullscreen';
 import FpsMinimap from './FpsMinimap';
 import FpsWeaponHud from './FpsWeaponHud';
+import FpsVitals from './FpsVitals';
 import FpsDebugPanel from './FpsDebugPanel';
 import FpsPilotPanel from './FpsPilotPanel';
 import FpsCommsLog from './FpsCommsLog';
@@ -81,7 +82,7 @@ export default function ExpeditionGame({ profile, onExit, suspended = false, ini
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus} · ESC TO STOP</div>}
       {playing && <>
         <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} mode="expedition" />
-        <div className="fps-vitals"><span>HP <b>{Math.ceil(hud.health)}</b>{hud.maxHealth > 100 && <small> / {hud.maxHealth}</small>}</span><span>ARMOR <b>{Math.ceil(hud.armor)}</b></span><span className="fps-capture-state" aria-label="Mouse capture status">{hud.pilotEnabled ? 'AI PILOT' : hud.locked ? 'MOUSE LOCKED' : 'TOUCH LOOK'}</span></div>
+        <FpsVitals hud={hud} />
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}
         {hud.incoming && <div className="fps-incoming">INCOMING · FIND COVER</div>}
         {hud.hit && <div className="fps-hit-label">HIT −{hud.lastDamage}</div>}

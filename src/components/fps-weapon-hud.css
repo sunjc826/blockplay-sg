@@ -6,16 +6,16 @@
 .fps-weapon-hud[data-aiming=true] .fps-crosshair b{background:#ff4a39;box-shadow:0 0 5px #ff3523b3;width:3px;height:3px}
 .fps-weapon-hud[data-reloading=true] .fps-crosshair{opacity:.15}
 .fps-weapon-hud .fps-crosshair.hit i{opacity:1;background:#ffd489}
-.fps-weapon-hud .fps-ammo{padding:12px 15px;border-right:2px solid #e8c58d;background:linear-gradient(90deg,transparent,#0c151bbe);min-width:182px}
+.fps-weapon-hud .fps-ammo{padding:12px 15px;border-right:2px solid var(--hud-gold);background:linear-gradient(90deg,transparent,#0c151bbe);min-width:182px}
 .fps-weapon-hud .fps-ammo>span{font-size:10px;letter-spacing:1.5px}
 .fps-weapon-hud .fps-ammo strong{font-size:46px;line-height:1.2;letter-spacing:-2px}
 .fps-weapon-hud .fps-ammo strong small{letter-spacing:0;font-size:14px;color:#b6c5c0}
-.fps-weapon-hud .fps-ammo p{font-size:8px;letter-spacing:.7px;color:#c9d4ca}
-.fps-weapon-hud .fps-ammo.is-empty{border-color:#e98265}
-.fps-weapon-hud .fps-ammo.is-empty strong{color:#ffc5ab}
-.fps-reload-cue{position:absolute;left:50%;top:calc(50% + 62px);transform:translateX(-50%);width:112px;text-align:center;font:8px monospace;letter-spacing:2px;color:#f0d3a4;text-shadow:0 1px 4px #000}
+.fps-weapon-hud .fps-ammo p{font-size:8px;letter-spacing:.7px;color:var(--hud-dim)}
+.fps-weapon-hud .fps-ammo.is-empty{border-color:var(--hud-alert)}
+.fps-weapon-hud .fps-ammo.is-empty strong{color:var(--hud-alert-ink)}
+.fps-reload-cue{position:absolute;left:50%;top:calc(50% + 62px);transform:translateX(-50%);width:112px;text-align:center;font:8px monospace;letter-spacing:2px;color:var(--hud-gold-soft);text-shadow:0 1px 4px #000}
 .fps-reload-cue>div{height:2px;margin-top:8px;background:#ffffff30}
-.fps-reload-cue i{display:block;height:100%;background:#f0d3a4;transition:width .1s linear}
+.fps-reload-cue i{display:block;height:100%;background:var(--hud-gold-soft);transition:width .1s linear}
 .fps-weapon-hud .fps-tactical-crosshair{width:48px;height:48px;filter:drop-shadow(0 0 1px #000);--gap:var(--fps-spread,6px)}
 .fps-weapon-hud .fps-tactical-crosshair i{background:#f2f7f2;box-shadow:0 0 0 1px #08140b80;border-radius:1px;transition:opacity .1s,top .1s,left .1s,bottom .1s,right .1s}
 .fps-weapon-hud .fps-tactical-crosshair i:nth-child(1){width:2px;height:7px;left:23px;top:calc(24px - var(--gap) - 7px);bottom:auto}

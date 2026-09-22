@@ -12,6 +12,7 @@ import { ARENA_DURATION, ARENA_KILL_LIMIT, type ArenaSnapshot } from '../game/ar
 import FpsMinimap from './FpsMinimap';
 import RankBadge from './RankBadge';
 import FpsWeaponHud from './FpsWeaponHud';
+import FpsVitals from './FpsVitals';
 import FpsDebugPanel from './FpsDebugPanel';
 import FpsPilotPanel from './FpsPilotPanel';
 import FpsCommsLog from './FpsCommsLog';
@@ -80,7 +81,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus} · ESC TO STOP</div>}
       {playing && <>
         <FpsMinimap zone={region} player={hud} markers={isArena ? [] : hud.mapMarkers} mode={isArena ? 'arena' : 'practice'} />
-        <div className="fps-vitals"><span>HP <b>{Math.ceil(hud.health)}</b>{hud.maxHealth > 100 && <small> / {hud.maxHealth}</small>}</span><span>ARMOR <b>{Math.ceil(hud.armor)}</b></span><span className="fps-capture-state" aria-label="Mouse capture status">{hud.pilotEnabled ? 'AI PILOT' : hud.locked ? 'MOUSE LOCKED' : 'TOUCH LOOK'}</span></div>
+        <FpsVitals hud={hud} />
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}
         {hud.incoming && <div className="fps-incoming">INCOMING · MOVE OR TAKE COVER</div>}
         {hud.hit && <div className="fps-hit-label" aria-hidden="true">HIT −{hud.lastDamage}</div>}
