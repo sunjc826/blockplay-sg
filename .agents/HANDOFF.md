@@ -1,5 +1,38 @@
 # Blockplay: portable agent handoff
 
+**Latest: the dossier draws the recoil (2026-09-22).** The shop had a falloff
+curve saying whether a hit kills and nothing saying whether the shot arrives.
+`RecoilCurve` is its companion: sight climb in degrees against rounds held, for
+the previewed weapon and the one in hand, stepped through `fps-recoil` at the
+weapon's own cadence rather than from a formula — the same reason the falloff
+curve runs through `hitDamage`. The jitter is stilled for the drawing (a fixed
+0.5 draw is the zero of the pattern's random term); the vertical climb is
+deterministic regardless, so nothing is lost.
+
+**Degrees alone say nothing, so the chart is banded the way its neighbour is.**
+The falloff curve gets its meaning from hits-to-kill bands; this one gets it
+from a dashed line at the angular width of a drill target at 20 m — 1.38
+degrees, off the target radius the engine builds. A burst is worth firing while
+it stays inside that, and the crossing point is what separates the tiers: the
+issued rifle leaves the target around the third round, the Marksman around the
+fifth. That is also the internal anchor worth preferring over the remembered
+CS:GO and CoD figures, which are recall rather than measurement.
+
+The axis is square-root scaled. The climb spans two orders of magnitude and the
+readable half is the bottom of it; on a linear axis the target line and the
+first few rounds collapse onto the baseline. Zero stays zero and the uneven tick
+spacing is what tells the reader it is not linear.
+
+Palette and accessibility are inherited wholesale from `FalloffCurve` — the same
+two categorical slots (re-validated against the panel surface: all six checks
+pass), legend doubling as the hover readout so identity is never hue alone, and
+a visually-hidden table carrying the numbers. Two layout bugs were found by
+screenshotting rather than reasoning: the end-of-line tags first sat over the
+curves, which are steepest exactly where they finish, and then overflowed the
+drawing; they are now anchored to the right edge in the margin.
+
+725 unit tests, typecheck, `pnpm build` and `pnpm test:armory` pass.
+
 **Latest: the opening burst is the one you can place (2026-09-22).** The kick
 was in the right band overall but front-loaded the punishment: `verticalProfile`
 started at its hardest (1.35) and decayed, and the aim climb shared it, so the

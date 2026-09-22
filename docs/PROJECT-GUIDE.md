@@ -149,6 +149,22 @@ harder. The SAR 21 lands at 1.7, 12.6 and 28.6; the Ultimax, being a support
 weapon, is heavier still. The bands are wide on purpose: they catch a weapon
 that is off by a factor, not a tuning decision off by a decimal.
 
+**The shop draws the climb.** Beside the falloff curve, a second chart plots
+sight climb in degrees against rounds held, for the previewed weapon and the one
+already in hand. Both run through the engine's own code rather than a formula —
+the falloff curve through `hitDamage`, this one by stepping `fps-recoil` at the
+weapon's own cadence — so a dossier figure cannot drift from what the range
+produces. The jitter is stilled for the drawing, because a number that moved
+every render would be unreadable; the vertical climb is deterministic anyway.
+
+Degrees alone say nothing, so the chart carries the same kind of interpretive
+banding the falloff curve gets from hits-to-kill: a dashed line at the angular
+width of a drill target at 20 m. A burst is worth firing for as long as it stays
+inside that, and the crossing point is what separates the tiers — the issued
+rifle leaves the target around the third round, the Marksman around the fifth.
+The axis is square-root scaled, because the climb spans two orders of magnitude
+and the readable half is the bottom of it.
+
 **The opening burst is the one you can place.** The view kick and the aim climb
 have opposite shapes, and they are separate profiles for that reason. The view
 kick snaps hardest on the first round and settles lower, so a single aimed shot

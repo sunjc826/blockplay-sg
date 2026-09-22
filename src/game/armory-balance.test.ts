@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { analyseBreakpoints, deadBuys, DRILL_OPPONENTS, DRILL_POOLS, namedOpponents, plateOpponent, shotsToKill, shotsToKillOpponent, timeToKill, TTK_MARGIN, unfeltInDrill } from './armory-balance';
+import { analyseBreakpoints, deadBuys, DRILL_OPPONENTS, DRILL_POOLS, namedOpponents, plateOpponent, RECOIL_BURST, RECOIL_ROUNDS, recoilCurve, shotsToKill, shotsToKillOpponent, targetArc, timeToKill, TTK_MARGIN, unfeltInDrill } from './armory-balance';
+import { itemById } from './armory-catalog';
+import { createProfile, equip, resolveLoadout } from './armory-state';
 
 describe('weapon ladder breakpoints', () => {
   const rows = analyseBreakpoints();
@@ -85,5 +87,38 @@ describe('hypothetical opponents', () => {
     // The same rifle needs far more hits through 100 armor points at 65%.
     expect(issued.ranges[0].stk[0]).toBeGreaterThan(drillIssued.ranges[0].stk[0]);
     expect(analyseBreakpoints([tank], [20]).every(row => row.ranges.length === 1)).toBe(true);
+  });
+});
+
+describe('the recoil curve the shop draws', () => {
+  /** Resolved exactly as the shop resolves it, so the curve is the one drawn. */
+  const configured = (id: string) => {
+    const item = itemById(id)!, base = createProfile();
+    return resolveLoadout(equip({ ...base, owned: [...base.owned, id] }, id, item.family!)).weapons[item.family!];
+  };
+  const sar = configured('sar-issued'), marksman = configured('sar-marksman');
+  it('starts at rest and climbs with every round held', () => {
+    const curve = recoilCurve(sar);
+    expect(curve[0]).toEqual({ round: 0, climb: 0 });
+    expect(curve).toHaveLength(RECOIL_ROUNDS + 1);
+    for (let i = 1; i < curve.length; i++) expect(curve[i].climb).toBeGreaterThan(curve[i - 1].climb);
+  });
+  it('draws the same curve twice, so a dossier figure does not move between renders', () => {
+    expect(recoilCurve(sar)).toEqual(recoilCurve(sar));
+  });
+  it('eases the opening rounds, which is the shape the chart exists to show', () => {
+    const curve = recoilCurve(sar);
+    const opening = curve[RECOIL_BURST].climb, next = curve[RECOIL_BURST * 2].climb - opening;
+    expect(opening).toBeLessThan(next * .5);
+  });
+  it('separates the ladder, so a premium weapon is visibly steadier', () => {
+    expect(recoilCurve(marksman)[RECOIL_ROUNDS].climb).toBeLessThan(recoilCurve(sar)[RECOIL_ROUNDS].climb * .6);
+  });
+  it('puts a target width where a burst can still be read against it', () => {
+    // Off the bottom of the plot and the line is decoration; above the issued
+    // rifle's whole curve and it would never be crossed.
+    const curve = recoilCurve(sar);
+    expect(targetArc()).toBeGreaterThan(curve[1].climb * .5);
+    expect(targetArc()).toBeLessThan(curve[RECOIL_ROUNDS].climb);
   });
 });

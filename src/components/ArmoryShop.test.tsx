@@ -91,3 +91,14 @@ it('lets a high rank keep the recorded shouting, and samples both tones in their
   expect(rude).toContain('Recorded pack, every level.');
   expect(rude).not.toContain('Not voiced yet');
 });
+
+it('draws the recoil chart beside the falloff curve on a weapon', () => {
+  const html = renderToStaticMarkup(<ArmoryShop store={storeFor(createProfile())} onEnterRange={() => {}} />);
+  // Both dossier charts, and the anchor that makes degrees of climb mean
+  // something: how wide the thing you are shooting at actually is.
+  expect(html).toContain('Damage against range');
+  expect(html).toContain('Sight climb against rounds held');
+  expect(html).toContain('target width at 20 m');
+  // A screen reader gets the numbers as a table, not only as a picture.
+  expect(html).toContain('target widths');
+});

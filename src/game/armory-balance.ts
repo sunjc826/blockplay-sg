@@ -1,7 +1,8 @@
 import { ARMORY_CATALOG, itemById, type ShopItem } from './armory-catalog';
 import { applyArmorDamage, createProfile, equip, resolveLoadout } from './armory-state';
 import { listArenaRoles } from './arena-roles';
-import { findTrait, hitDamage, type WeaponSpec } from './fps-rules';
+import { findTrait, FPS_WEAPONS, hitDamage, type WeaponSpec } from './fps-rules';
+import { advanceRecoil, CLIMB_EASE_ROUNDS, createRecoil, recordRecoilShot, takeAimPush } from './fps-recoil';
 import { skipCostToLevel, xpForLevel } from './progression';
 
 /**
@@ -164,3 +165,50 @@ export function shotBands(opponent: Opponent = STOCK_OPPONENT, maxDamage = 100):
   }
   return bands;
 }
+
+/**
+ * Where a held trigger puts the sights, round by round, in degrees off the
+ * point of aim.
+ *
+ * Stepped through the engine's own recoil rather than a formula, at the
+ * weapon's own cadence, so the shop cannot advertise a climb the range does not
+ * produce — the same reason the falloff curve runs through `hitDamage`. The
+ * jitter is stilled (a fixed 0.5 draw is the zero of the pattern's random
+ * term), because a dossier figure that moved every render would be unreadable
+ * and unfalsifiable; the vertical climb is deterministic regardless.
+ */
+export interface RecoilPoint { round: number; climb: number }
+/**
+ * A fixed window rather than the magazine, so two weapons are always drawn on
+ * the same scale. Twenty rounds covers the eased opening, the ramp and the
+ * approach to the ceiling on every weapon in the catalog.
+ */
+export const RECOIL_ROUNDS = 20;
+/** Sub-steps per second of the simulation; fine enough that the cadence lands cleanly. */
+const RECOIL_TICK = 240;
+export function recoilCurve(weapon: WeaponSpec, rounds = RECOIL_ROUNDS): RecoilPoint[] {
+  const state = createRecoil(), points: RecoilPoint[] = [{ round: 0, climb: 0 }];
+  // The pattern index only steers the horizontal walk, but it costs nothing to
+  // simulate the weapon that is actually in hand.
+  const family = Math.max(0, FPS_WEAPONS.findIndex(entry => entry.id === weapon.id));
+  const between = Math.max(1, Math.round(weapon.interval * RECOIL_TICK));
+  let aim = 0;
+  for (let round = 1; round <= Math.max(1, rounds); round++) {
+    recordRecoilShot(state, weapon, family, () => .5);
+    aim += takeAimPush(state).pitch;
+    for (let tick = 0; tick < between; tick++) { advanceRecoil(state, 1 / RECOIL_TICK); aim += takeAimPush(state).pitch; }
+    points.push({ round, climb: aim * 180 / Math.PI });
+  }
+  return points;
+}
+/** Rounds a burst may run before the climb leaves the eased opening. */
+export const RECOIL_BURST = CLIMB_EASE_ROUNDS;
+/**
+ * How wide a drill target stands, in degrees, at a nominal engagement range.
+ * The climb chart is unreadable as bare degrees — this is the line that says
+ * whether a burst is still on the thing it was aimed at. Radius and ranges come
+ * from the targets the engine builds; 20 units sits mid-way down the drill.
+ */
+export const TARGET_RADIUS = 0.24, TARGET_RANGE = 20;
+export const targetArc = (radius = TARGET_RADIUS, range = TARGET_RANGE) =>
+  2 * Math.atan(radius / range) * 180 / Math.PI;
