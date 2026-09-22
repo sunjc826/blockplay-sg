@@ -71,14 +71,17 @@ export const VIEW_SCALE = 0.22;
  * so raising a gain moves every weapon and every catalog delta together rather
  * than needing the catalog rewritten underneath it.
  */
-const PITCH_GAIN = 4, YAW_GAIN = 4, PUNCH_GAIN = 2.8, ROLL_GAIN = 1.8;
+const PITCH_GAIN = 4.5, YAW_GAIN = 4.5, PUNCH_GAIN = 3.2, ROLL_GAIN = 2;
 /**
  * Radians of the shooter's own aim one point of recoil rating takes, before the
  * per-shot profile. This is the part that has to be answered with the mouse,
- * so it is deliberately the smallest number here and still the one that decides
- * whether recoil is a mechanic or an animation.
+ * and `fps-recoil.test.ts` holds the figures it produces against what the genre
+ * does, in degrees, because that is the only way to tell "a kick" from "a
+ * number that moved". Roughly: a rifle round should displace the sights about
+ * as far as a torso is wide at range, ten rounds should be unusable
+ * uncompensated, and a magazine should end up pointing at the sky.
  */
-const CLIMB_GAIN = 0.54;
+const CLIMB_GAIN = 1.25;
 /** The share of the horizontal pattern that moves the aim rather than the view. */
 const DRIFT_SHARE = 0.6;
 /**
@@ -86,21 +89,21 @@ const DRIFT_SHARE = 0.6;
  * Spray patterns top out in every game that has them: past this the muzzle is
  * already pointing at the sky and further climb would only be unrecoverable.
  */
-export const CLIMB_CEILING = 0.28, DRIFT_CEILING = 0.12;
+export const CLIMB_CEILING = 0.5, DRIFT_CEILING = 0.2;
 /**
  * Seconds off the trigger before the weapon starts giving the aim back, and the
  * baseline rate it does so at. The delay sits above the slowest weapon's firing
  * interval, so sustained fire never recovers mid-burst while a released trigger
  * recovers almost at once.
  */
-export const RECOVERY_DELAY = 0.18;
-const AIM_RETURN = 3;
+export const RECOVERY_DELAY = 0.25;
+const AIM_RETURN = 2.4;
 /**
  * Ceilings on accumulated recoil, so a long burst settles instead of climbing
  * away. Sited above where the issued weapons converge, so they bound the worst
  * case rather than flattening the climb every weapon is meant to have.
  */
-export const PITCH_CEILING = 0.42, YAW_CEILING = 0.19, PUNCH_CEILING = 0.28, ROLL_CEILING = 0.07;
+export const PITCH_CEILING = 0.48, YAW_CEILING = 0.22, PUNCH_CEILING = 0.32, ROLL_CEILING = 0.085;
 /** Seconds of held fire before the horizontal pattern starts over. */
 export const BURST_RESET = 0.32;
 const RISE = 30, RECOVER = 4.2, PUNCH_RISE = 26, PUNCH_RECOVER = 11.5;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { advanceRecoil, BURST_RESET, CLIMB_CEILING, compensateRecoil, createRecoil, PITCH_CEILING, recoilPose, recoilView, recordRecoilShot, RECOVERY_DELAY, RECOVERY_LIMITS, resetRecoil, takeAimPush, VIEW_SCALE, YAW_CEILING } from './fps-recoil';
+import { FPS_WEAPONS } from './fps-rules';
 
 const step = (state: ReturnType<typeof createRecoil>, seconds: number, dt = 1 / 60) => {
   for (let t = 0; t < seconds; t += dt) advanceRecoil(state, dt);
@@ -246,5 +247,61 @@ describe('the aim recoil takes', () => {
     recordRecoilShot(state, SAR, 0, () => .5);
     expect(takeAimPush(state).pitch).toBeGreaterThan(0);
     expect(takeAimPush(state)).toEqual({ pitch: 0, yaw: 0 });
+  });
+});
+
+/**
+ * What a held trigger costs, in degrees of the shooter's own aim, after a given
+ * number of rounds at the weapon's own cadence. Degrees because that is the
+ * only unit in which a kick can be compared to anything — kick units and
+ * ratings are internal, and "feels weak" is not measurable.
+ */
+function climbAfter(weapon: number, rounds: number) {
+  const spec = FPS_WEAPONS[weapon], state = createRecoil();
+  let aim = 0;
+  const drain = () => { aim += takeAimPush(state).pitch; };
+  for (let round = 0; round < rounds; round++) {
+    recordRecoilShot(state, spec, weapon, () => .5); drain();
+    for (let f = 0; f < Math.round(spec.interval * 240); f++) { advanceRecoil(state, 1 / 240); drain(); }
+  }
+  return aim * 180 / Math.PI;
+}
+
+describe('how the kick compares to the genre', () => {
+  /**
+   * Blockplay was tuned by feel twice and came out at roughly half of what a
+   * shooter does, which is how "the recoil is barely anything" survived a
+   * change that tripled it. These bands are the fix: approximate, widely-cited
+   * figures for uncompensated climb in games that move the camera.
+   *
+   *   CS:GO AK-47 spray   ~1.5-2 deg first round, ~11-14 at ten, ~25-27 a magazine
+   *   Apex / CoD rifles   ~1-1.5 deg first round, ~8-12 at ten, then recovers
+   *
+   * The bands are deliberately wide: they exist to catch a weapon that is off
+   * by a factor, not to pin a tuning decision to one decimal place.
+   */
+  const RIFLE_BAND = { first: [1.2, 2.4], ten: [9, 15], magazine: [22, 32] };
+  it('puts the issued rifle in the band a rifle is expected to occupy', () => {
+    const [firstLow, firstHigh] = RIFLE_BAND.first;
+    expect(climbAfter(0, 1)).toBeGreaterThan(firstLow);
+    expect(climbAfter(0, 1)).toBeLessThan(firstHigh);
+    const [tenLow, tenHigh] = RIFLE_BAND.ten;
+    expect(climbAfter(0, 10)).toBeGreaterThan(tenLow);
+    expect(climbAfter(0, 10)).toBeLessThan(tenHigh);
+    const [magLow, magHigh] = RIFLE_BAND.magazine;
+    expect(climbAfter(0, FPS_WEAPONS[0].capacity)).toBeGreaterThan(magLow);
+    expect(climbAfter(0, FPS_WEAPONS[0].capacity)).toBeLessThan(magHigh);
+  });
+  it('makes the support weapon the harder one to hold, round for round', () => {
+    // It kicks harder and settles slower; that is what its volume of fire costs.
+    expect(climbAfter(1, 10)).toBeGreaterThan(climbAfter(0, 10) * 1.2);
+  });
+  it('climbs monotonically while the trigger is held', () => {
+    // A burst that stopped costing anything halfway through a magazine would be
+    // a ceiling set too low, which is the other way to make recoil decoration.
+    for (const weapon of [0, 1]) {
+      expect(climbAfter(weapon, 10)).toBeGreaterThan(climbAfter(weapon, 5));
+      expect(climbAfter(weapon, 20)).toBeGreaterThan(climbAfter(weapon, 10));
+    }
   });
 });

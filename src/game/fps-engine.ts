@@ -663,7 +663,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function applyAimPush() {
     const push = takeAimPush(kick);
     if (!push.pitch && !push.yaw) return;
-    yaw += push.yaw; pitch = clampFpsPitch(pitch + push.pitch);
+    yaw += push.yaw;
+    const wanted = pitch + push.pitch;
+    pitch = clampFpsPitch(wanted);
+    // Aim the look limit refused was never taken, so it is not owed back
+    // either: without this a burst fired at the sky would hand back climb it
+    // never got, dragging the sights below where the shooter left them.
+    if (pitch !== wanted) compensateRecoil(kick, pitch - wanted, 0);
   }
   function updateCameras(dt: number, moving: boolean, sprinting: boolean) {
     if (vehicles.mounted) {

@@ -1,5 +1,36 @@
 # Blockplay: portable agent handoff
 
+**Latest: recoil tuned in degrees, against the genre (2026-09-22).** Reported a
+third time as barely anything next to other shooters, and that was correct and
+measurable. Kick units and ratings are internal, so nothing in the codebase said
+what the recoil actually *was*. Measured in degrees of aim displacement, the
+issued rifle climbed 0.8 on the first round, 5.4 over ten and 14.9 over a
+magazine — about half of genre norm on every axis. A CS:GO AK-47 spray is
+roughly 1.5-2, 11-14 and 25-27; Apex and CoD rifles sit a little under and
+recover harder.
+
+The SAR 21 now lands at 1.7, 12.6 and 28.6, and `fps-recoil.test.ts` holds it
+inside that band so it cannot drift back. `CLIMB_GAIN` went 0.54 to 1.25, the
+climb ceiling 0.28 to 0.5 rad (29 degrees), the view kick 4.0 to 4.5 and the
+weapon buck 2.8 to 3.2. The aim is given back more slowly and after a longer
+pause (0.18 to 0.25 s, return 3.0 to 2.4), so a burst costs something for longer
+than it took to fire.
+
+**Lesson worth keeping: tune this in degrees.** Two previous passes raised
+internal gains by feel and both came out short, because there was no unit in
+which "weak" could be checked. The band test is the artifact that makes the next
+change arguable rather than a matter of taste.
+
+One edge case the bigger numbers exposed: at 29 degrees of climb the look clamp
+can refuse part of a push, and aim the clamp refused was never taken, so it must
+not be owed back either — otherwise a burst fired near the sky hands back climb
+it never got and drags the sights under where the shooter left them.
+`applyAimPush` now returns the refused part to the debt.
+
+715 unit tests, typecheck, `pnpm test:fps`, `pnpm test:fps:effects` and
+`pnpm test:armory` pass with the larger kick; the drill is still clearable with
+short bursts and compensation.
+
 **Latest: recoil takes your aim (2026-09-22).** The kick was reported as still
 weak after being made three times larger, and the amplitude was never the
 problem. Recoil only ever moved a *rendered* offset: `pitch` and `yaw` were

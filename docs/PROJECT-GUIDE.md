@@ -137,6 +137,18 @@ the weapon additionally bucks back towards the shoulder and rolls away from the
 side it is being pushed towards. Shot spread is still owned separately by the
 accuracy model — recoil never widens a cone.
 
+**Tuned in degrees, against the genre.** Recoil was tuned by feel twice and came
+out at roughly half of what a shooter does, which is how "barely anything"
+survived a change that tripled it. Kick units and ratings are internal, so the
+only comparable unit is degrees of aim displacement, and `fps-recoil.test.ts`
+holds the issued rifle inside a band drawn from approximate, widely-cited
+figures for uncompensated climb in games that move the camera — a CS:GO AK-47
+spray is about 1.5-2 degrees on the first round, 11-14 over ten and 25-27 over a
+magazine; Apex and Call of Duty rifles sit a little under that and recover
+harder. The SAR 21 lands at 1.7, 12.6 and 28.6; the Ultimax, being a support
+weapon, is heavier still. The bands are wide on purpose: they catch a weapon
+that is off by a factor, not a tuning decision off by a decimal.
+
 **Recoil takes your aim, which is what makes it a mechanic.** A shot moves the
 shooter's own `pitch` and `yaw`, not only the rendered offset, so a burst has to
 be held down rather than watched. Without that, recoil is decoration at any
