@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { FpsHud } from '../game/fps-engine';
 import type { WeaponSpec } from '../game/fps-rules';
+import { weaponReloadStyle } from '../game/fps-reload-styles';
 import { reloadStage } from '../game/fps-weapon-motion';
 import { fillFraction, magazineDisplay } from '../game/hud-motion';
 import { useReducedMotion } from '../game/use-reduced-motion';
@@ -8,7 +9,7 @@ import './fps-weapon-hud.css';
 
 export default function FpsWeaponHud({ hud, weapon, canFight }: { hud: FpsHud; weapon: WeaponSpec; canFight: boolean }) {
   const magnified = weapon.optic !== 'reflex';
-  const reloading = hud.reloading > 0, stage = reloadStage(hud.reloading, hud.reloadEmpty);
+  const reloading = hud.reloading > 0, stage = reloadStage(hud.reloading, hud.reloadEmpty, weaponReloadStyle(hud.reloadStyle, hud.weapon));
   // Truthful digits, except through a reload — see `hud-motion.ts`.
   const rounds = useReducedMotion() ? hud.magazine : magazineDisplay(hud.magazine, weapon.capacity, hud.reserve, hud.reloading);
   return <div className="fps-weapon-hud" data-sight={magnified ? 'scope' : 'reflex'} data-aiming={hud.aiming} data-reloading={reloading}
@@ -27,3 +28,4 @@ export default function FpsWeaponHud({ hud, weapon, canFight }: { hud: FpsHud; w
     </div>
   </div>;
 }
+

@@ -53,3 +53,10 @@
 .fps-integrated-reticle:before,.fps-integrated-reticle:after{content:"";position:absolute;background:#101713}
 .fps-integrated-reticle:before{width:36px;height:1px;left:6px;top:23.5px}
 .fps-integrated-reticle:after{width:1px;height:36px;left:23.5px;top:6px}
+
+
+.fps-reload-style { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 10px 0; font-size: 12px; }
+.fps-reload-style select { font: inherit; color: inherit; background: #202c29; border: 1px solid #607068; border-radius: 6px; padding: 7px 10px; }
+.fps-reload-style select:focus-visible { outline: 2px solid #e3c57b; outline-offset: 2px; }
+.fps-reload-style select:disabled { opacity: .55; }
+.fps-reload-style small { opacity: .7; }

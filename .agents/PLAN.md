@@ -391,3 +391,26 @@ Google Photorealistic 3D Tiles could be evaluated as a separately authorized alt
 - [COLMAP panorama example](https://github.com/colmap/colmap/blob/main/python/examples/panorama_sfm.py)
 
 Keep this file factual: separate completed work, attempted work, and planned work. Update the verification section after changes.
+
+
+
+## Reload animation variants (2026-09-22)
+
+Added Rookie, Standard, Tactical, Fast and Dual mag to the FPS reload animation
+selector, in session controls and the pause/start menus (including fullscreen).
+The preference persists locally; changes are blocked during a reload. These are
+cosmetic styles: existing reload durations, shop modifiers, ammo transfer and
+arena authority are unchanged. Ultimax uses Standard when Dual mag is selected.
+
+`fps-reload-styles.ts` maps real progress to shared choreography phases; both the
+viewmodel and HUD/audio stage cues use it. Rifle dual mags reuse the existing
+magazine mesh with two tape bands, stay visible throughout, exchange roles
+continuously and alternate sides. Cancellation restores the seated magazine.
+No new downloaded models or animation dependencies.
+
+Validation: typecheck and production build pass; 28 focused animation, weapon
+rules and arena-runtime tests pass, including nine new style/lifecycle tests.
+The source checkout's full test run had 699 passes and five failures due solely
+to unavailable local reference-cache, audio and GLB fixtures. Those repository
+assets were not modified. Full in-game visual/browser verification remains open:
+the GitHub connector could not retrieve the large GLB binaries in this session.

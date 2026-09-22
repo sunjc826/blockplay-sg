@@ -28,6 +28,7 @@ import { itemById } from './armory-catalog';
 import { DEFAULT_FPS_DEBUG, FPS_REGEN_DELAY, normalizeFpsDebug, readFpsDebug, regenerateHealth, saveFpsDebug, type FpsDebugSettings } from './fps-debug';
 import { createWeaponHandling } from './fps-viewmodel';
 import { createScopeRenderer, getWeaponSight } from './weapon-optics';
+import { readReloadStyle, saveReloadStyle, normalizeReloadStyle, weaponReloadStyle, type ReloadStyle } from './fps-reload-styles';
 import { reloadMotion, reloadStage, smoothStep } from './fps-weapon-motion';
 import { createFpsComms, type CommsEntry } from './fps-comms';
 import { createEncikRadio, type EncikAddress, type EncikCallout, type EncikEvent } from './fps-callouts';
@@ -53,7 +54,7 @@ export interface FpsHud {
   pilotStrategy: 'local' | 'llm'; pilotPlan: string;
   pilotEnabled: boolean; pilotStatus: string; pilotGoal: PilotGoal | null; pilotContacts: number;
   debug: FpsDebugSettings; debugAvailable: boolean; maxHealth: number;
-  aimProgress: number; reloadEmpty: boolean;
+  aimProgress: number; reloadEmpty: boolean; reloadStyle: ReloadStyle;
   crosshairSpread: number; hitKind: 'hit' | 'kill'; quickItem: string; quickType: 'FOOD' | 'UTILITY' | ''; quickCount: number;
   phase: 'loading' | 'ready' | 'playing' | 'paused' | 'complete' | 'defeated' | 'error';
   weapon: number; magazine: number; reserve: number; reloading: number;
@@ -71,7 +72,7 @@ export interface FpsHud {
   /** Named sub-area the player is standing in; '' on ground that belongs to none. */
   sector: string;
 }
-export const initialFpsHud: FpsHud = { quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '' };
+export const initialFpsHud: FpsHud = { quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadStyle: 'standard', debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '' };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -142,7 +143,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   effects.setStyles(weaponStyles, 0);
   const debugAvailable = !options.arena || options.arena.session.role === 'solo';
   let debug = debugAvailable ? readFpsDebug() : { ...DEFAULT_FPS_DEBUG }, recoveryDelay = 0;
-  const keys = new Set<string>(); const hud: FpsHud = { ...initialFpsHud, debug, debugAvailable, quickItem: equipment.quickItem?.name || '', quickType: equipment.quickItem ? equipment.quickItem.supplyType === 'food' ? 'FOOD' : 'UTILITY' : '', quickCount: equipment.quickCount, health: 100 * debug.healthMultiplier, maxHealth: 100 * debug.healthMultiplier, armor: equipment.armor, expeditionZone: expedition?.zone ?? null,
+  const keys = new Set<string>(); const hud: FpsHud = { ...initialFpsHud, reloadStyle: readReloadStyle(), debug, debugAvailable, quickItem: equipment.quickItem?.name || '', quickType: equipment.quickItem ? equipment.quickItem.supplyType === 'food' ? 'FOOD' : 'UTILITY' : '', quickCount: equipment.quickCount, health: 100 * debug.healthMultiplier, maxHealth: 100 * debug.healthMultiplier, armor: equipment.armor, expeditionZone: expedition?.zone ?? null,
     credits: fieldProfile.credits, tokens: fieldProfile.tokens };
   const npcs = expedition ? expeditionNpcs(expedition.zone, zoneSectors(expedition.zone)) : [];
   hud.npcs = npcs.map(npc => ({ ...npc }));
@@ -307,6 +308,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       void requestFpsPointerLock(canvas, () => capturePending && !disposed)
         .catch(captureFailed).finally(() => { capturePromisePending = false; });
     } catch { captureFailed(); }
+  }
+  function setReloadStyle(value: ReloadStyle) {
+    if (loadout.some(state => state.reloadRemaining > 0)) return;
+    hud.reloadStyle = normalizeReloadStyle(value); saveReloadStyle(hud.reloadStyle);
+    updateCameras(0, false, false); publish();
   }
   function reload() {
     if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
@@ -702,7 +708,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const spreadPixels = Math.tan(spreadAngle) * canvas.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     hud.crosshairSpread = THREE.MathUtils.damp(hud.crosshairSpread, Math.max(3, spreadPixels), 20, dt);
     const state = loadout[hud.weapon], remaining = state.reloadRemaining / specs[hud.weapon].reload;
-    const progress = remaining > 0 ? 1 - remaining : null, motion = reloadMotion(progress ?? 0);
+    const style = weaponReloadStyle(hud.reloadStyle, hud.weapon);
+    const progress = remaining > 0 ? 1 - remaining : null, motion = reloadMotion(progress ?? 0, style);
     rig.position.set(THREE.MathUtils.lerp(.20, 0, aim) + sway + motion.x,
       THREE.MathUtils.lerp(-.32, -(handling[hud.weapon]?.aimHeight ?? .435), aim) + Math.abs(sway) - (sprinting ? .08 : 0) + motion.y,
       THREE.MathUtils.lerp(-.78, handling[hud.weapon]?.aimDepth ?? -.47, aim) + pose.push + motion.z);
@@ -712,11 +719,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // a shouldered weapon is held against the shooter rather than by the hands.
     rig.rotation.set(pose.pitch * (1 - aim * .8) + (sprinting ? -.18 : 0) + motion.pitch,
       motion.yaw + pose.yaw * (1 - aim * .6), motion.roll + pose.roll * (1 - aim * .5));
-    handling.forEach((model, i) => model.update(i === hud.weapon ? progress : null, emptyReload[i]));
-    const stage = reloadStage(remaining, emptyReload[hud.weapon]);
+    handling.forEach((model, i) => model.update(i === hud.weapon ? progress : null, emptyReload[i], hud.reloadStyle));
+    const stage = reloadStage(remaining, emptyReload[hud.weapon], style);
     if (stage && stage !== lastReloadStage && hud.phase === 'playing') handlingSound(stage);
     lastReloadStage = stage;
-    canvas.dataset.aimProgress = aimProgress.toFixed(3); canvas.dataset.reloadStage = stage;
+    canvas.dataset.aimProgress = aimProgress.toFixed(3); canvas.dataset.reloadStage = stage; canvas.dataset.reloadStyle = style;
     canvas.dataset.weaponVisible = String(rig.visible);
     viewScene.updateMatrixWorld(true);
   }
@@ -1123,7 +1130,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   });
 
   return {
-    start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, switchWeapon, useQuickItem, jump, setInput, setMoveAxis, lookBy, interactVehicle, interactLoot, interactNpc, travelZone, configureDebug, refillHealth,
+    start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, setReloadStyle, switchWeapon, useQuickItem, jump, setInput, setMoveAxis, lookBy, interactVehicle, interactLoot, interactNpc, travelZone, configureDebug, refillHealth,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
     toggleAim,
@@ -1149,3 +1156,4 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   };
 }
 export type FpsEngine = ReturnType<typeof createFpsEngine>;
+

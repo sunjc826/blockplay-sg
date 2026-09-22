@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { type ReloadStyle, weaponReloadStyle } from './fps-reload-styles';
 import { reloadMotion } from './fps-weapon-motion';
 import { getWeaponSight } from './weapon-optics';
 
@@ -36,27 +37,60 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   const magazine = model.getObjectByName(`${index ? 'ultimax' : 'sar21'}-inspired__magazine`);
   const magazineHome = magazine?.position.clone() ?? new THREE.Vector3();
   const magazineRotation = magazine?.rotation.clone() ?? new THREE.Euler();
+  // Reuse the rifle magazine geometry/materials; only tape owns new resources.
+  const pair = new THREE.Group(); pair.name = 'fps-taped-magazines'; pair.visible = false;
+  magazine?.parent?.add(pair);
+  const spare = index === 0 && magazine ? magazine.clone(true) : null;
+  if (spare) { spare.name = 'fps-spare-magazine'; pair.add(spare); }
+  const tape = material('#363c32');
+  const bands = [-.025, .025].map(y => box(pair, .12, .018, .08, 0, y, 0, tape));
+  let pairSide = 1, wasSwapped = false;
+  const actionGrip = new THREE.Vector3(-.045, index ? .22 : .26, 0);
+
   // Animated control is decorative; gameplay ammunition remains owned by weapon rules.
   const control = box(additions, .023, .014, .025, .049, index ? .211 : .257, index ? .05 : .10, steel);
   const controlZ = control.position.z;
   return {
     get aimHeight() { return getWeaponSight(model)?.aimHeight ?? .328; },
     get aimDepth() { return getWeaponSight(model)?.aimDepth ?? -.36; },
-    update(progress: number | null, empty: boolean) {
-      const motion = reloadMotion(progress ?? 0);
+    update(progress: number | null, empty: boolean, selectedStyle: ReloadStyle = 'standard') {
+      const style = weaponReloadStyle(selectedStyle, index);
+      const motion = reloadMotion(progress ?? 0, style);
+      if (progress === null && wasSwapped) { pairSide *= -1; wasSwapped = false; }
+      const paired = style === 'dual-mag' && !!spare;
+      const swapped = paired && progress !== null && motion.pairSwap >= .5;
+      if (progress !== null) wasSwapped = swapped;
+      // Exchange the two identical magazine roles halfway through the lateral
+      // swap. Their world positions stay continuous and the seated one stays named.
+      const pairOffset = paired ? pairSide * .075 * ((swapped ? 1 : 0) - motion.pairSwap) : 0;
+      const spareSide = pairSide * (swapped ? -1 : 1);
+      pair.visible = paired;
       if (magazine) {
         magazine.position.copy(magazineHome); magazine.position.y -= motion.magazineDrop;
-        magazine.rotation.copy(magazineRotation); magazine.rotation.z += motion.magazineDrop * -.35;
+        magazine.position.x += motion.magazineSide + pairOffset;
+        magazine.rotation.copy(magazineRotation); magazine.rotation.z += paired ? 0 : motion.magazineDrop * -.35 + motion.magazineTwist;
         magazine.visible = motion.magazineVisible;
+        if (spare) {
+          spare.position.copy(magazine.position); spare.position.x += spareSide * .075;
+          spare.rotation.copy(magazine.rotation); spare.visible = true;
+          bands.forEach((band, i) => {
+            band.position.copy(magazine.position); band.position.x += spareSide * .0375;
+            band.position.y += -.025 + (i ? .025 : -.025);
+            band.position.z += .245;
+            band.rotation.copy(magazineRotation);
+          });
+        }
       }
       left.position.copy(support).lerp(magazineGrip, motion.handToMagazine);
       left.position.y -= motion.magazineDrop * motion.handToMagazine;
+      left.position.x += (motion.magazineSide - (paired ? pairSide * .075 * motion.pairSwap : 0)) * motion.handToMagazine;
       left.rotation.set(-.15 + motion.handToMagazine * .3, -.2, .32 - motion.handToMagazine * .35);
       if (empty && progress !== null) {
-        left.position.lerp(new THREE.Vector3(-.045, index ? .22 : .26, controlZ + .045), motion.action);
+        actionGrip.z = controlZ + .045; left.position.lerp(actionGrip, motion.action);
       }
       control.position.z = controlZ + (empty ? motion.action * .045 : 0);
     },
-    dispose() { additions.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
+    dispose() { pair.removeFromParent(); additions.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
   };
 }
+

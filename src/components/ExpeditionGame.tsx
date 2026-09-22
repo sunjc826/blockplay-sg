@@ -1,3 +1,4 @@
+import FpsReloadStyle from './FpsReloadStyle';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Compass, Maximize, Minimize, Pause, Play } from 'lucide-react';
 import { createFpsEngine, initialFpsHud, type FpsCheckpoint, type FpsEngine } from '../game/fps-engine';
@@ -109,6 +110,7 @@ export default function ExpeditionGame({ profile, onExit, onVendorPurchase, onCo
         <FpsDebugPanel hud={hud} engine={engine.current} />
         <FpsRadioVoice hud={hud} engine={engine.current} />
         <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
+        <FpsReloadStyle hud={hud} engine={engine.current} />
         <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => hud.phase === 'error' ? setScene(current => ({ ...current, revision: current.revision + 1 })) : engine.current?.start()}><Play size={16} />{hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry district' : hud.phase === 'paused' ? 'Resume expedition' : 'Enter district'}<ArrowRight size={17} /></button>
         <button className="fps-shop-link" onClick={onExit}>Leave expedition →</button>
         <div className="fps-control-guide"><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>E</kbd> Take supplies</span><span><kbd>N</kbd> Interact nearby</span><span><kbd>T</kbd> Travel</span><span><kbd>F</kbd> Fullscreen</span></div>
@@ -122,6 +124,7 @@ export default function ExpeditionGame({ profile, onExit, onVendorPurchase, onCo
     <FpsCommsLog entries={hud.comms} />
     <FpsRadioVoice hud={hud} engine={engine.current} />
     <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
+    <FpsReloadStyle hud={hud} engine={engine.current} />
     <div className="fps-loadout" aria-label="Field loadout">{equipment.weapons.map((item, index) => <button key={index} disabled={!canFight} aria-pressed={index === hud.weapon} onClick={() => engine.current?.switchWeapon(index)}><kbd>{index + 1}</kbd><span>{item.name}<small>{item.role}</small></span><span className="fps-selected">{index === hud.weapon ? 'EQUIPPED' : 'EQUIP'}</span></button>)}</div>
     <div className="fps-inputs" aria-label="Expedition touch controls">
       <div className="fps-dpad">{(['a', 'w', 's', 'd'] as const).map((key, index) => { const Icon = [ArrowLeft, ArrowUp, ArrowDown, ArrowRight][index]; return <button key={key} disabled={!canFight} aria-label={`Expedition ${['left', 'forward', 'backward', 'right'][index]}`} {...hold(key)}><Icon size={18} /></button>; })}</div>
@@ -136,3 +139,4 @@ export default function ExpeditionGame({ profile, onExit, onVendorPurchase, onCo
     <p className="fps-message" role="status">{fullscreen.notice || hud.message || (touch ? 'The left stick moves, dragging the scene looks around, and holding FIRE keeps the aim correctable. The Menu button pauses you; the district stays active.' : 'Drag the scene to look on touchscreens. ESC opens the menu; the district remains active.')}</p>
   </div>;
 }
+

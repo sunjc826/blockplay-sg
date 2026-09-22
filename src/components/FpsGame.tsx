@@ -1,3 +1,4 @@
+import FpsReloadStyle from './FpsReloadStyle';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Maximize, Minimize, Pause, Play, RotateCcw, Users, Volume2, VolumeX } from 'lucide-react';
 import { createFpsEngine, initialFpsHud, type FpsEngine } from '../game/fps-engine';
@@ -104,6 +105,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         <FpsDebugPanel hud={hud} engine={engine.current} />
         <FpsRadioVoice hud={hud} engine={engine.current} />
         <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
+        <FpsReloadStyle hud={hud} engine={engine.current} />
         {hud.phase === 'complete' && hud.arena && <Scoreboard snapshot={hud.arena} selfId={arenaOptions.session.id} />}
         {!disconnected && <button className="primary-button" disabled={hud.phase === 'loading' || suspended || (guest && hud.phase === 'complete')} onClick={() => { if (hud.phase === 'error') setEpoch(n => n + 1); else if (hud.phase === 'complete') resetExercise(); else engine.current?.start(); }}>
           {hud.phase === 'complete' || hud.phase === 'error' ? <RotateCcw size={16} /> : <Play size={16} />} {hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry' : hud.phase === 'complete' ? guest ? 'Waiting for host rematch' : 'Start a rematch' : hud.phase === 'paused' ? 'Resume match' : guest ? 'Enter match' : 'Start match'} <ArrowRight size={17} />
@@ -122,6 +124,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         <FpsDebugPanel hud={hud} engine={engine.current} />
         <FpsRadioVoice hud={hud} engine={engine.current} />
         <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
+        <FpsReloadStyle hud={hud} engine={engine.current} />
         {hud.phase !== 'loading' && hud.phase !== 'error' && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP<br />{combat ? 'Targets return simulated fire. Move when warned to dodge.' : 'Practice mode: targets do not return fire.'}</p>}
         {hud.phase === 'complete' && <div className="fps-reward">+{hud.earned} CR · +{hud.earnedXp} XP earned{rank.level > startingLevel.current && <strong className="fps-level-up">{insignia.promoted ? 'PROMOTED' : 'LEVEL UP'} · LV {rank.level} {insignia.label.toUpperCase()}</strong>}{hud.callout && <span className="fps-final-callout">{hud.callout}</span>}</div>}
         <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') setEpoch(n => n + 1); else if (hud.phase === 'complete' || hud.phase === 'defeated') resetExercise(); else engine.current?.start(); }}>
@@ -141,6 +144,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
     <FpsCommsLog entries={hud.comms} />
     <FpsRadioVoice hud={hud} engine={engine.current} />
     <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
+    <FpsReloadStyle hud={hud} engine={engine.current} />
     <div className="fps-loadout" aria-label="Weapon selection">{equipment.weapons.map((w, i) => <button key={w.id} aria-pressed={i === hud.weapon} disabled={hud.phase === 'loading' || hud.phase === 'error'} onClick={() => engine.current?.switchWeapon(i)}><kbd>{i + 1}</kbd><span>{w.name}<small>{w.role}</small></span><span className="fps-selected">{i === hud.weapon ? 'EQUIPPED' : 'EQUIP'}</span></button>)}{hud.quickItem && <button className="fps-supply" data-testid="quick-item" disabled={!hud.quickCount || hud.phase !== 'playing'} onClick={() => engine.current?.useQuickItem()}><kbd>G</kbd><span>{hud.quickItem}<small>{hud.quickType}</small></span><span className="fps-selected">x{hud.quickCount}</span></button>}<div className="fps-accuracy"><span>ACCURACY</span><strong>{accuracy}%</strong></div></div>
     <div className="fps-inputs" aria-label="On-screen FPS controls">
       <div className="fps-dpad">{(['a', 'w', 's', 'd'] as const).map((key, i) => { const Icon = [ArrowLeft, ArrowUp, ArrowDown, ArrowRight][i]; return <button key={key} disabled={!canFight} aria-label={`FPS ${['left', 'forward', 'backward', 'right'][i]}`} {...hold(key)}><Icon size={18} /></button>; })}</div>
@@ -151,3 +155,4 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
     <p className="fps-message" role="status">{fullscreen.notice || hud.message || (isArena ? 'Match scores are session-only · Armor and ammunition replenish on respawn' : 'Game balance stats · Scenery blocks shots · Armor replenishes each exercise')}</p>
   </div>;
 }
+
