@@ -33,12 +33,13 @@ const phase = value => `document.querySelector('.fps-game')?.dataset.phase===${J
 const canvas = `document.querySelector('.fps-viewport canvas')`;
 // The pools drain in a fraction of a second, so poll-and-read would miss them;
 // an observer on the two data attributes keeps the peak of each instead.
-const watch = `(()=>{window.fxObserver?.disconnect();window.fx={casings:0,impacts:0,sparks:0,scorches:0,recoil:0};
+const watch = `(()=>{window.fxObserver?.disconnect();window.fx={casings:0,impacts:0,sparks:0,scorches:0,recoil:0,climb:0};
   const c=${canvas};const read=()=>{const [a,b,s,k]=(c.dataset.fxCensus||'0/0/0/0').split('/').map(Number);
   window.fx.casings=Math.max(window.fx.casings,a);window.fx.impacts=Math.max(window.fx.impacts,b);
   window.fx.sparks=Math.max(window.fx.sparks,s);window.fx.scorches=Math.max(window.fx.scorches,k);
-  window.fx.recoil=Math.max(window.fx.recoil,Math.abs(Number(c.dataset.fxRecoil||0)))};
-  window.fxObserver=new MutationObserver(read);window.fxObserver.observe(c,{attributes:true,attributeFilter:['data-fx-census','data-fx-recoil']});read()})()`;
+  window.fx.recoil=Math.max(window.fx.recoil,Math.abs(Number(c.dataset.fxRecoil||0)));
+  window.fx.climb=Math.max(window.fx.climb,Math.abs(Number(c.dataset.fxClimb||0)))};
+  window.fxObserver=new MutationObserver(read);window.fxObserver.observe(c,{attributes:true,attributeFilter:['data-fx-census','data-fx-recoil','data-fx-climb']});read()})()`;
 const census = `(()=>{const [a,b,s,k]=(${canvas}.dataset.fxCensus||'0/0/0/0').split('/').map(Number);return {casings:a,impacts:b,sparks:s,scorches:k}})()`;
 const hold = async (ms, x = 700, y = 550) => {
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
@@ -59,9 +60,14 @@ try {
   assert(await evaluate('!!document.pointerLockElement'), 'Effects smoke drives captured mouse input');
   assert.equal(await evaluate(`${canvas}.dataset.fxCensus`), '0/0/0/0', 'A fresh range starts with every effect pool empty');
   assert.equal(await evaluate(`${canvas}.dataset.fxStyle`), 'issued:sar-issued:skin-issued', 'Issued kit draws the issued style');
-  await key('2', 'Digit2'); await delay(400);
-  assert.equal(await evaluate(`${canvas}.dataset.fxStyle`), 'issued:ult-issued:skin-issued', 'Switching weapons switches the style with it');
-  await key('1', 'Digit1'); await delay(400);
+  // Waited on rather than slept through: a swap lands on the next frame, and
+  // on a software renderer a frame can outlast any fixed delay worth writing.
+  const style = id => `${canvas}.dataset.fxStyle===${JSON.stringify(id)}`;
+  await key('2', 'Digit2');
+  await wait(style('issued:ult-issued:skin-issued'), 8000).catch(() => {
+    throw new Error('Switching weapons switches the style with it');
+  });
+  await key('1', 'Digit1'); await wait(style('issued:sar-issued:skin-issued'), 8000);
 
   // Down at the ground first, where every round marks concrete.
   await look(0, 470); await delay(250);
@@ -80,10 +86,20 @@ try {
   // still several times what the old tuning could reach, which is the point:
   // the kick cannot be quietly returned to decoration without failing here.
   assert(fx.recoil > 0.03, `Held fire climbs (peak ${fx.recoil})`);
+  // The half that makes recoil a mechanic rather than an animation: held fire
+  // walks the shooter's own aim, which is what has to be pulled back down.
+  // A software renderer fires well under the weapon's cadence and so lets the
+  // aim recover between rounds, reaching about a degree where real hardware
+  // walks it to the ceiling. The floor only has to outlive that gap: it is a
+  // guard against the aim being taken out again, not a tuning assertion.
+  assert(fx.climb > 0.012, `Held fire takes the shooter's aim (peak ${fx.climb} rad)`);
   await screenshot('burst-into-ground');
 
   // Released, the climb settles back to where the shooter was aiming.
   await wait(`Math.abs(Number(${canvas}.dataset.fxRecoil))<0.0005`, 4000);
+  // And the aim it took is handed back, so a released trigger returns the
+  // sights to where the shooter was pointing rather than leaving them raised.
+  await wait(`Math.abs(Number(${canvas}.dataset.fxClimb))<0.002`, 6000);
   // Brass and sparks clear themselves; the scorch is the one mark that stays.
   await delay(1000);
   const lingering = await evaluate(census);

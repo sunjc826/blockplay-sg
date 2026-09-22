@@ -137,12 +137,31 @@ the weapon additionally bucks back towards the shoulder and rolls away from the
 side it is being pushed towards. Shot spread is still owned separately by the
 accuracy model — recoil never widens a cone.
 
+**Recoil takes your aim, which is what makes it a mechanic.** A shot moves the
+shooter's own `pitch` and `yaw`, not only the rendered offset, so a burst has to
+be held down rather than watched. Without that, recoil is decoration at any
+amplitude: it returns to precisely where you were aiming and never asks anything
+of you. The weapon hands the aim back once the trigger is released — minus
+whatever you already pulled down yourself, which `compensateRecoil` takes off
+the debt as you pull, so compensating a burst and then releasing does not drag
+the sights below the target by exactly what you paid. The climb tops out rather
+than walking the muzzle into the sky, the way spray patterns do everywhere.
+
+The engine still owns `pitch` and `yaw`; `takeAimPush` only tells it how far to
+move them, once per frame. Anything outside the engine that models where the
+shooter is pointing therefore has to read the real angles rather than dead-
+reckon from its own inputs — `.fps-game` publishes them as `data-player-yaw` and
+`data-player-pitch`, and the AI pilot is already safe because it re-observes
+from the camera every tick.
+
 **Two ratings, the way STALKER splits them.** `recoil` is how hard one round
 throws the muzzle and is felt on the first shot of a burst. `recoilRecovery` is
 how fast the weapon comes back down, as a multiple of the baseline settle rate;
 it does nothing to a single shot and decides everything about a held trigger,
 because the decay between rounds is what says whether a burst converges low or
-stacks towards the ceiling. A heavy weapon can therefore kick hard and still be
+stacks towards the ceiling, and it is how fast the aim comes back. Both weapons
+fire inside the recovery delay, so neither recovers mid-burst: how far a burst
+walks is `recoil`, how long it stays walked is recovery. A heavy weapon can therefore kick hard and still be
 controllable, and a light one can kick softly and still wander — which one
 number cannot express. The issued rifle sits at 1.00 recovery and the support
 weapon at 0.85, and both ratings improve up every rung of a platform's ladder.

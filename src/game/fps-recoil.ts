@@ -6,15 +6,31 @@
  * where a single damped scalar can only ever slide back down from an instant
  * jump.
  *
- * Two ratings drive it, which is the split STALKER makes and the reason a kick
- * is answerable rather than merely large:
+ * A kick has three parts here, and only the first two used to exist:
+ *
+ * 1. **The view kick**, below, which snaps and settles on its own.
+ * 2. **The weapon's buck** in the hands, which `recoilPose` sizes.
+ * 3. **The aim the weapon takes**, which is the part that makes recoil cost
+ *    something. A shot moves the shooter's *actual* pitch and yaw, not just the
+ *    rendered offset, so a burst has to be held down rather than watched. The
+ *    weapon hands that aim back once the trigger is released — minus whatever
+ *    the shooter already pulled down themselves, which `compensateRecoil`
+ *    accounts for, so compensating a burst and then releasing does not drag the
+ *    sights below the target by exactly what was pulled.
+ *
+ * Without part 3 recoil is decoration at any amplitude: it always returns to
+ * precisely where you were aiming, so nothing is ever asked of the player.
+ *
+ * Two ratings drive all three, which is the split STALKER makes and the reason
+ * a kick is answerable rather than merely large:
  *
  * - **`recoil`** is how hard one round throws the muzzle. It sets the size of
  *   every impulse below, so it is felt on the first shot of a burst.
  * - **`recoilRecovery`** is how fast the weapon comes back down, as a multiple
  *   of the baseline rate. It does nothing to a single shot and everything to a
  *   held trigger: the decay between rounds is what decides whether a burst
- *   converges low or stacks towards the ceiling.
+ *   converges low or stacks towards the ceiling, and it is also how quickly the
+ *   weapon returns the aim it took.
  *
  * A heavy weapon can therefore kick hard and still be controllable, and a light
  * one can kick softly and still wander, which one number could not express.
@@ -41,6 +57,10 @@ export interface RecoilState {
    * mid-settle finishes on the rate that put the muzzle up there.
    */
   recovery: number;
+  /** Radians of real aim the recoil has taken and not yet handed back. */
+  climb: number; drift: number;
+  /** Aim owed to the engine, in radians; `takeAimPush` drains it each frame. */
+  pushPitch: number; pushYaw: number;
 }
 
 /** Radians of camera rotation per unit of kick. */
@@ -51,13 +71,36 @@ export const VIEW_SCALE = 0.22;
  * so raising a gain moves every weapon and every catalog delta together rather
  * than needing the catalog rewritten underneath it.
  */
-const PITCH_GAIN = 3.2, YAW_GAIN = 3.2, PUNCH_GAIN = 2.2, ROLL_GAIN = 1.5;
+const PITCH_GAIN = 4, YAW_GAIN = 4, PUNCH_GAIN = 2.8, ROLL_GAIN = 1.8;
+/**
+ * Radians of the shooter's own aim one point of recoil rating takes, before the
+ * per-shot profile. This is the part that has to be answered with the mouse,
+ * so it is deliberately the smallest number here and still the one that decides
+ * whether recoil is a mechanic or an animation.
+ */
+const CLIMB_GAIN = 0.54;
+/** The share of the horizontal pattern that moves the aim rather than the view. */
+const DRIFT_SHARE = 0.6;
+/**
+ * How far the aim can be walked before the weapon stops taking more of it.
+ * Spray patterns top out in every game that has them: past this the muzzle is
+ * already pointing at the sky and further climb would only be unrecoverable.
+ */
+export const CLIMB_CEILING = 0.28, DRIFT_CEILING = 0.12;
+/**
+ * Seconds off the trigger before the weapon starts giving the aim back, and the
+ * baseline rate it does so at. The delay sits above the slowest weapon's firing
+ * interval, so sustained fire never recovers mid-burst while a released trigger
+ * recovers almost at once.
+ */
+export const RECOVERY_DELAY = 0.18;
+const AIM_RETURN = 3;
 /**
  * Ceilings on accumulated recoil, so a long burst settles instead of climbing
  * away. Sited above where the issued weapons converge, so they bound the worst
  * case rather than flattening the climb every weapon is meant to have.
  */
-export const PITCH_CEILING = 0.34, YAW_CEILING = 0.15, PUNCH_CEILING = 0.22, ROLL_CEILING = 0.06;
+export const PITCH_CEILING = 0.42, YAW_CEILING = 0.19, PUNCH_CEILING = 0.28, ROLL_CEILING = 0.07;
 /** Seconds of held fire before the horizontal pattern starts over. */
 export const BURST_RESET = 0.32;
 const RISE = 30, RECOVER = 4.2, PUNCH_RISE = 26, PUNCH_RECOVER = 11.5;
@@ -79,12 +122,13 @@ const PATTERNS: readonly (readonly number[])[] = [
 /** The first round of a burst snaps hardest; the rest of the magazine settles lower. */
 const verticalProfile = (shot: number) => 1.35 - 0.5 * Math.min(1, shot / 4);
 
-export const createRecoil = (): RecoilState => ({ pitchTarget: 0, yawTarget: 0, punchTarget: 0, rollTarget: 0, pitch: 0, yaw: 0, punch: 0, roll: 0, shot: 0, idle: BURST_RESET, recovery: 1 });
+export const createRecoil = (): RecoilState => ({ pitchTarget: 0, yawTarget: 0, punchTarget: 0, rollTarget: 0, pitch: 0, yaw: 0, punch: 0, roll: 0, shot: 0, idle: BURST_RESET, recovery: 1, climb: 0, drift: 0, pushPitch: 0, pushYaw: 0 });
 
 export function resetRecoil(state: RecoilState) {
   state.pitchTarget = state.yawTarget = state.punchTarget = state.rollTarget = 0;
   state.pitch = state.yaw = state.punch = state.roll = 0;
   state.shot = 0; state.idle = BURST_RESET; state.recovery = 1;
+  state.climb = state.drift = state.pushPitch = state.pushYaw = 0;
 }
 
 /** The resolved weapon spec, so armoury parts and grips carry straight through. */
@@ -98,6 +142,12 @@ export function recordRecoilShot(state: RecoilState, spec: RecoilRating, weapon:
   state.punchTarget = Math.min(PUNCH_CEILING, state.punchTarget + rating * PUNCH_GAIN);
   // The weapon rolls away from the side it is being pushed towards.
   state.rollTarget = Math.max(-ROLL_CEILING, Math.min(ROLL_CEILING, state.rollTarget - rating * ROLL_GAIN * lateral));
+  // And the part the shooter has to answer: the aim itself moves, up to the
+  // ceiling, and is owed back to the engine on the next frame.
+  const rise = Math.min(rating * CLIMB_GAIN * verticalProfile(state.shot), Math.max(0, CLIMB_CEILING - state.climb));
+  state.climb += rise; state.pushPitch += rise;
+  const drift = Math.max(-DRIFT_CEILING, Math.min(DRIFT_CEILING, state.drift + rating * CLIMB_GAIN * DRIFT_SHARE * lateral));
+  state.pushYaw += drift - state.drift; state.drift = drift;
   state.shot++; state.idle = 0;
 }
 
@@ -116,6 +166,36 @@ export function advanceRecoil(state: RecoilState, dt: number) {
   state.yaw += (state.yawTarget - state.yaw) * chase;
   state.punch += (state.punchTarget - state.punch) * punchChase;
   state.roll += (state.rollTarget - state.roll) * punchChase;
+  // Off the trigger, the weapon gives the aim back at the rate its recovery
+  // rating buys. Whatever the shooter already pulled down is no longer owed,
+  // because `compensateRecoil` took it off the debt as they pulled.
+  if (state.idle < RECOVERY_DELAY) return;
+  const given = 1 - Math.exp(-AIM_RETURN * recovery * step);
+  const back = state.climb * given, side = state.drift * given;
+  state.climb -= back; state.pushPitch -= back;
+  state.drift -= side; state.pushYaw -= side;
+}
+
+/**
+ * The aim the recoil has taken or returned since the last frame, in radians,
+ * handed over once. The engine owns `pitch` and `yaw`; this only ever tells it
+ * how far to move them.
+ */
+export function takeAimPush(state: RecoilState) {
+  const pitch = state.pushPitch, yaw = state.pushYaw;
+  state.pushPitch = state.pushYaw = 0;
+  return { pitch, yaw };
+}
+/**
+ * The shooter's own look, offered back to the recoil so that pulling down pays
+ * off the climb rather than banking it. Only movement *against* what the weapon
+ * took counts: deliberately aiming higher mid-burst is not compensation, and
+ * must not leave the weapon owing aim it never took.
+ */
+export function compensateRecoil(state: RecoilState, dPitch: number, dYaw: number) {
+  if (dPitch < 0) state.climb = Math.max(0, state.climb + dPitch);
+  if (state.drift > 0 && dYaw < 0) state.drift = Math.max(0, state.drift + dYaw);
+  else if (state.drift < 0 && dYaw > 0) state.drift = Math.min(0, state.drift + dYaw);
 }
 
 /** Camera offsets in radians. Pitch is negated by the caller's convention, not here. */

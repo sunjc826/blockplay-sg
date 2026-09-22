@@ -20,11 +20,15 @@ export async function requestFpsPointerLock(
   }
 }
 
+/** Not quite the poles, so looking straight up cannot invert the camera. */
+export const FPS_PITCH_LIMIT = 1.35;
+/** Shared by the mouse, the thumb drag and the aim recoil takes. */
+export const clampFpsPitch = (pitch: number) => Math.max(-FPS_PITCH_LIMIT, Math.min(FPS_PITCH_LIMIT, pitch));
 /** Only relative deltas affect captured look; absolute screen coordinates never do. */
 export function turnFpsLook(yaw: number, pitch: number, dx: number, dy: number, aiming: boolean) {
   const sensitivity = aiming ? .0013 : .0023;
   return {
     yaw: yaw - (Number.isFinite(dx) ? dx : 0) * sensitivity,
-    pitch: Math.max(-1.35, Math.min(1.35, pitch - (Number.isFinite(dy) ? dy : 0) * sensitivity)),
+    pitch: clampFpsPitch(pitch - (Number.isFinite(dy) ? dy : 0) * sensitivity),
   };
 }

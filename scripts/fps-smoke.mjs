@@ -67,31 +67,50 @@ try {
   await evaluate(`window.sawKillChain=false;window.killChainObserver=new MutationObserver(()=>{if(document.querySelector('.fps-kill-callout'))window.sawKillChain=true});window.killChainObserver.observe(document.querySelector('.fps-viewport'),{childList:true,subtree:true})`);
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: 700, y: 550, button: 'right', clickCount: 1 });
   await wait(`Number(document.querySelector('.fps-viewport canvas').dataset.aimProgress)>.98`);
-  let yaw = 0, pitch = -0.03, cleared = 0;
+  let cleared = 0;
+  // Recoil moves the shooter's own pitch and yaw, so where the weapon is
+  // pointing is no longer "wherever this script last aimed it". Every look is
+  // computed from the angles the engine publishes.
+  const aimNow = () => evaluate(`(()=>{const d=document.querySelector('.fps-game').dataset;return {yaw:Number(d.playerYaw),pitch:Number(d.playerPitch)}})()`);
+  // A player pulling down through a burst, run inside the page at frame rate.
+  // Driving this over CDP instead would spend seconds of game time per burst
+  // and put consecutive kills outside the multi-kill window. Aiming
+  // sensitivity is 0.0013 rad per unit and positive movementY looks down; what
+  // is paid back here is not owed again when the trigger is released, which is
+  // the whole point of `compensateRecoil`.
+  await evaluate(`(()=>{const c=document.querySelector('.fps-viewport canvas');window.__compensating=true;
+    const tick=()=>{if(!window.__compensating)return;const climb=Number(c.dataset.fxClimb||0);
+      if(climb>0.002){const e=new MouseEvent('mousemove');Object.defineProperties(e,{movementX:{value:0},movementY:{value:climb/0.0013}});document.dispatchEvent(e);}
+      requestAnimationFrame(tick)};requestAnimationFrame(tick)})()`);
   for (const [x, z] of [[-44,56],[-50,57],[-38,57],[-56,62],[-32,62],[-60,55],[-26,55],[-14,64]]) {
-    // Real spread rewards aiming; leave enough ammunition for a short burst at each target.
-    if (await evaluate(ammo) < 8) {
-      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 700, y: 550, button: 'right', clickCount: 1 });
-      await key('r', 'KeyR'); await wait(`${ammo}===30`);
-      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: 700, y: 550, button: 'right', clickCount: 1 });
-      await wait(`Number(document.querySelector('.fps-viewport canvas').dataset.aimProgress)>.98`);
-    }
     const nextYaw = Math.atan2(-(x + 44), -(z - 68)), nextPitch = Math.atan2(-0.32, Math.hypot(x + 44, z - 68));
-    const dx = -(nextYaw - yaw) / 0.0013, dy = -(nextPitch - pitch) / 0.0013;
-    // Send look deltas through the same document input listener, without altering game state.
-    await evaluate(`(()=>{const event=new MouseEvent('mousemove');Object.defineProperties(event,{movementX:{value:${dx}},movementY:{value:${dy}}});document.dispatchEvent(event)})()`);
-    yaw = nextYaw; pitch = nextPitch; await delay(250);
-    await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: 700, y: 550, button: 'left', clickCount: 1 });
     cleared++;
-    await wait(`document.querySelector('.fps-score').textContent.startsWith('${cleared} /')`, 5000);
-    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 700, y: 550, button: 'left', clickCount: 1 });
-    await delay(500);
+    let down = false;
+    // Short bursts, re-aimed between them: a held trigger walks the muzzle up
+    // and off a distant target long before a magazine is spent.
+    for (let burst = 0; burst < 6 && !down; burst++) {
+      // Real spread rewards aiming; leave enough ammunition for a burst at each target.
+      if (await evaluate(ammo) < 8) {
+        await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 700, y: 550, button: 'right', clickCount: 1 });
+        await key('r', 'KeyR'); await wait(`${ammo}===30`);
+        await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: 700, y: 550, button: 'right', clickCount: 1 });
+        await wait(`Number(document.querySelector('.fps-viewport canvas').dataset.aimProgress)>.98`);
+      }
+      const { yaw, pitch } = await aimNow();
+      const dx = -(nextYaw - yaw) / 0.0013, dy = -(nextPitch - pitch) / 0.0013;
+      // Send look deltas through the same document input listener, without altering game state.
+      await evaluate(`(()=>{const event=new MouseEvent('mousemove');Object.defineProperties(event,{movementX:{value:${dx}},movementY:{value:${dy}}});document.dispatchEvent(event)})()`);
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: 700, y: 550, button: 'left', clickCount: 1 });
+      down = await wait(`document.querySelector('.fps-score').textContent.startsWith('${cleared} /')`, 1500).then(() => true, () => false);
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 700, y: 550, button: 'left', clickCount: 1 });
+    }
+    assert(down, `Target ${cleared} falls to aimed bursts`);
   }
   await wait(phase('complete')); await screenshot('range-complete');
   assert(await evaluate(`JSON.parse(localStorage.getItem('blockplay.armory.v1')).xp>=300`), 'Kills and completion award persisted XP');
   assert(await evaluate(`!!document.querySelector('.fps-level-up')`), 'Completed drill announces level up');
   assert(await evaluate(`window.sawKillChain || !!document.querySelector('.fps-final-callout')`), 'Rapid target eliminations announce multi-kills, even when a later reload breaks the chain');
-  await evaluate('window.killChainObserver.disconnect()');
+  await evaluate('window.__compensating=false;window.killChainObserver.disconnect()');
   assert(await evaluate(`document.querySelector('.fps-start-card h2').textContent==='Eight for eight.'`));
   await click(button('Reset exercise')); await wait(phase('ready'));
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });

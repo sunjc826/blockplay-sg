@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook } from './fps-pointer';
+import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook, clampFpsPitch } from './fps-pointer';
 import { dragLook, resolveMovement, stickKeys, type StickVector } from './touch-controls';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { advanceWeapon, beginReload, createLoadout, findTrait, fireWeapon, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponState } from './fps-rules';
@@ -7,7 +7,7 @@ import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { sectorAt, zoneSectors } from './zone-sectors';
 import { advanceRound, createRound, needsFlight, MAX_ROUNDS_IN_FLIGHT, type InFlightRound } from './fps-projectiles';
 import { createFpsEffects, type ImpactKind } from './fps-effects';
-import { advanceRecoil, createRecoil, recoilPose, recoilView, recordRecoilShot, resetRecoil } from './fps-recoil';
+import { advanceRecoil, compensateRecoil, createRecoil, recoilPose, recoilView, recordRecoilShot, resetRecoil, takeAimPush } from './fps-recoil';
 import { effectStyleForWeapon } from './fps-effect-styles';
 import { aimSpeedScale, applyArmorDamage, consumeItem, createProfile, encikAddress, jumpScale, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile, type VendorPurchaseResult } from './armory-state';
 import { registerElimination, ELIMINATION_XP, type KillChain } from './progression';
@@ -59,7 +59,10 @@ export interface FpsHud {
   weapon: number; magazine: number; reserve: number; reloading: number;
   hits: number; shots: number; landed: number; health: number; armor: number; incoming: boolean; hurt: boolean; lastDamage: number; earned: number; earnedXp: number; callout: string; chain: number; elapsed: number; aiming: boolean; hit: boolean;
   vehicle: VehicleKind | 'on-foot'; vehicleSpeed: number; altitude: number; interact: string; vehicleNotice: string; carDistance: number; helicopterDistance: number;
-  locked: boolean; message: string; muted: boolean; x: number; z: number; yaw: number; mapMarkers: MinimapMarker[];
+  locked: boolean; message: string; muted: boolean; x: number; z: number; yaw: number;
+  /** Look pitch. Recoil moves this as well as the mouse, so nothing outside the
+   * engine can dead-reckon where the shooter is pointing. */
+  pitch: number; mapMarkers: MinimapMarker[];
   /** Which control scheme the round is running under; 'touch' skips pointer capture. */
   inputMode: 'mouse' | 'touch';
   arena: ArenaSnapshot | null; arenaSelf: ArenaActor | null; arenaConnected: boolean; arenaStarted: boolean;
@@ -68,7 +71,7 @@ export interface FpsHud {
   /** Named sub-area the player is standing in; '' on ground that belongs to none. */
   sector: string;
 }
-export const initialFpsHud: FpsHud = { quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '' };
+export const initialFpsHud: FpsHud = { quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '' };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -201,7 +204,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const publish = () => {
     if (disposed) return;
     const state = loadout[hud.weapon];
-    onHud({ ...hud, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], ...(!options.arena ? vehicles.hud(position) : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / specs[hud.weapon].reload, aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw,
+    onHud({ ...hud, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], ...(!options.arena ? vehicles.hud(position) : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / specs[hud.weapon].reload, aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapMarkers: options.arena ? [] : [
         ...targetPositions.flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
@@ -510,7 +513,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   };
   const look = (dx: number, dy: number) => {
     if (hud.phase !== 'playing') return;
+    const wasYaw = yaw, wasPitch = pitch;
     ({ yaw, pitch } = turnFpsLook(yaw, pitch, dx, dy, ads || touchAim));
+    // Pulling down pays off the climb instead of banking it, so compensating a
+    // burst and then releasing does not drag the sights under the target.
+    compensateRecoil(kick, pitch - wasPitch, yaw - wasYaw);
   };
   const mousemove = (event: MouseEvent) => { if (!pilotEnabled && document.pointerLockElement === canvas) look(event.movementX, event.movementY); };
   // Pointer events only report the first press and final release of a mouse chord.
@@ -648,6 +655,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
   }
 
+  /**
+   * Recoil takes the shooter's own aim, not only the rendered view, which is
+   * what makes a burst something to hold down rather than watch. The engine
+   * still owns `pitch` and `yaw`; the recoil only says how far to move them.
+   */
+  function applyAimPush() {
+    const push = takeAimPush(kick);
+    if (!push.pitch && !push.yaw) return;
+    yaw += push.yaw; pitch = clampFpsPitch(pitch + push.pitch);
+  }
   function updateCameras(dt: number, moving: boolean, sprinting: boolean) {
     if (vehicles.mounted) {
       actualAim = false; aimProgress = 0; rig.visible = false;
@@ -1002,11 +1019,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // cooldowns already do: on a renderer slow enough that `dt` is clamped,
       // rounds still leave at their real rate, so anything the shot throws off
       // has to settle at its real rate too or it piles up.
-      advanceRecoil(kick, realDt);
+      advanceRecoil(kick, realDt); applyAimPush();
       updateCameras(dt, moving, sprinting);
       if (trigger && !sprinting && !vehicles.active) shoot();
       if (hud.phase === 'playing' && options.combat && !options.arena) counterFire(realDt);
-    } else { advanceRecoil(kick, realDt); carry.set(0, 0, 0); updateCameras(dt, false, false); }
+    } else { advanceRecoil(kick, realDt); applyAimPush(); carry.set(0, 0, 0); updateCameras(dt, false, false); }
     updateArena(realDt);
     if (debugAvailable && hud.phase === 'playing' && hud.health > 0) {
       recoveryDelay = Math.max(0, recoveryDelay - dt);
@@ -1031,8 +1048,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // the pools without the frame paying for four attribute writes.
     const live = effects.counts, census = `${live.casings}/${live.impacts}/${live.sparks}/${live.scorches}`;
     if (census !== canvas.dataset.fxCensus) canvas.dataset.fxCensus = census;
-    const climb = kick.pitch.toFixed(4);
-    if (climb !== canvas.dataset.fxRecoil) canvas.dataset.fxRecoil = climb;
+    const kicked = kick.pitch.toFixed(4);
+    if (kicked !== canvas.dataset.fxRecoil) canvas.dataset.fxRecoil = kicked;
+    // The aim the weapon is currently holding, which is the half a smoke can
+    // tell apart from decoration.
+    const climb = kick.climb.toFixed(4);
+    if (climb !== canvas.dataset.fxClimb) canvas.dataset.fxClimb = climb;
     if (effects.style.id !== canvas.dataset.fxStyle) canvas.dataset.fxStyle = effects.style.id;
     if (motor && motorGain && audio) {
       const active = hud.phase === 'playing' && vehicles.mounted && !hud.muted;

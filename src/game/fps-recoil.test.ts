@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceRecoil, BURST_RESET, createRecoil, PITCH_CEILING, recoilPose, recoilView, recordRecoilShot, RECOVERY_LIMITS, resetRecoil, VIEW_SCALE, YAW_CEILING } from './fps-recoil';
+import { advanceRecoil, BURST_RESET, CLIMB_CEILING, compensateRecoil, createRecoil, PITCH_CEILING, recoilPose, recoilView, recordRecoilShot, RECOVERY_DELAY, RECOVERY_LIMITS, resetRecoil, takeAimPush, VIEW_SCALE, YAW_CEILING } from './fps-recoil';
 
 const step = (state: ReturnType<typeof createRecoil>, seconds: number, dt = 1 / 60) => {
   for (let t = 0; t < seconds; t += dt) advanceRecoil(state, dt);
@@ -154,5 +154,97 @@ describe('recovery, the second rating', () => {
       step(state, 12);
       expect(Math.abs(state.pitch)).toBeLessThan(1e-3);
     }
+  });
+});
+
+/**
+ * A shooter holding the weapon: the engine's half of the loop, which owns the
+ * aim and only ever moves it by what `takeAimPush` hands over.
+ */
+const shooter = (spec = SAR, weapon = 0) => {
+  const state = createRecoil();
+  let pitch = 0, yaw = 0;
+  const drain = () => { const push = takeAimPush(state); pitch += push.pitch; yaw += push.yaw; };
+  return {
+    state,
+    aim: () => ({ pitch, yaw }),
+    fire() { recordRecoilShot(state, spec, weapon, () => .5); drain(); },
+    tick(seconds: number, dt = 1 / 240) { for (let t = 0; t < seconds; t += dt) { advanceRecoil(state, dt); drain(); } },
+    /** The shooter's own mouse, offered back the way the engine offers it. */
+    pull(radians: number) { pitch += radians; compensateRecoil(state, radians, 0); },
+  };
+};
+
+describe('the aim recoil takes', () => {
+  const degrees = (radians: number) => radians * 180 / Math.PI;
+  it('walks the shooter off the target, not just the picture', () => {
+    // The whole point: a burst nobody has to answer is decoration at any
+    // amplitude, because it returns to exactly where it was aimed.
+    const player = shooter();
+    for (let i = 0; i < 8; i++) { player.fire(); player.tick(.12); }
+    expect(degrees(player.aim().pitch)).toBeGreaterThan(3);
+  });
+  it('holds the aim up while the trigger is held', () => {
+    const player = shooter();
+    player.fire();
+    const taken = player.aim().pitch;
+    // Inside the firing interval nothing is given back, so a burst accumulates.
+    player.tick(RECOVERY_DELAY * .9);
+    expect(player.aim().pitch).toBeCloseTo(taken, 12);
+  });
+  it('gives it back once the trigger is released, at the recovery rating', () => {
+    const settle = (recoilRecovery: number) => {
+      const player = shooter({ recoil: .018, recoilRecovery }, 0);
+      for (let i = 0; i < 8; i++) { player.fire(); player.tick(.12); }
+      const peak = player.aim().pitch;
+      let elapsed = 0;
+      while (player.aim().pitch > peak * .05 && elapsed < 10) { player.tick(1 / 240, 1 / 240); elapsed += 1 / 240; }
+      return { peak, elapsed, rest: player.aim().pitch };
+    };
+    const slow = settle(.7), quick = settle(1.6);
+    // Back to where the shooter was pointing, either way.
+    expect(slow.rest).toBeLessThan(slow.peak * .05);
+    expect(quick.rest).toBeLessThan(quick.peak * .05);
+    // How far a burst walks is `recoil`; how long it stays walked is recovery.
+    // Both weapons fire inside RECOVERY_DELAY, so neither recovers mid-burst
+    // and the two climb identically — the rating buys the way back, not the
+    // way up, and the ladder buys the way up with a lower `recoil` instead.
+    expect(quick.peak).toBeCloseTo(slow.peak, 12);
+    expect(quick.elapsed).toBeLessThan(slow.elapsed * .6);
+  });
+  it('does not drag the sights under the target when a burst is compensated', () => {
+    // The failure this exists to prevent: pull down through a burst to stay on
+    // target, release, and have the weapon "recover" the aim you already paid.
+    const player = shooter();
+    for (let i = 0; i < 10; i++) {
+      const before = player.aim().pitch;
+      player.fire();
+      player.pull(before - player.aim().pitch); // perfect compensation
+      player.tick(.12);
+    }
+    expect(player.aim().pitch).toBeCloseTo(0, 6);
+    player.tick(2.5);
+    expect(player.aim().pitch).toBeCloseTo(0, 3);
+  });
+  it('keeps aim the shooter deliberately gained, rather than owing it back', () => {
+    // Looking further up mid-burst is not compensation, and must not leave the
+    // weapon holding a debt it never took.
+    const player = shooter();
+    player.fire();
+    player.pull(.2);
+    player.tick(3);
+    expect(player.aim().pitch).toBeGreaterThan(.15);
+  });
+  it('tops the climb out instead of walking the muzzle into the sky', () => {
+    const player = shooter(ULTIMAX, 1);
+    for (let i = 0; i < 60; i++) { player.fire(); player.tick(.085); }
+    expect(player.state.climb).toBeLessThanOrEqual(CLIMB_CEILING + 1e-9);
+    expect(player.aim().pitch).toBeLessThanOrEqual(CLIMB_CEILING + 1e-9);
+  });
+  it('hands over each push exactly once', () => {
+    const state = createRecoil();
+    recordRecoilShot(state, SAR, 0, () => .5);
+    expect(takeAimPush(state).pitch).toBeGreaterThan(0);
+    expect(takeAimPush(state)).toEqual({ pitch: 0, yaw: 0 });
   });
 });

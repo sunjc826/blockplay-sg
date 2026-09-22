@@ -1,5 +1,44 @@
 # Blockplay: portable agent handoff
 
+**Latest: recoil takes your aim (2026-09-22).** The kick was reported as still
+weak after being made three times larger, and the amplitude was never the
+problem. Recoil only ever moved a *rendered* offset: `pitch` and `yaw` were
+untouched, so the sights always returned to exactly where they were pointed and
+nothing was ever asked of the player. A bigger transient was a bigger
+decoration. A shot now moves the shooter's own aim, and the weapon hands it back
+when the trigger is released.
+
+**The part that makes that fair is `compensateRecoil`.** Every look offers the
+player's own delta back to the recoil, so pulling down pays off the climb
+instead of banking it. Without it, holding a burst on target and then releasing
+would "recover" the aim you already paid and drag the sights below the target by
+exactly the amount you pulled — the classic way this mechanic is got wrong.
+There is a test for precisely that. The climb tops out at 0.28 rad rather than
+walking the muzzle into the sky, and the transient gains went up again
+(pitch 3.2 to 4.0, punch 2.2 to 2.8).
+
+**This changes who may model the player's aim.** Anything outside the engine
+that dead-reckons where the shooter is pointing is now wrong after the first
+round. The AI pilot was already safe — it re-observes from the camera each tick
+— but `fps-smoke.mjs` was not, and drifted a little further off with every
+target. `.fps-game` now publishes `data-player-yaw` / `data-player-pitch`, and
+the smoke re-syncs from those instead. It also fires short bursts and pulls down
+against the climb from a `requestAnimationFrame` loop *inside the page*; driving
+that over CDP spent seconds of game time per burst and pushed consecutive kills
+outside the three-second multi-kill window.
+
+Two latent smoke bugs surfaced and are fixed: the weapon-swap check slept a
+fixed 400 ms while everything around it honoured `EFFECTS_SMOKE_PACE`, and now
+waits on the style instead; and the effects smoke asserts the aim is actually
+taken and given back, not just that a number moves.
+
+698 unit tests, typecheck, `pnpm test:fps`, `pnpm test:fps:effects` and
+`pnpm test:armory` pass. `pnpm test:fps:handling` and `pnpm test:fps:pilot`
+still fail identically on an unmodified tree, as recorded below. Note that
+`test:fps` is load-sensitive here: its "W advances the player" check has 350 ms
+to register movement and fails on either tree when the box is busy, so close
+stale CDP tabs between runs.
+
 **Latest: the ammunition and health readouts move (2026-09-22).**
 Digits that lag behind the engine are a hazard in a shooter — reading 12 while
 holding 9 loses the fight — so the numbers stay the engine's own and the motion
@@ -25,6 +64,7 @@ free. The magazine bar shares its slot with the reload progressbar rather than
 sweeping alongside it, so only one thing moves there at a time.
 
 687 unit tests (+4), typecheck, build and `pnpm test:fps` pass.
+
 **Latest: weapons kick, and recoil is two ratings (2026-09-22).** The old kick
 was decoration: the issued rifle threw the sights about a third of a degree and
 a held trigger converged under a degree and a half, which is inside the target
