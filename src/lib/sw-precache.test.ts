@@ -7,11 +7,13 @@ const PUBLIC = ['/manifest.webmanifest', '/icons/icon-192.png'];
 
 it('precaches the whole build as root-absolute paths, and no source maps', () => {
   expect(shellPaths(BUNDLE, PUBLIC)).toEqual([
+    // index.html is cached as '/': the URL a navigation asks for, and the one
+    // hosts that redirect '/index.html' cannot break.
+    '/',
     '/assets/index-1b2c3d4e.css',
     '/assets/index-9f3c2a1b.js',
     '/assets/three-77a1c0de.js',
     '/icons/icon-192.png',
-    '/index.html',
     '/manifest.webmanifest',
   ]);
 });

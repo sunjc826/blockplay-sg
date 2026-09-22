@@ -41,18 +41,39 @@ const worker = globalThis as unknown as WorkerScope;
 const SHELL_CACHE = `blockplay-shell-${__VERSION__}`;
 /** Deliberately unversioned: a 2.6 MB voice pack should survive a deployment. */
 const MEDIA_CACHE = 'blockplay-media';
-const SHELL_DOCUMENT = '/index.html';
+/** The URL a navigation asks for, which is what the shell is cached under. */
+const SHELL_DOCUMENT = '/';
 /** Enough for every district's geometry plus the voice pack, with headroom. */
 const MEDIA_ENTRY_LIMIT = 320;
 
 const precached = new Set(__PRECACHE__);
 
+/**
+ * A response that arrived through a redirect cannot answer a navigation
+ * request — the browser turns it into a network error — and the Cache API
+ * remembers that flag. Cloudflare's asset server redirects `/index.html` to
+ * `/`, so rebuild any redirected response into a plain one before storing or
+ * serving it.
+ */
+async function withoutRedirect(response: Response) {
+  if (!response.redirected) return response;
+  return new Response(await response.blob(), {
+    status: response.status, statusText: response.statusText, headers: response.headers,
+  });
+}
+
 worker.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL_CACHE);
-    // `cache: 'reload'` keeps a stale HTTP-cached copy of index.html from being
-    // installed as the shell of a build it does not match.
-    await cache.addAll(__PRECACHE__.map(path => new Request(path, { cache: 'reload' })));
+    await Promise.all(__PRECACHE__.map(async path => {
+      // `cache: 'reload'` keeps a stale HTTP-cached copy of the page from being
+      // installed as the shell of a build it does not match.
+      const response = await fetch(new Request(path, { cache: 'reload' }));
+      // Fail the install rather than activate a worker with half a build; the
+      // previous one keeps serving.
+      if (!response.ok) throw new Error(`Precache failed: ${path} responded ${response.status}`);
+      await cache.put(path, await withoutRedirect(response));
+    }));
   })());
 });
 
@@ -98,7 +119,7 @@ async function cacheFirst(event: FetchEventLike, cacheName: string, store: boole
 async function appShell(request: Request) {
   const cache = await caches.open(SHELL_CACHE);
   const shell = await cache.match(SHELL_DOCUMENT);
-  if (shell) return shell;
+  if (shell) return withoutRedirect(shell);
   return fetch(request);
 }
 

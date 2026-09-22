@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { isFingerprinted, routeFor, staleCaches, stalePaths, type RouteInput } from './sw-policy';
 
 const ORIGIN = 'https://blockplaysg.fun';
-const SHELL = new Set(['/index.html', '/assets/index-9f3c2a1b.js', '/assets/three-77a1c0de.js', '/manifest.webmanifest']);
+const SHELL = new Set(['/', '/assets/index-9f3c2a1b.js', '/assets/three-77a1c0de.js', '/manifest.webmanifest']);
 const request = (url: string, extra: Partial<RouteInput> = {}) =>
   routeFor({ method: 'GET', url, origin: ORIGIN, navigate: false, ...extra }, SHELL);
 
@@ -14,9 +14,18 @@ describe('service worker routing', () => {
   });
 
   it('does not answer a real page with the app shell', () => {
-    // These are files the deployment actually serves, not routes the app owns.
-    expect(request(`${ORIGIN}/connection-check.html`, { navigate: true })).toBe('runtime');
-    expect(request(`${ORIGIN}/audio/encik/`, { navigate: true })).toBe('runtime');
+    // These are files the deployment actually serves, not routes the app owns,
+    // and the browser handles them better than a cached copy would.
+    expect(request(`${ORIGIN}/connection-check.html`, { navigate: true })).toBe('bypass');
+    expect(request(`${ORIGIN}/audio/encik/`, { navigate: true })).toBe('bypass');
+  });
+
+  it('answers a navigation from the shell even when the URL carries a query', () => {
+    // '/' is precached, but `cache.match('/?room=abc')` would miss it.
+    expect(request(`${ORIGIN}/?room=abc`, { navigate: true })).toBe('shell');
+    expect(request(`${ORIGIN}/`, { navigate: true })).toBe('shell');
+    // Fetched as a file rather than navigated to, it is a precache hit.
+    expect(request(`${ORIGIN}/`)).toBe('precache');
   });
 
   it('serves build output from the install-time cache', () => {

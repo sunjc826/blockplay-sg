@@ -1,5 +1,52 @@
 # Blockplay: portable agent handoff
 
+**Latest: the installed app broke on every load but the first (2026-09-22).**
+Reported from the deployed site: first load fine, later loads dead until site
+data was cleared. Reproduced in three loads against `wrangler dev`, and it is a
+one-line rule with a wide blast radius.
+
+**A response that arrived through a redirect cannot answer a navigation
+request.** The browser refuses it and turns it into `net::ERR_FAILED`, and the
+Cache API preserves that flag across a `put`. Cloudflare's asset server
+redirects `/index.html` to `/`; the precache list was built from the Rollup
+bundle, which names the page `index.html`, so `cache.addAll` followed the
+redirect and stored a response with `redirected: true`. Every load the worker
+answered — that is, every load after the first — failed. The first load always
+looked fine, because the worker is not yet controlling the page.
+
+The shell is now fetched and stored under `/`: the URL a navigation asks for,
+the manifest's `start_url`, and the one no host redirects away from.
+`withoutRedirect()` additionally rebuilds any redirected response before it is
+cached or served, so a differently-configured host cannot reintroduce it, and
+`routeFor` decides navigations before consulting the precache list so
+`/?room=abc` still gets the shell. Navigations to real files
+(`/connection-check.html`, `/audio/encik/`) are now passed to the network rather
+than cached, which is also what lets the browser follow their redirects.
+
+**Both test layers had let it through, and both are fixed.** The smoke's own
+static server answered `/index.html` with a plain 200 — kinder than the
+deployment it stands in for — so it now mirrors the 307. And it reused the
+browser profile, so its "first load" was often a repeat load with a working
+worker already installed; it now clears the origin's storage first, and reloads
+once with the server still running before going offline. Verified both
+directions: the hardened check fails on the old worker and passes on the new.
+
+Already-broken browsers heal themselves. Tested with the poisoned profile: the
+new worker installs on the next navigation, and because an error page holds no
+controlled client it activates immediately — the very next load renders, no
+clearing needed.
+
+Rebased onto the twelve commits that landed on `main` meanwhile; only this log
+conflicted. On the merged tree: 680 unit tests, typecheck, both builds,
+`pnpm test:pwa` and `pnpm test:cloudflare` (which now also asserts the worker
+precaches the site root and that `/` is served without a redirect) pass. Three
+consecutive loads against the Worker preview render.
+
+The deploy workflow runs `pnpm test:cloudflare` against the live site, so that
+last assertion now guards production. It does not run `pnpm test:pwa`, which is
+what actually catches this class of bug; adding a headless Chrome step to the
+workflow would close that gap.
+
 **Latest: the Encik defers as you outrank him (2026-09-21).** He used to shout
 at a Legend exactly as he shouts at a recruit. Now his lines have four
 registers — Recruit (the recorded pack), Noticed at 12, Respect at 20, Defers

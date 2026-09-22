@@ -10,11 +10,18 @@ const IGNORED = /\.(map|txt)$/i;
 /**
  * App-shell paths from a Rollup bundle plus the public files the install needs.
  * Sorted, so the version stamp does not move with Rollup's emit order.
+ *
+ * `index.html` becomes `/`: that is the URL a navigation asks for and the
+ * manifest's start_url, and some hosts — Cloudflare's asset server among them —
+ * redirect `/index.html` to it. A cached shell that arrived through a redirect
+ * cannot answer a navigation at all, so the shell is fetched under the name the
+ * browser actually uses.
  */
 export function shellPaths(bundleFiles, publicFiles = []) {
   const paths = [...bundleFiles, ...publicFiles]
     .filter(file => !IGNORED.test(file))
-    .map(file => (file.startsWith('/') ? file : `/${file}`));
+    .map(file => (file.startsWith('/') ? file : `/${file}`))
+    .map(path => (path === '/index.html' ? '/' : path));
   return [...new Set(paths)].sort();
 }
 
