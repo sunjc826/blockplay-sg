@@ -233,6 +233,6 @@ export function claimReward(profile: ArmoryProfile, result: ExerciseReward): Arm
   return { ...profile, xp: Math.min(1000000, profile.xp + completionXp(result)), credits: Math.min(1000000, profile.credits + rewardAmount(result)), rewarded: [...profile.rewarded, result.id].slice(-100), exercises: profile.exercises + 1 };
 }
 export const SHOP_CATEGORIES = [
-  { id: 'weapon', label: 'Weapons' }, { id: 'skin', label: 'Skins' }, { id: 'attachment', label: 'Attachments' }, { id: 'armor', label: 'Armor' }, { id: 'consumable', label: 'Supplies' }, { id: 'vehicleSkin', label: 'Vehicles' },
+  { id: 'weapon', label: 'Weapons' }, { id: 'skin', label: 'Skins' }, { id: 'attachment', label: 'Attachments' }, { id: 'armor', label: 'Armor' }, { id: 'food', label: 'Food' }, { id: 'utility', label: 'Utilities' }, { id: 'vehicleSkin', label: 'Vehicles' },
 ] as const;
 export const catalogSize = ARMORY_CATALOG.length;
