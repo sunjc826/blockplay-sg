@@ -149,6 +149,17 @@ harder. The SAR 21 lands at 1.7, 12.6 and 28.6; the Ultimax, being a support
 weapon, is heavier still. The bands are wide on purpose: they catch a weapon
 that is off by a factor, not a tuning decision off by a decimal.
 
+**The opening burst is the one you can place.** The view kick and the aim climb
+have opposite shapes, and they are separate profiles for that reason. The view
+kick snaps hardest on the first round and settles lower, so a single aimed shot
+feels like something. The climb does the reverse: the first five rounds take 45%
+of the full rate before it ramps up over the next four, so a short burst can be
+held on a target and a magazine held down cannot. On the SAR 21 that is 2.9
+degrees across five rounds against 7.6 across the next five. The burst count
+restarts after a third of a second off the trigger, so tapping in fives is a
+real and learnable way to stay in the easy part of the curve — paid for in rate
+of fire, which is the trade the weapon is meant to offer.
+
 **Recoil takes your aim, which is what makes it a mechanic.** A shot moves the
 shooter's own `pitch` and `yaw`, not only the rendered offset, so a burst has to
 be held down rather than watched. Without that, recoil is decoration at any

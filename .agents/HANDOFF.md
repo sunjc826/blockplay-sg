@@ -1,5 +1,30 @@
 # Blockplay: portable agent handoff
 
+**Latest: the opening burst is the one you can place (2026-09-22).** The kick
+was in the right band overall but front-loaded the punishment: `verticalProfile`
+started at its hardest (1.35) and decayed, and the aim climb shared it, so the
+first five rounds were the *worst* part of the magazine. Firing deliberately was
+penalised and spraying was relatively cheap, which is backwards.
+
+The two now have separate shapes, because they do different jobs. The view kick
+keeps its hard first round — that is what makes a single aimed shot feel like
+something, and it recovers on its own. The aim climb, the part that has to be
+pulled back down, runs the other way: 45% of the full rate for five rounds, then
+a ramp to 150% over four. On the SAR 21 the opening five now cost 2.9 degrees
+against 7.6 for the next five; a magazine still caps at the same 28.6.
+
+Burst discipline is therefore a real, learnable skill: the shot counter restarts
+after `BURST_RESET` off the trigger, so tapping in fives stays in the easy part
+of the curve, paid for in rate of fire. That is deliberate, not an exploit.
+
+The genre band test needed re-scoping rather than loosening. Its first-round
+assertion measured climb alone, which is no longer the comparable figure now
+that an opening round gives most of its displacement straight back; it measures
+the throw the shooter actually sees — view kick plus aim taken, sampled before
+the recovery delay — which comes to about 1.6 degrees.
+
+719 unit tests, typecheck, `pnpm test:fps` and `pnpm test:fps:effects` pass.
+
 **Latest: recoil tuned in degrees, against the genre (2026-09-22).** Reported a
 third time as barely anything next to other shooters, and that was correct and
 measurable. Kick units and ratings are internal, so nothing in the codebase said

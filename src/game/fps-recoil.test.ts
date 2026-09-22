@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceRecoil, BURST_RESET, CLIMB_CEILING, compensateRecoil, createRecoil, PITCH_CEILING, recoilPose, recoilView, recordRecoilShot, RECOVERY_DELAY, RECOVERY_LIMITS, resetRecoil, takeAimPush, VIEW_SCALE, YAW_CEILING } from './fps-recoil';
+import { advanceRecoil, BURST_RESET, CLIMB_CEILING, CLIMB_EASE_ROUNDS, compensateRecoil, createRecoil, PITCH_CEILING, recoilPose, recoilView, recordRecoilShot, RECOVERY_DELAY, RECOVERY_LIMITS, resetRecoil, takeAimPush, VIEW_SCALE, YAW_CEILING } from './fps-recoil';
 import { FPS_WEAPONS } from './fps-rules';
 
 const step = (state: ReturnType<typeof createRecoil>, seconds: number, dt = 1 / 60) => {
@@ -280,11 +280,28 @@ describe('how the kick compares to the genre', () => {
    * The bands are deliberately wide: they exist to catch a weapon that is off
    * by a factor, not to pin a tuning decision to one decimal place.
    */
-  const RIFLE_BAND = { first: [1.2, 2.4], ten: [9, 15], magazine: [22, 32] };
+  const RIFLE_BAND = { first: [1.2, 2.6], ten: [9, 15], magazine: [22, 32] };
+  /**
+   * How far the sights are thrown by one round, at their worst: the view kick
+   * and the aim taken, together. The *climb* alone is not the comparable
+   * figure, because an opening round deliberately gives most of its
+   * displacement straight back — what a player sees is the sum.
+   */
+  function firstShotDisplacement(weapon: number) {
+    const spec = FPS_WEAPONS[weapon], state = createRecoil();
+    let aim = 0, peak = 0;
+    recordRecoilShot(state, spec, weapon, () => .5); aim += takeAimPush(state).pitch;
+    // Stopped before the recovery delay, so this is the throw and not the return.
+    for (let f = 0; f < 240 * RECOVERY_DELAY; f++) {
+      advanceRecoil(state, 1 / 240); aim += takeAimPush(state).pitch;
+      peak = Math.max(peak, aim + recoilView(state).pitch);
+    }
+    return peak * 180 / Math.PI;
+  }
   it('puts the issued rifle in the band a rifle is expected to occupy', () => {
     const [firstLow, firstHigh] = RIFLE_BAND.first;
-    expect(climbAfter(0, 1)).toBeGreaterThan(firstLow);
-    expect(climbAfter(0, 1)).toBeLessThan(firstHigh);
+    expect(firstShotDisplacement(0)).toBeGreaterThan(firstLow);
+    expect(firstShotDisplacement(0)).toBeLessThan(firstHigh);
     const [tenLow, tenHigh] = RIFLE_BAND.ten;
     expect(climbAfter(0, 10)).toBeGreaterThan(tenLow);
     expect(climbAfter(0, 10)).toBeLessThan(tenHigh);
@@ -303,5 +320,39 @@ describe('how the kick compares to the genre', () => {
       expect(climbAfter(weapon, 10)).toBeGreaterThan(climbAfter(weapon, 5));
       expect(climbAfter(weapon, 20)).toBeGreaterThan(climbAfter(weapon, 10));
     }
+  });
+});
+
+describe('the opening burst is the one you can place', () => {
+  /**
+   * A drill target's hit zone is 0.24 units across at 12-30 units out (see the
+   * subjects built in `fps-engine.ts`), so it subtends roughly 2.3 degrees
+   * close in and 0.9 far. The opening rounds have to stay near that to be worth
+   * firing deliberately; the rest of the magazine is meant not to.
+   */
+  it('costs the opening rounds a fraction of what the rounds after them cost', () => {
+    const opening = climbAfter(0, CLIMB_EASE_ROUNDS);
+    const after = climbAfter(0, CLIMB_EASE_ROUNDS * 2) - opening;
+    expect(opening).toBeLessThan(after * .5);
+  });
+  it('keeps a short burst to about a target width, so it can be held', () => {
+    expect(climbAfter(0, CLIMB_EASE_ROUNDS)).toBeLessThan(3.5);
+    // Not free, though: a burst still has to be pulled down a little.
+    expect(climbAfter(0, CLIMB_EASE_ROUNDS)).toBeGreaterThan(1.5);
+  });
+  it('still makes a magazine held down unusable', () => {
+    expect(climbAfter(0, FPS_WEAPONS[0].capacity)).toBeGreaterThan(20);
+  });
+  it('hands the easy rounds back only after the trigger is released', () => {
+    // Burst discipline is the skill this buys, and it is paid for in fire rate.
+    const spec = FPS_WEAPONS[0], state = createRecoil();
+    const fire = () => { recordRecoilShot(state, spec, 0, () => .5); return takeAimPush(state).pitch; };
+    const opening = fire();
+    for (let round = 0; round < CLIMB_EASE_ROUNDS * 2; round++) {
+      step(state, spec.interval, 1 / 240); takeAimPush(state); fire();
+    }
+    expect(fire()).toBeGreaterThan(opening * 2);
+    step(state, BURST_RESET * 1.5, 1 / 240); takeAimPush(state);
+    expect(fire()).toBeCloseTo(opening, 12);
   });
 });

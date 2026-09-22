@@ -122,8 +122,30 @@ const PATTERNS: readonly (readonly number[])[] = [
   [0, .08, -.05, .22, .34, .16, -.18, -.36, -.26, .06, .28, .30],
   [0, -.12, .18, .30, .14, -.20, -.34, -.22, .10, .32, .24, -.10],
 ];
-/** The first round of a burst snaps hardest; the rest of the magazine settles lower. */
+/**
+ * The view kick's shape: the first round of a burst snaps hardest and the rest
+ * of the magazine settles lower, which is what makes a single aimed shot feel
+ * like something. This is the part that recovers on its own.
+ */
 const verticalProfile = (shot: number) => 1.35 - 0.5 * Math.min(1, shot / 4);
+/**
+ * The aim climb's shape, which is deliberately the opposite. The opening rounds
+ * take *less* of the shooter's aim than the ones after them, so a short burst
+ * can be placed and a magazine held down cannot: the weapon rewards trigger
+ * discipline rather than punishing the player for firing at all.
+ *
+ * Only what has to be pulled back down is softened here. The view kick above
+ * keeps its hard first round, so an opening shot still snaps — it just mostly
+ * gives the aim back instead of banking it.
+ *
+ * The burst count restarts after `BURST_RESET` off the trigger, so tapping in
+ * fives is a real and learnable way to stay in the easy part of the curve. That
+ * is the intended skill, and it is paid for in rate of fire.
+ */
+export const CLIMB_EASE_ROUNDS = 5;
+const CLIMB_EASE = 0.45, CLIMB_SUSTAINED = 1.5, CLIMB_RAMP_ROUNDS = 4;
+const climbProfile = (shot: number) => shot < CLIMB_EASE_ROUNDS ? CLIMB_EASE
+  : CLIMB_EASE + (CLIMB_SUSTAINED - CLIMB_EASE) * Math.min(1, (shot - CLIMB_EASE_ROUNDS + 1) / CLIMB_RAMP_ROUNDS);
 
 export const createRecoil = (): RecoilState => ({ pitchTarget: 0, yawTarget: 0, punchTarget: 0, rollTarget: 0, pitch: 0, yaw: 0, punch: 0, roll: 0, shot: 0, idle: BURST_RESET, recovery: 1, climb: 0, drift: 0, pushPitch: 0, pushYaw: 0 });
 
@@ -147,9 +169,9 @@ export function recordRecoilShot(state: RecoilState, spec: RecoilRating, weapon:
   state.rollTarget = Math.max(-ROLL_CEILING, Math.min(ROLL_CEILING, state.rollTarget - rating * ROLL_GAIN * lateral));
   // And the part the shooter has to answer: the aim itself moves, up to the
   // ceiling, and is owed back to the engine on the next frame.
-  const rise = Math.min(rating * CLIMB_GAIN * verticalProfile(state.shot), Math.max(0, CLIMB_CEILING - state.climb));
+  const rise = Math.min(rating * CLIMB_GAIN * climbProfile(state.shot), Math.max(0, CLIMB_CEILING - state.climb));
   state.climb += rise; state.pushPitch += rise;
-  const drift = Math.max(-DRIFT_CEILING, Math.min(DRIFT_CEILING, state.drift + rating * CLIMB_GAIN * DRIFT_SHARE * lateral));
+  const drift = Math.max(-DRIFT_CEILING, Math.min(DRIFT_CEILING, state.drift + rating * CLIMB_GAIN * DRIFT_SHARE * climbProfile(state.shot) * lateral));
   state.pushYaw += drift - state.drift; state.drift = drift;
   state.shot++; state.idle = 0;
 }
