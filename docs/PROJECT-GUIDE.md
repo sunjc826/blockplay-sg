@@ -133,10 +133,32 @@ sliding down from an instant jump. Horizontal travel follows a fixed per-weapon
 pattern with only a small random jitter, so a burst walks the same way every
 time and can be learned and held against; the pattern restarts after a third of
 a second off the trigger. The camera takes the vertical and horizontal climb;
-the weapon additionally rolls away from the side it is being pushed towards.
-Ceilings on the accumulated climb keep the aim displacement a burst costs the
-same as it was before, and shot spread is still owned separately by the
+the weapon additionally bucks back towards the shoulder and rolls away from the
+side it is being pushed towards. Shot spread is still owned separately by the
 accuracy model — recoil never widens a cone.
+
+**Two ratings, the way STALKER splits them.** `recoil` is how hard one round
+throws the muzzle and is felt on the first shot of a burst. `recoilRecovery` is
+how fast the weapon comes back down, as a multiple of the baseline settle rate;
+it does nothing to a single shot and decides everything about a held trigger,
+because the decay between rounds is what says whether a burst converges low or
+stacks towards the ceiling. A heavy weapon can therefore kick hard and still be
+controllable, and a light one can kick softly and still wander — which one
+number cannot express. The issued rifle sits at 1.00 recovery and the support
+weapon at 0.85, and both ratings improve up every rung of a platform's ladder.
+
+How hard the game kicks overall is four per-axis gains in `fps-recoil`, from the
+rating to the kick units the camera and viewmodel read. The ratings stay the
+armoury's currency, so moving a gain moves every weapon and every catalog delta
+together instead of needing the catalog rewritten underneath it. Ceilings on the
+accumulated climb sit above where the issued weapons converge, bounding the
+worst case rather than flattening the climb each weapon is meant to have.
+
+**Recoil is what the handling slot sells.** Three foregrips form a strict
+ladder — stabilizer grip, angled foregrip, match foregrip and buffer — each at
+least as good as the one below on both ratings and on movement, and the hardware
+premium weapons arrive with sits above all three. That is the invariant that
+makes a fixed slot safe to give up, and `armory-state.test.ts` holds it.
 
 **Swapping the look.** None of those colours live in the renderer. A weapon's
 shots are described by an *effect style* — the flare's core, petals, cone and

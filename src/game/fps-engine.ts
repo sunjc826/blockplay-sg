@@ -7,7 +7,7 @@ import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { sectorAt, zoneSectors } from './zone-sectors';
 import { advanceRound, createRound, needsFlight, MAX_ROUNDS_IN_FLIGHT, type InFlightRound } from './fps-projectiles';
 import { createFpsEffects, type ImpactKind } from './fps-effects';
-import { advanceRecoil, createRecoil, recoilView, recordRecoilShot, resetRecoil } from './fps-recoil';
+import { advanceRecoil, createRecoil, recoilPose, recoilView, recordRecoilShot, resetRecoil } from './fps-recoil';
 import { effectStyleForWeapon } from './fps-effect-styles';
 import { aimSpeedScale, applyArmorDamage, createProfile, encikAddress, jumpScale, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile } from './armory-state';
 import { registerElimination, ELIMINATION_XP, type KillChain } from './progression';
@@ -625,7 +625,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     rig.visible = !options.arena || hud.arenaSelf?.alive !== false;
     const crouching = keys.has('c');
     camera.position.set(position.x, (crouching ? 1.15 : 1.75) + vertical, position.z);
-    const view = recoilView(kick);
+    const view = recoilView(kick), pose = recoilPose(kick);
     camera.rotation.set(pitch + view.pitch, yaw + view.yaw, 0, 'YXZ');
     camera.fov = THREE.MathUtils.lerp(sprinting ? 71 : 65, 65, aim);
     camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
@@ -639,11 +639,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const progress = remaining > 0 ? 1 - remaining : null, motion = reloadMotion(progress ?? 0);
     rig.position.set(THREE.MathUtils.lerp(.20, 0, aim) + sway + motion.x,
       THREE.MathUtils.lerp(-.32, -(handling[hud.weapon]?.aimHeight ?? .435), aim) + Math.abs(sway) - (sprinting ? .08 : 0) + motion.y,
-      THREE.MathUtils.lerp(-.78, handling[hud.weapon]?.aimDepth ?? -.47, aim) + kick.punch * .6 + motion.z);
-    // The weapon carries the sideways half of the pattern and the roll that
-    // goes with it; the camera only ever takes the view coupling above.
-    rig.rotation.set(kick.punch * (1 - aim * .8) + (sprinting ? -.18 : 0) + motion.pitch,
-      motion.yaw + kick.yaw * .5 * (1 - aim * .6), motion.roll + kick.roll * 2.2 * (1 - aim * .5));
+      THREE.MathUtils.lerp(-.78, handling[hud.weapon]?.aimDepth ?? -.47, aim) + pose.push + motion.z);
+    // The weapon carries the buck, the sideways half of the pattern and the roll
+    // that goes with it; the camera only ever takes the view coupling above.
+    // `recoilPose` sizes them; aiming in is the only thing damped here, because
+    // a shouldered weapon is held against the shooter rather than by the hands.
+    rig.rotation.set(pose.pitch * (1 - aim * .8) + (sprinting ? -.18 : 0) + motion.pitch,
+      motion.yaw + pose.yaw * (1 - aim * .6), motion.roll + pose.roll * (1 - aim * .5));
     handling.forEach((model, i) => model.update(i === hud.weapon ? progress : null, emptyReload[i]));
     const stage = reloadStage(remaining, emptyReload[hud.weapon]);
     if (stage && stage !== lastReloadStage && hud.phase === 'playing') handlingSound(stage);
@@ -785,7 +787,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const muzzle = weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_muzzle`);
     if (muzzle) { muzzle.getWorldPosition(muzzlePoint); camera.localToWorld(muzzlePoint); }
     else muzzlePoint.copy(camera.position);
-    recordRecoilShot(kick, specs[hud.weapon].recoil, hud.weapon);
+    recordRecoilShot(kick, specs[hud.weapon], hud.weapon);
     effects.fire({ recoil: specs[hud.weapon].recoil, eject: weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_eject`), camera, carry });
     // The arena host owns its own shot resolution and stays instant until it can
     // step rounds per tick; everything else with a finite muzzle velocity flies.

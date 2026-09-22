@@ -75,7 +75,11 @@ try {
   assert(fx.sparks > 0, `Rounds into concrete spray sparks (saw ${fx.sparks})`);
   assert(fx.scorches >= 3, `Every round into the ground leaves a scorch (saw ${fx.scorches})`);
   assert(fx.casings >= 3, `Every round ejects a case (saw ${fx.casings})`);
-  assert(fx.recoil > 0.004, `Held fire climbs (peak ${fx.recoil})`);
+  // A software renderer fires slower than the weapon's cadence and samples the
+  // climb once a frame, so this sits well under the ~0.05 seen there. It is
+  // still several times what the old tuning could reach, which is the point:
+  // the kick cannot be quietly returned to decoration without failing here.
+  assert(fx.recoil > 0.03, `Held fire climbs (peak ${fx.recoil})`);
   await screenshot('burst-into-ground');
 
   // Released, the climb settles back to where the shooter was aiming.

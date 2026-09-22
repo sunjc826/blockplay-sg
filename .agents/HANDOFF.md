@@ -25,6 +25,41 @@ free. The magazine bar shares its slot with the reload progressbar rather than
 sweeping alongside it, so only one thing moves there at a time.
 
 687 unit tests (+4), typecheck, build and `pnpm test:fps` pass.
+**Latest: weapons kick, and recoil is two ratings (2026-09-22).** The old kick
+was decoration: the issued rifle threw the sights about a third of a degree and
+a held trigger converged under a degree and a half, which is inside the target
+anyway. Four per-axis gains in `fps-recoil` now sit between the rating and the
+kick units the camera and viewmodel read, so the ratings stay the armoury's
+currency and no catalog delta had to be rewritten underneath them. A single
+round throws the sights just under a degree; a held rifle converges past one and
+the support weapon past three, which at drill range is a metre of miss.
+
+**The second rating is the interesting half.** Taking STALKER's split, `recoil`
+is how hard one round throws the muzzle and `recoilRecovery` is how fast it
+comes back, as a multiple of the baseline settle rate. Recovery does nothing to
+a single shot and decides everything about a held trigger, because the decay
+between rounds is what says whether a burst converges low or stacks towards the
+ceiling. That is what let the baseline settle be slowed from 8.5 to 4.2 — bursts
+now accumulate instead of flattening after two rounds — without making the top
+of the ladder unplayable, because every rung buys the rate back. Issued rifle
+1.00, issued support weapon 0.85, Marksman 1.63, Bastion 1.58.
+
+**Recoil is what the handling slot sells.** Three foregrips on a strict ladder:
+the stabilizer grip (kept at its old 25%, plus a little recovery), a new angled
+foregrip and a new match foregrip and buffer. Each is at least as good as the
+one below on both ratings and on movement, and the hardware premium weapons
+arrive with sits above all three — `armory-state.test.ts` now holds that
+invariant on recovery as well as recoil, which is what constrained the ladder's
+top to 0.74.
+
+The viewmodel's recoil constants moved out of `updateCameras` into
+`recoilPose`, so the engine decides only how much aiming down the sights damps
+them. 688 unit tests, typecheck, `pnpm test:fps:effects` (whose recoil floor is
+raised from 0.004 to 0.03 — several times what the old tuning could reach) and
+`pnpm test:armory` pass. `pnpm test:fps:handling` and `pnpm test:fps:pilot` fail
+here, both identically on an unmodified tree: the first wants more crosshair
+bloom than a software renderer fires enough rounds to produce and has no pace
+knob, the second is the drill stall this log already records.
 
 **Latest: the HUD speaks with one voice, and health is a state (2026-09-22).**
 Every readout over the scene used to carry its own dark green, its own radius
@@ -69,6 +104,7 @@ fixed pixel sizing, which a `container-type:size` on `.fps-viewport` plus one
 682 unit tests (+3), typecheck, build and `pnpm test:fps` pass.
 `pnpm test:expedition:ui` fails here at its `.expedition-network` child count
 (19 vs 3) — it fails the same way on a clean tree.
+
 
 **Latest: the installed app broke on every load but the first (2026-09-22).**
 Reported from the deployed site: first load fine, later loads dead until site

@@ -23,9 +23,9 @@ upgrade path, so variety never costs the ladder anything.
 ## Why the current system tops out
 
 `resolveLoadout()` is a scalar fold. Every modifier in the catalog is a number
-applied to one of five fields (`capacity`, `reload`, `recoil`, `mobility`,
-`aimFov`). A closed set of five numbers is the entire expressive vocabulary of
-the shop: an item cannot say it *behaves* differently, only that its numbers
+applied to one of six fields (`capacity`, `reload`, `recoil`, `recoilRecovery`,
+`mobility`, `aimFov`). A closed set of six numbers is the entire expressive
+vocabulary of the shop: an item cannot say it *behaves* differently, only that its numbers
 differ. The fold stays, but it must also collect **traits** that the engine
 reads at the point of use.
 

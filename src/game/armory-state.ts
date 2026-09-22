@@ -149,12 +149,16 @@ export const collectTraits = (...sources: readonly (readonly WeaponTrait[] | und
  * Builds a variant's figures from the platform and the hardware it is made of,
  * so a number in the shop is the sum of named parts rather than a value written
  * beside the weapon's name. Deltas add; mobility multiplies; ballistics replace.
+ * `recoilRecovery` is a delta here and a multiplier on an attachment, exactly as
+ * `recoil` is: internal hardware shifts the platform's own figure, while a part
+ * bolted into a slot scales whatever the platform ended up with.
  */
 export function applyBuild(base: WeaponSpec, parts: readonly InternalPart[] = []): WeaponSpec {
   const spec: WeaponSpec = { ...base, traits: [...base.traits ?? []] };
   for (const part of parts) {
     spec.damage += part.damage ?? 0; spec.capacity += part.capacity ?? 0;
     spec.interval += part.interval ?? 0; spec.reload += part.reload ?? 0; spec.recoil += part.recoil ?? 0;
+    spec.recoilRecovery += part.recoilRecovery ?? 0;
     spec.mobility *= part.mobility ?? 1;
     if (part.ballistics) spec.ballistics = part.ballistics;
     if (part.traits) spec.traits = [...spec.traits ?? [], ...part.traits];
@@ -197,7 +201,8 @@ export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
     for (const attachment of attachments) {
       if (attachment.slot === 'optic' && attachment.stats?.optic) spec.optic = attachment.stats.optic;
       const mod = attachment.modifiers; if (!mod) continue;
-      spec.capacity += mod.capacity || 0; spec.reload *= mod.reload || 1; spec.recoil *= mod.recoil || 1; spec.mobility *= mod.mobility || 1;
+      spec.capacity += mod.capacity || 0; spec.reload *= mod.reload || 1; spec.recoil *= mod.recoil || 1;
+      spec.recoilRecovery *= mod.recoilRecovery || 1; spec.mobility *= mod.mobility || 1;
       if (mod.aimFov) spec.aimFov = mod.aimFov;
     }
     return spec;
