@@ -72,7 +72,9 @@ describe.each(SECTORED.map(id => [id] as const))('%s sectors', id => {
         expect(sector.anchors.length, `${sector.id} anchors`).toBeGreaterThanOrEqual(3);
         // A repeated anchor silently costs a crate slot at the 3 m spacing rule.
         expect(new Set(sector.anchors.map(a => `${a.x},${a.z}`)).size, `${sector.id} distinct anchors`).toBe(sector.anchors.length);
-        for (const anchor of sector.anchors) {
+        const foodAnchors = sector.foodAnchors ?? [];
+        expect(new Set(foodAnchors.map(a => `${a.x},${a.z}`)).size, `${sector.id} distinct food anchors`).toBe(foodAnchors.length);
+        for (const anchor of [...sector.anchors, ...foodAnchors]) {
           const where = `${sector.id} ${JSON.stringify(anchor)}`;
           expect(anchor.x, where).toBeGreaterThanOrEqual(sector.bounds.minX);
           expect(anchor.x, where).toBeLessThanOrEqual(sector.bounds.maxX);

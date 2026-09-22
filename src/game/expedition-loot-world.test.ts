@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createExpeditionLoot, ZONE_LOOT_RULES } from './expedition-loot';
 import { buildExpeditionWorld } from './expedition-world';
 import { WORLD_ZONES } from './world-zones';
+import { zoneSectors } from './zone-sectors';
 
 describe('expedition loot in authored scenes', () => {
   for (const zone of WORLD_ZONES) it(`${zone.id}: all crates are clear and reachable across several seeds`, () => {
@@ -9,7 +10,7 @@ describe('expedition loot in authored scenes', () => {
     try {
       const targets = ['route-a', 'route-b', 'route-c', 'hackathon'].flatMap(seed => [false, true].flatMap(useAnchors => {
         const loot = createExpeditionLoot(seed).enterZone({ id: zone.id, spawn: zone.spawn, bounds: world.bounds, obstacles: world.obstacles,
-          ...(useAnchors ? { anchors: zone.encounterSpawns } : {}) });
+          sectors: zoneSectors(zone.id), ...(useAnchors ? { anchors: zone.encounterSpawns } : {}) });
         const rules = ZONE_LOOT_RULES[zone.id];
         const expected = rules.weaponCount + rules.ammoCount + rules.medicalCount + rules.armorCount;
         expect(loot, `${zone.id}/${seed} crate count`).toHaveLength(expected);

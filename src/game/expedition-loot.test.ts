@@ -21,7 +21,7 @@ describe('seeded expedition loot', () => {
     for (const item of marina) {
       expect(Math.hypot(item.x, item.z)).toBeGreaterThanOrEqual(14.99);
       expect(Math.hypot(item.x, item.z)).toBeLessThanOrEqual(45.01);
-      if (item.catalogId) expect(itemById(item.catalogId)?.category).toBe(item.kind === 'armor' ? 'plate' : 'weapon');
+      if (item.catalogId) expect(itemById(item.catalogId)?.category).toBe(item.kind === 'armor' ? 'plate' : item.kind === 'weapon' ? 'weapon' : 'consumable');
     }
   });
   it('keeps collected IDs across re-entry and prevents duplicate, remote or cross-zone pickup', () => {
@@ -83,6 +83,43 @@ describe('seeded expedition loot', () => {
     expect(residential.filter(item => item.kind === 'weapon')).toHaveLength(2);
     expect(cbd.find(item => item.kind === 'ammo')!.amount).toBeGreaterThan(residential.find(item => item.kind === 'ammo')!.amount);
     expect(cbd.find(item => item.kind === 'medical')!.amount).toBeGreaterThan(residential.find(item => item.kind === 'medical')!.amount);
+  });
+  it('uses a weighted food-stall anchor without adding to the district loot distribution', () => {
+    const foodAnchors = [{ x: 12, z: 16 }, { x: 16, z: 16 }];
+    const geometry: LootZoneGeometry = { ...zone('chinatown'), sectors: [
+      { id: 'hawker', name: 'Hawker centre', cover: 'broken', lootWeight: 3, anchors: [{ x: 20, z: 20 }, { x: 24, z: 20 }, { x: 28, z: 20 }], foodAnchors,
+        bounds: { minX: 5, maxX: 35, minZ: 5, maxZ: 30 } },
+      { id: 'road', name: 'Main road', cover: 'open', lootWeight: 1, anchors: [{ x: -12, z: -16 }, { x: -16, z: -16 }, { x: -20, z: -16 }],
+        bounds: { minX: -35, maxX: -5, minZ: -30, maxZ: -5 } },
+    ] };
+    const loot = createExpeditionLoot('hawker-distribution').enterZone(geometry);
+    const rules = ZONE_LOOT_RULES.chinatown;
+    expect(loot).toHaveLength(rules.weaponCount + rules.ammoCount + rules.medicalCount + rules.armorCount);
+    const food = loot.filter(item => item.placement === 'food-stall');
+    expect(food).toHaveLength(1);
+    expect(foodAnchors).toContainEqual({ x: food[0].x, z: food[0].z });
+    expect(itemById(food[0].catalogId!)?.supplyType).toBe('food');
+    expect(loot.filter(item => item.kind === 'medical')).toHaveLength(rules.medicalCount);
+    expect(loot.filter(item => item.kind === 'ammo').every(item => item.catalogId === 'kit-ammo')).toBe(true);
+  });
+  it('uses the district sector weights when choosing between food venues', () => {
+    const sectors: NonNullable<LootZoneGeometry['sectors']> = [
+      { id: 'busy-hawker', name: 'Busy hawker centre', cover: 'broken', lootWeight: 3,
+        anchors: [{ x: 24, z: 20 }], foodAnchors: [{ x: 16, z: 16 }], bounds: { minX: 5, maxX: 35, minZ: 5, maxZ: 30 } },
+      { id: 'quiet-kiosk', name: 'Quiet kiosk', cover: 'open', lootWeight: 1,
+        anchors: [{ x: -24, z: -20 }], foodAnchors: [{ x: -16, z: -16 }], bounds: { minX: -35, maxX: -5, minZ: -30, maxZ: -5 } },
+    ];
+    const selections = { 'busy-hawker': 0, 'quiet-kiosk': 0 };
+    for (let sample = 0; sample < 400; sample++) {
+      const food = createExpeditionLoot(`venue-weight-${sample}`).enterZone({ ...zone('chinatown'), sectors })
+        .find(item => item.placement === 'food-stall')!;
+      selections[food.sectorId as keyof typeof selections]++;
+    }
+    expect(selections['busy-hawker']).toBeGreaterThan(selections['quiet-kiosk'] * 2);
+  });
+  it('keeps recovery loot as field utilities when a district has no food venue', () => {
+    const loot = createExpeditionLoot('no-kiosk').enterZone(zone('tuas'));
+    expect(loot.filter(item => item.kind === 'medical').every(item => item.placement === 'field' && itemById(item.catalogId!)?.supplyType !== 'food')).toBe(true);
   });
 });
 

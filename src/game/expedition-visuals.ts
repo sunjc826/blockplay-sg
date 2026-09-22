@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { FieldLoot } from './expedition-loot';
+import { itemById } from './armory-catalog';
 import { WORLD_GATEWAYS, getWorldZone, type WorldZoneId } from './world-zones';
 
 export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, loot: readonly FieldLoot[]) {
@@ -25,7 +26,10 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
     mesh(group,new THREE.BoxGeometry(.92,.07,.57),color,0,.49,0);
     for (const x of [-.31,.31]) mesh(group,new THREE.BoxGeometry(.06,.47,.57),'#222d27',x,.25,0);
     if (item.kind === 'weapon') { mesh(group,new THREE.BoxGeometry(.78,.09,.1),'#182723',0,.61,0); mesh(group,new THREE.BoxGeometry(.12,.17,.1),color,.1,.52,0); }
-    else if (item.kind === 'medical') { mesh(group,new THREE.BoxGeometry(.1,.24,.03),'#dbeee2',0,.26,-.292); mesh(group,new THREE.BoxGeometry(.24,.1,.03),'#dbeee2',0,.26,-.294); }
+    else if (item.kind === 'medical' && itemById(item.catalogId || '')?.supplyType === 'food') {
+      mesh(group,new THREE.CylinderGeometry(.16,.22,.13,12),'#efe2bd',-.12,.62,0);
+      mesh(group,new THREE.CylinderGeometry(.1,.1,.27,10),'#c99668',.18,.64,0);
+    } else if (item.kind === 'medical') { mesh(group,new THREE.BoxGeometry(.1,.24,.03),'#dbeee2',0,.26,-.292); mesh(group,new THREE.BoxGeometry(.24,.1,.03),'#dbeee2',0,.26,-.294); }
     label(group,`${item.tier.toUpperCase()} / ${item.name}`,color,1.32);
   }
   for (const gateway of WORLD_GATEWAYS.filter(gateway=>gateway.from===zone)) {

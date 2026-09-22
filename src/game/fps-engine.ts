@@ -362,7 +362,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function interactLoot() {
     if (!expedition || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active || !arenaRuntime || travelPending) return;
     const nearest = expedition.loot.nearest(expedition.zone, position); if (!nearest) return;
-    if (nearest.kind === 'medical' && hud.health >= hud.maxHealth) { hud.lootNotice = 'Health is full. Medical supplies remain here.'; lootNoticeTime = 3; publish(); return; }
+    if (nearest.kind === 'medical' && hud.health >= hud.maxHealth) { hud.lootNotice = `Health is full. ${nearest.name} remains here.`; lootNoticeTime = 3; publish(); return; }
     if (nearest.kind === 'ammo' && loadout[hud.weapon].reserve >= 999) { hud.lootNotice = 'Ammunition reserve is full.'; lootNoticeTime = 3; publish(); return; }
     const item = nearest.catalogId ? itemById(nearest.catalogId) : undefined;
     if ((nearest.kind === 'weapon' && (!item || item.category !== 'weapon' || (item.family !== 0 && item.family !== 1))) || (nearest.kind === 'armor' && item?.category !== 'plate')) return;
@@ -387,7 +387,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       hud.lootNotice = `+${loadout[hud.weapon].reserve - before} rounds for ${specs[hud.weapon].name}.`;
     } else if (collected.kind === 'medical') {
       const before = hud.health; hud.health = Math.min(hud.maxHealth, hud.health + collected.amount); arenaRuntime.setVitals({ health: hud.health });
-      hud.lootNotice = `Recovered ${Math.round(hud.health - before)} health.`;
+      hud.lootNotice = `${collected.name} · recovered ${Math.round(hud.health - before)} health.`;
     }
     comms.add('system', 'Supplies', hud.lootNotice); radioCall('pickup');
     markers?.remove(collected.id); hud.fieldLoot = expedition.loot.remaining(expedition.zone); lootNoticeTime = 4;

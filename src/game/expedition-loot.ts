@@ -8,6 +8,8 @@ export type FieldLootKind = 'weapon' | 'ammo' | 'medical' | 'armor';
 export interface FieldLoot {
   id: string; zoneId: WorldZoneId; kind: FieldLootKind; catalogId?: string;
   name: string; tier: ShopItem['tier']; x: number; z: number; amount: number;
+  /** Food is a recovery pickup, but only this placement may use a stall anchor. */
+  placement?: 'food-stall' | 'field';
   /** The sector it came to rest in, for the HUD and the pickup callout. */
   sectorId?: string;
 }
@@ -80,6 +82,16 @@ export function rollZoneWeapon(zoneId: WorldZoneId, random: () => number, tierBi
   return choose(ARMORY_CATALOG.filter(item => item.category === 'weapon' && item.tier === tier && (item.family === 0 || item.family === 1)), random);
 }
 
+function rollTier(rules: ZoneLootRules, random: () => number, tierBias: -1 | 0 | 1): ShopItem['tier'] {
+  const { elite, field } = biasedChances(rules, tierBias), roll = random();
+  return roll < elite ? 'Elite' : roll < elite + field ? 'Field' : 'Issued';
+}
+
+function rollFood(rules: ZoneLootRules, random: () => number, tierBias: -1 | 0 | 1) {
+  const tier = rollTier(rules, random, tierBias);
+  return choose(ARMORY_CATALOG.filter(item => item.category === 'consumable' && item.supplyType === 'food' && item.tier === tier), random);
+}
+
 /** One instance belongs to one expedition. Re-entry returns cached crates, never new rolls. */
 export function createExpeditionLoot(seed: string | number) {
   const seedText = String(seed); const zones = new Map<WorldZoneId, FieldLoot[]>(); const collected = new Set<string>();
@@ -95,15 +107,16 @@ export function createExpeditionLoot(seed: string | number) {
       ...Array<FieldLootKind>(rules.weaponCount).fill('weapon'), ...Array<FieldLootKind>(rules.ammoCount).fill('ammo'),
       ...Array<FieldLootKind>(rules.medicalCount).fill('medical'), ...Array<FieldLootKind>(rules.armorCount).fill('armor'),
     ];
-    const points: ZonePosition[] = [];
+    const occupied: ZonePosition[] = [];
     const shuffle = <T,>(list: T[]) => {
       // Fisher-Yates keeps curated safe anchors random without moving them into scenery.
       for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(positionRandom() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
       return list;
     };
-    function accept(point: ZonePosition) {
-      if (!clearGround(point, geometry) || points.some(p => Math.hypot(p.x - point.x, p.z - point.z) < 3)) return false;
-      points.push(point); return true;
+    const slots = kinds.map((kind, index) => ({ kind, index, point: null as ZonePosition | null, food: false }));
+    function accept(slot: typeof slots[number], point: ZonePosition) {
+      if (!clearGround(point, geometry) || occupied.some(p => Math.hypot(p.x - point.x, p.z - point.z) < 3)) return false;
+      slot.point = { ...point }; occupied.push(point); return true;
     }
     // Sector choice runs on its own stream, so a district gaining sectors cannot
     // disturb the gear an existing expedition seed already rolled.
@@ -111,37 +124,55 @@ export function createExpeditionLoot(seed: string | number) {
     const sectors = (geometry.sectors ?? []).filter(sector => sector.lootWeight > 0 && sector.anchors.length);
     const queues = new Map(sectors.map(sector =>
       [sector.id, shuffle(sector.anchors.filter(p => clearGround(p, geometry)).map(p => ({ ...p })))]));
-    const weightTotal = sectors.reduce((total, sector) => total + sector.lootWeight, 0);
-    const pickSector = () => {
+    const pickSector = <T extends { lootWeight: number }>(pool: readonly T[]) => {
+      const weightTotal = pool.reduce((total, sector) => total + sector.lootWeight, 0);
       let roll = sectorRandom() * weightTotal;
-      for (const sector of sectors) { roll -= sector.lootWeight; if (roll <= 0) return sector; }
-      return sectors[sectors.length - 1];
+      for (const sector of pool) { roll -= sector.lootWeight; if (roll <= 0) return sector; }
+      return pool[pool.length - 1];
     };
-    // Draw each crate's home sector by weight, then take an anchor from it. A
-    // sector that runs out simply loses its turn; the pools below still fill.
-    for (let placed = points.length; sectors.length && points.length < kinds.length; ) {
-      for (let attempt = 0; attempt < sectors.length * 3 && points.length === placed; attempt++) {
-        const queue = queues.get(pickSector().id);
-        while (queue?.length && points.length === placed) accept(queue.shift()!);
+
+    // One existing recovery slot may become food. It still consumes that
+    // district's medicalCount, and its sector is selected by the same loot
+    // weights as every other crate. With no valid stall anchor it remains a
+    // medical utility; food never spills onto the road-ring fallback.
+    const foodSectors = sectors.filter(sector => sector.foodAnchors?.some(point => clearGround(point, geometry)));
+    const recoverySlot = slots.find(slot => slot.kind === 'medical');
+    if (recoverySlot && foodSectors.length) {
+      const foodQueues = new Map(foodSectors.map(sector => [sector.id,
+        shuffle((sector.foodAnchors ?? []).filter(point => clearGround(point, geometry)).map(point => ({ ...point })))]));
+      for (let attempt = 0; attempt < foodSectors.length * 3 && !recoverySlot.point; attempt++) {
+        const queue = foodQueues.get(pickSector(foodSectors).id);
+        while (queue?.length && !recoverySlot.point) accept(recoverySlot, queue.shift()!);
       }
-      if (points.length === placed) break;
-      placed = points.length;
+      recoverySlot.food = !!recoverySlot.point;
+    }
+
+    // Draw every remaining crate's home sector by weight, then take an anchor
+    // from it. A sector that runs out simply loses its turn; fallbacks still
+    // preserve the district's declared total count.
+    for (const slot of slots.filter(candidate => !candidate.point)) if (sectors.length) {
+      for (let attempt = 0; attempt < sectors.length * 3 && !slot.point; attempt++) {
+        const queue = queues.get(pickSector(sectors).id);
+        while (queue?.length && !slot.point) accept(slot, queue.shift()!);
+      }
     }
     for (const candidate of shuffle((geometry.anchors ?? []).filter(p => clearGround(p, geometry)).map(p => ({ ...p })))) {
-      if (points.length >= kinds.length) break;
-      accept(candidate);
+      const slot = slots.find(candidate => !candidate.point); if (!slot) break;
+      accept(slot, candidate);
     }
-    for (let attempt = 0; points.length < kinds.length && attempt < 1000; attempt++) {
+    for (let attempt = 0; slots.some(slot => !slot.point) && attempt < 1000; attempt++) {
       const angle = positionRandom() * Math.PI * 2; const distance = 15 + positionRandom() * 30;
-      accept({ x: Math.round((geometry.spawn.x + Math.cos(angle) * distance) * 100) / 100, z: Math.round((geometry.spawn.z + Math.sin(angle) * distance) * 100) / 100 });
+      const slot = slots.find(candidate => !candidate.point)!;
+      accept(slot, { x: Math.round((geometry.spawn.x + Math.cos(angle) * distance) * 100) / 100, z: Math.round((geometry.spawn.z + Math.sin(angle) * distance) * 100) / 100 });
     }
     /** Smallest containing sector wins, matching `sectorAt`. */
     const sectorOf = (point: ZonePosition) => (geometry.sectors ?? [])
       .filter(s => point.x >= s.bounds.minX && point.x <= s.bounds.maxX && point.z >= s.bounds.minZ && point.z <= s.bounds.maxZ)
       .sort((a, b) => (a.bounds.maxX - a.bounds.minX) * (a.bounds.maxZ - a.bounds.minZ)
         - (b.bounds.maxX - b.bounds.minX) * (b.bounds.maxZ - b.bounds.minZ))[0] ?? null;
-    const loot: FieldLoot[] = points.map((point, index) => {
-      const kind = kinds[index];
+    const loot: FieldLoot[] = slots.flatMap(slot => {
+      const point = slot.point; if (!point) return [];
+      const { kind, index } = slot;
       // Bias follows where the crate ended up, not how it got there, so a
       // fallback position in an exposed sector is rewarded the same way.
       const sector = sectorOf(point);
@@ -156,8 +187,12 @@ export function createExpeditionLoot(seed: string | number) {
         const item = itemById(elite ? 'plate-elite' : random() < 0.55 ? 'plate-soft' : 'plate-ceramic')!;
         return { ...common, catalogId: item.id, name: item.name, tier: item.tier, amount: 1 };
       }
-      if (kind === 'ammo') return { ...common, name: 'Ammunition pack', tier: 'Issued', amount: rules.ammoAmount };
-      return { ...common, name: 'Medical supplies', tier: 'Field', amount: rules.medicalAmount };
+      if (kind === 'ammo') {
+        const item = itemById('kit-ammo')!;
+        return { ...common, catalogId: item.id, name: item.name, tier: item.tier, amount: rules.ammoAmount, placement: 'field' as const };
+      }
+      const item = slot.food ? rollFood(rules, random, bias) : itemById(random() < biasedChances(rules, bias).elite ? 'kit-trauma' : 'kit-dressing')!;
+      return { ...common, catalogId: item.id, name: item.name, tier: item.tier, amount: rules.medicalAmount, placement: slot.food ? 'food-stall' as const : 'field' as const };
     });
     zones.set(geometry.id, loot);
     return remaining(geometry.id);

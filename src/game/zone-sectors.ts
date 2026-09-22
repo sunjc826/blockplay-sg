@@ -32,6 +32,12 @@ export interface ZoneSector {
   /** Relative share of the district's patrols. Defaults to the loot weight. */
   readonly botWeight?: number;
   /**
+   * Counter- or kiosk-side positions reserved for food pickups. These are
+   * deliberately separate from tactical anchors so recovery food never falls
+   * back onto a carriageway just because that ground is clear.
+   */
+  readonly foodAnchors?: readonly ZonePosition[];
+  /**
    * Curated positions inside the sector, clear at car width and reachable from
    * the district spawn. Loot and patrols draw from these before falling back to
    * the ring around the spawn, so a sector wants more of them than it has crates.
