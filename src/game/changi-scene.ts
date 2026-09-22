@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CHANGI_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { markWater } from './water';
 
 // Between two planted terraces, looking down a clear radial at the falls.
 export const CHANGI_SPAWN = { x: 16, z: -11, yaw: 1.31 };
@@ -34,6 +35,8 @@ export function buildChangiScene() {
   const asphalt = mat('#5a6064'), white = mat('#eceadc'), paving = mat('#c2beb2'), kerb = mat('#d2ccbe');
   const concrete = mat('#b3b1a7'), pale = mat('#e3ded0'), dark = mat('#38444a'), steel = mat('#aeb6ba', 0.28, 0.55);
   const glass = mat('#7fa3b0', 0.2, 0.35), deepGlass = mat('#6b8f9e', 0.18, 0.4), water = mat('#86b6c6', 0.3);
+  // Shots into these splash rather than spark; see water.ts.
+  markWater(water);
   const leaf = mat('#41703f'), fern = mat('#5d8a4c'), moss = mat('#6f9457'), lawn = mat('#8ba36d');
   const wood = mat('#7b6148'), orange = mat('#f0a044'), skin = mat('#b18c71'), tarmac = mat('#6b6f70');
   const livery = mat('#d8d6cf'), accent = mat('#b7423c'), tail = mat('#2a5f7a');

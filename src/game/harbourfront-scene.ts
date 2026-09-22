@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { HARBOURFRONT_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { markWater } from './water';
 
 // On the quay between the mall and the water, looking along the berth.
 export const HARBOURFRONT_SPAWN = { x: 20, z: 134, yaw: Math.PI / 2 };
@@ -43,6 +44,8 @@ export function buildHarbourfrontScene() {
 
   const asphalt = mat('#565d61'), white = mat('#eae8da'), paving = mat('#bdb8ab'), kerb = mat('#cfc9bb');
   const water = mat('#3f7e95', 0.42), shallow = mat('#589cae', 0.38), lawn = mat('#8aa56c'), grass = mat('#7b9560');
+  // Shots into these splash rather than spark; see water.ts.
+  markWater(water, shallow);
   const concrete = mat('#adaca2'), pale = mat('#e5dfd1'), stone = mat('#b5b4ab'), dark = mat('#36434a');
   const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b2babd', 0.28, 0.58), wood = mat('#7b6148'), plank = mat('#9c7c57');
   const leaf = mat('#44703d'), fern = mat('#5b8a4c'), orange = mat('#f0a044'), skin = mat('#b18c71');

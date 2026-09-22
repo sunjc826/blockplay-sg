@@ -1,11 +1,19 @@
 import * as THREE from 'three';
 import { MARINA_STAMPS } from '../data/region-stamps.ts';
 import type { Obstacle } from './marina-collision';
+import { createWaterMaterial } from './water';
 
 export const MARINA_SPAWN = { x: -44, z: 67, yaw: -0.82 };
 // Landmark scale 0.54: SkyPark 340 × 38m, elevation 200m (Arup/MBS).
 // Ground layout is still compressed independently for gameplay.
 export const MARINA_LANDMARKS = { towerHeight: 108, skyParkLength: 183.6, skyParkWidth: 20.52, museumHeight: 32.4 };
+/**
+ * The bay is a basin, not a painted floor: quay walls drop from the promenade
+ * to a bed three metres down, and the water stands a little below the quay
+ * edge, as it does at a real seawall. The surface is what shots and the eye
+ * meet; the bed is what you see through it when looking down.
+ */
+export const MARINA_BAY = { minX: -80, maxX: 80, minZ: -90, maxZ: 50, surface: -0.4, bed: -3 };
 export const MARINA_MAP_ROADS = [
   { points: [{ x: -103, z: 94 }, { x: 103, z: 94 }, { x: 103, z: -112 }, { x: -103, z: -112 }, { x: -103, z: 94 }] },
   { points: [{ x: -223, z: 164 }, { x: 238, z: 164 }, { x: 238, z: -218 }, { x: -223, z: -218 }, { x: -223, z: 164 }] },
@@ -40,7 +48,9 @@ export function buildMarinaScene() {
   const boxGeo = geo(new THREE.BoxGeometry(1, 1, 1));
   const cream = mat('#cbc9c1'), pale = mat('#efefeb'), glass = mat('#6287ab', { roughness: 0.3, metalness: 0.08 }), dark = mat('#424e53');
   const sand = mat('#92938f'), road = mat('#45494c'), white = mat('#eeeeea'), leaf = mat('#316c35'), trunk = mat('#83776a');
-  const orange = mat('#ed8e42'), mint = mat('#5dafa6'), water = mat('#315e65', { roughness: 0.28, metalness: 0.22 });
+  const orange = mat('#ed8e42'), mint = mat('#5dafa6');
+  const water = createWaterMaterial({ deep: '#1d4750', shallow: '#3d7c84', sky: '#8db6d4', horizon: '#557788', sun: sun.position, clarity: 0.55, choppiness: 0.9 });
+  materials.push(water);
   const steel = mat('#a6afb2', { roughness: 0.35, metalness: 0.65 }), wood = mat('#766257'), hedge = mat('#466b2d');
   const collider = (x: number, z: number, w: number, d: number, maxY = 6.8) => obstacles.push({ maxY, minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
   function box(x: number, y: number, z: number, w: number, h: number, d: number, material: THREE.Material, parent: THREE.Object3D = scene, shadow = false) {
@@ -52,9 +62,23 @@ export function buildMarinaScene() {
     const mesh = box(middle.x, middle.y, middle.z, width, from.distanceTo(to), width, material, scene, true);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize()); return mesh;
   }
-  box(25, -0.6, -20, 770, 1, 660, mat('#687d4e'));
-  box(0, -0.18, -20, 188, 0.35, 168, sand);
-  box(0, -0.05, -20, 160, 0.15, 140, water);
+  // Ground and the sand apron are laid round the basin rather than across it,
+  // so looking down into the bay shows its bed and walls, not a lawn.
+  const bay = MARINA_BAY, bayW = bay.maxX - bay.minX, bayD = bay.maxZ - bay.minZ, bayX = (bay.minX + bay.maxX) / 2, bayZ = (bay.minZ + bay.maxZ) / 2;
+  const grass = mat('#687d4e');
+  box(25, -0.6, 180, 770, 1, 260, grass); box(25, -0.6, -220, 770, 1, 260, grass);
+  box(-220, -0.6, -20, 280, 1, 140, grass); box(245, -0.6, -20, 330, 1, 140, grass);
+  box(0, -0.18, 57, 188, 0.35, 14, sand); box(0, -0.18, -97, 188, 0.35, 14, sand);
+  box(-87, -0.18, -20, 14, 0.35, 140, sand); box(87, -0.18, -20, 14, 0.35, 140, sand);
+  const quay = mat('#8d8a80'), silt = mat('#3d4b43');
+  box(bayX, bay.bed - 0.25, bayZ, bayW, 0.5, bayD, silt);
+  for (const [x, z, w, d] of [[bayX, bay.maxZ + 0.25, bayW + 1, 0.5], [bayX, bay.minZ - 0.25, bayW + 1, 0.5], [bay.minX - 0.25, bayZ, 0.5, bayD], [bay.maxX + 0.25, bayZ, 0.5, bayD]])
+    box(x, bay.bed / 2, z, w, -bay.bed, d, quay);
+  // Enough vertices for the slow swell to move the plane; the chop and the
+  // shot ripples are per pixel and need none.
+  const bayWater = new THREE.Mesh(geo(new THREE.PlaneGeometry(bayW, bayD, 48, 42)), water);
+  bayWater.rotation.x = -Math.PI / 2; bayWater.position.set(bayX, bay.surface, bayZ); bayWater.name = 'marina-bay-water';
+  bayWater.userData.fpsWater = true; bayWater.renderOrder = 1; scene.add(bayWater);
   // The road completes a continuous loop around the bay.
   for (const z of [-112, 94]) {
     box(0, 0, z, 220, 0.08, 15, road);
@@ -224,7 +248,9 @@ export function buildMarinaScene() {
   // Lotus-like ArtScience Museum, fully modeled petals.
   const baseGeo = geo(new THREE.CylinderGeometry(8, 5, 7, 10));
   const museumBase = new THREE.Mesh(baseGeo, pale); museumBase.position.set(135, 9, -110); scene.add(museumBase); collider(135, -110, 44, 44, 34);
-  const pond = new THREE.Mesh(geo(new THREE.CylinderGeometry(22, 22, 0.2, 40)), water); pond.position.set(135, 0.1, -110); scene.add(pond);
+  const pondBed = new THREE.Mesh(geo(new THREE.CircleGeometry(22, 40)), silt); pondBed.rotation.x = -Math.PI / 2; pondBed.position.set(135, 0.03, -110); scene.add(pondBed);
+  const pond = new THREE.Mesh(geo(new THREE.CircleGeometry(22, 40)), water); pond.rotation.x = -Math.PI / 2; pond.position.set(135, 0.19, -110);
+  pond.name = 'marina-pond-water'; pond.userData.fpsWater = true; pond.renderOrder = 1; scene.add(pond);
   for (let i = 0; i < 8; i++) {
     const a = i / 8 * Math.PI * 2;
     const support = box(135 + Math.cos(a) * 5, 4, -110 + Math.sin(a) * 5, 0.8, 8, 0.8, pale); support.rotation.z = Math.cos(a) * 0.2;
@@ -575,14 +601,10 @@ export function buildMarinaScene() {
   scene.userData.qualityDetails = qualityDetails;
   scene.userData.referenceFeatures = ['museum-shell', 'bay-skyline', 'fullerton-materials', 'fullerton-glazing', 'sands-canopy', 'sands-streetscape', 'south-waterfront', 'south-palms', 'merlion-waterfront-east', 'bayfront-gardens-east', 'south-promenade-north', 'gardens-grove-03-0', 'conservatory-road-03-90', 'barrage-approach-03-180', 'east-garden-03-180', 'flyer-road-03-270', 'float-waterfront-03-90', 'esplanade-road-03-180', 'promenade-road-03-180', 'downtown-green-03-180', 'marina-one-street-03-90'];
 
-  const waves: THREE.Mesh[] = [];
-  const foam = mat('#b6d9d0', { transparent: true, opacity: 0.4 });
-  for (let i = 0; i < 42; i++) {
-    const x = -70 + (i * 37) % 140, z = -83 + (i * 23) % 125;
-    const wave = box(x, 0.055, z, 3 + i % 5, 0.02, 0.12, foam); wave.userData.baseX = x; waves.push(wave);
-  }
   // Tiny low-poly bumboat on the bay.
-  const boatGroup = new THREE.Group(); boatGroup.position.set(-35, 0.5, -25); scene.add(boatGroup);
+  // Floated at a quarter-metre draft rather than resting on the old solid bay.
+  const boatFloat = bay.surface + 0.35;
+  const boatGroup = new THREE.Group(); boatGroup.position.set(-35, boatFloat, -25); scene.add(boatGroup);
   box(0, 0, 0, 8, 1.2, 3.5, trunk, boatGroup); box(0, 1.2, 0, 5, 1.8, 2.6, pale, boatGroup); box(0, 2.3, 0, 6.5, 0.25, 3, orange, boatGroup);
   const stamps = MARINA_STAMPS.map(point => {
     const group = new THREE.Group(); group.position.set(point.x, 3, point.z);
@@ -595,7 +617,7 @@ export function buildMarinaScene() {
   const wheelGeo = geo(new THREE.CylinderGeometry(0.48, 0.48, 0.3, 10));
   for (const x of [-1.15, 1.15]) for (const z of [-1.35, 1.35]) { const wheel = new THREE.Mesh(wheelGeo, dark); wheel.rotation.z = Math.PI / 2; wheel.position.set(x, 0.5, z); car.add(wheel); }
   // Repeated façade/paving/railing and palm details share batched draw calls.
-  // Leave unique landmark geometry, moving waves and car/boat children alone.
+  // Leave unique landmark geometry, the water surfaces and car/boat children alone.
   // The Merlion is static: preserve its world transforms while flattening it
   // so every scale/tile/grout strip joins the existing instance batches.
   statue.updateMatrixWorld(true);
@@ -603,7 +625,7 @@ export function buildMarinaScene() {
   scene.remove(statue);
   const batches = new Map<string, THREE.Mesh[]>();
   for (const child of [...scene.children]) {
-    if (!(child instanceof THREE.Mesh) || child instanceof THREE.InstancedMesh || Array.isArray(child.material) || waves.includes(child)) continue;
+    if (!(child instanceof THREE.Mesh) || child instanceof THREE.InstancedMesh || Array.isArray(child.material)) continue;
     const material = child.material as THREE.Material, key = `${child.geometry.uuid}:${material.uuid}:${child.castShadow}`;
     const batch = batches.get(key) || []; batch.push(child); batches.set(key, batch);
   }
@@ -617,7 +639,7 @@ export function buildMarinaScene() {
   }
   return {
     scene, obstacles, car, stamps,
-    animate(time: number) { waves.forEach((wave, i) => { wave.position.x = wave.userData.baseX + Math.sin(time * 0.45 + i) * 1.4; }); stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.5; stamp.position.y = 3 + Math.sin(time * 1.7 + i) * 0.35; }); boatGroup.position.y = 0.5 + Math.sin(time) * 0.13;
+    animate(time: number) { water.userData.setTime(time); stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.5; stamp.position.y = 3 + Math.sin(time * 1.7 + i) * 0.35; }); boatGroup.position.y = boatFloat + Math.sin(time) * 0.06; boatGroup.rotation.x = Math.sin(time * 0.8 + 1) * 0.025;
       walkers.forEach(({ group, x, z, axis, phase }) => { const offset = Math.sin(time * 0.09 + phase) * 10; group.position.set(x + (axis === 'x' ? offset : 0), Math.abs(Math.sin(time * 4 + phase)) * 0.04, z + (axis === 'z' ? offset : 0)); group.rotation.y = (axis === 'x' ? Math.PI / 2 : 0) + (Math.cos(time * 0.09 + phase) > 0 ? Math.PI : 0); });
     },
     dispose() { instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); sun.shadow.map?.dispose(); },

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { JURONG_LAKE_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { markWater } from './water';
 
 export const JURONG_LAKE_SPAWN = { x: -20, z: 20, yaw: Math.PI / 2 };
 export const JURONG_LAKE_BOUNDS = { minX: -270, maxX: 270, minZ: -230, maxZ: 230 };
@@ -34,6 +35,8 @@ export function buildJurongLakeScene() {
 
   const asphalt = mat('#575e62'), white = mat('#e9e7d8'), paving = mat('#bdb9ac'), kerb = mat('#cec9ba');
   const water = mat('#5d93a4', 0.42), shallow = mat('#6fa5b2', 0.4), grass = mat('#87a06c'), lawn = mat('#93ac74');
+  // Shots into these splash rather than spark; see water.ts.
+  markWater(water, shallow);
   const stone = mat('#b6b5ac'), pale = mat('#ded8c8'), dark = mat('#39464a'), wood = mat('#7c6046');
   const lacquer = mat('#a8402f'), gold = mat('#c59a34', 0.42, 0.55), tileGreen = mat('#39624c');
   const leaf = mat('#4e7444'), willow = mat('#6f9153'), orange = mat('#f0a044'), skin = mat('#b18c71');

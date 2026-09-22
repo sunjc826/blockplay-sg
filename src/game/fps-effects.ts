@@ -3,6 +3,7 @@ import { advanceCasings, casingFade, ejectCasing, MAX_CASINGS, type Casing } fro
 import { advanceImpacts, clearImpactField, createImpactField, impactDust, impactRing, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordImpact, scorchAlpha, sparkHeat, sparkStreak, type ImpactKind } from './fps-impacts';
 import { advanceMuzzle, createMuzzle, igniteMuzzle, muzzleShape, resetMuzzle } from './fps-muzzle';
 import { MAX_ROUNDS_IN_FLIGHT } from './fps-projectiles';
+import { advanceSplashes, clearSplashField, createSplashField, dropletScale, MAX_DROPLETS, MAX_SPLASHES, recordSplash, splashColumn, splashRings } from './fps-splashes';
 import { ISSUED_STYLE, type EffectStyle } from './fps-effect-styles';
 
 /**
@@ -13,8 +14,9 @@ import { ISSUED_STYLE, type EffectStyle } from './fps-effect-styles';
  *
  * Every pool is allocated once at its ceiling and drawn as a single object:
  * one instanced draw for the brass, one for the impact rings, one for the dust
- * and smoke, one for the scorches, and one batched `LineSegments` for every
- * spark in the air. Nothing is created or disposed while firing, which is what
+ * and smoke, one for the scorches, one batched `LineSegments` for every spark
+ * in the air, and two for water: the foam rings and a billboard pool shared by
+ * the spray columns and droplets. Nothing is created or disposed while firing, which is what
  * keeps a held trigger from sawing at the allocator on a software renderer.
  *
  * The whole world-space tree is flagged `fpsEffect`, so the engine's raycasts
@@ -52,10 +54,27 @@ function radialTexture(size: number, edge: number, channel: 'alpha' | 'colour' =
     data[i] = data[i + 1] = data[i + 2] = channel === 'alpha' ? 255 : falloff;
     data[i + 3] = channel === 'alpha' ? falloff : 255;
   }
+  return finishTexture(data, size);
+}
+function finishTexture(data: Uint8Array, size: number) {
   const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
   texture.colorSpace = THREE.SRGBColorSpace; texture.minFilter = texture.magFilter = THREE.LinearFilter;
   texture.needsUpdate = true;
   return texture;
+}
+/**
+ * A soft annulus in alpha, peaking at `peak` of the radius: a ripple ring seen
+ * from above, whose foam is brightest on the crest and gone either side of it.
+ */
+function ringTexture(size: number, peak: number, width: number) {
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const dx = (x + .5) / size * 2 - 1, dy = (y + .5) / size * 2 - 1;
+    const off = (Math.hypot(dx, dy) - peak) / width, i = (y * size + x) * 4;
+    data[i] = data[i + 1] = data[i + 2] = 255;
+    data[i + 3] = Math.round(Math.exp(-off * off) * (Math.hypot(dx, dy) < 1 ? 255 : 0));
+  }
+  return finishTexture(data, size);
 }
 
 export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options: { worldLight?: boolean; style?: EffectStyle } = {}) {
@@ -140,6 +159,25 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
   scorchMesh.name = 'fps-scorches';
   scorchMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scorchMesh.frustumCulled = false; scorchMesh.userData.fpsEffect = true; root.add(scorchMesh);
 
+  // --- splashes --------------------------------------------------------------
+  // Water throws back spray rather than sparks: see fps-splashes. Two draws:
+  // the foam rings lying on the surface, and one billboard pool shared by every
+  // droplet in the air and the white column standing over each entry point.
+  const splashField = createSplashField();
+  const foamRing = paint(ringTexture(64, .78, .12));
+  const splashRingMesh = new THREE.InstancedMesh(quad, additive('#ffffff', foamRing), MAX_SPLASHES * 2);
+  splashRingMesh.name = 'fps-splash-rings';
+  splashRingMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); splashRingMesh.frustumCulled = false; splashRingMesh.userData.fpsEffect = true; root.add(splashRingMesh);
+  // Normally blended, not additive: white spray has to show against a bright
+  // sky as well as against the water, and adding white to sky shows nothing.
+  const SPRAY_CAPACITY = MAX_SPLASHES + MAX_DROPLETS;
+  const sprayMesh = new THREE.InstancedMesh(quad, hold(new THREE.MeshBasicMaterial({ color: '#ffffff', map: blob, transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })), SPRAY_CAPACITY);
+  sprayMesh.name = 'fps-spray';
+  sprayMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); sprayMesh.frustumCulled = false; sprayMesh.userData.fpsEffect = true; root.add(sprayMesh);
+  const flat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0));
+  const upright = new THREE.Quaternion(), yawOnly = new THREE.Euler(0, 0, 0, 'YXZ');
+  const spray = new THREE.Color('#e9f4f6'), foam = new THREE.Color('#d8eef0');
+
   const sparkGeometry = keep(new THREE.BufferGeometry());
   sparkGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_SPARKS * 6), 3));
   sparkGeometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(MAX_SPARKS * 6), 3));
@@ -165,11 +203,11 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
   const axis = new THREE.Vector3(), forward = new THREE.Vector3(0, 0, 1), spin = new THREE.Quaternion();
   const right = new THREE.Vector3(), up = new THREE.Vector3(), back = new THREE.Vector3();
   const hidden = new THREE.Matrix4().makeScale(0, 0, 0);
-  [casingMesh, ringMesh, puffMesh, scorchMesh].forEach(mesh => {
+  [casingMesh, ringMesh, puffMesh, scorchMesh, splashRingMesh, sprayMesh].forEach(mesh => {
     for (let i = 0; i < mesh.count; i++) mesh.setMatrixAt(i, hidden);
     mesh.instanceMatrix.needsUpdate = true;
   });
-  [ringMesh, puffMesh, scorchMesh, casingMesh].forEach(mesh => { for (let i = 0; i < mesh.count; i++) mesh.setColorAt(i, colour.setRGB(0, 0, 0)); mesh.instanceColor!.needsUpdate = true; });
+  [ringMesh, puffMesh, scorchMesh, casingMesh, splashRingMesh, sprayMesh].forEach(mesh => { for (let i = 0; i < mesh.count; i++) mesh.setColorAt(i, colour.setRGB(0, 0, 0)); mesh.instanceColor!.needsUpdate = true; });
 
   /**
    * Paints the parts of the rig that only ever belong to the weapon in hand:
@@ -190,7 +228,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
     root, flare,
     get style() { return current; },
     /** Live counts, surfaced so a browser smoke can assert the effects ran. */
-    get counts() { return { casings: casings.length, impacts: field.impacts.length, sparks: field.sparks.length, scorches: field.scorches.length, smoke: smoke.length }; },
+    get counts() { return { casings: casings.length, impacts: field.impacts.length, sparks: field.sparks.length, scorches: field.scorches.length, smoke: smoke.length, splashes: splashField.splashes.length, droplets: splashField.droplets.length }; },
     /** Re-parents the flare when the equipped weapon changes. */
     attachMuzzle(socket?: THREE.Object3D | null) { if (socket) socket.add(flare); else flare.removeFromParent(); },
     /**
@@ -242,6 +280,14 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
       recordImpact(field, point, normal, kind, energy, Math.random, style ?? current.id);
     },
     /**
+     * A round meeting water at `point`, travelling along `direction`. Water
+     * leaves no scorch and throws no sparks, whatever the weapon, so a splash
+     * carries no style.
+     */
+    splash(point: THREE.Vector3, direction: THREE.Vector3, energy = 1) {
+      recordSplash(splashField, point, direction, energy);
+    },
+    /**
      * Advances every pool and writes it into the buffers the renderer reads.
      * `groundY` is the floor brass lands on; `camera` billboards the puffs.
      */
@@ -253,6 +299,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
       }
       advanceCasings(casings, dt, groundY);
       advanceImpacts(field, dt);
+      advanceSplashes(splashField, dt);
       for (let i = smoke.length - 1; i >= 0; i--) {
         const wisp = smoke[i]; wisp.age += Math.max(0, Math.min(dt, .25));
         if (wisp.age >= wisp.life) { smoke.splice(i, 1); continue; }
@@ -333,6 +380,39 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
       }
       scorchMesh.instanceMatrix.needsUpdate = true; scorchMesh.instanceColor!.needsUpdate = true;
 
+      for (let i = 0; i < MAX_SPLASHES; i++) {
+        const splash = splashField.splashes[i];
+        if (!splash) { splashRingMesh.setMatrixAt(i * 2, hidden); splashRingMesh.setMatrixAt(i * 2 + 1, hidden); continue; }
+        splashRings(splash).forEach((ring, j) => {
+          quaternion.copy(flat).multiply(spin.setFromAxisAngle(forward, splash.spin + j));
+          // A couple of millimetres proud of the water, or the two z-fight.
+          splashRingMesh.setMatrixAt(i * 2 + j, ring.brightness > 0 ? matrix.compose(position.set(splash.x, splash.y + .006, splash.z), quaternion, scale.set(ring.radius * 2, ring.radius * 2, 1)) : hidden);
+          splashRingMesh.setColorAt(i * 2 + j, colour.copy(foam).multiplyScalar(ring.brightness * .8));
+        });
+      }
+      splashRingMesh.instanceMatrix.needsUpdate = true; splashRingMesh.instanceColor!.needsUpdate = true;
+
+      // The column turns only about the vertical, as a real one would look from
+      // anywhere around it; droplets face the camera outright.
+      camera.getWorldQuaternion(quaternion);
+      upright.setFromEuler(yawOnly.setFromQuaternion(quaternion, 'YXZ').set(0, yawOnly.y, 0, 'YXZ'));
+      for (let i = 0; i < SPRAY_CAPACITY; i++) {
+        const splash = i < MAX_SPLASHES ? splashField.splashes[i] : undefined;
+        const drop = i >= MAX_SPLASHES ? splashField.droplets[i - MAX_SPLASHES] : undefined;
+        if (splash) {
+          const column = splashColumn(splash);
+          if (column.brightness <= .01) { sprayMesh.setMatrixAt(i, hidden); continue; }
+          sprayMesh.setColorAt(i, spray);
+          sprayMesh.setMatrixAt(i, matrix.compose(position.set(splash.x, splash.y + column.height * .45, splash.z), upright,
+            scale.set(column.width * (.35 + .65 * column.brightness), column.height, 1)));
+        } else if (drop) {
+          const size = dropletScale(drop);
+          sprayMesh.setColorAt(i, spray);
+          sprayMesh.setMatrixAt(i, matrix.compose(position.set(drop.x, drop.y, drop.z), quaternion, scale.set(size, size, 1)));
+        } else sprayMesh.setMatrixAt(i, hidden);
+      }
+      sprayMesh.instanceMatrix.needsUpdate = true; sprayMesh.instanceColor!.needsUpdate = true;
+
       const sparkPosition = sparkGeometry.getAttribute('position'), sparkColour = sparkGeometry.getAttribute('color');
       field.sparks.forEach((spark, i) => {
         const sparkStyle = styleOf(spark.style).spark;
@@ -349,22 +429,22 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
       sparkMesh.visible = field.sparks.length > 0;
     },
     reset() {
-      casings.length = 0; smoke.length = 0; clearImpactField(field); resetMuzzle(muzzle);
+      casings.length = 0; smoke.length = 0; clearImpactField(field); clearSplashField(splashField); resetMuzzle(muzzle);
       beamTime = 0; beam.visible = trails.visible = flare.visible = sparkMesh.visible = false;
       viewLight.intensity = 0; if (worldLight) worldLight.intensity = 0;
       trailGeometry.setDrawRange(0, 0); sparkGeometry.setDrawRange(0, 0);
-      [casingMesh, ringMesh, puffMesh, scorchMesh].forEach(mesh => {
+      [casingMesh, ringMesh, puffMesh, scorchMesh, splashRingMesh, sprayMesh].forEach(mesh => {
         for (let i = 0; i < mesh.count; i++) mesh.setMatrixAt(i, hidden);
         mesh.instanceMatrix.needsUpdate = true;
       });
-      [ringMesh, puffMesh, scorchMesh, casingMesh].forEach(mesh => {
+      [ringMesh, puffMesh, scorchMesh, casingMesh, splashRingMesh, sprayMesh].forEach(mesh => {
         for (let i = 0; i < mesh.count; i++) mesh.setColorAt(i, colour.setScalar(0));
         mesh.instanceColor!.needsUpdate = true;
       });
     },
     dispose() {
       flare.removeFromParent(); viewLight.removeFromParent(); root.removeFromParent();
-      [casingMesh, ringMesh, puffMesh, scorchMesh].forEach(mesh => mesh.dispose());
+      [casingMesh, ringMesh, puffMesh, scorchMesh, splashRingMesh, sprayMesh].forEach(mesh => mesh.dispose());
       geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose());
     },
   };

@@ -253,6 +253,23 @@ gameplay raycasts skip it — brass on the floor can never stop a bullet.
 premium weapon both; on a software renderer pass `EFFECTS_SMOKE_PACE=6`, as the
 other browser smokes need.
 
+**Water.** A shot into water is resolved differently from one into concrete.
+Anything tagged water — the Marina bay and museum pond, and every district's
+water and shallows material via `markWater` in `water.ts` — ends a shot's list of
+struck surfaces, so nothing behind or beneath it is reached. `fps-splashes`
+decides what happens there. Below a critical grazing angle of 6° the round skips:
+it is mirrored about the surface with most of its climb bled off, keeps half its
+damage, and flies on. Hitscan casts a fresh ray and in-flight rounds restart their
+arc (`skipRound`), each up to twice. Any steeper and the water takes it. Either
+way the surface throws spray instead of sparks, dust or a scorch: a crown of
+droplets, a central jet for a plunging round (a skim sprays forward instead),
+and two foam rings. Droplets are integrated in fixed 1/60 s substeps so a slow
+renderer doesn't lose them in one long step. Marina's water is a shader surface
+(`createWaterMaterial`): travelling-wave normals, Schlick Fresnel against a
+two-colour sky, a sun glint, and up to twelve shot ripples written straight into
+its uniforms. The bay is a real basin — quay walls down to a bed 3 m below —
+so the transparency shows depth when you look down into it.
+
 In the ready/pause menu, open **Debug survival** for 1×, 5× or 10× maximum health, a health refill, and optional regeneration (10% of maximum HP per second after three seconds without damage). These tab-local settings persist through zone changes and apply to practice, solo bots and expeditions. Network rooms keep their normal health rules.
 
 **Encik radio** adds Singaporean callouts for combat, reloads, low health/ammo, supplies and AI movement. The pilot can request contact and stuck callouts through its action interface. Voice uses the bundled [48-line Encik recording pack](ENCIK-VOICE.md); **Encik on/off** mutes only speech, with subtitles retained. The existing sound mute silences speech too. No API key is needed.

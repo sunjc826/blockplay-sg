@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BUKIT_TIMAH_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { markWater } from './water';
 
 // On the corridor verge, under the truss bridge, looking up at the ridge.
 export const BUKIT_TIMAH_SPAWN = { x: 60, z: 16, yaw: Math.PI / 2 };
@@ -39,6 +40,8 @@ export function buildBukitTimahScene() {
 
   const asphalt = mat('#565c5a'), white = mat('#e9e7d8'), paving = mat('#bab5a6'), kerb = mat('#cdc7b7');
   const water = mat('#4d8490', 0.42), shallow = mat('#63a0aa', 0.38), lawn = mat('#87a568'), grass = mat('#79935c');
+  // Shots into these splash rather than spark; see water.ts.
+  markWater(water, shallow);
   const concrete = mat('#a9a89d'), pale = mat('#efeade'), stone = mat('#b3b2a8'), dark = mat('#333f42');
   const glass = mat('#6d92a0', 0.24, 0.3), steel = mat('#9aa4a6', 0.3, 0.6), wood = mat('#6f5740'), timber = mat('#3a2f26');
   const leaf = mat('#3d6b38'), fern = mat('#548245'), deep = mat('#2c5230'), moss = mat('#6b8f4c');

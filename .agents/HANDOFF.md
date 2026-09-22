@@ -1,5 +1,41 @@
 # Blockplay: portable agent handoff
 
+**Latest: water that behaves like water (2026-09-22).** Marina Bay's water was
+a flat opaque box at ground level. Shots into it chipped it like concrete, with
+sparks, dust and a scorch that hung in mid-bay. Now:
+
+- **The bay is a basin.** Ground and sand are laid round it, not across it. Quay
+  walls drop to a silt bed at y = -3, and the surface sits at y = -0.4, below the
+  quay edge (`MARINA_BAY`). The walk collider over the bay is unchanged, so
+  there's still no swimming. The bumboat floats at a quarter-metre draft.
+- **Shader surface** (`water.ts`, `createWaterMaterial`). It has no render
+  targets, so it's cheap on SwiftShader. Travelling-wave normals, Schlick Fresnel
+  against a two-colour sky (capped at 0.78 so a grazing view isn't a white
+  mirror), a sun glint, and Fresnel-driven opacity. The lotus pond uses it too.
+- **Rounds meet water** (`fps-splashes.ts`). Water ends a shot's hit list. Below
+  6° grazing a round skips on, shallower, at half damage (and 70% speed if in
+  flight), up to twice. Steeper, it stops. The splash is spray, not sparks: a
+  crown, a jet for plunging rounds, and foam rings. Each shot also writes a ripple
+  into the shader's uniforms, so the water surface itself rings.
+- **Every district's water splashes.** `markWater` tags the `water`/`sea` and
+  `shallow` materials in all fourteen scenes that have them. Batching keeps the
+  material, so instanced water is still recognised. Only Marina has the shader
+  surface; the others are still flat boxes.
+
+Bug worth knowing: droplets originally took one Euler step per frame, and on a
+software renderer's quarter-second frames every droplet fell back through the
+surface on the frame it was thrown. `advanceSplashes` now substeps at 1/60 s, and
+a unit test pins slow-frame results to smooth-frame ones.
+
+Checked: 737 unit tests, typecheck, build and `pnpm test:fps:effects` (pace 6)
+pass. In the real engine a shot into the bay registers a splash with droplets and
+leaves no scorch (`canvas.dataset.fxSplash` = splashes/droplets). The look was
+tuned from headless SwiftShader screenshots of a throwaway preview page, which is
+not committed.
+
+Possible next steps: swimming (needs the bay collider replaced and bots' ground
+rules taught about water); the shader surface for the other districts' water
+(their boxes are instanced, so the shader would need the instancing chunks).
 **Latest: the dossier draws the recoil (2026-09-22).** The shop had a falloff
 curve saying whether a hit kills and nothing saying whether the shot arrives.
 `RecoilCurve` is its companion: sight climb in degrees against rounds held, for

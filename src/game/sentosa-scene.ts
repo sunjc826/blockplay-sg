@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { SENTOSA_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { markWater } from './water';
 
 // Just inside the boardwalk landing, looking down the island's spine.
 export const SENTOSA_SPAWN = { x: 108, z: -168, yaw: Math.PI };
@@ -40,6 +41,8 @@ export function buildSentosaScene() {
 
   const asphalt = mat('#575d5e'), white = mat('#eae8da'), paving = mat('#c0bbae'), kerb = mat('#d1cbbd');
   const sea = mat('#3f88a4', 0.4), shallow = mat('#63aec0', 0.36), sand = mat('#ded0a6'), lawn = mat('#89a76a');
+  // Shots into these splash rather than spark; see water.ts.
+  markWater(sea, shallow);
   const pale = mat('#e8e1d1'), stone = mat('#b7b5ab'), concrete = mat('#adaca2'), dark = mat('#36434a');
   const glass = mat('#72a0b2', 0.22, 0.32), steel = mat('#b2babd', 0.28, 0.58), wood = mat('#7c6248'), plank = mat('#a07f58');
   const terra = mat('#b3684c'), gold = mat('#c59a34', 0.42, 0.55), rust = mat('#a8563a');

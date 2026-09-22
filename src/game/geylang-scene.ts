@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GEYLANG_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { markWater } from './water';
 
 // On the main road at a lorong mouth, looking down the terraces.
 export const GEYLANG_SPAWN = { x: -14, z: -10, yaw: Math.PI / 2 };
@@ -43,6 +44,8 @@ export function buildGeylangScene() {
 
   const asphalt = mat('#565c5f'), white = mat('#e9e7d8'), paving = mat('#b9b3a6'), kerb = mat('#cdc7b9');
   const water = mat('#4b7f86', 0.44), shallow = mat('#5f9aa2', 0.4), grass = mat('#849c66'), lawn = mat('#90a870');
+  // Shots into these splash rather than spark; see water.ts.
+  markWater(water, shallow);
   const plaster = mat('#e9e2d0'), stone = mat('#b6b4ab'), concrete = mat('#a9a89e'), dark = mat('#36434a');
   const wood = mat('#7b6148'), zinc = mat('#a0a7a5', 0.34, 0.5), steel = mat('#b0b8bb', 0.28, 0.55);
   const glass = mat('#6d90a0', 0.24, 0.3), terra = mat('#b0644a'), tileDark = mat('#8a4b38');

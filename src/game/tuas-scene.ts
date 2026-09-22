@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TUAS_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { markWater } from './water';
 
 // On the verge between the tank farm and the plant road, looking west.
 export const TUAS_SPAWN = { x: -70, z: 18, yaw: Math.PI / 2 };
@@ -36,6 +37,8 @@ export function buildTuasScene() {
 
   const asphalt = mat('#4f5558'), white = mat('#e6e4d6'), paving = mat('#b0aca0'), kerb = mat('#c4bfb2');
   const sea = mat('#3d7b90', 0.42), shallow = mat('#549aad', 0.38), gravel = mat('#9a958a');
+  // Shots into these splash rather than spark; see water.ts.
+  markWater(sea, shallow);
   const concrete = mat('#a8a79e'), pale = mat('#dcd6c8'), stone = mat('#b0afa6'), dark = mat('#333e44');
   const steel = mat('#9ba4a8', 0.32, 0.6), galv = mat('#b9c0c2', 0.3, 0.7), tank = mat('#d8d6cc', 0.5, 0.25);
   const rust = mat('#a05a38'), safety = mat('#d8a02a'), hazard = mat('#c4472e'), pipe = mat('#8e9698', 0.36, 0.55);

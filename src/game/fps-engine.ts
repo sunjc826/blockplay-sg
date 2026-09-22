@@ -5,7 +5,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { advanceWeapon, beginReload, createLoadout, findTrait, fireWeapon, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponState } from './fps-rules';
 import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { sectorAt, zoneSectors } from './zone-sectors';
-import { advanceRound, createRound, needsFlight, MAX_ROUNDS_IN_FLIGHT, type InFlightRound } from './fps-projectiles';
+import { advanceRound, createRound, needsFlight, skipRound, MAX_ROUNDS_IN_FLIGHT, MAX_SKIPS, type InFlightRound } from './fps-projectiles';
+import { SKIP_ENERGY, waterRicochet } from './fps-splashes';
+import { isWaterObject, rippleWater } from './water';
 import { createFpsEffects, type ImpactKind } from './fps-effects';
 import { advanceRecoil, compensateRecoil, createRecoil, recoilPose, recoilView, recordRecoilShot, resetRecoil, takeAimPush } from './fps-recoil';
 import { effectStyleForWeapon } from './fps-effect-styles';
@@ -746,6 +748,50 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     return surface.copy(direction).negate().normalize();
   }
   const impactKind = (hit: THREE.Intersection): ImpactKind => typeof hit.object.userData.fpsTarget === 'number' ? 'target' : 'surface';
+  const isWaterHit = (hit?: THREE.Intersection) => !!hit && isWaterObject(hit.object);
+  /**
+   * Water ends a shot's list of struck surfaces: a round that goes in breaks
+   * up within a metre, and one that skims leaves along a new line that the
+   * caller casts separately. Either way nothing behind the surface is reached.
+   */
+  function stopAtWater(hits: THREE.Intersection[]) {
+    const index = hits.findIndex(hit => isWaterObject(hit.object));
+    if (index >= 0) hits.length = index + 1;
+    return hits;
+  }
+  /**
+   * A round meets water: spray above the surface, a ripple in it where the
+   * water can carry one, and the direction it skips off in if it came in
+   * shallow enough to skip (see fps-splashes), or null if the water took it.
+   */
+  function meetWater(hit: THREE.Intersection, direction: THREE.Vector3, energy: number) {
+    const normal = surfaceNormal(hit, direction);
+    const skip = waterRicochet(direction, normal);
+    effects.splash(hit.point, direction, skip ? energy * .6 : energy);
+    rippleWater(hit.object, hit.point.x, hit.point.z, skip ? energy * .6 : energy);
+    return skip;
+  }
+  const skipRay = new THREE.Raycaster(), skipDirection = new THREE.Vector3(), skipOrigin = new THREE.Vector3();
+  /**
+   * An instant round that skimmed water carries on along the skip, weaker,
+   * and may strike something — or skim again — further out.
+   */
+  function skipInstantShot(from: THREE.Vector3, direction: { x: number; y: number; z: number }, travelled: number, energy: number, weapon: number) {
+    let skips = 0, at = from, heading: { x: number; y: number; z: number } | null = direction;
+    while (heading && skips++ < MAX_SKIPS && travelled < ROUND_RANGE) {
+      skipDirection.set(heading.x, heading.y, heading.z);
+      // Off the surface by a hair, or the new ray starts inside the water it left.
+      skipRay.set(skipOrigin.copy(at).addScaledVector(skipDirection, .05).setY(skipOrigin.y + .01), skipDirection);
+      skipRay.near = 0; skipRay.far = ROUND_RANGE - travelled; energy *= SKIP_ENERGY;
+      const hits = stopAtWater(visibleHits(skipRay, gameplayCandidates(), 1)), hit = hits[0];
+      if (!hit) return;
+      const range = travelled + hit.distance;
+      energy = resolveSurfaces(hits, weapon, () => range, energy);
+      applySplash(hit.point, weapon, range, energy, hit.object.userData.fpsTarget);
+      if (!isWaterHit(hit)) { effects.impact(hit.point, surfaceNormal(hit, skipDirection), impactKind(hit), energy); return; }
+      heading = meetWater(hit, skipDirection, energy); at = hit.point.clone(); travelled = range;
+    }
+  }
   function damageTarget(index: number, weapon: number, range: number, zone: string | undefined, scale = 1) {
     const target = targets[index];
     if (!target?.alive || scale <= 0) return;
@@ -828,13 +874,22 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         roundDirection.set(step.to.x - step.from.x, step.to.y - step.from.y, step.to.z - step.from.z).normalize();
         roundRay.set(roundOrigin.set(step.from.x, step.from.y, step.from.z), roundDirection);
         roundRay.near = 0; roundRay.far = step.distance;
-        const segmentHits = visibleHits(roundRay, candidates, 1 + round.pierced);
+        const segmentHits = stopAtWater(visibleHits(roundRay, candidates, 1 + round.pierced));
         if (segmentHits.length) {
           // travelled already covers the arc up to this segment's start.
           const start = round.travelled - step.distance;
           round.scale = resolveSurfaces(segmentHits, round.weapon, hit => start + hit.distance, round.scale);
           const last = segmentHits[segmentHits.length - 1];
           applySplash(last.point, round.weapon, start + last.distance, round.scale, last.object.userData.fpsTarget);
+          if (isWaterHit(last)) {
+            struck = true;
+            const skip = meetWater(last, roundDirection, round.scale);
+            // Restarted just above the surface so its first new segment does not
+            // begin inside the water it is leaving.
+            const exit = { x: last.point.x + (skip?.x ?? 0) * .05, y: last.point.y + .01 + (skip?.y ?? 0) * .05, z: last.point.z + (skip?.z ?? 0) * .05 };
+            if (!skip || !skipRound(round, exit, skip, SKIP_ENERGY)) rounds.splice(i, 1);
+            continue;
+          }
           effects.impact(last.point, surfaceNormal(last, roundDirection), impactKind(last), round.scale, weaponStyles[round.weapon]?.id); struck = true;
           // Stopped once it has struck more surfaces than it could pass through.
           if (segmentHits.length > round.pierced) { rounds.splice(i, 1); continue; }
@@ -868,7 +923,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     const candidates = gameplayCandidates();
     // The arena host resolves its own shot, so it only needs the nearest surface.
-    const hits = arenaRuntime ? visibleHits(ray, candidates, 1) : visibleHits(ray, candidates, 1 + pierceBudget(hud.weapon));
+    const hits = stopAtWater(arenaRuntime ? visibleHits(ray, candidates, 1) : visibleHits(ray, candidates, 1 + pierceBudget(hud.weapon)));
     const hit = hits[0];
     // What the round has left when it stops, which scales the spray it throws.
     let energy = 1;
@@ -884,7 +939,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const struck = hits[hits.length - 1];
     const end = struck?.point ?? ray.ray.at(180, new THREE.Vector3());
     effects.beam(muzzlePoint, end);
-    if (struck) effects.impact(struck.point, surfaceNormal(struck, ray.ray.direction), impactKind(struck), energy);
+    if (isWaterHit(struck)) {
+      const skip = meetWater(struck, ray.ray.direction, energy);
+      // The arena host resolves its own shots, so there the skip is spray only.
+      if (skip && !arenaRuntime) skipInstantShot(struck.point, skip, struck.distance, energy, hud.weapon);
+    } else if (struck) effects.impact(struck.point, surfaceNormal(struck, ray.ray.direction), impactKind(struck), energy);
     checkCompletion();
     publish();
   }
@@ -1054,6 +1113,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // the pools without the frame paying for four attribute writes.
     const live = effects.counts, census = `${live.casings}/${live.impacts}/${live.sparks}/${live.scorches}`;
     if (census !== canvas.dataset.fxCensus) canvas.dataset.fxCensus = census;
+    const water = `${live.splashes}/${live.droplets}`;
+    if (water !== canvas.dataset.fxSplash) canvas.dataset.fxSplash = water;
     const kicked = kick.pitch.toFixed(4);
     if (kicked !== canvas.dataset.fxRecoil) canvas.dataset.fxRecoil = kicked;
     // The aim the weapon is currently holding, which is the half a smoke can

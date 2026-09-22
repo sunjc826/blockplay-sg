@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RAFFLES_STAMPS } from '../data/region-stamps.ts';
 import type { Obstacle } from './raffles-collision';
+import { markWater } from './water';
 
 export const RAFFLES_SPAWN = { x: 0, z: 52, yaw: 0 };
 export { RAFFLES_STAMPS } from '../data/region-stamps.ts';
@@ -26,6 +27,8 @@ export function buildRafflesScene() {
   const stone = mat('#b8b9b5'), pale = mat('#dadbd4'), glass = mat('#54717c'), blue = mat('#72909c'), dark = mat('#38474b');
   const paving = mat('#b8b1a3'), asphalt = mat('#575d60'), white = mat('#e9e7d8'), red = mat('#a94f49'), terra = mat('#bf8062');
   const grass = mat('#8e9d70'), leaf = mat('#4d7243'), wood = mat('#80654d'), orange = mat('#f0a044'), water = mat('#598e9b');
+  // Shots into these splash rather than spark; see water.ts.
+  markWater(water);
   glass.roughness=0.28;glass.metalness=0.25;blue.roughness=0.34;blue.metalness=0.18;
   const glazingLight=mat('#90a7ad'),iron=mat('#36594a'),tileDark=mat('#965d48'),silver=mat('#b8c0c0');silver.roughness=0.32;silver.metalness=0.55;
   const cylinderGeo=geo(new THREE.CylinderGeometry(1,1,1,10));

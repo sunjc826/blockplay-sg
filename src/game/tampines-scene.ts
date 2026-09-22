@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TAMPINES_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { markWater } from './water';
 
 // On the town-centre verge, looking across at the round market.
 export const TAMPINES_SPAWN = { x: -20, z: 8, yaw: Math.PI / 2 };
@@ -33,6 +34,8 @@ export function buildTampinesScene() {
 
   const asphalt = mat('#565c5f'), white = mat('#e9e7d8'), paving = mat('#bbb6a9'), kerb = mat('#cec8ba');
   const water = mat('#4a8a9c', 0.42), shallow = mat('#5fa2b2', 0.38), lawn = mat('#8ca86e'), grass = mat('#7e9762');
+  // Shots into these splash rather than spark; see water.ts.
+  markWater(water, shallow);
   const concrete = mat('#aaa99f'), pale = mat('#e6e0d2'), stone = mat('#b4b3aa'), dark = mat('#36434a');
   const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148');
   const terra = mat('#b0644a'), teal = mat('#2f7b84'), rust = mat('#a8563a'), safety = mat('#d8a02a');

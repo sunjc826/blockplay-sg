@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BISHAN_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { markWater } from './water';
 
 // On the park's southern lawn, looking across the river at the town.
 export const BISHAN_SPAWN = { x: -60, z: -74, yaw: 0 };
@@ -41,6 +42,8 @@ export function buildBishanScene() {
 
   const asphalt = mat('#565c5c'), white = mat('#e9e7d8'), kerb = mat('#cec8b9');
   const water = mat('#4b8b92', 0.42), shallow = mat('#62a5ab', 0.38), lawn = mat('#8aa96a'), grass = mat('#7b9a5e');
+  // Shots into these splash rather than spark; see water.ts.
+  markWater(water, shallow);
   const concrete = mat('#a9a89e'), pale = mat('#e6e1d3'), stone = mat('#b4b3a9'), dark = mat('#36434a');
   const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148');
   const silt = mat('#a8926a'), cobble = mat('#9a978c'), reed = mat('#93a857'), sedge = mat('#7f9a48');

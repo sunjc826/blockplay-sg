@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TOA_PAYOH_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { markWater } from './water';
 
 // In the precinct courtyard, looking across the sand pit at the dragon.
 export const TOA_PAYOH_SPAWN = { x: 50, z: -2, yaw: Math.PI / 2 };
@@ -33,6 +34,8 @@ export function buildToaPayohScene() {
 
   const asphalt = mat('#565c5f'), white = mat('#e9e7d8'), paving = mat('#bbb6a9'), kerb = mat('#cec8ba');
   const water = mat('#4a879c', 0.42), shallow = mat('#5f9eb0', 0.38), lawn = mat('#8ba76d'), grass = mat('#7d9661');
+  // Shots into these splash rather than spark; see water.ts.
+  markWater(water, shallow);
   const concrete = mat('#aaa99f'), pale = mat('#e7e1d3'), stone = mat('#b4b3aa'), dark = mat('#36434a');
   const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148');
   const sand = mat('#ddcda4'), scale1 = mat('#b8453a'), scale2 = mat('#d8a02a'), scale3 = mat('#e6e0d2');

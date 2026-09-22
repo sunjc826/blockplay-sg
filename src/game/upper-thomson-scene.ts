@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { markWater } from './water';
 
 // On the eating strip's five-foot way, looking west toward the reservoir.
 export const UPPER_THOMSON_SPAWN = { x: -50, z: -12, yaw: Math.PI / 2 };
@@ -39,6 +40,8 @@ export function buildUpperThomsonScene() {
 
   const asphalt = mat('#575d5f'), white = mat('#e9e7d8'), paving = mat('#bab5a8'), kerb = mat('#cdc7b9');
   const water = mat('#4f8496', 0.42), shallow = mat('#659cab', 0.4), grass = mat('#87a06c'), lawn = mat('#93ac74');
+  // Shots into these splash rather than spark; see water.ts.
+  markWater(water, shallow);
   const plaster = mat('#e6dfcd'), stone = mat('#b4b3aa'), concrete = mat('#a8a79d'), dark = mat('#36434a');
   const wood = mat('#7a6046'), plank = mat('#9a7a55'), zinc = mat('#9fa6a4', 0.34, 0.5), steel = mat('#adb5b8', 0.3, 0.55);
   const glass = mat('#6d90a0', 0.24, 0.3), leaf = mat('#3f6b3a'), fern = mat('#57854a'), deep = mat('#2f5a38');

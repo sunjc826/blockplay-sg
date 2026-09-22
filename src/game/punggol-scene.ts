@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { PUNGGOL_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { markWater } from './water';
 
 // On the north promenade, looking across the waterway at the arch bridge.
 export const PUNGGOL_SPAWN = { x: 20, z: -58, yaw: 0 };
@@ -45,6 +46,8 @@ export function buildPunggolScene() {
 
   const asphalt = mat('#575d61'), white = mat('#eae8da'), paving = mat('#bcb7aa'), kerb = mat('#cfc9bb');
   const water = mat('#4e8ba1', 0.4), shallow = mat('#63a2b2', 0.38), lawn = mat('#8ba76c'), grass = mat('#7d9761');
+  // Shots into these splash rather than spark; see water.ts.
+  markWater(water, shallow);
   const concrete = mat('#adaca2'), pale = mat('#e5dfd1'), stone = mat('#b5b4ab'), dark = mat('#37444b');
   const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148'), plank = mat('#9c7c57');
   const leaf = mat('#48733f'), reed = mat('#7d9a4e'), fern = mat('#5b8a4c'), orange = mat('#f0a044');
