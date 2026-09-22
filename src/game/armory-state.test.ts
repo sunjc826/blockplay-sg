@@ -191,6 +191,15 @@ describe('supplies', () => {
     expect(back.consumables).toEqual({ 'kit-dressing': 2, 'kit-plates': CONSUMABLE_LIMIT });
     expect(restoreProfile(JSON.stringify({ ...createProfile(), quickItem: 'sar-issued' })).quickItem).toBe('');
   });
+  it('offers Singapore food separately from field utilities while sharing the quick slot', () => {
+    const food = ARMORY_CATALOG.filter(item => item.category === 'consumable' && item.supplyType === 'food');
+    const utilities = ARMORY_CATALOG.filter(item => item.category === 'consumable' && item.supplyType !== 'food');
+    expect(food.map(item => item.id)).toEqual(['food-kaya-toast', 'food-curry-puff', 'food-chicken-rice', 'food-field-ration']);
+    expect(utilities.map(item => item.id)).toEqual(['kit-ammo', 'kit-dressing', 'kit-plates', 'kit-trauma']);
+    const packed = purchase(veteran(), 'food-chicken-rice').profile;
+    expect(resolveLoadout(packed).quickItem?.name).toBe('Chicken rice packet');
+    expect(resolveLoadout(packed).quickItem?.effect?.health).toBe(60);
+  });
 });
 
 describe('carried weight', () => {
