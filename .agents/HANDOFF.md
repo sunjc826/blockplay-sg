@@ -1,5 +1,49 @@
 # Blockplay: portable agent handoff
 
+**Latest: the HUD speaks with one voice, and health is a state (2026-09-22).**
+Every readout over the scene used to carry its own dark green, its own radius
+and its own type — ten near-identical panel backgrounds and eleven golds within
+one screen of each other, the badge in monospace, the vitals in DM Sans, the
+minimap heading in sans-serif. `.fps-game` now holds one set of `--hud-*`
+tokens, the way `.armory` and `.touch-layer` already do, and a grouped base
+rule dresses the badge, score, vitals, minimap, objective, vehicle locator,
+interact prompt, screen notice and incoming banner. A panel declares only what
+makes it different: where it sits, and how wide.
+
+**The token block deliberately has no `backdrop-filter`.** Ten blurred panels
+compositing over an animating WebGL canvas cost enough frames that
+`pnpm test:fps` stopped registering its 350ms key-hold as movement — it passes
+on a clean tree and failed with the blur, which is a real cost on a weak GPU
+and not only on this VM's software renderer. The panel alpha (`--hud-bg`, d9)
+carries the legibility instead. Worth knowing before adding glass anywhere over
+the scene.
+
+**Health is a band, not only a number.** `HP 7` and `HP 100` rendered
+identically, and the damage vignette clears between hits, so the corner said
+nothing between one burst and the next. `healthBand` in `src/game/vitals.ts` is
+a share of the player's *own* maximum, so the debug health multiplier moves the
+thresholds with it rather than pinning them to 100: gold at half, an alert
+frame that pulses under a quarter. The frame pulses, not the screen, because
+the vignette already owns the screen on each hit. Spent armor goes dashed and
+dim rather than shouting a zero.
+
+The range, the arena and the expedition wrote that markup twice, so it is one
+`FpsVitals` now, and the band and armor state are `data-health-band` /
+`data-armor-state` on it: the stylesheet colours off them, and a browser smoke
+can assert the state a player is actually being shown.
+
+**Still open from the same review**, not done here: `.fps-incoming` (z-index
+auto) is painted over by `.fps-minimap` (z-index 2) — they overlap at
+`top:111px/left:24px` against `top:108px/left:18px`, so the game's most urgent
+warning is unreadable behind the map. Also unshared: the compass over raw sky
+with only a text-shadow, the two simultaneous hit indicators, and the HUD's
+fixed pixel sizing, which a `container-type:size` on `.fps-viewport` plus one
+`--hud-scale` would subsume along with most of the HUD media queries.
+
+682 unit tests (+3), typecheck, build and `pnpm test:fps` pass.
+`pnpm test:expedition:ui` fails here at its `.expedition-network` child count
+(19 vs 3) — it fails the same way on a clean tree.
+
 **Latest: the installed app broke on every load but the first (2026-09-22).**
 Reported from the deployed site: first load fine, later loads dead until site
 data was cleared. Reproduced in three loads against `wrangler dev`, and it is a
