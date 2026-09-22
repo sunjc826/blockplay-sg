@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyseBreakpoints, deadBuys, DRILL_OPPONENTS, DRILL_POOLS, namedOpponents, plateOpponent, RECOIL_BURST, RECOIL_ROUNDS, recoilCurve, shotsToKill, shotsToKillOpponent, targetArc, timeToKill, TTK_MARGIN, unfeltInDrill } from './armory-balance';
+import { analyseBreakpoints, deadBuys, DRILL_OPPONENTS, DRILL_POOLS, namedOpponents, plateOpponent, shotsToKill, shotsToKillOpponent, SPRAY_ROUNDS, sprayAccuracy, sprayPattern, TARGET_RADIUS, targetAngle, timeToKill, TTK_MARGIN, unfeltInDrill } from './armory-balance';
 import { itemById } from './armory-catalog';
 import { createProfile, equip, resolveLoadout } from './armory-state';
 
@@ -90,35 +90,45 @@ describe('hypothetical opponents', () => {
   });
 });
 
-describe('the recoil curve the shop draws', () => {
-  /** Resolved exactly as the shop resolves it, so the curve is the one drawn. */
+describe('the spray pattern the shop draws', () => {
+  /** Resolved exactly as the shop resolves it, so the pattern is the one drawn. */
   const configured = (id: string) => {
     const item = itemById(id)!, base = createProfile();
     return resolveLoadout(equip({ ...base, owned: [...base.owned, id] }, id, item.family!)).weapons[item.family!];
   };
   const sar = configured('sar-issued'), marksman = configured('sar-marksman');
-  it('starts at rest and climbs with every round held', () => {
-    const curve = recoilCurve(sar);
-    expect(curve[0]).toEqual({ round: 0, climb: 0 });
-    expect(curve).toHaveLength(RECOIL_ROUNDS + 1);
-    for (let i = 1; i < curve.length; i++) expect(curve[i].climb).toBeGreaterThan(curve[i - 1].climb);
+  it('puts the first round on the point of aim and walks up from there', () => {
+    const { mean } = sprayPattern(sar);
+    expect(mean).toHaveLength(SPRAY_ROUNDS);
+    expect(Math.hypot(mean[0].x, mean[0].y)).toBeCloseTo(0, 10);
+    for (let i = 1; i < mean.length; i++) expect(mean[i].y).toBeGreaterThan(mean[i - 1].y);
   });
-  it('draws the same curve twice, so a dossier figure does not move between renders', () => {
-    expect(recoilCurve(sar)).toEqual(recoilCurve(sar));
+  it('draws the same pattern twice, so a dossier figure does not move between renders', () => {
+    expect(sprayPattern(sar)).toEqual(sprayPattern(sar));
   });
-  it('eases the opening rounds, which is the shape the chart exists to show', () => {
-    const curve = recoilCurve(sar);
-    const opening = curve[RECOIL_BURST].climb, next = curve[RECOIL_BURST * 2].climb - opening;
-    expect(opening).toBeLessThan(next * .5);
+  it('scatters the cloud around the pattern rather than on top of it', () => {
+    // The jitter and the shot cone are real; a pattern drawn without them would
+    // advertise a precision the weapon does not have.
+    const { mean, cloud } = sprayPattern(sar);
+    expect(cloud.length).toBeGreaterThan(mean.length);
+    const late = cloud.filter(shot => shot.round === SPRAY_ROUNDS).map(shot => shot.x);
+    expect(Math.max(...late) - Math.min(...late)).toBeGreaterThan(.5);
   });
-  it('separates the ladder, so a premium weapon is visibly steadier', () => {
-    expect(recoilCurve(marksman)[RECOIL_ROUNDS].climb).toBeLessThan(recoilCurve(sar)[RECOIL_ROUNDS].climb * .6);
+  it('lands fewer rounds as the target moves away', () => {
+    // Measured on the steady weapon, because the issued rifle's second round
+    // already clears a 12 m target: for it every range reads the same, which is
+    // a fact about the tuning rather than about the chart.
+    const { cloud } = sprayPattern(marksman);
+    expect(sprayAccuracy(cloud, 12)).toBeGreaterThan(sprayAccuracy(cloud, 30));
+    expect(sprayAccuracy(cloud, 20)).toBeGreaterThanOrEqual(sprayAccuracy(cloud, 30));
   });
-  it('puts a target width where a burst can still be read against it', () => {
-    // Off the bottom of the plot and the line is decoration; above the issued
-    // rifle's whole curve and it would never be crossed.
-    const curve = recoilCurve(sar);
-    expect(targetArc()).toBeGreaterThan(curve[1].climb * .5);
-    expect(targetArc()).toBeLessThan(curve[RECOIL_ROUNDS].climb);
+  it('keeps more of the burst on target for a steadier weapon', () => {
+    // The ladder has to be visible in the drawing, not only in the stat rows.
+    expect(sprayAccuracy(sprayPattern(marksman).cloud, 12, 5))
+      .toBeGreaterThan(sprayAccuracy(sprayPattern(sar).cloud, 12, 5));
+  });
+  it('measures a target against the collider the engine actually builds', () => {
+    expect(TARGET_RADIUS).toBe(.265);
+    expect(targetAngle(12)).toBeGreaterThan(targetAngle(30));
   });
 });

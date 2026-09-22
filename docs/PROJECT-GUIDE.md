@@ -149,21 +149,29 @@ harder. The SAR 21 lands at 1.7, 12.6 and 28.6; the Ultimax, being a support
 weapon, is heavier still. The bands are wide on purpose: they catch a weapon
 that is off by a factor, not a tuning decision off by a decimal.
 
-**The shop draws the climb.** Beside the falloff curve, a second chart plots
-sight climb in degrees against rounds held, for the previewed weapon and the one
-already in hand. Both run through the engine's own code rather than a formula —
-the falloff curve through `hitDamage`, this one by stepping `fps-recoil` at the
-weapon's own cadence — so a dossier figure cannot drift from what the range
-produces. The jitter is stilled for the drawing, because a number that moved
-every render would be unreadable; the vertical climb is deterministic anyway.
+**The shop draws the spray pattern.** Beside the falloff curve, a second chart
+lays every round of a twenty-round held burst over the target it was aimed at,
+the way a shooter draws one. Both run through the engine's own code rather than
+a formula — the falloff curve through `hitDamage`, this one by stepping
+`fps-recoil` and `fps-accuracy` at the weapon's own cadence — so a dossier figure
+cannot drift from what the range produces.
 
-Degrees alone say nothing, so the chart carries the same kind of interpretive
-banding the falloff curve gets from hits-to-kill: a dashed line at the angular
-width of a drill target at 20 m. A burst is worth firing for as long as it stays
-inside that, and the crossing point is what separates the tiers — the issued
-rifle leaves the target around the third round, the Marksman around the fifth.
-The axis is square-root scaled, because the climb spans two orders of magnitude
-and the readable half is the bottom of it.
+It is plotted in *angles*, which is what lets one drawing serve three ranges: the
+pattern stays where it is while the target shrinks as it moves away, so the three
+rings are the same target at 12, 20 and 30 m. True aspect is therefore
+non-negotiable — stretch the drawing and the rings stop being circles and
+"inside the target" stops meaning anything. The rings come off the body collider
+the engine builds (a 0.265-unit circle), not off the radius the AI pilot happens
+to perceive targets with.
+
+Two things are drawn, because two things decide where a round goes. The path is
+the pattern proper: the deterministic climb and walk, with the random terms
+stilled, which is the shape a player could learn. The cloud behind it is the same
+burst fired fourteen times with its real jitter and its real shot cone, from a
+seeded generator so the drawing is stable between renders. Drawing only the path
+would advertise a precision the weapon does not have — and the cloud is wider
+than the path's own horizontal travel, which says plainly that the sideways walk
+is noise rather than a pattern worth learning.
 
 **The opening burst is the one you can place.** The view kick and the aim climb
 have opposite shapes, and they are separate profiles for that reason. The view

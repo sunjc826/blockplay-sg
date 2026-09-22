@@ -1,5 +1,37 @@
 # Blockplay: portable agent handoff
 
+**Latest: the dossier draws the spray pattern (2026-09-22).** The line chart
+added earlier is replaced by the shape a shooter actually draws: every round of
+a twenty-round held burst laid over the target it was aimed at.
+
+**Plotted in angles, which is the trick that serves three ranges at once.** The
+pattern stays where it is while a target shrinks as it moves away, so one
+drawing carries rings for 12, 20 and 30 m. True aspect is therefore not
+negotiable — stretch it and the rings stop being circles and "inside the target"
+stops meaning anything. The rings come off the body collider the engine builds,
+`CircleGeometry(0.265)`; the earlier chart had used 0.24, which is the radius the
+*AI pilot* perceives targets with rather than the thing rounds actually hit.
+
+**Two layers, because two things decide where a round goes.** The path is the
+deterministic pattern with the random terms stilled — the shape a player could
+learn. The cloud is the same burst fired fourteen times with its real jitter and
+its real shot cone, from a seeded generator so the drawing does not move between
+renders. The cloud is visibly wider than the path's own horizontal travel, which
+is the standing finding about `fps-recoil` made visible: the sideways walk is
+noise, not a pattern worth learning.
+
+**The chart immediately earned its keep.** On the issued rifle the second round
+of a burst already sits 1.49 degrees off, against a 1.27-degree half-angle for a
+target at 12 m — so round two misses at every range the drill uses, and only
+round one lands. Most of that 1.49 is the *view kick* still standing 0.12 s after
+the previous round, not the permanent climb. A test that assumed nearer targets
+catch more rounds failed on exactly this and now measures the steady weapon,
+where range does separate (3/3/1 rounds at 12/20/30 m). Worth a tuning decision:
+softening `PITCH_GAIN` or quickening `PUNCH_RECOVER` would give the second round
+back without touching the climb the ladder is built on.
+
+726 unit tests, typecheck, `pnpm build` and `pnpm test:armory` pass.
+
 **Latest: water that behaves like water (2026-09-22).** Marina Bay's water was
 a flat opaque box at ground level. Shots into it chipped it like concrete, with
 sparks, dust and a scorch that hung in mid-bay. Now:
@@ -36,6 +68,7 @@ not committed.
 Possible next steps: swimming (needs the bay collider replaced and bots' ground
 rules taught about water); the shader surface for the other districts' water
 (their boxes are instanced, so the shader would need the instancing chunks).
+
 **Latest: the dossier draws the recoil (2026-09-22).** The shop had a falloff
 curve saying whether a hit kills and nothing saying whether the shot arrives.
 `RecoilCurve` is its companion: sight climb in degrees against rounds held, for

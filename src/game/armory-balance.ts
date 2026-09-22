@@ -2,7 +2,8 @@ import { ARMORY_CATALOG, itemById, type ShopItem } from './armory-catalog';
 import { applyArmorDamage, createProfile, equip, resolveLoadout } from './armory-state';
 import { listArenaRoles } from './arena-roles';
 import { findTrait, FPS_WEAPONS, hitDamage, type WeaponSpec } from './fps-rules';
-import { advanceRecoil, CLIMB_EASE_ROUNDS, createRecoil, recordRecoilShot, takeAimPush } from './fps-recoil';
+import { advanceRecoil, createRecoil, recoilView, recordRecoilShot, takeAimPush } from './fps-recoil';
+import { advanceBloom, createWeaponBloom, recordBloomShot, sampleShotSpread, weaponSpread } from './fps-accuracy';
 import { skipCostToLevel, xpForLevel } from './progression';
 
 /**
@@ -167,48 +168,69 @@ export function shotBands(opponent: Opponent = STOCK_OPPONENT, maxDamage = 100):
 }
 
 /**
- * Where a held trigger puts the sights, round by round, in degrees off the
- * point of aim.
+ * Where a held burst actually puts its rounds, as angles off the point of aim —
+ * the spray pattern, in the sense every shooter draws one.
  *
- * Stepped through the engine's own recoil rather than a formula, at the
- * weapon's own cadence, so the shop cannot advertise a climb the range does not
- * produce — the same reason the falloff curve runs through `hitDamage`. The
- * jitter is stilled (a fixed 0.5 draw is the zero of the pattern's random
- * term), because a dossier figure that moved every render would be unreadable
- * and unfalsifiable; the vertical climb is deterministic regardless.
+ * Two things are plotted because two things decide it. The `mean` path is the
+ * pattern proper: the deterministic climb and horizontal walk, with the random
+ * terms stilled, which is the shape a player can learn. The `cloud` is the same
+ * burst fired many times with its real jitter and its real shot cone, which is
+ * what the rounds actually do around that shape. Drawing only the first would
+ * advertise a precision the weapon does not have.
+ *
+ * Angles, not distances, so one drawing serves every range: a target shrinks as
+ * it moves away while the pattern stays put.
  */
-export interface RecoilPoint { round: number; climb: number }
-/**
- * A fixed window rather than the magazine, so two weapons are always drawn on
- * the same scale. Twenty rounds covers the eased opening, the ramp and the
- * approach to the ceiling on every weapon in the catalog.
- */
-export const RECOIL_ROUNDS = 20;
-/** Sub-steps per second of the simulation; fine enough that the cadence lands cleanly. */
-const RECOIL_TICK = 240;
-export function recoilCurve(weapon: WeaponSpec, rounds = RECOIL_ROUNDS): RecoilPoint[] {
-  const state = createRecoil(), points: RecoilPoint[] = [{ round: 0, climb: 0 }];
-  // The pattern index only steers the horizontal walk, but it costs nothing to
-  // simulate the weapon that is actually in hand.
-  const family = Math.max(0, FPS_WEAPONS.findIndex(entry => entry.id === weapon.id));
-  const between = Math.max(1, Math.round(weapon.interval * RECOIL_TICK));
-  let aim = 0;
-  for (let round = 1; round <= Math.max(1, rounds); round++) {
-    recordRecoilShot(state, weapon, family, () => .5);
-    aim += takeAimPush(state).pitch;
-    for (let tick = 0; tick < between; tick++) { advanceRecoil(state, 1 / RECOIL_TICK); aim += takeAimPush(state).pitch; }
-    points.push({ round, climb: aim * 180 / Math.PI });
+export interface SprayShot { round: number; x: number; y: number }
+export const SPRAY_ROUNDS = 20, SPRAY_SAMPLES = 14;
+/** Drill targets stand between these; the chart rings all three. */
+export const SPRAY_RANGES = [12, 20, 30] as const;
+const SPRAY_TICK = 240;
+/** A fixed sequence, so the cloud is the same drawing on every render. */
+const seeded = (seed: number) => () => {
+  seed = (seed * 1103515245 + 12345) % 0x80000000;
+  return (seed < 0 ? seed + 0x80000000 : seed) / 0x80000000;
+};
+const degrees = (radians: number) => radians * 180 / Math.PI;
+function oneSpray(weapon: WeaponSpec, family: number, rounds: number, random: (() => number) | null): SprayShot[] {
+  const state = createRecoil(), bloom = createWeaponBloom(), shots: SprayShot[] = [];
+  const between = Math.max(1, Math.round(weapon.interval * SPRAY_TICK));
+  // The shooter's own aim, moved by the recoil exactly as the engine moves it.
+  let pitch = 0, yaw = 0;
+  const drain = () => { const push = takeAimPush(state); pitch += push.pitch; yaw += push.yaw; };
+  for (let round = 1; round <= rounds; round++) {
+    // A round leaves along the camera: the aim the recoil has taken, plus the
+    // view kick still standing, plus the weapon's own cone. Positive yaw turns
+    // the camera left, so it is negated to put screen-right on the right.
+    const view = recoilView(state);
+    const cone = random ? sampleShotSpread(weaponSpread(bloom, family, 1, false, false), random) : { x: 0, y: 0 };
+    shots.push({ round, x: -degrees(yaw + view.yaw) + degrees(Math.atan(cone.x)), y: degrees(pitch + view.pitch) + degrees(Math.atan(cone.y)) });
+    recordRecoilShot(state, weapon, family, random ?? (() => .5));
+    recordBloomShot(bloom, family);
+    drain();
+    for (let tick = 0; tick < between; tick++) { advanceRecoil(state, 1 / SPRAY_TICK); drain(); advanceBloom(bloom, 1 / SPRAY_TICK); }
   }
-  return points;
+  return shots;
 }
-/** Rounds a burst may run before the climb leaves the eased opening. */
-export const RECOIL_BURST = CLIMB_EASE_ROUNDS;
+export function sprayPattern(weapon: WeaponSpec, rounds = SPRAY_ROUNDS, samples = SPRAY_SAMPLES) {
+  const family = Math.max(0, FPS_WEAPONS.findIndex(entry => entry.id === weapon.id));
+  const mean = oneSpray(weapon, family, rounds, null);
+  const cloud: SprayShot[] = [];
+  for (let sample = 0; sample < samples; sample++) cloud.push(...oneSpray(weapon, family, rounds, seeded(sample * 7919 + 13)));
+  return { mean, cloud };
+}
 /**
- * How wide a drill target stands, in degrees, at a nominal engagement range.
- * The climb chart is unreadable as bare degrees — this is the line that says
- * whether a burst is still on the thing it was aimed at. Radius and ranges come
- * from the targets the engine builds; 20 units sits mid-way down the drill.
+ * How big a drill target is, as the engine builds it: the body collider is a
+ * 0.265-unit circle. Everything about "is this burst still on target" hangs off
+ * this number, so it is taken from the collider rather than from the radius the
+ * AI pilot happens to perceive targets with.
  */
-export const TARGET_RADIUS = 0.24, TARGET_RANGE = 20;
-export const targetArc = (radius = TARGET_RADIUS, range = TARGET_RANGE) =>
-  2 * Math.atan(radius / range) * 180 / Math.PI;
+export const TARGET_RADIUS = 0.265;
+/** Half-angle a target of `TARGET_RADIUS` subtends at `range`, in degrees. */
+export const targetAngle = (range: number) => degrees(Math.atan(TARGET_RADIUS / range));
+/** The share of sampled rounds that would land on a target at `range`. */
+export function sprayAccuracy(cloud: SprayShot[], range: number, upTo = Infinity) {
+  const arc = targetAngle(range), rounds = cloud.filter(shot => shot.round <= upTo);
+  if (!rounds.length) return 0;
+  return rounds.filter(shot => Math.hypot(shot.x, shot.y) <= arc).length / rounds.length;
+}
