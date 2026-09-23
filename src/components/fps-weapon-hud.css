@@ -35,7 +35,6 @@
 .fps-weapon-hud .fps-tactical-crosshair i:nth-child(4){height:2px;width:7px;top:23px;left:auto;right:calc(24px - var(--gap) - 7px)}
 .fps-weapon-hud .fps-tactical-crosshair b{top:23px;left:23px;width:2px;height:2px;box-shadow:0 0 0 1px #09110c80}
 .fps-weapon-hud[data-aiming=true] .fps-tactical-crosshair b{top:22.5px;left:22.5px;width:3px;height:3px}
-.fps-ads-dot-ring{position:absolute;left:19px;top:19px;width:10px;height:10px;border:1px solid #ff493b60;border-radius:50%;opacity:var(--fps-aim)}
 .fps-impact-marker{position:absolute;width:30px;height:30px;left:50%;top:50%;transform:translate(-50%,-50%) rotate(45deg);color:#f8faf2;filter:drop-shadow(0 1px 1px #000);animation:fps-impact-in .18s ease-out}
 .fps-impact-marker i{position:absolute;background:currentColor;border-radius:1px}
 .fps-impact-marker i:nth-child(1){left:14px;top:0;width:2px;height:8px}
@@ -48,8 +47,4 @@
 @media(max-width:720px){.fps-weapon-hud .fps-ammo{min-width:150px;padding:8px 10px}.fps-weapon-hud .fps-ammo strong{font-size:34px}.fps-weapon-hud .fps-ammo p{font-size:7px}.fps-weapon-hud .fps-ammo>span{font-size:9px}}
 @media(prefers-reduced-motion:reduce){.fps-weapon-hud *{transition:none!important;animation:none!important}}
 
-.fps-weapon-hud[data-sight=scope] .fps-tactical-crosshair b{opacity:calc(1 - var(--fps-aim))}
-.fps-integrated-reticle{position:absolute;inset:0;opacity:var(--fps-aim);filter:drop-shadow(0 0 1px #ffffff70)}
-.fps-integrated-reticle:before,.fps-integrated-reticle:after{content:"";position:absolute;background:#101713}
-.fps-integrated-reticle:before{width:36px;height:1px;left:6px;top:23.5px}
-.fps-integrated-reticle:after{width:1px;height:36px;left:23.5px;top:6px}
+.fps-weapon-hud .fps-tactical-crosshair b{opacity:calc(1 - var(--fps-aim))}

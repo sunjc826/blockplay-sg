@@ -175,6 +175,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let disposed = false, loadout = createLoadout(specs), position = { x: spawn.x, z: spawn.z };
   let yaw: number = spawn.yaw, pitch: number = spawn.pitch, vertical = 0, velocityY = 0;
   let triggerSpent = false;
+  let lastLookYaw = yaw, lastLookPitch = pitch, lookLagX = 0, lookLagY = 0;
   let trigger = false, ads = false, touchAim = false, actualAim = false, bob = 0, hitTime = 0;
   // Two-stage recoil: see fps-recoil. The view still couples through the same
   // scale the old scalar did, so a burst costs the aim it always did.
@@ -686,6 +687,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (pitch !== wanted) compensateRecoil(kick, pitch - wanted, 0);
   }
   function updateCameras(dt: number, moving: boolean, sprinting: boolean) {
+    // Bounded camera-relative inertia, driven by angle deltas (not frame rate).
+    const yawDelta = Math.atan2(Math.sin(yaw - lastLookYaw), Math.cos(yaw - lastLookYaw));
+    lookLagX = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagX + yawDelta * .025, -.003, .003), 0, 12, dt);
+    lookLagY = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagY - (pitch - lastLookPitch) * .025, -.003, .003), 0, 12, dt);
+    lastLookYaw = yaw; lastLookPitch = pitch;
     if (vehicles.mounted) {
       actualAim = false; aimProgress = 0; rig.visible = false;
       const v = vehicles.mounted, target = new THREE.Vector3(v.x, v.y + 1.65, v.z);
@@ -717,8 +723,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.crosshairSpread = THREE.MathUtils.damp(hud.crosshairSpread, Math.max(3, spreadPixels), 20, dt);
     const state = loadout[hud.weapon], remaining = state.reloadRemaining / specs[hud.weapon].reload;
     const progress = remaining > 0 ? 1 - remaining : null, motion = reloadMotion(progress ?? 0);
-    rig.position.set(THREE.MathUtils.lerp(.20, 0, aim) + sway + motion.x,
-      THREE.MathUtils.lerp(-.32, -(handling[hud.weapon]?.aimHeight ?? .435), aim) + Math.abs(sway) - (sprinting ? .08 : 0) + motion.y,
+    rig.position.set(THREE.MathUtils.lerp(.20, 0, aim) + sway + motion.x + lookLagX,
+      THREE.MathUtils.lerp(-.32, -(handling[hud.weapon]?.aimHeight ?? .435), aim) + Math.abs(sway) - (sprinting ? .08 : 0) + motion.y + lookLagY,
       THREE.MathUtils.lerp(-.78, handling[hud.weapon]?.aimDepth ?? -.47, aim) + pose.push + motion.z);
     // The weapon carries the buck, the sideways half of the pattern and the roll
     // that goes with it; the camera only ever takes the view coupling above.
@@ -1139,7 +1145,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     hud.encikCallout = encik.current(now / 1000);
     world.animate(hud.elapsed);
-    const scopeActive = scopeRenderer.render(world.scene, camera, viewCamera, weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon]) : undefined, aimProgress > .85 && rig.visible && !vehicles.active && hud.phase === 'playing');
+    const scopeActive = scopeRenderer.render(world.scene, camera, viewCamera, weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon]) : undefined, rig.visible && !vehicles.active && hud.phase === 'playing', aimProgress);
     canvas.dataset.scopeActive = String(scopeActive);
     renderer.clear(); renderer.render(world.scene, camera); renderer.clearDepth(); renderer.render(viewScene, viewCamera);
     if (now - lastReport > 100) { publish(); lastReport = now; }

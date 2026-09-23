@@ -11,6 +11,7 @@ let id = 0; const pending = new Map(), errors = []; let mapRequests = 0;
 ws.onmessage = event => {
   const m = JSON.parse(event.data);
   if (m.id) { const p = pending.get(m.id); if (p) { pending.delete(m.id); clearTimeout(p.timer); m.error ? p.reject(new Error(m.error.message)) : p.resolve(m.result); } }
+  if (m.method === 'Log.entryAdded' && /THREE.WebGLProgram|VALIDATE_STATUS|Shader Error/.test(m.params.entry.text)) errors.push(m.params.entry.text);
   if (m.method === 'Runtime.exceptionThrown') errors.push(m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text);
   if (m.method === 'Network.requestWillBeSent' && /maps\.googleapis|streetviewpixels|maps\.google\.com/.test(m.params.request.url)) mapRequests++;
 };
@@ -26,10 +27,10 @@ async function screenshot(name) { const shot = await send('Page.captureScreensho
 const phase = value => `document.querySelector('.fps-game')?.dataset.phase===${JSON.stringify(value)}`;
 const ammo = `Number(document.querySelector('.fps-ammo strong')?.firstChild.textContent)`;
 try {
-  await send('Runtime.enable'); await send('Page.enable');
+  await send('Runtime.enable'); await send('Log.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
   await wait(`!![...document.querySelectorAll('button')].find(b=>b.textContent.includes('Marina FPS'))`);
-  await evaluate(`localStorage.removeItem('blockplay.armory.v1');location.reload()`); await delay(900);
+  await evaluate(`localStorage.removeItem('blockplay.armory.v1');location.reload()`); await wait(`!![...document.querySelectorAll('button')].find(b=>b.textContent.includes('Marina FPS'))`);
   await click(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Marina FPS'))`);
   await wait(phase('ready')); await click(button('Enter range')); await wait(phase('playing'));
   await screenshot('sar-integrated-hip');
@@ -47,6 +48,7 @@ try {
   // A veteran wallet opens the gate; purchase and equip use the real controls.
   await evaluate(`(()=>{const p=JSON.parse(localStorage.getItem('blockplay.armory.v1'));p.xp=5000;p.tokens=1000;localStorage.setItem('blockplay.armory.v1',JSON.stringify(p));location.reload()})()`);
   await delay(1000);
+  await wait(`!![...document.querySelectorAll('button')].find(b=>b.textContent.includes('Marina FPS'))`);
   await click(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Marina FPS'))`);
   await wait(phase('ready')); await click(`document.querySelector('.fps-shop-link')`);
   await wait(`!!document.querySelector('[data-item="sar-marksman"]')`);

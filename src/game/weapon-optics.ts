@@ -4,6 +4,7 @@ import { opticMagnification } from './fps-rules';
 
 export interface WeaponSight {
   aimHeight: number; aimDepth: number; radius: number; magnification: number;
+  visibility: { value: number };
   lens: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
 }
 const sights = new WeakMap<THREE.Object3D, WeaponSight>();
@@ -37,11 +38,42 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
     for (const z of [rearZ - .052, rearZ]) add(new THREE.TorusGeometry(.048, .006, 6, 28), 0, aimHeight, z);
     add(new THREE.BoxGeometry(.025, .038, .039), .061, aimHeight - .005, rearZ - .026);
   }
-  const lensMaterial = new THREE.MeshBasicMaterial({ color: '#ffffff', side: THREE.DoubleSide });
+  const magnified = opticMagnification(weapon) > 1.01;
+  const visibility = { value: 0 };
+  const lensMaterial = new THREE.MeshBasicMaterial({ color: '#ffffff', side: THREE.DoubleSide, transparent: true, depthWrite: false });
+  // Use lens-local UVs: the etched crosshair/reflex dot is clipped by the actual
+  // aperture and inherits the housing's ADS, recoil and look-lag transforms.
+  lensMaterial.onBeforeCompile = shader => {
+    shader.uniforms.sightVisibility = visibility;
+    shader.vertexShader = 'varying vec2 sightUv;\n' + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\n sightUv = uv;');
+    shader.fragmentShader = 'varying vec2 sightUv;\nuniform float sightVisibility;\n' + shader.fragmentShader;
+    shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
+      #include <map_fragment>
+      vec2 p = sightUv - 0.5;
+      float r = length(p);
+      float aa = max(fwidth(p.x), fwidth(p.y));
+      ${magnified ? `
+      float line = 1.0 - smoothstep(0.003, 0.003 + aa, min(abs(p.x), abs(p.y)));
+      line *= 1.0 - smoothstep(0.35, 0.36, r);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.025, 0.035, 0.028), line);
+      // Soft eye-box shadow grows while the eye is coming into alignment.
+      float edge = smoothstep(mix(0.12, 0.39, sightVisibility), 0.5, r);
+      diffuseColor.rgb *= 1.0 - edge * 0.9;
+      diffuseColor.a = sightVisibility;
+      ` : `
+      float dot = 1.0 - smoothstep(0.014, 0.014 + aa, r);
+      float glow = exp(-r * r * 900.0) * 0.22;
+      diffuseColor.rgb = vec3(1.0, 0.12, 0.055);
+      diffuseColor.a = max(dot, glow) * sightVisibility;
+      `}
+    `);
+  };
+  lensMaterial.customProgramCacheKey = () => magnified ? 'scope-reticle-v1' : 'reflex-reticle-v1';
   const lensGeometry = new THREE.CircleGeometry(radius, 48); geometry.push(lensGeometry);
   const lens = new THREE.Mesh(lensGeometry, lensMaterial); lens.name = 'fps-scope-lens';
   lens.position.set(0, aimHeight, rearZ + .001); lens.visible = false; group.add(lens);
-  const sight: WeaponSight = { aimHeight, aimDepth: integrated ? -.36 : -.47, radius, magnification: opticMagnification(weapon), lens };
+  const sight: WeaponSight = { aimHeight, aimDepth: integrated ? -.36 : -.47, radius, magnification: opticMagnification(weapon), lens, visibility };
   sights.set(root, sight);
   return () => {
     if (original) original.visible = wasVisible;
@@ -60,10 +92,11 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
   const camera = new THREE.PerspectiveCamera();
   const lensPosition = new THREE.Vector3();
   return {
-    render(world: THREE.Scene, worldCamera: THREE.PerspectiveCamera, viewCamera: THREE.PerspectiveCamera, sight: WeaponSight | undefined, active: boolean) {
+    render(world: THREE.Scene, worldCamera: THREE.PerspectiveCamera, viewCamera: THREE.PerspectiveCamera, sight: WeaponSight | undefined, active: boolean, aimProgress = 1) {
       if (!sight) return false;
-      sight.lens.visible = active && sight.magnification > 1.01;
-      if (!sight.lens.visible) return false;
+      sight.visibility.value = THREE.MathUtils.smoothstep(aimProgress, .12, .92);
+      sight.lens.visible = active && sight.visibility.value > 0;
+      if (!sight.lens.visible || sight.magnification <= 1.01) return false;
       sight.lens.getWorldPosition(lensPosition);
       const depth = -lensPosition.applyMatrix4(viewCamera.matrixWorldInverse).z;
       const fraction = sight.radius / (Math.max(.01, depth) * Math.tan(THREE.MathUtils.degToRad(viewCamera.fov / 2)));
@@ -71,7 +104,10 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
       camera.fov = scopeFov(worldCamera.fov, fraction, sight.magnification); camera.updateProjectionMatrix();
       const previous = renderer.getRenderTarget();
       renderer.setRenderTarget(target); renderer.clear(); renderer.render(world, camera); renderer.setRenderTarget(previous);
-      sight.lens.material.map = target.texture;
+      if (sight.lens.material.map !== target.texture) {
+        sight.lens.material.map = target.texture;
+        sight.lens.material.needsUpdate = true;
+      }
       return true;
     },
     dispose() { target.dispose(); },

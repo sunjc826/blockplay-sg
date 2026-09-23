@@ -58,6 +58,13 @@ it('renders PiP only for active magnified sights and restores the render target'
   expect(renderer.setRenderTarget).toHaveBeenLastCalledWith(null);
   sight.magnification = 1;
   expect(scope.render(world, camera, camera, sight, true)).toBe(false);
-  expect(sight.lens.visible).toBe(false); expect(renderer.render).toHaveBeenCalledOnce();
+  expect(sight.lens.visible).toBe(true); expect(renderer.render).toHaveBeenCalledOnce();
+  // Reflex glass needs no extra world pass, but its physical dot still fades
+  // with eye alignment and disappears when lowering the weapon.
+  scope.render(world, camera, camera, sight, true, .5);
+  expect(sight.visibility.value).toBeGreaterThan(0);
+  expect(sight.visibility.value).toBeLessThan(1);
+  scope.render(world, camera, camera, sight, true, 0);
+  expect(sight.lens.visible).toBe(false);
   remove(); scope.dispose();
 });
