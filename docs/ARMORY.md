@@ -118,15 +118,30 @@ XP like any other: it advances rank titles and persists in the same profile.
 | Variant | Damage | Magazine | Cycle | Reload | Recoil |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | SAR issued | 36 | 30 | .120 s | 1.80 s | .018 |
-| SAR Ranger | 39 | 30 | .115 s | 1.65 s | .016 |
-| SAR Vanguard | 50 | 36 | .105 s | 1.53 s | .0101 |
-| SAR Marksman | 58 | 36 | .100 s | 1.50 s | .0082 |
+| SAR Steady Lah | 39 | 30 | .115 s | 1.65 s | .016 |
+| SAR Garang | 50 | 36 | .105 s | 1.53 s | .0101 |
+| SAR Own Time, Own Target | 58 | 36 | .100 s | 1.50 s | .0082 |
 | Ultimax issued | 30 | 60 | .085 s | 2.50 s | .026 |
-| Ultimax Patrol | 34 | 50 | .080 s | 2.10 s | .022 |
-| Ultimax Centurion | 40 | 75 | .075 s | 2.10 s | .0148 |
-| Ultimax Bastion | 50 | 80 | .072 s | 2.00 s | .0119 |
+| Ultimax Route March | 34 | 50 | .080 s | 2.10 s | .022 |
+| Ultimax Encik’s Favourite | 40 | 75 | .075 s | 2.10 s | .0148 |
+| Ultimax Fort Siloso | 50 | 80 | .072 s | 2.00 s | .0119 |
 
-Targets alternate 100 and 115 health. Vanguard clears a 115-health target in three landed shots versus four for the issued SAR. The dossier draws two charts: damage against range, over hits-to-kill bands, and the spray pattern of a twenty-round held burst, laid over the same target at 12, 20 and 30 m. Both simulate through the engine's own code — `hitDamage` and the recoil module — so the shop cannot advertise a figure the range does not produce. Each variant fixes its optic, magazine capacity, recoil, recovery and ammunition behavior. Skin palettes change only materials. Variant accents and built-in hardware appear in both the preview and viewmodel.
+Targets alternate 100 and 115 health. Garang clears a 115-health target in three landed shots versus four for the issued SAR. The dossier draws two charts: damage against range, over hits-to-kill bands, and the spray pattern of a twenty-round held burst, laid over the same target at 12, 20 and 30 m. Both simulate through the engine's own code — `hitDamage` and the recoil module — so the shop cannot advertise a figure the range does not produce. Each variant fixes its optic, magazine capacity, recoil, recovery and ammunition behavior. Skin palettes change only materials. Variant accents and built-in hardware appear in both the preview and viewmodel.
+
+## Weapon names and flavour
+
+Display names reflect each fixed configuration. Internal item IDs stay unchanged so existing saves and effect bindings continue to work. Flavour text appears separately from the gameplay description in the dossier.
+
+| Weapon | Configuration | Flavour |
+| --- | --- | --- |
+| SAR 21 · BMT | Baseline 30-round rifle with integrated scope | Thirty rounds, an integrated scope, and strict instructions not to lose either. |
+| SAR 21 · Steady Lah | Modest damage and handling upgrade | Same familiar rifle. A little more punch, a little less jump. Steady, lah. |
+| SAR 21 · Garang | 50 damage, 36 rounds and quicker cycling | Hits harder, cycles quicker, brings six extra rounds. Volunteered before the briefing ended. |
+| SAR 21 · Own Time, Own Target | Precision scope, long-range barrel and boosted headshot damage | The barrel is matched. The scope is set. For once, nobody is rushing you. |
+| Ultimax · Sai Kang | Issued 60-round support weapon | Sixty rounds of section support. You looked strong, so this one became your problem. |
+| Ultimax · Route March | 50-round drum, faster movement and reload | Ten rounds lighter. By the eighteenth kilometre, you will appreciate the difference. |
+| Ultimax · Encik’s Favourite | 75-round drum and buffered recoil | Seventy-five rounds, a steady muzzle, and fewer interruptions. Encik approves. |
+| Ultimax · Fort Siloso | 80-round drum, bipod and strongest support recoil control | Eighty rounds and a bipod. You have selected this position for a reason. |
 
 ## Platform tiers
 
@@ -137,13 +152,13 @@ without comparing stat rows.
 | Tier | SAR 21 | Ultimax |
 | --- | --- | --- |
 | 1 | Issued, 36 dmg | Issued, 30 dmg |
-| 2 | Ranger, 39 dmg | Patrol, 34 dmg |
-| 3 | Vanguard, 50 dmg | Centurion, 40 dmg |
-| 4 | Marksman, 58 dmg | Bastion, 50 dmg |
+| 2 | Steady Lah, 39 dmg | Route March, 34 dmg |
+| 3 | Garang, 50 dmg | Encik’s Favourite, 40 dmg |
+| 4 | Own Time, Own Target, 58 dmg | Fort Siloso, 50 dmg |
 
 Each step shortens time to kill inside the drill, and the two premium tiers buy
-a shot off the count outright: Vanguard drops a standard target in two hits at
-close range, Marksman drops the tougher one in two. `armory-balance.test.ts`
+a shot off the count outright: Garang drops a standard target in two hits at
+close range, Own Time, Own Target drops the tougher one in two. `armory-balance.test.ts`
 asserts that time to kill never rises with tier and falls at every step.
 
 ## How a weapon is built
@@ -151,7 +166,7 @@ asserts that time to kill never rises with tier and falls at every step.
 There is a hardware build behind every weapon; only the finished weapon is
 sold. A variant's figures are not written beside its name, they are computed
 from the hardware it is made of, so the shop can say which part is responsible
-for which gain: the Vanguard's 50 damage is its match barrel's +14 on the
+for which gain: the Garang's 50 damage is its match barrel's +14 on the
 platform's 36, and the dossier says so.
 
 `applyBuild` folds a variant's internal parts onto the platform. Numeric fields
@@ -164,17 +179,17 @@ Internal parts and fitted hardware are permanently part of the selected variant.
 
 | Weapon | Fitted | Slot |
 | --- | --- | --- |
-| SAR 21 · Vanguard | Match trigger group | handling |
-| SAR 21 · Marksman | Fitted 1.75x match scope, free-floated barrel and match trigger | optic, handling |
-| Ultimax · Centurion | Reinforced feed tray and buffer | handling |
-| Ultimax · Bastion | Heavy barrel, bipod and buffered carrier | handling |
+| SAR 21 · Garang | Match trigger group | handling |
+| SAR 21 · Own Time, Own Target | Fitted 1.75x match scope, free-floated barrel and match trigger | optic, handling |
+| Ultimax · Encik’s Favourite | Reinforced feed tray and buffer | handling |
+| Ultimax · Fort Siloso | Heavy barrel, bipod and buffered carrier | handling |
 
 Legacy saves discard modular attachment ownership and clear both weapons' attachment selections, without refunds. All other valid progress and equipment survive. Runtime resolution ignores injected attachment data too, so switching variants or opening a preview cannot revive an old modification.
 
 ## What the build looks like
 
 There is one GLB per platform, so a tier used to reach the preview as the same
-silhouette in a different accent: the figures said the Marksman was a different
+silhouette in a different accent: the figures said the Own Time, Own Target was a different
 rifle and the picture said it was a repaint. A variant now wears its parts.
 
 `weapon-hardware.ts` derives that from the build rather than from a second list
@@ -232,10 +247,10 @@ picks exactly one.
 
 | Weapon | Full damage to | Floor at | Floor | Precision |
 | --- | --- | --- | --- | --- |
-| SAR 21 · Issued | 30 m | 90 m | 55% | 1.6x |
-| SAR 21 · Marksman | 45 m | 130 m | 75% | 2.2x |
-| Ultimax · Issued | 14 m | 45 m | 40% | 1.5x |
-| Ultimax · Bastion | 24 m | 70 m | 60% | 1.9x |
+| SAR 21 · BMT | 30 m | 90 m | 55% | 1.6x |
+| SAR 21 · Own Time, Own Target | 45 m | 130 m | 75% | 2.2x |
+| Ultimax · Sai Kang | 14 m | 45 m | 40% | 1.5x |
+| Ultimax · Fort Siloso | 24 m | 70 m | 60% | 1.9x |
 
 Drill targets sit 12.0-30.3 units from the spawn, so the rifle's band does not
 bite inside the range while the support weapon's does. Both paid variants are
@@ -261,8 +276,8 @@ capped, and they share one batched draw rather than an object each.
 | Weapon | Muzzle velocity | Drop |
 | --- | --- | --- |
 | Issued and Field variants | instant | none |
-| SAR 21 · Marksman | 620 u/s | 9 u/s² |
-| Ultimax · Bastion | 520 u/s | 12 u/s² |
+| SAR 21 · Own Time, Own Target | 620 u/s | 9 u/s² |
+| Ultimax · Fort Siloso | 520 u/s | 12 u/s² |
 
 At drill ranges the elite variants' travel time is a few hundredths of a second
 and their drop is under a centimetre, so they stay a straight upgrade there; the

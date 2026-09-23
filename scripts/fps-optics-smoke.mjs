@@ -75,5 +75,5 @@ try {
   await wait(`document.querySelector('.fps-viewport canvas').dataset.scopeActive==='true'`);
   await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:700,y:550,button:'right',clickCount:1});
   await key('Escape','Escape');
-  assert.deepEqual(errors,[]); console.log('PASS: integrated PiP, hip render gating, shop purchase/equip, fixed Marksman optic, and switching back to the issued variant');
+  assert.deepEqual(errors,[]); console.log('PASS: integrated PiP, hip render gating, shop purchase/equip, fixed precision-variant optic, and switching back to the issued variant');
 } finally {ws.close(); await fetch(`${chrome}/json/close/${tab.id}`);}

@@ -1,5 +1,19 @@
 # Blockplay: portable agent handoff
 
+**Latest: local weapon names and flavour (2026-09-23).** Renamed the eight
+existing configurations based on their hardware: SAR BMT, Steady Lah, Garang,
+Own Time, Own Target; Ultimax Sai Kang, Route March, Encik’s Favourite, Fort
+Siloso. `ShopItem.flavorText` appears as a separate quote above the factual
+dossier description. Stats, prices, unlock levels and item IDs are unchanged.
+Updated current armory docs and assertions that use display names. Proposed
+future variants must not reuse these names.
+
+742 tests and typecheck pass. No browser smoke run (no local Chrome).
+These edits and the preceding fixed-variant change are local: automatic approval
+review blocked the earlier push to main because it triggers production deploy.
+The user has not yet explicitly approved that release; do not retry the push
+via an alternate route.
+
 **Latest: weapon performance comes from fixed variants (2026-09-23).** Removed
 all nine modular attachment purchases and the Attachments tab. Every weapon's
 optic, magazine and handling summary is read-only. Internal builds and fitted

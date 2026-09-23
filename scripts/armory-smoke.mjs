@@ -38,12 +38,12 @@ try {
   await wait(`!!${fpsMode}`);
   await evaluate(`localStorage.removeItem('blockplay.armory.v1');location.reload()`); await delay(1000); await wait(`!!${fpsMode}`);
   await openShop(); await wait(`!!document.querySelector('.armory-preview canvas')`);
-  assert(await evaluate(`${action}.disabled && ${action}.textContent.includes('level 3')`), 'New recruits cannot buy Vanguard');
+  assert(await evaluate(`${action}.disabled && ${action}.textContent.includes('level 3')`), 'New recruits cannot buy Garang');
   await click(button('+250 demo tokens'));
   assert(await evaluate(`${action}.disabled`), 'Token top-ups never bypass levels');
   await evaluate(`document.querySelector('.armory').scrollIntoView({block:'start'})`); await screenshot('recruit-lock');
   // Levels are purchasable as well, at the price of the XP still owed. Two skips
-  // off a fresh profile reach the Vanguard's gate, which the tokens alone could not.
+  // off a fresh profile reach the Garang's gate, which the tokens alone could not.
   const levelBuy = `document.querySelector('[data-testid="buy-level"]')`;
   assert(await evaluate(`${levelBuy}.textContent.includes('Skip to level 2') && ${levelBuy}.textContent.includes('12 TK')`), 'The next level is offered at the price of its gap');
   await click(levelBuy); await wait(`${wallet}.xp===300`);
@@ -86,7 +86,7 @@ try {
   assert(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'), 'Shop fits a mobile viewport');
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
   await click(button('Deploy to Marina FPS')); await wait(phase('ready'));
-  assert(await evaluate(`document.querySelector('.fps-loadout').textContent.includes('Vanguard')`));
+  assert(await evaluate(`document.querySelector('.fps-loadout').textContent.includes('Garang')`));
   assert.equal(await evaluate(`Number(document.querySelector('.fps-game').dataset.armor)`), 75);
   await click(button('Counter-fire · +100 CR')); await wait(phase('ready'));
   await click(button('Enter range')); await wait(phase('playing')); assert(await evaluate('!!document.pointerLockElement'));

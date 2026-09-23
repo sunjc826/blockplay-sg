@@ -401,3 +401,11 @@ discarded without refunds. Runtime and preview resolution accept only fixed
 variant hardware. Verified 742 tests, typecheck and production build. Browser
 smokes updated, not run: no local Chrome found. Next: requested variant brainstorm
 across later levels with a mix of credit and token purchases.
+
+
+## 2026-09-23 — Local flavour for existing weapons
+
+Eight display-name changes matched to actual configurations, plus flavour text
+in the dossier. Stable IDs, prices and stats retained. 742 tests and typecheck
+pass. No additional future variants implemented. Publication remains blocked by
+the earlier automatic approval review pending explicit release approval.

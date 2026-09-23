@@ -13,7 +13,7 @@ const ladder = () => {
 it('draws both curves with a legend, band labels and an accessible table', () => {
   const { preview, current } = ladder();
   const html = renderToStaticMarkup(<FalloffCurve weapon={preview} equipped={current} />);
-  expect(html).toContain('SAR 21 · Marksman'); expect(html).toContain('SAR 21 · Issued');
+  expect(html).toContain('SAR 21 · Own Time, Own Target'); expect(html).toContain('SAR 21 · BMT');
   // Two paths, one per series, plus the hits-to-kill bands they are read against.
   expect(html.match(/stroke-width="2"/g)?.length).toBe(2);
   expect(html).toContain('2 hits'); expect(html).toContain('hits</text>');
