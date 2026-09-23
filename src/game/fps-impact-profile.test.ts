@@ -7,7 +7,7 @@ import { createImpactField, impactDust, recordImpact } from './fps-impacts';
 
 it('widens holes with caliber independently of weapon power', () => {
   const rifle = impactProfile(5.56, 36), large = impactProfile(7.62, 36);
-  expect(large.holeRadius / rifle.holeRadius).toBeCloseTo(7.62 / 5.56);
+  expect(large.holeRadius / rifle.holeRadius).toBeCloseTo(Math.pow(7.62 / 5.56, 1.5));
   expect(large.holeDepth).toBe(rifle.holeDepth);
   const stronger = impactProfile(5.56, 58);
   expect(stronger.holeRadius).toBe(rifle.holeRadius);
@@ -48,7 +48,7 @@ it('handles malformed parameters without unbounded pools or shader values', () =
     const result = sanitizeImpactProfile({ holeRadius: n, holeDepth: n, smokeLifetime: n, smokeOpacity: n, smokeSize: n, sparkCount: n });
     expect(Object.values(result).every(Number.isFinite)).toBe(true);
     expect(result.sparkCount).toBeLessThanOrEqual(16);
-    expect(result.smokeLifetime).toBeLessThanOrEqual(2);
+    expect(result.smokeLifetime).toBeLessThanOrEqual(3.2);
     expect(result.smokeOpacity).toBeLessThan(1);
     expect(Object.values(impactProfile(n, n)).every(Number.isFinite)).toBe(true);
   }
@@ -65,4 +65,22 @@ it('attenuates smoke and depth on spent rounds and snapshots the shot profile', 
   const remembered = a.profile.holeDepth;
   profile.holeDepth = 10;
   expect(a.profile.holeDepth).toBe(remembered);
+});
+
+it('keeps heavy-caliber craters readable and all heavy variants distinct after sanitizing', () => {
+  const base = createProfile();
+  const profiles = ['cis50-issued', 'cis50-tuas', 'cis50-merlion'].map(id => {
+    const weapon = resolveLoadout(equip({ ...base, owned: [...base.owned, id] }, id, 4)).weapons[4];
+    const profile = effectStyleForWeapon(weapon).impact;
+    const field = createImpactField();
+    const impact = recordImpact(field, { x: 0, y: 1, z: 0 }, { x: 0, y: 0, z: 1 }, 'surface', 1, () => .5, id, profile);
+    expect(field.scorches[0].radius * 2).toBeGreaterThan(.5);
+    expect(profile.holeRadius).toBeGreaterThan(impactProfile().holeRadius * 3);
+    return impact.profile;
+  });
+  for (let i = 1; i < profiles.length; i++) {
+    expect(profiles[i].holeDepth).toBeGreaterThan(profiles[i - 1].holeDepth);
+    expect(profiles[i].smokeSize).toBeGreaterThan(profiles[i - 1].smokeSize);
+    expect(profiles[i].smokeLifetime).toBeGreaterThan(profiles[i - 1].smokeLifetime);
+  }
 });

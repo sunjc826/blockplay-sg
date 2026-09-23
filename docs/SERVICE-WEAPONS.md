@@ -15,6 +15,10 @@ fictional arcade balancing. The P30 replaces the initially proposed Glock.
 The heavy MG is normally mounted/crew-served. Carrying it in this game is an
 explicit arcade concession, stated in its shop description. It receives a large
 movement penalty, wide hip spread, slow aiming, heavy recoil and long reloads.
+Base/Tuas/Merlion damage is 160/168/178. Base body damage bottoms at 120 after
+range falloff, so even the free variant kills normal 100–115 HP unarmored targets
+in one direct hit. Armor can prevent that kill. Handling and carry burden are
+the trade-offs; premium ownership is not required for one-shot lethality.
 The existing Ultimax remains a legacy-inspired platform; this addition does not
 claim it is the newest SAF standard.
 
@@ -61,3 +65,15 @@ GPMG and spade-grip heavy-MG silhouettes. The shop and FPS share these models,
 fittings, skins and named muzzle/ejection/magazine nodes. No generated textures,
 external model downloads or new package dependencies are needed. The two
 existing GLBs and range prop indexes remain unchanged.
+
+
+## GPMG balance
+
+Carry On / Chope / Jaga Corner deal 60 / 66 / 70 damage, with full power through
+45 m and a 70% floor at 120 m. Each takes two unarmored body hits through 45 m,
+three at the range floor (100–115 HP targets). Cadence is .120 / .112 / .108 s.
+The base has .042 recoil, .75 recovery and .74 in-hand mobility; slower aim-in,
+carry burden and long belt changes reward deliberate positioning. Chope trades
+a longer belt change for 125 rounds and a steadier, quicker feed. Jaga keeps
+100 rounds and improves power, cadence and recovery at extra weight/mobility cost.
+The .50 retains much greater per-shot power; the GPMG handles and aims faster.

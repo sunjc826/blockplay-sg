@@ -109,7 +109,8 @@ const eased = (t: number) => { const c = Math.max(0, Math.min(1, t)); return 1 -
 /** The bright disc on the surface: opens fast, gone well before the dust is. */
 export const impactRing = (impact: Impact) => {
   const t = eased(impact.age / RING_LIFE), fade = Math.max(0, 1 - impact.age / RING_LIFE);
-  return { scale: 0.05 + t * (impact.kind === 'target' ? 0.26 : 0.34), brightness: fade * fade * (impact.kind === 'target' ? 1.4 : 1) };
+  const caliberScale = Math.sqrt(impact.profile.holeRadius / DEFAULT_IMPACT_PROFILE.holeRadius);
+  return { scale: (0.05 + t * (impact.kind === 'target' ? 0.26 : 0.34)) * caliberScale, brightness: fade * fade * (impact.kind === 'target' ? 1.4 : 1) };
 };
 /** Dust lifted off a struck surface; a target throws none. */
 export const impactDust = (impact: Impact) => {

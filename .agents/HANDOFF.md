@@ -1,5 +1,43 @@
 # Blockplay: portable agent handoff
 
+## GPMG rebalance alongside heavy MG (2026-09-23)
+
+FN MAG base/Chope/Jaga damage is 60/66/70; full damage through 45 m, falling
+to 70% at 120 m. All three need two body hits against 100–115 HP unarmored
+targets through 45 m and three at the floor. Base cadence slows to .12 s,
+recoil increases to .042, recovery falls to .75 and in-hand mobility to .74
+(which also slows aim-in). Carry weight and 4.6 s reload remain. Chope has a
+125-round belt, .112 s feed and improved buffer; Jaga has .108 s feed, stronger
+hits and faster recovery, with extra mass and handling burden. These keep the
+GPMG between rifles/Ultimax and the .50, not a second one-shot platform.
+
+Tests cover body-hit breakpoints across all variants, relative movement/aim
+and recoil, and the host's new 60-damage GPMG round. Final combined validation:
+796 tests, typecheck and production build pass; heavy impact browser rendering
+was inspected in this same change. No dependency or lockfile modifications.
+
+## Heavy MG damage and larger impacts (2026-09-23)
+
+CIS 50MG damage is now 160/168/178 for Big Encik/Tuas Shift/Merlion Roar.
+Base falloff bottoms at 120 body damage: a direct hit kills normal 100–115 HP
+unarmored targets at every range. Armor still absorbs damage. Existing severe
+recoil, slow recovery/reload, .55 base in-hand mobility and carry mass remain;
+the shared encumbrance calculation also slows aim-in. Host weapon and incoming
+hit-message caps now allow 200 damage, preserving heavy hits and LAN feedback.
+
+Decal radius is now .075 * (caliber/5.56)^1.5: rifle marks are 1.83x wider and
+.50 marks 2.77x wider than before (~52 cm chipped diameter before jitter).
+Flash rings scale with caliber. Extended bounded power/depth/smoke ranges keep
+160–178 damage profiles distinct, including after recording an impact. These
+are exaggerated arcade surface effects, not physical penetration dimensions.
+
+Validation: 795 tests, typecheck and production build pass. Added direct/falloff
+lethality, armored survival, handling, LAN hit feedback and actual recorded
+impact tests. Browser rendered rifle/base-heavy/premium-heavy holes and smoke
+without errors; both captures visually inspected. Existing build-size warning
+remains. Dependencies installed with scripts skipped after optional ONNX native
+download failed; no dependency or lockfile changes.
+
 ## Weapon slots and equipment movement (2026-09-23)
 
 Loadouts now carry one main weapon and one P30 sidearm. The user chose a

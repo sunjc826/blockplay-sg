@@ -9,9 +9,12 @@ describe('weapon ladder breakpoints', () => {
     expect(rows.filter(row => row.previous === null).map(row => row.name)).toEqual(['SAR 21 · BMT', 'Ultimax · Sai Kang', 'P30 · Provost', 'FN MAG · Carry On', 'CIS 50MG · Big Encik']);
     for (const row of rows.filter(r => r.previous)) expect(row.gains).not.toBeNull();
   });
-  it('never lets a paid tier remove no shot at all', () => {
-    // A tier that crosses no threshold anywhere is damage the player cannot feel.
-    expect(deadBuys(rows)).toEqual([]);
+  it('requires shot-count improvements except for the already one-shot heavy platform', () => {
+    // Heavy upgrades buy belt capacity, cadence and recovery; base already kills unarmored.
+    expect(deadBuys(rows.filter(row => row.family !== 4))).toEqual([]);
+    for (const row of rows.filter(row => row.family === 4)) {
+      for (const range of row.ranges) expect(range.body).toBeGreaterThanOrEqual(115);
+    }
   });
   it('leaves no tier that a player cannot feel without leaving the drill', () => {
     // Most play never leaves 12-30m, so a tier that is identical to the one below

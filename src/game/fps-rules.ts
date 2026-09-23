@@ -43,9 +43,9 @@ export const FPS_WEAPONS: readonly WeaponSpec[] = [
     traits: [{ kind: 'falloff', near: 14, far: 45, minScale: 0.40 }, { kind: 'precision', multiplier: 1.5 }] },
   { caliberMm: 9, id: 'p30-inspired', weightKg: 0.8, name: 'P30', role: 'Semi-auto pistol', fireMode: 'semi', capacity: 15, reserve: 60, interval: .22, reload: 1.25, recoil: .022, recoilRecovery: 1.35, sightHeight: .232, damage: 28, aimFov: HIP_FOV, mobility: 1.14, optic: 'iron', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 12, far: 42, minScale: .35 }, { kind: 'precision', multiplier: 1.8 }] },
-  { caliberMm: 7.62, id: 'mag-inspired', weightKg: 11.8, name: 'FN MAG', role: 'General-purpose MG', capacity: 100, reserve: 200, interval: .10, reload: 4.6, recoil: .037, recoilRecovery: .8, sightHeight: .305, damage: 44, aimFov: HIP_FOV, mobility: .78, optic: 'iron', ballistics: HITSCAN,
-    traits: [{ kind: 'falloff', near: 40, far: 110, minScale: .65 }, { kind: 'precision', multiplier: 1.5 }] },
-  { caliberMm: 12.7, id: 'cis50-inspired', weightKg: 30, name: 'CIS 50MG', role: 'Heavy machine gun', capacity: 50, reserve: 100, interval: .14, reload: 5.8, recoil: .064, recoilRecovery: .65, sightHeight: .34, damage: 72, aimFov: HIP_FOV, mobility: .55, optic: 'iron', ballistics: HITSCAN,
+  { caliberMm: 7.62, id: 'mag-inspired', weightKg: 11.8, name: 'FN MAG', role: 'General-purpose MG', capacity: 100, reserve: 200, interval: .12, reload: 4.6, recoil: .042, recoilRecovery: .75, sightHeight: .305, damage: 60, aimFov: HIP_FOV, mobility: .74, optic: 'iron', ballistics: HITSCAN,
+    traits: [{ kind: 'falloff', near: 45, far: 120, minScale: .70 }, { kind: 'precision', multiplier: 1.5 }] },
+  { caliberMm: 12.7, id: 'cis50-inspired', weightKg: 30, name: 'CIS 50MG', role: 'Heavy machine gun', capacity: 50, reserve: 100, interval: .14, reload: 5.8, recoil: .064, recoilRecovery: .65, sightHeight: .34, damage: 160, aimFov: HIP_FOV, mobility: .55, optic: 'iron', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 55, far: 140, minScale: .75 }, { kind: 'precision', multiplier: 1.4 }] },
 ];
 

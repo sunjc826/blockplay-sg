@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createProfile, equip, purchase, resolveLoadout, restoreProfile } from './armory-state';
-import { DEFAULT_VARIANTS, FPS_WEAPONS, advanceWeapon, beginReload, createLoadout, fireWeapon, validWeaponIndex } from './fps-rules';
+import { DEFAULT_VARIANTS, FPS_WEAPONS, advanceWeapon, beginReload, createLoadout, fireWeapon, validWeaponIndex, hitDamage } from './fps-rules';
 import { itemById } from './armory-catalog';
 import { xpForLevel } from './progression';
 import { effectStyleForWeapon } from './fps-effect-styles';
@@ -9,6 +9,7 @@ import { disposeModel } from './armory-visuals';
 import { fitWeaponOptic, getWeaponSight } from './weapon-optics';
 import { fitWeaponHardware } from './weapon-fittings';
 import { createArena } from './arena-rules';
+import { equipmentMovement } from './fps-encumbrance';
 import { validArenaInput } from './arena-runtime';
 
 it('upgrades a two-platform v1 save without spending currency or losing equipment', () => {
@@ -82,4 +83,41 @@ it('keeps each class distinct and makes caliber width independent of power', () 
 });
 it('rejects malformed or out-of-range family indexes', () => {
   for (const index of [-1, 5, .5, NaN, Infinity, '2', null]) expect(validWeaponIndex(index)).toBe(false);
+});
+
+it('makes every .50 variant lethal unarmored at any range while retaining handling costs', () => {
+  const base = createProfile();
+  for (const id of ['cis50-issued', 'cis50-tuas', 'cis50-merlion']) {
+    const loadout = resolveLoadout(equip({ ...base, owned: [...base.owned, id] }, id, 4));
+    const heavy = loadout.weapons[4], rifle = loadout.weapons[0];
+    for (const range of [0, 55, 90, 140, 300]) {
+      expect(hitDamage(heavy, range, 'body')).toBeGreaterThanOrEqual(115);
+    }
+    const held = equipmentMovement(loadout, 4), pistol = equipmentMovement(loadout, 2);
+    expect(held.movement).toBeLessThan(pistol.movement * .6);
+    expect(held.aimSpeed).toBeLessThan(pistol.aimSpeed * .6);
+    expect(heavy.recoil).toBeGreaterThan(rifle.recoil * 2);
+    expect(heavy.recoilRecovery).toBeLessThan(rifle.recoilRecovery);
+  }
+});
+
+it('places the GPMG between the rifle and heavy MG for lethality and handling', () => {
+  const base = createProfile();
+  for (const id of ['mag-issued', 'mag-chope', 'mag-jaga']) {
+    const loadout = resolveLoadout(equip({ ...base, owned: [...base.owned, id] }, id, 3));
+    const mag = loadout.weapons[3];
+    for (const health of [100, 115]) {
+      for (const range of [0, 20, 45]) expect(Math.ceil(health / hitDamage(mag, range, 'body'))).toBe(2);
+      expect(Math.ceil(health / hitDamage(mag, 120, 'body'))).toBe(3);
+    }
+    const heavyLoadout = resolveLoadout(equip(base, 'cis50-issued', 4));
+    const rifleLoadout = resolveLoadout(base);
+    const handling = equipmentMovement(loadout, 3);
+    for (const stat of ['movement', 'aimSpeed'] as const) {
+      expect(handling[stat]).toBeGreaterThan(equipmentMovement(heavyLoadout, 4)[stat]);
+      expect(handling[stat]).toBeLessThan(equipmentMovement(rifleLoadout, 0)[stat]);
+    }
+    expect(mag.recoil).toBeGreaterThan(loadout.weapons[0].recoil);
+    expect(mag.recoil).toBeLessThan(heavyLoadout.weapons[4].recoil);
+  }
 });

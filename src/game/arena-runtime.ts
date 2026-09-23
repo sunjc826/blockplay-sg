@@ -151,7 +151,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       }
     } else if (from === hostId) {
       if (payload.type === 'arena-state' && validArenaSnapshot(payload.snapshot, options.environment) && typeof payload.started === 'boolean') { started = payload.started; accept(payload.snapshot); }
-      if (payload.type === 'arena-hit' && object(payload.hit) && (payload.hit.hitId === null || typeof payload.hit.hitId === 'string') && typeof payload.hit.killed === 'boolean' && finite(payload.hit.damage) && payload.hit.damage >= 0 && payload.hit.damage <= 100) pendingHit = payload.hit as unknown as ArenaShot;
+      if (payload.type === 'arena-hit' && object(payload.hit) && (payload.hit.hitId === null || typeof payload.hit.hitId === 'string') && typeof payload.hit.killed === 'boolean' && finite(payload.hit.damage) && payload.hit.damage >= 0 && payload.hit.damage <= 200) pendingHit = payload.hit as unknown as ArenaShot;
     }
   });
   let lastTime = performance.now(), broadcastTime = 0;

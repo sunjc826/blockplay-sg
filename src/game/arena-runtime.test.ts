@@ -92,7 +92,7 @@ describe('arena runtime authority and renderer bridge', () => {
       expect(state.self?.health).toBe(64);
     } finally { host.dispose(); }
   });
-  it.each([[1, 30], [2, 28], [3, 44], [4, 72]])('flushes a guest switch to family %i before firing its %i damage round', (family, damage) => {
+  it.each([[1, 30], [2, 28], [3, 60], [4, 160]])('flushes a guest switch to family %i before firing its %i damage round', (family, damage) => {
     vi.useFakeTimers();
     const [hostSession, guestSession] = localPair();
     const host = createArenaRuntime({ scene: new THREE.Scene(), session: hostSession, obstacles: [], botCount: 0 });
@@ -105,7 +105,7 @@ describe('arena runtime authority and renderer bridge', () => {
       const target = host.update(0.02, input(-44, 68, true)).self!;
       const direction = new THREE.Vector3(target.x - shooter.x, target.y - 0.65 - shooter.y, target.z - shooter.z).normalize();
       guest.shoot(shooter, direction, family);
-      expect(host.update(0.02, input(-44, 68, true)).self?.health).toBe(100 - damage);
+      expect(host.update(0.02, input(-44, 68, true)).self?.health).toBe(Math.max(0, 100 - damage));
       expect(guest.update(0.02, input(shooter.x, shooter.z, true)).hit?.damage).toBe(damage);
     } finally { host.dispose(); guest.dispose(); }
   });

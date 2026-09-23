@@ -15,9 +15,10 @@ const bounded = (n: number, fallback: number, low: number, high: number) =>
 /** Exaggerated enough to read in play; damage controls power independently of bore. */
 export function impactProfile(caliberMm = 5.56, damage = 36): ImpactProfile {
   const bore = bounded(caliberMm, 5.56, 2, 25) / 5.56;
-  const power = bounded(damage, 36, 9, 144) / 36;
+  const power = bounded(damage, 36, 9, 256) / 36;
   return {
-    holeRadius: .041 * bore,
+    // Superlinear chipping makes heavy-caliber strikes readable at combat range.
+    holeRadius: .075 * Math.pow(bore, 1.5),
     holeDepth: .007 * Math.pow(power, 1.6),
     smokeSize: Math.pow(power, 1.1) * Math.sqrt(bore),
     smokeOpacity: Math.min(.85, .48 * Math.pow(power, .7)),
@@ -30,11 +31,11 @@ export const DEFAULT_IMPACT_PROFILE = impactProfile();
 export function sanitizeImpactProfile(profile: ImpactProfile): ImpactProfile {
   const base = DEFAULT_IMPACT_PROFILE;
   return {
-    holeRadius: bounded(profile.holeRadius, base.holeRadius, .008, .2),
-    holeDepth: bounded(profile.holeDepth, base.holeDepth, .001, .06),
-    smokeSize: bounded(profile.smokeSize, base.smokeSize, .1, 4),
+    holeRadius: bounded(profile.holeRadius, base.holeRadius, .008, .75),
+    holeDepth: bounded(profile.holeDepth, base.holeDepth, .001, .16),
+    smokeSize: bounded(profile.smokeSize, base.smokeSize, .1, 12),
     smokeOpacity: bounded(profile.smokeOpacity, base.smokeOpacity, 0, .95),
-    smokeLifetime: bounded(profile.smokeLifetime, base.smokeLifetime, .1, 2),
+    smokeLifetime: bounded(profile.smokeLifetime, base.smokeLifetime, .1, 3.2),
     sparkCount: Math.round(bounded(profile.sparkCount, base.sparkCount, 0, 16)),
   };
 }

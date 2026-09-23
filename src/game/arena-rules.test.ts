@@ -206,3 +206,13 @@ describe('bot role plugins', () => {
     expect(arena.snapshot().actors.map(a => ({ x: a.x, z: a.z, shots: a.shots }))).toEqual(before.map(a => ({ x: a.x, z: a.z, shots: 0 })));
   });
 });
+
+it('preserves heavy-round damage on the host while armor can prevent a one-shot kill', () => {
+  const bare = pair(0, 0, 160);
+  expect(fireAt(bare).damage).toBe(160);
+  expect(actor(bare, 'two').alive).toBe(false);
+  const protectedArena = pair(100, .8, 160);
+  fireAt(protectedArena);
+  expect(actor(protectedArena, 'two').health).toBe(40);
+  expect(actor(protectedArena, 'two').alive).toBe(true);
+});
