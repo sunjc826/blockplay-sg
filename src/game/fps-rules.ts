@@ -31,15 +31,15 @@ export function findTrait<K extends WeaponTraitKind>(traits: readonly WeaponTrai
  * fast it comes back, as a multiple of the baseline settle rate. See
  * `fps-recoil` for why a kick needs both numbers rather than one.
  */
-export interface WeaponSpec { id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; recoilRecovery: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
+export interface WeaponSpec { caliberMm: number; id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; recoilRecovery: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
 export const FPS_WEAPONS: readonly WeaponSpec[] = [
   // The rifle holds its damage to twice the support weapon's range; the support
   // weapon trades that away for its volume of fire. Paid variants lift both bands.
   // The support weapon also kicks harder and settles slower than the rifle, which
   // is what its volume of fire is bought with.
-  { id: 'sar21-inspired', name: 'SAR 21', role: 'Bullpup rifle', capacity: 30, reserve: 120, interval: 0.12, reload: 1.8, recoil: 0.018, recoilRecovery: 1, sightHeight: 0.328, damage: 36, aimFov: magnifiedFov(1.5), mobility: 1, optic: 'integrated', ballistics: HITSCAN,
+  { caliberMm: 5.56, id: 'sar21-inspired', name: 'SAR 21', role: 'Bullpup rifle', capacity: 30, reserve: 120, interval: 0.12, reload: 1.8, recoil: 0.018, recoilRecovery: 1, sightHeight: 0.328, damage: 36, aimFov: magnifiedFov(1.5), mobility: 1, optic: 'integrated', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 30, far: 90, minScale: 0.55 }, { kind: 'precision', multiplier: 1.6 }] },
-  { id: 'ultimax-inspired', name: 'Ultimax', role: 'Support weapon', capacity: 60, reserve: 180, interval: 0.085, reload: 2.5, recoil: 0.026, recoilRecovery: 0.85, sightHeight: 0.28, damage: 30, aimFov: HIP_FOV, mobility: 1, optic: 'reflex', ballistics: HITSCAN,
+  { caliberMm: 5.56, id: 'ultimax-inspired', name: 'Ultimax', role: 'Support weapon', capacity: 60, reserve: 180, interval: 0.085, reload: 2.5, recoil: 0.026, recoilRecovery: 0.85, sightHeight: 0.28, damage: 30, aimFov: HIP_FOV, mobility: 1, optic: 'reflex', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 14, far: 45, minScale: 0.40 }, { kind: 'precision', multiplier: 1.5 }] },
 ];
 

@@ -156,6 +156,7 @@ export function applyBuild(base: WeaponSpec, parts: readonly InternalPart[] = []
     spec.interval += part.interval ?? 0; spec.reload += part.reload ?? 0; spec.recoil += part.recoil ?? 0;
     spec.recoilRecovery += part.recoilRecovery ?? 0;
     spec.mobility *= part.mobility ?? 1;
+    if (part.caliberMm !== undefined) spec.caliberMm = part.caliberMm;
     if (part.ballistics) spec.ballistics = part.ballistics;
     if (part.traits) spec.traits = [...spec.traits ?? [], ...part.traits];
   }

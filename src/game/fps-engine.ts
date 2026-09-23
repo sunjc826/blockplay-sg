@@ -1,3 +1,4 @@
+import { impactSurfaceNormal } from './fps-impact-normal';
 import * as THREE from 'three';
 import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook, clampFpsPitch } from './fps-pointer';
 import { dragLook, resolveMovement, stickKeys, type StickVector } from './touch-controls';
@@ -726,7 +727,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // Effects and the viewmodel never obstruct a gameplay ray.
     return world.scene.children.filter(o => !o.userData.fpsEffect);
   }
-  const normalMatrix = new THREE.Matrix3(), surface = new THREE.Vector3();
+  const surface = new THREE.Vector3();
   /**
    * The world-space normal of whatever a ray struck, for orienting an impact.
    * A raycast reports the face normal in the struck object's own space, so it
@@ -735,18 +736,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    * back to facing the shooter.
    */
   function surfaceNormal(hit: THREE.Intersection, direction: THREE.Vector3) {
-    const local = hit.normal ?? hit.face?.normal;
-    if (local) {
-      surface.copy(local).applyNormalMatrix(normalMatrix.getNormalMatrix(hit.object.matrixWorld));
-      if (surface.lengthSq() > 1e-12) {
-        surface.normalize();
-        // Always the side the round arrived from, whatever the winding says.
-        if (surface.dot(direction) > 0) surface.negate();
-        return surface;
-      }
-    }
-    return surface.copy(direction).negate().normalize();
+    return impactSurfaceNormal(hit, direction, surface);
   }
+
   const impactKind = (hit: THREE.Intersection): ImpactKind => typeof hit.object.userData.fpsTarget === 'number' ? 'target' : 'surface';
   const isWaterHit = (hit?: THREE.Intersection) => !!hit && isWaterObject(hit.object);
   /**
@@ -788,7 +780,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const range = travelled + hit.distance;
       energy = resolveSurfaces(hits, weapon, () => range, energy);
       applySplash(hit.point, weapon, range, energy, hit.object.userData.fpsTarget);
-      if (!isWaterHit(hit)) { effects.impact(hit.point, surfaceNormal(hit, skipDirection), impactKind(hit), energy); return; }
+      if (!isWaterHit(hit)) { effects.impact(hit.point, surfaceNormal(hit, skipDirection), impactKind(hit), energy, weaponStyles[weapon]?.id); return; }
       heading = meetWater(hit, skipDirection, energy); at = hit.point.clone(); travelled = range;
     }
   }
@@ -943,7 +935,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const skip = meetWater(struck, ray.ray.direction, energy);
       // The arena host resolves its own shots, so there the skip is spray only.
       if (skip && !arenaRuntime) skipInstantShot(struck.point, skip, struck.distance, energy, hud.weapon);
-    } else if (struck) effects.impact(struck.point, surfaceNormal(struck, ray.ray.direction), impactKind(struck), energy);
+    } else if (struck) effects.impact(struck.point, surfaceNormal(struck, ray.ray.direction), impactKind(struck), energy, weaponStyles[hud.weapon]?.id);
     checkCompletion();
     publish();
   }

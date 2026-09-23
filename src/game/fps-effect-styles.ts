@@ -1,3 +1,5 @@
+import { FPS_WEAPONS } from './fps-rules';
+import { impactProfile, sanitizeImpactProfile, DEFAULT_IMPACT_PROFILE, type ImpactProfile } from './fps-impact-profile';
 import { itemById } from './armory-catalog';
 import type { EquippedWeapon } from './armory-state';
 
@@ -46,12 +48,14 @@ export interface EffectStyle {
   dust: string; dustScale: number;
   smoke: string;
   brass: BrassStyle;
-  /** How much of a struck surface's own colour a scorch takes away, 0..1. */
+  /** Darkness of the crater material; .7 is the neutral authored texture. */
   scorch: number;
+  impact: ImpactProfile;
 }
 /** Every field optional and one level deep, which is as deep as a style goes. */
 export type EffectStylePatch = {
   name?: string;
+  impact?: Partial<ImpactProfile>;
   flare?: Partial<FlareStyle>; tracer?: Partial<TracerStyle>; spark?: Partial<SparkStyle>;
   ring?: Partial<RingStyle>; brass?: Partial<BrassStyle>;
   dust?: string; dustScale?: number; smoke?: string; scorch?: number;
@@ -67,7 +71,7 @@ export const ISSUED_STYLE: EffectStyle = Object.freeze({
   dust: '#bfb49c', dustScale: 1,
   smoke: '#8d949b',
   brass: { colour: '#c9a656', metalness: .85, roughness: .34 },
-  scorch: .7,
+  scorch: .7, impact: DEFAULT_IMPACT_PROFILE,
 }) as EffectStyle;
 
 /** Field kit: cleaner powder, so a tighter and slightly whiter flash. */
@@ -135,7 +139,7 @@ export function tintStyle(style: EffectStyle, accent: string): EffectStyle {
 export function patchStyle(style: EffectStyle, patch?: EffectStylePatch): EffectStyle {
   if (!patch) return style;
   return {
-    ...style, ...(patch.name ? { name: patch.name } : {}),
+    ...style, impact: sanitizeImpactProfile({ ...style.impact, ...patch.impact }), ...(patch.name ? { name: patch.name } : {}),
     flare: { ...style.flare, ...patch.flare },
     tracer: { ...style.tracer, ...patch.tracer },
     spark: { ...style.spark, ...patch.spark },
@@ -156,7 +160,7 @@ export function registerEffectStyle(id: string, patch: EffectStylePatch) { regis
 export function unregisterEffectStyle(id: string) { registry.delete(id); }
 export function registeredEffectStyles(): string[] { return [...registry.keys()]; }
 
-export interface EffectStyleRequest { variant?: string; skin?: string; accent?: string }
+export interface EffectStyleRequest { variant?: string; skin?: string; accent?: string; caliberMm?: number; damage?: number }
 /**
  * Resolves the look of one weapon's shots. The `id` is derived from the request
  * rather than invented, so two calls for the same loadout agree and the
@@ -167,11 +171,14 @@ export function resolveEffectStyle(request: EffectStyleRequest): EffectStyle {
   const variant = request.variant ?? '', skin = request.skin ?? '';
   const base = TIERS[itemById(variant)?.tier ?? ''] ?? ISSUED_STYLE;
   const accent = request.accent ?? itemById(variant)?.accent;
-  let style = accent ? tintStyle(base, accent) : base;
+  const item = itemById(variant), platform = FPS_WEAPONS[item?.family ?? 0];
+  const damage = request.damage ?? platform.damage + (item?.build ?? []).reduce((sum, part) => sum + (part.damage ?? 0), 0);
+  const caliber = request.caliberMm ?? (item?.build ?? []).reduce((bore, part) => part.caliberMm ?? bore, platform.caliberMm);
+  let style = { ...(accent ? tintStyle(base, accent) : base), impact: impactProfile(caliber, damage) };
   // A skin is bought for how it looks, so it has the last word over the weapon.
   style = patchStyle(patchStyle(style, registry.get(variant)), registry.get(skin));
   return { ...style, id: [base.id, variant, skin].filter(Boolean).join(':') };
 }
 /** The style for a resolved loadout entry, which is what the engine holds. */
-export const effectStyleForWeapon = (weapon?: Pick<EquippedWeapon, 'equipment' | 'accent'>): EffectStyle =>
-  resolveEffectStyle({ variant: weapon?.equipment.variant, skin: weapon?.equipment.skin, accent: weapon?.accent });
+export const effectStyleForWeapon = (weapon?: Pick<EquippedWeapon, 'equipment' | 'accent'> & Partial<Pick<EquippedWeapon, 'caliberMm' | 'damage'>>): EffectStyle =>
+  resolveEffectStyle({ variant: weapon?.equipment.variant, skin: weapon?.equipment.skin, accent: weapon?.accent, caliberMm: weapon?.caliberMm, damage: weapon?.damage });

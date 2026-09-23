@@ -1,3 +1,4 @@
+import { createBulletHoleTextures, createBulletHoleMaterial, withInstanceOpacity } from './fps-impact-material';
 import * as THREE from 'three';
 import { advanceCasings, casingFade, ejectCasing, MAX_CASINGS, type Casing } from './fps-casings';
 import { advanceImpacts, clearImpactField, createImpactField, impactDust, impactRing, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordImpact, scorchAlpha, sparkHeat, sparkStreak, type ImpactKind } from './fps-impacts';
@@ -34,25 +35,25 @@ export type { ImpactKind };
 
 /** Wisps of barrel smoke alight at once, beyond the dust the impacts throw. */
 const MAX_SMOKE = 10;
-const PUFF_CAPACITY = MAX_IMPACTS + MAX_SMOKE;
+const PUFFS_PER_IMPACT = 3;
+const IMPACT_PUFF_CAPACITY = MAX_IMPACTS * PUFFS_PER_IMPACT;
+const PUFF_CAPACITY = IMPACT_PUFF_CAPACITY + MAX_SMOKE;
 
 interface Smoke { x: number; y: number; z: number; vy: number; drift: number; age: number; life: number }
 
 /**
  * A soft radial disc as raw bytes rather than a canvas, so no DOM is touched
- * and the falloff is exactly the curve written here. `channel` decides where
- * the disc lives: in alpha for the additive sprites, or in RGB for the scorch,
- * whose blend reads the colour rather than the coverage.
+ * and the falloff is exactly the alpha curve written here.
  */
-function radialTexture(size: number, edge: number, channel: 'alpha' | 'colour' = 'alpha') {
+function radialTexture(size: number, edge: number) {
   const data = new Uint8Array(size * size * 4);
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     const dx = (x + .5) / size * 2 - 1, dy = (y + .5) / size * 2 - 1;
     const distance = Math.min(1, Math.hypot(dx, dy));
     const falloff = Math.round(Math.pow(Math.max(0, 1 - distance), edge) * 255);
     const i = (y * size + x) * 4;
-    data[i] = data[i + 1] = data[i + 2] = channel === 'alpha' ? 255 : falloff;
-    data[i + 3] = channel === 'alpha' ? falloff : 255;
+    data[i] = data[i + 1] = data[i + 2] = 255;
+    data[i + 3] = falloff;
   }
   return finishTexture(data, size);
 }
@@ -92,7 +93,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
   known.set(current.id, current);
   const styleOf = (tag?: string) => (tag && known.get(tag)) || current;
   const root = new THREE.Group(); root.name = 'fps-effects'; root.userData.fpsEffect = true; root.frustumCulled = false; world.add(root);
-  const soft = paint(radialTexture(64, 1.6)), blob = paint(radialTexture(64, .9)), mark = paint(radialTexture(64, 1.1, 'colour'));
+  const soft = paint(radialTexture(64, 1.6)), blob = paint(radialTexture(64, .9));
 
   // --- muzzle -------------------------------------------------------------
   const muzzle = createMuzzle();
@@ -133,28 +134,22 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
   ringMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); ringMesh.frustumCulled = false; ringMesh.userData.fpsEffect = true; root.add(ringMesh);
 
   const puffGeometry = keep(new THREE.PlaneGeometry(1, 1));
-  const puffMesh = new THREE.InstancedMesh(puffGeometry, additive('#ffffff', soft), PUFF_CAPACITY);
+  const puffOpacity = new THREE.InstancedBufferAttribute(new Float32Array(PUFF_CAPACITY), 1).setUsage(THREE.DynamicDrawUsage);
+  puffGeometry.setAttribute('effectOpacity', puffOpacity);
+  const puffMaterial = hold(withInstanceOpacity(new THREE.MeshBasicMaterial({
+    color: '#ffffff', map: soft, transparent: true, depthWrite: false, toneMapped: false,
+  })));
+  const puffMesh = new THREE.InstancedMesh(puffGeometry, puffMaterial, PUFF_CAPACITY);
   puffMesh.name = 'fps-puffs';
   puffMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); puffMesh.frustumCulled = false; puffMesh.userData.fpsEffect = true; root.add(puffMesh);
 
   const scorchGeometry = keep(new THREE.PlaneGeometry(1, 1));
-  // A scorch has to *darken* the surface it sits on, which additive cannot do;
-  // and `instanceColor` tints an instance rather than setting its coverage, so
-  // it cannot fade a normally blended one either. The blend does the work
-  // instead: `dst x (1 - src)` leaves the surface alone where the mark is black
-  // and takes colour out of it where the mark is bright, which turns the
-  // per-instance colour into the fade. Stock material state throughout — no
-  // patched shader, nothing extra per vertex.
-  const scorchMaterial = hold(new THREE.MeshBasicMaterial({
-    map: mark, transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
-    blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.ZeroFactor, blendDst: THREE.OneMinusSrcColorFactor,
-    // The alpha factors matter as much as the colour ones: left to follow the
-    // colour blend, this would also multiply the framebuffer's own alpha down
-    // to nothing, and the page underneath would show through the quad as a
-    // pale square around every mark. Alpha is passed through untouched.
-    blendEquationAlpha: THREE.AddEquation, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
-    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
-  }));
+  const crater = createBulletHoleTextures(); paint(crater.map); paint(crater.normalMap);
+  const scorchMaterial = hold(createBulletHoleMaterial(crater));
+  const scorchOpacity = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SCORCHES), 1).setUsage(THREE.DynamicDrawUsage);
+  const scorchDepth = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SCORCHES), 1).setUsage(THREE.DynamicDrawUsage);
+  scorchGeometry.setAttribute('effectOpacity', scorchOpacity);
+  scorchGeometry.setAttribute('impactDepth', scorchDepth);
   const scorchMesh = new THREE.InstancedMesh(scorchGeometry, scorchMaterial, MAX_SCORCHES);
   scorchMesh.name = 'fps-scorches';
   scorchMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scorchMesh.frustumCulled = false; scorchMesh.userData.fpsEffect = true; root.add(scorchMesh);
@@ -277,7 +272,8 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
      * still in the air need not be the weapon now in hand.
      */
     impact(point: THREE.Vector3, normal: THREE.Vector3, kind: ImpactKind = 'surface', energy = 1, style?: string) {
-      recordImpact(field, point, normal, kind, energy, Math.random, style ?? current.id);
+      const source = styleOf(style);
+      recordImpact(field, point, normal, kind, energy, Math.random, source.id, source.impact);
     },
     /**
      * A round meeting water at `point`, travelling along `direction`. Water
@@ -350,35 +346,44 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
 
       camera.getWorldQuaternion(quaternion);
       for (let i = 0; i < PUFF_CAPACITY; i++) {
-        const impact = i < MAX_IMPACTS ? field.impacts[i] : undefined;
-        const wisp = i >= MAX_IMPACTS ? smoke[i - MAX_IMPACTS] : undefined;
+        const impact = i < IMPACT_PUFF_CAPACITY ? field.impacts[Math.floor(i / PUFFS_PER_IMPACT)] : undefined;
+        const wisp = i >= IMPACT_PUFF_CAPACITY ? smoke[i - IMPACT_PUFF_CAPACITY] : undefined;
         if (impact) {
           const dust = impactDust(impact), dustStyle = styleOf(impact.style);
-          const spread = dust.scale * dustStyle.dustScale;
-          puffMesh.setColorAt(i, colour.set(dustStyle.dust).multiplyScalar(Math.max(0, Math.min(1, dust.brightness))));
+          const layer = i % PUFFS_PER_IMPACT, phase = impact.spin + layer * 2.094;
+          const spread = dust.scale * dustStyle.dustScale * (1 - layer * .16);
+          puffMesh.setColorAt(i, colour.set(dustStyle.dust).lerp(hotSpark.set(dustStyle.smoke), .65 + layer * .15).multiplyScalar(.65));
+          puffOpacity.setX(i, Math.max(0, Math.min(.95, dust.brightness * 1.25 * (1 - layer * .15))));
           puffMesh.setMatrixAt(i, spread > 0 ? matrix.compose(
-            position.set(impact.x + impact.nx * dust.rise, impact.y + impact.ny * dust.rise + dust.rise * .35, impact.z + impact.nz * dust.rise),
+            position.set(impact.x + impact.nx * dust.rise + Math.cos(phase) * dust.scale * .12,
+              impact.y + impact.ny * dust.rise + dust.rise * (.35 + layer * .3),
+              impact.z + impact.nz * dust.rise + Math.sin(phase) * dust.scale * .12),
             quaternion, scale.set(spread, spread, 1)) : hidden);
         } else if (wisp) {
           const t = wisp.age / wisp.life, size = .06 + t * .3;
-          puffMesh.setColorAt(i, colour.set(current.smoke).multiplyScalar(Math.max(0, .34 * Math.min(1, t / .15) * Math.pow(1 - t, 1.4))));
+          puffMesh.setColorAt(i, colour.set(current.smoke));
+          puffOpacity.setX(i, Math.max(0, .34 * Math.min(1, t / .15) * Math.pow(1 - t, 1.4)));
           puffMesh.setMatrixAt(i, matrix.compose(position.set(wisp.x, wisp.y, wisp.z), quaternion, scale.set(size, size, 1)));
-        } else { puffMesh.setColorAt(i, colour.setScalar(0)); puffMesh.setMatrixAt(i, hidden); }
+        } else { puffOpacity.setX(i, 0); puffMesh.setMatrixAt(i, hidden); }
       }
-      puffMesh.instanceMatrix.needsUpdate = true; puffMesh.instanceColor!.needsUpdate = true;
+      puffMesh.instanceMatrix.needsUpdate = true; puffMesh.instanceColor!.needsUpdate = true; puffOpacity.needsUpdate = true;
 
       for (let i = 0; i < MAX_SCORCHES; i++) {
         const scorch = field.scorches[i];
-        if (!scorch) { scorchMesh.setColorAt(i, colour.setScalar(0)); scorchMesh.setMatrixAt(i, hidden); continue; }
+        if (!scorch) { scorchOpacity.setX(i, 0); scorchDepth.setX(i, 0); scorchMesh.setMatrixAt(i, hidden); continue; }
         quaternion.setFromUnitVectors(forward, axis.set(scorch.nx, scorch.ny, scorch.nz));
         quaternion.multiply(spin.setFromAxisAngle(forward, scorch.spin));
-        // Grey: how much of the surface's own colour this mark takes away.
-        scorchMesh.setColorAt(i, colour.setScalar(scorchAlpha(scorch) * styleOf(scorch.style).scorch));
+        scorchMesh.setColorAt(i, colour.setScalar(Math.max(.1, 1.7 - styleOf(scorch.style).scorch)));
+        scorchOpacity.setX(i, scorchAlpha(scorch));
+        // The authored texture represents a 7 mm cavity at a 41 mm decal radius.
+        // Depth-to-radius keeps a wider bore from automatically looking deeper.
+        scorchDepth.setX(i, Math.min(6, (scorch.depth / scorch.radius) / (.007 / .041)));
         scorchMesh.setMatrixAt(i, matrix.compose(
           position.set(scorch.x + scorch.nx * .006, scorch.y + scorch.ny * .006, scorch.z + scorch.nz * .006),
           quaternion, scale.set(scorch.radius * 2, scorch.radius * 2, 1)));
       }
       scorchMesh.instanceMatrix.needsUpdate = true; scorchMesh.instanceColor!.needsUpdate = true;
+      scorchOpacity.needsUpdate = true; scorchDepth.needsUpdate = true;
 
       for (let i = 0; i < MAX_SPLASHES; i++) {
         const splash = splashField.splashes[i];

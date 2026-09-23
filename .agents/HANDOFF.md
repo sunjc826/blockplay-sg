@@ -1,5 +1,28 @@
 # Blockplay: portable agent handoff
 
+**Latest: normal-mapped, parameterized impacts (2026-09-23).** Bullet holes now
+use procedural paired colour/normal maps, lit by the world, with per-instance
+normal strength, cavity occlusion and fading. Width follows `caliberMm`; apparent
+depth, smoke size/density/lifetime and spark count follow resolved damage. Both
+existing families stay 5.56 mm. A future fixed variant can change caliber in its
+build; `registerEffectStyle` accepts bounded `impact` overrides for art direction.
+The renderer keeps fixed pools and one instanced draw per effect group. Three
+normally blended smoke wisps replace the faint additive impact puff. Shot profile
+snapshots survive weapon swaps and energy loss reduces their effect. Water and
+practice-target exemptions remain. Surface normals now include instance matrices.
+
+Verified: 752 tests, typecheck and production build pass. A local SwiftShader
+browser rendered actual effect objects under opposite light directions with no
+shader or browser errors. Inspected closeups of BMT vs Own Time, Own Target vs a
+7.62 mm comparison, and smoke at 0.16 s. The browser was supplied as temporary
+@sparticuz/chromium tooling (not a project dependency); its bundled libraries had
+to sit beside the executable. No reconstruction assets or API captures touched.
+
+The earlier fixed-variant and naming commits were published to main at 41c6e892
+after the user explicitly requested the push. Git CLI lacks write credentials;
+use the connected GitHub app and verify its resulting tree against the tested
+local tree before advancing main without force.
+
 **Latest: local weapon names and flavour (2026-09-23).** Renamed the eight
 existing configurations based on their hardware: SAR BMT, Steady Lah, Garang,
 Own Time, Own Target; Ultimax Sai Kang, Route March, Encik’s Favourite, Fort
@@ -9,10 +32,8 @@ Updated current armory docs and assertions that use display names. Proposed
 future variants must not reuse these names.
 
 742 tests and typecheck pass. No browser smoke run (no local Chrome).
-These edits and the preceding fixed-variant change are local: automatic approval
-review blocked the earlier push to main because it triggers production deploy.
-The user has not yet explicitly approved that release; do not retry the push
-via an alternate route.
+These edits and the preceding fixed-variant change were published after explicit
+user approval, at 41c6e892. The earlier automatic-review block is resolved.
 
 **Latest: weapon performance comes from fixed variants (2026-09-23).** Removed
 all nine modular attachment purchases and the Attachments tab. Every weapon's

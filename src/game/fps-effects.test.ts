@@ -103,3 +103,25 @@ it('flags its whole world tree so a gameplay ray can filter it out', () => {
   effects.dispose();
   expect(world.children).toHaveLength(0);
 });
+
+it('keeps individual crater depth, width and smoke after a weapon switch', () => {
+  const weak = styled('small', { impact: { holeRadius: .03, holeDepth: .003, smokeSize: .7 } });
+  const strong = styled('large', { impact: { holeRadius: .07, holeDepth: .02, smokeSize: 2 } });
+  const { effects, camera, mesh } = rig(weak);
+  const point = new THREE.Vector3(0, 1, -3), normal = new THREE.Vector3(0, 0, 1);
+  effects.setStyles([weak, strong], 1);
+  effects.impact(point, normal, 'surface', 1, weak.id);
+  effects.impact(point, normal, 'surface', 1, strong.id);
+  effects.update(.08, camera);
+  const holes = mesh('fps-scorches'), depth = holes.geometry.getAttribute('impactDepth');
+  const a = new THREE.Matrix4(), b = new THREE.Matrix4();
+  holes.getMatrixAt(0, a); holes.getMatrixAt(1, b);
+  expect(new THREE.Vector3().setFromMatrixScale(b).x).toBeGreaterThan(new THREE.Vector3().setFromMatrixScale(a).x);
+  expect(depth.getX(1)).toBeGreaterThan(depth.getX(0));
+  const puff = mesh('fps-puffs'); puff.getMatrixAt(0, a); puff.getMatrixAt(3, b);
+  expect(new THREE.Vector3().setFromMatrixScale(b).x).toBeGreaterThan(new THREE.Vector3().setFromMatrixScale(a).x);
+  effects.setStyles([weak, strong], 0);
+  const saved = depth.getX(1); effects.update(0, camera); expect(depth.getX(1)).toBe(saved);
+  effects.reset(); expect(effects.counts.scorches).toBe(0);
+  effects.dispose();
+});

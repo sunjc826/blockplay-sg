@@ -409,3 +409,14 @@ Eight display-name changes matched to actual configurations, plus flavour text
 in the dossier. Stable IDs, prices and stats retained. 742 tests and typecheck
 pass. No additional future variants implemented. Publication remains blocked by
 the earlier automatic approval review pending explicit release approval.
+
+
+## 2026-09-23 — Parameterized impacts
+
+Normal-mapped crater decals with per-instance depth and fade, caliber-driven
+width, variant-power-driven smoke and depth, and bounded per-variant overrides.
+Preserves firing style after swaps and attenuates by remaining round energy.
+Fixed normals for rotated instanced scene meshes. 752 tests, typecheck and build
+pass. Actual WebGL shader compilation and rendered closeups/smoke verified in a
+local SwiftShader browser. Prior main-push block resolved by explicit user approval;
+fixed variants and local names published as 41c6e892.

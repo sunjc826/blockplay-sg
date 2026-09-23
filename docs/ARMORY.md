@@ -231,6 +231,36 @@ covers the plan without a renderer and `weapon-fittings.test.ts` covers the
 scene graph headlessly — which meshes land where, what the magazine ends up
 scaled to, and that a teardown puts the model back exactly as it was found.
 
+## Parameterized bullet impacts
+
+Surface hits leave lit, normal-mapped craters with a chipped rim and cavity
+occlusion. This is apparent depth on a decal, not a change to world geometry or
+penetration. The normal data is linear; only the colour texture is sRGB. Each
+instance stores its own depth and fade, so holes from different weapons share
+one draw call. The pooled dust/smoke uses three normally blended wisps per hit,
+visible against bright scenery as well as dark surfaces.
+
+`WeaponSpec.caliberMm` sets bore diameter. Both current platforms are 5.56 mm;
+a future complete variant can change caliber through an internal build part.
+`fps-impact-profile.ts` derives these visual parameters from caliber and resolved
+damage (an arcade power proxy, not a physical energy calculation):
+
+| Parameter | Main driver |
+| --- | --- |
+| Hole radius | Caliber; 7.62 mm is 1.37 times the width of 5.56 mm at equal power |
+| Apparent hole depth | Variant power and remaining shot energy |
+| Smoke size, opacity and lifetime | Variant power; caliber also affects cloud size |
+| Spark count | Variant power, bounded to the fixed pool budget |
+
+Relative to BMT, Own Time, Own Target keeps the same bore width but resolves to
+2.14 times the apparent depth, 1.69 times the smoke size, and about 0.88 seconds
+of smoke instead of 0.60. Per-variant art direction can override fields through
+`registerEffectStyle(id, { impact: { ... } })`; the renderer has no weapon-name
+branches. Penetration and ricochet energy losses attenuate the effect. Projectiles
+keep their firing weapon's style when landing after a swap. Water still splashes,
+and practice targets still omit smoke and persistent holes. Surface normals
+include instance transforms, so marks align on rotated batched scenery.
+
 ## Range and hit zones
 
 Damage is no longer a single number per weapon. `hitDamage` resolves each round

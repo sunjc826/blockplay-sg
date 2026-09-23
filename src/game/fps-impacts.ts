@@ -1,3 +1,4 @@
+import { DEFAULT_IMPACT_PROFILE, sanitizeImpactProfile, type ImpactProfile } from './fps-impact-profile';
 /**
  * What a round leaves where it stops: a flash ring on the surface, a spray of
  * cooling sparks, a dust puff and a scorch that outlives all three.
@@ -20,13 +21,13 @@ export type ImpactKind = 'surface' | 'target';
  * renderer can go on drawing a mark in the colours of the weapon that left it
  * once the player has switched to another one.
  */
-export interface Impact { x: number; y: number; z: number; nx: number; ny: number; nz: number; age: number; life: number; kind: ImpactKind; spin: number; style?: string }
+export interface Impact { x: number; y: number; z: number; nx: number; ny: number; nz: number; age: number; life: number; kind: ImpactKind; profile: ImpactProfile; spin: number; style?: string }
 export interface Spark { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number; style?: string }
-export interface Scorch { x: number; y: number; z: number; nx: number; ny: number; nz: number; radius: number; spin: number; age: number; life: number; style?: string }
+export interface Scorch { x: number; y: number; z: number; nx: number; ny: number; nz: number; radius: number; depth: number; spin: number; age: number; life: number; style?: string }
 export interface ImpactField { impacts: Impact[]; sparks: Spark[]; scorches: Scorch[] }
 
 export const MAX_IMPACTS = 14, MAX_SPARKS = 120, MAX_SCORCHES = 48;
-export const IMPACT_LIFE = 0.42, TARGET_IMPACT_LIFE = 0.24;
+export const IMPACT_LIFE = DEFAULT_IMPACT_PROFILE.smokeLifetime, TARGET_IMPACT_LIFE = 0.24;
 export const RING_LIFE = 0.11, SCORCH_LIFE = 6;
 /** Sparks per impact, and how far a spark's streak trails behind it per unit of speed. */
 export const SPARKS_PER_IMPACT = 7, SPARK_TRAIL = 0.024;
@@ -56,14 +57,18 @@ const push = <T>(list: T[], item: T, ceiling: number) => {
  * already punched through a wall lands visibly weaker on the far side.
  */
 export function recordImpact(field: ImpactField, point: ImpactVector, normal: ImpactVector, kind: ImpactKind = 'surface',
-  energy = 1, random: () => number = Math.random, style?: string): Impact {
-  const n = unit(normal), scale = Math.max(0.25, Math.min(1.5, energy));
+  energy = 1, random: () => number = Math.random, style?: string, profile: ImpactProfile = DEFAULT_IMPACT_PROFILE): Impact {
+  const n = unit(normal), scale = Math.max(0.05, Math.min(1.5, Number.isFinite(energy) ? energy : 1));
+  const authored = sanitizeImpactProfile(profile);
+  const resolved = { ...authored, holeDepth: authored.holeDepth * scale,
+    smokeSize: authored.smokeSize * Math.sqrt(scale), smokeOpacity: authored.smokeOpacity * Math.sqrt(scale),
+    smokeLifetime: authored.smokeLifetime * Math.sqrt(scale) };
   const impact = push(field.impacts, {
     x: point.x, y: point.y, z: point.z, nx: n.x, ny: n.y, nz: n.z,
-    age: 0, life: kind === 'target' ? TARGET_IMPACT_LIFE : IMPACT_LIFE, kind, spin: random() * Math.PI * 2, style,
+    age: 0, life: kind === 'target' ? TARGET_IMPACT_LIFE : resolved.smokeLifetime, kind, profile: resolved, spin: random() * Math.PI * 2, style,
   }, MAX_IMPACTS);
   const u = tangent(n), v = { x: n.y * u.z - n.z * u.y, y: n.z * u.x - n.x * u.z, z: n.x * u.y - n.y * u.x };
-  for (let i = 0; i < SPARKS_PER_IMPACT; i++) {
+  for (let i = 0; i < authored.sparkCount; i++) {
     // A cone about the surface normal: sparks come back off the wall, never into it.
     const spread = Math.tan((kind === 'target' ? 0.55 : 0.85) * random());
     const theta = random() * Math.PI * 2, speed = (kind === 'target' ? 3.4 : 2.6) * (0.55 + random()) * scale;
@@ -78,7 +83,7 @@ export function recordImpact(field: ImpactField, point: ImpactVector, normal: Im
   }
   if (kind === 'surface') push(field.scorches, {
     x: point.x, y: point.y, z: point.z, nx: n.x, ny: n.y, nz: n.z,
-    radius: (0.03 + random() * 0.022) * scale, spin: random() * Math.PI * 2, age: 0, life: SCORCH_LIFE, style,
+    radius: authored.holeRadius * (.85 + random() * .3) * (.8 + .2 * Math.sqrt(scale)), depth: resolved.holeDepth, spin: random() * Math.PI * 2, age: 0, life: SCORCH_LIFE, style,
   }, MAX_SCORCHES);
   return impact;
 }
@@ -110,7 +115,7 @@ export const impactRing = (impact: Impact) => {
 export const impactDust = (impact: Impact) => {
   if (impact.kind === 'target') return { scale: 0, rise: 0, brightness: 0 };
   const t = Math.max(0, Math.min(1, impact.age / impact.life));
-  return { scale: 0.08 + t * 0.5, rise: t * 0.3, brightness: 0.5 * Math.min(1, t / 0.12) * Math.pow(1 - t, 1.6) };
+  return { scale: (0.08 + t * 0.5) * impact.profile.smokeSize, rise: t * 0.3 * Math.sqrt(impact.profile.smokeSize), brightness: impact.profile.smokeOpacity * Math.min(1, t / 0.12) * Math.pow(1 - t, 1.6) };
 };
 /** White-hot at birth, ember by the end; the renderer lerps its colour on this. */
 export const sparkHeat = (spark: Spark) => Math.max(0, 1 - spark.age / spark.life);

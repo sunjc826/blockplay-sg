@@ -14,6 +14,8 @@ export type AttachmentSlot = 'optic' | 'magazine' | 'handling';
  */
 export interface InternalPart {
   id: string; name: string; description: string;
+  /** Optional chambering change supplied by a complete variant. */
+  caliberMm?: number;
   damage?: number; capacity?: number; interval?: number; reload?: number; recoil?: number; recoilRecovery?: number;
   mobility?: number; ballistics?: BallisticSpec; traits?: readonly WeaponTrait[];
 }
