@@ -1,5 +1,23 @@
 # Blockplay: portable agent handoff
 
+**Latest: weapon performance comes from fixed variants (2026-09-23).** Removed
+all nine modular attachment purchases and the Attachments tab. Every weapon's
+optic, magazine and handling summary is read-only. Internal builds and fitted
+hardware still drive models and stats; all eight existing variant stat snapshots
+remain unchanged. Cosmetic skins remain available. Restore drops legacy part
+ownership/selections without refunds, as requested; resolution ignores injected
+parts as well. Removed equip/remove APIs for modular parts. Updated the armory
+and optics browser smoke flows for fixed variants.
+
+Verified: 742 tests across 82 files and TypeScript typecheck pass. Production
+build passed. Browser smokes were updated but not run (no local Chrome found).
+Dependency install needed ONNXRUNTIME_NODE_INSTALL_CUDA=skip to avoid an unused
+GPU binary download; no dependency or lockfile changes.
+
+Next requested work: brainstorm more variants through level 50, mixing credits
+and tokens. Do not add new variants without treating their identities and level
+placement as a design decision; current ladders stop at levels 6 and 7.
+
 **Latest: the dossier draws the spray pattern (2026-09-22).** The line chart
 added earlier is replaced by the shape a shooter actually draws: every round of
 a twenty-round held burst laid over the target it was aimed at.

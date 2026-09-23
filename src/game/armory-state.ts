@@ -4,11 +4,11 @@ import { progression, levelSkip, xpForLevel, ELIMINATION_XP, MAX_LEVEL } from '.
 import { DEFAULT_RANK_SET, isRankSet, rankInsignia } from './rank-insignia';
 import { DEFAULT_ENCIK_TONE, type EncikAddress, type EncikTone } from './encik-registers';
 import { FPS_WEAPONS, type WeaponSpec, type WeaponTrait } from './fps-rules';
-export const ATTACHMENT_SLOTS = ['optic', 'magazine', 'handling'] as const;
 /** Hardware a variant already carries, by the slot it permanently fills. */
 export const fittedParts = (variantId: string): Partial<Record<AttachmentSlot, FittedPart>> =>
   Object.fromEntries((itemById(variantId)?.fitted ?? []).map(part => [part.slot, part]));
 export const slotIsFitted = (variantId: string, slot: AttachmentSlot) => !!fittedParts(variantId)[slot];
+/** attachments is retained empty for v1 save compatibility; it never affects gameplay. */
 export interface GunEquipment { variant: string; skin: string; attachments: Partial<Record<AttachmentSlot, string>> }
 export interface ArmoryProfile { version: 1; xp: number; vehicleSkins: Record<VehicleKind, string>; credits: number; tokens: number; owned: string[]; guns: [GunEquipment, GunEquipment]; rig: string; plate: string; rewarded: string[]; exercises: number;
   /** Supplies held, by catalog id, and which one the quick-use key spends. */
@@ -32,9 +32,7 @@ export function restoreProfile(raw: string | null): ArmoryProfile {
       const gun = value.guns?.[i]; if (!gun) continue;
       if (valid(gun.variant, 'weapon') && itemById(gun.variant)?.family === i) base.guns[i].variant = gun.variant;
       if (valid(gun.skin, 'skin')) base.guns[i].skin = gun.skin;
-      for (const slot of ATTACHMENT_SLOTS) {
-        const id = gun.attachments?.[slot]; if (valid(id, 'attachment') && itemById(id)?.slot === slot) base.guns[i].attachments[slot] = id;
-      }
+      // Modular attachments were retired; both slots keep their empty defaults.
     }
     for (const kind of ['car', 'helicopter'] as const) if (valid(value.vehicleSkins?.[kind], 'vehicleSkin')) base.vehicleSkins[kind] = value.vehicleSkins[kind];
     if (valid(value.rig, 'rig')) base.rig = value.rig;
@@ -124,14 +122,9 @@ export function equip(profile: ArmoryProfile, id: string, family: number, vehicl
   if (item.category === 'vehicleSkin') return { ...profile, vehicleSkins: { ...profile.vehicleSkins, [vehicle]: id } };
   if (item.category === 'rig' || item.category === 'plate') return { ...profile, [item.category]: id };
   if (item.category === 'weapon' && item.family !== family) return profile;
-  const gun: GunEquipment = { ...profile.guns[family], attachments: { ...profile.guns[family].attachments } };
+  const gun: GunEquipment = { ...profile.guns[family], attachments: {} };
   if (item.category === 'weapon') gun.variant = id;
   if (item.category === 'skin') gun.skin = id;
-  // A finished weapon's fitted hardware cannot be swapped out for a bought part.
-  if (item.category === 'attachment' && item.slot) {
-    if (slotIsFitted(gun.variant, item.slot)) return profile;
-    gun.attachments[item.slot] = id;
-  }
   const guns: ArmoryProfile['guns'] = [...profile.guns]; guns[family] = gun; return { ...profile, guns };
 }
 /** Spends one of a held supply. Unknown or empty ids leave the profile untouched. */
@@ -142,31 +135,19 @@ export function consumeItem(profile: ArmoryProfile, id: string): ArmoryProfile {
   if (held > 1) consumables[id] = held - 1; else delete consumables[id];
   return { ...profile, consumables };
 }
-export function unequipAttachment(profile: ArmoryProfile, family: number, slot: AttachmentSlot): ArmoryProfile {
-  if (family !== 0 && family !== 1) return profile;
-  const gun = { ...profile.guns[family], attachments: { ...profile.guns[family].attachments } }; delete gun.attachments[slot];
-  const guns: ArmoryProfile['guns'] = [...profile.guns]; guns[family] = gun; return { ...profile, guns };
-}
 export function isEquipped(profile: ArmoryProfile, item: ShopItem, family: number, vehicle: VehicleKind = 'car') {
   const gun = profile.guns[family];
   if (item.category === 'consumable') return profile.quickItem === item.id;
   return item.category === 'vehicleSkin' ? profile.vehicleSkins[vehicle] === item.id : item.category === 'rig' ? profile.rig === item.id : item.category === 'plate' ? profile.plate === item.id : item.category === 'weapon' ? gun.variant === item.id : item.category === 'skin' ? gun.skin === item.id :
-    // An attachment saved under fitted hardware is suppressed, not equipped.
-    !!item.slot && !slotIsFitted(gun.variant, item.slot) && gun.attachments[item.slot] === item.id;
+    false;
 }
-/**
- * Flattens trait sources in precedence order: base weapon, then variant, then
- * attachments by slot. `findTrait` takes the last of a kind, so a later source
- * overrides an earlier one exactly as an attachment optic replaces the weapon's.
- */
+/** Fixed trait precedence: platform, variant build, then variant fittings. */
 export const collectTraits = (...sources: readonly (readonly WeaponTrait[] | undefined)[]) => sources.flatMap(source => source ?? []);
 /**
  * Builds a variant's figures from the platform and the hardware it is made of,
  * so a number in the shop is the sum of named parts rather than a value written
  * beside the weapon's name. Deltas add; mobility multiplies; ballistics replace.
- * `recoilRecovery` is a delta here and a multiplier on an attachment, exactly as
- * `recoil` is: internal hardware shifts the platform's own figure, while a part
- * bolted into a slot scales whatever the platform ended up with.
+ * Internal hardware shifts the platform's figures; fixed fittings then scale them.
  */
 export function applyBuild(base: WeaponSpec, parts: readonly InternalPart[] = []): WeaponSpec {
   const spec: WeaponSpec = { ...base, traits: [...base.traits ?? []] };
@@ -180,7 +161,7 @@ export function applyBuild(base: WeaponSpec, parts: readonly InternalPart[] = []
   }
   return spec;
 }
-/** A variant as it leaves the armoury, before anything is bolted into an open slot. */
+/** A variant as it leaves the armoury, before its fixed fittings are applied. */
 export const variantSpec = (item: ShopItem) =>
   item.category === 'weapon' && item.family !== undefined ? applyBuild(FPS_WEAPONS[item.family], item.build) : null;
 export interface EquippedWeapon extends WeaponSpec { equipment: GunEquipment; accent?: string; traits: readonly WeaponTrait[] }
@@ -198,24 +179,16 @@ export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
   const rig = itemById(profile.rig)!, plate = itemById(profile.plate)!;
   const weapons = profile.guns.map((gun, i) => {
     const variant = itemById(gun.variant)!;
-    // Fixed slot order, so that "later source wins" is deterministic rather than
-    // dependent on the order the attachments happened to be equipped in.
-    const fitted = fittedParts(gun.variant);
-    // Fitted hardware fills its slot; any attachment saved underneath is kept
-    // rather than erased, so it returns if a platform without it is equipped.
-    const attachments = ATTACHMENT_SLOTS.flatMap(slot => {
-      const part = fitted[slot];
-      if (part) return [{ ...part, category: 'attachment', id: `fitted:${gun.variant}:${slot}`, tier: variant.tier, price: 0, currency: 'credits' } as ShopItem];
-      const item = itemById(gun.attachments[slot] || '');
-      return item ? [item] : [];
-    });
+    // Only the selected variant defines hardware. Ignore legacy/injected
+    // attachment data even if a caller bypasses save restoration.
+    const fittings = variant.fitted ?? [];
     const built = applyBuild(FPS_WEAPONS[i], variant.build);
-    const spec: EquippedWeapon = { ...built, name: variant.name, equipment: gun, accent: variant.accent,
+    const spec: EquippedWeapon = { ...built, name: variant.name, equipment: { ...gun, attachments: {} }, accent: variant.accent,
       reserve: FPS_WEAPONS[i].reserve + (rig.carry || 0),
-      traits: collectTraits(built.traits, ...attachments.map(item => item.traits)) };
-    for (const attachment of attachments) {
-      if (attachment.slot === 'optic' && attachment.stats?.optic) spec.optic = attachment.stats.optic;
-      const mod = attachment.modifiers; if (!mod) continue;
+      traits: collectTraits(built.traits, ...fittings.map(part => part.traits)) };
+    for (const part of fittings) {
+      if (part.slot === 'optic' && part.stats?.optic) spec.optic = part.stats.optic;
+      const mod = part.modifiers; if (!mod) continue;
       spec.capacity += mod.capacity || 0; spec.reload *= mod.reload || 1; spec.recoil *= mod.recoil || 1;
       spec.recoilRecovery *= mod.recoilRecovery || 1; spec.mobility *= mod.mobility || 1;
       if (mod.aimFov) spec.aimFov = mod.aimFov;
@@ -248,6 +221,6 @@ export function claimReward(profile: ArmoryProfile, result: ExerciseReward): Arm
   return { ...profile, xp: Math.min(1000000, profile.xp + completionXp(result)), credits: Math.min(1000000, profile.credits + rewardAmount(result)), rewarded: [...profile.rewarded, result.id].slice(-100), exercises: profile.exercises + 1 };
 }
 export const SHOP_CATEGORIES = [
-  { id: 'weapon', label: 'Weapons' }, { id: 'skin', label: 'Skins' }, { id: 'attachment', label: 'Attachments' }, { id: 'armor', label: 'Armor' }, { id: 'food', label: 'Food' }, { id: 'utility', label: 'Utilities' }, { id: 'vehicleSkin', label: 'Vehicles' },
+  { id: 'weapon', label: 'Weapons' }, { id: 'skin', label: 'Skins' }, { id: 'armor', label: 'Armor' }, { id: 'food', label: 'Food' }, { id: 'utility', label: 'Utilities' }, { id: 'vehicleSkin', label: 'Vehicles' },
 ] as const;
 export const catalogSize = ARMORY_CATALOG.length;

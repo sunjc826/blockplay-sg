@@ -1,6 +1,6 @@
 # Field exchange, progression and FPS equipment
 
-The Armory sidebar offers 34 permanent unlocks, four repeatable supplies and a token-priced level skip: eight weapon variants across two platforms, five cosmetic finishes, nine attachments, three carrying rigs, four insert choices and five vehicle wraps. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase.
+The Armory sidebar offers eight fixed weapon variants across two platforms, five cosmetic finishes, three carrying rigs, four insert choices, five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition and handling hardware cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase.
 
 ## Play loop
 
@@ -126,7 +126,7 @@ XP like any other: it advances rank titles and persists in the same profile.
 | Ultimax Centurion | 40 | 75 | .075 s | 2.10 s | .0148 |
 | Ultimax Bastion | 50 | 80 | .072 s | 2.00 s | .0119 |
 
-Targets alternate 100 and 115 health. Vanguard clears a 115-health target in three landed shots versus four for the issued SAR. The dossier draws two charts: damage against range, over hits-to-kill bands, and the spray pattern of a twenty-round held burst, laid over the same target at 12, 20 and 30 m. Both simulate through the engine's own code — `hitDamage` and the recoil module — so the shop cannot advertise a figure the range does not produce. Attachments modify reload, capacity, recoil, recoil recovery, aiming FOV or movement. The quick-change and extended magazines share one slot, so one replaces the other, and the three foregrips share the handling slot on a strict ladder — recoil is what that slot sells. Unlocks fit both weapons, with equipment saved separately for each platform. Skin palettes change only materials. Variant accents, the hardware a variant is built from and equipped attachment markers all appear in the preview and viewmodel.
+Targets alternate 100 and 115 health. Vanguard clears a 115-health target in three landed shots versus four for the issued SAR. The dossier draws two charts: damage against range, over hits-to-kill bands, and the spray pattern of a twenty-round held burst, laid over the same target at 12, 20 and 30 m. Both simulate through the engine's own code — `hitDamage` and the recoil module — so the shop cannot advertise a figure the range does not produce. Each variant fixes its optic, magazine capacity, recoil, recovery and ammunition behavior. Skin palettes change only materials. Variant accents and built-in hardware appear in both the preview and viewmodel.
 
 ## Platform tiers
 
@@ -148,7 +148,7 @@ asserts that time to kill never rises with tier and falls at every step.
 
 ## How a weapon is built
 
-There is an attachment system behind every weapon; only the finished weapon is
+There is a hardware build behind every weapon; only the finished weapon is
 sold. A variant's figures are not written beside its name, they are computed
 from the hardware it is made of, so the shop can say which part is responsible
 for which gain: the Vanguard's 50 damage is its match barrel's +14 on the
@@ -160,9 +160,7 @@ parts and are the platform itself. `armory-variants.test.ts` pins what every
 weapon resolves to, so a change to a part that moves a figure fails there
 first, and it holds that no weapon carries a hand-written `stats` block.
 
-Internal parts take no attachment slot and are never sold separately. Premium
-weapons additionally arrive with hardware that does fill a slot, which is then
-fixed.
+Internal parts and fitted hardware are permanently part of the selected variant. The optic, magazine and handling summaries are read-only on every weapon, including issued and field variants.
 
 | Weapon | Fitted | Slot |
 | --- | --- | --- |
@@ -171,21 +169,7 @@ fixed.
 | Ultimax · Centurion | Reinforced feed tray and buffer | handling |
 | Ultimax · Bastion | Heavy barrel, bipod and buffered carrier | handling |
 
-Two rules keep this from being a downgrade dressed as flavour, and
-`armory-state.test.ts` holds both:
-
-- **A fitted part is never worse than anything buyable for its slot**, compared
-  part against part on every modifier it could carry, and it must bring any
-  trait a rival would have. Giving up the choice gives up nothing.
-- **The magazine slot is never fitted.** It carries the ammunition traits, so
-  taking it would cost a premium weapon its penetration and burst. Ammunition
-  stays the open axis on every weapon, which is also what keeps a purchase
-  worth making once the platform is bought.
-
-An attachment already saved in a slot a new platform fits is suppressed rather
-than erased, so it comes back when a platform without that hardware is equipped
-again. Field and issued weapons keep every slot open: cheap guns are platforms,
-premium ones are finished pieces.
+Legacy saves discard modular attachment ownership and clear both weapons' attachment selections, without refunds. All other valid progress and equipment survive. Runtime resolution ignores injected attachment data too, so switching variants or opening a preview cannot revive an old modification.
 
 ## What the build looks like
 
@@ -301,13 +285,11 @@ Arena shots stay instant and host-authoritative.
 A shot resolves every surface it passes through rather than stopping at the
 first. Its damage decays once per surface, so a round that reaches a target
 through cover lands for less than one that arrives clean, and a round that
-lines up two targets damages both. The Penetrator magazine grants two surfaces
-at 60% damage each; without it a shot stops at the first surface exactly as
-before.
+lines up two targets damages both. Penetration remains an engine trait for authored weapons; the retired Penetrator and Fragmenting magazines are no longer purchasable. No current variant grants those traits, so current player weapons stop at the first surface.
 
 Thickness is not modelled: each intersected face spends one surface, so a solid
 prop with front and back faces costs two while a thin panel costs one.
-Fragmenting rounds add a burst where the shot stops: everything else within
+The splash trait adds a burst where the shot stops: everything else within
 2.2 m takes a share of the damage, full at the centre and 35% at the edge. The
 target struck directly is excluded, having already taken the round itself, and
 a round spent on penetration carries its reduced damage into its burst. A round
@@ -425,7 +407,7 @@ Desktop Enter/Resume requests browser pointer lock directly from the user click.
 - `src/components/ArmoryShop.tsx`, `ArmoryPreview.tsx`: catalog, comparisons, preview and saved loadout.
 - `fps-engine.ts`, `FpsGame.tsx`: snapshot the equipped loadout on entry. XP updates do not recreate the engine. Target health, ammo, handling, armor damage, rewards and callouts use that snapshot. Enter the Armory to change equipment for the next exercise.
 
-75 unit tests cover purchase idempotency, level gates, validation, inventory, attachment slots, actual modified ammo/reload timing, health breakpoints, armor exhaustion, rewards, level boundaries and chain timing, alongside existing world/physics checks. Local Chrome checks cover buying/equipping, preview and skin rendering, persistence, narrow layout, armor damage/defeat/reset, XP/level-up, full drill completion, callouts, mouse confinement, denied capture, Escape/pause, renderer cleanup, no uncaught browser errors and zero map requests. The production build passes with pnpm 11.22.0; the existing Three.js chunk warning remains.
+75 unit tests cover purchase idempotency, level gates, validation, inventory, fixed configurations, legacy attachment removal, variant ammo/reload timing, health breakpoints, armor exhaustion, rewards, level boundaries and chain timing, alongside existing world/physics checks. Local Chrome checks cover buying/equipping, preview and skin rendering, persistence, narrow layout, armor damage/defeat/reset, XP/level-up, full drill completion, callouts, mouse confinement, denied capture, Escape/pause, renderer cleanup, no uncaught browser errors and zero map requests. The production build passes with pnpm 11.22.0; the existing Three.js chunk warning remains.
 
 This is a local single-player economy, not an authoritative multiplayer inventory or real-money payment system. Actual mobile-device performance and voice availability vary by browser. No packages or release-age exemptions were added.
 

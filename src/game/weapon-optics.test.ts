@@ -3,20 +3,20 @@ import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { createScopeRenderer, fitWeaponOptic, getWeaponSight, scopeFov } from './weapon-optics';
 import { FPS_WEAPONS, HIP_FOV, opticMagnification } from './fps-rules';
-import { createProfile, equip, purchase, resolveLoadout, restoreProfile, unequipAttachment } from './armory-state';
+import { createProfile, equip, purchase, resolveLoadout, restoreProfile } from './armory-state';
 
-describe('optic attachments', () => {
-  it('uses the issued 1.5× lens, persists a purchased replacement and restores the built-in sight on removal', () => {
-    const base = createProfile();
+describe('fixed weapon optics', () => {
+  it('changes optics by purchasing and equipping a complete variant', () => {
+    const base = { ...createProfile(), xp: 5000, tokens: 1000 };
     expect(opticMagnification(resolveLoadout(base).weapons[0])).toBeCloseTo(1.5);
-    let profile = purchase(base, 'optic-reflex').profile;
-    expect(profile.credits).toBe(base.credits - 350);
-    profile = restoreProfile(JSON.stringify(equip(profile, 'optic-reflex', 0)));
-    const redDot = resolveLoadout(profile).weapons[0];
-    expect(redDot.optic).toBe('reflex'); expect(opticMagnification(redDot)).toBeCloseTo(1);
-    expect(resolveLoadout(profile).weapons[1].equipment.attachments.optic).toBeUndefined();
-    const restored = resolveLoadout(unequipAttachment(profile, 0, 'optic')).weapons[0];
-    expect(restored.optic).toBe('integrated'); expect(opticMagnification(restored)).toBeCloseTo(1.5);
+    const bought = purchase(base, 'sar-marksman').profile;
+    expect(bought.tokens).toBe(680);
+    const profile = restoreProfile(JSON.stringify(equip(bought, 'sar-marksman', 0)));
+    const match = resolveLoadout(profile).weapons[0];
+    expect(match.optic).toBe('precision'); expect(match.aimFov).toBe(40);
+    expect(resolveLoadout(profile).weapons[1].optic).toBe('reflex');
+    const issued = resolveLoadout(equip(profile, 'sar-issued', 0)).weapons[0];
+    expect(issued.optic).toBe('integrated'); expect(opticMagnification(issued)).toBeCloseTo(1.5);
   });
   it('replaces the entire scope housing and restores it without accumulating geometry', () => {
     const root = new THREE.Group(), native = new THREE.Group(); native.name = 'sar21-inspired__optic'; root.add(native);
@@ -27,13 +27,6 @@ describe('optic attachments', () => {
     expect(native.visible).toBe(false); expect(root.getObjectByName('fps-reflex-optic')).toBeDefined();
     expect(getWeaponSight(root)?.magnification).toBeCloseTo(1); removeReflex();
     expect(native.visible).toBe(true); expect(root.children).toEqual([native]); expect(getWeaponSight(root)).toBeUndefined();
-  });
-  it('precision occupies the same slot and preserves old precision saves', () => {
-    let profile = { ...createProfile(), xp: 1000 };
-    for (const id of ['optic-reflex', 'optic-precision']) profile = equip(purchase(profile, id).profile, id, 0);
-    const restored = restoreProfile(JSON.stringify(profile)), spec = resolveLoadout(restored).weapons[0];
-    expect(restored.guns[0].attachments).toEqual({ optic: 'optic-precision' });
-    expect(spec.optic).toBe('precision'); expect(spec.aimFov).toBe(40);
   });
   it('crops the PiP camera to the lens and magnifies 1.5× regardless of lens size', () => {
     for (const fraction of [.12, .28, .5]) {

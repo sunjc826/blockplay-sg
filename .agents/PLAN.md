@@ -391,3 +391,13 @@ Google Photorealistic 3D Tiles could be evaluated as a separately authorized alt
 - [COLMAP panorama example](https://github.com/colmap/colmap/blob/main/python/examples/panorama_sfm.py)
 
 Keep this file factual: separate completed work, attempted work, and planned work. Update the verification section after changes.
+
+
+## 2026-09-23 — Fixed weapon variants
+
+Removed universal attachment purchases and equip/remove controls. Kept existing
+variant configurations and cosmetics; legacy attachment selections/ownership are
+discarded without refunds. Runtime and preview resolution accept only fixed
+variant hardware. Verified 742 tests, typecheck and production build. Browser
+smokes updated, not run: no local Chrome found. Next: requested variant brainstorm
+across later levels with a mix of credit and token purchases.

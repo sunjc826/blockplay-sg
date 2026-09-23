@@ -71,10 +71,10 @@ try {
   await delay(1000); await wait(`!!${fpsMode}`); await openShop();
   await click(action); await wait(`${wallet}.tokens===60`); assert(await evaluate(`${action}.textContent.includes('Equip on SAR')`));
   await click(action); await wait(`${wallet}.guns[0].variant==='sar-vanguard'`); assert(await evaluate(`${action}.disabled`));
-  await category('attachment'); await choose('mag-quick'); await click(action); await click(action); await wait(`${wallet}.guns[0].attachments.magazine==='mag-quick'`);
+  assert.equal(await evaluate(`!!document.querySelector('#shop-tab-attachment')`), false, 'No modular attachment shop');
   await category('armor'); await choose('plate-ceramic'); await click(action); await click(action); await wait(`${wallet}.plate==='plate-ceramic'`);
-  assert.equal(await evaluate(`${wallet}.credits`), 50);
-  await choose('rig-lbs'); assert(await evaluate(`${action}.disabled && ${action}.textContent.includes('950')`), 'Insufficient credit balance disables buying');
+  assert.equal(await evaluate(`${wallet}.credits`), 700);
+  await choose('rig-lbs'); assert(await evaluate(`${action}.disabled && ${action}.textContent.includes('300')`), 'Insufficient credit balance disables buying');
   await choose('plate-ceramic'); await delay(1000); await evaluate(`document.querySelector('.armory').scrollIntoView({block:'start'})`); await screenshot('ceramic-armor');
   await category('skin'); await choose('skin-gold'); assert(await evaluate(`${action}.disabled`)); await click(button('+250 demo tokens')); await click(action); await click(action);
   await wait(`${wallet}.guns[0].skin==='skin-gold'`); assert.equal(await evaluate(`${wallet}.tokens`), 190);

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { chooseEncikTone, chooseRankSet, claimReward, claimElimination, consumeItem, createProfile, equip, purchase, purchaseFromVendor, purchaseLevel, restoreProfile, STORAGE_KEY, unequipAttachment, type ArmoryProfile, type ExerciseReward } from './armory-state';
+import { chooseEncikTone, chooseRankSet, claimReward, claimElimination, consumeItem, createProfile, equip, purchase, purchaseFromVendor, purchaseLevel, restoreProfile, STORAGE_KEY, type ArmoryProfile, type ExerciseReward } from './armory-state';
 import type { VehicleKind } from './vehicle-rules';
-import type { AttachmentSlot } from './armory-catalog';
 import { getRankSet } from './rank-insignia';
 import type { EncikTone } from './encik-registers';
 
@@ -17,11 +16,10 @@ export function useArmory() {
   const wearRankSet = useCallback((id: string) => { const next = chooseRankSet(current.current, id); if (next === current.current) return; update(next); setMessage(`Insignia set to ${getRankSet(id).name}.`); }, [update]);
   const setEncikTone = useCallback((tone: EncikTone) => { const next = chooseEncikTone(current.current, tone); if (next === current.current) return; update(next); setMessage(tone === 'recruit' ? 'Encik will treat you like a recruit, whatever your rank.' : 'Encik will follow your rank.'); }, [update]);
   const equipItem = useCallback((id: string, family: number, vehicle: VehicleKind = 'car') => { const next = equip(current.current, id, family, vehicle); const changed = next !== current.current; update(next); setMessage(changed ? 'Equipped for your next exercise.' : 'Item must be owned before equipping.'); }, [update]);
-  const remove = useCallback((family: number, slot: AttachmentSlot) => { update(unequipAttachment(current.current, family, slot)); setMessage('Attachment removed.'); }, [update]);
   const award = useCallback((reward: ExerciseReward) => update(claimReward(current.current, reward)), [update]);
   const consume = useCallback((id: string) => update(consumeItem(current.current, id)), [update]);
   const awardElimination = useCallback((id: string) => update(claimElimination(current.current, id)), [update]);
   const demoTopUp = useCallback(() => { update({ ...current.current, tokens: Math.min(1000000, current.current.tokens + 250) }); setMessage('250 demo tokens added. No payment was made.'); }, [update]);
-  return { profile, buy, buyFromVendor, buyLevel, wearRankSet, setEncikTone, equipItem, remove, award, awardElimination, consume, demoTopUp, message, saveError };
+  return { profile, buy, buyFromVendor, buyLevel, wearRankSet, setEncikTone, equipItem, award, awardElimination, consume, demoTopUp, message, saveError };
 }
 export type ArmoryStore = ReturnType<typeof useArmory>;

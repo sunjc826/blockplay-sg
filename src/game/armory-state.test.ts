@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { aimSpeedScale, applyArmorDamage, claimElimination, claimReward, collectTraits, consumeItem, isEquipped, jumpScale, slotIsFitted, createProfile, equip, previewLoadout, purchase, purchaseFromVendor, purchaseLevel, resolveLoadout, restoreProfile, unequipAttachment, type ArmoryProfile, type ExerciseReward } from './armory-state';
+import { aimSpeedScale, applyArmorDamage, claimElimination, claimReward, collectTraits, consumeItem, isEquipped, jumpScale, slotIsFitted, createProfile, equip, previewLoadout, purchase, purchaseFromVendor, purchaseLevel, resolveLoadout, restoreProfile, type ArmoryProfile, type ExerciseReward } from './armory-state';
 import { ARMORY_CATALOG, CONSUMABLE_LIMIT, itemById } from './armory-catalog';
 import { levelSkip, MAX_LEVEL, MIN_SKIP_PRICE, progression, registerElimination, skipCostFrom, skipCostToLevel, xpForLevel } from './progression';
-import { advanceWeapon, beginReload, createLoadout, findTrait, FPS_WEAPONS, hitDamage, HIP_FOV, type WeaponTrait } from './fps-rules';
+import { advanceWeapon, beginReload, createLoadout, findTrait, FPS_WEAPONS, hitDamage, type WeaponTrait } from './fps-rules';
 import { HITSCAN } from './fps-ballistics';
 const veteran = () => ({ ...createProfile(), xp: 5000, credits: 10000, tokens: 1000 });
 const unlock = (id: string) => purchase(veteran(), id).profile;
@@ -17,8 +17,8 @@ describe('persistent armory economy', () => {
     expect(purchase({ ...base, xp: xpForLevel(3) }, 'sar-vanguard').profile.tokens).toBe(60);
   });
   it('rejects insufficient funds, unknown IDs, unowned equipment and wrong weapon families', () => {
-    const poor = { ...veteran(), credits: 0 }; expect(purchase(poor, 'mag-quick').profile).toBe(poor); expect(purchase(poor, 'missing').profile).toBe(poor);
-    expect(equip(poor, 'mag-quick', 0)).toBe(poor); const owner = unlock('sar-vanguard'); expect(equip(owner, 'sar-vanguard', 1)).toBe(owner);
+    const poor = { ...veteran(), credits: 0 }; expect(purchase(poor, 'sar-ranger').profile).toBe(poor); expect(purchase(poor, 'missing').profile).toBe(poor);
+    expect(equip(poor, 'sar-ranger', 0)).toBe(poor); const owner = unlock('sar-vanguard'); expect(equip(owner, 'sar-vanguard', 1)).toBe(owner);
   });
   it('recovers old, malformed or tampered save fields without equipping unowned items', () => {
     expect(restoreProfile('{')).toEqual(createProfile());
@@ -75,12 +75,13 @@ describe('equipment reaches gameplay', () => {
     const base = resolveLoadout(createProfile()).weapons[0], elite = resolveLoadout(equip(unlock('sar-vanguard'), 'sar-vanguard', 0)).weapons[0];
     expect(Math.ceil(115 / base.damage)).toBe(4); expect(Math.ceil(115 / elite.damage)).toBe(3); expect(elite.capacity).toBe(36); expect(elite.interval).toBeLessThan(base.interval);
   });
-  it('stacks attachments, replaces mutually exclusive magazines and uses resulting reload timing', () => {
-    let profile = veteran(); for (const id of ['sar-vanguard', 'mag-quick', 'mag-extended', 'handling-stable']) profile = equip(purchase(profile, id).profile, id, 0);
-    let spec = resolveLoadout(profile).weapons[0]; expect(spec.capacity).toBe(46); expect(spec.reload).toBeCloseTo(1.53 * 1.1); expect(spec.recoil).toBeCloseTo(.014 * .75);
-    profile = equip(profile, 'mag-quick', 0); spec = resolveLoadout(profile).weapons[0]; expect(spec.capacity).toBe(36); expect(spec.reload).toBeCloseTo(1.53 * .85);
-    const specs = resolveLoadout(profile).weapons, state = createLoadout(specs)[0]; state.magazine = 10; expect(beginReload(state, 0, specs)).toBe(true); advanceWeapon(state, 0, 1.31, specs); expect(state.magazine).toBe(36);
-    profile = unequipAttachment(profile, 0, 'magazine'); expect(resolveLoadout(profile).weapons[0].reload).toBe(1.53);
+  it('uses the purchased variant magazine and reload timing in gameplay', () => {
+    const profile = equip(unlock('sar-vanguard'), 'sar-vanguard', 0);
+    const specs = resolveLoadout(profile).weapons, state = createLoadout(specs)[0];
+    expect(specs[0].capacity).toBe(36); expect(specs[0].reload).toBe(1.53);
+    state.magazine = 10; expect(beginReload(state, 0, specs)).toBe(true);
+    advanceWeapon(state, 0, 1.31, specs); expect(state.magazine).toBe(10);
+    advanceWeapon(state, 0, .23, specs); expect(state.magazine).toBe(36);
   });
   it('skin previews do not spend currency, equip the real profile or alter stats', () => {
     const profile = createProfile(), before = resolveLoadout(profile), after = previewLoadout(profile, itemById('skin-gold')!, 0);
@@ -141,14 +142,7 @@ describe('behavioral trait resolution', () => {
     for (const range of [10, 45, 90, 130]) expect(hitDamage(rifle, range)).toBeGreaterThan(hitDamage(FPS_WEAPONS[0], range));
     expect(hitDamage(rifle, 20, 'head')).toBeGreaterThan(hitDamage(FPS_WEAPONS[0], 20, 'head'));
   });
-  it('keeps attachment scalars unchanged while carrying traits through the fold', () => {
-    const bought = ['mag-extended', 'handling-stable'].reduce((profile, id) => purchase(profile, id).profile, veteran());
-    const owner = ['mag-extended', 'handling-stable'].reduce((profile, id) => equip(profile, id, 0), bought);
-    const [rifle] = resolveLoadout(owner).weapons;
-    expect(rifle.capacity).toBe(FPS_WEAPONS[0].capacity + 10);
-    expect(rifle.recoil).toBeCloseTo(FPS_WEAPONS[0].recoil * .75, 10);
-    expect(rifle.traits).toEqual(FPS_WEAPONS[0].traits);
-  });
+
 });
 
 describe('supplies', () => {
@@ -240,63 +234,50 @@ describe('carried weight', () => {
   });
 });
 
-describe('fitted hardware', () => {
-  const owning = (id: string) => { const base = veteran(); return equip({ ...base, owned: [...base.owned, id] }, id, itemById(id)!.family!); };
-  const fittedVariants = ARMORY_CATALOG.filter(entry => entry.fitted?.length);
-  it('is only on premium weapons, and never takes the magazine slot', () => {
-    expect(fittedVariants.map(entry => entry.id)).toEqual(['sar-vanguard', 'ult-centurion', 'sar-marksman', 'ult-bastion']);
-    for (const entry of fittedVariants) {
-      expect(entry.tier).toBe('Elite');
-      // The magazine carries penetration and burst, so fitting it would cost a
-      // premium weapon traits it should be gaining.
-      expect(entry.fitted!.some(part => part.slot === 'magazine')).toBe(false);
+describe('fixed weapon configurations', () => {
+  const retired = ['optic-reflex', 'optic-precision', 'mag-quick', 'mag-extended', 'mag-penetrator', 'mag-fragmenting', 'handling-stable', 'handling-angled', 'handling-match'];
+  it('does not sell or equip any retired modular part, even if owned in memory', () => {
+    const profile = { ...veteran(), owned: [...veteran().owned, ...retired] };
+    for (const id of retired) {
+      expect(itemById(id)).toBeUndefined();
+      expect(purchase(profile, id).profile).toBe(profile);
+      for (const family of [0, 1]) expect(equip(profile, id, family)).toBe(profile);
     }
   });
-  it('fills its slot and refuses a bought attachment there', () => {
-    const owner = owning('sar-marksman');
+  it('discards old attachments without refunding or losing other progress', () => {
+    const profile = equip(unlock('sar-marksman'), 'sar-marksman', 0);
+    profile.owned.push(...retired, 'mag-extended');
+    profile.guns[0].attachments = { optic: 'optic-reflex', magazine: 'mag-fragmenting', handling: 'handling-stable' };
+    profile.guns[1].attachments = { optic: 'optic-precision', magazine: 'mag-extended' };
+    const restored = restoreProfile(JSON.stringify(profile));
+    expect(restored.credits).toBe(profile.credits); expect(restored.tokens).toBe(profile.tokens);
+    expect(restored.xp).toBe(profile.xp); expect(restored.guns[0].variant).toBe('sar-marksman');
+    expect(restored.owned).toEqual(profile.owned.filter(id => !retired.includes(id)));
+    expect(restored.guns.map(gun => gun.attachments)).toEqual([{}, {}]);
+    expect(restoreProfile(JSON.stringify(restored))).toEqual(restored);
+  });
+  it('ignores injected attachments in gameplay and previews for every variant', () => {
+    for (const item of ARMORY_CATALOG.filter(item => item.category === 'weapon')) {
+      const family = item.family!;
+      const base = veteran();
+      const clean = equip({ ...base, owned: [...base.owned, item.id] }, item.id, family);
+      const expected = resolveLoadout(clean);
+      const dirty = structuredClone(clean);
+      dirty.owned.push(...retired);
+      dirty.guns[family].attachments = { optic: 'optic-reflex', magazine: 'mag-fragmenting', handling: 'handling-match' };
+      expect(resolveLoadout(dirty)).toEqual(expected);
+      expect(previewLoadout(dirty, item, family)).toEqual(expected);
+      expect(dirty.guns[family].attachments.magazine).toBe('mag-fragmenting');
+      const issued = equip(dirty, family === 0 ? 'sar-issued' : 'ult-issued', family);
+      expect(resolveLoadout(issued).weapons[family].traits).toEqual(FPS_WEAPONS[family].traits);
+    }
+  });
+  it('keeps variant-exclusive optics and handling installed', () => {
+    const owner = equip(unlock('sar-marksman'), 'sar-marksman', 0);
     expect(slotIsFitted('sar-marksman', 'optic')).toBe(true);
-    expect(slotIsFitted('sar-marksman', 'magazine')).toBe(false);
-    const withOptic = equip({ ...owner, owned: [...owner.owned, 'optic-reflex'] }, 'optic-reflex', 0);
-    expect(withOptic.guns[0].attachments.optic).toBeUndefined();
-    // The open slot still takes one.
-    const withMag = equip({ ...owner, owned: [...owner.owned, 'mag-fragmenting'] }, 'mag-fragmenting', 0);
-    expect(withMag.guns[0].attachments.magazine).toBe('mag-fragmenting');
-    expect(findTrait(resolveLoadout(withMag).weapons[0].traits, 'splash')).toBeDefined();
-  });
-  it('suppresses an attachment saved underneath without destroying it', () => {
-    // Bought on the issued rifle, then a fitted platform is equipped over it.
-    let profile = veteran();
-    profile = equip(purchase(profile, 'handling-stable').profile, 'handling-stable', 0);
-    const openRecoil = resolveLoadout(profile).weapons[0].recoil;
-    profile = equip({ ...profile, owned: [...profile.owned, 'sar-marksman'] }, 'sar-marksman', 0);
-    expect(profile.guns[0].attachments.handling).toBe('handling-stable');
-    expect(isEquipped(profile, itemById('handling-stable')!, 0)).toBe(false);
-    // Back to a platform without fitted hardware and the grip is live again.
-    const back = equip(profile, 'sar-issued', 0);
-    expect(resolveLoadout(back).weapons[0].recoil).toBe(openRecoil);
-    expect(isEquipped(back, itemById('handling-stable')!, 0)).toBe(true);
-  });
-  it('is never worse than anything buyable for the slot it takes', () => {
-    // The invariant that makes a fixed weapon safe: giving up the choice must
-    // not give up anything. Compared part against part, so this measures the
-    // hardware itself rather than the tier it happens to sit on.
-    const better = (fitted: number | undefined, rival: number | undefined, lowerIsBetter: boolean, unit = 1) => {
-      const a = fitted ?? unit, b = rival ?? unit;
-      return lowerIsBetter ? a <= b : a >= b;
-    };
-    for (const entry of fittedVariants) for (const part of entry.fitted!) {
-      const rivals = ARMORY_CATALOG.filter(other => other.category === 'attachment' && other.slot === part.slot);
-      expect(rivals.length).toBeGreaterThan(0);
-      for (const rival of rivals) {
-        expect(better(part.modifiers?.recoil, rival.modifiers?.recoil, true)).toBe(true);
-        expect(better(part.modifiers?.recoilRecovery, rival.modifiers?.recoilRecovery, false)).toBe(true);
-        expect(better(part.modifiers?.reload, rival.modifiers?.reload, true)).toBe(true);
-        expect(better(part.modifiers?.mobility, rival.modifiers?.mobility, false)).toBe(true);
-        expect(better(part.modifiers?.capacity, rival.modifiers?.capacity, false, 0)).toBe(true);
-        if (part.slot === 'optic') expect(better(part.modifiers?.aimFov, rival.modifiers?.aimFov, true, HIP_FOV)).toBe(true);
-        // A fitted part must also carry any trait the rival would have brought.
-        for (const trait of rival.traits ?? []) expect(findTrait(part.traits, trait.kind)).toBeDefined();
-      }
-    }
+    const rifle = resolveLoadout(owner).weapons[0];
+    expect(rifle.optic).toBe('precision'); expect(rifle.aimFov).toBe(40);
+    expect(rifle.recoil).toBeCloseTo(.00816);
+    expect(isEquipped(owner, itemById('sar-marksman')!, 0)).toBe(true);
   });
 });
