@@ -1,5 +1,47 @@
 # Blockplay: portable agent handoff
 
+## Weapon slots and equipment movement (2026-09-23)
+
+Loadouts now carry one main weapon and one P30 sidearm. The user chose a
+permanent token unlock for an optional second main: **400 TK**, no level gate.
+The extra slot may stay empty and cannot duplicate the main platform. All owned
+variants and stored platform configurations survive migration; old saves default
+to SAR + P30. Selecting a variant on an uncarried platform replaces main.
+
+Only slotted weapons and their loaded/reserve rounds count toward encumbrance,
+alongside worn rig/inserts and held supplies. Active weapon handling applies on
+top. Keys **1 main / 2 sidearm / 3 extra**, touch cycling, pilot choices,
+checkpoints and host weapon validation follow the carried list. Expedition loot
+replaces a matching/held main slot instead of adding an unlimited weapon.
+
+Validation: **792 tests**, typecheck and production build pass. Browser checks
+covered insufficient tokens, actual 400 TK purchase, persistence, main/extra
+selection, desktop/390px layouts, keys 1–3 and rejected uncarried switches.
+Emptying the heavy-MG extra slot reduced the tested load from 69.45 to 22.20 kg.
+No browser errors. Earlier movement smoke also verified walking, ammo consumption
+and reload mass conservation. The older five-weapon control notes below are
+historical and superseded by these limits.
+
+## Total equipment and active-weapon movement penalties (2026-09-23)
+
+Added `fps-encumbrance.ts`: slotted guns, rig, inserts, live ammunition
+and held supplies contribute carry mass; active-weapon mobility multiplies the
+carried factor. Weight values are explicit arcade tuning, including variant
+weights. Owned but unequipped items/skins have no mass. Reloading conserves mass,
+firing reduces it, and quick-item consumption subtracts once whether loadout
+objects are immutable or refreshed during an expedition. Worn armor does not
+vanish when its protection is spent. Walk/sprint/crouch/ADS movement, jump and
+aim-in read the same bounded calculation. Vehicles remain unaffected.
+
+Shop shows full-load mass, carried/in-hand/combined mobility; HUD shows live mass
+and movement percent. Updated premium rig copy to acknowledge extra ammo mass.
+785 tests, typecheck and production build pass. Regression cases cover stowed
+heavy variants, unused ownership/skins, supplies, ammunition conservation, armor,
+reserve-heavy rigs and malformed inputs. Headless SwiftShader runtime smoke passed: movement responds to weapon swaps,
+all three selections retain the same 82.93 kg load, firing lightens it, reload
+conserves it, and actual walking works. No browser errors.
+
+
 **Latest: P30, GPMG and heavy-MG classes (2026-09-23).** Added HK P30-inspired
 9 mm semi-auto, FN MAG-inspired 7.62 mm GPMG and CIS/STK 50MG-inspired 12.7 mm
 heavy MG. User explicitly chose P30 instead of the proposed Glock; no Glock

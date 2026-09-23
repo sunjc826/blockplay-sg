@@ -34,7 +34,7 @@ const SPAWNS = [
   { x: -8, z: 64 }, { x: -73, z: 60 }, { x: -34, z: 58 }, { x: 4, z: 74 },
 ];
 interface InternalActor {
-  actor: ArenaActor; healthMax: number; armorMax: number; absorption: number; weapons: ArenaWeapon[]; role?: ArenaRolePlugin;
+  actor: ArenaActor; healthMax: number; armorMax: number; absorption: number; weapons: ArenaWeapon[]; allowedWeapons: number[]; role?: ArenaRolePlugin;
   cooldown: number[]; rounds: number[]; reload: number[]; playing: boolean; movementBudget: number; wasReloading: boolean;
   usePlayerSpawn: boolean;
   reaction: number; target: string; strafe: number; patrol: { x: number; z: number }; patrolTime: number;
@@ -119,14 +119,18 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       reload: Number.isFinite(w.reload) ? clamp(w.reload, 0.4, 8) : 1.8,
     }));
   }
-  function addPlayer(id: string, name: string, armor = 0, absorption = 0, weapons: readonly ArenaWeapon[] = FPS_WEAPONS, initialVitals?: Partial<ArenaVitals>, usePlayerSpawn = false) {
+  const allowedIndexes = (weapons: readonly ArenaWeapon[], allowed?: readonly number[]) => {
+    const indexes = [...new Set((allowed ?? weapons.map((_, index) => index)).filter(index => Number.isInteger(index) && index >= 0 && index < weapons.length))];
+    return indexes.length ? indexes : [0];
+  };
+  function addPlayer(id: string, name: string, armor = 0, absorption = 0, weapons: readonly ArenaWeapon[] = FPS_WEAPONS, initialVitals?: Partial<ArenaVitals>, usePlayerSpawn = false, allowed?: readonly number[]) {
     if (!id || id.length > 100 || members.has(id) || members.size >= 14) return;
-    const safeWeapons = sanitizeWeapons(weapons);
+    const safeWeapons = sanitizeWeapons(weapons), allowedWeapons = allowedIndexes(safeWeapons, allowed);
     const entry: InternalActor = {
       actor: { id, name: name.trim().slice(0, 24) || 'Player', bot: false, x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0,
-        health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: 0, shots: 0, role: 'player' },
+        health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: allowedWeapons[0], shots: 0, role: 'player' },
       healthMax: 100, armorMax: Number.isFinite(armor) ? clamp(armor, 0, 150) : 0, absorption: Number.isFinite(absorption) ? clamp(absorption, 0, 0.9) : 0,
-      weapons: safeWeapons, cooldown: [], rounds: [], reload: [], playing: true, movementBudget: 2, wasReloading: false, usePlayerSpawn,
+      weapons: safeWeapons, allowedWeapons, cooldown: [], rounds: [], reload: [], playing: true, movementBudget: 2, wasReloading: false, usePlayerSpawn,
       reaction: 1, target: '', strafe: random() < 0.5 ? -1 : 1, patrol: validSpawns[0], patrolTime: 0,
     };
     members.set(id, entry); spawn(entry); if (initialVitals) setPlayerVitals(id, initialVitals); announce(`${entry.actor.name} joined`);
@@ -146,7 +150,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.healthMax = 100 * multiplier;
     entry.actor.health = entry.healthMax * fraction;
   }
-  function setPlayerLoadout(id: string, armor: number, absorption: number, weapons: readonly ArenaWeapon[]) {
+  function setPlayerLoadout(id: string, armor: number, absorption: number, weapons: readonly ArenaWeapon[], allowed?: readonly number[]) {
     const entry = members.get(id); if (!entry || entry.actor.bot) return;
     entry.armorMax = Number.isFinite(armor) ? clamp(armor, 0, 150) : entry.armorMax;
     entry.absorption = Number.isFinite(absorption) ? clamp(absorption, 0, 0.9) : entry.absorption;
@@ -158,7 +162,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (changed) { entry.rounds[index] = weapon.capacity; entry.cooldown[index] = 0; entry.reload[index] = 0; }
     });
     entry.weapons = next; entry.rounds.length = next.length; entry.cooldown.length = next.length; entry.reload.length = next.length;
-    entry.actor.weapon = Math.min(entry.actor.weapon, next.length - 1); entry.wasReloading = false;
+    entry.allowedWeapons = allowedIndexes(next, allowed ?? entry.allowedWeapons);
+    if (!entry.allowedWeapons.includes(entry.actor.weapon)) entry.actor.weapon = entry.allowedWeapons[0]; entry.wasReloading = false;
   }
   function removePlayer(id: string) {
     const entry = members.get(id); if (!entry || entry.actor.bot) return;
@@ -176,7 +181,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const position = move(actor, (target.x - actor.x) * scale, (target.z - actor.z) * scale, 0.35, solids);
     entry.movementBudget = Math.max(0, entry.movementBudget - Math.hypot(position.x - actor.x, y - actor.y, position.z - actor.z));
     Object.assign(actor, position, { y, yaw: input.yaw % (Math.PI * 2), pitch: clamp(input.pitch, -1.5, 1.5) });
-    if (Number.isInteger(input.weapon) && input.weapon >= 0 && input.weapon < entry.weapons.length && input.weapon !== actor.weapon) {
+    if (entry.allowedWeapons.includes(input.weapon) && Number.isInteger(input.weapon) && input.weapon >= 0 && input.weapon < entry.weapons.length && input.weapon !== actor.weapon) {
       entry.reload[actor.weapon] = 0; actor.weapon = input.weapon; entry.wasReloading = false;
     }
     if (input.reloading === true && !entry.wasReloading) reloadPlayer(id, actor.weapon);
@@ -184,13 +189,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function reloadPlayer(id: string, weapon: number) {
     const entry = members.get(id);
-    if (!entry || !entry.actor.alive || finished || !Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon]) return;
+    if (!entry || !entry.actor.alive || finished || !Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return;
     if (entry.reload[weapon] <= 0 && entry.rounds[weapon] < entry.weapons[weapon].capacity) entry.reload[weapon] = entry.weapons[weapon].reload;
   }
   function shoot(id: string, origin: ArenaPoint, direction: ArenaPoint, weapon: number, maxDistance = 125): ArenaShot {
     const entry = members.get(id);
     if (!entry || finished || !entry.actor.alive || !entry.playing || !finitePoint(origin) || !finitePoint(direction)) return { ...EMPTY_SHOT };
-    if (!Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon]) return { ...EMPTY_SHOT };
+    if (!Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return { ...EMPTY_SHOT };
     if (distance(origin, entry.actor) > 1.5 || entry.cooldown[weapon] > 1e-7 || entry.reload[weapon] > 0) return { ...EMPTY_SHOT };
     const length = Math.hypot(direction.x, direction.y, direction.z); if (length < 0.5 || length > 1.5) return { ...EMPTY_SHOT };
     const ray = { x: direction.x / length, y: direction.y / length, z: direction.z / length };

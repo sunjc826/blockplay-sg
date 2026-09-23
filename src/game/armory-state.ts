@@ -1,3 +1,5 @@
+import { carriedFamilies, restoreCarrySlots, isMainWeapon, EXTRA_SLOT_ID, SIDEARM_FAMILY, type CarrySlots } from './armory-slots';
+import { supplyWeightKg } from './fps-encumbrance';
 import { ARMORY_CATALOG, CONSUMABLE_LIMIT, issuedItems, itemById, type AttachmentSlot, type FittedPart, type InternalPart, type ShopItem } from './armory-catalog';
 import type { VehicleKind } from './vehicle-rules';
 import { progression, levelSkip, xpForLevel, ELIMINATION_XP, MAX_LEVEL } from './progression';
@@ -10,7 +12,7 @@ export const fittedParts = (variantId: string): Partial<Record<AttachmentSlot, F
 export const slotIsFitted = (variantId: string, slot: AttachmentSlot) => !!fittedParts(variantId)[slot];
 /** attachments is retained empty for v1 save compatibility; it never affects gameplay. */
 export interface GunEquipment { variant: string; skin: string; attachments: Partial<Record<AttachmentSlot, string>> }
-export interface ArmoryProfile { version: 1; xp: number; vehicleSkins: Record<VehicleKind, string>; credits: number; tokens: number; owned: string[]; guns: GunEquipment[]; rig: string; plate: string; rewarded: string[]; exercises: number;
+export interface ArmoryProfile { carry: CarrySlots; version: 1; xp: number; vehicleSkins: Record<VehicleKind, string>; credits: number; tokens: number; owned: string[]; guns: GunEquipment[]; rig: string; plate: string; rewarded: string[]; exercises: number;
   /** Supplies held, by catalog id, and which one the quick-use key spends. */
   consumables: Record<string, number>; quickItem: string;
   /** Which set of rank titles and badges the profile wears. */
@@ -18,7 +20,7 @@ export interface ArmoryProfile { version: 1; xp: number; vehicleSkins: Record<Ve
   /** Whether the Encik's tone follows your rank, or stays the way he greets a recruit. */
   encikTone: EncikTone }
 export const STORAGE_KEY = 'blockplay.armory.v1';
-export function createProfile(): ArmoryProfile { return { version: 1, xp: 0, vehicleSkins: { car: 'paint-issued', helicopter: 'paint-issued' }, credits: 1600, tokens: 300, owned: [...issuedItems], guns: DEFAULT_VARIANTS.map(variant => ({ variant, skin: 'skin-issued', attachments: {} })), rig: 'rig-ilbv', plate: 'plate-none', rewarded: [], exercises: 0, consumables: {}, quickItem: '', rankSet: DEFAULT_RANK_SET, encikTone: DEFAULT_ENCIK_TONE }; }
+export function createProfile(): ArmoryProfile { return { carry: { main: 0, extra: null }, version: 1, xp: 0, vehicleSkins: { car: 'paint-issued', helicopter: 'paint-issued' }, credits: 1600, tokens: 300, owned: [...issuedItems], guns: DEFAULT_VARIANTS.map(variant => ({ variant, skin: 'skin-issued', attachments: {} })), rig: 'rig-ilbv', plate: 'plate-none', rewarded: [], exercises: 0, consumables: {}, quickItem: '', rankSet: DEFAULT_RANK_SET, encikTone: DEFAULT_ENCIK_TONE }; }
 const finiteBalance = (n: unknown, fallback: number) => typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(1000000, Math.floor(n))) : fallback;
 export function restoreProfile(raw: string | null): ArmoryProfile {
   const base = createProfile(); if (!raw) return base;
@@ -27,6 +29,7 @@ export function restoreProfile(raw: string | null): ArmoryProfile {
     base.xp = finiteBalance(value.xp, 0);
     base.credits = finiteBalance(value.credits, base.credits); base.tokens = finiteBalance(value.tokens, base.tokens);
     base.owned = [...new Set([...issuedItems, ...(Array.isArray(value.owned) ? value.owned.filter((id: unknown) => typeof id === 'string' && !!itemById(id)) : [])])] as string[];
+    base.carry = restoreCarrySlots(value.carry, base.owned);
     const valid = (id: unknown, category: string) => typeof id === 'string' && base.owned.includes(id) && itemById(id)?.category === category;
     for (const i of FPS_WEAPONS.keys()) {
       const gun = value.guns?.[i]; if (!gun) continue;
@@ -114,6 +117,14 @@ export function chooseEncikTone(profile: ArmoryProfile, tone: EncikTone): Armory
 export function chooseRankSet(profile: ArmoryProfile, id: string): ArmoryProfile {
   return isRankSet(id) && id !== profile.rankSet ? { ...profile, rankSet: id } : profile;
 }
+/** Assign an owned configuration to a carry slot; rejected assignments spend nothing. */
+export function selectCarryWeapon(profile: ArmoryProfile, slot: 'main' | 'extra', family: number | null): ArmoryProfile {
+  const carry = restoreCarrySlots(profile.carry, profile.owned);
+  if (slot === 'extra' && !profile.owned.includes(EXTRA_SLOT_ID)) return profile;
+  if (family === null) return slot === 'extra' ? { ...profile, carry: { ...carry, extra: null } } : profile;
+  if (!isMainWeapon(family) || family === (slot === 'main' ? carry.extra : carry.main) || !profile.owned.includes(profile.guns[family]?.variant)) return profile;
+  return { ...profile, carry: { ...carry, [slot]: family } };
+}
 export function equip(profile: ArmoryProfile, id: string, family: number, vehicle: VehicleKind = 'car'): ArmoryProfile {
   const item = itemById(id);
   // Supplies are held by count rather than owned, so they select on that instead.
@@ -123,7 +134,10 @@ export function equip(profile: ArmoryProfile, id: string, family: number, vehicl
   if (item.category === 'rig' || item.category === 'plate') return { ...profile, [item.category]: id };
   if (item.category === 'weapon' && item.family !== family) return profile;
   const gun: GunEquipment = { ...profile.guns[family], attachments: {} };
-  if (item.category === 'weapon') gun.variant = id;
+  if (item.category === 'weapon') {
+    gun.variant = id;
+    if (family !== SIDEARM_FAMILY && !carriedFamilies(profile).includes(family)) profile = selectCarryWeapon(profile, 'main', family);
+  }
   if (item.category === 'skin') gun.skin = id;
   const guns: ArmoryProfile['guns'] = [...profile.guns]; guns[family] = gun; return { ...profile, guns };
 }
@@ -138,7 +152,7 @@ export function consumeItem(profile: ArmoryProfile, id: string): ArmoryProfile {
 export function isEquipped(profile: ArmoryProfile, item: ShopItem, family: number, vehicle: VehicleKind = 'car') {
   const gun = profile.guns[family];
   if (item.category === 'consumable') return profile.quickItem === item.id;
-  return item.category === 'vehicleSkin' ? profile.vehicleSkins[vehicle] === item.id : item.category === 'rig' ? profile.rig === item.id : item.category === 'plate' ? profile.plate === item.id : item.category === 'weapon' ? gun.variant === item.id : item.category === 'skin' ? gun.skin === item.id :
+  return item.category === 'vehicleSkin' ? profile.vehicleSkins[vehicle] === item.id : item.category === 'rig' ? profile.rig === item.id : item.category === 'plate' ? profile.plate === item.id : item.category === 'weapon' ? gun.variant === item.id && carriedFamilies(profile).includes(family) : item.category === 'skin' ? gun.skin === item.id :
     false;
 }
 /** Fixed trait precedence: platform, variant build, then variant fittings. */
@@ -164,7 +178,7 @@ export function applyBuild(base: WeaponSpec, parts: readonly InternalPart[] = []
 }
 /** A variant as it leaves the armoury, before its fixed fittings are applied. */
 export const variantSpec = (item: ShopItem) =>
-  item.category === 'weapon' && item.family !== undefined ? applyBuild(FPS_WEAPONS[item.family], item.build) : null;
+  item.category === 'weapon' && item.family !== undefined ? { ...applyBuild(FPS_WEAPONS[item.family], item.build), weightKg: item.weightKg ?? FPS_WEAPONS[item.family].weightKg } : null;
 export interface EquippedWeapon extends WeaponSpec { equipment: GunEquipment; accent?: string; traits: readonly WeaponTrait[] }
 /**
  * What a rig and its inserts cost in movement. `mobility` scales walking speed;
@@ -172,9 +186,10 @@ export interface EquippedWeapon extends WeaponSpec { equipment: GunEquipment; ac
  * a decision rather than a free 100 points.
  */
 export const carriedWeight = (mobility: number) => 1 - (Number.isFinite(mobility) ? Math.max(0, Math.min(1, mobility)) : 1);
-export const jumpScale = (mobility: number) => 1 - carriedWeight(mobility) * 2.2;
-export const aimSpeedScale = (mobility: number) => 1 - carriedWeight(mobility) * 1.8;
-export interface ResolvedLoadout { weapons: EquippedWeapon[]; armor: number; absorption: number; mobility: number; rigName: string; plateName: string; vehicleSkins: Record<VehicleKind, string>;
+export const jumpScale = (mobility: number) => Math.max(.3, 1 - carriedWeight(mobility) * 2.2);
+export const aimSpeedScale = (mobility: number) => Math.max(.3, 1 - carriedWeight(mobility) * 1.8);
+/** `mobility` is armor bulk only; equipmentMovement resolves final player motion. */
+export interface ResolvedLoadout { carriedFamilies: number[]; armorWeightKg: number; suppliesWeightKg: number; weapons: EquippedWeapon[]; armor: number; absorption: number; mobility: number; rigName: string; plateName: string; vehicleSkins: Record<VehicleKind, string>;
   quickItem?: ShopItem; quickCount: number }
 export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
   const rig = itemById(profile.rig)!, plate = itemById(profile.plate)!;
@@ -183,7 +198,7 @@ export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
     // Only the selected variant defines hardware. Ignore legacy/injected
     // attachment data even if a caller bypasses save restoration.
     const fittings = variant.fitted ?? [];
-    const built = applyBuild(FPS_WEAPONS[i], variant.build);
+    const built = variantSpec(variant)!;
     const spec: EquippedWeapon = { ...built, name: variant.name, equipment: { ...gun, attachments: {} }, accent: variant.accent,
       reserve: FPS_WEAPONS[i].reserve + (rig.carry || 0),
       traits: collectTraits(built.traits, ...fittings.map(part => part.traits)) };
@@ -197,7 +212,7 @@ export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
     return spec;
   });
   const quickItem = itemById(profile.quickItem);
-  return { weapons, vehicleSkins: { ...profile.vehicleSkins }, quickItem, quickCount: profile.consumables[profile.quickItem] || 0, armor: plate.protection || 0, absorption: plate.absorption || 0, mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };
+  return { weapons, carriedFamilies: carriedFamilies(profile), armorWeightKg: (rig.weightKg ?? 0) + (plate.weightKg ?? 0), suppliesWeightKg: Object.entries(profile.consumables).reduce((kg, [id, count]) => kg + supplyWeightKg(itemById(id)) * Math.max(0, Math.min(CONSUMABLE_LIMIT, Number.isFinite(count) ? count : 0)), 0), vehicleSkins: { ...profile.vehicleSkins }, quickItem, quickCount: profile.consumables[profile.quickItem] || 0, armor: plate.protection || 0, absorption: plate.absorption || 0, mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };
 }
 /** Preview may temporarily own the selected item; it never mutates the actual wallet. */
 export function previewLoadout(profile: ArmoryProfile, item: ShopItem, family: number) {

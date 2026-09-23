@@ -8,7 +8,7 @@ export interface PilotContact { id: string; yawError: number; pitchError: number
 export interface PilotWaypoint { id: string; x: number; z: number; kind: 'medical' | 'ammo' | 'armor' | 'weapon' | 'checkpoint' | 'target' }
 export interface PilotObservation {
   time: number; alive: boolean; health: number; maxHealth: number; armor: number;
-  magazine: number; reserve: number; reloading: boolean; aiming: boolean; weapon: number;
+  availableWeapons?: readonly number[]; magazine: number; reserve: number; reloading: boolean; aiming: boolean; weapon: number;
   position: { x: number; z: number }; yaw: number; pitch: number;
   contacts: readonly PilotContact[]; waypoints: readonly PilotWaypoint[];
   lootPrompt: string; travelPrompt: string;
@@ -65,7 +65,8 @@ export function createPlayerPilot(planner: PilotPlanner = localPilotPlanner): Pl
     else stuck = 0;
     if (stuck > .8) { evadeUntil = o.time + 1.2; stuck = 0; }
     if (!o.magazine && o.reserve) return result('Reloading', { reload: !o.reloading });
-    if (!o.magazine && !o.reserve && o.weapon === 0) return result('Trying support weapon', { weapon: 1 });
+    const backup = (o.availableWeapons ?? [0, 1]).find(index => index !== o.weapon);
+    if (!o.magazine && !o.reserve && backup !== undefined) return result('Trying carried backup', { weapon: backup });
     const nearSupply = [...o.waypoints].filter(p => !['checkpoint', 'target'].includes(p.kind) && Math.hypot(p.x - o.position.x, p.z - o.position.z) <= 2.8)
       .sort((a, b) => Math.hypot(a.x - o.position.x, a.z - o.position.z) - Math.hypot(b.x - o.position.x, b.z - o.position.z))[0];
     const canUseSupply = nearSupply && !(nearSupply.kind === 'medical' && o.health >= o.maxHealth) && !(nearSupply.kind === 'ammo' && o.reserve >= 999);

@@ -1,4 +1,3 @@
-import { FPS_WEAPONS } from '../game/fps-rules';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDownToLine, ChevronsUp, Crosshair, Footprints, Hand, Menu, MessageCircle, Move3d, PackageOpen, RefreshCw, Rocket, Repeat2 } from 'lucide-react';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
@@ -93,7 +92,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
     sweep.push(act('reload', 'Reload', <RefreshCw size={17} />, { onClick: () => engine?.reload(), disabled: hud.reloading > 0 }));
     sweep.push(act('crouch', 'Crouch', <ArrowDownToLine size={17} />, { onClick: toggleCrouch, 'aria-pressed': crouched, 'data-on': crouched || undefined }));
     sweep.push(act('jump', 'Jump', <ChevronsUp size={17} />, { onClick: () => engine?.jump() }));
-    sweep.push(act('weapon', 'Swap', <Repeat2 size={17} />, { onClick: () => engine?.switchWeapon((hud.weapon + 1) % FPS_WEAPONS.length) }));
+    sweep.push(act('weapon', 'Swap', <Repeat2 size={17} />, { onClick: () => engine?.switchWeapon(hud.carriedWeapons[(hud.carriedWeapons.indexOf(hud.weapon) + 1) % hud.carriedWeapons.length]) }));
     if (mode === 'expedition') {
       if (hud.quickItem && hud.quickCount > 0) sweep.push(act('supply', hud.quickItem, <Hand size={17} />, { onClick: () => engine?.useQuickItem() }));
       if (hud.lootPrompt) prompts.push(act('loot', promptLabel(hud.lootPrompt), <PackageOpen size={16} />, { onClick: () => engine?.interactLoot() }));

@@ -20,17 +20,17 @@ claim it is the newest SAF standard.
 
 ## Playable roles
 
-| Key | Platform | Caliber | Base capacity | Role |
+| Family index | Platform | Caliber | Base capacity | Role |
 | --- | --- | --- | --- | --- |
-| 1 | SAR 21 | 5.56 mm | 30 | Balanced rifle with magnified optic |
-| 2 | Ultimax | 5.56 mm | 60 | Mobile volume of fire, short effective band |
-| 3 | HK P30 | 9 mm | 15 | Semi-auto, fast movement/reloads, close range |
-| 4 | FN MAG | 7.62 mm | 100 | Sustained fire and longer reach, slower handling |
-| 5 | CIS 50MG | 12.7 mm | 50 | Heavy damage and recoil, slowest movement/reload |
+| 0 | SAR 21 | 5.56 mm | 30 | Balanced rifle with magnified optic |
+| 1 | Ultimax | 5.56 mm | 60 | Mobile volume of fire, short effective band |
+| 2 | HK P30 | 9 mm | 15 | Semi-auto, fast movement/reloads, close range |
+| 3 | FN MAG | 7.62 mm | 100 | Sustained fire and longer reach, slower handling |
+| 4 | CIS 50MG | 12.7 mm | 50 | Heavy damage and recoil, slowest movement/reload |
 
 One P30 round fires per mouse/touch press; release to fire again. The AI can
-re-press at the same cooldown limit. MGs remain automatic. Touch Swap cycles all
-five families. Iron sights do not render a scope lens. Impacts inherit nominal
+re-press at the same cooldown limit. MGs remain automatic. Keys 1/2/3 select main/sidearm/optional extra; Touch Swap cycles only
+carried weapons. The permanent extra main slot costs 400 TK. Iron sights do not render a scope lens. Impacts inherit nominal
 bore width and resolved variant power: the 9 mm pistol hole is wider than the
 7.62 mm GPMG hole, but its lower damage produces less depth and smoke.
 

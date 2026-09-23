@@ -1,3 +1,5 @@
+import { pickupSlot } from './armory-slots';
+import { equipmentMovement } from './fps-encumbrance';
 import { buildServiceWeapon } from './service-weapon-models';
 import { impactSurfaceNormal } from './fps-impact-normal';
 import * as THREE from 'three';
@@ -13,7 +15,7 @@ import { isWaterObject, rippleWater } from './water';
 import { createFpsEffects, type ImpactKind } from './fps-effects';
 import { advanceRecoil, compensateRecoil, createRecoil, recoilPose, recoilView, recordRecoilShot, resetRecoil, takeAimPush } from './fps-recoil';
 import { effectStyleForWeapon } from './fps-effect-styles';
-import { aimSpeedScale, applyArmorDamage, consumeItem, createProfile, encikAddress, jumpScale, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile, type VendorPurchaseResult } from './armory-state';
+import { applyArmorDamage, consumeItem, createProfile, encikAddress, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile, type VendorPurchaseResult } from './armory-state';
 import { registerElimination, ELIMINATION_XP, type KillChain } from './progression';
 import { createFpsVehicles } from './fps-vehicles';
 import type { MinimapMarker } from './minimap';
@@ -60,6 +62,7 @@ export interface FpsHud {
   aimProgress: number; reloadEmpty: boolean;
   crosshairSpread: number; hitKind: 'hit' | 'kill'; quickItem: string; quickType: 'FOOD' | 'UTILITY' | ''; quickCount: number;
   phase: 'loading' | 'ready' | 'playing' | 'paused' | 'complete' | 'defeated' | 'error';
+  carriedWeapons: number[]; carriedKg: number; movementScale: number;
   weapon: number; magazine: number; reserve: number; reloading: number;
   hits: number; shots: number; landed: number; health: number; armor: number; incoming: boolean; hurt: boolean; lastDamage: number; earned: number; earnedXp: number; callout: string; chain: number; elapsed: number; aiming: boolean; hit: boolean;
   vehicle: VehicleKind | 'on-foot'; vehicleSpeed: number; altitude: number; interact: string; vehicleNotice: string; carDistance: number; helicopterDistance: number;
@@ -75,7 +78,7 @@ export interface FpsHud {
   /** Named sub-area the player is standing in; '' on ground that belongs to none. */
   sector: string;
 }
-export const initialFpsHud: FpsHud = { quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '' };
+export const initialFpsHud: FpsHud = { carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '' };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -146,7 +149,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   effects.setStyles(weaponStyles, 0);
   const debugAvailable = !options.arena || options.arena.session.role === 'solo';
   let debug = debugAvailable ? readFpsDebug() : { ...DEFAULT_FPS_DEBUG }, recoveryDelay = 0;
-  const keys = new Set<string>(); const hud: FpsHud = { ...initialFpsHud, debug, debugAvailable, quickItem: equipment.quickItem?.name || '', quickType: equipment.quickItem ? equipment.quickItem.supplyType === 'food' ? 'FOOD' : 'UTILITY' : '', quickCount: equipment.quickCount, health: 100 * debug.healthMultiplier, maxHealth: 100 * debug.healthMultiplier, armor: equipment.armor, expeditionZone: expedition?.zone ?? null,
+  const keys = new Set<string>(); const hud: FpsHud = { ...initialFpsHud, weapon: equipment.carriedFamilies[0], carriedWeapons: equipment.carriedFamilies, debug, debugAvailable, quickItem: equipment.quickItem?.name || '', quickType: equipment.quickItem ? equipment.quickItem.supplyType === 'food' ? 'FOOD' : 'UTILITY' : '', quickCount: equipment.quickCount, health: 100 * debug.healthMultiplier, maxHealth: 100 * debug.healthMultiplier, armor: equipment.armor, expeditionZone: expedition?.zone ?? null,
     credits: fieldProfile.credits, tokens: fieldProfile.tokens };
   const npcs = expedition ? expeditionNpcs(expedition.zone, zoneSectors(expedition.zone)) : [];
   hud.npcs = npcs.map(npc => ({ ...npc }));
@@ -206,10 +209,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let audio: AudioContext | null = null, soundBuffer: AudioBuffer | null = null;
   const ray = new THREE.Raycaster(); ray.far = 250;
   const center = new THREE.Vector2(), muzzlePoint = new THREE.Vector3();
+  const movement = () => equipmentMovement(equipment, hud.weapon, loadout, quickRemaining);
   const publish = () => {
     if (disposed) return;
     const state = loadout[hud.weapon];
-    onHud({ ...hud, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], ...(!options.arena ? vehicles.hud(position) : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / specs[hud.weapon].reload, aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
+    const burden = movement();
+    onHud({ ...hud, carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], ...(!options.arena ? vehicles.hud(position) : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / specs[hud.weapon].reload, aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapMarkers: options.arena ? [] : [
         ...targetPositions.flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
@@ -322,7 +327,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
   }
   function switchWeapon(index: number) {
-    if (hud.phase === 'loading' || hud.phase === 'error' || index === hud.weapon || !validWeaponIndex(index)) return;
+    if (hud.phase === 'loading' || hud.phase === 'error' || index === hud.weapon || !validWeaponIndex(index) || !equipment.carriedFamilies.includes(index)) return;
     loadout[hud.weapon].reloadRemaining = 0;
     trigger = false; triggerSpent = false; ads = false; touchAim = false; resetRecoil(kick);
     hud.weapon = index; weapons.forEach((w, i) => w.visible = i === index);
@@ -372,7 +377,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const nearest = alive ? expedition.loot.nearest(expedition.zone, position) : null;
     const npc = alive && !vehicles.active ? nearestNpc(npcs, position) : null;
     const gateway = alive ? findWorldGateway(expedition.zone, position) : null;
-    hud.lootPrompt = nearest ? `E · ${nearest.tier} ${nearest.name}` : '';
+    const lootWeapon = nearest?.kind === 'weapon' ? itemById(nearest.catalogId ?? '') : undefined;
+    const swapLabel = validWeaponIndex(lootWeapon?.family) ? ` · replace ${pickupSlot(fieldProfile, lootWeapon.family, hud.weapon)}` : '';
+    hud.lootPrompt = nearest ? `E · ${nearest.tier} ${nearest.name}${swapLabel}` : '';
     hud.npcPrompt = npc ? `N · ${npcInteractionPrompt(npc)}` : '';
     hud.travelPrompt = gateway ? `T · Travel to ${getWorldZone(gateway.to).name}` : '';
     if (npc && !greetedNpcs.has(npc.id) && hud.phase === 'playing') {
@@ -392,6 +399,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (collected.kind === 'weapon' && item && validWeaponIndex(item.family)) {
       const family = item.family, changed = fieldProfile.guns[family].variant !== item.id;
       const next = copyProfile(fieldProfile); next.owned = [...new Set([...next.owned, item.id])]; next.guns[family].variant = item.id;
+      const slot = pickupSlot(next, family, hud.weapon);
+      if (slot !== 'sidearm') next.carry = { ...next.carry, [slot]: family };
       fieldProfile = next; equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
       if (changed) loadout[family] = createLoadout(specs)[family];
       else loadout[family].reserve = Math.min(999, loadout[family].reserve + specs[family].reserve);
@@ -451,7 +460,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, health: hud.health, armor: hud.armor, weapon: hud.weapon, ammunition: loadout.map(state => ({ ...state, cooldown: 0, reloadRemaining: 0 })) };
     travelPending = true; pause(); expedition.onTravel(transition, checkpoint);
   }
-  function jump() { if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && vertical === 0 && !keys.has('c')) velocityY = 5.2 * jumpScale(equipment.mobility); } }
+  function jump() { if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && vertical === 0 && !keys.has('c')) velocityY = 5.2 * movement().jumpVelocity; } }
   function setInput(key: string, held: boolean) {
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) return;
     if (key === 'fire') { trigger = held && !vehicles.active; if (!trigger) triggerSpent = false; }
@@ -489,7 +498,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (pilotEnabled || hud.phase !== 'playing' || vehicles.active || hud.arenaSelf?.alive === false || loadout[hud.weapon].reloadRemaining > 0) return;
     touchAim = !touchAim; canvas.focus({ preventScroll: true }); publish();
   }
-  const keyboardKeys = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', ' ', 'r', 'q', 'g', '1', '2', '3', '4', '5', 'e', 'n', 't', 'f', 'control', 'escape'];
+  const keyboardKeys = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', ' ', 'r', 'q', 'g', '1', '2', '3', 'e', 'n', 't', 'f', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
     if (key === 'f' && !event.repeat) { event.preventDefault(); options.onFullscreen?.(); return; }
@@ -503,7 +512,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     else if (key === 't') { if (!event.repeat) travelZone(); }
     else if (key === 'r') reload();
     else if (key === 'g') { if (!event.repeat) useQuickItem(); }
-    else if (/^[1-5]$/.test(key)) switchWeapon(Number(key) - 1);
+    else if (/^[1-3]$/.test(key)) switchWeapon(equipment.carriedFamilies[Number(key) - 1]);
     else if (key === ' ') { if (vehicles.active) keys.add(' '); else if (!event.repeat) jump(); }
     else keys.add(key);
   };
@@ -631,7 +640,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (gateway) waypoints.push({ id: gateway.id, ...gateway.position, kind: 'checkpoint' });
     }
     return { time, alive: hud.arenaSelf?.alive !== false, health: hud.health, maxHealth: hud.maxHealth, armor: hud.armor,
-      magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining > 0, aiming: actualAim, weapon: hud.weapon,
+      magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining > 0, aiming: actualAim, weapon: hud.weapon, availableWeapons: equipment.carriedFamilies.filter(index => loadout[index].magazine > 0 || loadout[index].reserve > 0),
       position: { x: position.x, z: position.z }, yaw, pitch,
       contacts: visiblePilotContacts(camera, world.scene, subjects, screenBlocked), waypoints, ballistics: specs[hud.weapon].ballistics,
       lootPrompt: hud.lootPrompt, travelPrompt: hud.travelPrompt };
@@ -691,7 +700,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const aiming = (ads || touchAim) && !sprinting && loadout[hud.weapon].reloadRemaining === 0;
     actualAim = aiming;
     // Heavier carry costs time to settle the sights as well as ground speed.
-    aimProgress = THREE.MathUtils.damp(aimProgress, aiming ? 1 : 0, 15 * (aiming ? aimSpeedScale(equipment.mobility) * Math.min(1.15, specs[hud.weapon].mobility) : 1), dt);
+    aimProgress = THREE.MathUtils.damp(aimProgress, aiming ? 1 : 0, 15 * (aiming ? movement().aimSpeed : 1), dt);
     const aim = smoothStep(aimProgress);
     rig.visible = !options.arena || hud.arenaSelf?.alive !== false;
     const crouching = keys.has('c');
@@ -1007,7 +1016,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
             return { magazine: Number.isFinite(carried.magazine) ? Math.max(0, Math.min(specs[index].capacity, Math.floor(carried.magazine))) : fresh.magazine,
               reserve: Number.isFinite(carried.reserve) ? Math.max(0, Math.min(999, Math.floor(carried.reserve))) : fresh.reserve, cooldown: 0, reloadRemaining: 0 };
           });
-          hud.weapon = validWeaponIndex(checkpointPending.weapon) ? checkpointPending.weapon : 0; checkpointPending = undefined;
+          hud.weapon = equipment.carriedFamilies.includes(checkpointPending.weapon) ? checkpointPending.weapon : equipment.carriedFamilies[0]; checkpointPending = undefined;
           weapons.forEach((weapon, index) => weapon.visible = index === hud.weapon);
           effects.attachMuzzle(weapons[hud.weapon]?.getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_muzzle`));
           effects.setStyles(weaponStyles, hud.weapon);
@@ -1068,7 +1077,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const forward = move.forward, side = move.side;
       sprinting = move.sprint && forward > 0.5 && !keys.has('c');
       const speed = keys.has('c') ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2;
-      const delta = movementInput(forward, side, yaw, speed * equipment.mobility * specs[hud.weapon].mobility, dt), next = footMove(position, delta.x, delta.z, 0.38, options.arena ? world.obstacles : vehicles.footObstacles());
+      const delta = movementInput(forward, side, yaw, speed * movement().movement, dt), next = footMove(position, delta.x, delta.z, 0.38, options.arena ? world.obstacles : vehicles.footObstacles());
       moving = Math.hypot(next.x - position.x, next.z - position.z) > 0.0001;
       carry.set((next.x - position.x) / Math.max(dt, 1e-4), 0, (next.z - position.z) / Math.max(dt, 1e-4));
       position = next;
@@ -1147,8 +1156,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (disposed) return;
     weapons.push(loaded[0], loaded[1], ...FPS_WEAPONS.slice(2).map(spec => {
       const model = buildServiceWeapon(spec.id)!; templates.push(model); return model;
-    })); weapons.forEach((w, i) => { undress.push(dressWeapon(w, specs[i])); handling.push(createWeaponHandling(w, i)); rig.add(w); w.visible = i === 0; });
-    effects.attachMuzzle(weapons[0].getObjectByName('sar21-inspired__socket_muzzle'));
+    })); weapons.forEach((w, i) => { undress.push(dressWeapon(w, specs[i])); handling.push(createWeaponHandling(w, i)); rig.add(w); w.visible = i === hud.weapon; });
+    effects.attachMuzzle(weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_muzzle`));
+    effects.setStyles(weaponStyles, hud.weapon);
     if (!options.arena) targetPositions.forEach((p, i) => {
       const root = new THREE.Group(); root.position.set(p.x, 0.13, p.z);
       root.rotation.y = Math.atan2(spawn.x - p.x, spawn.z - p.z);

@@ -368,16 +368,48 @@ reserve goes to the weapon in hand. Using one with nothing to restore reports
 that and spends nothing. `resolveLoadout` carries the selected supply and its
 count, so the shop, HUD and engine read the same selection everything else does.
 
+## Weapon slots
+
+Every loadout has one main weapon and one P30 sidearm. A permanent **400 TK**
+unlock adds an optional second main slot, with no level gate. It may be left
+empty to travel lighter; main and extra must use different platforms. Premium
+weapon variants can occupy any compatible slot without this unlock.
+
+The Armory slot selectors choose among stored platform configurations. Equipping
+a variant from an uncarried main platform replaces main. Existing ownership,
+balances and variant selections survive old-save migration, which starts with
+SAR + P30. Field pickups replace a slot rather than expanding the loadout.
+
+Keys **1 / 2 / 3** select main / sidearm / extra. Touch Swap cycles only carried
+weapons. The multiplayer host rejects attempts to use an uncarried family.
+
 ## Carried weight
 
-A rig and its inserts scale walking speed, and now also vertical reach and how
-fast the sights settle, so protection is a decision rather than free points. The
-heaviest combination gives up roughly 17% of its jump and 14% of its aim-in
-speed; the premium inserts are lighter, so they cost less of both while
-protecting more. An unencumbered loadout pays nothing.
+Movement now combines **total carried load** and **the weapon in hand**.
+`fps-encumbrance.ts` is the common calculation used by gameplay and the shop:
 
-The shop's armor dossier shows jump height and aim-in speed beside the armor
-pool, so the trade is visible before buying.
+- Every slotted weapon counts once, including the active weapon, plus rig,
+  inserts, loaded/reserve ammunition, and every held supply stack. Owned but
+  unequipped variants, spare armor and cosmetic skins add no weight.
+- `weightKg` is fictional arcade carry tuning, not a real equipment specification.
+  Complete variants can override platform mass; lighter patrol configurations
+  reduce the burden even when another weapon is in hand.
+- Carried mobility is `armorMobility / (1 + totalKg * 0.006)`, bounded to 35–100%.
+  Existing rig/insert mobility values represent handling bulk in addition to mass.
+- The active variant's mobility multiplies that carried factor, bounded to
+  20–100% final movement. Walking, sprinting, crouching and aimed movement all
+  use this same factor. Swapping to the pistol does not discard the stowed MGs.
+- Jump velocity is `0.5 + 0.5 * movement`; displayed jump height squares that
+  factor. Aim-in speed is `(0.35 + 0.65 * carried) * inHand`, with a positive
+  minimum. Both remain usable under extreme burdens. Vehicles are unaffected.
+- Actual ammunition mass decreases when fired and increases when picked up.
+  Reloading conserves mass. Consuming supplies removes their mass exactly once,
+  including after expedition equipment is re-resolved. Spent armor remains worn.
+
+The shop compares full-load weight, carried mobility, in-hand mobility and
+combined movement; its armor view also compares jump height and aim-in speed.
+The FPS ammunition HUD reports live kilograms carried and final movement percent.
+A premium rig's extra reserve ammo now has weight even without extra rig bulk.
 
 ## Breakpoint analysis
 
@@ -428,7 +460,7 @@ visually hidden table gives the same numbers to a screen reader.
 
 ## Armor and counter-fire
 
-The rig slot supplies reserve capacity; the insert slot supplies armor points and absorption. Enhanced LBS adds 60 reserve rounds per weapon at a 2% movement cost; Sentinel adds 90 without a movement penalty. A bare ILBV-inspired carrying rig has zero armor points.
+The rig slot supplies reserve capacity; the insert slot supplies armor points and absorption. Enhanced LBS adds 60 reserve rounds per weapon at a 2% movement cost; Sentinel adds 90 without an extra rig handling penalty; the ammunition still adds carry weight. A bare ILBV-inspired carrying rig has zero armor points.
 
 | Insert | Armor | Absorption while available | Movement |
 | --- | ---: | ---: | ---: |

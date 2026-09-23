@@ -96,7 +96,7 @@ describe('arena runtime authority and renderer bridge', () => {
     vi.useFakeTimers();
     const [hostSession, guestSession] = localPair();
     const host = createArenaRuntime({ scene: new THREE.Scene(), session: hostSession, obstacles: [], botCount: 0 });
-    const guest = createArenaRuntime({ scene: new THREE.Scene(), session: guestSession, obstacles: [], botCount: 0 });
+    const guest = createArenaRuntime({ scene: new THREE.Scene(), session: guestSession, obstacles: [], botCount: 0, profile: { ...createProfile(), carry: { main: family === 2 ? 0 : family, extra: null } } });
     try {
       host.update(0.02, input()); host.update(0.02, input(-44, 68, true));
       const joined = guest.update(0.02, input());

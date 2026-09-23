@@ -114,7 +114,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     const cover = coverRay.intersectObjects(surfaces, false)[0];
     return Math.min(finite(supplied) ? Math.max(0, Math.min(125, supplied)) : 125, cover?.distance ?? 125);
   }
-  if (simulation) { simulation.addPlayer(session.id, session.name, initial.armor, initial.absorption, initial.weapons, options.initialVitals, session.role === 'solo'); registered.add(session.id); }
+  if (simulation) { simulation.addPlayer(session.id, session.name, initial.armor, initial.absorption, initial.weapons, options.initialVitals, session.role === 'solo', initial.carriedFamilies); registered.add(session.id); }
   function accept(next: ArenaSnapshot) {
     if (next.tick < lastTick) { seenFeed.clear(); localAdopted = false; }
     lastTick = next.tick; snapshot = next;
@@ -142,7 +142,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         try { raw = JSON.stringify(payload.profile); } catch { return; }
         if (typeof raw !== 'string' || raw.length > 16_000) return;
         const loadout = resolveLoadout(restoreProfile(raw));
-        simulation.addPlayer(from, peer.name, loadout.armor, loadout.absorption, loadout.weapons); registered.add(from); publish();
+        simulation.addPlayer(from, peer.name, loadout.armor, loadout.absorption, loadout.weapons, undefined, false, loadout.carriedFamilies); registered.add(from); publish();
       } else if (registered.has(from) && payload.type === 'arena-input' && validArenaInput(payload.input)) simulation.setInput(from, payload.input);
       else if (registered.has(from) && payload.type === 'arena-reload' && validWeaponIndex(payload.weapon)) simulation.reloadPlayer(from, payload.weapon);
       else if (registered.has(from) && started && payload.type === 'arena-shot' && point(payload.origin) && point(payload.direction) && validWeaponIndex(payload.weapon)) {
@@ -225,7 +225,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (disposed || session.role !== 'solo' || !simulation) return false;
     profile = restoreProfile(JSON.stringify(nextProfile));
     const loadout = resolveLoadout(profile);
-    simulation.setPlayerLoadout(session.id, loadout.armor, loadout.absorption, loadout.weapons); publish(); return true;
+    simulation.setPlayerLoadout(session.id, loadout.armor, loadout.absorption, loadout.weapons, loadout.carriedFamilies); publish(); return true;
   }
   function setVitals(vitals: Partial<ArenaVitals>) {
     if (disposed || session.role !== 'solo' || !simulation) return false;
