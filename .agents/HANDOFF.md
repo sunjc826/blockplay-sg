@@ -1,5 +1,22 @@
 # Blockplay: portable agent handoff
 
+## Softer unsupported .50 recoil (2026-09-23)
+
+Standing base-.50 fire still deals 20 raw recoil damage; grounded crouched fire
+now deals 10. Both run through the existing applyArmorDamage calculation, so
+worn plates absorb their configured fraction and lose the corresponding points.
+Depleted armor passes the remainder to health. Prone-mounted fire and carryable
+upgrades stay safe. This supersedes the earlier armor-bypassing recoil notes.
+Local gameplay and the multiplayer host use the same armor calculation; host
+eye height identifies grounded crouch. Airborne crouch does not earn a discount.
+Updated HUD, shot warning, catalog and current weapon docs.
+
+Validation: 806 tests, typecheck and production build pass. Regression cases
+cover both stances with full/low/empty armor, rejected cooldown shots, grounded
+and airborne crouch, variants and death/respawn. Existing prone/mount browser
+checks remain from the preceding change; this numerical change was unit-tested.
+No dependency changes.
+
 ## Base .50 prone mount and unsafe recoil (2026-09-23)
 
 The base CIS 50MG Big Encik now requires a grounded prone mount for safe use.

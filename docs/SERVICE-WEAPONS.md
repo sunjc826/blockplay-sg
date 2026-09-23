@@ -14,8 +14,9 @@ fictional arcade balancing. The P30 replaces the initially proposed Glock.
 
 The heavy MG is normally mounted/crew-served. The base Big Encik now auto-deploys
 a prone mount (Z or the touch Prone button), preventing movement until the
-player stands/crouches or switches weapons. Unsupported base shots cost 20 HP
-each, bypassing armor, and can defeat the player. Tuas Shift and Merlion Roar
+player stands/crouches or switches weapons. Unsupported base shots deal 20 recoil damage
+standing or 10 crouched. Worn armor absorbs its normal share until depleted;
+remaining damage reaches health and can defeat the player. Tuas Shift and Merlion Roar
 remain explicitly arcade carryable variants, safe to fire upright. All receive a large
 movement penalty, wide hip spread, slow aiming, heavy recoil and long reloads.
 Base/Tuas/Merlion damage is 160/168/178. Base body damage bottoms at 120 after

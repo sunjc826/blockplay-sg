@@ -220,10 +220,10 @@ it('preserves heavy-round damage on the host while armor can prevent a one-shot 
 
 it('mounts prone heavy weapons, locks movement and applies unsupported recoil on the host', () => {
   const arena = createArena([], 0);
-  arena.addPlayer('gunner', 'Gunner', 100, .9, [{ ...weapon, requiresMount: true }]);
+  arena.addPlayer('gunner', 'Gunner', 0, 0, [{ ...weapon, requiresMount: true }]);
   const shot = () => { const a = actor(arena, 'gunner'); return arena.shoot('gunner', a, { x: 0, y: 0, z: -1 }, 0); };
   shot();
-  expect(actor(arena, 'gunner')).toMatchObject({ health: 80, armor: 100, shots: 1 });
+  expect(actor(arena, 'gunner')).toMatchObject({ health: 80, armor: 0, shots: 1 });
   shot(); // Cooldown failures never injure the player.
   expect(actor(arena, 'gunner').health).toBe(80);
   advance(arena, .2);
@@ -239,8 +239,8 @@ it('mounts prone heavy weapons, locks movement and applies unsupported recoil on
   a = actor(arena, 'gunner');
   arena.setInput('gunner', { ...a, y: 1.15, prone: false, playing: true });
   shot();
-  expect(actor(arena, 'gunner').health).toBe(60);
-  for (let i = 0; i < 3; i++) { advance(arena, .2); shot(); }
+  expect(actor(arena, 'gunner').health).toBe(70);
+  for (let i = 0; i < 7; i++) { advance(arena, .2); shot(); }
   expect(actor(arena, 'gunner')).toMatchObject({ health: 0, alive: false, deaths: 1, kills: 0 });
   advance(arena, 3.2);
   expect(actor(arena, 'gunner')).toMatchObject({ health: 100, alive: true, prone: false });
@@ -262,4 +262,24 @@ it('keeps prone actors hittable and rejects airborne support claims', () => {
   shooter = actor(arena, 'one');
   const direction = aim(shooter, { ...actor(arena, 'two'), y: .95 });
   expect(arena.shoot('one', shooter, direction, 0).hitId).toBe('two');
+});
+
+
+it.each([
+  [1.75, 75, .65, 93, 62],
+  [1.15, 75, .65, 96.5, 68.5],
+  [1.75, 5, .65, 85, 0],
+  [1.15, 5, .65, 95, 0],
+  [1.75, 0, .65, 80, 0],
+  [1.15, 0, .65, 90, 0],
+])('absorbs recoil at eye height %s with %s armor', (y, armor, absorption, healthAfter, armorAfter) => {
+  const arena = createArena([], 0);
+  arena.addPlayer('gunner', 'Gunner', armor, absorption, [{ ...weapon, requiresMount: true }]);
+  arena.setInput('gunner', { ...actor(arena, 'gunner'), y, playing: true });
+  const a = actor(arena, 'gunner');
+  arena.shoot('gunner', a, { x: 0, y: 0, z: -1 }, 0);
+  expect(actor(arena, 'gunner')).toMatchObject({ health: healthAfter, armor: armorAfter });
+  // A rejected cooldown shot must not consume additional health or plates.
+  arena.shoot('gunner', a, { x: 0, y: 0, z: -1 }, 0);
+  expect(actor(arena, 'gunner')).toMatchObject({ health: healthAfter, armor: armorAfter });
 });

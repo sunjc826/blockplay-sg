@@ -923,11 +923,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function shoot() {
     if ((!pilotEnabled && specs[hud.weapon].fireMode === 'semi' && triggerSpent) || vehicles.active || (options.arena && !hud.arenaSelf?.alive) || !fireWeapon(loadout[hud.weapon], hud.weapon, specs)) return;
     hud.shots++; shotSound();
-    const recoilDamage = unsupportedRecoilDamage(specs[hud.weapon], prone, vertical === 0);
+    const recoilDamage = unsupportedRecoilDamage(specs[hud.weapon], prone, vertical === 0, keys.has('c'));
     if (recoilDamage) {
-      hud.message = 'Unsupported .50 recoil: -20 HP. Z / Prone to deploy the mount.';
+      hud.message = `Unsupported .50 recoil: ${recoilDamage} damage before armor. Z / Prone to deploy the mount.`;
       if (!arenaRuntime) {
-        hud.health = Math.max(0, hud.health - recoilDamage); hurtTime = .4; recoveryDelay = FPS_REGEN_DELAY;
+        const damage = applyArmorDamage(hud.health, hud.armor, recoilDamage, equipment.absorption);
+        hud.health = damage.health; hud.armor = damage.armor; hurtTime = .4; recoveryDelay = FPS_REGEN_DELAY;
         if (!hud.health) { hud.phase = 'defeated'; clearInput(); radioCall('death'); if (document.pointerLockElement === canvas) document.exitPointerLock(); }
       }
     }

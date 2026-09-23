@@ -1,3 +1,4 @@
+import { applyArmorDamage } from './armory-state';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage } from './fps-stance';
 import { MARINA_BOUNDS, moveInMarina, type Obstacle } from './marina-collision';
 import { FPS_WEAPONS, type WeaponSpec } from './fps-rules';
@@ -210,9 +211,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const length = Math.hypot(direction.x, direction.y, direction.z); if (length < 0.5 || length > 1.5) return { ...EMPTY_SHOT };
     const ray = { x: direction.x / length, y: direction.y / length, z: direction.z / length };
     if (entry.rounds[weapon] <= 0) { entry.reload[weapon] = entry.weapons[weapon].reload; return { ...EMPTY_SHOT }; }
-    const recoilDamage = unsupportedRecoilDamage(entry.weapons[weapon], entry.actor.prone === true, entry.actor.y <= PRONE_EYE_HEIGHT + .02);
+    const recoilDamage = unsupportedRecoilDamage(entry.weapons[weapon], entry.actor.prone === true, entry.actor.y <= 1.17, !entry.actor.prone && entry.actor.y <= 1.17);
     if (recoilDamage) {
-      entry.actor.health = Math.max(0, entry.actor.health - recoilDamage);
+      const damage = applyArmorDamage(entry.actor.health, entry.actor.armor, recoilDamage, entry.absorption);
+      entry.actor.health = damage.health; entry.actor.armor = damage.armor;
       if (!entry.actor.health) {
         entry.actor.alive = false; entry.actor.deaths++; entry.actor.respawnIn = ARENA_RESPAWN_SECONDS;
         announce(`${entry.actor.name} was defeated by unsupported .50 recoil`, undefined, id);

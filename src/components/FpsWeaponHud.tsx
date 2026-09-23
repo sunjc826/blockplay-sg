@@ -24,7 +24,7 @@ export default function FpsWeaponHud({ hud, weapon, canFight }: { hud: FpsHud; w
       <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}<small>/ {hud.reserve}</small></strong>
       <p>{reloading ? `${hud.reloadEmpty ? 'EMPTY' : 'TACTICAL'} RELOAD · ${stage}` : hud.magazine === 0 ? 'EMPTY · PRESS R' : 'R RELOAD · Q TOGGLE AIM · RMB HOLD'}</p>
       <p>{hud.carriedKg.toFixed(1)} KG CARRIED · {Math.round(hud.movementScale * 100)}% MOVEMENT</p>
-      {weapon.requiresMount && <p>{hud.braced ? 'PRONE MOUNT DEPLOYED · Z / STAND TO MOVE' : 'Z / PRONE TO MOUNT · UNSUPPORTED FIRE HURTS: 20 HP'}</p>}
+      {weapon.requiresMount && <p>{hud.braced ? 'PRONE MOUNT DEPLOYED · Z / STAND TO MOVE' : 'Z / PRONE: SAFE · STAND 20 / CROUCH 10 BEFORE ARMOR'}</p>}
       {reloading
         ? <div className="fps-reload-track" role="progressbar" aria-label="Reload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((1 - hud.reloading) * 100)}><i style={{ width: `${(1 - hud.reloading) * 100}%` }} /></div>
         : <div className="fps-magazine-bar" aria-hidden="true"><i style={{ transform: `scaleX(${fillFraction(rounds, weapon.capacity)})` }} /></div>}
