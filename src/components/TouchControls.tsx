@@ -91,6 +91,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
     sweep.push(act('aim', 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': hud.aiming, 'data-on': hud.aiming || undefined }));
     sweep.push(act('reload', 'Reload', <RefreshCw size={17} />, { onClick: () => engine?.reload(), disabled: hud.reloading > 0 }));
     sweep.push(act('crouch', 'Crouch', <ArrowDownToLine size={17} />, { onClick: toggleCrouch, 'aria-pressed': crouched, 'data-on': crouched || undefined }));
+    sweep.push(act('prone', hud.prone ? 'Stand' : 'Prone', <ArrowDownToLine size={17} />, { onClick: () => { setCrouched(false); engine?.setInput('z', true); }, 'aria-pressed': hud.prone, 'data-on': hud.prone || undefined }));
     sweep.push(act('jump', 'Jump', <ChevronsUp size={17} />, { onClick: () => engine?.jump() }));
     sweep.push(act('weapon', 'Swap', <Repeat2 size={17} />, { onClick: () => engine?.switchWeapon(hud.carriedWeapons[(hud.carriedWeapons.indexOf(hud.weapon) + 1) % hud.carriedWeapons.length]) }));
     if (mode === 'expedition') {

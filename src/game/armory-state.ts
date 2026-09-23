@@ -178,7 +178,7 @@ export function applyBuild(base: WeaponSpec, parts: readonly InternalPart[] = []
 }
 /** A variant as it leaves the armoury, before its fixed fittings are applied. */
 export const variantSpec = (item: ShopItem) =>
-  item.category === 'weapon' && item.family !== undefined ? { ...applyBuild(FPS_WEAPONS[item.family], item.build), weightKg: item.weightKg ?? FPS_WEAPONS[item.family].weightKg } : null;
+  item.category === 'weapon' && item.family !== undefined ? { ...applyBuild(FPS_WEAPONS[item.family], item.build), requiresMount: item.requiresMount ?? FPS_WEAPONS[item.family].requiresMount, weightKg: item.weightKg ?? FPS_WEAPONS[item.family].weightKg } : null;
 export interface EquippedWeapon extends WeaponSpec { equipment: GunEquipment; accent?: string; traits: readonly WeaponTrait[] }
 /**
  * What a rig and its inserts cost in movement. `mobility` scales walking speed;

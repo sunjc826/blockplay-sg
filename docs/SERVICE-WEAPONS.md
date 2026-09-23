@@ -12,8 +12,11 @@ fictional arcade balancing. The P30 replaces the initially proposed Glock.
 - [Singapore Army Armour](https://www.army.gov.sg/our-forces/formations/armour/): lists Bionix 40/50 with the CIS 40/50 twin weapon system.
 - [US Army ODIN, CIS/STK 50MG](https://odin.t2com.army.mil/WEG/Asset/3367f70dff8b80d0a8ae73af211f8efb): identifies the Singapore-developed 12.7 mm heavy machine gun and its SAF procurement context.
 
-The heavy MG is normally mounted/crew-served. Carrying it in this game is an
-explicit arcade concession, stated in its shop description. It receives a large
+The heavy MG is normally mounted/crew-served. The base Big Encik now auto-deploys
+a prone mount (Z or the touch Prone button), preventing movement until the
+player stands/crouches or switches weapons. Unsupported base shots cost 20 HP
+each, bypassing armor, and can defeat the player. Tuas Shift and Merlion Roar
+remain explicitly arcade carryable variants, safe to fire upright. All receive a large
 movement penalty, wide hip spread, slow aiming, heavy recoil and long reloads.
 Base/Tuas/Merlion damage is 160/168/178. Base body damage bottoms at 120 after
 range falloff, so even the free variant kills normal 100–115 HP unarmored targets

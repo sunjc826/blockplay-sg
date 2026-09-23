@@ -20,7 +20,8 @@ const object = (value: unknown): value is Record<string, unknown> => !!value && 
 export function validArenaInput(value: unknown): value is ArenaInput {
   return object(value) && ['x', 'y', 'z', 'yaw', 'pitch'].every(key => finite(value[key])) &&
     validWeaponIndex(value.weapon) && typeof value.playing === 'boolean' &&
-    (value.reloading === undefined || typeof value.reloading === 'boolean');
+    (value.reloading === undefined || typeof value.reloading === 'boolean') &&
+    (value.prone === undefined || typeof value.prone === 'boolean');
 }
 export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironment): value is ArenaSnapshot {
   if (!object(value) || value.type !== 'arena-snapshot' || !finite(value.tick) || value.tick < 0 || !finite(value.elapsed) || value.elapsed < 0 || value.elapsed > (environment?.endless ? 1e9 : 181) ||
@@ -29,7 +30,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
   for (const actor of value.actors) {
     if (!object(actor) || typeof actor.id !== 'string' || actor.id.length > 100 || ids.has(actor.id) || typeof actor.name !== 'string' || actor.name.length > 24 ||
       !['x', 'y', 'z', 'yaw', 'pitch', 'health', 'armor', 'kills', 'deaths', 'respawnIn', 'shots', 'weapon'].every(key => finite(actor[key])) ||
-      !validWeaponIndex(actor.weapon) || typeof actor.alive !== 'boolean' || typeof actor.bot !== 'boolean' || typeof actor.role !== 'string' || actor.role.length > 32 ||
+      (actor.prone !== undefined && typeof actor.prone !== 'boolean') || !validWeaponIndex(actor.weapon) || typeof actor.alive !== 'boolean' || typeof actor.bot !== 'boolean' || typeof actor.role !== 'string' || actor.role.length > 32 ||
       (actor.x as number) < (environment?.bounds.minX ?? -500) || (actor.x as number) > (environment?.bounds.maxX ?? 500) ||
       (actor.z as number) < (environment?.bounds.minZ ?? -500) || (actor.z as number) > (environment?.bounds.maxZ ?? 500) || (actor.y as number) < 0 || (actor.y as number) > 100 ||
       (actor.health as number) < 0 || (actor.health as number) > 300 || (actor.armor as number) < 0 || (actor.armor as number) > 150) return false;
@@ -187,7 +188,9 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       avatar.root.visible = actor.alive;
       const destination = new THREE.Vector3(actor.x, Math.max(0, actor.y - 1.75), actor.z);
       avatar.root.position.lerp(destination, avatar.root.position.distanceTo(destination) > 7 ? 1 : 1 - Math.exp(-15 * dt));
-      avatar.root.rotation.y = actor.yaw; avatar.root.scale.y = Math.min(1, Math.max(0.6, actor.y / 1.75));
+      avatar.root.rotation.set(actor.prone ? -Math.PI / 2 : 0, actor.yaw, 0, 'YXZ');
+      avatar.root.scale.y = actor.prone ? 1 : Math.min(1, Math.max(0.6, actor.y / 1.75));
+      if (actor.prone) avatar.root.position.set(actor.x + Math.sin(actor.yaw) * 1.59, .32, actor.z + Math.cos(actor.yaw) * 1.59);
       avatar.health.scale.x = Math.max(0.01, 0.75 * actor.health / avatar.maxHealth);
       if (actor.shots > avatar.shots) avatar.flash = 0.085;
       avatar.shots = actor.shots; avatar.flash = Math.max(0, avatar.flash - dt); avatar.muzzle.visible = avatar.flash > 0;
@@ -198,9 +201,9 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     pendingHit = null; pendingFeed = []; if (spawnPending) localAdopted = true; spawnPending = false;
     return frame;
   }
-  function shoot(origin: ArenaPoint, direction: ArenaPoint, weapon: number, maxDistance = 125) {
+  function shoot(origin: ArenaPoint, direction: ArenaPoint, weapon: number, maxDistance = 125, prone = lastInput?.prone ?? false) {
     if (disposed || !started || !localAdopted) return;
-    const freshInput = lastInput ? { ...lastInput, weapon, x: origin.x, y: origin.y, z: origin.z } : null;
+    const freshInput = lastInput ? { ...lastInput, prone, weapon, x: origin.x, y: origin.y, z: origin.z } : null;
     if (simulation) {
       if (freshInput && validArenaInput(freshInput)) simulation.setInput(session.id, freshInput);
       pendingHit = simulation.shoot(session.id, origin, direction, weapon, coverLimit(origin, direction, maxDistance)); publish();

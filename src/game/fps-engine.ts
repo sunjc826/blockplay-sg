@@ -1,3 +1,4 @@
+import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage } from './fps-stance';
 import { pickupSlot } from './armory-slots';
 import { equipmentMovement } from './fps-encumbrance';
 import { buildServiceWeapon } from './service-weapon-models';
@@ -64,7 +65,7 @@ export interface FpsHud {
   phase: 'loading' | 'ready' | 'playing' | 'paused' | 'complete' | 'defeated' | 'error';
   carriedWeapons: number[]; carriedKg: number; movementScale: number;
   weapon: number; magazine: number; reserve: number; reloading: number;
-  hits: number; shots: number; landed: number; health: number; armor: number; incoming: boolean; hurt: boolean; lastDamage: number; earned: number; earnedXp: number; callout: string; chain: number; elapsed: number; aiming: boolean; hit: boolean;
+  prone: boolean; braced: boolean; hits: number; shots: number; landed: number; health: number; armor: number; incoming: boolean; hurt: boolean; lastDamage: number; earned: number; earnedXp: number; callout: string; chain: number; elapsed: number; aiming: boolean; hit: boolean;
   vehicle: VehicleKind | 'on-foot'; vehicleSpeed: number; altitude: number; interact: string; vehicleNotice: string; carDistance: number; helicopterDistance: number;
   locked: boolean; message: string; muted: boolean; x: number; z: number; yaw: number;
   /** Look pitch. Recoil moves this as well as the mouse, so nothing outside the
@@ -78,7 +79,7 @@ export interface FpsHud {
   /** Named sub-area the player is standing in; '' on ground that belongs to none. */
   sector: string;
 }
-export const initialFpsHud: FpsHud = { carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '' };
+export const initialFpsHud: FpsHud = { prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '' };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -210,19 +211,22 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let audio: AudioContext | null = null, soundBuffer: AudioBuffer | null = null;
   const ray = new THREE.Raycaster(); ray.far = 250;
   const center = new THREE.Vector2(), muzzlePoint = new THREE.Vector3();
+  let prone = false;
+  const eyeHeight = () => prone ? PRONE_EYE_HEIGHT : keys.has('c') ? 1.15 : 1.75;
+  const braced = () => !vehicles.active && weaponBraced(specs[hud.weapon], prone, vertical === 0);
   const movement = () => equipmentMovement(equipment, hud.weapon, loadout, quickRemaining);
   const publish = () => {
     if (disposed) return;
     const state = loadout[hud.weapon];
     const burden = movement();
-    onHud({ ...hud, carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], ...(!options.arena ? vehicles.hud(position) : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / specs[hud.weapon].reload, aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
+    onHud({ ...hud, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], ...(!options.arena ? vehicles.hud(position) : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / specs[hud.weapon].reload, aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapMarkers: options.arena ? [] : [
         ...targetPositions.flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
       ],
     });
   };
-  const clearInput = () => { keys.clear(); trigger = false; triggerSpent = false; ads = false; touchAim = false; drag = null; moveStick = null; };
+  const clearInput = () => { prone = false; keys.clear(); trigger = false; triggerSpent = false; ads = false; touchAim = false; drag = null; moveStick = null; };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -461,9 +465,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, health: hud.health, armor: hud.armor, weapon: hud.weapon, ammunition: loadout.map(state => ({ ...state, cooldown: 0, reloadRemaining: 0 })) };
     travelPending = true; pause(); expedition.onTravel(transition, checkpoint);
   }
-  function jump() { if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && vertical === 0 && !keys.has('c')) velocityY = 5.2 * movement().jumpVelocity; } }
+  function jump() { if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && vertical === 0 && !keys.has('c') && !prone) velocityY = 5.2 * movement().jumpVelocity; } }
   function setInput(key: string, held: boolean) {
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) return;
+    if (key === 'z') { if (held && !vehicles.active && vertical === 0) { prone = !prone; keys.delete('c'); publish(); } return; }
+    if (held && key === 'c') prone = false;
     if (key === 'fire') { trigger = held && !vehicles.active; if (!trigger) triggerSpent = false; }
     else if (held) keys.add(key); else keys.delete(key);
   }
@@ -499,7 +505,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (pilotEnabled || hud.phase !== 'playing' || vehicles.active || hud.arenaSelf?.alive === false || loadout[hud.weapon].reloadRemaining > 0) return;
     touchAim = !touchAim; canvas.focus({ preventScroll: true }); publish();
   }
-  const keyboardKeys = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', ' ', 'r', 'q', 'g', '1', '2', '3', 'e', 'n', 't', 'f', 'control', 'escape'];
+  const keyboardKeys = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'q', 'g', '1', '2', '3', 'e', 'n', 't', 'f', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
     if (key === 'f' && !event.repeat) { event.preventDefault(); options.onFullscreen?.(); return; }
@@ -511,6 +517,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     else if (key === 'e') { if (!event.repeat) expedition ? interactLoot() : interactVehicle(); }
     else if (key === 'n') { if (!event.repeat) interactNpc(); }
     else if (key === 't') { if (!event.repeat) travelZone(); }
+    else if (key === 'z') { if (!event.repeat) setInput('z', true); }
+    else if (key === 'c') setInput('c', true);
     else if (key === 'r') reload();
     else if (key === 'g') { if (!event.repeat) useQuickItem(); }
     else if (/^[1-3]$/.test(key)) switchWeapon(equipment.carriedFamilies[Number(key) - 1]);
@@ -613,8 +621,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (options.arena) {
       // Read rendered avatars here, never hand the authoritative actor list to a policy.
       for (const root of world.scene.children) if (root.visible && typeof root.userData.arenaActorId === 'string') {
-        const p = root.position;
-        subjects.push({ id: root.userData.arenaActorId, root, radius: .3, points: [1.15, 1.62].map(y => new THREE.Vector3(p.x, p.y + y * root.scale.y, p.z)) });
+        subjects.push({ id: root.userData.arenaActorId, root, radius: .3, points: [1.15, 1.62].map(y => root.localToWorld(new THREE.Vector3(0, y, 0))) });
       }
     } else for (let i = 0; i < targets.length; i++) if (targets[i].alive) {
       subjects.push({ id: `target-${i}`, root: targets[i].root, radius: .24, points: [targets[i].hitZone.getWorldPosition(new THREE.Vector3())] });
@@ -661,6 +668,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       look(action.lookX ?? 0, action.lookY ?? 0);
       touchAim = action.aim === true; ads = false;
       if (action.weapon !== undefined) switchWeapon(action.weapon);
+      prone = specs[hud.weapon].requiresMount === true && action.fire === true && vertical === 0;
       if (action.reload) reload();
       if (action.jump) jump();
       if (action.interact) expedition ? interactLoot() : interactVehicle();
@@ -709,8 +717,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     aimProgress = THREE.MathUtils.damp(aimProgress, aiming ? 1 : 0, 15 * (aiming ? movement().aimSpeed : 1), dt);
     const aim = smoothStep(aimProgress);
     rig.visible = !options.arena || hud.arenaSelf?.alive !== false;
-    const crouching = keys.has('c');
-    camera.position.set(position.x, (crouching ? 1.15 : 1.75) + vertical, position.z);
+    const deployedMount = weapons[hud.weapon]?.getObjectByName('cis50-inspired__deployed-mount');
+    if (deployedMount) deployedMount.visible = braced();
+    const crouching = keys.has('c') || prone;
+    camera.position.set(position.x, eyeHeight() + vertical, position.z);
     const view = recoilView(kick), pose = recoilPose(kick);
     camera.rotation.set(pitch + view.pitch, yaw + view.yaw, 0, 'YXZ');
     camera.fov = THREE.MathUtils.lerp(sprinting ? 71 : 65, 65, aim);
@@ -913,6 +923,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function shoot() {
     if ((!pilotEnabled && specs[hud.weapon].fireMode === 'semi' && triggerSpent) || vehicles.active || (options.arena && !hud.arenaSelf?.alive) || !fireWeapon(loadout[hud.weapon], hud.weapon, specs)) return;
     hud.shots++; shotSound();
+    const recoilDamage = unsupportedRecoilDamage(specs[hud.weapon], prone, vertical === 0);
+    if (recoilDamage) {
+      hud.message = 'Unsupported .50 recoil: -20 HP. Z / Prone to deploy the mount.';
+      if (!arenaRuntime) {
+        hud.health = Math.max(0, hud.health - recoilDamage); hurtTime = .4; recoveryDelay = FPS_REGEN_DELAY;
+        if (!hud.health) { hud.phase = 'defeated'; clearInput(); radioCall('death'); if (document.pointerLockElement === canvas) document.exitPointerLock(); }
+      }
+    }
     world.scene.updateMatrixWorld(true); ray.setFromCamera(center, camera);
     const dispersion = sampleShotSpread(spreadAngle);
     shotRight.set(1, 0, 0).applyQuaternion(camera.quaternion); shotUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
@@ -940,7 +958,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (arenaRuntime) {
       let hitActor = false;
       for (let object: THREE.Object3D | null = hit?.object ?? null; object; object = object.parent) if (object.userData.arenaActorId) hitActor = true;
-      arenaRuntime.shoot(camera.position, ray.ray.direction, hud.weapon, hit ? hit.distance + (hitActor ? 0.7 : 0) : 125);
+      arenaRuntime.shoot(camera.position, ray.ray.direction, hud.weapon, hit ? hit.distance + (hitActor ? 0.7 : 0) : 125, prone);
     } else {
       energy = resolveSurfaces(hits, hud.weapon, hit => hit.distance, 1);
       const last = hits[hits.length - 1];
@@ -992,8 +1010,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function updateArena(dt: number) {
     if (!arenaRuntime) return;
     const frame = arenaRuntime.update(dt, {
-      x: position.x, y: (keys.has('c') ? 1.15 : 1.75) + vertical, z: position.z, yaw, pitch,
-      weapon: hud.weapon, playing: hud.phase === 'playing', reloading: loadout[hud.weapon].reloadRemaining > 0,
+      x: position.x, y: eyeHeight() + vertical, z: position.z, yaw, pitch,
+      prone, weapon: hud.weapon, playing: hud.phase === 'playing', reloading: loadout[hud.weapon].reloadRemaining > 0,
     });
     const previousSelf = hud.arenaSelf;
     const previousMatch = hud.arena;
@@ -1030,7 +1048,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         resetRecoil(kick); effects.reset(); hitTime = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; }); updateCameras(0, false, false);
       } else if (frame.correction) {
         position = { x: frame.self.x, z: frame.self.z };
-        vertical = Math.max(0, frame.self.y - (keys.has('c') ? 1.15 : 1.75)); velocityY = 0;
+        vertical = Math.max(0, frame.self.y - eyeHeight()); velocityY = 0;
         updateCameras(0, false, false);
       }
       rig.visible = frame.self.alive && !vehicles.active;
@@ -1081,8 +1099,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       vehicles.step(keys, dt);
       const move = resolveMovement(keys, moveStick);
       const forward = move.forward, side = move.side;
-      sprinting = move.sprint && forward > 0.5 && !keys.has('c');
-      const speed = keys.has('c') ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2;
+      sprinting = move.sprint && forward > 0.5 && !keys.has('c') && !prone;
+      const speed = braced() ? 0 : prone ? .85 : keys.has('c') ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2;
       const delta = movementInput(forward, side, yaw, speed * movement().movement, dt), next = footMove(position, delta.x, delta.z, 0.38, options.arena ? world.obstacles : vehicles.footObstacles());
       moving = Math.hypot(next.x - position.x, next.z - position.z) > 0.0001;
       carry.set((next.x - position.x) / Math.max(dt, 1e-4), 0, (next.z - position.z) / Math.max(dt, 1e-4));

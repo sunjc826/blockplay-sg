@@ -31,7 +31,7 @@ export function findTrait<K extends WeaponTraitKind>(traits: readonly WeaponTrai
  * fast it comes back, as a multiple of the baseline settle rate. See
  * `fps-recoil` for why a kick needs both numbers rather than one.
  */
-export interface WeaponSpec { /** Unloaded arcade carry mass, in kg. */ weightKg?: number; fireMode?: 'auto' | 'semi'; caliberMm: number; id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; recoilRecovery: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
+export interface WeaponSpec { requiresMount?: boolean; /** Unloaded arcade carry mass, in kg. */ weightKg?: number; fireMode?: 'auto' | 'semi'; caliberMm: number; id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; recoilRecovery: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
 export const FPS_WEAPONS: readonly WeaponSpec[] = [
   // The rifle holds its damage to twice the support weapon's range; the support
   // weapon trades that away for its volume of fire. Paid variants lift both bands.
@@ -45,7 +45,7 @@ export const FPS_WEAPONS: readonly WeaponSpec[] = [
     traits: [{ kind: 'falloff', near: 12, far: 42, minScale: .35 }, { kind: 'precision', multiplier: 1.8 }] },
   { caliberMm: 7.62, id: 'mag-inspired', weightKg: 11.8, name: 'FN MAG', role: 'General-purpose MG', capacity: 100, reserve: 200, interval: .12, reload: 4.6, recoil: .042, recoilRecovery: .75, sightHeight: .305, damage: 60, aimFov: HIP_FOV, mobility: .74, optic: 'iron', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 45, far: 120, minScale: .70 }, { kind: 'precision', multiplier: 1.5 }] },
-  { caliberMm: 12.7, id: 'cis50-inspired', weightKg: 30, name: 'CIS 50MG', role: 'Heavy machine gun', capacity: 50, reserve: 100, interval: .14, reload: 5.8, recoil: .064, recoilRecovery: .65, sightHeight: .34, damage: 160, aimFov: HIP_FOV, mobility: .55, optic: 'iron', ballistics: HITSCAN,
+  { requiresMount: true, caliberMm: 12.7, id: 'cis50-inspired', weightKg: 30, name: 'CIS 50MG', role: 'Heavy machine gun', capacity: 50, reserve: 100, interval: .14, reload: 5.8, recoil: .064, recoilRecovery: .65, sightHeight: .34, damage: 160, aimFov: HIP_FOV, mobility: .55, optic: 'iron', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 55, far: 140, minScale: .75 }, { kind: 'precision', multiplier: 1.4 }] },
 ];
 

@@ -113,3 +113,10 @@ it('hides the bare drag surface from assistive tech, but never the buttons', () 
   }
   expect(html).toContain('class="touch-button"');
 });
+
+it('offers prone deployment and a way to stand again in every combat mode', () => {
+  for (const mode of ['range', 'arena', 'expedition'] as const) {
+    expect(control(layer(playing(), mode), 'prone')).toContain('aria-label="Prone"');
+    expect(control(layer(playing({ prone: true }), mode), 'prone')).toContain('aria-label="Stand"');
+  }
+});

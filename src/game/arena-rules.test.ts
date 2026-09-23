@@ -216,3 +216,50 @@ it('preserves heavy-round damage on the host while armor can prevent a one-shot 
   expect(actor(protectedArena, 'two').health).toBe(40);
   expect(actor(protectedArena, 'two').alive).toBe(true);
 });
+
+
+it('mounts prone heavy weapons, locks movement and applies unsupported recoil on the host', () => {
+  const arena = createArena([], 0);
+  arena.addPlayer('gunner', 'Gunner', 100, .9, [{ ...weapon, requiresMount: true }]);
+  const shot = () => { const a = actor(arena, 'gunner'); return arena.shoot('gunner', a, { x: 0, y: 0, z: -1 }, 0); };
+  shot();
+  expect(actor(arena, 'gunner')).toMatchObject({ health: 80, armor: 100, shots: 1 });
+  shot(); // Cooldown failures never injure the player.
+  expect(actor(arena, 'gunner').health).toBe(80);
+  advance(arena, .2);
+  let a = actor(arena, 'gunner');
+  arena.setInput('gunner', { ...a, y: .55, prone: true, playing: true });
+  a = actor(arena, 'gunner');
+  expect(a.prone).toBe(true);
+  arena.setInput('gunner', { ...a, x: a.x + 1, playing: true });
+  expect(actor(arena, 'gunner').x).toBe(a.x);
+  shot();
+  expect(actor(arena, 'gunner').health).toBe(80);
+  advance(arena, .2);
+  a = actor(arena, 'gunner');
+  arena.setInput('gunner', { ...a, y: 1.15, prone: false, playing: true });
+  shot();
+  expect(actor(arena, 'gunner').health).toBe(60);
+  for (let i = 0; i < 3; i++) { advance(arena, .2); shot(); }
+  expect(actor(arena, 'gunner')).toMatchObject({ health: 0, alive: false, deaths: 1, kills: 0 });
+  advance(arena, 3.2);
+  expect(actor(arena, 'gunner')).toMatchObject({ health: 100, alive: true, prone: false });
+});
+
+it('keeps prone actors hittable and rejects airborne support claims', () => {
+  const arena = createArena([], 0);
+  arena.addPlayer('one', 'One', 0, 0, [{ ...weapon, requiresMount: true }]);
+  arena.addPlayer('two', 'Two');
+  let shooter = actor(arena, 'one');
+  arena.setInput('one', { ...shooter, y: 1.75, prone: true, playing: true });
+  shooter = actor(arena, 'one');
+  expect(shooter.prone).toBe(false);
+  arena.shoot('one', shooter, { x: 0, y: 0, z: -1 }, 0);
+  expect(actor(arena, 'one').health).toBe(80);
+  advance(arena, .2);
+  const victim = actor(arena, 'two');
+  arena.setInput('two', { ...victim, y: .55, prone: true, playing: true });
+  shooter = actor(arena, 'one');
+  const direction = aim(shooter, { ...actor(arena, 'two'), y: .95 });
+  expect(arena.shoot('one', shooter, direction, 0).hitId).toBe('two');
+});

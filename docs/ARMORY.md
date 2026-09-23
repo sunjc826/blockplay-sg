@@ -383,6 +383,19 @@ SAR + P30. Field pickups replace a slot rather than expanding the loadout.
 Keys **1 / 2 / 3** select main / sidearm / extra. Touch Swap cycles only carried
 weapons. The multiplayer host rejects attempts to use an uncarried family.
 
+## Prone heavy-weapon mount
+
+Big Encik, the base CIS 50MG, requires grounded prone support for safe firing.
+Press **Z** or tap **Prone** to deploy the mount; it locks movement while the
+base weapon is in hand. Stand/crouch or switch weapons to reposition. Other
+weapons allow slow prone crawling; prone disables sprinting and jumping.
+
+Unsupported base shots still fire, but each costs **20 HP directly**, bypassing
+armor. The weapon HUD warns before firing. Empty/cooldown/reload attempts cause
+no damage. The multiplayer host enforces both self-damage and the movement lock.
+Tuas Shift and Merlion Roar retain safe upright firing as arcade carryable
+configurations; their weight, handling and movement penalties remain.
+
 ## Carried weight
 
 Movement now combines **total carried load** and **the weapon in hand**.

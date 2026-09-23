@@ -56,6 +56,11 @@ export function buildServiceWeapon(id: string): THREE.Group | undefined {
       box('spade-crossbar', .28, .024, .03, 0, .21, .265);
       for (const x of [-.125, .125]) box('spade-grip', .035, .15, .045, x, .14, .27, polymer);
       box('mount-lug', .09, .09, .12, 0, .14, -.11, dark);
+      const mount = new THREE.Group(); mount.name = `${id}__deployed-mount`; mount.visible = false; root.add(mount);
+      for (const [x, z] of [[-.22, -.3], [.22, -.3], [0, .2]]) {
+        const leg = box('mount-leg', .028, .32, .028, x / 2, -.02, z, dark);
+        leg.rotation.z = -x; mount.attach(leg);
+      }
     } else {
       box('stock', .066, .105, .24, 0, .205, .29, polymer);
       box('buttplate', .075, .13, .025, 0, .2, .418, dark);

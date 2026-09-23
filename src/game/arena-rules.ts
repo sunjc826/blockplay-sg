@@ -1,3 +1,4 @@
+import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage } from './fps-stance';
 import { MARINA_BOUNDS, moveInMarina, type Obstacle } from './marina-collision';
 import { FPS_WEAPONS, type WeaponSpec } from './fps-rules';
 import { getArenaRole, type ArenaRolePlugin } from './arena-roles';
@@ -6,15 +7,15 @@ import { getArenaRole, type ArenaRolePlugin } from './arena-roles';
 export interface ArenaActor {
   id: string; name: string; bot: boolean; x: number; y: number; z: number; yaw: number; pitch: number;
   health: number; armor: number; kills: number; deaths: number; alive: boolean; respawnIn: number; weapon: number;
-  shots: number; role: string;
+  shots: number; role: string; prone?: boolean;
 }
 export interface ArenaFeed { id: string; text: string; killerId?: string; victimId?: string }
 export interface ArenaSnapshot {
   type: 'arena-snapshot'; tick: number; elapsed: number; actors: ArenaActor[];
   feed: ArenaFeed[]; finished: boolean; winner: string;
 }
-export interface ArenaInput { x: number; y: number; z: number; yaw: number; pitch: number; weapon: number; playing: boolean; reloading?: boolean }
-export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload'>;
+export interface ArenaInput { x: number; y: number; z: number; yaw: number; pitch: number; weapon: number; playing: boolean; reloading?: boolean; prone?: boolean }
+export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount'>;
 export interface ArenaPoint { x: number; y: number; z: number }
 export interface ArenaShot { hitId: string | null; killed: boolean; damage: number }
 export interface ArenaVitals { health: number; armor: number }
@@ -67,6 +68,9 @@ function sphereDistance(origin: ArenaPoint, direction: ArenaPoint, center: Arena
   const t = -b - Math.sqrt(determinant); return t >= 0 ? t : Infinity;
 }
 function bodyDistance(origin: ArenaPoint, direction: ArenaPoint, actor: ArenaActor) {
+  if (actor.prone) return Math.min(...[0, .55, 1.1].map(back =>
+    sphereDistance(origin, direction, { x: actor.x + Math.sin(actor.yaw) * back, y: .35, z: actor.z + Math.cos(actor.yaw) * back }, .3)));
+
   return Math.min(...[[0.13, 0.29], [0.62, 0.43], [1.12, 0.4]].map(([offset, radius]) =>
     sphereDistance(origin, direction, { x: actor.x, y: actor.y - offset, z: actor.z }, radius)));
 }
@@ -106,13 +110,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     });
     const preferred = entry.usePlayerSpawn && environment?.playerSpawn && clearSpawn(environment.playerSpawn) ? environment.playerSpawn : undefined;
     const p = preferred ?? positions[0];
-    Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75, health: entry.healthMax, armor: entry.armorMax, alive: true, respawnIn: 0,
+    Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75, health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
       yaw: Number.isFinite(preferred?.yaw) ? preferred!.yaw! : 0, pitch: Number.isFinite(preferred?.pitch) ? clamp(preferred!.pitch!, -1.5, 1.5) : 0 });
     entry.cooldown = entry.weapons.map(() => 0); entry.reload = entry.weapons.map(() => 0); entry.rounds = entry.weapons.map(w => w.capacity);
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false;
   };
   function sanitizeWeapons(weapons: readonly ArenaWeapon[]) {
     return (weapons.length ? weapons : FPS_WEAPONS).slice(0, FPS_WEAPONS.length).map(w => ({
+      requiresMount: w.requiresMount === true,
       damage: Number.isFinite(w.damage) ? clamp(w.damage, 1, 200) : 36,
       interval: Number.isFinite(w.interval) ? clamp(w.interval, 0.06, 3) : 0.12,
       capacity: Number.isFinite(w.capacity) ? Math.floor(clamp(w.capacity, 1, 200)) : 30,
@@ -128,7 +133,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const safeWeapons = sanitizeWeapons(weapons), allowedWeapons = allowedIndexes(safeWeapons, allowed);
     const entry: InternalActor = {
       actor: { id, name: name.trim().slice(0, 24) || 'Player', bot: false, x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0,
-        health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: allowedWeapons[0], shots: 0, role: 'player' },
+        health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: allowedWeapons[0], prone: false, shots: 0, role: 'player' },
       healthMax: 100, armorMax: Number.isFinite(armor) ? clamp(armor, 0, 150) : 0, absorption: Number.isFinite(absorption) ? clamp(absorption, 0, 0.9) : 0,
       weapons: safeWeapons, allowedWeapons, cooldown: [], rounds: [], reload: [], playing: true, movementBudget: 2, wasReloading: false, usePlayerSpawn,
       reaction: 1, target: '', strafe: random() < 0.5 ? -1 : 1, patrol: validSpawns[0], patrolTime: 0,
@@ -174,7 +179,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (![input.yaw, input.pitch].every(Number.isFinite)) return;
     entry.playing = input.playing === true;
     const actor = entry.actor; if (!actor.alive) return;
-    const target = { x: clamp(input.x, bounds.minX + 0.5, bounds.maxX - 0.5), y: clamp(input.y, 1, 90), z: clamp(input.z, bounds.minZ + 0.5, bounds.maxZ - 0.5) };
+    const target = { x: clamp(input.x, bounds.minX + 0.5, bounds.maxX - 0.5), y: clamp(input.y, input.prone === true ? PRONE_EYE_HEIGHT : 1, 90), z: clamp(input.z, bounds.minZ + 0.5, bounds.maxZ - 0.5) };
+    const wasProne = actor.prone;
+    actor.prone = input.prone === true && target.y <= PRONE_EYE_HEIGHT + .02;
+    if (weaponBraced(entry.weapons[actor.weapon], actor.prone, target.y <= PRONE_EYE_HEIGHT + .02)) { target.x = actor.x; target.z = actor.z; }
+    // Eye-height changes are stance changes, not travel that consumes the movement budget.
+    if (actor.prone || wasProne && target.y <= 1.75) actor.y = target.y;
     const travel = distance(actor, target); const scale = travel > 0 ? Math.min(1, entry.movementBudget / travel) : 0;
     const y = actor.y + (target.y - actor.y) * scale;
     const solids = obstacles.filter(o => (o.maxY ?? 200) > Math.min(actor.y, y) - 1.45);
@@ -200,6 +210,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const length = Math.hypot(direction.x, direction.y, direction.z); if (length < 0.5 || length > 1.5) return { ...EMPTY_SHOT };
     const ray = { x: direction.x / length, y: direction.y / length, z: direction.z / length };
     if (entry.rounds[weapon] <= 0) { entry.reload[weapon] = entry.weapons[weapon].reload; return { ...EMPTY_SHOT }; }
+    const recoilDamage = unsupportedRecoilDamage(entry.weapons[weapon], entry.actor.prone === true, entry.actor.y <= PRONE_EYE_HEIGHT + .02);
+    if (recoilDamage) {
+      entry.actor.health = Math.max(0, entry.actor.health - recoilDamage);
+      if (!entry.actor.health) {
+        entry.actor.alive = false; entry.actor.deaths++; entry.actor.respawnIn = ARENA_RESPAWN_SECONDS;
+        announce(`${entry.actor.name} was defeated by unsupported .50 recoil`, undefined, id);
+      }
+    }
     entry.rounds[weapon]--; entry.cooldown[weapon] = entry.weapons[weapon].interval; entry.actor.shots++;
     if (entry.rounds[weapon] === 0) entry.reload[weapon] = entry.weapons[weapon].reload;
     let nearest = Math.min(Number.isFinite(maxDistance) ? clamp(maxDistance, 0, 125) : 0, arenaWallDistance(origin, ray, obstacles)); let victim: InternalActor | undefined;
@@ -230,7 +248,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const target = enemy?.actor ?? { ...entry.patrol, y: 1.75 };
     const dx = target.x - actor.x; const dz = target.z - actor.z; const horizontal = Math.hypot(dx, dz);
     const direction = { x: dx / Math.max(horizontal, 0.01), y: 0, z: dz / Math.max(horizontal, 0.01) };
-    const line = { x: target.x - actor.x, y: target.y - 0.65 - actor.y, z: target.z - actor.z };
+    const line = { x: target.x - actor.x, y: (enemy?.actor.prone ? .35 : target.y - .65) - actor.y, z: target.z - actor.z };
     const length = Math.hypot(line.x, line.y, line.z);
     const ray = { x: line.x / Math.max(length, 0.01), y: line.y / Math.max(length, 0.01), z: line.z / Math.max(length, 0.01) };
     const visible = !!enemy && length < role.sightRange && arenaWallDistance(actor, ray, obstacles) >= length - 0.5;

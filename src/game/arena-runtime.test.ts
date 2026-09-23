@@ -106,7 +106,9 @@ describe('arena runtime authority and renderer bridge', () => {
       const direction = new THREE.Vector3(target.x - shooter.x, target.y - 0.65 - shooter.y, target.z - shooter.z).normalize();
       guest.shoot(shooter, direction, family);
       expect(host.update(0.02, input(-44, 68, true)).self?.health).toBe(Math.max(0, 100 - damage));
-      expect(guest.update(0.02, input(shooter.x, shooter.z, true)).hit?.damage).toBe(damage);
+      const response = guest.update(0.02, input(shooter.x, shooter.z, true));
+      expect(response.hit?.damage).toBe(damage);
+      expect(response.self?.health).toBe(family === 4 ? 80 : 100);
     } finally { host.dispose(); guest.dispose(); }
   });
   it('ignores hidden vehicle geometry and label sprites when firing an authority world-space ray', () => {

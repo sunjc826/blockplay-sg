@@ -1,5 +1,30 @@
 # Blockplay: portable agent handoff
 
+## Base .50 prone mount and unsafe recoil (2026-09-23)
+
+The base CIS 50MG Big Encik now requires a grounded prone mount for safe use.
+Z toggles prone; every touch mode has Prone/Stand, and the keyboard guide/HUD
+explain it. Prone lowers eyes to .55 m; other weapons can crawl at .85 m/s
+before encumbrance, with no sprint/jump. The base .50 auto-deploys its visible
+support and locks movement while prone; stand/crouch or switch weapons to move.
+Tuas Shift and Merlion Roar explicitly remain arcade carryable variants.
+
+An unsupported base shot still fires and consumes ammunition but costs 20 HP,
+bypassing armor. Cooldown/empty/reload failures do not hurt. Five such shots
+defeat a 100 HP player. Range defeat and arena self-death/respawn are handled;
+the host resolves recoil damage and movement locks, not client vitals messages.
+Optional prone network state is validated; prone avatars and horizontal
+hitboxes remain targetable, with bot and pilot aim points following the pose.
+The player pilot automatically braces when firing the base and gets up to move.
+Pause/reset/death/travel clear stance. Shop descriptions document the restriction.
+
+Validation: 800 tests, typecheck and production build pass. Added base/variant
+support, airborne rejection, cooldown safety, armor bypass, host movement lock,
+self-death/respawn, prone hitbox and touch-control tests; guest hit feedback
+also verifies self-damage. Browser checks passed safe mounted bursts, immobility,
+standing defeat, reset, mobile Prone/Stand and safe upright Tuas fire, with zero
+page errors. Desktop/mobile captures inspected. No dependencies changed.
+
 ## GPMG rebalance alongside heavy MG (2026-09-23)
 
 FN MAG base/Chope/Jaga damage is 60/66/70; full damage through 45 m, falling
