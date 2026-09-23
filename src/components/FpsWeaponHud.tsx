@@ -14,7 +14,9 @@ export default function FpsWeaponHud({ hud, weapon, canFight }: { hud: FpsHud; w
   return <div className="fps-weapon-hud" data-sight={magnified ? 'scope' : 'reflex'} data-aiming={hud.aiming} data-reloading={reloading}
     style={{ '--fps-aim': hud.aimProgress, '--fps-spread': `${hud.crosshairSpread}px` } as CSSProperties}>
     {canFight && hud.aimProgress > .02 && <div className="fps-scope fps-sight-vignette" aria-hidden="true" />}
-    {canFight && <div className={`fps-crosshair fps-tactical-crosshair ${hud.aiming ? 'aiming' : ''}`} aria-hidden="true"><i /><i /><i /><i /><b /></div>}
+    {/* The lens owns the ADS reticle. Unmount the hip crosshair before the
+        lens fades in; legacy global ADS styles must not resurrect its bars. */}
+    {canFight && !hud.aiming && hud.aimProgress <= .12 && <div className="fps-crosshair fps-tactical-crosshair" aria-hidden="true"><i /><i /><i /><i /><b /></div>}
     {canFight && hud.hit && <div key={`${hud.shots}-${hud.hits}`} className={`fps-impact-marker ${hud.hitKind === 'kill' ? 'is-kill' : ''}`} aria-hidden="true"><i /><i /><i /><i /></div>}
     {canFight && reloading && <div className="fps-reload-cue" aria-hidden="true"><span>{stage}</span><div><i style={{ width: `${(1 - hud.reloading) * 100}%` }} /></div></div>}
     <div className={`fps-ammo ${hud.magazine === 0 && !reloading ? 'is-empty' : ''}`}>

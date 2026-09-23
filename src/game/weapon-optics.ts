@@ -54,6 +54,16 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
       float r = length(p);
       float aa = max(fwidth(p.x), fwidth(p.y));
       ${magnified ? `
+      // Approximate curved glass at the periphery by resampling the existing
+      // scope image. Keep the central aiming area undistorted.
+      float bend = smoothstep(0.24, 0.49, r);
+      vec2 glassUv = clamp(sightUv - p * bend * 0.075, vec2(0.002), vec2(0.998));
+      #ifdef USE_MAP
+        diffuseColor.rgb = texture2D(map, glassUv).rgb;
+        // A restrained chromatic fringe makes the curved edge read as glass.
+        diffuseColor.r = texture2D(map, clamp(glassUv + p * bend * 0.008, vec2(0.002), vec2(0.998))).r;
+        diffuseColor.b = texture2D(map, clamp(glassUv - p * bend * 0.008, vec2(0.002), vec2(0.998))).b;
+      #endif
       float line = 1.0 - smoothstep(0.003, 0.003 + aa, min(abs(p.x), abs(p.y)));
       line *= 1.0 - smoothstep(0.35, 0.36, r);
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.025, 0.035, 0.028), line);
@@ -69,7 +79,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
       `}
     `);
   };
-  lensMaterial.customProgramCacheKey = () => magnified ? 'scope-reticle-v1' : 'reflex-reticle-v1';
+  lensMaterial.customProgramCacheKey = () => magnified ? 'scope-reticle-v2' : 'reflex-reticle-v1';
   const lensGeometry = new THREE.CircleGeometry(radius, 48); geometry.push(lensGeometry);
   const lens = new THREE.Mesh(lensGeometry, lensMaterial); lens.name = 'fps-scope-lens';
   lens.position.set(0, aimHeight, rearZ + .001); lens.visible = false; group.add(lens);

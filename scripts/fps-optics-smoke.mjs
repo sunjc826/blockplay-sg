@@ -38,9 +38,11 @@ try {
   await wait(`Number(document.querySelector('.fps-viewport canvas').dataset.aimProgress)>.99`);
   await wait(`document.querySelector('.fps-viewport canvas').dataset.scopeActive==='true'`);
   await delay(500); await screenshot('sar-integrated-pip');
+  assert.equal(await evaluate(`!!document.querySelector('.fps-crosshair')`), false, 'ADS must not keep a fixed HUD reticle');
   assert.equal(await evaluate(`document.querySelector('.fps-weapon-hud').dataset.sight`),'scope');
   await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:700,y:550,button:'right',clickCount:1});
-  await delay(600); assert.equal(await evaluate(`document.querySelector('.fps-viewport canvas').dataset.scopeActive`),'false');
+  await wait(`document.querySelector('.fps-viewport canvas').dataset.scopeActive==='false'`);
+  await wait(`!!document.querySelector('.fps-crosshair')`);
   await key('Escape','Escape'); await wait(phase('paused'));
   await click(`document.querySelector('.fps-shop-link')`);
   await wait(`!!document.querySelector('#shop-tab-weapon')`);
