@@ -30,10 +30,12 @@ const PLOT = { w: WIDTH - PAD.left - PAD.right, h: HEIGHT - PAD.top - PAD.bottom
 const RING_DASH = ['', '4 3', '1 3'];
 
 export default function SprayPattern({ weapon, equipped }: { weapon: EquippedWeapon; equipped: EquippedWeapon }) {
+  const rounds = Math.min(SPRAY_ROUNDS, weapon.capacity, equipped.capacity);
+  const sequence = weapon.fireMode === 'semi' ? 'rapid trigger presses' : 'held burst';
   const titleId = useId();
   const [hover, setHover] = useState<number | null>(null);
-  const preview = sprayPattern(weapon);
-  const current = sprayPattern(equipped);
+  const preview = sprayPattern(weapon, rounds);
+  const current = sprayPattern(equipped, rounds);
   const same = weapon.name === equipped.name;
 
   // True aspect, or the rings stop being circles and "inside the target" stops
@@ -51,8 +53,8 @@ export default function SprayPattern({ weapon, equipped }: { weapon: EquippedWea
 
   const series = same ? [{ name: weapon.name, spray: preview, color: SERIES[0] }]
     : [{ name: weapon.name, spray: preview, color: SERIES[0] }, { name: equipped.name, spray: current, color: SERIES[1] }];
-  const at = hover === null ? null : Math.max(1, Math.min(SPRAY_ROUNDS, hover));
-  const landed = (spray: { cloud: SprayShot[] }, range: number) => Math.round(sprayAccuracy(spray.cloud, range) * SPRAY_ROUNDS);
+  const at = hover === null ? null : Math.max(1, Math.min(rounds, hover));
+  const landed = (spray: { cloud: SprayShot[] }, range: number) => Math.round(sprayAccuracy(spray.cloud, range) * rounds);
   const move = (event: React.PointerEvent<SVGSVGElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
     const local = ((event.clientY - box.top) / box.height) * HEIGHT;
@@ -62,17 +64,17 @@ export default function SprayPattern({ weapon, equipped }: { weapon: EquippedWea
   };
 
   return <figure className="armory-curve armory-spray" aria-labelledby={titleId}>
-    <figcaption id={titleId}>{at ? `Round ${at} of a held burst` : `Spray pattern · ${SPRAY_ROUNDS} rounds held · target at ${SPRAY_RANGES.join(' / ')} m`}</figcaption>
+    <figcaption id={titleId}>{at ? `Round ${at} · ${sequence}` : `Spray pattern · ${rounds} rounds · ${sequence} · target at ${SPRAY_RANGES.join(' / ')} m`}</figcaption>
     {/* The legend doubles as the readout, so nothing ever covers the pattern,
         and identity is never carried by hue alone. */}
     <div className="armory-curve-legend">
       {series.map(s => <span key={s.name}>
         <i style={{ background: s.color }} aria-hidden="true" />{s.name}
-        <b>{at ? `${s.spray.mean[at - 1].y.toFixed(1)}° high` : `${landed(s.spray, SPRAY_RANGES[0])}/${SPRAY_ROUNDS} on target at ${SPRAY_RANGES[0]} m`}</b>
+        <b>{at ? `${s.spray.mean[at - 1].y.toFixed(1)}° high` : `${landed(s.spray, SPRAY_RANGES[0])}/${rounds} on target at ${SPRAY_RANGES[0]} m`}</b>
       </span>)}
     </div>
     <div className="armory-curve-plot">
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={`Spray pattern for ${series.map(s => s.name).join(' and ')}: where ${SPRAY_ROUNDS} held rounds land relative to the point of aim, over targets at ${SPRAY_RANGES.join(', ')} metres.`}
+      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={`Spray pattern for ${series.map(s => s.name).join(' and ')}: where ${rounds} rounds from ${sequence} land relative to the point of aim, over targets at ${SPRAY_RANGES.join(', ')} metres.`}
         onPointerMove={move} onPointerLeave={() => setHover(null)}>
         {/* The point of aim, and the target around it at each range. */}
         <line x1={x(0)} x2={x(0)} y1={PAD.top} y2={PAD.top + PLOT.h} stroke="#ffffff" strokeOpacity=".08" />
@@ -101,11 +103,11 @@ export default function SprayPattern({ weapon, equipped }: { weapon: EquippedWea
       </svg>
     </div>
     <table className="armory-curve-table">
-      <caption>Rounds of a {SPRAY_ROUNDS}-round held burst that land on a target, by range</caption>
+      <caption>Rounds of a {rounds}-round sequence ({sequence}) that land on a target, by range</caption>
       <thead><tr><th scope="col">Range</th>{series.map(s => <th scope="col" key={s.name}>{s.name}</th>)}</tr></thead>
       <tbody>{SPRAY_RANGES.map(range => <tr key={range}>
         <th scope="row">{range} m</th>
-        {series.map(s => <td key={s.name}>{landed(s.spray, range)} of {SPRAY_ROUNDS} on target</td>)}
+        {series.map(s => <td key={s.name}>{landed(s.spray, range)} of {rounds} on target</td>)}
       </tr>)}</tbody>
     </table>
   </figure>;

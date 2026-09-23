@@ -1,3 +1,4 @@
+import { buildServiceWeapon } from '../game/service-weapon-models';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -8,6 +9,8 @@ import type { ShopItem } from '../game/armory-catalog';
 import type { EquippedWeapon } from '../game/armory-state';
 import { armorModel, disposeModel, dressWeapon } from '../game/armory-visuals';
 import { weaponHardware } from '../game/weapon-hardware';
+
+const buildServiceWeaponId = (id: string) => ['p30-inspired', 'mag-inspired', 'cis50-inspired'].includes(id);
 
 export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item: ShopItem; weapon: EquippedWeapon; vehicle?: VehicleKind }) {
   const host = useRef<HTMLDivElement>(null);
@@ -38,10 +41,11 @@ export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item:
       root.position.sub(center); scene.add(root);
       const armor = item.category === 'rig' || item.category === 'plate';
       if (item.category === 'vehicleSkin') { const scale = vehicle === 'car' ? .22 : .10; root.scale.setScalar(scale); root.position.multiplyScalar(scale); }
-      camera.position.set(armor ? .68 : .92, armor ? .3 : .30, armor ? 1.3 : .34); controls.target.set(0, 0, 0); controls.update(); setStatus('');
+      camera.position.set(armor ? .68 : .92, armor ? .3 : .30, armor ? 1.3 : .34); if (!armor && item.category !== 'vehicleSkin') { const size = bounds.getSize(new THREE.Vector3()).length(); camera.position.multiplyScalar(Math.max(.45, size / .85)); controls.minDistance = Math.max(.25, size * .6); } controls.target.set(0, 0, 0); controls.update(); setStatus('');
     };
     if (item.category === 'vehicleSkin') mount(buildVehicleModel(vehicle, item.id));
     else if (item.category === 'rig' || item.category === 'plate') mount(armorModel(item));
+    else if (buildServiceWeaponId(JSON.parse(signature).id)) mount(buildServiceWeapon(JSON.parse(signature).id)!);
     else void new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/field-kit/${JSON.parse(signature).id}.glb`).then(gltf => mount(gltf.scene)).catch(() => { if (!disposed) setStatus('Preview failed to load.'); });
     const render = () => { if (disposed) return; controls.update(); renderer.render(scene, camera); frame = requestAnimationFrame(render); }; render();
     return () => { disposed = true; cancelAnimationFrame(frame); observer.disconnect(); controls.dispose(); undress?.(); if (model) disposeModel(model); renderer.dispose(); renderer.domElement.remove(); };

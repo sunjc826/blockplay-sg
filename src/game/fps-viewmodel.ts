@@ -1,3 +1,4 @@
+import { FPS_WEAPONS } from './fps-rules';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { reloadMotion } from './fps-weapon-motion';
@@ -33,17 +34,25 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   right.position.set(.028, index ? -.015 : -.029, index ? .17 : .01); right.rotation.set(-.20, .12, -.12);
   const support = new THREE.Vector3(-.033, index ? .072 : .085, index ? -.205 : -.16);
   const magazineGrip = new THREE.Vector3(-.033, index ? -.014 : -.050, index ? .008 : .245);
-  const magazine = model.getObjectByName(`${index ? 'ultimax' : 'sar21'}-inspired__magazine`);
+  const magazine = model.getObjectByName(`${FPS_WEAPONS[index].id}__magazine`);
+  if (index === 2) { right.position.set(.026, .11, .075); support.set(-.032, .1, .06); magazineGrip.set(-.025, .075, .09); }
+  if (index === 3) { right.position.set(.03, .055, .15); support.set(-.04, .125, -.25); magazineGrip.set(-.12, .07, .015); }
+  if (index === 4) { right.position.set(.115, .1, .23); support.set(-.115, .1, .23); magazineGrip.set(-.15, .12, -.03); }
   const magazineHome = magazine?.position.clone() ?? new THREE.Vector3();
   const magazineRotation = magazine?.rotation.clone() ?? new THREE.Euler();
   // Animated control is decorative; gameplay ammunition remains owned by weapon rules.
   const control = box(additions, .023, .014, .025, .049, index ? .211 : .257, index ? .05 : .10, steel);
+  if (index === 2) { control.scale.setScalar(.4); control.position.set(.026, .171, .05); }
+  if (index >= 3) control.position.set(index === 4 ? .095 : .063, FPS_WEAPONS[index].sightHeight - .07, .04);
+  const cover = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__feed-cover`) : undefined;
+  const coverHome = cover?.rotation.clone();
   const controlZ = control.position.z;
   return {
-    get aimHeight() { return getWeaponSight(model)?.aimHeight ?? .328; },
-    get aimDepth() { return getWeaponSight(model)?.aimDepth ?? -.36; },
+    get aimHeight() { return getWeaponSight(model)?.aimHeight ?? FPS_WEAPONS[index].sightHeight; },
+    get aimDepth() { return getWeaponSight(model)?.aimDepth ?? (index === 2 ? -.52 : index === 3 ? -.90 : index === 4 ? -.85 : -.36); },
     update(progress: number | null, empty: boolean) {
       const motion = reloadMotion(progress ?? 0);
+      if (cover && coverHome) { cover.rotation.copy(coverHome); cover.rotation.x -= motion.handToMagazine * .9; }
       if (magazine) {
         magazine.position.copy(magazineHome); magazine.position.y -= motion.magazineDrop;
         magazine.rotation.copy(magazineRotation); magazine.rotation.z += motion.magazineDrop * -.35;

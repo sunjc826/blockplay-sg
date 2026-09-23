@@ -38,6 +38,21 @@ const ANCHORS: Record<string, Anchors> = {
     rear: { y: .118, z: .528, width: .062, height: .162 },
     magazine: { name: 'ultimax-inspired__magazine', drum: true, bottom: .013, width: .199, depth: .117, face: .069, band: .062 },
   },
+  'p30-inspired': {
+    axisY: .197, barrel: { from: -.101, to: -.12, radius: .012 }, muzzle: -.13, gas: -.04,
+    rear: { y: .2, z: .095, width: .048, height: .04 },
+    magazine: { name: 'p30-inspired__magazine', drum: false, bottom: -.006, width: .041, depth: .057, face: 0, band: 0 },
+  },
+  'mag-inspired': {
+    axisY: .22, barrel: { from: -.35, to: -.65, radius: .016 }, muzzle: -.71, gas: -.36,
+    rear: { y: .2, z: .434, width: .075, height: .13 },
+    magazine: { name: 'mag-inspired__magazine', drum: false, bottom: -.08, width: .13, depth: .18, face: 0, band: 0 },
+  },
+  'cis50-inspired': {
+    axisY: .25, barrel: { from: -.28, to: -.89, radius: .026 }, muzzle: -.95, gas: -.3,
+    rear: { y: .25, z: .251, width: .16, height: .10 },
+    magazine: { name: 'cis50-inspired__magazine', drum: false, bottom: -.08, width: .18, depth: .18, face: 0, band: 0 },
+  },
 };
 
 /** Shared by the shop preview and the viewmodel: one group per weapon, fully reversible. */

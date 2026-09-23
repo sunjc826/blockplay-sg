@@ -1,3 +1,4 @@
+import { validWeaponIndex } from './fps-rules';
 import * as THREE from 'three';
 import { createArena, type ArenaActor, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaShot, type ArenaSnapshot, type ArenaVitals } from './arena-rules';
 import { createProfile, resolveLoadout, restoreProfile, type ArmoryProfile } from './armory-state';
@@ -18,7 +19,7 @@ const finite = (value: unknown): value is number => typeof value === 'number' &&
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 export function validArenaInput(value: unknown): value is ArenaInput {
   return object(value) && ['x', 'y', 'z', 'yaw', 'pitch'].every(key => finite(value[key])) &&
-    (value.weapon === 0 || value.weapon === 1) && typeof value.playing === 'boolean' &&
+    validWeaponIndex(value.weapon) && typeof value.playing === 'boolean' &&
     (value.reloading === undefined || typeof value.reloading === 'boolean');
 }
 export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironment): value is ArenaSnapshot {
@@ -28,7 +29,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
   for (const actor of value.actors) {
     if (!object(actor) || typeof actor.id !== 'string' || actor.id.length > 100 || ids.has(actor.id) || typeof actor.name !== 'string' || actor.name.length > 24 ||
       !['x', 'y', 'z', 'yaw', 'pitch', 'health', 'armor', 'kills', 'deaths', 'respawnIn', 'shots', 'weapon'].every(key => finite(actor[key])) ||
-      typeof actor.alive !== 'boolean' || typeof actor.bot !== 'boolean' || typeof actor.role !== 'string' || actor.role.length > 32 ||
+      !validWeaponIndex(actor.weapon) || typeof actor.alive !== 'boolean' || typeof actor.bot !== 'boolean' || typeof actor.role !== 'string' || actor.role.length > 32 ||
       (actor.x as number) < (environment?.bounds.minX ?? -500) || (actor.x as number) > (environment?.bounds.maxX ?? 500) ||
       (actor.z as number) < (environment?.bounds.minZ ?? -500) || (actor.z as number) > (environment?.bounds.maxZ ?? 500) || (actor.y as number) < 0 || (actor.y as number) > 100 ||
       (actor.health as number) < 0 || (actor.health as number) > 300 || (actor.armor as number) < 0 || (actor.armor as number) > 150) return false;
@@ -143,8 +144,8 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         const loadout = resolveLoadout(restoreProfile(raw));
         simulation.addPlayer(from, peer.name, loadout.armor, loadout.absorption, loadout.weapons); registered.add(from); publish();
       } else if (registered.has(from) && payload.type === 'arena-input' && validArenaInput(payload.input)) simulation.setInput(from, payload.input);
-      else if (registered.has(from) && payload.type === 'arena-reload' && (payload.weapon === 0 || payload.weapon === 1)) simulation.reloadPlayer(from, payload.weapon);
-      else if (registered.has(from) && started && payload.type === 'arena-shot' && point(payload.origin) && point(payload.direction) && (payload.weapon === 0 || payload.weapon === 1)) {
+      else if (registered.has(from) && payload.type === 'arena-reload' && validWeaponIndex(payload.weapon)) simulation.reloadPlayer(from, payload.weapon);
+      else if (registered.has(from) && started && payload.type === 'arena-shot' && point(payload.origin) && point(payload.direction) && validWeaponIndex(payload.weapon)) {
         const hit = simulation.shoot(from, payload.origin, payload.direction, payload.weapon, coverLimit(payload.origin, payload.direction, finite(payload.maxDistance) ? payload.maxDistance : 125));
         session.send({ type: 'arena-hit', hit }, from); publish();
       }

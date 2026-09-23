@@ -1,9 +1,10 @@
+import { buildServiceWeapon } from './service-weapon-models';
 import { impactSurfaceNormal } from './fps-impact-normal';
 import * as THREE from 'three';
 import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook, clampFpsPitch } from './fps-pointer';
 import { dragLook, resolveMovement, stickKeys, type StickVector } from './touch-controls';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { advanceWeapon, beginReload, createLoadout, findTrait, fireWeapon, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponState } from './fps-rules';
+import { advanceWeapon, beginReload, createLoadout, findTrait, fireWeapon, validWeaponIndex, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponState } from './fps-rules';
 import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { sectorAt, zoneSectors } from './zone-sectors';
 import { advanceRound, createRound, needsFlight, skipRound, MAX_ROUNDS_IN_FLIGHT, MAX_SKIPS, type InFlightRound } from './fps-projectiles';
@@ -125,9 +126,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const scopeRenderer = createScopeRenderer(renderer);
   const rig = new THREE.Group(); viewScene.add(rig);
   const loader = new GLTFLoader(), templates: THREE.Group[] = [], weapons: THREE.Group[] = [];
-  const handling: ReturnType<typeof createWeaponHandling>[] = [], emptyReload = [false, false];
+  const handling: ReturnType<typeof createWeaponHandling>[] = [], emptyReload = specs.map(() => false);
   let aimProgress = 0, lastReloadStage = '';
-  const bloom = [createWeaponBloom(), createWeaponBloom()];
+  const bloom = specs.map(() => createWeaponBloom());
   let spreadAngle = .005;
   const shotRight = new THREE.Vector3(), shotUp = new THREE.Vector3();
   const targets: { root: THREE.Group; hitZone: THREE.Mesh; alive: boolean; health: number; maxHealth: number; bar: THREE.Mesh }[] = [];
@@ -170,6 +171,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const healthGeometry = new THREE.PlaneGeometry(.54, .055), healthMaterial = new THREE.MeshBasicMaterial({ color: "#e1a74e", side: THREE.DoubleSide });
   let disposed = false, loadout = createLoadout(specs), position = { x: spawn.x, z: spawn.z };
   let yaw: number = spawn.yaw, pitch: number = spawn.pitch, vertical = 0, velocityY = 0;
+  let triggerSpent = false;
   let trigger = false, ads = false, touchAim = false, actualAim = false, bob = 0, hitTime = 0;
   // Two-stage recoil: see fps-recoil. The view still couples through the same
   // scale the old scalar did, so a burst costs the aim it always did.
@@ -214,7 +216,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       ],
     });
   };
-  const clearInput = () => { keys.clear(); trigger = false; ads = false; touchAim = false; drag = null; moveStick = null; };
+  const clearInput = () => { keys.clear(); trigger = false; triggerSpent = false; ads = false; touchAim = false; drag = null; moveStick = null; };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -320,9 +322,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
   }
   function switchWeapon(index: number) {
-    if (hud.phase === 'loading' || hud.phase === 'error' || index === hud.weapon || index < 0 || index >= FPS_WEAPONS.length) return;
+    if (hud.phase === 'loading' || hud.phase === 'error' || index === hud.weapon || !validWeaponIndex(index)) return;
     loadout[hud.weapon].reloadRemaining = 0;
-    trigger = false; ads = false; touchAim = false; resetRecoil(kick);
+    trigger = false; triggerSpent = false; ads = false; touchAim = false; resetRecoil(kick);
     hud.weapon = index; weapons.forEach((w, i) => w.visible = i === index);
     if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
     effects.attachMuzzle(weapons[index]?.getObjectByName(`${FPS_WEAPONS[index].id}__socket_muzzle`));
@@ -385,9 +387,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (nearest.kind === 'medical' && hud.health >= hud.maxHealth) { hud.lootNotice = `Health is full. ${nearest.name} remains here.`; lootNoticeTime = 3; publish(); return; }
     if (nearest.kind === 'ammo' && loadout[hud.weapon].reserve >= 999) { hud.lootNotice = 'Ammunition reserve is full.'; lootNoticeTime = 3; publish(); return; }
     const item = nearest.catalogId ? itemById(nearest.catalogId) : undefined;
-    if ((nearest.kind === 'weapon' && (!item || item.category !== 'weapon' || (item.family !== 0 && item.family !== 1))) || (nearest.kind === 'armor' && item?.category !== 'plate')) return;
+    if ((nearest.kind === 'weapon' && (!item || item.category !== 'weapon' || !validWeaponIndex(item.family))) || (nearest.kind === 'armor' && item?.category !== 'plate')) return;
     const collected = expedition.loot.collect(expedition.zone, nearest.id, position); if (!collected) return;
-    if (collected.kind === 'weapon' && item && (item.family === 0 || item.family === 1)) {
+    if (collected.kind === 'weapon' && item && validWeaponIndex(item.family)) {
       const family = item.family, changed = fieldProfile.guns[family].variant !== item.id;
       const next = copyProfile(fieldProfile); next.owned = [...new Set([...next.owned, item.id])]; next.guns[family].variant = item.id;
       fieldProfile = next; equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
@@ -452,7 +454,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function jump() { if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && vertical === 0 && !keys.has('c')) velocityY = 5.2 * jumpScale(equipment.mobility); } }
   function setInput(key: string, held: boolean) {
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) return;
-    if (key === 'fire') trigger = held && !vehicles.active;
+    if (key === 'fire') { trigger = held && !vehicles.active; if (!trigger) triggerSpent = false; }
     else if (held) keys.add(key); else keys.delete(key);
   }
   /** Analog movement from the left thumb stick; a null or centred stick hands control back to the keys. */
@@ -487,7 +489,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (pilotEnabled || hud.phase !== 'playing' || vehicles.active || hud.arenaSelf?.alive === false || loadout[hud.weapon].reloadRemaining > 0) return;
     touchAim = !touchAim; canvas.focus({ preventScroll: true }); publish();
   }
-  const keyboardKeys = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', ' ', 'r', 'q', 'g', '1', '2', 'e', 'n', 't', 'f', 'control', 'escape'];
+  const keyboardKeys = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', ' ', 'r', 'q', 'g', '1', '2', '3', '4', '5', 'e', 'n', 't', 'f', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
     if (key === 'f' && !event.repeat) { event.preventDefault(); options.onFullscreen?.(); return; }
@@ -501,7 +503,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     else if (key === 't') { if (!event.repeat) travelZone(); }
     else if (key === 'r') reload();
     else if (key === 'g') { if (!event.repeat) useQuickItem(); }
-    else if (key === '1' || key === '2') switchWeapon(Number(key) - 1);
+    else if (/^[1-5]$/.test(key)) switchWeapon(Number(key) - 1);
     else if (key === ' ') { if (vehicles.active) keys.add(' '); else if (!event.repeat) jump(); }
     else keys.add(key);
   };
@@ -532,7 +534,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   };
   const mouseup = (event: MouseEvent) => {
     if (pilotEnabled || document.pointerLockElement !== canvas) return;
-    if (event.button === 0) trigger = false;
+    if (event.button === 0) { trigger = false; triggerSpent = false; }
     if (event.button === 2) ads = false;
   };
   const pointerdown = (event: PointerEvent) => {
@@ -556,7 +558,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const pointerup = (event: PointerEvent) => {
     if (drag?.id === event.pointerId) drag = null;
   };
-  const releasePointer = () => { trigger = false; ads = false; drag = null; };
+  const releasePointer = () => { trigger = false; triggerSpent = false; ads = false; drag = null; };
   const lockchange = () => {
     const locked = document.pointerLockElement === canvas;
     if (locked && capturePending) enterPlay();
@@ -689,7 +691,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const aiming = (ads || touchAim) && !sprinting && loadout[hud.weapon].reloadRemaining === 0;
     actualAim = aiming;
     // Heavier carry costs time to settle the sights as well as ground speed.
-    aimProgress = THREE.MathUtils.damp(aimProgress, aiming ? 1 : 0, 15 * (aiming ? aimSpeedScale(equipment.mobility) : 1), dt);
+    aimProgress = THREE.MathUtils.damp(aimProgress, aiming ? 1 : 0, 15 * (aiming ? aimSpeedScale(equipment.mobility) * Math.min(1.15, specs[hud.weapon].mobility) : 1), dt);
     const aim = smoothStep(aimProgress);
     rig.visible = !options.arena || hud.arenaSelf?.alive !== false;
     const crouching = keys.has('c');
@@ -894,12 +896,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (struck) { checkCompletion(); publish(); }
   }
   function shoot() {
-    if (vehicles.active || (options.arena && !hud.arenaSelf?.alive) || !fireWeapon(loadout[hud.weapon], hud.weapon, specs)) return;
+    if ((!pilotEnabled && specs[hud.weapon].fireMode === 'semi' && triggerSpent) || vehicles.active || (options.arena && !hud.arenaSelf?.alive) || !fireWeapon(loadout[hud.weapon], hud.weapon, specs)) return;
     hud.shots++; shotSound();
     world.scene.updateMatrixWorld(true); ray.setFromCamera(center, camera);
     const dispersion = sampleShotSpread(spreadAngle);
     shotRight.set(1, 0, 0).applyQuaternion(camera.quaternion); shotUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
     ray.ray.direction.addScaledVector(shotRight, dispersion.x).addScaledVector(shotUp, dispersion.y).normalize();
+    triggerSpent = true;
     recordBloomShot(bloom[hud.weapon], hud.weapon);
     const muzzle = weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_muzzle`);
     if (muzzle) { muzzle.getWorldPosition(muzzlePoint); camera.localToWorld(muzzlePoint); }
@@ -1004,7 +1007,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
             return { magazine: Number.isFinite(carried.magazine) ? Math.max(0, Math.min(specs[index].capacity, Math.floor(carried.magazine))) : fresh.magazine,
               reserve: Number.isFinite(carried.reserve) ? Math.max(0, Math.min(999, Math.floor(carried.reserve))) : fresh.reserve, cooldown: 0, reloadRemaining: 0 };
           });
-          hud.weapon = checkpointPending.weapon === 1 ? 1 : 0; checkpointPending = undefined;
+          hud.weapon = validWeaponIndex(checkpointPending.weapon) ? checkpointPending.weapon : 0; checkpointPending = undefined;
           weapons.forEach((weapon, index) => weapon.visible = index === hud.weapon);
           effects.attachMuzzle(weapons[hud.weapon]?.getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_muzzle`));
           effects.setStyles(weaponStyles, hud.weapon);
@@ -1142,7 +1145,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     return gltf.scene;
   })).then(loaded => {
     if (disposed) return;
-    weapons.push(loaded[0], loaded[1]); weapons.forEach((w, i) => { undress.push(dressWeapon(w, specs[i])); handling.push(createWeaponHandling(w, i)); rig.add(w); w.visible = i === 0; });
+    weapons.push(loaded[0], loaded[1], ...FPS_WEAPONS.slice(2).map(spec => {
+      const model = buildServiceWeapon(spec.id)!; templates.push(model); return model;
+    })); weapons.forEach((w, i) => { undress.push(dressWeapon(w, specs[i])); handling.push(createWeaponHandling(w, i)); rig.add(w); w.visible = i === 0; });
     effects.attachMuzzle(weapons[0].getObjectByName('sar21-inspired__socket_muzzle'));
     if (!options.arena) targetPositions.forEach((p, i) => {
       const root = new THREE.Group(); root.position.set(p.x, 0.13, p.z);

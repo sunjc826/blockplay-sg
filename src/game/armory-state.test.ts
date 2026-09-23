@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { aimSpeedScale, applyArmorDamage, claimElimination, claimReward, collectTraits, consumeItem, isEquipped, jumpScale, slotIsFitted, createProfile, equip, previewLoadout, purchase, purchaseFromVendor, purchaseLevel, resolveLoadout, restoreProfile, type ArmoryProfile, type ExerciseReward } from './armory-state';
 import { ARMORY_CATALOG, CONSUMABLE_LIMIT, itemById } from './armory-catalog';
 import { levelSkip, MAX_LEVEL, MIN_SKIP_PRICE, progression, registerElimination, skipCostFrom, skipCostToLevel, xpForLevel } from './progression';
-import { advanceWeapon, beginReload, createLoadout, findTrait, FPS_WEAPONS, hitDamage, type WeaponTrait } from './fps-rules';
+import { advanceWeapon, beginReload, createLoadout, findTrait, DEFAULT_VARIANTS, FPS_WEAPONS, hitDamage, type WeaponTrait } from './fps-rules';
 import { HITSCAN } from './fps-ballistics';
 const veteran = () => ({ ...createProfile(), xp: 5000, credits: 10000, tokens: 1000 });
 const unlock = (id: string) => purchase(veteran(), id).profile;
@@ -253,7 +253,7 @@ describe('fixed weapon configurations', () => {
     expect(restored.credits).toBe(profile.credits); expect(restored.tokens).toBe(profile.tokens);
     expect(restored.xp).toBe(profile.xp); expect(restored.guns[0].variant).toBe('sar-marksman');
     expect(restored.owned).toEqual(profile.owned.filter(id => !retired.includes(id)));
-    expect(restored.guns.map(gun => gun.attachments)).toEqual([{}, {}]);
+    expect(restored.guns.map(gun => gun.attachments)).toEqual(FPS_WEAPONS.map(() => ({})));
     expect(restoreProfile(JSON.stringify(restored))).toEqual(restored);
   });
   it('ignores injected attachments in gameplay and previews for every variant', () => {
@@ -268,7 +268,7 @@ describe('fixed weapon configurations', () => {
       expect(resolveLoadout(dirty)).toEqual(expected);
       expect(previewLoadout(dirty, item, family)).toEqual(expected);
       expect(dirty.guns[family].attachments.magazine).toBe('mag-fragmenting');
-      const issued = equip(dirty, family === 0 ? 'sar-issued' : 'ult-issued', family);
+      const issued = equip(dirty, DEFAULT_VARIANTS[family], family);
       expect(resolveLoadout(issued).weapons[family].traits).toEqual(FPS_WEAPONS[family].traits);
     }
   });

@@ -6,7 +6,7 @@ import { createProfile, equip, resolveLoadout } from './armory-state';
 describe('weapon ladder breakpoints', () => {
   const rows = analyseBreakpoints();
   it('measures each paid tier against the one below it on its own platform', () => {
-    expect(rows.filter(row => row.previous === null).map(row => row.name)).toEqual(['SAR 21 · BMT', 'Ultimax · Sai Kang']);
+    expect(rows.filter(row => row.previous === null).map(row => row.name)).toEqual(['SAR 21 · BMT', 'Ultimax · Sai Kang', 'P30 · Provost', 'FN MAG · Carry On', 'CIS 50MG · Big Encik']);
     for (const row of rows.filter(r => r.previous)) expect(row.gains).not.toBeNull();
   });
   it('never lets a paid tier remove no shot at all', () => {

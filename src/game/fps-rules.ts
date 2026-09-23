@@ -1,6 +1,6 @@
 /** Arcade tuning, intentionally independent of real equipment specifications. */
 import { falloffScale, HITSCAN, type BallisticSpec } from './fps-ballistics';
-export type WeaponOptic = 'integrated' | 'reflex' | 'precision';
+export type WeaponOptic = 'integrated' | 'reflex' | 'precision' | 'iron';
 export const HIP_FOV = 65;
 export const magnifiedFov = (zoom: number) => 2 * Math.atan(Math.tan(HIP_FOV * Math.PI / 360) / zoom) * 180 / Math.PI;
 export const opticMagnification = (weapon: WeaponSpec) => Math.tan(HIP_FOV * Math.PI / 360) / Math.tan(weapon.aimFov * Math.PI / 360);
@@ -31,7 +31,7 @@ export function findTrait<K extends WeaponTraitKind>(traits: readonly WeaponTrai
  * fast it comes back, as a multiple of the baseline settle rate. See
  * `fps-recoil` for why a kick needs both numbers rather than one.
  */
-export interface WeaponSpec { caliberMm: number; id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; recoilRecovery: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
+export interface WeaponSpec { fireMode?: 'auto' | 'semi'; caliberMm: number; id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; recoilRecovery: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
 export const FPS_WEAPONS: readonly WeaponSpec[] = [
   // The rifle holds its damage to twice the support weapon's range; the support
   // weapon trades that away for its volume of fire. Paid variants lift both bands.
@@ -41,7 +41,18 @@ export const FPS_WEAPONS: readonly WeaponSpec[] = [
     traits: [{ kind: 'falloff', near: 30, far: 90, minScale: 0.55 }, { kind: 'precision', multiplier: 1.6 }] },
   { caliberMm: 5.56, id: 'ultimax-inspired', name: 'Ultimax', role: 'Support weapon', capacity: 60, reserve: 180, interval: 0.085, reload: 2.5, recoil: 0.026, recoilRecovery: 0.85, sightHeight: 0.28, damage: 30, aimFov: HIP_FOV, mobility: 1, optic: 'reflex', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 14, far: 45, minScale: 0.40 }, { kind: 'precision', multiplier: 1.5 }] },
+  { caliberMm: 9, id: 'p30-inspired', name: 'P30', role: 'Semi-auto pistol', fireMode: 'semi', capacity: 15, reserve: 60, interval: .22, reload: 1.25, recoil: .022, recoilRecovery: 1.35, sightHeight: .232, damage: 28, aimFov: HIP_FOV, mobility: 1.14, optic: 'iron', ballistics: HITSCAN,
+    traits: [{ kind: 'falloff', near: 12, far: 42, minScale: .35 }, { kind: 'precision', multiplier: 1.8 }] },
+  { caliberMm: 7.62, id: 'mag-inspired', name: 'FN MAG', role: 'General-purpose MG', capacity: 100, reserve: 200, interval: .10, reload: 4.6, recoil: .037, recoilRecovery: .8, sightHeight: .305, damage: 44, aimFov: HIP_FOV, mobility: .78, optic: 'iron', ballistics: HITSCAN,
+    traits: [{ kind: 'falloff', near: 40, far: 110, minScale: .65 }, { kind: 'precision', multiplier: 1.5 }] },
+  { caliberMm: 12.7, id: 'cis50-inspired', name: 'CIS 50MG', role: 'Heavy machine gun', capacity: 50, reserve: 100, interval: .14, reload: 5.8, recoil: .064, recoilRecovery: .65, sightHeight: .34, damage: 72, aimFov: HIP_FOV, mobility: .55, optic: 'iron', ballistics: HITSCAN,
+    traits: [{ kind: 'falloff', near: 55, far: 140, minScale: .75 }, { kind: 'precision', multiplier: 1.4 }] },
 ];
+
+/** Stable family indexes are shared by saves, keyboard shortcuts and LAN packets. */
+export const validWeaponIndex = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < FPS_WEAPONS.length;
+export const DEFAULT_VARIANTS = ['sar-issued', 'ult-issued', 'p30-issued', 'mag-issued', 'cis50-issued'] as const;
 
 export interface WeaponState { magazine: number; reserve: number; cooldown: number; reloadRemaining: number }
 export const createLoadout = (weapons = FPS_WEAPONS): WeaponState[] => weapons.map(w => ({ magazine: w.capacity, reserve: w.reserve, cooldown: 0, reloadRemaining: 0 }));

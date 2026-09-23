@@ -1,5 +1,34 @@
 # Blockplay: portable agent handoff
 
+**Latest: P30, GPMG and heavy-MG classes (2026-09-23).** Added HK P30-inspired
+9 mm semi-auto, FN MAG-inspired 7.62 mm GPMG and CIS/STK 50MG-inspired 12.7 mm
+heavy MG. User explicitly chose P30 instead of the proposed Glock; no Glock
+entries remain. Public service references and arcade concessions are in
+`docs/SERVICE-WEAPONS.md`. Each family has a free baseline, credit variant and
+premium variant, extending purchases through level 32 (17 total variants).
+Fixed configurations, local names/flavor and no-refund migration remain.
+
+Family indexes 0/1 stay stable; 2=P30, 3=MAG, 4=CIS50. Profiles now use an array,
+with DEFAULT_VARIANTS supplying missing slots to v1 saves. Keyboard 1–5, touch
+Swap, field loot, travel checkpoints, LAN validation and host weapon limits all
+support five families. Existing bots retain their role weapons; the pilot action
+validator accepts every family. Pistol trigger latches once per press on mouse
+and touch; the pilot may re-press at the cooldown rate. New calibers feed the
+existing impact profile, so bore controls width and damage controls smoke/depth.
+
+`service-weapon-models.ts` provides authored low-poly geometry shared by shop and
+FPS, with iron sights, named effect/reload nodes, class-specific hand/aim poses
+and belt-cover animation. Existing two GLBs and range prop indexes are intact.
+Heavy MG is explicitly an arcade carryable version of a normally mounted weapon.
+
+Verified: 779 tests, typecheck and production build pass. Headless SwiftShader
+checked actual P30 hold/release firing, keys 3–5, automatic MG fire, all three
+reloads and ADS; no browser/shader errors. Inspected shop previews at desktop
+and 390px mobile (no horizontal overflow). New tests cover old-save migration,
+purchase gates, fixed variants, calibers/effects and guest shots for all families.
+No added dependencies, reconstruction captures, or generated images.
+
+
 **Latest: normal-mapped, parameterized impacts (2026-09-23).** Bullet holes now
 use procedural paired colour/normal maps, lit by the world, with per-instance
 normal strength, cavity occlusion and fading. Width follows `caliberMm`; apparent

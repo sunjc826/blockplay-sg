@@ -1,3 +1,4 @@
+import { validWeaponIndex } from './fps-rules';
 import { ARMORY_CATALOG, itemById, type ShopItem } from './armory-catalog';
 import { resolveLoadout, type ArmoryProfile, type GunEquipment } from './armory-state';
 import type { Obstacle } from './marina-collision';
@@ -80,7 +81,7 @@ export function rollZoneWeapon(zoneId: WorldZoneId, random: () => number, tierBi
   const { elite, field } = biasedChances(rules, tierBias);
   const roll = random();
   const tier: ShopItem['tier'] = roll < elite ? 'Elite' : roll < elite + field ? 'Field' : 'Issued';
-  return choose(ARMORY_CATALOG.filter(item => item.category === 'weapon' && item.tier === tier && (item.family === 0 || item.family === 1)), random);
+  return choose(ARMORY_CATALOG.filter(item => item.category === 'weapon' && item.tier === tier && validWeaponIndex(item.family)), random);
 }
 
 function rollTier(rules: ZoneLootRules, random: () => number, tierBias: -1 | 0 | 1): ShopItem['tier'] {
@@ -219,12 +220,12 @@ export function createExpeditionLoot(seed: string | number) {
 }
 export type ExpeditionLoot = ReturnType<typeof createExpeditionLoot>;
 
-export interface FieldEquipment { weapons: Partial<Record<0 | 1, string>>; plate?: string }
+export interface FieldEquipment { weapons: Partial<Record<number, string>>; plate?: string }
 export const createFieldEquipment = (): FieldEquipment => ({ weapons: {} });
 /** Gear found in the field never modifies owned items, currencies or shop unlocks. */
 export function equipFieldLoot(equipment: FieldEquipment, loot: FieldLoot): FieldEquipment {
   const item = loot.catalogId ? itemById(loot.catalogId) : undefined;
-  if (loot.kind === 'weapon' && item?.category === 'weapon' && (item.family === 0 || item.family === 1)) {
+  if (loot.kind === 'weapon' && item?.category === 'weapon' && validWeaponIndex(item.family)) {
     return { ...equipment, weapons: { ...equipment.weapons, [item.family]: item.id } };
   }
   if (loot.kind === 'armor' && item?.category === 'plate' && (item.protection ?? 0) > 0) return { ...equipment, weapons: { ...equipment.weapons }, plate: item.id };
@@ -232,9 +233,9 @@ export function equipFieldLoot(equipment: FieldEquipment, loot: FieldLoot): Fiel
 }
 export function resolveExpeditionLoadout(profile: ArmoryProfile, equipment: FieldEquipment) {
   const guns = profile.guns.map((gun, family) => {
-    const item = itemById(equipment.weapons[family as 0 | 1] ?? '');
+    const item = itemById(equipment.weapons[family] ?? '');
     return { ...gun, attachments: { ...gun.attachments }, ...(item?.category === 'weapon' && item.family === family ? { variant: item.id } : {}) };
-  }) as [GunEquipment, GunEquipment];
+  }) as GunEquipment[];
   const plate = itemById(equipment.plate ?? '');
   return resolveLoadout({ ...profile, guns, plate: plate?.category === 'plate' ? plate.id : profile.plate });
 }

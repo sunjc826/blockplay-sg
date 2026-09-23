@@ -1,3 +1,4 @@
+import { validWeaponIndex } from './fps-rules';
 /** Controller contract: no scene objects, authoritative actors, or hidden coordinates. */
 import { dropCompensation, type BallisticSpec } from './fps-ballistics';
 export type PilotGoal = 'engage' | 'resupply' | 'travel' | 'explore';
@@ -18,7 +19,7 @@ export interface PilotAction {
   forward?: boolean; backward?: boolean; left?: boolean; right?: boolean;
   sprint?: boolean; crouch?: boolean; aim?: boolean; fire?: boolean;
   lookX?: number; lookY?: number; reload?: boolean; jump?: boolean;
-  interact?: boolean; travel?: boolean; weapon?: 0 | 1;
+  interact?: boolean; travel?: boolean; weapon?: number;
   callout?: 'contact' | 'moving' | 'stuck';
 }
 export interface PilotDecision { goal: PilotGoal; status: string; action: PilotAction }
@@ -31,7 +32,7 @@ const finiteDelta = (value: unknown) => typeof value === 'number' && Number.isFi
 export function normalizePilotAction(action: PilotAction): PilotAction {
   const safe: PilotAction = { lookX: finiteDelta(action.lookX), lookY: finiteDelta(action.lookY) };
   for (const key of ['forward', 'backward', 'left', 'right', 'sprint', 'crouch', 'aim', 'fire', 'reload', 'jump', 'interact', 'travel'] as const) safe[key] = action[key] === true;
-  if (action.weapon === 0 || action.weapon === 1) safe.weapon = action.weapon;
+  if (validWeaponIndex(action.weapon)) safe.weapon = action.weapon;
   if (action.callout === 'contact' || action.callout === 'moving' || action.callout === 'stuck') safe.callout = action.callout;
   return safe;
 }

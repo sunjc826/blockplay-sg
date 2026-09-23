@@ -3,14 +3,14 @@ import type { VehicleKind } from './vehicle-rules';
 import { progression, levelSkip, xpForLevel, ELIMINATION_XP, MAX_LEVEL } from './progression';
 import { DEFAULT_RANK_SET, isRankSet, rankInsignia } from './rank-insignia';
 import { DEFAULT_ENCIK_TONE, type EncikAddress, type EncikTone } from './encik-registers';
-import { FPS_WEAPONS, type WeaponSpec, type WeaponTrait } from './fps-rules';
+import { DEFAULT_VARIANTS, validWeaponIndex, FPS_WEAPONS, type WeaponSpec, type WeaponTrait } from './fps-rules';
 /** Hardware a variant already carries, by the slot it permanently fills. */
 export const fittedParts = (variantId: string): Partial<Record<AttachmentSlot, FittedPart>> =>
   Object.fromEntries((itemById(variantId)?.fitted ?? []).map(part => [part.slot, part]));
 export const slotIsFitted = (variantId: string, slot: AttachmentSlot) => !!fittedParts(variantId)[slot];
 /** attachments is retained empty for v1 save compatibility; it never affects gameplay. */
 export interface GunEquipment { variant: string; skin: string; attachments: Partial<Record<AttachmentSlot, string>> }
-export interface ArmoryProfile { version: 1; xp: number; vehicleSkins: Record<VehicleKind, string>; credits: number; tokens: number; owned: string[]; guns: [GunEquipment, GunEquipment]; rig: string; plate: string; rewarded: string[]; exercises: number;
+export interface ArmoryProfile { version: 1; xp: number; vehicleSkins: Record<VehicleKind, string>; credits: number; tokens: number; owned: string[]; guns: GunEquipment[]; rig: string; plate: string; rewarded: string[]; exercises: number;
   /** Supplies held, by catalog id, and which one the quick-use key spends. */
   consumables: Record<string, number>; quickItem: string;
   /** Which set of rank titles and badges the profile wears. */
@@ -18,7 +18,7 @@ export interface ArmoryProfile { version: 1; xp: number; vehicleSkins: Record<Ve
   /** Whether the Encik's tone follows your rank, or stays the way he greets a recruit. */
   encikTone: EncikTone }
 export const STORAGE_KEY = 'blockplay.armory.v1';
-export function createProfile(): ArmoryProfile { return { version: 1, xp: 0, vehicleSkins: { car: 'paint-issued', helicopter: 'paint-issued' }, credits: 1600, tokens: 300, owned: [...issuedItems], guns: [{ variant: 'sar-issued', skin: 'skin-issued', attachments: {} }, { variant: 'ult-issued', skin: 'skin-issued', attachments: {} }], rig: 'rig-ilbv', plate: 'plate-none', rewarded: [], exercises: 0, consumables: {}, quickItem: '', rankSet: DEFAULT_RANK_SET, encikTone: DEFAULT_ENCIK_TONE }; }
+export function createProfile(): ArmoryProfile { return { version: 1, xp: 0, vehicleSkins: { car: 'paint-issued', helicopter: 'paint-issued' }, credits: 1600, tokens: 300, owned: [...issuedItems], guns: DEFAULT_VARIANTS.map(variant => ({ variant, skin: 'skin-issued', attachments: {} })), rig: 'rig-ilbv', plate: 'plate-none', rewarded: [], exercises: 0, consumables: {}, quickItem: '', rankSet: DEFAULT_RANK_SET, encikTone: DEFAULT_ENCIK_TONE }; }
 const finiteBalance = (n: unknown, fallback: number) => typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(1000000, Math.floor(n))) : fallback;
 export function restoreProfile(raw: string | null): ArmoryProfile {
   const base = createProfile(); if (!raw) return base;
@@ -28,7 +28,7 @@ export function restoreProfile(raw: string | null): ArmoryProfile {
     base.credits = finiteBalance(value.credits, base.credits); base.tokens = finiteBalance(value.tokens, base.tokens);
     base.owned = [...new Set([...issuedItems, ...(Array.isArray(value.owned) ? value.owned.filter((id: unknown) => typeof id === 'string' && !!itemById(id)) : [])])] as string[];
     const valid = (id: unknown, category: string) => typeof id === 'string' && base.owned.includes(id) && itemById(id)?.category === category;
-    for (const i of [0, 1] as const) {
+    for (const i of FPS_WEAPONS.keys()) {
       const gun = value.guns?.[i]; if (!gun) continue;
       if (valid(gun.variant, 'weapon') && itemById(gun.variant)?.family === i) base.guns[i].variant = gun.variant;
       if (valid(gun.skin, 'skin')) base.guns[i].skin = gun.skin;
@@ -118,7 +118,7 @@ export function equip(profile: ArmoryProfile, id: string, family: number, vehicl
   const item = itemById(id);
   // Supplies are held by count rather than owned, so they select on that instead.
   if (item?.category === 'consumable') return profile.consumables[id] ? { ...profile, quickItem: id } : profile;
-  if (!item || !profile.owned.includes(id) || (family !== 0 && family !== 1)) return profile;
+  if (!item || !profile.owned.includes(id) || !validWeaponIndex(family)) return profile;
   if (item.category === 'vehicleSkin') return { ...profile, vehicleSkins: { ...profile.vehicleSkins, [vehicle]: id } };
   if (item.category === 'rig' || item.category === 'plate') return { ...profile, [item.category]: id };
   if (item.category === 'weapon' && item.family !== family) return profile;

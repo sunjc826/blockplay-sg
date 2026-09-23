@@ -1,5 +1,5 @@
 export interface WeaponBloom { amount: number; delay: number }
-const maximum = [.028, .038], perShot = [.003, .004];
+const maximum = [.028, .038, .02, .045, .065], perShot = [.003, .004, .003, .005, .009];
 export const createWeaponBloom = (): WeaponBloom => ({ amount: 0, delay: 0 });
 export function recordBloomShot(state: WeaponBloom, weapon: number) {
   state.amount = Math.min(maximum[weapon] ?? maximum[0], state.amount + (perShot[weapon] ?? perShot[0]));
@@ -14,7 +14,7 @@ export function advanceBloom(state: WeaponBloom, dt: number) {
 /** Cone half-angle in radians; the HUD projects this same cone into screen pixels. */
 export function weaponSpread(state: WeaponBloom, weapon: number, aim: number, crouching: boolean, moving: boolean) {
   const aiming = Math.max(0, Math.min(1, aim));
-  return ((weapon ? .007 : .005) + state.amount + (moving ? .007 : 0)) * (1 - aiming * .80) * (crouching ? .65 : 1);
+  return (([.005, .007, .006, .01, .016][weapon] ?? .005) + state.amount + (moving ? .007 : 0)) * (1 - aiming * .80) * (crouching ? .65 : 1);
 }
 export function sampleShotSpread(angle: number, random: () => number = Math.random) {
   const radius = Math.sqrt(random()) * Math.tan(angle), theta = random() * Math.PI * 2;

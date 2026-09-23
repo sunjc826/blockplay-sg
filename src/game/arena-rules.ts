@@ -112,7 +112,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false;
   };
   function sanitizeWeapons(weapons: readonly ArenaWeapon[]) {
-    return (weapons.length ? weapons : FPS_WEAPONS).slice(0, 2).map(w => ({
+    return (weapons.length ? weapons : FPS_WEAPONS).slice(0, FPS_WEAPONS.length).map(w => ({
       damage: Number.isFinite(w.damage) ? clamp(w.damage, 1, 100) : 36,
       interval: Number.isFinite(w.interval) ? clamp(w.interval, 0.06, 3) : 0.12,
       capacity: Number.isFinite(w.capacity) ? Math.floor(clamp(w.capacity, 1, 200)) : 30,

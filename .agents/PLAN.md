@@ -1,5 +1,18 @@
 ## Housekeeping: agent notes and capture tooling
 
+## Completed — service-inspired weapon classes (2026-09-23)
+
+- Added P30 (user-selected), FN MAG and CIS/STK 50MG with distinct caliber,
+  handling, authored models and nine local-flavored fixed variants. Free baselines;
+  credit and premium purchases at levels 8–32.
+- Generalized v1 saves, shop, controls, expedition and LAN paths to five families.
+  P30 fires once per mouse/touch press. Heavy MG's carryable use is an explicit
+  arcade concession; platform provenance is in docs/SERVICE-WEAPONS.md.
+- Validation: 779 unit tests, typecheck and build; actual SwiftShader range checks
+  for keyboard selection, semi/auto trigger behavior, reload and ADS; desktop
+  and mobile shop preview checks. No runtime/shader errors or mobile overflow.
+
+
 Moved handoff and plan into `.agents/`; Marina expansion history and companion documentation into `docs/MARINA-EXPANSION.md` and `docs/ADVENTURE.md`; the local capture page into `scripts/pages/capture-streetview.html`. Updated documentation links and both capture callers. Verified 135 local Markdown file links, capture-script syntax, TypeScript compilation, Sites production build and the relocated HTML served by local Vite. Existing bundle-size warning remains. No new Google requests or browser captures; gameplay tests were not rerun for this relocation.
 
 ## Completed capture and implementation: documented Raffles visual refinement (13 September evening)

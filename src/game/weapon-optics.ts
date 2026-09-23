@@ -11,6 +11,7 @@ export const getWeaponSight = (root: THREE.Object3D) => sights.get(root);
 
 /** Shared by the shop and the FPS: one housing per optic slot. */
 export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
+  if (weapon.optic === 'iron') return () => {};
   const sar = weapon.id === 'sar21-inspired', integrated = sar && weapon.optic !== 'reflex';
   const original = root.getObjectByName('sar21-inspired__optic');
   const wasVisible = original?.visible ?? true;

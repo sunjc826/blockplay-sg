@@ -1,6 +1,6 @@
 # Field exchange, progression and FPS equipment
 
-The Armory sidebar offers eight fixed weapon variants across two platforms, five cosmetic finishes, three carrying rigs, four insert choices, five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition and handling hardware cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase.
+The Armory sidebar offers seventeen fixed weapon variants across five platforms, five cosmetic finishes, three carrying rigs, four insert choices, five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition and handling hardware cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase.
 
 ## Play loop
 
@@ -13,15 +13,22 @@ The Armory sidebar offers eight fixed weapon variants across two platforms, five
 | Level | Newly purchasable equipment |
 | --- | --- |
 | 1 | Issued weapons/finish/rig, no inserts, soft armor |
-| 2 | Ranger, Patrol, jungle/urban skins, precision optic, quick-change magazine, stabilizer, enhanced LBS, ceramic plates |
-| 3 | Vanguard, gold skin, extended magazine |
+| 2 | Steady Lah, Route March, jungle/urban skins, enhanced LBS, ceramic plates |
+| 3 | Garang, gold skin |
 | 4 | Orchid skin, Sentinel rig, Aegis ceramic inserts |
-| 5 | Centurion |
-| 6 | Marksman, Penetrator magazine |
-| 7 | Bastion |
-| 8 | Fragmenting rounds |
+| 5 | Encik’s Favourite |
+| 6 | Own Time, Own Target |
+| 7 | Fort Siloso |
+| 8 | P30 Kopi O Kosong |
+| 14 | FN MAG Chope |
+| 16 | P30 Bo Bo CANNOT |
+| 22 | CIS 50MG Tuas Shift |
+| 24 | FN MAG Jaga Corner |
+| 32 | CIS 50MG Merlion Roar |
 
-No additional item gates currently follow level 7; ranks and XP continue to level 50. Purchases, XP and equipped items persist under `blockplay.armory.v1` in local storage. Old saves without XP migrate to zero XP while retaining valid owned items. Malformed saves fall back to issued equipment; malformed fields and unknown item IDs are sanitized. Existing ownership remains usable. Clearing browser site data resets the profile.
+Ranks and XP continue to level 50. Purchases, XP and equipped items persist under `blockplay.armory.v1` in local storage. Old two-platform saves gain the three free baseline classes without changing balances or existing selections. Unknown IDs are sanitized and retired attachments are discarded without refunds. Clearing browser site data resets the profile.
+
+See [service-inspired classes](SERVICE-WEAPONS.md) for source references, controls, role tradeoffs and the new fixed variants.
 
 ## Rank insignia
 
@@ -184,7 +191,7 @@ Internal parts and fitted hardware are permanently part of the selected variant.
 | Ultimax · Encik’s Favourite | Reinforced feed tray and buffer | handling |
 | Ultimax · Fort Siloso | Heavy barrel, bipod and buffered carrier | handling |
 
-Legacy saves discard modular attachment ownership and clear both weapons' attachment selections, without refunds. All other valid progress and equipment survive. Runtime resolution ignores injected attachment data too, so switching variants or opening a preview cannot revive an old modification.
+Legacy saves discard modular attachment ownership and clear all weapons' attachment selections, without refunds. All other valid progress and equipment survive. Runtime resolution ignores injected attachment data too, so switching variants or opening a preview cannot revive an old modification.
 
 ## What the build looks like
 

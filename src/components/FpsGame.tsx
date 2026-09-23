@@ -110,7 +110,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         </button>}
         <button className="fps-shop-link" onClick={onLeaveArena}>Leave match · return to lobby →</button>
         <button className="fps-shop-link arena-armory-link" onClick={onOpenShop}>Leave match · open armory →</button>
-        {!['complete', 'loading', 'error'].includes(hud.phase) && !disconnected && <div className="fps-control-guide"><span><kbd>WASD</kbd> Move</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>C</kbd> Crouch</span><span><kbd>Space</kbd> Jump</span><span><kbd>1 / 2</kbd> Switch</span><span><kbd>F</kbd> Fullscreen</span><span><kbd>ESC</kbd> Menu</span></div>}
+        {!['complete', 'loading', 'error'].includes(hud.phase) && !disconnected && <div className="fps-control-guide"><span><kbd>WASD</kbd> Move</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>C</kbd> Crouch</span><span><kbd>Space</kbd> Jump</span><span><kbd>1–5</kbd> Switch</span><span><kbd>F</kbd> Fullscreen</span><span><kbd>ESC</kbd> Menu</span></div>}
         <small className="fps-touch-note">Infantry arena · Your equipped Armory loadout · No account required</small>
       </div></div>}
       {!playing && !isArena && <div className="fps-overlay"><div className="fps-start-card">
@@ -128,7 +128,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
           {hud.phase === 'complete' || hud.phase === 'defeated' || hud.phase === 'error' ? <RotateCcw size={16} /> : <Play size={16} />} {hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry' : hud.phase === 'complete' || hud.phase === 'defeated' ? 'Reset exercise' : hud.phase === 'paused' ? 'Resume exercise' : 'Enter range'} <ArrowRight size={17} />
         </button>
         <button className="fps-shop-link" onClick={onOpenShop}>Open armory · change equipment →</button>
-        <div className="fps-control-guide"><span><kbd>WASD</kbd> Move</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>C</kbd> Crouch</span><span><kbd>Space</kbd> Jump</span><span><kbd>1 / 2</kbd> Switch</span><span><kbd>E</kbd> Enter / exit vehicle</span><span><kbd>Space / C</kbd> Fly up / down</span><span><kbd>F</kbd> Fullscreen</span></div>
+        <div className="fps-control-guide"><span><kbd>WASD</kbd> Move</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>C</kbd> Crouch</span><span><kbd>Space</kbd> Jump</span><span><kbd>1–5</kbd> Switch</span><span><kbd>E</kbd> Enter / exit vehicle</span><span><kbd>Space / C</kbd> Fly up / down</span><span><kbd>F</kbd> Fullscreen</span></div>
         <small className="fps-touch-note">{touch ? 'Thumb controls appear once the range opens: the left stick moves, dragging the scene looks around, and the actions sit on the arc around the trigger.' : 'On touchscreens, drag the scene to look and use the controls below.'}</small>
       </div></div>}
     </div>

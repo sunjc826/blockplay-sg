@@ -92,7 +92,7 @@ describe('arena runtime authority and renderer bridge', () => {
       expect(state.self?.health).toBe(64);
     } finally { host.dispose(); }
   });
-  it('flushes a weapon switch before a guest shot so the first shot uses the selected catalog weapon', () => {
+  it.each([[1, 30], [2, 28], [3, 44], [4, 72]])('flushes a guest switch to family %i before firing its %i damage round', (family, damage) => {
     vi.useFakeTimers();
     const [hostSession, guestSession] = localPair();
     const host = createArenaRuntime({ scene: new THREE.Scene(), session: hostSession, obstacles: [], botCount: 0 });
@@ -104,9 +104,9 @@ describe('arena runtime authority and renderer bridge', () => {
       guest.update(0.02, input(shooter.x, shooter.z, true));
       const target = host.update(0.02, input(-44, 68, true)).self!;
       const direction = new THREE.Vector3(target.x - shooter.x, target.y - 0.65 - shooter.y, target.z - shooter.z).normalize();
-      guest.shoot(shooter, direction, 1);
-      expect(host.update(0.02, input(-44, 68, true)).self?.health).toBe(70);
-      expect(guest.update(0.02, input(shooter.x, shooter.z, true)).hit?.damage).toBe(30);
+      guest.shoot(shooter, direction, family);
+      expect(host.update(0.02, input(-44, 68, true)).self?.health).toBe(100 - damage);
+      expect(guest.update(0.02, input(shooter.x, shooter.z, true)).hit?.damage).toBe(damage);
     } finally { host.dispose(); guest.dispose(); }
   });
   it('ignores hidden vehicle geometry and label sprites when firing an authority world-space ray', () => {

@@ -7,7 +7,7 @@ import { useReducedMotion } from '../game/use-reduced-motion';
 import './fps-weapon-hud.css';
 
 export default function FpsWeaponHud({ hud, weapon, canFight }: { hud: FpsHud; weapon: WeaponSpec; canFight: boolean }) {
-  const magnified = weapon.optic !== 'reflex';
+  const magnified = weapon.optic === 'integrated' || weapon.optic === 'precision';
   const reloading = hud.reloading > 0, stage = reloadStage(hud.reloading, hud.reloadEmpty);
   // Truthful digits, except through a reload — see `hud-motion.ts`.
   const rounds = useReducedMotion() ? hud.magazine : magazineDisplay(hud.magazine, weapon.capacity, hud.reserve, hud.reloading);
@@ -18,7 +18,7 @@ export default function FpsWeaponHud({ hud, weapon, canFight }: { hud: FpsHud; w
     {canFight && hud.hit && <div key={`${hud.shots}-${hud.hits}`} className={`fps-impact-marker ${hud.hitKind === 'kill' ? 'is-kill' : ''}`} aria-hidden="true"><i /><i /><i /><i /></div>}
     {canFight && reloading && <div className="fps-reload-cue" aria-hidden="true"><span>{stage}</span><div><i style={{ width: `${(1 - hud.reloading) * 100}%` }} /></div></div>}
     <div className={`fps-ammo ${hud.magazine === 0 && !reloading ? 'is-empty' : ''}`}>
-      <span>{weapon.name} <small>{hud.aiming ? 'ADS' : 'AUTO'}</small></span>
+      <span>{weapon.name} <small>{hud.aiming ? 'ADS' : weapon.fireMode === 'semi' ? 'SEMI' : 'AUTO'}</small></span>
       <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}<small>/ {hud.reserve}</small></strong>
       <p>{reloading ? `${hud.reloadEmpty ? 'EMPTY' : 'TACTICAL'} RELOAD · ${stage}` : hud.magazine === 0 ? 'EMPTY · PRESS R' : 'R RELOAD · Q TOGGLE AIM · RMB HOLD'}</p>
       {reloading

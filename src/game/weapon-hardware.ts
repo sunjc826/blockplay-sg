@@ -108,7 +108,10 @@ export function weaponHardware(variantId: string): WeaponHardware[] {
   return [
     ...(item.build ?? []).map(part => fromBuild(part, base, drum)),
     ...(item.fitted ?? []).map(fromFitted),
-  ].filter((entry): entry is WeaponHardware => !!entry);
+  ].filter((entry): entry is WeaponHardware => !!entry).map(entry =>
+    item.family! >= 3 && entry.kind === 'magazine'
+      ? { ...entry, label: 'Extended belt box', visual: 'a deeper ammunition box for the longer belt' }
+      : entry);
 }
 /** What each part changes on the model, by the id the dossier lists parts under. */
 export const hardwareByPart = (variantId: string) => new Map(weaponHardware(variantId).map(entry => [entry.part, entry]));
