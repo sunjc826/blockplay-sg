@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "bishan-station-outdoor02.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2022-03",
+  "pano_id": "oWdHElfAyPvEcZ1nWJ3ZQQ",
+  "position": {
+    "lat": 1.3513079425186598,
+    "lng": 103.84885834974736
+  },
+  "pov": {
+    "heading": 270,
+    "pitch": 5,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T14:07:21.375Z",
+  "file": "reconstruction/bishan/references/bishan-station-outdoor02-0.png",
+  "fingerprint": "00685ae41839a98ac94466b12a7b1d724d67c3eac5b361e0b16cf5a490544b50",
+  "sha256": "11c4be920d99a102df334ea1de0639df8e6b34caad397191b94744bfe3f87325",
+  "bytes": 1950443,
+  "durationMs": 4209,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

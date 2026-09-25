@@ -1,0 +1,19 @@
+{
+  "plan": "bukit-timah-outdoor-replacement-02",
+  "startedAt": "2026-09-25T14:07:23.365Z",
+  "cached": 0,
+  "captured": 1,
+  "failed": 0,
+  "panoramaLoads": 1,
+  "staticApiRequests": 0,
+  "totalMs": 4336,
+  "bytes": 2012505,
+  "views": [
+    {
+      "id": "rail-bridge-outdoor02-preview",
+      "status": "captured",
+      "durationMs": 4180,
+      "bytes": 2012505
+    }
+  ]
+}

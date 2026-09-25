@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "jurong-gateway-outdoor02.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2025-03",
+  "pano_id": "tOeyPcNRgBSmIf0GMBrR-g",
+  "position": {
+    "lat": 1.3329394603682096,
+    "lng": 103.74382352583274
+  },
+  "pov": {
+    "heading": 315,
+    "pitch": 8,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "50 Jurong Gateway Rd, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T14:07:33.930Z",
+  "file": "reconstruction/jurong-lake/references/jurong-gateway-outdoor02-preview.png",
+  "fingerprint": "6a98b30d35e96c093a1d1469d680125eb2791bcb5a0eee4c9480b47048288869",
+  "sha256": "93a106036bbf2f6eacb090323bce2cef9c4c77965e1a4228305c4781eb3f09e3",
+  "bytes": 2191576,
+  "durationMs": 3964,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

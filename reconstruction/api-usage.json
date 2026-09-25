@@ -4103,6 +4103,174 @@
       "kind": "maps-javascript-panorama-load",
       "location": "woodlands",
       "result": "HTTP 200"
+    },
+    {
+      "id": "9cde0437-2345-40d6-beab-2707ba3df8a9",
+      "date": "2026-09-25T14:07:16.381Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "bishan",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "4260612d-e03a-4459-bef9-1ba2eec6999e",
+      "date": "2026-09-25T14:07:17.168Z",
+      "kind": "browser-screenshot-bishan-station-outdoor02-0",
+      "location": "bishan",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "d22c7cb5-8962-43ab-aa9e-ad28bbc82583",
+      "date": "2026-09-25T14:07:17.175Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "bishan",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "bd4df954-eac6-4378-b0a4-9103da1a5ac9",
+      "date": "2026-09-25T14:07:23.056Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "bukit-timah",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "7cd785b7-de9c-49ae-b0ec-55a201b3f6e5",
+      "date": "2026-09-25T14:07:23.509Z",
+      "kind": "browser-screenshot-rail-bridge-outdoor02-preview",
+      "location": "bukit-timah",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "c4e0baab-4f8a-4fcc-b292-8ba492811501",
+      "date": "2026-09-25T14:07:23.519Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "bukit-timah",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "1936aea0-daa1-4358-a58e-4199ce60ed4f",
+      "date": "2026-09-25T14:07:29.385Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "jurong-lake",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "6c37730c-7423-4de7-afd1-a0642f5139a9",
+      "date": "2026-09-25T14:07:29.966Z",
+      "kind": "browser-screenshot-jurong-gateway-outdoor02-preview",
+      "location": "jurong-lake",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "bc289097-5fe4-44c3-b338-a43ccc1131e1",
+      "date": "2026-09-25T14:07:29.970Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "jurong-lake",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "3f5ee512-1c55-49ab-97dc-eee41e9e5069",
+      "date": "2026-09-25T14:07:35.605Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "punggol",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "e570e6ff-3bdd-4c43-9110-662f7b0f3ae0",
+      "date": "2026-09-25T14:07:36.020Z",
+      "kind": "browser-screenshot-waterway-point-outdoor02-0",
+      "location": "punggol",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "f01b2862-0310-4e90-b8d6-19e538855424",
+      "date": "2026-09-25T14:07:36.026Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "punggol",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "d4f1bb99-c878-4732-b62f-076511955bdf",
+      "date": "2026-09-25T14:07:42.629Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "tampines",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "39ea126d-996e-4bc4-8ab2-4b6b9b9aefa3",
+      "date": "2026-09-25T14:07:43.168Z",
+      "kind": "browser-screenshot-hub-outdoor02-0",
+      "location": "tampines",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "62025086-e5c4-4575-8334-628f0fb517e4",
+      "date": "2026-09-25T14:07:43.188Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "tampines",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "015ebeca-30a7-436e-9da2-4c42083c9a8f",
+      "date": "2026-09-25T14:07:48.910Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "toa-payoh",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "46f3a558-0714-4abf-ba34-01f2dfdc0575",
+      "date": "2026-09-25T14:07:49.415Z",
+      "kind": "browser-screenshot-dragon-outdoor02-0",
+      "location": "toa-payoh",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "15b0715c-11b3-4483-af5f-e3099d274fb9",
+      "date": "2026-09-25T14:07:49.420Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "toa-payoh",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "2db43b3e-f2ea-4ef7-9a9b-b44145950c8a",
+      "date": "2026-09-25T14:07:55.640Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "upper-thomson",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "d6ec1c40-7673-43e6-bcfa-0acecaf3425b",
+      "date": "2026-09-25T14:07:56.049Z",
+      "kind": "browser-screenshot-thomson-plaza-outdoor02-0",
+      "location": "upper-thomson",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "e625bf08-cbb1-4793-9134-8245501cd69e",
+      "date": "2026-09-25T14:07:56.066Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "upper-thomson",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "7cdc7715-e210-4934-8b0d-1a6e32cb5aa1",
+      "date": "2026-09-25T14:08:01.538Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "woodlands",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "eda5c488-8bca-40f6-9e3b-c39056312adc",
+      "date": "2026-09-25T14:08:02.008Z",
+      "kind": "browser-screenshot-causeway-point-outdoor02-0",
+      "location": "woodlands",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "932e8d07-7faf-46c3-b724-aa4f512749a0",
+      "date": "2026-09-25T14:08:02.016Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "woodlands",
+      "result": "HTTP 200"
     }
   ]
 }

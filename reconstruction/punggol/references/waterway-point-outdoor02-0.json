@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "waterway-point-outdoor02.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2025-03",
+  "pano_id": "broV3ZsR7xSX8pROyzFMDg",
+  "position": {
+    "lat": 1.4052383469679408,
+    "lng": 103.90222892021825
+  },
+  "pov": {
+    "heading": 0,
+    "pitch": 8,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "70 Punggol Central, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T14:07:40.962Z",
+  "file": "reconstruction/punggol/references/waterway-point-outdoor02-0.png",
+  "fingerprint": "00d3cfd89fcbc9467698f018854388549956d33c24896ca1762160b174663d87",
+  "sha256": "ea733efccdbe0ac5bf7985660b11ab6457cb1a2d54ef85a408352cb7e1003697",
+  "bytes": 2443866,
+  "durationMs": 4942,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

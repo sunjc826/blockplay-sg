@@ -1,0 +1,23 @@
+{
+  "status": "OK",
+  "pano_id": "tOeyPcNRgBSmIf0GMBrR-g",
+  "location": {
+    "lat": 1.3329394603682096,
+    "lng": 103.74382352583274
+  },
+  "description": "50 Jurong Gateway Rd, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2025-03",
+  "requested": {
+    "lat": 1.3332,
+    "lng": 103.7435
+  },
+  "selectedGoogle": true,
+  "selectionPolicy": {
+    "sources": [
+      "GOOGLE",
+      "OUTDOOR"
+    ],
+    "radiusMeters": 100
+  }
+}

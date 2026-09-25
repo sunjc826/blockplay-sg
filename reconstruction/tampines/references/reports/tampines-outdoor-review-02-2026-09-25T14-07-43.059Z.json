@@ -1,0 +1,19 @@
+{
+  "plan": "tampines-outdoor-review-02",
+  "startedAt": "2026-09-25T14:07:43.059Z",
+  "cached": 0,
+  "captured": 1,
+  "failed": 0,
+  "panoramaLoads": 1,
+  "staticApiRequests": 0,
+  "totalMs": 4194,
+  "bytes": 2102619,
+  "views": [
+    {
+      "id": "hub-outdoor02-0",
+      "status": "captured",
+      "durationMs": 4077,
+      "bytes": 2102619
+    }
+  ]
+}

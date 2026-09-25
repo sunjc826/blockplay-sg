@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "thomson-plaza-outdoor02.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-08",
+  "pano_id": "R6Mm0VB8jW-BuvOWr9uPYw",
+  "position": {
+    "lat": 1.3544275297199593,
+    "lng": 103.83183122080372
+  },
+  "pov": {
+    "heading": 301,
+    "pitch": 5,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "47 Soo Chow Walk, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T14:07:59.856Z",
+  "file": "reconstruction/upper-thomson/references/thomson-plaza-outdoor02-0.png",
+  "fingerprint": "9e4e6dd315822774fb557f620c1fcded4d825ca72263bcb926eb858785495fdc",
+  "sha256": "d87564980e27a13b3ee8a9ae52bff32cb60c4f96f329f22829034a64af79947f",
+  "bytes": 1463967,
+  "durationMs": 3811,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

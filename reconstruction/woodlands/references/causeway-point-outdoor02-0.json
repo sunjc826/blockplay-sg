@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "causeway-point-outdoor02.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2022-02",
+  "pano_id": "WWolO7jjWr_fbeNAaXZE-A",
+  "position": {
+    "lat": 1.4355559080240208,
+    "lng": 103.78577529267021
+  },
+  "pov": {
+    "heading": 0,
+    "pitch": 8,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T14:08:05.740Z",
+  "file": "reconstruction/woodlands/references/causeway-point-outdoor02-0.png",
+  "fingerprint": "a63c9767b73061bac1da39fb3387cc5c02dfeda6b41410ba4f0e4a86414e1703",
+  "sha256": "67c5b9ecce462b9fb42854ed238651a4c432dd6c6f607856a6244a47a4ebdeec",
+  "bytes": 1028412,
+  "durationMs": 3732,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

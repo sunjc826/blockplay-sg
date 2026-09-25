@@ -1,0 +1,23 @@
+{
+  "status": "OK",
+  "pano_id": "R6Mm0VB8jW-BuvOWr9uPYw",
+  "location": {
+    "lat": 1.3544275297199593,
+    "lng": 103.83183122080372
+  },
+  "description": "47 Soo Chow Walk, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-08",
+  "requested": {
+    "lat": 1.354394,
+    "lng": 103.831803
+  },
+  "selectedGoogle": true,
+  "selectionPolicy": {
+    "sources": [
+      "GOOGLE",
+      "OUTDOOR"
+    ],
+    "radiusMeters": 100
+  }
+}

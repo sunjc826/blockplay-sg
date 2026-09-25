@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "rail-bridge-outdoor02.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-07",
+  "pano_id": "eogvHwHhqXo_tqkMuqx9bA",
+  "position": {
+    "lat": 1.3362736539361966,
+    "lng": 103.78210284315114
+  },
+  "pov": {
+    "heading": 300,
+    "pitch": 8,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "1001 Bukit Timah Rd, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T14:07:27.689Z",
+  "file": "reconstruction/bukit-timah/references/rail-bridge-outdoor02-preview.png",
+  "fingerprint": "fc0f5ea530a41c33401e673c324341f85fb7123d2e9124eaffacfeebffa3a6a6",
+  "sha256": "523ba6eb633cdf8ef11cdc2afe00e50620825fd9fe6202f1d9f6c95aea60d527",
+  "bytes": 2012505,
+  "durationMs": 4180,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "status": "OK",
+  "pano_id": "eogvHwHhqXo_tqkMuqx9bA",
+  "location": {
+    "lat": 1.3362736539361966,
+    "lng": 103.78210284315114
+  },
+  "description": "1001 Bukit Timah Rd, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-07",
+  "requested": {
+    "lat": 1.3354,
+    "lng": 103.7815
+  },
+  "selectedGoogle": true,
+  "selectionPolicy": {
+    "sources": [
+      "GOOGLE",
+      "OUTDOOR"
+    ],
+    "radiusMeters": 100
+  }
+}

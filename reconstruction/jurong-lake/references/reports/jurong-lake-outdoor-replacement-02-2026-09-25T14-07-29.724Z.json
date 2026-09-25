@@ -1,0 +1,19 @@
+{
+  "plan": "jurong-lake-outdoor-replacement-02",
+  "startedAt": "2026-09-25T14:07:29.724Z",
+  "cached": 0,
+  "captured": 1,
+  "failed": 0,
+  "panoramaLoads": 1,
+  "staticApiRequests": 0,
+  "totalMs": 4220,
+  "bytes": 2191576,
+  "views": [
+    {
+      "id": "jurong-gateway-outdoor02-preview",
+      "status": "captured",
+      "durationMs": 3964,
+      "bytes": 2191576
+    }
+  ]
+}

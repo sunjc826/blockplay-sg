@@ -1,0 +1,23 @@
+{
+  "status": "OK",
+  "pano_id": "broV3ZsR7xSX8pROyzFMDg",
+  "location": {
+    "lat": 1.4052383469679408,
+    "lng": 103.90222892021825
+  },
+  "description": "70 Punggol Central, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2025-03",
+  "requested": {
+    "lat": 1.4048,
+    "lng": 103.9021
+  },
+  "selectedGoogle": true,
+  "selectionPolicy": {
+    "sources": [
+      "GOOGLE",
+      "OUTDOOR"
+    ],
+    "radiusMeters": 100
+  }
+}

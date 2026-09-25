@@ -1,0 +1,23 @@
+{
+  "status": "OK",
+  "pano_id": "pYMkh_57BASKwBRyeCorOw",
+  "location": {
+    "lat": 1.3516637205753574,
+    "lng": 103.94038952051942
+  },
+  "description": "945 Tampines Ave 4, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-07",
+  "requested": {
+    "lat": 1.3516,
+    "lng": 103.9404
+  },
+  "selectedGoogle": true,
+  "selectionPolicy": {
+    "sources": [
+      "GOOGLE",
+      "OUTDOOR"
+    ],
+    "radiusMeters": 100
+  }
+}

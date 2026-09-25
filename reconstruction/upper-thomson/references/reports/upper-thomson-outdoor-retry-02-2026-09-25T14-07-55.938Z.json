@@ -1,0 +1,19 @@
+{
+  "plan": "upper-thomson-outdoor-retry-02",
+  "startedAt": "2026-09-25T14:07:55.938Z",
+  "cached": 0,
+  "captured": 1,
+  "failed": 0,
+  "panoramaLoads": 1,
+  "staticApiRequests": 0,
+  "totalMs": 3939,
+  "bytes": 1463967,
+  "views": [
+    {
+      "id": "thomson-plaza-outdoor02-0",
+      "status": "captured",
+      "durationMs": 3811,
+      "bytes": 1463967
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "dragon-outdoor02.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-03",
+  "pano_id": "EojwEV1UreBa9LZLhybedg",
+  "position": {
+    "lat": 1.3318756348182534,
+    "lng": 103.85478937638243
+  },
+  "pov": {
+    "heading": 270,
+    "pitch": 5,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Lor 6 Toa Payoh, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T14:07:53.980Z",
+  "file": "reconstruction/toa-payoh/references/dragon-outdoor02-0.png",
+  "fingerprint": "d30bfc23e5a1560b07e6e8a14c67b45868552046179a1a09ca765a05371eb9dc",
+  "sha256": "dd600aa5e4f48fae39c56d47c75970a406107cfbc124580f49a29ca4dc45449c",
+  "bytes": 2072917,
+  "durationMs": 4565,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

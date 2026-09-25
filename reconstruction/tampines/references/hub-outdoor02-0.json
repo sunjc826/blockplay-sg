@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "hub-outdoor02.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-07",
+  "pano_id": "pYMkh_57BASKwBRyeCorOw",
+  "position": {
+    "lat": 1.3516637205753574,
+    "lng": 103.94038952051942
+  },
+  "pov": {
+    "heading": 0,
+    "pitch": 8,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "945 Tampines Ave 4, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T14:07:47.245Z",
+  "file": "reconstruction/tampines/references/hub-outdoor02-0.png",
+  "fingerprint": "e91055b01b58bc82c40b4cabd5003b6d84eff0ace18e616ae0a47422d59fe4fe",
+  "sha256": "13ecf447712d5ff6b684126540d1c55057fb85c2498b2c612b068088256e611c",
+  "bytes": 2102619,
+  "durationMs": 4077,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

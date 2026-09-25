@@ -1,0 +1,19 @@
+{
+  "plan": "bishan-outdoor-retry-02",
+  "startedAt": "2026-09-25T14:07:17.010Z",
+  "cached": 0,
+  "captured": 1,
+  "failed": 0,
+  "panoramaLoads": 1,
+  "staticApiRequests": 0,
+  "totalMs": 4377,
+  "bytes": 1950443,
+  "views": [
+    {
+      "id": "bishan-station-outdoor02-0",
+      "status": "captured",
+      "durationMs": 4209,
+      "bytes": 1950443
+    }
+  ]
+}

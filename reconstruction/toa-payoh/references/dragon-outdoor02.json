@@ -1,0 +1,23 @@
+{
+  "status": "OK",
+  "pano_id": "EojwEV1UreBa9LZLhybedg",
+  "location": {
+    "lat": 1.3318756348182534,
+    "lng": 103.85478937638243
+  },
+  "description": "Lor 6 Toa Payoh, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-03",
+  "requested": {
+    "lat": 1.3319,
+    "lng": 103.8548
+  },
+  "selectedGoogle": true,
+  "selectionPolicy": {
+    "sources": [
+      "GOOGLE",
+      "OUTDOOR"
+    ],
+    "radiusMeters": 100
+  }
+}
