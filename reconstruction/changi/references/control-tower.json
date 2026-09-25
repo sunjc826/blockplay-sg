@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "_A74SaxUx-oQ8ACfeVyXFQ",
+  "location": {
+    "lat": 1.3567882385893437,
+    "lng": 103.98882362101276
+  },
+  "description": "T2 Departure Dr, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-07",
+  "requested": {
+    "lat": 1.3568,
+    "lng": 103.9888
+  },
+  "selectedGoogle": true
+}

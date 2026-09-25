@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "control-tower.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-07",
+  "pano_id": "_A74SaxUx-oQ8ACfeVyXFQ",
+  "position": {
+    "lat": 1.3567882385893437,
+    "lng": 103.98882362101276
+  },
+  "pov": {
+    "heading": 30,
+    "pitch": 10,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "T2 Departure Dr, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:56:49.133Z",
+  "file": "reconstruction/changi/references/control-tower-0.png",
+  "fingerprint": "5bf638cca6e70111a1a1622c28cec20f03e1b36704b51933202452610380d9e5",
+  "sha256": "2094e93647320a43a09a0347b4a2ab4115e9993a6602db256e611029c10795c1",
+  "bytes": 1423032,
+  "durationMs": 4108,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

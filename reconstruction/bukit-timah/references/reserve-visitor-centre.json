@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "SUfj_AAagritmadMTDnYoA",
+  "location": {
+    "lat": 1.3473144973486986,
+    "lng": 103.77624193298983
+  },
+  "description": "42 Hindhede Dr, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-07",
+  "requested": {
+    "lat": 1.3473,
+    "lng": 103.7762
+  },
+  "selectedGoogle": true
+}

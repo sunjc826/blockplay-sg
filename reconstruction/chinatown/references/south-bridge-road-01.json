@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "2e3Az8WWgodNdAGs7LaQ9w",
+  "location": {
+    "lat": 1.2821288587045323,
+    "lng": 103.84517781802961
+  },
+  "description": "265 S Bridge Rd, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-06",
+  "requested": {
+    "lat": 1.28215,
+    "lng": 103.84515
+  },
+  "selectedGoogle": true
+}

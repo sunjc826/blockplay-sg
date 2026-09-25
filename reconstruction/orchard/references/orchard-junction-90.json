@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "orchard-junction.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2014-02",
+  "pano_id": "ZT9Am6zozzE4PdPVbsoEig",
+  "position": {
+    "lat": 1.3044917934419018,
+    "lng": 103.83197575089781
+  },
+  "pov": {
+    "heading": 90,
+    "pitch": 10,
+    "zoom": 1
+  },
+  "zoom": 1,
+  "description": "",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T03:33:03.362Z",
+  "file": "reconstruction/orchard/references/orchard-junction-90.png",
+  "fingerprint": "19bfb8d72f83ea13fb7c4fc0cbaa684153ee2b5d79140ac419dc21b169c91bef",
+  "sha256": "3fad1024513b4c040e90587f631e8ca1ee50d309aa59d6cc0be688f0f8700442",
+  "bytes": 1936045,
+  "durationMs": 3711,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

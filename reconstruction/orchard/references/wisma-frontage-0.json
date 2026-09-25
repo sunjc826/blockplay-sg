@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "wisma-frontage.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2013-08",
+  "pano_id": "r3WqY-h_C_-sXa54w0efOQ",
+  "position": {
+    "lat": 1.3036126478902166,
+    "lng": 103.83368252674563
+  },
+  "pov": {
+    "heading": 0,
+    "pitch": 10,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T03:33:28.545Z",
+  "file": "reconstruction/orchard/references/wisma-frontage-0.png",
+  "fingerprint": "53a1cd2b5beb2e9d3331bf81778f58d10d28a583ffdf3724a4e5e7b2ac6d9271",
+  "sha256": "04c88a2ee63d71c92ae51be4ad17dc82c5c9b51a4039653d5e290d40e229b77f",
+  "bytes": 1412437,
+  "durationMs": 3861,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

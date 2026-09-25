@@ -1,0 +1,85 @@
+{
+  "plan": "orchard-exterior-replacement-02",
+  "startedAt": "2026-09-25T09:24:18.516Z",
+  "cached": 0,
+  "captured": 12,
+  "failed": 0,
+  "panoramaLoads": 3,
+  "staticApiRequests": 0,
+  "totalMs": 42591,
+  "bytes": 23309876,
+  "views": [
+    {
+      "id": "junction-road-02-0",
+      "status": "captured",
+      "durationMs": 4189,
+      "bytes": 1953062
+    },
+    {
+      "id": "junction-road-02-90",
+      "status": "captured",
+      "durationMs": 3552,
+      "bytes": 1798213
+    },
+    {
+      "id": "junction-road-02-180",
+      "status": "captured",
+      "durationMs": 3417,
+      "bytes": 1734249
+    },
+    {
+      "id": "junction-road-02-270",
+      "status": "captured",
+      "durationMs": 3413,
+      "bytes": 1894343
+    },
+    {
+      "id": "tangs-road-02-0",
+      "status": "captured",
+      "durationMs": 3689,
+      "bytes": 1904384
+    },
+    {
+      "id": "tangs-road-02-90",
+      "status": "captured",
+      "durationMs": 3482,
+      "bytes": 1897030
+    },
+    {
+      "id": "tangs-road-02-180",
+      "status": "captured",
+      "durationMs": 3431,
+      "bytes": 2097278
+    },
+    {
+      "id": "tangs-road-02-270",
+      "status": "captured",
+      "durationMs": 3403,
+      "bytes": 2087784
+    },
+    {
+      "id": "wisma-road-02-0",
+      "status": "captured",
+      "durationMs": 3650,
+      "bytes": 1408829
+    },
+    {
+      "id": "wisma-road-02-90",
+      "status": "captured",
+      "durationMs": 3419,
+      "bytes": 1581558
+    },
+    {
+      "id": "wisma-road-02-180",
+      "status": "captured",
+      "durationMs": 3347,
+      "bytes": 2451831
+    },
+    {
+      "id": "wisma-road-02-270",
+      "status": "captured",
+      "durationMs": 3339,
+      "bytes": 2501315
+    }
+  ]
+}

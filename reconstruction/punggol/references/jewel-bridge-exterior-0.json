@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "jewel-bridge-exterior.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2022-09",
+  "pano_id": "AlGr8jYJ_C0UeCCsO42LJg",
+  "position": {
+    "lat": 1.411255545257064,
+    "lng": 103.90102102479635
+  },
+  "pov": {
+    "heading": 100,
+    "pitch": 5,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:57:50.521Z",
+  "file": "reconstruction/punggol/references/jewel-bridge-exterior-0.png",
+  "fingerprint": "61364b07253769a7124512f257eb7889ebc14065b4206e72e1f30276e766c5fe",
+  "sha256": "bf9e925bfd2789c08f1c3da5c1ee6a9c5f31c5c21cf61ad0c8c46f8f8054f2be",
+  "bytes": 1955338,
+  "durationMs": 3558,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

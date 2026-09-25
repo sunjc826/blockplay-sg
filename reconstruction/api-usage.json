@@ -3137,6 +3137,972 @@
       "kind": "maps-javascript-panorama-load",
       "location": "orchard",
       "result": "network failure or interrupted request"
+    },
+    {
+      "id": "f2ae5416-035b-4308-b55c-d99a02258aed",
+      "date": "2026-09-25T03:32:55.181Z",
+      "kind": "browser-screenshot-orchard-junction-0",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "03b559fb-a568-41e0-bde1-68ec4248d92f",
+      "date": "2026-09-25T03:32:55.190Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "77f2281a-6eb3-4276-aef3-c08fb765dc51",
+      "date": "2026-09-25T03:32:59.651Z",
+      "kind": "browser-screenshot-orchard-junction-90",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "a35a2005-1c56-4a7c-91ab-2cf27a7d1e3e",
+      "date": "2026-09-25T03:33:03.366Z",
+      "kind": "browser-screenshot-orchard-junction-180",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "91a62866-9e77-4195-9d37-cedb56eace9c",
+      "date": "2026-09-25T03:33:06.866Z",
+      "kind": "browser-screenshot-orchard-junction-270",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "aba27dbe-36be-4d54-a975-ba718a829006",
+      "date": "2026-09-25T03:33:10.319Z",
+      "kind": "browser-screenshot-ion-frontage-0",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "ddb191f2-9914-468e-ae10-33b2f5b1c17c",
+      "date": "2026-09-25T03:33:10.322Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "d8a49b4a-ee30-4893-bb4c-1310b6245654",
+      "date": "2026-09-25T03:33:14.357Z",
+      "kind": "browser-screenshot-ion-frontage-90",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "92bd3b2c-54ef-4211-9615-853727a9cabf",
+      "date": "2026-09-25T03:33:17.776Z",
+      "kind": "browser-screenshot-ion-frontage-180",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "d729383b-d13b-4218-9394-34fca878bb73",
+      "date": "2026-09-25T03:33:21.245Z",
+      "kind": "browser-screenshot-ion-frontage-270",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "a8ab4a0e-d691-437c-a3d1-bfd84d7da36b",
+      "date": "2026-09-25T03:33:24.684Z",
+      "kind": "browser-screenshot-wisma-frontage-0",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "0ef790e5-eae3-476f-b55b-6288b5a8a6af",
+      "date": "2026-09-25T03:33:24.686Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "8db217ed-579a-42b7-a232-e6996214e6d3",
+      "date": "2026-09-25T03:33:28.548Z",
+      "kind": "browser-screenshot-wisma-frontage-90",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "3b580bce-0b32-43de-83ef-8170fd9554bc",
+      "date": "2026-09-25T03:33:32.072Z",
+      "kind": "browser-screenshot-wisma-frontage-180",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "3e1a83b5-4e9d-4a69-8dc7-c66ea630085b",
+      "date": "2026-09-25T03:33:35.487Z",
+      "kind": "browser-screenshot-wisma-frontage-270",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "b9b678ce-f738-4c27-8289-d376080b6bde",
+      "date": "2026-09-25T03:33:38.902Z",
+      "kind": "browser-screenshot-ngee-ann-frontage-0",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "9623348f-3348-433f-b523-b2e70f513603",
+      "date": "2026-09-25T03:33:38.903Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "a1223cc2-6dc7-4a37-bb19-924df6a13d82",
+      "date": "2026-09-25T03:33:42.550Z",
+      "kind": "browser-screenshot-ngee-ann-frontage-90",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "a46f1c29-f934-495b-ab30-1a305840c619",
+      "date": "2026-09-25T03:33:46.066Z",
+      "kind": "browser-screenshot-ngee-ann-frontage-180",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "ca2f2bc3-3353-4963-88c6-7fd2726b6988",
+      "date": "2026-09-25T03:33:49.530Z",
+      "kind": "browser-screenshot-ngee-ann-frontage-270",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "6cae0f4f-bbaa-4251-9725-3bfa829fced5",
+      "date": "2026-09-25T03:33:53.076Z",
+      "kind": "browser-screenshot-somerset-frontage-0",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "51d9ebaa-9cc7-427a-8dac-ca002ffec9ea",
+      "date": "2026-09-25T03:33:53.078Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "156dee6a-4063-4457-abc6-5d0391db544e",
+      "date": "2026-09-25T03:33:56.905Z",
+      "kind": "browser-screenshot-somerset-frontage-90",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "daa860e3-6178-4332-bec3-f56f94cff8ec",
+      "date": "2026-09-25T03:34:00.529Z",
+      "kind": "browser-screenshot-somerset-frontage-180",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "8a7714bf-be7c-47b5-95ac-1140b417b3dd",
+      "date": "2026-09-25T03:34:04.096Z",
+      "kind": "browser-screenshot-somerset-frontage-270",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "9f71ff96-cf60-4971-b649-4bbe370a3fca",
+      "date": "2026-09-25T03:34:07.510Z",
+      "kind": "browser-screenshot-emerald-hill-mouth-0",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "13ff3a21-b98d-497c-ad7c-707a467e6505",
+      "date": "2026-09-25T03:34:07.511Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "54f35fef-4240-421d-907c-f4a403a5a0ba",
+      "date": "2026-09-25T03:34:11.475Z",
+      "kind": "browser-screenshot-emerald-hill-mouth-90",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "981f47c0-b972-42f6-b8a2-25ec81e9b67f",
+      "date": "2026-09-25T03:34:14.880Z",
+      "kind": "browser-screenshot-emerald-hill-mouth-180",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "ad878e6e-d00f-4c13-a297-a21766cde87f",
+      "date": "2026-09-25T03:34:18.399Z",
+      "kind": "browser-screenshot-emerald-hill-mouth-270",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "32143a2e-4111-498c-8ff0-ead8b249bf76",
+      "date": "2026-09-25T09:24:17.249Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "7c0f21d1-e186-441d-9ea5-251be7bd0206",
+      "date": "2026-09-25T09:24:17.909Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "e20784e0-e3df-489e-a512-44a34e2813ec",
+      "date": "2026-09-25T09:24:18.136Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "286b82c8-41d8-4049-8a0a-b3236b6a433e",
+      "date": "2026-09-25T09:24:18.718Z",
+      "kind": "browser-screenshot-junction-road-02-0",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "05390c7f-e819-4424-9cd5-313ad207263d",
+      "date": "2026-09-25T09:24:18.729Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "79650e89-a0b9-4efa-9781-de8d65c897e3",
+      "date": "2026-09-25T09:24:22.911Z",
+      "kind": "browser-screenshot-junction-road-02-90",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "80997439-be96-41ec-bbe8-584b9e1f5567",
+      "date": "2026-09-25T09:24:26.472Z",
+      "kind": "browser-screenshot-junction-road-02-180",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "19d4c8ae-e49d-46da-bce8-90fa8858b796",
+      "date": "2026-09-25T09:24:29.892Z",
+      "kind": "browser-screenshot-junction-road-02-270",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "b2ad09f5-35ce-45ef-bb32-4029afdc5989",
+      "date": "2026-09-25T09:24:33.308Z",
+      "kind": "browser-screenshot-tangs-road-02-0",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "d32b410c-1357-438c-ae5c-00dc64dc52f6",
+      "date": "2026-09-25T09:24:33.310Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "70fd250f-b914-4f4c-b753-bd8b9cc37ec8",
+      "date": "2026-09-25T09:24:36.999Z",
+      "kind": "browser-screenshot-tangs-road-02-90",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "8f7f2fbe-58fa-4394-83cb-56848561ec8c",
+      "date": "2026-09-25T09:24:40.484Z",
+      "kind": "browser-screenshot-tangs-road-02-180",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "2fe624e5-f43f-42a9-9453-a109a04796b7",
+      "date": "2026-09-25T09:24:43.921Z",
+      "kind": "browser-screenshot-tangs-road-02-270",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "9eb4d875-938d-4e56-9d88-fb7ef118e671",
+      "date": "2026-09-25T09:24:47.327Z",
+      "kind": "browser-screenshot-wisma-road-02-0",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "be95a244-bec7-4197-93a3-522d0d6426d8",
+      "date": "2026-09-25T09:24:47.330Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "fd33daab-7609-4e51-8452-3fa20bd36f13",
+      "date": "2026-09-25T09:24:50.980Z",
+      "kind": "browser-screenshot-wisma-road-02-90",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "a57a5834-f8f0-4069-8946-4dd1eb13b037",
+      "date": "2026-09-25T09:24:54.401Z",
+      "kind": "browser-screenshot-wisma-road-02-180",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "f9eebdff-2134-43e2-a1ef-8da9f14923db",
+      "date": "2026-09-25T09:24:57.752Z",
+      "kind": "browser-screenshot-wisma-road-02-270",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "00c8967a-3859-4cb5-8cb9-76d97f0e804f",
+      "date": "2026-09-25T13:56:18.461Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "bishan",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "eb8f7e7c-3b0a-4c6e-88c7-d3a4961be380",
+      "date": "2026-09-25T13:56:19.024Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "bishan",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "9fab6df7-c454-47c0-935b-65a665de1eab",
+      "date": "2026-09-25T13:56:19.541Z",
+      "kind": "browser-screenshot-bishan-station-road-0",
+      "location": "bishan",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "7fa50aad-3e25-45d0-86a0-d851fd840762",
+      "date": "2026-09-25T13:56:19.554Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "bishan",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "f1511f7f-ea3b-4d44-b0c8-c4182453d73f",
+      "date": "2026-09-25T13:56:24.006Z",
+      "kind": "browser-screenshot-bishan-park-road-0",
+      "location": "bishan",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "13fb38eb-246f-442f-979d-d217fd9bb004",
+      "date": "2026-09-25T13:56:24.008Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "bishan",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "554a7dbc-9f5b-4c8b-a3fa-861b8e3defe4",
+      "date": "2026-09-25T13:56:29.433Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "bukit-timah",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "b782d2a6-8bbb-40db-9196-beb2d4c6edb8",
+      "date": "2026-09-25T13:56:29.682Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "bukit-timah",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "78040f21-05ab-498a-b0c6-2398446b0926",
+      "date": "2026-09-25T13:56:30.236Z",
+      "kind": "browser-screenshot-railway-station-exterior-preview",
+      "location": "bukit-timah",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "29d17e5d-2a55-4474-8ce4-6fdb5651ffb1",
+      "date": "2026-09-25T13:56:30.246Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "bukit-timah",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "505e1068-1bf8-4428-b61b-46ba403e65d1",
+      "date": "2026-09-25T13:56:34.503Z",
+      "kind": "browser-screenshot-reserve-visitor-centre-preview",
+      "location": "bukit-timah",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "00e6783b-6d02-4bd5-afac-08353cb0ab08",
+      "date": "2026-09-25T13:56:34.505Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "bukit-timah",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "3dbccc85-549f-44af-aebe-631157a8369f",
+      "date": "2026-09-25T13:56:39.969Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "changi",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "653fd120-4b29-4edc-a6aa-18cee953e4e6",
+      "date": "2026-09-25T13:56:40.280Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "changi",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "c8e6edd8-8d6c-4e9c-ab3c-0ccaeaf25acb",
+      "date": "2026-09-25T13:56:40.873Z",
+      "kind": "browser-screenshot-jewel-exterior-0",
+      "location": "changi",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "bccc0d06-5747-471a-b3ad-f5e56b1e6297",
+      "date": "2026-09-25T13:56:40.887Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "changi",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "019dc117-1bd9-4689-9128-a81b5ee44b8a",
+      "date": "2026-09-25T13:56:45.025Z",
+      "kind": "browser-screenshot-control-tower-0",
+      "location": "changi",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "cc17d089-2640-45df-ac24-fcb47be208c5",
+      "date": "2026-09-25T13:56:45.029Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "changi",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "6c3331e4-a395-46b5-ad21-474fbd754a1b",
+      "date": "2026-09-25T13:56:50.858Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "chinatown",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "e698f835-7918-4e0e-b131-82d8c48d2b8f",
+      "date": "2026-09-25T13:56:51.174Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "chinatown",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "53a7d48b-36d5-49be-8e90-535d1a7c6a63",
+      "date": "2026-09-25T13:56:51.718Z",
+      "kind": "browser-screenshot-south-bridge-road-01-preview",
+      "location": "chinatown",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "48326200-65fa-4ee2-8da8-f0b8f21fdfae",
+      "date": "2026-09-25T13:56:51.730Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "chinatown",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "ff35dcb2-9062-4459-a765-27de5f8290c9",
+      "date": "2026-09-25T13:56:55.639Z",
+      "kind": "browser-screenshot-pagoda-street-01-preview",
+      "location": "chinatown",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "4819b339-dc7b-43cb-8a6d-21cb996dca1d",
+      "date": "2026-09-25T13:56:55.640Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "chinatown",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "5f42f8b3-bceb-4a9d-a1bf-2aa86f1cd0c2",
+      "date": "2026-09-25T13:57:01.401Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "geylang",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "6c7f3e27-c330-493a-891f-e14b1c096373",
+      "date": "2026-09-25T13:57:01.665Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "geylang",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "8561bf2a-5870-440b-8d3f-411d037c0718",
+      "date": "2026-09-25T13:57:02.160Z",
+      "kind": "browser-screenshot-geylang-road-0",
+      "location": "geylang",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "19f95a49-bdf5-4193-bc7a-e99e5a081573",
+      "date": "2026-09-25T13:57:02.172Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "geylang",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "be39597a-6055-42a9-95a9-ff526fc83f67",
+      "date": "2026-09-25T13:57:06.607Z",
+      "kind": "browser-screenshot-lorong-24a-0",
+      "location": "geylang",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "f71a953d-878a-4a3a-a0f2-4091bfc25eb1",
+      "date": "2026-09-25T13:57:06.609Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "geylang",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "1992215b-1439-40ca-894b-2b841f3367ea",
+      "date": "2026-09-25T13:57:12.105Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "harbourfront",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "eeb3fb3e-3815-46b6-995a-363708a76538",
+      "date": "2026-09-25T13:57:12.364Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "harbourfront",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "fd19b1d9-bd0a-482e-9725-bc1e29e51799",
+      "date": "2026-09-25T13:57:12.867Z",
+      "kind": "browser-screenshot-vivo-waterfront-0",
+      "location": "harbourfront",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "087638d2-cf8e-41e8-b1c9-6edbbc879fe9",
+      "date": "2026-09-25T13:57:12.882Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "harbourfront",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "5b2d0aa8-ec87-4a24-b9f1-a3dce08005ee",
+      "date": "2026-09-25T13:57:16.835Z",
+      "kind": "browser-screenshot-harbourfront-centre-0",
+      "location": "harbourfront",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "b722b0be-7e4d-4f8b-96c8-5c8c9e144250",
+      "date": "2026-09-25T13:57:16.837Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "harbourfront",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "068e556e-7213-4f56-8ea9-f4d5ec05d16c",
+      "date": "2026-09-25T13:57:22.499Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "jurong-lake",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "a687fb40-0350-4d07-9f29-549c4ef4f138",
+      "date": "2026-09-25T13:57:22.800Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "jurong-lake",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "b113f093-10c9-4281-b632-a7dad8a5079c",
+      "date": "2026-09-25T13:57:23.322Z",
+      "kind": "browser-screenshot-chinese-garden-cloud-preview",
+      "location": "jurong-lake",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "844cd1fd-bd4e-4e86-9395-8373ca1f8d90",
+      "date": "2026-09-25T13:57:23.331Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "jurong-lake",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "6c4f7d2f-96ae-4e81-a7a7-a5b230ffcc72",
+      "date": "2026-09-25T13:57:27.159Z",
+      "kind": "browser-screenshot-jurong-east-frontage-preview",
+      "location": "jurong-lake",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "d1b17922-94ec-41a5-9126-c6610b7678a1",
+      "date": "2026-09-25T13:57:27.161Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "jurong-lake",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "ee8b5e0a-ec6b-4c34-b951-00818ee5b37e",
+      "date": "2026-09-25T13:57:32.350Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "kampong-glam",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "8f7e6aa0-ad9a-4d1a-992b-e01732ccbc98",
+      "date": "2026-09-25T13:57:32.635Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "kampong-glam",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "7eafb941-c349-465f-86a0-4feeb6dd4de3",
+      "date": "2026-09-25T13:57:33.173Z",
+      "kind": "browser-screenshot-bussorah-street-01-preview",
+      "location": "kampong-glam",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "19a80015-2fc1-41e0-a72b-6594d80efe9a",
+      "date": "2026-09-25T13:57:33.186Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "kampong-glam",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "a1797cf4-5f9b-4727-84bf-757195a5849f",
+      "date": "2026-09-25T13:57:37.124Z",
+      "kind": "browser-screenshot-kandahar-street-01-preview",
+      "location": "kampong-glam",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "be6aef47-a182-49d6-80a6-d08a08786c32",
+      "date": "2026-09-25T13:57:37.126Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "kampong-glam",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "426573a9-dcd0-4b05-a144-f704aa5bc598",
+      "date": "2026-09-25T13:57:42.574Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "punggol",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "f61675d3-f1c0-4554-981c-3b1c497a342d",
+      "date": "2026-09-25T13:57:42.851Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "punggol",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "463f5657-883a-4848-9fc1-0d4e70161b46",
+      "date": "2026-09-25T13:57:43.364Z",
+      "kind": "browser-screenshot-waterway-point-exterior-0",
+      "location": "punggol",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "f70c4276-3f4d-4ec3-9611-7d66b14dbb41",
+      "date": "2026-09-25T13:57:43.378Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "punggol",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "852e2c69-643b-4fbd-9148-eb07b599c37c",
+      "date": "2026-09-25T13:57:46.963Z",
+      "kind": "browser-screenshot-jewel-bridge-exterior-0",
+      "location": "punggol",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "e38eec93-c840-45bd-aec7-6422768efaeb",
+      "date": "2026-09-25T13:57:46.965Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "punggol",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "61c5df32-b603-4cce-b2e4-db716891e816",
+      "date": "2026-09-25T13:57:52.252Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "sentosa",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "4f4db089-f3ef-4e5d-bdd3-588175afe38d",
+      "date": "2026-09-25T13:57:52.487Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "sentosa",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "d118598a-e96e-4255-b839-07080784b02e",
+      "date": "2026-09-25T13:57:53.022Z",
+      "kind": "browser-screenshot-beach-station-0",
+      "location": "sentosa",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "60ca42e8-06eb-4728-b145-2d6702e60da6",
+      "date": "2026-09-25T13:57:53.045Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "sentosa",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "1689e37e-5820-4e3f-a8a1-4520d53063a5",
+      "date": "2026-09-25T13:57:56.936Z",
+      "kind": "browser-screenshot-palawan-beach-0",
+      "location": "sentosa",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "7ec0e862-97b3-43c9-a64f-5778b10d9795",
+      "date": "2026-09-25T13:57:56.938Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "sentosa",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "431a2bfd-7e16-4114-900d-0dfade23c664",
+      "date": "2026-09-25T13:58:02.611Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "tampines",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "7fee6a2a-e158-44d8-949e-36af02545808",
+      "date": "2026-09-25T13:58:02.824Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "tampines",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "d8b4a5fe-7301-43e6-8a12-7d405485317b",
+      "date": "2026-09-25T13:58:03.303Z",
+      "kind": "browser-screenshot-hub-exterior-0",
+      "location": "tampines",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "e2af3dda-ff61-4bd1-8f33-d96e3d36b659",
+      "date": "2026-09-25T13:58:03.310Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "tampines",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "87dc78cf-dec4-469b-978b-ab1b3d01cec3",
+      "date": "2026-09-25T13:58:07.495Z",
+      "kind": "browser-screenshot-round-market-exterior-0",
+      "location": "tampines",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "bb1dc0f9-92c6-4e79-905d-6af1eb3166ba",
+      "date": "2026-09-25T13:58:07.497Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "tampines",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "766b3d33-6095-4b85-ae2d-d8b356fd03b7",
+      "date": "2026-09-25T13:58:13.082Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "toa-payoh",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "7b9f4960-5063-45bf-aab6-85748cf691f9",
+      "date": "2026-09-25T13:58:13.346Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "toa-payoh",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "f5efcd72-054a-4b12-a713-d4662d3dbb19",
+      "date": "2026-09-25T13:58:13.832Z",
+      "kind": "browser-screenshot-town-park-road-0",
+      "location": "toa-payoh",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "fabdd631-f396-4add-84c5-4ce3bf7335f9",
+      "date": "2026-09-25T13:58:13.847Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "toa-payoh",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "386afecc-6318-4238-92c7-6512f85bc3a7",
+      "date": "2026-09-25T13:58:17.592Z",
+      "kind": "browser-screenshot-dragon-road-0",
+      "location": "toa-payoh",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "6e63ae44-8b5b-480d-9623-373f69848881",
+      "date": "2026-09-25T13:58:17.593Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "toa-payoh",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "961ca8d5-707d-486a-9870-1379898cda34",
+      "date": "2026-09-25T13:58:22.992Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "tuas",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "fb258160-fe70-4997-8f5c-27311b0d4016",
+      "date": "2026-09-25T13:58:23.149Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "tuas",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "ae7369ab-2123-4a76-8107-91e7c108e4dd",
+      "date": "2026-09-25T13:58:23.616Z",
+      "kind": "browser-screenshot-tuas-link-exterior-preview",
+      "location": "tuas",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "76f681a8-447a-48eb-b94c-d8fc9f0e7685",
+      "date": "2026-09-25T13:58:23.627Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "tuas",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "f1cb9782-a859-49fa-a98c-8ce86729cafc",
+      "date": "2026-09-25T13:58:27.671Z",
+      "kind": "browser-screenshot-tuas-west-industrial-preview",
+      "location": "tuas",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "8cd34c96-01ce-437c-a9a0-8ed6bc5b2748",
+      "date": "2026-09-25T13:58:27.673Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "tuas",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "51fa1f07-3538-46c5-bb41-17656faa5a67",
+      "date": "2026-09-25T13:58:33.121Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "upper-thomson",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "aa5f422e-b96f-46f1-bc29-b350d3ff3834",
+      "date": "2026-09-25T13:58:33.381Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "upper-thomson",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "1bef7a97-027b-47de-848d-2213ab322f2b",
+      "date": "2026-09-25T13:58:33.900Z",
+      "kind": "browser-screenshot-thomson-plaza-road-0",
+      "location": "upper-thomson",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "8aaa5ff0-bc57-4b90-a82b-f9441618f1c8",
+      "date": "2026-09-25T13:58:33.920Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "upper-thomson",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "efc008cf-b773-4987-a17c-154d3dfe0278",
+      "date": "2026-09-25T13:58:37.615Z",
+      "kind": "browser-screenshot-thomson-shops-road-0",
+      "location": "upper-thomson",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "dd8eec37-0ad0-48a9-a1fc-e826944652e6",
+      "date": "2026-09-25T13:58:37.617Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "upper-thomson",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "8adfffad-8d92-4009-bbbd-4a4397572762",
+      "date": "2026-09-25T13:58:43.021Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "woodlands",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "2702df72-c76a-4267-919c-8b7d7fec2411",
+      "date": "2026-09-25T13:58:43.303Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "woodlands",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "54864585-967c-4281-98d2-ee8968c4581d",
+      "date": "2026-09-25T13:58:43.895Z",
+      "kind": "browser-screenshot-causeway-point-exterior-0",
+      "location": "woodlands",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "5b9b5e21-b633-4f15-8942-a4be0431b88d",
+      "date": "2026-09-25T13:58:43.899Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "woodlands",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "dc49b58b-c0ff-464b-a894-e7d1301911af",
+      "date": "2026-09-25T13:58:47.666Z",
+      "kind": "browser-screenshot-waterfront-jetty-exterior-0",
+      "location": "woodlands",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "f6b0007a-5b79-4bdb-bdcc-125d12eb381d",
+      "date": "2026-09-25T13:58:47.668Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "woodlands",
+      "result": "HTTP 200"
     }
   ]
 }

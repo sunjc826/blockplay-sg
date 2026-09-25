@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "C5p_EtEdSF6KzGnDj7UjHQ",
+  "location": {
+    "lat": 1.3045337522813982,
+    "lng": 103.83260853624492
+  },
+  "description": "445 Orchard Rd, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-03",
+  "requested": {
+    "lat": 1.3046,
+    "lng": 103.8326
+  },
+  "selectedGoogle": true
+}

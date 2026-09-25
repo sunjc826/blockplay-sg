@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "kN58saRVuTAHP-0ZMG-K6A",
+  "location": {
+    "lat": 1.3525933707922255,
+    "lng": 103.83512635063684
+  },
+  "description": "Sin Ming Rd, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-08",
+  "requested": {
+    "lat": 1.3526,
+    "lng": 103.8351
+  },
+  "selectedGoogle": true
+}

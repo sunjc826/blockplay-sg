@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "IFk7wP0W7zVUtNpisQngBg",
+  "location": {
+    "lat": 1.2830796543922822,
+    "lng": 103.84488642990675
+  },
+  "description": "29 Pagoda St, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2021-10",
+  "requested": {
+    "lat": 1.28325,
+    "lng": 103.845
+  },
+  "selectedGoogle": true
+}

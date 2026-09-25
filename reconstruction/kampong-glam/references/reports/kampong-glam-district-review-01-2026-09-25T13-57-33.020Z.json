@@ -1,0 +1,25 @@
+{
+  "plan": "kampong-glam-district-review-01",
+  "startedAt": "2026-09-25T13:57:33.020Z",
+  "cached": 0,
+  "captured": 2,
+  "failed": 0,
+  "panoramaLoads": 2,
+  "staticApiRequests": 0,
+  "totalMs": 7835,
+  "bytes": 3672975,
+  "views": [
+    {
+      "id": "bussorah-street-01-preview",
+      "status": "captured",
+      "durationMs": 3948,
+      "bytes": 2096420
+    },
+    {
+      "id": "kandahar-street-01-preview",
+      "status": "captured",
+      "durationMs": 3720,
+      "bytes": 1576555
+    }
+  ]
+}

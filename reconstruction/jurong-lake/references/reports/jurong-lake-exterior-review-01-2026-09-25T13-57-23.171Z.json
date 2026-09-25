@@ -1,0 +1,25 @@
+{
+  "plan": "jurong-lake-exterior-review-01",
+  "startedAt": "2026-09-25T13:57:23.171Z",
+  "cached": 0,
+  "captured": 2,
+  "failed": 0,
+  "panoramaLoads": 2,
+  "staticApiRequests": 0,
+  "totalMs": 7472,
+  "bytes": 2491353,
+  "views": [
+    {
+      "id": "chinese-garden-cloud-preview",
+      "status": "captured",
+      "durationMs": 3834,
+      "bytes": 1937239
+    },
+    {
+      "id": "jurong-east-frontage-preview",
+      "status": "captured",
+      "durationMs": 3475,
+      "bytes": 554114
+    }
+  ]
+}

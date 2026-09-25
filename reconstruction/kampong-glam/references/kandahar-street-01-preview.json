@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "kandahar-street-01.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2021-04",
+  "pano_id": "V9mJ8TAjQcR4CMvO08YYqQ",
+  "position": {
+    "lat": 1.3021010843547498,
+    "lng": 103.86028423751951
+  },
+  "pov": {
+    "heading": 340,
+    "pitch": 8,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:57:40.844Z",
+  "file": "reconstruction/kampong-glam/references/kandahar-street-01-preview.png",
+  "fingerprint": "bfafdc19f9f53d2da4dfbaeb5c5be412eb5dd35d4c445c554de335b79c2c3af0",
+  "sha256": "d24e4218eaa276e937390ed97a59b1552dba6ccfe72afa2fcf7493edbe91b49a",
+  "bytes": 1576555,
+  "durationMs": 3720,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

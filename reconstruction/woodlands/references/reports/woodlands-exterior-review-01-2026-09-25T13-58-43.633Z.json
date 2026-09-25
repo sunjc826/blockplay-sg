@@ -1,0 +1,25 @@
+{
+  "plan": "woodlands-exterior-review-01",
+  "startedAt": "2026-09-25T13:58:43.633Z",
+  "cached": 0,
+  "captured": 2,
+  "failed": 0,
+  "panoramaLoads": 2,
+  "staticApiRequests": 0,
+  "totalMs": 7679,
+  "bytes": 3997937,
+  "views": [
+    {
+      "id": "causeway-point-exterior-0",
+      "status": "captured",
+      "durationMs": 3765,
+      "bytes": 1602796
+    },
+    {
+      "id": "waterfront-jetty-exterior-0",
+      "status": "captured",
+      "durationMs": 3633,
+      "bytes": 2395141
+    }
+  ]
+}

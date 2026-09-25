@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "beach-station.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2014-12",
+  "pano_id": "wtKkqNli7tP1mOcSJ-6xAw",
+  "position": {
+    "lat": 1.2517028727800052,
+    "lng": 103.81782562392235
+  },
+  "pov": {
+    "heading": 30,
+    "pitch": 10,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:57:56.933Z",
+  "file": "reconstruction/sentosa/references/beach-station-0.png",
+  "fingerprint": "984ac285978defed5904f7a4f88f6f43a62126f4ee33a232a04675123baff464",
+  "sha256": "9261147e7ac9aa832451d9220434dab3dd0b8bc9290b2ed26c7c83f7b5582ba5",
+  "bytes": 1928955,
+  "durationMs": 3911,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

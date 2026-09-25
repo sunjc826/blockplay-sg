@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "bussorah-street-01.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2021-04",
+  "pano_id": "EA_egylVnB460OyfE1n5gg",
+  "position": {
+    "lat": 1.3017831357771914,
+    "lng": 103.859501543983
+  },
+  "pov": {
+    "heading": 320,
+    "pitch": 8,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:57:37.121Z",
+  "file": "reconstruction/kampong-glam/references/bussorah-street-01-preview.png",
+  "fingerprint": "0c048768a13c59e086d046771dc662e5121698db74297f6da12337aeae9cdc1c",
+  "sha256": "360505005f00b0ac0e25637beecd888c41682034d65206547e80711bd9af0fb8",
+  "bytes": 2096420,
+  "durationMs": 3948,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

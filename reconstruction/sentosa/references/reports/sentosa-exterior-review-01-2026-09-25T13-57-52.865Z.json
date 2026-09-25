@@ -1,0 +1,25 @@
+{
+  "plan": "sentosa-exterior-review-01",
+  "startedAt": "2026-09-25T13:57:52.865Z",
+  "cached": 0,
+  "captured": 2,
+  "failed": 0,
+  "panoramaLoads": 2,
+  "staticApiRequests": 0,
+  "totalMs": 8032,
+  "bytes": 2970160,
+  "views": [
+    {
+      "id": "beach-station-0",
+      "status": "captured",
+      "durationMs": 3911,
+      "bytes": 1928955
+    },
+    {
+      "id": "palawan-beach-0",
+      "status": "captured",
+      "durationMs": 3947,
+      "bytes": 1041205
+    }
+  ]
+}

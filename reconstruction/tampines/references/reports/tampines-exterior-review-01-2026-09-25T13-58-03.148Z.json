@@ -1,0 +1,25 @@
+{
+  "plan": "tampines-exterior-review-01",
+  "startedAt": "2026-09-25T13:58:03.148Z",
+  "cached": 0,
+  "captured": 2,
+  "failed": 0,
+  "panoramaLoads": 2,
+  "staticApiRequests": 0,
+  "totalMs": 8210,
+  "bytes": 4082325,
+  "views": [
+    {
+      "id": "hub-exterior-0",
+      "status": "captured",
+      "durationMs": 4190,
+      "bytes": 1497520
+    },
+    {
+      "id": "round-market-exterior-0",
+      "status": "captured",
+      "durationMs": 3849,
+      "bytes": 2584805
+    }
+  ]
+}

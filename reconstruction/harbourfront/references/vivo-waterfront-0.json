@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "vivo-waterfront.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2017-10",
+  "pano_id": "qsbY9-OhxJwZ6Rmm30jRyg",
+  "position": {
+    "lat": 1.2630982515592646,
+    "lng": 103.8218400893004
+  },
+  "pov": {
+    "heading": 340,
+    "pitch": 10,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:57:16.832Z",
+  "file": "reconstruction/harbourfront/references/vivo-waterfront-0.png",
+  "fingerprint": "eb08a85d1263aea2399a9edc665d1e794beb83590c0b17ac588b145262c1391f",
+  "sha256": "ba0f0952ab8ed7c184ba5d07fcd202a72f26fd2747e5374035038ac15cc02c95",
+  "bytes": 1682647,
+  "durationMs": 3966,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

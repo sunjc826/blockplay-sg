@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "k5P7nUz2LhnxHhWHF2VEDg",
+  "location": {
+    "lat": 1.3120515285390952,
+    "lng": 103.88406046410793
+  },
+  "description": "39 Lor 24A Geylang, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-06",
+  "requested": {
+    "lat": 1.3121,
+    "lng": 103.8844
+  },
+  "selectedGoogle": true
+}

@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "lorong-24a.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-06",
+  "pano_id": "k5P7nUz2LhnxHhWHF2VEDg",
+  "position": {
+    "lat": 1.3120515285390952,
+    "lng": 103.88406046410793
+  },
+  "pov": {
+    "heading": 160,
+    "pitch": 10,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "39 Lor 24A Geylang, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:57:10.377Z",
+  "file": "reconstruction/geylang/references/lorong-24a-0.png",
+  "fingerprint": "490b8b8886ada9e3cf1dce93fb0b81869b4699c4d786fe9a22122cf5f43a1dc7",
+  "sha256": "ee59e42e402f6d6b6a1ba9758f20490ef82c3d49e3de02a62a8467d201c937a4",
+  "bytes": 2030235,
+  "durationMs": 3770,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

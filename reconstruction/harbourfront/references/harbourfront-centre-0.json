@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "harbourfront-centre.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-06",
+  "pano_id": "HhITch-jMjdOFCeQsjx39A",
+  "position": {
+    "lat": 1.2646150735583348,
+    "lng": 103.81970521734316
+  },
+  "pov": {
+    "heading": 320,
+    "pitch": 10,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "1 Maritime Square, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:57:20.771Z",
+  "file": "reconstruction/harbourfront/references/harbourfront-centre-0.png",
+  "fingerprint": "dec6884188d84234a9a5172e98669970ad91201a7b7df3cd9b9a553d9788a75c",
+  "sha256": "b19613bba4f04f58ff6abc597df30486b0f3fafb868f1268909a5b9763915bee",
+  "bytes": 1903098,
+  "durationMs": 3935,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

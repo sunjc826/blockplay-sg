@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "jewel-exterior.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-07",
+  "pano_id": "UY56ap-V4Cv8VMKLQwfYCw",
+  "position": {
+    "lat": 1.3589306848251637,
+    "lng": 103.98926426162907
+  },
+  "pov": {
+    "heading": 40,
+    "pitch": 10,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "75 Airport Blvd., Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:56:45.022Z",
+  "file": "reconstruction/changi/references/jewel-exterior-0.png",
+  "fingerprint": "60cd65718ef1e1509edc8ccf96c7d04949d066b472e2684805d93d5155297311",
+  "sha256": "786f5c15931d4d61c8ab5d2d9344d375e491d91e66119c82cab0cce32bf36dd3",
+  "bytes": 1718293,
+  "durationMs": 4151,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

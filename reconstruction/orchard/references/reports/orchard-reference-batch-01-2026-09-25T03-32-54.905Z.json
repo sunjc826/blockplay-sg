@@ -1,0 +1,157 @@
+{
+  "plan": "orchard-reference-batch-01",
+  "startedAt": "2026-09-25T03:32:54.905Z",
+  "cached": 0,
+  "captured": 24,
+  "failed": 0,
+  "panoramaLoads": 6,
+  "staticApiRequests": 0,
+  "totalMs": 86995,
+  "bytes": 40419052,
+  "views": [
+    {
+      "id": "orchard-junction-0",
+      "status": "captured",
+      "durationMs": 4467,
+      "bytes": 1917195
+    },
+    {
+      "id": "orchard-junction-90",
+      "status": "captured",
+      "durationMs": 3711,
+      "bytes": 1936045
+    },
+    {
+      "id": "orchard-junction-180",
+      "status": "captured",
+      "durationMs": 3497,
+      "bytes": 2053516
+    },
+    {
+      "id": "orchard-junction-270",
+      "status": "captured",
+      "durationMs": 3443,
+      "bytes": 1766678
+    },
+    {
+      "id": "ion-frontage-0",
+      "status": "captured",
+      "durationMs": 4035,
+      "bytes": 1846520
+    },
+    {
+      "id": "ion-frontage-90",
+      "status": "captured",
+      "durationMs": 3416,
+      "bytes": 1205927
+    },
+    {
+      "id": "ion-frontage-180",
+      "status": "captured",
+      "durationMs": 3466,
+      "bytes": 1545630
+    },
+    {
+      "id": "ion-frontage-270",
+      "status": "captured",
+      "durationMs": 3437,
+      "bytes": 1377598
+    },
+    {
+      "id": "wisma-frontage-0",
+      "status": "captured",
+      "durationMs": 3861,
+      "bytes": 1412437
+    },
+    {
+      "id": "wisma-frontage-90",
+      "status": "captured",
+      "durationMs": 3522,
+      "bytes": 1591942
+    },
+    {
+      "id": "wisma-frontage-180",
+      "status": "captured",
+      "durationMs": 3413,
+      "bytes": 1536921
+    },
+    {
+      "id": "wisma-frontage-270",
+      "status": "captured",
+      "durationMs": 3412,
+      "bytes": 1383528
+    },
+    {
+      "id": "ngee-ann-frontage-0",
+      "status": "captured",
+      "durationMs": 3645,
+      "bytes": 1734026
+    },
+    {
+      "id": "ngee-ann-frontage-90",
+      "status": "captured",
+      "durationMs": 3514,
+      "bytes": 1681034
+    },
+    {
+      "id": "ngee-ann-frontage-180",
+      "status": "captured",
+      "durationMs": 3461,
+      "bytes": 1601140
+    },
+    {
+      "id": "ngee-ann-frontage-270",
+      "status": "captured",
+      "durationMs": 3544,
+      "bytes": 1527626
+    },
+    {
+      "id": "somerset-frontage-0",
+      "status": "captured",
+      "durationMs": 3826,
+      "bytes": 1818493
+    },
+    {
+      "id": "somerset-frontage-90",
+      "status": "captured",
+      "durationMs": 3621,
+      "bytes": 1968659
+    },
+    {
+      "id": "somerset-frontage-180",
+      "status": "captured",
+      "durationMs": 3564,
+      "bytes": 2344726
+    },
+    {
+      "id": "somerset-frontage-270",
+      "status": "captured",
+      "durationMs": 3412,
+      "bytes": 1876865
+    },
+    {
+      "id": "emerald-hill-mouth-0",
+      "status": "captured",
+      "durationMs": 3963,
+      "bytes": 1455648
+    },
+    {
+      "id": "emerald-hill-mouth-90",
+      "status": "captured",
+      "durationMs": 3403,
+      "bytes": 1416822
+    },
+    {
+      "id": "emerald-hill-mouth-180",
+      "status": "captured",
+      "durationMs": 3517,
+      "bytes": 1795685
+    },
+    {
+      "id": "emerald-hill-mouth-270",
+      "status": "captured",
+      "durationMs": 3481,
+      "bytes": 1624391
+    }
+  ]
+}

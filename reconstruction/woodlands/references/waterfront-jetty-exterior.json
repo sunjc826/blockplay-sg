@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "P69kYJpLaDWv5mGkFdmcBg",
+  "location": {
+    "lat": 1.4515984886718263,
+    "lng": 103.7807139628853
+  },
+  "description": "Admiralty Rd W, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-08",
+  "requested": {
+    "lat": 1.4521,
+    "lng": 103.7807
+  },
+  "selectedGoogle": true
+}

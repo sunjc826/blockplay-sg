@@ -1,0 +1,25 @@
+{
+  "plan": "tuas-exterior-review-01",
+  "startedAt": "2026-09-25T13:58:23.456Z",
+  "cached": 0,
+  "captured": 2,
+  "failed": 0,
+  "panoramaLoads": 2,
+  "staticApiRequests": 0,
+  "totalMs": 7941,
+  "bytes": 3676107,
+  "views": [
+    {
+      "id": "tuas-link-exterior-preview",
+      "status": "captured",
+      "durationMs": 4053,
+      "bytes": 1867829
+    },
+    {
+      "id": "tuas-west-industrial-preview",
+      "status": "captured",
+      "durationMs": 3715,
+      "bytes": 1808278
+    }
+  ]
+}

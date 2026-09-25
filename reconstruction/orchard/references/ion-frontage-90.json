@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "ion-frontage.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2014-02",
+  "pano_id": "tdZzI7_RDilXVQrnK6ueDg",
+  "position": {
+    "lat": 1.3039539084677376,
+    "lng": 103.83245533717313
+  },
+  "pov": {
+    "heading": 90,
+    "pitch": 10,
+    "zoom": 1
+  },
+  "zoom": 1,
+  "description": "",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T03:33:17.774Z",
+  "file": "reconstruction/orchard/references/ion-frontage-90.png",
+  "fingerprint": "d55d7a409283d94a0fadf31a1e81c3d1132228cc29dea80304d9f8cb3c6eb7a9",
+  "sha256": "a485e412ca28fdb0d1ed23c92f795abe2aa580ed573818cb97cb16e638811c90",
+  "bytes": 1205927,
+  "durationMs": 3416,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "UY56ap-V4Cv8VMKLQwfYCw",
+  "location": {
+    "lat": 1.3589306848251637,
+    "lng": 103.98926426162907
+  },
+  "description": "75 Airport Blvd., Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-07",
+  "requested": {
+    "lat": 1.359,
+    "lng": 103.9893
+  },
+  "selectedGoogle": true
+}

@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "jurong-east-frontage.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2021-11",
+  "pano_id": "Cy1JYuGSXFRNW9K07IUkOQ",
+  "position": {
+    "lat": 1.333958078731708,
+    "lng": 103.74170244227537
+  },
+  "pov": {
+    "heading": 20,
+    "pitch": 8,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:57:30.634Z",
+  "file": "reconstruction/jurong-lake/references/jurong-east-frontage-preview.png",
+  "fingerprint": "97838f41ba053a7cd05a0c8d16c09747823f1e95466f86bf54625e27ec1be350",
+  "sha256": "78457504d02994547fd5c27c37cd9f569ec81631bc2202e861bcb841920d7769",
+  "bytes": 554114,
+  "durationMs": 3475,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

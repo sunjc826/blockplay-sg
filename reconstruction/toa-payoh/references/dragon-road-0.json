@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "dragon-road.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-03",
+  "pano_id": "7ZRbYtgWqXAAi4ZgbX85hw",
+  "position": {
+    "lat": 1.335914828439457,
+    "lng": 103.85554417566908
+  },
+  "pov": {
+    "heading": 280,
+    "pitch": 5,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:58:21.259Z",
+  "file": "reconstruction/toa-payoh/references/dragon-road-0.png",
+  "fingerprint": "417bffc9d438853f4709b9b6e66ebe6ad745152a84042e14bf8672d3aaa7cd71",
+  "sha256": "3201bee41bdacfae9a4e079e2f4988c03119391b7b5c7b60fce75d426a7498c1",
+  "bytes": 1480607,
+  "durationMs": 3667,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

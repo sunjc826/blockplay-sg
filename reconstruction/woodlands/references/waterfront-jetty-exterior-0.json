@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "waterfront-jetty-exterior.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-08",
+  "pano_id": "P69kYJpLaDWv5mGkFdmcBg",
+  "position": {
+    "lat": 1.4515984886718263,
+    "lng": 103.7807139628853
+  },
+  "pov": {
+    "heading": 10,
+    "pitch": 5,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Admiralty Rd W, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:58:51.299Z",
+  "file": "reconstruction/woodlands/references/waterfront-jetty-exterior-0.png",
+  "fingerprint": "0516f8815c06ebfc0064f0b361c55488ea28872cac0f793ab574eb5345db7151",
+  "sha256": "6c8c02aee7952130e7d938248b16d920eb76ba65caf9deee831602443f9154fe",
+  "bytes": 2395141,
+  "durationMs": 3633,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

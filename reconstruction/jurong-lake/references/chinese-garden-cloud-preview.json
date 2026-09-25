@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "chinese-garden-cloud.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2016-06",
+  "pano_id": "0DfXo7UeBA9vf2rwwN6nwQ",
+  "position": {
+    "lat": 1.3387369187076874,
+    "lng": 103.73047193746906
+  },
+  "pov": {
+    "heading": 330,
+    "pitch": 8,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:57:27.156Z",
+  "file": "reconstruction/jurong-lake/references/chinese-garden-cloud-preview.png",
+  "fingerprint": "2a1ed8dec2944b1d7783e73985d035c7e0ebea621511cc7a38584e0838feef55",
+  "sha256": "8392ad6e100dd42d6acf69eaf0a8adc9f7c0f5e768284e68090b3ac45d76844b",
+  "bytes": 1937239,
+  "durationMs": 3834,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

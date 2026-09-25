@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "eRe7O5TUQEtkki78YQg2Kg",
+  "location": {
+    "lat": 1.3051291001985446,
+    "lng": 103.83161592962735
+  },
+  "description": "Paterson Rd, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-03",
+  "requested": {
+    "lat": 1.305,
+    "lng": 103.8317
+  },
+  "selectedGoogle": true
+}

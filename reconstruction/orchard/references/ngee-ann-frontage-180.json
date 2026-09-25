@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "ngee-ann-frontage.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2021-05",
+  "pano_id": "mbSDGDbuz6N_JC1IMs3_Sw",
+  "position": {
+    "lat": 1.3027155981110765,
+    "lng": 103.83490521628661
+  },
+  "pov": {
+    "heading": 180,
+    "pitch": 10,
+    "zoom": 1
+  },
+  "zoom": 1,
+  "description": "Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T03:33:49.527Z",
+  "file": "reconstruction/orchard/references/ngee-ann-frontage-180.png",
+  "fingerprint": "5f0c3d925bd904eeb81cf82785f307f4e0a967d7f12da7d16aebcc4329791197",
+  "sha256": "b8a0bdc744ee4933b1bc5233266da6d2d40d1793cbc5bb938959bc99edffc3b8",
+  "bytes": 1601140,
+  "durationMs": 3461,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

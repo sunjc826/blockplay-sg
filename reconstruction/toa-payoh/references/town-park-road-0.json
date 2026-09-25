@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "town-park-road.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2016-05",
+  "pano_id": "heo-xdJMndQZu-dNHbf08w",
+  "position": {
+    "lat": 1.3308799208676916,
+    "lng": 103.84952942989729
+  },
+  "pov": {
+    "heading": 270,
+    "pitch": 5,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:58:17.589Z",
+  "file": "reconstruction/toa-payoh/references/town-park-road-0.png",
+  "fingerprint": "9b3b8329399b8ca16e10bea4e3952761857fdbc7d76c3fd26be7d5c9250a1edb",
+  "sha256": "8d751e9a4f6df43d1bb5aee8053a4ee588e59e27a005769591e2c75f75c5d3dc",
+  "bytes": 2205095,
+  "durationMs": 3760,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

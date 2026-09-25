@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "5ML2VqqOp2g9G8F9xQjreA",
+  "location": {
+    "lat": 1.4060952746868143,
+    "lng": 103.90207935972636
+  },
+  "description": "Waterway Point",
+  "copyright": "© 2026 Google",
+  "date": "2019-05",
+  "requested": {
+    "lat": 1.4061,
+    "lng": 103.9021
+  },
+  "selectedGoogle": true
+}

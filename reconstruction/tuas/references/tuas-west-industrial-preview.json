@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "tuas-west-industrial.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-07",
+  "pano_id": "ZD0Rk9dCtVNxWcQbRoedfA",
+  "position": {
+    "lat": 1.3301910737623792,
+    "lng": 103.64129808575164
+  },
+  "pov": {
+    "heading": 210,
+    "pitch": 8,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "2 Tuas Ave 12, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:58:31.386Z",
+  "file": "reconstruction/tuas/references/tuas-west-industrial-preview.png",
+  "fingerprint": "59a8cf81672df81ddfad9cccbe275785e87cfb20b751b3a25e2c5dbe013035ef",
+  "sha256": "2277068961f3db25598c6e035b5c450d818c3d6bea2d051d2b317f26e4dc6fee",
+  "bytes": 1808278,
+  "durationMs": 3715,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

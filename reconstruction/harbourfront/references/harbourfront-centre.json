@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "HhITch-jMjdOFCeQsjx39A",
+  "location": {
+    "lat": 1.2646150735583348,
+    "lng": 103.81970521734316
+  },
+  "description": "1 Maritime Square, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-06",
+  "requested": {
+    "lat": 1.2642,
+    "lng": 103.8198
+  },
+  "selectedGoogle": true
+}

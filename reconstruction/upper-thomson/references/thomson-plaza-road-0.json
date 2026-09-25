@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "thomson-plaza-road.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2019-07",
+  "pano_id": "5BMrufmDhSBaOMjNbExNjg",
+  "position": {
+    "lat": 1.354670005071731,
+    "lng": 103.83050197573162
+  },
+  "pov": {
+    "heading": 280,
+    "pitch": 5,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Thomson Plaza",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:58:37.613Z",
+  "file": "reconstruction/upper-thomson/references/thomson-plaza-road-0.png",
+  "fingerprint": "e7cb993ed5465d3b74dce7006345e1d4e59036f678166cc9a6da4f01a8a6d8f5",
+  "sha256": "4b0d1c9956474fbb0c2f50065837561a59eb7a1393b14d6bfcd24ae2ef213a6f",
+  "bytes": 912201,
+  "durationMs": 3713,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

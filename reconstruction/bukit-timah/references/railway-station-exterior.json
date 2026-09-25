@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "1HG-T7HqnYjJtoluBcCeZQ",
+  "location": {
+    "lat": 1.3343895891886368,
+    "lng": 103.78047152039638
+  },
+  "description": "5 King Albert Prk, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-07",
+  "requested": {
+    "lat": 1.3344,
+    "lng": 103.7811
+  },
+  "selectedGoogle": true
+}

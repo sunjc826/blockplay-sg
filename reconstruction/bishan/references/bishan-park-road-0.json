@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "bishan-park-road.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2014-04",
+  "pano_id": "Qv-tokdKUUFDRa5Zq2wNDg",
+  "position": {
+    "lat": 1.3621664894151482,
+    "lng": 103.84625535798429
+  },
+  "pov": {
+    "heading": 310,
+    "pitch": 5,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:56:27.678Z",
+  "file": "reconstruction/bishan/references/bishan-park-road-0.png",
+  "fingerprint": "21734de906ab4a1116e31b1bd359d26aa7df939545a6e98088575f07b56cc63a",
+  "sha256": "4ba197358bffa547363fa5652b9560704fedf53378ab3213a4a7c2dcb9cbfb12",
+  "bytes": 1555555,
+  "durationMs": 3672,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

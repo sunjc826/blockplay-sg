@@ -1,0 +1,25 @@
+{
+  "plan": "punggol-exterior-review-01",
+  "startedAt": "2026-09-25T13:57:43.216Z",
+  "cached": 0,
+  "captured": 2,
+  "failed": 0,
+  "panoramaLoads": 2,
+  "staticApiRequests": 0,
+  "totalMs": 7321,
+  "bytes": 2928380,
+  "views": [
+    {
+      "id": "waterway-point-exterior-0",
+      "status": "captured",
+      "durationMs": 3597,
+      "bytes": 973042
+    },
+    {
+      "id": "jewel-bridge-exterior-0",
+      "status": "captured",
+      "durationMs": 3558,
+      "bytes": 1955338
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "junction-road-02.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-03",
+  "pano_id": "eRe7O5TUQEtkki78YQg2Kg",
+  "position": {
+    "lat": 1.3051291001985446,
+    "lng": 103.83161592962735
+  },
+  "pov": {
+    "heading": 180,
+    "pitch": 10,
+    "zoom": 1
+  },
+  "zoom": 1,
+  "description": "Paterson Rd, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T09:24:29.889Z",
+  "file": "reconstruction/orchard/references/junction-road-02-180.png",
+  "fingerprint": "2ceb311058e02d012f52a2e111c7bf431c72b5a3154027fb5d82320e120b5ec9",
+  "sha256": "c8c57390cd78d29b557e390b21f4a1ab738f433cc76ffdc2650a8de69cda25db",
+  "bytes": 1734249,
+  "durationMs": 3417,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

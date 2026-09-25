@@ -1,0 +1,25 @@
+{
+  "plan": "upper-thomson-exterior-preview-01",
+  "startedAt": "2026-09-25T13:58:33.751Z",
+  "cached": 0,
+  "captured": 2,
+  "failed": 0,
+  "panoramaLoads": 2,
+  "staticApiRequests": 0,
+  "totalMs": 7571,
+  "bytes": 2392488,
+  "views": [
+    {
+      "id": "thomson-plaza-road-0",
+      "status": "captured",
+      "durationMs": 3713,
+      "bytes": 912201
+    },
+    {
+      "id": "thomson-shops-road-0",
+      "status": "captured",
+      "durationMs": 3696,
+      "bytes": 1480287
+    }
+  ]
+}

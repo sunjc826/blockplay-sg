@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "somerset-frontage.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-06",
+  "pano_id": "YV4TYdAY4RFu8It53RXAYw",
+  "position": {
+    "lat": 1.3015656650975123,
+    "lng": 103.83821802351126
+  },
+  "pov": {
+    "heading": 180,
+    "pitch": 10,
+    "zoom": 1
+  },
+  "zoom": 1,
+  "description": "228 Orchard Rd, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T03:34:04.092Z",
+  "file": "reconstruction/orchard/references/somerset-frontage-180.png",
+  "fingerprint": "3d1be05deee994b699fbed10b03ba671df681d4eccf660ac5a1055aeac06bdd6",
+  "sha256": "d37b56d046e671e7fe5199c015b0f4c82b513904feed751481cfab80aa9cd2a5",
+  "bytes": 2344726,
+  "durationMs": 3564,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

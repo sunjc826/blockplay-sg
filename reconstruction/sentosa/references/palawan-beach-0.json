@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "palawan-beach.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2015-02",
+  "pano_id": "W7AKq2c-KMYZeaZ6l88l_A",
+  "position": {
+    "lat": 1.249246641119529,
+    "lng": 103.82166939028767
+  },
+  "pov": {
+    "heading": 160,
+    "pitch": 10,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:58:00.883Z",
+  "file": "reconstruction/sentosa/references/palawan-beach-0.png",
+  "fingerprint": "0641cd220429011bb75edcce5de0af93bf583f63bd888c5d6f9e11284ea4208b",
+  "sha256": "49a2d049867d35f1cc22e997ce8f9a9dccdce759c5119377cb4c4c1b5ab12401",
+  "bytes": 1041205,
+  "durationMs": 3947,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

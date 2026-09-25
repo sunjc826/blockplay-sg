@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "5BMrufmDhSBaOMjNbExNjg",
+  "location": {
+    "lat": 1.354670005071731,
+    "lng": 103.83050197573162
+  },
+  "description": "Thomson Plaza",
+  "copyright": "© 2026 Google",
+  "date": "2019-07",
+  "requested": {
+    "lat": 1.3547,
+    "lng": 103.8304
+  },
+  "selectedGoogle": true
+}

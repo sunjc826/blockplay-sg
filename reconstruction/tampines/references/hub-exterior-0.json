@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "hub-exterior.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2023-01",
+  "pano_id": "ZKNovOTlF2V5rSjkDB6WWA",
+  "position": {
+    "lat": 1.3520154665485113,
+    "lng": 103.94015210475624
+  },
+  "pov": {
+    "heading": 0,
+    "pitch": 5,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:58:07.493Z",
+  "file": "reconstruction/tampines/references/hub-exterior-0.png",
+  "fingerprint": "afd716105f51794a47706db9f5eaabe53926871cacb340fef0ba17be5f300df7",
+  "sha256": "48e1ea9c19aa52f112a96e48bf7eb9ec4d6b0b165ebb942c9565d7dd3eaee45d",
+  "bytes": 1497520,
+  "durationMs": 4190,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

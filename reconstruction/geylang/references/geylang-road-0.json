@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "geylang-road.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-06",
+  "pano_id": "o1zPdNWSWM89tQnp0aWb0A",
+  "position": {
+    "lat": 1.3122226810769342,
+    "lng": 103.87981914865497
+  },
+  "pov": {
+    "heading": 90,
+    "pitch": 10,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "7 Lor. 16 Geylang, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:57:06.604Z",
+  "file": "reconstruction/geylang/references/geylang-road-0.png",
+  "fingerprint": "5746e43bc345188e3972d28ee130b16a745faa12d23d7046da02f1a5e07da54b",
+  "sha256": "1a2f0307ade8a1149f59301b88629dc756134dc91c18dc27851722aa2ba5631c",
+  "bytes": 1848921,
+  "durationMs": 4445,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

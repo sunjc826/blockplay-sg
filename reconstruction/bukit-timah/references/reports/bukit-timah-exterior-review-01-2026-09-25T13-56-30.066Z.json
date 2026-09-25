@@ -1,0 +1,25 @@
+{
+  "plan": "bukit-timah-exterior-review-01",
+  "startedAt": "2026-09-25T13:56:30.066Z",
+  "cached": 0,
+  "captured": 2,
+  "failed": 0,
+  "panoramaLoads": 2,
+  "staticApiRequests": 0,
+  "totalMs": 8162,
+  "bytes": 4055924,
+  "views": [
+    {
+      "id": "railway-station-exterior-preview",
+      "status": "captured",
+      "durationMs": 4266,
+      "bytes": 1779382
+    },
+    {
+      "id": "reserve-visitor-centre-preview",
+      "status": "captured",
+      "durationMs": 3712,
+      "bytes": 2276542
+    }
+  ]
+}

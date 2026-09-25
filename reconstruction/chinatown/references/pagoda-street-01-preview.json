@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "pagoda-street-01.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2021-10",
+  "pano_id": "IFk7wP0W7zVUtNpisQngBg",
+  "position": {
+    "lat": 1.2830796543922822,
+    "lng": 103.84488642990675
+  },
+  "pov": {
+    "heading": 315,
+    "pitch": 8,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "29 Pagoda St, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:56:59.677Z",
+  "file": "reconstruction/chinatown/references/pagoda-street-01-preview.png",
+  "fingerprint": "51d3782f30fdbe79b6405edfafcc7a070789bbcc8a75d697f1e372d1fa4802ea",
+  "sha256": "95245523e751d663bf875b95c629ef1ec7a482a7e9ea1782161af17d70c88184",
+  "bytes": 1742114,
+  "durationMs": 4039,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

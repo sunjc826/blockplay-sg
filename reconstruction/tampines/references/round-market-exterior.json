@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "N-biNaWKt_adGHG3yktcxw",
+  "location": {
+    "lat": 1.3449654166436653,
+    "lng": 103.94423169392053
+  },
+  "description": "25 Tampines Ave 5, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2025-03",
+  "requested": {
+    "lat": 1.345,
+    "lng": 103.9443
+  },
+  "selectedGoogle": true
+}

@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "tuas-link-exterior.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-07",
+  "pano_id": "I1vFrzk3wvroDk1ix5AIeQ",
+  "position": {
+    "lat": 1.3399281672403909,
+    "lng": 103.63681165271015
+  },
+  "pov": {
+    "heading": 310,
+    "pitch": 8,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "20 Tuas West Dr, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:58:27.668Z",
+  "file": "reconstruction/tuas/references/tuas-link-exterior-preview.png",
+  "fingerprint": "d973763aec67a779b54501f4b04dcb7d0ca9d49d77d8b70a9b49de7abf5ede1f",
+  "sha256": "875d2b5042da88a06992ce76b293e87a7d47d24a921ce64ed7e1409f19379c9d",
+  "bytes": 1867829,
+  "durationMs": 4053,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

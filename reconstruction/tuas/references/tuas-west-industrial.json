@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "ZD0Rk9dCtVNxWcQbRoedfA",
+  "location": {
+    "lat": 1.3301910737623792,
+    "lng": 103.64129808575164
+  },
+  "description": "2 Tuas Ave 12, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-07",
+  "requested": {
+    "lat": 1.3309,
+    "lng": 103.6406
+  },
+  "selectedGoogle": true
+}

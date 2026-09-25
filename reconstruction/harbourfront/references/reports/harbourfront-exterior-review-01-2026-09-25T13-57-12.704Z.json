@@ -1,0 +1,25 @@
+{
+  "plan": "harbourfront-exterior-review-01",
+  "startedAt": "2026-09-25T13:57:12.704Z",
+  "cached": 0,
+  "captured": 2,
+  "failed": 0,
+  "panoramaLoads": 2,
+  "staticApiRequests": 0,
+  "totalMs": 8079,
+  "bytes": 3585745,
+  "views": [
+    {
+      "id": "vivo-waterfront-0",
+      "status": "captured",
+      "durationMs": 3966,
+      "bytes": 1682647
+    },
+    {
+      "id": "harbourfront-centre-0",
+      "status": "captured",
+      "durationMs": 3935,
+      "bytes": 1903098
+    }
+  ]
+}

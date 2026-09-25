@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "LodOk7nnlyTa9YfmxbT13g",
+  "location": {
+    "lat": 1.4361743369313746,
+    "lng": 103.78581234129392
+  },
+  "description": "Causeway Point",
+  "copyright": "© 2026 Google",
+  "date": "2019-06",
+  "requested": {
+    "lat": 1.4362,
+    "lng": 103.7858
+  },
+  "selectedGoogle": true
+}

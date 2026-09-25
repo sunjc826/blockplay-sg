@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "I1vFrzk3wvroDk1ix5AIeQ",
+  "location": {
+    "lat": 1.3399281672403909,
+    "lng": 103.63681165271015
+  },
+  "description": "20 Tuas West Dr, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-07",
+  "requested": {
+    "lat": 1.34,
+    "lng": 103.6365
+  },
+  "selectedGoogle": true
+}

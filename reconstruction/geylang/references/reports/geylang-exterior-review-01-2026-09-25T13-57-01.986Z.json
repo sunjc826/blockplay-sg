@@ -1,0 +1,25 @@
+{
+  "plan": "geylang-exterior-review-01",
+  "startedAt": "2026-09-25T13:57:01.986Z",
+  "cached": 0,
+  "captured": 2,
+  "failed": 0,
+  "panoramaLoads": 2,
+  "staticApiRequests": 0,
+  "totalMs": 8401,
+  "bytes": 3879156,
+  "views": [
+    {
+      "id": "geylang-road-0",
+      "status": "captured",
+      "durationMs": 4445,
+      "bytes": 1848921
+    },
+    {
+      "id": "lorong-24a-0",
+      "status": "captured",
+      "durationMs": 3770,
+      "bytes": 2030235
+    }
+  ]
+}

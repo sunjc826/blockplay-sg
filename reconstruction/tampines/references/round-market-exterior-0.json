@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "round-market-exterior.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2025-03",
+  "pano_id": "N-biNaWKt_adGHG3yktcxw",
+  "position": {
+    "lat": 1.3449654166436653,
+    "lng": 103.94423169392053
+  },
+  "pov": {
+    "heading": 25,
+    "pitch": 5,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "25 Tampines Ave 5, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:58:11.344Z",
+  "file": "reconstruction/tampines/references/round-market-exterior-0.png",
+  "fingerprint": "cd6beae4ca8ba4978f2a6466858e0ddf6e066977d09ccca4d1d343c3f304e2d7",
+  "sha256": "5c574e3580c0730ccd031e29b39726e42c28c661f97e2f6b0408f0f68f38a49b",
+  "bytes": 2584805,
+  "durationMs": 3849,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

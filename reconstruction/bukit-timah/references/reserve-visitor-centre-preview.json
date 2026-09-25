@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "reserve-visitor-centre.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-07",
+  "pano_id": "SUfj_AAagritmadMTDnYoA",
+  "position": {
+    "lat": 1.3473144973486986,
+    "lng": 103.77624193298983
+  },
+  "pov": {
+    "heading": 350,
+    "pitch": 8,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "42 Hindhede Dr, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:56:38.215Z",
+  "file": "reconstruction/bukit-timah/references/reserve-visitor-centre-preview.png",
+  "fingerprint": "c7a98cc56e150641b9b7e9465b888b2238456281a6e84cc92c054759443c1a51",
+  "sha256": "19fc9db7f6ea4ebe4e04935f52a42f463915f4e48114bf0979f0988912a45259",
+  "bytes": 2276542,
+  "durationMs": 3712,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

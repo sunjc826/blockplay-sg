@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "south-bridge-road-01.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-06",
+  "pano_id": "2e3Az8WWgodNdAGs7LaQ9w",
+  "position": {
+    "lat": 1.2821288587045323,
+    "lng": 103.84517781802961
+  },
+  "pov": {
+    "heading": 250,
+    "pitch": 8,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "265 S Bridge Rd, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:56:55.636Z",
+  "file": "reconstruction/chinatown/references/south-bridge-road-01-preview.png",
+  "fingerprint": "886678e98ed5a3b1be4980668ba5d1aa9fd21b3ba2c6dc846ebcbedf5cb75583",
+  "sha256": "ac113c3fafbf7fc15e2c5fddc2676e32eefe23b1c86bb2515c58bdedceff7fad",
+  "bytes": 1462719,
+  "durationMs": 3919,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

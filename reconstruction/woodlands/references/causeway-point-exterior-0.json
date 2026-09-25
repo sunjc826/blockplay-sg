@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "causeway-point-exterior.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2019-06",
+  "pano_id": "LodOk7nnlyTa9YfmxbT13g",
+  "position": {
+    "lat": 1.4361743369313746,
+    "lng": 103.78581234129392
+  },
+  "pov": {
+    "heading": 350,
+    "pitch": 5,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Causeway Point",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:58:47.658Z",
+  "file": "reconstruction/woodlands/references/causeway-point-exterior-0.png",
+  "fingerprint": "ff4d3cc0d58ed76183cb0000f89ab50bdc02db7d4b422b75ab87bd6cef123ef1",
+  "sha256": "893ea0a04b50097ae0d0e37831293c5eceebdfbb91171233eb257e5575f43ff0",
+  "bytes": 1602796,
+  "durationMs": 3765,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

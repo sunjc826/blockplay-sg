@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "waterway-point-exterior.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2019-05",
+  "pano_id": "5ML2VqqOp2g9G8F9xQjreA",
+  "position": {
+    "lat": 1.4060952746868143,
+    "lng": 103.90207935972636
+  },
+  "pov": {
+    "heading": 20,
+    "pitch": 5,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Waterway Point",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:57:46.960Z",
+  "file": "reconstruction/punggol/references/waterway-point-exterior-0.png",
+  "fingerprint": "aa53ae84d65811bc390d76a0dbd8453d5482df7e59a489a45d1fd896013da9cf",
+  "sha256": "23f4d7853af45c0d9e53f18c319db4110b59cd215466dd973b223bdbdb125307",
+  "bytes": 973042,
+  "durationMs": 3597,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

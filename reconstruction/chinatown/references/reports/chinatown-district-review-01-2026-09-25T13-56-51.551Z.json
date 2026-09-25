@@ -1,0 +1,25 @@
+{
+  "plan": "chinatown-district-review-01",
+  "startedAt": "2026-09-25T13:56:51.551Z",
+  "cached": 0,
+  "captured": 2,
+  "failed": 0,
+  "panoramaLoads": 2,
+  "staticApiRequests": 0,
+  "totalMs": 8138,
+  "bytes": 3204833,
+  "views": [
+    {
+      "id": "south-bridge-road-01-preview",
+      "status": "captured",
+      "durationMs": 3919,
+      "bytes": 1462719
+    },
+    {
+      "id": "pagoda-street-01-preview",
+      "status": "captured",
+      "durationMs": 4039,
+      "bytes": 1742114
+    }
+  ]
+}

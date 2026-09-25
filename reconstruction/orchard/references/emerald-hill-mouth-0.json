@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "emerald-hill-mouth.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2021-05",
+  "pano_id": "BFcYrBKHZQZa_fljr-SU7A",
+  "position": {
+    "lat": 1.3013680069347833,
+    "lng": 103.83908878547598
+  },
+  "pov": {
+    "heading": 0,
+    "pitch": 10,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "2 Emerald Hill Rd, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T03:34:11.473Z",
+  "file": "reconstruction/orchard/references/emerald-hill-mouth-0.png",
+  "fingerprint": "64a35f0c8ecd27a57fb2adb3e5d104a18480640d98550c68527165e922a7f0dd",
+  "sha256": "19d6b725bce082c7715258343daa9cd075463e875fecbf38f2806cb978db0fff",
+  "bytes": 1455648,
+  "durationMs": 3963,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

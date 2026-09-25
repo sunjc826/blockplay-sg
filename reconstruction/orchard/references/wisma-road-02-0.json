@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "wisma-road-02.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2021-02",
+  "pano_id": "nVJI7ODHdBvXIpiffzgl-A",
+  "position": {
+    "lat": 1.304087735039955,
+    "lng": 103.83382741262496
+  },
+  "pov": {
+    "heading": 0,
+    "pitch": 10,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T09:24:50.977Z",
+  "file": "reconstruction/orchard/references/wisma-road-02-0.png",
+  "fingerprint": "9e0fb53115ecb61a93c6c8f3effd3cfaee3986e1fd4bcef62a9f34e102ecaf81",
+  "sha256": "ae828341dc96f999f166b14a71229bafc4aa6ab2d28ed14e6fe419eee366f173",
+  "bytes": 1408829,
+  "durationMs": 3650,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "tangs-road-02.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-03",
+  "pano_id": "C5p_EtEdSF6KzGnDj7UjHQ",
+  "position": {
+    "lat": 1.3045337522813982,
+    "lng": 103.83260853624492
+  },
+  "pov": {
+    "heading": 0,
+    "pitch": 10,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "445 Orchard Rd, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T09:24:36.996Z",
+  "file": "reconstruction/orchard/references/tangs-road-02-0.png",
+  "fingerprint": "de89e88fde6492db3b6c1e036c8c06f871dc120c13b7a9033c8021ff1d7caf4a",
+  "sha256": "b04d843bee3a70a2d6f1b3cd6e56e4462fd84211c218311c17bd7e138a76ecac",
+  "bytes": 1904384,
+  "durationMs": 3689,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "thomson-shops-road.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-08",
+  "pano_id": "kN58saRVuTAHP-0ZMG-K6A",
+  "position": {
+    "lat": 1.3525933707922255,
+    "lng": 103.83512635063684
+  },
+  "pov": {
+    "heading": 260,
+    "pitch": 5,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Sin Ming Rd, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:58:41.312Z",
+  "file": "reconstruction/upper-thomson/references/thomson-shops-road-0.png",
+  "fingerprint": "3b6a0c312a5de30f6d2df42c86181a281135451083dc56c748f081823ac29f93",
+  "sha256": "5c82adc3ce001f31e4c2d24d721b8e447014d96d9c0a647661c5cc915bb15f8a",
+  "bytes": 1480287,
+  "durationMs": 3696,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

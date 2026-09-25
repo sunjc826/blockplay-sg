@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "bishan-station-road.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2022-03",
+  "pano_id": "oWdHElfAyPvEcZ1nWJ3ZQQ",
+  "position": {
+    "lat": 1.3513079425186598,
+    "lng": 103.84885834974736
+  },
+  "pov": {
+    "heading": 90,
+    "pitch": 5,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:56:23.999Z",
+  "file": "reconstruction/bishan/references/bishan-station-road-0.png",
+  "fingerprint": "579f29c1f4408e9258c9abce3209f86443c8c2fcfdc84b2bf22607c0c3ce8ee4",
+  "sha256": "1c4da08599b6a630da780e8dad5ff045506c50505b64d162270554d1f0f89a26",
+  "bytes": 2171089,
+  "durationMs": 4458,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}

@@ -1,0 +1,31 @@
+{
+  "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
+  "credential": "GOOGLE_MAPS_DEMO_API_KEY",
+  "sourceMetadata": "railway-station-exterior.json",
+  "copyright": "© 2026 Google",
+  "sourceDate": "2024-07",
+  "pano_id": "1HG-T7HqnYjJtoluBcCeZQ",
+  "position": {
+    "lat": 1.3343895891886368,
+    "lng": 103.78047152039638
+  },
+  "pov": {
+    "heading": 65,
+    "pitch": 8,
+    "zoom": 0.9999999999999997
+  },
+  "zoom": 0.9999999999999997,
+  "description": "5 King Albert Prk, Singapore",
+  "width": 1280,
+  "height": 900,
+  "capturedAt": "2026-09-25T13:56:34.500Z",
+  "file": "reconstruction/bukit-timah/references/railway-station-exterior-preview.png",
+  "fingerprint": "b2dcb21d926b9341d54446a800e61863dcc6fa538a5ac688e88a588ba1aff638",
+  "sha256": "1b05affcf566d9ed0ee02b936534dbd0008a8ccff9f23687c2ec7ed8515d22ce",
+  "bytes": 1779382,
+  "durationMs": 4266,
+  "staticApiRequests": 0,
+  "attribution": "Retained in screenshot",
+  "readinessCheck": "foreground-pov-repaint-v2",
+  "visualReview": "pending"
+}
