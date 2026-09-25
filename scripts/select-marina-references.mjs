@@ -40,11 +40,11 @@ try {
         const result = await send('Runtime.evaluate', { expression: `(async()=>{
           const {loadGoogleMaps}=await import('/src/lib/google-maps.ts');
           const maps=await loadGoogleMaps();await maps.importLibrary('streetView');
-          const {data}=await new maps.StreetViewService().getPanorama({location:{lat:${lat},lng:${lng}},radius:200,preference:maps.StreetViewPreference.NEAREST,sources:[maps.StreetViewSource.GOOGLE]});
+          const {data}=await new maps.StreetViewService().getPanorama({location:{lat:${lat},lng:${lng}},radius:100,preference:maps.StreetViewPreference.NEAREST,sources:[maps.StreetViewSource.GOOGLE,maps.StreetViewSource.OUTDOOR]});
           return {status:'OK',pano_id:data.location.pano,location:{lat:data.location.latLng.lat(),lng:data.location.latLng.lng()},description:data.location.description,copyright:data.copyright,date:data.imageDate};
         })()`, awaitPromise: true, returnByValue: true });
         if (result.exceptionDetails || !result.result?.value) throw new Error('Official panorama selection failed');
-        const metadata = { ...result.result.value, requested: previous.requested, selectedGoogle: true };
+        const metadata = { ...result.result.value, requested: previous.requested, selectedGoogle: true, selectionPolicy: { sources: ['GOOGLE', 'OUTDOOR'], radiusMeters: 100 } };
         await writeFile(file, JSON.stringify(metadata, null, 2) + '\n');
         console.log(JSON.stringify({ view: name, location: metadata.location, date: metadata.date }));
         return new Response('Selected', { status: 200 });

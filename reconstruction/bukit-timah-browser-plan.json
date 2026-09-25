@@ -1,36 +1,24 @@
 {
-  "name": "bukit-timah-exterior-review-01",
+  "name": "bukit-timah-outdoor-replacement-02",
   "region": "bukit-timah",
   "width": 1280,
   "height": 900,
   "captureMode": "preview",
-  "maxNewImages": 2,
+  "maxNewImages": 1,
   "sources": {
-    "railway-station-exterior.json": {
-      "lat": 1.3344,
-      "lng": 103.7811
-    },
-    "reserve-visitor-centre.json": {
-      "lat": 1.3473,
-      "lng": 103.7762
+    "rail-bridge-outdoor02.json": {
+      "lat": 1.3354,
+      "lng": 103.7815
     }
   },
   "views": [
     {
-      "id": "railway-station-exterior-preview",
-      "source": "railway-station-exterior.json",
-      "heading": 65,
+      "id": "rail-bridge-outdoor02-preview",
+      "source": "rail-bridge-outdoor02.json",
+      "heading": 300,
       "pitch": 8,
       "zoom": 1,
-      "purpose": "Restored Bukit Timah Railway Station, platform and conserved track"
-    },
-    {
-      "id": "reserve-visitor-centre-preview",
-      "source": "reserve-visitor-centre.json",
-      "heading": 350,
-      "pitch": 8,
-      "zoom": 1,
-      "purpose": "Nature reserve visitor centre and forest entrance approach"
+      "purpose": "Bukit Timah railway truss bridge from public road, avoiding King Albert Park residential coverage"
     }
   ]
 }

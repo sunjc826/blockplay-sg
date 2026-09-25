@@ -1,36 +1,24 @@
 {
-  "name": "tampines-exterior-review-01",
+  "name": "tampines-outdoor-review-02",
   "region": "tampines",
   "width": 1280,
   "height": 900,
-  "maxNewImages": 2,
+  "maxNewImages": 1,
   "captureMode": "preview",
   "sources": {
-    "hub-exterior.json": {
-      "lat": 1.3522,
-      "lng": 103.9402
-    },
-    "round-market-exterior.json": {
-      "lat": 1.345,
-      "lng": 103.9443
+    "hub-outdoor02.json": {
+      "lat": 1.3516,
+      "lng": 103.9404
     }
   },
   "views": [
     {
-      "id": "hub-exterior-0",
-      "source": "hub-exterior.json",
+      "id": "hub-outdoor02-0",
+      "source": "hub-outdoor02.json",
       "heading": 0,
-      "pitch": 5,
+      "pitch": 8,
       "zoom": 1,
-      "purpose": "Exterior preview; validate selected panorama is outdoors before deriving facade detail."
-    },
-    {
-      "id": "round-market-exterior-0",
-      "source": "round-market-exterior.json",
-      "heading": 25,
-      "pitch": 5,
-      "zoom": 1,
-      "purpose": "Exterior preview; validate selected panorama is outdoors before deriving facade detail."
+      "purpose": "Single bounded outdoor replacement, from road south of landmark facing north. Verify facade actually visible before accepting."
     }
   ]
 }

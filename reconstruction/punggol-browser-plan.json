@@ -1,36 +1,24 @@
 {
-  "name": "punggol-exterior-review-01",
+  "name": "punggol-outdoor-review-02",
   "region": "punggol",
   "width": 1280,
   "height": 900,
-  "maxNewImages": 2,
+  "maxNewImages": 1,
   "captureMode": "preview",
   "sources": {
-    "waterway-point-exterior.json": {
-      "lat": 1.4061,
+    "waterway-point-outdoor02.json": {
+      "lat": 1.4048,
       "lng": 103.9021
-    },
-    "jewel-bridge-exterior.json": {
-      "lat": 1.4111,
-      "lng": 103.9009
     }
   },
   "views": [
     {
-      "id": "waterway-point-exterior-0",
-      "source": "waterway-point-exterior.json",
-      "heading": 20,
-      "pitch": 5,
+      "id": "waterway-point-outdoor02-0",
+      "source": "waterway-point-outdoor02.json",
+      "heading": 0,
+      "pitch": 8,
       "zoom": 1,
-      "purpose": "Exterior preview; validate selected panorama is outdoors before deriving facade detail."
-    },
-    {
-      "id": "jewel-bridge-exterior-0",
-      "source": "jewel-bridge-exterior.json",
-      "heading": 100,
-      "pitch": 5,
-      "zoom": 1,
-      "purpose": "Exterior preview; validate selected panorama is outdoors before deriving facade detail."
+      "purpose": "Single bounded outdoor replacement, from road south of landmark facing north. Verify facade actually visible before accepting."
     }
   ]
 }

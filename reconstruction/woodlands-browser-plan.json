@@ -1,36 +1,24 @@
 {
-  "name": "woodlands-exterior-review-01",
+  "name": "woodlands-outdoor-review-02",
   "region": "woodlands",
   "width": 1280,
   "height": 900,
-  "maxNewImages": 2,
+  "maxNewImages": 1,
   "captureMode": "preview",
   "sources": {
-    "causeway-point-exterior.json": {
-      "lat": 1.4362,
+    "causeway-point-outdoor02.json": {
+      "lat": 1.4355,
       "lng": 103.7858
-    },
-    "waterfront-jetty-exterior.json": {
-      "lat": 1.4521,
-      "lng": 103.7807
     }
   },
   "views": [
     {
-      "id": "causeway-point-exterior-0",
-      "source": "causeway-point-exterior.json",
-      "heading": 350,
-      "pitch": 5,
+      "id": "causeway-point-outdoor02-0",
+      "source": "causeway-point-outdoor02.json",
+      "heading": 0,
+      "pitch": 8,
       "zoom": 1,
-      "purpose": "Exterior preview; validate selected panorama is outdoors before deriving facade detail."
-    },
-    {
-      "id": "waterfront-jetty-exterior-0",
-      "source": "waterfront-jetty-exterior.json",
-      "heading": 10,
-      "pitch": 5,
-      "zoom": 1,
-      "purpose": "Exterior preview; validate selected panorama is outdoors before deriving facade detail."
+      "purpose": "Single bounded outdoor replacement, from road south of landmark facing north. Verify facade actually visible before accepting."
     }
   ]
 }

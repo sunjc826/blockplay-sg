@@ -1,36 +1,24 @@
 {
-  "name": "bishan-exterior-preview-01",
+  "name": "bishan-outdoor-retry-02",
   "region": "bishan",
   "width": 1280,
   "height": 900,
-  "maxNewImages": 2,
+  "maxNewImages": 1,
   "captureMode": "preview",
   "sources": {
-    "bishan-station-road.json": {
-      "lat": 1.3509,
-      "lng": 103.8488
-    },
-    "bishan-park-road.json": {
-      "lat": 1.3624,
-      "lng": 103.8462
+    "bishan-station-outdoor02.json": {
+      "lat": 1.35092,
+      "lng": 103.84882
     }
   },
   "views": [
     {
-      "id": "bishan-station-road-0",
-      "source": "bishan-station-road.json",
-      "heading": 90,
+      "id": "bishan-station-outdoor02-0",
+      "source": "bishan-station-outdoor02.json",
+      "heading": 270,
       "pitch": 5,
       "zoom": 1,
-      "purpose": "Bishan MRT street-level station and Junction 8 relationship"
-    },
-    {
-      "id": "bishan-park-road-0",
-      "source": "bishan-park-road.json",
-      "heading": 310,
-      "pitch": 5,
-      "zoom": 1,
-      "purpose": "Bishan Ang Mo Kio park grassy river banks from Bishan Road"
+      "purpose": "Look west toward station, reversing rejected east-facing service-street view"
     }
   ]
 }

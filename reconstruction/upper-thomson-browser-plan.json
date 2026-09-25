@@ -1,36 +1,24 @@
 {
-  "name": "upper-thomson-exterior-preview-01",
+  "name": "upper-thomson-outdoor-retry-02",
   "region": "upper-thomson",
   "width": 1280,
   "height": 900,
-  "maxNewImages": 2,
+  "maxNewImages": 1,
   "captureMode": "preview",
   "sources": {
-    "thomson-plaza-road.json": {
-      "lat": 1.3547,
-      "lng": 103.8304
-    },
-    "thomson-shops-road.json": {
-      "lat": 1.3526,
-      "lng": 103.8351
+    "thomson-plaza-outdoor02.json": {
+      "lat": 1.354394,
+      "lng": 103.831803
     }
   },
   "views": [
     {
-      "id": "thomson-plaza-road-0",
-      "source": "thomson-plaza-road.json",
-      "heading": 280,
+      "id": "thomson-plaza-outdoor02-0",
+      "source": "thomson-plaza-outdoor02.json",
+      "heading": 301,
       "pitch": 5,
       "zoom": 1,
-      "purpose": "Thomson Plaza exterior from Upper Thomson Road"
-    },
-    {
-      "id": "thomson-shops-road-0",
-      "source": "thomson-shops-road.json",
-      "heading": 260,
-      "pitch": 5,
-      "zoom": 1,
-      "purpose": "Upper Thomson low-rise eating strip street frontage"
+      "purpose": "Mall facade from Soo Chow Garden Road; camera coordinates checked against geotagged exterior photograph"
     }
   ]
 }
