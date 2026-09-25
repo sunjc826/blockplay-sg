@@ -1,0 +1,36 @@
+{
+  "name": "harbourfront-exterior-review-01",
+  "region": "harbourfront",
+  "width": 1280,
+  "height": 900,
+  "maxNewImages": 2,
+  "captureMode": "preview",
+  "sources": {
+    "vivo-waterfront.json": {
+      "lat": 1.2638,
+      "lng": 103.8218
+    },
+    "harbourfront-centre.json": {
+      "lat": 1.2642,
+      "lng": 103.8198
+    }
+  },
+  "views": [
+    {
+      "id": "vivo-waterfront-0",
+      "source": "vivo-waterfront.json",
+      "heading": 340,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "VivoCity waterfront curved white terraces and sky park"
+    },
+    {
+      "id": "harbourfront-centre-0",
+      "source": "harbourfront-centre.json",
+      "heading": 320,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "HarbourFront Centre terminal frontage"
+    }
+  ]
+}

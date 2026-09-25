@@ -1,0 +1,36 @@
+{
+  "name": "jurong-lake-exterior-review-01",
+  "region": "jurong-lake",
+  "width": 1280,
+  "height": 900,
+  "captureMode": "preview",
+  "maxNewImages": 2,
+  "sources": {
+    "chinese-garden-cloud.json": {
+      "lat": 1.3387,
+      "lng": 103.7304
+    },
+    "jurong-east-frontage.json": {
+      "lat": 1.3331,
+      "lng": 103.7421
+    }
+  },
+  "views": [
+    {
+      "id": "chinese-garden-cloud-preview",
+      "source": "chinese-garden-cloud.json",
+      "heading": 330,
+      "pitch": 8,
+      "zoom": 1,
+      "purpose": "Cloud Pagoda exterior: storey proportions, white balconies and tiled eaves"
+    },
+    {
+      "id": "jurong-east-frontage-preview",
+      "source": "jurong-east-frontage.json",
+      "heading": 20,
+      "pitch": 8,
+      "zoom": 1,
+      "purpose": "Jurong East station and JEM/Westgate street relationship"
+    }
+  ]
+}

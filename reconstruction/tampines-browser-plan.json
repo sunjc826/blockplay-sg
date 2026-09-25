@@ -1,0 +1,36 @@
+{
+  "name": "tampines-exterior-review-01",
+  "region": "tampines",
+  "width": 1280,
+  "height": 900,
+  "maxNewImages": 2,
+  "captureMode": "preview",
+  "sources": {
+    "hub-exterior.json": {
+      "lat": 1.3522,
+      "lng": 103.9402
+    },
+    "round-market-exterior.json": {
+      "lat": 1.345,
+      "lng": 103.9443
+    }
+  },
+  "views": [
+    {
+      "id": "hub-exterior-0",
+      "source": "hub-exterior.json",
+      "heading": 0,
+      "pitch": 5,
+      "zoom": 1,
+      "purpose": "Exterior preview; validate selected panorama is outdoors before deriving facade detail."
+    },
+    {
+      "id": "round-market-exterior-0",
+      "source": "round-market-exterior.json",
+      "heading": 25,
+      "pitch": 5,
+      "zoom": 1,
+      "purpose": "Exterior preview; validate selected panorama is outdoors before deriving facade detail."
+    }
+  ]
+}

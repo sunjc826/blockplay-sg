@@ -1,0 +1,36 @@
+{
+  "name": "tuas-exterior-review-01",
+  "region": "tuas",
+  "width": 1280,
+  "height": 900,
+  "captureMode": "preview",
+  "maxNewImages": 2,
+  "sources": {
+    "tuas-link-exterior.json": {
+      "lat": 1.34,
+      "lng": 103.6365
+    },
+    "tuas-west-industrial.json": {
+      "lat": 1.3309,
+      "lng": 103.6406
+    }
+  },
+  "views": [
+    {
+      "id": "tuas-link-exterior-preview",
+      "source": "tuas-link-exterior.json",
+      "heading": 310,
+      "pitch": 8,
+      "zoom": 1,
+      "purpose": "Tuas Link station elevated concourse and industrial road scale"
+    },
+    {
+      "id": "tuas-west-industrial-preview",
+      "source": "tuas-west-industrial.json",
+      "heading": 210,
+      "pitch": 8,
+      "zoom": 1,
+      "purpose": "Tuas West Road industrial sheds, loading yards and viaduct"
+    }
+  ]
+}

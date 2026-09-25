@@ -1,0 +1,36 @@
+{
+  "name": "changi-exterior-review-01",
+  "region": "changi",
+  "width": 1280,
+  "height": 900,
+  "maxNewImages": 2,
+  "captureMode": "preview",
+  "sources": {
+    "jewel-exterior.json": {
+      "lat": 1.359,
+      "lng": 103.9893
+    },
+    "control-tower.json": {
+      "lat": 1.3568,
+      "lng": 103.9888
+    }
+  },
+  "views": [
+    {
+      "id": "jewel-exterior-0",
+      "source": "jewel-exterior.json",
+      "heading": 40,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Jewel glass roof and exterior apron"
+    },
+    {
+      "id": "control-tower-0",
+      "source": "control-tower.json",
+      "heading": 30,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Changi control tower silhouette from airport boulevard"
+    }
+  ]
+}

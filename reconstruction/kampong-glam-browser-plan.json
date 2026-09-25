@@ -1,0 +1,36 @@
+{
+  "name": "kampong-glam-district-review-01",
+  "region": "kampong-glam",
+  "width": 1280,
+  "height": 900,
+  "maxNewImages": 2,
+  "captureMode": "preview",
+  "sources": {
+    "bussorah-street-01.json": {
+      "lat": 1.30178,
+      "lng": 103.8595
+    },
+    "kandahar-street-01.json": {
+      "lat": 1.3021,
+      "lng": 103.86025
+    }
+  },
+  "views": [
+    {
+      "id": "bussorah-street-01-preview",
+      "source": "bussorah-street-01.json",
+      "heading": 320,
+      "pitch": 8,
+      "zoom": 1,
+      "purpose": "Sultan Mosque facade, domes and Bussorah street axis"
+    },
+    {
+      "id": "kandahar-street-01-preview",
+      "source": "kandahar-street-01.json",
+      "heading": 340,
+      "pitch": 8,
+      "zoom": 1,
+      "purpose": "Istana Kampong Glam roof and neighbouring streets"
+    }
+  ]
+}

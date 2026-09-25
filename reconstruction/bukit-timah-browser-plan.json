@@ -1,0 +1,36 @@
+{
+  "name": "bukit-timah-exterior-review-01",
+  "region": "bukit-timah",
+  "width": 1280,
+  "height": 900,
+  "captureMode": "preview",
+  "maxNewImages": 2,
+  "sources": {
+    "railway-station-exterior.json": {
+      "lat": 1.3344,
+      "lng": 103.7811
+    },
+    "reserve-visitor-centre.json": {
+      "lat": 1.3473,
+      "lng": 103.7762
+    }
+  },
+  "views": [
+    {
+      "id": "railway-station-exterior-preview",
+      "source": "railway-station-exterior.json",
+      "heading": 65,
+      "pitch": 8,
+      "zoom": 1,
+      "purpose": "Restored Bukit Timah Railway Station, platform and conserved track"
+    },
+    {
+      "id": "reserve-visitor-centre-preview",
+      "source": "reserve-visitor-centre.json",
+      "heading": 350,
+      "pitch": 8,
+      "zoom": 1,
+      "purpose": "Nature reserve visitor centre and forest entrance approach"
+    }
+  ]
+}

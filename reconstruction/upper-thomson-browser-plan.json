@@ -1,0 +1,36 @@
+{
+  "name": "upper-thomson-exterior-preview-01",
+  "region": "upper-thomson",
+  "width": 1280,
+  "height": 900,
+  "maxNewImages": 2,
+  "captureMode": "preview",
+  "sources": {
+    "thomson-plaza-road.json": {
+      "lat": 1.3547,
+      "lng": 103.8304
+    },
+    "thomson-shops-road.json": {
+      "lat": 1.3526,
+      "lng": 103.8351
+    }
+  },
+  "views": [
+    {
+      "id": "thomson-plaza-road-0",
+      "source": "thomson-plaza-road.json",
+      "heading": 280,
+      "pitch": 5,
+      "zoom": 1,
+      "purpose": "Thomson Plaza exterior from Upper Thomson Road"
+    },
+    {
+      "id": "thomson-shops-road-0",
+      "source": "thomson-shops-road.json",
+      "heading": 260,
+      "pitch": 5,
+      "zoom": 1,
+      "purpose": "Upper Thomson low-rise eating strip street frontage"
+    }
+  ]
+}

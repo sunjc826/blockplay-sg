@@ -1,0 +1,36 @@
+{
+  "name": "toa-payoh-exterior-preview-01",
+  "region": "toa-payoh",
+  "width": 1280,
+  "height": 900,
+  "maxNewImages": 2,
+  "captureMode": "preview",
+  "sources": {
+    "town-park-road.json": {
+      "lat": 1.3309,
+      "lng": 103.8496
+    },
+    "dragon-road.json": {
+      "lat": 1.3359,
+      "lng": 103.8555
+    }
+  },
+  "views": [
+    {
+      "id": "town-park-road-0",
+      "source": "town-park-road.json",
+      "heading": 270,
+      "pitch": 5,
+      "zoom": 1,
+      "purpose": "Town Park lookout tower silhouette from Lorong 6"
+    },
+    {
+      "id": "dragon-road-0",
+      "source": "dragon-road.json",
+      "heading": 280,
+      "pitch": 5,
+      "zoom": 1,
+      "purpose": "Lorong 6 dragon playground exterior and surrounding housing"
+    }
+  ]
+}

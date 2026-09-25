@@ -3,7 +3,7 @@
   "region": "orchard",
   "width": 1280,
   "height": 900,
-  "maxNewImages": 12,
+  "maxNewImages": 0,
   "sources": {
     "junction-road-02.json": {
       "lat": 1.305,
@@ -115,5 +115,6 @@
       "zoom": 1,
       "purpose": "Replace rejected indoor captures with reviewed street-level ION, TANGS and Wisma reference views."
     }
-  ]
+  ],
+  "captureMode": "preview"
 }

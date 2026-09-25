@@ -1,0 +1,36 @@
+{
+  "name": "chinatown-district-review-01",
+  "region": "chinatown",
+  "width": 1280,
+  "height": 900,
+  "maxNewImages": 2,
+  "captureMode": "preview",
+  "sources": {
+    "south-bridge-road-01.json": {
+      "lat": 1.28215,
+      "lng": 103.84515
+    },
+    "pagoda-street-01.json": {
+      "lat": 1.28325,
+      "lng": 103.845
+    }
+  },
+  "views": [
+    {
+      "id": "south-bridge-road-01-preview",
+      "source": "south-bridge-road-01.json",
+      "heading": 250,
+      "pitch": 8,
+      "zoom": 1,
+      "purpose": "Buddha Tooth Relic Temple exterior and South Bridge Road"
+    },
+    {
+      "id": "pagoda-street-01-preview",
+      "source": "pagoda-street-01.json",
+      "heading": 315,
+      "pitch": 8,
+      "zoom": 1,
+      "purpose": "Pagoda Street terraces and Sri Mariamman frontage"
+    }
+  ]
+}

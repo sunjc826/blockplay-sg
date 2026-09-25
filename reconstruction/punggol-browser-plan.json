@@ -1,0 +1,36 @@
+{
+  "name": "punggol-exterior-review-01",
+  "region": "punggol",
+  "width": 1280,
+  "height": 900,
+  "maxNewImages": 2,
+  "captureMode": "preview",
+  "sources": {
+    "waterway-point-exterior.json": {
+      "lat": 1.4061,
+      "lng": 103.9021
+    },
+    "jewel-bridge-exterior.json": {
+      "lat": 1.4111,
+      "lng": 103.9009
+    }
+  },
+  "views": [
+    {
+      "id": "waterway-point-exterior-0",
+      "source": "waterway-point-exterior.json",
+      "heading": 20,
+      "pitch": 5,
+      "zoom": 1,
+      "purpose": "Exterior preview; validate selected panorama is outdoors before deriving facade detail."
+    },
+    {
+      "id": "jewel-bridge-exterior-0",
+      "source": "jewel-bridge-exterior.json",
+      "heading": 100,
+      "pitch": 5,
+      "zoom": 1,
+      "purpose": "Exterior preview; validate selected panorama is outdoors before deriving facade detail."
+    }
+  ]
+}

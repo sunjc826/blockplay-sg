@@ -1,0 +1,36 @@
+{
+  "name": "geylang-exterior-review-01",
+  "region": "geylang",
+  "width": 1280,
+  "height": 900,
+  "maxNewImages": 2,
+  "captureMode": "preview",
+  "sources": {
+    "geylang-road.json": {
+      "lat": 1.3122,
+      "lng": 103.88
+    },
+    "lorong-24a.json": {
+      "lat": 1.3121,
+      "lng": 103.8844
+    }
+  },
+  "views": [
+    {
+      "id": "geylang-road-0",
+      "source": "geylang-road.json",
+      "heading": 90,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Geylang Road continuous low shophouse frontage"
+    },
+    {
+      "id": "lorong-24a-0",
+      "source": "lorong-24a.json",
+      "heading": 160,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Lorong 24A conserved shophouse row exterior"
+    }
+  ]
+}

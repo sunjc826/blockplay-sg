@@ -1,0 +1,36 @@
+{
+  "name": "woodlands-exterior-review-01",
+  "region": "woodlands",
+  "width": 1280,
+  "height": 900,
+  "maxNewImages": 2,
+  "captureMode": "preview",
+  "sources": {
+    "causeway-point-exterior.json": {
+      "lat": 1.4362,
+      "lng": 103.7858
+    },
+    "waterfront-jetty-exterior.json": {
+      "lat": 1.4521,
+      "lng": 103.7807
+    }
+  },
+  "views": [
+    {
+      "id": "causeway-point-exterior-0",
+      "source": "causeway-point-exterior.json",
+      "heading": 350,
+      "pitch": 5,
+      "zoom": 1,
+      "purpose": "Exterior preview; validate selected panorama is outdoors before deriving facade detail."
+    },
+    {
+      "id": "waterfront-jetty-exterior-0",
+      "source": "waterfront-jetty-exterior.json",
+      "heading": 10,
+      "pitch": 5,
+      "zoom": 1,
+      "purpose": "Exterior preview; validate selected panorama is outdoors before deriving facade detail."
+    }
+  ]
+}

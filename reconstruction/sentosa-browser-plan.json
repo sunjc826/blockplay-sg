@@ -1,0 +1,36 @@
+{
+  "name": "sentosa-exterior-review-01",
+  "region": "sentosa",
+  "width": 1280,
+  "height": 900,
+  "maxNewImages": 2,
+  "captureMode": "preview",
+  "sources": {
+    "beach-station.json": {
+      "lat": 1.2514,
+      "lng": 103.8176
+    },
+    "palawan-beach.json": {
+      "lat": 1.2491,
+      "lng": 103.8215
+    }
+  },
+  "views": [
+    {
+      "id": "beach-station-0",
+      "source": "beach-station.json",
+      "heading": 30,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Beach Station canopy and monorail approach"
+    },
+    {
+      "id": "palawan-beach-0",
+      "source": "palawan-beach.json",
+      "heading": 160,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Palawan beach suspension bridge and offshore islet"
+    }
+  ]
+}
