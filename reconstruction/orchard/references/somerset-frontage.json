@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "YV4TYdAY4RFu8It53RXAYw",
+  "location": {
+    "lat": 1.3015656650975123,
+    "lng": 103.83821802351126
+  },
+  "description": "228 Orchard Rd, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2024-06",
+  "requested": {
+    "lat": 1.3012,
+    "lng": 103.8381
+  },
+  "selectedGoogle": true
+}

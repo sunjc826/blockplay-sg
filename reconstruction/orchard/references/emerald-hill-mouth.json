@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "BFcYrBKHZQZa_fljr-SU7A",
+  "location": {
+    "lat": 1.3013680069347833,
+    "lng": 103.83908878547598
+  },
+  "description": "2 Emerald Hill Rd, Singapore",
+  "copyright": "© 2026 Google",
+  "date": "2021-05",
+  "requested": {
+    "lat": 1.3014,
+    "lng": 103.8391
+  },
+  "selectedGoogle": true
+}

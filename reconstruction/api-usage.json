@@ -3081,6 +3081,62 @@
       "kind": "image-static-quality-refinement-02-quay-right",
       "location": "raffles-place",
       "result": "HTTP 200"
+    },
+    {
+      "id": "6dadc178-9248-4527-aacb-b21a5a0a7dc2",
+      "date": "2026-09-25T03:08:06.630Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "4f73001d-dceb-4a10-9033-7221e3c47211",
+      "date": "2026-09-25T03:08:07.386Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "faa367c1-71de-4f94-aba4-b81ab82f24aa",
+      "date": "2026-09-25T03:08:07.593Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "591884d5-9e5c-41c2-8599-fbdb62449f09",
+      "date": "2026-09-25T03:08:07.790Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "9ab341f0-e82d-4ba7-9742-37013247d467",
+      "date": "2026-09-25T03:08:07.979Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "ef863987-22dd-42e3-8ae5-c71faa5e7822",
+      "date": "2026-09-25T03:08:08.244Z",
+      "kind": "maps-javascript-reference-selection",
+      "location": "orchard",
+      "result": "HTTP 200"
+    },
+    {
+      "id": "9343dcb5-7ce9-4a83-8ae5-9dff1f31a8c6",
+      "date": "2026-09-25T03:08:08.716Z",
+      "kind": "browser-screenshot-orchard-junction-0",
+      "location": "orchard",
+      "result": "network failure or interrupted request"
+    },
+    {
+      "id": "754aa784-cd9e-45e4-a185-3ed61db87969",
+      "date": "2026-09-25T03:08:08.725Z",
+      "kind": "maps-javascript-panorama-load",
+      "location": "orchard",
+      "result": "network failure or interrupted request"
     }
   ]
 }

@@ -1,0 +1,16 @@
+{
+  "status": "OK",
+  "pano_id": "r3WqY-h_C_-sXa54w0efOQ",
+  "location": {
+    "lat": 1.3036126478902166,
+    "lng": 103.83368252674563
+  },
+  "description": "",
+  "copyright": "© 2026 Google",
+  "date": "2013-08",
+  "requested": {
+    "lat": 1.3035,
+    "lng": 103.8336
+  },
+  "selectedGoogle": true
+}

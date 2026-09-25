@@ -1,5 +1,9 @@
 # Blockplay: portable agent handoff
 
+## Orchard capture blocked by Google authorization (2026-09-25)
+
+Workflow run 36089083488 successfully read the repository secret and selected all six Google panoramas. First panorama rendering failed AUTHORIZATION_FAILED: 0 screenshots, 0 Static calls. Imported artifact 10844709606, preserving all six source manifests, failure report, gallery and 8 new ledger events (six selections, one screenshot attempt, one panorama-load attempt). Source dates span 2013–2024 and require explicit temporal limitations at review. Do not mark source metadata as visually accepted or claim geometry changed. Next: correct Google key authorization for runner origin http://127.0.0.1:5173, then use a new workflow_dispatch run to reuse selection metadata. All 807 tests and typecheck passed for the workflow preparation.
+
 ## Orchard reference workflow preparation (2026-09-25)
 
 Owner requested reference-based Orchard reconstruction, including revised predefined sectors, and configured the GOOGLE_MAPS_DEMO_API_KEY Actions secret. Added a bounded 24-view browser capture plan across six approximate source locations and an Actions capture job using the existing selection/readiness/ledger pipeline. Orchard is now an allowed browser capture region; Static allowances and historical ledger are unchanged. Captures remain pending visual review; Orchard is still authored, not yet reference-informed. Import the workflow artifact including partial captures and reconcile its ledger before another capture run. Never include credentials or raw browser logs in artifacts. The geometry/sector rebuild follows accepted references, preserving district loot and pricing rules.

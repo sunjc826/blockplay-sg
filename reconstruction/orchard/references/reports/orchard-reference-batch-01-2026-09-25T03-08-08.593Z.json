@@ -1,0 +1,19 @@
+{
+  "plan": "orchard-reference-batch-01",
+  "startedAt": "2026-09-25T03:08:08.593Z",
+  "cached": 0,
+  "captured": 0,
+  "failed": 1,
+  "panoramaLoads": 1,
+  "staticApiRequests": 0,
+  "totalMs": 897,
+  "bytes": 0,
+  "views": [
+    {
+      "id": "orchard-junction-0",
+      "status": "failed",
+      "durationMs": 764,
+      "reason": "AUTHORIZATION_FAILED"
+    }
+  ]
+}
