@@ -223,5 +223,6 @@
       "zoom": 1,
       "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
     }
-  ]
+  ],
+  "resumeNote": "2026-09-25: owner updated referrer restrictions; resume from committed panorama selections and reconciled failed-run ledger."
 }

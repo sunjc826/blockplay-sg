@@ -71,6 +71,14 @@ async function main() {
     };
     let staticRequests = 0, lastTileActivity = Date.now(); const pendingTiles = new Set();
     page.listeners.push(message => {
+      // Emit only a documented error identifier, never console text or URLs.
+      if (message.method === 'Runtime.consoleAPICalled') {
+        for (const arg of message.params.args || []) {
+          if (typeof arg.value !== 'string') continue;
+          const code = arg.value.match(/\b(?:RefererNotAllowedMapError|ApiNotActivatedMapError|ApiTargetBlockedMapError|BillingNotEnabledMapError|InvalidKeyMapError|ExpiredKeyMapError|OverQuotaMapError|ProjectDeniedMapError|DeletedApiProjectMapError)\b/);
+          if (code) console.error(`Google Maps diagnostic: ${code[0]}`);
+        }
+      }
       if (message.method === 'Network.requestWillBeSent') {
         const url = message.params.request.url;
         if (url.startsWith('https://maps.googleapis.com/maps/api/streetview')) { staticRequests++; report.staticApiRequests = staticRequests; }
@@ -78,6 +86,7 @@ async function main() {
       }
       if (['Network.loadingFinished', 'Network.loadingFailed'].includes(message.method) && pendingTiles.delete(message.params.requestId)) lastTileActivity = Date.now();
     });
+    await page.send('Runtime.enable');
     await page.send('Network.enable');
     await page.send('Page.enable');
     await page.send('Page.bringToFront');
