@@ -16,8 +16,8 @@ const EDGE_X = 235, EDGE_Z = 130;
  * gaps in the water rather than decks laid over it.
  */
 const STRAIT = { nearZ: -200, farZ: -145 };
-const STRAIT_SPANS: readonly (readonly [number, number])[] = [[-215, -134], [-106, -20], [20, 215]];
-const CAUSEWAY = { x: 0, fromZ: -130, toZ: -200 }, JETTY_X = -120;
+const STRAIT_SPANS: readonly (readonly [number, number])[] = [[-215, -20], [20, 106], [134, 215]];
+const CAUSEWAY = { x: 0, fromZ: -130, toZ: -200 }, JETTY_X = 120;
 export const WOODLANDS_MAP_ROADS = [
   ...EW_ROADS.map(z => ({ points: [{ x: -EDGE_X, z }, { x: EDGE_X, z }] })),
   ...NS_ROADS.map(x => ({ points: [{ x, z: -EDGE_Z }, { x, z: EDGE_Z }] })),
@@ -29,7 +29,7 @@ export const WOODLANDS_MAP_ROADS = [
  * An authored, compressed interpretation of Woodlands: the causeway and its
  * checkpoint running north across the strait, a waterfront park and jetty, a
  * mall and civic square, and the precincts and linkways behind them. Invented
- * for play, without reference capture.
+ * for play; researched changes are logged in docs/NORTH-EAST-REVIEW.md.
  */
 export function buildWoodlandsScene() {
   const kit = createSceneKit({
@@ -44,7 +44,7 @@ export function buildWoodlandsScene() {
   // Shots into these splash rather than spark; see water.ts.
   markWater(water, shallow);
   const concrete = mat('#adaca2'), pale = mat('#e5dfd1'), stone = mat('#b5b4ab'), dark = mat('#36434a');
-  const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148'), plank = mat('#9c7c57');
+  const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148');
   const leaf = mat('#44703d'), fern = mat('#5b8a4c'), orange = mat('#f0a044'), skin = mat('#b18c71');
   const teal = mat('#2f6b78'), rust = mat('#a8563a'), navy = mat('#2b4a6b'), safety = mat('#d8a02a');
   const ballast = mat('#8d8a80');
@@ -55,7 +55,7 @@ export function buildWoodlandsScene() {
   // The causeway spur is laid by hand: the grid runs every road edge to edge,
   // and this one has to start at the perimeter and stop at the far shore.
   {
-    const mid = (CAUSEWAY.fromZ + CAUSEWAY.toZ) / 2, run = CAUSEWAY.toZ - CAUSEWAY.fromZ;
+    const mid = (CAUSEWAY.fromZ + CAUSEWAY.toZ) / 2, run = Math.abs(CAUSEWAY.toZ - CAUSEWAY.fromZ);
     box(CAUSEWAY.x, 0, mid, 34, 0.14, run, asphalt);
     for (let z = CAUSEWAY.fromZ; z > CAUSEWAY.toZ; z -= 12) for (const dx of [-8, 8]) box(CAUSEWAY.x + dx, 0.1, z, 0.18, 0.03, 5, white);
     for (const side of [-1, 1]) {
@@ -105,18 +105,19 @@ export function buildWoodlandsScene() {
     for (const dx of [-14, 0, 14]) box(dx, 6.4, z - 28, 7, 2.6, 0.5, safety);
     sign('WOODLANDS CHECKPOINT', 0, 13.4, z - 30, 40, 2.6, '#1f3f5e');
   }
-  checkpointComplex(-172);
+  // The checkpoint belongs on the Singapore shore, not on the water span.
+  checkpointComplex(-90);
 
   /** Waterfront jetty on piles, out through the gap left for it. */
   function jetty(x: number) {
-    box(x, 0.45, -168, 16, 0.3, 58, plank);
+    box(x, 0.45, -168, 16, 0.3, 58, concrete);
     for (let z = -140; z >= -196; z -= 4) {
-      box(x, 0.62, z, 15.6, 0.06, 1.8, wood);
+      box(x, 0.62, z, 15.6, 0.06, 1.8, paving);
       for (const dx of [-7, 7]) { cylinder(x + dx, 0.15, z, 0.3, 1.1, wood); if (z % 16 > -4 && z % 16 <= 0) { cylinder(x + dx, 1.6, z, 0.18, 2.8, wood); solid(x + dx, z, 0.6, 0.6); } }
     }
-    for (const dx of [-6.6, 6.6]) box(x + dx, 1.7, -168, 0.14, 0.9, 58, wood);
+    for (const dx of [-6.6, 6.6]) box(x + dx, 1.7, -168, 0.14, 0.9, 58, steel);
     for (const z of [-150, -186]) for (const dx of [-4, 4]) { cylinder(x + dx, 3.4, z, 0.16, 6.8, dark); box(x + dx, 6.6, z, 0.9, 0.35, 0.9, pale); solid(x + dx, z, 0.5, 0.5); }
-    box(x, 1.2, -194, 20, 1.8, 8, plank); solid(x, -194, 20, 8);
+    box(x, 0.45, -194, 20, 0.3, 8, concrete);
     sign('WOODLANDS WATERFRONT', x, 4.4, -138, 26, 2.2, '#2f6b78');
   }
   jetty(JETTY_X);
@@ -162,10 +163,35 @@ export function buildWoodlandsScene() {
       for (let dx = -44; dx < 46; dx += 7) for (const side of [-1, 1]) box(x + dx, y, z + side * 36.4, 5.6, 3.4, 0.6, glass);
       for (let dz = -30; dz < 32; dz += 7) for (const side of [-1, 1]) box(x + side * 48.4, y, z + dz, 0.6, 3.4, 5.6, glass);
     }
+    // Seven retail levels and a broad aluminium-clad crown, not an office slab.
+    for (let y = 4; y <= 30; y += 4.3) {
+      for (const side of [-1, 1]) {
+        box(x, y, z + side * 36.8, 97, 0.9, 1.1, pale);
+        box(x + side * 48.7, y, z, 1.1, 0.9, 72, pale);
+      }
+    }
+    for (const side of [-1, 1]) {
+      box(x + side * 36, 23, z + 36.9, 20, 13, 0.7, mat('#b7aa9a'));
+      for (let dx = -8; dx <= 8; dx += 2) box(x + side * 36 + dx, 23, z + 37.4, 0.45, 13, 0.3, steel);
+    }
     box(x, 31.6, z, 100, 2.2, 76, steel);
     for (let dx = -36; dx < 38; dx += 12) box(x + dx, 34, z, 5.4, 3.4, 60, concrete);
     box(x, 8.4, z + 40, 44, 0.8, 14, steel, scene, true);
     for (const dx of [-18, 18]) { cylinder(x + dx, 4.2, z + 46, 0.6, 8.4, steel); solid(x + dx, z + 46, 1.3, 1.3); }
+    // February 2022 arcade crop: silver panel joints above a stone-tiled
+    // raised edge and stainless handrail. Kept at the existing solid frontage.
+    box(x, 4.8, z + 36.8, 88, 8.4, 0.5, mat('#c0c4c4'));
+    for (const y of [1, 3.8, 7, 9]) box(x, y, z + 37.1, 88, 0.12, 0.15, dark);
+    for (let dx = -40; dx <= 40; dx += 10) {
+      box(x + dx, 3.4, z + 37.2, 1.3, 6.8, 0.8, pale);
+      if (Math.abs(dx) >= 20) box(x + dx + 4, 3.1, z + 37.1, 6.6, 4.6, 0.3, glass);
+    }
+    box(x, 0.4, z + 36.8, 88, 0.8, 0.7, stone);
+    for (const dx of [-32, 32]) {
+      box(x + dx, 1.6, z + 37.4, 19, 0.13, 0.13, steel);
+      box(x + dx, 0.9, z + 37.4, 19, 0.1, 0.13, steel);
+      for (const offset of [-9, 0, 9]) cylinder(x + dx + offset, 1, z + 37.4, 0.09, 1.8, steel);
+    }
     sign('CAUSEWAY POINT', x, 11.6, z + 40.4, 32, 2.4, '#2f4a56');
     // Civic block sits in the band north of the mall rather than beside it:
     // alongside, it straddled the cross street.
@@ -223,8 +249,8 @@ export function buildWoodlandsScene() {
     .flatMap((shirt, index) => [walker(-60 + index * 22, -112, shirt, skin, dark), walker(JETTY_X, -150 - index * 9, shirt, skin, dark)]);
   const car = kit.car(mat('#7f9aa8'), glass, mat('#dad5c5'), dark);
   const stamps = stampRings(WOODLANDS_STAMPS, orange);
-  scene.userData.districtFeatures = ['causeway-embankment', 'rail-alongside-road', 'checkpoint-booth-rows', 'overhead-lane-gantries', 'pile-jetty', 'far-shore-read', 'point-block-void-decks', 'multi-storey-car-park-ramp', 'covered-linkways', 'civic-flag-row'];
-  scene.userData.referenceFeatures = [];
+  scene.userData.districtFeatures = ['causeway-embankment', 'rail-alongside-road', 'checkpoint-booth-rows', 'overhead-lane-gantries', 'concrete-waterfront-jetty', 'seven-level-retail-bands', 'far-shore-read', 'point-block-void-decks', 'multi-storey-car-park-ramp', 'covered-linkways', 'civic-flag-row'];
+  scene.userData.referenceFeatures = ['causeway-point-outdoor02-0:silver-clad-arcade-stone-edge-and-rail-only'];
 
   return kit.finish({
     car, stamps,

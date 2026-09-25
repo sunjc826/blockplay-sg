@@ -29,7 +29,7 @@ export const SENTOSA_MAP_ROADS = [
  * An authored, compressed interpretation of the Sentosa resort island: a
  * boardwalk landing across the strait, a monorail down the spine, a resort
  * podium and hotel pair, a headland battery, a lagoon, and the beach strip
- * along the southern shore. Invented for play, without reference capture.
+ * along the southern shore. Compressed for play; reviewed exterior features are listed in referenceFeatures.
  */
 export function buildSentosaScene() {
   const kit = createSceneKit({
@@ -152,7 +152,7 @@ export function buildSentosaScene() {
     box(x, 11.4, z, 34, 1.6, 44, stone);
     for (const side of [-1, 1]) {
       box(x + side * 17, 13.4, z, 2.6, 3.4, 44, stone);
-      for (let dz = -18; dz <= 18; dz += 6) box(x + side * 17, 15.6, z + dz, 2.8, 1.4, 3.4, stone);
+      // Low continuous gun parapets, not medieval battlements.
     }
     for (const dz of [-13, 0, 13]) {
       const barrel = cylinder(x + 13, 13.4, z + dz, 0.7, 9, dark);
@@ -162,7 +162,7 @@ export function buildSentosaScene() {
     }
     cylinder(x - 24, 19, z, 0.35, 22, pale); solid(x - 24, z, 0.9, 0.9);
     box(x - 21.4, 27.4, z, 5.4, 3.4, 0.16, rust);
-    sign('FORT BATTERY', x, 16.4, z - 44.4, 26, 2.2, '#5c6b3f');
+    sign('FORT SILOSO', x, 16.4, z - 44.4, 26, 2.2, '#5c6b3f');
   }
 
   /** Monorail: a slim beam on single piers, with a platform box midway. */
@@ -193,9 +193,42 @@ export function buildSentosaScene() {
   function lagoon() {
     const { x, z, width, depth } = LAGOON;
     box(x, 0.14, z, width + 16, 0.32, depth + 16, sand);
-    box(x, -0.04, z, width, 0.36, depth, sea); solid(x, z, width, depth);
+    box(x, 0.36, z, width, 0.1, depth, sea);
+    // Leave a genuine traversable route under the Palawan suspension deck.
+    for (const side of [-1, 1]) solid(x, z + side * (depth / 4 + 2.5), width, depth / 2 - 5);
+    box(x, 0.36, z, width + 6, 0.35, 8, plank);
+    for (let dx = -width / 2; dx <= width / 2; dx += 2) box(x + dx, 0.58, z, 0.15, 0.08, 8, wood);
+    for (const dz of [-4.5, 4.5]) {
+      for (const dx of [-width / 2, width / 2]) {
+        cylinder(x + dx, 4.4, z + dz, 0.42, 8.8, wood);
+        solid(x + dx, z + dz, 1, 1);
+      }
+      for (let segment = 0; segment < 20; segment++) {
+        const a = segment / 20, b = (segment + 1) / 20;
+        const height = (t: number) => 3 + 5 * Math.pow(2 * t - 1, 2);
+        beam(new THREE.Vector3(x - width / 2 + a * width, height(a), z + dz),
+          new THREE.Vector3(x - width / 2 + b * width, height(b), z + dz), 0.12, wood);
+        cylinder(x - width / 2 + a * width, (height(a) + 1) / 2, z + dz, 0.06, height(a) - 1, wood);
+      }
+    }
+    sign('PALAWAN BEACH', x, 4.8, z - depth / 2 - 1, 25, 2.1, '#426445');
+    // February 2015 preview: vegetated islet and paired roofed lookouts.
+    // Kept within the existing water envelope, away from the crossing lane.
+    for (const dz of [-15, 15]) {
+      const tx = x + width / 2 - 5, tz = z + dz;
+      blob(tx, 0.7, tz, 10, 1.4, 7, sand);
+      blob(tx + 2, 2, tz, 7, 2.2, 5, leaf);
+      for (const dx of [-2.8, 2.8]) for (const dd of [-2.8, 2.8]) cylinder(tx + dx, 7, tz + dd, 0.25, 14, wood);
+      for (const y of [7, 13]) {
+        box(tx, y, tz, 7.5, 0.5, 7.5, wood);
+        const roof = new THREE.Mesh(geo(new THREE.ConeGeometry(6.2, 2.4, 4)), wood);
+        roof.position.set(tx, y + 4, tz); roof.rotation.y = Math.PI / 4; scene.add(roof);
+        for (const dd of [-3.2, 3.2]) box(tx, y + 1.1, tz + dd, 7, 0.18, 0.18, wood);
+      }
+    }
+
     for (let i = 0; i < 12; i++) {
-      const ripple = box(x - width / 2 + 6 + (i * 17) % (width - 12), 0.16, z - depth / 2 + 5 + (i * 11) % (depth - 10), 6 + i % 3, 0.02, 0.2, shallow);
+      const ripple = box(x - width / 2 + 6 + (i * 17) % (width - 12), 0.43, z - depth / 2 + 5 + (i * 11) % (depth - 10), 6 + i % 3, 0.02, 0.2, shallow);
       ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
     }
     for (const dz of [-depth / 2 - 11, depth / 2 + 11]) for (let dx = -width / 2; dx <= width / 2; dx += 11) palm(x + dx, z + dz, 10 + (Math.abs(Math.round(dx)) % 3), 0.1);
@@ -218,16 +251,23 @@ export function buildSentosaScene() {
     sign('BEACH CLUB', x, 10.4, z - 21.4, 24, 2.2, '#c96a4a');
   }
 
-  /** Observation column with a ring deck and a crown of masts. */
-  function obsTower(x: number, z: number) {
-    cylinder(x, 27, z, 4.4, 54, pale); solid(x, z, 9, 9);
-    for (let ring = 0; ring < 9; ring++) cylinder(x, 6 + ring * 6, z, 5.2, 0.8, ring % 2 ? steel : stone);
-    cylinder(x, 55, z, 12, 4.4, steel);
-    cylinder(x, 57.8, z, 12.6, 1, glass);
-    for (let i = 0; i < 12; i++) { const angle = i * Math.PI / 6; cylinder(x + Math.cos(angle) * 11, 59.4, z + Math.sin(angle) * 11, 0.16, 4, steel); }
-    cylinder(x, 62.4, z, 11, 1.2, pale);
-    for (let i = 0; i < 6; i++) beam(new THREE.Vector3(x, 74, z), new THREE.Vector3(x + Math.cos(i * Math.PI / 3) * 8, 63, z + Math.sin(i * Math.PI / 3) * 8), 0.18, steel);
-    cylinder(x, 69, z, 0.8, 14, pale);
+  /** Fort Siloso Skywalk: open lift/stair tower and a slim treetop bridge. */
+  function skywalk(x: number, z: number) {
+    box(x, 19, z, 8, 38, 8, glass, scene, true); solid(x, z, 9, 9);
+    for (const dx of [-4.6, 4.6]) for (const dz of [-4.6, 4.6]) {
+      box(x + dx, 20, z + dz, 0.7, 40, 0.7, steel);
+    }
+    for (let level = 0; level < 10; level++) {
+      box(x, 2 + level * 4, z, 10, 0.4, 10, pale);
+      beam(new THREE.Vector3(x - 4.6, level * 4, z + 4.7),
+        new THREE.Vector3(x + 4.6, 4 + level * 4, z + 4.7), 0.2, steel);
+    }
+    box(x + 44, 38, z, 88, 0.8, 4.4, wood, scene, true);
+    for (const dz of [-2.1, 2.1]) {
+      box(x + 44, 39.3, z + dz, 88, 0.14, 0.14, steel);
+      for (let dx = 0; dx <= 88; dx += 4) cylinder(x + dx, 38.7, z + dz, 0.09, 1.5, steel);
+    }
+    sign('FORT SILOSO SKYWALK', x, 8, z + 5, 24, 2.2, '#426445');
   }
 
   battery(-90, -45);
@@ -235,7 +275,7 @@ export function buildSentosaScene() {
   hotelPair(165, -45);
   lagoon();
   beachClub(30, 75);
-  obsTower(-187, -60);
+  skywalk(-187, -60);
   const train = monorail(-145, -200, 200);
 
   // Landing plaza, island spine planting and the east lawn that holds the range.
@@ -254,8 +294,8 @@ export function buildSentosaScene() {
     .flatMap((shirt, index) => [walker(LANDING_X, -175 + index * 7, shirt, skin, dark), walker(-30 + index * 22, 186, shirt, skin, dark)]);
   const car = kit.car(mat('#8aa3ac'), glass, mat('#dad5c5'), dark);
   const stamps = stampRings(SENTOSA_STAMPS, orange);
-  scene.userData.districtFeatures = ['strait-boardwalk-ribs', 'leaning-palm-collars', 'arcaded-podium', 'tiered-pavilion-domes', 'water-stair', 'balcony-band-slabs', 'sky-bridge', 'earthwork-rampart', 'monorail-beam', 'ring-deck-column'];
-  scene.userData.referenceFeatures = [];
+  scene.userData.districtFeatures = ['strait-boardwalk-ribs', 'leaning-palm-collars', 'arcaded-podium', 'tiered-pavilion-domes', 'water-stair', 'balcony-band-slabs', 'sky-bridge', 'earthwork-gun-emplacements', 'palawan-suspension-bridge', 'monorail-beam', 'fort-siloso-skywalk'];
+  scene.userData.referenceFeatures = ['palawan-suspension-bridge', 'palawan-paired-roofed-lookouts', 'palawan-palm-lined-sand-shore'];
 
   return kit.finish({
     car, stamps,

@@ -6,11 +6,16 @@
     "lng": 103.84885834974736
   },
   "description": "Singapore",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2022-03",
   "requested": {
     "lat": 1.3509,
     "lng": 103.8488
   },
-  "selectedGoogle": true
+  "selectedGoogle": true,
+  "visualReview": {
+    "status": "rejected",
+    "reviewedAt": "2026-09-25",
+    "notes": "Service street with station absent; cannot establish station facade."
+  }
 }

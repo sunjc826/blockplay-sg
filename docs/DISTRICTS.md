@@ -9,44 +9,41 @@ navigation tool. Real place names label stylised counterparts.
 | Marina Bay | Downtown | 14 | Street View references, reviewed |
 | Raffles Place | City core | 11 | Street View references, reviewed |
 | Queenstown | Southwest | 8 | Street View references, reviewed |
-| Chinatown | Central | 11 | Authored, no reference capture |
-| Kampong Glam | Rochor | 11 | Authored, no reference capture |
-| Jurong Lake | West | 11 | Authored, no reference capture |
-| Changi | East | 11 | Authored, no reference capture |
-| Upper Thomson | North-central | 11 | Authored, no reference capture |
-| Punggol | North-east | 11 | Authored, no reference capture |
-| HarbourFront | South | 11 | Authored, no reference capture |
-| Sentosa | Island | 11 | Authored, no reference capture |
-| Geylang | East-central | 11 | Authored, no reference capture |
-| Tuas | Far west | 11 | Authored, no reference capture |
-| Woodlands | North | 11 | Authored, no reference capture |
-| Tampines | East | 11 | Authored, no reference capture |
-| Toa Payoh | Central-north | 11 | Authored, no reference capture |
-| Bukit Timah | North-west | 11 | Authored, no reference capture |
-| Bishan | Central-north | 11 | Authored, no reference capture |
-| Orchard Road | Central | 11 | Authored, no reference capture |
+| Chinatown | Central | 11 | Reviewed details; schematic layout |
+| Kampong Glam | Rochor | 11 | Reviewed details; schematic layout |
+| Jurong Lake | West | 11 | Reviewed details; schematic layout |
+| Changi | East | 11 | Reviewed details; schematic layout |
+| Upper Thomson | North-central | 11 | Reviewed details; schematic layout |
+| Punggol | North-east | 11 | Reviewed details; schematic layout |
+| HarbourFront | South | 11 | Reviewed details; schematic layout |
+| Sentosa | Island | 11 | Reviewed details; schematic layout |
+| Geylang | East-central | 11 | Reviewed details; schematic layout |
+| Tuas | Far west | 11 | Reviewed details; schematic layout |
+| Woodlands | North | 11 | Reviewed details; schematic layout |
+| Tampines | East | 11 | Reviewed details; schematic layout |
+| Toa Payoh | Central-north | 11 | Reviewed details; schematic layout |
+| Bukit Timah | North-west | 11 | Reviewed details; schematic layout |
+| Bishan | Central-north | 11 | Reviewed details; schematic layout |
+| Orchard Road | Central | 11 | Reviewed details; schematic layout |
 
-## Two kinds of provenance
+## Reference coverage
 
-The first three districts were built against cached Google Street View and
-Static API imagery, selected and reviewed view by view. Their attribution,
-capture ledger, per-image acceptance records and before/after evidence are in
-[the build story](BUILD-STORY.md), [visual understanding](visual-understanding.md)
-and [`docs/evidence`](evidence/). The image allowances those passes consumed are
-exhausted; see [the plan](../.agents/PLAN.md).
+All nineteen maps received a September 2026 correction pass. The original three
+reuse their reviewed cached imagery. The others now have bounded Street View
+previews, explicit acceptance/rejection records, researched landmark corrections
+and revised sectors where geometry changed. [The district review](ALL-DISTRICTS-REVIEW.md)
+records what changed and what remains approximate.
 
-The sixteen districts added afterwards were composed **from general knowledge of
-those neighbourhoods, with no reference capture and no Google API requests of
-any kind**. They make no claim to resemble a specific street, facade or
-building, and their scenes record an empty `referenceFeatures` list so the
-distinction stays machine-checkable rather than a matter of memory. Treat their
-resemblance as thematic: a shophouse terrace, a domed mosque, a tiered pagoda, a
-glazed roof with water falling through it, a planted median under rain trees, a
-channel with an arch over it, a liner at a quay, a tank farm behind its bunds.
+`scene.userData.referenceFeatures` lists only features actually informed by
+accepted references. It does not certify an entire district. Source and image
+reviews retain dates and scope: a shop interior cannot establish a mall facade,
+and a park path cannot establish an unseen tower. Capture plans and pending
+images are not proof of resemblance.
 
-They also have no source-linked learning catalog yet, so they show no
-educational companion panel. Adding one means researching and reviewing cards
-with real sources, the way the existing three were done — not generating facts.
+Learning catalogs remain separate: the original three retain their source-linked
+guides. Newly reviewed scene details do not automatically create learning cards.
+Existing exhausted Static API allowances remain unchanged. Capture orchestration
+is cache-first and selects only changed district plans; see [reference capture](REFERENCE-CAPTURE.md).
 
 ## What every district has
 

@@ -6,11 +6,16 @@
     "lng": 103.87981914865497
   },
   "description": "7 Lor. 16 Geylang, Singapore",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2024-06",
   "requested": {
     "lat": 1.3122,
     "lng": 103.88
   },
-  "selectedGoogle": true
+  "selectedGoogle": true,
+  "visualReview": {
+    "status": "rejected",
+    "reviewedAt": "2026-09-25",
+    "notes": "Selected Lorong16 close facade with tree/van occlusion, not requested main frontage."
+  }
 }

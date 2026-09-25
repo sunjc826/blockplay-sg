@@ -2,7 +2,7 @@
   "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
   "credential": "GOOGLE_MAPS_DEMO_API_KEY",
   "sourceMetadata": "jurong-east-frontage.json",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "sourceDate": "2021-11",
   "pano_id": "Cy1JYuGSXFRNW9K07IUkOQ",
   "position": {
@@ -27,5 +27,9 @@
   "staticApiRequests": 0,
   "attribution": "Retained in screenshot",
   "readinessCheck": "foreground-pov-repaint-v2",
-  "visualReview": "pending"
+  "visualReview": {
+    "status": "rejected",
+    "reviewedAt": "2026-09-25",
+    "notes": "Construction wall fills view; does not establish station or mall frontage."
+  }
 }

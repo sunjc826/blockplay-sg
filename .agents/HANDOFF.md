@@ -1759,3 +1759,15 @@ Historical scaffold state was in React/in-memory refs. The current app adds the 
 Static frontend: install `pnpm install --frozen-lockfile`, build `pnpm build`, publish `dist`. Configure the Maps key at **build time**, add the deployed referrer to the key, and rebuild after env changes. No SPA path rewrites are currently needed because there are no pathname routes.
 
 Before finishing a change, run relevant tests and `pnpm build`, record what you actually verified in `.agents/PLAN.md`, and update this handoff if setup or architecture changes. Do not claim that a local test proves the public deployment works.
+
+## 2026-09-25 — all-district reference correction pass
+
+Completed parallel modelling across all19 districts, integrating scene landmarks, sector bounds/anchors/cover, stamps, minimaps and affected spawns. See docs/ALL-DISTRICTS-REVIEW.md and linked group reviews for exact scope. Maps remain compressed/schematic; referenceFeatures names only reviewed details. No new learning catalogs were invented.
+
+Capture commits on main preserve30 new previews plus8 bounded replacements, and recover36 existing Orchard images. Across those74 images,48 accepted for stated scopes and26 rejected; all retain original checksums/dates. Static allowances untouched, no Static image requests. Source selection now intersects GOOGLE and OUTDOOR within100m; unchanged fingerprints are reused. Final modelling commit does not change canonical plans, so no Google capture is triggered.
+
+Validation: all812 Vitest tests pass, tsc --noEmit passes, Vite production build passes (existing large-chunk advisory). Offline actual-geometry review rendered38 views across all19 with no JS errors or Google requests. Render review fixed buried water surfaces and reversed Jewel roof panels. New reusable scripts/review-districts.mjs and scripts/pages/district-review.html; review-only aerial near-plane correction avoids z-fighting. Corrected existing smoke test Orchard display-ID mapping and mobile string destructuring while preserving default all19 coverage.
+
+Imported reference files had timestamps ahead of execution clock and could revert during workspace synchronization. Final review JSON writes were verified after explicitly preserving a newer timestamp. Do not rerun captures to recover reviews; use committed JSON decisions and cached images.
+
+Final interaction-smoke limitation: Woodlands and Orchard desktop sequences passed. Bishan failed moving-camera-settle assertion (cause not isolated); subsequent mobile/map CDP phase timed out. Full browser interaction suite is NOT green. Do not repeat broad captures or change geometry solely to satisfy a fixed-duration driving path. Saved final38-view render metadata in docs/evidence/2026-09-25-district-render-report.json; screenshot regeneration uses no Google calls.

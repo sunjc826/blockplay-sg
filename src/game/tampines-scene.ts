@@ -20,9 +20,9 @@ export const TAMPINES_MAP_ROADS = [
 
 /**
  * An authored, compressed interpretation of Tampines: a round market under a
- * radial roof, a stadium bowl beside the town centre, three malls over the
+ * radial roof, an integrated community hub around a sports court, three malls over the
  * interchange, slab precincts on their hawker decks, and a filled quarry in
- * the eastern block. Invented for play, without reference capture.
+ * the eastern block. Spatially compressed for play; researched changes are logged in docs/NORTH-EAST-REVIEW.md.
  */
 export function buildTampinesScene() {
   const kit = createSceneKit({
@@ -78,33 +78,68 @@ export function buildTampinesScene() {
     sign('ROUND MARKET', x, 8.4, z - radius - 7, 26, 2.3, '#8a4a20');
   }
 
-  /** Stadium: a banked bowl around a pitch, with a canopy over one stand. */
+  /** OTH's sports court sits inside a deep, mixed-use community block.
+   * Massing follows DP Architects' interlocking volumes and planted terraces;
+   * the footprint remains compressed to preserve the town-centre loop.
+   */
   function stadium(x: number, z: number) {
     box(x, 0.2, z, 96, 0.4, 88, paving);
-    for (let tier = 0; tier < 5; tier++) {
-      const w = 84 - tier * 6, d = 76 - tier * 6, y = 2 + tier * 2.4;
-      for (const side of [-1, 1]) {
-        box(x, y, z + side * (d / 2 - 1), w, 2.4, 7, tier % 2 ? concrete : stone);
-        box(x + side * (w / 2 - 1), y, z, 7, 2.4, d, tier % 2 ? concrete : stone);
-      }
-    }
     solid(x, z, 88, 80);
-    for (let tier = 0; tier < 4; tier++) for (const side of [-1, 1]) {
-      for (let dx = -34; dx < 36; dx += 4.4) box(x + dx, 3.4 + tier * 2.4, z + side * (36 - tier * 3), 4, 0.9, 1.6, panels[(tier + Math.abs(Math.round(dx / 4.4))) % panels.length]);
+    // Retain the court as a visible central void rather than a freestanding bowl.
+    box(x, 0.5, z, 58, 0.4, 43, turf);
+    for (const dx of [-27, 0, 27]) box(x + dx, 0.75, z, 0.35, 0.05, 40, white);
+    for (const dz of [-20, 20]) box(x, 0.75, z + dz, 54, 0.05, 0.35, white);
+    for (const side of [-1, 1]) {
+      box(x + side * 37, 16, z, 14, 32, 80, pale, scene, true);
+      box(x, 17, z + side * 34, 74, 34, 12, pale, scene, true);
+      // July 2024 exterior: solid warm patchwork upper block, not a
+      // uniformly glazed office facade. Sparse colored slit windows puncture it.
+      const warmPanels = [terra, mat('#b87960'), mat('#c29370'), mat('#a76858')];
+      const windowFrames = [mat('#d5b54f'), mat('#559895'), mat('#6491ac')];
+      for (let column = 0; column < 22; column++) {
+        const dx = -42 + column * 4;
+        for (let row = 0; row < 4; row++) {
+          box(x + dx, 16 + row * 4, z + side * 40.5, 4, 4.05, 0.8, warmPanels[(column * 3 + row) % 4]);
+        }
+        if (column % 3 === 1) {
+          const y = 18 + (column % 4) * 3;
+          box(x + dx, y, z + side * 41.1, 1.65, 4.4, 0.3, windowFrames[column % 3]);
+          box(x + dx, y, z + side * 41.3, 1.15, 3.9, 0.15, glass);
+        }
+      }
+      for (let column = 0; column < 20; column++) {
+        const dz = -38 + column * 4;
+        for (let row = 0; row < 4; row++) box(x + side * 44.5, 16 + row * 4, z + dz, 0.8, 4.05, 4, warmPanels[(column + row * 3) % 4]);
+        if (column % 4 === 1) {
+          const y = 19 + (column % 3) * 3;
+          box(x + side * 45.1, y, z + dz, 0.3, 4.4, 1.65, windowFrames[column % 3]);
+          box(x + side * 45.3, y, z + dz, 0.15, 3.9, 1.15, glass);
+        }
+      }
+      for (const y of [5, 9, 12]) {
+        box(x, y, z + side * 40.5, 87, 1.6, 0.9, dark);
+        box(x + side * 44.5, y, z, 0.9, 1.6, 80, dark);
+      }
+      box(x, 31.8, z + side * 40.5, 86, 3, 0.7, glass);
+      box(x + side * 44.5, 31.8, z, 0.7, 3, 80, glass);
+      for (let tier = 0; tier < 3; tier++) {
+        box(x, 1.5 + tier * 1.2, z + side * (24 + tier * 2), 54, 1.2, 2.8, concrete);
+        box(x, 2.2 + tier * 1.2, z + side * (24 + tier * 2), 51, 0.4, 1.5, rust);
+      }
+      box(x + side * 35, 33, z, 18, 0.8, 78, lawn);
+      for (let dz = -28; dz <= 28; dz += 14) blob(x + side * 35, 34.2, z + dz, 3, 1.2, 3, fern);
     }
-    box(x, 0.5, z, 60, 0.4, 44, turf);
-    for (const dx of [-26, 26]) box(x + dx, 0.62, z, 0.5, 0.06, 26, white);
-    box(x, 0.62, z, 0.5, 0.06, 44, white);
-    for (let i = 0; i < 24; i++) { const a = i * Math.PI / 12; box(x + Math.cos(a) * 12, 0.62, z + Math.sin(a) * 8, 1.2, 0.06, 0.5, white); }
-    // Cantilevered canopy over the west stand, on two masts.
-    for (const dz of [-22, 22]) { cylinder(x - 50, 17, z + dz, 1.1, 34, steel); solid(x - 50, z + dz, 2.6, 2.6); }
-    box(x - 34, 25.4, z, 34, 1, 76, steel, scene, true);
-    for (const dz of [-30, -10, 10, 30]) beam(new THREE.Vector3(x - 50, 33, z + dz), new THREE.Vector3(x - 18, 25.4, z + dz), 0.22, steel);
-    for (const [dx, dz] of [[44, -40], [44, 40], [-44, -40], [-44, 40]] as const) {
-      cylinder(x + dx, 16, z + dz, 0.7, 32, steel); solid(x + dx, z + dz, 1.8, 1.8);
-      for (let r = 0; r < 3; r++) box(x + dx, 31 + r * 1.4, z + dz, 6.4 - r, 1, 2.4, safety);
+    // A broad central arrival opening and lightweight entrance canopy.
+    box(x, 4.2, z + 40.8, 23, 7, 0.4, dark);
+    box(x, 8.5, z + 43, 31, 0.5, 7, glass);
+    // January 2023 Hub arrival: round white piers and dark louvred entry.
+    for (const dx of [-10, 10]) {
+      cylinder(x + dx, 3.8, z + 40, 0.8, 7.6, pale);
     }
-    sign('TAMPINES HUB', x, 9.4, z - 48, 30, 2.4, '#2c4450');
+    for (let y = 1; y <= 7; y += 0.5) box(x + 7, y, z + 41.2, 7, 0.13, 0.25, steel);
+    sign('OUR TAMPINES HUB', x, 13, z + 41.1, 38, 2.6, '#6b4236');
+    const backSign = sign('OUR TAMPINES HUB', x, 13, z - 41.1, 38, 2.6, '#6b4236');
+    if (backSign) backSign.rotation.y = Math.PI;
   }
 
   /** Three malls over the interchange, tied by link bridges at first storey. */
@@ -155,7 +190,8 @@ export function buildTampinesScene() {
   /** Filled quarry: steep worked faces on two sides, a shelving beach on one. */
   function quarry() {
     const { x, z, width, depth } = POND;
-    box(x, 0.18, z, width + 24, 0.35, depth + 24, lawn);
+    // Keep the lawn base below the water surface instead of hiding the pond.
+    box(x, -0.35, z, width + 24, 0.35, depth + 24, lawn);
     box(x, -0.06, z, width, 0.4, depth, water); solid(x, z, width, depth);
     for (let i = 0; i < 16; i++) {
       const ripple = box(x - width / 2 + 8 + (i * 19) % (width - 14), 0.16, z - depth / 2 + 6 + (i * 13) % (depth - 12), 7 + i % 3, 0.02, 0.2, shallow);
@@ -213,8 +249,8 @@ export function buildTampinesScene() {
     .flatMap((shirt, index) => [walker(-80 + index * 18, 10, shirt, skin, dark), walker(-20, -60 + index * 22, shirt, skin, dark)]);
   const car = kit.car(mat('#8aa0a6'), glass, mat('#dad5c5'), dark);
   const stamps = stampRings(TAMPINES_STAMPS, orange);
-  scene.userData.districtFeatures = ['radial-market-roof', 'vented-drum-cap', 'outward-stall-bays', 'banked-stadium-tiers', 'cantilever-stand-canopy', 'mall-link-bridges', 'sawtooth-berths', 'hawker-deck-slabs', 'worked-quarry-faces', 'cycle-path-run'];
-  scene.userData.referenceFeatures = [];
+  scene.userData.districtFeatures = ['radial-market-roof', 'vented-drum-cap', 'outward-stall-bays', 'integrated-hub-courtyard', 'screened-community-block', 'planted-roof-terraces', 'mall-link-bridges', 'sawtooth-berths', 'hawker-deck-slabs', 'worked-quarry-faces', 'cycle-path-run'];
+  scene.userData.referenceFeatures = ['hub-exterior-0:sheltered-arrival-columns-and-louvres-only', 'hub-outdoor02-0:terracotta-patchwork-and-colored-slit-windows'];
 
   return kit.finish({
     car, stamps,

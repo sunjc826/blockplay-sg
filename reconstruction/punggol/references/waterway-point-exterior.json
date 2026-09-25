@@ -6,11 +6,16 @@
     "lng": 103.90207935972636
   },
   "description": "Waterway Point",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2019-05",
   "requested": {
     "lat": 1.4061,
     "lng": 103.9021
   },
-  "selectedGoogle": true
+  "selectedGoogle": true,
+  "visualReview": {
+    "status": "rejected",
+    "reviewedAt": "2026-09-25",
+    "notes": "Indoor clinic shop, not mall or residential exterior."
+  }
 }

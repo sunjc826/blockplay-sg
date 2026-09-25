@@ -46,23 +46,21 @@ Adding a district is a registry entry in `src/game/regions.ts` plus a scene file
 built from `src/game/scene-kit.ts` — read `docs/DISTRICTS.md` first for the five
 files it touches.
 
-Two provenances, and they are not interchangeable:
+## Reference provenance and capture
 
-- **Reference-informed** — Marina Bay, Raffles Place, Queenstown. Built against
-  reviewed Street View references. Those image allowances are **exhausted**.
-- **Authored from general knowledge** — every other district. No reference
-  capture, no Google API requests, and an empty `referenceFeatures` list so that
-  stays checkable. They have no source-linked learning cards, hence no companion
-  panel; adding one needs researched sources, not generated facts.
+All nineteen districts have a September 2026 correction pass; read
+`docs/ALL-DISTRICTS-REVIEW.md` for feature-level evidence and limitations.
+`scene.userData.referenceFeatures` lists only features implemented from accepted
+references, not a whole-map fidelity certificate. Empty lists remain valid when
+no reviewed image informed geometry. Learning catalogs (`hasGuide`) are separate.
+Keep README, docs/DISTRICTS.md and the in-app About copy consistent with that scope.
 
-Don't keep a second list of which is which — `referenceFeatures` is empty for
-exactly the authored set, and `hasGuide` marks the three with learning cards.
-Prose that names them (the README, `docs/DISTRICTS.md`, the in-app About
-dialog in `src/App.tsx`) goes stale every time a district lands, so check those
-three when you add one.
-
-Never describe an authored district as reference-informed, and don't make new
-reference-capture requests or Google API calls without asking first.
+The original three districts' Static image allowances remain exhausted. Never
+reset budgets or invent acceptance records. New captures need user authorization;
+the September 2026 all-district pass was explicitly authorized, including
+parallel modelling and bounded replacement previews. Future unrelated captures
+are not blanket-authorized by this record. Use the per-district cache-first
+workflow in docs/REFERENCE-CAPTURE.md. Preserve rejected images and ledger events.
 
 ## Orientation
 

@@ -1,0 +1,539 @@
+{
+  "capturedAt": "2026-09-25T14:16:54.837Z",
+  "googleRequests": 0,
+  "errors": [],
+  "captures": [
+    {
+      "id": "marina-bay",
+      "view": "overview",
+      "camera": [
+        518.6800000000001,
+        500.93999999999994,
+        531.76
+      ],
+      "calls": 197,
+      "triangles": 197865,
+      "width": 1280,
+      "height": 900,
+      "file": "marina-bay-overview.png"
+    },
+    {
+      "id": "marina-bay",
+      "view": "street",
+      "camera": [
+        -24,
+        2,
+        -153
+      ],
+      "calls": 34,
+      "triangles": 108760,
+      "width": 1280,
+      "height": 900,
+      "file": "marina-bay-street.png"
+    },
+    {
+      "id": "raffles-place",
+      "view": "overview",
+      "camera": [
+        394.40000000000003,
+        400.2,
+        506.3
+      ],
+      "calls": 146,
+      "triangles": 97049,
+      "width": 1280,
+      "height": 900,
+      "file": "raffles-place-overview.png"
+    },
+    {
+      "id": "raffles-place",
+      "view": "street",
+      "camera": [
+        64,
+        2,
+        247
+      ],
+      "calls": 104,
+      "triangles": 93405,
+      "width": 1280,
+      "height": 900,
+      "file": "raffles-place-street.png"
+    },
+    {
+      "id": "queenstown",
+      "view": "overview",
+      "camera": [
+        353.6,
+        358.79999999999995,
+        395.2
+      ],
+      "calls": 96,
+      "triangles": 225968,
+      "width": 1280,
+      "height": 900,
+      "file": "queenstown-overview.png"
+    },
+    {
+      "id": "queenstown",
+      "view": "street",
+      "camera": [
+        -28,
+        2,
+        53
+      ],
+      "calls": 52,
+      "triangles": 220760,
+      "width": 1280,
+      "height": 900,
+      "file": "queenstown-street.png"
+    },
+    {
+      "id": "chinatown",
+      "view": "overview",
+      "camera": [
+        340,
+        345,
+        380
+      ],
+      "calls": 139,
+      "triangles": 110404,
+      "width": 1280,
+      "height": 900,
+      "file": "chinatown-overview.png"
+    },
+    {
+      "id": "chinatown",
+      "view": "street",
+      "camera": [
+        -55,
+        2,
+        80
+      ],
+      "calls": 105,
+      "triangles": 104134,
+      "width": 1280,
+      "height": 900,
+      "file": "chinatown-street.png"
+    },
+    {
+      "id": "kampong-glam",
+      "view": "overview",
+      "camera": [
+        312.8,
+        317.4,
+        349.6
+      ],
+      "calls": 107,
+      "triangles": 87196,
+      "width": 1280,
+      "height": 900,
+      "file": "kampong-glam-overview.png"
+    },
+    {
+      "id": "kampong-glam",
+      "view": "street",
+      "camera": [
+        10,
+        2,
+        -85
+      ],
+      "calls": 62,
+      "triangles": 84016,
+      "width": 1280,
+      "height": 900,
+      "file": "kampong-glam-street.png"
+    },
+    {
+      "id": "jurong-lake",
+      "view": "overview",
+      "camera": [
+        367.20000000000005,
+        372.59999999999997,
+        410.4
+      ],
+      "calls": 121,
+      "triangles": 47104,
+      "width": 1280,
+      "height": 900,
+      "file": "jurong-lake-overview.png"
+    },
+    {
+      "id": "jurong-lake",
+      "view": "street",
+      "camera": [
+        -105,
+        2,
+        55
+      ],
+      "calls": 50,
+      "triangles": 37282,
+      "width": 1280,
+      "height": 900,
+      "file": "jurong-lake-street.png"
+    },
+    {
+      "id": "changi",
+      "view": "overview",
+      "camera": [
+        380.8,
+        386.4,
+        425.6
+      ],
+      "calls": 95,
+      "triangles": 84808,
+      "width": 1280,
+      "height": 900,
+      "file": "changi-overview.png"
+    },
+    {
+      "id": "changi",
+      "view": "street",
+      "camera": [
+        16,
+        2,
+        -11
+      ],
+      "calls": 28,
+      "triangles": 81278,
+      "width": 1280,
+      "height": 900,
+      "file": "changi-street.png"
+    },
+    {
+      "id": "upper-thomson",
+      "view": "overview",
+      "camera": [
+        353.6,
+        358.79999999999995,
+        395.2
+      ],
+      "calls": 96,
+      "triangles": 68276,
+      "width": 1280,
+      "height": 900,
+      "file": "upper-thomson-overview.png"
+    },
+    {
+      "id": "upper-thomson",
+      "view": "street",
+      "camera": [
+        -50,
+        2,
+        -12
+      ],
+      "calls": 57,
+      "triangles": 65310,
+      "width": 1280,
+      "height": 900,
+      "file": "upper-thomson-street.png"
+    },
+    {
+      "id": "punggol",
+      "view": "overview",
+      "camera": [
+        367.20000000000005,
+        372.59999999999997,
+        410.4
+      ],
+      "calls": 106,
+      "triangles": 78012,
+      "width": 1280,
+      "height": 900,
+      "file": "punggol-overview.png"
+    },
+    {
+      "id": "punggol",
+      "view": "street",
+      "camera": [
+        20,
+        2,
+        -58
+      ],
+      "calls": 46,
+      "triangles": 73532,
+      "width": 1280,
+      "height": 900,
+      "file": "punggol-street.png"
+    },
+    {
+      "id": "harbourfront",
+      "view": "overview",
+      "camera": [
+        346.8,
+        351.9,
+        387.6
+      ],
+      "calls": 116,
+      "triangles": 49044,
+      "width": 1280,
+      "height": 900,
+      "file": "harbourfront-overview.png"
+    },
+    {
+      "id": "harbourfront",
+      "view": "street",
+      "camera": [
+        60,
+        3,
+        115
+      ],
+      "calls": 59,
+      "triangles": 43884,
+      "width": 1280,
+      "height": 900,
+      "file": "harbourfront-street.png"
+    },
+    {
+      "id": "sentosa",
+      "view": "overview",
+      "camera": [
+        340,
+        345,
+        380
+      ],
+      "calls": 109,
+      "triangles": 120044,
+      "width": 1280,
+      "height": 900,
+      "file": "sentosa-overview.png"
+    },
+    {
+      "id": "sentosa",
+      "view": "street",
+      "camera": [
+        -140,
+        3,
+        110
+      ],
+      "calls": 77,
+      "triangles": 119116,
+      "width": 1280,
+      "height": 900,
+      "file": "sentosa-street.png"
+    },
+    {
+      "id": "geylang",
+      "view": "overview",
+      "camera": [
+        346.8,
+        351.9,
+        387.6
+      ],
+      "calls": 127,
+      "triangles": 66592,
+      "width": 1280,
+      "height": 900,
+      "file": "geylang-overview.png"
+    },
+    {
+      "id": "geylang",
+      "view": "street",
+      "camera": [
+        -14,
+        2,
+        -10
+      ],
+      "calls": 62,
+      "triangles": 63944,
+      "width": 1280,
+      "height": 900,
+      "file": "geylang-street.png"
+    },
+    {
+      "id": "tuas",
+      "view": "overview",
+      "camera": [
+        357.20000000000005,
+        372.59999999999997,
+        410.4
+      ],
+      "calls": 107,
+      "triangles": 63942,
+      "width": 1280,
+      "height": 900,
+      "file": "tuas-overview.png"
+    },
+    {
+      "id": "tuas",
+      "view": "street",
+      "camera": [
+        215,
+        5,
+        85
+      ],
+      "calls": 26,
+      "triangles": 54536,
+      "width": 1280,
+      "height": 900,
+      "file": "tuas-street.png"
+    },
+    {
+      "id": "woodlands",
+      "view": "overview",
+      "camera": [
+        353.6,
+        358.79999999999995,
+        367.7
+      ],
+      "calls": 94,
+      "triangles": 48692,
+      "width": 1280,
+      "height": 900,
+      "file": "woodlands-overview.png"
+    },
+    {
+      "id": "woodlands",
+      "view": "street",
+      "camera": [
+        0,
+        5,
+        -55
+      ],
+      "calls": 46,
+      "triangles": 46122,
+      "width": 1280,
+      "height": 900,
+      "file": "woodlands-street.png"
+    },
+    {
+      "id": "tampines",
+      "view": "overview",
+      "camera": [
+        353.6,
+        358.79999999999995,
+        395.2
+      ],
+      "calls": 108,
+      "triangles": 60410,
+      "width": 1280,
+      "height": 900,
+      "file": "tampines-overview.png"
+    },
+    {
+      "id": "tampines",
+      "view": "street",
+      "camera": [
+        55,
+        4,
+        10
+      ],
+      "calls": 42,
+      "triangles": 57328,
+      "width": 1280,
+      "height": 900,
+      "file": "tampines-street.png"
+    },
+    {
+      "id": "toa-payoh",
+      "view": "overview",
+      "camera": [
+        346.8,
+        351.9,
+        387.6
+      ],
+      "calls": 105,
+      "triangles": 70336,
+      "width": 1280,
+      "height": 900,
+      "file": "toa-payoh-overview.png"
+    },
+    {
+      "id": "toa-payoh",
+      "view": "street",
+      "camera": [
+        -148,
+        2,
+        -42
+      ],
+      "calls": 24,
+      "triangles": 63288,
+      "width": 1280,
+      "height": 900,
+      "file": "toa-payoh-street.png"
+    },
+    {
+      "id": "bukit-timah",
+      "view": "overview",
+      "camera": [
+        346.8,
+        351.9,
+        387.6
+      ],
+      "calls": 95,
+      "triangles": 73894,
+      "width": 1280,
+      "height": 900,
+      "file": "bukit-timah-overview.png"
+    },
+    {
+      "id": "bukit-timah",
+      "view": "street",
+      "camera": [
+        65,
+        3,
+        130
+      ],
+      "calls": 32,
+      "triangles": 57854,
+      "width": 1280,
+      "height": 900,
+      "file": "bukit-timah-street.png"
+    },
+    {
+      "id": "bishan",
+      "view": "overview",
+      "camera": [
+        346.8,
+        351.9,
+        387.6
+      ],
+      "calls": 77,
+      "triangles": 64910,
+      "width": 1280,
+      "height": 900,
+      "file": "bishan-overview.png"
+    },
+    {
+      "id": "bishan",
+      "view": "street",
+      "camera": [
+        -60,
+        2,
+        -74
+      ],
+      "calls": 34,
+      "triangles": 62672,
+      "width": 1280,
+      "height": 900,
+      "file": "bishan-street.png"
+    },
+    {
+      "id": "orchard",
+      "view": "overview",
+      "camera": [
+        353.6,
+        358.79999999999995,
+        395.2
+      ],
+      "calls": 96,
+      "triangles": 94212,
+      "width": 1280,
+      "height": 900,
+      "file": "orchard-overview.png"
+    },
+    {
+      "id": "orchard",
+      "view": "street",
+      "camera": [
+        30,
+        2,
+        5
+      ],
+      "calls": 72,
+      "triangles": 92492,
+      "width": 1280,
+      "height": 900,
+      "file": "orchard-street.png"
+    }
+  ]
+}

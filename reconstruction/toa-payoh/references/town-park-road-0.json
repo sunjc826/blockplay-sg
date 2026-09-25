@@ -2,7 +2,7 @@
   "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
   "credential": "GOOGLE_MAPS_DEMO_API_KEY",
   "sourceMetadata": "town-park-road.json",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "sourceDate": "2016-05",
   "pano_id": "heo-xdJMndQZu-dNHbf08w",
   "position": {
@@ -27,5 +27,9 @@
   "staticApiRequests": 0,
   "attribution": "Retained in screenshot",
   "readinessCheck": "foreground-pov-repaint-v2",
-  "visualReview": "pending"
+  "visualReview": {
+    "status": "accepted",
+    "reviewedAt": "2026-09-25",
+    "notes": "Shaded paved park path only; lookout tower absent."
+  }
 }

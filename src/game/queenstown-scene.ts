@@ -170,7 +170,28 @@ export function buildQueenstownScene() {
     for(let y=5;y<=7;y+=0.45) {const louver=box(x,y,42.47,5.5,0.12,0.5,dark);louver.rotation.x=-0.18;}
     for(const dx of [-2.7,0,2.7]) box(x+dx,6,42.7,0.12,2.6,0.13,stationBlue);
     box(x, 9.2, 32, 6, 0.5, 14, cream);
-    sign('MRT', x, 3.8, 42.1, 4, 1.2);
+    // station-east.png: trailing greenery over screened service bays, blue
+    // lower walls and dark doors beneath projecting louver frames.
+    box(x, 1.4, 42.12, 2.2, 2.8, 0.14, dark);
+    box(x + 0.7, 1.35, 42.25, 0.08, 0.25, 0.1, white);
+    for (const dx of [-2.1, 2.1]) {
+      box(x + dx, 2.2, 42.14, 1.05, 3.6, 0.14, dark);
+      for(let y=0.6;y<3.8;y+=0.25)box(x+dx,y,42.28,1.02,0.08,0.22,concrete);
+      box(x + dx, 4.25, 42.4, 1.4, 0.4, 0.5, leaf);
+      for(let n=0;n<4;n++) {
+        const length=0.8+(n%3)*0.55;
+        box(x+dx-0.5+n*0.33,4.1-length/2,42.5+n%2*0.08,0.3,length,0.22,n%2?foliageLight:foliageDeep);
+      }
+    }
+    // Recessed blue link sides and window bays continue around the entrance.
+    for(const side of [-1,1]) {
+      box(x+side*3.08,6.2,39,0.14,3.7,5.8,stationBlue);
+      for(const dz of [-1.8,0,1.8]) {
+        box(x+side*3.18,6.4,39+dz,0.12,2,1.3,glass);
+        box(x+side*3.28,5.3,39+dz,0.2,0.18,1.5,concrete);
+      }
+    }
+    sign('MRT', x, 3.8, 42.75, 4, 1.2);
   }
   const train = new THREE.Group(); scene.add(train);
   for (let n = 0; n < 3; n++) {

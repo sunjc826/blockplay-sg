@@ -27,8 +27,8 @@ export const UPPER_THOMSON_MAP_ROADS = [
  * An authored, compressed interpretation of the Upper Thomson stretch: a
  * low-rise eating strip and its five-foot ways, a neighbourhood mall under a
  * rooftop car park, terrace housing, and the reservoir edge behind it —
- * boardwalk, secondary forest and a suspension bridge strung through the
- * canopy. Invented for play, without reference capture.
+ * boardwalk, secondary forest and a forest trail. The reserve and shopping
+ * belt remain compressed; source notes in docs/NORTH-CENTRAL-REVIEW.md.
  */
 export function buildUpperThomsonScene() {
   const kit = createSceneKit({
@@ -36,7 +36,7 @@ export function buildUpperThomsonScene() {
     sun: { x: 150, y: 210, z: -120 }, shadow: { extent: 260, far: 660 },
     hemisphere: { sky: '#f3f9fb', ground: '#6f7360', intensity: 1.82 },
   });
-  const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat } = kit;
+  const { scene, box, cylinder, blob, solid, sign, tree, walker, stampRings, mat } = kit;
 
   const asphalt = mat('#575d5f'), white = mat('#e9e7d8'), paving = mat('#bab5a8'), kerb = mat('#cdc7b9');
   const water = mat('#4f8496', 0.42), shallow = mat('#659cab', 0.4), grass = mat('#87a06c'), lawn = mat('#93ac74');
@@ -109,33 +109,10 @@ export function buildUpperThomsonScene() {
     forestTree(x, z, 11 + ((Math.round(x) + Math.round(z)) % 5));
   }
 
-  /** Suspension bridge strung through the canopy on two lattice towers. */
-  function treetopBridge(x: number, fromZ: number, toZ: number) {
-    const deck = 22, span = toZ - fromZ;
-    for (const z of [fromZ, toZ]) {
-      for (const dx of [-2.2, 2.2]) for (const dz of [-2.2, 2.2]) cylinder(x + dx, 15, z + dz, 0.4, 30, steel);
-      for (let y = 4; y < 30; y += 5) for (const dx of [-2.2, 2.2]) box(x + dx, y, z, 0.35, 0.35, 4.6, steel);
-      for (let y = 4; y < 30; y += 5) box(x, y, z, 4.6, 0.35, 0.35, steel);
-      box(x, 30.4, z, 6.4, 0.8, 6.4, steel); solid(x, z, 5.6, 5.6);
-    }
-    // Deck and its mesh sides, hung from a cable that sags between the towers.
-    for (let n = 0; n <= 28; n++) {
-      const z = fromZ + span * n / 28, sag = Math.sin(Math.PI * n / 28);
-      box(x, deck, z, 3.4, 0.28, span / 28 + 0.4, plank);
-      for (const side of [-1, 1]) {
-        box(x + side * 1.7, deck + 0.7, z, 0.16, 1.4, span / 28 + 0.4, steel);
-        const cableY = 29 - sag * 6.4;
-        cylinder(x + side * 1.7, (cableY + deck) / 2, z, 0.05, cableY - deck, steel);
-      }
-    }
-    for (const side of [-1, 1]) for (let n = 0; n < 28; n++) {
-      const z0 = fromZ + span * n / 28, z1 = fromZ + span * (n + 1) / 28;
-      beam(new THREE.Vector3(x + side * 1.7, 29 - Math.sin(Math.PI * n / 28) * 6.4, z0),
-        new THREE.Vector3(x + side * 1.7, 29 - Math.sin(Math.PI * (n + 1) / 28) * 6.4, z1), 0.12, steel);
-    }
-    sign('TREETOP WALK', x, 26, fromZ - 5, 18, 2, '#2f5140');
-  }
-  treetopBridge(BRIDGE_X, -70, 70);
+  // The TreeTop Walk is a separate forest excursion, several kilometres from
+  // the eating strip. A trail junction replaces the invented roadside span.
+  box(BRIDGE_X, 0.19, 0, 5, 0.2, 132, paving);
+  sign('NATURE TRAIL', BRIDGE_X, 3.5, -64, 16, 1.8, '#2f5140');
 
   /** Two-storey shop terrace: zinc awning, five-foot way, tiled upper facade. */
   function shopRow(startX: number, z: number, count: number, facing: 1 | -1, width = 15) {
@@ -144,6 +121,12 @@ export function buildUpperThomsonScene() {
       box(x, 5.4, z, width - 0.5, 10.8, 16, body, scene, true); solid(x, z, width, 16);
       const front = z + facing * 8;
       box(x, 11.2, z, width, 0.7, 17, plaster);
+      // August 2024 exterior: red pitched roofs, not a flat parapet skyline.
+      for (const side of [-1, 1]) {
+        const roof = box(x, 12.1, z + side * 4.3, width, 0.35, 9.6, rust, scene, true);
+        roof.rotation.x = side * 0.23;
+      }
+      box(x, 13.1, z, width, 0.25, 0.5, rust);
       for (let dx = -width / 2 + 2; dx < width / 2 - 1; dx += 3.4) box(x + dx, 7.9, front + facing * 0.14, 2.4, 3.6, 0.24, glass);
       box(x, 10.2, front + facing * 0.3, width - 1, 1.5, 0.5, i % 2 ? tealSign : rust);
       // Zinc awning over the walkway, on slender posts set back from the kerb.
@@ -182,19 +165,27 @@ export function buildUpperThomsonScene() {
       for (let dx = -40; dx < 42; dx += 7) for (const side of [-1, 1]) box(x + dx, y, z + side * 48.4, 5.6, 3.4, 0.6, glass);
       for (let dz = -42; dz < 44; dz += 7) for (const side of [-1, 1]) box(x + side * 44.4, y, z + dz, 0.6, 3.4, 5.6, glass);
     }
-    // Car-park deck: parapet, ranked bays and a helical ramp at one corner.
+    // Car-park deck: parapet, ranked bays and ranked parking bays.
     box(x, 18.6, z, 92, 1.2, 100, stone);
     for (const side of [-1, 1]) box(x, 20.2, z + side * 49, 92, 2.2, 1.4, concrete);
     for (const side of [-1, 1]) box(x + side * 45.6, 20.2, z, 1.4, 2.2, 100, concrete);
     for (let dz = -44; dz < 46; dz += 6) for (const side of [-1, 1]) box(x + side * 30, 19.3, z + dz, 26, 0.04, 0.3, white);
-    for (let ring = 0; ring < 10; ring++) {
-      const angle = ring * 0.62, r = 13;
-      const ramp = box(x - 32 + Math.cos(angle) * r, 2 + ring * 1.7, z + 34 + Math.sin(angle) * r, 9, 0.5, 9, concrete);
-      ramp.rotation.y = -angle;
+    // August 2024 Soo Chow Garden Road view: mostly blank white cladding,
+    // with a small offset cluster of blue-framed squares at the corner.
+    const frameBlue = mat('#45769b');
+    box(x, 13.4, z + 49.1, 88, 9.2, 0.4, plaster);
+    for (let dx = -40; dx <= 40; dx += 8) box(x + dx, 13.4, z + 49.35, 0.06, 9.2, 0.05, stone);
+    for (const y of [9, 12, 15, 18]) box(x, y, z + 49.35, 88, 0.06, 0.05, stone);
+    for (const [dx, y, colour] of [[28, 11.5, '#6ea6ca'], [28, 15.5, '#c7d498'], [36, 15.5, '#d5dddd']] as const) {
+      box(x + dx, y, z + 49.8, 7, 3.7, 0.3, mat(colour));
+      for (const side of [-1, 1]) {
+        box(x + dx + side * 3.6, y, z + 50, 0.3, 4, 0.4, frameBlue);
+        box(x + dx, y + side * 2, z + 50, 7.5, 0.3, 0.4, frameBlue);
+      }
     }
     box(x, 6.4, z + 53, 34, 0.7, 12, steel, scene, true);
     for (const dx of [-14, 14]) { cylinder(x + dx, 3.2, z + 58, 0.5, 6.4, steel); solid(x + dx, z + 58, 1.1, 1.1); }
-    sign('THOMSON PLAZA', x, 9.2, z + 53.4, 30, 2.4, '#2c4450');
+    sign('THOMSON PLAZA', x - 16, 8.2, z + 50, 28, 1.9, '#a8322d');
   }
 
   /** Terrace houses: pitched tile roof, a porch, a gate and a clipped hedge. */
@@ -224,6 +215,8 @@ export function buildUpperThomsonScene() {
     sign('TE8  UPPER THOMSON', x, 5.4, z + 5.6, 14, 1.4, '#7b2b8f');
   }
 
+  // Parallel parking lines remain flat so they do not obstruct the five-foot way.
+  for (let x = -103; x <= -17; x += 17) box(x, 0.14, -15.5, 0.25, 0.03, 4.8, white);
   shopRow(-95, -32, 6, 1);
   shopRow(-95, -108, 6, -1);
   coffeeShop(-92, -70);
@@ -267,8 +260,8 @@ export function buildUpperThomsonScene() {
     .flatMap((shirt, index) => [walker(-90 + index * 22, -18, shirt, skin, dark), walker(-164, -40 + index * 18, shirt, skin, dark)]);
   const car = kit.car(mat('#7f9488'), glass, mat('#d9d4c4'), dark);
   const stamps = stampRings(UPPER_THOMSON_STAMPS, orange);
-  scene.userData.districtFeatures = ['zinc-awning-five-foot-way', 'open-sided-kopitiam', 'ceiling-fan-bays', 'rooftop-car-park-deck', 'helical-ramp', 'terrace-house-porches', 'reservoir-causeway', 'pile-boardwalk', 'layered-secondary-forest', 'canopy-suspension-span'];
-  scene.userData.referenceFeatures = [];
+  scene.userData.districtFeatures = ['zinc-awning-five-foot-way', 'open-sided-kopitiam', 'ceiling-fan-bays', 'rooftop-car-park-deck', 'blue-framed-plaza-facade', 'terrace-house-porches', 'reservoir-causeway', 'pile-boardwalk', 'layered-secondary-forest', 'forest-trail-junction'];
+  scene.userData.referenceFeatures = ['thomson-shops-road-0:two-storey-pitched-roof-terrace', 'thomson-shops-road-0:continuous-low-awning', 'thomson-plaza-outdoor02-0:white-clad-facade-with-offset-blue-squares'];
 
   return kit.finish({
     car, stamps,

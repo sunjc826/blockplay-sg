@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { ORCHARD_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 
-// In the westbound lane beside the median, looking down the boulevard.
+// On the one-way shopping boulevard, looking along the belt.
 export const ORCHARD_SPAWN = { x: 30, z: 5, yaw: Math.PI / 2 };
 export const ORCHARD_BOUNDS = { minX: -260, maxX: 260, minZ: -205, maxZ: 205 };
 export { ORCHARD_STAMPS } from '../data/region-stamps.ts';
@@ -20,10 +20,10 @@ const clearOfJunction = (x: number, margin: number) => NS_ROADS.every(road => Ma
 
 /**
  * An authored, compressed interpretation of the Orchard Road shopping belt: a
- * planted median down a wide boulevard under rain trees, a faceted glass mall
+ * wide one-way boulevard under rain trees, a scalloped glass mall
  * at the junction, a granite twin-tower podium, a pitched-roof department
- * store, stepped retail terraces and a peranakan side lane. Invented for play,
- * without reference capture.
+ * store, blue-glazed Wisma frontage and a peranakan side lane. Compressed for play; selected Orchard exterior captures were visually reviewed
+ * in September 2026 (see docs/evidence/central-district-review.md).
  *
  * Every block takes a `facing` of 1 or -1 so its frontage, canopy and forecourt
  * turn toward the boulevard from whichever side of it the block sits on.
@@ -37,25 +37,26 @@ export function buildOrchardScene() {
   const { scene, box, cylinder, blob, solid, sign, tree, walker, stampRings, mat, geo } = kit;
 
   const asphalt = mat('#565c60'), white = mat('#eae8da'), paving = mat('#bdb8ac'), kerb = mat('#d0cabc');
-  const granite = mat('#8e8c86'), pale = mat('#e4ded0'), cream = mat('#e8dfc9'), concrete = mat('#aeaca2');
+  const granite = mat('#9d655a'), pale = mat('#e4ded0'), cream = mat('#e8dfc9'), concrete = mat('#aeaca2');
   const glass = mat('#7ba0b2', 0.22, 0.34), deepGlass = mat('#5f8798', 0.18, 0.42), steel = mat('#b0b7ba', 0.3, 0.55);
   const brass = mat('#c0982f', 0.4, 0.6), dark = mat('#36434a'), wood = mat('#7d6248'), skin = mat('#b18c71');
-  const leaf = mat('#49713f'), canopy = mat('#5c8a4a'), lawn = mat('#8ea86d'), hedge = mat('#4f7a45');
+  const leaf = mat('#49713f'), canopy = mat('#5c8a4a'), lawn = mat('#8ea86d');
   const tileGreen = mat('#39614a'), orange = mat('#f0a044'), banner = mat('#a8402f'), awning = mat('#d8b24a');
   const teal = mat('#3f6f8c');
-  const peranakan = ['#8fb6ae', '#d9b98a', '#c08f9a', '#9fb4c6', '#e0cfa2'].map(color => mat(color));
+  const peranakan = ['#e7e5dc', '#e1e6d9', '#f1eee3', '#e2e7df', '#e9e6db'].map(color => mat(color));
 
   box(0, -0.6, 0, 600, 1, 500, paving);
   kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });
 
-  // Planted median down the boulevard. Kept out of the junctions, and narrow
-  // enough that a car passes either side of every planter.
-  for (let x = -215; x <= 215; x += 25) {
+  // Orchard Road has an uninterrupted one-way carriageway here; trees belong
+  // on the generous shopping footways, not an invented central garden.
+  for (let x = -210; x < 220; x += 30) {
     if (!clearOfJunction(x, 18)) continue;
-    box(x, 0.45, 0, 15, 0.6, 3, kerb); solid(x, 0, 15, 3);
-    for (const dx of [-4.4, 0, 4.4]) blob(x + dx, 1.5, 0, 2.2, 1.1, 1.3, hedge);
-    cylinder(x, 4.6, 0, 0.16, 9.2, dark);
-    for (const side of [-1, 1]) { box(x + side * 2.2, 9.1, 0, 4.6, 0.2, 0.2, dark); box(x + side * 4.3, 8.9, 0, 1.5, 0.3, 0.8, pale); }
+    box(x, 0.13, 0, 9, 0.025, 0.35, white);
+    for (const side of [-1, 1]) {
+      const arrow = box(x + 4, 0.14, side * 1.2, 3.4, 0.03, 0.35, white);
+      arrow.rotation.y = side * 0.7;
+    }
   }
 
   /** Rain tree: a broad flat crown on a short trunk, the boulevard's signature. */
@@ -72,15 +73,17 @@ export function buildOrchardScene() {
   /** Faceted glass shell over a retail podium, twisted a little at each ring. */
   function crystalMall(x: number, z: number, facing: 1 | -1) {
     box(x, 12, z, 66, 24, 78, concrete, scene, true); solid(x, z, 66, 78);
-    for (let ring = 0; ring < 7; ring++) {
-      const w = 70 - ring * 3.4, d = 82 - ring * 4.2, y = 2.6 + ring * 3.6;
-      for (const side of [-1, 1]) {
-        const face = box(x + side * w / 2, y, z, 1.1, 3.6, d, ring % 3 === 2 ? deepGlass : glass);
-        face.rotation.z = side * 0.06;
-        const end = box(x, y, z + side * d / 2, w, 3.6, 1.1, ring % 2 ? glass : deepGlass);
-        end.rotation.x = side * 0.05;
+    // Draped, scalloped metallic/glass skin seen in junction-road-02-180.
+    // Alternating diagonal mullions form the visible triangular net.
+    for (let col = 0; col < 18; col++) {
+      const dx = -34 + col * 4, crown = 24 + 6 * Math.cos(dx / 11);
+      for (let row = 0; row < 6; row++) {
+        const y = 3 + row * (crown - 3) / 6;
+        const bulge = 3.5 * Math.sin(row / 6 * Math.PI);
+        box(x + dx, y, z + facing * (40 + bulge), 4.1, (crown - 3) / 6, 0.6, (col + row) % 4 ? glass : steel);
+        const mesh = box(x + dx, y, z + facing * (40.6 + bulge), 0.24, 6.2, 0.25, steel);
+        mesh.rotation.z = (col + row) % 2 ? 0.65 : -0.65;
       }
-      for (let dx = -w / 2 + 5; dx < w / 2 - 3; dx += 9) box(x + dx, y, z + facing * (d / 2 + 0.6), 1.4, 3.8, 1.4, steel);
     }
     // Slender tower set back from the frontage, banded in glass and steel.
     box(x + 6, 52, z - facing * 8, 30, 56, 34, pale, scene, true);
@@ -107,19 +110,24 @@ export function buildOrchardScene() {
       box(x + dx + side * 14.4, y, z - facing * 6, 0.6, 3, 26, glass);
     }
     for (const dx of [-19, 19]) { box(x + dx, 85, z - facing * 6, 30, 3.4, 32, pale); cylinder(x + dx, 92, z - facing * 6, 0.6, 10, steel); }
-    // Forecourt: paved apron, a stepped fountain basin and flag masts.
+    // Forecourt: granite grid paving, monumental columns and flag masts.
     box(x, 0.2, z + facing * 48, 78, 0.4, 28, paving);
-    for (let step = 0; step < 3; step++) cylinder(x, 0.4 + step * 0.4, z + facing * 48, 9 - step * 2.4, 0.9 + step * 0.3, step % 2 ? pale : granite);
-    solid(x, z + facing * 48, 16, 16);
+    // Takashimaya Square is a tiled forecourt, not the invented fountain.
+    for (let dx = -36; dx <= 36; dx += 9) box(x + dx, 0.43, z + facing * 48, 0.7, 0.04, 28, granite);
+    for (let dz = 36; dz <= 60; dz += 8) box(x, 0.43, z + facing * dz, 78, 0.04, 0.7, granite);
+    for (const dx of [-29, -14, 14, 29]) {
+      box(x + dx, 7, z + facing * 40.8, 3.4, 14, 3.2, granite);
+      solid(x + dx, z + facing * 40.8, 3.4, 3.2);
+    }
     for (const dx of [-30, -22, 22, 30]) {
       cylinder(x + dx, 7, z + facing * 40, 0.22, 14, steel); solid(x + dx, z + facing * 40, 0.6, 0.6);
       box(x + dx + 1.8, 12.4, z + facing * 40, 3.4, 2.2, 0.16, banner);
     }
     for (let dx = -32; dx <= 32; dx += 8) box(x + dx, 9, z - facing * 33.4, 5.4, 16, 0.6, deepGlass);
-    sign('NGEE ANN CITY', x, 12.6, z + facing * 34.4, 34, 2.4, '#3a3a36');
+    sign('NGEE ANN CITY', x, 12.6, z + facing * 41.8, 34, 2.4, '#3a3a36');
   }
 
-  /** Cream block under a steep green pitched roof, with a corner rotunda. */
+  /** Cream retail block under layered green eaves. */
   function pitchedStore(x: number, z: number, facing: 1 | -1) {
     box(x, 9, z, 70, 18, 74, cream, scene, true); solid(x, z, 70, 74);
     for (const side of [-1, 1]) {
@@ -129,29 +137,32 @@ export function buildOrchardScene() {
     for (let t = -30; t <= 30; t += 2.4) box(x, 23.2 - Math.abs(t) * 0.42, z + t, 71, 0.16, 2.1, tileGreen);
     box(x, 30.6, z, 74, 1.2, 5, tileGreen);
     for (const dx of [-28, 0, 28]) { const ridge = box(x + dx, 31.8, z, 6.4, 1.6, 6.4, brass, scene, true); ridge.rotation.y = 0.4; }
-    // Corner rotunda with a tiered cap: the block's read from the junction.
-    cylinder(x - 30, 10, z + facing * 32, 13, 20, cream); solid(x - 30, z + facing * 32, 26, 26);
-    for (let ring = 0; ring < 4; ring++) cylinder(x - 30, 20.6 + ring * 2.2, z + facing * 32, 13.4 - ring * 2.8, 2.2, tileGreen);
-    const spire = new THREE.Mesh(geo(new THREE.ConeGeometry(2.4, 7.4, 8)), brass); spire.position.set(x - 30, 32.4, z + facing * 32); scene.add(spire);
+    // Broad stacked green eaves, as seen from tangs-road-02-0. The old
+    // free-standing corner rotunda was invented and has been removed.
+    for (const y of [11, 18, 25]) {
+      box(x, y, z + facing * 37, 72, 0.7, 6, tileGreen);
+      for (const side of [-1, 1]) {
+        const tip = box(x + side * 35, y + 0.8, z + facing * 37, 6, 0.6, 6, tileGreen);
+        tip.rotation.z = side * 0.24;
+      }
+    }
     for (let dx = -30; dx < 32; dx += 7.5) { box(x + dx, 5.4, z + facing * 37.4, 6, 10.4, 0.5, glass); box(x + dx, 11.4, z + facing * 37.8, 6.6, 1.5, 0.9, tileGreen); }
     for (let dz = -26; dz < 28; dz += 7.5) box(x + 35.4, 5.4, z + dz, 0.5, 10.4, 6, glass);
-    sign('TANGS', x + 8, 13.4, z + facing * 37.9, 16, 2.6, '#2f5140');
+    const tangsSign = sign('TANGS', x + 8, 13.4, z + facing * 37.9, 16, 2.6, '#2f5140');
+    if (tangsSign && facing === -1) tangsSign.rotation.y = Math.PI;
   }
 
-  /** Retail block stepped back from the street in planted terraces. */
+  /** Wisma Atria: a blue glazed frontage, broad retail podium and tower. */
   function terraceMall(x: number, z: number, facing: 1 | -1) {
-    box(x, 0.2, z, 76, 0.4, 84, paving);
-    for (let step = 0; step < 5; step++) {
-      const w = 68 - step * 9, d = 76 - step * 10, y = 4 + step * 8, cz = z - facing * step * 3.4;
-      box(x, y / 2 + 0.4, cz, w, y, d, step % 2 ? pale : concrete, scene, true);
-      solid(x, cz, w, d);
-      box(x, y + 0.9, cz, w + 5, 1.2, d + 5, concrete);
-      for (let dx = -w / 2 + 3; dx < w / 2 - 1; dx += 6) blob(x + dx, y + 2.4, cz + facing * (d / 2 + 1.4), 2.4, 1.5, 2, step % 2 ? hedge : canopy);
-      for (let dx = -w / 2 + 4; dx < w / 2 - 2; dx += 7) box(x + dx, y - 3, cz + facing * (d / 2 + 0.4), 5.4, 4.4, 0.5, glass);
+    box(x, 10, z, 68, 20, 76, deepGlass, scene, true); solid(x, z, 68, 76);
+    for (let dx = -32; dx <= 32; dx += 4) {
+      box(x + dx, 10, z + facing * 38.4, 0.35, 20, 0.6, steel);
     }
-    for (const dx of [-24, 24]) { cylinder(x + dx, 3.4, z + facing * 46, 0.5, 6.8, steel); solid(x + dx, z + facing * 46, 1.1, 1.1); }
-    box(x, 7, z + facing * 46, 56, 0.6, 12, steel, scene, true);
-    sign('ORCHARD TERRACES', x, 9.8, z + facing * 46.4, 32, 2.3, '#3c4a3f');
+    for (const y of [5, 10, 15, 20]) box(x, y, z + facing * 38.6, 68, 0.4, 0.5, steel);
+    box(x, 42, z - facing * 15, 36, 44, 34, pale, scene, true);
+    for (let y = 24; y < 64; y += 3.6) box(x, y, z - facing * 15 + facing * 17.3, 33, 2.4, 0.6, glass);
+    box(x, 6, z + facing * 43, 56, 0.6, 10, glass);
+    sign('WISMA ATRIA', x, 13, z + facing * 39, 28, 2.4, '#23455e');
   }
 
   /** Open youth plaza: a screen wall, seating steps and a skate bowl rim. */
@@ -174,7 +185,8 @@ export function buildOrchardScene() {
       const lip = box(bx, 0.6, bz, 5, 1.2, 3, concrete); lip.rotation.y = -angle; solid(bx, bz, 3.4, 3.4);
     }
     for (const dx of [-30, 30]) for (const dz of [-34, 34]) tree(x + dx, z + dz, 8, wood, leaf);
-    sign('SOMERSET PLAZA', x - 16, 21.4, z + facing * 31.4, 28, 2.3, '#2c3a44');
+    const somersetSign = sign('SOMERSET', x - 16, 21.4, z + facing * 31.4, 28, 2.3, '#2c3a44');
+    if (somersetSign && facing === -1) somersetSign.rotation.y = Math.PI;
   }
 
   /** Peranakan terrace: pastel facades, louvred shutters and pilasters. */
@@ -230,18 +242,29 @@ export function buildOrchardScene() {
 
   crystalMall(-115, -65, 1);
   terraceMall(0, -65, 1);
-  pitchedStore(117, -65, 1);
-  civicTwins(0, 70, -1);
-  youthPlaza(117, 70, -1);
-  peranakanRow(-146, 52, 6, -1);
-  peranakanRow(-146, 96, 6, 1);
+  pitchedStore(-115, 70, -1);
+  // The hotel tower rises behind the Chinese tiled TANGS podium.
+  box(-112, 54, 76, 30, 70, 30, cream);
+  for (let y = 24; y < 89; y += 3.8) for (const side of [-1, 1]) {
+    box(-112, y, 76 + side * 15.2, 26, 1.8, 0.4, glass);
+    box(-112 + side * 15.2, y, 76, 0.4, 1.8, 26, glass);
+  }
+  const hotelRoof = new THREE.Mesh(geo(new THREE.ConeGeometry(21, 17, 8)), tileGreen);
+  hotelRoof.position.set(-112, 97, 76); scene.add(hotelRoof);
+  civicTwins(117, -65, 1);
+  youthPlaza(0, 70, -1);
+  // Emerald Hill is at the Somerset end, east of the ION/Wisma/Ngee Ann run.
+  peranakanRow(84, 52, 6, -1);
+  peranakanRow(84, 96, 6, 1);
   mrtEntrance(-33, -16, 'NS22 / TE14  ORCHARD');
   mrtEntrance(147, -16, 'NS23  SOMERSET');
   covered(-206, -132, -17);
   covered(24, 96, -17);
   covered(-96, -24, 17);
-  overheadBridge(-90);
-  overheadBridge(105);
+  overheadBridge(165);
+  // Orchard Gateway's enclosed glazed link, near Somerset rather than ION.
+  box(165, 11.5, 0, 5.4, 4, 32, glass);
+  for (const y of [9.5, 13.5]) box(165, y, 0, 5.8, 0.3, 32, steel);
 
   // East park: open lawn and a bandstand, kept clear of the practice range.
   box(205, 0.18, 60, 44, 0.35, 210, lawn);
@@ -291,8 +314,8 @@ export function buildOrchardScene() {
     .flatMap((shirt, index) => [walker(-40 + index * 24, -17, shirt, skin, dark), walker(-30 + index * 20, 17, shirt, skin, dark)]);
   const car = kit.car(mat('#8a9fae'), glass, mat('#dcd7c7'), dark);
   const stamps = stampRings(ORCHARD_STAMPS, orange);
-  scene.userData.districtFeatures = ['planted-median', 'rain-tree-crowns', 'faceted-glass-shell', 'granite-twin-towers', 'steep-pitched-tile-roof', 'corner-rotunda', 'stepped-planted-terraces', 'peranakan-shutters', 'covered-footway', 'overhead-crossing'];
-  scene.userData.referenceFeatures = [];
+  scene.userData.districtFeatures = ['one-way-boulevard', 'rain-tree-crowns', 'faceted-glass-shell', 'granite-twin-towers', 'steep-pitched-tile-roof', 'tangs-layered-eaves', 'wisma-blue-glass', 'peranakan-shutters', 'covered-footway', 'overhead-crossing'];
+  scene.userData.referenceFeatures = ['orchard-one-way-carriageway', 'ion-scalloped-diagrid', 'tangs-green-eaves-hotel-tower', 'ngee-ann-red-granite-square', 'emerald-pale-arcades', 'gateway-glass-link'];
 
   return kit.finish({
     car, stamps,

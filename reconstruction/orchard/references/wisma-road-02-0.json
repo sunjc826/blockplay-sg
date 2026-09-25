@@ -2,7 +2,7 @@
   "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
   "credential": "GOOGLE_MAPS_DEMO_API_KEY",
   "sourceMetadata": "wisma-road-02.json",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "sourceDate": "2021-02",
   "pano_id": "nVJI7ODHdBvXIpiffzgl-A",
   "position": {
@@ -27,5 +27,9 @@
   "staticApiRequests": 0,
   "attribution": "Retained in screenshot",
   "readinessCheck": "foreground-pov-repaint-v2",
-  "visualReview": "pending"
+  "visualReview": {
+    "status": "accepted",
+    "reviewedAt": "2026-09-25",
+    "notes": "Lucky Plaza north-side canopy and road only; opposite Wisma obscured. Do not use for Wisma facade."
+  }
 }

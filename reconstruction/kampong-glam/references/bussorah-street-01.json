@@ -6,11 +6,16 @@
     "lng": 103.859501543983
   },
   "description": "Singapore",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2021-04",
   "requested": {
     "lat": 1.30178,
     "lng": 103.8595
   },
-  "selectedGoogle": true
+  "selectedGoogle": true,
+  "visualReview": {
+    "status": "accepted",
+    "reviewedAt": "2026-09-25",
+    "notes": "Axial gold onion dome and dark drum, tall entrance bay, close cream shopfronts, awnings, palms and pedestrian paving."
+  }
 }

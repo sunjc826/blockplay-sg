@@ -32,7 +32,9 @@ Plans retain the existing schema: `name`, `region`, `width`, `height`,
    place the most useful heading first in `views`.
 2. Preview mode selects only the first view per source. Cached previews are reused;
    adding another source captures only its missing preview.
-3. Inspect each preview. Google-owned imagery may still be indoors. On an accepted
+3. New source selection requires the intersection of Google-owned and outdoor collections,
+   within 100 m. Older cached selections may still be indoors; nothing is silently
+   reselected. Inspect every preview for the intended landmark and heading. On an accepted
    **source metadata file**, record `visualReview: { "status": "accepted", "notes": "..." }`.
    Keep rejected captures with explicit notes; do not approve them for exterior use.
 4. Set `captureMode` to `full` in that district's plan when ready for remaining
@@ -74,3 +76,5 @@ The workflow builds reference evidence, not game geometry. A district remains
 “authored” until its scene has actually been remodeled from reviewed references.
 Sector boundaries, spawns, paths, minimaps and loot anchors require a separate
 validated modelling pass; district loot distributions and prices remain intact.
+
+The source filter follows the [Street View service documentation](https://developers.google.com/maps/documentation/javascript/reference/street-view-service). An outdoor match can still miss the target or show old conditions; record narrow acceptance scope and reject unsuitable images.

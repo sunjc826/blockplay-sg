@@ -6,11 +6,16 @@
     "lng": 103.83197575089781
   },
   "description": "",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2014-02",
   "requested": {
     "lat": 1.3045,
     "lng": 103.832
   },
-  "selectedGoogle": true
+  "selectedGoogle": true,
+  "visualReview": {
+    "status": "rejected",
+    "reviewedAt": "2026-09-25",
+    "notes": "Indoor ION basement, not street exterior."
+  }
 }

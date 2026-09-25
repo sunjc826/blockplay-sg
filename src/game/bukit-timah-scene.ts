@@ -28,7 +28,8 @@ export const BUKIT_TIMAH_MAP_ROADS = [
  * An authored, compressed interpretation of Bukit Timah: a forested ridge over
  * the western half, the old rail corridor crossing the road on a steel truss,
  * black-and-white bungalows on their piers, a market hall at the junction and
- * the storm canal behind. Invented for play, without reference capture.
+ * the storm canal behind. Compressed for play; see docs/WEST-DISTRICT-REVIEW.md for researched
+ * corrections. Hindhede approach Street View is reviewed; railway facade uses URA photography.
  */
 export function buildBukitTimahScene() {
   const kit = createSceneKit({
@@ -99,9 +100,12 @@ export function buildBukitTimahScene() {
 
   /** Rail corridor: ballast, sleepers and rails, under a keeping of tall grass. */
   function corridor(x: number) {
-    box(x, 0.24, 0, 22, 0.4, 400, ballast);
-    for (let z = -195; z <= 195; z += 4) box(x, 0.5, z, 12, 0.2, 1.6, timber);
-    for (const dx of [-3.4, 3.4]) box(x + dx, 0.68, 0, 0.5, 0.26, 400, steel);
+    box(x, 0.24, 0, 22, 0.4, 400, lawn);
+    box(x, 0.46, 0, 8, 0.04, 400, paving);
+    // Rails survive at the heritage node; the rest is a green walking corridor.
+    box(x, 0.48, 130, 16, 0.04, 70, ballast);
+    for (let z = 97; z <= 163; z += 4) box(x, 0.5, z, 12, 0.2, 1.6, timber);
+    for (const dx of [-3.4, 3.4]) box(x + dx, 0.68, 130, 0.5, 0.26, 70, steel);
     for (let z = -190; z <= 190; z += 7) for (const dx of [-10, 10]) {
       if (Math.abs(z - 40) < 22) continue;
       for (let r = 0; r < 3; r++) blob(x + dx + r * 0.7, 1.1, z, 0.6, 2.2, 0.5, moss);
@@ -111,23 +115,56 @@ export function buildBukitTimahScene() {
 
   /** Through-truss bridge: abutments either side of the road, web overhead. */
   function trussBridge(x: number, z: number) {
+    const bridgeSteel = mat('#263431');
+    // July 2024 public-road preview shows a dark open truss, not solid side panels.
     for (const side of [-1, 1]) {
       box(x, 3.4, z + side * 12, 24, 6.8, 8, stone, scene, true); solid(x, z + side * 12, 24, 8);
       for (let dx = -9; dx <= 9; dx += 6) box(x + dx, 3.4, z + side * 16.2, 4.4, 5.4, 0.5, concrete);
     }
     box(x, 7.4, z, 13, 0.7, 26, timber, scene, true);
     for (const dx of [-6, 6]) {
-      box(x + dx, 9, z, 0.5, 2.6, 26, steel);
-      box(x + dx, 13.4, z, 0.5, 0.9, 26, steel);
+      box(x + dx, 9, z, 0.5, 0.45, 26, bridgeSteel);
+      box(x + dx, 13.4, z, 0.5, 0.5, 26, bridgeSteel);
       // Warren web: alternating diagonals between the top and bottom chords.
       for (let n = 0; n < 8; n++) {
         const z0 = z - 13 + n * 3.25, z1 = z0 + 3.25;
-        beam(new THREE.Vector3(x + dx, 9.6, n % 2 ? z0 : z1), new THREE.Vector3(x + dx, 13, n % 2 ? z1 : z0), 0.16, steel);
-        cylinder(x + dx, 11.4, z0, 0.14, 4, steel);
+        beam(new THREE.Vector3(x + dx, 9.6, n % 2 ? z0 : z1), new THREE.Vector3(x + dx, 13, n % 2 ? z1 : z0), 0.16, bridgeSteel);
+        cylinder(x + dx, 11.4, z0, 0.14, 4, bridgeSteel);
       }
     }
-    for (let dz = -12; dz <= 12; dz += 4) box(x, 13.9, z + dz, 12.6, 0.4, 0.4, steel);
+    for (let dz = -12; dz <= 12; dz += 4) box(x, 13.9, z + dz, 12.6, 0.4, 0.4, bridgeSteel);
     sign('RAIL CORRIDOR', x, 16, z - 15, 20, 2, '#4a5a3a');
+  }
+
+  /** Conserved red-brick station beside its retained track and low platform.
+   * URA's 2022 restoration photographs establish the tiled roof, pale banding,
+   * sign and token poles. This is a compressed heritage node, not surveyed scale.
+   */
+  function railwayStation() {
+    const x = 98, z = 130;
+    box(x, 0.25, z, 22, 0.5, 42, stone);
+    // Photo review: an open waiting shelter separates the pale service room
+    // and brick station-master's room. It is not a solid brick hall.
+    box(x, 3.2, z - 12, 18, 6, 12, pale, scene, true); solid(x, z - 12, 18, 12);
+    box(x, 3.2, z + 12, 18, 6, 12, rust, scene, true); solid(x, z + 12, 18, 12);
+    for (const dz of [-17, -7, 7, 17]) {
+      box(x - 9.3, 3.2, z + dz, 0.8, 6, 0.8, pale);
+      if (Math.abs(dz) == 7) solid(x - 9.3, z + dz, 0.8, 0.8);
+    }
+    // Low brick wall at the back of the open shelter.
+    box(x + 8.5, 1.2, z, 0.7, 2, 12, rust); solid(x + 8.5, z, 0.7, 12);
+    for (const side of [-1, 1]) {
+      const roof = box(x + side * 5.4, 7.6, z, 12, 0.5, 44, terra, scene, true);
+      roof.rotation.z = -side * 0.36;
+    }
+    box(x, 9.5, z, 0.7, 0.5, 44, terra);
+    for (const dz of [9, 15]) box(x - 9.2, 3.1, z + dz, 0.3, 4.6, 2.2, timber);
+    box(x - 9.2, 2.8, z - 12, 0.3, 4.8, 5, dark);
+    for (const y of [1.3, 5.6]) box(x - 9.4, y, z + 12, 0.35, 0.3, 12, pale);
+    const stationSign = sign('BUKIT TIMAH', x - 9.8, 5.3, z - 12, 9, 1.2, '#f1edda', '#252d2d');
+    if (stationSign) stationSign.rotation.y = -Math.PI / 2;
+    for (const dz of [-5, 4]) cylinder(78, 3.8, z + dz, 0.1, 7.6, pale);
+    box(75, 0.24, z, 8, 0.4, 44, pale);
   }
 
   /** Black-and-white bungalow: raised on piers, deep verandah, hipped roof. */
@@ -184,6 +221,7 @@ export function buildBukitTimahScene() {
 
   ridge(-175, -25, 70, 90);
   corridor(CORRIDOR_X);
+  railwayStation();
   trussBridge(CORRIDOR_X, 40);
   marketHall(-55, -25);
   bungalow(-88, 85); bungalow(-52, 85); bungalow(-16, 85, -1);
@@ -193,8 +231,13 @@ export function buildBukitTimahScene() {
   // Reserve floor west of the ridge, and the corridor's flanking scrub.
   for (let x = -222; x <= -152; x += 10) for (let z = -158; z <= -104; z += 10) {
     if ((Math.round(x) + Math.round(z)) % 3 === 0) continue;
-    cylinder(x, 6, z, 0.45, 12, wood); solid(x, z, 0.9, 0.9);
-    for (let layer = 0; layer < 2; layer++) blob(x + (layer ? 1.5 : -1.5), 11 + layer * 1.8, z, 4.4, 2, 4.4, layer ? fern : deep);
+    // July 2024 Hindhede approach: tall forked trees and overlapping crowns.
+    const height = 15 + Math.abs(Math.round(x + z)) % 6;
+    cylinder(x, height / 2, z, 0.45, height, wood); solid(x, z, 0.9, 0.9);
+    for (const side of [-1, 1]) {
+      beam(new THREE.Vector3(x, height * 0.5, z), new THREE.Vector3(x + side * 4, height, z + side * 2), 0.24, wood);
+      blob(x + side * 4, height + 1.7, z + side * 2, 6.4, 3.8, 6.4, side < 0 ? fern : deep);
+    }
   }
   sign('NATURE RESERVE', -187, 7.4, -96, 26, 2.3, '#2f5140');
 
@@ -209,8 +252,8 @@ export function buildBukitTimahScene() {
     .flatMap((shirt, index) => [walker(CORRIDOR_X, -40 + index * 20, shirt, skin, dark), walker(-90 + index * 20, 14, shirt, skin, dark)]);
   const car = kit.car(mat('#7e9488'), glass, mat('#dad5c5'), dark);
   const stamps = stampRings(BUKIT_TIMAH_STAMPS, orange);
-  scene.userData.districtFeatures = ['terraced-forest-ridge', 'trig-marker-summit', 'ballast-and-sleeper-corridor', 'warren-truss-web', 'timber-banded-render', 'bungalow-pier-undercroft', 'deep-verandah-posts', 'clerestory-market-roof', 'trapezoidal-storm-canal', 'canal-street-bridges'];
-  scene.userData.referenceFeatures = [];
+  scene.userData.districtFeatures = ['terraced-forest-ridge', 'trig-marker-summit', 'green-corridor-retained-heritage-track', 'red-brick-railway-station', 'warren-truss-web', 'timber-banded-render', 'bungalow-pier-undercroft', 'deep-verandah-posts', 'clerestory-market-roof', 'trapezoidal-storm-canal', 'canal-street-bridges'];
+  scene.userData.referenceFeatures = ['hindhede-2024-tall-forked-entrance-canopy', 'bukit-timah-road-2024-dark-open-rail-truss'];
 
   return kit.finish({
     car, stamps,

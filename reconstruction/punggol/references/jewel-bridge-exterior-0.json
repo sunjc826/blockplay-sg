@@ -2,7 +2,7 @@
   "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
   "credential": "GOOGLE_MAPS_DEMO_API_KEY",
   "sourceMetadata": "jewel-bridge-exterior.json",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "sourceDate": "2022-09",
   "pano_id": "AlGr8jYJ_C0UeCCsO42LJg",
   "position": {
@@ -27,5 +27,9 @@
   "staticApiRequests": 0,
   "attribution": "Retained in screenshot",
   "readinessCheck": "foreground-pov-repaint-v2",
-  "visualReview": "pending"
+  "visualReview": {
+    "status": "accepted",
+    "reviewedAt": "2026-09-25",
+    "notes": "Housing precinct pale olive/white bands and vertical bays only; no bridge visible."
+  }
 }

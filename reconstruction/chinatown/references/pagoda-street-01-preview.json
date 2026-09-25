@@ -2,7 +2,7 @@
   "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
   "credential": "GOOGLE_MAPS_DEMO_API_KEY",
   "sourceMetadata": "pagoda-street-01.json",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "sourceDate": "2021-10",
   "pano_id": "IFk7wP0W7zVUtNpisQngBg",
   "position": {
@@ -27,5 +27,9 @@
   "staticApiRequests": 0,
   "attribution": "Retained in screenshot",
   "readinessCheck": "foreground-pov-repaint-v2",
-  "visualReview": "pending"
+  "visualReview": {
+    "status": "accepted",
+    "reviewedAt": "2026-09-25",
+    "notes": "Pale colonnades, dark shutters, brick pedestrian paving and one-sided kiosks; no permanent claim from seasonal decoration."
+  }
 }

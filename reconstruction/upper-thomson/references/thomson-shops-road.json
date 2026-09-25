@@ -6,11 +6,16 @@
     "lng": 103.83512635063684
   },
   "description": "Sin Ming Rd, Singapore",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2024-08",
   "requested": {
     "lat": 1.3526,
     "lng": 103.8351
   },
-  "selectedGoogle": true
+  "selectedGoogle": true,
+  "visualReview": {
+    "status": "accepted",
+    "reviewedAt": "2026-09-25",
+    "notes": "Continuous two-storey terracotta roofs, awnings and frontage parking."
+  }
 }

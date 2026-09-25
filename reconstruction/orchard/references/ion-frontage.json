@@ -6,11 +6,16 @@
     "lng": 103.83245533717313
   },
   "description": "",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2014-02",
   "requested": {
     "lat": 1.3039,
     "lng": 103.8324
   },
-  "selectedGoogle": true
+  "selectedGoogle": true,
+  "visualReview": {
+    "status": "rejected",
+    "reviewedAt": "2026-09-25",
+    "notes": "Indoor corridor/shop, not ION exterior."
+  }
 }

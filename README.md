@@ -21,7 +21,7 @@ Explore familiar Singapore neighborhoods as stylized 3D game worlds, created usi
 
 The public demo runs on Cloudflare Workers and redeploys from `main` on every push. Multiplayer host/join and live Street View are unavailable there; the AI companions answer only while the deployment carries a private key, and return a clear unavailable response without one. All of it is supported in the local project with additional setup.
 
-The worlds are authored, compressed interpretations—not surveyed maps or navigation tools. Marina Bay, Raffles Place and Queenstown were built against reviewed street-level references. The other sixteen districts were composed from general knowledge of those neighbourhoods, without reference capture; see [districts](docs/DISTRICTS.md).
+The worlds are authored, compressed interpretations—not surveyed maps or navigation tools. All nineteen districts have a September 2026 correction pass. Reviewed photographs support specific landmark and streetscape features; roads and distances remain compressed. See [district review and limits](docs/ALL-DISTRICTS-REVIEW.md).
 
 ## How we build locations
 
@@ -29,7 +29,7 @@ Our workflow starts with a place and its Google Maps Street View imagery. We sel
 
 We connect each scene to reusable walking and driving controls, collision rules, collectible objectives and minimaps. Comparing rendered views with the references, running automated checks and playtesting lets us refine both resemblance and playability. See the [build story](docs/BUILD-STORY.md) and [three reference-to-game comparisons](docs/visual-understanding.md).
 
-The same agentic workflow could support many more neighbourhoods and cities. Reference review, layout decisions, scene implementation and validation are already part of the Astra-assisted development process: region agents build and refine worlds in parallel, while shared browser capture and visual QA are coordinated in sequence. New locations can follow this process and reuse the existing gameplay systems, with human direction and review. We have demonstrated it across three reference-informed Singapore regions, and added sixteen further districts as authored interpretations without new capture; reliable generation for arbitrary places has not yet been validated.
+The same agentic workflow could support many more neighbourhoods and cities. Reference review, layout decisions, scene implementation and validation are already part of the Astra-assisted development process: region agents build and refine worlds in parallel, while shared browser capture and visual QA are coordinated in sequence. New locations can follow this process and reuse the existing gameplay systems, with human direction and review. The September 2026 pass extends reviewed reference details and sector checks across all nineteen districts. Reliable generation for arbitrary places has not yet been validated.
 
 ## Run locally
 

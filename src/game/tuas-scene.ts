@@ -25,7 +25,8 @@ export const TUAS_MAP_ROADS = [
  * An authored, compressed interpretation of the Tuas industrial west: a tank
  * farm behind its bunds, a process plant of columns and pipe racks under a
  * flare, a dry dock with a hull in it, automated container stacks, and the
- * coast road along the strait. Invented for play, without reference capture.
+ * coast road along the strait. Compressed for play; see docs/WEST-DISTRICT-REVIEW.md for researched
+ * corrections. Lower station elevation and industrial streetscape Street View are reviewed.
  */
 export function buildTuasScene() {
   const kit = createSceneKit({
@@ -226,19 +227,28 @@ export function buildTuasScene() {
     }
   }
 
-  /** Dormitory: a long block with open access decks and stair towers. */
-  function dormBlock(x: number, z: number) {
+  /** Industrial frontage: long low shed with loading doors and a small office.
+   * The same footprint keeps the truck apron open; container operations remain
+   * farther inside the compressed industrial district.
+   */
+  function industrialShed(x: number, z: number) {
     box(x, 8, z, 110, 16, 20, pale, scene, true); solid(x, z, 110, 20);
-    for (let level = 0; level < 4; level++) {
-      const y = 2.6 + level * 4;
-      box(x, y + 1.9, z - 10.4, 110, 0.4, 2.4, concrete);
-      for (let dx = -52; dx < 54; dx += 4.4) box(x + dx, y + 0.8, z - 11.4, 0.16, 1.5, 0.16, galv);
-      box(x, y + 1.5, z - 11.4, 110, 0.14, 0.14, galv);
-      for (let dx = -50; dx < 52; dx += 7) { box(x + dx, y, z - 9.9, 2.6, 2.6, 0.4, glass); box(x + dx + 3.4, y, z - 9.9, 1.4, 2.6, 0.4, boxes[(level + Math.round(dx / 7)) % boxes.length]); }
+    for (const side of [-1, 1]) {
+      const roof = box(x, 17.2, z + side * 5.5, 114, 0.6, 12, galv, scene, true);
+      roof.rotation.x = side * 0.18;
     }
-    for (const dx of [-42, 0, 42]) { box(x + dx, 9, z + 11, 9, 18, 6, concrete); solid(x + dx, z + 11, 9, 6); }
-    box(x, 17.4, z, 114, 1.4, 24, stone);
-    sign('WORKERS QUARTERS', x, 12.4, z - 12, 30, 2.2, '#4a5560');
+    const workshopBlue = mat('#3377aa');
+    for (let dx = -45; dx <= 45; dx += 18) {
+      box(x + dx, 4.6, z - 10.2, 12, 8.4, 0.3, dark);
+      for (let y = 1; y < 9; y += 0.6) box(x + dx, y, z - 10.4, 11.4, 0.1, 0.15, steel);
+      box(x + dx, 12.2, z - 10.3, 12, 4.3, 0.4, workshopBlue);
+      for (const offset of [-3.8, 0, 3.8]) {
+        box(x + dx + offset, 13.2, z - 10.55, 2.7, 2.1, 0.25, glass);
+        box(x + dx + offset - 1.6, 12.2, z - 10.7, 0.35, 4.6, 1.1, pale);
+      }
+      box(x + dx, 9.2, z - 12.5, 14, 0.4, 5, galv);
+    }
+    sign('TUAS INDUSTRIAL WORKSHOPS', x, 14, z - 10.6, 44, 2, '#3b555d')?.rotateY(Math.PI);
   }
 
   /** Elevated terminus over the eastern approach. */
@@ -249,7 +259,24 @@ export function buildTuasScene() {
     // in it, in the manner of Queenstown's viaduct.
     box(x, 19, z, 30, 11, 56, pale, scene, true);
     for (let dz = -24; dz < 26; dz += 6) for (const side of [-1, 1]) box(x + side * 15.4, 19, z + dz, 0.5, 7, 4.4, glass);
-    for (const side of [-1, 1]) { const roof = box(x, 25.4, z + side * 14, 34, 0.6, 30, steel, scene, true); roof.rotation.x = side * 0.15; }
+    // Tuas Link's unusual concourse sits above the platforms.
+    box(x, 27.6, z, 28, 5, 50, glass, scene, true);
+    for (const side of [-1, 1]) box(x + side * 14.4, 25.2, z, 0.8, 0.8, 52, pale);
+    for (let n = 0; n < 12; n++) {
+      const a = Math.PI * (n + 0.5) / 12;
+      const panel = box(x + Math.cos(a) * 17, 30 + Math.sin(a) * 6, z, 4.6, 0.45, 60, steel, scene, true);
+      panel.rotation.z = Math.atan2(-6 * Math.cos(a), 17 * Math.sin(a));
+    }
+    // Reviewed roadside station elevation: green louver bands and deep pale
+    // concrete beams, not an all-glass facade at the lower level.
+    const louverGreen = mat('#1d593e');
+    for (const side of [-1, 1]) {
+      for (const y of [16, 21]) {
+        box(x + side * 15.7, y, z, 0.4, 1.8, 52, louverGreen);
+        for (let dz = -25; dz < 26; dz += 1) box(x + side * 16, y, z + dz, 0.12, 1.7, 0.06, dark);
+      }
+      box(x + side * 16.2, 13.2, z, 3, 2.6, 58, concrete);
+    }
     box(x - 13, 8, z - 34, 8, 16, 7, concrete); solid(x - 13, z - 34, 8, 7);
     sign('EW33  TUAS LINK', x, 15.4, z - 30, 22, 2.1, '#1c6b4f');
   }
@@ -268,7 +295,7 @@ export function buildTuasScene() {
   for (let i = 0; i < 4; i++) containerStack(80 + i * 34, -40, 7, 4);
   for (const x of [97, 165]) stackingCrane(x, -40);
   containerStack(112, 100, 9, 3);
-  dormBlock(137, -160);
+  industrialShed(137, -160);
   terminus(235, 100);
   for (const [z, next] of [[-200, -60], [-60, 70], [70, 200]] as const) pylon(200, z, next);
   pylon(200, 200);
@@ -287,15 +314,15 @@ export function buildTuasScene() {
     box(x - 6.4, 1.6, -148, 3.4, 3.2, 4, dark);
   }
   sign('BENOI TRUCK PARK', 0, 6.4, -166, 30, 2.4, '#4a5560');
-  for (let z = -170; z <= 170; z += 34) tree(EDGE_X + 16, z, 8, wood, leaf);
-  for (let x = -60; x <= 200; x += 36) tree(x, -EDGE_Z - 16, 7, wood, leaf);
+  for (let z = -170; z <= 170; z += 34) tree(EDGE_X + 16, z, 14, wood, leaf);
+  for (let x = -60; x <= 200; x += 36) tree(x, -EDGE_Z - 16, 14, wood, leaf);
 
   const pedestrians = ['#e6e4d6', '#d8a02a', '#6d90a0', '#a05a38'].map(color => mat(color))
     .flatMap((shirt, index) => [walker(-70 + index * 18, 20, shirt, skin, dark), walker(137 + index * 12, -145, shirt, skin, dark)]);
   const car = kit.car(mat('#c2a34a'), glass, mat('#d6d1c1'), dark);
   const stamps = stampRings(TUAS_STAMPS, orange);
-  scene.userData.districtFeatures = ['plate-course-tank-shells', 'spiral-stair-wraps', 'bund-walls', 'trayed-columns', 'pipe-rack-expansion-loop', 'guyed-flare-mast', 'stepped-dry-dock', 'boot-topping-hull', 'rail-stacking-gantry', 'lattice-pylon-catenary'];
-  scene.userData.referenceFeatures = [];
+  scene.userData.districtFeatures = ['plate-course-tank-shells', 'spiral-stair-wraps', 'bund-walls', 'trayed-columns', 'pipe-rack-expansion-loop', 'guyed-flare-mast', 'stepped-dry-dock', 'boot-topping-hull', 'rail-stacking-gantry', 'lattice-pylon-catenary', 'industrial-loading-bays', 'upper-concourse-terminus'];
+  scene.userData.referenceFeatures = ['tuas-link-2024-green-louver-concrete-elevation', 'tuas-avenue-12-2024-tall-roadside-tree-verge'];
 
   return kit.finish({
     car, stamps,

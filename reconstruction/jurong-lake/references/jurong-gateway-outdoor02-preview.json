@@ -2,7 +2,7 @@
   "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
   "credential": "GOOGLE_MAPS_DEMO_API_KEY",
   "sourceMetadata": "jurong-gateway-outdoor02.json",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "sourceDate": "2025-03",
   "pano_id": "tOeyPcNRgBSmIf0GMBrR-g",
   "position": {
@@ -27,5 +27,19 @@
   "staticApiRequests": 0,
   "attribution": "Retained in screenshot",
   "readinessCheck": "foreground-pov-repaint-v2",
-  "visualReview": "pending"
+  "visualReview": {
+    "status": "accepted",
+    "reviewedAt": "2026-09-25",
+    "reviewer": "Codex visual inspection",
+    "sourceDate": "2025-03",
+    "observations": [
+      "white projecting horizontal facade bands over recessed dark glazing",
+      "planted upper ledge and low roadside hedge",
+      "large glazed entrance behind slender metal canopy"
+    ],
+    "limitations": [
+      "Only the lower frontage at 50 Jurong Gateway Road is visible",
+      "No full JEM massing or adjacent station topology verified"
+    ]
+  }
 }

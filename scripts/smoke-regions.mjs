@@ -93,6 +93,8 @@ try {
   const regions = await evaluate(`Array.from(document.querySelectorAll('.location-card strong')).map(e=>e.textContent)`);
   assert.equal(regions[0], 'Marina Bay', 'developed regions are selectable with Marina first');
   assert(regions.length >= 3, 'the developed regions are selectable');
+  // Orchard Road is a display label; its registry and map ID is orchard.
+  const regionId = name => name === 'Orchard Road' ? 'orchard' : name.toLowerCase().replaceAll(' ', '-');
   const resetSelector = `document.querySelector('.marina-reconstruction [aria-label^="Reset "][aria-label$="(clears stamps and conversation)"]')`;
   const rotation = async () => {
     const matrix = await evaluate('window.__smokeViewMatrix');
@@ -121,8 +123,8 @@ try {
     assert.equal(await evaluate(`document.querySelectorAll('.marina-viewport canvas').length`), 1, `${name}: one renderer`);
     const resetLabel = await evaluate(`${resetSelector}?.getAttribute('aria-label')`);
     assert(resetLabel, `${name}: reset control present`);
-    assert.equal(await evaluate(`document.querySelector('.marina-reconstruction')?.dataset.region`), name.toLowerCase().replaceAll(' ', '-'), `${name}: correct region mounted`);
-    assert.equal(await evaluate(`document.querySelector('[data-map-location][data-selected="true"]')?.getAttribute('data-map-location')`), name.toLowerCase().replaceAll(' ', '-'), `${name}: Singapore locator follows selection`);
+    assert.equal(await evaluate(`document.querySelector('.marina-reconstruction')?.dataset.region`), regionId(name), `${name}: correct region mounted`);
+    assert.equal(await evaluate(`document.querySelector('[data-map-location][data-selected="true"]')?.getAttribute('data-map-location')`), regionId(name), `${name}: Singapore locator follows selection`);
     await evaluate(`document.querySelector('.marina-viewport canvas').focus()`);
     await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'w', code: 'KeyW' }); await beat(1000);
     await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'w', code: 'KeyW' }); await beat(180);
@@ -165,11 +167,11 @@ try {
     }
     assert(difference(defaultCamera, await rotation()) < 0.01, `${name}: switching modes clears camera orbit`);
     const shot = await page.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
-    await writeFile(`.cache/browser-checks/${name.toLowerCase().replaceAll(' ', '-')}.png`, Buffer.from(shot.data, 'base64'));
+    await writeFile(`.cache/browser-checks/${regionId(name)}.png`, Buffer.from(shot.data, 'base64'));
     console.log(`PASS ${name}: render, walk, reset, drive, stationary/moving camera orbit, independent trajectory, recenter, mode switch`);
   }
   await page.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
-  for (const [name] of regions) {
+  for (const name of regions) {
     await evaluate(`Array.from(document.querySelectorAll('.location-card')).find(b=>b.textContent.includes(${JSON.stringify(name)})).click()`); await beat(300);
     assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth`), `${name}: mobile width`);
   }

@@ -121,15 +121,32 @@ export function buildRafflesScene() {
   // Market hall silhouette is an authored interpretation; reference review refines details.
   box(0,0.15,183,112,0.3,66,pale);
   for(const x of [-48,48])for(let z=161;z<=205;z+=11){box(x,3.5,z,0.6,7,0.6,dark);solid(x,z,0.7,0.7);}
-  for(const side of [-1,1]){const roof=box(side*25,9,183,54,0.5,58,terra,scene,true);roof.rotation.z=-side*0.16;}
+  // Match the roof surface to its tile courses: the previous surface sat four
+  // units below its ridge trim, leaving the detailing visibly suspended.
+  const marketPitch = 0.16, marketRidge = 13.15;
+  for(const side of [-1,1]){
+    const roof=box(side*25,marketRidge-25*Math.tan(marketPitch),183,54/Math.cos(marketPitch),0.35,58,terra,scene,true);
+    roof.rotation.z=-side*marketPitch;
+  }
   // robinson-expansion-0: terracotta market roof, pale scalloped fascia, green ironwork.
   // Small tile courses follow the actual pitched roof plane, with a raised central cap.
   for(let x=-51;x<=51;x+=1.4)box(x,13.34-Math.abs(x)*Math.tan(0.16),183,0.12,0.13,57,tileDark);
-  for(const side of [-1,1]){const cap=box(side*4,13.3,183,9,0.35,59,terra,scene,true);cap.rotation.z=-side*0.16;}
+  // Raised ventilator roof and open louver band visible in market-gable.jpg.
+  for(const side of [-1,1]) {
+    box(side*7.7,13.35,183,0.2,1.7,56,dark);
+    for(let z=156;z<=210;z+=2)box(side*7.85,13.35,z,0.16,1.65,0.13,iron);
+    const cap=box(side*4,14.55-4*Math.tan(marketPitch),183,9/Math.cos(marketPitch),0.25,59,terra,scene,true);
+    cap.rotation.z=-side*marketPitch;
+    for(let z=154;z<=212;z+=1.5)beam(new THREE.Vector3(0,14.7,z),new THREE.Vector3(side*8.5,13.33,z),0.045,tileDark);
+  }
+  for(let x=-49;x<=49;x+=2.8)for(const z of [154,212]){
+    const y=marketRidge-Math.abs(x)*Math.tan(marketPitch);
+    beam(new THREE.Vector3(x,y-0.25,z),new THREE.Vector3(x+Math.sign(x)*1.2,y-1.25,z),0.065,iron);
+  }
   const scallopShape=new THREE.Shape();scallopShape.moveTo(-0.45,0);scallopShape.lineTo(0.45,0);scallopShape.lineTo(0.3,-0.45);scallopShape.quadraticCurveTo(0,-0.85,-0.3,-0.45);scallopShape.closePath();
   const scallopGeo=geo(new THREE.ExtrudeGeometry(scallopShape,{depth:0.15,bevelEnabled:false,curveSegments:4}));
   for(let x=-51;x<=51;x+=1.05){const m=new THREE.Mesh(scallopGeo,pale);m.position.set(x,13.1-Math.abs(x)*Math.tan(0.16),212.3);scene.add(m);}
-  for(const side of [-1,1]){const beam=box(side*25,8.8,212,53,0.35,0.35,leaf);beam.rotation.z=-side*0.16;}
+  for(const side of [-1,1]){const beam=box(side*25,marketRidge-25*Math.tan(marketPitch)-0.35,212,53,0.35,0.35,leaf);beam.rotation.z=-side*0.16;}
   for(let n=0;n<11;n++){const angle=n*Math.PI/10;beam(new THREE.Vector3(0,6,212),new THREE.Vector3(Math.cos(angle)*6.6,6+Math.sin(angle)*6.6,212),0.09,iron);}
   for(const side of [-1,1])for(const z of [160,183,205])beam(new THREE.Vector3(side*48,5,z),new THREE.Vector3(side*40,8.5,z),0.16,iron);
   const marketPavers=[paverWarm,paverCool,mat('#bbb6aa'),mat('#aaa194')];for(let x=-50;x<50;x+=3)for(let z=154;z<213;z+=3)box(x,0.312,z,2.94,0.018,2.94,marketPavers[Math.abs(Math.round(x/3)*17+Math.round(z/3)*13+Math.round(x*z))%4]);

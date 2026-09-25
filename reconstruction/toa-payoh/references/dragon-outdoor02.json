@@ -6,7 +6,7 @@
     "lng": 103.85478937638243
   },
   "description": "Lor 6 Toa Payoh, Singapore",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2024-03",
   "requested": {
     "lat": 1.3319,
@@ -19,5 +19,13 @@
       "OUTDOOR"
     ],
     "radiusMeters": 100
+  },
+  "visualReview": {
+    "status": "rejected",
+    "reviewedAt": "2026-09-25",
+    "reviewer": "Codex visual inspection",
+    "acceptedFeatures": [],
+    "limitations": "Distant orange dragon head is partly visible beyond tree/sign, but too small and occluded for reliable detailed geometry; do not infer playground arrangement.",
+    "viewId": "dragon-outdoor02-0"
   }
 }

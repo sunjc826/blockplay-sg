@@ -389,14 +389,30 @@ export function buildMarinaScene() {
   // reconstruction of the Esplanade shells.
   box(-25, 0.01, -190, 137, 0.12, 32, sand);
   const pavilionGeo = geo(new THREE.SphereGeometry(1, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2));
-  const sunshadeGeo = geo(new THREE.ConeGeometry(1, 0.5, 3));
-  const sunshade = mat('#b8b9a6', { roughness: 0.65, metalness: 0.15 });
+  // Folded triangular plates read as sunshades, with a visible glazed shell
+  // between them, instead of rows of freestanding cone spikes.
+  const sunshadeGeo = geo(new THREE.BufferGeometry());
+  sunshadeGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+    -1, 0, -0.75, 0, 0.38, 0, 1, 0, -0.75,
+    1, 0, -0.75, 0, 0.38, 0, 0, 0, 1,
+    0, 0, 1, 0, 0.38, 0, -1, 0, -0.75,
+  ], 3));
+  sunshadeGeo.computeVertexNormals();
+  const sunshade = mat('#b8b9a6', { roughness: 0.65, metalness: 0.15, side: THREE.DoubleSide });
   for (const x of [-60, 10]) {
     const dome = new THREE.Mesh(pavilionGeo, mat('#899996', { roughness: 0.5, metalness: 0.18 }));
     dome.position.set(x, 1, -183); dome.scale.set(21, 12, 13); scene.add(dome); collider(x, -183, 42, 26, 14);
     for (let i = 0; i < 18; i++) {
       const angle = i / 18 * Math.PI * 2;
       beam(new THREE.Vector3(x + Math.cos(angle) * 21, 1, -183 + Math.sin(angle) * 13), new THREE.Vector3(x + Math.cos(angle) * 10, 11.5, -183 + Math.sin(angle) * 6), 0.45, cream);
+    }
+    // Reviewed esplanade-distant/shell images: a glazed lower drum under each
+    // segmented roof. All additions sit inside its existing collision footprint.
+    box(x, 1.4, -183, 38, 2.8, 24, dark);
+    for (const side of [-1, 1]) {
+      box(x, 1.35, -183 + side * 12.1, 37.5, 2.4, 0.15, glass);
+      box(x, 2.85, -183 + side * 12.3, 39, 0.3, 0.5, pale);
+      for(let dx=-18;dx<=18;dx+=3)box(x+dx,1.4,-183+side*12.35,0.14,2.6,0.18,steel);
     }
     // Dense triangular sunshades, rather than a smooth pumpkin-like dome.
     for (let row = 0; row < 8; row++) {

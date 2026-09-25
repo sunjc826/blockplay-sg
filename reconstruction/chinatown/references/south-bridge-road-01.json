@@ -6,11 +6,16 @@
     "lng": 103.84517781802961
   },
   "description": "265 S Bridge Rd, Singapore",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2024-06",
   "requested": {
     "lat": 1.28215,
     "lng": 103.84515
   },
-  "selectedGoogle": true
+  "selectedGoogle": true,
+  "visualReview": {
+    "status": "accepted",
+    "reviewedAt": "2026-09-25",
+    "notes": "South Bridge Road shophouse parapets, windows, vertical signs and five-foot ways. Neither temple facade appears."
+  }
 }

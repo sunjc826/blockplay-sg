@@ -22,8 +22,8 @@ export const JURONG_LAKE_MAP_ROADS = [
 /**
  * An authored, compressed interpretation of the Jurong Lake district: a garden
  * lake with a tiered pagoda on a causeway island, a lakeside promenade, and the
- * mall, science-hall and interchange cluster on the eastern shore. Invented for
- * play, without reference capture.
+ * mall, science-hall and interchange cluster on the eastern shore. Compressed for play; researched landmark corrections are documented in
+ * docs/WEST-DISTRICT-REVIEW.md. Garden-path Street View is reviewed; pagoda imagery remains unverified.
  */
 export function buildJurongLakeScene() {
   const kit = createSceneKit({
@@ -38,7 +38,7 @@ export function buildJurongLakeScene() {
   // Shots into these splash rather than spark; see water.ts.
   markWater(water, shallow);
   const stone = mat('#b6b5ac'), pale = mat('#ded8c8'), dark = mat('#39464a'), wood = mat('#7c6046');
-  const lacquer = mat('#a8402f'), gold = mat('#c59a34', 0.42, 0.55), tileGreen = mat('#39624c');
+  const lacquer = mat('#a8402f'), gold = mat('#c59a34', 0.42, 0.55);
   const leaf = mat('#4e7444'), willow = mat('#6f9153'), orange = mat('#f0a044'), skin = mat('#b18c71');
   const glass = mat('#6d90a0', 0.24, 0.3), steel = mat('#adb5b8', 0.3, 0.55), concrete = mat('#a8a79d');
 
@@ -73,39 +73,46 @@ export function buildJurongLakeScene() {
   // Arched span over the middle of the causeway, in the garden-bridge manner.
   for (let n = 0; n <= 14; n++) {
     const angle = Math.PI * n / 14, x = -70 + Math.cos(angle) * 22;
-    for (const z of [CAUSEWAY.minZ + 0.8, CAUSEWAY.maxZ - 0.8]) box(x, 0.7 + Math.sin(angle) * 2.6, z, 3.4, 0.45, 0.7, lacquer);
+    for (const z of [CAUSEWAY.minZ + 0.8, CAUSEWAY.maxZ - 0.8]) box(x, 0.7 + Math.sin(angle) * 2.6, z, 3.4, 0.45, 0.7, pale);
   }
   for (let n = 0; n <= 10; n++) {
     const angle = Math.PI * n / 10;
     beam(new THREE.Vector3(-70 + Math.cos(angle) * 22, 0.5, CAUSEWAY.minZ + 0.8),
-      new THREE.Vector3(-70 + Math.cos(angle) * 22, 0.5, CAUSEWAY.maxZ - 0.8), 0.1, lacquer);
+      new THREE.Vector3(-70 + Math.cos(angle) * 22, 0.5, CAUSEWAY.maxZ - 0.8), 0.1, pale);
   }
 
-  /** Seven-tier pagoda: stacked octagonal storeys under upswept tiled eaves. */
+  /** Cloud Pagoda: seven octagonal storeys, pale galleries and tiled eaves.
+   * Form follows NParks' Cloud Pagoda description; see WEST-DISTRICT-REVIEW.md.
+   * The footprint remains compressed within the existing walkable island.
+   */
   function pagoda(x: number, z: number) {
     box(x, 0.3, z, 34, 0.6, 34, stone); solid(x, z, 24, 24);
+    const roofTile = mat('#b98b39'), plaster = mat('#f0ebdc');
+    function octagon(y: number, radius: number, height: number, material: THREE.Material, top = radius) {
+      const mesh = new THREE.Mesh(geo(new THREE.CylinderGeometry(top, radius, height, 8)), material);
+      mesh.position.set(x, y, z); mesh.rotation.y = Math.PI / 8;
+      mesh.castShadow = true; scene.add(mesh);
+    }
     for (let tier = 0; tier < 7; tier++) {
-      const w = 18 - tier * 1.7, y = 3 + tier * 7.2;
-      box(x, y, z, w, 6.4, w, tier % 2 ? pale : mat('#e4dccb'), scene, true);
-      for (const rotation of [0, Math.PI / 4]) {
-        const eave = box(x, y + 3.9, z, w + 7, 0.65, w + 7, tileGreen, scene, true);
-        eave.rotation.y = rotation;
-      }
-      box(x, y + 4.7, z, w + 2, 0.9, w + 2, lacquer);
-      // Upswept corner tips, the silhouette read from across the lake.
-      for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-        const tip = box(x + sx * (w / 2 + 3.2), y + 4.6, z + sz * (w / 2 + 3.2), 2.6, 0.45, 1, gold, scene, true);
-        tip.rotation.z = sx * 0.55; tip.rotation.y = sz * 0.5;
-      }
-      for (const side of [-1, 1]) {
-        box(x + side * (w / 2 + 0.1), y, z, 0.3, 4.2, w * 0.5, lacquer);
-        box(x, y, z + side * (w / 2 + 0.1), w * 0.5, 4.2, 0.3, lacquer);
+      const r = 10.8 - tier * 0.82, y = 3.7 + tier * 6.2;
+      octagon(y, r, 5.8, plaster);
+      octagon(y + 2.6, r + 2.2, 0.45, plaster);
+      octagon(y + 3.7, r + 3.2, 1.5, roofTile, r - 0.6);
+      // Eight repeated recessed openings and open gallery balustrades.
+      for (let face = 0; face < 8; face++) {
+        const angle = face * Math.PI / 4, nx = Math.sin(angle), nz = Math.cos(angle);
+        const opening = box(x + nx * r * 0.925, y, z + nz * r * 0.925, 2.5, 3.6, 0.2, dark);
+        opening.rotation.y = angle;
+        const rail = box(x + nx * (r + 1.6), y + 1.8, z + nz * (r + 1.6), r * 0.8, 0.3, 0.35, plaster);
+        rail.rotation.y = angle;
+        for (const offset of [-0.25, 0, 0.25]) {
+          cylinder(x + nx * (r + 1.6) + Math.cos(angle) * r * offset, y + 1.2,
+            z + nz * (r + 1.6) - Math.sin(angle) * r * offset, 0.12, 1.3, plaster);
+        }
       }
     }
-    cylinder(x, 55, z, 1.2, 8, gold);
-    for (let ring = 0; ring < 4; ring++) cylinder(x, 52 + ring * 2.2, z, 2.6 - ring * 0.5, 0.5, gold);
-    const finial = new THREE.Mesh(geo(new THREE.SphereGeometry(1.5, 10, 8)), gold);
-    finial.position.set(x, 59.6, z); scene.add(finial);
+    cylinder(x, 47.5, z, 0.55, 6, gold);
+    sign('CLOUD PAGODA', x, 3, z + 18, 17, 1.5, '#4c5543');
   }
 
   /** Moon gate, guardian plinths and stone lanterns at the causeway landing. */
@@ -121,6 +128,16 @@ export function buildJurongLakeScene() {
     }
   }
 
+  // Reviewed June 2016 garden preview: unmarked asphalt, shallow drain and
+  // disc-top lamps. It does not show the pagoda or the redeveloped garden.
+  box(-142, 0.36, 54, 55, 0.08, 6, asphalt);
+  box(-169, 0.36, 17, 5, 0.08, 74, asphalt);
+  box(-173, 0.39, 2, 0.7, 0.15, 34, dark);
+  for (const z of [-18, 54]) {
+    cylinder(-162, 3.1, z, 0.11, 6.2, dark); solid(-162, z, 0.25, 0.25);
+    cylinder(-162, 6.3, z, 0.9, 0.12, dark);
+    cylinder(-162, 6.05, z, 0.25, 0.45, white);
+  }
   pagoda(-142, 20);
   gardenGate(-32, 20);
   for (const x of [-168, -118]) for (const z of [-14, 48]) {
@@ -154,6 +171,19 @@ export function buildJurongLakeScene() {
     for (let dx = -w / 2 + 6; dx < w / 2 - 4; dx += 9) box(x + dx, height + 4, z, 3, 3.4, d - 10, concrete);
     box(x, 6.4, z - d / 2 - 5, w * 0.5, 0.6, 10, steel, scene, true);
     for (const dx of [-w * 0.22, w * 0.22]) { cylinder(x + dx, 3.2, z - d / 2 - 8, 0.5, 6.4, steel); solid(x + dx, z - d / 2 - 8, 1.1, 1.1); }
+    if (label === 'JEM') {
+      // March 2025 exterior preview: broad white overhangs, recessed glazing
+      // and a planted balcony give JEM a distinct frontage from the other malls.
+      const facadeWhite = mat('#edece6'), terraceLeaf = mat('#537746');
+      const front = z - d / 2;
+      box(x, 6, front - 0.7, w - 4, 11, 0.6, glass);
+      for (let dx = -w / 2 + 4; dx < w / 2; dx += 8) box(x + dx, 6, front - 1.1, 0.3, 11, 0.3, dark);
+      box(x, 14, front - 2, w + 2, 5, 7, facadeWhite, scene, true);
+      box(x + 17, 23, front - 1, w * 0.46, 12, 3, facadeWhite, scene, true);
+      box(x - 22, 21, front - 0.5, w * 0.38, 7, 0.6, glass);
+      for (let dx = -32; dx <= 32; dx += 8) blob(x + dx, 17.4, front - 2.4, 4, 0.8, 1.4, terraceLeaf);
+      box(x, 8.4, front - 5.5, w - 8, 0.3, 8, steel);
+    }
     sign(label, x, 8.4, z - d / 2 - 5.4, w * 0.45, 2.4, '#2f4a56');
   }
 
@@ -186,7 +216,7 @@ export function buildJurongLakeScene() {
   for (let dx = -28; dx < 30; dx += 6) box(65 + dx, 18, 128, 4.6, 6.4, 0.5, glass);
   for (const side of [-1, 1]) { const roof = box(65, 23.6, 140 + side * 7, 64, 0.6, 16, steel, scene, true); roof.rotation.x = side * 0.16; }
   box(52, 6.5, 128, 8, 13, 5, concrete); solid(52, 128, 8, 5);
-  sign('EW26  LAKESIDE', 65, 14.6, 127.4, 26, 2.2, '#1c6b4f');
+  sign('EW24 / NS1  JURONG EAST', 65, 14.6, 127.4, 26, 2.2, '#1c6b4f');
 
   // Bus interchange: sawtooth berths under a long shelter.
   box(65, 0.18, 187, 150, 0.35, 30, asphalt);
@@ -217,9 +247,17 @@ export function buildJurongLakeScene() {
 
   // Southern park: open lawn, a pavilion, planting beds and a playing field.
   box(-60, 0.18, -160, 180, 0.35, 70, lawn);
-  box(-130, 3.4, -160, 22, 0.5, 18, tileGreen, scene, true); solid(-130, -160, 22, 18);
-  for (const dx of [-9, 9]) for (const dz of [-7, 7]) { cylinder(-130 + dx, 1.7, -160 + dz, 0.4, 3.4, wood); solid(-130 + dx, -160 + dz, 0.9, 0.9); }
+  solid(-130, -160, 2, 2);
+
   for (const x of [-148, -126, 10, 26]) for (const z of [-188, -166, -140]) tree(x, z, 8, wood, leaf);
+  // The Lone Tree is a recycled-iron sculpture, not a leafy living tree.
+  // A small garden counterpart replaces the anonymous shelter silhouette.
+  const iron = mat('#544a40');
+  cylinder(-130, 8, -160, 0.6, 16, iron);
+  for (const [dx, dz, height] of [[-9, -3, 15], [8, 2, 17], [-5, 7, 19], [5, -7, 20]]) {
+    beam(new THREE.Vector3(-130, 8, -160), new THREE.Vector3(-130 + dx, height, -160 + dz), 0.25, iron);
+    beam(new THREE.Vector3(-130 + dx, height, -160 + dz), new THREE.Vector3(-130 + dx * 1.3, height + 3, -160 + dz * 1.2), 0.12, iron);
+  }
   for (const z of [-186, -136]) { box(-108, 0.85, z, 8, 0.22, 2.4, wood); solid(-108, z, 8, 2.4); }
   for (let x = -20; x < 24; x += 10) box(x, 0.4, -160, 8, 0.15, 44, grass);
   for (const x of [-EDGE_X - 16, EDGE_X + 16]) for (let z = -190; z < 200; z += 30) tree(x, z, 7, wood, leaf);
@@ -229,8 +267,8 @@ export function buildJurongLakeScene() {
     .flatMap((shirt, index) => [walker(-20, 40 + index * 18, shirt, skin, dark), walker(-100 + index * 16, 20, shirt, skin, dark)]);
   const car = kit.car(mat('#7f9aa4'), glass, mat('#d9d4c4'), dark);
   const stamps = stampRings(JURONG_LAKE_STAMPS, orange);
-  scene.userData.districtFeatures = ['seven-tier-pagoda', 'upswept-eave-tips', 'causeway-arch', 'moon-gate', 'stone-lanterns', 'lake-boardwalk', 'faceted-science-drum', 'elevated-viaduct', 'sawtooth-interchange', 'raked-gravel-garden'];
-  scene.userData.referenceFeatures = [];
+  scene.userData.districtFeatures = ['seven-tier-octagonal-pagoda', 'pale-gallery-balustrades', 'causeway-arch', 'moon-gate', 'stone-lanterns', 'lake-boardwalk', 'faceted-science-drum', 'elevated-viaduct', 'sawtooth-interchange', 'raked-gravel-garden'];
+  scene.userData.referenceFeatures = ['chinese-garden-2016-asphalt-path-drain-disc-lamps', 'jem-2025-white-overhang-recessed-glazing-planted-ledge'];
 
   return kit.finish({
     car, stamps,

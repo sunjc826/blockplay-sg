@@ -32,7 +32,7 @@ export const HARBOURFRONT_MAP_ROADS = [
  * An authored, compressed interpretation of the HarbourFront edge: a stepped
  * waterfront mall with a rooftop deck, a cruise hall with a liner alongside,
  * container gantries down the wharf, a cable line crossing overhead and the
- * ridge park behind it all. Invented for play, without reference capture.
+ * ridge park behind it all. Compressed for play; reviewed exterior features are listed in referenceFeatures.
  */
 export function buildHarbourfrontScene() {
   const kit = createSceneKit({
@@ -87,20 +87,37 @@ export function buildHarbourfrontScene() {
   /** Stepped waterfront mall: retail terraces, a rooftop deck and a bowl. */
   function steppedMall(x: number, z: number) {
     box(x, 0.2, z, 104, 0.4, 104, paving);
-    for (let step = 0; step < 4; step++) {
-      const w = 96 - step * 14, d = 96 - step * 12, y = 7 + step * 6.5, cz = z - step * 5;
-      box(x, y / 2, cz, w, y, d, step % 2 ? pale : concrete, scene, true); solid(x, cz, w, d);
-      box(x, y + 0.8, cz, w + 5, 1.4, d + 5, stone);
-      for (let dx = -w / 2 + 5; dx < w / 2 - 3; dx += 8) {
-        box(x + dx, y - 3.4, cz + d / 2 + 0.5, 6.4, 5.4, 0.6, glass);
-        box(x + dx, y - 3.4, cz - d / 2 - 0.5, 6.4, 5.4, 0.6, glass);
+    // Broad, low white waterfront ribbons replace the invented tiered pyramid.
+    // The original ground envelope keeps the surrounding quay lanes passable.
+    box(x, 10, z, 96, 20, 96, pale, scene, true); solid(x, z, 96, 96);
+    for (const side of [-1, 1]) for (let segment = 0; segment < 24; segment++) {
+      const dx = -46 + segment * 4;
+      const wave = Math.sin((segment / 23) * Math.PI * 2) * 1.6;
+      for (const y of [6, 13, 20]) {
+        box(x + dx, y - 2.4, z + side * (48.1 + wave), 4.2, 4.4, 0.5, glass);
+        box(x + dx, y + wave * 0.35, z + side * (49 + wave), 4.3, 1.4, 2.4, deckWhite);
       }
-      for (let dz = -d / 2 + 6; dz < d / 2 - 3; dz += 9) for (const side of [-1, 1]) box(x + side * (w / 2 + 0.5), y - 3.4, cz + dz, 0.6, 5.4, 6.4, glass);
-      for (let dx = -w / 2 + 4; dx < w / 2 - 2; dx += 11) blob(x + dx, y + 2.4, cz + d / 2 + 2.4, 2.6, 1.6, 2, step % 2 ? fern : leaf);
+    }
+    // Reviewed October 2017 waterfront: pale vertical balcony rails and
+    // white colonnade/pergola over the restaurant frontage.
+    for (let dx = -44; dx <= 44; dx += 2) {
+      box(x + dx, 8.4, z + 50, 0.15, 2.5, 0.15, deckWhite);
+    }
+    box(x, 9.7, z + 50, 90, 0.18, 0.18, deckWhite);
+    for (let dx = -42; dx <= 42; dx += 14) {
+      cylinder(x + dx, 3, z + 48, 0.5, 6, deckWhite);
+      box(x + dx, 6.2, z + 50, 0.35, 0.35, 7, deckWhite);
+    }
+    box(x, 6.2, z + 53, 88, 0.35, 0.35, deckWhite);
+    // Sky Park roof and asymmetrical soft-edged pavilions.
+    box(x, 21, z, 98, 1.2, 98, deckWhite);
+    for (const [dx, dz, width] of [[-23, -15, 16], [25, 8, 19]] as const) {
+      blob(x + dx, 23, z + dz, width, 3.8, 13, deckWhite);
+      blob(x + dx, 24, z + dz, width - 3, 1.8, 10, glass);
     }
     // Rooftop water deck with a shallow pool and a ring of loungers.
-    for (let ring = 0; ring < 3; ring++) cylinder(x, 27.4 + ring * 0.3, z - 15, 15 - ring * 3.4, 0.7, ring % 2 ? stone : shallow);
-    for (let i = 0; i < 10; i++) { const angle = i * Math.PI / 5; box(x + Math.cos(angle) * 19, 27.8, z - 15 + Math.sin(angle) * 19, 3.4, 0.4, 1.6, deckWhite); }
+    for (let ring = 0; ring < 3; ring++) cylinder(x, 21.8 + ring * 0.3, z - 15, 15 - ring * 3.4, 0.7, ring % 2 ? stone : shallow);
+    for (let i = 0; i < 10; i++) { const angle = i * Math.PI / 5; box(x + Math.cos(angle) * 19, 22.2, z - 15 + Math.sin(angle) * 19, 3.4, 0.4, 1.6, deckWhite); }
     // Amphitheatre steps facing the water, at the mall's quay corner.
     for (let step = 0; step < 6; step++) { box(x, 0.4 + step * 0.9, z + 52 - step * 3, 60 - step * 4, 0.9 + step * 0.8, 3, concrete); solid(x, z + 52 - step * 3, 60 - step * 4, 3); }
     box(x, 8.4, z - 56, 46, 0.8, 14, steel, scene, true);
@@ -391,8 +408,8 @@ export function buildHarbourfrontScene() {
     .flatMap((shirt, index) => [walker(-40 + index * 26, 133, shirt, skin, dark), walker(BOARDWALK_X, 144 + index * 11, shirt, skin, dark)]);
   const car = kit.car(mat('#7d97a4'), glass, mat('#dad5c5'), dark);
   const stamps = stampRings(HARBOURFRONT_STAMPS, orange);
-  scene.userData.districtFeatures = ['stepped-retail-terraces', 'rooftop-water-deck', 'quay-amphitheatre', 'wave-vault-hall', 'boarding-gangways', 'raked-liner-hull', 'portal-gantry-boom', 'container-yard-rows', 'ridge-terraces', 'cable-span-cabins'];
-  scene.userData.referenceFeatures = [];
+  scene.userData.districtFeatures = ['white-wave-retail-frontage', 'rooftop-water-deck', 'quay-amphitheatre', 'wave-vault-hall', 'boarding-gangways', 'raked-liner-hull', 'portal-gantry-boom', 'container-yard-rows', 'ridge-terraces', 'cable-span-cabins'];
+  scene.userData.referenceFeatures = ['vivocity-white-waterfront-balcony-rails', 'vivocity-restaurant-colonnade-pergola'];
 
   return kit.finish({
     car, stamps,

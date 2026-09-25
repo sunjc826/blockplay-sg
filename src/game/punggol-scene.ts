@@ -33,8 +33,8 @@ export const PUNGGOL_MAP_ROADS = [
  * An authored, compressed interpretation of the Punggol waterfront town: a
  * planted waterway with promenades on both banks and an arched crossing, a
  * mall over the interchange, precinct slabs on void decks, an elevated light
- * rail loop, and a jetty out into a sheltered bay. Invented for play, without
- * reference capture.
+ * rail loop, and a jetty out into a sheltered bay. Spatially compressed for play; researched changes are logged in
+ * docs/NORTH-EAST-REVIEW.md.
  */
 export function buildPunggolScene() {
   const kit = createSceneKit({
@@ -52,7 +52,8 @@ export function buildPunggolScene() {
   const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148'), plank = mat('#9c7c57');
   const leaf = mat('#48733f'), reed = mat('#7d9a4e'), fern = mat('#5b8a4c'), orange = mat('#f0a044');
   const skin = mat('#b18c71'), teal = mat('#2f6b78'), rust = mat('#a8563a');
-  const panels = ['#dcc98f', '#8fb6ae', '#c9a2a8', '#9db2c6', '#cfd3b6'].map(color => mat(color));
+  // September 2022 precinct preview: olive walls and pale horizontal bands.
+  const panels = ['#bec7a3', '#e2e5d8', '#c6cdae', '#e2e5d8', '#b6c194'].map(color => mat(color));
 
   box(0, -0.6, 0, 640, 1, 560, grass);
   kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });
@@ -150,18 +151,47 @@ export function buildPunggolScene() {
     for (const dz of [-14, 14]) { box(x + 18, 0.85, z + dz, 3.4, 0.22, 1.2, wood); solid(x + 18, z + dz, 3.6, 1.2); }
   }
 
-  /** Mall over the interchange: glazed box, a deep canopy and a bus apron. */
+  /** Waterway Point and Watertown: retail terraces below residential slabs.
+   * RSP's mixed-use ensemble replaces the former isolated generic mall box.
+   */
   function waterwayMall(x: number, z: number) {
-    box(x, 14, z, 80, 28, 100, concrete, scene, true); solid(x, z, 80, 100);
-    for (let y = 5; y < 28; y += 5.4) {
-      for (let dx = -36; dx < 38; dx += 7) for (const side of [-1, 1]) box(x + dx, y, z + side * 50.4, 5.6, 3.4, 0.6, glass);
-      for (let dz = -44; dz < 46; dz += 7) for (const side of [-1, 1]) box(x + side * 40.4, y, z + dz, 0.6, 3.4, 5.6, glass);
+    solid(x, z, 80, 100);
+    const cladding = mat('#65808a'), balcony = mat('#e3e6df');
+    for (let level = 0; level < 4; level++) {
+      const y = 3.5 + level * 6, inset = level * 3;
+      box(x, y, z + inset, 80 - level * 2, 7, 100 - inset * 2, cladding, scene, true);
+      box(x, y + 3.7, z + inset, 82 - level * 2, 0.7, 102 - inset * 2, balcony);
+      for (let dx = -34; dx <= 34; dx += 7) {
+        box(x + dx, y, z - 50 + inset * 2 - 0.2, 5.8, 4.5, 0.4, glass);
+        box(x + dx, y + 4.3, z - 50 + inset * 2, 5.5, 0.7, 1.5, fern);
+      }
     }
-    box(x, 29.6, z, 84, 2.2, 104, steel);
-    for (let dx = -30; dx < 32; dx += 10) box(x + dx, 32, z, 4.4, 3.4, 90, concrete);
-    box(x, 8.4, z - 56, 48, 0.8, 16, steel, scene, true);
-    for (const dx of [-20, 20]) { cylinder(x + dx, 4.2, z - 62, 0.6, 8.4, steel); solid(x + dx, z - 62, 1.3, 1.3); }
-    sign('WATERWAY POINT', x, 11.6, z - 56.4, 34, 2.4, '#2f6b78');
+    // March 2025 street view: a continuous louvred podium fronts Punggol Central.
+    box(x, 16, z - 50.4, 80, 13, 0.8, cladding);
+    for (let y = 10; y < 23; y += 0.7) box(x, y, z - 51, 80, 0.22, 0.45, steel);
+    // Watertown housing reads above the low retail podium from the promenade.
+    for (const dx of [-22, 22]) {
+      box(x + dx, 47, z + 23, 26, 43, 30, pale, scene, true);
+      for (let y = 29; y < 68; y += 3.4) {
+        for (const side of [-1, 1]) {
+          box(x + dx, y, z + 23 + side * 15.2, 27, 0.55, 2, balcony);
+          box(x + dx, y + 1.5, z + 23 + side * 15.1, 24, 2, 0.3, glass);
+        }
+      }
+      // Fine vertical screen fields and strong white uprights distinguish the
+      // real residential frontage from the previous office-like ribbon windows.
+      for (const side of [-1, 1]) {
+        for (let offset = -12; offset <= 12; offset += 6) {
+          box(x + dx + offset, 48, z + 23 + side * 16, 0.8, 42, 0.6, balcony);
+        }
+        for (let offset = -11; offset <= 11; offset += 1.4) {
+          box(x + dx + offset, 48, z + 23 + side * 15.7, 0.14, 40, 0.3, steel);
+        }
+      }
+      box(x + dx, 69, z + 23, 27, 1, 31, lawn);
+    }
+    const frontage = sign('WATERWAY POINT', x, 11.6, z - 50.6, 34, 2.4, '#2f6b78');
+    if (frontage) frontage.rotation.y = Math.PI;
   }
 
   /**
@@ -258,7 +288,8 @@ export function buildPunggolScene() {
   const car = kit.car(mat('#82a0a8'), glass, mat('#dad5c5'), dark);
   const stamps = stampRings(PUNGGOL_STAMPS, orange);
   scene.userData.districtFeatures = ['segmented-waterway', 'planted-channel-banks', 'reed-beds', 'arched-crossing', 'void-deck-columns', 'coloured-panel-bands', 'sky-terrace-caps', 'shade-sail-court', 'elevated-light-rail', 'pile-jetty'];
-  scene.userData.referenceFeatures = [];
+  scene.userData.referenceFeatures = ['jewel-bridge-exterior-0:precinct-olive-and-white-facade-only', 'waterway-point-outdoor02-0:street-podium-and-residential-screens'];
+  scene.userData.researchedFeatures = ['watertown-residential-over-retail', 'waterway-point-terraced-frontage'];
 
   return kit.finish({
     car, stamps,

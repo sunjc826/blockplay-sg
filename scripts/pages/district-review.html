@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>District geometry review</title>
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden}canvas{display:block}#label{position:absolute;left:16px;top:16px;background:#fffE;padding:10px 14px;font:14px system-ui;color:#152c31;border-radius:4px}</style>
+<div id="label">Loading local district geometry…</div>
+<script type="module">
+import * as THREE from 'three';
+import { REGIONS, getRegion } from '/src/game/regions.ts';
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(1);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.9;
+document.body.append(renderer.domElement);
+const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 3000);
+let world, region;
+const streetViews = {
+  'woodlands': { position: [0, 5, -55], target: [0, 7, -120] },
+  'tampines': { position: [55, 4, 10], target: [55, 12, -25] },
+  'harbourfront': { position: [60, 3, 115], target: [60, 10, 50] },
+  'sentosa': { position: [-140, 3, 110], target: [-90, 5, 75] },
+  'jurong-lake': { position: [-105, 2, 55], target: [-142, 15, 20] },
+  'bukit-timah': { position: [65, 3, 130], target: [98, 6, 130] },
+  'tuas': { position: [215, 5, 85], target: [235, 10, 100] },
+  'changi': { position: [16, 2, -11], target: [-55, 18, -30] },
+  'bishan': { position: [-60, 2, -74], target: [-60, 0.5, -45] },
+  'toa-payoh': { position: [-148, 2, -42], target: [-180, 0.5, -66] },
+  'marina-bay': { position: [-24, 2, -153], target: [-55, 8, -183] },
+  'raffles-place': { position: [64, 2, 247], target: [0, 10, 183] },
+  'queenstown': { position: [-28, 2, 53], target: [-42, 5, 39] },
+};
+window.review = {
+  ids: REGIONS.map(region => region.id),
+  async render(id, view) {
+    if (region?.id !== id) { world?.dispose(); renderer.renderLists.dispose(); region = getRegion(id); world = region.build(); }
+    const b = region.bounds, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
+    const span = Math.max(b.maxX - b.minX, b.maxZ - b.minZ);
+    camera.near = view === 'overview' ? 5 : 0.1;
+    camera.far = view === 'overview' ? 3000 : region.cameraFar;
+    camera.updateProjectionMatrix();
+    if (view === 'overview') {
+      camera.position.set(cx + span * 0.68, span * 0.69, cz + span * 0.76);
+      camera.lookAt(cx, span * 0.045, cz);
+    } else {
+      const preset = streetViews[id];
+      if (preset) { camera.position.fromArray(preset.position); camera.lookAt(...preset.target); }
+      else { camera.position.set(region.spawn.x, 2, region.spawn.z); camera.lookAt(cx, 8, cz); }
+    }
+    // Overview removes distance fog solely to inspect the full district layout.
+    const fog = world.scene.fog;
+    if(view === 'overview') world.scene.fog = null;
+    world.car.visible = false;
+    world.animate(0);
+    document.getElementById('label').textContent = `${region.name} · ${view === 'overview' ? 'overview (fog off)' : 'street view'} · authored game geometry`;
+    renderer.render(world.scene, camera);
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    renderer.render(world.scene, camera);
+    world.scene.fog = fog;
+    return { id, view, camera: camera.position.toArray(), calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, width: innerWidth, height: innerHeight };
+  }
+};
+window.reviewReady = true;
+</script>
+</html>

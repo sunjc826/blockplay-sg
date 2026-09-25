@@ -6,11 +6,16 @@
     "lng": 103.84625535798429
   },
   "description": "",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2014-04",
   "requested": {
     "lat": 1.3624,
     "lng": 103.8462
   },
-  "selectedGoogle": true
+  "selectedGoogle": true,
+  "visualReview": {
+    "status": "rejected",
+    "reviewedAt": "2026-09-25",
+    "notes": "Park lawn and grey oval shade pavilion only; river not visible."
+  }
 }

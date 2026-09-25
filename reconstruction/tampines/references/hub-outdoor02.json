@@ -6,7 +6,7 @@
     "lng": 103.94038952051942
   },
   "description": "945 Tampines Ave 4, Singapore",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2024-07",
   "requested": {
     "lat": 1.3516,
@@ -19,5 +19,11 @@
       "OUTDOOR"
     ],
     "radiusMeters": 100
+  },
+  "visualReview": {
+    "status": "accepted",
+    "reviewedAt": "2026-09-25",
+    "scope": "visible exterior features only; compressed game geometry, not surveyed reconstruction",
+    "notes": "July 2024 Our Tampines Hub exterior: broad terracotta/salmon/tan patchwork upper volume, sparse narrow vertically oriented windows with colored borders, dark grey lower horizontal bands, blue glazed top strip and recessed ground-floor opening. Trees obscure some ground-floor details; geometry dimensions remain compressed."
   }
 }

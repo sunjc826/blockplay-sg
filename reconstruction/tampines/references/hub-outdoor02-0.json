@@ -2,7 +2,7 @@
   "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
   "credential": "GOOGLE_MAPS_DEMO_API_KEY",
   "sourceMetadata": "hub-outdoor02.json",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "sourceDate": "2024-07",
   "pano_id": "pYMkh_57BASKwBRyeCorOw",
   "position": {
@@ -27,5 +27,10 @@
   "staticApiRequests": 0,
   "attribution": "Retained in screenshot",
   "readinessCheck": "foreground-pov-repaint-v2",
-  "visualReview": "pending"
+  "visualReview": {
+    "status": "accepted",
+    "reviewedAt": "2026-09-25",
+    "scope": "visible exterior features only; compressed game geometry, not surveyed reconstruction",
+    "notes": "July 2024 Our Tampines Hub exterior: broad terracotta/salmon/tan patchwork upper volume, sparse narrow vertically oriented windows with colored borders, dark grey lower horizontal bands, blue glazed top strip and recessed ground-floor opening. Trees obscure some ground-floor details; geometry dimensions remain compressed."
+  }
 }

@@ -6,11 +6,16 @@
     "lng": 103.85554417566908
   },
   "description": "Singapore",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2024-03",
   "requested": {
     "lat": 1.3359,
     "lng": 103.8555
   },
-  "selectedGoogle": true
+  "selectedGoogle": true,
+  "visualReview": {
+    "status": "rejected",
+    "reviewedAt": "2026-09-25",
+    "notes": "Medical centre loading bay, not Dragon playground."
+  }
 }

@@ -21,8 +21,8 @@ export const TOA_PAYOH_MAP_ROADS = [
 /**
  * An authored, compressed interpretation of Toa Payoh: a first-generation new
  * town of long balcony-access slabs and a Y-shaped point block, a mosaic
- * dragon over its sand pit, a town park with a spiral lookout, and the hub and
- * interchange at the centre. Invented for play, without reference capture.
+ * dragon over its sand pit, a town park with an open modernist lookout, and the hub and
+ * interchange at the centre. Compressed for play; source notes in docs/NORTH-CENTRAL-REVIEW.md.
  */
 export function buildToaPayohScene() {
   const kit = createSceneKit({
@@ -129,28 +129,44 @@ export function buildToaPayohScene() {
     sign('DRAGON PLAYGROUND', x, 5.6, z - 22, 26, 2.2, '#8a3a2a');
   }
 
-  /** Town-park lookout: a drum with an external spiral ramp to a viewing deck. */
+  /** Town Park's modernist lookout has open decks and a broad flat cap.
+   * Replace the invented cylindrical spiral tower and red pagoda roof.
+   * Dimensions are compressed, not a measured restoration model.
+   */
   function lookoutTower(x: number, z: number) {
-    cylinder(x, 11, z, 4.4, 22, pale); solid(x, z, 9, 9);
-    for (let n = 0; n < 34; n++) {
-      const angle = n * 0.42, y = n * 0.62;
-      const tread = box(x + Math.cos(angle) * 6.6, y, z + Math.sin(angle) * 6.6, 4.4, 0.3, 2.2, concrete);
-      tread.rotation.y = -angle;
-      cylinder(x + Math.cos(angle) * 8.4, y + 0.9, z + Math.sin(angle) * 8.4, 0.1, 1.8, steel);
-      if (n % 4 === 0) cylinder(x + Math.cos(angle) * 8.4, y / 2, z + Math.sin(angle) * 8.4, 0.16, y, concrete);
+    const tower = mat('#d8d5c6'), rail = mat('#8d9991');
+    solid(x, z, 9, 9);
+    // Slender open frame around a central stair, with hexagonal platforms.
+    for (let n = 0; n < 6; n++) {
+      const a = n * Math.PI / 3;
+      box(x + Math.cos(a) * 3.8, 11, z + Math.sin(a) * 3.8, 0.8, 22, 0.8, tower);
     }
-    for (let ring = 0; ring < 2; ring++) cylinder(x, 22.4 + ring * 1.1, z, 8 - ring * 1.6, 1, ring % 2 ? stone : pale);
-    for (let n = 0; n < 16; n++) { const a = n * Math.PI / 8; cylinder(x + Math.cos(a) * 7.2, 24.4, z + Math.sin(a) * 7.2, 0.14, 2.4, steel); }
-    const cap = new THREE.Mesh(geo(new THREE.ConeGeometry(8.4, 4, 14)), terra);
-    cap.position.set(x, 27.6, z); cap.castShadow = true; scene.add(cap);
-    cylinder(x, 30.4, z, 0.3, 3, steel);
-    sign('TOWN PARK LOOKOUT', x, 6.4, z - 12, 24, 2.1, '#2f5140');
+    for (const y of [7, 14, 21]) {
+      const deck = new THREE.Mesh(geo(new THREE.CylinderGeometry(6.8, 6.8, 0.6, 6)), tower);
+      deck.position.set(x, y, z); scene.add(deck);
+      for (let n = 0; n < 6; n++) {
+        const a = n * Math.PI / 3;
+        const panel = box(x + Math.cos(a) * 5.6, y + 1, z + Math.sin(a) * 5.6, 6.5, 1.4, 0.2, rail);
+        panel.rotation.y = Math.PI / 2 - a;
+      }
+    }
+    for (let flight = 0; flight < 6; flight++) {
+      const stair = box(x + (flight % 2 ? 1.4 : -1.4), 1.8 + flight * 3.5, z, 2.6, 0.28, 6.8, tower);
+      stair.rotation.x = (flight % 2 ? -1 : 1) * 0.48;
+    }
+    const cap = new THREE.Mesh(geo(new THREE.CylinderGeometry(8.2, 7.8, 0.8, 6)), tower);
+    cap.position.set(x, 24, z); scene.add(cap);
+    for (let n = 0; n < 6; n++) {
+      const a = n * Math.PI / 3;
+      cylinder(x + Math.cos(a) * 5.6, 22.7, z + Math.sin(a) * 5.6, 0.16, 2.6, rail);
+    }
+    sign('TOWN PARK LOOKOUT', x, 3.4, z - 10, 24, 2.1, '#2f5140');
   }
 
   /** Park pond with a zigzag bridge along one bank. */
   function pond() {
     const { x, z, width, depth } = POND;
-    box(x, 0.18, z, width + 28, 0.35, depth + 28, lawn);
+    box(x, -0.22, z, width + 28, 0.2, depth + 28, lawn);
     box(x, -0.06, z, width, 0.4, depth, water); solid(x, z, width, depth);
     for (let i = 0; i < 14; i++) {
       const ripple = box(x - width / 2 + 6 + (i * 17) % (width - 12), 0.16, z - depth / 2 + 5 + (i * 11) % (depth - 10), 6 + i % 3, 0.02, 0.2, shallow);
@@ -206,6 +222,12 @@ export function buildToaPayohScene() {
   dragonPlayground(50, -50);
   earlySlab(50, -86, 92, 30); earlySlab(50, -18, 80, 27, -1);
   lookoutTower(-180, -20); pond();
+  // May 2016 exterior: a straight, narrow paver path under the park trees.
+  box(-218, 0.14, -42, 5, 0.16, 92, paving);
+  for (let z = -87; z <= 3; z += 2) {
+    box(-218, 0.23, z, 5, 0.015, 0.055, stone);
+    box(-218 + (Math.round(z) % 4 ? 0.7 : -0.7), 0.23, z + 0.8, 0.055, 0.015, 1.6, stone);
+  }
   yBlock(-70, 62, 40);
   earlySlab(-180, 62, 76, 33); earlySlab(-180, 96, 68, 24, -1);
   townHub(50, 62);
@@ -230,8 +252,8 @@ export function buildToaPayohScene() {
     .flatMap((shirt, index) => [walker(20 + index * 16, -2, shirt, skin, dark), walker(-180 + index * 14, 24, shirt, skin, dark)]);
   const car = kit.car(mat('#8a9ea4'), glass, mat('#dad5c5'), dark);
   const stamps = stampRings(TOA_PAYOH_STAMPS, orange);
-  scene.userData.districtFeatures = ['balcony-access-decks', 'end-service-stairs', 'y-plan-point-block', 'mosaic-dragon-head', 'arched-spine-segments', 'sand-pit-apron', 'spiral-ramp-lookout', 'zigzag-pond-bridge', 'banded-hub-towers', 'vented-hawker-roof'];
-  scene.userData.referenceFeatures = [];
+  scene.userData.districtFeatures = ['balcony-access-decks', 'end-service-stairs', 'y-plan-point-block', 'mosaic-dragon-head', 'arched-spine-segments', 'sand-pit-apron', 'open-modernist-lookout', 'zigzag-pond-bridge', 'banded-hub-towers', 'vented-hawker-roof'];
+  scene.userData.referenceFeatures = ['town-park-road-0:straight-shaded-paver-path'];
 
   return kit.finish({
     car, stamps,

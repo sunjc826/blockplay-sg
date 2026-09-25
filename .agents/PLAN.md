@@ -555,3 +555,11 @@ Fixed normals for rotated instanced scene meshes. 752 tests, typecheck and build
 pass. Actual WebGL shader compilation and rendered closeups/smoke verified in a
 local SwiftShader browser. Prior main-push block resolved by explicit user approval;
 fixed variants and local names published as 41c6e892.
+
+### 2026-09-25 district correction verification
+
+- All19 scene correction pass integrated; see docs/ALL-DISTRICTS-REVIEW.md.
+- All812 unit tests and typecheck passed; production Vite build passed.
+- All19 actual scenes rendered in38 overview/street views with0 JS errors and0 Google requests.
+- Reference captures are complete and reviewed:38 new previews,36 recovered Orchard images;48 scoped accepted/26 rejected.
+- Whole-district surveyed fidelity remains outside this pass; rejected/occluded targets are explicitly documented.

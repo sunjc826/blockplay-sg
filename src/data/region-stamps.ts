@@ -43,10 +43,10 @@ export const RAFFLES_STAMPS = [
 export const CHINATOWN_STAMPS = [
   { name: 'Smith Street food street', x: 0, z: 80 },
   { name: 'Pagoda Street market', x: -15, z: -15 },
-  { name: 'Buddha Tooth temple', x: -120, z: 14 },
+  { name: 'Buddha Tooth temple', x: 95, z: 20 },
   { name: 'Sri Mariamman gopuram', x: 134, z: -92 },
   { name: 'People’s Park Complex', x: -120, z: -70 },
-  { name: 'Chinatown Complex', x: 95, z: 20 },
+  { name: 'Chinatown Complex', x: -120, z: 14 },
   { name: 'Kreta Ayer square', x: -124, z: 78 },
   { name: 'Club Street terraces', x: 134, z: 74 },
   { name: 'Chinatown station', x: -90, z: 88 },
@@ -60,26 +60,26 @@ export const KAMPONG_GLAM_STAMPS = [
   { name: 'Haji Lane murals', x: -90, z: -75 },
   { name: 'Arab Street textiles', x: 110, z: -92 },
   { name: 'Heritage Centre lawn', x: -90, z: -20 },
-  { name: 'Bugis mall plaza', x: 110, z: 50 },
+  { name: 'Beach Road shops', x: 110, z: 50 },
   { name: 'Sultan Gate car park', x: 110, z: 98 },
   { name: 'Baghdad Street cafes', x: 10, z: 110 },
   { name: 'Kandahar pocket park', x: -82, z: 110 },
-  { name: 'Rochor canal walk', x: 173, z: 12 },
+  { name: 'Beach Road edge', x: 173, z: 12 },
   { name: 'Jalan Pisang green', x: -180, z: 30 },
 ];
 
 export const JURONG_LAKE_STAMPS = [
-  { name: 'Pagoda island', x: -142, z: 50 },
+  { name: 'Cloud Pagoda gardens', x: -142, z: 50 },
   { name: 'Lake causeway', x: -70, z: 20 },
   { name: 'Lakeside promenade', x: -18, z: 60 },
   { name: 'Science Centre plaza', x: 170, z: -20 },
   { name: 'JEM concourse', x: 65, z: -10 },
   { name: 'Westgate atrium', x: 65, z: 110 },
   { name: 'IMM service court', x: 172, z: 135 },
-  { name: 'Lakeside station', x: 65, z: 158 },
+  { name: 'Jurong East station forecourt', x: 65, z: 158 },
   { name: 'Bus interchange', x: 115, z: 187 },
   { name: 'Japanese garden', x: -200, z: 152 },
-  { name: 'Jurong green', x: -60, z: -160 },
+  { name: 'Lone Tree grassland', x: -60, z: -160 },
 ];
 
 export const UPPER_THOMSON_STAMPS = [
@@ -88,18 +88,18 @@ export const UPPER_THOMSON_STAMPS = [
   { name: 'Thomson Plaza forecourt', x: 85, z: -14 },
   { name: 'Reservoir causeway', x: -190, z: 5 },
   { name: 'Boardwalk jetty', x: -162, z: -64 },
-  { name: 'Treetop bridge', x: -146, z: -40 },
+  { name: 'Nature trail junction', x: -146, z: -40 },
   { name: 'Forest trailhead', x: -128, z: 40 },
   { name: 'Upper Thomson station', x: 85, z: 36 },
   { name: 'Landed terrace', x: -50, z: 22 },
   { name: 'Thomson bus bay', x: 150, z: -40 },
-  { name: 'Springleaf green', x: 192, z: 60 },
+  { name: 'Thomson neighbourhood green', x: 192, z: 60 },
 ];
 
 export const PUNGGOL_STAMPS = [
   { name: 'Waterway promenade', x: 20, z: -60 },
   { name: 'Arch bridge', x: 20, z: -90 },
-  { name: 'Waterway Point atrium', x: 20, z: 36 },
+  { name: 'Waterway Point approach', x: 20, z: 36 },
   { name: 'Town bus berths', x: 20, z: -26 },
   { name: 'Precinct court', x: -100, z: 30 },
   { name: 'Punggol LRT line', x: 215, z: 75 },
@@ -112,7 +112,7 @@ export const PUNGGOL_STAMPS = [
 
 export const HARBOURFRONT_STAMPS = [
   { name: 'HarbourFront quay', x: 20, z: 134 },
-  { name: 'VivoCity terraces', x: 60, z: -6 },
+  { name: 'VivoCity waterfront', x: 60, z: -6 },
   { name: 'Cruise terminal hall', x: -75, z: -6 },
   { name: 'Liner berth', x: -75, z: 134 },
   { name: 'Gantry wharf', x: 180, z: 134 },
@@ -130,11 +130,11 @@ export const SENTOSA_STAMPS = [
   { name: 'Fort ramparts', x: -90, z: 8 },
   { name: 'Resort forecourt', x: 30, z: 8 },
   { name: 'Hotel podium', x: 165, z: 8 },
-  { name: 'Lagoon shore', x: -90, z: 32 },
+  { name: 'Palawan beach approach', x: -90, z: 32 },
   { name: 'Beach club deck', x: 30, z: 32 },
   { name: 'Palm grove', x: -187, z: 8 },
   { name: 'Siloso beach', x: 0, z: 192 },
-  { name: 'Observation tower', x: -187, z: -20 },
+  { name: 'Fort Siloso Skywalk', x: -187, z: -20 },
   { name: 'Island spine', x: -30, z: 100 },
 ];
 
@@ -162,27 +162,27 @@ export const TUAS_STAMPS = [
   { name: 'Coast road', x: -235, z: -40 },
   { name: 'Benoi truck park', x: 0, z: -168 },
   { name: 'Transmission line', x: 200, z: 18 },
-  { name: 'Workers quarters', x: 137, z: -180 },
-  { name: 'Tuas Link platform', x: 235, z: 44 },
+  { name: 'Industrial workshop apron', x: 137, z: -180 },
+  { name: 'Tuas Link station approach', x: 235, z: 44 },
 ];
 
 export const WOODLANDS_STAMPS = [
-  { name: 'Causeway checkpoint', x: 0, z: -140 },
-  { name: 'Waterfront promenade', x: 0, z: -100 },
-  { name: 'Woodlands jetty', x: -120, z: -170 },
+  { name: 'Causeway checkpoint', x: 0, z: -90 },
+  { name: 'Waterfront promenade', x: -70, z: -112 },
+  { name: 'Woodlands jetty', x: 120, z: -170 },
   { name: 'Rail embankment', x: -24, z: -140 },
-  { name: 'Causeway Point atrium', x: -45, z: 32 },
+  { name: 'Causeway Point forecourt', x: -45, z: 32 },
   { name: 'Civic square', x: -25, z: 52 },
   { name: 'Marsiling precinct', x: -182, z: 12 },
   { name: 'Admiralty woods', x: -182, z: -90 },
   { name: 'Woodlands station', x: 200, z: 34 },
   { name: 'Woodlands interchange', x: 137, z: 32 },
-  { name: 'Northpoint green', x: 137, z: 130 },
+  { name: 'Woodlands town green', x: 137, z: 130 },
 ];
 
 export const TAMPINES_STAMPS = [
   { name: 'Round Market', x: -80, z: 8 },
-  { name: 'Tampines Hub stadium', x: 55, z: 8 },
+  { name: 'Our Tampines Hub forecourt', x: 55, z: 8 },
   { name: 'Mall concourse', x: 40, z: 44 },
   { name: 'Bus interchange', x: 40, z: 105 },
   { name: 'Quarry pond', x: 172, z: 32 },
@@ -205,12 +205,12 @@ export const TOA_PAYOH_STAMPS = [
   { name: 'Braddell precinct', x: 170, z: 24 },
   { name: 'Toa Payoh station', x: 110, z: 24 },
   { name: 'Lorong 8 blocks', x: 50, z: 132 },
-  { name: 'Braddell flyover', x: -10, z: -150 },
+  { name: 'Northern approach', x: -10, z: -150 },
 ];
 
 export const BUKIT_TIMAH_STAMPS = [
   { name: 'Rail corridor bridge', x: 60, z: 40 },
-  { name: 'Bukit Timah summit', x: -130, z: -25 },
+  { name: 'Bukit Timah hill foot', x: -130, z: -25 },
   { name: 'Nature reserve trail', x: -187, z: -96 },
   { name: 'Beauty World market', x: -55, z: 28 },
   { name: 'Black-and-white bungalows', x: -52, z: 60 },
@@ -218,7 +218,7 @@ export const BUKIT_TIMAH_STAMPS = [
   { name: 'Canal walk', x: 80, z: -66 },
   { name: 'Dunearn shophouses', x: 175, z: -6 },
   { name: 'Sixth Avenue green', x: 175, z: 130 },
-  { name: 'Corridor north', x: 60, z: 130 },
+  { name: 'Railway station heritage node', x: 60, z: 130 },
   { name: 'Upper Bukit Timah shops', x: -55, z: 130 },
 ];
 
@@ -239,11 +239,11 @@ export const BISHAN_STAMPS = [
 export const ORCHARD_STAMPS = [
   { name: 'Orchard crossing', x: -8, z: 5 },
   { name: 'ION frontage', x: -115, z: -18 },
-  { name: 'Orchard terraces', x: 0, z: -19 },
-  { name: 'Tangs rotunda', x: 117, z: -20 },
-  { name: 'Ngee Ann forecourt', x: -24, z: 22 },
-  { name: 'Somerset plaza', x: 117, z: 22 },
-  { name: 'Emerald Hill terrace', x: -115, z: 36 },
+  { name: 'Wisma Atria', x: 0, z: -19 },
+  { name: 'TANGS frontage', x: -107, z: 22 },
+  { name: 'Ngee Ann forecourt', x: 117, z: -12 },
+  { name: 'Somerset plaza', x: 0, z: 22 },
+  { name: 'Emerald Hill terrace', x: 117, z: 36 },
   { name: 'Orchard station', x: -33, z: -24 },
   { name: 'Scotts junction', x: -170, z: 5 },
   { name: 'Orchard underpass', x: 60, z: -40 },

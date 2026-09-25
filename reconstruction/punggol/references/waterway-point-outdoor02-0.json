@@ -2,7 +2,7 @@
   "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
   "credential": "GOOGLE_MAPS_DEMO_API_KEY",
   "sourceMetadata": "waterway-point-outdoor02.json",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "sourceDate": "2025-03",
   "pano_id": "broV3ZsR7xSX8pROyzFMDg",
   "position": {
@@ -27,5 +27,10 @@
   "staticApiRequests": 0,
   "attribution": "Retained in screenshot",
   "readinessCheck": "foreground-pov-repaint-v2",
-  "visualReview": "pending"
+  "visualReview": {
+    "status": "accepted",
+    "reviewedAt": "2026-09-25",
+    "scope": "visible exterior features only; compressed game geometry, not surveyed reconstruction",
+    "notes": "March 2025 exterior: Waterway Point sign, low silver/grey retail podium with continuous horizontal grille; residential slab above with white vertical frames, repeated fine dark vertical grille/window fields and recessed bays. Reference applies to visible street-facing frontage only. Temporary road barriers and construction are not reproduced as current conditions."
+  }
 }

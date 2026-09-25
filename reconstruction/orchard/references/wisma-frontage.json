@@ -6,11 +6,16 @@
     "lng": 103.83368252674563
   },
   "description": "",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2013-08",
   "requested": {
     "lat": 1.3035,
     "lng": 103.8336
   },
-  "selectedGoogle": true
+  "selectedGoogle": true,
+  "visualReview": {
+    "status": "rejected",
+    "reviewedAt": "2026-09-25",
+    "notes": "Indoor basement, not Wisma exterior."
+  }
 }

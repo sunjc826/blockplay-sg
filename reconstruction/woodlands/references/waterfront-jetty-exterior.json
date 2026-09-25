@@ -6,11 +6,16 @@
     "lng": 103.7807139628853
   },
   "description": "Admiralty Rd W, Singapore",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2024-08",
   "requested": {
     "lat": 1.4521,
     "lng": 103.7807
   },
-  "selectedGoogle": true
+  "selectedGoogle": true,
+  "visualReview": {
+    "status": "rejected",
+    "reviewedAt": "2026-09-25",
+    "notes": "Roadside trees and fence, no jetty."
+  }
 }

@@ -2,7 +2,7 @@
   "source": "Google Maps JavaScript Street View; owner-authorized browser reference",
   "credential": "GOOGLE_MAPS_DEMO_API_KEY",
   "sourceMetadata": "thomson-plaza-outdoor02.json",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "sourceDate": "2024-08",
   "pano_id": "R6Mm0VB8jW-BuvOWr9uPYw",
   "position": {
@@ -27,5 +27,17 @@
   "staticApiRequests": 0,
   "attribution": "Retained in screenshot",
   "readinessCheck": "foreground-pov-repaint-v2",
-  "visualReview": "pending"
+  "visualReview": {
+    "status": "accepted",
+    "reviewedAt": "2026-09-25",
+    "reviewer": "Codex visual inspection",
+    "acceptedFeatures": [
+      "Broad mostly blank white square-clad upper facade",
+      "Small offset blue-framed coloured square accents near the corner",
+      "Covered entrance with stair approach",
+      "Adjacent Upper Thomson station entrance at similar low height"
+    ],
+    "limitations": "One facade only; does not establish roof carpark layout or other elevations.",
+    "viewId": "thomson-plaza-outdoor02-0"
+  }
 }

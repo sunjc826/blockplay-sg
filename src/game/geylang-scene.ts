@@ -32,7 +32,7 @@ const BLOCKS = [-185, -112, -56, 0, 56, 112, 185];
  * shophouse terraces down close-set numbered lanes, a market hall under a
  * steep gabled roof, a mosque and a temple on the main road, coffee shops
  * spilling onto the five-foot way, and a bridged canal along the back.
- * Invented for play, without reference capture.
+ * Compressed for play; reviewed exterior features are listed in referenceFeatures.
  */
 export function buildGeylangScene() {
   const kit = createSceneKit({
@@ -94,6 +94,18 @@ export function buildGeylangScene() {
       box(x, 5.6, z, width - 0.4, 11.2, 16, body, scene, true); solid(x, z, width, 16);
       const front = z + facing * 8;
       for (const dx of [-width / 2 + 0.7, width / 2 - 0.7]) box(x + dx, 6, z, 1.2, 12, 16.4, plaster);
+      // Clay pitched roofs sit behind the street parapet, with party firewalls.
+      for (const side of [-1, 1]) {
+        const roof = box(x, 13.6, z + side * 4, width - 0.6, 0.35, 8.8, terra);
+        roof.rotation.x = side * 0.24;
+      }
+      box(x, 14.7, z, width, 0.25, 0.6, tileDark);
+      // Mix restrained Art Deco fronts with the ornate late-style terraces
+      // recorded by URA: the entire neighbourhood is not one repeated style.
+      if (i % 2 === 0) {
+        box(x, 13.4, front, width - 1, 2.8, 0.6, body);
+        for (const dy of [12.6, 13.5, 14.4]) box(x, dy, front + facing * 0.4, width - 2, 0.16, 0.2, plaster);
+      }
       // Vented parapet above the cornice, the terrace's read along the lane.
       box(x, 11.8, z, width, 1.1, 17, plaster);
       for (let dx = -width / 2 + 1.8; dx < width / 2 - 1; dx += 1.7) box(x + dx, 12.4, front + facing * 0.3, 0.9, 0.9, 0.3, dark);
@@ -107,6 +119,12 @@ export function buildGeylangScene() {
           box(x + dx + Math.cos(angle) * 1.5, 10.1 + Math.sin(angle) * 0.9, front + facing * 0.3, 0.6, 0.5, 0.26, plaster);
         }
       }
+      // June 2024 Lorong 24A preview: window air-conditioners and small
+      // tiled/awning projections punctuate the low residential frontage.
+      box(x - 4.5, 6, front + facing * 0.65, 1.8, 1.1, 1, plaster);
+      for (const dy of [-0.3, 0, 0.3]) box(x - 4.5, 6 + dy, front + facing * 1.18, 1.4, 0.07, 0.1, dark);
+      const awning = box(x, 4.8, front + facing * 1.3, width - 1, 0.25, 2.5, i % 2 ? terra : lacquer);
+      awning.rotation.x = facing * 0.18;
       // Five-foot way: paired columns, a shaded slab and the swing-door front.
       box(x, 5, front + facing * 2.4, width, 0.45, 5.2, plaster, scene, true);
       for (const dx of [-width / 2 + 1.5, width / 2 - 1.5]) {
@@ -114,6 +132,10 @@ export function buildGeylangScene() {
       }
       box(x, 0.26, front + facing * 2.5, width, 0.3, 5.4, paving);
       box(x, 2.3, front + facing * 0.16, 3.6, 4.6, 0.22, wood);
+      const shopLabel = sign(['COFFEE & TOAST', 'PROVISIONS', 'NOODLES', 'FRUIT SHOP'][Math.abs(Math.round(x / width)) % 4],
+        x, 4.2, front + facing * 0.6, width - 2, 1.1, '#e8dfc9', '#374743');
+      if (shopLabel && facing === -1) shopLabel.rotation.y = Math.PI;
+
       for (const dx of [-1.3, 1.3]) box(x + dx, 2, front + facing * 0.34, 1.1, 2.6, 0.14, shutter[i % 4]);
       box(x + width / 2 - 1.9, 6.6, front + facing * 0.5, 0.9, 4.4, 0.3, i % 2 ? lacquer : jade);
       for (const dy of [-1.3, 0, 1.3]) box(x + width / 2 - 1.9, 6.6 + dy, front + facing * 0.66, 0.5, 0.5, 0.1, gold);
@@ -286,7 +308,7 @@ export function buildGeylangScene() {
   const car = kit.car(mat('#87a09a'), glass, mat('#d9d4c4'), dark);
   const stamps = stampRings(GEYLANG_STAMPS, orange);
   scene.userData.districtFeatures = ['close-set-lorong-grid', 'vented-parapets', 'segmental-fanlights', 'pilastered-terraces', 'five-foot-way-columns', 'upswept-gable-ends', 'ribbed-dome-drum', 'swallowtail-ridge', 'open-sided-kopitiam', 'bridged-canal'];
-  scene.userData.referenceFeatures = [];
+  scene.userData.referenceFeatures = ['lorong24a-clay-pitched-terrace-roofs', 'lorong24a-window-air-conditioners-awnings'];
 
   return kit.finish({
     car, stamps,

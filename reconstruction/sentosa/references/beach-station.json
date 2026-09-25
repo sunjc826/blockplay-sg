@@ -6,11 +6,16 @@
     "lng": 103.81782562392235
   },
   "description": "",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2014-12",
   "requested": {
     "lat": 1.2514,
     "lng": 103.8176
   },
-  "selectedGoogle": true
+  "selectedGoogle": true,
+  "visualReview": {
+    "status": "rejected",
+    "reviewedAt": "2026-09-25",
+    "notes": "December 2014 former Merlion approach, not station canopy or present topology."
+  }
 }

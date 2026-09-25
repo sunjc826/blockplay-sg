@@ -6,11 +6,16 @@
     "lng": 103.63681165271015
   },
   "description": "20 Tuas West Dr, Singapore",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2024-07",
   "requested": {
     "lat": 1.34,
     "lng": 103.6365
   },
-  "selectedGoogle": true
+  "selectedGoogle": true,
+  "visualReview": {
+    "status": "accepted",
+    "reviewedAt": "2026-09-25",
+    "notes": "Lower station concrete structure and green louvers; upper silhouette remains public-source approximation."
+  }
 }

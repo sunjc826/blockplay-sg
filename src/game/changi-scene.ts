@@ -22,7 +22,7 @@ export const CHANGI_MAP_ROADS = [
  * An authored, compressed interpretation of the Changi airport landside: a
  * glazed toroidal dome with a falling-water oculus and terraced planting, a
  * terminal frontage under an elevated departure viaduct, a control tower and
- * an apron. Invented for play, without reference capture.
+ * an apron. Compressed for play; reviewed exterior features are listed in referenceFeatures.
  */
 export function buildChangiScene() {
   const kit = createSceneKit({
@@ -35,6 +35,9 @@ export function buildChangiScene() {
   const asphalt = mat('#5a6064'), white = mat('#eceadc'), paving = mat('#c2beb2'), kerb = mat('#d2ccbe');
   const concrete = mat('#b3b1a7'), pale = mat('#e3ded0'), dark = mat('#38444a'), steel = mat('#aeb6ba', 0.28, 0.55);
   const glass = mat('#7fa3b0', 0.2, 0.35), deepGlass = mat('#6b8f9e', 0.18, 0.4), water = mat('#86b6c6', 0.3);
+  // Translucent roof panes keep the indoor forest readable in the browser.
+  glass.transparent = true; glass.opacity = 0.52;
+  deepGlass.transparent = true; deepGlass.opacity = 0.66;
   // Shots into these splash rather than spark; see water.ts.
   markWater(water);
   const leaf = mat('#41703f'), fern = mat('#5d8a4c'), moss = mat('#6f9457'), lawn = mat('#8ba36d');
@@ -71,9 +74,13 @@ export function buildChangiScene() {
         const a = new THREE.Vector3(DOME.x + cos * r0, y0, DOME.z + sin * r0);
         const b = new THREE.Vector3(DOME.x + cos * r1, y1, DOME.z + sin * r1);
         if (i % 2 === 0) beam(a, b, 0.42, steel);
+        // Jewel's glazing is triangular, rather than a radial garden gazebo.
+        const nextAngle = angle + Math.PI * 2 / segments;
+        beam(a, new THREE.Vector3(DOME.x + Math.cos(nextAngle) * r1, y1,
+          DOME.z + Math.sin(nextAngle) * r1), 0.18, steel);
         const mid = a.clone().add(b).multiplyScalar(0.5);
         const panel = box(mid.x, mid.y, mid.z, a.distanceTo(b), 0.3, (r0 + r1) * Math.PI / segments * 1.05, i % 4 === 3 ? deepGlass : glass);
-        panel.rotation.y = -angle; panel.rotation.z = Math.atan2(y1 - y0, r0 - r1);
+        panel.rotation.y = -angle; panel.rotation.z = -Math.atan2(y1 - y0, r0 - r1);
       }
     }
     for (const [r, y] of profile) for (let i = 0; i < segments; i += 2) {
@@ -124,7 +131,8 @@ export function buildChangiScene() {
       }
     }
     for (const angle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
-      sign('JEWEL', DOME.x + Math.cos(angle) * 84, 18.4, DOME.z + Math.sin(angle) * 84, 20, 2.6, '#1f4f5e');
+      const label = sign('JEWEL', DOME.x + Math.cos(angle) * 84, 18.4, DOME.z + Math.sin(angle) * 84, 20, 2.6, '#1f4f5e');
+      if (label) label.rotation.y = Math.PI / 2 - angle;
     }
     return fall;
   }
@@ -151,15 +159,22 @@ export function buildChangiScene() {
   /** Tapered control tower under a flared, glazed cab. */
   function controlTower(x: number, z: number) {
     box(x, 0.2, z, 60, 0.4, 60, paving);
-    for (let level = 0; level < 9; level++) cylinder(x, 4 + level * 8, z, 7.4 - level * 0.45, 8.4, level % 2 ? concrete : pale);
+    for (let level = 0; level < 9; level++) cylinder(x, 4 + level * 8, z, 7.4 - level * 0.45, 8.4, pale);
     solid(x, z, 16, 16);
+    for (let rib = 0; rib < 16; rib++) {
+      const a = rib * Math.PI / 8;
+      beam(new THREE.Vector3(x + Math.cos(a) * 7.5, 2, z + Math.sin(a) * 7.5),
+        new THREE.Vector3(x + Math.cos(a) * 3.9, 73, z + Math.sin(a) * 3.9), 0.22, concrete);
+    }
     for (let level = 0; level < 9; level++) for (const side of [-1, 1]) box(x + side * (7.2 - level * 0.45), 4 + level * 8, z, 0.5, 7, 3.4, steel);
     cylinder(x, 78, z, 11, 3, steel);
     for (let ring = 0; ring < 4; ring++) cylinder(x, 80.4 + ring * 2.4, z, 12.4 - ring * 0.7, 2.6, ring === 1 ? deepGlass : glass);
     cylinder(x, 91.4, z, 13, 1.6, steel);
     cylinder(x, 94.4, z, 4.4, 4.6, pale);
-    cylinder(x, 100, z, 0.4, 7, steel);
-    for (const dy of [96, 99]) blob(x, dy, z, 0.9, 0.9, 0.9, accent);
+    // July 2024 tower view: a pale spherical radome above the glazed cab.
+    cylinder(x, 97.4, z, 2.4, 2, pale);
+    blob(x, 101.4, z, 4.1, 4.1, 4.1, pale);
+    for (const side of [-1, 1]) box(x, 38, z + side * 5.7, 1.9, 69, 0.35, tail);
     sign('CHANGI TOWER', x, 10.4, z + 9, 18, 2, '#1f4f5e');
   }
   controlTower(190, -60);
@@ -251,7 +266,7 @@ export function buildChangiScene() {
   const car = kit.car(mat('#93a7ae'), glass, mat('#ddd8c8'), dark);
   const stamps = stampRings(CHANGI_STAMPS, orange);
   scene.userData.districtFeatures = ['toroidal-glazed-roof', 'radial-rib-mullions', 'oculus-waterfall', 'terraced-basin', 'ring-walkways', 'terminal-viaduct', 'flared-control-cab', 'stand-markings', 'wide-body-airliner', 'coastal-palms'];
-  scene.userData.referenceFeatures = [];
+  scene.userData.referenceFeatures = ['jewel-triangular-exterior-glazing', 'changi-tower-pale-shaft-blue-strip', 'changi-tower-spherical-radome'];
 
   return kit.finish({
     car, stamps,

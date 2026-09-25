@@ -17,7 +17,8 @@ export const KAMPONG_GLAM_MAP_ROADS = [
 /**
  * An authored, compressed interpretation of the Kampong Glam quarter: a domed
  * mosque closing a palm-lined pedestrian mall, painted lanes, textile terraces
- * and a heritage villa. Invented for play, without reference capture.
+ * and a heritage villa. Two outdoor previews were reviewed in September 2026;
+ * Bussorah frontages are informed by that view. The outer grid is compressed.
  */
 export function buildKampongGlamScene() {
   const kit = createSceneKit({
@@ -70,17 +71,28 @@ export function buildKampongGlamScene() {
       box(x + dx + 4.3, 3.4, z - 23.6, 5.6, 6.8, 0.3, dark);
     }
     for (const band of [11.4, 12.6, 13.8]) box(x, band, z - 23.6, 62, 0.45, 0.35, teal);
-    // Main dome on a drum, with two flanking half-domes.
-    cylinder(x, 21.4, z, 17, 6, plaster);
-    for (let dy = 0; dy < 9; dy++) {
-      const r = 17 * Math.cos(dy / 9 * Math.PI / 2.05);
-      cylinder(x, 24.6 + dy * 2.3, z, r, 2.4, domeGold);
+    // The Bussorah photo has a tall central entrance bay beneath the dome,
+    // with narrow pointed windows; avoid a uniformly low arcade silhouette.
+    box(x, 13.5, z - 19, 25, 27, 10, plaster);
+    for (const dx of [-9, 0, 9]) {
+      box(x + dx, 19, z - 24.2, 3.5, 7, 0.4, wood);
+      const point = new THREE.Mesh(geo(new THREE.ConeGeometry(2, 2.8, 4)), dark);
+      point.position.set(x + dx, 23.6, z - 24.4); point.scale.z = 0.2; scene.add(point);
+      for (const edge of [-2.4, 2.4]) box(x + dx + edge, 19, z - 24.5, 0.45, 9, 0.5, cream);
     }
-    cylinder(x, 45.2, z, 1.1, 5.4, gold);
-    const finial = new THREE.Mesh(geo(new THREE.SphereGeometry(1.9, 10, 8)), gold); finial.position.set(x, 49, z); scene.add(finial);
-    for (const sx of [-1, 1]) for (let dy = 0; dy < 6; dy++) {
-      const r = 8 * Math.cos(dy / 6 * Math.PI / 2.05);
-      cylinder(x + sx * 34, 19.4 + dy * 1.7, z, r, 1.8, domeGold);
+    box(x, 27, z - 19, 27, 0.8, 12, cream);
+    // Two onion domes along the prayer hall axis, each with the dark bottle
+    // band beneath its gold shell (NHB Sultan Mosque architectural record).
+    for (const dz of [-13, 13]) {
+      cylinder(x, 28.5, z + dz, 11, 4, plaster);
+      cylinder(x, 30.5, z + dz, 11.2, 1.5, dark);
+      const profile = [[0, 10.7], [2, 12], [5, 12.8], [8, 11.9], [11, 9.1], [14, 5.4], [17, 1.2]];
+      const points = profile.map(([height, radius]) => new THREE.Vector2(radius, height));
+      const dome = new THREE.Mesh(geo(new THREE.LatheGeometry(points, 28)), domeGold);
+      dome.position.set(x, 31.2, z + dz); scene.add(dome);
+      cylinder(x, 50, z + dz, 0.3, 4, gold);
+      const crescent = new THREE.Mesh(geo(new THREE.TorusGeometry(1.3, 0.24, 6, 16, Math.PI * 1.55)), gold);
+      crescent.position.set(x, 52, z + dz); crescent.rotation.z = 0.7; scene.add(crescent);
     }
     // Corner minarets with balconies and capped lanterns.
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
@@ -91,7 +103,8 @@ export function buildKampongGlamScene() {
       for (let dy = 0; dy < 5; dy++) cylinder(mx, 31.6 + dy * 1.2, mz, 3.4 * Math.cos(dy / 5 * Math.PI / 2.1), 1.3, domeGold);
       cylinder(mx, 38.6, mz, 0.55, 3, gold);
     }
-    sign('SULTAN MOSQUE', x, 15.8, z - 24.2, 30, 2.2, '#1f5b57');
+    const mosqueSign = sign('SULTAN MOSQUE', x, 15.8, z - 24.2, 30, 2.2, '#1f5b57');
+    if (mosqueSign) mosqueSign.rotation.y = Math.PI;
   }
 
   /** Pedestrian mall: banded paving, palms, cafe seating and a view corridor. */
@@ -144,14 +157,14 @@ export function buildKampongGlamScene() {
     sign('ARAB STREET', (fromX + toX) / 2, 6.6, z + 9.6, 26, 2, '#7c2a38');
   }
 
-  /** Two-storey heritage villa with a cupola, verandah and walled grounds. */
+  /** Two-storey heritage villa with a hipped roof, verandah and walled grounds. */
   function heritageVilla(x: number, z: number) {
     box(x, 0.2, z, 96, 0.4, 84, grass);
     box(x, 8, z, 52, 16, 34, cream, scene, true); solid(x, z, 54, 36);
     for (const side of [-1, 1]) { const roof = box(x, 17, z + side * 9.6, 56, 0.6, 21, terra, scene, true); roof.rotation.x = side * 0.28; }
-    box(x, 19.6, z, 14, 2, 14, cream); cylinder(x, 22.4, z, 6, 4, plaster);
-    for (let dy = 0; dy < 5; dy++) cylinder(x, 25.2 + dy * 1.3, z, 5.6 * Math.cos(dy / 5 * Math.PI / 2.1), 1.4, terra);
-    cylinder(x, 32.4, z, 0.5, 3, gold);
+    // Broad hipped Malay limas roof, without the previously invented cupola.
+    const hip = new THREE.Mesh(geo(new THREE.ConeGeometry(1, 1, 4)), terra);
+    hip.position.set(x, 20, z); hip.scale.set(40, 10, 27); hip.rotation.y = Math.PI / 4; scene.add(hip);
     for (const level of [4.4, 11.4]) for (let dx = -22; dx <= 22; dx += 7.4) {
       box(x + dx, level, z - 17.3, 3, 4.4, 0.25, dark);
       box(x + dx, level + 2.6, z - 17.5, 3.8, 0.3, 0.5, cream);
@@ -162,7 +175,8 @@ export function buildKampongGlamScene() {
     for (let dx = -44; dx <= 44; dx += 4) box(x + dx, 1.1, z - 41, 0.4, 2.2, 0.4, teal);
     box(x, 2.3, z - 41, 90, 0.35, 0.5, teal);
     for (const dx of [-30, 30]) for (const dz of [-30, 6]) tree(x + dx, z + dz, 9, wood, leaf);
-    sign('MALAY HERITAGE CENTRE', x, 7.4, z - 20.1, 32, 2.1, '#1f5b57');
+    const heritageSign = sign('MALAY HERITAGE CENTRE', x, 7.4, z - 20.1, 32, 2.1, '#1f5b57');
+    if (heritageSign) heritageSign.rotation.y = Math.PI;
   }
 
   /** Glass retail block over a podium, with a street-level station entrance. */
@@ -178,11 +192,30 @@ export function buildKampongGlamScene() {
     box(x - 30, 2.4, z + 34, 16, 4.8, 8, dark); solid(x - 30, z + 34, 16, 8);
     box(x - 30, 5.2, z + 34, 18, 0.4, 10, glass, scene, true);
     sign('DT14  BUGIS', x - 30, 6.2, z + 38.4, 14, 1.4, '#1c4f8a');
-    sign('KAMPONG GLAM MALL', x, 15.6, z + 32.4, 40, 2.3, '#3a4448');
+    sign('BEACH ROAD SHOPS', x, 15.6, z + 32.4, 40, 2.3, '#3a4448');
   }
 
   mosque(10, 20);
   palmMall(10, -118, -34);
+  // Bussorah's reviewed view is a close, shop-lined pedestrian corridor.
+  // Low cream terraces frame the mosque rather than leaving an empty lawn.
+  for (const side of [-1, 1]) for (let z = -108; z <= -48; z += 12) {
+    const x = 10 + side * 30, front = x - side * 7.2;
+    box(x, 5.2, z, 14, 10.4, 11.6, plaster, scene, true); solid(x, z, 14, 11.6);
+    box(x, 11, z, 15, 0.6, 12, terra);
+    box(front, 5, z, 4, 0.4, 12, cream);
+    for (const dz of [-4.8, 4.8]) {
+      cylinder(front - side * 1.7, 2.4, z + dz, 0.28, 4.8, cream);
+      solid(front - side * 1.7, z + dz, 0.7, 0.7);
+    }
+    for (const dz of [-3, 0, 3]) {
+      box(front, 7.7, z + dz, 0.25, 3.3, 2.2, wood);
+      box(front - side * 0.2, 9.5, z + dz, 0.4, 0.25, 2.8, cream);
+    }
+    const shade = box(front - side * 1.4, 3.6, z, 3.6, 0.2, 10.4, side === -1 ? teal : lane[1]);
+    shade.rotation.z = side * 0.18;
+  }
+
   paintedLane(-124, -56, -75, 'HAJI LANE');
   textileStreet(72, 138, -86);
   heritageVilla(-90, 10);
@@ -204,19 +237,9 @@ export function buildKampongGlamScene() {
   // Southern strip, canal walk and outer verges.
   terrace(-128, -158, 8, 1, [plaster, lane[3], cream, lane[5]], 11, 9);
   terrace(74, -158, 7, 1, [cream, lane[4], plaster, lane[1]], 11, 9);
-  // Canal in the eastern verge, cut by a road bridge at every cross street.
-  const canalWater = mat('#5f8f9a');
-  box(186, 0.14, -6, 12, 0.3, 308, canalWater);
-  for (const [from, to] of [[-160, -132], [-108, -42], [-18, 48], [72, 148]] as const) {
-    const mid = (from + to) / 2, span = to - from;
-    for (const side of [-1, 1]) { box(186 + side * 6, 0.9, mid, 3, 1.6, span, stone); solid(186 + side * 6, mid, 3, span); }
-    for (const z of [from, to]) box(186, 0.9, z, 12, 1.6, 2, stone);
-  }
-  for (const z of EW_ROADS) {
-    box(186, 0.6, z, 16, 1.1, 24, stone, scene, true);
-    box(186, 1.2, z, 16, 0.12, 16, asphalt);
-    for (const side of [-1, 1]) box(186, 1.5, z + side * 8.6, 16, 0.7, 0.5, white);
-  }
+  // The mosque quarter is inland: replace the invented waterside canal with
+  // an ordinary paved Beach Road edge. Keep this verge as a usable route.
+  box(186, 0.14, -6, 24, 0.3, 308, paving);
   for (let z = -150; z < 160; z += 30) { box(172, 3.4, z, 0.18, 6.8, 0.18, dark); box(172, 6.6, z + 1, 0.24, 0.3, 2.2, white); solid(172, z, 0.4, 0.4); }
   for (let z = -140; z < 160; z += 24) tree(175, z, 8, wood, leaf);
   box(-180, 0.18, 0, 44, 0.35, 300, grass);
@@ -229,8 +252,8 @@ export function buildKampongGlamScene() {
     .flatMap((shirt, index) => [walker(10 + (index - 1.5) * 7, -90, shirt, skin, dark), walker(-90 + (index - 1.5) * 8, -75, shirt, skin, dark)]);
   const car = kit.car(mat('#8a9ba6'), glass, mat('#ded9c9'), dark);
   const stamps = stampRings(KAMPONG_GLAM_STAMPS, orange);
-  scene.userData.districtFeatures = ['ribbed-onion-dome', 'corner-minarets', 'horseshoe-arcade', 'palm-lined-mall', 'painted-lane-murals', 'textile-awnings', 'villa-cupola', 'louvred-shutters', 'canal-walk', 'banded-paving'];
-  scene.userData.referenceFeatures = [];
+  scene.userData.districtFeatures = ['ribbed-onion-dome', 'corner-minarets', 'horseshoe-arcade', 'palm-lined-mall', 'painted-lane-murals', 'textile-awnings', 'limas-hipped-roof', 'louvred-shutters', 'beach-road-edge', 'banded-paving'];
+  scene.userData.referenceFeatures = ['bussorah-axial-gold-dome', 'bussorah-close-cream-frontages', 'bussorah-palms-and-awnings'];
 
   return kit.finish({
     car, stamps,

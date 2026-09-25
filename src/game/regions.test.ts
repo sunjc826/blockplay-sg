@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
+import { readdirSync, readFileSync } from 'node:fs';
 import { getRegion, regionObjective, regionResetLabel, REGION_IDS, REGIONS, type RegionDefinition } from './regions';
 import { locations } from '../data/locations';
 import { getFpsDistrict } from './fps-districts';
@@ -45,22 +46,28 @@ it('registers every playable district exactly once, in picker order', () => {
 /**
  * The provenance split is the project's load-bearing claim about these scenes,
  * so it is asserted from the built scenes rather than left to prose that goes
- * stale every time a district lands. Three districts were built against
- * reviewed street-level references; every other scene records an empty list.
+ * stale every time a district lands. Original districts retain their reviewed features; newer feature claims must
+ * have accepted image evidence. Capturing an image alone does not qualify.
  */
-const REFERENCE_INFORMED: readonly string[] = ['marina-bay', 'raffles-place', 'queenstown'];
+const ORIGINAL_REFERENCE_REGIONS = ['marina-bay', 'raffles-place', 'queenstown'];
 
-it('keeps reference-informed and authored districts telling themselves apart', () => {
+it('backs newly reference-informed scene features with accepted image reviews', () => {
   for (const region of REGIONS) {
     const world = region.build();
     try {
       const features = world.scene.userData.referenceFeatures;
-      const informed = REFERENCE_INFORMED.includes(region.id);
       expect(Array.isArray(features), `${region.id} records referenceFeatures`).toBe(true);
-      expect(features.length > 0, `${region.id} referenceFeatures non-empty`).toBe(informed);
-      // Marina carries its guide in MarinaGame, not the shared harness, so it
-      // is the one reference-informed district with hasGuide false.
-      expect(region.hasGuide, `${region.id} hasGuide`).toBe(informed && region.id !== 'marina-bay');
+      if (ORIGINAL_REFERENCE_REGIONS.includes(region.id)) {
+        expect(features.length, `${region.id} retains reviewed features`).toBeGreaterThan(0);
+      } else if (features.length) {
+        const dir = new URL(`../../reconstruction/${region.id}/references/`, import.meta.url);
+        const reviewed = readdirSync(dir).filter(name => name.endsWith('.json')).map(name =>
+          JSON.parse(readFileSync(new URL(name, dir), 'utf8')),
+        ).filter(item => item.sha256 && item.visualReview?.status === 'accepted');
+        expect(reviewed.length, `${region.id} has an accepted image, not just a capture plan`).toBeGreaterThan(0);
+      }
+      // Source-linked learning catalogs are separate from geometric reference coverage.
+      expect(region.hasGuide, `${region.id} hasGuide`).toBe(['raffles-place', 'queenstown'].includes(region.id));
     } finally { world.dispose(); }
   }
 });

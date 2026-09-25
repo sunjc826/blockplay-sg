@@ -3,7 +3,7 @@ import { BISHAN_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
 
-// On the park's southern lawn, looking across the river at the town.
+// On the park's northern lawn; the town centre is south of the river.
 export const BISHAN_SPAWN = { x: -60, z: -74, yaw: 0 };
 export const BISHAN_BOUNDS = { minX: -255, maxX: 255, minZ: -210, maxZ: 210 };
 export { BISHAN_STAMPS } from '../data/region-stamps.ts';
@@ -29,8 +29,8 @@ export const BISHAN_MAP_ROADS = [
 /**
  * An authored, compressed interpretation of Bishan and Ang Mo Kio: a river
  * park where a straightened channel has been opened into a meander with
- * planted banks, the town centre and interchange north of it, and the slab
- * precincts around. Invented for play, without reference capture.
+ * grassy banks, the town centre and interchange south of it, and the slab
+ * precincts around. Compressed for play; source notes in docs/NORTH-CENTRAL-REVIEW.md.
  */
 export function buildBishanScene() {
   const kit = createSceneKit({
@@ -57,17 +57,17 @@ export function buildBishanScene() {
 
   // Park floor, then the meander itself: one short box per step, each one
   // overlapping its neighbours so the chain reads and collides as one river.
-  box(0, 0.16, -35, 470, 0.34, 92, lawn);
+  box(0, -0.22, -35, 470, 0.2, 92, lawn);
   for (let x = -215; x <= 215; x += RIVER.step) {
     if (riverGap(x)) continue;
     const cz = riverZ(x);
     box(x, -0.06, cz, RIVER.step + 2, 0.4, RIVER.halfWidth * 2, water);
     solid(x, cz, RIVER.step + 2, RIVER.halfWidth * 2 - 2);
-    // Banks: a shelving silt edge, then two courses of planted stone above it.
+    // Naturalised floodplain: broad low grassy shelves, not continuous stone walls.
     for (const side of [-1, 1]) {
       box(x, 0.1, cz + side * (RIVER.halfWidth + 1.6), RIVER.step + 2, 0.5, 4.4, silt);
-      box(x, 0.7, cz + side * (RIVER.halfWidth + 4.4), RIVER.step + 2, 1.2, 3, cobble);
-      box(x, 1.5, cz + side * (RIVER.halfWidth + 7), RIVER.step + 2, 1, 3.4, stone);
+      box(x, 0.18, cz + side * (RIVER.halfWidth + 4.4), RIVER.step + 2, 0.32, 5, grass);
+      box(x, 0.27, cz + side * (RIVER.halfWidth + 8), RIVER.step + 2, 0.24, 4.4, lawn);
       if (Math.round(x) % 18 === 0) for (let r = 0; r < 3; r++) blob(x + r * 0.8, 1.9, cz + side * (RIVER.halfWidth + 2.6), 0.6, 1.9, 0.5, r % 2 ? reed : sedge);
     }
     if (Math.round(x) % 24 === 0) {
@@ -133,19 +133,27 @@ export function buildBishanScene() {
     for (let dx = -48; dx <= 48; dx += 19) { box(x + dx, 1.6, z + 51, 9, 3.2, 3.4, panels[Math.abs(Math.round(dx / 19)) % panels.length]); solid(x + dx, z + 51, 9, 3.4); }
     box(x, 4.4, z + 42, 118, 0.4, 10, steel, scene, true);
     for (let dx = -52; dx <= 52; dx += 17) { cylinder(x + dx, 2.2, z + 39, 0.24, 4.4, steel); solid(x + dx, z + 39, 0.65, 0.65); }
-    sign('TOWN CENTRE', x, 11.6, z - 42.4, 30, 2.4, '#2f4a56');
+    sign('JUNCTION 8', x, 11.6, z - 42.4, 30, 2.4, '#2f4a56');
   }
 
-  /** Elevated line down the eastern approach, with a station over the road. */
+  /** Bishan's NS platforms are at ground level; the Circle Line is underground.
+   * Keep the compressed station beside the town mall, without the fictional
+   * elevated viaduct that previously dominated this district's skyline.
+   */
   function railStation(x: number, z: number) {
-    for (let dz = -90; dz <= 90; dz += 30) { cylinder(x, 6, z + dz, 1.7, 12, concrete); solid(x, z + dz, 3.6, 3.6); }
-    box(x, 12.8, z, 9, 1.6, 210, concrete);
-    for (const side of [-1, 1]) box(x + side * 4.2, 14.3, z, 0.8, 1.6, 210, pale);
-    box(x, 19, z, 28, 11, 52, pale, scene, true);
-    for (let dz = -20; dz < 22; dz += 6) for (const side of [-1, 1]) box(x + side * 14.4, 19, z + dz, 0.5, 7, 4.4, glass);
-    for (const side of [-1, 1]) { const roof = box(x, 25.4, z + side * 12, 32, 0.6, 26, steel, scene, true); roof.rotation.x = side * 0.15; }
-    box(x - 12, 8, z - 31, 8, 16, 7, concrete); solid(x - 12, z - 31, 8, 7);
-    sign('NS17  BISHAN', x, 15.4, z - 27, 22, 2.1, '#b8342c');
+    box(x, 0.2, z, 22, 0.4, 52, concrete);
+    for (const side of [-1, 1]) {
+      box(x + side * 8.4, 2.8, z, 0.5, 5.6, 50, glass);
+      box(x + side * 8.6, 4.8, z, 0.8, 0.6, 52, pale);
+      for (let dz = -22; dz <= 22; dz += 11) {
+        cylinder(x + side * 9, 3.2, z + dz, 0.32, 6.4, steel);
+        solid(x + side * 9, z + dz, 0.8, 0.8);
+      }
+      const roof = box(x + side * 5, 6.7, z, 12, 0.5, 56, pale, scene, true);
+      roof.rotation.z = side * 0.12;
+    }
+    box(x, 7.5, z, 2, 0.5, 56, glass);
+    sign('NS17 / CC15  BISHAN', x, 5, z - 27, 22, 1.6, '#b8342c');
   }
 
   /** Sheltered court: a shade structure over seats and a play surface. */
@@ -162,7 +170,18 @@ export function buildBishanScene() {
   railStation(200, 60);
   court(-60, -140);
 
-  // North field carries the range; planting keeps to its margins.
+  // April 2014 park preview: an oval grey shade roof, cylindrical piers and
+  // horizontal louvres above an open paved apron. No river geometry inferred.
+  box(-60, 0.18, -84, 42, 0.2, 15, concrete);
+  const parkCanopy = cylinder(-60, 6.5, -84, 1, 0.45, steel);
+  parkCanopy.scale.set(20, 1, 7);
+  for (const dx of [-15, 15]) for (const dz of [-4, 4]) {
+    cylinder(-60 + dx, 3.1, -84 + dz, 0.32, 6.2, pale);
+    solid(-60 + dx, -84 + dz, 0.75, 0.75);
+  }
+  for (const y of [4.2, 4.8, 5.4]) box(-60, y, -88, 32, 0.18, 0.15, steel);
+
+  // Southern field carries the range; planting keeps to its margins.
   box(185, 0.18, 105, 50, 0.35, 110, lawn);
   for (const z of [58, 152]) { tree(164, z, 9, wood, leaf); tree(206, z - 6, 8, wood, fern); }
   for (const z of [66, 146]) { box(206, 0.85, z, 3.4, 0.22, 1.2, wood); solid(206, z, 3.6, 1.2); }
@@ -171,14 +190,14 @@ export function buildBishanScene() {
   for (const x of [-190, -110, 40, 140, 200]) for (const z of [-84, 4]) tree(x, z, 9, wood, leaf);
   for (let x = -200; x <= 200; x += 30) { tree(x, -EDGE_Z - 16, 8, wood, leaf); tree(x, EDGE_Z + 16, 8, wood, leaf); }
   for (const x of [-EDGE_X - 16, EDGE_X + 16]) for (let z = -150; z <= 150; z += 26) tree(x, z, 8, wood, fern);
-  sign('RIVER PARK', -60, 6.4, -88, 28, 2.3, '#2f6b6b');
+  sign('BISHAN–ANG MO KIO PARK', -60, 6.4, -88, 28, 2.3, '#2f6b6b');
 
   const pedestrians = ['#e9e7d8', '#6f95a6', '#a8563a', '#8fb6ae'].map(color => mat(color))
     .flatMap((shirt, index) => [walker(-80 + index * 20, -74, shirt, skin, dark), walker(75, 60 + index * 12, shirt, skin, dark)]);
   const car = kit.car(mat('#86a094'), glass, mat('#dad5c5'), dark);
   const stamps = stampRings(BISHAN_STAMPS, orange);
-  scene.userData.districtFeatures = ['meandering-river-chain', 'shelving-silt-edge', 'planted-stone-courses', 'channel-boulders', 'stepping-stones', 'arched-footbridge', 'recessed-loggia-slabs', 'corner-core-towers', 'shade-sail-court', 'elevated-line-station'];
-  scene.userData.referenceFeatures = [];
+  scene.userData.districtFeatures = ['meandering-river-chain', 'shelving-silt-edge', 'grassy-floodplain-shelves', 'channel-boulders', 'stepping-stones', 'arched-footbridge', 'recessed-loggia-slabs', 'corner-core-towers', 'shade-sail-court', 'ground-level-station'];
+  scene.userData.referenceFeatures = ['bishan-park-road-0:oval-shade-pavilion', 'bishan-park-road-0:open-park-lawn'];
 
   return kit.finish({
     car, stamps,

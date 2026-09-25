@@ -19,7 +19,8 @@ export const CHINATOWN_MAP_ROADS = [
  * An authored, compressed interpretation of the Chinatown streets: shophouse
  * terraces, a market lane, a food street and the two temples that anchor the
  * district. Layout is invented for play, not surveyed, and this region was
- * composed without new street-level reference capture.
+ * refined using two reviewed street-level previews in September 2026.
+ * Those views cover shop streets; temple facades remain simplified.
  */
 export function buildChinatownScene() {
   const kit = createSceneKit({
@@ -43,14 +44,20 @@ export function buildChinatownScene() {
   kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });
 
   /** Two-storey terrace with a five-foot way, shutters and a pitched roof. */
-  function shophouseRow(startX: number, z: number, count: number, facing: 1 | -1, width = 12) {
+  function shophouseRow(startX: number, z: number, count: number, facing: 1 | -1, width = 12, paleFacade = false) {
     for (let i = 0; i < count; i++) {
-      const x = startX + i * width, body = shopColors[(i + (z > 0 ? 2 : 0)) % shopColors.length];
+      const x = startX + i * width, body = paleFacade ? plaster : shopColors[(i + (z > 0 ? 2 : 0)) % shopColors.length];
       box(x, 5.2, z, width - 0.4, 10.4, 15, body, scene, true); solid(x, z, width, 15);
       const front = z + facing * 7.5;
       // Pitched terracotta roof with small tile courses.
       for (const side of [-1, 1]) { const roof = box(x, 11, z + side * 4.2, width, 0.4, 9.4, terra, scene, true); roof.rotation.x = side * 0.2; }
       for (let t = -6.4; t <= 6.4; t += 1.2) box(x, 11.45 - Math.abs(t) * 0.2, z + t, width - 0.5, 0.12, 1.1, tileDark);
+      // South Bridge Road preview: stepped parapets conceal parts of the roof.
+      if (i % 3 === 1) {
+        box(x, 11, front, width, 1.8, 0.6, body);
+        box(x, 12.2, front, width * 0.56, 1.4, 0.6, body);
+        for (const dx of [-width * 0.28, width * 0.28]) box(x + dx, 12.3, front, 0.45, 1.7, 0.8, stone);
+      }
       // Five-foot way: columns, arched beam and a shaded walkway.
       box(x, 4.3, front + facing * 1.9, width, 0.45, 4.2, plaster, scene, true);
       for (const dx of [-width / 2 + 1.2, width / 2 - 1.2]) { cylinder(x + dx, 2.1, front + facing * 3.4, 0.36, 4.2, plaster); solid(x + dx, front + facing * 3.4, 0.9, 0.9); }
@@ -72,8 +79,17 @@ export function buildChinatownScene() {
   /** Stall rows with striped canopies and a lantern string overhead. */
   function marketLane(fromX: number, toX: number, z: number, label: string) {
     box((fromX + toX) / 2, 0.16, z, toX - fromX + 12, 0.3, 26, paving);
+    // Pagoda's captured pedestrian lane has brick paving and pale kiosks
+    // along one side, rather than a second symmetrical food-stall market.
+    if (label === 'PAGODA STREET') {
+      box((fromX + toX) / 2, 0.33, z, toX - fromX + 12, 0.02, 24, terra);
+      for (let bx = fromX - 4; bx < toX + 6; bx += 3) for (let bz = -9; bz <= 9; bz += 3) {
+        box(bx + (bz % 2 ? 0.7 : 0), 0.35, z + bz, 2.8, 0.025, 0.08, paving);
+      }
+    }
     for (let x = fromX; x <= toX; x += 9) for (const side of [-1, 1]) {
-      const stallZ = z + side * 8.5, cloth = (Math.round(x / 9) + side) % 2 ? canopyRed : canopyYellow;
+      if (label === 'PAGODA STREET' && side === 1) continue;
+      const stallZ = z + side * 8.5, cloth = label === 'PAGODA STREET' ? plaster : (Math.round(x / 9) + side) % 2 ? canopyRed : canopyYellow;
       // Stall body, counter and the goods stacked on it.
       box(x, 1.2, stallZ, 6.4, 2.4, 3.6, shopColors[Math.abs(Math.round(x / 9) + side) % shopColors.length]); solid(x, stallZ, 6.6, 3.8);
       box(x, 2.5, stallZ - side * 1.9, 6.8, 0.28, 0.7, wood);
@@ -104,11 +120,11 @@ export function buildChinatownScene() {
 
   /** Tang-style hall: stacked hipped roofs, a colonnade and a rooftop stupa. */
   function reliquaryTemple(x: number, z: number) {
-    box(x, 7, z, 54, 14, 40, lacquer, scene, true); solid(x, z, 56, 42);
+    box(x, 13, z, 54, 26, 40, lacquer, scene, true); solid(x, z, 56, 42);
     for (const dx of [-22, -11, 0, 11, 22]) { cylinder(x + dx, 4, z + 21.6, 0.85, 8, lacquer); solid(x + dx, z + 21.6, 1.8, 1.8); }
     box(x, 8.4, z + 21.8, 54, 0.6, 5, gold);
-    for (let tier = 0; tier < 3; tier++) {
-      const span = 58 - tier * 12, y = 14.6 + tier * 4.6;
+    for (let tier = 0; tier < 4; tier++) {
+      const span = 58 - tier * 2, y = 9 + tier * 7;
       for (const side of [-1, 1]) {
         const roof = box(x, y, z + side * (span / 4.2), span, 0.7, span / 2, tileDark, scene, true);
         roof.rotation.x = side * 0.34;
@@ -121,9 +137,9 @@ export function buildChinatownScene() {
         tip.rotation.z = sx * 0.5; tip.rotation.y = sz * 0.3;
       }
     }
-    for (let y = 16; y < 26; y += 4.6) for (let dx = -20; dx <= 20; dx += 8) box(x + dx, y, z - 20.4, 4.6, 2.4, 0.3, gold);
-    cylinder(x, 30, z, 4.2, 6, gold); cylinder(x, 34.4, z, 2.4, 4.4, gold);
-    const finial = new THREE.Mesh(geo(new THREE.ConeGeometry(1.6, 5.4, 8)), gold); finial.position.set(x, 39, z); scene.add(finial);
+    for (let y = 11; y < 31; y += 7) for (let dx = -20; dx <= 20; dx += 8) box(x + dx, y, z - 20.4, 4.6, 2.4, 0.3, gold);
+    cylinder(x, 34, z, 4.2, 6, gold); cylinder(x, 38.4, z, 2.4, 4.4, gold);
+    const finial = new THREE.Mesh(geo(new THREE.ConeGeometry(1.6, 5.4, 8)), gold); finial.position.set(x, 43, z); scene.add(finial);
     sign('BUDDHA TOOTH RELIC TEMPLE', x, 10.4, z + 24.4, 40, 2.3, '#6d1f19');
   }
 
@@ -151,8 +167,9 @@ export function buildChinatownScene() {
   function slabComplex(x: number, z: number) {
     box(x, 5, z, 76, 10, 44, concrete, scene, true); solid(x, z, 78, 46);
     box(x, 10.4, z, 80, 1, 48, stone);
-    box(x, 36, z - 4, 66, 52, 26, concrete, scene, true);
-    const panels = ['#d8a63a', '#a8c3b0', '#cf9f93', '#9fb4c6'].map(color => mat(color));
+    box(x, 36, z - 4, 66, 52, 26, mat('#d2ac36'), scene, true);
+    for (const y of [18, 35, 52]) box(x, y, z + 9.5, 66, 2, 0.6, jade);
+    const panels = ['#d2ac36', '#d2ac36', '#6f8050', '#d2ac36'].map(color => mat(color));
     for (let y = 13; y < 60; y += 3.6) for (let dx = -31; dx < 32; dx += 5.2) {
       box(x + dx, y, z + 9.2, 4.4, 2.6, 0.35, panels[(Math.round(dx / 5.2) + Math.round(y)) % 4]);
       box(x + dx, y, z - 17.2, 4.4, 2.6, 0.35, panels[(Math.round(dx / 5.2) + Math.round(y) + 2) % 4]);
@@ -193,15 +210,16 @@ export function buildChinatownScene() {
   shophouseRow(-52, -114, 7, 1);      // Trengganu Street terrace, facing the lane
   shophouseRow(-52, -86, 7, -1);
   marketLane(-46, 22, -15, 'PAGODA STREET');
-  shophouseRow(-52, -38, 7, 1);
-  shophouseRow(-52, 8, 7, -1);
+  shophouseRow(-52, -38, 7, 1, 12, true);
+  shophouseRow(-52, 8, 7, -1, 12, true);
   marketLane(-46, 22, 80, 'SMITH STREET');
   shophouseRow(-52, 57, 7, 1);
   shophouseRow(-52, 103, 7, -1);
-  reliquaryTemple(-120, -18);
+  // Both temple landmarks now share the South Bridge Road side of the grid.
+  reliquaryTemple(95, -14);
   gopuramTemple(95, -92);
   slabComplex(-120, -104);
-  hawkerHall(95, -14);
+  hawkerHall(-120, -18);
   stationEntrance(-90, 100);
 
   // Kreta Ayer square: paved forecourt, planting beds, benches and a stage wall.
@@ -245,7 +263,7 @@ export function buildChinatownScene() {
   const car = kit.car(mat('#6f8f9c'), glass, mat('#dad6c8'), dark);
   const stamps = stampRings(CHINATOWN_STAMPS, orange);
   scene.userData.districtFeatures = ['shophouse-five-foot-way', 'pitched-tile-courses', 'market-canopy-lane', 'lantern-string', 'stacked-hipped-roofs', 'tiered-gopuram', 'slab-panel-grid', 'vented-hawker-roof', 'street-gateway-arch', 'terraced-slope'];
-  scene.userData.referenceFeatures = [];
+  scene.userData.referenceFeatures = ['south-bridge-stepped-parapets', 'pagoda-pale-colonnades', 'pagoda-brick-pedestrian-lane'];
 
   return kit.finish({
     car, stamps,

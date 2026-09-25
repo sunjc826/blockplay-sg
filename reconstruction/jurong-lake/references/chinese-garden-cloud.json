@@ -6,11 +6,16 @@
     "lng": 103.73047193746906
   },
   "description": "",
-  "copyright": "© 2026 Google",
+  "copyright": "\u00a9 2026 Google",
   "date": "2016-06",
   "requested": {
     "lat": 1.3387,
     "lng": 103.7304
   },
-  "selectedGoogle": true
+  "selectedGoogle": true,
+  "visualReview": {
+    "status": "rejected",
+    "reviewedAt": "2026-09-25",
+    "notes": "Garden asphalt path, drainage edge and low disc lamps only; no pagoda visible."
+  }
 }
