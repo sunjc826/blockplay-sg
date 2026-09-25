@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 # Serialize all reference jobs using this group. Do not capture on another
 # machine until this run's ledger and any partial captures have been imported.
@@ -22,6 +23,28 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Recover reviewed first-batch capture artifact
+        if: hashFiles('reconstruction/orchard/references/emerald-hill-mouth-0.png') == ''
+        uses: actions/download-artifact@v4
+        with:
+          name: orchard-references-36090750942-1
+          run-id: 36090750942
+          github-token: ${{ github.token }}
+          path: /tmp/orchard-recovery
+      - name: Reconcile recovered request ledger and references
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json, shutil
+          recovered = Path('/tmp/orchard-recovery')
+          if recovered.exists():
+              target = Path('reconstruction/api-usage.json')
+              old = json.loads(target.read_text())
+              new = json.loads((recovered / 'api-usage.json').read_text())
+              assert new['attempts'][:len(old['attempts'])] == old['attempts'], 'Ledger diverged; reconcile manually'
+              shutil.copy2(recovered / 'api-usage.json', target)
+              shutil.copytree(recovered / 'orchard/references', 'reconstruction/orchard/references', dirs_exist_ok=True)
+          PY
       - name: Check credential
         env:
           GOOGLE_MAPS_DEMO_API_KEY: ${{ secrets.GOOGLE_MAPS_DEMO_API_KEY }}
