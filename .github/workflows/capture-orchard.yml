@@ -1,0 +1,72 @@
+name: Capture Orchard references
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [reconstruction/orchard-browser-plan.json]
+
+permissions:
+  contents: read
+
+# Serialize all reference jobs using this group. Do not capture on another
+# machine until this run's ledger and any partial captures have been imported.
+concurrency:
+  group: street-view-reference-capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    if: github.repository == 'sunjc826/blockplay-sg'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check credential
+        env:
+          GOOGLE_MAPS_DEMO_API_KEY: ${{ secrets.GOOGLE_MAPS_DEMO_API_KEY }}
+        run: |
+          if [ -z "$GOOGLE_MAPS_DEMO_API_KEY" ]; then
+            echo "::error::Set the GOOGLE_MAPS_DEMO_API_KEY repository secret."
+            exit 1
+          fi
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec vitest run src/game/browser-capture-plan.test.ts src/game/capture-readiness.test.ts
+      - name: Select panoramas and capture references
+        env:
+          GOOGLE_MAPS_DEMO_API_KEY: ${{ secrets.GOOGLE_MAPS_DEMO_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Avoid spending again on a rerun before partial results are reconciled.
+          if [ "$GITHUB_RUN_ATTEMPT" != 1 ]; then
+            echo "::error::Import the previous artifact and ledger before starting a new capture run."
+            exit 1
+          fi
+          pnpm dev --host 127.0.0.1 > /tmp/orchard-vite.log 2>&1 &
+          vite_pid=$!
+          google-chrome --headless=new --no-sandbox --disable-dev-shm-usage --enable-unsafe-swiftshader --use-angle=swiftshader --remote-debugging-port=9223 --user-data-dir=/tmp/orchard-chrome about:blank > /tmp/orchard-chrome.log 2>&1 &
+          chrome_pid=$!
+          trap 'kill "$vite_pid" "$chrome_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:5173/scripts/pages/capture-streetview.html > /dev/null && curl -fsS http://127.0.0.1:9223/json/version > /dev/null; then break; fi
+            sleep 1
+          done
+          timeout 180 node scripts/select-marina-references.mjs --plan reconstruction/orchard-browser-plan.json
+          node scripts/capture-marina-browser.mjs --plan reconstruction/orchard-browser-plan.json
+      - name: Preserve images, metadata and ledger even after partial failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orchard-references-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            reconstruction/orchard/references/
+            reconstruction/orchard-browser-plan.json
+            reconstruction/api-usage.json
+          retention-days: 30
+          if-no-files-found: error

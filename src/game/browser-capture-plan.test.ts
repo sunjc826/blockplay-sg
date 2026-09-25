@@ -26,3 +26,8 @@ it('validates the existing screenshot cache and refuses changed camera settings'
   expect(views[0].cached.sha256).toMatch(/^[a-f0-9]{64}$/);
   await expect(prepareViews({ ...cachedPlan, views: [{ ...cachedPlan.views[0], pitch: 16 }] })).rejects.toThrow('Cache differs');
 });
+it('allows the owner-requested Orchard browser scope without admitting other districts', () => {
+  expect(validatePlan({ ...plan, region: 'orchard' }).region).toBe('orchard');
+  expect(() => validatePlan({ ...plan, region: 'chinatown' })).toThrow('Unapproved region');
+  expect(() => validatePlan({ ...plan, region: 'orchard', views: [{ ...plan.views[0], source: 'original-waterfront' }] })).toThrow('belongs to Marina');
+});

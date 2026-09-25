@@ -1,5 +1,9 @@
 # Blockplay: portable agent handoff
 
+## Orchard reference workflow preparation (2026-09-25)
+
+Owner requested reference-based Orchard reconstruction, including revised predefined sectors, and configured the GOOGLE_MAPS_DEMO_API_KEY Actions secret. Added a bounded 24-view browser capture plan across six approximate source locations and an Actions capture job using the existing selection/readiness/ledger pipeline. Orchard is now an allowed browser capture region; Static allowances and historical ledger are unchanged. Captures remain pending visual review; Orchard is still authored, not yet reference-informed. Import the workflow artifact including partial captures and reconcile its ledger before another capture run. Never include credentials or raw browser logs in artifacts. The geometry/sector rebuild follows accepted references, preserving district loot and pricing rules.
+
 ## Softer unsupported .50 recoil (2026-09-23)
 
 Standing base-.50 fire still deals 20 raw recoil damage; grounded crouched fire

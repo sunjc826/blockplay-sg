@@ -1,0 +1,227 @@
+{
+  "name": "orchard-reference-batch-01",
+  "region": "orchard",
+  "width": 1280,
+  "height": 900,
+  "maxNewImages": 24,
+  "sources": {
+    "orchard-junction.json": {
+      "lat": 1.3045,
+      "lng": 103.832
+    },
+    "ion-frontage.json": {
+      "lat": 1.3039,
+      "lng": 103.8324
+    },
+    "wisma-frontage.json": {
+      "lat": 1.3035,
+      "lng": 103.8336
+    },
+    "ngee-ann-frontage.json": {
+      "lat": 1.3027,
+      "lng": 103.8349
+    },
+    "somerset-frontage.json": {
+      "lat": 1.3012,
+      "lng": 103.8381
+    },
+    "emerald-hill-mouth.json": {
+      "lat": 1.3014,
+      "lng": 103.8391
+    }
+  },
+  "views": [
+    {
+      "id": "orchard-junction-0",
+      "source": "orchard-junction.json",
+      "heading": 0,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "orchard-junction-90",
+      "source": "orchard-junction.json",
+      "heading": 90,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "orchard-junction-180",
+      "source": "orchard-junction.json",
+      "heading": 180,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "orchard-junction-270",
+      "source": "orchard-junction.json",
+      "heading": 270,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "ion-frontage-0",
+      "source": "ion-frontage.json",
+      "heading": 0,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "ion-frontage-90",
+      "source": "ion-frontage.json",
+      "heading": 90,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "ion-frontage-180",
+      "source": "ion-frontage.json",
+      "heading": 180,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "ion-frontage-270",
+      "source": "ion-frontage.json",
+      "heading": 270,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "wisma-frontage-0",
+      "source": "wisma-frontage.json",
+      "heading": 0,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "wisma-frontage-90",
+      "source": "wisma-frontage.json",
+      "heading": 90,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "wisma-frontage-180",
+      "source": "wisma-frontage.json",
+      "heading": 180,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "wisma-frontage-270",
+      "source": "wisma-frontage.json",
+      "heading": 270,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "ngee-ann-frontage-0",
+      "source": "ngee-ann-frontage.json",
+      "heading": 0,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "ngee-ann-frontage-90",
+      "source": "ngee-ann-frontage.json",
+      "heading": 90,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "ngee-ann-frontage-180",
+      "source": "ngee-ann-frontage.json",
+      "heading": 180,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "ngee-ann-frontage-270",
+      "source": "ngee-ann-frontage.json",
+      "heading": 270,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "somerset-frontage-0",
+      "source": "somerset-frontage.json",
+      "heading": 0,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "somerset-frontage-90",
+      "source": "somerset-frontage.json",
+      "heading": 90,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "somerset-frontage-180",
+      "source": "somerset-frontage.json",
+      "heading": 180,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "somerset-frontage-270",
+      "source": "somerset-frontage.json",
+      "heading": 270,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "emerald-hill-mouth-0",
+      "source": "emerald-hill-mouth.json",
+      "heading": 0,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "emerald-hill-mouth-90",
+      "source": "emerald-hill-mouth.json",
+      "heading": 90,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "emerald-hill-mouth-180",
+      "source": "emerald-hill-mouth.json",
+      "heading": 180,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    },
+    {
+      "id": "emerald-hill-mouth-270",
+      "source": "emerald-hill-mouth.json",
+      "heading": 270,
+      "pitch": 10,
+      "zoom": 1,
+      "purpose": "Review actual landmark placement, street section, facade silhouette, pedestrian space and sector boundaries; requested coordinates are approximate and selected panorama must be visually checked."
+    }
+  ]
+}
