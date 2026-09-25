@@ -1,5 +1,22 @@
 # Blockplay: portable agent handoff
 
+## Armed vehicles and destruction (2026-09-25)
+
+Added roof GPMG (Utility: 600 HP, 240 rounds) and chin HMG (Falcon: 900 HP,
+400 rounds), mouse/touch fire, actual-impact reticle, hull/ammo HUD, damage
+stages, smoke/fire, one-shot destruction events, cover-aware blast damage,
+chain explosions, crew death, falling helicopter wrecks and collision damage.
+Ammo/health persist across entry/exit; only exercise reset restores them.
+Mounted ammo is separate from infantry supplies. Wrecks cannot be entered.
+See docs/VEHICLE-COMBAT.md for tuning and scope.
+
+Validation: full tests, typecheck and production build; vehicle regressions
+cover finite ammo, cooldown, damage stages, destroyed movement/fire, re-entry,
+reset, aim direction and effect cleanup. Browser visual play-test blocked by
+cloud browser ERR_BLOCKED_BY_CLIENT for the workspace localhost URL. Do not
+claim visual or live deployment validation from these automated checks.
+
+
 ## Per-district capture orchestration (2026-09-25)
 
 Owner requested the Orchard workflow generalized to all districts, explicitly avoiding unrelated Google calls. Capture district references keeps the legacy workflow path; manual input selects one district, push diffs select only changed canonical district plans. Cache preflight runs without Chrome/Google or dependencies. New sources default to one preview each; full mode requires accepted source reviews. Selected district outputs plus the shared ledger are committed using the write permission the owner explicitly approved. Shared runs are serialized; no force pushes or automatic request retries. See docs/REFERENCE-CAPTURE.md. Orchard replacement run 36118178047 succeeded under the prior read-only workflow; its artifact is the one-time recovery source, scoped only to Orchard. This change does not trigger a capture, create speculative plans for other districts or change scene provenance. Orchard map/sector rebuild remains outstanding. Validation: 812 tests and typecheck passed; workflow YAML and Node syntax checked. No Google calls were made for this generalization.

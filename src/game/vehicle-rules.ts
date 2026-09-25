@@ -1,11 +1,12 @@
 import { MARINA_BOUNDS, type Obstacle } from './marina-collision';
+import { VEHICLE_COMBAT } from './vehicle-combat';
 export type VehicleKind = 'car' | 'helicopter';
 export interface VehicleSpawn { x: number; z: number; yaw: number }
 export type VehicleWorldBounds = Pick<Obstacle, 'minX' | 'maxX' | 'minZ' | 'maxZ'>;
-export interface VehicleState { kind: VehicleKind; x: number; y: number; z: number; yaw: number; speed: number; climb: number }
+export interface VehicleState { kind: VehicleKind; x: number; y: number; z: number; yaw: number; speed: number; climb: number; health: number; ammo: number; weaponCooldown: number }
 export interface FlightObstacle extends Obstacle { minY: number; maxY: number }
 export const VEHICLE_SPAWNS = { car: { x: -48, z: 68, yaw: -Math.PI / 2 }, helicopter: { x: -65, z: 69, yaw: 0 } };
-export const createVehicle = (kind: VehicleKind, spawn: VehicleSpawn = VEHICLE_SPAWNS[kind]): VehicleState => ({ kind, ...spawn, y: .13, speed: 0, climb: 0 });
+export const createVehicle = (kind: VehicleKind, spawn: VehicleSpawn = VEHICLE_SPAWNS[kind]): VehicleState => ({ kind, ...spawn, y: .13, speed: 0, climb: 0, health: VEHICLE_COMBAT[kind].health, ammo: VEHICLE_COMBAT[kind].ammo, weaponCooldown: 0 });
 const damp = (a: number, b: number, rate: number, dt: number) => b + (a - b) * Math.exp(-rate * dt);
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
 export function vehicleBounds(v: VehicleState): Obstacle {
@@ -15,6 +16,7 @@ export function vehicleBounds(v: VehicleState): Obstacle {
   return { minX: v.x - x, maxX: v.x + x, minZ: v.z - z, maxZ: v.z + z };
 }
 export function driveVehicle(v: VehicleState, forward: number, steer: number, brake: boolean, dt: number, obstacles: readonly Obstacle[], bounds: VehicleWorldBounds = MARINA_BOUNDS) {
+  if (v.health <= 0) return { state: { ...v, speed: 0, climb: 0 }, blocked: false };
   dt = clamp(dt, 0, .05);
   let speed = brake ? damp(v.speed, 0, 15, dt) : forward ? clamp(v.speed + forward * 10 * dt, -6, 20) : damp(v.speed, 0, 2, dt);
   let yaw = v.yaw - steer * Math.min(Math.abs(speed) / 8, 1.3) * Math.sign(speed) * dt;
@@ -36,6 +38,7 @@ export function canFly(x: number, y: number, z: number, obstacles: readonly Flig
   return !obstacles.some(o => y < o.maxY && y + 3.7 > o.minY && x + r > o.minX && x - r < o.maxX && z + r > o.minZ && z - r < o.maxZ);
 }
 export function flyVehicle(v: VehicleState, forward: number, steer: number, lift: number, boost: boolean, dt: number, obstacles: readonly FlightObstacle[], bounds: VehicleWorldBounds = MARINA_BOUNDS) {
+  if (v.health <= 0) return { state: { ...v, speed: 0, climb: 0 }, blocked: false };
   dt = clamp(dt, 0, .05);
   let speed = damp(v.speed, forward * (boost ? 30 : 20), 1.8, dt), climb = damp(v.climb, lift * 5, 3, dt);
   const yaw = v.yaw - steer * 1.05 * dt;

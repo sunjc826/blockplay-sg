@@ -1,5 +1,22 @@
 ## Housekeeping: agent notes and capture tooling
 
+## Armed vehicles and destruction (2026-09-25)
+
+Added roof GPMG (Utility: 600 HP, 240 rounds) and chin HMG (Falcon: 900 HP,
+400 rounds), mouse/touch fire, actual-impact reticle, hull/ammo HUD, damage
+stages, smoke/fire, one-shot destruction events, cover-aware blast damage,
+chain explosions, crew death, falling helicopter wrecks and collision damage.
+Ammo/health persist across entry/exit; only exercise reset restores them.
+Mounted ammo is separate from infantry supplies. Wrecks cannot be entered.
+See docs/VEHICLE-COMBAT.md for tuning and scope.
+
+Validation: full tests, typecheck and production build; vehicle regressions
+cover finite ammo, cooldown, damage stages, destroyed movement/fire, re-entry,
+reset, aim direction and effect cleanup. Browser visual play-test blocked by
+cloud browser ERR_BLOCKED_BY_CLIENT for the workspace localhost URL. Do not
+claim visual or live deployment validation from these automated checks.
+
+
 ## Softer unsupported .50 recoil (2026-09-23)
 
 Standing base-.50 fire still deals 20 raw recoil damage; grounded crouched fire

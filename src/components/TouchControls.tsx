@@ -127,7 +127,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
         style={{ '--arc-x': arc.slots[index].x, '--arc-y': arc.slots[index].y } as React.CSSProperties}
         {...item.props}
       >{item.icon}</button>)}
-      <button type="button" className="touch-fire" data-touch-action="fire" aria-label="Fire" disabled={mounted} {...fire}>FIRE</button>
+      <button type="button" className="touch-fire" data-touch-action="fire" aria-label="Fire" disabled={mounted && hud.vehicleAmmo === 0} {...fire}>FIRE</button>
     </div>
   </div>;
 }

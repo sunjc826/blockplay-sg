@@ -269,3 +269,14 @@
 /* Expanded armoury platform selectors and five-slot loadout. */
 .armory-family{flex-wrap:wrap}.fps-loadout{flex-wrap:wrap}.fps-loadout>button{min-width:0;flex:1 1 180px}
 .armory-carry{margin:18px 24px 0;padding:14px;border:1px solid var(--armory-line);color:#dbe2d9}.armory-carry-heading{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:11px;margin-bottom:12px}.armory-carry-heading span,.armory-carry small,.armory-carry p{font-size:10px;color:#a9b5ab;line-height:1.5}.armory-carry-slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.armory-carry-slots>div,.armory-carry-slots>label{min-width:0;display:flex;flex-direction:column;gap:7px}.armory-carry-slots span{font-size:9px;letter-spacing:.5px}.armory-carry-slots strong{font-size:12px}.armory-carry select,.armory-carry button{min-width:0;width:100%;padding:9px;font:inherit;font-size:11px;color:#e7e9dd;background:#26362d;border:1px solid #52644e;border-radius:3px}.armory-carry button:disabled{opacity:.55}.armory-carry p{margin:12px 0 0}@media(max-width:700px){.armory-carry{margin:16px 17px 0}.armory-carry-slots{grid-template-columns:1fr}}
+
+.fps-vehicle-vitals { display:grid; gap:5px; margin-top:7px; font:11px monospace; }
+.fps-vehicle-vitals label { display:grid; gap:4px; }
+.fps-vehicle-vitals meter { width:100%; height:8px; }
+.fps-vehicle-vitals small { padding:0; }
+.fps-vehicle-hud[data-damage="critical"] .fps-vehicle-vitals { color:#ff976e; }
+.fps-game[data-touch="on"] .fps-vehicle-hud { top:95px; bottom:auto; right:12px; }
+.fps-game[data-touch="on"] .fps-vehicle-hud>strong { font-size:24px; }
+.fps-game[data-touch="on"] .fps-vehicle-vitals { font-size:9px; }
+
+.fps-vehicle-reticle { position:absolute; transform:translate(-50%,-50%); color:#ffe9a2; font:30px monospace; text-shadow:0 1px 3px #000; pointer-events:none; }

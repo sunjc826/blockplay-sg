@@ -69,6 +69,15 @@ export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
     }
     box(.22, .16, .2, -.95, 1.7, .60, red); box(.22, .16, .2, .95, 1.7, .60, lamp);
   }
+  const turret = new THREE.Group(); turret.name = 'vehicle-turret';
+  turret.position.set(0, kind === 'car' ? 2.55 : .72, kind === 'car' ? -.45 : -1.7); root.add(turret);
+  box(.5, .3, .85, 0, 0, -.1, dark, turret);
+  box(.25, .28, .45, -.35, -.02, .12, metal, turret);
+  rod([0, 0, -.4], [0, 0, -1.65], .07, metal, turret);
+  const muzzle = new THREE.Object3D(); muzzle.name = 'vehicle-muzzle'; muzzle.position.z = -1.7; turret.add(muzzle);
+  const flash = new THREE.Mesh(new THREE.ConeGeometry(.19, .65, 7), new THREE.MeshBasicMaterial({ color: '#ffcb66' }));
+  flash.name = 'vehicle-muzzle-flash'; flash.rotation.x = -Math.PI / 2; flash.position.z = -1.9; flash.visible = false;
+  flash.raycast = () => {}; turret.add(flash);
   root.userData.vehicleKind = kind;
   return root;
 }
