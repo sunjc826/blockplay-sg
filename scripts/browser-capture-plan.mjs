@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { REGION_IDS } from '../src/game/region-ids.ts';
 export const directory = 'reconstruction/marina-bay/references';
 export const planDirectory = plan => `reconstruction/${plan.region || 'marina-bay'}/references`;
 export function parsePlanArgs(args) {
@@ -18,7 +19,7 @@ export function parsePlanArgs(args) {
 export const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 export function validatePlan(plan) {
   const safe = value => typeof value === 'string' && /^[a-z0-9][a-z0-9-]{0,79}$/.test(value);
-  if (plan.region && !['marina-bay', 'queenstown', 'raffles-place', 'orchard'].includes(plan.region)) throw new Error('Unapproved region.');
+  if (plan.region && !REGION_IDS.includes(plan.region)) throw new Error('Unapproved region.');
   if (!safe(plan?.name) || !Number.isInteger(plan.width) || !Number.isInteger(plan.height) || plan.width < 640 || plan.width > 1920 || plan.height < 480 || plan.height > 1080) throw new Error('Invalid plan name or viewport.');
   if (!Number.isInteger(plan.maxNewImages) || plan.maxNewImages < 0 || plan.maxNewImages > 50 || !Array.isArray(plan.views) || !plan.views.length || plan.views.length > 50) throw new Error('Invalid plan image limits.');
   const ids = new Set();

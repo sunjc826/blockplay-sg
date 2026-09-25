@@ -1,38 +1,55 @@
-name: Capture Orchard references
+# Legacy filename retained so saved links and the existing Actions entry work.
+name: Capture district references
 
 on:
   workflow_dispatch:
+    inputs:
+      district:
+        description: District with a committed browser capture plan
+        required: true
+        type: choice
+        options: [marina-bay, raffles-place, queenstown, chinatown, kampong-glam, jurong-lake, changi, upper-thomson, punggol, harbourfront, sentosa, geylang, tuas, woodlands, tampines, toa-payoh, bukit-timah, bishan, orchard]
   push:
     branches: [main]
-    paths: [reconstruction/orchard-browser-plan.json]
+    paths: ['reconstruction/*-browser-plan.json']
 
 permissions:
-  # Owner explicitly authorized workflow commits to main on 2026-09-25.
+  # Owner authorized reference/ledger commits to main on 2026-09-25.
   contents: write
   actions: read
 
-# Serialize all reference jobs using this group. Do not capture on another
-# machine until this run's ledger and any partial captures have been imported.
+# All districts share one ledger. Serialize runs and take the latest cache.
 concurrency:
   group: street-view-reference-capture
   cancel-in-progress: false
 
 jobs:
   capture:
-    if: github.repository == 'sunjc826/blockplay-sg'
+    if: github.repository == 'sunjc826/blockplay-sg' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Recover reviewed first-batch capture artifact
-        if: hashFiles('reconstruction/orchard/references/emerald-hill-mouth-0.png') == ''
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Select only changed district plans (or one manual district)
+        id: selection
+        run: node scripts/capture-workflow.mjs select
+      # One-time recovery of already-paid Orchard captures; no Google calls.
+      - name: Recover Orchard cache if selected and not yet committed
+        if: steps.selection.outputs.orchard == 'true' && hashFiles('reconstruction/orchard/references/junction-road-02-0.png') == ''
         uses: actions/download-artifact@v4
         with:
-          name: orchard-references-36090750942-1
-          run-id: 36090750942
+          name: orchard-references-36118178047-1
+          run-id: 36118178047
           github-token: ${{ github.token }}
           path: /tmp/orchard-recovery
-      - name: Reconcile recovered request ledger and references
+      - name: Reconcile recovery without resetting request history
+        if: steps.selection.outputs.orchard == 'true'
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -42,11 +59,23 @@ jobs:
               target = Path('reconstruction/api-usage.json')
               old = json.loads(target.read_text())
               new = json.loads((recovered / 'api-usage.json').read_text())
-              assert new['attempts'][:len(old['attempts'])] == old['attempts'], 'Ledger diverged; reconcile manually'
-              shutil.copy2(recovered / 'api-usage.json', target)
+              # Preserve newer policy fields and reconcile attempts by ID.
+              attempts = {entry['id']: entry for entry in old['attempts']}
+              for entry in new['attempts']:
+                  if entry['id'] in attempts:
+                      assert attempts[entry['id']] == entry, 'Conflicting ledger event'
+                  else:
+                      old['attempts'].append(entry)
+                      attempts[entry['id']] = entry
+              target.write_text(json.dumps(old, indent=2) + '\n')
               shutil.copytree(recovered / 'orchard/references', 'reconstruction/orchard/references', dirs_exist_ok=True)
           PY
-      - name: Check credential
+      - name: Validate plans and check caches before starting Chrome
+        if: steps.selection.outputs.has_plans == 'true'
+        id: preflight
+        run: node scripts/capture-workflow.mjs preflight
+      - name: Check capture credential only when new images are needed
+        if: steps.preflight.outputs.needs_capture == 'true'
         env:
           GOOGLE_MAPS_DEMO_API_KEY: ${{ secrets.GOOGLE_MAPS_DEMO_API_KEY }}
         run: |
@@ -55,56 +84,48 @@ jobs:
             exit 1
           fi
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: pnpm
+        if: steps.preflight.outputs.needs_capture == 'true'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec vitest run src/game/browser-capture-plan.test.ts src/game/capture-readiness.test.ts
-      - name: Select panoramas and capture references
+        if: steps.preflight.outputs.needs_capture == 'true'
+      - name: Capture selected districts sequentially
+        if: steps.preflight.outputs.needs_capture == 'true'
         env:
           GOOGLE_MAPS_DEMO_API_KEY: ${{ secrets.GOOGLE_MAPS_DEMO_API_KEY }}
         shell: bash
         run: |
           set -euo pipefail
-          # Avoid spending again on a rerun before partial results are reconciled.
           if [ "$GITHUB_RUN_ATTEMPT" != 1 ]; then
-            echo "::error::Import the previous artifact and ledger before starting a new capture run."
+            echo "::error::Import partial artifacts before starting a new capture run."
             exit 1
           fi
-          pnpm dev --host 127.0.0.1 > /tmp/orchard-vite.log 2>&1 &
+          pnpm dev --host 127.0.0.1 > /tmp/capture-vite.log 2>&1 &
           vite_pid=$!
-          google-chrome --headless=new --no-sandbox --disable-dev-shm-usage --enable-unsafe-swiftshader --use-angle=swiftshader --remote-debugging-port=9223 --user-data-dir=/tmp/orchard-chrome about:blank > /tmp/orchard-chrome.log 2>&1 &
+          google-chrome --headless=new --no-sandbox --disable-dev-shm-usage --enable-unsafe-swiftshader --use-angle=swiftshader --remote-debugging-port=9223 --user-data-dir=/tmp/capture-chrome about:blank > /tmp/capture-chrome.log 2>&1 &
           chrome_pid=$!
           trap 'kill "$vite_pid" "$chrome_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:5173/scripts/pages/capture-streetview.html > /dev/null && curl -fsS http://127.0.0.1:9223/json/version > /dev/null; then break; fi
             sleep 1
           done
-          timeout 180 node scripts/select-marina-references.mjs --plan reconstruction/orchard-browser-plan.json
-          node scripts/capture-marina-browser.mjs --plan reconstruction/orchard-browser-plan.json
-      - name: Preserve images, metadata and ledger even after partial failure
-        if: always()
+          node scripts/capture-workflow.mjs run
+      - name: Stage only selected district references and shared ledger
+        if: always() && steps.selection.outputs.has_plans == 'true'
+        run: node scripts/capture-workflow.mjs stage
+      - name: Preserve selected output even after partial failure
+        if: always() && steps.selection.outputs.has_plans == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: orchard-references-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            reconstruction/orchard/references/
-            reconstruction/orchard-browser-plan.json
-            reconstruction/api-usage.json
+          name: district-references-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .cache/capture-output/
           retention-days: 30
           if-no-files-found: error
       - name: Commit reference cache and request ledger
-        if: always()
+        if: always() && steps.selection.outputs.has_plans == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [ -d reconstruction/orchard/references ]; then
-            git add reconstruction/orchard/references
-          fi
-          git add reconstruction/api-usage.json
           if ! git diff --cached --quiet; then
-            git commit -m "Save Orchard capture references and request ledger"
-            # A concurrent main update fails safely; the artifact above remains.
+            git commit -m "Save selected district references and request ledger"
+            # Fail on concurrent changes; never overwrite main or the ledger.
             git push origin HEAD:main
           fi
