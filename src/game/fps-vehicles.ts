@@ -1,3 +1,4 @@
+import { VEHICLE_SEATS, seatOf, gunnerId, vehicleGunRay, type SharedVehicle } from './vehicle-seats';
 import * as THREE from 'three';
 import { damageVehicle, fireVehicleWeapon, VEHICLE_COMBAT, vehicleCollisionDamage, vehicleDamageStage } from './vehicle-combat';
 import { createVehicleEffects, vehicleDamageVisual } from './vehicle-effects';
@@ -43,7 +44,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     turret.rotation.set(elevation, heading, 0, 'YXZ'); model.updateMatrixWorld(true);
   }
   function fire() {
-    if (!active || !fireVehicleWeapon(states[active])) return null;
+    if (!active || !canFire() || !fireVehicleWeapon(states[active])) return null;
     const kind = active, muzzle = models[kind].getObjectByName('vehicle-muzzle')!;
     const origin = muzzle.getWorldPosition(new THREE.Vector3());
     const direction = new THREE.Vector3(0, 0, -1).transformDirection(muzzle.matrixWorld);
@@ -51,6 +52,10 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     return { kind, origin, base: muzzle.parent!.getWorldPosition(new THREE.Vector3()), direction, ...VEHICLE_COMBAT[kind] };
   }
   let active: VehicleKind | null = null, notice = '', noticeTime = 0;
+  let shared: SharedVehicle[] | null = null, selfId = '', localSeat = 0;
+  const sharedShots = { car: 0, helicopter: 0 };
+  const seat = () => shared ? seatOf(shared, selfId)?.seat ?? null : active ? localSeat : null;
+  const canFire = () => !!active && (shared ? gunnerId(shared.find(v => v.kind === active)!) === selfId : localSeat < 2);
   const pad = new THREE.Mesh(new THREE.RingGeometry(5.7, 5.88, 48), new THREE.MeshBasicMaterial({ color: '#d1cfaa', side: THREE.DoubleSide }));
   pad.rotation.x = -Math.PI / 2; pad.position.set(spawns.helicopter.x, .145, spawns.helicopter.z); root.add(pad);
   const paint = new THREE.MeshBasicMaterial({ color: '#d1cfaa' });
@@ -83,7 +88,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     ];
   }
   function nearest(player: { x: number; z: number }) {
-    const kinds = (['car', 'helicopter'] as const).filter(kind => states[kind].health > 0 && states[kind].y < .4);
+    const kinds = (['car', 'helicopter'] as const).filter(kind => states[kind].health > 0 && states[kind].y < .4 && (!shared || shared.find(v => v.kind === kind)?.occupants.includes(null)));
     return kinds.sort((a, b) => distance(player, a) - distance(player, b)).find(kind => distance(player, kind) <= (kind === 'car' ? 4.5 : 6));
   }
   function distance(player: { x: number; z: number }, kind: VehicleKind) { return Math.hypot(player.x - states[kind].x, player.z - states[kind].z); }
@@ -95,7 +100,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     }
     const kind = nearest(player);
     if (!kind) { notice = 'Approach a parked car or helicopter to enter.'; noticeTime = 3; return null; }
-    active = kind; notice = ''; return { x: states[kind].x, z: states[kind].z, entered: true, yaw: states[kind].yaw };
+    active = kind; localSeat = 0; notice = ''; return { x: states[kind].x, z: states[kind].z, entered: true, yaw: states[kind].yaw };
   }
   function sync(dt: number) {
     for (const kind of ['car', 'helicopter'] as const) {
@@ -131,7 +136,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     }
     advanceWrecks(dt);
     effects.step(dt, Object.values(states));
-    if (!active) { sync(dt); return 0; }
+    if (!active || localSeat !== 0) { sync(dt); return 0; }
     const forward = Number(keys.has('w') || keys.has('arrowup')) - Number(keys.has('s') || keys.has('arrowdown'));
     const steer = Number(keys.has('d') || keys.has('arrowright')) - Number(keys.has('a') || keys.has('arrowleft'));
     const kind = active, beforeYaw = states[kind].yaw, beforeSpeed = Math.hypot(states[kind].speed, states[kind].climb);
@@ -143,19 +148,43 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   }
   sync(0);
   return {
-    root, models, states, footObstacles, interact, step, damage, hitKind, aim, fire,
+    root, models, states, footObstacles, interact, step, damage, hitKind, aim, fire, nearest,
+    flightObstacles: () => airObstacles().slice(0, -1),
+    get seat() { return seat(); },
+    get canFire() { return canFire(); },
+    switchSeat() { if (active && !shared) { localSeat = (localSeat + 1) % 4; states[active].speed = states[active].climb = 0; } },
+    setNotice(message: string) { notice = message; noticeTime = 3; },
+    adoptShared(next: SharedVehicle[], id: string) {
+      const first = shared === null; shared = next; selfId = id;
+      const shots: { origin: THREE.Vector3; end: THREE.Vector3 }[] = [];
+      for (const v of next) {
+        if (!first && states[v.kind].health > 0 && v.health <= 0) effects.explode(new THREE.Vector3(v.x, v.y + 1.3, v.z));
+        if (!first && v.shots > sharedShots[v.kind] && v.shotEnd) {
+          flashTime[v.kind] = .085; const ray = vehicleGunRay({ ...v });
+          shots.push({ origin: new THREE.Vector3(ray.origin.x, ray.origin.y, ray.origin.z), end: new THREE.Vector3(v.shotEnd.x, v.shotEnd.y, v.shotEnd.z) });
+        }
+        sharedShots[v.kind] = v.shots; Object.assign(states[v.kind], v);
+        models[v.kind].getObjectByName('vehicle-turret')!.rotation.set(v.gunPitch, v.gunYaw - v.yaw, 0, 'YXZ');
+      }
+      active = seatOf(next, id)?.vehicle.kind ?? null; sync(0); return shots;
+    },
+    sharedStep(dt: number) {
+      noticeTime = Math.max(0, noticeTime - dt); if (!noticeTime) notice = '';
+      flashTime.car = Math.max(0, flashTime.car - dt); flashTime.helicopter = Math.max(0, flashTime.helicopter - dt);
+      effects.step(dt, Object.values(states)); sync(dt);
+    },
     animateEffects(dt: number) { advanceWrecks(dt); effects.step(dt, Object.values(states)); sync(0); },
     takeDestructions() { return destruction.splice(0); },
     get active() { return active; },
     get mounted() { return active ? states[active] : null; },
-    hud(player: { x: number; z: number }) {
+    hud(player: { x: number; z: number }, names: Record<string, string> = {}) {
       const near = nearest(player);
       const viewed = active ?? near;
-      return { vehicleHealth: viewed ? states[viewed].health : 0, vehicleMaxHealth: viewed ? VEHICLE_COMBAT[viewed].health : 0, vehicleAmmo: viewed ? states[viewed].ammo : 0, vehicleAmmoMax: viewed ? VEHICLE_COMBAT[viewed].ammo : 0, vehicleWeapon: viewed ? VEHICLE_COMBAT[viewed].name : '', vehicleDamage: viewed ? vehicleDamageStage(states[viewed]) : 'intact', vehicle: active || 'on-foot' as const, vehicleSpeed: active ? Math.abs(states[active].speed) * 3.6 : 0, altitude: active ? Math.max(0, states[active].y - .13) : 0,
+      return { vehicleSeat: seat(), vehicleCanFire: canFire(), vehicleSeats: active ? VEHICLE_SEATS.map((label, index) => { const occupant = shared?.find(v => v.kind === active)?.occupants[index] ?? (!shared && index === localSeat ? 'you' : null); return { label: active === 'helicopter' && index === 0 ? 'Pilot' : label, name: occupant ? names[occupant] ?? 'You' : 'Empty', occupied: occupant !== null, self: occupant === selfId || occupant === 'you' }; }) : [], vehicleHealth: viewed ? states[viewed].health : 0, vehicleMaxHealth: viewed ? VEHICLE_COMBAT[viewed].health : 0, vehicleAmmo: viewed ? states[viewed].ammo : 0, vehicleAmmoMax: viewed ? VEHICLE_COMBAT[viewed].ammo : 0, vehicleWeapon: viewed ? VEHICLE_COMBAT[viewed].name : '', vehicleDamage: viewed ? vehicleDamageStage(states[viewed]) : 'intact', vehicle: active || 'on-foot' as const, vehicleSpeed: active ? Math.abs(states[active].speed) * 3.6 : 0, altitude: active ? Math.max(0, states[active].y - .13) : 0,
         interact: active ? `E · Exit ${active}` : near ? `E · ${near === 'car' ? 'Drive Utility 01' : 'Pilot Falcon 01'} · ${Math.ceil(states[near].health)} HP` : '', vehicleNotice: notice,
         carDistance: distance(player, 'car'), helicopterDistance: distance(player, 'helicopter') };
     },
-    reset() { active = null; notice = ''; noticeTime = 0; destruction.length = 0; effects.reset(); flashTime.car = flashTime.helicopter = collisionCooldown.car = collisionCooldown.helicopter = 0; for (const model of Object.values(models)) model.getObjectByName('vehicle-turret')!.rotation.set(0, 0, 0); states.car = createVehicle('car', spawns.car); states.helicopter = createVehicle('helicopter', spawns.helicopter); models.helicopter.rotation.x = 0; sync(0); },
+    reset() { active = null; shared = null; selfId = ''; localSeat = 0; sharedShots.car = sharedShots.helicopter = 0; notice = ''; noticeTime = 0; destruction.length = 0; effects.reset(); flashTime.car = flashTime.helicopter = collisionCooldown.car = collisionCooldown.helicopter = 0; for (const model of Object.values(models)) model.getObjectByName('vehicle-turret')!.rotation.set(0, 0, 0); states.car = createVehicle('car', spawns.car); states.helicopter = createVehicle('helicopter', spawns.helicopter); models.helicopter.rotation.x = 0; sync(0); },
     dispose() { effects.dispose(); root.removeFromParent(); disposeModel(root); Object.values(labels).forEach(sprite => { sprite.material.map?.dispose(); sprite.material.dispose(); }); },
   };
 }

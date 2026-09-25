@@ -141,3 +141,38 @@ describe('arena runtime authority and renderer bridge', () => {
     }
   });
 });
+
+it('synchronizes driver/gunner seats, shared ammo, movement, late snapshots and reset between host and guest', () => {
+  vi.useFakeTimers();
+  const [hostSession, guestSession] = localPair();
+  const environment = { bounds: MARINA_BOUNDS, move: moveInMarina, spawns: [{ x: 3.5, z: 0 }], endless: true };
+  const vehicles = { spawns: { car: { x: 0, z: 0, yaw: 0 }, helicopter: { x: 30, z: 0, yaw: 0 } } };
+  const host = createArenaRuntime({ scene: new THREE.Scene(), obstacles: [], session: hostSession, botCount: 0, environment, vehicles });
+  const guest = createArenaRuntime({ scene: new THREE.Scene(), obstacles: [], session: guestSession, botCount: 0, environment, vehicles });
+  const drive = { forward: 1, steer: 0, lift: 0, brake: false, boost: false, fire: false };
+  const gun = { ...drive, forward: 0, fire: true, aim: { x: 0, y: 3, z: -80 } };
+  try {
+    host.update(.1, input(3.5, 0, true)); guest.update(.1, input(3.5, 0, true));
+    host.update(.1, input(3.5, 0, true)); guest.update(.1, input(3.5, 0, true));
+    host.vehicleAction('enter', 'car'); guest.vehicleAction('enter', 'car');
+    let h = host.update(.1, { ...input(3.5, 0, true), vehicleControls: drive });
+    let g = guest.update(.1, { ...input(3.5, 0, true), vehicleControls: gun });
+    expect(h.self?.seat).toBe(0); expect(g.self?.seat).toBe(1);
+    vi.advanceTimersByTime(200);
+    h = host.update(.1, { ...input(3.5, 0, true), vehicleControls: drive });
+    g = guest.update(.1, { ...input(3.5, 0, true), vehicleControls: gun });
+    expect(h.snapshot?.vehicles?.[0].z).toBeLessThan(0);
+    expect(g.snapshot?.vehicles?.[0].ammo).toBeLessThan(240);
+    expect(g.snapshot?.vehicles).toEqual(h.snapshot?.vehicles);
+    expect(g.self?.vehicle).toBe('car');
+    // A client cannot claim another actor's seat or invent a hull snapshot.
+    guestSession.send({ type: 'arena-vehicle', action: 'enter', kind: 'helicopter', id: 'host' });
+    guestSession.send({ type: 'arena-state', started: true, snapshot: { ...g.snapshot, vehicles: [] } });
+    expect(host.update(.1, input(3.5, 0, true)).self?.seat).toBe(0);
+    host.reset();
+    g = guest.update(.1, input(3.5, 0));
+    expect(g.self?.vehicle).toBeUndefined();
+    expect(g.snapshot?.vehicles?.[0].occupants).toEqual([null, null, null, null]);
+    expect(g.snapshot?.vehicles?.[0].ammo).toBe(240);
+  } finally { host.dispose(); guest.dispose(); }
+});

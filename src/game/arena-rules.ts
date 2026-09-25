@@ -1,3 +1,6 @@
+import { validVehicleControls, createSharedVehicle, seatOf, seatPoint, gunnerId, vehicleGunRay, vehicleRayDistance, type SharedVehicle, type VehicleControls } from './vehicle-seats';
+import { driveVehicle, flyVehicle, vehicleBounds, vehicleExit, type VehicleKind, type VehicleSpawn, type FlightObstacle } from './vehicle-rules';
+import { damageVehicle, fireVehicleWeapon, vehicleBlastDamage, vehicleCollisionDamage, VEHICLE_COMBAT } from './vehicle-combat';
 import { applyArmorDamage } from './armory-state';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage } from './fps-stance';
 import { MARINA_BOUNDS, moveInMarina, type Obstacle } from './marina-collision';
@@ -8,14 +11,14 @@ import { getArenaRole, type ArenaRolePlugin } from './arena-roles';
 export interface ArenaActor {
   id: string; name: string; bot: boolean; x: number; y: number; z: number; yaw: number; pitch: number;
   health: number; armor: number; kills: number; deaths: number; alive: boolean; respawnIn: number; weapon: number;
-  shots: number; role: string; prone?: boolean;
+  shots: number; role: string; prone?: boolean; vehicle?: VehicleKind; seat?: number;
 }
 export interface ArenaFeed { id: string; text: string; killerId?: string; victimId?: string }
 export interface ArenaSnapshot {
   type: 'arena-snapshot'; tick: number; elapsed: number; actors: ArenaActor[];
-  feed: ArenaFeed[]; finished: boolean; winner: string;
+  feed: ArenaFeed[]; finished: boolean; winner: string; vehicles?: SharedVehicle[];
 }
-export interface ArenaInput { x: number; y: number; z: number; yaw: number; pitch: number; weapon: number; playing: boolean; reloading?: boolean; prone?: boolean }
+export interface ArenaInput { x: number; y: number; z: number; yaw: number; pitch: number; weapon: number; playing: boolean; reloading?: boolean; prone?: boolean; vehicleControls?: VehicleControls }
 export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount'>;
 export interface ArenaPoint { x: number; y: number; z: number }
 export interface ArenaShot { hitId: string | null; killed: boolean; damage: number }
@@ -26,6 +29,10 @@ export interface ArenaEnvironment {
   spawns: readonly { x: number; z: number }[];
   endless?: boolean;
   playerSpawn?: { x: number; z: number; yaw?: number; pitch?: number };
+}
+export interface ArenaVehicleOptions {
+  spawns: Record<VehicleKind, VehicleSpawn>; flightObstacles?: readonly FlightObstacle[];
+  coverDistance?: (origin: ArenaPoint, direction: ArenaPoint, distance: number) => number;
 }
 export const ARENA_DURATION = 180;
 export const ARENA_KILL_LIMIT = 15;
@@ -49,7 +56,7 @@ const distance = (a: ArenaPoint, b: ArenaPoint) => Math.hypot(a.x - b.x, a.y - b
 export function arenaWallDistance(origin: ArenaPoint, direction: ArenaPoint, obstacles: readonly Obstacle[]) {
   let closest = Infinity;
   for (const obstacle of obstacles) {
-    let near = 0; let far = 150;
+    let near = 0; let far = Infinity;
     const limits = [[obstacle.minX, obstacle.maxX], [0, obstacle.maxY ?? 200], [obstacle.minZ, obstacle.maxZ]];
     const starts = [origin.x, origin.y, origin.z]; const rays = [direction.x, direction.y, direction.z];
     for (let axis = 0; axis < 3; axis++) {
@@ -77,10 +84,12 @@ function bodyDistance(origin: ArenaPoint, direction: ArenaPoint, actor: ArenaAct
 }
 
 /** Host-owned match. Clients may submit movement and aim, never damage or scores. */
-export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment) {
+export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions) {
   const bounds = environment?.bounds ?? MARINA_BOUNDS;
   const move = environment?.move ?? moveInMarina;
   const members = new Map<string, InternalActor>();
+  let vehicles: SharedVehicle[] = vehicleOptions ? (['car', 'helicopter'] as const).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind])) : [];
+  const controls = new Map<string, { input: VehicleControls; expires: number }>();
   let tick = 0; let elapsed = 0; let finished = false; let winner = ''; let eventId = 0; let seed = 92371;
   const feed: ArenaFeed[] = [];
   const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
@@ -91,6 +100,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const groundObstacles = obstacles.filter(o => (o.maxY ?? 200) > 0.15);
   const clearSpawn = (p: { x: number; z: number }) => Number.isFinite(p.x) && Number.isFinite(p.z) &&
     p.x - 0.5 >= bounds.minX && p.x + 0.5 <= bounds.maxX && p.z - 0.5 >= bounds.minZ && p.z + 0.5 <= bounds.maxZ &&
+    !vehicles.some(v => { const b = vehicleBounds(v); return v.y < 2 && p.x + .5 > b.minX && p.x - .5 < b.maxX && p.z + .5 > b.minZ && p.z - .5 < b.maxZ; }) &&
     !groundObstacles.some(o => p.x + 0.5 > o.minX && p.x - 0.5 < o.maxX && p.z + 0.5 > o.minZ && p.z - 0.5 < o.maxZ);
   const validSpawns = (environment?.spawns ?? SPAWNS).filter(clearSpawn);
   if (!validSpawns.length) {
@@ -104,6 +114,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   // Real Marina has many valid spawn points; explicit failure avoids spawning inside walls.
   if (!validSpawns.length) throw new Error('No clear arena spawn point is available.');
   const spawn = (entry: InternalActor) => {
+    releaseSeat(entry.actor.id);
     const others = [...members.values()].filter(m => m !== entry && m.actor.alive);
     const positions = [...validSpawns].sort((a, b) => {
       const safety = (p: { x: number; z: number }) => Math.min(1000, ...others.map(m => Math.hypot(m.actor.x - p.x, m.actor.z - p.z)));
@@ -145,7 +156,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const entry = members.get(id); if (!entry || entry.actor.bot) return;
     if (Number.isFinite(vitals.health)) {
       entry.actor.health = clamp(vitals.health!, 0, entry.healthMax);
-      entry.actor.alive = entry.actor.health > 0;
+      entry.actor.alive = entry.actor.health > 0; if (!entry.actor.alive) releaseSeat(id);
       entry.actor.respawnIn = entry.actor.alive ? 0 : ARENA_RESPAWN_SECONDS;
     }
     if (Number.isFinite(vitals.armor)) entry.actor.armor = clamp(vitals.armor!, 0, entry.armorMax);
@@ -173,13 +184,19 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function removePlayer(id: string) {
     const entry = members.get(id); if (!entry || entry.actor.bot) return;
-    members.delete(id); announce(`${entry.actor.name} left`);
+    releaseSeat(id); members.delete(id); announce(`${entry.actor.name} left`);
   }
   function setInput(id: string, input: ArenaInput) {
     const entry = members.get(id); if (!entry || entry.actor.bot || finished || !input || !finitePoint(input)) return;
     if (![input.yaw, input.pitch].every(Number.isFinite)) return;
     entry.playing = input.playing === true;
     const actor = entry.actor; if (!actor.alive) return;
+    const mounted = seatOf(vehicles, id);
+    if (mounted) {
+      actor.yaw = input.yaw % (Math.PI * 2); actor.pitch = clamp(input.pitch, -1.5, 1.5); actor.prone = false;
+      if (validVehicleControls(input.vehicleControls) && input.playing) controls.set(id, { input: input.vehicleControls, expires: elapsed + .35 }); else controls.delete(id);
+      return;
+    }
     const target = { x: clamp(input.x, bounds.minX + 0.5, bounds.maxX - 0.5), y: clamp(input.y, input.prone === true ? PRONE_EYE_HEIGHT : 1, 90), z: clamp(input.z, bounds.minZ + 0.5, bounds.maxZ - 0.5) };
     const wasProne = actor.prone;
     actor.prone = input.prone === true && target.y <= PRONE_EYE_HEIGHT + .02;
@@ -188,7 +205,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (actor.prone || wasProne && target.y <= 1.75) actor.y = target.y;
     const travel = distance(actor, target); const scale = travel > 0 ? Math.min(1, entry.movementBudget / travel) : 0;
     const y = actor.y + (target.y - actor.y) * scale;
-    const solids = obstacles.filter(o => (o.maxY ?? 200) > Math.min(actor.y, y) - 1.45);
+    const solids = [...obstacles, ...vehicles.filter(v => v.y < 2).map(vehicleBounds)].filter(o => (o.maxY ?? 200) > Math.min(actor.y, y) - 1.45);
     const position = move(actor, (target.x - actor.x) * scale, (target.z - actor.z) * scale, 0.35, solids);
     entry.movementBudget = Math.max(0, entry.movementBudget - Math.hypot(position.x - actor.x, y - actor.y, position.z - actor.z));
     Object.assign(actor, position, { y, yaw: input.yaw % (Math.PI * 2), pitch: clamp(input.pitch, -1.5, 1.5) });
@@ -200,12 +217,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function reloadPlayer(id: string, weapon: number) {
     const entry = members.get(id);
-    if (!entry || !entry.actor.alive || finished || !Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return;
+    if (!entry || seatOf(vehicles, id) || !entry.actor.alive || finished || !Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return;
     if (entry.reload[weapon] <= 0 && entry.rounds[weapon] < entry.weapons[weapon].capacity) entry.reload[weapon] = entry.weapons[weapon].reload;
   }
   function shoot(id: string, origin: ArenaPoint, direction: ArenaPoint, weapon: number, maxDistance = 125): ArenaShot {
     const entry = members.get(id);
-    if (!entry || finished || !entry.actor.alive || !entry.playing || !finitePoint(origin) || !finitePoint(direction)) return { ...EMPTY_SHOT };
+    if (!entry || seatOf(vehicles, id) || finished || !entry.actor.alive || !entry.playing || !finitePoint(origin) || !finitePoint(direction)) return { ...EMPTY_SHOT };
     if (!Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return { ...EMPTY_SHOT };
     if (distance(origin, entry.actor) > 1.5 || entry.cooldown[weapon] > 1e-7 || entry.reload[weapon] > 0) return { ...EMPTY_SHOT };
     const length = Math.hypot(direction.x, direction.y, direction.z); if (length < 0.5 || length > 1.5) return { ...EMPTY_SHOT };
@@ -222,23 +239,122 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     entry.rounds[weapon]--; entry.cooldown[weapon] = entry.weapons[weapon].interval; entry.actor.shots++;
     if (entry.rounds[weapon] === 0) entry.reload[weapon] = entry.weapons[weapon].reload;
-    let nearest = Math.min(Number.isFinite(maxDistance) ? clamp(maxDistance, 0, 125) : 0, arenaWallDistance(origin, ray, obstacles)); let victim: InternalActor | undefined;
-    for (const other of members.values()) {
-      if (other === entry || !other.actor.alive) continue;
-      const intersection = bodyDistance(origin, ray, other.actor);
-      if (intersection < nearest) { victim = other; nearest = intersection; }
-    }
-    if (!victim) return { ...EMPTY_SHOT };
-    const damage = entry.weapons[weapon].damage;
+    return resolveShot(entry, origin, ray, entry.weapons[weapon].damage, Math.min(125, Math.max(0, maxDistance)));
+  }
+  function hurtActor(victim: InternalActor, damage: number, attacker?: InternalActor) {
     const blocked = Math.min(victim.actor.armor, damage * victim.absorption);
     victim.actor.armor -= blocked; victim.actor.health = Math.max(0, victim.actor.health - damage + blocked);
     const killed = victim.actor.health <= 0;
-    if (killed) {
-      victim.actor.alive = false; victim.actor.deaths++; victim.actor.respawnIn = ARENA_RESPAWN_SECONDS; entry.actor.kills++;
-      announce(`${entry.actor.name} eliminated ${victim.actor.name}`, id, victim.actor.id);
-      if (!environment?.endless && entry.actor.kills >= ARENA_KILL_LIMIT) { finished = true; winner = entry.actor.name; }
+    if (killed && victim.actor.alive) {
+      victim.actor.alive = false; victim.actor.deaths++; victim.actor.respawnIn = ARENA_RESPAWN_SECONDS; releaseSeat(victim.actor.id);
+      if (attacker && attacker !== victim) attacker.actor.kills++;
+      announce(`${attacker?.actor.name ?? 'Vehicle'} eliminated ${victim.actor.name}`, attacker?.actor.id, victim.actor.id);
+      if (attacker && !environment?.endless && attacker.actor.kills >= ARENA_KILL_LIMIT) { finished = true; winner = attacker.actor.name; }
     }
     return { hitId: victim.actor.id, killed, damage: damage - blocked };
+  }
+  function resolveShot(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, damage: number, range: number, ignore?: VehicleKind): ArenaShot {
+    let nearest = Math.min(Number.isFinite(range) ? range : 0, arenaWallDistance(origin, ray, obstacles), vehicleOptions?.coverDistance?.(origin, ray, range) ?? Infinity);
+    let hull: SharedVehicle | undefined, victim: InternalActor | undefined;
+    for (const v of vehicles) {
+      if (v.kind === ignore) continue;
+      const distance = vehicleRayDistance(v, origin, ray);
+      if (distance < nearest) { nearest = distance; hull = v; }
+    }
+    for (const other of members.values()) {
+      if (other === entry || !other.actor.alive || seatOf(vehicles, other.actor.id)) continue;
+      const intersection = bodyDistance(origin, ray, other.actor);
+      if (intersection < nearest) { victim = other; hull = undefined; nearest = intersection; }
+    }
+    if (ignore) {
+      const v = vehicles.find(v => v.kind === ignore)!;
+      v.shotEnd = { x: origin.x + ray.x * nearest, y: origin.y + ray.y * nearest, z: origin.z + ray.z * nearest };
+    }
+    if (hull) { const before = hull.health; damageHull(hull, damage, entry); return { hitId: `vehicle-${hull.kind}`, killed: before > 0 && hull.health === 0, damage: Math.min(before, damage) }; }
+    return victim ? hurtActor(victim, damage, entry) : { ...EMPTY_SHOT };
+  }
+  function releaseSeat(id: string) {
+    const mounted = seatOf(vehicles, id); if (mounted) mounted.vehicle.occupants[mounted.seat] = null;
+    const actor = members.get(id)?.actor; if (actor) { delete actor.vehicle; delete actor.seat; }
+    controls.delete(id);
+  }
+  function syncOccupants() {
+    for (const v of vehicles) v.occupants.forEach((id, seat) => {
+      if (!id) return;
+      const entry = members.get(id);
+      if (!entry?.actor.alive) { releaseSeat(id); return; }
+      Object.assign(entry.actor, seatPoint(v, seat), { vehicle: v.kind, seat, prone: false });
+    });
+  }
+  function vehicleAction(id: string, action: 'enter' | 'exit' | 'switch', kind?: VehicleKind) {
+    const entry = members.get(id); if (!entry?.actor.alive || !entry.playing || finished || entry.actor.bot) return false;
+    const mounted = seatOf(vehicles, id);
+    if (action === 'exit' && mounted) {
+      const others = vehicles.filter(v => v !== mounted.vehicle && v.y < 2).map(vehicleBounds);
+      const exit = vehicleExit(mounted.vehicle, [...obstacles, ...others], bounds); if (!exit) return false;
+      releaseSeat(id); Object.assign(entry.actor, exit, { y: 1.75 }); entry.movementBudget = 0; return true;
+    }
+    if (action === 'switch' && mounted) {
+      for (let n = 1; n < 4; n++) { const seat = (mounted.seat + n) % 4; if (mounted.vehicle.occupants[seat] === null) {
+        releaseSeat(id); mounted.vehicle.occupants[seat] = id; syncOccupants(); return true;
+      } }
+      return false;
+    }
+    if (action !== 'enter' || mounted) return false;
+    const v = vehicles.find(v => v.kind === kind);
+    if (!v || v.health <= 0 || v.y > .4 || Math.abs(v.speed) > 2 || Math.hypot(entry.actor.x - v.x, entry.actor.z - v.z) > (v.kind === 'car' ? 4.5 : 6) || entry.actor.y > 3) return false;
+    const center = { x: v.x, y: v.y + 1.3, z: v.z }, d = distance(entry.actor, center);
+    const ray = { x: (center.x - entry.actor.x) / d, y: (center.y - entry.actor.y) / d, z: (center.z - entry.actor.z) / d };
+    if (d > .1 && Math.min(arenaWallDistance(entry.actor, ray, obstacles), vehicleOptions?.coverDistance?.(entry.actor, ray, d) ?? Infinity) < d - .2) return false;
+    const seat = v.occupants.indexOf(null); if (seat < 0) return false;
+    v.occupants[seat] = id; entry.reload[entry.actor.weapon] = 0; syncOccupants(); return true;
+  }
+  function damageHull(v: SharedVehicle, damage: number, attacker?: InternalActor) {
+    if (!damageVehicle(v, damage)) return;
+    const point = { x: v.x, y: v.y + 1.3, z: v.z };
+    const crew = [...v.occupants].filter((id): id is string => id !== null);
+    for (const id of crew) { const member = members.get(id); if (member) hurtActor(member, member.actor.health + member.actor.armor + 1, attacker); }
+    const clearBlast = (target: ArenaPoint) => {
+      const d = distance(point, target); if (d < .1) return true;
+      const dir = { x: (target.x - point.x) / d, y: (target.y - point.y) / d, z: (target.z - point.z) / d };
+      return Math.min(arenaWallDistance(point, dir, obstacles), vehicleOptions?.coverDistance?.(point, dir, d) ?? Infinity) >= d - .1;
+    };
+    for (const other of vehicles) if (other !== v && other.health > 0) {
+      const target = { x: other.x, y: other.y + 1.3, z: other.z }, amount = vehicleBlastDamage(v.kind, distance(point, target));
+      if (amount > 0 && clearBlast(target)) damageHull(other, amount, attacker);
+    }
+    for (const member of members.values()) if (member.actor.alive && !seatOf(vehicles, member.actor.id)) {
+      const amount = vehicleBlastDamage(v.kind, distance(point, member.actor));
+      if (amount > 0 && clearBlast(member.actor)) hurtActor(member, amount, attacker);
+    }
+    announce(`${v.kind === 'car' ? 'Utility 01' : 'Falcon 01'} destroyed`, attacker?.actor.id);
+  }
+  function stepVehicles(dt: number) {
+    for (const v of vehicles) {
+      v.weaponCooldown = Math.max(0, v.weaponCooldown - dt);
+      const held = (id: string | null) => id && (controls.get(id)?.expires ?? 0) > elapsed ? controls.get(id)!.input : undefined;
+      const drive = held(v.occupants[0]);
+      const ground = [...obstacles, ...vehicles.filter(other => other !== v && other.y < 2).map(vehicleBounds)];
+      const flight = [...(vehicleOptions?.flightObstacles ?? obstacles.map(o => ({ ...o, minY: 0, maxY: o.maxY ?? 2.5 }))), ...vehicles.filter(other => other !== v).map(other => ({ ...vehicleBounds(other), minY: other.y, maxY: other.y + 2.7 }))];
+      if (v.health <= 0) {
+        const support = flight.filter(o => o.maxY <= v.y && v.x >= o.minX && v.x <= o.maxX && v.z >= o.minZ && v.z <= o.maxZ).reduce((y, o) => Math.max(y, o.maxY), .13);
+        v.climb -= 9.8 * dt; v.y = Math.max(support, v.y + v.climb * dt); if (v.y === support) v.climb = 0; continue;
+      }
+      // Substeps keep vehicle physics advancing at wall-clock speed with slow hosts.
+      const speed = Math.hypot(v.speed, v.climb);
+      const result = v.kind === 'car' ? driveVehicle(v, drive?.forward ?? 0, drive?.steer ?? 0, drive?.brake ?? !drive, dt, ground, bounds)
+        : flyVehicle(v, drive?.forward ?? 0, drive?.steer ?? 0, drive?.lift ?? 0, drive?.boost ?? false, dt, flight, bounds);
+      Object.assign(v, result.state);
+      if (result.blocked) damageHull(v, vehicleCollisionDamage(speed));
+      const gunner = gunnerId(v), gun = held(gunner);
+      const ray = vehicleGunRay(v, gun?.aim);
+      if (gun?.fire && gunner && fireVehicleWeapon(v)) {
+        const entry = members.get(gunner); if (!entry) continue;
+        v.shots++; entry.actor.shots++;
+        resolveShot(entry, ray.origin, ray.direction, VEHICLE_COMBAT[v.kind].damage, VEHICLE_COMBAT[v.kind].range, v.kind);
+      }
+    }
+    syncOccupants();
   }
   function stepBot(entry: InternalActor, dt: number) {
     const actor = entry.actor;
@@ -259,7 +375,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const strafe = Number.isFinite(intent.strafe) ? clamp(intent.strafe, -1, 1) : 0;
     const normal = Math.max(1, Math.hypot(approach, strafe));
     const movement = move(actor, (direction.x * approach - direction.z * strafe) / normal * role.speed * dt,
-      (direction.z * approach + direction.x * strafe) / normal * role.speed * dt, 0.4, groundObstacles);
+      (direction.z * approach + direction.x * strafe) / normal * role.speed * dt, 0.4, [...groundObstacles, ...vehicles.filter(v => v.y < 2).map(vehicleBounds)]);
     Object.assign(actor, movement);
     actor.yaw = Math.atan2(-dx, -dz); actor.pitch = Math.atan2(line.y, horizontal);
     if (!visible || !intent.fire) { entry.reaction = role.reaction; entry.target = ''; return; }
@@ -275,6 +391,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function step(dt: number) {
     if (finished || !Number.isFinite(dt) || dt <= 0) return;
     dt = Math.min(dt, 0.25); elapsed = environment?.endless ? elapsed + dt : Math.min(ARENA_DURATION, elapsed + dt); tick++;
+    for (let remaining = dt; remaining > 1e-6; remaining -= Math.min(.05, remaining)) stepVehicles(Math.min(.05, remaining));
     for (const entry of members.values()) {
       entry.movementBudget = Math.min(8, entry.movementBudget + 40 * dt);
       if (!entry.actor.alive) { entry.actor.respawnIn = Math.max(0, entry.actor.respawnIn - dt); if (entry.actor.respawnIn === 0) spawn(entry); continue; }
@@ -293,10 +410,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
   }
   function snapshot(): ArenaSnapshot {
-    return { type: 'arena-snapshot', tick, elapsed, actors: [...members.values()].map(m => ({ ...m.actor })), feed: feed.map(event => ({ ...event })), finished, winner };
+    return { type: 'arena-snapshot', tick, elapsed, actors: [...members.values()].map(m => ({ ...m.actor })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}) };
   }
   function reset() {
-    tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0;
+    tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; controls.clear();
+    vehicles = vehicleOptions ? (['car', 'helicopter'] as const).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind])) : [];
     for (const entry of members.values()) { entry.actor.kills = 0; entry.actor.deaths = 0; entry.actor.shots = 0; spawn(entry); }
     announce('New arena match');
   }
@@ -309,7 +427,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const entry = members.get(id)!; entry.role = role; entry.healthMax = role.health;
     Object.assign(entry.actor, { bot: true, role: role.id, weapon: role.weaponIndex }); spawn(entry);
   }
-  return { addPlayer, removePlayer, setInput, reloadPlayer, shoot, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerHealthMultiplier };
+  return { vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerHealthMultiplier };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

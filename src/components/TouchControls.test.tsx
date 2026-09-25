@@ -51,7 +51,7 @@ it('offers the expedition its supplies and checkpoints, and the range its vehicl
   expect(range).toContain('>Drive Utility 01<');
   expect(range).not.toContain('data-touch-action="travel"');
 
-  // The arena is infantry only, so it must not offer a car it cannot sync.
+  // No nearby vehicle means no entry prompt even in a shared arena.
   const arena = layer(playing({ arenaSelf: { id: 'self', name: 'You', role: 'player', bot: false, alive: true, kills: 0, deaths: 0, health: 100, armor: 0, respawnIn: 0, x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0, weapon: 0, shots: 0 } }), 'arena');
   expect(arena).not.toContain('data-touch-action="vehicle"');
   expect(arena).not.toContain('data-touch-action="loot"');
@@ -68,17 +68,21 @@ it('shows a contextual action only while it can be pressed', () => {
   expect(layer(playing({ lootPrompt: '' }), 'expedition')).not.toContain('data-touch-action="loot"');
 });
 
-it('swaps the infantry actions for driving ones once mounted, and locks the trigger', () => {
-  const car = layer(playing({ vehicle: 'car', interact: 'E · Leave Utility 01' }));
+it('offers driver controls, seat switching and mounted fire only to authorized seats', () => {
+  const car = layer(playing({ vehicle: 'car', vehicleSeat: 0, vehicleCanFire: true, vehicleAmmo: 240, interact: 'E · Leave Utility 01' }));
   expect(car).toContain('data-touch-action="altitude"');
   expect(car).toContain('Brake');
   expect(car).not.toContain('data-touch-action="reload"');
-  expect(control(car, 'fire')).toContain('disabled');
+  expect(control(car, 'fire')).not.toContain('disabled');
+  expect(car).toContain('data-touch-action="seat"');
+  const passenger = layer(playing({ vehicle: 'car', vehicleSeat: 2, vehicleCanFire: false, vehicleAmmo: 240 }), 'arena');
+  expect(control(passenger, 'fire')).toContain('disabled');
+  expect(passenger).not.toContain('data-touch-action="altitude"');
   expect(car).toContain('data-mounted="true"');
   // Getting out is contextual too, and says which vehicle it is leaving.
   expect(car).toContain('>Leave Utility 01<');
 
-  const helicopter = layer(playing({ vehicle: 'helicopter' }));
+  const helicopter = layer(playing({ vehicle: 'helicopter', vehicleSeat: 0 }));
   expect(helicopter).toContain('data-touch-action="descend"');
   expect(helicopter).toContain('Climb');
   expect(helicopter).toContain('Boost');

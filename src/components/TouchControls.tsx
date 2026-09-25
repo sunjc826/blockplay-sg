@@ -83,9 +83,12 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
   const sweep: Action[] = [];
   const prompts: Action[] = [];
   if (mounted) {
-    sweep.push(act('boost', flying ? 'Boost' : 'Sprint', <Rocket size={17} />, hold('shift')));
-    sweep.push(act('altitude', flying ? 'Climb' : 'Brake', <ChevronsUp size={17} />, hold(' ')));
-    if (flying) sweep.push(act('descend', 'Descend', <ArrowDownToLine size={17} />, hold('c')));
+    sweep.push(act('seat', 'Switch seat', <Repeat2 size={17} />, { onClick: () => engine?.switchVehicleSeat() }));
+    if (hud.vehicleSeat === 0) {
+      sweep.push(act('boost', flying ? 'Boost' : 'Sprint', <Rocket size={17} />, hold('shift')));
+      sweep.push(act('altitude', flying ? 'Climb' : 'Brake', <ChevronsUp size={17} />, hold(' ')));
+      if (flying) sweep.push(act('descend', 'Descend', <ArrowDownToLine size={17} />, hold('c')));
+    }
     if (hud.interact) prompts.push(act('vehicle', promptLabel(hud.interact), <Footprints size={16} />, { onClick: () => engine?.interactVehicle() }));
   } else {
     sweep.push(act('aim', 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': hud.aiming, 'data-on': hud.aiming || undefined }));
@@ -99,7 +102,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
       if (hud.lootPrompt) prompts.push(act('loot', promptLabel(hud.lootPrompt), <PackageOpen size={16} />, { onClick: () => engine?.interactLoot() }));
       if (hud.npcPrompt) prompts.push(act('npc', promptLabel(hud.npcPrompt), <MessageCircle size={16} />, { onClick: () => engine?.interactNpc() }));
       if (hud.travelPrompt) prompts.push(act('travel', promptLabel(hud.travelPrompt), <Move3d size={16} />, { onClick: () => engine?.travelZone() }));
-    } else if (mode === 'range' && hud.interact) {
+    } else if (hud.interact) {
       prompts.push(act('vehicle', promptLabel(hud.interact), <Move3d size={16} />, { onClick: () => engine?.interactVehicle() }));
     }
   }
@@ -109,7 +112,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
     {/* Out of both sweeps: a mis-hit here costs the round, not a magazine. */}
     <div className="touch-move">
       <button type="button" className="touch-chip" data-touch-action="menu" aria-label={mode === 'range' ? 'Pause' : 'Menu'} title={mode === 'range' ? 'Pause' : 'Menu'} onClick={onMenu}><Menu size={16} /></button>
-      <TouchStick kind="move" label={mounted ? 'DRIVE' : 'MOVE'} onChange={move} />
+      <TouchStick kind="move" label={mounted ? hud.vehicleSeat === 0 ? 'DRIVE' : 'RIDING' : 'MOVE'} onChange={mounted && hud.vehicleSeat !== 0 ? () => {} : move} />
     </div>
 
     {prompts.length > 0 && <div className="touch-prompts">
@@ -127,7 +130,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
         style={{ '--arc-x': arc.slots[index].x, '--arc-y': arc.slots[index].y } as React.CSSProperties}
         {...item.props}
       >{item.icon}</button>)}
-      <button type="button" className="touch-fire" data-touch-action="fire" aria-label="Fire" disabled={mounted && hud.vehicleAmmo === 0} {...fire}>FIRE</button>
+      <button type="button" className="touch-fire" data-touch-action="fire" aria-label="Fire" disabled={mounted && (!hud.vehicleCanFire || hud.vehicleAmmo === 0)} {...fire}>FIRE</button>
     </div>
   </div>;
 }

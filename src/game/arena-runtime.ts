@@ -1,6 +1,9 @@
+import { validVehicleControls } from './vehicle-seats';
+import { VEHICLE_COMBAT } from './vehicle-combat';
+import type { VehicleKind } from './vehicle-rules';
 import { validWeaponIndex } from './fps-rules';
 import * as THREE from 'three';
-import { createArena, type ArenaActor, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaShot, type ArenaSnapshot, type ArenaVitals } from './arena-rules';
+import { createArena, type ArenaActor, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
 import { createProfile, resolveLoadout, restoreProfile, type ArmoryProfile } from './armory-state';
 import type { LanSession } from './lan-peer';
 import { getArenaRole } from './arena-roles';
@@ -8,12 +11,12 @@ import type { Obstacle } from './marina-collision';
 
 export interface ArenaRuntimeFrame {
   snapshot: ArenaSnapshot | null; self: ArenaActor | null; connected: boolean; started: boolean;
-  hit: ArenaShot | null; feed: ArenaFeed[]; spawn: boolean; correction?: boolean;
+  hit: ArenaShot | null; feed: ArenaFeed[]; spawn: boolean; vehicleNotice?: string; correction?: boolean;
 }
 export interface ArenaRuntimeOptions {
   scene: THREE.Scene; obstacles: readonly Obstacle[]; session: LanSession;
   profile?: ArmoryProfile; botCount: number; composition?: string;
-  environment?: ArenaEnvironment; initialVitals?: Partial<ArenaVitals>;
+  environment?: ArenaEnvironment; vehicles?: ArenaVehicleOptions; initialVitals?: Partial<ArenaVitals>;
 }
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -21,7 +24,8 @@ export function validArenaInput(value: unknown): value is ArenaInput {
   return object(value) && ['x', 'y', 'z', 'yaw', 'pitch'].every(key => finite(value[key])) &&
     validWeaponIndex(value.weapon) && typeof value.playing === 'boolean' &&
     (value.reloading === undefined || typeof value.reloading === 'boolean') &&
-    (value.prone === undefined || typeof value.prone === 'boolean');
+    (value.prone === undefined || typeof value.prone === 'boolean') &&
+    (value.vehicleControls === undefined || validVehicleControls(value.vehicleControls));
 }
 export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironment): value is ArenaSnapshot {
   if (!object(value) || value.type !== 'arena-snapshot' || !finite(value.tick) || value.tick < 0 || !finite(value.elapsed) || value.elapsed < 0 || value.elapsed > (environment?.endless ? 1e9 : 181) ||
@@ -32,10 +36,36 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       !['x', 'y', 'z', 'yaw', 'pitch', 'health', 'armor', 'kills', 'deaths', 'respawnIn', 'shots', 'weapon'].every(key => finite(actor[key])) ||
       (actor.prone !== undefined && typeof actor.prone !== 'boolean') || !validWeaponIndex(actor.weapon) || typeof actor.alive !== 'boolean' || typeof actor.bot !== 'boolean' || typeof actor.role !== 'string' || actor.role.length > 32 ||
       (actor.x as number) < (environment?.bounds.minX ?? -500) || (actor.x as number) > (environment?.bounds.maxX ?? 500) ||
-      (actor.z as number) < (environment?.bounds.minZ ?? -500) || (actor.z as number) > (environment?.bounds.maxZ ?? 500) || (actor.y as number) < 0 || (actor.y as number) > 100 ||
+      (actor.z as number) < (environment?.bounds.minZ ?? -500) || (actor.z as number) > (environment?.bounds.maxZ ?? 500) || (actor.y as number) < 0 || (actor.y as number) > 124 ||
       (actor.health as number) < 0 || (actor.health as number) > 300 || (actor.armor as number) < 0 || (actor.armor as number) > 150) return false;
     ids.add(actor.id);
   }
+  if (value.vehicles !== undefined) {
+    if (!Array.isArray(value.vehicles) || value.vehicles.length !== 2) return false;
+    const kinds = new Set<string>(), seated = new Set<string>();
+    for (const v of value.vehicles) {
+      if (!object(v) || (v.kind !== 'car' && v.kind !== 'helicopter') || kinds.has(v.kind) ||
+        !['x', 'y', 'z', 'yaw', 'speed', 'climb', 'health', 'ammo', 'weaponCooldown', 'gunYaw', 'gunPitch', 'shots'].every(k => finite(v[k])) ||
+        !Array.isArray(v.occupants) || v.occupants.length !== 4 || !Number.isInteger(v.ammo) || !Number.isInteger(v.shots) ||
+        (v.shots as number) < 0 || (v.shots as number) > VEHICLE_COMBAT[v.kind].ammo ||
+        (v.ammo as number) < 0 || (v.ammo as number) > VEHICLE_COMBAT[v.kind].ammo ||
+        (v.health as number) < 0 || (v.health as number) > VEHICLE_COMBAT[v.kind].health ||
+        (v.y as number) < .13 || (v.y as number) > 120 || Math.abs(v.speed as number) > 31 || Math.abs(v.climb as number) > 100 ||
+        (v.weaponCooldown as number) < 0 || (v.weaponCooldown as number) > 3 ||
+        (v.x as number) < (environment?.bounds.minX ?? -500) || (v.x as number) > (environment?.bounds.maxX ?? 500) ||
+        (v.z as number) < (environment?.bounds.minZ ?? -500) || (v.z as number) > (environment?.bounds.maxZ ?? 500) ||
+        !(v.shotEnd === null || point(v.shotEnd))) return false;
+      kinds.add(v.kind);
+      for (let seat = 0; seat < 4; seat++) {
+        const id = v.occupants[seat]; if (id === null) continue;
+        if (typeof id !== 'string' || seated.has(id) || v.health === 0) return false;
+        const actor = value.actors.find(a => a.id === id);
+        if (!actor?.alive || actor.vehicle !== v.kind || actor.seat !== seat) return false;
+        seated.add(id);
+      }
+    }
+    if (value.actors.some(a => (a.vehicle !== undefined || a.seat !== undefined) && !seated.has(a.id))) return false;
+  } else if (value.actors.some(a => a.vehicle !== undefined || a.seat !== undefined)) return false;
   return value.feed.every(entry => object(entry) && typeof entry.id === 'string' && entry.id.length <= 100 && typeof entry.text === 'string' && entry.text.length <= 160 &&
     (entry.killerId === undefined || typeof entry.killerId === 'string') && (entry.victimId === undefined || typeof entry.victimId === 'string'));
 }
@@ -57,7 +87,7 @@ function createAvatar(actor: ArenaActor): Avatar {
   const heavy = actor.role === 'tank';
   box(heavy ? 0.76 : 0.62, 0.64, 0.37, 0, 1.07, 0, fabric);
   box(heavy ? 0.65 : 0.51, 0.47, 0.12, 0, 1.12, -0.23, armor);
-  box(0.25, 0.74, 0.28, -0.18, 0.41, 0, fabric); box(0.25, 0.74, 0.28, 0.18, 0.41, 0, fabric);
+  for (const x of [-.18, .18]) box(.25, .74, .28, x, .41, 0, fabric).name = 'avatar-leg';
   box(0.28, 0.17, 0.43, -0.18, 0.085, -0.06, dark); box(0.28, 0.17, 0.43, 0.18, 0.085, -0.06, dark);
   box(0.22, 0.55, 0.23, -0.41, 1.04, -0.07, fabric); box(0.22, 0.5, 0.23, 0.41, 1.07, -0.15, fabric);
   const helmetGeometry = new THREE.SphereGeometry(0.25, 10, 7); resources.push(helmetGeometry);
@@ -86,13 +116,13 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   const { scene, session } = options;
   let profile = restoreProfile(JSON.stringify(options.profile ?? createProfile()));
   const authority = session.role !== 'guest';
-  const simulation = authority ? createArena(options.obstacles, options.botCount, options.composition, options.environment) : null;
+  const simulation = authority ? createArena(options.obstacles, options.botCount, options.composition, options.environment, options.vehicles ? { ...options.vehicles, coverDistance: (origin, direction, distance) => coverLimit(origin, direction, distance) } : undefined) : null;
   const hostId = authority ? session.id : session.getPeers()[0]?.id;
   const avatars = new Map<string, Avatar>();
   const registered = new Set<string>();
   let snapshot: ArenaSnapshot | null = null, started = false, disposed = false, inputTime = 0, helloTime = 3;
   let pendingHit: ArenaShot | null = null, pendingFeed: ArenaFeed[] = [], spawnPending = false, localAdopted = false;
-  let lastInput: ArenaInput | null = null;
+  let lastInput: ArenaInput | null = null, vehicleNotice = '';
   let previousSelf: ArenaActor | null = null, lastTick = -1;
   const seenFeed = new Set<string>();
   const initial = resolveLoadout(profile);
@@ -101,19 +131,19 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (!point(origin) || !point(direction)) return 0;
     const vector = new THREE.Vector3(direction.x, direction.y, direction.z);
     if (vector.lengthSq() < 0.01) return 0;
-    coverRay.set(new THREE.Vector3(origin.x, origin.y, origin.z), vector.normalize()); coverRay.far = 125;
+    coverRay.set(new THREE.Vector3(origin.x, origin.y, origin.z), vector.normalize()); coverRay.far = Math.max(0, Math.min(240, supplied));
     scene.updateMatrixWorld(true);
     // Only solid, visible meshes are cover. Sprite raycasts require a render camera;
     // hidden vehicle labels must never enter this world-space authority ray.
     const surfaces: THREE.Mesh[] = [];
     const collect = (node: THREE.Object3D) => {
-      if (!node.visible || node.userData.arenaActorId || node.userData.fpsEffect) return;
+      if (!node.visible || node.userData.arenaActorId || node.userData.fpsEffect || node.userData.vehicleKind) return;
       if (node instanceof THREE.Mesh) surfaces.push(node);
       node.children.forEach(collect);
     };
     scene.children.forEach(collect);
     const cover = coverRay.intersectObjects(surfaces, false)[0];
-    return Math.min(finite(supplied) ? Math.max(0, Math.min(125, supplied)) : 125, cover?.distance ?? 125);
+    return Math.min(finite(supplied) ? Math.max(0, Math.min(240, supplied)) : 125, cover?.distance ?? 240);
   }
   if (simulation) { simulation.addPlayer(session.id, session.name, initial.armor, initial.absorption, initial.weapons, options.initialVitals, session.role === 'solo', initial.carriedFamilies); registered.add(session.id); }
   function accept(next: ArenaSnapshot) {
@@ -144,6 +174,9 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         if (typeof raw !== 'string' || raw.length > 16_000) return;
         const loadout = resolveLoadout(restoreProfile(raw));
         simulation.addPlayer(from, peer.name, loadout.armor, loadout.absorption, loadout.weapons, undefined, false, loadout.carriedFamilies); registered.add(from); publish();
+      } else if (registered.has(from) && started && payload.type === 'arena-vehicle' && ['enter', 'exit', 'switch'].includes(String(payload.action)) && (payload.kind === undefined || payload.kind === 'car' || payload.kind === 'helicopter')) {
+        const accepted = simulation.vehicleAction(from, payload.action as 'enter' | 'exit' | 'switch', payload.kind as VehicleKind | undefined);
+        session.send({ type: 'arena-vehicle-result', accepted }, from); publish();
       } else if (registered.has(from) && payload.type === 'arena-input' && validArenaInput(payload.input)) simulation.setInput(from, payload.input);
       else if (registered.has(from) && payload.type === 'arena-reload' && validWeaponIndex(payload.weapon)) simulation.reloadPlayer(from, payload.weapon);
       else if (registered.has(from) && started && payload.type === 'arena-shot' && point(payload.origin) && point(payload.direction) && validWeaponIndex(payload.weapon)) {
@@ -151,6 +184,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         session.send({ type: 'arena-hit', hit }, from); publish();
       }
     } else if (from === hostId) {
+      if (payload.type === 'arena-vehicle-result' && payload.accepted === false) vehicleNotice = 'Seat unavailable. Approach a stopped vehicle; land and slow down to exit.';
       if (payload.type === 'arena-state' && validArenaSnapshot(payload.snapshot, options.environment) && typeof payload.started === 'boolean') { started = payload.started; accept(payload.snapshot); }
       if (payload.type === 'arena-hit' && object(payload.hit) && (payload.hit.hitId === null || typeof payload.hit.hitId === 'string') && typeof payload.hit.killed === 'boolean' && finite(payload.hit.damage) && payload.hit.damage >= 0 && payload.hit.damage <= 200) pendingHit = payload.hit as unknown as ArenaShot;
     }
@@ -189,17 +223,27 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       const destination = new THREE.Vector3(actor.x, Math.max(0, actor.y - 1.75), actor.z);
       avatar.root.position.lerp(destination, avatar.root.position.distanceTo(destination) > 7 ? 1 : 1 - Math.exp(-15 * dt));
       avatar.root.rotation.set(actor.prone ? -Math.PI / 2 : 0, actor.yaw, 0, 'YXZ');
-      avatar.root.scale.y = actor.prone ? 1 : Math.min(1, Math.max(0.6, actor.y / 1.75));
+      avatar.root.traverse(o => { if (o.name === 'avatar-leg') { o.rotation.x = actor.vehicle ? -Math.PI / 2 : 0; o.position.y = actor.vehicle ? .55 : .41; o.position.z = actor.vehicle ? -.23 : 0; } });
+      avatar.root.scale.y = actor.vehicle ? .72 : actor.prone ? 1 : Math.min(1, Math.max(0.6, actor.y / 1.75));
+      if (actor.vehicle) avatar.root.position.y = actor.y - 1.2;
       if (actor.prone) avatar.root.position.set(actor.x + Math.sin(actor.yaw) * 1.59, .32, actor.z + Math.cos(actor.yaw) * 1.59);
       avatar.health.scale.x = Math.max(0.01, 0.75 * actor.health / avatar.maxHealth);
       if (actor.shots > avatar.shots) avatar.flash = 0.085;
-      avatar.shots = actor.shots; avatar.flash = Math.max(0, avatar.flash - dt); avatar.muzzle.visible = avatar.flash > 0;
+      avatar.shots = actor.shots; avatar.flash = Math.max(0, avatar.flash - dt); avatar.muzzle.visible = avatar.flash > 0 && !actor.vehicle;
     }
     for (const [id, avatar] of avatars) if (!activeIds.has(id)) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); avatars.delete(id); }
     const correction = !!self?.alive && localAdopted && !spawnPending && Math.hypot(self.x - input.x, self.y - input.y, self.z - input.z) > 2.5;
-    const frame = { snapshot, self, connected, started, hit: pendingHit, feed: pendingFeed, spawn: spawnPending, correction };
+    const frame = { snapshot, self, connected, started, hit: pendingHit, feed: pendingFeed, spawn: spawnPending, correction, vehicleNotice };
+    vehicleNotice = '';
     pendingHit = null; pendingFeed = []; if (spawnPending) localAdopted = true; spawnPending = false;
     return frame;
+  }
+  function vehicleAction(action: 'enter' | 'exit' | 'switch', kind?: VehicleKind) {
+    if (disposed || !started || !localAdopted) return;
+    if (simulation) {
+      if (!simulation.vehicleAction(session.id, action, kind)) vehicleNotice = 'Seat unavailable. Approach a stopped vehicle; land and slow down to exit.';
+      publish();
+    } else session.send({ type: 'arena-vehicle', action, kind });
   }
   function shoot(origin: ArenaPoint, direction: ArenaPoint, weapon: number, maxDistance = 125, prone = lastInput?.prone ?? false) {
     if (disposed || !started || !localAdopted) return;
@@ -243,6 +287,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     for (const avatar of avatars.values()) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); }
     avatars.clear();
   }
-  return { update, shoot, reload, reset, dispose, updateLoadout, setVitals, setHealthMultiplier };
+  return { vehicleAction, update, shoot, reload, reset, dispose, updateLoadout, setVitals, setHealthMultiplier };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

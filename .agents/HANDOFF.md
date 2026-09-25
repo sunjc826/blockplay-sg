@@ -1,5 +1,23 @@
 # Blockplay: portable agent handoff
 
+## Shared vehicle seats (2026-09-25)
+
+Follow-up adds four host-owned seats to cars/helicopters in LAN and solo arenas:
+driver/pilot, gunner, two passengers. E claims/exits; V and touch/desktop buttons
+cycle vacant seats. Gunner owns shared ammo, with lone-driver fallback. Bounded
+vehicle controls expire; host owns movement, weapon fire, damage, crew death,
+seat contention, disconnect cleanup, snapshots and reset. Seated actors share
+vehicle movement and appear through glazing. Range supports solo seat changes;
+expedition stays infantry, and bots do not board automatically.
+
+826 tests pass, including paired host/guest replication and malformed snapshot
+rejection, plus typecheck/build. Visual play-test remains blocked by cloud
+browser localhost access. Publication to main was rejected by automatic review
+because deployment needs current-turn authorization; previous standing user
+instructions were verified but rejected as insufficient by that reviewer.
+Vehicle commit is prepared for explicit publish approval; do not report it live.
+
+
 ## Armed vehicles and destruction (2026-09-25)
 
 Added roof GPMG (Utility: 600 HP, 240 rounds) and chin HMG (Falcon: 900 HP,

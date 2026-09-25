@@ -280,3 +280,7 @@
 .fps-game[data-touch="on"] .fps-vehicle-vitals { font-size:9px; }
 
 .fps-vehicle-reticle { position:absolute; transform:translate(-50%,-50%); color:#ffe9a2; font:30px monospace; text-shadow:0 1px 3px #000; pointer-events:none; }
+
+.fps-vehicle-seats { display:grid; gap:3px; margin-top:7px; font:9px monospace; }
+.fps-vehicle-seats [data-self] { color:#ffe9a2; }
+.fps-game[data-touch="on"] .fps-vehicle-seats { font-size:8px; }

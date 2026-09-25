@@ -1,3 +1,4 @@
+import type { VehicleControls } from './vehicle-seats';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage } from './fps-stance';
 import { pickupSlot } from './armory-slots';
 import { equipmentMovement } from './fps-encumbrance';
@@ -67,6 +68,7 @@ export interface FpsHud {
   carriedWeapons: number[]; carriedKg: number; movementScale: number;
   weapon: number; magazine: number; reserve: number; reloading: number;
   prone: boolean; braced: boolean; hits: number; shots: number; landed: number; health: number; armor: number; incoming: boolean; hurt: boolean; lastDamage: number; earned: number; earnedXp: number; callout: string; chain: number; elapsed: number; aiming: boolean; hit: boolean;
+  vehicleSeat: number | null; vehicleCanFire: boolean; vehicleSeats: { label: string; name: string; occupied: boolean; self: boolean }[];
   vehicleAimX: number; vehicleAimY: number; vehicleAimVisible: boolean;
   vehicleHealth: number; vehicleMaxHealth: number; vehicleAmmo: number; vehicleAmmoMax: number; vehicleWeapon: string; vehicleDamage: VehicleDamageStage;
   vehicle: VehicleKind | 'on-foot'; vehicleSpeed: number; altitude: number; interact: string; vehicleNotice: string; carDistance: number; helicopterDistance: number;
@@ -82,7 +84,7 @@ export interface FpsHud {
   /** Named sub-area the player is standing in; '' on ground that belongs to none. */
   sector: string;
 }
-export const initialFpsHud: FpsHud = { vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '' };
+export const initialFpsHud: FpsHud = { vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '' };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -123,7 +125,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const expeditionSession = expedition ? createSoloSession('Explorer') : null;
   if (expedition && zoneWorld && expeditionSession) options = { ...options, arena: { session: expeditionSession, profile: fieldProfile, botCount: zoneWorld.zone.botCount, composition: zoneWorld.zone.composition, environment: zoneWorld.environment, initialVitals: expedition.checkpoint } };
   const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { spawns: district.vehicles, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay' });
-  if (options.arena) vehicles.root.visible = false;
+  if (expedition) vehicles.root.visible = false;
   let arenaRuntime: ReturnType<typeof createArenaRuntime> | null = null;
   const chaseRay = new THREE.Raycaster();
   const camera = new THREE.PerspectiveCamera(65, 1, 0.08, 800); camera.rotation.order = 'YXZ';
@@ -222,9 +224,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (disposed) return;
     const state = loadout[hud.weapon];
     const burden = movement();
-    onHud({ ...hud, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], ...(!options.arena ? vehicles.hud(position) : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / specs[hud.weapon].reload, aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
-      mapMarkers: options.arena ? [] : [
-        ...targetPositions.flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}`, kind: 'target', label: `Target ${index + 1}` }] : []),
+    onHud({ ...hud, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], ...(!expedition ? vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))) : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / specs[hud.weapon].reload, aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
+      mapMarkers: expedition ? [] : [
+        ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
       ],
     });
@@ -361,7 +363,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     updateCameras(0, false, false); publish();
   }
   function interactVehicle() {
-    if (hud.phase !== 'playing' || options.arena) return;
+    if (hud.phase !== 'playing' || expedition || hud.arenaSelf?.alive === false) return;
+    if (arenaRuntime) {
+      arenaRuntime.vehicleAction(vehicles.active ? 'exit' : 'enter', vehicles.active ?? vehicles.nearest(position));
+      clearInput(); canvas.focus({ preventScroll: true }); return;
+    }
     const change = vehicles.interact(position);
     if (change) {
       clearInput(); actualAim = false; loadout[hud.weapon].reloadRemaining = 0;
@@ -371,6 +377,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       updateCameras(0, false, false);
     }
     canvas.focus({ preventScroll: true }); publish();
+  }
+  function switchVehicleSeat() {
+    if (hud.phase !== 'playing' || !vehicles.active) return;
+    if (arenaRuntime) arenaRuntime.vehicleAction('switch'); else vehicles.switchSeat();
+    clearInput(); canvas.focus({ preventScroll: true }); publish();
   }
   function updateExpeditionPrompts() {
     if (!expedition) return;
@@ -471,6 +482,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function jump() { if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && vertical === 0 && !keys.has('c') && !prone) velocityY = 5.2 * movement().jumpVelocity; } }
   function setInput(key: string, held: boolean) {
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) return;
+    if (key === 'v') { if (held) switchVehicleSeat(); return; }
     if (key === 'z') { if (held && !vehicles.active && vertical === 0) { prone = !prone; keys.delete('c'); publish(); } return; }
     if (held && key === 'c') prone = false;
     if (key === 'fire') { trigger = held; if (!trigger) triggerSpent = false; }
@@ -517,6 +529,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (key === 'q') { if (!event.repeat) toggleAim(); return; }
     if (key === 'escape') pause();
     else if (pilotEnabled) { pause(); hud.message = 'AI stopped. Click Resume to take control.'; publish(); }
+    else if (key === 'v') { if (!event.repeat) switchVehicleSeat(); }
     else if (key === 'e') { if (!event.repeat) expedition ? interactLoot() : interactVehicle(); }
     else if (key === 'n') { if (!event.repeat) interactNpc(); }
     else if (key === 't') { if (!event.repeat) travelZone(); }
@@ -946,7 +959,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let vehicleAimTimer = 0;
   function vehicleCandidates(kind: VehicleKind) {
     // Cast from the gun, not the chase camera: nearby walls still stop rounds.
-    return [...gameplayCandidates().filter(o => o !== vehicles.root), vehicles.models[kind === 'car' ? 'helicopter' : 'car']];
+    return [...gameplayCandidates().filter(o => o !== vehicles.root && !hud.arena?.actors.some(a => a.vehicle && a.id === o.userData.arenaActorId)), vehicles.models[kind === 'car' ? 'helicopter' : 'car']];
   }
   function aimVehicle() {
     const kind = vehicles.active; if (!kind) return;
@@ -954,7 +967,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     vehicleRay.far = VEHICLE_COMBAT[kind].range;
     const hit = firstVisibleHit(vehicleRay, vehicleCandidates(kind));
     vehicleAimPoint.copy(hit?.point ?? vehicleRay.ray.at(vehicleRay.far, new THREE.Vector3()));
-    vehicles.aim(vehicleAimPoint);
+    if (vehicles.canFire) vehicles.aim(vehicleAimPoint);
     const muzzle = vehicles.models[kind].getObjectByName('vehicle-muzzle')!;
     const origin = muzzle.parent!.getWorldPosition(new THREE.Vector3()), direction = new THREE.Vector3(0, 0, -1).transformDirection(muzzle.matrixWorld);
     vehicleRay.set(origin, direction);
@@ -965,7 +978,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function shootVehicle() {
     const mounted = vehicles.mounted;
-    if (!mounted || mounted.weaponCooldown > 0 || mounted.ammo <= 0) return;
+    if (!mounted || !vehicles.canFire || arenaRuntime || mounted.weaponCooldown > 0 || mounted.ammo <= 0) return;
     aimVehicle();
     const shot = vehicles.fire(); if (!shot) return;
     hud.shots++; shotSound();
@@ -1110,10 +1123,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (index >= 0) { pendingAttack = { target: index, remaining: .7, aim: playerPoint() }; hud.incoming = true; publish(); }
   }
 
+  function sharedVehicleControls(): VehicleControls {
+    const keys = drivingKeys();
+    return { forward: Number(keys.has('w') || keys.has('arrowup')) - Number(keys.has('s') || keys.has('arrowdown')),
+      steer: Number(keys.has('d') || keys.has('arrowright')) - Number(keys.has('a') || keys.has('arrowleft')),
+      lift: Number(keys.has(' ')) - Number(keys.has('c') || keys.has('control')), brake: keys.has(' '), boost: keys.has('shift'),
+      fire: trigger && hud.phase === 'playing' && vehicles.canFire,
+      aim: { x: vehicleAimPoint.x, y: vehicleAimPoint.y, z: vehicleAimPoint.z } };
+  }
   function updateArena(dt: number) {
     if (!arenaRuntime) return;
     const frame = arenaRuntime.update(dt, {
       x: position.x, y: eyeHeight() + vertical, z: position.z, yaw, pitch,
+      ...(vehicles.active ? { vehicleControls: sharedVehicleControls() } : {}),
       prone, weapon: hud.weapon, playing: hud.phase === 'playing', reloading: loadout[hud.weapon].reloadRemaining > 0,
     });
     const previousSelf = hud.arenaSelf;
@@ -1123,12 +1145,24 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (newRound) {
       hud.phase = 'ready'; hud.shots = hud.landed = hud.earned = hud.earnedXp = hud.chain = 0;
       hud.callout = ''; hud.message = ''; calloutTime = 0; killChain = { count: 0, lastAt: -Infinity };
-      clearInput(); stopVoice(); encik.reset(); comms.clear(); hud.encikCallout = null; loadout = createLoadout(specs);
+      clearInput(); vehicles.reset(); stopVoice(); encik.reset(); comms.clear(); hud.encikCallout = null; loadout = createLoadout(specs);
       if (document.pointerLockElement === canvas) document.exitPointerLock();
     }
+    const oldVehicle = vehicles.active, oldSeat = vehicles.seat;
+    if (frame.snapshot?.vehicles && options.arena) {
+      for (const shot of vehicles.adoptShared(frame.snapshot.vehicles, options.arena.session.id)) { effects.beam(shot.origin, shot.end); shotSound(); }
+      if (oldVehicle !== vehicles.active || oldSeat !== vehicles.seat) {
+        if (!oldVehicle && vehicles.mounted) { yaw = vehicles.mounted.yaw; pitch = -.23; }
+        clearInput(); vertical = velocityY = 0;
+        if (frame.self) position = { x: frame.self.x, z: frame.self.z };
+      }
+      if (vehicles.mounted) position = { x: vehicles.mounted.x, z: vehicles.mounted.z };
+    }
+    if (frame.vehicleNotice) vehicles.setNotice(frame.vehicleNotice);
     hud.arena = frame.snapshot; hud.arenaSelf = frame.self; hud.arenaConnected = frame.connected; hud.arenaStarted = frame.started;
     if (frame.snapshot) hud.elapsed = frame.snapshot.elapsed;
     if (frame.self) {
+      if (vehicles.active) hud.shots = frame.self.shots;
       hud.hits = frame.self.kills; hud.health = frame.self.health; hud.armor = frame.self.armor;
       if (previousSelf && frame.self.health < previousSelf.health) { hurtTime = .4; recoveryDelay = FPS_REGEN_DELAY; }
       if (!frame.self.alive && previousSelf?.alive) { radioCall('death'); clearInput(); killChain = { count: 0, lastAt: -Infinity }; hud.chain = 0; hud.callout = ''; calloutTime = 0; }
@@ -1149,7 +1183,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           effects.setStyles(weaponStyles, hud.weapon);
         }
         resetRecoil(kick); effects.reset(); hitTime = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; }); updateCameras(0, false, false);
-      } else if (frame.correction) {
+      } else if (frame.correction && !vehicles.active) {
         position = { x: frame.self.x, z: frame.self.z };
         vertical = Math.max(0, frame.self.y - eyeHeight()); velocityY = 0;
         updateCameras(0, false, false);
@@ -1197,16 +1231,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (!options.arena) hud.elapsed += realDt;
       if (!options.arena) loadout.forEach((state, i) => advanceWeapon(state, i, realDt, specs));
       if (vehicles.mounted) {
-        yaw += vehicles.step(drivingKeys(), dt);
+        if (!arenaRuntime) yaw += vehicles.step(drivingKeys(), dt);
         if (vehicles.mounted) position = { x: vehicles.mounted.x, z: vehicles.mounted.z };
         carry.set(0, 0, 0);
       } else {
-      vehicles.step(keys, dt);
+      if (!arenaRuntime) vehicles.step(keys, dt);
       const move = resolveMovement(keys, moveStick);
       const forward = move.forward, side = move.side;
       sprinting = move.sprint && forward > 0.5 && !keys.has('c') && !prone;
       const speed = braced() ? 0 : prone ? .85 : keys.has('c') ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2;
-      const delta = movementInput(forward, side, yaw, speed * movement().movement, dt), next = footMove(position, delta.x, delta.z, 0.38, options.arena ? world.obstacles : vehicles.footObstacles());
+      const delta = movementInput(forward, side, yaw, speed * movement().movement, dt), next = footMove(position, delta.x, delta.z, 0.38, expedition ? world.obstacles : vehicles.footObstacles());
       moving = Math.hypot(next.x - position.x, next.z - position.z) > 0.0001;
       carry.set((next.x - position.x) / Math.max(dt, 1e-4), 0, (next.z - position.z) / Math.max(dt, 1e-4));
       position = next;
@@ -1226,13 +1260,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (hud.phase === 'playing' && options.combat && !options.arena) counterFire(realDt);
     } else { advanceRecoil(kick, realDt); applyAimPush(); carry.set(0, 0, 0); updateCameras(dt, false, false); }
     updateArena(realDt);
+    if (arenaRuntime && !expedition) vehicles.sharedStep(dt);
     if (debugAvailable && hud.phase === 'playing' && hud.health > 0) {
       recoveryDelay = Math.max(0, recoveryDelay - dt);
       if (debug.regeneration && recoveryDelay === 0 && hud.health < hud.maxHealth) {
         hud.health = regenerateHealth(hud.health, hud.maxHealth, dt); arenaRuntime?.setVitals({ health: hud.health });
       }
     }
-    if (hud.phase === 'defeated' || hud.phase === 'complete') vehicles.animateEffects(dt);
+    if (!arenaRuntime && (hud.phase === 'defeated' || hud.phase === 'complete')) vehicles.animateEffects(dt);
     if (expedition) { updateExpeditionPrompts(); lootNoticeTime = Math.max(0, lootNoticeTime - realDt); if (!lootNoticeTime) hud.lootNotice = ''; }
     hurtTime = Math.max(0, hurtTime - dt); hud.hurt = hurtTime > 0;
     hitTime = Math.max(0, hitTime - dt);
@@ -1312,7 +1347,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       world.obstacles.push({ minX: x - width / 2, maxX: x + width / 2, minZ: z - depth / 2, maxZ: z + depth / 2, maxY: asset === 3 ? 0.8 : asset === 4 ? 0.9 : 0.7 });
     }
     if (options.arena) {
-      arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena });
+      arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, ...(!expedition ? { vehicles: { spawns: district.vehicles, flightObstacles: vehicles.flightObstacles() } } : {}) });
       if (debugAvailable) {
         arenaRuntime.setHealthMultiplier(debug.healthMultiplier);
         if (expedition?.checkpoint) arenaRuntime.setVitals({ health: expedition.checkpoint.health });
@@ -1325,7 +1360,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   });
 
   return {
-    start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, switchWeapon, useQuickItem, jump, setInput, setMoveAxis, lookBy, interactVehicle, interactLoot, interactNpc, travelZone, configureDebug, refillHealth,
+    start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, switchWeapon, useQuickItem, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, travelZone, configureDebug, refillHealth,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
     toggleAim,

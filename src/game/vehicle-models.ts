@@ -17,7 +17,7 @@ export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
   const root = new THREE.Group(), paint = vehiclePaint(skin);
   const dark = new THREE.MeshStandardMaterial({ color: '#20272a', roughness: .8 });
   const metal = new THREE.MeshStandardMaterial({ color: '#737b75', roughness: .4, metalness: .75 });
-  const glass = new THREE.MeshStandardMaterial({ color: '#254652', roughness: .18, metalness: .4 });
+  const glass = new THREE.MeshStandardMaterial({ color: '#254652', roughness: .18, metalness: .4, transparent: true, opacity: .6, depthWrite: false });
   const lamp = new THREE.MeshStandardMaterial({ color: '#e7dbb1', emissive: '#b29e64', emissiveIntensity: .4 });
   const red = new THREE.MeshStandardMaterial({ color: '#a44836', emissive: '#641c10', emissiveIntensity: .35 });
   const box = (w: number, h: number, d: number, x: number, y: number, z: number, material = paint, parent: THREE.Object3D = root, radius = .045) => {
