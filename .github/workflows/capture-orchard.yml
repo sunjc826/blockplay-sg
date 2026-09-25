@@ -7,7 +7,8 @@ on:
     paths: [reconstruction/orchard-browser-plan.json]
 
 permissions:
-  contents: read
+  # Owner explicitly authorized workflow commits to main on 2026-09-25.
+  contents: write
   actions: read
 
 # Serialize all reference jobs using this group. Do not capture on another
@@ -93,3 +94,17 @@ jobs:
             reconstruction/api-usage.json
           retention-days: 30
           if-no-files-found: error
+      - name: Commit reference cache and request ledger
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -d reconstruction/orchard/references ]; then
+            git add reconstruction/orchard/references
+          fi
+          git add reconstruction/api-usage.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Save Orchard capture references and request ledger"
+            # A concurrent main update fails safely; the artifact above remains.
+            git push origin HEAD:main
+          fi
