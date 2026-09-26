@@ -1816,6 +1816,35 @@ Smoke checks now use bounded observed movement/settling and fresh frames from th
 
 All 827 unit tests, typecheck and production build passed. Physical-device performance remains unverified. See updated docs/ALL-DISTRICTS-REVIEW.md for commands and scope.
 
+## 2026-09-26 — seasonal events and Singapore weather
+
+Added a shared atmosphere to all authored walk/drive districts and the FPS engine
+(range, arena, expedition). World conditions controls select automatic/manual
+weather and celebrations independently; validated local preferences survive
+travel. Christmas light-up, New Year, Lunar New Year and National Day have
+Singapore-date activation, landmark light strings/lanterns/stars and bounded
+firework effects. Lunar dates are explicitly sourced through 2034 because the
+runtime ICU calendar returned February 7 instead of February 6 for 2027.
+
+Seven weather profiles cover sunny/humid, overcast, showers, thunderstorms,
+monsoon rain, Sumatra squalls and haze. Ten-minute seeded UTC slots, seasonal
+weights, smooth fog/light/rain transitions, collider-grid approximate shelter,
+instanced bulbs and fixed rain/firework pools. No live weather or Google calls.
+Effects never raycast or alter loot, combat stats, prices or bot perception.
+LAN ignores local overrides and uses automatic device-clock conditions; host
+clock synchronization is not implemented. Reduced effects/system reduced motion
+suppress fireworks/lightning and cut rain particles. See docs/WORLD-EVENTS.md.
+
+Validation: all 838 tests passed; focused lifecycle/calendar tests also passed
+after bulb instancing. Typecheck and production build passed (existing large
+bundle warning). Browser validation details are recorded below when available.
+
+Browser follow-up: Chromium/SwiftShader passed control selection, save/reload
+persistence (squall + Christmas), and 390px layout with no horizontal overflow
+or page errors. Desktop/mobile controls screenshots were inspected. Initial
+captures timed out; a smaller viewport with the animation loop frozen for the
+capture succeeded. Full visual gameplay/effect quality and physical-device
+performance have not been verified. Final typecheck and production build passed.
 
 ## 2026-09-26 — playable elevation across all districts
 
@@ -1828,3 +1857,11 @@ Adjusted Bishan/Changi/Geylang sector bounds; moved obstructed ground anchors an
 Diagnostic command: pnpm analyse:verticality -- --district orchard --sectors [--json]; omit district for all19. Strict IDs, selected district only, offline/noAPI. Layered2m graph uses actual movement and spawn connectivity; reports elevated area, overlap, heights, sampled path distances and routes/slopes, no grades or thresholds for map acceptance. docs/evidence/2026-09-26-verticality.json records all38 routes reachable, about7596m² elevated game area, maximum route heights2.4–9.5m. Baseline is currentcollision with support surfaces disabled, NOT historical before geometry. Limits: standing walking only/nojumps or drops in graph, axis-aligned distance overestimate, grid aliasing, grounddatum0; do not equate with real Singapore area.
 
 Validation: 884 tests across96files and typecheck pass; production build passes with existing large-chunk advisory. Regression tests walk every route both directions with FPS .38 and exploration .65 radii, raycast actual supporting mesh faces, and check ground anchors. Actual browser FPS ascent, host elevation, jump/landing and elevated prone passed; separate exploration ascent passed after correcting fixture imports. scripts/verticality-smoke.mjs retains the corrected fixture. Browser route review rendered38 views with zeroGoogle/JSerrors; all four district groups inspected final views. Targeted Thomson canopy clearance refinement follows final visual review. Physical-device performance, combat balance and smarter multilevel bot routing remain unverified/unimplemented.
+
+## 2026-09-27 — weather PR integration
+
+Resolved PR #3 conflicts with the playable-elevation update, preserving both
+atmosphere and vertical movement setup in FPS and both exploration components,
+and retaining both work logs. Combined validation: 895 tests across 97 files,
+typecheck and production build passed; existing large-chunk advisory remains.
+User explicitly approved merging PR #3.
