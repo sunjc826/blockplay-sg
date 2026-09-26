@@ -69,7 +69,7 @@ export const WORLD_ZONES: readonly WorldZone[] = [
     risk: 'low', lootTier: 1, botCount: 3, composition: 'assault', encounterSpawns: [{ x: 50, z: -36 }, { x: -180, z: -4 }, { x: -70, z: 24 }, { x: 50, z: 24 }, { x: 170, z: -16 }, { x: 110, z: 24 }] },
   { id: 'bukit-timah', name: 'Bukit Timah', description: 'The ridge overlooks everything; the corridor is a long straight run with nowhere to break.', spawn: { x: 60, z: 16, yaw: Math.PI / 2, pitch: 0 },
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: 60, z: 40 }, { x: -130, z: -25 }, { x: -55, z: 28 }, { x: -52, z: 60 }, { x: 130, z: -44 }, { x: 175, z: -6 }] },
-  { id: 'bishan', name: 'Bishan', description: 'The park is a long open crossing with the river in it; the precincts either side are dense.', spawn: { x: -60, z: -74, yaw: 0, pitch: 0 },
+  { id: 'bishan', name: 'Bishan', description: 'The park is a long open crossing with the river in it; the precincts either side are dense.', spawn: { x: -60, z: -74, yaw: -Math.PI / 2, pitch: 0 },
     risk: 'low', lootTier: 1, botCount: 3, composition: 'assault', encounterSpawns: [{ x: 75, z: -74 }, { x: 10, z: -35 }, { x: -150, z: -74 }, { x: 75, z: 40 }, { x: -60, z: 40 }, { x: 185, z: 40 }] },
   { id: 'orchard', name: 'Orchard Road', description: 'Wide boulevard and mall forecourts; long sightlines beneath the rain trees.', spawn: { x: 30, z: 5, yaw: Math.PI / 2, pitch: 0 },
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: -8, z: 5 }, { x: -115, z: -18 }, { x: -24, z: 22 }, { x: 117, z: -20 }, { x: 205, z: 60 }, { x: -170, z: 5 }] },

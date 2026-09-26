@@ -1806,3 +1806,12 @@ Validation: all812 Vitest tests pass, tsc --noEmit passes, Vite production build
 Imported reference files had timestamps ahead of execution clock and could revert during workspace synchronization. Final review JSON writes were verified after explicitly preserving a newer timestamp. Do not rerun captures to recover reviews; use committed JSON decisions and cached images.
 
 Final interaction-smoke limitation: Woodlands and Orchard desktop sequences passed. Bishan failed moving-camera-settle assertion (cause not isolated); subsequent mobile/map CDP phase timed out. Full browser interaction suite is NOT green. Do not repeat broad captures or change geometry solely to satisfy a fixed-duration driving path. Saved final38-view render metadata in docs/evidence/2026-09-25-district-render-report.json; screenshot regeneration uses no Google calls.
+
+
+## 2026-09-26 — resolve Bishan camera and mobile follow-up
+
+Reproduced the Bishan failure on current main: spawn (-60, -74), yaw 0 drives directly into the lamp collider x [-60.25, -59.75], z [-78.25, -77.75]. The browser stopped after about 2.4 m at 0 km/h and retained its orbit (correct stationary-camera behavior). Changed the starting yaw to -PI/2 along the clear park path and mirrored the WORLD_ZONES spawn. The new bishan-spawn.test.ts fails on the old heading and verifies 30 m of forward car clearance after the fix. Camera mechanics and sector geometry remain unchanged.
+
+Smoke checks now use bounded observed movement/settling and fresh frames from the selected canvas. Optional REGION_SMOKE_MODE=all|desktop|mobile and REGION_SMOKE_REGIONS comma-separated IDs support diagnostics; defaults still exercise all districts. CDP timeout reports the method. Touch emulation is explicitly enabled for mobile checks. Bishan desktop and mobile/map sequences passed. A separate all-19 mobile run passed rendering, width, touch controls and map click/keyboard checks, with zero Google requests and zero uncaught errors. The original mobile timeout did not recur with explicit render readiness; no production mobile defect was demonstrated.
+
+All 827 unit tests, typecheck and production build passed. Physical-device performance remains unverified. See updated docs/ALL-DISTRICTS-REVIEW.md for commands and scope.

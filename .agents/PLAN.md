@@ -598,3 +598,13 @@ fixed variants and local names published as 41c6e892.
 - All19 actual scenes rendered in38 overview/street views with0 JS errors and0 Google requests.
 - Reference captures are complete and reviewed:38 new previews,36 recovered Orchard images;48 scoped accepted/26 rejected.
 - Whole-district surveyed fidelity remains outside this pass; rejected/occluded targets are explicitly documented.
+
+
+### 2026-09-26 Bishan and mobile verification
+
+- Bishan lamp-facing spawn diagnosed and both exploration/expedition headings corrected.
+- Added failing-before/passing-after 30 m car-clearance regression.
+- Bishan desktop camera/movement and mobile/map browser checks pass.
+- Separate all 19 mobile-emulation render/width/touch and map checks pass; no Google calls.
+- Updated smoke readiness and diagnostic filtering retain default all-district coverage.
+- All 827 unit tests, typecheck and production build passed.

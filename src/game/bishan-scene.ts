@@ -3,8 +3,9 @@ import { BISHAN_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
 
-// On the park's northern lawn; the town centre is south of the river.
-export const BISHAN_SPAWN = { x: -60, z: -74, yaw: 0 };
+// Face east along the park path, not north into the lamp at (-60, -78).
+// The position stays on the northern lawn; the town centre is south of the river.
+export const BISHAN_SPAWN = { x: -60, z: -74, yaw: -Math.PI / 2 };
 export const BISHAN_BOUNDS = { minX: -255, maxX: 255, minZ: -210, maxZ: 210 };
 export { BISHAN_STAMPS } from '../data/region-stamps.ts';
 

@@ -74,10 +74,37 @@ JavaScript errors and zero Google requests. Across the38 new previews and36
 recovered Orchard images, **48 are accepted for stated scopes and26 rejected**.
 The production build retains its existing large-chunk size advisory.
 
-Desktop interaction smoke passed for Woodlands and Orchard (walking, driving,
-reset, orbit, trajectory independence, recenter and mode switching). Bishan's
-camera-settling assertion failed; the cause is unresolved. Chrome subsequently
-timed out during mobile/map checks, so that phase is incomplete. This is not a
-claim that the full browser interaction suite passes. The all-district render
-report is saved in [evidence](evidence/2026-09-25-district-render-report.json);
-screenshots can be regenerated locally with the committed offline review tool.
+The September 25 follow-up initially left Bishan camera settling and mobile/map
+checks unresolved. These were investigated on September 26:
+
+- Bishan started facing a lamp at `(-60, -78)`, about 2.4 m of car clearance
+  ahead. Driving into it stopped the car; the camera correctly retained its
+  stationary orbit. The starting heading now faces east along the clear park
+  path in both exploration and expedition. A real-geometry regression verifies
+  30 m of unobstructed forward driving from reset.
+- Browser movement checks now wait for observed motion and camera settling,
+  instead of long fixed accelerator holds. Scene switches wait for a rendered
+  frame from the selected canvas, preventing stale scene checks.
+- Bishan passed desktop walking/driving, stationary and moving orbit, reset,
+  recenter and independent-trajectory checks, followed by mobile/map checks.
+- All 19 districts passed a separate 390 px mobile-emulation run: selected-scene
+  rendering, page width and touch controls. Map click/keyboard selection passed;
+  no uncaught errors or Google requests were recorded. This is emulated coverage,
+  not a physical-device performance certification.
+
+The all-district render report remains in
+[evidence](evidence/2026-09-25-district-render-report.json). Screenshots and
+browser checks can be regenerated without Google requests:
+
+```sh
+# With Vite and Chrome CDP running as described in CLAUDE.md:
+REGION_SMOKE_PACE=6 REGION_SMOKE_REGIONS=bishan pnpm test:browser
+REGION_SMOKE_MODE=mobile pnpm test:browser
+```
+
+`REGION_SMOKE_MODE` accepts `all` (default), `desktop` or `mobile`.
+`REGION_SMOKE_REGIONS` optionally limits a diagnostic run to comma-separated
+registry IDs. Without either setting, the suite retains desktop and mobile
+coverage of every registered district.
+
+The September 26 follow-up also passed all 827 unit tests, typecheck and the production build.

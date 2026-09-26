@@ -6,9 +6,20 @@ const origin = process.env.REGION_APP_ORIGIN || 'http://127.0.0.1:5173';
 const chrome = process.env.CHROME_DEBUG_ORIGIN || 'http://127.0.0.1:9223';
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 // Software renderers (CI containers, SwiftShader) draw a few frames a second.
-// Scale every wait so the same assertions still observe real movement.
+// Scale stationary observation periods; movement checks wait on actual state.
 const pace = Math.max(1, Number(process.env.REGION_SMOKE_PACE) || 1);
 const beat = ms => delay(ms * pace);
+const mode = process.env.REGION_SMOKE_MODE || 'all';
+assert(['all', 'desktop', 'mobile'].includes(mode), 'REGION_SMOKE_MODE: all, desktop or mobile');
+const requested = (process.env.REGION_SMOKE_REGIONS || '').split(',').map(id => id.trim()).filter(Boolean);
+const waitFor = async (label, ready) => {
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    if (await ready()) return;
+    await delay(100);
+  }
+  throw new Error(`Timed out waiting for ${label}`);
+};
 const connect = async url => {
   const socket = new WebSocket(url), pending = new Map(), listeners = []; let next = 0;
   await new Promise((resolve, reject) => { socket.addEventListener('open', resolve, { once: true }); socket.addEventListener('error', () => reject(new Error('Chrome unavailable')), { once: true }); });
@@ -18,7 +29,7 @@ const connect = async url => {
     else listeners.forEach(listener => listener(message));
   };
   return { listeners, send: (method, params = {}) => new Promise((resolve, reject) => {
-    const id = ++next, timer = setTimeout(() => { pending.delete(id); reject(new Error('Chrome timeout')); }, 15000);
+    const id = ++next, timer = setTimeout(() => { pending.delete(id); reject(new Error(`Chrome timeout: ${method}`)); }, 15000);
     pending.set(id, { resolve, reject, timer }); socket.send(JSON.stringify({ id, method, params }));
   }), close() { socket.close(); } };
 };
@@ -73,6 +84,8 @@ try {
         if (this.__smokeMainViewport && !this.__smokeObserved && state?.modelViewMatrix && state?.modelMatrix) {
           // Remove the object's model transform, including animated stamp
           // rotation. Observe at draw time so Three's uniform cache is safe.
+          window.__smokeFrames = (window.__smokeFrames || 0) + 1;
+          window.__smokeCanvas = this.canvas;
           window.__smokeViewMatrix = Array.from(new DOMMatrix(state.modelViewMatrix).multiply(new DOMMatrix(state.modelMatrix).inverse()).toFloat64Array());
           this.__smokeObserved = true;
         }
@@ -95,6 +108,19 @@ try {
   assert(regions.length >= 3, 'the developed regions are selectable');
   // Orchard Road is a display label; its registry and map ID is orchard.
   const regionId = name => name === 'Orchard Road' ? 'orchard' : name.toLowerCase().replaceAll(' ', '-');
+  const selected = requested.length ? regions.filter(name => requested.includes(regionId(name))) : regions;
+  assert.equal(selected.length, requested.length || regions.length, 'every requested district exists');
+  assert(selected.length > 0, 'at least one district is selected');
+  console.log(`Region smoke: ${mode}; ${selected.map(regionId).join(', ')}`);
+  const nextFrame = async () => {
+    const frame = await evaluate('window.__smokeFrames || 0');
+    await waitFor('a new rendered frame', () => evaluate(`(window.__smokeFrames || 0) > ${frame}`));
+  };
+  const selectRegion = async name => {
+    const frame = await evaluate('window.__smokeFrames || 0');
+    await evaluate(`Array.from(document.querySelectorAll('.location-card')).find(b=>b.querySelector('strong')?.textContent===${JSON.stringify(name)}).click()`);
+    await waitFor(`${name} mounted and rendered`, () => evaluate(`document.querySelector('.marina-reconstruction')?.dataset.region===${JSON.stringify(regionId(name))} && !!document.querySelector('.marina-viewport canvas') && window.__smokeCanvas===document.querySelector('.marina-viewport canvas') && (window.__smokeFrames || 0)>${frame}`));
+  };
   const resetSelector = `document.querySelector('.marina-reconstruction [aria-label^="Reset "][aria-label$="(clears stamps and conversation)"]')`;
   const rotation = async () => {
     const matrix = await evaluate('window.__smokeViewMatrix');
@@ -108,35 +134,27 @@ try {
     await page.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', buttons: 1, clickCount: 1 });
     await page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x + 160, y: point.y + 35, button: 'left', buttons: 1 });
     await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x + 160, y: point.y + 35, button: 'left', buttons: 0, clickCount: 1 });
-    await beat(180);
+    await nextFrame();
   };
-  for (const name of regions) {
-    for (let attempt = 0; attempt < 100; attempt++) {
-      if (await evaluate(`!!document.querySelector('.location-card')`)) break;
-      await delay(100);
-    }
-    await evaluate(`Array.from(document.querySelectorAll('.location-card')).find(b=>b.textContent.includes(${JSON.stringify(name)})).click()`);
-    for (let attempt = 0; attempt < 100; attempt++) {
-      if (await evaluate(`!!${resetSelector} && !!document.querySelector('.marina-viewport canvas')`)) break;
-      await delay(100);
-    }
+  for (const name of mode === 'mobile' ? [] : selected) {
+    await selectRegion(name);
     assert.equal(await evaluate(`document.querySelectorAll('.marina-viewport canvas').length`), 1, `${name}: one renderer`);
     const resetLabel = await evaluate(`${resetSelector}?.getAttribute('aria-label')`);
     assert(resetLabel, `${name}: reset control present`);
     assert.equal(await evaluate(`document.querySelector('.marina-reconstruction')?.dataset.region`), regionId(name), `${name}: correct region mounted`);
     assert.equal(await evaluate(`document.querySelector('[data-map-location][data-selected="true"]')?.getAttribute('data-map-location')`), regionId(name), `${name}: Singapore locator follows selection`);
     await evaluate(`document.querySelector('.marina-viewport canvas').focus()`);
-    await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'w', code: 'KeyW' }); await beat(1000);
+    await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'w', code: 'KeyW' }); await waitFor(`${name} walking`, () => evaluate(`parseFloat(document.querySelector('.marina-reconstruction .session-strip strong').textContent)>0`));
     await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'w', code: 'KeyW' }); await beat(180);
     assert(await evaluate(`parseFloat(document.querySelector('.marina-reconstruction .session-strip strong').textContent)>0`), `${name}: walk`);
     await evaluate(`document.querySelector('[aria-label=${JSON.stringify(resetLabel)}]').click()`); await beat(180);
     assert.equal(await evaluate(`parseFloat(document.querySelector('.marina-reconstruction .session-strip strong').textContent)`), 0, `${name}: reset`);
     await evaluate(`Array.from(document.querySelectorAll('.marina-reconstruction button')).find(b=>b.textContent==='Drive').click()`); await beat(100);
     await evaluate(`document.querySelector('.marina-viewport canvas').focus()`);
-    await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'w', code: 'KeyW' }); await beat(1200);
+    await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'w', code: 'KeyW' }); await waitFor(`${name} driving`, () => evaluate(`parseFloat(document.querySelector('.marina-reconstruction .session-strip strong').textContent)>0`));
     await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'w', code: 'KeyW' }); await beat(180);
     assert(await evaluate(`parseFloat(document.querySelector('.marina-reconstruction .session-strip strong').textContent)>0`), `${name}: drive`);
-    const reset = async () => { await evaluate(`document.querySelector('[aria-label=${JSON.stringify(resetLabel)}]').click()`); await beat(220); };
+    const reset = async () => { await evaluate(`document.querySelector('[aria-label=${JSON.stringify(resetLabel)}]').click()`); await nextFrame(); await waitFor(`${name} reset HUD`, () => evaluate(`parseFloat(document.querySelector('.marina-reconstruction .session-strip strong').textContent)===0`)); };
     await reset();
     const defaultCamera = await rotation(), spawn = await player();
     await drag();
@@ -149,11 +167,12 @@ try {
     assert(difference(defaultCamera, resetCamera) < 0.01, `${name}: reset recenters camera`);
     await evaluate(`document.querySelector('.marina-viewport canvas').focus()`);
     await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'w', code: 'KeyW' });
-    await beat(600);
+    // Start orbiting near spawn, not after a hardware-dependent long drive.
+    await waitFor(`${name} moving before orbit`, async () => difference(spawn, await player()) > 1);
     const beforeDrag = await player();
     await drag();
     assert(difference(defaultCamera, await rotation()) > 0.3, `${name}: moving drag changes camera`);
-    await beat(1500);
+    await waitFor(`${name} moving camera settling`, async () => difference(defaultCamera, await rotation()) < 0.3);
     const afterDrag = await player();
     await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'w', code: 'KeyW' });
     const beforeVector = beforeDrag.map((v, i) => v - spawn[i]), afterVector = afterDrag.map((v, i) => v - spawn[i]);
@@ -170,21 +189,26 @@ try {
     await writeFile(`.cache/browser-checks/${regionId(name)}.png`, Buffer.from(shot.data, 'base64'));
     console.log(`PASS ${name}: render, walk, reset, drive, stationary/moving camera orbit, independent trajectory, recenter, mode switch`);
   }
-  await page.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
-  for (const name of regions) {
-    await evaluate(`Array.from(document.querySelectorAll('.location-card')).find(b=>b.textContent.includes(${JSON.stringify(name)})).click()`); await beat(300);
-    assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth`), `${name}: mobile width`);
+  if (mode !== 'desktop') {
+    await page.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+    await page.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+    for (const name of selected) {
+      await selectRegion(name);
+      assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth`), `${name}: mobile width`);
+      assert(await evaluate(`document.querySelector('.marina-reconstruction')?.dataset.touch==='on'`), `${name}: touch controls enabled`);
+      console.log(`PASS ${name}: mobile render, width and touch controls`);
+    }
+    // Map controls use the same region selection action as the original cards.
+    await evaluate(`document.querySelector('[data-map-location="queenstown"]').dispatchEvent(new MouseEvent('click',{bubbles:true}))`); await waitFor('map selection rendered', () => evaluate(`document.querySelector('.marina-reconstruction')?.dataset.region==='queenstown'`));
+    assert.equal(await evaluate(`document.querySelector('.location-card[aria-pressed="true"] strong')?.textContent`), 'Queenstown', 'map click selects region');
+    await evaluate(`document.querySelector('[data-map-location="marina-bay"]').focus()`);
+    await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter' });
+    await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter' }); await waitFor('keyboard map selection rendered', () => evaluate(`document.querySelector('.marina-reconstruction')?.dataset.region==='marina-bay'`));
+    assert.equal(await evaluate(`document.querySelector('.location-card[aria-pressed="true"] strong')?.textContent`), 'Marina Bay', 'map keyboard selection');
+    const mobileShot = await page.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
+    await writeFile('.cache/browser-checks/singapore-map-mobile.png', Buffer.from(mobileShot.data, 'base64'));
   }
-  // Map controls use the same region selection action as the original cards.
-  await evaluate(`document.querySelector('[data-map-location="queenstown"]').dispatchEvent(new MouseEvent('click',{bubbles:true}))`); await beat(350);
-  assert.equal(await evaluate(`document.querySelector('.location-card[aria-pressed="true"] strong')?.textContent`), 'Queenstown', 'map click selects region');
-  await evaluate(`document.querySelector('[data-map-location="marina-bay"]').focus()`);
-  await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter' });
-  await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter' }); await beat(350);
-  assert.equal(await evaluate(`document.querySelector('.location-card[aria-pressed="true"] strong')?.textContent`), 'Marina Bay', 'map keyboard selection');
-  const mobileShot = await page.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
-  await writeFile('.cache/browser-checks/singapore-map-mobile.png', Buffer.from(mobileShot.data, 'base64'));
   assert.equal(googleRequests, 0, 'region games must not load Maps or Street View');
   assert.deepEqual(errors, [], 'no uncaught browser exceptions');
-  console.log('PASS region switching, mobile width, zero Google Maps requests, no uncaught errors');
+  console.log(`PASS ${mode} checks for ${selected.length} districts; zero Google Maps requests, no uncaught errors`);
 } finally { page?.close(); if (targetId) await browser.send('Target.closeTarget', { targetId }); browser.close(); }
