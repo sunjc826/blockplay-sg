@@ -608,3 +608,10 @@ fixed variants and local names published as 41c6e892.
 - Separate all 19 mobile-emulation render/width/touch and map checks pass; no Google calls.
 - Updated smoke readiness and diagnostic filtering retain default all-district coverage.
 - All 827 unit tests, typecheck and production build passed.
+
+## 2026-09-26 — world atmosphere
+
+Implemented independent calendar celebrations and Singapore weather presets,
+shared rendering, persistent controls, approximate shelter, reduced effects and
+LAN automatic-condition restrictions. Completed unit/type/build validation;
+see docs/WORLD-EVENTS.md and HANDOFF for supported modes and remaining limits.

@@ -1,3 +1,5 @@
+import EnvironmentControls from './EnvironmentControls';
+import { createWorldAtmosphere } from '../game/world-atmosphere';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { defaultDriveLook, dragDriveLook, driveCameraOffset, settleDriveLook } from '../game/drive-camera';
@@ -37,6 +39,7 @@ export default function MarinaGame() {
     try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
     catch { setError('WebGL could not start. Try a browser with hardware acceleration enabled.'); return; }
     const world = buildMarinaScene();
+    const atmosphere = createWorldAtmosphere(world.scene, MARINA_STAMPS, world.obstacles);
     const objectiveHighlight = createObjectiveHighlight(world.scene);
     const selectHighlight = (id: string | null) => objectiveHighlight.select(world.stamps[destinations.findIndex(d => d.id === id)]);
     selectHighlight(adventure.read().activeId);
@@ -132,7 +135,7 @@ export default function MarinaGame() {
       MARINA_STAMPS.forEach((stamp, i) => {
         if (!collected.has(i) && Math.hypot(stamp.x - position.x, stamp.z - position.z) < 4) { collected.add(i); world.stamps[i].visible = false; adventure.collect(destinations[i].id); }
       });
-      world.animate(now / 1000); objectiveHighlight.update(now / 1000); renderer.render(world.scene, camera);
+      world.animate(now / 1000); atmosphere.update(dt, camera); objectiveHighlight.update(now / 1000); renderer.render(world.scene, camera);
       if (now - lastReport > 150) { report(); lastReport = now; }
       frame = requestAnimationFrame(animate);
     };
@@ -142,7 +145,7 @@ export default function MarinaGame() {
       adventure.cancel();
       canvas.removeEventListener('pointerdown', pointerDown); canvas.removeEventListener('pointermove', pointerMove); canvas.removeEventListener('pointerup', pointerUp); canvas.removeEventListener('pointercancel', pointerUp); canvas.removeEventListener('lostpointercapture', pointerUp);
       canvas.removeEventListener('keydown', keyDown); canvas.removeEventListener('blur', blur); window.removeEventListener('keyup', keyUp); window.removeEventListener('blur', blur);
-      objectiveHighlight.dispose(); world.dispose(); renderer.dispose(); canvas.remove();
+      objectiveHighlight.dispose(); atmosphere.dispose(); world.dispose(); renderer.dispose(); canvas.remove();
     };
   }, [adventure]);
 
@@ -178,6 +181,7 @@ export default function MarinaGame() {
         onBrake={brake => { if (brake) keys.current.add(' '); else keys.current.delete(' '); }} />}
     </div>
     {!error && <AdventureCompanion key={hud.sessionId} game={adventure} />}
+    <EnvironmentControls />
     <div className="experience-toolbar"><div className="experience-title"><span className="mode-icon">{travel === 'walk' ? <Footprints size={20} /> : <CarFront size={20} />}</span><div><h3>Marina Bay · waterfront & gardens</h3><p>Expanded low-poly map · inner and outer road loops</p></div></div><div className="toolbar-actions"><button className="session-button" aria-pressed={travel === 'walk'} onClick={() => setTravel('walk')}>Walk</button><button className="session-button" aria-pressed={travel === 'drive'} onClick={() => setTravel('drive')}>Drive</button><button className="icon-button" aria-label="Reset Marina adventure (clears stamps and conversation)" title="Reset Marina adventure (clears stamps and conversation)" onClick={() => reset.current()}><RotateCcw size={16} /></button></div></div>
     <div className="session-strip"><div><span>EXPLORED</span><strong>{Math.round(hud.distance)}<small>m</small></strong></div><p className="marina-hint">{touch ? (travel === 'walk' ? 'Left stick walks · push it to the ring to run · right stick looks' : 'Left stick drives and steers · right stick orbits · Brake to stop') : `Click scene, then WASD · ${travel === 'walk' ? 'Drag to look · Shift to run' : `Drag to orbit · A/D steer · ${Math.round(Math.abs(hud.speed) * 3.6)} km/h · Space to brake`}`}</p><div className="touch-controls">{(['a', 'w', 's', 'd'] as const).map((key, index) => { const Icon = [ArrowLeft, ArrowUp, ArrowDown, ArrowRight][index]; return <button key={key} disabled={!!error} aria-label={`Marina ${['left', 'forward', 'backward', 'right'][index]}`} onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); keys.current.add(key); }} onPointerUp={() => keys.current.delete(key)} onPointerCancel={() => keys.current.delete(key)} onLostPointerCapture={() => keys.current.delete(key)}><Icon size={15} /></button>; })}</div></div>
   </div>;
