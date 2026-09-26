@@ -1,3 +1,4 @@
+import EnvironmentControls from './EnvironmentControls';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Maximize, Minimize, Pause, Play, RotateCcw, Users, Volume2, VolumeX } from 'lucide-react';
 import { createFpsEngine, initialFpsHud, type FpsEngine } from '../game/fps-engine';
@@ -102,6 +103,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         <p>{disconnected ? 'The host connection has closed. Return to the lobby and reconnect to a new room.' : hud.phase === 'loading' ? 'Loading your equipped gear and connecting the match.' : hud.phase === 'error' ? hud.message : hud.phase === 'complete' ? `${hud.arenaSelf?.kills || 0} eliminations · ${hud.arenaSelf?.deaths || 0} deaths · ${accuracy}% accuracy` : hud.phase === 'paused' ? 'Your menu is open. The match and other players keep running.' : `Free for all. First to ${ARENA_KILL_LIMIT} eliminations or the highest score after 3 minutes wins. Respawn after 3 seconds and get back in.`}</p>
         {!['loading', 'error', 'complete'].includes(hud.phase) && !disconnected && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP<br />{guest ? 'The host runs the match and the bots.' : `${arenaOptions.botCount} bots · ${arenaOptions.composition} squad · Shared vehicles`}</p>}
         {hud.message && hud.phase !== 'error' && !disconnected && <p className="fps-capture-error" role="alert">{hud.message}</p>}
+        <EnvironmentControls multiplayer={!!arenaOptions && arenaOptions.session.role !== 'solo'} />
         <FpsDebugPanel hud={hud} engine={engine.current} />
         <FpsRadioVoice hud={hud} engine={engine.current} />
         <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
@@ -120,6 +122,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         <p>{hud.phase === 'loading' ? `Loading your equipment and ${zone.name}.` : hud.phase === 'error' ? hud.message : hud.phase === 'defeated' ? 'Your health reached zero. Move during the incoming warning or break line of sight. Armor absorbs a share of each hit until depleted.' : hud.phase === 'complete' ? `${hud.elapsed.toFixed(1)} seconds · ${hud.shots} shots · ${accuracy}% accuracy` : 'Clear eight targets, each with 100–115 health. Your equipped gear applies here. Press E near Utility 01 or Falcon 01 to drive or fly between targets.'}</p>
         {['ready', 'complete', 'defeated'].includes(hud.phase) && <div className="fps-drill-choice"><button aria-pressed={!combat} onClick={() => chooseDrill(false)}>Practice</button><button aria-pressed={combat} onClick={() => chooseDrill(true)}>Counter-fire · +100 CR</button></div>}
         {hud.message && hud.phase !== 'error' && <p className="fps-capture-error" role="alert">{hud.message}</p>}
+        <EnvironmentControls />
         <FpsDebugPanel hud={hud} engine={engine.current} />
         <FpsRadioVoice hud={hud} engine={engine.current} />
         <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />

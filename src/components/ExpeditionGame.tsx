@@ -1,3 +1,4 @@
+import EnvironmentControls from './EnvironmentControls';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Compass, Maximize, Minimize, Pause, Play } from 'lucide-react';
 import { createFpsEngine, initialFpsHud, type FpsCheckpoint, type FpsEngine } from '../game/fps-engine';
@@ -106,6 +107,7 @@ export default function ExpeditionGame({ profile, onExit, onVendorPurchase, onCo
         <p>{hud.phase === 'loading' ? 'Preparing the district, its patrols and supplies.' : hud.phase === 'error' ? hud.message : hud.phase === 'paused' ? 'Your controls are paused. Patrols remain active while the menu is open.' : `${zone.description} Search supply crates, equip weapons and cross marked checkpoints on foot.`}</p>
         {!['loading', 'error'].includes(hud.phase) && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName}<br />{zone.botCount} defenders · {zone.composition} roles · No match timer</p>}
         {hud.message && hud.phase !== 'error' && <p className="fps-capture-error" role="alert">{hud.message}</p>}
+        <EnvironmentControls />
         <FpsDebugPanel hud={hud} engine={engine.current} />
         <FpsRadioVoice hud={hud} engine={engine.current} />
         <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
