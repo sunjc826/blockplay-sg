@@ -19,6 +19,8 @@ export interface LootZoneGeometry {
   id: WorldZoneId; spawn: ZonePosition;
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
   obstacles: readonly Obstacle[]; anchors?: readonly ZonePosition[];
+  /** Actual standing clearance at street level, including elevated-route foundations. */
+  canStand?: (x: number, z: number, radius: number) => boolean;
   /** Named sub-areas. Absent leaves placement exactly as it was before sectors. */
   sectors?: readonly ZoneSector[];
 }
@@ -73,7 +75,8 @@ function clearGround(point: ZonePosition, geometry: LootZoneGeometry, radius = 0
   if (!finitePosition(point)) return false;
   const b = geometry.bounds;
   if (point.x - radius < b.minX || point.x + radius > b.maxX || point.z - radius < b.minZ || point.z + radius > b.maxZ) return false;
-  return !geometry.obstacles.some(o => point.x + radius > o.minX && point.x - radius < o.maxX && point.z + radius > o.minZ && point.z - radius < o.maxZ);
+  if (geometry.obstacles.some(o => point.x + radius > o.minX && point.x - radius < o.maxX && point.z + radius > o.minZ && point.z - radius < o.maxZ)) return false;
+  return geometry.canStand?.(point.x, point.z, radius) ?? true;
 }
 function choose<T>(items: readonly T[], random: () => number): T { return items[Math.floor(random() * items.length)]; }
 export function rollZoneWeapon(zoneId: WorldZoneId, random: () => number, tierBias: -1 | 0 | 1 = 0): ShopItem {

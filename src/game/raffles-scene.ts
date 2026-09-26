@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { withVerticalRoutes, type VerticalRoute } from './vertical-routes';
 import { RAFFLES_STAMPS } from '../data/region-stamps.ts';
 import type { Obstacle } from './raffles-collision';
 import { markWater } from './water';
@@ -15,6 +16,15 @@ export const RAFFLES_MAP_ROADS = [
 ];
 
 /** Street-view-informed, compressed playable composition, not a surveyed reconstruction. */
+export const RAFFLES_VERTICAL_ROUTES: VerticalRoute[] = [
+  { id: 'collyer-link', name: 'Collyer elevated connector', width: 3.2, color: '#bec3be', railColor: '#8a999b',
+    points: [{ x: 246, z: -54, y: 0 }, { x: 246, z: -32, y: 8.9 }, { x: 246, z: -25, y: 8.9 }, { x: 288, z: -25, y: 8.9 }, { x: 288, z: -19, y: 8.9 }, { x: 288, z: 3, y: 0 }],
+    note: 'Uses the existing reference-informed glazed connector. Outdoor ramp approaches are an authored gameplay adaptation, not confirmed surveyed access.' },
+  { id: 'telok-garden-terrace', foundation: 'solid', name: 'Telok Ayer garden terrace', width: 6, color: '#bab5a6', railColor: '#536951',
+    points: [{ x: -118, z: 165, y: 0 }, { x: -118, z: 177, y: 2.6 }, { x: -118, z: 201, y: 2.6 }, { x: -118, z: 213, y: 0 }],
+    note: 'Authored landscaped terrace in the existing green court, preserving the central square and heritage market roof.' },
+];
+
 export function buildRafflesScene() {
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#b8d1da'); scene.fog = new THREE.Fog('#b8d1da', 280, 750);
   scene.add(new THREE.HemisphereLight('#f1f8ff', '#787366', 1.8));
@@ -155,14 +165,23 @@ export function buildRafflesScene() {
   box(0,15.6,187.9,0.15,1.3,0.1,dark);box(0.55,15,187.9,1.2,0.15,0.1,dark);
   sign('MARKET HALL',0,6.1,212.2,20,1.6,'#735443');
   for(const x of [-32,-16,16,32])for(const z of [168,198]) {box(x,0.9,z,3,0.2,2,terra);box(x,0.45,z,0.3,0.9,0.3,dark);solid(x,z,3,2);for(const dx of [-2.3,2.3]){box(x+dx,0.55,z,0.8,0.15,0.8,wood);solid(x+dx,z,0.8,0.8);}}
-  for(const x of [-280,280])for(let z=-103;z<247;z+=26)tree(x,z,7);
+  // Keep the existing connector interior clear of the former overlapping tree.
+  for(const x of [-280,280])for(let z=-103;z<247;z+=26)if(x!==280 || z!==-25)tree(x,z,7);
   for(let x=-236;x<246;x+=32)tree(x,258,6);
   for(const x of [-244,244])for(let z=-94;z<235;z+=36){box(x,4,z,0.18,8,0.18,dark);box(x,8,z+1,0.2,0.25,2,white);solid(x,z,0.3,0.3);}
   // collyer-expansion-0/90/180: glazed elevated connector and sheltered bus stop.
-  box(258,8.5,-25,65,0.8,7,stone,scene,true);box(258,10.2,-25,65,2.6,6.4,glass);
-  for(let x=228;x<=288;x+=5){box(x,10.3,-21.7,0.2,3,0.2,pale);box(x,10.3,-28.3,0.2,3,0.2,pale);}
-  for(const x of [239,278]){cylinder(x,4,-25,0.6,8,silver);solid(x,-25,1.2,1.2);}
-  for(const z of [-21.65,-28.35]){box(258,9.45,z,65,0.15,0.12,silver);for(let x=229;x<289;x+=5)box(x,10.7,z,3.9,1,0.1,glazingLight);}
+  box(258,8.5,-25,65,0.8,7,stone,scene,true);
+  // Glazed sides now have real openings at the two authored ramp approaches.
+  // Keep the original connector silhouette without glass across its interior.
+  for (const [z, opening] of [[-28.2, 246], [-21.8, 288]]) {
+    for (const [left,right] of [[225.5,opening-2.3],[opening+2.3,290.5]]) {
+      if (right<=left) continue;
+      box((left+right)/2,10.5,z,right-left,3.2,0.12,glass);
+      box((left+right)/2,9.45,z,right-left,0.15,0.12,silver);
+    }
+    for(let x=228;x<=288;x+=5) if(Math.abs(x-opening)>2.3) box(x,10.3,z,0.2,3,0.2,pale);
+  }
+  for(const x of [239,278]){cylinder(x,4,-25,0.6,8,silver);obstacles.push({ minX:x-0.6,maxX:x+0.6,minZ:-25.6,maxZ:-24.6,maxY:8 });}
   for(let x=227;x<290;x+=2)box(x,8.08,-25,0.08,0.05,6.5,silver);
   box(241,3.5,15,7,0.3,22,pale,scene,true);box(238,1.8,15,0.14,3.6,22,glass);
   for(const z of [6,24]){box(238,1.8,z,0.3,3.6,0.3,stone);solid(238,z,0.4,0.4);}
@@ -245,5 +264,5 @@ export function buildRafflesScene() {
   const batches=new Map<string,THREE.Mesh[]>(),instances:THREE.InstancedMesh[]=[];
   for(const c of [...scene.children]){if(!(c instanceof THREE.Mesh)||Array.isArray(c.material)||stamps.includes(c))continue;const key=`${c.geometry.uuid}:${c.material.uuid}:${c.castShadow}:${c.receiveShadow}`;const batch=batches.get(key)??[];batch.push(c);batches.set(key,batch);}
   for(const batch of batches.values()){if(batch.length<2)continue;const m=new THREE.InstancedMesh(batch[0].geometry,batch[0].material,batch.length);m.castShadow=batch[0].castShadow;m.receiveShadow=batch[0].receiveShadow;batch.forEach((b,i)=>{b.updateMatrix();m.setMatrixAt(i,b.matrix);scene.remove(b);});m.computeBoundingSphere();scene.add(m);instances.push(m);}
-  return {scene,obstacles,car,stamps,animate(time:number){stamps.forEach((s,i)=>{s.rotation.y=time*0.7;s.position.y=2.2+Math.sin(time*2+i)*0.2;});pedestrians.forEach((p,i)=>{p.position.z=-90+((time*1.1+i*19)%112);p.rotation.y=i%2?0:Math.PI;});},dispose(){instances.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());sun.shadow.dispose();}};
+  return withVerticalRoutes({scene,obstacles,car,stamps,animate(time:number){stamps.forEach((s,i)=>{s.rotation.y=time*0.7;s.position.y=2.2+Math.sin(time*2+i)*0.2;});pedestrians.forEach((p,i)=>{p.position.z=-90+((time*1.1+i*19)%112);p.rotation.y=i%2?0:Math.PI;});},dispose(){instances.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());sun.shadow.dispose();}}, RAFFLES_VERTICAL_ROUTES);
 }

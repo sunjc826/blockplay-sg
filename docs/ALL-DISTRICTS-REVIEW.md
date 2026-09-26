@@ -108,3 +108,10 @@ registry IDs. Without either setting, the suite retains desktop and mobile
 coverage of every registered district.
 
 The September 26 follow-up also passed all 827 unit tests, typecheck and the production build.
+
+## Playable elevation follow-up
+
+The September 26 [verticality pass](VERTICALITY.md) adds actual walking support and
+38 routes across all districts, with revised sector boundaries/anchors where
+needed. This is a gameplay adaptation; the new access ramps are not additional
+reference-fidelity claims. It requires no new Google captures.

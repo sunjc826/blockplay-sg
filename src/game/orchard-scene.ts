@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { withVerticalRoutes, type VerticalRoute } from './vertical-routes';
 import { ORCHARD_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 
@@ -28,6 +29,15 @@ const clearOfJunction = (x: number, margin: number) => NS_ROADS.every(road => Ma
  * Every block takes a `facing` of 1 or -1 so its frontage, canopy and forecourt
  * turn toward the boulevard from whichever side of it the block sits on.
  */
+export const ORCHARD_VERTICAL_ROUTES: VerticalRoute[] = [
+  { id: 'gateway-link', name: 'Orchard Gateway elevated link', width: 4, color: '#b1b6b7', railColor: '#8eaaaf',
+    points: [{ x: 165, z: -43, y: 0 }, { x: 165, z: -19, y: 9.5 }, { x: 165, z: 19, y: 9.5 }, { x: 165, z: 43, y: 0 }],
+    note: 'Opens the existing reference-informed Gateway link for traversal; compact outdoor ramps adapt access for gameplay and are not surveyed mall entrances.' },
+  { id: 'somerset-seating-terrace', foundation: 'solid', name: 'Somerset seating terrace', width: 5, color: '#b8b5ac', railColor: '#67747b',
+    points: [{ x: -44, z: 48, y: 0 }, { x: -34, z: 48, y: 3.6 }, { x: -6, z: 48, y: 3.6 }, { x: 4, z: 48, y: 0 }],
+    note: 'Replaces the existing authored impassable plaza seating steps with a usable two-access terrace; not a surveyed Somerset plaza layout.' },
+];
+
 export function buildOrchardScene() {
   const kit = createSceneKit({
     background: '#cddbe4', fogNear: 280, fogFar: 840,
@@ -68,7 +78,7 @@ export function buildOrchardScene() {
     }
     blob(x, 9.6 * scale, z, 6.4 * scale, 2.1 * scale, 6.4 * scale, canopy);
   }
-  for (let x = -222; x <= 222; x += 18) for (const z of [-13.5, 13.5]) if (clearOfJunction(x, 14)) rainTree(x, z);
+  for (let x = -222; x <= 222; x += 18) for (const z of [-13.5, 13.5]) if (clearOfJunction(x, 14) && x !== 156) rainTree(x, z); // Gateway access needs a clear crown envelope.
 
   /** Faceted glass shell over a retail podium, twisted a little at each ring. */
   function crystalMall(x: number, z: number, facing: 1 | -1) {
@@ -175,10 +185,6 @@ export function buildOrchardScene() {
     box(x - 16, 10, z + facing * 30, 34, 20, 2.4, dark, scene, true); solid(x - 16, z + facing * 30, 34, 2.6);
     box(x - 16, 11.4, z + facing * 28.6, 29, 15, 0.4, deepGlass);
     for (const dx of [-17.4, 17.4]) cylinder(x - 16 + dx, 10, z + facing * 30, 0.7, 20, steel);
-    for (let step = 0; step < 4; step++) {
-      const cz = z + facing * (16 + step * 4);
-      box(x - 16, 0.4 + step * 0.9, cz, 34, 0.9 + step * 0.8, 4, concrete); solid(x - 16, cz, 34, 4);
-    }
     // Bowl rim: low blocks the player walks between, not a closed ring wall.
     for (let i = 0; i < 14; i++) {
       const angle = i * Math.PI * 2 / 14, bx = x - 10 + Math.cos(angle) * 20, bz = z - facing * 22 + Math.sin(angle) * 14;
@@ -226,18 +232,13 @@ export function buildOrchardScene() {
     for (let x = fromX + 4; x < toX; x += 18) box(x, 4.7, z, 4.4, 0.3, 6, awning);
   }
 
-  /** Pedestrian bridge across the boulevard, landing clear of the median. */
+  /** Existing Gateway link: side glazing leaves its interior walkable. */
   function overheadBridge(x: number) {
     for (const side of [-1, 1]) {
-      box(x, 4.4, side * 16, 4.4, 8.8, 4.4, concrete); solid(x, side * 16, 4.6, 4.6);
-      for (let step = 0; step < 6; step++) box(x + 3.4, 1.2 + step * 1.3, side * (19 + step * 1.6), 3, 0.5, 2.6, concrete);
+      box(x + side * 2.35, 11.1, 0, 0.18, 3.2, 32, glass);
+      for (let z = -14; z <= 14; z += 3.5) box(x + side * 2.35, 11.1, z, 0.16, 3.2, 0.16, steel);
     }
-    box(x, 9.2, 0, 4.6, 0.6, 32, concrete, scene, true);
-    for (const side of [-1, 1]) {
-      box(x + side * 2.3, 10.4, 0, 0.35, 2.2, 32, steel);
-      for (let dz = -14; dz <= 14; dz += 3.5) cylinder(x + side * 2.3, 10.4, dz, 0.12, 2.2, steel);
-    }
-    for (let dz = -14; dz <= 14; dz += 7) box(x, 11.8, dz, 5.4, 0.3, 1.4, pale);
+    box(x, 13.0, 0, 5.4, 0.3, 32, steel);
   }
 
   crystalMall(-115, -65, 1);
@@ -263,8 +264,7 @@ export function buildOrchardScene() {
   covered(-96, -24, 17);
   overheadBridge(165);
   // Orchard Gateway's enclosed glazed link, near Somerset rather than ION.
-  box(165, 11.5, 0, 5.4, 4, 32, glass);
-  for (const y of [9.5, 13.5]) box(165, y, 0, 5.8, 0.3, 32, steel);
+  // Deck and compact two-sided access are supplied by gateway-link below.
 
   // East park: open lawn and a bandstand, kept clear of the practice range.
   box(205, 0.18, 60, 44, 0.35, 210, lawn);
@@ -317,7 +317,7 @@ export function buildOrchardScene() {
   scene.userData.districtFeatures = ['one-way-boulevard', 'rain-tree-crowns', 'faceted-glass-shell', 'granite-twin-towers', 'steep-pitched-tile-roof', 'tangs-layered-eaves', 'wisma-blue-glass', 'peranakan-shutters', 'covered-footway', 'overhead-crossing'];
   scene.userData.referenceFeatures = ['orchard-one-way-carriageway', 'ion-scalloped-diagrid', 'tangs-green-eaves-hotel-tower', 'ngee-ann-red-granite-square', 'emerald-pale-arcades', 'gateway-glass-link'];
 
-  return kit.finish({
+  return withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       pedestrians.forEach((person, index) => {
@@ -327,5 +327,5 @@ export function buildOrchardScene() {
         person.rotation.y = -Math.PI / 2;
       });
     },
-  });
+  }), ORCHARD_VERTICAL_ROUTES);
 }

@@ -608,3 +608,12 @@ fixed variants and local names published as 41c6e892.
 - Separate all 19 mobile-emulation render/width/touch and map checks pass; no Google calls.
 - Updated smoke readiness and diagnostic filtering retain default all-district coverage.
 - All 827 unit tests, typecheck and production build passed.
+
+
+## 2026-09-26: playable verticality delivered
+
+- All19 districts:38 authored reachable routes, actual FPS/exploration elevation support, solid landscape terraces where visual review rejected freestanding bridges.
+- Offline diagnostic evaluator mirrors walking rules and reports existing sectors; no quality score. Snapshot and design limitations: docs/VERTICALITY.md.
+- Sector bounds/anchors and loot clearance integrated; ground interactions guarded against upper-deck activation. No Google calls or capture-plan modifications.
+- Verification:884unit tests/typecheck/build, actualFPS and exploration ascent phases,38route renders; targetedThomson canopy refinement after visual review.
+- Future judgment: playtest sightlines/access usefulness; improve distinct architectural detailing and bot multilevel route choice. Do not make a numeric target the design goal.

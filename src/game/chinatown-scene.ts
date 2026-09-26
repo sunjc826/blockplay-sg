@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CHINATOWN_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { withVerticalRoutes } from './vertical-routes';
 
 export const CHINATOWN_SPAWN = { x: -55, z: 80, yaw: -Math.PI / 2 };
 export const CHINATOWN_BOUNDS = { minX: -250, maxX: 250, minZ: -210, maxZ: 210 };
@@ -232,7 +233,7 @@ export function buildChinatownScene() {
 
   // Club Street slope: terraced shophouses stepped up a planted bank.
   for (let step = 0; step < 3; step++) {
-    box(95, 0.4 + step * 1.1, 96 - step * 22, 84, 0.9 + step * 2.2, 18, grass);
+    box(95, 0.4 + step * 1.1, 96 - step * 22, 68, 0.9 + step * 2.2, 18, grass);
     shophouseRow(62, 96 - step * 22, 6, -1, 11);
   }
   for (const x of [52, 140]) for (const z of [46, 68, 106]) tree(x, z, 7, wood, leaf);
@@ -265,7 +266,7 @@ export function buildChinatownScene() {
   scene.userData.districtFeatures = ['shophouse-five-foot-way', 'pitched-tile-courses', 'market-canopy-lane', 'lantern-string', 'stacked-hipped-roofs', 'tiered-gopuram', 'slab-panel-grid', 'vented-hawker-roof', 'street-gateway-arch', 'terraced-slope'];
   scene.userData.referenceFeatures = ['south-bridge-stepped-parapets', 'pagoda-pale-colonnades', 'pagoda-brick-pedestrian-lane'];
 
-  return kit.finish({
+  return withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       pedestrians.forEach((person, index) => {
@@ -275,5 +276,28 @@ export function buildChinatownScene() {
         person.rotation.y = -Math.PI / 2;
       });
     },
-  });
+  }), [
+    {
+      id: 'complex-gallery', name: 'Complex side gallery', width: 3.2,
+      points: [
+        { x: -163, z: -42, y: 0 },
+        { x: -163, z: -32, y: 3.2 },
+        { x: -163, z: 0, y: 3.2 },
+        { x: -163, z: 10, y: 0 },
+      ],
+      color: '#b9b2a4',
+      note: 'Authored side gallery beside the compressed hawker hall; not a surveyed Chinatown Complex access route.',
+    },
+    {
+      id: 'club-slope-walk', name: 'Club Street terrace walk', width: 3.6,
+      points: [
+        { x: 132, z: 40, y: 0 },
+        { x: 132, z: 52, y: 3.2 },
+        { x: 132, z: 94, y: 3.2 },
+        { x: 132, z: 110, y: 0 },
+      ],
+      color: '#b9b2a4',
+      note: 'Authored hill-edge walking terrace beside the shop bank; preserves the heritage roofs.',
+    },
+  ]);
 }

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { SENTOSA_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
+import { withVerticalRoutes } from './vertical-routes';
 
 // Just inside the boardwalk landing, looking down the island's spine.
 export const SENTOSA_SPAWN = { x: 108, z: -168, yaw: Math.PI };
@@ -196,8 +197,7 @@ export function buildSentosaScene() {
     box(x, 0.36, z, width, 0.1, depth, sea);
     // Leave a genuine traversable route under the Palawan suspension deck.
     for (const side of [-1, 1]) solid(x, z + side * (depth / 4 + 2.5), width, depth / 2 - 5);
-    box(x, 0.36, z, width + 6, 0.35, 8, plank);
-    for (let dx = -width / 2; dx <= width / 2; dx += 2) box(x + dx, 0.58, z, 0.15, 0.08, 8, wood);
+    // The supported raised deck is supplied by withVerticalRoutes below.
     for (const dz of [-4.5, 4.5]) {
       for (const dx of [-width / 2, width / 2]) {
         cylinder(x + dx, 4.4, z + dz, 0.42, 8.8, wood);
@@ -208,7 +208,12 @@ export function buildSentosaScene() {
         const height = (t: number) => 3 + 5 * Math.pow(2 * t - 1, 2);
         beam(new THREE.Vector3(x - width / 2 + a * width, height(a), z + dz),
           new THREE.Vector3(x - width / 2 + b * width, height(b), z + dz), 0.12, wood);
-        cylinder(x - width / 2 + a * width, (height(a) + 1) / 2, z + dz, 0.06, height(a) - 1, wood);
+        const deckX = x - width / 2 + a * width;
+        const deckBase = 2.4 - Math.max(0, Math.abs(deckX - x) - 30) * 0.15 - 0.16;
+        cylinder(deckX, (height(a) + deckBase) / 2, z + dz, 0.06, height(a) - deckBase, wood);
+        // Suspension hangers meet transverse joists at the new deck underside.
+        // Their old ends hung in space below the raised walking surface.
+        if (dz < 0) box(deckX, deckBase, z, 0.16, 0.16, 9.2, wood);
       }
     }
     sign('PALAWAN BEACH', x, 4.8, z - depth / 2 - 1, 25, 2.1, '#426445');
@@ -232,7 +237,7 @@ export function buildSentosaScene() {
       ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
     }
     for (const dz of [-depth / 2 - 11, depth / 2 + 11]) for (let dx = -width / 2; dx <= width / 2; dx += 11) palm(x + dx, z + dz, 10 + (Math.abs(Math.round(dx)) % 3), 0.1);
-    for (const dx of [-width / 2 - 10, width / 2 + 10]) { box(x + dx, 0.9, z, 3.4, 0.24, 8, plank); solid(x + dx, z, 3.6, 8); }
+    // Keep both shore approaches open for the new access ramps.
   }
 
   /** Beach club: a raised deck, a bar, loungers and a volleyball net. */
@@ -297,7 +302,7 @@ export function buildSentosaScene() {
   scene.userData.districtFeatures = ['strait-boardwalk-ribs', 'leaning-palm-collars', 'arcaded-podium', 'tiered-pavilion-domes', 'water-stair', 'balcony-band-slabs', 'sky-bridge', 'earthwork-gun-emplacements', 'palawan-suspension-bridge', 'monorail-beam', 'fort-siloso-skywalk'];
   scene.userData.referenceFeatures = ['palawan-suspension-bridge', 'palawan-paired-roofed-lookouts', 'palawan-palm-lined-sand-shore'];
 
-  return kit.finish({
+  return withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.36 + index) * 1.8; });
@@ -308,5 +313,12 @@ export function buildSentosaScene() {
         else { person.position.z = -180 + ((time * 1.1 + index * 9) % 26); person.rotation.y = Math.PI; }
       });
     },
-  });
+  }), [
+    { id: 'palawan-raised-crossing', name: 'Palawan suspension crossing', width: 6, color: '#a78a61', railColor: '#765c42',
+      points: [{ x: -136, z: 75, y: 0 }, { x: -120, z: 75, y: 2.4 }, { x: -60, z: 75, y: 2.4 }, { x: -44, z: 75, y: 0 }],
+      note: 'Existing suspension crossing converted from a flat collision lane to a supported raised walkway; elevation and ramp compression are authored.' },
+    { id: 'beach-club-seaside-terrace', foundation: 'solid', name: 'Beach club seaside terrace', width: 6, color: '#a78a61', railColor: '#765c42',
+      points: [{ x: 0, z: 116, y: 0 }, { x: 12, z: 116, y: 2.4 }, { x: 50, z: 116, y: 2.4 }, { x: 62, z: 116, y: 0 }],
+      note: 'Low beach-club viewing terrace beside the volleyball court, with independent entrances and ground routes around its raised timber stage.' },
+  ]);
 }

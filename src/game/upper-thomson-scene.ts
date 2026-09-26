@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
+import { withVerticalRoutes } from './vertical-routes';
 
 // On the eating strip's five-foot way, looking west toward the reservoir.
 export const UPPER_THOMSON_SPAWN = { x: -50, z: -12, yaw: Math.PI / 2 };
@@ -89,7 +90,8 @@ export function buildUpperThomsonScene() {
       if (z + 8 <= toZ) box(-158.6, 1.5, z + 4, 0.1, 0.9, 8, wood);
     }
   }
-  boardwalk(-116, -20); boardwalk(20, 116);
+  // North boardwalk is replaced by the supported low rise below.
+  boardwalk(20, 116);
   for (const z of [-64, 68]) {
     box(-172, 0.42, z, 20, 0.24, 9, plank); solid(-176, z, 12, 9);
     for (const dz of [-4, 4]) for (const dx of [-8, 0, 8]) cylinder(-172 + dx, 0.2, z + dz, 0.24, 0.9, wood);
@@ -98,6 +100,9 @@ export function buildUpperThomsonScene() {
 
   /** Secondary forest: bare trunks under a layered canopy, thinning at the road. */
   function forestTree(x: number, z: number, height: number) {
+    // Shore-side crowns must clear the full raised deck, not only its centreline.
+    // Lowest crown bottom is height - 6.7; 13m leaves 2.1m above standing heads.
+    if (x === FOREST.minX && z >= -116 && z <= -20) height = Math.max(height, 13);
     cylinder(x, height / 2, z, 0.42, height, wood); solid(x, z, 0.9, 0.9);
     for (let layer = 0; layer < 3; layer++) {
       const y = height - layer * 2.6, spread = 4.4 - layer * 0.9;
@@ -247,6 +252,13 @@ export function buildUpperThomsonScene() {
   for (let step = 0; step < 3; step++) box(192, 0.4 + step * 0.4, -100, 22 - step * 6, 0.9 + step * 0.3, 14 - step * 4, step % 2 ? stone : concrete);
   solid(192, -100, 24, 16);
 
+  // A planted masonry base makes the low green terrace a landscape feature,
+  // rather than an unexplained flyover. Its ramps stop clear of perimeter road.
+  for (const z of [34, 46]) {
+    box(198, 0.3, z, 20, 0.6, 1.5, stone);
+    box(198, 0.72, z, 19, 0.3, 1.1, fern);
+  }
+
   // Perimeter: planting strips, a reservoir sign and the far shore's tree line.
   for (let z = -180; z <= 180; z += 26) {
     if (Math.abs(z) < 20) continue;
@@ -263,7 +275,7 @@ export function buildUpperThomsonScene() {
   scene.userData.districtFeatures = ['zinc-awning-five-foot-way', 'open-sided-kopitiam', 'ceiling-fan-bays', 'rooftop-car-park-deck', 'blue-framed-plaza-facade', 'terrace-house-porches', 'reservoir-causeway', 'pile-boardwalk', 'layered-secondary-forest', 'forest-trail-junction'];
   scene.userData.referenceFeatures = ['thomson-shops-road-0:two-storey-pitched-roof-terrace', 'thomson-shops-road-0:continuous-low-awning', 'thomson-plaza-outdoor02-0:white-clad-facade-with-offset-blue-squares'];
 
-  return kit.finish({
+  return withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.35 + index) * 1.5; });
@@ -272,5 +284,12 @@ export function buildUpperThomsonScene() {
         else { person.position.x = -100 + ((time * 1.3 + index * 19) % 150); person.rotation.y = -Math.PI / 2; }
       });
     },
-  });
+  }), [
+    { id: 'reservoir-boardwalk', name: 'Reservoir boardwalk rise', width: 5, color: '#9a7a55', railColor: '#7a6046',
+      points: [{ x: -162, z: -116, y: 0 }, { x: -162, z: -104, y: 2.4 }, { x: -162, z: -32, y: 2.4 }, { x: -162, z: -20, y: 0 }],
+      note: 'Authored low boardwalk rise replaces the existing north shore deck; not the distant TreeTop Walk.' },
+    { id: 'neighbourhood-green-terrace', name: 'Neighbourhood green terrace', width: 9, foundation: 'solid', color: '#b4b3aa', railColor: '#536b54',
+      points: [{ x: 176, z: 40, y: 0 }, { x: 188, z: 40, y: 2.4 }, { x: 208, z: 40, y: 2.4 }, { x: 220, z: 40, y: 0 }],
+      note: 'A small two-ended viewing terrace in the authored neighbourhood green, not a surveyed landmark.' },
+  ]);
 }

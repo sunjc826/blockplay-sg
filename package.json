@@ -56,7 +56,8 @@
     "test:fps:counter-fire": "node scripts/fps-counter-fire-smoke.mjs",
     "analyse:weapons": "node --experimental-strip-types scripts/weapon-breakpoints.mjs",
     "analyse:cover": "node --experimental-strip-types scripts/cover-report.mjs",
-    "sector:anchors": "node --experimental-strip-types scripts/sector-anchors.mjs"
+    "sector:anchors": "node --experimental-strip-types scripts/sector-anchors.mjs",
+    "analyse:verticality": "node --experimental-strip-types scripts/verticality-report.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

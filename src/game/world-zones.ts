@@ -52,7 +52,7 @@ export const WORLD_ZONES: readonly WorldZone[] = [
   { id: 'upper-thomson', name: 'Upper Thomson', description: 'A thin eating strip with the reservoir forest behind it; cover runs out at the causeway.', spawn: { x: -50, z: -12, yaw: Math.PI / 2, pitch: 0 },
     risk: 'low', lootTier: 1, botCount: 3, composition: 'assault', encounterSpawns: [{ x: -50, z: -14 }, { x: -92, z: -46 }, { x: 85, z: -14 }, { x: -190, z: 5 }, { x: -162, z: -64 }, { x: 192, z: 60 }] },
   { id: 'punggol', name: 'Punggol', description: 'Open water and long promenades; the crossings are few and every one is watched.', spawn: { x: 20, z: -58, yaw: 0, pitch: 0 },
-    risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: 20, z: -60 }, { x: 20, z: -90 }, { x: 20, z: 36 }, { x: -100, z: 30 }, { x: 215, z: 75 }, { x: 139, z: -20 }] },
+    risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: 20, z: -60 }, { x: 4, z: -116 }, { x: 18, z: 36 }, { x: -100, z: 30 }, { x: 215, z: 75 }, { x: 139, z: -20 }] },
   { id: 'harbourfront', name: 'HarbourFront', description: 'Open quay with the ridge above it; the wharf end has cover, the water end has none.', spawn: { x: 20, z: 134, yaw: Math.PI / 2, pitch: 0 },
     risk: 'high', lootTier: 3, botCount: 5, composition: 'mixed', encounterSpawns: [{ x: 20, z: 134 }, { x: 60, z: -6 }, { x: -75, z: -6 }, { x: -185, z: -10 }, { x: 180, z: 50 }, { x: 109, z: 165 }] },
   { id: 'sentosa', name: 'Sentosa', description: 'One way on and one way off; open beach and lawn with the battery holding the high ground.', spawn: { x: 108, z: -168, yaw: Math.PI, pitch: 0 },

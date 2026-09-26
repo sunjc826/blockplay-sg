@@ -1,3 +1,5 @@
+import { createVerticalMovement } from '../game/vertical-movement';
+import { getWalkSurfaces, getTraversalObstacles } from '../game/vertical-routes';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { defaultDriveLook, dragDriveLook, driveCameraOffset, settleDriveLook } from '../game/drive-camera';
@@ -37,6 +39,8 @@ export default function MarinaGame() {
     try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
     catch { setError('WebGL could not start. Try a browser with hardware acceleration enabled.'); return; }
     const world = buildMarinaScene();
+    const walking = createVerticalMovement({ bounds: MARINA_BOUNDS, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
+    let feetY = 0, velocityY = 0;
     const objectiveHighlight = createObjectiveHighlight(world.scene);
     const selectHighlight = (id: string | null) => objectiveHighlight.select(world.stamps[destinations.findIndex(d => d.id === id)]);
     selectHighlight(adventure.read().activeId);
@@ -54,7 +58,7 @@ export default function MarinaGame() {
     const collected = new Set<number>();
     const report = () => { const state = adventure.read(); selectHighlight(state.activeId); setHud({ distance, speed, ...position, collected: [...collected], activeId: state.activeId, sessionId: state.sessionId }); };
     reset.current = () => {
-      position = { x: MARINA_SPAWN.x, z: MARINA_SPAWN.z }; yaw = MARINA_SPAWN.yaw; pitch = 0.14; speed = 0; distance = 0; collected.clear();
+      position = { x: MARINA_SPAWN.x, z: MARINA_SPAWN.z }; yaw = MARINA_SPAWN.yaw; pitch = 0.14; speed = 0; distance = 0; feetY = velocityY = 0; collected.clear();
       driveLook = defaultDriveLook(); drag = undefined; lastLookAt = 0;
       adventure.reset();
       world.stamps.forEach(stamp => { stamp.visible = true; }); keys.current.clear(); report();
@@ -97,6 +101,8 @@ export default function MarinaGame() {
       if (lastTravel !== travelRef.current) {
         driveLook = defaultDriveLook(); drag = undefined; lastLookAt = 0;
         lastTravel = travelRef.current;
+        if (driving && feetY > .35) position = { x: MARINA_SPAWN.x, z: MARINA_SPAWN.z };
+        feetY = velocityY = 0;
       }
       if (lookStick.current) {
         // A drag is a displacement and the stick is a rate, but both end up in
@@ -115,7 +121,9 @@ export default function MarinaGame() {
         dx = (-Math.sin(yaw) * forward + Math.cos(yaw) * side) / normal * rate * dt;
         dz = (-Math.cos(yaw) * forward - Math.sin(yaw) * side) / normal * rate * dt;
       }
-      const next = moveInMarina(position, dx, dz, driving ? 1.35 : 0.65, world.obstacles);
+      const walked = driving ? null : walking.move({ ...position, y: feetY, velocityY }, dx, dz, dt, .65, 1.8);
+      const next = walked ?? moveInMarina(position, dx, dz, 1.35, world.obstacles);
+      if (walked) { feetY = walked.y; velocityY = walked.velocityY; }
       const step = Math.hypot(next.x - position.x, next.z - position.z);
       if (driving && step < Math.hypot(dx, dz) * 0.2) speed = 0;
       distance += step; position = next;
@@ -127,10 +135,10 @@ export default function MarinaGame() {
         camera.position.set(position.x + offset.x, 1.3 + offset.y, position.z + offset.z);
         camera.lookAt(position.x, 1.3, position.z);
       } else {
-        camera.position.set(position.x, 1.75, position.z); camera.rotation.set(pitch, yaw, 0, 'YXZ');
+        camera.position.set(position.x, feetY + 1.75, position.z); camera.rotation.set(pitch, yaw, 0, 'YXZ');
       }
       MARINA_STAMPS.forEach((stamp, i) => {
-        if (!collected.has(i) && Math.hypot(stamp.x - position.x, stamp.z - position.z) < 4) { collected.add(i); world.stamps[i].visible = false; adventure.collect(destinations[i].id); }
+        if (feetY <= .35 && !collected.has(i) && Math.hypot(stamp.x - position.x, stamp.z - position.z) < 4) { collected.add(i); world.stamps[i].visible = false; adventure.collect(destinations[i].id); }
       });
       world.animate(now / 1000); objectiveHighlight.update(now / 1000); renderer.render(world.scene, camera);
       if (now - lastReport > 150) { report(); lastReport = now; }

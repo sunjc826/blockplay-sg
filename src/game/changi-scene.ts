@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CHANGI_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { withVerticalRoutes } from './vertical-routes';
 import { markWater } from './water';
 
 // Between two planted terraces, looking down a clear radial at the falls.
@@ -106,17 +107,21 @@ export function buildChangiScene() {
     solid(DOME.x, DOME.z, 38, 38);
     for (let i = 0; i < 40; i++) {
       const angle = i * 0.61, r = 24 + (i % 5) * 9;
-      blob(DOME.x + Math.cos(angle) * r, 1.6 + (i % 3) * 0.8, DOME.z + Math.sin(angle) * r, 4.2, 2.4, 4.2, [leaf, fern, moss][i % 3]);
+      const px = DOME.x + Math.cos(angle) * r, pz = DOME.z + Math.sin(angle) * r;
+      // Keep planting outside the new viewing deck and its two approaches.
+      if ((px > -101 && px < -9 && pz > -65 && pz < -51)
+        || ((Math.abs(px + 94) < 7 || Math.abs(px + 16) < 7) && pz > -65 && pz < -41)) continue;
+      blob(px, 1.6 + (i % 3) * 0.8, pz, 4.2, 2.4, 4.2, [leaf, fern, moss][i % 3]);
     }
-    // Ring walkways and the planted terraces that step down toward the basin.
-    // Two elevated rings only: a third at the perimeter walled off the view of
-    // the falls from the entrances. The outer ring is planting at ground level.
+    // Retain the outer decorative ring and ground planting. The inaccessible
+    // inner ring is replaced by the supported viewing walk below. The remaining
+    // ring is scenic geometry, not counted as a reachable route.
     for (let i = 0; i < segments; i += 5) {
       const angle = i * Math.PI * 2 / segments, px = DOME.x + Math.cos(angle) * 68, pz = DOME.z + Math.sin(angle) * 68;
       const planter = box(px, 0.7, pz, 6.4, 1.4, 6.4, pale); planter.rotation.y = -angle;
       blob(px, 2.4, pz, 3.4, 2, 3.4, [fern, moss][i % 2]); solid(px, pz, 6.8, 6.8);
     }
-    for (const r of [30, 46]) for (let i = 0; i < segments; i++) {
+    for (const r of [46]) for (let i = 0; i < segments; i++) {
       const angle = i * Math.PI * 2 / segments;
       const height = r === 46 ? 8.4 : 4.2;
       const deck = box(DOME.x + Math.cos(angle) * r, height, DOME.z + Math.sin(angle) * r, 7, 0.4, r * Math.PI * 2 / segments * 1.1, r === 46 ? steel : pale);
@@ -268,7 +273,7 @@ export function buildChangiScene() {
   scene.userData.districtFeatures = ['toroidal-glazed-roof', 'radial-rib-mullions', 'oculus-waterfall', 'terraced-basin', 'ring-walkways', 'terminal-viaduct', 'flared-control-cab', 'stand-markings', 'wide-body-airliner', 'coastal-palms'];
   scene.userData.referenceFeatures = ['jewel-triangular-exterior-glazing', 'changi-tower-pale-shaft-blue-strip', 'changi-tower-spherical-radome'];
 
-  return kit.finish({
+  return withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       fall.forEach(drop => {
@@ -280,5 +285,30 @@ export function buildChangiScene() {
         else { person.position.z = -60 + ((time * 1.1 + index * 13) % 56); person.rotation.y = Math.PI; }
       });
     },
-  });
+  }), [
+    {
+      id: 'jewel-viewing-walk', name: 'Jewel viewing walk', width: 4,
+      points: [
+        { x: -94, z: -44, y: 0 },
+        { x: -94, z: -54, y: 3.2 },
+        { x: -94, z: -58, y: 3.2 },
+        { x: -16, z: -58, y: 3.2 },
+        { x: -16, z: -54, y: 3.2 },
+        { x: -16, z: -44, y: 0 },
+      ],
+      color: '#e3ded0',
+      note: 'Authored angular viewing walk replacing an inaccessible decorative inner ring; the reviewed exterior does not verify Jewel interior topology.',
+    },
+    {
+      id: 'terminal-gallery', name: 'Terminal frontage gallery', width: 3.2,
+      points: [
+        { x: -156, z: -160, y: 0 },
+        { x: -144, z: -160, y: 3.2 },
+        { x: -86, z: -160, y: 3.2 },
+        { x: -74, z: -160, y: 0 },
+      ],
+      color: '#b3b1a7',
+      note: 'Authored pedestrian frontage gallery below the existing departure viaduct; does not grant access to the airside tower.',
+    },
+  ]);
 }

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { HARBOURFRONT_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
+import { withVerticalRoutes } from './vertical-routes';
 
 // On the quay between the mall and the water, looking along the berth.
 export const HARBOURFRONT_SPAWN = { x: 20, z: 134, yaw: Math.PI / 2 };
@@ -411,7 +412,7 @@ export function buildHarbourfrontScene() {
   scene.userData.districtFeatures = ['white-wave-retail-frontage', 'rooftop-water-deck', 'quay-amphitheatre', 'wave-vault-hall', 'boarding-gangways', 'raked-liner-hull', 'portal-gantry-boom', 'container-yard-rows', 'ridge-terraces', 'cable-span-cabins'];
   scene.userData.referenceFeatures = ['vivocity-white-waterfront-balcony-rails', 'vivocity-restaurant-colonnade-pergola'];
 
-  return kit.finish({
+  return withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.32 + index) * 1.8; });
@@ -429,5 +430,12 @@ export function buildHarbourfrontScene() {
         else { person.position.x = -60 + ((time * 1.3 + index * 27) % 160); person.rotation.y = -Math.PI / 2; }
       });
     },
-  });
+  }), [
+    { id: 'vivocity-east-terrace', foundation: 'solid', name: 'VivoCity east terrace', width: 5, color: '#e3e1d5', railColor: '#a1aead',
+      points: [{ x: 116, z: 10, y: 0 }, { x: 116, z: 24, y: 3.5 }, { x: 116, z: 74, y: 3.5 }, { x: 116, z: 88, y: 0 }],
+      note: 'Authored lower retail terrace beside the mall, with two ramp approaches; does not claim access to the decorative roof pool.' },
+    { id: 'telok-blangah-raised-trail', name: 'Telok Blangah raised trail', width: 4, color: '#8a735a', railColor: '#596b58',
+      points: [{ x: -184, z: 0, y: 0 }, { x: -184, z: 12, y: 3 }, { x: -184, z: 76, y: 3 }, { x: -184, z: 88, y: 0 }],
+      note: 'Timber trail between existing shelters and planting, giving the green a second traversable level without opening the mountain mass.' },
+  ]);
 }

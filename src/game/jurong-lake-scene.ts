@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { JURONG_LAKE_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
+import { withVerticalRoutes } from './vertical-routes';
 
 export const JURONG_LAKE_SPAWN = { x: -20, z: 20, yaw: Math.PI / 2 };
 export const JURONG_LAKE_BOUNDS = { minX: -270, maxX: 270, minZ: -230, maxZ: 230 };
@@ -70,16 +71,8 @@ export function buildJurongLakeScene() {
     box((ISLAND.maxX + LAKE.maxX) / 2, 1.05, z, LAKE.maxX - ISLAND.maxX, 0.4, 0.6, pale);
     for (let x = ISLAND.maxX + 3; x < LAKE.maxX; x += 5) cylinder(x, 0.6, z, 0.16, 1.2, pale);
   }
-  // Arched span over the middle of the causeway, in the garden-bridge manner.
-  for (let n = 0; n <= 14; n++) {
-    const angle = Math.PI * n / 14, x = -70 + Math.cos(angle) * 22;
-    for (const z of [CAUSEWAY.minZ + 0.8, CAUSEWAY.maxZ - 0.8]) box(x, 0.7 + Math.sin(angle) * 2.6, z, 3.4, 0.45, 0.7, pale);
-  }
-  for (let n = 0; n <= 10; n++) {
-    const angle = Math.PI * n / 10;
-    beam(new THREE.Vector3(-70 + Math.cos(angle) * 22, 0.5, CAUSEWAY.minZ + 0.8),
-      new THREE.Vector3(-70 + Math.cos(angle) * 22, 0.5, CAUSEWAY.maxZ - 0.8), 0.1, pale);
-  }
+  // The playable raised causeway now supplies the upper deck and continuous
+  // rails. Remove the old disconnected arch blocks outside its footprint.
 
   /** Cloud Pagoda: seven octagonal storeys, pale galleries and tiled eaves.
    * Form follows NParks' Cloud Pagoda description; see WEST-DISTRICT-REVIEW.md.
@@ -267,10 +260,10 @@ export function buildJurongLakeScene() {
     .flatMap((shirt, index) => [walker(-20, 40 + index * 18, shirt, skin, dark), walker(-100 + index * 16, 20, shirt, skin, dark)]);
   const car = kit.car(mat('#7f9aa4'), glass, mat('#d9d4c4'), dark);
   const stamps = stampRings(JURONG_LAKE_STAMPS, orange);
-  scene.userData.districtFeatures = ['seven-tier-octagonal-pagoda', 'pale-gallery-balustrades', 'causeway-arch', 'moon-gate', 'stone-lanterns', 'lake-boardwalk', 'faceted-science-drum', 'elevated-viaduct', 'sawtooth-interchange', 'raked-gravel-garden'];
+  scene.userData.districtFeatures = ['seven-tier-octagonal-pagoda', 'pale-gallery-balustrades', 'raised-garden-causeway', 'moon-gate', 'stone-lanterns', 'lake-boardwalk', 'faceted-science-drum', 'elevated-viaduct', 'sawtooth-interchange', 'raked-gravel-garden'];
   scene.userData.referenceFeatures = ['chinese-garden-2016-asphalt-path-drain-disc-lamps', 'jem-2025-white-overhang-recessed-glazing-planted-ledge'];
 
-  return kit.finish({
+  return withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.4 + index) * 1.6; });
@@ -279,5 +272,12 @@ export function buildJurongLakeScene() {
         else { person.position.z = -40 + ((time * 1.4 + index * 27) % 150); person.rotation.y = Math.PI; }
       });
     },
-  });
+  }), [
+    { id: 'causeway-garden-bridge', name: 'Raised garden causeway', width: 5, color: '#c6c1b2', railColor: '#ded8c8',
+      points: [{ x: -103, z: 20, y: 0 }, { x: -93, z: 20, y: 3 }, { x: -49, z: 20, y: 3 }, { x: -39, z: 20, y: 0 }],
+      note: 'Playable rise within the existing compressed garden causeway; the neighbouring level lane remains an alternative.' },
+    { id: 'jem-forecourt-terrace', foundation: 'solid', name: 'JEM forecourt terrace', width: 6, color: '#d6d5cb', railColor: '#81999b',
+      points: [{ x: 35, z: -15, y: 0 }, { x: 47, z: -15, y: 3.2 }, { x: 83, z: -15, y: 3.2 }, { x: 95, z: -15, y: 0 }],
+      note: 'Authored low retail terrace with two approaches, preserving ground circulation between the mall blocks; not a surveyed JEM floor.' },
+  ]);
 }

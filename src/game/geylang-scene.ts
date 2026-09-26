@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GEYLANG_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { withVerticalRoutes } from './vertical-routes';
 import { markWater } from './water';
 
 // On the main road at a lorong mouth, looking down the terraces.
@@ -310,7 +311,7 @@ export function buildGeylangScene() {
   scene.userData.districtFeatures = ['close-set-lorong-grid', 'vented-parapets', 'segmental-fanlights', 'pilastered-terraces', 'five-foot-way-columns', 'upswept-gable-ends', 'ribbed-dome-drum', 'swallowtail-ridge', 'open-sided-kopitiam', 'bridged-canal'];
   scene.userData.referenceFeatures = ['lorong24a-clay-pitched-terrace-roofs', 'lorong24a-window-air-conditioners-awnings'];
 
-  return kit.finish({
+  return withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.34 + index) * 1.4; });
@@ -319,5 +320,28 @@ export function buildGeylangScene() {
         else { person.position.x = -70 + ((time * 1.4 + index * 31) % 150); person.rotation.y = -Math.PI / 2; }
       });
     },
-  });
+  }), [
+    {
+      id: 'lorong-service-gallery', name: 'Lorong service gallery', width: 3.4,
+      points: [
+        { x: -20, z: -48, y: 0 },
+        { x: -10, z: -48, y: 2.8 },
+        { x: 10, z: -48, y: 2.8 },
+        { x: 20, z: -48, y: 0 },
+      ],
+      color: '#b9b3a6', railColor: '#2f6b52',
+      note: 'Authored rear service gallery between low terraces, retaining the street roofs and numbered lanes.',
+    },
+    {
+      id: 'carpark-side-gallery', name: 'Car park side gallery', width: 4,
+      points: [
+        { x: -211, z: -72, y: 0 },
+        { x: -211, z: -60, y: 3.6 },
+        { x: -211, z: -30, y: 3.6 },
+        { x: -211, z: -18, y: 0 },
+      ],
+      color: '#a9a89e',
+      note: 'Authored pedestrian gallery beside the existing schematic car park; not an inferred real car park layout.',
+    },
+  ]);
 }

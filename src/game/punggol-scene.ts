@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { PUNGGOL_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
+import { withVerticalRoutes } from './vertical-routes';
 
-// On the north promenade, looking across the waterway at the arch bridge.
+// On the north promenade, looking across the waterway at the footbridge.
 export const PUNGGOL_SPAWN = { x: 20, z: -58, yaw: 0 };
 export const PUNGGOL_BOUNDS = { minX: -270, maxX: 270, minZ: -230, maxZ: 230 };
 export { PUNGGOL_STAMPS } from '../data/region-stamps.ts';
@@ -13,8 +14,7 @@ const EDGE_X = 245, EDGE_Z = 205;
 /**
  * The waterway is a channel, and a continuous one would cut the district in
  * two. It is cast as a run of segments instead, with a gap at every crossing:
- * one per cross street, plus the pair either side of the arch bridge, which is
- * therefore a real crossing on foot rather than scenery.
+ * one per cross street, the footbridge instead has finite-height water collision under its supported deck.
  */
 const CHANNEL = { nearZ: -105, farZ: -75 }, ARCH_X = 20;
 const CHANNEL_SPANS: readonly (readonly [number, number])[] = [
@@ -31,7 +31,7 @@ export const PUNGGOL_MAP_ROADS = [
 
 /**
  * An authored, compressed interpretation of the Punggol waterfront town: a
- * planted waterway with promenades on both banks and an arched crossing, a
+ * planted waterway with promenades on both banks and a raised crossing, a
  * mall over the interchange, precinct slabs on void decks, an elevated light
  * rail loop, and a jetty out into a sheltered bay. Spatially compressed for play; researched changes are logged in
  * docs/NORTH-EAST-REVIEW.md.
@@ -42,7 +42,7 @@ export function buildPunggolScene() {
     sun: { x: -150, y: 215, z: 130 }, shadow: { extent: 270, far: 700 },
     hemisphere: { sky: '#f4fafd', ground: '#757a66', intensity: 1.86 },
   });
-  const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat } = kit;
+  const { scene, box, cylinder, blob, solid, sign, tree, walker, stampRings, mat } = kit;
 
   const asphalt = mat('#575d61'), white = mat('#eae8da'), paving = mat('#bcb7aa'), kerb = mat('#cfc9bb');
   const water = mat('#4e8ba1', 0.4), shallow = mat('#63a2b2', 0.38), lawn = mat('#8ba76c'), grass = mat('#7d9761');
@@ -78,6 +78,10 @@ export function buildPunggolScene() {
       ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
     }
   }
+  // Water continues below the footbridge. The old grass/collider gap let
+  // players walk across the channel at ground level instead of using the deck.
+  box(ARCH_X, -0.06, midZ, 12, 0.36, depthZ, water);
+  kit.obstacles.push({ minX: 14, maxX: 26, minZ: CHANNEL.nearZ, maxZ: CHANNEL.farZ, maxY: 0.12 });
   // Promenades on both banks, and a deck over each cross-street crossing.
   for (const side of [-1, 1]) {
     box(0, 0.2, midZ + side * (depthZ / 2 + 11), 480, 0.4, 9, paving);
@@ -94,28 +98,8 @@ export function buildPunggolScene() {
     }
   }
 
-  /** Arched footbridge: a rising deck on ribs, over the gap left for it. */
-  function archBridge(x: number) {
-    for (let n = 0; n <= 24; n++) {
-      const t = n / 24, z = CHANNEL.nearZ - 12 + t * (depthZ + 24), rise = Math.sin(Math.PI * t) * 6.4;
-      box(x, 0.6 + rise, z, 11, 0.4, (depthZ + 24) / 24 + 0.3, plank);
-      for (const side of [-1, 1]) {
-        box(x + side * 5.4, 1.5 + rise, z, 0.3, 1.5, (depthZ + 24) / 24 + 0.3, steel);
-        if (n % 3 === 0) cylinder(x + side * 5.4, 1.2 + rise, z, 0.12, 1.4, steel);
-      }
-      if (n % 4 === 0 && rise > 0.6) for (const side of [-1, 1]) cylinder(x + side * 4.6, rise / 2, z, 0.2, rise, steel);
-    }
-    for (const side of [-1, 1]) {
-      const zEnd = midZ + side * (depthZ / 2 + 12);
-      for (let n = 0; n < 12; n++) {
-        const t = n / 12;
-        beam(new THREE.Vector3(x - 5.4, 2.4 + Math.sin(Math.PI * (0.5 + side * t * 0.5)) * 7, zEnd - side * t * 8),
-          new THREE.Vector3(x + 5.4, 2.4 + Math.sin(Math.PI * (0.5 + side * t * 0.5)) * 7, zEnd - side * t * 8), 0.09, steel);
-      }
-    }
-    sign('WATERWAY CROSSING', x, 9.4, CHANNEL.nearZ - 14, 22, 2.1, '#2f6b78');
-  }
-  archBridge(ARCH_X);
+  // The existing waterway crossing receives a supported rising deck at finish.
+  sign('WATERWAY CROSSING', ARCH_X, 9.4, CHANNEL.nearZ - 14, 22, 2.1, '#2f6b78');
 
   /** Precinct slab: coloured panel bands over an open void deck on columns. */
   function hdbTower(x: number, z: number, height: number, width = 30) {
@@ -287,11 +271,11 @@ export function buildPunggolScene() {
     .flatMap((shirt, index) => [walker(-60 + index * 26, -58, shirt, skin, dark), walker(JETTY_X, 150 + index * 9, shirt, skin, dark)]);
   const car = kit.car(mat('#82a0a8'), glass, mat('#dad5c5'), dark);
   const stamps = stampRings(PUNGGOL_STAMPS, orange);
-  scene.userData.districtFeatures = ['segmented-waterway', 'planted-channel-banks', 'reed-beds', 'arched-crossing', 'void-deck-columns', 'coloured-panel-bands', 'sky-terrace-caps', 'shade-sail-court', 'elevated-light-rail', 'pile-jetty'];
+  scene.userData.districtFeatures = ['segmented-waterway', 'planted-channel-banks', 'reed-beds', 'walkable-waterway-crossing', 'void-deck-columns', 'coloured-panel-bands', 'sky-terrace-caps', 'shade-sail-court', 'elevated-light-rail', 'pile-jetty'];
   scene.userData.referenceFeatures = ['jewel-bridge-exterior-0:precinct-olive-and-white-facade-only', 'waterway-point-outdoor02-0:street-podium-and-residential-screens'];
   scene.userData.researchedFeatures = ['watertown-residential-over-retail', 'waterway-point-terraced-frontage'];
 
-  return kit.finish({
+  return withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.38 + index) * 1.7; });
@@ -300,5 +284,12 @@ export function buildPunggolScene() {
         else { person.position.x = -80 + ((time * 1.3 + index * 25) % 190); person.rotation.y = -Math.PI / 2; }
       });
     },
-  });
+  }), [
+    { id: 'waterway-footbridge', name: 'Waterway footbridge', width: 8, color: '#9c7c57', railColor: '#b0b8bb',
+      points: [{ x: ARCH_X, z: -120, y: 0 }, { x: ARCH_X, z: -108, y: 4.8 }, { x: ARCH_X, z: -72, y: 4.8 }, { x: ARCH_X, z: -60, y: 0 }],
+      note: 'Replaces the decorative rising deck with a traversable crossing; this remains an authored waterway bridge, not Jewel Bridge.' },
+    { id: 'mall-approach-terrace', name: 'Mall approach terrace', width: 6, color: '#e3e6df', railColor: '#65808a',
+      points: [{ x: -28, z: 33, y: 0 }, { x: -12, z: 33, y: 3.2 }, { x: 52, z: 33, y: 3.2 }, { x: 68, z: 33, y: 0 }],
+      note: 'Two-ended pedestrian terrace ahead of the mall podium; preserves the accepted facade and does not claim a surveyed entrance layout.' },
+  ]);
 }

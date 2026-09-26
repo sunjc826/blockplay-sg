@@ -28,9 +28,9 @@ const HARBOURFRONT_SECTORS: readonly ZoneSector[] = [
   // The mall is one solid stepped mass, so its sector is the ring of ten- to
   // fourteen-metre lanes around it, plus the amphitheatre and the station
   // entrance at its quay corner. Central, so everyone passes through it.
-  { id: 'vivocity', name: 'VivoCity waterfront', cover: 'broken', lootWeight: 2.5, botWeight: 2,
+  { id: 'vivocity', name: 'VivoCity waterfront', cover: 'dense', lootWeight: 2.5, botWeight: 2,
     bounds: { minX: 0, maxX: 124, minZ: -14, maxZ: 114 },
-    anchors: [{ x: 60, z: -6 }, { x: 60, z: 108 }, { x: 117, z: 40 }, { x: 117, z: 86 }, { x: 117, z: -6 }] },
+    anchors: [{ x: 60, z: -6 }, { x: 60, z: 108 }, { x: 111, z: 40 }, { x: 111, z: 86 }, { x: 117, z: -6 }] },
   // The cruise hall and its two boarding gangways, west of the quay street.
   // Same shape as VivoCity — a big mass with lanes round it — one street over.
   { id: 'cruise-centre', name: 'Cruise Centre', cover: 'broken', lootWeight: 2, botWeight: 1.5,
@@ -198,9 +198,9 @@ const CHINATOWN_SECTORS: readonly ZoneSector[] = [
   { id: 'peoples-park', name: 'People’s Park Complex', cover: 'broken', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: -180, maxX: -70, minZ: -120, maxZ: -35 },
     anchors: [{ x: -120, z: -70 }, { x: -171, z: -112 }, { x: -79, z: -112 }, { x: -171, z: -44 }, { x: -79, z: -44 }] },   // median 10.0m
-  { id: 'chinatown-complex', name: 'Chinatown Complex', cover: 'open', lootWeight: 2, botWeight: 1.5,
+  { id: 'chinatown-complex', name: 'Chinatown Complex', cover: 'broken', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: -175, maxX: -70, minZ: -30, maxZ: 40 },
-    anchors: [{ x: -120, z: 14 }, { x: -167, z: -22 }, { x: -79, z: -22 }, { x: -167, z: 32 }, { x: -79, z: 32 }] },   // median 14.0m
+    anchors: [{ x: -120, z: 14 }, { x: -167, z: -22 }, { x: -79, z: -22 }, { x: -167, z: 32 }, { x: -79, z: 32 }] },   // median 12.0m
   { id: 'kreta-ayer', name: 'Kreta Ayer square', cover: 'open', lootWeight: 1.5, botWeight: 1,
     bounds: { minX: -180, maxX: -70, minZ: 48, maxZ: 130 },
     anchors: [{ x: -124, z: 78 }, { x: -90, z: 88 }, { x: -171, z: 122 }, { x: -171, z: 56 }, { x: -119, z: 122 }] },   // median 18.0m
@@ -261,9 +261,9 @@ const KAMPONG_GLAM_SECTORS: readonly ZoneSector[] = [
  * sector in the district: little lands there, and what does is worth crossing for.
  */
 const JURONG_LAKE_SECTORS: readonly ZoneSector[] = [
-  { id: 'pagoda-island', name: 'Cloud Pagoda gardens', cover: 'open', lootWeight: 1.5, tierBias: 1, botWeight: 1,
+  { id: 'pagoda-island', name: 'Cloud Pagoda gardens', cover: 'broken', lootWeight: 1.5, tierBias: 1, botWeight: 1,
     bounds: { minX: -200, maxX: -90, minZ: 10, maxZ: 95 },
-    anchors: [{ x: -142, z: 50 }, { x: -98, z: 18 }, { x: -172, z: 18 }, { x: -112, z: 62 }, { x: -172, z: 62 }] },
+    anchors: [{ x: -142, z: 50 }, { x: -96, z: 18 }, { x: -172, z: 18 }, { x: -112, z: 62 }, { x: -172, z: 62 }] },
   { id: 'causeway', name: 'Lake causeway', cover: 'dense', lootWeight: 0.5, tierBias: 1, botWeight: 0.5,
     bounds: { minX: -105, maxX: -35, minZ: -15, maxZ: 55 },
     anchors: [{ x: -70, z: 20 }, { x: -44, z: 26 }, { x: -96, z: 26 }, { x: -54, z: 14 }, { x: -86, z: 14 }] },
@@ -301,8 +301,8 @@ const JURONG_LAKE_SECTORS: readonly ZoneSector[] = [
  * are the exposed ends; the vortex and hotel court are where the cover is.
  */
 const CHANGI_SECTORS: readonly ZoneSector[] = [
-  { id: 'vortex', name: 'Vortex basin walk', cover: 'dense', lootWeight: 2.5, botWeight: 2,
-    bounds: { minX: -110, maxX: 0, minZ: -30, maxZ: 60 },
+  { id: 'vortex', name: 'Vortex basin and viewing walk', cover: 'dense', lootWeight: 2.5, botWeight: 2,
+    bounds: { minX: -110, maxX: 0, minZ: -70, maxZ: 60 },
     anchors: [{ x: -55, z: 14 }, { x: -8, z: 51 }, { x: -102, z: 51 }, { x: -8, z: -21 }, { x: -102, z: -21 }] },
   { id: 'canopy-park', name: 'Canopy park', cover: 'dense', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: -45, maxX: 55, minZ: -80, maxZ: 15 },
@@ -383,12 +383,12 @@ const PUNGGOL_SECTORS: readonly ZoneSector[] = [
   { id: 'waterway-promenade', name: 'Waterway promenade', cover: 'broken', lootWeight: 1, tierBias: -1, botWeight: 1.5,
     bounds: { minX: -35, maxX: 75, minZ: -80, maxZ: -30 },
     anchors: [{ x: 20, z: -60 }, { x: 66, z: -38 }, { x: -26, z: -38 }, { x: 54, z: -72 }, { x: -14, z: -72 }] },
-  { id: 'arch-bridge', name: 'Arch bridge', cover: 'dense', lootWeight: 0.5, tierBias: 1, botWeight: 0.5,
+  { id: 'arch-bridge', name: 'Waterway crossing', cover: 'dense', lootWeight: 0.5, tierBias: 1, botWeight: 0.5,
     bounds: { minX: -25, maxX: 65, minZ: -118, maxZ: -82 },
-    anchors: [{ x: 20, z: -90 }, { x: 56, z: -110 }, { x: -16, z: -110 }, { x: 32, z: -110 }, { x: 8, z: -110 }] },
+    anchors: [{ x: 4, z: -116 }, { x: 56, z: -110 }, { x: -16, z: -110 }, { x: 32, z: -110 }, { x: 8, z: -110 }] },
   { id: 'waterway-point', name: 'Waterway Point approach', cover: 'open', lootWeight: 2.5, botWeight: 2,
     bounds: { minX: -35, maxX: 75, minZ: -5, maxZ: 80 },
-    anchors: [{ x: 20, z: 36 }, { x: 66, z: 72 }, { x: -26, z: 72 }, { x: 66, z: 4 }, { x: -26, z: 4 }] },
+    anchors: [{ x: 18, z: 36 }, { x: 66, z: 72 }, { x: -26, z: 72 }, { x: 66, z: 4 }, { x: -26, z: 4 }] },
   { id: 'precinct-court', name: 'Precinct court', cover: 'open', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: -155, maxX: -45, minZ: -10, maxZ: 75 },
     anchors: [{ x: -100, z: 30 }, { x: -54, z: 66 }, { x: -146, z: 66 }, { x: -54, z: -2 }, { x: -146, z: -2 }] },
@@ -477,8 +477,8 @@ const GEYLANG_SECTORS: readonly ZoneSector[] = [
   { id: 'aljunied', name: 'Aljunied blocks', cover: 'open', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: 85, maxX: 160, minZ: -20, maxZ: 55 },
     anchors: [{ x: 112, z: 14 }, { x: 152, z: 46 }, { x: 152, z: -12 }, { x: 94, z: 46 }, { x: 94, z: -12 }] },
-  { id: 'guillemard', name: 'Guillemard bend', cover: 'open', lootWeight: 1.5, botWeight: 1,
-    bounds: { minX: -250, maxX: -155, minZ: -30, maxZ: 60 },
+  { id: 'guillemard', name: 'Guillemard car park and bend', cover: 'open', lootWeight: 1.5, botWeight: 1,
+    bounds: { minX: -250, maxX: -155, minZ: -80, maxZ: 60 },
     anchors: [{ x: -185, z: 14 }, { x: -242, z: 52 }, { x: -242, z: -22 }, { x: -164, z: 52 }, { x: -164, z: -22 }] },
   { id: 'canal-bridge', name: 'Canal bridge', cover: 'dense', lootWeight: 0.5, tierBias: 1, botWeight: 0.5,
     bounds: { minX: -55, maxX: 20, minZ: -175, maxZ: -110 },
@@ -515,7 +515,7 @@ const TUAS_SECTORS: readonly ZoneSector[] = [
   { id: 'laydown-yard', name: 'Laydown yard', cover: 'open', lootWeight: 1.5, botWeight: 1,
     bounds: { minX: 85, maxX: 195, minZ: 75, maxZ: 165 },
     anchors: [{ x: 137, z: 115 }, { x: 186, z: 156 }, { x: 94, z: 156 }, { x: 186, z: 84 }, { x: 94, z: 84 }] },
-  { id: 'coast-road', name: 'Coast road', cover: 'broken', lootWeight: 1, tierBias: -1, botWeight: 1,
+  { id: 'coast-road', name: 'Coast road', cover: 'dense', lootWeight: 1, tierBias: -1, botWeight: 1,
     bounds: { minX: -278, maxX: -190, minZ: -95, maxZ: 15 },
     anchors: [{ x: -235, z: -40 }, { x: -212, z: 6 }, { x: -212, z: -86 }, { x: -246, z: -6 }, { x: -246, z: -74 }] },
   { id: 'benoi-truck-park', name: 'Benoi truck park', cover: 'open', lootWeight: 1.5, botWeight: 1,
@@ -540,7 +540,7 @@ const WOODLANDS_SECTORS: readonly ZoneSector[] = [
   { id: 'waterfront-promenade', name: 'Waterfront promenade', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
     bounds: { minX: -110, maxX: -32, minZ: -135, maxZ: -65 },
     anchors: [{ x: -70, z: -112 }, { x: -100, z: -122 }, { x: -40, z: -122 }, { x: -90, z: -74 }, { x: -40, z: -74 }] },
-  { id: 'woodlands-jetty', name: 'Woodlands jetty', cover: 'open', lootWeight: 1.5, tierBias: 1, botWeight: 1,
+  { id: 'woodlands-jetty', name: 'Woodlands jetty', cover: 'broken', lootWeight: 1.5, tierBias: 1, botWeight: 1,
     bounds: { minX: 60, maxX: 180, minZ: -215, maxZ: -130 },
     anchors: [{ x: 120, z: -170 }, { x: 68, z: -206 }, { x: 172, z: -206 }, { x: 68, z: -138 }, { x: 172, z: -138 }] },
   { id: 'rail-embankment', name: 'Rail embankment', cover: 'open', lootWeight: 1, botWeight: 1,
@@ -615,7 +615,7 @@ const TAMPINES_SECTORS: readonly ZoneSector[] = [
  * the flyover the two open crossings worth watching.
  */
 const TOA_PAYOH_SECTORS: readonly ZoneSector[] = [
-  { id: 'dragon-playground', name: 'Dragon playground', cover: 'open', lootWeight: 2, botWeight: 1.5,
+  { id: 'dragon-playground', name: 'Dragon playground', cover: 'broken', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: 0, maxX: 100, minZ: -75, maxZ: 0 },
     anchors: [{ x: 50, z: -36 }, { x: 92, z: -66 }, { x: 8, z: -66 }, { x: 92, z: -8 }, { x: 8, z: -8 }] },
   { id: 'town-park', name: 'Town park', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
@@ -664,7 +664,7 @@ const BUKIT_TIMAH_SECTORS: readonly ZoneSector[] = [
     anchors: [{ x: -130, z: -25 }, { x: -88, z: 16 }, { x: -88, z: -62 }, { x: -138, z: 16 }, { x: -92, z: -22 }] },
   { id: 'nature-reserve', name: 'Nature reserve trail', cover: 'open', lootWeight: 1.5, tierBias: 1, botWeight: 1,
     bounds: { minX: -245, maxX: -135, minZ: -145, maxZ: -50 },
-    anchors: [{ x: -187, z: -96 }, { x: -236, z: -136 }, { x: -236, z: -58 }, { x: -144, z: -136 }, { x: -144, z: -72 }] },
+    anchors: [{ x: -187, z: -96 }, { x: -236, z: -136 }, { x: -236, z: -58 }, { x: -146, z: -136 }, { x: -144, z: -72 }] },
   { id: 'beauty-world', name: 'Beauty World market', cover: 'open', lootWeight: 2.5, botWeight: 2,
     bounds: { minX: -105, maxX: -10, minZ: -15, maxZ: 45 },
     foodAnchors: [{ x: -75, z: 2 }, { x: -55, z: 2 }, { x: -35, z: 2 }],
@@ -697,14 +697,14 @@ const BUKIT_TIMAH_SECTORS: readonly ZoneSector[] = [
  * precincts either side. The stepping stones are the thinnest sector in the set.
  */
 const BISHAN_SECTORS: readonly ZoneSector[] = [
-  { id: 'meander-bend', name: 'Meander bend', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
-    bounds: { minX: 25, maxX: 130, minZ: -105, maxZ: -40 },
+  { id: 'meander-bend', name: 'Meander bend and east bridge', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
+    bounds: { minX: 25, maxX: 130, minZ: -105, maxZ: 20 },
     anchors: [{ x: 75, z: -74 }, { x: 122, z: -48 }, { x: 34, z: -48 }, { x: 118, z: -96 }, { x: 34, z: -96 }] },
   { id: 'stepping-stones', name: 'Stepping stones', cover: 'open', lootWeight: 0.5, tierBias: 1, botWeight: 0.5,
     bounds: { minX: -30, maxX: 50, minZ: -60, maxZ: -10 },
     anchors: [{ x: 10, z: -35 }, { x: 42, z: -52 }, { x: -22, z: -18 }, { x: -16, z: -52 }, { x: 32, z: -34 }] },
-  { id: 'river-park-path', name: 'River park path', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
-    bounds: { minX: -205, maxX: -95, minZ: -105, maxZ: -40 },
+  { id: 'river-park-path', name: 'River park path and west bridge', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
+    bounds: { minX: -205, maxX: -40, minZ: -105, maxZ: -25 },
     anchors: [{ x: -150, z: -74 }, { x: -196, z: -48 }, { x: -104, z: -96 }, { x: -194, z: -96 }, { x: -114, z: -48 }] },
   { id: 'town-centre', name: 'Junction 8 forecourt', cover: 'open', lootWeight: 2.5, botWeight: 2,
     bounds: { minX: 25, maxX: 130, minZ: 0, maxZ: 85 },

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TAMPINES_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { withVerticalRoutes } from './vertical-routes';
 import { markWater } from './water';
 
 // On the town-centre verge, looking across at the round market.
@@ -252,7 +253,7 @@ export function buildTampinesScene() {
   scene.userData.districtFeatures = ['radial-market-roof', 'vented-drum-cap', 'outward-stall-bays', 'integrated-hub-courtyard', 'screened-community-block', 'planted-roof-terraces', 'mall-link-bridges', 'sawtooth-berths', 'hawker-deck-slabs', 'worked-quarry-faces', 'cycle-path-run'];
   scene.userData.referenceFeatures = ['hub-exterior-0:sheltered-arrival-columns-and-louvres-only', 'hub-outdoor02-0:terracotta-patchwork-and-colored-slit-windows'];
 
-  return kit.finish({
+  return withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.35 + index) * 1.4; });
@@ -261,5 +262,28 @@ export function buildTampinesScene() {
         else { person.position.x = -110 + ((time * 1.3 + index * 25) % 130); person.rotation.y = -Math.PI / 2; }
       });
     },
-  });
+  }), [
+    {
+      id: 'hub-arrival-gallery', name: 'Hub arrival gallery', width: 4,
+      points: [
+        { x: 12, z: 8, y: 0 },
+        { x: 24, z: 8, y: 3.2 },
+        { x: 86, z: 8, y: 3.2 },
+        { x: 98, z: 8, y: 0 },
+      ],
+      color: '#c29370',
+      note: 'Authored low arrival gallery beside the compressed community hub; upper sports facilities remain schematic.',
+    },
+    {
+      id: 'housing-court-deck', name: 'Housing court deck', width: 4,
+      points: [
+        { x: -210, z: -40, y: 0 },
+        { x: -198, z: -40, y: 3.2 },
+        { x: -178, z: -40, y: 3.2 },
+        { x: -166, z: -40, y: 0 },
+      ],
+      color: '#e6e0d2',
+      note: 'Authored court-level pedestrian deck between housing slabs, clear of the existing low sheltered links.',
+    },
+  ]);
 }

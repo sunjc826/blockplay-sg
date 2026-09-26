@@ -1,3 +1,6 @@
+import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
+import { MARINA_BOUNDS } from './marina-collision';
+import { PRONE_EYE_HEIGHT } from './fps-stance';
 import { validVehicleControls } from './vehicle-seats';
 import { VEHICLE_COMBAT } from './vehicle-combat';
 import type { VehicleKind } from './vehicle-rules';
@@ -116,7 +119,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   const { scene, session } = options;
   let profile = restoreProfile(JSON.stringify(options.profile ?? createProfile()));
   const authority = session.role !== 'guest';
-  const simulation = authority ? createArena(options.obstacles, options.botCount, options.composition, options.environment, options.vehicles ? { ...options.vehicles, coverDistance: (origin, direction, distance) => coverLimit(origin, direction, distance) } : undefined) : null;
+  const simulation = authority ? createArena(options.obstacles, options.botCount, options.composition, options.environment, options.vehicles ? { ...options.vehicles, coverDistance: (origin, direction, distance) => coverLimit(origin, direction, distance) } : undefined, { bounds: options.environment?.bounds ?? MARINA_BOUNDS, obstacles: options.obstacles, surfaces: getWalkSurfaces(scene), traversalObstacles: getTraversalObstacles(scene) }) : null;
   const hostId = authority ? session.id : session.getPeers()[0]?.id;
   const avatars = new Map<string, Avatar>();
   const registered = new Set<string>();
@@ -226,7 +229,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       avatar.root.traverse(o => { if (o.name === 'avatar-leg') { o.rotation.x = actor.vehicle ? -Math.PI / 2 : 0; o.position.y = actor.vehicle ? .55 : .41; o.position.z = actor.vehicle ? -.23 : 0; } });
       avatar.root.scale.y = actor.vehicle ? .72 : actor.prone ? 1 : Math.min(1, Math.max(0.6, actor.y / 1.75));
       if (actor.vehicle) avatar.root.position.y = actor.y - 1.2;
-      if (actor.prone) avatar.root.position.set(actor.x + Math.sin(actor.yaw) * 1.59, .32, actor.z + Math.cos(actor.yaw) * 1.59);
+      if (actor.prone) avatar.root.position.set(actor.x + Math.sin(actor.yaw) * 1.59, actor.y - PRONE_EYE_HEIGHT + .32, actor.z + Math.cos(actor.yaw) * 1.59);
       avatar.health.scale.x = Math.max(0.01, 0.75 * actor.health / avatar.maxHealth);
       if (actor.shots > avatar.shots) avatar.flash = 0.085;
       avatar.shots = actor.shots; avatar.flash = Math.max(0, avatar.flash - dt); avatar.muzzle.visible = avatar.flash > 0 && !actor.vehicle;

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BISHAN_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
+import { withVerticalRoutes } from './vertical-routes';
 
 // Face east along the park path, not north into the lamp at (-60, -78).
 // The position stays on the northern lawn; the town centre is south of the river.
@@ -63,7 +64,8 @@ export function buildBishanScene() {
     if (riverGap(x)) continue;
     const cz = riverZ(x);
     box(x, -0.06, cz, RIVER.step + 2, 0.4, RIVER.halfWidth * 2, water);
-    solid(x, cz, RIVER.step + 2, RIVER.halfWidth * 2 - 2);
+    kit.obstacles.push({ minX: x - (RIVER.step + 2) / 2, maxX: x + (RIVER.step + 2) / 2,
+      minZ: cz - RIVER.halfWidth + 1, maxZ: cz + RIVER.halfWidth - 1, maxY: 0.2 });
     // Naturalised floodplain: broad low grassy shelves, not continuous stone walls.
     for (const side of [-1, 1]) {
       box(x, 0.1, cz + side * (RIVER.halfWidth + 1.6), RIVER.step + 2, 0.5, 4.4, silt);
@@ -84,20 +86,7 @@ export function buildBishanScene() {
   for (let x = -204; x <= 204; x += 36) { cylinder(x, 3.2, -78, 0.16, 6.4, dark); box(x, 6.2, -78, 0.8, 0.3, 0.8, pale); solid(x, -78, 0.5, 0.5); }
   for (const x of [-150, -30, 90, 180]) { box(x, 0.85, -70, 3.4, 0.22, 1.2, wood); solid(x, -70, 3.6, 1.2); }
 
-  /** Footbridge on a shallow arch, landing on both banks of a meander loop. */
-  function footbridge(x: number) {
-    const cz = riverZ(x);
-    for (let n = 0; n <= 18; n++) {
-      const t = n / 18, z = cz - 16 + t * 32, rise = Math.sin(Math.PI * t) * 3.4;
-      box(x, 0.7 + rise, z, 6, 0.35, 32 / 18 + 0.3, wood);
-      for (const side of [-1, 1]) {
-        box(x + side * 2.9, 1.5 + rise, z, 0.25, 1.3, 32 / 18 + 0.3, steel);
-        if (n % 3 === 0) cylinder(x + side * 2.9, 1.3 + rise, z, 0.1, 1.2, steel);
-      }
-    }
-    for (const side of [-1, 1]) { box(x, 0.6, cz + side * 17, 8, 1.2, 4, concrete); solid(x, cz + side * 17, 8, 4); }
-  }
-  footbridge(-70); footbridge(75);
+  // The two park footbridges are built with real walking support at finish.
 
   /** Slab precinct: long blocks with recessed loggias and a corner core. */
   function precinct(x: number, z: number, count = 2) {
@@ -197,10 +186,10 @@ export function buildBishanScene() {
     .flatMap((shirt, index) => [walker(-80 + index * 20, -74, shirt, skin, dark), walker(75, 60 + index * 12, shirt, skin, dark)]);
   const car = kit.car(mat('#86a094'), glass, mat('#dad5c5'), dark);
   const stamps = stampRings(BISHAN_STAMPS, orange);
-  scene.userData.districtFeatures = ['meandering-river-chain', 'shelving-silt-edge', 'grassy-floodplain-shelves', 'channel-boulders', 'stepping-stones', 'arched-footbridge', 'recessed-loggia-slabs', 'corner-core-towers', 'shade-sail-court', 'ground-level-station'];
+  scene.userData.districtFeatures = ['meandering-river-chain', 'shelving-silt-edge', 'grassy-floodplain-shelves', 'channel-boulders', 'stepping-stones', 'walkable-river-footbridges', 'recessed-loggia-slabs', 'corner-core-towers', 'shade-sail-court', 'ground-level-station'];
   scene.userData.referenceFeatures = ['bishan-park-road-0:oval-shade-pavilion', 'bishan-park-road-0:open-park-lawn'];
 
-  return kit.finish({
+  return withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.4 + index) * 1.6; });
@@ -209,5 +198,10 @@ export function buildBishanScene() {
         else { person.position.x = -120 + ((time * 1.3 + index * 23) % 200); person.rotation.y = -Math.PI / 2; }
       });
     },
-  });
+  }), [-70, 75].map((x, index) => ({
+    id: `river-footbridge-${index + 1}`, name: index ? 'East river footbridge' : 'West river footbridge', width: 6,
+    color: '#8a7152', railColor: '#adb5b8',
+    points: [{ x, z: riverZ(x) - 26, y: 0 }, { x, z: riverZ(x) - 10, y: 3.2 }, { x, z: riverZ(x) + 10, y: 3.2 }, { x, z: riverZ(x) + 26, y: 0 }],
+    note: 'Makes an existing authored park footbridge traversable over the river; placement and dimensions remain compressed.',
+  })));
 }

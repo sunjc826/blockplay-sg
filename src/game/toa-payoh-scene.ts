@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { TOA_PAYOH_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
+import { withVerticalRoutes } from './vertical-routes';
 
 // In the precinct courtyard, looking across the sand pit at the dragon.
 export const TOA_PAYOH_SPAWN = { x: 50, z: -2, yaw: Math.PI / 2 };
@@ -58,7 +59,9 @@ export function buildToaPayohScene() {
     for (let level = 0; level < Math.floor(height / 3.1); level++) {
       const y = 5.4 + level * 3.1, band = bands[(level + Math.abs(Math.round(x / 40))) % bands.length];
       // Access deck: slab, balustrade and the bay divisions behind it.
+      const playableGallery = x === 50 && z === -86 && level === 0;
       box(x, y - 1.2, z + facing * 7.4, length, 0.4, 2.4, concrete);
+      if (playableGallery) box(x, y - 1.2, z + 9, 48, 0.4, 6, concrete);
       box(x, y - 0.2, z + facing * 8.4, length, 1.1, 0.3, band);
       for (let dx = -length / 2 + 3; dx < length / 2 - 1; dx += 4.2) {
         box(x + dx, y, z + facing * 6.6, 3.2, 2.4, 0.4, glass);
@@ -126,7 +129,7 @@ export function buildToaPayohScene() {
       cylinder(x + dx, 1.6, z + dz, 0.16, 3.2, dark); solid(x + dx, z + dz, 0.5, 0.5);
       if (dz < 0) box(x + dx + 8, 3.1, z + dz, 16, 0.18, 0.18, dark);
     }
-    sign('DRAGON PLAYGROUND', x, 5.6, z - 22, 26, 2.2, '#8a3a2a');
+    sign('DRAGON PLAYGROUND', x, 2.8, z - 18, 26, 2.2, '#8a3a2a');
   }
 
   /** Town Park's modernist lookout has open decks and a broad flat cap.
@@ -163,7 +166,7 @@ export function buildToaPayohScene() {
     sign('TOWN PARK LOOKOUT', x, 3.4, z - 10, 24, 2.1, '#2f5140');
   }
 
-  /** Park pond with a zigzag bridge along one bank. */
+  /** Park pond with a raised walk along one bank. */
   function pond() {
     const { x, z, width, depth } = POND;
     box(x, -0.22, z, width + 28, 0.2, depth + 28, lawn);
@@ -173,11 +176,7 @@ export function buildToaPayohScene() {
       ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
     }
     for (const side of [-1, 1]) box(x, 0.6, z + side * (depth / 2 + 1.4), width + 6, 1.1, 3, stone);
-    for (let n = 0; n < 5; n++) {
-      const bx = x - 18 + n * 9, bz = z + depth / 2 + 6 + (n % 2 ? 4 : 0);
-      box(bx, 0.9, bz, 9, 0.3, 3.4, wood); solid(bx, bz, 9, 3.4);
-      for (const dz of [-1.6, 1.6]) box(bx, 1.5, bz + dz, 9, 0.9, 0.2, wood);
-    }
+    // The bank-side bridge is built with walking support at finish.
     for (const dx of [-32, 32]) for (const dz of [-24, 24]) tree(x + dx, z + dz, 9, wood, fern);
   }
 
@@ -252,10 +251,10 @@ export function buildToaPayohScene() {
     .flatMap((shirt, index) => [walker(20 + index * 16, -2, shirt, skin, dark), walker(-180 + index * 14, 24, shirt, skin, dark)]);
   const car = kit.car(mat('#8a9ea4'), glass, mat('#dad5c5'), dark);
   const stamps = stampRings(TOA_PAYOH_STAMPS, orange);
-  scene.userData.districtFeatures = ['balcony-access-decks', 'end-service-stairs', 'y-plan-point-block', 'mosaic-dragon-head', 'arched-spine-segments', 'sand-pit-apron', 'open-modernist-lookout', 'zigzag-pond-bridge', 'banded-hub-towers', 'vented-hawker-roof'];
+  scene.userData.districtFeatures = ['balcony-access-decks', 'end-service-stairs', 'y-plan-point-block', 'mosaic-dragon-head', 'arched-spine-segments', 'sand-pit-apron', 'open-modernist-lookout', 'ramped-pond-bank-walk', 'banded-hub-towers', 'vented-hawker-roof'];
   scene.userData.referenceFeatures = ['town-park-road-0:straight-shaded-paver-path'];
 
-  return kit.finish({
+  return withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.34 + index) * 1.3; });
@@ -264,5 +263,12 @@ export function buildToaPayohScene() {
         else { person.position.x = -10 + ((time * 1.3 + index * 17) % 120); person.rotation.y = -Math.PI / 2; }
       });
     },
-  });
+  }), [
+    { id: 'dragon-court-gallery', name: 'Dragon court access gallery', width: 4, color: '#aaa99f', railColor: '#dcc98f',
+      points: [{ x: 14, z: -74, y: 0 }, { x: 26, z: -74, y: 4.4 }, { x: 74, z: -74, y: 4.4 }, { x: 86, z: -74, y: 0 }],
+      note: 'Extends the lowest existing housing access deck into a playable court-facing gallery with two ramps; game-scale access, not a building survey.' },
+    { id: 'pond-bank-walk', name: 'Pond bank walk', width: 4, color: '#7b6148', railColor: '#8d9991',
+      points: [{ x: -206, z: -39, y: 0 }, { x: -194, z: -39, y: 2.4 }, { x: -158, z: -39, y: 2.4 }, { x: -146, z: -39, y: 0 }],
+      note: 'Makes the existing decorative bank-side bridge usable with two low ramps; the historic lookout remains unchanged.' },
+  ]);
 }

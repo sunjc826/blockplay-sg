@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { TUAS_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
+import { withVerticalRoutes } from './vertical-routes';
 
 // On the verge between the tank farm and the plant road, looking west.
 export const TUAS_SPAWN = { x: -70, z: 18, yaw: Math.PI / 2 };
@@ -324,7 +325,7 @@ export function buildTuasScene() {
   scene.userData.districtFeatures = ['plate-course-tank-shells', 'spiral-stair-wraps', 'bund-walls', 'trayed-columns', 'pipe-rack-expansion-loop', 'guyed-flare-mast', 'stepped-dry-dock', 'boot-topping-hull', 'rail-stacking-gantry', 'lattice-pylon-catenary', 'industrial-loading-bays', 'upper-concourse-terminus'];
   scene.userData.referenceFeatures = ['tuas-link-2024-green-louver-concrete-elevation', 'tuas-avenue-12-2024-tall-roadside-tree-verge'];
 
-  return kit.finish({
+  return withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.3 + index) * 1.6; });
@@ -333,5 +334,12 @@ export function buildTuasScene() {
         else { person.position.x = -100 + ((time * 1.3 + index * 23) % 120); person.rotation.y = -Math.PI / 2; }
       });
     },
-  });
+  }), [
+    { id: 'dock-inspection-walk', name: 'Dock inspection walkway', width: 3, color: '#899494', railColor: '#d9ab34',
+      points: [{ x: -214, z: -80, y: 0 }, { x: -214, z: -68, y: 4 }, { x: -214, z: -12, y: 4 }, { x: -214, z: 0, y: 0 }],
+      note: 'Dockside maintenance access between the dry-dock lip and crane line, with separate entry and exit ramps.' },
+    { id: 'process-service-deck', name: 'Process plant service deck', width: 5, color: '#899494', railColor: '#d9ab34',
+      points: [{ x: -88, z: 160, y: 0 }, { x: -76, z: 160, y: 4 }, { x: -12, z: 160, y: 4 }, { x: 0, z: 160, y: 0 }],
+      note: 'Industrial service route alongside the pipe rack, overlooking the plant with ground access retained below the level span.' },
+  ]);
 }

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { KAMPONG_GLAM_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { withVerticalRoutes } from './vertical-routes';
 
 export const KAMPONG_GLAM_SPAWN = { x: 10, z: -85, yaw: Math.PI };
 export const KAMPONG_GLAM_BOUNDS = { minX: -230, maxX: 230, minZ: -200, maxZ: 200 };
@@ -255,7 +256,7 @@ export function buildKampongGlamScene() {
   scene.userData.districtFeatures = ['ribbed-onion-dome', 'corner-minarets', 'horseshoe-arcade', 'palm-lined-mall', 'painted-lane-murals', 'textile-awnings', 'limas-hipped-roof', 'louvred-shutters', 'beach-road-edge', 'banded-paving'];
   scene.userData.referenceFeatures = ['bussorah-axial-gold-dome', 'bussorah-close-cream-frontages', 'bussorah-palms-and-awnings'];
 
-  return kit.finish({
+  return withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       pedestrians.forEach((person, index) => {
@@ -263,5 +264,28 @@ export function buildKampongGlamScene() {
         else { person.position.z = -118 + ((time * 1.3 + index * 19) % 84); person.rotation.y = Math.PI; }
       });
     },
-  });
+  }), [
+    {
+      id: 'haji-rear-gallery', name: 'Haji rear service gallery', width: 3.4,
+      points: [
+        { x: -128, z: -104, y: 0 },
+        { x: -116, z: -104, y: 2.8 },
+        { x: -68, z: -104, y: 2.8 },
+        { x: -56, z: -104, y: 0 },
+      ],
+      color: '#c3bba9', railColor: '#2c7a74',
+      note: 'Authored rear service gallery; leaves the painted pedestrian lane and mosque sightline at street level.',
+    },
+    {
+      id: 'beach-retail-terrace', name: 'Beach Road retail terrace', width: 3.4,
+      points: [
+        { x: 96, z: 51, y: 0 },
+        { x: 106, z: 51, y: 3.2 },
+        { x: 134, z: 51, y: 3.2 },
+        { x: 144, z: 51, y: 0 },
+      ],
+      color: '#bcbcb4',
+      note: 'Authored retail frontage terrace on the compressed modern block, not a real landmark or surveyed route.',
+    },
+  ]);
 }

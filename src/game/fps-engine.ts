@@ -1,3 +1,5 @@
+import { createVerticalMovement } from './vertical-movement';
+import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import type { VehicleControls } from './vehicle-seats';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage } from './fps-stance';
 import { pickupSlot } from './armory-slots';
@@ -121,7 +123,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   host.append(canvas);
   const zoneWorld = buildDistrictWorld(region, expedition?.spawn);
   const world = zoneWorld; world.stamps.forEach(o => o.visible = false);
-  const footMove = zoneWorld.move;
+  let footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
   const expeditionSession = expedition ? createSoloSession('Explorer') : null;
   if (expedition && zoneWorld && expeditionSession) options = { ...options, arena: { session: expeditionSession, profile: fieldProfile, botCount: zoneWorld.zone.botCount, composition: zoneWorld.zone.composition, environment: zoneWorld.environment, initialVitals: expedition.checkpoint } };
   const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { spawns: district.vehicles, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay' });
@@ -159,7 +161,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     credits: fieldProfile.credits, tokens: fieldProfile.tokens };
   const npcs = expedition ? expeditionNpcs(expedition.zone, zoneSectors(expedition.zone)) : [];
   hud.npcs = npcs.map(npc => ({ ...npc }));
-  if (expedition && zoneWorld) hud.fieldLoot = expedition.loot.enterZone({ id: expedition.zone, spawn: zoneWorld.zone.spawn, bounds: zoneWorld.bounds, obstacles: world.obstacles, anchors: zoneWorld.zone.encounterSpawns, sectors: zoneSectors(expedition.zone) });
+  if (expedition && zoneWorld) hud.fieldLoot = expedition.loot.enterZone({ id: expedition.zone, spawn: zoneWorld.zone.spawn, bounds: zoneWorld.bounds, obstacles: world.obstacles, canStand: (x, z, radius) => footMovement.canOccupy(x, 0, z, radius, 1.8), anchors: zoneWorld.zone.encounterSpawns, sectors: zoneSectors(expedition.zone) });
   const markers = expedition ? createExpeditionMarkers(world.scene, expedition.zone, hud.fieldLoot, npcs) : null;
   let checkpointPending = expedition?.checkpoint;
   let travelPending = false, lootNoticeTime = 0;
@@ -217,14 +219,18 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const ray = new THREE.Raycaster(); ray.far = 250;
   const center = new THREE.Vector2(), muzzlePoint = new THREE.Vector3();
   let prone = false;
-  const eyeHeight = () => prone ? PRONE_EYE_HEIGHT : keys.has('c') ? 1.15 : 1.75;
-  const braced = () => !vehicles.active && weaponBraced(specs[hud.weapon], prone, vertical === 0);
+  const grounded = () => velocityY <= 0 && Math.abs(vertical - (footMovement.supportHeight(position.x, position.z, vertical + .02, .38, .6) ?? -100)) < .025;
+  const eyeHeight = () => {
+    const requested = prone ? PRONE_EYE_HEIGHT : keys.has('c') ? 1.15 : 1.75;
+    return footMovement.canOccupy(position.x, vertical, position.z, .38, requested + .05) ? requested : 1.15;
+  };
+  const braced = () => !vehicles.active && weaponBraced(specs[hud.weapon], prone, grounded());
   const movement = () => equipmentMovement(equipment, hud.weapon, loadout, quickRemaining);
   const publish = () => {
     if (disposed) return;
     const state = loadout[hud.weapon];
     const burden = movement();
-    onHud({ ...hud, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], ...(!expedition ? vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))) : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / specs[hud.weapon].reload, aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
+    onHud({ ...hud, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], ...(!expedition ? vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))) : {}), ...(vertical > .35 && !vehicles.active ? { vehiclePrompt: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / specs[hud.weapon].reload, aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapMarkers: expedition ? [] : [
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
@@ -363,7 +369,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     updateCameras(0, false, false); publish();
   }
   function interactVehicle() {
-    if (hud.phase !== 'playing' || expedition || hud.arenaSelf?.alive === false) return;
+    if (hud.phase !== 'playing' || expedition || hud.arenaSelf?.alive === false || (!vehicles.active && vertical > .35)) return;
     if (arenaRuntime) {
       arenaRuntime.vehicleAction(vehicles.active ? 'exit' : 'enter', vehicles.active ?? vehicles.nearest(position));
       clearInput(); canvas.focus({ preventScroll: true }); return;
@@ -385,7 +391,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function updateExpeditionPrompts() {
     if (!expedition) return;
-    const alive = !!hud.arenaSelf?.alive;
+    const alive = !!hud.arenaSelf?.alive && vertical <= .35;
     // Crossing into a named place is worth saying once, so the district reads
     // as somewhere with parts rather than as one field of coordinates.
     const here = sectorAt(expedition.zone, position.x, position.z);
@@ -408,7 +414,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
   }
   function interactLoot() {
-    if (!expedition || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active || !arenaRuntime || travelPending) return;
+    if (!expedition || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active || !arenaRuntime || travelPending || vertical > .35) return;
     const nearest = expedition.loot.nearest(expedition.zone, position); if (!nearest) return;
     if (nearest.kind === 'medical' && hud.health >= hud.maxHealth) { hud.lootNotice = `Health is full. ${nearest.name} remains here.`; lootNoticeTime = 3; publish(); return; }
     if (nearest.kind === 'ammo' && loadout[hud.weapon].reserve >= 999) { hud.lootNotice = 'Ammunition reserve is full.'; lootNoticeTime = 3; publish(); return; }
@@ -444,7 +450,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     updateExpeditionPrompts(); canvas.focus({ preventScroll: true }); publish();
   }
   function interactNpc() {
-    if (!expedition || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active || !arenaRuntime || travelPending) return;
+    if (!expedition || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active || !arenaRuntime || travelPending || vertical > .35) return;
     const npc = nearestNpc(npcs, position); if (!npc) return;
     if (npc.interaction.kind === 'dialogue') {
       if (!npc.interaction.lines.length) return;
@@ -472,19 +478,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     updateExpeditionPrompts(); canvas.focus({ preventScroll: true }); publish();
   }
   function travelZone() {
-    if (!expedition || travelPending || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active) return;
+    if (!expedition || travelPending || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active || vertical > .35) return;
     const gateway = findWorldGateway(expedition.zone, position); if (!gateway) return;
     const transition = resolveWorldTransition(expedition.zone, gateway.id, position); if (!transition) return;
     comms.add('system', 'Travel', `Moving to ${getWorldZone(transition.to).name}.`);
     const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, health: hud.health, armor: hud.armor, weapon: hud.weapon, ammunition: loadout.map(state => ({ ...state, cooldown: 0, reloadRemaining: 0 })) };
     travelPending = true; pause(); expedition.onTravel(transition, checkpoint);
   }
-  function jump() { if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && vertical === 0 && !keys.has('c') && !prone) velocityY = 5.2 * movement().jumpVelocity; } }
+  function jump() { if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && grounded() && !keys.has('c') && !prone) velocityY = 5.2 * movement().jumpVelocity; } }
   function setInput(key: string, held: boolean) {
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) return;
     if (key === 'v') { if (held) switchVehicleSeat(); return; }
-    if (key === 'z') { if (held && !vehicles.active && vertical === 0) { prone = !prone; keys.delete('c'); publish(); } return; }
-    if (held && key === 'c') prone = false;
+    if (key === 'z') { if (held && !vehicles.active && grounded()) { if (!prone || footMovement.canOccupy(position.x, vertical, position.z, .38, 1.8)) prone = !prone; keys.delete('c'); publish(); } return; }
+    if (held && key === 'c' && footMovement.canOccupy(position.x, vertical, position.z, .38, 1.2)) prone = false;
     if (key === 'fire') { trigger = held; if (!trigger) triggerSpent = false; }
     else if (held) keys.add(key); else keys.delete(key);
   }
@@ -664,7 +670,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (gateway) waypoints.push({ id: gateway.id, ...gateway.position, kind: 'checkpoint' });
     }
     return { time, alive: hud.arenaSelf?.alive !== false, health: hud.health, maxHealth: hud.maxHealth, armor: hud.armor,
-      magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining > 0, aiming: actualAim, weapon: hud.weapon, availableWeapons: equipment.carriedFamilies.filter(index => loadout[index].magazine > 0 || loadout[index].reserve > 0),
+      ...(vertical > .35 && !vehicles.active ? { vehiclePrompt: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining > 0, aiming: actualAim, weapon: hud.weapon, availableWeapons: equipment.carriedFamilies.filter(index => loadout[index].magazine > 0 || loadout[index].reserve > 0),
       position: { x: position.x, z: position.z }, yaw, pitch,
       contacts: visiblePilotContacts(camera, world.scene, subjects, screenBlocked), waypoints, ballistics: specs[hud.weapon].ballistics,
       lootPrompt: hud.lootPrompt, travelPrompt: hud.travelPrompt };
@@ -684,7 +690,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       look(action.lookX ?? 0, action.lookY ?? 0);
       touchAim = action.aim === true; ads = false;
       if (action.weapon !== undefined) switchWeapon(action.weapon);
-      prone = specs[hud.weapon].requiresMount === true && action.fire === true && vertical === 0;
+      prone = specs[hud.weapon].requiresMount === true && action.fire === true && grounded();
       if (action.reload) reload();
       if (action.jump) jump();
       if (action.interact) expedition ? interactLoot() : interactVehicle();
@@ -1038,7 +1044,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function shoot() {
     if ((!pilotEnabled && specs[hud.weapon].fireMode === 'semi' && triggerSpent) || vehicles.active || (options.arena && !hud.arenaSelf?.alive) || !fireWeapon(loadout[hud.weapon], hud.weapon, specs)) return;
     hud.shots++; shotSound();
-    const recoilDamage = unsupportedRecoilDamage(specs[hud.weapon], prone, vertical === 0, keys.has('c'));
+    const recoilDamage = unsupportedRecoilDamage(specs[hud.weapon], prone, grounded(), keys.has('c'));
     if (recoilDamage) {
       hud.message = `Unsupported .50 recoil: ${recoilDamage} damage before armor. Z / Prone to deploy the mount.`;
       if (!arenaRuntime) {
@@ -1240,12 +1246,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const forward = move.forward, side = move.side;
       sprinting = move.sprint && forward > 0.5 && !keys.has('c') && !prone;
       const speed = braced() ? 0 : prone ? .85 : keys.has('c') ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2;
-      const delta = movementInput(forward, side, yaw, speed * movement().movement, dt), next = footMove(position, delta.x, delta.z, 0.38, expedition ? world.obstacles : vehicles.footObstacles());
+      const delta = movementInput(forward, side, yaw, speed * movement().movement, dt), next = footMovement.move({ ...position, y: vertical, velocityY }, delta.x, delta.z, dt, .38, eyeHeight() + .05, expedition ? [] : vehicles.footObstacles().slice(world.obstacles.length));
       moving = Math.hypot(next.x - position.x, next.z - position.z) > 0.0001;
       carry.set((next.x - position.x) / Math.max(dt, 1e-4), 0, (next.z - position.z) / Math.max(dt, 1e-4));
       position = next;
-      // Ground-plane jump; map obstacle collision remains active at every height.
-      velocityY -= 15 * dt; vertical = Math.max(0, vertical + velocityY * dt); if (vertical === 0) velocityY = 0;
+      // The same authored support and clearance rules power movement and the diagnostic evaluator.
+      vertical = next.y; velocityY = next.velocityY;
       }
       // Recoil and the effect pools run on wall-clock time, as the weapon
       // cooldowns already do: on a renderer slow enough that `dt` is clamped,
@@ -1346,6 +1352,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const prop = loaded[asset].clone(true); prop.position.set(x, 0.14, z); decorations.add(prop);
       world.obstacles.push({ minX: x - width / 2, maxX: x + width / 2, minZ: z - depth / 2, maxZ: z + depth / 2, maxY: asset === 3 ? 0.8 : asset === 4 ? 0.9 : 0.7 });
     }
+    // Range props are appended after asynchronous model loading; refresh the static broadphase.
+    footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
     if (options.arena) {
       arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, ...(!expedition ? { vehicles: { spawns: district.vehicles, flightObstacles: vehicles.flightObstacles() } } : {}) });
       if (debugAvailable) {

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { withVerticalRoutes, type VerticalRoute } from './vertical-routes';
 import { QUEENSTOWN_STAMPS } from '../data/region-stamps.ts';
 import type { Obstacle } from './queenstown-collision';
 
@@ -16,6 +17,15 @@ export const QUEENSTOWN_MAP_ROADS = [
 export { QUEENSTOWN_STAMPS } from '../data/region-stamps.ts';
 
 /** Compressed heritage-inspired estate, not a surveyed model or exact present-day streets. */
+export const QUEENSTOWN_VERTICAL_ROUTES: VerticalRoute[] = [
+  { id: 'estate-gallery', name: 'Estate access gallery', width: 3.6, color: '#bdc9c4', railColor: '#679487',
+    points: [{ x: -112, z: -32, y: 0 }, { x: -100, z: -32, y: 3.4 }, { x: -46, z: -32, y: 3.4 }, { x: -34, z: -32, y: 0 }],
+    note: 'Authored external gallery beside the existing HDB block, using estate corridor architecture; not a claim of an exact real block access layout.' },
+  { id: 'dawson-court-terrace', foundation: 'solid', name: 'Dawson courtyard terrace', width: 5, color: '#c9c4b2', railColor: '#779589',
+    points: [{ x: 178, z: 118, y: 0 }, { x: 178, z: 130, y: 2.4 }, { x: 178, z: 144, y: 2.4 }, { x: 178, z: 156, y: 0 }],
+    note: 'Authored low community terrace on the existing open courtyard; station railway and reference-informed entrance structures remain scenery.' },
+];
+
 export function buildQueenstownScene() {
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#bcd9e7');
   scene.fog = new THREE.Fog('#bcd9e7', 240, 650);
@@ -423,8 +433,8 @@ export function buildQueenstownScene() {
     batch.forEach((item, i) => { item.updateMatrix(); mesh.setMatrixAt(i, item.matrix); scene.remove(item); });
     mesh.computeBoundingSphere(); scene.add(mesh); instances.push(mesh);
   }
-  return { scene, obstacles, car, stamps,
+  return withVerticalRoutes({ scene, obstacles, car, stamps,
     animate(time: number) { train.position.x = ((time * 6) % 430) - 215; stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.7; stamp.position.y = 2.2 + Math.sin(time * 2 + i) * 0.2; }); },
     dispose() { instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose()); sun.shadow.dispose(); },
-  };
+  }, QUEENSTOWN_VERTICAL_ROUTES);
 }

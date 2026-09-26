@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { withVerticalRoutes, type VerticalRoute } from './vertical-routes';
 import { MARINA_STAMPS } from '../data/region-stamps.ts';
 import type { Obstacle } from './marina-collision';
 import { createWaterMaterial } from './water';
@@ -29,6 +30,15 @@ export const MARINA_MAP_ROADS = [
 export { MARINA_STAMPS } from '../data/region-stamps.ts';
 
 /** Authored, compressed game map. Photos inform the promenade; geometry is not surveyed. */
+export const MARINA_VERTICAL_ROUTES: VerticalRoute[] = [
+  { id: 'civic-terrace', foundation: 'solid', name: 'Civic waterfront terrace', width: 6, color: '#d6cfbc', railColor: '#66747a',
+    points: [{ x: -211, z: 112, y: 0 }, { x: -199, z: 112, y: 2 }, { x: -165, z: 112, y: 2 }, { x: -153, z: 112, y: 0 }],
+    note: 'Playable adaptation of the existing authored stepped civic terrace; access ramps are not a surveyed landmark feature.' },
+  { id: 'barrage-overlook', foundation: 'solid', name: 'Barrage lawn overlook', width: 8, color: '#a6ae87', railColor: '#778070',
+    points: [{ x: 40, z: 185, y: 0 }, { x: 40, z: 197, y: 3 }, { x: 40, z: 223, y: 3 }, { x: 40, z: 235, y: 0 }],
+    note: 'Authored low lawn terrace in the existing Barrage sector; represents a landscaped level change, not an exact Barrage roof reconstruction.' },
+];
+
 export function buildMarinaScene() {
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#a8cde8');
   scene.fog = new THREE.Fog('#b8cfdf', 290, 850);
@@ -349,7 +359,7 @@ export function buildMarinaScene() {
   box(221, 5.5, 42, 0.18, 2.5, 5, mat('#246d55'));
   for (const y of [5, 5.7, 6.2]) box(221.11, y, 42, 0.02, 0.1, 3.8, white);
   // Southern garden court and west-side waterfront terraces. The stepped
-  // plinths are decorative, with a flat clear public path alongside them.
+  // civic terrace is now reached by two ramps, with a ground path alongside it.
   box(0, 0.015, 135, 180, 0.13, 25, sand);
   for (let x = -75; x <= 75; x += 25) {
     palm(x, 118, 10);
@@ -357,10 +367,7 @@ export function buildMarinaScene() {
     box(x, 0.65, 149, 5, 0.22, 1, wood); collider(x, 149, 5, 1);
   }
   box(-188, 0.01, 93, 38, 0.12, 52, sand);
-  for (let i = 0; i < 4; i++) {
-    box(-182, 0.2 + i * 0.25, 108 + i * 2, 30, 0.4 + i * 0.5, 2, cream);
-    collider(-182, 108 + i * 2, 30, 2);
-  }
+  // The former solid seating plinths become the civic-terrace walkable deck.
   for (const x of [-207, -169]) for (const z of [73, 123]) palm(x, z, 10);
   // Merlion-side reference: blue tiled base, cream sculptural silhouette and
   // a curved hedge planter. This is an intentionally simplified game statue.
@@ -653,11 +660,11 @@ export function buildMarinaScene() {
     batch.forEach((item, i) => { item.updateMatrix(); mesh.setMatrixAt(i, item.matrix); scene.remove(item); });
     mesh.computeBoundingSphere(); scene.add(mesh); instances.push(mesh);
   }
-  return {
+  return withVerticalRoutes({
     scene, obstacles, car, stamps,
     animate(time: number) { water.userData.setTime(time); stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.5; stamp.position.y = 3 + Math.sin(time * 1.7 + i) * 0.35; }); boatGroup.position.y = boatFloat + Math.sin(time) * 0.06; boatGroup.rotation.x = Math.sin(time * 0.8 + 1) * 0.025;
       walkers.forEach(({ group, x, z, axis, phase }) => { const offset = Math.sin(time * 0.09 + phase) * 10; group.position.set(x + (axis === 'x' ? offset : 0), Math.abs(Math.sin(time * 4 + phase)) * 0.04, z + (axis === 'z' ? offset : 0)); group.rotation.y = (axis === 'x' ? Math.PI / 2 : 0) + (Math.cos(time * 0.09 + phase) > 0 ? Math.PI : 0); });
     },
     dispose() { instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); sun.shadow.map?.dispose(); },
-  };
+  }, MARINA_VERTICAL_ROUTES);
 }

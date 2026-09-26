@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BUKIT_TIMAH_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
+import { withVerticalRoutes } from './vertical-routes';
 
 // On the corridor verge, under the truss bridge, looking up at the ridge.
 export const BUKIT_TIMAH_SPAWN = { x: 60, z: 16, yaw: Math.PI / 2 };
@@ -255,7 +256,7 @@ export function buildBukitTimahScene() {
   scene.userData.districtFeatures = ['terraced-forest-ridge', 'trig-marker-summit', 'green-corridor-retained-heritage-track', 'red-brick-railway-station', 'warren-truss-web', 'timber-banded-render', 'bungalow-pier-undercroft', 'deep-verandah-posts', 'clerestory-market-roof', 'trapezoidal-storm-canal', 'canal-street-bridges'];
   scene.userData.referenceFeatures = ['hindhede-2024-tall-forked-entrance-canopy', 'bukit-timah-road-2024-dark-open-rail-truss'];
 
-  return kit.finish({
+  return withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.3 + index) * 1.2; });
@@ -264,5 +265,12 @@ export function buildBukitTimahScene() {
         else { person.position.z = -60 + ((time * 1.1 + index * 23) % 150); person.rotation.y = Math.PI; }
       });
     },
-  });
+  }), [
+    { id: 'hill-foot-contour', foundation: 'solid', name: 'Hill-foot contour walk', width: 4, color: '#967d5c', railColor: '#5c674d',
+      points: [{ x: -135, z: -58, y: 0 }, { x: -135, z: -46, y: 3 }, { x: -135, z: -4, y: 3 }, { x: -135, z: 8, y: 0 }],
+      note: 'Low contour walk beside the existing ridge, not access to the distant summit; both ends reconnect to the hill-foot path.' },
+    { id: 'reserve-edge-walk', name: 'Reserve-edge observation walk', width: 4, color: '#967d5c', railColor: '#5c674d',
+      points: [{ x: -142, z: -142, y: 0 }, { x: -142, z: -132, y: 2.5 }, { x: -142, z: -116, y: 2.5 }, { x: -142, z: -106, y: 0 }],
+      note: 'Short raised trail at the edge of the authored reserve planting; preserves tree trunks and the cross street.' },
+  ]);
 }

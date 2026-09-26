@@ -98,7 +98,7 @@ export const UPPER_THOMSON_STAMPS = [
 
 export const PUNGGOL_STAMPS = [
   { name: 'Waterway promenade', x: 20, z: -60 },
-  { name: 'Arch bridge', x: 20, z: -90 },
+  { name: 'Waterway crossing', x: 4, z: -116 },
   { name: 'Waterway Point approach', x: 20, z: 36 },
   { name: 'Town bus berths', x: 20, z: -26 },
   { name: 'Precinct court', x: -100, z: 30 },

@@ -1,3 +1,4 @@
+import { createVerticalMovement, type VerticalWorld } from './vertical-movement';
 import { validVehicleControls, createSharedVehicle, seatOf, seatPoint, gunnerId, vehicleGunRay, vehicleRayDistance, type SharedVehicle, type VehicleControls } from './vehicle-seats';
 import { driveVehicle, flyVehicle, vehicleBounds, vehicleExit, type VehicleKind, type VehicleSpawn, type FlightObstacle } from './vehicle-rules';
 import { damageVehicle, fireVehicleWeapon, vehicleBlastDamage, vehicleCollisionDamage, VEHICLE_COMBAT } from './vehicle-combat';
@@ -43,6 +44,7 @@ const SPAWNS = [
   { x: -8, z: 64 }, { x: -73, z: 60 }, { x: -34, z: 58 }, { x: 4, z: 74 },
 ];
 interface InternalActor {
+  velocityY?: number;
   actor: ArenaActor; healthMax: number; armorMax: number; absorption: number; weapons: ArenaWeapon[]; allowedWeapons: number[]; role?: ArenaRolePlugin;
   cooldown: number[]; rounds: number[]; reload: number[]; playing: boolean; movementBudget: number; wasReloading: boolean;
   usePlayerSpawn: boolean;
@@ -53,11 +55,11 @@ const finitePoint = (p: ArenaPoint) => p && Number.isFinite(p.x) && Number.isFin
 const distance = (a: ArenaPoint, b: ArenaPoint) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 
 /** Distance to a solid scene box, or Infinity. Unspecified height means a tall wall. */
-export function arenaWallDistance(origin: ArenaPoint, direction: ArenaPoint, obstacles: readonly Obstacle[]) {
+export function arenaWallDistance(origin: ArenaPoint, direction: ArenaPoint, obstacles: readonly (Obstacle & { minY?: number })[]) {
   let closest = Infinity;
   for (const obstacle of obstacles) {
     let near = 0; let far = Infinity;
-    const limits = [[obstacle.minX, obstacle.maxX], [0, obstacle.maxY ?? 200], [obstacle.minZ, obstacle.maxZ]];
+    const limits = [[obstacle.minX, obstacle.maxX], [obstacle.minY ?? 0, obstacle.maxY ?? 200], [obstacle.minZ, obstacle.maxZ]];
     const starts = [origin.x, origin.y, origin.z]; const rays = [direction.x, direction.y, direction.z];
     for (let axis = 0; axis < 3; axis++) {
       const [min, max] = limits[axis]; const d = rays[axis]; const o = starts[axis];
@@ -77,16 +79,45 @@ function sphereDistance(origin: ArenaPoint, direction: ArenaPoint, center: Arena
 }
 function bodyDistance(origin: ArenaPoint, direction: ArenaPoint, actor: ArenaActor) {
   if (actor.prone) return Math.min(...[0, .55, 1.1].map(back =>
-    sphereDistance(origin, direction, { x: actor.x + Math.sin(actor.yaw) * back, y: .35, z: actor.z + Math.cos(actor.yaw) * back }, .3)));
+    sphereDistance(origin, direction, { x: actor.x + Math.sin(actor.yaw) * back, y: actor.y - PRONE_EYE_HEIGHT + .35, z: actor.z + Math.cos(actor.yaw) * back }, .3)));
 
   return Math.min(...[[0.13, 0.29], [0.62, 0.43], [1.12, 0.4]].map(([offset, radius]) =>
     sphereDistance(origin, direction, { x: actor.x, y: actor.y - offset, z: actor.z }, radius)));
 }
 
 /** Host-owned match. Clients may submit movement and aim, never damage or scores. */
-export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions) {
+export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions, traversalWorld?: VerticalWorld) {
   const bounds = environment?.bounds ?? MARINA_BOUNDS;
+  const traversal = traversalWorld ? createVerticalMovement(traversalWorld) : null;
+  const floorAt = (point: ArenaPoint) => traversal?.supportHeight(point.x, point.z, point.y - .5, .35, .6) ?? 0;
   const move = environment?.move ?? moveInMarina;
+  const coverObstacles = [...obstacles, ...(traversalWorld?.traversalObstacles ?? [])];
+  const worldWallDistance = (origin: ArenaPoint, ray: ArenaPoint) => {
+    let distance = arenaWallDistance(origin, ray, coverObstacles);
+    for (const s of traversalWorld?.surfaces ?? []) {
+      const low = s.axis === 'x' ? s.minX : s.minZ, high = s.axis === 'x' ? s.maxX : s.maxZ;
+      const slope = (s.endHeight - s.startHeight) / (high - low);
+      const denominator = ray.y - slope * ray[s.axis];
+      if (s.solidBelow) {
+        // Clip against the six half-spaces of the solid sloped foundation.
+        let near = 0, far = distance;
+        const planes = [[origin.x - s.minX, ray.x], [s.maxX - origin.x, -ray.x],
+          [origin.z - s.minZ, ray.z], [s.maxZ - origin.z, -ray.z], [origin.y, ray.y],
+          [s.startHeight + slope * (origin[s.axis] - low) - origin.y, -denominator]];
+        for (const [offset, direction] of planes) {
+          if (Math.abs(direction) < 1e-8) { if (offset < 0) { far = -1; break; } }
+          else if (direction > 0) near = Math.max(near, -offset / direction);
+          else far = Math.min(far, -offset / direction);
+        }
+        if (far >= near) distance = Math.min(distance, near);
+      }
+      if (Math.abs(denominator) < 1e-8) continue;
+      const t = (s.startHeight + slope * (origin[s.axis] - low) - origin.y) / denominator;
+      const x = origin.x + ray.x * t, z = origin.z + ray.z * t;
+      if (t >= 0 && x >= s.minX && x <= s.maxX && z >= s.minZ && z <= s.maxZ) distance = Math.min(distance, t);
+    }
+    return distance;
+  };
   const members = new Map<string, InternalActor>();
   let vehicles: SharedVehicle[] = vehicleOptions ? (['car', 'helicopter'] as const).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind])) : [];
   const controls = new Map<string, { input: VehicleControls; expires: number }>();
@@ -199,14 +230,19 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     const target = { x: clamp(input.x, bounds.minX + 0.5, bounds.maxX - 0.5), y: clamp(input.y, input.prone === true ? PRONE_EYE_HEIGHT : 1, 90), z: clamp(input.z, bounds.minZ + 0.5, bounds.maxZ - 0.5) };
     const wasProne = actor.prone;
-    actor.prone = input.prone === true && target.y <= PRONE_EYE_HEIGHT + .02;
-    if (weaponBraced(entry.weapons[actor.weapon], actor.prone, target.y <= PRONE_EYE_HEIGHT + .02)) { target.x = actor.x; target.z = actor.z; }
+    const floor = floorAt(target);
+    actor.prone = input.prone === true && target.y <= floor + PRONE_EYE_HEIGHT + .02;
+    if (weaponBraced(entry.weapons[actor.weapon], actor.prone, target.y <= floor + PRONE_EYE_HEIGHT + .02)) { target.x = actor.x; target.z = actor.z; }
     // Eye-height changes are stance changes, not travel that consumes the movement budget.
-    if (actor.prone || wasProne && target.y <= 1.75) actor.y = target.y;
+    if (actor.prone || wasProne && target.y <= floor + 1.75) actor.y = target.y;
     const travel = distance(actor, target); const scale = travel > 0 ? Math.min(1, entry.movementBudget / travel) : 0;
     const y = actor.y + (target.y - actor.y) * scale;
-    const solids = [...obstacles, ...vehicles.filter(v => v.y < 2).map(vehicleBounds)].filter(o => (o.maxY ?? 200) > Math.min(actor.y, y) - 1.45);
-    const position = move(actor, (target.x - actor.x) * scale, (target.z - actor.z) * scale, 0.35, solids);
+    const bodyHeight = actor.prone ? .6 : target.y - floor < 1.4 ? 1.2 : 1.8;
+    const feet = y - (bodyHeight - .05);
+    const solids = [...obstacles, ...vehicles.filter(v => v.y < 2).map(vehicleBounds)].filter(o => (o.maxY ?? 200) > feet + 1e-5);
+    if (traversalWorld) solids.push(...traversalWorld.traversalObstacles.filter(o => o.maxY > feet + 1e-5 && o.minY < y + .05));
+    let position = move(actor, (target.x - actor.x) * scale, (target.z - actor.z) * scale, 0.35, solids);
+    if (traversal && !traversal.canOccupy(position.x, Math.max(0, feet), position.z, .35, bodyHeight)) position = { x: actor.x, z: actor.z };
     entry.movementBudget = Math.max(0, entry.movementBudget - Math.hypot(position.x - actor.x, y - actor.y, position.z - actor.z));
     Object.assign(actor, position, { y, yaw: input.yaw % (Math.PI * 2), pitch: clamp(input.pitch, -1.5, 1.5) });
     if (entry.allowedWeapons.includes(input.weapon) && Number.isInteger(input.weapon) && input.weapon >= 0 && input.weapon < entry.weapons.length && input.weapon !== actor.weapon) {
@@ -228,7 +264,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const length = Math.hypot(direction.x, direction.y, direction.z); if (length < 0.5 || length > 1.5) return { ...EMPTY_SHOT };
     const ray = { x: direction.x / length, y: direction.y / length, z: direction.z / length };
     if (entry.rounds[weapon] <= 0) { entry.reload[weapon] = entry.weapons[weapon].reload; return { ...EMPTY_SHOT }; }
-    const recoilDamage = unsupportedRecoilDamage(entry.weapons[weapon], entry.actor.prone === true, entry.actor.y <= 1.17, !entry.actor.prone && entry.actor.y <= 1.17);
+    const recoilDamage = unsupportedRecoilDamage(entry.weapons[weapon], entry.actor.prone === true, entry.actor.y <= floorAt(entry.actor) + 1.17, !entry.actor.prone && entry.actor.y <= floorAt(entry.actor) + 1.17);
     if (recoilDamage) {
       const damage = applyArmorDamage(entry.actor.health, entry.actor.armor, recoilDamage, entry.absorption);
       entry.actor.health = damage.health; entry.actor.armor = damage.armor;
@@ -254,7 +290,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return { hitId: victim.actor.id, killed, damage: damage - blocked };
   }
   function resolveShot(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, damage: number, range: number, ignore?: VehicleKind): ArenaShot {
-    let nearest = Math.min(Number.isFinite(range) ? range : 0, arenaWallDistance(origin, ray, obstacles), vehicleOptions?.coverDistance?.(origin, ray, range) ?? Infinity);
+    let nearest = Math.min(Number.isFinite(range) ? range : 0, worldWallDistance(origin, ray), vehicleOptions?.coverDistance?.(origin, ray, range) ?? Infinity);
     let hull: SharedVehicle | undefined, victim: InternalActor | undefined;
     for (const v of vehicles) {
       if (v.kind === ignore) continue;
@@ -305,7 +341,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (!v || v.health <= 0 || v.y > .4 || Math.abs(v.speed) > 2 || Math.hypot(entry.actor.x - v.x, entry.actor.z - v.z) > (v.kind === 'car' ? 4.5 : 6) || entry.actor.y > 3) return false;
     const center = { x: v.x, y: v.y + 1.3, z: v.z }, d = distance(entry.actor, center);
     const ray = { x: (center.x - entry.actor.x) / d, y: (center.y - entry.actor.y) / d, z: (center.z - entry.actor.z) / d };
-    if (d > .1 && Math.min(arenaWallDistance(entry.actor, ray, obstacles), vehicleOptions?.coverDistance?.(entry.actor, ray, d) ?? Infinity) < d - .2) return false;
+    if (d > .1 && Math.min(worldWallDistance(entry.actor, ray), vehicleOptions?.coverDistance?.(entry.actor, ray, d) ?? Infinity) < d - .2) return false;
     const seat = v.occupants.indexOf(null); if (seat < 0) return false;
     v.occupants[seat] = id; entry.reload[entry.actor.weapon] = 0; syncOccupants(); return true;
   }
@@ -317,7 +353,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const clearBlast = (target: ArenaPoint) => {
       const d = distance(point, target); if (d < .1) return true;
       const dir = { x: (target.x - point.x) / d, y: (target.y - point.y) / d, z: (target.z - point.z) / d };
-      return Math.min(arenaWallDistance(point, dir, obstacles), vehicleOptions?.coverDistance?.(point, dir, d) ?? Infinity) >= d - .1;
+      return Math.min(worldWallDistance(point, dir), vehicleOptions?.coverDistance?.(point, dir, d) ?? Infinity) >= d - .1;
     };
     for (const other of vehicles) if (other !== v && other.health > 0) {
       const target = { x: other.x, y: other.y + 1.3, z: other.z }, amount = vehicleBlastDamage(v.kind, distance(point, target));
@@ -366,17 +402,21 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const target = enemy?.actor ?? { ...entry.patrol, y: 1.75 };
     const dx = target.x - actor.x; const dz = target.z - actor.z; const horizontal = Math.hypot(dx, dz);
     const direction = { x: dx / Math.max(horizontal, 0.01), y: 0, z: dz / Math.max(horizontal, 0.01) };
-    const line = { x: target.x - actor.x, y: (enemy?.actor.prone ? .35 : target.y - .65) - actor.y, z: target.z - actor.z };
+    const line = { x: target.x - actor.x, y: (enemy?.actor.prone ? target.y - PRONE_EYE_HEIGHT + .35 : target.y - .65) - actor.y, z: target.z - actor.z };
     const length = Math.hypot(line.x, line.y, line.z);
     const ray = { x: line.x / Math.max(length, 0.01), y: line.y / Math.max(length, 0.01), z: line.z / Math.max(length, 0.01) };
-    const visible = !!enemy && length < role.sightRange && arenaWallDistance(actor, ray, obstacles) >= length - 0.5;
+    const visible = !!enemy && length < role.sightRange && worldWallDistance(actor, ray) >= length - 0.5;
     const intent = role.think({ distance: horizontal, visible, healthFraction: actor.health / entry.healthMax, strafeDirection: entry.strafe });
     const approach = Number.isFinite(intent.approach) ? clamp(intent.approach, -1, 1) : 0;
     const strafe = Number.isFinite(intent.strafe) ? clamp(intent.strafe, -1, 1) : 0;
     const normal = Math.max(1, Math.hypot(approach, strafe));
-    const movement = move(actor, (direction.x * approach - direction.z * strafe) / normal * role.speed * dt,
-      (direction.z * approach + direction.x * strafe) / normal * role.speed * dt, 0.4, [...groundObstacles, ...vehicles.filter(v => v.y < 2).map(vehicleBounds)]);
-    Object.assign(actor, movement);
+    const dxStep = (direction.x * approach - direction.z * strafe) / normal * role.speed * dt;
+    const dzStep = (direction.z * approach + direction.x * strafe) / normal * role.speed * dt;
+    const vehicleSolids = vehicles.filter(v => v.y < 2).map(vehicleBounds);
+    if (traversal) {
+      const step = traversal.move({ x: actor.x, y: Math.max(0, actor.y - 1.75), z: actor.z, velocityY: entry.velocityY ?? 0 }, dxStep, dzStep, dt, .4, 1.8, vehicleSolids);
+      Object.assign(actor, { x: step.x, z: step.z, y: step.y + 1.75 }); entry.velocityY = step.velocityY;
+    } else Object.assign(actor, move(actor, dxStep, dzStep, .4, [...groundObstacles, ...vehicleSolids]));
     actor.yaw = Math.atan2(-dx, -dz); actor.pitch = Math.atan2(line.y, horizontal);
     if (!visible || !intent.fire) { entry.reaction = role.reaction; entry.target = ''; return; }
     if (entry.target !== enemy.actor.id) { entry.target = enemy.actor.id; entry.reaction = role.reaction + random() * 0.3; }

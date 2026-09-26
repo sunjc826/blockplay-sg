@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { WOODLANDS_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
+import { withVerticalRoutes } from './vertical-routes';
 
 // On the causeway approach, facing the checkpoint and the far shore.
 export const WOODLANDS_SPAWN = { x: 0, z: -110, yaw: 0 };
@@ -110,14 +111,14 @@ export function buildWoodlandsScene() {
 
   /** Waterfront jetty on piles, out through the gap left for it. */
   function jetty(x: number) {
-    box(x, 0.45, -168, 16, 0.3, 58, concrete);
+    box(x, -0.15, -168, 16, 0.3, 58, concrete);
     for (let z = -140; z >= -196; z -= 4) {
-      box(x, 0.62, z, 15.6, 0.06, 1.8, paving);
+      box(x, 0.02, z, 15.6, 0.06, 1.8, paving);
       for (const dx of [-7, 7]) { cylinder(x + dx, 0.15, z, 0.3, 1.1, wood); if (z % 16 > -4 && z % 16 <= 0) { cylinder(x + dx, 1.6, z, 0.18, 2.8, wood); solid(x + dx, z, 0.6, 0.6); } }
     }
     for (const dx of [-6.6, 6.6]) box(x + dx, 1.7, -168, 0.14, 0.9, 58, steel);
     for (const z of [-150, -186]) for (const dx of [-4, 4]) { cylinder(x + dx, 3.4, z, 0.16, 6.8, dark); box(x + dx, 6.6, z, 0.9, 0.35, 0.9, pale); solid(x + dx, z, 0.5, 0.5); }
-    box(x, 0.45, -194, 20, 0.3, 8, concrete);
+    box(x, -0.15, -194, 20, 0.3, 8, concrete);
     sign('WOODLANDS WATERFRONT', x, 4.4, -138, 26, 2.2, '#2f6b78');
   }
   jetty(JETTY_X);
@@ -252,7 +253,7 @@ export function buildWoodlandsScene() {
   scene.userData.districtFeatures = ['causeway-embankment', 'rail-alongside-road', 'checkpoint-booth-rows', 'overhead-lane-gantries', 'concrete-waterfront-jetty', 'seven-level-retail-bands', 'far-shore-read', 'point-block-void-decks', 'multi-storey-car-park-ramp', 'covered-linkways', 'civic-flag-row'];
   scene.userData.referenceFeatures = ['causeway-point-outdoor02-0:silver-clad-arcade-stone-edge-and-rail-only'];
 
-  return kit.finish({
+  return withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.33 + index) * 1.9; });
@@ -261,5 +262,12 @@ export function buildWoodlandsScene() {
         else { person.position.x = -120 + ((time * 1.3 + index * 27) % 160); person.rotation.y = -Math.PI / 2; }
       });
     },
-  });
+  }), [
+    { id: 'waterfront-viewing-deck', name: 'Waterfront viewing deck', width: 7, color: '#b5b4ab', railColor: '#b0b8bb',
+      points: [{ x: -110, z: -115, y: 0 }, { x: -96, z: -115, y: 2.8 }, { x: -52, z: -115, y: 2.8 }, { x: -38, z: -115, y: 0 }],
+      note: 'A low two-ended viewing deck within the authored waterfront lawn; leaves shore, rail and checkpoint lanes separate.' },
+    { id: 'jetty-raised-walk', name: 'Jetty raised walk', width: 5, color: '#bcb7aa', railColor: '#b0b8bb',
+      points: [{ x: 120, z: -140, y: 0 }, { x: 120, z: -154, y: 2.8 }, { x: 120, z: -180, y: 2.8 }, { x: 120, z: -194, y: 0 }],
+      note: 'A raised central route on the existing concrete jetty, with the broad lower deck retained alongside; game adaptation, not a real jetty survey.' },
+  ]);
 }
