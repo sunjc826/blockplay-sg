@@ -1,3 +1,5 @@
+import EnvironmentControls from './EnvironmentControls';
+import { createWorldAtmosphere } from '../game/world-atmosphere';
 import RegionGuide from './RegionGuide';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
@@ -44,6 +46,7 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
     try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
     catch { setError('WebGL could not start. Try a browser with hardware acceleration enabled.'); return; }
     const world = region.build();
+    const atmosphere = createWorldAtmosphere(world.scene, region.stamps, world.obstacles);
     renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -135,7 +138,7 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
       stamps.forEach((stamp, i) => {
         if (!collected.has(i) && Math.hypot(stamp.x - position.x, stamp.z - position.z) < 4) { collected.add(i); world.stamps[i].visible = false; }
       });
-      world.animate(now / 1000); renderer.render(world.scene, camera);
+      world.animate(now / 1000); atmosphere.update(dt, camera); renderer.render(world.scene, camera);
       if (now - lastReport > 150) { report(); lastReport = now; }
       frame = requestAnimationFrame(animate);
     };
@@ -144,7 +147,7 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
       cancelAnimationFrame(frame); observer.disconnect(); keys.current.clear(); reset.current = () => {};
       canvas.removeEventListener('pointerdown', pointerDown); canvas.removeEventListener('pointermove', pointerMove); canvas.removeEventListener('pointerup', pointerUp); canvas.removeEventListener('pointercancel', pointerUp); canvas.removeEventListener('lostpointercapture', pointerUp);
       canvas.removeEventListener('keydown', keyDown); canvas.removeEventListener('blur', blur); window.removeEventListener('keyup', keyUp); window.removeEventListener('blur', blur);
-      world.dispose(); renderer.dispose(); canvas.remove();
+      atmosphere.dispose(); world.dispose(); renderer.dispose(); canvas.remove();
     };
   }, [region, stamps]);
 
@@ -175,6 +178,7 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
         onBrake={brake => { if (brake) keys.current.add(' '); else keys.current.delete(' '); }} />}
     </div>
     {region.hasGuide && <RegionGuide key={guideSession} region={region.id as Exclude<GuideRegion, 'marina-bay'>} hud={hud} stops={[...stamps]} />}
+    <EnvironmentControls />
     <div className="experience-toolbar"><div className="experience-title"><span className="mode-icon">{travel === 'walk' ? <Footprints size={20} /> : <CarFront size={20} />}</span><div><h3>{region.title}</h3><p>{region.subtitle}</p></div></div><div className="toolbar-actions"><button className="session-button" aria-pressed={travel === 'walk'} onClick={() => setTravel('walk')}>Walk</button><button className="session-button" aria-pressed={travel === 'drive'} onClick={() => setTravel('drive')}>Drive</button><button className="icon-button" aria-label={resetLabel} title={resetLabel} onClick={() => reset.current()}><RotateCcw size={16} /></button></div></div>
     <div className="session-strip"><div><span>EXPLORED</span><strong>{Math.round(hud.distance)}<small>m</small></strong></div><p className="marina-hint">{touch ? (travel === 'walk' ? 'Left stick walks · push it to the ring to run · right stick looks' : 'Left stick drives and steers · right stick orbits · Brake to stop') : `Click scene, then WASD · ${travel === 'walk' ? 'Drag to look · Shift to run' : `Drag to orbit · A/D steer · ${Math.round(Math.abs(hud.speed) * 3.6)} km/h · Space to brake`}`}</p><div className="touch-controls">{(['a', 'w', 's', 'd'] as const).map((key, index) => { const Icon = [ArrowLeft, ArrowUp, ArrowDown, ArrowRight][index]; return <button key={key} disabled={!!error} aria-label={`${region.shortName} ${['left', 'forward', 'backward', 'right'][index]}`} onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); keys.current.add(key); }} onPointerUp={() => keys.current.delete(key)} onPointerCancel={() => keys.current.delete(key)} onLostPointerCapture={() => keys.current.delete(key)}><Icon size={15} /></button>; })}</div></div>
   </div>;

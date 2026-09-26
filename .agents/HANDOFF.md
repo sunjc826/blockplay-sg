@@ -1815,3 +1815,33 @@ Reproduced the Bishan failure on current main: spawn (-60, -74), yaw 0 drives di
 Smoke checks now use bounded observed movement/settling and fresh frames from the selected canvas. Optional REGION_SMOKE_MODE=all|desktop|mobile and REGION_SMOKE_REGIONS comma-separated IDs support diagnostics; defaults still exercise all districts. CDP timeout reports the method. Touch emulation is explicitly enabled for mobile checks. Bishan desktop and mobile/map sequences passed. A separate all-19 mobile run passed rendering, width, touch controls and map click/keyboard checks, with zero Google requests and zero uncaught errors. The original mobile timeout did not recur with explicit render readiness; no production mobile defect was demonstrated.
 
 All 827 unit tests, typecheck and production build passed. Physical-device performance remains unverified. See updated docs/ALL-DISTRICTS-REVIEW.md for commands and scope.
+
+## 2026-09-26 — seasonal events and Singapore weather
+
+Added a shared atmosphere to all authored walk/drive districts and the FPS engine
+(range, arena, expedition). World conditions controls select automatic/manual
+weather and celebrations independently; validated local preferences survive
+travel. Christmas light-up, New Year, Lunar New Year and National Day have
+Singapore-date activation, landmark light strings/lanterns/stars and bounded
+firework effects. Lunar dates are explicitly sourced through 2034 because the
+runtime ICU calendar returned February 7 instead of February 6 for 2027.
+
+Seven weather profiles cover sunny/humid, overcast, showers, thunderstorms,
+monsoon rain, Sumatra squalls and haze. Ten-minute seeded UTC slots, seasonal
+weights, smooth fog/light/rain transitions, collider-grid approximate shelter,
+instanced bulbs and fixed rain/firework pools. No live weather or Google calls.
+Effects never raycast or alter loot, combat stats, prices or bot perception.
+LAN ignores local overrides and uses automatic device-clock conditions; host
+clock synchronization is not implemented. Reduced effects/system reduced motion
+suppress fireworks/lightning and cut rain particles. See docs/WORLD-EVENTS.md.
+
+Validation: all 838 tests passed; focused lifecycle/calendar tests also passed
+after bulb instancing. Typecheck and production build passed (existing large
+bundle warning). Browser validation details are recorded below when available.
+
+Browser follow-up: Chromium/SwiftShader passed control selection, save/reload
+persistence (squall + Christmas), and 390px layout with no horizontal overflow
+or page errors. Desktop/mobile controls screenshots were inspected. Initial
+captures timed out; a smaller viewport with the animation loop frozen for the
+capture succeeded. Full visual gameplay/effect quality and physical-device
+performance have not been verified. Final typecheck and production build passed.
