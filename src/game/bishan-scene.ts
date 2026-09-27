@@ -3,6 +3,7 @@ import { BISHAN_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
 import { withVerticalRoutes } from './vertical-routes';
+import { withVerticalPlaces } from './vertical-places';
 
 // Face east along the park path, not north into the lamp at (-60, -78).
 // The position stays on the northern lawn; the town centre is south of the river.
@@ -94,7 +95,10 @@ export function buildBishanScene() {
       const cz = z + (i - (count - 1) / 2) * 26, len = 84 - i * 10, h = 34 + i * 6;
       for (const dx of [-len / 2 + 6, 0, len / 2 - 6]) for (const dz of [-6, 6]) { box(x + dx, 3, cz + dz, 2.2, 6, 2.2, concrete); solid(x + dx, cz + dz, 2.6, 2.6); }
       box(x, 6.4, cz, len, 0.8, 18, concrete);
-      box(x, h / 2 + 7, cz, len - 4, h, 15, pale, scene, true); solid(x, cz, len, 16);
+      box(x, h / 2 + 7, cz, len - 4, h, 15, pale, scene, true); if (x !== -60) solid(x, cz, len, 16);
+      else {
+        (scene.userData.traversalObstacles ??= []).push({ minX: x-(len-4)/2, maxX: x+(len-4)/2, minZ: cz-7.5, maxZ: cz+7.5, minY: 7, maxY: h+7 });
+      }
       for (let y = 9; y < h + 6; y += 3.2) {
         const band = panels[(Math.round(y / 3.2) + i) % panels.length];
         for (const side of [-1, 1]) {
@@ -103,8 +107,11 @@ export function buildBishanScene() {
           if (Math.round(y) % 6 === 0) box(x - len / 4, y, cz + side * 8.4, 8, 2.4, 0.4, dark);
         }
       }
+      if (x === -60) for (const floor of [6.8,10.8]) for (const side of [-1,1]) {
+        for (let dx=-len/2+10;dx<len/2-5;dx+=14) box(x+dx,floor+1.2,cz+side*7.57,1.5,2.4,.1,dark);
+      }
       box(x, h + 8, cz, len - 2, 1.4, 17, stone);
-      box(x + len / 2 - 6, h / 2 + 8, cz, 8, h + 2, 19, concrete, scene, true);
+      box(x + len / 2 - 6, h / 2 + 8, cz, 8, h + 2, x === -60 ? 14 : 19, concrete, scene, true);
     }
   }
 
@@ -189,7 +196,7 @@ export function buildBishanScene() {
   scene.userData.districtFeatures = ['meandering-river-chain', 'shelving-silt-edge', 'grassy-floodplain-shelves', 'channel-boulders', 'stepping-stones', 'walkable-river-footbridges', 'recessed-loggia-slabs', 'corner-core-towers', 'shade-sail-court', 'ground-level-station'];
   scene.userData.referenceFeatures = ['bishan-park-road-0:oval-shade-pavilion', 'bishan-park-road-0:open-park-lawn'];
 
-  return withVerticalRoutes(kit.finish({
+  return withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.4 + index) * 1.6; });
@@ -203,5 +210,22 @@ export function buildBishanScene() {
     color: '#8a7152', railColor: '#adb5b8',
     points: [{ x, z: riverZ(x) - 26, y: 0 }, { x, z: riverZ(x) - 10, y: 3.2 }, { x, z: riverZ(x) + 10, y: 3.2 }, { x, z: riverZ(x) + 26, y: 0 }],
     note: 'Makes an existing authored park footbridge traversable over the river; placement and dimensions remain compressed.',
-  })));
+  }))), [{
+    id: 'bishan-housing-court', name: 'Bishan housing galleries and void decks',
+    note: 'Authored playable housing precinct: two gallery circuits and open ground-level passage, not a surveyed access plan.',
+    floors: [6.8, 10.8].flatMap(y => [
+      { id: `north-${y}`, x: -60, z: 79, y, width: 96, depth: 10 },
+      { id: `south-${y}`, x: -60, z: 131, y, width: 96, depth: 10 },
+      { id: `west-${y}`, x: -108, z: 105, y, width: 10, depth: 62 },
+      { id: `east-${y}`, x: -12, z: 105, y, width: 10, depth: 62 },
+      ...(y === 6.8 ? [{ id: `court-${y}`, x: -60, z: 105, y, width: 86, depth: 10 }] : []),
+    ]),
+    connections: [
+      { id: 'north-west-entry', from: { x: -100, z: 55, y: 0 }, to: { x: -100, z: 74, y: 6.8 }, width: 6, stairs: true },
+      { id: 'south-east-entry', from: { x: -20, z: 155, y: 0 }, to: { x: -20, z: 136, y: 6.8 }, width: 6, stairs: true },
+      { id: 'court-west-stairs', from: { x: -80, z: 105, y: 6.8 }, to: { x: -103, z: 105, y: 10.8 }, width: 4, stairs: true },
+      { id: 'court-east-stairs', from: { x: -40, z: 105, y: 6.8 }, to: { x: -17, z: 105, y: 10.8 }, width: 4, stairs: true },
+    ],
+    fixtures: [6.8, 10.8].flatMap(y => [-76, -44].map(x => ({ x, z: 79, y: y + .6, width: 5, height: 1.2, depth: 2, color: '#839875' }))),
+  }]);
 }

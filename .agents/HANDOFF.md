@@ -1865,3 +1865,17 @@ atmosphere and vertical movement setup in FPS and both exploration components,
 and retaining both work logs. Combined validation: 895 tests across 97 files,
 typecheck and production build passed; existing large-chunk advisory remains.
 User explicitly approved merging PR #3.
+
+## 2026-09-27 — Connected playable places across all districts
+
+User rejected the prior two-isolated-routes-per-district pass as underwhelming. This pass replaces that design with actual opened building volumes and broad connected floor circuits/terrain in all19 districts. Orchard now opens ION/Wisma/Ngee Ann into ground arcades and two retail gallery levels; housing, market, mall, industrial and hill districts use their own typologies. Detailed district ownership/review notes: docs/evidence/connected-{core,east,north,west}.md. Main guide: docs/CONNECTED-VERTICALITY.md.
+
+New vertical-places.ts builds floor plates, stairs/slopes, real guard openings, fixtures and matching collision. Repeated structural meshes are instanced; vertical movement surface queries are spatially bucketed. Existing weather and vehicle code retained.
+
+Upper supplies preserve existing item/sector allocation, move a bounded portion onto clear same-sector upper floors, and use height-aware pickup. Bots plan validated surface paths incrementally with cached edges. Exploration autopilot remains ground-oriented and ignores other-floor loot. Revised sectors contain the new spaces; Bukit/Sentosa stamps and ground anchors now sit on clear approaches. Cover labels recomputed from the existing evaluator.
+
+The diagnostic script reports connectivity, standing/mesh clearance, overlap and floor topology without grading design. Actual shipped movement tests found and fixed inaccessible stair approaches in Geylang/Bishan/Tuas. Eye-height visual review prompted Queenstown/Orchard interior detailing. No new Google/reference capture calls; no asserted surveyed interior accuracy.
+
+Final verification: all927 tests in101 files passed (159.6s), typecheck and production build passed. All19 districts rendered in84 aerial/entry/eye-height views with zero runtime errors and zero Google requests. Reviewed images prompted continuous earth infill at Bukit/Siloso, visible supports under Kampong/Tampines retained masses, Jurong facade framing, and additional core interior/roof detailing; affected views were recaptured. Actual browser FPS ascent, authoritative elevation, jump/landing, prone and exploration ascent passed at Orchard. Vehicle-only projections now prevent driving through new foundations, posts and low ramps while preserving underpasses and infantry climbing; all19 vehicle spawn/exit checks pass. Helper geometry instancing reduced the Orchard entrance review from3117 draw calls to123 at the reviewed camera. These are software-renderer checks, not physical mobile-device performance certification.
+
+Published directly to main under the owner's standing instruction; the deployment workflow remains the final live gate. No capture workflow/reference-plan changes. Remaining design limits: compressed floorplans, sparse furnishings in some spaces, rectangular terrain styling, and a ground-only exploration autopilot. Script results establish access and catch defects; they do not certify map quality.

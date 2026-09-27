@@ -3,6 +3,7 @@ import { PUNGGOL_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
 import { withVerticalRoutes } from './vertical-routes';
+import { withVerticalPlaces } from './vertical-places';
 
 // On the north promenade, looking across the waterway at the footbridge.
 export const PUNGGOL_SPAWN = { x: 20, z: -58, yaw: 0 };
@@ -139,9 +140,9 @@ export function buildPunggolScene() {
    * RSP's mixed-use ensemble replaces the former isolated generic mall box.
    */
   function waterwayMall(x: number, z: number) {
-    solid(x, z, 80, 100);
+    // The retail podium is open; walkable atrium rings replace its solid mass.
     const cladding = mat('#65808a'), balcony = mat('#e3e6df');
-    for (let level = 0; level < 4; level++) {
+    for (let level = 3; level < 4; level++) {
       const y = 3.5 + level * 6, inset = level * 3;
       box(x, y, z + inset, 80 - level * 2, 7, 100 - inset * 2, cladding, scene, true);
       box(x, y + 3.7, z + inset, 82 - level * 2, 0.7, 102 - inset * 2, balcony);
@@ -150,9 +151,16 @@ export function buildPunggolScene() {
         box(x + dx, y + 4.3, z - 50 + inset * 2, 5.5, 0.7, 1.5, fern);
       }
     }
+    // Shopfronts face into the usable retail rings; the atrium remains open.
+    for (const floor of [5,10]) for (const sx of [-11,51]) for (const sz of [72,104]) {
+      const facing = sx < 20 ? 1 : -1;
+      box(sx+facing*3.08,floor+1.5,sz,.12,1.6,8,glass);
+      box(sx+facing*3.16,floor+2.9,sz,.2,.55,10,sz===72?teal:rust);
+      box(sx+facing*2.4,floor+.55,sz,1.1,1.1,5,pale);
+    }
     // March 2025 street view: a continuous louvred podium fronts Punggol Central.
-    box(x, 16, z - 50.4, 80, 13, 0.8, cladding);
-    for (let y = 10; y < 23; y += 0.7) box(x, y, z - 51, 80, 0.22, 0.45, steel);
+    box(x, 19, z - 50.4, 80, 7, 0.8, cladding);
+    for (let y = 16; y < 23; y += 0.7) box(x, y, z - 51, 80, 0.22, 0.45, steel);
     // Watertown housing reads above the low retail podium from the promenade.
     for (const dx of [-22, 22]) {
       box(x + dx, 47, z + 23, 26, 43, 30, pale, scene, true);
@@ -275,7 +283,7 @@ export function buildPunggolScene() {
   scene.userData.referenceFeatures = ['jewel-bridge-exterior-0:precinct-olive-and-white-facade-only', 'waterway-point-outdoor02-0:street-podium-and-residential-screens'];
   scene.userData.researchedFeatures = ['watertown-residential-over-retail', 'waterway-point-terraced-frontage'];
 
-  return withVerticalRoutes(kit.finish({
+  return withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.38 + index) * 1.7; });
@@ -288,8 +296,23 @@ export function buildPunggolScene() {
     { id: 'waterway-footbridge', name: 'Waterway footbridge', width: 8, color: '#9c7c57', railColor: '#b0b8bb',
       points: [{ x: ARCH_X, z: -120, y: 0 }, { x: ARCH_X, z: -108, y: 4.8 }, { x: ARCH_X, z: -72, y: 4.8 }, { x: ARCH_X, z: -60, y: 0 }],
       note: 'Replaces the decorative rising deck with a traversable crossing; this remains an authored waterway bridge, not Jewel Bridge.' },
-    { id: 'mall-approach-terrace', name: 'Mall approach terrace', width: 6, color: '#e3e6df', railColor: '#65808a',
-      points: [{ x: -28, z: 33, y: 0 }, { x: -12, z: 33, y: 3.2 }, { x: 52, z: 33, y: 3.2 }, { x: 68, z: 33, y: 0 }],
-      note: 'Two-ended pedestrian terrace ahead of the mall podium; preserves the accepted facade and does not claim a surveyed entrance layout.' },
-  ]);
+
+  ]), [{
+    id: 'waterway-retail-atrium', name: 'Waterway retail podium and atrium',
+    note: 'Opens the formerly solid mall into two retail levels surrounding an atrium; a gameplay interpretation below the retained residential towers, not a surveyed mall plan.',
+    floors: [5,10].flatMap(y => [
+      { id: `front-${y}`, x:20,z:49,y,width:80,depth:18 },
+      { id: `rear-${y}`, x:20,z:129,y,width:80,depth:18 },
+      { id: `west-${y}`, x:-11,z:89,y,width:18,depth:62 },
+      { id: `east-${y}`, x:51,z:89,y,width:18,depth:62 },
+    ]),
+    connections: [
+      { id:'front-west-entry',from:{x:-40,z:49,y:0},to:{x:-20,z:49,y:5},width:7,stairs:true },
+      { id:'front-east-entry',from:{x:80,z:49,y:0},to:{x:60,z:49,y:5},width:7,stairs:true },
+      { id:'atrium-east-stair',from:{x:8,z:58,y:5},to:{x:8,z:120,y:10},width:7,stairs:true },
+      { id:'atrium-west-stair',from:{x:32,z:120,y:5},to:{x:32,z:58,y:10},width:7,stairs:true },
+      { id:'rear-ground-access',from:{x:20,z:158,y:0},to:{x:20,z:138,y:5},width:7,stairs:true },
+    ],
+    fixtures: [5,10].flatMap(y => [-11,51].flatMap(x => [72,104].map(z => ({x,y:y+1.4,z,width:6,height:2.8,depth:12,color:'#65808a'})))),
+  }]);
 }

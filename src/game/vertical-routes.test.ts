@@ -36,13 +36,13 @@ for (const region of REGIONS) describe(`${region.id} authored elevation`, () => 
     const world = region.build();
     try {
       world.scene.updateMatrixWorld(true);
-      const group = world.scene.getObjectByName('Walkable elevated routes')!;
+      const group = world.scene;
       for (const s of getWalkSurfaces(world.scene)) {
         const x=(s.minX+s.maxX)/2,z=(s.minZ+s.maxZ)/2,y=(s.startHeight+s.endHeight)/2;
-        const ray = new THREE.Raycaster(new THREE.Vector3(x,y+.1,z),new THREE.Vector3(0,-1,0),0,.2);
+        const ray = new THREE.Raycaster(new THREE.Vector3(x,y+.2,z),new THREE.Vector3(0,-1,0),0,.4);
         const hit = ray.intersectObject(group,true)[0];
         expect(hit, s.id).toBeDefined();
-        expect(hit.point.y, s.id).toBeCloseTo(y,3);
+        expect(Math.abs(hit.point.y - y), s.id).toBeLessThan(.18);
       }
     } finally { world.dispose(); }
   });

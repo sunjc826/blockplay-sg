@@ -21,7 +21,7 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
     const sprite = new THREE.Sprite(material); sprite.position.y = y; sprite.scale.set(3.7,.46,1); parent.add(sprite);
   }
   for (const item of loot) {
-    const group = new THREE.Group(); group.position.set(item.x, .13, item.z); root.add(group); pickups.set(item.id,group);
+    const group = new THREE.Group(); group.position.set(item.x, (item.y ?? 0) + .13, item.z); root.add(group); pickups.set(item.id,group);
     const color = item.tier === 'Elite' ? '#e5bb55' : item.tier === 'Field' ? '#71b8d0' : '#b8c9b2';
     mesh(group,new THREE.BoxGeometry(.9,.45,.55),'#35483d',0,.25,0);
     mesh(group,new THREE.BoxGeometry(.92,.07,.57),color,0,.49,0);

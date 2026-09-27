@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { withVerticalRoutes, type VerticalRoute } from './vertical-routes';
+import { type VerticalRoute } from './vertical-routes';
+import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { ORCHARD_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 
@@ -29,14 +30,33 @@ const clearOfJunction = (x: number, margin: number) => NS_ROADS.every(road => Ma
  * Every block takes a `facing` of 1 or -1 so its frontage, canopy and forecourt
  * turn toward the boulevard from whichever side of it the block sits on.
  */
-export const ORCHARD_VERTICAL_ROUTES: VerticalRoute[] = [
-  { id: 'gateway-link', name: 'Orchard Gateway elevated link', width: 4, color: '#b1b6b7', railColor: '#8eaaaf',
-    points: [{ x: 165, z: -43, y: 0 }, { x: 165, z: -19, y: 9.5 }, { x: 165, z: 19, y: 9.5 }, { x: 165, z: 43, y: 0 }],
-    note: 'Opens the existing reference-informed Gateway link for traversal; compact outdoor ramps adapt access for gameplay and are not surveyed mall entrances.' },
-  { id: 'somerset-seating-terrace', foundation: 'solid', name: 'Somerset seating terrace', width: 5, color: '#b8b5ac', railColor: '#67747b',
-    points: [{ x: -44, z: 48, y: 0 }, { x: -34, z: 48, y: 3.6 }, { x: -6, z: 48, y: 3.6 }, { x: 4, z: 48, y: 0 }],
-    note: 'Replaces the existing authored impassable plaza seating steps with a usable two-access terrace; not a surveyed Somerset plaza layout.' },
-];
+export const ORCHARD_VERTICAL_ROUTES: VerticalRoute[] = [];
+/** Public lower retail floors are authored compression, not surveyed interiors. */
+export const ORCHARD_VERTICAL_PLACES: VerticalPlace[] = [{
+  id: 'orchard-retail-circuit', name: 'Orchard retail atriums and linked galleries',
+  note: 'Three opened retail podiums, each with two occupied gallery levels and an atrium; rear links are gameplay adaptations rather than claims about real inter-mall bridges.',
+  floors: [
+    ...[-115, 0, 117].flatMap((x, mall) => [5, 10].flatMap(y => [
+      { id: `${mall}-${y}-west`, x:x-24,z:-65,y,width:18,depth:78,color:mall===2?'#b98374':'#d7d3c8' },
+      { id: `${mall}-${y}-east`, x:x+24,z:-65,y,width:18,depth:78,color:mall===2?'#b98374':'#d7d3c8' },
+      { id: `${mall}-${y}-north`, x,z:-94,y,width:30,depth:20,color:'#c7c5b9' },
+      { id: `${mall}-${y}-south`, x,z:-36,y,width:30,depth:20,color:'#d9d3c0' },
+    ])),
+    { id:'ion-wisma-link',x:-57.5,z:-94,y:5,width:49,depth:8,color:'#9aafb4' },
+    { id:'wisma-ngeeann-link',x:58.5,z:-94,y:10,width:51,depth:8,color:'#a7adb0' },
+  ],
+  connections: [-115,0,117].flatMap((x,mall)=>[
+    {id:`${mall}-west-escalator`,from:{x:x-15,y:0,z:-73},to:{x:x+15,y:5,z:-73},width:4,stairs:true},
+    {id:`${mall}-east-escalator`,from:{x:x+15,y:0,z:-57},to:{x:x-15,y:5,z:-57},width:4,stairs:true},
+    {id:`${mall}-upper-escalator`,from:{x:x-15,y:5,z:-65},to:{x:x+15,y:10,z:-65},width:4,stairs:true},
+  ]),
+  fixtures: [-115,0,117].flatMap((x,mall)=>[0,5,10].flatMap(y=>[
+    // Retail rooms face the atrium; wall breaks keep galleries continuous.
+    ...[-1,1].flatMap(side=>[-88,-42].map(z=>({x:x+side*29,y:y+1.6,z,width:7,height:3.2,depth:1,color:mall===2?'#9d655a':'#718f9b'}))),
+    ...[-1,1].map(side=>({x:x+side*25,y:y+.55,z:-65,width:3,height:1.1,depth:6,color:'#78906a'})),
+    ...[-1,1].flatMap(side=>[-79,-51].map(z=>({x:x+side*29,y:y+.55,z,width:6,height:1.1,depth:2,color:mall===2?'#80594e':'#a6b5b8'}))),
+  ])),
+}];
 
 export function buildOrchardScene() {
   const kit = createSceneKit({
@@ -82,13 +102,14 @@ export function buildOrchardScene() {
 
   /** Faceted glass shell over a retail podium, twisted a little at each ring. */
   function crystalMall(x: number, z: number, facing: 1 | -1) {
-    box(x, 12, z, 66, 24, 78, concrete, scene, true); solid(x, z, 66, 78);
+    box(x, 23.5, z, 66, 1, 78, concrete, scene, true); // Open the entire retail volume below the roof.
     // Draped, scalloped metallic/glass skin seen in junction-road-02-180.
     // Alternating diagonal mullions form the visible triangular net.
     for (let col = 0; col < 18; col++) {
       const dx = -34 + col * 4, crown = 24 + 6 * Math.cos(dx / 11);
       for (let row = 0; row < 6; row++) {
         const y = 3 + row * (crown - 3) / 6;
+        if (Math.abs(dx) < 10 && row < 3) continue; // Three-storey atrium entrance opening.
         const bulge = 3.5 * Math.sin(row / 6 * Math.PI);
         box(x + dx, y, z + facing * (40 + bulge), 4.1, (crown - 3) / 6, 0.6, (col + row) % 4 ? glass : steel);
         const mesh = box(x + dx, y, z + facing * (40.6 + bulge), 0.24, 6.2, 0.25, steel);
@@ -106,15 +127,15 @@ export function buildOrchardScene() {
     // Entrance: a cantilevered canopy over a glazed wall facing the boulevard.
     box(x, 9.4, z + facing * 44, 34, 0.7, 14, steel, scene, true);
     for (const dx of [-13, 13]) { cylinder(x + dx, 4.6, z + facing * 49, 0.6, 9.2, steel); solid(x + dx, z + facing * 49, 1.3, 1.3); }
-    for (let dx = -15; dx <= 15; dx += 5) box(x + dx, 6.4, z + facing * 39.2, 4.4, 12.8, 0.5, glass);
+    for (const dx of [-15, 15]) box(x + dx, 6.4, z + facing * 39.2, 4.4, 12.8, 0.5, glass);
     sign('ION ORCHARD', x, 12.4, z + facing * 44.4, 30, 2.4, '#26343d');
   }
 
   /** Twin granite towers on a banded podium, behind a civic forecourt. */
   function civicTwins(x: number, z: number, facing: 1 | -1) {
-    box(x, 8, z, 76, 16, 80, granite, scene, true); solid(x, z, 76, 80);
+    // Retail podium opened into an atrium; granite piers retain its street identity.
     box(x, 16.6, z, 80, 1.4, 84, pale);
-    for (const dx of [-19, 19]) box(x + dx, 46, z - facing * 6, 28, 76, 30, granite, scene, true);
+    for (const dx of [-19, 19]) box(x + dx, 52, z - facing * 6, 28, 64, 30, granite, scene, true);
     for (const dx of [-19, 19]) for (let y = 20; y < 82; y += 4.4) for (const side of [-1, 1]) {
       box(x + dx, y, z - facing * 6 + side * 15.4, 24, 3, 0.6, glass);
       box(x + dx + side * 14.4, y, z - facing * 6, 0.6, 3, 26, glass);
@@ -164,14 +185,14 @@ export function buildOrchardScene() {
 
   /** Wisma Atria: a blue glazed frontage, broad retail podium and tower. */
   function terraceMall(x: number, z: number, facing: 1 | -1) {
-    box(x, 10, z, 68, 20, 76, deepGlass, scene, true); solid(x, z, 68, 76);
+    box(x, 20, z, 68, .5, 76, deepGlass, scene, true); // Shell roof above usable retail floors.
     for (let dx = -32; dx <= 32; dx += 4) {
       box(x + dx, 10, z + facing * 38.4, 0.35, 20, 0.6, steel);
     }
     for (const y of [5, 10, 15, 20]) box(x, y, z + facing * 38.6, 68, 0.4, 0.5, steel);
     box(x, 42, z - facing * 15, 36, 44, 34, pale, scene, true);
     for (let y = 24; y < 64; y += 3.6) box(x, y, z - facing * 15 + facing * 17.3, 33, 2.4, 0.6, glass);
-    box(x, 6, z + facing * 43, 56, 0.6, 10, glass);
+    box(x, 16, z + facing * 43, 56, 0.6, 10, glass);
     sign('WISMA ATRIA', x, 13, z + facing * 39, 28, 2.4, '#23455e');
   }
 
@@ -232,15 +253,28 @@ export function buildOrchardScene() {
     for (let x = fromX + 4; x < toX; x += 18) box(x, 4.7, z, 4.4, 0.3, 6, awning);
   }
 
-  /** Existing Gateway link: side glazing leaves its interior walkable. */
-  function overheadBridge(x: number) {
-    for (const side of [-1, 1]) {
-      box(x + side * 2.35, 11.1, 0, 0.18, 3.2, 32, glass);
-      for (let z = -14; z <= 14; z += 3.5) box(x + side * 2.35, 11.1, z, 0.16, 3.2, 0.16, steel);
-    }
-    box(x, 13.0, 0, 5.4, 0.3, 32, steel);
-  }
+  const retailLight = mat('#f5ebd1'); retailLight.emissive.set('#efe0ba'); retailLight.emissiveIntensity = .6;
+  // Store bays and circulation signs make the opened volumes read as retail,
+  // with continuous clear galleries on the atrium side of the counters.
+  for (const x of [-115, 0, 117]) for (const y of [0, 5, 10]) {
+    for (const side of [-1, 1]) for (const z of [-87, -65, -43]) box(x + side * 21, y + 4.67, z, .3, .05, 9, retailLight);
+    sign(y === 0 ? 'SHOPS / ATRIUM' : `LEVEL ${y / 5 + 1}  RETAIL`, x, y + 2.8, -43, 16, .8, '#465f62');
+    for (const side of [-1, 1]) for (const z of [-79, -51]) {
+      box(x + side * 32.6, y + 1.7, z, .4, 3.4, 12, deepGlass);
+      box(x + side * 28.5, y + 3.6, z, 8, .3, 12, pale);
+      // Framed display walls, shop headers and stock on the already-solid
+      // counters give the occupied floors a retail scale without narrowing aisles.
+      for (const dz of [-5.5, -2.7, 0, 2.7, 5.5]) box(x + side * 32.3, y + 1.7, z + dz, .12, 3.4, .1, steel);
+      for (const dy of [.2, 2.8]) box(x + side * 32.3, y + dy, z, .14, .12, 11.4, steel);
+      const shop = sign(z === -79 ? 'DESIGN / FASHION' : 'BOOKS / LIFESTYLE', x + side * 32.15, y + 3.08, z, 9, .55, x === 117 ? '#654b42' : '#365964');
+      if (shop) shop.rotation.y = -side * Math.PI / 2;
+      box(x + side * 28.5, y + 3.39, z, 6.8, .05, .25, retailLight);
+      for (const dz of [-.5, .15, .65]) for (const dx of [-1.6, 0, 1.6]) {
+        box(x + side * 29 + dx, y + 1.32, z + dz, .6, .42, .34, (dx === 0 ? cream : (z === -79 ? granite : teal)));
+      }
 
+    }
+  }
   crystalMall(-115, -65, 1);
   terraceMall(0, -65, 1);
   pitchedStore(-115, 70, -1);
@@ -262,9 +296,8 @@ export function buildOrchardScene() {
   covered(-206, -132, -17);
   covered(24, 96, -17);
   covered(-96, -24, 17);
-  overheadBridge(165);
-  // Orchard Gateway's enclosed glazed link, near Somerset rather than ION.
-  // Deck and compact two-sided access are supplied by gateway-link below.
+  // The old detached Gateway bridge is removed; upper routes belong to retail floors.
+  // Retail circulation is now integrated into the occupied podiums above.
 
   // East park: open lawn and a bandstand, kept clear of the practice range.
   box(205, 0.18, 60, 44, 0.35, 210, lawn);
@@ -317,7 +350,7 @@ export function buildOrchardScene() {
   scene.userData.districtFeatures = ['one-way-boulevard', 'rain-tree-crowns', 'faceted-glass-shell', 'granite-twin-towers', 'steep-pitched-tile-roof', 'tangs-layered-eaves', 'wisma-blue-glass', 'peranakan-shutters', 'covered-footway', 'overhead-crossing'];
   scene.userData.referenceFeatures = ['orchard-one-way-carriageway', 'ion-scalloped-diagrid', 'tangs-green-eaves-hotel-tower', 'ngee-ann-red-granite-square', 'emerald-pale-arcades', 'gateway-glass-link'];
 
-  return withVerticalRoutes(kit.finish({
+  return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
       pedestrians.forEach((person, index) => {
@@ -327,5 +360,5 @@ export function buildOrchardScene() {
         person.rotation.y = -Math.PI / 2;
       });
     },
-  }), ORCHARD_VERTICAL_ROUTES);
+  }), ORCHARD_VERTICAL_PLACES);
 }

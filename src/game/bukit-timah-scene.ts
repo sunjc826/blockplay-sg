@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { BUKIT_TIMAH_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
-import { withVerticalRoutes } from './vertical-routes';
+import { withVerticalPlaces } from './vertical-places';
 
 // On the corridor verge, under the truss bridge, looking up at the ridge.
 export const BUKIT_TIMAH_SPAWN = { x: 60, z: 16, yaw: Math.PI / 2 };
@@ -79,20 +79,24 @@ export function buildBukitTimahScene() {
   }
 
   /** Forested ridge: terraces stepping up under dense canopy, to a marker. */
-  function ridge(x: number, z: number, width: number, depth: number) {
-    for (let step = 0; step < 6; step++) {
-      const w = width - step * width / 7, d = depth - step * depth / 7, y = 4 + step * 5;
-      box(x, y / 2, z, w, y, d, step % 2 ? lawn : mat('#7e9a5e'), scene, true);
-      solid(x, z, w, d);
-      for (let n = 0; n < 9; n++) {
-        const angle = n * 0.7 + step, r = Math.min(w, d) / 2 - 4;
-        const tx = x + Math.cos(angle) * r, tz = z + Math.sin(angle) * r * 0.8;
-        cylinder(tx, y + 6, tz, 0.5, 12, wood);
-        for (let layer = 0; layer < 2; layer++) blob(tx + (layer ? 1.6 : -1.6), y + 11 + layer * 2, tz, 5, 2.2, 5, [leaf, fern, deep][(n + layer) % 3]);
+  function ridge(x: number, z: number) {
+    // The former nested solid boxes have become genuinely traversable contours.
+    // Trees sit on the outer margins, leaving both branching ascent lanes clear.
+    for (const [tz, y] of [[25, 4], [-5, 12], [-35, 20], [-65, 28]]) {
+      for (const dx of [-29, 29]) {
+        cylinder(x + dx, y + 5, tz, .5, 10, wood);
+        blob(x + dx, y + 11, tz, 5, 3, 5, leaf);
       }
     }
+    // Mark two trails on the continuous traversable earth slopes. These thin
+    // wearing surfaces are visual; the broad earth prism supplies movement.
+    for (const [tz, y] of [[20, 4], [-10, 12], [-40, 20]]) for (const dx of [-18, 18]) {
+      const trail = box(x + dx, y + 4.035, tz - 10, 5, .06, Math.hypot(20, 8), paving);
+      trail.rotation.x = Math.atan2(8, 20);
+    }
+    z = -65;
     // Summit: a trig marker on its plinth, with a rail around the clearing.
-    box(x, 31, z, 5, 3, 5, concrete);
+    // Summit plinth is supplied as a bounded solid fixture below.
     const marker = new THREE.Mesh(geo(new THREE.ConeGeometry(1.8, 4.4, 4)), pale);
     marker.position.set(x, 34.6, z); marker.castShadow = true; scene.add(marker);
     for (let n = 0; n < 10; n++) { const a = n * Math.PI / 5; cylinder(x + Math.cos(a) * 9, 31.4, z + Math.sin(a) * 9, 0.12, 1.8, steel); }
@@ -220,7 +224,7 @@ export function buildBukitTimahScene() {
     }
   }
 
-  ridge(-175, -25, 70, 90);
+  ridge(-175, -25);
   corridor(CORRIDOR_X);
   railwayStation();
   trussBridge(CORRIDOR_X, 40);
@@ -256,7 +260,7 @@ export function buildBukitTimahScene() {
   scene.userData.districtFeatures = ['terraced-forest-ridge', 'trig-marker-summit', 'green-corridor-retained-heritage-track', 'red-brick-railway-station', 'warren-truss-web', 'timber-banded-render', 'bungalow-pier-undercroft', 'deep-verandah-posts', 'clerestory-market-roof', 'trapezoidal-storm-canal', 'canal-street-bridges'];
   scene.userData.referenceFeatures = ['hindhede-2024-tall-forked-entrance-canopy', 'bukit-timah-road-2024-dark-open-rail-truss'];
 
-  return withVerticalRoutes(kit.finish({
+  return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.3 + index) * 1.2; });
@@ -266,11 +270,145 @@ export function buildBukitTimahScene() {
       });
     },
   }), [
-    { id: 'hill-foot-contour', foundation: 'solid', name: 'Hill-foot contour walk', width: 4, color: '#967d5c', railColor: '#5c674d',
-      points: [{ x: -135, z: -58, y: 0 }, { x: -135, z: -46, y: 3 }, { x: -135, z: -4, y: 3 }, { x: -135, z: 8, y: 0 }],
-      note: 'Low contour walk beside the existing ridge, not access to the distant summit; both ends reconnect to the hill-foot path.' },
-    { id: 'reserve-edge-walk', name: 'Reserve-edge observation walk', width: 4, color: '#967d5c', railColor: '#5c674d',
-      points: [{ x: -142, z: -142, y: 0 }, { x: -142, z: -132, y: 2.5 }, { x: -142, z: -116, y: 2.5 }, { x: -142, z: -106, y: 0 }],
-      note: 'Short raised trail at the edge of the authored reserve planting; preserves tree trunks and the cross street.' },
-  ]);
+  {
+    "id": "bukit-timah-climb",
+    "name": "Bukit Timah branching summit trails",
+    "note": "Replaces the inaccessible decorative hill mass with four broad inhabited terrain contours and two connected ascent lanes reaching the summit marker. Heights and trail alignment are compressed gameplay terrain.",
+    "floors": [
+      {
+        "id": "hill-contour-4",
+        "x": -175,
+        "z": 25,
+        "y": 4,
+        "width": 64,
+        "depth": 10,
+        "color": "#7e9a5e",
+        "foundation": "solid"
+      },
+      {
+        "id": "hill-contour-12",
+        "x": -175,
+        "z": -5,
+        "y": 12,
+        "width": 64,
+        "depth": 10,
+        "color": "#7e9a5e",
+        "foundation": "solid"
+      },
+      {
+        "id": "hill-contour-20",
+        "x": -175,
+        "z": -35,
+        "y": 20,
+        "width": 64,
+        "depth": 10,
+        "color": "#7e9a5e",
+        "foundation": "solid"
+      },
+      {
+        "id": "hill-contour-28",
+        "x": -175,
+        "z": -65,
+        "y": 28,
+        "width": 48,
+        "depth": 10,
+        "color": "#7e9a5e",
+        "foundation": "solid"
+      }
+    ],
+    "connections": [
+      {
+        "id": "west-trailhead",
+        "from": {
+          "x": -193,
+          "y": 0,
+          "z": 42
+        },
+        "to": {
+          "x": -193,
+          "y": 4,
+          "z": 30
+        },
+        "width": 5,
+        "stairs": false,
+        "foundation": "solid"
+      },
+      {
+        "id": "east-trailhead",
+        "from": {
+          "x": -157,
+          "y": 0,
+          "z": 42
+        },
+        "to": {
+          "x": -157,
+          "y": 4,
+          "z": 30
+        },
+        "width": 5,
+        "stairs": false,
+        "foundation": "solid"
+      },
+      {
+        "id": "continuous-earth-slope-0",
+        "from": {
+          "x": -175,
+          "y": 4.0,
+          "z": 20
+        },
+        "to": {
+          "x": -175,
+          "y": 12.0,
+          "z": 0
+        },
+        "width": 64,
+        "foundation": "solid",
+        "color": "#779257"
+      },
+      {
+        "id": "continuous-earth-slope-1",
+        "from": {
+          "x": -175,
+          "y": 12.0,
+          "z": -10
+        },
+        "to": {
+          "x": -175,
+          "y": 20.0,
+          "z": -30
+        },
+        "width": 64,
+        "foundation": "solid",
+        "color": "#779257"
+      },
+      {
+        "id": "continuous-earth-slope-2",
+        "from": {
+          "x": -175,
+          "y": 20.0,
+          "z": -40
+        },
+        "to": {
+          "x": -175,
+          "y": 28.0,
+          "z": -60
+        },
+        "width": 48,
+        "foundation": "solid",
+        "color": "#779257"
+      }
+    ],
+    "fixtures": [
+      {
+        "x": -175,
+        "y": 29.5,
+        "z": -65,
+        "width": 5,
+        "height": 3,
+        "depth": 5,
+        "color": "#adaca2"
+      }
+    ]
+  }
+]);
 }

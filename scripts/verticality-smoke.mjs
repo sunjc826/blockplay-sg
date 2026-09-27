@@ -1,4 +1,4 @@
-// Run a local Vite server and an isolated Chrome with --remote-debugging-port=9228.
+// Run a local Vite server with server.hmr=false and an isolated Chrome with --remote-debugging-port=9228.
 // No browser automation dependency or remote map requests are needed.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -32,11 +32,11 @@ try {
  await wait(`document.querySelectorAll('.location-card').length>=3`);
  await evaluate(`(async()=>{
   const {getRegion}=await import('/src/game/regions.ts');
-  const {getVerticalRoutes}=await import('/src/game/vertical-routes.ts');
+  const {getVerticalPlaces}=await import('/src/game/vertical-places.ts');
   const region=getRegion('orchard'), build=region.build;
-  const sample=build(); const route=getVerticalRoutes(sample.scene).find(r=>r.id==='somerset-seating-terrace');
-  if(!route) throw Error('Missing authored Orchard terrace'); sample.dispose();
-  const [a,b,c]=route.points; const yaw=Math.atan2(-(b.x-a.x),-(b.z-a.z));
+  const sample=build(); const route=getVerticalPlaces(sample.scene).find(r=>r.id==='orchard-retail-circuit');
+  if(!route) throw Error('Missing Orchard retail atrium'); sample.dispose();
+  const {from:a,to:b}=route.connections.find(c=>c.id==='0-west-escalator'); const c={x:b.x+5,z:b.z,y:b.y}; const yaw=Math.atan2(-(b.x-a.x),-(b.z-a.z));
   window.verticalFixture={start:{x:a.x,z:a.z,yaw,pitch:0},height:b.y,target:{x:b.x+(c.x-b.x)*.2,z:b.z+(c.z-b.z)*.2}};
   region.build=()=>{const world=build();world.scene.onBeforeRender=(_renderer,_scene,camera)=>{
    if(camera.isPerspectiveCamera&&camera.far>100)window.renderedCamera={x:camera.position.x,y:camera.position.y,z:camera.position.z,frames:(window.renderedCamera?.frames??0)+1};
@@ -52,7 +52,7 @@ try {
  if(process.env.VERTICALITY_SMOKE_MODE!=='exploration') {
  await wait(`window.testHud?.phase==='ready'`, 40000);
  await click(`document.querySelector('#start')`); await wait(`window.testHud.phase==='playing'`);
- console.log('FPS ready; walking actual ramp');
+ console.log('FPS ready; walking actual ION escalator');
  await evaluate(`window.testEngine.setInput('w',true)`);
  await wait(`(window.testEngine.setInput('w',true),Math.hypot(window.testHud.x-window.verticalFixture.target.x,window.testHud.z-window.verticalFixture.target.z)<1)`, 120000);
  await evaluate(`window.testEngine.setInput('w',false)`); await delay(250);
@@ -83,6 +83,6 @@ try {
  await screenshot('exploration-elevated');
  await evaluate(`window.exploreRoot.unmount()`);
  assert.equal(mapRequests,0);assert.deepEqual(errors,[]);
- console.log('PASS exploration: actual RegionGame camera follows the same authored terrace; zero Google calls and runtime errors.');
+ console.log('PASS exploration: actual RegionGame camera follows the same authored retail gallery; zero Google calls and runtime errors.');
 } catch(error) { console.log(errors); console.log(await evaluate('({phase:window.testHud?.phase,x:window.testHud?.x,z:window.testHud?.z,actor:window.testHud?.arenaSelf,camera:window.renderedCamera,fixture:window.verticalFixture})')); await screenshot('failure'); throw error; }
 finally {ws.close(); await fetch(`${chrome}/json/close/${tab.id}`);}

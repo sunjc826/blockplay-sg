@@ -623,3 +623,10 @@ see docs/WORLD-EVENTS.md and HANDOFF for supported modes and remaining limits.
 - Sector bounds/anchors and loot clearance integrated; ground interactions guarded against upper-deck activation. No Google calls or capture-plan modifications.
 - Verification:884unit tests/typecheck/build, actualFPS and exploration ascent phases,38route renders; targetedThomson canopy refinement after visual review.
 - Future judgment: playtest sightlines/access usefulness; improve distinct architectural detailing and bot multilevel route choice. Do not make a numeric target the design goal.
+
+## 2026-09-27 — Connected district verticality replacement
+
+- Replaced the isolated-route approach across all19 districts with inhabitable building floors, courts, equipment decks and terrain contours. See docs/CONNECTED-VERTICALITY.md and docs/evidence/connected-*.md.
+- Integrated same-sector upper supplies, height-aware pickup, incremental bot stair navigation, revised sector bounds and clear ground anchors.
+- Added actual movement/spawn reachability and mesh-clearance diagnostics plus eye-height review views; no quality grade or arbitrary verticality quota.
+- Verification and publication status recorded in HANDOFF. No new Google calls or reference claims.

@@ -3,6 +3,7 @@ import { WOODLANDS_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
 import { withVerticalRoutes } from './vertical-routes';
+import { withVerticalPlaces } from './vertical-places';
 
 // On the causeway approach, facing the checkpoint and the far shore.
 export const WOODLANDS_SPAWN = { x: 0, z: -110, yaw: 0 };
@@ -145,10 +146,12 @@ export function buildWoodlandsScene() {
    * the blocks sit where the towers fit, and this needs its own clear ground.
    */
   function carPark(x: number, z: number) {
-    box(x, 9, z, 46, 18, 26, concrete, scene, true); solid(x, z, 46, 26);
-    for (let level = 0; level < 4; level++) for (let dx = -20; dx < 22; dx += 6) box(x + dx, 3 + level * 4.4, z + 12.6, 4.4, 0.7, 0.6, stone);
-    for (let ring = 0; ring < 6; ring++) { const ramp = box(x + 26, 3 + ring * 2.6, z + (ring % 2 ? 8 : -8), 12, 0.5, 14, concrete); ramp.rotation.x = (ring % 2 ? 1 : -1) * 0.2; }
-    box(x, 18.6, z, 48, 1.2, 28, stone);
+    // Open decks and circulation are authored below. Keep recognisable parking
+    // markings and peripheral columns, without a sealed collision box.
+    for (const dx of [-21, 21]) for (const dz of [-15,15]) {
+      box(x+dx,6,z+dz,1.2,12,1.2,concrete); solid(x+dx,z+dz,1.2,1.2);
+    }
+    for (const y of [4,8,12]) for (let dx=-14;dx<=14;dx+=7) box(x+dx,y+.025,z-13, .12,.04,6,white);
   }
   /** Covered linkway: the roofed path that ties the blocks together. */
   function linkway(fromX: number, toX: number, z: number) {
@@ -219,7 +222,7 @@ export function buildWoodlandsScene() {
   mallCivic(-45, -10);
   precinct(137, -10);
   precinct(-182, 85);
-  carPark(81, -10);
+  carPark(68, -10);
   carPark(-182, -10);
   railStation(200, -10);
   linkway(-118, -98, 26);
@@ -233,7 +236,7 @@ export function buildWoodlandsScene() {
     if (Math.round((x + 130) / 24) % 3 === 1) { box(x, 0.85, -124, 3.4, 0.22, 1.2, wood); solid(x, -124, 3.6, 1.2); }
   }
   for (let x = -214; x <= -150; x += 11) for (let z = -120; z <= -10; z += 11) {
-    if ((Math.round(x) + Math.round(z)) % 3 === 0 || Math.abs(z + 60) < 18) continue;
+    if ((Math.round(x) + Math.round(z)) % 3 === 0 || Math.abs(z + 60) < 18 || (z > -35 && x < -150)) continue;
     cylinder(x, 5, z, 0.42, 10, wood); solid(x, z, 0.9, 0.9);
     for (let layer = 0; layer < 2; layer++) blob(x + (layer ? 1.4 : -1.4), 9.4 + layer * 1.8, z, 4, 1.8, 4, layer ? fern : leaf);
   }
@@ -253,7 +256,7 @@ export function buildWoodlandsScene() {
   scene.userData.districtFeatures = ['causeway-embankment', 'rail-alongside-road', 'checkpoint-booth-rows', 'overhead-lane-gantries', 'concrete-waterfront-jetty', 'seven-level-retail-bands', 'far-shore-read', 'point-block-void-decks', 'multi-storey-car-park-ramp', 'covered-linkways', 'civic-flag-row'];
   scene.userData.referenceFeatures = ['causeway-point-outdoor02-0:silver-clad-arcade-stone-edge-and-rail-only'];
 
-  return withVerticalRoutes(kit.finish({
+  return withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.33 + index) * 1.9; });
@@ -263,11 +266,26 @@ export function buildWoodlandsScene() {
       });
     },
   }), [
-    { id: 'waterfront-viewing-deck', name: 'Waterfront viewing deck', width: 7, color: '#b5b4ab', railColor: '#b0b8bb',
-      points: [{ x: -110, z: -115, y: 0 }, { x: -96, z: -115, y: 2.8 }, { x: -52, z: -115, y: 2.8 }, { x: -38, z: -115, y: 0 }],
-      note: 'A low two-ended viewing deck within the authored waterfront lawn; leaves shore, rail and checkpoint lanes separate.' },
     { id: 'jetty-raised-walk', name: 'Jetty raised walk', width: 5, color: '#bcb7aa', railColor: '#b0b8bb',
       points: [{ x: 120, z: -140, y: 0 }, { x: 120, z: -154, y: 2.8 }, { x: 120, z: -180, y: 2.8 }, { x: 120, z: -194, y: 0 }],
       note: 'A raised central route on the existing concrete jetty, with the broad lower deck retained alongside; game adaptation, not a real jetty survey.' },
-  ]);
+  ]), [{
+    id: 'woodlands-precinct-car-parks', name: 'Precinct multi-storey car parks',
+    note: 'The two formerly sealed MSCPs become open parking floors with central ramp wells, two stairs and usable undercroft; dimensions are authored.',
+    floors: [-182, 68].flatMap(x => [4, 8, 12].flatMap(y => [
+      { id: `${x}-north-${y}`, x, z: -23, y, width: 46, depth: 8 },
+      { id: `${x}-south-${y}`, x, z: 3, y, width: 46, depth: 8 },
+      { id: `${x}-west-${y}`, x: x-19, z: -10, y, width: 8, depth: 18 },
+      { id: `${x}-east-${y}`, x: x+19, z: -10, y, width: 8, depth: 18 },
+    ])),
+    connections: [-182, 68].flatMap(x => [
+      { id: `${x}-entry-west`, from: { x: x-35, z: -10, y: 0 }, to: { x: x-23, z: -10, y: 4 }, width: 5, stairs: true },
+      { id: `${x}-entry-south`, from: { x, z: 21, y: 0 }, to: { x, z: 7, y: 4 }, width: 5, stairs: true },
+      ...[4, 8].flatMap(y => [
+        { id: `${x}-east-rise-${y}`, from: { x: x-15, z: -15, y }, to: { x: x+15, z: -15, y: y+4 }, width: 5, stairs: true },
+        { id: `${x}-west-rise-${y}`, from: { x: x+15, z: -5, y }, to: { x: x-15, z: -5, y: y+4 }, width: 5, stairs: true },
+      ]),
+    ]),
+    fixtures: [-182,68].flatMap(x => [4,8,12].flatMap(y => [-23,3].map(z => ({ x:x-9,z,y:y+.8,width:7,depth:3,height:1.6,color:'#607783' })))),
+  }]);
 }

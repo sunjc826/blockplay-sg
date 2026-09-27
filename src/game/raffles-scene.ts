@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { withVerticalRoutes, type VerticalRoute } from './vertical-routes';
+import { type VerticalRoute } from './vertical-routes';
+import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { RAFFLES_STAMPS } from '../data/region-stamps.ts';
 import type { Obstacle } from './raffles-collision';
 import { markWater } from './water';
@@ -16,14 +17,35 @@ export const RAFFLES_MAP_ROADS = [
 ];
 
 /** Street-view-informed, compressed playable composition, not a surveyed reconstruction. */
-export const RAFFLES_VERTICAL_ROUTES: VerticalRoute[] = [
-  { id: 'collyer-link', name: 'Collyer elevated connector', width: 3.2, color: '#bec3be', railColor: '#8a999b',
-    points: [{ x: 246, z: -54, y: 0 }, { x: 246, z: -32, y: 8.9 }, { x: 246, z: -25, y: 8.9 }, { x: 288, z: -25, y: 8.9 }, { x: 288, z: -19, y: 8.9 }, { x: 288, z: 3, y: 0 }],
-    note: 'Uses the existing reference-informed glazed connector. Outdoor ramp approaches are an authored gameplay adaptation, not confirmed surveyed access.' },
-  { id: 'telok-garden-terrace', foundation: 'solid', name: 'Telok Ayer garden terrace', width: 6, color: '#bab5a6', railColor: '#536951',
-    points: [{ x: -118, z: 165, y: 0 }, { x: -118, z: 177, y: 2.6 }, { x: -118, z: 201, y: 2.6 }, { x: -118, z: 213, y: 0 }],
-    note: 'Authored landscaped terrace in the existing green court, preserving the central square and heritage market roof.' },
-];
+export const RAFFLES_VERTICAL_ROUTES: VerticalRoute[] = [];
+export const RAFFLES_VERTICAL_PLACES: VerticalPlace[] = [{
+  id:'market-podiums',name:'Market Street office podium and retail arcade',
+  note:'Two existing sealed tower bases become occupied arcade floors surrounding internal voids. Upper office towers retain their silhouette; the connecting retail galleries are authored compressed circulation.',
+  floors:[
+    ...[{x:-27,z:91,w:54,d:45,hole:24},{x:39,z:94,w:28,d:44,hole:12}].flatMap((b,i)=>[6,11].flatMap(y=>[
+      {id:`${i}-${y}-west`,x:b.x-(b.w+b.hole)/4,z:b.z,y,width:(b.w-b.hole)/2,depth:b.d,color:'#c7ccca'},
+      {id:`${i}-${y}-east`,x:b.x+(b.w+b.hole)/4,z:b.z,y,width:(b.w-b.hole)/2,depth:b.d,color:'#c7ccca'},
+      {id:`${i}-${y}-north`,x:b.x,z:b.z-(b.d+20)/4,y,width:b.hole,depth:(b.d-20)/2,color:'#b6bbaa'},
+      {id:`${i}-${y}-south`,x:b.x,z:b.z+(b.d+20)/4,y,width:b.hole,depth:(b.d-20)/2,color:'#b6bbaa'},
+    ])),
+    {id:'retail-link',x:12.5,z:109,y:6,width:25,depth:8,color:'#a8b6b4'},
+    {id:'upper-link',x:12.5,z:77,y:11,width:25,depth:8,color:'#bac0b7'},
+  ],
+  connections:[
+    ...[[-27,91],[39,94]].flatMap(([x,z],i)=>[
+      {id:`${i}-street-ascent`,from:{x:x-3,y:0,z:z-10},to:{x:x-3,y:6,z:z+10},width:3.5,stairs:true},
+      {id:`${i}-upper-ascent`,from:{x:x+3,y:6,z:z+10},to:{x:x+3,y:11,z:z-10},width:3.5,stairs:true},
+    ]),
+  ],
+  fixtures:[
+    ...[0,6,11].flatMap(y=>[
+      {x:-48,y:y+1.5,z:91,width:7,height:3,depth:1,color:'#557481'},
+      {x:-6,y:y+1.5,z:91,width:7,height:3,depth:1,color:'#557481'},
+      {x:-27,y:y+.6,z:110,width:6,height:1.2,depth:2,color:'#78916c'},
+      {x:39,y:y+.6,z:112,width:4,height:1.2,depth:1.5,color:'#78916c'},
+    ]),
+  ],
+}];
 
 export function buildRafflesScene() {
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#b8d1da'); scene.fog = new THREE.Fog('#b8d1da', 280, 750);
@@ -53,7 +75,7 @@ export function buildRafflesScene() {
     const canvas=document.createElement('canvas'); canvas.width=768;canvas.height=128;const ctx=canvas.getContext('2d');if(!ctx)return;
     ctx.fillStyle=color;ctx.fillRect(0,0,768,128);ctx.fillStyle='#fff9e8';ctx.font='bold 54px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,384,66,740);
     const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;textures.push(texture);const material=new THREE.MeshBasicMaterial({map:texture});materials.push(material);
-    const panel=new THREE.Mesh(geo(new THREE.PlaneGeometry(w,h)),material);panel.position.set(x,y,z);scene.add(panel);
+    const panel=new THREE.Mesh(geo(new THREE.PlaneGeometry(w,h)),material);panel.position.set(x,y,z);scene.add(panel);return panel;
   }
   box(0,-0.6,62,600,1,430,paving); box(0,-0.2,-161,600,0.15,48,water);
   // New district loop connects old streets without altering the original walk/drive routes.
@@ -85,8 +107,11 @@ export function buildRafflesScene() {
   for(const x of [48.5,53.5]) {box(x,1.2,30.9,0.14,2.4,0.14,dark);solid(x,30.9,0.2,0.2);}
   // Facade rhythms derived from square/Market references: cool glass, pale ribs, deep lobbies.
   function tower(x:number,z:number,w:number,d:number,h:number,style:number,label:string) {
-    const shell=style%2?blue:glass;box(x,h/2+6,z,w,h,d,shell,scene,true);box(x,3,z,w+4,6,d+4,dark,scene,true);solid(x,z,w+4,d+4);
-    for(let y=9;y<h+6;y+=4.5){box(x,y,z+d/2+0.15,w,0.3,0.25,stone);box(x,y,z-d/2-0.15,w,0.3,0.25,stone);box(x-w/2-0.15,y,z,0.25,0.3,d,stone);box(x+w/2+0.15,y,z,0.25,0.3,d,stone);}
+    const shell=style%2?blue:glass, opened=x===-27||x===39;
+    box(x,opened?(h+23)/2:h/2+6,z,w,opened?h-11:h,d,shell,scene,true);
+    if (!opened) {box(x,3,z,w+4,6,d+4,dark,scene,true);solid(x,z,w+4,d+4);}
+    else scene.userData.traversalObstacles=[...(scene.userData.traversalObstacles??[]),{minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2,minY:17,maxY:h+6}];
+    for(let y=opened?18:9;y<h+6;y+=4.5){box(x,y,z+d/2+0.15,w,0.3,0.25,stone);box(x,y,z-d/2-0.15,w,0.3,0.25,stone);box(x-w/2-0.15,y,z,0.25,0.3,d,stone);box(x+w/2+0.15,y,z,0.25,0.3,d,stone);}
     for(let dx=-w/2;dx<=w/2;dx+=style===2?3:7)for(const side of [-1,1])box(x+dx,h/2+6,z+side*(d/2+0.3),style===2?0.65:0.3,h,0.45,pale);
     for(let dz=-d/2;dz<=d/2;dz+=7)for(const side of [-1,1])box(x+side*(w/2+0.3),h/2+6,z+dz,0.45,h,0.35,stone);
     box(x,h+7,z,w+1,2,d+1,pale);box(x,h+11,z,w*0.65,6,d*0.65,stone);
@@ -95,14 +120,31 @@ export function buildRafflesScene() {
     else if(style===2){for(let n=0;n<3;n++)box(x,h+13+n*2,z,w*(0.61-n*0.12),1.5,d*(0.61-n*0.12),n%2?glass:pale);}
     else for(const side of [-1,1])box(x+side*w*0.3,h+10,z,1,5,d*0.7,silver);
     for(let y=12;y<h;y+=13.5)for(let dx=-w/2+4;dx<w/2-3;dx+=7)if((Math.round(dx)+Math.round(y))%3===0)box(x+dx,y,z+d/2+0.18,5.8,3.9,0.08,glazingLight);
-    box(x,6.3,z+d/2+4,w+5,0.5,8,pale,scene,true);
+    if (!opened) box(x,6.3,z+d/2+4,w+5,0.5,8,pale,scene,true);
     for(const dx of [-w/2+2,w/2-2]){cylinder(x+dx,3,z+d/2+6,0.4,6,pale);solid(x+dx,z+d/2+6,0.8,0.8);}
-    box(x,0.5,z+d/2+0.2,w,1,0.6,dark);for(let dx=-w/2+4;dx<w/2;dx+=6){box(x+dx,3,z+d/2+2.15,0.18,5.7,0.2,silver);box(x+dx+2,3,z+d/2+2.12,3.7,5.6,0.12,glass);}
+    if (!opened) { box(x,0.5,z+d/2+0.2,w,1,0.6,dark);for(let dx=-w/2+4;dx<w/2;dx+=6){box(x+dx,3,z+d/2+2.15,0.18,5.7,0.2,silver);box(x+dx+2,3,z+d/2+2.12,3.7,5.6,0.12,glass);}
+    }
     sign(label,x,5,z+d/2+4.3,w-3,1.7,'#3d5058');
   }
   tower(-120,-48,55,64,122,2,'ONE RAFFLES');tower(124,-42,55,72,150,1,'BATTERY ROAD');
   tower(-120,88,53,57,112,0,'CECIL STREET');tower(121,94,51,51,95,2,'MARKET STREET');
   tower(-27,91,54,45,156,2,'CITY TOWER');tower(39,94,28,44,103,1,'THE ARCADE');
+  // Human-scale arcade frontages decorate the existing partitions, with
+  // clear circulation retained on either side and no additional solid volume.
+  const arcadeLight=mat('#eee6cb');arcadeLight.emissive.set('#ded8bd');arcadeLight.emissiveIntensity=.6;
+  for (const y of [0,6,11]) for (const x of [-48,-6]) for (const side of [-1,1]) {
+    const z=91+side*.53;
+    box(x-1.55,y+1.45,z,2.5,2.35,.07,glazingLight);
+    box(x+1.65,y+1.2,z,1.35,2.4,.07,dark);
+    for (const dx of [-2.87,-.23,.91,2.38]) box(x+dx,y+1.24,z+side*.04,.1,2.5,.08,silver);
+    for (const dy of [.2,2.48]) box(x-1.55,y+dy,z+side*.04,2.7,.09,.08,silver);
+    box(x-1.55,y+1.38,z+side*.04,.08,2.3,.08,silver);
+    box(x+1.18,y+1.1,z+side*.11,.07,.4,.08,pale);
+    const label=sign(x===-48?'COFFEE / DELI':'SERVICES / OFFICE',x,y+2.77,z+side*.08,6,.38,'#324e59');
+    if(label && side<0)label.rotation.y=Math.PI;
+    box(x,y+.1,z,6.9,.16,.06,stone);
+  }
+  for(const y of [6,11])for(const x of [-46,-8,29,49])for(const z of [79,103])box(x,y+4.66,z,.28,.06,7,arcadeLight);
   // Larger southern/western financial district: clear streets around every block.
   tower(-216,-42,47,69,88,1,'CHURCH STREET');tower(216,-39,43,74,118,2,'COLLYER QUAY');
   tower(216,91,43,50,84,0,'OCEAN ARCADE');tower(124,183,52,46,110,1,'ROBINSON ROAD');
@@ -264,5 +306,5 @@ export function buildRafflesScene() {
   const batches=new Map<string,THREE.Mesh[]>(),instances:THREE.InstancedMesh[]=[];
   for(const c of [...scene.children]){if(!(c instanceof THREE.Mesh)||Array.isArray(c.material)||stamps.includes(c))continue;const key=`${c.geometry.uuid}:${c.material.uuid}:${c.castShadow}:${c.receiveShadow}`;const batch=batches.get(key)??[];batch.push(c);batches.set(key,batch);}
   for(const batch of batches.values()){if(batch.length<2)continue;const m=new THREE.InstancedMesh(batch[0].geometry,batch[0].material,batch.length);m.castShadow=batch[0].castShadow;m.receiveShadow=batch[0].receiveShadow;batch.forEach((b,i)=>{b.updateMatrix();m.setMatrixAt(i,b.matrix);scene.remove(b);});m.computeBoundingSphere();scene.add(m);instances.push(m);}
-  return withVerticalRoutes({scene,obstacles,car,stamps,animate(time:number){stamps.forEach((s,i)=>{s.rotation.y=time*0.7;s.position.y=2.2+Math.sin(time*2+i)*0.2;});pedestrians.forEach((p,i)=>{p.position.z=-90+((time*1.1+i*19)%112);p.rotation.y=i%2?0:Math.PI;});},dispose(){instances.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());sun.shadow.dispose();}}, RAFFLES_VERTICAL_ROUTES);
+  return withVerticalPlaces({scene,obstacles,car,stamps,animate(time:number){stamps.forEach((s,i)=>{s.rotation.y=time*0.7;s.position.y=2.2+Math.sin(time*2+i)*0.2;});pedestrians.forEach((p,i)=>{p.position.z=-90+((time*1.1+i*19)%112);p.rotation.y=i%2?0:Math.PI;});},dispose(){instances.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());sun.shadow.dispose();}}, RAFFLES_VERTICAL_PLACES);
 }

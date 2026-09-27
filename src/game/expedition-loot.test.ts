@@ -145,3 +145,16 @@ describe('temporary expedition equipment', () => {
     expect(loadout.weapons[0].damage).toBe(36); expect(loadout.weapons[1].damage).toBe(30); expect(loadout.armor).toBe(0);
   });
 });
+
+it('moves existing supplies upstairs without changing contents or permitting pickup through a floor', () => {
+  const geometry = zone(), normal = createExpeditionLoot('levels').enterZone(geometry);
+  const expedition = createExpeditionLoot('levels');
+  const raised = expedition.enterZone({ ...geometry, elevatedAnchors: [{ x: 5, y: 4, z: 5 }, { x: 10, y: 4, z: 5 }, { x: 15, y: 4, z: 5 }] });
+  expect(raised.map(({ x, y, z, ...content }) => content)).toEqual(normal.map(({ x, y, z, ...content }) => content));
+  const upper = raised.find(p => p.y === 4)!;expect(upper).toBeDefined();
+  expect(expedition.nearest(geometry.id, { x: upper.x, y: 0, z: upper.z })).toBeNull();
+  expect(expedition.collect(geometry.id, upper.id, { x: upper.x, y: 0, z: upper.z })).toBeNull();
+  expect(expedition.collect(geometry.id, upper.id, { ...upper, y: NaN })).toBeNull();
+  expect(expedition.nearest(geometry.id, upper)?.id).toBe(upper.id);
+  expect(expedition.collect(geometry.id, upper.id, upper)?.id).toBe(upper.id);
+});

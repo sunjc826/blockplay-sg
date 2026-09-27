@@ -1,3 +1,5 @@
+import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
+import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import { expect, it } from 'vitest';
 import * as THREE from 'three';
 import { getFpsDistrict } from './fps-districts';
@@ -25,7 +27,7 @@ for (const { id } of WORLD_ZONES) it(`${id}: practice spawns, all targets and ve
     for (const kind of ['car', 'helicopter'] as const) {
       const vehicle = createVehicle(kind, config.vehicles[kind]), b = vehicleBounds(vehicle);
       const other = createVehicle(kind === 'car' ? 'helicopter' : 'car', config.vehicles[kind === 'car' ? 'helicopter' : 'car']);
-      const obstacles = [...world.obstacles, ...props, ...targets, vehicleBounds(other)];
+      const obstacles = [...world.obstacles, ...verticalVehicleObstacles({surfaces:getWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene)}), ...props, ...targets, vehicleBounds(other)];
       expect(obstacles.some(o => b.maxX > o.minX && b.minX < o.maxX && b.maxZ > o.minZ && b.minZ < o.maxZ), `${kind} spawn`).toBe(false);
       expect(vehicleExit(vehicle, obstacles, world.bounds), `${kind} exit`).not.toBeNull();
       if (kind === 'car') {

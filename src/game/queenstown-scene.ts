@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { withVerticalRoutes, type VerticalRoute } from './vertical-routes';
+import { type VerticalRoute } from './vertical-routes';
+import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { QUEENSTOWN_STAMPS } from '../data/region-stamps.ts';
 import type { Obstacle } from './queenstown-collision';
 
@@ -17,14 +18,34 @@ export const QUEENSTOWN_MAP_ROADS = [
 export { QUEENSTOWN_STAMPS } from '../data/region-stamps.ts';
 
 /** Compressed heritage-inspired estate, not a surveyed model or exact present-day streets. */
-export const QUEENSTOWN_VERTICAL_ROUTES: VerticalRoute[] = [
-  { id: 'estate-gallery', name: 'Estate access gallery', width: 3.6, color: '#bdc9c4', railColor: '#679487',
-    points: [{ x: -112, z: -32, y: 0 }, { x: -100, z: -32, y: 3.4 }, { x: -46, z: -32, y: 3.4 }, { x: -34, z: -32, y: 0 }],
-    note: 'Authored external gallery beside the existing HDB block, using estate corridor architecture; not a claim of an exact real block access layout.' },
-  { id: 'dawson-court-terrace', foundation: 'solid', name: 'Dawson courtyard terrace', width: 5, color: '#c9c4b2', railColor: '#779589',
-    points: [{ x: 178, z: 118, y: 0 }, { x: 178, z: 130, y: 2.4 }, { x: 178, z: 144, y: 2.4 }, { x: 178, z: 156, y: 0 }],
-    note: 'Authored low community terrace on the existing open courtyard; station railway and reference-informed entrance structures remain scenery.' },
-];
+export const QUEENSTOWN_VERTICAL_ROUTES: VerticalRoute[] = [];
+export const QUEENSTOWN_VERTICAL_PLACES: VerticalPlace[] = [{
+  id:'estate-courtyard',name:'Open estate community floors and courtyard galleries',
+  note:'The lower two levels of the paired northern housing blocks are opened as community rooms and galleries. Cross-court links and stairs are authored game circulation, not a surveyed HDB block layout.',
+  floors:[
+    ...[3.4,7.4].flatMap(y=>[
+      ...[-83,-44].map((z,i)=>({id:`community-${i}-${y}`,x:-73,z,y,width:59,depth:15,color:'#d1d2c4'})),
+      {id:`west-gallery-${y}`,x:-104,z:-63.5,y,width:7,depth:39,color:'#b6c9bc'},
+      {id:`east-gallery-${y}`,x:-42,z:-63.5,y,width:7,depth:39,color:'#b6c9bc'},
+      {id:`north-west-landing-${y}`,x:-108,z:-74,y,width:18,depth:6,color:'#b6c9bc'},
+      {id:`south-west-landing-${y}`,x:-108,z:-53,y,width:18,depth:6,color:'#b6c9bc'},
+      {id:`north-east-landing-${y}`,x:-38,z:-74,y,width:18,depth:6,color:'#b6c9bc'},
+      {id:`south-east-landing-${y}`,x:-38,z:-53,y,width:18,depth:6,color:'#b6c9bc'},
+    ]),
+  ],
+  connections:[
+    {id:'west-entry',from:{x:-114,y:0,z:-92},to:{x:-114,y:3.4,z:-77},width:4,stairs:true},
+    {id:'west-upper',from:{x:-114,y:3.4,z:-71},to:{x:-114,y:7.4,z:-56},width:4,stairs:true},
+    {id:'east-entry',from:{x:-32,y:0,z:-35},to:{x:-32,y:3.4,z:-50},width:4,stairs:true},
+    {id:'east-upper',from:{x:-32,y:3.4,z:-56},to:{x:-32,y:7.4,z:-71},width:4,stairs:true},
+  ],
+  fixtures:[
+    ...[-83,-44].flatMap(z=>[3.4,7.4].flatMap(y=>[
+      ...[-91,-73,-55].map(x=>({x,y:y+1.5,z,width:1,height:3,depth:7,color:'#d8d8c9'})),
+      ...[-83,-63].map(x=>({x,y:y+.45,z:z-3,width:4,height:.9,depth:1.2,color:'#b3816c'})),
+    ])),
+  ],
+}];
 
 export function buildQueenstownScene() {
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#bcd9e7');
@@ -63,7 +84,7 @@ export function buildQueenstownScene() {
     ctx.fillStyle = '#245d4f'; ctx.fillRect(0, 0, 768, 128); ctx.fillStyle = '#fff9e8'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = 'bold 55px sans-serif'; ctx.fillText(text, 384, 66, 730);
     const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; textures.push(texture);
     const material = new THREE.MeshBasicMaterial({ map: texture }); materials.push(material);
-    const panel = new THREE.Mesh(geo(new THREE.PlaneGeometry(w, h)), material); panel.position.set(x, y, z); scene.add(panel);
+    const panel = new THREE.Mesh(geo(new THREE.PlaneGeometry(w, h)), material); panel.position.set(x, y, z); scene.add(panel); return panel;
   }
   box(0, -0.6, 0, 540, 1, 444, grass);
   // Connected outer district circuit doubles explorable area, not just backdrop size.
@@ -91,7 +112,10 @@ export function buildQueenstownScene() {
   // Open ground-floor void decks: collisions on pillars/cores, never an invisible solid slab.
   function block(x: number, z: number, floors: number, accent: THREE.Material, label: string) {
     const width = 59, depth = 15, height = floors * 2.8;
-    box(x, height / 2 + 3.4, z, width, height, depth, cream, scene, true);
+    const opened = x === -73;
+    box(x, opened ? (height + 14.8) / 2 : height / 2 + 3.4, z, width, opened ? height - 8 : height, depth, cream, scene, true);
+    // Preserve the upper housing silhouette; remove the sealed lower floor mass.
+    if (opened) scene.userData.traversalObstacles = [...(scene.userData.traversalObstacles ?? []), {minX:x-width/2,maxX:x+width/2,minZ:z-depth/2,maxZ:z+depth/2,minY:11.4,maxY:height+3.4}];
     box(x, height + 3.7, z, width + 1, 0.6, depth + 1, concrete);
     box(x - 25, height / 2 + 3.4, z + 7.6, 7, height, 0.35, accent);
     for (const dx of [-25, -13, 0, 13, 25]) for (const dz of [-5.8, 5.8]) {
@@ -102,7 +126,7 @@ export function buildQueenstownScene() {
     box(x + 19, 1.4, z + 3.05, 2.1, 2.8, 0.1, glass);
     for (const dx of [-25, -13, 0, 13, 25]) box(x + dx, 3.25, z, 0.85, 0.3, 15, concrete);
     for (let row = 0; row < 3; row++) for (let col = 0; col < 6; col++) box(x + 17 + col * 0.65, 0.65 + row * 0.48, z - 3.12, 0.55, 0.38, 0.15, dark);
-    for (let floor = 0; floor < floors; floor++) {
+    for (let floor = opened ? 3 : 0; floor < floors; floor++) {
       const y = 4.8 + floor * 2.8;
       for (const dz of [-7.6, 7.6]) {
         box(x, y - 1.3, z + dz, width, 0.16, 0.6, concrete);
@@ -133,6 +157,30 @@ export function buildQueenstownScene() {
     for (const dx of [-24, 24]) { box(x + dx, height + 5, z, 6, 2.2, 7, cream); box(x + dx, height + 6.2, z, 6.5, 0.25, 7.5, concrete); }
     box(x - 13, 0.65, z, 4, 0.16, 1.2, coral); // void-deck seating
     sign(label, x - 25, 7, z + 8.02, 5, 2.4);
+  }
+  // Occupied community floors: doorway and window details sit on the existing
+  // room partitions, leaving both gallery aisles and all stair landings intact.
+  const communityLight = mat('#eee7c7');
+  communityLight.emissive.set('#dfd9b6'); communityLight.emissiveIntensity = .65;
+  for (const z of [-83, -44]) for (const y of [3.4, 7.4]) {
+    for (const [index, x] of [-91, -73, -55].entries()) for (const side of [-1, 1]) {
+      const face = x + side * .53;
+      box(face, y + 1.16, z - 1.75, .06, 2.32, 1.25, index % 2 ? teal : coral);
+      for (const dz of [-2.43, -1.07]) box(face + side * .035, y + 1.22, z + dz, .08, 2.44, .09, cream);
+      box(face + side * .035, y + 2.42, z - 1.75, .08, .12, 1.46, cream);
+      box(face + side * .09, y + 1.12, z - 1.32, .14, .08, .22, dark);
+      box(face, y + 1.72, z + 1.45, .06, 1.35, 2.2, glass);
+      for (const dz of [.3, 1.45, 2.6]) box(face + side * .04, y + 1.72, z + dz, .1, 1.5, .08, cream);
+      for (const dy of [1.02, 2.42]) box(face + side * .04, y + dy, z + 1.45, .1, .09, 2.4, cream);
+      // Horizontal window grilles and a room plate establish human scale.
+      for (const dy of [1.35, 1.72, 2.08]) box(face + side * .07, y + dy, z + 1.45, .1, .035, 2.2, corridorGray);
+      const plate = sign(['RESIDENTS', 'READING ROOM', 'COMMUNITY'][index], face + side * .1, y + 2.75, z, 3.2, .35);
+      if (plate) plate.rotation.y = side * Math.PI / 2;
+      box(face, y + .18, z, .07, .28, 6.9, teal);
+    }
+    for (const dz of [-5.3, 5.3]) for (const x of [-95, -73, -51]) {
+      box(x, y + 3.57, z + dz, 7, .06, .28, communityLight);
+    }
   }
   block(-73, -44, 10, teal, 'ESTATE'); block(-73, -83, 12, coral, 'QUEENS');
   block(78, 76, 16, teal, 'HDB'); block(-76, 77, 9, coral, 'HOME');
@@ -433,8 +481,8 @@ export function buildQueenstownScene() {
     batch.forEach((item, i) => { item.updateMatrix(); mesh.setMatrixAt(i, item.matrix); scene.remove(item); });
     mesh.computeBoundingSphere(); scene.add(mesh); instances.push(mesh);
   }
-  return withVerticalRoutes({ scene, obstacles, car, stamps,
+  return withVerticalPlaces({ scene, obstacles, car, stamps,
     animate(time: number) { train.position.x = ((time * 6) % 430) - 215; stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.7; stamp.position.y = 2.2 + Math.sin(time * 2 + i) * 0.2; }); },
     dispose() { instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose()); sun.shadow.dispose(); },
-  }, QUEENSTOWN_VERTICAL_ROUTES);
+  }, QUEENSTOWN_VERTICAL_PLACES);
 }

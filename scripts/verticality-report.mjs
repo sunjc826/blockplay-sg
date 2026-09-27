@@ -4,6 +4,8 @@ register('./ts-extension-hook.mjs', import.meta.url);
 const { REGIONS, isRegionId } = await import('../src/game/regions.ts');
 const { getWalkSurfaces, getTraversalObstacles } = await import('../src/game/vertical-routes.ts');
 const { measureVerticality } = await import('../src/game/verticality-metrics.ts');
+const { getVerticalPlaces } = await import('../src/game/vertical-places.ts');
+const { inspectVerticalPlaces } = await import('../src/game/vertical-place-diagnostics.ts');
 const { zoneSectors } = await import('../src/game/zone-sectors.ts');
 
 let only;
@@ -31,6 +33,7 @@ for (const region of REGIONS.filter(region => !only || region.id === only)) {
       baselineDescription: 'Current scene with authored walk surfaces disabled; not a historical snapshot.',
       baseline: before.district, current: after.district,
       unreachableSamples: after.unreachableSamples,
+      places: inspectVerticalPlaces(world.scene, input, getVerticalPlaces(world.scene), after.isReachable),
       authoredRouteIds: [...new Set(surfaces.map(s => s.routeId))].sort(),
       ...(sectors ? { sectors: zoneSectors(region.id).map(sector => ({ id: sector.id, name: sector.name, baseline: before.summarize(sector.bounds), current: after.summarize(sector.bounds) })) } : {}),
     });
@@ -48,6 +51,12 @@ else {
     line(`${row.id} [baseline]`, row.baseline);
     line(row.id, row.current);
     for (const sector of row.sectors ?? []) line(`  ${sector.id}`, sector.current);
+    for (const place of row.places) {
+      console.log(`  ${place.id}: floors ${place.floors.map(f => `${f.id} ${f.spawnReachableSamples}/${f.standingSamples} reachable probes`).join('; ')}`);
+      for (const c of place.connections) if (!c.forward || !c.reverse) console.log(`    BLOCKED connection ${c.id}: forward=${c.forward}, reverse=${c.reverse}`);
+      const warnings = [...place.floors, ...place.connections].reduce((sum, item) => sum + item.meshClearanceWarnings.length, 0);
+      if (warnings) console.log(`    ${warnings} visual body/headroom probes need inspection (see --json); not a quality score.`);
+    }
     const unreachableRoutes = row.authoredRouteIds.filter(id => !row.current.reachableRouteIds.includes(id));
     if (unreachableRoutes.length) console.log(`  No spawn-connected samples for: ${unreachableRoutes.join(', ')}`);
   }

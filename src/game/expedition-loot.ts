@@ -9,7 +9,7 @@ import { expeditionNpcs } from './expedition-npcs';
 export type FieldLootKind = 'weapon' | 'ammo' | 'medical' | 'armor';
 export interface FieldLoot {
   id: string; zoneId: WorldZoneId; kind: FieldLootKind; catalogId?: string;
-  name: string; tier: ShopItem['tier']; x: number; z: number; amount: number;
+  name: string; tier: ShopItem['tier']; x: number; z: number; y?: number; amount: number;
   /** Food is a recovery pickup, but only this placement may use a stall anchor. */
   placement?: 'food-stall' | 'field';
   /** The sector it came to rest in, for the HUD and the pickup callout. */
@@ -21,6 +21,8 @@ export interface LootZoneGeometry {
   obstacles: readonly Obstacle[]; anchors?: readonly ZonePosition[];
   /** Actual standing clearance at street level, including elevated-route foundations. */
   canStand?: (x: number, z: number, radius: number) => boolean;
+  /** Valid standing positions on authored, connected upper floors. */
+  elevatedAnchors?: readonly (ZonePosition & { y: number })[];
   /** Named sub-areas. Absent leaves placement exactly as it was before sectors. */
   sectors?: readonly ZoneSector[];
 }
@@ -201,19 +203,31 @@ export function createExpeditionLoot(seed: string | number) {
       const item = slot.food ? rollFood(rules, random, bias) : itemById(random() < biasedChances(rules, bias).elite ? 'kit-trauma' : 'kit-dressing')!;
       return { ...common, catalogId: item.id, name: item.name, tier: item.tier, amount: rules.medicalAmount, placement: slot.food ? 'food-stall' as const : 'field' as const };
     });
+    // Relocate existing crates only, within their already selected sector. This
+    // preserves district budgets, loot weights, tier bias and the content stream.
+    const upper = [...(geometry.elevatedAnchors ?? [])].filter(p => Number.isFinite(p.y) && p.y >= 2);
+    const used: typeof upper = [];
+    let moved = 0;
+    for (const item of shuffle([...loot])) {
+      if (moved >= Math.ceil(loot.length / 3) || item.placement === 'food-stall') continue;
+      const candidates = upper.filter(p => sectorOf(p)?.id === item.sectorId && !loot.some(other => other !== item && Math.hypot(other.x-p.x, (other.y??0)-p.y, other.z-p.z)<3) && !used.some(q => Math.hypot(p.x-q.x, p.y-q.y, p.z-q.z) < 3));
+      if (!candidates.length) continue;
+      const point = candidates[Math.floor(positionRandom() * candidates.length)];
+      Object.assign(item, point); used.push(point); moved++;
+    }
     zones.set(geometry.id, loot);
     return remaining(geometry.id);
   }
   function remaining(zoneId: WorldZoneId): FieldLoot[] { return (zones.get(zoneId) ?? []).filter(item => !collected.has(item.id)).map(item => ({ ...item })); }
-  function nearest(zoneId: WorldZoneId, player: ZonePosition, radius = 2.8): FieldLoot | null {
-    if (!finitePosition(player) || !Number.isFinite(radius) || radius <= 0) return null;
-    return remaining(zoneId).filter(item => Math.hypot(item.x - player.x, item.z - player.z) <= Math.min(radius, 2.8))
-      .sort((a, b) => Math.hypot(a.x - player.x, a.z - player.z) - Math.hypot(b.x - player.x, b.z - player.z))[0] ?? null;
+  function nearest(zoneId: WorldZoneId, player: ZonePosition & { y?: number }, radius = 2.8): FieldLoot | null {
+    if (!finitePosition(player) || !Number.isFinite(player.y ?? 0) || !Number.isFinite(radius) || radius <= 0) return null;
+    return remaining(zoneId).filter(item => Math.abs((item.y ?? 0) - (player.y ?? 0)) <= 1.2 && Math.hypot(item.x - player.x, (item.y ?? 0) - (player.y ?? 0), item.z - player.z) <= Math.min(radius, 2.8))
+      .sort((a, b) => Math.hypot(a.x - player.x, (a.y ?? 0) - (player.y ?? 0), a.z - player.z) - Math.hypot(b.x - player.x, (b.y ?? 0) - (player.y ?? 0), b.z - player.z))[0] ?? null;
   }
-  function collect(zoneId: WorldZoneId, lootId: string, player: ZonePosition): FieldLoot | null {
-    if (!finitePosition(player)) return null;
+  function collect(zoneId: WorldZoneId, lootId: string, player: ZonePosition & { y?: number }): FieldLoot | null {
+    if (!finitePosition(player) || !Number.isFinite(player.y ?? 0)) return null;
     const item = (zones.get(zoneId) ?? []).find(candidate => candidate.id === lootId);
-    if (!item || collected.has(item.id) || Math.hypot(item.x - player.x, item.z - player.z) > 2.8) return null;
+    if (!item || collected.has(item.id) || Math.abs((item.y ?? 0) - (player.y ?? 0)) > 1.2 || Math.hypot(item.x - player.x, (item.y ?? 0) - (player.y ?? 0), item.z - player.z) > 2.8) return null;
     collected.add(item.id); return { ...item };
   }
   function snapshot() {

@@ -3,6 +3,7 @@ import { TOA_PAYOH_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
 import { withVerticalRoutes } from './vertical-routes';
+import { withVerticalPlaces } from './vertical-places';
 
 // In the precinct courtyard, looking across the sand pit at the dragon.
 export const TOA_PAYOH_SPAWN = { x: 50, z: -2, yaw: Math.PI / 2 };
@@ -53,13 +54,16 @@ export function buildToaPayohScene() {
    * length as projecting bands, with a service stair at each end.
    */
   function earlySlab(x: number, z: number, length: number, height: number, facing: 1 | -1 = 1) {
-    box(x, height / 2 + 3.4, z, length, height, 13, pale, scene, true); solid(x, z, length, 13);
+    box(x, height / 2 + 3.4, z, length, height, 13, pale, scene, true); if (x === 50 && (z === -86 || z === -18)) {
+      (scene.userData.traversalObstacles ??= []).push({ minX:x-length/2,maxX:x+length/2,minZ:z-6.5,maxZ:z+6.5,minY:3.4,maxY:height+3.4 });
+    } else solid(x, z, length, 13);
     for (const dx of [-length / 2 + 4, 0, length / 2 - 4]) for (const dz of [-5, 5]) { box(x + dx, 1.7, z + dz, 2.2, 3.4, 2.2, concrete); solid(x + dx, z + dz, 2.6, 2.6); }
     box(x, 3.6, z, length, 0.6, 15, concrete);
     for (let level = 0; level < Math.floor(height / 3.1); level++) {
       const y = 5.4 + level * 3.1, band = bands[(level + Math.abs(Math.round(x / 40))) % bands.length];
       // Access deck: slab, balustrade and the bay divisions behind it.
-      const playableGallery = x === 50 && z === -86 && level === 0;
+      const playableGallery = x === 50 && (z === -86 || z === -18) && level < 3;
+      if (playableGallery) continue;
       box(x, y - 1.2, z + facing * 7.4, length, 0.4, 2.4, concrete);
       if (playableGallery) box(x, y - 1.2, z + 9, 48, 0.4, 6, concrete);
       box(x, y - 0.2, z + facing * 8.4, length, 1.1, 0.3, band);
@@ -69,9 +73,15 @@ export function buildToaPayohScene() {
       }
       for (let dx = -length / 2 + 6; dx < length / 2 - 2; dx += 8.4) box(x + dx, y, z - facing * 6.7, 2.6, 1.8, 0.4, glass);
     }
-    for (const dx of [-length / 2 + 2, length / 2 - 2]) {
+    for (const dx of (x === 50 && (z === -86 || z === -18) ? [] : [-length / 2 + 2, length / 2 - 2])) {
       box(x + dx, height / 2 + 4, z + facing * 9, 6, height + 1, 6, concrete, scene, true); solid(x + dx, z + facing * 9, 6, 6);
       for (let y = 6; y < height + 3; y += 3.1) box(x + dx, y, z + facing * 12.1, 4.4, 1.6, 0.4, dark);
+    }
+    if (x === 50 && (z === -86 || z === -18)) for (const floor of [4.2,8.4]) {
+      for (const side of [-1,1]) for (let dx=-length/2+7;dx<length/2-4;dx+=12) {
+        box(x+dx,floor+1.2,z+side*6.56,1.5,2.4,.1,dark);
+        box(x+dx+4,floor+1.6,z+side*6.58,3.6,1.4,.12,glass);
+      }
     }
     box(x, height + 4, z, length + 2, 1.2, 15, stone);
   }
@@ -242,7 +252,7 @@ export function buildToaPayohScene() {
 
   // Courtyard planting, void-deck seating and the perimeter trees.
   for (const [cx, cz] of [[50, -50], [-70, 62], [170, -50]] as const) {
-    for (const dx of [-38, 38]) for (const dz of [-16, 16]) tree(cx + dx, cz + dz, 8, wood, leaf);
+    for (const dx of (cx === 50 && cz === -50 ? [-24,24] : [-38,38])) for (const dz of [-16, 16]) tree(cx + dx, cz + dz, 8, wood, leaf);
   }
   for (const x of [-EDGE_X - 16, EDGE_X + 16]) for (let z = -150; z <= 150; z += 28) tree(x, z, 8, wood, fern);
   for (let x = -200; x <= 200; x += 30) { tree(x, -EDGE_Z - 16, 8, wood, leaf); tree(x, EDGE_Z + 16, 8, wood, leaf); }
@@ -254,7 +264,7 @@ export function buildToaPayohScene() {
   scene.userData.districtFeatures = ['balcony-access-decks', 'end-service-stairs', 'y-plan-point-block', 'mosaic-dragon-head', 'arched-spine-segments', 'sand-pit-apron', 'open-modernist-lookout', 'ramped-pond-bank-walk', 'banded-hub-towers', 'vented-hawker-roof'];
   scene.userData.referenceFeatures = ['town-park-road-0:straight-shaded-paver-path'];
 
-  return withVerticalRoutes(kit.finish({
+  return withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.34 + index) * 1.3; });
@@ -264,11 +274,26 @@ export function buildToaPayohScene() {
       });
     },
   }), [
-    { id: 'dragon-court-gallery', name: 'Dragon court access gallery', width: 4, color: '#aaa99f', railColor: '#dcc98f',
-      points: [{ x: 14, z: -74, y: 0 }, { x: 26, z: -74, y: 4.4 }, { x: 74, z: -74, y: 4.4 }, { x: 86, z: -74, y: 0 }],
-      note: 'Extends the lowest existing housing access deck into a playable court-facing gallery with two ramps; game-scale access, not a building survey.' },
     { id: 'pond-bank-walk', name: 'Pond bank walk', width: 4, color: '#7b6148', railColor: '#8d9991',
       points: [{ x: -206, z: -39, y: 0 }, { x: -194, z: -39, y: 2.4 }, { x: -158, z: -39, y: 2.4 }, { x: -146, z: -39, y: 0 }],
       note: 'Makes the existing decorative bank-side bridge usable with two low ramps; the historic lookout remains unchanged.' },
-  ]);
+  ]), [{
+    id: 'dragon-housing-circuit', name: 'Dragon precinct housing galleries',
+    note: 'Two accessible housing levels surround the existing playground court; authored circulation around retained slab apartments.',
+    floors: [4.2, 8.4].flatMap(y => [
+      { id: `north-front-${y}`, x: 50, z: -73, y, width: 104, depth: 10 },
+      { id: `north-rear-${y}`, x: 50, z: -99, y, width: 104, depth: 10 },
+      { id: `south-front-${y}`, x: 50, z: -31, y, width: 104, depth: 10 },
+      { id: `south-rear-${y}`, x: 50, z: -5, y, width: 104, depth: 10 },
+      { id: `west-${y}`, x: -2, z: -52, y, width: 10, depth: 104 },
+      { id: `east-${y}`, x: 102, z: -52, y, width: 10, depth: 104 },
+    ]),
+    connections: [
+      { id: 'north-entry', from: { x: 32, z: -120, y: 0 }, to: { x: 32, z: -104, y: 4.2 }, width: 6, stairs: true },
+      { id: 'south-entry', from: { x: 70, z: 17, y: 0 }, to: { x: 70, z: 0, y: 4.2 }, width: 6, stairs: true },
+      { id: 'west-court-rise', from: { x: 10, z: -68, y: 4.2 }, to: { x: 10, z: -36, y: 8.4 }, width: 5, stairs: true },
+      { id: 'east-court-rise', from: { x: 90, z: -36, y: 4.2 }, to: { x: 90, z: -68, y: 8.4 }, width: 5, stairs: true },
+    ],
+    fixtures: [4.2, 8.4].flatMap(y => [-99, -5].map(z => ({ x: 50, z, y: y + .65, width: 7, depth: 2, height: 1.3, color: '#c5a467' }))),
+  }]);
 }

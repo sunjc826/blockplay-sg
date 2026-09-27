@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GEYLANG_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
-import { withVerticalRoutes } from './vertical-routes';
+import { withVerticalPlaces } from './vertical-places';
 import { markWater } from './water';
 
 // On the main road at a lorong mouth, looking down the terraces.
@@ -146,7 +146,7 @@ export function buildGeylangScene() {
   /** Market hall: a steep gabled roof with upswept ends over open stall rows. */
   function marketHall(x: number, z: number) {
     box(x, 0.22, z, 44, 0.4, 76, paving);
-    box(x, 4.6, z, 36, 9.2, 66, plaster, scene, true); solid(x, z, 36, 66);
+    // Preserve the pitched market roof over genuinely open, two-level aisles.
     for (const side of [-1, 1]) {
       const pitch = box(x + side * 10, 14.4, z, 22, 0.7, 70, terra, scene, true);
       pitch.rotation.z = side * 0.62;
@@ -168,7 +168,7 @@ export function buildGeylangScene() {
       cylinder(x + side * 18.4, 4.4, z + dz, 0.4, 8.8, plaster); solid(x + side * 18.4, z + dz, 1, 1);
     }
     for (const dz of [-20, -6, 8, 22]) for (const dx of [-11, 11]) {
-      box(x + dx, 1.4, z + dz, 8, 2.6, 4.4, facade[Math.abs(Math.round(dz / 14)) % facade.length]); solid(x + dx, z + dz, 8.2, 4.6);
+      box(x + dx, 1.4, z + dz, 8, 2.6, 4.4, facade[Math.abs(Math.round(dz / 14)) % facade.length]); solid(x + dx, z + dz, 8.2, 4.6); kit.obstacles[kit.obstacles.length - 1].maxY = 3.1;
       box(x + dx, 2.9, z + dz - 2.6, 8.4, 0.3, 1.2, [terra, teal, orange][Math.abs(Math.round(dz / 14)) % 3]);
     }
     sign('GEYLANG SERAI MARKET', x, 11.4, z - 39, 32, 2.4, '#7a4a20');
@@ -311,7 +311,7 @@ export function buildGeylangScene() {
   scene.userData.districtFeatures = ['close-set-lorong-grid', 'vented-parapets', 'segmental-fanlights', 'pilastered-terraces', 'five-foot-way-columns', 'upswept-gable-ends', 'ribbed-dome-drum', 'swallowtail-ridge', 'open-sided-kopitiam', 'bridged-canal'];
   scene.userData.referenceFeatures = ['lorong24a-clay-pitched-terrace-roofs', 'lorong24a-window-air-conditioners-awnings'];
 
-  return withVerticalRoutes(kit.finish({
+  return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.34 + index) * 1.4; });
@@ -321,27 +321,162 @@ export function buildGeylangScene() {
       });
     },
   }), [
-    {
-      id: 'lorong-service-gallery', name: 'Lorong service gallery', width: 3.4,
-      points: [
-        { x: -20, z: -48, y: 0 },
-        { x: -10, z: -48, y: 2.8 },
-        { x: 10, z: -48, y: 2.8 },
-        { x: 20, z: -48, y: 0 },
-      ],
-      color: '#b9b3a6', railColor: '#2f6b52',
-      note: 'Authored rear service gallery between low terraces, retaining the street roofs and numbered lanes.',
-    },
-    {
-      id: 'carpark-side-gallery', name: 'Car park side gallery', width: 4,
-      points: [
-        { x: -211, z: -72, y: 0 },
-        { x: -211, z: -60, y: 3.6 },
-        { x: -211, z: -30, y: 3.6 },
-        { x: -211, z: -18, y: 0 },
-      ],
-      color: '#a9a89e',
-      note: 'Authored pedestrian gallery beside the existing schematic car park; not an inferred real car park layout.',
-    },
-  ]);
+  {
+    "id": "serai-market",
+    "name": "Geylang Serai market and food gallery",
+    "note": "Authored connected playable interior in the existing compressed landmark footprint; not a surveyed interior or newly reference-verified layout.",
+    "floors": [
+      {
+        "id": "food-west",
+        "x": -125.0,
+        "z": 60,
+        "y": 4.8,
+        "width": 10.0,
+        "depth": 66,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "food-east",
+        "x": -99.0,
+        "z": 60,
+        "y": 4.8,
+        "width": 10.0,
+        "depth": 66,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "food-north",
+        "x": -112,
+        "z": 35.0,
+        "y": 4.8,
+        "width": 16,
+        "depth": 16.0,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "food-south",
+        "x": -112,
+        "z": 85.0,
+        "y": 4.8,
+        "width": 16,
+        "depth": 16.0,
+        "color": "#c8bdaa"
+      }
+    ],
+    "connections": [
+      {
+        "id": "south-stair",
+        "from": {
+          "x": -115,
+          "z": 60,
+          "y": 0
+        },
+        "to": {
+          "x": -115,
+          "z": 77,
+          "y": 4.8
+        },
+        "width": 4,
+        "stairs": true
+      },
+      {
+        "id": "north-stair",
+        "from": {
+          "x": -109,
+          "z": 60,
+          "y": 0
+        },
+        "to": {
+          "x": -109,
+          "z": 43,
+          "y": 4.8
+        },
+        "width": 4,
+        "stairs": true
+      }
+    ],
+    "fixtures": [
+      {
+        "x": -126,
+        "z": 35,
+        "y": 5.45,
+        "width": 2.5,
+        "height": 1.3,
+        "depth": 3,
+        "color": "#2f7b84",
+        "solid": true
+      },
+      {
+        "x": -126,
+        "z": 50,
+        "y": 5.45,
+        "width": 2.5,
+        "height": 1.3,
+        "depth": 3,
+        "color": "#2f7b84",
+        "solid": true
+      },
+      {
+        "x": -126,
+        "z": 70,
+        "y": 5.45,
+        "width": 2.5,
+        "height": 1.3,
+        "depth": 3,
+        "color": "#2f7b84",
+        "solid": true
+      },
+      {
+        "x": -126,
+        "z": 85,
+        "y": 5.45,
+        "width": 2.5,
+        "height": 1.3,
+        "depth": 3,
+        "color": "#2f7b84",
+        "solid": true
+      },
+      {
+        "x": -98,
+        "z": 35,
+        "y": 5.45,
+        "width": 2.5,
+        "height": 1.3,
+        "depth": 3,
+        "color": "#2f7b84",
+        "solid": true
+      },
+      {
+        "x": -98,
+        "z": 50,
+        "y": 5.45,
+        "width": 2.5,
+        "height": 1.3,
+        "depth": 3,
+        "color": "#2f7b84",
+        "solid": true
+      },
+      {
+        "x": -98,
+        "z": 70,
+        "y": 5.45,
+        "width": 2.5,
+        "height": 1.3,
+        "depth": 3,
+        "color": "#2f7b84",
+        "solid": true
+      },
+      {
+        "x": -98,
+        "z": 85,
+        "y": 5.45,
+        "width": 2.5,
+        "height": 1.3,
+        "depth": 3,
+        "color": "#2f7b84",
+        "solid": true
+      }
+    ]
+  }
+]);
 }

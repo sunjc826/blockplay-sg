@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { HARBOURFRONT_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
-import { withVerticalRoutes } from './vertical-routes';
+import { withVerticalPlaces } from './vertical-places';
 
 // On the quay between the mall and the water, looking along the berth.
 export const HARBOURFRONT_SPAWN = { x: 20, z: 134, yaw: Math.PI / 2 };
@@ -90,7 +90,8 @@ export function buildHarbourfrontScene() {
     box(x, 0.2, z, 104, 0.4, 104, paving);
     // Broad, low white waterfront ribbons replace the invented tiered pyramid.
     // The original ground envelope keeps the surrounding quay lanes passable.
-    box(x, 10, z, 96, 20, 96, pale, scene, true); solid(x, z, 96, 96);
+    // Hollow retail volume: the actual podium and Sky Park are reachable.
+    for (const dx of [-46, 46]) for (const dz of [-46, 46]) { box(x + dx, 10, z + dz, 2, 20, 2, pale); solid(x + dx, z + dz, 2, 2); }
     for (const side of [-1, 1]) for (let segment = 0; segment < 24; segment++) {
       const dx = -46 + segment * 4;
       const wave = Math.sin((segment / 23) * Math.PI * 2) * 1.6;
@@ -111,16 +112,12 @@ export function buildHarbourfrontScene() {
     }
     box(x, 6.2, z + 53, 88, 0.35, 0.35, deckWhite);
     // Sky Park roof and asymmetrical soft-edged pavilions.
-    box(x, 21, z, 98, 1.2, 98, deckWhite);
-    for (const [dx, dz, width] of [[-23, -15, 16], [25, 8, 19]] as const) {
-      blob(x + dx, 23, z + dz, width, 3.8, 13, deckWhite);
-      blob(x + dx, 24, z + dz, width - 3, 1.8, 10, glass);
-    }
-    // Rooftop water deck with a shallow pool and a ring of loungers.
-    for (let ring = 0; ring < 3; ring++) cylinder(x, 21.8 + ring * 0.3, z - 15, 15 - ring * 3.4, 0.7, ring % 2 ? stone : shallow);
-    for (let i = 0; i < 10; i++) { const angle = i * Math.PI / 5; box(x + Math.cos(angle) * 19, 22.2, z - 15 + Math.sin(angle) * 19, 3.4, 0.4, 1.6, deckWhite); }
+    // Sky Park slabs are supplied by the shared traversable-place geometry.
+    // Low rooftop garden/pool occupies the west roof wing, clear of the atrium.
+    cylinder(x - 42, 21.8, z, 5, 0.35, shallow);
+    for (const dz of [-24, 24]) box(x - 36, 22.1, z + dz, 5, 1, 3, stone);
     // Amphitheatre steps facing the water, at the mall's quay corner.
-    for (let step = 0; step < 6; step++) { box(x, 0.4 + step * 0.9, z + 52 - step * 3, 60 - step * 4, 0.9 + step * 0.8, 3, concrete); solid(x, z + 52 - step * 3, 60 - step * 4, 3); }
+
     box(x, 8.4, z - 56, 46, 0.8, 14, steel, scene, true);
     for (const dx of [-19, 19]) { cylinder(x + dx, 4.2, z - 61, 0.6, 8.4, steel); solid(x + dx, z - 61, 1.3, 1.3); }
     sign('VIVOCITY', x, 11.4, z - 56.4, 30, 2.4, '#2f4a56');
@@ -412,7 +409,7 @@ export function buildHarbourfrontScene() {
   scene.userData.districtFeatures = ['white-wave-retail-frontage', 'rooftop-water-deck', 'quay-amphitheatre', 'wave-vault-hall', 'boarding-gangways', 'raked-liner-hull', 'portal-gantry-boom', 'container-yard-rows', 'ridge-terraces', 'cable-span-cabins'];
   scene.userData.referenceFeatures = ['vivocity-white-waterfront-balcony-rails', 'vivocity-restaurant-colonnade-pergola'];
 
-  return withVerticalRoutes(kit.finish({
+  return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.32 + index) * 1.8; });
@@ -431,11 +428,202 @@ export function buildHarbourfrontScene() {
       });
     },
   }), [
-    { id: 'vivocity-east-terrace', foundation: 'solid', name: 'VivoCity east terrace', width: 5, color: '#e3e1d5', railColor: '#a1aead',
-      points: [{ x: 116, z: 10, y: 0 }, { x: 116, z: 24, y: 3.5 }, { x: 116, z: 74, y: 3.5 }, { x: 116, z: 88, y: 0 }],
-      note: 'Authored lower retail terrace beside the mall, with two ramp approaches; does not claim access to the decorative roof pool.' },
-    { id: 'telok-blangah-raised-trail', name: 'Telok Blangah raised trail', width: 4, color: '#8a735a', railColor: '#596b58',
-      points: [{ x: -184, z: 0, y: 0 }, { x: -184, z: 12, y: 3 }, { x: -184, z: 76, y: 3 }, { x: -184, z: 88, y: 0 }],
-      note: 'Timber trail between existing shelters and planting, giving the green a second traversable level without opening the mountain mass.' },
-  ]);
+  {
+    "id": "vivocity-inhabited-podium",
+    "name": "VivoCity galleries and Sky Park",
+    "note": "The existing mall is opened into an inhabited three-level atrium reaching its actual rendered roof; the route arrangement is an authored compression, not a surveyed interior.",
+    "floors": [
+      {
+        "id": "vivo-7-west",
+        "x": 18.0,
+        "z": 50,
+        "y": 7,
+        "width": 12,
+        "depth": 96,
+        "color": "#e6e4da"
+      },
+      {
+        "id": "vivo-7-east",
+        "x": 102.0,
+        "z": 50,
+        "y": 7,
+        "width": 12,
+        "depth": 96,
+        "color": "#e6e4da"
+      },
+      {
+        "id": "vivo-7-north",
+        "x": 60,
+        "z": 8.0,
+        "y": 7,
+        "width": 72,
+        "depth": 12,
+        "color": "#e6e4da"
+      },
+      {
+        "id": "vivo-7-south",
+        "x": 60,
+        "z": 92.0,
+        "y": 7,
+        "width": 72,
+        "depth": 12,
+        "color": "#e6e4da"
+      },
+      {
+        "id": "vivo-14-west",
+        "x": 18.0,
+        "z": 50,
+        "y": 14,
+        "width": 12,
+        "depth": 96,
+        "color": "#e6e4da"
+      },
+      {
+        "id": "vivo-14-east",
+        "x": 102.0,
+        "z": 50,
+        "y": 14,
+        "width": 12,
+        "depth": 96,
+        "color": "#e6e4da"
+      },
+      {
+        "id": "vivo-14-north",
+        "x": 60,
+        "z": 8.0,
+        "y": 14,
+        "width": 72,
+        "depth": 12,
+        "color": "#e6e4da"
+      },
+      {
+        "id": "vivo-14-south",
+        "x": 60,
+        "z": 92.0,
+        "y": 14,
+        "width": 72,
+        "depth": 12,
+        "color": "#e6e4da"
+      },
+      {
+        "id": "vivo-21.6-west",
+        "x": 18.0,
+        "z": 50,
+        "y": 21.6,
+        "width": 12,
+        "depth": 96,
+        "color": "#e6e4da"
+      },
+      {
+        "id": "vivo-21.6-east",
+        "x": 102.0,
+        "z": 50,
+        "y": 21.6,
+        "width": 12,
+        "depth": 96,
+        "color": "#e6e4da"
+      },
+      {
+        "id": "vivo-21.6-north",
+        "x": 60,
+        "z": 8.0,
+        "y": 21.6,
+        "width": 72,
+        "depth": 12,
+        "color": "#e6e4da"
+      },
+      {
+        "id": "vivo-21.6-south",
+        "x": 60,
+        "z": 92.0,
+        "y": 21.6,
+        "width": 72,
+        "depth": 12,
+        "color": "#e6e4da"
+      }
+    ],
+    "connections": [
+      {
+        "id": "vivo-street-to-gallery",
+        "from": {
+          "x": 49,
+          "y": 0,
+          "z": 14
+        },
+        "to": {
+          "x": 49,
+          "y": 7,
+          "z": 86
+        },
+        "width": 7,
+        "stairs": true
+      },
+      {
+        "id": "vivo-gallery-to-dining",
+        "from": {
+          "x": 71,
+          "y": 7,
+          "z": 86
+        },
+        "to": {
+          "x": 71,
+          "y": 14,
+          "z": 14
+        },
+        "width": 7,
+        "stairs": true
+      },
+      {
+        "id": "vivo-dining-to-skypark",
+        "from": {
+          "x": 49,
+          "y": 14,
+          "z": 14
+        },
+        "to": {
+          "x": 49,
+          "y": 21.6,
+          "z": 86
+        },
+        "width": 7,
+        "stairs": true
+      },
+      {
+        "id": "vivo-second-ground-entry",
+        "from": {
+          "x": 90,
+          "y": 0,
+          "z": -18
+        },
+        "to": {
+          "x": 90,
+          "y": 7,
+          "z": 2
+        },
+        "width": 6,
+        "stairs": true
+      }
+    ],
+    "fixtures": [
+      {
+        "x": 21,
+        "y": 7.7,
+        "z": 50,
+        "width": 5,
+        "height": 1.4,
+        "depth": 10,
+        "color": "#6f895e"
+      },
+      {
+        "x": 99,
+        "y": 14.7,
+        "z": 50,
+        "width": 5,
+        "height": 1.4,
+        "depth": 10,
+        "color": "#6f895e"
+      }
+    ]
+  }
+]);
 }

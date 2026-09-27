@@ -1,5 +1,8 @@
 # Verticality diagnostics
 
+> Historical first-pass snapshot. The isolated-route design below is superseded by [Connected district verticality](CONNECTED-VERTICALITY.md), which documents the current inhabited floors, terrain, navigation and evaluation.
+
+
 The report supports design judgement; it does not grade a district. A flat promenade can be appropriate, and a high roof is not automatically useful gameplay.
 
 Run `pnpm analyse:verticality -- --district bishan --sectors`, or omit `--district` for all districts. Add `--json` for machine-readable results. District IDs are validated strictly: a typo never silently selects another district. The selected district alone is built and sampled. This is an offline scene analysis; it makes no Google API calls.

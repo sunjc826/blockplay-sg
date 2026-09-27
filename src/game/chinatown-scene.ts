@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CHINATOWN_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
-import { withVerticalRoutes } from './vertical-routes';
+import { withVerticalPlaces } from './vertical-places';
 
 export const CHINATOWN_SPAWN = { x: -55, z: 80, yaw: -Math.PI / 2 };
 export const CHINATOWN_BOUNDS = { minX: -250, maxX: 250, minZ: -210, maxZ: 210 };
@@ -184,16 +184,19 @@ export function buildChinatownScene() {
   /** Wide low hawker hall: vented roof, open sides and rows of tables. */
   function hawkerHall(x: number, z: number) {
     box(x, 0.2, z, 84, 0.4, 62, paving);
-    box(x, 5, z, 74, 10, 52, plaster, scene, true); solid(x, z, 76, 54);
+    // Open market interior: inhabited ground aisles and an upper dining circuit.
+    for (const dx of [-35, 35]) for (const dz of [-24, 0, 24]) {
+      box(x + dx, 5, z + dz, 0.8, 10, 0.8, plaster); solid(x + dx, z + dz, 0.8, 0.8);
+    }
     for (const side of [-1, 1]) { const roof = box(x, 11.4, z + side * 13, 78, 0.6, 30, terra, scene, true); roof.rotation.x = side * 0.18; }
     box(x, 13.4, z, 78, 1.1, 10, tileDark);
     for (let dx = -32; dx < 34; dx += 6.5) { box(x + dx, 14.4, z, 3.6, 1.4, 8, stone); box(x + dx, 15.4, z, 4.2, 0.4, 9, dark); }
     for (const side of [-1, 1]) for (let dx = -34; dx < 36; dx += 8.5) {
-      box(x + dx, 3.4, z + side * 26.2, 6.4, 6.4, 0.5, dark);
+      box(x + dx, 8.8, z + side * 26.2, 6.4, 1, 0.5, dark);
       box(x + dx, 7.4, z + side * 26.6, 7.2, 1.3, 0.8, [lacquer, jade, canopyYellow][Math.abs(Math.round(dx / 8.5)) % 3]);
     }
-    for (const dz of [-16, 0, 16]) for (let dx = -26; dx < 28; dx += 13) {
-      box(x + dx, 0.85, z + dz, 4.6, 0.18, 4.6, stone); cylinder(x + dx, 0.45, z + dz, 0.35, 0.9, dark); solid(x + dx, z + dz, 4.8, 4.8);
+    for (const dz of [-16, 16]) for (const dx of [-28, 28]) {
+      box(x + dx, 0.85, z + dz, 4.6, 0.18, 4.6, stone); cylinder(x + dx, 0.45, z + dz, 0.35, 0.9, dark); solid(x + dx, z + dz, 4.8, 4.8); kit.obstacles[kit.obstacles.length - 1].maxY = 1;
     }
     sign('CHINATOWN COMPLEX', x, 9.4, z + 27.4, 34, 2.2, '#8c2f26');
   }
@@ -266,7 +269,7 @@ export function buildChinatownScene() {
   scene.userData.districtFeatures = ['shophouse-five-foot-way', 'pitched-tile-courses', 'market-canopy-lane', 'lantern-string', 'stacked-hipped-roofs', 'tiered-gopuram', 'slab-panel-grid', 'vented-hawker-roof', 'street-gateway-arch', 'terraced-slope'];
   scene.userData.referenceFeatures = ['south-bridge-stepped-parapets', 'pagoda-pale-colonnades', 'pagoda-brick-pedestrian-lane'];
 
-  return withVerticalRoutes(kit.finish({
+  return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
       pedestrians.forEach((person, index) => {
@@ -277,27 +280,202 @@ export function buildChinatownScene() {
       });
     },
   }), [
-    {
-      id: 'complex-gallery', name: 'Complex side gallery', width: 3.2,
-      points: [
-        { x: -163, z: -42, y: 0 },
-        { x: -163, z: -32, y: 3.2 },
-        { x: -163, z: 0, y: 3.2 },
-        { x: -163, z: 10, y: 0 },
-      ],
-      color: '#b9b2a4',
-      note: 'Authored side gallery beside the compressed hawker hall; not a surveyed Chinatown Complex access route.',
-    },
-    {
-      id: 'club-slope-walk', name: 'Club Street terrace walk', width: 3.6,
-      points: [
-        { x: 132, z: 40, y: 0 },
-        { x: 132, z: 52, y: 3.2 },
-        { x: 132, z: 94, y: 3.2 },
-        { x: 132, z: 110, y: 0 },
-      ],
-      color: '#b9b2a4',
-      note: 'Authored hill-edge walking terrace beside the shop bank; preserves the heritage roofs.',
-    },
-  ]);
+  {
+    "id": "complex-market",
+    "name": "Chinatown Complex market and dining level",
+    "note": "Authored connected playable interior in the existing compressed landmark footprint; not a surveyed interior or newly reference-verified layout.",
+    "floors": [
+      {
+        "id": "dining-west",
+        "x": -149.0,
+        "z": -18,
+        "y": 4.8,
+        "width": 16.0,
+        "depth": 52,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "dining-east",
+        "x": -91.0,
+        "z": -18,
+        "y": 4.8,
+        "width": 16.0,
+        "depth": 52,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "dining-north",
+        "x": -120,
+        "z": -37.0,
+        "y": 4.8,
+        "width": 42,
+        "depth": 14.0,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "dining-south",
+        "x": -120,
+        "z": 1.0,
+        "y": 4.8,
+        "width": 42,
+        "depth": 14.0,
+        "color": "#c8bdaa"
+      }
+    ],
+    "connections": [
+      {
+        "id": "west-stair",
+        "from": {
+          "x": -126,
+          "z": -24,
+          "y": 0
+        },
+        "to": {
+          "x": -141,
+          "z": -24,
+          "y": 4.8
+        },
+        "width": 4,
+        "stairs": true
+      },
+      {
+        "id": "east-stair",
+        "from": {
+          "x": -114,
+          "z": -12,
+          "y": 0
+        },
+        "to": {
+          "x": -99,
+          "z": -12,
+          "y": 4.8
+        },
+        "width": 4,
+        "stairs": true
+      }
+    ],
+    "fixtures": [
+      {
+        "x": -149,
+        "z": -35,
+        "y": 0.65,
+        "width": 3,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#896345",
+        "solid": true
+      },
+      {
+        "x": -149,
+        "z": -18,
+        "y": 0.65,
+        "width": 3,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#896345",
+        "solid": true
+      },
+      {
+        "x": -149,
+        "z": -1,
+        "y": 0.65,
+        "width": 3,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#896345",
+        "solid": true
+      },
+      {
+        "x": -91,
+        "z": -35,
+        "y": 0.65,
+        "width": 3,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#896345",
+        "solid": true
+      },
+      {
+        "x": -91,
+        "z": -18,
+        "y": 0.65,
+        "width": 3,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#896345",
+        "solid": true
+      },
+      {
+        "x": -91,
+        "z": -1,
+        "y": 0.65,
+        "width": 3,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#896345",
+        "solid": true
+      },
+      {
+        "x": -149,
+        "z": -35,
+        "y": 5.45,
+        "width": 3,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#896345",
+        "solid": true
+      },
+      {
+        "x": -149,
+        "z": -18,
+        "y": 5.45,
+        "width": 3,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#896345",
+        "solid": true
+      },
+      {
+        "x": -149,
+        "z": -1,
+        "y": 5.45,
+        "width": 3,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#896345",
+        "solid": true
+      },
+      {
+        "x": -91,
+        "z": -35,
+        "y": 5.45,
+        "width": 3,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#896345",
+        "solid": true
+      },
+      {
+        "x": -91,
+        "z": -18,
+        "y": 5.45,
+        "width": 3,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#896345",
+        "solid": true
+      },
+      {
+        "x": -91,
+        "z": -1,
+        "y": 5.45,
+        "width": 3,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#896345",
+        "solid": true
+      }
+    ]
+  }
+]);
 }

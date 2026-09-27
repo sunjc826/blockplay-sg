@@ -3,6 +3,7 @@ import { SENTOSA_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
 import { withVerticalRoutes } from './vertical-routes';
+import { withVerticalPlaces } from './vertical-places';
 
 // Just inside the boardwalk landing, looking down the island's spine.
 export const SENTOSA_SPAWN = { x: 108, z: -168, yaw: Math.PI };
@@ -49,7 +50,6 @@ export function buildSentosaScene() {
   const terra = mat('#b3684c'), gold = mat('#c59a34', 0.42, 0.55), rust = mat('#a8563a');
   const palmLeaf = mat('#4f8a4a'), leaf = mat('#44703d'), fern = mat('#5b8a4c'), orange = mat('#f0a044'), skin = mat('#b18c71');
   const cloth = ['#e6dcc4', '#c96a4a', '#4f8fa0', '#d8b24a'].map(color => mat(color));
-  const turf = mat('#93a374');
 
   box(0, -0.6, 0, 600, 1, 520, lawn);
   kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });
@@ -104,17 +104,19 @@ export function buildSentosaScene() {
   /** Resort podium: arcaded base, domed pavilions and a stepped water stair. */
   function resortPodium(x: number, z: number) {
     box(x, 0.2, z, 84, 0.4, 94, paving);
-    box(x, 8, z, 76, 16, 82, pale, scene, true); solid(x, z, 76, 82);
+    // Open the resort base into inhabitable arcades, galleries and roof wings.
+    for (const dx of [-36, 36]) for (const dz of [-39, 39]) { box(x + dx, 8, z + dz, 2, 16, 2, pale); solid(x + dx, z + dz, 2, 2); }
     for (let dx = -34; dx < 36; dx += 8.5) for (const side of [-1, 1]) {
       cylinder(x + dx, 5, z + side * 42.4, 1.5, 10, pale);
       for (let n = 0; n <= 6; n++) { const angle = Math.PI * n / 6; box(x + dx + 4.25 - Math.cos(angle) * 4.25, 10 + Math.sin(angle) * 3.4, z + side * 42.4, 1.6, 1.4, 3, pale); }
     }
     for (const side of [-1, 1]) box(x, 17.4, z + side * 42, 80, 2, 6, terra);
-    for (const [dx, dz, r] of [[-26, -22, 11], [26, -22, 11], [0, 16, 15]] as const) {
-      cylinder(x + dx, 18.4, z + dz, r, 2.4, pale);
-      for (let ring = 0; ring < 5; ring++) cylinder(x + dx, 20 + ring * 1.9, z + dz, r * Math.cos(ring / 5 * Math.PI / 2.2), 2, ring % 2 ? terra : gold);
+    for (const [dx, dz, r] of [[-26, -22, 11], [26, -22, 11]] as const) {
+      cylinder(x + dx, 22.4, z + dz, r, 2.4, pale);
+      for (const offset of [-8, 8]) cylinder(x + dx + offset, 18.6, z + dz, .25, 5.2, pale);
+      for (let ring = 0; ring < 5; ring++) cylinder(x + dx, 24 + ring * 1.9, z + dz, r * Math.cos(ring / 5 * Math.PI / 2.2), 2, ring % 2 ? terra : gold);
       const finial = new THREE.Mesh(geo(new THREE.ConeGeometry(1.5, 4.4, 8)), gold);
-      finial.position.set(x + dx, 30.6, z + dz); scene.add(finial);
+      finial.position.set(x + dx, 34.6, z + dz); scene.add(finial);
     }
     // Water stair down the forecourt, with basins a walker passes between.
     for (let step = 0; step < 5; step++) {
@@ -146,16 +148,18 @@ export function buildSentosaScene() {
 
   /** Headland battery: a sloped rampart, a parapet and its guns. */
   function battery(x: number, z: number) {
-    for (let step = 0; step < 4; step++) {
-      const w = 76 - step * 12, d = 86 - step * 14, y = 3 + step * 2.6;
-      box(x, y / 2, z, w, y, d, step % 2 ? lawn : turf, scene, true); solid(x, z, w, d);
+    // Continuous earth between defensive terraces; marked paths rest on it.
+    for (const [tz, y, run, rise] of [[2, 4, 14, 4], [-24, 8, 10, 4.2]]) for (const dx of [-11, 4]) {
+      const path = box(x + dx, y + rise / 2 + .035, tz - run / 2, 5, .06, Math.hypot(run, rise), stone);
+      path.rotation.x = Math.atan2(rise, run);
     }
-    box(x, 11.4, z, 34, 1.6, 44, stone);
+
+    // Rampart floor now has movement support from the terrain network.
     for (const side of [-1, 1]) {
-      box(x + side * 17, 13.4, z, 2.6, 3.4, 44, stone);
+      box(x + side * 17, 13.4, z, 2.6, 3.4, 22, stone);
       // Low continuous gun parapets, not medieval battlements.
     }
-    for (const dz of [-13, 0, 13]) {
+    for (const dz of [-7, 0, 7]) {
       const barrel = cylinder(x + 13, 13.4, z + dz, 0.7, 9, dark);
       barrel.rotation.z = -Math.PI / 2 + 0.22;
       for (const dx of [-1.6, 1.6]) cylinder(x + 9 + dx, 12, z + dz, 1.3, 0.5, wood);
@@ -302,7 +306,7 @@ export function buildSentosaScene() {
   scene.userData.districtFeatures = ['strait-boardwalk-ribs', 'leaning-palm-collars', 'arcaded-podium', 'tiered-pavilion-domes', 'water-stair', 'balcony-band-slabs', 'sky-bridge', 'earthwork-gun-emplacements', 'palawan-suspension-bridge', 'monorail-beam', 'fort-siloso-skywalk'];
   scene.userData.referenceFeatures = ['palawan-suspension-bridge', 'palawan-paired-roofed-lookouts', 'palawan-palm-lined-sand-shore'];
 
-  return withVerticalRoutes(kit.finish({
+  return withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.36 + index) * 1.8; });
@@ -317,8 +321,284 @@ export function buildSentosaScene() {
     { id: 'palawan-raised-crossing', name: 'Palawan suspension crossing', width: 6, color: '#a78a61', railColor: '#765c42',
       points: [{ x: -136, z: 75, y: 0 }, { x: -120, z: 75, y: 2.4 }, { x: -60, z: 75, y: 2.4 }, { x: -44, z: 75, y: 0 }],
       note: 'Existing suspension crossing converted from a flat collision lane to a supported raised walkway; elevation and ramp compression are authored.' },
-    { id: 'beach-club-seaside-terrace', foundation: 'solid', name: 'Beach club seaside terrace', width: 6, color: '#a78a61', railColor: '#765c42',
-      points: [{ x: 0, z: 116, y: 0 }, { x: 12, z: 116, y: 2.4 }, { x: 50, z: 116, y: 2.4 }, { x: 62, z: 116, y: 0 }],
-      note: 'Low beach-club viewing terrace beside the volleyball court, with independent entrances and ground routes around its raised timber stage.' },
-  ]);
+  ]), [
+  {
+    "id": "resort-inhabited-podium",
+    "name": "Resort arcades and roof gardens",
+    "note": "The existing resort podium becomes two accessible gallery rings around an open court, retaining its domed corner pavilions. Interior routes are authored.",
+    "floors": [
+      {
+        "id": "resort-8-west",
+        "x": -2.0,
+        "z": -45,
+        "y": 8,
+        "width": 12,
+        "depth": 82,
+        "color": "#d9c9a6"
+      },
+      {
+        "id": "resort-8-east",
+        "x": 62.0,
+        "z": -45,
+        "y": 8,
+        "width": 12,
+        "depth": 82,
+        "color": "#d9c9a6"
+      },
+      {
+        "id": "resort-8-north",
+        "x": 30,
+        "z": -80.0,
+        "y": 8,
+        "width": 52,
+        "depth": 12,
+        "color": "#d9c9a6"
+      },
+      {
+        "id": "resort-8-south",
+        "x": 30,
+        "z": -10.0,
+        "y": 8,
+        "width": 52,
+        "depth": 12,
+        "color": "#d9c9a6"
+      },
+      {
+        "id": "resort-16-west",
+        "x": -2.0,
+        "z": -45,
+        "y": 16,
+        "width": 12,
+        "depth": 82,
+        "color": "#d9c9a6"
+      },
+      {
+        "id": "resort-16-east",
+        "x": 62.0,
+        "z": -45,
+        "y": 16,
+        "width": 12,
+        "depth": 82,
+        "color": "#d9c9a6"
+      },
+      {
+        "id": "resort-16-north",
+        "x": 30,
+        "z": -80.0,
+        "y": 16,
+        "width": 52,
+        "depth": 12,
+        "color": "#d9c9a6"
+      },
+      {
+        "id": "resort-16-south",
+        "x": 30,
+        "z": -10.0,
+        "y": 16,
+        "width": 52,
+        "depth": 12,
+        "color": "#d9c9a6"
+      }
+    ],
+    "connections": [
+      {
+        "id": "resort-arcade-climb",
+        "from": {
+          "x": 23,
+          "y": 0,
+          "z": -74
+        },
+        "to": {
+          "x": 23,
+          "y": 8,
+          "z": -16
+        },
+        "width": 6,
+        "stairs": true
+      },
+      {
+        "id": "resort-roof-climb",
+        "from": {
+          "x": 37,
+          "y": 8,
+          "z": -16
+        },
+        "to": {
+          "x": 37,
+          "y": 16,
+          "z": -74
+        },
+        "width": 6,
+        "stairs": true
+      },
+      {
+        "id": "resort-side-entry",
+        "from": {
+          "x": 60,
+          "y": 0,
+          "z": 20
+        },
+        "to": {
+          "x": 60,
+          "y": 8,
+          "z": -4
+        },
+        "width": 5,
+        "stairs": true
+      }
+    ],
+    "fixtures": [
+      {
+        "x": 1,
+        "y": 8.8,
+        "z": -42,
+        "width": 5,
+        "height": 1.6,
+        "depth": 8,
+        "color": "#71905a"
+      },
+      {
+        "x": 59,
+        "y": 16.8,
+        "z": -35,
+        "width": 5,
+        "height": 1.6,
+        "depth": 8,
+        "color": "#71905a"
+      }
+    ]
+  },
+  {
+    "id": "siloso-rampart-terrain",
+    "name": "Fort Siloso connected hillside and battery",
+    "note": "The formerly solid earthwork is playable as linked lower slopes, middle terrace and gun rampart, with two approaches and cross-slope alternatives.",
+    "floors": [
+      {
+        "id": "battery-lower",
+        "x": -90,
+        "z": 8,
+        "y": 4,
+        "width": 54,
+        "depth": 12,
+        "color": "#7a945e",
+        "foundation": "solid"
+      },
+      {
+        "id": "battery-middle",
+        "x": -90,
+        "z": -18,
+        "y": 8,
+        "width": 48,
+        "depth": 12,
+        "color": "#839661",
+        "foundation": "solid"
+      },
+      {
+        "id": "battery-rampart",
+        "x": -90,
+        "z": -45,
+        "y": 12.2,
+        "width": 34,
+        "depth": 22,
+        "color": "#b9b1a0",
+        "foundation": "solid"
+      }
+    ],
+    "connections": [
+      {
+        "id": "west-fort-entry",
+        "from": {
+          "x": -101,
+          "y": 0,
+          "z": 30
+        },
+        "to": {
+          "x": -101,
+          "y": 4,
+          "z": 14
+        },
+        "width": 5,
+        "stairs": false,
+        "foundation": "solid"
+      },
+      {
+        "id": "east-fort-entry",
+        "from": {
+          "x": -86,
+          "y": 0,
+          "z": 30
+        },
+        "to": {
+          "x": -86,
+          "y": 4,
+          "z": 14
+        },
+        "width": 5,
+        "stairs": false,
+        "foundation": "solid"
+      },
+      {
+        "id": "continuous-fort-earth-0",
+        "from": {
+          "x": -90,
+          "y": 4,
+          "z": 2
+        },
+        "to": {
+          "x": -90,
+          "y": 8,
+          "z": -12
+        },
+        "width": 44,
+        "foundation": "solid",
+        "color": "#839661"
+      },
+      {
+        "id": "continuous-fort-earth-1",
+        "from": {
+          "x": -90,
+          "y": 8,
+          "z": -24
+        },
+        "to": {
+          "x": -90,
+          "y": 12.2,
+          "z": -34
+        },
+        "width": 28,
+        "foundation": "solid",
+        "color": "#839661"
+      }
+    ],
+    "fixtures": [
+      {
+        "x": -82,
+        "y": 12.8,
+        "z": -52,
+        "width": 4.4,
+        "height": 1.2,
+        "depth": 2.6,
+        "color": "#7c6248"
+      },
+      {
+        "x": -82,
+        "y": 12.8,
+        "z": -45,
+        "width": 4.4,
+        "height": 1.2,
+        "depth": 2.6,
+        "color": "#7c6248"
+      },
+      {
+        "x": -82,
+        "y": 12.8,
+        "z": -38,
+        "width": 4.4,
+        "height": 1.2,
+        "depth": 2.6,
+        "color": "#7c6248"
+      }
+    ]
+  }
+]);
 }

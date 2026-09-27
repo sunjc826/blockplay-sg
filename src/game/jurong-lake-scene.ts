@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { JURONG_LAKE_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
-import { withVerticalRoutes } from './vertical-routes';
+import { withVerticalPlaces } from './vertical-places';
 
 export const JURONG_LAKE_SPAWN = { x: -20, z: 20, yaw: Math.PI / 2 };
 export const JURONG_LAKE_BOUNDS = { minX: -270, maxX: 270, minZ: -230, maxZ: 230 };
@@ -154,12 +154,35 @@ export function buildJurongLakeScene() {
 
   /** Glass retail box over a banded podium, with a canopied entrance. */
   function mall(x: number, z: number, w: number, d: number, label: string, height = 30) {
-    box(x, height / 2, z, w, height, d, concrete, scene, true); solid(x, z, w, d);
+    if (label === 'IMM') { box(x, height / 2, z, w, height, d, concrete, scene, true); solid(x, z, w, d); }
+    else {
+      // The retail envelope now contains an open atrium, not a solid collision box.
+      for (const dx of [-w / 2 + 1, w / 2 - 1]) for (const dz of [-d / 2 + 1, d / 2 - 1]) { box(x + dx, height / 2, z + dz, 2, height, 2, concrete); solid(x + dx, z + dz, 2, 2); }
+    }
     for (let y = 4; y < height; y += 5.4) for (let dx = -w / 2 + 4; dx < w / 2 - 2; dx += 7) {
+      // Open real facade bays where the two inhabited inter-mall links arrive.
+      if (label !== 'IMM' && ((Math.abs(dx + 30) < 7 && y < 12) || (Math.abs(dx - 30) < 7 && y > 9 && y < 17))) continue;
       box(x + dx, y, z - d / 2 - 0.3, 6, 3.4, 0.5, glass);
       box(x + dx, y, z + d / 2 + 0.3, 6, 3.4, 0.5, glass);
     }
-    for (let dz = -d / 2 + 4; dz < d / 2 - 2; dz += 7) for (const side of [-1, 1]) box(x + side * (w / 2 + 0.3), 12, z + dz, 0.5, 20, 6, glass);
+    if (label === 'IMM') for (let dz = -d / 2 + 4; dz < d / 2 - 2; dz += 7) for (const side of [-1, 1]) box(x + side * (w / 2 + 0.3), 12, z + dz, 0.5, 20, 6, glass);
+    if (label !== 'IMM') {
+      // Actual facade framing keeps the opened atrium from reading as floating
+      // window strips. Leave full-height bays clear at the inter-mall portals.
+      const count = Math.ceil(w / 7), span = w / count;
+      for (let n = 0; n < count; n++) {
+        const dx = -w / 2 + (n + .5) * span;
+        const portal = Math.abs(dx + 30) < 7 || Math.abs(dx - 30) < 7;
+        for (const side of [-1, 1]) {
+          const low = portal ? 18 : 0;
+          box(x + dx, (height + low) / 2, z + side * (d / 2 + .4), .35, height - low, .8, concrete);
+          for (const y of [0.6, 6, 12, 18, 24]) {
+            if (y > height || (portal && y < 18)) continue;
+            box(x + dx, y, z + side * (d / 2 + .4), span, .65, .8, concrete);
+          }
+        }
+      }
+    }
     box(x, height + 1.4, z, w + 3, 2.2, d + 3, steel);
     for (let dx = -w / 2 + 6; dx < w / 2 - 4; dx += 9) box(x + dx, height + 4, z, 3, 3.4, d - 10, concrete);
     box(x, 6.4, z - d / 2 - 5, w * 0.5, 0.6, 10, steel, scene, true);
@@ -263,7 +286,7 @@ export function buildJurongLakeScene() {
   scene.userData.districtFeatures = ['seven-tier-octagonal-pagoda', 'pale-gallery-balustrades', 'raised-garden-causeway', 'moon-gate', 'stone-lanterns', 'lake-boardwalk', 'faceted-science-drum', 'elevated-viaduct', 'sawtooth-interchange', 'raked-gravel-garden'];
   scene.userData.referenceFeatures = ['chinese-garden-2016-asphalt-path-drain-disc-lamps', 'jem-2025-white-overhang-recessed-glazing-planted-ledge'];
 
-  return withVerticalRoutes(kit.finish({
+  return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.4 + index) * 1.6; });
@@ -273,11 +296,268 @@ export function buildJurongLakeScene() {
       });
     },
   }), [
-    { id: 'causeway-garden-bridge', name: 'Raised garden causeway', width: 5, color: '#c6c1b2', railColor: '#ded8c8',
-      points: [{ x: -103, z: 20, y: 0 }, { x: -93, z: 20, y: 3 }, { x: -49, z: 20, y: 3 }, { x: -39, z: 20, y: 0 }],
-      note: 'Playable rise within the existing compressed garden causeway; the neighbouring level lane remains an alternative.' },
-    { id: 'jem-forecourt-terrace', foundation: 'solid', name: 'JEM forecourt terrace', width: 6, color: '#d6d5cb', railColor: '#81999b',
-      points: [{ x: 35, z: -15, y: 0 }, { x: 47, z: -15, y: 3.2 }, { x: 83, z: -15, y: 3.2 }, { x: 95, z: -15, y: 0 }],
-      note: 'Authored low retail terrace with two approaches, preserving ground circulation between the mall blocks; not a surveyed JEM floor.' },
-  ]);
+  {
+    "id": "jurong-retail-atriums",
+    "name": "JEM and Westgate connected galleries",
+    "note": "Playable compressed retail atriums inhabit the original mall envelopes; paired links and opposing stairs make a loop through both buildings. Interior layout and levels are authored.",
+    "floors": [
+      {
+        "id": "jem6-west",
+        "x": 31.0,
+        "z": -60,
+        "y": 6,
+        "width": 12,
+        "depth": 70,
+        "color": "#deddd2"
+      },
+      {
+        "id": "jem6-east",
+        "x": 99.0,
+        "z": -60,
+        "y": 6,
+        "width": 12,
+        "depth": 70,
+        "color": "#deddd2"
+      },
+      {
+        "id": "jem6-north",
+        "x": 65,
+        "z": -89.0,
+        "y": 6,
+        "width": 56,
+        "depth": 12,
+        "color": "#deddd2"
+      },
+      {
+        "id": "jem6-south",
+        "x": 65,
+        "z": -31.0,
+        "y": 6,
+        "width": 56,
+        "depth": 12,
+        "color": "#deddd2"
+      },
+      {
+        "id": "jem12-west",
+        "x": 31.0,
+        "z": -60,
+        "y": 12,
+        "width": 12,
+        "depth": 70,
+        "color": "#deddd2"
+      },
+      {
+        "id": "jem12-east",
+        "x": 99.0,
+        "z": -60,
+        "y": 12,
+        "width": 12,
+        "depth": 70,
+        "color": "#deddd2"
+      },
+      {
+        "id": "jem12-north",
+        "x": 65,
+        "z": -89.0,
+        "y": 12,
+        "width": 56,
+        "depth": 12,
+        "color": "#deddd2"
+      },
+      {
+        "id": "jem12-south",
+        "x": 65,
+        "z": -31.0,
+        "y": 12,
+        "width": 56,
+        "depth": 12,
+        "color": "#deddd2"
+      },
+      {
+        "id": "westgate6-west",
+        "x": 31.0,
+        "z": 60,
+        "y": 6,
+        "width": 12,
+        "depth": 70,
+        "color": "#deddd2"
+      },
+      {
+        "id": "westgate6-east",
+        "x": 99.0,
+        "z": 60,
+        "y": 6,
+        "width": 12,
+        "depth": 70,
+        "color": "#deddd2"
+      },
+      {
+        "id": "westgate6-north",
+        "x": 65,
+        "z": 31.0,
+        "y": 6,
+        "width": 56,
+        "depth": 12,
+        "color": "#deddd2"
+      },
+      {
+        "id": "westgate6-south",
+        "x": 65,
+        "z": 89.0,
+        "y": 6,
+        "width": 56,
+        "depth": 12,
+        "color": "#deddd2"
+      },
+      {
+        "id": "westgate12-west",
+        "x": 31.0,
+        "z": 60,
+        "y": 12,
+        "width": 12,
+        "depth": 70,
+        "color": "#deddd2"
+      },
+      {
+        "id": "westgate12-east",
+        "x": 99.0,
+        "z": 60,
+        "y": 12,
+        "width": 12,
+        "depth": 70,
+        "color": "#deddd2"
+      },
+      {
+        "id": "westgate12-north",
+        "x": 65,
+        "z": 31.0,
+        "y": 12,
+        "width": 56,
+        "depth": 12,
+        "color": "#deddd2"
+      },
+      {
+        "id": "westgate12-south",
+        "x": 65,
+        "z": 89.0,
+        "y": 12,
+        "width": 56,
+        "depth": 12,
+        "color": "#deddd2"
+      }
+    ],
+    "connections": [
+      {
+        "id": "jem-lower",
+        "from": {
+          "x": 55,
+          "y": 0,
+          "z": -83
+        },
+        "to": {
+          "x": 55,
+          "y": 6,
+          "z": -37
+        },
+        "width": 5,
+        "stairs": true
+      },
+      {
+        "id": "jem-upper",
+        "from": {
+          "x": 75,
+          "y": 6,
+          "z": -37
+        },
+        "to": {
+          "x": 75,
+          "y": 12,
+          "z": -83
+        },
+        "width": 5,
+        "stairs": true
+      },
+      {
+        "id": "westgate-lower",
+        "from": {
+          "x": 55,
+          "y": 0,
+          "z": 37
+        },
+        "to": {
+          "x": 55,
+          "y": 6,
+          "z": 83
+        },
+        "width": 5,
+        "stairs": true
+      },
+      {
+        "id": "westgate-upper",
+        "from": {
+          "x": 75,
+          "y": 6,
+          "z": 83
+        },
+        "to": {
+          "x": 75,
+          "y": 12,
+          "z": 37
+        },
+        "width": 5,
+        "stairs": true
+      },
+      {
+        "id": "retail-concourse",
+        "from": {
+          "x": 35,
+          "y": 6,
+          "z": -25
+        },
+        "to": {
+          "x": 35,
+          "y": 6,
+          "z": 25
+        },
+        "width": 7,
+        "stairs": true
+      },
+      {
+        "id": "upper-retail-link",
+        "from": {
+          "x": 95,
+          "y": 12,
+          "z": -25
+        },
+        "to": {
+          "x": 95,
+          "y": 12,
+          "z": 25
+        },
+        "width": 6,
+        "stairs": true
+      }
+    ],
+    "fixtures": [
+      {
+        "x": 36,
+        "y": 6.8,
+        "z": -60,
+        "width": 6,
+        "height": 1.6,
+        "depth": 8,
+        "color": "#6e8659"
+      },
+      {
+        "x": 94,
+        "y": 12.8,
+        "z": 60,
+        "width": 6,
+        "height": 1.6,
+        "depth": 8,
+        "color": "#6e8659"
+      }
+    ]
+  }
+]);
 }

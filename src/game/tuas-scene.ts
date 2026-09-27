@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { TUAS_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
-import { withVerticalRoutes } from './vertical-routes';
+import { withVerticalPlaces } from './vertical-places';
 
 // On the verge between the tank farm and the plant road, looking west.
 export const TUAS_SPAWN = { x: -70, z: 18, yaw: Math.PI / 2 };
@@ -140,7 +140,7 @@ export function buildTuasScene() {
     cylinder(x, 58, z, 1.1, 8, rust);
     cylinder(x, 63, z, 1.6, 2.4, hazard);
     for (let i = 0; i < 3; i++) blob(x, 65 + i * 1.6, z, 1.5 - i * 0.35, 1.9 - i * 0.4, 1.5 - i * 0.35, i ? safety : hazard);
-    for (const angle of [0.4, 2.5, 4.6]) beam(new THREE.Vector3(x, 48, z), new THREE.Vector3(x + Math.cos(angle) * 26, 0.5, z + Math.sin(angle) * 26), 0.12, galv);
+    for (const angle of [2.5, 4.6]) beam(new THREE.Vector3(x, 48, z), new THREE.Vector3(x + Math.cos(angle) * 26, 0.5, z + Math.sin(angle) * 26), 0.12, galv);
   }
 
   /** Dry dock: a stepped pit with a hull sitting on blocks inside it. */
@@ -325,7 +325,7 @@ export function buildTuasScene() {
   scene.userData.districtFeatures = ['plate-course-tank-shells', 'spiral-stair-wraps', 'bund-walls', 'trayed-columns', 'pipe-rack-expansion-loop', 'guyed-flare-mast', 'stepped-dry-dock', 'boot-topping-hull', 'rail-stacking-gantry', 'lattice-pylon-catenary', 'industrial-loading-bays', 'upper-concourse-terminus'];
   scene.userData.referenceFeatures = ['tuas-link-2024-green-louver-concrete-elevation', 'tuas-avenue-12-2024-tall-roadside-tree-verge'];
 
-  return withVerticalRoutes(kit.finish({
+  return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.3 + index) * 1.6; });
@@ -335,11 +335,312 @@ export function buildTuasScene() {
       });
     },
   }), [
-    { id: 'dock-inspection-walk', name: 'Dock inspection walkway', width: 3, color: '#899494', railColor: '#d9ab34',
-      points: [{ x: -214, z: -80, y: 0 }, { x: -214, z: -68, y: 4 }, { x: -214, z: -12, y: 4 }, { x: -214, z: 0, y: 0 }],
-      note: 'Dockside maintenance access between the dry-dock lip and crane line, with separate entry and exit ramps.' },
-    { id: 'process-service-deck', name: 'Process plant service deck', width: 5, color: '#899494', railColor: '#d9ab34',
-      points: [{ x: -88, z: 160, y: 0 }, { x: -76, z: 160, y: 4 }, { x: -12, z: 160, y: 4 }, { x: 0, z: 160, y: 0 }],
-      note: 'Industrial service route alongside the pipe rack, overlooking the plant with ground access retained below the level span.' },
-  ]);
+  {
+    "id": "process-working-levels",
+    "name": "Process plant working levels",
+    "note": "Authored industrial maintenance decks encircle existing distillation equipment at two levels, with separate ground approaches and cross-level loops; dimensions are not surveyed.",
+    "floors": [
+      {
+        "id": "process-6-north",
+        "x": -22,
+        "z": 84.0,
+        "y": 6,
+        "width": 88,
+        "depth": 12,
+        "color": "#929c9c"
+      },
+      {
+        "id": "process-6-south",
+        "x": -22,
+        "z": 116.0,
+        "y": 6,
+        "width": 88,
+        "depth": 12,
+        "color": "#929c9c"
+      },
+      {
+        "id": "process-12-north",
+        "x": -22,
+        "z": 84.0,
+        "y": 12,
+        "width": 88,
+        "depth": 12,
+        "color": "#929c9c"
+      },
+      {
+        "id": "process-12-south",
+        "x": -22,
+        "z": 116.0,
+        "y": 12,
+        "width": 88,
+        "depth": 12,
+        "color": "#929c9c"
+      },
+      {
+        "id": "west-6-north",
+        "x": -72,
+        "z": 81,
+        "y": 6,
+        "width": 12,
+        "depth": 6,
+        "color": "#929c9c",
+        "foundation": "open"
+      },
+      {
+        "id": "west-6-middle",
+        "rails": false,
+        "x": -72,
+        "z": 100,
+        "y": 6,
+        "width": 12,
+        "depth": 8,
+        "color": "#929c9c",
+        "foundation": "open"
+      },
+      {
+        "id": "west-6-south",
+        "x": -72,
+        "z": 119,
+        "y": 6,
+        "width": 12,
+        "depth": 6,
+        "color": "#929c9c",
+        "foundation": "open"
+      },
+      {
+        "id": "east-6-north",
+        "x": 28,
+        "z": 81,
+        "y": 6,
+        "width": 12,
+        "depth": 6,
+        "color": "#929c9c",
+        "foundation": "open"
+      },
+      {
+        "id": "east-6-middle",
+        "rails": false,
+        "x": 28,
+        "z": 100,
+        "y": 6,
+        "width": 12,
+        "depth": 8,
+        "color": "#929c9c",
+        "foundation": "open"
+      },
+      {
+        "id": "east-6-south",
+        "x": 28,
+        "z": 119,
+        "y": 6,
+        "width": 12,
+        "depth": 6,
+        "color": "#929c9c",
+        "foundation": "open"
+      },
+      {
+        "id": "west-12-north",
+        "x": -72,
+        "z": 81,
+        "y": 12,
+        "width": 12,
+        "depth": 6,
+        "color": "#929c9c",
+        "foundation": "open"
+      },
+      {
+        "id": "west-12-middle",
+        "rails": false,
+        "x": -72,
+        "z": 100,
+        "y": 12,
+        "width": 12,
+        "depth": 8,
+        "color": "#929c9c",
+        "foundation": "open"
+      },
+      {
+        "id": "west-12-south",
+        "x": -72,
+        "z": 119,
+        "y": 12,
+        "width": 12,
+        "depth": 6,
+        "color": "#929c9c",
+        "foundation": "open"
+      },
+      {
+        "id": "east-12-north",
+        "x": 28,
+        "z": 81,
+        "y": 12,
+        "width": 12,
+        "depth": 6,
+        "color": "#929c9c",
+        "foundation": "open"
+      },
+      {
+        "id": "east-12-middle",
+        "rails": false,
+        "x": 28,
+        "z": 100,
+        "y": 12,
+        "width": 12,
+        "depth": 8,
+        "color": "#929c9c",
+        "foundation": "open"
+      },
+      {
+        "id": "east-12-south",
+        "x": 28,
+        "z": 119,
+        "y": 12,
+        "width": 12,
+        "depth": 6,
+        "color": "#929c9c",
+        "foundation": "open"
+      }
+    ],
+    "connections": [
+      {
+        "id": "north-plant-entry",
+        "from": {
+          "x": -70,
+          "y": 0,
+          "z": 62
+        },
+        "to": {
+          "x": -70,
+          "y": 6,
+          "z": 78
+        },
+        "width": 5,
+        "stairs": true
+      },
+      {
+        "id": "south-plant-entry",
+        "from": {
+          "x": 26,
+          "y": 0,
+          "z": 142
+        },
+        "to": {
+          "x": 26,
+          "y": 6,
+          "z": 122
+        },
+        "width": 5,
+        "stairs": true
+      },
+      {
+        "id": "upper-west",
+        "from": {
+          "x": -70,
+          "y": 6,
+          "z": 78
+        },
+        "to": {
+          "x": -70,
+          "y": 12,
+          "z": 96
+        },
+        "width": 5,
+        "stairs": true
+      },
+      {
+        "id": "upper-east",
+        "from": {
+          "x": 26,
+          "y": 6,
+          "z": 122
+        },
+        "to": {
+          "x": 26,
+          "y": 12,
+          "z": 104
+        },
+        "width": 5,
+        "stairs": true
+      },
+      {
+        "id": "west-level-walk",
+        "from": {
+          "x": -75,
+          "y": 6,
+          "z": 84
+        },
+        "to": {
+          "x": -75,
+          "y": 6,
+          "z": 116
+        },
+        "width": 3,
+        "stairs": true
+      },
+      {
+        "id": "east-level-walk",
+        "from": {
+          "x": 31,
+          "y": 6,
+          "z": 84
+        },
+        "to": {
+          "x": 31,
+          "y": 6,
+          "z": 116
+        },
+        "width": 3,
+        "stairs": true
+      },
+      {
+        "id": "west-upper-level-walk",
+        "from": {
+          "x": -75,
+          "y": 12,
+          "z": 84
+        },
+        "to": {
+          "x": -75,
+          "y": 12,
+          "z": 116
+        },
+        "width": 3
+      },
+      {
+        "id": "east-upper-level-walk",
+        "from": {
+          "x": 31,
+          "y": 12,
+          "z": 84
+        },
+        "to": {
+          "x": 31,
+          "y": 12,
+          "z": 116
+        },
+        "width": 3
+      }
+    ],
+    "fixtures": [
+      {
+        "x": -48,
+        "y": 6.8,
+        "z": 116,
+        "width": 5,
+        "height": 1.6,
+        "depth": 2,
+        "color": "#d8a02a"
+      },
+      {
+        "x": -20,
+        "y": 12.8,
+        "z": 84,
+        "width": 6,
+        "height": 1.6,
+        "depth": 2,
+        "color": "#596d73"
+      }
+    ]
+  }
+]);
 }

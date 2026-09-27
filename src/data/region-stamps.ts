@@ -127,7 +127,7 @@ export const HARBOURFRONT_STAMPS = [
 export const SENTOSA_STAMPS = [
   { name: 'Boardwalk landing', x: 108, z: -150 },
   { name: 'Sentosa monorail', x: 60, z: -130 },
-  { name: 'Fort ramparts', x: -90, z: 8 },
+  { name: 'Fort ramparts approach', x: -122, z: 20 },
   { name: 'Resort forecourt', x: 30, z: 8 },
   { name: 'Hotel podium', x: 165, z: 8 },
   { name: 'Palawan beach approach', x: -90, z: 32 },
@@ -210,7 +210,7 @@ export const TOA_PAYOH_STAMPS = [
 
 export const BUKIT_TIMAH_STAMPS = [
   { name: 'Rail corridor bridge', x: 60, z: 40 },
-  { name: 'Bukit Timah hill foot', x: -130, z: -25 },
+  { name: 'Bukit Timah summit trailhead', x: -175, z: 43 },
   { name: 'Nature reserve trail', x: -187, z: -96 },
   { name: 'Beauty World market', x: -55, z: 28 },
   { name: 'Black-and-white bungalows', x: -52, z: 60 },

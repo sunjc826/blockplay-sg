@@ -8,6 +8,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { REGIONS, getRegion } from '/src/game/regions.ts';
+import { getVerticalPlaces } from '/src/game/vertical-places.ts';
 import { getVerticalRoutes } from '/src/game/vertical-routes.ts';
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setSize(innerWidth, innerHeight);
@@ -46,6 +47,7 @@ const routeViews = {
 window.review = {
   ids: REGIONS.map(region => region.id),
   routes(id) { const w = getRegion(id).build(); try { return getVerticalRoutes(w.scene).map(r => r.id); } finally { w.dispose(); } },
+  places(id) { const w = getRegion(id).build(); try { return getVerticalPlaces(w.scene).map(p => ({ id: p.id, floors: p.floors.map(f => ({ id: f.id, y: f.y, area: f.width*f.depth })) })); } finally { w.dispose(); } },
   async render(id, view) {
     if (region?.id !== id) { world?.dispose(); renderer.renderLists.dispose(); region = getRegion(id); world = region.build(); }
     const b = region.bounds, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
@@ -53,7 +55,30 @@ window.review = {
     camera.near = view === 'overview' ? 5 : 0.1;
     camera.far = view === 'overview' ? 3000 : region.cameraFar;
     camera.updateProjectionMatrix();
-    if (view.startsWith('route:')) {
+    if (view.startsWith('place:')) {
+      const [, placeId, mode, floorId] = view.split(':');
+      const place = getVerticalPlaces(world.scene).find(p => p.id === placeId);
+      if (!place) throw new Error('Unknown place');
+      const xs = place.floors.flatMap(f => [f.x-f.width/2, f.x+f.width/2]);
+      const zs = place.floors.flatMap(f => [f.z-f.depth/2, f.z+f.depth/2]);
+      const ys = place.floors.map(f => f.y);
+      const x = (Math.min(...xs)+Math.max(...xs))/2, z = (Math.min(...zs)+Math.max(...zs))/2;
+      const extent = Math.max(Math.max(...xs)-Math.min(...xs), Math.max(...zs)-Math.min(...zs), 24);
+      if (mode === 'aerial') {
+        camera.position.set(x+extent*.65, Math.max(...ys)+extent*.8, z+extent*.8);
+        camera.lookAt(x, Math.max(...ys)*.5, z);
+      } else if (mode === 'floor') {
+        const floor = place.floors.find(f => f.id === floorId);
+        if (!floor) throw new Error('Unknown floor');
+        camera.position.set(floor.x-floor.width*.3, floor.y+1.65, floor.z+floor.depth*.3);
+        camera.lookAt(floor.x+floor.width*.3, floor.y+1.5, floor.z-floor.depth*.3);
+      } else {
+        const entrance = place.connections.flatMap(c => [c.from,c.to]).find(p => p.y === 0) ?? place.floors[0];
+        const length = Math.hypot(x-entrance.x,z-entrance.z) || 1;
+        camera.position.set(entrance.x-(x-entrance.x)/length*3, entrance.y+1.65, entrance.z-(z-entrance.z)/length*3);
+        camera.lookAt(x, Math.min(4,Math.max(...ys))*.5+1.2,z);
+      }
+    } else if (view.startsWith('route:')) {
       const route = getVerticalRoutes(world.scene).find(r => r.id === view.slice(6));
       if (!route) throw new Error('Unknown route');
       const xs=route.points.map(p=>p.x), zs=route.points.map(p=>p.z), ys=route.points.map(p=>p.y);

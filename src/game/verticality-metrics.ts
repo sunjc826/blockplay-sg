@@ -164,5 +164,11 @@ export function measureVerticality(input: VerticalityInput) {
       reachableRouteIds: [...routeIds].sort(), reachableSlopeIds: slopeIds.sort(),
     };
   };
-  return { parameters: { spacing, elevatedHeight, radius, bodyHeight }, candidateSamples: samples.length, unreachableSamples: samples.length - reachable.size, district: summarize(), summarize };
+  // Query uses the same supported walking edge as the lattice, so a report
+  // cannot declare a floor reachable merely because its metadata names an entrance.
+  const isReachable = (point: Point) => reachableIds.some(id => {
+    const sample = samples[id];
+    return Math.hypot(sample.x - point.x, sample.z - point.z) <= spacing * Math.SQRT2 + 0.01 && reaches(sample, point);
+  });
+  return { isReachable, parameters: { spacing, elevatedHeight, radius, bodyHeight }, candidateSamples: samples.length, unreachableSamples: samples.length - reachable.size, district: summarize(), summarize };
 }

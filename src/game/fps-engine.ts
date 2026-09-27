@@ -1,6 +1,7 @@
 import { createWorldAtmosphere } from './world-atmosphere';
 import { getRegion } from './regions';
 import { createVerticalMovement } from './vertical-movement';
+import { elevatedLootAnchors } from './vertical-navigation';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import type { VehicleControls } from './vehicle-seats';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage } from './fps-stance';
@@ -164,7 +165,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     credits: fieldProfile.credits, tokens: fieldProfile.tokens };
   const npcs = expedition ? expeditionNpcs(expedition.zone, zoneSectors(expedition.zone)) : [];
   hud.npcs = npcs.map(npc => ({ ...npc }));
-  if (expedition && zoneWorld) hud.fieldLoot = expedition.loot.enterZone({ id: expedition.zone, spawn: zoneWorld.zone.spawn, bounds: zoneWorld.bounds, obstacles: world.obstacles, canStand: (x, z, radius) => footMovement.canOccupy(x, 0, z, radius, 1.8), anchors: zoneWorld.zone.encounterSpawns, sectors: zoneSectors(expedition.zone) });
+  if (expedition && zoneWorld) hud.fieldLoot = expedition.loot.enterZone({ id: expedition.zone, spawn: zoneWorld.zone.spawn, bounds: zoneWorld.bounds, obstacles: world.obstacles, canStand: (x, z, radius) => footMovement.canOccupy(x, 0, z, radius, 1.8), elevatedAnchors: elevatedLootAnchors(getWalkSurfaces(world.scene), footMovement), anchors: zoneWorld.zone.encounterSpawns, sectors: zoneSectors(expedition.zone) });
   const markers = expedition ? createExpeditionMarkers(world.scene, expedition.zone, hud.fieldLoot, npcs) : null;
   let checkpointPending = expedition?.checkpoint;
   let travelPending = false, lootNoticeTime = 0;
@@ -394,7 +395,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function updateExpeditionPrompts() {
     if (!expedition) return;
-    const alive = !!hud.arenaSelf?.alive && vertical <= .35;
+    const alive = !!hud.arenaSelf?.alive;
     // Crossing into a named place is worth saying once, so the district reads
     // as somewhere with parts rather than as one field of coordinates.
     const here = sectorAt(expedition.zone, position.x, position.z);
@@ -402,9 +403,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       hud.sector = here?.name ?? '';
       if (here && hud.phase === 'playing') comms.add('system', 'Location', `Entering ${here.name}.`);
     }
-    const nearest = alive ? expedition.loot.nearest(expedition.zone, position) : null;
-    const npc = alive && !vehicles.active ? nearestNpc(npcs, position) : null;
-    const gateway = alive ? findWorldGateway(expedition.zone, position) : null;
+    const nearest = alive ? expedition.loot.nearest(expedition.zone, { ...position, y: vertical }) : null;
+    const npc = alive && vertical <= .35 && !vehicles.active ? nearestNpc(npcs, position) : null;
+    const gateway = alive && vertical <= .35 ? findWorldGateway(expedition.zone, position) : null;
     const lootWeapon = nearest?.kind === 'weapon' ? itemById(nearest.catalogId ?? '') : undefined;
     const swapLabel = validWeaponIndex(lootWeapon?.family) ? ` · replace ${pickupSlot(fieldProfile, lootWeapon.family, hud.weapon)}` : '';
     hud.lootPrompt = nearest ? `E · ${nearest.tier} ${nearest.name}${swapLabel}` : '';
@@ -417,13 +418,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
   }
   function interactLoot() {
-    if (!expedition || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active || !arenaRuntime || travelPending || vertical > .35) return;
-    const nearest = expedition.loot.nearest(expedition.zone, position); if (!nearest) return;
+    if (!expedition || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active || !arenaRuntime || travelPending) return;
+    const nearest = expedition.loot.nearest(expedition.zone, { ...position, y: vertical }); if (!nearest) return;
     if (nearest.kind === 'medical' && hud.health >= hud.maxHealth) { hud.lootNotice = `Health is full. ${nearest.name} remains here.`; lootNoticeTime = 3; publish(); return; }
     if (nearest.kind === 'ammo' && loadout[hud.weapon].reserve >= 999) { hud.lootNotice = 'Ammunition reserve is full.'; lootNoticeTime = 3; publish(); return; }
     const item = nearest.catalogId ? itemById(nearest.catalogId) : undefined;
     if ((nearest.kind === 'weapon' && (!item || item.category !== 'weapon' || !validWeaponIndex(item.family))) || (nearest.kind === 'armor' && item?.category !== 'plate')) return;
-    const collected = expedition.loot.collect(expedition.zone, nearest.id, position); if (!collected) return;
+    const collected = expedition.loot.collect(expedition.zone, nearest.id, { ...position, y: vertical }); if (!collected) return;
     if (collected.kind === 'weapon' && item && validWeaponIndex(item.family)) {
       const family = item.family, changed = fieldProfile.guns[family].variant !== item.id;
       const next = copyProfile(fieldProfile); next.owned = [...new Set([...next.owned, item.id])]; next.guns[family].variant = item.id;
@@ -666,7 +667,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       return !!weaponRay.intersectObjects(weaponMeshes, false)[0];
     };
     const state = loadout[hud.weapon];
-    const waypoints: PilotObservation['waypoints'][number][] = expedition ? hud.fieldLoot.map(item => ({ id: item.id, x: item.x, z: item.z, kind: item.kind })) :
+    const waypoints: PilotObservation['waypoints'][number][] = expedition ? hud.fieldLoot.filter(item => Math.abs((item.y ?? 0)-vertical)<1.2).map(item => ({ id: item.id, x: item.x, z: item.z, kind: item.kind })) :
       options.arena ? [] : targets.flatMap((target, i) => target.alive ? [{ id: `target-${i}`, ...targetPositions[i], kind: 'target' as const }] : []);
     if (expedition && pilotDestination) {
       const gateway = findWorldRoute(expedition.zone, pilotDestination)[0];

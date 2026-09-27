@@ -1,3 +1,5 @@
+import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
+import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import { VEHICLE_SEATS, seatOf, gunnerId, vehicleGunRay, type SharedVehicle } from './vehicle-seats';
 import * as THREE from 'three';
 import { damageVehicle, fireVehicleWeapon, VEHICLE_COMBAT, vehicleCollisionDamage, vehicleDamageStage } from './vehicle-combat';
@@ -10,6 +12,7 @@ import { sceneFlightObstacles } from './flight-obstacles';
 
 export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], skins: Record<VehicleKind, string>, options: { spawns?: Record<VehicleKind, VehicleSpawn>; bounds?: VehicleWorldBounds; deriveFlightObstacles?: boolean } = {}) {
   const spawns = options.spawns ?? VEHICLE_SPAWNS, bounds = options.bounds ?? MARINA_BOUNDS;
+  const drivingObstacles = verticalVehicleObstacles({ surfaces: getWalkSurfaces(scene), traversalObstacles: getTraversalObstacles(scene) });
   const sceneObstacles = options.deriveFlightObstacles ? sceneFlightObstacles(scene) : null;
   const root = new THREE.Group(); scene.add(root);
   const states = { car: createVehicle('car', spawns.car), helicopter: createVehicle('helicopter', spawns.helicopter) };
@@ -78,6 +81,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   function airObstacles(): FlightObstacle[] {
     return [
       ...obstacles.map(o => ({ ...o, minY: 0, maxY: o.maxY ?? 2.5 })),
+      ...getTraversalObstacles(scene),
       ...(sceneObstacles ?? [
       { minX: -56, maxX: -24, minZ: 69, maxZ: 83, minY: 4.8, maxY: 6.9 },
       { minX: 140, maxX: 163, minZ: -108, maxZ: 78, minY: 108, maxY: 114 },
@@ -94,7 +98,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   function distance(player: { x: number; z: number }, kind: VehicleKind) { return Math.hypot(player.x - states[kind].x, player.z - states[kind].z); }
   function interact(player: { x: number; z: number }) {
     if (active) {
-      const point = vehicleExit(states[active], footObstacles(active), bounds);
+      const point = vehicleExit(states[active], [...footObstacles(active), ...drivingObstacles], bounds);
       if (!point) { notice = active === 'helicopter' ? 'Land on clear ground and slow down to exit.' : 'Brake to a stop and leave space beside the car.'; noticeTime = 3; return null; }
       states[active].speed = states[active].climb = 0; active = null; notice = ''; return { ...point, entered: false, yaw: 0 };
     }
@@ -140,7 +144,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     const forward = Number(keys.has('w') || keys.has('arrowup')) - Number(keys.has('s') || keys.has('arrowdown'));
     const steer = Number(keys.has('d') || keys.has('arrowright')) - Number(keys.has('a') || keys.has('arrowleft'));
     const kind = active, beforeYaw = states[kind].yaw, beforeSpeed = Math.hypot(states[kind].speed, states[kind].climb);
-    const result = active === 'car' ? driveVehicle(states.car, forward, steer, keys.has(' '), dt, footObstacles('car'), bounds) : flyVehicle(states.helicopter, forward, steer, Number(keys.has(' ')) - Number(keys.has('c') || keys.has('control')), keys.has('shift'), dt, airObstacles(), bounds);
+    const result = active === 'car' ? driveVehicle(states.car, forward, steer, keys.has(' '), dt, [...footObstacles('car'), ...drivingObstacles], bounds) : flyVehicle(states.helicopter, forward, steer, Number(keys.has(' ')) - Number(keys.has('c') || keys.has('control')), keys.has('shift'), dt, airObstacles(), bounds);
     states[active] = result.state;
     if (result.blocked) { notice = active === 'car' ? 'Route blocked · reverse or steer clear' : 'Airframe clearance · move away from the obstacle'; noticeTime = .5; }
     if (result.blocked && collisionCooldown[kind] === 0) { damage(kind, vehicleCollisionDamage(beforeSpeed)); collisionCooldown[kind] = .6; }

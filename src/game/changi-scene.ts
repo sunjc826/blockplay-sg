@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CHANGI_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
-import { withVerticalRoutes } from './vertical-routes';
+import { withVerticalPlaces } from './vertical-places';
 import { markWater } from './water';
 
 // Between two planted terraces, looking down a clear radial at the falls.
@@ -41,7 +41,7 @@ export function buildChangiScene() {
   deepGlass.transparent = true; deepGlass.opacity = 0.66;
   // Shots into these splash rather than spark; see water.ts.
   markWater(water);
-  const leaf = mat('#41703f'), fern = mat('#5d8a4c'), moss = mat('#6f9457'), lawn = mat('#8ba36d');
+  const leaf = mat('#41703f'), fern = mat('#5d8a4c'), lawn = mat('#8ba36d');
   const wood = mat('#7b6148'), orange = mat('#f0a044'), skin = mat('#b18c71'), tarmac = mat('#6b6f70');
   const livery = mat('#d8d6cf'), accent = mat('#b7423c'), tail = mat('#2a5f7a');
 
@@ -105,35 +105,10 @@ export function buildChangiScene() {
       cylinder(DOME.x, 1 + step * 0.5, DOME.z, 16.4 - step * 3, 0.5, water);
     }
     solid(DOME.x, DOME.z, 38, 38);
-    for (let i = 0; i < 40; i++) {
-      const angle = i * 0.61, r = 24 + (i % 5) * 9;
-      const px = DOME.x + Math.cos(angle) * r, pz = DOME.z + Math.sin(angle) * r;
-      // Keep planting outside the new viewing deck and its two approaches.
-      if ((px > -101 && px < -9 && pz > -65 && pz < -51)
-        || ((Math.abs(px + 94) < 7 || Math.abs(px + 16) < 7) && pz > -65 && pz < -41)) continue;
-      blob(px, 1.6 + (i % 3) * 0.8, pz, 4.2, 2.4, 4.2, [leaf, fern, moss][i % 3]);
-    }
-    // Retain the outer decorative ring and ground planting. The inaccessible
-    // inner ring is replaced by the supported viewing walk below. The remaining
-    // ring is scenic geometry, not counted as a reachable route.
-    for (let i = 0; i < segments; i += 5) {
-      const angle = i * Math.PI * 2 / segments, px = DOME.x + Math.cos(angle) * 68, pz = DOME.z + Math.sin(angle) * 68;
-      const planter = box(px, 0.7, pz, 6.4, 1.4, 6.4, pale); planter.rotation.y = -angle;
-      blob(px, 2.4, pz, 3.4, 2, 3.4, [fern, moss][i % 2]); solid(px, pz, 6.8, 6.8);
-    }
-    for (const r of [46]) for (let i = 0; i < segments; i++) {
-      const angle = i * Math.PI * 2 / segments;
-      const height = r === 46 ? 8.4 : 4.2;
-      const deck = box(DOME.x + Math.cos(angle) * r, height, DOME.z + Math.sin(angle) * r, 7, 0.4, r * Math.PI * 2 / segments * 1.1, r === 46 ? steel : pale);
-      deck.rotation.y = -angle;
-      if (i % 3 === 0) cylinder(DOME.x + Math.cos(angle) * r, height / 2, DOME.z + Math.sin(angle) * r, 0.24, height, steel);
-      if (i % 5 === 0) {
-        const px = DOME.x + Math.cos(angle) * (r + 5.5), pz = DOME.z + Math.sin(angle) * (r + 5.5);
-        const planter = box(px, 0.75, pz, 4.4, 1.5, 4.4, pale);
-        planter.rotation.y = -angle;
-        blob(px, 2.3, pz, 2.6, 1.7, 2.6, [leaf, fern][i % 2]);
-        solid(px, pz, 4.8, 4.8);
-      }
+    // Concentrate forest planting in the central garden, leaving four ground
+    // approaches, two inhabited viewing circuits and stair corridors clear.
+    for (const dx of [-26, 26]) for (const dz of [-12, 0, 12]) {
+      blob(DOME.x + dx, 1.5, DOME.z + dz, 3, 2, 3, fern);
     }
     for (const angle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
       const label = sign('JEWEL', DOME.x + Math.cos(angle) * 84, 18.4, DOME.z + Math.sin(angle) * 84, 20, 2.6, '#1f4f5e');
@@ -273,7 +248,7 @@ export function buildChangiScene() {
   scene.userData.districtFeatures = ['toroidal-glazed-roof', 'radial-rib-mullions', 'oculus-waterfall', 'terraced-basin', 'ring-walkways', 'terminal-viaduct', 'flared-control-cab', 'stand-markings', 'wide-body-airliner', 'coastal-palms'];
   scene.userData.referenceFeatures = ['jewel-triangular-exterior-glazing', 'changi-tower-pale-shaft-blue-strip', 'changi-tower-spherical-radome'];
 
-  return withVerticalRoutes(kit.finish({
+  return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
       fall.forEach(drop => {
@@ -286,29 +261,268 @@ export function buildChangiScene() {
       });
     },
   }), [
-    {
-      id: 'jewel-viewing-walk', name: 'Jewel viewing walk', width: 4,
-      points: [
-        { x: -94, z: -44, y: 0 },
-        { x: -94, z: -54, y: 3.2 },
-        { x: -94, z: -58, y: 3.2 },
-        { x: -16, z: -58, y: 3.2 },
-        { x: -16, z: -54, y: 3.2 },
-        { x: -16, z: -44, y: 0 },
-      ],
-      color: '#e3ded0',
-      note: 'Authored angular viewing walk replacing an inaccessible decorative inner ring; the reviewed exterior does not verify Jewel interior topology.',
-    },
-    {
-      id: 'terminal-gallery', name: 'Terminal frontage gallery', width: 3.2,
-      points: [
-        { x: -156, z: -160, y: 0 },
-        { x: -144, z: -160, y: 3.2 },
-        { x: -86, z: -160, y: 3.2 },
-        { x: -74, z: -160, y: 0 },
-      ],
-      color: '#b3b1a7',
-      note: 'Authored pedestrian frontage gallery below the existing departure viaduct; does not grant access to the airside tower.',
-    },
-  ]);
+  {
+    "id": "jewel-forest-levels",
+    "name": "Jewel forest valley viewing circuits",
+    "note": "Authored connected playable interior in the existing compressed landmark footprint; not a surveyed interior or newly reference-verified layout.",
+    "floors": [
+      {
+        "id": "garden-west",
+        "x": -103.0,
+        "z": -30,
+        "y": 4.8,
+        "width": 14.0,
+        "depth": 110,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "garden-east",
+        "x": -7.0,
+        "z": -30,
+        "y": 4.8,
+        "width": 14.0,
+        "depth": 110,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "garden-north",
+        "x": -55,
+        "z": -78.0,
+        "y": 4.8,
+        "width": 82,
+        "depth": 14.0,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "garden-south",
+        "x": -55,
+        "z": 18.0,
+        "y": 4.8,
+        "width": 82,
+        "depth": 14.0,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "canopy-west",
+        "x": -103.0,
+        "z": -30,
+        "y": 9.6,
+        "width": 14.0,
+        "depth": 110,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "canopy-east",
+        "x": -7.0,
+        "z": -30,
+        "y": 9.6,
+        "width": 14.0,
+        "depth": 110,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "canopy-north",
+        "x": -55,
+        "z": -78.0,
+        "y": 9.6,
+        "width": 82,
+        "depth": 14.0,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "canopy-south",
+        "x": -55,
+        "z": 18.0,
+        "y": 9.6,
+        "width": 82,
+        "depth": 14.0,
+        "color": "#c8bdaa"
+      }
+    ],
+    "connections": [
+      {
+        "id": "west-arrival",
+        "from": {
+          "x": -126,
+          "z": -54,
+          "y": 0
+        },
+        "to": {
+          "x": -110,
+          "z": -54,
+          "y": 4.8
+        },
+        "width": 5,
+        "stairs": true
+      },
+      {
+        "id": "east-arrival",
+        "from": {
+          "x": 16,
+          "z": -6,
+          "y": 0
+        },
+        "to": {
+          "x": 0,
+          "z": -6,
+          "y": 4.8
+        },
+        "width": 5,
+        "stairs": true
+      },
+      {
+        "id": "north-canopy",
+        "from": {
+          "x": -96,
+          "z": -58,
+          "y": 4.8
+        },
+        "to": {
+          "x": -14,
+          "z": -58,
+          "y": 9.6
+        },
+        "width": 4,
+        "stairs": true
+      },
+      {
+        "id": "south-canopy",
+        "from": {
+          "x": -14,
+          "z": -2,
+          "y": 4.8
+        },
+        "to": {
+          "x": -96,
+          "z": -2,
+          "y": 9.6
+        },
+        "width": 4,
+        "stairs": true
+      }
+    ],
+    "fixtures": [
+      {
+        "x": -104,
+        "z": -69,
+        "y": 5.45,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#56734b",
+        "solid": true
+      },
+      {
+        "x": -104,
+        "z": -30,
+        "y": 5.45,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#56734b",
+        "solid": true
+      },
+      {
+        "x": -104,
+        "z": 9,
+        "y": 5.45,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#56734b",
+        "solid": true
+      },
+      {
+        "x": -6,
+        "z": -69,
+        "y": 5.45,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#56734b",
+        "solid": true
+      },
+      {
+        "x": -6,
+        "z": -30,
+        "y": 5.45,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#56734b",
+        "solid": true
+      },
+      {
+        "x": -6,
+        "z": 9,
+        "y": 5.45,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#56734b",
+        "solid": true
+      },
+      {
+        "x": -104,
+        "z": -69,
+        "y": 10.25,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#56734b",
+        "solid": true
+      },
+      {
+        "x": -104,
+        "z": -30,
+        "y": 10.25,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#56734b",
+        "solid": true
+      },
+      {
+        "x": -104,
+        "z": 9,
+        "y": 10.25,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#56734b",
+        "solid": true
+      },
+      {
+        "x": -6,
+        "z": -69,
+        "y": 10.25,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#56734b",
+        "solid": true
+      },
+      {
+        "x": -6,
+        "z": -30,
+        "y": 10.25,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#56734b",
+        "solid": true
+      },
+      {
+        "x": -6,
+        "z": 9,
+        "y": 10.25,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#56734b",
+        "solid": true
+      }
+    ]
+  }
+]);
 }

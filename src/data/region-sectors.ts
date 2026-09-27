@@ -25,10 +25,9 @@ const HARBOURFRONT_SECTORS: readonly ZoneSector[] = [
   { id: 'quay', name: 'HarbourFront quay', cover: 'broken', lootWeight: 1, tierBias: -1, botWeight: 1.5,
     bounds: { minX: -232, maxX: 146, minZ: 122, maxZ: 140 },
     anchors: [{ x: 20, z: 134 }, { x: -75, z: 134 }, { x: -200, z: 132 }, { x: -140, z: 132 }, { x: 75, z: 132 }, { x: 122, z: 132 }] },
-  // The mall is one solid stepped mass, so its sector is the ring of ten- to
-  // fourteen-metre lanes around it, plus the amphitheatre and the station
-  // entrance at its quay corner. Central, so everyone passes through it.
-  { id: 'vivocity', name: 'VivoCity waterfront', cover: 'dense', lootWeight: 2.5, botWeight: 2,
+  // Open mall galleries sit above the quay lanes and amphitheatre. Ground
+  // anchors remain in the approaches; upper supplies use validated floors.
+  { id: 'vivocity', name: 'VivoCity waterfront', cover: 'open', lootWeight: 2.5, botWeight: 2,
     bounds: { minX: 0, maxX: 124, minZ: -14, maxZ: 114 },
     anchors: [{ x: 60, z: -6 }, { x: 60, z: 108 }, { x: 111, z: 40 }, { x: 111, z: 86 }, { x: 117, z: -6 }] },
   // The cruise hall and its two boarding gangways, west of the quay street.
@@ -98,11 +97,11 @@ const MARINA_BAY_SECTORS: readonly ZoneSector[] = [
   { id: 'gardens-bay', name: 'Gardens by the Bay', cover: 'open', lootWeight: 2.5, tierBias: 1, botWeight: 1.5,
     bounds: { minX: 240, maxX: 386, minZ: -190, maxZ: 190 },
     anchors: [{ x: 320, z: 135 }, { x: 326, z: -130 }, { x: 248, z: 1 }, { x: 378, z: 17 }, { x: 248, z: -181 }] },
-  { id: 'marina-barrage', name: 'Barrage lawns', cover: 'open', lootWeight: 1.5, botWeight: 1,
-    bounds: { minX: -30, maxX: 160, minZ: 100, maxZ: 270 },
+  { id: 'marina-barrage', name: 'Barrage approach and roof gardens', cover: 'open', lootWeight: 1.5, botWeight: 1,
+    bounds: { minX: -30, maxX: 200, minZ: 100, maxZ: 270 },
     anchors: [{ x: 25, z: 140 }, { x: 85, z: 228 }, { x: 152, z: 109 }, { x: -22, z: 261 }, { x: 152, z: 187 }] },
-  { id: 'civic-district', name: 'Civic district', cover: 'open', lootWeight: 2, botWeight: 1.5,
-    bounds: { minX: -336, maxX: -130, minZ: 60, maxZ: 190 },
+  { id: 'civic-district', name: 'Civic arcades and roof gardens', cover: 'open', lootWeight: 2, botWeight: 1.5,
+    bounds: { minX: -336, maxX: -60, minZ: 60, maxZ: 240 },
     anchors: [{ x: -191, z: 95 }, { x: -280, z: 130 }, { x: -138, z: 181 }, { x: -218, z: 181 }, { x: -328, z: 75 }] },
   { id: 'flyer', name: 'Observation wheel', cover: 'open', lootWeight: 1, tierBias: 1, botWeight: 0.5,
     bounds: { minX: 180, maxX: 320, minZ: -320, maxZ: -200 },
@@ -126,11 +125,11 @@ const RAFFLES_PLACE_SECTORS: readonly ZoneSector[] = [
   { id: 'battery-road', name: 'Battery promenade', cover: 'open', lootWeight: 2, tierBias: 1, botWeight: 1.5,
     bounds: { minX: 90, maxX: 210, minZ: -132, maxZ: -70 },
     anchors: [{ x: 145, z: -117 }, { x: 202, z: -80 }, { x: 98, z: -82 }, { x: 190, z: -124 }, { x: 102, z: -124 }] },
-  { id: 'market-street', name: 'Market arcade', cover: 'open', lootWeight: 2, botWeight: 2,
-    bounds: { minX: 60, maxX: 170, minZ: 10, maxZ: 90 },
+  { id: 'market-street', name: 'Market podium arcades', cover: 'open', lootWeight: 2, botWeight: 2,
+    bounds: { minX: -15, maxX: 170, minZ: 10, maxZ: 125 },
     foodAnchors: [{ x: 80, z: 45 }, { x: 107, z: 45 }],
     anchors: [{ x: 107, z: 45 }, { x: 80, z: 45 }, { x: 162, z: 82 }, { x: 162, z: 18 }, { x: 68, z: 82 }] },
-  { id: 'cecil-street', name: 'Cecil Street', cover: 'broken', lootWeight: 2, botWeight: 2,
+  { id: 'cecil-street', name: 'Cecil Street', cover: 'open', lootWeight: 2, botWeight: 2,
     bounds: { minX: -140, maxX: -20, minZ: 55, maxZ: 140 },
     anchors: [{ x: -75, z: 96 }, { x: -132, z: 132 }, { x: -28, z: 132 }, { x: -28, z: 64 }, { x: -92, z: 132 }] },
   { id: 'cross-street', name: 'Cross Street arcade', cover: 'open', lootWeight: 1.5, botWeight: 1,
@@ -185,34 +184,34 @@ const QUEENSTOWN_SECTORS: readonly ZoneSector[] = [
 const CHINATOWN_SECTORS: readonly ZoneSector[] = [
   { id: 'smith-street', name: 'Smith Street', cover: 'dense', lootWeight: 2.5, botWeight: 2,
     bounds: { minX: -60, maxX: 60, minZ: 40, maxZ: 120 },
-    anchors: [{ x: 0, z: 80 }, { x: -51, z: 112 }, { x: -51, z: 48 }, { x: 51, z: 112 }, { x: 51, z: 48 }] },   // median 6.0m
+    anchors: [{ x: 0, z: 80 }, { x: -51, z: 112 }, { x: -51, z: 48 }, { x: 51, z: 112 }, { x: 51, z: 48 }] },
   { id: 'pagoda-street', name: 'Pagoda Street market', cover: 'broken', lootWeight: 2.5, botWeight: 2,
     bounds: { minX: -70, maxX: 50, minZ: -60, maxZ: 30 },
-    anchors: [{ x: -15, z: -15 }, { x: 41, z: 22 }, { x: 41, z: -52 }, { x: -61, z: 22 }, { x: -61, z: -52 }] },   // median 10.0m
-  { id: 'buddha-tooth', name: 'Buddha Tooth temple', cover: 'broken', lootWeight: 2, tierBias: 1, botWeight: 1.5,
+    anchors: [{ x: -15, z: -15 }, { x: 41, z: 22 }, { x: 41, z: -52 }, { x: -61, z: 22 }, { x: -61, z: -52 }] },
+  { id: 'buddha-tooth', name: 'Buddha Tooth temple', cover: 'open', lootWeight: 2, tierBias: 1, botWeight: 1.5,
     bounds: { minX: 45, maxX: 150, minZ: -25, maxZ: 60 },
-    anchors: [{ x: 95, z: 20 }, { x: 141, z: -16 }, { x: 141, z: 52 }, { x: 53, z: -16 }, { x: 53, z: 52 }] },   // median 12.0m
+    anchors: [{ x: 95, z: 20 }, { x: 141, z: -16 }, { x: 141, z: 52 }, { x: 53, z: -16 }, { x: 53, z: 52 }] },
   { id: 'sri-mariamman', name: 'Sri Mariamman gopuram', cover: 'open', lootWeight: 2, tierBias: 1, botWeight: 1.5,
     bounds: { minX: 80, maxX: 195, minZ: -140, maxZ: -40 },
-    anchors: [{ x: 134, z: -92 }, { x: 187, z: -48 }, { x: 187, z: -132 }, { x: 89, z: -48 }, { x: 89, z: -132 }] },   // median 26.0m
-  { id: 'peoples-park', name: 'People’s Park Complex', cover: 'broken', lootWeight: 2, botWeight: 1.5,
+    anchors: [{ x: 134, z: -92 }, { x: 187, z: -48 }, { x: 187, z: -132 }, { x: 89, z: -48 }, { x: 89, z: -132 }] },
+  { id: 'peoples-park', name: 'People’s Park Complex', cover: 'open', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: -180, maxX: -70, minZ: -120, maxZ: -35 },
-    anchors: [{ x: -120, z: -70 }, { x: -171, z: -112 }, { x: -79, z: -112 }, { x: -171, z: -44 }, { x: -79, z: -44 }] },   // median 10.0m
-  { id: 'chinatown-complex', name: 'Chinatown Complex', cover: 'broken', lootWeight: 2, botWeight: 1.5,
-    bounds: { minX: -175, maxX: -70, minZ: -30, maxZ: 40 },
-    anchors: [{ x: -120, z: 14 }, { x: -167, z: -22 }, { x: -79, z: -22 }, { x: -167, z: 32 }, { x: -79, z: 32 }] },   // median 12.0m
+    anchors: [{ x: -120, z: -70 }, { x: -171, z: -112 }, { x: -79, z: -112 }, { x: -171, z: -44 }, { x: -79, z: -44 }] },
+  { id: 'chinatown-complex', name: 'Chinatown Complex', cover: 'open', lootWeight: 2, botWeight: 1.5,
+    bounds: { minX: -175, maxX: -70, minZ: -44, maxZ: 40 },
+    anchors: [{ x: -120, z: 14 }, { x: -167, z: -22 }, { x: -79, z: -22 }, { x: -167, z: 32 }, { x: -79, z: 32 }] },
   { id: 'kreta-ayer', name: 'Kreta Ayer square', cover: 'open', lootWeight: 1.5, botWeight: 1,
     bounds: { minX: -180, maxX: -70, minZ: 48, maxZ: 130 },
-    anchors: [{ x: -124, z: 78 }, { x: -90, z: 88 }, { x: -171, z: 122 }, { x: -171, z: 56 }, { x: -119, z: 122 }] },   // median 18.0m
+    anchors: [{ x: -124, z: 78 }, { x: -90, z: 88 }, { x: -171, z: 122 }, { x: -171, z: 56 }, { x: -119, z: 122 }] },
   { id: 'club-street', name: 'Club Street terraces', cover: 'open', lootWeight: 1.5, botWeight: 1,
     bounds: { minX: 85, maxX: 195, minZ: 35, maxZ: 125 },
-    anchors: [{ x: 134, z: 74 }, { x: 187, z: 116 }, { x: 187, z: 44 }, { x: 93, z: 116 }, { x: 143, z: 116 }] },   // median 24.1m
+    anchors: [{ x: 134, z: 74 }, { x: 187, z: 116 }, { x: 187, z: 44 }, { x: 93, z: 116 }, { x: 143, z: 116 }] },
   { id: 'telok-ayer-green', name: 'Telok Ayer green', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
     bounds: { minX: 150, maxX: 248, minZ: -40, maxZ: 40 },
-    anchors: [{ x: 192, z: 0 }, { x: 239, z: 32 }, { x: 239, z: -32 }, { x: 159, z: 32 }, { x: 159, z: -32 }] },   // median 36.1m
+    anchors: [{ x: 192, z: 0 }, { x: 239, z: 32 }, { x: 239, z: -32 }, { x: 159, z: 32 }, { x: 159, z: -32 }] },
   { id: 'bukit-pasoh', name: 'Bukit Pasoh lane', cover: 'open', lootWeight: 1.5, botWeight: 1,
     bounds: { minX: -248, maxX: -150, minZ: -160, maxZ: -60 },
-    anchors: [{ x: -196, z: -104 }, { x: -239, z: -152 }, { x: -159, z: -152 }, { x: -239, z: -68 }, { x: -159, z: -68 }] },   // median 14.0m
+    anchors: [{ x: -196, z: -104 }, { x: -239, z: -152 }, { x: -159, z: -152 }, { x: -239, z: -68 }, { x: -159, z: -68 }] },
 ];
 
 /**
@@ -222,37 +221,37 @@ const CHINATOWN_SECTORS: readonly ZoneSector[] = [
 const KAMPONG_GLAM_SECTORS: readonly ZoneSector[] = [
   { id: 'mosque-forecourt', name: 'Mosque forecourt', cover: 'broken', lootWeight: 2.5, botWeight: 2,
     bounds: { minX: -40, maxX: 60, minZ: -50, maxZ: 25 },
-    anchors: [{ x: 10, z: -14 }, { x: 52, z: 17 }, { x: -32, z: 17 }, { x: 52, z: -41 }, { x: -32, z: -41 }] },   // median 11.7m
+    anchors: [{ x: 10, z: -14 }, { x: 52, z: 17 }, { x: -32, z: 17 }, { x: 52, z: -41 }, { x: -32, z: -41 }] },
   { id: 'bussorah-mall', name: 'Bussorah mall', cover: 'broken', lootWeight: 1.5, tierBias: -1, botWeight: 1.5,
     bounds: { minX: -40, maxX: 60, minZ: -118, maxZ: -45 },
-    anchors: [{ x: 10, z: -75 }, { x: 52, z: -109 }, { x: -32, z: -109 }, { x: 52, z: -53 }, { x: -32, z: -53 }] },   // median 10.0m
+    anchors: [{ x: 10, z: -75 }, { x: 52, z: -109 }, { x: -32, z: -109 }, { x: 52, z: -53 }, { x: -32, z: -53 }] },
   { id: 'haji-lane', name: 'Haji Lane', cover: 'broken', lootWeight: 2, tierBias: 1, botWeight: 1.5,
     bounds: { minX: -148, maxX: -40, minZ: -120, maxZ: -30 },
-    anchors: [{ x: -90, z: -75 }, { x: -140, z: -111 }, { x: -140, z: -39 }, { x: -48, z: -111 }, { x: -48, z: -39 }] },   // median 10.8m
+    anchors: [{ x: -90, z: -75 }, { x: -140, z: -111 }, { x: -140, z: -39 }, { x: -48, z: -111 }, { x: -48, z: -39 }] },
   { id: 'arab-street', name: 'Arab Street textiles', cover: 'open', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: 60, maxX: 168, minZ: -140, maxZ: -45 },
-    anchors: [{ x: 110, z: -92 }, { x: 160, z: -131 }, { x: 160, z: -53 }, { x: 68, z: -131 }, { x: 68, z: -53 }] },   // median 21.5m
+    anchors: [{ x: 110, z: -92 }, { x: 160, z: -131 }, { x: 160, z: -53 }, { x: 68, z: -131 }, { x: 68, z: -53 }] },
   { id: 'heritage-lawn', name: 'Heritage Centre lawn', cover: 'open', lootWeight: 1.5, botWeight: 1,
     bounds: { minX: -150, maxX: -45, minZ: -45, maxZ: 25 },
-    anchors: [{ x: -90, z: -20 }, { x: -142, z: 17 }, { x: -142, z: -37 }, { x: -54, z: 17 }, { x: -54, z: -37 }] },   // median 20.0m
-  { id: 'bugis-plaza', name: 'Beach Road shops', cover: 'broken', lootWeight: 2, botWeight: 1.5,
-    bounds: { minX: 55, maxX: 168, minZ: 5, maxZ: 90 },
-    anchors: [{ x: 110, z: 50 }, { x: 160, z: 13 }, { x: 64, z: 13 }, { x: 160, z: 81 }, { x: 64, z: 81 }] },   // median 10.2m
+    anchors: [{ x: -90, z: -20 }, { x: -142, z: 17 }, { x: -142, z: -37 }, { x: -54, z: 17 }, { x: -54, z: -37 }] },
+  { id: 'bugis-plaza', name: 'Beach Road retail atrium', cover: 'open', lootWeight: 2, botWeight: 1.5,
+    bounds: { minX: 55, maxX: 168, minZ: -16, maxZ: 90 },
+    anchors: [{ x: 110, z: 50 }, { x: 160, z: 13 }, { x: 64, z: 13 }, { x: 160, z: 81 }, { x: 64, z: 81 }] },
   { id: 'sultan-gate', name: 'Sultan Gate', cover: 'broken', lootWeight: 1.5, botWeight: 1,
     bounds: { minX: 60, maxX: 168, minZ: 70, maxZ: 148 },
-    anchors: [{ x: 110, z: 98 }, { x: 160, z: 139 }, { x: 68, z: 139 }, { x: 160, z: 79 }, { x: 68, z: 79 }] },   // median 8.2m
+    anchors: [{ x: 110, z: 98 }, { x: 160, z: 139 }, { x: 68, z: 139 }, { x: 160, z: 79 }, { x: 68, z: 79 }] },
   { id: 'baghdad-street', name: 'Baghdad Street', cover: 'broken', lootWeight: 1.5, botWeight: 1,
     bounds: { minX: -45, maxX: 60, minZ: 68, maxZ: 152 },
-    anchors: [{ x: 10, z: 110 }, { x: -36, z: 77 }, { x: -36, z: 143 }, { x: 52, z: 77 }, { x: 52, z: 143 }] },   // median 8.0m
+    anchors: [{ x: 10, z: 110 }, { x: -36, z: 77 }, { x: -36, z: 143 }, { x: 52, z: 77 }, { x: 52, z: 143 }] },
   { id: 'kandahar-park', name: 'Kandahar pocket park', cover: 'broken', lootWeight: 1.5, botWeight: 1,
     bounds: { minX: -142, maxX: -42, minZ: 68, maxZ: 152 },
-    anchors: [{ x: -82, z: 110 }, { x: -134, z: 77 }, { x: -134, z: 143 }, { x: -50, z: 77 }, { x: -50, z: 143 }] },   // median 8.0m
+    anchors: [{ x: -82, z: 110 }, { x: -134, z: 77 }, { x: -134, z: 143 }, { x: -50, z: 77 }, { x: -50, z: 143 }] },
   { id: 'rochor-canal', name: 'Beach Road edge', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
     bounds: { minX: 140, maxX: 228, minZ: -40, maxZ: 60 },
-    anchors: [{ x: 173, z: 12 }, { x: 220, z: -31 }, { x: 220, z: 51 }, { x: 148, z: -31 }, { x: 148, z: 51 }] },   // median 28.6m
+    anchors: [{ x: 173, z: 12 }, { x: 220, z: -31 }, { x: 220, z: 51 }, { x: 148, z: -31 }, { x: 148, z: 51 }] },
   { id: 'jalan-pisang', name: 'Jalan Pisang green', cover: 'open', lootWeight: 1, botWeight: 1,
     bounds: { minX: -228, maxX: -142, minZ: -20, maxZ: 92 },
-    anchors: [{ x: -180, z: 30 }, { x: -220, z: 83 }, { x: -150, z: 83 }, { x: -220, z: -11 }, { x: -150, z: -11 }] },   // median 40.0m
+    anchors: [{ x: -180, z: 30 }, { x: -220, z: 83 }, { x: -150, z: 83 }, { x: -220, z: -11 }, { x: -150, z: -11 }] },
 
 ];
 
@@ -261,22 +260,22 @@ const KAMPONG_GLAM_SECTORS: readonly ZoneSector[] = [
  * sector in the district: little lands there, and what does is worth crossing for.
  */
 const JURONG_LAKE_SECTORS: readonly ZoneSector[] = [
-  { id: 'pagoda-island', name: 'Cloud Pagoda gardens', cover: 'broken', lootWeight: 1.5, tierBias: 1, botWeight: 1,
+  { id: 'pagoda-island', name: 'Cloud Pagoda gardens', cover: 'open', lootWeight: 1.5, tierBias: 1, botWeight: 1,
     bounds: { minX: -200, maxX: -90, minZ: 10, maxZ: 95 },
     anchors: [{ x: -142, z: 50 }, { x: -96, z: 18 }, { x: -172, z: 18 }, { x: -112, z: 62 }, { x: -172, z: 62 }] },
   { id: 'causeway', name: 'Lake causeway', cover: 'dense', lootWeight: 0.5, tierBias: 1, botWeight: 0.5,
     bounds: { minX: -105, maxX: -35, minZ: -15, maxZ: 55 },
     anchors: [{ x: -70, z: 20 }, { x: -44, z: 26 }, { x: -96, z: 26 }, { x: -54, z: 14 }, { x: -86, z: 14 }] },
-  { id: 'lakeside-promenade', name: 'Lakeside promenade', cover: 'broken', lootWeight: 1, tierBias: -1, botWeight: 1,
+  { id: 'lakeside-promenade', name: 'Lakeside promenade', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
     bounds: { minX: -60, maxX: 30, minZ: 20, maxZ: 100 },
     anchors: [{ x: -18, z: 60 }, { x: 22, z: 28 }, { x: 22, z: 92 }, { x: -28, z: 28 }, { x: -28, z: 92 }] },
   { id: 'science-centre', name: 'Science Centre plaza', cover: 'open', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: 115, maxX: 230, minZ: -70, maxZ: 30 },
     anchors: [{ x: 170, z: -20 }, { x: 222, z: 22 }, { x: 222, z: -62 }, { x: 124, z: 22 }, { x: 124, z: -62 }] },
-  { id: 'jem-concourse', name: 'JEM concourse', cover: 'broken', lootWeight: 2.5, botWeight: 2,
+  { id: 'jem-concourse', name: 'JEM concourse', cover: 'open', lootWeight: 2.5, botWeight: 2,
     bounds: { minX: 15, maxX: 115, minZ: -60, maxZ: 35 },
     anchors: [{ x: 65, z: -10 }, { x: 24, z: 22 }, { x: 106, z: 22 }, { x: 24, z: -22 }, { x: 106, z: -22 }] },
-  { id: 'westgate', name: 'Westgate atrium', cover: 'broken', lootWeight: 2, botWeight: 1.5,
+  { id: 'westgate', name: 'Westgate atrium', cover: 'open', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: 15, maxX: 115, minZ: 70, maxZ: 135 },
     anchors: [{ x: 65, z: 110 }, { x: 24, z: 126 }, { x: 106, z: 126 }, { x: 36, z: 98 }, { x: 94, z: 98 }] },
   { id: 'imm', name: 'IMM service court', cover: 'open', lootWeight: 1.5, botWeight: 1,
@@ -301,10 +300,10 @@ const JURONG_LAKE_SECTORS: readonly ZoneSector[] = [
  * are the exposed ends; the vortex and hotel court are where the cover is.
  */
 const CHANGI_SECTORS: readonly ZoneSector[] = [
-  { id: 'vortex', name: 'Vortex basin and viewing walk', cover: 'dense', lootWeight: 2.5, botWeight: 2,
-    bounds: { minX: -110, maxX: 0, minZ: -70, maxZ: 60 },
+  { id: 'vortex', name: 'Jewel basin and viewing galleries', cover: 'open', lootWeight: 2.5, botWeight: 2,
+    bounds: { minX: -126, maxX: 16, minZ: -85, maxZ: 60 },
     anchors: [{ x: -55, z: 14 }, { x: -8, z: 51 }, { x: -102, z: 51 }, { x: -8, z: -21 }, { x: -102, z: -21 }] },
-  { id: 'canopy-park', name: 'Canopy park', cover: 'dense', lootWeight: 2, botWeight: 1.5,
+  { id: 'canopy-park', name: 'Canopy park', cover: 'open', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: -45, maxX: 55, minZ: -80, maxZ: 15 },
     anchors: [{ x: 4, z: -30 }, { x: 46, z: -71 }, { x: -36, z: -71 }, { x: 46, z: 7 }, { x: -36, z: 7 }] },
   { id: 'terminal-kerb', name: 'Terminal kerbside', cover: 'broken', lootWeight: 2, botWeight: 1.5,
@@ -357,8 +356,8 @@ const UPPER_THOMSON_SECTORS: readonly ZoneSector[] = [
   { id: 'boardwalk-jetty', name: 'Boardwalk jetty', cover: 'broken', lootWeight: 1, tierBias: -1, botWeight: 1,
     bounds: { minX: -210, maxX: -115, minZ: -105, maxZ: -30 },
     anchors: [{ x: -162, z: -64 }, { x: -146, z: -40 }, { x: -124, z: -96 }, { x: -160, z: -96 }, { x: -124, z: -64 }] },
-  { id: 'forest-trail', name: 'Forest trailhead', cover: 'broken', lootWeight: 1.5, tierBias: 1, botWeight: 1,
-    bounds: { minX: -180, maxX: -90, minZ: 0, maxZ: 85 },
+  { id: 'forest-trail', name: 'Forest contours and branching trails', cover: 'broken', lootWeight: 1.5, tierBias: 1, botWeight: 1,
+    bounds: { minX: -180, maxX: -90, minZ: 0, maxZ: 132 },
     anchors: [{ x: -128, z: 40 }, { x: -172, z: 8 }, { x: -164, z: 76 }, { x: -98, z: 76 }, { x: -98, z: 8 }] },
   { id: 'thomson-station', name: 'Upper Thomson station', cover: 'open', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: 40, maxX: 135, minZ: 35, maxZ: 110 },
@@ -386,8 +385,8 @@ const PUNGGOL_SECTORS: readonly ZoneSector[] = [
   { id: 'arch-bridge', name: 'Waterway crossing', cover: 'dense', lootWeight: 0.5, tierBias: 1, botWeight: 0.5,
     bounds: { minX: -25, maxX: 65, minZ: -118, maxZ: -82 },
     anchors: [{ x: 4, z: -116 }, { x: 56, z: -110 }, { x: -16, z: -110 }, { x: 32, z: -110 }, { x: 8, z: -110 }] },
-  { id: 'waterway-point', name: 'Waterway Point approach', cover: 'open', lootWeight: 2.5, botWeight: 2,
-    bounds: { minX: -35, maxX: 75, minZ: -5, maxZ: 80 },
+  { id: 'waterway-point', name: 'Waterway Point retail levels', cover: 'open', lootWeight: 2.5, botWeight: 2,
+    bounds: { minX: -45, maxX: 85, minZ: -5, maxZ: 160 },
     anchors: [{ x: 18, z: 36 }, { x: 66, z: 72 }, { x: -26, z: 72 }, { x: 66, z: 4 }, { x: -26, z: 4 }] },
   { id: 'precinct-court', name: 'Precinct court', cover: 'open', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: -155, maxX: -45, minZ: -10, maxZ: 75 },
@@ -424,8 +423,8 @@ const SENTOSA_SECTORS: readonly ZoneSector[] = [
     bounds: { minX: 5, maxX: 105, minZ: -175, maxZ: -95 },
     anchors: [{ x: 60, z: -130 }, { x: 14, z: -166 }, { x: 14, z: -104 }, { x: 96, z: -166 }, { x: 96, z: -104 }] },
   { id: 'fort-ramparts', name: 'Fort ramparts', cover: 'open', lootWeight: 2, tierBias: 1, botWeight: 1.5,
-    bounds: { minX: -145, maxX: -35, minZ: -35, maxZ: 50 },
-    anchors: [{ x: -90, z: 8 }, { x: -90, z: 32 }, { x: -44, z: -26 }, { x: -136, z: -26 }, { x: -44, z: 22 }] },
+    bounds: { minX: -145, maxX: -35, minZ: -72, maxZ: 50 },
+    anchors: [{ x: -122, z: 20 }, { x: -90, z: 32 }, { x: -44, z: -26 }, { x: -136, z: -26 }, { x: -44, z: 22 }] },
   { id: 'resort-forecourt', name: 'Resort forecourt', cover: 'open', lootWeight: 2.5, botWeight: 2,
     bounds: { minX: -20, maxX: 85, minZ: -30, maxZ: 50 },
     anchors: [{ x: 30, z: 8 }, { x: 30, z: 32 }, { x: 76, z: -22 }, { x: -12, z: -22 }, { x: 76, z: 42 }] },
@@ -461,7 +460,7 @@ const GEYLANG_SECTORS: readonly ZoneSector[] = [
     bounds: { minX: -60, maxX: 60, minZ: -80, maxZ: -25 },
     anchors: [{ x: 0, z: -45 }, { x: -52, z: -72 }, { x: 52, z: -72 }, { x: -40, z: -34 }, { x: 40, z: -34 }] },
   { id: 'serai-market', name: 'Geylang Serai market', cover: 'open', lootWeight: 2.5, botWeight: 2,
-    bounds: { minX: -160, maxX: -80, minZ: -20, maxZ: 55 },
+    bounds: { minX: -160, maxX: -80, minZ: -20, maxZ: 93 },
     foodAnchors: [{ x: -128, z: 20 }, { x: -112, z: 20 }, { x: -96, z: 20 }],
     anchors: [{ x: -112, z: 14 }, { x: -152, z: 46 }, { x: -152, z: -12 }, { x: -88, z: 46 }, { x: -88, z: -12 }] },
   { id: 'masjid', name: 'Masjid forecourt', cover: 'open', lootWeight: 1.5, botWeight: 1,
@@ -515,7 +514,7 @@ const TUAS_SECTORS: readonly ZoneSector[] = [
   { id: 'laydown-yard', name: 'Laydown yard', cover: 'open', lootWeight: 1.5, botWeight: 1,
     bounds: { minX: 85, maxX: 195, minZ: 75, maxZ: 165 },
     anchors: [{ x: 137, z: 115 }, { x: 186, z: 156 }, { x: 94, z: 156 }, { x: 186, z: 84 }, { x: 94, z: 84 }] },
-  { id: 'coast-road', name: 'Coast road', cover: 'dense', lootWeight: 1, tierBias: -1, botWeight: 1,
+  { id: 'coast-road', name: 'Coast road', cover: 'broken', lootWeight: 1, tierBias: -1, botWeight: 1,
     bounds: { minX: -278, maxX: -190, minZ: -95, maxZ: 15 },
     anchors: [{ x: -235, z: -40 }, { x: -212, z: 6 }, { x: -212, z: -86 }, { x: -246, z: -6 }, { x: -246, z: -74 }] },
   { id: 'benoi-truck-park', name: 'Benoi truck park', cover: 'open', lootWeight: 1.5, botWeight: 1,
@@ -562,7 +561,7 @@ const WOODLANDS_SECTORS: readonly ZoneSector[] = [
     bounds: { minX: 150, maxX: 255, minZ: -10, maxZ: 80 },
     anchors: [{ x: 200, z: 34 }, { x: 246, z: 72 }, { x: 246, z: -2 }, { x: 158, z: 72 }, { x: 158, z: -2 }] },
   { id: 'interchange', name: 'Woodlands interchange', cover: 'open', lootWeight: 1.5, botWeight: 1.5,
-    bounds: { minX: 90, maxX: 148, minZ: -10, maxZ: 80 },
+    bounds: { minX: 35, maxX: 148, minZ: -35, maxZ: 80 },
     anchors: [{ x: 137, z: 32 }, { x: 98, z: 72 }, { x: 98, z: 6 }, { x: 140, z: 72 }, { x: 132, z: -2 }] },
   { id: 'northpoint-green', name: 'Woodlands town green', cover: 'open', lootWeight: 1.5, botWeight: 1,
     bounds: { minX: 85, maxX: 195, minZ: 90, maxZ: 168 },
@@ -578,8 +577,8 @@ const TAMPINES_SECTORS: readonly ZoneSector[] = [
     bounds: { minX: -130, maxX: -30, minZ: -30, maxZ: 50 },
     foodAnchors: [{ x: -49, z: 8 }, { x: -111, z: 8 }, { x: -80, z: 39 }],
     anchors: [{ x: -80, z: 8 }, { x: -52, z: 50 }, { x: -122, z: 42 }, { x: -38, z: -22 }, { x: -122, z: -22 }] },
-  { id: 'hub-stadium', name: 'Our Tampines Hub forecourt', cover: 'open', lootWeight: 2.5, tierBias: 1, botWeight: 2,
-    bounds: { minX: 5, maxX: 105, minZ: 1, maxZ: 50 },
+  { id: 'hub-stadium', name: 'Our Tampines Hub concourses', cover: 'open', lootWeight: 2.5, tierBias: 1, botWeight: 2,
+    bounds: { minX: 5, maxX: 105, minZ: -80, maxZ: 50 },
     anchors: [{ x: 55, z: 8 }, { x: 40, z: 44 }, { x: 96, z: 42 }, { x: 14, z: 2 }, { x: 96, z: 2 }] },
   { id: 'mall-concourse', name: 'Mall concourse', cover: 'dense', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: 0, maxX: 90, minZ: 55, maxZ: 100 },
@@ -615,8 +614,8 @@ const TAMPINES_SECTORS: readonly ZoneSector[] = [
  * the flyover the two open crossings worth watching.
  */
 const TOA_PAYOH_SECTORS: readonly ZoneSector[] = [
-  { id: 'dragon-playground', name: 'Dragon playground', cover: 'broken', lootWeight: 2, botWeight: 1.5,
-    bounds: { minX: 0, maxX: 100, minZ: -75, maxZ: 0 },
+  { id: 'dragon-playground', name: 'Dragon courtyard and housing galleries', cover: 'broken', lootWeight: 2, botWeight: 1.5,
+    bounds: { minX: -7, maxX: 107, minZ: -120, maxZ: 0 },
     anchors: [{ x: 50, z: -36 }, { x: 92, z: -66 }, { x: 8, z: -66 }, { x: 92, z: -8 }, { x: 8, z: -8 }] },
   { id: 'town-park', name: 'Town park', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
     bounds: { minX: -240, maxX: -120, minZ: -45, maxZ: 45 },
@@ -659,12 +658,12 @@ const BUKIT_TIMAH_SECTORS: readonly ZoneSector[] = [
   { id: 'rail-corridor', name: 'Rail corridor', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
     bounds: { minX: 25, maxX: 95, minZ: 0, maxZ: 85 },
     anchors: [{ x: 60, z: 40 }, { x: 86, z: 76 }, { x: 34, z: 76 }, { x: 86, z: 8 }, { x: 34, z: 8 }] },
-  { id: 'summit', name: 'Bukit Timah hill foot', cover: 'open', lootWeight: 2, tierBias: 1, botWeight: 1.5,
-    bounds: { minX: -180, maxX: -80, minZ: -70, maxZ: 25 },
-    anchors: [{ x: -130, z: -25 }, { x: -88, z: 16 }, { x: -88, z: -62 }, { x: -138, z: 16 }, { x: -92, z: -22 }] },
+  { id: 'summit', name: 'Summit trails and hill foot', cover: 'dense', lootWeight: 2, tierBias: 1, botWeight: 1.5,
+    bounds: { minX: -215, maxX: -132, minZ: -76, maxZ: 49 },
+    anchors: [{ x: -175, z: 43 }, { x: -205, z: 43 }, { x: -145, z: 43 }, { x: -137, z: -25 }, { x: -211, z: -25 }] },
   { id: 'nature-reserve', name: 'Nature reserve trail', cover: 'open', lootWeight: 1.5, tierBias: 1, botWeight: 1,
-    bounds: { minX: -245, maxX: -135, minZ: -145, maxZ: -50 },
-    anchors: [{ x: -187, z: -96 }, { x: -236, z: -136 }, { x: -236, z: -58 }, { x: -146, z: -136 }, { x: -144, z: -72 }] },
+    bounds: { minX: -245, maxX: -135, minZ: -145, maxZ: -78 },
+    anchors: [{ x: -187, z: -96 }, { x: -236, z: -136 }, { x: -236, z: -88 }, { x: -146, z: -136 }, { x: -144, z: -90 }] },
   { id: 'beauty-world', name: 'Beauty World market', cover: 'open', lootWeight: 2.5, botWeight: 2,
     bounds: { minX: -105, maxX: -10, minZ: -15, maxZ: 45 },
     foodAnchors: [{ x: -75, z: 2 }, { x: -55, z: 2 }, { x: -35, z: 2 }],
@@ -712,8 +711,8 @@ const BISHAN_SECTORS: readonly ZoneSector[] = [
   { id: 'bus-berths', name: 'Bus berths', cover: 'open', lootWeight: 1.5, botWeight: 1.5,
     bounds: { minX: 20, maxX: 130, minZ: 130, maxZ: 205 },
     anchors: [{ x: 75, z: 170 }, { x: 28, z: 138 }, { x: 122, z: 138 }, { x: 28, z: 196 }, { x: 122, z: 196 }] },
-  { id: 'bishan-precinct', name: 'Bishan precinct', cover: 'open', lootWeight: 2, botWeight: 1.5,
-    bounds: { minX: -110, maxX: -10, minZ: 0, maxZ: 85 },
+  { id: 'bishan-precinct', name: 'Bishan housing galleries', cover: 'open', lootWeight: 2, botWeight: 1.5,
+    bounds: { minX: -115, maxX: -5, minZ: 0, maxZ: 160 },
     anchors: [{ x: -60, z: 40 }, { x: -102, z: 76 }, { x: -18, z: 76 }, { x: -102, z: 8 }, { x: -18, z: 8 }] },
   { id: 'sin-ming', name: 'Sin Ming slabs', cover: 'open', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: -235, maxX: -120, minZ: 0, maxZ: 85 },
@@ -739,34 +738,34 @@ const BISHAN_SECTORS: readonly ZoneSector[] = [
 const ORCHARD_SECTORS: readonly ZoneSector[] = [
   { id: 'orchard-crossing', name: 'Orchard crossing', cover: 'open', lootWeight: 1.5, tierBias: -1, botWeight: 2,
     bounds: { minX: -50, maxX: 35, minZ: -10, maxZ: 40 },
-    anchors: [{ x: -8, z: 5 }, { x: 0, z: 22 }, { x: -42, z: 31 }, { x: 26, z: -1 }, { x: -40, z: -1 }] },   // median 20.0m
-  { id: 'ion-frontage', name: 'ION frontage', cover: 'open', lootWeight: 2.5, botWeight: 2,
-    bounds: { minX: -160, maxX: -70, minZ: -55, maxZ: 15 },
-    anchors: [{ x: -115, z: -18 }, { x: -78, z: -47 }, { x: -152, z: -47 }, { x: -78, z: 7 }, { x: -152, z: 7 }] },   // median 18.0m
-  { id: 'orchard-terraces', name: 'Wisma Atria', cover: 'dense', lootWeight: 2, botWeight: 1.5,
-    bounds: { minX: -45, maxX: 40, minZ: -55, maxZ: -15 },
-    anchors: [{ x: 0, z: -19 }, { x: -33, z: -24 }, { x: 32, z: -25 }, { x: -36, z: -47 }, { x: -16, z: -25 }] },   // median 6.0m
+    anchors: [{ x: -8, z: 5 }, { x: 0, z: 22 }, { x: -42, z: 31 }, { x: 26, z: -1 }, { x: -40, z: -1 }] },
+  { id: 'ion-frontage', name: 'ION atrium and frontage', cover: 'open', lootWeight: 2.5, botWeight: 2,
+    bounds: { minX: -160, maxX: -70, minZ: -110, maxZ: 15 },
+    anchors: [{ x: -115, z: -18 }, { x: -78, z: -47 }, { x: -152, z: -47 }, { x: -78, z: 7 }, { x: -152, z: 7 }] },
+  { id: 'orchard-terraces', name: 'Wisma retail galleries', cover: 'open', lootWeight: 2, botWeight: 1.5,
+    bounds: { minX: -45, maxX: 40, minZ: -110, maxZ: -15 },
+    anchors: [{ x: 0, z: -19 }, { x: -33, z: -24 }, { x: 32, z: -25 }, { x: -36, z: -47 }, { x: -16, z: -25 }] },
   { id: 'tangs-rotunda', name: 'TANGS frontage', cover: 'broken', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: -165, maxX: -70, minZ: 5, maxZ: 70 },
-    anchors: [{ x: -107, z: 22 }, { x: -156, z: 61 }, { x: -78, z: 61 }, { x: -156, z: 13 }, { x: -78, z: 31 }] },   // median 12.0m
-  { id: 'ngee-ann', name: 'Ngee Ann forecourt', cover: 'broken', lootWeight: 2, botWeight: 1.5,
-    bounds: { minX: 70, maxX: 170, minZ: -55, maxZ: 0 },
-    anchors: [{ x: 117, z: -12 }, { x: 117, z: -20 }, { x: 162, z: -47 }, { x: 78, z: -9 }, { x: 156, z: -9 }] },   // median 8.2m
+    anchors: [{ x: -107, z: 22 }, { x: -156, z: 61 }, { x: -78, z: 61 }, { x: -156, z: 13 }, { x: -78, z: 31 }] },
+  { id: 'ngee-ann', name: 'Ngee Ann retail and forecourt', cover: 'open', lootWeight: 2, botWeight: 1.5,
+    bounds: { minX: 70, maxX: 170, minZ: -110, maxZ: 0 },
+    anchors: [{ x: 117, z: -12 }, { x: 117, z: -20 }, { x: 162, z: -47 }, { x: 78, z: -9 }, { x: 156, z: -9 }] },
   { id: 'somerset-plaza', name: 'Somerset plaza', foodAnchors: [{ x: 0, z: 22 }, { x: -36, z: 9 }, { x: 42, z: 9 }], cover: 'broken', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: -45, maxX: 50, minZ: 0, maxZ: 90 },
-    anchors: [{ x: -8, z: 5 }, { x: 0, z: 22 }, { x: 42, z: 81 }, { x: -36, z: 81 }, { x: 42, z: 37 }] },   // median 10.0m
+    anchors: [{ x: -8, z: 5 }, { x: 0, z: 22 }, { x: 42, z: 81 }, { x: -36, z: 81 }, { x: 42, z: 37 }] },
   { id: 'emerald-hill', name: 'Emerald Hill terrace', cover: 'broken', lootWeight: 1.5, tierBias: 1, botWeight: 1,
     bounds: { minX: 70, maxX: 165, minZ: 20, maxZ: 110 },
-    anchors: [{ x: 117, z: 36 }, { x: 156, z: 101 }, { x: 78, z: 85 }, { x: 156, z: 57 }, { x: 120, z: 79 }] },   // median 10.0m
+    anchors: [{ x: 117, z: 36 }, { x: 156, z: 101 }, { x: 78, z: 85 }, { x: 156, z: 57 }, { x: 120, z: 79 }] },
   { id: 'scotts-junction', name: 'Scotts junction', cover: 'open', lootWeight: 1.5, botWeight: 1,
     bounds: { minX: -225, maxX: -140, minZ: -35, maxZ: 50 },
-    anchors: [{ x: -170, z: 5 }, { x: -216, z: 41 }, { x: -216, z: -27 }, { x: -152, z: 41 }, { x: -150, z: -27 }] },   // median 12.6m
-  { id: 'orchard-underpass', name: 'Orchard underpass', cover: 'broken', lootWeight: 1, tierBias: 1, botWeight: 1,
+    anchors: [{ x: -170, z: 5 }, { x: -216, z: 41 }, { x: -216, z: -27 }, { x: -152, z: 41 }, { x: -150, z: -27 }] },
+  { id: 'orchard-underpass', name: 'Retail service lane', cover: 'open', lootWeight: 1, tierBias: 1, botWeight: 1,
     bounds: { minX: 20, maxX: 105, minZ: -80, maxZ: -15 },
-    anchors: [{ x: 60, z: -40 }, { x: 36, z: -71 }, { x: 94, z: -23 }, { x: 76, z: -71 }, { x: 30, z: -23 }] },   // median 10.0m
+    anchors: [{ x: 60, z: -40 }, { x: 36, z: -71 }, { x: 94, z: -23 }, { x: 76, z: -71 }, { x: 30, z: -23 }] },
   { id: 'dhoby-ghaut', name: 'Dhoby Ghaut green', cover: 'open', lootWeight: 1.5, botWeight: 1,
     bounds: { minX: 150, maxX: 255, minZ: 10, maxZ: 110 },
-    anchors: [{ x: 205, z: 60 }, { x: 158, z: 19 }, { x: 158, z: 101 }, { x: 246, z: 19 }, { x: 246, z: 101 }] },   // median 34.1m
+    anchors: [{ x: 205, z: 60 }, { x: 158, z: 19 }, { x: 158, z: 101 }, { x: 246, z: 19 }, { x: 246, z: 101 }] },
 ];
 
 /** Every district is sectored. HarbourFront's were written by hand as the pilot. */

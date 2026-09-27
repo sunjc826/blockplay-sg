@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { KAMPONG_GLAM_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
-import { withVerticalRoutes } from './vertical-routes';
+import { withVerticalPlaces } from './vertical-places';
 
 export const KAMPONG_GLAM_SPAWN = { x: 10, z: -85, yaw: Math.PI };
 export const KAMPONG_GLAM_BOUNDS = { minX: -230, maxX: 230, minZ: -200, maxZ: 200 };
@@ -182,10 +182,18 @@ export function buildKampongGlamScene() {
 
   /** Glass retail block over a podium, with a street-level station entrance. */
   function mallBlock(x: number, z: number) {
-    box(x, 7, z, 84, 14, 62, stone, scene, true); solid(x, z, 86, 64);
-    for (let y = 3; y < 14; y += 3.4) for (let dx = -38; dx < 40; dx += 6.4) {
+    // Open retail atrium replaces the sealed podium; the upper mass is retained.
+    for (const dx of [-40, 40]) for (const dz of [-29, 0, 29]) {
+      box(x + dx, 7, z + dz, 0.8, 14, 0.8, stone); solid(x + dx, z + dz, 0.8, 0.8);
+    }
+    for (let y = 13; y < 14; y += 3.4) for (let dx = -38; dx < 40; dx += 6.4) {
       box(x + dx, y, z - 31.3, 5.6, 2.4, 0.4, glass);
       box(x + dx, y, z + 31.3, 5.6, 2.4, 0.4, glass);
+    }
+    // Carry the retained upper block through the opened podium to the ground.
+    for (const dx of [-29, 29]) for (const dz of [-20, 14]) {
+      box(x + dx, 7, z + dz, 0.9, 14, 0.9, stone);
+      solid(x + dx, z + dz, 0.9, 0.9); kit.obstacles[kit.obstacles.length - 1].maxY = 14;
     }
     box(x, 22, z - 6, 62, 16, 44, glass, scene, true);
     for (let dx = -30; dx < 32; dx += 5.2) box(x + dx, 22, z - 28.2, 0.5, 16, 0.6, stone);
@@ -256,7 +264,7 @@ export function buildKampongGlamScene() {
   scene.userData.districtFeatures = ['ribbed-onion-dome', 'corner-minarets', 'horseshoe-arcade', 'palm-lined-mall', 'painted-lane-murals', 'textile-awnings', 'limas-hipped-roof', 'louvred-shutters', 'beach-road-edge', 'banded-paving'];
   scene.userData.referenceFeatures = ['bussorah-axial-gold-dome', 'bussorah-close-cream-frontages', 'bussorah-palms-and-awnings'];
 
-  return withVerticalRoutes(kit.finish({
+  return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
       pedestrians.forEach((person, index) => {
@@ -265,27 +273,328 @@ export function buildKampongGlamScene() {
       });
     },
   }), [
-    {
-      id: 'haji-rear-gallery', name: 'Haji rear service gallery', width: 3.4,
-      points: [
-        { x: -128, z: -104, y: 0 },
-        { x: -116, z: -104, y: 2.8 },
-        { x: -68, z: -104, y: 2.8 },
-        { x: -56, z: -104, y: 0 },
-      ],
-      color: '#c3bba9', railColor: '#2c7a74',
-      note: 'Authored rear service gallery; leaves the painted pedestrian lane and mosque sightline at street level.',
-    },
-    {
-      id: 'beach-retail-terrace', name: 'Beach Road retail terrace', width: 3.4,
-      points: [
-        { x: 96, z: 51, y: 0 },
-        { x: 106, z: 51, y: 3.2 },
-        { x: 134, z: 51, y: 3.2 },
-        { x: 144, z: 51, y: 0 },
-      ],
-      color: '#bcbcb4',
-      note: 'Authored retail frontage terrace on the compressed modern block, not a real landmark or surveyed route.',
-    },
-  ]);
+  {
+    "id": "beach-retail-atrium",
+    "name": "Beach Road retail atrium and upper shops",
+    "note": "Authored connected playable interior in the existing compressed landmark footprint; not a surveyed interior or newly reference-verified layout.",
+    "floors": [
+      {
+        "id": "shops-west",
+        "x": 77.0,
+        "z": 15,
+        "y": 4.8,
+        "width": 18.0,
+        "depth": 62,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "shops-east",
+        "x": 143.0,
+        "z": 15,
+        "y": 4.8,
+        "width": 18.0,
+        "depth": 62,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "shops-north",
+        "x": 110,
+        "z": -8.5,
+        "y": 4.8,
+        "width": 48,
+        "depth": 15.0,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "shops-south",
+        "x": 110,
+        "z": 38.5,
+        "y": 4.8,
+        "width": 48,
+        "depth": 15.0,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "studios-west",
+        "x": 77.0,
+        "z": 15,
+        "y": 9.6,
+        "width": 18.0,
+        "depth": 62,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "studios-east",
+        "x": 143.0,
+        "z": 15,
+        "y": 9.6,
+        "width": 18.0,
+        "depth": 62,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "studios-north",
+        "x": 110,
+        "z": -8.5,
+        "y": 9.6,
+        "width": 48,
+        "depth": 15.0,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "studios-south",
+        "x": 110,
+        "z": 38.5,
+        "y": 9.6,
+        "width": 48,
+        "depth": 15.0,
+        "color": "#c8bdaa"
+      }
+    ],
+    "connections": [
+      {
+        "id": "west-entry",
+        "from": {
+          "x": 104,
+          "z": 3,
+          "y": 0
+        },
+        "to": {
+          "x": 86,
+          "z": 3,
+          "y": 4.8
+        },
+        "width": 4,
+        "stairs": true
+      },
+      {
+        "id": "east-entry",
+        "from": {
+          "x": 116,
+          "z": 27,
+          "y": 0
+        },
+        "to": {
+          "x": 134,
+          "z": 27,
+          "y": 4.8
+        },
+        "width": 4,
+        "stairs": true
+      },
+      {
+        "id": "north-rise",
+        "from": {
+          "x": 86,
+          "z": 11,
+          "y": 4.8
+        },
+        "to": {
+          "x": 134,
+          "z": 11,
+          "y": 9.6
+        },
+        "width": 4,
+        "stairs": true
+      },
+      {
+        "id": "south-rise",
+        "from": {
+          "x": 134,
+          "z": 19,
+          "y": 4.8
+        },
+        "to": {
+          "x": 86,
+          "z": 19,
+          "y": 9.6
+        },
+        "width": 4,
+        "stairs": true
+      }
+    ],
+    "fixtures": [
+      {
+        "x": 76,
+        "z": -7,
+        "y": 0.65,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 76,
+        "z": 15,
+        "y": 0.65,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 76,
+        "z": 37,
+        "y": 0.65,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 144,
+        "z": -7,
+        "y": 0.65,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 144,
+        "z": 15,
+        "y": 0.65,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 144,
+        "z": 37,
+        "y": 0.65,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 76,
+        "z": -7,
+        "y": 5.45,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 76,
+        "z": 15,
+        "y": 5.45,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 76,
+        "z": 37,
+        "y": 5.45,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 144,
+        "z": -7,
+        "y": 5.45,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 144,
+        "z": 15,
+        "y": 5.45,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 144,
+        "z": 37,
+        "y": 5.45,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 76,
+        "z": -7,
+        "y": 10.25,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 76,
+        "z": 15,
+        "y": 10.25,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 76,
+        "z": 37,
+        "y": 10.25,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 144,
+        "z": -7,
+        "y": 10.25,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 144,
+        "z": 15,
+        "y": 10.25,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      },
+      {
+        "x": 144,
+        "z": 37,
+        "y": 10.25,
+        "width": 5,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#2c7a74",
+        "solid": true
+      }
+    ]
+  }
+]);
 }

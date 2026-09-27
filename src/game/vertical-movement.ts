@@ -18,19 +18,19 @@ export function createVerticalMovement(world: VerticalWorld) {
       }
     return (x: number, z: number, radius: number): readonly T[] => radius <= .75 ? bins.get(`${Math.floor(x / 16)},${Math.floor(z / 16)}`) ?? [] : items;
   };
-  const baseAt = bucket(world.obstacles), traversalAt = bucket(world.traversalObstacles);
+  const baseAt = bucket(world.obstacles), traversalAt = bucket(world.traversalObstacles), surfacesAt = bucket(world.surfaces);
   const overlap = (o: Obstacle, x: number, z: number, r: number) => x + r > o.minX + EPS && x - r < o.maxX - EPS && z + r > o.minZ + EPS && z - r < o.maxZ - EPS;
   const contains = (s: WalkSurface, x: number, z: number) => x >= s.minX - EPS && x <= s.maxX + EPS && z >= s.minZ - EPS && z <= s.maxZ + EPS;
   const canOccupy = (x: number, y: number, z: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = []) => {
     if (!withinBounds(world.bounds, x, z, radius) || y < -EPS) return false;
     const blocks = (o: Obstacle) => overlap(o, x, z, radius) && y < (o.maxY ?? Infinity) - EPS && y + height > 0;
     if (baseAt(x, z, radius).some(blocks) || extra.some(blocks)) return false;
-    if (world.surfaces.some(s => { const roof = surfaceHeight(s, x, z); return contains(s, x, z) && roof > y + EPS && (s.solidBelow || roof < y + height - EPS); })) return false;
+    if (surfacesAt(x, z, radius).some(s => { const roof = surfaceHeight(s, x, z); return contains(s, x, z) && roof > y + EPS && (s.solidBelow || roof < y + height - EPS); })) return false;
     return !traversalAt(x, z, radius).some(o => overlap(o, x, z, radius) && y < o.maxY - EPS && y + height > o.minY + EPS);
   };
   const supportHeight = (x: number, z: number, maxY: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = []): number | null => {
     let best: number | null = maxY >= -EPS && canOccupy(x, 0, z, radius, height, extra) ? 0 : null;
-    for (const s of world.surfaces) {
+    for (const s of surfacesAt(x, z, radius)) {
       const margin = Math.abs(s.startHeight - s.endHeight) < EPS ? radius : 0;
       if (x < s.minX - margin || x > s.maxX + margin || z < s.minZ - margin || z > s.maxZ + margin) continue;
       const y = surfaceHeight(s, x, z);
@@ -51,7 +51,7 @@ export function createVerticalMovement(world: VerticalWorld) {
         const floor = supportHeight(nx, nz, y + (grounded ? MAX_STEP_HEIGHT : EPS), radius, height, extra);
         const ny = grounded && floor !== null && Math.abs(floor - y) <= MAX_STEP_HEIGHT + EPS ? floor : y;
         // A deck's edge is a wall at foot level; only its low ramp entrance can be stepped onto.
-        const edge = world.surfaces.some(s => contains(s, nx, nz) && !contains(s, x, z) && surfaceHeight(s, nx, nz) > ny + MAX_STEP_HEIGHT && surfaceHeight(s, nx, nz) < ny + height);
+        const edge = surfacesAt(nx, nz, radius).some(s => contains(s, nx, nz) && !contains(s, x, z) && surfaceHeight(s, nx, nz) > ny + MAX_STEP_HEIGHT && surfaceHeight(s, nx, nz) < ny + height);
         if (!edge && canOccupy(nx, ny, nz, radius, height, extra)) { x = nx; z = nz; y = ny; }
       }
       support = supportHeight(x, z, y + EPS, radius, height, extra);
@@ -61,7 +61,7 @@ export function createVerticalMovement(world: VerticalWorld) {
       let nextY = y + velocityY * tick;
       if (velocityY > 0) {
         for (const o of traversalAt(x, z, radius)) if (overlap(o, x, z, radius) && o.minY >= y + height - EPS && o.minY < nextY + height) { nextY = o.minY - height; velocityY = 0; }
-        for (const s of world.surfaces) if (contains(s, x, z)) { const roof = surfaceHeight(s, x, z); if (roof >= y + height - EPS && roof < nextY + height) { nextY = roof - height; velocityY = 0; } }
+        for (const s of surfacesAt(x, z, radius)) if (contains(s, x, z)) { const roof = surfaceHeight(s, x, z); if (roof >= y + height - EPS && roof < nextY + height) { nextY = roof - height; velocityY = 0; } }
       }
       const landing = supportHeight(x, z, y + EPS, radius, height, extra);
       if (velocityY <= 0 && landing !== null && nextY <= landing) { nextY = landing; velocityY = 0; grounded = true; }

@@ -1,3 +1,5 @@
+import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
+import { createVerticalNavigator, type NavigationPoint } from './vertical-navigation';
 import { createVerticalMovement, type VerticalWorld } from './vertical-movement';
 import { validVehicleControls, createSharedVehicle, seatOf, seatPoint, gunnerId, vehicleGunRay, vehicleRayDistance, type SharedVehicle, type VehicleControls } from './vehicle-seats';
 import { driveVehicle, flyVehicle, vehicleBounds, vehicleExit, type VehicleKind, type VehicleSpawn, type FlightObstacle } from './vehicle-rules';
@@ -45,6 +47,7 @@ const SPAWNS = [
 ];
 interface InternalActor {
   velocityY?: number;
+  navigation?: { path: NavigationPoint[]; target: NavigationPoint; retry: number; pending?: Generator<undefined, NavigationPoint[]> };
   actor: ArenaActor; healthMax: number; armorMax: number; absorption: number; weapons: ArenaWeapon[]; allowedWeapons: number[]; role?: ArenaRolePlugin;
   cooldown: number[]; rounds: number[]; reload: number[]; playing: boolean; movementBudget: number; wasReloading: boolean;
   usePlayerSpawn: boolean;
@@ -89,6 +92,8 @@ function bodyDistance(origin: ArenaPoint, direction: ArenaPoint, actor: ArenaAct
 export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions, traversalWorld?: VerticalWorld) {
   const bounds = environment?.bounds ?? MARINA_BOUNDS;
   const traversal = traversalWorld ? createVerticalMovement(traversalWorld) : null;
+  const vehicleGround = [...obstacles, ...(traversalWorld ? verticalVehicleObstacles(traversalWorld) : [])];
+  const navigator = traversalWorld?.surfaces.length ? createVerticalNavigator(traversalWorld) : null;
   const floorAt = (point: ArenaPoint) => traversal?.supportHeight(point.x, point.z, point.y - .5, .35, .6) ?? 0;
   const move = environment?.move ?? moveInMarina;
   const coverObstacles = [...obstacles, ...(traversalWorld?.traversalObstacles ?? [])];
@@ -156,6 +161,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75, health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
       yaw: Number.isFinite(preferred?.yaw) ? preferred!.yaw! : 0, pitch: Number.isFinite(preferred?.pitch) ? clamp(preferred!.pitch!, -1.5, 1.5) : 0 });
     entry.cooldown = entry.weapons.map(() => 0); entry.reload = entry.weapons.map(() => 0); entry.rounds = entry.weapons.map(w => w.capacity);
+    entry.navigation = undefined; entry.velocityY = 0;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false;
   };
   function sanitizeWeapons(weapons: readonly ArenaWeapon[]) {
@@ -327,7 +333,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const mounted = seatOf(vehicles, id);
     if (action === 'exit' && mounted) {
       const others = vehicles.filter(v => v !== mounted.vehicle && v.y < 2).map(vehicleBounds);
-      const exit = vehicleExit(mounted.vehicle, [...obstacles, ...others], bounds); if (!exit) return false;
+      const exit = vehicleExit(mounted.vehicle, [...vehicleGround, ...others], bounds); if (!exit) return false;
       releaseSeat(id); Object.assign(entry.actor, exit, { y: 1.75 }); entry.movementBudget = 0; return true;
     }
     if (action === 'switch' && mounted) {
@@ -370,7 +376,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       v.weaponCooldown = Math.max(0, v.weaponCooldown - dt);
       const held = (id: string | null) => id && (controls.get(id)?.expires ?? 0) > elapsed ? controls.get(id)!.input : undefined;
       const drive = held(v.occupants[0]);
-      const ground = [...obstacles, ...vehicles.filter(other => other !== v && other.y < 2).map(vehicleBounds)];
+      const ground = [...vehicleGround, ...vehicles.filter(other => other !== v && other.y < 2).map(vehicleBounds)];
       const flight = [...(vehicleOptions?.flightObstacles ?? obstacles.map(o => ({ ...o, minY: 0, maxY: o.maxY ?? 2.5 }))), ...vehicles.filter(other => other !== v).map(other => ({ ...vehicleBounds(other), minY: other.y, maxY: other.y + 2.7 }))];
       if (v.health <= 0) {
         const support = flight.filter(o => o.maxY <= v.y && v.x >= o.minX && v.x <= o.maxX && v.z >= o.minZ && v.z <= o.maxZ).reduce((y, o) => Math.max(y, o.maxY), .13);
@@ -410,8 +416,26 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const approach = Number.isFinite(intent.approach) ? clamp(intent.approach, -1, 1) : 0;
     const strafe = Number.isFinite(intent.strafe) ? clamp(intent.strafe, -1, 1) : 0;
     const normal = Math.max(1, Math.hypot(approach, strafe));
-    const dxStep = (direction.x * approach - direction.z * strafe) / normal * role.speed * dt;
-    const dzStep = (direction.z * approach + direction.x * strafe) / normal * role.speed * dt;
+    let dxStep = (direction.x * approach - direction.z * strafe) / normal * role.speed * dt;
+    let dzStep = (direction.z * approach + direction.x * strafe) / normal * role.speed * dt;
+    if((navigator && Math.abs(target.y-actor.y)>.6) || entry.navigation?.path.length) {
+      const feet={x:actor.x,y:Math.max(0,actor.y-1.75),z:actor.z};
+      const goal={x:target.x,y:floorAt(target),z:target.z};
+      if(entry.navigation) entry.navigation.retry-=dt;
+      if(navigator && (!entry.navigation || !entry.navigation.pending && entry.navigation.retry<=0 && (!entry.navigation.path.length || distance(entry.navigation.target,goal)>4)))
+        entry.navigation={path:[],target:goal,retry:1.5,pending:navigator.plan(feet,goal)};
+      if(entry.navigation?.pending){
+        // Cold graph edges are checked over several frames, never in one long
+        // synchronous search. Six bots share at most roughly 6 ms per tick.
+        const deadline=performance.now()+1;
+        do{const result=entry.navigation.pending.next();if(result.done){entry.navigation.path=result.value;entry.navigation.pending=undefined;break;}}while(performance.now()<deadline);
+        // Hold position while a fresh path is planned so its start remains valid.
+        dxStep=0;dzStep=0;
+      }
+      const path=entry.navigation?.path;
+      while(path?.length && distance(feet,path[0])<.12)path.shift();
+      if(path?.length){const p=path[0],d=Math.hypot(p.x-actor.x,p.z-actor.z),step=Math.min(d,role.speed*dt);dxStep=(p.x-actor.x)/Math.max(d,.001)*step;dzStep=(p.z-actor.z)/Math.max(d,.001)*step;}
+    }
     const vehicleSolids = vehicles.filter(v => v.y < 2).map(vehicleBounds);
     if (traversal) {
       const step = traversal.move({ x: actor.x, y: Math.max(0, actor.y - 1.75), z: actor.z, velocityY: entry.velocityY ?? 0 }, dxStep, dzStep, dt, .4, 1.8, vehicleSolids);

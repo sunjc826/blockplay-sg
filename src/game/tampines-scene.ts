@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TAMPINES_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
-import { withVerticalRoutes } from './vertical-routes';
+import { withVerticalPlaces } from './vertical-places';
 import { markWater } from './water';
 
 // On the town-centre verge, looking across at the round market.
@@ -85,14 +85,21 @@ export function buildTampinesScene() {
    */
   function stadium(x: number, z: number) {
     box(x, 0.2, z, 96, 0.4, 88, paving);
-    solid(x, z, 88, 80);
+    // Court and lower community wings are now enterable.
+    // Structural piers continue above the upper concourse to the retained wings.
+    for (const side of [-1, 1]) for (const along of [-18, 18]) {
+      for (const [dx, dz] of [[side * 37, along], [along, side * 34]]) {
+        box(x + dx, 7, z + dz, 0.9, 14, 0.9, pale);
+        solid(x + dx, z + dz, 0.9, 0.9); kit.obstacles[kit.obstacles.length - 1].maxY = 14;
+      }
+    }
     // Retain the court as a visible central void rather than a freestanding bowl.
     box(x, 0.5, z, 58, 0.4, 43, turf);
     for (const dx of [-27, 0, 27]) box(x + dx, 0.75, z, 0.35, 0.05, 40, white);
     for (const dz of [-20, 20]) box(x, 0.75, z + dz, 54, 0.05, 0.35, white);
     for (const side of [-1, 1]) {
-      box(x + side * 37, 16, z, 14, 32, 80, pale, scene, true);
-      box(x, 17, z + side * 34, 74, 34, 12, pale, scene, true);
+      box(x + side * 37, 23, z, 14, 18, 80, pale, scene, true);
+      box(x, 24, z + side * 34, 74, 20, 12, pale, scene, true);
       // July 2024 exterior: solid warm patchwork upper block, not a
       // uniformly glazed office facade. Sparse colored slit windows puncture it.
       const warmPanels = [terra, mat('#b87960'), mat('#c29370'), mat('#a76858')];
@@ -117,27 +124,23 @@ export function buildTampinesScene() {
           box(x + side * 45.3, y, z + dz, 0.15, 3.9, 1.15, glass);
         }
       }
-      for (const y of [5, 9, 12]) {
+      for (const y of [12]) {
         box(x, y, z + side * 40.5, 87, 1.6, 0.9, dark);
         box(x + side * 44.5, y, z, 0.9, 1.6, 80, dark);
       }
       box(x, 31.8, z + side * 40.5, 86, 3, 0.7, glass);
       box(x + side * 44.5, 31.8, z, 0.7, 3, 80, glass);
-      for (let tier = 0; tier < 3; tier++) {
-        box(x, 1.5 + tier * 1.2, z + side * (24 + tier * 2), 54, 1.2, 2.8, concrete);
-        box(x, 2.2 + tier * 1.2, z + side * (24 + tier * 2), 51, 0.4, 1.5, rust);
-      }
       box(x + side * 35, 33, z, 18, 0.8, 78, lawn);
       for (let dz = -28; dz <= 28; dz += 14) blob(x + side * 35, 34.2, z + dz, 3, 1.2, 3, fern);
     }
     // A broad central arrival opening and lightweight entrance canopy.
-    box(x, 4.2, z + 40.8, 23, 7, 0.4, dark);
+    // The arrival portal remains physically open.
     box(x, 8.5, z + 43, 31, 0.5, 7, glass);
     // January 2023 Hub arrival: round white piers and dark louvred entry.
     for (const dx of [-10, 10]) {
       cylinder(x + dx, 3.8, z + 40, 0.8, 7.6, pale);
     }
-    for (let y = 1; y <= 7; y += 0.5) box(x + 7, y, z + 41.2, 7, 0.13, 0.25, steel);
+    for (let y = 6; y <= 7; y += 0.5) box(x + 7, y, z + 41.2, 7, 0.13, 0.25, steel);
     sign('OUR TAMPINES HUB', x, 13, z + 41.1, 38, 2.6, '#6b4236');
     const backSign = sign('OUR TAMPINES HUB', x, 13, z - 41.1, 38, 2.6, '#6b4236');
     if (backSign) backSign.rotation.y = Math.PI;
@@ -253,7 +256,7 @@ export function buildTampinesScene() {
   scene.userData.districtFeatures = ['radial-market-roof', 'vented-drum-cap', 'outward-stall-bays', 'integrated-hub-courtyard', 'screened-community-block', 'planted-roof-terraces', 'mall-link-bridges', 'sawtooth-berths', 'hawker-deck-slabs', 'worked-quarry-faces', 'cycle-path-run'];
   scene.userData.referenceFeatures = ['hub-exterior-0:sheltered-arrival-columns-and-louvres-only', 'hub-outdoor02-0:terracotta-patchwork-and-colored-slit-windows'];
 
-  return withVerticalRoutes(kit.finish({
+  return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.35 + index) * 1.4; });
@@ -263,27 +266,268 @@ export function buildTampinesScene() {
       });
     },
   }), [
-    {
-      id: 'hub-arrival-gallery', name: 'Hub arrival gallery', width: 4,
-      points: [
-        { x: 12, z: 8, y: 0 },
-        { x: 24, z: 8, y: 3.2 },
-        { x: 86, z: 8, y: 3.2 },
-        { x: 98, z: 8, y: 0 },
-      ],
-      color: '#c29370',
-      note: 'Authored low arrival gallery beside the compressed community hub; upper sports facilities remain schematic.',
-    },
-    {
-      id: 'housing-court-deck', name: 'Housing court deck', width: 4,
-      points: [
-        { x: -210, z: -40, y: 0 },
-        { x: -198, z: -40, y: 3.2 },
-        { x: -178, z: -40, y: 3.2 },
-        { x: -166, z: -40, y: 0 },
-      ],
-      color: '#e6e0d2',
-      note: 'Authored court-level pedestrian deck between housing slabs, clear of the existing low sheltered links.',
-    },
-  ]);
+  {
+    "id": "hub-court",
+    "name": "Our Tampines Hub court and community concourses",
+    "note": "Authored connected playable interior in the existing compressed landmark footprint; not a surveyed interior or newly reference-verified layout.",
+    "floors": [
+      {
+        "id": "community-west",
+        "x": 18.5,
+        "z": -40,
+        "y": 4.8,
+        "width": 15.0,
+        "depth": 80,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "community-east",
+        "x": 91.5,
+        "z": -40,
+        "y": 4.8,
+        "width": 15.0,
+        "depth": 80,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "community-north",
+        "x": 55,
+        "z": -72.0,
+        "y": 4.8,
+        "width": 58,
+        "depth": 16.0,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "community-south",
+        "x": 55,
+        "z": -8.0,
+        "y": 4.8,
+        "width": 58,
+        "depth": 16.0,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "sports-west",
+        "x": 18.5,
+        "z": -40,
+        "y": 9.6,
+        "width": 15.0,
+        "depth": 80,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "sports-east",
+        "x": 91.5,
+        "z": -40,
+        "y": 9.6,
+        "width": 15.0,
+        "depth": 80,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "sports-north",
+        "x": 55,
+        "z": -72.0,
+        "y": 9.6,
+        "width": 58,
+        "depth": 16.0,
+        "color": "#c8bdaa"
+      },
+      {
+        "id": "sports-south",
+        "x": 55,
+        "z": -8.0,
+        "y": 9.6,
+        "width": 58,
+        "depth": 16.0,
+        "color": "#c8bdaa"
+      }
+    ],
+    "connections": [
+      {
+        "id": "west-court-stair",
+        "from": {
+          "x": 44,
+          "z": -40,
+          "y": 0
+        },
+        "to": {
+          "x": 26,
+          "z": -40,
+          "y": 4.8
+        },
+        "width": 5,
+        "stairs": true
+      },
+      {
+        "id": "east-court-stair",
+        "from": {
+          "x": 66,
+          "z": -40,
+          "y": 0
+        },
+        "to": {
+          "x": 84,
+          "z": -40,
+          "y": 4.8
+        },
+        "width": 5,
+        "stairs": true
+      },
+      {
+        "id": "west-upper-stair",
+        "from": {
+          "x": 31,
+          "z": -64,
+          "y": 4.8
+        },
+        "to": {
+          "x": 31,
+          "z": -16,
+          "y": 9.6
+        },
+        "width": 4,
+        "stairs": true
+      },
+      {
+        "id": "east-upper-stair",
+        "from": {
+          "x": 79,
+          "z": -16,
+          "y": 4.8
+        },
+        "to": {
+          "x": 79,
+          "z": -64,
+          "y": 9.6
+        },
+        "width": 4,
+        "stairs": true
+      }
+    ],
+    "fixtures": [
+      {
+        "x": 18,
+        "z": -70,
+        "y": 5.45,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#a96850",
+        "solid": true
+      },
+      {
+        "x": 18,
+        "z": -40,
+        "y": 5.45,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#a96850",
+        "solid": true
+      },
+      {
+        "x": 18,
+        "z": -10,
+        "y": 5.45,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#a96850",
+        "solid": true
+      },
+      {
+        "x": 92,
+        "z": -70,
+        "y": 5.45,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#a96850",
+        "solid": true
+      },
+      {
+        "x": 92,
+        "z": -40,
+        "y": 5.45,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#a96850",
+        "solid": true
+      },
+      {
+        "x": 92,
+        "z": -10,
+        "y": 5.45,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#a96850",
+        "solid": true
+      },
+      {
+        "x": 18,
+        "z": -70,
+        "y": 10.25,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#a96850",
+        "solid": true
+      },
+      {
+        "x": 18,
+        "z": -40,
+        "y": 10.25,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#a96850",
+        "solid": true
+      },
+      {
+        "x": 18,
+        "z": -10,
+        "y": 10.25,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#a96850",
+        "solid": true
+      },
+      {
+        "x": 92,
+        "z": -70,
+        "y": 10.25,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#a96850",
+        "solid": true
+      },
+      {
+        "x": 92,
+        "z": -40,
+        "y": 10.25,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#a96850",
+        "solid": true
+      },
+      {
+        "x": 92,
+        "z": -10,
+        "y": 10.25,
+        "width": 4,
+        "height": 1.3,
+        "depth": 2,
+        "color": "#a96850",
+        "solid": true
+      }
+    ]
+  }
+]);
 }

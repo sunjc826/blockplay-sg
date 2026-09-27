@@ -1,3 +1,4 @@
+import { verticalVehicleObstacles } from '../game/vertical-vehicle-obstacles';
 import EnvironmentControls from './EnvironmentControls';
 import { createWorldAtmosphere } from '../game/world-atmosphere';
 import { createVerticalMovement } from '../game/vertical-movement';
@@ -43,6 +44,7 @@ export default function MarinaGame() {
     const world = buildMarinaScene();
     const atmosphere = createWorldAtmosphere(world.scene, MARINA_STAMPS, world.obstacles);
     const walking = createVerticalMovement({ bounds: MARINA_BOUNDS, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
+    const drivingObstacles = [...world.obstacles, ...verticalVehicleObstacles({ surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })];
     let feetY = 0, velocityY = 0;
     const objectiveHighlight = createObjectiveHighlight(world.scene);
     const selectHighlight = (id: string | null) => objectiveHighlight.select(world.stamps[destinations.findIndex(d => d.id === id)]);
@@ -125,7 +127,7 @@ export default function MarinaGame() {
         dz = (-Math.cos(yaw) * forward - Math.sin(yaw) * side) / normal * rate * dt;
       }
       const walked = driving ? null : walking.move({ ...position, y: feetY, velocityY }, dx, dz, dt, .65, 1.8);
-      const next = walked ?? moveInMarina(position, dx, dz, 1.35, world.obstacles);
+      const next = walked ?? moveInMarina(position, dx, dz, 1.35, drivingObstacles);
       if (walked) { feetY = walked.y; velocityY = walked.velocityY; }
       const step = Math.hypot(next.x - position.x, next.z - position.z);
       if (driving && step < Math.hypot(dx, dz) * 0.2) speed = 0;
