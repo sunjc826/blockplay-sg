@@ -67,7 +67,7 @@ const LABEL: Record<FixedKind, string> = { gas: 'Gas system', freefloat: 'Free-f
 const VISUAL: Record<FixedKind, string> = {
   gas: 'a gas block and regulator above the barrel',
   freefloat: 'a barrel nut with daylight between barrel and handguard',
-  bipod: 'a bipod folded forward under the barrel',
+  bipod: 'a bipod folded beneath the barrel',
   buffer: 'a buffer pad on the butt',
 };
 

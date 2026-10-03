@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { advanceRecoil, BURST_RESET, CLIMB_CEILING, CLIMB_EASE_ROUNDS, compensateRecoil, createRecoil, PITCH_CEILING, recoilPose, recoilView, recordRecoilShot, RECOVERY_DELAY, RECOVERY_LIMITS, resetRecoil, takeAimPush, VIEW_SCALE, YAW_CEILING } from './fps-recoil';
 import { FPS_WEAPONS } from './fps-rules';
+import { stanceRecoilMultiplier } from './fps-stance';
 
 const step = (state: ReturnType<typeof createRecoil>, seconds: number, dt = 1 / 60) => {
   for (let t = 0; t < seconds; t += dt) advanceRecoil(state, dt);
@@ -354,5 +355,46 @@ describe('the opening burst is the one you can place', () => {
     expect(fire()).toBeGreaterThan(opening * 2);
     step(state, BURST_RESET * 1.5, 1 / 240); takeAimPush(state);
     expect(fire()).toBeCloseTo(opening, 12);
+  });
+});
+
+describe('stance recoil impulses', () => {
+  it('scales real aim, both camera axes and weapon buck consistently across every weapon', () => {
+    for (const [weapon, spec] of FPS_WEAPONS.entries()) {
+      const standing = createRecoil(); recordRecoilShot(standing, spec, weapon, () => .8);
+      for (const stance of ['crouch', 'prone'] as const) {
+        const scale = stanceRecoilMultiplier(stance, true), supported = createRecoil();
+        recordRecoilShot(supported, spec, weapon, () => .8, scale);
+        for (const axis of ['pitchTarget', 'yawTarget', 'punchTarget', 'rollTarget', 'climb', 'drift', 'pushPitch', 'pushYaw'] as const) {
+          expect(supported[axis]).toBeCloseTo(standing[axis] * scale, 12);
+        }
+        expect(supported.recovery).toBe(standing.recovery);
+        expect(supported.shot).toBe(standing.shot);
+      }
+    }
+  });
+
+  it('does not erase earlier recoil or restart a burst when stance changes', () => {
+    const state = createRecoil(); recordRecoilShot(state, SAR, 0, () => .8);
+    takeAimPush(state);
+    const before = { ...state }, nextStanding = { ...state };
+    recordRecoilShot(nextStanding, SAR, 0, () => .8);
+    recordRecoilShot(state, SAR, 0, () => .8, .5);
+    expect(state.climb).toBeCloseTo(before.climb + (nextStanding.climb - before.climb) * .5, 12);
+    expect(state.pitchTarget).toBeCloseTo(before.pitchTarget + (nextStanding.pitchTarget - before.pitchTarget) * .5, 12);
+    expect(state.shot).toBe(2);
+    const push = takeAimPush(state);
+    compensateRecoil(state, -state.climb, -state.drift);
+    expect(push.pitch).toBeGreaterThan(0);
+    step(state, 3);
+    expect(takeAimPush(state)).toEqual({ pitch: 0, yaw: 0 });
+  });
+
+  it('keeps grounded stance bonuses out of airborne fire and falls back safely for invalid multipliers', () => {
+    const standing = createRecoil(); recordRecoilShot(standing, SAR, 0, () => .8);
+    for (const scale of [stanceRecoilMultiplier('prone', false), NaN, Infinity, 2]) {
+      const state = createRecoil(); recordRecoilShot(state, SAR, 0, () => .8, scale);
+      expect(state).toEqual(standing);
+    }
   });
 });

@@ -1,3 +1,4 @@
+import type { BipodKind } from './weapon-support';
 /** Arcade tuning, intentionally independent of real equipment specifications. */
 import { MACHINE_GUN_LAYOUT } from './machine-gun-layout';
 import { falloffScale, HITSCAN, type BallisticSpec } from './fps-ballistics';
@@ -32,7 +33,7 @@ export function findTrait<K extends WeaponTraitKind>(traits: readonly WeaponTrai
  * fast it comes back, as a multiple of the baseline settle rate. See
  * `fps-recoil` for why a kick needs both numbers rather than one.
  */
-export interface WeaponSpec { requiresMount?: boolean; /** Unloaded arcade carry mass, in kg. */ weightKg?: number; fireMode?: 'auto' | 'semi'; caliberMm: number; id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; recoilRecovery: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
+export interface WeaponSpec { bipod?: BipodKind; requiresMount?: boolean; /** Unloaded arcade carry mass, in kg. */ weightKg?: number; fireMode?: 'auto' | 'semi'; caliberMm: number; id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; recoilRecovery: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
 export const FPS_WEAPONS: readonly WeaponSpec[] = [
   // The rifle holds its damage to twice the support weapon's range; the support
   // weapon trades that away for its volume of fire. Paid variants lift both bands.
@@ -40,13 +41,13 @@ export const FPS_WEAPONS: readonly WeaponSpec[] = [
   // is what its volume of fire is bought with.
   { caliberMm: 5.56, id: 'sar21-inspired', weightKg: 3.8, name: 'SAR 21', role: 'Bullpup rifle', capacity: 30, reserve: 120, interval: 0.12, reload: 1.8, recoil: 0.018, recoilRecovery: 1, sightHeight: 0.328, damage: 36, aimFov: magnifiedFov(1.5), mobility: 1, optic: 'integrated', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 30, far: 90, minScale: 0.55 }, { kind: 'precision', multiplier: 1.6 }] },
-  { caliberMm: 5.56, id: 'ultimax-inspired', weightKg: 5, name: 'Ultimax', role: 'Support weapon', capacity: 60, reserve: 180, interval: 0.085, reload: 2.5, recoil: 0.026, recoilRecovery: 0.85, sightHeight: 0.28, damage: 30, aimFov: HIP_FOV, mobility: 1, optic: 'reflex', ballistics: HITSCAN,
+  { caliberMm: 5.56, id: 'ultimax-inspired', bipod: 'standard', weightKg: 5, name: 'Ultimax', role: 'Support weapon', capacity: 60, reserve: 180, interval: 0.085, reload: 2.5, recoil: 0.026, recoilRecovery: 0.85, sightHeight: 0.28, damage: 30, aimFov: HIP_FOV, mobility: 1, optic: 'reflex', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 14, far: 45, minScale: 0.40 }, { kind: 'precision', multiplier: 1.5 }] },
   { caliberMm: 9, id: 'p30-inspired', weightKg: 0.8, name: 'P30', role: 'Semi-auto pistol', fireMode: 'semi', capacity: 15, reserve: 60, interval: .22, reload: 1.25, recoil: .022, recoilRecovery: 1.35, sightHeight: .232, damage: 28, aimFov: HIP_FOV, mobility: 1.14, optic: 'iron', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 12, far: 42, minScale: .35 }, { kind: 'precision', multiplier: 1.8 }] },
-  { caliberMm: 7.62, id: 'mag-inspired', weightKg: 11.8, name: 'FN MAG', role: 'General-purpose MG', capacity: 100, reserve: 200, interval: .12, reload: 4.6, recoil: .042, recoilRecovery: .75, sightHeight: MACHINE_GUN_LAYOUT['mag-inspired'].sightHeight, damage: 60, aimFov: HIP_FOV, mobility: .74, optic: 'iron', ballistics: HITSCAN,
+  { caliberMm: 7.62, id: 'mag-inspired', bipod: 'standard', weightKg: 11.8, name: 'FN MAG', role: 'General-purpose MG', capacity: 100, reserve: 200, interval: .12, reload: 4.6, recoil: .042, recoilRecovery: .75, sightHeight: MACHINE_GUN_LAYOUT['mag-inspired'].sightHeight, damage: 60, aimFov: HIP_FOV, mobility: .74, optic: 'iron', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 45, far: 120, minScale: .70 }, { kind: 'precision', multiplier: 1.5 }] },
-  { requiresMount: true, caliberMm: 12.7, id: 'cis50-inspired', weightKg: 30, name: 'CIS 50MG', role: 'Heavy machine gun', capacity: 50, reserve: 100, interval: .14, reload: 5.8, recoil: .064, recoilRecovery: .65, sightHeight: MACHINE_GUN_LAYOUT['cis50-inspired'].sightHeight, damage: 160, aimFov: HIP_FOV, mobility: .55, optic: 'iron', ballistics: HITSCAN,
+  { requiresMount: true, caliberMm: 12.7, id: 'cis50-inspired', bipod: 'heavy', weightKg: 30, name: 'CIS 50MG', role: 'Heavy machine gun', capacity: 50, reserve: 100, interval: .14, reload: 5.8, recoil: .064, recoilRecovery: .65, sightHeight: MACHINE_GUN_LAYOUT['cis50-inspired'].sightHeight, damage: 160, aimFov: HIP_FOV, mobility: .55, optic: 'iron', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 55, far: 140, minScale: .75 }, { kind: 'precision', multiplier: 1.4 }] },
 ];
 

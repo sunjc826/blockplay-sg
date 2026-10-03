@@ -1,3 +1,4 @@
+import { bipodRecoilMultiplier } from './weapon-support';
 import { createWorldAtmosphere } from './world-atmosphere';
 import { getRegion } from './regions';
 import { createMovementMotion, resetMovementMotion, advanceGroundMotion, advanceBodyMotion, bufferJump, consumeJump, landMovement, INFANTRY_GRAVITY } from './fps-movement';
@@ -5,7 +6,7 @@ import { createVerticalMovement } from './vertical-movement';
 import { elevatedLootAnchors } from './vertical-navigation';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import type { VehicleControls } from './vehicle-seats';
-import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage } from './fps-stance';
+import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage, stanceRecoilMultiplier } from './fps-stance';
 import { pickupSlot } from './armory-slots';
 import { equipmentMovement } from './fps-encumbrance';
 import { buildServiceWeapon } from './service-weapon-models';
@@ -250,7 +251,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       ],
     });
   };
-  const clearInput = () => { prone = false; keys.clear(); trigger = false; triggerSpent = false; ads = false; touchAim = false; drag = null; moveStick = null; resetMovementMotion(bodyMotion, eyeHeight()); };
+  const clearInput = () => { prone = false; keys.clear(); trigger = false; triggerSpent = false; ads = false; touchAim = false; drag = null; moveStick = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -761,8 +762,6 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     aimProgress = THREE.MathUtils.damp(aimProgress, aiming ? 1 : 0, 15 * (aiming ? movement().aimSpeed : 1), dt);
     const aim = smoothStep(aimProgress);
     rig.visible = !options.arena || hud.arenaSelf?.alive !== false;
-    const deployedMount = weapons[hud.weapon]?.getObjectByName('cis50-inspired__deployed-mount');
-    if (deployedMount) deployedMount.visible = braced();
     const poseStance = stance(), crouching = poseStance !== 'stand';
     const speed = carry.length(), onGround = grounded();
     const sideSpeed = carry.x * Math.cos(yaw) - carry.z * Math.sin(yaw);
@@ -787,16 +786,21 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.crosshairSpread = THREE.MathUtils.damp(hud.crosshairSpread, Math.max(3, spreadPixels), 20, dt);
     const state = loadout[hud.weapon], remaining = state.reloadRemaining / specs[hud.weapon].reload;
     const progress = remaining > 0 ? 1 - remaining : null, motion = reloadMotion(progress ?? 0);
-    rig.position.set(THREE.MathUtils.lerp(.20, 0, aim) + sway + motion.x + lookLagX,
-      THREE.MathUtils.lerp(-.32, -(handling[hud.weapon]?.aimHeight ?? .435), aim) + Math.abs(sway) - bodyMotion.sprint * .08 + bodyFollow + motion.y + lookLagY,
-      THREE.MathUtils.lerp(-.78, handling[hud.weapon]?.aimDepth ?? -.47, aim) + pose.push + motion.z + bodyMotion.surge * motionScale * (1 - aim));
+    // A supported gun stays low for reloads; hands, magazine and feed cover
+    // still perform their complete handling animation around the planted legs.
+    const reloadTravel = 1 - (handling[hud.weapon]?.bipodDeployment ?? 0);
+    rig.position.set(THREE.MathUtils.lerp(.20, 0, aim) + sway + motion.x * reloadTravel + lookLagX,
+      THREE.MathUtils.lerp(-.32, -(handling[hud.weapon]?.aimHeight ?? .435), aim) + Math.abs(sway) - bodyMotion.sprint * .08 + bodyFollow + motion.y * reloadTravel + lookLagY,
+      THREE.MathUtils.lerp(-.78, handling[hud.weapon]?.aimDepth ?? -.47, aim) + pose.push + motion.z * reloadTravel + bodyMotion.surge * motionScale * (1 - aim));
     // The weapon carries the buck, the sideways half of the pattern and the roll
     // that goes with it; the camera only ever takes the view coupling above.
     // `recoilPose` sizes them; aiming in is the only thing damped here, because
     // a shouldered weapon is held against the shooter rather than by the hands.
-    rig.rotation.set(pose.pitch * (1 - aim * .8) + bodyMotion.sprint * -.18 + bodyFollow * 1.2 + motion.pitch,
-      motion.yaw + pose.yaw * (1 - aim * .6), motion.roll + pose.roll * (1 - aim * .5) + sway * .7);
-    handling.forEach((model, i) => model.update(i === hud.weapon ? progress : null, emptyReload[i]));
+    rig.rotation.set(pose.pitch * (1 - aim * .8) + bodyMotion.sprint * -.18 + bodyFollow * 1.2 + motion.pitch * reloadTravel,
+      motion.yaw * reloadTravel + pose.yaw * (1 - aim * .6), motion.roll * reloadTravel + pose.roll * (1 - aim * .5) + sway * .7);
+    handling.forEach((model, i) => model.update(i === hud.weapon ? progress : null, emptyReload[i],
+      i === hud.weapon ? { prone: prone && hud.phase === 'playing', grounded: onGround, speed, eyeHeight: bodyMotion.eye, dt } : undefined));
+    canvas.dataset.bipodDeployment = (handling[hud.weapon]?.bipodDeployment ?? 0).toFixed(3);
     const stage = reloadStage(remaining, emptyReload[hud.weapon]);
     if (stage && stage !== lastReloadStage && hud.phase === 'playing') handlingSound(stage);
     lastReloadStage = stage;
@@ -1096,7 +1100,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const muzzle = weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_muzzle`);
     if (muzzle) { muzzle.getWorldPosition(muzzlePoint); camera.localToWorld(muzzlePoint); }
     else muzzlePoint.copy(camera.position);
-    recordRecoilShot(kick, specs[hud.weapon], hud.weapon);
+    const supportMultiplier = bipodRecoilMultiplier(specs[hud.weapon].bipod, handling[hud.weapon]?.bipodDeployment ?? 0, prone, grounded(), carry.length());
+    const recoilMultiplier = stanceRecoilMultiplier(stance(), grounded(), bodyMotion.eye) * supportMultiplier;
+    recordRecoilShot(kick, specs[hud.weapon], hud.weapon, Math.random, recoilMultiplier);
+    canvas.dataset.recoilMultiplier = recoilMultiplier.toFixed(3);
     effects.fire({ recoil: specs[hud.weapon].recoil, eject: weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_eject`), camera, carry });
     // The arena host owns its own shot resolution and stays instant until it can
     // step rounds per tick; everything else with a finite muzzle velocity flies.

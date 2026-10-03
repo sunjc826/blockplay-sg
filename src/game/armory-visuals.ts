@@ -4,6 +4,7 @@ import { itemById, type ShopItem } from './armory-catalog';
 import type { EquippedWeapon } from './armory-state';
 import { fitWeaponOptic } from './weapon-optics';
 import { fitWeaponHardware } from './weapon-fittings';
+import { buildWeaponBipod } from './weapon-bipod';
 
 /** Each preview owns its materials. Restore originals before disposing the source GLB. */
 export function dressWeapon(root: THREE.Object3D, weapon: EquippedWeapon) {
@@ -39,6 +40,12 @@ export function dressWeapon(root: THREE.Object3D, weapon: EquippedWeapon) {
     const part = new THREE.Mesh(new THREE.BoxGeometry(.038, .012, .05), new THREE.MeshStandardMaterial({ color, metalness: .55, roughness: .45 }));
     part.position.set(x, y, z); accessories.add(part);
   };
+  // Replace the platform default with this variant's fixed support package.
+  const originalBipod = root.getObjectByName(`${weapon.id}__bipod`);
+  const bipodParent = originalBipod?.parent;
+  originalBipod?.removeFromParent();
+  const bipod = buildWeaponBipod(weapon.id, weapon.bipod ?? 'none');
+  if (bipod) root.add(bipod);
   const removeOptic = fitWeaponOptic(root, weapon);
   // The variant's own hardware, which is what separates one tier from the next.
   const removeHardware = fitWeaponHardware(root, weapon);
@@ -46,6 +53,8 @@ export function dressWeapon(root: THREE.Object3D, weapon: EquippedWeapon) {
   if (weapon.equipment.attachments.handling) addBand(0, .07, -.20, '#555b5e');
   return () => {
     removeOptic(); removeHardware();
+    if (bipod) { bipod.removeFromParent(); disposeModel(bipod); }
+    if (originalBipod && bipodParent) bipodParent.add(originalBipod);
     originals.forEach(([object, material]) => object.material = material);
     materials.forEach(m => m.dispose()); texture?.dispose(); accessories.removeFromParent(); disposeModel(accessories);
   };

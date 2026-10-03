@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildWeaponBipod } from './weapon-bipod';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { MACHINE_GUN_LAYOUT, type MachineGunId } from './machine-gun-layout';
 
@@ -136,12 +137,7 @@ export function buildMachineGun(id: MachineGunId) {
       for (let i = 0; i < 6; i++) box('grip-rib', .038, .006, .048, x, .087 + i * .019, .27, dark);
     }
     box('mount-lug', .09, .09, .12, 0, .14, -.11, dark);
-    const mount = new THREE.Group(); mount.name = `${id}__deployed-mount`; mount.visible = false; root.add(mount);
-    cylinder('mount-pivot', .055, .085, 0, .074, -.11, steel, mount);
-    for (const [x, z] of [[-.24, -.36], [.24, -.36], [0, .25]]) {
-      rod('mount-leg', new THREE.Vector3(0, .07, -.11), new THREE.Vector3(x, -.18, z), .013, dark, mount);
-      box('mount-foot', .07, .018, .08, x, -.18, z, steel, mount);
-    }
+
   } else {
     // The butt narrows into the receiver; its dropped comb stays below the eye.
     profile('stock-neck', [[-.028, -.043], [.028, -.043], [.030, .027], [-.030, .027]], .23, 0, .205, .17, polymer);
@@ -157,15 +153,11 @@ export function buildMachineGun(id: MachineGunId) {
     cylinder('gas-regulator', .019, .034, 0, y - .042, -.49, steel);
     box('handguard', .072, .055, .17, 0, .175, -.26, polymer);
     for (const side of [-1, 1]) for (let i = 0; i < 5; i++) box('handguard-vent', .003, .015, .014, side * .037, .185, -.20 - i * .027, dark);
-    cylinder('bipod-collar', .025, .03, 0, y - .025, -.43, steel);
-    for (const side of [-1, 1]) {
-      rod('bipod', new THREE.Vector3(side * .025, .19, -.43), new THREE.Vector3(side * .073, .025, -.46), .006, steel);
-      box('bipod-foot', .045, .013, .044, side * .073, .025, -.46, dark);
-    }
     // Side-folded carry handle: connected at the barrel socket, out of the sight window.
     rod('carry-handle-stem', new THREE.Vector3(.025, .23, -.18), new THREE.Vector3(.085, .285, -.18), .006, steel);
     cylinder('carry-handle', .012, .11, .085, .285, -.123, polymer);
   }
+  root.add(buildWeaponBipod(id)!);
   socket('muzzle', 0, y, front - .03); socket('eject', heavy ? .095 : .063, y, -.05);
   return root;
 }

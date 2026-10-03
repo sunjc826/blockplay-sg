@@ -156,9 +156,11 @@ export function resetRecoil(state: RecoilState) {
   state.climb = state.drift = state.pushPitch = state.pushYaw = 0;
 }
 
-/** The resolved weapon spec, so armoury parts and grips carry straight through. */
-export function recordRecoilShot(state: RecoilState, spec: RecoilRating, weapon: number, random: () => number = Math.random) {
-  const rating = Math.max(0, spec.recoil);
+/** The resolved weapon spec retains its rating; stance scales only this shot's
+ * impulse (view kick, weapon buck and actual aim), never existing recoil debt. */
+export function recordRecoilShot(state: RecoilState, spec: RecoilRating, weapon: number, random: () => number = Math.random, impulseMultiplier = 1) {
+  const multiplier = Number.isFinite(impulseMultiplier) ? Math.max(0, Math.min(1, impulseMultiplier)) : 1;
+  const rating = Math.max(0, spec.recoil) * multiplier;
   state.recovery = recoveryRate(spec.recoilRecovery ?? 1);
   const pattern = PATTERNS[weapon] ?? PATTERNS[0];
   const lateral = pattern[state.shot % pattern.length] * 1.15 + (random() * 2 - 1) * 0.3;

@@ -2018,3 +2018,71 @@ User requested committing the accumulated Ultimax mount, MG modelling, coated
 SAR/reflex glass and red-dot bloom changes. Full suite: 950 tests across 104
 files passed; typecheck passed. Scoped commit includes the weapon work, browser
 regressions and documentation; unrelated promo assets remain untracked.
+
+## 2026-10-04 — stance recoil policy
+
+Added STANCE_RECOIL_MULTIPLIERS in fps-stance.ts: stand 1.00, grounded crouch
+0.75, grounded prone 0.50. Support blends with the body's lowering animation;
+airborne fire stays at 1.00 and rising caps the bonus to the new stance.
+recordRecoilShot accepts an optional per-shot impulse multiplier applied to
+camera pitch/yaw, weapon buck/roll and actual aim climb/drift. It does not rescale
+existing recoil debt, reset the burst, change recovery or modify weapon specs.
+Every infantry weapon/variant and player-pilot shot shares the engine policy.
+Spread and unsupported .50 self-damage remain governed by their existing rules.
+
+Validation: 73 targeted recoil/stance/movement/arena/accuracy tests passed;
+production build/typecheck passed (existing bundle-size advisory). New browser
+fps-stance-recoil-smoke.mjs checked actual shots standing 1.00, lowering 0.861,
+crouched 0.75, prone 0.50, rising 1.00 and airborne 1.00, with no runtime errors.
+No commit/push in this turn; other staged optics/model changes were preserved.
+
+## 2026-10-04 — articulated MG bipods
+
+Shared weapon-bipod.ts adds hinged, spreading, telescoping legs with articulated
+feet to Ultimax, FN MAG and CIS 50MG. MAG's fixed legs and the .50's pop-in tripod
+were replaced; the .50 has thicker/wider support and slower deployment. Native
+MG models own their rigs; dressWeapon adds/removes the imported Ultimax rig, and
+variant hardware skips duplicate bipods. Shop previews retain folded supports.
+
+Handling animates deployment as the grounded player settles below crouch into
+prone; crawling, rising or losing support retracts the legs. Reload leaves the
+rig deployed and suppresses the whole-gun reload lift while retaining hands,
+magazine, belt, cover and charging-handle animation. Swapping, pause, reset and
+teardown reset deployment. Existing .50 mount safety/movement and stance recoil
+policy are unchanged. Feet articulate relative to the weapon; this is viewmodel
+animation, not terrain IK or a new host-authoritative mounting mechanic.
+
+Validation: 86 targeted bipod/model/fittings/optics/weapon/stance/recoil tests,
+typecheck and production build passed (existing bundle advisory). Actual browser
+fps-bipod-smoke.mjs passed all three MGs through folded/prone/crawl/ADS/fire/reload,
+swap and stand/pause with no shader/runtime errors. Inspected model-articulation
+and actual .50 prone/reload screenshots in .cache/bipod-review. Fixture at
+scripts/fixtures/bipod-render.html shows folded/deployed pairs. No commit/push;
+the earlier uncommitted stance-recoil work remains intact.
+
+## 2026-10-04 — variant support tradeoffs
+
+Added weapon-support.ts as the fixed support policy: none, quick (0.30s deploy /
+0.20s fold, 0.90x additional recoil), standard (0.55s / 0.32s, 0.80x), heavy
+(0.95s / 0.45s, 0.65x). Deployment follows body lowering; support builds in the
+last quarter of leg travel and vanishes immediately for movement, rising or
+lost ground contact. Multiplies existing stance recoil, leaving unsupported
+prone at 0.50x and supported quick/standard/heavy at 0.45/0.40/0.325x.
+
+Existing variants carry the choices: Route March is bipodless; Encik's Favourite,
+Jaga Corner and Tuas Shift use quick legs; Sai Kang, Carry On and Merlion Roar
+use standard; Fort Siloso, Chope and Big Encik use heavy. No new purchase IDs,
+prices, level gates, whole-weapon weights or base recoil ratings. Route March
+retains its existing lighter/faster kit as the mobile tradeoff. Issued .50 safety
+and movement lock remain separate from the new recoil bonus.
+
+Resolved specs drive model presence, leg thickness/spread, animation timing,
+recoil and the shop description. Dressing replaces/restores the platform's
+native support cleanly, and never adds duplicate variant bipods. Added regression
+coverage for all ten MG configurations, support gating and deployment times.
+156 targeted tests and production build/typecheck passed; 26 support/bipod
+checks re-passed after a fixture pose lookup correction. Browser smoke verified
+actual recoil for all four support choices and a quick .50, including loss of
+bonus during crawling, with no runtime/shader errors. Inspected captures in
+.cache/bipod-variants. Previous stance-recoil browser check now accounts for the
+resolved support package. No commit or push.

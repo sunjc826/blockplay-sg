@@ -157,6 +157,7 @@ export function fitWeaponHardware(root: THREE.Object3D, weapon: EquippedWeapon) 
     ring(outer + .009, .004, anchors.barrel.from - .020, accent);
   }
   function bipod() {
+    if (weapon.bipod === 'none' || root.getObjectByName(`${weapon.id}__bipod`)) return;
     mesh(use(new RoundedBoxGeometry(.028, .024, .046, 2, .004)), steel, 0, anchors.axisY - outer - .014, anchors.barrel.from - .026);
     const leg = use(new THREE.CylinderGeometry(.005, .004, .115, 10)), foot = use(new THREE.CylinderGeometry(.009, .009, .006, 12));
     for (const side of [-1, 1]) {

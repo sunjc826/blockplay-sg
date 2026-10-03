@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { reloadMotion } from './fps-weapon-motion';
 import { getWeaponSight } from './weapon-optics';
+import { createBipodMotion, type BipodMotionInput } from './weapon-bipod';
 import { MACHINE_GUN_LAYOUT } from './machine-gun-layout';
 
 /** Lightweight rigid hand poses; no extra render target or skinning. */
@@ -50,10 +51,14 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   const coverHome = cover?.rotation.clone();
   const belt = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__feed-belt`) : undefined;
   const controlZ = control.position.z;
+  const bipod = createBipodMotion(model, FPS_WEAPONS[index].id);
   return {
+    get bipodDeployment() { return bipod.progress; },
+    resetBipod: bipod.reset,
     get aimHeight() { return getWeaponSight(model)?.aimHeight ?? FPS_WEAPONS[index].sightHeight; },
     get aimDepth() { return getWeaponSight(model)?.aimDepth ?? (index === 2 ? -.52 : index === 3 ? MACHINE_GUN_LAYOUT['mag-inspired'].aimDepth : index === 4 ? MACHINE_GUN_LAYOUT['cis50-inspired'].aimDepth : -.36); },
-    update(progress: number | null, empty: boolean) {
+    update(progress: number | null, empty: boolean, bipodInput?: BipodMotionInput) {
+      bipod.update(bipodInput);
       const motion = reloadMotion(progress ?? 0);
       if (cover && coverHome) { cover.rotation.copy(coverHome); cover.rotation.x -= motion.handToMagazine * .9; }
       if (belt) belt.visible = motion.magazineVisible;
@@ -70,6 +75,6 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       }
       control.position.z = controlZ + (empty ? motion.action * .045 : 0);
     },
-    dispose() { control.position.z = controlZ; additions.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
+    dispose() { bipod.reset(); control.position.z = controlZ; additions.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
   };
 }
