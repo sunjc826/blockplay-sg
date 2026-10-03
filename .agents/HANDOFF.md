@@ -1880,6 +1880,113 @@ Final verification: all927 tests in101 files passed (159.6s), typecheck and prod
 
 Published directly to main under the owner's standing instruction; the deployment workflow remains the final live gate. No capture workflow/reference-plan changes. Remaining design limits: compressed floorplans, sparse furnishings in some spaces, rectangular terrain styling, and a ground-only exploration autopilot. Script results establish access and catch defects; they do not certify map quality.
 
+## 2026-10-03 — Ultimax optic mount and reflex visuals
+
+Lowered the Ultimax sight from the floating y=.405 position to y=.350, seated
+on a short receiver rail with a continuous riser, clamps and bolts. The rail
+fits between the authored rear sight and carry handle; the central aiming
+window clears both. Shop and gameplay share the same housing through
+fitWeaponOptic. New weapon-reflex.ts builds a closed beveled tube, dark inner
+wall, retaining rings, adjustment dials and a recessed curved coated lens.
+Glass remains visible at hip/in the shop; the red dot uses an eye-to-lens ray
+instead of fixed lens UVs and is clipped/occluded by the aperture and housing.
+Red dots still need no extra world render. All added resources are disposed.
+
+Validation: shipped-GLB regression checks rail contact, clear aiming window and
+cleanup; typecheck passes. Browser optics smoke now covers Ultimax shop, hip
+and ADS as well as SAR integrated/precision switching; passed with no shader
+or runtime errors. Inspected model closeups and actual game captures in
+.cache/optics-review and .cache/fps-handling. Full suite: 929 passed, one failure
+in encik-recordings.test.ts (recording URL expected a string), in concurrently
+modified voice files outside this change. No commit/push from this task.
+
+## 2026-10-03 — MG models and iron-sight views
+
+Rebuilt FN MAG and CIS 50MG geometry in machine-gun-models.ts, shared by shop
+and FPS. Chamfered receivers, layered side plates, shaped hinged feed covers,
+recessed bores, belt links/projectiles, detailed ammo boxes, grip details and
+connected supports replace the original box silhouettes. MAG gets a through-hole
+rear aperture; CIS gets an open battle notch. Guarded front blade tips, rear
+openings and ADS eye positions share machine-gun-layout.ts. The original MAG
+feed cover intersected the aiming height; both models now clear the sight line.
+
+Feed-cover details belong to a forward hinge. Belts hide for the magazine swap,
+and reload handling animates the authored charging handle without adding a
+floating second control. Existing magazine/muzzle/ejection/mount node contracts
+and variant fittings remain intact. Combat figures unchanged.
+
+Validation: 40 targeted model/weapon/fittings/optics/reload tests, typecheck and
+production build passed (existing bundle-size advisory). New model regressions
+raycast all six fitted MG variants and verify cover hinge, belt visibility and
+reload restoration. scripts/fps-machine-guns-smoke.mjs passed actual hip/ADS,
+firing, reload and re-aiming for both issued models, including braced CIS firing,
+with no shader or runtime errors. Inspected before/after model views and actual
+game screenshots in .cache/mg-review. No full-suite rerun or commit/push in this
+turn; concurrent voice edits and the prior Ultimax work remain in the workspace.
+
+## 2026-10-03 — powered reflex dot and scenery reflections
+
+Removed aim-progress fading from reflex reticles: they are powered throughout
+hip/raise/ADS and in the shop, and the eye ray plus the physical aperture decides
+visibility. Dot angular size stays constant with eye distance; it fades at the
+lens boundary and cannot be seen through the back of the optic. The normal
+hip pose is too far off-axis to see the dot, but an aligned eye sees it without
+any ADS progress. Magnified scope fade/PiP behavior stays intact.
+
+Added weapon-reflections.ts: one 192px half-float target captures real world
+scenery along the reflected eye ray at most eight times/second; per-frame
+reprojection responds smoothly to head motion. Hidden/offscreen optics skip the
+pass. This supersedes the earlier no-extra-pass description for reflex sights.
+The curved lens blends scenery reflections with a teal/amber coating, stronger
+at the rim and grazing angles, and composites the reticle over the coating.
+Added bezel edging/screws, knurled dial and an emitter shroud. Shop optics use a
+RoomEnvironment studio reflection. Reflection resources and renderer state are
+cleaned up/restored. Pilot aperture positioning now accounts for the lens's
+actual screen centre, which matters when the powered sight sits at hip.
+
+Validation: 41 targeted tests and production build/typecheck pass. Actual optics
+browser smoke passes SAR switching and Ultimax shop/hip/ADS, powered-at-hip and
+reflection checks, with no shader/runtime errors. New deterministic GPU smoke
+(scripts/fps-reflex-render-smoke.mjs + scripts/fixtures/reflex-render.html) checks
+visible dots at partial aim/zero-ADS alignment, stable apparent size/aim point,
+off-axis clipping, and pixel changes confined to the lens when rear scenery is
+removed. Captures in .cache/reflex-review and .cache/fps-handling inspected.
+Existing bundle advisory remains; no full-suite rerun or commit/push this turn.
+
+## 2026-10-03 — SAR 21 scope tint and scenery reflections
+
+Shared the curved glass material through weapon-glass.ts and renamed the
+reflection renderer to createOpticReflectionRenderer. Both integrated SAR
+variants (1.5x issued and 1.75x match) now carry blue-green coated ocular glass
+at hip, in the shop and over the live PiP view. Reflections strengthen at the
+rim/grazing angles, while the centre and etched crosshair stay clear. The
+PiP image also has a subtle radial cool tint. Both optic families reuse the
+existing single throttled reflection target; scope magnification is unchanged.
+
+Validation: 43 targeted tests and production build/typecheck passed (existing
+bundle-size advisory). New fps-scope-glass-smoke.mjs verifies both SAR variants
+on the GPU: hip coating, ADS PiP/magnification, dark crosshair pixels, and actual
+rear-scenery changes confined to the lens. Reflex GPU regression and actual
+game optics smoke also passed with no shader/runtime errors. Inspected scope
+fixture and game screenshots in .cache/reflex-review and .cache/fps-handling.
+No full-suite rerun or commit/push; concurrent voice work remains untouched.
+
+## 2026-10-03 — holographic red-dot bloom
+
+The reflex emitter now has a warm bright core, two soft red halo scales and a
+faint horizontal flare. A separate additive layer shares the existing lens
+geometry, collimated eye ray and aperture clipping; it adds light without
+darkening the scenery. Parenting it to the lens preserves active/hidden state.
+The aiming core keeps its original angular diameter, and both layers dispose
+cleanly. No extra render target or full-screen bloom pass is needed.
+
+Validation: 11 optics/reflection tests and typecheck passed. GPU reflex smoke
+now compares bloom on/off, verifies added light beyond the core with no scenery
+darkening, verifies local glow at ADS and zero-ADS alignment, and checks aperture
+clipping. Existing reflection/constant-size checks and both SAR scope GPU checks
+passed. Inspected .cache/reflex-review/ads.png. Concurrent work remains intact;
+no commit/push or full-suite rerun in this turn.
+
 ## 2026-10-03 — weighted infantry movement
 
 Added fps-movement.ts with frame-independent acceleration/braking, equipment-
@@ -1904,3 +2011,10 @@ stance with no runtime errors. Inspected game captures in .cache/fps-movement;
 sampled walk 3.86 m/s, crawl .71 m/s, jump .80 m and landing dip .033 m with the
 browser's existing equipped loadout. No deployment or commit; preceding optics,
 weapon-model and voice changes remain intact.
+
+## 2026-10-03 — weapon visuals commit validation
+
+User requested committing the accumulated Ultimax mount, MG modelling, coated
+SAR/reflex glass and red-dot bloom changes. Full suite: 950 tests across 104
+files passed; typecheck passed. Scoped commit includes the weapon work, browser
+regressions and documentation; unrelated promo assets remain untracked.

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { reloadMotion } from './fps-weapon-motion';
 import { getWeaponSight } from './weapon-optics';
+import { MACHINE_GUN_LAYOUT } from './machine-gun-layout';
 
 /** Lightweight rigid hand poses; no extra render target or skinning. */
 export function createWeaponHandling(model: THREE.Group, index: number) {
@@ -41,18 +42,21 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   const magazineHome = magazine?.position.clone() ?? new THREE.Vector3();
   const magazineRotation = magazine?.rotation.clone() ?? new THREE.Euler();
   // Animated control is decorative; gameplay ammunition remains owned by weapon rules.
-  const control = box(additions, .023, .014, .025, .049, index ? .211 : .257, index ? .05 : .10, steel);
+  const authoredControl = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__charging-handle`) : undefined;
+  const control = authoredControl ?? box(additions, .023, .014, .025, .049, index ? .211 : .257, index ? .05 : .10, steel);
   if (index === 2) { control.scale.setScalar(.4); control.position.set(.026, .171, .05); }
-  if (index >= 3) control.position.set(index === 4 ? .095 : .063, FPS_WEAPONS[index].sightHeight - .07, .04);
+  if (index >= 3 && !authoredControl) control.position.set(index === 4 ? .095 : .063, FPS_WEAPONS[index].sightHeight - .07, .04);
   const cover = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__feed-cover`) : undefined;
   const coverHome = cover?.rotation.clone();
+  const belt = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__feed-belt`) : undefined;
   const controlZ = control.position.z;
   return {
     get aimHeight() { return getWeaponSight(model)?.aimHeight ?? FPS_WEAPONS[index].sightHeight; },
-    get aimDepth() { return getWeaponSight(model)?.aimDepth ?? (index === 2 ? -.52 : index === 3 ? -.90 : index === 4 ? -.85 : -.36); },
+    get aimDepth() { return getWeaponSight(model)?.aimDepth ?? (index === 2 ? -.52 : index === 3 ? MACHINE_GUN_LAYOUT['mag-inspired'].aimDepth : index === 4 ? MACHINE_GUN_LAYOUT['cis50-inspired'].aimDepth : -.36); },
     update(progress: number | null, empty: boolean) {
       const motion = reloadMotion(progress ?? 0);
       if (cover && coverHome) { cover.rotation.copy(coverHome); cover.rotation.x -= motion.handToMagazine * .9; }
+      if (belt) belt.visible = motion.magazineVisible;
       if (magazine) {
         magazine.position.copy(magazineHome); magazine.position.y -= motion.magazineDrop;
         magazine.rotation.copy(magazineRotation); magazine.rotation.z += motion.magazineDrop * -.35;
@@ -66,6 +70,6 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       }
       control.position.z = controlZ + (empty ? motion.action * .045 : 0);
     },
-    dispose() { additions.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
+    dispose() { control.position.z = controlZ; additions.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
   };
 }

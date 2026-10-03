@@ -70,6 +70,21 @@ fittings, skins and named muzzle/ejection/magazine nodes. No generated textures,
 external model downloads or new package dependencies are needed. The two
 existing GLBs and range prop indexes remain unchanged.
 
+The MGs are authored in `machine-gun-models.ts`. Both have chamfered receivers,
+shaped feed covers on forward hinges, linked ammunition belts, detailed feed
+boxes and recessed muzzle bores. The FN MAG uses an open rear aperture; the
+CIS 50MG uses a wider battle notch. Their guarded front blades terminate at the
+aiming line. `machine-gun-layout.ts` shares sight height and eye position between
+the geometry, weapon specs and viewmodel so ADS does not look through the cover.
+The cover's detailing moves with its hinge, the belt hides during the box swap,
+and the authored charging handle follows the chambering gesture.
+
+Validation: `machine-gun-models.test.ts` raycasts the target window and front
+blade on all six fitted variants and checks reload restoration.
+`node scripts/fps-machine-guns-smoke.mjs` checks the two issued MGs in the local
+browser through hip, ADS, firing, reload and re-aiming, including the heavy MG's
+prone mount; screenshots go to `.cache/mg-review/`.
+
 
 ## GPMG balance
 

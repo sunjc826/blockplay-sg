@@ -43,6 +43,7 @@ import { itemById } from './armory-catalog';
 import { DEFAULT_FPS_DEBUG, FPS_REGEN_DELAY, normalizeFpsDebug, readFpsDebug, regenerateHealth, saveFpsDebug, type FpsDebugSettings } from './fps-debug';
 import { createWeaponHandling } from './fps-viewmodel';
 import { createScopeRenderer, getWeaponSight } from './weapon-optics';
+import { createOpticReflectionRenderer } from './weapon-reflections';
 import { reloadMotion, reloadStage, smoothStep } from './fps-weapon-motion';
 import { createFpsComms, type CommsEntry } from './fps-comms';
 import { createEncikRadio, type EncikAddress, type EncikCallout, type EncikEvent } from './fps-callouts';
@@ -140,6 +141,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   viewScene.add(new THREE.HemisphereLight('#e4efff', '#576350', 2.1));
   const weaponLight = new THREE.DirectionalLight('#fff4dd', 2.5); weaponLight.position.set(1, 2, 1); viewScene.add(weaponLight);
   const scopeRenderer = createScopeRenderer(renderer);
+  const opticReflections = createOpticReflectionRenderer(renderer);
   const rig = new THREE.Group(); viewScene.add(rig);
   const loader = new GLTFLoader(), templates: THREE.Group[] = [], weapons: THREE.Group[] = [];
   const handling: ReturnType<typeof createWeaponHandling>[] = [], emptyReload = specs.map(() => false);
@@ -677,7 +679,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         const centre = sight.lens.getWorldPosition(new THREE.Vector3());
         const radiusY = sight.radius / (-centre.z * Math.tan(THREE.MathUtils.degToRad(viewCamera.fov / 2)));
         centre.project(viewCamera);
-        if (Math.hypot(point.x * sight.magnification / (radiusY / viewCamera.aspect), point.y * sight.magnification / radiusY) < .9) return false;
+        if (Math.hypot((point.x * sight.magnification - centre.x) / (radiusY / viewCamera.aspect), (point.y * sight.magnification - centre.y) / radiusY) < .9) return false;
       }
       weaponRay.setFromCamera(point, viewCamera);
       return !!weaponRay.intersectObjects(weaponMeshes, false)[0];
@@ -1359,8 +1361,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.encikCallout = encik.current(now / 1000);
     world.animate(hud.elapsed);
     atmosphere.update(dt, camera);
-    const scopeActive = scopeRenderer.render(world.scene, camera, viewCamera, weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon]) : undefined, rig.visible && !vehicles.active && hud.phase === 'playing', aimProgress);
+    const sight = weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon]) : undefined;
+    const opticActive = rig.visible && !vehicles.active && hud.phase === 'playing';
+    const scopeActive = scopeRenderer.render(world.scene, camera, viewCamera, sight, opticActive, aimProgress);
+    const reflectionCaptured = opticReflections.render(world.scene, camera, viewCamera, sight?.reflection, opticActive, now / 1000);
     canvas.dataset.scopeActive = String(scopeActive);
+    canvas.dataset.reflexPowered = String(!!sight && sight.magnification <= 1.01 && sight.lens.visible);
+    canvas.dataset.opticReflection = String(!!sight?.reflection?.uniforms.reflectionReady.value && opticActive);
+    canvas.dataset.reflexReflection = String(sight?.magnification === 1 && canvas.dataset.opticReflection === 'true');
+    if (reflectionCaptured) canvas.dataset.reflexCaptures = String(Number(canvas.dataset.reflexCaptures || 0) + 1);
     renderer.clear(); renderer.render(world.scene, camera); renderer.clearDepth(); renderer.render(viewScene, viewCamera);
     if (now - lastReport > 100) { publish(); lastReport = now; }
     frame = requestAnimationFrame(animate);
@@ -1434,7 +1443,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); atmosphere.dispose(); world.dispose();
       healthGeometry.dispose(); healthMaterial.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
-      scopeRenderer.dispose(); renderer.dispose(); canvas.remove();
+      scopeRenderer.dispose(); opticReflections.dispose(); renderer.dispose(); canvas.remove();
     },
   };
 }

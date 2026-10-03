@@ -3,12 +3,15 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildVehicleModel } from '../game/vehicle-models';
 import type { VehicleKind } from '../game/vehicle-rules';
 import type { ShopItem } from '../game/armory-catalog';
 import type { EquippedWeapon } from '../game/armory-state';
 import { armorModel, disposeModel, dressWeapon } from '../game/armory-visuals';
 import { weaponHardware } from '../game/weapon-hardware';
+import { getWeaponSight } from '../game/weapon-optics';
+import { createOpticReflectionRenderer } from '../game/weapon-reflections';
 
 const buildServiceWeaponId = (id: string) => ['p30-inspired', 'mag-inspired', 'cis50-inspired'].includes(id);
 
@@ -27,6 +30,8 @@ export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item:
     renderer.setPixelRatio(Math.min(devicePixelRatio, 1.25)); renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.25;
     node.append(renderer.domElement); renderer.domElement.setAttribute('aria-label', `${item.name} interactive 3D preview. Drag to rotate, scroll to zoom.`);
     const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(36, 1, .01, 20);
+    const reflections = createOpticReflectionRenderer(renderer);
+    let studio: RoomEnvironment | undefined;
     scene.add(new THREE.HemisphereLight('#dce8ff', '#4c4b38', 2.3));
     const key = new THREE.DirectionalLight('#fff1d9', 3.8); key.position.set(2, 3, 4); scene.add(key);
     const rim = new THREE.DirectionalLight('#88c4e0', 2); rim.position.set(-2, 1, -2); scene.add(rim);
@@ -37,6 +42,7 @@ export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item:
       if (disposed) { disposeModel(root); return; }
       model = root;
       if (item.category !== 'rig' && item.category !== 'plate' && item.category !== 'vehicleSkin') undress = dressWeapon(root, JSON.parse(signature));
+      if (getWeaponSight(root)?.reflection) studio = new RoomEnvironment();
       const bounds = new THREE.Box3().setFromObject(root), center = bounds.getCenter(new THREE.Vector3());
       root.position.sub(center); scene.add(root);
       const armor = item.category === 'rig' || item.category === 'plate';
@@ -47,8 +53,8 @@ export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item:
     else if (item.category === 'rig' || item.category === 'plate') mount(armorModel(item));
     else if (buildServiceWeaponId(JSON.parse(signature).id)) mount(buildServiceWeapon(JSON.parse(signature).id)!);
     else void new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/field-kit/${JSON.parse(signature).id}.glb`).then(gltf => mount(gltf.scene)).catch(() => { if (!disposed) setStatus('Preview failed to load.'); });
-    const render = () => { if (disposed) return; controls.update(); renderer.render(scene, camera); frame = requestAnimationFrame(render); }; render();
-    return () => { disposed = true; cancelAnimationFrame(frame); observer.disconnect(); controls.dispose(); undress?.(); if (model) disposeModel(model); renderer.dispose(); renderer.domElement.remove(); };
+    const render = () => { if (disposed) return; controls.update(); if (studio && model) reflections.render(studio, camera, camera, getWeaponSight(model)?.reflection, true, performance.now() / 1000); renderer.render(scene, camera); frame = requestAnimationFrame(render); }; render();
+    return () => { disposed = true; cancelAnimationFrame(frame); observer.disconnect(); controls.dispose(); undress?.(); if (model) disposeModel(model); studio?.dispose(); reflections.dispose(); renderer.dispose(); renderer.domElement.remove(); };
   }, [item.id, item.category, item.name, signature, vehicle, retry]);
   return <div className="armory-preview"><div ref={host} className="armory-preview-canvas" />{status ? <div className="armory-preview-status" role="status">{status}{status.includes('failed') && <button onClick={() => setRetry(n => n + 1)}>Retry preview</button>}</div> : <span className="armory-orbit-hint">DRAG TO INSPECT · SCROLL TO ZOOM</span>}{!!fittings.length && <ul className="armory-preview-fittings" aria-label="Hardware fitted to this weapon">{fittings.map(fitting => <li key={fitting.part}>{fitting.label}</li>)}</ul>}<span className="armory-preview-mark">SG / EQUIPMENT DIVISION</span></div>;
 }

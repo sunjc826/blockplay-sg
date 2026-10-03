@@ -1,0 +1,49 @@
+<!doctype html>
+<!-- Deterministic GPU regression scene: rear buildings are visible only as lens reflections. -->
+<html><body style="margin:0"><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import {GLTFLoader} from '/node_modules/three/examples/jsm/loaders/GLTFLoader.js';
+import {fitWeaponOptic,getWeaponSight,createScopeRenderer} from '/src/game/weapon-optics.ts';
+import {createOpticReflectionRenderer} from '/src/game/weapon-reflections.ts';
+import {FPS_WEAPONS,magnifiedFov} from '/src/game/fps-rules.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1200,800);renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.9;renderer.autoClear=false;document.body.append(renderer.domElement);
+const world=new THREE.Scene();world.background=new THREE.Color('#b8d9ef');world.add(new THREE.HemisphereLight('#e4efff','#576350',2.1));const light=new THREE.DirectionalLight('#fff4dd',2.5);light.position.set(1,2,1);world.add(light);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(60,60),new THREE.MeshStandardMaterial({color:'#89978a'}));ground.rotation.x=-Math.PI/2;world.add(ground);
+const buildings=[];
+for(let i=0;i<7;i++){const m=new THREE.Mesh(new THREE.BoxGeometry(.7,2+i%3,.7),new THREE.MeshStandardMaterial({color:i%2?'#657f9c':'#dbbe8a'}));m.position.set(-3+i,1+(i%3)/2,3+Math.sin(i)*.5);world.add(m);buildings.push(m);}
+for(let i=0;i<6;i++){const m=new THREE.Mesh(new THREE.BoxGeometry(2,4,2),new THREE.MeshStandardMaterial({color:i%2?'#7290a3':'#afaaa0'}));m.position.set(-10+i*4,2,-16);world.add(m);}
+const viewScene=new THREE.Scene();viewScene.add(new THREE.HemisphereLight('#e4efff','#576350',2.1));viewScene.add(light.clone());
+const optic=new URLSearchParams(location.search).get('optic');
+const spec=optic?.startsWith('sar')?{...FPS_WEAPONS[0],optic:optic==='sar-match'?'precision':'integrated',aimFov:magnifiedFov(optic==='sar-match'?1.75:1.5)}:FPS_WEAPONS[1];
+const model=(await new GLTFLoader().loadAsync('/models/field-kit/'+spec.id+'.glb')).scene;fitWeaponOptic(model,spec);viewScene.add(model);const sight=getWeaponSight(model);
+const camera=new THREE.PerspectiveCamera(65,1.5,.08,800);camera.position.y=1.6;const viewCamera=new THREE.PerspectiveCamera(54,1.5,.01,3);
+const reflections=createOpticReflectionRenderer(renderer),scope=createScopeRenderer(renderer);let time=0;
+function pixels(){const c=document.createElement('canvas');c.width=1200;c.height=800;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(renderer.domElement,0,0);const data=ctx.getImageData(350,250,500,300).data;let red=0, sumX=0, sumY=0;for(let i=0;i<data.length;i+=4)if(data[i]>170&&data[i+1]<115&&data[i+2]<95){red++;sumX+=350+(i/4)%500;sumY+=250+Math.floor(i/4/500);}return {redPixels:red,x:red?sumX/red:null,y:red?sumY/red:null};}
+window.show=(mode)=>{time++;camera.rotation.y=mode==='turn'?.5:0;model.rotation.set(0,0,0);model.position.set(0,-sight.aimHeight,sight.aimDepth);let aim=1;
+if(mode==='aligned-hip'){model.position.z=-.78;aim=0;}
+if(mode==='partial'){model.position.set(.03,-.3455,-.5165);aim=.85;}
+if(mode==='hip'){model.position.set(.2,-.32,-.78);aim=0;}
+if(mode==='offset'){model.position.x=.024;aim=0;}
+if(mode==='beyond-aperture'){model.position.x=.085;aim=0;}
+for(const b of buildings)b.visible=mode!=='no-buildings';
+viewScene.updateMatrixWorld(true);const pip=scope.render(world,camera,viewCamera,sight,true,aim);reflections.render(world,camera,viewCamera,sight.reflection,true,time);
+renderer.setRenderTarget(null);renderer.clear();renderer.render(world,camera);renderer.clearDepth();renderer.render(viewScene,viewCamera);
+return {pip,magnification:sight.magnification,coatingVisible:sight.reflection.surface.visible,...pixels(),powered:sight.lens.visible,brightness:sight.visibility.value};};window.verifyReflections=()=>{
+const c=document.createElement('canvas');c.width=1200;c.height=800;const ctx=c.getContext('2d',{willReadFrequently:true});
+const sample=()=>{ctx.drawImage(renderer.domElement,0,0);return ctx.getImageData(0,0,1200,800).data;};
+window.show('ads');const a=sample();window.show('no-buildings');const b=sample();let inside=0,outside=0;
+for(let i=0;i<a.length;i+=4){const difference=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);if(difference<12)continue;const x=(i/4)%1200-600,y=Math.floor(i/4/1200)-400;if(Math.hypot(x,y)<90)inside++;else if(Math.hypot(x,y)>150)outside++;}
+return {inside,outside,centre:Array.from(a.slice((400*1200+600)*4,(400*1200+600)*4+3))};};
+window.verifyBloom=()=>{
+const bloom=model.getObjectByName('fps-reflex-bloom');
+const c=document.createElement('canvas');c.width=1200;c.height=800;const ctx=c.getContext('2d',{willReadFrequently:true});
+const sample=()=>{ctx.drawImage(renderer.domElement,0,0);return ctx.getImageData(0,0,1200,800).data;};
+const result={};
+for(const mode of ['ads','aligned-hip','beyond-aperture']){
+bloom.visible=false;window.show(mode);const unlit=sample();bloom.visible=true;window.show(mode);const lit=sample();let halo=0,outside=0,dimmed=0;
+for(let i=0;i<lit.length;i+=4){const delta=[0,1,2].map(k=>lit[i+k]-unlit[i+k]);if(delta.some(d=>d < -1))dimmed++;if(delta.reduce((a,b)=>a+b,0)<4)continue;const radius=Math.hypot((i/4)%1200-600,Math.floor(i/4/1200)-400);if(radius>3&&radius<20)halo++;if(radius>40)outside++;}
+result[mode]={halo,outside,dimmed};
+}
+window.show('ads');return result;
+};window.show('ads');window.ready=true;
+</script></body></html>
