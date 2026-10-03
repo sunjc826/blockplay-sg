@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { ENCIK_LINES } from '../src/game/fps-callouts.ts';
+import { ENCIK_LINES } from '../src/game/encik-registers.ts';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 export const selection = { audition: '36b76e0cf1bd', candidate: 3, generatedVoiceId: 'wLqaYCs3ytxhLj7cRE8x' };

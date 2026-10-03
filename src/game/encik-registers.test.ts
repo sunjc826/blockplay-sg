@@ -27,12 +27,12 @@ describe('the Encik defers as you outrank him', () => {
     }
     expect(BASE_REGISTER.lines).toBe(ENCIK_LINES);
   });
-  it('leaves the new registers silent rather than playing the wrong clip', () => {
+  it('never plays a base shout for a higher-register line', () => {
+    const baseUrls = new Set(EVENTS.flatMap(event => ENCIK_LINES[event].map(text => encikRecordingUrl({ event, text }))));
     for (const register of ENCIK_REGISTERS.filter(r => r.id !== 'recruit')) {
       for (const [event, lines] of Object.entries(register.lines)) for (const text of lines!) {
-        // A line that collided with a recorded one would play a shout over a
-        // deferential subtitle, which is the failure worth catching.
-        expect(encikRecordingUrl({ event: event as EncikEvent, text: addressLine(text, 'Colonel') })).toBeNull();
+        const url = encikRecordingUrl({ event: event as EncikEvent, text: addressLine(text, 'Colonel') });
+        if (url) expect(baseUrls.has(url)).toBe(false);
       }
     }
   });

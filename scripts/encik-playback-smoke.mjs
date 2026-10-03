@@ -67,9 +67,8 @@ try {
  assert.equal(voiceApiRequests,0); assert.equal(mapRequests,0);
  assert.deepEqual(errors,[]);
  await screenshot('recorded-callouts-paused');
- // A rank the Encik defers to. His deferential lines are unrecorded by design,
- // so the proof is three-sided: he uses the player's own rank, he plays no
- // audio saying it, and pinning him back to Recruit restores both.
+ // A rank the Encik defers to: both subtitle and recording use the player's
+ // title. Pinning him back to Recruit restores the original shouting.
  const radioText = `[...document.querySelectorAll('.fps-comms-entry.channel-radio')].map(e=>e.textContent).join(' | ')`;
  // Written, then reloaded through the page domain: evaluating location.reload()
  // races its own execution context being torn down.
@@ -89,7 +88,9 @@ try {
  const deferential = await evaluate(radioText);
  assert(deferential.includes('Legend'), `Encik addresses a Legend by rank: ${deferential}`);
  assert(!/lah!|Oi,|don’t blur/.test(deferential), `No recruit-register shouting at a Legend: ${deferential}`);
- assert.equal(await evaluate('window.__encikQA.starts'), 0, 'Unrecorded deferential lines play no audio');
+ await wait('window.__encikQA.starts>0', 25000);
+ const rankRequests = await evaluate(`performance.getEntriesByType('resource').map(r=>r.name).filter(n=>n.includes('/audio/encik/defers-'))`);
+ assert(rankRequests.length > 0, 'Deferential lines request their own recordings');
  await screenshot('encik-defers');
  // The opt-out: same rank, the shouting and the recorded pack come back.
  await seed('recruit'); await playOut();
@@ -97,6 +98,7 @@ try {
  const rude = await evaluate(radioText);
  assert(!rude.includes('Legend'), `Recruit tone never uses the rank: ${rude}`);
  assert.deepEqual(errors, []);
- console.log(JSON.stringify({result:'PASS: rank-aware deference and its silence, the recruit opt-out, real recorded playback, voice mute, master mute, pause cancellation, subtitles and no browser TTS',audit:await evaluate('window.__encikQA'),recordingRequests:requests.length}));
+ assert.equal(voiceApiRequests, 0);
+ console.log(JSON.stringify({result:'PASS: recorded rank-aware deference, the recruit opt-out, real recorded playback, voice mute, master mute, pause cancellation, subtitles and no browser TTS',audit:await evaluate('window.__encikQA'),recordingRequests:requests.length,rankRecordingRequests:rankRequests.length}));
 } catch(error) {console.log(errors); await screenshot('playback-failure'); throw error;}
 finally {ws.close(); await fetch(`${chrome}/json/close/${tab.id}`);}

@@ -8,6 +8,7 @@
     "test:fps:districts": "node scripts/fps-district-smoke.mjs",
     "test:fps:voice": "node scripts/encik-playback-smoke.mjs",
     "voice:batch": "node --experimental-strip-types --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/encik-batch.mjs",
+    "voice:missing": "node --experimental-strip-types --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/encik-missing.mjs",
     "voice:audition": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/encik-audition.mjs",
     "server": "node --experimental-strip-types --env-file-if-exists=.env --env-file-if-exists=.env.local server/index.ts",
     "dev": "vite --host 0.0.0.0",

@@ -8,7 +8,7 @@ Listen to the complete pack at `/audio/encik/index.html` on the running game ser
 
 ## Registers: he defers as you outrank him
 
-The recorded pack is one register — a sergeant-major shouting at a recruit —
+The original pack is one register — a sergeant-major shouting at a recruit —
 and it is what a new player hears. Above it sit three more, and the arc is the
 joke: at level 12 he drops the insults, at 20 he calls you by rank and offers
 rather than orders, at 35 he apologises for speaking and asks what he should
@@ -22,20 +22,21 @@ a promotion and a change of tone land together.
 | Respect | 20 | Uses your rank. Offers rather than orders. |
 | Defers | 35 | Apologises for speaking at all. |
 
-**The lines above Recruit have no recordings, and that is the design rather
-than an omission.** `encikRecordingUrl` matches on exact subtitle text, so an
-unrecorded line simply finds nothing and the Encik subtitles in silence. Two
-tests hold the ends of that: every base line must still resolve to a clip, and
-no line in a higher register may collide with a recorded one — a collision
-would play a shout over a deferential subtitle. Recording them later needs no
-code, only clips whose text matches.
+The higher registers now have **816 additional recordings**: 48 Noticed,
+384 Respect and 384 Defers. Respect and Defers each cover the eight titles
+reachable in that register across Field, Numerals, Service and Shadows,
+including `boss` for Numerals. The original 48 clips are preserved, for a
+total of **864 clips**. The additional pack uses the same selected Encik voice
+and Eleven v3 settings, and lives in `src/audio/encik/rank-manifest.json`.
+`encikRecordingUrl` merges both manifests and matches exact event and subtitle
+text. A new custom title or edited line remains subtitle-only until recorded.
 
 `{rank}` in a line is replaced with whatever the player's chosen insignia set
 calls them, so he defers to a Colonel, a Marksman or a Legend in their own
 words. It is the band *title* rather than the graded label, because "Nice work,
 Corporal III" is not how anybody speaks, and a set with no titles at all (the
 Numerals set) falls back to `boss`. Substitution happens at callout time, which
-is also why a substituted line can never accidentally match a recording.
+ensures the recording speaks the same rank as the subtitle.
 
 **The opt-out is absolute.** `encikTone: 'recruit'` on the profile pins him to
 the recorded register at any level, for a player who liked being shouted at.
@@ -53,6 +54,12 @@ The shared FPS engine uses these bundled recordings in practice, arena and exped
 
 ## Generation and recovery
 
+- `pnpm voice:missing` prints the higher-register plan without requests.
+- `pnpm voice:missing --generate` fills missing reachable lines using the saved
+  Encik voice and private key. It reuses valid shipped clips, caches each paid
+  attempt in `.cache/encik-ranks/`, and saves the additional manifest after
+  each pair of requests. Reruns reuse completed work; ambiguous attempts require
+  inspection. The listening page includes both packs when generation completes.
 - `pnpm voice:batch` prints the plan without requests.
 - `pnpm voice:batch --generate` explicitly performs generation using the private `ELEVENLABS_API_KEY`; keep it out of `VITE_` variables.
 - The approved selection is pinned in `scripts/encik-batch.mjs`, independently of future auditions. It is verified against the original cached audition before saving the voice.
@@ -62,9 +69,24 @@ The shared FPS engine uses these bundled recordings in practice, arena and exped
 
 Observed batch cost: **776 credits**, matching the sum of the 48 response `character-cost` headers and the subscription delta. Account usage after the batch was **1,266 / 40,000**, including the four auditions. Before/after readings and per-request receipts are in the ignored cache. The quota reserve is an estimate, not a provider-enforced per-request spending cap.
 
+The higher-register batch completed on **2026-10-03**. Account usage rose from
+1,266 to **12,904 / 40,000**, an observed **11,638-credit** change. The response
+`character-cost` headers sum to 11,895; these provider readings differ, so the
+account delta is reported separately. All 816 requests completed without retries.
+A second run found zero missing clips and observed zero additional credit use.
+The full 864-clip pack is **38,771,971 bytes**, approximately **2,398 seconds**;
+every file decoded and passed non-silence and checksum checks. The 30 relevant
+unit tests, production build and browser playback check passed. Individual
+performance and pronunciation remain subject to listening review.
+
 ## Verification
 
-`pnpm test` covers exact manifest/subtitle matching, audio checksums, base paths, interruption, late fetch/decode cancellation, mute/context failure and cache bounds. `node --experimental-strip-types --test scripts/encik-audition-check.mjs scripts/encik-batch-check.mjs` tests generation guards with mocked requests and spends no credits. Node test files use `-check.mjs` to avoid Vitest collecting them.
+`pnpm test` covers every event at every level in all four shipped rank sets and
+both tone modes, exact manifest/subtitle matching, audio checksums, base paths,
+interruption, late fetch/decode cancellation, mute/context failure and cache bounds.
+`node --experimental-strip-types --test scripts/encik-audition-check.mjs scripts/encik-batch-check.mjs`
+tests generation guards with mocked requests and spends no credits. Node test
+files use `-check.mjs` to avoid Vitest collecting them.
 
 The browser check is `node scripts/encik-playback-smoke.mjs`, using an isolated Chrome debugging endpoint at port 9331 and Vite at 5175 by default (`FPS_CHROME_ORIGIN` and `FPS_APP_ORIGIN` override them). Where the environment proxies Node traffic, set `NO_PROXY=127.0.0.1,localhost` and `no_proxy=127.0.0.1,localhost` for this local check.
 

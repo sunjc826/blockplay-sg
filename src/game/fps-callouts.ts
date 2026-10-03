@@ -25,8 +25,7 @@ export function createEncikRadio(random = Math.random, address: () => EncikAddre
       const speaking = address(), lines = encikLines(event, speaking);
       let index = Math.min(lines.length - 1, Math.max(0, Math.floor(random() * lines.length)));
       if (index === previous.get(event)) index = (index + 1) % lines.length;
-      // The rank goes in here rather than in the data, so one line serves every
-      // insignia set and a substituted line simply finds no recording.
+      // Substitute before lookup so the spoken rank matches the subtitle.
       active = { id: ++sequence, event, text: addressLine(lines[index], speaking.rank), until: now + 6, priority: rank, register: encikRegister(speaking).id };
       heard.set(event, now); previous.set(event, index); lastAt = now;
       return active;

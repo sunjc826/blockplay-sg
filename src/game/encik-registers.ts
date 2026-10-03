@@ -8,10 +8,9 @@
  * wording changes, and resolution walks down to the nearest register that has
  * something to say. So a new register is as small as the joke needs it to be.
  *
- * Lines above the base have no recordings, and that is by design rather than
- * an oversight: `encikRecordingUrl` matches on exact text and finds nothing,
- * so the Encik simply goes quiet and keeps subtitling. The one thing a line
- * must not do is *become* a base line by accident, which the tests guard.
+ * Higher registers have recordings for every reachable title in the shipped
+ * insignia sets. Lookup still matches exact text, so a new custom title or
+ * edited line stays subtitle-only until its recording is generated.
  *
  * `{rank}` is replaced with what the player's chosen insignia set calls them,
  * so he defers to a Colonel, a Marksman or a Legend in the player's own words.

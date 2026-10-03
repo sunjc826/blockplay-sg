@@ -1,4 +1,4 @@
-import { MAX_LEVEL } from './progression';
+import { MAX_LEVEL } from './progression.ts';
 
 /**
  * What a level is *called* and what it *looks like*, as data. Nothing here
