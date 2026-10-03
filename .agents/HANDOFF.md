@@ -1879,3 +1879,28 @@ The diagnostic script reports connectivity, standing/mesh clearance, overlap and
 Final verification: all927 tests in101 files passed (159.6s), typecheck and production build passed. All19 districts rendered in84 aerial/entry/eye-height views with zero runtime errors and zero Google requests. Reviewed images prompted continuous earth infill at Bukit/Siloso, visible supports under Kampong/Tampines retained masses, Jurong facade framing, and additional core interior/roof detailing; affected views were recaptured. Actual browser FPS ascent, authoritative elevation, jump/landing, prone and exploration ascent passed at Orchard. Vehicle-only projections now prevent driving through new foundations, posts and low ramps while preserving underpasses and infantry climbing; all19 vehicle spawn/exit checks pass. Helper geometry instancing reduced the Orchard entrance review from3117 draw calls to123 at the reviewed camera. These are software-renderer checks, not physical mobile-device performance certification.
 
 Published directly to main under the owner's standing instruction; the deployment workflow remains the final live gate. No capture workflow/reference-plan changes. Remaining design limits: compressed floorplans, sparse furnishings in some spaces, rectangular terrain styling, and a ground-only exploration autopilot. Script results establish access and catch defects; they do not certify map quality.
+
+## 2026-10-03 — weighted infantry movement
+
+Added fps-movement.ts with frame-independent acceleration/braking, equipment-
+weighted response, restrained world-space air steering, 140 ms jump buffering
+and 85 ms ledge grace. Infantry uses a 5.6 m/s unburdened launch with 18/24 m/s²
+rise/fall gravity; other vertical-movement callers retain their original gravity.
+Vertical collision now reports actual landing speed, including substep landings.
+
+Crouch/prone eye transitions use damped motion, with slower prone/get-up timing.
+Collision retains head clearance during lowering; blocked standing falls back to
+crouch/prone speed. Landing compression, weapon follow-through, distance-driven
+walk/crawl gait, subtle strafe lean, eased sprint FOV/weapon lowering, and filtered
+footstep/landing sounds provide weight. Reduced-motion preferences suppress the
+added camera bob/roll/impact and sprint FOV. Mounted weapons remain immobile;
+pause/reset/respawn/vehicle changes and host corrections clear stored momentum.
+The network stance format and controls are unchanged; stance camera easing is local.
+
+Validation: 950 tests across 104 files passed, production build/typecheck passed
+(existing bundle-size advisory), and fps-movement-smoke.mjs passed actual browser
+acceleration/braking, crouch/prone/crawl, jumping/landing/recovery and reduced-motion
+stance with no runtime errors. Inspected game captures in .cache/fps-movement;
+sampled walk 3.86 m/s, crawl .71 m/s, jump .80 m and landing dip .033 m with the
+browser's existing equipped loadout. No deployment or commit; preceding optics,
+weapon-model and voice changes remain intact.

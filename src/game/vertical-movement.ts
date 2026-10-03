@@ -38,11 +38,11 @@ export function createVerticalMovement(world: VerticalWorld) {
     }
     return best;
   };
-  function move(state: VerticalState, dx: number, dz: number, dt: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = []) {
+  function move(state: VerticalState, dx: number, dz: number, dt: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = [], gravity = { rise: 15, fall: 15 }) {
     let { x, y, z, velocityY } = state;
     const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / .2), Math.ceil(dt / (1 / 120)));
     const tick = Math.max(0, dt) / steps;
-    let grounded = false;
+    let grounded = false, impactSpeed = 0;
     for (let i = 0; i < steps; i++) {
       let support = supportHeight(x, z, y + EPS, radius, height, extra);
       grounded = velocityY <= 0 && support !== null && Math.abs(y - support) < .025;
@@ -56,18 +56,18 @@ export function createVerticalMovement(world: VerticalWorld) {
       }
       support = supportHeight(x, z, y + EPS, radius, height, extra);
       grounded = velocityY <= 0 && support !== null && Math.abs(y - support) < .025;
-      if (grounded) { y = support!; velocityY = 0; continue; }
-      velocityY -= 15 * tick;
+      if (grounded) { impactSpeed = Math.max(impactSpeed, -velocityY); y = support!; velocityY = 0; continue; }
+      velocityY -= (velocityY > 0 ? gravity.rise : gravity.fall) * tick;
       let nextY = y + velocityY * tick;
       if (velocityY > 0) {
         for (const o of traversalAt(x, z, radius)) if (overlap(o, x, z, radius) && o.minY >= y + height - EPS && o.minY < nextY + height) { nextY = o.minY - height; velocityY = 0; }
         for (const s of surfacesAt(x, z, radius)) if (contains(s, x, z)) { const roof = surfaceHeight(s, x, z); if (roof >= y + height - EPS && roof < nextY + height) { nextY = roof - height; velocityY = 0; } }
       }
       const landing = supportHeight(x, z, y + EPS, radius, height, extra);
-      if (velocityY <= 0 && landing !== null && nextY <= landing) { nextY = landing; velocityY = 0; grounded = true; }
+      if (velocityY <= 0 && landing !== null && nextY <= landing) { impactSpeed = Math.max(impactSpeed, -velocityY); nextY = landing; velocityY = 0; grounded = true; }
       y = Math.max(0, nextY);
     }
-    return { x, y, z, velocityY, grounded };
+    return { x, y, z, velocityY, grounded, impactSpeed };
   }
   return { canOccupy, supportHeight, move };
 }

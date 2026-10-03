@@ -1,5 +1,6 @@
 import { createWorldAtmosphere } from './world-atmosphere';
 import { getRegion } from './regions';
+import { createMovementMotion, resetMovementMotion, advanceGroundMotion, advanceBodyMotion, bufferJump, consumeJump, landMovement, INFANTRY_GRAVITY } from './fps-movement';
 import { createVerticalMovement } from './vertical-movement';
 import { elevatedLootAnchors } from './vertical-navigation';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
@@ -188,7 +189,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let yaw: number = spawn.yaw, pitch: number = spawn.pitch, vertical = 0, velocityY = 0;
   let triggerSpent = false;
   let lastLookYaw = yaw, lastLookPitch = pitch, lookLagX = 0, lookLagY = 0;
-  let trigger = false, ads = false, touchAim = false, actualAim = false, bob = 0, hitTime = 0;
+  let trigger = false, ads = false, touchAim = false, actualAim = false, hitTime = 0;
+  const bodyMotion = createMovementMotion();
+  const motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   // Two-stage recoil: see fps-recoil. The view still couples through the same
   // scale the old scalar did, so a burst costs the aim it always did.
   const kick = createRecoil();
@@ -226,8 +229,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const grounded = () => velocityY <= 0 && Math.abs(vertical - (footMovement.supportHeight(position.x, position.z, vertical + .02, .38, .6) ?? -100)) < .025;
   const eyeHeight = () => {
     const requested = prone ? PRONE_EYE_HEIGHT : keys.has('c') ? 1.15 : 1.75;
-    return footMovement.canOccupy(position.x, vertical, position.z, .38, requested + .05) ? requested : 1.15;
+    for (const height of [requested, 1.15, PRONE_EYE_HEIGHT]) {
+      if (height <= requested && footMovement.canOccupy(position.x, vertical, position.z, .38, height + .05)) return height;
+    }
+    return PRONE_EYE_HEIGHT;
   };
+  const stance = () => eyeHeight() < .8 ? 'prone' as const : eyeHeight() < 1.4 ? 'crouch' as const : 'stand' as const;
   const braced = () => !vehicles.active && weaponBraced(specs[hud.weapon], prone, grounded());
   const movement = () => equipmentMovement(equipment, hud.weapon, loadout, quickRemaining);
   const publish = () => {
@@ -241,7 +248,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       ],
     });
   };
-  const clearInput = () => { prone = false; keys.clear(); trigger = false; triggerSpent = false; ads = false; touchAim = false; drag = null; moveStick = null; };
+  const clearInput = () => { prone = false; keys.clear(); trigger = false; triggerSpent = false; ads = false; touchAim = false; drag = null; moveStick = null; resetMovementMotion(bodyMotion, eyeHeight()); };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -287,6 +294,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     source.buffer = soundBuffer; source.playbackRate.value = stage === 'MAG IN' ? .65 : 1.4;
     filter.type = 'bandpass'; filter.frequency.value = stage === 'CHAMBER' ? 2300 : 1000; filter.Q.value = .7;
     gain.gain.value = stage === 'MAG IN' ? .16 : .09;
+    source.connect(filter).connect(gain).connect(audio.destination); source.start();
+    source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
+  }
+  function movementSound(strength: number, landing = false) {
+    if (!audio || !soundBuffer || hud.muted || audio.state !== 'running') return;
+    const source = audio.createBufferSource(), filter = audio.createBiquadFilter(), gain = audio.createGain();
+    source.buffer = soundBuffer; source.playbackRate.value = landing ? .32 : .5;
+    filter.type = 'lowpass'; filter.frequency.value = landing ? 240 : 420;
+    gain.gain.value = strength * (landing ? .28 : .17);
     source.connect(filter).connect(gain).connect(audio.destination); source.start();
     source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
   }
@@ -366,7 +382,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     roundId = randomRoundId(); attackTimer = 3; pendingAttack = null; hurtTime = 0;
     if (document.pointerLockElement === canvas) document.exitPointerLock();
     vehicles.reset(); loadout = createLoadout(specs); position = { x: spawn.x, z: spawn.z }; yaw = spawn.yaw; pitch = spawn.pitch;
-    vertical = velocityY = bob = hitTime = 0; resetRecoil(kick); carry.set(0, 0, 0); clearInput();
+    vertical = velocityY = hitTime = 0; resetRecoil(kick); carry.set(0, 0, 0); clearInput();
     rounds.length = 0; effects.reset();
     aimProgress = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; });
     targets.forEach(t => { t.alive = true; t.root.visible = true; t.health = t.maxHealth; t.bar.scale.x = 1; });
@@ -489,7 +505,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, health: hud.health, armor: hud.armor, weapon: hud.weapon, ammunition: loadout.map(state => ({ ...state, cooldown: 0, reloadRemaining: 0 })) };
     travelPending = true; pause(); expedition.onTravel(transition, checkpoint);
   }
-  function jump() { if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && grounded() && !keys.has('c') && !prone) velocityY = 5.2 * movement().jumpVelocity; } }
+  function jump() { if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && stance() === 'stand') bufferJump(bodyMotion); } }
   function setInput(key: string, held: boolean) {
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) return;
     if (key === 'v') { if (held) switchVehicleSeat(); return; }
@@ -745,35 +761,47 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     rig.visible = !options.arena || hud.arenaSelf?.alive !== false;
     const deployedMount = weapons[hud.weapon]?.getObjectByName('cis50-inspired__deployed-mount');
     if (deployedMount) deployedMount.visible = braced();
-    const crouching = keys.has('c') || prone;
-    camera.position.set(position.x, eyeHeight() + vertical, position.z);
+    const poseStance = stance(), crouching = poseStance !== 'stand';
+    const speed = carry.length(), onGround = grounded();
+    const sideSpeed = carry.x * Math.cos(yaw) - carry.z * Math.sin(yaw);
+    const forwardSpeed = -carry.x * Math.sin(yaw) - carry.z * Math.cos(yaw);
+    const step = advanceBodyMotion(bodyMotion, eyeHeight(), poseStance, speed, onGround, sprinting && speed > .2, sideSpeed, forwardSpeed, dt);
+    if (step && hud.phase === 'playing') movementSound(poseStance === 'prone' ? .18 : poseStance === 'crouch' ? .25 : sprinting ? .65 : .4);
+    const motionScale = motionPreference?.matches ? 0 : 1;
+    const gait = bodyMotion.gait, gaitWeight = bodyMotion.gaitWeight * motionScale;
+    const headBob = Math.sin(gait * 2) * (poseStance === 'prone' ? .008 : .012) * gaitWeight * (1 - aim * .85);
+    let visualEye = bodyMotion.eye + (bodyMotion.compression + headBob) * motionScale;
+    if (!footMovement.canOccupy(position.x, vertical, position.z, .38, visualEye + .05)) visualEye = Math.min(visualEye, eyeHeight());
+    camera.position.set(position.x, vertical + visualEye, position.z);
     const view = recoilView(kick), pose = recoilPose(kick);
-    camera.rotation.set(pitch + view.pitch, yaw + view.yaw, 0, 'YXZ');
-    camera.fov = THREE.MathUtils.lerp(sprinting ? 71 : 65, 65, aim);
+    camera.rotation.set(pitch + view.pitch, yaw + view.yaw, bodyMotion.lean * motionScale * (1 - aim * .9), 'YXZ');
+    camera.fov = 65 + bodyMotion.sprint * 6 * (1 - aim) * motionScale;
     camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
     viewCamera.fov = THREE.MathUtils.lerp(65, 54, aim); viewCamera.updateProjectionMatrix();
-    bob += moving ? dt * (sprinting ? 13 : 8) : 0;
-    const sway = moving ? Math.sin(bob) * .006 * (1 - aim * .94) : 0;
+    const sway = Math.sin(gait) * (poseStance === 'prone' ? .025 : .014) * gaitWeight * (1 - aim * .94);
+    const bodyFollow = (bodyMotion.compression * .35 + bodyMotion.eyeVelocity * -.012) * motionScale * (1 - aim * .8);
     spreadAngle = weaponSpread(bloom[hud.weapon], hud.weapon, aim, crouching, moving);
     const spreadPixels = Math.tan(spreadAngle) * canvas.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     hud.crosshairSpread = THREE.MathUtils.damp(hud.crosshairSpread, Math.max(3, spreadPixels), 20, dt);
     const state = loadout[hud.weapon], remaining = state.reloadRemaining / specs[hud.weapon].reload;
     const progress = remaining > 0 ? 1 - remaining : null, motion = reloadMotion(progress ?? 0);
     rig.position.set(THREE.MathUtils.lerp(.20, 0, aim) + sway + motion.x + lookLagX,
-      THREE.MathUtils.lerp(-.32, -(handling[hud.weapon]?.aimHeight ?? .435), aim) + Math.abs(sway) - (sprinting ? .08 : 0) + motion.y + lookLagY,
-      THREE.MathUtils.lerp(-.78, handling[hud.weapon]?.aimDepth ?? -.47, aim) + pose.push + motion.z);
+      THREE.MathUtils.lerp(-.32, -(handling[hud.weapon]?.aimHeight ?? .435), aim) + Math.abs(sway) - bodyMotion.sprint * .08 + bodyFollow + motion.y + lookLagY,
+      THREE.MathUtils.lerp(-.78, handling[hud.weapon]?.aimDepth ?? -.47, aim) + pose.push + motion.z + bodyMotion.surge * motionScale * (1 - aim));
     // The weapon carries the buck, the sideways half of the pattern and the roll
     // that goes with it; the camera only ever takes the view coupling above.
     // `recoilPose` sizes them; aiming in is the only thing damped here, because
     // a shouldered weapon is held against the shooter rather than by the hands.
-    rig.rotation.set(pose.pitch * (1 - aim * .8) + (sprinting ? -.18 : 0) + motion.pitch,
-      motion.yaw + pose.yaw * (1 - aim * .6), motion.roll + pose.roll * (1 - aim * .5));
+    rig.rotation.set(pose.pitch * (1 - aim * .8) + bodyMotion.sprint * -.18 + bodyFollow * 1.2 + motion.pitch,
+      motion.yaw + pose.yaw * (1 - aim * .6), motion.roll + pose.roll * (1 - aim * .5) + sway * .7);
     handling.forEach((model, i) => model.update(i === hud.weapon ? progress : null, emptyReload[i]));
     const stage = reloadStage(remaining, emptyReload[hud.weapon]);
     if (stage && stage !== lastReloadStage && hud.phase === 'playing') handlingSound(stage);
     lastReloadStage = stage;
     canvas.dataset.aimProgress = aimProgress.toFixed(3); canvas.dataset.reloadStage = stage;
     canvas.dataset.weaponVisible = String(rig.visible);
+    canvas.dataset.movement = JSON.stringify({ speed: +speed.toFixed(3), eye: +bodyMotion.eye.toFixed(3),
+      feet: +vertical.toFixed(3), grounded: onGround, stance: poseStance, impact: +bodyMotion.compression.toFixed(4) });
     viewScene.updateMatrixWorld(true);
   }
   function gameplayCandidates() {
@@ -1196,6 +1224,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       } else if (frame.correction && !vehicles.active) {
         position = { x: frame.self.x, z: frame.self.z };
         vertical = Math.max(0, frame.self.y - eyeHeight()); velocityY = 0;
+        resetMovementMotion(bodyMotion, eyeHeight()); carry.set(0, 0, 0);
         updateCameras(0, false, false);
       }
       rig.visible = frame.self.alive && !vehicles.active;
@@ -1248,13 +1277,24 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (!arenaRuntime) vehicles.step(keys, dt);
       const move = resolveMovement(keys, moveStick);
       const forward = move.forward, side = move.side;
-      sprinting = move.sprint && forward > 0.5 && !keys.has('c') && !prone;
-      const speed = braced() ? 0 : prone ? .85 : keys.has('c') ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2;
-      const delta = movementInput(forward, side, yaw, speed * movement().movement, dt), next = footMovement.move({ ...position, y: vertical, velocityY }, delta.x, delta.z, dt, .38, eyeHeight() + .05, expedition ? [] : vehicles.footObstacles().slice(world.obstacles.length));
-      moving = Math.hypot(next.x - position.x, next.z - position.z) > 0.0001;
+      const onGround = grounded(), poseStance = stance(), burden = movement();
+      sprinting = move.sprint && forward > .5 && poseStance === 'stand';
+      const speed = poseStance === 'prone' ? .85 : poseStance === 'crouch' ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2;
+      const target = movementInput(forward, side, yaw, speed * burden.movement, 1);
+      if (consumeJump(bodyMotion, onGround, poseStance === 'stand' && bodyMotion.eye > 1.6, dt)) velocityY = 5.6 * burden.jumpVelocity;
+      const delta = advanceGroundMotion(bodyMotion, target.x, target.z, onGround && velocityY <= 0, burden.movement, poseStance, braced(), dt);
+      // Keep enough clearance for the head while lowering into a crawl.
+      const clearance = Math.max(eyeHeight(), bodyMotion.eye) + .05;
+      const height = footMovement.canOccupy(position.x, vertical, position.z, .38, clearance) ? clearance : eyeHeight() + .05;
+      const next = footMovement.move({ ...position, y: vertical, velocityY }, delta.x, delta.z, dt, .38, height,
+        expedition ? [] : vehicles.footObstacles().slice(world.obstacles.length), INFANTRY_GRAVITY);
+      moving = Math.hypot(next.x - position.x, next.z - position.z) > .0001;
       carry.set((next.x - position.x) / Math.max(dt, 1e-4), 0, (next.z - position.z) / Math.max(dt, 1e-4));
+      // A blocked axis loses momentum instead of storing a burst against the wall.
+      if (Math.abs(next.x - position.x - delta.x) > .001) bodyMotion.x = carry.x;
+      if (Math.abs(next.z - position.z - delta.z) > .001) bodyMotion.z = carry.z;
+      if (next.impactSpeed > 1.5) { landMovement(bodyMotion, next.impactSpeed); movementSound(Math.min(1, next.impactSpeed / 9), true); }
       position = next;
-      // The same authored support and clearance rules power movement and the diagnostic evaluator.
       vertical = next.y; velocityY = next.velocityY;
       }
       // Recoil and the effect pools run on wall-clock time, as the weapon
