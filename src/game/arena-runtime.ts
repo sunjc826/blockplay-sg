@@ -1,4 +1,7 @@
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
+import { createVerticalMovement } from './vertical-movement';
+import { createCharacterRig, type CharacterRig } from './character-rig';
+import { arenaCharacterLook, arenaRoleColor } from './character-looks';
 import { MARINA_BOUNDS } from './marina-collision';
 import { PRONE_EYE_HEIGHT } from './fps-stance';
 import { validVehicleControls } from './vehicle-seats';
@@ -74,33 +77,27 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
 }
 function point(value: unknown): value is ArenaPoint { return object(value) && finite(value.x) && finite(value.y) && finite(value.z); }
 
-interface Avatar { root: THREE.Group; health: THREE.Sprite; muzzle: THREE.Mesh; shots: number; flash: number; maxHealth: number; resources: { dispose(): void }[] }
+interface Avatar {
+  rig: CharacterRig; root: THREE.Group; health: THREE.Sprite; label: THREE.Sprite | null; muzzle: THREE.Mesh | null;
+  shots: number; flash: number; maxHealth: number; resources: { dispose(): void }[];
+  alive: boolean; lastHealth: number; yaw: number; fireTimer: number; ground: number; groundTimer: number;
+  previous: THREE.Vector3; velocity: THREE.Vector3;
+}
+const noRaycast = () => {};
 function createAvatar(actor: ArenaActor): Avatar {
-  const root = new THREE.Group(); root.name = `arena-${actor.id}`; root.userData.arenaActorId = actor.id;
-  const color = actor.bot ? actor.role === 'tank' ? '#d95b50' : actor.role === 'sniper' ? '#a37add' : '#d8a24b' : '#53c1d0';
-  const fabric = new THREE.MeshStandardMaterial({ color, roughness: 0.9 });
-  const armor = new THREE.MeshStandardMaterial({ color: '#26322e', roughness: 0.84 });
-  const dark = new THREE.MeshStandardMaterial({ color: '#111e25', metalness: 0.25, roughness: 0.5 });
-  const visor = new THREE.MeshStandardMaterial({ color: '#72b1be', metalness: 0.65, roughness: 0.2 });
-  const resources: { dispose(): void }[] = [fabric, armor, dark, visor];
-  function box(width: number, height: number, depth: number, x: number, y: number, z: number, material: THREE.Material) {
-    const geometry = new THREE.BoxGeometry(width, height, depth); resources.push(geometry);
-    const mesh = new THREE.Mesh(geometry, material); mesh.position.set(x, y, z); root.add(mesh); return mesh;
+  const rig = createCharacterRig(arenaCharacterLook(actor), `arena-${actor.id}`);
+  const root = rig.root; root.userData.arenaActorId = actor.id;
+  const color = arenaRoleColor(actor);
+  const resources: { dispose(): void }[] = [...rig.resources];
+  let muzzle: THREE.Mesh | null = null;
+  if (rig.muzzle) {
+    const glow = new THREE.MeshBasicMaterial({ color: '#ffce72', transparent: true, opacity: 0.9 }), geometry = new THREE.BoxGeometry(0.11, 0.1, 0.18);
+    resources.push(glow, geometry);
+    muzzle = new THREE.Mesh(geometry, glow); muzzle.position.z = -.08; muzzle.visible = false; muzzle.raycast = noRaycast; rig.muzzle.add(muzzle);
   }
-  const heavy = actor.role === 'tank';
-  box(heavy ? 0.76 : 0.62, 0.64, 0.37, 0, 1.07, 0, fabric);
-  box(heavy ? 0.65 : 0.51, 0.47, 0.12, 0, 1.12, -0.23, armor);
-  for (const x of [-.18, .18]) box(.25, .74, .28, x, .41, 0, fabric).name = 'avatar-leg';
-  box(0.28, 0.17, 0.43, -0.18, 0.085, -0.06, dark); box(0.28, 0.17, 0.43, 0.18, 0.085, -0.06, dark);
-  box(0.22, 0.55, 0.23, -0.41, 1.04, -0.07, fabric); box(0.22, 0.5, 0.23, 0.41, 1.07, -0.15, fabric);
-  const helmetGeometry = new THREE.SphereGeometry(0.25, 10, 7); resources.push(helmetGeometry);
-  const helmet = new THREE.Mesh(helmetGeometry, armor); helmet.position.set(0, 1.59, 0); helmet.scale.set(1, 1.03, 1.08); root.add(helmet);
-  box(0.35, 0.105, 0.04, 0, 1.59, -0.249, visor);
-  box(0.12, 0.14, 0.78, 0.27, 1.13, -0.48, dark); box(0.035, 0.04, actor.role === 'sniper' ? 0.47 : 0.25, 0.27, 1.15, actor.role === 'sniper' ? -1.02 : -0.86, dark);
-  const glow = new THREE.MeshBasicMaterial({ color: '#ffce72', transparent: true, opacity: 0.9 }); resources.push(glow);
-  const muzzle = box(0.13, 0.12, 0.18, 0.27, 1.15, -1.02, glow); muzzle.visible = false;
   const barMaterial = new THREE.SpriteMaterial({ color, depthTest: true }); resources.push(barMaterial);
-  const health = new THREE.Sprite(barMaterial); health.position.set(0, 2.02, 0); health.scale.set(0.75, 0.055, 1); health.raycast = () => {}; root.add(health);
+  const health = new THREE.Sprite(barMaterial); health.position.set(0, 2.02, 0); health.scale.set(0.75, 0.055, 1); health.raycast = noRaycast; root.add(health);
+  let label: THREE.Sprite | null = null;
   if (typeof document !== 'undefined') {
     const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 48;
     const context = canvas.getContext('2d');
@@ -108,11 +105,19 @@ function createAvatar(actor: ArenaActor): Avatar {
       context.fillStyle = 'rgba(10,19,25,.8)'; context.fillRect(0, 0, 256, 48); context.font = '600 22px sans-serif'; context.textAlign = 'center'; context.textBaseline = 'middle'; context.fillStyle = color; context.fillText(actor.name.slice(0, 20), 128, 25);
       const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
       const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: true }); resources.push(texture, material);
-      const name = new THREE.Sprite(material); name.position.set(0, 2.23, 0); name.scale.set(1.6, 0.3, 1); name.raycast = () => {}; root.add(name);
+      label = new THREE.Sprite(material); label.position.set(0, 2.23, 0); label.scale.set(1.6, 0.3, 1); label.raycast = noRaycast; root.add(label);
     }
   }
-  return { root, health, muzzle, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources };
+  return { rig, root, health, label, muzzle, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources,
+    alive: actor.alive, lastHealth: actor.health, yaw: actor.yaw, fireTimer: 0, ground: 0, groundTimer: 0, previous: new THREE.Vector3(), velocity: new THREE.Vector3() };
 }
+/** Falling bodies stay visible briefly but never stop a shot or read as a target. */
+function setAvatarDown(avatar: Avatar, down: boolean) {
+  avatar.rig.setDown(down); avatar.root.userData.arenaDown = down;
+  avatar.root.traverse(node => { if (node instanceof THREE.Mesh && node !== avatar.muzzle) node.raycast = down ? noRaycast : THREE.Mesh.prototype.raycast; });
+}
+const ARENA_CORPSE_SECONDS = 1.6;
+const wrapAngle = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));
 
 /** Host owns bots, damage, spawns and score. The renderer submits only local input. */
 export function createArenaRuntime(options: ArenaRuntimeOptions) {
@@ -201,6 +206,53 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (broadcastTime >= 0.1) { broadcastTime = 0; publish(); }
   }, 50) : undefined;
 
+  /** Ground under an actor, probed as the simulation stands bots, so crouching and jumping read on any deck. */
+  let footing: ReturnType<typeof createVerticalMovement> | null = null;
+  function groundBelow(x: number, z: number, eye: number) {
+    footing ??= createVerticalMovement({ bounds: options.environment?.bounds ?? MARINA_BOUNDS, obstacles: options.obstacles, surfaces: getWalkSurfaces(scene), traversalObstacles: getTraversalObstacles(scene) });
+    return footing.supportHeight(x, z, eye - .5, .35, .6) ?? 0;
+  }
+  const destination = new THREE.Vector3(), local = { x: 0, z: 0 };
+  function animateAvatar(avatar: Avatar, actor: ArenaActor, dt: number) {
+    const { rig, root } = avatar;
+    if (!actor.alive && avatar.alive) setAvatarDown(avatar, true);
+    else if (actor.alive && !avatar.alive) { setAvatarDown(avatar, false); avatar.groundTimer = 0; }
+    const respawned = actor.alive && !avatar.alive;
+    avatar.alive = actor.alive;
+    root.visible = actor.alive || (rig.down && rig.downTime < ARENA_CORPSE_SECONDS && !actor.vehicle);
+    avatar.health.visible = actor.alive; if (avatar.label) avatar.label.visible = actor.alive;
+    if (!root.visible) { avatar.shots = actor.shots; avatar.lastHealth = actor.health; return; }
+    avatar.groundTimer -= dt;
+    if (avatar.groundTimer <= 0) { avatar.groundTimer = .12; avatar.ground = groundBelow(actor.x, actor.z, actor.y); }
+    const gunner = actor.vehicle === 'car' && actor.seat === 1, seated = !!actor.vehicle && !gunner;
+    const eyeAbove = actor.y - avatar.ground;
+    const crouch = actor.vehicle || actor.prone ? 0 : Math.max(0, Math.min(1, (1.75 - eyeAbove) / (1.75 - 1.15)));
+    const airborne = !actor.vehicle && !actor.prone && eyeAbove > 1.95;
+    const feet = seated ? actor.y - 1.2 : actor.vehicle ? actor.y - 1.75 : actor.prone ? actor.y - PRONE_EYE_HEIGHT : crouch > .02 ? avatar.ground : Math.max(0, actor.y - 1.75);
+    destination.set(actor.x, feet, actor.z);
+    avatar.previous.copy(root.position);
+    if (actor.alive) root.position.lerp(destination, respawned || root.position.distanceTo(destination) > 7 ? 1 : 1 - Math.exp(-15 * dt));
+    // Velocity from what is rendered, so the stride matches the glide.
+    const moved = avatar.previous.distanceTo(root.position);
+    if (dt > 0) avatar.velocity.lerp(moved > 3 ? destination.set(0, 0, 0) : destination.subVectors(root.position, avatar.previous).divideScalar(dt), 1 - Math.exp(-10 * dt));
+    const turnStep = wrapAngle(actor.yaw - avatar.yaw) * (respawned ? 1 : 1 - Math.exp(-14 * dt));
+    avatar.yaw = wrapAngle(avatar.yaw + turnStep);
+    root.rotation.set(0, avatar.yaw, 0);
+    const cos = Math.cos(avatar.yaw), sin = Math.sin(avatar.yaw);
+    local.x = avatar.velocity.x * cos - avatar.velocity.z * sin; local.z = avatar.velocity.x * sin + avatar.velocity.z * cos;
+    if (actor.shots > avatar.shots) { avatar.flash = 0.085; avatar.fireTimer = 1.6; rig.fire(); }
+    if (actor.alive && actor.health < avatar.lastHealth - .5) rig.flinch();
+    avatar.shots = actor.shots; avatar.lastHealth = actor.health;
+    avatar.fireTimer = Math.max(0, avatar.fireTimer - dt); avatar.flash = Math.max(0, avatar.flash - dt);
+    const speed = Math.hypot(local.x, local.z);
+    rig.update(dt, {
+      velocity: actor.vehicle ? { x: 0, z: 0 } : local, turn: actor.vehicle ? 0 : turnStep / Math.max(dt, 1e-3), pitch: actor.pitch,
+      crouch, prone: !!actor.prone, seated, driving: seated && actor.seat === 0, airborne,
+      aim: avatar.fireTimer > 0 || speed < 1.2 || actor.prone ? 1 : .15,
+    });
+    avatar.health.scale.x = Math.max(0.01, 0.75 * actor.health / avatar.maxHealth);
+    if (avatar.muzzle) avatar.muzzle.visible = avatar.flash > 0 && actor.alive && !!rig.weapon?.visible;
+  }
   function update(dt: number, input: ArenaInput): ArenaRuntimeFrame {
     if (disposed) return { snapshot: null, self: null, connected: false, started: false, hit: null, feed: [], spawn: false };
     dt = Number.isFinite(dt) ? Math.max(0, Math.min(dt, 0.25)) : 0;
@@ -221,18 +273,8 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       if (actor.id === session.id) continue;
       activeIds.add(actor.id);
       let avatar = avatars.get(actor.id);
-      if (!avatar) { avatar = createAvatar(actor); avatars.set(actor.id, avatar); scene.add(avatar.root); avatar.root.position.set(actor.x, actor.y - 1.75, actor.z); }
-      avatar.root.visible = actor.alive;
-      const destination = new THREE.Vector3(actor.x, Math.max(0, actor.y - 1.75), actor.z);
-      avatar.root.position.lerp(destination, avatar.root.position.distanceTo(destination) > 7 ? 1 : 1 - Math.exp(-15 * dt));
-      avatar.root.rotation.set(actor.prone ? -Math.PI / 2 : 0, actor.yaw, 0, 'YXZ');
-      avatar.root.traverse(o => { if (o.name === 'avatar-leg') { o.rotation.x = actor.vehicle ? -Math.PI / 2 : 0; o.position.y = actor.vehicle ? .55 : .41; o.position.z = actor.vehicle ? -.23 : 0; } });
-      avatar.root.scale.y = actor.vehicle ? .72 : actor.prone ? 1 : Math.min(1, Math.max(0.6, actor.y / 1.75));
-      if (actor.vehicle) avatar.root.position.y = actor.y - 1.2;
-      if (actor.prone) avatar.root.position.set(actor.x + Math.sin(actor.yaw) * 1.59, actor.y - PRONE_EYE_HEIGHT + .32, actor.z + Math.cos(actor.yaw) * 1.59);
-      avatar.health.scale.x = Math.max(0.01, 0.75 * actor.health / avatar.maxHealth);
-      if (actor.shots > avatar.shots) avatar.flash = 0.085;
-      avatar.shots = actor.shots; avatar.flash = Math.max(0, avatar.flash - dt); avatar.muzzle.visible = avatar.flash > 0 && !actor.vehicle;
+      if (!avatar) { avatar = createAvatar(actor); avatars.set(actor.id, avatar); scene.add(avatar.root); avatar.root.position.set(actor.x, actor.y - 1.75, actor.z); avatar.previous.copy(avatar.root.position); }
+      animateAvatar(avatar, actor, dt);
     }
     for (const [id, avatar] of avatars) if (!activeIds.has(id)) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); avatars.delete(id); }
     const correction = !!self?.alive && localAdopted && !spawnPending && Math.hypot(self.x - input.x, self.y - input.y, self.z - input.z) > 2.5;

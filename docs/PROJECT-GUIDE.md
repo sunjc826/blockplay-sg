@@ -311,6 +311,8 @@ The armory is accessed from each region’s FPS briefing or pause screen. It inc
 
 **Solo arena** runs locally against up to six bots with mixed, assault, tank or sniper compositions. The full local build labels this entry **LAN arena**; choose **Solo vs bots** inside it. Multiplayer host/join requires the separate LAN server.
 
+Bots, other players and expedition locals share one articulated character: soldiers walk, strafe, crouch, go prone, ride in vehicles, keep both hands on their weapon, flinch when hit and fall when killed (a falling body never blocks shots). Locals look toward you, turn to face you nearby, wave as you arrive and gesture when you talk to or buy from them.
+
 FPS modes share a lightweight local minimap using regional road data: practice shows targets and parked vehicles, expeditions show loot/checkpoints, and LAN hides opponents. Regional collectible maps and companions remain separate. Expedition and arena modes are infantry-only; cars and helicopters are available in FPS practice. See [mode comparison](FEATURE-PARITY.md).
 
 ## Install it
@@ -476,6 +478,7 @@ To serve companions and LAN from one origin, route `/api/adventure/*` to the com
 - `src/components/*Game.tsx`: game views and HUDs; `SingaporeMap.tsx`: island locator.
 - `src/game/*-scene.ts` and `*-collision.ts`: authored worlds and deterministic collisions.
 - `src/game/fps-engine.ts`: shared FPS rendering/input; `arena-*.ts`: bots and match rules.
+- `src/game/character-rig.ts`: articulated, procedurally animated humanoid (IK limbs, gait, stances, gestures) shared by arena bots, remote players and expedition NPCs; `character-looks.ts` dresses them by role. Pose review: `scripts/fixtures/character-render.html`, in-district: `character-world.html`.
 - `src/game/world-zones.ts`: district/checkpoint graph.
 - `src/components/AdventureCompanion.tsx`, `RegionGuide.tsx`: companion panels.
 - `src/game/adventure.ts`, `learning-guide.ts`: objective and read-only guide adapters.

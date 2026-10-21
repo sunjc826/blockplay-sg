@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Characters in district</title><style>
+body{margin:0;background:#161e25;color:#d9e4e9;font:14px system-ui}canvas{display:block}header{position:absolute;top:14px;left:20px;text-shadow:0 1px 3px #000}header small{display:block;margin-top:4px}
+</style></head><body><header>Characters in a district<small id="status">?zone=marina-bay&amp;view=npc|bots&amp;npc=0&amp;t=seconds</small></header><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import { buildDistrictWorld } from '/src/game/district-world.ts';
+import { expeditionNpcs } from '/src/game/expedition-npcs.ts';
+import { zoneSectors } from '/src/game/zone-sectors.ts';
+import { createExpeditionMarkers } from '/src/game/expedition-visuals.ts';
+import { createArenaRuntime } from '/src/game/arena-runtime.ts';
+import { createSoloSession } from '/src/game/lan-peer.ts';
+const params=new URLSearchParams(location.search), zoneId=params.get('zone')??'marina-bay', view=params.get('view')??'npc', seconds=Number(params.get('t')??4);
+const world=window.world=buildDistrictWorld(zoneId); world.stamps?.forEach(o=>o.visible=false);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(1);
+renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.9;document.body.append(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.05,600);
+const npcs=expeditionNpcs(zoneId,zoneSectors(zoneId)), npc=npcs[Number(params.get('npc')??0)];
+const markers=createExpeditionMarkers(world.scene,zoneId,[],npcs);
+const spawn=world.environment.playerSpawn;
+const arena=view==='bots'?createArenaRuntime({scene:world.scene,session:createSoloSession('Viewer'),obstacles:world.obstacles,botCount:world.zone.botCount,composition:world.zone.composition,environment:world.environment}):null;
+// The viewer stands still near the spawn so patrols come to it.
+const viewer={x:spawn.x,y:1.75,z:spawn.z,yaw:spawn.yaw??0,pitch:0,weapon:0,playing:true};
+const status=document.getElementById('status');
+let time=0, approach=Number(params.get('approach')??5);
+function frame(dt){
+  time+=dt; world.animate?.(time);
+  if(view==='npc'&&npc){
+    // Walk a viewer in from `approach` metres to 2 m so the greeting and head-turn trigger.
+    const d=Math.max(2,approach-time*.9), a=Number(params.get('angle')??.9);
+    camera.position.set(npc.x+Math.sin(a)*d, 1.7, npc.z+Math.cos(a)*d); camera.lookAt(npc.x,1.15,npc.z);
+    status.textContent=`${npc.name} · ${npc.role} · ${d.toFixed(1)} m`;
+  }
+  markers.update(dt,camera.position);
+  if(arena){
+    window.lastFrame=arena.update(dt,viewer);
+    const bots=world.scene.children.filter(c=>c.userData.arenaActorId&&c.visible);
+    const target=bots.sort((p,q)=>p.position.distanceTo(new THREE.Vector3(viewer.x,0,viewer.z))-q.position.distanceTo(new THREE.Vector3(viewer.x,0,viewer.z)))[0];
+    if(target){const side=new THREE.Vector3(Math.cos(target.rotation.y),0,-Math.sin(target.rotation.y));camera.position.copy(target.position).addScaledVector(side,3.2).add(new THREE.Vector3(0,1.5,0));camera.lookAt(target.position.clone().add(new THREE.Vector3(0,1,0)));status.textContent=`${bots.length} bots visible · following ${target.name}`;}
+  }
+  renderer.render(world.scene,camera);
+}
+// Fixed steps so a capture is reproducible, then keep animating for a live look.
+for(let t=0;t<seconds;t+=1/30)frame(1/30);
+window.ready=true;
+let last=performance.now();
+if(params.get('live')!=='0')(function loop(now){frame(Math.min(.05,(now-last)/1000));last=now;requestAnimationFrame(loop);})(last);
+</script></body></html>

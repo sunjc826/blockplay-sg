@@ -3,6 +3,8 @@ import type { FieldLoot } from './expedition-loot';
 import type { ExpeditionNpc } from './expedition-npcs';
 import { itemById } from './armory-catalog';
 import { WORLD_GATEWAYS, getWorldZone, type WorldZoneId } from './world-zones';
+import { createCharacterRig, hashString, type CharacterGesture, type CharacterRig } from './character-rig';
+import { npcCharacterLook, npcIdleGesture } from './character-looks';
 
 export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, loot: readonly FieldLoot[], npcs: readonly ExpeditionNpc[] = []) {
   const root = new THREE.Group(); root.name = 'expedition-markers'; root.userData.fpsEffect = true; scene.add(root);
@@ -33,22 +35,35 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
     } else if (item.kind === 'medical') { mesh(group,new THREE.BoxGeometry(.1,.24,.03),'#dbeee2',0,.26,-.292); mesh(group,new THREE.BoxGeometry(.24,.1,.03),'#dbeee2',0,.26,-.294); }
     label(group,`${item.tier.toUpperCase()} / ${item.name}`,color,1.32);
   }
+  // Locals are articulated figures standing on whatever floor is under them.
+  const floorRay = new THREE.Raycaster(), floors: THREE.Mesh[] = [];
+  scene.updateMatrixWorld(true);
+  for (const child of scene.children) if (child !== root) child.traverseVisible(node => { if (node instanceof THREE.Mesh && !node.userData.fpsEffect) floors.push(node); });
+  const floorAt = (x: number, z: number) => {
+    floorRay.set(new THREE.Vector3(x, 1.4, z), new THREE.Vector3(0, -1, 0)); floorRay.far = 2;
+    const hit = floorRay.intersectObjects(floors, false).find(h => h.point.y < .7 && (h.face?.normal.clone().transformDirection(h.object.matrixWorld).y ?? 0) > .7);
+    return hit ? hit.point.y : 0;
+  };
+  const locals: { npc: ExpeditionNpc; rig: CharacterRig; yaw: number; baseYaw: number; greeted: boolean; react: number; gesture: CharacterGesture }[] = [];
   for (const npc of npcs) {
-    const group = new THREE.Group(); group.position.set(npc.x, .13, npc.z); root.add(group);
+    const ground = floorAt(npc.x, npc.z);
+    const group = new THREE.Group(); group.position.set(npc.x, ground, npc.z); root.add(group);
     const interaction = npc.interaction;
     const vendor = interaction.kind === 'vendor';
     const action = interaction.kind === 'vendor'
       ? `${itemById(interaction.catalogId)?.name ?? 'SUPPLIES'} / ${interaction.price} ${interaction.currency === 'tokens' ? 'TK' : 'CR'}`
       : npc.role;
-    for (const x of [-.17, .17]) mesh(group, new THREE.CylinderGeometry(.09,.1,.72,8),'#27352f',x,.36,0);
-    mesh(group,new THREE.BoxGeometry(.58,.78,.34),vendor ? '#536f5d' : '#506b7c',0,1.05,0);
-    mesh(group,new THREE.BoxGeometry(.46,.62,.04),vendor ? '#e0c991' : '#bdd4df',0,1.03,-.19);
-    mesh(group,new THREE.SphereGeometry(.23,12,8),'#b9896e',0,1.68,0);
-    mesh(group,new THREE.BoxGeometry(.48,.08,.42),'#2d4137',0,1.9,0);
+    const rig = createCharacterRig(npcCharacterLook(npc), `npc-${npc.id}`); rig.root.userData.npcId = npc.id;
+    // Face the district spawn, the direction most visitors arrive from.
+    const spawn = getWorldZone(zone).spawn, baseYaw = Math.atan2(-(spawn.x - npc.x), -(spawn.z - npc.z)) + (hashString(npc.id) % 100 - 50) / 120;
+    rig.root.rotation.y = baseYaw; group.add(rig.root); resources.push(...rig.resources);
+    locals.push({ npc, rig, yaw: baseYaw, baseYaw, greeted: false, react: 0, gesture: 'idle' });
     const accent = vendor ? '#efd077' : '#9bdcf0';
     const ring = mesh(group,new THREE.TorusGeometry(.55,.035,6,28),accent,0,.04,0); ring.rotation.x = Math.PI/2;
     label(group,`N / ${npc.name} / ${action}`,accent,2.38);
   }
+  const viewerLocal = new THREE.Vector3();
+  let clock = 0;
   for (const gateway of WORLD_GATEWAYS.filter(gateway=>gateway.from===zone)) {
     const group = new THREE.Group(); group.position.set(gateway.position.x,.12,gateway.position.z); root.add(group);
     const ring = mesh(group,new THREE.TorusGeometry(3,.055,6,40),'#9ad9bd',0,.1,0); ring.rotation.x = Math.PI/2;
@@ -56,6 +71,28 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
     label(group,`T / ${getWorldZone(gateway.to).name.toUpperCase()}`, '#d2efcf',3.9);
   }
   return {
+    /** Idle life, head-tracking, turning to face and greeting a nearby viewer. */
+    update(dt: number, viewer: THREE.Vector3) {
+      dt = Number.isFinite(dt) ? Math.max(0, Math.min(dt, .1)) : 0; clock += dt;
+      for (const local of locals) {
+        const { npc, rig } = local, dx = viewer.x - npc.x, dz = viewer.z - npc.z, distance = Math.hypot(dx, dz);
+        if (distance > 14) local.greeted = false;
+        if (!local.greeted && distance < 6) { local.greeted = true; if (local.react <= 0) { local.react = 2.2; local.gesture = 'wave'; } }
+        local.react = Math.max(0, local.react - dt);
+        const wanted = distance < 4.5 ? Math.atan2(-dx, -dz) : local.baseYaw;
+        const delta = Math.atan2(Math.sin(wanted - local.yaw), Math.cos(wanted - local.yaw));
+        const step = Math.sign(delta) * Math.min(Math.abs(delta), 2.4 * dt, Math.abs(delta) * (1 - Math.exp(-5 * dt)) + .2 * dt);
+        local.yaw += step; rig.root.rotation.y = local.yaw;
+        const near = distance < 8;
+        if (near) { viewerLocal.copy(viewer); rig.root.worldToLocal(viewerLocal); }
+        rig.update(dt, { turn: dt > 0 ? step / dt : 0, lookAt: near ? viewerLocal : null, gesture: local.react > 0 ? local.gesture : npcIdleGesture(npc, clock) });
+      }
+    },
+    /** A visible response to the player's interaction. */
+    react(id: string, gesture: CharacterGesture, seconds = 2.6) {
+      const local = locals.find(candidate => candidate.npc.id === id); if (!local) return;
+      local.gesture = gesture; local.react = seconds; local.greeted = true;
+    },
     remove(id:string) { const group=pickups.get(id); if(group){group.visible=false;pickups.delete(id);} },
     dispose() { root.removeFromParent(); resources.forEach(resource=>resource.dispose()); pickups.clear(); },
   };

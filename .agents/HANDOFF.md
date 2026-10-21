@@ -2086,3 +2086,41 @@ actual recoil for all four support choices and a quick .50, including loss of
 bonus during crawling, with no runtime/shader errors. Inspected captures in
 .cache/bipod-variants. Previous stance-recoil browser check now accounts for the
 resolved support package. No commit or push.
+
+## 2026-10-21 — articulated NPC models and animation
+
+Replaced the box-figure arena avatars and the static expedition NPCs with one
+shared character: character-rig.ts builds a jointed humanoid (pelvis, spine,
+chest, neck, head, two-bone arms and legs, boots, weapon) and merges each bone
+into a single vertex-coloured mesh, about 17 draw calls per figure. Limbs are
+posed with analytic two-bone IK: feet are planted on a distance-driven walk
+cycle that strafes without crossing over, and hands stay on the weapon grip and
+foregrip in every stance. Poses: aim/low-ready/run carry, crouch, prone with the
+rifle forward, seated/driving, airborne tuck, fire kick, hit flinch, and a
+backward fall on death. Civilians add idle breathing, weight shift, look-at and
+gestures (clasp, behind, wipe, wave, talk, point, offer).
+
+character-looks.ts dresses them: role colours stay on torso and helmet band for
+readability; tanks get plates and an LMG, snipers a boonie and marksman rifle.
+NPCs are deterministic per id (skin, hair, clothes), vendors wear aprons and
+caps/headscarves, the route marshal a hi-vis top, the concierge dark clothes.
+
+Arena runtime: crouch now comes from eye height above the walk surface under
+the actor rather than squashing the mesh, so it works on upper floors too.
+Velocity and yaw are taken from the rendered glide. A killed actor falls for
+1.6 s with `userData.arenaDown` set and its meshes non-raycastable, then hides
+until respawn. Pilot perception reads the rig's named `avatar-aim-chest` and
+`avatar-aim-head` points and skips downed bodies. Expedition NPCs ray-cast
+their floor, face the district spawn, track/turn toward a nearby viewer, wave on
+arrival, and react to N (talk/point) and purchases (offer).
+
+Validation: 14 new character tests (IK accuracy, grounded feet, hand-to-grip
+in all stances and roles, crouch/prone/fall, seating, gestures, disposal,
+looks for every shipped NPC, arena avatar death/raycast/respawn). Full suite,
+typecheck and production build pass (existing bundle advisory). Visually
+reviewed scripts/fixtures/character-render.html (15 poses) and
+character-world.html (live bots and NPCs in real districts). arena-solo,
+expedition-ui and fps-pilot-expedition smokes fail on stale assertions that
+predate shared vehicles / 19 districts, not on this change. Committed on its
+own: the uncommitted level-design work above was left out, and the ground probe
+uses createVerticalMovement().supportHeight so it builds without it.

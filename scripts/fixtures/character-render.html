@@ -1,0 +1,47 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Character rig poses</title><style>
+body{margin:0;background:#161e25;color:#d9e4e9;font:14px system-ui}canvas{display:block}header{position:absolute;top:14px;left:20px}header small{display:block;color:#92a4b0;margin-top:4px}.labels{position:absolute;inset:0;pointer-events:none;display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(3,1fr)}.labels span{align-self:end;padding:10px 14px}
+</style></head><body><header>Character rig • procedural poses<small>?t=seconds advances every pose; ?yaw=radians turns the camera</small></header><div class="labels" id="labels"></div><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import { createCharacterRig } from '/src/game/character-rig.ts';
+import { arenaCharacterLook } from '/src/game/character-looks.ts';
+import { npcCharacterLook } from '/src/game/character-looks.ts';
+const params=new URLSearchParams(location.search), seconds=Number(params.get('t')??1.3), yaw=Number(params.get('yaw')??.65);
+const soldier=arenaCharacterLook({bot:true,role:'rifle'}), tank=arenaCharacterLook({bot:true,role:'tank'}), sniper=arenaCharacterLook({bot:true,role:'sniper'}), player=arenaCharacterLook({bot:false,role:'player'});
+const vendor=npcCharacterLook({id:'npc-chinatown-smith-street-vendor',role:'Hawker',interaction:{kind:'vendor'}}), kopi=npcCharacterLook({id:'npc-geylang-kopitiam-vendor',role:'Kopi vendor',interaction:{kind:'vendor'}});
+const marshal=npcCharacterLook({id:'npc-marina-bay-civic',role:'Route guide',interaction:{kind:'dialogue'}}), resident=npcCharacterLook({id:'npc-toa-payoh-dragon',role:'Resident',interaction:{kind:'dialogue'}}), concierge=npcCharacterLook({id:'npc-orchard-ion',role:'Local guide',interaction:{kind:'dialogue'}}), volunteer=npcCharacterLook({id:'npc-queenstown-court',role:'Neighbourhood guide',interaction:{kind:'dialogue'}});
+const all=[
+ ['RIFLE · AIM IDLE',soldier,{aim:1}],
+ ['RIFLE · WALK',soldier,{velocity:{x:0,z:-1.6},aim:.2}],
+ ['TANK · RUN',tank,{velocity:{x:0,z:-6},aim:0}],
+ ['SNIPER · CROUCH AIM',sniper,{crouch:1,aim:1,pitch:.15}],
+ ['PLAYER · PRONE',player,{prone:true,aim:1}],
+ ['RIFLE · STRAFE',soldier,{velocity:{x:2.4,z:0},aim:1}],
+ ['DRIVER · SEATED',player,{seated:true,driving:true}],
+ ['RIFLE · DOWN',soldier,{},true],
+ ['HAWKER · WAVE',vendor,{gesture:'wave'}],
+ ['KOPI · WIPE',kopi,{gesture:'wipe'}],
+ ['MARSHAL · TALK',marshal,{gesture:'talk'}],
+ ['RESIDENT · BEHIND',resident,{gesture:'behind'}],
+ ['CONCIERGE · POINT',concierge,{gesture:'point'}],
+ ['VOLUNTEER · WALK',volunteer,{velocity:{x:0,z:-1.3},gesture:'idle'}],
+ ['HAWKER · OFFER',vendor,{gesture:'offer'}],
+];
+const only=params.get('pose'), poses=only===null?all:only.split(',').map(Number).map(i=>all[i]), cols=Math.min(5,poses.length), rows=Math.ceil(poses.length/cols);
+document.getElementById('labels').style.gridTemplateColumns=`repeat(${cols},1fr)`;document.getElementById('labels').style.gridTemplateRows=`repeat(${rows},1fr)`;
+document.getElementById('labels').innerHTML=poses.map(p=>`<span>${p[0]}</span>`).join('');
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(1);renderer.setClearColor('#161e25');document.body.append(renderer.domElement);
+const views=poses.map(([label,look,drive,down])=>{
+ const scene=new THREE.Scene();const rig=createCharacterRig(look,label);scene.add(rig.root);
+ const floor=new THREE.Mesh(new THREE.CircleGeometry(1.4,32),new THREE.MeshStandardMaterial({color:'#38444b'}));floor.rotation.x=-Math.PI/2;scene.add(floor);
+ scene.add(new THREE.HemisphereLight('#daeafa','#384148',2.4));const light=new THREE.DirectionalLight('#fff0d9',3.2);light.position.set(-2,4,-3);scene.add(light);
+ if(down)rig.setDown(true);
+ for(let t=0;t<seconds;t+=1/60)rig.update(1/60,drive);
+ const prone=drive.prone, camera=new THREE.PerspectiveCamera(30,innerWidth/cols/(innerHeight/rows),.05,30);
+ const focus=prone?new THREE.Vector3(0,.3,.8):down?new THREE.Vector3(0,.3,-.2):new THREE.Vector3(0,.9,0), distance=(prone||down?4.2:4.4)*Number(params.get('zoom')??1);
+ camera.position.set(focus.x-Math.sin(yaw)*distance,focus.y+(prone||down?1.8:.5),focus.z-Math.cos(yaw)*distance);camera.lookAt(focus);
+ return {scene,camera};
+});
+renderer.setScissorTest(true);
+views.forEach(({scene,camera},i)=>{const w=innerWidth/cols,h=innerHeight/rows,x=i%cols*w,y=(rows-1-Math.floor(i/cols))*h;renderer.setViewport(x,y,w,h);renderer.setScissor(x,y,w,h);renderer.render(scene,camera)});
+window.ready=true;
+</script></body></html>

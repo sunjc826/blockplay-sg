@@ -480,7 +480,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const index = dialogueProgress.get(npc.id) ?? 0;
       const line = npc.interaction.lines[index % npc.interaction.lines.length];
       dialogueProgress.set(npc.id, index + 1);
-      hud.lootNotice = `${npc.name}: ${line}`; lootNoticeTime = 6;
+      hud.lootNotice = `${npc.name}: ${line}`; lootNoticeTime = 6; markers?.react(npc.id, index % 3 === 2 ? 'point' : 'talk', 3.2);
       comms.add('system', npc.name, line);
       canvas.focus({ preventScroll: true }); publish(); return;
     }
@@ -496,7 +496,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       hud.quickCount = quickRemaining; hud.credits = fieldProfile.credits; hud.tokens = fieldProfile.tokens;
       expedition.onEquipment(copyProfile(fieldProfile));
     }
-    hud.lootNotice = result.message; lootNoticeTime = 4;
+    hud.lootNotice = result.message; lootNoticeTime = 4; markers?.react(npc.id, result.purchased ? 'offer' : 'talk', 2.4);
     comms.add('system', npc.name, result.message);
     updateExpeditionPrompts(); canvas.focus({ preventScroll: true }); publish();
   }
@@ -665,8 +665,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const subjects: PilotSubject[] = [];
     if (options.arena) {
       // Read rendered avatars here, never hand the authoritative actor list to a policy.
-      for (const root of world.scene.children) if (root.visible && typeof root.userData.arenaActorId === 'string') {
-        subjects.push({ id: root.userData.arenaActorId, root, radius: .3, points: [1.15, 1.62].map(y => root.localToWorld(new THREE.Vector3(0, y, 0))) });
+      // Articulated avatars publish their chest and face; a falling body is not a target.
+      for (const root of world.scene.children) if (root.visible && typeof root.userData.arenaActorId === 'string' && !root.userData.arenaDown) {
+        const named = ['avatar-aim-chest', 'avatar-aim-head'].map(name => root.getObjectByName(name)?.getWorldPosition(new THREE.Vector3()));
+        subjects.push({ id: root.userData.arenaActorId, root, radius: .3, points: named.every(Boolean) ? named as THREE.Vector3[] : [1.15, 1.62].map(y => root.localToWorld(new THREE.Vector3(0, y, 0))) });
       }
     } else for (let i = 0; i < targets.length; i++) if (targets[i].alive) {
       subjects.push({ id: `target-${i}`, root: targets[i].root, radius: .24, points: [targets[i].hitZone.getWorldPosition(new THREE.Vector3())] });
@@ -1367,6 +1369,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     hud.encikCallout = encik.current(now / 1000);
     world.animate(hud.elapsed);
+    markers?.update(realDt, camera.position);
     atmosphere.update(dt, camera);
     const sight = weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon]) : undefined;
     const opticActive = rig.visible && !vehicles.active && hud.phase === 'playing';
