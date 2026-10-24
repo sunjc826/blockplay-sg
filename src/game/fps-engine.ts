@@ -1394,7 +1394,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const sight = weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon]) : undefined;
     const opticActive = rig.visible && !vehicles.active && hud.phase === 'playing';
     const scopeActive = scopeRenderer.render(world.scene, camera, viewCamera, sight, opticActive, aimProgress);
-    const reflectionCaptured = opticReflections.render(world.scene, camera, viewCamera, sight?.reflection, opticActive, now / 1000, aimProgress);
+    const reflectionCaptured = opticReflections.render(world.scene, camera, viewCamera, sight?.reflection, opticActive, now / 1000);
     canvas.dataset.scopeActive = String(scopeActive);
     canvas.dataset.reflexPowered = String(!!sight && sight.magnification <= 1.01 && sight.lens.visible);
     canvas.dataset.opticReflection = String(!!sight?.reflection?.uniforms.reflectionReady.value && opticActive);

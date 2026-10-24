@@ -17,7 +17,8 @@ const optic=new URLSearchParams(location.search).get('optic');
 const spec=optic?.startsWith('sar')?{...FPS_WEAPONS[0],optic:optic==='sar-match'?'precision':'integrated',aimFov:magnifiedFov(optic==='sar-match'?1.75:1.5)}:FPS_WEAPONS[1];
 const model=(await new GLTFLoader().loadAsync('/models/field-kit/'+spec.id+'.glb')).scene;fitWeaponOptic(model,spec);viewScene.add(model);const sight=getWeaponSight(model);
 const camera=new THREE.PerspectiveCamera(65,1.5,.08,800);camera.position.y=1.6;const viewCamera=new THREE.PerspectiveCamera(54,1.5,.01,3);
-const reflections=createOpticReflectionRenderer(renderer),scope=createScopeRenderer(renderer);let time=0;
+// The rear boxes are miniature stand-ins for buildings; keep them despite the scenery size cutoff.
+const reflections=createOpticReflectionRenderer(renderer,{minSize:0}),scope=createScopeRenderer(renderer);let time=0;
 function pixels(){const c=document.createElement('canvas');c.width=1200;c.height=800;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(renderer.domElement,0,0);const data=ctx.getImageData(350,250,500,300).data;let red=0, sumX=0, sumY=0;for(let i=0;i<data.length;i+=4)if(data[i]>170&&data[i+1]<115&&data[i+2]<95){red++;sumX+=350+(i/4)%500;sumY+=250+Math.floor(i/4/500);}return {redPixels:red,x:red?sumX/red:null,y:red?sumY/red:null};}
 window.show=(mode)=>{time++;camera.rotation.y=mode==='turn'?.5:0;model.rotation.set(0,0,0);model.position.set(0,-sight.aimHeight,sight.aimDepth);let aim=1;
 if(mode==='aligned-hip'){model.position.z=-.78;aim=0;}

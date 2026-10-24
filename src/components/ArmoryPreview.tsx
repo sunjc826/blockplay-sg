@@ -30,7 +30,8 @@ export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item:
     renderer.setPixelRatio(Math.min(devicePixelRatio, 1.25)); renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.25;
     node.append(renderer.domElement); renderer.domElement.setAttribute('aria-label', `${item.name} interactive 3D preview. Drag to rotate, scroll to zoom.`);
     const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(36, 1, .01, 20);
-    const reflections = createOpticReflectionRenderer(renderer);
+    // The studio's light panels are small but they are the highlights; keep everything.
+    const reflections = createOpticReflectionRenderer(renderer, { minSize: 0 });
     let studio: RoomEnvironment | undefined;
     scene.add(new THREE.HemisphereLight('#dce8ff', '#4c4b38', 2.3));
     const key = new THREE.DirectionalLight('#fff1d9', 3.8); key.position.set(2, 3, 4); scene.add(key);

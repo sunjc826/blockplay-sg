@@ -2198,3 +2198,22 @@ normals are skipped, or they force the 110° clamp. The magnified PiP target
 instead of a fixed 384. Cost: one extra narrow-frustum scene pass per frame
 while aimed with an optic. Unit tests, typecheck, fps-optics and
 fps-reflex-render smokes pass (swiftshader; no real-GPU frame timing taken).
+
+## 2026-10-24: optic reflections every frame, paid for by a lighter pass
+
+Follow-up to 3b0b5f2. weapon-reflections.ts now captures every frame at the
+hip as well as aimed, and the per-capture cost dropped from ~64 to ~19 draw
+calls in the Marina range (WebGL draw-call count per framebuffer, swiftshader),
+so it is cheaper than the old 20/s hip schedule (~21 draws/frame averaged).
+- Far plane 400 → 150 m. During the pass the scene's linear Fog is pulled in
+  (far = 150, near ≤ 65% of it) so scenery fades rather than pops, then restored.
+- Only objects on REFLECTED_LAYER (2) are drawn. Lights and meshes whose
+  second-largest world-space box side is ≥ 2 m join it (each object classified
+  once; the scene is re-walked every 0.5 s for new objects). Props, characters,
+  vehicles, debris, and long thin rails/kerbs fall out; sprites/points/lines are
+  never reflected. Shadows and the main/PiP cameras still use layer 0.
+- Options { far, minSize }: the shop's RoomEnvironment and the reflex-render GPU
+  fixture (miniature rear "buildings") pass minSize: 0.
+Unit tests, full suite, typecheck, fps-optics and fps-reflex-render smokes pass.
+fps-optics failed once in three swiftshader runs (assertion not captured) and
+passed the next two; likely timing. No real-GPU frame timing taken.
