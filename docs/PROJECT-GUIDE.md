@@ -309,6 +309,8 @@ The armory is accessed from each region’s FPS briefing or pause screen. It inc
 
 **Open world** connects every district through checkpoints. E collects supplies and T crosses a nearby checkpoint. Temporary gear, health and ammo carry between districts; permanent armory purchases remain separate. The island locator previews routes and threat/loot tiers without resetting the expedition. See [zones and loot](WORLD-ZONES.md).
 
+The open world also has **combat events**. Artillery strikes land at random times and places around you, more often in higher-threat districts: a banner and a red ring on the ground give a five-second warning, two spotting rounds walk in, then the salvo lands. Get out of the ring, or go prone behind something solid. Fallen patrols no longer reappear at a spawn point: they come back in groups by troop truck or helicopter, dropped well away from you, and the banner and comms log say where. **Debug survival** can switch random strikes off and call in artillery, a truck or a helicopter on demand. See [combat events](COMBAT-EVENTS.md).
+
 **Solo arena** runs locally against up to six bots with mixed, assault, tank or sniper compositions. The full local build labels this entry **LAN arena**; choose **Solo vs bots** inside it. Multiplayer host/join requires the separate LAN server.
 
 Bots, other players and expedition locals share one articulated character: soldiers walk, strafe, crouch, go prone, ride in vehicles, keep both hands on their weapon, flinch when hit and fall when killed (a falling body never blocks shots). Locals look toward you, turn to face you nearby, wave as you arrive and gesture when you talk to or buy from them.
@@ -421,6 +423,7 @@ Browser checks require a running app and a separate Chrome profile with remote d
 | `pnpm test:adventure` | 5173 / 9223 | Mocked companion, voice, failure and race checks |
 | `pnpm test:fps`, `test:armory`, `test:vehicles`, `test:fullscreen` | 5175 / 9224 | Override with `FPS_APP_ORIGIN` and `FPS_CHROME_ORIGIN` |
 | `pnpm test:arena:solo`, `test:expedition` | 5175 / 9228 | See script headers for origin overrides |
+| `pnpm test:combat-events` | 5175 / 9228 | Debug truck, helicopter and barrage in a real expedition, then an unattended soak (`COMBAT_SMOKE_SOAK` seconds, default 150) that needs a strike from the director |
 | `pnpm test:touch` | 5175 / 9224 | Thumb sticks, analog pace, trigger-drag aim and the district sticks, in an emulated phone. `TOUCH_SMOKE_PACE=4` on a software renderer |
 | `pnpm test:fullscreen:mobile` | 5175 / 9224 | Immersive phone play in both orientations: the scene owns the screen and the HUD stays inside a stand-in safe area |
 

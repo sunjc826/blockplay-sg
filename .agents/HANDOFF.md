@@ -2217,3 +2217,43 @@ so it is cheaper than the old 20/s hip schedule (~21 draws/frame averaged).
 Unit tests, full suite, typecheck, fps-optics and fps-reflex-render smokes pass.
 fps-optics failed once in three swiftshader runs (assertion not captured) and
 passed the next two; likely timing. No real-GPU frame timing taken.
+
+## 2026-10-24: combat events — artillery, director, troop-transport reinforcements
+
+The open world was quiet: a fixed patrol count that reappeared at spawn points
+3 s after dying. Step 1 of docs/COMBAT-EVENTS.md is built. An event is a small
+descriptor (kind, seed, start, target, heading, intensity, plus reach/troops
+for transports), and its plugin turns it into a payload timeline with a pure
+function. The host resolves the timeline and renderers redraw it from the
+descriptor alone.
+
+- combat-events.ts: registry (it probes eight seeds × three intensities, and
+  rejects any damaging payload before `warning`), mulberry32, phases, cues,
+  validation, transportPose. combat-event-catalog.ts: artillery,
+  transport-land, transport-air.
+- combat-blast.ts: falloff + stance + hull scale. Vehicle wrecks in
+  arena-rules now use it, with the same eye-point distance and no stance
+  relief, so wreck numbers are unchanged.
+- combat-director.ts: risk-paced random strikes 25–80 m from a player, with
+  rounds bracketed ≥10 m off everyone; planTransport chooses drop and ride.
+- arena-rules: `ArenaEnvironment.combatEvents { risk }` and `reinforcements`
+  (district-world sets both for every expedition district). Events step on the
+  host, kills read "Artillery killed X" and credit nobody, bots run out of
+  warned rings, fallen bots wait for a ride (45 s fallback), and snapshots
+  carry `events`, validated in arena-runtime.
+- fps-engine: event clock between snapshots, cues → visuals/audio/shake,
+  `combatBanner` HUD (styles.css), comms "Fire control"/"Intel" lines. The
+  debug panel has a Random events toggle (FpsDebugSettings.combatEvents) and
+  Artillery/Truck/Helicopter buttons, solo only.
+- Not done: range adapter, LAN, minimap rings, voiced radio (the Encik
+  recording test needs a clip per line), shootable transports, air/helicopter
+  raids, a World conditions setting.
+
+Validation: 1046 tests in 111 files pass (new combat-events.test.ts and
+combat-arena.test.ts; fps-debug test updated for the new field). Typecheck
+and build pass. scripts/fixtures/combat-events.html was reviewed for the
+barrage, truck and helicopter. `pnpm test:combat-events` passed in headless
+Chrome (swiftshader): debug truck, helicopter and barrage drew, and a 150 s
+unattended soak saw a director strike and two reinforcement trucks with no
+runtime errors. Nothing committed; the unrelated level-design and promo
+changes in the tree were left alone.
