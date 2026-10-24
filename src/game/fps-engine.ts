@@ -11,6 +11,7 @@ import { pickupSlot } from './armory-slots';
 import { equipmentMovement } from './fps-encumbrance';
 import { buildServiceWeapon } from './service-weapon-models';
 import { impactSurfaceNormal } from './fps-impact-normal';
+import { hitSurface } from './fps-surfaces';
 import * as THREE from 'three';
 import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook, clampFpsPitch } from './fps-pointer';
 import { dragLook, resolveMovement, stickKeys, type StickVector } from './touch-controls';
@@ -829,6 +830,24 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
 
   const impactKind = (hit: THREE.Intersection): ImpactKind => typeof hit.object.userData.fpsTarget === 'number' ? 'target' : 'surface';
+  const splatRay = new THREE.Raycaster(), splatNormal = new THREE.Vector3();
+  /**
+   * Draws a round stopping on `hit`: the struck material picks its debris and
+   * mark. A body bleeds, and throws a spatter onto whatever is close behind it.
+   */
+  function strike(hit: THREE.Intersection, direction: THREE.Vector3, energy: number, style?: string) {
+    const normal = surfaceNormal(hit, direction), kind = impactKind(hit);
+    const material = kind === 'surface' ? hitSurface(hit, normal.y) : undefined;
+    effects.impact(hit.point, normal, kind, energy, style, material);
+    if (material !== 'flesh') return;
+    splatRay.set(hit.point, direction); splatRay.near = .05; splatRay.far = 2.4;
+    const behind = visibleHits(splatRay, gameplayCandidates(), 8).find(next => !isWaterHit(next) && impactKind(next) === 'surface' && hitSurface(next) !== 'flesh');
+    if (behind) {
+      // Thinner and wider the further the spray had to travel to reach it.
+      const reach = behind.distance / splatRay.far;
+      effects.decal(behind.point, impactSurfaceNormal(behind, direction, splatNormal), 'blood', (.09 + reach * .14) * Math.min(1.4, Math.max(.5, energy)));
+    }
+  }
   const isWaterHit = (hit?: THREE.Intersection) => !!hit && isWaterObject(hit.object);
   /**
    * Water ends a shot's list of struck surfaces: a round that goes in breaks
@@ -869,7 +888,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const range = travelled + hit.distance;
       energy = resolveSurfaces(hits, weapon, () => range, energy);
       applySplash(hit.point, weapon, range, energy, hit.object.userData.fpsTarget);
-      if (!isWaterHit(hit)) { effects.impact(hit.point, surfaceNormal(hit, skipDirection), impactKind(hit), energy, weaponStyles[weapon]?.id); return; }
+      if (!isWaterHit(hit)) { strike(hit, skipDirection, energy, weaponStyles[weapon]?.id); return; }
       heading = meetWater(hit, skipDirection, energy); at = hit.point.clone(); travelled = range;
     }
   }
@@ -983,7 +1002,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
             if (!skip || !skipRound(round, exit, skip, SKIP_ENERGY)) rounds.splice(i, 1);
             continue;
           }
-          effects.impact(last.point, surfaceNormal(last, roundDirection), impactKind(last), round.scale, weaponStyles[round.weapon]?.id); struck = true;
+          strike(last, roundDirection, round.scale, weaponStyles[round.weapon]?.id); struck = true;
           // Stopped once it has struck more surfaces than it could pass through.
           if (segmentHits.length > round.pierced) { rounds.splice(i, 1); continue; }
           round.pierced -= segmentHits.length;
@@ -1036,7 +1055,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (kind) vehicles.damage(kind, shot.damage);
       if (typeof hit.object.userData.fpsTarget === 'number') damageTarget(hit.object.userData.fpsTarget, hud.weapon, hit.distance, undefined, 1, shot.damage);
       if (isWaterHit(hit)) effects.splash(hit.point, shot.direction, 1);
-      else effects.impact(hit.point, surfaceNormal(hit, shot.direction), impactKind(hit), shot.kind === 'car' ? 1 : 1.6);
+      else strike(hit, shot.direction, shot.kind === 'car' ? 1 : 1.6);
     }
     resolveVehicleDestruction(); checkCompletion(); publish();
   }
@@ -1136,7 +1155,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const skip = meetWater(struck, ray.ray.direction, energy);
       // The arena host resolves its own shots, so there the skip is spray only.
       if (skip && !arenaRuntime) skipInstantShot(struck.point, skip, struck.distance, energy, hud.weapon);
-    } else if (struck) effects.impact(struck.point, surfaceNormal(struck, ray.ray.direction), impactKind(struck), energy, weaponStyles[hud.weapon]?.id);
+    } else if (struck) strike(struck, ray.ray.direction, energy, weaponStyles[hud.weapon]?.id);
     checkCompletion();
     publish();
   }

@@ -1,0 +1,54 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Impact materials</title><style>
+body{margin:0;background:#161e25;color:#d9e4e9;font:14px system-ui}canvas{display:block}header{position:absolute;top:14px;left:20px;text-shadow:0 1px 2px #000}header small{display:block;color:#c3d0d8;margin-top:4px}
+</style></head><body><header>Impact materials • fps-surfaces → fps-effects<small>window.show(seconds, focus, side) fires a burst at each surface and advances the effects; focus is a panel index or -1 for all</small></header><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import { createFpsEffects } from '/src/game/fps-effects.ts';
+import { hitSurface } from '/src/game/fps-surfaces.ts';
+import { impactSurfaceNormal } from '/src/game/fps-impact-normal.ts';
+import { createCharacterRig } from '/src/game/character-rig.ts';
+import { arenaCharacterLook } from '/src/game/character-looks.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1200,800);renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.append(renderer.domElement);
+const world=new THREE.Scene();world.background=new THREE.Color('#b8d9ef');world.add(new THREE.HemisphereLight('#e4efff','#576350',1.9));
+const sun=new THREE.DirectionalLight('#fff4dd',2.4);sun.position.set(2,5,6);world.add(sun);
+const view=new THREE.Scene();const camera=new THREE.PerspectiveCamera(55,1.5,.05,200);
+const mat=(color,extra={})=>new THREE.MeshStandardMaterial({color,roughness:.76,...extra});
+// A lawn underfoot, then a row of upright panels, a crown and a figure in front of a wall.
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(40,40),mat('#5b8a4c'));ground.rotation.x=-Math.PI/2;world.add(ground);
+const surfaces=[['concrete',mat('#cfc9bb')],['wood',mat('#7b6148')],['metal',mat('#b0b8bb',{metalness:.8,roughness:.35})],['glass',mat('#9fd2e0',{transparent:true,opacity:.35})]];
+const targets=[];
+surfaces.forEach(([name,material],i)=>{const panel=new THREE.Mesh(new THREE.BoxGeometry(1.5,2.2,.12),material);panel.position.set(-4.2+i*1.9,1.1,-4);world.add(panel);targets.push({name,object:panel,at:new THREE.Vector3(panel.position.x,1.3,-3.94)});});
+const crown=new THREE.Mesh(new THREE.IcosahedronGeometry(.9,1),mat('#5b8a4c'));crown.position.set(3.4,1.6,-4.2);world.add(crown);targets.push({name:'foliage',object:crown,at:new THREE.Vector3(3.4,1.6,-3.3)});
+const backWall=new THREE.Mesh(new THREE.BoxGeometry(2.4,2.6,.12),mat('#e9e7d8'));backWall.position.set(6,1.3,-5.2);world.add(backWall);
+const rig=createCharacterRig(arenaCharacterLook({bot:true,role:'rifle'}),'figure');rig.root.position.set(6,0,-4.3);world.add(rig.root);rig.update(.016,{velocity:{x:0,z:0},turn:0,pitch:0,crouch:0,prone:false,seated:false,driving:false,airborne:false,aim:1});
+targets.push({name:'flesh',object:rig.root,at:new THREE.Vector3(6,1.25,-4.3)});
+targets.push({name:'dirt',object:ground,at:new THREE.Vector3(-1.2,0,-1.6)});
+const effects=createFpsEffects(world,view,{worldLight:false});
+const ray=new THREE.Raycaster(),normal=new THREE.Vector3(),splat=new THREE.Raycaster();
+const solids=()=>world.children.filter(o=>!o.userData.fpsEffect);
+function fire(from,target,jitter){
+  const aim=target.at.clone().add(new THREE.Vector3((Math.random()-.5)*jitter,(Math.random()-.5)*jitter,0));
+  const direction=aim.sub(from).normalize();ray.set(from,direction);ray.far=60;
+  const hit=ray.intersectObjects(solids(),true)[0];if(!hit)return null;
+  impactSurfaceNormal(hit,direction,normal);const surface=hitSurface(hit,normal.y);
+  effects.impact(hit.point,normal,'surface',1,undefined,surface);
+  if(surface==='flesh'){splat.set(hit.point,direction);splat.near=.05;splat.far=2.4;
+    const behind=splat.intersectObjects(solids(),true).find(h=>hitSurface(h)!=='flesh');
+    if(behind)effects.decal(behind.point,impactSurfaceNormal(behind,direction,new THREE.Vector3()),'blood',.09+behind.distance/2.4*.14);}
+  return surface;
+}
+window.show=(seconds=.1,focus=-1,side=false)=>{
+  effects.reset();
+  const eye=new THREE.Vector3(0,1.55,4.5);
+  if(focus>=0){const t=targets[focus];eye.set(t.at.x*.8,t.name==='dirt'?1.2:t.at.y+.15,t.name==='dirt'?.2:-.9);}
+  camera.position.copy(eye);camera.lookAt(focus>=0?targets[focus].at:new THREE.Vector3(.8,1.1,-4));camera.updateMatrixWorld(true);world.updateMatrixWorld(true);
+  const struck={};
+  // Shots come from the camera, as the player's would; a short burst spread over a hand's width.
+  (focus>=0?[targets[focus]]:targets).forEach(t=>{for(let i=0;i<4;i++){const s=fire(eye,t,.32);struck[t.name]=s;}});
+  for(let t=0;t<seconds;t+=1/60)effects.update(Math.min(1/60,seconds-t)||1/60,camera,0);
+  // From the side, to see what landed behind the target rather than the target itself.
+  if(side&&focus>=0){const t=targets[focus];camera.position.set(t.at.x-1.6,1.5,t.at.z+.6);camera.lookAt(t.at.x,1.2,t.at.z-.9);camera.updateMatrixWorld(true);}
+  renderer.render(world,camera);
+  return {struck,counts:effects.counts};
+};
+window.show(.08);window.ready=true;
+</script></body></html>

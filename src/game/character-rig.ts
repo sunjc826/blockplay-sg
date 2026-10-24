@@ -126,6 +126,8 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
   const gearMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .55, metalness: .35 });
   resources.push(skinMaterial, gearMaterial);
   const root = new THREE.Group(); root.name = name;
+  // Bullets that strike any part of a figure draw blood rather than chips (fps-surfaces).
+  root.userData.impactSurface = 'flesh';
   const body = new THREE.Group(); body.name = 'rig-body'; root.add(body);
   const joint = (jointName: JointName, parent: THREE.Object3D, x: number, y: number, z: number) => {
     const group = new THREE.Group(); group.name = `rig-${jointName}`; group.position.set(x, y, z); parent.add(group); return group;

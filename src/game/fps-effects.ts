@@ -1,7 +1,8 @@
-import { createBulletHoleTextures, createBulletHoleMaterial, withInstanceOpacity } from './fps-impact-material';
+import { createBulletHoleMaterial, createDecalAtlas, decalTile, withInstanceOpacity } from './fps-impact-material';
 import * as THREE from 'three';
 import { advanceCasings, casingFade, ejectCasing, MAX_CASINGS, type Casing } from './fps-casings';
-import { advanceImpacts, clearImpactField, createImpactField, impactDust, impactRing, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordImpact, scorchAlpha, sparkHeat, sparkStreak, type ImpactKind } from './fps-impacts';
+import { advanceImpacts, clearImpactField, createImpactField, debrisScale, impactDust, impactRing, MAX_DEBRIS, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordDecal, recordImpact, scorchAlpha, sparkHeat, sparkStreak, type ImpactKind } from './fps-impacts';
+import { SURFACE_LOOKS, type DecalKind, type SurfaceKind } from './fps-surfaces';
 import { advanceMuzzle, createMuzzle, igniteMuzzle, muzzleShape, resetMuzzle } from './fps-muzzle';
 import { MAX_ROUNDS_IN_FLIGHT } from './fps-projectiles';
 import { advanceSplashes, clearSplashField, createSplashField, dropletScale, MAX_DROPLETS, MAX_SPLASHES, recordSplash, splashColumn, splashRings } from './fps-splashes';
@@ -15,8 +16,9 @@ import { ISSUED_STYLE, type EffectStyle } from './fps-effect-styles';
  *
  * Every pool is allocated once at its ceiling and drawn as a single object:
  * one instanced draw for the brass, one for the impact rings, one for the dust
- * and smoke, one for the scorches, one batched `LineSegments` for every spark
- * in the air, and two for water: the foam rings and a billboard pool shared by
+ * and smoke, one for the scorches (every material's mark shares one atlas), one
+ * for the chips, splinters, shards and droplets a struck surface throws, one
+ * batched `LineSegments` for every spark in the air, and two for water: the foam rings and a billboard pool shared by
  * the spray columns and droplets. Nothing is created or disposed while firing, which is what
  * keeps a held trigger from sawing at the allocator on a software renderer.
  *
@@ -144,15 +146,25 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
   puffMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); puffMesh.frustumCulled = false; puffMesh.userData.fpsEffect = true; root.add(puffMesh);
 
   const scorchGeometry = keep(new THREE.PlaneGeometry(1, 1));
-  const crater = createBulletHoleTextures(); paint(crater.map); paint(crater.normalMap);
-  const scorchMaterial = hold(createBulletHoleMaterial(crater));
+  const atlas = createDecalAtlas(); paint(atlas.map); paint(atlas.normalMap);
+  const scorchMaterial = hold(createBulletHoleMaterial(atlas, atlas.columns));
   const scorchOpacity = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SCORCHES), 1).setUsage(THREE.DynamicDrawUsage);
   const scorchDepth = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SCORCHES), 1).setUsage(THREE.DynamicDrawUsage);
+  const scorchTile = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SCORCHES), 1).setUsage(THREE.DynamicDrawUsage);
   scorchGeometry.setAttribute('effectOpacity', scorchOpacity);
   scorchGeometry.setAttribute('impactDepth', scorchDepth);
+  scorchGeometry.setAttribute('decalTile', scorchTile);
   const scorchMesh = new THREE.InstancedMesh(scorchGeometry, scorchMaterial, MAX_SCORCHES);
   scorchMesh.name = 'fps-scorches';
   scorchMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scorchMesh.frustumCulled = false; scorchMesh.userData.fpsEffect = true; root.add(scorchMesh);
+
+  // Lit, opaque fragments: a low-poly stone stretched per instance into a chip,
+  // a splinter, a flat shard or leaf, or a round droplet. They shrink out
+  // rather than fade, so no transparency sort is needed.
+  const debrisMesh = new THREE.InstancedMesh(keep(new THREE.IcosahedronGeometry(1, 0)),
+    hold(new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: .62, metalness: .08, flatShading: true })), MAX_DEBRIS);
+  debrisMesh.name = 'fps-debris';
+  debrisMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); debrisMesh.frustumCulled = false; debrisMesh.userData.fpsEffect = true; root.add(debrisMesh);
 
   // --- splashes --------------------------------------------------------------
   // Water throws back spray rather than sparks: see fps-splashes. Two draws:
@@ -198,11 +210,12 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
   const axis = new THREE.Vector3(), forward = new THREE.Vector3(0, 0, 1), spin = new THREE.Quaternion();
   const right = new THREE.Vector3(), up = new THREE.Vector3(), back = new THREE.Vector3();
   const hidden = new THREE.Matrix4().makeScale(0, 0, 0);
-  [casingMesh, ringMesh, puffMesh, scorchMesh, splashRingMesh, sprayMesh].forEach(mesh => {
+  const pools = [casingMesh, ringMesh, puffMesh, scorchMesh, debrisMesh, splashRingMesh, sprayMesh];
+  pools.forEach(mesh => {
     for (let i = 0; i < mesh.count; i++) mesh.setMatrixAt(i, hidden);
     mesh.instanceMatrix.needsUpdate = true;
   });
-  [ringMesh, puffMesh, scorchMesh, casingMesh, splashRingMesh, sprayMesh].forEach(mesh => { for (let i = 0; i < mesh.count; i++) mesh.setColorAt(i, colour.setRGB(0, 0, 0)); mesh.instanceColor!.needsUpdate = true; });
+  pools.forEach(mesh => { for (let i = 0; i < mesh.count; i++) mesh.setColorAt(i, colour.setRGB(0, 0, 0)); mesh.instanceColor!.needsUpdate = true; });
 
   /**
    * Paints the parts of the rig that only ever belong to the weapon in hand:
@@ -223,7 +236,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
     root, flare,
     get style() { return current; },
     /** Live counts, surfaced so a browser smoke can assert the effects ran. */
-    get counts() { return { casings: casings.length, impacts: field.impacts.length, sparks: field.sparks.length, scorches: field.scorches.length, smoke: smoke.length, splashes: splashField.splashes.length, droplets: splashField.droplets.length }; },
+    get counts() { return { casings: casings.length, impacts: field.impacts.length, sparks: field.sparks.length, scorches: field.scorches.length, debris: field.debris.length, smoke: smoke.length, splashes: splashField.splashes.length, droplets: splashField.droplets.length }; },
     /** Re-parents the flare when the equipped weapon changes. */
     attachMuzzle(socket?: THREE.Object3D | null) { if (socket) socket.add(flare); else flare.removeFromParent(); },
     /**
@@ -269,11 +282,16 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
     },
     /**
      * `style` names the look of the weapon that fired the round, which for one
-     * still in the air need not be the weapon now in hand.
+     * still in the air need not be the weapon now in hand. `surface` names what
+     * it struck, which picks the debris, dust and mark (see fps-surfaces).
      */
-    impact(point: THREE.Vector3, normal: THREE.Vector3, kind: ImpactKind = 'surface', energy = 1, style?: string) {
+    impact(point: THREE.Vector3, normal: THREE.Vector3, kind: ImpactKind = 'surface', energy = 1, style?: string, surface?: SurfaceKind) {
       const source = styleOf(style);
-      recordImpact(field, point, normal, kind, energy, Math.random, source.id, source.impact);
+      recordImpact(field, point, normal, kind, energy, Math.random, source.id, source.impact, surface);
+    },
+    /** A mark with no impact of its own, such as blood thrown onto a wall behind a body. */
+    decal(point: THREE.Vector3, normal: THREE.Vector3, kind: DecalKind, radius: number) {
+      recordDecal(field, point, normal, kind, radius);
     },
     /**
      * A round meeting water at `point`, travelling along `direction`. Water
@@ -352,7 +370,9 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
           const dust = impactDust(impact), dustStyle = styleOf(impact.style);
           const layer = i % PUFFS_PER_IMPACT, phase = impact.spin + layer * 2.094;
           const spread = dust.scale * dustStyle.dustScale * (1 - layer * .16);
-          puffMesh.setColorAt(i, colour.set(dustStyle.dust).lerp(hotSpark.set(dustStyle.smoke), .65 + layer * .15).multiplyScalar(.65));
+          // A known surface lends the cloud its own colour: grey powder, sawdust, red mist.
+          if (impact.surface) puffMesh.setColorAt(i, colour.set(SURFACE_LOOKS[impact.surface].dust.colour).lerp(hotSpark.set(dustStyle.smoke), .15 + layer * .1).multiplyScalar(impact.surface === 'flesh' ? 1 : .8));
+          else puffMesh.setColorAt(i, colour.set(dustStyle.dust).lerp(hotSpark.set(dustStyle.smoke), .65 + layer * .15).multiplyScalar(.65));
           puffOpacity.setX(i, Math.max(0, Math.min(.95, dust.brightness * 1.25 * (1 - layer * .15))));
           puffMesh.setMatrixAt(i, spread > 0 ? matrix.compose(
             position.set(impact.x + impact.nx * dust.rise + Math.cos(phase) * dust.scale * .12,
@@ -373,7 +393,9 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
         if (!scorch) { scorchOpacity.setX(i, 0); scorchDepth.setX(i, 0); scorchMesh.setMatrixAt(i, hidden); continue; }
         quaternion.setFromUnitVectors(forward, axis.set(scorch.nx, scorch.ny, scorch.nz));
         quaternion.multiply(spin.setFromAxisAngle(forward, scorch.spin));
-        scorchMesh.setColorAt(i, colour.setScalar(Math.max(.1, 1.7 - styleOf(scorch.style).scorch)));
+        // Blood is not powder burn, so the weapon's scorch darkness never reaches it.
+        scorchMesh.setColorAt(i, colour.setScalar(scorch.decal === 'blood' ? 1 : Math.max(.1, 1.7 - styleOf(scorch.style).scorch)));
+        scorchTile.setX(i, decalTile(scorch.decal));
         scorchOpacity.setX(i, scorchAlpha(scorch));
         // The authored texture represents a 7 mm cavity at a 41 mm decal radius.
         // Depth-to-radius keeps a wider bore from automatically looking deeper.
@@ -383,7 +405,17 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
           quaternion, scale.set(scorch.radius * 2, scorch.radius * 2, 1)));
       }
       scorchMesh.instanceMatrix.needsUpdate = true; scorchMesh.instanceColor!.needsUpdate = true;
-      scorchOpacity.needsUpdate = true; scorchDepth.needsUpdate = true;
+      scorchOpacity.needsUpdate = true; scorchDepth.needsUpdate = true; scorchTile.needsUpdate = true;
+
+      for (let i = 0; i < MAX_DEBRIS; i++) {
+        const piece = field.debris[i];
+        if (!piece) { debrisMesh.setMatrixAt(i, hidden); continue; }
+        const size = debrisScale(piece);
+        quaternion.setFromAxisAngle(axis.set(piece.ax, piece.ay, piece.az), piece.angle);
+        debrisMesh.setColorAt(i, colour.set(piece.colour));
+        debrisMesh.setMatrixAt(i, matrix.compose(position.set(piece.x, piece.y, piece.z), quaternion, scale.set(piece.sx * size, piece.sy * size, piece.sz * size)));
+      }
+      debrisMesh.instanceMatrix.needsUpdate = true; debrisMesh.instanceColor!.needsUpdate = true;
 
       for (let i = 0; i < MAX_SPLASHES; i++) {
         const splash = splashField.splashes[i];
@@ -438,18 +470,18 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
       beamTime = 0; beam.visible = trails.visible = flare.visible = sparkMesh.visible = false;
       viewLight.intensity = 0; if (worldLight) worldLight.intensity = 0;
       trailGeometry.setDrawRange(0, 0); sparkGeometry.setDrawRange(0, 0);
-      [casingMesh, ringMesh, puffMesh, scorchMesh, splashRingMesh, sprayMesh].forEach(mesh => {
+      pools.forEach(mesh => {
         for (let i = 0; i < mesh.count; i++) mesh.setMatrixAt(i, hidden);
         mesh.instanceMatrix.needsUpdate = true;
       });
-      [ringMesh, puffMesh, scorchMesh, casingMesh, splashRingMesh, sprayMesh].forEach(mesh => {
+      pools.forEach(mesh => {
         for (let i = 0; i < mesh.count; i++) mesh.setColorAt(i, colour.setScalar(0));
         mesh.instanceColor!.needsUpdate = true;
       });
     },
     dispose() {
       flare.removeFromParent(); viewLight.removeFromParent(); root.removeFromParent();
-      [casingMesh, ringMesh, puffMesh, scorchMesh, splashRingMesh, sprayMesh].forEach(mesh => mesh.dispose());
+      pools.forEach(mesh => mesh.dispose());
       geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose());
     },
   };

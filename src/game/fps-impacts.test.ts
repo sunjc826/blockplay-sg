@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
-import { advanceImpacts, clearImpactField, createImpactField, impactDust, impactRing, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordImpact, RING_LIFE, scorchAlpha, sparkHeat, sparkStreak, SPARKS_PER_IMPACT } from './fps-impacts';
+import { advanceImpacts, clearImpactField, createImpactField, debrisScale, impactDust, impactRing, MAX_DEBRIS, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordDecal, recordImpact, RING_LIFE, scorchAlpha, sparkHeat, sparkStreak, SPARKS_PER_IMPACT } from './fps-impacts';
+import { DEFAULT_IMPACT_PROFILE } from './fps-impact-profile';
 
 const wall = { x: 2, y: 1.5, z: -3 }, out = { x: 0, y: 0, z: 1 };
 const run = (field: ReturnType<typeof createImpactField>, seconds: number) => { for (let t = 0; t < seconds; t += 1 / 60) advanceImpacts(field, 1 / 60); };
@@ -86,4 +87,52 @@ it('holds a scorch before fading it, and stays finite through absurd frames', ()
   advanceImpacts(field, 0); advanceImpacts(field, -1); advanceImpacts(field, 9);
   // `style` is an opaque tag rather than a number; every other field is one.
   field.sparks.forEach(spark => Object.values(spark).forEach(v => expect(typeof v === 'number' ? Number.isFinite(v) : true).toBe(true)));
+});
+
+it('throws different debris and leaves a different mark for each material', () => {
+  const struck = (surface: Parameters<typeof recordImpact>[8]) => {
+    const field = createImpactField();
+    recordImpact(field, wall, out, 'surface', 1, Math.random, undefined, DEFAULT_IMPACT_PROFILE, surface);
+    return field;
+  };
+  const metal = struck('metal'), concrete = struck('concrete'), wood = struck('wood'), glass = struck('glass'), flesh = struck('flesh'), leaves = struck('foliage');
+  expect(metal.sparks.length).toBeGreaterThan(concrete.sparks.length);
+  expect(wood.sparks).toHaveLength(0); expect(flesh.sparks).toHaveLength(0);
+  expect(concrete.scorches[0].decal).toBe('crater'); expect(metal.scorches[0].decal).toBe('dent');
+  expect(wood.scorches[0].decal).toBe('splinter'); expect(glass.scorches[0].decal).toBe('crack');
+  // A body and a tree crown hold no mark; the body bleeds instead of chipping.
+  expect(flesh.scorches).toHaveLength(0); expect(leaves.scorches).toHaveLength(0);
+  expect(flesh.debris.length).toBeGreaterThan(0);
+  expect(flesh.debris.every(piece => /^#[4-8]/.test(piece.colour))).toBe(true);
+  expect(impactRing(flesh.impacts[0]).brightness).toBe(0);
+  // Splinters are long and thin; glass shards and leaves are flat.
+  const [splinter] = wood.debris, [shard] = glass.debris;
+  expect(splinter.sz).toBeGreaterThan(splinter.sx * 5);
+  expect(shard.sy).toBeLessThan(shard.sx * .2);
+  // Every fragment leaves the struck face on its outward side.
+  [...wood.debris, ...glass.debris, ...flesh.debris].forEach(piece => expect(piece.vz).toBeGreaterThan(0));
+});
+
+it('flutters leaves down slowly, shrinks fragments out and caps the pool', () => {
+  const field = createImpactField();
+  recordImpact(field, wall, out, 'surface', 1, () => .5, undefined, DEFAULT_IMPACT_PROFILE, 'foliage');
+  recordImpact(field, wall, out, 'surface', 1, () => .5, undefined, DEFAULT_IMPACT_PROFILE, 'concrete');
+  const leaf = field.debris.find(piece => piece.gravity < 5)!, chip = field.debris.find(piece => piece.gravity > 5)!;
+  const leafY = leaf.vy, chipY = chip.vy;
+  run(field, .2);
+  expect(leafY - leaf.vy).toBeLessThan(chipY - chip.vy);
+  expect(debrisScale(chip)).toBe(1);
+  chip.age = chip.life * .9; expect(debrisScale(chip)).toBeGreaterThan(0); expect(debrisScale(chip)).toBeLessThan(1);
+  for (let i = 0; i < 60; i++) recordImpact(field, wall, out, 'surface', 1, Math.random, undefined, DEFAULT_IMPACT_PROFILE, 'glass');
+  expect(field.debris.length).toBeLessThanOrEqual(MAX_DEBRIS);
+  run(field, 2);
+  expect(field.debris).toHaveLength(0);
+});
+
+it('lays a flat, bounded blood decal on its own', () => {
+  const field = createImpactField();
+  const splat = recordDecal(field, wall, { x: 0, y: 0, z: 5 }, 'blood', 9, () => .5);
+  expect(splat).toMatchObject({ decal: 'blood', depth: 0, nz: 1 });
+  expect(splat.radius).toBeLessThanOrEqual(.6);
+  expect(field.impacts).toHaveLength(0); expect(field.sparks).toHaveLength(0);
 });

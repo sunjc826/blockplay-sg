@@ -2124,3 +2124,43 @@ expedition-ui and fps-pilot-expedition smokes fail on stale assertions that
 predate shared vehicles / 19 districts, not on this change. Committed on its
 own: the uncommitted level-design work above was left out, and the ground probe
 uses createVerticalMovement().supportHeight so it builds without it.
+
+## 2026-10-24 — impact materials, blood, reflex dot raise, bot cover
+
+Impacts now depend on what was struck. fps-surfaces.ts classifies a hit from an
+explicit `userData.impactSurface` (on the object, any ancestor, or the material)
+or, for the districts' untagged colour materials, from metalness, transparency,
+colour and material name: concrete, metal, wood, glass, foliage, dirt (a green
+face pointing up) or flesh. Character rigs are tagged flesh at the root. Each
+surface has a look: spark multiplier (metal 1.7, concrete .5, wood/glass/flesh
+0), flash, dust colour and size, and a new debris pool (chips, splinters, flat
+glass shards, fluttering leaves, clods, blood droplets) drawn as one instanced
+draw. Decals come from a 3×3 procedural atlas (crater, splinter, dent, crack,
+soil, blood) selected per instance. A hit on a body throws red mist and drops,
+leaves no mark on the moving figure, and lays a blood splat on any surface up
+to 2.4 m behind it. Range targets keep their own clean look. Untagged calls to
+recordImpact keep the original generic look, so existing behaviour is intact.
+
+Reflex dot: the strictly collimated dot only existed once the optic axis was
+inside the 4 cm window, so on the ADS raise it popped in at ~75% at full
+strength. While off-axis the dot is now held inside the glass on the side
+nearest the axis (pulled inward with obliquity so the tube lip does not hide
+it) and fades in from 4.4 window radii; within .75 radii it is collimated as
+before. scripts/fps-reflex-render-smoke.mjs gained a 21-step raise: the dot now
+arrives at 45% and stays; the hip pose still shows nothing.
+
+Bots shot through mesh-only walls in expedition arenas: rendered-scene cover
+was only wired into the arena when vehicles were enabled, and bot sight never
+used it. createArena takes a `coverDistance` argument the runtime always
+supplies; it limits every shot and gates bot sight (cached 0.2 s per bot). The
+runtime caches its cover mesh list for 250 ms and ignores cached meshes that
+are no longer shown.
+
+Validation: typecheck and full suite pass, also on a clean HEAD worktree with
+only these files. Reflex smoke passes (before/after raise numbers recorded
+above). New fixture scripts/fixtures/impact-materials.html (window.show) shows
+every surface; captures were reviewed. A trimmed fps-effects smoke passed the
+ground volley in-game; the full smoke is stale at its weapon-switch step (key 2
+is now the P30 sidearm), and its target step is timing-sensitive on
+SwiftShader (rounds after the kill mark the backdrop). Node@24 from Homebrew is
+broken on this machine (missing simdjson dylib); checks ran under node@22.
