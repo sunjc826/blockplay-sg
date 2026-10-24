@@ -34,7 +34,9 @@ export function applyEnemyWeaponConfig(root: THREE.Object3D, id: string, config:
   tagged.forEach(([node]) => node.visible = (node.userData.configs as string[]).includes(selected));
   const muzzle = root.getObjectByName(`${id}__socket_muzzle`), home = muzzle?.position.z ?? 0;
   if (muzzle) muzzle.position.z = configs[selected].muzzle;
-  return () => { tagged.forEach(([node, visible]) => node.visible = visible); if (muzzle) muzzle.position.z = home; };
+  // weapon-optics reads this to fit the glass and reticle of the sight shown.
+  const previous = root.userData.enemyConfig; root.userData.enemyConfig = selected;
+  return () => { tagged.forEach(([node, visible]) => node.visible = visible); if (muzzle) muzzle.position.z = home; root.userData.enemyConfig = previous; };
 }
 
 type Kit = ReturnType<typeof createKit>;
@@ -53,7 +55,12 @@ function createKit(root: THREE.Group, id: EnemyWeaponId) {
   const smoke = material('Magazine smoke', '#5d4f36', .32, .05, { transparent: true, opacity: .8 });
   const brass = material('Brass', '#aa8746', .45, .65);
   const copper = material('Copper', '#80583b', .5, .6);
-  const dot = new THREE.MeshBasicMaterial({ color: '#ff3a1c' }); dot.name = 'Reticle'; dot.toneMapped = false;
+  const interior = material('Sight interior', '#101618', .78, .15, { side: THREE.DoubleSide });
+  // Lens faces you look at but never through: a scope's objective, a laser window.
+  const lens = material('Lens', '#18262e', .08, .4, { envMapIntensity: 1.4 });
+  // The unaimed reflex on a G36's handle: tinted, coated, and seen through.
+  const tint = new THREE.MeshPhysicalMaterial({ color: '#c99a5a', roughness: .1, metalness: 0, clearcoat: 1, transparent: true, opacity: .32, depthWrite: false, side: THREE.DoubleSide });
+  tint.name = 'Reflex glass';
 
   const mesh = (name: string, geometry: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D = root) => {
     const part = new THREE.Mesh(geometry, m); part.name = `${id}__${name}`; part.position.set(x, y, z); parent.add(part); return part;
@@ -129,21 +136,30 @@ function createKit(root: THREE.Group, id: EnemyWeaponId) {
     box(`${name}-bridge`, .05, .03, .045, 0, -.085, -.01, dark, parent);
   };
   /**
-   * A sight housing on top of a carry handle: an open tube you look straight
-   * through, cheek plates and a cover that sit outside the bore, and a red dot
-   * at the front glass that lies on the aiming line.
+   * A face outline, given as [x, y] points, extruded along Z from `front` to
+   * `rear`: a sight body with its window cut right through it.
    */
-  const handleSight = (rear: number, front: number) => {
-    const { sightHeight: y } = ENEMY_WEAPON_LAYOUT[id], length = rear - front, centre = (rear + front) / 2;
-    tube('sight-housing', .025, .0185, length, y, centre, polymer);
-    for (const sideX of [-1, 1]) box('sight-cheek', .007, .04, length * .9, sideX * .026, y - .006, centre, polymer);
-    box('sight-cover', .044, .008, length * .82, 0, y + .027, centre, polymer);
-    tube('sight-eyepiece', .027, .0195, .012, y, rear - .004, rubber);
-    tube('sight-bezel', .026, .0195, .006, y, front + .004, edge);
-    box('sight-adjuster', .012, .01, .014, .03, y + .012, centre, dark);
-    mesh('reticle', new THREE.SphereGeometry(.0013, 10, 8), dot, 0, y, front + .006);
+  const section = (name: string, outline: readonly Pt[], front: number, rear: number, m: THREE.Material = polymer, holes: readonly (readonly Pt[])[] = [], parent: THREE.Object3D = root) => {
+    const bevel = .002, length = rear - front - bevel * 2;
+    const shape = new THREE.Shape(outline.map(([x, y]) => new THREE.Vector2(x, y))); shape.closePath();
+    for (const hole of holes) {
+      // The bevel closes a (convex) window in by its size, so open it out by as much first.
+      const centre = hole.reduce((sum, [x, y]) => sum.add(new THREE.Vector2(x, y)), new THREE.Vector2()).divideScalar(hole.length);
+      const path = new THREE.Path(hole.map(([x, y]) => { const p = new THREE.Vector2(x, y), out = p.clone().sub(centre); return p.add(out.setLength(bevel * .8)); }));
+      path.closePath(); shape.holes.push(path);
+    }
+    const geometry = new THREE.ExtrudeGeometry(shape, { depth: length, bevelEnabled: true, bevelSize: bevel * .8, bevelThickness: bevel, bevelSegments: 2, steps: 1, curveSegments: 8 });
+    return mesh(name, geometry, m, 0, 0, front + bevel, parent);
   };
-  return { root, id, polymer, steel, dark, edge, rubber, smoke, brass, copper, mesh, box, cylinder, crosswise, rod, side, tube, variant, socket, flashHider, boxMagazine, twinDrum, handleSight };
+  /** A rounded rectangle centred on (x, y), as [x, y] points. */
+  const rounded = (x: number, y: number, w: number, h: number, r: number): Pt[] => {
+    const points: Pt[] = [];
+    for (const [cx, cy, start] of [[x + w / 2 - r, y + h / 2 - r, 0], [x - w / 2 + r, y + h / 2 - r, .5], [x - w / 2 + r, y - h / 2 + r, 1], [x + w / 2 - r, y - h / 2 + r, 1.5]] as const)
+      for (let i = 0; i <= 4; i++) { const a = (start + i / 8) * Math.PI; points.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
+    return points;
+  };
+  const circle = (x: number, y: number, r: number, n = 28): Pt[] => Array.from({ length: n }, (_, i) => [x + Math.cos(i / n * Math.PI * 2) * r, y + Math.sin(i / n * Math.PI * 2) * r] as Pt);
+  return { root, id, polymer, steel, dark, edge, rubber, smoke, brass, copper, lens, tint, interior, mesh, box, cylinder, crosswise, rod, side, tube, section, rounded, circle, variant, socket, flashHider, boxMagazine, twinDrum };
 }
 
 /** Trigger, guard and pistol grip, with the grip's centre at about (z, .095). */
@@ -157,14 +173,91 @@ function lowerGroup(k: Kit, z: number, top: number) {
   k.crosswise('selector', .007, .006, -.033, top + .022, z - .03, k.edge);
 }
 
+/**
+ * The XM8's integrated sighting module, sat on the front of the carry handle:
+ * a squared body with a round window cut through it, a rubber eyepiece, a
+ * shade over the front glass, a laser pod on the right with its two emitters,
+ * and the battery cap on the left. weapon-optics fits the glass and the dot.
+ */
+function integratedSightingModule(k: Kit) {
+  const { height: y, radius } = ENEMY_WEAPON_LAYOUT['xm8-inspired'].configs.carbine.optic;
+  const front = -.095, rear = .005, window = radius + .0006;
+  k.section('ism-body', k.rounded(0, y, .078, .078, .016), front, rear, k.polymer, [k.circle(0, y, window, 64)]);
+  // Seen from inside, so an open double-sided wall rather than a tube's outward faces.
+  k.mesh('ism-liner', new THREE.CylinderGeometry(window - .0002, window - .0002, rear - front - .004, 64, 1, true), k.interior, 0, y, (front + rear) / 2).rotation.x = Math.PI / 2;
+  k.section('ism-shade', k.rounded(0, y + .002, .082, .084, .018), front - .016, front + .002, k.polymer, [k.circle(0, y, radius + .0045, 32)]);
+  k.tube('ism-bezel', radius + .004, window, .004, y, front + .001, k.edge);
+  k.tube('ism-eyepiece', radius + .0065, window, .011, y, rear + .004, k.rubber);
+  for (const [z, x] of [[-.012, -.012], [-.034, .012]] as const) k.box('ism-button', .013, .005, .013, x, y + .041, z, k.rubber);
+  k.box('ism-mode-switch', .008, .004, .02, 0, y + .041, -.065, k.edge);
+  k.crosswise('ism-battery-cap', .012, .008, -.041, y - .004, -.045, k.edge);
+  k.crosswise('ism-battery-grip', .0125, .003, -.045, y - .004, -.045, k.dark);
+  k.box('ism-laser-pod', .018, .03, .072, .046, y - .012, -.052);
+  for (const dy of [-.004, -.02]) k.cylinder('ism-laser-window', .0055, .004, .046, y + dy + .004, front - .002, k.lens);
+  k.box('ism-seam', .08, .002, .1, 0, y - .028, -.045, k.dark);
+}
+
+/**
+ * The G36's carry handle is its sight: a 3x scope runs through the top bar,
+ * from the objective in the front leg to the rubber eyecup behind the rear
+ * block, and a small 1x reflex rides on top for close work. Only the scope
+ * is aimed through; weapon-optics fits its live picture to the eyecup.
+ */
+function dualOptic(k: Kit, parent: THREE.Object3D) {
+  const { height: y, lens, radius } = ENEMY_WEAPON_LAYOUT['g36-inspired'].configs.rifle.optic;
+  k.side('carry-handle', [[.11, .25], [.11, .343], [.098, .35], [-.17, .35], [-.198, .336], [-.205, .25]], .046, k.polymer, parent,
+    [[[.04, .258], [.04, .294], [-.15, .294], [-.172, .258]]]);
+  k.box('handle-seam', .048, .002, .27, 0, .3, -.045, k.dark, parent);
+  for (const z of [.085, -.18]) k.crosswise('handle-bolt', .0055, .052, 0, .262, z, k.edge, parent);
+  // Eyecup: soft rubber standing proud of the rear block, the lens recessed in it.
+  k.tube('scope-eyecup', radius + .009, radius + .0005, .026, y, .123, k.rubber, parent);
+  k.tube('scope-eyepiece-ring', radius + .0035, radius + .0005, .006, y, lens - .006, k.dark, parent);
+  // Objective, seen only from the front: dark coated glass in a bezel.
+  k.cylinder('scope-objective', .017, .004, 0, y, -.2035, k.lens, parent);
+  k.tube('scope-objective-bezel', .021, .017, .006, y, -.2015, k.dark, parent);
+  // The reflex: a hooded frame with a tinted, slightly raked glass at its front.
+  const base = .35, rear = .095, front = .022;
+  k.box('reflex-base', .036, .01, rear - front, 0, base + .005, (rear + front) / 2, k.polymer, parent);
+  for (const sideX of [-1, 1]) k.box('reflex-wall', .005, .03, rear - front - .004, sideX * .0165, base + .025, (rear + front) / 2, k.polymer, parent);
+  k.box('reflex-hood', .039, .006, rear - front + .01, 0, base + .042, (rear + front) / 2 - .005, k.polymer, parent);
+  k.box('reflex-rear-frame', .036, .005, .006, 0, base + .012, rear - .003, k.dark, parent);
+  const glass = k.mesh('reflex-glass', new THREE.PlaneGeometry(.028, .028), k.tint, 0, base + .025, front + .006, parent);
+  glass.rotation.x = -.2;
+  k.box('reflex-adjuster', .006, .008, .012, .021, base + .02, rear - .02, k.edge, parent);
+}
+
+/**
+ * The G36C trades the optic handle for a short one with a rail, and here a
+ * tube red dot clamped to it: rubber ring at the back, turrets on top and
+ * right, battery on the left, the dot fitted by weapon-optics at its front.
+ */
+function railHandle(k: Kit, parent: THREE.Object3D) {
+  const { height: y, lens, radius } = ENEMY_WEAPON_LAYOUT['g36-inspired'].configs.c.optic;
+  k.side('carry-handle', [[.10, .25], [.10, .284], [-.10, .284], [-.10, .25]], .036, k.polymer, parent,
+    [[[.062, .256], [.062, .276], [-.062, .276], [-.062, .256]]]);
+  k.box('rail', .022, .006, .2, 0, .287, 0, k.dark, parent);
+  for (let i = 0; i < 12; i++) k.box('rail-tooth', .026, .004, .006, 0, .292, -.088 + i * .016, k.dark, parent);
+  k.box('rear-sight-folded', .02, .006, .016, 0, .296, .086, k.dark, parent);
+  const outer = radius + .004, front = lens - .003, rear = .02, centre = (front + rear) / 2;
+  k.box('dot-mount', .03, y - outer - .293 + .004, .034, 0, (y - outer + .293) / 2, centre, k.steel, parent);
+  k.crosswise('dot-mount-knob', .006, .008, .02, .3, centre, k.edge, parent);
+  k.tube('dot-tube', outer, radius + .0005, rear - front, y, centre, k.steel, parent, 32);
+  k.tube('dot-front-ring', outer + .0012, radius + .0005, .005, y, front + .002, k.edge, parent, 32);
+  k.tube('dot-rear-ring', outer + .001, radius + .0005, .007, y, rear - .003, k.rubber, parent, 32);
+  k.mesh('dot-elevation', new THREE.CylinderGeometry(.009, .009, .012, 18), k.steel, 0, y + outer + .005, centre, parent);
+  k.mesh('dot-elevation-cap', new THREE.CylinderGeometry(.0075, .0075, .003, 18), k.edge, 0, y + outer + .012, centre, parent);
+  k.crosswise('dot-windage', .009, .012, outer + .005, y, centre, k.steel, parent);
+  k.crosswise('dot-battery', .008, .012, -outer - .005, y, centre, k.steel, parent);
+}
+
 function buildXm8(k: Kit) {
   const { axisY: y } = ENEMY_WEAPON_LAYOUT['xm8-inspired'];
   // One smooth shell from the stock joint to the handguard joint, with the
   // carry handle rising out of it. The sight sits on top of the handle.
   k.side('receiver', [[.10, .148], [.10, .232], [.08, .246], [-.20, .246], [-.20, .155], [-.09, .150], [-.085, .136], [-.025, .136], [-.02, .146]], .062);
-  k.side('carry-handle', [[.07, .246], [.05, .284], [-.15, .284], [-.20, .246]], .036, k.polymer, k.root,
-    [[[.032, .252], [.022, .27], [-.12, .27], [-.152, .252]]]);
-  k.handleSight(.02, -.10);
+  k.side('carry-handle', [[.075, .246], [.05, .276], [-.16, .276], [-.20, .246]], .036, k.polymer, k.root,
+    [[[.034, .252], [.024, .268], [-.125, .268], [-.155, .252]]]);
+  integratedSightingModule(k);
   k.box('charging-handle', .018, .01, .03, 0, .255, -.03, k.edge);
   k.box('ejection-port', .004, .02, .05, .032, .215, -.035, k.dark);
   k.box('shell-seam', .064, .003, .26, 0, .19, -.05, k.dark);
@@ -217,10 +310,8 @@ function buildG36(k: Kit) {
   k.box('receiver-rib', .062, .006, .28, 0, .2, -.03, k.dark);
   k.box('brass-deflector', .01, .022, .022, .034, .238, .025, k.polymer);
   k.box('ejection-port', .004, .02, .05, .031, .215, -.02, k.dark);
-  // The long carry handle, open underneath, with the sight housing at its rear.
-  k.side('carry-handle', [[.10, .25], [.085, .292], [-.17, .292], [-.19, .25]], .034, k.polymer, k.root,
-    [[[.06, .255], [.05, .276], [-.135, .276], [-.155, .255]]]);
-  k.handleSight(.07, -.05);
+  dualOptic(k, k.variant('dual-optic', ['rifle', 'k', 'mg']));
+  railHandle(k, k.variant('rail-handle', ['c']));
   k.box('charging-handle', .016, .012, .03, 0, .259, -.065, k.edge);
   lowerGroup(k, .075, .15);
 

@@ -3,6 +3,7 @@ import type { WeaponSpec } from './fps-rules';
 import { opticMagnification } from './fps-rules';
 import { buildReflexHousing } from './weapon-reflex';
 import { createOpticGlass, type OpticGlass } from './weapon-glass';
+import { enemyOptic } from './enemy-weapon-layout';
 
 export interface WeaponSight {
   aimHeight: number; aimDepth: number; radius: number; magnification: number;
@@ -15,19 +16,30 @@ export const getWeaponSight = (root: THREE.Object3D) => sights.get(root);
 
 /** Shared by the shop and the FPS: one housing per optic slot. */
 export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
-  if (weapon.optic === 'iron') return () => {};
-  const sar = weapon.id === 'sar21-inspired', integrated = sar && weapon.optic !== 'reflex';
+  // Enemy-issue platforms carry their sight in the model itself; the config
+  // `applyEnemyWeaponConfig` chose decides which one, and only its glass and
+  // reticle are fitted here.
+  const built = enemyOptic(weapon.id, root.userData.enemyConfig);
+  if (weapon.optic === 'iron' && !built) return () => {};
+  const sar = weapon.id === 'sar21-inspired', integrated = built ? built.kind === 'scope' : sar && weapon.optic !== 'reflex';
   const original = root.getObjectByName('sar21-inspired__optic');
   const wasVisible = original?.visible ?? true;
   if (original) original.visible = integrated;
   const group = new THREE.Group(); group.name = 'equipped-optic'; root.add(group);
   const geometry: THREE.BufferGeometry[] = [];
-  const aimHeight = integrated ? .328 : sar ? .343 : .350;
+  const aimHeight = built?.height ?? (integrated ? .328 : sar ? .343 : .350);
   const rearZ = integrated ? .194 : sar ? .12 : .15;
-  const radius = integrated ? .0235 : .042;
+  const radius = built?.radius ?? (integrated ? .0235 : .042);
   let housing: ReturnType<typeof buildReflexHousing> | undefined;
   let scopeGlass: ReturnType<typeof createOpticGlass> | undefined;
-  if (!integrated) {
+  if (built) {
+    group.name = integrated ? 'fps-integrated-optic' : 'fps-reflex-optic';
+    // A scope's coating sits on the eye side of its picture; a reflex's
+    // mirror sits just beyond the dot, as on the receiver-mounted housing.
+    scopeGlass = createOpticGlass(radius, integrated ? .0014 : .005, integrated ? 'scope' : 'reflex');
+    scopeGlass.reflection.surface.position.set(0, aimHeight, built.lens + (integrated ? .0005 : -.003));
+    group.add(scopeGlass.reflection.surface);
+  } else if (!integrated) {
     group.name = weapon.optic === 'precision' ? 'fps-precision-optic' : 'fps-reflex-optic';
     housing = buildReflexHousing(group, aimHeight, rearZ, sar);
   } else {
@@ -37,7 +49,9 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
     scopeGlass.reflection.surface.position.set(0, aimHeight, rearZ + .0015);
     group.add(scopeGlass.reflection.surface);
   }
-  const magnified = opticMagnification(weapon) > 1.01;
+  // A red dot is a red dot whatever field of view the variant asks for.
+  const magnification = built?.kind === 'reflex' ? 1 : opticMagnification(weapon);
+  const magnified = magnification > 1.01;
   const visibility = { value: magnified ? 0 : 1 };
   const lensMaterial = new THREE.MeshBasicMaterial({ color: '#ffffff', side: magnified ? THREE.DoubleSide : THREE.FrontSide, transparent: true, depthWrite: false });
   lensMaterial.toneMapped = magnified;
@@ -134,7 +148,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   lensMaterial.customProgramCacheKey = () => magnified ? 'scope-reticle-v3' : 'reflex-reticle-v5';
   const lensGeometry = new THREE.CircleGeometry(radius, 48); geometry.push(lensGeometry);
   const lens = new THREE.Mesh(lensGeometry, lensMaterial); lens.name = 'fps-scope-lens';
-  lens.position.set(0, aimHeight, integrated ? rearZ + .001 : rearZ - .044); lens.visible = !magnified; lens.renderOrder = 2; group.add(lens);
+  lens.position.set(0, aimHeight, built?.lens ?? (integrated ? rearZ + .001 : rearZ - .044)); lens.visible = !magnified; lens.renderOrder = 2; group.add(lens);
   let bloomMaterial: THREE.MeshBasicMaterial | undefined;
   if (!magnified) {
     bloomMaterial = lensMaterial.clone();
@@ -150,7 +164,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
     // Parenting shares the lens's visibility, clipping, and eye alignment.
     lens.add(bloom);
   }
-  const sight: WeaponSight = { aimHeight, aimDepth: integrated ? -.36 : -.47, radius, magnification: opticMagnification(weapon), lens, visibility, reflection: scopeGlass?.reflection ?? housing?.reflection };
+  const sight: WeaponSight = { aimHeight, aimDepth: built?.aimDepth ?? (integrated ? -.36 : -.47), radius, magnification, lens, visibility, reflection: scopeGlass?.reflection ?? housing?.reflection };
   sights.set(root, sight);
   return () => {
     if (original) original.visible = wasVisible;

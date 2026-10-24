@@ -404,9 +404,9 @@ claiming one gets the baseline instead: taken weapons last one expedition.
 | XM8 · Compact Carbine | Field | compact | 30 | 30 | Fastest cycle, shortest reach, short stock |
 | XM8 · Sharpshooter | Elite | sharpshooter | 53 | 20 | Long barrel, 45 m full damage, 2.1× precision, quick bipod, travelling rounds |
 | XM8 · Automatic Rifle | Elite | automatic | 36 | 100 | Heavy barrel, twin drum, bipod |
-| G36 | Issued | rifle | 36 | 30 | SAR-like reach, steadier, slower reload |
+| G36 | Issued | rifle | 36 | 30 | SAR-like reach, steadier, slower reload; 3× dual optic |
 | G36K | Field | k | 34 | 30 | Short barrel and birdcage |
-| G36C | Field | c | 32 | 30 | Compact; fastest G36 |
+| G36C | Field | c | 32 | 30 | Compact; fastest G36; rail-mounted 1× red dot |
 | MG36 | Elite | mg | 42 | 100 | Heavy barrel, twin drum, bipod |
 | MG4 | Issued | standard | 31 | 100 | Belt-fed, bipod |
 | MG4KE | Field | short | 29 | 100 | Short barrel, quick bipod |
@@ -432,13 +432,25 @@ a checkpoint. A kill of your own also puts "… dropped by …" on the radio.
 **Models.** `enemy-weapon-models.ts` builds each platform procedurally, with
 every configuration's barrel, handguard, stock and feed on one model in groups
 tagged `userData.configs`; `applyEnemyWeaponConfig` (called by `dressWeapon`)
-shows the variant's set and moves the muzzle socket to its flash hider. The
-XM8 and G36 sights are see-through housings with a red dot on the aiming line
-(an `iron`-type optic, so no PiP); the MG4 has an aperture and a hooded post.
+shows the variant's set and moves the muzzle socket to its flash hider. Sights
+follow the real rifles. The XM8 carries its integrated sighting module (ISM): a
+squared body on the carry handle with a round window, rubber eyepiece, front
+shade, laser pod and battery cap, aimed as a 1× red dot. The G36, G36K and MG36
+carry the German dual optic: the carry handle is a 3× scope, objective in the
+front leg and eyecup behind the rear block, with a small hooded reflex on top
+(modelled, not aimed through). The G36C swaps it for a short rail handle with
+a tube red dot, a fixed `optic` fitting on that variant. Each configuration
+names its sight in `enemy-weapon-layout.ts` (`optic`: kind, height, lens
+position, radius, eye depth), and `fitWeaponOptic` fits the same collimated
+dot and coated glass as the Ultimax, or the SAR's picture-in-picture scope, at
+that lens; the model supplies the housing. The MG4 keeps an aperture and a
+hooded post.
 `enemy-weapon-layout.ts` holds the sight height, eye depth, hand poses and
 muzzle positions the viewmodel and models share. Review them at
 `/scripts/fixtures/enemy-weapons.html` (`?view=sight` for the aimed picture,
 `?view=ground` for drops, `?only=id,id&yaw=0.5` for close-ups);
+`/scripts/fixtures/reflex-render.html?variant=g36-rifle` (any enemy-issue id)
+shows the fitted sight against a world, PiP included;
 `/scripts/fixtures/enemy-drops.html` runs a live Marina Bay expedition with the
 autopilot for checking drops end to end.
 

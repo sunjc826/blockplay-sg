@@ -8,22 +8,35 @@
  * hider ends, so flare and tracers leave from the right place.
  */
 type Point = readonly [number, number, number];
+/**
+ * A sight you look through rather than over: `weapon-optics` seats its lens at
+ * `lens` on the `height` line, `radius` wide, and puts the eye `aimDepth` from
+ * the model origin. A `reflex` draws a collimated dot at any magnification the
+ * spec asks for; a `scope` renders the magnified picture-in-picture.
+ */
+export interface EnemyOptic { kind: 'reflex' | 'scope'; height: number; lens: number; radius: number; aimDepth: number }
 interface EnemyWeaponLayout {
   axisY: number; sightHeight: number; aimDepth: number;
   defaultConfig: string;
-  configs: Readonly<Record<string, { muzzle: number }>>;
+  configs: Readonly<Record<string, { muzzle: number; optic?: EnemyOptic }>>;
   /** Pistol grip, support hand and the magazine the support hand reaches for. */
   hands: { right: Point; support: Point; magazine: Point };
 }
+/** The XM8's integrated sighting module: a 1x red dot in a window on the carry handle. */
+const ISM: EnemyOptic = { kind: 'reflex', height: .309, lens: -.088, radius: .025, aimDepth: -.24 };
+/** The G36's carry handle is its optic: a 3x scope behind a rubber eyecup, with a 1x reflex on top. */
+const DUAL_OPTIC: EnemyOptic = { kind: 'scope', height: .32, lens: .128, radius: .019, aimDepth: -.30 };
+/** The G36C's short rail handle carries a tube red dot instead. */
+const RAIL_DOT: EnemyOptic = { kind: 'reflex', height: .318, lens: -.047, radius: .021, aimDepth: -.22 };
 export const ENEMY_WEAPON_LAYOUT = {
   'xm8-inspired': {
-    axisY: .20, sightHeight: .305, aimDepth: -.28, defaultConfig: 'carbine',
-    configs: { carbine: { muzzle: -.525 }, compact: { muzzle: -.375 }, sharpshooter: { muzzle: -.655 }, automatic: { muzzle: -.645 } },
+    axisY: .20, sightHeight: ISM.height, aimDepth: ISM.aimDepth, defaultConfig: 'carbine',
+    configs: { carbine: { muzzle: -.525, optic: ISM }, compact: { muzzle: -.375, optic: ISM }, sharpshooter: { muzzle: -.655, optic: ISM }, automatic: { muzzle: -.645, optic: ISM } },
     hands: { right: [.027, .095, .075], support: [-.033, .128, -.235], magazine: [-.033, .04, -.06] },
   },
   'g36-inspired': {
-    axisY: .20, sightHeight: .318, aimDepth: -.30, defaultConfig: 'rifle',
-    configs: { rifle: { muzzle: -.615 }, k: { muzzle: -.515 }, c: { muzzle: -.405 }, mg: { muzzle: -.615 } },
+    axisY: .20, sightHeight: DUAL_OPTIC.height, aimDepth: DUAL_OPTIC.aimDepth, defaultConfig: 'rifle',
+    configs: { rifle: { muzzle: -.615, optic: DUAL_OPTIC }, k: { muzzle: -.515, optic: DUAL_OPTIC }, c: { muzzle: -.405, optic: RAIL_DOT }, mg: { muzzle: -.615, optic: DUAL_OPTIC } },
     hands: { right: [.027, .095, .09], support: [-.034, .128, -.255], magazine: [-.034, .04, -.075] },
   },
   'mg4-inspired': {
@@ -34,3 +47,9 @@ export const ENEMY_WEAPON_LAYOUT = {
 } as const satisfies Record<string, EnemyWeaponLayout>;
 export type EnemyWeaponId = keyof typeof ENEMY_WEAPON_LAYOUT;
 export const isEnemyWeaponId = (id: string): id is EnemyWeaponId => id in ENEMY_WEAPON_LAYOUT;
+/** The sight a configuration aims through, if it has one; the MG4 has irons. */
+export const enemyOptic = (id: string, config: unknown): EnemyOptic | undefined => {
+  if (!isEnemyWeaponId(id)) return undefined;
+  const configs = ENEMY_WEAPON_LAYOUT[id].configs as Readonly<Record<string, { optic?: EnemyOptic }>>;
+  return configs[typeof config === 'string' && configs[config] ? config : ENEMY_WEAPON_LAYOUT[id].defaultConfig].optic;
+};

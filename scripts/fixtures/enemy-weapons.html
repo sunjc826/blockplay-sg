@@ -5,7 +5,8 @@ import * as THREE from '/node_modules/three/build/three.module.js';
 import { buildServiceWeapon } from '/src/game/service-weapon-models.ts';
 import { dressWeapon } from '/src/game/armory-visuals.ts';
 import { ARMORY_CATALOG, isEnemyIssue } from '/src/game/armory-catalog.ts';
-import { variantSpec } from '/src/game/armory-state.ts';
+import { createProfile, equip, resolveLoadout } from '/src/game/armory-state.ts';
+import { getWeaponSight } from '/src/game/weapon-optics.ts';
 import { ENEMY_WEAPON_LAYOUT } from '/src/game/enemy-weapon-layout.ts';
 import { createWeaponHandling } from '/src/game/fps-viewmodel.ts';
 import { FPS_WEAPONS } from '/src/game/fps-rules.ts';
@@ -31,7 +32,9 @@ renderer.setClearColor('#161e25'); renderer.outputColorSpace = THREE.SRGBColorSp
 const cols = only ? Math.min(2, variants.length) : 4, rows = only ? Math.ceil(variants.length / 2) : 3, w = innerWidth / cols, h = innerHeight / rows, scenes = [];
 variants.forEach((item, i) => {
   const platform = FPS_WEAPONS[item.family], model = buildServiceWeapon(platform.id);
-  dressWeapon(model, { ...variantSpec(item), id: platform.id, name: item.name, equipment: { variant: item.id, skin: 'skin-issued', attachments: {} }, accent: item.accent, traits: [] });
+  // Resolved as the game resolves it, fixed fittings (the G36C's red dot) included.
+  const base = createProfile();
+  dressWeapon(model, resolveLoadout(equip({ ...base, owned: [...base.owned, item.id] }, item.id, item.family)).weapons[item.family]);
   const scene = new THREE.Scene(); scene.add(model, new THREE.HemisphereLight('#daeafa', '#384148', 2.6));
   const key = new THREE.DirectionalLight('#fff0d9', 3.5); key.position.set(-1, 2, 2); scene.add(key);
   const rim = new THREE.DirectionalLight('#99bce8', 2.5); rim.position.set(2, 1, -2); scene.add(rim);
@@ -40,7 +43,9 @@ variants.forEach((item, i) => {
   if (view === 'sight') {
     // The eye exactly where the viewmodel puts it when aimed, hands and all.
     createWeaponHandling(model, item.family).update(null, false);
-    camera = new THREE.PerspectiveCamera(54, w / h, .01, 10); camera.position.set(0, layout.sightHeight, -layout.aimDepth); camera.lookAt(0, layout.sightHeight, -5);
+    // A fitted sight sets the eye; a magnified one shows its eyepiece here (the live picture needs a world: see reflex-render.html?variant=).
+    const sight = getWeaponSight(model), eyeY = sight?.aimHeight ?? layout.sightHeight, eyeZ = -(sight?.aimDepth ?? layout.aimDepth);
+    camera = new THREE.PerspectiveCamera(54, w / h, .01, 10); camera.position.set(0, eyeY, eyeZ); camera.lookAt(0, eyeY, -5);
   } else {
     camera = new THREE.PerspectiveCamera(30, w / h, .01, 10); const yaw = Number(new URLSearchParams(location.search).get('yaw') ?? 0), far = only ? 1.35 : 2.15;
     camera.position.set(Math.cos(yaw) * far, .45, -.1 + Math.sin(yaw) * far); camera.lookAt(0, .17, -.1);

@@ -55,9 +55,9 @@ export const FPS_WEAPONS: readonly WeaponSpec[] = [
   // Enemy issue: carried by opposing forces and taken from them, never sold.
   // The carbine trades the SAR's reach for a quicker cycle and lighter handling;
   // the rifle sits beside the SAR; the LMG is the Ultimax's belt-fed rival.
-  { caliberMm: 5.56, id: 'xm8-inspired', weightKg: 3.4, name: 'XM8', role: 'Modular carbine', capacity: 30, reserve: 120, interval: .1, reload: 1.75, recoil: .017, recoilRecovery: 1.1, sightHeight: ENEMY_WEAPON_LAYOUT['xm8-inspired'].sightHeight, damage: 33, aimFov: HIP_FOV, mobility: 1.04, optic: 'iron', ballistics: HITSCAN,
+  { caliberMm: 5.56, id: 'xm8-inspired', weightKg: 3.4, name: 'XM8', role: 'Modular carbine', capacity: 30, reserve: 120, interval: .1, reload: 1.75, recoil: .017, recoilRecovery: 1.1, sightHeight: ENEMY_WEAPON_LAYOUT['xm8-inspired'].sightHeight, damage: 33, aimFov: HIP_FOV, mobility: 1.04, optic: 'reflex', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 24, far: 75, minScale: .5 }, { kind: 'precision', multiplier: 1.6 }] },
-  { caliberMm: 5.56, id: 'g36-inspired', weightKg: 3.6, name: 'G36', role: 'Assault rifle', capacity: 30, reserve: 120, interval: .11, reload: 1.9, recoil: .016, recoilRecovery: 1.05, sightHeight: ENEMY_WEAPON_LAYOUT['g36-inspired'].sightHeight, damage: 36, aimFov: HIP_FOV, mobility: 1, optic: 'iron', ballistics: HITSCAN,
+  { caliberMm: 5.56, id: 'g36-inspired', weightKg: 3.6, name: 'G36', role: 'Assault rifle', capacity: 30, reserve: 120, interval: .11, reload: 1.9, recoil: .016, recoilRecovery: 1.05, sightHeight: ENEMY_WEAPON_LAYOUT['g36-inspired'].sightHeight, damage: 36, aimFov: magnifiedFov(3), mobility: 1, optic: 'integrated', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 32, far: 95, minScale: .55 }, { kind: 'precision', multiplier: 1.6 }] },
   { caliberMm: 5.56, id: 'mg4-inspired', feed: 'belt', bipod: 'standard', weightKg: 8.2, name: 'MG4', role: 'Light machine gun', capacity: 100, reserve: 200, interval: .075, reload: 3.8, recoil: .024, recoilRecovery: .85, sightHeight: ENEMY_WEAPON_LAYOUT['mg4-inspired'].sightHeight, damage: 31, aimFov: HIP_FOV, mobility: .9, optic: 'iron', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 22, far: 65, minScale: .45 }, { kind: 'precision', multiplier: 1.5 }] },

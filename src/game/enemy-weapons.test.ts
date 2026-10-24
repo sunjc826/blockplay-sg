@@ -3,7 +3,9 @@ import * as THREE from 'three';
 import { ARMORY_CATALOG, isEnemyIssue, isShopFamily, issuedItems, itemById } from './armory-catalog';
 import { createProfile, equip, purchase, resolveLoadout, restoreProfile } from './armory-state';
 import { DEFAULT_VARIANTS, FPS_WEAPONS } from './fps-rules';
-import { ENEMY_WEAPON_LAYOUT } from './enemy-weapon-layout';
+import { ENEMY_WEAPON_LAYOUT, enemyOptic } from './enemy-weapon-layout';
+import { dressWeapon } from './armory-visuals';
+import { getWeaponSight } from './weapon-optics';
 import { applyEnemyWeaponConfig, buildEnemyWeapon } from './enemy-weapon-models';
 import { buildServiceWeapon } from './service-weapon-models';
 import { armamentFamilies, chooseArmament, listArenaRoles } from './arena-roles';
@@ -84,16 +86,41 @@ describe('enemy weapon models', () => {
     expect(model.getObjectByName('xm8-inspired__socket_muzzle')!.position.z).toBe(ENEMY_WEAPON_LAYOUT['xm8-inspired'].configs.carbine.muzzle);
   });
   it('keeps the aiming line clear between the eye and the front of the sight', () => {
-    // Cast down the sight line from behind the rear sight: the first thing hit
-    // must be at or beyond the front sight, never the housing or the handle.
+    // Cast down the sight line from behind the rear sight. Through a red dot or
+    // over irons nothing may be hit short of the front sight; a scope is looked
+    // into, so nothing may stand between the eye and its eyepiece lens.
     for (const [id, layout] of Object.entries(ENEMY_WEAPON_LAYOUT)) for (const config of Object.keys(layout.configs)) {
       const model = buildEnemyWeapon(id)!; applyEnemyWeaponConfig(model, id, config); model.updateMatrixWorld(true);
       const solids: THREE.Object3D[] = [];
-      model.traverseVisible(node => { if (node instanceof THREE.Mesh && !/reticle|front-sight/.test(node.name)) solids.push(node); });
-      const ray = new THREE.Raycaster(new THREE.Vector3(0, layout.sightHeight, .6), new THREE.Vector3(0, 0, -1));
+      model.traverseVisible(node => { if (node instanceof THREE.Mesh && !/front-sight/.test(node.name)) solids.push(node); });
+      const optic = enemyOptic(id, config);
+      const ray = new THREE.Raycaster(new THREE.Vector3(0, optic?.height ?? layout.sightHeight, .6), new THREE.Vector3(0, 0, -1));
       const hit = ray.intersectObjects(solids, false)[0];
-      expect(hit, `${id} ${config}: ${hit?.object.name}`).toBeUndefined();
+      if (optic?.kind === 'scope') expect(hit!.point.z, `${id} ${config}: ${hit?.object.name}`).toBeLessThan(optic.lens);
+      else expect(hit, `${id} ${config}: ${hit?.object.name}`).toBeUndefined();
     }
+  });
+  it('fits a collimated dot to the XM8 and G36C and a magnified scope to the other G36s', () => {
+    const fitted = (variant: string) => {
+      const weapon = resolved(variant), model = buildServiceWeapon(weapon.id)!;
+      dressWeapon(model, weapon);
+      return { weapon, sight: getWeaponSight(model)!, optic: enemyOptic(weapon.id, itemById(variant)!.config)! };
+    };
+    for (const variant of ['xm8-carbine', 'xm8-sharpshooter', 'g36c']) {
+      const { weapon, sight, optic } = fitted(variant);
+      expect(optic.kind, variant).toBe('reflex'); expect(weapon.optic, variant).toBe('reflex');
+      expect(sight.magnification, variant).toBe(1);
+      expect(sight.lens.position.z).toBe(optic.lens); expect(sight.aimHeight).toBe(optic.height);
+    }
+    for (const variant of ['g36-rifle', 'g36k', 'mg36']) {
+      const { weapon, sight, optic } = fitted(variant);
+      expect(optic.kind, variant).toBe('scope'); expect(weapon.optic, variant).toBe('integrated');
+      expect(sight.magnification, variant).toBeCloseTo(3);
+      expect(sight.aimDepth).toBe(optic.aimDepth);
+    }
+    // The MG4 keeps its irons: no lens is fitted.
+    const mg4 = buildServiceWeapon('mg4-inspired')!; dressWeapon(mg4, resolved('mg4-standard'));
+    expect(getWeaponSight(mg4)).toBeUndefined();
   });
 });
 

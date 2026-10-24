@@ -13,9 +13,14 @@ const buildings=[];
 for(let i=0;i<7;i++){const m=new THREE.Mesh(new THREE.BoxGeometry(.7,2+i%3,.7),new THREE.MeshStandardMaterial({color:i%2?'#657f9c':'#dbbe8a'}));m.position.set(-3+i,1+(i%3)/2,3+Math.sin(i)*.5);world.add(m);buildings.push(m);}
 for(let i=0;i<6;i++){const m=new THREE.Mesh(new THREE.BoxGeometry(2,4,2),new THREE.MeshStandardMaterial({color:i%2?'#7290a3':'#afaaa0'}));m.position.set(-10+i*4,2,-16);world.add(m);}
 const viewScene=new THREE.Scene();viewScene.add(new THREE.HemisphereLight('#e4efff','#576350',2.1));viewScene.add(light.clone());
-const optic=new URLSearchParams(location.search).get('optic');
+const optic=new URLSearchParams(location.search).get('optic'),variant=new URLSearchParams(location.search).get('variant');
 const spec=optic?.startsWith('sar')?{...FPS_WEAPONS[0],optic:optic==='sar-match'?'precision':'integrated',aimFov:magnifiedFov(optic==='sar-match'?1.75:1.5)}:FPS_WEAPONS[1];
-const model=(await new GLTFLoader().loadAsync('/models/field-kit/'+spec.id+'.glb')).scene;fitWeaponOptic(model,spec);viewScene.add(model);const sight=getWeaponSight(model);
+let model;
+// ?variant=g36-rifle (any enemy-issue catalog id): the procedural model, dressed and fitted as the game does it.
+if(variant){const {itemById}=await import('/src/game/armory-catalog.ts'),{createProfile,equip,resolveLoadout}=await import('/src/game/armory-state.ts'),{buildServiceWeapon}=await import('/src/game/service-weapon-models.ts'),{dressWeapon}=await import('/src/game/armory-visuals.ts');
+const item=itemById(variant),base=createProfile(),weapon=resolveLoadout(equip({...base,owned:[...base.owned,variant]},variant,item.family)).weapons[item.family];model=buildServiceWeapon(weapon.id);dressWeapon(model,weapon);}
+else{model=(await new GLTFLoader().loadAsync('/models/field-kit/'+spec.id+'.glb')).scene;fitWeaponOptic(model,spec);}
+viewScene.add(model);const sight=getWeaponSight(model);
 const camera=new THREE.PerspectiveCamera(65,1.5,.08,800);camera.position.y=1.6;const viewCamera=new THREE.PerspectiveCamera(54,1.5,.01,3);
 // The rear boxes are miniature stand-ins for buildings; keep them despite the scenery size cutoff.
 const reflections=createOpticReflectionRenderer(renderer,{minSize:0}),scope=createScopeRenderer(renderer);let time=0;

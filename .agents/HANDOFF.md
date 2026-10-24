@@ -2301,3 +2301,27 @@ headless Chrome (swiftshader), normalScale 1 vs 0, fixture sun and a raking
 light: concrete rims and walls, wood fibres, metal dimples and the glass pit now
 shade visibly. Not done: glass crack lines and blood have no relief of their own
 (the crack painter's height is only the central pit).
+
+## 2026-10-24: real-world sights on the XM8 and G36
+
+The XM8 and G36 shared one "handle sight": an open tube with a MeshBasic sphere
+as the dot, so the dot sat on the glass rather than at infinity.
+- enemy-weapon-layout: each config may name an `optic` (`enemyOptic(id,
+  config)`): XM8 all configs ISM (1× reflex), G36 rifle/K/MG36 DUAL_OPTIC
+  (3× scope at the eyecup), G36C RAIL_DOT (1× reflex). `applyEnemyWeaponConfig`
+  records the shown config in `root.userData.enemyConfig`.
+- weapon-optics `fitWeaponOptic`: for those configs it fits only the lens
+  (collimated dot or PiP) and coated glass at the layout's lens, skipping the
+  receiver-mounted housing; a reflex is always 1× whatever aimFov says.
+- Models: XM8 ISM; G36 dual-optic handle (eyecup, objective, hand slot, bolts,
+  hooded reflex with tinted glass on top); G36C rail handle with a tube dot.
+  New kit helpers `section` (Z extrusion with windows, bevel-compensated),
+  `rounded`, `circle`.
+- Specs: XM8 optic 'reflex'; G36 optic 'integrated', aimFov magnifiedFov(3);
+  g36c has a fitted 1× red dot (aimFov HIP_FOV, optic 'reflex').
+- Fixtures: enemy-weapons resolves fittings and aims from the fitted sight;
+  reflex-render takes `?variant=<enemy id>`.
+Validation: 1054 tests (sight-line test now handles scopes; new fitted-optic
+test), typecheck. Headless Chrome: side views and reflex-render for
+xm8-carbine, g36-rifle (3× PiP) and g36c. Not run: the CDP reflex/scope smokes.
+Fire rates were compared with real specs but not changed (see the session).
