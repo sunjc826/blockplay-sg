@@ -10,3 +10,5 @@
 .fps-start-card .fps-debug-panel p{font-size:10px;line-height:1.45;margin:8px 0}
 .fps-debug-heal{border:1px solid #adba9e;background:#f6f7ee;border-radius:4px;padding:8px 10px;color:#31432c;font:600 11px system-ui;width:100%}
 .fps-debug-panel>small{display:block;font:8px monospace;margin-top:8px;color:#66775b}
+
+.fps-debug-events{border-top:1px solid #b5c2aa;margin-top:10px;padding-top:10px}

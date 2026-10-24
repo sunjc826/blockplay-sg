@@ -91,6 +91,7 @@ export default function ExpeditionGame({ profile, onExit, onVendorPurchase, onCo
         <FpsVitals hud={hud} />
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}
         {hud.incoming && <div className="fps-incoming">INCOMING · FIND COVER</div>}
+        {hud.combatBanner && <div className={`fps-combat-banner ${hud.combatBanner.tone}`} role="status">{hud.combatBanner.text}</div>}
         {hud.hit && <div className="fps-hit-label">HIT −{hud.lastDamage}</div>}
         {hud.callout && <div className="fps-kill-callout" role="status"><span>ELIMINATION CHAIN ×{hud.chain}</span><strong>{hud.callout}</strong></div>}
         {!alive && <div className="expedition-respawn" role="status"><span>OPERATOR DOWN</span><strong>Regrouping in {Math.ceil(hud.arenaSelf?.respawnIn ?? 0)}s</strong></div>}

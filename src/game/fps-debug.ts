@@ -1,9 +1,11 @@
-export interface FpsDebugSettings { healthMultiplier: 1 | 5 | 10; regeneration: boolean }
-export const DEFAULT_FPS_DEBUG: FpsDebugSettings = { healthMultiplier: 1, regeneration: false };
+export interface FpsDebugSettings { healthMultiplier: 1 | 5 | 10; regeneration: boolean;
+  /** Random combat events in the open world: strikes and reinforcement transports. */
+  combatEvents: boolean }
+export const DEFAULT_FPS_DEBUG: FpsDebugSettings = { healthMultiplier: 1, regeneration: false, combatEvents: true };
 export const FPS_REGEN_DELAY = 3;
 const key = 'blockplay.fps-debug.v1';
 export function normalizeFpsDebug(value: Partial<FpsDebugSettings>): FpsDebugSettings {
-  return { healthMultiplier: value.healthMultiplier === 5 ? 5 : value.healthMultiplier === 10 ? 10 : 1, regeneration: value.regeneration === true };
+  return { healthMultiplier: value.healthMultiplier === 5 ? 5 : value.healthMultiplier === 10 ? 10 : 1, regeneration: value.regeneration === true, combatEvents: value.combatEvents !== false };
 }
 export function readFpsDebug(): FpsDebugSettings {
   try { return normalizeFpsDebug(JSON.parse(sessionStorage.getItem(key) || '{}') ?? {}); }

@@ -85,6 +85,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         <FpsVitals hud={hud} />
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}
         {hud.incoming && <div className="fps-incoming">INCOMING · MOVE OR TAKE COVER</div>}
+        {hud.combatBanner && <div className={`fps-combat-banner ${hud.combatBanner.tone}`} role="status">{hud.combatBanner.text}</div>}
         {hud.hit && <div className="fps-hit-label" aria-hidden="true">HIT −{hud.lastDamage}</div>}
         {hud.callout && <div key={`${hud.hits}-${hud.callout}`} className="fps-kill-callout" role="status"><span>ELIMINATION CHAIN ×{hud.chain}</span><strong>{hud.callout}</strong>{!isArena && <small>+25 XP</small>}</div>}
         <div className="fps-compass">SG <span>· · ·</span> {district.setting.toUpperCase()} <span>· · ·</span> 01</div>

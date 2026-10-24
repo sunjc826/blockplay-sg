@@ -284,3 +284,11 @@
 .fps-vehicle-seats { display:grid; gap:3px; margin-top:7px; font:9px monospace; }
 .fps-vehicle-seats [data-self] { color:#ffe9a2; }
 .fps-game[data-touch="on"] .fps-vehicle-seats { font-size:8px; }
+
+/* Combat events: a hazard is loud and red; reinforcement news is quieter. Sits under the AI pilot strip and the vitals row. */
+.fps-combat-banner { position:absolute; top:104px; left:50%; transform:translateX(-50%); max-width:min(92%,560px); padding:7px 12px; border:1px solid; border-radius:3px; font-size:11px; font-weight:600; letter-spacing:1px; text-align:center; pointer-events:none; z-index:3; }
+.fps-combat-banner.hazard { background:#4a0f0cd9; border-color:#ff5a45; color:#ffe1d8; animation:fps-combat-pulse 1s ease-in-out infinite; }
+.fps-combat-banner.notice { background:#1d2416cc; border-color:#c9b46a; color:#efe6c0; }
+@keyframes fps-combat-pulse { 50% { border-color:#ff5a4560; } }
+@media (prefers-reduced-motion: reduce) { .fps-combat-banner.hazard { animation:none; } }
+@media(max-width:700px) { .fps-combat-banner { top:124px; font-size:9px; padding:5px 8px; } }

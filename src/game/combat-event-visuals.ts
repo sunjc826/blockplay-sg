@@ -1,0 +1,286 @@
+import * as THREE from 'three';
+import { combatPhase, combatTimeline, transportPose, type CombatEventDescriptor, type MunitionPayload, type TransportPayload } from './combat-events';
+import { buildVehicleModel } from './vehicle-models';
+import { withInstanceOpacity } from './fps-impact-material';
+
+/**
+ * Draws combat events from their descriptors: shells in their last moments of
+ * flight, blasts, smoke, craters, danger rings and the transports that bring
+ * reinforcements. Every pool is fixed at creation; the whole tree carries
+ * `fpsEffect` and stops no ray, so nothing here changes what a shot hits.
+ */
+
+const FIRE = 96, SMOKE = 256, DEBRIS = 96, SHELLS = 24, CRATERS = 40, MARKERS = 4, TRANSPORTS = 2, ROPERS = 6;
+/** Shells are drawn at an arcade speed so their last half-second is visible at all. */
+const SHELL_SPEED = 120;
+const CRATER_LIFE = 60;
+const noRaycast = () => {};
+export type CombatCast = (origin: THREE.Vector3, direction: THREE.Vector3, far: number) => THREE.Vector3 | null;
+
+interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number; size: number; grow: number; colour: THREE.Color; spin: number; floor: number;
+  /** Upward acceleration: hot or signal smoke climbs, dust settles. */
+  lift: number; opacity: number }
+function radial(size: number, edge: number) {
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const d = Math.min(1, Math.hypot((x + .5) / size * 2 - 1, (y + .5) / size * 2 - 1)), i = (y * size + x) * 4;
+    data[i] = data[i + 1] = data[i + 2] = 255; data[i + 3] = Math.round(Math.pow(1 - d, edge) * 255);
+  }
+  const texture = new THREE.DataTexture(data, size, size); texture.needsUpdate = true; return texture;
+}
+/** An original troop truck: cab, flatbed and canvas canopy on six wheels. Forward is local -Z. */
+function buildTruck() {
+  const root = new THREE.Group(), olive = new THREE.MeshStandardMaterial({ color: '#4a5236', roughness: .8 }),
+    canvas = new THREE.MeshStandardMaterial({ color: '#5d6045', roughness: .95 }), dark = new THREE.MeshStandardMaterial({ color: '#1d2120', roughness: .85 }),
+    glass = new THREE.MeshStandardMaterial({ color: '#27424b', roughness: .2, metalness: .4 });
+  const box = (w: number, h: number, d: number, x: number, y: number, z: number, material: THREE.Material) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material); mesh.position.set(x, y, z); root.add(mesh); return mesh;
+  };
+  box(2.3, .35, 6.6, 0, .95, 0, dark);              // chassis
+  box(2.3, 1.5, 1.8, 0, 1.85, -2.35, olive);        // cab
+  box(2.1, .55, .06, 0, 2.15, -3.26, glass);        // windscreen
+  box(2.4, .5, 4.4, 0, 1.4, 1.05, olive);           // bed
+  box(2.4, 1.6, 4.3, 0, 2.45, 1.1, canvas);         // canopy
+  for (const z of [-2.3, .6, 2.1]) for (const x of [-1.15, 1.15]) {
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(.52, .52, .4, 12), dark); wheel.rotation.z = Math.PI / 2; wheel.position.set(x, .52, z); root.add(wheel);
+  }
+  return root;
+}
+
+export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, options: { reduced: () => boolean }) {
+  const root = new THREE.Group(); root.name = 'combat-events'; root.userData.fpsEffect = true; scene.add(root);
+  const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [], textures: THREE.Texture[] = [radial(64, 1.4), radial(64, .7)];
+  const [soft, blot] = textures;
+  const keep = <T extends THREE.BufferGeometry>(g: T) => { geometries.push(g); return g; };
+  const hold = <T extends THREE.Material>(m: T) => { materials.push(m); return m; };
+  const pool = (geometry: THREE.BufferGeometry, material: THREE.Material, count: number, name: string) => {
+    const mesh = new THREE.InstancedMesh(geometry, material, count); mesh.name = name; mesh.frustumCulled = false; mesh.raycast = noRaycast;
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.count = 0; root.add(mesh); return mesh;
+  };
+  const opacityPool = (count: number) => {
+    const geometry = keep(new THREE.PlaneGeometry(1, 1)), opacity = new THREE.InstancedBufferAttribute(new Float32Array(count), 1).setUsage(THREE.DynamicDrawUsage);
+    geometry.setAttribute('effectOpacity', opacity); return { geometry, opacity };
+  };
+  const fireMesh = pool(keep(new THREE.PlaneGeometry(1, 1)), hold(new THREE.MeshBasicMaterial({ map: soft, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })), FIRE, 'combat-fire');
+  const smokeQuad = opacityPool(SMOKE);
+  const smokeMesh = pool(smokeQuad.geometry, hold(withInstanceOpacity(new THREE.MeshBasicMaterial({ map: soft, transparent: true, depthWrite: false }))), SMOKE, 'combat-smoke');
+  const debrisMesh = pool(keep(new THREE.BoxGeometry(1, 1, 1)), hold(new THREE.MeshBasicMaterial({ color: '#ffffff' })), DEBRIS, 'combat-debris');
+  const shellMesh = pool(keep(new THREE.BoxGeometry(.18, .18, 1)), hold(new THREE.MeshBasicMaterial({ color: '#ffd59a', transparent: true, opacity: .9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })), SHELLS, 'combat-shells');
+  const craterQuad = opacityPool(CRATERS);
+  const craterMesh = pool(craterQuad.geometry, hold(withInstanceOpacity(new THREE.MeshBasicMaterial({ color: '#1b1612', map: blot, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }))), CRATERS, 'combat-craters');
+  const flash = new THREE.PointLight('#ffb35c', 0, 60, 1.6); root.add(flash);
+
+  const ringGeometry = keep(new THREE.RingGeometry(.94, 1, 72));
+  const markers = Array.from({ length: MARKERS }, () => {
+    const material = hold(new THREE.MeshBasicMaterial({ color: '#ff4a3a', transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+    const mesh = new THREE.Mesh(ringGeometry, material); mesh.rotation.x = -Math.PI / 2; mesh.visible = false; mesh.raycast = noRaycast; root.add(mesh);
+    return { mesh, material };
+  });
+  const ropeGeometry = keep(new THREE.BufferGeometry()); ropeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(TRANSPORTS * 2 * 2 * 3), 3));
+  const ropes = new THREE.LineSegments(ropeGeometry, hold(new THREE.LineBasicMaterial({ color: '#1a1714' }))); ropes.frustumCulled = false; ropes.raycast = noRaycast; root.add(ropes);
+  const roperMesh = pool(keep(new THREE.CapsuleGeometry(.24, 1.1, 3, 6)), hold(new THREE.MeshStandardMaterial({ color: '#3f4632', roughness: .9 })), ROPERS, 'combat-ropers');
+
+  // Transport models are built on first use: most matches never see one of each.
+  const fleet: Record<'land' | 'air', { model: THREE.Group; rotor?: THREE.Object3D; tail?: THREE.Object3D; ground: number; groundAt: number; owner: string }[]> = { land: [], air: [] };
+  function vehicle(mode: 'land' | 'air', owner: string) {
+    const list = fleet[mode];
+    let slot = list.find(v => v.owner === owner) ?? list.find(v => !v.owner);
+    if (!slot && list.length < TRANSPORTS) {
+      const model = mode === 'land' ? buildTruck() : buildVehicleModel('helicopter');
+      model.traverse(node => {
+        node.raycast = noRaycast;
+        if (node instanceof THREE.Mesh) { geometries.push(node.geometry); (Array.isArray(node.material) ? node.material : [node.material]).forEach(m => { materials.push(m); if ('map' in m && m.map instanceof THREE.Texture) textures.push(m.map); }); }
+      });
+      model.visible = false; root.add(model);
+      slot = { model, rotor: model.getObjectByName('main-rotor'), tail: model.getObjectByName('tail-rotor'), ground: 0, groundAt: -Infinity, owner: '' };
+      list.push(slot);
+    }
+    if (slot) slot.owner = owner;
+    return slot;
+  }
+
+  const fire: Particle[] = [], smoke: Particle[] = [], debris: Particle[] = [];
+  const craters: { x: number; y: number; z: number; size: number; age: number }[] = [];
+  const emitters: { x: number; y: number; z: number; colour: THREE.Color; until: number; next: number; rate: number }[] = [];
+  let clock = 0;
+  const landings = new Map<string, THREE.Vector3>();
+  const origin = new THREE.Vector3(), direction = new THREE.Vector3(), down = new THREE.Vector3(0, -1, 0);
+  /** Where a munition meets the world, cast once along its own path and remembered. */
+  function landingOf(event: CombatEventDescriptor, payload: MunitionPayload) {
+    const key = `${event.id}/${payload.id}`;
+    let point = landings.get(key);
+    if (!point) {
+      const { descent, impact } = payload, height = 150, length = height / -descent.y;
+      direction.set(descent.x, descent.y, descent.z);
+      origin.set(impact.x - descent.x * length, height, impact.z - descent.z * length);
+      point = cast(origin, direction, length + 2)?.clone() ?? new THREE.Vector3(impact.x, 0, impact.z);
+      landings.set(key, point);
+      if (landings.size > 400) landings.delete(landings.keys().next().value!);
+    }
+    return point;
+  }
+  function groundAt(x: number, z: number) { return cast(origin.set(x, 120, z), down, 200)?.y ?? 0; }
+
+  function add(list: Particle[], capacity: number, particle: Particle) { if (list.length >= capacity) list.shift(); list.push(particle); }
+  function particle(at: THREE.Vector3, spread: number, up: number, life: number, size: number, grow: number, colour: THREE.Color): Particle {
+    const angle = Math.random() * Math.PI * 2, out = Math.random() * spread;
+    return { x: at.x, y: at.y, z: at.z, vx: Math.cos(angle) * out, vy: up * (.5 + Math.random() * .5), vz: Math.sin(angle) * out, age: 0, life: life * (.7 + Math.random() * .6), size, grow, colour, spin: Math.random() * 6, floor: at.y, lift: 0, opacity: .85 };
+  }
+  const dust = new THREE.Color('#857762'), soot = new THREE.Color('#3a3530'), chunk = new THREE.Color('#2c2620'), wash = new THREE.Color('#a69a80');
+  /** A shell landing: fireball, smoke, thrown dirt, a crater and a flash. `size` 1 is an artillery round. */
+  function blast(at: THREE.Vector3, size = 1) {
+    const scale = options.reduced() ? .45 : 1;
+    for (let i = 0; i < Math.round(14 * scale); i++) add(fire, FIRE, particle(at, 7 * size, 6 * size, .55, 1.6 * size, 5 * size, new THREE.Color('#ffd28a')));
+    for (let i = 0; i < Math.round(18 * scale); i++) {
+      const cloud = particle(at, 4 * size, 3.5 * size, 4.5, 2.4 * size, 2.2 * size, (i % 3 ? dust : soot).clone());
+      cloud.lift = .4; add(smoke, SMOKE, cloud);
+    }
+    for (let i = 0; i < Math.round(14 * scale); i++) {
+      const p = particle(at, 9 * size, 11 * size, 2.2, .18 + Math.random() * .22, 0, chunk); p.y += .2; add(debris, DEBRIS, p);
+    }
+    craters.push({ x: at.x, y: at.y, z: at.z, size: 3.2 * size * (.85 + Math.random() * .3), age: 0 }); if (craters.length > CRATERS) craters.shift();
+    flash.position.set(at.x, at.y + 2, at.z); flash.intensity = 60 * size;
+  }
+  /** A spotting round: no damage, a column of coloured smoke that lingers. */
+  function spot(at: THREE.Vector3, colour: string) {
+    add(fire, FIRE, particle(at, 2, 2, .3, 1, 2, new THREE.Color('#ffcf99')));
+    emitters.push({ x: at.x, y: at.y, z: at.z, colour: new THREE.Color(colour), until: clock + 9, next: clock, rate: options.reduced() ? .35 : .14 });
+    if (emitters.length > 6) emitters.shift();
+  }
+
+  const matrix = new THREE.Matrix4(), quaternion = new THREE.Quaternion(), position = new THREE.Vector3(), scale = new THREE.Vector3(), colour = new THREE.Color();
+  const flat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2), roll = new THREE.Quaternion(), zAxis = new THREE.Vector3(0, 0, 1);
+  const fireHot = new THREE.Color('#fff1c4'), fireMid = new THREE.Color('#ff8a2a'), fireCool = new THREE.Color('#3a0e00');
+  const ropeTop = new THREE.Vector3();
+
+  function step(list: Particle[], dt: number, gravity: number, drag: number) {
+    for (let i = list.length - 1; i >= 0; i--) {
+      const p = list[i]; p.age += dt;
+      if (p.age >= p.life) { list.splice(i, 1); continue; }
+      const damp = Math.exp(-drag * dt);
+      p.vx *= damp; p.vz *= damp; p.vy = p.vy * damp + (p.lift - gravity) * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+      if (gravity > 0 && p.y < p.floor) { p.y = p.floor; p.vy *= -.25; p.vx *= .5; p.vz *= .5; }
+      p.spin += dt * 4;
+    }
+  }
+
+  function update(dt: number, events: readonly CombatEventDescriptor[], time: number, camera: THREE.Camera) {
+    clock += dt;
+    // Lingering signal smoke from spotting rounds and downwash dust under a hovering helicopter.
+    for (let i = emitters.length - 1; i >= 0; i--) {
+      const e = emitters[i]; if (clock > e.until) { emitters.splice(i, 1); continue; }
+      // Signal smoke: a thin, buoyant column that leans downwind as it climbs.
+      while (e.next <= clock) {
+        e.next += e.rate;
+        const puff = particle(position.set(e.x, e.y + .3, e.z), .5, 1.5, 6.5, .9, 1.4, e.colour);
+        puff.lift = 1.1; puff.vx += .9; puff.opacity = .6; add(smoke, SMOKE, puff);
+      }
+    }
+    let shells = 0, ropeLines = 0, ropers = 0;
+    const live = new Set<string>(), ropeArray = ropeGeometry.getAttribute('position') as THREE.BufferAttribute;
+    markers.forEach(m => { m.mesh.visible = false; });
+    let marker = 0;
+    for (const event of events) {
+      if (combatPhase(event, time) === 'done') continue;
+      const age = time - event.start;
+      for (const payload of combatTimeline(event)) {
+        if (payload.type === 'munition') {
+          const remaining = payload.time - age;
+          if (remaining <= 0 || remaining > Math.min(payload.flight, .9) || shells >= SHELLS) continue;
+          const at = landingOf(event, payload);
+          position.set(at.x - payload.descent.x * SHELL_SPEED * remaining, at.y - payload.descent.y * SHELL_SPEED * remaining, at.z - payload.descent.z * SHELL_SPEED * remaining);
+          roll.setFromUnitVectors(zAxis, direction.set(payload.descent.x, payload.descent.y, payload.descent.z));
+          shellMesh.setMatrixAt(shells++, matrix.compose(position, roll, scale.set(1, 1, 7)));
+        } else if (payload.type === 'marker' && marker < MARKERS && age >= payload.from && age <= payload.until) {
+          const m = markers[marker++], y = landings.get(`${event.id}/marker`)?.y ?? groundAt(payload.center.x, payload.center.z);
+          if (!landings.has(`${event.id}/marker`)) landings.set(`${event.id}/marker`, new THREE.Vector3(payload.center.x, y, payload.center.z));
+          m.mesh.position.set(payload.center.x, y + .12, payload.center.z); m.mesh.scale.setScalar(payload.radius); m.mesh.visible = true;
+          m.material.color.set(payload.colour); m.material.opacity = (.35 + .25 * Math.sin(clock * 6)) * Math.min(1, (payload.until - age) / 1.5);
+        } else if (payload.type === 'transport') {
+          drawTransport(event, payload, age, dt, live);
+          if (payload.mode === 'air') {
+            const v = fleet.air.find(s => s.owner === event.id);
+            const roping = age >= payload.arrive + .5 && age <= payload.depart - .4;
+            if (v && roping && ropeLines < TRANSPORTS * 2) for (const side of [-1, 1]) {
+              ropeTop.set(side * 1.3, 1.1, -.3).applyMatrix4(v.model.matrixWorld);
+              ropeArray.setXYZ(ropeLines * 2, ropeTop.x, ropeTop.y, ropeTop.z); ropeArray.setXYZ(ropeLines * 2 + 1, ropeTop.x, v.ground + .1, ropeTop.z); ropeLines++;
+            }
+            if (v && roping && !options.reduced() && Math.random() < dt * 14)
+              add(smoke, SMOKE, particle(position.set(payload.drop.x + (Math.random() - .5) * 8, v.ground + .2, payload.drop.z + (Math.random() - .5) * 8), 6, .8, 1.6, 1.6, 2.4, wash));
+            // Troops slide the last stretch of rope just before they are on the ground.
+            if (v) for (const insert of combatTimeline(event)) {
+              if (insert.type !== 'insert' || ropers >= ROPERS) continue;
+              const until = insert.time - age; if (until <= 0 || until > 1.2) continue;
+              const side = insert.slot % 2 ? -1 : 1, top = ropeTop.set(side * 1.3, 1.1, -.3).applyMatrix4(v.model.matrixWorld);
+              position.set(top.x, v.ground + .8 + (top.y - v.ground - .8) * until / 1.2, top.z);
+              roperMesh.setMatrixAt(ropers++, matrix.compose(position, quaternion.identity(), scale.set(1, 1, 1)));
+            }
+          }
+        }
+      }
+    }
+    camera.getWorldQuaternion(quaternion);
+    for (const mode of ['land', 'air'] as const) for (const v of fleet[mode]) if (!live.has(v.owner)) { v.owner = ''; v.model.visible = false; }
+    shellMesh.count = shells; shellMesh.instanceMatrix.needsUpdate = true;
+    roperMesh.count = ropers; roperMesh.instanceMatrix.needsUpdate = true;
+    ropeGeometry.setDrawRange(0, ropeLines * 2); ropeArray.needsUpdate = true; ropes.visible = ropeLines > 0;
+
+    step(fire, dt, -1.5, 2.5); step(smoke, dt, 0, 1.1); step(debris, dt, 18, .2);
+    fire.forEach((p, i) => {
+      const t = p.age / p.life;
+      colour.copy(t < .3 ? fireHot.clone().lerp(fireMid, t / .3) : fireMid.clone().lerp(fireCool, (t - .3) / .7)).multiplyScalar(1 - t * .6);
+      fireMesh.setColorAt(i, colour);
+      fireMesh.setMatrixAt(i, matrix.compose(position.set(p.x, p.y, p.z), quaternion, scale.setScalar(p.size + p.grow * t)));
+    });
+    fireMesh.count = fire.length; fireMesh.instanceMatrix.needsUpdate = true; if (fireMesh.instanceColor) fireMesh.instanceColor.needsUpdate = true;
+    smoke.forEach((p, i) => {
+      const t = p.age / p.life;
+      smokeMesh.setColorAt(i, p.colour); smokeQuad.opacity.setX(i, Math.min(1, t * 8) * (1 - t) * p.opacity);
+      smokeMesh.setMatrixAt(i, matrix.compose(position.set(p.x, p.y, p.z), quaternion, scale.setScalar(p.size + p.grow * t * 3)));
+    });
+    smokeMesh.count = smoke.length; smokeMesh.instanceMatrix.needsUpdate = true; smokeQuad.opacity.needsUpdate = true; if (smokeMesh.instanceColor) smokeMesh.instanceColor.needsUpdate = true;
+    debris.forEach((p, i) => {
+      debrisMesh.setColorAt(i, p.colour);
+      roll.setFromAxisAngle(zAxis, p.spin);
+      debrisMesh.setMatrixAt(i, matrix.compose(position.set(p.x, p.y, p.z), roll, scale.setScalar(p.size)));
+    });
+    debrisMesh.count = debris.length; debrisMesh.instanceMatrix.needsUpdate = true; if (debrisMesh.instanceColor) debrisMesh.instanceColor.needsUpdate = true;
+    for (let i = craters.length - 1; i >= 0; i--) if ((craters[i].age += dt) > CRATER_LIFE) craters.splice(i, 1);
+    craters.forEach((c, i) => {
+      craterQuad.opacity.setX(i, Math.min(1, (CRATER_LIFE - c.age) / 10) * .85);
+      craterMesh.setMatrixAt(i, matrix.compose(position.set(c.x, c.y + .03, c.z), flat, scale.set(c.size, c.size, 1)));
+    });
+    craterMesh.count = craters.length; craterMesh.instanceMatrix.needsUpdate = true; craterQuad.opacity.needsUpdate = true;
+    flash.intensity *= Math.exp(-dt * 14); if (flash.intensity < .05) flash.intensity = 0;
+  }
+
+  function drawTransport(event: CombatEventDescriptor, payload: TransportPayload, age: number, dt: number, live: Set<string>) {
+    const pose = transportPose(payload, age);
+    if (!pose.visible) return;
+    const v = vehicle(payload.mode, event.id); if (!v) return;
+    live.add(event.id);
+    // The ground under a transport is sampled a few times a second, not every frame.
+    if (clock - v.groundAt > .15) { v.ground = groundAt(pose.x, pose.z); v.groundAt = clock; }
+    v.model.visible = true; v.model.position.set(pose.x, v.ground + pose.y, pose.z); v.model.rotation.set(0, pose.yaw, 0);
+    if (v.rotor) v.rotor.rotation.y += dt * 38 * Math.max(.4, pose.effort);
+    if (v.tail) v.tail.rotation.x += dt * 60;
+    v.model.updateMatrixWorld(true);
+  }
+
+  function reset() {
+    fire.length = smoke.length = debris.length = craters.length = emitters.length = 0; landings.clear(); flash.intensity = 0;
+    for (const mode of ['land', 'air'] as const) for (const v of fleet[mode]) { v.owner = ''; v.model.visible = false; }
+  }
+  return {
+    update, blast, spot, landingOf, reset,
+    /** Live pool sizes, for smokes and tests. */
+    get counts() { return { fire: fire.length, smoke: smoke.length, debris: debris.length, craters: craters.length, transports: fleet.land.filter(v => v.owner).length + fleet.air.filter(v => v.owner).length }; },
+    dispose() {
+      root.removeFromParent();
+      [fireMesh, smokeMesh, debrisMesh, shellMesh, craterMesh, roperMesh].forEach(mesh => mesh.dispose());
+      new Set(geometries).forEach(g => g.dispose()); new Set(materials).forEach(m => m.dispose()); new Set(textures).forEach(t => t.dispose());
+    },
+  };
+}
+export type CombatEventVisuals = ReturnType<typeof createCombatEventVisuals>;

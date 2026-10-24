@@ -2,8 +2,11 @@ import { expect, it } from 'vitest';
 import { normalizeFpsDebug, regenerateHealth } from './fps-debug';
 
 it('limits survival settings to the supported multipliers', () => {
-  expect(normalizeFpsDebug({ healthMultiplier: 10, regeneration: true })).toEqual({ healthMultiplier: 10, regeneration: true });
-  expect(normalizeFpsDebug({ healthMultiplier: NaN as 1 })).toEqual({ healthMultiplier: 1, regeneration: false });
+  expect(normalizeFpsDebug({ healthMultiplier: 10, regeneration: true })).toEqual({ healthMultiplier: 10, regeneration: true, combatEvents: true });
+  expect(normalizeFpsDebug({ healthMultiplier: NaN as 1 })).toEqual({ healthMultiplier: 1, regeneration: false, combatEvents: true });
+  // Random events are on unless explicitly switched off; older saves have no field and keep them on.
+  expect(normalizeFpsDebug({ combatEvents: false }).combatEvents).toBe(false);
+  expect(normalizeFpsDebug({ combatEvents: 'no' as unknown as boolean }).combatEvents).toBe(true);
 });
 it('regenerates ten percent per second without overflow, revival or background time jumps', () => {
   let health = 400;

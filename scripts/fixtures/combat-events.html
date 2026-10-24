@@ -1,0 +1,40 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Combat events</title><style>
+body{margin:0;background:#161e25;color:#d9e4e9;font:14px system-ui}canvas{display:block}header{position:absolute;top:14px;left:20px;text-shadow:0 1px 2px #000}header small{display:block;color:#c3d0d8;margin-top:4px}
+</style></head><body><header>Combat events • combat-events → combat-event-visuals<small>window.show(kind, seconds, view) runs one event from its descriptor to `seconds` and renders it; kind is artillery, transport-land or transport-air; view is 'near' or 'wide'</small></header>
+<script type="module">
+// The bare specifier, so this page shares the app's three instance: lights made by the visuals must belong to this renderer.
+import * as THREE from 'three';
+import '/src/game/combat-event-catalog.ts';
+import { combatCues, combatTimeline } from '/src/game/combat-events.ts';
+import { createCombatEventVisuals } from '/src/game/combat-event-visuals.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1200,800);renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.append(renderer.domElement);
+const world=new THREE.Scene();world.background=new THREE.Color('#b8d9ef');world.fog=new THREE.Fog('#b8d9ef',120,420);
+world.add(new THREE.HemisphereLight('#e4efff','#576350',1.9));const sun=new THREE.DirectionalLight('#fff4dd',2.4);sun.position.set(40,80,30);world.add(sun);
+const mat=(color)=>new THREE.MeshStandardMaterial({color,roughness:.8});
+// A plaza with a street running north-south and a few blocks either side.
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(400,400),mat('#9a9686'));ground.rotation.x=-Math.PI/2;world.add(ground);
+const road=new THREE.Mesh(new THREE.PlaneGeometry(10,400),mat('#45474a'));road.rotation.x=-Math.PI/2;road.position.set(0,.02,0);world.add(road);
+[[-24,-30,14,30,18],[24,-40,16,22,26],[-26,30,16,26,12],[28,25,14,30,34],[-30,-90,18,24,40],[30,-95,20,20,22]].forEach(([x,z,w,d,h])=>{
+  const block=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat('#d8d2c2'));block.position.set(x,h/2,z);world.add(block);});
+const ray=new THREE.Raycaster();
+const cast=(origin,direction,far)=>{ray.set(origin,direction);ray.near=0;ray.far=far;return ray.intersectObjects(world.children.filter(o=>!o.userData.fpsEffect),true)[0]?.point??null;};
+const visuals=createCombatEventVisuals(world,cast,{reduced:()=>false});
+const camera=new THREE.PerspectiveCamera(60,1.5,.1,800);
+const VIEWS={near:{eye:[0,1.7,46],at:[0,2,0]},wide:{eye:[60,30,90],at:[0,4,-10]},high:{eye:[0,70,80],at:[0,0,-20]}};
+window.show=(kind='artillery',seconds=13,view='near')=>{
+  visuals.reset();
+  // A transport drives up the street from the south; its drop is the plaza.
+  const event={id:`fixture-${Math.random()}`,kind,seed:20261024,start:0,target:{x:0,z:0},heading:kind==='artillery'?Math.PI/2:Math.PI,intensity:1,reach:kind==='transport-air'?180:150,troops:4};
+  const v=VIEWS[view]??VIEWS.near;camera.position.set(...v.eye);camera.lookAt(...v.at);camera.updateMatrixWorld(true);world.updateMatrixWorld(true);
+  const tally={blasts:0,spots:0};
+  for(let t=0;t<seconds;t+=1/60){
+    const dt=Math.min(1/60,seconds-t)||1/60;
+    for(const cue of combatCues([event],t,t+dt)){if(cue.kind!=='impact')continue;const at=visuals.landingOf(event,cue.payload);
+      if(cue.payload.blast){visuals.blast(at);tally.blasts++;}else{visuals.spot(at,cue.payload.smoke??'#d8463a');tally.spots++;}}
+    visuals.update(dt,[event],t+dt,camera);
+  }
+  renderer.render(world,camera);
+  return {...tally,counts:visuals.counts,payloads:combatTimeline(event).length};
+};
+window.show();
+</script></body></html>
