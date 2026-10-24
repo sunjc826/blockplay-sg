@@ -3,12 +3,16 @@ import { createVerticalNavigator, type NavigationPoint } from './vertical-naviga
 import { createVerticalMovement, type VerticalWorld } from './vertical-movement';
 import { validVehicleControls, createSharedVehicle, seatOf, seatPoint, gunnerId, vehicleGunRay, vehicleRayDistance, type SharedVehicle, type VehicleControls } from './vehicle-seats';
 import { driveVehicle, flyVehicle, vehicleBounds, vehicleExit, type VehicleKind, type VehicleSpawn, type FlightObstacle } from './vehicle-rules';
-import { damageVehicle, fireVehicleWeapon, vehicleBlastDamage, vehicleCollisionDamage, VEHICLE_COMBAT } from './vehicle-combat';
+import { damageVehicle, fireVehicleWeapon, vehicleCollisionDamage, VEHICLE_COMBAT } from './vehicle-combat';
 import { applyArmorDamage } from './armory-state';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage } from './fps-stance';
 import { MARINA_BOUNDS, moveInMarina, type Obstacle } from './marina-collision';
 import { FPS_WEAPONS, type WeaponSpec } from './fps-rules';
 import { getArenaRole, type ArenaRolePlugin } from './arena-roles';
+import './combat-event-catalog';
+import { combatPhase, combatTimeline, getCombatEvent, MAX_COMBAT_EVENTS, type CombatEventDescriptor, type CombatPlane, type MunitionPayload } from './combat-events';
+import { createCombatDirector, planTransport, type CombatRisk } from './combat-director';
+import { resolveBlast, type BlastTarget } from './combat-blast';
 
 /** All coordinates use metres; actor y is eye height, not the feet. */
 export interface ArenaActor {
@@ -20,6 +24,8 @@ export interface ArenaFeed { id: string; text: string; killerId?: string; victim
 export interface ArenaSnapshot {
   type: 'arena-snapshot'; tick: number; elapsed: number; actors: ArenaActor[];
   feed: ArenaFeed[]; finished: boolean; winner: string; vehicles?: SharedVehicle[];
+  /** Combat events still running or lingering; each one's rounds follow from its descriptor. */
+  events?: CombatEventDescriptor[];
 }
 export interface ArenaInput { x: number; y: number; z: number; yaw: number; pitch: number; weapon: number; playing: boolean; reloading?: boolean; prone?: boolean; vehicleControls?: VehicleControls }
 export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount'>;
@@ -32,6 +38,10 @@ export interface ArenaEnvironment {
   spawns: readonly { x: number; z: number }[];
   endless?: boolean;
   playerSpawn?: { x: number; z: number; yaw?: number; pitch?: number };
+  /** Random combat events scheduled by a director, paced by district risk. */
+  combatEvents?: { risk: CombatRisk };
+  /** Fallen bots wait for a troop transport instead of reappearing at a spawn point. */
+  reinforcements?: boolean;
 }
 /**
  * Distance along a unit ray to the first piece of rendered cover, or anything
@@ -44,6 +54,12 @@ export interface ArenaVehicleOptions {
   /** Kept for callers that predate `createArena`'s own `coverDistance` argument. */
   coverDistance?: ArenaCoverDistance;
 }
+/** A lone fallen bot waits this long for company before a transport is sent for it. */
+export const REINFORCEMENT_WAIT = 6;
+/** A bot no transport has come for by now reappears at a spawn point, as before. */
+export const REINFORCEMENT_FALLBACK = 45;
+/** Troops per transport. */
+export const REINFORCEMENT_SEATS = 4;
 /** How long a bot trusts its last mesh line-of-sight check before casting again. */
 export const ARENA_SIGHT_RECHECK = .2;
 export const ARENA_DURATION = 180;
@@ -62,6 +78,8 @@ interface InternalActor {
   usePlayerSpawn: boolean;
   reaction: number; target: string; strafe: number; patrol: { x: number; z: number }; patrolTime: number;
   sight?: { target: string; clear: boolean; wait: number };
+  /** Reinforcements: when this fallen bot started waiting for a ride, and the seat it was given. */
+  waiting?: number; ride?: { event: string; slot: number };
 }
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 const finitePoint = (p: ArenaPoint) => p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z);
@@ -173,7 +191,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75, health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
       yaw: Number.isFinite(preferred?.yaw) ? preferred!.yaw! : 0, pitch: Number.isFinite(preferred?.pitch) ? clamp(preferred!.pitch!, -1.5, 1.5) : 0 });
     entry.cooldown = entry.weapons.map(() => 0); entry.reload = entry.weapons.map(() => 0); entry.rounds = entry.weapons.map(w => w.capacity);
-    entry.navigation = undefined; entry.velocityY = 0;
+    entry.navigation = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false;
   };
   function sanitizeWeapons(weapons: readonly ArenaWeapon[]) {
@@ -295,14 +313,15 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (entry.rounds[weapon] === 0) entry.reload[weapon] = entry.weapons[weapon].reload;
     return resolveShot(entry, origin, ray, entry.weapons[weapon].damage, Math.min(125, Math.max(0, maxDistance)));
   }
-  function hurtActor(victim: InternalActor, damage: number, attacker?: InternalActor) {
+  /** `cause` names what did it when no actor did, as in "Artillery killed …"; it credits nobody. */
+  function hurtActor(victim: InternalActor, damage: number, attacker?: InternalActor, cause?: string) {
     const blocked = Math.min(victim.actor.armor, damage * victim.absorption);
     victim.actor.armor -= blocked; victim.actor.health = Math.max(0, victim.actor.health - damage + blocked);
     const killed = victim.actor.health <= 0;
     if (killed && victim.actor.alive) {
       victim.actor.alive = false; victim.actor.deaths++; victim.actor.respawnIn = ARENA_RESPAWN_SECONDS; releaseSeat(victim.actor.id);
       if (attacker && attacker !== victim) attacker.actor.kills++;
-      announce(`${attacker?.actor.name ?? 'Vehicle'} eliminated ${victim.actor.name}`, attacker?.actor.id, victim.actor.id);
+      announce(cause && !attacker ? `${cause} killed ${victim.actor.name}` : `${attacker?.actor.name ?? 'Vehicle'} eliminated ${victim.actor.name}`, attacker?.actor.id, victim.actor.id);
       if (attacker && !environment?.endless && attacker.actor.kills >= ARENA_KILL_LIMIT) { finished = true; winner = attacker.actor.name; }
     }
     return { hitId: victim.actor.id, killed, damage: damage - blocked };
@@ -363,25 +382,161 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const seat = v.occupants.indexOf(null); if (seat < 0) return false;
     v.occupants[seat] = id; entry.reload[entry.actor.weapon] = 0; syncOccupants(); return true;
   }
-  function damageHull(v: SharedVehicle, damage: number, attacker?: InternalActor) {
+  function damageHull(v: SharedVehicle, damage: number, attacker?: InternalActor, cause?: string) {
     if (!damageVehicle(v, damage)) return;
     const point = { x: v.x, y: v.y + 1.3, z: v.z };
     const crew = [...v.occupants].filter((id): id is string => id !== null);
-    for (const id of crew) { const member = members.get(id); if (member) hurtActor(member, member.actor.health + member.actor.armor + 1, attacker); }
-    const clearBlast = (target: ArenaPoint) => {
-      const d = distance(point, target); if (d < .1) return true;
-      const dir = { x: (target.x - point.x) / d, y: (target.y - point.y) / d, z: (target.z - point.z) / d };
-      return Math.min(worldWallDistance(point, dir), cover?.(point, dir, d) ?? Infinity) >= d - .1;
-    };
-    for (const other of vehicles) if (other !== v && other.health > 0) {
-      const target = { x: other.x, y: other.y + 1.3, z: other.z }, amount = vehicleBlastDamage(v.kind, distance(point, target));
-      if (amount > 0 && clearBlast(target)) damageHull(other, amount, attacker);
-    }
-    for (const member of members.values()) if (member.actor.alive && !seatOf(vehicles, member.actor.id)) {
-      const amount = vehicleBlastDamage(v.kind, distance(point, member.actor));
-      if (amount > 0 && clearBlast(member.actor)) hurtActor(member, amount, attacker);
-    }
+    for (const id of crew) { const member = members.get(id); if (member) hurtActor(member, member.actor.health + member.actor.armor + 1, attacker, cause); }
+    // A wreck is a blast like any other, with the hull's own linear falloff and no stance relief.
+    const spec = VEHICLE_COMBAT[v.kind];
+    blast(point, { radius: spec.blastRadius, damage: spec.blastDamage, minScale: 0, vehicleScale: 1, stance: false }, attacker, cause, v);
     announce(`${v.kind === 'car' ? 'Utility 01' : 'Falcon 01'} destroyed`, attacker?.actor.id);
+  }
+  /** Whether nothing solid stands between a blast and what it reaches. */
+  function clearBlast(from: ArenaPoint, to: ArenaPoint, length: number) {
+    if (length < .1) return true;
+    const dir = { x: (to.x - from.x) / length, y: (to.y - from.y) / length, z: (to.z - from.z) / length };
+    return Math.min(worldWallDistance(from, dir), cover?.(from, dir, length) ?? Infinity) >= length - .1;
+  }
+  type BlastItem = { hull: SharedVehicle } | { member: InternalActor };
+  function blast(point: ArenaPoint, spec: Parameters<typeof resolveBlast>[1], attacker?: InternalActor, cause?: string, source?: SharedVehicle) {
+    const targets: BlastTarget<BlastItem>[] = [];
+    // Hulls first, so a chain of wrecks resolves before the crews and bystanders, as it always has.
+    for (const other of vehicles) if (other !== source && other.health > 0) targets.push({ item: { hull: other }, point: { x: other.x, y: other.y + 1.3, z: other.z }, vehicle: true });
+    for (const member of members.values()) if (member.actor.alive && !seatOf(vehicles, member.actor.id)) {
+      const { actor } = member, low = actor.y - floorAt(actor) < 1.4;
+      // Wrecks have always measured to the eye; stance-aware blasts measure to the body.
+      targets.push({ item: { member }, stance: actor.prone ? 'prone' : low ? 'crouch' : 'stand',
+        point: !spec.stance ? { x: actor.x, y: actor.y, z: actor.z } : { x: actor.x, y: actor.prone ? actor.y - PRONE_EYE_HEIGHT + .35 : actor.y - (low ? .45 : .62), z: actor.z } });
+    }
+    for (const hit of resolveBlast(point, spec, targets, clearBlast)) {
+      if ('hull' in hit.item) { if (hit.item.hull.health > 0) damageHull(hit.item.hull, hit.damage, attacker, cause); }
+      else if (hit.item.member.actor.alive) hurtActor(hit.item.member, hit.damage, attacker, cause);
+    }
+  }
+  /**
+   * Running combat events and the director that starts them. Rounds resolve
+   * here, on the authority, at the time their descriptor says they land.
+   */
+  const director = environment?.combatEvents ? createCombatDirector({ risk: environment.combatEvents.risk, seed: (seed ^ 0x5bd1e995) >>> 0 }) : null;
+  let directorEnabled = !!director, eventSerial = 0;
+  const events: { descriptor: CombatEventDescriptor; resolved: Set<number>; name: string }[] = [];
+  /** Where a round falling along `descent` onto `impact` first meets something solid. */
+  function landing(payload: MunitionPayload): ArenaPoint {
+    const { descent, impact } = payload, height = 150, length = height / -descent.y;
+    const origin = { x: impact.x - descent.x * length, y: height, z: impact.z - descent.z * length };
+    const struck = cover ? Math.min(length, cover(origin, descent, length + 2)) : length;
+    // Without rendered cover (tests, headless), the walkable deck under the impact is the ground.
+    const ground = cover ? 0 : traversal?.supportHeight(impact.x, impact.z, height, .1, .1) ?? 0;
+    const at = cover ? struck : (height - ground) / -descent.y;
+    // Lifted back up its own path, so the blast does not start inside the surface it struck.
+    const back = Math.max(0, at - .4);
+    return { x: origin.x + descent.x * back, y: origin.y + descent.y * back, z: origin.z + descent.z * back };
+  }
+  function startEvent(directive: Pick<CombatEventDescriptor, 'kind' | 'seed' | 'target' | 'heading' | 'intensity' | 'reach' | 'troops'>) {
+    const plugin = getCombatEvent(directive.kind);
+    if (!plugin || finished || events.length >= MAX_COMBAT_EVENTS || events.filter(e => combatPhase(e.descriptor, elapsed) !== 'aftermath').length >= 3) return null;
+    const target = { x: clamp(directive.target.x, bounds.minX, bounds.maxX), z: clamp(directive.target.z, bounds.minZ, bounds.maxZ) };
+    const descriptor: CombatEventDescriptor = { id: `event-${++eventSerial}`, kind: plugin.id, seed: directive.seed >>> 0, start: elapsed, target,
+      heading: Number.isFinite(directive.heading) ? directive.heading : 0, intensity: clamp(Number.isFinite(directive.intensity) ? directive.intensity : 1, .5, 2),
+      ...(Number.isFinite(directive.reach) ? { reach: clamp(directive.reach!, 0, 400) } : {}),
+      ...(Number.isInteger(directive.troops) ? { troops: clamp(directive.troops!, 1, 6) } : {}) };
+    events.push({ descriptor, resolved: new Set(), name: plugin.name.split(' ')[0] });
+    return descriptor;
+  }
+  /**
+   * Debug and scripted starts; `target` defaults to the first human. A
+   * transport ignores `target` and plans its own drop, carrying whichever bots
+   * are waiting (or nobody, when none are).
+   */
+  function triggerEvent(kind: string, target?: CombatPlane, heading = random() * Math.PI * 2) {
+    if (kind === 'transport-land' || kind === 'transport-air') return dispatchReinforcements(kind === 'transport-land' ? 'land' : 'air');
+    const human = [...members.values()].find(m => !m.actor.bot && m.actor.alive)?.actor;
+    const aim = target ?? (human ? { x: human.x, z: human.z } : null);
+    if (!aim || !Number.isFinite(aim.x) || !Number.isFinite(aim.z)) return null;
+    return startEvent({ kind, seed: Math.floor(random() * 0xffffffff) >>> 0, target: aim, heading, intensity: 1 });
+  }
+  function setCombatEvents(enabled: boolean) { directorEnabled = !!director && enabled; }
+  /** At most this many rounds resolve in one tick; the rest land on the next. */
+  const BLASTS_PER_TICK = 8;
+  function stepEvents() {
+    if (director && directorEnabled) {
+      const humans = [...members.values()].filter(m => !m.actor.bot && m.actor.alive && m.playing).map(m => ({ x: m.actor.x, z: m.actor.z }));
+      const directive = director.step({ now: elapsed, active: events.map(e => e.descriptor), humans, bounds, avoid: environment?.playerSpawn ? [environment.playerSpawn] : [] });
+      if (directive) startEvent(directive);
+    }
+    if (environment?.reinforcements) dispatchReinforcements();
+    let budget = BLASTS_PER_TICK;
+    for (const event of events) for (const payload of combatTimeline(event.descriptor)) {
+      if (budget <= 0) break;
+      if ((payload.type !== 'munition' && payload.type !== 'insert') || event.resolved.has(payload.id) || event.descriptor.start + payload.time > elapsed) continue;
+      event.resolved.add(payload.id);
+      if (payload.type === 'insert') disembark(event.descriptor, payload.slot, payload.at);
+      else if (payload.blast) { budget--; blast(landing(payload), payload.blast, undefined, event.name); }
+    }
+    for (let i = events.length - 1; i >= 0; i--) if (combatPhase(events[i].descriptor, elapsed) === 'done') events.splice(i, 1);
+    // A ride whose event is gone (a reset, a cap) will never arrive: wait for the next one.
+    for (const member of members.values()) if (member.ride && !events.some(e => e.descriptor.id === member.ride!.event)) member.ride = undefined;
+  }
+  let nextDispatch = 0;
+  /**
+   * Books a transport for the bots waiting on one, at most one ride on the
+   * road at a time. `force` sends one now, by road or air, waiting or not.
+   */
+  function dispatchReinforcements(force?: 'land' | 'air') {
+    const waiting = [...members.values()].filter(m => m.actor.bot && !m.actor.alive && m.waiting !== undefined && !m.ride).sort((a, b) => a.waiting! - b.waiting!);
+    if (!force) {
+      if (elapsed < nextDispatch || [...members.values()].some(m => m.ride)) return null;
+      if (!waiting.length || (waiting.length < 2 && elapsed - waiting[0].waiting! < REINFORCEMENT_WAIT)) return null;
+    }
+    const humans = [...members.values()].filter(m => !m.actor.bot && m.actor.alive).map(m => ({ x: m.actor.x, z: m.actor.z }));
+    const plan = planTransport({ drops: validSpawns, humans, bounds, clearRun, openSky }, random, force);
+    const troops = waiting.slice(0, REINFORCEMENT_SEATS);
+    const descriptor = plan && startEvent({ ...plan, seed: Math.floor(random() * 0xffffffff) >>> 0, intensity: 1, troops: Math.max(1, troops.length) });
+    if (!descriptor) { nextDispatch = elapsed + 5; return null; }
+    troops.forEach((member, slot) => { member.ride = { event: descriptor.id, slot }; });
+    return descriptor;
+  }
+  /** A waiting bot steps off its transport at `at`, or at the drop if that spot is blocked. */
+  function disembark(event: CombatEventDescriptor, slot: number, at: CombatPlane) {
+    const member = [...members.values()].find(m => m.ride?.event === event.id && m.ride.slot === slot);
+    if (!member || member.actor.alive) return;
+    spawn(member);
+    const point = clearSpawn(at) ? at : event.target;
+    const human = [...members.values()].filter(m => !m.actor.bot && m.actor.alive).sort((a, b) => distance(a.actor, member.actor) - distance(b.actor, member.actor))[0]?.actor;
+    Object.assign(member.actor, { x: point.x, z: point.z, yaw: human ? Math.atan2(-(human.x - point.x), -(human.z - point.z)) : event.heading });
+  }
+  /** Solids a truck would hit: what vehicles already drive against, curbs aside. */
+  const truckSolids = vehicleGround.filter(o => (o.maxY ?? 200) > .15);
+  /** How far a truck can drive from `from` along `direction` before it is stopped, sampled in short steps. */
+  function clearRun(from: CombatPlane, direction: CombatPlane, limit: number) {
+    const end = { x: from.x + direction.x * limit, z: from.z + direction.z * limit }, pad = 2;
+    const near = truckSolids.filter(o => o.maxX >= Math.min(from.x, end.x) - pad && o.minX <= Math.max(from.x, end.x) + pad &&
+      o.maxZ >= Math.min(from.z, end.z) - pad && o.minZ <= Math.max(from.z, end.z) + pad);
+    let at = { x: from.x, z: from.z };
+    for (let travelled = 0; travelled < limit; travelled += 2.5) {
+      const step = Math.min(2.5, limit - travelled), next = move(at, direction.x * step, direction.z * step, 1.3, near);
+      if (Math.hypot(next.x - at.x - direction.x * step, next.z - at.z - direction.z * step) > .2) return travelled;
+      at = next;
+    }
+    return limit;
+  }
+  /** Nothing overhead for a helicopter to hover under. */
+  function openSky(at: CombatPlane) {
+    const origin = { x: at.x, y: 2, z: at.z }, up = { x: 0, y: 1, z: 0 };
+    return Math.min(worldWallDistance(origin, up), cover?.(origin, up, 70) ?? Infinity) >= 69;
+  }
+  /** Which way out of the nearest live danger area, or null when standing clear of all of them. */
+  function dangerExit(actor: ArenaPoint) {
+    for (const event of events) {
+      if (!['warning', 'active'].includes(combatPhase(event.descriptor, elapsed))) continue;
+      for (const payload of combatTimeline(event.descriptor)) {
+        if (payload.type !== 'marker') continue;
+        const dx = actor.x - payload.center.x, dz = actor.z - payload.center.z, d = Math.hypot(dx, dz);
+        if (d < payload.radius + 2) return d > .01 ? { x: dx / d, z: dz / d } : { x: 1, z: 0 };
+      }
+    }
+    return null;
   }
   function stepVehicles(dt: number) {
     for (const v of vehicles) {
@@ -461,6 +616,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       while(path?.length && distance(feet,path[0])<.12)path.shift();
       if(path?.length){const p=path[0],d=Math.hypot(p.x-actor.x,p.z-actor.z),step=Math.min(d,role.speed*dt);dxStep=(p.x-actor.x)/Math.max(d,.001)*step;dzStep=(p.z-actor.z)/Math.max(d,.001)*step;}
     }
+    // Bots run from a marked barrage, still firing if they can see someone.
+    const exit = dangerExit(actor);
+    if (exit) { dxStep = exit.x * role.speed * 1.3 * dt; dzStep = exit.z * role.speed * 1.3 * dt; }
     const vehicleSolids = vehicles.filter(v => v.y < 2).map(vehicleBounds);
     if (traversal) {
       const step = traversal.move({ x: actor.x, y: Math.max(0, actor.y - 1.75), z: actor.z, velocityY: entry.velocityY ?? 0 }, dxStep, dzStep, dt, .4, 1.8, vehicleSolids);
@@ -481,9 +639,18 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (finished || !Number.isFinite(dt) || dt <= 0) return;
     dt = Math.min(dt, 0.25); elapsed = environment?.endless ? elapsed + dt : Math.min(ARENA_DURATION, elapsed + dt); tick++;
     for (let remaining = dt; remaining > 1e-6; remaining -= Math.min(.05, remaining)) stepVehicles(Math.min(.05, remaining));
+    stepEvents();
     for (const entry of members.values()) {
       entry.movementBudget = Math.min(8, entry.movementBudget + 40 * dt);
-      if (!entry.actor.alive) { entry.actor.respawnIn = Math.max(0, entry.actor.respawnIn - dt); if (entry.actor.respawnIn === 0) spawn(entry); continue; }
+      if (!entry.actor.alive) {
+        entry.actor.respawnIn = Math.max(0, entry.actor.respawnIn - dt);
+        if (entry.actor.respawnIn === 0) {
+          // With reinforcements, a fallen bot comes back on a transport; only one left waiting too long walks back in.
+          if (!environment?.reinforcements || !entry.actor.bot) spawn(entry);
+          else { entry.waiting ??= elapsed; if (!entry.ride && elapsed - entry.waiting > REINFORCEMENT_FALLBACK) spawn(entry); }
+        }
+        continue;
+      }
       entry.weapons.forEach((weapon, index) => {
         entry.cooldown[index] = Math.max(0, entry.cooldown[index] - dt);
         if (entry.reload[index] > 0) { entry.reload[index] = Math.max(0, entry.reload[index] - dt); if (entry.reload[index] === 0) entry.rounds[index] = weapon.capacity; }
@@ -499,10 +666,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
   }
   function snapshot(): ArenaSnapshot {
-    return { type: 'arena-snapshot', tick, elapsed, actors: [...members.values()].map(m => ({ ...m.actor })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}) };
+    return { type: 'arena-snapshot', tick, elapsed, actors: [...members.values()].map(m => ({ ...m.actor })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
+      ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target } })) } : {}) };
   }
   function reset() {
-    tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; controls.clear();
+    tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; controls.clear(); events.length = 0; director?.reset();
     vehicles = vehicleOptions ? (['car', 'helicopter'] as const).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind])) : [];
     for (const entry of members.values()) { entry.actor.kills = 0; entry.actor.deaths = 0; entry.actor.shots = 0; spawn(entry); }
     announce('New arena match');
@@ -516,7 +684,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const entry = members.get(id)!; entry.role = role; entry.healthMax = role.health;
     Object.assign(entry.actor, { bot: true, role: role.id, weapon: role.weaponIndex }); spawn(entry);
   }
-  return { vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerHealthMultiplier };
+  return { vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

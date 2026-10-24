@@ -23,6 +23,8 @@ export function buildDistrictWorld(id: WorldZoneId, arrival?: ZoneSpawn) {
   const zone = getWorldZone(id), region = getRegion(id);
   const world = region.build();
   const { bounds, move } = region;
-  const environment: ArenaEnvironment = { bounds, move, spawns: patrolSpawns(id), endless: true, playerSpawn: arrival ?? zone.spawn };
+  const environment: ArenaEnvironment = { bounds, move, spawns: patrolSpawns(id), endless: true, playerSpawn: arrival ?? zone.spawn,
+    // The open world is where events happen: random strikes paced by risk, and the dead return on transports.
+    combatEvents: { risk: zone.risk }, reinforcements: true };
   return { ...world, zone, bounds, move, environment };
 }

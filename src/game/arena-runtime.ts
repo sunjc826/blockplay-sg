@@ -13,6 +13,7 @@ import { createArena, type ArenaActor, type ArenaEnvironment, type ArenaFeed, ty
 import { createProfile, resolveLoadout, restoreProfile, type ArmoryProfile } from './armory-state';
 import type { LanSession } from './lan-peer';
 import { getArenaRole } from './arena-roles';
+import { MAX_COMBAT_EVENTS, validCombatEvent, type CombatPlane } from './combat-events';
 import type { Obstacle } from './marina-collision';
 
 export interface ArenaRuntimeFrame {
@@ -72,6 +73,14 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     }
     if (value.actors.some(a => (a.vehicle !== undefined || a.seat !== undefined) && !seated.has(a.id))) return false;
   } else if (value.actors.some(a => a.vehicle !== undefined || a.seat !== undefined)) return false;
+  if (value.events !== undefined) {
+    if (!Array.isArray(value.events) || value.events.length > MAX_COMBAT_EVENTS) return false;
+    const eventIds = new Set<string>();
+    for (const event of value.events) {
+      if (!validCombatEvent(event, value.elapsed as number, environment?.bounds) || eventIds.has(event.id)) return false;
+      eventIds.add(event.id);
+    }
+  }
   return value.feed.every(entry => object(entry) && typeof entry.id === 'string' && entry.id.length <= 100 && typeof entry.text === 'string' && entry.text.length <= 160 &&
     (entry.killerId === undefined || typeof entry.killerId === 'string') && (entry.victimId === undefined || typeof entry.victimId === 'string'));
 }
@@ -340,11 +349,20 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (disposed || session.role !== 'solo' || !simulation) return false;
     simulation.setPlayerHealthMultiplier(session.id, multiplier); publish(); return true;
   }
+  /** Solo only: guests could not see an event a private host started for itself. */
+  function triggerEvent(kind: string, target?: CombatPlane) {
+    if (disposed || session.role !== 'solo' || !simulation) return null;
+    const event = simulation.triggerEvent(kind, target); publish(); return event;
+  }
+  function setCombatEvents(enabled: boolean) {
+    if (disposed || session.role !== 'solo' || !simulation) return false;
+    simulation.setCombatEvents(enabled); return true;
+  }
   function dispose() {
     if (disposed) return; disposed = true; clearInterval(timer); unsubscribe(); unsubscribePeers();
     for (const avatar of avatars.values()) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); }
     avatars.clear();
   }
-  return { vehicleAction, update, shoot, reload, reset, dispose, updateLoadout, setVitals, setHealthMultiplier };
+  return { vehicleAction, update, shoot, reload, reset, dispose, updateLoadout, setVitals, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;
