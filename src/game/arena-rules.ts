@@ -33,10 +33,19 @@ export interface ArenaEnvironment {
   endless?: boolean;
   playerSpawn?: { x: number; z: number; yaw?: number; pitch?: number };
 }
+/**
+ * Distance along a unit ray to the first piece of rendered cover, or anything
+ * at least `distance` when nothing is in the way. Box obstacles only describe
+ * footprints; this is what knows about shop walls, railings and terrain meshes.
+ */
+export type ArenaCoverDistance = (origin: ArenaPoint, direction: ArenaPoint, distance: number) => number;
 export interface ArenaVehicleOptions {
   spawns: Record<VehicleKind, VehicleSpawn>; flightObstacles?: readonly FlightObstacle[];
-  coverDistance?: (origin: ArenaPoint, direction: ArenaPoint, distance: number) => number;
+  /** Kept for callers that predate `createArena`'s own `coverDistance` argument. */
+  coverDistance?: ArenaCoverDistance;
 }
+/** How long a bot trusts its last mesh line-of-sight check before casting again. */
+export const ARENA_SIGHT_RECHECK = .2;
 export const ARENA_DURATION = 180;
 export const ARENA_KILL_LIMIT = 15;
 export const ARENA_RESPAWN_SECONDS = 3;
@@ -52,6 +61,7 @@ interface InternalActor {
   cooldown: number[]; rounds: number[]; reload: number[]; playing: boolean; movementBudget: number; wasReloading: boolean;
   usePlayerSpawn: boolean;
   reaction: number; target: string; strafe: number; patrol: { x: number; z: number }; patrolTime: number;
+  sight?: { target: string; clear: boolean; wait: number };
 }
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 const finitePoint = (p: ArenaPoint) => p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z);
@@ -89,7 +99,9 @@ function bodyDistance(origin: ArenaPoint, direction: ArenaPoint, actor: ArenaAct
 }
 
 /** Host-owned match. Clients may submit movement and aim, never damage or scores. */
-export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions, traversalWorld?: VerticalWorld) {
+export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions, traversalWorld?: VerticalWorld, coverDistance?: ArenaCoverDistance) {
+  // Rendered cover stops every round, with or without vehicles in the match.
+  const cover = coverDistance ?? vehicleOptions?.coverDistance;
   const bounds = environment?.bounds ?? MARINA_BOUNDS;
   const traversal = traversalWorld ? createVerticalMovement(traversalWorld) : null;
   const vehicleGround = [...obstacles, ...(traversalWorld ? verticalVehicleObstacles(traversalWorld) : [])];
@@ -296,7 +308,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return { hitId: victim.actor.id, killed, damage: damage - blocked };
   }
   function resolveShot(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, damage: number, range: number, ignore?: VehicleKind): ArenaShot {
-    let nearest = Math.min(Number.isFinite(range) ? range : 0, worldWallDistance(origin, ray), vehicleOptions?.coverDistance?.(origin, ray, range) ?? Infinity);
+    let nearest = Math.min(Number.isFinite(range) ? range : 0, worldWallDistance(origin, ray), cover?.(origin, ray, range) ?? Infinity);
     let hull: SharedVehicle | undefined, victim: InternalActor | undefined;
     for (const v of vehicles) {
       if (v.kind === ignore) continue;
@@ -347,7 +359,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (!v || v.health <= 0 || v.y > .4 || Math.abs(v.speed) > 2 || Math.hypot(entry.actor.x - v.x, entry.actor.z - v.z) > (v.kind === 'car' ? 4.5 : 6) || entry.actor.y > 3) return false;
     const center = { x: v.x, y: v.y + 1.3, z: v.z }, d = distance(entry.actor, center);
     const ray = { x: (center.x - entry.actor.x) / d, y: (center.y - entry.actor.y) / d, z: (center.z - entry.actor.z) / d };
-    if (d > .1 && Math.min(worldWallDistance(entry.actor, ray), vehicleOptions?.coverDistance?.(entry.actor, ray, d) ?? Infinity) < d - .2) return false;
+    if (d > .1 && Math.min(worldWallDistance(entry.actor, ray), cover?.(entry.actor, ray, d) ?? Infinity) < d - .2) return false;
     const seat = v.occupants.indexOf(null); if (seat < 0) return false;
     v.occupants[seat] = id; entry.reload[entry.actor.weapon] = 0; syncOccupants(); return true;
   }
@@ -359,7 +371,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const clearBlast = (target: ArenaPoint) => {
       const d = distance(point, target); if (d < .1) return true;
       const dir = { x: (target.x - point.x) / d, y: (target.y - point.y) / d, z: (target.z - point.z) / d };
-      return Math.min(worldWallDistance(point, dir), vehicleOptions?.coverDistance?.(point, dir, d) ?? Infinity) >= d - .1;
+      return Math.min(worldWallDistance(point, dir), cover?.(point, dir, d) ?? Infinity) >= d - .1;
     };
     for (const other of vehicles) if (other !== v && other.health > 0) {
       const target = { x: other.x, y: other.y + 1.3, z: other.z }, amount = vehicleBlastDamage(v.kind, distance(point, target));
@@ -398,6 +410,19 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     syncOccupants();
   }
+  /**
+   * Whether rendered cover leaves a bot a line to its target. Boxes alone let
+   * bots see, and so shoot, through every wall that is only a mesh. The cast
+   * is cached briefly per bot so a full arena does not raycast every tick.
+   */
+  function clearSight(entry: InternalActor, target: string, ray: ArenaPoint, length: number, dt: number) {
+    if (!cover) return true;
+    const sight = entry.sight;
+    if (sight && sight.target === target && (sight.wait -= dt) > 0) return sight.clear;
+    const clear = cover(entry.actor, ray, length) >= length - .5;
+    entry.sight = { target, clear, wait: ARENA_SIGHT_RECHECK };
+    return clear;
+  }
   function stepBot(entry: InternalActor, dt: number) {
     const actor = entry.actor;
     const role = entry.role!;
@@ -411,7 +436,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const line = { x: target.x - actor.x, y: (enemy?.actor.prone ? target.y - PRONE_EYE_HEIGHT + .35 : target.y - .65) - actor.y, z: target.z - actor.z };
     const length = Math.hypot(line.x, line.y, line.z);
     const ray = { x: line.x / Math.max(length, 0.01), y: line.y / Math.max(length, 0.01), z: line.z / Math.max(length, 0.01) };
-    const visible = !!enemy && length < role.sightRange && worldWallDistance(actor, ray) >= length - 0.5;
+    const visible = !!enemy && length < role.sightRange && worldWallDistance(actor, ray) >= length - 0.5 && clearSight(entry, enemy.actor.id, ray, length, dt);
     const intent = role.think({ distance: horizontal, visible, healthFraction: actor.health / entry.healthMax, strafeDirection: entry.strafe });
     const approach = Number.isFinite(intent.approach) ? clamp(intent.approach, -1, 1) : 0;
     const strafe = Number.isFinite(intent.strafe) ? clamp(intent.strafe, -1, 1) : 0;

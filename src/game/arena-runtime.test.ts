@@ -176,3 +176,29 @@ it('synchronizes driver/gunner seats, shared ammo, movement, late snapshots and 
     expect(g.snapshot?.vehicles?.[0].ammo).toBe(240);
   } finally { host.dispose(); guest.dispose(); }
 });
+
+describe('bot fire against rendered cover', () => {
+  // An expedition arena: no vehicles, and the only wall is a scene mesh that
+  // the box obstacle list knows nothing about.
+  const run = (walled: boolean) => {
+    vi.useFakeTimers();
+    const scene = new THREE.Scene(), session = createSoloSession('Explorer');
+    const shell = new THREE.Mesh(new THREE.BoxGeometry(5, 6, 5), new THREE.MeshBasicMaterial());
+    shell.position.set(-20, 1, 70); if (walled) scene.add(shell);
+    const runtime = createArenaRuntime({ scene, session, obstacles: [], botCount: 2, composition: 'assault',
+      environment: { bounds: MARINA_BOUNDS, move: moveInMarina, spawns: [{ x: -44, z: 68 }, { x: 4, z: 74 }], endless: true, playerSpawn: { x: -20, z: 70 } } });
+    try {
+      runtime.update(0.02, input(-20, 70)); runtime.update(0.02, input(-20, 70, true));
+      for (let t = 0; t < 15; t += .1) { vi.advanceTimersByTime(100); runtime.update(.1, input(-20, 70, true)); }
+      return runtime.update(.02, input(-20, 70, true));
+    } finally { runtime.dispose(); shell.geometry.dispose(); shell.material.dispose(); }
+  };
+  it('lands bot rounds in the open', () => {
+    const open = run(false).self!;
+    expect(open.deaths + (100 - open.health)).toBeGreaterThan(0);
+  });
+  it('never lets a bot round through a wall that exists only as a mesh', () => {
+    const frame = run(true);
+    expect(frame.self).toMatchObject({ health: 100, deaths: 0 });
+  });
+});

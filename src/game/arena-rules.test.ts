@@ -283,3 +283,30 @@ it.each([
   arena.shoot('gunner', a, { x: 0, y: 0, z: -1 }, 0);
   expect(actor(arena, 'gunner')).toMatchObject({ health: healthAfter, armor: armorAfter });
 });
+
+describe('mesh cover without vehicles', () => {
+  // Bots and players in an open box: the only thing between them is a "mesh"
+  // wall the simulation can learn about solely through `coverDistance`.
+  const contact = (cover?: (origin: { x: number }, direction: { x: number }, distance: number) => number) => {
+    const arena = createArena([], 2, 'assault', distantEnvironment(), undefined, undefined, cover);
+    arena.addPlayer('traveller', 'Traveller', 0, 0, [weapon], undefined, true);
+    for (let t = 0; t < 12; t += .1) { arena.setInput('traveller', { ...actor(arena, 'traveller'), playing: true }); arena.step(.1); }
+    return arena;
+  };
+  it('lets bots fire when nothing rendered is in the way', () => {
+    const open = contact(() => Infinity);
+    expect(actor(open, 'traveller').deaths + (100 - actor(open, 'traveller').health)).toBeGreaterThan(0);
+  });
+  it('stops bots seeing, and so shooting, through a wall that is only a mesh', () => {
+    const cover = vi.fn((_origin: { x: number }, _direction: { x: number }, distance: number) => Math.min(distance, .8));
+    const walled = contact(cover);
+    expect(cover).toHaveBeenCalled();
+    expect(actor(walled, 'traveller')).toMatchObject({ health: 100, deaths: 0 });
+    expect(walled.snapshot().actors.filter(a => a.bot).every(a => a.shots === 0)).toBe(true);
+  });
+  it('stops a player round at mesh cover even with no vehicles in the match', () => {
+    const arena = createArena([], 0, 'mixed', undefined, undefined, undefined, (_o, _d, distance) => Math.min(distance, 1));
+    arena.addPlayer('one', 'Alpha', 0, 0, [weapon]); arena.addPlayer('two', 'Bravo', 0, 0, [weapon]);
+    expect(fireAt(arena).hitId).toBeNull(); expect(actor(arena, 'two').health).toBe(100);
+  });
+});

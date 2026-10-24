@@ -124,7 +124,11 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   const { scene, session } = options;
   let profile = restoreProfile(JSON.stringify(options.profile ?? createProfile()));
   const authority = session.role !== 'guest';
-  const simulation = authority ? createArena(options.obstacles, options.botCount, options.composition, options.environment, options.vehicles ? { ...options.vehicles, coverDistance: (origin, direction, distance) => coverLimit(origin, direction, distance) } : undefined, { bounds: options.environment?.bounds ?? MARINA_BOUNDS, obstacles: options.obstacles, surfaces: getWalkSurfaces(scene), traversalObstacles: getTraversalObstacles(scene) }) : null;
+  // Every shot and every bot's line of sight is checked against the rendered
+  // scene, not only the box footprints: expedition districts have no vehicles,
+  // and without this their mesh-only walls stopped nothing a bot fired.
+  const simulation = authority ? createArena(options.obstacles, options.botCount, options.composition, options.environment, options.vehicles, { bounds: options.environment?.bounds ?? MARINA_BOUNDS, obstacles: options.obstacles, surfaces: getWalkSurfaces(scene), traversalObstacles: getTraversalObstacles(scene) },
+    (origin, direction, distance) => coverLimit(origin, direction, distance)) : null;
   const hostId = authority ? session.id : session.getPeers()[0]?.id;
   const avatars = new Map<string, Avatar>();
   const registered = new Set<string>();
@@ -134,23 +138,32 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   let previousSelf: ArenaActor | null = null, lastTick = -1;
   const seenFeed = new Set<string>();
   const initial = resolveLoadout(profile);
-  const coverRay = new THREE.Raycaster();
+  const coverRay = new THREE.Raycaster(), coverOrigin = new THREE.Vector3(), coverDirection = new THREE.Vector3();
+  // Bots ask several times a second, so the cover list is gathered at most a
+  // few times a second rather than by walking the whole scene on every cast.
+  const surfaces: THREE.Mesh[] = [];
+  let surfacesAt = -Infinity;
   function coverLimit(origin: ArenaPoint, direction: ArenaPoint, supplied: number) {
     if (!point(origin) || !point(direction)) return 0;
-    const vector = new THREE.Vector3(direction.x, direction.y, direction.z);
-    if (vector.lengthSq() < 0.01) return 0;
-    coverRay.set(new THREE.Vector3(origin.x, origin.y, origin.z), vector.normalize()); coverRay.far = Math.max(0, Math.min(240, supplied));
-    scene.updateMatrixWorld(true);
-    // Only solid, visible meshes are cover. Sprite raycasts require a render camera;
-    // hidden vehicle labels must never enter this world-space authority ray.
-    const surfaces: THREE.Mesh[] = [];
-    const collect = (node: THREE.Object3D) => {
-      if (!node.visible || node.userData.arenaActorId || node.userData.fpsEffect || node.userData.vehicleKind) return;
-      if (node instanceof THREE.Mesh) surfaces.push(node);
-      node.children.forEach(collect);
-    };
-    scene.children.forEach(collect);
-    const cover = coverRay.intersectObjects(surfaces, false)[0];
+    coverDirection.set(direction.x, direction.y, direction.z);
+    if (coverDirection.lengthSq() < 0.01) return 0;
+    coverRay.set(coverOrigin.set(origin.x, origin.y, origin.z), coverDirection.normalize()); coverRay.far = Math.max(0, Math.min(240, supplied));
+    const now = performance.now();
+    if (now - surfacesAt > 250) {
+      surfacesAt = now; surfaces.length = 0;
+      scene.updateMatrixWorld(true);
+      // Only solid, visible meshes are cover. Sprite raycasts require a render camera;
+      // hidden vehicle labels must never enter this world-space authority ray.
+      const collect = (node: THREE.Object3D) => {
+        if (!node.visible || node.userData.arenaActorId || node.userData.fpsEffect || node.userData.vehicleKind) return;
+        if (node instanceof THREE.Mesh) surfaces.push(node);
+        node.children.forEach(collect);
+      };
+      scene.children.forEach(collect);
+    }
+    // A cached mesh may have been hidden or removed since; only one still shown counts.
+    const shown = (node: THREE.Object3D) => { for (let n: THREE.Object3D | null = node; n; n = n.parent) { if (n === scene) return true; if (!n.visible) return false; } return false; };
+    const cover = coverRay.intersectObjects(surfaces, false).find(hit => shown(hit.object));
     return Math.min(finite(supplied) ? Math.max(0, Math.min(240, supplied)) : 125, cover?.distance ?? 240);
   }
   if (simulation) { simulation.addPlayer(session.id, session.name, initial.armor, initial.absorption, initial.weapons, options.initialVitals, session.role === 'solo', initial.carriedFamilies); registered.add(session.id); }
