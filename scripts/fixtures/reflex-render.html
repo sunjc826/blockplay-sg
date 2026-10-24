@@ -25,6 +25,8 @@ if(mode==='partial'){model.position.set(.03,-.3455,-.5165);aim=.85;}
 if(mode==='hip'){model.position.set(.2,-.32,-.78);aim=0;}
 if(mode==='offset'){model.position.x=.024;aim=0;}
 if(mode==='beyond-aperture'){model.position.x=.085;aim=0;}
+// The engine's own raise from the hip, as a fraction of the ADS animation.
+if(mode.startsWith('raise:')){const t=Number(mode.slice(6)),s=t*t*(3-2*t);model.position.set(THREE.MathUtils.lerp(.2,0,s),THREE.MathUtils.lerp(-.32,-sight.aimHeight,s),THREE.MathUtils.lerp(-.78,sight.aimDepth,s));aim=t;}
 for(const b of buildings)b.visible=mode!=='no-buildings';
 viewScene.updateMatrixWorld(true);const pip=scope.render(world,camera,viewCamera,sight,true,aim);reflections.render(world,camera,viewCamera,sight.reflection,true,time);
 renderer.setRenderTarget(null);renderer.clear();renderer.render(world,camera);renderer.clearDepth();renderer.render(viewScene,viewCamera);

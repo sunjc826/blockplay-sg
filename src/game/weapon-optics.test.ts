@@ -126,3 +126,17 @@ it('renders PiP only for active magnified sights and restores the render target'
   expect(sight.lens.visible).toBe(false);
   remove(); scope.dispose();
 });
+
+it('brings the Ultimax dot in with the window rather than popping it in at full alignment', () => {
+  const root = new THREE.Group(), remove = fitWeaponOptic(root, { ...FPS_WEAPONS[1], optic: 'reflex', aimFov: HIP_FOV });
+  const sight = getWeaponSight(root)!;
+  const shader = { vertexShader: THREE.ShaderLib.basic.vertexShader, fragmentShader: THREE.ShaderLib.basic.fragmentShader, uniforms: {} as Record<string, { value: unknown }> };
+  sight.lens.material.onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
+  expect(shader.uniforms.sightRadius.value).toBeCloseTo(sight.radius);
+  // Off-axis the dot is held inside the glass and faded in; aligned, it is collimated.
+  expect(shader.vertexShader).toContain('sightWindow = sightRadius');
+  expect(shader.fragmentShader).toContain('vec2(0.0)');
+  expect(shader.fragmentShader).toContain('core * aperture * sightVisibility * rise');
+  expect(shader.fragmentShader).toContain('(halo + bloom + flare) * aperture * sightVisibility * rise');
+  remove();
+});

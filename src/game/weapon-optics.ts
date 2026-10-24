@@ -46,10 +46,11 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   lensMaterial.onBeforeCompile = shader => {
     shader.uniforms.sightVisibility = visibility;
     shader.uniforms.sightBloom = { value: 0 };
+    shader.uniforms.sightRadius = { value: radius };
     shader.vertexShader = 'varying vec2 sightUv;\n' + shader.vertexShader;
     shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\n sightUv = uv;');
     if (!magnified) {
-      shader.vertexShader = 'varying vec3 sightRay;\n' + shader.vertexShader;
+      shader.vertexShader = 'varying vec3 sightRay;\nvarying vec3 sightCentre;\nvarying float sightWindow;\nuniform float sightRadius;\n' + shader.vertexShader;
       shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `
         #include <project_vertex>
         // Express the eye-to-lens ray in the optic's basis. A collimated dot
@@ -57,8 +58,15 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
         sightRay = vec3(dot(mvPosition.xyz, modelViewMatrix[0].xyz),
                         dot(mvPosition.xyz, modelViewMatrix[1].xyz),
                         dot(mvPosition.xyz, modelViewMatrix[2].xyz));
+        // The same for the lens centre, and the window's angular radius. Both
+        // carry the model scale squared, which cancels in every ratio below.
+        vec3 centreView = (modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+        sightCentre = vec3(dot(centreView, modelViewMatrix[0].xyz),
+                           dot(centreView, modelViewMatrix[1].xyz),
+                           dot(centreView, modelViewMatrix[2].xyz));
+        sightWindow = sightRadius * dot(modelViewMatrix[0].xyz, modelViewMatrix[0].xyz) / max(abs(sightCentre.z), 1e-5);
       `);
-      shader.fragmentShader = 'varying vec3 sightRay;\n' + shader.fragmentShader;
+      shader.fragmentShader = 'varying vec3 sightRay;\nvarying vec3 sightCentre;\nvarying float sightWindow;\n' + shader.fragmentShader;
     }
     shader.fragmentShader = 'varying vec2 sightUv;\nuniform float sightVisibility;\nuniform float sightBloom;\n' + shader.fragmentShader;
     shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
@@ -87,7 +95,19 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
       diffuseColor.rgb *= 1.0 - edge * 0.9;
       diffuseColor.a = sightVisibility;
       ` : `
-      vec2 angularPosition = sightRay.xy / max(abs(sightRay.z), 0.001);
+      // A strictly collimated dot only exists once the optic's axis falls inside
+      // the window, which during the raise is the last instant: it would pop in.
+      // While the eye is still off-axis, hold the dot inside the glass on the
+      // side nearest the axis, and let it brighten as the window comes square.
+      // The more oblique the eye, the more of that side the tube's rear lip
+      // hides, so the pin draws inward with the angle. Within three quarters
+      // of the window the dot is collimated, so the settled picture is unchanged.
+      vec2 windowCentre = sightCentre.xy / max(abs(sightCentre.z), 0.001);
+      float offAxis = length(windowCentre);
+      float pinned = sightWindow * clamp(0.92 - offAxis * 1.1, 0.2, 0.75);
+      vec2 dotAt = offAxis > pinned ? windowCentre * (1.0 - pinned / offAxis) : vec2(0.0);
+      float rise = 1.0 - smoothstep(sightWindow * 1.0, sightWindow * 4.4, offAxis);
+      vec2 angularPosition = sightRay.xy / max(abs(sightRay.z), 0.001) - dotAt;
       float angle = length(angularPosition);
       float angularAA = max(fwidth(angle), 0.00015);
       float core = 1.0 - smoothstep(0.0022, 0.0022 + angularAA, angle);
@@ -100,18 +120,18 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
         vec2 streak = angularPosition / vec2(0.014, 0.0009);
         float flare = exp(-dot(streak, streak)) * 0.045;
         diffuseColor.rgb = vec3(1.0, 0.025, 0.008);
-        diffuseColor.a = (halo + bloom + flare) * aperture * sightVisibility;
+        diffuseColor.a = (halo + bloom + flare) * aperture * sightVisibility * rise;
       } else {
         // A tiny warm centre gives the emitter depth while retaining the
         // original crisp aiming diameter. The bloom is a separate light layer.
         float hotCentre = exp(-angle * angle / 0.0000015);
         diffuseColor.rgb = mix(vec3(1.0, 0.025, 0.008), vec3(1.0, 0.55, 0.28), hotCentre);
-        diffuseColor.a = core * aperture * sightVisibility;
+        diffuseColor.a = core * aperture * sightVisibility * rise;
       }
       `}
     `);
   };
-  lensMaterial.customProgramCacheKey = () => magnified ? 'scope-reticle-v3' : 'reflex-reticle-v4';
+  lensMaterial.customProgramCacheKey = () => magnified ? 'scope-reticle-v3' : 'reflex-reticle-v5';
   const lensGeometry = new THREE.CircleGeometry(radius, 48); geometry.push(lensGeometry);
   const lens = new THREE.Mesh(lensGeometry, lensMaterial); lens.name = 'fps-scope-lens';
   lens.position.set(0, aimHeight, integrated ? rearZ + .001 : rearZ - .044); lens.visible = !magnified; lens.renderOrder = 2; group.add(lens);
@@ -123,7 +143,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
       lensMaterial.onBeforeCompile(shader, renderer);
       shader.uniforms.sightBloom.value = 1;
     };
-    bloomMaterial.customProgramCacheKey = () => 'reflex-bloom-v1';
+    bloomMaterial.customProgramCacheKey = () => 'reflex-bloom-v2';
     const bloom = new THREE.Mesh(lensGeometry, bloomMaterial);
     bloom.name = 'fps-reflex-bloom'; bloom.renderOrder = 2;
     lens.renderOrder = 3;

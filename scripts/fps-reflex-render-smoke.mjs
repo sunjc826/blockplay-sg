@@ -54,7 +54,29 @@ try {
     assert(Math.abs(states[mode].x - states.ads.x) < 1 && Math.abs(states[mode].y - states.ads.y) < 1, `${mode}: collimated dot stays on the aiming ray`);
   }
   assert(Math.abs(states['aligned-hip'].redPixels - states.ads.redPixels) <= 3, 'Dot keeps its angular size at a different eye distance');
-  assert.equal(states.hip.redPixels, 0); assert.equal(states['beyond-aperture'].redPixels, 0);
+  assert.equal(states.hip.redPixels, 0);
+  // Two window radii off the axis the dot is held, dimmer, inside the glass on
+  // the side towards the aiming ray rather than clipped away.
+  const beyond = states['beyond-aperture'];
+  assert(beyond.redPixels <= states.ads.redPixels, 'beyond-aperture: dimmer than the settled dot');
+  assert(!beyond.redPixels || beyond.x > states.ads.x + 20, 'beyond-aperture: held inside the off-axis window');
+  // Raising from the hip, the dot arrives with the window instead of popping
+  // in on the final frames, and once it is there it never blinks out again.
+  const raise = [];
+  for (let step = 0; step <= 20; step++) {
+    const t = step / 20, state = await evaluate(`window.show('raise:${t}')`);
+    raise.push({ t, ...state });
+    if (step % 4 === 0 || step >= 14) {
+      const shot = await send('Page.captureScreenshot', { format: 'png' });
+      await fs.writeFile(new URL(`raise-${String(step).padStart(2, '0')}.png`, output), Buffer.from(shot.data, 'base64'));
+    }
+  }
+  console.log('raise:', raise.map(frame => `${frame.t.toFixed(2)}=${frame.redPixels}`).join(' '));
+  const arrival = raise.findIndex(frame => frame.redPixels > 0);
+  assert.equal(raise[0].redPixels, 0, 'No dot from the hip');
+  assert(arrival > 0 && raise[arrival].t <= .55, `Dot arrives with the window during the raise (first seen at ${raise[arrival]?.t})`);
+  assert(raise.slice(arrival).every(frame => frame.redPixels > 0), 'Dot stays visible for the rest of the raise');
+  assert(Math.abs(raise.at(-1).x - states.ads.x) < 1 && Math.abs(raise.at(-1).y - states.ads.y) < 1, 'Raise settles on the collimated aiming dot');
   const reflected = await evaluate('window.verifyReflections()');
   assert(reflected.inside > 200, 'Rear scenery changes the glass reflection');
   assert.equal(reflected.outside, 0, 'Reflected objects are behind the player, not in the forward scene');
@@ -64,9 +86,10 @@ try {
     assert.equal(bloom[mode].dimmed, 0, `${mode}: bloom adds light without darkening scenery`);
     assert.equal(bloom[mode].outside, 0, `${mode}: bloom stays local to the aiming dot`);
   }
-  assert.equal(bloom['beyond-aperture'].halo, 0, 'Bloom clips with the dot outside the aperture');
+  // Two window radii off the axis the dot is only a faint pin inside the glass.
+  assert(bloom['beyond-aperture'].halo < bloom.ads.halo / 2, 'Bloom is faint with the dot held at the aperture');
   assert.deepEqual(errors, []);
-  console.log('PASS: additive holographic bloom, live scenery reflections, constant-size collimated dot before ADS, off-axis clipping and clear forward view');
+  console.log('PASS: additive holographic bloom, live scenery reflections, constant-size collimated dot before ADS, dot arriving with the window during the raise, and clear forward view');
 } finally {
   ws.close(); await fetch(`${chrome}/json/close/${tab.id}`);
 }
