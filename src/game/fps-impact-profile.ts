@@ -8,6 +8,12 @@ export interface ImpactProfile {
   smokeOpacity: number;
   smokeLifetime: number;
   sparkCount: number;
+  /** Multiplier on how many fragments a struck surface throws. Bore and power both raise it. */
+  debrisCount: number;
+  /** Multiplier on the size of each fragment: a .50 knocks out chunks, a pistol grit. */
+  debrisSize: number;
+  /** Secondary chip marks spalled around the main hole; only heavy rounds leave any. */
+  spallMarks: number;
 }
 const bounded = (n: number, fallback: number, low: number, high: number) =>
   Math.max(low, Math.min(high, Number.isFinite(n) ? n : fallback));
@@ -24,6 +30,11 @@ export function impactProfile(caliberMm = 5.56, damage = 36): ImpactProfile {
     smokeOpacity: Math.min(.85, .48 * Math.pow(power, .7)),
     smokeLifetime: .6 * Math.pow(power, .8),
     sparkCount: Math.round(7 * Math.sqrt(power)),
+    // Bore sets how wide the round strikes and power how hard, so a 9 mm pistol
+    // throws about what a rifle does, a GPMG nearly twice that and a .50 several times.
+    debrisCount: Math.min(5, Math.max(.4, Math.sqrt(bore) * Math.pow(power, .75))),
+    debrisSize: Math.min(2.5, Math.max(.5, Math.pow(bore, .6) * Math.pow(power, .15))),
+    spallMarks: Math.round(Math.min(4, Math.max(0, (Math.sqrt(bore) * Math.pow(power, .75) - 1.2) * 1.2))),
   };
 }
 export const DEFAULT_IMPACT_PROFILE = impactProfile();
@@ -37,5 +48,8 @@ export function sanitizeImpactProfile(profile: ImpactProfile): ImpactProfile {
     smokeOpacity: bounded(profile.smokeOpacity, base.smokeOpacity, 0, .95),
     smokeLifetime: bounded(profile.smokeLifetime, base.smokeLifetime, .1, 3.2),
     sparkCount: Math.round(bounded(profile.sparkCount, base.sparkCount, 0, 16)),
+    debrisCount: bounded(profile.debrisCount, base.debrisCount, 0, 5),
+    debrisSize: bounded(profile.debrisSize, base.debrisSize, .25, 2.5),
+    spallMarks: Math.round(bounded(profile.spallMarks, base.spallMarks, 0, 4)),
   };
 }

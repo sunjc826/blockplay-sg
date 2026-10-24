@@ -39,7 +39,7 @@ export interface Debris {
 }
 export interface ImpactField { impacts: Impact[]; sparks: Spark[]; scorches: Scorch[]; debris: Debris[] }
 
-export const MAX_IMPACTS = 14, MAX_SPARKS = 120, MAX_SCORCHES = 48, MAX_DEBRIS = 160;
+export const MAX_IMPACTS = 14, MAX_SPARKS = 120, MAX_SCORCHES = 96, MAX_DEBRIS = 240;
 export const IMPACT_LIFE = DEFAULT_IMPACT_PROFILE.smokeLifetime, TARGET_IMPACT_LIFE = 0.24;
 export const RING_LIFE = 0.11, SCORCH_LIFE = 6;
 /** Sparks per impact, and how far a spark's streak trails behind it per unit of speed. */
@@ -110,11 +110,12 @@ export function recordImpact(field: ImpactField, point: ImpactVector, normal: Im
     }, MAX_SPARKS);
   }
   if (look) {
-    const debris = look.debris, bore = Math.sqrt(authored.holeRadius / DEFAULT_IMPACT_PROFILE.holeRadius);
-    const count = Math.round(debris.count * Math.min(1.6, Math.sqrt(scale) * bore));
+    // Calibre and power set how much is thrown and how big it is; a round that
+    // has already spent itself on a wall throws less of both.
+    const debris = look.debris, count = Math.round(debris.count * authored.debrisCount * Math.sqrt(scale));
     for (let i = 0; i < count; i++) {
-      const d = coneDirection(n, u, v, debris.spread, random), speed = debris.speed * (.45 + random() * .9) * Math.sqrt(scale);
-      const size = debris.size * (.6 + random() * .8) * Math.min(1.8, bore), axis = unit({ x: random() - .5, y: random() - .5, z: random() - .5 });
+      const d = coneDirection(n, u, v, debris.spread, random), speed = debris.speed * (.45 + random() * .9) * Math.sqrt(scale) * Math.pow(authored.debrisSize, .25);
+      const size = debris.size * (.6 + random() * .8) * authored.debrisSize, axis = unit({ x: random() - .5, y: random() - .5, z: random() - .5 });
       push(field.debris, {
         x: point.x + n.x * .01, y: point.y + n.y * .01, z: point.z + n.z * .01, vx: d.x * speed, vy: d.y * speed + debris.speed * .25, vz: d.z * speed,
         ax: axis.x, ay: axis.y, az: axis.z, angle: random() * Math.PI * 2, spin: (6 + random() * 18) * (random() < .5 ? -1 : 1),
@@ -125,10 +126,25 @@ export function recordImpact(field: ImpactField, point: ImpactVector, normal: Im
     }
   }
   const decal = look ? look.decal : 'crater';
-  if (kind === 'surface' && decal) push(field.scorches, {
-    x: point.x, y: point.y, z: point.z, nx: n.x, ny: n.y, nz: n.z,
-    radius: authored.holeRadius * (look?.decalScale ?? 1) * (.85 + random() * .3) * (.8 + .2 * Math.sqrt(scale)), depth: resolved.holeDepth, spin: random() * Math.PI * 2, age: 0, life: SCORCH_LIFE, style, decal,
-  }, MAX_SCORCHES);
+  if (kind === 'surface' && decal) {
+    const radius = authored.holeRadius * (look?.decalScale ?? 1) * (.85 + random() * .3) * (.8 + .2 * Math.sqrt(scale));
+    // Heavy rounds spall the face around the hole: smaller, shallower chips of
+    // the same kind, scattered just past its rim in the plane of the surface.
+    const spalls = Math.round(authored.spallMarks * Math.min(1, scale));
+    for (let i = 0; i < spalls; i++) {
+      const theta = random() * Math.PI * 2, reach = radius * (.9 + random() * .6);
+      const along = { x: u.x * Math.cos(theta) + v.x * Math.sin(theta), y: u.y * Math.cos(theta) + v.y * Math.sin(theta), z: u.z * Math.cos(theta) + v.z * Math.sin(theta) };
+      push(field.scorches, {
+        x: point.x + along.x * reach, y: point.y + along.y * reach, z: point.z + along.z * reach, nx: n.x, ny: n.y, nz: n.z,
+        radius: radius * (.28 + random() * .2), depth: resolved.holeDepth * .5, spin: random() * Math.PI * 2, age: 0, life: SCORCH_LIFE, style, decal,
+      }, MAX_SCORCHES);
+    }
+    // The main hole goes last, so it draws over the spall chips around it.
+    push(field.scorches, {
+      x: point.x, y: point.y, z: point.z, nx: n.x, ny: n.y, nz: n.z,
+      radius, depth: resolved.holeDepth, spin: random() * Math.PI * 2, age: 0, life: SCORCH_LIFE, style, decal,
+    }, MAX_SCORCHES);
+  }
   return impact;
 }
 

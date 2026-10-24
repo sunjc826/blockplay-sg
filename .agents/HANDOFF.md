@@ -2164,3 +2164,13 @@ ground volley in-game; the full smoke is stale at its weapon-switch step (key 2
 is now the P30 sidearm), and its target step is timing-sensitive on
 SwiftShader (rounds after the kill mark the backdrop). Node@24 from Homebrew is
 broken on this machine (missing simdjson dylib); checks ran under node@22.
+
+Follow-up, same day: impact profiles gained calibre-and-power fields
+(debrisCount, debrisSize, spallMarks). The issued 5.56 rifle is the reference
+(1, 1, 0); the 9 mm pistol stays close to it; the 7.62 GPMG throws ~1.7× the
+debris and spalls one extra chip mark per round; the .50 ~4.7× larger chunks
+and four spall marks around a hole drawn last over them. A spent round throws
+less and spalls nothing. Decal and debris pools rose to 96 and 240 so heavy
+fire does not recycle its own marks at once. The impact fixture takes a weapon
+index (window.show(seconds, focus, side, weapon)). First three commits
+deployed green (run 40063475276).

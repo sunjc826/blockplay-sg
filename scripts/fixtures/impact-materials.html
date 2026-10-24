@@ -1,12 +1,14 @@
 <!doctype html><html><head><meta charset="utf-8"><title>Impact materials</title><style>
 body{margin:0;background:#161e25;color:#d9e4e9;font:14px system-ui}canvas{display:block}header{position:absolute;top:14px;left:20px;text-shadow:0 1px 2px #000}header small{display:block;color:#c3d0d8;margin-top:4px}
-</style></head><body><header>Impact materials • fps-surfaces → fps-effects<small>window.show(seconds, focus, side) fires a burst at each surface and advances the effects; focus is a panel index or -1 for all</small></header><script type="module">
+</style></head><body><header>Impact materials • fps-surfaces → fps-effects<small>window.show(seconds, focus, side, weapon) fires a burst at each surface and advances the effects; focus is a panel index or -1 for all</small></header><script type="module">
 import * as THREE from '/node_modules/three/build/three.module.js';
 import { createFpsEffects } from '/src/game/fps-effects.ts';
 import { hitSurface } from '/src/game/fps-surfaces.ts';
 import { impactSurfaceNormal } from '/src/game/fps-impact-normal.ts';
 import { createCharacterRig } from '/src/game/character-rig.ts';
 import { arenaCharacterLook } from '/src/game/character-looks.ts';
+import { resolveEffectStyle } from '/src/game/fps-effect-styles.ts';
+import { FPS_WEAPONS } from '/src/game/fps-rules.ts';
 const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1200,800);renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.append(renderer.domElement);
 const world=new THREE.Scene();world.background=new THREE.Color('#b8d9ef');world.add(new THREE.HemisphereLight('#e4efff','#576350',1.9));
 const sun=new THREE.DirectionalLight('#fff4dd',2.4);sun.position.set(2,5,6);world.add(sun);
@@ -36,8 +38,10 @@ function fire(from,target,jitter){
     if(behind)effects.decal(behind.point,impactSurfaceNormal(behind,direction,new THREE.Vector3()),'blood',.09+behind.distance/2.4*.14);}
   return surface;
 }
-window.show=(seconds=.1,focus=-1,side=false)=>{
+window.show=(seconds=.1,focus=-1,side=false,weapon=0)=>{
   effects.reset();
+  // Each weapon's own calibre and damage pick the impact profile, as in the engine.
+  const spec=FPS_WEAPONS[weapon]??FPS_WEAPONS[0];effects.setStyles([resolveEffectStyle({caliberMm:spec.caliberMm,damage:spec.damage})]);
   const eye=new THREE.Vector3(0,1.55,4.5);
   if(focus>=0){const t=targets[focus];eye.set(t.at.x*.8,t.name==='dirt'?1.2:t.at.y+.15,t.name==='dirt'?.2:-.9);}
   camera.position.copy(eye);camera.lookAt(focus>=0?targets[focus].at:new THREE.Vector3(.8,1.1,-4));camera.updateMatrixWorld(true);world.updateMatrixWorld(true);
@@ -48,7 +52,7 @@ window.show=(seconds=.1,focus=-1,side=false)=>{
   // From the side, to see what landed behind the target rather than the target itself.
   if(side&&focus>=0){const t=targets[focus];camera.position.set(t.at.x-1.6,1.5,t.at.z+.6);camera.lookAt(t.at.x,1.2,t.at.z-.9);camera.updateMatrixWorld(true);}
   renderer.render(world,camera);
-  return {struck,counts:effects.counts};
+  return {weapon:spec.name,struck,counts:effects.counts};
 };
 window.show(.08);window.ready=true;
 </script></body></html>

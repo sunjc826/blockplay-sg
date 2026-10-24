@@ -3,6 +3,7 @@ import { ARMORY_CATALOG, itemById } from './armory-catalog';
 import { createProfile, equip, resolveLoadout } from './armory-state';
 import { effectStyleForWeapon, registerEffectStyle, resolveEffectStyle, unregisterEffectStyle } from './fps-effect-styles';
 import { impactProfile, sanitizeImpactProfile } from './fps-impact-profile';
+import { FPS_WEAPONS } from './fps-rules';
 import { createImpactField, impactDust, recordImpact } from './fps-impacts';
 
 it('widens holes with caliber independently of weapon power', () => {
@@ -45,9 +46,10 @@ it('supports bounded variant overrides without adding renderer branches', () => 
 });
 it('handles malformed parameters without unbounded pools or shader values', () => {
   for (const n of [NaN, Infinity, -100, 1e9]) {
-    const result = sanitizeImpactProfile({ holeRadius: n, holeDepth: n, smokeLifetime: n, smokeOpacity: n, smokeSize: n, sparkCount: n });
+    const result = sanitizeImpactProfile({ holeRadius: n, holeDepth: n, smokeLifetime: n, smokeOpacity: n, smokeSize: n, sparkCount: n, debrisCount: n, debrisSize: n, spallMarks: n });
     expect(Object.values(result).every(Number.isFinite)).toBe(true);
     expect(result.sparkCount).toBeLessThanOrEqual(16);
+    expect(result.debrisCount).toBeLessThanOrEqual(5); expect(result.spallMarks).toBeLessThanOrEqual(4);
     expect(result.smokeLifetime).toBeLessThanOrEqual(3.2);
     expect(result.smokeOpacity).toBeLessThan(1);
     expect(Object.values(impactProfile(n, n)).every(Number.isFinite)).toBe(true);
@@ -74,7 +76,8 @@ it('keeps heavy-caliber craters readable and all heavy variants distinct after s
     const profile = effectStyleForWeapon(weapon).impact;
     const field = createImpactField();
     const impact = recordImpact(field, { x: 0, y: 1, z: 0 }, { x: 0, y: 0, z: 1 }, 'surface', 1, () => .5, id, profile);
-    expect(field.scorches[0].radius * 2).toBeGreaterThan(.5);
+    // The main hole is recorded after any spall chips, so it draws over them.
+    expect(field.scorches.at(-1)!.radius * 2).toBeGreaterThan(.5);
     expect(profile.holeRadius).toBeGreaterThan(impactProfile().holeRadius * 3);
     return impact.profile;
   });
@@ -83,4 +86,33 @@ it('keeps heavy-caliber craters readable and all heavy variants distinct after s
     expect(profiles[i].smokeSize).toBeGreaterThan(profiles[i - 1].smokeSize);
     expect(profiles[i].smokeLifetime).toBeGreaterThan(profiles[i - 1].smokeLifetime);
   }
+});
+it('throws more and bigger fragments, and more marks, the heavier the calibre', () => {
+  const [rifle, , pistol, gpmg, heavy] = FPS_WEAPONS.map(w => impactProfile(w.caliberMm, w.damage));
+  // The issued rifle is the reference look; a pistol is close to it, not lighter or heavier by much.
+  expect(rifle).toMatchObject({ debrisCount: 1, debrisSize: 1, spallMarks: 0 });
+  expect(Math.abs(pistol.debrisCount - 1)).toBeLessThan(.15); expect(pistol.spallMarks).toBe(0);
+  expect(gpmg.debrisCount).toBeGreaterThan(1.5); expect(gpmg.spallMarks).toBeGreaterThanOrEqual(1);
+  expect(heavy.debrisCount).toBeGreaterThan(gpmg.debrisCount * 2);
+  expect(heavy.debrisSize).toBeGreaterThan(gpmg.debrisSize); expect(heavy.spallMarks).toBeGreaterThan(gpmg.spallMarks);
+
+  const struck = (profile: ReturnType<typeof impactProfile>, energy = 1) => {
+    const field = createImpactField();
+    recordImpact(field, { x: 0, y: 1, z: 0 }, { x: 0, y: 0, z: 1 }, 'surface', energy, () => .5, undefined, profile, 'concrete');
+    return field;
+  };
+  const light = struck(rifle), big = struck(heavy), spent = struck(heavy, .2);
+  expect(big.debris.length).toBeGreaterThan(light.debris.length * 3);
+  expect(big.debris[0].sx).toBeGreaterThan(light.debris[0].sx * 1.8);
+  expect(light.scorches).toHaveLength(1);
+  expect(big.scorches).toHaveLength(1 + heavy.spallMarks);
+  // Spall chips sit in the struck face around the hole, smaller than it, and the hole is drawn last.
+  const hole = big.scorches.at(-1)!;
+  big.scorches.slice(0, -1).forEach(chip => {
+    expect(chip.z).toBeCloseTo(hole.z); expect(chip.radius).toBeLessThan(hole.radius * .5);
+    expect(Math.hypot(chip.x - hole.x, chip.y - hole.y)).toBeGreaterThan(hole.radius * .8);
+  });
+  // A round already spent on cover throws less and spalls nothing.
+  expect(spent.debris.length).toBeLessThan(big.debris.length);
+  expect(spent.scorches.length).toBeLessThan(big.scorches.length);
 });
