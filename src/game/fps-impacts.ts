@@ -214,6 +214,17 @@ export const sparkHeat = (spark: Spark) => Math.max(0, 1 - spark.age / spark.lif
 /** How far behind itself a spark is drawn, so speed reads as a streak. */
 export const sparkStreak = (spark: Spark) =>
   Math.min(0.16, Math.max(0.015, Math.hypot(spark.vx, spark.vy, spark.vz) * SPARK_TRAIL));
+/** The issued rifle's depth-to-radius: its mark gets the atlas's authored relief, 1. */
+const REFERENCE_RELIEF = DEFAULT_IMPACT_PROFILE.holeDepth / DEFAULT_IMPACT_PROFILE.holeRadius;
+/**
+ * How strongly a mark's normal map tilts the light, as a multiple of the
+ * atlas's authored slopes. Depth-to-radius rather than depth, so a wider bore
+ * does not automatically look deeper; the square root keeps a pistol's wide,
+ * shallow hole from reading flat while a .50 still reads deepest. A flat mark
+ * (blood) has none.
+ */
+export const scorchRelief = (scorch: Scorch) =>
+  scorch.depth > 0 ? Math.min(4, Math.sqrt(scorch.depth / Math.max(.001, scorch.radius) / REFERENCE_RELIEF)) : 0;
 /** A scorch holds, then fades; it is the only mark left once the shot is over. */
 export const scorchAlpha = (scorch: Scorch) => {
   const t = Math.max(0, Math.min(1, scorch.age / scorch.life));

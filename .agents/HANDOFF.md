@@ -2283,3 +2283,21 @@ ground views; fixtures/enemy-drops.html saw the autopilot kill an XM8-armed bot,
 the drop and its radio line appear, and an MG4 · Sustained Fire taken into the
 main slot (200 + 200 rounds) and drawn in hand, with no console errors. Not
 run: the CDP browser smokes, a real-GPU frame check.
+
+## 2026-10-24: bullet-decal normal maps made visible again
+
+The decal atlas already carried a normal map (02eec05), but its per-instance
+strength was `(depth / radius) / (.007 / .041)`, calibrated to the old
+`.041 * bore` hole radius. c630bc9 widened holes to `.075 * bore^1.5` without
+touching that constant, so the issued rifle drew at 0.55 strength and the P30 at
+0.18: in headless renders a concrete crater was pixel-identical with the normal
+map on or off.
+- `scorchRelief` (fps-impacts.ts) replaces the inline formula: square root of
+  depth-to-radius over DEFAULT_IMPACT_PROFILE's, capped at 4. The issued rifle is
+  1, P30 ≈ 0.57, FN MAG ≈ 1.18, CIS 50MG ≈ 1.77; blood stays 0.
+- docs/ARMORY.md describes it, and its 7.62 mm width ratio is corrected to 1.6.
+Validation: 1053 tests in 111 files pass, typecheck. impact-materials fixture rendered in
+headless Chrome (swiftshader), normalScale 1 vs 0, fixture sun and a raking
+light: concrete rims and walls, wood fibres, metal dimples and the glass pit now
+shade visibly. Not done: glass crack lines and blood have no relief of their own
+(the crack painter's height is only the central pit).

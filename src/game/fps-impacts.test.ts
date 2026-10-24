@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
-import { advanceImpacts, clearImpactField, createImpactField, debrisScale, impactDust, impactRing, MAX_DEBRIS, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordDecal, recordImpact, RING_LIFE, scorchAlpha, sparkHeat, sparkStreak, SPARKS_PER_IMPACT } from './fps-impacts';
-import { DEFAULT_IMPACT_PROFILE } from './fps-impact-profile';
+import { advanceImpacts, clearImpactField, createImpactField, debrisScale, impactDust, impactRing, MAX_DEBRIS, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordDecal, recordImpact, RING_LIFE, scorchAlpha, scorchRelief, sparkHeat, sparkStreak, SPARKS_PER_IMPACT } from './fps-impacts';
+import { DEFAULT_IMPACT_PROFILE, impactProfile } from './fps-impact-profile';
 
 const wall = { x: 2, y: 1.5, z: -3 }, out = { x: 0, y: 0, z: 1 };
 const run = (field: ReturnType<typeof createImpactField>, seconds: number) => { for (let t = 0; t < seconds; t += 1 / 60) advanceImpacts(field, 1 / 60); };
@@ -135,4 +135,18 @@ it('lays a flat, bounded blood decal on its own', () => {
   expect(splat).toMatchObject({ decal: 'blood', depth: 0, nz: 1 });
   expect(splat.radius).toBeLessThanOrEqual(.6);
   expect(field.impacts).toHaveLength(0); expect(field.sparks).toHaveLength(0);
+});
+
+it('gives the issued rifle\'s hole the atlas\'s full relief and keeps every calibre readable', () => {
+  const relief = (caliberMm: number, damage: number) => {
+    const field = createImpactField();
+    recordImpact(field, wall, out, 'surface', 1, () => .5, undefined, impactProfile(caliberMm, damage));
+    return scorchRelief(field.scorches.at(-1)!);
+  };
+  // Tied to the default profile, so a change to the hole formula cannot quietly flatten the map again.
+  expect(relief(5.56, 36)).toBeCloseTo(1, 1);
+  const pistol = relief(9, 28), gpmg = relief(7.62, 60), heavy = relief(12.7, 160);
+  expect(pistol).toBeLessThan(1); expect(pistol).toBeGreaterThan(.5);
+  expect(gpmg).toBeGreaterThan(1); expect(heavy).toBeGreaterThan(gpmg); expect(heavy).toBeLessThanOrEqual(4);
+  expect(scorchRelief(recordDecal(createImpactField(), wall, out, 'blood', .2))).toBe(0);
 });

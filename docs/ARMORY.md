@@ -244,8 +244,12 @@ Surface hits leave lit, normal-mapped craters with a chipped rim and cavity
 occlusion. This is apparent depth on a decal, not a change to world geometry or
 penetration. The normal data is linear; only the colour texture is sRGB. Each
 instance stores its own depth and fade, so holes from different weapons share
-one draw call. The pooled dust/smoke uses three normally blended wisps per hit,
-visible against bright scenery as well as dark surfaces.
+one draw call. The normal map's strength is the square root of the hole's
+depth-to-radius against the issued 5.56 mm round's (`scorchRelief` in
+`fps-impacts.ts`), so that round shows the atlas's authored slopes, a wide 9 mm
+hole still reads at about 0.6 and a .50 at about 1.8; blood is flat. The pooled
+dust/smoke uses three normally blended wisps per hit, visible against bright
+scenery as well as dark surfaces.
 
 `WeaponSpec.caliberMm` sets bore diameter. Both current platforms are 5.56 mm;
 a future complete variant can change caliber through an internal build part.
@@ -254,7 +258,7 @@ damage (an arcade power proxy, not a physical energy calculation):
 
 | Parameter | Main driver |
 | --- | --- |
-| Hole radius | Caliber; 7.62 mm is 1.37 times the width of 5.56 mm at equal power |
+| Hole radius | Caliber; 7.62 mm is 1.6 times the width of 5.56 mm at equal power |
 | Apparent hole depth | Variant power and remaining shot energy |
 | Smoke size, opacity and lifetime | Variant power; caliber also affects cloud size |
 | Spark count | Variant power, bounded to the fixed pool budget |

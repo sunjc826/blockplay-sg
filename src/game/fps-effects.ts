@@ -1,7 +1,7 @@
 import { createBulletHoleMaterial, createDecalAtlas, decalTile, withInstanceOpacity } from './fps-impact-material';
 import * as THREE from 'three';
 import { advanceCasings, casingFade, ejectCasing, MAX_CASINGS, type Casing } from './fps-casings';
-import { advanceImpacts, clearImpactField, createImpactField, debrisScale, impactDust, impactRing, MAX_DEBRIS, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordDecal, recordImpact, scorchAlpha, sparkHeat, sparkStreak, type ImpactKind } from './fps-impacts';
+import { advanceImpacts, clearImpactField, createImpactField, debrisScale, impactDust, impactRing, MAX_DEBRIS, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordDecal, recordImpact, scorchAlpha, scorchRelief, sparkHeat, sparkStreak, type ImpactKind } from './fps-impacts';
 import { SURFACE_LOOKS, type DecalKind, type SurfaceKind } from './fps-surfaces';
 import { advanceMuzzle, createMuzzle, igniteMuzzle, muzzleShape, resetMuzzle } from './fps-muzzle';
 import { MAX_ROUNDS_IN_FLIGHT } from './fps-projectiles';
@@ -435,9 +435,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
         scorchMesh.setColorAt(i, colour.setScalar(scorch.decal === 'blood' ? 1 : Math.max(.1, 1.7 - styleOf(scorch.style).scorch)));
         scorchTile.setX(i, decalTile(scorch.decal));
         scorchOpacity.setX(i, scorchAlpha(scorch));
-        // The authored texture represents a 7 mm cavity at a 41 mm decal radius.
-        // Depth-to-radius keeps a wider bore from automatically looking deeper.
-        scorchDepth.setX(i, Math.min(6, (scorch.depth / scorch.radius) / (.007 / .041)));
+        scorchDepth.setX(i, scorchRelief(scorch));
         scorchMesh.setMatrixAt(i, matrix.compose(
           position.set(scorch.x + scorch.nx * .006, scorch.y + scorch.ny * .006, scorch.z + scorch.nz * .006),
           quaternion, scale.set(scorch.radius * 2, scorch.radius * 2, 1)));
