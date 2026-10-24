@@ -1,6 +1,6 @@
 # Field exchange, progression and FPS equipment
 
-The Armory sidebar offers seventeen fixed weapon variants across five platforms, five cosmetic finishes, three carrying rigs, four insert choices, five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition and handling hardware cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase.
+The Armory sidebar offers seventeen fixed weapon variants across five platforms, five cosmetic finishes, three carrying rigs, four insert choices, five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition and handling hardware cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase. Three further platforms are carried only by the enemy and taken in the field; see [enemy-issue weapons](#enemy-issue-weapons).
 
 ## Play loop
 
@@ -382,6 +382,61 @@ SAR + P30. Field pickups replace a slot rather than expanding the loadout.
 
 Keys **1 / 2 / 3** select main / sidearm / extra. Touch Swap cycles only carried
 weapons. The multiplayer host rejects attempts to use an uncarried family.
+
+## Enemy-issue weapons
+
+Opposing forces carry three platforms the exchange never sells: an **XM8**
+modular carbine, a **G36** rifle and an **MG4** light machine gun (families 5–7,
+`xm8-inspired`, `g36-inspired`, `mg4-inspired`). They are catalog entries like
+any other weapon, marked `source: 'enemy'`, so variants, builds, falloff, bipods
+and the shop's own maths all apply; `isEnemyIssue` keeps them off the shop
+shelf, the platform tabs, the carry selectors, the free issued kit and supply
+crates, and `purchase` refuses them. A restored save, or a LAN peer's profile,
+claiming one gets the baseline instead: taken weapons last one expedition.
+
+| Variant | Tier | Config | Damage | Rounds | Notes |
+| --- | --- | --- | ---: | ---: | --- |
+| XM8 · Carbine | Issued | carbine | 33 | 30 | Integrated red dot on the carry handle |
+| XM8 · Compact Carbine | Field | compact | 30 | 30 | Fastest cycle, shortest reach, short stock |
+| XM8 · Sharpshooter | Elite | sharpshooter | 53 | 20 | Long barrel, 45 m full damage, 2.1× precision, quick bipod, travelling rounds |
+| XM8 · Automatic Rifle | Elite | automatic | 36 | 100 | Heavy barrel, twin drum, bipod |
+| G36 | Issued | rifle | 36 | 30 | SAR-like reach, steadier, slower reload |
+| G36K | Field | k | 34 | 30 | Short barrel and birdcage |
+| G36C | Field | c | 32 | 30 | Compact; fastest G36 |
+| MG36 | Elite | mg | 42 | 100 | Heavy barrel, twin drum, bipod |
+| MG4 | Issued | standard | 31 | 100 | Belt-fed, bipod |
+| MG4KE | Field | short | 29 | 100 | Short barrel, quick bipod |
+| MG4 · Sustained Fire | Elite | heavy | 38 | 200 | Heavy barrel, 200-round box |
+
+**Who carries what.** Each bot role lists weighted `armament`
+(`arena-roles.ts`), drawn again at every spawn on its own seeded stream:
+assault squads carry XM8 and G36 rifles, tanks the MG4 family, MG36 and XM8 AR,
+snipers the XM8 Sharpshooter or a G36. A role's `weapon` stats still decide how
+hard its bots hit, so arena balance did not move; the draw decides what they
+hold and what they leave behind. Every mode's bots are armed this way; only an
+expedition has pickups.
+
+**Drops.** On an expedition, a bot seen alive and then dead (any cause,
+artillery included) leaves its variant where it fell
+(`ExpeditionLoot.drop`). It is drawn as the weapon itself on its side, in a
+tier-coloured ring with a label, and the HUD prompt reads like a crate's:
+`E · Elite MG4 · Sustained Fire · replace main`. Taking it uses the crate path
+(fresh magazine and reserve, or extra reserve if the same variant is already
+carried). A district keeps the newest six drops, and drops are not written into
+a checkpoint. A kill of your own also puts "… dropped by …" on the radio.
+
+**Models.** `enemy-weapon-models.ts` builds each platform procedurally, with
+every configuration's barrel, handguard, stock and feed on one model in groups
+tagged `userData.configs`; `applyEnemyWeaponConfig` (called by `dressWeapon`)
+shows the variant's set and moves the muzzle socket to its flash hider. The
+XM8 and G36 sights are see-through housings with a red dot on the aiming line
+(an `iron`-type optic, so no PiP); the MG4 has an aperture and a hooded post.
+`enemy-weapon-layout.ts` holds the sight height, eye depth, hand poses and
+muzzle positions the viewmodel and models share. Review them at
+`/scripts/fixtures/enemy-weapons.html` (`?view=sight` for the aimed picture,
+`?view=ground` for drops, `?only=id,id&yaw=0.5` for close-ups);
+`/scripts/fixtures/enemy-drops.html` runs a live Marina Bay expedition with the
+autopilot for checking drops end to end.
 
 ## Prone heavy-weapon mount
 

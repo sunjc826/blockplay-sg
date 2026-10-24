@@ -82,7 +82,7 @@ it('keeps each class distinct and makes caliber width independent of power', () 
   remove(); expect(model.getObjectByName('equipped-hardware')).toBeUndefined(); disposeModel(model);
 });
 it('rejects malformed or out-of-range family indexes', () => {
-  for (const index of [-1, 5, .5, NaN, Infinity, '2', null]) expect(validWeaponIndex(index)).toBe(false);
+  for (const index of [-1, FPS_WEAPONS.length, .5, NaN, Infinity, '2', null]) expect(validWeaponIndex(index)).toBe(false);
 });
 
 it('makes every .50 variant lethal unarmored at any range while retaining handling costs', () => {

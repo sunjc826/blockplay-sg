@@ -1,4 +1,4 @@
-import { ARMORY_CATALOG, itemById, type ShopItem } from './armory-catalog';
+import { ARMORY_CATALOG, isEnemyIssue, itemById, type ShopItem } from './armory-catalog';
 import { applyArmorDamage, createProfile, equip, resolveLoadout } from './armory-state';
 import { listArenaRoles } from './arena-roles';
 import { findTrait, FPS_WEAPONS, hitDamage, type WeaponSpec } from './fps-rules';
@@ -88,7 +88,7 @@ function configure(variant: ShopItem) {
 
 export function analyseBreakpoints(opponents: readonly Opponent[] = DRILL_OPPONENTS, ranges: readonly number[] = ANALYSIS_RANGES): BreakpointRow[] {
   const rows: BreakpointRow[] = ARMORY_CATALOG
-    .filter(item => item.category === 'weapon')
+    .filter(item => item.category === 'weapon' && !isEnemyIssue(item))
     .map(item => ({ item, weapon: configure(item), level: item.requiredLevel || 1 }))
     .sort((a, b) => a.item.family! - b.item.family! || a.level - b.level)
     .map(({ item, weapon, level }) => {

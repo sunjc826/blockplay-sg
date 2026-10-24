@@ -307,7 +307,7 @@ The armory is accessed from each region’s FPS briefing or pause screen. It inc
 
 ### Open world and solo arena
 
-**Open world** connects every district through checkpoints. E collects supplies and T crosses a nearby checkpoint. Temporary gear, health and ammo carry between districts; permanent armory purchases remain separate. The island locator previews routes and threat/loot tiers without resetting the expedition. See [zones and loot](WORLD-ZONES.md).
+**Open world** connects every district through checkpoints. E collects supplies and T crosses a nearby checkpoint. Fallen enemies drop the XM8, G36 or MG4 variant they carried, which E takes for the rest of the expedition; these are never sold ([enemy-issue weapons](ARMORY.md#enemy-issue-weapons)). Temporary gear, health and ammo carry between districts; permanent armory purchases remain separate. The island locator previews routes and threat/loot tiers without resetting the expedition. See [zones and loot](WORLD-ZONES.md).
 
 The open world also has **combat events**. Artillery strikes land at random times and places around you, more often in higher-threat districts: a banner and a red ring on the ground give a five-second warning, two spotting rounds walk in, then the salvo lands. Get out of the ring, or go prone behind something solid. Fallen patrols no longer reappear at a spawn point: they come back in groups by troop truck or helicopter, dropped well away from you, and the banner and comms log say where. **Debug survival** can switch random strikes off and call in artillery, a truck or a helicopter on demand. See [combat events](COMBAT-EVENTS.md).
 

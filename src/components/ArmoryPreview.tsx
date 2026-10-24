@@ -13,7 +13,7 @@ import { weaponHardware } from '../game/weapon-hardware';
 import { getWeaponSight } from '../game/weapon-optics';
 import { createOpticReflectionRenderer } from '../game/weapon-reflections';
 
-const buildServiceWeaponId = (id: string) => ['p30-inspired', 'mag-inspired', 'cis50-inspired'].includes(id);
+const buildServiceWeaponId = (id: string) => ['p30-inspired', 'mag-inspired', 'cis50-inspired', 'xm8-inspired', 'g36-inspired', 'mg4-inspired'].includes(id);
 
 export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item: ShopItem; weapon: EquippedWeapon; vehicle?: VehicleKind }) {
   const host = useRef<HTMLDivElement>(null);

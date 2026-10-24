@@ -268,7 +268,8 @@ describe('fixed weapon configurations', () => {
       expect(resolveLoadout(dirty)).toEqual(expected);
       expect(previewLoadout(dirty, item, family)).toEqual(expected);
       expect(dirty.guns[family].attachments.magazine).toBe('mag-fragmenting');
-      const issued = equip(dirty, DEFAULT_VARIANTS[family], family);
+      // An enemy-issue baseline is only owned once taken, so take it first.
+      const issued = equip({ ...dirty, owned: [...dirty.owned, DEFAULT_VARIANTS[family]] }, DEFAULT_VARIANTS[family], family);
       expect(resolveLoadout(issued).weapons[family].traits).toEqual(FPS_WEAPONS[family].traits);
     }
   });

@@ -1,0 +1,57 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Enemy-issue weapons</title><style>
+body{margin:0;background:#161e25;color:#d9e4e9;font:14px system-ui}canvas{display:block}header{position:absolute;top:14px;left:20px;z-index:1}header small{display:block;color:#92a4b0;margin-top:4px}.labels{position:absolute;inset:0;pointer-events:none;display:grid;grid-template-columns:repeat(var(--cols,4),1fr);grid-template-rows:repeat(var(--rows,3),1fr)}.labels span{align-self:end;padding:12px 16px;font-weight:600;letter-spacing:.04em}.labels em{display:block;font-style:normal;font-weight:400;color:#92a4b0}
+</style></head><body><header>Enemy issue • every variant, dressed as the game dresses it<small>?view=side (default) or ?view=sight for the aimed sight picture</small></header><div class="labels" id="labels"></div><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import { buildServiceWeapon } from '/src/game/service-weapon-models.ts';
+import { dressWeapon } from '/src/game/armory-visuals.ts';
+import { ARMORY_CATALOG, isEnemyIssue } from '/src/game/armory-catalog.ts';
+import { variantSpec } from '/src/game/armory-state.ts';
+import { ENEMY_WEAPON_LAYOUT } from '/src/game/enemy-weapon-layout.ts';
+import { createWeaponHandling } from '/src/game/fps-viewmodel.ts';
+import { FPS_WEAPONS } from '/src/game/fps-rules.ts';
+const view = new URLSearchParams(location.search).get('view') ?? 'side';
+if (view === 'ground') {
+  // Drops as the expedition draws them: the weapon on its side, a tier ring, a label.
+  const { createExpeditionMarkers } = await import('/src/game/expedition-visuals.ts');
+  const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(innerWidth, innerHeight); renderer.outputColorSpace = THREE.SRGBColorSpace; document.body.append(renderer.domElement);
+  const scene = new THREE.Scene(); scene.background = new THREE.Color('#9fb3bd');
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ color: '#8d8f86' })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
+  scene.add(new THREE.HemisphereLight('#e8f2ff', '#5b6150', 2.4)); const sun = new THREE.DirectionalLight('#fff3e0', 2.5); sun.position.set(3, 6, 2); scene.add(sun);
+  const ids = ['xm8-automatic', 'g36c', 'mg4-sustained'];
+  const drops = ids.map((id, i) => ({ id: `drop-fixture-${i}`, zoneId: 'marina-bay', kind: 'weapon', catalogId: id, name: id, tier: ['Elite', 'Field', 'Elite'][i], x: -1.7 + i * 1.7, z: 0, y: 0, amount: 1, dropped: true }));
+  createExpeditionMarkers(scene, 'marina-bay', drops);
+  const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, .05, 100); camera.position.set(0, 2.3, 3.4); camera.lookAt(0, .2, 0);
+  const draw = () => { renderer.render(scene, camera); requestAnimationFrame(draw); }; draw(); window.ready = true;
+  throw 'ground view drawn';
+}
+const only = new URLSearchParams(location.search).get('only');
+const variants = ARMORY_CATALOG.filter(item => item.category === 'weapon' && isEnemyIssue(item) && (!only || only.split(',').includes(item.id)));
+const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(innerWidth, innerHeight); renderer.setPixelRatio(1);
+renderer.setClearColor('#161e25'); renderer.outputColorSpace = THREE.SRGBColorSpace; document.body.append(renderer.domElement);
+const cols = only ? Math.min(2, variants.length) : 4, rows = only ? Math.ceil(variants.length / 2) : 3, w = innerWidth / cols, h = innerHeight / rows, scenes = [];
+variants.forEach((item, i) => {
+  const platform = FPS_WEAPONS[item.family], model = buildServiceWeapon(platform.id);
+  dressWeapon(model, { ...variantSpec(item), id: platform.id, name: item.name, equipment: { variant: item.id, skin: 'skin-issued', attachments: {} }, accent: item.accent, traits: [] });
+  const scene = new THREE.Scene(); scene.add(model, new THREE.HemisphereLight('#daeafa', '#384148', 2.6));
+  const key = new THREE.DirectionalLight('#fff0d9', 3.5); key.position.set(-1, 2, 2); scene.add(key);
+  const rim = new THREE.DirectionalLight('#99bce8', 2.5); rim.position.set(2, 1, -2); scene.add(rim);
+  const layout = ENEMY_WEAPON_LAYOUT[platform.id];
+  let camera;
+  if (view === 'sight') {
+    // The eye exactly where the viewmodel puts it when aimed, hands and all.
+    createWeaponHandling(model, item.family).update(null, false);
+    camera = new THREE.PerspectiveCamera(54, w / h, .01, 10); camera.position.set(0, layout.sightHeight, -layout.aimDepth); camera.lookAt(0, layout.sightHeight, -5);
+  } else {
+    camera = new THREE.PerspectiveCamera(30, w / h, .01, 10); const yaw = Number(new URLSearchParams(location.search).get('yaw') ?? 0), far = only ? 1.35 : 2.15;
+    camera.position.set(Math.cos(yaw) * far, .45, -.1 + Math.sin(yaw) * far); camera.lookAt(0, .17, -.1);
+  }
+  scenes.push({ scene, camera });
+  document.getElementById('labels').insertAdjacentHTML('beforeend', `<span>${item.name}<em>${item.tier} · ${item.config}${item.bipod ? ' · bipod ' + item.bipod : ''}</em></span>`);
+});
+renderer.setScissorTest(true);
+document.body.style.setProperty('--cols', cols); document.body.style.setProperty('--rows', rows);
+// Redrawn every frame so a pane that composites late still shows the grid.
+const draw = () => { scenes.forEach(({ scene, camera }, i) => { const x = (i % cols) * w, y = (rows - 1 - Math.floor(i / cols)) * h; renderer.setViewport(x, y, w, h); renderer.setScissor(x, y, w, h); renderer.render(scene, camera); }); requestAnimationFrame(draw); };
+draw();
+window.ready = true;
+</script></body></html>

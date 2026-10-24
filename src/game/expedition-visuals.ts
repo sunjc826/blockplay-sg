@@ -2,6 +2,10 @@ import * as THREE from 'three';
 import type { FieldLoot } from './expedition-loot';
 import type { ExpeditionNpc } from './expedition-npcs';
 import { itemById } from './armory-catalog';
+import { FPS_WEAPONS } from './fps-rules';
+import { buildServiceWeapon } from './service-weapon-models';
+import { applyEnemyWeaponConfig } from './enemy-weapon-models';
+import { disposeModel } from './armory-visuals';
 import { WORLD_GATEWAYS, getWorldZone, type WorldZoneId } from './world-zones';
 import { createCharacterRig, hashString, type CharacterGesture, type CharacterRig } from './character-rig';
 import { npcCharacterLook, npcIdleGesture } from './character-looks';
@@ -14,17 +18,44 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
     const material = new THREE.MeshStandardMaterial({ color, roughness: .8 }); resources.push(geometry, material);
     const part = new THREE.Mesh(geometry, material); part.position.set(x,y,z); parent.add(part); return part;
   }
-  function label(parent: THREE.Group, text: string, color: string, y: number) {
+  function label(parent: THREE.Group, text: string, color: string, y: number, owned = resources) {
     const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 64;
     const ctx = canvas.getContext('2d'); if (!ctx) return;
     ctx.fillStyle = '#14231fea'; ctx.fillRect(0,0,512,64); ctx.font = '600 26px sans-serif'; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text,256,32,490);
     const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
-    const material = new THREE.SpriteMaterial({ map:texture, depthTest:true }); resources.push(texture,material);
+    const material = new THREE.SpriteMaterial({ map:texture, depthTest:true }); owned.push(texture,material);
     const sprite = new THREE.Sprite(material); sprite.position.y = y; sprite.scale.set(3.7,.46,1); parent.add(sprite);
   }
-  for (const item of loot) {
+  const tierColor = (tier: FieldLoot['tier']) => tier === 'Elite' ? '#e5bb55' : tier === 'Field' ? '#71b8d0' : '#b8c9b2';
+  // A fallen enemy's weapon is drawn as itself, lying on its side where it fell,
+  // with a tier ring so it reads from a distance. Each owns its resources, so
+  // the oldest can be thrown away when a new one drops.
+  const drops = new Map<string, { group: THREE.Group; resources: { dispose(): void }[] }>();
+  function addDrop(item: FieldLoot) {
+    const variant = itemById(item.catalogId ?? ''), spec = variant?.family === undefined ? undefined : FPS_WEAPONS[variant.family];
+    const model = spec && buildServiceWeapon(spec.id); if (!variant || !model) return;
+    const group = new THREE.Group(), owned: { dispose(): void }[] = [{ dispose: () => disposeModel(model) }];
+    group.name = `drop-${item.id}`; group.position.set(item.x, (item.y ?? 0) + .02, item.z); root.add(group);
+    applyEnemyWeaponConfig(model, spec.id, variant.config);
+    // On its left side, so the ejection port and the flash hider face up and out.
+    model.rotation.set(0, (hashString(item.id) % 628) / 100, Math.PI / 2); model.updateMatrixWorld(true);
+    // Rest it on the ground by what is actually showing: a drum or a belt box hangs lower than a magazine.
+    const bounds = new THREE.Box3();
+    model.traverseVisible(node => { if (node instanceof THREE.Mesh) { node.geometry.computeBoundingBox(); bounds.union(node.geometry.boundingBox!.clone().applyMatrix4(node.matrixWorld)); } });
+    model.position.y = bounds.isEmpty() ? .045 : -bounds.min.y;
+    model.traverse(node => { node.userData.fpsEffect = true; });
+    group.add(model);
+    const color = tierColor(item.tier);
+    const ringGeometry = new THREE.TorusGeometry(.62, .025, 6, 32), ringMaterial = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .75 });
+    owned.push(ringGeometry, ringMaterial);
+    const ring = new THREE.Mesh(ringGeometry, ringMaterial); ring.rotation.x = Math.PI / 2; ring.position.y = .02; group.add(ring);
+    label(group, `${item.tier.toUpperCase()} / ${item.name}`, color, .95, owned);
+    drops.set(item.id, { group, resources: owned });
+  }
+  for (const item of loot.filter(entry => entry.dropped)) addDrop(item);
+  for (const item of loot.filter(entry => !entry.dropped)) {
     const group = new THREE.Group(); group.position.set(item.x, (item.y ?? 0) + .13, item.z); root.add(group); pickups.set(item.id,group);
-    const color = item.tier === 'Elite' ? '#e5bb55' : item.tier === 'Field' ? '#71b8d0' : '#b8c9b2';
+    const color = tierColor(item.tier);
     mesh(group,new THREE.BoxGeometry(.9,.45,.55),'#35483d',0,.25,0);
     mesh(group,new THREE.BoxGeometry(.92,.07,.57),color,0,.49,0);
     for (const x of [-.31,.31]) mesh(group,new THREE.BoxGeometry(.06,.47,.57),'#222d27',x,.25,0);
@@ -93,7 +124,11 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
       const local = locals.find(candidate => candidate.npc.id === id); if (!local) return;
       local.gesture = gesture; local.react = seconds; local.greeted = true;
     },
-    remove(id:string) { const group=pickups.get(id); if(group){group.visible=false;pickups.delete(id);} },
-    dispose() { root.removeFromParent(); resources.forEach(resource=>resource.dispose()); pickups.clear(); },
+    addDrop,
+    remove(id:string) {
+      const group=pickups.get(id); if(group){group.visible=false;pickups.delete(id);}
+      const dropped=drops.get(id); if(dropped){dropped.group.removeFromParent();dropped.resources.forEach(resource=>resource.dispose());drops.delete(id);}
+    },
+    dispose() { root.removeFromParent(); resources.forEach(resource=>resource.dispose()); drops.forEach(entry=>entry.resources.forEach(resource=>resource.dispose())); drops.clear(); pickups.clear(); },
   };
 }

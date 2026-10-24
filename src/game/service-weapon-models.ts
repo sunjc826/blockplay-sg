@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { buildMachineGun } from './machine-gun-models';
+import { buildEnemyWeapon } from './enemy-weapon-models';
 
 /** Authored low-poly silhouettes, not dimensional replicas. Local -Z is forward. */
 export function buildServiceWeapon(id: string): THREE.Group | undefined {
   if (id === 'mag-inspired' || id === 'cis50-inspired') return buildMachineGun(id);
+  const enemy = buildEnemyWeapon(id); if (enemy) return enemy;
   if (id !== 'p30-inspired') return undefined;
   const root = new THREE.Group(); root.name = id;
   const steel = new THREE.MeshStandardMaterial({ color: '#343d41', roughness: .48, metalness: .65 });

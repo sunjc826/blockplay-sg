@@ -1,6 +1,6 @@
 import { carriedFamilies, restoreCarrySlots, isMainWeapon, EXTRA_SLOT_ID, SIDEARM_FAMILY, type CarrySlots } from './armory-slots';
 import { supplyWeightKg } from './fps-encumbrance';
-import { ARMORY_CATALOG, CONSUMABLE_LIMIT, issuedItems, itemById, type AttachmentSlot, type FittedPart, type InternalPart, type ShopItem } from './armory-catalog';
+import { ARMORY_CATALOG, CONSUMABLE_LIMIT, isEnemyIssue, issuedItems, itemById, type AttachmentSlot, type FittedPart, type InternalPart, type ShopItem } from './armory-catalog';
 import type { VehicleKind } from './vehicle-rules';
 import { progression, levelSkip, xpForLevel, ELIMINATION_XP, MAX_LEVEL } from './progression';
 import { DEFAULT_RANK_SET, isRankSet, rankInsignia } from './rank-insignia';
@@ -28,7 +28,8 @@ export function restoreProfile(raw: string | null): ArmoryProfile {
     const value = JSON.parse(raw); if (!value || value.version !== 1) return base;
     base.xp = finiteBalance(value.xp, 0);
     base.credits = finiteBalance(value.credits, base.credits); base.tokens = finiteBalance(value.tokens, base.tokens);
-    base.owned = [...new Set([...issuedItems, ...(Array.isArray(value.owned) ? value.owned.filter((id: unknown) => typeof id === 'string' && !!itemById(id)) : [])])] as string[];
+    // Enemy issue lasts one expedition; a save (or a LAN peer) claiming it gets the baseline instead.
+    base.owned = [...new Set([...issuedItems, ...(Array.isArray(value.owned) ? value.owned.filter((id: unknown) => typeof id === 'string' && !!itemById(id) && !isEnemyIssue(itemById(id))) : [])])] as string[];
     base.carry = restoreCarrySlots(value.carry, base.owned);
     const valid = (id: unknown, category: string) => typeof id === 'string' && base.owned.includes(id) && itemById(id)?.category === category;
     for (const i of FPS_WEAPONS.keys()) {
@@ -57,6 +58,7 @@ export function restoreProfile(raw: string | null): ArmoryProfile {
 export function purchase(profile: ArmoryProfile, id: string) {
   const item = itemById(id);
   if (!item) return { profile, message: 'Item unavailable.' };
+  if (isEnemyIssue(item)) return { profile, message: 'Not sold. Take one from the enemy on an expedition.' };
   const supply = item.category === 'consumable';
   if (!supply && profile.owned.includes(id)) return { profile, message: 'Already owned. Equip it below.' };
   if (progression(profile.xp).level < (item.requiredLevel || 1)) return { profile, message: `Unlocks at level ${item.requiredLevel}. Earn XP in the range.` };
@@ -134,12 +136,13 @@ export function equip(profile: ArmoryProfile, id: string, family: number, vehicl
   if (item.category === 'rig' || item.category === 'plate') return { ...profile, [item.category]: id };
   if (item.category === 'weapon' && item.family !== family) return profile;
   const gun: GunEquipment = { ...profile.guns[family], attachments: {} };
-  if (item.category === 'weapon') {
-    gun.variant = id;
-    if (family !== SIDEARM_FAMILY && !carriedFamilies(profile).includes(family)) profile = selectCarryWeapon(profile, 'main', family);
-  }
+  if (item.category === 'weapon') gun.variant = id;
   if (item.category === 'skin') gun.skin = id;
-  const guns: ArmoryProfile['guns'] = [...profile.guns]; guns[family] = gun; return { ...profile, guns };
+  const guns: ArmoryProfile['guns'] = [...profile.guns]; guns[family] = gun;
+  // Slot the platform after the variant is in place: carrying checks the
+  // variant it will carry, which on an enemy-issue platform is the only owned one.
+  const next = { ...profile, guns };
+  return item.category === 'weapon' && family !== SIDEARM_FAMILY && !carriedFamilies(next).includes(family) ? selectCarryWeapon(next, 'main', family) : next;
 }
 /** Spends one of a held supply. Unknown or empty ids leave the profile untouched. */
 export function consumeItem(profile: ArmoryProfile, id: string): ArmoryProfile {

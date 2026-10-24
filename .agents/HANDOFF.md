@@ -2257,3 +2257,29 @@ Chrome (swiftshader): debug truck, helicopter and barrage drew, and a 150 s
 unattended soak saw a director strike and two reinforcement trucks with no
 runtime errors. Nothing committed; the unrelated level-design and promo
 changes in the tree were left alone.
+
+## 2026-10-24: enemy-issue weapons (XM8, G36, MG4) and battlefield drops
+
+Opposing forces now carry three platforms the exchange never sells, each with
+variants: XM8 (Carbine, Compact, Sharpshooter, Automatic Rifle), G36 (G36,
+G36K, G36C, MG36) and MG4 (MG4, MG4KE, Sustained Fire). See
+docs/ARMORY.md#enemy-issue-weapons.
+- Families 5–7 in FPS_WEAPONS; catalog entries with `source: 'enemy'` and a
+  `config`. `isEnemyIssue`/`isShopFamily` keep them out of the shop, carry
+  selectors, issued kit, crates and purchases; restoreProfile strips them.
+- `WeaponSpec.feed` replaces the `family === 1` / `family >= 3` drum/belt checks
+  in weapon-hardware and the shop.
+- `equip` now slots a platform after setting its variant (it checked the old
+  variant's ownership, which only mattered once a baseline could be unowned).
+- Roles take weighted `armament` instead of `weaponIndex`; bots redraw at each
+  spawn on a separate seeded stream; `ArenaActor.variant` is in snapshots.
+- ExpeditionLoot.drop + markers.addDrop: a dead bot's weapon lies where it fell
+  (newest six per district, not checkpointed); taken through the crate path.
+- Procedural models in enemy-weapon-models.ts, shared layout in
+  enemy-weapon-layout.ts, bipod layouts, viewmodel hand poses.
+Validation: 1055 tests in 112 files (new enemy-weapons.test.ts), typecheck.
+Built-in browser: fixtures/enemy-weapons.html reviewed in side, sight and
+ground views; fixtures/enemy-drops.html saw the autopilot kill an XM8-armed bot,
+the drop and its radio line appear, and an MG4 · Sustained Fire taken into the
+main slot (200 + 200 rounds) and drawn in hand, with no console errors. Not
+run: the CDP browser smokes, a real-GPU frame check.

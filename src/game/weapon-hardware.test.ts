@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ARMORY_CATALOG, itemById } from './armory-catalog';
+import { ARMORY_CATALOG, isEnemyIssue, itemById } from './armory-catalog';
 import { hardwareByPart, weaponHardware, type HardwareKind } from './weapon-hardware';
 
 const kinds = (id: string) => weaponHardware(id).map(entry => entry.kind);
@@ -46,7 +46,8 @@ describe('how pronounced each fitting is', () => {
     // The Patrol barrel is the only part in the catalog that adds movement.
     expect(of('ult-patrol', 'barrel')!.lightened).toBe(true);
     expect(of('ult-patrol', 'barrel')!.label).toBe('Vented barrel');
-    expect(ARMORY_CATALOG.flatMap(item => item.build ?? []).filter(part => (part.mobility ?? 1) > 1)).toHaveLength(1);
+    // On the shop's shelf, that is; the enemy's short barrels are a different ladder.
+    expect(ARMORY_CATALOG.filter(item => !isEnemyIssue(item)).flatMap(item => item.build ?? []).filter(part => (part.mobility ?? 1) > 1)).toHaveLength(1);
   });
   it('shrinks a drum that gave rounds up and deepens one that took them on', () => {
     expect(of('ult-patrol', 'magazine')!.weight).toBeLessThan(0);

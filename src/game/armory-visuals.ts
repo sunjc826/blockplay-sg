@@ -5,6 +5,7 @@ import type { EquippedWeapon } from './armory-state';
 import { fitWeaponOptic } from './weapon-optics';
 import { fitWeaponHardware } from './weapon-fittings';
 import { buildWeaponBipod } from './weapon-bipod';
+import { applyEnemyWeaponConfig } from './enemy-weapon-models';
 
 /** Each preview owns its materials. Restore originals before disposing the source GLB. */
 export function dressWeapon(root: THREE.Object3D, weapon: EquippedWeapon) {
@@ -46,13 +47,15 @@ export function dressWeapon(root: THREE.Object3D, weapon: EquippedWeapon) {
   originalBipod?.removeFromParent();
   const bipod = buildWeaponBipod(weapon.id, weapon.bipod ?? 'none');
   if (bipod) root.add(bipod);
+  // Platforms authored with several configurations show the one this variant is.
+  const removeConfig = applyEnemyWeaponConfig(root, weapon.id, itemById(weapon.equipment.variant)?.config);
   const removeOptic = fitWeaponOptic(root, weapon);
   // The variant's own hardware, which is what separates one tier from the next.
   const removeHardware = fitWeaponHardware(root, weapon);
   if (weapon.equipment.attachments.magazine) addBand(.036, .07, .13, '#b8a17a');
   if (weapon.equipment.attachments.handling) addBand(0, .07, -.20, '#555b5e');
   return () => {
-    removeOptic(); removeHardware();
+    removeOptic(); removeHardware(); removeConfig();
     if (bipod) { bipod.removeFromParent(); disposeModel(bipod); }
     if (originalBipod && bipodParent) bipodParent.add(originalBipod);
     originals.forEach(([object, material]) => object.material = material);

@@ -1,6 +1,7 @@
 import type { BipodKind } from './weapon-support';
 /** Arcade tuning, intentionally independent of real equipment specifications. */
 import { MACHINE_GUN_LAYOUT } from './machine-gun-layout';
+import { ENEMY_WEAPON_LAYOUT } from './enemy-weapon-layout';
 import { falloffScale, HITSCAN, type BallisticSpec } from './fps-ballistics';
 export type WeaponOptic = 'integrated' | 'reflex' | 'precision' | 'iron';
 export const HIP_FOV = 65;
@@ -33,7 +34,9 @@ export function findTrait<K extends WeaponTraitKind>(traits: readonly WeaponTrai
  * fast it comes back, as a multiple of the baseline settle rate. See
  * `fps-recoil` for why a kick needs both numbers rather than one.
  */
-export interface WeaponSpec { bipod?: BipodKind; requiresMount?: boolean; /** Unloaded arcade carry mass, in kg. */ weightKg?: number; fireMode?: 'auto' | 'semi'; caliberMm: number; id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; recoilRecovery: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
+/** How the platform is fed, which decides what a capacity part looks like and is called. */
+export type WeaponFeed = 'magazine' | 'drum' | 'belt';
+export interface WeaponSpec { bipod?: BipodKind; feed?: WeaponFeed; requiresMount?: boolean; /** Unloaded arcade carry mass, in kg. */ weightKg?: number; fireMode?: 'auto' | 'semi'; caliberMm: number; id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; recoilRecovery: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
 export const FPS_WEAPONS: readonly WeaponSpec[] = [
   // The rifle holds its damage to twice the support weapon's range; the support
   // weapon trades that away for its volume of fire. Paid variants lift both bands.
@@ -41,20 +44,30 @@ export const FPS_WEAPONS: readonly WeaponSpec[] = [
   // is what its volume of fire is bought with.
   { caliberMm: 5.56, id: 'sar21-inspired', weightKg: 3.8, name: 'SAR 21', role: 'Bullpup rifle', capacity: 30, reserve: 120, interval: 0.12, reload: 1.8, recoil: 0.018, recoilRecovery: 1, sightHeight: 0.328, damage: 36, aimFov: magnifiedFov(1.5), mobility: 1, optic: 'integrated', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 30, far: 90, minScale: 0.55 }, { kind: 'precision', multiplier: 1.6 }] },
-  { caliberMm: 5.56, id: 'ultimax-inspired', bipod: 'standard', weightKg: 5, name: 'Ultimax', role: 'Support weapon', capacity: 60, reserve: 180, interval: 0.085, reload: 2.5, recoil: 0.026, recoilRecovery: 0.85, sightHeight: 0.28, damage: 30, aimFov: HIP_FOV, mobility: 1, optic: 'reflex', ballistics: HITSCAN,
+  { caliberMm: 5.56, id: 'ultimax-inspired', feed: 'drum', bipod: 'standard', weightKg: 5, name: 'Ultimax', role: 'Support weapon', capacity: 60, reserve: 180, interval: 0.085, reload: 2.5, recoil: 0.026, recoilRecovery: 0.85, sightHeight: 0.28, damage: 30, aimFov: HIP_FOV, mobility: 1, optic: 'reflex', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 14, far: 45, minScale: 0.40 }, { kind: 'precision', multiplier: 1.5 }] },
   { caliberMm: 9, id: 'p30-inspired', weightKg: 0.8, name: 'P30', role: 'Semi-auto pistol', fireMode: 'semi', capacity: 15, reserve: 60, interval: .22, reload: 1.25, recoil: .022, recoilRecovery: 1.35, sightHeight: .232, damage: 28, aimFov: HIP_FOV, mobility: 1.14, optic: 'iron', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 12, far: 42, minScale: .35 }, { kind: 'precision', multiplier: 1.8 }] },
-  { caliberMm: 7.62, id: 'mag-inspired', bipod: 'standard', weightKg: 11.8, name: 'FN MAG', role: 'General-purpose MG', capacity: 100, reserve: 200, interval: .12, reload: 4.6, recoil: .042, recoilRecovery: .75, sightHeight: MACHINE_GUN_LAYOUT['mag-inspired'].sightHeight, damage: 60, aimFov: HIP_FOV, mobility: .74, optic: 'iron', ballistics: HITSCAN,
+  { caliberMm: 7.62, id: 'mag-inspired', feed: 'belt', bipod: 'standard', weightKg: 11.8, name: 'FN MAG', role: 'General-purpose MG', capacity: 100, reserve: 200, interval: .12, reload: 4.6, recoil: .042, recoilRecovery: .75, sightHeight: MACHINE_GUN_LAYOUT['mag-inspired'].sightHeight, damage: 60, aimFov: HIP_FOV, mobility: .74, optic: 'iron', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 45, far: 120, minScale: .70 }, { kind: 'precision', multiplier: 1.5 }] },
-  { requiresMount: true, caliberMm: 12.7, id: 'cis50-inspired', bipod: 'heavy', weightKg: 30, name: 'CIS 50MG', role: 'Heavy machine gun', capacity: 50, reserve: 100, interval: .14, reload: 5.8, recoil: .064, recoilRecovery: .65, sightHeight: MACHINE_GUN_LAYOUT['cis50-inspired'].sightHeight, damage: 160, aimFov: HIP_FOV, mobility: .55, optic: 'iron', ballistics: HITSCAN,
+  { requiresMount: true, caliberMm: 12.7, id: 'cis50-inspired', feed: 'belt', bipod: 'heavy', weightKg: 30, name: 'CIS 50MG', role: 'Heavy machine gun', capacity: 50, reserve: 100, interval: .14, reload: 5.8, recoil: .064, recoilRecovery: .65, sightHeight: MACHINE_GUN_LAYOUT['cis50-inspired'].sightHeight, damage: 160, aimFov: HIP_FOV, mobility: .55, optic: 'iron', ballistics: HITSCAN,
     traits: [{ kind: 'falloff', near: 55, far: 140, minScale: .75 }, { kind: 'precision', multiplier: 1.4 }] },
+  // Enemy issue: carried by opposing forces and taken from them, never sold.
+  // The carbine trades the SAR's reach for a quicker cycle and lighter handling;
+  // the rifle sits beside the SAR; the LMG is the Ultimax's belt-fed rival.
+  { caliberMm: 5.56, id: 'xm8-inspired', weightKg: 3.4, name: 'XM8', role: 'Modular carbine', capacity: 30, reserve: 120, interval: .1, reload: 1.75, recoil: .017, recoilRecovery: 1.1, sightHeight: ENEMY_WEAPON_LAYOUT['xm8-inspired'].sightHeight, damage: 33, aimFov: HIP_FOV, mobility: 1.04, optic: 'iron', ballistics: HITSCAN,
+    traits: [{ kind: 'falloff', near: 24, far: 75, minScale: .5 }, { kind: 'precision', multiplier: 1.6 }] },
+  { caliberMm: 5.56, id: 'g36-inspired', weightKg: 3.6, name: 'G36', role: 'Assault rifle', capacity: 30, reserve: 120, interval: .11, reload: 1.9, recoil: .016, recoilRecovery: 1.05, sightHeight: ENEMY_WEAPON_LAYOUT['g36-inspired'].sightHeight, damage: 36, aimFov: HIP_FOV, mobility: 1, optic: 'iron', ballistics: HITSCAN,
+    traits: [{ kind: 'falloff', near: 32, far: 95, minScale: .55 }, { kind: 'precision', multiplier: 1.6 }] },
+  { caliberMm: 5.56, id: 'mg4-inspired', feed: 'belt', bipod: 'standard', weightKg: 8.2, name: 'MG4', role: 'Light machine gun', capacity: 100, reserve: 200, interval: .075, reload: 3.8, recoil: .024, recoilRecovery: .85, sightHeight: ENEMY_WEAPON_LAYOUT['mg4-inspired'].sightHeight, damage: 31, aimFov: HIP_FOV, mobility: .9, optic: 'iron', ballistics: HITSCAN,
+    traits: [{ kind: 'falloff', near: 22, far: 65, minScale: .45 }, { kind: 'precision', multiplier: 1.5 }] },
 ];
 
 /** Stable family indexes are shared by saves, keyboard shortcuts and LAN packets. */
 export const validWeaponIndex = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < FPS_WEAPONS.length;
-export const DEFAULT_VARIANTS = ['sar-issued', 'ult-issued', 'p30-issued', 'mag-issued', 'cis50-issued'] as const;
+/** Each family's baseline. The enemy-issue baselines are never owned until found. */
+export const DEFAULT_VARIANTS = ['sar-issued', 'ult-issued', 'p30-issued', 'mag-issued', 'cis50-issued', 'xm8-carbine', 'g36-rifle', 'mg4-standard'] as const;
 
 export interface WeaponState { magazine: number; reserve: number; cooldown: number; reloadRemaining: number }
 export const createLoadout = (weapons = FPS_WEAPONS): WeaponState[] => weapons.map(w => ({ magazine: w.capacity, reserve: w.reserve, cooldown: 0, reloadRemaining: 0 }));

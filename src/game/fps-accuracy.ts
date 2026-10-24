@@ -14,7 +14,7 @@ export function advanceBloom(state: WeaponBloom, dt: number) {
 /** Cone half-angle in radians; the HUD projects this same cone into screen pixels. */
 export function weaponSpread(state: WeaponBloom, weapon: number, aim: number, crouching: boolean, moving: boolean) {
   const aiming = Math.max(0, Math.min(1, aim));
-  return (([.005, .007, .006, .01, .016][weapon] ?? .005) + state.amount + (moving ? .007 : 0)) * (1 - aiming * .80) * (crouching ? .65 : 1);
+  return (([.005, .007, .006, .01, .016, .006, .0055, .009][weapon] ?? .005) + state.amount + (moving ? .007 : 0)) * (1 - aiming * .80) * (crouching ? .65 : 1);
 }
 export function sampleShotSpread(angle: number, random: () => number = Math.random) {
   const radius = Math.sqrt(random()) * Math.tan(angle), theta = random() * Math.PI * 2;

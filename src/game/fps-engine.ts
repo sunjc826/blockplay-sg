@@ -190,6 +190,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   if (expedition && zoneWorld) hud.fieldLoot = expedition.loot.enterZone({ id: expedition.zone, spawn: zoneWorld.zone.spawn, bounds: zoneWorld.bounds, obstacles: world.obstacles, canStand: (x, z, radius) => footMovement.canOccupy(x, 0, z, radius, 1.8), elevatedAnchors: elevatedLootAnchors(getWalkSurfaces(world.scene), footMovement), anchors: zoneWorld.zone.encounterSpawns, sectors: zoneSectors(expedition.zone) });
   const markers = expedition ? createExpeditionMarkers(world.scene, expedition.zone, hud.fieldLoot, npcs) : null;
   let checkpointPending = expedition?.checkpoint;
+  // Which bots were last seen alive, so a death is noticed once.
+  const botsAlive = new Map<string, boolean>();
   let travelPending = false, lootNoticeTime = 0;
   const greetedNpcs = new Set<string>(), dialogueProgress = new Map<string, number>();
   const encik = createEncikRadio(Math.random, () => options.encik?.() ?? encikAddress(fieldProfile)), comms = createFpsComms(expedition?.checkpoint?.comms);
@@ -1248,6 +1250,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (frame.vehicleNotice) vehicles.setNotice(frame.vehicleNotice);
     hud.arena = frame.snapshot; hud.arenaSelf = frame.self; hud.arenaConnected = frame.connected; hud.arenaStarted = frame.started;
     if (frame.snapshot) hud.elapsed = frame.snapshot.elapsed;
+    if (frame.snapshot) dropFallenWeapons(frame.snapshot.actors, frame.feed);
     if (frame.self) {
       if (vehicles.active) hud.shots = frame.self.shots;
       hud.hits = frame.self.kills; hud.health = frame.self.health; hud.armor = frame.self.armor;
@@ -1296,6 +1299,24 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
   }
 
+  /**
+   * On an expedition a fallen enemy leaves their weapon where they fell. A bot
+   * is seen alive and then not, which covers every cause of death, including
+   * artillery; the feed only says whether the kill was the player's.
+   */
+  function dropFallenWeapons(actors: readonly ArenaActor[], feed: readonly { killerId?: string; victimId?: string }[]) {
+    for (const actor of actors) {
+      if (!actor.bot) continue;
+      const was = botsAlive.get(actor.id); botsAlive.set(actor.id, actor.alive);
+      if (!expedition || !markers || was !== true || actor.alive || !actor.variant) continue;
+      const fell = expedition.loot.drop(expedition.zone, actor.variant, { x: actor.x, z: actor.z, y: Math.max(0, actor.y - (actor.prone ? PRONE_EYE_HEIGHT : 1.75)) });
+      if (!fell) continue;
+      fell.evicted.forEach(id => markers.remove(id)); markers.addDrop(fell.loot);
+      hud.fieldLoot = expedition.loot.remaining(expedition.zone);
+      if (feed.some(event => event.victimId === actor.id && event.killerId === options.arena?.session.id))
+        comms.add('system', 'Field', `${fell.loot.name} dropped by ${actor.name}. E to take it.`);
+    }
+  }
   /** Where a point lies from the player, in words: "60 m ahead", "120 m to your left". */
   function whereFrom(target: { x: number; z: number }) {
     const dx = target.x - position.x, dz = target.z - position.z, distance = Math.hypot(dx, dz);

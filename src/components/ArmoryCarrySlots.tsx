@@ -7,7 +7,8 @@ export default function ArmoryCarrySlots({ store }: { store: ArmoryStore }) {
   const { profile } = store, carry = restoreCarrySlots(profile.carry, profile.owned);
   const unlocked = profile.owned.includes(EXTRA_SLOT_ID), unlock = itemById(EXTRA_SLOT_ID)!;
   const name = (family: number) => itemById(profile.guns[family].variant)?.name ?? FPS_WEAPONS[family].name;
-  const options = (slot: 'main' | 'extra') => FPS_WEAPONS.map((weapon, family) => isMainWeapon(family) &&
+  // Owned platforms only, which keeps enemy issue (never owned outside an expedition) off the list.
+  const options = (slot: 'main' | 'extra') => FPS_WEAPONS.map((weapon, family) => isMainWeapon(family) && profile.owned.includes(profile.guns[family].variant) &&
     <option key={weapon.id} value={family} disabled={family === (slot === 'main' ? carry.extra : carry.main)}>{name(family)}</option>);
   return <section className="armory-carry" aria-label="Carried weapon slots">
     <div className="armory-carry-heading"><strong>DEPLOYMENT LOADOUT</strong><span>One main · One sidearm · Optional extra main</span></div>

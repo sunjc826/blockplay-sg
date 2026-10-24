@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ARENA_DURATION, arenaWallDistance, createArena, type ArenaActor, type ArenaEnvironment, type ArenaSimulation } from './arena-rules';
-import { getArenaRole, listArenaRoles, registerArenaRole } from './arena-roles';
+import { armamentFamilies, getArenaRole, listArenaRoles, registerArenaRole } from './arena-roles';
+import { FPS_WEAPONS } from './fps-rules';
+import { itemById } from './armory-catalog';
 import { canOccupy } from './marina-collision';
 
 const weapon = { damage: 36, interval: 0.12, capacity: 30, reload: 1.8 };
@@ -183,9 +185,9 @@ describe('bot role plugins', () => {
   it('gives tanks heavier armor, slower speed and support weapons', () => {
     const assault = getArenaRole('assault')!; const tank = getArenaRole('tank')!;
     expect(tank.armor).toBeGreaterThan(assault.armor); expect(tank.health).toBeGreaterThan(assault.health);
-    expect(tank.speed).toBeLessThan(assault.speed); expect(tank.weaponIndex).toBe(1);
+    expect(tank.speed).toBeLessThan(assault.speed); expect(armamentFamilies(tank)).toContain(FPS_WEAPONS.findIndex(w => w.id === 'mg4-inspired'));
     const arena = createArena([], 2, 'tank');
-    expect(arena.snapshot().actors.every(a => a.role === 'tank' && a.health === 130 && a.armor === 100 && a.weapon === 1)).toBe(true);
+    expect(arena.snapshot().actors.every(a => a.role === 'tank' && a.health === 130 && a.armor === 100 && armamentFamilies(tank).includes(a.weapon) && itemById(a.variant!)?.family === a.weapon)).toBe(true);
   });
   it('makes snipers retreat while tanks advance and assault bots flank', () => {
     const sniper = getArenaRole('sniper')!.think(context); const tank = getArenaRole('tank')!.think(context); const assault = getArenaRole('assault')!.think(context);

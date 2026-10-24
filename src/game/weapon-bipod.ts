@@ -8,6 +8,10 @@ const BIPODS = {
   'ultimax-inspired': { y: .151, z: -.40, width: .10, length: .30, radius: .007, heavy: false },
   'mag-inspired': { y: .174, z: -.44, width: .12, length: .33, radius: .008, heavy: false },
   'cis50-inspired': { y: .194, z: -.50, width: .20, length: .43, radius: .014, heavy: true },
+  // Enemy issue: under the long handguards, and on the MG4's barrel ahead of its handguard.
+  'xm8-inspired': { y: .155, z: -.36, width: .085, length: .25, radius: .006, heavy: false },
+  'g36-inspired': { y: .155, z: -.37, width: .09, length: .26, radius: .006, heavy: false },
+  'mg4-inspired': { y: .17, z: -.42, width: .11, length: .31, radius: .007, heavy: false },
 } as const;
 export function buildWeaponBipod(id: string, kind: BipodKind = id === 'cis50-inspired' ? 'heavy' : 'standard'): THREE.Group | null {
   const layout = BIPODS[id as keyof typeof BIPODS]; if (!layout || kind === 'none') return null;

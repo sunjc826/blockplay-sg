@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ARMORY_CATALOG, itemById } from './armory-catalog';
+import { ARMORY_CATALOG, isEnemyIssue, itemById } from './armory-catalog';
 import { applyBuild, createProfile, equip, resolveLoadout, variantSpec } from './armory-state';
 import { FPS_WEAPONS, magnifiedFov, HIP_FOV } from './fps-rules';
 import { HITSCAN } from './fps-ballistics';
@@ -38,7 +38,7 @@ const resolved = (id: string) => {
 
 describe('what each weapon resolves to', () => {
   it('covers every weapon the catalog sells', () => {
-    expect(ARMORY_CATALOG.filter(item => item.category === 'weapon').map(item => item.id).sort())
+    expect(ARMORY_CATALOG.filter(item => item.category === 'weapon' && !isEnemyIssue(item)).map(item => item.id).sort())
       .toEqual(Object.keys(EXPECTED).sort());
   });
   for (const [id, want] of Object.entries(EXPECTED)) it(`resolves ${id} unchanged`, () => {
@@ -61,8 +61,9 @@ describe('how a variant gets its figures', () => {
     for (const weapon of weapons) expect(weapon.stats).toBeUndefined();
   });
   it('builds every paid variant out of parts and leaves the issued ones bare', () => {
+    // Enemy issue has no price, so its baseline is the Issued tier rather than the free one.
     for (const weapon of weapons) {
-      if (weapon.price === 0) expect(weapon.build ?? []).toEqual([]);
+      if (weapon.tier === 'Issued') expect(weapon.build ?? []).toEqual([]);
       else expect(weapon.build?.length).toBeGreaterThan(0);
     }
   });

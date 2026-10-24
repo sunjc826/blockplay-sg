@@ -102,14 +102,14 @@ export function weaponHardware(variantId: string): WeaponHardware[] {
   if (!item || item.category !== 'weapon' || item.family === undefined) return [];
   const base = FPS_WEAPONS[item.family];
   if (!base) return [];
-  // The support platform feeds from a drum, so the same extra rounds read as a
-  // deeper drum there and a longer magazine on the rifle.
-  const drum = item.family === 1;
+  // A drum-fed platform reads the same extra rounds as a deeper drum, a belt-fed
+  // one as a deeper box, and a rifle as a longer magazine.
+  const drum = base.feed === 'drum';
   return [
     ...(item.build ?? []).map(part => fromBuild(part, base, drum)),
     ...(item.fitted ?? []).map(fromFitted),
   ].filter((entry): entry is WeaponHardware => !!entry).map(entry =>
-    item.family! >= 3 && entry.kind === 'magazine'
+    base.feed === 'belt' && entry.kind === 'magazine'
       ? { ...entry, label: 'Extended belt box', visual: 'a deeper ammunition box for the longer belt' }
       : entry);
 }

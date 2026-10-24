@@ -1,5 +1,5 @@
 import { validWeaponIndex } from './fps-rules';
-import { ARMORY_CATALOG, itemById, type ShopItem } from './armory-catalog';
+import { ARMORY_CATALOG, isEnemyIssue, itemById, type ShopItem } from './armory-catalog';
 import { resolveLoadout, type ArmoryProfile, type GunEquipment } from './armory-state';
 import type { Obstacle } from './marina-collision';
 import type { WorldZoneId, ZonePosition } from './world-zones';
@@ -14,7 +14,11 @@ export interface FieldLoot {
   placement?: 'food-stall' | 'field';
   /** The sector it came to rest in, for the HUD and the pickup callout. */
   sectorId?: string;
+  /** Dropped by a fallen enemy rather than placed in a crate; drawn as the weapon itself. */
+  dropped?: boolean;
 }
+/** Dropped weapons kept per district; the oldest goes when another falls. */
+export const MAX_FIELD_DROPS = 6;
 export interface LootZoneGeometry {
   id: WorldZoneId; spawn: ZonePosition;
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
@@ -86,7 +90,8 @@ export function rollZoneWeapon(zoneId: WorldZoneId, random: () => number, tierBi
   const { elite, field } = biasedChances(rules, tierBias);
   const roll = random();
   const tier: ShopItem['tier'] = roll < elite ? 'Elite' : roll < elite + field ? 'Field' : 'Issued';
-  return choose(ARMORY_CATALOG.filter(item => item.category === 'weapon' && item.tier === tier && validWeaponIndex(item.family)), random);
+  // Enemy issue is taken from the enemy, never found in a crate.
+  return choose(ARMORY_CATALOG.filter(item => item.category === 'weapon' && item.tier === tier && validWeaponIndex(item.family) && !isEnemyIssue(item)), random);
 }
 
 function rollTier(rules: ZoneLootRules, random: () => number, tierBias: -1 | 0 | 1): ShopItem['tier'] {
@@ -102,6 +107,9 @@ function rollFood(rules: ZoneLootRules, random: () => number, tierBias: -1 | 0 |
 /** One instance belongs to one expedition. Re-entry returns cached crates, never new rolls. */
 export function createExpeditionLoot(seed: string | number) {
   const seedText = String(seed); const zones = new Map<WorldZoneId, FieldLoot[]>(); const collected = new Set<string>();
+  // Drops live beside the rolled crates, not in them: they are not part of the
+  // seed's content, and a checkpoint does not keep them.
+  const drops = new Map<WorldZoneId, FieldLoot[]>(); let dropSerial = 0;
   function enterZone(geometry: LootZoneGeometry): FieldLoot[] {
     if (zones.has(geometry.id)) return remaining(geometry.id);
     if (!ZONE_LOOT_RULES[geometry.id] || !finitePosition(geometry.spawn) || !Object.values(geometry.bounds).every(Number.isFinite) ||
@@ -218,7 +226,23 @@ export function createExpeditionLoot(seed: string | number) {
     zones.set(geometry.id, loot);
     return remaining(geometry.id);
   }
-  function remaining(zoneId: WorldZoneId): FieldLoot[] { return (zones.get(zoneId) ?? []).filter(item => !collected.has(item.id)).map(item => ({ ...item })); }
+  function remaining(zoneId: WorldZoneId): FieldLoot[] { return [...zones.get(zoneId) ?? [], ...drops.get(zoneId) ?? []].filter(item => !collected.has(item.id)).map(item => ({ ...item })); }
+  /**
+   * A fallen enemy's weapon, left where they fell. Only enemy issue drops, and
+   * a district keeps the newest `MAX_FIELD_DROPS`; `evicted` names the ones
+   * that made room so the world can stop drawing them.
+   */
+  function drop(zoneId: WorldZoneId, catalogId: string, at: ZonePosition & { y?: number }): { loot: FieldLoot; evicted: string[] } | null {
+    const item = itemById(catalogId);
+    if (!ZONE_LOOT_RULES[zoneId] || item?.category !== 'weapon' || !isEnemyIssue(item) || !validWeaponIndex(item.family) || !finitePosition(at) || !Number.isFinite(at.y ?? 0)) return null;
+    const list = (drops.get(zoneId) ?? []).filter(entry => !collected.has(entry.id));
+    const loot: FieldLoot = { id: `drop-${zoneId}-${++dropSerial}`, zoneId, kind: 'weapon', catalogId: item.id, name: item.name, tier: item.tier,
+      x: at.x, z: at.z, y: Math.max(0, at.y ?? 0), amount: 1, placement: 'field', dropped: true };
+    list.push(loot);
+    const evicted = list.splice(0, Math.max(0, list.length - MAX_FIELD_DROPS)).map(entry => entry.id);
+    drops.set(zoneId, list);
+    return { loot: { ...loot }, evicted };
+  }
   function nearest(zoneId: WorldZoneId, player: ZonePosition & { y?: number }, radius = 2.8): FieldLoot | null {
     if (!finitePosition(player) || !Number.isFinite(player.y ?? 0) || !Number.isFinite(radius) || radius <= 0) return null;
     return remaining(zoneId).filter(item => Math.abs((item.y ?? 0) - (player.y ?? 0)) <= 1.2 && Math.hypot(item.x - player.x, (item.y ?? 0) - (player.y ?? 0), item.z - player.z) <= Math.min(radius, 2.8))
@@ -226,14 +250,14 @@ export function createExpeditionLoot(seed: string | number) {
   }
   function collect(zoneId: WorldZoneId, lootId: string, player: ZonePosition & { y?: number }): FieldLoot | null {
     if (!finitePosition(player) || !Number.isFinite(player.y ?? 0)) return null;
-    const item = (zones.get(zoneId) ?? []).find(candidate => candidate.id === lootId);
+    const item = [...zones.get(zoneId) ?? [], ...drops.get(zoneId) ?? []].find(candidate => candidate.id === lootId);
     if (!item || collected.has(item.id) || Math.abs((item.y ?? 0) - (player.y ?? 0)) > 1.2 || Math.hypot(item.x - player.x, (item.y ?? 0) - (player.y ?? 0), item.z - player.z) > 2.8) return null;
     collected.add(item.id); return { ...item };
   }
   function snapshot() {
-    return { seed: seedText, zones: [...zones.entries()].map(([id, loot]) => ({ id, loot: loot.map(item => ({ ...item })) })), collected: [...collected] };
+    return { seed: seedText, zones: [...zones.entries()].map(([id, loot]) => ({ id, loot: loot.map(item => ({ ...item })) })), collected: [...collected].filter(id => !id.startsWith('drop-')) };
   }
-  return { enterZone, remaining, nearest, collect, snapshot };
+  return { enterZone, remaining, nearest, collect, drop, snapshot };
 }
 export type ExpeditionLoot = ReturnType<typeof createExpeditionLoot>;
 

@@ -8,7 +8,7 @@ import { applyArmorDamage } from './armory-state';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage } from './fps-stance';
 import { MARINA_BOUNDS, moveInMarina, type Obstacle } from './marina-collision';
 import { FPS_WEAPONS, type WeaponSpec } from './fps-rules';
-import { getArenaRole, type ArenaRolePlugin } from './arena-roles';
+import { armamentFamilies, chooseArmament, getArenaRole, type ArenaRolePlugin } from './arena-roles';
 import './combat-event-catalog';
 import { combatPhase, combatTimeline, getCombatEvent, MAX_COMBAT_EVENTS, type CombatEventDescriptor, type CombatPlane, type MunitionPayload } from './combat-events';
 import { createCombatDirector, planTransport, type CombatRisk } from './combat-director';
@@ -19,6 +19,8 @@ export interface ArenaActor {
   id: string; name: string; bot: boolean; x: number; y: number; z: number; yaw: number; pitch: number;
   health: number; armor: number; kills: number; deaths: number; alive: boolean; respawnIn: number; weapon: number;
   shots: number; role: string; prone?: boolean; vehicle?: VehicleKind; seat?: number;
+  /** Bots: the catalog variant in their hands, which is what they drop. */
+  variant?: string;
 }
 export interface ArenaFeed { id: string; text: string; killerId?: string; victimId?: string }
 export interface ArenaSnapshot {
@@ -159,6 +161,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   let tick = 0; let elapsed = 0; let finished = false; let winner = ''; let eventId = 0; let seed = 92371;
   const feed: ArenaFeed[] = [];
   const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+  // What a bot is issued has its own stream, so the draw cannot move anything else the seed decides.
+  let armamentSeed = 51787;
+  const armamentRandom = () => { armamentSeed = (Math.imul(armamentSeed, 1664525) + 1013904223) >>> 0; return armamentSeed / 4294967296; };
   const announce = (text: string, killerId?: string, victimId?: string) => {
     feed.push({ id: String(++eventId), text, ...(killerId ? { killerId } : {}), ...(victimId ? { victimId } : {}) });
     if (feed.length > 8) feed.shift();
@@ -191,6 +196,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75, health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
       yaw: Number.isFinite(preferred?.yaw) ? preferred!.yaw! : 0, pitch: Number.isFinite(preferred?.pitch) ? clamp(preferred!.pitch!, -1.5, 1.5) : 0 });
     entry.cooldown = entry.weapons.map(() => 0); entry.reload = entry.weapons.map(() => 0); entry.rounds = entry.weapons.map(w => w.capacity);
+    if (entry.role) { const issued = chooseArmament(entry.role, armamentRandom); entry.actor.weapon = issued.family; entry.actor.variant = issued.id; }
     entry.navigation = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false;
   };
@@ -679,10 +685,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   for (let i = 0; i < count; i++) {
     const id = `bot-${i + 1}`;
     const role = getArenaRole(composition === 'mixed' ? ['assault', 'tank', 'sniper'][i % 3] : composition) ?? getArenaRole('assault')!;
-    const weapons = FPS_WEAPONS.map((w, index) => index === role.weaponIndex ? role.weapon : w);
+    const armed = armamentFamilies(role), weapons = FPS_WEAPONS.map((w, index) => armed.includes(index) ? role.weapon : w);
     addPlayer(id, `${role.name.split(' ')[0]} ${['Merlion', 'Orchid', 'Sentosa', 'Katong', 'Jewel', 'Kallang'][i]}`, role.armor, role.absorption, weapons);
     const entry = members.get(id)!; entry.role = role; entry.healthMax = role.health;
-    Object.assign(entry.actor, { bot: true, role: role.id, weapon: role.weaponIndex }); spawn(entry);
+    Object.assign(entry.actor, { bot: true, role: role.id }); spawn(entry);
   }
   return { vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
