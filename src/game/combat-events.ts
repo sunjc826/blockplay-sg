@@ -88,7 +88,10 @@ export interface CombatEventPlugin {
 export const COMBAT_AFTERMATH = 8;
 export const MAX_COMBAT_PAYLOADS = 48;
 /** Descriptors a snapshot may carry, aftermath included. */
-export const MAX_COMBAT_EVENTS = 4;
+/** Running or lingering at once: three transports and three hazards at most are active (arena-rules), the rest are aftermath. */
+export const MAX_COMBAT_EVENTS = 6;
+/** Most troops one transport carries: a truck's full benches. */
+export const MAX_TROOPS = 8;
 
 /** mulberry32: small, fast and identical on every machine. */
 export function combatRandom(seed: number) {
@@ -176,7 +179,7 @@ export function validCombatEvent(value: unknown, now: number, bounds?: { minX: n
   if (!finite(e.start) || !finite(e.heading) || !finite(e.intensity) || e.intensity < .5 || e.intensity > 2 || !finitePlane(e.target)) return false;
   if (e.start > now + 1 || now - e.start > plugin.duration + COMBAT_AFTERMATH + 1) return false;
   if (e.reach !== undefined && (!finite(e.reach) || e.reach < 0 || e.reach > 400)) return false;
-  if (e.troops !== undefined && (!Number.isInteger(e.troops) || e.troops < 1 || e.troops > 6)) return false;
+  if (e.troops !== undefined && (!Number.isInteger(e.troops) || e.troops < 1 || e.troops > MAX_TROOPS)) return false;
   return !bounds || (e.target!.x >= bounds.minX && e.target!.x <= bounds.maxX && e.target!.z >= bounds.minZ && e.target!.z <= bounds.maxZ);
 }
 

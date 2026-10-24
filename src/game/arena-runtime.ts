@@ -2,6 +2,7 @@ import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import { createVerticalMovement } from './vertical-movement';
 import { createCharacterRig, type CharacterRig } from './character-rig';
 import { arenaCharacterLook, arenaRoleColor } from './character-looks';
+import { getFaction, isFactionId } from './factions';
 import { MARINA_BOUNDS } from './marina-collision';
 import { PRONE_EYE_HEIGHT } from './fps-stance';
 import { validVehicleControls } from './vehicle-seats';
@@ -9,7 +10,7 @@ import { VEHICLE_COMBAT } from './vehicle-combat';
 import type { VehicleKind } from './vehicle-rules';
 import { validWeaponIndex } from './fps-rules';
 import * as THREE from 'three';
-import { createArena, type ArenaActor, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
+import { createArena, MAX_ARENA_ACTORS, type ArenaActor, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
 import { createProfile, resolveLoadout, restoreProfile, type ArmoryProfile } from './armory-state';
 import type { LanSession } from './lan-peer';
 import { getArenaRole } from './arena-roles';
@@ -36,12 +37,12 @@ export function validArenaInput(value: unknown): value is ArenaInput {
 }
 export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironment): value is ArenaSnapshot {
   if (!object(value) || value.type !== 'arena-snapshot' || !finite(value.tick) || value.tick < 0 || !finite(value.elapsed) || value.elapsed < 0 || value.elapsed > (environment?.endless ? 1e9 : 181) ||
-    typeof value.finished !== 'boolean' || typeof value.winner !== 'string' || value.winner.length > 80 || !Array.isArray(value.actors) || value.actors.length > 14 || !Array.isArray(value.feed) || value.feed.length > 8) return false;
+    typeof value.finished !== 'boolean' || typeof value.winner !== 'string' || value.winner.length > 80 || !Array.isArray(value.actors) || value.actors.length > MAX_ARENA_ACTORS || !Array.isArray(value.feed) || value.feed.length > 8) return false;
   const ids = new Set<string>();
   for (const actor of value.actors) {
     if (!object(actor) || typeof actor.id !== 'string' || actor.id.length > 100 || ids.has(actor.id) || typeof actor.name !== 'string' || actor.name.length > 24 ||
       !['x', 'y', 'z', 'yaw', 'pitch', 'health', 'armor', 'kills', 'deaths', 'respawnIn', 'shots', 'weapon'].every(key => finite(actor[key])) ||
-      (actor.prone !== undefined && typeof actor.prone !== 'boolean') || (actor.variant !== undefined && (typeof actor.variant !== 'string' || actor.variant.length > 40)) || !validWeaponIndex(actor.weapon) || typeof actor.alive !== 'boolean' || typeof actor.bot !== 'boolean' || typeof actor.role !== 'string' || actor.role.length > 32 ||
+      (actor.prone !== undefined && typeof actor.prone !== 'boolean') || (actor.variant !== undefined && (typeof actor.variant !== 'string' || actor.variant.length > 40)) || !validWeaponIndex(actor.weapon) || typeof actor.alive !== 'boolean' || typeof actor.bot !== 'boolean' || !isFactionId(actor.faction) || typeof actor.role !== 'string' || actor.role.length > 32 ||
       (actor.x as number) < (environment?.bounds.minX ?? -500) || (actor.x as number) > (environment?.bounds.maxX ?? 500) ||
       (actor.z as number) < (environment?.bounds.minZ ?? -500) || (actor.z as number) > (environment?.bounds.maxZ ?? 500) || (actor.y as number) < 0 || (actor.y as number) > 124 ||
       (actor.health as number) < 0 || (actor.health as number) > 300 || (actor.armor as number) < 0 || (actor.armor as number) > 150) return false;
@@ -111,7 +112,7 @@ function createAvatar(actor: ArenaActor): Avatar {
     const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 48;
     const context = canvas.getContext('2d');
     if (context) {
-      context.fillStyle = 'rgba(10,19,25,.8)'; context.fillRect(0, 0, 256, 48); context.font = '600 22px sans-serif'; context.textAlign = 'center'; context.textBaseline = 'middle'; context.fillStyle = color; context.fillText(actor.name.slice(0, 20), 128, 25);
+      context.fillStyle = 'rgba(10,19,25,.8)'; context.fillRect(0, 0, 256, 48); context.font = '600 22px sans-serif'; context.textAlign = 'center'; context.textBaseline = 'middle'; context.fillStyle = getFaction(actor).color; context.fillText(actor.name.slice(0, 20), 128, 25);
       const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
       const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: true }); resources.push(texture, material);
       label = new THREE.Sprite(material); label.position.set(0, 2.23, 0); label.scale.set(1.6, 0.3, 1); label.raycast = noRaycast; root.add(label);

@@ -222,8 +222,25 @@ favours artillery, and low-risk zones get none, with intensity rising with
 believable. With `ArenaEnvironment.reinforcements` (every expedition district
 sets it), a bot that falls does not reappear at a spawn point after 3 s. It
 waits. A transport is booked when two bots are waiting, or one has waited
-`REINFORCEMENT_WAIT` (6 s), and only one ride is on the road at a time. Each
-ride carries up to `REINFORCEMENT_SEATS` (4). `planTransport` chooses the drop
+`REINFORCEMENT_WAIT` (6 s), and only one transport is on the road at a time
+(a debug ride counts). A truck seats eight and a helicopter six
+(`REINFORCEMENT_SEATS`, capped by `MAX_TROOPS`).
+
+Rides also grow the district. `ArenaEnvironment.population` is the headcount
+transports build up to, and expedition districts set it by risk
+(`DISTRICT_POPULATION`: low 8, medium 10, high 12, against starting garrisons
+of 3–6). Empty seats are filled with fresh contractors while the district is
+below that number. With nobody waiting, a top-up ride goes out no sooner than
+`REINFORCEMENT_TOP_UP` (20 s) after the start or the last ride, so a quiet
+district fills within the first minute or two. A recruit is held in reserve,
+dead and out of snapshots, until its seat is called, so it first appears
+stepping off the transport. A match holds at most `MAX_ARENA_BOTS` (16)
+bots, and `reset()` goes back to the starting garrison. A full truck unloads
+in two files, one down each side. Concurrent events are capped per kind,
+three transports and three hazards, so a busy road never holds back a
+barrage; `MAX_COMBAT_EVENTS` (6) bounds the total including aftermath.
+
+`planTransport` chooses the drop
 from the district's patrol spawns: at least 45 m from every human, and
 preferably within 120 m so the arrival can be seen. It then picks the ride:
 
@@ -240,10 +257,11 @@ preferably within 120 m so the arrival can be seen. It then picks the ride:
   at a spawn point as before, so a district with no reachable drop still
   refills.
 
-Each trooper is a real, waiting bot, returned at its `insert` time and place,
+Each trooper is a real bot, fallen or recruited, set down at its `insert` time and place,
 facing the nearest player. The transport itself is drawn but cannot be shot
 yet (it carries `fpsEffect`, so it stops nothing either). The banner and comms
-log say "ENEMY TRUCK INBOUND · REINFORCEMENTS · 90 m to your right".
+log say "BLACK KITE TRUCK INBOUND · REINFORCEMENTS · 90 m to your right": every
+bot is a Black Kite contractor (see [factions](FACTIONS.md)).
 
 **Artillery** (built)
 

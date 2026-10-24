@@ -10,15 +10,18 @@ import { MARINA_BOUNDS, moveInMarina, type Obstacle } from './marina-collision';
 import { FPS_WEAPONS, type WeaponSpec } from './fps-rules';
 import { armamentFamilies, chooseArmament, getArenaRole, type ArenaRolePlugin } from './arena-roles';
 import './combat-event-catalog';
-import { combatPhase, combatTimeline, getCombatEvent, MAX_COMBAT_EVENTS, type CombatEventDescriptor, type CombatPlane, type MunitionPayload } from './combat-events';
+import { combatPhase, combatTimeline, getCombatEvent, MAX_COMBAT_EVENTS, MAX_TROOPS, type CombatEventDescriptor, type CombatPlane, type MunitionPayload } from './combat-events';
 import { createCombatDirector, planTransport, type CombatRisk } from './combat-director';
 import { resolveBlast, type BlastTarget } from './combat-blast';
+import { hostile, type FactionId } from './factions';
 
 /** All coordinates use metres; actor y is eye height, not the feet. */
 export interface ArenaActor {
   id: string; name: string; bot: boolean; x: number; y: number; z: number; yaw: number; pitch: number;
   health: number; armor: number; kills: number; deaths: number; alive: boolean; respawnIn: number; weapon: number;
   shots: number; role: string; prone?: boolean; vehicle?: VehicleKind; seat?: number;
+  /** Players serve with the forces; every bot is a contractor (factions.ts). */
+  faction: FactionId;
   /** Bots: the catalog variant in their hands, which is what they drop. */
   variant?: string;
 }
@@ -44,6 +47,12 @@ export interface ArenaEnvironment {
   combatEvents?: { risk: CombatRisk };
   /** Fallen bots wait for a troop transport instead of reappearing at a spawn point. */
   reinforcements?: boolean;
+  /**
+   * With reinforcements, transports fill their empty seats with fresh
+   * contractors until this many bots are in the district; defaults to the
+   * starting garrison, so only the fallen come back.
+   */
+  population?: number;
 }
 /**
  * Distance along a unit ray to the first piece of rendered cover, or anything
@@ -60,8 +69,17 @@ export interface ArenaVehicleOptions {
 export const REINFORCEMENT_WAIT = 6;
 /** A bot no transport has come for by now reappears at a spawn point, as before. */
 export const REINFORCEMENT_FALLBACK = 45;
-/** Troops per transport. */
-export const REINFORCEMENT_SEATS = 4;
+/** Troops per transport: a truck's two benches, a helicopter's two ropes. */
+export const REINFORCEMENT_SEATS = { land: MAX_TROOPS, air: 6 } as const;
+/** A garrison below strength, with nobody waiting, is topped up no sooner than this after the start or the last ride. */
+export const REINFORCEMENT_TOP_UP = 20;
+/** Most bots one match fields, recruits included. */
+export const MAX_ARENA_BOTS = 16;
+/** Most actors one match holds: every bot and room for players. */
+export const MAX_ARENA_ACTORS = MAX_ARENA_BOTS + 8;
+/** Every bot's planned route shares this many milliseconds of search per tick. */
+const NAVIGATION_BUDGET = 6;
+const CALLSIGNS = ['Merlion', 'Orchid', 'Sentosa', 'Katong', 'Jewel', 'Kallang', 'Bedok', 'Changi', 'Kranji', 'Seletar', 'Tekong', 'Ubin', 'Simei', 'Lentor', 'Dover', 'Pasir'];
 /** How long a bot trusts its last mesh line-of-sight check before casting again. */
 export const ARENA_SIGHT_RECHECK = .2;
 export const ARENA_DURATION = 180;
@@ -82,6 +100,8 @@ interface InternalActor {
   sight?: { target: string; clear: boolean; wait: number };
   /** Reinforcements: when this fallen bot started waiting for a ride, and the seat it was given. */
   waiting?: number; ride?: { event: string; slot: number };
+  /** Enlisted by a transport beyond the starting garrison; `reserve` until it first steps off one, and left out of snapshots. */
+  recruit?: boolean; reserve?: boolean;
 }
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 const finitePoint = (p: ArenaPoint) => p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z);
@@ -168,6 +188,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     feed.push({ id: String(++eventId), text, ...(killerId ? { killerId } : {}), ...(victimId ? { victimId } : {}) });
     if (feed.length > 8) feed.shift();
   };
+  let quiet = false;
   const groundObstacles = obstacles.filter(o => (o.maxY ?? 200) > 0.15);
   const clearSpawn = (p: { x: number; z: number }) => Number.isFinite(p.x) && Number.isFinite(p.z) &&
     p.x - 0.5 >= bounds.minX && p.x + 0.5 <= bounds.maxX && p.z - 0.5 >= bounds.minZ && p.z + 0.5 <= bounds.maxZ &&
@@ -197,7 +218,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       yaw: Number.isFinite(preferred?.yaw) ? preferred!.yaw! : 0, pitch: Number.isFinite(preferred?.pitch) ? clamp(preferred!.pitch!, -1.5, 1.5) : 0 });
     entry.cooldown = entry.weapons.map(() => 0); entry.reload = entry.weapons.map(() => 0); entry.rounds = entry.weapons.map(w => w.capacity);
     if (entry.role) { const issued = chooseArmament(entry.role, armamentRandom); entry.actor.weapon = issued.family; entry.actor.variant = issued.id; }
-    entry.navigation = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined;
+    entry.navigation = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false;
   };
   function sanitizeWeapons(weapons: readonly ArenaWeapon[]) {
@@ -214,16 +235,16 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return indexes.length ? indexes : [0];
   };
   function addPlayer(id: string, name: string, armor = 0, absorption = 0, weapons: readonly ArenaWeapon[] = FPS_WEAPONS, initialVitals?: Partial<ArenaVitals>, usePlayerSpawn = false, allowed?: readonly number[]) {
-    if (!id || id.length > 100 || members.has(id) || members.size >= 14) return;
+    if (!id || id.length > 100 || members.has(id) || members.size >= MAX_ARENA_ACTORS) return;
     const safeWeapons = sanitizeWeapons(weapons), allowedWeapons = allowedIndexes(safeWeapons, allowed);
     const entry: InternalActor = {
       actor: { id, name: name.trim().slice(0, 24) || 'Player', bot: false, x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0,
-        health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: allowedWeapons[0], prone: false, shots: 0, role: 'player' },
+        health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: allowedWeapons[0], prone: false, shots: 0, role: 'player', faction: 'forces' },
       healthMax: 100, armorMax: Number.isFinite(armor) ? clamp(armor, 0, 150) : 0, absorption: Number.isFinite(absorption) ? clamp(absorption, 0, 0.9) : 0,
       weapons: safeWeapons, allowedWeapons, cooldown: [], rounds: [], reload: [], playing: true, movementBudget: 2, wasReloading: false, usePlayerSpawn,
       reaction: 1, target: '', strafe: random() < 0.5 ? -1 : 1, patrol: validSpawns[0], patrolTime: 0,
     };
-    members.set(id, entry); spawn(entry); if (initialVitals) setPlayerVitals(id, initialVitals); announce(`${entry.actor.name} joined`);
+    members.set(id, entry); spawn(entry); if (initialVitals) setPlayerVitals(id, initialVitals); if (!quiet) announce(`${entry.actor.name} joined`);
   }
   function setPlayerVitals(id: string, vitals: Partial<ArenaVitals>) {
     const entry = members.get(id); if (!entry || entry.actor.bot) return;
@@ -350,6 +371,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       v.shotEnd = { x: origin.x + ray.x * nearest, y: origin.y + ray.y * nearest, z: origin.z + ray.z * nearest };
     }
     if (hull) { const before = hull.health; damageHull(hull, damage, entry); return { hitId: `vehicle-${hull.kind}`, killed: before > 0 && hull.health === 0, damage: Math.min(before, damage) }; }
+    // A round that finds one of the shooter's own side stops there and does no harm.
+    if (victim && !hostile(entry.actor, victim.actor)) return { ...EMPTY_SHOT };
     return victim ? hurtActor(victim, damage, entry) : { ...EMPTY_SHOT };
   }
   function releaseSeat(id: string) {
@@ -441,7 +464,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function startEvent(directive: Pick<CombatEventDescriptor, 'kind' | 'seed' | 'target' | 'heading' | 'intensity' | 'reach' | 'troops'>) {
     const plugin = getCombatEvent(directive.kind);
-    if (!plugin || finished || events.length >= MAX_COMBAT_EVENTS || events.filter(e => combatPhase(e.descriptor, elapsed) !== 'aftermath').length >= 3) return null;
+    // At most three of a kind at once: transports are news and hazards are not, so a busy road never holds back a barrage.
+    const alike = events.filter(e => combatPhase(e.descriptor, elapsed) !== 'aftermath' && !!getCombatEvent(e.descriptor.kind)?.hazard === !!plugin?.hazard);
+    if (!plugin || finished || events.length >= MAX_COMBAT_EVENTS || alike.length >= 3) return null;
     const target = { x: clamp(directive.target.x, bounds.minX, bounds.maxX), z: clamp(directive.target.z, bounds.minZ, bounds.maxZ) };
     const descriptor: CombatEventDescriptor = { id: `event-${++eventSerial}`, kind: plugin.id, seed: directive.seed >>> 0, start: elapsed, target,
       heading: Number.isFinite(directive.heading) ? directive.heading : 0, intensity: clamp(Number.isFinite(directive.intensity) ? directive.intensity : 1, .5, 2),
@@ -484,23 +509,33 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     // A ride whose event is gone (a reset, a cap) will never arrive: wait for the next one.
     for (const member of members.values()) if (member.ride && !events.some(e => e.descriptor.id === member.ride!.event)) member.ride = undefined;
   }
-  let nextDispatch = 0;
+  let nextDispatch = 0, nextTopUp = REINFORCEMENT_TOP_UP;
   /**
    * Books a transport for the bots waiting on one, at most one ride on the
-   * road at a time. `force` sends one now, by road or air, waiting or not.
+   * road at a time, and fills its empty seats with recruits while the
+   * district is below `population`. `force` sends one now, by road or air,
+   * waiting or not.
    */
   function dispatchReinforcements(force?: 'land' | 'air') {
     const waiting = [...members.values()].filter(m => m.actor.bot && !m.actor.alive && m.waiting !== undefined && !m.ride).sort((a, b) => a.waiting! - b.waiting!);
+    const room = Math.max(0, population - [...members.values()].filter(m => m.actor.bot).length);
     if (!force) {
-      if (elapsed < nextDispatch || [...members.values()].some(m => m.ride)) return null;
-      if (!waiting.length || (waiting.length < 2 && elapsed - waiting[0].waiting! < REINFORCEMENT_WAIT)) return null;
+      // One transport on the road at a time, booked seats or not: a debug ride counts too.
+      const onRoad = events.some(e => e.descriptor.kind.startsWith('transport') && combatPhase(e.descriptor, elapsed) !== 'aftermath');
+      if (elapsed < nextDispatch || onRoad || [...members.values()].some(m => m.ride)) return null;
+      // A lone casualty waits a little for company; a garrison under strength is topped up on a slower clock.
+      const due = waiting.length >= 2 || waiting.length === 1 && elapsed - waiting[0].waiting! >= REINFORCEMENT_WAIT || room > 0 && elapsed >= nextTopUp;
+      if (!due) return null;
     }
     const humans = [...members.values()].filter(m => !m.actor.bot && m.actor.alive).map(m => ({ x: m.actor.x, z: m.actor.z }));
     const plan = planTransport({ drops: validSpawns, humans, bounds, clearRun, openSky }, random, force);
-    const troops = waiting.slice(0, REINFORCEMENT_SEATS);
-    const descriptor = plan && startEvent({ ...plan, seed: Math.floor(random() * 0xffffffff) >>> 0, intensity: 1, troops: Math.max(1, troops.length) });
+    const seats = plan ? REINFORCEMENT_SEATS[plan.kind === 'transport-land' ? 'land' : 'air'] : 0;
+    const troops = waiting.slice(0, seats), recruits = Math.min(room, seats - troops.length);
+    const descriptor = plan && startEvent({ ...plan, seed: Math.floor(random() * 0xffffffff) >>> 0, intensity: 1, troops: Math.max(1, troops.length + recruits) });
     if (!descriptor) { nextDispatch = elapsed + 5; return null; }
+    for (let i = 0; i < recruits; i++) troops.push(enlist(true));
     troops.forEach((member, slot) => { member.ride = { event: descriptor.id, slot }; });
+    nextTopUp = elapsed + REINFORCEMENT_TOP_UP;
     return descriptor;
   }
   /** A waiting bot steps off its transport at `at`, or at the drop if that spot is blocked. */
@@ -587,7 +622,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function stepBot(entry: InternalActor, dt: number) {
     const actor = entry.actor;
     const role = entry.role!;
-    const enemies = [...members.values()].filter(m => m !== entry && m.actor.alive);
+    const enemies = [...members.values()].filter(m => m !== entry && m.actor.alive && hostile(actor, m.actor));
     const enemy = enemies.sort((a, b) => distance(actor, a.actor) * (a.actor.bot ? 1.1 : 1) - distance(actor, b.actor) * (b.actor.bot ? 1.1 : 1))[0];
     entry.patrolTime -= dt;
     if (entry.patrolTime <= 0) { entry.patrol = validSpawns[Math.floor(random() * validSpawns.length)]; entry.patrolTime = 3 + random() * 3; entry.strafe *= -1; }
@@ -613,7 +648,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if(entry.navigation?.pending){
         // Cold graph edges are checked over several frames, never in one long
         // synchronous search. Six bots share at most roughly 6 ms per tick.
-        const deadline=performance.now()+1;
+        const deadline=Math.min(performance.now()+1,navigationDeadline);
         do{const result=entry.navigation.pending.next();if(result.done){entry.navigation.path=result.value;entry.navigation.pending=undefined;break;}}while(performance.now()<deadline);
         // Hold position while a fresh path is planned so its start remains valid.
         dxStep=0;dzStep=0;
@@ -641,8 +676,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       entry.reaction = (Number.isFinite(intent.shotDelay) ? clamp(intent.shotDelay, 0.1, 5) : 0.5) + random() * 0.15;
     }
   }
+  let navigationDeadline = 0;
   function step(dt: number) {
     if (finished || !Number.isFinite(dt) || dt <= 0) return;
+    navigationDeadline = performance.now() + NAVIGATION_BUDGET;
     dt = Math.min(dt, 0.25); elapsed = environment?.endless ? elapsed + dt : Math.min(ARENA_DURATION, elapsed + dt); tick++;
     for (let remaining = dt; remaining > 1e-6; remaining -= Math.min(.05, remaining)) stepVehicles(Math.min(.05, remaining));
     stepEvents();
@@ -672,24 +709,38 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
   }
   function snapshot(): ArenaSnapshot {
-    return { type: 'arena-snapshot', tick, elapsed, actors: [...members.values()].map(m => ({ ...m.actor })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
+    return { type: 'arena-snapshot', tick, elapsed, actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
       ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target } })) } : {}) };
   }
   function reset() {
     tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; controls.clear(); events.length = 0; director?.reset();
+    // Back to the starting garrison: recruits were the reinforcements' doing.
+    for (const [id, entry] of members) if (entry.recruit) members.delete(id);
+    enlisted = count; nextDispatch = 0; nextTopUp = REINFORCEMENT_TOP_UP;
     vehicles = vehicleOptions ? (['car', 'helicopter'] as const).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind])) : [];
     for (const entry of members.values()) { entry.actor.kills = 0; entry.actor.deaths = 0; entry.actor.shots = 0; spawn(entry); }
     announce('New arena match');
   }
   const count = Number.isFinite(botCount) ? Math.floor(clamp(botCount, 0, 6)) : 0;
-  for (let i = 0; i < count; i++) {
-    const id = `bot-${i + 1}`;
+  const population = environment?.reinforcements && Number.isFinite(environment.population) ? Math.floor(clamp(environment.population!, count, MAX_ARENA_BOTS)) : count;
+  let enlisted = 0;
+  /**
+   * Signs up the next contractor. The garrison spawns at once; a recruit is
+   * held in reserve, dead and waiting, until the transport that booked it
+   * sets it down.
+   */
+  function enlist(recruit = false) {
+    const i = enlisted++, id = `bot-${i + 1}`;
     const role = getArenaRole(composition === 'mixed' ? ['assault', 'tank', 'sniper'][i % 3] : composition) ?? getArenaRole('assault')!;
     const armed = armamentFamilies(role), weapons = FPS_WEAPONS.map((w, index) => armed.includes(index) ? role.weapon : w);
-    addPlayer(id, `${role.name.split(' ')[0]} ${['Merlion', 'Orchid', 'Sentosa', 'Katong', 'Jewel', 'Kallang'][i]}`, role.armor, role.absorption, weapons);
+    // Recruits arrive unannounced: the transport's banner is their entrance.
+    quiet = recruit; addPlayer(id, `${role.name.split(' ')[0]} ${CALLSIGNS[i % CALLSIGNS.length]}`, role.armor, role.absorption, weapons); quiet = false;
     const entry = members.get(id)!; entry.role = role; entry.healthMax = role.health;
-    Object.assign(entry.actor, { bot: true, role: role.id }); spawn(entry);
+    Object.assign(entry.actor, { bot: true, role: role.id, faction: 'mercenaries' }); spawn(entry);
+    if (recruit) { entry.recruit = true; entry.reserve = true; Object.assign(entry.actor, { alive: false, respawnIn: 0 }); entry.waiting = elapsed; }
+    return entry;
   }
+  for (let i = 0; i < count; i++) enlist();
   return { vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 

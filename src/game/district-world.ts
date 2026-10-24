@@ -18,13 +18,17 @@ export function patrolSpawns(id: WorldZoneId): readonly ZonePosition[] {
   return [...zone.encounterSpawns, ...fromSectors];
 }
 
+/** Contractors a district builds up to through its transports, starting garrison included. */
+export const DISTRICT_POPULATION = { low: 8, medium: 10, high: 12 } as const;
+
 /** Build exactly one district. The caller disposes it before entering another. */
 export function buildDistrictWorld(id: WorldZoneId, arrival?: ZoneSpawn) {
   const zone = getWorldZone(id), region = getRegion(id);
   const world = region.build();
   const { bounds, move } = region;
   const environment: ArenaEnvironment = { bounds, move, spawns: patrolSpawns(id), endless: true, playerSpawn: arrival ?? zone.spawn,
-    // The open world is where events happen: random strikes paced by risk, and the dead return on transports.
-    combatEvents: { risk: zone.risk }, reinforcements: true };
+    // The open world is where events happen: random strikes paced by risk, and the dead return on transports,
+    // which also bring fresh contractors in until the district holds its risk's headcount.
+    combatEvents: { risk: zone.risk }, reinforcements: true, population: DISTRICT_POPULATION[zone.risk] };
   return { ...world, zone, bounds, move, environment };
 }

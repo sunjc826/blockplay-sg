@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createArena, REINFORCEMENT_FALLBACK, type ArenaActor, type ArenaEnvironment, type ArenaSimulation } from './arena-rules';
+import { createArena, REINFORCEMENT_FALLBACK, REINFORCEMENT_SEATS, REINFORCEMENT_TOP_UP, type ArenaActor, type ArenaEnvironment, type ArenaSimulation } from './arena-rules';
 import { validArenaSnapshot } from './arena-runtime';
 import { combatTimeline, getCombatEvent, type CombatEventDescriptor, type InsertPayload } from './combat-events';
 
@@ -120,11 +120,60 @@ describe('reinforcements', () => {
     advance(arena, 3.1);
     expect(actor(arena, 'bot-1').alive).toBe(true);
   });
+  it('never lets transports on the road hold back a barrage', () => {
+    const arena = createArena([], 0, 'mixed', open(spawns, { reinforcements: true }));
+    arena.addPlayer('one', 'Alpha', 0, 0, undefined, undefined, true);
+    for (const kind of ['transport-land', 'transport-air', 'transport-land']) expect(arena.triggerEvent(kind)).toBeTruthy();
+    expect(arena.triggerEvent('artillery')?.kind).toBe('artillery');
+  });
   it('can be called on demand by road or by air', () => {
     const arena = createArena([], 0, 'mixed', open(spawns, { reinforcements: true }));
     arena.addPlayer('one', 'Alpha', 0, 0, undefined, undefined, true);
     expect(arena.triggerEvent('transport-air')?.kind).toBe('transport-air');
     advance(arena, 1);
     expect(arena.triggerEvent('transport-land')?.kind).toBe('transport-land');
+  });
+  it('tops an under-strength district up with full transports of fresh contractors, and no further', () => {
+    const arena = createArena([], 1, 'assault', open(spawns, { reinforcements: true, population: 7 }));
+    arena.addPlayer('one', 'Alpha', 0, 0, undefined, undefined, true);
+    arena.setPlayerHealthMultiplier('one', 10);
+    const bots = () => arena.snapshot().actors.filter(a => a.bot);
+    advance(arena, REINFORCEMENT_TOP_UP - 1);
+    expect(arena.snapshot().events).toBeUndefined();
+    // Recruits ride in reserve: nobody sees them until they step off.
+    let ride: CombatEventDescriptor | undefined, most = 0;
+    advance(arena, 90, () => {
+      ride ??= arena.snapshot().events?.find(e => e.kind.startsWith('transport'));
+      most = Math.max(most, bots().length);
+      if (!ride) expect(bots()).toHaveLength(1);
+    });
+    expect(ride!.troops).toBe(Math.min(6, REINFORCEMENT_SEATS[ride!.kind === 'transport-land' ? 'land' : 'air']));
+    expect(most).toBe(7);
+    expect(bots().every(b => b.faction === 'mercenaries')).toBe(true);
+    expect(new Set(bots().map(b => b.name)).size).toBe(7);
+    expect(arena.snapshot().feed.some(f => f.text.endsWith('joined') && f.text !== 'Alpha joined' && !f.text.includes('Merlion'))).toBe(false);
+    expect(validArenaSnapshot(arena.snapshot(), open(spawns))).toBe(true);
+    arena.reset();
+    expect(bots()).toHaveLength(1);
+  });
+});
+
+describe('factions', () => {
+  const spawns = [{ x: 0, z: 0 }, { x: 30, z: 0 }, { x: -30, z: 0 }];
+  it('puts players with the forces and bots with the contractors', () => {
+    const arena = createArena([], 2, 'assault', open(spawns));
+    arena.addPlayer('one', 'Alpha', 0, 0, undefined, undefined, true);
+    expect(actor(arena, 'one').faction).toBe('forces');
+    expect(actor(arena, 'bot-1').faction).toBe('mercenaries');
+    const snapshot = arena.snapshot();
+    expect(validArenaSnapshot({ ...snapshot, actors: snapshot.actors.map(a => ({ ...a, faction: 'pirates' })) }, open(spawns))).toBe(false);
+  });
+  it('keeps contractors from fighting each other: no targets among their own and no harm from their rounds', () => {
+    const arena = createArena([], 3, 'assault', open(spawns));
+    advance(arena, 30);
+    expect(arena.snapshot().actors.every(a => a.alive && a.kills === 0 && a.health === 100)).toBe(true);
+    const shot = shootDead(arena, 'bot-1', actor(arena, 'bot-2'));
+    expect(shot.damage).toBe(0);
+    expect(actor(arena, 'bot-2').health).toBe(100);
   });
 });

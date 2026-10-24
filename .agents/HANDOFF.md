@@ -2301,3 +2301,36 @@ headless Chrome (swiftshader), normalScale 1 vs 0, fixture sun and a raking
 light: concrete rims and walls, wood fibres, metal dimples and the glass pit now
 shade visibly. Not done: glass crack lines and blood have no relief of their own
 (the crack painter's height is only the central pit).
+
+## 2026-10-24: factions, uniforms, and fuller troop transports
+
+Two defined sides (docs/FACTIONS.md): players are the Armed Forces, every bot
+a Black Kite contractor (fictional PMC). Transports now carry full loads and
+grow each district's headcount.
+- factions.ts: FACTIONS registry (name, colour, uniform, camo, badges),
+  `factionOf`, `hostile`. `ArenaActor.faction` is host-set and validated.
+  Bots only target hostile actors, and same-side rounds stop without damage.
+  Players stay hostile to players (LAN free-for-all unchanged). Bots used to
+  fight each other too; arena-rules.test's bots-only attack test now adds a player.
+- character-rig: `camo` (printCamo patches the material in onBeforeCompile:
+  per-fragment `digital`/`blotch` pattern from bone-local position on parts
+  flagged `fabric`), `patches` (sleeve badges at local -side·x because the arm
+  IK puts +x on the hinge; chest badge), `eyewear`. character-looks dresses by
+  faction then role. Name labels use the faction colour.
+- Reinforcements: REINFORCEMENT_SEATS {land 8, air 6} (MAX_TROOPS 8); empty
+  seats take recruits (held `reserve`, out of snapshots, until set down) up to
+  `ArenaEnvironment.population` (DISTRICT_POPULATION low 8 / medium 10 /
+  high 12). Top-ups wait REINFORCEMENT_TOP_UP (20 s); one transport on the
+  road at a time; trucks unload in two files when >4. MAX_ARENA_BOTS 16,
+  MAX_ARENA_ACTORS 24, MAX_COMBAT_EVENTS 6, and the active cap is now 3 per kind
+  (transports vs hazards). Bot route search shares a 6 ms/tick budget.
+- Scoreboard caption counts by faction; banners say BLACK KITE / MERCENARIES.
+Validation: full vitest, typecheck. faction-uniforms fixture reviewed in
+headless Chrome (swiftshader). A Marina expedition soak (AI pilot) went from
+4 to 10 contractors on one truck at about 50 s, with director artillery still
+firing and no runtime errors. `pnpm test:combat-events` in this container
+fails on the banner-timing and ≥4-craters steps, and fails the same way on
+the base commit (f817a9d); the new headcount assertion was added to it.
+With 10–12 contractors the AI pilot dies noticeably more often.
+Next idea from the owner: per-faction district "heat" (GTA / L4D director)
+driving headcount, spawn rate and equipment.

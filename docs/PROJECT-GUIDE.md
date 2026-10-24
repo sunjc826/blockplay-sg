@@ -311,7 +311,7 @@ The armory is accessed from each region’s FPS briefing or pause screen. It inc
 
 The open world also has **combat events**. Artillery strikes land at random times and places around you, more often in higher-threat districts: a banner and a red ring on the ground give a five-second warning, two spotting rounds walk in, then the salvo lands. Get out of the ring, or go prone behind something solid. Fallen patrols no longer reappear at a spawn point: they come back in groups by troop truck or helicopter, dropped well away from you, and the banner and comms log say where. **Debug survival** can switch random strikes off and call in artillery, a truck or a helicopter on demand. See [combat events](COMBAT-EVENTS.md).
 
-**Solo arena** runs locally against up to six bots with mixed, assault, tank or sniper compositions. The full local build labels this entry **LAN arena**; choose **Solo vs bots** inside it. Multiplayer host/join requires the separate LAN server.
+**Solo arena** runs locally against up to six bots (Black Kite contractors, who fight only the player) with mixed, assault, tank or sniper compositions. The full local build labels this entry **LAN arena**; choose **Solo vs bots** inside it. Multiplayer host/join requires the separate LAN server.
 
 Bots, other players and expedition locals share one articulated character: soldiers walk, strafe, crouch, go prone, ride in vehicles, keep both hands on their weapon, flinch when hit and fall when killed (a falling body never blocks shots). Locals look toward you, turn to face you nearby, wave as you arrive and gesture when you talk to or buy from them.
 
@@ -481,7 +481,8 @@ To serve companions and LAN from one origin, route `/api/adventure/*` to the com
 - `src/components/*Game.tsx`: game views and HUDs; `SingaporeMap.tsx`: island locator.
 - `src/game/*-scene.ts` and `*-collision.ts`: authored worlds and deterministic collisions.
 - `src/game/fps-engine.ts`: shared FPS rendering/input; `arena-*.ts`: bots and match rules.
-- `src/game/character-rig.ts`: articulated, procedurally animated humanoid (IK limbs, gait, stances, gestures) shared by arena bots, remote players and expedition NPCs; `character-looks.ts` dresses them by role. Pose review: `scripts/fixtures/character-render.html`, in-district: `character-world.html`.
+- `src/game/character-rig.ts`: articulated, procedurally animated humanoid (IK limbs, gait, stances, gestures) shared by arena bots, remote players and expedition NPCs; `character-looks.ts` dresses them by faction and role, including shader-printed camouflage and sewn badges. Pose review: `scripts/fixtures/character-render.html`, uniforms: `faction-uniforms.html`, in-district: `character-world.html`.
+- `src/game/factions.ts`: the two sides. Players are the Armed Forces and bots are Black Kite contractors; `hostile` decides who bots target and whose rounds hurt whom. See [factions](FACTIONS.md).
 - `src/game/world-zones.ts`: district/checkpoint graph.
 - `src/components/AdventureCompanion.tsx`, `RegionGuide.tsx`: companion panels.
 - `src/game/adventure.ts`, `learning-guide.ts`: objective and read-only guide adapters.

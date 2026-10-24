@@ -52,7 +52,7 @@ it('offers the expedition its supplies and checkpoints, and the range its vehicl
   expect(range).not.toContain('data-touch-action="travel"');
 
   // No nearby vehicle means no entry prompt even in a shared arena.
-  const arena = layer(playing({ arenaSelf: { id: 'self', name: 'You', role: 'player', bot: false, alive: true, kills: 0, deaths: 0, health: 100, armor: 0, respawnIn: 0, x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0, weapon: 0, shots: 0 } }), 'arena');
+  const arena = layer(playing({ arenaSelf: { id: 'self', name: 'You', role: 'player', faction: 'forces', bot: false, alive: true, kills: 0, deaths: 0, health: 100, armor: 0, respawnIn: 0, x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0, weapon: 0, shots: 0 } }), 'arena');
   expect(arena).not.toContain('data-touch-action="vehicle"');
   expect(arena).not.toContain('data-touch-action="loot"');
 });

@@ -10,6 +10,7 @@ import { rankInsignia } from '../game/rank-insignia';
 import { encikAddress, resolveLoadout, type ArmoryProfile, type ExerciseReward } from '../game/armory-state';
 import type { LanSession } from '../game/lan-peer';
 import { ARENA_DURATION, ARENA_KILL_LIMIT, type ArenaSnapshot } from '../game/arena-rules';
+import { FACTIONS, factionOf } from '../game/factions';
 import FpsMinimap from './FpsMinimap';
 import RankBadge from './RankBadge';
 import FpsWeaponHud from './FpsWeaponHud';
@@ -25,7 +26,7 @@ import './arena-hud.css';
 type ArenaOptions = { session: LanSession; botCount: number; composition: string };
 function Scoreboard({ snapshot, selfId }: { snapshot: ArenaSnapshot; selfId: string }) {
   const actors = [...snapshot.actors].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths || a.name.localeCompare(b.name));
-  return <div className="arena-scoreboard"><table><caption>MATCH STANDINGS <span>{actors.filter(actor => !actor.bot).length} PLAYERS · {actors.filter(actor => actor.bot).length} BOTS</span></caption><thead><tr><th scope="col">OPERATOR</th><th scope="col">ROLE</th><th scope="col">K</th><th scope="col">D</th></tr></thead><tbody>{actors.map((actor, index) => <tr key={actor.id} className={actor.id === selfId ? 'is-self' : ''}><td><span className="arena-place">{index + 1}</span>{actor.name}{actor.id === selfId && <small>YOU</small>}{actor.bot && <small>BOT</small>}</td><td>{actor.role === 'player' ? 'Operator' : actor.role}</td><td>{actor.kills}</td><td>{actor.deaths}</td></tr>)}</tbody></table></div>;
+  return <div className="arena-scoreboard"><table><caption>MATCH STANDINGS <span>{actors.filter(actor => factionOf(actor) === 'forces').length} {FACTIONS.forces.name.toUpperCase()} · {actors.filter(actor => factionOf(actor) === 'mercenaries').length} {FACTIONS.mercenaries.short}</span></caption><thead><tr><th scope="col">OPERATOR</th><th scope="col">ROLE</th><th scope="col">K</th><th scope="col">D</th></tr></thead><tbody>{actors.map((actor, index) => <tr key={actor.id} className={actor.id === selfId ? 'is-self' : ''}><td><span className="arena-place">{index + 1}</span>{actor.name}{actor.id === selfId && <small>YOU</small>}{actor.bot && <small>BOT</small>}</td><td>{actor.role === 'player' ? 'Operator' : actor.role}</td><td>{actor.kills}</td><td>{actor.deaths}</td></tr>)}</tbody></table></div>;
 }
 
 export default function FpsGame({ region = 'marina-bay', suspended = false, profile, onReward, onElimination, onConsume, onOpenShop, arena, onLeaveArena }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; onReward: (result: ExerciseReward) => void; onElimination: (id: string) => void; onConsume: (id: string) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
