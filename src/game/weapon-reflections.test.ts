@@ -6,7 +6,7 @@ import { FPS_WEAPONS } from './fps-rules';
 
 function fixture() {
   const original = new THREE.WebGLRenderTarget(8, 8);
-  const renderer = { getRenderTarget: () => original, setRenderTarget: vi.fn(), clear: vi.fn(), render: vi.fn(), shadowMap: { autoUpdate: true }, xr: { enabled: true } };
+  const renderer = { getDrawingBufferSize: (size: THREE.Vector2) => size.set(1600, 900), getRenderTarget: () => original, setRenderTarget: vi.fn(), clear: vi.fn(), render: vi.fn(), shadowMap: { autoUpdate: true }, xr: { enabled: true } };
   const reflections = createOpticReflectionRenderer(renderer as unknown as THREE.WebGLRenderer);
   const model = new THREE.Group(), remove = fitWeaponOptic(model, FPS_WEAPONS[1]), sight = getWeaponSight(model)!;
   model.position.set(0, -sight.aimHeight, sight.aimDepth);
@@ -14,7 +14,7 @@ function fixture() {
   return { original, renderer, reflections, model, sight, world, camera, view, dispose() { remove(); reflections.dispose(); original.dispose(); } };
 }
 
-it('captures actual scenery behind the lens, throttles it, and reprojects between captures', () => {
+it('captures actual scenery behind the lens, throttles it at the hip, and reprojects between captures', () => {
   const f = fixture(), glass = f.sight.reflection!;
   expect(f.reflections.render(f.world, f.camera, f.view, glass, false, 0)).toBe(false);
   expect(f.renderer.render).not.toHaveBeenCalled();
@@ -26,12 +26,17 @@ it('captures actual scenery behind the lens, throttles it, and reprojects betwee
   expect(glass.uniforms.reflectionReady.value).toBe(1);
   expect(f.renderer.setRenderTarget).toHaveBeenLastCalledWith(f.original);
   expect(f.renderer.shadowMap.autoUpdate).toBe(true); expect(f.renderer.xr.enabled).toBe(true);
+  // The capture covers the cone the lens reflects, not a fixed 110° view.
+  expect(capture.fov).toBeLessThan(80); expect(capture.fov).toBeGreaterThan(16);
+  expect(glass.uniforms.reflectionTanHalfFov.value).toBeCloseTo(Math.tan(THREE.MathUtils.degToRad(capture.fov / 2)));
+  // Aimed optics refresh every frame.
+  expect(f.reflections.render(f.world, f.camera, f.view, glass, true, .016)).toBe(true);
   const matrix = glass.uniforms.reflectionViewToCapture.value.clone();
   f.camera.rotation.y = .2;
-  expect(f.reflections.render(f.world, f.camera, f.view, glass, true, .05)).toBe(false);
+  expect(f.reflections.render(f.world, f.camera, f.view, glass, true, .03, 0)).toBe(false);
   expect(glass.uniforms.reflectionViewToCapture.value.equals(matrix)).toBe(false);
-  expect(f.reflections.render(f.world, f.camera, f.view, glass, true, .125)).toBe(true);
-  expect(f.renderer.render).toHaveBeenCalledTimes(2);
+  expect(f.reflections.render(f.world, f.camera, f.view, glass, true, .066, 0)).toBe(true);
+  expect(f.renderer.render).toHaveBeenCalledTimes(3);
   f.dispose();
 });
 

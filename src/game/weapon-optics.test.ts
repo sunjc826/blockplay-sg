@@ -42,7 +42,7 @@ it.each([1.5, 1.75])('keeps SAR %s× glass visible at hip and layers it over PiP
   const root = new THREE.Group(), native = new THREE.Group(); native.name = 'sar21-inspired__optic'; root.add(native);
   const remove = fitWeaponOptic(root, { ...FPS_WEAPONS[0], optic: magnification > 1.5 ? 'precision' : 'integrated', aimFov: magnifiedFov(magnification) });
   const sight = getWeaponSight(root)!, coating = sight.reflection!.surface;
-  const renderer = { getRenderTarget: vi.fn(() => null), setRenderTarget: vi.fn(), clear: vi.fn(), render: vi.fn() };
+  const renderer = { getDrawingBufferSize: (size: THREE.Vector2) => size.set(1600, 900), getRenderTarget: vi.fn(() => null), setRenderTarget: vi.fn(), clear: vi.fn(), render: vi.fn() };
   const scope = createScopeRenderer(renderer as unknown as THREE.WebGLRenderer);
   const camera = new THREE.PerspectiveCamera(65, 1, .01, 800), world = new THREE.Scene();
   root.position.set(0, -sight.aimHeight, sight.aimDepth); root.updateMatrixWorld(true);
@@ -102,7 +102,7 @@ it('seats the Ultimax optic on the shipped receiver and clears the aiming line',
 });
 
 it('renders PiP only for active magnified sights and restores the render target', () => {
-  const renderer = { getRenderTarget: vi.fn(() => null), setRenderTarget: vi.fn(), clear: vi.fn(), render: vi.fn() };
+  const renderer = { getDrawingBufferSize: (size: THREE.Vector2) => size.set(1600, 900), getRenderTarget: vi.fn(() => null), setRenderTarget: vi.fn(), clear: vi.fn(), render: vi.fn() };
   const scope = createScopeRenderer(renderer as unknown as THREE.WebGLRenderer);
   const root = new THREE.Group(), remove = fitWeaponOptic(root, FPS_WEAPONS[0]), sight = getWeaponSight(root)!;
   root.position.set(0, -.328, -.36); root.updateMatrixWorld(true);

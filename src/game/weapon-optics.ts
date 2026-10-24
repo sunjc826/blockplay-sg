@@ -164,10 +164,11 @@ export function scopeFov(worldFov: number, lensFraction: number, magnification: 
 }
 
 export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
-  // One reusable 384px PiP target. Lens reflections have their own throttled pass.
+  // One reusable PiP target, sized to the lens's on-screen pixels so the image
+  // is not upscaled in fullscreen or at high DPI. Lens reflections have their own pass.
   const target = new THREE.WebGLRenderTarget(384, 384, { depthBuffer: true, stencilBuffer: false });
   const camera = new THREE.PerspectiveCamera();
-  const lensPosition = new THREE.Vector3();
+  const lensPosition = new THREE.Vector3(), buffer = new THREE.Vector2();
   return {
     render(world: THREE.Scene, worldCamera: THREE.PerspectiveCamera, viewCamera: THREE.PerspectiveCamera, sight: WeaponSight | undefined, active: boolean, aimProgress = 1) {
       if (!sight) return false;
@@ -181,6 +182,10 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
       const fraction = sight.radius / (Math.max(.01, depth) * Math.tan(THREE.MathUtils.degToRad(viewCamera.fov / 2)));
       camera.copy(worldCamera); camera.aspect = 1;
       camera.fov = scopeFov(worldCamera.fov, fraction, sight.magnification); camera.updateProjectionMatrix();
+      // `fraction` is the lens radius over half the view height, so this is its
+      // diameter in drawing-buffer pixels, in 128px steps to avoid reallocating.
+      const size = THREE.MathUtils.clamp(Math.ceil(fraction * renderer.getDrawingBufferSize(buffer).y / 128) * 128, 384, 1024);
+      if (target.width !== size) target.setSize(size, size);
       const previous = renderer.getRenderTarget();
       renderer.setRenderTarget(target); renderer.clear(); renderer.render(world, camera); renderer.setRenderTarget(previous);
       if (sight.lens.material.map !== target.texture) {

@@ -2183,3 +2183,18 @@ texture and fades per instance instead of popping, and a churned-foam patch
 lies on the surface. Shader ripples take the calibre size (clamp raised to 3).
 impact-materials.html gained a pond and window.splash(seconds, weapon,
 grazing). Calibre-impact deploy af76e6e passed (run 40066316246).
+
+## 2026-10-24: sharper, smoother optic reflections and scope image
+
+The coated-glass reflection (weapon-reflections.ts) was a fixed 110° capture at
+192px, refreshed 8×/s, so the lens showed only ~30–60 texels of it. Its FOV is
+now fitted to the cone the curved lens actually reflects (per-vertex reflected
+eye rays, plus a 3° aimed / 9° hip reprojection margin): ~16° for the SAR scope
+and ~43° for the reflex when aimed. The target is sized to the lens's on-screen
+diameter (256–1024px, 128px steps). Aimed optics (aimProgress > .5) capture
+every frame; hip captures stay throttled to 20/s. The ring's degenerate centre
+normals are skipped, or they force the 110° clamp. The magnified PiP target
+(createScopeRenderer) likewise follows the lens's on-screen diameter (384–1024px)
+instead of a fixed 384. Cost: one extra narrow-frustum scene pass per frame
+while aimed with an optic. Unit tests, typecheck, fps-optics and
+fps-reflex-render smokes pass (swiftshader; no real-GPU frame timing taken).
