@@ -2,6 +2,7 @@ import { getRegion } from './regions';
 import { getWorldZone, type WorldZoneId, type ZonePosition, type ZoneSpawn } from './world-zones';
 import { zoneSectors } from './zone-sectors';
 import type { ArenaEnvironment } from './arena-rules';
+import { DISTRICT_HEAT } from './faction-heat';
 
 /**
  * Where patrols may appear. A district used to offer six points; a sectored one
@@ -18,17 +19,15 @@ export function patrolSpawns(id: WorldZoneId): readonly ZonePosition[] {
   return [...zone.encounterSpawns, ...fromSectors];
 }
 
-/** Contractors a district builds up to through its transports, starting garrison included. */
-export const DISTRICT_POPULATION = { low: 8, medium: 10, high: 12 } as const;
-
 /** Build exactly one district. The caller disposes it before entering another. */
 export function buildDistrictWorld(id: WorldZoneId, arrival?: ZoneSpawn) {
   const zone = getWorldZone(id), region = getRegion(id);
   const world = region.build();
   const { bounds, move } = region;
   const environment: ArenaEnvironment = { bounds, move, spawns: patrolSpawns(id), endless: true, playerSpawn: arrival ?? zone.spawn,
-    // The open world is where events happen: random strikes paced by risk, and the dead return on transports,
-    // which also bring fresh contractors in until the district holds its risk's headcount.
-    combatEvents: { risk: zone.risk }, reinforcements: true, population: DISTRICT_POPULATION[zone.risk] };
+    // The open world is where events happen: random strikes paced by risk, and the dead return on transports.
+    // Faction heat, by sector, decides how many troops each side sends, where, how often and how well kitted.
+    combatEvents: { risk: zone.risk }, reinforcements: true,
+    heat: { defaults: DISTRICT_HEAT[zone.risk], sectors: zoneSectors(id).map(s => ({ id: s.id, parent: s.parent, bounds: s.bounds, weight: s.botWeight ?? s.lootWeight, heat: s.heat })) } };
   return { ...world, zone, bounds, move, environment };
 }

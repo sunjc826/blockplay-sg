@@ -7,6 +7,7 @@
  * a timeline of payloads with a pure function, so whoever renders an event
  * computes exactly the shells the host resolves, from a handful of numbers.
  */
+import { isFactionId, type FactionId } from './factions';
 
 export interface CombatPlane { x: number; z: number }
 export interface CombatVector { x: number; y: number; z: number }
@@ -28,6 +29,8 @@ export interface CombatEventDescriptor {
   reach?: number;
   /** Transports: how many troops it carries. */
   troops?: number;
+  /** Transports: whose troops; absent means the contractors'. */
+  faction?: FactionId;
 }
 export interface BlastSpec {
   radius: number; damage: number;
@@ -180,6 +183,7 @@ export function validCombatEvent(value: unknown, now: number, bounds?: { minX: n
   if (e.start > now + 1 || now - e.start > plugin.duration + COMBAT_AFTERMATH + 1) return false;
   if (e.reach !== undefined && (!finite(e.reach) || e.reach < 0 || e.reach > 400)) return false;
   if (e.troops !== undefined && (!Number.isInteger(e.troops) || e.troops < 1 || e.troops > MAX_TROOPS)) return false;
+  if (e.faction !== undefined && !isFactionId(e.faction)) return false;
   return !bounds || (e.target!.x >= bounds.minX && e.target!.x <= bounds.maxX && e.target!.z >= bounds.minZ && e.target!.z <= bounds.maxZ);
 }
 

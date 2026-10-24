@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createArena, REINFORCEMENT_FALLBACK, REINFORCEMENT_SEATS, REINFORCEMENT_TOP_UP, type ArenaActor, type ArenaEnvironment, type ArenaSimulation } from './arena-rules';
 import { validArenaSnapshot } from './arena-runtime';
+import { DISTRICT_HEAT, FACTION_SCALE } from './faction-heat';
 import { combatTimeline, getCombatEvent, type CombatEventDescriptor, type InsertPayload } from './combat-events';
 
 const open = (spawns: { x: number; z: number }[], extra: Partial<ArenaEnvironment> = {}): ArenaEnvironment => ({
@@ -8,6 +9,8 @@ const open = (spawns: { x: number; z: number }[], extra: Partial<ArenaEnvironmen
   move: (p, dx, dz) => ({ x: p.x + dx, z: p.z + dz }), endless: true, playerSpawn: { x: 0, z: 0 }, ...extra,
 });
 const actor = (arena: ArenaSimulation, id: string) => arena.snapshot().actors.find(a => a.id === id)!;
+/** The snapshot a guest would check, less players boosted past its 300-health limit by the solo-only multiplier. */
+const checkable = (arena: ArenaSimulation) => { const s = arena.snapshot(); return { ...s, actors: s.actors.filter(a => a.health <= 300) }; };
 function advance(arena: ArenaSimulation, seconds: number, each?: () => void) {
   for (let remaining = seconds; remaining > 1e-8; remaining -= .1) { arena.step(Math.min(.1, remaining)); each?.(); }
 }
@@ -152,7 +155,7 @@ describe('reinforcements', () => {
     expect(bots().every(b => b.faction === 'mercenaries')).toBe(true);
     expect(new Set(bots().map(b => b.name)).size).toBe(7);
     expect(arena.snapshot().feed.some(f => f.text.endsWith('joined') && f.text !== 'Alpha joined' && !f.text.includes('Merlion'))).toBe(false);
-    expect(validArenaSnapshot(arena.snapshot(), open(spawns))).toBe(true);
+    expect(validArenaSnapshot(checkable(arena), open(spawns))).toBe(true);
     arena.reset();
     expect(bots()).toHaveLength(1);
   });
@@ -177,3 +180,49 @@ describe('factions', () => {
     expect(actor(arena, 'bot-2').health).toBe(100);
   });
 });
+
+describe('faction heat in the arena', () => {
+  const spawns = [{ x: 0, z: 0 }, { x: 110, z: 0 }, { x: -110, z: 0 }, { x: 0, z: 110 }, { x: 0, z: -110 }, { x: 120, z: 120 }];
+  const sectors = [
+    { id: 'east', bounds: { minX: 60, maxX: 200, minZ: -200, maxZ: 200 }, weight: 2, heat: { mercenaries: { min: .7, max: 1 } } },
+    { id: 'west', bounds: { minX: -200, maxX: -60, minZ: -200, maxZ: 200 }, weight: 1, heat: { forces: { min: .6, max: 1 } } },
+  ];
+  const hot = () => open(spawns, { reinforcements: true, heat: { sectors, defaults: DISTRICT_HEAT.medium } });
+  it('brings in small friendly squads that fight the contractors, never the player', () => {
+    const arena = createArena([], 2, 'assault', hot());
+    arena.addPlayer('one', 'Alpha', 0, 0, undefined, undefined, true);
+    arena.setPlayerHealthMultiplier('one', 10);
+    let friendlyRide: CombatEventDescriptor | undefined;
+    advance(arena, 160, () => { friendlyRide ??= arena.snapshot().events?.find(e => e.faction === 'forces'); });
+    expect(friendlyRide?.kind).toMatch(/^transport/);
+    const friends = arena.snapshot().actors.filter(a => a.bot && a.faction === 'forces');
+    expect(friends.length).toBeGreaterThan(0);
+    expect(friends.length).toBeLessThanOrEqual(FACTION_SCALE.forces.troops[1]);
+    expect(friends.every(f => /^(Pte|Cpl|Sgt) /.test(f.name) && f.variant === undefined)).toBe(true);
+    // Friendly rounds stop on the player and do nothing.
+    const friend = friends.find(f => f.alive)!;
+    const player = actor(arena, 'one'), before = player.health;
+    if (friend) expect(shootDead(arena, friend.id, player).damage).toBe(0);
+    expect(actor(arena, 'one').health).toBe(before);
+    expect(validArenaSnapshot(checkable(arena), hot())).toBe(true);
+    expect(arena.snapshot().heat?.find(h => h.sector === 'east')?.mercenaries).toBeGreaterThanOrEqual(.7);
+  });
+  it('sends more contractors as their losses heat the district', () => {
+    const headcount = (losses: number) => {
+      const arena = createArena([], 2, 'assault', hot());
+      arena.addPlayer('one', 'Alpha', 0, 0, heavy, undefined, true);
+      arena.setPlayerHealthMultiplier('one', 10);
+      let most = 0;
+      for (let i = 0; i < 30; i++) {
+        if (i < losses) for (const bot of arena.snapshot().actors.filter(a => a.bot && a.faction === 'mercenaries' && a.alive).slice(0, 1)) {
+          const p = actor(arena, 'one'); arena.setInput('one', { ...p, x: bot.x + 3, z: bot.z, y: 1.75, weapon: p.weapon, playing: true });
+          advance(arena, .5); shootDead(arena, 'one', actor(arena, bot.id));
+        }
+        advance(arena, 8, () => { most = Math.max(most, arena.snapshot().actors.filter(a => a.bot && a.faction === 'mercenaries').length); });
+      }
+      return most;
+    };
+    expect(headcount(12)).toBeGreaterThan(headcount(0));
+  });
+});
+

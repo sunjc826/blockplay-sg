@@ -74,6 +74,8 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     }
     if (value.actors.some(a => (a.vehicle !== undefined || a.seat !== undefined) && !seated.has(a.id))) return false;
   } else if (value.actors.some(a => a.vehicle !== undefined || a.seat !== undefined)) return false;
+  if (value.heat !== undefined && (!Array.isArray(value.heat) || value.heat.length > 64 || !value.heat.every(row => object(row) && typeof row.sector === 'string' && row.sector.length <= 64 &&
+    [row.forces, row.mercenaries].every(h => finite(h) && h >= 0 && h <= 1)))) return false;
   if (value.events !== undefined) {
     if (!Array.isArray(value.events) || value.events.length > MAX_COMBAT_EVENTS) return false;
     const eventIds = new Set<string>();
@@ -97,6 +99,8 @@ const noRaycast = () => {};
 function createAvatar(actor: ArenaActor): Avatar {
   const rig = createCharacterRig(arenaCharacterLook(actor), `arena-${actor.id}`);
   const root = rig.root; root.userData.arenaActorId = actor.id;
+  // A friendly squad's uniform is plain to see, so the AI pilot may read it off the figure.
+  root.userData.arenaFriendly = actor.bot && actor.faction === 'forces';
   const color = arenaRoleColor(actor);
   const resources: { dispose(): void }[] = [...rig.resources];
   let muzzle: THREE.Mesh | null = null;

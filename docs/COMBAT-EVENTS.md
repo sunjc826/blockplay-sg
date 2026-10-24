@@ -226,19 +226,21 @@ waits. A transport is booked when two bots are waiting, or one has waited
 (a debug ride counts). A truck seats eight and a helicopter six
 (`REINFORCEMENT_SEATS`, capped by `MAX_TROOPS`).
 
-Rides also grow the district. `ArenaEnvironment.population` is the headcount
-transports build up to, and expedition districts set it by risk
-(`DISTRICT_POPULATION`: low 8, medium 10, high 12, against starting garrisons
-of 3–6). Empty seats are filled with fresh contractors while the district is
-below that number. With nobody waiting, a top-up ride goes out no sooner than
-`REINFORCEMENT_TOP_UP` (20 s) after the start or the last ride, so a quiet
-district fills within the first minute or two. A recruit is held in reserve,
-dead and out of snapshots, until its seat is called, so it first appears
-stepping off the transport. A match holds at most `MAX_ARENA_BOTS` (16)
-bots, and `reset()` goes back to the starting garrison. A full truck unloads
-in two files, one down each side. Concurrent events are capped per kind,
-three transports and three hazards, so a busy road never holds back a
-barrage; `MAX_COMBAT_EVENTS` (6) bounds the total including aftermath.
+Rides also grow the district. Empty seats are filled with fresh troops while
+a side is below its headcount. In expedition districts that headcount comes
+from faction heat ([factions](FACTIONS.md#heat)); elsewhere it is
+`ArenaEnvironment.population`, which defaults to the starting garrison so only
+the fallen come back. With nobody waiting, a top-up ride goes out no sooner
+than the side's top-up interval (heat's, or `REINFORCEMENT_TOP_UP`, 20 s)
+after the start or its last ride. A recruit is held in reserve, dead and out
+of snapshots, until its seat is called, so it first appears stepping off the
+transport. Each side runs its own rides, one on the road at a time; a friendly
+ride carries `faction: 'forces'` and the HUD calls it a FRIENDLY TRUCK or
+HELICOPTER. A match holds at most `MAX_ARENA_BOTS` (20) bots, and `reset()`
+goes back to the starting garrison. A full truck unloads in two files, one
+down each side. Concurrent events are capped per kind, three transports and
+three hazards, so a busy road never holds back a barrage; `MAX_COMBAT_EVENTS`
+(6) bounds the total including aftermath.
 
 `planTransport` chooses the drop
 from the district's patrol spawns: at least 45 m from every human, and

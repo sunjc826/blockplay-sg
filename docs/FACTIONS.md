@@ -32,6 +32,51 @@ still applies.
   for the tank, a boonie and a scoped rifle for the sniper), and the role
   colour stays on the helmet band and health bar.
 
+## Friendly squads
+
+Wherever a district has heat (every expedition district), the forces field
+small squads of their own: one to four soldiers (`FACTION_SCALE.forces`),
+against three to fourteen contractors, so the player still does most of the
+fighting. They arrive by the same trucks and helicopters, named
+`Pte`/`Cpl`/`Sgt` and a surname. Riflemen and marksmen carry the issued
+rifle, support gunners the Ultimax, and none of them drops a weapon. They
+fight contractors, never the player: their rounds stop on players without
+harm, the player's rounds do the same to them, and the AI pilot skips figures
+in friendly uniform.
+
+## Heat
+
+`src/game/faction-heat.ts` keeps one heat value, 0–1, per faction per sector,
+plus one for the district as a whole ('').
+
+- **Bands.** Each sector may give each faction a band `{ min, max, curve }`.
+  A sub-sector without one uses its `parent`'s, and a top-level sector uses
+  the district default for its risk (`DISTRICT_HEAT`). A stronghold rests high
+  in a high band, a backwater low, and contested ground runs high for both.
+- **Losses.** A casualty raises its own side's heat by `HEAT_TUNING.casualty`
+  in the most specific sector at the spot, and half of that (`spill`) in each
+  sector above it, up to the district.
+- **Leak.** Each rise passes `leak` × the rise × the other side's remaining
+  room in its band across to the other side. What leaks in never leaks back,
+  and the leak fades as the other side nears its ceiling, so the two cannot
+  feed each other without limit.
+- **Decay.** Heat drains at `decay` per second back to each band's floor.
+- **Curves** turn heat into strength. `linear` is proportional; `slow-burn`
+  stays quiet and then escalates; `hair-trigger` answers the first trouble
+  hard and levels off; `tiers` steps in thirds, wanted-level style.
+
+Strength, weighted over the top-level sectors by `botWeight`, sets each side's
+headcount and its top-up interval between the ranges in `FACTION_SCALE`.
+Rides head for the sector whose wanted share most exceeds the troops already
+there, and the troops make that sector home: they patrol it and only answer
+contacts within `HOME_LEASH` (90 m). Kit follows heat too. Armour on each
+spawn scales from 0.75× to 1.25× the role's with the home sector's strength,
+and hotter sides recruit more support gunners and marksmen.
+
+HarbourFront is tuned by hand as the pilot. The quay is held by the forces,
+the Cruise Centre is contested, and Keppel wharf is a Black Kite stronghold
+on a slow burn. Every other sector uses its district's defaults.
+
 ## How the uniform is drawn
 
 The rig is a vertex-coloured, merged mesh per bone, so patterns are not

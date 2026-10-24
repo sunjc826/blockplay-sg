@@ -103,3 +103,11 @@ registerCombatEvent({
   banner: { warning: 'BLACK KITE HELICOPTER INBOUND · REINFORCEMENTS', active: 'MERCENARIES FAST-ROPING IN' },
   timeline: event => transportTimeline(event, 'air'),
 });
+
+/** A friendly ride is the same truck or helicopter; only what the HUD and comms call it changes. */
+const FRIENDLY_BANNERS: Readonly<Record<string, { warning: string; active: string }>> = {
+  'transport-land': { warning: 'FRIENDLY TRUCK INBOUND · ARMED FORCES', active: 'FRIENDLY SECTION DISMOUNTING' },
+  'transport-air': { warning: 'FRIENDLY HELICOPTER INBOUND · ARMED FORCES', active: 'FRIENDLY SECTION FAST-ROPING IN' },
+};
+export const bannerOf = (event: Pick<CombatEventDescriptor, 'kind' | 'faction'>, plugin: { banner: { warning: string; active: string } }) =>
+  (event.faction === 'forces' && FRIENDLY_BANNERS[event.kind]) || plugin.banner;

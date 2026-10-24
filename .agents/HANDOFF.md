@@ -2334,3 +2334,27 @@ the base commit (f817a9d); the new headcount assertion was added to it.
 With 10–12 contractors the AI pilot dies noticeably more often.
 Next idea from the owner: per-faction district "heat" (GTA / L4D director)
 driving headcount, spawn rate and equipment.
+
+## 2026-10-24: faction heat by sector, and friendly squads
+
+The fixed per-risk headcount is replaced by faction heat (docs/FACTIONS.md#heat).
+- faction-heat.ts (pure): per-sector, per-faction heat inside `{min,max,curve}`
+  bands that inherit sub-sector → `parent` → DISTRICT_HEAT[risk]. Casualties raise
+  their own side, spill ×0.5 up the parent chain, and leak a share to the other
+  side scaled by its remaining room, never leaking back. Linear decay to the floor.
+  Curves: linear, slow-burn, hair-trigger, tiers. `troops`, `topUpInterval` and
+  `neediest` turn strength into effects via FACTION_SCALE (mercs 3–14, forces 0–4).
+- ZoneSector gains `parent` and `heat`; HarbourFront is tuned (quay held by the
+  forces, Cruise Centre contested, Keppel wharf a slow-burn stronghold).
+- Arena: `ArenaEnvironment.heat` (district-world sets it). Per-faction dispatch
+  clocks and rides (`CombatEventDescriptor.faction`), drops in the neediest sector,
+  `home` sector patrols with HOME_LEASH 90 m, armour and recruit role mix by
+  strength, snapshot `heat`. Friendly bots: faction 'forces', `Pte/Cpl/Sgt Name`,
+  issued rifle or Ultimax, no `variant` so no drops. MAX_ARENA_BOTS 20. The
+  DISTRICT_POPULATION constant from the previous entry is gone.
+- HUD: heat meter under LOCATION (minimap moves down while it shows); friendly
+  banners via `bannerOf`; avatars mark `arenaFriendly` so the AI pilot skips them.
+Validation: full vitest, typecheck. A Marina soak with the AI pilot saw a friendly
+truck arrive, heat bars move with the fighting, and no runtime errors.
+Not done: friendly vehicles look the same as Black Kite's, there is no heat
+debug panel, and only HarbourFront has tuned bands.
