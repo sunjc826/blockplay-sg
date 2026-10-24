@@ -7,7 +7,7 @@ import { damageVehicle, fireVehicleWeapon, vehicleCollisionDamage, VEHICLE_COMBA
 import { applyArmorDamage } from './armory-state';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage } from './fps-stance';
 import { MARINA_BOUNDS, moveInMarina, type Obstacle } from './marina-collision';
-import { FPS_WEAPONS, reloadCommit, type WeaponSpec } from './fps-rules';
+import { advanceWeapon, beginReload, createLoadout, FPS_WEAPONS, fireWeapon, interruptReload, reloadCommit, reloadProgress, roundReady, type WeaponSpec, type WeaponState } from './fps-rules';
 import { armamentFamilies, chooseArmament, getArenaRole, type ArenaRolePlugin } from './arena-roles';
 import './combat-event-catalog';
 import { combatPhase, combatTimeline, getCombatEvent, MAX_COMBAT_EVENTS, type CombatEventDescriptor, type CombatPlane, type MunitionPayload } from './combat-events';
@@ -30,7 +30,7 @@ export interface ArenaSnapshot {
   events?: CombatEventDescriptor[];
 }
 export interface ArenaInput { x: number; y: number; z: number; yaw: number; pitch: number; weapon: number; playing: boolean; reloading?: boolean; prone?: boolean; vehicleControls?: VehicleControls }
-export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount'>;
+export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount' | 'bolt'>;
 export interface ArenaPoint { x: number; y: number; z: number }
 export interface ArenaShot { hitId: string | null; killed: boolean; damage: number }
 export interface ArenaVitals { health: number; armor: number }
@@ -78,9 +78,12 @@ interface InternalActor {
   velocityY?: number;
   navigation?: { path: NavigationPoint[]; target: NavigationPoint; retry: number; pending?: Generator<undefined, NavigationPoint[]> };
   actor: ArenaActor; healthMax: number; armorMax: number; absorption: number; weapons: ArenaWeapon[]; allowedWeapons: number[]; role?: ArenaRolePlugin;
-  cooldown: number[]; rounds: number[]; reload: number[]; playing: boolean; movementBudget: number; wasReloading: boolean;
-  /** Per weapon: how far an interrupted reload got, and whether the one under way began empty. */
-  reloadSaved: number[]; reloadEmpty: boolean[];
+  /**
+   * Per weapon, the same ammunition state and rules as the player's own gun
+   * (fps-rules), with an unlimited reserve: magazine, chamber, cooldown and an
+   * interruptible, resumable reload.
+   */
+  ammo: WeaponState[]; playing: boolean; movementBudget: number; wasReloading: boolean;
   usePlayerSpawn: boolean;
   reaction: number; target: string; strafe: number; patrol: { x: number; z: number }; patrolTime: number;
   sight?: { target: string; clear: boolean; wait: number };
@@ -88,6 +91,8 @@ interface InternalActor {
   waiting?: number; ride?: { event: string; slot: number };
 }
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+/** A full gun; the host keeps no reserve, so every reload refills it. */
+const hostAmmo = (weapon: ArenaWeapon): WeaponState => createLoadout([{ ...weapon, reserve: Infinity }])[0];
 const finitePoint = (p: ArenaPoint) => p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z);
 const distance = (a: ArenaPoint, b: ArenaPoint) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 
@@ -199,15 +204,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const p = preferred ?? positions[0];
     Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75, health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
       yaw: Number.isFinite(preferred?.yaw) ? preferred!.yaw! : 0, pitch: Number.isFinite(preferred?.pitch) ? clamp(preferred!.pitch!, -1.5, 1.5) : 0 });
-    entry.cooldown = entry.weapons.map(() => 0); entry.reload = entry.weapons.map(() => 0); entry.rounds = entry.weapons.map(w => w.capacity);
-    entry.reloadSaved = entry.weapons.map(() => 0); entry.reloadEmpty = entry.weapons.map(() => false);
+    entry.ammo = entry.weapons.map(hostAmmo);
     if (entry.role) { const issued = chooseArmament(entry.role, armamentRandom); entry.actor.weapon = issued.family; entry.actor.variant = issued.id; }
     entry.navigation = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false;
   };
   function sanitizeWeapons(weapons: readonly ArenaWeapon[]) {
-    return (weapons.length ? weapons : FPS_WEAPONS).slice(0, FPS_WEAPONS.length).map(w => ({
-      requiresMount: w.requiresMount === true,
+    return (weapons.length ? weapons : FPS_WEAPONS).slice(0, FPS_WEAPONS.length).map((w): ArenaWeapon => ({
+      requiresMount: w.requiresMount === true, bolt: w.bolt === 'open' ? 'open' : 'closed',
       damage: Number.isFinite(w.damage) ? clamp(w.damage, 1, 200) : 36,
       interval: Number.isFinite(w.interval) ? clamp(w.interval, 0.06, 3) : 0.12,
       capacity: Number.isFinite(w.capacity) ? Math.floor(clamp(w.capacity, 1, 200)) : 30,
@@ -225,7 +229,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       actor: { id, name: name.trim().slice(0, 24) || 'Player', bot: false, x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0,
         health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: allowedWeapons[0], prone: false, shots: 0, role: 'player' },
       healthMax: 100, armorMax: Number.isFinite(armor) ? clamp(armor, 0, 150) : 0, absorption: Number.isFinite(absorption) ? clamp(absorption, 0, 0.9) : 0,
-      weapons: safeWeapons, allowedWeapons, cooldown: [], rounds: [], reload: [], reloadSaved: [], reloadEmpty: [], playing: true, movementBudget: 2, wasReloading: false, usePlayerSpawn,
+      weapons: safeWeapons, allowedWeapons, ammo: [], playing: true, movementBudget: 2, wasReloading: false, usePlayerSpawn,
       reaction: 1, target: '', strafe: random() < 0.5 ? -1 : 1, patrol: validSpawns[0], patrolTime: 0,
     };
     members.set(id, entry); spawn(entry); if (initialVitals) setPlayerVitals(id, initialVitals); announce(`${entry.actor.name} joined`);
@@ -254,10 +258,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     next.forEach((weapon, index) => {
       const previous = entry.weapons[index];
       const changed = !previous || Object.keys(weapon).some(key => weapon[key as keyof ArenaWeapon] !== previous[key as keyof ArenaWeapon]);
-      if (changed) { entry.rounds[index] = weapon.capacity; entry.cooldown[index] = 0; entry.reload[index] = 0; entry.reloadSaved[index] = 0; }
+      if (changed || !entry.ammo[index]) entry.ammo[index] = hostAmmo(weapon);
     });
-    entry.weapons = next; entry.rounds.length = next.length; entry.cooldown.length = next.length; entry.reload.length = next.length;
-    entry.reloadSaved.length = next.length; entry.reloadEmpty.length = next.length;
+    entry.weapons = next; entry.ammo.length = next.length;
     entry.allowedWeapons = allowedIndexes(next, allowed ?? entry.allowedWeapons);
     if (!entry.allowedWeapons.includes(entry.actor.weapon)) entry.actor.weapon = entry.allowedWeapons[0]; entry.wasReloading = false;
   }
@@ -306,36 +309,27 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (!entry || seatOf(vehicles, id) || !entry.actor.alive || finished || !Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return;
     startReload(entry, weapon);
   }
-  /**
-   * The same reload as fps-rules, on the host's count: a reload resumes an
-   * interrupted one, fills the magazine at its commit point, and stopping it
-   * short of that keeps its progress. Bots never interrupt theirs.
-   */
+  /** The host's ammunition rules are the player's, so a reload starts, resumes and commits the same way. */
   function startReload(entry: InternalActor, index: number) {
-    const weapon = entry.weapons[index];
-    if (!weapon || entry.reload[index] > 0 || entry.rounds[index] >= weapon.capacity) return;
-    const empty = entry.reloadEmpty[index] = entry.rounds[index] <= 0;
-    const saved = clamp(Number.isFinite(entry.reloadSaved[index]) ? entry.reloadSaved[index] : 0, 0, reloadCommit(empty) - .01);
-    entry.reload[index] = weapon.reload * (1 - saved); entry.reloadSaved[index] = 0;
+    if (entry.weapons[index] && entry.ammo[index]) beginReload(entry.ammo[index], index, entry.weapons);
   }
   function stopReload(entry: InternalActor, index: number) {
-    const weapon = entry.weapons[index];
-    if (!weapon || !(entry.reload[index] > 0)) return;
-    const progress = 1 - entry.reload[index] / weapon.reload;
-    entry.reload[index] = 0;
+    const state = entry.ammo[index];
+    if (!state || !entry.weapons[index] || !(state.reloadRemaining > 0)) return;
     // A guest's reload began, and so ends, a network trip before ours: just
-    // short of the commit point, its magazine has already seated over there.
-    if (progress >= reloadCommit(entry.reloadEmpty[index] === true) - RELOAD_COMMIT_GRACE) entry.rounds[index] = weapon.capacity;
-    else entry.reloadSaved[index] = progress;
+    // short of the commit point, its gun is already ready over there.
+    if (reloadProgress(state, index, entry.weapons) >= reloadCommit(state.reloadEmpty === true) - RELOAD_COMMIT_GRACE) advanceWeapon(state, index, state.reloadRemaining, entry.weapons);
+    else interruptReload(state, index, entry.weapons);
   }
   function shoot(id: string, origin: ArenaPoint, direction: ArenaPoint, weapon: number, maxDistance = 125): ArenaShot {
     const entry = members.get(id);
     if (!entry || seatOf(vehicles, id) || finished || !entry.actor.alive || !entry.playing || !finitePoint(origin) || !finitePoint(direction)) return { ...EMPTY_SHOT };
     if (!Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return { ...EMPTY_SHOT };
-    if (distance(origin, entry.actor) > 1.5 || entry.cooldown[weapon] > 1e-7 || entry.reload[weapon] > 0) return { ...EMPTY_SHOT };
+    const ammo = entry.ammo[weapon];
+    if (distance(origin, entry.actor) > 1.5 || ammo.cooldown > 1e-7 || ammo.reloadRemaining > 0) return { ...EMPTY_SHOT };
     const length = Math.hypot(direction.x, direction.y, direction.z); if (length < 0.5 || length > 1.5) return { ...EMPTY_SHOT };
     const ray = { x: direction.x / length, y: direction.y / length, z: direction.z / length };
-    if (entry.rounds[weapon] <= 0) { startReload(entry, weapon); return { ...EMPTY_SHOT }; }
+    if (!roundReady(ammo, entry.weapons[weapon])) { startReload(entry, weapon); return { ...EMPTY_SHOT }; }
     const recoilDamage = unsupportedRecoilDamage(entry.weapons[weapon], entry.actor.prone === true, entry.actor.y <= floorAt(entry.actor) + 1.17, !entry.actor.prone && entry.actor.y <= floorAt(entry.actor) + 1.17);
     if (recoilDamage) {
       const damage = applyArmorDamage(entry.actor.health, entry.actor.armor, recoilDamage, entry.absorption);
@@ -345,8 +339,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         announce(`${entry.actor.name} was defeated by unsupported .50 recoil`, undefined, id);
       }
     }
-    entry.rounds[weapon]--; entry.cooldown[weapon] = entry.weapons[weapon].interval; entry.actor.shots++;
-    if (entry.rounds[weapon] === 0) startReload(entry, weapon);
+    ammo.cooldown = 0; fireWeapon(ammo, weapon, entry.weapons); entry.actor.shots++;
+    if (!roundReady(ammo, entry.weapons[weapon])) startReload(entry, weapon);
     return resolveShot(entry, origin, ray, entry.weapons[weapon].damage, Math.min(125, Math.max(0, maxDistance)));
   }
   /** `cause` names what did it when no actor did, as in "Artillery killed …"; it credits nobody. */
@@ -687,14 +681,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         }
         continue;
       }
-      entry.weapons.forEach((weapon, index) => {
-        entry.cooldown[index] = Math.max(0, entry.cooldown[index] - dt);
-        if (entry.reload[index] > 0) {
-          const commit = reloadCommit(entry.reloadEmpty[index] === true), before = 1 - entry.reload[index] / weapon.reload;
-          entry.reload[index] = Math.max(0, entry.reload[index] - dt);
-          if (before < commit && (entry.reload[index] === 0 || 1 - entry.reload[index] / weapon.reload >= commit)) entry.rounds[index] = weapon.capacity;
-        }
-      });
+      entry.ammo.forEach((state, index) => advanceWeapon(state, index, dt, entry.weapons));
       if (entry.actor.bot) stepBot(entry, dt);
       if (finished) break;
     }

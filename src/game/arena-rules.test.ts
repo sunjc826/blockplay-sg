@@ -133,7 +133,8 @@ describe('host-authoritative arena', () => {
   });
   it('enforces magazine reload downtime on the host', () => {
     const arena = pair(); arena.removePlayer('one'); arena.addPlayer('one', 'Alpha', 0, 0, [{ ...weapon, capacity: 1, reload: 0.8 }]);
-    expect(fireAt(arena).hitId).toBe('two');
+    // One in the magazine and one in the chamber, then an empty reload.
+    expect(fireAt(arena).hitId).toBe('two'); advance(arena, 0.2); expect(fireAt(arena).hitId).toBe('two');
     advance(arena, 0.4); expect(fireAt(arena).hitId).toBeNull();
     advance(arena, 0.5); expect(fireAt(arena).hitId).toBe('two');
   });
@@ -149,14 +150,14 @@ describe('host-authoritative arena', () => {
     const arena = pair(); arena.setPlayerHealthMultiplier('two', 5); fireAt(arena); advance(arena, .2);
     const player = actor(arena, 'one');
     arena.setInput('one', { ...player, playing: true, reloading: true });
-    advance(arena, .9); expect(fireAt(arena).hitId).toBeNull();
-    // Half way: the player stops to shoot. The host stops too, and the 29 rounds still fire.
+    advance(arena, .5); expect(fireAt(arena).hitId).toBeNull();
+    // Before MAG OUT the player stops to shoot. The host stops too, and the old magazine still fires.
     arena.setInput('one', { ...player, playing: true, reloading: false });
     expect(fireAt(arena).hitId).toBe('two'); advance(arena, .2);
-    // Resumed, it needs only the half it has left.
+    // Resumed, it needs only the share it has left (1.3 s of 1.8).
     arena.setInput('one', { ...player, playing: true, reloading: true });
-    advance(arena, .8); expect(fireAt(arena).hitId).toBeNull();
-    advance(arena, .2); expect(fireAt(arena).hitId).toBe('two');
+    advance(arena, 1.1); expect(fireAt(arena).hitId).toBeNull();
+    advance(arena, .3); expect(fireAt(arena).hitId).toBe('two');
   });
   it('lets a guest stop just short of the host commit point and keep the fresh magazine', () => {
     const arena = pair(); arena.removePlayer('one'); arena.addPlayer('one', 'Alpha', 0, 0, [{ ...weapon, capacity: 2, reload: 1 }]);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createProfile, equip, purchase, resolveLoadout, restoreProfile } from './armory-state';
-import { DEFAULT_VARIANTS, FPS_WEAPONS, advanceWeapon, beginReload, createLoadout, fireWeapon, validWeaponIndex, hitDamage } from './fps-rules';
+import { DEFAULT_VARIANTS, FPS_WEAPONS, advanceWeapon, beginReload, createLoadout, fireWeapon, validWeaponIndex, hitDamage, fullLoad } from './fps-rules';
 import { itemById } from './armory-catalog';
 import { xpForLevel } from './progression';
 import { effectStyleForWeapon } from './fps-effect-styles';
@@ -43,7 +43,8 @@ for (const family of [2, 3, 4]) describe(FPS_WEAPONS[family].name, () => {
     advanceWeapon(state, family, spec.interval);
     expect(beginReload(state, family)).toBe(true); expect(fireWeapon(state, family)).toBe(false);
     advanceWeapon(state, family, spec.reload);
-    expect(state.magazine).toBe(spec.capacity); expect(state.reserve).toBe(spec.reserve - 1);
+    // A tactical reload keeps a closed bolt's chambered round, and loses no round.
+    expect(state.magazine).toBe(fullLoad(spec)); expect(state.reserve).toBe(spec.reserve - 1);
   });
   it('provides muzzle/ejection/reload nodes and unobstructed iron sights', () => {
     const weapon = resolveLoadout(createProfile()).weapons[family], model = buildServiceWeapon(weapon.id)!;

@@ -80,10 +80,10 @@ describe('equipment reaches gameplay', () => {
     const specs = resolveLoadout(profile).weapons, state = createLoadout(specs)[0];
     expect(specs[0].capacity).toBe(36); expect(specs[0].reload).toBe(1.53);
     state.magazine = 10; expect(beginReload(state, 0, specs)).toBe(true);
-    // The rounds go in when the magazine seats, at the variant's own commit time; the settle runs on to 1.53 s.
+    // The variant's magazine seats at its own commit time, behind the chambered round; the settle runs on to 1.53 s.
     const commit = 1.53 * reloadCommit(false);
-    advanceWeapon(state, 0, commit - .02, specs); expect(state.magazine).toBe(10);
-    advanceWeapon(state, 0, .04, specs); expect(state.magazine).toBe(36); expect(state.reloadRemaining).toBeCloseTo(1.53 - commit - .02);
+    advanceWeapon(state, 0, commit - .02, specs); expect(state.magazine).toBe(1);
+    advanceWeapon(state, 0, .04, specs); expect(state.magazine).toBe(37); expect(state.reloadRemaining).toBeCloseTo(1.53 - commit - .02);
     advanceWeapon(state, 0, 1.53 - commit, specs); expect(state.reloadRemaining).toBe(0);
   });
   it('skin previews do not spend currency, equip the real profile or alter stats', () => {

@@ -10,6 +10,8 @@
 .fps-weapon-hud .fps-ammo>span{font-size:10px;letter-spacing:1.5px}
 .fps-weapon-hud .fps-ammo strong{font-size:46px;line-height:1.2;letter-spacing:-2px}
 .fps-weapon-hud .fps-ammo strong small{letter-spacing:0;font-size:14px;color:#b6c5c0}
+/* The round in the chamber, beside the magazine count rather than in it. */
+.fps-weapon-hud .fps-ammo strong .fps-chamber{font-style:normal;font-size:17px;letter-spacing:0;margin:0 4px 0 2px;vertical-align:super;color:var(--hud-gold)}
 .fps-weapon-hud .fps-ammo p{font-size:8px;letter-spacing:.7px;color:var(--hud-dim)}
 .fps-weapon-hud .fps-ammo.is-empty{border-color:var(--hud-alert)}
 .fps-weapon-hud .fps-ammo.is-empty strong{color:var(--hud-alert-ink)}

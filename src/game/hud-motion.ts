@@ -22,7 +22,9 @@ export function magazineDisplay(magazine: number, capacity: number, reserve: num
   const transfer = Math.min(Math.max(0, capacity - magazine), Math.max(0, reserve));
   // `reloading` is the share of the reload still to run, so progress is its complement.
   const progress = 1 - Math.min(1, reloading), climb = commit > start ? (progress - start) / (commit - start) : 1;
-  return Math.round(magazine + transfer * Math.max(0, Math.min(1, climb)));
+  // Landed: the engine's count is the true one from here, even as a round moves into the chamber.
+  if (climb >= 1) return magazine;
+  return Math.round(magazine + transfer * Math.max(0, climb));
 }
 
 /** Bars are scaled with a transform rather than a width, so they need 0..1. */

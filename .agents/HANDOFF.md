@@ -2354,3 +2354,27 @@ MAG OUT and landed 30 at SEAT MAG. scripts/fps-handling-smoke.mjs gained an
 interrupt/resume step but fails before it here at the existing sustained-fire
 spread check, on the unmodified code too. Not done: a +1 chambered round on
 tactical reloads, quick items interrupting, single-round (shotgun) reloads.
+
+## 2026-10-24: the chamber and an empty magazine well
+
+- fps-rules: `magazine` is every round in the gun, the chambered one included.
+  `WeaponSpec.bolt` ('open' on Ultimax, FN MAG, CIS 50MG, MG4; closed
+  otherwise). Closed bolt: `chambered` round, full load capacity + 1
+  (`fullLoad`), fires the chambered round with the magazine out. Open bolt:
+  `chambered` means cocked; never a round in the chamber; runs home dry.
+  Helpers `chamberRound`, `magazineRounds`, `roundReady`, `canReload`.
+- Reload points (`RELOAD_POINTS`): out .38 (removed magazine's rounds back to
+  the reserve, `magazineOut`), seat .74, chamber .9 on an empty reload (an empty
+  reload clears `chambered` first). Commit stays seat/chamber. A suspended
+  reload can leave an empty well (`magazineOut`) or a seated, unchambered
+  magazine; `canReload` covers both even with no reserve.
+- arena-rules host now keeps `ammo: WeaponState[]` and calls the same
+  fps-rules functions with an unlimited reserve (ArenaWeapon gained `bolt`).
+- HUD: digits are the magazine; `+1` badge for a chambered round; prompts
+  NO MAGAZINE / CHAMBER EMPTY. Pilot observation reports 0 rounds when nothing
+  is ready to fire. Checkpoint restore clamps to `fullLoad`.
+Validation: 1065 tests in 112 files, typecheck. Headless Chromium (slowed rAF clock):
+26+1 → R → 00+1 at MAG OUT → fire at MAG IN fired only the chambered round,
+"NO MAGAZINE · R RESUME RELOAD · 55%" → R resumed as an empty reload from MAG
+IN and ended 29+1. A one-frame 30+1 at the chamber step was fixed in
+magazineDisplay.
