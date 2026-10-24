@@ -16,7 +16,7 @@ import * as THREE from 'three';
 import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook, clampFpsPitch } from './fps-pointer';
 import { dragLook, resolveMovement, stickKeys, type StickVector } from './touch-controls';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { advanceWeapon, beginReload, createLoadout, findTrait, fireWeapon, validWeaponIndex, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponState } from './fps-rules';
+import { advanceWeapon, beginReload, createLoadout, findTrait, fireWeapon, interruptReload, validWeaponIndex, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponState } from './fps-rules';
 import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { sectorAt, zoneSectors } from './zone-sectors';
 import { advanceRound, createRound, needsFlight, skipRound, MAX_ROUNDS_IN_FLIGHT, MAX_SKIPS, type InFlightRound } from './fps-projectiles';
@@ -47,6 +47,7 @@ import { createWeaponHandling } from './fps-viewmodel';
 import { createScopeRenderer, getWeaponSight } from './weapon-optics';
 import { createOpticReflectionRenderer } from './weapon-reflections';
 import { reloadMotion, reloadStage, smoothStep } from './fps-weapon-motion';
+import { armReloadGate, reloadInterrupt } from './fps-reload';
 import { createFpsComms, type CommsEntry } from './fps-comms';
 import { createEncikRadio, type EncikAddress, type EncikCallout, type EncikEvent } from './fps-callouts';
 import { createEncikAudio } from './encik-audio';
@@ -76,6 +77,8 @@ export interface FpsHud {
   pilotEnabled: boolean; pilotStatus: string; pilotGoal: PilotGoal | null; pilotContacts: number;
   debug: FpsDebugSettings; debugAvailable: boolean; maxHealth: number;
   aimProgress: number; reloadEmpty: boolean;
+  /** Share of the held weapon's interrupted reload already done; the next reload resumes from it. */
+  reloadSaved: number;
   crosshairSpread: number; hitKind: 'hit' | 'kill'; quickItem: string; quickType: 'FOOD' | 'UTILITY' | ''; quickCount: number;
   phase: 'loading' | 'ready' | 'playing' | 'paused' | 'complete' | 'defeated' | 'error';
   carriedWeapons: number[]; carriedKg: number; movementScale: number;
@@ -101,7 +104,7 @@ export interface FpsHud {
   /** Whether this round runs combat events the debug panel can call in. */
   combatEventsAvailable: boolean;
 }
-export const initialFpsHud: FpsHud = { combatBanner: null, combatEventsAvailable: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '' };
+export const initialFpsHud: FpsHud = { combatBanner: null, combatEventsAvailable: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '' };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -156,6 +159,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const loader = new GLTFLoader(), templates: THREE.Group[] = [], weapons: THREE.Group[] = [];
   const handling: ReturnType<typeof createWeaponHandling>[] = [], emptyReload = specs.map(() => false);
   let aimProgress = 0, lastReloadStage = '';
+  // Inputs held when a reload began, which do not interrupt it (see fps-reload).
+  let reloadGate = armReloadGate(false, false), sprintIntent = false;
   const bloom = specs.map(() => createWeaponBloom());
   let spreadAngle = .005;
   const shotRight = new THREE.Vector3(), shotUp = new THREE.Vector3();
@@ -264,7 +269,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (disposed) return;
     const state = loadout[hud.weapon];
     const burden = movement();
-    onHud({ ...hud, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], ...(!expedition ? vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))) : {}), ...(vertical > .35 && !vehicles.active ? { vehiclePrompt: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / specs[hud.weapon].reload, aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
+    onHud({ ...hud, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, ...(!expedition ? vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))) : {}), ...(vertical > .35 && !vehicles.active ? { vehiclePrompt: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / specs[hud.weapon].reload, aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapMarkers: expedition ? [] : [
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
@@ -380,14 +385,20 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function reload() {
     if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
     if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive) && !vehicles.active && beginReload(loadout[hud.weapon], hud.weapon, specs)) {
-      emptyReload[hud.weapon] = loadout[hud.weapon].magazine === 0;
+      emptyReload[hud.weapon] = loadout[hud.weapon].reloadEmpty === true;
+      reloadGate = armReloadGate(trigger, sprintIntent);
       radioCall('reload');
       arenaRuntime?.reload(hud.weapon); ads = false; touchAim = false; actualAim = false; lastReloadStage = ''; publish();
     }
   }
+  /** Stops the held weapon's reload, keeping its progress if no rounds went in yet. */
+  function stopReload() {
+    if (!interruptReload(loadout[hud.weapon], hud.weapon, specs)) return;
+    lastReloadStage = ''; publish();
+  }
   function switchWeapon(index: number) {
     if (hud.phase === 'loading' || hud.phase === 'error' || index === hud.weapon || !validWeaponIndex(index) || !equipment.carriedFamilies.includes(index)) return;
-    loadout[hud.weapon].reloadRemaining = 0;
+    stopReload();
     trigger = false; triggerSpent = false; ads = false; touchAim = false; resetRecoil(kick);
     hud.weapon = index; weapons.forEach((w, i) => w.visible = i === index);
     if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
@@ -420,7 +431,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     const change = vehicles.interact(position);
     if (change) {
-      clearInput(); actualAim = false; loadout[hud.weapon].reloadRemaining = 0;
+      clearInput(); actualAim = false; stopReload();
       position = { x: change.x, z: change.z }; vertical = velocityY = 0; resetRecoil(kick); carry.set(0, 0, 0);
       if (change.entered) { yaw = change.yaw; pitch = -.23; }
       else pitch = -.03;
@@ -1419,7 +1430,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const move = resolveMovement(keys, moveStick);
       const forward = move.forward, side = move.side;
       const onGround = grounded(), poseStance = stance(), burden = movement();
-      sprinting = move.sprint && forward > .5 && poseStance === 'stand';
+      sprinting = sprintIntent = move.sprint && forward > .5 && poseStance === 'stand';
+      // A fresh trigger pull or sprint stops a reload; one already held when it
+      // began does not, and a held sprint drops to a run until the reload ends.
+      if (loadout[hud.weapon].reloadRemaining > 0) {
+        if (reloadInterrupt(reloadGate, trigger, sprinting, loadout[hud.weapon].magazine > 0)) stopReload();
+        else sprinting = false;
+      }
       const speed = poseStance === 'prone' ? .85 : poseStance === 'crouch' ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2;
       const target = movementInput(forward, side, yaw, speed * burden.movement, 1);
       if (consumeJump(bodyMotion, onGround, poseStance === 'stand' && bodyMotion.eye > 1.6, dt)) velocityY = 5.6 * burden.jumpVelocity;

@@ -57,6 +57,21 @@ try {
   assert((await evaluate('window.reloadStages')).includes('MAG IN'));
   assert((await evaluate('window.reloadStages')).includes('SEAT MAG'));
   await delay(1300);const recovered=await evaluate(`parseFloat(document.querySelector('.fps-weapon-hud').style.getPropertyValue('--fps-spread'))`);assert(recovered<spread-3);
+  // Interrupt: a fresh trigger pull during MAG OUT stops the reload, fires from the
+  // magazine still in the gun, and the next R resumes where the reload stopped.
+  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:700,y:550,button:'left',clickCount:1});await delay(250);
+  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:700,y:550,button:'left',clickCount:1});await delay(200);
+  const before=await evaluate(ammo);assert(before<30&&before>20,`Short burst left ${before}`);
+  await evaluate('window.reloadStages=[]');await key('r','KeyR');await wait(`document.querySelector('.fps-viewport canvas').dataset.reloadStage==='MAG OUT'`);
+  // Held for a few frames: a press and release inside one frame is never seen.
+  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:700,y:550,button:'left',clickCount:1});await delay(90);
+  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:700,y:550,button:'left',clickCount:1});
+  await wait(`document.querySelector('.fps-viewport canvas').dataset.reloadStage===''`);
+  const fired=await evaluate(ammo);assert(fired<before&&fired>=before-2,`Interrupting shot fired from the old magazine: ${before} -> ${fired}`);
+  await wait(`document.querySelector('.fps-ammo').textContent.includes('R RESUME RELOAD')`);await screenshot('rifle-reload-suspended');
+  await evaluate('window.reloadStages=[]');const resumedAt=Date.now();await key('r','KeyR');await wait(`${ammo}===30`);
+  assert(!(await evaluate('window.reloadStages')).includes('RELOADING'),'A resumed reload starts where it stopped');
+  assert(Date.now()-resumedAt<1500,`Resumed reload took ${Date.now()-resumedAt} ms`);
   await key('2','Digit2'); await wait(`${ammo}===60`);
   await evaluate(`document.dispatchEvent(new MouseEvent('mousemove',{movementY:400}))`);
   await send('Input.dispatchMouseEvent',{type:'mousePressed',x:700,y:550,button:'right',clickCount:1});
@@ -70,6 +85,6 @@ try {
   await wait(`${ammo}===60`);assert((await evaluate('window.reloadStages')).includes('CHAMBER'));
   await key('Escape','Escape');await wait(phase('paused'));
   await screenshot('paused-debug');
-  assert.deepEqual(errors,[]);console.log('PASS: LAN HTTP startup, 10x HP, both visible ADS optics, sustained-fire bloom/recovery, tactical and empty staged reloads.');
+  assert.deepEqual(errors,[]);console.log('PASS: LAN HTTP startup, 10x HP, both visible ADS optics, sustained-fire bloom/recovery, tactical and empty staged reloads, interrupted and resumed reload.');
 } catch(e) {console.log(errors);await screenshot('failure').catch(()=>{});throw e;}
 finally {ws.close(); await fetch(`${chrome}/json/close/${tab.id}`);}

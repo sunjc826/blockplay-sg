@@ -21,6 +21,8 @@ export function reloadMotion(progress: number) {
     action: p <= .77 || p >= .93 ? 0 : Math.sin(smoothStep((p - .77) / .16) * Math.PI),
   };
 }
+/** Where the fresh magazine starts in: the end of the MAG OUT stage. */
+export const MAG_IN_START = .47;
 export function reloadStage(remaining: number, empty = false) {
   if (remaining <= 0) return '';
   const progress = 1 - remaining;

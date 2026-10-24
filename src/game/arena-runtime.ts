@@ -314,7 +314,9 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   }
   function shoot(origin: ArenaPoint, direction: ArenaPoint, weapon: number, maxDistance = 125, prone = lastInput?.prone ?? false) {
     if (disposed || !started || !localAdopted) return;
-    const freshInput = lastInput ? { ...lastInput, prone, weapon, x: origin.x, y: origin.y, z: origin.z } : null;
+    // A shot means the reload is over: say so first, or the host would still be
+    // reloading this frame (an interrupted reload) and refuse the round.
+    const freshInput = lastInput ? { ...lastInput, prone, weapon, reloading: false, x: origin.x, y: origin.y, z: origin.z } : null;
     if (simulation) {
       if (freshInput && validArenaInput(freshInput)) simulation.setInput(session.id, freshInput);
       pendingHit = simulation.shoot(session.id, origin, direction, weapon, coverLimit(origin, direction, maxDistance)); publish();

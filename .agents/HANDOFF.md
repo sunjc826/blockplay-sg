@@ -2325,3 +2325,32 @@ Validation: 1054 tests (sight-line test now handles scopes; new fitted-optic
 test), typecheck. Headless Chrome: side views and reflex-render for
 xm8-carbine, g36-rifle (3× PiP) and g36c. Not run: the CDP reflex/scope smokes.
 Fire rates were compared with real specs but not changed (see the session).
+
+## 2026-10-24: interruptible, resumable reloads (STALKER 2's "reload renewal")
+
+- fps-rules: rounds now go in at a commit point (`reloadCommit`: .74 tactical,
+  the end of MAG IN; .9 from empty, after CHAMBER) instead of at the end.
+  `interruptReload` stops a reload: before the commit it is `suspended`
+  (magazine untouched, progress kept in `WeaponState.reloadSaved`), after it
+  `finished`. `beginReload` resumes from `reloadSaved`, clamped short of the
+  commit. `reloadEmpty` is now on the state.
+- fps-reload: the input gate. A fresh trigger pull (with rounds in the gun) or
+  a fresh sprint interrupts; inputs held when the reload began do not, and a
+  held sprint drops to a run until the reload ends.
+- fps-engine: interrupts on fire/sprint (on foot), weapon switch and vehicle
+  entry (both used to throw the progress away). HUD `reloadSaved` drives
+  `R RESUME RELOAD · n%`; the magazine digits climb only through MAG IN and
+  land at the commit point (`magazineDisplay(..., start, commit)`).
+- arena-rules (host): same commit point, `startReload`/`stopReload` with
+  resume, a reloading:true→false input stops the reload, weapon switch and
+  vehicle seat suspend it. RELOAD_COMMIT_GRACE (.12) lets a guest that stopped
+  just after its own commit keep the fresh magazine. arena-runtime marks shot
+  inputs `reloading: false`, so an interrupt-and-fire is not refused.
+Validation: unit tests for the rules, gate, HUD climb and host mirror; full
+suite and typecheck. In headless Chromium (scene runs ~1 fps on swiftshader, so
+the page's rAF clock was slowed 12x): fire during MAG OUT suspended at 25%, the
+old magazine fired 26→24, the HUD showed the resume prompt, and R resumed in
+MAG OUT and landed 30 at SEAT MAG. scripts/fps-handling-smoke.mjs gained an
+interrupt/resume step but fails before it here at the existing sustained-fire
+spread check, on the unmodified code too. Not done: a +1 chambered round on
+tactical reloads, quick items interrupting, single-round (shotgun) reloads.

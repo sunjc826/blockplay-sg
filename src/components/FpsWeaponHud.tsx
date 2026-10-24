@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { FpsHud } from '../game/fps-engine';
-import type { WeaponSpec } from '../game/fps-rules';
-import { reloadStage } from '../game/fps-weapon-motion';
+import { reloadCommit, type WeaponSpec } from '../game/fps-rules';
+import { MAG_IN_START, reloadStage } from '../game/fps-weapon-motion';
 import { fillFraction, magazineDisplay } from '../game/hud-motion';
 import { useReducedMotion } from '../game/use-reduced-motion';
 import './fps-weapon-hud.css';
@@ -10,7 +10,9 @@ export default function FpsWeaponHud({ hud, weapon, canFight }: { hud: FpsHud; w
   const magnified = weapon.optic === 'integrated' || weapon.optic === 'precision';
   const reloading = hud.reloading > 0, stage = reloadStage(hud.reloading, hud.reloadEmpty);
   // Truthful digits, except through a reload — see `hud-motion.ts`.
-  const rounds = useReducedMotion() ? hud.magazine : magazineDisplay(hud.magazine, weapon.capacity, hud.reserve, hud.reloading);
+  const rounds = useReducedMotion() ? hud.magazine : magazineDisplay(hud.magazine, weapon.capacity, hud.reserve, hud.reloading, MAG_IN_START, reloadCommit(hud.reloadEmpty));
+  // An interrupted reload keeps its progress for the next one (see fps-rules).
+  const resume = !reloading && hud.reloadSaved > 0 && hud.reserve > 0 && hud.magazine < weapon.capacity ? Math.round(hud.reloadSaved * 100) : 0;
   return <div className="fps-weapon-hud" data-sight={magnified ? 'scope' : 'reflex'} data-aiming={hud.aiming} data-reloading={reloading}
     style={{ '--fps-aim': hud.aimProgress, '--fps-spread': `${hud.crosshairSpread}px` } as CSSProperties}>
     {canFight && hud.aimProgress > .02 && <div className="fps-scope fps-sight-vignette" aria-hidden="true" />}
@@ -22,7 +24,7 @@ export default function FpsWeaponHud({ hud, weapon, canFight }: { hud: FpsHud; w
     <div className={`fps-ammo ${hud.magazine === 0 && !reloading ? 'is-empty' : ''}`}>
       <span>{weapon.name} <small>{hud.aiming ? 'ADS' : weapon.fireMode === 'semi' ? 'SEMI' : 'AUTO'}</small></span>
       <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}<small>/ {hud.reserve}</small></strong>
-      <p>{reloading ? `${hud.reloadEmpty ? 'EMPTY' : 'TACTICAL'} RELOAD · ${stage}` : hud.magazine === 0 ? 'EMPTY · PRESS R' : 'R RELOAD · Q TOGGLE AIM · RMB HOLD'}</p>
+      <p>{reloading ? `${hud.reloadEmpty ? 'EMPTY' : 'TACTICAL'} RELOAD · ${stage}` : resume ? `R RESUME RELOAD · ${resume}%` : hud.magazine === 0 ? 'EMPTY · PRESS R' : 'R RELOAD · Q TOGGLE AIM · RMB HOLD'}</p>
       <p>{hud.carriedKg.toFixed(1)} KG CARRIED · {Math.round(hud.movementScale * 100)}% MOVEMENT</p>
       {weapon.requiresMount && <p>{hud.braced ? 'PRONE MOUNT DEPLOYED · Z / STAND TO MOVE' : 'Z / PRONE: SAFE · STAND 20 / CROUCH 10 BEFORE ARMOR'}</p>}
       {reloading

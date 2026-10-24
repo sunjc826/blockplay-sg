@@ -69,20 +69,61 @@ export const validWeaponIndex = (value: unknown): value is number =>
 /** Each family's baseline. The enemy-issue baselines are never owned until found. */
 export const DEFAULT_VARIANTS = ['sar-issued', 'ult-issued', 'p30-issued', 'mag-issued', 'cis50-issued', 'xm8-carbine', 'g36-rifle', 'mg4-standard'] as const;
 
-export interface WeaponState { magazine: number; reserve: number; cooldown: number; reloadRemaining: number }
+/**
+ * `reloadRemaining` is seconds left in the reload under way, measured against
+ * the weapon's full `reload`, so its complement is how far through it is.
+ * A reload can be interrupted (see `interruptReload`); `reloadSaved` keeps how
+ * far an interrupted one got, and the next reload of that weapon resumes there.
+ */
+export interface WeaponState { magazine: number; reserve: number; cooldown: number; reloadRemaining: number;
+  /** Share of an interrupted reload already done, which the next reload resumes from. */
+  reloadSaved?: number;
+  /** The reload under way began on an empty magazine, so it ends by chambering a round. */
+  reloadEmpty?: boolean }
 export const createLoadout = (weapons = FPS_WEAPONS): WeaponState[] => weapons.map(w => ({ magazine: w.capacity, reserve: w.reserve, cooldown: 0, reloadRemaining: 0 }));
+/**
+ * Where in a reload the rounds go in: when the fresh magazine seats, or, from
+ * empty, once the round is chambered. Before it, stopping keeps the magazine
+ * that was in the gun; after it, stopping only skips the settle.
+ * The fractions match the viewmodel's MAG IN and CHAMBER stages.
+ */
+export const reloadCommit = (empty: boolean) => empty ? .9 : .74;
+/** How far through its reload a weapon is, 0..1, or 0 when it is not reloading. */
+export const reloadProgress = (state: WeaponState, index: number, weapons = FPS_WEAPONS) =>
+  state.reloadRemaining > 0 ? Math.max(0, Math.min(1, 1 - state.reloadRemaining / weapons[index].reload)) : 0;
 export function beginReload(state: WeaponState, index: number, weapons = FPS_WEAPONS) {
   if (state.reloadRemaining > 0 || state.reserve === 0 || state.magazine === weapons[index].capacity) return false;
-  state.reloadRemaining = weapons[index].reload;
+  state.reloadEmpty = state.magazine === 0;
+  // Resume an interrupted reload where it stopped, always short of the point
+  // where its rounds go in, so a resumed reload still delivers them.
+  const saved = Math.max(0, Math.min(reloadCommit(state.reloadEmpty) - .01, Number.isFinite(state.reloadSaved) ? state.reloadSaved! : 0));
+  state.reloadRemaining = weapons[index].reload * (1 - saved);
+  state.reloadSaved = 0;
   return true;
+}
+/**
+ * Stops a reload, for a shot, a sprint, a weapon change or anything else that
+ * needs the hands. Past its commit point the rounds are already in and the
+ * reload is simply `finished`; before it nothing was transferred and the
+ * reload is `suspended`, its progress kept for the next one to resume.
+ */
+export function interruptReload(state: WeaponState, index: number, weapons = FPS_WEAPONS): 'finished' | 'suspended' | null {
+  if (state.reloadRemaining <= 0) return null;
+  const progress = reloadProgress(state, index, weapons);
+  state.reloadRemaining = 0;
+  if (progress >= reloadCommit(state.reloadEmpty === true)) return 'finished';
+  state.reloadSaved = progress;
+  return 'suspended';
 }
 export function advanceWeapon(state: WeaponState, index: number, dt: number, weapons = FPS_WEAPONS) {
   dt = Math.max(0, dt);
   state.cooldown = Math.max(0, state.cooldown - dt);
   if (state.reloadRemaining <= 0) return;
+  const before = reloadProgress(state, index, weapons);
   state.reloadRemaining = Math.max(0, state.reloadRemaining - dt);
-  if (state.reloadRemaining === 0) {
-    const transfer = Math.min(weapons[index].capacity - state.magazine, state.reserve);
+  const after = state.reloadRemaining === 0 ? 1 : reloadProgress(state, index, weapons), commit = reloadCommit(state.reloadEmpty === true);
+  if (before < commit && after >= commit) {
+    const transfer = Math.max(0, Math.min(weapons[index].capacity - state.magazine, state.reserve));
     state.magazine += transfer; state.reserve -= transfer;
   }
 }

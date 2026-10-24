@@ -145,6 +145,30 @@ describe('host-authoritative arena', () => {
     arena.setInput('one', { ...player, playing: true, reloading: true });
     advance(arena, 1); expect(fireAt(arena).hitId).toBe('two');
   });
+  it('keeps the magazine and resumes the reload when a player interrupts it', () => {
+    const arena = pair(); arena.setPlayerHealthMultiplier('two', 5); fireAt(arena); advance(arena, .2);
+    const player = actor(arena, 'one');
+    arena.setInput('one', { ...player, playing: true, reloading: true });
+    advance(arena, .9); expect(fireAt(arena).hitId).toBeNull();
+    // Half way: the player stops to shoot. The host stops too, and the 29 rounds still fire.
+    arena.setInput('one', { ...player, playing: true, reloading: false });
+    expect(fireAt(arena).hitId).toBe('two'); advance(arena, .2);
+    // Resumed, it needs only the half it has left.
+    arena.setInput('one', { ...player, playing: true, reloading: true });
+    advance(arena, .8); expect(fireAt(arena).hitId).toBeNull();
+    advance(arena, .2); expect(fireAt(arena).hitId).toBe('two');
+  });
+  it('lets a guest stop just short of the host commit point and keep the fresh magazine', () => {
+    const arena = pair(); arena.removePlayer('one'); arena.addPlayer('one', 'Alpha', 0, 0, [{ ...weapon, capacity: 2, reload: 1 }]);
+    arena.setPlayerHealthMultiplier('two', 5);
+    fireAt(arena); advance(arena, .2); fireAt(arena);
+    const player = actor(arena, 'one');
+    arena.setInput('one', { ...player, playing: true, reloading: true });
+    // Empty, so the commit is at .9; the guest's reload ended a network trip earlier.
+    advance(arena, .8);
+    arena.setInput('one', { ...player, playing: true, reloading: false });
+    expect(fireAt(arena).hitId).toBe('two'); advance(arena, .2); expect(fireAt(arena).hitId).toBe('two');
+  });
   it('accepts a rendered-cover distance only as a further restriction', () => {
     const arena = pair(); const shooter = actor(arena, 'one'); const victim = actor(arena, 'two');
     expect(arena.shoot('one', shooter, aim(shooter, victim), 0, 1).hitId).toBeNull();

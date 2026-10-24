@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { aimSpeedScale, applyArmorDamage, claimElimination, claimReward, collectTraits, consumeItem, isEquipped, jumpScale, slotIsFitted, createProfile, equip, previewLoadout, purchase, purchaseFromVendor, purchaseLevel, resolveLoadout, restoreProfile, type ArmoryProfile, type ExerciseReward } from './armory-state';
 import { ARMORY_CATALOG, CONSUMABLE_LIMIT, itemById } from './armory-catalog';
 import { levelSkip, MAX_LEVEL, MIN_SKIP_PRICE, progression, registerElimination, skipCostFrom, skipCostToLevel, xpForLevel } from './progression';
-import { advanceWeapon, beginReload, createLoadout, findTrait, DEFAULT_VARIANTS, FPS_WEAPONS, hitDamage, type WeaponTrait } from './fps-rules';
+import { advanceWeapon, beginReload, createLoadout, findTrait, reloadCommit, DEFAULT_VARIANTS, FPS_WEAPONS, hitDamage, type WeaponTrait } from './fps-rules';
 import { HITSCAN } from './fps-ballistics';
 const veteran = () => ({ ...createProfile(), xp: 5000, credits: 10000, tokens: 1000 });
 const unlock = (id: string) => purchase(veteran(), id).profile;
@@ -80,8 +80,11 @@ describe('equipment reaches gameplay', () => {
     const specs = resolveLoadout(profile).weapons, state = createLoadout(specs)[0];
     expect(specs[0].capacity).toBe(36); expect(specs[0].reload).toBe(1.53);
     state.magazine = 10; expect(beginReload(state, 0, specs)).toBe(true);
-    advanceWeapon(state, 0, 1.31, specs); expect(state.magazine).toBe(10);
-    advanceWeapon(state, 0, .23, specs); expect(state.magazine).toBe(36);
+    // The rounds go in when the magazine seats, at the variant's own commit time; the settle runs on to 1.53 s.
+    const commit = 1.53 * reloadCommit(false);
+    advanceWeapon(state, 0, commit - .02, specs); expect(state.magazine).toBe(10);
+    advanceWeapon(state, 0, .04, specs); expect(state.magazine).toBe(36); expect(state.reloadRemaining).toBeCloseTo(1.53 - commit - .02);
+    advanceWeapon(state, 0, 1.53 - commit, specs); expect(state.reloadRemaining).toBe(0);
   });
   it('skin previews do not spend currency, equip the real profile or alter stats', () => {
     const profile = createProfile(), before = resolveLoadout(profile), after = previewLoadout(profile, itemById('skin-gold')!, 0);

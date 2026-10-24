@@ -15,6 +15,14 @@ it('climbs to what the reload will actually transfer, and lands on it', () => {
   expect(magazineDisplay(12, 30, 120, .5)).toBe(21);
 });
 
+it('climbs only while the fresh magazine goes in, landing at the commit point', () => {
+  // Progress .3: still taking the old magazine out.
+  expect(magazineDisplay(4, 30, 120, .7, .47, .74)).toBe(4);
+  expect(magazineDisplay(4, 30, 120, 1 - .605, .47, .74)).toBe(17);
+  expect(magazineDisplay(4, 30, 120, .26, .47, .74)).toBe(30);
+  expect(magazineDisplay(4, 30, 120, .1, .47, .74)).toBe(30);
+});
+
 it('never promises rounds the reserve cannot supply', () => {
   // Five left in reserve fills five, not a magazine.
   expect(magazineDisplay(0, 30, 5, .5)).toBe(3);

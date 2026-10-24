@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceWeapon, beginReload, createLoadout, fireWeapon, FPS_WEAPONS, hitDamage, movementInput, splashScale, FPS_SPAWN, FPS_TARGETS } from './fps-rules';
+import { advanceWeapon, beginReload, createLoadout, fireWeapon, FPS_WEAPONS, interruptReload, reloadCommit, reloadProgress, hitDamage, movementInput, splashScale, FPS_SPAWN, FPS_TARGETS } from './fps-rules';
 import { buildMarinaScene } from './marina-scene';
 import { canOccupy } from './marina-collision';
 
@@ -32,6 +32,41 @@ describe('FPS ammunition lifecycle', () => {
     state.reloadRemaining = 0; // switching weapons cancels the animation without creating ammo
     advanceWeapon(state, 1, 5); expect(state.magazine).toBe(5);
     expect(createLoadout()[1].magazine).toBe(60);
+  });
+  it('seats the rounds at the commit point, before the settle at the end', () => {
+    const state = createLoadout()[0], reload = FPS_WEAPONS[0].reload; state.magazine = 12;
+    beginReload(state, 0); expect(state.reloadEmpty).toBe(false);
+    advanceWeapon(state, 0, reload * (reloadCommit(false) - .02)); expect(state.magazine).toBe(12);
+    advanceWeapon(state, 0, reload * .04); expect(state.magazine).toBe(30); expect(state.reserve).toBe(102);
+    // Still reloading through the settle, and the rest of it transfers nothing more.
+    expect(state.reloadRemaining).toBeGreaterThan(0); expect(fireWeapon(state, 0)).toBe(false);
+    advanceWeapon(state, 0, reload); expect(state.magazine).toBe(30); expect(state.reserve).toBe(102);
+    // From empty the round has to be chambered too, so the rounds go in later.
+    state.magazine = 0; beginReload(state, 0); expect(state.reloadEmpty).toBe(true);
+    advanceWeapon(state, 0, reload * (reloadCommit(false) + .02)); expect(state.magazine).toBe(0);
+    advanceWeapon(state, 0, reload * (reloadCommit(true) - reloadCommit(false))); expect(state.magazine).toBe(30);
+  });
+  it('keeps the old magazine and the progress when a reload is interrupted early', () => {
+    const state = createLoadout()[0], reload = FPS_WEAPONS[0].reload; state.magazine = 7;
+    beginReload(state, 0); advanceWeapon(state, 0, reload * .5);
+    expect(reloadProgress(state, 0)).toBeCloseTo(.5);
+    expect(interruptReload(state, 0)).toBe('suspended');
+    expect(state.reloadRemaining).toBe(0); expect(state.magazine).toBe(7); expect(state.reserve).toBe(120); expect(state.reloadSaved).toBeCloseTo(.5);
+    // The gun fires what it still holds, and the reload picks up where it stopped.
+    expect(fireWeapon(state, 0)).toBe(true); expect(state.magazine).toBe(6);
+    advanceWeapon(state, 0, 1); expect(state.reloadSaved).toBeCloseTo(.5);
+    beginReload(state, 0); expect(state.reloadRemaining).toBeCloseTo(reload * .5); expect(state.reloadSaved).toBe(0);
+    advanceWeapon(state, 0, reload * .3); expect(state.magazine).toBe(30); expect(state.reserve).toBe(96);
+    expect(interruptReload(state, 0)).toBe('finished'); expect(state.reloadSaved).toBe(0);
+    expect(interruptReload(state, 0)).toBeNull();
+  });
+  it('never resumes past the commit point, so a resumed reload still delivers its rounds', () => {
+    const state = createLoadout()[0]; state.magazine = 0; state.reloadSaved = .99;
+    beginReload(state, 0);
+    expect(reloadProgress(state, 0)).toBeLessThan(reloadCommit(true));
+    advanceWeapon(state, 0, FPS_WEAPONS[0].reload); expect(state.magazine).toBe(30);
+    state.magazine = 3; state.reloadSaved = Number.NaN; beginReload(state, 0);
+    expect(state.reloadRemaining).toBe(FPS_WEAPONS[0].reload);
   });
 });
 it('normalizes diagonal movement and keeps movement relative to camera yaw', () => {
