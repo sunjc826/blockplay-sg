@@ -2174,3 +2174,12 @@ less and spalls nothing. Decal and debris pools rose to 96 and 240 so heavy
 fire does not recycle its own marks at once. The impact fixture takes a weapon
 index (window.show(seconds, focus, side, weapon)). First three commits
 deployed green (run 40063475276).
+
+Follow-up, same day: water splashes scale by the same calibre weight
+(splashWeight in fps-splashes: 9 mm ≈ rifle, GPMG ~1.3× size, .50 ~2× size
+and ~2.6× droplets) and the baseline is bolder: more and larger droplets, a
+taller jet, wider rings, a longer life. The column now has its own plume
+texture and fades per instance instead of popping, and a churned-foam patch
+lies on the surface. Shader ripples take the calibre size (clamp raised to 3).
+impact-materials.html gained a pond and window.splash(seconds, weapon,
+grazing). Calibre-impact deploy af76e6e passed (run 40066316246).

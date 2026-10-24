@@ -20,7 +20,7 @@ import { advanceWeapon, beginReload, createLoadout, findTrait, fireWeapon, valid
 import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { sectorAt, zoneSectors } from './zone-sectors';
 import { advanceRound, createRound, needsFlight, skipRound, MAX_ROUNDS_IN_FLIGHT, MAX_SKIPS, type InFlightRound } from './fps-projectiles';
-import { SKIP_ENERGY, waterRicochet } from './fps-splashes';
+import { SKIP_ENERGY, splashWeight, waterRicochet } from './fps-splashes';
 import { isWaterObject, rippleWater } from './water';
 import { createFpsEffects, type ImpactKind } from './fps-effects';
 import { advanceRecoil, compensateRecoil, createRecoil, recoilPose, recoilView, recordRecoilShot, resetRecoil, takeAimPush } from './fps-recoil';
@@ -864,11 +864,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    * water can carry one, and the direction it skips off in if it came in
    * shallow enough to skip (see fps-splashes), or null if the water took it.
    */
-  function meetWater(hit: THREE.Intersection, direction: THREE.Vector3, energy: number) {
+  function meetWater(hit: THREE.Intersection, direction: THREE.Vector3, energy: number, weapon?: number) {
     const normal = surfaceNormal(hit, direction);
-    const skip = waterRicochet(direction, normal);
-    effects.splash(hit.point, direction, skip ? energy * .6 : energy);
-    rippleWater(hit.object, hit.point.x, hit.point.z, skip ? energy * .6 : energy);
+    const skip = waterRicochet(direction, normal), profile = weapon === undefined ? undefined : weaponStyles[weapon]?.impact;
+    effects.splash(hit.point, direction, skip ? energy * .6 : energy, profile);
+    // A heavier round rocks the surface harder as well as throwing more spray.
+    rippleWater(hit.object, hit.point.x, hit.point.z, (skip ? energy * .6 : energy) * splashWeight(profile).size);
     return skip;
   }
   const skipRay = new THREE.Raycaster(), skipDirection = new THREE.Vector3(), skipOrigin = new THREE.Vector3();
@@ -889,7 +890,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       energy = resolveSurfaces(hits, weapon, () => range, energy);
       applySplash(hit.point, weapon, range, energy, hit.object.userData.fpsTarget);
       if (!isWaterHit(hit)) { strike(hit, skipDirection, energy, weaponStyles[weapon]?.id); return; }
-      heading = meetWater(hit, skipDirection, energy); at = hit.point.clone(); travelled = range;
+      heading = meetWater(hit, skipDirection, energy, weapon); at = hit.point.clone(); travelled = range;
     }
   }
   function damageTarget(index: number, weapon: number, range: number, zone: string | undefined, scale = 1, rawDamage?: number) {
@@ -995,7 +996,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           applySplash(last.point, round.weapon, start + last.distance, round.scale, last.object.userData.fpsTarget);
           if (isWaterHit(last)) {
             struck = true;
-            const skip = meetWater(last, roundDirection, round.scale);
+            const skip = meetWater(last, roundDirection, round.scale, round.weapon);
             // Restarted just above the surface so its first new segment does not
             // begin inside the water it is leaving.
             const exit = { x: last.point.x + (skip?.x ?? 0) * .05, y: last.point.y + .01 + (skip?.y ?? 0) * .05, z: last.point.z + (skip?.z ?? 0) * .05 };
@@ -1152,7 +1153,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const end = struck?.point ?? ray.ray.at(180, new THREE.Vector3());
     effects.beam(muzzlePoint, end);
     if (isWaterHit(struck)) {
-      const skip = meetWater(struck, ray.ray.direction, energy);
+      const skip = meetWater(struck, ray.ray.direction, energy, hud.weapon);
       // The arena host resolves its own shots, so there the skip is spray only.
       if (skip && !arenaRuntime) skipInstantShot(struck.point, skip, struck.distance, energy, hud.weapon);
     } else if (struck) strike(struck, ray.ray.direction, energy, weaponStyles[hud.weapon]?.id);

@@ -5,7 +5,8 @@ import { advanceImpacts, clearImpactField, createImpactField, debrisScale, impac
 import { SURFACE_LOOKS, type DecalKind, type SurfaceKind } from './fps-surfaces';
 import { advanceMuzzle, createMuzzle, igniteMuzzle, muzzleShape, resetMuzzle } from './fps-muzzle';
 import { MAX_ROUNDS_IN_FLIGHT } from './fps-projectiles';
-import { advanceSplashes, clearSplashField, createSplashField, dropletScale, MAX_DROPLETS, MAX_SPLASHES, recordSplash, splashColumn, splashRings } from './fps-splashes';
+import { advanceSplashes, clearSplashField, createSplashField, dropletScale, MAX_DROPLETS, MAX_SPLASHES, recordSplash, splashColumn, splashFoam, splashRings } from './fps-splashes';
+import type { ImpactProfile } from './fps-impact-profile';
 import { ISSUED_STYLE, type EffectStyle } from './fps-effect-styles';
 
 /**
@@ -18,7 +19,7 @@ import { ISSUED_STYLE, type EffectStyle } from './fps-effect-styles';
  * one instanced draw for the brass, one for the impact rings, one for the dust
  * and smoke, one for the scorches (every material's mark shares one atlas), one
  * for the chips, splinters, shards and droplets a struck surface throws, one
- * batched `LineSegments` for every spark in the air, and two for water: the foam rings and a billboard pool shared by
+ * batched `LineSegments` for every spark in the air, and four for water: the foam rings and a billboard pool shared by
  * the spray columns and droplets. Nothing is created or disposed while firing, which is what
  * keeps a held trigger from sawing at the allocator on a software renderer.
  *
@@ -64,6 +65,31 @@ function finishTexture(data: Uint8Array, size: number) {
   texture.colorSpace = THREE.SRGBColorSpace; texture.minFilter = texture.magFilter = THREE.LinearFilter;
   texture.needsUpdate = true;
   return texture;
+}
+/**
+ * A plume of thrown water seen side on: a dense white core at the base that
+ * narrows upward and breaks into clumps under a ragged top. Row 0 is the bottom.
+ */
+function columnTexture(size: number) {
+  const data = new Uint8Array(size * size * 4);
+  const hash = (x: number, y: number) => { const h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return h - Math.floor(h); };
+  const noise = (x: number, y: number) => {
+    const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+    const top = hash(ix, iy) + (hash(ix + 1, iy) - hash(ix, iy)) * sx, bottom = hash(ix, iy + 1) + (hash(ix + 1, iy + 1) - hash(ix, iy + 1)) * sx;
+    return top + (bottom - top) * sy;
+  };
+  const smooth = (lo: number, hi: number, x: number) => { const t = Math.max(0, Math.min(1, (x - lo) / (hi - lo))); return t * t * (3 - 2 * t); };
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const u = (x + .5) / size * 2 - 1, v = (y + .5) / size;
+    const width = .5 - .28 * v, core = Math.exp(-Math.pow(u / width, 2) * 2.2);
+    const clumps = smooth(.35, .7, noise(u * 7 + 3, v * 9) * .65 + noise(u * 15, v * 19) * .35);
+    const top = 1 - smooth(.62, .95, v + (noise(u * 5, 2.5) - .5) * .3);
+    const alpha = core * top * (v < .3 ? 1 : 1 - smooth(.3, .75, v) * (1 - clumps)) * (u * u < .98 ? 1 : 0);
+    const i = (y * size + x) * 4;
+    data[i] = data[i + 1] = data[i + 2] = 255;
+    data[i + 3] = Math.round(Math.max(0, Math.min(1, alpha * 1.15)) * 255);
+  }
+  return finishTexture(data, size);
 }
 /**
  * A soft annulus in alpha, peaking at `peak` of the radius: a ripple ring seen
@@ -177,12 +203,23 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
   splashRingMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); splashRingMesh.frustumCulled = false; splashRingMesh.userData.fpsEffect = true; root.add(splashRingMesh);
   // Normally blended, not additive: white spray has to show against a bright
   // sky as well as against the water, and adding white to sky shows nothing.
-  const SPRAY_CAPACITY = MAX_SPLASHES + MAX_DROPLETS;
-  const sprayMesh = new THREE.InstancedMesh(quad, hold(new THREE.MeshBasicMaterial({ color: '#ffffff', map: blob, transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })), SPRAY_CAPACITY);
+  // Droplets; the plume over each entry point; and the churned foam patch on
+  // the surface. The plume and foam fade per instance rather than popping.
+  const sprayMesh = new THREE.InstancedMesh(quad, hold(new THREE.MeshBasicMaterial({ color: '#ffffff', map: blob, transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })), MAX_DROPLETS);
   sprayMesh.name = 'fps-spray';
   sprayMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); sprayMesh.frustumCulled = false; sprayMesh.userData.fpsEffect = true; root.add(sprayMesh);
+  const fading = (name: string, map: THREE.Texture) => {
+    const geometry = keep(new THREE.PlaneGeometry(1, 1)), opacity = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPLASHES), 1).setUsage(THREE.DynamicDrawUsage);
+    geometry.setAttribute('effectOpacity', opacity);
+    const mesh = new THREE.InstancedMesh(geometry, hold(withInstanceOpacity(new THREE.MeshBasicMaterial({ color: '#ffffff', map, transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }))), MAX_SPLASHES);
+    mesh.name = name; mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.frustumCulled = false; mesh.userData.fpsEffect = true; root.add(mesh);
+    return { mesh, opacity };
+  };
+  // The plume's base sits on the water, so the quad is shifted to stand on its bottom edge.
+  const column = fading('fps-splash-column', paint(columnTexture(64))); column.mesh.geometry.translate(0, .5, 0);
+  const foamPatch = fading('fps-splash-foam', blob);
   const flat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0));
-  const upright = new THREE.Quaternion(), yawOnly = new THREE.Euler(0, 0, 0, 'YXZ');
+  const upright = new THREE.Quaternion(), turn = new THREE.Quaternion(), yawOnly = new THREE.Euler(0, 0, 0, 'YXZ');
   const spray = new THREE.Color('#e9f4f6'), foam = new THREE.Color('#d8eef0');
 
   const sparkGeometry = keep(new THREE.BufferGeometry());
@@ -210,7 +247,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
   const axis = new THREE.Vector3(), forward = new THREE.Vector3(0, 0, 1), spin = new THREE.Quaternion();
   const right = new THREE.Vector3(), up = new THREE.Vector3(), back = new THREE.Vector3();
   const hidden = new THREE.Matrix4().makeScale(0, 0, 0);
-  const pools = [casingMesh, ringMesh, puffMesh, scorchMesh, debrisMesh, splashRingMesh, sprayMesh];
+  const pools = [casingMesh, ringMesh, puffMesh, scorchMesh, debrisMesh, splashRingMesh, sprayMesh, column.mesh, foamPatch.mesh];
   pools.forEach(mesh => {
     for (let i = 0; i < mesh.count; i++) mesh.setMatrixAt(i, hidden);
     mesh.instanceMatrix.needsUpdate = true;
@@ -296,10 +333,11 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
     /**
      * A round meeting water at `point`, travelling along `direction`. Water
      * leaves no scorch and throws no sparks, whatever the weapon, so a splash
-     * carries no style.
+     * carries no style; `profile` is the firing weapon's impact profile, so a
+     * heavier calibre throws a bigger splash.
      */
-    splash(point: THREE.Vector3, direction: THREE.Vector3, energy = 1) {
-      recordSplash(splashField, point, direction, energy);
+    splash(point: THREE.Vector3, direction: THREE.Vector3, energy = 1, profile?: ImpactProfile) {
+      recordSplash(splashField, point, direction, energy, Math.random, profile);
     },
     /**
      * Advances every pool and writes it into the buffers the renderer reads.
@@ -433,20 +471,25 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
       // anywhere around it; droplets face the camera outright.
       camera.getWorldQuaternion(quaternion);
       upright.setFromEuler(yawOnly.setFromQuaternion(quaternion, 'YXZ').set(0, yawOnly.y, 0, 'YXZ'));
-      for (let i = 0; i < SPRAY_CAPACITY; i++) {
-        const splash = i < MAX_SPLASHES ? splashField.splashes[i] : undefined;
-        const drop = i >= MAX_SPLASHES ? splashField.droplets[i - MAX_SPLASHES] : undefined;
-        if (splash) {
-          const column = splashColumn(splash);
-          if (column.brightness <= .01) { sprayMesh.setMatrixAt(i, hidden); continue; }
-          sprayMesh.setColorAt(i, spray);
-          sprayMesh.setMatrixAt(i, matrix.compose(position.set(splash.x, splash.y + column.height * .45, splash.z), upright,
-            scale.set(column.width * (.35 + .65 * column.brightness), column.height, 1)));
-        } else if (drop) {
-          const size = dropletScale(drop);
-          sprayMesh.setColorAt(i, spray);
-          sprayMesh.setMatrixAt(i, matrix.compose(position.set(drop.x, drop.y, drop.z), quaternion, scale.set(size, size, 1)));
-        } else sprayMesh.setMatrixAt(i, hidden);
+      for (let i = 0; i < MAX_SPLASHES; i++) {
+        const splash = splashField.splashes[i];
+        const plume = splash && splashColumn(splash), patch = splash && splashFoam(splash);
+        column.opacity.setX(i, plume ? Math.min(1, Math.sqrt(plume.brightness) * 1.05) : 0);
+        column.mesh.setColorAt(i, spray);
+        column.mesh.setMatrixAt(i, plume && plume.brightness > .005 ? matrix.compose(position.set(splash.x, splash.y + .01, splash.z), upright,
+          scale.set(plume.width, plume.height, 1)) : hidden);
+        foamPatch.opacity.setX(i, patch ? patch.opacity : 0);
+        foamPatch.mesh.setColorAt(i, foam);
+        foamPatch.mesh.setMatrixAt(i, patch && patch.opacity > .005 ? matrix.compose(position.set(splash.x, splash.y + .004, splash.z),
+          spin.copy(flat).multiply(turn.setFromAxisAngle(forward, splash.spin)), scale.set(patch.radius * 2, patch.radius * 2, 1)) : hidden);
+      }
+      for (const fade of [column, foamPatch]) { fade.mesh.instanceMatrix.needsUpdate = true; fade.mesh.instanceColor!.needsUpdate = true; fade.opacity.needsUpdate = true; }
+      for (let i = 0; i < MAX_DROPLETS; i++) {
+        const drop = splashField.droplets[i];
+        if (!drop) { sprayMesh.setMatrixAt(i, hidden); continue; }
+        const size = dropletScale(drop);
+        sprayMesh.setColorAt(i, spray);
+        sprayMesh.setMatrixAt(i, matrix.compose(position.set(drop.x, drop.y, drop.z), quaternion, scale.set(size, size, 1)));
       }
       sprayMesh.instanceMatrix.needsUpdate = true; sprayMesh.instanceColor!.needsUpdate = true;
 

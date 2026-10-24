@@ -54,5 +54,16 @@ window.show=(seconds=.1,focus=-1,side=false,weapon=0)=>{
   renderer.render(world,camera);
   return {weapon:spec.name,struck,counts:effects.counts};
 };
+// A pond in front of the panels for water: window.splash(seconds, weapon, grazing)
+// drops one round into it and advances the spray, as the engine would.
+const pond=new THREE.Mesh(new THREE.PlaneGeometry(9,4),mat('#2c5d6b',{roughness:.15}));pond.rotation.x=-Math.PI/2;pond.position.set(0,.02,-1.2);world.add(pond);
+window.splash=(seconds=.2,weapon=0,grazing=false)=>{
+  effects.reset();const spec=FPS_WEAPONS[weapon]??FPS_WEAPONS[0],profile=resolveEffectStyle({caliberMm:spec.caliberMm,damage:spec.damage}).impact;
+  camera.position.set(0,1.6,4);camera.lookAt(0,.6,-1.2);camera.updateMatrixWorld(true);
+  const direction=grazing?new THREE.Vector3(.3,-.08,-1).normalize():new THREE.Vector3(.2,-.7,-1).normalize();
+  effects.splash(new THREE.Vector3(0,.02,-1.2),direction,1,profile);
+  for(let t=0;t<seconds;t+=1/60)effects.update(Math.min(1/60,seconds-t)||1/60,camera,0);
+  renderer.render(world,camera);return {weapon:spec.name,counts:effects.counts};
+};
 window.show(.08);window.ready=true;
 </script></body></html>

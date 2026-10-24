@@ -27,16 +27,18 @@
  * they fall back through the surface they came from. Like `fps-impacts`, every
  * pool is a plain array with a hard ceiling and nothing here touches the scene.
  */
+import type { ImpactProfile } from './fps-impact-profile';
+
 export interface SplashVector { x: number; y: number; z: number }
 
 export interface Splash { x: number; y: number; z: number; age: number; life: number; size: number; spin: number }
 export interface Droplet { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number; floor: number; size: number }
 export interface SplashField { splashes: Splash[]; droplets: Droplet[] }
 
-export const MAX_SPLASHES = 12, MAX_DROPLETS = 180;
-export const SPLASH_LIFE = 1.3, JET_LIFE = 0.5;
-/** Crown droplets, plus the few that make up the jet up the middle. */
-export const DROPLETS_PER_SPLASH = 18, JET_DROPLETS = 4;
+export const MAX_SPLASHES = 12, MAX_DROPLETS = 360;
+export const SPLASH_LIFE = 1.6, JET_LIFE = 0.65;
+/** Crown droplets, plus the few that make up the jet up the middle, for the reference rifle round. */
+export const DROPLETS_PER_SPLASH = 24, JET_DROPLETS = 6;
 /**
  * Grazing angle below which a round skips rather than enters, in radians.
  * Published figures for spitzer rifle bullets on calm water sit around 5–8°.
@@ -51,7 +53,7 @@ export const SKIP_ENERGY = 0.5;
  * would vanish below a pixel a few metres out; this is sized to be read at the
  * ranges shots land at, the way muzzle flash and sparks already are.
  */
-export const DROPLET_SIZE = 0.07;
+export const DROPLET_SIZE = 0.085;
 export const SPLASH_GRAVITY = 9.81;
 const GRAVITY = SPLASH_GRAVITY, AIR_DRAG = 0.9;
 
@@ -92,13 +94,29 @@ export function waterRicochet(direction: SplashVector, normal: SplashVector = { 
 }
 
 /**
+ * How much bigger than the reference rifle round a weapon splashes, from the
+ * same bore-and-power weight that sizes its impact debris: `size` scales the
+ * crown, jet, column and rings, `count` the number of droplets thrown. A 9 mm
+ * splashes like a rifle; a GPMG about a third larger; a .50 about twice the
+ * size with more than twice the spray.
+ */
+export function splashWeight(profile?: Pick<ImpactProfile, 'debrisCount'>) {
+  const weight = Number.isFinite(profile?.debrisCount) ? Math.max(.2, profile!.debrisCount) : 1;
+  return { size: Math.min(2.2, Math.max(.6, Math.pow(weight, .45))), count: Math.min(2.6, Math.max(.6, Math.pow(weight, .6))) };
+}
+
+/**
  * Records one splash at `point` on a surface whose height is `point.y`.
  * `direction` is the round's travel; `energy` scales the spray, as it does for
- * impacts, so a round weakened by cover splashes smaller.
+ * impacts, so a round weakened by cover splashes smaller. `profile` is the
+ * firing weapon's impact profile, so a heavier calibre throws a bigger splash.
  */
 export function recordSplash(field: SplashField, point: SplashVector, direction: SplashVector, energy = 1,
-  random: () => number = Math.random): Splash {
-  const scale = Math.max(0.3, Math.min(1.5, energy));
+  random: () => number = Math.random, profile?: Pick<ImpactProfile, 'debrisCount'>): Splash {
+  const calibre = splashWeight(profile);
+  const scale = Math.max(0.3, Math.min(1.5, Number.isFinite(energy) ? energy : 1)) * calibre.size;
+  const crown = Math.round(DROPLETS_PER_SPLASH * calibre.count), jet = Math.round(JET_DROPLETS * calibre.count);
+  const dropSize = DROPLET_SIZE * Math.sqrt(calibre.size);
   const splash = push(field.splashes, {
     x: point.x, y: point.y, z: point.z, age: 0, life: SPLASH_LIFE, size: scale, spin: random() * Math.PI * 2,
   }, MAX_SPLASHES);
@@ -108,25 +126,26 @@ export function recordSplash(field: SplashField, point: SplashVector, direction:
   const horizontal = Math.hypot(d.x, d.z), skim = Math.min(1, horizontal) ** 4;
   const hx = horizontal > 1e-6 ? d.x / horizontal : 0, hz = horizontal > 1e-6 ? d.z / horizontal : 0;
   const lift = Math.sqrt(scale);
-  for (let i = 0; i < DROPLETS_PER_SPLASH; i++) {
+  for (let i = 0; i < crown; i++) {
     // The crown: evenly round the rim with a little jitter, so it reads as a ring.
-    const theta = (i + random() * 0.6) / DROPLETS_PER_SPLASH * Math.PI * 2;
+    const theta = (i + random() * 0.6) / crown * Math.PI * 2;
     const out = (0.5 + random() * 1.1) * lift, up = (1.6 + random() * 2.2) * lift * (1 - skim * 0.45);
     const ahead = skim * (1.5 + random() * 2.5) * lift;
     push(field.droplets, {
       x: point.x, y: point.y + 0.01, z: point.z,
       vx: Math.cos(theta) * out * (1 - skim * 0.6) + hx * ahead, vy: up, vz: Math.sin(theta) * out * (1 - skim * 0.6) + hz * ahead,
-      age: 0, life: 1.6, floor: point.y, size: DROPLET_SIZE * (0.7 + random() * 0.8),
+      age: 0, life: 1.8, floor: point.y, size: dropSize * (0.7 + random() * 0.8),
     }, MAX_DROPLETS);
   }
   // The jet: a few fat drops fired nearly straight up, fastest first, so the
   // column stands for a moment before it falls back into itself. A skim has
   // no cavity to collapse, and so no jet.
-  if (skim < 0.85) for (let i = 0; i < JET_DROPLETS; i++) {
+  if (skim < 0.85) for (let i = 0; i < jet; i++) {
+    const order = i / Math.max(1, jet - 1);
     push(field.droplets, {
       x: point.x, y: point.y + 0.01, z: point.z,
-      vx: (random() - 0.5) * 0.25, vy: (3.6 - i * 0.55) * lift * (1 - skim), vz: (random() - 0.5) * 0.25,
-      age: 0, life: 1.6, floor: point.y, size: DROPLET_SIZE * (1.8 - i * 0.2),
+      vx: (random() - 0.5) * 0.3, vy: (4.4 - order * 2.4) * lift * (1 - skim), vz: (random() - 0.5) * 0.3,
+      age: 0, life: 1.8, floor: point.y, size: dropSize * (1.9 - order * 0.8),
     }, MAX_DROPLETS);
   }
   return splash;
@@ -170,13 +189,18 @@ export function splashRings(splash: Splash) {
     radius: (0.08 + Math.pow(u, 0.55) * reach) * splash.size,
     brightness: u <= 0 ? 0 : Math.min(1, u * 12) * Math.pow(1 - u, 1.5),
   });
-  return [ring(t, 2.2), ring(inner, 1.2)] as const;
+  return [ring(t, 2.8), ring(inner, 1.5)] as const;
 }
 /** The white column over the entry point: stands up fast, then slumps. */
 export function splashColumn(splash: Splash) {
   const t = clamp01(splash.age / JET_LIFE);
   const rise = Math.sin(Math.min(1, t * 1.25) * Math.PI);
-  return { height: (0.15 + rise * 1.25) * splash.size, width: (0.42 + t * 0.5) * splash.size, brightness: (1 - t) * (1 - t) };
+  return { height: (0.2 + rise * 1.5) * splash.size, width: (0.45 + t * 0.45) * splash.size, brightness: (1 - t) * (1 - t) };
+}
+/** Churned white water left on the surface where the round went in; it spreads and thins. */
+export function splashFoam(splash: Splash) {
+  const t = clamp01(splash.age / splash.life);
+  return { radius: (0.3 + Math.pow(t, 0.5) * 0.9) * splash.size, opacity: Math.min(1, t * 20) * Math.pow(1 - t, 1.3) * 0.85 };
 }
 /** Droplets shrink out as they age rather than popping, and never grow. */
 export const dropletScale = (drop: Droplet) => drop.size * (1 - 0.5 * clamp01(drop.age / drop.life));

@@ -96,3 +96,34 @@ describe('splashes', () => {
     expect(late.brightness).toBe(0);
   });
 });
+
+describe('splash size by calibre', () => {
+  it('splashes like the rifle by default, about the same for a pistol and far bigger for a .50', async () => {
+    const { FPS_WEAPONS } = await import('./fps-rules');
+    const { impactProfile } = await import('./fps-impact-profile');
+    const { splashFoam, splashWeight } = await import('./fps-splashes');
+    const [rifle, , pistol, gpmg, heavy] = FPS_WEAPONS.map(w => impactProfile(w.caliberMm, w.damage));
+    expect(splashWeight()).toEqual({ size: 1, count: 1 }); expect(splashWeight(rifle)).toEqual({ size: 1, count: 1 });
+    expect(Math.abs(splashWeight(pistol).size - 1)).toBeLessThan(.1);
+    expect(splashWeight(gpmg).size).toBeGreaterThan(1.2);
+    expect(splashWeight(heavy).size).toBeGreaterThan(1.8); expect(splashWeight(heavy).count).toBeGreaterThan(2);
+
+    const plunge = (profile?: typeof rifle) => { const field = createSplashField(); recordSplash(field, surface, at(60), 1, seeded(), profile); return field; };
+    const small = plunge(rifle), big = plunge(heavy);
+    expect(small.droplets).toHaveLength(DROPLETS_PER_SPLASH + JET_DROPLETS);
+    expect(big.droplets.length).toBeGreaterThan(small.droplets.length * 2);
+    expect(Math.max(...big.droplets.map(d => d.vy))).toBeGreaterThan(Math.max(...small.droplets.map(d => d.vy)) * 1.3);
+    expect(big.droplets[0].size).toBeGreaterThan(small.droplets[0].size);
+    const peak = (field: typeof small) => ({ ...field.splashes[0], age: .3 });
+    expect(splashColumn(peak(big)).height).toBeGreaterThan(splashColumn(peak(small)).height * 1.8);
+    expect(splashFoam(peak(big)).radius).toBeGreaterThan(splashFoam(peak(small)).radius * 1.8);
+    expect(splashRings(peak(big))[0].radius).toBeGreaterThan(splashRings(peak(small))[0].radius * 1.8);
+  });
+  it('leaves a foam patch that spreads and thins out', async () => {
+    const { splashFoam } = await import('./fps-splashes');
+    const splash = { ...surface, age: .1, life: 1.6, size: 1, spin: 0 };
+    const early = splashFoam(splash), late = splashFoam({ ...splash, age: 1.2 });
+    expect(late.radius).toBeGreaterThan(early.radius); expect(late.opacity).toBeLessThan(early.opacity);
+    expect(splashFoam({ ...splash, age: 1.6 }).opacity).toBe(0);
+  });
+});

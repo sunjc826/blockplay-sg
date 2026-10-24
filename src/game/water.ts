@@ -181,7 +181,7 @@ export function createWaterMaterial(options: WaterOptions): WaterMaterial {
   material.userData.fpsWater = true;
   /** Drops a ring into the surface at world (x, z), aged from the current time. */
   material.userData.ripple = (x, z, strength = 1) => {
-    live[next].set(x, z, material.uniforms.uTime.value, Math.max(0, Math.min(1.5, strength)));
+    live[next].set(x, z, material.uniforms.uTime.value, Math.max(0, Math.min(3, strength)));
     next = (next + 1) % MAX_WATER_RIPPLES;
   };
   material.userData.setTime = seconds => { material.uniforms.uTime.value = seconds; };

@@ -125,3 +125,17 @@ it('keeps individual crater depth, width and smoke after a weapon switch', () =>
   effects.reset(); expect(effects.counts.scorches).toBe(0);
   effects.dispose();
 });
+
+it('fades the splash plume and foam out instead of popping them', () => {
+  const { effects, camera, mesh } = rig();
+  effects.splash(new THREE.Vector3(0, 0, -4), new THREE.Vector3(0, -1, -1).normalize(), 1);
+  const opacity = (name: string) => mesh(name).geometry.getAttribute('effectOpacity').getX(0);
+  effects.update(.1, camera);
+  const plume = opacity('fps-splash-column'), foam = opacity('fps-splash-foam');
+  expect(plume).toBeGreaterThan(.3); expect(foam).toBeGreaterThan(.3);
+  effects.update(.35, camera);
+  expect(opacity('fps-splash-column')).toBeLessThan(plume); expect(opacity('fps-splash-column')).toBeGreaterThan(0);
+  for (let t = 0; t < 1.5; t += .1) effects.update(.1, camera);
+  expect(opacity('fps-splash-column')).toBe(0); expect(opacity('fps-splash-foam')).toBe(0);
+  effects.dispose();
+});
