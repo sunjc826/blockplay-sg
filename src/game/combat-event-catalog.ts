@@ -313,6 +313,12 @@ registerCombatEvent({
 const FRIENDLY_BANNERS: Readonly<Record<string, { warning: string; active: string }>> = {
   'transport-land': { warning: 'FRIENDLY TRUCK INBOUND · ARMED FORCES', active: 'FRIENDLY SECTION DISMOUNTING' },
   'transport-air': { warning: 'FRIENDLY HELICOPTER INBOUND · ARMED FORCES', active: 'FRIENDLY SECTION FAST-ROPING IN' },
+  sniper: { warning: 'FRIENDLY SNIPER MOVING UP · ARMED FORCES', active: 'FRIENDLY OVERWATCH ON THE ROOFS' },
 };
 export const bannerOf = (event: Pick<CombatEventDescriptor, 'kind' | 'faction'>, plugin: { banner: { warning: string; active: string } }) =>
   (event.faction === PLAYER_FACTION && FRIENDLY_BANNERS[event.kind]) || plugin.banner;
+/** Hazards that pick their targets by side, so one fighting for the players is no danger to them. Blasts and gas hurt everyone. */
+const AIMED_BY_SIDE: ReadonlySet<string> = new Set(['sniper']);
+/** Whether an event is a danger to the players: worth an alarm, a tone and a mark on the map. */
+export const threatens = (event: Pick<CombatEventDescriptor, 'kind' | 'faction'>, plugin: { hazard: boolean }) =>
+  plugin.hazard && !(event.faction === PLAYER_FACTION && AIMED_BY_SIDE.has(event.kind));

@@ -59,8 +59,8 @@ import { findWorldRoute } from './world-zones';
 import { advanceBloom, createWeaponBloom, recordBloomShot, sampleShotSpread, weaponSpread } from './fps-accuracy';
 import { combatCues, combatPhase, combatTimeline, cratePose, flyerPose, getCombatEvent, transportPose, WHISTLE_LEAD, type CombatEventDescriptor } from './combat-events';
 import { createCombatEventVisuals } from './combat-event-visuals';
-import { bannerOf } from './combat-event-catalog';
-import type { SquadFaction } from './arena-factions';
+import { bannerOf, threatens } from './combat-event-catalog';
+import { hostile, type SquadFaction } from './arena-factions';
 import { createCombatAudio } from './combat-event-audio';
 import { getEnvironmentSettings } from './environment-settings';
 import { createHitDirectionOverlay, createHitDirections, hitStrength } from './fps-hit-direction';
@@ -1504,10 +1504,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const plugin = getCombatEvent(event.kind);
       if (!plugin || !['warning', 'active'].includes(combatPhase(event, eventClock))) continue;
       // Something happening across the district is news; only one near you is an alarm.
-      const near = Math.hypot(event.target.x - position.x, event.target.z - position.z) < COMBAT_NEAR;
+      const near = Math.hypot(event.target.x - position.x, event.target.z - position.z) < COMBAT_NEAR, threat = threatens(event, plugin);
       const named = `${event.faction === 'armed-forces' ? 'FRIENDLY ' : ''}${plugin.name.toUpperCase()}`;
-      comms.add('system', plugin.hazard && near ? 'Fire control' : 'Intel', near ? `${bannerOf(event, plugin).warning} · ${whereFrom(event.target)}` : `${named} · ${whereFrom(event.target)}`);
-      if (plugin.hazard && near) combatAudio.alert();
+      comms.add('system', threat && near ? 'Fire control' : 'Intel', near ? `${bannerOf(event, plugin).warning} · ${whereFrom(event.target)}` : `${named} · ${whereFrom(event.target)}`);
+      if (threat && near) combatAudio.alert();
     }
     if (seenEvents.size > 200) { seenEvents.clear(); events.forEach(e => seenEvents.add(e.id)); }
     // A crate this player opened is theirs: the host only says who got there first.
@@ -1522,8 +1522,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     for (const event of events) {
       const plugin = getCombatEvent(event.kind); if (!plugin) continue;
       const phase = combatPhase(event, eventClock), age = eventClock - event.start, live = phase === 'warning' || phase === 'active';
-      const far = Math.hypot(event.target.x - position.x, event.target.z - position.z) >= COMBAT_NEAR;
-      if (far && live && plugin.hazard) offer(`${plugin.name.toUpperCase()} · ${whereFrom(event.target)}`, 'notice', 1);
+      const far = Math.hypot(event.target.x - position.x, event.target.z - position.z) >= COMBAT_NEAR, threat = threatens(event, plugin);
+      if (far && live && threat) offer(`${plugin.name.toUpperCase()} · ${whereFrom(event.target)}`, 'notice', 1);
       const countdown = `${Math.max(1, Math.ceil(event.start + plugin.warning - eventClock))}s`;
       if (event.kind === 'air-raid' && live) siren = true;
       for (const payload of combatTimeline(event)) {
@@ -1558,6 +1558,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const raider = raiders.find(r => r.event === event.id), hunter = raider ?? (event.origin ? { x: event.origin.x, z: event.origin.z } : event.target);
       // A hunter busy across the district is news until it comes your way.
       if (Math.hypot(hunter.x - position.x, hunter.z - position.z) >= COMBAT_NEAR) continue;
+      // One on your side is news, not an alarm: it is not looking for you.
+      if (!threat) { offer(`${phase === 'warning' ? bannerOf(event, plugin).warning : bannerOf(event, plugin).active} · ${whereFrom(hunter)}`, 'notice', 1); continue; }
       // Hunters: their warning is a countdown; once here, where they are is what matters.
       if (phase === 'warning') { offer(`${plugin.banner.warning} · ${countdown}`, 'hazard', 3); continue; }
       if (event.kind === 'sniper') { if (event.ended === undefined && event.origin) offer(`${plugin.banner.active} · ${whereFrom(event.origin)}`, 'hazard', 2); continue; }
@@ -1566,8 +1568,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (event.kind === 'drone' && onMe && (raider.state === 'lock' || raider.state === 'dive')) { lockedOn = true; offer('DRONE LOCKED ON · BREAK LINE OF SIGHT OR SHOOT IT', 'hazard', 5); }
       else offer(`${plugin.banner.active} · ${whereFrom(raider)}`, 'hazard', event.kind === 'helicopter-raid' ? 3 : 2);
     }
-    // A sniper who has fired or shown a glint has given their position away.
-    for (const actor of snapshot.actors) if (actor.role === 'overwatch' && actor.alive && (actor.aiming || actor.shots > 0)) dangers.push({ id: `sniper-${actor.id}`, x: actor.x, z: actor.z, radius: 0, kind: 'raider' });
+    // An enemy sniper who has fired or shown a glint has given their position away.
+    for (const actor of snapshot.actors) if (actor.role === 'overwatch' && actor.alive && (actor.aiming || actor.shots > 0) && hostile({ bot: false }, actor)) dangers.push({ id: `sniper-${actor.id}`, x: actor.x, z: actor.z, radius: 0, kind: 'raider' });
     for (const r of raiders) {
       if (['wreck', 'exploded'].includes(r.state)) continue;
       const distance = Math.hypot(r.x - listener.x, r.y - listener.y, r.z - listener.z);

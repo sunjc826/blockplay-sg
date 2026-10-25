@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AIR_BOMB, AIR_RAID, BLACKOUT, MORTAR, RAID, SMOKE_SCREEN, SUPPLY, TEAR_GAS } from './combat-event-catalog';
+import { AIR_BOMB, AIR_RAID, BLACKOUT, bannerOf, MORTAR, RAID, SMOKE_SCREEN, SUPPLY, TEAR_GAS, threatens } from './combat-event-catalog';
 import { combatCues, combatPhase, combatTimeline, cratePose, getCombatEvent, listCombatEvents, orbitPose, registerCombatEvent, validCombatEvent,
   type CloudPayload, type CombatEventDescriptor, type CombatPayload, type CratePayload, type FlyerPayload, type MunitionPayload, type OrbitPayload } from './combat-events';
 import { COMBAT_PLAYER_OFFSET, COMBAT_TABLES, COMBAT_WORLD_SHARE, COMBAT_WORLD_SPREAD, createCombatDirector } from './combat-director';
@@ -148,6 +148,20 @@ describe('validation of the new descriptor fields', () => {
     expect(validCombatEvent({ ...base, altitude: Number.NaN }, 25, bounds)).toBe(false);
     expect(validCombatEvent({ ...base, origin: { x: 1e6, z: 0 } }, 25, bounds)).toBe(false);
     expect(validCombatEvent({ ...base, claimedBy: '' }, 25, bounds)).toBe(false);
+  });
+});
+
+describe('alarms by side', () => {
+  const sniper = getCombatEvent('sniper')!, mortar = getCombatEvent('mortar')!;
+  it('raise no alarm for a sniper on the players\' side, and call it friendly', () => {
+    expect(threatens(event('sniper'), sniper)).toBe(true);
+    expect(threatens(event('sniper', { faction: 'armed-forces' }), sniper)).toBe(false);
+    expect(bannerOf(event('sniper', { faction: 'armed-forces' }), sniper).active).toMatch(/^FRIENDLY/);
+    expect(bannerOf(event('sniper'), sniper)).toBe(sniper.banner);
+  });
+  it('still warn of friendly fire that hurts everyone, and never of news', () => {
+    expect(threatens(event('mortar', { faction: 'armed-forces' }), mortar)).toBe(true);
+    expect(threatens(event('supply-drop'), getCombatEvent('supply-drop')!)).toBe(false);
   });
 });
 
