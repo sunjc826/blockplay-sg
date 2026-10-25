@@ -41,7 +41,9 @@ const c=document.createElement('canvas');c.width=1200;c.height=800;const ctx=c.g
 const sample=()=>{ctx.drawImage(renderer.domElement,0,0);return ctx.getImageData(0,0,1200,800).data;};
 window.show('ads');const a=sample();window.show('no-buildings');const b=sample();let inside=0,outside=0;
 for(let i=0;i<a.length;i+=4){const difference=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);if(difference<12)continue;const x=(i/4)%1200-600,y=Math.floor(i/4/1200)-400;if(Math.hypot(x,y)<90)inside++;else if(Math.hypot(x,y)>150)outside++;}
-return {inside,outside,centre:Array.from(a.slice((400*1200+600)*4,(400*1200+600)*4+3))};};
+// The darkest pixel near the aim point: the SAR's ring has a clear centre, so the exact centre pixel may be glass.
+let centre=[255,255,255];for(let y=388;y<=412;y++)for(let x=588;x<=612;x++){const i=(y*1200+x)*4;if(a[i]+a[i+1]+a[i+2]<centre[0]+centre[1]+centre[2])centre=Array.from(a.slice(i,i+3));}
+return {inside,outside,centre};};
 window.verifyBloom=()=>{
 const bloom=model.getObjectByName('fps-reflex-bloom');
 const c=document.createElement('canvas');c.width=1200;c.height=800;const ctx=c.getContext('2d',{willReadFrequently:true});

@@ -1,5 +1,5 @@
 // Run Vite and an isolated Chrome with --remote-debugging-port=9228.
-// The magnified scope must retain PiP and its etched crosshair beneath the coating.
+// The magnified scope must retain PiP and its etched reticle beneath the coating.
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const origin = process.env.FPS_APP_ORIGIN || 'http://127.0.0.1:5175';
@@ -55,7 +55,7 @@ try {
     const reflected=await evaluate('window.verifyReflections()');
     assert(reflected.inside>200,`${optic}: rear scenery reflects in the scope`);
     assert.equal(reflected.outside,0,'Reflection stays inside glass');
-    assert(reflected.centre.every(channel=>channel<100),'Etched centre crosshair stays dark through the coating');
+    assert(reflected.centre.every(channel=>channel<100),'Etched reticle at the aim point stays dark through the coating');
   }
   assert.deepEqual(errors,[]);
   console.log('PASS: SAR 1.5x and 1.75x PiP, hip coating, actual scenery reflections and clear etched crosshairs');

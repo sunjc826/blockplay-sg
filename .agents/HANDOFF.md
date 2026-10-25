@@ -2707,3 +2707,26 @@ mode) with no console errors, where the HUD forces bar read 29% and rose to
 its 65% ceiling as the player took fire. The radio lines were not seen on
 screen: the comms log is hidden in the touch layout. Not soak-tested on real
 district geometry or with LAN guests.
+
+## 2026-10-25: true-to-life scope reticles
+
+Every magnified sight used to share one thin generic crosshair. `scope-reticles.ts`
+now draws one per sight as signed-distance strokes in lens UVs (no texture, so
+node tests and any lens size are fine), chosen by `scopeReticleFor`:
+- `g36-zf` (G36 rifle, G36K, MG36): the ZF 3×4° main reticle, proportioned from
+  Wikimedia's HKG36Reticle.svg: hairline with heavy outer posts, 200 m ring and
+  crosshair, two holdover crosses, 8-6-4-2 range-finding steps lower left.
+- `sar21-ring` (SAR 21 issued 1.5×): measured from a through-the-sight photo the
+  owner supplied: fine crosshair to the field stop, small heavy ring with a clear
+  centre and a pinpoint dot. The photo is not stored in the repo.
+- `match-duplex` (Own Time, Own Target's fictional 1.75× match scope): a duplex.
+Red dots (XM8, G36C, Ultimax, SAR reflex) are unchanged. `WeaponSight.reticle`
+names the pattern; `createOpticGlass` takes it so the coating thins over the
+same strokes (it used to cut a bright cross where the old crosshair was).
+`reflex-render.html`'s `verifyReflections` now reports the darkest pixel near the
+aim point, since the SAR's ring centre is clear glass.
+Validation: typecheck; full vitest 1171/1172 (the failure is
+`zone-sectors.test.ts` Marina anchors, from the uncommitted region-sectors work,
+not this change); `fps-scope-glass-smoke.mjs` passes in headless Chrome
+(swiftshader); ADS captures of all three reticles via the reflex-render fixture
+with no shader errors. G36 holdovers are decorative until zeroing exists.

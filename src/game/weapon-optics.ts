@@ -4,12 +4,15 @@ import { opticMagnification } from './fps-rules';
 import { buildReflexHousing } from './weapon-reflex';
 import { createOpticGlass, type OpticGlass } from './weapon-glass';
 import { enemyOptic } from './enemy-weapon-layout';
+import { scopeReticleFor, scopeReticleGlsl, type ScopeReticle } from './scope-reticles';
 
 export interface WeaponSight {
   aimHeight: number; aimDepth: number; radius: number; magnification: number;
   visibility: { value: number };
   lens: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
   reflection?: OpticGlass;
+  /** The etched pattern, for magnified sights only. */
+  reticle?: ScopeReticle;
 }
 const sights = new WeakMap<THREE.Object3D, WeaponSight>();
 export const getWeaponSight = (root: THREE.Object3D) => sights.get(root);
@@ -25,6 +28,11 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   const original = root.getObjectByName('sar21-inspired__optic');
   const wasVisible = original?.visible ?? true;
   if (original) original.visible = integrated;
+  // A red dot is a red dot whatever field of view the variant asks for.
+  const magnification = built?.kind === 'reflex' ? 1 : opticMagnification(weapon);
+  const magnified = magnification > 1.01;
+  const visibility = { value: magnified ? 0 : 1 };
+  const reticle = magnified ? scopeReticleFor(weapon, built) : undefined;
   const group = new THREE.Group(); group.name = 'equipped-optic'; root.add(group);
   const geometry: THREE.BufferGeometry[] = [];
   const aimHeight = built?.height ?? (integrated ? .328 : sar ? .343 : .350);
@@ -36,7 +44,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
     group.name = integrated ? 'fps-integrated-optic' : 'fps-reflex-optic';
     // A scope's coating sits on the eye side of its picture; a reflex's
     // mirror sits just beyond the dot, as on the receiver-mounted housing.
-    scopeGlass = createOpticGlass(radius, integrated ? .0014 : .005, integrated ? 'scope' : 'reflex');
+    scopeGlass = createOpticGlass(radius, integrated ? .0014 : .005, integrated ? 'scope' : 'reflex', reticle);
     scopeGlass.reflection.surface.position.set(0, aimHeight, built.lens + (integrated ? .0005 : -.003));
     group.add(scopeGlass.reflection.surface);
   } else if (!integrated) {
@@ -45,14 +53,10 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   } else {
     // The original SAR housing includes opaque lens faces. Seat the coating
     // just ahead of the rear face, and composite it over the live scope image.
-    scopeGlass = createOpticGlass(radius, .0014, 'scope');
+    scopeGlass = createOpticGlass(radius, .0014, 'scope', reticle);
     scopeGlass.reflection.surface.position.set(0, aimHeight, rearZ + .0015);
     group.add(scopeGlass.reflection.surface);
   }
-  // A red dot is a red dot whatever field of view the variant asks for.
-  const magnification = built?.kind === 'reflex' ? 1 : opticMagnification(weapon);
-  const magnified = magnification > 1.01;
-  const visibility = { value: magnified ? 0 : 1 };
   const lensMaterial = new THREE.MeshBasicMaterial({ color: '#ffffff', side: magnified ? THREE.DoubleSide : THREE.FrontSide, transparent: true, depthWrite: false });
   lensMaterial.toneMapped = magnified;
   // The etched scope uses lens UVs; the reflex uses a collimated ray. Both are
@@ -82,6 +86,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
       `);
       shader.fragmentShader = 'varying vec3 sightRay;\nvarying vec3 sightCentre;\nvarying float sightWindow;\n' + shader.fragmentShader;
     }
+    if (reticle) shader.fragmentShader = scopeReticleGlsl(reticle) + shader.fragmentShader;
     shader.fragmentShader = 'varying vec2 sightUv;\nuniform float sightVisibility;\nuniform float sightBloom;\n' + shader.fragmentShader;
     shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
       #include <map_fragment>
@@ -101,8 +106,8 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
       #endif
       // Restrained blue-green transmission tint; keep the centre nearly neutral.
       diffuseColor.rgb *= mix(vec3(0.96, 0.99, 1.0), vec3(0.80, 0.93, 0.97), bend * 0.55);
-      float line = 1.0 - smoothstep(0.003, 0.003 + aa, min(abs(p.x), abs(p.y)));
-      line *= 1.0 - smoothstep(0.35, 0.36, r);
+      // The etching sits on a glass plate, so the periphery bend leaves it alone.
+      float line = scopeReticle(p, aa) * (1.0 - smoothstep(0.47, 0.49, r));
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.025, 0.035, 0.028), line);
       // Soft eye-box shadow grows while the eye is coming into alignment.
       float edge = smoothstep(mix(0.12, 0.39, sightVisibility), 0.5, r);
@@ -145,7 +150,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
       `}
     `);
   };
-  lensMaterial.customProgramCacheKey = () => magnified ? 'scope-reticle-v3' : 'reflex-reticle-v5';
+  lensMaterial.customProgramCacheKey = () => magnified ? `scope-reticle-v4-${reticle}` : 'reflex-reticle-v5';
   const lensGeometry = new THREE.CircleGeometry(radius, 48); geometry.push(lensGeometry);
   const lens = new THREE.Mesh(lensGeometry, lensMaterial); lens.name = 'fps-scope-lens';
   lens.position.set(0, aimHeight, built?.lens ?? (integrated ? rearZ + .001 : rearZ - .044)); lens.visible = !magnified; lens.renderOrder = 2; group.add(lens);
@@ -164,7 +169,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
     // Parenting shares the lens's visibility, clipping, and eye alignment.
     lens.add(bloom);
   }
-  const sight: WeaponSight = { aimHeight, aimDepth: built?.aimDepth ?? (integrated ? -.36 : -.47), radius, magnification, lens, visibility, reflection: scopeGlass?.reflection ?? housing?.reflection };
+  const sight: WeaponSight = { reticle, aimHeight, aimDepth: built?.aimDepth ?? (integrated ? -.36 : -.47), radius, magnification, lens, visibility, reflection: scopeGlass?.reflection ?? housing?.reflection };
   sights.set(root, sight);
   return () => {
     if (original) original.visible = wasVisible;

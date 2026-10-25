@@ -134,7 +134,9 @@ Three cheap traits on the Phase 0 foundation:
   the purchasable upgrade. `aimFov`, `opticMagnification` and the PiP reticle
   already exist. Still open, and it is not free: a zeroed sight already holds
   over, so the pilot must subtract the zero from its own compensation or it will
-  double-count and shoot high.
+  double-count and shoot high. The G36's reticle (`scope-reticles.ts`) already
+  carries the real sight's holdover crosses and range-finding steps, but they
+  are decorative: nothing aims by them until zeroing lands.
 
 *Files:* `fps-raycast.ts`, `fps-rules.ts`, `weapon-optics.ts`.
 *Risk:* low. *Feelable:* yes.

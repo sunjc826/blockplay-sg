@@ -58,6 +58,20 @@ it.each([1.5, 1.75])('keeps SAR %s× glass visible at hip and layers it over PiP
   expect(native.visible).toBe(true); expect(root.children).toEqual([native]);
 });
 
+it('etches each magnified sight with its own reticle and leaves red dots alone', () => {
+  const g36 = FPS_WEAPONS.find(w => w.id === 'g36-inspired')!;
+  const reticleOf = (weapon: typeof g36, config?: string) => {
+    const root = new THREE.Group(); root.userData.enemyConfig = config;
+    const remove = fitWeaponOptic(root, weapon), reticle = getWeaponSight(root)?.reticle;
+    remove(); return reticle;
+  };
+  expect(reticleOf(FPS_WEAPONS[0])).toBe('sar21-ring');
+  expect(reticleOf({ ...FPS_WEAPONS[0], optic: 'precision', aimFov: 40 })).toBe('match-duplex');
+  expect(reticleOf({ ...FPS_WEAPONS[0], optic: 'reflex', aimFov: HIP_FOV })).toBeUndefined();
+  for (const config of ['rifle', 'k', 'mg']) expect(reticleOf(g36, config)).toBe('g36-zf');
+  expect(reticleOf(g36, 'c')).toBeUndefined();
+});
+
 it('exports the SAR scope as a detachable mesh in both shipped assets', () => {
   for (const path of ['public/models/field-kit/sar21-inspired.glb', 'asset-pack/public/models/sar21-inspired.glb']) {
     const glb = readFileSync(path), length = glb.readUInt32LE(12);

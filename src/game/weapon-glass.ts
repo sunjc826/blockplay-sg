@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { scopeReticleGlsl, type ScopeReticle } from './scope-reticles';
 
 export interface OpticGlass {
   surface: THREE.Mesh;
@@ -11,7 +12,8 @@ export interface OpticGlass {
 }
 
 /** Curved coated glass shared by reflex and magnified optics. */
-export function createOpticGlass(radius: number, curvature: number, profile: 'reflex' | 'scope') {
+/** A scope's `reticle` is the etching the coating thins over; a magnified sight without one shows none. */
+export function createOpticGlass(radius: number, curvature: number, profile: 'reflex' | 'scope', reticle?: ScopeReticle) {
   const scope = profile === 'scope';
   const uniforms: OpticGlass['uniforms'] = {
     reflectionMap: { value: null }, reflectionViewToCapture: { value: new THREE.Matrix3() },
@@ -28,7 +30,7 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
       uniform mat3 reflectionViewToCapture;
       uniform float reflectionReady;
       uniform float reflectionTanHalfFov;
-    ` + shader.fragmentShader;
+    ` + (scope && reticle ? scopeReticleGlsl(reticle) : '') + shader.fragmentShader;
     shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', `
       vec3 eye = normalize(vViewPosition);
       float grazing = pow(1.0 - abs(dot(normalize(normal), eye)), 2.0);
@@ -40,16 +42,16 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
       vec3 coating = mix(vec3(0.64, 0.93, 0.98), vec3(1.0, 0.63, 0.30), clamp(rim * 0.65 + grazing, 0.0, 1.0));
       outgoingLight = mix(outgoingLight, scenery * coating + outgoingLight * 0.18, reflectionReady * inCapture);
       ${scope ? `
-      // The scope image and etched crosshair sit underneath this coating.
-      // Keep their centre legible; let the rim carry the stronger reflection.
-      vec2 p = coatingUv - 0.5;
-      float crosshair = (1.0 - smoothstep(0.003, 0.009, min(abs(p.x), abs(p.y)))) * (1.0 - smoothstep(0.35, 0.36, length(p)));
-      diffuseColor.a = (0.035 + rim * 0.23 + grazing * 0.30) * (1.0 - crosshair * 0.8);
+      // The scope image and etched reticle sit underneath this coating.
+      // Keep them legible; let the rim carry the stronger reflection.
+      ${reticle ? `vec2 p = coatingUv - 0.5;
+      float etched = scopeReticle(p, max(fwidth(p.x), fwidth(p.y)));` : 'float etched = 0.0;'}
+      diffuseColor.a = (0.035 + rim * 0.23 + grazing * 0.30) * (1.0 - etched * 0.8);
       ` : 'diffuseColor.a = 0.10 + rim * 0.19 + grazing * 0.25;'}
       #include <opaque_fragment>
     `);
   };
-  material.customProgramCacheKey = () => `${profile}-scenery-glass-v3`;
+  material.customProgramCacheKey = () => `${profile}-scenery-glass-v4-${reticle ?? 'plain'}`;
   const geometry = new THREE.RingGeometry(0, radius, 48, 8), vertices = geometry.attributes.position;
   for (let i = 0; i < vertices.count; i++) {
     const r2 = (vertices.getX(i) ** 2 + vertices.getY(i) ** 2) / radius ** 2;
@@ -58,7 +60,7 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
   geometry.computeVertexNormals();
   const surface = new THREE.Mesh(geometry, material); surface.name = 'optic-coated-glass';
   // Reflex reticles draw over the coating. Scopes instead draw the coating over
-  // the opaque PiP image, with much lower opacity along the etched crosshair.
+  // the opaque PiP image, with much lower opacity along the etched reticle.
   surface.renderOrder = scope ? 3 : 1;
   return { reflection: { surface, uniforms }, dispose() { geometry.dispose(); material.dispose(); } };
 }
