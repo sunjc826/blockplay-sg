@@ -29,6 +29,7 @@
 .fps-reload-cue{position:absolute;left:50%;top:calc(50% + 62px);transform:translateX(-50%);width:112px;text-align:center;font:8px monospace;letter-spacing:2px;color:var(--hud-gold-soft);text-shadow:0 1px 4px #000}
 .fps-reload-cue>div{height:2px;margin-top:8px;background:#ffffff30}
 .fps-reload-cue i{display:block;height:100%;background:var(--hud-gold-soft);transition:width .1s linear}
+.fps-supply-cue{width:220px;color:#bfe9c4;letter-spacing:1.5px}.fps-supply-cue i{background:#7fd38b}.fps-supply-cue>div{height:3px}
 .fps-weapon-hud .fps-tactical-crosshair{width:48px;height:48px;filter:drop-shadow(0 0 1px #000);--gap:var(--fps-spread,6px)}
 .fps-weapon-hud .fps-tactical-crosshair i{background:#f2f7f2;box-shadow:0 0 0 1px #08140b80;border-radius:1px;transition:opacity .1s,top .1s,left .1s,bottom .1s,right .1s}
 .fps-weapon-hud .fps-tactical-crosshair i:nth-child(1){width:2px;height:7px;left:23px;top:calc(24px - var(--gap) - 7px);bottom:auto}

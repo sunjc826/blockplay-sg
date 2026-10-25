@@ -2378,3 +2378,43 @@ Validation: 1065 tests in 112 files, typecheck. Headless Chromium (slowed rAF cl
 "NO MAGAZINE · R RESUME RELOAD · 55%" → R resumed as an empty reload from MAG
 IN and ended 29+1. A one-frame 30+1 at the chamber step was fixed in
 magazineDisplay.
+
+## 2026-10-25: district map, hit directions, timed supplies, time of day, bots that heal
+
+- Map: M (or tapping the minimap on touch) toggles `hud.mapExpanded`;
+  `FpsMinimap expanded` draws the whole district at 600×440 with sector names,
+  marker labels and a 100 m bar, centred over the scene.
+- Hit directions (`fps-hit-direction.ts`): arena hits record `hurtFrom
+  { x, z, serial, blast? }` on the victim (shooter, vehicle gun origin or
+  blast point); counter-fire uses the firing target. The engine owns a pooled
+  DOM overlay of arcs re-bearinged every frame; same-direction hits merge.
+- Supplies (`fps-healing.ts`, `fps-supply-viewmodel.ts`): G and expedition
+  medical crates start a timed use (eat / bandage / medkit / plates / ammo) with
+  a commit point; fresh fire or sprint (the reload gate), R, weapon switch,
+  vehicle or death stop it before anything is spent. Weapon lowered, walk at
+  0.55×, no aim. Medical crates are collected only at commit.
+- Lighting (`world-lighting.ts`): Singapore sun path, keyed by elevation to key
+  colour/scale, fill scale and colours, sky tint and exposure; moon as key at
+  night. `EnvironmentSettings` gained `timeOfDay` ('auto' = Singapore clock)
+  and `shadows`. `world-atmosphere` moves and recolours each district's own sun
+  and sky (`atmosphere.light` reports the result). Daytime fill is ~0.58× the
+  authored hemisphere, which is most of the "less flat" change. FPS sun shadows
+  (`fps-sun-shadows.ts`): 2048² PCF-soft map, ±64 m, following the camera,
+  texel-snapped, shadowMap.autoUpdate off with one update a frame; skipped on
+  SwiftShader/llvmpipe. The weapon's view lights follow the same hour.
+- Bots (`arena-bot-combat.ts`): a spawn's loadout slot is the drawn variant's
+  `variantSpec`; host shots by bots use `hitDamage` (falloff + head precision
+  via `headHit`). Bursts by role (`burst`), cadence from the weapon's interval,
+  cone opened by recoil per round. `medkits` per role; below half health and
+  out of sight they kneel (eye 1.15) and dress for 3.2 s for +55%; a hit
+  interrupts; snapshot `healing` drives `CharacterDrive.healing` on the rig.
+  Role shotDelay values were re-tuned as pauses between bursts.
+Validation: unit tests for all of the above, full suite and typecheck.
+`pnpm test:fps:field-kit` passes against headless Chrome (GPU, shadows on):
+map open/close, an arc from counter-fire, a dressing applied (+health, 2→1)
+and an interrupted one kept, dawn/noon/dusk/night captures, and an expedition
+district map with patrols running error-free. Headful Chrome on macOS refuses
+pointer capture when its window is not in front.
+Not done: no bespoke supply models per food beyond four shapes; shadows cover
+~130 m round the camera (distant towers cast none); the region (walk/drive)
+modes keep their authored whole-map shadows but now follow the time of day.

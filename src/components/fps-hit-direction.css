@@ -1,0 +1,10 @@
+/* Arcs around the crosshair pointing at whatever just hit you; the engine owns the elements. */
+.fps-hit-directions{position:absolute;inset:0;pointer-events:none;z-index:3}
+.fps-hit-direction{position:absolute;left:50%;top:50%;width:0;height:0;transition:opacity .08s linear}
+.fps-hit-direction i{position:absolute;left:-70px;top:calc(-1 * min(26vh, 190px));width:140px;height:44px;border-radius:50% 50% 0 0/100% 100% 0 0;
+  border-top:calc(5px + var(--hit-weight, .5) * 5px) solid #e2432f;filter:drop-shadow(0 0 6px #ff3b2acc);
+  -webkit-mask:linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent);mask:linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent)}
+.fps-hit-direction i::after{content:'';position:absolute;left:50%;top:calc(-14px - var(--hit-weight, .5) * 5px);margin-left:-7px;border:7px solid transparent;border-bottom:9px solid #ff6a4f}
+.fps-hit-direction[data-kind=blast] i{border-top-color:#f09a2c;filter:drop-shadow(0 0 8px #ff9b2acc)}
+.fps-hit-direction[data-kind=blast] i::after{border-bottom-color:#ffc061}
+@media(max-width:700px){.fps-hit-direction i{left:-50px;width:100px;height:32px}}

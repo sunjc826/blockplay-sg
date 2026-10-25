@@ -18,6 +18,7 @@ import TouchControls from './TouchControls';
 import { useTouchControls } from '../game/use-touch-controls';
 import type { MinimapMarker } from '../game/minimap';
 import './expedition.css';
+import './fps-hit-direction.css';
 
 interface ExpeditionScene { zone: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: FpsCheckpoint; revision: number }
 
@@ -87,7 +88,7 @@ export default function ExpeditionGame({ profile, onExit, onVendorPurchase, onCo
       <FpsRadio hud={hud} />
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus} · ESC TO STOP</div>}
       {playing && <>
-        <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} mode="expedition" />
+        <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} mode="expedition" expanded={hud.mapExpanded} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
         <FpsVitals hud={hud} />
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}
         {hud.incoming && <div className="fps-incoming">INCOMING · FIND COVER</div>}
@@ -114,7 +115,7 @@ export default function ExpeditionGame({ profile, onExit, onVendorPurchase, onCo
         <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
         <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => hud.phase === 'error' ? setScene(current => ({ ...current, revision: current.revision + 1 })) : engine.current?.start()}><Play size={16} />{hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry district' : hud.phase === 'paused' ? 'Resume expedition' : 'Enter district'}<ArrowRight size={17} /></button>
         <button className="fps-shop-link" onClick={onExit}>Leave expedition →</button>
-        <div className="fps-control-guide"><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>E</kbd> Take supplies</span><span><kbd>N</kbd> Interact nearby</span><span><kbd>T</kbd> Travel</span><span><kbd>F</kbd> Fullscreen</span></div>
+        <div className="fps-control-guide"><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>E</kbd> Take supplies</span><span><kbd>G</kbd> Use supply</span><span><kbd>M</kbd> Map</span><span><kbd>N</kbd> Interact nearby</span><span><kbd>T</kbd> Travel</span><span><kbd>F</kbd> Fullscreen</span></div>
         <small className="fps-touch-note">{touch ? 'Thumb controls appear once you enter the district. ' : ''}Field equipment lasts for this expedition. Your permanent Armory stays saved.</small>
       </div></div>}
     </div>

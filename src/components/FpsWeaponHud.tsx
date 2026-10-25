@@ -15,7 +15,8 @@ export default function FpsWeaponHud({ hud, weapon, canFight }: { hud: FpsHud; w
   const rounds = useReducedMotion() ? inMagazine : magazineDisplay(inMagazine, weapon.capacity, hud.reserve, hud.reloading, MAG_IN_START, RELOAD_POINTS.seat);
   // An interrupted reload keeps its progress for the next one (see fps-rules).
   const resume = !reloading && hud.reloadSaved > 0 ? Math.round(hud.reloadSaved * 100) : 0;
-  const prompt = reloading ? `${hud.reloadEmpty ? 'EMPTY' : 'TACTICAL'} RELOAD · ${stage}`
+  const using = hud.supplyUse;
+  const prompt = using ? `${using.verb} · FIRE OR SPRINT TO STOP` : reloading ? `${hud.reloadEmpty ? 'EMPTY' : 'TACTICAL'} RELOAD · ${stage}`
     : resume ? `${hud.magazineOut ? 'NO MAGAZINE · ' : ''}R RESUME RELOAD · ${resume}%`
     : hud.magazine === 0 ? 'EMPTY · PRESS R'
     : !hud.roundReady ? (hud.magazineOut ? 'NO MAGAZINE · PRESS R' : 'CHAMBER EMPTY · PRESS R')
@@ -27,7 +28,8 @@ export default function FpsWeaponHud({ hud, weapon, canFight }: { hud: FpsHud; w
         lens fades in; legacy global ADS styles must not resurrect its bars. */}
     {canFight && !hud.aiming && hud.aimProgress <= .12 && <div className="fps-crosshair fps-tactical-crosshair" aria-hidden="true"><i /><i /><i /><i /><b /></div>}
     {canFight && hud.hit && <div key={`${hud.shots}-${hud.hits}`} className={`fps-impact-marker ${hud.hitKind === 'kill' ? 'is-kill' : ''}`} aria-hidden="true"><i /><i /><i /><i /></div>}
-    {canFight && reloading && <div className="fps-reload-cue" aria-hidden="true"><span>{stage}</span><div><i style={{ width: `${(1 - hud.reloading) * 100}%` }} /></div></div>}
+    {canFight && using && <div className="fps-reload-cue fps-supply-cue" data-supply-style={using.style} role="status"><span>{using.verb} · {using.name}</span><div><i style={{ width: `${using.progress * 100}%` }} /></div></div>}
+    {canFight && reloading && !using && <div className="fps-reload-cue" aria-hidden="true"><span>{stage}</span><div><i style={{ width: `${(1 - hud.reloading) * 100}%` }} /></div></div>}
     <div className={`fps-ammo ${!hud.roundReady && !reloading ? 'is-empty' : ''}`}>
       <span>{weapon.name} <small>{hud.aiming ? 'ADS' : weapon.fireMode === 'semi' ? 'SEMI' : 'AUTO'}</small></span>
       <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}{hud.chambered && <em className="fps-chamber" aria-label="one in the chamber">+1</em>}<small>/ {hud.reserve}</small></strong>

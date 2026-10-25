@@ -28,3 +28,18 @@ it('renders an arena with only the player and roads when no markers are supplied
   expect(html).toContain('data-minimap-player');
   expect(html).not.toContain('data-minimap-marker');
 });
+
+it('opens to the whole district with sector names, so distant loot is on it', () => {
+  for (const zone of WORLD_ZONES) {
+    const player = zone.spawn;
+    const html = renderToStaticMarkup(<FpsMinimap zone={zone.id} player={player} mode="expedition" expanded markers={[
+      { id: 'distant-loot', kind: 'loot', label: 'Distant loot', x: player.x + 150, z: player.z },
+      { id: 'exit', kind: 'checkpoint', label: 'Next district · checkpoint', x: player.x, z: player.z + 20 },
+    ]} />);
+    expect(html).toContain('data-map-expanded="true"');
+    expect(html).toContain('viewBox="0 0 600 440"');
+    expect(html).toContain('data-minimap-marker="distant-loot"');
+    expect(html).toContain('class="fps-map-sector"');
+    expect(html).toContain('>Next district</text>');
+  }
+});
