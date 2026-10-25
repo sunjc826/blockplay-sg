@@ -42,7 +42,7 @@ export default function MarinaGame() {
     try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
     catch { setError('WebGL could not start. Try a browser with hardware acceleration enabled.'); return; }
     const world = buildMarinaScene();
-    const atmosphere = createWorldAtmosphere(world.scene, MARINA_STAMPS, world.obstacles);
+    const atmosphere = createWorldAtmosphere(world.scene, MARINA_STAMPS, world.obstacles, false, renderer);
     const walking = createVerticalMovement({ bounds: MARINA_BOUNDS, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
     const drivingObstacles = [...world.obstacles, ...verticalVehicleObstacles({ surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })];
     let feetY = 0, velocityY = 0;

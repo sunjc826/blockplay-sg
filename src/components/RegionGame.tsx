@@ -49,7 +49,7 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
     try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
     catch { setError('WebGL could not start. Try a browser with hardware acceleration enabled.'); return; }
     const world = region.build();
-    const atmosphere = createWorldAtmosphere(world.scene, region.stamps, world.obstacles);
+    const atmosphere = createWorldAtmosphere(world.scene, region.stamps, world.obstacles, false, renderer);
     const walking = createVerticalMovement({ bounds: region.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
     const drivingObstacles = [...world.obstacles, ...verticalVehicleObstacles({ surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })];
     let feetY = 0, velocityY = 0;

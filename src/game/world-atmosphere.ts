@@ -3,9 +3,13 @@ import type { Obstacle } from './region-collision';
 import { getEnvironmentSettings } from './environment-settings';
 import { CELEBRATIONS, DEFAULT_ENVIRONMENT, WEATHER, resolveEnvironment, type CelebrationId } from './world-events';
 import { dayLighting, singaporeDayOfYear, type LightingState } from './world-lighting';
+import { createSkyLight, type Rgb } from './world-sky-light';
 
-/** One bounded effect pool per scene. No textures, network traffic or shadow passes. */
-export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x: number; z: number }[], obstacles: readonly Obstacle[], multiplayer = false) {
+/**
+ * One bounded effect pool per scene. No textures, network traffic or shadow passes.
+ * Given the renderer, the district's hemisphere light hands over to a sky light (`world-sky-light`).
+ */
+export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x: number; z: number }[], obstacles: readonly Obstacle[], multiplayer = false, renderer?: THREE.WebGLRenderer) {
   const originalBackground = scene.background, originalFog = scene.fog;
   const background = originalBackground instanceof THREE.Color ? originalBackground.clone() : new THREE.Color('#b9dcea');
   const fog = new THREE.Fog(background, 150, 700);
@@ -18,6 +22,12 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       reach: object instanceof THREE.DirectionalLight ? Math.max(60, object.position.distanceTo(object.target.position)) : 0 });
   });
   const originalPositions = lights.map(({ light }) => light.position.clone());
+  const sunLight = lights.find(l => l.sun)?.light as THREE.DirectionalLight | undefined;
+  const skyFill = lights.find(l => !l.sun)?.light as THREE.HemisphereLight | undefined;
+  const skyLight = renderer && skyFill ? createSkyLight(renderer, scene) : null;
+  // The sky light replaces the hemisphere's lighting; the hemisphere keeps being driven so its colours and intensity feed the sky.
+  if (skyLight && skyFill) skyFill.visible = false;
+  const rgb = (c: THREE.Color): Rgb => [c.r, c.g, c.b];
   const keyDirection = new THREE.Vector3(), shiftColor = new THREE.Color();
   let lighting: LightingState = dayLighting(13);
   /** What the frame's light amounts to, for the parts of the view the scene's lights do not reach. */
@@ -113,6 +123,11 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
           light.groundColor.copy(ground).lerp(shiftColor.set(lighting.groundFill), lighting.shift);
         }
       }
+      if (skyLight && skyFill) {
+        const fill = Math.max(1e-4, skyFill.intensity);
+        skyLight.update({ sky: rgb(skyFill.color), horizon: rgb(background), ground: rgb(skyFill.groundColor), key: rgb(sunLight?.color ?? skyFill.color),
+          keyDirection: lighting.key, keyRatio: sunLight ? sunLight.intensity / fill : 0 }, skyFill.intensity, step);
+      }
       output.lighting = lighting; output.key = preset.sun * lighting.keyScale; output.ambient = preset.ambient * lighting.ambientScale; output.shadows = active.shadows;
       root.userData.timeOfDay = active.hour;
       if (previousEvent !== active.celebration) {
@@ -155,6 +170,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
     dispose() {
       if (disposed) return; disposed = true;
       bulbs.forEach(mesh => mesh.dispose());
+      skyLight?.dispose(); if (skyFill) skyFill.visible = true;
       scene.remove(root); scene.background = originalBackground; scene.fog = originalFog;
       lights.forEach(({ light, intensity, color, ground }, index) => {
         light.intensity = intensity; light.color.copy(color); light.position.copy(originalPositions[index]);
