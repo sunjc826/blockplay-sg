@@ -1,8 +1,10 @@
 /**
- * Arcade ballistics, intentionally independent of real ammunition behavior.
- * Hitscan is the degenerate case rather than a separate code path: a spec with
- * infinite velocity and no drop yields the single straight segment the engine
- * has always raycast, so existing weapons keep their exact behavior.
+ * Arcade ballistics. Every carried gun flies its rounds at its real muzzle
+ * velocity scaled by BALLISTIC_SCALE, under real gravity: the districts are
+ * compressed and fights happen inside 125 m, so real speeds would read as
+ * instant, while scaling by the full compression would have rounds crawl.
+ * Hitscan remains the degenerate case: a spec with infinite velocity and no
+ * drop yields the single straight segment a raycast traces.
  */
 export interface BallisticPoint { x: number; y: number; z: number }
 export interface BallisticSpec {
@@ -12,6 +14,12 @@ export interface BallisticSpec {
   drop: number;
 }
 export const HITSCAN: BallisticSpec = Object.freeze({ velocity: Infinity, drop: 0 });
+/** Share of a real muzzle velocity a round flies at: a rifle crosses 100 m in about a fifth of a second. */
+export const BALLISTIC_SCALE = .55;
+/** Downward acceleration on every round, in m/s². */
+export const BALLISTIC_GRAVITY = 9.8;
+/** A gun's flight from its real muzzle velocity in m/s. */
+export const muzzleBallistics = (metresPerSecond: number): BallisticSpec => Object.freeze({ velocity: Math.round(metresPerSecond * BALLISTIC_SCALE), drop: BALLISTIC_GRAVITY });
 /** Seconds of flight per integration segment, and the ceiling that protects the frame budget. */
 export const BALLISTIC_STEP = 0.02;
 export const MAX_BALLISTIC_SEGMENTS = 32;

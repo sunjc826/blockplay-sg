@@ -3,6 +3,8 @@ import { arenaWallDistance, createArena, type ArenaActor, type ArenaCoverDistanc
 import { validArenaSnapshot } from './arena-runtime';
 import { DRONE, OVERWATCH, RAID, SUPPLY, TEAR_GAS } from './combat-event-catalog';
 import { combatTimeline, type CombatEventDescriptor } from './combat-events';
+import { shootAndLand } from './arena-test-shots';
+import { FPS_WEAPONS } from './fps-rules';
 
 const open = (spawns: { x: number; z: number }[], extra: Partial<ArenaEnvironment> = {}): ArenaEnvironment => ({
   bounds: { minX: -200, maxX: 200, minZ: -200, maxZ: 200 }, spawns,
@@ -19,7 +21,7 @@ const heavy = [{ damage: 200, interval: .12, capacity: 30, reload: 1.8 }];
 function fireAt(arena: ArenaSimulation, from: string, at: { x: number; y: number; z: number }) {
   arena.step(.15);
   const shooter = actor(arena, from)!, x = at.x - shooter.x, y = at.y - shooter.y, z = at.z - shooter.z, l = Math.hypot(x, y, z);
-  return arena.shoot(from, shooter, { x: x / l, y: y / l, z: z / l }, shooter.weapon);
+  return shootAndLand(arena, from, shooter, { x: x / l, y: y / l, z: z / l }, shooter.weapon);
 }
 /** Walks a player to (x, z) the way their client would, a few metres a tick. */
 function walkTo(arena: ArenaSimulation, id: string, x: number, z: number) {
@@ -103,8 +105,13 @@ describe('raid helicopter', () => {
     const arena = soloArena();
     const raid = arena.triggerEvent('helicopter-raid')!;
     advance(arena, RAID.warning + 2);
-    let r: ArenaRaider | undefined;
-    for (let shot = 0; shot < 8 && (r = raider(arena, raid.id))?.state !== 'down'; shot++) fireAt(arena, 'one', { x: r!.x, y: r!.y + 1.3, z: r!.z });
+    // Rounds fly, so lead it by where it will be when the round gets there.
+    const ahead = () => {
+      const was = raider(arena, raid.id)!; arena.step(.05);
+      const r = raider(arena, raid.id)!, from = actor(arena, 'one')!, flight = Math.hypot(r.x - from.x, r.y - from.y, r.z - from.z) / FPS_WEAPONS[0].ballistics.velocity;
+      return { x: r.x + (r.x - was.x) / .05 * flight, y: r.y + 1.3 + (r.y - was.y) / .05 * flight, z: r.z + (r.z - was.z) / .05 * flight };
+    };
+    for (let shot = 0; shot < 8 && raider(arena, raid.id)?.state !== 'down'; shot++) fireAt(arena, 'one', ahead());
     expect(raider(arena, raid.id)!.state).toBe('down');
     expect(event(arena, raid.id)!.outcome).toBe('downed');
     expect(arena.snapshot().feed.some(f => f.killerId === 'one' && f.text === 'Alpha downed the raid helicopter')).toBe(true);

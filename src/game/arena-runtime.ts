@@ -140,6 +140,12 @@ export function createHalo(resources: { dispose(): void }[]) {
 }
 const avatarKey = (actor: ArenaActor) => `${actor.faction}|${actor.role}|${actor.rank ?? 0}|${actor.name}`;
 const noRaycast = () => {};
+/** Several rounds landing in one step read as one marker: the last thing hit, a kill if any was, the damage summed. */
+export function mergeHits(hits: readonly ArenaShot[]): ArenaShot | null {
+  const struck = hits.filter(hit => hit.hitId);
+  if (!struck.length) return null;
+  return { hitId: struck[struck.length - 1].hitId, killed: struck.some(hit => hit.killed), damage: Math.min(200, struck.reduce((sum, hit) => sum + hit.damage, 0)) };
+}
 /** The 256×48 tag over a figure's head: its name, after one chevron per grade for a ranked bot. */
 export function paintNameLabel(context: CanvasRenderingContext2D, actor: Pick<ArenaActor, 'name' | 'bot' | 'rank'>, color: string) {
   context.fillStyle = 'rgba(10,19,25,.8)'; context.fillRect(0, 0, 256, 48); context.font = '600 22px sans-serif'; context.textAlign = 'center'; context.textBaseline = 'middle'; context.fillStyle = color;
@@ -288,8 +294,10 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       } else if (registered.has(from) && payload.type === 'arena-input' && validArenaInput(payload.input)) simulation.setInput(from, payload.input);
       else if (registered.has(from) && payload.type === 'arena-reload' && validWeaponIndex(payload.weapon)) simulation.reloadPlayer(from, payload.weapon);
       else if (registered.has(from) && started && payload.type === 'arena-shot' && point(payload.origin) && point(payload.direction) && validWeaponIndex(payload.weapon)) {
+        // Rounds fly, so the hit is usually sent when one lands (see deliverHits); an instant one is sent now.
         const hit = simulation.shoot(from, payload.origin, payload.direction, payload.weapon, coverLimit(payload.origin, payload.direction, finite(payload.maxDistance) ? payload.maxDistance : 125));
-        session.send({ type: 'arena-hit', hit }, from); publish();
+        if (hit.hitId) session.send({ type: 'arena-hit', hit }, from);
+        publish();
       }
     } else if (from === hostId) {
       if (payload.type === 'arena-vehicle-result' && payload.accepted === false) vehicleNotice = 'Seat unavailable. Approach a stopped vehicle; land and slow down to exit.';
@@ -297,11 +305,18 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       if (payload.type === 'arena-hit' && object(payload.hit) && (payload.hit.hitId === null || typeof payload.hit.hitId === 'string') && typeof payload.hit.killed === 'boolean' && finite(payload.hit.damage) && payload.hit.damage >= 0 && payload.hit.damage <= 200) pendingHit = payload.hit as unknown as ArenaShot;
     }
   });
+  /** Hands each player the hits their rounds landed this step: ours to the HUD, a guest's over the wire. */
+  function deliverHits() {
+    if (!simulation) return;
+    const own = mergeHits(simulation.takeHits(session.id)); if (own) pendingHit = own;
+    for (const id of registered) if (id !== session.id) { const hit = mergeHits(simulation.takeHits(id)); if (hit) session.send({ type: 'arena-hit', hit }, id); }
+  }
   let lastTime = performance.now(), broadcastTime = 0;
   const timer = simulation ? setInterval(() => {
     const now = performance.now(); const dt = Math.min(3, (now - lastTime) / 1000); lastTime = now;
     if (disposed || !started) return;
     for (let remaining = dt; remaining > 0.000001; remaining -= Math.min(0.25, remaining)) simulation.step(Math.min(0.25, remaining));
+    deliverHits();
     accept(simulation.snapshot()); broadcastTime += dt;
     if (broadcastTime >= 0.1) { broadcastTime = 0; publish(); }
   }, 50) : undefined;
@@ -416,7 +431,8 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     const freshInput = lastInput ? { ...lastInput, prone, weapon, reloading: false, x: origin.x, y: origin.y, z: origin.z } : null;
     if (simulation) {
       if (freshInput && validArenaInput(freshInput)) simulation.setInput(session.id, freshInput);
-      pendingHit = simulation.shoot(session.id, origin, direction, weapon, coverLimit(origin, direction, maxDistance)); publish();
+      const shot = simulation.shoot(session.id, origin, direction, weapon, coverLimit(origin, direction, maxDistance)); if (shot.hitId) pendingHit = shot;
+      publish();
     } else {
       if (freshInput && validArenaInput(freshInput)) session.send({ type: 'arena-input', input: freshInput });
       session.send({ type: 'arena-shot', origin, direction, weapon, maxDistance });

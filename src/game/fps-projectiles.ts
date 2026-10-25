@@ -16,12 +16,14 @@ export interface InFlightRound {
   scale: number;
   /** Times it has skipped off water; see `skipRound`. */
   skips: number;
+  /** Drawn and struck for show only: the arena host flies the real round and decides what it did. */
+  cosmetic?: boolean;
 }
 /** Keeps the per-frame raycast budget bounded on a software renderer. */
 export const MAX_ROUNDS_IN_FLIGHT = 24;
 
-export function createRound(id: number, weapon: number, origin: BallisticPoint, direction: BallisticPoint, ballistics: BallisticSpec, pierced = 0): InFlightRound {
-  return { id, weapon, ballistics, origin, direction, position: origin, time: 0, travelled: 0, pierced: Math.max(0, pierced), scale: 1, skips: 0 };
+export function createRound(id: number, weapon: number, origin: BallisticPoint, direction: BallisticPoint, ballistics: BallisticSpec, pierced = 0, cosmetic = false): InFlightRound {
+  return { id, weapon, ballistics, origin, direction, position: origin, time: 0, travelled: 0, pierced: Math.max(0, pierced), scale: 1, skips: 0, ...(cosmetic ? { cosmetic } : {}) };
 }
 export interface RoundStep { from: BallisticPoint; to: BallisticPoint; distance: number; expired: boolean }
 /**

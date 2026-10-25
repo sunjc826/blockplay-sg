@@ -2778,3 +2778,33 @@ under their bare callsign (the rank title comes with the first spawn).
 Fixture: `scripts/fixtures/spawn-shield.html` (?left=seconds). Validation: full
 vitest, typecheck, build; fixture checked in the browser pane. Not seen in a
 live match.
+
+## 2026-10-25: every carried gun's rounds travel, on the arena host too
+
+Every base weapon was `HITSCAN`; only three elite variants flew, and only on the
+Training range, because the arena host resolved every shot instantly.
+- `muzzleBallistics(real m/s)` in fps-ballistics: velocity × `BALLISTIC_SCALE`
+  (.55), drop 9.8. Rifles ≈ 506–534 m/s, MGs 462–509, P30 198; the three elite
+  barrels 578–638 (Fort Siloso had been slower than issue). Table in
+  docs/ARMORY.md.
+- Arena host: `shoot` → `launch` queues an `ArenaRound` (walls and rendered
+  cover measured once along the line); `stepRounds` at the top of `step` tests
+  each tick's stretch of arc against people, vehicles and raiders through
+  `resolveShot(..., flown)`, pricing falloff at the whole distance. Players'
+  landed hits queue per shooter; `takeHits(id)`, `inFlight(id?)`. Capped at
+  `MAX_ARENA_ROUNDS` (96). `ArenaWeapon.ballistics` is sanitized, defaulting by
+  family.
+- Runtime: `deliverHits` after each host step sets our hit marker and sends a
+  guest `arena-hit` when its round lands (`mergeHits` folds several into one).
+- Engine: in the arena the shot goes to the host with only scenery capping its
+  range (a figure may step aside), and a `cosmetic` round flies locally for the
+  tracer and impact.
+- Bots lead moving targets by `BotRank.lead` (.3 / .6 / .85) of the flight and
+  aim up for drop (`leadRay`); target velocity is tracked per member.
+- Tests: `shootAndLand` (arena-test-shots.ts) fires and steps in 2 ms slices
+  until the round lands; recoil tests use plain `shoot`; runtime tests advance
+  the fake clock; arena-rounds.test.ts covers arrival time and dodging.
+Measured: bot hit rates at 7–25 m barely moved; snipers at 50 m lose most
+against movers. Validation: full vitest, typecheck, build. Not played live
+(mouse capture is blocked in the browser pane). Vehicle guns and the raid
+helicopter's gun still resolve instantly; bots' rounds draw no tracer.

@@ -11,6 +11,7 @@ import { fitWeaponHardware } from './weapon-fittings';
 import { createArena } from './arena-rules';
 import { equipmentMovement } from './fps-encumbrance';
 import { validArenaInput } from './arena-runtime';
+import { shootAndLand } from './arena-test-shots';
 
 it('upgrades a two-platform v1 save without spending currency or losing equipment', () => {
   const legacy = { ...createProfile(), credits: 77, tokens: 22, owned: ['sar-issued', 'ult-issued', 'sar-vanguard'], guns: [
@@ -58,7 +59,7 @@ for (const family of [2, 3, 4]) describe(FPS_WEAPONS[family].name, () => {
     const actor = arena.snapshot().actors[0], input = { ...actor, weapon: family, playing: true };
     expect(validArenaInput(input)).toBe(true); arena.setInput('test', input);
     expect(arena.snapshot().actors[0].weapon).toBe(family);
-    arena.shoot('test', actor, { x: 0, y: 0, z: -1 }, family);
+    shootAndLand(arena, 'test', actor, { x: 0, y: 0, z: -1 }, family);
     expect(arena.snapshot().actors[0].shots).toBe(1);
   });
 });

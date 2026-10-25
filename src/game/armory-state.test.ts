@@ -3,7 +3,7 @@ import { aimSpeedScale, applyArmorDamage, claimElimination, claimReward, collect
 import { ARMORY_CATALOG, CONSUMABLE_LIMIT, itemById } from './armory-catalog';
 import { levelSkip, MAX_LEVEL, MIN_SKIP_PRICE, progression, registerElimination, skipCostFrom, skipCostToLevel, xpForLevel } from './progression';
 import { advanceWeapon, beginReload, createLoadout, findTrait, reloadCommit, DEFAULT_VARIANTS, FPS_WEAPONS, hitDamage, type WeaponTrait } from './fps-rules';
-import { HITSCAN } from './fps-ballistics';
+import { needsFlight } from './fps-projectiles';
 const veteran = () => ({ ...createProfile(), xp: 5000, credits: 10000, tokens: 1000 });
 const unlock = (id: string) => purchase(veteran(), id).profile;
 const result: ExerciseReward = { id: 'round-1', hits: 8, shots: 30, landed: 28, elapsed: 20, combat: false };
@@ -129,10 +129,10 @@ describe('behavioral trait resolution', () => {
     expect(findTrait([falloff], 'on-kill')).toBeUndefined();
     expect(findTrait(undefined, 'falloff')).toBeUndefined();
   });
-  it('resolves the base weapon traits and hitscan ballistics for a fresh profile', () => {
+  it('resolves the base weapon traits and travelling-round ballistics for a fresh profile', () => {
     const loadout = resolveLoadout(createProfile());
     loadout.weapons.forEach((weapon, i) => {
-      expect(weapon.ballistics).toEqual(HITSCAN);
+      expect(weapon.ballistics).toEqual(FPS_WEAPONS[i].ballistics); expect(needsFlight(weapon.ballistics)).toBe(true);
       expect(weapon.traits).toEqual(FPS_WEAPONS[i].traits);
       expect(findTrait(weapon.traits, 'falloff')).toBeDefined();
     });

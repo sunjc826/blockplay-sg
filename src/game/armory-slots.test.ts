@@ -4,6 +4,7 @@ import { carriedFamilies, pickupSlot, EXTRA_SLOT_ID, restoreCarrySlots } from '.
 import { createLoadout } from './fps-rules';
 import { equipmentMovement } from './fps-encumbrance';
 import { createArena } from './arena-rules';
+import { shootAndLand } from './arena-test-shots';
 
 describe('main, sidearm and premium extra carry slots', () => {
   it('migrates existing saves to a rifle and pistol without losing owned variants or balances', () => {
@@ -57,10 +58,10 @@ describe('main, sidearm and premium extra carry slots', () => {
     const actor = arena.snapshot().actors[0];
     arena.setInput('a', { ...actor, weapon: 4, playing: true });
     expect(arena.snapshot().actors[0].weapon).toBe(0);
-    arena.reloadPlayer('a', 4); arena.shoot('a', actor, { x: 0, y: 0, z: -1 }, 4);
+    arena.reloadPlayer('a', 4); shootAndLand(arena, 'a', actor, { x: 0, y: 0, z: -1 }, 4);
     expect(arena.snapshot().actors[0].shots).toBe(0);
     arena.setInput('a', { ...actor, weapon: 2, playing: true });
-    arena.shoot('a', actor, { x: 0, y: 0, z: -1 }, 2);
+    shootAndLand(arena, 'a', actor, { x: 0, y: 0, z: -1 }, 2);
     expect(arena.snapshot().actors[0].shots).toBe(1);
     arena.setPlayerLoadout('a', 0, 0, kit.weapons, [4, 2]);
     arena.setInput('a', { ...actor, weapon: 4, playing: true });

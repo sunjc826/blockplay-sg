@@ -88,6 +88,8 @@ describe('arena runtime authority and renderer bridge', () => {
       scene.remove(cover); cover.geometry.dispose(); (cover.material as THREE.Material).dispose();
       vi.advanceTimersByTime(200);
       guestSession.send({ type: 'arena-shot', origin: attacker, direction: vector, weapon: 0, maxDistance: 125 });
+      // Let the round fly on the host's own clock.
+      vi.advanceTimersByTime(600);
       state = host.update(0.02, input(-44, 68, true));
       expect(state.self?.health).toBe(64);
     } finally { host.dispose(); }
@@ -105,6 +107,7 @@ describe('arena runtime authority and renderer bridge', () => {
       const target = host.update(0.02, input(-44, 68, true)).self!;
       const direction = new THREE.Vector3(target.x - shooter.x, target.y - 0.65 - shooter.y, target.z - shooter.z).normalize();
       guest.shoot(shooter, direction, family);
+      vi.advanceTimersByTime(600);
       expect(host.update(0.02, input(-44, 68, true)).self?.health).toBe(Math.max(0, 100 - damage));
       const response = guest.update(0.02, input(shooter.x, shooter.z, true));
       expect(response.hit?.damage).toBe(damage);
@@ -131,6 +134,7 @@ describe('arena runtime authority and renderer bridge', () => {
       visibleLabel.position.copy(hiddenVehicle.position);
       const direction = new THREE.Vector3(target.x - shooter.x, target.y - 0.65 - shooter.y, target.z - shooter.z).normalize();
       expect(() => host.shoot(shooter, direction, 0)).not.toThrow();
+      vi.advanceTimersByTime(600);
       const after = host.update(0.02, input(-44, 68, true));
       expect(after.snapshot!.actors.find(actor => actor.id === 'guest')?.health).toBe(64);
       expect(after.hit?.damage).toBe(36);

@@ -303,38 +303,49 @@ drills and expedition only until the arena resolves shots per tick. See
 
 ## Travelling rounds
 
-A weapon's `ballistics` gives a muzzle velocity and a downward acceleration.
-Hitscan is the degenerate case, not a separate path: infinite velocity and no
-drop collapse the arc to the single straight segment the engine has always
-raycast, and an instant weapon never enters the in-flight list, so a hitscan
-loadout costs exactly the one raycast it always did.
+Every carried gun's rounds travel. A weapon's `ballistics` gives a muzzle
+velocity and a downward acceleration, set by `muzzleBallistics` from the gun's
+real muzzle velocity times `BALLISTIC_SCALE` (.55) under real gravity (9.8). The
+districts are compressed and fights happen inside 125 m: at real speed a round
+would read as instant, and scaled by the whole compression it would crawl. At
+.55 a rifle round crosses 100 m in about a fifth of a second, so a long shot on
+a moving target needs a little lead, and drop stays under a third of a metre.
+Hitscan (`HITSCAN`, infinite velocity) is still the degenerate case of the same
+code, but no catalog weapon uses it.
 
-Anything with a finite velocity is stepped per frame and raycast segment by
-segment, so it can be blocked in mid-air and arrives late. Falloff reads the
-whole arc a round travelled rather than its final segment. Rounds in flight are
-capped, and they share one batched draw rather than an object each.
+Rounds are stepped per frame and raycast segment by segment, so they can be
+blocked in mid-air and arrive late. Falloff reads the whole arc a round
+travelled rather than its final segment. Rounds in flight are capped, and they
+share one batched draw rather than an object each.
 
-| Weapon | Muzzle velocity | Drop |
-| --- | --- | --- |
-| Issued and Field variants | instant | none |
-| SAR 21 · Own Time, Own Target | 620 u/s | 9 u/s² |
-| Ultimax · Fort Siloso | 520 u/s | 12 u/s² |
+| Weapon | Real m/s | Game m/s | 100 m flight |
+| --- | ---: | ---: | ---: |
+| SAR 21, Ultimax | 970 | 534 | .19 s |
+| G36, XM8 | 920 | 506 | .20 s |
+| MG4 | 925 | 509 | .20 s |
+| CIS 50MG | 890 | 490 | .20 s |
+| FN MAG | 840 | 462 | .22 s |
+| P30 | 360 | 198 | .51 s |
+| SAR 21 · Own Time, Own Target | 1130 | 622 | .16 s |
+| XM8 · Sharpshooter | 1160 | 638 | .16 s |
+| Ultimax · Fort Siloso | 1050 | 578 | .17 s |
 
-At drill ranges the elite variants' travel time is a few hundredths of a second
-and their drop is under a centimetre, so they stay a straight upgrade there; the
-hold-over only becomes real across an expedition district. Velocity and drop are
-catalog values: setting a variant's velocity back to `Infinity` makes it purely
-instant again.
+In the arena and the open world the host flies the real round (`launch` and
+`stepRounds` in arena-rules): walls and rendered cover are measured once along
+its line as it leaves, and people, vehicles and raiders are tested along each
+tick's stretch of its arc, so a target can step out of its way. Hits reach the
+shooter when the round lands (`takeHits`; a guest gets an `arena-hit` message
+then). The shooter's own screen flies a show-only copy along the same arc for
+the tracer and impact. Bots aim ahead of a moving target by their rank's `lead`
+share of the round's flight, and up by its drop. Vehicle guns and the raid
+helicopter's gun still resolve instantly.
 
 The AI pilot compensates. `PilotContact` carries the range to a target and the
 observation carries the equipped ballistics, so the controller holds over by the
 drop at that range and tests its firing gate against the compensated error
 rather than the raw one. Both fields pass through the strategy whitelist, which
 copies fields explicitly; a hitscan velocity survives JSON as `null` and is
-restored to instant rather than rejected. With no drop the hold-over is zero and
-the pilot behaves exactly as before.
-
-Arena shots stay instant and host-authoritative.
+restored to instant rather than rejected.
 
 ## Penetration
 

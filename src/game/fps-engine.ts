@@ -1173,6 +1173,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         roundRay.set(roundOrigin.set(step.from.x, step.from.y, step.from.z), roundDirection);
         roundRay.near = 0; roundRay.far = step.distance;
         const segmentHits = stopAtWater(visibleHits(roundRay, candidates, 1 + round.pierced));
+        if (segmentHits.length && round.cosmetic) {
+          // The arena host has the real round: this one only shows where it went.
+          const first = segmentHits[0];
+          if (isWaterHit(first)) meetWater(first, roundDirection, 1, round.weapon); else strike(first, roundDirection, 1, weaponStyles[round.weapon]?.id);
+          rounds.splice(i, 1); continue;
+        }
         if (segmentHits.length) {
           // travelled already covers the arc up to this segment's start.
           const start = round.travelled - step.distance;
@@ -1313,11 +1319,18 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     recordRecoilShot(kick, specs[hud.weapon], hud.weapon, Math.random, recoilMultiplier);
     canvas.dataset.recoilMultiplier = recoilMultiplier.toFixed(3);
     effects.fire({ recoil: specs[hud.weapon].recoil, eject: weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_eject`), camera, carry });
-    // The arena host owns its own shot resolution and stays instant until it can
-    // step rounds per tick; everything else with a finite muzzle velocity flies.
-    if (!arenaRuntime && needsFlight(specs[hud.weapon].ballistics)) {
+    // Every carried gun's round flies. In the arena the host flies the real one
+    // and decides what it hit; this side flies a copy along the same arc to draw.
+    if (needsFlight(specs[hud.weapon].ballistics)) {
+      if (arenaRuntime) {
+        const first = stopAtWater(visibleHits(ray, gameplayCandidates(), 1))[0];
+        let figure = false;
+        for (let object: THREE.Object3D | null = first?.object ?? null; object; object = object.parent) if (object.userData.arenaActorId) figure = true;
+        // A figure may step aside before the round arrives, so only scenery caps how far it can go.
+        arenaRuntime.shoot(camera.position, ray.ray.direction, hud.weapon, first && !figure ? first.distance : 125, prone);
+      }
       if (rounds.length < MAX_ROUNDS_IN_FLIGHT)
-        rounds.push(createRound(++roundSerial, hud.weapon, camera.position.clone(), ray.ray.direction.clone(), specs[hud.weapon].ballistics, pierceBudget(hud.weapon)));
+        rounds.push(createRound(++roundSerial, hud.weapon, camera.position.clone(), ray.ray.direction.clone(), specs[hud.weapon].ballistics, arenaRuntime ? 0 : pierceBudget(hud.weapon), !!arenaRuntime));
       publish(); return;
     }
     const candidates = gameplayCandidates();

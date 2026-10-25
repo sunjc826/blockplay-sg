@@ -3,6 +3,7 @@ import { createArena, type ArenaEnvironment, type ArenaSimulation } from './aren
 import { validArenaInput, validArenaSnapshot } from './arena-runtime';
 import { validVehicleControls, type VehicleControls } from './vehicle-seats';
 import { moveInMarina } from './marina-collision';
+import { shootAndLand } from './arena-test-shots';
 
 const spawns = { car: { x: 0, z: 0, yaw: 0 }, helicopter: { x: 30, z: 0, yaw: 0 } };
 const environment: ArenaEnvironment = { bounds: { minX: -100, maxX: 100, minZ: -100, maxZ: 100 }, move: moveInMarina,
@@ -41,7 +42,7 @@ describe('shared vehicle seats and authority', () => {
     expect(car(arena).ammo).toBe(239); expect(car(arena).shots).toBe(1);
     expect(actor(arena, 'p2').z).toBeCloseTo(car(arena).z + .7);
     const before = car(arena).ammo;
-    arena.shoot('p2', actor(arena, 'p2'), { x: 0, y: 0, z: -1 }, 0);
+    shootAndLand(arena, 'p2', actor(arena, 'p2'), { x: 0, y: 0, z: -1 }, 0);
     expect(actor(arena, 'p2').shots).toBe(0); expect(car(arena).ammo).toBe(before);
   });
   it('vacates seats on disconnect/death, switches only into vacancies and preserves hull ammo', () => {
@@ -73,7 +74,7 @@ describe('shared vehicle seats and authority', () => {
     for (let i = 0; i < 3; i++) {
       const shooter = actor(arena, 'attacker'), v = car(arena), delta = { x: v.x - shooter.x, y: v.y + 1.3 - shooter.y, z: v.z - shooter.z };
       const d = Math.hypot(delta.x, delta.y, delta.z);
-      arena.shoot('attacker', shooter, { x: delta.x / d, y: delta.y / d, z: delta.z / d }, 0); arena.step(.1);
+      shootAndLand(arena, 'attacker', shooter, { x: delta.x / d, y: delta.y / d, z: delta.z / d }, 0); arena.step(.1);
     }
     expect(car(arena).health).toBe(0); expect(car(arena).occupants).toEqual([null, null, null, null]);
     for (let i = 0; i < 4; i++) { expect(actor(arena, `p${i}`).alive).toBe(false); expect(actor(arena, `p${i}`).deaths).toBe(1); }

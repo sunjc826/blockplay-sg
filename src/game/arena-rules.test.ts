@@ -5,6 +5,7 @@ import { FPS_WEAPONS } from './fps-rules';
 import { itemById } from './armory-catalog';
 import { canOccupy } from './marina-collision';
 import { getBotRank } from './arena-ranks';
+import { shootAndLand } from './arena-test-shots';
 
 const weapon = { damage: 36, interval: 0.12, capacity: 30, reload: 1.8 };
 const distantEnvironment = (): ArenaEnvironment => ({
@@ -20,7 +21,7 @@ function aim(shooter: ArenaActor, victim: ArenaActor) {
 }
 function fireAt(arena: ArenaSimulation, from = 'one', to = 'two') {
   const shooter = actor(arena, from); const victim = actor(arena, to);
-  return arena.shoot(from, shooter, aim(shooter, victim), shooter.weapon);
+  return shootAndLand(arena, from, shooter, aim(shooter, victim), shooter.weapon);
 }
 function advance(arena: ArenaSimulation, seconds: number) {
   for (let remaining = seconds; remaining > 1e-8; remaining -= 0.1) arena.step(Math.min(0.1, remaining));
@@ -97,13 +98,13 @@ describe('host-authoritative arena', () => {
     expect(fireAt(arena).hitId).toBeNull();
     arena.step(0.13);
     const shooter = actor(arena, 'one');
-    expect(arena.shoot('one', shooter, aim(shooter, actor(arena, 'two')), 9).hitId).toBeNull();
+    expect(shootAndLand(arena, 'one', shooter, aim(shooter, actor(arena, 'two')), 9).hitId).toBeNull();
     expect(fireAt(arena).damage).toBe(36);
   });
   it('rejects spoofed shot origins, invalid vectors, non-finite input and teleport spam', () => {
     const arena = pair(); const start = actor(arena, 'one'); const victim = actor(arena, 'two');
-    expect(arena.shoot('one', victim, aim(start, victim), 0).hitId).toBeNull();
-    expect(arena.shoot('one', start, { x: Infinity, y: 0, z: 0 }, 0).hitId).toBeNull();
+    expect(shootAndLand(arena, 'one', victim, aim(start, victim), 0).hitId).toBeNull();
+    expect(shootAndLand(arena, 'one', start, { x: Infinity, y: 0, z: 0 }, 0).hitId).toBeNull();
     arena.setInput('one', { ...start, x: NaN, playing: true }); expect(actor(arena, 'one').x).toBe(start.x);
     for (let i = 0; i < 20; i++) arena.setInput('one', { ...start, x: 10000, playing: true });
     expect(actor(arena, 'one').x - start.x).toBeLessThanOrEqual(2.001);
@@ -121,7 +122,8 @@ describe('host-authoritative arena', () => {
   it('counts each elimination once, exposes kill metadata and restores health after respawn', () => {
     const arena = pair(0, 0, 100);
     expect(fireAt(arena).killed).toBe(true);
-    expect(actor(arena, 'one').kills).toBe(1); expect(actor(arena, 'two')).toMatchObject({ alive: false, deaths: 1, respawnIn: 3 });
+    // The round's flight takes a few milliseconds off the respawn clock.
+    expect(actor(arena, 'one').kills).toBe(1); expect(actor(arena, 'two')).toMatchObject({ alive: false, deaths: 1 }); expect(actor(arena, 'two').respawnIn).toBeCloseTo(3, 1);
     expect(arena.snapshot().feed.at(-1)).toMatchObject({ killerId: 'one', victimId: 'two' });
     arena.step(0.2); expect(fireAt(arena).killed).toBe(false);
     advance(arena, 2.9); expect(actor(arena, 'two')).toMatchObject({ alive: true, health: 100, deaths: 1, respawnIn: 0 });
@@ -173,9 +175,9 @@ describe('host-authoritative arena', () => {
   });
   it('accepts a rendered-cover distance only as a further restriction', () => {
     const arena = pair(); const shooter = actor(arena, 'one'); const victim = actor(arena, 'two');
-    expect(arena.shoot('one', shooter, aim(shooter, victim), 0, 1).hitId).toBeNull();
+    expect(shootAndLand(arena, 'one', shooter, aim(shooter, victim), 0, 1).hitId).toBeNull();
     advance(arena, 0.2);
-    expect(arena.shoot('one', shooter, aim(shooter, victim), 0, Number.NaN).hitId).toBeNull();
+    expect(shootAndLand(arena, 'one', shooter, aim(shooter, victim), 0, Number.NaN).hitId).toBeNull();
     expect(actor(arena, 'two').health).toBe(100);
   });
   it('ends at 15 eliminations, stops damage and resets the match', () => {
@@ -286,14 +288,14 @@ it('keeps prone actors hittable and rejects airborne support claims', () => {
   arena.setInput('one', { ...shooter, y: 1.75, prone: true, playing: true });
   shooter = actor(arena, 'one');
   expect(shooter.prone).toBe(false);
-  arena.shoot('one', shooter, { x: 0, y: 0, z: -1 }, 0);
+  shootAndLand(arena, 'one', shooter, { x: 0, y: 0, z: -1 }, 0);
   expect(actor(arena, 'one').health).toBe(80);
   advance(arena, .2);
   const victim = actor(arena, 'two');
   arena.setInput('two', { ...victim, y: .55, prone: true, playing: true });
   shooter = actor(arena, 'one');
   const direction = aim(shooter, { ...actor(arena, 'two'), y: .95 });
-  expect(arena.shoot('one', shooter, direction, 0).hitId).toBe('two');
+  expect(shootAndLand(arena, 'one', shooter, direction, 0).hitId).toBe('two');
 });
 
 

@@ -20,6 +20,8 @@ export interface BotRank {
   aim: number;
   /** Seconds added to the role's reaction on first sight of a target. */
   reaction: number;
+  /** Share of a moving target's travel during the round's flight the bot aims ahead by. */
+  lead: number;
   /** Multiplier on the role's armour. */
   armor: number;
   /** Field dressings carried beyond the role's own. */
@@ -29,9 +31,9 @@ export interface BotRank {
 }
 
 export const BOT_RANKS: readonly BotRank[] = [
-  { id: 'recruit', grade: 1, title: { forces: 'Pte', opposition: 'Recruit' }, aim: 1.4, reaction: .25, armor: .6, medkits: 0, kit: { Issued: 2, Field: 1, Elite: .25 } },
-  { id: 'regular', grade: 2, title: { forces: 'Cpl', opposition: 'Operator' }, aim: 1, reaction: 0, armor: 1, medkits: 0, kit: { Issued: 1, Field: 1, Elite: 1 } },
-  { id: 'veteran', grade: 3, title: { forces: 'Sgt', opposition: 'Veteran' }, aim: .75, reaction: -.15, armor: 1.4, medkits: 1, kit: { Issued: .5, Field: 1, Elite: 3 } },
+  { id: 'recruit', grade: 1, title: { forces: 'Pte', opposition: 'Recruit' }, aim: 1.4, reaction: .25, lead: .3, armor: .6, medkits: 0, kit: { Issued: 2, Field: 1, Elite: .25 } },
+  { id: 'regular', grade: 2, title: { forces: 'Cpl', opposition: 'Operator' }, aim: 1, reaction: 0, lead: .6, armor: 1, medkits: 0, kit: { Issued: 1, Field: 1, Elite: 1 } },
+  { id: 'veteran', grade: 3, title: { forces: 'Sgt', opposition: 'Veteran' }, aim: .75, reaction: -.15, lead: .85, armor: 1.4, medkits: 1, kit: { Issued: .5, Field: 1, Elite: 3 } },
 ];
 export const getBotRank = (grade: number) => BOT_RANKS.find(rank => rank.grade === grade);
 

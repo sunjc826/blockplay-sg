@@ -4,6 +4,7 @@ import { createArena, SPAWN_SHIELD_SECONDS, type ArenaEnvironment, type ArenaSim
 import { itemById } from './armory-catalog';
 import { variantSpec } from './armory-state';
 import { FPS_WEAPONS, hitDamage } from './fps-rules';
+import { shootAndLand } from './arena-test-shots';
 
 const environment = (bot: { x: number; z: number }, player: { x: number; z: number }): ArenaEnvironment => ({
   bounds: { minX: 900, maxX: 1100, minZ: 900, maxZ: 1100 }, spawns: [bot],
@@ -14,7 +15,7 @@ const find = (arena: ArenaSimulation, id: string) => arena.snapshot().actors.fin
 function shootBot(arena: ArenaSimulation) {
   const you = find(arena, 'you'), bot = find(arena, 'bot-1');
   const x = bot.x - you.x, y = bot.y - .6 - you.y, z = bot.z - you.z, length = Math.hypot(x, y, z);
-  const hit = arena.shoot('you', you, { x: x / length, y: y / length, z: z / length }, you.weapon);
+  const hit = shootAndLand(arena, 'you', you, { x: x / length, y: y / length, z: z / length }, you.weapon);
   arena.step(.13);
   return hit;
 }

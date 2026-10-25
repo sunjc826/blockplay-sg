@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { createVerticalMovement } from './vertical-movement';
 import type { WalkSurface, TraversalObstacle } from './vertical-routes';
 import type { Obstacle } from './region-collision';
+import { shootAndLand } from './arena-test-shots';
 
 const ramp: WalkSurface = { id: 'ramp', routeId: 'route', minX: 0, maxX: 12, minZ: -2, maxZ: 2, axis: 'x', startHeight: 0, endHeight: 3 };
 const deck: WalkSurface = { ...ramp, id: 'deck', minX: 12, maxX: 22, startHeight: 3, endHeight: 3 };
@@ -94,7 +95,7 @@ it('authoritative shots cannot pass sideways through a solid sloped foundation',
     arena.addPlayer('one', 'One'); arena.addPlayer('two', 'Two');
     const [a, b] = arena.snapshot().actors;
     const d = Math.hypot(b.x - a.x, b.y - .6 - a.y, b.z - a.z);
-    const result = arena.shoot(a.id, a, { x: (b.x - a.x) / d, y: (b.y - .6 - a.y) / d, z: (b.z - a.z) / d }, a.weapon);
+    const result = shootAndLand(arena, a.id, a, { x: (b.x - a.x) / d, y: (b.y - .6 - a.y) / d, z: (b.z - a.z) / d }, a.weapon);
     expect(result.hitId).toBe(solidBelow ? null : 'two');
   }
 });

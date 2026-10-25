@@ -3,6 +3,7 @@ import { createArena, REINFORCEMENT_FALLBACK, REINFORCEMENT_SEATS, REINFORCEMENT
 import { validArenaSnapshot } from './arena-runtime';
 import { DISTRICT_HEAT, FACTION_SCALE, HEAT_TUNING } from './faction-heat';
 import { combatTimeline, getCombatEvent, type CombatEventDescriptor, type InsertPayload } from './combat-events';
+import { shootAndLand } from './arena-test-shots';
 
 const open = (spawns: { x: number; z: number }[], extra: Partial<ArenaEnvironment> = {}): ArenaEnvironment => ({
   bounds: { minX: -200, maxX: 200, minZ: -200, maxZ: 200 }, spawns,
@@ -17,7 +18,7 @@ function advance(arena: ArenaSimulation, seconds: number, each?: () => void) {
 const heavy = [{ damage: 200, interval: .12, capacity: 30, reload: 1.8 }];
 function shootDead(arena: ArenaSimulation, from: string, victim: ArenaActor) {
   const shooter = actor(arena, from), x = victim.x - shooter.x, y = victim.y - .62 - shooter.y, z = victim.z - shooter.z, l = Math.hypot(x, y, z);
-  return arena.shoot(from, shooter, { x: x / l, y: y / l, z: z / l }, shooter.weapon);
+  return shootAndLand(arena, from, shooter, { x: x / l, y: y / l, z: z / l }, shooter.weapon);
 }
 
 describe('artillery in the arena', () => {
