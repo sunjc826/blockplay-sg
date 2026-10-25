@@ -205,6 +205,22 @@ describe('director pacing with news running', () => {
   });
 });
 
+describe('director tempo', () => {
+  it('brings the next event forward when the fight heats up mid-wait', () => {
+    const first = (tempo: (t: number) => number) => {
+      const director = createCombatDirector({ risk: 'medium', seed: 7, table: [{ kind: 'artillery', weight: 1, cooldown: 0 }] });
+      const times: number[] = [];
+      for (let t = 0; t < 600 && times.length < 3; t += .5) if (director.step({ now: t, active: [], humans: [{ x: 0, z: 0 }], bounds, tempo: tempo(t) })) times.push(t);
+      return times;
+    };
+    const calm = first(() => 1), hot = first(t => t > 100 ? 2 : 1);
+    expect(hot[0]).toBe(calm[0]);
+    // Same draws, but the waits that run past the flare-up are halved from then on.
+    expect(hot[2]).toBeLessThan(calm[2]);
+    expect(first(() => 2)[0]).toBeCloseTo(calm[0] / 2, 0);
+  });
+});
+
 describe('director aiming at the world', () => {
   const run = (view: { heat?: { x: number; z: number; weight: number }[]; places?: { x: number; z: number }[] }) => {
     const targets: { kind: string; x: number; z: number }[] = [];

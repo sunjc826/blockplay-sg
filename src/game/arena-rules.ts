@@ -16,7 +16,7 @@ import { combatPhase, combatTimeline, getCombatEvent, orbitPose, MAX_COMBAT_EVEN
 import { createCombatDirector, planTransport, type CombatRisk } from './combat-director';
 import { OVERHEAD_SHELTER, resolveBlast, type BlastTarget } from './combat-blast';
 import { DEFAULT_BOT_FACTION, getArenaFaction, hostile, PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
-import { createHeatField, type HeatBand, type HeatSector } from './faction-heat';
+import { createHeatField, HEAT_TUNING, type HeatBand, type HeatSector } from './faction-heat';
 
 /** All coordinates use metres; actor y is eye height, not the feet. */
 export interface ArenaActor {
@@ -116,9 +116,11 @@ export const REINFORCEMENT_FALLBACK = 45;
 export const REINFORCEMENT_SEATS = { land: MAX_TROOPS, air: 6 } as const;
 /** A garrison below strength, with nobody waiting, is topped up no sooner than this after the start or the last ride. */
 export const REINFORCEMENT_TOP_UP = 20;
+/** How much each side's surge (0–1) speeds the combat director: at both sides' ceilings, strikes come 2.4 times as often. */
+export const HEAT_PACE: Readonly<Record<SquadFaction, number>> = { mercenaries: 1, 'armed-forces': .4 };
 /** Most bots one match fields, recruits and friendly squads included. */
 export const MAX_ARENA_BOTS = 20;
-/** A bot with a home sector only answers contacts this close and otherwise patrols home. */
+/** A bot with a home sector only answers contacts this close and otherwise patrols home; a surging side ranges up to twice as far. */
 export const HOME_LEASH = 90;
 /** Most actors one match holds: every bot and room for players. */
 export const MAX_ARENA_ACTORS = MAX_ARENA_BOTS + 8;
@@ -483,13 +485,18 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       victim.actor.alive = false; victim.actor.deaths++; victim.actor.respawnIn = ARENA_RESPAWN_SECONDS; releaseSeat(victim.actor.id);
       victim.heal = undefined; delete victim.actor.healing;
       if (attacker && attacker !== victim) attacker.actor.kills++;
-      if (factionHeat && isSquad(victim.actor.faction)) factionHeat.casualty(victim.actor.faction, factionHeat.sectorAt(victim.actor.x, victim.actor.z)?.id ?? null);
+      if (factionHeat && isSquad(victim.actor.faction)) factionHeat.casualty(victim.actor.faction, factionHeat.sectorAt(victim.actor.x, victim.actor.z)?.id ?? null, heatShare(victim, attacker));
       announce(cause && !attacker ? `${cause} killed ${victim.actor.name}` : `${attacker?.actor.name ?? 'Vehicle'} eliminated ${victim.actor.name}`, attacker?.actor.id, victim.actor.id);
       warm(victim.actor, 4);
       if (attacker && !environment?.endless && attacker.actor.kills >= ARENA_KILL_LIMIT) { finished = true; winner = attacker.actor.name; }
+    } else if (!killed && factionHeat && isSquad(victim.actor.faction) && attacker !== victim && damage > 0) {
+      // Taking fire heats a side a little before anyone falls.
+      factionHeat.casualty(victim.actor.faction, factionHeat.sectorAt(victim.actor.x, victim.actor.z)?.id ?? null, heatShare(victim, attacker) * HEAT_TUNING.contact * Math.min(1, damage / 100));
     }
     return { hitId: victim.actor.id, killed, damage: damage - blocked };
   }
+  /** A player in the fight, either end of it, escalates it in full; bots fighting bots by a share. */
+  const heatShare = (victim: InternalActor, attacker?: InternalActor) => !victim.actor.bot || attacker && !attacker.actor.bot ? 1 : HEAT_TUNING.skirmish;
   /** `spec`, when given, prices the hit by range and zone the way the player's own rounds are. */
   function resolveShot(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, damage: number, range: number, ignore?: VehicleKind, spec?: WeaponSpec): ArenaShot {
     let nearest = Math.min(Number.isFinite(range) ? range : 0, worldWallDistance(origin, ray), cover?.(origin, ray, range) ?? Infinity);
@@ -809,8 +816,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function stepEvents(dt: number) {
     if (director && directorEnabled) {
       const humans = [...members.values()].filter(m => !m.actor.bot && m.actor.alive && m.playing).map(m => ({ x: m.actor.x, z: m.actor.z }));
+      // The hotter the fight, the sooner the next strike: contractors calling fire most, the forces' own support some.
+      const tempo = factionHeat ? 1 + HEAT_PACE.mercenaries * factionHeat.surge('mercenaries') + HEAT_PACE['armed-forces'] * factionHeat.surge(PLAYER_FACTION) : 1;
       const directive = director.step({ now: elapsed, active: events.map(e => e.descriptor), humans, bounds, avoid: environment?.playerSpawn ? [environment.playerSpawn] : [],
-        heat: [...heat.values()], places: validSpawns });
+        heat: [...heat.values()], places: validSpawns, tempo });
       if (directive && !startEvent(directive)) director.refused(directive, elapsed);
     }
     if (environment?.reinforcements) { dispatchReinforcements(); if (factionHeat) dispatchReinforcements(undefined, PLAYER_FACTION); }
@@ -1042,9 +1051,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     fly(dest, DRONE.dive); r.aim = dest;
   }
-  /** When each side may next send a ride, and when it next tops up an under-strength district. */
-  const firstTopUp = (faction: SquadFaction) => faction === PLAYER_FACTION ? factionHeat ? factionHeat.topUpInterval(PLAYER_FACTION) : Infinity : REINFORCEMENT_TOP_UP;
-  const dispatchClock = (): Record<SquadFaction, { next: number; topUp: number }> => ({ mercenaries: { next: 0, topUp: firstTopUp('mercenaries') }, 'armed-forces': { next: 0, topUp: firstTopUp(PLAYER_FACTION) } });
+  /**
+   * When each side may next send a ride, and when it last topped up. The gap
+   * to the next top-up is read from heat each time it is checked, so a side
+   * that heats up mid-wait sends its next ride sooner.
+   */
+  const topUpEvery = (faction: SquadFaction) => factionHeat ? factionHeat.topUpInterval(faction) : faction === PLAYER_FACTION ? Infinity : REINFORCEMENT_TOP_UP;
+  const topUpDue = (faction: SquadFaction, last: number | null) => last === null && faction !== PLAYER_FACTION ? REINFORCEMENT_TOP_UP : (last ?? 0) + topUpEvery(faction);
+  const dispatchClock = (): Record<SquadFaction, { next: number; last: number | null }> => ({ mercenaries: { next: 0, last: null }, 'armed-forces': { next: 0, last: null } });
   let clock = dispatchClock();
   /** Bots a side wants in the district: heat's call when there is heat, else the fixed population. */
   const population = (faction: SquadFaction) => factionHeat ? clamp(factionHeat.troops(faction), faction === 'mercenaries' ? count : 0, MAX_ARENA_BOTS)
@@ -1065,7 +1079,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const onRoad = events.some(e => e.descriptor.kind.startsWith('transport') && (e.descriptor.faction ?? 'mercenaries') === faction && combatPhase(e.descriptor, elapsed) !== 'aftermath');
       if (elapsed < state.next || onRoad || all.some(m => mine(m) && m.ride)) return null;
       // A lone casualty waits a little for company; a garrison under strength is topped up on a slower clock.
-      const due = waiting.length >= 2 || waiting.length === 1 && elapsed - waiting[0].waiting! >= REINFORCEMENT_WAIT || room > 0 && elapsed >= state.topUp;
+      const due = waiting.length >= 2 || waiting.length === 1 && elapsed - waiting[0].waiting! >= REINFORCEMENT_WAIT || room > 0 && elapsed >= topUpDue(faction, state.last);
       if (!due) return null;
     }
     const humans = all.filter(m => !m.actor.bot && m.actor.alive).map(m => ({ x: m.actor.x, z: m.actor.z }));
@@ -1080,7 +1094,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     for (let i = 0; i < recruits; i++) troops.push(enlist(true, faction));
     const home = factionHeat?.sectorAt(descriptor.target.x, descriptor.target.z)?.id;
     troops.forEach((member, slot) => { member.ride = { event: descriptor.id, slot }; if (home) member.home = home; });
-    state.topUp = elapsed + (factionHeat ? factionHeat.topUpInterval(faction) : REINFORCEMENT_TOP_UP);
+    state.last = elapsed;
     return descriptor;
   }
   /** A waiting bot steps off its transport at `at`, or at the drop if that spot is blocked. */
@@ -1190,8 +1204,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     // worth looking up at for someone it has hit: nobody stares at the skyline. A
     // bot with a home sector holds it: contacts beyond the leash are someone else's.
     const grudge = entry.grudge && entry.grudge.until > elapsed ? entry.grudge.id : '';
+    // A side that is surging hunts beyond its own ground.
+    const leash = HOME_LEASH * (1 + (factionHeat && entry.home && isSquad(actor.faction) ? factionHeat.surgeAt(actor.faction, entry.home) : 0));
     const enemies = [...members.values()].filter(m => m !== entry && m.actor.alive && hostile(actor, m.actor) && !(entry.temporary && m.temporary?.event === entry.temporary.event) &&
-      (m.anchor?.y === undefined || m.actor.id === grudge) && (!entry.home || distance(actor, m.actor) < HOME_LEASH));
+      (m.anchor?.y === undefined || m.actor.id === grudge) && (!entry.home || distance(actor, m.actor) < leash));
     const enemy = enemies.sort((a, b) => distance(actor, a.actor) * (a.actor.bot ? 1.1 : 1) - distance(actor, b.actor) * (b.actor.bot ? 1.1 : 1))[0];
     entry.patrolTime -= dt;
     if (entry.patrolTime <= 0) {

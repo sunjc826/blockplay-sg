@@ -2674,3 +2674,36 @@ Validation: full suite, typecheck; in the browser pane at 740×360 and 375×812
 with touch emulation: layout, 18/18 synthetic same-instant taps fired at
 150–400 ms spacing, hold-fire continued after a canvas touch ended.
 `touch-controls-smoke.mjs` updated for the four-item sweep but not rerun.
+
+## 2026-10-25: faction heat that moves, and a friendly side that shows up
+
+- Friendly heat sat at 0–0.05: the forces' band floors were 0–0.1, their
+  troops ran `[0, 4]`, so a district at rest wanted no friendly soldiers, and
+  enemy losses only leaked them about 0.05 that drained in seconds. A
+  10-minute soak in Marina Bay and Raffles Place with the player killing a
+  contractor every 15 s saw no friendly rides and no kills between the factions.
+  Contractor heat barely moved either, because each kill's bump drained in about 35 s.
+- `faction-heat.ts`: new `DISTRICT_HEAT` bands (forces rest at 0.1–0.15,
+  below the contractors), forces troops `[1, 6]` and top-up `[60, 20]` s.
+  A casualty holds heat 30 s (a smaller rise its share of that), then decay
+  runs 0.5×–2× by how high the side is. The last stretch of a band climbs
+  slower. Non-lethal hits add `contact`. District strength is pulled halfway
+  to the hottest sector. New `surge`/`surgeAt` (0 at floor, 1 at ceiling).
+- `arena-rules.ts`: hits feed heat; bot-only fights count for `skirmish`
+  (0.25); top-up rides read heat when checked (`state.last` instead of a
+  fixed `topUp`); home leash grows to 2× with surge; the director gets
+  `tempo` from both sides' surge (`HEAT_PACE`).
+- `combat-director.ts`: `tempo` divides the wait and is re-read each step.
+  `refused` now clears the drawn gap too, so a retry comes 5 s later.
+- `fps-engine.ts`: `HEAT_CALLS` radio lines (Intel/HQ) as the hottest sector
+  crosses steps; arriving in a district only takes a reading.
+- Soak after the change (same harness, open ground): idle, both sides rest
+  near their floors with occasional squad skirmishes. Fighting takes both
+  sides to their ceilings within about 2 minutes, with 40+ kills between the
+  factions in 10 minutes and about 12 rides per side. After the player
+  leaves, both sides are back at rest within 3–4 minutes.
+Validation: full suite, typecheck; Marina Bay in the browser pane (touch
+mode) with no console errors, where the HUD forces bar read 29% and rose to
+its 65% ceiling as the player took fire. The radio lines were not seen on
+screen: the comms log is hidden in the touch layout. Not soak-tested on real
+district geometry or with LAN guests.

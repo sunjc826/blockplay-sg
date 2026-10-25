@@ -251,7 +251,8 @@ from faction heat ([factions](FACTIONS.md#heat)); elsewhere it is
 `ArenaEnvironment.population`, which defaults to the starting garrison so only
 the fallen come back. With nobody waiting, a top-up ride goes out no sooner
 than the side's top-up interval (heat's, or `REINFORCEMENT_TOP_UP`, 20 s)
-after the start or its last ride. A recruit is held in reserve, dead and out
+after the start or its last ride. That interval is read from heat whenever
+the ride is checked, so a side that heats up mid-wait sends sooner. A recruit is held in reserve, dead and out
 of snapshots, until its seat is called, so it first appears stepping off the
 transport. Each side runs its own rides, one on the road at a time; a friendly
 ride carries `faction: 'armed-forces'` and the HUD calls it a FRIENDLY TRUCK or
@@ -510,6 +511,13 @@ Director pacing by district risk (`COMBAT_PACE`), in seconds:
 | Low | 45–75 | 110–190 | 0.75 (7) |
 | Medium | 30–55 | 75–140 | 1 (8) |
 | High | 25–40 | 50–100 | 1.4 (10) |
+
+In expedition districts these gaps are at rest. The host passes the director
+a `tempo`: 1 plus each side's surge in faction heat ([factions](FACTIONS.md#heat))
+weighted by `HEAT_PACE` (contractors 1, forces 0.4). Each wait is divided by
+the tempo, and the tempo is read again every step, so a fight that heats up
+mid-wait brings the next strike forward. With both sides at their ceilings,
+strikes come about 2.4 times as often.
 
 The clock restarts in each district, because each one runs its own match.
 

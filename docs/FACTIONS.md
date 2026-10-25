@@ -45,9 +45,10 @@ still applies.
 ## Friendly squads
 
 Wherever a district has heat (every expedition district), the forces field
-small squads of their own: one to four soldiers (`FACTION_SCALE['armed-forces']`),
+small squads of their own: one to six soldiers (`FACTION_SCALE['armed-forces']`),
 against three to fourteen contractors, so the player still does most of the
-fighting. They arrive by the same trucks and helicopters, named
+fighting. Every district's forces band rests high enough for one or two
+soldiers, below the contractors' floor, and rises as the player fights. They arrive by the same trucks and helicopters, named
 `Pte`/`Cpl`/`Sgt` and a surname. Riflemen and marksmen carry the issued
 rifle, support gunners the Ultimax, and none of them drops a weapon. They
 fight contractors, never the player: their rounds stop on players without
@@ -67,21 +68,46 @@ arena-rules), which only tells the combat director where fighting has been.
   in a high band, a backwater low, and contested ground runs high for both.
 - **Losses.** A casualty raises its own side's heat by `HEAT_TUNING.casualty`
   in the most specific sector at the spot, and half of that (`spill`) in each
-  sector above it, up to the district.
+  sector above it, up to the district. The last stretch of a band climbs at
+  under half pace, so only a sustained fight pins a side at its ceiling.
+- **Contact.** A hit that does not kill adds `contact` (0.1) of a casualty at
+  100 damage, so a running firefight builds heat before anyone falls.
+- **Who is fighting.** A fight with a player at either end counts in full.
+  Bots fighting bots alone count for `skirmish` (0.25), so the war between
+  the squads goes on around the player without escalating by itself.
 - **Leak.** Each rise passes `leak` × the rise × the other side's remaining
   room in its band across to the other side. What leaks in never leaks back,
   and the leak fades as the other side nears its ceiling, so the two cannot
   feed each other without limit.
-- **Decay.** Heat drains at `decay` per second back to each band's floor.
+- **Hold and decay.** A casualty holds its side's heat in that sector for
+  `hold` (30 s); a smaller rise holds it for its share of that, so stray
+  rounds cannot keep a sector hot. After that, heat drains toward the band's
+  floor at `decay` per second: half that near the floor, twice it at the
+  ceiling. A fight's peak falls away within a minute or two and the district
+  is back at rest three or four minutes after it ends.
 - **Curves** turn heat into strength. `linear` is proportional; `slow-burn`
   stays quiet and then escalates; `hair-trigger` answers the first trouble
   hard and levels off; `tiers` steps in thirds, wanted-level style.
 
-Strength, weighted over the top-level sectors by `botWeight`, sets each side's
-headcount and its top-up interval between the ranges in `FACTION_SCALE`.
+Strength across the district sets each side's headcount and its top-up
+interval between the ranges in `FACTION_SCALE`. It is the mean over the
+top-level sectors by `botWeight`, pulled halfway to the hottest sector, so
+one fight in a big district still moves the whole of it. The top-up interval
+is read whenever a ride is checked, so heating up mid-wait sends one sooner.
 Rides head for the sector whose wanted share most exceeds the troops already
 there, and the troops make that sector home: they patrol it and only answer
-contacts within `HOME_LEASH` (90 m). Kit follows heat too. Armour on each
+contacts within `HOME_LEASH` (90 m), stretched up to twice that by their
+side's surge there.
+
+A side's **surge** is how far it has climbed through its band, 0 at the floor
+and 1 at the ceiling, taken across the district the same way. Besides the
+leash, it sets the combat director's tempo (see
+[combat events](COMBAT-EVENTS.md)): contractors at their ceiling roughly
+double how often strikes come, and the forces' own surge adds a little more.
+The HUD's radio speaks as the hottest sector crosses each step in
+`HEAT_CALLS` (Intel for Black Kite, HQ for the forces), and says when a side
+that had stepped up twice has stood down. Arriving in a district only takes
+a reading. Kit follows heat too. Armour on each
 spawn scales from 0.75× to 1.25× the role's with the home sector's strength,
 and hotter sides recruit more support gunners and marksmen.
 

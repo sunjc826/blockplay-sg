@@ -5,7 +5,7 @@ const box = (minX: number, maxX: number, minZ: number, maxZ: number) => ({ minX,
 const sectors: HeatSector[] = [
   { id: 'wharf', bounds: box(0, 100, 0, 100), weight: 2, heat: { mercenaries: { min: .6, max: 1, curve: 'slow-burn' } } },
   { id: 'gate', parent: 'wharf', bounds: box(40, 60, 40, 60), weight: 0 },
-  { id: 'quay', bounds: box(-100, 0, 0, 100), weight: 1, heat: { 'armed-forces': { min: .3, max: .8 }, mercenaries: { min: .05, max: .4 } } },
+  { id: 'quay', bounds: box(-100, 0, 0, 100), weight: 1, heat: { 'armed-forces': { min: .4, max: .8 }, mercenaries: { min: .05, max: .4 } } },
 ];
 const field = () => createHeatField({ sectors, defaults: DISTRICT_HEAT.medium });
 
@@ -15,7 +15,7 @@ describe('faction heat', () => {
     expect(heat.level('mercenaries', 'wharf')).toBe(.6);
     expect(heat.level('mercenaries', 'gate')).toBe(.6);
     expect(heat.band('mercenaries', 'gate').curve).toBe('slow-burn');
-    expect(heat.level('armed-forces', 'quay')).toBe(.3);
+    expect(heat.level('armed-forces', 'quay')).toBe(.4);
     expect(heat.level('armed-forces', 'wharf')).toBe(DISTRICT_HEAT.medium['armed-forces'].min);
     expect(heat.level('mercenaries', null)).toBe(DISTRICT_HEAT.medium.mercenaries.min);
   });
@@ -43,7 +43,7 @@ describe('faction heat', () => {
     expect(heat.level('armed-forces', 'quay')).toBe(.8);
     heat.step(1000);
     expect(heat.level('mercenaries', 'quay')).toBe(.05);
-    expect(heat.level('armed-forces', 'quay')).toBe(.3);
+    expect(heat.level('armed-forces', 'quay')).toBe(.4);
   });
   it('dampens the leak as the other side nears its ceiling, so contested ground cannot run away', () => {
     const contested = createHeatField({ sectors: [{ id: 'c', bounds: box(0, 1, 0, 1), weight: 1 }], defaults: { 'armed-forces': { min: 0, max: 1 }, mercenaries: { min: 0, max: 1 } } });
@@ -65,6 +65,58 @@ describe('faction heat', () => {
     expect(field().neediest('armed-forces', () => 0)?.id).toBe('quay');
     // Troops already there count against a sector.
     expect(field().neediest('mercenaries', s => s.id === 'wharf' ? 20 : 0)?.id).toBe('quay');
+  });
+  it('holds heat through a fight, then drains it, a peak faster than the last of it', () => {
+    const open = { 'armed-forces': { min: 0, max: 1 }, mercenaries: { min: 0, max: 1 } };
+    const heat = createHeatField({ sectors: [{ id: 'c', bounds: box(0, 1, 0, 1), weight: 1 }], defaults: open });
+    for (let i = 0; i < 12; i++) heat.casualty('mercenaries', 'c');
+    const peak = heat.level('mercenaries', 'c');
+    heat.step(HEAT_TUNING.hold - 1);
+    expect(heat.level('mercenaries', 'c')).toBe(peak);
+    heat.step(11);
+    const high = peak - heat.level('mercenaries', 'c');
+    expect(high).toBeGreaterThan(0);
+    heat.step(400);
+    const before = heat.level('mercenaries', 'c'); heat.step(10);
+    expect(before - heat.level('mercenaries', 'c')).toBeLessThan(high);
+  });
+  it('holds for a stray hit only as long as its share of a casualty', () => {
+    const heat = field();
+    heat.casualty('mercenaries', 'quay', HEAT_TUNING.contact);
+    const hit = heat.level('mercenaries', 'quay');
+    expect(hit).toBeGreaterThan(.05);
+    heat.step(HEAT_TUNING.hold * HEAT_TUNING.contact + 1);
+    expect(heat.level('mercenaries', 'quay')).toBeLessThan(hit);
+  });
+  it('climbs the last stretch of a band at under half pace', () => {
+    const heat = createHeatField({ sectors: [], defaults: { 'armed-forces': { min: 0, max: 1 }, mercenaries: { min: 0, max: 1 } } });
+    heat.casualty('mercenaries', null);
+    const first = heat.level('mercenaries', null);
+    for (let i = 0; i < 6; i++) heat.casualty('mercenaries', null);
+    const before = heat.level('mercenaries', null); heat.casualty('mercenaries', null);
+    expect(heat.level('mercenaries', null) - before).toBeLessThan(first * .8);
+  });
+  it('reads one hot sector as a surge across the district, and wants more troops for it', () => {
+    const heat = field();
+    expect(heat.surge('mercenaries')).toBe(0);
+    expect(heat.surge('armed-forces')).toBe(0);
+    const troops = heat.troops('armed-forces');
+    for (let i = 0; i < 4; i++) heat.casualty('mercenaries', 'quay');
+    expect(heat.surgeAt('mercenaries', 'quay')).toBeGreaterThan(.9);
+    // The quay is a third of the district by weight, yet a fight there counts for more than a third.
+    expect(heat.surge('mercenaries')).toBeGreaterThan(.5);
+    // The forces answer what the contractors lost, and more so for losses of their own.
+    expect(heat.surge('armed-forces')).toBeGreaterThan(0);
+    for (let i = 0; i < 4; i++) heat.casualty('armed-forces', 'wharf');
+    expect(heat.troops('armed-forces')).toBeGreaterThan(troops);
+  });
+  it('fields at least one friendly soldier in every district at rest, and fewer than the contractors', () => {
+    for (const risk of ['low', 'medium', 'high'] as const) {
+      const heat = createHeatField({ sectors: [], defaults: DISTRICT_HEAT[risk] });
+      expect(heat.troops('armed-forces')).toBeGreaterThanOrEqual(1);
+      expect(heat.troops('armed-forces')).toBeLessThan(heat.troops('mercenaries'));
+      expect(DISTRICT_HEAT[risk]['armed-forces'].min).toBeLessThan(DISTRICT_HEAT[risk].mercenaries.min);
+    }
   });
   it('shapes each curve as named', () => {
     expect(heatCurve(.5, 'linear')).toBe(.5);

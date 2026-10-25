@@ -33,7 +33,7 @@ import type { VehicleKind } from './vehicle-rules';
 import { VEHICLE_COMBAT, vehicleBlastDamage, type VehicleDamageStage } from './vehicle-combat';
 import { dressWeapon } from './armory-visuals';
 import { createArenaRuntime } from './arena-runtime';
-import type { ArenaActor, ArenaEnvironment, ArenaSnapshot, ArenaVitals } from './arena-rules';
+import type { ArenaActor, ArenaEnvironment, ArenaHeat, ArenaSnapshot, ArenaVitals } from './arena-rules';
 import { createSoloSession, type LanSession } from './lan-peer';
 import { buildDistrictWorld } from './district-world';
 import { getFpsDistrict } from './fps-districts';
@@ -60,7 +60,8 @@ import { advanceBloom, createWeaponBloom, recordBloomShot, sampleShotSpread, wea
 import { combatCues, combatPhase, combatTimeline, cratePose, flyerPose, getCombatEvent, transportPose, WHISTLE_LEAD, type CombatEventDescriptor } from './combat-events';
 import { createCombatEventVisuals } from './combat-event-visuals';
 import { bannerOf, threatens } from './combat-event-catalog';
-import { hostile, type SquadFaction } from './arena-factions';
+import { hostile, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
+import { HEAT_CALLS } from './faction-heat';
 import { createCombatAudio } from './combat-event-audio';
 import { getEnvironmentSettings } from './environment-settings';
 import { createHitDirectionOverlay, createHitDirections, hitStrength } from './fps-hit-direction';
@@ -242,6 +243,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const botsAlive = new Map<string, boolean>();
   let travelPending = false, lootNoticeTime = 0;
   const greetedNpcs = new Set<string>(), dialogueProgress = new Map<string, number>();
+  /** The escalation step each side last reached across the district, so the radio speaks only when it changes. */
+  const heatTiers: Record<SquadFaction, number> = { mercenaries: 0, 'armed-forces': 0 };
+  let heatDistrict = '';
   const encik = createEncikRadio(Math.random, () => options.encik?.() ?? encikAddress(fieldProfile)), comms = createFpsComms(expedition?.checkpoint?.comms);
   hud.encikVoice = expedition?.checkpoint?.encikVoice ?? true;
   let killChain: KillChain = { count: 0, lastAt: -Infinity }, calloutTime = 0;
@@ -503,6 +507,24 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (arenaRuntime) arenaRuntime.vehicleAction('switch'); else vehicles.switchSeat();
     clearInput(); canvas.focus({ preventScroll: true }); publish();
   }
+  /**
+   * Radio traffic as either side steps up or stands down, read from the
+   * hottest sector in the district: the push you started is what you hear.
+   */
+  function announceHeat(rows: readonly ArenaHeat[]) {
+    if (!rows.length || hud.phase !== 'playing') return;
+    // Where a district rests is its normal state, not news: arriving only takes a reading.
+    const arriving = heatDistrict !== hud.expeditionZone; heatDistrict = hud.expeditionZone ?? '';
+    for (const faction of SQUAD_FACTIONS) {
+      const hottest = Math.max(...rows.map(row => row[faction])), steps = HEAT_CALLS[faction];
+      const tier = steps.filter(step => hottest >= step.at).length, was = heatTiers[faction];
+      if (tier === was) continue;
+      heatTiers[faction] = tier;
+      if (arriving) continue;
+      if (tier > was) comms.add('system', faction === 'mercenaries' ? 'Intel' : 'HQ', steps[tier - 1].up);
+      else if (tier === 0 && was >= 2 && steps[0].down) comms.add('system', faction === 'mercenaries' ? 'Intel' : 'HQ', steps[0].down);
+    }
+  }
   function updateExpeditionPrompts() {
     if (!expedition) return;
     const alive = !!hud.arenaSelf?.alive;
@@ -511,6 +533,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const here = sectorAt(expedition.zone, position.x, position.z);
     const heat = hud.arena?.heat?.find(row => row.sector === (here?.id ?? ''));
     hud.sectorHeat = heat ? { 'armed-forces': heat['armed-forces'], mercenaries: heat.mercenaries } : null;
+    announceHeat(hud.arena?.heat ?? []);
     if ((here?.name ?? '') !== hud.sector) {
       hud.sector = here?.name ?? '';
       if (here && hud.phase === 'playing') comms.add('system', 'Location', `Entering ${here.name}.`);

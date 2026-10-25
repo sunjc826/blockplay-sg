@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createArena, REINFORCEMENT_FALLBACK, REINFORCEMENT_SEATS, REINFORCEMENT_TOP_UP, type ArenaActor, type ArenaEnvironment, type ArenaSimulation } from './arena-rules';
 import { validArenaSnapshot } from './arena-runtime';
-import { DISTRICT_HEAT, FACTION_SCALE } from './faction-heat';
+import { DISTRICT_HEAT, FACTION_SCALE, HEAT_TUNING } from './faction-heat';
 import { combatTimeline, getCombatEvent, type CombatEventDescriptor, type InsertPayload } from './combat-events';
 
 const open = (spawns: { x: number; z: number }[], extra: Partial<ArenaEnvironment> = {}): ArenaEnvironment => ({
@@ -206,6 +206,28 @@ describe('faction heat in the arena', () => {
     expect(actor(arena, 'one').health).toBe(before);
     expect(validArenaSnapshot(checkable(arena), hot())).toBe(true);
     expect(arena.snapshot().heat?.find(h => h.sector === 'east')?.mercenaries).toBeGreaterThanOrEqual(.7);
+  });
+  it('sends a friendly section into a district at rest, with no sector held by the forces', () => {
+    const arena = createArena([], 2, 'assault', open(spawns, { reinforcements: true, heat: { sectors: [], defaults: DISTRICT_HEAT.high } }));
+    arena.addPlayer('one', 'Alpha', 0, 0, undefined, undefined, true);
+    arena.setPlayerHealthMultiplier('one', 10);
+    let ride: CombatEventDescriptor | undefined;
+    advance(arena, FACTION_SCALE['armed-forces'].topUp[0] + 30, () => { ride ??= arena.snapshot().events?.find(e => e.faction === 'armed-forces'); });
+    expect(ride?.kind).toMatch(/^transport/);
+  });
+  it('heats the contractors a little for each hit the player lands, and a full casualty for a kill', () => {
+    const arena = createArena([], 2, 'assault', open(spawns, { reinforcements: true, heat: { sectors: [], defaults: DISTRICT_HEAT.medium } }));
+    arena.addPlayer('one', 'Alpha', 0, 0, [{ damage: 30, interval: .12, capacity: 30, reload: 1.8 }], undefined, true);
+    const level = () => arena.snapshot().heat!.find(h => h.sector === '')!.mercenaries, floor = level();
+    const victim = arena.snapshot().actors.find(a => a.bot && a.alive)!, p = actor(arena, 'one');
+    arena.setInput('one', { ...p, x: victim.x + 3, z: victim.z, y: 1.75, weapon: p.weapon, playing: true });
+    arena.step(.05);
+    expect(shootDead(arena, 'one', actor(arena, victim.id)).killed).toBe(false);
+    const hit = level() - floor;
+    expect(hit).toBeGreaterThan(0);
+    expect(hit).toBeLessThan(HEAT_TUNING.casualty * HEAT_TUNING.contact);
+    while (actor(arena, victim.id).alive) { arena.step(.2); shootDead(arena, 'one', actor(arena, victim.id)); }
+    expect(level() - floor).toBeGreaterThan(HEAT_TUNING.casualty * .9);
   });
   it('sends more contractors as their losses heat the district', () => {
     const headcount = (losses: number) => {
