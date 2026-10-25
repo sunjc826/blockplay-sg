@@ -10,7 +10,7 @@ import { VEHICLE_COMBAT } from './vehicle-combat';
 import type { VehicleKind } from './vehicle-rules';
 import { validWeaponIndex } from './fps-rules';
 import * as THREE from 'three';
-import { createArena, MAX_ARENA_ACTORS, SPAWN_SHIELD_SECONDS, type ArenaActor, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaRaiderState, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
+import { createArena, MAX_ARENA_ACTORS, MAX_ARENA_ROUNDS, SPAWN_SHIELD_SECONDS, type ArenaActor, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaRaiderState, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
 import { createProfile, resolveLoadout, restoreProfile, type ArmoryProfile } from './armory-state';
 import type { LanSession } from './lan-peer';
 import { getArenaRole } from './arena-roles';
@@ -54,6 +54,10 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.health as number) < 0 || (actor.health as number) > 300 || (actor.armor as number) < 0 || (actor.armor as number) > 150) return false;
     ids.add(actor.id);
   }
+  if (value.rounds !== undefined && !(Array.isArray(value.rounds) && value.rounds.length <= MAX_ARENA_ROUNDS && value.rounds.every(r => object(r) && Number.isInteger(r.id) && point(r.origin) && point(r.direction) &&
+    finite(r.velocity) && (r.velocity as number) > 0 && (r.velocity as number) <= 2000 && finite(r.drop) && (r.drop as number) >= 0 && (r.drop as number) <= 50 &&
+    finite(r.limit) && (r.limit as number) >= 0 && (r.limit as number) <= 300 && finite(r.time) && (r.time as number) >= 0 && (r.time as number) <= 10 &&
+    (r.shooter === undefined || typeof r.shooter === 'string' && r.shooter.length <= 100) && (r.vehicle === undefined || r.vehicle === 'car' || r.vehicle === 'helicopter')))) return false;
   if (value.vehicles !== undefined) {
     if (!Array.isArray(value.vehicles) || value.vehicles.length !== 2) return false;
     const kinds = new Set<string>(), seated = new Set<string>();

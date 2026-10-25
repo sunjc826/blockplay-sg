@@ -16,7 +16,8 @@ import { combatPhase, combatTimeline, getCombatEvent, orbitPose, MAX_COMBAT_EVEN
 import { createCombatDirector, planTransport, type CombatRisk } from './combat-director';
 import { OVERHEAD_SHELTER, resolveBlast, type BlastTarget } from './combat-blast';
 import { DEFAULT_BOT_FACTION, getArenaFaction, hostile, PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
-import { ballisticPoint, isInstant, type BallisticSpec } from './fps-ballistics';
+import { ballisticPoint, isInstant, muzzleBallistics, type BallisticSpec } from './fps-ballistics';
+import type { PublishedRound } from './fps-projectiles';
 import { createHeatField, HEAT_TUNING, type HeatBand, type HeatSector } from './faction-heat';
 import { drawRank, type BotRank } from './arena-ranks';
 
@@ -67,6 +68,8 @@ export interface ArenaSnapshot {
   raiders?: ArenaRaider[];
   /** Each sector's heat per faction, with '' for the district; only where the environment has heat. */
   heat?: ArenaHeat[];
+  /** Rounds in the air, for screens to draw; the host alone decides what they hit. */
+  rounds?: ArenaRoundView[];
 }
 export type ArenaHeat = { sector: string } & Record<SquadFaction, number>;
 export interface ArenaInput { x: number; y: number; z: number; yaw: number; pitch: number; weapon: number; playing: boolean; reloading?: boolean; prone?: boolean; vehicleControls?: VehicleControls }
@@ -151,7 +154,15 @@ export const MAX_ARENA_ROUNDS = 96;
  * third of a metre); people, vehicles and raiders are tested along each tick's
  * stretch of its arc, so they can step into it or out of its way.
  */
-interface ArenaRound { shooter: InternalActor; origin: ArenaPoint; direction: ArenaPoint; position: ArenaPoint; ballistics: BallisticSpec; damage: number; spec?: WeaponSpec; limit: number; time: number; travelled: number }
+interface ArenaRound {
+  id: number; origin: ArenaPoint; direction: ArenaPoint; position: ArenaPoint; ballistics: BallisticSpec; damage: number; spec?: WeaponSpec; limit: number; time: number; travelled: number;
+  /** Who fired it and is credited, if anyone; a raider's round names its `cause` instead. */
+  shooter?: InternalActor; cause?: string;
+  /** A vehicle gun's own hull, which its rounds leave rather than strike. */
+  vehicle?: VehicleKind;
+}
+/** A round in flight as snapshots carry it, so every screen can fly a copy to draw. */
+export type ArenaRoundView = PublishedRound;
 /** Share of a reload by which a guest's own commit point may run ahead of the host's. */
 const RELOAD_COMMIT_GRACE = .12;
 const SPAWNS = [
@@ -505,30 +516,36 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const flying: ArenaRound[] = [];
   /** Hits players' rounds have landed since the host last asked, by shooter. */
   const landed = new Map<string, ArenaShot[]>();
+  let roundSerial = 0;
   /** Sends a carried gun's round on its way; an instant gun still resolves at once. */
   function launch(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, weapon: ArenaWeapon, range: number): ArenaShot {
     const ballistics = entry.spec?.ballistics ?? weapon.ballistics;
     if (!ballistics || isInstant(ballistics)) return resolveShot(entry, origin, ray, weapon.damage, range, undefined, entry.spec);
-    const limit = Math.min(range, worldWallDistance(origin, ray), cover?.(origin, ray, range) ?? Infinity);
-    if (flying.length >= MAX_ARENA_ROUNDS) flying.shift();
-    flying.push({ shooter: entry, origin: { ...origin }, direction: ray, position: { ...origin }, ballistics, damage: weapon.damage, spec: entry.spec, limit, time: 0, travelled: 0 });
+    send({ shooter: entry, origin, direction: ray, ballistics, damage: weapon.damage, spec: entry.spec }, range);
     return { ...EMPTY_SHOT };
+  }
+  /** Queues a round, its walls and rendered cover measured once along its line now. */
+  function send(round: Pick<ArenaRound, 'origin' | 'direction' | 'ballistics' | 'damage' | 'spec' | 'shooter' | 'cause' | 'vehicle'>, range: number) {
+    const limit = Math.min(range, worldWallDistance(round.origin, round.direction), cover?.(round.origin, round.direction, range) ?? Infinity);
+    if (flying.length >= MAX_ARENA_ROUNDS) flying.shift();
+    flying.push({ ...round, id: ++roundSerial, origin: { ...round.origin }, position: { ...round.origin }, limit, time: 0, travelled: 0 });
   }
   /** Moves every round along its arc and lets each strike the first thing in this tick's stretch of it. */
   function stepRounds(dt: number) {
     for (let i = flying.length - 1; i >= 0; i--) {
       const round = flying[i];
       // A shooter who left the match takes their rounds with them.
-      if (members.get(round.shooter.actor.id) !== round.shooter) { flying.splice(i, 1); continue; }
+      if (round.shooter && members.get(round.shooter.actor.id) !== round.shooter) { flying.splice(i, 1); continue; }
       const to = ballisticPoint(round.origin, round.direction, round.ballistics, round.time + dt), from = round.position;
       const step = { x: to.x - from.x, y: to.y - from.y, z: to.z - from.z }, length = Math.hypot(step.x, step.y, step.z);
       const reach = Math.min(length, round.limit - round.travelled);
       if (reach > 1e-6) {
         const ray = { x: step.x / length, y: step.y / length, z: step.z / length };
-        const shot = resolveShot(round.shooter, from, ray, round.damage, reach, undefined, round.spec, round.travelled);
+        const shot = round.shooter ? resolveShot(round.shooter, from, ray, round.damage, reach, round.vehicle, round.spec, round.travelled)
+          : strayShot(from, ray, reach, round.damage, round.cause ?? 'Gunfire');
         if (shot.stopped) {
           flying.splice(i, 1);
-          if (shot.hitId && !round.shooter.actor.bot) { const list = landed.get(round.shooter.actor.id) ?? []; list.push({ hitId: shot.hitId, killed: shot.killed, damage: shot.damage }); landed.set(round.shooter.actor.id, list); }
+          if (shot.hitId && round.shooter && !round.shooter.actor.bot) { const list = landed.get(round.shooter.actor.id) ?? []; list.push({ hitId: shot.hitId, killed: shot.killed, damage: shot.damage }); landed.set(round.shooter.actor.id, list); }
           continue;
         }
       }
@@ -537,7 +554,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
   }
   /** Rounds still in the air, all of them or one shooter's. */
-  const inFlight = (id?: string) => id === undefined ? flying.length : flying.filter(round => round.shooter.actor.id === id).length;
+  const inFlight = (id?: string) => id === undefined ? flying.length : flying.filter(round => round.shooter?.actor.id === id).length;
+  const roundViews = (): ArenaRoundView[] => flying.map(r => ({ id: r.id, origin: { ...r.origin }, direction: { ...r.direction }, velocity: r.ballistics.velocity, drop: r.ballistics.drop,
+    limit: r.limit, time: r.time, ...(r.shooter ? { shooter: r.shooter.actor.id } : {}), ...(r.vehicle ? { vehicle: r.vehicle } : {}) }));
   /** The hits a player's rounds have landed since last asked, oldest first. */
   function takeHits(id: string) { const list = landed.get(id) ?? []; landed.delete(id); return list; }
   /**
@@ -1011,15 +1030,22 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return { hitId: `raider-${r.event}`, killed, damage: Math.min(before, damage) };
   }
   /** A raider's round: whatever it meets first, a wall, a hull or a body. */
+  /** A raider's round: nobody's, so it hits whoever it meets, credited to `cause`. */
   function raiderShot(origin: ArenaPoint, ray: ArenaPoint, damage: number, cause: string) {
-    let nearest = Math.min(150, worldWallDistance(origin, ray), cover?.(origin, ray, 150) ?? Infinity), hull: SharedVehicle | undefined, victim: InternalActor | undefined;
+    send({ origin, direction: ray, ballistics: muzzleBallistics(RAID.muzzle), damage, cause }, 150);
+  }
+  /** One stretch of a shooterless round's flight, its walls already measured. */
+  function strayShot(origin: ArenaPoint, ray: ArenaPoint, reach: number, damage: number, cause: string): ArenaShot & { stopped: boolean } {
+    let nearest = reach, hull: SharedVehicle | undefined, victim: InternalActor | undefined;
     for (const v of vehicles) { const d = vehicleRayDistance(v, origin, ray); if (d < nearest) { nearest = d; hull = v; } }
     for (const member of members.values()) {
       if (!member.actor.alive || seatOf(vehicles, member.actor.id)) continue;
       const d = bodyDistance(origin, ray, member.actor); if (d < nearest) { nearest = d; victim = member; hull = undefined; }
     }
-    if (hull) damageHull(hull, damage, undefined, cause);
-    else if (victim) hurtActor(victim, damage, undefined, cause, origin);
+    if ((hull || victim) && !(damage > 0)) return { ...EMPTY_SHOT, stopped: true };
+    if (hull) { damageHull(hull, damage, undefined, cause); return { ...EMPTY_SHOT, stopped: true }; }
+    if (victim) return { ...hurtActor(victim, damage, undefined, cause, origin), stopped: true };
+    return { ...EMPTY_SHOT, stopped: false };
   }
   /** The nearest actor, player or patrol, a raider at `from` can see within `range`. Raiders belong to nobody. */
   function spot(from: ArenaPoint, range: number) {
@@ -1071,10 +1097,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     r.aim = t < RAID.walkIn ? { x: walk.x + (chest.x - walk.x) * k, y: walk.y + (chest.y - walk.y) * k, z: walk.z + (chest.z - walk.z) * k } : chest;
     for (const due = Math.floor(t / RAID.rate) + 1; r.fired < due; r.fired++) {
       r.shots++;
-      if (t < RAID.walkIn) continue;
+      // The walk-in rounds are real tracers but harmless: they warn, the burst after them kills.
       const line = { x: r.aim.x - gun.x, y: r.aim.y - gun.y, z: r.aim.z - gun.z }, length = Math.hypot(line.x, line.y, line.z) || 1, spread = RAID.spread;
       const ray = { x: line.x / length + (random() - .5) * spread, y: line.y / length + (random() - .5) * spread, z: line.z / length + (random() - .5) * spread }, norm = Math.hypot(ray.x, ray.y, ray.z);
-      raiderShot(gun, { x: ray.x / norm, y: ray.y / norm, z: ray.z / norm }, RAID.round, event.name);
+      raiderShot(gun, { x: ray.x / norm, y: ray.y / norm, z: ray.z / norm }, t < RAID.walkIn ? 0 : RAID.round, event.name);
     }
   }
   function stepDrone(r: Raider, event: RunningEvent, dt: number) {
@@ -1241,7 +1267,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (gun?.fire && gunner && fireVehicleWeapon(v)) {
         const entry = members.get(gunner); if (!entry) continue;
         v.shots++; entry.actor.shots++;
-        resolveShot(entry, ray.origin, ray.direction, VEHICLE_COMBAT[v.kind].damage, VEHICLE_COMBAT[v.kind].range, v.kind);
+        send({ shooter: entry, origin: ray.origin, direction: ray.direction, ballistics: VEHICLE_COMBAT[v.kind].ballistics, damage: VEHICLE_COMBAT[v.kind].damage, vehicle: v.kind }, VEHICLE_COMBAT[v.kind].range);
       }
     }
     syncOccupants();
@@ -1437,7 +1463,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return { type: 'arena-snapshot', tick, elapsed, actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...shieldOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
       ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target }, ...(e.descriptor.origin ? { origin: { ...e.descriptor.origin } } : {}) })) } : {}),
       ...(raiders.size ? { raiders: [...raiders.values()].map(({ event, kind, x, y, z, yaw, health, maxHealth, state, aim, shots }) => ({ event, kind, x, y, z, yaw, health, maxHealth, state, aim: aim ? { ...aim } : null, shots })) } : {}),
-      ...(factionHeat ? { heat: factionHeat.snapshot() } : {}) };
+      ...(factionHeat ? { heat: factionHeat.snapshot() } : {}), ...(flying.length ? { rounds: roundViews() } : {}) };
   }
   function reset() {
     tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; controls.clear(); events.length = 0; raiders.clear(); liveClouds = []; heat.clear(); interests.length = 0; director?.reset();

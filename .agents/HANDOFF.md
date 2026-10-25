@@ -2808,3 +2808,23 @@ Measured: bot hit rates at 7–25 m barely moved; snipers at 50 m lose most
 against movers. Validation: full vitest, typecheck, build. Not played live
 (mouse capture is blocked in the browser pane). Vehicle guns and the raid
 helicopter's gun still resolve instantly; bots' rounds draw no tracer.
+
+## 2026-10-25: vehicle and raider guns fly, and everyone's rounds draw tracers
+
+- Vehicle guns: `VEHICLE_COMBAT[kind].ballistics` (car 462 m/s, helicopter 490).
+  On the arena host the gunner's shot is `send`-queued with `vehicle` set, so it
+  leaves its own hull; off the arena `shootVehicle` pushes a round with
+  `vehicleDamage`/`skipVehicle`, and `vehicleImpact` applies the old hit block.
+- Raid helicopter: `raiderShot` queues a shooterless round (`RAID.muzzle` 850 →
+  468 m/s, credited to the raid's `cause`, resolved by `strayShot`). Walk-in
+  rounds are now real but carry 0 damage: they stop on what they meet and hurt
+  nobody. combat-event-visuals no longer draws its own fake door-gun tracers.
+- Snapshots carry `rounds` (`ArenaRoundView` = fps-projectiles'
+  `PublishedRound`), validated on guests. The engine adopts them each frame via
+  `adoptPublishedRounds`: everyone else's, plus every vehicle's and raider's
+  (ours included), within 220 m, caught up by `time`, flying as cosmetic rounds
+  that skip their shooter's figure or vehicle. Arena vehicle shots no longer
+  draw an instant beam. `MAX_ROUNDS_IN_FLIGHT` is 48.
+Validation: full vitest, typecheck, build. In the browser pane the open world
+ran in touch mode with no console errors, but the pane was throttled to about
+one frame a second, so tracers could not be watched in motion.

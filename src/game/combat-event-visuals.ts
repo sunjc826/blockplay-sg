@@ -14,7 +14,7 @@ import { withInstanceOpacity } from './fps-impact-material';
  */
 
 const FIRE = 96, SMOKE = 256, DEBRIS = 96, SHELLS = 24, CRATERS = 40, MARKERS = 8, TRANSPORTS = 2, ROPERS = 6;
-const BOMBS = 16, FLYERS = 4, RAIDERS = 2, PITS = 2, CRATES = 2, PUFFS = 192, TRACERS = 40;
+const BOMBS = 16, FLYERS = 4, RAIDERS = 2, PITS = 2, CRATES = 2, PUFFS = 192;
 /** Shells are drawn at an arcade speed so their last half-second is visible at all. */
 const SHELL_SPEED = 120;
 /** Bombs are drawn at roughly their real speed: a dark shape you can watch fall for two seconds. */
@@ -171,10 +171,6 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
   const bombMesh = pool(keep(new THREE.CapsuleGeometry(.22, 1.2, 3, 8)), hold(new THREE.MeshStandardMaterial({ color: '#2c302b', roughness: .6 })), BOMBS, 'combat-bombs');
   const puffQuad = opacityPool(PUFFS);
   const puffMesh = pool(puffQuad.geometry, hold(withInstanceOpacity(new THREE.MeshBasicMaterial({ map: soft, transparent: true, depthWrite: false }))), PUFFS, 'combat-clouds');
-  const tracerGeometry = keep(new THREE.BufferGeometry()); tracerGeometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(TRACERS * 2 * 3), 3));
-  const tracerLines = new THREE.LineSegments(tracerGeometry, hold(new THREE.LineBasicMaterial({ color: '#ffd27a', transparent: true, opacity: .9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })));
-  tracerLines.frustumCulled = false; tracerLines.raycast = noRaycast; root.add(tracerLines);
-  const tracers: { from: THREE.Vector3; to: THREE.Vector3; age: number }[] = [];
 
   // Models that most matches never see are built the first time they are needed, up to a fixed count each.
   type Prop = { model: THREE.Group; owner: string; extra?: Record<string, number> };
@@ -287,9 +283,9 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     }
   }
 
-  const cameraQuaternion = new THREE.Quaternion(), yAxis = new THREE.Vector3(0, -1, 0), gunAt = new THREE.Vector3(), aimAt = new THREE.Vector3(), shotRay = new THREE.Vector3();
+  const cameraQuaternion = new THREE.Quaternion(), yAxis = new THREE.Vector3(0, -1, 0), gunAt = new THREE.Vector3();
   /**
-   * Drones from the host's positions, smoothed; door-gun tracers and the
+   * Drones from the host's positions, smoothed; the door gun's muzzle and the
    * moment a raider bursts or hits the ground. Returns what happened, for sound.
    */
   function drawRaiders(raiders: readonly ArenaRaider[], dt: number): RaiderHappenings {
@@ -319,15 +315,8 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
       if (r.kind === 'gunship' && r.shots > seen.shots && r.aim) {
         const gunship = props.gunship.find(p => p.owner === r.event)?.model;
         if (gunship) gunAt.set(-1.25, .9, -1).applyMatrix4(gunship.matrixWorld); else gunAt.set(r.x, r.y + .7, r.z);
-        for (let n = 0; n < Math.min(3, r.shots - seen.shots); n++) {
-          aimAt.set(r.aim.x + (Math.random() - .5) * 1.4, r.aim.y + (Math.random() - .5) * 1.2, r.aim.z + (Math.random() - .5) * 1.4);
-          shotRay.subVectors(aimAt, gunAt); const reach = shotRay.length(); shotRay.normalize();
-          const end = cast(gunAt, shotRay, reach + 30)?.clone() ?? aimAt.clone();
-          if (tracers.length >= TRACERS) tracers.shift();
-          tracers.push({ from: gunAt.clone(), to: end, age: 0 });
-          if (!options.reduced()) { const kick = particle(end, 1.2, 1.4, .7, .25, .8, dust.clone()); add(smoke, SMOKE, kick); }
-          happened.shots.push(gunAt.clone());
-        }
+        // The rounds themselves fly in the snapshot and are drawn with everyone else's; this is the muzzle and the sound.
+        for (let n = 0; n < Math.min(3, r.shots - seen.shots); n++) happened.shots.push(gunAt.clone());
       }
       seenRaiders.set(r.event, { state: r.state, shots: r.shots });
     }
@@ -455,10 +444,6 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     for (const list of Object.values(props)) for (const p of list) if (!used.has(p)) { p.owner = ''; p.model.visible = false; }
     bombMesh.count = bombs; bombMesh.instanceMatrix.needsUpdate = true;
     puffMesh.count = puffs; puffMesh.instanceMatrix.needsUpdate = true; puffQuad.opacity.needsUpdate = true; if (puffMesh.instanceColor) puffMesh.instanceColor.needsUpdate = true;
-    for (let i = tracers.length - 1; i >= 0; i--) if ((tracers[i].age += dt) > .07) tracers.splice(i, 1);
-    const tracerArray = tracerGeometry.getAttribute('position') as THREE.BufferAttribute;
-    tracers.forEach((t, i) => { tracerArray.setXYZ(i * 2, t.from.x, t.from.y, t.from.z); tracerArray.setXYZ(i * 2 + 1, t.to.x, t.to.y, t.to.z); });
-    tracerGeometry.setDrawRange(0, tracers.length * 2); tracerArray.needsUpdate = true; tracerLines.visible = tracers.length > 0;
     shellMesh.count = shells; shellMesh.instanceMatrix.needsUpdate = true;
     roperMesh.count = ropers; roperMesh.instanceMatrix.needsUpdate = true;
     ropeGeometry.setDrawRange(0, ropeLines * 2); ropeArray.needsUpdate = true; ropes.visible = ropeLines > 0;
@@ -507,7 +492,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
   }
 
   function reset() {
-    fire.length = smoke.length = debris.length = craters.length = emitters.length = tracers.length = 0; landings.clear(); seenRaiders.clear(); flash.intensity = 0;
+    fire.length = smoke.length = debris.length = craters.length = emitters.length = 0; landings.clear(); seenRaiders.clear(); flash.intensity = 0;
     for (const mode of ['land', 'air'] as const) for (const v of fleet[mode]) { v.owner = ''; v.model.visible = false; }
     for (const list of Object.values(props)) for (const p of list) { p.owner = ''; p.model.visible = false; p.extra = undefined; }
   }
@@ -517,7 +502,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     get counts() {
       const shown = (kind: keyof typeof props) => props[kind].filter(p => p.owner).length;
       return { fire: fire.length, smoke: smoke.length, debris: debris.length, craters: craters.length, transports: fleet.land.filter(v => v.owner).length + fleet.air.filter(v => v.owner).length,
-        flyers: shown('jet') + shown('cargo'), raiders: shown('gunship') + shown('drone'), pits: shown('mortar'), crates: shown('crate'), puffs: puffMesh.count, tracers: tracers.length };
+        flyers: shown('jet') + shown('cargo'), raiders: shown('gunship') + shown('drone'), pits: shown('mortar'), crates: shown('crate'), puffs: puffMesh.count };
     },
     dispose() {
       root.removeFromParent();

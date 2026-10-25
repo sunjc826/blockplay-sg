@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createArena, type ArenaEnvironment, type ArenaSimulation } from './arena-rules';
-import { mergeHits } from './arena-runtime';
+import { mergeHits, validArenaSnapshot } from './arena-runtime';
+import { moveInMarina } from './marina-collision';
+import { VEHICLE_COMBAT } from './vehicle-combat';
 import { BOT_RANKS } from './arena-ranks';
 import { BALLISTIC_SCALE, flightTime } from './fps-ballistics';
 import { FPS_WEAPONS } from './fps-rules';
@@ -47,6 +49,32 @@ describe('travelling rounds', () => {
     for (let t = 0; t < .5; t += .02) arena.step(.02);
     expect(find(arena, 'two').health).toBe(100);
     expect(arena.takeHits('one')).toEqual([]); expect(arena.inFlight()).toBe(0);
+  });
+  it('are published in snapshots for every screen to draw, and a guest rejects a forged one', () => {
+    const { arena, one, direction } = duel();
+    arena.shoot('one', one, direction, one.weapon); arena.step(.01);
+    const snapshot = arena.snapshot(), environment = field([{ x: 1000, z: 1000 }]);
+    expect(snapshot.rounds).toEqual([expect.objectContaining({ shooter: 'one', velocity: FPS_WEAPONS[one.weapon].ballistics.velocity, drop: 9.8, time: expect.closeTo(.01, 5) })]);
+    expect(validArenaSnapshot(snapshot, environment)).toBe(true);
+    expect(validArenaSnapshot({ ...snapshot, rounds: [{ ...snapshot.rounds![0], velocity: 1e6 }] }, environment)).toBe(false);
+    expect(validArenaSnapshot({ ...snapshot, rounds: [{ ...snapshot.rounds![0], vehicle: 'tank' as never }] }, environment)).toBe(false);
+  });
+  it('fly from a vehicle gun too, leaving its own hull and landing late on whoever it meets', () => {
+    const environment: ArenaEnvironment = { bounds: { minX: -100, maxX: 100, minZ: -100, maxZ: 100 }, move: moveInMarina,
+      spawns: [{ x: 3.5, z: 0 }, { x: 0, z: -60 }], playerSpawn: { x: 3.5, z: 0 }, endless: true };
+    const arena = createArena([], 0, 'mixed', environment, { spawns: { car: { x: 0, z: 0, yaw: 0 }, helicopter: { x: 30, z: 0, yaw: 0 } } });
+    arena.addPlayer('driver', 'Driver', 0, 0, [], undefined, true); arena.addPlayer('gunner', 'Gunner', 0, 0, [], undefined, true);
+    arena.addPlayer('target', 'Target');
+    arena.vehicleAction('driver', 'enter', 'car'); arena.vehicleAction('gunner', 'enter', 'car');
+    const target = find(arena, 'target');
+    arena.setInput('gunner', { ...find(arena, 'gunner'), playing: true, vehicleControls: { forward: 0, steer: 0, lift: 0, brake: false, boost: false, fire: true, aim: { x: target.x, y: target.y - .65, z: target.z } } });
+    arena.step(.02);
+    expect(arena.snapshot().rounds?.[0]).toMatchObject({ shooter: 'gunner', vehicle: 'car', velocity: VEHICLE_COMBAT.car.ballistics.velocity });
+    expect(find(arena, 'target').health).toBe(100);
+    for (let t = 0; t < .5 && find(arena, 'target').health === 100; t += .01) arena.step(.01);
+    expect(find(arena, 'target').health).toBe(100 - VEHICLE_COMBAT.car.damage);
+    expect(arena.snapshot().vehicles![0].health).toBe(VEHICLE_COMBAT.car.health);
+    expect(arena.takeHits('gunner').at(-1)).toMatchObject({ hitId: 'target', damage: VEHICLE_COMBAT.car.damage });
   });
   it('read several hits landing at once as one marker', () => {
     expect(mergeHits([])).toBeNull();

@@ -337,8 +337,15 @@ tick's stretch of its arc, so a target can step out of its way. Hits reach the
 shooter when the round lands (`takeHits`; a guest gets an `arena-hit` message
 then). The shooter's own screen flies a show-only copy along the same arc for
 the tracer and impact. Bots aim ahead of a moving target by their rank's `lead`
-share of the round's flight, and up by its drop. Vehicle guns and the raid
-helicopter's gun still resolve instantly.
+share of the round's flight, and up by its drop.
+
+Vehicle guns fly too: the car's roof GPMG at 462 m/s and the helicopter's chin
+HMG at 490 (`VEHICLE_COMBAT[kind].ballistics`), leaving their own hull, in the
+arena and on the Training range alike. The raid helicopter's door gun flies at
+468 m/s; its walk-in rounds are real tracers that harm nobody. Snapshots carry
+every round in flight (`rounds`), and each screen flies show-only copies of
+everyone else's, and of every vehicle's and raider's, for tracers and impacts
+(`adoptPublishedRounds`), within 220 m of the viewer.
 
 The AI pilot compensates. `PilotContact` carries the range to a target and the
 observation carries the equipped ballistics, so the controller holds over by the

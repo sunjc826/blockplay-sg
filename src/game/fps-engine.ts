@@ -19,7 +19,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { advanceWeapon, beginReload, chamberRound, createLoadout, findTrait, fireWeapon, fullLoad, interruptReload, reloadDuration, roundReady, validWeaponIndex, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponState } from './fps-rules';
 import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { sectorAt, zoneSectors } from './zone-sectors';
-import { advanceRound, createRound, needsFlight, skipRound, MAX_ROUNDS_IN_FLIGHT, MAX_SKIPS, type InFlightRound } from './fps-projectiles';
+import { adoptPublishedRounds, advanceRound, createRound, needsFlight, skipRound, MAX_ROUNDS_IN_FLIGHT, MAX_SKIPS, type InFlightRound } from './fps-projectiles';
 import { SKIP_ENERGY, splashWeight, waterRicochet } from './fps-splashes';
 import { isWaterObject, rippleWater } from './water';
 import { createFpsEffects, type ImpactKind } from './fps-effects';
@@ -283,6 +283,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // permanent profile can debit it; the count here is what the HUD shows.
   let quickRemaining = equipment.quickCount;
   const ROUND_RANGE = 180;
+  /** Other people's rounds are drawn only when they start this close. */
+  const REMOTE_TRACER_RANGE = 220;
   const roundRay = new THREE.Raycaster(), roundOrigin = new THREE.Vector3(), roundDirection = new THREE.Vector3(), splashPoint = new THREE.Vector3();
   let strategyMode: 'local' | 'llm' = expedition?.checkpoint?.pilotStrategy ?? 'local';
   let strategicPlanner = strategyMode === 'llm' ? createStrategyPlanner(llmPilotStrategy()) : null;
@@ -1160,6 +1162,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.earned = rewardAmount(reward); hud.earnedXp += completionXp(reward); options.onComplete?.(reward);
     if (document.pointerLockElement === canvas) document.exitPointerLock();
   }
+  /** Host rounds already drawn here, by id. */
+  const seenRounds = new Set<number>();
   /** Steps every round still in the air and resolves whatever it reaches first. */
   function advanceRounds(dt: number) {
     if (!rounds.length) return;
@@ -1167,12 +1171,20 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const candidates = gameplayCandidates();
     let struck = false;
     for (let i = rounds.length - 1; i >= 0; i--) {
-      const round = rounds[i], step = advanceRound(round, dt, ROUND_RANGE);
+      const round = rounds[i], step = advanceRound(round, dt, round.range ?? ROUND_RANGE);
       if (step.distance > 1e-6) {
         roundDirection.set(step.to.x - step.from.x, step.to.y - step.from.y, step.to.z - step.from.z).normalize();
         roundRay.set(roundOrigin.set(step.from.x, step.from.y, step.from.z), roundDirection);
         roundRay.near = 0; roundRay.far = step.distance;
-        const segmentHits = stopAtWater(visibleHits(roundRay, candidates, 1 + round.pierced));
+        // A round never strikes whoever fired it: their own figure or their own vehicle.
+        const from = round.skipVehicle ? vehicleCandidates(round.skipVehicle) : round.skipActor ? candidates.filter(o => o.userData.arenaActorId !== round.skipActor) : candidates;
+        if (round.vehicleDamage !== undefined) {
+          const hit = firstVisibleHit(roundRay, from);
+          if (hit) { vehicleImpact(hit, roundDirection, round.skipVehicle ?? 'car', round.vehicleDamage); rounds.splice(i, 1); struck = true; continue; }
+          if (step.expired) rounds.splice(i, 1);
+          continue;
+        }
+        const segmentHits = stopAtWater(visibleHits(roundRay, from, 1 + round.pierced));
         if (segmentHits.length && round.cosmetic) {
           // The arena host has the real round: this one only shows where it went.
           const first = segmentHits[0];
@@ -1203,7 +1215,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (step.expired) rounds.splice(i, 1);
     }
     effects.trails(rounds);
-    if (struck) { checkCompletion(); publish(); }
+    if (struck) { resolveVehicleDestruction(); checkCompletion(); publish(); }
   }
   function hurtPlayer(amount: number) {
     if (hud.health <= 0 || amount <= 0) return;
@@ -1240,17 +1252,18 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const shot = vehicles.fire(); if (!shot) return;
     pullBuffer = 0;
     hud.shots++; shotSound();
-    vehicleRay.set(shot.base, shot.direction); vehicleRay.near = 0; vehicleRay.far = shot.range;
-    const hit = firstVisibleHit(vehicleRay, vehicleCandidates(shot.kind));
-    effects.beam(hit && hit.distance < shot.base.distanceTo(shot.origin) ? shot.base : shot.origin, hit?.point ?? vehicleRay.ray.at(shot.range, new THREE.Vector3()));
-    if (hit) {
-      const kind = vehicles.hitKind(hit.object);
-      if (kind) vehicles.damage(kind, shot.damage);
-      if (typeof hit.object.userData.fpsTarget === 'number') damageTarget(hit.object.userData.fpsTarget, hud.weapon, hit.distance, undefined, 1, shot.damage);
-      if (isWaterHit(hit)) effects.splash(hit.point, shot.direction, 1);
-      else strike(hit, shot.direction, shot.kind === 'car' ? 1 : 1.6);
-    }
-    resolveVehicleDestruction(); checkCompletion(); publish();
+    // The round leaves from the turret base, so a muzzle poked through a wall still meets the wall; it flies like any other.
+    if (rounds.length < MAX_ROUNDS_IN_FLIGHT) rounds.push(Object.assign(createRound(++roundSerial, hud.weapon, shot.base.clone(), shot.direction.clone(), shot.ballistics),
+      { range: shot.range, skipVehicle: shot.kind, vehicleDamage: shot.damage }));
+    publish();
+  }
+  /** What a vehicle gun's round does where it lands, off the arena. */
+  function vehicleImpact(hit: THREE.Intersection, direction: THREE.Vector3, kind: VehicleKind, damage: number) {
+    const struck = vehicles.hitKind(hit.object);
+    if (struck) vehicles.damage(struck, damage);
+    if (typeof hit.object.userData.fpsTarget === 'number') damageTarget(hit.object.userData.fpsTarget, hud.weapon, hit.distance, undefined, 1, damage);
+    if (isWaterHit(hit)) effects.splash(hit.point, direction, 1);
+    else strike(hit, direction, kind === 'car' ? 1 : 1.6);
   }
   function resolveVehicleDestruction() {
     let events = vehicles.takeDestructions();
@@ -1418,7 +1431,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     const oldVehicle = vehicles.active, oldSeat = vehicles.seat;
     if (frame.snapshot?.vehicles && options.arena) {
-      for (const shot of vehicles.adoptShared(frame.snapshot.vehicles, options.arena.session.id)) { effects.beam(shot.origin, shot.end); shotSound(); }
+      // Their rounds arrive with the snapshot's own and are drawn in flight; the shot itself is heard.
+      for (let fired = vehicles.adoptShared(frame.snapshot.vehicles, options.arena.session.id).length; fired > 0; fired--) shotSound();
       if (oldVehicle !== vehicles.active || oldSeat !== vehicles.seat) {
         if (!oldVehicle && vehicles.mounted) { yaw = vehicles.mounted.yaw; pitch = -.23; }
         clearInput(); vertical = velocityY = 0;
@@ -1428,6 +1442,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     if (frame.vehicleNotice) vehicles.setNotice(frame.vehicleNotice);
     hud.arena = frame.snapshot; hud.arenaSelf = frame.self; hud.arenaConnected = frame.connected; hud.arenaStarted = frame.started;
+    if (options.arena) rounds.push(...adoptPublishedRounds(frame.snapshot?.rounds ?? [], seenRounds,
+      { self: options.arena.session.id, viewer: camera.position, range: REMOTE_TRACER_RANGE, room: MAX_ROUNDS_IN_FLIGHT - rounds.length, nextId: () => ++roundSerial }));
     if (frame.snapshot) hud.elapsed = frame.snapshot.elapsed;
     if (frame.snapshot) dropFallenWeapons(frame.snapshot.actors, frame.feed);
     if (frame.self) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { HITSCAN } from './fps-ballistics';
-import { advanceRound, createRound, MAX_SKIPS, needsFlight, SKIP_SPEED, skipRound } from './fps-projectiles';
+import { adoptPublishedRounds, advanceRound, createRound, MAX_SKIPS, needsFlight, SKIP_SPEED, skipRound, type PublishedRound } from './fps-projectiles';
 
 const origin = { x: 0, y: 1.75, z: 0 }, forward = { x: 0, y: 0, z: -1 };
 const arcade = { velocity: 350, drop: 25 };
@@ -57,5 +57,28 @@ describe('rounds skipping off water', () => {
     for (let i = 0; i < MAX_SKIPS; i++) expect(skipRound(round, origin, forward, .5)).toBe(true);
     expect(skipRound(round, origin, forward, .5)).toBe(false);
     expect(round.skips).toBe(MAX_SKIPS);
+  });
+});
+
+describe('rounds the arena host publishes', () => {
+  const view = (id: number, extra: Partial<PublishedRound> = {}): PublishedRound => ({ id, origin: { x: 0, y: 1.5, z: 0 }, direction: { x: 0, y: 0, z: -1 }, velocity: 500, drop: 9.8, limit: 120, time: 0, shooter: 'bot-1', ...extra });
+  const options = (room = 10) => { let n = 0; return { self: 'you', viewer: { x: 0, y: 1.75, z: 10 }, range: 200, room, nextId: () => ++n }; };
+  it('starts drawing each once, as a show-only copy that leaves its shooter, caught up to where the host has it', () => {
+    const seen = new Set<number>();
+    const [round] = adoptPublishedRounds([view(1, { time: .1 })], seen, options());
+    expect(round).toMatchObject({ cosmetic: true, range: 120, skipActor: 'bot-1', ballistics: { velocity: 500, drop: 9.8 } });
+    expect(round.travelled).toBeCloseTo(50, 0); expect(round.time).toBeCloseTo(.1);
+    expect(adoptPublishedRounds([view(1, { time: .2 })], seen, options())).toEqual([]);
+  });
+  it('skips our own rifle\'s rounds, which already fly here, but draws our vehicle gun\'s and a raider\'s', () => {
+    const adopted = adoptPublishedRounds([view(1, { shooter: 'you' }), view(2, { shooter: 'you', vehicle: 'car' }), view(3, { shooter: undefined })], new Set(), options());
+    expect(adopted.map(r => [r.skipActor, r.skipVehicle])).toEqual([['you', 'car'], [undefined, undefined]]);
+  });
+  it('leaves out rounds that start too far off or beyond the room left, and forgets ids the host has dropped', () => {
+    const seen = new Set<number>();
+    expect(adoptPublishedRounds([view(1, { origin: { x: 500, y: 1.5, z: 0 } }), view(2), view(3)], seen, options(1))).toHaveLength(1);
+    expect([...seen]).toEqual([1, 2, 3]);
+    adoptPublishedRounds([view(3)], seen, options());
+    expect([...seen]).toEqual([3]);
   });
 });

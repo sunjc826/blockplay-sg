@@ -18,9 +18,15 @@ export interface InFlightRound {
   skips: number;
   /** Drawn and struck for show only: the arena host flies the real round and decides what it did. */
   cosmetic?: boolean;
+  /** How far it can fly, when not the engine's default. */
+  range?: number;
+  /** A figure (arena actor id) or vehicle the round leaves rather than strikes: whoever fired it. */
+  skipActor?: string; skipVehicle?: 'car' | 'helicopter';
+  /** A vehicle gun's round off the arena, which damages as the vehicle's gun does. */
+  vehicleDamage?: number;
 }
 /** Keeps the per-frame raycast budget bounded on a software renderer. */
-export const MAX_ROUNDS_IN_FLIGHT = 24;
+export const MAX_ROUNDS_IN_FLIGHT = 48;
 
 export function createRound(id: number, weapon: number, origin: BallisticPoint, direction: BallisticPoint, ballistics: BallisticSpec, pierced = 0, cosmetic = false): InFlightRound {
   return { id, weapon, ballistics, origin, direction, position: origin, time: 0, travelled: 0, pierced: Math.max(0, pierced), scale: 1, skips: 0, ...(cosmetic ? { cosmetic } : {}) };
@@ -37,6 +43,36 @@ export function advanceRound(round: InFlightRound, dt: number, maxDistance: numb
   const distance = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z);
   round.time += step; round.position = to; round.travelled += distance;
   return { from, to, distance, expired: round.travelled >= maxDistance };
+}
+/** A round in flight as the arena host publishes it (arena-rules' ArenaRoundView). */
+export interface PublishedRound {
+  id: number; origin: BallisticPoint; direction: BallisticPoint; velocity: number; drop: number; limit: number; time: number;
+  shooter?: string; vehicle?: 'car' | 'helicopter';
+}
+/**
+ * The host's rounds this screen should start drawing: everyone else's, and
+ * every vehicle's and raider's, ours included (our own rifle's copy already
+ * flies). Each is caught up to where the host has it, then flies here on its
+ * own as a show-only round that leaves its shooter's figure or vehicle. `seen`
+ * is kept in place: ids are adopted once and forgotten when the host drops them.
+ */
+export function adoptPublishedRounds(views: readonly PublishedRound[], seen: Set<number>, options: { self: string; viewer: BallisticPoint; range: number; room: number; nextId: () => number }): InFlightRound[] {
+  const live = new Set<number>(), adopted: InFlightRound[] = [];
+  for (const view of views) {
+    live.add(view.id);
+    if (seen.has(view.id)) continue;
+    seen.add(view.id);
+    if (view.shooter === options.self && !view.vehicle) continue;
+    if (adopted.length >= options.room || Math.hypot(view.origin.x - options.viewer.x, view.origin.y - options.viewer.y, view.origin.z - options.viewer.z) > options.range) continue;
+    const round = createRound(options.nextId(), 0, { ...view.origin }, { ...view.direction }, { velocity: view.velocity, drop: view.drop }, 0, true);
+    round.range = view.limit;
+    if (view.shooter) round.skipActor = view.shooter;
+    if (view.vehicle) round.skipVehicle = view.vehicle;
+    if (view.time > 0) advanceRound(round, view.time, view.limit);
+    adopted.push(round);
+  }
+  for (const id of seen) if (!live.has(id)) seen.delete(id);
+  return adopted;
 }
 /** A round skips at most this often before the water takes it. */
 export const MAX_SKIPS = 2;
