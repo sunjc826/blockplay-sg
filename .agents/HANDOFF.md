@@ -2828,3 +2828,16 @@ helicopter's gun still resolve instantly; bots' rounds draw no tracer.
 Validation: full vitest, typecheck, build. In the browser pane the open world
 ran in touch mode with no console errors, but the pane was throttled to about
 one frame a second, so tracers could not be watched in motion.
+
+## 2026-10-25: bigger impact smoke and debris
+
+Strikes were hard to read at fighting range. `IMPACT_VISIBILITY` in fps-impacts
+(smoke size 2.6, opacity 1.35, lifetime 1.6, debris count 2, size 1.8) is
+applied in `recordImpact` through `visibility(value, boost)`, which gives the
+issued rifle (profile value 1) the whole boost and larger values less (a .50's
+smoke about 1.6×), so heavy strikes don't swallow a wall. Calibre profiles in
+fps-impact-profile are unchanged, so splashes are unaffected. Pools: MAX_IMPACTS
+24, MAX_DEBRIS 400. Tracers stay one-pixel lines (owner's call).
+Validation: full vitest, typecheck, build; rifle and .50 bursts compared in
+the impact-materials fixture. Remote rounds' impacts still use the rifle's
+style whatever fired them.

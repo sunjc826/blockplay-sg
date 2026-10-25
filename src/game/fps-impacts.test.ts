@@ -1,5 +1,5 @@
-import { expect, it } from 'vitest';
-import { advanceImpacts, clearImpactField, createImpactField, debrisScale, impactDust, impactRing, MAX_DEBRIS, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordDecal, recordImpact, RING_LIFE, scorchAlpha, scorchRelief, sparkHeat, sparkStreak, SPARKS_PER_IMPACT } from './fps-impacts';
+import { describe, expect, it } from 'vitest';
+import { advanceImpacts, clearImpactField, createImpactField, debrisScale, impactDust, impactRing, MAX_DEBRIS, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordDecal, recordImpact, RING_LIFE, scorchAlpha, scorchRelief, sparkHeat, sparkStreak, SPARKS_PER_IMPACT, IMPACT_VISIBILITY, visibility } from './fps-impacts';
 import { DEFAULT_IMPACT_PROFILE, impactProfile } from './fps-impact-profile';
 
 const wall = { x: 2, y: 1.5, z: -3 }, out = { x: 0, y: 0, z: 1 };
@@ -149,4 +149,21 @@ it('gives the issued rifle\'s hole the atlas\'s full relief and keeps every cali
   expect(pistol).toBeLessThan(1); expect(pistol).toBeGreaterThan(.5);
   expect(gpmg).toBeGreaterThan(1); expect(heavy).toBeGreaterThan(gpmg); expect(heavy).toBeLessThanOrEqual(4);
   expect(scorchRelief(recordDecal(createImpactField(), wall, out, 'blood', .2))).toBe(0);
+});
+
+describe('impact visibility', () => {
+  it('gives a rifle strike the whole boost and a heavier one less, never shrinking either', () => {
+    expect(visibility(1, IMPACT_VISIBILITY.smokeSize)).toBeCloseTo(IMPACT_VISIBILITY.smokeSize);
+    expect(visibility(.8, 2)).toBeCloseTo(1.6);
+    const heavy = visibility(8, IMPACT_VISIBILITY.smokeSize) / 8;
+    expect(heavy).toBeGreaterThan(1); expect(heavy).toBeLessThan(IMPACT_VISIBILITY.smokeSize);
+    expect(visibility(8, 2)).toBeGreaterThan(visibility(2, 2));
+  });
+  it('draws a rifle strike\'s smoke and debris larger than its calibre profile alone', () => {
+    const field = createImpactField();
+    const impact = recordImpact(field, { x: 0, y: 1, z: 0 }, { x: 0, y: 0, z: 1 }, 'surface', 1, () => .5, undefined, DEFAULT_IMPACT_PROFILE, 'concrete');
+    expect(impact.profile.smokeSize).toBeCloseTo(DEFAULT_IMPACT_PROFILE.smokeSize * IMPACT_VISIBILITY.smokeSize);
+    expect(impact.life).toBeGreaterThan(DEFAULT_IMPACT_PROFILE.smokeLifetime);
+    expect(field.debris.length).toBeGreaterThan(0);
+  });
 });

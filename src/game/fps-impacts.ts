@@ -39,7 +39,20 @@ export interface Debris {
 }
 export interface ImpactField { impacts: Impact[]; sparks: Spark[]; scorches: Scorch[]; debris: Debris[] }
 
-export const MAX_IMPACTS = 14, MAX_SPARKS = 120, MAX_SCORCHES = 96, MAX_DEBRIS = 240;
+export const MAX_IMPACTS = 24, MAX_SPARKS = 120, MAX_SCORCHES = 96, MAX_DEBRIS = 400;
+/**
+ * How much bigger every strike's smoke and debris are drawn than its calibre
+ * profile alone would make them, so where a round lands reads at fighting
+ * range. Profiles stay relative (the issued rifle is 1); this is applied here,
+ * through `visibility`, so the heavy calibres that already fill a wall grow less.
+ */
+export const IMPACT_VISIBILITY = { smokeSize: 2.6, smokeOpacity: 1.35, smokeLifetime: 1.6, debrisCount: 2, debrisSize: 1.8 } as const;
+/**
+ * Raises a calibre-relative amount (the issued rifle is 1) by `boost`, by less
+ * the bigger it already is: a rifle's strike gets the whole boost, a .50's
+ * about a third of it.
+ */
+export const visibility = (value: number, boost: number) => value * (1 + (boost - 1) / Math.sqrt(Math.max(1, value)));
 export const IMPACT_LIFE = DEFAULT_IMPACT_PROFILE.smokeLifetime, TARGET_IMPACT_LIFE = 0.24;
 export const RING_LIFE = 0.11, SCORCH_LIFE = 6;
 /** Sparks per impact, and how far a spark's streak trails behind it per unit of speed. */
@@ -87,8 +100,9 @@ export function recordImpact(field: ImpactField, point: ImpactVector, normal: Im
   const authored = sanitizeImpactProfile(profile);
   const dustLife = look?.dust.life ?? 1;
   const resolved = { ...authored, holeDepth: authored.holeDepth * scale,
-    smokeSize: authored.smokeSize * Math.sqrt(scale), smokeOpacity: authored.smokeOpacity * Math.sqrt(scale),
-    smokeLifetime: authored.smokeLifetime * Math.sqrt(scale) * dustLife };
+    smokeSize: visibility(authored.smokeSize, IMPACT_VISIBILITY.smokeSize) * Math.sqrt(scale),
+    smokeOpacity: Math.min(.95, authored.smokeOpacity * Math.sqrt(scale) * IMPACT_VISIBILITY.smokeOpacity),
+    smokeLifetime: visibility(authored.smokeLifetime / DEFAULT_IMPACT_PROFILE.smokeLifetime, IMPACT_VISIBILITY.smokeLifetime) * DEFAULT_IMPACT_PROFILE.smokeLifetime * Math.sqrt(scale) * dustLife };
   const impact = push(field.impacts, {
     x: point.x, y: point.y, z: point.z, nx: n.x, ny: n.y, nz: n.z,
     age: 0, life: kind === 'target' ? TARGET_IMPACT_LIFE : resolved.smokeLifetime, kind, profile: resolved, spin: random() * Math.PI * 2, style,
@@ -112,10 +126,10 @@ export function recordImpact(field: ImpactField, point: ImpactVector, normal: Im
   if (look) {
     // Calibre and power set how much is thrown and how big it is; a round that
     // has already spent itself on a wall throws less of both.
-    const debris = look.debris, count = Math.round(debris.count * authored.debrisCount * Math.sqrt(scale));
+    const debris = look.debris, count = Math.round(debris.count * visibility(authored.debrisCount, IMPACT_VISIBILITY.debrisCount) * Math.sqrt(scale));
     for (let i = 0; i < count; i++) {
       const d = coneDirection(n, u, v, debris.spread, random), speed = debris.speed * (.45 + random() * .9) * Math.sqrt(scale) * Math.pow(authored.debrisSize, .25);
-      const size = debris.size * (.6 + random() * .8) * authored.debrisSize, axis = unit({ x: random() - .5, y: random() - .5, z: random() - .5 });
+      const size = debris.size * (.6 + random() * .8) * visibility(authored.debrisSize, IMPACT_VISIBILITY.debrisSize), axis = unit({ x: random() - .5, y: random() - .5, z: random() - .5 });
       push(field.debris, {
         x: point.x + n.x * .01, y: point.y + n.y * .01, z: point.z + n.z * .01, vx: d.x * speed, vy: d.y * speed + debris.speed * .25, vz: d.z * speed,
         ax: axis.x, ay: axis.y, az: axis.z, angle: random() * Math.PI * 2, spin: (6 + random() * 18) * (random() < .5 ? -1 : 1),

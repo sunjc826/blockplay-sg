@@ -103,7 +103,8 @@ it('throws more and bigger fragments, and more marks, the heavier the calibre', 
   };
   const light = struck(rifle), big = struck(heavy), spent = struck(heavy, .2);
   expect(big.debris.length).toBeGreaterThan(light.debris.length * 3);
-  expect(big.debris[0].sx).toBeGreaterThan(light.debris[0].sx * 1.8);
+  // The visibility boost (fps-impacts) lifts a rifle's fragments more than a .50's, narrowing the gap.
+  expect(big.debris[0].sx).toBeGreaterThan(light.debris[0].sx * 1.5);
   expect(light.scorches).toHaveLength(1);
   expect(big.scorches).toHaveLength(1 + heavy.spallMarks);
   // Spall chips sit in the struck face around the hole, smaller than it, and the hole is drawn last.
