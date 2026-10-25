@@ -21,7 +21,7 @@ import FpsPilotPanel from './FpsPilotPanel';
 import FpsCommsLog from './FpsCommsLog';
 import FpsRadio, { FpsRadioVoice } from './FpsRadio';
 import TouchControls from './TouchControls';
-import { FpsControlGuide, FpsPlayerTools } from './FpsPlayerTools';
+import { AimAssistToggle, FpsControlGuide, FpsPlayerTools } from './FpsPlayerTools';
 import { useDebugMode } from '../lib/debug-mode';
 import { useTouchControls } from '../game/use-touch-controls';
 import './arena-hud.css';
@@ -113,6 +113,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         {!['loading', 'error', 'complete'].includes(hud.phase) && !disconnected && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP<br />{guest ? 'The host runs the match and the bots.' : `${arenaOptions.botCount} bots · ${arenaOptions.composition} squad · Shared vehicles`}</p>}
         {hud.message && hud.phase !== 'error' && !disconnected && <p className="fps-capture-error" role="alert">{hud.message}</p>}
         <EnvironmentControls multiplayer={!!arenaOptions && arenaOptions.session.role !== 'solo'} />
+        {touch && <div className="fps-player-tools"><AimAssistToggle /></div>}
         <FpsDebugPanel hud={hud} engine={engine.current} />
         <FpsRadioVoice hud={hud} engine={engine.current} />
         <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
@@ -137,7 +138,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
           <FpsDebugPanel hud={hud} engine={engine.current} />
           <FpsRadioVoice hud={hud} engine={engine.current} />
           <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
-        </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} onFullscreen={() => { void fullscreen.toggle(); }} />}
+        </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} touch={touch} onFullscreen={() => { void fullscreen.toggle(); }} />}
         {hud.phase !== 'loading' && hud.phase !== 'error' && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP<br />{combat ? 'Targets return simulated fire. Move when warned to dodge.' : 'Practice mode: targets do not return fire.'}</p>}
         {hud.phase === 'complete' && <div className="fps-reward">+{hud.earned} CR · +{hud.earnedXp} XP earned{rank.level > startingLevel.current && <strong className="fps-level-up">{insignia.promoted ? 'PROMOTED' : 'LEVEL UP'} · LV {rank.level} {insignia.label.toUpperCase()}</strong>}{hud.callout && <span className="fps-final-callout">{hud.callout}</span>}</div>}
         <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') setEpoch(n => n + 1); else if (hud.phase === 'complete' || hud.phase === 'defeated') resetExercise(); else { if (touch) fullscreen.enter(); engine.current?.start(); } }}>

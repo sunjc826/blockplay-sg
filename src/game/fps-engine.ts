@@ -24,6 +24,8 @@ import { adoptPublishedRounds, advanceRound, createRound, needsFlight, skipRound
 import { SKIP_ENERGY, splashWeight, waterRicochet } from './fps-splashes';
 import { isWaterObject, rippleWater } from './water';
 import { createFpsEffects, type ImpactKind } from './fps-effects';
+import { assistCone, assistLook, ASSIST_RANGE } from './aim-assist';
+import { getAimAssist } from './aim-assist-setting';
 import { advanceRecoil, compensateRecoil, createRecoil, recoilPose, recoilView, recordRecoilShot, resetRecoil, takeAimPush } from './fps-recoil';
 import { effectStyleForWeapon, resolveEffectStyle, type EffectStyle } from './fps-effect-styles';
 import type { ImpactProfile } from './fps-impact-profile';
@@ -685,7 +687,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function lookBy(dx: number, dy: number) {
     if (pilotEnabled || hud.phase !== 'playing') return;
     const travel = dragLook(dx, dy);
-    look(travel.dx, travel.dy);
+    look(travel.dx, travel.dy, true);
   }
   /** Opens the whole-district map over the scene, or folds it back into the corner. */
   function toggleMap() { hud.mapExpanded = !hud.mapExpanded; publish(); }
@@ -724,10 +726,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       hud.message = 'Mouse detected. Click Resume to capture it; Escape opens the menu.'; publish();
     }
   };
-  const look = (dx: number, dy: number) => {
+  /** `assisted` marks a thumb's drag, which the aim assist may bend; the mouse and the pilot are never helped. */
+  const look = (dx: number, dy: number, assisted = false) => {
     if (hud.phase !== 'playing') return;
     const wasYaw = yaw, wasPitch = pitch;
     ({ yaw, pitch } = turnFpsLook(yaw, pitch, dx, dy, ads || touchAim));
+    const contact = assisted ? assistContact() : null;
+    if (contact) {
+      const bent = assistLook(yaw - wasYaw, pitch - wasPitch, wasPitch, contact, trigger);
+      yaw = wasYaw + bent.yaw; pitch = clampFpsPitch(wasPitch + bent.pitch);
+    }
     // Pulling down pays off the climb instead of banking it, so compensating a
     // burst and then releasing does not drag the sights under the target.
     compensateRecoil(kick, pitch - wasPitch, yaw - wasYaw);
@@ -761,7 +769,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // The scene is the look surface on a touchscreen: a drag anywhere the thumb
     // layer is not turns the camera, at the gain a thumb needs rather than a mouse's.
     const travel = dragLook(event.clientX - drag.x, event.clientY - drag.y);
-    look(travel.dx, travel.dy); drag.x = event.clientX; drag.y = event.clientY;
+    look(travel.dx, travel.dy, true); drag.x = event.clientX; drag.y = event.clientY;
   };
   const pointerup = (event: PointerEvent) => {
     if (drag?.id === event.pointerId) drag = null;
@@ -811,7 +819,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (disposed) return;
     pause(); start();
   }
-  function observePilot(time: number): PilotObservation {
+  /** Everything the player may shoot at right now, as the pilot's sensor and the thumb's aim assist both see it. */
+  function combatSubjects(): PilotSubject[] {
     const subjects: PilotSubject[] = [];
     if (options.arena) {
       // Read rendered avatars here, never hand the authoritative actor list to a policy.
@@ -823,6 +832,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     } else for (let i = 0; i < targets.length; i++) if (targets[i].alive) {
       subjects.push({ id: `target-${i}`, root: targets[i].root, radius: .24, points: [targets[i].hitZone.getWorldPosition(new THREE.Vector3())] });
     }
+    return subjects;
+  }
+  function observePilot(time: number): PilotObservation {
+    const subjects = combatSubjects();
     const weaponRay = new THREE.Raycaster(), weaponMeshes: THREE.Mesh[] = [];
     rig.traverseVisible(node => { if (node instanceof THREE.Mesh) weaponMeshes.push(node); });
     const sight = weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon]) : undefined;
@@ -873,6 +886,50 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     } catch {
       pause(); hud.message = 'AI pilot stopped because its controller failed. You can resume manually.'; publish();
     }
+  }
+
+  /**
+   * The figure the thumb's aim assist is working on. Which one, and whether it
+   * can be seen, is settled a few times a second, because the sight check
+   * raycasts the scene; where it is relative to the aim is recomputed on every
+   * drag, from its root, so a moving figure is followed between checks.
+   */
+  let assistLock: { root: THREE.Object3D; offset: THREE.Vector3; radius: number } | null = null, assistTimer = 0;
+  const assistFrame = new THREE.Object3D(), assistPoint = new THREE.Vector3();
+  /** The angles from the aim itself — yaw and pitch, not the rendered camera, which carries the view kick. */
+  function aimContact(point: THREE.Vector3, radius: number) {
+    assistFrame.position.copy(camera.position); assistFrame.rotation.set(pitch, yaw, 0, 'YXZ'); assistFrame.updateMatrixWorld(true);
+    const local = assistFrame.worldToLocal(assistPoint.copy(point)), distance = local.length();
+    if (distance < .1) return null;
+    return { yawError: Math.atan2(-local.x, -local.z), pitchError: Math.atan2(local.y, Math.hypot(local.x, local.z)), angularRadius: Math.atan(radius / distance), distance };
+  }
+  function assistContact() {
+    const lock = assistLock;
+    if (!lock || !lock.root.visible || lock.root.userData.arenaDown) return null;
+    return aimContact(lock.root.localToWorld(assistPoint.copy(lock.offset)), lock.radius);
+  }
+  function refreshAimAssist(dt: number) {
+    assistTimer -= dt; if (assistTimer > 0) return;
+    assistTimer = .1; assistLock = null; canvas.dataset.aimAssist = '';
+    if (inputMode !== 'touch' || pilotEnabled || vehicles.mounted || !getAimAssist()) return;
+    // One subject per aim point, so the lock lands on the point that can be seen
+    // (a head over a wall, not the chest behind it). Only points already near
+    // the sights are raycast at all.
+    const near: PilotSubject[] = [];
+    for (const subject of combatSubjects()) for (const point of subject.points) {
+      const contact = aimContact(point, subject.radius);
+      if (contact && contact.distance <= ASSIST_RANGE && Math.hypot(contact.yawError, contact.pitchError) < assistCone(contact.angularRadius))
+        near.push({ id: `${near.length}`, root: subject.root, radius: subject.radius, points: [point] });
+    }
+    if (!near.length) return;
+    let best: { subject: PilotSubject; score: number } | null = null;
+    for (const seen of visiblePilotContacts(camera, world.scene, near)) {
+      const subject = near[Number(seen.id)], contact = aimContact(subject.points[0], subject.radius);
+      const score = contact ? Math.hypot(contact.yawError, contact.pitchError) / assistCone(contact.angularRadius) : Infinity;
+      if (!best || score < best.score) best = { subject, score };
+    }
+    if (best) assistLock = { root: best.subject.root, offset: best.subject.root.worldToLocal(best.subject.points[0].clone()), radius: best.subject.radius };
+    canvas.dataset.aimAssist = assistLock ? 'locked' : '';
   }
 
   /**
@@ -1762,6 +1819,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // has to settle at its real rate too or it piles up.
       advanceRecoil(kick, realDt); applyAimPush();
       updateCameras(dt, moving, sprinting);
+      refreshAimAssist(realDt);
       resolveVehicleDestruction();
       vehicleAimTimer -= realDt;
       if (vehicles.active && vehicleAimTimer <= 0) { aimVehicle(); vehicleAimTimer = .05; }

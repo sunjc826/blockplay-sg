@@ -2900,3 +2900,22 @@ card's Controls fold, `kbd` hints and the ammo panel's `.fps-ammo-detail` lines
 screens checked at 375×812 and desktop in the browser pane (district switch,
 touch play, pause card). Real-device fullscreen not tried (the pane's scripted
 clicks are not user gestures).
+
+## 2026-10-26: touch aim assist
+
+New `aim-assist.ts` (pure maths) and `aim-assist-setting.ts` (localStorage
+`blockplay-sg-aim-assist-v1`, on by default). Only a thumb's drag is
+assisted (`look(dx, dy, true)` from the scene drag and the fire button's
+`lookBy`); the mouse and the AI pilot never are. Inside a cone of 2.5 target
+radii (clamped 1.2°–5°) the drag's away/across component loses up to 30% and
+its towards component gains up to 20%, never past the target and never while
+the trigger is held. With the thumb still nothing moves, so recoil climb is
+untouched and pulling it back down is the player's work. The engine picks the
+lock at 10 Hz (`refreshAimAssist`, one sight raycast per aim point already in
+the cone, via `visiblePilotContacts` over the new shared `combatSubjects()`),
+then recomputes angles from yaw/pitch on every drag; `canvas.dataset.aimAssist`
+reads `locked` while one is held. Toggle: "Aim assist" on the range/expedition
+start card (`FpsPlayerTools`, touch only) and the arena card.
+Validation: full vitest, typecheck; headless Chromium with CDP touch on the
+Marina range: drag off the target damped (0.0289 vs 0.0359 rad), off-target
+and assist-off drags exact. Not tried on a real phone or in a LAN match.

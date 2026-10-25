@@ -124,7 +124,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
           <FpsDebugPanel hud={hud} engine={engine.current} />
           <FpsRadioVoice hud={hud} engine={engine.current} />
           <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
-        </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} onFullscreen={() => { void fullscreen.toggle(); }} />}
+        </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} touch={touch} onFullscreen={() => { void fullscreen.toggle(); }} />}
         <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') { setScene(current => ({ ...current, revision: current.revision + 1 })); return; } if (touch) fullscreen.enter(); engine.current?.start(); }}><Play size={16} />{hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry district' : hud.phase === 'paused' ? 'Resume expedition' : 'Enter district'}<ArrowRight size={17} /></button>
         {!nav && <button className="fps-shop-link" onClick={onExit}>{debug ? 'Leave expedition →' : 'Leave to menu →'}</button>}
         <FpsControlGuide debug={debug}><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>E</kbd> Take supplies</span><span><kbd>G</kbd> Use supply</span><span><kbd>M</kbd> Map</span><span><kbd>N</kbd> Interact nearby</span><span><kbd>T</kbd> Travel</span><span><kbd>F</kbd> Fullscreen</span></FpsControlGuide>
