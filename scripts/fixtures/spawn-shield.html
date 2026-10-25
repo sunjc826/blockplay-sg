@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Spawn shield</title><style>
+body{margin:0;background:#161e25;color:#d9e4e9;font:14px system-ui;overflow:hidden}canvas{display:block}header{position:absolute;top:14px;left:20px;z-index:3}header small{display:block;color:#92a4b0;margin-top:4px}#hud{position:absolute;inset:0}
+</style></head><body><header>Spawn shield • halo others see, HUD the player sees<small>?left=seconds sets the shield left (fades under .6 s)</small></header><div id="hud"></div><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { createCharacterRig } from '/src/game/character-rig.ts';
+import { arenaCharacterLook } from '/src/game/character-looks.ts';
+import { createHalo } from '/src/game/arena-runtime.ts';
+import FpsShield from '/src/components/FpsShield.tsx';
+import { initialFpsHud } from '/src/game/fps-engine.ts';
+const left = Number(new URLSearchParams(location.search).get('left') ?? 2.4);
+const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(innerWidth, innerHeight); renderer.setClearColor('#161e25'); document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene(); scene.add(new THREE.HemisphereLight('#daeafa', '#384148', 2.4)); const light = new THREE.DirectionalLight('#fff0d9', 3.2); light.position.set(-2, 4, -3); scene.add(light);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({ color: '#38444b' })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
+const figures = [[{ bot: false, role: 'player', id: 'ally' }, -1.3, 0, true], [{ bot: false, role: 'player', id: 'ally-2' }, 0, Math.PI / 2, true], [{ bot: true, role: 'assault', id: 'bot-2', rank: 2 }, 1.3, 0, false]];
+for (const [actor, x, yaw, shielded] of figures) {
+  const rig = createCharacterRig(arenaCharacterLook(actor), actor.id); rig.root.position.x = x; rig.root.rotation.y = Math.PI + yaw; scene.add(rig.root);
+  for (let t = 0; t < 1.3; t += 1 / 60) rig.update(1 / 60, { aim: .15 });
+  if (shielded) { const halo = createHalo([]); halo.mesh.visible = true; halo.mesh.position.y = .92; halo.material.uniforms.opacity.value = Math.min(1, left / .6); rig.root.add(halo.mesh); }
+}
+const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, .05, 40); camera.position.set(0, 1.5, 6.2); camera.lookAt(0, .95, 0);
+renderer.render(scene, camera);
+createRoot(document.getElementById('hud')).render(React.createElement(FpsShield, { hud: { ...initialFpsHud, arenaSelf: { id: 'you', name: 'You', bot: false, x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0, health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: 0, shots: 0, role: 'player', faction: 'armed-forces', shield: left } } }));
+window.ready = true;
+</script></body></html>

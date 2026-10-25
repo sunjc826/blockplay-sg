@@ -15,6 +15,7 @@ import FpsMinimap from './FpsMinimap';
 import RankBadge from './RankBadge';
 import FpsWeaponHud from './FpsWeaponHud';
 import FpsVitals from './FpsVitals';
+import FpsShield from './FpsShield';
 import FpsDebugPanel from './FpsDebugPanel';
 import FpsPilotPanel from './FpsPilotPanel';
 import FpsCommsLog from './FpsCommsLog';
@@ -89,6 +90,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         <FpsMinimap zone={region} player={hud} markers={hud.mapMarkers} mode={isArena ? 'arena' : 'practice'} expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
         <FpsVitals hud={hud} />
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}
+        <FpsShield hud={hud} />
         {hud.cloudCover && <div className={`fps-cloud-overlay ${hud.cloudCover.kind}`} style={{ opacity: Math.min(.9, .25 + hud.cloudCover.amount * .7) }} aria-hidden="true" />}
         {hud.incoming && <div className="fps-incoming">INCOMING · MOVE OR TAKE COVER</div>}
         {hud.combatBanner && <div className={`fps-combat-banner ${hud.combatBanner.tone}`} role="status">{hud.combatBanner.text}</div>}

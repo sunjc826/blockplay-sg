@@ -78,9 +78,13 @@ describe('bots in the arena', () => {
   it('hold fire on a freshly spawned player until the shield lapses', () => {
     const arena = createArena([], 1, 'tank', environment({ x: 1000, z: 1012 }, { x: 1000, z: 1000 }));
     arena.addPlayer('you', 'You', 0, 0, undefined, undefined, true);
+    expect(find(arena, 'you').shield).toBe(SPAWN_SHIELD_SECONDS);
+    expect(find(arena, 'bot-1').shield).toBeUndefined();
     for (let t = 0; t < SPAWN_SHIELD_SECONDS - .1; t += .05) arena.step(.05);
     expect(find(arena, 'bot-1').shots).toBe(0);
     expect(find(arena, 'you').health).toBe(100);
+    expect(find(arena, 'you').shield).toBeGreaterThan(0); expect(find(arena, 'you').shield).toBeLessThanOrEqual(.15);
+    arena.step(.15); expect(find(arena, 'you').shield).toBeUndefined();
     for (let t = 0; t < 10 && find(arena, 'you').health === 100; t += .05) arena.step(.05);
     expect(find(arena, 'you').health).toBeLessThan(100);
   });
@@ -89,6 +93,7 @@ describe('bots in the arena', () => {
     const arena = createArena([], 1, 'tank', environment({ x: 1000, z: 1012 }, { x: 1000, z: 1000 }));
     arena.addPlayer('you', 'You', 0, 0, undefined, undefined, true);
     shootBot(arena);
+    expect(find(arena, 'you').shield).toBeUndefined();
     for (let t = 0; t < SPAWN_SHIELD_SECONDS - .5; t += .05) arena.step(.05);
     expect(find(arena, 'bot-1').shots).toBeGreaterThan(0);
   });

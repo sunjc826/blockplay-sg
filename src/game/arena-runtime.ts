@@ -10,7 +10,7 @@ import { VEHICLE_COMBAT } from './vehicle-combat';
 import type { VehicleKind } from './vehicle-rules';
 import { validWeaponIndex } from './fps-rules';
 import * as THREE from 'three';
-import { createArena, MAX_ARENA_ACTORS, type ArenaActor, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaRaiderState, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
+import { createArena, MAX_ARENA_ACTORS, SPAWN_SHIELD_SECONDS, type ArenaActor, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaRaiderState, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
 import { createProfile, resolveLoadout, restoreProfile, type ArmoryProfile } from './armory-state';
 import type { LanSession } from './lan-peer';
 import { getArenaRole } from './arena-roles';
@@ -47,6 +47,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.ground !== undefined && !(finite(actor.ground) && actor.ground >= -50 && actor.ground <= 124)) ||
       (actor.healing !== undefined && !(finite(actor.healing) && actor.healing >= 0 && actor.healing <= 1)) ||
       (actor.rank !== undefined && !(Number.isInteger(actor.rank) && (actor.rank as number) >= 1 && (actor.rank as number) <= 3)) ||
+      (actor.shield !== undefined && !(finite(actor.shield) && actor.shield > 0 && actor.shield <= SPAWN_SHIELD_SECONDS)) ||
       (actor.hurtFrom !== undefined && !(object(actor.hurtFrom) && finite(actor.hurtFrom.x) && finite(actor.hurtFrom.z) && finite(actor.hurtFrom.serial) && (actor.hurtFrom.blast === undefined || actor.hurtFrom.blast === true))) || (actor.variant !== undefined && (typeof actor.variant !== 'string' || actor.variant.length > 40)) || !validWeaponIndex(actor.weapon) || typeof actor.alive !== 'boolean' || typeof actor.bot !== 'boolean' || typeof actor.faction !== 'string' || !getArenaFaction(actor.faction) || typeof actor.role !== 'string' || actor.role.length > 32 ||
       (actor.x as number) < (environment?.bounds.minX ?? -500) || (actor.x as number) > (environment?.bounds.maxX ?? 500) ||
       (actor.z as number) < (environment?.bounds.minZ ?? -500) || (actor.z as number) > (environment?.bounds.maxZ ?? 500) || (actor.y as number) < 0 || (actor.y as number) > 124 ||
@@ -110,11 +111,32 @@ interface Avatar {
   rig: CharacterRig; root: THREE.Group; health: THREE.Sprite; label: THREE.Sprite | null; muzzle: THREE.Mesh | null;
   /** A rooftop sniper's scope catching the light while they aim. */
   glint: THREE.Sprite | null;
+  /** A player's spawn shield: a blue rim of light round the figure while it holds. */
+  halo: { mesh: THREE.Mesh; material: THREE.ShaderMaterial; time: number } | null;
   shots: number; flash: number; maxHealth: number; resources: { dispose(): void }[];
   alive: boolean; lastHealth: number; yaw: number; fireTimer: number; ground: number; groundTimer: number;
   previous: THREE.Vector3; velocity: THREE.Vector3;
   /** What the figure and label were built from; a respawn with a new rank or name rebuilds them. */
   key: string;
+}
+/** Seconds over which a lapsing shield's halo fades out. */
+const HALO_FADE = .6;
+/**
+ * A capsule round the figure lit only at its silhouette (a fresnel rim), so a
+ * shielded player reads as outlined in blue from any side without hiding the
+ * uniform under it.
+ */
+export function createHalo(resources: { dispose(): void }[]) {
+  const geometry = new THREE.CapsuleGeometry(.42, 1, 4, 18);
+  const material = new THREE.ShaderMaterial({
+    uniforms: { color: { value: new THREE.Color('#4fb4ff') }, opacity: { value: 1 } },
+    vertexShader: 'varying vec3 vNormal; varying vec3 vView; void main() { vec4 view = modelViewMatrix * vec4(position, 1.0); vNormal = normalize(normalMatrix * normal); vView = normalize(-view.xyz); gl_Position = projectionMatrix * view; }',
+    fragmentShader: 'uniform vec3 color; uniform float opacity; varying vec3 vNormal; varying vec3 vView; void main() { float rim = pow(1.0 - abs(dot(normalize(vNormal), normalize(vView))), 2.2); gl_FragColor = vec4(color, (rim * .95 + .05) * opacity); }',
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false,
+  });
+  resources.push(geometry, material);
+  const mesh = new THREE.Mesh(geometry, material); mesh.visible = false; mesh.raycast = noRaycast; mesh.renderOrder = 2;
+  return { mesh, material, time: 0 };
 }
 const avatarKey = (actor: ArenaActor) => `${actor.faction}|${actor.role}|${actor.rank ?? 0}|${actor.name}`;
 const noRaycast = () => {};
@@ -160,7 +182,9 @@ function createAvatar(actor: ArenaActor): Avatar {
     resources.push(material);
     glint = new THREE.Sprite(material); glint.position.set(.08, 1.12, -.45); glint.visible = false; glint.raycast = noRaycast; root.add(glint);
   }
-  return { key: avatarKey(actor), rig, root, health, label, muzzle, glint, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources,
+  const halo = actor.bot ? null : createHalo(resources);
+  if (halo) root.add(halo.mesh);
+  return { key: avatarKey(actor), rig, root, health, label, muzzle, glint, halo, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources,
     alive: actor.alive, lastHealth: actor.health, yaw: actor.yaw, fireTimer: 0, ground: 0, groundTimer: 0, previous: new THREE.Vector3(), velocity: new THREE.Vector3() };
 }
 /** A soft star for scope glint, shared by every sniper and never disposed with one. */
@@ -177,7 +201,7 @@ function glintTexture() {
 /** Falling bodies stay visible briefly but never stop a shot or read as a target. */
 function setAvatarDown(avatar: Avatar, down: boolean) {
   avatar.rig.setDown(down); avatar.root.userData.arenaDown = down;
-  avatar.root.traverse(node => { if (node instanceof THREE.Mesh && node !== avatar.muzzle) node.raycast = down ? noRaycast : THREE.Mesh.prototype.raycast; });
+  avatar.root.traverse(node => { if (node instanceof THREE.Mesh && node !== avatar.muzzle && node !== avatar.halo?.mesh) node.raycast = down ? noRaycast : THREE.Mesh.prototype.raycast; });
 }
 const ARENA_CORPSE_SECONDS = 1.6;
 const wrapAngle = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));
@@ -322,6 +346,17 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     avatar.shots = actor.shots; avatar.lastHealth = actor.health;
     avatar.fireTimer = Math.max(0, avatar.fireTimer - dt); avatar.flash = Math.max(0, avatar.flash - dt);
     const speed = Math.hypot(local.x, local.z);
+    if (avatar.halo) {
+      const { mesh, material } = avatar.halo, shield = actor.alive ? actor.shield ?? 0 : 0;
+      mesh.visible = shield > 0;
+      if (mesh.visible) {
+        avatar.halo.time += dt;
+        // Standing, it wraps the body; crouched, it sinks with it; prone, it lies along the body behind the head.
+        if (actor.prone) { mesh.rotation.set(Math.PI / 2, 0, 0); mesh.position.set(0, .3, .5); mesh.scale.set(1, 1, .8); }
+        else { mesh.rotation.set(0, 0, 0); mesh.scale.set(1, 1 - crouch * .3, 1); mesh.position.set(0, .92 * (1 - crouch * .3), 0); }
+        material.uniforms.opacity.value = Math.min(1, shield / HALO_FADE) * (.8 + .2 * Math.sin(avatar.halo.time * 6));
+      } else avatar.halo.time = 0;
+    }
     rig.update(dt, {
       velocity: actor.vehicle ? { x: 0, z: 0 } : local, turn: actor.vehicle ? 0 : turnStep / Math.max(dt, 1e-3), pitch: actor.pitch,
       crouch, prone: !!actor.prone, seated, driving: seated && actor.seat === 0, airborne,

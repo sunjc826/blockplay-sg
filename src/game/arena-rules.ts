@@ -38,6 +38,8 @@ export interface ArenaActor {
   ground?: number;
   /** Bots: grade 1 (recruit) to 3 (veteran), drawn at each spawn; see arena-ranks. */
   rank?: number;
+  /** Players: seconds left on the spawn shield, present only while it holds. */
+  shield?: number;
 }
 export type ArenaRaiderState = 'inbound' | 'orbit' | 'leaving' | 'cruise' | 'lock' | 'dive' | 'down' | 'wreck' | 'exploded';
 /**
@@ -1308,6 +1310,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       entry.reaction = entry.burst > 0 && entry.spec ? botFireCadence(entry.spec) : Math.max(pause, entry.spec?.interval ?? 0);
     }
   }
+  /** A player's spawn shield as the snapshot carries it: seconds left, while it holds. */
+  const shieldOf = (m: InternalActor) => !m.actor.bot && m.actor.alive && elapsed < (m.shieldUntil ?? 0) ? { shield: Math.round((m.shieldUntil! - elapsed) * 100) / 100 } : {};
   /**
    * Whether a bot may fire on `enemy`: always on a bot, and on a player only
    * once their spawn shield is down and while it holds one of BOT_AIM.shooters
@@ -1355,7 +1359,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
   }
   function snapshot(): ArenaSnapshot {
-    return { type: 'arena-snapshot', tick, elapsed, actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
+    return { type: 'arena-snapshot', tick, elapsed, actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...shieldOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
       ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target }, ...(e.descriptor.origin ? { origin: { ...e.descriptor.origin } } : {}) })) } : {}),
       ...(raiders.size ? { raiders: [...raiders.values()].map(({ event, kind, x, y, z, yaw, health, maxHealth, state, aim, shots }) => ({ event, kind, x, y, z, yaw, health, maxHealth, state, aim: aim ? { ...aim } : null, shots })) } : {}),
       ...(factionHeat ? { heat: factionHeat.snapshot() } : {}) };

@@ -2764,3 +2764,17 @@ Validation: full vitest, typecheck; rank figures and labels checked in the
 browser pane. Not played in a live district (mouse capture is blocked in the
 pane). Not done: no HUD cue for the shield, and garrison bots join the feed
 under their bare callsign (the rank title comes with the first spawn).
+
+## 2026-10-25: spawn shield indicator
+
+- Snapshot actors carry `shield` (seconds left) for players while it holds;
+  guests validate it (0 < shield ≤ SPAWN_SHIELD_SECONDS).
+- Other players see a blue fresnel halo round a shielded figure (`createHalo`
+  in arena-runtime): a capsule lit at its silhouette, pulsing, fading over the
+  last .6 s, lying along the body when prone, never raycast.
+- The player sees `FpsShield` (Training/LAN and expedition screens): a pulsing
+  blue screen-edge glow and "SPAWN SHIELD 2.4s · Firing ends it" under the
+  crosshair, fading over the last .6 s.
+Fixture: `scripts/fixtures/spawn-shield.html` (?left=seconds). Validation: full
+vitest, typecheck, build; fixture checked in the browser pane. Not seen in a
+live match.
