@@ -2841,3 +2841,15 @@ fps-impact-profile are unchanged, so splashes are unaffected. Pools: MAX_IMPACTS
 Validation: full vitest, typecheck, build; rifle and .50 bursts compared in
 the impact-materials fixture. Remote rounds' impacts still use the rifle's
 style whatever fired them.
+
+## 2026-10-25: other shooters' strikes in their own gun's look
+
+`PublishedRound` gains `calibre` and `power`; the host fills them from the
+bot's variant spec or the player's weapon family (with its damage), from
+`VEHICLE_COMBAT[kind].caliberMm`/damage, and for raiders `RAID.caliberMm`/
+`RAID.look` (7.62 mm, 60). Guests validate both. The engine's
+`publishedStyle` builds a style per bore and damage with `resolveEffectStyle`
+(id `round:<calibre>:<power>`) and registers it alongside the held weapon's;
+`adoptPublishedRounds` tags each adopted round's `style`, and cosmetic strikes
+and splashes use it. Validation: full vitest, typecheck, build. Not watched in
+a live match.

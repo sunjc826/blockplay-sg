@@ -57,6 +57,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
   if (value.rounds !== undefined && !(Array.isArray(value.rounds) && value.rounds.length <= MAX_ARENA_ROUNDS && value.rounds.every(r => object(r) && Number.isInteger(r.id) && point(r.origin) && point(r.direction) &&
     finite(r.velocity) && (r.velocity as number) > 0 && (r.velocity as number) <= 2000 && finite(r.drop) && (r.drop as number) >= 0 && (r.drop as number) <= 50 &&
     finite(r.limit) && (r.limit as number) >= 0 && (r.limit as number) <= 300 && finite(r.time) && (r.time as number) >= 0 && (r.time as number) <= 10 &&
+    finite(r.calibre) && (r.calibre as number) >= 2 && (r.calibre as number) <= 25 && finite(r.power) && (r.power as number) >= 0 && (r.power as number) <= 300 &&
     (r.shooter === undefined || typeof r.shooter === 'string' && r.shooter.length <= 100) && (r.vehicle === undefined || r.vehicle === 'car' || r.vehicle === 'helicopter')))) return false;
   if (value.vehicles !== undefined) {
     if (!Array.isArray(value.vehicles) || value.vehicles.length !== 2) return false;

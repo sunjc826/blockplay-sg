@@ -156,6 +156,8 @@ export const MAX_ARENA_ROUNDS = 96;
  */
 interface ArenaRound {
   id: number; origin: ArenaPoint; direction: ArenaPoint; position: ArenaPoint; ballistics: BallisticSpec; damage: number; spec?: WeaponSpec; limit: number; time: number; travelled: number;
+  /** What its strike looks like, published with it: the gun's bore in mm and the damage its look is sized by. */
+  calibre: number; power: number;
   /** Who fired it and is credited, if anyone; a raider's round names its `cause` instead. */
   shooter?: InternalActor; cause?: string;
   /** A vehicle gun's own hull, which its rounds leave rather than strike. */
@@ -511,21 +513,21 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     ammo.cooldown = 0; fireWeapon(ammo, weapon, entry.weapons); entry.actor.shots++; warm(entry.actor, 1); entry.shieldUntil = 0;
     if (!roundReady(ammo, entry.weapons[weapon])) startReload(entry, weapon);
-    return launch(entry, origin, ray, entry.weapons[weapon], Math.min(125, Math.max(0, maxDistance)));
+    return launch(entry, origin, ray, entry.weapons[weapon], Math.min(125, Math.max(0, maxDistance)), weapon);
   }
   const flying: ArenaRound[] = [];
   /** Hits players' rounds have landed since the host last asked, by shooter. */
   const landed = new Map<string, ArenaShot[]>();
   let roundSerial = 0;
   /** Sends a carried gun's round on its way; an instant gun still resolves at once. */
-  function launch(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, weapon: ArenaWeapon, range: number): ArenaShot {
+  function launch(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, weapon: ArenaWeapon, range: number, family: number): ArenaShot {
     const ballistics = entry.spec?.ballistics ?? weapon.ballistics;
     if (!ballistics || isInstant(ballistics)) return resolveShot(entry, origin, ray, weapon.damage, range, undefined, entry.spec);
-    send({ shooter: entry, origin, direction: ray, ballistics, damage: weapon.damage, spec: entry.spec }, range);
+    send({ shooter: entry, origin, direction: ray, ballistics, damage: weapon.damage, spec: entry.spec, calibre: entry.spec?.caliberMm ?? FPS_WEAPONS[family]?.caliberMm ?? 5.56, power: weapon.damage }, range);
     return { ...EMPTY_SHOT };
   }
   /** Queues a round, its walls and rendered cover measured once along its line now. */
-  function send(round: Pick<ArenaRound, 'origin' | 'direction' | 'ballistics' | 'damage' | 'spec' | 'shooter' | 'cause' | 'vehicle'>, range: number) {
+  function send(round: Pick<ArenaRound, 'origin' | 'direction' | 'ballistics' | 'damage' | 'spec' | 'shooter' | 'cause' | 'vehicle' | 'calibre' | 'power'>, range: number) {
     const limit = Math.min(range, worldWallDistance(round.origin, round.direction), cover?.(round.origin, round.direction, range) ?? Infinity);
     if (flying.length >= MAX_ARENA_ROUNDS) flying.shift();
     flying.push({ ...round, id: ++roundSerial, origin: { ...round.origin }, position: { ...round.origin }, limit, time: 0, travelled: 0 });
@@ -556,7 +558,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   /** Rounds still in the air, all of them or one shooter's. */
   const inFlight = (id?: string) => id === undefined ? flying.length : flying.filter(round => round.shooter?.actor.id === id).length;
   const roundViews = (): ArenaRoundView[] => flying.map(r => ({ id: r.id, origin: { ...r.origin }, direction: { ...r.direction }, velocity: r.ballistics.velocity, drop: r.ballistics.drop,
-    limit: r.limit, time: r.time, ...(r.shooter ? { shooter: r.shooter.actor.id } : {}), ...(r.vehicle ? { vehicle: r.vehicle } : {}) }));
+    limit: r.limit, time: r.time, calibre: r.calibre, power: r.power, ...(r.shooter ? { shooter: r.shooter.actor.id } : {}), ...(r.vehicle ? { vehicle: r.vehicle } : {}) }));
   /** The hits a player's rounds have landed since last asked, oldest first. */
   function takeHits(id: string) { const list = landed.get(id) ?? []; landed.delete(id); return list; }
   /**
@@ -1032,7 +1034,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   /** A raider's round: whatever it meets first, a wall, a hull or a body. */
   /** A raider's round: nobody's, so it hits whoever it meets, credited to `cause`. */
   function raiderShot(origin: ArenaPoint, ray: ArenaPoint, damage: number, cause: string) {
-    send({ origin, direction: ray, ballistics: muzzleBallistics(RAID.muzzle), damage, cause }, 150);
+    // Its strikes look like a GPMG's: its damage is set low for balance, not because it is a small gun.
+    send({ origin, direction: ray, ballistics: muzzleBallistics(RAID.muzzle), damage, cause, calibre: RAID.caliberMm, power: RAID.look }, 150);
   }
   /** One stretch of a shooterless round's flight, its walls already measured. */
   function strayShot(origin: ArenaPoint, ray: ArenaPoint, reach: number, damage: number, cause: string): ArenaShot & { stopped: boolean } {
@@ -1267,7 +1270,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (gun?.fire && gunner && fireVehicleWeapon(v)) {
         const entry = members.get(gunner); if (!entry) continue;
         v.shots++; entry.actor.shots++;
-        send({ shooter: entry, origin: ray.origin, direction: ray.direction, ballistics: VEHICLE_COMBAT[v.kind].ballistics, damage: VEHICLE_COMBAT[v.kind].damage, vehicle: v.kind }, VEHICLE_COMBAT[v.kind].range);
+        send({ shooter: entry, origin: ray.origin, direction: ray.direction, ballistics: VEHICLE_COMBAT[v.kind].ballistics, damage: VEHICLE_COMBAT[v.kind].damage, vehicle: v.kind,
+          calibre: VEHICLE_COMBAT[v.kind].caliberMm, power: VEHICLE_COMBAT[v.kind].damage }, VEHICLE_COMBAT[v.kind].range);
       }
     }
     syncOccupants();

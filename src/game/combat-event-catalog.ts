@@ -151,7 +151,7 @@ registerCombatEvent({
  * door gunner walks tracers onto someone it can see, then fires a burst. It
  * can be shot down; the host owns its health and its gun.
  */
-export const RAID = { warning: 8, duration: 80, radius: 30, approach: 220, health: 700, orbit: [32, 56] as const, round: 12, muzzle: 850, spread: .06,
+export const RAID = { warning: 8, duration: 80, radius: 30, approach: 220, health: 700, orbit: [32, 56] as const, round: 12, muzzle: 850, caliberMm: 7.62, look: 60, spread: .06,
   walkIn: 1, burst: 1.5, rate: .1, pause: [2.5, 4] as const, sight: 110 } as const;
 registerCombatEvent({
   id: 'helicopter-raid', name: 'Helicopter raid', cause: 'Gunship', targeting: { policy: 'player' },

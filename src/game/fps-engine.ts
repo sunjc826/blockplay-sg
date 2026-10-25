@@ -19,12 +19,13 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { advanceWeapon, beginReload, chamberRound, createLoadout, findTrait, fireWeapon, fullLoad, interruptReload, reloadDuration, roundReady, validWeaponIndex, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponState } from './fps-rules';
 import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { sectorAt, zoneSectors } from './zone-sectors';
-import { adoptPublishedRounds, advanceRound, createRound, needsFlight, skipRound, MAX_ROUNDS_IN_FLIGHT, MAX_SKIPS, type InFlightRound } from './fps-projectiles';
+import { adoptPublishedRounds, advanceRound, createRound, needsFlight, skipRound, MAX_ROUNDS_IN_FLIGHT, MAX_SKIPS, type InFlightRound, type PublishedRound } from './fps-projectiles';
 import { SKIP_ENERGY, splashWeight, waterRicochet } from './fps-splashes';
 import { isWaterObject, rippleWater } from './water';
 import { createFpsEffects, type ImpactKind } from './fps-effects';
 import { advanceRecoil, compensateRecoil, createRecoil, recoilPose, recoilView, recordRecoilShot, resetRecoil, takeAimPush } from './fps-recoil';
-import { effectStyleForWeapon } from './fps-effect-styles';
+import { effectStyleForWeapon, resolveEffectStyle, type EffectStyle } from './fps-effect-styles';
+import type { ImpactProfile } from './fps-impact-profile';
 import { applyArmorDamage, consumeItem, createProfile, encikAddress, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile, type VendorPurchaseResult } from './armory-state';
 import { registerElimination, ELIMINATION_XP, type KillChain } from './progression';
 import { createFpsVehicles } from './fps-vehicles';
@@ -1024,9 +1025,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    * water can carry one, and the direction it skips off in if it came in
    * shallow enough to skip (see fps-splashes), or null if the water took it.
    */
-  function meetWater(hit: THREE.Intersection, direction: THREE.Vector3, energy: number, weapon?: number) {
+  function meetWater(hit: THREE.Intersection, direction: THREE.Vector3, energy: number, weapon?: number, look?: ImpactProfile) {
     const normal = surfaceNormal(hit, direction);
-    const skip = waterRicochet(direction, normal), profile = weapon === undefined ? undefined : weaponStyles[weapon]?.impact;
+    const skip = waterRicochet(direction, normal), profile = look ?? (weapon === undefined ? undefined : weaponStyles[weapon]?.impact);
     effects.splash(hit.point, direction, skip ? energy * .6 : energy, profile);
     // A heavier round rocks the surface harder as well as throwing more spray.
     rippleWater(hit.object, hit.point.x, hit.point.z, (skip ? energy * .6 : energy) * splashWeight(profile).size);
@@ -1164,6 +1165,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** Host rounds already drawn here, by id. */
   const seenRounds = new Set<number>();
+  /** Strike looks for other people's guns, built on first sight from the bore and damage the host publishes. */
+  const publishedStyles = new Map<string, EffectStyle>();
+  function publishedStyle(view: PublishedRound) {
+    const id = `round:${view.calibre}:${Math.round(view.power)}`;
+    if (!publishedStyles.has(id)) {
+      publishedStyles.set(id, { ...resolveEffectStyle({ caliberMm: view.calibre, damage: Math.max(1, view.power) }), id });
+      // Registering keeps the weapon in hand as the active look.
+      effects.setStyles([...weaponStyles, ...publishedStyles.values()], hud.weapon);
+    }
+    return id;
+  }
   /** Steps every round still in the air and resolves whatever it reaches first. */
   function advanceRounds(dt: number) {
     if (!rounds.length) return;
@@ -1188,7 +1200,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         if (segmentHits.length && round.cosmetic) {
           // The arena host has the real round: this one only shows where it went.
           const first = segmentHits[0];
-          if (isWaterHit(first)) meetWater(first, roundDirection, 1, round.weapon); else strike(first, roundDirection, 1, weaponStyles[round.weapon]?.id);
+          const look = round.style ?? weaponStyles[round.weapon]?.id;
+          if (isWaterHit(first)) meetWater(first, roundDirection, 1, round.weapon, round.style ? publishedStyles.get(round.style)?.impact : undefined); else strike(first, roundDirection, 1, look);
           rounds.splice(i, 1); continue;
         }
         if (segmentHits.length) {
@@ -1443,7 +1456,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (frame.vehicleNotice) vehicles.setNotice(frame.vehicleNotice);
     hud.arena = frame.snapshot; hud.arenaSelf = frame.self; hud.arenaConnected = frame.connected; hud.arenaStarted = frame.started;
     if (options.arena) rounds.push(...adoptPublishedRounds(frame.snapshot?.rounds ?? [], seenRounds,
-      { self: options.arena.session.id, viewer: camera.position, range: REMOTE_TRACER_RANGE, room: MAX_ROUNDS_IN_FLIGHT - rounds.length, nextId: () => ++roundSerial }));
+      { self: options.arena.session.id, viewer: camera.position, range: REMOTE_TRACER_RANGE, room: MAX_ROUNDS_IN_FLIGHT - rounds.length, nextId: () => ++roundSerial, styleFor: publishedStyle }));
     if (frame.snapshot) hud.elapsed = frame.snapshot.elapsed;
     if (frame.snapshot) dropFallenWeapons(frame.snapshot.actors, frame.feed);
     if (frame.self) {

@@ -345,7 +345,12 @@ arena and on the Training range alike. The raid helicopter's door gun flies at
 468 m/s; its walk-in rounds are real tracers that harm nobody. Snapshots carry
 every round in flight (`rounds`), and each screen flies show-only copies of
 everyone else's, and of every vehicle's and raider's, for tracers and impacts
-(`adoptPublishedRounds`), within 220 m of the viewer.
+(`adoptPublishedRounds`), within 220 m of the viewer. Each published round
+names its gun as its strike's look is built, bore (`calibre`, mm) and the damage
+the look is sized by (`power`): a bot's drawn variant, a vehicle gun's own
+figures, and for the raid door gun a GPMG's (7.62 mm, 60), since its in-game
+damage is set low for balance. Each screen builds and registers that look on
+first sight, so a .50's strike reads as a .50's wherever it came from.
 
 The AI pilot compensates. `PilotContact` carries the range to a target and the
 observation carries the equipped ballistics, so the controller holds over by the

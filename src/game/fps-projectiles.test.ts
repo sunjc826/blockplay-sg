@@ -61,7 +61,7 @@ describe('rounds skipping off water', () => {
 });
 
 describe('rounds the arena host publishes', () => {
-  const view = (id: number, extra: Partial<PublishedRound> = {}): PublishedRound => ({ id, origin: { x: 0, y: 1.5, z: 0 }, direction: { x: 0, y: 0, z: -1 }, velocity: 500, drop: 9.8, limit: 120, time: 0, shooter: 'bot-1', ...extra });
+  const view = (id: number, extra: Partial<PublishedRound> = {}): PublishedRound => ({ id, origin: { x: 0, y: 1.5, z: 0 }, direction: { x: 0, y: 0, z: -1 }, velocity: 500, drop: 9.8, limit: 120, time: 0, shooter: 'bot-1', calibre: 5.56, power: 36, ...extra });
   const options = (room = 10) => { let n = 0; return { self: 'you', viewer: { x: 0, y: 1.75, z: 10 }, range: 200, room, nextId: () => ++n }; };
   it('starts drawing each once, as a show-only copy that leaves its shooter, caught up to where the host has it', () => {
     const seen = new Set<number>();
@@ -73,6 +73,11 @@ describe('rounds the arena host publishes', () => {
   it('skips our own rifle\'s rounds, which already fly here, but draws our vehicle gun\'s and a raider\'s', () => {
     const adopted = adoptPublishedRounds([view(1, { shooter: 'you' }), view(2, { shooter: 'you', vehicle: 'car' }), view(3, { shooter: undefined })], new Set(), options());
     expect(adopted.map(r => [r.skipActor, r.skipVehicle])).toEqual([['you', 'car'], [undefined, undefined]]);
+  });
+  it('strike in the look of the gun that fired them', () => {
+    const [round] = adoptPublishedRounds([view(1, { calibre: 12.7, power: 95 })], new Set(), { ...options(), styleFor: v => `round:${v.calibre}:${v.power}` });
+    expect(round.style).toBe('round:12.7:95');
+    expect(adoptPublishedRounds([view(2)], new Set(), options())[0].style).toBeUndefined();
   });
   it('leaves out rounds that start too far off or beyond the room left, and forgets ids the host has dropped', () => {
     const seen = new Set<number>();

@@ -3,6 +3,8 @@ import { createArena, type ArenaEnvironment, type ArenaSimulation } from './aren
 import { mergeHits, validArenaSnapshot } from './arena-runtime';
 import { moveInMarina } from './marina-collision';
 import { VEHICLE_COMBAT } from './vehicle-combat';
+import { itemById } from './armory-catalog';
+import { variantSpec } from './armory-state';
 import { BOT_RANKS } from './arena-ranks';
 import { BALLISTIC_SCALE, flightTime } from './fps-ballistics';
 import { FPS_WEAPONS } from './fps-rules';
@@ -54,7 +56,8 @@ describe('travelling rounds', () => {
     const { arena, one, direction } = duel();
     arena.shoot('one', one, direction, one.weapon); arena.step(.01);
     const snapshot = arena.snapshot(), environment = field([{ x: 1000, z: 1000 }]);
-    expect(snapshot.rounds).toEqual([expect.objectContaining({ shooter: 'one', velocity: FPS_WEAPONS[one.weapon].ballistics.velocity, drop: 9.8, time: expect.closeTo(.01, 5) })]);
+    expect(snapshot.rounds).toEqual([expect.objectContaining({ shooter: 'one', velocity: FPS_WEAPONS[one.weapon].ballistics.velocity, drop: 9.8, time: expect.closeTo(.01, 5),
+      calibre: FPS_WEAPONS[one.weapon].caliberMm, power: 36 })]);
     expect(validArenaSnapshot(snapshot, environment)).toBe(true);
     expect(validArenaSnapshot({ ...snapshot, rounds: [{ ...snapshot.rounds![0], velocity: 1e6 }] }, environment)).toBe(false);
     expect(validArenaSnapshot({ ...snapshot, rounds: [{ ...snapshot.rounds![0], vehicle: 'tank' as never }] }, environment)).toBe(false);
@@ -69,12 +72,20 @@ describe('travelling rounds', () => {
     const target = find(arena, 'target');
     arena.setInput('gunner', { ...find(arena, 'gunner'), playing: true, vehicleControls: { forward: 0, steer: 0, lift: 0, brake: false, boost: false, fire: true, aim: { x: target.x, y: target.y - .65, z: target.z } } });
     arena.step(.02);
-    expect(arena.snapshot().rounds?.[0]).toMatchObject({ shooter: 'gunner', vehicle: 'car', velocity: VEHICLE_COMBAT.car.ballistics.velocity });
+    expect(arena.snapshot().rounds?.[0]).toMatchObject({ shooter: 'gunner', vehicle: 'car', velocity: VEHICLE_COMBAT.car.ballistics.velocity, calibre: 7.62, power: VEHICLE_COMBAT.car.damage });
     expect(find(arena, 'target').health).toBe(100);
     for (let t = 0; t < .5 && find(arena, 'target').health === 100; t += .01) arena.step(.01);
     expect(find(arena, 'target').health).toBe(100 - VEHICLE_COMBAT.car.damage);
     expect(arena.snapshot().vehicles![0].health).toBe(VEHICLE_COMBAT.car.health);
     expect(arena.takeHits('gunner').at(-1)).toMatchObject({ hitId: 'target', damage: VEHICLE_COMBAT.car.damage });
+  });
+  it('publish a bot\'s round with its drawn variant\'s bore and damage', () => {
+    const arena = createArena([], 1, 'tank', { ...field([{ x: 1000, z: 1012 }]), playerSpawn: { x: 1000, z: 1000 } });
+    arena.addPlayer('you', 'You', 0, 0, undefined, undefined, true); arena.setPlayerHealthMultiplier('you', 10);
+    let view: NonNullable<ReturnType<ArenaSimulation['snapshot']>['rounds']>[number] | undefined;
+    for (let t = 0; t < 10 && !view; t += .02) { arena.step(.02); view = arena.snapshot().rounds?.find(r => r.shooter === 'bot-1'); }
+    const spec = variantSpec(itemById(find(arena, 'bot-1').variant!)!)!;
+    expect(view).toMatchObject({ calibre: spec.caliberMm, power: spec.damage });
   });
   it('read several hits landing at once as one marker', () => {
     expect(mergeHits([])).toBeNull();

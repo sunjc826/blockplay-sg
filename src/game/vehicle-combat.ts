@@ -3,9 +3,9 @@ import { muzzleBallistics, type BallisticSpec } from './fps-ballistics';
 
 /** Vehicle ammunition belongs to the hull, never to the player's inventory. */
 export const VEHICLE_COMBAT = {
-  car: { health: 600, ammo: 240, name: 'Roof GPMG', damage: 60, interval: .12, range: 180, blastRadius: 9, blastDamage: 240, ballistics: muzzleBallistics(840) },
-  helicopter: { health: 900, ammo: 400, name: 'Chin HMG', damage: 95, interval: .15, range: 240, blastRadius: 12, blastDamage: 320, ballistics: muzzleBallistics(890) },
-} satisfies Record<VehicleKind, { health: number; ammo: number; name: string; damage: number; interval: number; range: number; blastRadius: number; blastDamage: number; ballistics: BallisticSpec }>;
+  car: { health: 600, ammo: 240, name: 'Roof GPMG', damage: 60, interval: .12, range: 180, blastRadius: 9, blastDamage: 240, caliberMm: 7.62, ballistics: muzzleBallistics(840) },
+  helicopter: { health: 900, ammo: 400, name: 'Chin HMG', damage: 95, interval: .15, range: 240, blastRadius: 12, blastDamage: 320, caliberMm: 12.7, ballistics: muzzleBallistics(890) },
+} satisfies Record<VehicleKind, { health: number; ammo: number; name: string; damage: number; interval: number; range: number; blastRadius: number; blastDamage: number; caliberMm: number; ballistics: BallisticSpec }>;
 export type VehicleDamageStage = 'intact' | 'damaged' | 'smoking' | 'critical' | 'destroyed';
 export function vehicleDamageStage(v: Pick<VehicleState, 'kind' | 'health'>): VehicleDamageStage {
   const ratio = v.health / VEHICLE_COMBAT[v.kind].health;

@@ -24,6 +24,8 @@ export interface InFlightRound {
   skipActor?: string; skipVehicle?: 'car' | 'helicopter';
   /** A vehicle gun's round off the arena, which damages as the vehicle's gun does. */
   vehicleDamage?: number;
+  /** The effect style its strike is drawn in, when not the style of `weapon` in this player's hands. */
+  style?: string;
 }
 /** Keeps the per-frame raycast budget bounded on a software renderer. */
 export const MAX_ROUNDS_IN_FLIGHT = 48;
@@ -48,6 +50,8 @@ export function advanceRound(round: InFlightRound, dt: number, maxDistance: numb
 export interface PublishedRound {
   id: number; origin: BallisticPoint; direction: BallisticPoint; velocity: number; drop: number; limit: number; time: number;
   shooter?: string; vehicle?: 'car' | 'helicopter';
+  /** The gun that fired it, as its strike's look is built: bore in mm and the damage the look is sized by. */
+  calibre: number; power: number;
 }
 /**
  * The host's rounds this screen should start drawing: everyone else's, and
@@ -56,7 +60,7 @@ export interface PublishedRound {
  * own as a show-only round that leaves its shooter's figure or vehicle. `seen`
  * is kept in place: ids are adopted once and forgotten when the host drops them.
  */
-export function adoptPublishedRounds(views: readonly PublishedRound[], seen: Set<number>, options: { self: string; viewer: BallisticPoint; range: number; room: number; nextId: () => number }): InFlightRound[] {
+export function adoptPublishedRounds(views: readonly PublishedRound[], seen: Set<number>, options: { self: string; viewer: BallisticPoint; range: number; room: number; nextId: () => number; styleFor?: (view: PublishedRound) => string }): InFlightRound[] {
   const live = new Set<number>(), adopted: InFlightRound[] = [];
   for (const view of views) {
     live.add(view.id);
@@ -68,6 +72,7 @@ export function adoptPublishedRounds(views: readonly PublishedRound[], seen: Set
     round.range = view.limit;
     if (view.shooter) round.skipActor = view.shooter;
     if (view.vehicle) round.skipVehicle = view.vehicle;
+    const style = options.styleFor?.(view); if (style) round.style = style;
     if (view.time > 0) advanceRound(round, view.time, view.limit);
     adopted.push(round);
   }
