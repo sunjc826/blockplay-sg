@@ -601,6 +601,50 @@ The optional counter-fire drill uses surviving targets with line of sight within
 
 Real-world naming reference: [CMPB's issued-equipment page](https://www.cmpb.gov.sg/life-in-ns/saf/items-issued/) describes the iLBV's modular load carrying and support for armor inserts. [MINDEF's enhanced-equipment factsheet](https://www.mindef.gov.sg/news-and-events/latest-releases/02dec20_fs/) describes the LBS carrying system. Geometry is an original simplified interpretation. All damage, armor, mobility and capacity values here are fictional game statistics, with no real protection-rating claim.
 
+## Night vision and thermal
+
+The **Night vision** tab sells head-mounted devices, after the tiers of
+S.T.A.L.K.E.R.'s suit night vision. One is worn at a time (`profile.vision`,
+default `vision-none`); it is a permanent unlock and its weight counts with the
+rig and inserts. **H** switches it on, **J** cycles a thermal core's palettes,
+and on a touchscreen one eye button walks off → on → each palette → off and
+carries the device's state as a badge. A device comes up from cold over its
+warm-up, and stays on across an expedition gateway.
+
+| Device | Tier | Gain at night | Screen inside the image | Grain | Notes |
+| --- | --- | ---: | ---: | ---: | --- |
+| NV-1 · Blur Like Sotong | Field, LV 2, 850 CR | 3.4× | 61% | 62% | Soft, barrel-distorted, big halos, 1.4 s warm-up |
+| NV-2+ · Jaga Malam | Field, LV 4, 1,900 CR | 5.2× | 84% | 32% | Smaller halos, 0.8 s |
+| NV-3 · Confirm Plus Chop | Elite, LV 6, 280 TK | 7.5× | 100% | 13% | White phosphor, sharp, 0.35 s |
+| TI-1 · Cheap and Good | Field, LV 5, 2,600 CR | — | 96% | 30% | 160 lines, white-hot only, freezes 0.4 s every 26 s to recalibrate |
+| TI-2 · Kiasu Fusion | Elite, LV 8, 420 TK | — | 100% | 10% | 360 lines, edge enhancement, white-hot / black-hot / ironbow |
+
+A tube is a worse *instrument* at a lower tier, not a different filter: less
+gain, so the dark stays dark; more grain, worst when the gain is up; a narrower
+image circle (scaled from the screen's longer side, so a portrait phone loses
+top and bottom); and halos that hide what stands under a lamp. Its automatic
+brightness control holds the gain near 1 by day and opens it as the hour's light
+goes (`visionGain`), further in a blackout, so a tube at noon is a washed-out
+green picture rather than a blinding one.
+
+Thermal sees heat. While it is on, every opaque mesh draws with an unlit
+temperature shader: character rigs (`impactSurface: 'flesh'`) are hot, vehicles
+and the raid truck (`userData.heat = 'engine'`) warm, the range's targets heated
+(`'target'`), a figure's rifle cut out (`'none'`). Dark and sun-facing surfaces
+are a little warmer, green ones, bare metal and water cooler, lamps hot, the sky
+cold, and distance fades everything towards the air. Glass on a hot object goes
+opaque as it does in long-wave infrared. Effects keep their own look, so a
+muzzle flash is the hottest thing on screen, and a thermal core sees through
+most of a smoke or gas cloud (`cloudOpacity`). Because the swap is on the meshes,
+the PiP scope and optic reflections show the same picture. Ambient occlusion is
+off while thermal is on.
+
+Code: `vision-devices.ts` (specs, state, gain), `fps-vision.ts` (the thermal
+material swap and both post passes, which read the finished canvas back),
+`FpsVisionChip.tsx` (desktop HUD chip), `visionModel` in `armory-visuals.ts`
+(shop preview). Tests in `vision-devices.test.ts`. Gameplay values are
+fictional and the device names are game names, not real products.
+
 ## Announcements and mouse capture
 
 Only target eliminations advance the chain. Eliminations within three seconds of the previous elimination produce Double Kill, Triple Kill, Multi Kill, Ultra Kill, Monster Kill, Unstoppable and Rampage. A longer gap restarts the chain. Pause freezes gameplay time; reset starts a new chain. Each callout shows a banner and synthesized stinger. An installed local English speech voice is used when the browser exposes one; otherwise the banner and stinger remain. The range sound toggle mutes both.

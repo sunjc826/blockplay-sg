@@ -8,7 +8,7 @@ import { buildVehicleModel } from '../game/vehicle-models';
 import type { VehicleKind } from '../game/vehicle-rules';
 import type { ShopItem } from '../game/armory-catalog';
 import type { EquippedWeapon } from '../game/armory-state';
-import { armorModel, disposeModel, dressWeapon } from '../game/armory-visuals';
+import { armorModel, disposeModel, dressWeapon, visionModel } from '../game/armory-visuals';
 import { weaponHardware } from '../game/weapon-hardware';
 import { getWeaponSight } from '../game/weapon-optics';
 import { createOpticReflectionRenderer } from '../game/weapon-reflections';
@@ -21,7 +21,8 @@ export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item:
   const signature = JSON.stringify(weapon);
   // Names what the variant's parts put on the model, so the differences between
   // one tier and the next are findable rather than only visible.
-  const fittings = item.category === 'rig' || item.category === 'plate' || item.category === 'vehicleSkin' ? [] : weaponHardware(weapon.equipment.variant);
+  const gear = item.category === 'rig' || item.category === 'plate' || item.category === 'vehicleSkin' || item.category === 'vision';
+  const fittings = gear ? [] : weaponHardware(weapon.equipment.variant);
   useEffect(() => {
     let disposed = false, model: THREE.Object3D | undefined, undress: (() => void) | undefined, frame = 0;
     const node = host.current!; setStatus('Loading equipment…');
@@ -42,7 +43,7 @@ export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item:
     const mount = (root: THREE.Object3D) => {
       if (disposed) { disposeModel(root); return; }
       model = root;
-      if (item.category !== 'rig' && item.category !== 'plate' && item.category !== 'vehicleSkin') undress = dressWeapon(root, JSON.parse(signature));
+      if (!gear) undress = dressWeapon(root, JSON.parse(signature));
       if (getWeaponSight(root)?.reflection) studio = new RoomEnvironment();
       const bounds = new THREE.Box3().setFromObject(root), center = bounds.getCenter(new THREE.Vector3());
       root.position.sub(center); scene.add(root);
@@ -52,10 +53,11 @@ export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item:
     };
     if (item.category === 'vehicleSkin') mount(buildVehicleModel(vehicle, item.id));
     else if (item.category === 'rig' || item.category === 'plate') mount(armorModel(item));
+    else if (item.category === 'vision') mount(visionModel(item));
     else if (buildServiceWeaponId(JSON.parse(signature).id)) mount(buildServiceWeapon(JSON.parse(signature).id)!);
     else void new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/field-kit/${JSON.parse(signature).id}.glb`).then(gltf => mount(gltf.scene)).catch(() => { if (!disposed) setStatus('Preview failed to load.'); });
     const render = () => { if (disposed) return; controls.update(); if (studio && model) reflections.render(studio, camera, camera, getWeaponSight(model)?.reflection, true, performance.now() / 1000); renderer.render(scene, camera); frame = requestAnimationFrame(render); }; render();
     return () => { disposed = true; cancelAnimationFrame(frame); observer.disconnect(); controls.dispose(); undress?.(); if (model) disposeModel(model); studio?.dispose(); reflections.dispose(); renderer.dispose(); renderer.domElement.remove(); };
-  }, [item.id, item.category, item.name, signature, vehicle, retry]);
+  }, [item.id, item.category, item.name, signature, vehicle, retry, gear]);
   return <div className="armory-preview"><div ref={host} className="armory-preview-canvas" />{status ? <div className="armory-preview-status" role="status">{status}{status.includes('failed') && <button onClick={() => setRetry(n => n + 1)}>Retry preview</button>}</div> : <span className="armory-orbit-hint">DRAG TO INSPECT · SCROLL TO ZOOM</span>}{!!fittings.length && <ul className="armory-preview-fittings" aria-label="Hardware fitted to this weapon">{fittings.map(fitting => <li key={fitting.part}>{fitting.label}</li>)}</ul>}<span className="armory-preview-mark">SG / EQUIPMENT DIVISION</span></div>;
 }

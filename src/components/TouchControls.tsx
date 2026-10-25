@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDownToLine, ChevronsDown, ChevronsUp, Crosshair, Footprints, Hand, Menu, MessageCircle, Move3d, PackageOpen, RefreshCw, Rocket, Repeat2 } from 'lucide-react';
+import { ArrowDownToLine, ChevronsDown, ChevronsUp, Crosshair, Eye, Footprints, Hand, Menu, MessageCircle, Move3d, PackageOpen, RefreshCw, Rocket, Repeat2 } from 'lucide-react';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
 import { promptLabel, thumbArc, type StickVector } from '../game/touch-controls';
+import { visionStatus } from './FpsVisionChip';
+import './fps-vision.css';
 import TouchStick from './TouchStick';
 import './touch-controls.css';
 
@@ -110,6 +112,9 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
       prompts.push(act('vehicle', promptLabel(hud.interact), <Move3d size={16} />, { onClick: () => engine?.interactVehicle() }));
     }
   }
+  // The worn device, on foot or mounted: one button walks off, on and each thermal palette.
+  if (hud.vision) sweep.push(act('vision', hud.vision.on ? `${hud.vision.kind === 'nvg' ? 'Night vision' : 'Thermal'} on${hud.vision.palettes > 1 ? ', next palette' : ''}` : hud.vision.kind === 'nvg' ? 'Night vision' : 'Thermal',
+    <><Eye size={17} />{hud.vision.on && <small className="touch-badge" aria-hidden="true">{visionStatus(hud.vision, true)}</small>}</>, { onClick: () => engine?.pressVision(), 'aria-pressed': hud.vision.on, 'data-on': hud.vision.on || undefined }));
   const arc = thumbArc(sweep.length);
 
   return <div className="touch-layer" data-touch-layer={mode} data-mounted={mounted || undefined} style={{ '--arc-spread': arc.spread } as React.CSSProperties}>

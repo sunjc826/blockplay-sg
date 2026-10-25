@@ -1,4 +1,6 @@
 import EnvironmentControls from './EnvironmentControls';
+import FpsVisionChip from './FpsVisionChip';
+import { cloudOpacity, visionKeyLabel } from '../game/vision-devices';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Compass, Maximize, Minimize, Pause, Play } from 'lucide-react';
 import { createFpsEngine, initialFpsHud, type FpsCheckpoint, type FpsEngine } from '../game/fps-engine';
@@ -95,9 +97,10 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       {playing && <>
         <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} mode="expedition" expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
         <FpsVitals hud={hud} />
+        <FpsVisionChip hud={hud} touch={touch} />
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}
         <FpsShield hud={hud} />
-        {hud.cloudCover && <div className={`fps-cloud-overlay ${hud.cloudCover.kind}`} style={{ opacity: Math.min(.9, .25 + hud.cloudCover.amount * .7) }} aria-hidden="true" />}
+        {hud.cloudCover && <div className={`fps-cloud-overlay ${hud.cloudCover.kind}`} style={{ opacity: cloudOpacity(hud.cloudCover.amount, hud.vision?.on === true && hud.vision.kind === 'thermal') }} aria-hidden="true" />}
         {hud.incoming && <div className="fps-incoming">INCOMING · FIND COVER</div>}
         {hud.combatBanner && <div className={`fps-combat-banner ${hud.combatBanner.tone}`} role="status">{hud.combatBanner.text}</div>}
         {hud.hit && <div className="fps-hit-label">HIT −{hud.lastDamage}</div>}
@@ -127,7 +130,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} touch={touch} onFullscreen={() => { void fullscreen.toggle(); }} />}
         <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') { setScene(current => ({ ...current, revision: current.revision + 1 })); return; } if (touch) fullscreen.enter(); engine.current?.start(); }}><Play size={16} />{hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry district' : hud.phase === 'paused' ? 'Resume expedition' : 'Enter district'}<ArrowRight size={17} /></button>
         {!nav && <button className="fps-shop-link" onClick={onExit}>{debug ? 'Leave expedition →' : 'Leave to menu →'}</button>}
-        <FpsControlGuide debug={debug}><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>E</kbd> Take supplies</span><span><kbd>G</kbd> Use supply</span><span><kbd>M</kbd> Map</span><span><kbd>N</kbd> Interact nearby</span><span><kbd>T</kbd> Travel</span><span><kbd>F</kbd> Fullscreen</span></FpsControlGuide>
+        <FpsControlGuide debug={debug}><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>E</kbd> Take supplies</span><span><kbd>G</kbd> Use supply</span><span><kbd>M</kbd> Map</span>{equipment.vision && <span><kbd>H</kbd> {visionKeyLabel(equipment.vision.spec)}</span>}<span><kbd>N</kbd> Interact nearby</span><span><kbd>T</kbd> Travel</span><span><kbd>F</kbd> Fullscreen</span></FpsControlGuide>
         {debug && <small className="fps-touch-note">{touch ? 'Thumb controls appear once you enter the district. ' : ''}Field equipment lasts for this expedition. Your permanent Armory stays saved.</small>}
       </div></div>}
     </div>

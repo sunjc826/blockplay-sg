@@ -15,6 +15,8 @@ export function vehiclePaint(id: string) {
 /** Original utility vehicle silhouettes; no copied game logos or liveries. Forward is local -Z. */
 export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
   const root = new THREE.Group(), paint = vehiclePaint(skin);
+  // A running engine reads warm through thermal sights (fps-vision).
+  root.userData.heat = 'engine';
   const dark = new THREE.MeshStandardMaterial({ color: '#20272a', roughness: .8 });
   const metal = new THREE.MeshStandardMaterial({ color: '#737b75', roughness: .4, metalness: .75 });
   const glass = new THREE.MeshStandardMaterial({ color: '#254652', roughness: .18, metalness: .4, transparent: true, opacity: .6, depthWrite: false });

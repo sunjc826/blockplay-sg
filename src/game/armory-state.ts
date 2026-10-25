@@ -1,6 +1,7 @@
 import { carriedFamilies, restoreCarrySlots, isMainWeapon, EXTRA_SLOT_ID, SIDEARM_FAMILY, type CarrySlots } from './armory-slots';
 import { supplyWeightKg } from './fps-encumbrance';
 import { ARMORY_CATALOG, CONSUMABLE_LIMIT, isEnemyIssue, issuedItems, itemById, type AttachmentSlot, type FittedPart, type InternalPart, type ShopItem } from './armory-catalog';
+import { visionSpec, type VisionSpec } from './vision-devices';
 import type { VehicleKind } from './vehicle-rules';
 import { progression, levelSkip, xpForLevel, ELIMINATION_XP, MAX_LEVEL } from './progression';
 import { DEFAULT_RANK_SET, isRankSet, rankInsignia } from './rank-insignia';
@@ -18,9 +19,11 @@ export interface ArmoryProfile { carry: CarrySlots; version: 1; xp: number; vehi
   /** Which set of rank titles and badges the profile wears. */
   rankSet: string;
   /** Whether the Encik's tone follows your rank, or stays the way he greets a recruit. */
-  encikTone: EncikTone }
+  encikTone: EncikTone;
+  /** The head-mounted night-vision or thermal device worn, by catalog id. */
+  vision: string }
 export const STORAGE_KEY = 'blockplay.armory.v1';
-export function createProfile(): ArmoryProfile { return { carry: { main: 0, extra: null }, version: 1, xp: 0, vehicleSkins: { car: 'paint-issued', helicopter: 'paint-issued' }, credits: 1600, tokens: 300, owned: [...issuedItems], guns: DEFAULT_VARIANTS.map(variant => ({ variant, skin: 'skin-issued', attachments: {} })), rig: 'rig-ilbv', plate: 'plate-none', rewarded: [], exercises: 0, consumables: {}, quickItem: '', rankSet: DEFAULT_RANK_SET, encikTone: DEFAULT_ENCIK_TONE }; }
+export function createProfile(): ArmoryProfile { return { carry: { main: 0, extra: null }, version: 1, xp: 0, vehicleSkins: { car: 'paint-issued', helicopter: 'paint-issued' }, credits: 1600, tokens: 300, owned: [...issuedItems], guns: DEFAULT_VARIANTS.map(variant => ({ variant, skin: 'skin-issued', attachments: {} })), rig: 'rig-ilbv', plate: 'plate-none', rewarded: [], exercises: 0, consumables: {}, quickItem: '', rankSet: DEFAULT_RANK_SET, encikTone: DEFAULT_ENCIK_TONE, vision: 'vision-none' }; }
 const finiteBalance = (n: unknown, fallback: number) => typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(1000000, Math.floor(n))) : fallback;
 export function restoreProfile(raw: string | null): ArmoryProfile {
   const base = createProfile(); if (!raw) return base;
@@ -41,6 +44,7 @@ export function restoreProfile(raw: string | null): ArmoryProfile {
     for (const kind of ['car', 'helicopter'] as const) if (valid(value.vehicleSkins?.[kind], 'vehicleSkin')) base.vehicleSkins[kind] = value.vehicleSkins[kind];
     if (valid(value.rig, 'rig')) base.rig = value.rig;
     if (valid(value.plate, 'plate')) base.plate = value.plate;
+    if (valid(value.vision, 'vision')) base.vision = value.vision;
     base.rewarded = Array.isArray(value.rewarded) ? value.rewarded.filter((id: unknown) => typeof id === 'string').slice(-100) : [];
     base.exercises = finiteBalance(value.exercises, 0);
     if (value.consumables && typeof value.consumables === 'object') for (const [id, held] of Object.entries(value.consumables)) {
@@ -133,7 +137,7 @@ export function equip(profile: ArmoryProfile, id: string, family: number, vehicl
   if (item?.category === 'consumable') return profile.consumables[id] ? { ...profile, quickItem: id } : profile;
   if (!item || !profile.owned.includes(id) || !validWeaponIndex(family)) return profile;
   if (item.category === 'vehicleSkin') return { ...profile, vehicleSkins: { ...profile.vehicleSkins, [vehicle]: id } };
-  if (item.category === 'rig' || item.category === 'plate') return { ...profile, [item.category]: id };
+  if (item.category === 'rig' || item.category === 'plate' || item.category === 'vision') return { ...profile, [item.category]: id };
   if (item.category === 'weapon' && item.family !== family) return profile;
   const gun: GunEquipment = { ...profile.guns[family], attachments: {} };
   if (item.category === 'weapon') gun.variant = id;
@@ -155,7 +159,7 @@ export function consumeItem(profile: ArmoryProfile, id: string): ArmoryProfile {
 export function isEquipped(profile: ArmoryProfile, item: ShopItem, family: number, vehicle: VehicleKind = 'car') {
   const gun = profile.guns[family];
   if (item.category === 'consumable') return profile.quickItem === item.id;
-  return item.category === 'vehicleSkin' ? profile.vehicleSkins[vehicle] === item.id : item.category === 'rig' ? profile.rig === item.id : item.category === 'plate' ? profile.plate === item.id : item.category === 'weapon' ? gun.variant === item.id && carriedFamilies(profile).includes(family) : item.category === 'skin' ? gun.skin === item.id :
+  return item.category === 'vehicleSkin' ? profile.vehicleSkins[vehicle] === item.id : item.category === 'rig' ? profile.rig === item.id : item.category === 'plate' ? profile.plate === item.id : item.category === 'vision' ? profile.vision === item.id : item.category === 'weapon' ? gun.variant === item.id && carriedFamilies(profile).includes(family) : item.category === 'skin' ? gun.skin === item.id :
     false;
 }
 /** Fixed trait precedence: platform, variant build, then variant fittings. */
@@ -191,11 +195,16 @@ export interface EquippedWeapon extends WeaponSpec { equipment: GunEquipment; ac
 export const carriedWeight = (mobility: number) => 1 - (Number.isFinite(mobility) ? Math.max(0, Math.min(1, mobility)) : 1);
 export const jumpScale = (mobility: number) => Math.max(.3, 1 - carriedWeight(mobility) * 2.2);
 export const aimSpeedScale = (mobility: number) => Math.max(.3, 1 - carriedWeight(mobility) * 1.8);
-/** `mobility` is armor bulk only; equipmentMovement resolves final player motion. */
-export interface ResolvedLoadout { carriedFamilies: number[]; armorWeightKg: number; suppliesWeightKg: number; weapons: EquippedWeapon[]; armor: number; absorption: number; mobility: number; rigName: string; plateName: string; vehicleSkins: Record<VehicleKind, string>;
+/** A worn vision device and what it does to the picture. */
+export interface WornVision { id: string; name: string; spec: VisionSpec }
+/** `mobility` is armor bulk only; equipmentMovement resolves final player motion.
+ * `armorWeightKg` is everything worn: rig, inserts and a head-mounted device. */
+export interface ResolvedLoadout { vision?: WornVision; carriedFamilies: number[]; armorWeightKg: number; suppliesWeightKg: number; weapons: EquippedWeapon[]; armor: number; absorption: number; mobility: number; rigName: string; plateName: string; vehicleSkins: Record<VehicleKind, string>;
   quickItem?: ShopItem; quickCount: number }
 export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
   const rig = itemById(profile.rig)!, plate = itemById(profile.plate)!;
+  const visionItem = itemById(profile.vision), spec = visionSpec(visionItem?.id);
+  const vision = visionItem && spec ? { id: visionItem.id, name: visionItem.name, spec } : undefined;
   const weapons = profile.guns.map((gun, i) => {
     const variant = itemById(gun.variant)!;
     // Only the selected variant defines hardware. Ignore legacy/injected
@@ -215,7 +224,7 @@ export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
     return spec;
   });
   const quickItem = itemById(profile.quickItem);
-  return { weapons, carriedFamilies: carriedFamilies(profile), armorWeightKg: (rig.weightKg ?? 0) + (plate.weightKg ?? 0), suppliesWeightKg: Object.entries(profile.consumables).reduce((kg, [id, count]) => kg + supplyWeightKg(itemById(id)) * Math.max(0, Math.min(CONSUMABLE_LIMIT, Number.isFinite(count) ? count : 0)), 0), vehicleSkins: { ...profile.vehicleSkins }, quickItem, quickCount: profile.consumables[profile.quickItem] || 0, armor: plate.protection || 0, absorption: plate.absorption || 0, mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };
+  return { vision, weapons, carriedFamilies: carriedFamilies(profile), armorWeightKg: (rig.weightKg ?? 0) + (plate.weightKg ?? 0) + (visionItem?.weightKg ?? 0), suppliesWeightKg: Object.entries(profile.consumables).reduce((kg, [id, count]) => kg + supplyWeightKg(itemById(id)) * Math.max(0, Math.min(CONSUMABLE_LIMIT, Number.isFinite(count) ? count : 0)), 0), vehicleSkins: { ...profile.vehicleSkins }, quickItem, quickCount: profile.consumables[profile.quickItem] || 0, armor: plate.protection || 0, absorption: plate.absorption || 0, mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };
 }
 /** Preview may temporarily own the selected item; it never mutates the actual wallet. */
 export function previewLoadout(profile: ArmoryProfile, item: ShopItem, family: number) {
@@ -240,6 +249,6 @@ export function claimReward(profile: ArmoryProfile, result: ExerciseReward): Arm
   return { ...profile, xp: Math.min(1000000, profile.xp + completionXp(result)), credits: Math.min(1000000, profile.credits + rewardAmount(result)), rewarded: [...profile.rewarded, result.id].slice(-100), exercises: profile.exercises + 1 };
 }
 export const SHOP_CATEGORIES = [
-  { id: 'weapon', label: 'Weapons' }, { id: 'skin', label: 'Skins' }, { id: 'armor', label: 'Armor' }, { id: 'food', label: 'Food' }, { id: 'utility', label: 'Utilities' }, { id: 'vehicleSkin', label: 'Vehicles' },
+  { id: 'weapon', label: 'Weapons' }, { id: 'skin', label: 'Skins' }, { id: 'armor', label: 'Armor' }, { id: 'vision', label: 'Night vision' }, { id: 'food', label: 'Food' }, { id: 'utility', label: 'Utilities' }, { id: 'vehicleSkin', label: 'Vehicles' },
 ] as const;
 export const catalogSize = ARMORY_CATALOG.length;

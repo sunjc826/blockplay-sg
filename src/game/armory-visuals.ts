@@ -95,3 +95,37 @@ export function armorModel(item: ShopItem) {
   }
   return group;
 }
+
+/**
+ * Helmet-mounted vision devices for the shop preview: one tube, then a
+ * binocular, then a four-tube panoramic; a thermal monocular with its dark
+ * germanium window, and a fused thermal-and-tube housing. Built facing +Z.
+ */
+export function visionModel(item: ShopItem) {
+  const group = new THREE.Group(), elite = item.tier === 'Elite';
+  const polymer = new THREE.MeshStandardMaterial({ color: '#2a2f2c', roughness: .72, metalness: .08 });
+  const anodised = new THREE.MeshStandardMaterial({ color: elite ? '#6f6650' : '#3b4033', roughness: .45, metalness: .55 });
+  const tubeGlass = new THREE.MeshPhysicalMaterial({ color: item.id === 'nvg-gen3' ? '#38404f' : '#1d4a3b', roughness: .08, metalness: .2, clearcoat: 1 });
+  const germanium = new THREE.MeshPhysicalMaterial({ color: '#2c2735', roughness: .15, metalness: .85, clearcoat: .6, iridescence: .6 });
+  const add = (geometry: THREE.BufferGeometry, material: THREE.Material, x: number, y: number, z: number, rx = 0, ry = 0) => {
+    // Yaw after pitch, so a tube laid along +Z can then fan out sideways.
+    const mesh = new THREE.Mesh(geometry, material); mesh.position.set(x, y, z); mesh.rotation.set(rx, ry, 0, 'YXZ'); group.add(mesh); return mesh;
+  };
+  const box = (w: number, h: number, d: number, x: number, y: number, z: number, material: THREE.Material = polymer) =>
+    add(new RoundedBoxGeometry(w, h, d, 2, Math.min(.006, w / 5, h / 5, d / 5)), material, x, y, z);
+  const tube = (x: number, y: number, yaw = 0, radius = .021, length = .11) => {
+    const forward = Math.cos(yaw), side = Math.sin(yaw);
+    add(new THREE.CylinderGeometry(radius, radius * 1.06, length, 24), anodised, x + side * length / 2, y, length / 2 * forward, Math.PI / 2, yaw);
+    add(new THREE.CylinderGeometry(radius * .82, radius * .82, .006, 24), tubeGlass, x + side * (length + .002), y, (length + .002) * forward, Math.PI / 2, yaw);
+    add(new THREE.TorusGeometry(radius * .92, .003, 6, 24), polymer, x + side * length, y, length * forward, 0, yaw);
+  };
+  // The helmet shroud and arm every device hangs from; with no device, it is all there is.
+  box(.07, .045, .016, 0, .07, -.03); box(.03, .055, .02, 0, .035, -.02, anodised);
+  if (item.id === 'vision-none') return group;
+  if (item.id === 'nvg-gen1') { box(.05, .04, .05, 0, 0, .0); tube(0, 0, 0, .026, .12); box(.03, .028, .06, .045, .005, .01); }
+  else if (item.id === 'nvg-gen2') { box(.1, .03, .04, 0, .005, 0); tube(-.033, 0); tube(.033, 0); }
+  else if (item.id === 'nvg-gen3') { box(.13, .032, .045, 0, .005, 0); tube(-.022, 0, 0, .017, .1); tube(.022, 0, 0, .017, .1); tube(-.058, -.002, -.32, .016, .09); tube(.058, -.002, .32, .016, .09); box(.035, .03, .05, 0, .01, -.05, anodised); }
+  else if (item.id === 'thermal-t1') { box(.06, .055, .1, 0, -.005, .04); add(new THREE.CylinderGeometry(.024, .024, .008, 24), germanium, 0, -.005, .094, Math.PI / 2); box(.022, .012, .03, .025, .028, .02, anodised); }
+  else { box(.11, .06, .095, 0, -.005, .04); add(new THREE.CylinderGeometry(.026, .026, .008, 24), germanium, -.025, -.005, .09, Math.PI / 2); tube(.03, -.005, 0, .016, .1); box(.05, .014, .03, 0, .03, .0, anodised); }
+  return group;
+}

@@ -362,6 +362,8 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
   if (look.weapon) {
     const spec = WEAPONS[look.weapon], dark = '#1d2326', furniture = look.weapon === 'marksman' ? '#5a5240' : '#2c3330';
     weapon = new THREE.Group(); weapon.name = 'rig-weapon'; chest.add(weapon);
+    // Steel and polymer, not part of the body's heat (fps-vision).
+    weapon.userData.heat = 'none';
     const heavy = look.weapon === 'lmg';
     add(weapon, place(box(heavy ? .075 : .055, heavy ? .1 : .085, spec.length), 0, .045, -.08), dark, true);
     add(weapon, place(box(heavy ? .07 : .06, .06, .2), 0, .035, spec.fore - .02), furniture, true);

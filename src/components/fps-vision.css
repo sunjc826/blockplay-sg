@@ -1,0 +1,11 @@
+/* The worn vision device, under the compass. It stays quiet when off. */
+.fps-vision-chip { position:absolute; top:80px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:7px; padding:4px 9px; border:1px solid #ffffff2e; border-radius:3px; background:#0b120e73; color:#dfe6d6; font:8px monospace; letter-spacing:1.5px; white-space:nowrap; pointer-events:none; text-shadow:0 1px 3px #000; opacity:.62; z-index:1 }
+.fps-vision-chip[data-on] { opacity:1; border-color:#9cff9a66 }
+.fps-vision-chip[data-vision=thermal][data-on] { border-color:#ffb36b66 }
+.fps-vision-chip i { width:6px; height:6px; border-radius:50%; background:#6c7468 }
+.fps-vision-chip[data-on] i { background:#8dff9a; box-shadow:0 0 6px #8dff9a }
+.fps-vision-chip[data-vision=thermal][data-on] i { background:#ffb36b; box-shadow:0 0 6px #ffb36b }
+.fps-vision-chip b { color:#fff; font-weight:600 }
+.fps-vision-chip kbd { font-size:7px; min-width:0; padding:1px 4px; background:transparent; border-color:#ffffff40; color:#dfe6d6 }
+/* On a touchscreen the eye button carries the device's state. */
+.touch-button .touch-badge { position:absolute; left:50%; bottom:-7px; transform:translateX(-50%); padding:1px 3px; border-radius:2px; background:#0b120ee6; color:#e8f0df; font:7px monospace; letter-spacing:.5px; white-space:nowrap; pointer-events:none }

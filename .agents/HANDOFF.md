@@ -2919,3 +2919,42 @@ start card (`FpsPlayerTools`, touch only) and the arena card.
 Validation: full vitest, typecheck; headless Chromium with CDP touch on the
 Marina range: drag off the target damped (0.0289 vs 0.0359 rad), off-target
 and assist-off drags exact. Not tried on a real phone or in a LAN match.
+
+## 2026-10-26: night vision and thermal devices
+
+New armory category `vision` (shop tab "Night vision"), one device worn at a
+time (`profile.vision`, default `vision-none`; restored only if owned; weight
+joins `armorWeightKg`). Five devices after S.T.A.L.K.E.R.'s tiers: NV-1/2+/3
+image-intensifier tubes and TI-1/TI-2 thermal cores. Picture parameters live
+in `vision-devices.ts` (`VISION_DEVICES`, keyed by catalog id), with the state
+machine (warm-up, TI-1's calibration freeze, palettes, the touch button's
+off → on → palettes → off walk) and `visionGain` (≈1 by day, rated gain at
+night or in a blackout). `fps-vision.ts`:
+- NVG multiplies tone-mapping exposure by the gain before any world pass
+  (scope and reflections included), then a post pass reads the finished canvas
+  back (`copyFramebufferToTexture`) and draws phosphor, grain, scintillation,
+  halo (quarter-res bright pass), blur, barrel distortion and the image circle
+  (scaled from the screen's longer side).
+- Thermal swaps every eligible mesh onto a cached unlit temperature
+  ShaderMaterial (rescanned every 0.4 s, restored on switch-off/dispose unless
+  game code replaced the material meanwhile). Heat comes from tags:
+  `impactSurface: 'flesh'` → body, `userData.heat` 'engine' (vehicle models,
+  raid truck), 'target' (range targets), 'none' (figure's `rig-weapon`).
+  `fpsEffect` subtrees keep their materials unless something hot is inside;
+  transparent materials keep theirs unless hot (vehicle glass goes opaque).
+  Sky and fog go cold for the frame. AO is skipped while thermal is on. Post:
+  sensor rows, detail enhancement, level/span, fixed-pattern noise, palettes.
+- Engine: H toggles, J palette, `pressVision` for touch; `hud.vision`;
+  checkpoint carries `vision` across gateways; a click and tube whine.
+UI: `FpsVisionChip` under the compass on desktop; on touch the eye button
+carries the state as a badge. Smoke/gas overlay drops to 30% with thermal on.
+Shop: `VisionDossier` compares against the worn device or the naked eye
+(`visionFigures`), `visionModel` preview, tube-count silhouettes.
+Validation: vitest (new vision-devices.test.ts), typecheck, build. In the
+browser pane (375×812, touch path) Gen 1/Gen 3 at night, Gen 2 at noon,
+TI-2 white-hot at night in the range and expedition (a bot read white against
+the street) and ironbow at noon; shop tab at desktop. Sampled thermal levels
+at night: sky .01, buildings ~.2, ground ~.4. Not seen: the desktop chip in
+mouse play (pointer capture is blocked in the pane), TI-1's freeze, and frame
+cost on a real GPU (the pane ran ~1.5 fps). The pane hides the page during a
+screenshot, which trips the engine's visibility pause; that is the harness.

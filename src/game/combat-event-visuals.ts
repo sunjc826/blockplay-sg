@@ -41,6 +41,7 @@ function buildTruck() {
   const root = new THREE.Group(), olive = new THREE.MeshStandardMaterial({ color: '#4a5236', roughness: .8 }),
     canvas = new THREE.MeshStandardMaterial({ color: '#5d6045', roughness: .95 }), dark = new THREE.MeshStandardMaterial({ color: '#1d2120', roughness: .85 }),
     glass = new THREE.MeshStandardMaterial({ color: '#27424b', roughness: .2, metalness: .4 });
+  root.userData.heat = 'engine';
   const box = (w: number, h: number, d: number, x: number, y: number, z: number, material: THREE.Material) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material); mesh.position.set(x, y, z); root.add(mesh); return mesh;
   };
