@@ -2497,3 +2497,23 @@ typecheck; `pnpm test:fps:field-kit` passes (one earlier run failed the
 dressing-health check while counter-fire kept landing; the rerun passed).
 Not done: frame cost not measured on real hardware; no cascaded shadows for
 distant towers; AO does not reach the weapon viewmodel.
+
+## 2026-10-25: player menu at `/`, developer shell at `/debug`
+
+- `src/App.tsx` is now a path router (`src/lib/routes.ts`, pushState plus
+  popstate). The old shell moved unchanged to `src/DebugApp.tsx` at `/debug`,
+  with a "Game menu" link in its header.
+- `/` is a full-screen menu (`components/GameMenu.tsx`, `game-menu.css`):
+  Training (`/training`, the FPS range with a district picker), Open World
+  (`/world`, the expedition with a start-district picker) and Store (`/store`,
+  the armory). A rank/credits/tokens chip sits top right, Debug link bottom
+  left; arrow keys move through the entries. Last picked districts are kept in
+  `blockplay.menu.training` / `blockplay.menu.world`.
+- `/?room=…` invites redirect to `/debug?room=…`, where the LAN lobby lives.
+- Browser smokes now open `${origin}/debug`; `pwa-smoke` still loads `/`.
+  Cloudflare SPA fallback and the service worker already serve the shell for
+  any extensionless path, so no worker change.
+Validation: `routes.test.ts`, full suite, typecheck, build; checked menu,
+Training, Open World, Store, Debug, back button and `?room=` redirect in the
+browser at desktop and 375 px. Browser smokes not rerun.
+Not done: LAN arena and Street View have no menu entry (debug only).

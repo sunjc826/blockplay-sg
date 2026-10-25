@@ -9,7 +9,7 @@ const chrome = process.env.TOUCH_CHROME_ORIGIN || process.env.FPS_CHROME_ORIGIN 
 // assertions still observe real movement.
 const pace = Math.max(1, Number(process.env.TOUCH_SMOKE_PACE) || 1);
 const output = new URL('../.cache/touch-smoke/', import.meta.url); await fs.mkdir(output, { recursive: true });
-const tab = await (await fetch(`${chrome}/json/new?${encodeURIComponent(origin)}`, { method: 'PUT' })).json();
+const tab = await (await fetch(`${chrome}/json/new?${encodeURIComponent(`${origin}/debug`)}`, { method: 'PUT' })).json();
 const ws = new WebSocket(tab.webSocketDebuggerUrl); await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; });
 let id = 0; const pending = new Map(), errors = []; let mapRequests = 0;
 ws.onmessage = event => {

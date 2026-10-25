@@ -94,7 +94,7 @@ try {
     }
   ` });
   await page.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
-  await page.send('Page.navigate', { url: origin });
+  await page.send('Page.navigate', { url: `${origin}/debug` });
   await mkdir('.cache/browser-checks', { recursive: true });
 
   for (let attempt = 0; attempt < 100; attempt++) {

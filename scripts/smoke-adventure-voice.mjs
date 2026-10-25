@@ -20,7 +20,7 @@ try {
   target = (await browser.send('Target.createTarget', { url: 'about:blank' })).targetId;
   page = await connect((await (await fetch(`${chrome}/json`)).json()).find(t => t.id === target).webSocketDebuggerUrl);
   const evaluate = async expression => { const r = await page.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true, userGesture: true }); if (r.exceptionDetails) throw new Error('Voice browser evaluation failed'); return r.result.value; };
-  await page.send('Page.enable'); await page.send('Page.navigate', { url: origin }); await delay(2300);
+  await page.send('Page.enable'); await page.send('Page.navigate', { url: `${origin}/debug` }); await delay(2300);
   await evaluate(`(async()=>{
     window.__events=[];window.__sent=[];window.__peak=0;window.__approvedPeak=0;window.__audioChunks=[];
     const RealPeer=window.RTCPeerConnection;

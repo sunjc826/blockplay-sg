@@ -260,6 +260,7 @@
 
 /* Install and update affordances for the installed app. */
 .header-actions { display:flex; align-items:center; gap:16px; }
+a.text-button { text-decoration:none; }
 .install-button { display:flex; align-items:center; gap:7px; border:1px solid #cbd6c2; background:transparent; border-radius:5px; padding:7px 11px; font-size:11px; }
 .install-button:hover { background:#eaf0e2; }
 .update-toast { position:fixed; left:20px; bottom:20px; z-index:11; display:flex; align-items:center; gap:14px; background:#1d3327; color:#f2f4e6; border-radius:7px; padding:11px 13px; font-size:11px; box-shadow:0 12px 40px #16271c40; }

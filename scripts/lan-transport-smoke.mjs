@@ -23,7 +23,7 @@ const chrome = spawn(process.env.CHROME_BIN || '/Applications/Google Chrome.app/
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const tabs = [];
 async function page() {
-  const tab = await (await fetch(`http://127.0.0.1:${chromePort}/json/new?${encodeURIComponent(origin)}`, { method: 'PUT' })).json();
+  const tab = await (await fetch(`http://127.0.0.1:${chromePort}/json/new?${encodeURIComponent(`${origin}/debug`)}`, { method: 'PUT' })).json();
   const ws = new WebSocket(tab.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; });
   let id = 0; const pending = new Map();

@@ -12,7 +12,7 @@ const origin = process.env.FPS_APP_ORIGIN || 'http://127.0.0.1:5175';
 const chrome = process.env.FPS_CHROME_ORIGIN || 'http://127.0.0.1:9224';
 const pace = Number(process.env.EFFECTS_SMOKE_PACE || 1);
 const output = new URL('../.cache/fps-effects-smoke/', import.meta.url); await fs.mkdir(output, { recursive: true });
-const tab = await (await fetch(`${chrome}/json/new?${encodeURIComponent(origin)}`, { method: 'PUT' })).json();
+const tab = await (await fetch(`${chrome}/json/new?${encodeURIComponent(`${origin}/debug`)}`, { method: 'PUT' })).json();
 const ws = new WebSocket(tab.webSocketDebuggerUrl); await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; });
 let id = 0; const pending = new Map(), errors = []; let mapRequests = 0;
 ws.onmessage = event => {

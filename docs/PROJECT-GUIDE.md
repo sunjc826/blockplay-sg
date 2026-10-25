@@ -485,7 +485,10 @@ To serve companions and LAN from one origin, route `/api/adventure/*` to the com
 
 ## Code map and persistence
 
-- `src/App.tsx`: region/mode selection and session transitions.
+- `src/App.tsx`: path router (`src/lib/routes.ts`). `/` is the player menu
+  (`components/GameMenu.tsx`) with `/training`, `/world` and `/store`; `/debug`
+  is `src/DebugApp.tsx`, the original all-modes shell (region/mode selection,
+  Street View, LAN lobby). Old `/?room=` invites redirect to `/debug?room=`.
 - `src/components/*Game.tsx`: game views and HUDs; `SingaporeMap.tsx`: island locator.
 - `src/game/*-scene.ts` and `*-collision.ts`: authored worlds and deterministic collisions.
 - `src/game/fps-engine.ts`: shared FPS rendering/input; `arena-*.ts`: bots and match rules.

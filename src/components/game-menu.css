@@ -1,0 +1,78 @@
+/* The player-facing shell: a full-screen main menu and one screen per mode.
+   The debug shell keeps the light editorial layout in styles.css. */
+.game-menu, .game-screen {
+  --menu-bg:#111d17; --menu-ink:#eef3e3; --menu-dim:#9fb19c; --menu-line:#ffffff1c;
+  --menu-accent:#ee794b; --menu-gold:#e0bb72;
+  min-height:100dvh; color:var(--menu-ink); background:var(--menu-bg);
+}
+
+/* Profile chip, shared by the menu and every screen bar. */
+.game-profile { display:flex; align-items:center; gap:14px; padding:7px 14px 7px 8px; border:1px solid var(--menu-line); border-radius:8px; background:#ffffff08; white-space:nowrap; }
+.game-rank { display:grid; place-items:center; }
+.game-rank-copy strong { display:block; font-size:12px; font-weight:600; }
+.game-rank-copy small { display:block; font:9px/1.6 ui-monospace,'SFMono-Regular',monospace; color:var(--menu-dim); letter-spacing:.5px; }
+.game-wallet { display:flex; align-items:center; gap:5px; color:var(--menu-gold); }
+.game-wallet b { color:var(--menu-ink); font:600 13px 'Manrope',sans-serif; font-variant-numeric:tabular-nums; }
+.game-wallet small { font:8px monospace; color:var(--menu-dim); }
+
+/* Main menu */
+.game-menu { position:relative; overflow:hidden; display:flex; flex-direction:column; padding:0 clamp(16px,5vw,64px);
+  background:radial-gradient(ellipse at 78% 110%,#ee794b2e,transparent 55%),linear-gradient(180deg,#0d1712 0%,#152a20 100%); }
+.game-menu-skyline { position:absolute; left:0; right:0; bottom:0; height:46%; display:flex; align-items:flex-end; gap:.5%; padding:0 2%; opacity:.55; pointer-events:none; }
+.game-menu-skyline i { display:block; height:var(--h); width:var(--w); flex-shrink:0; transform:skewY(-6deg); transform-origin:bottom;
+  background:repeating-linear-gradient(0deg,transparent 0 9px,#ffffff0d 9px 11px),linear-gradient(180deg,#24402f,#16291f); }
+.game-menu-skyline i.lit { background:repeating-linear-gradient(0deg,transparent 0 9px,#e0bb7238 9px 11px),linear-gradient(180deg,#2c4a36,#16291f); }
+.game-menu-top, .game-menu-main, .game-menu-foot { position:relative; z-index:1; }
+.game-menu-top { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px; padding:24px 0; }
+.game-brand { color:var(--menu-ink); }
+.game-brand .brand-mark span { background:var(--menu-ink); }
+.game-brand .brand-mark span:nth-child(3) { background:var(--menu-accent); }
+.game-menu-main { flex:1; display:flex; flex-direction:column; justify-content:center; gap:36px; padding:24px 0 56px; max-width:620px; }
+.game-menu-title > span { font:10px ui-monospace,'SFMono-Regular',monospace; letter-spacing:2px; color:var(--menu-dim); }
+.game-menu-title h1 { font-family:'Manrope',sans-serif; font-size:clamp(34px,5.4vw,64px); line-height:1.05; letter-spacing:-2.5px; font-weight:700; margin:12px 0 0; }
+.game-menu-title em { font-style:normal; color:var(--menu-accent); }
+.game-menu-list { display:flex; flex-direction:column; gap:10px; }
+.game-menu-item { position:relative; display:flex; align-items:center; gap:18px; padding:18px 22px; border:1px solid var(--menu-line); border-radius:10px; background:#0d1813b3; backdrop-filter:blur(6px); text-decoration:none; color:var(--menu-ink); transition:background .16s,border-color .16s,transform .16s; }
+.game-menu-item svg { color:var(--menu-gold); flex-shrink:0; }
+.game-menu-item:hover, .game-menu-item:focus-visible { background:#1f3a2c; border-color:#e0bb7266; transform:translateX(6px); outline:none; }
+.game-menu-item:focus-visible::before, .game-menu-item:hover::before { content:''; position:absolute; left:-1px; top:12px; bottom:12px; width:3px; border-radius:2px; background:var(--menu-accent); }
+.game-menu-index { font:10px monospace; color:var(--menu-dim); letter-spacing:1px; }
+.game-menu-copy strong { display:block; font:700 22px/1.2 'Manrope',sans-serif; letter-spacing:-.6px; }
+.game-menu-copy small { display:block; margin-top:4px; font-size:12px; color:var(--menu-dim); }
+.game-menu-foot { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 0 22px; border-top:1px solid var(--menu-line); font-size:10px; color:var(--menu-dim); }
+.game-debug-link { display:flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--menu-line); border-radius:5px; color:var(--menu-dim); text-decoration:none; font:10px ui-monospace,'SFMono-Regular',monospace; letter-spacing:1px; text-transform:uppercase; }
+.game-debug-link:hover { color:var(--menu-ink); border-color:#ffffff40; }
+.game-menu-hint kbd { border-color:#ffffff30; background:#ffffff0a; color:var(--menu-ink); margin-right:3px; }
+.game-menu-edition { display:flex; align-items:center; gap:14px; letter-spacing:1px; font-size:9px; }
+.game-install { display:flex; align-items:center; gap:6px; border:1px solid var(--menu-line); background:transparent; color:var(--menu-ink); border-radius:5px; padding:6px 10px; font-size:10px; }
+
+/* Mode screens: a slim bar over the game, which fills what is left. */
+.game-screen { display:flex; flex-direction:column; }
+.game-screen-bar { display:flex; align-items:center; gap:18px; padding:10px clamp(12px,2vw,24px); border-bottom:1px solid var(--menu-line); background:#0d1712; }
+.game-screen-bar h1 { font:700 18px 'Manrope',sans-serif; letter-spacing:-.4px; margin:0; }
+.game-screen-bar .game-profile { margin-left:auto; padding:4px 12px 4px 6px; }
+.game-back { display:flex; align-items:center; gap:6px; padding:7px 11px; border:1px solid var(--menu-line); border-radius:6px; color:var(--menu-ink); text-decoration:none; font-size:11px; }
+.game-back:hover { background:#ffffff10; }
+.game-district { display:flex; align-items:center; gap:8px; font:9px ui-monospace,'SFMono-Regular',monospace; letter-spacing:1px; color:var(--menu-dim); }
+.game-district select { font:inherit; font-size:12px; letter-spacing:0; color:var(--menu-ink); background:#ffffff0d; border:1px solid var(--menu-line); border-radius:5px; padding:6px 8px; }
+.game-district select option { color:#23362d; }
+.game-zone { font:9px ui-monospace,'SFMono-Regular',monospace; letter-spacing:1px; color:var(--menu-dim); }
+.game-zone b { color:var(--menu-ink); font-weight:600; margin-left:4px; }
+/* The range and expedition were drawn for a light card; give them one. */
+.game-screen-body { flex:1; display:flex; flex-direction:column; min-height:0; padding:clamp(8px,1.2vw,16px); background:#f7f7f0; color:#23362d; }
+.game-screen-store .game-screen-body { background:#0b1211; }
+.game-screen-body > .fps-game { flex:1; display:flex; flex-direction:column; min-height:0; }
+.game-screen-body > .fps-game:not(.is-immersive) > .fps-viewport { flex:1 1 0; height:auto; min-height:max(420px,68dvh); border-radius:8px; }
+
+@media(max-width:720px) {
+  .game-profile .game-rank-copy, .game-menu-hint { display:none; }
+  .game-profile { gap:10px; padding:5px 10px 5px 6px; }
+  .game-brand { font-size:22px; }
+  .game-brand .brand-mark { width:24px; height:24px; margin-right:7px; }
+  .game-menu-item { padding:15px 16px; gap:14px; }
+  .game-menu-copy strong { font-size:19px; }
+  .game-screen-bar { flex-wrap:wrap; gap:10px; }
+  .game-screen-bar h1 { font-size:15px; }
+  .game-zone { display:none; }
+  .game-screen-body > .fps-game:not(.is-immersive) > .fps-viewport { min-height:max(300px,55dvh); }
+}

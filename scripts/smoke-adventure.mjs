@@ -25,7 +25,7 @@ try {
   };
   const errors = []; page.listeners.push(e => { if (e.method === 'Runtime.exceptionThrown') errors.push(e.params.exceptionDetails.text); });
   await page.send('Page.enable'); await page.send('Runtime.enable');
-  await page.send('Page.navigate', { url: origin }); await sleep(2500);
+  await page.send('Page.navigate', { url: `${origin}/debug` }); await sleep(2500);
   await evaluate(`window.__realFetch = window.fetch.bind(window); window.__requests = []; window.__pending = [];
     window.__mock = () => { window.fetch = async (url, options) => {
       if (url === '/api/adventure/voice-session') return new Response(JSON.stringify({ session: { id: 'mock' }, transport: { sdp: 'mock' } }));
