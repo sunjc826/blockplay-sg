@@ -1,5 +1,5 @@
 import EnvironmentControls from './EnvironmentControls';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Compass, Maximize, Minimize, Pause, Play } from 'lucide-react';
 import { createFpsEngine, initialFpsHud, type FpsCheckpoint, type FpsEngine } from '../game/fps-engine';
 import { resolveLoadout, type ArmoryProfile, type VendorPurchaseResult } from '../game/armory-state';
@@ -26,7 +26,7 @@ import { getArenaFaction, PLAYER_FACTION, SQUAD_FACTIONS } from '../game/arena-f
 
 interface ExpeditionScene { zone: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: FpsCheckpoint; revision: number }
 
-export default function ExpeditionGame({ profile, onExit, onVendorPurchase, onConsume, suspended = false, initialZone = 'marina-bay', destination, onZoneChange }: { profile: ArmoryProfile; onExit: () => void; onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult; onConsume: (catalogId: string) => void; suspended?: boolean; initialZone?: WorldZoneId; destination?: WorldZoneId; onZoneChange?: (zone: WorldZoneId) => void }) {
+export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase, onConsume, suspended = false, initialZone = 'marina-bay', destination, onZoneChange }: { profile: ArmoryProfile; nav?: ReactNode; onExit: () => void; onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult; onConsume: (catalogId: string) => void; suspended?: boolean; initialZone?: WorldZoneId; destination?: WorldZoneId; onZoneChange?: (zone: WorldZoneId) => void }) {
   const [fieldProfile, setFieldProfile] = useState<ArmoryProfile>(() => structuredClone(profile));
   const fieldProfileRef = useRef(fieldProfile);
   const [loot] = useState(() => createExpeditionLoot(`${Date.now()}-${Math.random()}`));
@@ -113,6 +113,7 @@ export default function ExpeditionGame({ profile, onExit, onVendorPurchase, onCo
         <div className="expedition-route-hud">{nextCheckpoint && <strong>ROUTE TO {getWorldZone(destination!).name.toUpperCase()}</strong>}{(nextCheckpoint ? [nextCheckpoint] : gateways).map(gateway => <span key={gateway.id}>{getWorldZone(gateway.to).name} <b>{distance(gateway.position)}m</b></span>)}</div>
       </>}
       {!playing && <div className="fps-overlay"><div className="fps-start-card">
+        {nav}
         <span className="eyebrow">SOLO EXPEDITION / {zone.risk.toUpperCase()} THREAT</span>
         <h2>{hud.phase === 'loading' ? `Entering ${zone.name}.` : hud.phase === 'error' ? 'District unavailable.' : hud.phase === 'paused' ? 'Operator menu.' : `Welcome to ${zone.name}.`}</h2>
         <p>{hud.phase === 'loading' ? 'Preparing the district, its patrols and supplies.' : hud.phase === 'error' ? hud.message : hud.phase === 'paused' ? 'Your controls are paused. Patrols remain active while the menu is open.' : `${zone.description} Search supply crates, equip weapons and cross marked checkpoints on foot.`}</p>
@@ -124,8 +125,8 @@ export default function ExpeditionGame({ profile, onExit, onVendorPurchase, onCo
           <FpsRadioVoice hud={hud} engine={engine.current} />
           <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
         </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} onFullscreen={() => { void fullscreen.toggle(); }} />}
-        <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => hud.phase === 'error' ? setScene(current => ({ ...current, revision: current.revision + 1 })) : engine.current?.start()}><Play size={16} />{hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry district' : hud.phase === 'paused' ? 'Resume expedition' : 'Enter district'}<ArrowRight size={17} /></button>
-        <button className="fps-shop-link" onClick={onExit}>{debug ? 'Leave expedition →' : 'Leave to menu →'}</button>
+        <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') { setScene(current => ({ ...current, revision: current.revision + 1 })); return; } if (touch) fullscreen.enter(); engine.current?.start(); }}><Play size={16} />{hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry district' : hud.phase === 'paused' ? 'Resume expedition' : 'Enter district'}<ArrowRight size={17} /></button>
+        {!nav && <button className="fps-shop-link" onClick={onExit}>{debug ? 'Leave expedition →' : 'Leave to menu →'}</button>}
         <FpsControlGuide debug={debug}><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>E</kbd> Take supplies</span><span><kbd>G</kbd> Use supply</span><span><kbd>M</kbd> Map</span><span><kbd>N</kbd> Interact nearby</span><span><kbd>T</kbd> Travel</span><span><kbd>F</kbd> Fullscreen</span></FpsControlGuide>
         {debug && <small className="fps-touch-note">{touch ? 'Thumb controls appear once you enter the district. ' : ''}Field equipment lasts for this expedition. Your permanent Armory stays saved.</small>}
       </div></div>}

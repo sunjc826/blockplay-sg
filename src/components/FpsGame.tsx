@@ -1,5 +1,5 @@
 import EnvironmentControls from './EnvironmentControls';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Maximize, Minimize, Pause, Play, RotateCcw, Users, Volume2, VolumeX } from 'lucide-react';
 import { createFpsEngine, initialFpsHud, type FpsEngine } from '../game/fps-engine';
 import { getFpsDistrict } from '../game/fps-districts';
@@ -33,7 +33,7 @@ function Scoreboard({ snapshot, selfId }: { snapshot: ArenaSnapshot; selfId: str
   return <div className="arena-scoreboard"><table><caption>MATCH STANDINGS <span>{listArenaFactions().map(faction => [faction, actors.filter(actor => factionIdOf(actor) === faction.id).length] as const).filter(([, n]) => n).map(([faction, n]) => `${n} ${faction.short}`).join(' · ')}</span></caption><thead><tr><th scope="col">OPERATOR</th><th scope="col">ROLE</th><th scope="col">K</th><th scope="col">D</th></tr></thead><tbody>{actors.map((actor, index) => <tr key={actor.id} className={actor.id === selfId ? 'is-self' : ''}><td><span className="arena-place">{index + 1}</span>{actor.name}{actor.id === selfId && <small>YOU</small>}{actor.bot && <small>BOT</small>}</td><td>{actor.role === 'player' ? 'Operator' : actor.role}</td><td>{actor.kills}</td><td>{actor.deaths}</td></tr>)}</tbody></table></div>;
 }
 
-export default function FpsGame({ region = 'marina-bay', suspended = false, profile, onReward, onElimination, onConsume, onOpenShop, arena, onLeaveArena }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; onReward: (result: ExerciseReward) => void; onElimination: (id: string) => void; onConsume: (id: string) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
+export default function FpsGame({ region = 'marina-bay', suspended = false, profile, nav, onReward, onElimination, onConsume, onOpenShop, arena, onLeaveArena }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; nav?: ReactNode; onReward: (result: ExerciseReward) => void; onElimination: (id: string) => void; onConsume: (id: string) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
   const district = getFpsDistrict(region), zone = getWorldZone(region);
   const rank = progression(profile.xp);
   const insignia = rankInsignia(rank.level, profile.rankSet);
@@ -126,6 +126,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         <small className="fps-touch-note">Shared vehicles · Your equipped Armory loadout · No account required</small>
       </div></div>}
       {!playing && !isArena && <div className="fps-overlay"><div className="fps-start-card">
+        {nav}
         <span className="eyebrow">{hud.phase === 'defeated' ? 'EXERCISE ENDED' : hud.phase === 'complete' ? 'RANGE CLEAR' : hud.phase === 'paused' ? 'TAKE A BREATHER' : 'SINGAPORE / FIELD EXERCISE 01'}</span>
         <h2>{hud.phase === 'loading' ? 'Preparing the range.' : hud.phase === 'error' ? 'Range unavailable.' : hud.phase === 'defeated' ? 'Regroup. Re-equip.' : hud.phase === 'complete' ? 'Eight for eight.' : hud.phase === 'paused' ? 'Exercise paused.' : 'Fall in. Take aim.'}</h2>
         <p>{hud.phase === 'loading' ? `Loading your equipment and ${zone.name}.` : hud.phase === 'error' ? hud.message : hud.phase === 'defeated' ? 'Your health reached zero. Move during the incoming warning or break line of sight. Armor absorbs a share of each hit until depleted.' : hud.phase === 'complete' ? `${hud.elapsed.toFixed(1)} seconds · ${hud.shots} shots · ${accuracy}% accuracy` : 'Clear eight targets, each with 100–115 health. Your equipped gear applies here. Press E near Utility 01 or Falcon 01 to drive or fly between targets.'}</p>
@@ -139,7 +140,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} onFullscreen={() => { void fullscreen.toggle(); }} />}
         {hud.phase !== 'loading' && hud.phase !== 'error' && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP<br />{combat ? 'Targets return simulated fire. Move when warned to dodge.' : 'Practice mode: targets do not return fire.'}</p>}
         {hud.phase === 'complete' && <div className="fps-reward">+{hud.earned} CR · +{hud.earnedXp} XP earned{rank.level > startingLevel.current && <strong className="fps-level-up">{insignia.promoted ? 'PROMOTED' : 'LEVEL UP'} · LV {rank.level} {insignia.label.toUpperCase()}</strong>}{hud.callout && <span className="fps-final-callout">{hud.callout}</span>}</div>}
-        <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') setEpoch(n => n + 1); else if (hud.phase === 'complete' || hud.phase === 'defeated') resetExercise(); else engine.current?.start(); }}>
+        <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') setEpoch(n => n + 1); else if (hud.phase === 'complete' || hud.phase === 'defeated') resetExercise(); else { if (touch) fullscreen.enter(); engine.current?.start(); } }}>
           {hud.phase === 'complete' || hud.phase === 'defeated' || hud.phase === 'error' ? <RotateCcw size={16} /> : <Play size={16} />} {hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry' : hud.phase === 'complete' || hud.phase === 'defeated' ? 'Reset exercise' : hud.phase === 'paused' ? 'Resume exercise' : 'Enter range'} <ArrowRight size={17} />
         </button>
         <button className="fps-shop-link" onClick={onOpenShop}>Open armory · change equipment →</button>

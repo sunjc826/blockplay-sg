@@ -2882,3 +2882,21 @@ Validation: full vitest, typecheck, build; Marina, Chinatown and Orchard
 checked at dusk and night in the browser pane (no console errors). Other
 districts covered only by the unit test (every district gets >8 lamps, all
 on free ground, and some windowed meshes). Frame cost not measured on a GPU.
+
+## 2026-10-26: play screens are the game alone
+
+`/training` and `/world` no longer have the header bar (back link, district
+select, profile chip). `GameMenu` builds a `PlayNav` (Menu link + district
+select) and hands it to `FpsGame`/`ExpeditionGame` as `nav`; both render it at
+the top of their start/pause card, and the expedition's "Leave to menu" link
+is dropped when `nav` is set. The world select shows the current zone; picking
+one restarts the expedition there (`worldRun` in the key, so re-picking the
+starting district also restarts). `.game-screen-play` is 100dvh, edge to edge
+with safe-area padding, on every screen size; `/store` keeps its bar.
+On touch: Enter/Resume asks for browser fullscreen via
+`useFpsFullscreen().enter` (silent when refused, e.g. iPhone Safari), and the
+card's Controls fold, `kbd` hints and the ammo panel's `.fps-ammo-detail` lines
+(key hint, carried weight) are hidden. Validation: vitest, typecheck; both
+screens checked at 375×812 and desktop in the browser pane (district switch,
+touch play, pause card). Real-device fullscreen not tried (the pane's scripted
+clicks are not user gestures).

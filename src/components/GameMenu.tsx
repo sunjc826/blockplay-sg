@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { ArrowLeft, Coins, Crosshair, Download, Gem, Map as MapIcon, RefreshCw, ShoppingBag, Wrench } from 'lucide-react';
+import { ArrowLeft, Coins, Crosshair, Download, Gem, Map as MapIcon, MapPin, RefreshCw, ShoppingBag, Wrench } from 'lucide-react';
 import FpsGame from './FpsGame';
 import ExpeditionGame from './ExpeditionGame';
 import ArmoryShop from './ArmoryShop';
@@ -41,12 +41,19 @@ function link(route: Route) {
   return { href: ROUTE_PATHS[route], onClick: (event: React.MouseEvent) => { if (event.metaKey || event.ctrlKey || event.shiftKey) return; event.preventDefault(); navigate(route); } };
 }
 
-function DistrictPicker({ label, value, options, onChange }: { label: string; value: WorldZoneId; options: readonly { id: WorldZoneId; name: string }[]; onChange: (id: WorldZoneId) => void }) {
-  return <label className="game-district"><span>{label}</span>
-    <select value={value} onChange={event => onChange(event.target.value as WorldZoneId)}>
-      {options.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
-    </select>
-  </label>;
+/**
+ * The way out and the district choice for a play screen. It sits at the top of
+ * the game's own start and pause card, so the game can have the whole screen.
+ */
+function PlayNav({ value, options, onChange }: { value: WorldZoneId; options: readonly { id: WorldZoneId; name: string }[]; onChange: (id: WorldZoneId) => void }) {
+  return <nav className="play-nav" aria-label="Game">
+    <a className="play-nav-back" {...link('menu')}><ArrowLeft size={16} /><span>Menu</span></a>
+    <label className="play-nav-district"><MapPin size={14} aria-hidden="true" />
+      <select aria-label="District" value={value} onChange={event => onChange(event.target.value as WorldZoneId)}>
+        {options.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+      </select>
+    </label>
+  </nav>;
 }
 
 export default function GameMenu({ screen }: { screen: Screen }) {
@@ -55,6 +62,8 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   const [training, setTraining] = useDistrict('blockplay.menu.training', TRAINING_DISTRICTS.map(place => place.id));
   const [worldStart, setWorldStart] = useDistrict('blockplay.menu.world', locations.map(place => place.id));
   const [worldZone, setWorldZone] = useState<WorldZoneId>(worldStart);
+  // Picking a district restarts the expedition there, even the one it began in.
+  const [worldRun, setWorldRun] = useState(0);
   const level = progression(armory.profile.xp), insignia = rankInsignia(level.level, armory.profile.rankSet);
 
   const profile = <div className="game-profile" aria-label="Your profile">
@@ -66,20 +75,28 @@ export default function GameMenu({ screen }: { screen: Screen }) {
 
   const updateToast = install.updateReady && <div className="update-toast" role="status"><span>A new version is ready.</span><button onClick={() => { pwa.applyUpdate(); }}><RefreshCw size={12} /> Reload</button></div>;
 
-  if (screen !== 'menu') {
-    const title = ENTRIES.find(entry => entry.route === screen)!.title;
-    return <div className={`game-screen game-screen-${screen}`}>
+  if (screen === 'training' || screen === 'world') {
+    const nav = screen === 'training'
+      ? <PlayNav value={training} onChange={setTraining} options={TRAINING_DISTRICTS} />
+      : <PlayNav value={worldZone} onChange={id => { setWorldStart(id); setWorldZone(id); setWorldRun(n => n + 1); }} options={locations} />;
+    return <div className={`game-screen game-screen-play game-screen-${screen}`}>
+      <main className="game-screen-body"><DebugMode.Provider value={false}>
+        {screen === 'training' && <FpsGame key={`training-${training}`} region={training} profile={armory.profile} nav={nav} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={() => navigate('store')} />}
+        {screen === 'world' && <ExpeditionGame key={`world-${worldStart}-${worldRun}`} initialZone={worldStart} onZoneChange={setWorldZone} nav={nav} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onExit={() => navigate('menu')} />}
+      </DebugMode.Provider></main>
+      {updateToast}
+    </div>;
+  }
+
+  if (screen === 'store') {
+    return <div className="game-screen game-screen-store">
       <header className="game-screen-bar">
         <a className="game-back" {...link('menu')}><ArrowLeft size={16} /><span>Menu</span></a>
-        <h1>{title}</h1>
-        {screen === 'training' && <DistrictPicker label="RANGE" value={training} onChange={setTraining} options={TRAINING_DISTRICTS.map(place => ({ id: place.id, name: getFpsDistrict(place.id).label }))} />}
-        {screen === 'world' && <><DistrictPicker label="START IN" value={worldStart} onChange={id => { setWorldStart(id); setWorldZone(id); }} options={locations} /><span className="game-zone">NOW IN <b>{locations.find(place => place.id === worldZone)?.name}</b></span></>}
+        <h1>Store</h1>
         {profile}
       </header>
       <main className="game-screen-body"><DebugMode.Provider value={false}>
-        {screen === 'training' && <FpsGame key={`training-${training}`} region={training} profile={armory.profile} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={() => navigate('store')} />}
-        {screen === 'world' && <ExpeditionGame key={`world-${worldStart}`} initialZone={worldStart} onZoneChange={setWorldZone} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onExit={() => navigate('menu')} />}
-        {screen === 'store' && <ArmoryShop store={armory} rangeLabel={getFpsDistrict(training).label} onEnterRange={() => navigate('training')} />}
+        <ArmoryShop store={armory} rangeLabel={getFpsDistrict(training).label} onEnterRange={() => navigate('training')} />
       </DebugMode.Provider></main>
       {updateToast}
     </div>;

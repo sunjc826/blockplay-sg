@@ -20,7 +20,7 @@ export default function FpsWeaponHud({ hud, weapon, canFight }: { hud: FpsHud; w
     : resume ? `${hud.magazineOut ? 'NO MAGAZINE · ' : ''}R RESUME RELOAD · ${resume}%`
     : hud.magazine === 0 ? 'EMPTY · PRESS R'
     : !hud.roundReady ? (hud.magazineOut ? 'NO MAGAZINE · PRESS R' : 'CHAMBER EMPTY · PRESS R')
-    : 'R RELOAD · Q TOGGLE AIM · RMB HOLD';
+    : null;
   return <div className="fps-weapon-hud" data-sight={magnified ? 'scope' : 'reflex'} data-aiming={hud.aiming} data-reloading={reloading}
     style={{ '--fps-aim': hud.aimProgress, '--fps-spread': `${hud.crosshairSpread}px` } as CSSProperties}>
     {canFight && hud.aimProgress > .02 && <div className="fps-scope fps-sight-vignette" aria-hidden="true" />}
@@ -33,8 +33,8 @@ export default function FpsWeaponHud({ hud, weapon, canFight }: { hud: FpsHud; w
     <div className={`fps-ammo ${!hud.roundReady && !reloading ? 'is-empty' : ''}`}>
       <span>{weapon.name} <small>{hud.aiming ? 'ADS' : weapon.fireMode === 'semi' ? 'SEMI' : 'AUTO'}</small></span>
       <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}{hud.chambered && <em className="fps-chamber" aria-label="one in the chamber">+1</em>}<small>/ {hud.reserve}</small></strong>
-      <p>{prompt}</p>
-      <p>{hud.carriedKg.toFixed(1)} KG CARRIED · {Math.round(hud.movementScale * 100)}% MOVEMENT</p>
+      {prompt ? <p>{prompt}</p> : <p className="fps-ammo-detail">R RELOAD · Q TOGGLE AIM · RMB HOLD</p>}
+      <p className="fps-ammo-detail">{hud.carriedKg.toFixed(1)} KG CARRIED · {Math.round(hud.movementScale * 100)}% MOVEMENT</p>
       {weapon.requiresMount && <p>{hud.braced ? 'PRONE MOUNT DEPLOYED · Z / STAND TO MOVE' : 'Z / PRONE: SAFE · STAND 20 / CROUCH 10 BEFORE ARMOR'}</p>}
       {reloading
         ? <div className="fps-reload-track" role="progressbar" aria-label="Reload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((1 - hud.reloading) * 100)}><i style={{ width: `${(1 - hud.reloading) * 100}%` }} /></div>

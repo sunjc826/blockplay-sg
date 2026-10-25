@@ -20,6 +20,13 @@ export function useFpsFullscreen(stage: RefObject<HTMLDivElement | null>, onPaus
     } catch { if (stage.current) setNotice('Expanded view · Browser fullscreen unavailable'); }
     finally { pending.current = false; }
   }, [change, stage]);
+  // Taking a phone into play: browser fullscreen when the browser offers it,
+  // and nothing at all when it does not (the screen already fills the page).
+  const enter = useCallback(() => {
+    const node = stage.current;
+    if (!node?.requestFullscreen || active.current || pending.current || document.fullscreenElement) return;
+    node.requestFullscreen().catch(() => { /* iPhone Safari, embedded views */ });
+  }, [stage]);
   useEffect(() => {
     const fullscreen = () => {
       if (document.fullscreenElement === stage.current) { native.current = true; change(true); setNotice(''); }
@@ -36,5 +43,5 @@ export function useFpsFullscreen(stage: RefObject<HTMLDivElement | null>, onPaus
     const before = document.body.style.overflow; document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = before; };
   }, [immersive]);
-  return { immersive, notice, toggle };
+  return { immersive, notice, toggle, enter };
 }
