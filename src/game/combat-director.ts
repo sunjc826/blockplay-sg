@@ -41,6 +41,15 @@ export const COMBAT_TABLES: Readonly<Record<CombatRisk, readonly CombatDirectorE
 export const DEFAULT_COMBAT_TABLE: readonly CombatDirectorEntry[] = [{ kind: 'artillery', weight: 1, cooldown: 45 }];
 /** Targets land this far from the human they are chosen around. */
 export const COMBAT_TARGET_RANGE = [25, 80] as const;
+/**
+ * Share of events aimed at the world (a hotspot, else a patrol route) rather
+ * than at a player, by risk. Quiet districts mostly go on around you; the
+ * dangerous ones come looking more often. Only used when the view offers heat
+ * or places.
+ */
+export const COMBAT_WORLD_SHARE: Readonly<Record<CombatRisk, number>> = { low: .7, medium: .6, high: .5 };
+/** A world event lands this close to the hotspot or place it was aimed at. */
+export const COMBAT_WORLD_SPREAD = 15;
 /** Events that hunt a player are centred this far from them, so the first pass is not straight overhead. */
 export const COMBAT_PLAYER_OFFSET = [6, 16] as const;
 /** No damaging round may be aimed closer than this to a human when the event is scheduled. */
@@ -57,6 +66,10 @@ export interface CombatDirectorView {
   humans: readonly CombatPlane[];
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
   avoid?: readonly CombatPlane[];
+  /** Where fighting has been, weighted by how much and how lately: world events gravitate to it. */
+  heat?: readonly (CombatPlane & { weight: number })[];
+  /** Places worth an event when nothing is hot, such as the district's patrol routes. */
+  places?: readonly CombatPlane[];
 }
 export type CombatDirective = Pick<CombatEventDescriptor, 'kind' | 'seed' | 'target' | 'heading' | 'intensity'>;
 
@@ -69,15 +82,19 @@ export function createCombatDirector(options: { risk: CombatRisk; seed: number; 
 
   function aim(kind: string, view: CombatDirectorView): CombatDirective | null {
     const margin = 8, { bounds } = view, targeting = getCombatEvent(kind)?.targeting;
-    const hunts = targeting?.policy === 'player', range = hunts ? COMBAT_PLAYER_OFFSET : targeting?.range ?? COMBAT_TARGET_RANGE;
+    const hunts = targeting?.policy === 'player';
     for (let attempt = 0; attempt < 12; attempt++) {
-      const around = view.humans[Math.floor(random() * view.humans.length)];
+      // Most events go where the world is busy, not where a player is; fairness rules apply either way.
+      const anchor = view.heat?.length || view.places?.length ? random() < COMBAT_WORLD_SHARE[options.risk] ? worldPoint(view) : null : null;
+      const around = anchor ?? view.humans[Math.floor(random() * view.humans.length)];
+      const range = anchor ? [0, COMBAT_WORLD_SPREAD] as const : hunts ? COMBAT_PLAYER_OFFSET : targeting?.range ?? COMBAT_TARGET_RANGE;
       const bearing = random() * Math.PI * 2, reach = between(range);
       const target = { x: around.x + Math.cos(bearing) * reach, z: around.z + Math.sin(bearing) * reach };
       if (target.x < bounds.minX + margin || target.x > bounds.maxX - margin || target.z < bounds.minZ + margin || target.z > bounds.maxZ - margin) continue;
       const directive: CombatDirective = { kind, seed: Math.floor(random() * 0xffffffff) >>> 0, target, heading: random() * Math.PI * 2, intensity: pace.intensity };
       // A hunter's warning is its approach; what it fires is aimed live, so there is nothing to bracket.
       if (hunts) return directive;
+      if (anchor && view.humans.some(h => Math.hypot(h.x - target.x, h.z - target.z) < COMBAT_BRACKET)) continue;
       if (view.avoid?.some(p => Math.hypot(p.x - target.x, p.z - target.z) < COMBAT_SPAWN_CLEAR)) continue;
       // Check the actual rounds and clouds, not just the aim point: dispersion reaches well past it.
       const probe = { ...directive, id: 'probe', start: view.now };
@@ -87,6 +104,17 @@ export function createCombatDirector(options: { risk: CombatRisk; seed: number; 
       if (!close) return directive;
     }
     return null;
+  }
+
+  /** A hotspot drawn by weight, or with none, a place drawn evenly. */
+  function worldPoint(view: CombatDirectorView): CombatPlane | null {
+    const hot = view.heat?.filter(cell => cell.weight > 0) ?? [];
+    if (hot.length) {
+      let roll = random() * hot.reduce((sum, cell) => sum + cell.weight, 0);
+      for (const cell of hot) { roll -= cell.weight; if (roll <= 0) return cell; }
+      return hot[hot.length - 1];
+    }
+    return view.places?.length ? view.places[Math.floor(random() * view.places.length)] : null;
   }
 
   return {

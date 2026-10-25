@@ -2454,6 +2454,27 @@ event once (see docs/COMBAT-EVENTS.md).
 Not done: raid fast-rope inserts and bounties, a World conditions setting,
 voiced radio lines, per-district tables, LAN.
 
+## 2026-10-25: combat events that do not revolve around the player
+
+- Director (`combat-director.ts`): with `heat` and `places` in its view,
+  `COMBAT_WORLD_SHARE` (low .7, medium .6, high .5) of events land within 15 m
+  of a weighted hotspot or a patrol spawn instead of round a player; the 10 m
+  rule against damaging rounds near players still holds.
+- Host (`arena-rules.ts`): `warm` heats a 16 m grid on shots (1), blasts (3)
+  and kills (4), cooling over `HEAT_DECAY`. Bots fight everyone except
+  crew-mates (event crews no longer side with patrols); a perched sniper
+  (`anchor.y`) is only a target for a bot with a `grudge` against it (8 s from
+  its last hit), so patrols do not stare at rooftops. Raiders spot and fuse on
+  any actor. `lureFor` sends idle patrols to crates, then fresh wrecks
+  (`interests`, 45 s). Sniper perches slide to the parapet, check flatness
+  behind and beside, and stay within `OVERWATCH.reach` (110 m).
+- Engine: events over 130 m away are comms news and a notice banner, without
+  alert tones; a sniper that glinted or fired shows on the map; drops from
+  perched bodies land at their `ground`.
+Validation: new tests for world aiming, a drone diving on a patrol, a roof
+perch killable from the street, and patrols ignoring a sniper until shot;
+full suite and typecheck. Not directly tested: patrols walking to wrecks.
+
 ## 2026-10-25: sky light and ambient occlusion
 
 - Sky light (`world-sky-light.ts`): given the renderer, `createWorldAtmosphere`

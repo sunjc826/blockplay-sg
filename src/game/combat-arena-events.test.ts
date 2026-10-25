@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createArena, type ArenaActor, type ArenaEnvironment, type ArenaRaider, type ArenaSimulation } from './arena-rules';
+import { arenaWallDistance, createArena, type ArenaActor, type ArenaCoverDistance, type ArenaEnvironment, type ArenaRaider, type ArenaSimulation } from './arena-rules';
 import { validArenaSnapshot } from './arena-runtime';
 import { DRONE, OVERWATCH, RAID, SUPPLY, TEAR_GAS } from './combat-event-catalog';
 import { combatTimeline, type CombatEventDescriptor } from './combat-events';
@@ -77,12 +77,10 @@ describe('mortar team', () => {
     advance(arena, 4);
     expect(crewOf(arena, mortar)).toHaveLength(0);
   });
-  it('does not come back as reinforcements, and its crew is left alone by patrols', () => {
+  it('does not come back as reinforcements', () => {
     const arena = soloArena({ reinforcements: true }, [{ x: 0, z: 0 }, { x: 80, z: 0 }, { x: -80, z: 0 }], 1, 'assault');
     const mortar = arena.triggerEvent('mortar', { x: 0, z: 0 })!;
     advance(arena, 10);
-    // The patrol bot never shot the crew.
-    for (const member of crewOf(arena, mortar)) expect(member.health).toBe(90);
     for (const member of crewOf(arena, mortar)) fireAt(arena, 'one', { x: member.x, y: member.y - .62, z: member.z });
     advance(arena, 60);
     expect(arena.snapshot().events?.some(e => e.kind.startsWith('transport') && e.troops && e.troops > 1)).toBeFalsy();
@@ -251,3 +249,58 @@ describe('tear gas', () => {
 });
 
 export type { ArenaActor };
+
+/** A rendered building only the cover rays know about, as a district's meshes are: its roof is a perch. */
+const building = (minX: number, maxX: number, minZ: number, maxZ: number, height: number): ArenaCoverDistance =>
+  (origin, direction, distance) => Math.min(distance, arenaWallDistance(origin, direction, [{ minX, maxX, minZ, maxZ, minY: 0, maxY: height }]));
+
+describe('a world that does not revolve around the player', () => {
+  it('sends a drone at a patrol in the open when the only player is out of its sight', () => {
+    const box = [{ minX: -20, maxX: 20, minZ: -1.2, maxZ: -1, maxY: 200 }, { minX: -20, maxX: 20, minZ: 1, maxZ: 1.2, maxY: 200 },
+      { minX: -1.2, maxX: -1, minZ: -20, maxZ: 20, maxY: 200 }, { minX: 1, maxX: 1.2, minZ: -20, maxZ: 20, maxY: 200 }, { minX: -2, maxX: 2, minZ: -2, maxZ: 2, minY: 3, maxY: 3.2 }];
+    const arena = createArena(box, 1, 'tank', open([{ x: 60, z: 40 }], { playerSpawn: { x: 60, z: -40 } }));
+    arena.addPlayer('one', 'Alpha', 0, 0, heavy, undefined, true);
+    walkTo(arena, 'one', 0, 0);
+    const patrol = actor(arena, 'bot-1')!;
+    const drone = arena.triggerEvent('drone', { x: patrol.x, z: patrol.z })!;
+    let diveAim: { x: number; z: number } | null = null;
+    advance(arena, 30, () => { const r = raider(arena, drone.id); if (r?.state === 'dive' && r.aim && !diveAim) diveAim = r.aim; });
+    expect(diveAim).not.toBeNull();
+    expect(Math.hypot(diveAim!.x, diveAim!.z)).toBeGreaterThan(10);
+    const hit = actor(arena, 'bot-1')!;
+    expect(hit.health < 130 || hit.deaths > 0).toBe(true);
+    expect(actor(arena, 'one')!.health).toBe(100);
+  });
+  it('perches a sniper on a roof within rifle reach, where a player in the street can kill it', () => {
+    const arena = createArena([], 0, 'mixed', open([{ x: 0, z: 0 }]), undefined, undefined, building(48, 70, -40, 40, 20));
+    arena.addPlayer('one', 'Alpha', 0, 0, heavy, undefined, true);
+    const sniper = arena.triggerEvent('sniper')!;
+    expect(sniper.altitude).toBe(20);
+    const [perched] = crewOf(arena, sniper);
+    expect(perched.ground).toBe(20);
+    expect(Math.hypot(perched.x, perched.y - 1.75, perched.z)).toBeLessThanOrEqual(OVERWATCH.reach);
+    advance(arena, 2);
+    expect(fireAt(arena, 'one', { x: perched.x, y: perched.y - .3, z: perched.z }).killed).toBe(true);
+    advance(arena, .2);
+    expect(event(arena, sniper.id)!.outcome).toBe('silenced');
+    expect(arena.snapshot().feed.some(f => f.text === 'Sniper silenced')).toBe(true);
+  });
+  it('leaves a perched sniper ignored by patrols until it shoots them, then they look up and answer', () => {
+    const arena = createArena([], 1, 'tank', open([{ x: 30, z: 0 }], { playerSpawn: { x: -150, z: 0 } }), undefined, undefined, building(78, 100, -40, 40, 20));
+    arena.addPlayer('one', 'Alpha', 0, 0, heavy, undefined, true);
+    const patrol = actor(arena, 'bot-1')!;
+    const sniper = arena.triggerEvent('sniper', { x: patrol.x, z: patrol.z })!;
+    expect(sniper.altitude).toBe(20);
+    let before = 0, after = 0, struck = false;
+    advance(arena, 20, () => {
+      const bot = actor(arena, 'bot-1')!;
+      if (!struck && bot.health < 130) struck = true;
+      else if (!struck) before = Math.max(before, bot.pitch);
+      else after = Math.max(after, bot.pitch);
+    });
+    expect(struck).toBe(true);
+    // Eyes on the street until hit; up at the roofline afterwards.
+    expect(before).toBeLessThan(.15);
+    expect(after).toBeGreaterThan(.25);
+  });
+});

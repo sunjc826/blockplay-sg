@@ -210,11 +210,13 @@ registerCombatEvent({
 });
 
 /**
- * Rooftop sniper: a marksman takes a high perch overlooking a player. Their
- * scope glints while they line up a shot. They stay until killed or until
- * the event runs out, then relocate.
+ * Rooftop sniper: a marksman takes a high perch within rifle reach of whoever
+ * is nearest, so they can always be shot back. Their scope glints while they
+ * line up a shot. They stay until killed or until the event runs out, then
+ * relocate. Patrols only look up at them once they have been shot at.
  */
-export const OVERWATCH = { warning: 3, duration: 85, stay: 80, range: [45, 95] as const, rise: 5 } as const;
+/** `reach`: the furthest a perch may be from whoever it watches, inside the 125 m any rifle fired back can carry. */
+export const OVERWATCH = { warning: 3, duration: 85, stay: 80, range: [45, 95] as const, rise: 5, reach: 110 } as const;
 registerCombatEvent({
   id: 'sniper', name: 'Rooftop sniper', targeting: { policy: 'player' },
   description: 'A marksman on a high perch. Watch for the scope glint, and stay out of their line.',

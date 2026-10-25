@@ -214,6 +214,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     return firstVisibleHit(eventRay, gameplayCandidates())?.point ?? null;
   }, { reduced: () => getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
   const combatAudio = createCombatAudio(() => audio, () => hud.muted);
+  /** Events within this many metres are alarms (banner, tones); further away they are news in the comms log. */
+  const COMBAT_NEAR = 130;
   const seenEvents = new Set<string>(), openedSupplies = new Set<string>();
   let eventClock = -1, shake = 0, lockBeep = 0, blackout = 0;
   const debugAvailable = !options.arena || options.arena.session.role === 'solo';
@@ -1431,7 +1433,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (!actor.bot) continue;
       const was = botsAlive.get(actor.id); botsAlive.set(actor.id, actor.alive);
       if (!expedition || !markers || was !== true || actor.alive || !actor.variant) continue;
-      const fell = expedition.loot.drop(expedition.zone, actor.variant, { x: actor.x, z: actor.z, y: Math.max(0, actor.y - (actor.prone ? PRONE_EYE_HEIGHT : 1.75)) });
+      const fell = expedition.loot.drop(expedition.zone, actor.variant, { x: actor.x, z: actor.z, y: actor.ground ?? Math.max(0, actor.y - (actor.prone ? PRONE_EYE_HEIGHT : 1.75)) });
       if (!fell) continue;
       fell.evicted.forEach(id => markers.remove(id)); markers.addDrop(fell.loot);
       hud.fieldLoot = expedition.loot.remaining(expedition.zone);
@@ -1476,8 +1478,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       seenEvents.add(event.id);
       const plugin = getCombatEvent(event.kind);
       if (!plugin || !['warning', 'active'].includes(combatPhase(event, eventClock))) continue;
-      comms.add('system', plugin.hazard ? 'Fire control' : 'Intel', `${plugin.banner.warning} · ${whereFrom(event.target)}`);
-      if (plugin.hazard) combatAudio.alert();
+      // Something happening across the district is news; only one near you is an alarm.
+      const near = Math.hypot(event.target.x - position.x, event.target.z - position.z) < COMBAT_NEAR;
+      comms.add('system', plugin.hazard && near ? 'Fire control' : 'Intel', near ? `${plugin.banner.warning} · ${whereFrom(event.target)}` : `${plugin.name.toUpperCase()} · ${whereFrom(event.target)}`);
+      if (plugin.hazard && near) combatAudio.alert();
     }
     if (seenEvents.size > 200) { seenEvents.clear(); events.forEach(e => seenEvents.add(e.id)); }
     // A crate this player opened is theirs: the host only says who got there first.
@@ -1492,6 +1496,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     for (const event of events) {
       const plugin = getCombatEvent(event.kind); if (!plugin) continue;
       const phase = combatPhase(event, eventClock), age = eventClock - event.start, live = phase === 'warning' || phase === 'active';
+      const far = Math.hypot(event.target.x - position.x, event.target.z - position.z) >= COMBAT_NEAR;
+      if (far && live && plugin.hazard) offer(`${plugin.name.toUpperCase()} · ${whereFrom(event.target)}`, 'notice', 1);
       const countdown = `${Math.max(1, Math.ceil(event.start + plugin.warning - eventClock))}s`;
       if (event.kind === 'air-raid' && live) siren = true;
       for (const payload of combatTimeline(event)) {
@@ -1503,7 +1509,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           const pose = flyerPose(payload, age); if (pose.visible) jet = Math.min(jet, Math.hypot(pose.x - listener.x, pose.y, pose.z - listener.z));
         } else if (payload.type === 'marker' && age >= payload.from && age <= payload.until) {
           dangers.push({ id: `${event.id}/${payload.id}`, x: payload.center.x, z: payload.center.z, radius: payload.radius, kind: plugin.hazard ? 'ring' : 'crate' });
-          if (!plugin.hazard) continue;
+          if (!plugin.hazard || far) continue;
           const inside = Math.hypot(position.x - payload.center.x, position.z - payload.center.z) < payload.radius + 12;
           const crew = event.kind === 'mortar' && event.origin && event.ended === undefined ? ` · crew ${whereFrom(event.origin)}` : '';
           // A hazard outranks news; a barrage you are standing in outranks one you are not.
@@ -1523,15 +1529,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         }
       }
       if (!live || !['helicopter-raid', 'drone', 'sniper'].includes(event.kind)) continue;
+      const raider = raiders.find(r => r.event === event.id), hunter = raider ?? (event.origin ? { x: event.origin.x, z: event.origin.z } : event.target);
+      // A hunter busy across the district is news until it comes your way.
+      if (Math.hypot(hunter.x - position.x, hunter.z - position.z) >= COMBAT_NEAR) continue;
       // Hunters: their warning is a countdown; once here, where they are is what matters.
       if (phase === 'warning') { offer(`${plugin.banner.warning} · ${countdown}`, 'hazard', 3); continue; }
-      const raider = raiders.find(r => r.event === event.id);
       if (event.kind === 'sniper') { if (event.ended === undefined && event.origin) offer(`${plugin.banner.active} · ${whereFrom(event.origin)}`, 'hazard', 2); continue; }
       if (!raider || ['down', 'wreck', 'exploded'].includes(raider.state)) continue;
       const onMe = !!raider.aim && Math.hypot(raider.aim.x - position.x, raider.aim.z - position.z) < 2.5;
       if (event.kind === 'drone' && onMe && (raider.state === 'lock' || raider.state === 'dive')) { lockedOn = true; offer('DRONE LOCKED ON · BREAK LINE OF SIGHT OR SHOOT IT', 'hazard', 5); }
       else offer(`${plugin.banner.active} · ${whereFrom(raider)}`, 'hazard', event.kind === 'helicopter-raid' ? 3 : 2);
     }
+    // A sniper who has fired or shown a glint has given their position away.
+    for (const actor of snapshot.actors) if (actor.role === 'overwatch' && actor.alive && (actor.aiming || actor.shots > 0)) dangers.push({ id: `sniper-${actor.id}`, x: actor.x, z: actor.z, radius: 0, kind: 'raider' });
     for (const r of raiders) {
       if (['wreck', 'exploded'].includes(r.state)) continue;
       const distance = Math.hypot(r.x - listener.x, r.y - listener.y, r.z - listener.z);

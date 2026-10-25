@@ -298,8 +298,8 @@ log say "ENEMY TRUCK INBOUND · REINFORCEMENTS · 90 m to your right".
   height (`altitude`) 18 m above every roof the host samples round the ring and
   at least 30 m above the ground. It circles for 32–56 s by intensity, then
   leaves. Both sides draw it from the descriptor.
-- Its door gunner is live on the host. It picks the nearest player it has a
-  smoke-free line to (within 110 m) and walks tracers onto them for 1 s, which
+- Its door gunner is live on the host. It belongs to nobody: it picks the
+  nearest actor, player or patrol, it has a smoke-free line to (within 110 m) and walks tracers onto them for 1 s, which
   does no damage. Then it fires a 1.5 s burst at 10 rounds a second, 12 damage
   each with a 0.06 spread (about half land at orbit range), each round a ray
   that a wall, hull or body can stop. It pauses 2.5–4 s
@@ -316,8 +316,8 @@ log say "ENEMY TRUCK INBOUND · REINFORCEMENTS · 90 m to your right".
 
 - The host picks a pit 55–125 m from the target and 40 m from every player,
   preferring one that cannot be seen from the target. Two `mortar-crew` bots
-  kneel at it, hold their post, fire back at players they can see, and hold
-  fire until the 4 s warning has passed.
+  kneel at it, hold their post, fire at whoever they can see (patrols fight
+  them like anyone else), and hold fire until the 4 s warning has passed.
 - Five to eight salvos of two rounds, 7 s apart, land inside an 18 m ring:
   radius 6 m, damage 110. Each launch thumps at the pit before the rounds land.
 - Kill both crew and the event ends `silenced`. Rounds in the air still land,
@@ -328,8 +328,8 @@ log say "ENEMY TRUCK INBOUND · REINFORCEMENTS · 90 m to your right".
 - It flies in from 140 m back along the heading, at a height 10 m over the
   roofs round the target (at least 32 m above the ground), and circles 14 m
   round a point near a player, whining.
-- From 1.5 s after its 6 s warning it looks for a player it has a smoke-free
-  line to within 80 m. It locks on for 1.6 s (rapid beeps, "DRONE LOCKED ON"
+- From 1.5 s after its 6 s warning it looks for the nearest actor, player or
+  patrol, it has a smoke-free line to within 80 m. It locks on for 1.6 s (rapid beeps, "DRONE LOCKED ON"
   banner). Lose it for a second and it goes back to circling. Then it dives at
   28 m/s, steering until 9 m out and then committing. It detonates on contact,
   within 1.6 m of a player, or at the point it was diving for: radius 6 m,
@@ -339,15 +339,22 @@ log say "ENEMY TRUCK INBOUND · REINFORCEMENTS · 90 m to your right".
 
 **Rooftop sniper** (built)
 
-- The host samples 48 points 45–95 m round the player. It takes the highest
-  flat roof, at least 5 m above the street, with a clear line to them. With no
+- The host samples 48 points 45–95 m round the target. It slides each roof
+  sample toward the target to the parapet, then takes the highest flat roof at
+  least 5 m above the street with a clear line to the nearest actor there,
+  and no more than 110 m (`OVERWATCH.reach`) from them. Whoever it watches can
+  always shoot back: rifles carry 125 m. With no
   rendered scene, or no such roof, it takes a clear spawn 35–110 m away. One
   `overwatch` bot kneels there and holds it (`anchor`, and `ground` in the
   snapshot so the rig kneels on a roof the walk surfaces do not know about).
 - Its scope glints (`aiming`) whenever it has a line, and it waits 1.4 s from
   first sight to first shot: 68 damage, 0.006 spread, 2.4 s between shots. It
   holds fire through its 3 s warning, leaves after 80 s, and ends `silenced` if
-  killed.
+  killed (90 health, no plates). It appears on the map once it has glinted or
+  fired.
+- Patrols do not look for a sniper on a roof: only one it has shot (a `grudge`,
+  8 s from the last hit) looks up and fires back. Otherwise every bot would
+  spend the event staring at the skyline.
 
 **Supply drop** (built; helps rather than hurts)
 
@@ -378,6 +385,14 @@ log say "ENEMY TRUCK INBOUND · REINFORCEMENTS · 90 m to your right".
   exposure falls by up to half, so the district goes dark.
 
 ### 8. Bots
+
+Everyone fights everyone, as patrols always have: an event's crew fights
+patrols too, and raiders shoot whoever they see. Crew-mates leave each other
+alone, and a sniper on a roof is only a target for someone it has hit.
+
+Patrols with nobody in sight make for a landed supply crate, then for a fresh
+wreck (a downed raid helicopter or drone, for 45 s), so one event draws a
+crowd that becomes the next event's hotspot.
 
 Bots should not stand in a barrage.
 
@@ -411,7 +426,9 @@ Bots should not stand in a barrage.
   ([audition](ENCIK-AUDITION.md)) or start as comms-log `system` entries with no
   voice until they are recorded.
 - **HUD**: a warning banner with a countdown, a bearing pip for off-screen
-  threats, and danger rings and run lines on `FpsMinimap`.
+  threats, and danger rings and run lines on `FpsMinimap`. *Built:* an event
+  more than 130 m away is news (an Intel line, a quiet notice banner, no alert
+  tones) until it comes your way.
 - **Touch**: no new controls; everything is information.
 
 ### 10. Settings and modes
@@ -440,6 +457,15 @@ What the director picks from (`COMBAT_TABLES`, weight / cooldown in seconds):
 | Low | artillery 3/45, mortar 2/90, supply drop 2/150, smoke 1/90, drone 1/120, blackout 1/240 |
 | Medium | artillery 3/45, mortar 2/90, drone 2/90, sniper 2/120, supply drop 2/150, smoke 1/90, tear gas 1/90, air raid 1/180, helicopter raid 1/180, blackout 1/240 |
 | High | artillery 3/45, mortar 2/75, drone 2/75, sniper 2/100, air raid 2/150, helicopter raid 2/150, tear gas 1/90, smoke 1/90, supply drop 1/150, blackout 1/240 |
+
+**The world, not just the player.** When the host offers `heat` (shots, kills
+and blasts, warmed into 16 m cells that cool over 45 s) or `places` (the
+patrol spawns), a share of events is aimed there instead of at a player:
+70% in low-risk districts, 60% at medium, 50% at high (`COMBAT_WORLD_SHARE`).
+Such an event lands within 15 m of a hotspot drawn by weight, or of a random
+place when nothing is hot. A patrol firefight across the district draws fire
+whether or not anyone is watching. The same fairness rules hold: nothing
+damaging is aimed within 10 m of a player.
 
 Only hazards hold the director up: a reinforcement truck, a supply drop or a
 blackout running does not stop the next barrage. When the host cannot place

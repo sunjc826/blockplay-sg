@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AIR_BOMB, AIR_RAID, BLACKOUT, MORTAR, RAID, SMOKE_SCREEN, SUPPLY, TEAR_GAS } from './combat-event-catalog';
 import { combatCues, combatPhase, combatTimeline, cratePose, getCombatEvent, listCombatEvents, orbitPose, registerCombatEvent, validCombatEvent,
   type CloudPayload, type CombatEventDescriptor, type CombatPayload, type CratePayload, type FlyerPayload, type MunitionPayload, type OrbitPayload } from './combat-events';
-import { COMBAT_PLAYER_OFFSET, COMBAT_TABLES, createCombatDirector } from './combat-director';
+import { COMBAT_PLAYER_OFFSET, COMBAT_TABLES, COMBAT_WORLD_SHARE, COMBAT_WORLD_SPREAD, createCombatDirector } from './combat-director';
 
 const event = (kind: string, over: Partial<CombatEventDescriptor> = {}): CombatEventDescriptor =>
   ({ id: `${kind}-1`, kind, seed: 4242, start: 10, target: { x: 0, z: 0 }, heading: .4, intensity: 1, ...over });
@@ -188,5 +188,30 @@ describe('director pacing with news running', () => {
     let again: ReturnType<typeof director.step> = null;
     for (let t = at; t < at + 10 && !again; t += .5) again = director.step({ now: t, active: news, humans: [{ x: 0, z: 0 }], bounds });
     expect(again?.kind).toBe('artillery');
+  });
+});
+
+describe('director aiming at the world', () => {
+  const run = (view: { heat?: { x: number; z: number; weight: number }[]; places?: { x: number; z: number }[] }) => {
+    const targets: { kind: string; x: number; z: number }[] = [];
+    for (let seed = 0; seed < 80; seed++) {
+      const director = createCombatDirector({ risk: 'medium', seed });
+      for (let t = 0; t < 300; t += 1) {
+        const directive = director.step({ now: t, active: [], humans: [{ x: 0, z: 0 }], bounds, ...view });
+        if (directive) targets.push({ kind: directive.kind, ...directive.target });
+      }
+    }
+    return targets;
+  };
+  it('puts most events where the fighting is, and never a damaging round on a player', () => {
+    const targets = run({ heat: [{ x: 150, z: 150, weight: 10 }, { x: -150, z: 120, weight: .1 }] });
+    const atHeat = targets.filter(t => Math.hypot(t.x - 150, t.z - 150) <= COMBAT_WORLD_SPREAD + 1e-6).length;
+    expect(atHeat / targets.length).toBeGreaterThan(COMBAT_WORLD_SHARE.medium * .75);
+    expect(atHeat).toBeLessThan(targets.length);
+  });
+  it('falls back to the places it is given when nothing is hot', () => {
+    const places = [{ x: -120, z: -120 }, { x: 120, z: -120 }];
+    const targets = run({ places });
+    expect(targets.filter(t => places.some(p => Math.hypot(t.x - p.x, t.z - p.z) <= COMBAT_WORLD_SPREAD + 1e-6)).length).toBeGreaterThan(targets.length * .4);
   });
 });
