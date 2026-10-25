@@ -40,15 +40,20 @@ instead of below it:
   The walk/drive districts keep their second stick, because ORBIT on a chase
   camera is not the same gesture.
 - **FIRE** can be held and slid: the same thumb keeps the trigger down and goes
-  on aiming, which one thumb otherwise cannot do.
+  on aiming, which one thumb otherwise cannot do. A press is buffered for
+  `TRIGGER_BUFFER` (.18 s) in the engine, so a tap released before the next
+  frame, or landing in the last round's cooldown, still fires one round.
 - **The actions sit on the thumb's sweep**, not in a row — a quarter turn from
   beside the trigger to above it, which is as far as a hand holding a phone
   reaches. `thumbArc` gives each one a direction and the stylesheet the radius,
   so the same arrangement redraws smaller on a short screen; spacing is what is
   held constant, so a sixth action pushes the sweep out rather than crowding
-  onto the fifth. Infantry get aim, reload, crouch (a latch, not a hold), jump
-  and weapon swap; a mounted vehicle swaps in its own. They are icon-only, so
-  the names live on the elements for screen readers.
+  onto the fifth. Infantry get aim, reload, jump and weapon swap; a mounted
+  vehicle swaps in its own. They are icon-only, so the names live on the
+  elements for screen readers.
+- **The stance sits beside the left stick**: crouch (a latch, not a hold)
+  nearest it, prone above. Those are pressed while moving into cover, and the
+  thumb steering there is the one already on that side. Vehicles drop them.
 - **Contextual actions are a prompt**, in the middle of the screen, and only
   while they can be pressed: entering a vehicle, picking up a crate, crossing a
   checkpoint. They are not sweep slots because a button that came and went as

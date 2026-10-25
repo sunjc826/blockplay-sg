@@ -76,6 +76,13 @@ export interface FpsExpeditionOptions {
   onTravel: (transition: WorldTransition, checkpoint: FpsCheckpoint) => void; onEquipment: (profile: ArmoryProfile) => void;
   onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult;
 }
+/**
+ * How long a trigger press is remembered, in seconds. The trigger is read once
+ * a frame, so without this a tap released before the next frame — common on a
+ * phone running the scene at 20–30 fps — or one landing in the last round's
+ * cooldown was dropped, and holding was the only pull that reliably fired.
+ */
+const TRIGGER_BUFFER = .18;
 const randomRoundId = () => globalThis.crypto?.randomUUID?.() ?? `round-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
 export interface FpsHud {
@@ -257,7 +264,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let yaw: number = spawn.yaw, pitch: number = spawn.pitch, vertical = 0, velocityY = 0;
   let triggerSpent = false;
   let lastLookYaw = yaw, lastLookPitch = pitch, lookLagX = 0, lookLagY = 0;
-  let trigger = false, ads = false, touchAim = false, actualAim = false, hitTime = 0;
+  let trigger = false, pullBuffer = 0, ads = false, touchAim = false, actualAim = false, hitTime = 0;
   const bodyMotion = createMovementMotion();
   const motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   // Two-stage recoil: see fps-recoil. The view still couples through the same
@@ -316,7 +323,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       ],
     });
   };
-  const clearInput = () => { prone = false; keys.clear(); trigger = false; triggerSpent = false; ads = false; touchAim = false; drag = null; moveStick = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
+  const clearInput = () => { prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; ads = false; touchAim = false; drag = null; moveStick = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -438,7 +445,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.phase === 'playing' && supplyUse) endSupply();
     if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive) && !vehicles.active && beginReload(loadout[hud.weapon], hud.weapon, specs)) {
       emptyReload[hud.weapon] = loadout[hud.weapon].reloadEmpty === true;
-      reloadGate = armReloadGate(trigger, sprintIntent);
+      reloadGate = armReloadGate(trigger, sprintIntent); pullBuffer = 0;
       radioCall('reload');
       arenaRuntime?.reload(hud.weapon); ads = false; touchAim = false; actualAim = false; lastReloadStage = ''; publish();
     }
@@ -451,7 +458,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function switchWeapon(index: number) {
     if (hud.phase === 'loading' || hud.phase === 'error' || index === hud.weapon || !validWeaponIndex(index) || !equipment.carriedFamilies.includes(index)) return;
     stopReload(); endSupply();
-    trigger = false; triggerSpent = false; ads = false; touchAim = false; resetRecoil(kick);
+    trigger = false; pullBuffer = 0; triggerSpent = false; ads = false; touchAim = false; resetRecoil(kick);
     hud.weapon = index; weapons.forEach((w, i) => w.visible = i === index);
     if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
     effects.attachMuzzle(weapons[index]?.getObjectByName(`${FPS_WEAPONS[index].id}__socket_muzzle`));
@@ -612,8 +619,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (key === 'v') { if (held) switchVehicleSeat(); return; }
     if (key === 'z') { if (held && !vehicles.active && grounded()) { if (!prone || footMovement.canOccupy(position.x, vertical, position.z, .38, 1.8)) prone = !prone; keys.delete('c'); publish(); } return; }
     if (held && key === 'c' && footMovement.canOccupy(position.x, vertical, position.z, .38, 1.2)) prone = false;
-    if (key === 'fire') { trigger = held; if (!trigger) triggerSpent = false; }
+    if (key === 'fire') pullTrigger(held);
     else if (held) keys.add(key); else keys.delete(key);
+  }
+  /** A fresh press is a new pull, buffered until it fires or `TRIGGER_BUFFER` runs out. */
+  function pullTrigger(held: boolean) {
+    if (held && !trigger) { triggerSpent = false; pullBuffer = TRIGGER_BUFFER; }
+    trigger = held; if (!held) triggerSpent = false;
   }
   /** Analog movement from the left thumb stick; a null or centred stick hands control back to the keys. */
   function setMoveAxis(stick: StickVector | null) {
@@ -693,12 +705,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // Mouse events report each button independently, including LMB while RMB is held.
   const mousedown = (event: MouseEvent) => {
     if (pilotEnabled || hud.phase !== 'playing' || document.pointerLockElement !== canvas) return;
-    if (event.button === 0) trigger = true;
+    if (event.button === 0) pullTrigger(true);
     if (event.button === 2) ads = true;
   };
   const mouseup = (event: MouseEvent) => {
     if (pilotEnabled || document.pointerLockElement !== canvas) return;
-    if (event.button === 0) { trigger = false; triggerSpent = false; }
+    if (event.button === 0) pullTrigger(false);
     if (event.button === 2) ads = false;
   };
   const pointerdown = (event: PointerEvent) => {
@@ -722,7 +734,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const pointerup = (event: PointerEvent) => {
     if (drag?.id === event.pointerId) drag = null;
   };
-  const releasePointer = () => { trigger = false; triggerSpent = false; ads = false; drag = null; };
+  // A look drag ending on the glass is not the trigger letting go: the fire
+  // button may still be held under the other thumb.
+  const releasePointer = (event: PointerEvent) => {
+    if (drag?.id === event.pointerId) drag = null;
+    if (event.pointerType !== 'touch') { trigger = false; pullBuffer = 0; triggerSpent = false; ads = false; }
+  };
   const lockchange = () => {
     const locked = document.pointerLockElement === canvas;
     if (locked && capturePending) enterPlay();
@@ -1073,7 +1090,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (supplyUse || hud.phase !== 'playing' || vehicles.active || hud.health <= 0 || hud.arenaSelf?.alive === false) return false;
     stopReload(); ads = false; touchAim = false; actualAim = false;
     supplyUse = { ...startSupplyUse(profile), name, id, apply };
-    supplyGate = armReloadGate(trigger, sprintIntent);
+    supplyGate = armReloadGate(trigger, sprintIntent); pullBuffer = 0;
     canvas.focus({ preventScroll: true }); publish();
     return true;
   }
@@ -1192,6 +1209,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!mounted || !vehicles.canFire || arenaRuntime || mounted.weaponCooldown > 0 || mounted.ammo <= 0) return;
     aimVehicle();
     const shot = vehicles.fire(); if (!shot) return;
+    pullBuffer = 0;
     hud.shots++; shotSound();
     vehicleRay.set(shot.base, shot.direction); vehicleRay.near = 0; vehicleRay.far = shot.range;
     const hit = firstVisibleHit(vehicleRay, vehicleCandidates(shot.kind));
@@ -1262,7 +1280,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const dispersion = sampleShotSpread(spreadAngle);
     shotRight.set(1, 0, 0).applyQuaternion(camera.quaternion); shotUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
     ray.ray.direction.addScaledVector(shotRight, dispersion.x).addScaledVector(shotUp, dispersion.y).normalize();
-    triggerSpent = true;
+    triggerSpent = true; pullBuffer = 0;
     recordBloomShot(bloom[hud.weapon], hud.weapon);
     const muzzle = weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_muzzle`);
     if (muzzle) { muzzle.getWorldPosition(muzzlePoint); camera.localToWorld(muzzlePoint); }
@@ -1342,7 +1360,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     return { forward: Number(keys.has('w') || keys.has('arrowup')) - Number(keys.has('s') || keys.has('arrowdown')),
       steer: Number(keys.has('d') || keys.has('arrowright')) - Number(keys.has('a') || keys.has('arrowleft')),
       lift: Number(keys.has(' ')) - Number(keys.has('c') || keys.has('control')), brake: keys.has(' '), boost: keys.has('shift'),
-      fire: trigger && hud.phase === 'playing' && vehicles.canFire,
+      fire: (trigger || pullBuffer > 0) && hud.phase === 'playing' && vehicles.canFire,
       aim: { x: vehicleAimPoint.x, y: vehicleAimPoint.y, z: vehicleAimPoint.z } };
   }
   function updateArena(dt: number) {
@@ -1638,11 +1656,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // A fresh trigger pull or sprint stops a reload; one already held when it
       // began does not, and a held sprint drops to a run until the reload ends.
       if (loadout[hud.weapon].reloadRemaining > 0) {
-        if (reloadInterrupt(reloadGate, trigger, sprinting, roundReady(loadout[hud.weapon], specs[hud.weapon]))) stopReload();
+        if (reloadInterrupt(reloadGate, trigger || pullBuffer > 0, sprinting, roundReady(loadout[hud.weapon], specs[hud.weapon]))) stopReload();
         else sprinting = false;
       }
       // A fresh trigger pull or sprint puts a supply away; one already held walks.
-      if (supplyUse) { if (reloadInterrupt(supplyGate, trigger, sprinting, true)) endSupply(); else sprinting = false; }
+      if (supplyUse) { if (reloadInterrupt(supplyGate, trigger || pullBuffer > 0, sprinting, true)) endSupply(); else sprinting = false; }
       const speed = (poseStance === 'prone' ? .85 : poseStance === 'crouch' ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2) * (supplyUse ? SUPPLY_MOVE_SCALE : 1);
       const target = movementInput(forward, side, yaw, speed * burden.movement, 1);
       if (consumeJump(bodyMotion, onGround, poseStance === 'stand' && bodyMotion.eye > 1.6, dt)) velocityY = 5.6 * burden.jumpVelocity;
@@ -1672,7 +1690,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (vehicles.active && vehicleAimTimer <= 0) { aimVehicle(); vehicleAimTimer = .05; }
       if (supplyUse && (vehicles.active || hud.health <= 0)) endSupply();
       stepSupply(realDt);
-      if (trigger && !sprinting && !supplyUse && hud.phase === 'playing') { if (vehicles.active) shootVehicle(); else shoot(); }
+      if ((trigger || pullBuffer > 0) && !sprinting && !supplyUse && hud.phase === 'playing') { if (vehicles.active) shootVehicle(); else shoot(); }
+      pullBuffer = Math.max(0, pullBuffer - realDt);
       if (hud.phase === 'playing' && options.combat && !options.arena) counterFire(realDt);
     } else { advanceRecoil(kick, realDt); applyAimPush(); carry.set(0, 0, 0); updateCameras(dt, false, false); }
     updateArena(realDt);

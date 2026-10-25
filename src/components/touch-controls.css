@@ -21,6 +21,14 @@
 
 /* ---- Left thumb ---------------------------------------------------------- */
 .touch-move{display:flex;flex-direction:column;align-items:flex-start;gap:12px;flex:none;pointer-events:none}
+.touch-move-row{display:flex;align-items:flex-end;gap:4px;pointer-events:none}
+/* The stance sits off the stick's inner edge, crouch lowest: the thumb rolls
+   onto it from the stick without crossing the planted base, and a stick pushed
+   to its sprint ring stops short of it. Prone steps back toward the edge, so
+   the pair follows the arc that thumb sweeps instead of a straight column. */
+.touch-stance{display:flex;flex-direction:column-reverse;align-items:flex-start;gap:12px;padding-bottom:10px;pointer-events:none}
+.touch-stance .touch-button{min-width:0;min-height:0;padding:0;border-radius:50%;width:var(--arc-size);height:var(--arc-size)}
+.touch-stance .touch-button+.touch-button{transform:translateX(calc(var(--arc-size) * -.42))}
 
 /* The zone is the whole thumb-sized rectangle; only the planted base is drawn. */
 .touch-stick{position:relative;width:146px;height:146px;pointer-events:auto;touch-action:none;flex:none}

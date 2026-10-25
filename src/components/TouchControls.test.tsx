@@ -25,8 +25,8 @@ it('gives every mode one stick, a trigger and a way back to the menu', () => {
 
 it('lays the actions on the thumb\'s sweep, not in a row', () => {
   const html = layer(playing());
-  const sweep = [...html.matchAll(/data-touch-action="(aim|reload|crouch|jump|weapon)"/g)].map(match => match[1]);
-  expect(sweep).toEqual(['aim', 'reload', 'crouch', 'jump', 'weapon']);
+  const sweep = [...html.matchAll(/data-touch-action="(aim|reload|jump|weapon)"/g)].map(match => match[1]);
+  expect(sweep).toEqual(['aim', 'reload', 'jump', 'weapon']);
   // Every one of them is placed by `thumbArc`, so none is left in flow.
   for (const action of sweep) expect(control(html, action)).toMatch(/--arc-x:-?[\d.]+;--arc-y:-?[\d.]+/);
   // The trigger keeps the corner; the sweep is measured from its centre.
@@ -60,7 +60,7 @@ it('offers the expedition its supplies and checkpoints, and the range its vehicl
 it('shows a contextual action only while it can be pressed', () => {
   // A button that appeared and shifted its neighbours as you walked past a
   // crate would be worse than none, so these are prompts rather than sweep
-  // slots, and the sweep keeps the same five whatever you are standing next to.
+  // slots, and the sweep keeps the same four whatever you are standing next to.
   expect(layer(playing())).not.toContain('data-touch-action="vehicle"');
   expect(layer(playing({ interact: 'E · Enter Utility 01' }))).toContain('data-touch-action="vehicle"');
   expect(layer(playing({ quickItem: 'Field dressing', quickCount: 0 }), 'expedition')).not.toContain('data-touch-action="supply"');
@@ -116,6 +116,17 @@ it('hides the bare drag surface from assistive tech, but never the buttons', () 
     expect(control(html, action)).toContain(`aria-label="${label}"`);
   }
   expect(html).toContain('class="touch-button"');
+});
+
+it('puts the stance beside the stick, off the trigger\'s sweep', () => {
+  for (const mode of ['range', 'arena', 'expedition'] as const) {
+    const html = layer(playing(), mode);
+    const left = html.match(/<div class="touch-move">[\s\S]*?<div class="touch-combat">/)?.[0] ?? '';
+    expect([...left.matchAll(/data-touch-action="(crouch|prone)"/g)].map(match => match[1])).toEqual(['crouch', 'prone']);
+    expect(control(html, 'crouch')).not.toContain('--arc-x');
+  }
+  // A vehicle's left thumb is steering, and 'c' is the helicopter's descent.
+  expect(layer(playing({ vehicle: 'helicopter', vehicleSeat: 0 }))).not.toContain('touch-stance');
 });
 
 it('offers prone deployment and a way to stand again in every combat mode', () => {

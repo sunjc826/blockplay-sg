@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDownToLine, ChevronsUp, Crosshair, Footprints, Hand, Menu, MessageCircle, Move3d, PackageOpen, RefreshCw, Rocket, Repeat2 } from 'lucide-react';
+import { ArrowDownToLine, ChevronsDown, ChevronsUp, Crosshair, Footprints, Hand, Menu, MessageCircle, Move3d, PackageOpen, RefreshCw, Rocket, Repeat2 } from 'lucide-react';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
 import { promptLabel, thumbArc, type StickVector } from '../game/touch-controls';
 import TouchStick from './TouchStick';
@@ -8,7 +8,9 @@ import './touch-controls.css';
 /**
  * The thumb layer, laid out the way a phone shooter is.
  *
- * The left thumb keeps its floating movement stick. The right thumb gets the
+ * The left thumb keeps its floating movement stick, with the stance beside it:
+ * crouch and prone are what you press while moving into cover, and the thumb
+ * steering you there is the one already on that side. The right thumb gets the
  * trigger and nothing else to hunt for: the actions sit on the arc the thumb
  * already sweeps, rather than in a row that a hand holding a phone cannot
  * reach the far end of. Everything between the two is bare scene, because the
@@ -81,6 +83,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
   // The sweep, nearest the resting thumb first: what you press without stopping
   // shooting comes before what you press between fights.
   const sweep: Action[] = [];
+  const stance: Action[] = [];
   const prompts: Action[] = [];
   if (mounted) {
     sweep.push(act('seat', 'Switch seat', <Repeat2 size={17} />, { onClick: () => engine?.switchVehicleSeat() }));
@@ -91,10 +94,11 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
     }
     if (hud.interact) prompts.push(act('vehicle', promptLabel(hud.interact), <Footprints size={16} />, { onClick: () => engine?.interactVehicle() }));
   } else {
+    // Nearest the stick first, the way the right sweep runs from its trigger.
+    stance.push(act('crouch', 'Crouch', <ChevronsDown size={17} />, { onClick: toggleCrouch, 'aria-pressed': crouched, 'data-on': crouched || undefined }));
+    stance.push(act('prone', hud.prone ? 'Stand' : 'Prone', <ArrowDownToLine size={17} />, { onClick: () => { setCrouched(false); engine?.setInput('z', true); }, 'aria-pressed': hud.prone, 'data-on': hud.prone || undefined }));
     sweep.push(act('aim', 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': hud.aiming, 'data-on': hud.aiming || undefined }));
     sweep.push(act('reload', 'Reload', <RefreshCw size={17} />, { onClick: () => engine?.reload(), disabled: hud.reloading > 0 }));
-    sweep.push(act('crouch', 'Crouch', <ArrowDownToLine size={17} />, { onClick: toggleCrouch, 'aria-pressed': crouched, 'data-on': crouched || undefined }));
-    sweep.push(act('prone', hud.prone ? 'Stand' : 'Prone', <ArrowDownToLine size={17} />, { onClick: () => { setCrouched(false); engine?.setInput('z', true); }, 'aria-pressed': hud.prone, 'data-on': hud.prone || undefined }));
     sweep.push(act('jump', 'Jump', <ChevronsUp size={17} />, { onClick: () => engine?.jump() }));
     sweep.push(act('weapon', 'Swap', <Repeat2 size={17} />, { onClick: () => engine?.switchWeapon(hud.carriedWeapons[(hud.carriedWeapons.indexOf(hud.weapon) + 1) % hud.carriedWeapons.length]) }));
     if (mode === 'expedition') {
@@ -112,7 +116,12 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
     {/* Out of both sweeps: a mis-hit here costs the round, not a magazine. */}
     <div className="touch-move">
       <button type="button" className="touch-chip" data-touch-action="menu" aria-label={mode === 'range' ? 'Pause' : 'Menu'} title={mode === 'range' ? 'Pause' : 'Menu'} onClick={onMenu}><Menu size={16} /></button>
-      <TouchStick kind="move" label={mounted ? hud.vehicleSeat === 0 ? 'DRIVE' : 'RIDING' : 'MOVE'} onChange={mounted && hud.vehicleSeat !== 0 ? () => {} : move} />
+      <div className="touch-move-row">
+        <TouchStick kind="move" label={mounted ? hud.vehicleSeat === 0 ? 'DRIVE' : 'RIDING' : 'MOVE'} onChange={mounted && hud.vehicleSeat !== 0 ? () => {} : move} />
+        {stance.length > 0 && <div className="touch-stance">
+          {stance.map(item => <button key={item.key} type="button" className="touch-button" data-touch-action={item.key} aria-label={item.label} title={item.label} {...item.props}>{item.icon}</button>)}
+        </div>}
+      </div>
     </div>
 
     {prompts.length > 0 && <div className="touch-prompts">

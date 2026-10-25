@@ -65,7 +65,7 @@ try {
   // The actions sit on the thumb's sweep, not in a row: every one of them is
   // placed from the trigger's centre, and none shares the trigger's own row.
   const sweep = await evaluate(`[...document.querySelectorAll('.touch-combat .touch-button')].map(b=>{const r=b.getBoundingClientRect();return {action:b.dataset.touchAction,x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})`);
-  assert.deepEqual(sweep.map(item => item.action), ['aim', 'reload', 'crouch', 'jump', 'weapon'], `The infantry sweep is the five that matter (${JSON.stringify(sweep)})`);
+  assert.deepEqual(sweep.map(item => item.action), ['aim', 'reload', 'jump', 'weapon'], `The infantry sweep is the four that matter (${JSON.stringify(sweep)})`);
   const trigger = await evaluate(`(()=>{const r=document.querySelector('[data-touch-action=fire]').getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()`);
   const radius = sweep.map(item => Math.round(Math.hypot(item.x - trigger.x, item.y - trigger.y)));
   assert(Math.max(...radius) - Math.min(...radius) <= 2, `Every action is the same reach from the trigger (${JSON.stringify(radius)})`);

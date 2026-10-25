@@ -2655,3 +2655,22 @@ faction registry (5f3b82a) and nine combat events with militia crews.
 Validation: full vitest, typecheck and build on the rebased tree; the uniforms fixture
 rendered in headless Chrome (swiftshader). The CDP browser smokes were not rerun
 after the rebase.
+
+## 2026-10-25: touch trigger buffer, stance beside the left stick
+
+- Tap-to-fire was unreliable on phones: the engine samples `trigger` once a
+  frame, so a tap released before the next frame (slow phones run 20–30 fps) or
+  landing inside the last round's cooldown never fired. `pullTrigger` in
+  `fps-engine.ts` now buffers a fresh press for `TRIGGER_BUFFER` (.18 s); the
+  buffer is cleared when a round leaves, on reload/supply start, weapon switch
+  and `clearInput`. Mouse fire shares the same path. A buffered pull also counts
+  as a fresh pull for reload/supply interruption and arena vehicle fire.
+- A look drag ending on the canvas (`lostpointercapture`, touch) no longer
+  releases the trigger, so holding FIRE survives the other thumb lifting.
+- Crouch and prone moved off the right sweep into `.touch-stance` beside the
+  move stick (crouch lowest, prone stepped back above it), NOVA-style. Right
+  sweep is now aim, reload, jump, swap. Vehicles show no stance column.
+Validation: full suite, typecheck; in the browser pane at 740×360 and 375×812
+with touch emulation: layout, 18/18 synthetic same-instant taps fired at
+150–400 ms spacing, hold-fire continued after a canvas touch ended.
+`touch-controls-smoke.mjs` updated for the four-item sweep but not rerun.
