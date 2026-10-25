@@ -1,5 +1,6 @@
 import { bipodRecoilMultiplier } from './weapon-support';
 import { createWorldAtmosphere } from './world-atmosphere';
+import { createNightLights } from './world-night-lights';
 import { getRegion } from './regions';
 import { createMovementMotion, resetMovementMotion, advanceGroundMotion, advanceBodyMotion, bufferJump, consumeJump, landMovement, INFANTRY_GRAVITY } from './fps-movement';
 import { createVerticalMovement } from './vertical-movement';
@@ -176,6 +177,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const zoneWorld = buildDistrictWorld(region, expedition?.spawn);
   const world = zoneWorld; world.stamps.forEach(o => o.visible = false);
   const atmosphere = createWorldAtmosphere(world.scene, getRegion(region).stamps, world.obstacles, !!options.arena && options.arena.session.role !== 'solo', renderer);
+  // Streetlamps, their pools and lit windows, for dusk and night.
+  const nightLights = createNightLights(world.scene, { roads: getRegion(region).mapRoads, roadWidth: getRegion(region).roadWidth, bounds: world.bounds, obstacles: world.obstacles });
   const sunShadows = createSunShadows(renderer, world.scene);
   let footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
   const expeditionSession = expedition ? createSoloSession('Explorer') : null;
@@ -190,6 +193,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // The weapon has its own scene, so it is lit to match the world's hour by hand: same key direction, colour and balance.
   const viewSky = new THREE.HemisphereLight('#e4efff', '#576350', 2.1); viewScene.add(viewSky);
   const weaponLight = new THREE.DirectionalLight('#fff4dd', 2.5); weaponLight.position.set(1, 2, 1); viewScene.add(weaponLight);
+  // Overhead streetlamp light at night, as strong as the pool the player stands in.
+  const lampLight = new THREE.DirectionalLight('#ffd9a6', 0); viewScene.add(lampLight);
+  const UP = new THREE.Vector3(.15, 1, .25).normalize();
   const VIEW_SKY = new THREE.Color('#e4efff'), VIEW_GROUND = new THREE.Color('#576350'), VIEW_KEY = new THREE.Color('#fff4dd');
   const viewTint = new THREE.Color(), viewQuaternion = new THREE.Quaternion();
   const scopeRenderer = createScopeRenderer(renderer);
@@ -966,13 +972,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // A blackout takes the city's glow with it, which only shows at night.
     renderer.toneMappingExposure = lighting.exposure * (1 - .5 * blackout * lighting.shift);
     sunShadows.update(shadows, camera, lighting.key, dt);
+    nightLights.update(lighting, blackout, dt, camera, renderer);
     viewSky.intensity = 2.1 * Math.min(1.25, ambient / .58);
     viewSky.color.copy(VIEW_SKY).lerp(viewTint.set(lighting.skyFill), lighting.shift);
     viewSky.groundColor.copy(VIEW_GROUND).lerp(viewTint.set(lighting.groundFill), lighting.shift);
     weaponLight.intensity = 2.5 * Math.min(1.25, key / 1.12);
     weaponLight.color.copy(VIEW_KEY).lerp(viewTint.set(lighting.keyColor), lighting.shift);
     weaponLight.position.set(lighting.key.x, lighting.key.y, lighting.key.z).applyQuaternion(viewQuaternion.copy(camera.quaternion).invert());
+    lampLight.intensity = 3.2 * nightLights.lightAt(camera.position);
+    lampLight.position.copy(UP).applyQuaternion(viewQuaternion);
     canvas.dataset.sunShadows = String(sunShadows.enabled); canvas.dataset.shadowCasters = String(sunShadows.casters); canvas.dataset.timeOfDay = lighting.elevation.toFixed(1);
+    canvas.dataset.nightLights = `${nightLights.level.toFixed(2)}:${nightLights.lamps.length}`;
   }
   function gameplayCandidates() {
     // Effects and the viewmodel never obstruct a gameplay ray.
@@ -1905,7 +1915,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       canvas.removeEventListener('mousedown', mousedown); window.removeEventListener('mouseup', mouseup);
       document.removeEventListener('pointerlockchange', lockchange); document.removeEventListener('pointerlockerror', lockerror);
       window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility);
-      void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); atmosphere.dispose(); world.dispose();
+      void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); world.dispose();
       healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); hitOverlay.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); sunShadows.dispose(); occlusion.dispose(); renderer.dispose(); canvas.remove();

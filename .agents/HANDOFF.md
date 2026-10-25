@@ -2853,3 +2853,32 @@ bot's variant spec or the player's weapon family (with its damage), from
 `adoptPublishedRounds` tags each adopted round's `style`, and cosmetic strikes
 and splashes use it. Validation: full vitest, typecheck, build. Not watched in
 a live match.
+
+## 2026-10-25: city lights at dusk and night
+
+At dusk and night the districts had only the dimmed sun and moon. New
+`world-night-lights.ts`, created by fps-engine next to the atmosphere:
+- `placeStreetLamps` (alternate kerbs, `LAMP_SPACING` 30 m, along `mapRoads`)
+  and `placePathLamps` (jittered 34 m grid over open ground no streetlamp
+  reaches); both skip footprints, carriageways, the map edge, water
+  (`fpsWater` boxes) and points under non-solid walk surfaces, and stand on
+  solid terrain surfaces. Cosmetic: `fpsEffect`, no raycast, no colliders.
+- `bakeLampMap` → one RGBA8 DataTexture (R pool light, G ground height).
+  Every Standard/Lambert/Phong material in the scene gets an
+  `onBeforeCompile` (chained onto any existing one; rescanned every 1.5 s for
+  vehicles and people) that adds `albedo × lamp colour × pool` to emissive,
+  gated by height above the pool's ground.
+- Building-sized meshes (box/extrude/tower-shaped cylinder, ≥7 m tall,
+  ≥4.5 m deep, not green, not transparent, not in the elevated-places
+  groups) get a geometry view with a `nightSpan` attribute (per instance for
+  InstancedMesh) and a cloned material with a window grid. Dispose restores
+  geometry, materials and hooks.
+- Heads, halos (custom-blended points), stars and moon (at infinity,
+  thinned by fog distance). `nightLevel(elevation)` drives it; pools follow
+  level², blackout puts it out. A viewmodel `lampLight` uses `lightAt`.
+- world-atmosphere now snaps to the hour's light on the first frame instead
+  of easing in from the authored daylight over ~15 s.
+Validation: full vitest, typecheck, build; Marina, Chinatown and Orchard
+checked at dusk and night in the browser pane (no console errors). Other
+districts covered only by the unit test (every district gets >8 lamps, all
+on free ground, and some windowed meshes). Frame cost not measured on a GPU.

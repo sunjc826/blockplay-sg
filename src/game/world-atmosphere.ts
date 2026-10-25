@@ -76,7 +76,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   let previousEvent: CelebrationId | undefined, lastCheck = -Infinity, lastNow = -Infinity;
   let active = resolveEnvironment(getEnvironmentSettings()), lastSettings = getEnvironmentSettings();
   const targetColor = new THREE.Color();
-  let wetness = 0, wind = 0, disposed = false;
+  let wetness = 0, wind = 0, disposed = false, started = false;
   const sample = (i: number, salt: number) => { const n = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453; return n - Math.floor(n); };
   const seeds = Array.from({ length: rainCount }, (_, i) => [sample(i, 1), sample(i, 2), sample(i, 3)]);
   // Index static roofs once; precipitation never scans the whole district per drop.
@@ -103,7 +103,9 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       lastNow = now;
       root.userData.weather = active.weather; root.userData.celebration = active.celebration;
       const preset = WEATHER[active.weather], reduced = active.reducedEffects || !!motion?.matches;
-      const step = Math.max(0, Math.min(.1, Number.isFinite(dt) ? dt : 0)), blend = 1 - Math.exp(-step * .65);
+      // The first frame lands on the hour's light; only later changes ease in.
+      const step = Math.max(0, Math.min(.1, Number.isFinite(dt) ? dt : 0)), blend = started ? 1 - Math.exp(-step * .65) : 1;
+      started = true;
       lighting = dayLighting(active.hour, singaporeDayOfYear(now));
       targetColor.set(preset.sky).lerp(shiftColor.set(lighting.sky), lighting.skyWeight); background.lerp(targetColor, blend); fog.color.copy(background);
       fog.near += (preset.fogNear - fog.near) * blend; fog.far += (preset.fogFar - fog.far) * blend;
