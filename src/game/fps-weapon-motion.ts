@@ -16,16 +16,33 @@ const tacticalKeys: readonly Key[] = [...magazineChange,
   [.84, -.02, .12, -.03, -.06, -.10, -.14, 0],
   [1, 0, 0, 0, 0, 0, 0, 0],
 ];
-// From empty the gun rolls the other way, towards the centre, to turn its
-// right side and charging handle to the camera; the hand racks the handle and
-// holds it back, and the release kicks the whole gun forward before it settles.
+// From empty the gun turns its charging handle to the camera, the hand racks it
+// and holds it back, and the release kicks the whole gun forward before it settles.
 const CHARGE = { reach: .94, back: 1.04, release: 1.16, home: 1.19 } as const;
-const emptyKeys: readonly Key[] = [...magazineChange,
-  [CHARGE.reach, -.10, .17, -.01, .03, -.20, .48, 0],
-  [CHARGE.back, -.11, .16, .03, .05, -.24, .54, 0],
-  [CHARGE.release, -.108, .165, .035, .06, -.23, .53, 0],
-  [1.20, -.085, .13, -.045, -.04, -.15, .38, 0],
-  [1.30, -.05, .08, -.02, -.03, -.04, .14, 0],
+/**
+ * Where the charging handle is worked: from the right side (the machine guns,
+ * Ultimax, P30), or on top under the optic bridge, like a FAMAS (SAR 21).
+ */
+export type HandleSide = 'right' | 'top';
+export const handleSide = (weaponId: string): HandleSide => weaponId === 'sar21-inspired' ? 'top' : 'right';
+// A right-side handle: the gun rolls the other way from the magazine change,
+// towards the centre, to turn its right side up.
+const rightKeys: readonly Key[] = [...magazineChange,
+  [CHARGE.reach, -.10, .10, -.01, .03, -.20, .48, 0],
+  [CHARGE.back, -.11, .09, .03, .05, -.24, .54, 0],
+  [CHARGE.release, -.108, .095, .035, .06, -.23, .53, 0],
+  [1.20, -.085, .07, -.045, -.04, -.15, .38, 0],
+  [1.30, -.05, .05, -.02, -.03, -.04, .14, 0],
+  [EMPTY_RELOAD.length, 0, 0, 0, 0, 0, 0, 0],
+];
+// A top handle: the gun keeps the magazine change's cant and turns its muzzle
+// in, laying the receiver top and the left side open to the reaching hand.
+const topKeys: readonly Key[] = [...magazineChange,
+  [CHARGE.reach, -.05, .10, -.01, .06, .30, -.50, 0],
+  [CHARGE.back, -.055, .09, .03, .08, .34, -.56, 0],
+  [CHARGE.release, -.053, .095, .035, .09, .33, -.55, 0],
+  [1.20, -.04, .07, -.045, -.03, .22, -.40, 0],
+  [1.30, -.03, .05, -.02, -.03, .05, -.14, 0],
   [EMPTY_RELOAD.length, 0, 0, 0, 0, 0, 0, 0],
 ];
 /** How far the charging handle is drawn back, 0..1: racked, held, then let fly. */
@@ -36,8 +53,8 @@ function handleTravel(t: number) {
   const run = (t - CHARGE.release) / (CHARGE.home - CHARGE.release);
   return 1 - run * run;
 }
-export function reloadMotion(progress: number, empty = false) {
-  const p = Math.max(0, Math.min(1, progress)), t = p * reloadLength(empty), keys = empty ? emptyKeys : tacticalKeys;
+export function reloadMotion(progress: number, empty = false, side: HandleSide = 'right') {
+  const p = Math.max(0, Math.min(1, progress)), t = p * reloadLength(empty), keys = !empty ? tacticalKeys : side === 'top' ? topKeys : rightKeys;
   const index = Math.min(keys.length - 2, Math.max(0, keys.findIndex((_, i) => i < keys.length - 1 && t <= keys[i + 1][0])));
   const a = keys[index], b = keys[index + 1], s = smoothStep((t - a[0]) / (b[0] - a[0]));
   const v = a.slice(1).map((value, i) => value + (b[i + 1] - value) * s);

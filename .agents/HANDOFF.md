@@ -2541,3 +2541,19 @@ Not done: LAN arena and Street View have no menu entry (debug only).
   selects the pistol. This failure isn't caused by this change.
 Validation: full suite, typecheck; frame captures of the rifle's empty reload
 in headless Chrome.
+
+## 2026-10-25: SAR 21 top cocking lever, MG belts follow the box
+
+- Machine-gun belts (FN MAG, CIS 50, MG4) are one node per round; the
+  viewmodel peels the belt out of the tray as the box comes off, hangs it from
+  the box mouth, and lays it back before the cover closes (`beltSeated`).
+- The SAR 21's charging handle was a box floating off the right side. It is
+  now a FAMAS-style lever on the receiver top under the optic bridge (between
+  its legs, z -.10..+.12), with a slot, pulled straight back. `handleSide(id)`
+  picks the cocking pose: `top` keeps the magazine change's cant and turns the
+  muzzle in with the hand reaching from the left; `right` (everything else)
+  rolls the other way to show a right-side handle. Both hold the gun lower
+  than before.
+Validation: full suite (two Marina Bay map tests timed out once under load,
+pass alone), typecheck, headless Chrome frames of the SAR 21 empty reload. MG
+reloads not captured in the browser.

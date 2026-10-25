@@ -46,7 +46,7 @@ import { DEFAULT_FPS_DEBUG, FPS_REGEN_DELAY, normalizeFpsDebug, readFpsDebug, re
 import { createWeaponHandling } from './fps-viewmodel';
 import { createScopeRenderer, getWeaponSight } from './weapon-optics';
 import { createOpticReflectionRenderer } from './weapon-reflections';
-import { reloadMotion, reloadStage, smoothStep } from './fps-weapon-motion';
+import { handleSide, reloadMotion, reloadStage, smoothStep } from './fps-weapon-motion';
 import { armReloadGate, reloadInterrupt } from './fps-reload';
 import { createFpsComms, type CommsEntry } from './fps-comms';
 import { createEncikRadio, type EncikAddress, type EncikCallout, type EncikEvent } from './fps-callouts';
@@ -882,7 +882,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const spreadPixels = Math.tan(spreadAngle) * canvas.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     hud.crosshairSpread = THREE.MathUtils.damp(hud.crosshairSpread, Math.max(3, spreadPixels), 20, dt);
     const state = loadout[hud.weapon], remaining = state.reloadRemaining / reloadDuration(specs[hud.weapon], emptyReload[hud.weapon]);
-    const progress = remaining > 0 ? 1 - remaining : null, motion = reloadMotion(progress ?? 0, emptyReload[hud.weapon]);
+    const progress = remaining > 0 ? 1 - remaining : null, motion = reloadMotion(progress ?? 0, emptyReload[hud.weapon], handleSide(specs[hud.weapon].id));
     // A supported gun stays low for reloads; hands, magazine and feed cover
     // still perform their complete handling animation around the planted legs.
     const reloadTravel = 1 - (handling[hud.weapon]?.bipodDeployment ?? 0);

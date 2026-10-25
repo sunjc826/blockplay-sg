@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { EMPTY_RELOAD, RELOAD_POINTS, reloadCommit, reloadShare } from './fps-rules';
-import { reloadMotion, reloadStage } from './fps-weapon-motion';
+import { handleSide, reloadMotion, reloadStage } from './fps-weapon-motion';
 
 it('removes and reseats the magazine, restoring the complete resting pose', () => {
   expect(reloadMotion(.34).magazineDrop).toBeCloseTo(.30);
@@ -25,8 +25,14 @@ it('racks the handle back, holds it, then lets it fly home as the round chambers
   expect(at(1.06).action).toBe(1); expect(at(1.12).action).toBe(1);
   expect(at(EMPTY_RELOAD.chamber).action).toBeLessThan(.6);
   expect(at(1.2).action).toBe(0);
-  // Rolled the other way from the magazine change, to show the handle side.
+  // A right-side handle rolls the other way from the magazine change to show it;
+  // a top lever keeps the cant and turns the muzzle in instead.
   expect(Math.sign(at(1.1).roll)).toBe(-Math.sign(at(.4).roll));
+  const top = reloadMotion(reloadShare(1.1, true), true, 'top');
+  expect(Math.sign(top.roll)).toBe(Math.sign(at(.4).roll)); expect(top.yaw).toBeGreaterThan(.3);
+  expect(handleSide('sar21-inspired')).toBe('top'); expect(handleSide('mag-inspired')).toBe('right');
+  // Held low while cocking, below the magazine change.
+  expect(at(1.1).y).toBeLessThan(at(.6).y - .05); expect(top.y).toBeLessThan(at(.6).y - .05);
   // The release throws the gun forward, away from the camera, before it settles.
   expect(at(1.2).z).toBeLessThan(at(1.12).z - .06);
 });

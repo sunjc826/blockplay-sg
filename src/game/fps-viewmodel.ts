@@ -1,7 +1,7 @@
 import { FPS_WEAPONS } from './fps-rules';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { reloadMotion } from './fps-weapon-motion';
+import { handleSide, reloadMotion } from './fps-weapon-motion';
 import { getWeaponSight } from './weapon-optics';
 import { createBipodMotion, type BipodMotionInput } from './weapon-bipod';
 import { MACHINE_GUN_LAYOUT } from './machine-gun-layout';
@@ -66,6 +66,16 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   const authoredControl = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__charging-handle`) : undefined;
   const control = authoredControl ?? box(additions, .023, .014, .025, .049, index ? .211 : .257, index ? .05 : .10, steel);
   if (index === 2) { control.scale.setScalar(.4); control.position.set(.026, .171, .05); }
+  // The SAR 21 cocks like a FAMAS: a lever on the receiver top, under the optic
+  // bridge between its legs, run back along a slot towards the rear leg.
+  const side = handleSide(FPS_WEAPONS[index].id);
+  if (side === 'top') {
+    control.scale.set(.6, 1.55, .9); control.position.set(0, .277, -.085);
+    box(additions, .007, .002, .105, 0, .2655, -.045, pad);
+  }
+  // Where the support hand takes the handle: from the left under the optic for
+  // a top lever, otherwise from outside the right side; palm to the receiver.
+  const grip = side === 'top' ? { x: -.052, y: .004, turn: 1.77 } : { x: .035, y: .01, turn: -1.2 };
   if (index >= 3 && !authoredControl) control.position.set(index === 4 ? .095 : .063, FPS_WEAPONS[index].sightHeight - .07, .04);
   const cover = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__feed-cover`) : undefined;
   const coverHome = cover?.rotation.clone();
@@ -82,7 +92,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
     get aimDepth() { return getWeaponSight(model)?.aimDepth ?? enemy?.aimDepth ?? (index === 2 ? -.52 : index === 3 ? MACHINE_GUN_LAYOUT['mag-inspired'].aimDepth : index === 4 ? MACHINE_GUN_LAYOUT['cis50-inspired'].aimDepth : -.36); },
     update(progress: number | null, empty: boolean, bipodInput?: BipodMotionInput) {
       bipod.update(bipodInput);
-      const motion = reloadMotion(progress ?? 0, empty);
+      const motion = reloadMotion(progress ?? 0, empty, side);
       if (cover && coverHome) { cover.rotation.copy(coverHome); cover.rotation.x -= motion.handToMagazine * .9; }
       if (belt) belt.visible = motion.magazineVisible;
       if (magazine) {
@@ -105,11 +115,10 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       });
       left.position.copy(support).lerp(magazineGrip, motion.handToMagazine);
       left.position.y -= motion.magazineDrop * motion.handToMagazine;
-      left.rotation.set(-.15 + motion.handToMagazine * .3, -.2 - motion.handToHandle * 1.2, .32 - motion.handToMagazine * .35 - motion.handToHandle * .3);
-      // From empty the support hand takes the handle from outside the right
-      // side, palm to the receiver, and draws it the full stroke.
+      left.rotation.set(-.15 + motion.handToMagazine * .3, -.2 + motion.handToHandle * grip.turn, .32 - motion.handToMagazine * .35 - motion.handToHandle * .3);
+      // From empty the support hand takes the handle and draws it the full stroke.
       const stroke = motion.action * (index === 2 ? .035 : .075);
-      if (progress !== null) left.position.lerp(new THREE.Vector3(control.position.x + .035, control.position.y + .01, controlZ + .01 + stroke), motion.handToHandle);
+      if (progress !== null) left.position.lerp(new THREE.Vector3(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + stroke), motion.handToHandle);
       control.position.z = controlZ + stroke;
     },
     dispose() {
