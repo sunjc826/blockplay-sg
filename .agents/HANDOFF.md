@@ -2517,3 +2517,27 @@ Validation: `routes.test.ts`, full suite, typecheck, build; checked menu,
 Training, Open World, Store, Debug, back button and `?room=` redirect in the
 browser at desktop and 375 px. Browser smokes not rerun.
 Not done: LAN arena and Street View have no menu entry (debug only).
+
+## 2026-10-25: deliberate empty-reload cocking
+
+- An empty reload now lasts `EMPTY_RELOAD.length` (1.5) tactical reloads.
+  Magazine out/seat happen at the same absolute times as a tactical reload; the
+  round chambers at 1.18 (was .9 of the shared timeline). `reloadDuration`,
+  `reloadLength` and `reloadShare` in `fps-rules.ts` convert between the two
+  timelines; `RELOAD_POINTS.chamber` is gone. A suspended reload that resumes
+  as the other kind (a tactical reload that ran dry) carries its progress by
+  time, so it resumes at the same moment of the magazine change.
+- `reloadMotion(progress, empty)` has a separate empty keyframe tail: the gun
+  rolls the other way, toward the centre, to show the right-side charging
+  handle; the support hand takes it from outside the receiver (it used to sit
+  inside the SAR 21 body, on the side facing away), racks a 7.5 cm stroke,
+  holds, then releases with a forward kick. New stage `BOLT BACK` between
+  `SEAT MAG` and `CHAMBER`, with its own handling sound; the release is louder.
+- Gameplay: rifle time-to-ready from empty is 2.1 s (was 1.6 s); tactical
+  reloads are unchanged. Arena host uses the same rules.
+- `fps-handling-smoke.mjs` gains an empty rifle reload with `rifle-bolt-back`
+  / `rifle-chamber` screenshots. That smoke now fails earlier, at `key('2')`
+  expecting the Ultimax (60): the default carried pair is SAR 21 + P30, so 2
+  selects the pistol. This failure isn't caused by this change.
+Validation: full suite, typecheck; frame captures of the rifle's empty reload
+in headless Chrome.

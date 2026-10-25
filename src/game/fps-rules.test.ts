@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceWeapon, beginReload, chamberRound, createLoadout, fireWeapon, FPS_WEAPONS, fullLoad, interruptReload, magazineRounds, RELOAD_POINTS, reloadCommit, reloadProgress, roundReady, hitDamage, movementInput, splashScale, FPS_SPAWN, FPS_TARGETS } from './fps-rules';
+import { advanceWeapon, beginReload, chamberRound, createLoadout, EMPTY_RELOAD, fireWeapon, FPS_WEAPONS, fullLoad, interruptReload, magazineRounds, RELOAD_POINTS, reloadCommit, reloadProgress, roundReady, hitDamage, movementInput, splashScale, FPS_SPAWN, FPS_TARGETS } from './fps-rules';
 import { buildMarinaScene } from './marina-scene';
 import { canOccupy } from './marina-collision';
 
@@ -67,10 +67,11 @@ describe('FPS ammunition lifecycle', () => {
     expect(state.magazineOut).toBe(true); expect(state.magazine).toBe(1); expect(state.reserve).toBe(126); expect(state.reloadSaved).toBeCloseTo(.5);
     expect(fireWeapon(state, 0)).toBe(true); expect(state.magazine).toBe(0); expect(state.chambered).toBe(false);
     advanceWeapon(state, 0, 1); expect(fireWeapon(state, 0)).toBe(false);
-    // Resumed from empty, it picks up at MAG IN and still has to chamber.
-    beginReload(state, 0); expect(state.reloadEmpty).toBe(true); expect(state.reloadRemaining).toBeCloseTo(reload * .5);
+    // Resumed from empty, it picks up at MAG IN on the same clock and still has to rack the handle.
+    beginReload(state, 0); expect(state.reloadEmpty).toBe(true); expect(state.reloadRemaining).toBeCloseTo(reload * (EMPTY_RELOAD.length - .5));
     advanceWeapon(state, 0, reload * .3); expect(state.magazine).toBe(30); expect(roundReady(state, FPS_WEAPONS[0])).toBe(false);
-    advanceWeapon(state, 0, reload * .12); expect(roundReady(state, FPS_WEAPONS[0])).toBe(true);
+    advanceWeapon(state, 0, reload * .3); expect(roundReady(state, FPS_WEAPONS[0])).toBe(false);
+    advanceWeapon(state, 0, reload * .1); expect(roundReady(state, FPS_WEAPONS[0])).toBe(true);
     expect(interruptReload(state, 0)).toBe('finished'); expect(state.reserve).toBe(96);
   });
   it('lets an open bolt fire nothing with its belt out and re-cocks it after running dry', () => {

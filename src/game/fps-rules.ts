@@ -75,7 +75,7 @@ export const DEFAULT_VARIANTS = ['sar-issued', 'ult-issued', 'p30-issued', 'mag-
  * The ammunition in one weapon. `magazine` is every round in the gun, the
  * chambered one included, so a full closed-bolt rifle reads capacity + 1.
  * `reloadRemaining` is seconds left in the reload under way, measured against
- * the weapon's full `reload`, so its complement is how far through it is.
+ * its full `reloadDuration`, so its complement is how far through it is.
  *
  * A closed-bolt gun (rifles, the pistol) fires the round in its chamber and
  * feeds the next from the magazine; with the magazine out it still has that one
@@ -84,7 +84,8 @@ export const DEFAULT_VARIANTS = ['sar-issued', 'ult-issued', 'p30-issued', 'mag-
  * which it stops being when the belt or drum runs dry.
  *
  * A reload takes the magazine out (`RELOAD_POINTS.out`), seats a fresh one
- * (`seat`) and, from empty, chambers a round or cocks the bolt (`chamber`).
+ * (`seat`) and, from empty, goes on to work the charging handle, chambering a
+ * round or cocking the bolt (`EMPTY_RELOAD.chamber`).
  * The rounds left in a removed magazine go back to the reserve. A reload can be
  * interrupted (`interruptReload`); `reloadSaved` keeps how far it got, and the
  * next reload of that weapon resumes there.
@@ -115,18 +116,29 @@ export function roundReady(state: WeaponState, weapon: AmmoSpec) {
 }
 export const createLoadout = (weapons: readonly (AmmoSpec & { reserve: number })[] = FPS_WEAPONS): WeaponState[] =>
   weapons.map(w => ({ magazine: fullLoad(w), reserve: w.reserve, cooldown: 0, reloadRemaining: 0, chambered: true }));
-/** Shares of a reload: the magazine comes out, the fresh one seats, and from empty a round is chambered. */
-export const RELOAD_POINTS = { out: .38, seat: .74, chamber: .9 } as const;
+/** Shares of a tactical reload: the magazine comes out, then the fresh one seats. */
+export const RELOAD_POINTS = { out: .38, seat: .74 } as const;
+/**
+ * An empty reload changes the magazine on the same clock, then works the
+ * charging handle as a step of its own: reach, rack it back, hold, release.
+ * It lasts `length` tactical reloads and chambers the round at `chamber` of one.
+ */
+export const EMPTY_RELOAD = { length: 1.5, chamber: 1.18 } as const;
+/** How long a reload of this kind runs, in tactical reloads. */
+export const reloadLength = (empty: boolean) => empty ? EMPTY_RELOAD.length : 1;
+export const reloadDuration = (weapon: AmmoSpec, empty: boolean) => weapon.reload * reloadLength(empty);
+/** A point given in tactical reloads, as a share of a reload of this kind. */
+export const reloadShare = (point: number, empty: boolean) => point / reloadLength(empty);
 /**
  * Where in a reload the gun is ready again: once the fresh magazine seats, or,
  * from empty, once the round is chambered. Stopping before it costs the progress
  * the next reload resumes from; after it, only the settle is skipped.
- * The fractions match the viewmodel's MAG OUT, MAG IN and CHAMBER stages.
+ * The shares match the viewmodel's MAG OUT, MAG IN and CHAMBER stages.
  */
-export const reloadCommit = (empty: boolean) => empty ? RELOAD_POINTS.chamber : RELOAD_POINTS.seat;
+export const reloadCommit = (empty: boolean) => empty ? reloadShare(EMPTY_RELOAD.chamber, true) : RELOAD_POINTS.seat;
 /** How far through its reload a weapon is, 0..1, or 0 when it is not reloading. */
 export const reloadProgress = (state: WeaponState, index: number, weapons: readonly AmmoSpec[] = FPS_WEAPONS) =>
-  state.reloadRemaining > 0 ? Math.max(0, Math.min(1, 1 - state.reloadRemaining / weapons[index].reload)) : 0;
+  state.reloadRemaining > 0 ? Math.max(0, Math.min(1, 1 - state.reloadRemaining / reloadDuration(weapons[index], state.reloadEmpty === true))) : 0;
 /**
  * Anything to do: a magazine to top up from the reserve, an empty well to fill,
  * or a seated magazine whose round still has to be chambered.
@@ -138,13 +150,17 @@ export function canReload(state: WeaponState, weapon: AmmoSpec) {
 }
 export function beginReload(state: WeaponState, index: number, weapons: readonly AmmoSpec[] = FPS_WEAPONS) {
   if (state.reloadRemaining > 0 || !canReload(state, weapons[index])) return false;
+  const wasEmpty = state.reloadEmpty === true;
   state.reloadEmpty = !roundReady({ ...state, magazineOut: false }, weapons[index]);
   // Nothing ready means nothing chambered (or no bolt cocked), whatever was last recorded.
   if (state.reloadEmpty) state.chambered = false;
   // Resume an interrupted reload where it stopped, always short of the point
-  // where it would be ready, so a resumed reload still gets there.
-  const saved = Math.max(0, Math.min(reloadCommit(state.reloadEmpty) - .01, Number.isFinite(state.reloadSaved) ? state.reloadSaved! : 0));
-  state.reloadRemaining = weapons[index].reload * (1 - saved);
+  // where it would be ready, so a resumed reload still gets there. The saved
+  // share is of the reload that stopped; a tactical reload that ran dry resumes
+  // as an empty one at the same moment of the magazine change.
+  const kept = Number.isFinite(state.reloadSaved) ? state.reloadSaved! * reloadLength(wasEmpty) / reloadLength(state.reloadEmpty) : 0;
+  const saved = Math.max(0, Math.min(reloadCommit(state.reloadEmpty) - .01, kept));
+  state.reloadRemaining = reloadDuration(weapons[index], state.reloadEmpty) * (1 - saved);
   state.reloadSaved = 0;
   return true;
 }
@@ -178,13 +194,13 @@ export function advanceWeapon(state: WeaponState, index: number, dt: number, wea
   dt = Math.max(0, dt);
   state.cooldown = Math.max(0, state.cooldown - dt);
   if (state.reloadRemaining <= 0) return;
-  const weapon = weapons[index], before = reloadProgress(state, index, weapons);
+  const weapon = weapons[index], empty = state.reloadEmpty === true, before = reloadProgress(state, index, weapons);
   state.reloadRemaining = Math.max(0, state.reloadRemaining - dt);
   const after = state.reloadRemaining === 0 ? 1 : reloadProgress(state, index, weapons);
   const crossed = (point: number) => before < point && after >= point;
-  if (crossed(RELOAD_POINTS.out)) removeMagazine(state, weapon);
-  if (crossed(RELOAD_POINTS.seat)) seatMagazine(state, weapon);
-  if (state.reloadEmpty && crossed(RELOAD_POINTS.chamber)) {
+  if (crossed(reloadShare(RELOAD_POINTS.out, empty))) removeMagazine(state, weapon);
+  if (crossed(reloadShare(RELOAD_POINTS.seat, empty))) seatMagazine(state, weapon);
+  if (empty && crossed(reloadCommit(true))) {
     // The charging handle: a round from the fresh magazine into the chamber, or the bolt cocked.
     // A reload resumed past the seat point still needs a magazine to chamber from.
     if (state.magazineOut || magazineRounds(state, weapon) === 0) seatMagazine(state, weapon);

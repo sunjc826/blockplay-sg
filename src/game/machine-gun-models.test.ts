@@ -4,6 +4,7 @@ import { buildServiceWeapon } from './service-weapon-models';
 import { createProfile, equip, resolveLoadout } from './armory-state';
 import { fitWeaponHardware } from './weapon-fittings';
 import { createWeaponHandling } from './fps-viewmodel';
+import { EMPTY_RELOAD } from './fps-rules';
 import { disposeModel } from './armory-visuals';
 import { MACHINE_GUN_LAYOUT, type MachineGunId } from './machine-gun-layout';
 
@@ -48,7 +49,8 @@ for (const [family, variants] of [[3, ['mag-issued', 'mag-chope', 'mag-jaga']], 
     expect(cover.position.equals(pivot)).toBe(true);
     expect(latch.getWorldPosition(new THREE.Vector3()).y).toBeGreaterThan(closed.y + .1);
     expect(belt.visible).toBe(false); expect(magazine.visible).toBe(false);
-    handling.update(.86, true); expect(control.position.z).toBeGreaterThan(controlZ);
+    // Held at the back of its stroke, between the rack and the release.
+    handling.update(1.05 / EMPTY_RELOAD.length, true); expect(control.position.z).toBeGreaterThan(controlZ + .05);
     handling.update(null, false); model.updateMatrixWorld(true);
     expect(latch.getWorldPosition(new THREE.Vector3()).distanceTo(closed)).toBeLessThan(.00001);
     expect(belt.visible).toBe(true); expect(magazine.visible).toBe(true);

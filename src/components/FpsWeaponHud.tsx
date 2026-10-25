@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { FpsHud } from '../game/fps-engine';
-import { RELOAD_POINTS, type WeaponSpec } from '../game/fps-rules';
+import { RELOAD_POINTS, reloadShare, type WeaponSpec } from '../game/fps-rules';
 import { MAG_IN_START, reloadStage } from '../game/fps-weapon-motion';
 import { fillFraction, magazineDisplay } from '../game/hud-motion';
 import { useReducedMotion } from '../game/use-reduced-motion';
@@ -12,7 +12,7 @@ export default function FpsWeaponHud({ hud, weapon, canFight }: { hud: FpsHud; w
   // Truthful digits, except through a reload — see `hud-motion.ts`.
   // The digits are the magazine; a chambered round shows beside them as +1.
   const inMagazine = Math.max(0, hud.magazine - (hud.chambered ? 1 : 0));
-  const rounds = useReducedMotion() ? inMagazine : magazineDisplay(inMagazine, weapon.capacity, hud.reserve, hud.reloading, MAG_IN_START, RELOAD_POINTS.seat);
+  const rounds = useReducedMotion() ? inMagazine : magazineDisplay(inMagazine, weapon.capacity, hud.reserve, hud.reloading, reloadShare(MAG_IN_START, hud.reloadEmpty), reloadShare(RELOAD_POINTS.seat, hud.reloadEmpty));
   // An interrupted reload keeps its progress for the next one (see fps-rules).
   const resume = !reloading && hud.reloadSaved > 0 ? Math.round(hud.reloadSaved * 100) : 0;
   const using = hud.supplyUse;

@@ -62,7 +62,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
     get aimDepth() { return getWeaponSight(model)?.aimDepth ?? enemy?.aimDepth ?? (index === 2 ? -.52 : index === 3 ? MACHINE_GUN_LAYOUT['mag-inspired'].aimDepth : index === 4 ? MACHINE_GUN_LAYOUT['cis50-inspired'].aimDepth : -.36); },
     update(progress: number | null, empty: boolean, bipodInput?: BipodMotionInput) {
       bipod.update(bipodInput);
-      const motion = reloadMotion(progress ?? 0);
+      const motion = reloadMotion(progress ?? 0, empty);
       if (cover && coverHome) { cover.rotation.copy(coverHome); cover.rotation.x -= motion.handToMagazine * .9; }
       if (belt) belt.visible = motion.magazineVisible;
       if (magazine) {
@@ -72,11 +72,12 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       }
       left.position.copy(support).lerp(magazineGrip, motion.handToMagazine);
       left.position.y -= motion.magazineDrop * motion.handToMagazine;
-      left.rotation.set(-.15 + motion.handToMagazine * .3, -.2, .32 - motion.handToMagazine * .35);
-      if (empty && progress !== null) {
-        left.position.lerp(new THREE.Vector3(-.045, index ? .22 : .26, controlZ + .045), motion.action);
-      }
-      control.position.z = controlZ + (empty ? motion.action * .045 : 0);
+      left.rotation.set(-.15 + motion.handToMagazine * .3, -.2 - motion.handToHandle * 1.2, .32 - motion.handToMagazine * .35 - motion.handToHandle * .3);
+      // From empty the support hand takes the handle from outside the right
+      // side, palm to the receiver, and draws it the full stroke.
+      const stroke = motion.action * (index === 2 ? .035 : .075);
+      if (progress !== null) left.position.lerp(new THREE.Vector3(control.position.x + .035, control.position.y + .01, controlZ + .01 + stroke), motion.handToHandle);
+      control.position.z = controlZ + stroke;
     },
     dispose() { bipod.reset(); control.position.z = controlZ; additions.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
   };

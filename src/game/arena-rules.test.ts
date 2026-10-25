@@ -133,10 +133,10 @@ describe('host-authoritative arena', () => {
   });
   it('enforces magazine reload downtime on the host', () => {
     const arena = pair(); arena.removePlayer('one'); arena.addPlayer('one', 'Alpha', 0, 0, [{ ...weapon, capacity: 1, reload: 0.8 }]);
-    // One in the magazine and one in the chamber, then an empty reload.
+    // One in the magazine and one in the chamber, then an empty reload, which runs on to rack the handle.
     expect(fireAt(arena).hitId).toBe('two'); advance(arena, 0.2); expect(fireAt(arena).hitId).toBe('two');
-    advance(arena, 0.4); expect(fireAt(arena).hitId).toBeNull();
-    advance(arena, 0.5); expect(fireAt(arena).hitId).toBe('two');
+    advance(arena, 0.9); expect(fireAt(arena).hitId).toBeNull();
+    advance(arena, 0.6); expect(fireAt(arena).hitId).toBe('two');
   });
   it('supports a tactical reload request and does not restart it every input frame', () => {
     const arena = pair(); fireAt(arena);

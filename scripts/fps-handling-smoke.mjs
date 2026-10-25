@@ -72,6 +72,15 @@ try {
   await evaluate('window.reloadStages=[]');const resumedAt=Date.now();await key('r','KeyR');await wait(`${ammo}===30`);
   assert(!(await evaluate('window.reloadStages')).includes('RELOADING'),'A resumed reload starts where it stopped');
   assert(Date.now()-resumedAt<1500,`Resumed reload took ${Date.now()-resumedAt} ms`);
+  // From empty the reload runs on past the seat to rack the charging handle, a step of its own.
+  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:700,y:550,button:'left',clickCount:1});await wait(`${ammo}===0&&!document.querySelector('.fps-chamber')`,20000);
+  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:700,y:550,button:'left',clickCount:1});
+  await evaluate('window.reloadStages=[]');await key('r','KeyR');
+  await wait(`document.querySelector('.fps-viewport canvas').dataset.reloadStage==='BOLT BACK'`);await delay(200);await screenshot('rifle-bolt-back');
+  await wait(`document.querySelector('.fps-viewport canvas').dataset.reloadStage==='CHAMBER'`);await screenshot('rifle-chamber');
+  await wait(`document.querySelector('.fps-viewport canvas').dataset.reloadStage===''`);
+  for (const s of ['MAG IN','SEAT MAG','BOLT BACK','CHAMBER']) assert((await evaluate('window.reloadStages')).includes(s),`Empty reload stage ${s}`);
+  assert(await evaluate(`!!document.querySelector('.fps-chamber')`),'The empty reload chambers a round');
   await key('2','Digit2'); await wait(`${ammo}===60`);
   await evaluate(`document.dispatchEvent(new MouseEvent('mousemove',{movementY:400}))`);
   await send('Input.dispatchMouseEvent',{type:'mousePressed',x:700,y:550,button:'right',clickCount:1});
@@ -82,9 +91,10 @@ try {
   await send('Input.dispatchMouseEvent',{type:'mousePressed',x:700,y:550,button:'left',clickCount:1});await wait(`${ammo}===0`,20000);
   await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:700,y:550,button:'left',clickCount:1});
   await evaluate('window.reloadStages=[]');await key('r','KeyR');await wait(`document.querySelector('.fps-viewport canvas').dataset.reloadStage==='MAG OUT'`);await screenshot('support-mag-out');
-  await wait(`${ammo}===60`);assert((await evaluate('window.reloadStages')).includes('CHAMBER'));
+  await wait(`${ammo}===60`);await wait(`document.querySelector('.fps-viewport canvas').dataset.reloadStage==='BOLT BACK'`);await delay(200);await screenshot('support-bolt-back');
+  await wait(`window.reloadStages.includes('CHAMBER')`);
   await key('Escape','Escape');await wait(phase('paused'));
   await screenshot('paused-debug');
-  assert.deepEqual(errors,[]);console.log('PASS: LAN HTTP startup, 10x HP, both visible ADS optics, sustained-fire bloom/recovery, tactical and empty staged reloads, interrupted and resumed reload.');
+  assert.deepEqual(errors,[]);console.log('PASS: LAN HTTP startup, 10x HP, both visible ADS optics, sustained-fire bloom/recovery, tactical and empty staged reloads with a racked charging handle, interrupted and resumed reload.');
 } catch(e) {console.log(errors);await screenshot('failure').catch(()=>{});throw e;}
 finally {ws.close(); await fetch(`${chrome}/json/close/${tab.id}`);}
