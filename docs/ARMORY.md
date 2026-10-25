@@ -415,10 +415,30 @@ claiming one gets the baseline instead: taken weapons last one expedition.
 **Who carries what.** Each bot role lists weighted `armament`
 (`arena-roles.ts`), drawn again at every spawn on its own seeded stream:
 assault squads carry XM8 and G36 rifles, tanks the MG4 family, MG36 and XM8 AR,
-snipers the XM8 Sharpshooter or a G36. A role's `weapon` stats still decide how
-hard its bots hit, so arena balance did not move; the draw decides what they
-hold and what they leave behind. Every mode's bots are armed this way; only an
-expedition has pickups.
+snipers the XM8 Sharpshooter or a G36. The draw decides what they hold, what
+they leave behind and how they fight with it: a bot's loadout slot takes the
+drawn variant's own figures (`variantSpec`), so its damage, falloff and
+precision multiplier (`hitDamage`, by range and by whether the round reached
+the head), cycle, magazine and reload are the variant's. A role's `weapon` is
+only the fallback for a slot no draw fills. Every mode's bots are armed this
+way; only an expedition has pickups.
+
+**How bots shoot it** (`arena-bot-combat.ts`). A trigger pull is a burst of
+the role's `burst` length (assault 2–4, tank 4–8, sniper 1) at the weapon's own
+cycle plus a little trigger slack (`botFireCadence`), then the role's
+`shotDelay` pause. The role's aim error is the first round's cone; each round
+already fired opens it by the weapon's recoil, and a magnified sight tightens
+the opening round (`botShotSpread`). So an MG4 gunner lays down long, loosening
+bursts, a G36 rifleman places short accurate ones, and a sharpshooter's single
+round can land a 2.1× head hit.
+
+**Bots patch up.** Each spawn carries the role's `medkits` (assault and sniper
+1, tank 2). Below half health a bot out of sight for a moment kneels, slings
+its rifle and winds a dressing round its forearm for 3.2 s, coming back up
+with 55% of its health restored; in sight it backs away first, unless it is
+below a quarter and nobody has hit it for 2.5 s. A hit stops the dressing and
+the kit is kept. Bots never patch up inside a marked barrage. The snapshot's
+`healing` share drives the shared rig's pose (`CharacterDrive.healing`).
 
 **Drops.** On an expedition, a bot seen alive and then dead (any cause,
 artillery included) leaves its variant where it fell

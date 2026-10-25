@@ -7,8 +7,10 @@ import { damageVehicle, fireVehicleWeapon, vehicleCollisionDamage, VEHICLE_COMBA
 import { applyArmorDamage } from './armory-state';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage } from './fps-stance';
 import { MARINA_BOUNDS, moveInMarina, type Obstacle } from './marina-collision';
-import { advanceWeapon, beginReload, createLoadout, FPS_WEAPONS, fireWeapon, interruptReload, reloadCommit, reloadProgress, roundReady, type WeaponSpec, type WeaponState } from './fps-rules';
+import { advanceWeapon, beginReload, createLoadout, FPS_WEAPONS, fireWeapon, hitDamage, interruptReload, reloadCommit, reloadProgress, roundReady, type WeaponSpec, type WeaponState } from './fps-rules';
 import { armamentFamilies, chooseArmament, getArenaRole, type ArenaRolePlugin } from './arena-roles';
+import { variantSpec } from './armory-state';
+import { BOT_HEAL, botFireCadence, botShotSpread, botWantsHeal } from './arena-bot-combat';
 import './combat-event-catalog';
 import { combatPhase, combatTimeline, getCombatEvent, MAX_COMBAT_EVENTS, type CombatEventDescriptor, type CombatPlane, type MunitionPayload } from './combat-events';
 import { createCombatDirector, planTransport, type CombatRisk } from './combat-director';
@@ -21,6 +23,10 @@ export interface ArenaActor {
   shots: number; role: string; prone?: boolean; vehicle?: VehicleKind; seat?: number;
   /** Bots: the catalog variant in their hands, which is what they drop. */
   variant?: string;
+  /** Bots: share of a field dressing already applied, while they are patching up. */
+  healing?: number;
+  /** Where the last thing that hurt this actor came from; `serial` changes with every hit. */
+  hurtFrom?: { x: number; z: number; serial: number; blast?: boolean };
 }
 export interface ArenaFeed { id: string; text: string; killerId?: string; victimId?: string }
 export interface ArenaSnapshot {
@@ -89,6 +95,15 @@ interface InternalActor {
   sight?: { target: string; clear: boolean; wait: number };
   /** Reinforcements: when this fallen bot started waiting for a ride, and the seat it was given. */
   waiting?: number; ride?: { event: string; slot: number };
+  /**
+   * Bots: the drawn variant's own figures, so a G36 hits, cycles, falls off and
+   * reloads like a G36 rather than like whatever the role was balanced on.
+   */
+  spec?: WeaponSpec;
+  /** Bots: rounds left in the burst under way, and how many it has fired. */
+  burst: number; burstFired: number;
+  /** Bots: dressings carried, the dressing being applied, and when they were last hit. */
+  medkits: number; heal?: { time: number; feet: number; started: number }; lastHurt: number;
 }
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 /** A full gun; the host keeps no reserve, so every reload refills it. */
@@ -118,6 +133,11 @@ function sphereDistance(origin: ArenaPoint, direction: ArenaPoint, center: Arena
   const determinant = b * b - (x * x + y * y + z * z - radius * radius);
   if (determinant < 0) return Infinity;
   const t = -b - Math.sqrt(determinant); return t >= 0 ? t : Infinity;
+}
+/** Whether a ray that reaches `actor` passes through the head rather than the torso. */
+function headHit(origin: ArenaPoint, direction: ArenaPoint, actor: ArenaActor, distance: number) {
+  const head = actor.prone ? { x: actor.x, y: actor.y - PRONE_EYE_HEIGHT + .45, z: actor.z } : { x: actor.x, y: actor.y - .06, z: actor.z };
+  return Math.abs(sphereDistance(origin, direction, head, .15) - distance) < .35;
 }
 function bodyDistance(origin: ArenaPoint, direction: ArenaPoint, actor: ArenaActor) {
   if (actor.prone) return Math.min(...[0, .55, 1.1].map(back =>
@@ -167,7 +187,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const members = new Map<string, InternalActor>();
   let vehicles: SharedVehicle[] = vehicleOptions ? (['car', 'helicopter'] as const).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind])) : [];
   const controls = new Map<string, { input: VehicleControls; expires: number }>();
-  let tick = 0; let elapsed = 0; let finished = false; let winner = ''; let eventId = 0; let seed = 92371;
+  let tick = 0; let elapsed = 0; let finished = false; let winner = ''; let eventId = 0; let seed = 92371, hurtSerial = 0;
   const feed: ArenaFeed[] = [];
   const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
   // What a bot is issued has its own stream, so the draw cannot move anything else the seed decides.
@@ -204,8 +224,15 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const p = preferred ?? positions[0];
     Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75, health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
       yaw: Number.isFinite(preferred?.yaw) ? preferred!.yaw! : 0, pitch: Number.isFinite(preferred?.pitch) ? clamp(preferred!.pitch!, -1.5, 1.5) : 0 });
+    if (entry.role) {
+      const issued = chooseArmament(entry.role, armamentRandom); entry.actor.weapon = issued.family; entry.actor.variant = issued.id;
+      // What they carry is what they fire: the variant's damage, falloff, cycle, magazine and reload.
+      entry.spec = variantSpec(issued) ?? undefined;
+      if (entry.spec) entry.weapons[issued.family] = sanitizeWeapons([entry.spec])[0];
+      entry.medkits = entry.role.medkits ?? 1;
+    }
     entry.ammo = entry.weapons.map(hostAmmo);
-    if (entry.role) { const issued = chooseArmament(entry.role, armamentRandom); entry.actor.weapon = issued.family; entry.actor.variant = issued.id; }
+    entry.burst = 0; entry.burstFired = 0; entry.heal = undefined; entry.lastHurt = -Infinity; delete entry.actor.healing;
     entry.navigation = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false;
   };
@@ -231,6 +258,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       healthMax: 100, armorMax: Number.isFinite(armor) ? clamp(armor, 0, 150) : 0, absorption: Number.isFinite(absorption) ? clamp(absorption, 0, 0.9) : 0,
       weapons: safeWeapons, allowedWeapons, ammo: [], playing: true, movementBudget: 2, wasReloading: false, usePlayerSpawn,
       reaction: 1, target: '', strafe: random() < 0.5 ? -1 : 1, patrol: validSpawns[0], patrolTime: 0,
+      burst: 0, burstFired: 0, medkits: 0, lastHurt: -Infinity,
     };
     members.set(id, entry); spawn(entry); if (initialVitals) setPlayerVitals(id, initialVitals); announce(`${entry.actor.name} joined`);
   }
@@ -341,22 +369,27 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     ammo.cooldown = 0; fireWeapon(ammo, weapon, entry.weapons); entry.actor.shots++;
     if (!roundReady(ammo, entry.weapons[weapon])) startReload(entry, weapon);
-    return resolveShot(entry, origin, ray, entry.weapons[weapon].damage, Math.min(125, Math.max(0, maxDistance)));
+    return resolveShot(entry, origin, ray, entry.weapons[weapon].damage, Math.min(125, Math.max(0, maxDistance)), undefined, entry.spec);
   }
   /** `cause` names what did it when no actor did, as in "Artillery killed …"; it credits nobody. */
-  function hurtActor(victim: InternalActor, damage: number, attacker?: InternalActor, cause?: string) {
+  function hurtActor(victim: InternalActor, damage: number, attacker?: InternalActor, cause?: string, from?: ArenaPoint, blasted = false) {
+    const source = from ?? attacker?.actor;
+    if (source && attacker !== victim) victim.actor.hurtFrom = { x: source.x, z: source.z, serial: ++hurtSerial, ...(blasted ? { blast: true } : {}) };
+    victim.lastHurt = elapsed;
     const blocked = Math.min(victim.actor.armor, damage * victim.absorption);
     victim.actor.armor -= blocked; victim.actor.health = Math.max(0, victim.actor.health - damage + blocked);
     const killed = victim.actor.health <= 0;
     if (killed && victim.actor.alive) {
       victim.actor.alive = false; victim.actor.deaths++; victim.actor.respawnIn = ARENA_RESPAWN_SECONDS; releaseSeat(victim.actor.id);
+      victim.heal = undefined; delete victim.actor.healing;
       if (attacker && attacker !== victim) attacker.actor.kills++;
       announce(cause && !attacker ? `${cause} killed ${victim.actor.name}` : `${attacker?.actor.name ?? 'Vehicle'} eliminated ${victim.actor.name}`, attacker?.actor.id, victim.actor.id);
       if (attacker && !environment?.endless && attacker.actor.kills >= ARENA_KILL_LIMIT) { finished = true; winner = attacker.actor.name; }
     }
     return { hitId: victim.actor.id, killed, damage: damage - blocked };
   }
-  function resolveShot(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, damage: number, range: number, ignore?: VehicleKind): ArenaShot {
+  /** `spec`, when given, prices the hit by range and zone the way the player's own rounds are. */
+  function resolveShot(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, damage: number, range: number, ignore?: VehicleKind, spec?: WeaponSpec): ArenaShot {
     let nearest = Math.min(Number.isFinite(range) ? range : 0, worldWallDistance(origin, ray), cover?.(origin, ray, range) ?? Infinity);
     let hull: SharedVehicle | undefined, victim: InternalActor | undefined;
     for (const v of vehicles) {
@@ -373,8 +406,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const v = vehicles.find(v => v.kind === ignore)!;
       v.shotEnd = { x: origin.x + ray.x * nearest, y: origin.y + ray.y * nearest, z: origin.z + ray.z * nearest };
     }
+    if (spec) damage = hitDamage(spec, nearest, victim && headHit(origin, ray, victim.actor, nearest) ? 'head' : undefined);
     if (hull) { const before = hull.health; damageHull(hull, damage, entry); return { hitId: `vehicle-${hull.kind}`, killed: before > 0 && hull.health === 0, damage: Math.min(before, damage) }; }
-    return victim ? hurtActor(victim, damage, entry) : { ...EMPTY_SHOT };
+    return victim ? hurtActor(victim, damage, entry, undefined, ignore ? origin : undefined) : { ...EMPTY_SHOT };
   }
   function releaseSeat(id: string) {
     const mounted = seatOf(vehicles, id); if (mounted) mounted.vehicle.occupants[mounted.seat] = null;
@@ -441,7 +475,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     for (const hit of resolveBlast(point, spec, targets, clearBlast)) {
       if ('hull' in hit.item) { if (hit.item.hull.health > 0) damageHull(hit.item.hull, hit.damage, attacker, cause); }
-      else if (hit.item.member.actor.alive) hurtActor(hit.item.member, hit.damage, attacker, cause);
+      else if (hit.item.member.actor.alive) hurtActor(hit.item.member, hit.damage, attacker, cause, point, true);
     }
   }
   /**
@@ -611,6 +645,18 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function stepBot(entry: InternalActor, dt: number) {
     const actor = entry.actor;
     const role = entry.role!;
+    // Patching up: kneeling still, weapon down, until it is done or a hit interrupts it.
+    if (entry.heal) {
+      const heal = entry.heal;
+      if (entry.lastHurt >= heal.started) { entry.heal = undefined; delete actor.healing; actor.y = heal.feet + 1.75; }
+      else {
+        heal.time += dt; actor.healing = clamp(heal.time / BOT_HEAL.seconds, 0, 1);
+        if (heal.time < BOT_HEAL.seconds) return;
+        actor.health = Math.min(entry.healthMax, actor.health + entry.healthMax * BOT_HEAL.restore);
+        entry.medkits--; entry.heal = undefined; delete actor.healing; actor.y = heal.feet + 1.75;
+        entry.reaction = role.reaction;
+      }
+    }
     const enemies = [...members.values()].filter(m => m !== entry && m.actor.alive);
     const enemy = enemies.sort((a, b) => distance(actor, a.actor) * (a.actor.bot ? 1.1 : 1) - distance(actor, b.actor) * (b.actor.bot ? 1.1 : 1))[0];
     entry.patrolTime -= dt;
@@ -623,7 +669,15 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const ray = { x: line.x / Math.max(length, 0.01), y: line.y / Math.max(length, 0.01), z: line.z / Math.max(length, 0.01) };
     const visible = !!enemy && length < role.sightRange && worldWallDistance(actor, ray) >= length - 0.5 && clearSight(entry, enemy.actor.id, ray, length, dt);
     const intent = role.think({ distance: horizontal, visible, healthFraction: actor.health / entry.healthMax, strafeDirection: entry.strafe });
-    const approach = Number.isFinite(intent.approach) ? clamp(intent.approach, -1, 1) : 0;
+    let approach = Number.isFinite(intent.approach) ? clamp(intent.approach, -1, 1) : 0;
+    const wounded = botWantsHeal({ health: actor.health, healthMax: entry.healthMax, medkits: entry.medkits, sinceHurt: elapsed - entry.lastHurt, visible, danger: !!dangerExit(actor) });
+    if (wounded === 'heal') {
+      const feet = Math.max(0, actor.y - 1.75);
+      entry.heal = { time: 0, feet, started: elapsed }; actor.healing = 0; actor.y = feet + BOT_HEAL.kneelEye; entry.burst = 0; entry.target = '';
+      return;
+    }
+    // Wounded with someone in view: back away to break the line before patching up.
+    if (wounded === 'retreat' && visible) approach = -1;
     const strafe = Number.isFinite(intent.strafe) ? clamp(intent.strafe, -1, 1) : 0;
     const normal = Math.max(1, Math.hypot(approach, strafe));
     let dxStep = (direction.x * approach - direction.z * strafe) / normal * role.speed * dt;
@@ -655,14 +709,19 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       Object.assign(actor, { x: step.x, z: step.z, y: step.y + 1.75 }); entry.velocityY = step.velocityY;
     } else Object.assign(actor, move(actor, dxStep, dzStep, .4, [...groundObstacles, ...vehicleSolids]));
     actor.yaw = Math.atan2(-dx, -dz); actor.pitch = Math.atan2(line.y, horizontal);
-    if (!visible || !intent.fire) { entry.reaction = role.reaction; entry.target = ''; return; }
-    if (entry.target !== enemy.actor.id) { entry.target = enemy.actor.id; entry.reaction = role.reaction + random() * 0.3; }
+    if (!visible || !intent.fire) { entry.reaction = role.reaction; entry.target = ''; entry.burst = 0; return; }
+    if (entry.target !== enemy.actor.id) { entry.target = enemy.actor.id; entry.reaction = role.reaction + random() * 0.3; entry.burst = 0; }
     entry.reaction -= dt;
     if (entry.reaction <= 0) {
-      // Deliberate arcade inaccuracy gives moving players time to react.
-      const spread = Number.isFinite(intent.spread) ? clamp(intent.spread, 0.005, 0.2) : 0.05;
+      // Bursts at the weapon's own cycle, then a pause the role decides.
+      if (entry.burst <= 0) { const [low, high] = role.burst ?? [1, 1]; entry.burst = low + Math.floor(random() * (high - low + 1)); entry.burstFired = 0; }
+      // Deliberate arcade inaccuracy gives moving players time to react; recoil opens it through a burst.
+      const base = Number.isFinite(intent.spread) ? clamp(intent.spread, 0.005, 0.2) : 0.05;
+      const spread = entry.spec ? botShotSpread(base, entry.spec, entry.burstFired) : base;
       shoot(actor.id, actor, { x: ray.x + (random() - 0.5) * spread, y: ray.y + (random() - 0.5) * spread, z: ray.z + (random() - 0.5) * spread }, actor.weapon);
-      entry.reaction = (Number.isFinite(intent.shotDelay) ? clamp(intent.shotDelay, 0.1, 5) : 0.5) + random() * 0.15;
+      entry.burst--; entry.burstFired++;
+      const pause = (Number.isFinite(intent.shotDelay) ? clamp(intent.shotDelay, 0.1, 5) : 0.5) + random() * 0.15;
+      entry.reaction = entry.burst > 0 && entry.spec ? botFireCadence(entry.spec) : Math.max(pause, entry.spec?.interval ?? 0);
     }
   }
   function step(dt: number) {

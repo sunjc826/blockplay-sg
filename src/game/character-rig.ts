@@ -41,6 +41,12 @@ export interface CharacterDrive {
   /** Body-local point to look at. */
   lookAt?: THREE.Vector3 | null;
   gesture?: CharacterGesture;
+  /**
+   * Progress through applying a field dressing, 0 to 1, or absent: the weapon
+   * hangs on its sling while the right hand winds a dressing round the left
+   * forearm.
+   */
+  healing?: number;
 }
 
 export interface CharacterRig {
@@ -298,6 +304,14 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     resources.push(merged);
     const mesh = new THREE.Mesh(merged, material); mesh.name = `${bone.name}-mesh`; bone.add(mesh);
   }
+  // A roll of field dressing in the left hand, shown only while it is being applied.
+  let dressing: THREE.Mesh | null = null;
+  if (look.weapon) {
+    const geometry = new THREE.CylinderGeometry(.034, .034, .07, 10), material = new THREE.MeshStandardMaterial({ color: '#e9e6da', roughness: .95 });
+    resources.push(geometry, material);
+    dressing = new THREE.Mesh(geometry, material); dressing.name = 'rig-dressing'; dressing.position.set(0, -.06, -.035); dressing.rotation.z = Math.PI / 2; dressing.visible = false;
+    handL.add(dressing);
+  }
   // Rendered aim points for perception code: the chest and the face.
   const chestPoint = new THREE.Object3D(); chestPoint.name = 'avatar-aim-chest'; chestPoint.position.set(0, .1, 0); chest.add(chestPoint);
   const headPoint = new THREE.Object3D(); headPoint.name = 'avatar-aim-head'; headPoint.position.set(0, .1, 0); head.add(headPoint);
@@ -305,6 +319,7 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
   // Animation state.
   let time = hashString(name) % 1000 / 37, phase = 0, moveWeight = 0, speedSmoothed = 0, runWeight = 0;
   let crouch = 0, prone = 0, seated = 0, air = 0, aim = 1, driving = 0, kick = 0, flinch = 0, flinchSide = 1;
+  let heal = 0, healTime = 0;
   let down = false, downTime = 0, gestureTime = 0, gesture: CharacterGesture = 'idle', gestureBlend = 0, lookYaw = 0, lookPitch = 0;
   const moveDirection = new THREE.Vector2(0, -1), wanted = new THREE.Vector2();
   const target = new THREE.Vector3(), world = new THREE.Vector3(), pole = new THREE.Vector3();
@@ -320,6 +335,12 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     const rest = out.set(side * (.235 * build + .02), hipY - .02, -.02 + swing);
     if (down) return rest.set(side * .42, hipY + .1, .05);
     if (seated > .5 && driving > .5) return out.set(side * .19, D.seatedHips + .48, -.42);
+    if (heal > .001) {
+      // The left forearm held out across the body; the right hand winds round it.
+      const wind = healTime * 6.5, pose = side < 0 ? tmpD.set(-.03, hipY + .34, -.3)
+        : tmpD.set(-.05 + Math.cos(wind) * .075, hipY + .37 + Math.sin(wind) * .055, -.31 + Math.sin(wind) * .035);
+      return rest.lerp(pose, heal);
+    }
     const blend = gestureBlend, t = gestureTime;
     if (blend <= .001) return rest;
     const pose = tmpC;
@@ -360,6 +381,9 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     driving = smooth(driving, drive.driving ? 1 : 0, 10, dt);
     air = smooth(air, drive.airborne && !down ? 1 : 0, 9, dt);
     aim = smooth(aim, clamp01(drive.aim ?? 1), 9, dt);
+    const healing = drive.healing !== undefined && !down;
+    heal = smooth(heal, healing ? 1 : 0, 8, dt); healTime = healing ? healTime + dt : 0;
+    if (dressing) { dressing.visible = heal > .35; dressing.scale.setScalar(.6 + clamp01(drive.healing ?? 0) * .6); }
     kick = Math.max(0, kick - dt * 9); flinch = Math.max(0, flinch - dt * 5);
     if (down) downTime += dt;
     // A released gesture fades back to rest before it is forgotten.
@@ -420,7 +444,10 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     if (weapon) {
       const ready = aim * (1 - runWeight * (1 - aim)), low = 1 - ready, run = runWeight * low;
       weapon.visible = driving < .5 || seated < .5;
-      if (down) {
+      if (heal > .5 && !down) {
+        // Hung on its sling, muzzle down at the right hip, while both hands are busy.
+        weapon.position.set(.16, -.12, -.08); weapon.rotation.set(-1.25, .2, .15, 'YXZ');
+      } else if (down) {
         // Dropped across the chest as the body falls.
         weapon.position.set(0, .08, -.2); weapon.rotation.set(0, 1.4, .1, 'YXZ');
       } else {
@@ -458,7 +485,7 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     root.updateWorldMatrix(false, true);
 
     // Arms: on the weapon when carried, otherwise relaxed or gesturing.
-    const armed = !!weapon && weapon.visible && !down;
+    const armed = !!weapon && weapon.visible && !down && heal <= .5;
     for (const [upper, lower, hand, side] of [[upperArmL, forearmL, handL, -1], [upperArmR, forearmR, handR, 1]] as const) {
       let goal: THREE.Vector3;
       if (armed && grip && fore) {
