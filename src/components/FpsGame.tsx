@@ -19,6 +19,8 @@ import FpsPilotPanel from './FpsPilotPanel';
 import FpsCommsLog from './FpsCommsLog';
 import FpsRadio, { FpsRadioVoice } from './FpsRadio';
 import TouchControls from './TouchControls';
+import { FpsControlGuide, FpsPlayerTools } from './FpsPlayerTools';
+import { useDebugMode } from '../lib/debug-mode';
 import { useTouchControls } from '../game/use-touch-controls';
 import './arena-hud.css';
 import './fps-hit-direction.css';
@@ -47,6 +49,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
   const fullscreen = useFpsFullscreen(stage, () => engine.current?.pause());
   const fullscreenAction = useRef(fullscreen.toggle); fullscreenAction.current = fullscreen.toggle;
   const [hud, setHud] = useState(initialFpsHud), [epoch, setEpoch] = useState(0);
+  const debug = useDebugMode();
   useEffect(() => {
     setHud({ ...initialFpsHud });
     try { engine.current = createFpsEngine(host.current!, setHud, { region, loadout: equipment, combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onElimination: id => eliminationCallback.current(id), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); }, encik: () => speaking.current }); }
@@ -126,19 +129,22 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         {['ready', 'complete', 'defeated'].includes(hud.phase) && <div className="fps-drill-choice"><button aria-pressed={!combat} onClick={() => chooseDrill(false)}>Practice</button><button aria-pressed={combat} onClick={() => chooseDrill(true)}>Counter-fire · +100 CR</button></div>}
         {hud.message && hud.phase !== 'error' && <p className="fps-capture-error" role="alert">{hud.message}</p>}
         <EnvironmentControls />
-        <FpsDebugPanel hud={hud} engine={engine.current} />
-        <FpsRadioVoice hud={hud} engine={engine.current} />
-        <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
+        {debug ? <>
+          <FpsDebugPanel hud={hud} engine={engine.current} />
+          <FpsRadioVoice hud={hud} engine={engine.current} />
+          <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
+        </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} onFullscreen={() => { void fullscreen.toggle(); }} />}
         {hud.phase !== 'loading' && hud.phase !== 'error' && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP<br />{combat ? 'Targets return simulated fire. Move when warned to dodge.' : 'Practice mode: targets do not return fire.'}</p>}
         {hud.phase === 'complete' && <div className="fps-reward">+{hud.earned} CR · +{hud.earnedXp} XP earned{rank.level > startingLevel.current && <strong className="fps-level-up">{insignia.promoted ? 'PROMOTED' : 'LEVEL UP'} · LV {rank.level} {insignia.label.toUpperCase()}</strong>}{hud.callout && <span className="fps-final-callout">{hud.callout}</span>}</div>}
         <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') setEpoch(n => n + 1); else if (hud.phase === 'complete' || hud.phase === 'defeated') resetExercise(); else engine.current?.start(); }}>
           {hud.phase === 'complete' || hud.phase === 'defeated' || hud.phase === 'error' ? <RotateCcw size={16} /> : <Play size={16} />} {hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry' : hud.phase === 'complete' || hud.phase === 'defeated' ? 'Reset exercise' : hud.phase === 'paused' ? 'Resume exercise' : 'Enter range'} <ArrowRight size={17} />
         </button>
         <button className="fps-shop-link" onClick={onOpenShop}>Open armory · change equipment →</button>
-        <div className="fps-control-guide"><span><kbd>WASD</kbd> Move</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>C</kbd> Crouch</span><span><kbd>Z</kbd> Prone / mount</span><span><kbd>Space</kbd> Jump</span><span><kbd>1–3</kbd> Switch</span><span><kbd>M</kbd> Map</span><span><kbd>E</kbd> Enter / exit vehicle</span><span><kbd>Space / C</kbd> Fly up / down</span><span><kbd>F</kbd> Fullscreen</span></div>
-        <small className="fps-touch-note">{touch ? 'Thumb controls appear once the range opens: the left stick moves, dragging the scene looks around, and the actions sit on the arc around the trigger.' : 'On touchscreens, drag the scene to look and use the controls below.'}</small>
+        <FpsControlGuide debug={debug}><span><kbd>WASD</kbd> Move</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>C</kbd> Crouch</span><span><kbd>Z</kbd> Prone / mount</span><span><kbd>Space</kbd> Jump</span><span><kbd>1–3</kbd> Switch</span><span><kbd>M</kbd> Map</span><span><kbd>E</kbd> Enter / exit vehicle</span><span><kbd>Space / C</kbd> Fly up / down</span><span><kbd>F</kbd> Fullscreen</span></FpsControlGuide>
+        {debug && <small className="fps-touch-note">{touch ? 'Thumb controls appear once the range opens: the left stick moves, dragging the scene looks around, and the actions sit on the arc around the trigger.' : 'On touchscreens, drag the scene to look and use the controls below.'}</small>}
       </div></div>}
     </div>
+    {(debug || isArena) && <>
     <div className="experience-toolbar fps-toolbar"><div className="experience-title"><span className="mode-icon">{isArena ? <Users size={22} /> : <Crosshair size={22} />}</span><div><h3>{`${district.label} · ${isArena ? 'arena' : 'field range'}`}</h3><p>{isArena ? `${arenaOptions.session.role === 'solo' ? 'Solo vs bots' : 'P2P LAN'} · Free for all · ${ARENA_KILL_LIMIT} eliminations` : `${combat ? 'Counter-fire drill' : 'Practice drill'} · Custom loadout · 8 targets`}</p></div></div><div className="toolbar-actions">
       <button className="icon-button" aria-label={hud.muted ? 'Enable range sound' : 'Mute range sound'} onClick={() => engine.current?.toggleSound()}>{hud.muted ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
       <button className="session-button fps-fullscreen-button" aria-label={fullscreen.immersive ? 'Exit fullscreen range' : 'Fullscreen range'} aria-pressed={fullscreen.immersive} onClick={() => { void fullscreen.toggle(); }}>{fullscreen.immersive ? <Minimize size={16} /> : <Maximize size={16} />} {fullscreen.immersive ? 'Windowed' : 'Fullscreen'} <kbd>F</kbd></button>
@@ -155,6 +161,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
     </div>
     {isArena && hud.arena && hud.phase !== 'complete' && <details className="arena-standings" open={!playing}><summary>Match scoreboard <span>{hud.arena.actors.length} combatants</span></summary><Scoreboard snapshot={hud.arena} selfId={arenaOptions.session.id} /></details>}
     {isArena ? <div className="arena-session-footer"><span>{arenaOptions.session.role === 'solo' ? 'LOCAL BOT MATCH' : hud.arenaConnected ? 'P2P CONNECTED' : 'CONNECTING'} · {arenaOptions.session.name}</span><button onClick={onLeaveArena}>Leave match <ArrowRight size={13} /></button></div> : <div className="fps-progression-summary"><RankBadge insignia={insignia} size={17} /><b>LV {rank.level} · {insignia.label}</b><progress value={rank.progress} max={1} aria-label="FPS level progress" /><span>{rank.remaining ? `${rank.remaining} XP to next level` : 'Maximum level'}</span></div>}
-    <p className="fps-message" role="status">{fullscreen.notice || hud.message || (isArena ? 'Match scores are session-only · Infantry armor/ammo replenish on respawn · Vehicle ammo resets with the match' : 'Game balance stats · Scenery blocks shots · Armor replenishes each exercise')}</p>
+    </>}
+    {(debug || isArena || fullscreen.notice || hud.message) && <p className="fps-message" role="status">{fullscreen.notice || hud.message || (isArena ? 'Match scores are session-only · Infantry armor/ammo replenish on respawn · Vehicle ammo resets with the match' : 'Game balance stats · Scenery blocks shots · Armor replenishes each exercise')}</p>}
   </div>;
 }

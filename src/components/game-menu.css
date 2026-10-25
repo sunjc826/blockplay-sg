@@ -58,11 +58,22 @@
 .game-district select option { color:#23362d; }
 .game-zone { font:9px ui-monospace,'SFMono-Regular',monospace; letter-spacing:1px; color:var(--menu-dim); }
 .game-zone b { color:var(--menu-ink); font-weight:600; margin-left:4px; }
-/* The range and expedition were drawn for a light card; give them one. */
-.game-screen-body { flex:1; display:flex; flex-direction:column; min-height:0; padding:clamp(8px,1.2vw,16px); background:#f7f7f0; color:#23362d; }
-.game-screen-store .game-screen-body { background:#0b1211; }
+/* With the developer panels gone (lib/debug-mode) the game is just its
+   viewport, so it takes the whole screen below the bar. */
+.game-screen-body { flex:1; display:flex; flex-direction:column; min-height:0; padding:clamp(8px,1.2vw,16px); background:#0b1211; }
 .game-screen-body > .fps-game { flex:1; display:flex; flex-direction:column; min-height:0; }
-.game-screen-body > .fps-game:not(.is-immersive) > .fps-viewport { flex:1 1 0; height:auto; min-height:max(420px,68dvh); border-radius:8px; }
+.game-screen-body > .fps-game:not(.is-immersive) > .fps-viewport { flex:1 1 0; height:auto; min-height:420px; border-radius:8px; }
+.game-screen-body > .fps-game > .fps-message { color:var(--menu-dim); margin:8px 2px 0; }
+
+/* Start-card extras for players: a toggle row and the folded key list. */
+.fps-player-tools { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 14px; }
+.fps-player-tools .session-button { background:#263e32; color:#e8efda; border-color:#5c755d; }
+.fps-player-tools .session-button kbd { border-color:#7d927a; background:transparent; min-width:18px; padding:1px 3px; }
+.fps-player-tools .session-button[aria-pressed=false] { background:transparent; color:#4d6152; border-color:#b7c5aa; }
+.fps-start-card > .fps-player-tools > .fps-radio-voice { margin:0; }
+.fps-controls-fold { margin-top:16px; font-size:11px; color:inherit; }
+.fps-controls-fold summary { cursor:pointer; opacity:.8; font:9px ui-monospace,'SFMono-Regular',monospace; letter-spacing:1px; text-transform:uppercase; }
+.fps-controls-fold .fps-control-guide { margin-top:12px; }
 
 @media(max-width:720px) {
   .game-profile .game-rank-copy, .game-menu-hint { display:none; }
@@ -74,5 +85,5 @@
   .game-screen-bar { flex-wrap:wrap; gap:10px; }
   .game-screen-bar h1 { font-size:15px; }
   .game-zone { display:none; }
-  .game-screen-body > .fps-game:not(.is-immersive) > .fps-viewport { min-height:max(300px,55dvh); }
+  .game-screen-body > .fps-game:not(.is-immersive) > .fps-viewport { min-height:300px; }
 }

@@ -2557,3 +2557,19 @@ in headless Chrome.
 Validation: full suite (two Marina Bay map tests timed out once under load,
 pass alone), typecheck, headless Chrome frames of the SAR 21 empty reload. MG
 reloads not captured in the browser.
+
+## 2026-10-25: player screens drop the developer panels
+
+- `src/lib/debug-mode.ts`: a `DebugMode` context, on by default (the `/debug`
+  shell, unit tests and smokes are unchanged); `GameMenu` sets it off for
+  `/training`, `/world` and `/store`.
+- With it off, `FpsGame` (range only; the arena card is untouched) and
+  `ExpeditionGame` render only the viewport. The start card loses the debug
+  survival and AI pilot panels and the touch note; it gains a Sound / Encik /
+  Fullscreen row (`FpsPlayerTools`) and folds the key list under "Controls"
+  (`FpsControlGuide`). Nothing renders below the viewport except a fullscreen
+  or engine message when there is one: no toolbar, comms log, loadout, d-pad,
+  district intel or footer.
+Validation: typecheck, build; browser check of both modes. Mouse capture is
+blocked in the app's browser pane in both modes, so play itself was not entered
+there.

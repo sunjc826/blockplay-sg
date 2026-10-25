@@ -13,6 +13,7 @@ import { REGIONS } from '../game/regions';
 import type { WorldZoneId } from '../game/world-zones';
 import { locations } from '../data/locations';
 import { navigate, ROUTE_PATHS, type Route } from '../lib/routes';
+import { DebugMode } from '../lib/debug-mode';
 import { pwa, usePwa } from '../lib/pwa';
 import './game-menu.css';
 
@@ -75,11 +76,11 @@ export default function GameMenu({ screen }: { screen: Screen }) {
         {screen === 'world' && <><DistrictPicker label="START IN" value={worldStart} onChange={id => { setWorldStart(id); setWorldZone(id); }} options={locations} /><span className="game-zone">NOW IN <b>{locations.find(place => place.id === worldZone)?.name}</b></span></>}
         {profile}
       </header>
-      <main className="game-screen-body">
+      <main className="game-screen-body"><DebugMode.Provider value={false}>
         {screen === 'training' && <FpsGame key={`training-${training}`} region={training} profile={armory.profile} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={() => navigate('store')} />}
         {screen === 'world' && <ExpeditionGame key={`world-${worldStart}`} initialZone={worldStart} onZoneChange={setWorldZone} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onExit={() => navigate('menu')} />}
         {screen === 'store' && <ArmoryShop store={armory} rangeLabel={getFpsDistrict(training).label} onEnterRange={() => navigate('training')} />}
-      </main>
+      </DebugMode.Provider></main>
       {updateToast}
     </div>;
   }

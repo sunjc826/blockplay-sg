@@ -15,6 +15,8 @@ import FpsPilotPanel from './FpsPilotPanel';
 import FpsCommsLog from './FpsCommsLog';
 import FpsRadio, { FpsRadioVoice } from './FpsRadio';
 import TouchControls from './TouchControls';
+import { FpsControlGuide, FpsPlayerTools } from './FpsPlayerTools';
+import { useDebugMode } from '../lib/debug-mode';
 import { useTouchControls } from '../game/use-touch-controls';
 import type { MinimapMarker } from '../game/minimap';
 import './expedition.css';
@@ -30,6 +32,7 @@ export default function ExpeditionGame({ profile, onExit, onVendorPurchase, onCo
   const zoneChanged = useRef(onZoneChange); zoneChanged.current = onZoneChange;
   useEffect(() => { zoneChanged.current?.(scene.zone); }, [scene.zone]);
   const [hud, setHud] = useState(initialFpsHud);
+  const debug = useDebugMode();
   const host = useRef<HTMLDivElement>(null), stage = useRef<HTMLDivElement>(null), engine = useRef<FpsEngine | null>(null);
   const fullscreen = useFpsFullscreen(stage, () => engine.current?.pause());
   const fullscreenAction = useRef(fullscreen.toggle); fullscreenAction.current = fullscreen.toggle;
@@ -111,15 +114,18 @@ export default function ExpeditionGame({ profile, onExit, onVendorPurchase, onCo
         {!['loading', 'error'].includes(hud.phase) && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName}<br />{zone.botCount} defenders · {zone.composition} roles · No match timer</p>}
         {hud.message && hud.phase !== 'error' && <p className="fps-capture-error" role="alert">{hud.message}</p>}
         <EnvironmentControls />
-        <FpsDebugPanel hud={hud} engine={engine.current} />
-        <FpsRadioVoice hud={hud} engine={engine.current} />
-        <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
+        {debug ? <>
+          <FpsDebugPanel hud={hud} engine={engine.current} />
+          <FpsRadioVoice hud={hud} engine={engine.current} />
+          <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
+        </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} onFullscreen={() => { void fullscreen.toggle(); }} />}
         <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => hud.phase === 'error' ? setScene(current => ({ ...current, revision: current.revision + 1 })) : engine.current?.start()}><Play size={16} />{hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry district' : hud.phase === 'paused' ? 'Resume expedition' : 'Enter district'}<ArrowRight size={17} /></button>
-        <button className="fps-shop-link" onClick={onExit}>Leave expedition →</button>
-        <div className="fps-control-guide"><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>E</kbd> Take supplies</span><span><kbd>G</kbd> Use supply</span><span><kbd>M</kbd> Map</span><span><kbd>N</kbd> Interact nearby</span><span><kbd>T</kbd> Travel</span><span><kbd>F</kbd> Fullscreen</span></div>
-        <small className="fps-touch-note">{touch ? 'Thumb controls appear once you enter the district. ' : ''}Field equipment lasts for this expedition. Your permanent Armory stays saved.</small>
+        <button className="fps-shop-link" onClick={onExit}>{debug ? 'Leave expedition →' : 'Leave to menu →'}</button>
+        <FpsControlGuide debug={debug}><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>E</kbd> Take supplies</span><span><kbd>G</kbd> Use supply</span><span><kbd>M</kbd> Map</span><span><kbd>N</kbd> Interact nearby</span><span><kbd>T</kbd> Travel</span><span><kbd>F</kbd> Fullscreen</span></FpsControlGuide>
+        {debug && <small className="fps-touch-note">{touch ? 'Thumb controls appear once you enter the district. ' : ''}Field equipment lasts for this expedition. Your permanent Armory stays saved.</small>}
       </div></div>}
     </div>
+    {debug && <>
     <div className="experience-toolbar fps-toolbar"><div className="experience-title"><span className="mode-icon"><Compass size={22} /></span><div><h3>{zone.name} · expedition</h3><p>Connected districts · Random supplies · Solo survival</p></div></div><div className="toolbar-actions">
       <button className="session-button" aria-label={fullscreen.immersive ? 'Exit expedition fullscreen' : 'Fullscreen expedition'} onClick={() => { void fullscreen.toggle(); }}>{fullscreen.immersive ? <Minimize size={16} /> : <Maximize size={16} />} Fullscreen</button>
       <button className="session-button" disabled={['loading', 'error'].includes(hud.phase) || suspended} onClick={() => playing ? engine.current?.pause() : engine.current?.start()}>{playing ? <Pause size={15} /> : <Play size={15} />}{playing ? 'Menu' : 'Resume'}</button>
@@ -138,6 +144,7 @@ export default function ExpeditionGame({ profile, onExit, onVendorPurchase, onCo
       <section><h3>Local contacts &amp; supplies</h3>{nearbyNpcs.map(npc => <p key={npc.id}><strong>{npc.name} · {distance(npc)}m</strong><br /><span>{npc.interaction.kind === 'vendor' ? `${itemById(npc.interaction.catalogId)?.name} · ${npc.interaction.price} ${npc.interaction.currency === 'tokens' ? 'TK' : 'CR'}` : `${npc.role} · Talk`}</span></p>)}{nearbyLoot.length ? nearbyLoot.map(item => <p key={item.id}><strong>{item.name} · {distance(item)}m</strong><br /><span>{item.tier.toUpperCase()} · X {Math.round(item.x)}, Z {Math.round(item.z)}{(item.y ?? 0) > 0 ? ` · Upper level +${Math.round(item.y!)}m` : ''}</span></p>) : <p>{hud.phase === 'loading' ? 'Scanning the district…' : 'No random supplies remain nearby.'}</p>}<small>NPC interactions are additional to random loot. Press N near a local contact; supplies on your level use E.</small></section>
     </div>
     <div className="expedition-footer"><span>Field gear is temporary · Armory purchases stay saved</span><button onClick={onExit}>Leave expedition <ArrowRight size={14} /></button></div>
-    <p className="fps-message" role="status">{fullscreen.notice || hud.message || (touch ? 'The left stick moves, dragging the scene looks around, and holding FIRE keeps the aim correctable. The Menu button pauses you; the district stays active.' : 'Drag the scene to look on touchscreens. ESC opens the menu; the district remains active.')}</p>
+    </>}
+    {(debug || fullscreen.notice || hud.message) && <p className="fps-message" role="status">{fullscreen.notice || hud.message || (touch ? 'The left stick moves, dragging the scene looks around, and holding FIRE keeps the aim correctable. The Menu button pauses you; the district stays active.' : 'Drag the scene to look on touchscreens. ESC opens the menu; the district remains active.')}</p>}
   </div>;
 }
