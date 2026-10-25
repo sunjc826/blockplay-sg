@@ -2573,3 +2573,85 @@ reloads not captured in the browser.
 Validation: typecheck, build; browser check of both modes. Mouse capture is
 blocked in the app's browser pane in both modes, so play itself was not entered
 there.
+## 2026-10-24: factions, uniforms, and fuller troop transports
+
+Two defined sides (docs/FACTIONS.md): players are the Armed Forces, every bot
+a Black Kite contractor (fictional PMC). Transports now carry full loads and
+grow each district's headcount.
+- factions.ts: FACTIONS registry (name, colour, uniform, camo, badges),
+  `factionOf`, `hostile`. `ArenaActor.faction` is host-set and validated.
+  Bots only target hostile actors, and same-side rounds stop without damage.
+  Players stay hostile to players (LAN free-for-all unchanged). Bots used to
+  fight each other too; arena-rules.test's bots-only attack test now adds a player.
+- character-rig: `camo` (printCamo patches the material in onBeforeCompile:
+  per-fragment `digital`/`blotch` pattern from bone-local position on parts
+  flagged `fabric`), `patches` (sleeve badges at local -side·x because the arm
+  IK puts +x on the hinge; chest badge), `eyewear`. character-looks dresses by
+  faction then role. Name labels use the faction colour.
+- Reinforcements: REINFORCEMENT_SEATS {land 8, air 6} (MAX_TROOPS 8); empty
+  seats take recruits (held `reserve`, out of snapshots, until set down) up to
+  `ArenaEnvironment.population` (DISTRICT_POPULATION low 8 / medium 10 /
+  high 12). Top-ups wait REINFORCEMENT_TOP_UP (20 s); one transport on the
+  road at a time; trucks unload in two files when >4. MAX_ARENA_BOTS 16,
+  MAX_ARENA_ACTORS 24, MAX_COMBAT_EVENTS 6, and the active cap is now 3 per kind
+  (transports vs hazards). Bot route search shares a 6 ms/tick budget.
+- Scoreboard caption counts by faction; banners say BLACK KITE / MERCENARIES.
+Validation: full vitest, typecheck. faction-uniforms fixture reviewed in
+headless Chrome (swiftshader). A Marina expedition soak (AI pilot) went from
+4 to 10 contractors on one truck at about 50 s, with director artillery still
+firing and no runtime errors. `pnpm test:combat-events` in this container
+fails on the banner-timing and ≥4-craters steps, and fails the same way on
+the base commit (f817a9d); the new headcount assertion was added to it.
+With 10–12 contractors the AI pilot dies noticeably more often.
+Next idea from the owner: per-faction district "heat" (GTA / L4D director)
+driving headcount, spawn rate and equipment.
+
+## 2026-10-24: faction heat by sector, and friendly squads
+
+The fixed per-risk headcount is replaced by faction heat (docs/FACTIONS.md#heat).
+- faction-heat.ts (pure): per-sector, per-faction heat inside `{min,max,curve}`
+  bands that inherit sub-sector → `parent` → DISTRICT_HEAT[risk]. Casualties raise
+  their own side, spill ×0.5 up the parent chain, and leak a share to the other
+  side scaled by its remaining room, never leaking back. Linear decay to the floor.
+  Curves: linear, slow-burn, hair-trigger, tiers. `troops`, `topUpInterval` and
+  `neediest` turn strength into effects via FACTION_SCALE (mercs 3–14, forces 0–4).
+- ZoneSector gains `parent` and `heat`; HarbourFront is tuned (quay held by the
+  forces, Cruise Centre contested, Keppel wharf a slow-burn stronghold).
+- Arena: `ArenaEnvironment.heat` (district-world sets it). Per-faction dispatch
+  clocks and rides (`CombatEventDescriptor.faction`), drops in the neediest sector,
+  `home` sector patrols with HOME_LEASH 90 m, armour and recruit role mix by
+  strength, snapshot `heat`. Friendly bots: faction 'forces', `Pte/Cpl/Sgt Name`,
+  issued rifle or Ultimax, no `variant` so no drops. MAX_ARENA_BOTS 20. The
+  DISTRICT_POPULATION constant from the previous entry is gone.
+- HUD: heat meter under LOCATION (minimap moves down while it shows); friendly
+  banners via `bannerOf`; avatars mark `arenaFriendly` so the AI pilot skips them.
+Validation: full vitest, typecheck. A Marina soak with the AI pilot saw a friendly
+truck arrive, heat bars move with the fighting, and no runtime errors.
+Not done: friendly vehicles look the same as Black Kite's, there is no heat
+debug panel, and only HarbourFront has tuned bands.
+
+## 2026-10-25: factions, transports and heat rebased onto main
+
+The session's faction work (uniforms, fuller transports, sector heat, friendly
+squads) was rebased as one commit onto main, which had meanwhile added its own
+faction registry (5f3b82a) and nine combat events with militia crews.
+- One registry: main's `arena-factions.ts` now also carries `camo`, `patches`,
+  `side`, `short`, `caps`, plus `factionIdOf`, `hostile`, `SQUAD_FACTIONS`. The
+  session's `factions.ts` is gone. Ids and palettes are main's (`armed-forces`,
+  navy `mercenaries`), with camouflage and badges chosen to suit them.
+- No militia (owner's call): the crew roles belong to either side. `ownerAt`
+  in arena-rules gives each non-transport event to the side opposing the
+  soldier nearest its target (`descriptor.faction`, set only for the forces),
+  and the crew wears and fights for that side. Main had every bot fight every
+  bot; now only the two sides fight, crews still spare crew-mates, and the
+  rooftop-sniper grudge rule is kept.
+- `ArenaActor.faction` (host-set): crews get their event's faction, friendly
+  squads `armed-forces`. Labels keep main's role accent.
+- The faction-heat field is `factionHeat` in arena-rules; `heat` there is still
+  main's activity grid for the combat director. Snapshot heat rows are keyed by
+  squad faction id.
+- MAX_COMBAT_EVENTS is 6 with three active per kind (transports vs hazards).
+  Main's nine events have not been soak-tested against that.
+Validation: full vitest, typecheck and build on the rebased tree; the uniforms fixture
+rendered in headless Chrome (swiftshader). The CDP browser smokes were not rerun
+after the rebase.

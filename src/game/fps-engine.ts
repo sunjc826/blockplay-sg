@@ -59,6 +59,8 @@ import { findWorldRoute } from './world-zones';
 import { advanceBloom, createWeaponBloom, recordBloomShot, sampleShotSpread, weaponSpread } from './fps-accuracy';
 import { combatCues, combatPhase, combatTimeline, cratePose, flyerPose, getCombatEvent, transportPose, WHISTLE_LEAD, type CombatEventDescriptor } from './combat-events';
 import { createCombatEventVisuals } from './combat-event-visuals';
+import { bannerOf } from './combat-event-catalog';
+import type { SquadFaction } from './arena-factions';
 import { createCombatAudio } from './combat-event-audio';
 import { getEnvironmentSettings } from './environment-settings';
 import { createHitDirectionOverlay, createHitDirections, hitStrength } from './fps-hit-direction';
@@ -112,6 +114,8 @@ export interface FpsHud {
   credits: number; tokens: number;
   /** Named sub-area the player is standing in; '' on ground that belongs to none. */
   sector: string;
+  /** Each side's heat where the player stands, 0–1, when the district has heat. */
+  sectorHeat: Record<SquadFaction, number> | null;
   /** The combat event that most concerns the player right now, if any. */
   combatBanner: { text: string; tone: 'hazard' | 'notice' } | null;
   /** Whether this round runs combat events the debug panel can call in. */
@@ -125,7 +129,7 @@ export interface FpsHud {
   /** The district map is open full-size (M) instead of the corner minimap. */
   mapExpanded: boolean;
 }
-export const initialFpsHud: FpsHud = { supplyUse: null, mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '' };
+export const initialFpsHud: FpsHud = { supplyUse: null, mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -498,6 +502,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // Crossing into a named place is worth saying once, so the district reads
     // as somewhere with parts rather than as one field of coordinates.
     const here = sectorAt(expedition.zone, position.x, position.z);
+    const heat = hud.arena?.heat?.find(row => row.sector === (here?.id ?? ''));
+    hud.sectorHeat = heat ? { 'armed-forces': heat['armed-forces'], mercenaries: heat.mercenaries } : null;
     if ((here?.name ?? '') !== hud.sector) {
       hud.sector = here?.name ?? '';
       if (here && hud.phase === 'playing') comms.add('system', 'Location', `Entering ${here.name}.`);
@@ -761,7 +767,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (options.arena) {
       // Read rendered avatars here, never hand the authoritative actor list to a policy.
       // Articulated avatars publish their chest and face; a falling body is not a target.
-      for (const root of world.scene.children) if (root.visible && typeof root.userData.arenaActorId === 'string' && !root.userData.arenaDown) {
+      for (const root of world.scene.children) if (root.visible && typeof root.userData.arenaActorId === 'string' && !root.userData.arenaDown && !root.userData.arenaFriendly) {
         const named = ['avatar-aim-chest', 'avatar-aim-head'].map(name => root.getObjectByName(name)?.getWorldPosition(new THREE.Vector3()));
         subjects.push({ id: root.userData.arenaActorId, root, radius: .3, points: named.every(Boolean) ? named as THREE.Vector3[] : [1.15, 1.62].map(y => root.localToWorld(new THREE.Vector3(0, y, 0))) });
       }
@@ -1481,7 +1487,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (!plugin || !['warning', 'active'].includes(combatPhase(event, eventClock))) continue;
       // Something happening across the district is news; only one near you is an alarm.
       const near = Math.hypot(event.target.x - position.x, event.target.z - position.z) < COMBAT_NEAR;
-      comms.add('system', plugin.hazard && near ? 'Fire control' : 'Intel', near ? `${plugin.banner.warning} · ${whereFrom(event.target)}` : `${plugin.name.toUpperCase()} · ${whereFrom(event.target)}`);
+      const named = `${event.faction === 'armed-forces' ? 'FRIENDLY ' : ''}${plugin.name.toUpperCase()}`;
+      comms.add('system', plugin.hazard && near ? 'Fire control' : 'Intel', near ? `${bannerOf(event, plugin).warning} · ${whereFrom(event.target)}` : `${named} · ${whereFrom(event.target)}`);
       if (plugin.hazard && near) combatAudio.alert();
     }
     if (seenEvents.size > 200) { seenEvents.clear(); events.forEach(e => seenEvents.add(e.id)); }
@@ -1505,7 +1512,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         if (payload.type === 'transport') {
           const pose = transportPose(payload, age), distance = Math.hypot(pose.x - listener.x, pose.y - listener.y, pose.z - listener.z);
           if (pose.visible && distance < engine.distance) engine = { mode: payload.mode, distance, effort: pose.effort };
-          if (!plugin.hazard && age < payload.depart) offer(`${age < payload.arrive ? plugin.banner.warning : plugin.banner.active} · ${whereFrom(payload.drop)}`, 'notice', 1);
+          if (!plugin.hazard && age < payload.depart) offer(`${age < payload.arrive ? bannerOf(event, plugin).warning : bannerOf(event, plugin).active} · ${whereFrom(payload.drop)}`, 'notice', 1);
         } else if (payload.type === 'flyer') {
           const pose = flyerPose(payload, age); if (pose.visible) jet = Math.min(jet, Math.hypot(pose.x - listener.x, pose.y, pose.z - listener.z));
         } else if (payload.type === 'marker' && age >= payload.from && age <= payload.until) {

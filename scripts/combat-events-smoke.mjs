@@ -44,6 +44,7 @@ try {
   await wait(`!![...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Watch AI play') && ${phase('ready')}`, 60000);
   await evaluate(`document.querySelector('canvas').scrollIntoView({block:'center'})`);
   await press('Watch AI play'); await wait(phase('playing'));
+  const bots = () => evaluate(`Number(document.querySelector('[data-bot-count]')?.dataset.botCount ?? 0)`), garrison = await bots();
 
   await call('Truck');
   let truck = 0, notice = '';
@@ -88,12 +89,14 @@ try {
     console.log(`${name}: ${heard}`);
   }
 
-  // Unattended: the director's own events and reinforcements for fallen patrols.
-  const before = new Set(await comms()), seen = new Set();
-  for (let t = 0; t < soak; t += 5) { await delay(5000); (await comms()).filter(line => /Fire control|Intel/.test(line) && !before.has(line)).forEach(line => seen.add(line)); }
+  // Unattended: the director's own events, reinforcements for fallen patrols,
+  // and transports that bring the district up to the headcount its heat calls for.
+  const before = new Set(await comms()), seen = new Set(); let most = garrison;
+  for (let t = 0; t < soak; t += 5) { await delay(5000); most = Math.max(most, await bots()); (await comms()).filter(line => /Fire control|Intel/.test(line) && !before.has(line)).forEach(line => seen.add(line)); }
   const lines = [...seen];
-  console.log(JSON.stringify({ lines, errors }, null, 2));
+  console.log(JSON.stringify({ lines, garrison, most, errors }, null, 2));
   assert.ok(lines.filter(l => !/REINFORCEMENTS/.test(l)).length >= 1, 'the director called an event of its own');
+  assert.ok(most > garrison, `transports brought fresh troops in (garrison ${garrison}, most ${most})`);
   assert.deepEqual(errors, []);
   console.log('combat events smoke passed');
 } finally { ws.close(); await fetch(`${chrome}/json/close/${tab.id}`).catch(() => {}); }

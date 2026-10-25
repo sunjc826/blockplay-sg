@@ -2,6 +2,7 @@ import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import { createVerticalMovement } from './vertical-movement';
 import { createCharacterRig, type CharacterRig } from './character-rig';
 import { arenaCharacterLook, arenaRoleColor } from './character-looks';
+import { getArenaFaction, PLAYER_FACTION } from './arena-factions';
 import { MARINA_BOUNDS } from './marina-collision';
 import { PRONE_EYE_HEIGHT } from './fps-stance';
 import { validVehicleControls } from './vehicle-seats';
@@ -9,7 +10,7 @@ import { VEHICLE_COMBAT } from './vehicle-combat';
 import type { VehicleKind } from './vehicle-rules';
 import { validWeaponIndex } from './fps-rules';
 import * as THREE from 'three';
-import { createArena, type ArenaActor, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaRaiderState, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
+import { createArena, MAX_ARENA_ACTORS, type ArenaActor, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaRaiderState, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
 import { createProfile, resolveLoadout, restoreProfile, type ArmoryProfile } from './armory-state';
 import type { LanSession } from './lan-peer';
 import { getArenaRole } from './arena-roles';
@@ -37,7 +38,7 @@ export function validArenaInput(value: unknown): value is ArenaInput {
 }
 export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironment): value is ArenaSnapshot {
   if (!object(value) || value.type !== 'arena-snapshot' || !finite(value.tick) || value.tick < 0 || !finite(value.elapsed) || value.elapsed < 0 || value.elapsed > (environment?.endless ? 1e9 : 181) ||
-    typeof value.finished !== 'boolean' || typeof value.winner !== 'string' || value.winner.length > 80 || !Array.isArray(value.actors) || value.actors.length > 14 || !Array.isArray(value.feed) || value.feed.length > 8) return false;
+    typeof value.finished !== 'boolean' || typeof value.winner !== 'string' || value.winner.length > 80 || !Array.isArray(value.actors) || value.actors.length > MAX_ARENA_ACTORS || !Array.isArray(value.feed) || value.feed.length > 8) return false;
   const ids = new Set<string>();
   for (const actor of value.actors) {
     if (!object(actor) || typeof actor.id !== 'string' || actor.id.length > 100 || ids.has(actor.id) || typeof actor.name !== 'string' || actor.name.length > 24 ||
@@ -45,7 +46,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.prone !== undefined && typeof actor.prone !== 'boolean') || (actor.aiming !== undefined && actor.aiming !== true) ||
       (actor.ground !== undefined && !(finite(actor.ground) && actor.ground >= -50 && actor.ground <= 124)) ||
       (actor.healing !== undefined && !(finite(actor.healing) && actor.healing >= 0 && actor.healing <= 1)) ||
-      (actor.hurtFrom !== undefined && !(object(actor.hurtFrom) && finite(actor.hurtFrom.x) && finite(actor.hurtFrom.z) && finite(actor.hurtFrom.serial) && (actor.hurtFrom.blast === undefined || actor.hurtFrom.blast === true))) || (actor.variant !== undefined && (typeof actor.variant !== 'string' || actor.variant.length > 40)) || !validWeaponIndex(actor.weapon) || typeof actor.alive !== 'boolean' || typeof actor.bot !== 'boolean' || typeof actor.role !== 'string' || actor.role.length > 32 ||
+      (actor.hurtFrom !== undefined && !(object(actor.hurtFrom) && finite(actor.hurtFrom.x) && finite(actor.hurtFrom.z) && finite(actor.hurtFrom.serial) && (actor.hurtFrom.blast === undefined || actor.hurtFrom.blast === true))) || (actor.variant !== undefined && (typeof actor.variant !== 'string' || actor.variant.length > 40)) || !validWeaponIndex(actor.weapon) || typeof actor.alive !== 'boolean' || typeof actor.bot !== 'boolean' || typeof actor.faction !== 'string' || !getArenaFaction(actor.faction) || typeof actor.role !== 'string' || actor.role.length > 32 ||
       (actor.x as number) < (environment?.bounds.minX ?? -500) || (actor.x as number) > (environment?.bounds.maxX ?? 500) ||
       (actor.z as number) < (environment?.bounds.minZ ?? -500) || (actor.z as number) > (environment?.bounds.maxZ ?? 500) || (actor.y as number) < 0 || (actor.y as number) > 124 ||
       (actor.health as number) < 0 || (actor.health as number) > 300 || (actor.armor as number) < 0 || (actor.armor as number) > 150) return false;
@@ -77,6 +78,8 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     }
     if (value.actors.some(a => (a.vehicle !== undefined || a.seat !== undefined) && !seated.has(a.id))) return false;
   } else if (value.actors.some(a => a.vehicle !== undefined || a.seat !== undefined)) return false;
+  if (value.heat !== undefined && (!Array.isArray(value.heat) || value.heat.length > 64 || !value.heat.every(row => object(row) && typeof row.sector === 'string' && row.sector.length <= 64 &&
+    [row['armed-forces'], row.mercenaries].every(h => finite(h) && h >= 0 && h <= 1)))) return false;
   if (value.events !== undefined) {
     if (!Array.isArray(value.events) || value.events.length > MAX_COMBAT_EVENTS) return false;
     const eventIds = new Set<string>();
@@ -114,6 +117,8 @@ const noRaycast = () => {};
 function createAvatar(actor: ArenaActor): Avatar {
   const rig = createCharacterRig(arenaCharacterLook(actor), `arena-${actor.id}`);
   const root = rig.root; root.userData.arenaActorId = actor.id;
+  // A friendly squad's uniform is plain to see, so the AI pilot may read it off the figure.
+  root.userData.arenaFriendly = actor.bot && actor.faction === PLAYER_FACTION;
   const color = arenaRoleColor(actor);
   const resources: { dispose(): void }[] = [...rig.resources];
   let muzzle: THREE.Mesh | null = null;

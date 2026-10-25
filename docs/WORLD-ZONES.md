@@ -44,6 +44,11 @@ What they change while playing:
 - **The HUD** names the sector you are standing in and the comms log records
   each crossing.
 - **The minimap** tints sectors by cover band beneath the roads.
+- **Faction heat** is held per sector and per side. A sector may set its own
+  heat bands (`heat`), and a sub-sector names its `parent` to inherit them and
+  pass heat up. Heat decides how many troops each side sends, where they drop,
+  how often and how well kitted; see [factions](FACTIONS.md#heat). The HUD
+  shows both sides' heat where you stand.
 
 Cover bands are measured from the scene geometry, not declared by hand: run
 `pnpm analyse:cover -- --sectors` to see them, and `zone-sectors.test.ts` holds

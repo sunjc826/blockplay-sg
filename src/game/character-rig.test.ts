@@ -133,10 +133,12 @@ describe('character looks', () => {
   it('dresses each faction in its own palette', () => {
     expect(arenaFaction({ bot: false, role: 'player' }).id).toBe('armed-forces');
     expect(arenaFaction({ bot: true, role: 'assault' }).id).toBe('mercenaries');
-    expect(arenaFaction({ bot: true, role: 'mortar-crew' }).id).toBe('militia');
+    // An event crew wears whichever side fielded it; without one, the mercenaries.
+    expect(arenaFaction({ bot: true, role: 'mortar-crew' }).id).toBe('mercenaries');
+    expect(arenaFaction({ bot: true, role: 'mortar-crew', faction: 'armed-forces' }).id).toBe('armed-forces');
     expect(arenaFaction({ bot: true, role: 'unknown-role' }).id).toBe('mercenaries');
-    const looks = [{ bot: false, role: 'player' }, { bot: true, role: 'assault' }, { bot: true, role: 'mortar-crew' }].map(actor => arenaCharacterLook({ ...actor, id: 'same-seed' }));
-    for (const key of ['top', 'bottom', 'vest', 'headwearColor'] as const) expect(new Set(looks.map(look => look[key])).size).toBe(3);
+    const looks = [{ bot: false, role: 'player' }, { bot: true, role: 'assault' }].map(actor => arenaCharacterLook({ ...actor, id: 'same-seed' }));
+    for (const key of ['top', 'bottom', 'vest', 'headwearColor'] as const) expect(new Set(looks.map(look => look[key])).size).toBe(2);
     // Every role band stands off its own uniform: at least a 2:1 luminance ratio against the shirt.
     const luminance = (hex: string) => { const c = new THREE.Color(hex); return .2126 * c.r + .7152 * c.g + .0722 * c.b; };
     for (const faction of listArenaFactions()) for (const band of [faction.accent, ...Object.values(faction.roleAccents)]) {

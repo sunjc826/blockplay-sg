@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { hashString, type CharacterGesture, type CharacterLook } from './character-rig';
-import { DEFAULT_BOT_FACTION, getArenaFaction, PLAYER_FACTION, type ArenaFaction } from './arena-factions';
+import { DEFAULT_BOT_FACTION, factionIdOf, getArenaFaction, type ArenaFaction } from './arena-factions';
 import { getArenaRole } from './arena-roles';
 
 const SKIN = ['#f1c9a5', '#e0ac82', '#c68b62', '#a86f4c', '#8a5638', '#6b402a'] as const;
@@ -8,34 +8,39 @@ const HAIR = ['#141110', '#231a14', '#3a2a1e', '#5b5048', '#8c8a86'] as const;
 const pick = <T>(list: readonly T[], seed: number, salt: number) => list[(seed >>> salt) % list.length];
 const mix = (a: string, b: string, t: number) => `#${new THREE.Color(a).lerp(new THREE.Color(b), t).getHexString()}`;
 
-/** Players wear the armed forces' kit; a bot wears its role's faction. */
-export function arenaFaction(actor: { bot: boolean; role: string }): ArenaFaction {
-  const id = actor.bot ? getArenaRole(actor.role)?.faction ?? DEFAULT_BOT_FACTION : PLAYER_FACTION;
+/** The host's call when the actor carries one; otherwise players are the armed forces and a bot wears its role's faction. */
+export function arenaFaction(actor: { bot: boolean; role: string; faction?: string }): ArenaFaction {
+  const id = actor.faction ?? (actor.bot ? getArenaRole(actor.role)?.faction ?? DEFAULT_BOT_FACTION : factionIdOf(actor));
   return getArenaFaction(id) ?? getArenaFaction(DEFAULT_BOT_FACTION)!;
 }
 
-/** The band on sleeves and helmet, also the name label and health bar: role within faction. */
-export function arenaRoleColor(actor: { bot: boolean; role: string }) {
+/** The band on the helmet, also the name label and health bar: role within faction. */
+export function arenaRoleColor(actor: { bot: boolean; role: string; faction?: string }) {
   const faction = arenaFaction(actor);
   return faction.roleAccents[actor.role] ?? faction.accent;
 }
 
 /**
- * The uniform says which side, the band says which role, the kit says which
- * job: plates and a bigger frame for heavies, a boonie and a marksman rifle
- * for anyone who shoots from far off.
+ * The uniform says which side: cloth, camouflage, carrier and badges. The
+ * band says which role, and the kit says which job: plates and a bigger frame
+ * for heavies, a boonie and a marksman rifle for anyone who shoots from far
+ * off, and for contractors on patrol a cap and shades.
  */
-export function arenaCharacterLook(actor: { bot: boolean; role: string; id?: string }): CharacterLook {
-  const { palette } = arenaFaction(actor), seed = hashString(actor.id ?? actor.role);
+export function arenaCharacterLook(actor: { bot: boolean; role: string; id?: string; faction?: string }): CharacterLook {
+  const faction = arenaFaction(actor), { palette } = faction, seed = hashString(actor.id ?? actor.role);
   const heavy = actor.bot && actor.role === 'tank', sniper = actor.bot && (actor.role === 'sniper' || actor.role === 'overwatch');
+  const headwear = sniper ? 'boonie' : faction.caps && actor.bot && !heavy ? 'cap' : 'helmet';
   // A little fade or wear per soldier, so a squad is a squad and not a print run.
   const wear = (seed % 5) / 40;
   return {
     skin: pick(SKIN, seed, 0), hair: pick(HAIR, seed, 5),
     top: mix(palette.top, '#9a9a88', wear), bottom: mix(palette.bottom, '#20221e', wear), shoes: palette.shoes, gloves: palette.gloves,
+    camo: { pattern: faction.camo.pattern, on: faction.camo.on, headwear: headwear === 'boonie' || faction.camo.on === 'all' && headwear === 'helmet' },
+    patches: faction.patches,
     build: heavy ? 1.16 : sniper ? .95 : 1,
-    headwear: sniper ? 'boonie' : 'helmet', headwearColor: sniper ? palette.boonie : palette.helmet,
-    vest: palette.vest, plates: heavy, backpack: heavy || seed % 3 === 0 ? palette.backpack : undefined,
+    headwear, headwearColor: headwear === 'boonie' ? palette.boonie : palette.helmet,
+    eyewear: headwear === 'cap' ? '#121314' : undefined,
+    vest: palette.vest, plates: heavy || !!faction.caps && actor.bot && seed % 2 === 0, backpack: heavy || seed % 3 === 0 ? palette.backpack : undefined,
     accent: arenaRoleColor(actor), weapon: heavy ? 'lmg' : sniper ? 'marksman' : 'rifle',
   };
 }

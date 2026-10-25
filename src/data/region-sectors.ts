@@ -22,7 +22,9 @@ const HARBOURFRONT_SECTORS: readonly ZoneSector[] = [
   // The promenade strip you spawn on: twelve metres of paving between the
   // frontage and the basin wall, running most of the district's width. It is
   // the fastest way east or west and there is nothing on it to hide behind.
+  // Heat: the forces hold the quay they land on, and the contractors seldom push onto it.
   { id: 'quay', name: 'HarbourFront quay', cover: 'broken', lootWeight: 1, tierBias: -1, botWeight: 1.5,
+    heat: { 'armed-forces': { min: .3, max: .8 }, mercenaries: { min: .05, max: .45 } },
     bounds: { minX: -232, maxX: 146, minZ: 122, maxZ: 140 },
     anchors: [{ x: 20, z: 134 }, { x: -75, z: 134 }, { x: -200, z: 132 }, { x: -140, z: 132 }, { x: 75, z: 132 }, { x: 122, z: 132 }] },
   // Open mall galleries sit above the quay lanes and amphitheatre. Ground
@@ -32,7 +34,9 @@ const HARBOURFRONT_SECTORS: readonly ZoneSector[] = [
     anchors: [{ x: 60, z: -6 }, { x: 60, z: 108 }, { x: 111, z: 40 }, { x: 111, z: 86 }, { x: 117, z: -6 }] },
   // The cruise hall and its two boarding gangways, west of the quay street.
   // Same shape as VivoCity — a big mass with lanes round it — one street over.
+  // Heat: contested. Both sides rest warm here and either can run it to the top.
   { id: 'cruise-centre', name: 'Cruise Centre', cover: 'broken', lootWeight: 2, botWeight: 1.5,
+    heat: { 'armed-forces': { min: .45, max: .95 }, mercenaries: { min: .45, max: .95 } },
     bounds: { minX: -130, maxX: -20, minZ: -14, maxZ: 114 },
     anchors: [{ x: -75, z: -6 }, { x: -25, z: 50 }, { x: -75, z: 108 }, { x: -124, z: 50 }, { x: -25, z: -6 }] },
   // The furthest ground from the spawn, so it carries the reward — and since
@@ -41,7 +45,9 @@ const HARBOURFRONT_SECTORS: readonly ZoneSector[] = [
   // 8 m at the malls and nothing at all on the quay. That is what the zone
   // description always promised by "the wharf end has cover, the water end has
   // none", and it is now true rather than aspirational.
+  // Heat: Black Kite's stronghold. It rests hot and slow-burns to a full garrison once provoked.
   { id: 'keppel-wharf', name: 'Keppel wharf', cover: 'dense', lootWeight: 3, tierBias: 1, botWeight: 2,
+    heat: { mercenaries: { min: .6, max: 1, curve: 'slow-burn' }, 'armed-forces': { min: 0, max: .35 } },
     bounds: { minX: 146, maxX: 218, minZ: 132, maxZ: 188 },
     anchors: [{ x: 180, z: 134 }, { x: 180, z: 160 }, { x: 155, z: 155 }, { x: 155, z: 175 }, { x: 180, z: 178 }] },
   // Eleven metres wide, fifty-six long, water on both sides and the Sentosa

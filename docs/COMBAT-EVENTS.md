@@ -50,8 +50,11 @@ combat-event-audio.ts   whistle, boom, alert, engine/rotor (WebAudio, synthesise
 
 All six exist. The two crew roles an event can field (`mortar-crew`,
 `overwatch`) are registered in `arena-roles.ts` as `eventOnly`, so they are
-never a squad choice or a balance opponent. They wear the militia's khaki
-rather than the squads' mercenary navy (`arena-factions.ts`).
+never a squad choice or a balance opponent. Either side can field them: an
+event belongs to the side opposing whoever is nearest its target, so a mortar
+dropped on a player is the mercenaries' and one dropped on a mercenary patrol
+is the forces' fire support (`descriptor.faction`, absent for mercenaries).
+The crew wears that side's uniform and fights only the other side.
 
 Integration touches `arena-rules.ts` (host step + snapshot), `arena-runtime.ts`
 (snapshot validation, visuals), `fps-engine.ts` (range adapter, HUD, shake,
@@ -238,8 +241,27 @@ favours artillery, and low-risk zones get none, with intensity rising with
 believable. With `ArenaEnvironment.reinforcements` (every expedition district
 sets it), a bot that falls does not reappear at a spawn point after 3 s. It
 waits. A transport is booked when two bots are waiting, or one has waited
-`REINFORCEMENT_WAIT` (6 s), and only one ride is on the road at a time. Each
-ride carries up to `REINFORCEMENT_SEATS` (4). `planTransport` chooses the drop
+`REINFORCEMENT_WAIT` (6 s), and only one transport is on the road at a time
+(a debug ride counts). A truck seats eight and a helicopter six
+(`REINFORCEMENT_SEATS`, capped by `MAX_TROOPS`).
+
+Rides also grow the district. Empty seats are filled with fresh troops while
+a side is below its headcount. In expedition districts that headcount comes
+from faction heat ([factions](FACTIONS.md#heat)); elsewhere it is
+`ArenaEnvironment.population`, which defaults to the starting garrison so only
+the fallen come back. With nobody waiting, a top-up ride goes out no sooner
+than the side's top-up interval (heat's, or `REINFORCEMENT_TOP_UP`, 20 s)
+after the start or its last ride. A recruit is held in reserve, dead and out
+of snapshots, until its seat is called, so it first appears stepping off the
+transport. Each side runs its own rides, one on the road at a time; a friendly
+ride carries `faction: 'armed-forces'` and the HUD calls it a FRIENDLY TRUCK or
+HELICOPTER. A match holds at most `MAX_ARENA_BOTS` (20) bots, and `reset()`
+goes back to the starting garrison. A full truck unloads in two files, one
+down each side. Concurrent events are capped per kind, three transports and
+three hazards, so a busy road never holds back a barrage; `MAX_COMBAT_EVENTS`
+(6) bounds the total including aftermath.
+
+`planTransport` chooses the drop
 from the district's patrol spawns: at least 45 m from every human, and
 preferably within 120 m so the arrival can be seen. It then picks the ride:
 
@@ -256,10 +278,12 @@ preferably within 120 m so the arrival can be seen. It then picks the ride:
   at a spawn point as before, so a district with no reachable drop still
   refills.
 
-Each trooper is a real, waiting bot, returned at its `insert` time and place,
+Each trooper is a real bot, fallen or recruited, set down at its `insert` time and place,
 facing the nearest player. The transport itself is drawn but cannot be shot
 yet (it carries `fpsEffect`, so it stops nothing either). The banner and comms
-log say "ENEMY TRUCK INBOUND · REINFORCEMENTS · 90 m to your right".
+log say "BLACK KITE TRUCK INBOUND · REINFORCEMENTS · 90 m to your right" for a
+mercenary ride, "FRIENDLY TRUCK INBOUND · ARMED FORCES" for a friendly one (see
+[factions](FACTIONS.md)).
 
 **Artillery** (built)
 

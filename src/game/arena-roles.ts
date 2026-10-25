@@ -26,7 +26,7 @@ export interface ArenaRolePlugin {
   medkits?: number;
   /** Fielded by combat events only (a mortar crew, a rooftop sniper): never a squad choice or a balance opponent. */
   eventOnly?: boolean;
-  /** Whose uniform they wear (see arena-factions). Default mercenaries. */
+  /** Whose uniform a squad member wears (see arena-factions). Default mercenaries. Event crews wear their event's faction instead. */
   faction?: string;
   think(context: Readonly<ArenaRoleContext>): ArenaRoleIntent;
 }
@@ -99,14 +99,14 @@ registerArenaRole({
 // Combat events place these where the event needs them and they hold that spot.
 registerArenaRole({
   id: 'mortar-crew', name: 'Mortar crew', description: 'Two soldiers working a mortar; kill both and it stops firing.',
-  health: 90, armor: 25, absorption: 0.3, speed: 2.6, sightRange: 55, reaction: 0.8, eventOnly: true, faction: 'militia',
+  health: 90, armor: 25, absorption: 0.3, speed: 2.6, sightRange: 55, reaction: 0.8, eventOnly: true,
   armament: [{ variant: 'xm8-carbine', weight: 3 }, { variant: 'g36k', weight: 2 }],
   weapon: { ...FPS_WEAPONS[0] }, burst: [2, 3], medkits: 0,
   think: ({ visible }) => ({ approach: 0, strafe: 0, fire: visible, shotDelay: 1, spread: 0.05 }),
 });
 registerArenaRole({
   id: 'overwatch', name: 'Overwatch sniper', description: 'A marksman on a rooftop. Their scope glints for a moment before each shot.',
-  health: 90, armor: 0, absorption: 0, speed: 2, sightRange: 125, reaction: 1.4, eventOnly: true, faction: 'militia',
+  health: 90, armor: 0, absorption: 0, speed: 2, sightRange: 125, reaction: 1.4, eventOnly: true,
   armament: [{ variant: 'xm8-sharpshooter', weight: 1 }],
   weapon: { ...FPS_WEAPONS[0], damage: 68, interval: 1.4, capacity: 6, reload: 2.5 }, burst: [1, 1], medkits: 0,
   think: ({ visible }) => ({ approach: 0, strafe: 0, fire: visible, shotDelay: 2.4, spread: 0.006 }),

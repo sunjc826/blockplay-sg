@@ -304,3 +304,20 @@ describe('a world that does not revolve around the player', () => {
     expect(after).toBeGreaterThan(.25);
   });
 });
+
+describe('whose event it is', () => {
+  it('gives an event on a player to the mercenaries and one on a mercenary patrol to the forces, crew and all', () => {
+    const arena = soloArena({}, [{ x: 150, z: 0 }], 1, 'tank');
+    const patrol = actor(arena, 'bot-1')!;
+    expect(Math.hypot(patrol.x, patrol.z)).toBeGreaterThan(100);
+    const onPlayer = arena.triggerEvent('mortar', { x: 0, z: 0 })!;
+    expect(onPlayer.faction).toBeUndefined();
+    expect(crewOf(arena, onPlayer).every(c => c.faction === 'mercenaries')).toBe(true);
+    const onPatrol = arena.triggerEvent('mortar', { x: patrol.x, z: patrol.z })!;
+    expect(onPatrol.faction).toBe('armed-forces');
+    const crew = crewOf(arena, onPatrol);
+    expect(crew.length).toBeGreaterThan(0);
+    expect(crew.every(c => c.faction === 'armed-forces')).toBe(true);
+    expect(validArenaSnapshot(arena.snapshot().actors.some(a => a.health > 300) ? { ...arena.snapshot(), actors: arena.snapshot().actors.filter(a => a.health <= 300) } : arena.snapshot(), open([]))).toBe(true);
+  });
+});

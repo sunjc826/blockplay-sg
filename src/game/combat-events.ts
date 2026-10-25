@@ -7,6 +7,7 @@
  * a timeline of payloads with a pure function, so whoever renders an event
  * computes exactly the shells the host resolves, from a handful of numbers.
  */
+import { getArenaFaction } from './arena-factions';
 
 export interface CombatPlane { x: number; z: number }
 export interface CombatVector { x: number; y: number; z: number }
@@ -37,6 +38,8 @@ export interface CombatEventDescriptor {
   outcome?: CombatOutcome;
   /** Supply drops: the actor who opened the crate. */
   claimedBy?: string;
+  /** Transports: whose troops; absent means the contractors'. */
+  faction?: string;
 }
 export type CombatOutcome = 'downed' | 'silenced' | 'claimed' | 'secured' | 'detonated' | 'withdrawn';
 const OUTCOMES: readonly CombatOutcome[] = ['downed', 'silenced', 'claimed', 'secured', 'detonated', 'withdrawn'];
@@ -129,8 +132,10 @@ export interface CombatEventPlugin {
 /** Craters and smoke linger this long after `duration`; the host keeps the descriptor for them. */
 export const COMBAT_AFTERMATH = 8;
 export const MAX_COMBAT_PAYLOADS = 48;
-/** Descriptors a snapshot may carry, aftermath included. */
-export const MAX_COMBAT_EVENTS = 4;
+/** Running or lingering at once: three transports and three hazards at most are active (arena-rules), the rest are aftermath. */
+export const MAX_COMBAT_EVENTS = 6;
+/** Most troops one transport carries: a truck's full benches. */
+export const MAX_TROOPS = 8;
 
 /** mulberry32: small, fast and identical on every machine. */
 export function combatRandom(seed: number) {
@@ -258,7 +263,8 @@ export function validCombatEvent(value: unknown, now: number, bounds?: { minX: n
   if (!finite(e.start) || !finite(e.heading) || !finite(e.intensity) || e.intensity < .5 || e.intensity > 2 || !finitePlane(e.target)) return false;
   if (e.start > now + 1 || now - e.start > plugin.duration + COMBAT_AFTERMATH + 1) return false;
   if (e.reach !== undefined && (!finite(e.reach) || e.reach < 0 || e.reach > 400)) return false;
-  if (e.troops !== undefined && (!Number.isInteger(e.troops) || e.troops < 1 || e.troops > 6)) return false;
+  if (e.troops !== undefined && (!Number.isInteger(e.troops) || e.troops < 1 || e.troops > MAX_TROOPS)) return false;
+  if (e.faction !== undefined && (typeof e.faction !== 'string' || !getArenaFaction(e.faction))) return false;
   if (e.origin !== undefined && (!finitePlane(e.origin) || Math.abs(e.origin.x) > 5000 || Math.abs(e.origin.z) > 5000)) return false;
   if (e.altitude !== undefined && (!finite(e.altitude) || e.altitude < -50 || e.altitude > 400)) return false;
   if (e.ended !== undefined && (!finite(e.ended) || e.ended < e.start || e.ended > now + 1)) return false;

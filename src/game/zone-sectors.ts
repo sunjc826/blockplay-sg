@@ -2,6 +2,7 @@ import type { SectorCover } from './cover-metrics';
 import type { RegionBounds } from './region-collision';
 import type { WorldZoneId, ZonePosition } from './world-zones';
 import { REGION_SECTORS } from '../data/region-sectors';
+import type { FactionHeatBands } from './faction-heat';
 
 export type { SectorCover };
 
@@ -31,6 +32,14 @@ export interface ZoneSector {
   readonly tierBias?: -1 | 0 | 1;
   /** Relative share of the district's patrols. Defaults to the loot weight. */
   readonly botWeight?: number;
+  /** A sub-sector names the sector it sits in; it inherits that sector's heat bands and passes heat up to it. */
+  readonly parent?: string;
+  /**
+   * Per-faction heat bands where this place differs from its district's risk
+   * defaults (faction-heat.ts): a stronghold rests hot, a backwater cold, and a
+   * contested place runs hot for both sides.
+   */
+  readonly heat?: FactionHeatBands;
   /**
    * Counter- or kiosk-side positions reserved for food pickups. These are
    * deliberately separate from tactical anchors so recovery food never falls

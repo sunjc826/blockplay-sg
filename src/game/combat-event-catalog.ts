@@ -1,4 +1,5 @@
-import { combatRandom, descentAlong, registerCombatEvent, type BlastSpec, type CombatEventDescriptor, type CombatPayload, type CombatPlane } from './combat-events';
+import { PLAYER_FACTION } from './arena-factions';
+import { combatRandom, descentAlong, registerCombatEvent, MAX_TROOPS, type BlastSpec, type CombatEventDescriptor, type CombatPayload, type CombatPlane } from './combat-events';
 
 /**
  * The shipped combat events. Importing this module registers them; the arena
@@ -68,16 +69,19 @@ export const TRANSPORT = {
 } as const;
 const clampTo = (value: number | undefined, low: number, high: number, fallback: number) => Number.isFinite(value) ? Math.max(low, Math.min(high, value!)) : fallback;
 function transportTimeline(event: Readonly<CombatEventDescriptor>, mode: 'land' | 'air'): CombatPayload[] {
-  const troops = Math.round(clampTo(event.troops, 1, 6, 4)), reach = clampTo(event.reach, 20, 260, 120);
+  const troops = Math.round(clampTo(event.troops, 1, MAX_TROOPS, 4)), reach = clampTo(event.reach, 20, 260, 120);
   const along = { x: -Math.sin(event.heading), z: -Math.cos(event.heading) }, across = { x: along.z, z: -along.x };
   const drop = { ...event.target }, entry = { x: drop.x - along.x * reach, z: drop.z - along.z * reach };
   const payloads: CombatPayload[] = [];
   if (mode === 'land') {
     const spec = TRANSPORT.land, enter = spec.warning, arrive = enter + reach / spec.speed / .9;
-    // Out of the side door in a file along the truck, a step clear of it.
+    // Off the tailgate in a file along the truck, a step clear of it; a full
+    // load forms two files, one down each side.
+    const sides = troops > 4 ? 2 : 1, rank = Math.ceil(troops / sides);
     for (let slot = 0; slot < troops; slot++) {
-      const file = (slot - (troops - 1) / 2) * 1.1;
-      payloads.push({ type: 'insert', id: slot, slot, time: arrive + .8 + slot * .55, at: { x: drop.x + across.x * 2.6 + along.x * file, z: drop.z + across.z * 2.6 + along.z * file } });
+      const side = sides === 2 && slot % 2 ? -1 : 1, place = sides === 2 ? Math.floor(slot / 2) : slot;
+      const file = (place - (rank - 1) / 2) * 1.1;
+      payloads.push({ type: 'insert', id: slot, slot, time: arrive + .8 + slot * .55, at: { x: drop.x + across.x * 2.6 * side + along.x * file, z: drop.z + across.z * 2.6 * side + along.z * file } });
     }
     const depart = arrive + 1.8 + troops * .55;
     payloads.push({ type: 'transport', id: troops, mode, entry, drop, exit: entry, enter, arrive, depart, leave: depart + reach / spec.leaving, cruise: 0, hover: 0 });
@@ -99,13 +103,13 @@ function transportTimeline(event: Readonly<CombatEventDescriptor>, mode: 'land' 
 registerCombatEvent({
   id: 'transport-land', name: 'Troop truck', description: 'A truck drives reinforcements in along a clear street, drops them and turns back.',
   warning: TRANSPORT.land.warning, duration: TRANSPORT.land.duration, hazard: false,
-  banner: { warning: 'ENEMY TRUCK INBOUND · REINFORCEMENTS', active: 'ENEMY REINFORCEMENTS DISMOUNTING' },
+  banner: { warning: 'BLACK KITE TRUCK INBOUND · REINFORCEMENTS', active: 'MERCENARIES DISMOUNTING' },
   timeline: event => transportTimeline(event, 'land'),
 });
 registerCombatEvent({
   id: 'transport-air', name: 'Troop helicopter', description: 'A helicopter comes in high, hovers and fast-ropes reinforcements down.',
   warning: TRANSPORT.air.warning, duration: TRANSPORT.air.duration, hazard: false,
-  banner: { warning: 'ENEMY HELICOPTER INBOUND · REINFORCEMENTS', active: 'ENEMY TROOPS FAST-ROPING IN' },
+  banner: { warning: 'BLACK KITE HELICOPTER INBOUND · REINFORCEMENTS', active: 'MERCENARIES FAST-ROPING IN' },
   timeline: event => transportTimeline(event, 'air'),
 });
 
@@ -305,3 +309,10 @@ registerCombatEvent({
   banner: { warning: 'JAMMING DETECTED', active: 'COMMS JAMMED · MAP DOWN' },
   timeline: () => [{ type: 'jam', id: 0, from: BLACKOUT.warning, until: BLACKOUT.until }],
 });
+/** A friendly ride is the same truck or helicopter; only what the HUD and comms call it changes. */
+const FRIENDLY_BANNERS: Readonly<Record<string, { warning: string; active: string }>> = {
+  'transport-land': { warning: 'FRIENDLY TRUCK INBOUND · ARMED FORCES', active: 'FRIENDLY SECTION DISMOUNTING' },
+  'transport-air': { warning: 'FRIENDLY HELICOPTER INBOUND · ARMED FORCES', active: 'FRIENDLY SECTION FAST-ROPING IN' },
+};
+export const bannerOf = (event: Pick<CombatEventDescriptor, 'kind' | 'faction'>, plugin: { banner: { warning: string; active: string } }) =>
+  (event.faction === PLAYER_FACTION && FRIENDLY_BANNERS[event.kind]) || plugin.banner;

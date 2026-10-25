@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import type { CamoPattern, PatchLook } from './arena-factions';
 
 /**
  * One articulated humanoid shared by arena soldiers, remote players and
@@ -23,6 +24,12 @@ export interface CharacterLook {
   apron?: string; lanyard?: string; towel?: string;
   /** Team or role colour on the sleeves and helmet band. */
   accent?: string;
+  /** Printed camouflage on the uniform: shirt and sleeves, trousers too unless `on` is 'top', and the hat when `headwear` is set. */
+  camo?: { pattern: CamoPattern; on: 'all' | 'top'; headwear: boolean };
+  /** Sewn badges: one on the outside of each upper arm, one on the left breast. */
+  patches?: { left?: PatchLook; right?: PatchLook; chest?: PatchLook };
+  /** Wraparound shades. */
+  eyewear?: string;
   weapon?: CharacterWeapon | null;
 }
 
@@ -116,7 +123,52 @@ export function solveLimb(upper: THREE.Object3D, lower: THREE.Object3D, target: 
   lower.rotation.set(Math.atan2(-local.z, -local.y), 0, 0);
 }
 
-interface Part { geometry: THREE.BufferGeometry; color: string }
+interface Part { geometry: THREE.BufferGeometry; color: string; fabric: boolean }
+
+/**
+ * Paints `pattern` over every vertex the rig marked as fabric. The pattern is
+ * computed per fragment from the bone-local position, so it is crisp at any
+ * mesh density and moves with the limb rather than swimming over it.
+ */
+function printCamo(material: THREE.MeshStandardMaterial, pattern: CamoPattern) {
+  const uniforms = {
+    camoA: { value: new THREE.Color(pattern.colors[0]) }, camoB: { value: new THREE.Color(pattern.colors[1]) },
+    camoC: { value: new THREE.Color(pattern.colors[2]) }, camoScale: { value: pattern.scale },
+  };
+  material.onBeforeCompile = shader => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float fabric;\nvarying float vFabric;\nvarying vec3 vFabricPosition;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFabric = fabric;\nvFabricPosition = position;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+${pattern.style === 'digital' ? '#define CAMO_DIGITAL' : ''}
+uniform vec3 camoA, camoB, camoC;
+uniform float camoScale;
+varying float vFabric;
+varying vec3 vFabricPosition;
+float camoHash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+float camoNoise(vec3 p) {
+  vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+  return mix(mix(mix(camoHash(i), camoHash(i + vec3(1, 0, 0)), f.x), mix(camoHash(i + vec3(0, 1, 0)), camoHash(i + vec3(1, 1, 0)), f.x), f.y),
+    mix(mix(camoHash(i + vec3(0, 0, 1)), camoHash(i + vec3(1, 0, 1)), f.x), mix(camoHash(i + vec3(0, 1, 1)), camoHash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+vec3 camoColor(vec3 base) {
+  vec3 p = vFabricPosition * camoScale;
+#ifdef CAMO_DIGITAL
+  // Square pixels, clustered by the larger block they fall in.
+  float n = camoHash(floor(p / 3.) + 17.) * .62 + camoHash(floor(p)) * .38;
+  return n < .42 ? base : n < .6 ? camoA : n < .74 ? camoB : camoC;
+#else
+  float n = camoNoise(p) * .72 + camoNoise(p * 2.7 + 11.) * .28;
+  return n < .44 ? base : n < .58 ? camoA : n < .68 ? camoB : n < .76 ? base : camoC;
+#endif
+}`)
+      .replace('#include <color_fragment>', '#include <color_fragment>\nif (vFabric > .5) diffuseColor.rgb = camoColor(diffuseColor.rgb);');
+  };
+  // One program per style, shared by every figure; the colours stay per material.
+  material.customProgramCacheKey = () => `character-camo-${pattern.style}`;
+}
 
 /** Deterministic, so a named local looks the same on every visit. */
 export function hashString(text: string) {
@@ -131,6 +183,8 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
   const skinMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .82, metalness: 0 });
   const gearMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .55, metalness: .35 });
   resources.push(skinMaterial, gearMaterial);
+  if (look.camo) printCamo(skinMaterial, look.camo.pattern);
+  const topFabric = !!look.camo, bottomFabric = !!look.camo && look.camo.on === 'all', hatFabric = !!look.camo?.headwear;
   const root = new THREE.Group(); root.name = name;
   // Bullets that strike any part of a figure draw blood rather than chips (fps-surfaces).
   root.userData.impactSurface = 'flesh';
@@ -154,8 +208,8 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
   const parts = new Map<THREE.Object3D, Part[]>(), gear = new Map<THREE.Object3D, Part[]>();
   const place = (geometry: THREE.BufferGeometry, x: number, y: number, z: number, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0) =>
     geometry.applyMatrix4(tmpMatrix.compose(tmpA.set(x, y, z), tmpQuat.setFromEuler(new THREE.Euler(rx, ry, rz)), tmpB.set(sx, sy, sz)));
-  const add = (bone: THREE.Object3D, geometry: THREE.BufferGeometry, color: string, metal = false) => {
-    const list = (metal ? gear : parts).get(bone) ?? []; list.push({ geometry, color }); (metal ? gear : parts).set(bone, list);
+  const add = (bone: THREE.Object3D, geometry: THREE.BufferGeometry, color: string, metal = false, fabric = false) => {
+    const list = (metal ? gear : parts).get(bone) ?? []; list.push({ geometry, color, fabric }); (metal ? gear : parts).set(bone, list);
   };
   const sphere = (r: number, w = 14, h = 10) => new THREE.SphereGeometry(r, w, h);
   const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
@@ -163,20 +217,38 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
   // A revolved profile, flattened front-to-back: one smooth torso section.
   const lathe = (profile: readonly [number, number][]) => new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 16);
   const shade = (color: string, amount: number) => `#${new THREE.Color(color).multiplyScalar(amount).getHexString()}`;
-  const limb = (bone: THREE.Object3D, length: number, top: number, bottom: number, color: string, from = 0, to = length) => {
-    add(bone, place(cylinder(top - (top - bottom) * from / length, top - (top - bottom) * to / length, to - from), 0, -(from + to) / 2, 0), color);
+  const limb = (bone: THREE.Object3D, length: number, top: number, bottom: number, color: string, from = 0, to = length, fabric = false) => {
+    add(bone, place(cylinder(top - (top - bottom) * from / length, top - (top - bottom) * to / length, to - from), 0, -(from + to) / 2, 0), color, false, fabric);
+  };
+  /**
+   * A badge sewn flat on a surface whose outward normal is ±x (a sleeve) or -z
+   * (the chest). Pieces are laid out in the badge's own plane: u across, v up.
+   */
+  const sew = (bone: THREE.Object3D, badge: PatchLook, x: number, y: number, z: number, normal: 1 | -1 | 'front', w: number, h: number) => {
+    const piece = (u: number, v: number, pw: number, ph: number, angle: number, color: string, depth: number) => {
+      if (normal === 'front') add(bone, place(box(pw, ph, depth), x + u, y + v, z - depth / 2, 1, 1, 1, 0, 0, angle), color);
+      else add(bone, place(box(depth, ph, pw), x + normal * depth / 2, y + v, z + u, 1, 1, 1, angle), color);
+    };
+    const cloth = .008, device = .012, { field, mark } = badge;
+    piece(0, 0, w, h, 0, field, cloth);
+    if (badge.design === 'flag') piece(0, h / 4, w, h / 2, 0, mark, device);
+    if (badge.design === 'bar') piece(0, 0, w, h * .28, 0, mark, device);
+    if (badge.design === 'diamond') piece(0, 0, Math.min(w, h) * .5, Math.min(w, h) * .5, Math.PI / 4, mark, device);
+    if (badge.design === 'chevron') for (const s of [-1, 1]) piece(s * w * .17, h * .05, w * .44, h * .2, s * .62, mark, device);
+    // A name tape: two dark strokes for the lettering.
+    if (badge.design === 'tape') for (const [u, length] of [[-w * .22, w * .34], [w * .2, w * .28]]) piece(u, 0, length, h * .3, 0, mark, device);
   };
 
   const combat = !!look.vest || look.headwear === 'helmet';
   const belt = combat ? '#2b2f29' : shade(look.bottom, .55);
   // Pelvis and belt.
-  add(hips, place(lathe([[0, -.115], [.1, -.1], [.16, -.06], [.168, .01], [.152, .1], [0, .1]]), 0, 0, 0, build, 1, .7), look.bottom);
+  add(hips, place(lathe([[0, -.115], [.1, -.1], [.16, -.06], [.168, .01], [.152, .1], [0, .1]]), 0, 0, 0, build, 1, .7), look.bottom, false, bottomFabric);
   add(hips, place(cylinder(.5, .5, 1, 14), 0, .07, 0, .335 * build, .05, .225), belt);
   if (look.apron) add(hips, place(box(.34 * build, .46, .015), 0, -.17, -.122, 1, 1, 1, .08), look.apron);
   if (combat) for (const x of [-.14, .14]) add(hips, place(box(.07, .1, .09), x * build, -.02, -.04), shade(look.vest ?? belt, .85));
   // Abdomen and chest.
-  add(spine, place(lathe([[0, -.03], [.148, -.03], [.142, .08], [.152, .2], [0, .21]]), 0, 0, 0, build, 1, .68), look.top);
-  add(chest, place(lathe([[0, -.06], [.15, -.06], [.165, .06], [.182, .17], [.186, .235], [.16, .29], [.075, .32], [0, .325]]), 0, 0, 0, build, 1, .64), look.top);
+  add(spine, place(lathe([[0, -.03], [.148, -.03], [.142, .08], [.152, .2], [0, .21]]), 0, 0, 0, build, 1, .68), look.top, false, topFabric);
+  add(chest, place(lathe([[0, -.06], [.15, -.06], [.165, .06], [.182, .17], [.186, .235], [.16, .29], [.075, .32], [0, .325]]), 0, 0, 0, build, 1, .64), look.top, false, topFabric);
   if (look.apron) add(chest, place(box(.24 * build, .24, .012), 0, .03, -.104), look.apron);
   if (look.lanyard) {
     for (const side of [-1, 1]) add(chest, place(box(.012, .25, .008), side * .055, .17, -.118, 1, 1, 1, -.15, 0, side * .3), look.lanyard);
@@ -195,6 +267,12 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
       add(spine, place(box(.36 * build, .12, .29), 0, -.02, 0), shade(vest, .9));
     }
   }
+  if (look.patches?.chest) {
+    // Over the plates, the carrier or the shirt, whichever is outermost.
+    const front = look.plates && look.vest ? -.185 : look.vest ? -.135 : -.118;
+    const tape = look.patches.chest.design === 'tape';
+    sew(chest, look.patches.chest, -.085 * build, tape ? .2 : .19, front, 'front', tape ? .1 : .055, tape ? .026 : .055);
+  }
   if (look.backpack) {
     add(chest, place(box(.3 * build, .36, .14), 0, .1, .18), look.backpack);
     add(chest, place(box(.24 * build, .12, .06), 0, -.03, .26), shade(look.backpack, .8));
@@ -211,6 +289,10 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     add(head, place(sphere(.5, 8, 6), side * .102, .1, .005, .035, .06, .035), shade(look.skin, .95));
   }
   add(head, place(box(.05, .01, .01), 0, .035, -.115), shade(look.skin, .7));
+  if (look.eyewear) {
+    add(head, place(box(.13, .03, .018), 0, .12, -.118), look.eyewear, true);
+    for (const side of [-1, 1]) add(head, place(box(.008, .012, .1), side * .1, .125, -.07), look.eyewear, true);
+  }
   const headwear = look.headwear ?? 'none', hat = look.headwearColor ?? look.hair;
   const dome = (r: number, cover: number) => new THREE.SphereGeometry(r, 18, 10, 0, Math.PI * 2, 0, Math.PI * cover);
   if (headwear === 'none' || headwear === 'cap') {
@@ -218,14 +300,14 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     if (look.hairStyle === 'long') add(head, place(box(.19, .22, .07), 0, .02, .085), look.hair);
   }
   if (headwear === 'helmet') {
-    add(head, place(dome(.5, .55), 0, .12, .005, .27, .27, .3), hat);
+    add(head, place(dome(.5, .55), 0, .12, .005, .27, .27, .3), hat, false, hatFabric);
     add(head, place(cylinder(.5, .5, 1, 18), 0, .135, .005, .272, .02, .302), look.accent ?? shade(hat, .8));
     add(head, place(box(.15, .035, .03), 0, .2, -.13, 1, 1, 1, -.5), '#1e2426');
     for (const side of [-1, 1]) add(head, place(box(.012, .14, .012), side * .1, .06, -.03, 1, 1, 1, 0, 0, side * .12), '#2a2c28');
   }
   if (headwear === 'boonie') {
-    add(head, place(cylinder(.205, .205, .012, 20), 0, .2, 0), hat);
-    add(head, place(cylinder(.11, .125, .09, 16), 0, .245, 0), hat);
+    add(head, place(cylinder(.205, .205, .012, 20), 0, .2, 0), hat, false, hatFabric);
+    add(head, place(cylinder(.11, .125, .09, 16), 0, .245, 0), hat, false, hatFabric);
     add(head, place(cylinder(.127, .127, .02, 16), 0, .215, 0), look.accent ?? shade(hat, .8));
   }
   if (headwear === 'cap') {
@@ -240,23 +322,29 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
   // Arms.
   const sleeve = look.accent && combat ? look.accent : look.top, glove = look.gloves ?? look.skin;
   for (const [upper, fore, hand, side] of [[upperArmL, forearmL, handL, -1], [upperArmR, forearmR, handR, 1]] as const) {
-    add(upper, place(sphere(.066), 0, -.012, 0), look.top);
-    if (look.sleeves === 'short') { limb(upper, D.upperArm, .066, .052, look.top, 0, .14); limb(upper, D.upperArm, .06, .05, look.skin, .14, D.upperArm); }
-    else limb(upper, D.upperArm, .066, .054, look.top);
-    if (combat && look.accent) add(upper, place(cylinder(.068, .066, .045), 0, -.1, 0), sleeve);
-    add(fore, place(sphere(.053), 0, 0, 0), look.sleeves === 'short' ? look.skin : look.top);
-    limb(fore, D.forearm, .052, .04, look.sleeves === 'short' ? look.skin : look.top, 0, look.sleeves === 'short' ? D.forearm : .2);
+    add(upper, place(sphere(.066), 0, -.012, 0), look.top, false, topFabric);
+    if (look.sleeves === 'short') { limb(upper, D.upperArm, .066, .052, look.top, 0, .14, topFabric); limb(upper, D.upperArm, .06, .05, look.skin, .14, D.upperArm); }
+    else limb(upper, D.upperArm, .066, .054, look.top, 0, D.upperArm, topFabric);
+    // Badges replace the plain armband: they carry the side, the helmet band the role.
+    // The arm IK keeps each upper arm's local +x on the hinge, which points
+    // across the body, so the outside of either arm is local -side·x.
+    const badge = side < 0 ? look.patches?.left : look.patches?.right;
+    if (badge) sew(upper, badge, -side * .062, -.085, 0, side < 0 ? 1 : -1, .062, .07);
+    else if (combat && look.accent) add(upper, place(cylinder(.068, .066, .045), 0, -.1, 0), sleeve);
+    const sleeved = look.sleeves !== 'short';
+    add(fore, place(sphere(.053), 0, 0, 0), sleeved ? look.top : look.skin, false, sleeved && topFabric);
+    limb(fore, D.forearm, .052, .04, sleeved ? look.top : look.skin, 0, sleeved ? .2 : D.forearm, sleeved && topFabric);
     if (look.sleeves !== 'short') limb(fore, D.forearm, .041, .038, look.skin, .2, D.forearm);
     add(hand, place(box(.075, .085, .035), 0, -.045, 0), glove);
     add(hand, place(box(.025, .05, .025), side * -.04, -.025, -.012, 1, 1, 1, 0, 0, side * .4), glove);
   }
   // Legs and boots.
   for (const [thigh, shin, foot] of [[thighL, shinL, footL], [thighR, shinR, footR]] as const) {
-    add(thigh, place(sphere(.097), 0, 0, 0), look.bottom);
-    limb(thigh, D.thigh, .097, .072, look.bottom, 0, look.shorts ? .28 : D.thigh);
+    add(thigh, place(sphere(.097), 0, 0, 0), look.bottom, false, bottomFabric);
+    limb(thigh, D.thigh, .097, .072, look.bottom, 0, look.shorts ? .28 : D.thigh, bottomFabric);
     if (look.shorts) limb(thigh, D.thigh, .068, .064, look.skin, .28, D.thigh);
-    add(shin, place(sphere(.068), 0, 0, 0), look.shorts ? look.skin : look.bottom);
-    limb(shin, D.shin, .068, .05, look.shorts ? look.skin : look.bottom);
+    add(shin, place(sphere(.068), 0, 0, 0), look.shorts ? look.skin : look.bottom, false, !look.shorts && bottomFabric);
+    limb(shin, D.shin, .068, .05, look.shorts ? look.skin : look.bottom, 0, D.shin, !look.shorts && bottomFabric);
     if (combat) limb(shin, D.shin, .064, .06, look.shoes, .27, D.shin);
     add(foot, place(box(.1, .08, .24), 0, -.035, -.055), look.shoes);
     add(foot, place(box(.106, .02, .25), 0, -.075, -.055), shade(look.shoes, .55));
@@ -292,10 +380,12 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
   }
 
   for (const [bones, material] of [[parts, skinMaterial], [gear, gearMaterial]] as const) for (const [bone, list] of bones) {
-    const colored = list.map(({ geometry, color }) => {
+    const colored = list.map(({ geometry, color, fabric }) => {
       const tint = new THREE.Color(color), count = geometry.getAttribute('position').count, colors = new Float32Array(count * 3);
       for (let i = 0; i < count; i++) colors.set([tint.r, tint.g, tint.b], i * 3);
       geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      // Merging needs every part to carry the same attributes, so a camouflaged figure marks all of them.
+      if (look.camo && material === skinMaterial) geometry.setAttribute('fabric', new THREE.BufferAttribute(new Float32Array(count).fill(fabric ? 1 : 0), 1));
       return geometry;
     });
     const merged = mergeGeometries(colored, false);

@@ -189,14 +189,18 @@ describe('host-authoritative arena', () => {
     const arena = pair(); arena.removePlayer('two'); expect(arena.snapshot().actors).toHaveLength(1);
     advance(arena, ARENA_DURATION + 0.2); expect(arena.snapshot()).toMatchObject({ finished: true, winner: 'Alpha', elapsed: 180 });
   });
-  it('caps bots at six, moves them on clear land and allows them to attack', () => {
+  it('caps bots at six, moves them on clear land and allows them to attack the other side', () => {
     const arena = createArena([], 100); const initial = arena.snapshot().actors;
-    expect(initial).toHaveLength(6); advance(arena, 5);
-    const updated = arena.snapshot().actors;
+    expect(initial).toHaveLength(6);
+    // Contractors only fight the forces, so give them a player to find.
+    arena.addPlayer('one', 'Alpha'); arena.setPlayerHealthMultiplier('one', 10); advance(arena, 5);
+    const updated = arena.snapshot().actors.filter(a => a.bot), player = actor(arena, 'one');
     expect(updated.some((a, i) => Math.hypot(a.x - initial[i].x, a.z - initial[i].z) > 0.5)).toBe(true);
     expect(updated.every(a => canOccupy(a.x, a.z, 0.35, []))).toBe(true);
     expect(updated.reduce((sum, a) => sum + a.shots, 0)).toBeGreaterThan(0);
-    expect(updated.some(a => a.health < 100 || a.deaths > 0 || a.armor < 10)).toBe(true);
+    expect(player.health < 1000 || player.deaths > 0).toBe(true);
+    // Nobody else is hostile to them, so every kill they score is the player.
+    expect(updated.reduce((sum, a) => sum + a.kills, 0)).toBe(player.deaths);
   });
   it('bots do not fire through scenery and spawn outside obstacles', () => {
     const walls = [{ minX: -26, maxX: -24, minZ: -100, maxZ: 200, maxY: 10 }];
