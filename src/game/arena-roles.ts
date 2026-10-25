@@ -36,11 +36,12 @@ const armedWith = (choice: ArmamentChoice) => {
   const item = itemById(choice.variant);
   return item?.category === 'weapon' && isEnemyIssue(item) && validWeaponIndex(item.family) ? item : undefined;
 };
-/** Weighted draw of what one spawn carries. */
-export function chooseArmament(role: Pick<ArenaRolePlugin, 'armament'>, random: () => number): ShopItem & { family: number } {
-  const total = role.armament.reduce((sum, choice) => sum + choice.weight, 0);
+/** Weighted draw of what one spawn carries; `kit`, when given, reweights each choice by its variant's tier (a rank's issue, see arena-ranks). */
+export function chooseArmament(role: Pick<ArenaRolePlugin, 'armament'>, random: () => number, kit?: Readonly<Record<ShopItem['tier'], number>>): ShopItem & { family: number } {
+  const weight = (choice: ArmamentChoice) => choice.weight * (kit ? kit[armedWith(choice)!.tier] ?? 1 : 1);
+  const total = role.armament.reduce((sum, choice) => sum + weight(choice), 0);
   let roll = random() * total;
-  for (const choice of role.armament) { roll -= choice.weight; if (roll <= 0) return armedWith(choice) as ShopItem & { family: number }; }
+  for (const choice of role.armament) { roll -= weight(choice); if (roll <= 0) return armedWith(choice) as ShopItem & { family: number }; }
   return armedWith(role.armament[role.armament.length - 1]) as ShopItem & { family: number };
 }
 /** Every family a role can be holding, so its loadout has the role's stats in each. */

@@ -1,0 +1,35 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Bot ranks</title><style>
+body{margin:0;background:#161e25;color:#d9e4e9;font:14px system-ui}canvas{display:block}header{position:absolute;top:14px;left:20px}header small{display:block;color:#92a4b0;margin-top:4px}.labels{position:absolute;inset:0;pointer-events:none;display:grid}.labels span{align-self:end;padding:10px 14px}
+</style></head><body><header>Bot ranks • recruit, regular, veteran<small>?yaw=radians turns every camera; ?zoom=.35&amp;focus=1.3 frames the shoulder patches; ?id=seed changes faces and kit</small></header><div class="labels" id="labels"></div><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import { createCharacterRig } from '/src/game/character-rig.ts';
+import { arenaCharacterLook } from '/src/game/character-looks.ts';
+const params=new URLSearchParams(location.search), yaw=Number(params.get('yaw')??.65), zoom=Number(params.get('zoom')??1), focusY=Number(params.get('focus')??.9), id=params.get('id')??'bot-2';
+const figures=[
+ ['BLACK KITE · RECRUIT',{bot:true,role:'assault',id,rank:1}],
+ ['BLACK KITE · OPERATOR',{bot:true,role:'assault',id,rank:2}],
+ ['BLACK KITE · VETERAN',{bot:true,role:'assault',id,rank:3}],
+ ['BLACK KITE · VETERAN TANK',{bot:true,role:'tank',id,rank:3}],
+ ['RECRUIT · RIGHT SLEEVE',{bot:true,role:'assault',id,rank:1},-Math.PI/2],
+ ['OPERATOR · RIGHT SLEEVE',{bot:true,role:'assault',id,rank:2},-Math.PI/2],
+ ['VETERAN · RIGHT SLEEVE',{bot:true,role:'assault',id,rank:3},-Math.PI/2],
+ ['FORCES · PTE',{bot:true,role:'assault',id,faction:'armed-forces',rank:1}],
+ ['FORCES · SGT',{bot:true,role:'assault',id,faction:'armed-forces',rank:3}],
+];
+const cols=Math.min(Number(params.get('cols')??4),figures.length), rows=Math.ceil(figures.length/cols);
+const labels=document.getElementById('labels');labels.style.gridTemplateColumns=`repeat(${cols},1fr)`;labels.style.gridTemplateRows=`repeat(${rows},1fr)`;
+labels.innerHTML=figures.map(f=>`<span>${f[0]}</span>`).join('');
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(1);renderer.setClearColor('#161e25');document.body.append(renderer.domElement);
+const views=figures.map(([label,actor,turn])=>{
+ const scene=new THREE.Scene(),rig=createCharacterRig(arenaCharacterLook(actor),label);scene.add(rig.root);
+ const floor=new THREE.Mesh(new THREE.CircleGeometry(1.4,32),new THREE.MeshStandardMaterial({color:'#38444b'}));floor.rotation.x=-Math.PI/2;scene.add(floor);
+ scene.add(new THREE.HemisphereLight('#daeafa','#384148',2.4));const light=new THREE.DirectionalLight('#fff0d9',3.2);light.position.set(-2,4,-3);scene.add(light);
+ for(let t=0;t<1.3;t+=1/60)rig.update(1/60,{aim:.15});
+ const camera=new THREE.PerspectiveCamera(30,innerWidth/cols/(innerHeight/rows),.05,30), a=yaw+(turn??0), focus=new THREE.Vector3(0,focusY,0), distance=4.4*zoom;
+ camera.position.set(-Math.sin(a)*distance,focus.y+.5*zoom,-Math.cos(a)*distance);camera.lookAt(focus);
+ return {scene,camera};
+});
+renderer.setScissorTest(true);
+views.forEach(({scene,camera},i)=>{const w=innerWidth/cols,h=innerHeight/rows,x=i%cols*w,y=(rows-1-Math.floor(i/cols))*h;renderer.setViewport(x,y,w,h);renderer.setScissor(x,y,w,h);renderer.render(scene,camera)});
+window.ready=true;
+</script></body></html>

@@ -46,6 +46,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.prone !== undefined && typeof actor.prone !== 'boolean') || (actor.aiming !== undefined && actor.aiming !== true) ||
       (actor.ground !== undefined && !(finite(actor.ground) && actor.ground >= -50 && actor.ground <= 124)) ||
       (actor.healing !== undefined && !(finite(actor.healing) && actor.healing >= 0 && actor.healing <= 1)) ||
+      (actor.rank !== undefined && !(Number.isInteger(actor.rank) && (actor.rank as number) >= 1 && (actor.rank as number) <= 3)) ||
       (actor.hurtFrom !== undefined && !(object(actor.hurtFrom) && finite(actor.hurtFrom.x) && finite(actor.hurtFrom.z) && finite(actor.hurtFrom.serial) && (actor.hurtFrom.blast === undefined || actor.hurtFrom.blast === true))) || (actor.variant !== undefined && (typeof actor.variant !== 'string' || actor.variant.length > 40)) || !validWeaponIndex(actor.weapon) || typeof actor.alive !== 'boolean' || typeof actor.bot !== 'boolean' || typeof actor.faction !== 'string' || !getArenaFaction(actor.faction) || typeof actor.role !== 'string' || actor.role.length > 32 ||
       (actor.x as number) < (environment?.bounds.minX ?? -500) || (actor.x as number) > (environment?.bounds.maxX ?? 500) ||
       (actor.z as number) < (environment?.bounds.minZ ?? -500) || (actor.z as number) > (environment?.bounds.maxZ ?? 500) || (actor.y as number) < 0 || (actor.y as number) > 124 ||
@@ -112,8 +113,21 @@ interface Avatar {
   shots: number; flash: number; maxHealth: number; resources: { dispose(): void }[];
   alive: boolean; lastHealth: number; yaw: number; fireTimer: number; ground: number; groundTimer: number;
   previous: THREE.Vector3; velocity: THREE.Vector3;
+  /** What the figure and label were built from; a respawn with a new rank or name rebuilds them. */
+  key: string;
 }
+const avatarKey = (actor: ArenaActor) => `${actor.faction}|${actor.role}|${actor.rank ?? 0}|${actor.name}`;
 const noRaycast = () => {};
+/** The 256×48 tag over a figure's head: its name, after one chevron per grade for a ranked bot. */
+export function paintNameLabel(context: CanvasRenderingContext2D, actor: Pick<ArenaActor, 'name' | 'bot' | 'rank'>, color: string) {
+  context.fillStyle = 'rgba(10,19,25,.8)'; context.fillRect(0, 0, 256, 48); context.font = '600 22px sans-serif'; context.textAlign = 'center'; context.textBaseline = 'middle'; context.fillStyle = color;
+  const name = actor.name.slice(0, 20), chevrons = actor.bot && actor.rank ? actor.rank : 0;
+  context.fillText(name, 128 + chevrons * 7, 25);
+  if (!chevrons) return;
+  const left = 128 + chevrons * 7 - Math.min(200, context.measureText(name).width) / 2 - chevrons * 14 - 6;
+  context.strokeStyle = color; context.lineWidth = 3; context.lineJoin = 'miter';
+  for (let i = 0; i < chevrons; i++) { const x = left + i * 14; context.beginPath(); context.moveTo(x, 31); context.lineTo(x + 6, 19); context.lineTo(x + 12, 31); context.stroke(); }
+}
 function createAvatar(actor: ArenaActor): Avatar {
   const rig = createCharacterRig(arenaCharacterLook(actor), `arena-${actor.id}`);
   const root = rig.root; root.userData.arenaActorId = actor.id;
@@ -134,7 +148,7 @@ function createAvatar(actor: ArenaActor): Avatar {
     const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 48;
     const context = canvas.getContext('2d');
     if (context) {
-      context.fillStyle = 'rgba(10,19,25,.8)'; context.fillRect(0, 0, 256, 48); context.font = '600 22px sans-serif'; context.textAlign = 'center'; context.textBaseline = 'middle'; context.fillStyle = color; context.fillText(actor.name.slice(0, 20), 128, 25);
+      paintNameLabel(context, actor, color);
       const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
       const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: true }); resources.push(texture, material);
       label = new THREE.Sprite(material); label.position.set(0, 2.23, 0); label.scale.set(1.6, 0.3, 1); label.raycast = noRaycast; root.add(label);
@@ -146,7 +160,7 @@ function createAvatar(actor: ArenaActor): Avatar {
     resources.push(material);
     glint = new THREE.Sprite(material); glint.position.set(.08, 1.12, -.45); glint.visible = false; glint.raycast = noRaycast; root.add(glint);
   }
-  return { rig, root, health, label, muzzle, glint, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources,
+  return { key: avatarKey(actor), rig, root, health, label, muzzle, glint, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources,
     alive: actor.alive, lastHealth: actor.health, yaw: actor.yaw, fireTimer: 0, ground: 0, groundTimer: 0, previous: new THREE.Vector3(), velocity: new THREE.Vector3() };
 }
 /** A soft star for scope glint, shared by every sniper and never disposed with one. */
@@ -342,6 +356,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       if (actor.id === session.id) continue;
       activeIds.add(actor.id);
       let avatar = avatars.get(actor.id);
+      if (avatar && avatar.key !== avatarKey(actor)) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); avatars.delete(actor.id); avatar = undefined; }
       if (!avatar) { avatar = createAvatar(actor); avatars.set(actor.id, avatar); scene.add(avatar.root); avatar.root.position.set(actor.x, actor.y - 1.75, actor.z); avatar.previous.copy(avatar.root.position); }
       animateAvatar(avatar, actor, dt);
     }

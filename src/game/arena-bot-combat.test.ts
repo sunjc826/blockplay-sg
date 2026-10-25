@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BOT_HEAL, botFireCadence, botShotSpread, botWantsHeal } from './arena-bot-combat';
-import { createArena, type ArenaEnvironment, type ArenaSimulation } from './arena-rules';
+import { BOT_AIM, BOT_HEAL, botAimScale, botFireCadence, botShotSpread, botWantsHeal } from './arena-bot-combat';
+import { createArena, SPAWN_SHIELD_SECONDS, type ArenaEnvironment, type ArenaSimulation } from './arena-rules';
 import { itemById } from './armory-catalog';
 import { variantSpec } from './armory-state';
 import { FPS_WEAPONS, hitDamage } from './fps-rules';
@@ -44,6 +44,14 @@ describe('bot weapon handling', () => {
     expect(botShotSpread(.05, mg4, 5)).toBeGreaterThan(botShotSpread(.05, mg4, 0));
     expect(botShotSpread(.05, g36, 0)).toBeLessThan(botShotSpread(.05, mg4, 0));
   });
+  it('aims wide on first sight and settles over a second and a half, wider against a mover or on the move', () => {
+    expect(botAimScale(0, 0, 0)).toBeCloseTo(BOT_AIM.settled * BOT_AIM.opening);
+    expect(botAimScale(BOT_AIM.settle, 0, 0)).toBeCloseTo(BOT_AIM.settled);
+    expect(botAimScale(10, 0, 0)).toBeCloseTo(BOT_AIM.settled);
+    expect(botAimScale(10, 7, 0)).toBeCloseTo(botAimScale(10, 0, 0) * 2.05);
+    expect(botAimScale(10, 4.2, 0)).toBeGreaterThan(botAimScale(10, 0, 0));
+    expect(botAimScale(10, 0, 1)).toBeCloseTo(botAimScale(10, 0, 0) * (1 + BOT_AIM.ownMotion));
+  });
 });
 
 describe('bots in the arena', () => {
@@ -65,6 +73,39 @@ describe('bots in the arena', () => {
       if (!you.alive) break;
     }
     expect(checked).toBeGreaterThan(0);
+  });
+
+  it('hold fire on a freshly spawned player until the shield lapses', () => {
+    const arena = createArena([], 1, 'tank', environment({ x: 1000, z: 1012 }, { x: 1000, z: 1000 }));
+    arena.addPlayer('you', 'You', 0, 0, undefined, undefined, true);
+    for (let t = 0; t < SPAWN_SHIELD_SECONDS - .1; t += .05) arena.step(.05);
+    expect(find(arena, 'bot-1').shots).toBe(0);
+    expect(find(arena, 'you').health).toBe(100);
+    for (let t = 0; t < 10 && find(arena, 'you').health === 100; t += .05) arena.step(.05);
+    expect(find(arena, 'you').health).toBeLessThan(100);
+  });
+
+  it('drop the spawn shield as soon as the player fires', () => {
+    const arena = createArena([], 1, 'tank', environment({ x: 1000, z: 1012 }, { x: 1000, z: 1000 }));
+    arena.addPlayer('you', 'You', 0, 0, undefined, undefined, true);
+    shootBot(arena);
+    for (let t = 0; t < SPAWN_SHIELD_SECONDS - .5; t += .05) arena.step(.05);
+    expect(find(arena, 'bot-1').shots).toBeGreaterThan(0);
+  });
+
+  it('let no more than two of a squad fire on one player at once', () => {
+    const spots = [{ x: 990, z: 1022 }, { x: 1000, z: 1025 }, { x: 1010, z: 1022 }, { x: 1020, z: 1018 }];
+    const arena = createArena([], 4, 'assault', { ...environment(spots[0], { x: 1000, z: 1000 }), spawns: spots });
+    arena.addPlayer('you', 'You', 0, 0, undefined, undefined, true); arena.setPlayerHealthMultiplier('you', 10);
+    const fired = new Set<string>();
+    let before = new Map(arena.snapshot().actors.map(a => [a.id, a.shots]));
+    for (let t = 0; t < SPAWN_SHIELD_SECONDS + 10; t += .05) {
+      arena.step(.05);
+      const bots = arena.snapshot().actors.filter(a => a.bot);
+      for (const bot of bots) if (bot.shots > before.get(bot.id)!) fired.add(bot.id);
+      before = new Map(bots.map(a => [a.id, a.shots]));
+    }
+    expect(fired.size).toBe(BOT_AIM.shooters);
   });
 
   it('kneel to apply a dressing out of sight, and a hit interrupts it without spending it', () => {

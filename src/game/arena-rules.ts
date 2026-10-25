@@ -10,13 +10,14 @@ import { MARINA_BOUNDS, moveInMarina, type Obstacle } from './marina-collision';
 import { advanceWeapon, beginReload, createLoadout, FPS_WEAPONS, fireWeapon, hitDamage, interruptReload, reloadCommit, reloadProgress, roundReady, type WeaponSpec, type WeaponState } from './fps-rules';
 import { armamentFamilies, chooseArmament, getArenaRole, type ArenaRolePlugin } from './arena-roles';
 import { variantSpec } from './armory-state';
-import { BOT_HEAL, botFireCadence, botShotSpread, botWantsHeal } from './arena-bot-combat';
+import { BOT_AIM, BOT_HEAL, botAimScale, botFireCadence, botShotSpread, botWantsHeal } from './arena-bot-combat';
 import { DRONE, DRONE_BLAST, MORTAR, OVERWATCH, RAID, SUPPLY } from './combat-event-catalog';
 import { combatPhase, combatTimeline, getCombatEvent, orbitPose, MAX_COMBAT_EVENTS, MAX_TROOPS, type CloudPayload, type CombatEventDescriptor, type CombatOutcome, type CombatPlane, type CratePayload, type MunitionPayload, type OrbitPayload } from './combat-events';
 import { createCombatDirector, planTransport, type CombatRisk } from './combat-director';
 import { OVERHEAD_SHELTER, resolveBlast, type BlastTarget } from './combat-blast';
 import { DEFAULT_BOT_FACTION, getArenaFaction, hostile, PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
 import { createHeatField, HEAT_TUNING, type HeatBand, type HeatSector } from './faction-heat';
+import { drawRank, type BotRank } from './arena-ranks';
 
 /** All coordinates use metres; actor y is eye height, not the feet. */
 export interface ArenaActor {
@@ -35,6 +36,8 @@ export interface ArenaActor {
   aiming?: boolean;
   /** Feet height of an actor held on a perch the walk surfaces do not describe, such as a roof. */
   ground?: number;
+  /** Bots: grade 1 (recruit) to 3 (veteran), drawn at each spawn; see arena-ranks. */
+  rank?: number;
 }
 export type ArenaRaiderState = 'inbound' | 'orbit' | 'leaving' | 'cruise' | 'lock' | 'dive' | 'down' | 'wreck' | 'exploded';
 /**
@@ -126,8 +129,7 @@ export const HOME_LEASH = 90;
 export const MAX_ARENA_ACTORS = MAX_ARENA_BOTS + 8;
 /** Every bot's planned route shares this many milliseconds of search per tick. */
 const NAVIGATION_BUDGET = 6;
-/** Friendly soldiers: rank by role, then surname. */
-const FORCES_RANKS: Record<string, string> = { assault: 'Pte', tank: 'Cpl', sniper: 'Sgt' };
+/** Friendly soldiers' surnames, after their rank's title. */
 const FORCES_NAMES = ['Tan', 'Rahman', 'Kumar', 'Lim', 'Hafiz', 'Ong', 'Raj', 'Goh', 'Iskandar', 'Chua'];
 const CALLSIGNS = ['Merlion', 'Orchid', 'Sentosa', 'Katong', 'Jewel', 'Kallang', 'Bedok', 'Changi', 'Kranji', 'Seletar', 'Tekong', 'Ubin', 'Simei', 'Lentor', 'Dover', 'Pasir'];
 /** How long a bot trusts its last mesh line-of-sight check before casting again. */
@@ -135,6 +137,8 @@ export const ARENA_SIGHT_RECHECK = .2;
 export const ARENA_DURATION = 180;
 export const ARENA_KILL_LIMIT = 15;
 export const ARENA_RESPAWN_SECONDS = 3;
+/** Seconds after spawning that bots' rounds do a player no harm; the player's own first shot ends it. */
+export const SPAWN_SHIELD_SECONDS = 3;
 const EMPTY_SHOT: ArenaShot = { hitId: null, killed: false, damage: 0 };
 /** Share of a reload by which a guest's own commit point may run ahead of the host's. */
 const RELOAD_COMMIT_GRACE = .12;
@@ -166,6 +170,16 @@ interface InternalActor {
   burst: number; burstFired: number;
   /** Bots: dressings carried, the dressing being applied, and when they were last hit. */
   medkits: number; heal?: { time: number; feet: number; started: number }; lastHurt: number;
+  /** Arena time until which bots' rounds pass a freshly spawned player by. */
+  shieldUntil?: number;
+  /** Ground speed in m/s, smoothed over a few ticks, and where it was last measured from. */
+  speed?: number; lastAt?: { x: number; z: number };
+  /** When a bot first had its present target in sight, for its aim to settle from. */
+  focusSince?: number;
+  /** A bot's turn to fire on a player, held while it keeps a shot; see BOT_AIM.shooters. */
+  turn?: { target: string; until: number };
+  /** A bot's rank this life, and the name it goes by after its rank's title. */
+  rank?: BotRank; callsign?: string;
   /** Fielded by a combat event: never respawns, holds fire until `from` (the event's warning), and leaves when the event does. */
   temporary?: { event: string; from: number };
   /** Holds this spot. With `y`, at that feet height whatever the walk surfaces say (a roof). */
@@ -308,24 +322,29 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     });
     const preferred = entry.usePlayerSpawn && environment?.playerSpawn && clearSpawn(environment.playerSpawn) ? environment.playerSpawn : undefined;
     const p = preferred ?? positions[0];
+    if (entry.role) {
+      // A fresh soldier off the transport: rank first, since it decides the kit.
+      const strength = factionHeat && isSquad(entry.actor.faction) ? factionHeat.strength(entry.actor.faction, entry.home ?? null) : undefined;
+      entry.rank = drawRank(strength, armamentRandom); entry.actor.rank = entry.rank.grade;
+      // Armour follows rank and heat: a hot sector's troops come back with heavier plates.
+      entry.armorMax = clamp(entry.role.armor * entry.rank.armor * (strength === undefined ? 1 : .75 + .5 * strength), 0, 150);
+      if (entry.callsign) entry.actor.name = `${entry.rank.title[getArenaFaction(entry.actor.faction)?.side ?? 'opposition']} ${entry.callsign}`;
+    }
     Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75, health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
       yaw: Number.isFinite(preferred?.yaw) ? preferred!.yaw! : 0, pitch: Number.isFinite(preferred?.pitch) ? clamp(preferred!.pitch!, -1.5, 1.5) : 0 });
     if (entry.role && entry.actor.faction === PLAYER_FACTION) {
       // Friendly soldiers carry the issued rifle, or the Ultimax in support, and drop nothing.
-      entry.actor.weapon = forcesFamily(entry.role); delete entry.actor.variant; entry.spec = undefined; entry.medkits = entry.role.medkits ?? 1;
+      entry.actor.weapon = forcesFamily(entry.role); delete entry.actor.variant; entry.spec = undefined; entry.medkits = (entry.role.medkits ?? 1) + (entry.rank?.medkits ?? 0);
     } else if (entry.role) {
-      const issued = chooseArmament(entry.role, armamentRandom); entry.actor.weapon = issued.family; entry.actor.variant = issued.id;
+      const issued = chooseArmament(entry.role, armamentRandom, entry.rank?.kit); entry.actor.weapon = issued.family; entry.actor.variant = issued.id;
       // What they carry is what they fire: the variant's damage, falloff, cycle, magazine and reload.
       entry.spec = variantSpec(issued) ?? undefined;
       if (entry.spec) entry.weapons[issued.family] = sanitizeWeapons([entry.spec])[0];
-      entry.medkits = entry.role.medkits ?? 1;
-    }
-    if (entry.role && factionHeat && isSquad(entry.actor.faction)) {
-      // Kit follows heat: a hot sector's troops come back with heavier armour.
-      entry.armorMax = clamp(entry.role.armor * (.75 + .5 * factionHeat.strength(entry.actor.faction, entry.home ?? null)), 0, 150); entry.actor.armor = entry.armorMax;
+      entry.medkits = (entry.role.medkits ?? 1) + (entry.rank?.medkits ?? 0);
     }
     entry.ammo = entry.weapons.map(hostAmmo);
-    entry.burst = 0; entry.burstFired = 0; entry.heal = undefined; entry.lastHurt = -Infinity; delete entry.actor.healing;
+    entry.burst = 0; entry.burstFired = 0; entry.heal = undefined; entry.lastHurt = -Infinity; delete entry.actor.healing; entry.shieldUntil = elapsed + SPAWN_SHIELD_SECONDS;
+    entry.speed = 0; entry.lastAt = undefined; entry.focusSince = undefined; entry.turn = undefined;
     entry.navigation = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false;
   };
@@ -465,7 +484,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         announce(`${entry.actor.name} was defeated by unsupported .50 recoil`, undefined, id);
       }
     }
-    ammo.cooldown = 0; fireWeapon(ammo, weapon, entry.weapons); entry.actor.shots++; warm(entry.actor, 1);
+    ammo.cooldown = 0; fireWeapon(ammo, weapon, entry.weapons); entry.actor.shots++; warm(entry.actor, 1); entry.shieldUntil = 0;
     if (!roundReady(ammo, entry.weapons[weapon])) startReload(entry, weapon);
     return resolveShot(entry, origin, ray, entry.weapons[weapon].damage, Math.min(125, Math.max(0, maxDistance)), undefined, entry.spec);
   }
@@ -525,6 +544,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (hull) { const before = hull.health; damageHull(hull, damage, entry); return { hitId: `vehicle-${hull.kind}`, killed: before > 0 && hull.health === 0, damage: Math.min(before, damage) }; }
     // A round that finds one of the shooter's own side stops there and does no harm.
     if (victim && !hostile(entry.actor, victim.actor)) return { ...EMPTY_SHOT };
+    if (victim && entry.actor.bot && !victim.actor.bot && elapsed < (victim.shieldUntil ?? 0)) return { hitId: victim.actor.id, killed: false, damage: 0 };
     return victim ? hurtActor(victim, damage, entry, undefined, ignore ? origin : undefined) : { ...EMPTY_SHOT };
   }
   function releaseSeat(id: string) {
@@ -1270,21 +1290,35 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       Object.assign(actor, { x: step.x, z: step.z, y: step.y + 1.75 }); entry.velocityY = step.velocityY;
     } else Object.assign(actor, move(actor, dxStep, dzStep, .4, [...groundObstacles, ...vehicleSolids]));
     actor.yaw = Math.atan2(-dx, -dz); actor.pitch = Math.atan2(line.y, horizontal);
-    // An event's crew may not open fire before the event has been announced.
-    if (!visible || !intent.fire || (entry.temporary && elapsed < entry.temporary.from)) { entry.reaction = role.reaction; entry.target = ''; entry.burst = 0; return; }
-    if (entry.target !== enemy.actor.id) { entry.target = enemy.actor.id; entry.reaction = role.reaction + random() * 0.3; entry.burst = 0; }
+    const stride = entry.anchor ? 0 : Math.hypot(dxStep, dzStep) / Math.max(1e-6, role.speed * dt);
+    // An event's crew may not open fire before the event has been announced; a bot waiting its turn on a player holds fire.
+    const reaction = Math.max(.1, role.reaction + (entry.rank?.reaction ?? 0));
+    if (!visible || !intent.fire || (entry.temporary && elapsed < entry.temporary.from) || !takeTurn(entry, enemy)) { entry.reaction = reaction; entry.target = ''; entry.burst = 0; return; }
+    if (entry.target !== enemy.actor.id) { entry.target = enemy.actor.id; entry.reaction = reaction + random() * 0.3; entry.burst = 0; entry.focusSince = elapsed; }
     entry.reaction -= dt;
     if (entry.reaction <= 0) {
       // Bursts at the weapon's own cycle, then a pause the role decides.
       if (entry.burst <= 0) { const [low, high] = role.burst ?? [1, 1]; entry.burst = low + Math.floor(random() * (high - low + 1)); entry.burstFired = 0; }
-      // Deliberate arcade inaccuracy gives moving players time to react; recoil opens it through a burst.
-      const base = Number.isFinite(intent.spread) ? clamp(intent.spread, 0.005, 0.2) : 0.05;
+      // The role's aim error, steadier with rank, wide on first sight and against a mover; recoil opens it through a burst.
+      const base = (Number.isFinite(intent.spread) ? clamp(intent.spread, 0.005, 0.2) : 0.05) * (entry.rank?.aim ?? 1) * botAimScale(elapsed - (entry.focusSince ?? elapsed), enemy.speed ?? 0, stride);
       const spread = entry.spec ? botShotSpread(base, entry.spec, entry.burstFired) : base;
       shoot(actor.id, actor, { x: ray.x + (random() - 0.5) * spread, y: ray.y + (random() - 0.5) * spread, z: ray.z + (random() - 0.5) * spread }, actor.weapon);
       entry.burst--; entry.burstFired++;
       const pause = (Number.isFinite(intent.shotDelay) ? clamp(intent.shotDelay, 0.1, 5) : 0.5) + random() * 0.15;
       entry.reaction = entry.burst > 0 && entry.spec ? botFireCadence(entry.spec) : Math.max(pause, entry.spec?.interval ?? 0);
     }
+  }
+  /**
+   * Whether a bot may fire on `enemy`: always on a bot, and on a player only
+   * once their spawn shield is down and while it holds one of BOT_AIM.shooters
+   * turns. A bot without a turn starts its aim afresh when it gets one.
+   */
+  function takeTurn(entry: InternalActor, enemy: InternalActor) {
+    if (enemy.actor.bot) return true;
+    if (elapsed < (enemy.shieldUntil ?? 0)) return false;
+    const id = enemy.actor.id, held = entry.turn?.target === id && entry.turn.until > elapsed;
+    if (!held && [...members.values()].filter(m => m !== entry && m.actor.alive && m.turn?.target === id && m.turn.until > elapsed).length >= BOT_AIM.shooters) return false;
+    entry.turn = { target: id, until: elapsed + BOT_AIM.shooterHold }; return true;
   }
   let navigationDeadline = 0;
   function step(dt: number) {
@@ -1307,6 +1341,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         }
         continue;
       }
+      const from = entry.lastAt ?? entry.actor, moved = Math.min(12, Math.hypot(entry.actor.x - from.x, entry.actor.z - from.z) / dt);
+      entry.speed = (entry.speed ?? 0) + (moved - (entry.speed ?? 0)) * Math.min(1, dt * 6); entry.lastAt = { x: entry.actor.x, z: entry.actor.z };
       entry.ammo.forEach((state, index) => advanceWeapon(state, index, dt, entry.weapons));
       if (entry.actor.bot) stepBot(entry, dt);
       if (finished) break;
@@ -1356,10 +1392,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       : faction === PLAYER_FACTION ? 'assault' : composition === 'mixed' ? ['assault', 'tank', 'sniper'][i % 3] : composition;
     const role = getArenaRole(roleId) ?? getArenaRole('assault')!;
     const armed = faction === PLAYER_FACTION ? [forcesFamily(role)] : armamentFamilies(role), weapons = FPS_WEAPONS.map((w, index) => armed.includes(index) ? role.weapon : w);
-    const name = faction === PLAYER_FACTION ? `${FORCES_RANKS[role.id] ?? 'Pte'} ${FORCES_NAMES[friendly++ % FORCES_NAMES.length]}` : `${role.name.split(' ')[0]} ${CALLSIGNS[i % CALLSIGNS.length]}`;
+    // Each spawn puts their rank's title before this.
+    const name = faction === PLAYER_FACTION ? FORCES_NAMES[friendly++ % FORCES_NAMES.length] : CALLSIGNS[i % CALLSIGNS.length];
     // Recruits arrive unannounced: the transport's banner is their entrance.
     if (recruit) addMember(id, name, role.armor, role.absorption, weapons, false); else addPlayer(id, name, role.armor, role.absorption, weapons);
-    const entry = members.get(id)!; entry.role = role; entry.healthMax = role.health;
+    const entry = members.get(id)!; entry.role = role; entry.healthMax = role.health; entry.callsign = name;
     Object.assign(entry.actor, { bot: true, role: role.id, faction }); spawn(entry);
     if (recruit) { entry.recruit = true; entry.reserve = true; Object.assign(entry.actor, { alive: false, respawnIn: 0 }); entry.waiting = elapsed; }
     return entry;

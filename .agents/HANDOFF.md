@@ -2730,3 +2730,37 @@ Validation: typecheck; full vitest 1171/1172 (the failure is
 not this change); `fps-scope-glass-smoke.mjs` passes in headless Chrome
 (swiftshader); ADS captures of all three reticles via the reflex-render fixture
 with no shader errors. G36 holdovers are decorative until zeroing exists.
+
+## 2026-10-25: bot aim that settles, a spawn shield, and bot ranks
+
+Players were dying in two or three hits in the open world. Bots fire their
+variant's full damage (kept), but they also tracked perfectly with hitscan:
+64–100% of rounds landed on a standing player, and strafing changed nothing.
+- Aim (`BOT_AIM`, `botAimScale` in arena-bot-combat): error opens at 4× on
+  first sight and settles over 1.6 s, the settled error is 1.5× the role's
+  `spread`, a moving target adds 15% per m/s (a sprint about doubles it), and a
+  moving bot adds up to 50%. Losing sight resets it. Target speed is measured
+  per member in `step()` (`speed`, smoothed).
+- Turns: at most `BOT_AIM.shooters` (2) bots fire on one player at a time
+  (`takeTurn`); the others hold fire and keep moving. Bot-vs-bot is unlimited.
+- `SPAWN_SHIELD_SECONDS` (3): bots hold fire on (and do not start aiming at) a
+  freshly spawned player; the player's first shot ends it. Bullets only.
+- Ranks (`arena-ranks.ts`): recruit / regular / veteran, drawn at every spawn
+  from `rankMix(strength)` (heat; half strength without it). Rank scales aim
+  (1.4 / 1 / .75), reaction (+.25 / 0 / −.15 s), armour (.6 / 1 / 1.4, then
+  heat), dressings (+1 veteran) and reweights `chooseArmament` by catalog tier.
+  Names are the rank's title plus a callsign (Black Kite: Recruit / Operator /
+  Veteran; forces: Pte / Cpl / Sgt, no longer by role). `ArenaActor.rank` is
+  the grade; avatars rebuild when rank or name changes. Event crews keep their
+  names but are ranked.
+- Looks: right sleeve shows 1–3 chevrons (`chevrons` patch design); recruits
+  are faded with no plates, pack or shades; veterans wear plates, a pack and
+  shades, Black Kite veterans a helmet. Labels draw chevrons before the name
+  (`paintNameLabel`). Fixture: `scripts/fixtures/bot-ranks.html`.
+Measured (one bot, open ground, settled): assault hits a standing player
+31 / 46 / 59% by rank, a walking one 23 / 38 / 42%; four assault bots kill an
+unplated player standing in the open about 2–5 s after the shield drops.
+Validation: full vitest, typecheck; rank figures and labels checked in the
+browser pane. Not played in a live district (mouse capture is blocked in the
+pane). Not done: no HUD cue for the shield, and garrison bots join the feed
+under their bare callsign (the rank title comes with the first spawn).

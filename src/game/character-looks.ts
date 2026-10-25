@@ -24,23 +24,30 @@ export function arenaRoleColor(actor: { bot: boolean; role: string; faction?: st
  * The uniform says which side: cloth, camouflage, carrier and badges. The
  * band says which role, and the kit says which job: plates and a bigger frame
  * for heavies, a boonie and a marksman rifle for anyone who shoots from far
- * off, and for contractors on patrol a cap and shades.
+ * off, and for contractors on patrol a cap and shades. A bot's rank (see
+ * arena-ranks) shows as chevrons on the right sleeve and in its kit: a recruit
+ * in a faded uniform without plates, pack or shades, a veteran in plates, a
+ * pack and shades, and a contractor veteran in a helmet rather than a cap.
  */
-export function arenaCharacterLook(actor: { bot: boolean; role: string; id?: string; faction?: string }): CharacterLook {
+export function arenaCharacterLook(actor: { bot: boolean; role: string; id?: string; faction?: string; rank?: number }): CharacterLook {
   const faction = arenaFaction(actor), { palette } = faction, seed = hashString(actor.id ?? actor.role);
   const heavy = actor.bot && actor.role === 'tank', sniper = actor.bot && (actor.role === 'sniper' || actor.role === 'overwatch');
-  const headwear = sniper ? 'boonie' : faction.caps && actor.bot && !heavy ? 'cap' : 'helmet';
-  // A little fade or wear per soldier, so a squad is a squad and not a print run.
-  const wear = (seed % 5) / 40;
+  const rank = actor.bot ? actor.rank : undefined, recruit = rank === 1, veteran = rank === 3;
+  const headwear = sniper ? 'boonie' : faction.caps && actor.bot && !heavy && !veteran ? 'cap' : 'helmet';
+  // A little fade or wear per soldier, so a squad is a squad and not a print run; a recruit's kit is the most worn.
+  const wear = (seed % 5) / 40 + (recruit ? .12 : 0);
+  const right = faction.patches.right ?? faction.patches.left;
+  const patches = rank && right ? { ...faction.patches, right: { design: 'chevrons' as const, field: right.field, mark: right.mark, count: rank } } : faction.patches;
   return {
     skin: pick(SKIN, seed, 0), hair: pick(HAIR, seed, 5),
     top: mix(palette.top, '#9a9a88', wear), bottom: mix(palette.bottom, '#20221e', wear), shoes: palette.shoes, gloves: palette.gloves,
     camo: { pattern: faction.camo.pattern, on: faction.camo.on, headwear: headwear === 'boonie' || faction.camo.on === 'all' && headwear === 'helmet' },
-    patches: faction.patches,
+    patches,
     build: heavy ? 1.16 : sniper ? .95 : 1,
     headwear, headwearColor: headwear === 'boonie' ? palette.boonie : palette.helmet,
-    eyewear: headwear === 'cap' ? '#121314' : undefined,
-    vest: palette.vest, plates: heavy || !!faction.caps && actor.bot && seed % 2 === 0, backpack: heavy || seed % 3 === 0 ? palette.backpack : undefined,
+    eyewear: veteran || headwear === 'cap' && !recruit ? '#121314' : undefined,
+    vest: palette.vest, plates: heavy || veteran || !recruit && !!faction.caps && actor.bot && seed % 2 === 0,
+    backpack: heavy || veteran || !recruit && seed % 3 === 0 ? palette.backpack : undefined,
     accent: arenaRoleColor(actor), weapon: heavy ? 'lmg' : sniper ? 'marksman' : 'rifle',
   };
 }

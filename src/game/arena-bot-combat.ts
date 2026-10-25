@@ -49,3 +49,34 @@ export function botShotSpread(base: number, spec: Pick<WeaponSpec, 'recoil' | 'o
   const optic = spec.optic === 'integrated' || spec.optic === 'precision' ? .85 : 1;
   return base * optic * (1 + Math.max(0, fired) * spec.recoil * 9);
 }
+
+/**
+ * How a bot's aim settles on someone. Rounds are hitscan and the bot tracks
+ * its target's present position, so without these a strafing player is as
+ * easy to hit as a standing one and the first round is as good as the tenth.
+ */
+export const BOT_AIM = {
+  /** Settled aim error, as a multiple of the role's own `spread`. */
+  settled: 1.5,
+  /** Aim error on first sighting a target, as a multiple of the settled error. */
+  opening: 4,
+  /** Seconds of unbroken sight for the error to narrow to settled. */
+  settle: 1.6,
+  /** Extra error per m/s of the target's own speed: a walk (4.2) adds about 60%, a sprint (7) doubles it. */
+  targetMotion: .15,
+  /** Extra error while the bot is itself moving at its full stride. */
+  ownMotion: .5,
+  /** Most bots that may fire on one player at a time; the rest hold fire and keep moving. */
+  shooters: 2,
+  /** Seconds a bot keeps its turn on a player after it last had a shot. */
+  shooterHold: .5,
+} as const;
+
+/**
+ * Multiplier on a bot's base aim error: wide on first sight and narrowing over
+ * `settle`, opened further by the target's speed and the bot's own.
+ */
+export function botAimScale(focus: number, targetSpeed: number, ownStride: number) {
+  const settling = Math.max(0, 1 - Math.max(0, focus) / BOT_AIM.settle);
+  return BOT_AIM.settled * (1 + (BOT_AIM.opening - 1) * settling) * (1 + BOT_AIM.targetMotion * Math.min(7, Math.max(0, targetSpeed))) * (1 + BOT_AIM.ownMotion * Math.min(1, Math.max(0, ownStride)));
+}

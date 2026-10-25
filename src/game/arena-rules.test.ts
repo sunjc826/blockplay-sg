@@ -4,6 +4,7 @@ import { armamentFamilies, getArenaRole, listArenaRoles, registerArenaRole } fro
 import { FPS_WEAPONS } from './fps-rules';
 import { itemById } from './armory-catalog';
 import { canOccupy } from './marina-collision';
+import { getBotRank } from './arena-ranks';
 
 const weapon = { damage: 36, interval: 0.12, capacity: 30, reload: 1.8 };
 const distantEnvironment = (): ArenaEnvironment => ({
@@ -192,8 +193,8 @@ describe('host-authoritative arena', () => {
   it('caps bots at six, moves them on clear land and allows them to attack the other side', () => {
     const arena = createArena([], 100); const initial = arena.snapshot().actors;
     expect(initial).toHaveLength(6);
-    // Contractors only fight the forces, so give them a player to find.
-    arena.addPlayer('one', 'Alpha'); arena.setPlayerHealthMultiplier('one', 10); advance(arena, 5);
+    // Contractors only fight the forces, so give them a player to find, and time to outlast the spawn shield and settle their aim.
+    arena.addPlayer('one', 'Alpha'); arena.setPlayerHealthMultiplier('one', 10); advance(arena, 10);
     const updated = arena.snapshot().actors.filter(a => a.bot), player = actor(arena, 'one');
     expect(updated.some((a, i) => Math.hypot(a.x - initial[i].x, a.z - initial[i].z) > 0.5)).toBe(true);
     expect(updated.every(a => canOccupy(a.x, a.z, 0.35, []))).toBe(true);
@@ -216,7 +217,7 @@ describe('bot role plugins', () => {
     expect(tank.armor).toBeGreaterThan(assault.armor); expect(tank.health).toBeGreaterThan(assault.health);
     expect(tank.speed).toBeLessThan(assault.speed); expect(armamentFamilies(tank)).toContain(FPS_WEAPONS.findIndex(w => w.id === 'mg4-inspired'));
     const arena = createArena([], 2, 'tank');
-    expect(arena.snapshot().actors.every(a => a.role === 'tank' && a.health === 130 && a.armor === 100 && armamentFamilies(tank).includes(a.weapon) && itemById(a.variant!)?.family === a.weapon)).toBe(true);
+    expect(arena.snapshot().actors.every(a => a.role === 'tank' && a.health === 130 && a.armor === 100 * getBotRank(a.rank!)!.armor && armamentFamilies(tank).includes(a.weapon) && itemById(a.variant!)?.family === a.weapon)).toBe(true);
   });
   it('makes snipers retreat while tanks advance and assault bots flank', () => {
     const sniper = getArenaRole('sniper')!.think(context); const tank = getArenaRole('tank')!.think(context); const assault = getArenaRole('assault')!.think(context);

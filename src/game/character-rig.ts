@@ -235,6 +235,11 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     if (badge.design === 'bar') piece(0, 0, w, h * .28, 0, mark, device);
     if (badge.design === 'diamond') piece(0, 0, Math.min(w, h) * .5, Math.min(w, h) * .5, Math.PI / 4, mark, device);
     if (badge.design === 'chevron') for (const s of [-1, 1]) piece(s * w * .17, h * .05, w * .44, h * .2, s * .62, mark, device);
+    // Rank stripes: one chevron per grade, stacked point up.
+    if (badge.design === 'chevrons') {
+      const count = Math.max(1, Math.min(3, badge.count ?? 1));
+      for (let i = 0; i < count; i++) for (const s of [-1, 1]) piece(s * w * .17, h * .26 * ((count - 1) / 2 - i), w * .46, h * .14, s * .62, mark, device);
+    }
     // A name tape: two dark strokes for the lettering.
     if (badge.design === 'tape') for (const [u, length] of [[-w * .22, w * .34], [w * .2, w * .28]]) piece(u, 0, length, h * .3, 0, mark, device);
   };
