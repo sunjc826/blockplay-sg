@@ -2453,3 +2453,26 @@ full suite and typecheck. `pnpm test:combat-events` now also calls every new
 event once (see docs/COMBAT-EVENTS.md).
 Not done: raid fast-rope inserts and bounties, a World conditions setting,
 voiced radio lines, per-district tables, LAN.
+
+## 2026-10-25: sky light and ambient occlusion
+
+- Sky light (`world-sky-light.ts`): given the renderer, `createWorldAtmosphere`
+  hides the district's hemisphere light and lights the scene from a 128×64 sky
+  image (PMREM, rebuilt at most every 0.3 s when the quantised light changes):
+  bluer zenith, paler horizon, glow round the key, and ground lit by the actual
+  sun for bounce. Scaled so walls average what the hemisphere gave them, so
+  shade is redistributed between faces rather than brightened;
+  `scene.environmentIntensity` = hemisphere intensity / π each frame. Glass and
+  other Standard/Physical surfaces now also reflect the sky.
+- Ambient occlusion (`world-occlusion.ts`): three's GTAO at half resolution
+  from the scene pass's own depth (normals from depth, no second scene draw),
+  over a 4× MSAA half-float target, then OutputPass for tone mapping. A colour
+  sky is cleared on the canvas, not tone-mapped. r180's GTAOPass constructor
+  breaks if given a depth texture, so `setGBuffer` is called after. Skipped on
+  software renderers. New `occlusion` setting (default on) with a World
+  conditions toggle; FPS, region and Marina views all use it.
+Validation: `world-sky-light.test.ts`, the settings test, full suite and
+typecheck; `pnpm test:fps:field-kit` passes (one earlier run failed the
+dressing-health check while counter-fire kept landing; the rerun passed).
+Not done: frame cost not measured on real hardware; no cascaded shadows for
+distant towers; AO does not reach the weapon viewmodel.

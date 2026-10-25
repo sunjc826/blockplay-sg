@@ -33,6 +33,11 @@ describe('Singapore event calendar', () => {
   it('rejects corrupt saves, inherited keys and unsupported presets', () => {
     for (const value of [null, 42, { weather: '__proto__', celebration: 'constructor', reducedEffects: 'yes' }, { weather: 'snow' }]) expect(sanitizeEnvironment(value)).toEqual(DEFAULT_ENVIRONMENT);
   });
+  it('turns ambient occlusion on for saves from before the setting, and keeps it off once chosen', () => {
+    expect(sanitizeEnvironment({ weather: 'sunny', shadows: true }).occlusion).toBe(true);
+    expect(sanitizeEnvironment({ occlusion: false }).occlusion).toBe(false);
+    expect(resolveEnvironment({ ...DEFAULT_ENVIRONMENT, occlusion: false }).occlusion).toBe(false);
+  });
   it('keeps weather deterministic within each UTC slot and exercises every preset', () => {
     const found = new Set<string>();
     for (let now = at('2026-01-01'); now < at('2027-01-01'); now += WEATHER_PERIOD_MS) {

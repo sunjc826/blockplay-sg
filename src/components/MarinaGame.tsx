@@ -1,6 +1,7 @@
 import { verticalVehicleObstacles } from '../game/vertical-vehicle-obstacles';
 import EnvironmentControls from './EnvironmentControls';
 import { createWorldAtmosphere } from '../game/world-atmosphere';
+import { createWorldOcclusion } from '../game/world-occlusion';
 import { createVerticalMovement } from '../game/vertical-movement';
 import { getWalkSurfaces, getTraversalObstacles } from '../game/vertical-routes';
 import { useEffect, useRef, useState } from 'react';
@@ -56,6 +57,7 @@ export default function MarinaGame() {
     const canvas = renderer.domElement; canvas.tabIndex = 0; container.appendChild(canvas);
     canvas.setAttribute('aria-label', 'Modeled Marina Bay game. Click and use WASD to move; drag to look.');
     const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 1400); camera.rotation.order = 'YXZ';
+    const occlusion = createWorldOcclusion(renderer, world.scene, camera);
     let position = { x: MARINA_SPAWN.x as number, z: MARINA_SPAWN.z as number };
     let yaw = MARINA_SPAWN.yaw, pitch = 0.14, speed = 0, distance = 0;
     let driveLook = defaultDriveLook(), lastLookAt = 0;
@@ -92,7 +94,7 @@ export default function MarinaGame() {
     const blur = () => { keys.current.clear(); moveStick.current = null; lookStick.current = null; speed = 0; drag = undefined; };
     canvas.addEventListener('pointerdown', pointerDown); canvas.addEventListener('pointermove', pointerMove); canvas.addEventListener('pointerup', pointerUp); canvas.addEventListener('pointercancel', pointerUp); canvas.addEventListener('lostpointercapture', pointerUp);
     canvas.addEventListener('keydown', keyDown); canvas.addEventListener('blur', blur); window.addEventListener('keyup', keyUp); window.addEventListener('blur', blur);
-    const resize = () => { const { width, height } = container.getBoundingClientRect(); renderer.setSize(width, height); camera.aspect = width / Math.max(1, height); camera.updateProjectionMatrix(); };
+    const resize = () => { const { width, height } = container.getBoundingClientRect(); renderer.setSize(width, height); occlusion.setSize(); camera.aspect = width / Math.max(1, height); camera.updateProjectionMatrix(); };
     const observer = new ResizeObserver(resize); observer.observe(container); resize();
     let frame = 0, last = performance.now(), lastReport = 0;
     const animate = (now: number) => {
@@ -145,7 +147,7 @@ export default function MarinaGame() {
       MARINA_STAMPS.forEach((stamp, i) => {
         if (feetY <= .35 && !collected.has(i) && Math.hypot(stamp.x - position.x, stamp.z - position.z) < 4) { collected.add(i); world.stamps[i].visible = false; adventure.collect(destinations[i].id); }
       });
-      world.animate(now / 1000); atmosphere.update(dt, camera); renderer.toneMappingExposure = atmosphere.light.lighting.exposure; objectiveHighlight.update(now / 1000); renderer.render(world.scene, camera);
+      world.animate(now / 1000); atmosphere.update(dt, camera); renderer.toneMappingExposure = atmosphere.light.lighting.exposure; objectiveHighlight.update(now / 1000); occlusion.render(atmosphere.light.occlusion);
       if (now - lastReport > 150) { report(); lastReport = now; }
       frame = requestAnimationFrame(animate);
     };
@@ -155,7 +157,7 @@ export default function MarinaGame() {
       adventure.cancel();
       canvas.removeEventListener('pointerdown', pointerDown); canvas.removeEventListener('pointermove', pointerMove); canvas.removeEventListener('pointerup', pointerUp); canvas.removeEventListener('pointercancel', pointerUp); canvas.removeEventListener('lostpointercapture', pointerUp);
       canvas.removeEventListener('keydown', keyDown); canvas.removeEventListener('blur', blur); window.removeEventListener('keyup', keyUp); window.removeEventListener('blur', blur);
-      objectiveHighlight.dispose(); atmosphere.dispose(); world.dispose(); renderer.dispose(); canvas.remove();
+      objectiveHighlight.dispose(); atmosphere.dispose(); world.dispose(); occlusion.dispose(); renderer.dispose(); canvas.remove();
     };
   }, [adventure]);
 

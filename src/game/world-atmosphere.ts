@@ -31,7 +31,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   const keyDirection = new THREE.Vector3(), shiftColor = new THREE.Color();
   let lighting: LightingState = dayLighting(13);
   /** What the frame's light amounts to, for the parts of the view the scene's lights do not reach. */
-  const output = { lighting, key: 1, ambient: 1, shadows: true };
+  const output = { lighting, key: 1, ambient: 1, shadows: true, occlusion: true };
   const root = new THREE.Group(); root.name = 'world-atmosphere'; root.userData.fpsEffect = true; scene.add(root);
   const rainRoot = new THREE.Group(); root.add(rainRoot);
   const rainCount = 900, rainPositions = new Float32Array(rainCount * 6);
@@ -97,7 +97,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       if (disposed) return;
       const settings = getEnvironmentSettings();
       if (settings !== lastSettings || now - lastCheck >= 1000 || now < lastNow) {
-        active = resolveEnvironment(multiplayer ? { ...DEFAULT_ENVIRONMENT, reducedEffects: settings.reducedEffects, shadows: settings.shadows } : settings, now);
+        active = resolveEnvironment(multiplayer ? { ...DEFAULT_ENVIRONMENT, reducedEffects: settings.reducedEffects, shadows: settings.shadows, occlusion: settings.occlusion } : settings, now);
         lastCheck = now; lastSettings = settings;
       }
       lastNow = now;
@@ -128,7 +128,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
         skyLight.update({ sky: rgb(skyFill.color), horizon: rgb(background), ground: rgb(skyFill.groundColor), key: rgb(sunLight?.color ?? skyFill.color),
           keyDirection: lighting.key, keyRatio: sunLight ? sunLight.intensity / fill : 0 }, skyFill.intensity, step);
       }
-      output.lighting = lighting; output.key = preset.sun * lighting.keyScale; output.ambient = preset.ambient * lighting.ambientScale; output.shadows = active.shadows;
+      output.lighting = lighting; output.key = preset.sun * lighting.keyScale; output.ambient = preset.ambient * lighting.ambientScale; output.shadows = active.shadows; output.occlusion = active.occlusion;
       root.userData.timeOfDay = active.hour;
       if (previousEvent !== active.celebration) {
         previousEvent = active.celebration;

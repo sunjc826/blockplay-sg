@@ -65,6 +65,7 @@ import { createHitDirectionOverlay, createHitDirections, hitStrength } from './f
 import { advanceSupplyUse, startSupplyUse, supplyProfile, supplyProgress, SUPPLY_MOVE_SCALE, type SupplyProfile, type SupplyStyle, type SupplyUse } from './fps-healing';
 import { createSupplyViewmodel } from './fps-supply-viewmodel';
 import { createSunShadows } from './fps-sun-shadows';
+import { createWorldOcclusion } from './world-occlusion';
 
 export interface FpsArenaOptions { session: LanSession; botCount: number; composition?: string; profile: ArmoryProfile; environment?: ArenaEnvironment; initialVitals?: Partial<ArenaVitals> }
 export interface FpsCheckpoint { health: number; armor: number; weapon: number; ammunition: WeaponState[]; pilot?: boolean; pilotStrategy?: 'local' | 'llm'; encikVoice?: boolean; comms?: readonly CommsEntry[] }
@@ -171,6 +172,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let arenaRuntime: ReturnType<typeof createArenaRuntime> | null = null;
   const chaseRay = new THREE.Raycaster();
   const camera = new THREE.PerspectiveCamera(65, 1, 0.08, 800); camera.rotation.order = 'YXZ';
+  const occlusion = createWorldOcclusion(renderer, world.scene, camera);
   const viewScene = new THREE.Scene(), viewCamera = new THREE.PerspectiveCamera(65, 1, 0.01, 3);
   // The weapon has its own scene, so it is lit to match the world's hour by hand: same key direction, colour and balance.
   const viewSky = new THREE.HemisphereLight('#e4efff', '#576350', 2.1); viewScene.add(viewSky);
@@ -1585,7 +1587,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
 
   const resize = () => {
     const width = Math.max(1, host.clientWidth), height = Math.max(1, host.clientHeight);
-    renderer.setSize(width, height); camera.aspect = viewCamera.aspect = width / height;
+    renderer.setSize(width, height); occlusion.setSize(); camera.aspect = viewCamera.aspect = width / height;
     camera.updateProjectionMatrix(); viewCamera.updateProjectionMatrix();
   };
   const observer = new ResizeObserver(resize); observer.observe(host); resize();
@@ -1726,7 +1728,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.opticReflection = String(!!sight?.reflection?.uniforms.reflectionReady.value && opticActive);
     canvas.dataset.reflexReflection = String(sight?.magnification === 1 && canvas.dataset.opticReflection === 'true');
     if (reflectionCaptured) canvas.dataset.reflexCaptures = String(Number(canvas.dataset.reflexCaptures || 0) + 1);
-    renderer.clear(); renderer.render(world.scene, camera); renderer.clearDepth(); renderer.render(viewScene, viewCamera);
+    canvas.dataset.occlusion = String(occlusion.render(atmosphere.light.occlusion));
+    renderer.clearDepth(); renderer.render(viewScene, viewCamera);
     if (now - lastReport > 100) { publish(); lastReport = now; }
     frame = requestAnimationFrame(animate);
   };
@@ -1801,7 +1804,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); atmosphere.dispose(); world.dispose();
       healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); hitOverlay.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
-      scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); sunShadows.dispose(); renderer.dispose(); canvas.remove();
+      scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); sunShadows.dispose(); occlusion.dispose(); renderer.dispose(); canvas.remove();
     },
   };
 }
