@@ -1,27 +1,42 @@
 import * as THREE from 'three';
 import { hashString, type CharacterGesture, type CharacterLook } from './character-rig';
+import { DEFAULT_BOT_FACTION, getArenaFaction, PLAYER_FACTION, type ArenaFaction } from './arena-factions';
+import { getArenaRole } from './arena-roles';
 
-/** Arena role colours stay on the torso and helmet band so teams read at range. */
-export const ARENA_ROLE_COLORS = { tank: '#d95b50', sniper: '#a37add', bot: '#d8a24b', player: '#53c1d0' } as const;
 const SKIN = ['#f1c9a5', '#e0ac82', '#c68b62', '#a86f4c', '#8a5638', '#6b402a'] as const;
 const HAIR = ['#141110', '#231a14', '#3a2a1e', '#5b5048', '#8c8a86'] as const;
 const pick = <T>(list: readonly T[], seed: number, salt: number) => list[(seed >>> salt) % list.length];
 const mix = (a: string, b: string, t: number) => `#${new THREE.Color(a).lerp(new THREE.Color(b), t).getHexString()}`;
 
-export function arenaRoleColor(actor: { bot: boolean; role: string }) {
-  return actor.bot ? actor.role === 'tank' ? ARENA_ROLE_COLORS.tank : actor.role === 'sniper' ? ARENA_ROLE_COLORS.sniper : ARENA_ROLE_COLORS.bot : ARENA_ROLE_COLORS.player;
+/** Players wear the armed forces' kit; a bot wears its role's faction. */
+export function arenaFaction(actor: { bot: boolean; role: string }): ArenaFaction {
+  const id = actor.bot ? getArenaRole(actor.role)?.faction ?? DEFAULT_BOT_FACTION : PLAYER_FACTION;
+  return getArenaFaction(id) ?? getArenaFaction(DEFAULT_BOT_FACTION)!;
 }
 
+/** The band on sleeves and helmet, also the name label and health bar: role within faction. */
+export function arenaRoleColor(actor: { bot: boolean; role: string }) {
+  const faction = arenaFaction(actor);
+  return faction.roleAccents[actor.role] ?? faction.accent;
+}
+
+/**
+ * The uniform says which side, the band says which role, the kit says which
+ * job: plates and a bigger frame for heavies, a boonie and a marksman rifle
+ * for anyone who shoots from far off.
+ */
 export function arenaCharacterLook(actor: { bot: boolean; role: string; id?: string }): CharacterLook {
-  const color = arenaRoleColor(actor), seed = hashString(actor.id ?? actor.role);
-  const heavy = actor.bot && actor.role === 'tank', sniper = actor.bot && actor.role === 'sniper';
+  const { palette } = arenaFaction(actor), seed = hashString(actor.id ?? actor.role);
+  const heavy = actor.bot && actor.role === 'tank', sniper = actor.bot && (actor.role === 'sniper' || actor.role === 'overwatch');
+  // A little fade or wear per soldier, so a squad is a squad and not a print run.
+  const wear = (seed % 5) / 40;
   return {
     skin: pick(SKIN, seed, 0), hair: pick(HAIR, seed, 5),
-    top: mix(color, '#2f3630', .15), bottom: mix(color, '#2f3630', .62), shoes: '#1d1f1c', gloves: '#22261f',
+    top: mix(palette.top, '#9a9a88', wear), bottom: mix(palette.bottom, '#20221e', wear), shoes: palette.shoes, gloves: palette.gloves,
     build: heavy ? 1.16 : sniper ? .95 : 1,
-    headwear: sniper ? 'boonie' : 'helmet', headwearColor: sniper ? mix(color, '#4a4c38', .55) : '#26322e',
-    vest: '#26322e', plates: heavy, backpack: heavy || seed % 3 === 0 ? '#2f3a31' : undefined,
-    accent: color, weapon: heavy ? 'lmg' : sniper ? 'marksman' : 'rifle',
+    headwear: sniper ? 'boonie' : 'helmet', headwearColor: sniper ? palette.boonie : palette.helmet,
+    vest: palette.vest, plates: heavy, backpack: heavy || seed % 3 === 0 ? palette.backpack : undefined,
+    accent: arenaRoleColor(actor), weapon: heavy ? 'lmg' : sniper ? 'marksman' : 'rifle',
   };
 }
 

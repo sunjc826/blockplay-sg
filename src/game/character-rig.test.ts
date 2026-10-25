@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { createArenaRuntime } from './arena-runtime';
 import { createArena } from './arena-rules';
-import { ARENA_ROLE_COLORS, arenaCharacterLook, arenaRoleColor, npcCharacterLook, npcIdleGesture } from './character-looks';
+import { getArenaFaction, listArenaFactions, PLAYER_FACTION } from './arena-factions';
+import { getArenaRole, registerArenaRole } from './arena-roles';
+import { arenaCharacterLook, arenaFaction, arenaRoleColor, npcCharacterLook, npcIdleGesture } from './character-looks';
 import { CHARACTER_DIMENSIONS, CHARACTER_EYE, createCharacterRig, solveLimb, type CharacterDrive, type CharacterRig } from './character-rig';
 import { expeditionNpcs } from './expedition-npcs';
 import type { LanSession } from './lan-peer';
@@ -122,10 +124,28 @@ describe('articulated characters', () => {
 
 describe('character looks', () => {
   it('keeps arena role colours readable and gives each role its kit', () => {
-    expect(arenaRoleColor({ bot: false, role: 'rifle' })).toBe(ARENA_ROLE_COLORS.player);
-    expect(arenaCharacterLook({ bot: true, role: 'tank' })).toMatchObject({ plates: true, weapon: 'lmg', accent: ARENA_ROLE_COLORS.tank });
+    expect(arenaRoleColor({ bot: false, role: 'rifle' })).toBe(getArenaFaction(PLAYER_FACTION)!.accent);
+    expect(arenaCharacterLook({ bot: true, role: 'tank' })).toMatchObject({ plates: true, weapon: 'lmg', accent: getArenaFaction('mercenaries')!.roleAccents.tank });
     expect(arenaCharacterLook({ bot: true, role: 'sniper' })).toMatchObject({ headwear: 'boonie', weapon: 'marksman' });
+    expect(arenaCharacterLook({ bot: true, role: 'overwatch' })).toMatchObject({ headwear: 'boonie', weapon: 'marksman' });
     expect(arenaCharacterLook({ bot: true, role: 'rifle' }).weapon).toBe('rifle');
+  });
+  it('dresses each faction in its own palette', () => {
+    expect(arenaFaction({ bot: false, role: 'player' }).id).toBe('armed-forces');
+    expect(arenaFaction({ bot: true, role: 'assault' }).id).toBe('mercenaries');
+    expect(arenaFaction({ bot: true, role: 'mortar-crew' }).id).toBe('militia');
+    expect(arenaFaction({ bot: true, role: 'unknown-role' }).id).toBe('mercenaries');
+    const looks = [{ bot: false, role: 'player' }, { bot: true, role: 'assault' }, { bot: true, role: 'mortar-crew' }].map(actor => arenaCharacterLook({ ...actor, id: 'same-seed' }));
+    for (const key of ['top', 'bottom', 'vest', 'headwearColor'] as const) expect(new Set(looks.map(look => look[key])).size).toBe(3);
+    // Every role band stands off its own uniform: at least a 2:1 luminance ratio against the shirt.
+    const luminance = (hex: string) => { const c = new THREE.Color(hex); return .2126 * c.r + .7152 * c.g + .0722 * c.b; };
+    for (const faction of listArenaFactions()) for (const band of [faction.accent, ...Object.values(faction.roleAccents)]) {
+      const [a, b] = [luminance(band), luminance(faction.palette.top)].sort((x, y) => y - x);
+      expect((a + .05) / (b + .05)).toBeGreaterThan(2);
+    }
+  });
+  it('rejects a role that names an unknown faction', () => {
+    expect(() => registerArenaRole({ ...getArenaRole('assault')!, id: 'factionless', faction: 'nobody' })).toThrow(/faction/);
   });
   it('dresses every shipped NPC deterministically, with aprons on vendors', () => {
     const npcs = WORLD_ZONES.flatMap(zone => expeditionNpcs(zone.id, zoneSectors(zone.id)));

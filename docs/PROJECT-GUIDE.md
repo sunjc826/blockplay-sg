@@ -489,7 +489,7 @@ To serve companions and LAN from one origin, route `/api/adventure/*` to the com
 - `src/components/*Game.tsx`: game views and HUDs; `SingaporeMap.tsx`: island locator.
 - `src/game/*-scene.ts` and `*-collision.ts`: authored worlds and deterministic collisions.
 - `src/game/fps-engine.ts`: shared FPS rendering/input; `arena-*.ts`: bots and match rules.
-- `src/game/character-rig.ts`: articulated, procedurally animated humanoid (IK limbs, gait, stances, gestures) shared by arena bots, remote players and expedition NPCs; `character-looks.ts` dresses them by role. Pose review: `scripts/fixtures/character-render.html`, in-district: `character-world.html`.
+- `src/game/character-rig.ts`: articulated, procedurally animated humanoid (IK limbs, gait, stances, gestures) shared by arena bots, remote players and expedition NPCs; `character-looks.ts` dresses them by role, in their faction's uniform from `arena-factions.ts`. Pose review: `scripts/fixtures/character-render.html`, in-district: `character-world.html`.
 - `src/game/world-zones.ts`: district/checkpoint graph.
 - `src/components/AdventureCompanion.tsx`, `RegionGuide.tsx`: companion panels.
 - `src/game/adventure.ts`, `learning-guide.ts`: objective and read-only guide adapters.

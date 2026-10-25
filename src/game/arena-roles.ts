@@ -1,5 +1,6 @@
 import { FPS_WEAPONS, validWeaponIndex, type WeaponSpec } from './fps-rules';
 import { isEnemyIssue, itemById, type ShopItem } from './armory-catalog';
+import { DEFAULT_BOT_FACTION, getArenaFaction } from './arena-factions';
 
 export interface ArenaRoleContext { distance: number; visible: boolean; healthFraction: number; strafeDirection: number }
 export interface ArenaRoleIntent { approach: number; strafe: number; fire: boolean; shotDelay: number; spread: number }
@@ -25,6 +26,8 @@ export interface ArenaRolePlugin {
   medkits?: number;
   /** Fielded by combat events only (a mortar crew, a rooftop sniper): never a squad choice or a balance opponent. */
   eventOnly?: boolean;
+  /** Whose uniform they wear (see arena-factions). Default mercenaries. */
+  faction?: string;
   think(context: Readonly<ArenaRoleContext>): ArenaRoleIntent;
 }
 export interface ArmamentChoice { variant: string; weight: number }
@@ -45,6 +48,7 @@ export const armamentFamilies = (role: Pick<ArenaRolePlugin, 'armament'>) => [..
 /** Local, statically imported extensions only: no downloaded scripts or eval. */
 export function registerArenaRole(plugin: ArenaRolePlugin) {
   if (!/^[a-z][a-z0-9-]{0,31}$/.test(plugin.id) || registry.has(plugin.id)) throw new Error('Role ID must be unique and use lowercase letters, numbers or hyphens.');
+  if (!getArenaFaction(plugin.faction ?? DEFAULT_BOT_FACTION)) throw new Error('Role faction must be a registered faction.');
   if (!plugin.name || typeof plugin.think !== 'function' || ![plugin.health, plugin.armor, plugin.absorption, plugin.speed, plugin.sightRange, plugin.reaction,
     plugin.weapon.damage, plugin.weapon.interval, plugin.weapon.capacity, plugin.weapon.reload].every(Number.isFinite)) throw new Error('Role requires finite stats and a think function.');
   if (plugin.health <= 0 || plugin.health > 300 || plugin.armor < 0 || plugin.armor > 150 || plugin.absorption < 0 || plugin.absorption > 0.9 ||
@@ -95,14 +99,14 @@ registerArenaRole({
 // Combat events place these where the event needs them and they hold that spot.
 registerArenaRole({
   id: 'mortar-crew', name: 'Mortar crew', description: 'Two soldiers working a mortar; kill both and it stops firing.',
-  health: 90, armor: 25, absorption: 0.3, speed: 2.6, sightRange: 55, reaction: 0.8, eventOnly: true,
+  health: 90, armor: 25, absorption: 0.3, speed: 2.6, sightRange: 55, reaction: 0.8, eventOnly: true, faction: 'militia',
   armament: [{ variant: 'xm8-carbine', weight: 3 }, { variant: 'g36k', weight: 2 }],
   weapon: { ...FPS_WEAPONS[0] }, burst: [2, 3], medkits: 0,
   think: ({ visible }) => ({ approach: 0, strafe: 0, fire: visible, shotDelay: 1, spread: 0.05 }),
 });
 registerArenaRole({
   id: 'overwatch', name: 'Overwatch sniper', description: 'A marksman on a rooftop. Their scope glints for a moment before each shot.',
-  health: 90, armor: 0, absorption: 0, speed: 2, sightRange: 125, reaction: 1.4, eventOnly: true,
+  health: 90, armor: 0, absorption: 0, speed: 2, sightRange: 125, reaction: 1.4, eventOnly: true, faction: 'militia',
   armament: [{ variant: 'xm8-sharpshooter', weight: 1 }],
   weapon: { ...FPS_WEAPONS[0], damage: 68, interval: 1.4, capacity: 6, reload: 2.5 }, burst: [1, 1], medkits: 0,
   think: ({ visible }) => ({ approach: 0, strafe: 0, fire: visible, shotDelay: 2.4, spread: 0.006 }),

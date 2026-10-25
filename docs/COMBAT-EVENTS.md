@@ -50,7 +50,8 @@ combat-event-audio.ts   whistle, boom, alert, engine/rotor (WebAudio, synthesise
 
 All six exist. The two crew roles an event can field (`mortar-crew`,
 `overwatch`) are registered in `arena-roles.ts` as `eventOnly`, so they are
-never a squad choice or a balance opponent.
+never a squad choice or a balance opponent. They wear the militia's khaki
+rather than the squads' mercenary navy (`arena-factions.ts`).
 
 Integration touches `arena-rules.ts` (host step + snapshot), `arena-runtime.ts`
 (snapshot validation, visuals), `fps-engine.ts` (range adapter, HUD, shake,

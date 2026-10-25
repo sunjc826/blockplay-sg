@@ -36,6 +36,10 @@ registerArenaRole({
 
 The context supplies target distance, line of sight, health fraction and a changing strafe direction. An intent supplies normalized approach/retreat and strafe weights, permission to fire, a delay between shots, and angular spread. Movement remains constrained by scene collision; damage remains constrained by the authority's ray tests and weapon cooldowns. The role also declares health, armor, movement speed, sight range, reaction delay and weapon stats.
 
+## Factions
+
+Every soldier wears a faction's whole uniform, registered in `src/game/arena-factions.ts`: players are the armed forces (jungle green), squad bots are mercenaries (deep navy) and the combat-event crews are militia (darkened khaki). The uniform says which side; a band on the sleeves and helmet, which also tints the name label and health bar, says which role within it (mercenary assault amber, tank red, sniper lavender; militia mortar crew orange, overwatch yellow; armed forces leaf green). A role picks its side with an optional `faction` id, default `mercenaries`, and registration rejects an unknown one. A new faction is a `registerArenaFaction` call with a palette and its role accents; keep each band at least 2:1 in luminance against its own shirt, which `character-rig.test.ts` checks.
+
 Role IDs are unique, stats are validated, and intent movement is clamped. `listArenaRoles()` returns the live registry for a custom composition picker. `ARENA_ROLE_OPTIONS` supplies the built-in lobby options. This extension point loads application code through imports; it does not download or evaluate third-party scripts.
 
 Run `pnpm exec vitest run src/game/arena-rules.test.ts` to check authority rules, bot movement and role behavior.
