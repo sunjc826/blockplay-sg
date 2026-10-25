@@ -145,7 +145,7 @@ export default function MarinaGame() {
       MARINA_STAMPS.forEach((stamp, i) => {
         if (feetY <= .35 && !collected.has(i) && Math.hypot(stamp.x - position.x, stamp.z - position.z) < 4) { collected.add(i); world.stamps[i].visible = false; adventure.collect(destinations[i].id); }
       });
-      world.animate(now / 1000); atmosphere.update(dt, camera); objectiveHighlight.update(now / 1000); renderer.render(world.scene, camera);
+      world.animate(now / 1000); atmosphere.update(dt, camera); renderer.toneMappingExposure = atmosphere.light.lighting.exposure; objectiveHighlight.update(now / 1000); renderer.render(world.scene, camera);
       if (now - lastReport > 150) { report(); lastReport = now; }
       frame = requestAnimationFrame(animate);
     };

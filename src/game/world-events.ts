@@ -1,3 +1,5 @@
+import { resolveHour, validTimeOfDay, type TimeOfDayId } from './world-lighting';
+
 /** Game atmosphere presets, not live forecasts or measured PSI readings. */
 export const WEATHER = {
   sunny: { name: 'Sunny & humid', sky: '#b9dcea', fogNear: 200, fogFar: 850, sun: 1, ambient: 1, rain: 0, wind: 0 },
@@ -17,13 +19,19 @@ export const CELEBRATIONS = {
   'national-day': { name: 'National Day', colors: ['#ff5050', '#ffffff'], fireworks: true },
 } as const;
 export type CelebrationId = keyof typeof CELEBRATIONS;
-export interface EnvironmentSettings { weather: WeatherId | 'auto'; celebration: CelebrationId | 'auto'; reducedEffects: boolean }
-export const DEFAULT_ENVIRONMENT: Readonly<EnvironmentSettings> = { weather: 'auto', celebration: 'auto', reducedEffects: false };
+/**
+ * `timeOfDay` 'auto' follows the clock in Singapore, as the weather and the
+ * calendar do. `shadows` is a rendering choice that sits with the others: sun
+ * shadows in the FPS modes, which are skipped on a software renderer anyway.
+ */
+export interface EnvironmentSettings { weather: WeatherId | 'auto'; celebration: CelebrationId | 'auto'; timeOfDay: TimeOfDayId | 'auto'; reducedEffects: boolean; shadows: boolean }
+export const DEFAULT_ENVIRONMENT: Readonly<EnvironmentSettings> = { weather: 'auto', celebration: 'auto', timeOfDay: 'auto', reducedEffects: false, shadows: true };
 export function validWeather(value: unknown): value is WeatherId { return typeof value === 'string' && Object.prototype.hasOwnProperty.call(WEATHER, value); }
 export function validCelebration(value: unknown): value is CelebrationId { return typeof value === 'string' && Object.prototype.hasOwnProperty.call(CELEBRATIONS, value); }
 export function sanitizeEnvironment(value: unknown): EnvironmentSettings {
   const v = value && typeof value === 'object' ? value as Partial<EnvironmentSettings> : {};
-  return { weather: validWeather(v.weather) ? v.weather : 'auto', celebration: validCelebration(v.celebration) ? v.celebration : 'auto', reducedEffects: v.reducedEffects === true };
+  return { weather: validWeather(v.weather) ? v.weather : 'auto', celebration: validCelebration(v.celebration) ? v.celebration : 'auto',
+    timeOfDay: validTimeOfDay(v.timeOfDay) ? v.timeOfDay : 'auto', reducedEffects: v.reducedEffects === true, shadows: v.shadows !== false };
 }
 /** Singapore has no daylight-saving changes. UTC accessors avoid device timezone. */
 export function singaporeDate(now: number) { return new Date(now + 8 * 3600_000); }
@@ -62,5 +70,6 @@ export function automaticWeather(now: number): WeatherId {
 export function resolveEnvironment(settings: EnvironmentSettings, now = Date.now()) {
   return { weather: settings.weather === 'auto' ? automaticWeather(now) : settings.weather,
     celebration: settings.celebration === 'auto' ? seasonalCelebration(now) : settings.celebration,
-    reducedEffects: settings.reducedEffects };
+    hour: resolveHour(settings.timeOfDay ?? 'auto', now),
+    reducedEffects: settings.reducedEffects, shadows: settings.shadows !== false };
 }

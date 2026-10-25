@@ -149,7 +149,7 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
       stamps.forEach((stamp, i) => {
         if (feetY <= .35 && !collected.has(i) && Math.hypot(stamp.x - position.x, stamp.z - position.z) < 4) { collected.add(i); world.stamps[i].visible = false; }
       });
-      world.animate(now / 1000); atmosphere.update(dt, camera); renderer.render(world.scene, camera);
+      world.animate(now / 1000); atmosphere.update(dt, camera); renderer.toneMappingExposure = atmosphere.light.lighting.exposure; renderer.render(world.scene, camera);
       if (now - lastReport > 150) { report(); lastReport = now; }
       frame = requestAnimationFrame(animate);
     };

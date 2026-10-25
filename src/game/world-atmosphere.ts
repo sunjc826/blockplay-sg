@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Obstacle } from './region-collision';
 import { getEnvironmentSettings } from './environment-settings';
 import { CELEBRATIONS, DEFAULT_ENVIRONMENT, WEATHER, resolveEnvironment, type CelebrationId } from './world-events';
+import { dayLighting, singaporeDayOfYear, type LightingState } from './world-lighting';
 
 /** One bounded effect pool per scene. No textures, network traffic or shadow passes. */
 export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x: number; z: number }[], obstacles: readonly Obstacle[], multiplayer = false) {
@@ -9,8 +10,18 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   const background = originalBackground instanceof THREE.Color ? originalBackground.clone() : new THREE.Color('#b9dcea');
   const fog = new THREE.Fog(background, 150, 700);
   scene.background = background; scene.fog = fog;
-  const lights: { light: THREE.Light; intensity: number; sun: boolean }[] = [];
-  scene.traverse(object => { if (object instanceof THREE.DirectionalLight || object instanceof THREE.HemisphereLight) lights.push({ light: object, intensity: object.intensity, sun: object instanceof THREE.DirectionalLight }); });
+  // Each district authored one sun and one sky; time of day moves and recolours them from those originals.
+  const lights: { light: THREE.Light; intensity: number; sun: boolean; color: THREE.Color; ground?: THREE.Color; reach: number }[] = [];
+  scene.traverse(object => {
+    if (object instanceof THREE.DirectionalLight || object instanceof THREE.HemisphereLight) lights.push({ light: object, intensity: object.intensity, sun: object instanceof THREE.DirectionalLight,
+      color: object.color.clone(), ground: object instanceof THREE.HemisphereLight ? object.groundColor.clone() : undefined,
+      reach: object instanceof THREE.DirectionalLight ? Math.max(60, object.position.distanceTo(object.target.position)) : 0 });
+  });
+  const originalPositions = lights.map(({ light }) => light.position.clone());
+  const keyDirection = new THREE.Vector3(), shiftColor = new THREE.Color();
+  let lighting: LightingState = dayLighting(13);
+  /** What the frame's light amounts to, for the parts of the view the scene's lights do not reach. */
+  const output = { lighting, key: 1, ambient: 1, shadows: true };
   const root = new THREE.Group(); root.name = 'world-atmosphere'; root.userData.fpsEffect = true; scene.add(root);
   const rainRoot = new THREE.Group(); root.add(rainRoot);
   const rainCount = 900, rainPositions = new Float32Array(rainCount * 6);
@@ -70,24 +81,40 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   const sky = { x: 0, y: 0, z: 0 };
   return {
     root,
+    /** The light this frame resolved to: the hour's state and its effective key and fill, weather included. */
+    get light() { return output; },
     update(dt: number, camera: THREE.Camera, now = Date.now()) {
       if (disposed) return;
       const settings = getEnvironmentSettings();
       if (settings !== lastSettings || now - lastCheck >= 1000 || now < lastNow) {
-        active = resolveEnvironment(multiplayer ? { ...DEFAULT_ENVIRONMENT, reducedEffects: settings.reducedEffects } : settings, now);
+        active = resolveEnvironment(multiplayer ? { ...DEFAULT_ENVIRONMENT, reducedEffects: settings.reducedEffects, shadows: settings.shadows } : settings, now);
         lastCheck = now; lastSettings = settings;
       }
       lastNow = now;
       root.userData.weather = active.weather; root.userData.celebration = active.celebration;
       const preset = WEATHER[active.weather], reduced = active.reducedEffects || !!motion?.matches;
       const step = Math.max(0, Math.min(.1, Number.isFinite(dt) ? dt : 0)), blend = 1 - Math.exp(-step * .65);
-      targetColor.set(preset.sky); background.lerp(targetColor, blend); fog.color.copy(background);
+      lighting = dayLighting(active.hour, singaporeDayOfYear(now));
+      targetColor.set(preset.sky).lerp(shiftColor.set(lighting.sky), lighting.skyWeight); background.lerp(targetColor, blend); fog.color.copy(background);
       fog.near += (preset.fogNear - fog.near) * blend; fog.far += (preset.fogFar - fog.far) * blend;
       wetness += (preset.rain - wetness) * blend; wind += (preset.wind - wind) * blend;
       const time = (now % 3600_000) / 1000;
       // A gentle cloud glow, never a full-screen white strobe. Disabled with reduced motion.
       const lightning = !reduced && active.weather === 'thunderstorm' ? Math.max(0, 1 - Math.abs(time % 23 - 1) / .4) * .16 : 0;
-      for (const { light, intensity, sun } of lights) light.intensity += (intensity * (sun ? preset.sun + lightning : preset.ambient + lightning) - light.intensity) * blend;
+      keyDirection.set(lighting.key.x, lighting.key.y, lighting.key.z);
+      for (const { light, intensity, sun, color, ground, reach } of lights) {
+        light.intensity += (intensity * (sun ? (preset.sun + lightning) * lighting.keyScale : (preset.ambient + lightning) * lighting.ambientScale) - light.intensity) * blend;
+        if (light instanceof THREE.DirectionalLight) {
+          // Kept at its authored distance from wherever its target is, so a following shadow frustum follows too.
+          light.position.copy(light.target.position).addScaledVector(keyDirection, reach);
+          light.color.copy(color).lerp(shiftColor.set(lighting.keyColor), lighting.shift);
+        } else if (light instanceof THREE.HemisphereLight && ground) {
+          light.color.copy(color).lerp(shiftColor.set(lighting.skyFill), lighting.shift);
+          light.groundColor.copy(ground).lerp(shiftColor.set(lighting.groundFill), lighting.shift);
+        }
+      }
+      output.lighting = lighting; output.key = preset.sun * lighting.keyScale; output.ambient = preset.ambient * lighting.ambientScale; output.shadows = active.shadows;
+      root.userData.timeOfDay = active.hour;
       if (previousEvent !== active.celebration) {
         previousEvent = active.celebration;
         const event = CELEBRATIONS[active.celebration];
@@ -129,7 +156,10 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       if (disposed) return; disposed = true;
       bulbs.forEach(mesh => mesh.dispose());
       scene.remove(root); scene.background = originalBackground; scene.fog = originalFog;
-      lights.forEach(({ light, intensity }) => { light.intensity = intensity; });
+      lights.forEach(({ light, intensity, color, ground }, index) => {
+        light.intensity = intensity; light.color.copy(color); light.position.copy(originalPositions[index]);
+        if (light instanceof THREE.HemisphereLight && ground) light.groundColor.copy(ground);
+      });
       [rainGeometry, bulbGeometry, lanternGeometry, starGeometry, cordGeometry, sparkGeometry].forEach(g => g.dispose());
       [rainMaterial, cordMaterial, sparkMaterial, ...materials].forEach(m => m.dispose());
     },
