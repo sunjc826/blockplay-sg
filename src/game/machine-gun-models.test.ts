@@ -55,6 +55,20 @@ for (const [family, variants] of [[3, ['mag-issued', 'mag-chope', 'mag-jaga']], 
     expect(latch.getWorldPosition(new THREE.Vector3()).distanceTo(closed)).toBeLessThan(.00001);
     expect(belt.visible).toBe(true); expect(magazine.visible).toBe(true);
     expect(control.position.z).toBe(controlZ);
+  });
+
+  it(`${variants[0]}: carries the belt with its box and lays it back in the tray`, () => {
+    const id = family === 3 ? 'mag-inspired' : 'cis50-inspired';
+    const model = buildServiceWeapon(id)!, handling = createWeaponHandling(model, family);
+    const rounds = model.getObjectsByProperty('name', `${id}__belt-round`), magazine = model.getObjectByName(`${id}__magazine`)!;
+    const homes = rounds.map(round => round.position.clone()), mouth = homes[0].clone().sub(magazine.position);
+    expect(rounds).toHaveLength(8);
+    // Box half off: the first round stays at the box mouth, the free end hangs below where it fed.
+    handling.update(.3, false);
+    expect(rounds[0].position.distanceTo(mouth.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), magazine.rotation.z).add(magazine.position))).toBeLessThan(.02);
+    expect(rounds[7].position.y).toBeLessThan(homes[7].y - .1);
+    handling.update(null, false);
+    rounds.forEach((round, i) => { expect(round.position.distanceTo(homes[i])).toBeLessThan(1e-9); expect(round.rotation.z).toBeCloseTo(0, 12); });
     handling.dispose(); disposeModel(model);
   });
 }

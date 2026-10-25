@@ -45,6 +45,9 @@ export function reloadMotion(progress: number, empty = false) {
     magazineVisible: t < .38 || t > MAG_IN_START,
     handToMagazine: smoothStep(t / .16) * (1 - smoothStep((t - .74) / (empty ? .12 : .20))),
     handToHandle: empty ? smoothStep((t - .80) / .14) * (1 - smoothStep((t - CHARGE.home) / .12)) : 0,
+    // A belt lies in the feed tray (1) or hangs free from its box (0): peeled
+    // out as the box comes off, laid back in before the cover closes.
+    beltSeated: t < MAG_IN_START ? 1 - smoothStep((t - .16) / .12) : smoothStep((t - .58) / .12),
     action: empty ? handleTravel(t) : 0,
   };
 }

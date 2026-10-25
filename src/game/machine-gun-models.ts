@@ -85,14 +85,17 @@ export function buildMachineGun(id: MachineGunId) {
   box('ammo-box-seam', boxWidth + .003, .008, .183, 0, -.062, 0, dark, magazine);
   for (const x of [-boxWidth * .3, boxWidth * .3]) box('ammo-box-rib', .008, .12, .004, x, -.002, .091, steel, magazine);
   box('ammo-box-catch', .023, .031, .009, 0, .052, .097, edge, magazine);
+  // Each round is its own node, from the box mouth (first) to the feed tray
+  // (last), so the reload can peel the belt out and let it hang from the box.
   const belt = new THREE.Group(); belt.name = `${id}__feed-belt`; root.add(belt);
   const start = heavy ? -.23 : -.165, end = -half + .005;
   for (let i = 0; i < 8; i++) {
     const t = i / 7, x = THREE.MathUtils.lerp(start, end, t), yy = THREE.MathUtils.lerp(.220, y + .027, t) - Math.sin(t * Math.PI) * .012;
     const radius = heavy ? .007 : .005;
-    cylinder('belt-case', radius, heavy ? .069 : .046, x, yy, -.013, brass, belt);
-    const tip = mesh('belt-projectile', new THREE.ConeGeometry(radius * .85, .020, 12), copper, x, yy, heavy ? -.057 : -.046, belt); tip.rotation.x = -Math.PI / 2;
-    box('belt-link', radius * 2.7, .004, .017, x, yy + radius, -.010, dark, belt);
+    const round = new THREE.Group(); round.name = `${id}__belt-round`; round.position.set(x, yy, 0); belt.add(round);
+    cylinder('belt-case', radius, heavy ? .069 : .046, 0, 0, -.013, brass, round);
+    const tip = mesh('belt-projectile', new THREE.ConeGeometry(radius * .85, .020, 12), copper, 0, 0, heavy ? -.057 : -.046, round); tip.rotation.x = -Math.PI / 2;
+    box('belt-link', radius * 2.7, .004, .017, 0, radius, -.010, dark, round);
   }
   box('feed-mouth', .015, .03, .097, -half - .011, y + .025, -.026, dark);
 

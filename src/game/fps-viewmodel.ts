@@ -7,6 +7,23 @@ import { createBipodMotion, type BipodMotionInput } from './weapon-bipod';
 import { MACHINE_GUN_LAYOUT } from './machine-gun-layout';
 import { ENEMY_WEAPON_LAYOUT, isEnemyWeaponId } from './enemy-weapon-layout';
 
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
+/**
+ * A belt hanging free from its box mouth: the same link spacing as when it is
+ * seated, each link turned a little further down, so the loose end curls under.
+ * `roll` is how far each round turns from its seated heading.
+ */
+function hangingBelt(homes: THREE.Vector3[]) {
+  const heading = (a: THREE.Vector3, b: THREE.Vector3) => Math.atan2(b.y - a.y, b.x - a.x);
+  const out = homes.slice(0, 1).map(position => ({ position: position.clone(), roll: 0 }));
+  for (let i = 1; i < homes.length; i++) {
+    const seated = heading(homes[i - 1], homes[i]), angle = THREE.MathUtils.lerp(heading(homes[0], homes[1]), -1.35, i / (homes.length - 1));
+    const step = Math.hypot(homes[i].x - homes[i - 1].x, homes[i].y - homes[i - 1].y), last = out[i - 1].position;
+    out.push({ position: new THREE.Vector3(last.x + Math.cos(angle) * step, last.y + Math.sin(angle) * step, homes[i].z), roll: angle - seated });
+  }
+  return out;
+}
+
 /** Lightweight rigid hand poses; no extra render target or skinning. */
 export function createWeaponHandling(model: THREE.Group, index: number) {
   const additions = new THREE.Group(); additions.name = 'fps-handling'; model.add(additions);
@@ -53,6 +70,9 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   const cover = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__feed-cover`) : undefined;
   const coverHome = cover?.rotation.clone();
   const belt = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__feed-belt`) : undefined;
+  const rounds = magazine ? belt?.children.filter(round => round.name.endsWith('__belt-round')) ?? [] : [];
+  const roundHomes = rounds.map(round => round.position.clone()), hanging = hangingBelt(roundHomes);
+  const carried = new THREE.Vector3(), taut = new THREE.Vector3();
   const controlZ = control.position.z;
   const bipod = createBipodMotion(model, FPS_WEAPONS[index].id);
   return {
@@ -70,6 +90,19 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
         magazine.rotation.copy(magazineRotation); magazine.rotation.z += motion.magazineDrop * -.35;
         magazine.visible = motion.magazineVisible;
       }
+      // The belt stays fed from the box mouth. Seated, it runs to the tray, drawn
+      // taut while the box is away; peeled out, it hangs and curls from the box.
+      const drop = motion.magazineDrop, turn = drop * -.35;
+      const carry = (point: THREE.Vector3, out: THREE.Vector3) => {
+        out.copy(point).sub(magazineHome).applyAxisAngle(Z_AXIS, turn).add(magazineHome); out.y -= drop; return out;
+      };
+      rounds.forEach((round, i) => {
+        const along = i / Math.max(1, rounds.length - 1);
+        taut.lerpVectors(carry(roundHomes[i], carried), roundHomes[i], along);
+        carry(hanging[i].position, carried);
+        round.position.lerpVectors(carried, taut, motion.beltSeated);
+        round.rotation.z = THREE.MathUtils.lerp(hanging[i].roll + turn, turn * (1 - along), motion.beltSeated);
+      });
       left.position.copy(support).lerp(magazineGrip, motion.handToMagazine);
       left.position.y -= motion.magazineDrop * motion.handToMagazine;
       left.rotation.set(-.15 + motion.handToMagazine * .3, -.2 - motion.handToHandle * 1.2, .32 - motion.handToMagazine * .35 - motion.handToHandle * .3);
@@ -79,6 +112,8 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       if (progress !== null) left.position.lerp(new THREE.Vector3(control.position.x + .035, control.position.y + .01, controlZ + .01 + stroke), motion.handToHandle);
       control.position.z = controlZ + stroke;
     },
-    dispose() { bipod.reset(); control.position.z = controlZ; additions.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
+    dispose() {
+      bipod.reset(); control.position.z = controlZ; rounds.forEach((round, i) => { round.position.copy(roundHomes[i]); round.rotation.z = 0; });
+      additions.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
   };
 }
