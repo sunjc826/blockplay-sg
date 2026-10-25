@@ -23,6 +23,8 @@ export interface ArenaRolePlugin {
   burst?: readonly [number, number];
   /** Field dressings carried per spawn; each restores about half their health. Default 1. */
   medkits?: number;
+  /** Fielded by combat events only (a mortar crew, a rooftop sniper): never a squad choice or a balance opponent. */
+  eventOnly?: boolean;
   think(context: Readonly<ArenaRoleContext>): ArenaRoleIntent;
 }
 export interface ArmamentChoice { variant: string; weight: number }
@@ -54,7 +56,8 @@ export function registerArenaRole(plugin: ArenaRolePlugin) {
   registry.set(plugin.id, Object.freeze({ ...plugin, ...(plugin.burst ? { burst: Object.freeze([plugin.burst[0], plugin.burst[1]] as const) } : {}), armament: Object.freeze(plugin.armament.map(choice => Object.freeze({ ...choice }))), weapon: Object.freeze({ ...plugin.weapon }) }));
 }
 export const getArenaRole = (id: string) => registry.get(id);
-export const listArenaRoles = () => [...registry.values()];
+/** Squad roles; event-only roles are left out. */
+export const listArenaRoles = () => [...registry.values()].filter(role => !role.eventOnly);
 
 registerArenaRole({
   id: 'assault', name: 'Assault squad', description: 'Mobile rifle bots that close distance and strafe around their target.',
@@ -87,6 +90,22 @@ registerArenaRole({
     strafe: !visible ? strafeDirection * 0.25 : distance < 27 ? strafeDirection * 0.2 : 0,
     fire: visible, shotDelay: 1.55, spread: 0.012,
   }),
+});
+
+// Combat events place these where the event needs them and they hold that spot.
+registerArenaRole({
+  id: 'mortar-crew', name: 'Mortar crew', description: 'Two soldiers working a mortar; kill both and it stops firing.',
+  health: 90, armor: 25, absorption: 0.3, speed: 2.6, sightRange: 55, reaction: 0.8, eventOnly: true,
+  armament: [{ variant: 'xm8-carbine', weight: 3 }, { variant: 'g36k', weight: 2 }],
+  weapon: { ...FPS_WEAPONS[0] }, burst: [2, 3], medkits: 0,
+  think: ({ visible }) => ({ approach: 0, strafe: 0, fire: visible, shotDelay: 1, spread: 0.05 }),
+});
+registerArenaRole({
+  id: 'overwatch', name: 'Overwatch sniper', description: 'A marksman on a rooftop. Their scope glints for a moment before each shot.',
+  health: 90, armor: 0, absorption: 0, speed: 2, sightRange: 125, reaction: 1.4, eventOnly: true,
+  armament: [{ variant: 'xm8-sharpshooter', weight: 1 }],
+  weapon: { ...FPS_WEAPONS[0], damage: 68, interval: 1.4, capacity: 6, reload: 2.5 }, burst: [1, 1], medkits: 0,
+  think: ({ visible }) => ({ approach: 0, strafe: 0, fire: visible, shotDelay: 2.4, spread: 0.006 }),
 });
 
 export const ARENA_ROLE_OPTIONS = [

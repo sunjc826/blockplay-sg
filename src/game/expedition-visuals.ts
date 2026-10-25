@@ -32,6 +32,7 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
   // the oldest can be thrown away when a new one drops.
   const drops = new Map<string, { group: THREE.Group; resources: { dispose(): void }[] }>();
   function addDrop(item: FieldLoot) {
+    if (item.kind !== 'weapon') { addKit(item); return; }
     const variant = itemById(item.catalogId ?? ''), spec = variant?.family === undefined ? undefined : FPS_WEAPONS[variant.family];
     const model = spec && buildServiceWeapon(spec.id); if (!variant || !model) return;
     const group = new THREE.Group(), owned: { dispose(): void }[] = [{ dispose: () => disposeModel(model) }];
@@ -50,6 +51,19 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
     owned.push(ringGeometry, ringMaterial);
     const ring = new THREE.Mesh(ringGeometry, ringMaterial); ring.rotation.x = Math.PI / 2; ring.position.y = .02; group.add(ring);
     label(group, `${item.tier.toUpperCase()} / ${item.name}`, color, .95, owned);
+    drops.set(item.id, { group, resources: owned });
+  }
+  /** A kit set out on the ground from a supply crate: a small case in its tier colour with its name over it. */
+  function addKit(item: FieldLoot) {
+    const group = new THREE.Group(), owned: { dispose(): void }[] = [], color = tierColor(item.tier);
+    group.name = `drop-${item.id}`; group.position.set(item.x, (item.y ?? 0) + .02, item.z); root.add(group);
+    const caseGeometry = new THREE.BoxGeometry(.55, .28, .38), caseMaterial = new THREE.MeshStandardMaterial({ color: item.kind === 'medical' ? '#c9d1c4' : '#3f4a37', roughness: .8 });
+    const lidGeometry = new THREE.BoxGeometry(.56, .05, .39), lidMaterial = new THREE.MeshStandardMaterial({ color: item.kind === 'medical' ? '#c43a32' : color, roughness: .7 });
+    owned.push(caseGeometry, caseMaterial, lidGeometry, lidMaterial);
+    const body = new THREE.Mesh(caseGeometry, caseMaterial); body.position.y = .14; group.add(body);
+    const lid = new THREE.Mesh(lidGeometry, lidMaterial); lid.position.y = .3; group.add(lid);
+    group.traverse(node => { node.userData.fpsEffect = true; });
+    label(group, `${item.tier.toUpperCase()} / ${item.name}`, color, .85, owned);
     drops.set(item.id, { group, resources: owned });
   }
   for (const item of loot.filter(entry => entry.dropped)) addDrop(item);

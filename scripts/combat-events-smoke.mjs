@@ -1,7 +1,9 @@
 // Combat events in a real expedition: a debug truck and helicopter arrive, a
-// called-in barrage lands and leaves craters, and with the AI pilot playing the
+// called-in barrage lands and leaves craters, every other event is called in
+// once and must draw and announce itself, and with the AI pilot playing the
 // director and reinforcements run unattended. Run a local Vite server and an
 // isolated Chrome with --remote-debugging-port=9228, as the other smokes do.
+// COMBAT_SMOKE_ONLY=mortar,drone limits the new-event pass to those buttons.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const origin = process.env.EXPEDITION_APP_ORIGIN || 'http://127.0.0.1:5175';
@@ -23,12 +25,14 @@ async function wait(expression, timeout = 30000) { const start = Date.now(); whi
 const press = name => evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent.trim().startsWith(${JSON.stringify(name)})).click()`);
 async function screenshot(name) { const shot = await send('Page.captureScreenshot', { format: 'png' }); await fs.writeFile(new URL(name + '.png', output), Buffer.from(shot.data, 'base64')); }
 const phase = value => `document.querySelector('.fps-game')?.dataset.phase===${JSON.stringify(value)}`;
-/** events / fire / smoke / craters / transports, as the engine writes it. */
+/** events / fire / smoke / craters / transports / flyers / raiders / pits / crates / puffs, as the engine writes it. */
 const census = async () => (await evaluate(`document.querySelector('canvas')?.dataset.combatEvents ?? ''`)).split('/').map(Number);
 const banner = () => evaluate(`document.querySelector('.fps-combat-banner')?.textContent ?? ''`);
 const comms = () => evaluate(`[...document.querySelectorAll('.fps-comms-entry')].map(p=>p.textContent)`);
 /** Pause, press a debug button, and hand back to the AI pilot. */
 async function call(name) {
+  // Events that hunt a player need one on their feet.
+  await wait(`!document.querySelector('.expedition-respawn')`, 30000);
   await evaluate(`window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`); await wait(phase('paused'));
   await press(name); await delay(200); await press('Watch AI play'); await wait(phase('playing'));
 }
@@ -57,12 +61,39 @@ try {
   let craters = 0; for (let i = 0; i < 40; i++) { await delay(500); craters = Math.max(craters, (await census())[3]); if (i === 25) await screenshot('artillery'); }
   assert.ok(craters >= 4, `a barrage leaves craters (saw ${craters})`);
 
-  // Unattended: the director's own strikes and reinforcements for fallen patrols.
-  const seen = new Set();
-  for (let t = 0; t < soak; t += 5) { await delay(5000); (await comms()).filter(line => /Fire control|Intel/.test(line)).forEach(line => seen.add(line)); }
+  // Every other event once. Each waits until the earlier ones have cleared enough
+  // to make room, then must both draw something and say what it is.
+  const only = (process.env.COMBAT_SMOKE_ONLY || '').split(',').filter(Boolean);
+  const room = async () => { for (let i = 0; i < 400; i++) { if ((await census())[0] <= 1) return; await delay(500); } };
+  const jammed = () => evaluate(`!!document.querySelector('[data-map-jammed]')`);
+  const checks = [
+    ['Mortar', 'mortar pit', c => c[7] >= 1, /MORTAR/], ['Air raid', 'jets', c => c[5] >= 1, /AIR RAID/],
+    ['Gunship', 'raid helicopter', c => c[6] >= 1, /HELICOPTER/], ['Drone', 'drone', c => c[6] >= 1, /DRONE/],
+    ['Sniper', null, null, /SNIPER/], ['Tear gas', 'gas cloud', c => c[9] > 0, /GAS/], ['Smoke', 'smoke cloud', c => c[9] > 0, /SMOKE/],
+    ['Supply drop', 'cargo plane or crate', c => c[5] + c[8] >= 1, /SUPPLY/], ['Blackout', 'jammed map', null, /JAMM|BLACKOUT/],
+  ].filter(([name]) => !only.length || only.includes(name.toLowerCase().replace(' ', '-')) || only.includes(name.toLowerCase()));
+  for (const [name, what, drawn, said] of checks) {
+    await room(); await call(name);
+    let shown = !drawn, heard = '';
+    for (let i = 0; i < 70 && !(shown && heard); i++) {
+      await delay(500);
+      if (drawn && drawn(await census())) shown = true;
+      if (name === 'Blackout' && await jammed()) shown = true;
+      const text = [await banner(), ...(await comms()).slice(-6)].find(line => said.test(line)); if (text) heard = text;
+      if (i === 24) await screenshot(name.toLowerCase().replace(' ', '-'));
+    }
+    const message = await evaluate(`document.querySelector('.fps-message, .fps-start-card p')?.textContent ?? ''`);
+    assert.ok(shown, `${name}: ${what} drawn (census ${await census()}, ${message})`);
+    assert.ok(heard, `${name}: announced (${message})`);
+    console.log(`${name}: ${heard}`);
+  }
+
+  // Unattended: the director's own events and reinforcements for fallen patrols.
+  const before = new Set(await comms()), seen = new Set();
+  for (let t = 0; t < soak; t += 5) { await delay(5000); (await comms()).filter(line => /Fire control|Intel/.test(line) && !before.has(line)).forEach(line => seen.add(line)); }
   const lines = [...seen];
   console.log(JSON.stringify({ lines, errors }, null, 2));
-  assert.ok(lines.filter(l => /ARTILLERY/.test(l)).length >= 2, 'the director called a strike of its own');
+  assert.ok(lines.filter(l => !/REINFORCEMENTS/.test(l)).length >= 1, 'the director called an event of its own');
   assert.deepEqual(errors, []);
   console.log('combat events smoke passed');
 } finally { ws.close(); await fetch(`${chrome}/json/close/${tab.id}`).catch(() => {}); }

@@ -1,6 +1,14 @@
 import type { FpsHud, FpsEngine } from '../game/fps-engine';
 import './fps-debug.css';
 
+/** Every combat event the panel can call in, with where it lands. */
+const DEBUG_EVENTS = [
+  ['artillery', 'Artillery', '35 m ahead'], ['mortar', 'Mortar', '35 m ahead'], ['air-raid', 'Air raid', '35 m ahead'],
+  ['helicopter-raid', 'Gunship', 'hunts you'], ['drone', 'Drone', 'hunts you'], ['sniper', 'Sniper', 'overlooks you'],
+  ['tear-gas', 'Tear gas', '35 m ahead'], ['smoke-screen', 'Smoke', '25 m ahead'], ['supply-drop', 'Supply drop', '30 m ahead'],
+  ['blackout', 'Blackout', 'jams the map'], ['transport-land', 'Truck', 'reinforce'], ['transport-air', 'Helicopter', 'reinforce'],
+] as const;
+
 export default function FpsDebugPanel({ hud, engine }: { hud: FpsHud; engine: FpsEngine | null }) {
   if (!hud.debugAvailable) return null;
   return <details className="fps-debug-panel">
@@ -14,11 +22,9 @@ export default function FpsDebugPanel({ hud, engine }: { hud: FpsHud; engine: Fp
     <button className="fps-debug-heal" disabled={hud.health <= 0 || hud.phase === 'loading'} onClick={() => engine?.refillHealth()}>Refill health · {hud.maxHealth} HP</button>
     {hud.combatEventsAvailable && <div className="fps-debug-events" role="group" aria-label="Combat events">
       <label><input type="checkbox" checked={hud.debug.combatEvents} onChange={event => engine?.configureDebug({ ...hud.debug, combatEvents: event.target.checked })} /> Random events</label>
-      <p>Expeditions only: artillery strikes at random times and places, paced by district risk. Fallen enemies come back by truck or helicopter either way.</p>
-      <div className="fps-debug-options">
-        <button disabled={hud.phase === 'loading'} onClick={() => engine?.triggerCombatEvent('artillery')}>Artillery <small>35 m ahead</small></button>
-        <button disabled={hud.phase === 'loading'} onClick={() => engine?.triggerCombatEvent('transport-land')}>Truck <small>reinforce</small></button>
-        <button disabled={hud.phase === 'loading'} onClick={() => engine?.triggerCombatEvent('transport-air')}>Helicopter <small>reinforce</small></button>
+      <p>Expeditions only: the director calls in events at random, paced by district risk (barrages and supply drops everywhere; raids, snipers and gas in riskier districts). Fallen enemies come back by truck or helicopter either way.</p>
+      <div className="fps-debug-options fps-debug-event-grid">
+        {DEBUG_EVENTS.map(([kind, label, note]) => <button key={kind} disabled={hud.phase === 'loading'} onClick={() => engine?.triggerCombatEvent(kind)}>{label} <small>{note}</small></button>)}
       </div>
     </div>}
     <small>Practice, solo bots and expeditions</small>

@@ -1,6 +1,6 @@
 /**
  * Combat events: telegraphed hazards that happen to a match rather than being
- * fought by it (artillery now; air and helicopter raids later). See
+ * fought by it: barrages, raids, snipers, gas, a supply drop. See
  * docs/COMBAT-EVENTS.md.
  *
  * A running event is a small descriptor. Its plugin turns that descriptor into
@@ -28,7 +28,18 @@ export interface CombatEventDescriptor {
   reach?: number;
   /** Transports: how many troops it carries. */
   troops?: number;
+  /** Where the event's own people or machine are: a mortar pit, a sniper's perch, a drone's launch point. */
+  origin?: CombatPlane;
+  /** Metres above sea level: a raid helicopter's orbit, a drone's cruise, a perch's roof. */
+  altitude?: number;
+  /** Simulation time its live part stopped early: crew killed, raider downed, crate taken. */
+  ended?: number;
+  outcome?: CombatOutcome;
+  /** Supply drops: the actor who opened the crate. */
+  claimedBy?: string;
 }
+export type CombatOutcome = 'downed' | 'silenced' | 'claimed' | 'secured' | 'detonated' | 'withdrawn';
+const OUTCOMES: readonly CombatOutcome[] = ['downed', 'silenced', 'claimed', 'secured', 'detonated', 'withdrawn'];
 export interface BlastSpec {
   radius: number; damage: number;
   /** Share of `damage` left at the edge of `radius`. */
@@ -37,10 +48,17 @@ export interface BlastSpec {
   vehicleScale: number;
   /** Crouching and lying prone shrink what a body takes. */
   stance: boolean;
+  /** Falls from high above, so a roof over a body shelters it even from a burst beside it. */
+  overhead?: boolean;
 }
-/** Something fired at the ground: a shell now, a bomb later. */
+export type MunitionKind = 'shell' | 'mortar' | 'bomb' | 'canister';
+/** Something fired at the ground: a shell, a mortar bomb, an aircraft's bomb or a gas canister. */
 export interface MunitionPayload {
   type: 'munition'; id: number;
+  /** How it is drawn and heard; a shell when absent. */
+  kind?: MunitionKind;
+  /** Where it was fired from, when that is on the map: a mortar's tube thumps there. */
+  launch?: CombatPlane;
   impact: CombatPlane;
   /** Seconds after `start` that it lands. */
   time: number;
@@ -69,7 +87,23 @@ export interface TransportPayload {
 }
 /** One troop reaching the ground at `at`; the host brings a waiting bot back here. */
 export interface InsertPayload { type: 'insert'; id: number; slot: number; at: CombatPlane; time: number }
-export type CombatPayload = MunitionPayload | MarkerPayload | TransportPayload | InsertPayload;
+/** An aircraft crossing the map in a straight line, `height` metres above the ground. Drawn and heard only. */
+export interface FlyerPayload { type: 'flyer'; id: number; model: 'jet' | 'cargo'; from: CombatPlane; to: CombatPlane; height: number; enter: number; leave: number }
+/**
+ * A raid helicopter's path: in from `entry`, round `center` at `radius` from
+ * `arrive` to `leave`, then out to `exit`. Its height is the descriptor's
+ * `altitude`; its health and its gunner are the host's live state.
+ */
+export interface OrbitPayload { type: 'orbit'; id: number; entry: CombatPlane; center: CombatPlane; radius: number; exit: CombatPlane; enter: number; arrive: number; leave: number; gone: number }
+/** A supply crate released at `height` over `at`, on the ground at `land`, there until `until` unless someone takes it. */
+export interface CratePayload { type: 'crate'; id: number; at: CombatPlane; release: number; land: number; height: number; until: number }
+/** Smoke or gas sitting on the ground. `dps` above zero hurts whoever is inside. */
+export interface CloudPayload { type: 'cloud'; id: number; center: CombatPlane; radius: number; from: number; until: number; dps: number; colour: string }
+/** Radio and map jamming, and the lights going out at night. */
+export interface JamPayload { type: 'jam'; id: number; from: number; until: number }
+/** How long the event's live part (a crew, a sniper, a drone) lasts if nobody stops it. */
+export interface PresencePayload { type: 'presence'; id: number; until: number }
+export type CombatPayload = MunitionPayload | MarkerPayload | TransportPayload | InsertPayload | FlyerPayload | OrbitPayload | CratePayload | CloudPayload | JamPayload | PresencePayload;
 
 export interface CombatEventPlugin {
   id: string; name: string; description: string;
@@ -81,6 +115,14 @@ export interface CombatEventPlugin {
   banner: { warning: string; active: string };
   /** Hazards hurt whoever is in the way and are announced loudly; the rest are news. */
   hazard: boolean;
+  /** What the feed blames, as in "Mortar killed …". The name's first word when absent. */
+  cause?: string;
+  /**
+   * Where the director aims it: `area` somewhere 25–80 m from a player (or
+   * `range`), checked so no round brackets them; `player` on a player, for
+   * events that hunt (raids) and so carry their own warning.
+   */
+  targeting?: { policy: 'area' | 'player'; range?: readonly [number, number] };
   timeline(event: Readonly<CombatEventDescriptor>): CombatPayload[];
 }
 
@@ -105,7 +147,22 @@ export function combatRandom(seed: number) {
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const finitePlane = (p: CombatPlane | undefined) => !!p && finite(p.x) && finite(p.z);
 
+const inWindow = (from: number, until: number, plugin: CombatEventPlugin) => finite(from) && finite(until) && from >= 0 && until >= from && until <= plugin.duration;
 function validPayload(payload: CombatPayload, plugin: CombatEventPlugin) {
+  if (payload.type === 'flyer')
+    return finitePlane(payload.from) && finitePlane(payload.to) && finite(payload.height) && payload.height > 0 && payload.height <= 400 && ['jet', 'cargo'].includes(payload.model) && inWindow(payload.enter, payload.leave, plugin);
+  if (payload.type === 'orbit')
+    return [payload.entry, payload.center, payload.exit].every(finitePlane) && finite(payload.radius) && payload.radius > 0 && payload.radius <= 120 &&
+      inWindow(payload.enter, payload.gone, plugin) && payload.arrive >= payload.enter && payload.leave >= payload.arrive && payload.gone >= payload.leave;
+  if (payload.type === 'crate')
+    return finitePlane(payload.at) && finite(payload.height) && payload.height > 0 && payload.height <= 400 && inWindow(payload.release, payload.until, plugin) && finite(payload.land) && payload.land > payload.release && payload.land <= payload.until;
+  if (payload.type === 'cloud')
+    return finitePlane(payload.center) && finite(payload.radius) && payload.radius > 0 && payload.radius <= 30 && inWindow(payload.from, payload.until, plugin) &&
+      finite(payload.dps) && payload.dps >= 0 && payload.dps <= 20 && typeof payload.colour === 'string' &&
+      // Gas may not start hurting before it has been announced.
+      (payload.dps === 0 || payload.from >= plugin.warning);
+  if (payload.type === 'jam') return inWindow(payload.from, payload.until, plugin);
+  if (payload.type === 'presence') return finite(payload.until) && payload.until >= 0 && payload.until <= plugin.duration;
   if (payload.type === 'transport')
     return [payload.entry, payload.drop, payload.exit].every(finitePlane) && [payload.enter, payload.arrive, payload.depart, payload.leave, payload.cruise, payload.hover].every(finite) &&
       payload.enter >= 0 && payload.arrive >= payload.enter && payload.arrive >= plugin.warning && payload.depart >= payload.arrive && payload.leave >= payload.depart && payload.leave <= plugin.duration && payload.cruise >= payload.hover && payload.hover >= 0;
@@ -117,6 +174,7 @@ function validPayload(payload: CombatPayload, plugin: CombatEventPlugin) {
   const { descent, blast } = payload;
   if (!finitePlane(payload.impact) || !finite(payload.time) || !finite(payload.flight) || payload.flight <= 0 || payload.time < 0 || payload.time > plugin.duration) return false;
   if (!descent || ![descent.x, descent.y, descent.z].every(finite) || descent.y >= 0 || Math.abs(Math.hypot(descent.x, descent.y, descent.z) - 1) > 1e-6) return false;
+  if (payload.launch !== undefined && !finitePlane(payload.launch)) return false;
   if (!blast) return true;
   return [blast.radius, blast.damage, blast.minScale, blast.vehicleScale].every(finite) && blast.radius > 0 && blast.radius <= 30 &&
     blast.damage > 0 && blast.damage <= 400 && blast.minScale >= 0 && blast.minScale <= 1 && blast.vehicleScale >= 0 && blast.vehicleScale <= 4 &&
@@ -143,21 +201,45 @@ export const getCombatEvent = (id: string) => registry.get(id);
 export const listCombatEvents = () => [...registry.values()];
 
 /** Timelines are pure but not free; the same descriptor is asked for every frame. */
-const timelines = new WeakMap<CombatEventDescriptor, CombatPayload[]>();
+const timelines = new WeakMap<CombatEventDescriptor, { ended: number | undefined; payloads: CombatPayload[] }>();
 export function combatTimeline(event: CombatEventDescriptor): CombatPayload[] {
-  let payloads = timelines.get(event);
-  if (!payloads) {
+  let cached = timelines.get(event);
+  // The host ends an event in place (a crew killed, a crate taken), so the cache keys on that too.
+  if (!cached || cached.ended !== event.ended) {
     const plugin = registry.get(event.kind);
-    payloads = plugin ? plugin.timeline(event).slice(0, MAX_COMBAT_PAYLOADS) : [];
-    timelines.set(event, payloads);
+    const payloads = plugin ? plugin.timeline(event).slice(0, MAX_COMBAT_PAYLOADS) : [];
+    cached = { ended: event.ended, payloads: finite(event.ended) ? endTimeline(payloads, event.ended - event.start) : payloads };
+    timelines.set(event, cached);
   }
-  return payloads;
+  return cached.payloads;
+}
+/**
+ * What is left of a timeline whose live part stopped `end` seconds in: rounds
+ * already in the air still land, nothing more is fired, and whatever was
+ * waiting on the crew or the crate is over. A taken crate still lies where it
+ * landed until its time is up.
+ */
+function endTimeline(payloads: CombatPayload[], end: number): CombatPayload[] {
+  const kept = payloads.filter(p => p.type === 'munition' ? p.time - p.flight <= end : p.type === 'insert' ? p.time <= end : true);
+  const landing = kept.reduce((last, p) => p.type === 'munition' ? Math.max(last, p.time) : last, end);
+  return kept.map(p => p.type === 'presence' ? { ...p, until: Math.max(0, Math.min(p.until, end)) }
+    : p.type === 'orbit' ? { ...p, leave: Math.min(p.leave, Math.max(p.arrive, end)), gone: Math.min(p.gone, end + 4) }
+    : p.type === 'marker' ? { ...p, until: Math.max(p.from, Math.min(p.until, landing + 1.5)) }
+    : p);
 }
 
 export type CombatPhase = 'warning' | 'active' | 'aftermath' | 'done';
 /** When a payload has finished doing whatever it does, after `start`. */
 export function payloadEnd(payload: CombatPayload) {
-  return payload.type === 'munition' || payload.type === 'insert' ? payload.time : payload.type === 'transport' ? payload.leave : 0;
+  switch (payload.type) {
+    case 'munition': case 'insert': return payload.time;
+    case 'transport': case 'flyer': return payload.leave;
+    case 'orbit': return payload.gone;
+    // A crate's part is over when it lands; how long it then lies there is the presence's to say.
+    case 'crate': return payload.land;
+    case 'cloud': case 'jam': case 'presence': return payload.until;
+    default: return 0;
+  }
 }
 export function combatPhase(event: CombatEventDescriptor, now: number): CombatPhase {
   const plugin = registry.get(event.kind); if (!plugin) return 'done';
@@ -177,6 +259,11 @@ export function validCombatEvent(value: unknown, now: number, bounds?: { minX: n
   if (e.start > now + 1 || now - e.start > plugin.duration + COMBAT_AFTERMATH + 1) return false;
   if (e.reach !== undefined && (!finite(e.reach) || e.reach < 0 || e.reach > 400)) return false;
   if (e.troops !== undefined && (!Number.isInteger(e.troops) || e.troops < 1 || e.troops > 6)) return false;
+  if (e.origin !== undefined && (!finitePlane(e.origin) || Math.abs(e.origin.x) > 5000 || Math.abs(e.origin.z) > 5000)) return false;
+  if (e.altitude !== undefined && (!finite(e.altitude) || e.altitude < -50 || e.altitude > 400)) return false;
+  if (e.ended !== undefined && (!finite(e.ended) || e.ended < e.start || e.ended > now + 1)) return false;
+  if (e.outcome !== undefined && !OUTCOMES.includes(e.outcome)) return false;
+  if (e.claimedBy !== undefined && (typeof e.claimedBy !== 'string' || !e.claimedBy || e.claimedBy.length > 100)) return false;
   return !bounds || (e.target!.x >= bounds.minX && e.target!.x <= bounds.maxX && e.target!.z >= bounds.minZ && e.target!.z <= bounds.maxZ);
 }
 
@@ -187,19 +274,21 @@ export function descentAlong(heading: number, pitch: number): CombatVector {
   return { x: -Math.sin(heading) * flat, y: -Math.sin(pitch), z: -Math.cos(heading) * flat };
 }
 
-export interface CombatCue { kind: 'whistle' | 'impact'; event: CombatEventDescriptor; payload: MunitionPayload }
+export interface CombatCue { kind: 'launch' | 'whistle' | 'impact'; event: CombatEventDescriptor; payload: MunitionPayload }
 /** How long before impact a shell can be heard. */
 export const WHISTLE_LEAD = 1.2;
 /**
- * Cues that fall in (from, to]: shells starting to whistle and shells landing.
- * Renderers call this once per frame with their previous and current clock.
+ * Cues that fall in (from, to]: mortars firing, shells starting to whistle and
+ * shells landing. Renderers call this once per frame with their previous and
+ * current clock.
  */
 export function combatCues(events: readonly CombatEventDescriptor[], from: number, to: number): CombatCue[] {
   const cues: CombatCue[] = [];
   if (!(to > from)) return cues;
   for (const event of events) for (const payload of combatTimeline(event)) {
     if (payload.type !== 'munition') continue;
-    const impact = event.start + payload.time, whistle = impact - Math.min(WHISTLE_LEAD, payload.flight);
+    const impact = event.start + payload.time, whistle = impact - Math.min(WHISTLE_LEAD, payload.flight), fired = impact - payload.flight;
+    if (payload.launch && fired > from && fired <= to) cues.push({ kind: 'launch', event, payload });
     if (payload.blast && whistle > from && whistle <= to) cues.push({ kind: 'whistle', event, payload });
     if (impact > from && impact <= to) cues.push({ kind: 'impact', event, payload });
   }
@@ -237,4 +326,38 @@ export function transportPose(payload: TransportPayload, age: number): Transport
   const t = (age - depart) / Math.max(.1, leave - depart);
   return { ...along(drop, exit, t * t), y: air ? hover + (cruise - hover) * smooth(t * 2.5) : 0,
     yaw: air ? turnBetween(inward, outward, smooth(t * 2)) : outward, visible: true, effort: 1 };
+}
+
+/** Where a crossing aircraft is: straight from `from` to `to`; `y` is height above the ground. */
+export function flyerPose(payload: FlyerPayload, age: number): TransportPose {
+  const t = (age - payload.enter) / Math.max(.1, payload.leave - payload.enter), visible = t >= 0 && t <= 1, k = Math.max(0, Math.min(1, t));
+  return { x: payload.from.x + (payload.to.x - payload.from.x) * k, z: payload.from.z + (payload.to.z - payload.from.z) * k, y: payload.height,
+    yaw: yawToward(payload.from, payload.to), visible, effort: visible ? 1 : 0 };
+}
+/** Metres per second a raid helicopter flies its orbit and its legs in and out. */
+export const ORBIT_SPEED = 26;
+/**
+ * Where a raid helicopter is `age` seconds in. `y` is `altitude`, above sea
+ * level, not the ground: it holds a height clear of the rooftops it circles.
+ */
+export function orbitPose(payload: OrbitPayload, age: number, altitude: number): TransportPose {
+  const { entry, center, radius, exit, enter, arrive, leave, gone } = payload;
+  const join = Math.atan2(entry.z - center.z, entry.x - center.x);
+  const around = (angle: number) => ({ x: center.x + Math.cos(angle) * radius, z: center.z + Math.sin(angle) * radius });
+  const angleAt = (t: number) => join + Math.max(0, t - arrive) * ORBIT_SPEED / radius;
+  // Nose along the direction of travel, (-sin, cos) for a rising angle, in actor-yaw terms.
+  const tangent = (angle: number) => Math.atan2(Math.sin(angle), -Math.cos(angle));
+  if (age < enter || age > gone) return { ...entry, y: altitude + 20, yaw: yawToward(entry, center), visible: false, effort: 0 };
+  if (age < arrive) {
+    const start = around(join), t = smooth((age - enter) / Math.max(.1, arrive - enter));
+    return { x: entry.x + (start.x - entry.x) * t, z: entry.z + (start.z - entry.z) * t, y: altitude + 20 * (1 - t), yaw: yawToward(entry, start), visible: true, effort: 1 };
+  }
+  if (age <= leave) { const angle = angleAt(age), at = around(angle); return { ...at, y: altitude + Math.sin(age * 1.3) * .4, yaw: tangent(angle), visible: true, effort: .9 }; }
+  const from = around(angleAt(leave)), t = (age - leave) / Math.max(.1, gone - leave);
+  return { x: from.x + (exit.x - from.x) * t * t, z: from.z + (exit.z - from.z) * t * t, y: altitude + 25 * smooth(t), yaw: yawToward(from, exit), visible: true, effort: 1 };
+}
+/** Where a supply crate is: falling under its canopy, then on the ground. `y` is height above the ground under it. */
+export function cratePose(payload: CratePayload, age: number) {
+  const visible = age >= payload.release && age <= payload.until, t = Math.max(0, Math.min(1, (age - payload.release) / (payload.land - payload.release)));
+  return { x: payload.at.x, z: payload.at.z, y: payload.height * (1 - t), landed: age >= payload.land, visible };
 }

@@ -4,7 +4,7 @@ import { ARTILLERY_SHELL, TRANSPORT } from './combat-event-catalog';
 import { combatCues, combatPhase, combatRandom, combatTimeline, getCombatEvent, listCombatEvents, registerCombatEvent, transportPose, validCombatEvent,
   COMBAT_AFTERMATH, type CombatEventDescriptor, type CombatPayload, type InsertPayload, type MunitionPayload, type TransportPayload } from './combat-events';
 import { blastDamage, resolveBlast, BLAST_STANCE } from './combat-blast';
-import { createCombatDirector, edgeDistance, planTransport, COMBAT_BRACKET, COMBAT_PACE, MIN_LAND_REACH, TRANSPORT_DROP_RANGE } from './combat-director';
+import { createCombatDirector, edgeDistance, planTransport, COMBAT_BRACKET, COMBAT_PACE, DEFAULT_COMBAT_TABLE, MIN_LAND_REACH, TRANSPORT_DROP_RANGE } from './combat-director';
 
 const event = (over: Partial<CombatEventDescriptor> = {}): CombatEventDescriptor =>
   ({ id: 'e1', kind: 'artillery', seed: 1234, start: 10, target: { x: 0, z: 0 }, heading: .7, intensity: 1, ...over });
@@ -141,7 +141,7 @@ describe('blast resolver', () => {
 describe('combat director', () => {
   const view = (now: number, humans = [{ x: 0, z: 0 }]) => ({ now, active: [], humans, bounds });
   it('waits out the opening window, then schedules within range of a human and never on top of one', () => {
-    const director = createCombatDirector({ risk: 'medium', seed: 5 });
+    const director = createCombatDirector({ risk: 'medium', seed: 5, table: DEFAULT_COMBAT_TABLE });
     expect(director.step(view(COMBAT_PACE.medium.first[0] - 1))).toBeNull();
     let directive = null;
     for (let t = COMBAT_PACE.medium.first[0]; !directive && t < 200; t += .5) directive = director.step(view(t));

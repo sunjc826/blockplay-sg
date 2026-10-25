@@ -1,16 +1,18 @@
 # Combat events: design
 
-Status: **step 1 is built**, for the open world (expedition) and the solo
-arena: the core, the shared blast resolver, the director, **artillery**, and
-**troop transports** that bring fallen patrols back by road or air. Air raids,
-helicopter raids, the range adapter and LAN remain proposals. Each section
-below says which it is.
+Status: **steps 1, 3 and 4 are built**, for the open world (expedition) and
+the solo arena: the core, the shared blast resolver, the director, and twelve
+events. They are **artillery**, **troop transports** (truck and helicopter),
+**air raid**, **helicopter raid**, **mortar fire**, **loitering drone**,
+**rooftop sniper**, **supply drop**, **smoke screen**, **tear gas** and
+**blackout**. Still proposals: the range adapter, a World conditions setting,
+LAN, raid inserts and bounties. Each section below says which it is.
 
 [Back to README](../README.md)
 
 Combat events are scripted, telegraphed hazards that happen *to* a match rather
 than being fought by it: an air raid, a helicopter raid, an artillery barrage,
-and later mortars, drone strikes or a supply drop. They are not the same thing
+mortars, a drone, a sniper, gas, and one that helps, a supply drop. They are not the same thing
 as [world events](WORLD-EVENTS.md), which are weather and celebrations and never
 touch damage. The name `combat-events` keeps the two apart.
 
@@ -39,14 +41,16 @@ The design is shaped by four things the codebase already does:
 
 ```
 combat-events.ts        types, registry, seeded PRNG, payloads, transport poses (pure)
-combat-event-catalog.ts artillery, transport-land, transport-air (pure)
+combat-event-catalog.ts every shipped event, registered on import (pure)
 combat-director.ts      when a strike starts and where; where a transport drops (pure, seeded)
 combat-blast.ts         blast falloff + stance, shared with vehicle wrecks (pure)
 combat-event-visuals.ts shells, fire, smoke, craters, rings, truck, helicopter, ropes (three.js, pooled)
 combat-event-audio.ts   whistle, boom, alert, engine/rotor (WebAudio, synthesised)
 ```
 
-All six exist. Air-raid and helicopter-raid registrations do not yet.
+All six exist. The two crew roles an event can field (`mortar-crew`,
+`overwatch`) are registered in `arena-roles.ts` as `eventOnly`, so they are
+never a squad choice or a balance opponent.
 
 Integration touches `arena-rules.ts` (host step + snapshot), `arena-runtime.ts`
 (snapshot validation, visuals), `fps-engine.ts` (range adapter, HUD, shake,
@@ -108,12 +112,23 @@ Every event is built from a handful of primitives, each with a fixed time:
 | --- | --- | --- | --- |
 | `transport` *(built)* | entry, drop, exit, enter/arrive/depart/leave times, cruise/hover heights, `land` or `air` | nothing | truck or helicopter posed by `transportPose`, engine/rotor sound, ropes and downwash |
 | `insert` *(built)* | slot, point, time | brings back the bot booked into that slot | a trooper sliding down the rope just before |
-| `flyer` | path (3–5 points), speed, model (`jet`, `helicopter`, `drone`), altitude | nothing (unless it is a raider) | model along a spline, flyover audio, shadow |
-| `munition` *(built)* | impact point, landing time, flight time, descent direction, `blast` or spotting `smoke` | a blast where its path first meets the rendered world | falling shell streak, whistle 1.2 s before impact |
-| `blast` | point, radius, damage, minScale, vehicleScale, `overhead` | `resolveBlast` (below) | flash, debris, dust, crater decal, shake, boom |
-| `strafe` | from, to, start, duration, rounds, damage, spread | a sequence of rays or small blasts along the line | tracer line, dirt kicks |
-| `marker` *(built)* | point, radius, colour, from, until | nothing; bots run out of it | pulsing ring on the ground, HUD banner (minimap ring not yet) |
-| `raider insert` | point, roles[], time | temporary bots (`addPlayer` path) | fast-rope from the raider |
+| `flyer` *(built)* | straight line `from`→`to`, height, enter/leave, model `jet` or `cargo` | nothing | jet or cargo plane posed by `flyerPose`, jet roar |
+| `munition` *(built)* | impact point, landing time, flight time, descent direction, `blast` or spotting `smoke`, `kind` (shell, mortar, bomb, canister), optional `launch` point | a blast where its path first meets the rendered world | shell streak or a falling bomb, whistle 1.2 s before impact, a thump at `launch` |
+| `blast` *(built, inside munitions)* | radius, damage, minScale, vehicleScale, stance, `overhead` | `resolveBlast` (below); `overhead` leaves 20% to a body with a roof over it | flash, debris, dust, crater decal, shake, boom |
+| `orbit` *(built)* | entry, center, radius, exit, enter/arrive/leave/gone | the raid helicopter's position, from `orbitPose`; its health and gunner are live | the dark helicopter, rotor sound |
+| `crate` *(built)* | point, release/land/until, drop height | contested: a player who reaches it opens it, patrols that hold it 5 s carry it off | crate under a canopy, `cratePose` |
+| `cloud` *(built)* | center, radius, from/until, `dps`, colour | blocks every line of sight through it; `dps` above zero hurts whoever is inside, past armour | billboard puffs; a screen overlay when you stand in it |
+| `jam` *(built)* | from/until | nothing | the map shows static; at night the exposure drops |
+| `presence` *(built)* | until | how long a crew, sniper or drone stays if nobody stops it | nothing |
+| `marker` *(built)* | point, radius, colour, from, until | nothing; bots run out of a hazard's ring while it is live | pulsing ring on the ground and on the map, HUD banner |
+| `raider insert` | point, roles[], time | temporary bots | fast-rope from the raider *(not built)* |
+
+**Ending early.** A descriptor may carry `ended` (simulation time) and an
+`outcome` (`downed`, `silenced`, `claimed`, `secured`, `detonated`,
+`withdrawn`). `combatTimeline` then cuts its own timeline. Rounds already in
+the air still land, nothing more is fired, the presence and markers stop, and
+a raid helicopter's orbit turns for home from where it is. Guests get the same
+cut from the same two numbers.
 
 A plugin is just an arrangement of these. New events rarely need a new
 primitive; if one does, the primitive is added to `combat-events.ts` with its
@@ -261,39 +276,106 @@ log say "ENEMY TRUCK INBOUND · REINFORCEMENTS · 90 m to your right".
 - Counterplay: leave the ring, or go prone behind hard cover.
 - Variant for later: `creeping` moves the aim point along `heading` each salvo.
 
-**Air raid** (major; proposal)
+**Air raid** (built)
 
-- Warning 10 s: district-wide siren (rising and falling tone), radio, banner
-  "Air raid — get under cover", the run line on the minimap.
-- 1–3 jets (`flyer`) cross the district along the `crossing` line at 120–160 m,
-  above the derived flight ceiling, staggered 2 s apart.
-- Each releases a stick of 4–6 bombs spaced 12 m along its track; bombs are
-  visible for the last 2.5 s of their fall.
-- Blast radius 12 m, damage 200, `overhead: true`: being under a roof is cover.
+- Warning 10 s: a siren that wails through the warning and the run, a banner
+  ("AIR RAID · GET UNDER A ROOF") with a countdown, an orange 40 m ring.
+- One to three jets (by intensity) cross the target in parallel 16 m apart at
+  140 m and up, 110 m/s, 2.2 s apart.
+- Each drops a stick of five bombs spaced 12 m along its track. Bombs are drawn
+  at about their real speed for the last 2.5 s of their fall.
+- Blast radius 12 m, damage 200, vehicle scale 2, `overhead: true`. Anyone with
+  something solid within 40 m above them (`roofed`: a roof, deck or viaduct, box
+  or rendered mesh) takes 20% of what reaches them.
 - Counterplay: get indoors or under a deck. This is the event that makes the
-  verticality work pay off.
+  verticality work pay off. Bots run out of the ring rather than for a roof.
 
-**Helicopter raid** (major, and the only one with a live actor; proposal)
+**Helicopter raid** (built, except inserts and the bounty)
 
-- Warning 8 s: rotor sound growing from one edge, radio "Helicopter, bearing
-  …", a bearing pip on the HUD.
-- A hostile helicopter (`raider`) enters, flies to an orbit 30–40 m above a
-  `near-player` point and circles for up to 60 s.
-  - Its door gunner strafes the nearest visible human in telegraphed bursts:
-    a 1 s tracer "walk-in" before damage, then a 1.5 s burst. Sight uses the
-    same cached cover check bots use (`clearSight`).
-  - It may `insert` 2–4 temporary bots by fast rope (existing roles,
-    `temporary: true`: they do not respawn and leave the actor list when the
-    event ends). The actor cap of 14 still holds; inserts are trimmed to fit.
-  - It is a real target: 900 health (the player helicopter's value), hit by the
-    existing `vehicleRayDistance`, destroyed with the existing wreck blast.
-    Killing it credits the shooter and pays a bounty in range/expedition.
-  - It leaves after the orbit time or below 25% health, and is gone when
-    destroyed.
-- A raider is the only part of the framework with live state, so the snapshot
-  carries `raiders: { event, x, y, z, yaw, health, gunYaw, gunPitch, firing }[]`
-  next to the descriptor; the rest is still recomputed from the descriptor.
-- Its path is planned above `flightObstacles` and never through a tower.
+- Warning 8 s: the heavier rotor growing as it comes in, a countdown banner.
+- A dark attack helicopter flies the pure `orbit` path. It comes in 220 m along
+  the heading and circles 30 m round a point 6–16 m from a player. It holds a
+  height (`altitude`) 18 m above every roof the host samples round the ring and
+  at least 30 m above the ground. It circles for 32–56 s by intensity, then
+  leaves. Both sides draw it from the descriptor.
+- Its door gunner is live on the host. It picks the nearest player it has a
+  smoke-free line to (within 110 m) and walks tracers onto them for 1 s, which
+  does no damage. Then it fires a 1.5 s burst at 10 rounds a second, 12 damage
+  each with a 0.06 spread (about half land at orbit range), each round a ray
+  that a wall, hull or body can stop. It pauses 2.5–4 s
+  between bursts.
+- It is a real target: 700 health, two spheres (body and tail) in the host's
+  `resolveShot`. Below 25% it breaks off (`withdrawn`: its orbit turns for
+  home). At zero it falls, and the feed credits the shooter ("Alpha downed the
+  raid helicopter"), which counts toward the kill chain callout but not kills.
+- The snapshot carries `raiders: { event, kind, x, y, z, yaw, health,
+  maxHealth, state, aim, shots }[]`; a rising `shots` is a tracer to draw.
+- Not built: fast-rope inserts and a bounty.
+
+**Mortar fire** (built)
+
+- The host picks a pit 55–125 m from the target and 40 m from every player,
+  preferring one that cannot be seen from the target. Two `mortar-crew` bots
+  kneel at it, hold their post, fire back at players they can see, and hold
+  fire until the 4 s warning has passed.
+- Five to eight salvos of two rounds, 7 s apart, land inside an 18 m ring:
+  radius 6 m, damage 110. Each launch thumps at the pit before the rounds land.
+- Kill both crew and the event ends `silenced`. Rounds in the air still land,
+  and the banner stops naming the crew's bearing.
+
+**Loitering drone** (built)
+
+- It flies in from 140 m back along the heading, at a height 10 m over the
+  roofs round the target (at least 32 m above the ground), and circles 14 m
+  round a point near a player, whining.
+- From 1.5 s after its 6 s warning it looks for a player it has a smoke-free
+  line to within 80 m. It locks on for 1.6 s (rapid beeps, "DRONE LOCKED ON"
+  banner). Lose it for a second and it goes back to circling. Then it dives at
+  28 m/s, steering until 9 m out and then committing. It detonates on contact,
+  within 1.6 m of a player, or at the point it was diving for: radius 6 m,
+  damage 130.
+- 30 health and a 0.75 m sphere: a burst of rifle fire brings it down, and it
+  falls harmlessly. Unused after 60 s, it flies home (`withdrawn`).
+
+**Rooftop sniper** (built)
+
+- The host samples 48 points 45–95 m round the player. It takes the highest
+  flat roof, at least 5 m above the street, with a clear line to them. With no
+  rendered scene, or no such roof, it takes a clear spawn 35–110 m away. One
+  `overwatch` bot kneels there and holds it (`anchor`, and `ground` in the
+  snapshot so the rig kneels on a roof the walk surfaces do not know about).
+- Its scope glints (`aiming`) whenever it has a line, and it waits 1.4 s from
+  first sight to first shot: 68 damage, 0.006 spread, 2.4 s between shots. It
+  holds fire through its 3 s warning, leaves after 80 s, and ends `silenced` if
+  killed.
+
+**Supply drop** (built; helps rather than hurts)
+
+- A cargo aircraft crosses at 150 m and releases a crate over a point 35–90 m
+  from a player. It sinks under a canopy for about 18 s and lies there until
+  95 s, marked by a dashed green ring on the map.
+- The first player within 2.8 m opens it (`claimed`). On an expedition that
+  sets out a weapon rolled a tier up, a double ammunition kit and a medical kit
+  (`expedition-loot` `supply`). Anywhere else it tops up ammunition, health and
+  plates. Patrols with nobody in sight make for a landed crate; one that stands
+  over it for 5 s carries it off (`secured`).
+
+**Smoke screen** (built) and **tear gas** (built)
+
+- Smoke: four canisters land in a line across the heading, 9 m apart, and raise
+  8 m clouds from about 3 s to 38–42 s. Nobody sees through a cloud: bots,
+  gunners, drones and snipers alike (`smokeBetween`), and a player standing in
+  one gets a grey screen.
+- Gas: three canisters round the target; 7 m clouds from just after the 4 s
+  warning to 32 s, inside a 15 m ring. Anyone inside loses 7 health a second,
+  once however many clouds overlap, and plates do not stop it (`piercing`).
+  Bots leave the ring. The screen goes yellow and stings.
+
+**Blackout** (built; no damage)
+
+- A `jam` from 3 s to 48 s: the corner map and the district map show static and
+  nothing on them, and the banner says COMMS JAMMED. At night (`lighting.shift`)
+  exposure falls by up to half, so the district goes dark.
 
 ### 8. Bots
 
@@ -344,10 +426,31 @@ Bots should not stand in a barrage.
 
 Today the only switch is **Random events** in Debug survival
 (`FpsDebugSettings.combatEvents`, on by default, tab-local). It turns off the
-director's strikes, not reinforcements. The same panel calls in artillery
-35 m ahead, a truck or a helicopter, in solo modes only. The intended home is
+director's events, not reinforcements. The same panel calls in any event in
+solo modes only. Area events land ahead of you: 35 m, smoke 25 m, a supply drop
+30 m, a blackout on you. Hunters (helicopter raid, drone, sniper) come for you,
+and a transport plans its own drop. The intended home is
 still World conditions (`environment-settings.ts`), as
 `combatEvents: 'off' | 'occasional' | 'frequent'`.
+
+What the director picks from (`COMBAT_TABLES`, weight / cooldown in seconds):
+
+| Risk | Table |
+| --- | --- |
+| Low | artillery 3/45, mortar 2/90, supply drop 2/150, smoke 1/90, drone 1/120, blackout 1/240 |
+| Medium | artillery 3/45, mortar 2/90, drone 2/90, sniper 2/120, supply drop 2/150, smoke 1/90, tear gas 1/90, air raid 1/180, helicopter raid 1/180, blackout 1/240 |
+| High | artillery 3/45, mortar 2/75, drone 2/75, sniper 2/100, air raid 2/150, helicopter raid 2/150, tear gas 1/90, smoke 1/90, supply drop 1/150, blackout 1/240 |
+
+Only hazards hold the director up: a reinforcement truck, a supply drop or a
+blackout running does not stop the next barrage. When the host cannot place
+what it is handed (no perch for a sniper, no pit for a mortar) the director
+forgets it and looks again 5 s later.
+
+A plugin's `targeting` says where. `area` (the default) aims 25–80 m from a
+player (or its own `range`), never with a damaging round within 10 m of a
+player or gas within its radius plus 3 m. `player` aims 6–16 m from a player,
+for events that hunt and carry their own warning. Per-district tables (the
+`sector` and `hotspot` policies above) are still to do.
 
 Director pacing by district risk (`COMBAT_PACE`), in seconds:
 
@@ -395,12 +498,25 @@ director's on/off switch, guest snapshot validation, a fallen bot returning
 at its insert point, the 45 s fallback, and the unchanged 3 s respawn where
 reinforcements are off).
 
+`combat-event-catalog.test.ts` covers every new timeline: purity, warning
+before damage and gas, the air raid's sticks and ring, the mortar's launches and
+its silenced cut, the orbit's path and early turn, the crate, smoke, gas and
+jam. It also covers the descriptor's new fields and the full director tables
+and targeting. `combat-arena-events.test.ts` runs them in the arena: roof
+shelter, the mortar crew, the raid helicopter's warning, gunner and shoot-down,
+the drone's lock, dive, line-of-sight loss and shoot-down, the sniper's perch,
+glint and relocation and its blindness in smoke, the crate claimed and secured,
+and gas through armour and bots leaving it.
+
 `scripts/fixtures/combat-events.html` runs one event from its descriptor in a
 small street scene for visual review: `window.show(kind, seconds, view)`, with
 kind `artillery`, `transport-land` or `transport-air` and view `near`, `wide`
-or `high`. `pnpm test:combat-events` drives a real expedition with the AI pilot
-playing: a debug truck, helicopter and barrage must draw, craters must appear,
-and a soak must see the director call a strike of its own.
+or `high` (artillery and transports only). `pnpm test:combat-events` drives a
+real expedition with the AI pilot playing. A debug truck, helicopter and
+barrage must draw, and craters must appear. Then every other event is called
+once and must draw something (a pit, jets, a raider, a cloud, a crate, a
+jammed map) and announce itself. Finally a soak must see the director call an
+event of its own. `COMBAT_SMOKE_ONLY=mortar,drone` limits the second pass.
 
 ## Build order
 
@@ -409,11 +525,14 @@ and a soak must see the director call a strike of its own.
    visuals, audio and debug triggers. The director and bot avoidance were
    pulled forward from step 2, so the open world runs strikes and
    reinforcements unattended.
-2. Range adapter, a proper setting in World conditions, minimap rings, voiced
-   radio lines, shootable transports.
-3. **Air raid**: flyers, overhead shelter, siren.
-4. **Helicopter raid**: raider state in the snapshot, door-gunner strafe,
-   inserts, bounty.
+2. Range adapter, a proper setting in World conditions, voiced radio lines,
+   shootable transports. *(Minimap rings are done: hazard rings, the supply
+   ring and raider pips, hidden while jammed.)*
+3. **Done.** **Air raid**: flyers, overhead shelter, siren.
+4. **Done, except inserts and the bounty.** **Helicopter raid**: raider state in
+   the snapshot, the door gunner. Built alongside it: mortar fire, the drone,
+   the rooftop sniper, the supply drop, smoke, tear gas and blackout, with
+   temporary event crews (`temporary`, `anchor`) and the `ended`/`outcome` cut.
 5. LAN: descriptors and raiders in host snapshots, guest validation and
    rendering. Then per-district expedition tables.
 

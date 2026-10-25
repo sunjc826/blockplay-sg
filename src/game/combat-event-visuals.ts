@@ -1,18 +1,26 @@
 import * as THREE from 'three';
-import { combatPhase, combatTimeline, transportPose, type CombatEventDescriptor, type MunitionPayload, type TransportPayload } from './combat-events';
+import { combatPhase, combatRandom, combatTimeline, cratePose, flyerPose, orbitPose, transportPose, type CombatEventDescriptor, type MunitionPayload, type TransportPayload } from './combat-events';
+import type { ArenaRaider } from './arena-rules';
 import { buildVehicleModel } from './vehicle-models';
 import { withInstanceOpacity } from './fps-impact-material';
 
 /**
- * Draws combat events from their descriptors: shells in their last moments of
- * flight, blasts, smoke, craters, danger rings and the transports that bring
- * reinforcements. Every pool is fixed at creation; the whole tree carries
- * `fpsEffect` and stops no ray, so nothing here changes what a shot hits.
+ * Draws combat events from their descriptors: shells and bombs in their last
+ * moments of flight, blasts, smoke, craters, danger rings, the transports that
+ * bring reinforcements, crossing jets, raid helicopters and drones, mortar
+ * pits, supply crates and clouds of smoke or gas. Every pool is fixed at
+ * creation; the whole tree carries `fpsEffect` and stops no ray, so nothing
+ * here changes what a shot hits (raiders are hit by the host's own spheres).
  */
 
-const FIRE = 96, SMOKE = 256, DEBRIS = 96, SHELLS = 24, CRATERS = 40, MARKERS = 4, TRANSPORTS = 2, ROPERS = 6;
+const FIRE = 96, SMOKE = 256, DEBRIS = 96, SHELLS = 24, CRATERS = 40, MARKERS = 8, TRANSPORTS = 2, ROPERS = 6;
+const BOMBS = 16, FLYERS = 4, RAIDERS = 2, PITS = 2, CRATES = 2, PUFFS = 192, TRACERS = 40;
 /** Shells are drawn at an arcade speed so their last half-second is visible at all. */
 const SHELL_SPEED = 120;
+/** Bombs are drawn at roughly their real speed: a dark shape you can watch fall for two seconds. */
+const BOMB_SPEED = 48;
+/** Puffs in one cloud of smoke or gas, and with reduced effects. */
+const CLOUD_PUFFS = [18, 8] as const;
 const CRATER_LIFE = 60;
 const noRaycast = () => {};
 export type CombatCast = (origin: THREE.Vector3, direction: THREE.Vector3, far: number) => THREE.Vector3 | null;
@@ -47,6 +55,87 @@ function buildTruck() {
   return root;
 }
 
+/** An original fast jet: fuselage, delta wing, fin. Forward is local -Z. */
+function buildJet() {
+  const root = new THREE.Group(), skin = new THREE.MeshStandardMaterial({ color: '#7b8590', roughness: .5, metalness: .3 }), dark = new THREE.MeshStandardMaterial({ color: '#2b3036', roughness: .4 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(.75, .55, 13, 10), skin); body.rotation.x = Math.PI / 2; root.add(body);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(.75, 3, 10), skin); nose.rotation.x = -Math.PI / 2; nose.position.z = -8; root.add(nose);
+  const canopy = new THREE.Mesh(new THREE.SphereGeometry(.55, 8, 6), dark); canopy.scale.set(1, .7, 2.2); canopy.position.set(0, .6, -4); root.add(canopy);
+  const wing = new THREE.Shape(); wing.moveTo(0, -2.5); wing.lineTo(6.5, 3.5); wing.lineTo(-6.5, 3.5); wing.closePath();
+  const wings = new THREE.Mesh(new THREE.ExtrudeGeometry(wing, { depth: .18, bevelEnabled: false }), skin); wings.rotation.x = Math.PI / 2; wings.position.set(0, 0, 0); root.add(wings);
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(.15, 2.4, 2.6), skin); fin.position.set(0, 1.4, 5.4); root.add(fin);
+  return root;
+}
+/** An original four-engined cargo aircraft, high wing and a raised tail. Forward is local -Z. */
+function buildCargo() {
+  const root = new THREE.Group(), skin = new THREE.MeshStandardMaterial({ color: '#6c7568', roughness: .7 }), dark = new THREE.MeshStandardMaterial({ color: '#2a2f2b', roughness: .6 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.7, 24, 12), skin); body.rotation.x = Math.PI / 2; root.add(body);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(1.9, 12, 8), skin); nose.scale.set(1, .95, 1.6); nose.position.z = -12; root.add(nose);
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(32, .35, 3.6), skin); wing.position.set(0, 1.5, -1.5); root.add(wing);
+  for (const x of [-10, -5, 5, 10]) { const pod = new THREE.Mesh(new THREE.CylinderGeometry(.5, .5, 2.6, 8), dark); pod.rotation.x = Math.PI / 2; pod.position.set(x, 1, -3); root.add(pod); }
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(11, .25, 2.4), skin); tail.position.set(0, 3, 11.5); root.add(tail);
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(.3, 5, 3.2), skin); fin.position.set(0, 3.6, 11); root.add(fin);
+  return root;
+}
+/** An original quadcopter: body, two crossed arms, four rotor discs and a warning light. */
+function buildDrone() {
+  const root = new THREE.Group(), shell = new THREE.MeshStandardMaterial({ color: '#2a2e2c', roughness: .6 }), blade = new THREE.MeshBasicMaterial({ color: '#111', transparent: true, opacity: .45 });
+  root.add(new THREE.Mesh(new THREE.BoxGeometry(.42, .16, .62), shell));
+  const warhead = new THREE.Mesh(new THREE.CylinderGeometry(.09, .12, .5, 8), new THREE.MeshStandardMaterial({ color: '#59604e', roughness: .7 })); warhead.rotation.x = Math.PI / 2; warhead.position.set(0, -.14, -.05); root.add(warhead);
+  for (const angle of [Math.PI / 4, -Math.PI / 4]) { const arm = new THREE.Mesh(new THREE.BoxGeometry(1.15, .04, .06), shell); arm.rotation.y = angle; root.add(arm); }
+  for (const [x, z] of [[.4, .4], [-.4, .4], [.4, -.4], [-.4, -.4]]) { const rotor = new THREE.Mesh(new THREE.CylinderGeometry(.24, .24, .01, 14), blade); rotor.position.set(x, .06, z); root.add(rotor); }
+  const light = new THREE.Mesh(new THREE.SphereGeometry(.05, 6, 4), new THREE.MeshBasicMaterial({ color: '#ff3a2a', toneMapped: false })); light.name = 'drone-light'; light.position.set(0, .1, -.32); root.add(light);
+  return root;
+}
+/** A mortar on its baseplate with a bipod, the tube leaning toward local -Z. */
+function buildMortar() {
+  const root = new THREE.Group(), steel = new THREE.MeshStandardMaterial({ color: '#3b4136', roughness: .6, metalness: .3 });
+  const plate = new THREE.Mesh(new THREE.CylinderGeometry(.38, .42, .06, 12), steel); plate.position.y = .03; root.add(plate);
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(.055, .065, 1.15, 10), steel); tube.position.set(0, .55, -.25); tube.rotation.x = -.5; root.add(tube);
+  for (const x of [-.22, .22]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(.015, .015, .85, 5), steel); leg.position.set(x, .38, -.55); leg.rotation.set(.35, 0, x > 0 ? -.3 : .3); root.add(leg); }
+  return root;
+}
+/** A supply crate under its canopy. The canopy is named so it can collapse on landing. */
+function buildCrate() {
+  const root = new THREE.Group(), wood = new THREE.MeshStandardMaterial({ color: '#4f5a3c', roughness: .85 }), strap = new THREE.MeshStandardMaterial({ color: '#c8b04a', roughness: .7 });
+  const box = new THREE.Mesh(new THREE.BoxGeometry(1, .75, 1), wood); box.position.y = .375; root.add(box);
+  for (const x of [-.25, .25]) { const band = new THREE.Mesh(new THREE.BoxGeometry(.08, .77, 1.02), strap); band.position.set(x, .375, 0); root.add(band); }
+  const canopy = new THREE.Group(); canopy.name = 'crate-canopy'; root.add(canopy);
+  const cloth = new THREE.Mesh(new THREE.SphereGeometry(3.2, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#d0bf8e', roughness: .9, side: THREE.DoubleSide }));
+  cloth.scale.y = .55; cloth.position.y = 6; canopy.add(cloth);
+  const points: number[] = [];
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; points.push(Math.cos(a) * .45, .75, Math.sin(a) * .45, Math.cos(a) * 3.1, 6, Math.sin(a) * 3.1); }
+  const lines = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(points, 3)), new THREE.LineBasicMaterial({ color: '#2d2a22' }));
+  canopy.add(lines);
+  return root;
+}
+/** The transport helicopter, repainted dark, with a door gun on its left. */
+function buildGunship() {
+  const root = buildVehicleModel('helicopter');
+  root.traverse(node => {
+    if (!(node instanceof THREE.Mesh)) return;
+    node.material = (Array.isArray(node.material) ? node.material : [node.material]).map(m => {
+      const paint = m.clone(); if ('color' in paint && paint.color instanceof THREE.Color) paint.color.multiplyScalar(.42); return paint;
+    });
+    if (Array.isArray(node.material) && node.material.length === 1) node.material = node.material[0];
+  });
+  const gun = new THREE.Mesh(new THREE.BoxGeometry(.08, .08, .9), new THREE.MeshStandardMaterial({ color: '#1a1c1b', roughness: .5 })); gun.position.set(-1.25, .9, -.6); root.add(gun);
+  return root;
+}
+/** Every mesh's geometry, materials and textures, for a model built on demand. */
+function ownership(model: THREE.Object3D, geometries: THREE.BufferGeometry[], materials: THREE.Material[], textures: THREE.Texture[]) {
+  model.traverse(node => {
+    node.raycast = noRaycast;
+    if (node instanceof THREE.Mesh || node instanceof THREE.LineSegments) {
+      geometries.push(node.geometry);
+      (Array.isArray(node.material) ? node.material : [node.material]).forEach((m: THREE.Material) => { materials.push(m); if ('map' in m && m.map instanceof THREE.Texture) textures.push(m.map); });
+    }
+  });
+}
+const hashText = (text: string) => { let h = 2166136261; for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619); return h >>> 0; };
+/** What the renderer saw happen to raiders this frame, for the engine to play. */
+export interface RaiderHappenings { shots: THREE.Vector3[]; blasts: { at: THREE.Vector3; size: number }[] }
+
 export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, options: { reduced: () => boolean }) {
   const root = new THREE.Group(); root.name = 'combat-events'; root.userData.fpsEffect = true; scene.add(root);
   const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [], textures: THREE.Texture[] = [radial(64, 1.4), radial(64, .7)];
@@ -79,6 +168,33 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
   const ropeGeometry = keep(new THREE.BufferGeometry()); ropeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(TRANSPORTS * 2 * 2 * 3), 3));
   const ropes = new THREE.LineSegments(ropeGeometry, hold(new THREE.LineBasicMaterial({ color: '#1a1714' }))); ropes.frustumCulled = false; ropes.raycast = noRaycast; root.add(ropes);
   const roperMesh = pool(keep(new THREE.CapsuleGeometry(.24, 1.1, 3, 6)), hold(new THREE.MeshStandardMaterial({ color: '#3f4632', roughness: .9 })), ROPERS, 'combat-ropers');
+  const bombMesh = pool(keep(new THREE.CapsuleGeometry(.22, 1.2, 3, 8)), hold(new THREE.MeshStandardMaterial({ color: '#2c302b', roughness: .6 })), BOMBS, 'combat-bombs');
+  const puffQuad = opacityPool(PUFFS);
+  const puffMesh = pool(puffQuad.geometry, hold(withInstanceOpacity(new THREE.MeshBasicMaterial({ map: soft, transparent: true, depthWrite: false }))), PUFFS, 'combat-clouds');
+  const tracerGeometry = keep(new THREE.BufferGeometry()); tracerGeometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(TRACERS * 2 * 3), 3));
+  const tracerLines = new THREE.LineSegments(tracerGeometry, hold(new THREE.LineBasicMaterial({ color: '#ffd27a', transparent: true, opacity: .9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })));
+  tracerLines.frustumCulled = false; tracerLines.raycast = noRaycast; root.add(tracerLines);
+  const tracers: { from: THREE.Vector3; to: THREE.Vector3; age: number }[] = [];
+
+  // Models that most matches never see are built the first time they are needed, up to a fixed count each.
+  type Prop = { model: THREE.Group; owner: string; extra?: Record<string, number> };
+  const props: Record<'jet' | 'cargo' | 'gunship' | 'drone' | 'mortar' | 'crate', Prop[]> = { jet: [], cargo: [], gunship: [], drone: [], mortar: [], crate: [] };
+  const limits = { jet: FLYERS, cargo: 1, gunship: RAIDERS, drone: RAIDERS, mortar: PITS, crate: CRATES };
+  const builders = { jet: buildJet, cargo: buildCargo, gunship: buildGunship, drone: buildDrone, mortar: buildMortar, crate: buildCrate };
+  const used = new Set<Prop>();
+  function prop(kind: keyof typeof props, owner: string) {
+    const list = props[kind];
+    let slot = list.find(p => p.owner === owner) ?? list.find(p => !p.owner);
+    if (!slot && list.length < limits[kind]) {
+      const model = builders[kind](); ownership(model, geometries, materials, textures); model.visible = false; root.add(model);
+      slot = { model, owner: '' }; list.push(slot);
+    }
+    if (slot) { slot.owner = owner; slot.model.visible = true; used.add(slot); }
+    return slot;
+  }
+  /** Last frame's raider states and shot counts, so a change can be drawn once. */
+  const seenRaiders = new Map<string, { state: string; shots: number }>();
+  const trail = new THREE.Color('#2f2d2a');
 
   // Transport models are built on first use: most matches never see one of each.
   const fleet: Record<'land' | 'air', { model: THREE.Group; rotor?: THREE.Object3D; tail?: THREE.Object3D; ground: number; groundAt: number; owner: string }[]> = { land: [], air: [] };
@@ -120,6 +236,12 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     return point;
   }
   function groundAt(x: number, z: number) { return cast(origin.set(x, 120, z), down, 200)?.y ?? 0; }
+  /** The ground under a point an event keeps coming back to, cast once and remembered with its landings. */
+  function groundOnce(key: string, x: number, z: number) {
+    let point = landings.get(key);
+    if (!point) { point = new THREE.Vector3(x, groundAt(x, z), z); landings.set(key, point); }
+    return point.y;
+  }
 
   function add(list: Particle[], capacity: number, particle: Particle) { if (list.length >= capacity) list.shift(); list.push(particle); }
   function particle(at: THREE.Vector3, spread: number, up: number, life: number, size: number, grow: number, colour: THREE.Color): Particle {
@@ -165,7 +287,55 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     }
   }
 
-  function update(dt: number, events: readonly CombatEventDescriptor[], time: number, camera: THREE.Camera) {
+  const cameraQuaternion = new THREE.Quaternion(), yAxis = new THREE.Vector3(0, -1, 0), gunAt = new THREE.Vector3(), aimAt = new THREE.Vector3(), shotRay = new THREE.Vector3();
+  /**
+   * Drones from the host's positions, smoothed; door-gun tracers and the
+   * moment a raider bursts or hits the ground. Returns what happened, for sound.
+   */
+  function drawRaiders(raiders: readonly ArenaRaider[], dt: number): RaiderHappenings {
+    const happened: RaiderHappenings = { shots: [], blasts: [] }, present = new Set<string>();
+    for (const r of raiders) {
+      present.add(r.event);
+      const seen = seenRaiders.get(r.event) ?? { state: r.state, shots: r.shots };
+      if (r.kind === 'drone' && r.state !== 'exploded' && r.state !== 'wreck') {
+        const v = prop('drone', r.event);
+        if (v) {
+          const fresh = !v.extra; v.extra ??= { spin: 0 };
+          if (fresh) v.model.position.set(r.x, r.y, r.z); else v.model.position.lerp(position.set(r.x, r.y, r.z), 1 - Math.exp(-14 * dt));
+          v.model.rotation.set(r.state === 'dive' ? -.7 : r.state === 'down' ? clock * 7 : 0, r.yaw, 0);
+          const light = v.model.getObjectByName('drone-light');
+          // Slow blink circling, frantic once locked, steady in the dive.
+          if (light) light.visible = r.state === 'dive' || Math.sin(clock * (r.state === 'lock' ? 50 : 9)) > 0;
+        }
+      }
+      if (r.state === 'down' && !options.reduced() && Math.random() < dt * 30) {
+        const puff = particle(position.set(r.x, r.y + .6, r.z), .6, .5, 2.2, r.kind === 'gunship' ? 1.6 : .5, 1.4, trail); puff.lift = .6; add(smoke, SMOKE, puff);
+      }
+      if (seen.state !== r.state && (r.state === 'exploded' || (r.state === 'wreck' && r.kind === 'gunship'))) {
+        const at = new THREE.Vector3(r.x, r.y, r.z), size = r.kind === 'gunship' ? 1.4 : .75;
+        blast(at, size); happened.blasts.push({ at, size });
+        if (r.kind === 'gunship') emitters.push({ x: r.x, y: r.y, z: r.z, colour: trail.clone(), until: clock + 20, next: clock, rate: options.reduced() ? .4 : .12 });
+      }
+      if (r.kind === 'gunship' && r.shots > seen.shots && r.aim) {
+        const gunship = props.gunship.find(p => p.owner === r.event)?.model;
+        if (gunship) gunAt.set(-1.25, .9, -1).applyMatrix4(gunship.matrixWorld); else gunAt.set(r.x, r.y + .7, r.z);
+        for (let n = 0; n < Math.min(3, r.shots - seen.shots); n++) {
+          aimAt.set(r.aim.x + (Math.random() - .5) * 1.4, r.aim.y + (Math.random() - .5) * 1.2, r.aim.z + (Math.random() - .5) * 1.4);
+          shotRay.subVectors(aimAt, gunAt); const reach = shotRay.length(); shotRay.normalize();
+          const end = cast(gunAt, shotRay, reach + 30)?.clone() ?? aimAt.clone();
+          if (tracers.length >= TRACERS) tracers.shift();
+          tracers.push({ from: gunAt.clone(), to: end, age: 0 });
+          if (!options.reduced()) { const kick = particle(end, 1.2, 1.4, .7, .25, .8, dust.clone()); add(smoke, SMOKE, kick); }
+          happened.shots.push(gunAt.clone());
+        }
+      }
+      seenRaiders.set(r.event, { state: r.state, shots: r.shots });
+    }
+    for (const id of seenRaiders.keys()) if (!present.has(id)) seenRaiders.delete(id);
+    return happened;
+  }
+
+  function update(dt: number, events: readonly CombatEventDescriptor[], time: number, camera: THREE.Camera, raiders: readonly ArenaRaider[] = []): RaiderHappenings {
     clock += dt;
     // Lingering signal smoke from spotting rounds and downwash dust under a hovering helicopter.
     for (let i = emitters.length - 1; i >= 0; i--) {
@@ -177,21 +347,80 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
         puff.lift = 1.1; puff.vx += .9; puff.opacity = .6; add(smoke, SMOKE, puff);
       }
     }
-    let shells = 0, ropeLines = 0, ropers = 0;
+    let shells = 0, ropeLines = 0, ropers = 0, bombs = 0, puffs = 0;
+    used.clear();
+    const reduced = options.reduced();
     const live = new Set<string>(), ropeArray = ropeGeometry.getAttribute('position') as THREE.BufferAttribute;
     markers.forEach(m => { m.mesh.visible = false; });
     let marker = 0;
+    camera.getWorldQuaternion(cameraQuaternion);
     for (const event of events) {
       if (combatPhase(event, time) === 'done') continue;
       const age = time - event.start;
+      if (event.kind === 'mortar' && event.origin) {
+        const pit = prop('mortar', event.id);
+        if (pit) { pit.model.position.set(event.origin.x, groundOnce(`${event.id}/pit`, event.origin.x, event.origin.z), event.origin.z); pit.model.rotation.set(0, event.heading, 0); }
+      }
+      if (event.kind === 'helicopter-raid') {
+        const orbit = combatTimeline(event).find(p => p.type === 'orbit');
+        const live = raiders.find(r => r.event === event.id);
+        // A flying raid is drawn from its own pure path; one coming down follows the host.
+        const falling = live && (live.state === 'down' || live.state === 'wreck');
+        const pose = orbit?.type === 'orbit' && !falling ? orbitPose(orbit, age, event.altitude ?? 40) : null;
+        if ((pose?.visible || falling) && live) {
+          const v = prop('gunship', event.id);
+          if (v) {
+            const smoothing = 1 - Math.exp(-12 * dt);
+            if (pose) { v.model.position.set(pose.x, pose.y, pose.z); v.model.rotation.set(0, pose.yaw, 0); }
+            else { v.model.position.lerp(position.set(live.x, live.y, live.z), smoothing); v.model.rotation.set(live.state === 'wreck' ? .25 : 0, live.yaw, live.state === 'wreck' ? .4 : 0); }
+            const rotor = v.model.getObjectByName('main-rotor'), tail = v.model.getObjectByName('tail-rotor');
+            if (rotor && live.state !== 'wreck') rotor.rotation.y += dt * 38;
+            if (tail && live.state !== 'wreck') tail.rotation.x += dt * 60;
+            v.model.updateMatrixWorld(true);
+          }
+        }
+      }
       for (const payload of combatTimeline(event)) {
         if (payload.type === 'munition') {
-          const remaining = payload.time - age;
-          if (remaining <= 0 || remaining > Math.min(payload.flight, .9) || shells >= SHELLS) continue;
-          const at = landingOf(event, payload);
-          position.set(at.x - payload.descent.x * SHELL_SPEED * remaining, at.y - payload.descent.y * SHELL_SPEED * remaining, at.z - payload.descent.z * SHELL_SPEED * remaining);
+          const remaining = payload.time - age, bomb = payload.kind === 'bomb';
+          if (remaining <= 0 || remaining > Math.min(payload.flight, bomb ? 2.5 : .9)) continue;
+          if (bomb ? bombs >= BOMBS : shells >= SHELLS) continue;
+          const at = landingOf(event, payload), speed = bomb ? BOMB_SPEED : SHELL_SPEED;
+          position.set(at.x - payload.descent.x * speed * remaining, at.y - payload.descent.y * speed * remaining, at.z - payload.descent.z * speed * remaining);
           roll.setFromUnitVectors(zAxis, direction.set(payload.descent.x, payload.descent.y, payload.descent.z));
-          shellMesh.setMatrixAt(shells++, matrix.compose(position, roll, scale.set(1, 1, 7)));
+          if (bomb) { quaternion.setFromUnitVectors(yAxis, direction); bombMesh.setMatrixAt(bombs++, matrix.compose(position, quaternion, scale.set(1, 1, 1))); }
+          else shellMesh.setMatrixAt(shells++, matrix.compose(position, roll, scale.set(1, 1, payload.kind === 'shell' || !payload.kind ? 7 : 3.5)));
+        } else if (payload.type === 'flyer') {
+          const pose = flyerPose(payload, age); if (!pose.visible) continue;
+          const v = prop(payload.model, `${event.id}/${payload.id}`); if (!v) continue;
+          v.model.position.set(pose.x, groundOnce(`${event.id}/ground`, event.target.x, event.target.z) + pose.y, pose.z); v.model.rotation.set(0, pose.yaw, 0);
+        } else if (payload.type === 'crate') {
+          const pose = cratePose(payload, age);
+          // Carried off by a patrol: it goes when they take it.
+          if (!pose.visible || (event.outcome === 'secured' && event.ended !== undefined && time >= event.ended)) continue;
+          const v = prop('crate', event.id); if (!v) continue;
+          const ground = groundOnce(`${event.id}/crate`, payload.at.x, payload.at.z);
+          v.model.position.set(pose.x, ground + pose.y, pose.z); v.model.rotation.set(0, (event.seed % 628) / 100, 0);
+          const canopy = v.model.getObjectByName('crate-canopy');
+          if (canopy) {
+            // On landing the canopy sags and slides off to one side, then is gone.
+            const settle = Math.max(0, Math.min(1, (age - payload.land) / 1.6));
+            canopy.visible = settle < 1; canopy.scale.set(1 + settle * .3, 1 - settle * .95, 1 + settle * .3); canopy.position.x = settle * 2.5;
+            if (!pose.landed) canopy.rotation.z = Math.sin(clock * 1.3) * .05;
+          }
+        } else if (payload.type === 'cloud') {
+          if (age < payload.from || age > payload.until) continue;
+          const key = `${event.id}/cloud${payload.id}`, ground = groundOnce(key, payload.center.x, payload.center.z);
+          const fade = Math.min(1, (age - payload.from) / 2.5) * Math.min(1, (payload.until - age) / 4);
+          const random = combatRandom(hashText(key)), count = CLOUD_PUFFS[reduced ? 1 : 0];
+          colour.set(payload.colour);
+          for (let k = 0; k < count && puffs < PUFFS; k++) {
+            const a = random() * Math.PI * 2, r = Math.sqrt(random()) * payload.radius * .8, rise = .8 + random() * 3.6, size = payload.radius * (.55 + random() * .45);
+            const drift = Math.sin(clock * .25 + k) * .7;
+            position.set(payload.center.x + Math.cos(a) * r + drift, ground + rise + Math.sin(clock * .4 + k) * .2, payload.center.z + Math.sin(a) * r);
+            puffMesh.setColorAt(puffs, colour); puffQuad.opacity.setX(puffs, fade * .78);
+            puffMesh.setMatrixAt(puffs++, matrix.compose(position, cameraQuaternion, scale.setScalar(size)));
+          }
         } else if (payload.type === 'marker' && marker < MARKERS && age >= payload.from && age <= payload.until) {
           const m = markers[marker++], y = landings.get(`${event.id}/marker`)?.y ?? groundAt(payload.center.x, payload.center.z);
           if (!landings.has(`${event.id}/marker`)) landings.set(`${event.id}/marker`, new THREE.Vector3(payload.center.x, y, payload.center.z));
@@ -222,6 +451,14 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     }
     camera.getWorldQuaternion(quaternion);
     for (const mode of ['land', 'air'] as const) for (const v of fleet[mode]) if (!live.has(v.owner)) { v.owner = ''; v.model.visible = false; }
+    const happened = drawRaiders(raiders, dt);
+    for (const list of Object.values(props)) for (const p of list) if (!used.has(p)) { p.owner = ''; p.model.visible = false; }
+    bombMesh.count = bombs; bombMesh.instanceMatrix.needsUpdate = true;
+    puffMesh.count = puffs; puffMesh.instanceMatrix.needsUpdate = true; puffQuad.opacity.needsUpdate = true; if (puffMesh.instanceColor) puffMesh.instanceColor.needsUpdate = true;
+    for (let i = tracers.length - 1; i >= 0; i--) if ((tracers[i].age += dt) > .07) tracers.splice(i, 1);
+    const tracerArray = tracerGeometry.getAttribute('position') as THREE.BufferAttribute;
+    tracers.forEach((t, i) => { tracerArray.setXYZ(i * 2, t.from.x, t.from.y, t.from.z); tracerArray.setXYZ(i * 2 + 1, t.to.x, t.to.y, t.to.z); });
+    tracerGeometry.setDrawRange(0, tracers.length * 2); tracerArray.needsUpdate = true; tracerLines.visible = tracers.length > 0;
     shellMesh.count = shells; shellMesh.instanceMatrix.needsUpdate = true;
     roperMesh.count = ropers; roperMesh.instanceMatrix.needsUpdate = true;
     ropeGeometry.setDrawRange(0, ropeLines * 2); ropeArray.needsUpdate = true; ropes.visible = ropeLines > 0;
@@ -253,6 +490,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     });
     craterMesh.count = craters.length; craterMesh.instanceMatrix.needsUpdate = true; craterQuad.opacity.needsUpdate = true;
     flash.intensity *= Math.exp(-dt * 14); if (flash.intensity < .05) flash.intensity = 0;
+    return happened;
   }
 
   function drawTransport(event: CombatEventDescriptor, payload: TransportPayload, age: number, dt: number, live: Set<string>) {
@@ -269,16 +507,21 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
   }
 
   function reset() {
-    fire.length = smoke.length = debris.length = craters.length = emitters.length = 0; landings.clear(); flash.intensity = 0;
+    fire.length = smoke.length = debris.length = craters.length = emitters.length = tracers.length = 0; landings.clear(); seenRaiders.clear(); flash.intensity = 0;
     for (const mode of ['land', 'air'] as const) for (const v of fleet[mode]) { v.owner = ''; v.model.visible = false; }
+    for (const list of Object.values(props)) for (const p of list) { p.owner = ''; p.model.visible = false; p.extra = undefined; }
   }
   return {
     update, blast, spot, landingOf, reset,
     /** Live pool sizes, for smokes and tests. */
-    get counts() { return { fire: fire.length, smoke: smoke.length, debris: debris.length, craters: craters.length, transports: fleet.land.filter(v => v.owner).length + fleet.air.filter(v => v.owner).length }; },
+    get counts() {
+      const shown = (kind: keyof typeof props) => props[kind].filter(p => p.owner).length;
+      return { fire: fire.length, smoke: smoke.length, debris: debris.length, craters: craters.length, transports: fleet.land.filter(v => v.owner).length + fleet.air.filter(v => v.owner).length,
+        flyers: shown('jet') + shown('cargo'), raiders: shown('gunship') + shown('drone'), pits: shown('mortar'), crates: shown('crate'), puffs: puffMesh.count, tracers: tracers.length };
+    },
     dispose() {
       root.removeFromParent();
-      [fireMesh, smokeMesh, debrisMesh, shellMesh, craterMesh, roperMesh].forEach(mesh => mesh.dispose());
+      [fireMesh, smokeMesh, debrisMesh, shellMesh, craterMesh, roperMesh, bombMesh, puffMesh].forEach(mesh => mesh.dispose());
       new Set(geometries).forEach(g => g.dispose()); new Set(materials).forEach(m => m.dispose()); new Set(textures).forEach(t => t.dispose());
     },
   };

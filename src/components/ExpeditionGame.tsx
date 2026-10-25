@@ -88,9 +88,10 @@ export default function ExpeditionGame({ profile, onExit, onVendorPurchase, onCo
       <FpsRadio hud={hud} />
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus} · ESC TO STOP</div>}
       {playing && <>
-        <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} mode="expedition" expanded={hud.mapExpanded} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
+        <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} mode="expedition" expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
         <FpsVitals hud={hud} />
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}
+        {hud.cloudCover && <div className={`fps-cloud-overlay ${hud.cloudCover.kind}`} style={{ opacity: Math.min(.9, .25 + hud.cloudCover.amount * .7) }} aria-hidden="true" />}
         {hud.incoming && <div className="fps-incoming">INCOMING · FIND COVER</div>}
         {hud.combatBanner && <div className={`fps-combat-banner ${hud.combatBanner.tone}`} role="status">{hud.combatBanner.text}</div>}
         {hud.hit && <div className="fps-hit-label">HIT −{hud.lastDamage}</div>}

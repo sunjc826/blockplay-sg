@@ -22,7 +22,11 @@ const VIEW = { compact: { width: 200, height: 160 }, expanded: { width: 600, hei
  * it is a local window that follows the player; expanded (M), it is the whole
  * district, with sector names and marker labels, over the centre of the scene.
  */
-export default function FpsMinimap({ zone, player, markers = [], mode, expanded = false, onToggle }: {
+export default function FpsMinimap({ zone, player, markers = [], mode, expanded = false, onToggle, dangers = [], jammed = false }: {
+  /** Combat events: rings for marked areas and supply crates, dots for aircraft. */
+  dangers?: readonly { id: string; x: number; z: number; radius: number; kind: 'ring' | 'crate' | 'raider' }[];
+  /** Jamming: static over the map and nothing on it but you. */
+  jammed?: boolean;
   zone: WorldZoneId; player: { x: number; z: number; yaw: number };
   markers?: readonly MinimapMarker[]; mode: 'practice' | 'expedition' | 'arena';
   expanded?: boolean; onToggle?: () => void;
@@ -43,7 +47,7 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded 
     <div className="fps-minimap-heading"><strong>{getWorldZone(zone).name}{expanded && <small> · DISTRICT MAP</small>}</strong><span>{expanded ? 'M · CLOSE' : '↑ N · M MAP'}</span></div>
     <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby={title}>
       <title id={title}>{`${getWorldZone(zone).name}: your position and facing direction. ${mode === 'arena' ? 'Opponents are not shown.' : 'Nearby roads and supplies; outlined checkpoint markers at the edge indicate distant exits.'}`}</title>
-      <defs><clipPath id={clip}><rect x={inset} y={inset} width={width - inset * 2} height={height - inset * 2} rx="5" /></clipPath></defs>
+      <defs><pattern id="fps-map-static" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#1b2420" /><rect width="2" height="1" x="1" y="1" fill="#6b7a70" /><rect width="1" height="2" x="4" y="3" fill="#4e5c53" /></pattern><clipPath id={clip}><rect x={inset} y={inset} width={width - inset * 2} height={height - inset * 2} rx="5" /></clipPath></defs>
       <rect x={inset} y={inset} width={width - inset * 2} height={height - inset * 2} rx="5" fill="#273b35" />
       <g clipPath={`url(#${clip})`}>
         <g transform={map.transform}>
@@ -57,7 +61,11 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded 
         </g>
         {expanded && sectors.map(sector => <text key={sector.id} className="fps-map-sector" data-map-sector={sector.id}
           x={map.x((sector.bounds.minX + sector.bounds.maxX) / 2)} y={map.y((sector.bounds.minZ + sector.bounds.maxZ) / 2)} textAnchor="middle">{sector.name}</text>)}
-        {markers.map(marker => {
+        {!jammed && dangers.map(danger => danger.kind === 'raider'
+          ? <g key={danger.id} data-map-danger={danger.kind} transform={`translate(${map.x(danger.x)} ${map.y(danger.z)})`}><path d="M0 -5 L5 4 L-5 4 Z" fill="#ff5a45" stroke="#2a0d0a" strokeWidth="1" /></g>
+          : <circle key={danger.id} data-map-danger={danger.kind} cx={map.x(danger.x)} cy={map.y(danger.z)} r={Math.max(3, danger.radius * map.scale)}
+            fill={danger.kind === 'crate' ? '#5fe08a22' : '#ff4a3a22'} stroke={danger.kind === 'crate' ? '#5fe08a' : '#ff5a45'} strokeWidth="1.5" strokeDasharray={danger.kind === 'crate' ? '3 2' : undefined} />)}
+        {!jammed && markers.map(marker => {
           const x = map.x(marker.x), y = map.y(marker.z);
           const outside = x < edge || x > width - edge || y < edge || y > height - edge;
           if (outside && marker.kind !== 'checkpoint') return null;
@@ -79,7 +87,9 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded 
           <path d="M0 -7 L5 5 L0 2 L-5 5 Z" fill="#fff9db" stroke="#172820" strokeWidth="1" />
         </g>
       </g>
-      <path d={`M${edge} ${height - 18} v4 h${map.scale * bar} v-4`} fill="none" stroke="#dde7cd" strokeWidth="1" /><text x={edge} y={height - 22} fontSize={expanded ? 10 : 7} fill="#dde7cd">{bar}m</text>
+      {jammed && <g data-map-jammed><rect x={inset} y={inset} width={width - inset * 2} height={height - inset * 2} rx="5" fill="url(#fps-map-static)" opacity=".75" />
+        <text x={width / 2} y={height / 2} textAnchor="middle" fontSize={expanded ? 16 : 10} fontWeight="700" fill="#efd077" letterSpacing="2">SIGNAL JAMMED</text></g>}
+            <path d={`M${edge} ${height - 18} v4 h${map.scale * bar} v-4`} fill="none" stroke="#dde7cd" strokeWidth="1" /><text x={edge} y={height - 22} fontSize={expanded ? 10 : 7} fill="#dde7cd">{bar}m</text>
       {expanded && <text x={width - edge} y={edge + 10} textAnchor="end" fontSize="11" fill="#efd077" fontWeight="700">↑ N</text>}
     </svg>
     <div className="fps-minimap-legend">{legend}</div>

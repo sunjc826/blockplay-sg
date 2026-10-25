@@ -82,9 +82,10 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
       <FpsRadio hud={hud} />
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus} · ESC TO STOP</div>}
       {playing && <>
-        <FpsMinimap zone={region} player={hud} markers={hud.mapMarkers} mode={isArena ? 'arena' : 'practice'} expanded={hud.mapExpanded} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
+        <FpsMinimap zone={region} player={hud} markers={hud.mapMarkers} mode={isArena ? 'arena' : 'practice'} expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
         <FpsVitals hud={hud} />
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}
+        {hud.cloudCover && <div className={`fps-cloud-overlay ${hud.cloudCover.kind}`} style={{ opacity: Math.min(.9, .25 + hud.cloudCover.amount * .7) }} aria-hidden="true" />}
         {hud.incoming && <div className="fps-incoming">INCOMING · MOVE OR TAKE COVER</div>}
         {hud.combatBanner && <div className={`fps-combat-banner ${hud.combatBanner.tone}`} role="status">{hud.combatBanner.text}</div>}
         {hud.hit && <div className="fps-hit-label" aria-hidden="true">HIT −{hud.lastDamage}</div>}

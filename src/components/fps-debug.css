@@ -12,3 +12,5 @@
 .fps-debug-panel>small{display:block;font:8px monospace;margin-top:8px;color:#66775b}
 
 .fps-debug-events{border-top:1px solid #b5c2aa;margin-top:10px;padding-top:10px}
+.fps-debug-event-grid{display:grid;grid-template-columns:repeat(3,1fr)}
+.fps-debug-event-grid button{font-size:12px;padding:7px 4px}

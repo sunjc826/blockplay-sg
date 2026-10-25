@@ -2418,3 +2418,38 @@ pointer capture when its window is not in front.
 Not done: no bespoke supply models per food beyond four shapes; shadows cover
 ~130 m round the camera (distant towers cast none); the region (walk/drive)
 modes keep their authored whole-map shadows but now follow the time of day.
+
+## 2026-10-25: nine new combat events
+
+- Catalog (`combat-event-catalog.ts`): air raid, helicopter raid, mortar fire,
+  loitering drone, rooftop sniper, supply drop, smoke screen, tear gas and
+  blackout, beside artillery and the two transports. New payloads in
+  `combat-events.ts`: `flyer`, `orbit`, `crate`, `cloud`, `jam`, `presence`;
+  munitions gained `kind` and `launch`, blasts `overhead`. Descriptors gained
+  `origin`, `altitude`, `ended`, `outcome`, `claimedBy`; `combatTimeline` cuts
+  an ended event itself (in-flight rounds still land, orbits turn for home).
+  Plugins gained `cause` and `targeting` (`area` with a range, or `player`).
+- Director: `COMBAT_TABLES` by risk replace artillery-only (raids, snipers and
+  gas only at medium/high); `DEFAULT_COMBAT_TABLE` is still artillery alone.
+- Host (`arena-rules.ts`): `place` (mortar pit, sniper perch from rendered
+  roofs, flying heights) and `field` (crews, raiders). Event crews are
+  temporary anchored bots (`mortar-crew`, `overwatch`; `eventOnly` roles kept
+  out of squads and balance), hold fire until the warning, never respawn, and
+  leave with the event; patrols ignore them and they hunt players only.
+  Raiders (gunship on its pure orbit with a live door gunner; drone fully live)
+  are hit by spheres in `resolveShot` and published as `snapshot.raiders`.
+  Smoke blocks every line of sight (`smokeBetween`), gas hurts past armour
+  (`hurtActor(..., piercing)`), bombs leave 20% under a roof (`roofed`,
+  `OVERHEAD_SHELTER`), crates are claimed by a player or secured by patrols.
+  `dangerExit` now ignores non-hazard rings and markers outside their window.
+- Engine/UI: banners ranked per event (a drone locked on you wins), siren, jet,
+  raid-rotor and drone loops, door-gun cracks, mortar thumps, lock beeps; map
+  danger rings and raider pips, static when jammed; smoke/gas screen overlay;
+  blackout halves night exposure; an opened crate lays out supply loot
+  (`expedition-loot` `supply`) or tops up outside expeditions; the debug panel
+  calls any event. Snapshot validation covers raiders, `aiming`, `ground`.
+Validation: `combat-event-catalog.test.ts`, `combat-arena-events.test.ts`, the
+full suite and typecheck. `pnpm test:combat-events` now also calls every new
+event once (see docs/COMBAT-EVENTS.md).
+Not done: raid fast-rope inserts and bounties, a World conditions setting,
+voiced radio lines, per-district tables, LAN.

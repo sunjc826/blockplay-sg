@@ -110,6 +110,8 @@ export function createExpeditionLoot(seed: string | number) {
   // Drops live beside the rolled crates, not in them: they are not part of the
   // seed's content, and a checkpoint does not keep them.
   const drops = new Map<WorldZoneId, FieldLoot[]>(); let dropSerial = 0;
+  // Supply-drop contents likewise: won in play, not rolled from the seed, and not kept by a checkpoint.
+  const supplies = new Map<WorldZoneId, FieldLoot[]>();
   function enterZone(geometry: LootZoneGeometry): FieldLoot[] {
     if (zones.has(geometry.id)) return remaining(geometry.id);
     if (!ZONE_LOOT_RULES[geometry.id] || !finitePosition(geometry.spawn) || !Object.values(geometry.bounds).every(Number.isFinite) ||
@@ -226,7 +228,25 @@ export function createExpeditionLoot(seed: string | number) {
     zones.set(geometry.id, loot);
     return remaining(geometry.id);
   }
-  function remaining(zoneId: WorldZoneId): FieldLoot[] { return [...zones.get(zoneId) ?? [], ...drops.get(zoneId) ?? []].filter(item => !collected.has(item.id)).map(item => ({ ...item })); }
+  function remaining(zoneId: WorldZoneId): FieldLoot[] { return [...zones.get(zoneId) ?? [], ...drops.get(zoneId) ?? [], ...supplies.get(zoneId) ?? []].filter(item => !collected.has(item.id)).map(item => ({ ...item })); }
+  /**
+   * What a supply crate held: a weapon rolled a tier up for the district, a
+   * double ammunition kit and a medical kit, set out round the crate at `at`.
+   * `key` (the drop's event id) makes the same crate hold the same things.
+   */
+  function supply(zoneId: WorldZoneId, key: string, at: ZonePosition & { y?: number }): FieldLoot[] {
+    const rules = ZONE_LOOT_RULES[zoneId];
+    if (!rules || !finitePosition(at) || !Number.isFinite(at.y ?? 0)) return [];
+    const random = randomFor(`${seedText}:${zoneId}:supply:${key}`);
+    const contents: [FieldLootKind, ShopItem, number][] = [
+      ['weapon', rollZoneWeapon(zoneId, random, 1), 1], ['ammo', itemById('kit-ammo')!, rules.ammoAmount * 2],
+      ['medical', itemById(random() < .5 ? 'kit-trauma' : 'kit-dressing')!, rules.medicalAmount],
+    ];
+    const items = contents.map(([kind, item, amount], index): FieldLoot => ({ id: `supply-${zoneId}-${++dropSerial}`, zoneId, kind, catalogId: item.id, name: item.name, tier: item.tier,
+      x: at.x + Math.cos(index * 2.1) * 1.2, z: at.z + Math.sin(index * 2.1) * 1.2, y: Math.max(0, at.y ?? 0), amount, placement: 'field', dropped: true }));
+    supplies.set(zoneId, [...(supplies.get(zoneId) ?? []).filter(item => !collected.has(item.id)), ...items]);
+    return items.map(item => ({ ...item }));
+  }
   /**
    * A fallen enemy's weapon, left where they fell. Only enemy issue drops, and
    * a district keeps the newest `MAX_FIELD_DROPS`; `evicted` names the ones
@@ -250,14 +270,14 @@ export function createExpeditionLoot(seed: string | number) {
   }
   function collect(zoneId: WorldZoneId, lootId: string, player: ZonePosition & { y?: number }): FieldLoot | null {
     if (!finitePosition(player) || !Number.isFinite(player.y ?? 0)) return null;
-    const item = [...zones.get(zoneId) ?? [], ...drops.get(zoneId) ?? []].find(candidate => candidate.id === lootId);
+    const item = [...zones.get(zoneId) ?? [], ...drops.get(zoneId) ?? [], ...supplies.get(zoneId) ?? []].find(candidate => candidate.id === lootId);
     if (!item || collected.has(item.id) || Math.abs((item.y ?? 0) - (player.y ?? 0)) > 1.2 || Math.hypot(item.x - player.x, (item.y ?? 0) - (player.y ?? 0), item.z - player.z) > 2.8) return null;
     collected.add(item.id); return { ...item };
   }
   function snapshot() {
-    return { seed: seedText, zones: [...zones.entries()].map(([id, loot]) => ({ id, loot: loot.map(item => ({ ...item })) })), collected: [...collected].filter(id => !id.startsWith('drop-')) };
+    return { seed: seedText, zones: [...zones.entries()].map(([id, loot]) => ({ id, loot: loot.map(item => ({ ...item })) })), collected: [...collected].filter(id => !id.startsWith('drop-') && !id.startsWith('supply-')) };
   }
-  return { enterZone, remaining, nearest, collect, drop, snapshot };
+  return { enterZone, remaining, nearest, collect, drop, supply, snapshot };
 }
 export type ExpeditionLoot = ReturnType<typeof createExpeditionLoot>;
 

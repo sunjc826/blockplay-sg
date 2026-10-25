@@ -11,10 +11,10 @@ import { advanceWeapon, beginReload, createLoadout, FPS_WEAPONS, fireWeapon, hit
 import { armamentFamilies, chooseArmament, getArenaRole, type ArenaRolePlugin } from './arena-roles';
 import { variantSpec } from './armory-state';
 import { BOT_HEAL, botFireCadence, botShotSpread, botWantsHeal } from './arena-bot-combat';
-import './combat-event-catalog';
-import { combatPhase, combatTimeline, getCombatEvent, MAX_COMBAT_EVENTS, type CombatEventDescriptor, type CombatPlane, type MunitionPayload } from './combat-events';
+import { DRONE, DRONE_BLAST, MORTAR, OVERWATCH, RAID, SUPPLY } from './combat-event-catalog';
+import { combatPhase, combatTimeline, getCombatEvent, orbitPose, MAX_COMBAT_EVENTS, type CloudPayload, type CombatEventDescriptor, type CombatOutcome, type CombatPlane, type CratePayload, type MunitionPayload, type OrbitPayload } from './combat-events';
 import { createCombatDirector, planTransport, type CombatRisk } from './combat-director';
-import { resolveBlast, type BlastTarget } from './combat-blast';
+import { OVERHEAD_SHELTER, resolveBlast, type BlastTarget } from './combat-blast';
 
 /** All coordinates use metres; actor y is eye height, not the feet. */
 export interface ArenaActor {
@@ -27,6 +27,25 @@ export interface ArenaActor {
   healing?: number;
   /** Where the last thing that hurt this actor came from; `serial` changes with every hit. */
   hurtFrom?: { x: number; z: number; serial: number; blast?: boolean };
+  /** A rooftop sniper with someone in their scope: renderers show the glint. */
+  aiming?: boolean;
+  /** Feet height of an actor held on a perch the walk surfaces do not describe, such as a roof. */
+  ground?: number;
+}
+export type ArenaRaiderState = 'inbound' | 'orbit' | 'leaving' | 'cruise' | 'lock' | 'dive' | 'down' | 'wreck' | 'exploded';
+/**
+ * A combat event's machine that can be shot: a raid helicopter or a drone.
+ * Its event says where it was meant to go; this is where it is and what it
+ * is doing, because the host flies, aims and damages it.
+ */
+export interface ArenaRaider {
+  event: string; kind: 'gunship' | 'drone';
+  x: number; y: number; z: number; yaw: number; health: number; maxHealth: number;
+  state: ArenaRaiderState;
+  /** Where its gun or its dive is pointed, if anywhere. */
+  aim: ArenaPoint | null;
+  /** Rounds fired so far; a change is a shot for the renderer to draw. */
+  shots: number;
 }
 export interface ArenaFeed { id: string; text: string; killerId?: string; victimId?: string }
 export interface ArenaSnapshot {
@@ -34,6 +53,8 @@ export interface ArenaSnapshot {
   feed: ArenaFeed[]; finished: boolean; winner: string; vehicles?: SharedVehicle[];
   /** Combat events still running or lingering; each one's rounds follow from its descriptor. */
   events?: CombatEventDescriptor[];
+  /** Raid helicopters and drones in the air, or coming down. */
+  raiders?: ArenaRaider[];
 }
 export interface ArenaInput { x: number; y: number; z: number; yaw: number; pitch: number; weapon: number; playing: boolean; reloading?: boolean; prone?: boolean; vehicleControls?: VehicleControls }
 export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount' | 'bolt'>;
@@ -104,12 +125,26 @@ interface InternalActor {
   burst: number; burstFired: number;
   /** Bots: dressings carried, the dressing being applied, and when they were last hit. */
   medkits: number; heal?: { time: number; feet: number; started: number }; lastHurt: number;
+  /** Fielded by a combat event: never respawns, holds fire until `from` (the event's warning), and leaves when the event does. */
+  temporary?: { event: string; from: number };
+  /** Holds this spot. With `y`, at that feet height whatever the walk surfaces say (a roof). */
+  anchor?: { x: number; z: number; y?: number };
+}
+interface Raider extends ArenaRaider {
+  vx: number; vy: number; vz: number;
+  /** Gunship: the burst under way. Drone: who it is locked on to. */
+  victim?: string; since: number; fired: number; walk?: ArenaPoint;
+  /** Next time it may look for someone; seconds without a line to its victim; when it is cleared away. */
+  next: number; lost: number; until: number; angle: number;
 }
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 /** A full gun; the host keeps no reserve, so every reload refills it. */
 const hostAmmo = (weapon: ArenaWeapon): WeaponState => createLoadout([{ ...weapon, reserve: Infinity }])[0];
 const finitePoint = (p: ArenaPoint) => p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z);
 const distance = (a: ArenaPoint, b: ArenaPoint) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+const UP = { x: 0, y: 1, z: 0 }, DOWN = { x: 0, y: -1, z: 0 };
+/** Where a round aimed at someone's middle goes: the chest standing, the back lying down. */
+const chestOf = (actor: ArenaActor): ArenaPoint => ({ x: actor.x, y: actor.prone ? actor.y - PRONE_EYE_HEIGHT + .35 : actor.y - .62, z: actor.z });
 
 /** Distance to a solid scene box, or Infinity. Unspecified height means a tall wall. */
 export function arenaWallDistance(origin: ArenaPoint, direction: ArenaPoint, obstacles: readonly (Obstacle & { minY?: number })[]) {
@@ -250,7 +285,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return indexes.length ? indexes : [0];
   };
   function addPlayer(id: string, name: string, armor = 0, absorption = 0, weapons: readonly ArenaWeapon[] = FPS_WEAPONS, initialVitals?: Partial<ArenaVitals>, usePlayerSpawn = false, allowed?: readonly number[]) {
-    if (!id || id.length > 100 || members.has(id) || members.size >= 14) return;
+    const entry = addMember(id, name, armor, absorption, weapons, usePlayerSpawn, allowed); if (!entry) return;
+    if (initialVitals) setPlayerVitals(id, initialVitals); announce(`${entry.actor.name} joined`);
+  }
+  /** A new member, spawned, with nothing said in the feed. */
+  function addMember(id: string, name: string, armor: number, absorption: number, weapons: readonly ArenaWeapon[], usePlayerSpawn: boolean, allowed?: readonly number[]) {
+    if (!id || id.length > 100 || members.has(id) || members.size >= 14) return null;
     const safeWeapons = sanitizeWeapons(weapons), allowedWeapons = allowedIndexes(safeWeapons, allowed);
     const entry: InternalActor = {
       actor: { id, name: name.trim().slice(0, 24) || 'Player', bot: false, x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0,
@@ -260,7 +300,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       reaction: 1, target: '', strafe: random() < 0.5 ? -1 : 1, patrol: validSpawns[0], patrolTime: 0,
       burst: 0, burstFired: 0, medkits: 0, lastHurt: -Infinity,
     };
-    members.set(id, entry); spawn(entry); if (initialVitals) setPlayerVitals(id, initialVitals); announce(`${entry.actor.name} joined`);
+    members.set(id, entry); spawn(entry); return entry;
   }
   function setPlayerVitals(id: string, vitals: Partial<ArenaVitals>) {
     const entry = members.get(id); if (!entry || entry.actor.bot) return;
@@ -371,12 +411,15 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (!roundReady(ammo, entry.weapons[weapon])) startReload(entry, weapon);
     return resolveShot(entry, origin, ray, entry.weapons[weapon].damage, Math.min(125, Math.max(0, maxDistance)), undefined, entry.spec);
   }
-  /** `cause` names what did it when no actor did, as in "Artillery killed …"; it credits nobody. */
-  function hurtActor(victim: InternalActor, damage: number, attacker?: InternalActor, cause?: string, from?: ArenaPoint, blasted = false) {
+  /**
+   * `cause` names what did it when no actor did, as in "Artillery killed …";
+   * it credits nobody. `piercing` damage (gas) goes round armour, not through it.
+   */
+  function hurtActor(victim: InternalActor, damage: number, attacker?: InternalActor, cause?: string, from?: ArenaPoint, blasted = false, piercing = false) {
     const source = from ?? attacker?.actor;
     if (source && attacker !== victim) victim.actor.hurtFrom = { x: source.x, z: source.z, serial: ++hurtSerial, ...(blasted ? { blast: true } : {}) };
     victim.lastHurt = elapsed;
-    const blocked = Math.min(victim.actor.armor, damage * victim.absorption);
+    const blocked = piercing ? 0 : Math.min(victim.actor.armor, damage * victim.absorption);
     victim.actor.armor -= blocked; victim.actor.health = Math.max(0, victim.actor.health - damage + blocked);
     const killed = victim.actor.health <= 0;
     if (killed && victim.actor.alive) {
@@ -402,11 +445,17 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const intersection = bodyDistance(origin, ray, other.actor);
       if (intersection < nearest) { victim = other; hull = undefined; nearest = intersection; }
     }
+    let raider: Raider | undefined;
+    for (const candidate of raiders.values()) {
+      const intersection = raiderDistance(candidate, origin, ray);
+      if (intersection < nearest) { raider = candidate; victim = undefined; hull = undefined; nearest = intersection; }
+    }
     if (ignore) {
       const v = vehicles.find(v => v.kind === ignore)!;
       v.shotEnd = { x: origin.x + ray.x * nearest, y: origin.y + ray.y * nearest, z: origin.z + ray.z * nearest };
     }
     if (spec) damage = hitDamage(spec, nearest, victim && headHit(origin, ray, victim.actor, nearest) ? 'head' : undefined);
+    if (raider) return hurtRaider(raider, damage, entry);
     if (hull) { const before = hull.health; damageHull(hull, damage, entry); return { hitId: `vehicle-${hull.kind}`, killed: before > 0 && hull.health === 0, damage: Math.min(before, damage) }; }
     return victim ? hurtActor(victim, damage, entry, undefined, ignore ? origin : undefined) : { ...EMPTY_SHOT };
   }
@@ -475,8 +524,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     for (const hit of resolveBlast(point, spec, targets, clearBlast)) {
       if ('hull' in hit.item) { if (hit.item.hull.health > 0) damageHull(hit.item.hull, hit.damage, attacker, cause); }
-      else if (hit.item.member.actor.alive) hurtActor(hit.item.member, hit.damage, attacker, cause, point, true);
+      else if (hit.item.member.actor.alive)
+        hurtActor(hit.item.member, spec.overhead && roofed(hit.item.member.actor) ? hit.damage * OVERHEAD_SHELTER : hit.damage, attacker, cause, point, true);
     }
+  }
+  /** Whether something solid is overhead: a roof, a deck, a viaduct. */
+  function roofed(actor: ArenaPoint) {
+    const origin = { x: actor.x, y: actor.y + .2, z: actor.z };
+    return Math.min(worldWallDistance(origin, UP), cover?.(origin, UP, 40) ?? Infinity) < 40;
   }
   /**
    * Running combat events and the director that starts them. Rounds resolve
@@ -484,7 +539,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    */
   const director = environment?.combatEvents ? createCombatDirector({ risk: environment.combatEvents.risk, seed: (seed ^ 0x5bd1e995) >>> 0 }) : null;
   let directorEnabled = !!director, eventSerial = 0;
-  const events: { descriptor: CombatEventDescriptor; resolved: Set<number>; name: string }[] = [];
+  interface RunningEvent { descriptor: CombatEventDescriptor; resolved: Set<number>; name: string;
+    /** What the feed calls its crew, when it fielded one. */
+    crew?: string;
+    /** Supply drops: seconds patrols have stood over the crate. */
+    securing?: number }
+  const events: RunningEvent[] = [];
+  const raiders = new Map<string, Raider>();
   /** Where a round falling along `descent` onto `impact` first meets something solid. */
   function landing(payload: MunitionPayload): ArenaPoint {
     const { descent, impact } = payload, height = 150, length = height / -descent.y;
@@ -497,6 +558,17 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const back = Math.max(0, at - .4);
     return { x: origin.x + descent.x * back, y: origin.y + descent.y * back, z: origin.z + descent.z * back };
   }
+  /** Height of whatever is under (x, z): rendered roofs and terrain when the scene is there, walkable decks otherwise. */
+  function groundHeight(x: number, z: number) {
+    if (cover) { const d = cover({ x, y: 160, z }, DOWN, 170); return d < 170 ? 160 - d : 0; }
+    return traversal?.supportHeight(x, z, 160, .1, .1) ?? 0;
+  }
+  /** A clear, smoke-free line between two points: what a gunner, a drone or a sniper needs to fire. */
+  function lineClear(from: ArenaPoint, to: ArenaPoint) {
+    const length = distance(from, to); if (length < .1) return true;
+    const ray = { x: (to.x - from.x) / length, y: (to.y - from.y) / length, z: (to.z - from.z) / length };
+    return worldWallDistance(from, ray) >= length - .5 && (cover?.(from, ray, length) ?? Infinity) >= length - .5 && !smokeBetween(from, to);
+  }
   function startEvent(directive: Pick<CombatEventDescriptor, 'kind' | 'seed' | 'target' | 'heading' | 'intensity' | 'reach' | 'troops'>) {
     const plugin = getCombatEvent(directive.kind);
     if (!plugin || finished || events.length >= MAX_COMBAT_EVENTS || events.filter(e => combatPhase(e.descriptor, elapsed) !== 'aftermath').length >= 3) return null;
@@ -505,8 +577,111 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       heading: Number.isFinite(directive.heading) ? directive.heading : 0, intensity: clamp(Number.isFinite(directive.intensity) ? directive.intensity : 1, .5, 2),
       ...(Number.isFinite(directive.reach) ? { reach: clamp(directive.reach!, 0, 400) } : {}),
       ...(Number.isInteger(directive.troops) ? { troops: clamp(directive.troops!, 1, 6) } : {}) };
-    events.push({ descriptor, resolved: new Set(), name: plugin.name.split(' ')[0] });
+    if (!place(descriptor)) return null;
+    const event: RunningEvent = { descriptor, resolved: new Set(), name: plugin.cause ?? plugin.name.split(' ')[0] };
+    events.push(event);
+    if (!field(event)) { events.pop(); return null; }
     return descriptor;
+  }
+  /**
+   * Where an event's own people or machine go, chosen once by the host and
+   * written into the descriptor: a mortar pit, a sniper's perch, a flying
+   * height clear of the roofs. False when the district offers nowhere.
+   */
+  function place(d: CombatEventDescriptor) {
+    if (d.kind === 'mortar') {
+      const pit = mortarSite(d.target); if (!pit) return false;
+      d.origin = pit; d.heading = Math.atan2(-(d.target.x - pit.x), -(d.target.z - pit.z));
+    } else if (d.kind === 'sniper') {
+      const perch = sniperPerch(d.target); if (!perch) return false;
+      d.origin = { x: perch.x, z: perch.z }; if (perch.roof) d.altitude = perch.y;
+    } else if (d.kind === 'helicopter-raid') d.altitude = flyingHeight(d.target, RAID.radius, 18, 30);
+    else if (d.kind === 'drone') {
+      const back = { x: Math.sin(d.heading), z: Math.cos(d.heading) }, reach = 140;
+      d.origin = { x: clamp(d.target.x + back.x * reach, bounds.minX - 30, bounds.maxX + 30), z: clamp(d.target.z + back.z * reach, bounds.minZ - 30, bounds.maxZ + 30) };
+      d.altitude = flyingHeight(d.target, DRONE.loiter, 10, DRONE.height);
+    }
+    return true;
+  }
+  /** A height `clear` metres over every roof round `center` out to `radius`, and at least `least` over the ground there. */
+  function flyingHeight(center: CombatPlane, radius: number, clear: number, least: number) {
+    let top = groundHeight(center.x, center.z);
+    const floor = top + least;
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; top = Math.max(top, groundHeight(center.x + Math.cos(a) * radius, center.z + Math.sin(a) * radius)); }
+    return clamp(Math.max(floor, top + clear), 12, 160);
+  }
+  const humansAlive = () => [...members.values()].filter(m => !m.actor.bot && m.actor.alive);
+  /** A clear patch 55–125 m from the target and 40 m from everyone, preferably out of sight of it: they have to go looking. */
+  function mortarSite(target: CombatPlane): CombatPlane | null {
+    const humans = humansAlive(), candidates: CombatPlane[] = [...validSpawns];
+    for (let i = 0; i < 16; i++) for (const r of [70, 95, 115]) candidates.push({ x: target.x + Math.cos(i / 16 * Math.PI * 2) * r, z: target.z + Math.sin(i / 16 * Math.PI * 2) * r });
+    const eye = { x: target.x, y: groundHeight(target.x, target.z) + 1.7, z: target.z };
+    const usable = candidates.filter(p => clearSpawn(p) && Math.hypot(p.x - target.x, p.z - target.z) >= 55 && Math.hypot(p.x - target.x, p.z - target.z) <= 125 &&
+      humans.every(h => Math.hypot(h.actor.x - p.x, h.actor.z - p.z) >= 40));
+    if (!usable.length) return null;
+    const score = (p: CombatPlane) => (lineClear(eye, { x: p.x, y: groundHeight(p.x, p.z) + 1.2, z: p.z }) ? 100 : 0) + Math.abs(Math.hypot(p.x - target.x, p.z - target.z) - 90) + random() * 10;
+    return { ...usable.map(p => ({ p, s: score(p) })).sort((a, b) => a.s - b.s)[0].p };
+  }
+  /**
+   * The highest flat roof 45–95 m from the target with a clear line to the
+   * player there. With no rendered scene, or no such roof, a clear patch of
+   * ground at range instead.
+   */
+  function sniperPerch(target: CombatPlane): (ArenaPoint & { roof: boolean }) | null {
+    const humans = humansAlive(), human = humans.sort((a, b) => Math.hypot(a.actor.x - target.x, a.actor.z - target.z) - Math.hypot(b.actor.x - target.x, b.actor.z - target.z))[0];
+    const aim = human ? chestOf(human.actor) : { x: target.x, y: groundHeight(target.x, target.z) + 1.1, z: target.z };
+    if (cover) {
+      const street = groundHeight(target.x, target.z), turn = random() * Math.PI * 2;
+      let best: ArenaPoint | null = null;
+      for (let i = 0; i < 16; i++) for (const r of [OVERWATCH.range[0] + 5, 70, OVERWATCH.range[1] - 5]) {
+        const a = turn + i / 16 * Math.PI * 2, x = target.x + Math.cos(a) * r, z = target.z + Math.sin(a) * r;
+        if (x < bounds.minX || x > bounds.maxX || z < bounds.minZ || z > bounds.maxZ) continue;
+        const roof = groundHeight(x, z);
+        if (roof < street + OVERWATCH.rise || roof > 118 || (best && roof <= best.y)) continue;
+        // Flat enough to kneel on: a metre each way is at the same height.
+        if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => Math.abs(groundHeight(x + dx, z + dz) - roof) > .5)) continue;
+        if (lineClear({ x, y: roof + 1.15, z }, aim)) best = { x, y: roof, z };
+      }
+      if (best) return { ...best, roof: true };
+    }
+    const ground = validSpawns.filter(p => { const d = Math.hypot(p.x - target.x, p.z - target.z); return d >= 35 && d <= 110 && humans.every(h => Math.hypot(h.actor.x - p.x, h.actor.z - p.z) >= 30); })
+      .sort((a, b) => Math.hypot(b.x - target.x, b.z - target.z) - Math.hypot(a.x - target.x, a.z - target.z))[0];
+    return ground ? { x: ground.x, y: 0, z: ground.z, roof: false } : null;
+  }
+  /** The crew or the machine an event brings. False when it brings people and none fit in the match. */
+  function field(event: RunningEvent) {
+    const d = event.descriptor;
+    if (d.kind === 'mortar' && d.origin) {
+      const across = { x: Math.cos(d.heading), z: -Math.sin(d.heading) };
+      for (let i = 0; i < MORTAR.crew; i++) support(d, 'mortar-crew', { x: d.origin.x + across.x * (i ? 1.3 : -1.3), z: d.origin.z + across.z * (i ? 1.3 : -1.3) }, i, `Mortar crew ${i + 1}`);
+      event.crew = 'Mortar team';
+    } else if (d.kind === 'sniper' && d.origin) {
+      support(d, 'overwatch', d.origin, 0, 'Overwatch', d.altitude);
+      event.crew = 'Sniper';
+    } else if (d.kind === 'helicopter-raid' || d.kind === 'drone') {
+      const gunship = d.kind === 'helicopter-raid', from = gunship ? d.target : d.origin!;
+      raiders.set(d.id, { event: d.id, kind: gunship ? 'gunship' : 'drone', x: from.x, y: d.altitude ?? 40, z: from.z, yaw: d.heading,
+        health: gunship ? RAID.health : DRONE.health, maxHealth: gunship ? RAID.health : DRONE.health, state: gunship ? 'inbound' : 'cruise',
+        aim: null, shots: 0, vx: 0, vy: 0, vz: 0, since: 0, fired: 0, next: 0, lost: 0, until: Infinity, angle: 0 });
+    }
+    return !event.crew || [...members.values()].some(m => m.temporary?.event === d.id);
+  }
+  /** A temporary bot of `roleId` for event `d`, kneeling at `at`, on a roof at `roof` when given. */
+  function support(d: CombatEventDescriptor, roleId: string, at: CombatPlane, index: number, name: string, roof?: number) {
+    const role = getArenaRole(roleId); if (!role) return;
+    const armed = armamentFamilies(role), weapons = FPS_WEAPONS.map((w, i) => armed.includes(i) ? role.weapon : w);
+    const entry = addMember(`${d.id}-${roleId}-${index}`, name, role.armor, role.absorption, weapons, false); if (!entry) return;
+    entry.role = role; entry.healthMax = role.health; Object.assign(entry.actor, { bot: true, role: role.id }); spawn(entry);
+    entry.temporary = { event: d.id, from: d.start + (getCombatEvent(d.kind)?.warning ?? 0) }; entry.anchor = { x: at.x, z: at.z, ...(roof !== undefined ? { y: roof } : {}) };
+    const feet = roof ?? floorAt({ x: at.x, y: 3.5, z: at.z });
+    Object.assign(entry.actor, { x: at.x, z: at.z, y: feet + BOT_HEAL.kneelEye, yaw: Math.atan2(-(d.target.x - at.x), -(d.target.z - at.z)), ...(roof !== undefined ? { ground: roof } : {}) });
+  }
+  /** Leaves the match without a word: a crew pulling out, a body cleared away. */
+  function dismiss(id: string) { releaseSeat(id); members.delete(id); }
+  /** The live part of an event is over: a crew silenced, a raider downed, a crate taken. */
+  function endEvent(event: RunningEvent, outcome: CombatOutcome) {
+    if (event.descriptor.ended !== undefined) return;
+    event.descriptor.ended = elapsed; event.descriptor.outcome = outcome;
   }
   /**
    * Debug and scripted starts; `target` defaults to the first human. A
@@ -523,24 +698,237 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function setCombatEvents(enabled: boolean) { directorEnabled = !!director && enabled; }
   /** At most this many rounds resolve in one tick; the rest land on the next. */
   const BLASTS_PER_TICK = 8;
-  function stepEvents() {
+  /** Clouds on the ground this tick, and the height of the ground under each. */
+  let liveClouds: { cloud: CloudPayload; ground: number; cause: string }[] = [];
+  const cloudGround = new Map<string, number>();
+  function stepEvents(dt: number) {
     if (director && directorEnabled) {
       const humans = [...members.values()].filter(m => !m.actor.bot && m.actor.alive && m.playing).map(m => ({ x: m.actor.x, z: m.actor.z }));
       const directive = director.step({ now: elapsed, active: events.map(e => e.descriptor), humans, bounds, avoid: environment?.playerSpawn ? [environment.playerSpawn] : [] });
-      if (directive) startEvent(directive);
+      if (directive && !startEvent(directive)) director.refused(directive, elapsed);
     }
     if (environment?.reinforcements) dispatchReinforcements();
     let budget = BLASTS_PER_TICK;
-    for (const event of events) for (const payload of combatTimeline(event.descriptor)) {
-      if (budget <= 0) break;
-      if ((payload.type !== 'munition' && payload.type !== 'insert') || event.resolved.has(payload.id) || event.descriptor.start + payload.time > elapsed) continue;
-      event.resolved.add(payload.id);
-      if (payload.type === 'insert') disembark(event.descriptor, payload.slot, payload.at);
-      else if (payload.blast) { budget--; blast(landing(payload), payload.blast, undefined, event.name); }
+    liveClouds = [];
+    for (const event of events) {
+      const age = elapsed - event.descriptor.start;
+      for (const payload of combatTimeline(event.descriptor)) {
+        if (payload.type === 'cloud') {
+          if (age < payload.from || age > payload.until) continue;
+          const key = `${event.descriptor.id}/${payload.id}`;
+          let ground = cloudGround.get(key);
+          if (ground === undefined) { ground = groundHeight(payload.center.x, payload.center.z); cloudGround.set(key, ground); if (cloudGround.size > 64) cloudGround.delete(cloudGround.keys().next().value!); }
+          liveClouds.push({ cloud: payload, ground, cause: event.name });
+          continue;
+        }
+        if (budget <= 0) continue;
+        if ((payload.type !== 'munition' && payload.type !== 'insert') || event.resolved.has(payload.id) || event.descriptor.start + payload.time > elapsed) continue;
+        event.resolved.add(payload.id);
+        if (payload.type === 'insert') disembark(event.descriptor, payload.slot, payload.at);
+        else if (payload.blast) { budget--; blast(landing(payload), payload.blast, undefined, event.name); }
+      }
     }
-    for (let i = events.length - 1; i >= 0; i--) if (combatPhase(events[i].descriptor, elapsed) === 'done') events.splice(i, 1);
-    // A ride whose event is gone (a reset, a cap) will never arrive: wait for the next one.
-    for (const member of members.values()) if (member.ride && !events.some(e => e.descriptor.id === member.ride!.event)) member.ride = undefined;
+    stepGas(dt); stepCrates(dt); stepRaiders(dt);
+    // A crew all down silences its event; a crew whose event has run its course pulls out.
+    for (const event of events) {
+      if (!event.crew) continue;
+      const d = event.descriptor, crew = [...members.values()].filter(m => m.temporary?.event === d.id);
+      if (d.ended === undefined && !crew.some(m => m.actor.alive)) { endEvent(event, 'silenced'); announce(`${event.crew} silenced`); }
+      const presence = combatTimeline(d).find(p => p.type === 'presence');
+      if (presence && elapsed - d.start > presence.until) for (const m of crew) if (m.actor.alive) dismiss(m.actor.id);
+    }
+    for (let i = events.length - 1; i >= 0; i--) if (combatPhase(events[i].descriptor, elapsed) === 'done') { raiders.delete(events[i].descriptor.id); events.splice(i, 1); }
+    for (const member of members.values()) {
+      // A ride whose event is gone (a reset, a cap) will never arrive: wait for the next one.
+      if (member.ride && !events.some(e => e.descriptor.id === member.ride!.event)) member.ride = undefined;
+      if (member.temporary && !events.some(e => e.descriptor.id === member.temporary!.event)) dismiss(member.actor.id);
+    }
+  }
+  /** Gas wears through whoever stands in it, once however many clouds overlap there, and plates do not stop it. */
+  function stepGas(dt: number) {
+    if (!liveClouds.some(c => c.cloud.dps > 0)) return;
+    for (const member of members.values()) {
+      const { actor } = member; if (!actor.alive || seatOf(vehicles, actor.id)) continue;
+      let worst: { dps: number; cause: string } | null = null;
+      for (const { cloud, ground, cause } of liveClouds)
+        if (cloud.dps > (worst?.dps ?? 0) && actor.y - ground < 6 && Math.hypot(actor.x - cloud.center.x, actor.z - cloud.center.z) < cloud.radius) worst = { dps: cloud.dps, cause };
+      if (worst) hurtActor(member, worst.dps * dt, undefined, worst.cause, undefined, false, true);
+    }
+  }
+  /** Whether smoke on the ground lies across the line from `a` to `b`. A cloud is a squat cylinder; a line over its top is clear. */
+  function smokeBetween(a: ArenaPoint, b: ArenaPoint) {
+    for (const { cloud, ground } of liveClouds) {
+      const top = ground + 6; if (a.y > top && b.y > top) continue;
+      const dx = b.x - a.x, dz = b.z - a.z, length = dx * dx + dz * dz;
+      const t = length > 0 ? clamp(((cloud.center.x - a.x) * dx + (cloud.center.z - a.z) * dz) / length, 0, 1) : 0;
+      if (Math.hypot(a.x + dx * t - cloud.center.x, a.z + dz * t - cloud.center.z) < cloud.radius * .85 && a.y + (b.y - a.y) * t < top) return true;
+    }
+    return false;
+  }
+  /** Landed supply crates nobody has taken yet. */
+  function openCrates() {
+    const open: { event: RunningEvent; crate: CratePayload }[] = [];
+    for (const event of events) {
+      if (event.descriptor.kind !== 'supply-drop' || event.descriptor.ended !== undefined) continue;
+      const crate = combatTimeline(event.descriptor).find((p): p is CratePayload => p.type === 'crate'), age = elapsed - event.descriptor.start;
+      if (crate && age >= crate.land && age <= crate.until) open.push({ event, crate });
+    }
+    return open;
+  }
+  /** A player who reaches a crate opens it; patrols who stand over it long enough carry it off. */
+  function stepCrates(dt: number) {
+    for (const { event, crate } of openCrates()) {
+      const near = (m: InternalActor) => m.actor.alive && !seatOf(vehicles, m.actor.id) && Math.hypot(m.actor.x - crate.at.x, m.actor.z - crate.at.z) < SUPPLY.claim;
+      const opener = [...members.values()].find(m => !m.actor.bot && near(m));
+      if (opener) { endEvent(event, 'claimed'); event.descriptor.claimedBy = opener.actor.id; announce(`${opener.actor.name} opened the supply drop`); continue; }
+      const held = [...members.values()].some(m => m.actor.bot && !m.temporary && near(m));
+      event.securing = held ? (event.securing ?? 0) + dt : Math.max(0, (event.securing ?? 0) - dt * .5);
+      if (event.securing >= SUPPLY.hold) { endEvent(event, 'secured'); announce('Enemy patrol secured the supply drop'); }
+    }
+  }
+  /** The nearest crate a patrol could make for, within reach. */
+  function crateFor(actor: ArenaPoint) {
+    return openCrates().map(({ crate }) => crate.at).filter(at => Math.hypot(at.x - actor.x, at.z - actor.z) < 150)
+      .sort((a, b) => Math.hypot(a.x - actor.x, a.z - actor.z) - Math.hypot(b.x - actor.x, b.z - actor.z))[0] ?? null;
+  }
+  /** Distance along a ray to a raider's hull, or Infinity. A helicopter is a body and a tail; a drone a small ball. */
+  function raiderDistance(r: Raider, origin: ArenaPoint, ray: ArenaPoint) {
+    if (r.health <= 0) return Infinity;
+    if (r.kind === 'drone') return sphereDistance(origin, ray, { x: r.x, y: r.y, z: r.z }, .75);
+    return Math.min(sphereDistance(origin, ray, { x: r.x, y: r.y + 1.3, z: r.z }, 2.2),
+      sphereDistance(origin, ray, { x: r.x + Math.sin(r.yaw) * 4.4, y: r.y + 1.6, z: r.z + Math.cos(r.yaw) * 4.4 }, .9));
+  }
+  function hurtRaider(r: Raider, damage: number, attacker: InternalActor): ArenaShot {
+    const event = events.find(e => e.descriptor.id === r.event), before = r.health;
+    r.health = Math.max(0, r.health - damage);
+    const killed = before > 0 && r.health === 0;
+    if (killed) {
+      r.state = 'down'; r.aim = null; r.victim = undefined;
+      // Shot down outranks breaking off: a raid already heading home that is brought down was downed.
+      if (event) { endEvent(event, 'downed'); event.descriptor.outcome = 'downed'; }
+      announce(`${attacker.actor.name} downed the ${r.kind === 'drone' ? 'drone' : 'raid helicopter'}`, attacker.actor.id);
+    } else if (r.kind === 'gunship' && r.health < r.maxHealth * .25 && event && event.descriptor.ended === undefined) {
+      // Badly hit, it breaks off: its path turns for home from wherever it is.
+      endEvent(event, 'withdrawn'); announce('Raid helicopter breaking off');
+    }
+    return { hitId: `raider-${r.event}`, killed, damage: Math.min(before, damage) };
+  }
+  /** A raider's round: whatever it meets first, a wall, a hull or a body. */
+  function raiderShot(origin: ArenaPoint, ray: ArenaPoint, damage: number, cause: string) {
+    let nearest = Math.min(150, worldWallDistance(origin, ray), cover?.(origin, ray, 150) ?? Infinity), hull: SharedVehicle | undefined, victim: InternalActor | undefined;
+    for (const v of vehicles) { const d = vehicleRayDistance(v, origin, ray); if (d < nearest) { nearest = d; hull = v; } }
+    for (const member of members.values()) {
+      if (!member.actor.alive || seatOf(vehicles, member.actor.id)) continue;
+      const d = bodyDistance(origin, ray, member.actor); if (d < nearest) { nearest = d; victim = member; hull = undefined; }
+    }
+    if (hull) damageHull(hull, damage, undefined, cause);
+    else if (victim) hurtActor(victim, damage, undefined, cause, origin);
+  }
+  /** The nearest player a raider at `from` can see, within `range`. */
+  function spot(from: ArenaPoint, range: number) {
+    return humansAlive().filter(m => !seatOf(vehicles, m.actor.id) && distance(from, m.actor) <= range && lineClear(from, chestOf(m.actor)))
+      .sort((a, b) => distance(from, a.actor) - distance(from, b.actor))[0] ?? null;
+  }
+  function stepRaiders(dt: number) {
+    for (const [id, r] of raiders) {
+      const event = events.find(e => e.descriptor.id === id); if (!event) { raiders.delete(id); continue; }
+      if (r.state === 'exploded' || r.state === 'wreck') { if (elapsed > r.until) raiders.delete(id); continue; }
+      if (r.state === 'down') {
+        // Out of the sky: what it was doing carries it on while it falls.
+        r.vy -= 9.8 * dt; r.x += r.vx * dt; r.z += r.vz * dt; r.y += r.vy * dt; r.yaw += dt * (r.kind === 'gunship' ? 2.4 : 6);
+        const ground = groundHeight(r.x, r.z);
+        if (r.y <= ground + (r.kind === 'gunship' ? .5 : .2)) { r.y = ground + (r.kind === 'gunship' ? .5 : .2); r.state = 'wreck'; r.until = elapsed + (r.kind === 'gunship' ? 6 : 2); }
+        continue;
+      }
+      if (r.kind === 'gunship') stepGunship(r, event, dt); else stepDrone(r, event, dt);
+    }
+  }
+  function stepGunship(r: Raider, event: RunningEvent, dt: number) {
+    const d = event.descriptor, age = elapsed - d.start, orbit = combatTimeline(d).find((p): p is OrbitPayload => p.type === 'orbit');
+    if (!orbit) { raiders.delete(d.id); return; }
+    const pose = orbitPose(orbit, age, d.altitude ?? 40);
+    if (dt > 0) { r.vx = (pose.x - r.x) / dt; r.vz = (pose.z - r.z) / dt; r.vy = 0; }
+    Object.assign(r, { x: pose.x, y: pose.y, z: pose.z, yaw: pose.yaw });
+    if (age > orbit.gone) { raiders.delete(d.id); return; }
+    r.state = age < orbit.arrive ? 'inbound' : age <= orbit.leave ? 'orbit' : 'leaving';
+    if (r.state !== 'orbit' || age < RAID.warning) { r.aim = null; r.victim = undefined; return; }
+    // The left door faces the middle of the orbit; the gun hangs just below the sill.
+    const inward = { x: orbit.center.x - r.x, z: orbit.center.z - r.z }, l = Math.hypot(inward.x, inward.z) || 1;
+    const gun = { x: r.x + inward.x / l * 1.3, y: r.y + .7, z: r.z + inward.z / l * 1.3 };
+    if (!r.victim) {
+      if (elapsed < r.next) { r.aim = null; return; }
+      const sighted = spot(gun, RAID.sight);
+      if (!sighted) { r.next = elapsed + .5; r.aim = null; return; }
+      const chest = chestOf(sighted.actor), side = random() * Math.PI * 2;
+      // The walk-in starts a few metres off and its tracers creep onto them: that second is the warning.
+      r.victim = sighted.actor.id; r.since = elapsed; r.fired = 0;
+      r.walk = { x: chest.x + Math.cos(side) * 7, y: groundHeight(chest.x + Math.cos(side) * 7, chest.z + Math.sin(side) * 7), z: chest.z + Math.sin(side) * 7 };
+    }
+    const victim = members.get(r.victim), t = elapsed - r.since;
+    if (!victim?.actor.alive || t > RAID.walkIn + RAID.burst) { r.victim = undefined; r.aim = null; r.next = elapsed + RAID.pause[0] + random() * (RAID.pause[1] - RAID.pause[0]); return; }
+    const chest = chestOf(victim.actor), walk = r.walk ?? chest, k = Math.min(1, t / RAID.walkIn) * .85;
+    r.aim = t < RAID.walkIn ? { x: walk.x + (chest.x - walk.x) * k, y: walk.y + (chest.y - walk.y) * k, z: walk.z + (chest.z - walk.z) * k } : chest;
+    for (const due = Math.floor(t / RAID.rate) + 1; r.fired < due; r.fired++) {
+      r.shots++;
+      if (t < RAID.walkIn) continue;
+      const line = { x: r.aim.x - gun.x, y: r.aim.y - gun.y, z: r.aim.z - gun.z }, length = Math.hypot(line.x, line.y, line.z) || 1, spread = RAID.spread;
+      const ray = { x: line.x / length + (random() - .5) * spread, y: line.y / length + (random() - .5) * spread, z: line.z / length + (random() - .5) * spread }, norm = Math.hypot(ray.x, ray.y, ray.z);
+      raiderShot(gun, { x: ray.x / norm, y: ray.y / norm, z: ray.z / norm }, RAID.round, event.name);
+    }
+  }
+  function stepDrone(r: Raider, event: RunningEvent, dt: number) {
+    const d = event.descriptor, age = elapsed - d.start, cruise = d.altitude ?? 40;
+    const fly = (to: ArenaPoint, speed: number) => {
+      const dx = to.x - r.x, dy = to.y - r.y, dz = to.z - r.z, l = Math.hypot(dx, dy, dz), step = Math.min(l, speed * dt);
+      if (l > 1e-6) { r.vx = dx / l * speed; r.vy = dy / l * speed; r.vz = dz / l * speed; r.x += dx / l * step; r.y += dy / l * step; r.z += dz / l * step; if (Math.hypot(dx, dz) > .05) r.yaw = Math.atan2(-dx, -dz); }
+    };
+    const circle = (speed: number) => {
+      const out = Math.hypot(r.x - d.target.x, r.z - d.target.z);
+      if (out > DRONE.loiter + 3) { fly({ x: d.target.x, y: cruise, z: d.target.z }, DRONE.cruise); r.angle = Math.atan2(r.z - d.target.z, r.x - d.target.x); return; }
+      r.angle += speed / DRONE.loiter * dt;
+      fly({ x: d.target.x + Math.cos(r.angle) * DRONE.loiter, y: cruise, z: d.target.z + Math.sin(r.angle) * DRONE.loiter }, DRONE.cruise);
+    };
+    if (r.state === 'leaving') {
+      const home = d.origin ?? d.target; fly({ x: home.x, y: cruise + 20, z: home.z }, DRONE.cruise);
+      if (Math.hypot(r.x - home.x, r.z - home.z) < 3) raiders.delete(d.id);
+      return;
+    }
+    if (r.state === 'cruise') {
+      circle(DRONE.cruise); r.aim = null;
+      if (age > DRONE.stay) { r.state = 'leaving'; endEvent(event, 'withdrawn'); return; }
+      if (age >= DRONE.warning + 1.5 && elapsed >= r.next) {
+        const sighted = spot(r, DRONE.sight);
+        if (sighted) { r.state = 'lock'; r.victim = sighted.actor.id; r.since = elapsed; r.lost = 0; } else r.next = elapsed + .5;
+      }
+      return;
+    }
+    const victim = r.victim ? members.get(r.victim) : undefined;
+    if (r.state === 'lock') {
+      circle(DRONE.cruise * .35);
+      if (!victim?.actor.alive) { r.state = 'cruise'; r.victim = undefined; r.next = elapsed + 1; return; }
+      const chest = chestOf(victim.actor); r.aim = chest;
+      r.lost = lineClear(r, chest) ? 0 : r.lost + dt;
+      // Lose them for a second and it goes back to circling: breaking line of sight is the counter.
+      if (r.lost > 1) { r.state = 'cruise'; r.victim = undefined; r.next = elapsed + 1.5; return; }
+      if (elapsed - r.since >= DRONE.lock) { r.state = 'dive'; r.walk = { x: chest.x, y: chest.y - .4, z: chest.z }; }
+      return;
+    }
+    if (r.state !== 'dive') return;
+    // It steers at its victim until it is close, then commits to where they were: a late sidestep can beat it.
+    if (victim?.actor.alive && distance(r, chestOf(victim.actor)) > DRONE.commit) r.walk = { ...chestOf(victim.actor), y: chestOf(victim.actor).y - .4 };
+    const dest = r.walk!, dx = dest.x - r.x, dy = dest.y - r.y, dz = dest.z - r.z, l = Math.hypot(dx, dy, dz) || 1;
+    const ray = { x: dx / l, y: dy / l, z: dz / l }, step = DRONE.dive * dt;
+    const struck = Math.min(worldWallDistance(r, ray), cover?.(r, ray, step + .5) ?? Infinity);
+    const near = humansAlive().some(m => distance(r, chestOf(m.actor)) < 1.6);
+    if (near || struck < step + .3 || l < step + .8) {
+      const reach = Math.max(0, Math.min(l, struck - .3, step));
+      const point = { x: r.x + ray.x * reach, y: r.y + ray.y * reach, z: r.z + ray.z * reach };
+      Object.assign(r, point, { state: 'exploded', aim: null, until: elapsed + 1.5 });
+      endEvent(event, 'detonated');
+      blast(point, DRONE_BLAST, undefined, event.name);
+      return;
+    }
+    fly(dest, DRONE.dive); r.aim = dest;
   }
   let nextDispatch = 0;
   /**
@@ -590,12 +978,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const origin = { x: at.x, y: 2, z: at.z }, up = { x: 0, y: 1, z: 0 };
     return Math.min(worldWallDistance(origin, up), cover?.(origin, up, 70) ?? Infinity) >= 69;
   }
-  /** Which way out of the nearest live danger area, or null when standing clear of all of them. */
+  /** Which way out of the nearest live danger area, or null when standing clear of all of them. A supply drop's ring is no danger. */
   function dangerExit(actor: ArenaPoint) {
     for (const event of events) {
-      if (!['warning', 'active'].includes(combatPhase(event.descriptor, elapsed))) continue;
+      if (!getCombatEvent(event.descriptor.kind)?.hazard || !['warning', 'active'].includes(combatPhase(event.descriptor, elapsed))) continue;
+      const age = elapsed - event.descriptor.start;
       for (const payload of combatTimeline(event.descriptor)) {
-        if (payload.type !== 'marker') continue;
+        if (payload.type !== 'marker' || age < payload.from || age > payload.until) continue;
         const dx = actor.x - payload.center.x, dz = actor.z - payload.center.z, d = Math.hypot(dx, dz);
         if (d < payload.radius + 2) return d > .01 ? { x: dx / d, z: dz / d } : { x: 1, z: 0 };
       }
@@ -657,7 +1046,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         entry.reaction = role.reaction;
       }
     }
-    const enemies = [...members.values()].filter(m => m !== entry && m.actor.alive);
+    // An event's crew is on the patrols' side: they hunt players, and patrols leave them be.
+    const enemies = [...members.values()].filter(m => m !== entry && m.actor.alive && (entry.temporary ? !m.actor.bot : !m.temporary));
     const enemy = enemies.sort((a, b) => distance(actor, a.actor) * (a.actor.bot ? 1.1 : 1) - distance(actor, b.actor) * (b.actor.bot ? 1.1 : 1))[0];
     entry.patrolTime -= dt;
     if (entry.patrolTime <= 0) { entry.patrol = validSpawns[Math.floor(random() * validSpawns.length)]; entry.patrolTime = 3 + random() * 3; entry.strafe *= -1; }
@@ -667,7 +1057,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const line = { x: target.x - actor.x, y: (enemy?.actor.prone ? target.y - PRONE_EYE_HEIGHT + .35 : target.y - .65) - actor.y, z: target.z - actor.z };
     const length = Math.hypot(line.x, line.y, line.z);
     const ray = { x: line.x / Math.max(length, 0.01), y: line.y / Math.max(length, 0.01), z: line.z / Math.max(length, 0.01) };
-    const visible = !!enemy && length < role.sightRange && worldWallDistance(actor, ray) >= length - 0.5 && clearSight(entry, enemy.actor.id, ray, length, dt);
+    const visible = !!enemy && length < role.sightRange && worldWallDistance(actor, ray) >= length - 0.5 && clearSight(entry, enemy.actor.id, ray, length, dt) && !smokeBetween(actor, target);
+    if (role.id === 'overwatch') { if (visible) actor.aiming = true; else delete actor.aiming; }
     const intent = role.think({ distance: horizontal, visible, healthFraction: actor.health / entry.healthMax, strafeDirection: entry.strafe });
     let approach = Number.isFinite(intent.approach) ? clamp(intent.approach, -1, 1) : 0;
     const wounded = botWantsHeal({ health: actor.health, healthMax: entry.healthMax, medkits: entry.medkits, sinceHurt: elapsed - entry.lastHurt, visible, danger: !!dangerExit(actor) });
@@ -682,7 +1073,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const normal = Math.max(1, Math.hypot(approach, strafe));
     let dxStep = (direction.x * approach - direction.z * strafe) / normal * role.speed * dt;
     let dzStep = (direction.z * approach + direction.x * strafe) / normal * role.speed * dt;
-    if((navigator && Math.abs(target.y-actor.y)>.6) || entry.navigation?.path.length) {
+    if(!entry.anchor && ((navigator && Math.abs(target.y-actor.y)>.6) || entry.navigation?.path.length)) {
       const feet={x:actor.x,y:Math.max(0,actor.y-1.75),z:actor.z};
       const goal={x:target.x,y:floorAt(target),z:target.z};
       if(entry.navigation) entry.navigation.retry-=dt;
@@ -700,16 +1091,24 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       while(path?.length && distance(feet,path[0])<.12)path.shift();
       if(path?.length){const p=path[0],d=Math.hypot(p.x-actor.x,p.z-actor.z),step=Math.min(d,role.speed*dt);dxStep=(p.x-actor.x)/Math.max(d,.001)*step;dzStep=(p.z-actor.z)/Math.max(d,.001)*step;}
     }
-    // Bots run from a marked barrage, still firing if they can see someone.
-    const exit = dangerExit(actor);
+    // With nobody in sight, a patrol makes for a supply crate on the ground.
+    const crate = !visible && !entry.temporary ? crateFor(actor) : null;
+    if (crate) {
+      const cx = crate.x - actor.x, cz = crate.z - actor.z, d = Math.hypot(cx, cz), stride = Math.max(0, Math.min(d - 1, role.speed * dt));
+      dxStep = d > .01 ? cx / d * stride : 0; dzStep = d > .01 ? cz / d * stride : 0;
+    }
+    // Bots run from a marked barrage, still firing if they can see someone. An event's crew holds its post.
+    const exit = entry.anchor ? null : dangerExit(actor);
     if (exit) { dxStep = exit.x * role.speed * 1.3 * dt; dzStep = exit.z * role.speed * 1.3 * dt; }
     const vehicleSolids = vehicles.filter(v => v.y < 2).map(vehicleBounds);
-    if (traversal) {
+    if (entry.anchor) Object.assign(actor, { x: entry.anchor.x, z: entry.anchor.z });
+    else if (traversal) {
       const step = traversal.move({ x: actor.x, y: Math.max(0, actor.y - 1.75), z: actor.z, velocityY: entry.velocityY ?? 0 }, dxStep, dzStep, dt, .4, 1.8, vehicleSolids);
       Object.assign(actor, { x: step.x, z: step.z, y: step.y + 1.75 }); entry.velocityY = step.velocityY;
     } else Object.assign(actor, move(actor, dxStep, dzStep, .4, [...groundObstacles, ...vehicleSolids]));
     actor.yaw = Math.atan2(-dx, -dz); actor.pitch = Math.atan2(line.y, horizontal);
-    if (!visible || !intent.fire) { entry.reaction = role.reaction; entry.target = ''; entry.burst = 0; return; }
+    // An event's crew may not open fire before the event has been announced.
+    if (!visible || !intent.fire || (entry.temporary && elapsed < entry.temporary.from)) { entry.reaction = role.reaction; entry.target = ''; entry.burst = 0; return; }
     if (entry.target !== enemy.actor.id) { entry.target = enemy.actor.id; entry.reaction = role.reaction + random() * 0.3; entry.burst = 0; }
     entry.reaction -= dt;
     if (entry.reaction <= 0) {
@@ -728,11 +1127,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (finished || !Number.isFinite(dt) || dt <= 0) return;
     dt = Math.min(dt, 0.25); elapsed = environment?.endless ? elapsed + dt : Math.min(ARENA_DURATION, elapsed + dt); tick++;
     for (let remaining = dt; remaining > 1e-6; remaining -= Math.min(.05, remaining)) stepVehicles(Math.min(.05, remaining));
-    stepEvents();
+    stepEvents(dt);
     for (const entry of members.values()) {
       entry.movementBudget = Math.min(8, entry.movementBudget + 40 * dt);
       if (!entry.actor.alive) {
         entry.actor.respawnIn = Math.max(0, entry.actor.respawnIn - dt);
+        // An event's crew does not come back: the body is cleared away once it has been seen to fall.
+        if (entry.temporary) { if (entry.actor.respawnIn === 0) dismiss(entry.actor.id); continue; }
         if (entry.actor.respawnIn === 0) {
           // With reinforcements, a fallen bot comes back on a transport; only one left waiting too long walks back in.
           if (!environment?.reinforcements || !entry.actor.bot) spawn(entry);
@@ -753,10 +1154,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function snapshot(): ArenaSnapshot {
     return { type: 'arena-snapshot', tick, elapsed, actors: [...members.values()].map(m => ({ ...m.actor })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
-      ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target } })) } : {}) };
+      ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target }, ...(e.descriptor.origin ? { origin: { ...e.descriptor.origin } } : {}) })) } : {}),
+      ...(raiders.size ? { raiders: [...raiders.values()].map(({ event, kind, x, y, z, yaw, health, maxHealth, state, aim, shots }) => ({ event, kind, x, y, z, yaw, health, maxHealth, state, aim: aim ? { ...aim } : null, shots })) } : {}) };
   }
   function reset() {
-    tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; controls.clear(); events.length = 0; director?.reset();
+    tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; controls.clear(); events.length = 0; raiders.clear(); liveClouds = []; director?.reset();
+    for (const [id, entry] of members) if (entry.temporary) dismiss(id);
     vehicles = vehicleOptions ? (['car', 'helicopter'] as const).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind])) : [];
     for (const entry of members.values()) { entry.actor.kills = 0; entry.actor.deaths = 0; entry.actor.shots = 0; spawn(entry); }
     announce('New arena match');

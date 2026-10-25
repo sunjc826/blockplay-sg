@@ -9,6 +9,8 @@ import type { BlastSpec, CombatVector } from './combat-events';
 export type BlastStance = 'stand' | 'crouch' | 'prone';
 /** A body close to the ground presents less of itself to a blast. */
 export const BLAST_STANCE: Readonly<Record<BlastStance, number>> = { stand: 1, crouch: .8, prone: .5 };
+/** Share of an `overhead` blast (a bomb) that reaches a body with a roof over it. */
+export const OVERHEAD_SHELTER = .2;
 export interface BlastTarget<T> { item: T; point: CombatVector; vehicle?: boolean; stance?: BlastStance }
 export interface BlastHit<T> { item: T; damage: number; distance: number }
 

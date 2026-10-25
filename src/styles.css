@@ -289,6 +289,12 @@
 .fps-combat-banner { position:absolute; top:104px; left:50%; transform:translateX(-50%); max-width:min(92%,560px); padding:7px 12px; border:1px solid; border-radius:3px; font-size:11px; font-weight:600; letter-spacing:1px; text-align:center; pointer-events:none; z-index:3; }
 .fps-combat-banner.hazard { background:#4a0f0cd9; border-color:#ff5a45; color:#ffe1d8; animation:fps-combat-pulse 1s ease-in-out infinite; }
 .fps-combat-banner.notice { background:#1d2416cc; border-color:#c9b46a; color:#efe6c0; }
+/* Standing in a combat event's smoke or gas: the screen fills with it. */
+.fps-cloud-overlay { position:absolute; inset:0; pointer-events:none; z-index:2; transition:opacity .4s ease; }
+.fps-cloud-overlay.smoke { background:radial-gradient(ellipse at 50% 55%, #c9ccc6cc 0%, #b9bdb6f0 70%); }
+.fps-cloud-overlay.gas { background:radial-gradient(ellipse at 50% 55%, #e8e4c088 0%, #d8d29ad9 75%); animation:fps-gas-sting 1.6s ease-in-out infinite; }
+@keyframes fps-gas-sting { 50% { filter:blur(1px) brightness(1.08); } }
+@media (prefers-reduced-motion: reduce) { .fps-cloud-overlay.gas { animation:none; } }
 @keyframes fps-combat-pulse { 50% { border-color:#ff5a4560; } }
 @media (prefers-reduced-motion: reduce) { .fps-combat-banner.hazard { animation:none; } }
 @media(max-width:700px) { .fps-combat-banner { top:124px; font-size:9px; padding:5px 8px; } }

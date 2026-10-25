@@ -9,7 +9,7 @@ import { VEHICLE_COMBAT } from './vehicle-combat';
 import type { VehicleKind } from './vehicle-rules';
 import { validWeaponIndex } from './fps-rules';
 import * as THREE from 'three';
-import { createArena, type ArenaActor, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
+import { createArena, type ArenaActor, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaRaiderState, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
 import { createProfile, resolveLoadout, restoreProfile, type ArmoryProfile } from './armory-state';
 import type { LanSession } from './lan-peer';
 import { getArenaRole } from './arena-roles';
@@ -26,6 +26,7 @@ export interface ArenaRuntimeOptions {
   environment?: ArenaEnvironment; vehicles?: ArenaVehicleOptions; initialVitals?: Partial<ArenaVitals>;
 }
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+const RAIDER_STATES: readonly ArenaRaiderState[] = ['inbound', 'orbit', 'leaving', 'cruise', 'lock', 'dive', 'down', 'wreck', 'exploded'];
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 export function validArenaInput(value: unknown): value is ArenaInput {
   return object(value) && ['x', 'y', 'z', 'yaw', 'pitch'].every(key => finite(value[key])) &&
@@ -41,7 +42,8 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
   for (const actor of value.actors) {
     if (!object(actor) || typeof actor.id !== 'string' || actor.id.length > 100 || ids.has(actor.id) || typeof actor.name !== 'string' || actor.name.length > 24 ||
       !['x', 'y', 'z', 'yaw', 'pitch', 'health', 'armor', 'kills', 'deaths', 'respawnIn', 'shots', 'weapon'].every(key => finite(actor[key])) ||
-      (actor.prone !== undefined && typeof actor.prone !== 'boolean') ||
+      (actor.prone !== undefined && typeof actor.prone !== 'boolean') || (actor.aiming !== undefined && actor.aiming !== true) ||
+      (actor.ground !== undefined && !(finite(actor.ground) && actor.ground >= -50 && actor.ground <= 124)) ||
       (actor.healing !== undefined && !(finite(actor.healing) && actor.healing >= 0 && actor.healing <= 1)) ||
       (actor.hurtFrom !== undefined && !(object(actor.hurtFrom) && finite(actor.hurtFrom.x) && finite(actor.hurtFrom.z) && finite(actor.hurtFrom.serial) && (actor.hurtFrom.blast === undefined || actor.hurtFrom.blast === true))) || (actor.variant !== undefined && (typeof actor.variant !== 'string' || actor.variant.length > 40)) || !validWeaponIndex(actor.weapon) || typeof actor.alive !== 'boolean' || typeof actor.bot !== 'boolean' || typeof actor.role !== 'string' || actor.role.length > 32 ||
       (actor.x as number) < (environment?.bounds.minX ?? -500) || (actor.x as number) > (environment?.bounds.maxX ?? 500) ||
@@ -83,6 +85,18 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       eventIds.add(event.id);
     }
   }
+  if (value.raiders !== undefined) {
+    const events = new Set((Array.isArray(value.events) ? value.events : []).map(event => (event as { id: string }).id)), owners = new Set<string>();
+    if (!Array.isArray(value.raiders) || value.raiders.length > MAX_COMBAT_EVENTS) return false;
+    for (const r of value.raiders) {
+      if (!object(r) || typeof r.event !== 'string' || !events.has(r.event) || owners.has(r.event) || (r.kind !== 'gunship' && r.kind !== 'drone') ||
+        !['x', 'y', 'z', 'yaw', 'health', 'maxHealth', 'shots'].every(k => finite(r[k])) || !RAIDER_STATES.includes(r.state as ArenaRaiderState) ||
+        (r.maxHealth as number) <= 0 || (r.maxHealth as number) > 1000 || (r.health as number) < 0 || (r.health as number) > (r.maxHealth as number) ||
+        !Number.isInteger(r.shots) || (r.shots as number) < 0 || Math.abs(r.x as number) > 5000 || Math.abs(r.z as number) > 5000 || (r.y as number) < -50 || (r.y as number) > 400 ||
+        !(r.aim === null || point(r.aim))) return false;
+      owners.add(r.event);
+    }
+  }
   return value.feed.every(entry => object(entry) && typeof entry.id === 'string' && entry.id.length <= 100 && typeof entry.text === 'string' && entry.text.length <= 160 &&
     (entry.killerId === undefined || typeof entry.killerId === 'string') && (entry.victimId === undefined || typeof entry.victimId === 'string'));
 }
@@ -90,6 +104,8 @@ function point(value: unknown): value is ArenaPoint { return object(value) && fi
 
 interface Avatar {
   rig: CharacterRig; root: THREE.Group; health: THREE.Sprite; label: THREE.Sprite | null; muzzle: THREE.Mesh | null;
+  /** A rooftop sniper's scope catching the light while they aim. */
+  glint: THREE.Sprite | null;
   shots: number; flash: number; maxHealth: number; resources: { dispose(): void }[];
   alive: boolean; lastHealth: number; yaw: number; fireTimer: number; ground: number; groundTimer: number;
   previous: THREE.Vector3; velocity: THREE.Vector3;
@@ -119,8 +135,25 @@ function createAvatar(actor: ArenaActor): Avatar {
       label = new THREE.Sprite(material); label.position.set(0, 2.23, 0); label.scale.set(1.6, 0.3, 1); label.raycast = noRaycast; root.add(label);
     }
   }
-  return { rig, root, health, label, muzzle, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources,
+  let glint: THREE.Sprite | null = null;
+  if (actor.role === 'overwatch') {
+    const material = new THREE.SpriteMaterial({ map: glintTexture(), color: '#fff6d8', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+    resources.push(material);
+    glint = new THREE.Sprite(material); glint.position.set(.08, 1.12, -.45); glint.visible = false; glint.raycast = noRaycast; root.add(glint);
+  }
+  return { rig, root, health, label, muzzle, glint, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources,
     alive: actor.alive, lastHealth: actor.health, yaw: actor.yaw, fireTimer: 0, ground: 0, groundTimer: 0, previous: new THREE.Vector3(), velocity: new THREE.Vector3() };
+}
+/** A soft star for scope glint, shared by every sniper and never disposed with one. */
+let glintMap: THREE.DataTexture | null = null;
+function glintTexture() {
+  if (glintMap) return glintMap;
+  const size = 64, data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const u = (x + .5) / size * 2 - 1, v = (y + .5) / size * 2 - 1, core = Math.max(0, 1 - Math.hypot(u, v) * 2.2), ray = Math.max(0, 1 - Math.abs(u * v) * 40) * Math.max(0, 1 - Math.hypot(u, v));
+    const i = (y * size + x) * 4; data[i] = data[i + 1] = data[i + 2] = 255; data[i + 3] = Math.round(Math.min(1, core + ray * .8) * 255);
+  }
+  glintMap = new THREE.DataTexture(data, size, size); glintMap.needsUpdate = true; return glintMap;
 }
 /** Falling bodies stay visible briefly but never stop a shot or read as a target. */
 function setAvatarDown(avatar: Avatar, down: boolean) {
@@ -247,7 +280,8 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     avatar.health.visible = actor.alive; if (avatar.label) avatar.label.visible = actor.alive;
     if (!root.visible) { avatar.shots = actor.shots; avatar.lastHealth = actor.health; return; }
     avatar.groundTimer -= dt;
-    if (avatar.groundTimer <= 0) { avatar.groundTimer = .12; avatar.ground = groundBelow(actor.x, actor.z, actor.y); }
+    if (actor.ground !== undefined) avatar.ground = actor.ground;
+    else if (avatar.groundTimer <= 0) { avatar.groundTimer = .12; avatar.ground = groundBelow(actor.x, actor.z, actor.y); }
     const gunner = actor.vehicle === 'car' && actor.seat === 1, seated = !!actor.vehicle && !gunner;
     const eyeAbove = actor.y - avatar.ground;
     const crouch = actor.vehicle || actor.prone ? 0 : Math.max(0, Math.min(1, (1.75 - eyeAbove) / (1.75 - 1.15)));
@@ -277,6 +311,11 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     });
     avatar.health.scale.x = Math.max(0.01, 0.75 * actor.health / avatar.maxHealth);
     if (avatar.muzzle) avatar.muzzle.visible = avatar.flash > 0 && actor.alive && !!rig.weapon?.visible;
+    if (avatar.glint) {
+      // A flicker, not a lamp: bright enough to find on a skyline, brief enough to miss.
+      avatar.glint.visible = !!actor.aiming && actor.alive;
+      if (avatar.glint.visible) { const pulse = .6 + .4 * Math.sin(performance.now() / 90); avatar.glint.scale.setScalar(.55 + pulse * .5); avatar.glint.material.opacity = .55 + pulse * .45; }
+    }
   }
   function update(dt: number, input: ArenaInput): ArenaRuntimeFrame {
     if (disposed) return { snapshot: null, self: null, connected: false, started: false, hit: null, feed: [], spawn: false };
