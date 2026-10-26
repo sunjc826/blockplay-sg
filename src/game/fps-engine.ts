@@ -1,6 +1,6 @@
 import { bipodRecoilMultiplier } from './weapon-support';
 import { createWorldAtmosphere } from './world-atmosphere';
-import { createNightLights } from './world-night-lights';
+import { createNightLights, nightLevel } from './world-night-lights';
 import { getRegion } from './regions';
 import { createMovementMotion, resetMovementMotion, advanceGroundMotion, advanceBodyMotion, bufferJump, consumeJump, landMovement, INFANTRY_GRAVITY } from './fps-movement';
 import { createVerticalMovement } from './vertical-movement';
@@ -68,6 +68,8 @@ import { bannerOf, threatens } from './combat-event-catalog';
 import { hostile, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
 import { HEAT_CALLS } from './faction-heat';
 import { createCombatAudio } from './combat-event-audio';
+import { createAmbientSky } from './ambient-sky-visuals';
+import type { AmbientKind } from './ambient-sky';
 import { gunfireReports } from './gunfire-reports';
 import { getEnvironmentSettings } from './environment-settings';
 import { createHitDirectionOverlay, createHitDirections, hitStrength } from './fps-hit-direction';
@@ -253,6 +255,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     return firstVisibleHit(eventRay, gameplayCandidates())?.point ?? null;
   }, { reduced: () => getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
   const combatAudio = createCombatAudio(() => audio, () => hud.muted);
+  // Scenery in the sky beyond the district: never a threat, never sent between peers (ambient-sky).
+  const ambientSky = createAmbientSky(world.scene, { seed: Math.floor(Math.random() * 2 ** 32), risk: options.arena?.environment?.combatEvents?.risk ?? 'low',
+    reduced: () => getEnvironmentSettings().reducedEffects || !!motionPreference?.matches, audio: () => audio, muted: () => hud.muted });
+  let ambientJet = Infinity;
   /** Events within this many metres are alarms (banner, tones); further away they are news in the comms log. */
   const COMBAT_NEAR = 130;
   const seenEvents = new Set<string>(), openedSupplies = new Set<string>();
@@ -1694,7 +1700,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    */
   function updateCombatEvents(dt: number) {
     const snapshot = hud.arena, events: readonly CombatEventDescriptor[] = snapshot?.events ?? [], raiders = snapshot?.raiders ?? [];
-    if (!snapshot) { hud.combatBanner = null; hud.mapDangers = []; hud.mapJammed = false; hud.cloudCover = null; return; }
+    if (!snapshot) { combatAudio.loop('jet', ambientJet); hud.combatBanner = null; hud.mapDangers = []; hud.mapJammed = false; hud.cloudCover = null; return; }
     // Snapshots arrive at 10–20 Hz; between them the clock runs on, easing toward
     // the authority's time and never stepping backwards.
     const previous = eventClock < 0 || Math.abs(snapshot.elapsed - eventClock) > .5 ? snapshot.elapsed : eventClock;
@@ -1794,7 +1800,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.mapJammed = jammed; hud.mapDangers = jammed ? [] : dangers; hud.cloudCover = cloud;
     blackout += ((jammed ? 1 : 0) - blackout) * Math.min(1, dt * 1.5);
     combatAudio.transport(engine.mode, engine.distance, engine.effort);
-    combatAudio.loop('jet', jet); combatAudio.loop('raid', raid); combatAudio.loop('drone', drone); combatAudio.loop('siren', siren ? 0 : Infinity);
+    combatAudio.loop('jet', Math.min(jet, ambientJet)); combatAudio.loop('raid', raid); combatAudio.loop('drone', drone); combatAudio.loop('siren', siren ? 0 : Infinity);
     const happened = combatVisuals.update(dt, events, eventClock, camera, raiders);
     happened.shots.slice(0, 2).forEach(at => combatAudio.crack(at.distanceTo(listener)));
     for (const { at, size } of happened.blasts) {
@@ -1817,6 +1823,18 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     comms.add('system', 'Supplies', hud.lootNotice); radioCall('pickup');
   }
+  /**
+   * The sky beyond the district. Its jets share the combat events' roar; it
+   * keeps its jets and rockets back while a real air raid is on, so nothing of
+   * it reads as part of the raid.
+   */
+  function updateAmbientSky(dt: number) {
+    const raid = (hud.arena?.events ?? []).some(e => e.kind === 'air-raid' && combatPhase(e, eventClock) !== 'done');
+    ambientJet = ambientSky.update(dt, { camera, listener: camera.position, bounds: world.bounds, night: nightLevel(atmosphere.light.lighting.elevation), quiet: raid }).jet;
+    const census = ambientSky.census; if (census !== canvas.dataset.ambientSky) canvas.dataset.ambientSky = census;
+  }
+  /** Debug: put one of the sky's set pieces up ahead of you now, whatever the hour. */
+  function triggerAmbient(kind: AmbientKind) { if (!disposed) ambientSky.trigger(kind, yaw); }
   /**
    * Debug: call an event in now. Area events land ahead of you (artillery 35 m,
    * smoke 25 m, a supply drop 30 m, a blackout on you); hunters come for you;
@@ -1915,6 +1933,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (hud.phase === 'playing' && options.combat && !options.arena) counterFire(realDt);
     } else { advanceRecoil(kick, realDt); applyAimPush(); carry.set(0, 0, 0); updateCameras(dt, false, false); }
     updateArena(realDt);
+    updateAmbientSky(realDt);
     updateCombatEvents(realDt);
     if (arenaRuntime && !expedition) vehicles.sharedStep(dt);
     if (debugAvailable && hud.phase === 'playing' && hud.health > 0) {
@@ -2049,7 +2068,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   });
 
   return {
-    start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, travelZone, configureDebug, refillHealth, triggerCombatEvent,
+    start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
     toggleAim, toggleMap,
@@ -2071,7 +2090,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // First, so every mesh has its own material back before anything else restores or disposes them.
       vision.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); world.dispose();
-      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); hitOverlay.dispose();
+      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); sunShadows.dispose(); occlusion.dispose(); renderer.dispose(); canvas.remove();
     },

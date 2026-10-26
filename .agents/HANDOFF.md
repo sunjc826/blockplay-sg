@@ -3081,3 +3081,25 @@ earlier movement steps. The full smoke fails at those movement steps in headless
 Chrome ("Lifting the thumb stops the player" drifts 0.08 m at ~5 fps on
 SwiftShader; the half/full stick comparison runs into the range barrier at pace
 2). Not tried on a real phone.
+
+## 2026-10-26: ambient sky — scenery beyond the district
+
+Flashy background that never touches play: `ambient-sky.ts` (pure, seeded
+director and timelines), `ambient-sky-visuals.ts` (pools, drawing, wiring) and
+`ambient-sky-audio.ts` (far sound that carries past combat audio's 600 m,
+arriving after its flash). Four set pieces: a skyline battle (flashes, tracer
+streams, some lofted over the roofs, signal flares, smoke columns), a pair of
+jets crossing high with contrails (their roar shares the combat `jet` loop,
+heard from where the jet was), rocket salvos launched from off the map, and
+after dark flak streams with airbursts plus four searchlights that converge on
+the flak. Pace scales with the district's combat risk (`low` on the range);
+flak waits for night; jets and rockets hold back while a real air raid is on.
+Everything that fires or lands is placed clear of the district bounds; nothing
+is networked, banners nothing, marks no map, stops no ray. Reduced effects
+thins it out. Debug panel: "Sky scenery" buttons call each in ahead of you
+(`triggerAmbient`); the canvas carries `data-ambient-sky` (events / glows /
+tracers / smoke / jets / beams). Validation: unit tests, typecheck, build;
+frames grabbed in headless Chrome at noon and night on the Marina range (jets,
+smoke over the towers, flares, flak, beams all visible). Downtown towers hide
+anything under ~20° up, which is why the fight sends flares and smoke high.
+Not heard on real speakers; not tried on a phone GPU.

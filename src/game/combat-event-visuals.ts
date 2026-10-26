@@ -57,7 +57,7 @@ function buildTruck() {
 }
 
 /** An original fast jet: fuselage, delta wing, fin. Forward is local -Z. */
-function buildJet() {
+export function buildJet() {
   const root = new THREE.Group(), skin = new THREE.MeshStandardMaterial({ color: '#7b8590', roughness: .5, metalness: .3 }), dark = new THREE.MeshStandardMaterial({ color: '#2b3036', roughness: .4 });
   const body = new THREE.Mesh(new THREE.CylinderGeometry(.75, .55, 13, 10), skin); body.rotation.x = Math.PI / 2; root.add(body);
   const nose = new THREE.Mesh(new THREE.ConeGeometry(.75, 3, 10), skin); nose.rotation.x = -Math.PI / 2; nose.position.z = -8; root.add(nose);
