@@ -80,12 +80,12 @@
 .fps-game[data-touch=on] .fps-belt kbd{display:none}
 @media(max-width:720px){.fps-belt-slot{width:40px;height:42px}.fps-belt-slot small{font-size:6px;letter-spacing:.2px}.fps-belt{margin-bottom:7px}}
 /* Docked, on a phone on its side: the belt runs along the bottom between the
-   stick and the trigger's sweep, with the line naming the next item above it.
+   stick and the trigger's pad, with the line naming the next item above it.
    The right column keeps only the weapon slider and a compact ammo block. */
 .fps-belt.is-docked{position:absolute;left:50%;bottom:max(10px,env(safe-area-inset-bottom));transform:translateX(-50%);margin:0;justify-items:center;z-index:3}
 .fps-belt.is-docked .fps-belt-next{order:-1}
 @media(max-height:560px){
-  /* Just clear of the sweep's highest action, rather than the full inset the tall block needed. */
+  /* Just clear of the pad's highest button, rather than the full inset the tall block needed. */
   .fps-game[data-touch=on] .fps-weapon-hud .fps-ammo{bottom:140px;padding:6px 10px;min-width:0}
   .fps-game[data-touch=on] .fps-weapon-hud .fps-ammo strong{font-size:28px;line-height:1.15}
   .fps-game[data-touch=on] .fps-weapon-hud .fps-ammo>span{font-size:8.5px}

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDownToLine, ChevronsDown, ChevronsUp, Crosshair, Eye, Footprints, Menu, MessageCircle, Move3d, PackageOpen, RefreshCw, Rocket, Repeat2 } from 'lucide-react';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
-import { promptLabel, thumbArc, type StickVector } from '../game/touch-controls';
+import { padSlot, promptLabel, type StickVector } from '../game/touch-controls';
 import { visionStatus } from './FpsVisionChip';
 import './fps-vision.css';
 import TouchStick from './TouchStick';
@@ -11,16 +11,16 @@ import './touch-controls.css';
 /**
  * The thumb layer, laid out the way a phone shooter is.
  *
- * The left thumb keeps its floating movement stick, with the stance beside it:
- * crouch and prone are what you press while moving into cover, and the thumb
- * steering you there is the one already on that side. The right thumb gets the
- * trigger and nothing else to hunt for: the actions sit on the arc the thumb
- * already sweeps, rather than in a row that a hand holding a phone cannot
- * reach the far end of. Everything between the two is bare scene, because the
- * scene is the look surface — a drag anywhere the controls are not turns the
- * camera, which is why there is no look stick to take up a corner.
+ * The left thumb keeps its floating movement stick and nothing else. The right
+ * thumb gets the pad the big mobile shooters use, so a player's hands already
+ * know it: the trigger raised off the corner where the thumb rests, aim and
+ * jump up the edge beside it, crouch and prone along the bottom corner, and
+ * reload a short reach to its left (`padSlot` has the map). Everything between
+ * the two is bare scene, because the scene is the look surface — a drag
+ * anywhere the controls are not turns the camera, which is why there is no
+ * look stick to take up a corner.
  *
- * Contextual actions do not sit in the arc. A button that appears and shifts
+ * Contextual actions do not sit on the pad. A button that appears and shifts
  * its neighbours while you walk past a crate is worse than no button, so they
  * are a prompt in the middle of the screen, where the HUD already puts the
  * matching line for a keyboard, and only while they can actually be pressed.
@@ -85,27 +85,25 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
   const act = (key: string, label: string, icon: React.ReactNode, props: Record<string, unknown> = {}): Action =>
     ({ key, label, icon, props: typeof props.onClick === 'function' ? { ...props, ...tapProps(props.onClick as () => void) } : props });
 
-  // The sweep, nearest the resting thumb first: what you press without stopping
-  // shooting comes before what you press between fights.
-  const sweep: Action[] = [];
-  const stance: Action[] = [];
+  // The right thumb's pad; each action has a fixed place (`padSlot`), so one
+  // that comes or goes never moves its neighbours under the thumb.
+  const pad: Action[] = [];
   const prompts: Action[] = [];
   if (mounted) {
-    sweep.push(act('seat', 'Switch seat', <Repeat2 size={17} />, { onClick: () => engine?.switchVehicleSeat() }));
+    pad.push(act('seat', 'Switch seat', <Repeat2 size={17} />, { onClick: () => engine?.switchVehicleSeat() }));
     if (hud.vehicleSeat === 0) {
-      sweep.push(act('boost', flying ? 'Boost' : 'Sprint', <Rocket size={17} />, hold('shift')));
-      sweep.push(act('altitude', flying ? 'Climb' : 'Brake', <ChevronsUp size={17} />, hold(' ')));
-      if (flying) sweep.push(act('descend', 'Descend', <ArrowDownToLine size={17} />, hold('c')));
+      pad.push(act('boost', flying ? 'Boost' : 'Sprint', <Rocket size={17} />, hold('shift')));
+      pad.push(act('altitude', flying ? 'Climb' : 'Brake', <ChevronsUp size={17} />, hold(' ')));
+      if (flying) pad.push(act('descend', 'Descend', <ArrowDownToLine size={17} />, hold('c')));
     }
     if (hud.interact) prompts.push(act('vehicle', promptLabel(hud.interact), <Footprints size={16} />, { onClick: () => engine?.interactVehicle() }));
   } else {
-    // Nearest the stick first, the way the right sweep runs from its trigger.
-    stance.push(act('crouch', 'Crouch', <ChevronsDown size={17} />, { onClick: toggleCrouch, 'aria-pressed': crouched, 'data-on': crouched || undefined }));
-    stance.push(act('prone', hud.prone ? 'Stand' : 'Prone', <ArrowDownToLine size={17} />, { onClick: () => { setCrouched(false); engine?.setInput('z', true); }, 'aria-pressed': hud.prone, 'data-on': hud.prone || undefined }));
-    sweep.push(act('aim', 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': hud.aiming, 'data-on': hud.aiming || undefined }));
-    sweep.push(act('reload', 'Reload', <RefreshCw size={17} />, { onClick: () => engine?.reload(), disabled: hud.reloading > 0 }));
-    sweep.push(act('jump', 'Jump', <ChevronsUp size={17} />, { onClick: () => engine?.jump() }));
-    // Weapons are drawn from the slider in the top-right corner, not the sweep.
+    pad.push(act('crouch', 'Crouch', <ChevronsDown size={17} />, { onClick: toggleCrouch, 'aria-pressed': crouched, 'data-on': crouched || undefined }));
+    pad.push(act('prone', hud.prone ? 'Stand' : 'Prone', <ArrowDownToLine size={17} />, { onClick: () => { setCrouched(false); engine?.setInput('z', true); }, 'aria-pressed': hud.prone, 'data-on': hud.prone || undefined }));
+    pad.push(act('aim', 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': hud.aiming, 'data-on': hud.aiming || undefined }));
+    pad.push(act('reload', 'Reload', <RefreshCw size={17} />, { onClick: () => engine?.reload(), disabled: hud.reloading > 0 }));
+    pad.push(act('jump', 'Jump', <ChevronsUp size={17} />, { onClick: () => engine?.jump() }));
+    // Weapons are drawn from the slider in the top-right corner, not the pad.
     if (mode === 'expedition') {
       // Supplies are tapped on the utility belt itself, which a thumb can reach.
       if (hud.lootPrompt) prompts.push(act('loot', promptLabel(hud.lootPrompt), <PackageOpen size={16} />, { onClick: () => engine?.interactLoot() }));
@@ -116,20 +114,14 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
     }
   }
   // The worn device, on foot or mounted: one button walks off, on and each thermal palette.
-  if (hud.vision) sweep.push(act('vision', hud.vision.on ? `${hud.vision.kind === 'nvg' ? 'Night vision' : 'Thermal'} on${hud.vision.palettes > 1 ? ', next palette' : ''}` : hud.vision.kind === 'nvg' ? 'Night vision' : 'Thermal',
+  if (hud.vision) pad.push(act('vision', hud.vision.on ? `${hud.vision.kind === 'nvg' ? 'Night vision' : 'Thermal'} on${hud.vision.palettes > 1 ? ', next palette' : ''}` : hud.vision.kind === 'nvg' ? 'Night vision' : 'Thermal',
     <><Eye size={17} />{hud.vision.on && <small className="touch-badge" aria-hidden="true">{visionStatus(hud.vision, true)}</small>}</>, { onClick: () => engine?.pressVision(), 'aria-pressed': hud.vision.on, 'data-on': hud.vision.on || undefined }));
-  const arc = thumbArc(sweep.length);
 
-  return <div className="touch-layer" data-touch-layer={mode} data-mounted={mounted || undefined} style={{ '--arc-spread': arc.spread } as React.CSSProperties}>
+  return <div className="touch-layer" data-touch-layer={mode} data-mounted={mounted || undefined}>
     {/* Not a combat control, so it is in the top-left corner, out of reach of both thumbs mid-fight. */}
     <button type="button" className="touch-chip" data-touch-action="menu" aria-label={mode === 'range' ? 'Pause' : 'Menu'} title={mode === 'range' ? 'Pause' : 'Menu'} {...tapProps(onMenu)}><Menu size={16} /></button>
     <div className="touch-move">
-      <div className="touch-move-row">
-        <TouchStick kind="move" label={mounted ? hud.vehicleSeat === 0 ? 'DRIVE' : 'RIDING' : 'MOVE'} onChange={mounted && hud.vehicleSeat !== 0 ? () => {} : move} />
-        {stance.length > 0 && <div className="touch-stance">
-          {stance.map(item => <button key={item.key} type="button" className="touch-button" data-touch-action={item.key} aria-label={item.label} title={item.label} {...item.props}>{item.icon}</button>)}
-        </div>}
-      </div>
+      <TouchStick kind="move" label={mounted ? hud.vehicleSeat === 0 ? 'DRIVE' : 'RIDING' : 'MOVE'} onChange={mounted && hud.vehicleSeat !== 0 ? () => {} : move} />
     </div>
 
     {prompts.length > 0 && <div className="touch-prompts">
@@ -137,14 +129,14 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
     </div>}
 
     <div className="touch-combat">
-      {sweep.map((item, index) => <button
+      {pad.map(item => <button
         key={item.key}
         type="button"
         className="touch-button"
         data-touch-action={item.key}
+        data-pad-slot={padSlot(item.key)}
         aria-label={item.label}
         title={item.label}
-        style={{ '--arc-x': arc.slots[index].x, '--arc-y': arc.slots[index].y } as React.CSSProperties}
         {...item.props}
       >{item.icon}</button>)}
       <button type="button" className="touch-fire" data-touch-action="fire" aria-label="Fire" disabled={mounted && (!hud.vehicleCanFire || hud.vehicleAmmo === 0)} {...fire}>FIRE</button>

@@ -62,18 +62,20 @@ try {
   assert.equal(await evaluate(`document.querySelectorAll('.touch-layer').length`), 1, 'The thumb layer is drawn over the scene');
   assert.equal(await evaluate(`document.querySelectorAll('[data-touch-stick]').length`), 1, 'One stick: the scene itself is the look surface');
   assert.equal(await evaluate(`document.querySelectorAll('[data-touch-stick=look]').length`), 0, 'The look stick is gone');
-  // The actions sit on the thumb's sweep, not in a row: every one of them is
-  // placed from the trigger's centre, and none shares the trigger's own row.
-  const sweep = await evaluate(`[...document.querySelectorAll('.touch-combat .touch-button')].map(b=>{const r=b.getBoundingClientRect();return {action:b.dataset.touchAction,x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})`);
-  assert.deepEqual(sweep.map(item => item.action), ['aim', 'reload', 'jump'], `The infantry sweep is the three that matter (${JSON.stringify(sweep)})`);
+  // The right thumb's pad, as the big mobile shooters lay it out: the trigger
+  // raised off the corner, aim above jump on the edge to its right, crouch and
+  // prone along the bottom corner, reload to its left.
+  const pad = await evaluate(`Object.fromEntries([...document.querySelectorAll('.touch-combat button')].map(b=>{const r=b.getBoundingClientRect();return [b.dataset.touchAction,{l:r.left,t:r.top,r:r.right,b:r.bottom,x:r.x+r.width/2,y:r.y+r.height/2}]}))`);
+  assert.deepEqual(Object.keys(pad).sort(), ['aim', 'crouch', 'fire', 'jump', 'prone', 'reload'], `The infantry pad (${Object.keys(pad)})`);
+  const { fire: trigger } = pad;
+  assert(pad.aim.l >= trigger.r && pad.jump.l >= trigger.r && pad.aim.y < pad.jump.y, 'Aim sits above jump, on the edge right of the trigger');
+  assert(pad.crouch.t >= trigger.b && pad.prone.t >= trigger.b && pad.prone.x > pad.crouch.x, 'Crouch and prone run along the bottom corner, under the trigger');
+  assert(pad.reload.r <= trigger.l, 'Reload is a reach to the trigger\'s left');
+  const boxes = Object.entries(pad);
+  for (const [a, p] of boxes) for (const [b, q] of boxes) if (a < b) assert(p.r <= q.l || q.r <= p.l || p.b <= q.t || q.b <= p.t, `${a} and ${b} do not overlap`);
   // Weapons are drawn from the slider in the top-right corner instead.
   const slider = await evaluate(`(()=>{const s=document.querySelector('[data-testid=weapon-slider]');if(!s)return null;const r=s.getBoundingClientRect();return {right:Math.round(innerWidth-r.right),top:Math.round(r.top),slots:s.querySelectorAll('button').length}})()`);
   assert(slider && slider.right < 40 && slider.top < 120 && slider.slots >= 2, `The weapon slider sits in the top-right corner (${JSON.stringify(slider)})`);
-  const trigger = await evaluate(`(()=>{const r=document.querySelector('[data-touch-action=fire]').getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()`);
-  const radius = sweep.map(item => Math.round(Math.hypot(item.x - trigger.x, item.y - trigger.y)));
-  assert(Math.max(...radius) - Math.min(...radius) <= 2, `Every action is the same reach from the trigger (${JSON.stringify(radius)})`);
-  assert(new Set(sweep.map(item => item.y)).size > 1, 'The actions are on an arc, not laid out in one row');
-  for (const item of sweep) assert(item.x <= trigger.x + 2 && item.y <= trigger.y + 2, `${item.action} stays left of and above the trigger`);
   await screenshot('range-touch-layer');
 
   // Moving: a pushed stick walks, and letting go stops.

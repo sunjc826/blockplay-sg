@@ -7,12 +7,12 @@
   --edge-right:max(12px,env(safe-area-inset-right));
   --edge-bottom:max(12px,env(safe-area-inset-bottom));
   --edge-left:max(12px,env(safe-area-inset-left));
-  /* One trigger, one sweep of actions; every other size here follows these. */
+  /* One trigger and the pad round it; every other size here follows these. */
   --fire-size:88px;
-  --arc-size:48px;
-  --arc-radius:110px;
-  /* How much of the bottom-right corner the trigger and its sweep spend. */
-  --touch-reserve:calc(var(--fire-size) / 2 + var(--arc-radius) * var(--arc-spread,1) + var(--arc-size) / 2);
+  --pad-size:48px;
+  --pad-gap:10px;
+  /* How much of the bottom-right corner the pad spends: three buttons up the edge. */
+  --touch-reserve:calc(var(--pad-size) * 3 + var(--pad-gap) * 2);
   padding:0 var(--edge-right) var(--edge-bottom) var(--edge-left)}
 /* The walk/drive districts keep the older two-stick arrangement. */
 .touch-side{display:flex;flex-direction:column;gap:10px;min-width:0}
@@ -21,14 +21,6 @@
 
 /* ---- Left thumb ---------------------------------------------------------- */
 .touch-move{display:flex;flex-direction:column;align-items:flex-start;gap:12px;flex:none;pointer-events:none}
-.touch-move-row{display:flex;align-items:flex-end;gap:4px;pointer-events:none}
-/* The stance sits off the stick's inner edge, crouch lowest: the thumb rolls
-   onto it from the stick without crossing the planted base, and a stick pushed
-   to its sprint ring stops short of it. Prone steps back toward the edge, so
-   the pair follows the arc that thumb sweeps instead of a straight column. */
-.touch-stance{display:flex;flex-direction:column-reverse;align-items:flex-start;gap:12px;padding-bottom:10px;pointer-events:none}
-.touch-stance .touch-button{min-width:0;min-height:0;padding:0;border-radius:50%;width:var(--arc-size);height:var(--arc-size)}
-.touch-stance .touch-button+.touch-button{transform:translateX(calc(var(--arc-size) * -.42))}
 
 /* The zone is the whole thumb-sized rectangle; only the planted base is drawn. */
 .touch-stick{position:relative;width:146px;height:146px;pointer-events:auto;touch-action:none;flex:none}
@@ -58,7 +50,7 @@
 
 /* ---- Buttons ------------------------------------------------------------- */
 /* The shared skin: a labelled pill, which is what the districts draw. The
-   range's sweep re-cuts it into an icon-only circle further down. */
+   range's pad re-cuts it into an icon-only circle further down. */
 .touch-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:flex-end;gap:6px;max-width:430px;pointer-events:none}
 .touch-button{pointer-events:auto;touch-action:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   min-width:56px;min-height:44px;padding:6px 8px;border-radius:7px;border:1px solid #c7d1bb44;background:#16271ecc;color:#f4f4e9;
@@ -69,29 +61,32 @@
 .touch-button:focus-visible,.touch-chip:focus-visible{outline:2px solid #d79545;outline-offset:2px}
 
 /* ---- Right thumb --------------------------------------------------------- */
-/* The cluster reserves the whole sweep, so the trigger can be anchored in the
-   corner and everything else placed from its centre. */
+/* The pad the big mobile shooters use (see `padSlot`): the trigger raised off
+   the corner where the thumb rests, aim and jump up the edge beside it, crouch
+   and prone along the bottom corner, reload a short reach to its left. Every
+   slot is an offset from the corner in button, gap and trigger sizes, so a
+   short screen redraws the same pad smaller. */
 .touch-combat{position:relative;flex:none;pointer-events:none;
-  width:var(--touch-reserve);height:var(--touch-reserve)}
+  --fire-at:calc(var(--pad-size) + var(--pad-gap) * 1.5);
+  width:calc(var(--fire-at) + var(--fire-size) + var(--pad-gap) + var(--pad-size));height:var(--touch-reserve)}
 
 .touch-fire{pointer-events:auto;touch-action:none;width:86px;height:86px;border-radius:50%;border:2px solid #ffffff38;
   background:#c56e37e0;color:#fff8e5;font:11px monospace;letter-spacing:2.5px;box-shadow:0 6px 18px #0a140d55;flex:none}
-.touch-combat .touch-fire{position:absolute;right:0;bottom:0;width:var(--fire-size);height:var(--fire-size)}
+.touch-combat .touch-fire{position:absolute;right:var(--fire-at);bottom:var(--fire-at);width:var(--fire-size);height:var(--fire-size)}
 .touch-fire:active{background:#e08a4ce6;transform:scale(.96)}
 .touch-fire:disabled{opacity:.3}
 .touch-fire:focus-visible{outline:2px solid #ffd489;outline-offset:3px}
 
-/* Each action is centred on the trigger, then pushed out along the sweep. The
-   direction comes from `thumbArc`, the distance from the stylesheet, so the
-   same arrangement redraws smaller on a short screen without new maths. */
 .touch-combat .touch-button{position:absolute;min-width:0;min-height:0;padding:0;border-radius:50%;
-  right:calc(var(--fire-size) / 2 - var(--arc-size) / 2);
-  bottom:calc(var(--fire-size) / 2 - var(--arc-size) / 2);
-  width:var(--arc-size);height:var(--arc-size);
-  transform:translate(calc(var(--arc-x) * var(--arc-radius)),calc(var(--arc-y) * var(--arc-radius)))}
+  width:var(--pad-size);height:var(--pad-size);right:0;bottom:0}
+.touch-combat [data-pad-slot=corner-left]{right:calc(var(--pad-size) + var(--pad-gap))}
+.touch-combat [data-pad-slot=edge-low]{bottom:calc(var(--pad-size) + var(--pad-gap))}
+.touch-combat [data-pad-slot=edge-high]{bottom:calc((var(--pad-size) + var(--pad-gap)) * 2)}
+.touch-combat [data-pad-slot=beside]{right:calc(var(--fire-at) + var(--fire-size) + var(--pad-gap));bottom:var(--fire-at)}
+.touch-combat [data-pad-slot=beside-high]{right:calc(var(--fire-at) + var(--fire-size) + var(--pad-gap));bottom:calc(var(--fire-at) + var(--pad-size) + var(--pad-gap))}
 
 /* ---- What you can reach right now ---------------------------------------- */
-/* Contextual actions are a prompt rather than another button on the sweep: one
+/* Contextual actions are a prompt rather than another button on the pad: one
    that came and went as you walked would move its neighbours under the thumb.
    It sits clear of the cluster, in the middle, where the eye already is. */
 .touch-prompts{position:absolute;left:50%;transform:translateX(-50%);z-index:1;
@@ -110,7 +105,7 @@
    drawn smaller rather than being allowed to reach mid-screen, and the district
    buttons drop their labels — the aria-label keeps announcing them. */
 @media(max-height:560px){
-  .touch-layer{--edge-bottom:max(8px,env(safe-area-inset-bottom));--fire-size:68px;--arc-size:38px;--arc-radius:87px}
+  .touch-layer{--edge-bottom:max(8px,env(safe-area-inset-bottom));--fire-size:68px;--pad-size:38px;--pad-gap:7px}
   .touch-stick{width:118px;height:118px}
   .touch-stick-base{width:76px;height:76px;margin:-38px 0 0 -38px}
   .touch-stick-thumb{width:38px;height:38px;margin:-19px 0 0 -19px}
@@ -121,11 +116,11 @@
   .touch-button{min-width:42px;min-height:38px;padding:5px 6px}
   .touch-actions{gap:5px;max-width:470px}
 }
-/* Portrait has the opposite problem — height to spare, no width — so the sweep
+/* Portrait has the opposite problem — height to spare, no width — so the pad
    only has to stay clear of the left thumb's zone, and the districts stack
    their trigger above its stick. */
 @media(max-width:520px){
-  .touch-layer{--fire-size:76px;--arc-size:44px;--arc-radius:101px}
+  .touch-layer{--fire-size:76px;--pad-size:44px;--pad-gap:8px}
   .touch-primary{flex-direction:column;align-items:flex-end;gap:8px}
   .touch-stick{width:118px;height:118px}
   .touch-stick-base{width:76px;height:76px;margin:-38px 0 0 -38px}
@@ -143,7 +138,7 @@
 
 /* ---- Room for the thumbs -------------------------------------------------
    The HUD was laid out for a mouse, with the bottom corners free. The trigger
-   and its sweep own the right one now, so anything anchored there is lifted by
+   and its pad own the right one now, so anything anchored there is lifted by
    the height that cluster reserves. The walk/drive districts still draw two
    sticks, so they keep their own figure. */
 .fps-game[data-touch=on]{--touch-inset:215px}
@@ -166,7 +161,7 @@
   .expedition-game[data-touch=on] .expedition-sector{display:none}
   .expedition-game[data-touch=on] .fps-minimap{top:106px}
 }
-/* Clear of the sweep, whose reach the inset already accounts for. */
+/* Clear of the pad, whose reach the inset already accounts for. */
 .fps-game[data-touch=on] .fps-ammo{bottom:calc(22px + var(--touch-inset))}
 .fps-game[data-touch=on] .fps-vehicle-hud{bottom:calc(22px + var(--touch-inset))}
 .fps-game[data-touch=on] .fps-vehicle-notice{bottom:calc(46px + var(--touch-inset))}
@@ -193,7 +188,7 @@
 }
 
 /* Portrait leaves no free strip along the bottom: the stick, the trigger and
-   its sweep already spend it. The readouts move to the top-right column
+   its pad already spend it. The readouts move to the top-right column
    instead, and the briefing line steps aside — the pause card still carries it. */
 @media(max-width:520px){
   /* The vitals row reaches past the middle of a 390px screen, so the centred

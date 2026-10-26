@@ -43,24 +43,27 @@ instead of below it:
   on aiming, which one thumb otherwise cannot do. A press is buffered for
   `TRIGGER_BUFFER` (.18 s) in the engine, so a tap released before the next
   frame, or landing in the last round's cooldown, still fires one round.
-- **The actions sit on the thumb's sweep**, not in a row — a quarter turn from
-  beside the trigger to above it, which is as far as a hand holding a phone
-  reaches. `thumbArc` gives each one a direction and the stylesheet the radius,
-  so the same arrangement redraws smaller on a short screen; spacing is what is
-  held constant, so a sixth action pushes the sweep out rather than crowding
-  onto the fifth. Infantry get aim, reload, jump and weapon swap; a mounted
-  vehicle swaps in its own. They are icon-only, so the names live on the
-  elements for screen readers.
-- **The stance sits beside the left stick**: crouch (a latch, not a hold)
-  nearest it, prone above. Those are pressed while moving into cover, and the
-  thumb steering there is the one already on that side. Vehicles drop them.
+- **The right thumb has a shooter's pad**, laid out as Call of Duty: Mobile and
+  PUBG Mobile lay theirs so a player's hands already know it: FIRE raised off
+  the corner where the thumb rests, aim above jump on the screen edge to its
+  right, crouch and prone along the bottom corner, reload a short reach to its
+  left, and a worn vision device above reload. `padSlot` maps each action to a
+  named place and the stylesheet draws the places from button, gap and trigger
+  sizes, so the same pad redraws smaller on a short screen; a mounted vehicle
+  reuses the places for its own actions (seat, boost, climb or brake, descend)
+  and drops the stance. Crouch is a latch, not a hold. The buttons are
+  icon-only, so the names live on the elements for screen readers. Weapons
+  switch on the slider in the top-right corner and supplies on the belt.
+- **Every button answers touch-down from any finger** (`tapProps`), because a
+  phone sends a click only for the first finger, and the left thumb is usually
+  on the stick.
 - **Contextual actions are a prompt**, in the middle of the screen, and only
   while they can be pressed: entering a vehicle, picking up a crate, crossing a
-  checkpoint. They are not sweep slots because a button that came and went as
+  checkpoint. They are not pad buttons because a button that came and went as
   you walked would move its neighbours under your thumb. The prompt says what
   it does rather than which key a keyboard would use.
-- **The menu** sits above the left stick, off both sweeps: a mis-hit there costs
-  the round rather than a magazine.
+- **The menu** has the top-left corner, out of both thumbs' way: it is not a
+  combat control, and a mis-hit there costs the round rather than a magazine.
 
 Entering a mode by touch skips pointer capture entirely, and the round pauses if
 a real mouse shows up, so a convertible can switch either way mid-session. The
@@ -91,7 +94,7 @@ the mouse-capture chip, which answers a question a phone does not ask. Portrait
 keeps the log and stacks the sector between the vitals and the map.
 
 `pnpm test:touch` drives all of it through real touch events in an emulated
-phone — including that the sweep is an arc rather than a row, and that dragging
+phone — including where each pad button sits round the trigger, and that dragging
 the bare scene turns — and `pnpm test:fullscreen:mobile` checks the immersive
 layout in both orientations against a stand-in notch; they need Vite plus Chrome
 with remote debugging, as the other browser smokes do.

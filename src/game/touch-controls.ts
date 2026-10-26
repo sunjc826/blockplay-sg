@@ -130,42 +130,26 @@ export function dragLook(dx: number, dy: number) {
 }
 
 /**
- * The sweep a right thumb covers without the hand letting go of the phone: a
- * quarter turn, from straight beside the trigger to straight above it. It stops
- * there because the trigger sits hard in the corner — a slot past vertical would
- * hang off the edge of the phone.
- */
-const ARC_FROM = Math.PI, ARC_TO = Math.PI / 2;
-/** Centre-to-centre spacing between buttons on the sweep, in CSS pixels. */
-const ARC_STEP = 52;
-/** The radius the stylesheet draws at spread 1; it shrinks with the screen. */
-const ARC_BASE = 110;
-
-/**
- * Where a set of action buttons sits around the trigger.
+ * Where each right-thumb action sits, laid out the way the big mobile shooters
+ * lay theirs (Call of Duty: Mobile, PUBG Mobile) so a player's hands already
+ * know it. The trigger is raised off the corner, where the thumb rests; aim and
+ * jump climb the screen edge beside it, crouch and prone sit along the bottom
+ * corner, and reload is a short reach to its left:
  *
- * Each slot is a unit direction from the trigger's centre — the stylesheet
- * multiplies it by a radius, so the same layout holds when a short screen draws
- * everything smaller. Screen y grows downwards, so `y` is negative above the
- * trigger, and the first slot is always the one beside the resting thumb.
+ *   beside-high                    edge-high   (vision · aim / boost)
+ *   beside        (  FIRE  )       edge-low    (reload / seat · jump / climb)
+ *                  corner-left     corner      (crouch · prone / descend)
  *
- * Spacing is what is held constant, not the span: four buttons sit at the same
- * pitch as five, and a sixth pushes the whole sweep further out rather than
- * crowding onto its neighbour. `spread` is that push, and the caller hands it
- * to the stylesheet so the cluster reserves the room it actually uses.
+ * The stylesheet owns the geometry; this owns which action goes where, so the
+ * same slots draw smaller on a short screen and a vehicle reuses them.
  */
-export function thumbArc(count: number): { spread: number; slots: { x: number; y: number }[] } {
-  const total = Math.max(1, Math.floor(finite(count)));
-  const span = ARC_FROM - ARC_TO, step = ARC_STEP / ARC_BASE, wanted = (total - 1) * step;
-  const spread = wanted > span ? wanted / span : 1;
-  const gap = total > 1 ? Math.min(step, span / (total - 1)) : 0;
-  const round = (value: number) => Math.round(value * 1e4) / 1e4;
-  const slots = Array.from({ length: total }, (_, index) => {
-    const angle = ARC_FROM - index * gap;
-    return { x: round(Math.cos(angle) * spread), y: round(-Math.sin(angle) * spread) };
-  });
-  return { spread: round(spread), slots };
-}
+export type PadSlot = 'corner' | 'corner-left' | 'edge-low' | 'edge-high' | 'beside' | 'beside-high';
+const PAD_SLOTS: Readonly<Record<string, PadSlot>> = {
+  prone: 'corner', crouch: 'corner-left', jump: 'edge-low', aim: 'edge-high', reload: 'beside', vision: 'beside-high',
+  // Mounted: the thumb that jumps climbs or brakes, the one that aims boosts.
+  descend: 'corner', altitude: 'edge-low', boost: 'edge-high', seat: 'beside',
+};
+export const padSlot = (action: string): PadSlot | undefined => PAD_SLOTS[action];
 
 /**
  * A prompt with its keyboard hint dropped. The HUD writes "E · Drive Utility 01"

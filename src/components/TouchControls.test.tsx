@@ -23,22 +23,22 @@ it('gives every mode one stick, a trigger and a way back to the menu', () => {
   }
 });
 
-it('lays the actions on the thumb\'s sweep, not in a row', () => {
+it('lays the right thumb\'s actions out as a shooter\'s pad, each in a fixed place', () => {
   const html = layer(playing());
-  const sweep = [...html.matchAll(/data-touch-action="(aim|reload|jump|weapon)"/g)].map(match => match[1]);
-  // Weapons moved to the top-right slider, so the sweep carries no swap.
-  expect(sweep).toEqual(['aim', 'reload', 'jump']);
-  // Every one of them is placed by `thumbArc`, so none is left in flow.
-  for (const action of sweep) expect(control(html, action)).toMatch(/--arc-x:-?[\d.]+;--arc-y:-?[\d.]+/);
-  // The trigger keeps the corner; the sweep is measured from its centre.
-  expect(html).toMatch(/--arc-spread:[\d.]+/);
+  const pad = [...html.matchAll(/data-touch-action="(\w+)" data-pad-slot="([\w-]+)"/g)].map(match => [match[1], match[2]]);
+  // Weapons are on the top-right slider and supplies on the belt, so the pad is
+  // what a fight needs: aim, reload, jump and the stance.
+  expect(Object.fromEntries(pad)).toEqual({ crouch: 'corner-left', prone: 'corner', aim: 'edge-high', reload: 'beside', jump: 'edge-low' });
+  // The stance has moved to the right thumb, so the left keeps the stick alone.
+  const left = html.match(/<div class="touch-move">[\s\S]*?<div class="touch-combat">/)?.[0] ?? '';
+  expect(left).not.toMatch(/data-touch-action="(crouch|prone|menu)"/);
 });
 
 it('offers the expedition its checkpoints, and the range its vehicles', () => {
   const expedition = layer(playing({ quickItem: 'Field dressing', quickCount: 2, lootPrompt: 'E · rare Combat stim', npcPrompt: 'N · Buy Kaya toast · 140 CR', travelPrompt: 'T · Travel to Raffles Place' }), 'expedition');
   expect(expedition).toContain('data-touch-action="loot"');
   expect(expedition).toContain('data-touch-action="travel"');
-  // Supplies are tapped on the utility belt, not the sweep.
+  // Supplies are tapped on the utility belt, not the pad.
   expect(expedition).not.toContain('data-touch-action="supply"');
   expect(expedition).toContain('data-touch-action="npc"');
   expect(expedition).not.toContain('data-touch-action="vehicle"');
@@ -61,8 +61,8 @@ it('offers the expedition its checkpoints, and the range its vehicles', () => {
 
 it('shows a contextual action only while it can be pressed', () => {
   // A button that appeared and shifted its neighbours as you walked past a
-  // crate would be worse than none, so these are prompts rather than sweep
-  // slots, and the sweep keeps the same four whatever you are standing next to.
+  // crate would be worse than none, so these are prompts rather than pad
+  // slots, and the pad keeps the same buttons whatever you are standing next to.
   expect(layer(playing())).not.toContain('data-touch-action="vehicle"');
   expect(layer(playing({ interact: 'E · Enter Utility 01' }))).toContain('data-touch-action="vehicle"');
   expect(layer(playing({ lootPrompt: '' }), 'expedition')).not.toContain('data-touch-action="loot"');
@@ -111,24 +111,21 @@ it('keeps the walk/drive districts to a stick each, with a brake only in the car
 it('hides the bare drag surface from assistive tech, but never the buttons', () => {
   const html = layer(playing());
   expect(html).toContain('aria-hidden="true"');
-  // The sweep is icon-only, so the name has to live on the element itself.
+  // The pad is icon-only, so the name has to live on the element itself.
   for (const [action, label] of [['aim', 'Aim'], ['reload', 'Reload'], ['jump', 'Jump'], ['fire', 'Fire'], ['menu', 'Pause']] as const) {
     expect(control(html, action)).toContain(`aria-label="${label}"`);
   }
   expect(html).toContain('class="touch-button"');
 });
 
-it('puts the stance beside the stick, off the trigger\'s sweep', () => {
-  for (const mode of ['range', 'arena', 'expedition'] as const) {
-    const html = layer(playing(), mode);
-    const left = html.match(/<div class="touch-move">[\s\S]*?<div class="touch-combat">/)?.[0] ?? '';
-    expect([...left.matchAll(/data-touch-action="(crouch|prone)"/g)].map(match => match[1])).toEqual(['crouch', 'prone']);
-    // The menu is not a combat control: it has the top-left corner, not a place by the stick.
-    expect(left).not.toContain('data-touch-action="menu"');
-    expect(control(html, 'crouch')).not.toContain('--arc-x');
-  }
+it('gives a vehicle the same places, and no stance', () => {
+  const helicopter = layer(playing({ vehicle: 'helicopter', vehicleSeat: 0 }));
+  expect(control(helicopter, 'altitude')).toContain('data-pad-slot="edge-low"');
+  expect(control(helicopter, 'boost')).toContain('data-pad-slot="edge-high"');
+  expect(control(helicopter, 'descend')).toContain('data-pad-slot="corner"');
+  expect(control(helicopter, 'seat')).toContain('data-pad-slot="beside"');
   // A vehicle's left thumb is steering, and 'c' is the helicopter's descent.
-  expect(layer(playing({ vehicle: 'helicopter', vehicleSeat: 0 }))).not.toContain('touch-stance');
+  expect(helicopter).not.toContain('data-touch-action="crouch"');
 });
 
 it('offers prone deployment and a way to stand again in every combat mode', () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   LOOK_RATE_X, NEUTRAL_STICK, STICK_DEAD_ZONE, STICK_RADIUS, STICK_SPRINT,
   TOUCH_LOOK_GAIN_X, TOUCH_LOOK_GAIN_Y,
-  dragLook, lookDelta, promptLabel, resolveMovement, stickKeys, stickOffset, stickVector, thumbArc,
+  dragLook, lookDelta, promptLabel, resolveMovement, stickKeys, stickOffset, stickVector, padSlot,
 } from './touch-controls';
 import { movementInput } from './fps-rules';
 import { turnFpsLook } from './fps-pointer';
@@ -172,56 +172,25 @@ describe('dragLook', () => {
   });
 });
 
-describe('thumbArc', () => {
-  const reach = (slot: { x: number; y: number }) => Math.hypot(slot.x, slot.y);
-
-  it('starts beside the trigger and sweeps up, never across to its right', () => {
-    const { slots, spread } = thumbArc(5);
-    expect(slots).toHaveLength(5);
-    // The first slot is exactly beside the trigger, and the last exactly above
-    // it: a quarter turn, because the trigger is hard against the screen edge.
-    expect(slots[0]).toEqual({ x: -spread, y: -0 });
-    expect(slots[4].x).toBeCloseTo(0, 3);
-    expect(slots[4].y).toBeCloseTo(-spread, 3);
-    for (const slot of slots) {
-      // Left of the trigger and no lower than it: the rest of the screen is
-      // scene, and anything to its right would be off the edge of the phone.
-      expect(slot.x).toBeLessThanOrEqual(0.001);
-      expect(slot.y).toBeLessThanOrEqual(0.001);
-      expect(reach(slot)).toBeCloseTo(spread, 3);
+describe('padSlot', () => {
+  it('gives every action its own place, on foot and in each vehicle seat', () => {
+    const layouts = [
+      ['aim', 'reload', 'jump', 'crouch', 'prone', 'vision'],
+      ['seat', 'boost', 'altitude', 'descend', 'vision'],
+    ];
+    for (const actions of layouts) {
+      const slots = actions.map(padSlot);
+      expect(slots.every(Boolean)).toBe(true);
+      expect(new Set(slots).size).toBe(actions.length);
     }
   });
-
-  it('holds the spacing rather than the span as actions are added', () => {
-    const gap = (count: number) => {
-      const { slots } = thumbArc(count);
-      return Math.hypot(slots[1].x - slots[0].x, slots[1].y - slots[0].y);
-    };
-    // Two, four and five buttons sit at the same pitch; the sweep just gets longer.
-    expect(gap(4)).toBeCloseTo(gap(2), 3);
-    expect(gap(5)).toBeCloseTo(gap(2), 2);
-  });
-
-  it('pushes the whole sweep out rather than crowding another button on', () => {
-    // Up to four fit the quarter turn at the radius the stylesheet draws; past
-    // that the sweep moves outwards so the spacing never has to give.
-    expect(thumbArc(3).spread).toBe(1);
-    expect(thumbArc(4).spread).toBe(1);
-    const counts = [4, 5, 6, 7].map(count => thumbArc(count));
-    for (let index = 1; index < counts.length; index++) {
-      expect(counts[index].spread).toBeGreaterThan(counts[index - 1].spread);
-    }
-    const pitch = (slots: { x: number; y: number }[]) => Math.hypot(slots[1].x - slots[0].x, slots[1].y - slots[0].y);
-    for (const { slots } of counts) expect(pitch(slots)).toBeCloseTo(pitch(counts[0].slots), 2);
-  });
-
-  it('gives a lone action the easy slot and never divides by zero', () => {
-    const one = thumbArc(1);
-    expect(one.slots).toHaveLength(1);
-    expect(one.spread).toBe(1);
-    expect(reach(one.slots[0])).toBeCloseTo(1, 5);
-    expect(thumbArc(0).slots).toHaveLength(1);
-    expect(thumbArc(Number.NaN).slots).toHaveLength(1);
+  it('puts the stance in the bottom corner and aim on the edge above jump, as the big shooters do', () => {
+    expect(padSlot('prone')).toBe('corner');
+    expect(padSlot('crouch')).toBe('corner-left');
+    expect(padSlot('jump')).toBe('edge-low');
+    expect(padSlot('aim')).toBe('edge-high');
+    expect(padSlot('reload')).toBe('beside');
+    expect(padSlot('menu')).toBeUndefined();
   });
 });
 

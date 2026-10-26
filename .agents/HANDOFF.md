@@ -3045,3 +3045,18 @@ the top-left corner (safe-area aware), and `.fps-top` shifts right by
 `--chip-room` while the chip exists, so the district badge sits beside it.
 Checked at 375×812 (range and expedition top bars fit), 640×320.
 `touch-controls-smoke` asserts the corner position; not run here.
+
+## 2026-10-26: right-thumb pad laid out like the big mobile shooters
+
+The radial sweep (`thumbArc`) is gone. `padSlot` in touch-controls.ts maps
+each right-thumb action to a named place, as Call of Duty: Mobile and PUBG
+Mobile lay theirs: FIRE raised off the corner, aim (`edge-high`) above jump
+(`edge-low`) on the edge to its right, crouch (`corner-left`) and prone
+(`corner`) along the bottom corner, reload (`beside`) to its left, a worn
+vision device (`beside-high`) above reload. Vehicles reuse the places (boost,
+climb/brake, descend, seat). The stance moved from beside the left stick to
+the pad; the left thumb keeps the stick only. Geometry is CSS (`--pad-size`,
+`--pad-gap`, `--fire-size`, `--fire-at`) with `data-pad-slot`. Bounds checked
+at 640×320, 740×360 (range; Upper Thomson with night vision) and 375×812: no
+overlaps except the older minimap × stick-zone one. `touch-controls-smoke`
+asserts the pad's relative positions; not run here.
