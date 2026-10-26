@@ -3143,3 +3143,43 @@ unit tests, typecheck, build; frames grabbed in headless Chrome (missile
 trail, falling jet's smoke arc, smoke column at Marina; birds; two ships and
 shells at Sentosa by day and night). The crash fireball itself is hidden
 behind Marina's towers; the column shows. Not heard on speakers.
+
+## 2026-10-26: hitch pass (shader compiles, program churn, bullet rays)
+
+Profiled in headless Chrome (ANGLE Metal on a virtual Mac GPU, dev build)
+across Marina, Chinatown and Tuas. Steady play already held 60 fps; the
+hitches were first-use work and garbage.
+- **First-use shader compiles.** The first aim cost a 404 ms then a 267 ms
+  frame, the first scoped shot 143 ms, the first burst six new programs.
+  `warmShaders` in fps-engine now runs before `ready`: the scope lens gets its
+  PiP map up front (`scopeRenderer.prepare`), combat-event models are built
+  hidden (`combatVisuals.prewarm`, arena only), `compileAsync` runs for the
+  world and viewmodel scenes on the canvas and on an offscreen target (tone
+  mapping and colour space differ), and the scope and reflection targets are
+  drawn into once (`warm`) so the GPU builds their pipelines. After: the
+  worst in-play frame in the probe is one 33 ms frame; the cost moved to a
+  ~350 ms frame on the ready card.
+- **Per-frame shader-key rebuilds (12 idle, 18 scoped).** Three draws
+  transparent `DoubleSide` materials in two passes and flags them changed for
+  each: `forceSinglePass` on the effect pools, scope lens, optic glass, enemy
+  reflex tint, objective beam, searchlights and danger rings (all flat or
+  additive, so one pass looks the same). Materials shared by an InstancedMesh
+  and plain meshes flipped program on every alternation:
+  `separateInstancedMaterials` (instanced-materials.ts) gives instanced users
+  a copy, before night lights patch anything. Instanced shadow casters get
+  their own depth material (fps-sun-shadows). Now 0 per frame; sampled
+  allocation 265 → 184 MB per 5.5 s of walking and firing (most of the rest
+  is React's dev-only JSX).
+- **Bullet rays.** Three tests every instance of an InstancedMesh per ray;
+  districts have meshes of 400–4,300 instances. `accelerateInstancedRaycasts`
+  (instanced-raycast.ts) puts a BVH over instance boxes on static instanced
+  meshes ≥ 32 instances (29 in Marina; canvas `data-raycast-trees`), pruned
+  by the ray's near/far; hits are identical to three's (test compares 400
+  rays). Ray time per 1.2 s burst: Marina 64 → 7 ms, Chinatown 63 → 15,
+  Tuas 37 → 13.
+Not done: HUD `publish()` still re-renders the whole FpsGame tree 10×/s;
+the forced `updateMatrixWorld(true)` calls remain; night/day shadow toggles
+still recompile every material; vision devices not warmed. Validation: unit
+tests (new: instanced-raycast, instanced-materials), typecheck, headless
+probe, scoped screenshot. Browser smokes not run; not tried on a phone or
+Windows GPU.

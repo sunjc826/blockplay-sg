@@ -49,6 +49,7 @@ import { itemById } from './armory-catalog';
 import { DEFAULT_FPS_DEBUG, FPS_REGEN_DELAY, normalizeFpsDebug, readFpsDebug, regenerateHealth, saveFpsDebug, type FpsDebugSettings } from './fps-debug';
 import { createWeaponHandling } from './fps-viewmodel';
 import { createScopeRenderer, getWeaponSight } from './weapon-optics';
+import { accelerateInstancedRaycasts } from './instanced-raycast';
 import { separateInstancedMaterials } from './instanced-materials';
 import { createOpticReflectionRenderer } from './weapon-reflections';
 import { handleSide, reloadMotion, reloadStage, smoothStep } from './fps-weapon-motion';
@@ -2102,6 +2103,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         if (expedition?.checkpoint) arenaRuntime.setVitals({ health: expedition.checkpoint.health });
       }
     }
+    // Bullets, bots' sight lines and event landings all cast through the district's instanced scenery.
+    canvas.dataset.raycastTrees = String(accelerateInstancedRaycasts(world.scene));
     await warmShaders();
     if (disposed) return;
     hud.phase = 'ready'; updateCameras(0, false, false); publish();
