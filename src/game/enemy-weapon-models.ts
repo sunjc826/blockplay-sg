@@ -59,7 +59,7 @@ function createKit(root: THREE.Group, id: EnemyWeaponId) {
   // Lens faces you look at but never through: a scope's objective, a laser window.
   const lens = material('Lens', '#18262e', .08, .4, { envMapIntensity: 1.4 });
   // The unaimed reflex on a G36's handle: tinted, coated, and seen through.
-  const tint = new THREE.MeshPhysicalMaterial({ color: '#c99a5a', roughness: .1, metalness: 0, clearcoat: 1, transparent: true, opacity: .32, depthWrite: false, side: THREE.DoubleSide });
+  const tint = new THREE.MeshPhysicalMaterial({ color: '#c99a5a', roughness: .1, metalness: 0, clearcoat: 1, transparent: true, opacity: .32, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true });
   tint.name = 'Reflex glass';
 
   const mesh = (name: string, geometry: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D = root) => {

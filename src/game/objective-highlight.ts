@@ -5,7 +5,7 @@ export function createObjectiveHighlight(scene: THREE.Scene) {
   const group = new THREE.Group(); group.name = 'active-objective-highlight'; group.visible = false;
   const purple = new THREE.MeshBasicMaterial({ color: '#8c65ff', toneMapped: false });
   const white = new THREE.MeshBasicMaterial({ color: '#ffffff', toneMapped: false });
-  const glow = new THREE.MeshBasicMaterial({ color: '#976cff', transparent: true, opacity: 0.2, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
+  const glow = new THREE.MeshBasicMaterial({ color: '#976cff', transparent: true, opacity: 0.2, depthWrite: false, toneMapped: false, side: THREE.DoubleSide, forceSinglePass: true });
   const halo = new THREE.Mesh(new THREE.RingGeometry(3.6, 4.15, 48), purple);
   halo.rotation.x = -Math.PI / 2; halo.position.y = 0.16; group.add(halo);
   const rim = new THREE.Mesh(new THREE.RingGeometry(4.15, 4.4, 48), white);

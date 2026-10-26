@@ -126,7 +126,10 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
   // --- muzzle -------------------------------------------------------------
   const muzzle = createMuzzle();
   const flare = new THREE.Group(); flare.name = 'fps-muzzle-flare'; flare.visible = false;
-  const additive = (color: string, map?: THREE.Texture) => hold(new THREE.MeshBasicMaterial({ color, ...(map ? { map } : {}), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+  // Transparent and double-sided, three draws back faces then front faces and
+  // flags the material changed for each, rebuilding its shader key twice a
+  // frame. Additive light and flat quads look the same in one pass: `forceSinglePass`.
+  const additive = (color: string, map?: THREE.Texture) => hold(new THREE.MeshBasicMaterial({ color, ...(map ? { map } : {}), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true, toneMapped: false }));
   const flashCore = additive('#ffe6b4'), flashStar = additive('#ffd489', soft), flashCone = additive('#ffbf6a');
   const core = new THREE.Mesh(keep(new THREE.SphereGeometry(.026, 8, 6)), flashCore); core.position.z = -.02; flare.add(core);
   const star = new THREE.Mesh(keep(new THREE.PlaneGeometry(1, 1)), flashStar); star.position.z = -.03; flare.add(star);
@@ -205,13 +208,13 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
   // sky as well as against the water, and adding white to sky shows nothing.
   // Droplets; the plume over each entry point; and the churned foam patch on
   // the surface. The plume and foam fade per instance rather than popping.
-  const sprayMesh = new THREE.InstancedMesh(quad, hold(new THREE.MeshBasicMaterial({ color: '#ffffff', map: blob, transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })), MAX_DROPLETS);
+  const sprayMesh = new THREE.InstancedMesh(quad, hold(new THREE.MeshBasicMaterial({ color: '#ffffff', map: blob, transparent: true, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true, toneMapped: false })), MAX_DROPLETS);
   sprayMesh.name = 'fps-spray';
   sprayMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); sprayMesh.frustumCulled = false; sprayMesh.userData.fpsEffect = true; root.add(sprayMesh);
   const fading = (name: string, map: THREE.Texture) => {
     const geometry = keep(new THREE.PlaneGeometry(1, 1)), opacity = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPLASHES), 1).setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute('effectOpacity', opacity);
-    const mesh = new THREE.InstancedMesh(geometry, hold(withInstanceOpacity(new THREE.MeshBasicMaterial({ color: '#ffffff', map, transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }))), MAX_SPLASHES);
+    const mesh = new THREE.InstancedMesh(geometry, hold(withInstanceOpacity(new THREE.MeshBasicMaterial({ color: '#ffffff', map, transparent: true, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true, toneMapped: false }))), MAX_SPLASHES);
     mesh.name = name; mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.frustumCulled = false; mesh.userData.fpsEffect = true; root.add(mesh);
     return { mesh, opacity };
   };

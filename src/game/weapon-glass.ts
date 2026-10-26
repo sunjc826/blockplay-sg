@@ -20,7 +20,7 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
     reflectionReady: { value: 0 }, reflectionTanHalfFov: { value: Math.tan(THREE.MathUtils.degToRad(55)) },
   };
   const material = new THREE.MeshPhysicalMaterial({ color: scope ? '#91bed0' : '#80c7c0', roughness: .12, metalness: .05,
-    clearcoat: 1, clearcoatRoughness: .08, transparent: true, opacity: .09, depthWrite: false, side: THREE.DoubleSide });
+    clearcoat: 1, clearcoatRoughness: .08, transparent: true, opacity: .09, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true });
   material.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = 'varying vec2 coatingUv;\n' + shader.vertexShader;

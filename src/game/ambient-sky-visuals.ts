@@ -110,7 +110,7 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
   const beamGeometry = keep(new THREE.CylinderGeometry(22, 1, 700, 24, 1, true)); beamGeometry.translate(0, 350, 0);
   const beams = Array.from({ length: BEAMS }, () => {
     const material = hold(new THREE.ShaderMaterial({ vertexShader: BEAM_VERTEX, fragmentShader: BEAM_FRAGMENT, uniforms: { colour: { value: new THREE.Color('#dfe8ff') }, strength: { value: 0 } },
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, forceSinglePass: true }));
     const mesh = new THREE.Mesh(beamGeometry, material); mesh.visible = false; mesh.raycast = noRaycast; mesh.frustumCulled = false; root.add(mesh);
     return { mesh, material, direction: new THREE.Vector3(0, 1, 0) };
   });

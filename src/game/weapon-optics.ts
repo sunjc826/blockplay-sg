@@ -57,7 +57,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
     scopeGlass.reflection.surface.position.set(0, aimHeight, rearZ + .0015);
     group.add(scopeGlass.reflection.surface);
   }
-  const lensMaterial = new THREE.MeshBasicMaterial({ color: '#ffffff', side: magnified ? THREE.DoubleSide : THREE.FrontSide, transparent: true, depthWrite: false });
+  const lensMaterial = new THREE.MeshBasicMaterial({ color: '#ffffff', side: magnified ? THREE.DoubleSide : THREE.FrontSide, forceSinglePass: true, transparent: true, depthWrite: false });
   lensMaterial.toneMapped = magnified;
   // The etched scope uses lens UVs; the reflex uses a collimated ray. Both are
   // clipped by the recessed aperture and occluded by the physical housing.

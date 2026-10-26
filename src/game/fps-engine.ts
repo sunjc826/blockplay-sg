@@ -49,6 +49,7 @@ import { itemById } from './armory-catalog';
 import { DEFAULT_FPS_DEBUG, FPS_REGEN_DELAY, normalizeFpsDebug, readFpsDebug, regenerateHealth, saveFpsDebug, type FpsDebugSettings } from './fps-debug';
 import { createWeaponHandling } from './fps-viewmodel';
 import { createScopeRenderer, getWeaponSight } from './weapon-optics';
+import { separateInstancedMaterials } from './instanced-materials';
 import { createOpticReflectionRenderer } from './weapon-reflections';
 import { handleSide, reloadMotion, reloadStage, smoothStep } from './fps-weapon-motion';
 import { armReloadGate, reloadInterrupt } from './fps-reload';
@@ -192,6 +193,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   host.append(canvas);
   const zoneWorld = buildDistrictWorld(region, expedition?.spawn);
   const world = zoneWorld; world.stamps.forEach(o => o.visible = false);
+  // Before night lights and shadows patch the materials: see instanced-materials.
+  separateInstancedMaterials(world.scene);
   const atmosphere = createWorldAtmosphere(world.scene, getRegion(region).stamps, world.obstacles, !!options.arena && options.arena.session.role !== 'solo', renderer);
   // Streetlamps, their pools and lit windows, for dusk and night.
   const nightLights = createNightLights(world.scene, { roads: getRegion(region).mapRoads, roadWidth: getRegion(region).roadWidth, bounds: world.bounds, obstacles: world.obstacles });

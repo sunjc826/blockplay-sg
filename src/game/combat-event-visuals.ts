@@ -162,7 +162,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
 
   const ringGeometry = keep(new THREE.RingGeometry(.94, 1, 72));
   const markers = Array.from({ length: MARKERS }, () => {
-    const material = hold(new THREE.MeshBasicMaterial({ color: '#ff4a3a', transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+    const material = hold(new THREE.MeshBasicMaterial({ color: '#ff4a3a', transparent: true, opacity: 0, side: THREE.DoubleSide, forceSinglePass: true, depthWrite: false }));
     const mesh = new THREE.Mesh(ringGeometry, material); mesh.rotation.x = -Math.PI / 2; mesh.visible = false; mesh.raycast = noRaycast; root.add(mesh);
     return { mesh, material };
   });

@@ -44,6 +44,10 @@ export function createSunShadows(renderer: THREE.WebGLRenderer, scene: THREE.Sce
   }
   renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
   const flagged = new WeakSet<THREE.Object3D>();
+  // Three draws every caster with one shared depth material, so alternating
+  // instanced and plain casters rebuilds its shader key several times a frame.
+  // Instanced casters get their own, split by whether they carry colours.
+  const instancedDepth = [false, true].map(() => new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }));
   let enabled = false, rescan = 0, casters = 0;
   const forward = new THREE.Vector3(), right = new THREE.Vector3(), up = new THREE.Vector3(), toward = new THREE.Vector3(), center = new THREE.Vector3();
   const worldUp = new THREE.Vector3(0, 1, 0), texel = SHADOW_SPAN * 2 / SHADOW_MAP;
@@ -51,7 +55,9 @@ export function createSunShadows(renderer: THREE.WebGLRenderer, scene: THREE.Sce
     scene.traverse(object => {
       if (flagged.has(object)) return;
       flagged.add(object);
-      if (shadowed(object)) { object.castShadow = true; object.receiveShadow = true; casters++; }
+      if (!shadowed(object)) return;
+      object.castShadow = true; object.receiveShadow = true; casters++;
+      if (object instanceof THREE.InstancedMesh && !object.customDepthMaterial) object.customDepthMaterial = instancedDepth[object.instanceColor ? 1 : 0];
     });
   }
   return {
@@ -86,6 +92,6 @@ export function createSunShadows(renderer: THREE.WebGLRenderer, scene: THREE.Sce
       light.target.updateMatrixWorld();
       renderer.shadowMap.needsUpdate = true;
     },
-    dispose() { renderer.shadowMap.enabled = false; if (light) light.castShadow = false; },
+    dispose() { renderer.shadowMap.enabled = false; if (light) light.castShadow = false; instancedDepth.forEach(m => m.dispose()); },
   };
 }
