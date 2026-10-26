@@ -53,6 +53,8 @@ export interface ShopItem {
   palette?: string[]; accent?: string; protection?: number; absorption?: number; mobility?: number; carry?: number;
   /** Consumables share the quick slot, but the exchange presents local food separately from field utilities. */
   supplyType?: SupplyType;
+  /** Medical supplies only: a dressing is wound on, a kit is opened and worked through. Sets the belt slot it fills. */
+  medical?: 'dressing' | 'kit';
   /** Consumables only: what one use restores. Reserve is per equipped weapon. */
   effect?: { health?: number; armor?: number; reserve?: number };
 }
@@ -108,9 +110,11 @@ export const ARMORY_CATALOG: readonly ShopItem[] = [
   { id: 'food-chicken-rice', name: 'Chicken rice packet', category: 'consumable', supplyType: 'food', tier: 'Field', requiredLevel: 2, price: 240, currency: 'credits', effect: { health: 60 }, description: 'A hawker-centre favourite packed to go, chilli on the side. Restores 60 health.' },
   { id: 'food-field-ration', name: 'Malt field-ration set', category: 'consumable', supplyType: 'food', tier: 'Elite', requiredLevel: 4, price: 70, currency: 'tokens', effect: { health: 100 }, description: 'A full field-ration meal finished with a warm malt drink. Restores health to the normal maximum.' },
   { id: 'kit-ammo', name: 'SAF ammunition pouch', category: 'consumable', supplyType: 'field-utility', tier: 'Issued', price: 260, currency: 'credits', effect: { reserve: 90 }, description: 'A field pouch with ninety reserve rounds for the weapon in your hands. Carried into an exercise and spent when used.' },
-  { id: 'kit-dressing', name: 'SAF field dressing', category: 'consumable', supplyType: 'medical', tier: 'Field', requiredLevel: 2, price: 300, currency: 'credits', effect: { health: 45 }, description: 'An issued-style emergency dressing. Restores 45 health and is spent when used.' },
+  { id: 'kit-bandage', name: 'Elastic bandage', category: 'consumable', supplyType: 'medical', medical: 'dressing', tier: 'Issued', price: 150, currency: 'credits', weightKg: .2, effect: { health: 25 }, description: 'A crepe bandage roll for grazes and cuts. Restores 25 health and is spent when used.' },
+  { id: 'kit-dressing', name: 'SAF field dressing', category: 'consumable', supplyType: 'medical', medical: 'dressing', tier: 'Field', requiredLevel: 2, price: 300, currency: 'credits', effect: { health: 45 }, description: 'An issued-style emergency dressing. Restores 45 health and is spent when used.' },
   { id: 'kit-plates', requiredLevel: 3, name: 'LBS spare inserts', category: 'consumable', supplyType: 'field-utility', tier: 'Field', price: 380, currency: 'credits', effect: { armor: 45 }, description: 'Replacement inserts carried on the load-bearing system. Restores 45 armor points, up to the protection your inserts provide.' },
-  { id: 'kit-trauma', requiredLevel: 4, name: 'Combat medic pack', category: 'consumable', supplyType: 'medical', tier: 'Elite', price: 90, currency: 'tokens', effect: { health: 100, armor: 60 }, description: 'A complete field medical pack. Restores full health and 60 armor points in one use.' },
+  { id: 'kit-first-aid', requiredLevel: 3, name: 'First aid kit', category: 'consumable', supplyType: 'medical', medical: 'kit', tier: 'Field', price: 560, currency: 'credits', weightKg: .9, effect: { health: 75 }, description: 'A zipped pouch of dressings, gauze and an antiseptic spray. Takes longer to work through than a bandage; restores 75 health.' },
+  { id: 'kit-trauma', requiredLevel: 4, name: 'Combat medic pack', category: 'consumable', supplyType: 'medical', medical: 'kit', tier: 'Elite', price: 90, currency: 'tokens', effect: { health: 100, armor: 60 }, description: 'A complete field medical pack. Restores full health and 60 armor points in one use.' },
   // Head-mounted vision. What each one does to the picture lives in
   // vision-devices, keyed by these ids; the catalog owns price and weight.
   { id: 'vision-none', weightKg: 0, name: 'No head-mounted device', category: 'vision', tier: 'Issued', price: 0, currency: 'credits', description: 'Your own eyes and whatever the streetlamps give you. Nothing to switch on, nothing to carry.' },

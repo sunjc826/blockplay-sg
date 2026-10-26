@@ -42,17 +42,17 @@ describe('total carried load plus weapon in hand', () => {
     ammo[4].reserve += 30;
     expect(equipmentMovement(kit, 2, ammo).movement).toBeLessThan(fired.movement);
   });
-  it('counts all held supplies and subtracts spent quick items exactly once', () => {
+  it('counts all held supplies and weighs only what is left on the belt', () => {
     const base = createProfile();
     const id = 'kit-dressing';
-    const profile = { ...base, consumables: { [id]: 3 }, quickItem: id };
+    const profile = { ...base, consumables: { [id]: 3, 'food-curry-puff': 1 }, quickItem: id };
     const kit = resolveLoadout(profile), full = equipmentMovement(kit, 0);
-    expect(full.suppliesKg).toBe(1.5);
-    const spent = equipmentMovement(kit, 0, undefined, 2);
-    expect(spent.suppliesKg).toBe(1);
-    const refreshed = resolveLoadout({ ...profile, consumables: { [id]: 2 } });
-    expect(equipmentMovement(refreshed, 0, undefined, 2)).toEqual(spent);
-    expect(equipmentMovement(kit, 0, undefined, 0).suppliesKg).toBe(0);
+    expect(full.suppliesKg).toBeCloseTo(1.9);
+    const spent = equipmentMovement(kit, 0, undefined, { [id]: 2, 'food-curry-puff': 1 });
+    expect(spent.suppliesKg).toBeCloseTo(1.4);
+    const refreshed = resolveLoadout({ ...profile, consumables: { [id]: 2, 'food-curry-puff': 1 } });
+    expect(equipmentMovement(refreshed, 0)).toEqual(spent);
+    expect(equipmentMovement(kit, 0, undefined, {}).suppliesKg).toBe(0);
   });
   it('counts armor mass and rig ammunition as well as their handling cost', () => {
     const base = createProfile(), light = resolveLoadout(base);

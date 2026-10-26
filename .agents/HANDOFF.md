@@ -2970,3 +2970,25 @@ district's start see it; `ExpeditionGame` takes `onElimination` (wired in
 GameMenu and DebugApp). The range's end banner now sums kill CR with the
 completion payout (`hud.earned +=`). Shop, wallet tooltip and arena footer copy
 name the kill payout. Not played in the browser; vitest + typecheck only.
+
+## 2026-10-26: utility belt on the HUD, bandages and first aid kits
+
+Supplies were one quick-slot stack shown only in the debug loadout bar. Now
+`utility-belt.ts` files every consumable into five slots (food, bandage, first
+aid, plates, ammo; keys 4–8) by its `supplyProfile` style, and
+`FpsUtilityBelt` draws all five on top of the ammo block in range, arena and
+expedition: count, selected slot (G's), a fill while in use, dimmed when empty,
+green when health is low and it heals. Touch taps a slot; the sweep's supply
+button follows the selected slot. `pickUtility` hands out the smallest heal
+that covers the wound. New catalog items `kit-bandage` (Issued, 25 HP, 150 CR)
+and `kit-first-aid` (Field, Lv 3, 75 HP, 560 CR); `medical: 'dressing' | 'kit'`
+picks the slot and the hands (a first aid kit uses the medkit animation).
+`ResolvedLoadout.supplies` carries held counts; the engine keeps its own copy
+and `equipmentMovement` now takes the remaining counts instead of a quick count.
+Field-loot medical crates are unchanged (still used where they lie).
+Validation: vitest (one catalog-listing assertion updated), typecheck; in the
+browser pane, range and expedition at 375×812 and 767×560 in touch mode: belt
+renders, ammo pouch used from the belt (reserve 120→210, profile debited),
+heal refused at full health, store copy shows the slot and key. A heal from
+the belt was not watched live: the hidden pane froze the drill, so no damage.
+The mouse (non-touch) layout was not seen: pointer lock is blocked in the pane.

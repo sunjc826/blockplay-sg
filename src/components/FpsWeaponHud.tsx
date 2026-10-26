@@ -4,9 +4,11 @@ import { RELOAD_POINTS, reloadShare, type WeaponSpec } from '../game/fps-rules';
 import { MAG_IN_START, reloadStage } from '../game/fps-weapon-motion';
 import { fillFraction, magazineDisplay } from '../game/hud-motion';
 import { useReducedMotion } from '../game/use-reduced-motion';
+import type { UtilityKind } from '../game/utility-belt';
+import FpsUtilityBelt from './FpsUtilityBelt';
 import './fps-weapon-hud.css';
 
-export default function FpsWeaponHud({ hud, weapon, canFight }: { hud: FpsHud; weapon: WeaponSpec; canFight: boolean }) {
+export default function FpsWeaponHud({ hud, weapon, canFight, onUtility }: { hud: FpsHud; weapon: WeaponSpec; canFight: boolean; onUtility?: (kind: UtilityKind) => void }) {
   const magnified = weapon.optic === 'integrated' || weapon.optic === 'precision';
   const reloading = hud.reloading > 0, stage = reloadStage(hud.reloading, hud.reloadEmpty);
   // Truthful digits, except through a reload — see `hud-motion.ts`.
@@ -31,6 +33,8 @@ export default function FpsWeaponHud({ hud, weapon, canFight }: { hud: FpsHud; w
     {canFight && using && <div className="fps-reload-cue fps-supply-cue" data-supply-style={using.style} role="status"><span>{using.verb} · {using.name}</span><div><i style={{ width: `${using.progress * 100}%` }} /></div></div>}
     {canFight && reloading && !using && <div className="fps-reload-cue" aria-hidden="true"><span>{stage}</span><div><i style={{ width: `${(1 - hud.reloading) * 100}%` }} /></div></div>}
     <div className={`fps-ammo ${!hud.roundReady && !reloading ? 'is-empty' : ''}`}>
+      {/* Above the weapon so the two read as one kit, and so the belt rises with the ammo block wherever the thumbs push it. */}
+      <FpsUtilityBelt hud={hud} canUse={canFight && !using} onUse={onUtility} />
       <span>{weapon.name} <small>{hud.aiming ? 'ADS' : weapon.fireMode === 'semi' ? 'SEMI' : 'AUTO'}</small></span>
       <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}{hud.chambered && <em className="fps-chamber" aria-label="one in the chamber">+1</em>}<small>/ {hud.reserve}</small></strong>
       {prompt ? <p>{prompt}</p> : <p className="fps-ammo-detail">R RELOAD · Q TOGGLE AIM · RMB HOLD</p>}

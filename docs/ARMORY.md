@@ -380,20 +380,30 @@ arena host still resolves only the nearest surface.
 
 Supplies are the shop's repeatable purchase. They are held by count rather than
 unlocked once, so buying the same one again stacks it up to a carry limit of
-nine, and spending one debits the saved profile. One sits in a quick slot and is
-used with `G` or the HUD button.
+nine, and spending one debits the saved profile. Everything carried rides on a
+utility belt drawn above the ammo block, one slot per job (`utility-belt.ts`):
 
-| Supply | Restores | Price |
+| Slot | Key | Holds |
 | --- | --- | --- |
-| Ammunition pouch | 90 reserve rounds | 260 CR |
-| Field dressing | 45 health | 300 CR |
-| Spare inserts | 45 armor points | 380 CR |
-| Trauma kit | full health and 60 armor | 90 TK |
+| Food | `4` | kaya toast, curry puff, chicken rice, field ration |
+| Bandage | `5` | elastic bandage (25 health, 150 CR), field dressing (45 health, 300 CR) |
+| First aid | `6` | first aid kit (75 health, 560 CR), combat medic pack (full health and 60 armor, 90 TK) |
+| Plates | `7` | spare inserts (45 armor points, 380 CR) |
+| Ammo | `8` | ammunition pouch (90 reserve rounds, 260 CR) |
+
+A slot's key (or a tap on touch) uses it; `G` uses the last slot again, and the
+armory's quick slot only picks which slot `G` starts on. A slot with several
+items hands out the smallest heal that covers the wound, or the biggest when
+none does, and the line under the belt names it. Empty slots stay drawn, dimmed,
+and while health is low the slots that heal are marked green. The catalog's
+`medical` field ('dressing' or 'kit') files a medical item and chooses its hands:
+a kit is opened and worked through (4.4 s), a dressing wound on (2.7–3 s).
 
 Armor is restored only up to the protection the equipped inserts provide, and
 reserve goes to the weapon in hand. Using one with nothing to restore reports
 that and spends nothing. `resolveLoadout` carries the selected supply and its
-count, so the shop, HUD and engine read the same selection everything else does.
+count, and the belt's contents as `supplies`, so the shop, HUD and engine read
+the same selection everything else does; encumbrance weighs what is still on the belt.
 
 ## Weapon slots
 

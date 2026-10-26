@@ -51,3 +51,31 @@
 @media(prefers-reduced-motion:reduce){.fps-weapon-hud *{transition:none!important;animation:none!important}}
 
 .fps-weapon-hud .fps-tactical-crosshair b{opacity:calc(1 - var(--fps-aim))}
+
+/* The utility belt sits on top of the ammo block, so it climbs with it when the
+   thumbs claim the corner. Slots never reflow: empty ones are drawn dim. */
+.fps-belt{margin:0 0 10px;display:grid;justify-items:end;gap:5px}
+.fps-belt-slots{display:flex;gap:4px}
+.fps-belt-slot{position:relative;width:46px;height:46px;padding:4px 0 3px;display:grid;grid-template-rows:auto 1fr auto;justify-items:center;align-items:center;
+  background:#0c151bb8;border:1px solid #ffffff2b;border-radius:3px;color:var(--hud-ink);font:inherit;text-shadow:none;overflow:hidden;pointer-events:none}
+.fps-belt-slot svg{grid-row:2;opacity:.9}
+.fps-belt-slot b{position:absolute;right:4px;top:3px;font:600 12px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;color:var(--hud-ink)}
+.fps-belt-slot small{grid-row:3;font:6.5px monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--hud-dim);white-space:nowrap}
+.fps-belt-slot kbd{position:absolute;left:3px;top:3px;min-width:0;padding:0 3px;font:7px monospace;line-height:11px;color:var(--hud-dim);background:#ffffff14;border:0;border-radius:2px}
+.fps-game .fps-belt-slot:disabled{opacity:1}
+.fps-belt-slot[data-empty]{opacity:.38}
+.fps-belt-slot[data-empty] b{color:var(--hud-dim)}
+.fps-belt-slot[aria-pressed=true]{border-color:var(--hud-gold);box-shadow:inset 0 0 0 1px #e0bb7240}
+.fps-belt-slot[aria-pressed=true] small{color:var(--hud-gold-soft)}
+/* Health is low and this slot can fix it. */
+.fps-belt-slot[data-wanted]{border-color:#7fd38b;background:#123020c4}
+.fps-belt-slot[data-wanted] svg{color:#bfe9c4}
+.fps-belt-slot[data-using]{border-color:#7fd38b}
+.fps-belt-progress{position:absolute;left:0;bottom:0;width:100%;height:2px;background:#7fd38b;transform-origin:left}
+.fps-belt-next{display:flex;align-items:center;gap:6px;font:8px monospace;letter-spacing:.8px;color:var(--hud-ink)}
+.fps-belt-next span{color:#bfe9c4}
+.fps-belt-next kbd{min-width:0;padding:0 4px;font:7px monospace;line-height:12px;color:var(--hud-dim);background:#ffffff14;border:0}
+/* Touch: the slots are the buttons, so they take taps; key hints mean nothing to a thumb. */
+.fps-game[data-touch=on] .fps-belt-slot:not(:disabled){pointer-events:auto;touch-action:manipulation}
+.fps-game[data-touch=on] .fps-belt kbd{display:none}
+@media(max-width:720px){.fps-belt-slot{width:40px;height:42px}.fps-belt-slot small{font-size:6px;letter-spacing:.2px}.fps-belt{margin-bottom:7px}}

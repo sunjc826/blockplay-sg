@@ -1,5 +1,6 @@
 import { carriedFamilies, restoreCarrySlots, isMainWeapon, EXTRA_SLOT_ID, SIDEARM_FAMILY, type CarrySlots } from './armory-slots';
 import { supplyWeightKg } from './fps-encumbrance';
+import { beltWeightKg, heldSupplies } from './utility-belt';
 import { ARMORY_CATALOG, CONSUMABLE_LIMIT, isEnemyIssue, issuedItems, itemById, type AttachmentSlot, type FittedPart, type InternalPart, type ShopItem } from './armory-catalog';
 import { visionSpec, type VisionSpec } from './vision-devices';
 import type { VehicleKind } from './vehicle-rules';
@@ -200,7 +201,9 @@ export interface WornVision { id: string; name: string; spec: VisionSpec }
 /** `mobility` is armor bulk only; equipmentMovement resolves final player motion.
  * `armorWeightKg` is everything worn: rig, inserts and a head-mounted device. */
 export interface ResolvedLoadout { vision?: WornVision; carriedFamilies: number[]; armorWeightKg: number; suppliesWeightKg: number; weapons: EquippedWeapon[]; armor: number; absorption: number; mobility: number; rigName: string; plateName: string; vehicleSkins: Record<VehicleKind, string>;
-  quickItem?: ShopItem; quickCount: number }
+  quickItem?: ShopItem; quickCount: number;
+  /** Every supply carried in, by id: the utility belt's contents at the start. */
+  supplies: Record<string, number> }
 export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
   const rig = itemById(profile.rig)!, plate = itemById(profile.plate)!;
   const visionItem = itemById(profile.vision), spec = visionSpec(visionItem?.id);
@@ -224,7 +227,7 @@ export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
     return spec;
   });
   const quickItem = itemById(profile.quickItem);
-  return { vision, weapons, carriedFamilies: carriedFamilies(profile), armorWeightKg: (rig.weightKg ?? 0) + (plate.weightKg ?? 0) + (visionItem?.weightKg ?? 0), suppliesWeightKg: Object.entries(profile.consumables).reduce((kg, [id, count]) => kg + supplyWeightKg(itemById(id)) * Math.max(0, Math.min(CONSUMABLE_LIMIT, Number.isFinite(count) ? count : 0)), 0), vehicleSkins: { ...profile.vehicleSkins }, quickItem, quickCount: profile.consumables[profile.quickItem] || 0, armor: plate.protection || 0, absorption: plate.absorption || 0, mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };
+  return { vision, weapons, carriedFamilies: carriedFamilies(profile), armorWeightKg: (rig.weightKg ?? 0) + (plate.weightKg ?? 0) + (visionItem?.weightKg ?? 0), suppliesWeightKg: beltWeightKg(profile.consumables, supplyWeightKg), supplies: heldSupplies(profile.consumables), vehicleSkins: { ...profile.vehicleSkins }, quickItem, quickCount: profile.consumables[profile.quickItem] || 0, armor: plate.protection || 0, absorption: plate.absorption || 0, mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };
 }
 /** Preview may temporarily own the selected item; it never mutates the actual wallet. */
 export function previewLoadout(profile: ArmoryProfile, item: ShopItem, family: number) {

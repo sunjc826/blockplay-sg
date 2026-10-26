@@ -72,6 +72,7 @@ import { getEnvironmentSettings } from './environment-settings';
 import { createHitDirectionOverlay, createHitDirections, hitStrength } from './fps-hit-direction';
 import { advanceSupplyUse, startSupplyUse, supplyProfile, supplyProgress, SUPPLY_MOVE_SCALE, type SupplyProfile, type SupplyStyle, type SupplyUse } from './fps-healing';
 import { createSupplyViewmodel } from './fps-supply-viewmodel';
+import { pickUtility, utilityBelt, utilityKind, utilitySlot, UTILITY_SLOTS, type UtilityKind, type UtilitySlotView } from './utility-belt';
 import { createSunShadows } from './fps-sun-shadows';
 import { createWorldOcclusion } from './world-occlusion';
 import { createVisionSystem } from './fps-vision';
@@ -110,7 +111,9 @@ export interface FpsHud {
   /** A trigger pull on the held weapon would fire, cooldown and reload aside. */
   roundReady: boolean;
   /** The supply in the player's hands, while one is being used (G, or medical supplies taken with E). */
-  supplyUse: { name: string; verb: string; progress: number; style: SupplyStyle } | null;
+  supplyUse: { name: string; verb: string; progress: number; style: SupplyStyle; fromBelt: boolean } | null;
+  /** The utility belt, every slot in order; `beltSelected` is the one G uses again. */
+  belt: UtilitySlotView[]; beltSelected: UtilityKind;
   crosshairSpread: number; hitKind: 'hit' | 'kill'; quickItem: string; quickType: 'FOOD' | 'UTILITY' | ''; quickCount: number;
   phase: 'loading' | 'ready' | 'playing' | 'paused' | 'complete' | 'defeated' | 'error';
   carriedWeapons: number[]; carriedKg: number; movementScale: number;
@@ -148,7 +151,7 @@ export interface FpsHud {
   /** The worn night-vision or thermal device, if any, and what it is doing. */
   vision: { name: string; kind: VisionKind; generation: number; on: boolean; palette: ThermalPalette | ''; palettes: number; warm: number; calibrating: boolean } | null;
 }
-export const initialFpsHud: FpsHud = { vision: null, supplyUse: null, mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { vision: null, supplyUse: null, belt: [], beltSelected: 'bandage', mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -215,7 +218,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const rig = new THREE.Group(); viewScene.add(rig);
   // Hands and the supply in them; `apply` lands its effect at the commit point and says whether it could.
   const supplyHands = createSupplyViewmodel(viewScene);
-  let supplyUse: (SupplyUse & { name: string; id: string; apply: () => boolean }) | null = null;
+  let supplyUse: (SupplyUse & { name: string; id: string; fromBelt: boolean; apply: () => boolean }) | null = null;
   let supplyGate = armReloadGate(false, false);
   const loader = new GLTFLoader(), templates: THREE.Group[] = [], weapons: THREE.Group[] = [];
   const handling: ReturnType<typeof createWeaponHandling>[] = [], emptyReload = specs.map(() => false);
@@ -298,9 +301,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // Rounds still in the air. Instant weapons never enter this list, so a hitscan
   // loadout costs exactly the single raycast it always did.
   const rounds: InFlightRound[] = []; let roundSerial = 0;
-  // Supplies carried into this exercise. Spending one reports out so the
-  // permanent profile can debit it; the count here is what the HUD shows.
-  let quickRemaining = equipment.quickCount;
+  // Supplies carried into this exercise, by id. Spending one reports out so
+  // the permanent profile can debit it; the counts here are what the belt shows.
+  let supplies = { ...equipment.supplies };
+  let beltSelected: UtilityKind = utilityKind(equipment.quickItem)
+    ?? UTILITY_SLOTS.find(slot => pickUtility(slot.kind, supplies))?.kind ?? 'bandage';
+  /** The belt as the HUD shows it, and the selected slot as the older quick-item fields. */
+  function syncBelt() {
+    hud.belt = utilityBelt(supplies, { health: hud.health, maxHealth: hud.maxHealth }); hud.beltSelected = beltSelected;
+    const slot = hud.belt.find(entry => entry.kind === beltSelected)!;
+    hud.quickItem = slot.next?.name ?? ''; hud.quickCount = slot.count;
+    hud.quickType = !slot.next ? '' : slot.kind === 'food' ? 'FOOD' : 'UTILITY';
+  }
+  syncBelt();
   const ROUND_RANGE = 180;
   /** Other people's rounds are drawn only when they start this close. */
   const REMOTE_TRACER_RANGE = 220;
@@ -336,12 +349,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   };
   const stance = () => eyeHeight() < .8 ? 'prone' as const : eyeHeight() < 1.4 ? 'crouch' as const : 'stand' as const;
   const braced = () => !vehicles.active && weaponBraced(specs[hud.weapon], prone, grounded());
-  const movement = () => equipmentMovement(equipment, hud.weapon, loadout, quickRemaining);
+  const movement = () => equipmentMovement(equipment, hud.weapon, loadout, supplies);
   const publish = () => {
     if (disposed) return;
     const state = loadout[hud.weapon];
     const burden = movement();
-    onHud({ ...hud, vision: visionHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), ...(!expedition ? vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))) : {}), ...(vertical > .35 && !vehicles.active ? { vehiclePrompt: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
+    syncBelt();
+    onHud({ ...hud, vision: visionHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), ...(!expedition ? vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))) : {}), ...(vertical > .35 && !vehicles.active ? { vehiclePrompt: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapMarkers: expedition ? [] : [
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
@@ -654,10 +668,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // wallet, inventory and newly selected quick item from the purchase.
       fieldProfile = { ...fieldProfile, credits: result.profile.credits, tokens: result.profile.tokens,
         consumables: { ...result.profile.consumables }, quickItem: result.profile.quickItem };
-      equipment = resolveLoadout(fieldProfile); quickRemaining = equipment.quickCount;
-      hud.quickItem = equipment.quickItem?.name || '';
-      hud.quickType = equipment.quickItem ? equipment.quickItem.supplyType === 'food' ? 'FOOD' : 'UTILITY' : '';
-      hud.quickCount = quickRemaining; hud.credits = fieldProfile.credits; hud.tokens = fieldProfile.tokens;
+      equipment = resolveLoadout(fieldProfile); supplies = { ...equipment.supplies };
+      beltSelected = utilityKind(itemById(npc.interaction.catalogId)) ?? beltSelected;
+      hud.credits = fieldProfile.credits; hud.tokens = fieldProfile.tokens;
       expedition.onEquipment(copyProfile(fieldProfile));
     }
     hud.lootNotice = result.message; lootNoticeTime = 4; markers?.react(npc.id, result.purchased ? 'offer' : 'talk', 2.4);
@@ -735,7 +748,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (pilotEnabled || hud.phase !== 'playing' || vehicles.active || hud.arenaSelf?.alive === false || loadout[hud.weapon].reloadRemaining > 0) return;
     touchAim = !touchAim; canvas.focus({ preventScroll: true }); publish();
   }
-  const keyboardKeys = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'q', 'g', '1', '2', '3', 'e', 'n', 't', 'f', 'm', 'h', 'j', 'control', 'escape'];
+  const keyboardKeys = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'n', 't', 'f', 'm', 'h', 'j', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
     if (key === 'f' && !event.repeat) { event.preventDefault(); options.onFullscreen?.(); return; }
@@ -755,6 +768,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     else if (key === 'c') setInput('c', true);
     else if (key === 'r') reload();
     else if (key === 'g') { if (!event.repeat) useQuickItem(); }
+    else if (utilitySlot(key)) { if (!event.repeat) useUtility(utilitySlot(key)!.kind); }
     else if (/^[1-3]$/.test(key)) switchWeapon(equipment.carriedFamilies[Number(key) - 1]);
     else if (key === ' ') { if (vehicles.active) keys.add(' '); else if (!event.repeat) jump(); }
     else keys.add(key);
@@ -1221,10 +1235,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     });
   }
   /** Raises a supply: the weapon goes down and `apply` runs at the commit point, unless the use is stopped first. */
-  function beginSupply(name: string, id: string, profile: SupplyProfile, apply: () => boolean) {
+  function beginSupply(name: string, id: string, profile: SupplyProfile, apply: () => boolean, fromBelt = false) {
     if (supplyUse || hud.phase !== 'playing' || vehicles.active || hud.health <= 0 || hud.arenaSelf?.alive === false) return false;
     stopReload(); ads = false; touchAim = false; actualAim = false;
-    supplyUse = { ...startSupplyUse(profile), name, id, apply };
+    supplyUse = { ...startSupplyUse(profile), name, id, fromBelt, apply };
     supplyGate = armReloadGate(trigger, sprintIntent); pullBuffer = 0;
     canvas.focus({ preventScroll: true }); publish();
     return true;
@@ -1241,21 +1255,26 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (step.commit) { supplySound(use.profile.style); if (!use.apply()) { supplyUse = null; publish(); return; } }
     if (step.done) { supplyUse = null; publish(); }
   }
-  function useQuickItem() {
-    const supply = equipment.quickItem;
-    if (hud.phase !== 'playing' || supplyUse || !supply?.effect || quickRemaining <= 0 || hud.health <= 0) return;
+  /** G: the belt slot used last (or chosen in the armory) again. */
+  function useQuickItem() { useUtility(beltSelected); }
+  /** Takes the right item for the moment out of a belt slot and starts using it; the slot becomes G's. */
+  function useUtility(kind: UtilityKind) {
+    if (hud.phase !== 'playing' || supplyUse || hud.health <= 0) return;
+    beltSelected = kind;
+    const supply = pickUtility(kind, supplies, { health: hud.health, maxHealth: hud.maxHealth });
+    if (!supply?.effect) { hud.message = `No ${utilitySlot(kind)!.label.toLowerCase()} on the belt.`; publish(); return; }
     const { armor = 0, reserve = 0 } = supply.effect;
     const full = hud.health >= hud.maxHealth && (!armor || hud.armor >= equipment.armor) && (!reserve || loadout[hud.weapon].reserve >= 999);
     if (full) { hud.message = 'Nothing to restore right now.'; publish(); return; }
-    beginSupply(supply.name, supply.id, supplyProfile(supply), () => applyQuickItem(supply));
+    if (!beginSupply(supply.name, supply.id, supplyProfile(supply), () => applyQuickItem(supply), true)) publish();
   }
   function applyQuickItem(supply: NonNullable<ResolvedLoadout['quickItem']>) {
-    if (quickRemaining <= 0 || !supply.effect) return false;
+    if (!supplies[supply.id] || !supply.effect) return false;
     const { health = 0, armor = 0, reserve = 0 } = supply.effect;
     if (health) { hud.health = Math.min(hud.maxHealth, hud.health + health); arenaRuntime?.setVitals({ health: hud.health }); recoveryDelay = 0; }
     if (armor) { hud.armor = Math.min(equipment.armor, hud.armor + armor); arenaRuntime?.setVitals({ armor: hud.armor }); }
     if (reserve) loadout[hud.weapon].reserve = Math.min(999, loadout[hud.weapon].reserve + reserve);
-    quickRemaining--; hud.quickCount = quickRemaining;
+    if (supplies[supply.id] > 1) supplies[supply.id]--; else delete supplies[supply.id];
     if (expedition) {
       fieldProfile = consumeItem(fieldProfile, supply.id); equipment = resolveLoadout(fieldProfile);
       expedition.onEquipment(copyProfile(fieldProfile));
@@ -2020,7 +2039,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   });
 
   return {
-    start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, switchWeapon, useQuickItem, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, travelZone, configureDebug, refillHealth, triggerCombatEvent,
+    start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, travelZone, configureDebug, refillHealth, triggerCombatEvent,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
     toggleAim, toggleMap,

@@ -1,6 +1,7 @@
 import type { ResolvedLoadout } from './armory-state';
 import type { ShopItem } from './armory-catalog';
 import type { WeaponState } from './fps-rules';
+import { beltWeightKg } from './utility-belt';
 
 const bounded = (value: number | undefined, fallback: number, max: number) =>
   typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(max, value)) : fallback;
@@ -14,7 +15,7 @@ export const supplyWeightKg = (item?: ShopItem) => item?.category === 'consumabl
  * merely transfers it. Armor stays on the body even when its protection is spent.
  */
 export function equipmentMovement(equipment: ResolvedLoadout, active: number,
-  ammunition?: readonly WeaponState[], quickRemaining = equipment.quickCount) {
+  ammunition?: readonly WeaponState[], supplies?: Readonly<Record<string, number>>) {
   const carriedWeapons = equipment.carriedFamilies.map(index => ({ weapon: equipment.weapons[index], index }));
   const weaponsKg = carriedWeapons.reduce((kg, { weapon }) => kg + bounded(weapon.weightKg, 3, 100), 0);
   const ammoKg = carriedWeapons.reduce((kg, { weapon, index }) => {
@@ -22,9 +23,9 @@ export function equipmentMovement(equipment: ResolvedLoadout, active: number,
     const rounds = bounded(state?.magazine, weapon.capacity, 200) + bounded(state?.reserve, weapon.reserve, 999);
     return kg + rounds * roundWeightKg(weapon.caliberMm);
   }, 0);
-  // Non-expedition exercises keep an immutable loadout but spend their quick stack.
-  const spent = Math.max(0, equipment.quickCount - bounded(quickRemaining, equipment.quickCount, 99));
-  const suppliesKg = Math.max(0, bounded(equipment.suppliesWeightKg, 0, 1000) - spent * supplyWeightKg(equipment.quickItem));
+  // Non-expedition exercises keep an immutable loadout but empty their belt as
+  // they go, so what is still carried is weighed rather than what came in.
+  const suppliesKg = supplies ? beltWeightKg(supplies, supplyWeightKg) : bounded(equipment.suppliesWeightKg, 0, 1000);
   const totalKg = weaponsKg + ammoKg + suppliesKg + bounded(equipment.armorWeightKg, 0, 100);
   // Weight taxes every carried kilogram; armor's existing mobility measures bulk.
   const carried = Math.max(.35, Math.min(1, bounded(equipment.mobility, 1, 1) / (1 + totalKg * .006)));
