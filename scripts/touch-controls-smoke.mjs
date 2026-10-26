@@ -117,6 +117,8 @@ try {
   // Crouch latches rather than needing a held finger, and the menu is reachable.
   await tap(`document.querySelector('[data-touch-action=crouch]')`);
   assert.equal(await evaluate(`document.querySelector('[data-touch-action=crouch]').getAttribute('aria-pressed')`), 'true', 'Crouch latches on a tap');
+  const menu = await evaluate(`(()=>{const r=document.querySelector('[data-touch-action=menu]').getBoundingClientRect(),v=document.querySelector('.fps-viewport').getBoundingClientRect(),b=document.querySelector('.fps-badge').getBoundingClientRect();return {left:Math.round(r.left-v.left),top:Math.round(r.top-v.top),clear:r.right<=b.left}})()`);
+  assert(menu.left < 30 && menu.top < 30 && menu.clear, `The menu sits in the top-left corner, clear of the badge (${JSON.stringify(menu)})`);
   await tap(`document.querySelector('[data-touch-action=menu]')`);
   await wait(phase('paused'));
   assert.equal(await evaluate(`document.querySelectorAll('.touch-layer').length`), 0, 'The layer gives the viewport back to the pause card');

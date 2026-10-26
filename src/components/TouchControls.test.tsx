@@ -123,6 +123,8 @@ it('puts the stance beside the stick, off the trigger\'s sweep', () => {
     const html = layer(playing(), mode);
     const left = html.match(/<div class="touch-move">[\s\S]*?<div class="touch-combat">/)?.[0] ?? '';
     expect([...left.matchAll(/data-touch-action="(crouch|prone)"/g)].map(match => match[1])).toEqual(['crouch', 'prone']);
+    // The menu is not a combat control: it has the top-left corner, not a place by the stick.
+    expect(left).not.toContain('data-touch-action="menu"');
     expect(control(html, 'crouch')).not.toContain('--arc-x');
   }
   // A vehicle's left thumb is steering, and 'c' is the helicopter's descent.

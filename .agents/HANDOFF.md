@@ -3036,3 +3036,12 @@ finger did not swipe (click only for keyboard, `detail === 0`). Validation:
 unit tests for `tapProps`; in the pane a non-primary pointer tap on the slider
 switched weapons, and every touch control was confirmed to carry touch-down
 handlers. Not tried on a real phone with two thumbs.
+
+## 2026-10-26: touch menu chip in the top-left corner
+
+The menu/pause chip sat above the move stick, where the minimap covered it on
+short landscape phones. It is now a direct child of the touch layer, pinned to
+the top-left corner (safe-area aware), and `.fps-top` shifts right by
+`--chip-room` while the chip exists, so the district badge sits beside it.
+Checked at 375×812 (range and expedition top bars fit), 640×320.
+`touch-controls-smoke` asserts the corner position; not run here.

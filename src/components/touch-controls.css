@@ -46,11 +46,15 @@
 .touch-stick[data-sprint=true] .touch-stick-thumb{background:#f0d9a8ee}
 .touch-stick-label{position:absolute;left:0;right:0;bottom:-2px;text-align:center;font:7px monospace;letter-spacing:2px;color:#f4f4e9;opacity:.55;text-shadow:0 1px 3px #000}
 
-/* Leaving the round is not a combat action: it sits off both sweeps, above the
-   stick, where a thumb steering the player never crosses it. */
-.touch-chip{pointer-events:auto;touch-action:none;display:flex;align-items:center;justify-content:center;
-  margin-left:8px;width:38px;height:38px;border-radius:50%;border:1px solid #c7d1bb44;background:#16271ec4;color:#f4f4e9;
+/* Leaving the round is not a combat action, so it takes the top-left corner,
+   where no thumb lands mid-fight, and the top bar's badge steps right for it. */
+.touch-chip{position:absolute;top:max(10px,env(safe-area-inset-top));left:var(--edge-left);
+  pointer-events:auto;touch-action:none;display:flex;align-items:center;justify-content:center;
+  width:38px;height:38px;border-radius:50%;border:1px solid #c7d1bb44;background:#16271ec4;color:#f4f4e9;
   backdrop-filter:blur(3px)}
+.fps-game:has(.touch-chip) .fps-top{left:calc(var(--chip-room,58px))}
+@media(max-height:560px){.fps-game:has(.touch-chip) .fps-top{--chip-room:54px}}
+@media(max-width:720px){.fps-game:has(.touch-chip) .fps-top{--chip-room:56px}}
 
 /* ---- Buttons ------------------------------------------------------------- */
 /* The shared skin: a labelled pill, which is what the districts draw. The

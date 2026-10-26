@@ -121,9 +121,9 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
   const arc = thumbArc(sweep.length);
 
   return <div className="touch-layer" data-touch-layer={mode} data-mounted={mounted || undefined} style={{ '--arc-spread': arc.spread } as React.CSSProperties}>
-    {/* Out of both sweeps: a mis-hit here costs the round, not a magazine. */}
+    {/* Not a combat control, so it is in the top-left corner, out of reach of both thumbs mid-fight. */}
+    <button type="button" className="touch-chip" data-touch-action="menu" aria-label={mode === 'range' ? 'Pause' : 'Menu'} title={mode === 'range' ? 'Pause' : 'Menu'} {...tapProps(onMenu)}><Menu size={16} /></button>
     <div className="touch-move">
-      <button type="button" className="touch-chip" data-touch-action="menu" aria-label={mode === 'range' ? 'Pause' : 'Menu'} title={mode === 'range' ? 'Pause' : 'Menu'} {...tapProps(onMenu)}><Menu size={16} /></button>
       <div className="touch-move-row">
         <TouchStick kind="move" label={mounted ? hud.vehicleSeat === 0 ? 'DRIVE' : 'RIDING' : 'MOVE'} onChange={mounted && hud.vehicleSeat !== 0 ? () => {} : move} />
         {stance.length > 0 && <div className="touch-stance">
