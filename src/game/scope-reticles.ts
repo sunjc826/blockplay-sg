@@ -19,11 +19,16 @@ import type { EnemyOptic } from './enemy-weapon-layout';
  *   reviewed, so this is a generic pattern rather than the prototype's: a fine
  *   crosshair with heavy outer posts and an open centre, mil ticks along both
  *   hairs, and three holdover bars under the centre for longer shots.
+ * - `prism-chevron`: the fictional 4x prism sight on the Two Eyes Open SAR 21,
+ *   in the manner of fixed-power combat prisms generally rather than any one
+ *   model: an open chevron whose apex is the aim, a post under it with
+ *   narrowing holdover bars, and short hairlines out to the field stop.
  */
-export type ScopeReticle = 'g36-zf' | 'sar21-ring' | 'match-duplex' | 'xm8-mil';
+export type ScopeReticle = 'g36-zf' | 'sar21-ring' | 'match-duplex' | 'xm8-mil' | 'prism-chevron';
 
 export function scopeReticleFor(weapon: WeaponSpec, built: EnemyOptic | undefined): ScopeReticle {
   if (built) return built.reticle ?? 'g36-zf';
+  if (weapon.accessories?.sight === 'prism') return 'prism-chevron';
   return weapon.optic === 'precision' ? 'match-duplex' : 'sar21-ring';
 }
 
@@ -128,6 +133,23 @@ float scopeReticle(vec2 p, float aa) {
   for (int i = 0; i < 3; i++) {
     float y = -0.075 - float(i) * 0.06, w = 0.03 - float(i) * 0.007;
     ink = max(ink, reticleStroke(reticleSegment(p, vec2(-w, y), vec2(w, y)), 0.0034, aa));
+  }
+  return ink;
+}
+`,
+  'prism-chevron': `
+float scopeReticle(vec2 p, float aa) {
+  // The apex sits on the aiming point; the arms open downward.
+  float ink = reticleStroke(reticleSegment(p, vec2(0.0), vec2(-0.034, -0.042)), 0.0048, aa);
+  ink = max(ink, reticleStroke(reticleSegment(p, vec2(0.0), vec2(0.034, -0.042)), 0.0048, aa));
+  ink = max(ink, reticleStroke(reticleSegment(p, vec2(0.0, -0.065), vec2(0.0, -0.3)), 0.0026, aa));
+  for (int i = 0; i < 4; i++) {
+    float y = -0.095 - float(i) * 0.045, w = 0.026 - float(i) * 0.0045;
+    ink = max(ink, reticleStroke(reticleSegment(p, vec2(-w, y), vec2(w, y)), 0.0026, aa));
+  }
+  for (int s = 0; s < 2; s++) {
+    float side = s == 0 ? 1.0 : -1.0;
+    ink = max(ink, reticleStroke(reticleSegment(p, vec2(side * 0.14, 0.0), vec2(side * 0.5, 0.0)), 0.0022, aa));
   }
   return ink;
 }

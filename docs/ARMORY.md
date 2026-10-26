@@ -1,6 +1,6 @@
 # Field exchange, progression and FPS equipment
 
-The Armory sidebar offers eighteen fixed weapon variants across five platforms, five cosmetic finishes, three carrying rigs, four insert choices, five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition and handling hardware cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase. Three further platforms are carried only by the enemy and taken in the field; see [enemy-issue weapons](#enemy-issue-weapons).
+The Armory sidebar offers twenty-six fixed weapon variants across five platforms, five cosmetic finishes, three carrying rigs, four insert choices, five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition, handling hardware and [accessories](#accessories) cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase. Three further platforms are carried only by the enemy and taken in the field; see [enemy-issue weapons](#enemy-issue-weapons).
 
 ## Play loop
 
@@ -14,14 +14,17 @@ The Armory sidebar offers eighteen fixed weapon variants across five platforms, 
 | --- | --- |
 | 1 | Issued weapons/finish/rig, no inserts, soft armor |
 | 2 | Steady Lah, Route March, jungle/urban skins, enhanced LBS, ceramic plates |
-| 3 | Garang, gold skin |
-| 4 | Orchid skin, Sentinel rig, Aegis ceramic inserts |
+| 3 | Garang, P30 Blur Like Sotong, gold skin |
+| 4 | SAR 21 Night Owl, Ultimax Lights Up, P30 Lights Out, orchid skin, Sentinel rig, Aegis ceramic inserts |
 | 5 | Encik’s Favourite, SAR 21 Sharpshooter |
-| 6 | Own Time, Own Target |
+| 6 | Own Time, Own Target, SAR 21 Two Eyes Open |
 | 7 | Fort Siloso |
 | 8 | P30 Kopi O Kosong |
+| 10 | P30 Chiong Ah |
+| 12 | P30 Atas Race Gun |
 | 14 | FN MAG Chope |
 | 16 | P30 Bo Bo CANNOT |
+| 18 | P30 Kiasu Hunter |
 | 22 | CIS 50MG Tuas Shift |
 | 24 | FN MAG Jaga Corner |
 | 32 | CIS 50MG Merlion Roar |
@@ -202,6 +205,7 @@ Internal parts and fitted hardware are permanently part of the selected variant.
 | SAR 21 · Sharpshooter | Integrated 3.0× sight in the issued housing | optic |
 | Ultimax · Encik’s Favourite | Reinforced feed tray and buffer | handling |
 | Ultimax · Fort Siloso | Heavy barrel, bipod and buffered carrier | handling |
+| [Accessory variants](#accessories) | Suppressors, compensators, lasers, lights, sights and a brace | optic, muzzle, rail, handling |
 
 Legacy saves discard modular attachment ownership and clear all weapons' attachment selections, without refunds. All other valid progress and equipment survive. Runtime resolution ignores injected attachment data too, so switching variants or opening a preview cannot revive an old modification.
 
@@ -249,6 +253,58 @@ the part that paid for it, next to the stat it bought. `weapon-hardware.test.ts`
 covers the plan without a renderer and `weapon-fittings.test.ts` covers the
 scene graph headlessly — which meshes land where, what the magazine ends up
 scaled to, and that a teardown puts the model back exactly as it was found.
+
+## Accessories
+
+Eight specialist variants are built around what is fitted to them rather than a
+rung of the ladder (`specialist: true`, so the breakpoint analysis measures each
+against its platform's issued baseline). Each accessory is a `FittedPart` with
+`accessories` (`weapon-accessories.ts`), resolved onto the weapon's spec, and
+each one changes something in play besides a figure in the dossier:
+
+| Accessory | In play | Where it is read |
+| --- | --- | --- |
+| Suppressor | Muzzle flash cut to a tenth; the report a fraction as loud, and heard by other players as if from 2.5× further off; arena heat from the shot ×0.3, so world events are drawn to you far less; the round leaves 8–10% slower | `fps-effect-styles`, `gunshot-audio`, `gunfire-reports`, `arena-rules` |
+| Compensator | Recoil ×0.78–0.8; a bigger flash, a louder, sharper report and more heat | the same |
+| Laser | Hip-fire cone halved (aimed fire unchanged); a red beam and a dot where the crosshair meets the world. **B** switches it | `accessorySpreadScale` in `fps-engine`, `weapon-rail-effects` |
+| Weapon light | A spot cone from the muzzle that lights the scene at night (a tenth as bright by day); the lens glows. **B** switches it | `weapon-rail-effects` |
+| Folding brace | Recoil ×0.75, recovery ×1.2, hip cone ×0.75 | `resolveLoadout`, `accessorySpreadScale` |
+| Slide-cut red dot | A 1× dot over the P30's iron sights, which co-witness through the window | `weapon-sight-housings`, `weapon-optics` |
+| Holographic sight | A 1× window with a 65 MOA ring around the dot | the same |
+| 4× prism | A magnified prism with the `prism-chevron` reticle | the same, `scope-reticles` |
+| Offset dot | A 1× dot at 45° beside the prism. **X** rolls the weapon over onto it and back; the HUD and the scope picture switch with it | `WeaponSight.offset`, `fps-engine` |
+| Pistol scope | A 2.5× long eye-relief scope on a slide-ride mount | `weapon-sight-housings` |
+
+| Variant | Level / price | Fitted | Damage · rounds · cycle |
+| --- | --- | --- | --- |
+| P30 · Lights Out | 4 · 1,800 CR | Slide-cut red dot, suppressor | 32 · 15 · .22 s semi |
+| P30 · Blur Like Sotong | 3 · 1,500 CR | Laser-light module, 21-round magazine | 28 · 21 · .20 s semi |
+| P30 · Chiong Ah | 10 · 380 TK | Selective-fire sear, 33-round stick, compensator, folding brace | 24 · 33 · .07 s **auto** |
+| P30 · Atas Race Gun | 12 · 340 TK | Long slide, race trigger, slide-cut red dot, compensator | 40 · 20 · .15 s semi |
+| P30 · Kiasu Hunter | 18 · 450 TK | Long hunting barrel, 2.5× pistol scope, 2.4× precision | 54 · 15 · .34 s semi |
+| SAR 21 · Night Owl | 4 · 2,800 CR | Flat-top rail, holographic sight, suppressor, laser in the handguard | 39 · 30 · .12 s |
+| SAR 21 · Two Eyes Open | 6 · 340 TK | Chrome-lined barrel, 4× prism with offset dot, compensator | 50 · 30 · .12 s |
+| Ultimax · Lights Up | 4 · 2,400 CR | Holographic sight, weapon light, compensator | 32 · 60 · .079 s |
+
+The sidearm carries most of them because it has the least balance to protect:
+it already trails the main weapons, so the P30 gets a machine pistol and a
+scoped hunting handgun as well as the quiet and the lit builds.
+
+Models: `weapon-accessory-models.ts` builds the muzzle devices, rail devices and
+brace on the platform's own model, and leaves `fps-muzzle-exit` (where the
+flash and the shot's origin move to), `fps-laser-emitter` and
+`fps-light-emitter` for the engine; `weapon-sight-housings.ts` builds the sight
+housings and says where `weapon-optics` puts each lens. Mount points were
+measured off the GLBs by binning vertices along -Z, as for the build fittings.
+The torch exists only when the loadout carries one and is switched by
+intensity, because adding a light recompiles every lit material.
+Touch play gets two pad buttons (`cant`, `rail`) only for a weapon that has them.
+
+Review any variant at `/scripts/fixtures/weapon-accessories.html?variant=p30-silent`
+(`&view=side|hip|ads|cant`, `&night=1`, and `&yaw=`, `&zoom=`, `&cz=`, `&cy=`
+for side close-ups). `scripts/fps-accessories-smoke.mjs` drives the cant and
+the laser-light through the real engine; `weapon-accessories.test.ts` covers
+the rules, the sounds, the models and the dossier without a browser.
 
 ## Parameterized bullet impacts
 

@@ -20,6 +20,7 @@ import { ballisticPoint, isInstant, muzzleBallistics, type BallisticSpec } from 
 import type { PublishedRound } from './fps-projectiles';
 import { createHeatField, HEAT_TUNING, type HeatBand, type HeatSector } from './faction-heat';
 import { drawRank, type BotRank } from './arena-ranks';
+import { muzzleSignature, sanitizeMuzzle, type MuzzleDevice } from './weapon-accessories';
 
 /** All coordinates use metres; actor y is eye height, not the feet. */
 export interface ArenaActor {
@@ -42,6 +43,8 @@ export interface ArenaActor {
   rank?: number;
   /** Players: seconds left on the spawn shield, present only while it holds. */
   shield?: number;
+  /** What is on the muzzle of the gun they last fired, which is how loud it was. */
+  muzzle?: MuzzleDevice;
 }
 export type ArenaRaiderState = 'inbound' | 'orbit' | 'leaving' | 'cruise' | 'lock' | 'dive' | 'down' | 'wreck' | 'exploded';
 /**
@@ -73,7 +76,7 @@ export interface ArenaSnapshot {
 }
 export type ArenaHeat = { sector: string } & Record<SquadFaction, number>;
 export interface ArenaInput { x: number; y: number; z: number; yaw: number; pitch: number; weapon: number; playing: boolean; reloading?: boolean; prone?: boolean; vehicleControls?: VehicleControls }
-export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount' | 'bolt'> & Partial<Pick<WeaponSpec, 'ballistics'>>;
+export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount' | 'bolt'> & Partial<Pick<WeaponSpec, 'ballistics'>> & { accessories?: { muzzle?: MuzzleDevice } };
 export interface ArenaPoint { x: number; y: number; z: number }
 export interface ArenaShot { hitId: string | null; killed: boolean; damage: number }
 export interface ArenaVitals { health: number; armor: number }
@@ -382,6 +385,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       reload: Number.isFinite(w.reload) ? clamp(w.reload, 0.4, 8) : 1.8,
       ballistics: w.ballistics && Number.isFinite(w.ballistics.velocity) && Number.isFinite(w.ballistics.drop)
         ? { velocity: clamp(w.ballistics.velocity, 100, 1500), drop: clamp(w.ballistics.drop, 0, 30) } : FPS_WEAPONS[index]?.ballistics ?? FPS_WEAPONS[0].ballistics,
+      ...(sanitizeMuzzle(w.accessories?.muzzle) ? { accessories: { muzzle: sanitizeMuzzle(w.accessories?.muzzle) } } : {}),
     }));
   }
   const allowedIndexes = (weapons: readonly ArenaWeapon[], allowed?: readonly number[]) => {
@@ -511,7 +515,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         announce(`${entry.actor.name} was defeated by unsupported .50 recoil`, undefined, id);
       }
     }
-    ammo.cooldown = 0; fireWeapon(ammo, weapon, entry.weapons); entry.actor.shots++; warm(entry.actor, 1); entry.shieldUntil = 0;
+    // A can draws the fighting far less than a bare muzzle, and every listener hears it quieter.
+    const muzzle = entry.weapons[weapon].accessories?.muzzle;
+    if (muzzle) entry.actor.muzzle = muzzle; else delete entry.actor.muzzle;
+    ammo.cooldown = 0; fireWeapon(ammo, weapon, entry.weapons); entry.actor.shots++; warm(entry.actor, muzzleSignature(muzzle).heat); entry.shieldUntil = 0;
     if (!roundReady(ammo, entry.weapons[weapon])) startReload(entry, weapon);
     return launch(entry, origin, ray, entry.weapons[weapon], Math.min(125, Math.max(0, maxDistance)), weapon);
   }

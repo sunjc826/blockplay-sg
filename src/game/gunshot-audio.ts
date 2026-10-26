@@ -1,4 +1,5 @@
 import { distanceGain, soundDelay } from './combat-event-audio';
+import { muzzleSignature, type MuzzleDevice } from './weapon-accessories';
 
 /**
  * Gunshots, synthesised in the engine's own AudioContext: no files to load.
@@ -26,17 +27,28 @@ const OWN_LEVEL = .3, OTHER_LEVEL = .26;
  * Punch sizes the thump and the tail, bore lowers the body. Distance takes the
  * crack first and the rumble last, and lengthens the echo, as it does outdoors.
  */
-export function gunshotTone(calibre: number, power: number, distance = 0, own = false): GunshotTone {
+export function gunshotTone(calibre: number, power: number, distance = 0, own = false, muzzle?: MuzzleDevice): GunshotTone {
   const weight = Math.min(4.5, Math.max(.6, power / 36)), bore = Math.min(2.4, Math.max(.8, calibre / 5.56));
-  const d = Math.max(0, distance), far = Math.min(1, d / 400), punch = Math.sqrt(weight);
-  return {
-    level: (own ? OWN_LEVEL : OTHER_LEVEL * distanceGain(d)) * (.75 + .25 * punch),
+  const report = muzzleSignature(muzzle).report;
+  // A can is heard as if from further off than it is, so it fades out of earshot sooner.
+  const d = Math.max(0, distance) / (muzzle === 'suppressor' ? report : 1), far = Math.min(1, d / 400), punch = Math.sqrt(weight);
+  const tone: GunshotTone = {
+    level: (own ? OWN_LEVEL : OTHER_LEVEL * distanceGain(d)) * (.75 + .25 * punch) * Math.min(1.15, report),
     delay: own ? 0 : soundDelay(d),
     crack: .55 * (1 - far) ** 2, crackCutoff: 2600 - 900 * far,
     body: .65 * punch * (1 - .5 * far), bodyCutoff: Math.max(280, 3200 / Math.sqrt(bore) * (1 - .85 * far)), bodyLength: .06 + .035 * weight + .12 * far,
     thump: .95 * punch * (1 - .3 * far), thumpFrom: 150 / weight ** .15, thumpTo: 52 / weight ** .2, thumpLength: .1 + .045 * weight,
     tail: .2 * punch * (.6 + far), tailCutoff: 1400 - 900 * far, tailLength: .3 + .12 * weight + .7 * far,
   };
+  if (muzzle === 'suppressor') {
+    // What a can leaves: the action cycling, a dull cough, and little for the walls to send back.
+    Object.assign(tone, { crack: tone.crack * .3, body: tone.body * .55, bodyCutoff: tone.bodyCutoff * .45, bodyLength: tone.bodyLength * .7,
+      thump: tone.thump * .35, tail: tone.tail * .25, tailLength: tone.tailLength * .5 });
+  } else if (muzzle === 'compensator') {
+    // Gas thrown sideways: a sharper crack and a harder slap off whatever is beside the shooter.
+    Object.assign(tone, { crack: tone.crack * 1.35, crackCutoff: tone.crackCutoff * 1.2, tail: tone.tail * 1.3 });
+  }
+  return tone;
 }
 
 /** The bus every shot plays into: soft saturation for weight, then a compressor so bursts don't clip. */

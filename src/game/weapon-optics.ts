@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { WeaponSpec } from './fps-rules';
 import { opticMagnification } from './fps-rules';
 import { buildReflexHousing } from './weapon-reflex';
+import { buildSightHousing } from './weapon-sight-housings';
 import { createOpticGlass, type OpticGlass } from './weapon-glass';
 import { enemyOptic } from './enemy-weapon-layout';
 import { scopeReticleFor, scopeReticleGlsl, type ScopeReticle } from './scope-reticles';
@@ -13,50 +14,21 @@ export interface WeaponSight {
   reflection?: OpticGlass;
   /** The etched pattern, for magnified sights only. */
   reticle?: ScopeReticle;
+  /** How far the lens sits off the bore line sideways, and the roll that stands it upright: both 0 but for an offset dot. */
+  aimX: number; roll: number;
+  /** A 1x dot at 45° beside a magnified sight, brought to the eye by canting the weapon over. */
+  offset?: WeaponSight;
 }
 const sights = new WeakMap<THREE.Object3D, WeaponSight>();
 export const getWeaponSight = (root: THREE.Object3D) => sights.get(root);
 
-/** Shared by the shop and the FPS: one housing per optic slot. */
-export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
-  // Enemy-issue platforms carry their sight in the model itself; the config
-  // `applyEnemyWeaponConfig` chose decides which one, and only its glass and
-  // reticle are fitted here.
-  const built = enemyOptic(weapon.id, root.userData.enemyConfig);
-  if (weapon.optic === 'iron' && !built) return () => {};
-  const sar = weapon.id === 'sar21-inspired', integrated = built ? built.kind === 'scope' : sar && weapon.optic !== 'reflex';
-  const original = root.getObjectByName('sar21-inspired__optic');
-  const wasVisible = original?.visible ?? true;
-  if (original) original.visible = integrated;
-  // A red dot is a red dot whatever field of view the variant asks for.
-  const magnification = built?.kind === 'reflex' ? 1 : opticMagnification(weapon);
+/**
+ * One lens: a live scope picture with its etching when magnified, otherwise a
+ * collimated dot (with a holographic ring when `ring`) and its bloom.
+ */
+function createLens(magnification: number, radius: number, reticle: ScopeReticle | undefined, ring: boolean) {
   const magnified = magnification > 1.01;
   const visibility = { value: magnified ? 0 : 1 };
-  const reticle = magnified ? scopeReticleFor(weapon, built) : undefined;
-  const group = new THREE.Group(); group.name = 'equipped-optic'; root.add(group);
-  const geometry: THREE.BufferGeometry[] = [];
-  const aimHeight = built?.height ?? (integrated ? .328 : sar ? .343 : .350);
-  const rearZ = integrated ? .194 : sar ? .12 : .15;
-  const radius = built?.radius ?? (integrated ? .0235 : .042);
-  let housing: ReturnType<typeof buildReflexHousing> | undefined;
-  let scopeGlass: ReturnType<typeof createOpticGlass> | undefined;
-  if (built) {
-    group.name = integrated ? 'fps-integrated-optic' : 'fps-reflex-optic';
-    // A scope's coating sits on the eye side of its picture; a reflex's
-    // mirror sits just beyond the dot, as on the receiver-mounted housing.
-    scopeGlass = createOpticGlass(radius, integrated ? .0014 : .005, integrated ? 'scope' : 'reflex', reticle);
-    scopeGlass.reflection.surface.position.set(0, aimHeight, built.lens + (integrated ? .0005 : -.003));
-    group.add(scopeGlass.reflection.surface);
-  } else if (!integrated) {
-    group.name = weapon.optic === 'precision' ? 'fps-precision-optic' : 'fps-reflex-optic';
-    housing = buildReflexHousing(group, aimHeight, rearZ, sar);
-  } else {
-    // The original SAR housing includes opaque lens faces. Seat the coating
-    // just ahead of the rear face, and composite it over the live scope image.
-    scopeGlass = createOpticGlass(radius, .0014, 'scope', reticle);
-    scopeGlass.reflection.surface.position.set(0, aimHeight, rearZ + .0015);
-    group.add(scopeGlass.reflection.surface);
-  }
   const lensMaterial = new THREE.MeshBasicMaterial({ color: '#ffffff', side: magnified ? THREE.DoubleSide : THREE.FrontSide, forceSinglePass: true, transparent: true, depthWrite: false });
   lensMaterial.toneMapped = magnified;
   // The etched scope uses lens UVs; the reflex uses a collimated ray. Both are
@@ -130,6 +102,8 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
       float angle = length(angularPosition);
       float angularAA = max(fwidth(angle), 0.00015);
       float core = 1.0 - smoothstep(0.0022, 0.0022 + angularAA, angle);
+      // A holographic sight's 65 MOA ring, at the same collimated angle as the dot.
+      ${ring ? 'core = max(core, (1.0 - smoothstep(0.00055, 0.00055 + angularAA, abs(angle - 0.0095))) * 0.85);' : ''}
       float aperture = 1.0 - smoothstep(0.46, 0.5, r);
       if (sightBloom > 0.5) {
         // Add light around the emitter without replacing the scene behind it.
@@ -138,6 +112,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
         float bloom = exp(-angle * angle / 0.00024) * 0.065;
         vec2 streak = angularPosition / vec2(0.014, 0.0009);
         float flare = exp(-dot(streak, streak)) * 0.045;
+        ${ring ? 'halo += exp(-pow(angle - 0.0095, 2.0) / 0.0000012) * 0.07;' : ''}
         diffuseColor.rgb = vec3(1.0, 0.025, 0.008);
         diffuseColor.a = (halo + bloom + flare) * aperture * sightVisibility * rise;
       } else {
@@ -150,10 +125,10 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
       `}
     `);
   };
-  lensMaterial.customProgramCacheKey = () => magnified ? `scope-reticle-v4-${reticle}` : 'reflex-reticle-v5';
-  const lensGeometry = new THREE.CircleGeometry(radius, 48); geometry.push(lensGeometry);
+  lensMaterial.customProgramCacheKey = () => magnified ? `scope-reticle-v4-${reticle}` : `reflex-reticle-v5${ring ? '-ring' : ''}`;
+  const lensGeometry = new THREE.CircleGeometry(radius, 48);
   const lens = new THREE.Mesh(lensGeometry, lensMaterial); lens.name = 'fps-scope-lens';
-  lens.position.set(0, aimHeight, built?.lens ?? (integrated ? rearZ + .001 : rearZ - .044)); lens.visible = !magnified; lens.renderOrder = 2; group.add(lens);
+  lens.visible = !magnified; lens.renderOrder = 2;
   let bloomMaterial: THREE.MeshBasicMaterial | undefined;
   if (!magnified) {
     bloomMaterial = lensMaterial.clone();
@@ -162,18 +137,82 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
       lensMaterial.onBeforeCompile(shader, renderer);
       shader.uniforms.sightBloom.value = 1;
     };
-    bloomMaterial.customProgramCacheKey = () => 'reflex-bloom-v2';
+    bloomMaterial.customProgramCacheKey = () => `reflex-bloom-v2${ring ? '-ring' : ''}`;
     const bloom = new THREE.Mesh(lensGeometry, bloomMaterial);
     bloom.name = 'fps-reflex-bloom'; bloom.renderOrder = 2;
     lens.renderOrder = 3;
     // Parenting shares the lens's visibility, clipping, and eye alignment.
     lens.add(bloom);
   }
-  const sight: WeaponSight = { reticle, aimHeight, aimDepth: built?.aimDepth ?? (integrated ? -.36 : -.47), radius, magnification, lens, visibility, reflection: scopeGlass?.reflection ?? housing?.reflection };
+  return { lens, visibility, dispose() { lensGeometry.dispose(); lensMaterial.dispose(); bloomMaterial?.dispose(); } };
+}
+
+/** Shared by the shop and the FPS: one housing per optic slot. */
+export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
+  // Enemy-issue platforms carry their sight in the model itself; the config
+  // `applyEnemyWeaponConfig` chose decides which one, and only its glass and
+  // reticle are fitted here.
+  const built = enemyOptic(weapon.id, root.userData.enemyConfig);
+  // A variant's own sight (weapon-accessories) brings its housing with it.
+  const fitted = built ? undefined : weapon.accessories?.sight;
+  if (weapon.optic === 'iron' && !built && !fitted) return () => {};
+  const sar = weapon.id === 'sar21-inspired', integrated = built ? built.kind === 'scope' : !fitted && sar && weapon.optic !== 'reflex';
+  const original = root.getObjectByName('sar21-inspired__optic');
+  const wasVisible = original?.visible ?? true;
+  if (original) original.visible = integrated;
+  // A red dot is a red dot whatever field of view the variant asks for.
+  const magnification = built?.kind === 'reflex' ? 1 : opticMagnification(weapon);
+  const magnified = magnification > 1.01;
+  const reticle = magnified ? scopeReticleFor(weapon, built) : undefined;
+  const group = new THREE.Group(); group.name = 'equipped-optic'; root.add(group);
+  const mount = fitted ? buildSightHousing(group, weapon.id, fitted, !!weapon.accessories?.offsetDot) : undefined;
+  const aimHeight = mount?.main.y ?? built?.height ?? (integrated ? .328 : sar ? .343 : .350);
+  const rearZ = integrated ? .194 : sar ? .12 : .15;
+  const radius = mount?.main.radius ?? built?.radius ?? (integrated ? .0235 : .042);
+  let housing: ReturnType<typeof buildReflexHousing> | undefined;
+  let scopeGlass: ReturnType<typeof createOpticGlass> | undefined;
+  if (mount) {
+    group.name = `fps-${fitted}-optic`;
+    scopeGlass = createOpticGlass(radius, magnified ? .0014 : .005, magnified ? 'scope' : 'reflex', reticle);
+    scopeGlass.reflection.surface.position.set(0, aimHeight, mount.main.glassZ);
+    group.add(scopeGlass.reflection.surface);
+  } else if (built) {
+    group.name = integrated ? 'fps-integrated-optic' : 'fps-reflex-optic';
+    // A scope's coating sits on the eye side of its picture; a reflex's
+    // mirror sits just beyond the dot, as on the receiver-mounted housing.
+    scopeGlass = createOpticGlass(radius, integrated ? .0014 : .005, integrated ? 'scope' : 'reflex', reticle);
+    scopeGlass.reflection.surface.position.set(0, aimHeight, built.lens + (integrated ? .0005 : -.003));
+    group.add(scopeGlass.reflection.surface);
+  } else if (!integrated) {
+    group.name = weapon.optic === 'precision' ? 'fps-precision-optic' : 'fps-reflex-optic';
+    housing = buildReflexHousing(group, aimHeight, rearZ, sar);
+  } else {
+    // The original SAR housing includes opaque lens faces. Seat the coating
+    // just ahead of the rear face, and composite it over the live scope image.
+    scopeGlass = createOpticGlass(radius, .0014, 'scope', reticle);
+    scopeGlass.reflection.surface.position.set(0, aimHeight, rearZ + .0015);
+    group.add(scopeGlass.reflection.surface);
+  }
+  const main = createLens(magnification, radius, reticle, fitted === 'holo');
+  main.lens.position.set(0, aimHeight, mount?.main.lensZ ?? built?.lens ?? (integrated ? rearZ + .001 : rearZ - .044)); group.add(main.lens);
+  const sight: WeaponSight = { reticle, aimHeight, aimDepth: mount?.main.aimDepth ?? built?.aimDepth ?? (integrated ? -.36 : -.47), radius, magnification, lens: main.lens, visibility: main.visibility,
+    reflection: scopeGlass?.reflection ?? housing?.reflection, aimX: 0, roll: 0 };
+  // The offset dot is a second sight in its own right: its own lens, glass and
+  // place for the eye, mounted turned over by the roll that stands it upright.
+  let dot: ReturnType<typeof createLens> | undefined, dotGlass: ReturnType<typeof createOpticGlass> | undefined;
+  if (mount?.offset) {
+    const at = mount.offset;
+    dot = createLens(1, at.radius, undefined, false);
+    dot.lens.position.set(at.x, at.y, at.lensZ); dot.lens.rotation.z = -at.roll; group.add(dot.lens);
+    dotGlass = createOpticGlass(at.radius, .005, 'reflex');
+    dotGlass.reflection.surface.position.set(at.x, at.y, at.glassZ); dotGlass.reflection.surface.rotation.z = -at.roll;
+    group.add(dotGlass.reflection.surface);
+    sight.offset = { aimHeight: at.y, aimX: at.x, roll: at.roll, aimDepth: at.aimDepth, radius: at.radius, magnification: 1, lens: dot.lens, visibility: dot.visibility, reflection: dotGlass.reflection };
+  }
   sights.set(root, sight);
   return () => {
     if (original) original.visible = wasVisible;
-    sights.delete(root); group.removeFromParent(); housing?.dispose(); scopeGlass?.dispose(); geometry.forEach(g => g.dispose()); lensMaterial.dispose(); bloomMaterial?.dispose();
+    sights.delete(root); group.removeFromParent(); housing?.dispose(); scopeGlass?.dispose(); main.dispose(); dot?.dispose(); dotGlass?.dispose(); mount?.dispose();
   };
 }
 

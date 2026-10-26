@@ -111,6 +111,8 @@ export function fitWeaponHardware(root: THREE.Object3D, weapon: EquippedWeapon) 
       sleeve(outer + .005, .036, zone.from - .014, steel);
       if (weight > .45) around(6, outer, mid, new THREE.BoxGeometry(.007, .005, length - .03), cut);
     }
+    // A fitted can or compensator is the muzzle; the barrel stops behind it.
+    if (weapon.accessories?.muzzle) return;
     if (extended) {
       const brake = anchors.muzzle - .030;
       sleeve(outer + .007, .058, brake, steel);
@@ -176,8 +178,12 @@ export function fitWeaponHardware(root: THREE.Object3D, weapon: EquippedWeapon) 
     mesh(use(new THREE.BoxGeometry(width + .002, .008, .007)), accent, 0, y + height / 2 - .014, z);
   }
 
+  // Accessories are built by `weapon-accessory-models`, which also leaves the
+  // emitters and the muzzle exit the engine reads.
+  const accessory = () => {};
   const build: Record<WeaponHardware['kind'], (entry: WeaponHardware) => void> = {
     barrel, gas, magazine, freefloat, bipod, buffer,
+    suppressor: accessory, compensator: accessory, laser: accessory, light: accessory, 'laser-light': accessory, brace: accessory,
   };
   // Barrel first, so the fittings that sit on it know how thick it ended up.
   for (const entry of [...hardware].sort((a, b) => (a.kind === 'barrel' ? -1 : 0) - (b.kind === 'barrel' ? -1 : 0))) build[entry.kind](entry);

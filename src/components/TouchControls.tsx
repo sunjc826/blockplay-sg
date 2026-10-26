@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDownToLine, ChevronsDown, ChevronsUp, Crosshair, Eye, Footprints, Menu, MessageCircle, Move3d, PackageOpen, RefreshCw, Rocket, Repeat2 } from 'lucide-react';
+import { ArrowDownToLine, ChevronsDown, ChevronsUp, Crosshair, Eye, Flashlight, Footprints, Menu, MessageCircle, Move3d, PackageOpen, RefreshCw, Rocket, Repeat2, RotateCcw } from 'lucide-react';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
 import { padSlot, promptLabel, type StickVector } from '../game/touch-controls';
 import { visionStatus } from './FpsVisionChip';
@@ -103,6 +103,9 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
     pad.push(act('aim', 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': hud.aiming, 'data-on': hud.aiming || undefined }));
     pad.push(act('reload', 'Reload', <RefreshCw size={17} />, { onClick: () => engine?.reload(), disabled: hud.reloading > 0 }));
     pad.push(act('jump', 'Jump', <ChevronsUp size={17} />, { onClick: () => engine?.jump() }));
+    // Only a weapon that carries them shows these, each in a slot of its own.
+    if (hud.offsetDot) pad.push(act('cant', hud.canted ? 'Back to scope' : 'Offset dot', <RotateCcw size={17} />, { onClick: () => engine?.toggleCant(), 'aria-pressed': hud.canted, 'data-on': hud.canted || undefined }));
+    if (hud.rail) pad.push(act('rail', `${hud.rail.kind === 'light' ? 'Weapon light' : hud.rail.kind === 'laser' ? 'Laser' : 'Laser-light'} ${hud.rail.on ? 'on' : 'off'}`, <Flashlight size={17} />, { onClick: () => engine?.toggleRail(), 'aria-pressed': hud.rail.on, 'data-on': hud.rail.on || undefined }));
     // Weapons are drawn from the slider in the top-right corner, not the pad.
     if (mode === 'expedition') {
       // Supplies are tapped on the utility belt itself, which a thumb can reach.

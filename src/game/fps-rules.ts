@@ -1,4 +1,5 @@
 import type { BipodKind } from './weapon-support';
+import type { WeaponAccessories } from './weapon-accessories';
 /** Arcade tuning, intentionally independent of real equipment specifications. */
 import { MACHINE_GUN_LAYOUT } from './machine-gun-layout';
 import { ENEMY_WEAPON_LAYOUT } from './enemy-weapon-layout';
@@ -38,7 +39,7 @@ export function findTrait<K extends WeaponTraitKind>(traits: readonly WeaponTrai
 export type WeaponFeed = 'magazine' | 'drum' | 'belt';
 /** How the action holds its next round: closed (rifles, pistol) keeps one in the chamber; open (machine guns) does not. */
 export type WeaponBolt = 'open' | 'closed';
-export interface WeaponSpec { bipod?: BipodKind; feed?: WeaponFeed; bolt?: WeaponBolt; requiresMount?: boolean; /** Unloaded arcade carry mass, in kg. */ weightKg?: number; fireMode?: 'auto' | 'semi'; caliberMm: number; id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; recoilRecovery: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
+export interface WeaponSpec { bipod?: BipodKind; /** Muzzle, rail, sight and brace the variant is fitted with; see weapon-accessories. */ accessories?: WeaponAccessories; feed?: WeaponFeed; bolt?: WeaponBolt; requiresMount?: boolean; /** Unloaded arcade carry mass, in kg. */ weightKg?: number; fireMode?: 'auto' | 'semi'; caliberMm: number; id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; recoilRecovery: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
 export const FPS_WEAPONS: readonly WeaponSpec[] = [
   // The rifle holds its damage to twice the support weapon's range; the support
   // weapon trades that away for its volume of fire. Paid variants lift both bands.

@@ -14,7 +14,8 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, touch =
   // slider, so the belt docks along the bottom between the two thumbs instead.
   const docked = useMediaQuery(SHORT_SCREEN) && touch;
   const belt = <FpsUtilityBelt hud={hud} canUse={canFight && !hud.supplyUse} onUse={onUtility} docked={docked} />;
-  const magnified = weapon.optic === 'integrated' || weapon.optic === 'precision';
+  // Canted onto an offset dot, the sight in use is a 1x one whatever sits on top.
+  const magnified = (weapon.optic === 'integrated' || weapon.optic === 'precision') && !hud.canted;
   const reloading = hud.reloading > 0, stage = reloadStage(hud.reloading, hud.reloadEmpty);
   // Truthful digits, except through a reload — see `hud-motion.ts`.
   // The digits are the magazine; a chambered round shows beside them as +1.
@@ -44,6 +45,10 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, touch =
       <span>{weapon.name} <small>{hud.aiming ? 'ADS' : weapon.fireMode === 'semi' ? 'SEMI' : 'AUTO'}</small></span>
       <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}{hud.chambered && <em className="fps-chamber" aria-label="one in the chamber">+1</em>}<small>/ {hud.reserve}</small></strong>
       {prompt ? <p>{prompt}</p> : <p className="fps-ammo-detail">R RELOAD · Q TOGGLE AIM · RMB HOLD</p>}
+      {(hud.rail || hud.offsetDot) && <p className="fps-ammo-detail" data-accessories>{[
+        hud.rail && `B ${hud.rail.kind === 'laser' ? 'LASER' : hud.rail.kind === 'light' ? 'LIGHT' : 'LASER-LIGHT'} ${hud.rail.on ? 'ON' : 'OFF'}`,
+        hud.offsetDot && `X ${hud.canted ? 'BACK TO SCOPE' : 'OFFSET DOT'}`,
+      ].filter(Boolean).join(' · ')}</p>}
       <p className="fps-ammo-detail">{hud.carriedKg.toFixed(1)} KG CARRIED · {Math.round(hud.movementScale * 100)}% MOVEMENT</p>
       {weapon.requiresMount && <p>{hud.braced ? 'PRONE MOUNT DEPLOYED · Z / STAND TO MOVE' : 'Z / PRONE: SAFE · STAND 20 / CROUCH 10 BEFORE ARMOR'}</p>}
       {reloading

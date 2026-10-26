@@ -1,0 +1,65 @@
+<!doctype html>
+<!-- A variant's accessories as the game fits them: ?variant=p30-silent (any catalog weapon id)
+     &view=side|hip|ads|cant  &night=1 for a dark scene with the torch and laser.
+     Side is a close-up of the model; the others are the viewmodel against a range, posed as fps-engine poses it. -->
+<html><body style="margin:0;background:#111"><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import {GLTFLoader} from '/node_modules/three/examples/jsm/loaders/GLTFLoader.js';
+import {getWeaponSight,createScopeRenderer} from '/src/game/weapon-optics.ts';
+import {itemById} from '/src/game/armory-catalog.ts';
+import {createProfile,equip,resolveLoadout} from '/src/game/armory-state.ts';
+import {buildServiceWeapon} from '/src/game/service-weapon-models.ts';
+import {dressWeapon} from '/src/game/armory-visuals.ts';
+import {railEmitters} from '/src/game/weapon-accessory-models.ts';
+import {createRailEffects} from '/src/game/weapon-rail-effects.ts';
+const params=new URLSearchParams(location.search),variant=params.get('variant')||'p30-silent',view=params.get('view')||'side',night=params.get('night')==='1';
+const W=1200,H=800;
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(W,H);renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.9;renderer.autoClear=false;document.body.append(renderer.domElement);
+const world=new THREE.Scene();world.background=new THREE.Color(night?'#05070b':'#b8d9ef');
+world.add(new THREE.HemisphereLight(night?'#20283a':'#e4efff',night?'#05070a':'#576350',night?.15:2.1));
+const sun=new THREE.DirectionalLight('#fff4dd',night?.05:2.5);sun.position.set(1,2,1);world.add(sun);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(80,80),new THREE.MeshStandardMaterial({color:'#89978a'}));ground.rotation.x=-Math.PI/2;world.add(ground);
+const wall=new THREE.Mesh(new THREE.BoxGeometry(14,5,.4),new THREE.MeshStandardMaterial({color:'#c9c2b2'}));wall.position.set(0,2.5,-12);world.add(wall);
+for(let i=0;i<6;i++){const m=new THREE.Mesh(new THREE.BoxGeometry(.6,1.8,.3),new THREE.MeshStandardMaterial({color:i%2?'#657f9c':'#a86f4a'}));m.position.set(-4+i*1.6,.9,-8+Math.sin(i)*.8);world.add(m);}
+const viewScene=new THREE.Scene();viewScene.add(new THREE.HemisphereLight('#e4efff','#576350',night?.25:2.1));const key=new THREE.DirectionalLight('#fff4dd',night?.3:2.5);key.position.set(1,2,1);viewScene.add(key);
+const item=itemById(variant),base=createProfile(),weapon=resolveLoadout(equip({...base,owned:[...base.owned,variant]},variant,item.family)).weapons[item.family];
+const model=buildServiceWeapon(weapon.id)??(await new GLTFLoader().loadAsync('/models/field-kit/'+weapon.id+'.glb')).scene;
+dressWeapon(model,weapon);
+const camera=new THREE.PerspectiveCamera(65,W/H,.08,800);camera.position.set(0,1.6,0);camera.updateMatrixWorld(true);
+const viewCamera=new THREE.PerspectiveCamera(54,W/H,.01,3);
+const scope=createScopeRenderer(renderer),rail=createRailEffects(world,true);
+window.info={variant,weapon:weapon.name,accessories:weapon.accessories??null,optic:weapon.optic};
+if(view==='side'){
+  // A turntable close-up: the model alone, lit, from its right and a little above.
+  const stage=new THREE.Scene();stage.background=new THREE.Color('#d6d9d4');stage.add(new THREE.HemisphereLight('#ffffff','#666666',2.2));const l=new THREE.DirectionalLight('#ffffff',2.4);l.position.set(2,3,1);stage.add(l);
+  stage.add(model);const box=new THREE.Box3().setFromObject(model),centre=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());
+  const yaw=Number(params.get('yaw')??'1.15'),distance=size.length()*1.9/Number(params.get('zoom')??'1');centre.z+=Number(params.get('cz')??'0');centre.y+=Number(params.get('cy')??'0');
+  const cam=new THREE.PerspectiveCamera(30,W/H,.01,20);cam.position.set(centre.x+Math.sin(yaw)*distance,centre.y+distance*.28,centre.z+Math.cos(yaw)*distance);cam.lookAt(centre);
+  renderer.render(stage,cam);window.ready=true;
+} else {
+  viewScene.add(model);
+  const sight=getWeaponSight(model),cant=view==='cant'&&sight?.offset?1:0,aim=view==='hip'?0:1;
+  const handling={aimHeight:sight?.aimHeight??weapon.sightHeight,aimDepth:sight?.aimDepth??-.52};
+  // fps-engine's pose: the eye goes to the sight in use, rolled with the weapon.
+  const off=sight?.offset,roll=off?cant*off.roll:0;
+  const eyeX=off?cant*(off.aimX*Math.cos(roll)-off.aimHeight*Math.sin(roll)):0;
+  const eyeY=THREE.MathUtils.lerp(handling.aimHeight,off?off.aimX*Math.sin(roll)+off.aimHeight*Math.cos(roll):0,off?cant:0);
+  const eyeDepth=THREE.MathUtils.lerp(handling.aimDepth,off?.aimDepth??0,off?cant:0);
+  model.position.set(THREE.MathUtils.lerp(.2,-eyeX,aim),THREE.MathUtils.lerp(-.32,-eyeY,aim),THREE.MathUtils.lerp(-.78,eyeDepth,aim));model.rotation.set(0,0,roll*Math.max(aim,.35));
+  viewCamera.fov=THREE.MathUtils.lerp(65,54,aim);viewCamera.updateProjectionMatrix();viewScene.updateMatrixWorld(true);
+  const active=off&&cant>.5?off:sight;if(off)(active===sight?off:sight).lens.visible=false;
+  // Laser and torch as updateRail draws them.
+  const emitters=railEmitters(model,weapon),forward=camera.getWorldDirection(new THREE.Vector3());
+  if(emitters.lens)emitters.lens.material.emissiveIntensity=emitters.light?2.4:0;
+  world.updateMatrixWorld(true);
+  const frame={camera,dark:night?1:0};
+  if(emitters.laser){const from=camera.localToWorld(emitters.laser.getWorldPosition(new THREE.Vector3()));const ray=new THREE.Raycaster(camera.position,forward,.05,150);const hit=ray.intersectObjects(world.children.filter(o=>!o.userData.fpsEffect),true)[0];frame.laser={from,to:hit?.point??camera.position.clone().addScaledVector(forward,150),hit:!!hit};}
+  if(emitters.light)frame.light={from:camera.localToWorld(emitters.light.getWorldPosition(new THREE.Vector3())),direction:forward};
+  rail.update(frame);
+  const pip=active?scope.render(world,camera,viewCamera,active,true,aim):false;
+  renderer.setRenderTarget(null);renderer.clear();renderer.render(world,camera);renderer.clearDepth();renderer.render(viewScene,viewCamera);
+  document.title=JSON.stringify({...window.info,beam:world.getObjectByName('fps-laser-beam')?.visible,dot:world.getObjectByName('fps-laser-dot')?.visible,dotAt:world.getObjectByName('fps-laser-dot')?.position.toArray().map(v=>+v.toFixed(2)),from:frame.laser?.from.toArray().map(v=>+v.toFixed(3))});
+  Object.assign(window.info,{pip,magnification:active?.magnification??null,canted:cant,laser:!!frame.laser,laserHit:frame.laser?.hit??false,light:!!frame.light});
+  window.ready=true;
+}
+</script></body></html>

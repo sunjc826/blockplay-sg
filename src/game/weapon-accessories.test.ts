@@ -1,0 +1,119 @@
+import * as THREE from 'three';
+import { describe, expect, it } from 'vitest';
+import { ARMORY_CATALOG, itemById } from './armory-catalog';
+import { createProfile, equip, resolveLoadout } from './armory-state';
+import { resolveEffectStyle } from './fps-effect-styles';
+import { gunfireReports } from './gunfire-reports';
+import { gunshotTone } from './gunshot-audio';
+import { accessorySpreadScale, hasLaser, hasLight, hipSpreadScale, muzzleSignature } from './weapon-accessories';
+import { fitWeaponAccessories, LASER_EMITTER, LIGHT_EMITTER, muzzleSocket, MUZZLE_EXIT } from './weapon-accessory-models';
+import { buildSightHousing } from './weapon-sight-housings';
+import { buildServiceWeapon } from './service-weapon-models';
+import { hardwareByPart } from './weapon-hardware';
+
+const resolved = (id: string) => {
+  const item = itemById(id)!, base = createProfile();
+  return resolveLoadout(equip({ ...base, owned: [...base.owned, id] }, id, item.family!)).weapons[item.family!];
+};
+
+describe('what an accessory does', () => {
+  it('halves the hip cone with a laser and leaves aimed fire alone', () => {
+    expect(hipSpreadScale({ rail: 'laser' })).toBe(.5);
+    expect(hipSpreadScale({ rail: 'laser-light' })).toBe(.5);
+    expect(hipSpreadScale({ rail: 'light' })).toBe(1);
+    expect(hipSpreadScale({ brace: true })).toBe(.75);
+    expect(hipSpreadScale({ rail: 'laser', brace: true })).toBeCloseTo(.375);
+    expect(accessorySpreadScale({ rail: 'laser' }, 0)).toBe(.5);
+    expect(accessorySpreadScale({ rail: 'laser' }, 1)).toBe(1);
+    expect(accessorySpreadScale(undefined, 0)).toBe(1);
+  });
+  it('tells a laser from a light', () => {
+    expect([hasLaser({ rail: 'laser' }), hasLight({ rail: 'laser' })]).toEqual([true, false]);
+    expect([hasLaser({ rail: 'light' }), hasLight({ rail: 'light' })]).toEqual([false, true]);
+    expect([hasLaser({ rail: 'laser-light' }), hasLight({ rail: 'laser-light' })]).toEqual([true, true]);
+  });
+  it('quietens and hides a suppressed shot, and makes a compensated one louder and brighter', () => {
+    const bare = muzzleSignature(), can = muzzleSignature('suppressor'), comp = muzzleSignature('compensator');
+    expect(can.flare).toBeLessThan(bare.flare * .2); expect(can.report).toBeLessThan(bare.report); expect(can.heat).toBeLessThan(bare.heat);
+    expect(comp.flare).toBeGreaterThan(bare.flare); expect(comp.report).toBeGreaterThan(bare.report);
+  });
+});
+
+describe('how a suppressed shot sounds', () => {
+  it('is quieter at the ear and loses most of its crack and echo', () => {
+    const bare = gunshotTone(9, 32, 0, true), can = gunshotTone(9, 32, 0, true, 'suppressor');
+    expect(can.level).toBeLessThan(bare.level);
+    expect(can.crack).toBeLessThan(bare.crack * .5);
+    expect(can.tail).toBeLessThan(bare.tail * .5);
+  });
+  it('falls out of earshot far sooner than a bare muzzle', () => {
+    expect(gunshotTone(5.56, 39, 250).level).toBeGreaterThan(0);
+    expect(gunshotTone(5.56, 39, 250, false, 'suppressor').level).toBeLessThan(gunshotTone(5.56, 39, 250).level * .5);
+  });
+  it('is heard by other players as suppressed when the host says so', () => {
+    const last = new Map<string, number>(), listener = { x: 0, y: 0, z: 0 };
+    const shooter = { id: 'p2', x: 20, y: 0, z: 0, shots: 0, weapon: 0, muzzle: 'suppressor' as const };
+    gunfireReports([shooter], last, 'p1', listener);
+    const [report] = gunfireReports([{ ...shooter, shots: 1 }], last, 'p1', listener);
+    expect(report.muzzle).toBe('suppressor');
+  });
+  it('draws a smaller flash from the effect style', () => {
+    expect(resolveEffectStyle({ variant: 'p30-silent' }).flare.size).toBeLessThan(resolveEffectStyle({ variant: 'p30-issued' }).flare.size * .2);
+    expect(resolveEffectStyle({ variant: 'p30-chiong' }).flare.size).toBeGreaterThan(resolveEffectStyle({ variant: 'p30-issued' }).flare.size);
+  });
+});
+
+describe('the models', () => {
+  it('moves the muzzle exit to the end of a can, past the authored socket', () => {
+    const model = buildServiceWeapon('p30-inspired')!;
+    const remove = fitWeaponAccessories(model, resolved('p30-silent'));
+    const exit = model.getObjectByName(MUZZLE_EXIT)!, socket = model.getObjectByName('p30-inspired__socket_muzzle')!;
+    expect(muzzleSocket(model, 'p30-inspired')).toBe(exit);
+    expect(exit.position.z).toBeLessThan(socket.position.z - .12);
+    remove();
+    expect(model.getObjectByName(MUZZLE_EXIT)).toBeUndefined();
+    expect(muzzleSocket(model, 'p30-inspired')).toBe(socket);
+  });
+  it('gives a laser-light both emitters, forward of the housing', () => {
+    const model = buildServiceWeapon('p30-inspired')!;
+    fitWeaponAccessories(model, resolved('p30-sotong'));
+    model.updateMatrixWorld(true);
+    for (const name of [LASER_EMITTER, LIGHT_EMITTER]) {
+      const at = model.getObjectByName(name)!.getWorldPosition(new THREE.Vector3());
+      // Under the dust cover and ahead of the trigger guard.
+      expect(at.y).toBeLessThan(.155); expect(at.z).toBeLessThan(-.09);
+    }
+  });
+  it('stands the offset dot at 45 degrees, so canting by that much brings it to the top', () => {
+    const housing = buildSightHousing(new THREE.Group(), 'sar21-inspired', 'prism', true)!;
+    const { main, offset } = housing;
+    expect(offset).toBeDefined();
+    expect(offset!.roll).toBeCloseTo(Math.PI / 4);
+    // Up and to the right of the prism's axis, on its 45° line.
+    expect(offset!.x).toBeGreaterThan(0);
+    expect(offset!.y - main.y).toBeCloseTo(offset!.x, 5);
+    // Rolled over, the dot sits straight above the bore line.
+    const rolled = new THREE.Vector2(offset!.x, offset!.y).rotateAround(new THREE.Vector2(0, main.y), offset!.roll);
+    expect(rolled.x).toBeCloseTo(0, 5);
+    housing.dispose();
+  });
+  it('fits every sight to every platform a variant puts it on', () => {
+    for (const item of ARMORY_CATALOG) for (const part of item.fitted ?? []) {
+      const sight = part.accessories?.sight;
+      if (!sight) continue;
+      const housing = buildSightHousing(new THREE.Group(), resolved(item.id).id, sight, !!part.accessories?.offsetDot);
+      expect(housing, `${item.id} ${sight}`).toBeDefined();
+      housing!.dispose();
+    }
+  });
+});
+
+describe('the dossier', () => {
+  it('names each accessory and says what to look for', () => {
+    const parts = hardwareByPart('sar-nightowl');
+    expect(parts.get('fitted:muzzle')?.kind).toBe('suppressor');
+    expect(parts.get('fitted:rail')?.kind).toBe('laser');
+    expect(hardwareByPart('p30-chiong').get('fitted:handling')?.kind).toBe('brace');
+    expect(hardwareByPart('ult-lights').get('fitted:rail')?.visual).toMatch(/torch/);
+  });
+});

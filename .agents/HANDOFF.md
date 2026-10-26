@@ -3231,3 +3231,36 @@ ladder, measured against the BMT in armory-balance, skipped by the ladder
 tests. Validation: unit tests, typecheck; XM8 model and reticle rendered in
 headless Chrome. Not done: no bespoke SAR 3× reticle (no reference), the SAR
 GLB is unchanged, and bots still never carry SAR variants.
+
+## 2026-10-26: weapon accessories — cans, comps, lasers, lights, sights, a brace
+
+Eight specialist variants (`specialist: true`, built on the sharpshooter pass
+above), each built around fitted accessories that change play, not just a
+figure: P30 · Lights Out (slide dot + suppressor), Blur Like Sotong
+(laser-light, 21 rounds), Chiong Ah (full-auto sear, 33-round stick,
+compensator, folding brace), Atas Race Gun (long slide, race trigger, dot,
+comp), Kiasu Hunter (2.5× pistol scope, 54 dmg, 2.4× precision); SAR 21 ·
+Night Owl (holo, suppressor, handguard laser), Two Eyes Open (4× prism with a
+45° offset dot, comp); Ultimax · Lights Up (holo, weapon light, comp).
+`FittedPart.accessories` (weapon-accessories.ts) resolves onto
+`WeaponSpec.accessories`; new slots `muzzle` and `rail`; a `velocity` modifier.
+Effects: suppressor cuts flash (effect style), the report (`gunshotTone`'s
+`muzzle`), the range others hear it at (`ArenaWeapon.accessories.muzzle` →
+`ArenaActor.muzzle` → `GunfireReport.muzzle`) and arena heat (×0.3);
+compensator the reverse plus recoil. Laser halves the hip cone
+(`accessorySpreadScale`) and draws a beam and dot (weapon-rail-effects); the
+torch is a SpotLight created only for loadouts carrying one, scaled by
+`lighting.shift`. B toggles rail devices, X cants onto the offset dot
+(`WeaponSight.offset`; the rig rolls by `CANT_ROLL` and the eye goes to the
+rolled dot); touch pad slots `edge-top`/`beside-top`. Models:
+weapon-accessory-models (muzzle exit node moves the flash), weapon-sight-housings
+(lens placement for weapon-optics, whose lens code is now `createLens`); new
+`prism-chevron` reticle, holo ring in the reflex shader. A pistol's cycle parts
+no longer draw a gas block. Validation: unit tests (new
+weapon-accessories.test), typecheck, build; every variant rendered side, hip,
+aimed, canted and at night in headless Chrome via
+`scripts/fixtures/weapon-accessories.html`; `scripts/fps-accessories-smoke.mjs`
+passed against the real engine (prism ADS, cant on/off, B on/off, a shot).
+Not done: other players do not see your laser or light; bots never carry these
+variants; the suppressor does not change bot awareness (bots react to sight,
+not sound); not tried on a phone.

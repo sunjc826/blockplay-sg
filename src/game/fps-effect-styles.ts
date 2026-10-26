@@ -1,4 +1,5 @@
 import { FPS_WEAPONS } from './fps-rules';
+import { muzzleSignature } from './weapon-accessories';
 import { impactProfile, sanitizeImpactProfile, DEFAULT_IMPACT_PROFILE, type ImpactProfile } from './fps-impact-profile';
 import { itemById } from './armory-catalog';
 import type { EquippedWeapon } from './armory-state';
@@ -177,6 +178,12 @@ export function resolveEffectStyle(request: EffectStyleRequest): EffectStyle {
   let style = { ...(accent ? tintStyle(base, accent) : base), impact: impactProfile(caliber, damage) };
   // A skin is bought for how it looks, so it has the last word over the weapon.
   style = patchStyle(patchStyle(style, registry.get(variant)), registry.get(skin));
+  // A skin decides the flash's colour, but what is on the muzzle decides how much flash there is.
+  const muzzle = item?.fitted?.find(part => part.accessories?.muzzle)?.accessories?.muzzle;
+  if (muzzle) {
+    const signature = muzzleSignature(muzzle);
+    style = { ...style, flare: { ...style.flare, size: style.flare.size * signature.flare, reach: style.flare.reach * signature.light } };
+  }
   return { ...style, id: [base.id, variant, skin].filter(Boolean).join(':') };
 }
 /** The style for a resolved loadout entry, which is what the engine holds. */

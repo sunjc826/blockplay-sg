@@ -4,6 +4,7 @@ import { itemById, type ShopItem } from './armory-catalog';
 import type { EquippedWeapon } from './armory-state';
 import { fitWeaponOptic } from './weapon-optics';
 import { fitWeaponHardware } from './weapon-fittings';
+import { fitWeaponAccessories } from './weapon-accessory-models';
 import { buildWeaponBipod } from './weapon-bipod';
 import { applyEnemyWeaponConfig } from './enemy-weapon-models';
 
@@ -52,10 +53,12 @@ export function dressWeapon(root: THREE.Object3D, weapon: EquippedWeapon) {
   const removeOptic = fitWeaponOptic(root, weapon);
   // The variant's own hardware, which is what separates one tier from the next.
   const removeHardware = fitWeaponHardware(root, weapon);
+  // Its muzzle device, rail device and brace, each with something the engine drives.
+  const removeAccessories = fitWeaponAccessories(root, weapon);
   if (weapon.equipment.attachments.magazine) addBand(.036, .07, .13, '#b8a17a');
   if (weapon.equipment.attachments.handling) addBand(0, .07, -.20, '#555b5e');
   return () => {
-    removeOptic(); removeHardware(); removeConfig();
+    removeOptic(); removeHardware(); removeAccessories(); removeConfig();
     if (bipod) { bipod.removeFromParent(); disposeModel(bipod); }
     if (originalBipod && bipodParent) bipodParent.add(originalBipod);
     originals.forEach(([object, material]) => object.material = material);

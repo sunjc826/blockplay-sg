@@ -220,10 +220,12 @@ export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
       traits: collectTraits(built.traits, ...fittings.map(part => part.traits)) };
     for (const part of fittings) {
       if (part.slot === 'optic' && part.stats?.optic) spec.optic = part.stats.optic;
+      if (part.accessories) spec.accessories = { ...spec.accessories, ...part.accessories };
       const mod = part.modifiers; if (!mod) continue;
       spec.capacity += mod.capacity || 0; spec.reload *= mod.reload || 1; spec.recoil *= mod.recoil || 1;
       spec.recoilRecovery *= mod.recoilRecovery || 1; spec.mobility *= mod.mobility || 1;
       if (mod.aimFov) spec.aimFov = mod.aimFov;
+      if (mod.velocity) spec.ballistics = Object.freeze({ ...spec.ballistics, velocity: Math.round(spec.ballistics.velocity * mod.velocity) });
     }
     return spec;
   });

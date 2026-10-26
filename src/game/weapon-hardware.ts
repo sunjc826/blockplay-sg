@@ -14,7 +14,7 @@ import { FPS_WEAPONS, type WeaponSpec } from './fps-rules';
  * preview and the viewmodel, and the shop prints the same plan as words beside
  * the stat each part paid for.
  */
-export type HardwareKind = 'barrel' | 'gas' | 'magazine' | 'freefloat' | 'bipod' | 'buffer';
+export type HardwareKind = 'barrel' | 'gas' | 'magazine' | 'freefloat' | 'bipod' | 'buffer' | 'suppressor' | 'compensator' | 'laser' | 'light' | 'laser-light' | 'brace';
 export interface WeaponHardware {
   kind: HardwareKind;
   /** The part responsible, by catalog id, or `fitted:<slot>` for installed hardware. */
@@ -63,12 +63,19 @@ function magazineVisual(weight: number, drum: boolean) {
   return drum ? 'a deeper drum with an accent capacity band' : 'a longer magazine on an extended baseplate';
 }
 type FixedKind = Exclude<HardwareKind, 'barrel' | 'magazine'>;
-const LABEL: Record<FixedKind, string> = { gas: 'Gas system', freefloat: 'Free-float nut', bipod: 'Bipod', buffer: 'Buffer pad' };
+const LABEL: Record<FixedKind, string> = { gas: 'Gas system', freefloat: 'Free-float nut', bipod: 'Bipod', buffer: 'Buffer pad',
+  suppressor: 'Suppressor', compensator: 'Compensator', laser: 'Laser', light: 'Weapon light', 'laser-light': 'Laser-light', brace: 'Folding brace' };
 const VISUAL: Record<FixedKind, string> = {
   gas: 'a gas block and regulator above the barrel',
   freefloat: 'a barrel nut with daylight between barrel and handguard',
   bipod: 'a bipod folded beneath the barrel',
   buffer: 'a buffer pad on the butt',
+  suppressor: 'a long suppressor can past the muzzle',
+  compensator: 'a ported compensator block on the muzzle',
+  laser: 'a laser module on the handguard, its red aperture forward',
+  light: 'a torch clamped to the handguard, its lens forward',
+  'laser-light': 'a laser-light housing under the dust cover',
+  brace: 'a folding brace out of the backstrap to a shoulder pad',
 };
 
 function fromBuild(part: InternalPart, base: WeaponSpec, drum: boolean): WeaponHardware | null {
@@ -84,13 +91,24 @@ function fromBuild(part: InternalPart, base: WeaponSpec, drum: boolean): WeaponH
     const weight = clamp(part.capacity / base.capacity / REFERENCE.magazine);
     return { ...shared, kind: 'magazine', weight, label: magazineLabel(weight, drum), visual: magazineVisual(weight, drum) };
   }
-  if (part.interval) {
+  // A pistol's quicker cycle is trigger and spring work inside the slide, with nothing to see.
+  if (part.interval && base.id !== 'p30-inspired') {
     const weight = clamp(-part.interval / base.interval / REFERENCE.gas);
     return { ...shared, kind: 'gas', weight, label: LABEL.gas, visual: VISUAL.gas };
   }
   return null;
 }
+/** An accessory is named for what it is; the dossier and the model agree on that, not on its figures. */
+function accessoryKind(part: FittedPart): FixedKind | null {
+  const accessories = part.accessories;
+  if (part.slot === 'muzzle' && accessories?.muzzle) return accessories.muzzle;
+  if (part.slot === 'rail' && accessories?.rail) return accessories.rail;
+  if (part.slot === 'handling' && accessories?.brace) return 'brace';
+  return null;
+}
 function fromFitted(part: FittedPart): WeaponHardware | null {
+  const accessory = accessoryKind(part);
+  if (accessory) return { kind: accessory, part: `fitted:${part.slot}`, name: part.name, weight: 0, extended: false, lightened: false, label: LABEL[accessory], visual: VISUAL[accessory] };
   if (part.slot !== 'handling') return null;
   const kind = (FITTED_LOOK.find(([pattern]) => pattern.test(part.name))?.[1] ?? 'buffer') as FixedKind;
   const weight = clamp((1 - (part.modifiers?.recoil ?? 1)) / REFERENCE.recoil);

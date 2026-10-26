@@ -17,7 +17,7 @@ import * as THREE from 'three';
 import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook, clampFpsPitch } from './fps-pointer';
 import { dragLook, resolveMovement, stickKeys, type StickVector } from './touch-controls';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { advanceWeapon, beginReload, chamberRound, createLoadout, findTrait, fireWeapon, fullLoad, interruptReload, reloadDuration, roundReady, validWeaponIndex, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponState } from './fps-rules';
+import { advanceWeapon, beginReload, chamberRound, createLoadout, findTrait, fireWeapon, fullLoad, interruptReload, reloadDuration, roundReady, validWeaponIndex, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponSpec, type WeaponState } from './fps-rules';
 import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { sectorAt, zoneSectors } from './zone-sectors';
 import { adoptPublishedRounds, advanceRound, createRound, needsFlight, skipRound, MAX_ROUNDS_IN_FLIGHT, MAX_SKIPS, type InFlightRound, type PublishedRound } from './fps-projectiles';
@@ -49,6 +49,9 @@ import { itemById } from './armory-catalog';
 import { DEFAULT_FPS_DEBUG, FPS_REGEN_DELAY, normalizeFpsDebug, readFpsDebug, regenerateHealth, saveFpsDebug, type FpsDebugSettings } from './fps-debug';
 import { createWeaponHandling } from './fps-viewmodel';
 import { createScopeRenderer, getWeaponSight } from './weapon-optics';
+import { muzzleSocket, railEmitters } from './weapon-accessory-models';
+import { accessorySpreadScale, hasLight, type MuzzleDevice, type RailDevice } from './weapon-accessories';
+import { createRailEffects } from './weapon-rail-effects';
 import { accelerateInstancedRaycasts } from './instanced-raycast';
 import { separateInstancedMaterials } from './instanced-materials';
 import { createOpticReflectionRenderer } from './weapon-reflections';
@@ -156,8 +159,10 @@ export interface FpsHud {
   mapExpanded: boolean;
   /** The worn night-vision or thermal device, if any, and what it is doing. */
   vision: { name: string; kind: VisionKind; generation: number; on: boolean; palette: ThermalPalette | ''; palettes: number; warm: number; calibrating: boolean } | null;
+  /** The weapon in hand's laser or light (B switches it), and its offset dot (X cants onto it). */
+  rail: { kind: RailDevice; on: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { vision: null, supplyUse: null, belt: [], beltSelected: 'bandage', mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -253,6 +258,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // Its whole world-space tree carries `fpsEffect`, so gameplay rays skip it.
   const effects = createFpsEffects(world.scene, viewScene, { style: weaponStyles[0] });
   effects.setStyles(weaponStyles, 0);
+  // A laser's beam and dot, and a torch only when the loadout carries one (see weapon-rail-effects).
+  const railEffects = createRailEffects(world.scene, specs.some(spec => hasLight(spec.accessories)));
+  const laserRay = new THREE.Raycaster(), railFrom = new THREE.Vector3(), railTo = new THREE.Vector3(), railLight = new THREE.Vector3(), railForward = new THREE.Vector3();
+  /** B: the rail device on or off, for every weapon. X: canted onto the offset dot, and how far over the weapon is. */
+  let railOn = true, cantWanted = false, cant = 0;
   // Combat events are drawn from the descriptors the authority publishes.
   const eventRay = new THREE.Raycaster();
   const combatVisuals = createCombatEventVisuals(world.scene, (origin, direction, far) => {
@@ -372,7 +382,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const state = loadout[hud.weapon];
     const burden = movement();
     syncBelt();
-    onHud({ ...hud, vision: visionHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), ...(!expedition ? vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))) : {}), ...(vertical > .35 && !vehicles.active ? { vehiclePrompt: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
+    onHud({ ...hud, vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), ...(!expedition ? vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))) : {}), ...(vertical > .35 && !vehicles.active ? { vehiclePrompt: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapMarkers: expedition ? [] : [
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
@@ -413,15 +423,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     } catch { hud.muted = true; }
   }
   /** Our own shot, at the ear: the gun in hand, or the vehicle's when seated. */
-  function shotSound(gun: { caliberMm: number; damage: number }) { gunshots.fire(gunshotTone(gun.caliberMm, gun.damage, 0, true)); }
+  function shotSound(gun: { caliberMm: number; damage: number; accessories?: WeaponSpec['accessories'] }) { gunshots.fire(gunshotTone(gun.caliberMm, gun.damage, 0, true, gun.accessories?.muzzle)); }
   /** Where a sound sits between the ears, from -1 (left) to 1 (right). */
   function panTo(at: { x: number; y: number; z: number }) {
     const toward = new THREE.Vector3(at.x, at.y, at.z).sub(camera.position), right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
     const length = toward.length(); return length < .5 ? 0 : toward.dot(right) / length * .8;
   }
   /** Someone else's shot from `at`, heard after its travel time and `after` seconds more. */
-  function otherShot(at: { x: number; y: number; z: number }, calibre: number, power: number, after = 0) {
-    gunshots.fire(gunshotTone(calibre, power, camera.position.distanceTo(new THREE.Vector3(at.x, at.y, at.z))), panTo(at), after);
+  function otherShot(at: { x: number; y: number; z: number }, calibre: number, power: number, after = 0, muzzle?: MuzzleDevice) {
+    gunshots.fire(gunshotTone(calibre, power, camera.position.distanceTo(new THREE.Vector3(at.x, at.y, at.z)), false, muzzle), panTo(at), after);
   }
   /** A rustle, a tear or a clack as a supply's effect lands. */
   function supplySound(style: SupplyStyle) {
@@ -533,10 +543,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function switchWeapon(index: number) {
     if (hud.phase === 'loading' || hud.phase === 'error' || index === hud.weapon || !validWeaponIndex(index) || !equipment.carriedFamilies.includes(index)) return;
     stopReload(); endSupply();
-    trigger = false; pullBuffer = 0; triggerSpent = false; ads = false; touchAim = false; resetRecoil(kick);
+    trigger = false; pullBuffer = 0; triggerSpent = false; ads = false; touchAim = false; resetRecoil(kick); cantWanted = false; cant = 0;
     hud.weapon = index; weapons.forEach((w, i) => w.visible = i === index);
     if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
-    effects.attachMuzzle(weapons[index]?.getObjectByName(`${FPS_WEAPONS[index].id}__socket_muzzle`));
+    effects.attachMuzzle(muzzleSocket(weapons[index], FPS_WEAPONS[index].id));
     effects.setStyles(weaponStyles, index); publish();
   }
   function reset() {
@@ -750,6 +760,40 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** Opens the whole-district map over the scene, or folds it back into the corner. */
   function toggleMap() { hud.mapExpanded = !hud.mapExpanded; publish(); }
+  /**
+   * The laser's beam and dot and the torch, from the emitters on the weapon in
+   * hand. The viewmodel is drawn in camera space, so an emitter's place there
+   * goes through the camera to reach the world. The beam meets the world where
+   * the crosshair does, which is where the round goes.
+   */
+  function updateRail(active: boolean) {
+    const model = weapons[hud.weapon], spec = specs[hud.weapon];
+    const emitters = railEmitters(model, spec);
+    const on = active && railOn && !supplyUse;
+    if (emitters.lens) emitters.lens.material.emissiveIntensity = railOn && emitters.light ? 2.4 : 0;
+    canvas.dataset.rail = spec?.accessories?.rail ? `${spec.accessories.rail}:${on ? 'on' : 'off'}` : '';
+    if (!on || (!emitters.laser && !emitters.light)) { railEffects.update({ camera }); return; }
+    camera.getWorldDirection(railForward);
+    let laser: Parameters<typeof railEffects.update>[0]['laser'];
+    if (emitters.laser) {
+      emitters.laser.updateWorldMatrix(true, false);
+      camera.localToWorld(emitters.laser.getWorldPosition(railFrom));
+      laserRay.set(camera.position, railForward); laserRay.near = .05; laserRay.far = 150;
+      const hit = stopAtWater(visibleHits(laserRay, gameplayCandidates(), 1))[0];
+      railTo.copy(hit?.point ?? laserRay.ray.at(150, railTo));
+      laser = { from: railFrom, to: railTo, hit: !!hit };
+    }
+    let light: Parameters<typeof railEffects.update>[0]['light'];
+    if (emitters.light) {
+      emitters.light.updateWorldMatrix(true, false);
+      light = { from: camera.localToWorld(emitters.light.getWorldPosition(railLight)), direction: railForward };
+    }
+    railEffects.update({ camera, laser, light, dark: atmosphere.light.lighting.shift });
+  }
+  function railHud(): Pick<FpsHud, 'rail' | 'offsetDot' | 'canted'> {
+    const accessories = specs[hud.weapon]?.accessories;
+    return { rail: accessories?.rail ? { kind: accessories.rail, on: railOn } : null, offsetDot: !!accessories?.offsetDot, canted: cantWanted };
+  }
   function visionHud(): FpsHud['vision'] {
     const worn = equipment.vision; if (!worn) return null;
     return { name: worn.name, kind: worn.spec.kind, generation: worn.spec.generation, on: visionState.on, palette: activePalette(visionState, worn.spec),
@@ -765,11 +809,21 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     visionSound(visionState.on && !was ? 'on' : !visionState.on ? 'off' : 'palette', spec.kind);
     publish();
   }
+  /** B: the laser or light on the weapon in hand, on or off. */
+  function toggleRail() {
+    if (hud.phase !== 'playing' || !specs[hud.weapon].accessories?.rail) return;
+    railOn = !railOn; publish();
+  }
+  /** X: roll over onto the offset dot beside a magnified sight, and back. */
+  function toggleCant() {
+    if (hud.phase !== 'playing' || vehicles.active || !specs[hud.weapon].accessories?.offsetDot) return;
+    cantWanted = !cantWanted; publish();
+  }
   function toggleAim() {
     if (pilotEnabled || hud.phase !== 'playing' || vehicles.active || hud.arenaSelf?.alive === false || loadout[hud.weapon].reloadRemaining > 0) return;
     touchAim = !touchAim; canvas.focus({ preventScroll: true }); publish();
   }
-  const keyboardKeys = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'n', 't', 'f', 'm', 'h', 'j', 'control', 'escape'];
+  const keyboardKeys = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'n', 't', 'f', 'm', 'h', 'j', 'b', 'x', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
     if (key === 'f' && !event.repeat) { event.preventDefault(); options.onFullscreen?.(); return; }
@@ -785,6 +839,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     else if (key === 't') { if (!event.repeat) travelZone(); }
     else if (key === 'h') { if (!event.repeat) useVision('toggle'); }
     else if (key === 'j') { if (!event.repeat) useVision('palette'); }
+    else if (key === 'b') { if (!event.repeat) toggleRail(); }
+    else if (key === 'x') { if (!event.repeat) toggleCant(); }
     else if (key === 'z') { if (!event.repeat) setInput('z', true); }
     else if (key === 'c') setInput('c', true);
     else if (key === 'r') reload();
@@ -1067,7 +1123,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     viewCamera.fov = THREE.MathUtils.lerp(65, 54, aim); viewCamera.updateProjectionMatrix();
     const sway = Math.sin(gait) * (poseStance === 'prone' ? .025 : .014) * gaitWeight * (1 - aim * .94);
     const bodyFollow = (bodyMotion.compression * .35 + bodyMotion.eyeVelocity * -.012) * motionScale * (1 - aim * .8);
-    spreadAngle = weaponSpread(bloom[hud.weapon], hud.weapon, aim, crouching, moving);
+    // A laser that is switched off still weighs the gun down, but it no longer shows where the round goes.
+    const fitted = specs[hud.weapon].accessories;
+    spreadAngle = weaponSpread(bloom[hud.weapon], hud.weapon, aim, crouching, moving) * accessorySpreadScale(railOn ? fitted : { ...fitted, rail: undefined }, aim);
     const spreadPixels = Math.tan(spreadAngle) * canvas.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     hud.crosshairSpread = THREE.MathUtils.damp(hud.crosshairSpread, Math.max(3, spreadPixels), 20, dt);
     const state = loadout[hud.weapon], remaining = state.reloadRemaining / reloadDuration(specs[hud.weapon], emptyReload[hud.weapon]);
@@ -1075,15 +1133,24 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // A supported gun stays low for reloads; hands, magazine and feed cover
     // still perform their complete handling animation around the planted legs.
     const reloadTravel = 1 - (handling[hud.weapon]?.bipodDeployment ?? 0);
-    rig.position.set(THREE.MathUtils.lerp(.20, 0, aim) + sway + motion.x * reloadTravel + lookLagX,
-      THREE.MathUtils.lerp(-.32, -(handling[hud.weapon]?.aimHeight ?? .435), aim) + Math.abs(sway) - bodyMotion.sprint * .08 + bodyFollow + motion.y * reloadTravel + lookLagY,
-      THREE.MathUtils.lerp(-.78, handling[hud.weapon]?.aimDepth ?? -.47, aim) + pose.push + motion.z * reloadTravel + bodyMotion.surge * motionScale * (1 - aim));
+    // Canting rolls the weapon over until the offset dot stands upright on the
+    // eye line: the eye goes to that sight's point, turned by the same roll.
+    const offsetSight = weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon])?.offset : undefined;
+    cant = THREE.MathUtils.damp(cant, cantWanted && offsetSight && remaining <= 0 ? 1 : 0, 14, dt);
+    if (cant < .001) cant = 0;
+    const roll = offsetSight ? cant * offsetSight.roll : 0;
+    const eyeX = offsetSight ? cant * (offsetSight.aimX * Math.cos(roll) - offsetSight.aimHeight * Math.sin(roll)) : 0;
+    const eyeY = THREE.MathUtils.lerp(handling[hud.weapon]?.aimHeight ?? .435, offsetSight ? offsetSight.aimX * Math.sin(roll) + offsetSight.aimHeight * Math.cos(roll) : 0, offsetSight ? cant : 0);
+    const eyeDepth = THREE.MathUtils.lerp(handling[hud.weapon]?.aimDepth ?? -.47, offsetSight?.aimDepth ?? 0, offsetSight ? cant : 0);
+    rig.position.set(THREE.MathUtils.lerp(.20, -eyeX, aim) + sway + motion.x * reloadTravel + lookLagX,
+      THREE.MathUtils.lerp(-.32, -eyeY, aim) + Math.abs(sway) - bodyMotion.sprint * .08 + bodyFollow + motion.y * reloadTravel + lookLagY,
+      THREE.MathUtils.lerp(-.78, eyeDepth, aim) + pose.push + motion.z * reloadTravel + bodyMotion.surge * motionScale * (1 - aim));
     // The weapon carries the buck, the sideways half of the pattern and the roll
     // that goes with it; the camera only ever takes the view coupling above.
     // `recoilPose` sizes them; aiming in is the only thing damped here, because
     // a shouldered weapon is held against the shooter rather than by the hands.
     rig.rotation.set(pose.pitch * (1 - aim * .8) + bodyMotion.sprint * -.18 + bodyFollow * 1.2 + motion.pitch * reloadTravel,
-      motion.yaw * reloadTravel + pose.yaw * (1 - aim * .6), motion.roll * reloadTravel + pose.roll * (1 - aim * .5) + sway * .7);
+      motion.yaw * reloadTravel + pose.yaw * (1 - aim * .6), motion.roll * reloadTravel + pose.roll * (1 - aim * .5) + sway * .7 + roll * Math.max(aim, .35));
     handling.forEach((model, i) => model.update(i === hud.weapon ? progress : null, emptyReload[i],
       i === hud.weapon ? { prone: prone && hud.phase === 'playing', grounded: onGround, speed, eyeHeight: bodyMotion.eye, dt } : undefined));
     // A supply in the hands takes the weapon down and out of view while it is used.
@@ -1488,7 +1555,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     ray.ray.direction.addScaledVector(shotRight, dispersion.x).addScaledVector(shotUp, dispersion.y).normalize();
     triggerSpent = true; pullBuffer = 0;
     recordBloomShot(bloom[hud.weapon], hud.weapon);
-    const muzzle = weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_muzzle`);
+    const muzzle = muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id);
     if (muzzle) { muzzle.getWorldPosition(muzzlePoint); camera.localToWorld(muzzlePoint); }
     else muzzlePoint.copy(camera.position);
     const supportMultiplier = bipodRecoilMultiplier(specs[hud.weapon].bipod, handling[hud.weapon]?.bipodDeployment ?? 0, prone, grounded(), carry.length());
@@ -1614,7 +1681,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.arena = frame.snapshot; hud.arenaSelf = frame.self; hud.arenaConnected = frame.connected; hud.arenaStarted = frame.started;
     if (options.arena) rounds.push(...adoptPublishedRounds(frame.snapshot?.rounds ?? [], seenRounds,
       { self: options.arena.session.id, viewer: camera.position, range: REMOTE_TRACER_RANGE, room: MAX_ROUNDS_IN_FLIGHT - rounds.length, nextId: () => ++roundSerial, styleFor: publishedStyle }));
-    if (options.arena && frame.snapshot) for (const shot of gunfireReports(frame.snapshot.actors, heardShots, options.arena.session.id, camera.position)) otherShot(shot.from, shot.calibre, shot.power, shot.after);
+    if (options.arena && frame.snapshot) for (const shot of gunfireReports(frame.snapshot.actors, heardShots, options.arena.session.id, camera.position)) otherShot(shot.from, shot.calibre, shot.power, shot.after, shot.muzzle);
     if (frame.snapshot) hud.elapsed = frame.snapshot.elapsed;
     if (frame.snapshot) dropFallenWeapons(frame.snapshot.actors, frame.feed);
     if (frame.self) {
@@ -1641,7 +1708,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           });
           hud.weapon = equipment.carriedFamilies.includes(checkpointPending.weapon) ? checkpointPending.weapon : equipment.carriedFamilies[0]; checkpointPending = undefined;
           weapons.forEach((weapon, index) => weapon.visible = index === hud.weapon);
-          effects.attachMuzzle(weapons[hud.weapon]?.getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_muzzle`));
+          effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id));
           effects.setStyles(weaponStyles, hud.weapon);
         }
         resetRecoil(kick); effects.reset(); hitTime = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; }); updateCameras(0, false, false);
@@ -2023,8 +2090,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const visionSpec = equipment.vision?.spec;
     advanceVision(visionState, visionSpec, realDt);
     renderer.toneMappingExposure = vision.begin(visionSpec, visionState, { dt: realDt, lighting: atmosphere.light.lighting, blackout, exposure: renderer.toneMappingExposure });
-    const sight = weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon]) : undefined;
     const opticActive = rig.visible && !vehicles.active && hud.phase === 'playing';
+    updateRail(opticActive);
+    // Canted past halfway, the offset dot is the sight in use and the scope beside it goes dark.
+    const mountedSight = weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon]) : undefined;
+    const sight = mountedSight?.offset && cant > .5 ? mountedSight.offset : mountedSight;
+    if (mountedSight?.offset) (sight === mountedSight ? mountedSight.offset : mountedSight).lens.visible = false;
+    canvas.dataset.cant = cant.toFixed(2);
     const scopeActive = scopeRenderer.render(world.scene, camera, viewCamera, sight, opticActive, aimProgress);
     const reflectionCaptured = opticReflections.render(world.scene, camera, viewCamera, sight?.reflection, opticActive, now / 1000);
     canvas.dataset.scopeActive = String(scopeActive);
@@ -2074,7 +2146,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     weapons.push(loaded[0], loaded[1], ...FPS_WEAPONS.slice(2).map(spec => {
       const model = buildServiceWeapon(spec.id)!; templates.push(model); return model;
     })); weapons.forEach((w, i) => { undress.push(dressWeapon(w, specs[i])); handling.push(createWeaponHandling(w, i)); rig.add(w); w.visible = i === hud.weapon; });
-    effects.attachMuzzle(weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_muzzle`));
+    effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id));
     effects.setStyles(weaponStyles, hud.weapon);
     if (!options.arena) targetPositions.forEach((p, i) => {
       const root = new THREE.Group(); root.position.set(p.x, 0.13, p.z);
@@ -2121,7 +2193,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
-    toggleAim, toggleMap,
+    toggleAim, toggleMap, toggleRail, toggleCant,
     toggleVision: () => useVision('toggle'), cycleVisionPalette: () => useVision('palette'), pressVision: () => useVision('button'),
     toggleEncikVoice() { hud.encikVoice = !hud.encikVoice; if (!hud.encikVoice) stopVoice(); publish(); },
     toggleSound() { hud.muted = !hud.muted; if (hud.muted) stopVoice(); if (hud.phase === 'playing') { canvas.focus({ preventScroll: true }); if (!hud.muted) initAudio(); } publish(); },
@@ -2140,7 +2212,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // First, so every mesh has its own material back before anything else restores or disposes them.
       vision.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); world.dispose();
-      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); gunshots.dispose(); ambientSky.dispose(); hitOverlay.dispose();
+      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); sunShadows.dispose(); occlusion.dispose(); renderer.dispose(); canvas.remove();
     },

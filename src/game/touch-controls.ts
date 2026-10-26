@@ -141,6 +141,7 @@ export function dragLook(dx: number, dy: number) {
  * jump climb the screen edge beside it, crouch and prone sit along the bottom
  * corner, and reload is a short reach to its left:
  *
+ *   beside-top                     edge-top    (rail device · cant)
  *   beside-high                    edge-high   (vision · aim / boost)
  *   beside        (  FIRE  )       edge-low    (reload / seat · jump / climb)
  *                  corner-left     corner      (crouch · prone / descend)
@@ -148,9 +149,11 @@ export function dragLook(dx: number, dy: number) {
  * The stylesheet owns the geometry; this owns which action goes where, so the
  * same slots draw smaller on a short screen and a vehicle reuses them.
  */
-export type PadSlot = 'corner' | 'corner-left' | 'edge-low' | 'edge-high' | 'beside' | 'beside-high';
+export type PadSlot = 'corner' | 'corner-left' | 'edge-low' | 'edge-high' | 'beside' | 'beside-high' | 'edge-top' | 'beside-top';
 const PAD_SLOTS: Readonly<Record<string, PadSlot>> = {
   prone: 'corner', crouch: 'corner-left', jump: 'edge-low', aim: 'edge-high', reload: 'beside', vision: 'beside-high',
+  // A weapon's own controls, only shown for a weapon that has them: the cant above aim, the rail above vision.
+  cant: 'edge-top', rail: 'beside-top',
   // Mounted: the thumb that jumps climbs or brakes, the one that aims boosts.
   descend: 'corner', altitude: 'edge-low', boost: 'edge-high', seat: 'beside',
 };

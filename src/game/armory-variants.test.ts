@@ -11,6 +11,8 @@ import { muzzleBallistics } from './fps-ballistics';
  */
 const SAR_BAND = { kind: 'falloff', near: 30, far: 90, minScale: .55 };
 const ULT_BAND = { kind: 'falloff', near: 14, far: 45, minScale: .4 };
+/** A can slows the round: the platform's own velocity, scaled by the suppressor's modifier. */
+const slowed = (metresPerSecond: number, scale: number) => ({ ...muzzleBallistics(metresPerSecond), velocity: Math.round(muzzleBallistics(metresPerSecond).velocity * scale) });
 const EXPECTED = {
   'sar-issued': { damage: 36, capacity: 30, interval: .12, reload: 1.8, recoil: .018, recoilRecovery: 1, mobility: 1, aimFov: magnifiedFov(1.5), optic: 'integrated', ballistics: muzzleBallistics(970), traits: [SAR_BAND, { kind: 'precision', multiplier: 1.6 }] },
   'sar-ranger': { damage: 39, capacity: 30, interval: .115, reload: 1.65, recoil: .016, recoilRecovery: 1.08, mobility: 1, aimFov: magnifiedFov(1.5), optic: 'integrated', ballistics: muzzleBallistics(970), traits: [SAR_BAND, { kind: 'precision', multiplier: 1.6 }] },
@@ -25,6 +27,15 @@ const EXPECTED = {
   'p30-issued': { damage: 28, capacity: 15, interval: 0.22, reload: 1.25, recoil: 0.022, recoilRecovery: 1.35, mobility: 1.14, aimFov: HIP_FOV, optic: 'iron', ballistics: muzzleBallistics(360), traits: [{ kind: 'falloff', near: 12, far: 42, minScale: 0.35 }, { kind: 'precision', multiplier: 1.8 }] },
   'p30-kopi': { damage: 32, capacity: 15, interval: 0.22, reload: 1.05, recoil: 0.022, recoilRecovery: 1.55, mobility: 1.14, aimFov: HIP_FOV, optic: 'iron', ballistics: muzzleBallistics(360), traits: [{ kind: 'falloff', near: 12, far: 42, minScale: 0.35 }, { kind: 'precision', multiplier: 1.8 }] },
   'p30-marksman': { damage: 42, capacity: 15, interval: 0.22, reload: 1.25, recoil: 0.016, recoilRecovery: 1.35, mobility: 1.083, aimFov: HIP_FOV, optic: 'iron', ballistics: muzzleBallistics(360), traits: [{ kind: 'falloff', near: 12, far: 42, minScale: 0.35 }, { kind: 'precision', multiplier: 1.8 }, { kind: 'precision', multiplier: 2.1 }] },
+  // Specialist pistols, each built around what is fitted to it rather than a rung of the ladder.
+  'p30-silent': { damage: 32, capacity: 15, interval: .22, reload: 1.3, recoil: .0187, recoilRecovery: 1.35, mobility: 1.1058, aimFov: HIP_FOV, optic: 'reflex', ballistics: slowed(360, .9), traits: [{ kind: 'falloff', near: 12, far: 42, minScale: 0.35 }, { kind: 'precision', multiplier: 1.8 }] },
+  'p30-sotong': { damage: 28, capacity: 21, interval: .2, reload: 1.35, recoil: .022, recoilRecovery: 1.35, mobility: 1.1286, aimFov: HIP_FOV, optic: 'iron', ballistics: muzzleBallistics(360), traits: [{ kind: 'falloff', near: 12, far: 42, minScale: 0.35 }, { kind: 'precision', multiplier: 1.8 }] },
+  'p30-chiong': { damage: 24, capacity: 33, interval: .07, reload: 1.7, recoil: .01638, recoilRecovery: 1.782, mobility: 1.083, aimFov: HIP_FOV, optic: 'iron', ballistics: muzzleBallistics(360), traits: [{ kind: 'falloff', near: 12, far: 42, minScale: 0.35 }, { kind: 'precision', multiplier: 1.8 }] },
+  'p30-atas': { damage: 40, capacity: 20, interval: .15, reload: 1.1, recoil: .01716, recoilRecovery: 1.512, mobility: 1.14, aimFov: HIP_FOV, optic: 'reflex', ballistics: muzzleBallistics(420), traits: [{ kind: 'falloff', near: 12, far: 42, minScale: 0.35 }, { kind: 'precision', multiplier: 1.8 }, { kind: 'falloff', near: 18, far: 55, minScale: .45 }] },
+  'p30-kiasu': { damage: 54, capacity: 15, interval: .34, reload: 1.25, recoil: .022, recoilRecovery: 1.35, mobility: 1.083, aimFov: magnifiedFov(2.5), optic: 'precision', ballistics: muzzleBallistics(470), traits: [{ kind: 'falloff', near: 12, far: 42, minScale: 0.35 }, { kind: 'precision', multiplier: 1.8 }, { kind: 'falloff', near: 30, far: 90, minScale: .6 }, { kind: 'precision', multiplier: 2.4 }] },
+  'sar-nightowl': { damage: 39, capacity: 30, interval: .12, reload: 1.85, recoil: .01584, recoilRecovery: 1, mobility: .97, aimFov: HIP_FOV, optic: 'reflex', ballistics: slowed(970, .92), traits: [SAR_BAND, { kind: 'precision', multiplier: 1.6 }] },
+  'sar-twoeyes': { damage: 50, capacity: 30, interval: .12, reload: 1.8, recoil: .0144, recoilRecovery: 1.1, mobility: 1, aimFov: magnifiedFov(4), optic: 'precision', ballistics: muzzleBallistics(970), traits: [SAR_BAND, { kind: 'precision', multiplier: 1.6 }, { kind: 'falloff', near: 40, far: 120, minScale: .7 }] },
+  'ult-lights': { damage: 32, capacity: 60, interval: .079, reload: 2.5, recoil: .0208, recoilRecovery: .918, mobility: 1, aimFov: HIP_FOV, optic: 'reflex', ballistics: muzzleBallistics(970), traits: [ULT_BAND, { kind: 'precision', multiplier: 1.5 }] },
   'mag-issued': { damage: 60, capacity: 100, interval: 0.12, reload: 4.6, recoil: 0.042, recoilRecovery: 0.75, mobility: 0.74, aimFov: HIP_FOV, optic: 'iron', ballistics: muzzleBallistics(840), traits: [{ kind: 'falloff', near: 45, far: 120, minScale: 0.7 }, { kind: 'precision', multiplier: 1.5 }] },
   'mag-chope': { damage: 66, capacity: 125, interval: 0.112, reload: 5, recoil: 0.037, recoilRecovery: 0.87, mobility: 0.74, aimFov: HIP_FOV, optic: 'iron', ballistics: muzzleBallistics(840), traits: [{ kind: 'falloff', near: 45, far: 120, minScale: 0.7 }, { kind: 'precision', multiplier: 1.5 }] },
   'mag-jaga': { damage: 70, capacity: 100, interval: 0.108, reload: 4.6, recoil: 0.034, recoilRecovery: 0.95, mobility: 0.7104, aimFov: HIP_FOV, optic: 'iron', ballistics: muzzleBallistics(840), traits: [{ kind: 'falloff', near: 45, far: 120, minScale: 0.7 }, { kind: 'precision', multiplier: 1.5 }] },
@@ -52,6 +63,19 @@ describe('what each weapon resolves to', () => {
     expect(got.aimFov).toBeCloseTo(want.aimFov, 6); expect(got.optic).toBe(want.optic);
     expect(got.ballistics).toEqual(want.ballistics);
     expect(got.traits).toEqual(want.traits);
+  });
+  it('carries each variant\u2019s accessories onto the weapon', () => {
+    expect(resolved('p30-silent').accessories).toEqual({ sight: 'mini-reflex', muzzle: 'suppressor' });
+    expect(resolved('p30-sotong').accessories).toEqual({ rail: 'laser-light' });
+    expect(resolved('p30-chiong').accessories).toEqual({ muzzle: 'compensator', brace: true });
+    expect(resolved('sar-nightowl').accessories).toEqual({ sight: 'holo', muzzle: 'suppressor', rail: 'laser' });
+    expect(resolved('sar-twoeyes').accessories).toEqual({ sight: 'prism', offsetDot: true, muzzle: 'compensator' });
+    expect(resolved('ult-lights').accessories).toEqual({ sight: 'holo', rail: 'light', muzzle: 'compensator' });
+    expect(resolved('sar-issued').accessories).toBeUndefined();
+  });
+  it('turns the machine pistol to full automatic and leaves every other pistol semi', () => {
+    expect(resolved('p30-chiong').fireMode).toBe('auto');
+    for (const id of ['p30-issued', 'p30-silent', 'p30-sotong', 'p30-atas', 'p30-kiasu']) expect(resolved(id).fireMode, id).toBe('semi');
   });
   it('fires the sharpshooter one round per press', () => {
     expect(resolved('sar-sharpshooter').fireMode).toBe('semi');

@@ -84,6 +84,8 @@
 .touch-combat [data-pad-slot=edge-high]{bottom:calc((var(--pad-size) + var(--pad-gap)) * 2)}
 .touch-combat [data-pad-slot=beside]{right:calc(var(--fire-at) + var(--fire-size) + var(--pad-gap));bottom:var(--fire-at)}
 .touch-combat [data-pad-slot=beside-high]{right:calc(var(--fire-at) + var(--fire-size) + var(--pad-gap));bottom:calc(var(--fire-at) + var(--pad-size) + var(--pad-gap))}
+.touch-combat [data-pad-slot=edge-top]{bottom:calc((var(--pad-size) + var(--pad-gap)) * 3)}
+.touch-combat [data-pad-slot=beside-top]{right:calc(var(--fire-at) + var(--fire-size) + var(--pad-gap));bottom:calc(var(--fire-at) + (var(--pad-size) + var(--pad-gap)) * 2)}
 
 /* ---- What you can reach right now ---------------------------------------- */
 /* Contextual actions are a prompt rather than another button on the pad: one
