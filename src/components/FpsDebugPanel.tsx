@@ -9,7 +9,7 @@ const DEBUG_EVENTS = [
   ['blackout', 'Blackout', 'jams the map'], ['transport-land', 'Truck', 'reinforce'], ['transport-air', 'Helicopter', 'reinforce'],
 ] as const;
 /** The ambient sky's set pieces: scenery only, so they can be called anywhere, in any mode. */
-const SKY_EVENTS = [['skyline', 'Skyline battle'], ['flyby', 'Jet pass'], ['rockets', 'Rocket salvo'], ['flak', 'Flak']] as const;
+const SKY_EVENTS = [['skyline', 'Skyline battle'], ['flyby', 'Jet pass'], ['rockets', 'Rocket salvo'], ['flak', 'Flak'], ['shootdown', 'Jet shot down'], ['naval', 'Warships']] as const;
 
 export default function FpsDebugPanel({ hud, engine }: { hud: FpsHud; engine: FpsEngine | null }) {
   if (!hud.debugAvailable) return null;
@@ -30,7 +30,7 @@ export default function FpsDebugPanel({ hud, engine }: { hud: FpsHud; engine: Fp
       </div>
     </div>}
     <div className="fps-debug-events" role="group" aria-label="Sky scenery">
-      <p>Sky scenery beyond the district, called in ahead of you. It harms nobody; searchlights only show at night.</p>
+      <p>Sky scenery beyond the district, called in ahead of you (warships on the sea side of a coastal district). It harms nobody; searchlights only show at night.</p>
       <div className="fps-debug-options fps-debug-event-grid">
         {SKY_EVENTS.map(([kind, label]) => <button key={kind} disabled={hud.phase === 'loading'} onClick={() => engine?.triggerAmbient(kind)}>{label}</button>)}
       </div>

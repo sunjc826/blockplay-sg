@@ -1,20 +1,25 @@
 import * as THREE from 'three';
-import { createAmbientDirector, flakPose, flakTimeline, flarePose, flybyHeard, flybyPose, rocketPose, rocketTimeline, searchlightSites, skylineTimeline, FLAK, FLARE, SKYLINE_SIZE,
-  type AmbientEvent, type AmbientKind, type AmbientPoint, type AmbientView, type FlakRound, type Rocket, type SkylineTimeline } from './ambient-sky';
+import { createAmbientDirector, flakPose, flakTimeline, flarePose, flybyHeard, flybyPose, missilePose, navalShellPose, navalShips, navalTimeline, rocketPose, rocketTimeline,
+  searchlightSites, shipPose, shootdownHit, shootdownPose, skylineTimeline, FLAK, FLARE, NAVAL, SHOOTDOWN, SKYLINE_SIZE,
+  type AmbientEvent, type AmbientKind, type AmbientPoint, type AmbientView, type FlakRound, type NavalShell, type Rocket, type SkylineTimeline } from './ambient-sky';
 import { createAmbientSkyAudio } from './ambient-sky-audio';
+import { createBirds, BIRDS } from './ambient-birds';
 import { buildJet } from './combat-event-visuals';
 import { withInstanceOpacity } from './fps-impact-material';
 import type { CombatRisk } from './combat-director';
 
 /**
  * Draws and sounds the ambient sky (ambient-sky.ts): skyline battles, jet
- * passes, rocket salvos, flak and searchlights. Pools are fixed at creation,
- * the tree carries `fpsEffect` and stops no ray: it is scenery only. Glows and
- * tracers ignore fog so a far flash still cuts through the haze; smoke and
- * trails keep it so they melt into the distance.
+ * passes, rocket salvos, flak and searchlights, a jet shot down, warships
+ * off the coast, and birds flushed off the roofs (ambient-birds.ts). Pools are
+ * fixed at creation, the tree carries `fpsEffect` and stops no ray: it is
+ * scenery only. Glows and tracers ignore fog so a far flash still cuts through
+ * the haze; smoke, trails, ships and birds keep it so they melt into the distance.
  */
 
 const GLOWS = 160, TRACERS = 160, PUFFS = 420, BEAMS = 4;
+/** A day without startles still sees a flock cross now and then, this many seconds apart. */
+const PASSING_FLOCK = [45, 100] as const;
 /** Skyline tracer is drawn at an arcade speed: real rounds cross a hundred metres too fast to see from this far. */
 const SKYLINE_TRACER_SPEED = 120;
 /** Beyond this from the camera nothing is drawn: the far plane is at 800 m. */
@@ -25,7 +30,24 @@ const noRaycast = () => {};
 
 interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number; size: number; grow: number; colour: THREE.Color; opacity: number; lift: number }
 interface Emitter { x: number; y: number; z: number; until: number; next: number; rate: number; colour: THREE.Color; size: number; rise: number; spread: number; life: number }
-type Prepared = { skyline?: SkylineTimeline; rockets?: Rocket[]; flak?: { rounds: FlakRound[]; aim: AmbientPoint } };
+type Prepared = { skyline?: SkylineTimeline; rockets?: Rocket[]; flak?: { rounds: FlakRound[]; aim: AmbientPoint }; naval?: NavalShell[] };
+
+/** An original destroyer silhouette: pointed hull, stepped superstructure, funnel, mast and a forward gun. Forward is local -Z. */
+function buildWarship() {
+  const root = new THREE.Group(), grey = new THREE.MeshStandardMaterial({ color: '#69727a', roughness: .75 }), dark = new THREE.MeshStandardMaterial({ color: '#363b40', roughness: .6 });
+  // Drawn in plan with the bow at +y, extruded upward: turned flat, +y becomes -Z.
+  const plan = new THREE.Shape(); plan.moveTo(-5, -36); plan.lineTo(5, -36); plan.lineTo(6.5, 2); plan.lineTo(3.5, 28); plan.lineTo(0, 40); plan.lineTo(-3.5, 28); plan.lineTo(-6.5, 2); plan.closePath();
+  const hull = new THREE.Mesh(new THREE.ExtrudeGeometry(plan, { depth: 7, bevelEnabled: false }), dark); hull.rotation.x = -Math.PI / 2; hull.position.y = -2; root.add(hull);
+  const box = (w: number, h: number, d: number, x: number, y: number, z: number, material = grey) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material); m.position.set(x, y, z); root.add(m); return m; };
+  box(10, 6, 30, 0, 8, 6);                        // deckhouse
+  box(8, 5, 9, 0, 13, -4);                        // bridge
+  box(4.5, 8, 6, 0, 14, 14);                      // funnel
+  box(5, 3, 6, 0, 6.5, -22);                      // forward turret
+  box(4, 2.5, 5, 0, 6, 28);                       // after turret
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(.35, .5, 16, 6), grey); mast.position.set(0, 23, 2); root.add(mast);
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.3, .3, 8, 6), dark); barrel.rotation.x = Math.PI / 2 + .25; barrel.position.set(0, 8, -27); root.add(barrel);
+  return root;
+}
 
 function soft(size = 64) {
   const data = new Uint8Array(size * size * 4);
@@ -45,7 +67,11 @@ void main() { float edge = pow(abs(dot(normalize(vNormal), normalize(vView))), 2
 
 export interface AmbientSkyFrame { camera: THREE.Camera; listener: AmbientPoint; bounds: AmbientView['bounds']; night: number; quiet: boolean }
 
-export function createAmbientSky(scene: THREE.Scene, options: { seed: number; risk: CombatRisk; reduced: () => boolean; audio: () => AudioContext | null; muted: () => boolean }) {
+/**
+ * `sea`: which way open sea lies from the district (COASTAL_SEA), so warships
+ * have somewhere to sail; inland, there are none.
+ */
+export function createAmbientSky(scene: THREE.Scene, options: { seed: number; risk: CombatRisk; sea?: { x: number; z: number }; reduced: () => boolean; audio: () => AudioContext | null; muted: () => boolean }) {
   const root = new THREE.Group(); root.name = 'ambient-sky'; root.userData.fpsEffect = true; scene.add(root);
   const director = createAmbientDirector({ seed: options.seed, risk: options.risk });
   const sound = createAmbientSkyAudio(options.audio, options.muted);
@@ -64,11 +90,22 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
   // Prime the per-instance colour buffers so the first frame's colours land.
   [glowMesh, tracerMesh, puffMesh].forEach(mesh => mesh.setColorAt(0, new THREE.Color()));
 
-  const jets = [0, 1].map(() => {
-    const model = buildJet(); model.visible = false; root.add(model);
+  const own = (model: THREE.Group) => {
+    model.visible = false; root.add(model);
     model.traverse(node => { node.raycast = noRaycast; if (node instanceof THREE.Mesh) { geometries.push(node.geometry); materials.push(node.material as THREE.Material); } });
     return model;
-  });
+  };
+  // The flyby pair, then the one that gets shot down; yaw first so pitch and roll are the aircraft's own.
+  const jets = [0, 1, 2].map(() => { const model = own(buildJet()); model.rotation.order = 'YXZ'; return model; });
+  const ships = [0, 1].map(() => own(buildWarship()));
+
+  // Birds: two wing triangles hinged at the body, each turned about the body's long axis by the wingbeat.
+  const birds = createBirds(options.seed ^ 0x51ed270b);
+  const birdMaterial = hold(new THREE.MeshBasicMaterial({ color: '#1f2225', side: THREE.DoubleSide }));
+  const wing = (span: number) => keep(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([0, 0, -.12, 0, 0, .12, span, 0, .06], 3)));
+  const wingMeshes = [pool(wing(.45), birdMaterial, BIRDS.max, 'ambient-bird-wings-right'), pool(wing(-.45), birdMaterial, BIRDS.max, 'ambient-bird-wings-left')];
+  const bodyMesh = pool(keep(new THREE.BoxGeometry(.09, .08, .32)), birdMaterial, BIRDS.max, 'ambient-bird-bodies');
+  let passAt = 20 + Math.random() * 40;
 
   const beamGeometry = keep(new THREE.CylinderGeometry(22, 1, 700, 24, 1, true)); beamGeometry.translate(0, 350, 0);
   const beams = Array.from({ length: BEAMS }, () => {
@@ -117,7 +154,8 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
   function prepare(event: AmbientEvent): Prepared {
     let entry = prepared.get(event.id);
     if (!entry) {
-      entry = event.kind === 'skyline' ? { skyline: skylineTimeline(event) } : event.kind === 'rockets' ? { rockets: rocketTimeline(event) } : event.kind === 'flak' ? { flak: flakTimeline(event) } : {};
+      entry = event.kind === 'skyline' ? { skyline: skylineTimeline(event) } : event.kind === 'rockets' ? { rockets: rocketTimeline(event) } : event.kind === 'flak' ? { flak: flakTimeline(event) }
+        : event.kind === 'naval' ? { naval: navalTimeline(event) } : {};
       prepared.set(event.id, entry);
     }
     return entry;
@@ -224,6 +262,93 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
     }
   }
 
+  /**
+   * A jet hit by a missile: the missile's climb, the flash, then the fall —
+   * burning, trailing black smoke, rolling — to a fireball and a standing
+   * column of smoke where it comes down. Returns the jet's distance while it
+   * still flies, for the roar.
+   */
+  function shootdown(event: AmbientEvent, age: number, before: number, reduced: boolean, used: Set<number>) {
+    const pose = shootdownPose(event, age), hitAt = shootdownHit(), crashAt = hitAt + SHOOTDOWN.fallTime, key = `${event.id}/`;
+    const missile = missilePose(event, age);
+    if (missile.flying) {
+      sprites.push({ at: missile, size: 4, colour: motor, brightness: 1 }, { at: missile, size: 12, colour: motorHalo, brightness: .3 });
+      tracer(missile, missile.direction, 6, .7, motor);
+      if (clock >= (trailClock.get(key + 'm') ?? 0)) { trailClock.set(key + 'm', clock + (reduced ? .08 : .04)); puff(missile, 4, 10, 7, contrail, .55, 0, .3); }
+    }
+    if (hitAt > before && hitAt <= age) {
+      const hit = shootdownPose(event, hitAt);
+      glow(hit, 36, .5, flashHot.clone(), 20); glow(hit, 22, 1.2, fireball.clone(), 14);
+      for (let i = 0; i < (reduced ? 4 : 8); i++) puff(hit, 5, 14, 9, columnSmoke, .7, 0, 4);
+      if (spend()) sound.rumble(far(hit), 1.4, pan(hit));
+    }
+    if (pose.phase === 'flying' || pose.phase === 'falling') {
+      const jet = jets[2]; used.add(2);
+      jet.visible = true; jet.position.set(pose.x, pose.y, pose.z); jet.rotation.set(pose.pitch, pose.yaw, pose.roll);
+      if (pose.phase === 'falling') {
+        // Fire streams back from the wing root and the smoke behind it stays hanging along the fall.
+        const tail = { x: pose.x + Math.sin(pose.yaw) * 6, y: pose.y, z: pose.z + Math.cos(pose.yaw) * 6 };
+        sprites.push({ at: tail, size: 9, colour: fireball, brightness: .9 }, { at: pose, size: 5, colour: flashWarm, brightness: .8 });
+        if (clock >= (trailClock.get(key + 's') ?? 0)) { trailClock.set(key + 's', clock + (reduced ? .08 : .04)); puff(tail, 6, 20, 12, columnSmoke, .75, .8, .6); }
+      }
+    }
+    if (crashAt > before && crashAt <= age) {
+      const crash = { ...event.at, y: event.at.y + 4 };
+      for (let i = 0; i < 4; i++) glow({ x: crash.x + (Math.random() - .5) * 20, y: crash.y + i * 10, z: crash.z + (Math.random() - .5) * 20 }, 40, 1.4 + i * .3, fireball.clone(), 25);
+      glow({ ...crash, y: crash.y + 40 }, 160, 1, skyGlow.clone().multiplyScalar(.25), 60);
+      emitters.push({ x: crash.x, y: crash.y + 6, z: crash.z, until: clock + 35, next: clock, rate: reduced ? .8 : .4, colour: columnSmoke, size: 16, rise: 6, spread: 2, life: 28 });
+      if (spend()) sound.rumble(far(crash), 2.2, pan(crash));
+    }
+    return pose.phase === 'flying' || pose.phase === 'falling' ? far(pose) : Infinity;
+  }
+
+  /** Warships steaming down the coast, the lead (and any consort) firing salvos on ahead with a flash and a slap of smoke at the muzzle. */
+  function naval(event: AmbientEvent, shells: NavalShell[], age: number, before: number, reduced: boolean, usedShips: Set<number>) {
+    const count = navalShips(event);
+    for (let i = 0; i < count; i++) {
+      const pose = shipPose(event, age, i); if (!pose.visible || far(pose) > DRAW_RANGE + 60) continue;
+      const ship = ships[i]; usedShips.add(i);
+      ship.visible = true; ship.position.set(pose.x, pose.y + Math.sin(clock * .7 + i) * .3, pose.z); ship.rotation.set(Math.sin(clock * .5 + i) * .01, pose.yaw, Math.sin(clock * .6 + i * 2) * .02);
+      const key = `${event.id}/k${i}`;
+      if (clock >= (trailClock.get(key) ?? 0)) {
+        trailClock.set(key, clock + (reduced ? 1.2 : .6));
+        // Funnel smoke, streaming aft.
+        puff({ x: pose.x + Math.sin(pose.yaw) * 14, y: pose.y + 19, z: pose.z + Math.cos(pose.yaw) * 14 }, 5, 18, 10, columnSmoke, .5, 1.2, .5);
+      }
+    }
+    for (const shell of shells) {
+      const since = age - shell.time; if (since < 0 || since > shell.range / NAVAL.shell) continue;
+      const pose = navalShellPose(event, shell, since);
+      if (shell.time > before) {
+        glow(pose.muzzle, 30, .45, flashHot.clone(), 12); glow(pose.muzzle, 18, 1.1, fireball.clone().multiplyScalar(.7), 10);
+        for (let i = 0; i < (reduced ? 2 : 4); i++) puff(pose.muzzle, 10, 35, 8, battleHaze, .65, .5, 3);
+        if (spend()) sound.rumble(far(pose.muzzle), 1.5, pan(pose.muzzle));
+      }
+      if (pose.flying && far(pose) < DRAW_RANGE) { sprites.push({ at: pose, size: 5, colour: flashWarm, brightness: 1 }); tracer(pose, pose.direction, 10, 1.2, flashWarm, 1.2); }
+    }
+  }
+
+  /** Each bird: a body, and two wings turned about it by the wingbeat. Small enough that a dark V reads as a bird at any range. */
+  const birdYaw = new THREE.Quaternion(), birdWing = new THREE.Quaternion(), birdEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+  function drawBirds() {
+    let n = 0;
+    for (const flock of birds.flocks) {
+      const shrink = Math.min(1, (flock.life - flock.age) / 2);
+      for (const bird of flock.birds) {
+        if (n >= BIRDS.max) break;
+        birdEuler.set(Math.atan2(bird.vy, Math.hypot(bird.vx, bird.vz)) * .6, Math.atan2(-bird.vx, -bird.vz), 0); birdYaw.setFromEuler(birdEuler);
+        position.set(bird.x, bird.y, bird.z); scale.setScalar(bird.size * shrink);
+        bodyMesh.setMatrixAt(n, matrix.compose(position, birdYaw, scale));
+        wingMeshes.forEach((mesh, side) => {
+          birdWing.setFromAxisAngle(zAxis, side ? -bird.flap : bird.flap).premultiply(birdYaw);
+          mesh.setMatrixAt(n, matrix.compose(position, birdWing, scale));
+        });
+        n++;
+      }
+    }
+    for (const mesh of [bodyMesh, ...wingMeshes]) { mesh.count = n; mesh.instanceMatrix.needsUpdate = true; }
+  }
+
   function searchlights(frame: AmbientSkyFrame, dt: number, aim: AmbientPoint | null) {
     const boundsKey = `${frame.bounds.minX},${frame.bounds.maxX},${frame.bounds.minZ},${frame.bounds.maxZ}`;
     if (!sites || boundsKey !== siteBounds) { sites = searchlightSites(frame.bounds, options.seed ^ 0x9e3779b9, BEAMS); siteBounds = boundsKey; }
@@ -242,14 +367,16 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
     });
   }
 
-  function update(dt: number, frame: AmbientSkyFrame) {
+  function update(frameDt: number, frame: AmbientSkyFrame) {
+    // A stall or a tab left in the background slows the sky rather than skipping whole set pieces past unseen.
+    const dt = Math.min(frameDt, .1);
     clock += dt; budget = Math.min(SOUNDS_PER_SECOND, budget + dt * SOUNDS_PER_SECOND);
     const reduced = options.reduced();
     frame.camera.getWorldPosition(camPosition); camRight.setFromMatrixColumn(frame.camera.matrixWorld, 0).normalize(); frame.camera.getWorldQuaternion(facing);
-    lastView = { now: clock, listener: frame.listener, bounds: frame.bounds, night: frame.night, quiet: frame.quiet };
+    lastView = { now: clock, listener: frame.listener, bounds: frame.bounds, night: frame.night, quiet: frame.quiet, sea: options.sea };
     director.step(lastView);
     tracers = 0; sprites.length = 0;
-    const used = new Set<number>();
+    const used = new Set<number>(), usedShips = new Set<number>();
     let heard = Infinity, aim: AmbientPoint | null = null;
     for (const event of director.active) {
       const age = clock - event.start, before = age - dt, entry = prepare(event);
@@ -257,11 +384,24 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
       else if (event.kind === 'flyby') { flyby(event, age, reduced, used); heard = Math.min(heard, flybyHeard(event, age, frame.listener)); }
       else if (event.kind === 'rockets' && entry.rockets) rockets(event, entry.rockets, age, before, reduced);
       else if (event.kind === 'flak' && entry.flak) { flak(entry.flak.rounds, age, before, reduced); aim = entry.flak.aim; }
+      else if (event.kind === 'shootdown') heard = Math.min(heard, shootdown(event, age, before, reduced, used));
+      else if (event.kind === 'naval' && entry.naval) naval(event, entry.naval, age, before, reduced, usedShips);
     }
     for (const id of prepared.keys()) if (!director.active.some(e => e.id === id)) prepared.delete(id);
     for (const key of trailClock.keys()) if (!director.active.some(e => key.startsWith(`${e.id}/`))) trailClock.delete(key);
     jets.forEach((jet, i) => { if (!used.has(i)) jet.visible = false; });
+    ships.forEach((ship, i) => { if (!usedShips.has(i)) ship.visible = false; });
     searchlights(frame, dt, aim);
+
+    // Now and then by day a flock crosses over, a little way off and well above the street.
+    if (clock >= passAt) {
+      passAt = clock + PASSING_FLOCK[0] + Math.random() * (PASSING_FLOCK[1] - PASSING_FLOCK[0]);
+      if (frame.night < .5) {
+        const a = Math.random() * Math.PI * 2, r = 60 + Math.random() * 60, b = a + Math.PI / 2 + (Math.random() - .5);
+        birds.pass({ x: frame.listener.x + Math.cos(a) * r, y: frame.listener.y + 35 + Math.random() * 20, z: frame.listener.z + Math.sin(a) * r }, { x: Math.cos(b), z: Math.sin(b) });
+      }
+    }
+    birds.step(dt); drawBirds();
 
     for (let i = emitters.length - 1; i >= 0; i--) {
       const e = emitters[i]; if (clock > e.until) { emitters.splice(i, 1); continue; }
@@ -301,14 +441,30 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
     update,
     /** Calls one in now, ahead of `facing` (a yaw) from wherever the camera last was. Flak by day shows tracer but no searchlights. */
     trigger(kind: AmbientKind, facing?: number) { return lastView ? director.force(kind, lastView, facing) : null; },
+    /**
+     * Something loud at `at` (a shell landing, a shot): birds roosting nearby
+     * burst off the roofs. `perch` is where they were sitting, by default a
+     * roof a little way off; `strength` 1 is a shell. Flushed birds do not go twice.
+     */
+    startle(at: AmbientPoint, strength: number, perch?: AmbientPoint) {
+      const a = Math.random() * Math.PI * 2, r = 15 + Math.random() * 25;
+      const roost = perch ?? { x: at.x + Math.cos(a) * r, y: at.y + 8 + Math.random() * 10, z: at.z + Math.sin(a) * r };
+      if (birds.startle(at, strength, roost)) sound.flutter(far(roost), pan(roost));
+    },
+    /** events / glows / tracers / smoke / jets / searchlights / ships / birds, for smokes and tests. */
     get census() {
-      return `${director.active.length}/${glowMesh.count}/${tracerMesh.count}/${puffMesh.count}/${jets.filter(j => j.visible).length}/${beams.filter(b => b.mesh.visible).length}`;
+      return `${director.active.length}/${glowMesh.count}/${tracerMesh.count}/${puffMesh.count}/${jets.filter(j => j.visible).length}/${beams.filter(b => b.mesh.visible).length}/${ships.filter(s => s.visible).length}/${birds.count}`;
     },
     get active(): readonly AmbientEvent[] { return director.active; },
-    reset() { director.reset(); glows.length = puffs.length = emitters.length = 0; prepared.clear(); trailClock.clear(); jets.forEach(j => { j.visible = false; }); },
+    /** The sky's own clock, which events' `start` is measured on. */
+    get now() { return clock; },
+    reset() {
+      director.reset(); birds.reset(); glows.length = puffs.length = emitters.length = 0; prepared.clear(); trailClock.clear();
+      [...jets, ...ships].forEach(model => { model.visible = false; });
+    },
     dispose() {
       root.removeFromParent();
-      [glowMesh, tracerMesh, puffMesh].forEach(mesh => mesh.dispose());
+      [glowMesh, tracerMesh, puffMesh, bodyMesh, ...wingMeshes].forEach(mesh => mesh.dispose());
       new Set(geometries).forEach(g => g.dispose()); new Set(materials).forEach(m => m.dispose()); texture.dispose();
     },
   };

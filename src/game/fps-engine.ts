@@ -69,7 +69,7 @@ import { hostile, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
 import { HEAT_CALLS } from './faction-heat';
 import { createCombatAudio } from './combat-event-audio';
 import { createAmbientSky } from './ambient-sky-visuals';
-import type { AmbientKind } from './ambient-sky';
+import { COASTAL_SEA, type AmbientKind } from './ambient-sky';
 import { gunfireReports } from './gunfire-reports';
 import { createGunshotAudio, gunshotTone } from './gunshot-audio';
 import { getEnvironmentSettings } from './environment-settings';
@@ -258,9 +258,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const combatAudio = createCombatAudio(() => audio, () => hud.muted);
   const gunshots = createGunshotAudio(() => audio, () => hud.muted);
   // Scenery in the sky beyond the district: never a threat, never sent between peers (ambient-sky).
-  const ambientSky = createAmbientSky(world.scene, { seed: Math.floor(Math.random() * 2 ** 32), risk: options.arena?.environment?.combatEvents?.risk ?? 'low',
+  const ambientSky = createAmbientSky(world.scene, { seed: Math.floor(Math.random() * 2 ** 32), risk: options.arena?.environment?.combatEvents?.risk ?? 'low', sea: COASTAL_SEA[region],
     reduced: () => getEnvironmentSettings().reducedEffects || !!motionPreference?.matches, audio: () => audio, muted: () => hud.muted });
-  let ambientJet = Infinity;
+  let ambientJet = Infinity, ambientShots = 0;
   /** Events within this many metres are alarms (banner, tones); further away they are news in the comms log. */
   const COMBAT_NEAR = 130;
   const seenEvents = new Set<string>(), openedSupplies = new Set<string>();
@@ -1721,7 +1721,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (cue.kind === 'whistle') { combatAudio.whistle(distance, Math.min(WHISTLE_LEAD, cue.payload.flight)); continue; }
       if (cue.payload.blast) {
         const size = cue.payload.kind === 'bomb' ? 1.5 : cue.payload.kind === 'mortar' ? .8 : 1;
-        combatVisuals.blast(at, size); combatAudio.boom(distance, size);
+        combatVisuals.blast(at, size); combatAudio.boom(distance, size); ambientSky.startle(at, size);
         shake = Math.min(1, shake + Math.max(0, 1 - distance / (70 * size)) * .9 * Math.min(1.2, size));
       } else { combatVisuals.spot(at, cue.payload.smoke ?? '#d8463a'); combatAudio.boom(distance, cue.payload.kind === 'canister' ? .12 : .3); }
     }
@@ -1840,6 +1840,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    */
   function updateAmbientSky(dt: number) {
     const raid = (hud.arena?.events ?? []).some(e => e.kind === 'air-raid' && combatPhase(e, eventClock) !== 'done');
+    // Your own shots flush birds off a roof somewhere ahead of you.
+    if (hud.shots > ambientShots) {
+      const ahead = 25 + Math.random() * 25, aside = (Math.random() - .5) * 30;
+      ambientSky.startle(camera.position, .45, { x: camera.position.x - Math.sin(yaw) * ahead + Math.cos(yaw) * aside, y: camera.position.y + 8 + Math.random() * 10, z: camera.position.z - Math.cos(yaw) * ahead - Math.sin(yaw) * aside });
+    }
+    ambientShots = hud.shots;
     ambientJet = ambientSky.update(dt, { camera, listener: camera.position, bounds: world.bounds, night: nightLevel(atmosphere.light.lighting.elevation), quiet: raid }).jet;
     const census = ambientSky.census; if (census !== canvas.dataset.ambientSky) canvas.dataset.ambientSky = census;
   }

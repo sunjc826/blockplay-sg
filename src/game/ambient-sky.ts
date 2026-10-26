@@ -4,30 +4,46 @@ import type { RegionBounds } from './region-collision';
 
 /**
  * Scenery, not combat: a battle on the skyline, jets crossing high, rocket
- * salvos passing overhead and anti-aircraft fire into the night. Nothing here
- * can hurt anyone, mark the map or raise a banner, so none of it needs
- * balancing. Each client runs its own director, seeded and pure; nothing is
- * sent between peers. Everything that lands, lands outside the district.
+ * salvos passing overhead, anti-aircraft fire into the night, an aircraft
+ * shot down and warships firing off the coast. Nothing here can hurt anyone,
+ * mark the map or raise a banner, so none of it needs balancing. Each client
+ * runs its own director, seeded and pure; nothing is sent between peers.
+ * Everything that lands, lands outside the district.
  */
 
-export type AmbientKind = 'skyline' | 'flyby' | 'rockets' | 'flak';
-export const AMBIENT_KINDS: readonly AmbientKind[] = ['skyline', 'flyby', 'rockets', 'flak'];
+export type AmbientKind = 'skyline' | 'flyby' | 'rockets' | 'flak' | 'shootdown' | 'naval';
+export const AMBIENT_KINDS: readonly AmbientKind[] = ['skyline', 'flyby', 'rockets', 'flak', 'shootdown', 'naval'];
 export interface AmbientPoint { x: number; y: number; z: number }
 export interface AmbientEvent {
   id: number; kind: AmbientKind; start: number; duration: number; seed: number;
-  /** The fight, the flak site or the rocket launcher; for a flyby, the point of closest approach. */
+  /**
+   * The fight, the flak site or the rocket launcher; for a flyby, the point of
+   * closest approach; where a shot-down aircraft crashes; the middle of the
+   * warships' lane.
+   */
   at: AmbientPoint;
   /** Direction of travel or of the fight's axis, as a yaw: forward is (-sin, -cos). */
   heading: number;
+  /** Where the missile that brings an aircraft down is fired from. */
+  from?: AmbientPoint;
 }
 /** Seconds between two of a kind, by district risk. A busier district has a busier sky. */
 export const AMBIENT_PACE: Readonly<Record<CombatRisk, Readonly<Record<AmbientKind, readonly [number, number]>>>> = {
-  low: { skyline: [70, 140], flyby: [60, 120], rockets: [150, 260], flak: [80, 150] },
-  medium: { skyline: [40, 90], flyby: [45, 90], rockets: [90, 170], flak: [50, 100] },
-  high: { skyline: [25, 60], flyby: [30, 70], rockets: [60, 120], flak: [35, 70] },
+  low: { skyline: [70, 140], flyby: [60, 120], rockets: [150, 260], flak: [80, 150], shootdown: [180, 320], naval: [110, 200] },
+  medium: { skyline: [40, 90], flyby: [45, 90], rockets: [90, 170], flak: [50, 100], shootdown: [120, 220], naval: [80, 150] },
+  high: { skyline: [25, 60], flyby: [30, 70], rockets: [60, 120], flak: [35, 70], shootdown: [80, 160], naval: [60, 110] },
 };
 /** How many of a kind may run at once. */
-const AMBIENT_LIMIT: Readonly<Record<AmbientKind, number>> = { skyline: 2, flyby: 1, rockets: 1, flak: 1 };
+const AMBIENT_LIMIT: Readonly<Record<AmbientKind, number>> = { skyline: 2, flyby: 1, rockets: 1, flak: 1, shootdown: 1, naval: 1 };
+/**
+ * Which way the open sea lies from each coastal district, in scene axes (-z
+ * north, +x east), read off where each scene lays its sea or strait. Warships
+ * only sail where there is one; a lake or a canal does not count.
+ */
+export const COASTAL_SEA: Readonly<Partial<Record<string, { x: number; z: number }>>> = {
+  'marina-bay': { x: .45, z: .89 }, changi: { x: 1, z: 0 }, harbourfront: { x: 0, z: 1 }, sentosa: { x: 0, z: 1 },
+  tuas: { x: -1, z: 0 }, woodlands: { x: 0, z: -1 }, punggol: { x: 0, z: 1 },
+};
 /** A kind that is due but cannot run (flak by day, jets during a real air raid) looks again after this long. */
 const RETRY = 10;
 /** Where things happen, from whoever is watching: far enough to read as elsewhere, near enough to draw (the camera sees 800 m). */
@@ -36,6 +52,10 @@ export const AMBIENT_RANGE: Readonly<Record<'skyline' | 'flak', readonly [number
 export const AMBIENT_MARGIN = 50;
 export const FLYBY = { speed: 170, reach: 900, height: [110, 170] as const, pass: [60, 260] as const, wing: { back: 35, side: 28, up: 5 } } as const;
 export const ROCKETS = { speed: 230, span: 1600, apex: [200, 280] as const, pass: [140, 320] as const, back: [380, 650] as const, count: [6, 12] as const, ripple: .35, burn: .75 } as const;
+/** A jet flies in level, is hit at `hit` metres up and falls `fall` metres on over `fallTime` seconds to the crash. */
+export const SHOOTDOWN = { speed: 170, approach: 900, fall: 420, fallTime: 7, hit: [130, 180] as const, missile: 3.2, crash: [350, 560] as const } as const;
+/** Warships sail a lane `offshore` beyond the coast at `speed`, `lane` metres each way of its middle, firing while within `firing` of it. */
+export const NAVAL = { speed: 12, lane: 600, offshore: [150, 280] as const, firing: 350, gap: [4, 8] as const, range: [900, 1300] as const, apex: [120, 200] as const, shell: 300, consort: { back: 140, out: 70 } } as const;
 export const SPEED_OF_SOUND = 343;
 
 const between = (random: () => number, [low, high]: readonly [number, number]) => low + random() * (high - low);
@@ -88,7 +108,11 @@ export interface AmbientView {
   night: number;
   /** A real air raid is on: jets and rockets would read as part of it, so they wait. */
   quiet?: boolean;
+  /** Which way the open sea lies (COASTAL_SEA); without one, no warships. */
+  sea?: { x: number; z: number };
 }
+/** The yaw whose forward is `direction`. */
+const yawOf = (direction: { x: number; z: number }) => Math.atan2(-direction.x, -direction.z);
 
 export function createAmbientDirector(options: { seed: number; risk: CombatRisk }) {
   const random = combatRandom(options.seed), pace = AMBIENT_PACE[options.risk];
@@ -105,6 +129,21 @@ export function createAmbientDirector(options: { seed: number; risk: CombatRisk 
     const crossing = facing !== undefined && (kind === 'flyby' || kind === 'rockets');
     const heading = crossing ? facing + side * Math.PI / 2 : random() * Math.PI * 2;
     const base = { id: ++serial, kind, start: view.now, seed, heading };
+    if (kind === 'shootdown') {
+      // It crashes outside the district, falling away from whoever watches: its track bears off theirs by 35–70°.
+      const crash = farPoint(random, listener, bounds, SHOOTDOWN.crash, facing);
+      const outward = yawOf({ x: crash.x - listener.x, z: crash.z - listener.z }), track = outward + side * between(random, [.6, 1.2]);
+      const along = forward(track), hit = { x: crash.x - along.x * SHOOTDOWN.fall, z: crash.z - along.z * SHOOTDOWN.fall };
+      const site = farPoint(random, listener, bounds, [250, 450], yawOf({ x: hit.x - listener.x, z: hit.z - listener.z }) + (random() - .5) * 1.2);
+      return { ...base, heading: track, at: { ...crash, y: 0 }, from: { ...site, y: 2 }, duration: SHOOTDOWN.approach / SHOOTDOWN.speed + SHOOTDOWN.fallTime + 2 };
+    }
+    if (kind === 'naval') {
+      // A lane parallel to the coast, out past the district's edge; called in, the ships are already most of the way to the middle.
+      const sea = view.sea ?? forward(facing ?? 0), out = yawOf(sea);
+      const reach = clearDistance(listener, out, bounds, 0) + between(random, NAVAL.offshore);
+      const middle = { x: listener.x + sea.x * reach, y: 0, z: listener.z + sea.z * reach };
+      return { ...base, heading: out + side * Math.PI / 2, at: middle, start: view.now - (facing === undefined ? 0 : (NAVAL.lane - 200) / NAVAL.speed), duration: NAVAL.lane * 2 / NAVAL.speed };
+    }
     if (kind === 'skyline' || kind === 'flak') {
       const spot = farPoint(random, listener, bounds, AMBIENT_RANGE[kind], facing);
       return { ...base, at: { ...spot, y: 0 }, duration: kind === 'skyline' ? between(random, [30, 45]) : between(random, [20, 35]) };
@@ -135,7 +174,7 @@ export function createAmbientDirector(options: { seed: number; risk: CombatRisk 
       const started: AmbientEvent[] = [];
       for (const kind of AMBIENT_KINDS) {
         if (view.now < due.get(kind)!) continue;
-        const blocked = (kind === 'flak' && view.night < .5) || ((kind === 'flyby' || kind === 'rockets') && view.quiet)
+        const blocked = (kind === 'flak' && view.night < .5) || ((kind === 'flyby' || kind === 'rockets' || kind === 'shootdown') && view.quiet) || (kind === 'naval' && !view.sea)
           || active.filter(e => e.kind === kind).length >= AMBIENT_LIMIT[kind];
         if (blocked) { due.set(kind, view.now + RETRY); continue; }
         const event = place(kind, view); active.push(event); started.push(event);
@@ -279,4 +318,74 @@ export function searchlightSites(bounds: RegionBounds, seed: number, count = 4) 
     const scale = 1 / Math.max(Math.abs(Math.cos(angle)) / hx, Math.abs(Math.sin(angle)) / hz);
     return { x: cx + Math.cos(angle) * scale, z: cz + Math.sin(angle) * scale, phase: random() * Math.PI * 2, rate: .05 + random() * .05, pitch: 1.05 + random() * .3 };
   });
+}
+
+export interface AircraftPose { x: number; y: number; z: number; yaw: number; pitch: number; roll: number; phase: 'flying' | 'falling' | 'down' | 'gone' }
+/** When the shot-down jet is hit, in seconds from the event's start. */
+export const shootdownHit = () => SHOOTDOWN.approach / SHOOTDOWN.speed;
+/** The hit's height, from the event's seed. */
+const hitHeight = (event: AmbientEvent) => SHOOTDOWN.hit[0] + combatRandom(event.seed)() * (SHOOTDOWN.hit[1] - SHOOTDOWN.hit[0]);
+/** Where the jet is hit. */
+export function shootdownPoint(event: AmbientEvent): AmbientPoint {
+  const along = forward(event.heading);
+  return { x: event.at.x - along.x * SHOOTDOWN.fall, y: event.at.y + hitHeight(event), z: event.at.z - along.z * SHOOTDOWN.fall };
+}
+/**
+ * The jet `age` seconds in: level until the hit, then falling on in a steepening
+ * curve, nose dropping and rolling, until it meets the ground at the crash.
+ */
+export function shootdownPose(event: AmbientEvent, age: number): AircraftPose {
+  const along = forward(event.heading), hit = shootdownPoint(event), at = shootdownHit();
+  if (age < 0) return { ...hit, yaw: event.heading, pitch: 0, roll: 0, phase: 'gone' };
+  if (age < at) {
+    const back = (at - age) * SHOOTDOWN.speed;
+    return { x: hit.x - along.x * back, y: hit.y, z: hit.z - along.z * back, yaw: event.heading, pitch: 0, roll: 0, phase: 'flying' };
+  }
+  const u = Math.min(1, (age - at) / SHOOTDOWN.fallTime), on = SHOOTDOWN.fall * u * (1.3 - .3 * u), drop = hit.y - event.at.y;
+  const y = hit.y - drop * u * u, slope = (2 * drop * u) / (SHOOTDOWN.fall * (1.3 - .6 * u));
+  return { x: hit.x + along.x * on, y, z: hit.z + along.z * on, yaw: event.heading, pitch: -Math.atan(slope), roll: (age - at) * 2.4, phase: u < 1 ? 'falling' : 'down' };
+}
+/** The missile `age` seconds in: fired from `from` so it meets the jet at the hit, bowing a little on the way. */
+export function missilePose(event: AmbientEvent, age: number) {
+  const hit = shootdownPoint(event), from = event.from ?? { ...event.at, y: 2 }, s = (age - (shootdownHit() - SHOOTDOWN.missile)) / SHOOTDOWN.missile;
+  return {
+    x: from.x + (hit.x - from.x) * s, y: from.y + (hit.y - from.y) * s + Math.sin(Math.PI * Math.min(1, Math.max(0, s))) * 30, z: from.z + (hit.z - from.z) * s,
+    direction: { x: hit.x - from.x, y: hit.y - from.y + 30 * Math.PI * Math.cos(Math.PI * s), z: hit.z - from.z }, flying: s >= 0 && s < 1,
+  };
+}
+
+export interface ShipPose { x: number; y: number; z: number; yaw: number; visible: boolean }
+export interface NavalShell { time: number; ship: number; side: number; range: number; apex: number }
+/** How many ships, from the seed: a lone destroyer or one with a consort. */
+export const navalShips = (event: AmbientEvent) => combatRandom(event.seed)() < .5 ? 1 : 2;
+/** Ship `ship` (0 the lead, 1 its consort astern and off to one side) `age` seconds into its run along the lane. */
+export function shipPose(event: AmbientEvent, age: number, ship = 0): ShipPose {
+  // The lane sits well offshore, so the consort's station to one side is open water whichever side it is.
+  const along = forward(event.heading), across = { x: along.z, z: -along.x };
+  const run = age * NAVAL.speed - NAVAL.lane - ship * NAVAL.consort.back, out = ship * NAVAL.consort.out;
+  return { x: event.at.x + along.x * run + across.x * out, y: event.at.y, z: event.at.z + along.z * run + across.z * out, yaw: event.heading, visible: age >= 0 && Math.abs(run) <= NAVAL.lane };
+}
+/** Salvos while a ship is within reach of the lane's middle: fired on ahead, down the coast, to land beyond sight. */
+export function navalTimeline(event: AmbientEvent): NavalShell[] {
+  const random = combatRandom(event.seed ^ 0x2545f491), ships = navalShips(event), shells: NavalShell[] = [];
+  const from = (NAVAL.lane - NAVAL.firing) / NAVAL.speed, until = (NAVAL.lane + NAVAL.firing) / NAVAL.speed;
+  for (let ship = 0; ship < ships; ship++) {
+    const lag = ship * NAVAL.consort.back / NAVAL.speed;
+    for (let t = from + lag + random() * 3; t < until + lag; t += between(random, NAVAL.gap)) {
+      const guns = random() < .4 ? 2 : 1;
+      for (let gun = 0; gun < guns; gun++) shells.push({ time: t + gun * .25, ship, side: (random() - .5) * 60, range: between(random, NAVAL.range), apex: between(random, NAVAL.apex) });
+    }
+  }
+  return shells.sort((a, b) => a.time - b.time);
+}
+/** A shell `since` seconds after it left the forward gun of the ship as it was then. */
+export function navalShellPose(event: AmbientEvent, shell: NavalShell, since: number) {
+  const ship = shipPose(event, shell.time, shell.ship), along = forward(event.heading), across = { x: along.z, z: -along.x };
+  const muzzle = { x: ship.x + along.x * 22, y: ship.y + 9, z: ship.z + along.z * 22 };
+  const flown = since * NAVAL.shell, u = flown / shell.range, sideways = shell.side * u;
+  const climb = 4 * shell.apex * (1 - 2 * u) / shell.range;
+  return {
+    x: muzzle.x + along.x * flown + across.x * sideways, y: muzzle.y + 4 * shell.apex * u * (1 - u), z: muzzle.z + along.z * flown + across.z * sideways,
+    direction: { x: along.x, y: climb, z: along.z }, flying: u >= 0 && u <= 1, muzzle,
+  };
 }

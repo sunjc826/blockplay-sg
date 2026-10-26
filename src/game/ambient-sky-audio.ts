@@ -44,6 +44,20 @@ export function createAmbientSkyAudio(getContext: () => AudioContext | null, mut
       const context = ready(), level = farGain(distance) * .045; if (!context || level < .001) return;
       for (let i = 0; i < Math.min(8, rounds); i++) burst(context, farDelay(distance) + i * (.08 + Math.random() * .03), pan * .6, 'bandpass', [900, 500], level, .004, .09);
     },
+    /** A flock taking off: a papery clatter of wings, chopped at wingbeat rate. Near sound, so it fades fast. */
+    flutter(distance: number, pan = 0) {
+      const context = ready(), level = Math.max(0, 1 - distance / 120) * .05; if (!context || level < .001) return;
+      const at = context.currentTime + farDelay(distance), source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain();
+      const beat = context.createOscillator(), depth = context.createGain(), panner = context.createStereoPanner();
+      source.buffer = noiseBuffer(context); filter.type = 'bandpass'; filter.frequency.value = 2200; filter.Q.value = .8;
+      gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(level, at + .05); gain.gain.exponentialRampToValueAtTime(.0001, at + 1.1);
+      // Wingbeats: a square wave a little under 15 Hz swings the level, slowing as they get away.
+      beat.type = 'square'; beat.frequency.setValueAtTime(15, at); beat.frequency.linearRampToValueAtTime(9, at + 1.1); depth.gain.value = level * .8;
+      beat.connect(depth).connect(gain.gain); panner.pan.value = Math.max(-1, Math.min(1, pan * .7));
+      source.connect(filter).connect(gain).connect(panner).connect(context.destination);
+      source.start(at, Math.random() * 2); source.stop(at + 1.15); beat.start(at); beat.stop(at + 1.15);
+      source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); beat.disconnect(); depth.disconnect(); panner.disconnect(); };
+    },
     /** A rocket leaving its rail: a rising roar that tails off. */
     whoosh(distance: number, pan = 0) {
       const context = ready(), level = farGain(distance) * .08; if (!context || level < .001) return;

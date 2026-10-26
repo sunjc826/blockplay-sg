@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { AMBIENT_MARGIN, AMBIENT_PACE, createAmbientDirector, exitDistance, farPoint, flakPose, flakTimeline, flybyHeard, flybyPose, outside, rocketPose, rocketTimeline,
-  searchlightSites, skylineTimeline, flarePose, FLARE, FLYBY, type AmbientEvent, type AmbientView } from './ambient-sky';
+  searchlightSites, skylineTimeline, flarePose, missilePose, navalShellPose, navalTimeline, shipPose, shootdownHit, shootdownPose, COASTAL_SEA, FLARE, FLYBY, NAVAL, SHOOTDOWN,
+  type AmbientEvent, type AmbientView } from './ambient-sky';
+import { createBirds, BIRDS } from './ambient-birds';
 import { farGain } from './ambient-sky-audio';
 import { combatRandom } from './combat-events';
 
@@ -20,12 +22,12 @@ describe('ambient sky director', () => {
   });
   it('fills a few minutes of sky with every daytime kind and no flak by day', () => {
     const kinds = new Set(run(400).map(e => e.kind));
-    expect(kinds).toEqual(new Set(['skyline', 'flyby', 'rockets']));
+    expect(kinds).toEqual(new Set(['skyline', 'flyby', 'rockets', 'shootdown']));
     expect(run(400, { night: 1 }).some(e => e.kind === 'flak')).toBe(true);
   });
-  it('holds jets and rockets back during a real air raid', () => {
+  it('holds aircraft and rockets back during a real air raid', () => {
     const started = run(400, { quiet: true });
-    expect(started.some(e => e.kind === 'flyby' || e.kind === 'rockets')).toBe(false);
+    expect(started.some(e => e.kind === 'flyby' || e.kind === 'rockets' || e.kind === 'shootdown')).toBe(false);
     expect(started.some(e => e.kind === 'skyline')).toBe(true);
   });
   it('runs a riskier district busier', () => {
@@ -130,5 +132,72 @@ describe('far sound', () => {
     expect(farGain(400)).toBeLessThan(farGain(200) / 2);
     expect(farGain(700)).toBeGreaterThan(0);
     expect(farGain(1600)).toBe(0);
+  });
+});
+
+describe('shot down, warships and birds', () => {
+  const sea = COASTAL_SEA.sentosa!;
+  it('sends warships only where there is sea', () => {
+    expect(run(900, {}).some(e => e.kind === 'naval')).toBe(false);
+    const naval = run(900, { sea }).filter(e => e.kind === 'naval');
+    expect(naval.length).toBeGreaterThan(0);
+    // The lane lies out past the edge on the sea side, and runs along the coast.
+    for (const e of naval) {
+      expect(e.at.z).toBeGreaterThan(bounds.maxZ + AMBIENT_MARGIN);
+      expect(Math.abs(Math.sin(e.heading))).toBeCloseTo(1);
+    }
+    for (const [id, direction] of Object.entries(COASTAL_SEA)) expect(Math.hypot(direction!.x, direction!.z), id).toBeCloseTo(1, 1);
+  });
+  it('steams ships down the lane and fires only near its middle', () => {
+    const director = createAmbientDirector({ seed: 4, risk: 'high' }), e = director.force('naval', view(0, { sea }));
+    expect(shipPose(e, 0).visible).toBe(true);
+    expect(Math.hypot(shipPose(e, NAVAL.lane / NAVAL.speed).x - e.at.x, shipPose(e, NAVAL.lane / NAVAL.speed).z - e.at.z)).toBeLessThan(1);
+    expect(shipPose(e, e.duration + 1).visible).toBe(false);
+    const shells = navalTimeline(e);
+    expect(shells.length).toBeGreaterThan(5);
+    for (const shell of shells) {
+      const ship = shipPose(e, shell.time, shell.ship);
+      expect(Math.hypot(ship.x - e.at.x, ship.z - e.at.z)).toBeLessThan(NAVAL.firing + NAVAL.consort.back + 80);
+      // Fired down the coast, not over the district.
+      expect(navalShellPose(e, shell, 2).z).toBeGreaterThan(bounds.maxZ);
+    }
+  });
+  it('flies the jet in level, brings it down after the hit and crashes it outside the district', () => {
+    for (let seed = 1; seed <= 15; seed++) {
+      const director = createAmbientDirector({ seed, risk: 'medium' }), e = director.force('shootdown', view(0), seed % 2 ? .4 : undefined);
+      const hit = shootdownHit();
+      expect(outside(e.at, bounds, AMBIENT_MARGIN - 1)).toBe(true);
+      expect(outside(e.from!, bounds, AMBIENT_MARGIN - 1)).toBe(true);
+      expect(shootdownPose(e, hit - 1).phase).toBe('flying');
+      expect(shootdownPose(e, hit - 1).y).toBeCloseTo(shootdownPose(e, hit - 3).y);
+      const falling = shootdownPose(e, hit + SHOOTDOWN.fallTime / 2);
+      expect(falling.phase).toBe('falling'); expect(falling.pitch).toBeLessThan(0);
+      const down = shootdownPose(e, hit + SHOOTDOWN.fallTime);
+      expect(Math.hypot(down.x - e.at.x, down.z - e.at.z)).toBeLessThan(1); expect(down.y).toBeCloseTo(0);
+      // The missile meets it at the hit.
+      const missile = missilePose(e, hit - 1e-6);
+      expect(Math.hypot(missile.x - falling.x, missile.z - falling.z)).toBeLessThan(SHOOTDOWN.fall);
+      expect(Math.hypot(missile.x - shootdownPose(e, hit).x, missile.y - shootdownPose(e, hit).y, missile.z - shootdownPose(e, hit).z)).toBeLessThan(1);
+      // Falling away from whoever watches: the crash is further off than the hit.
+      const at = shootdownPose(e, hit);
+      expect(Math.hypot(e.at.x, e.at.z)).toBeGreaterThan(Math.hypot(at.x, at.z) - 1);
+    }
+  });
+  it('flushes birds once from a roost, climbing away from the noise', () => {
+    const birds = createBirds(3), perch = { x: 20, y: 10, z: 0 };
+    expect(birds.startle({ x: 0, y: 0, z: 0 }, 1, perch)).toBe(true);
+    expect(birds.startle({ x: 2, y: 0, z: 0 }, 1, { x: 22, y: 10, z: 3 })).toBe(false);
+    const flushed = birds.count; expect(flushed).toBeGreaterThanOrEqual(BIRDS.flock[0]);
+    for (let i = 0; i < 40; i++) birds.step(.1);
+    const flock = birds.flocks[0], mid = flock.birds.reduce((s, b) => ({ x: s.x + b.x / flock.birds.length, y: s.y + b.y / flock.birds.length }), { x: 0, y: 0 });
+    expect(mid.x).toBeGreaterThan(40); expect(mid.y).toBeGreaterThan(perch.y + 10);
+    for (let i = 0; i < 200; i++) birds.step(.1);
+    expect(birds.count).toBe(0);
+    expect(birds.startle({ x: 0, y: 0, z: 0 }, 1, perch)).toBe(true);
+  });
+  it('keeps the bird count bounded however much goes bang', () => {
+    const birds = createBirds(9);
+    for (let i = 0; i < 30; i++) birds.startle({ x: i * 100, y: 0, z: 0 }, 1);
+    expect(birds.count).toBeLessThanOrEqual(BIRDS.max);
   });
 });

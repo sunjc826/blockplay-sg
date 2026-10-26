@@ -3121,3 +3121,25 @@ Chrome: own rifle peak .07 → .53, energy under 150 Hz 2% → 31%, no clipping.
 Chromium's compressor ducks the first ~100 ms after a context starts, so
 measure after that. The bus output gain trims every gun at once. Not heard in
 game; the pistol and rifle end up near equal loudness after compression.
+
+## 2026-10-26: ambient sky — a jet shot down, warships, birds
+
+Three more pieces of scenery on the ambient sky (ambient-sky.ts):
+`shootdown` flies a jet in level, a missile climbs from a site off the map to
+meet it, and it falls burning and rolling (`shootdownPose`) to a fireball and
+a smoke column outside the district, falling away from the viewer. `naval`
+steams one or two destroyers (an original silhouette) down a lane past the
+edge on the sea side, firing salvos on down the coast while near the lane's
+middle; only districts in `COASTAL_SEA` (Marina, Changi, HarbourFront,
+Sentosa, Tuas, Woodlands, Punggol, sea direction read off each scene's
+water) get them, so no warships on reservoirs. Birds (`ambient-birds.ts`, a
+seeded flock sim) burst off a roof near any combat-event blast and ahead of
+you when you fire, scattering from the noise then climbing away, with a wing
+flutter; a flushed roost stays quiet for 8 s, 96 birds at most; a flock
+crosses now and then by day. The sky now steps at most 0.1 s a frame, so a
+stall slows it instead of skipping set pieces. Debug panel gains "Jet shot
+down" and "Warships"; `data-ambient-sky` adds ships and birds. Validation:
+unit tests, typecheck, build; frames grabbed in headless Chrome (missile
+trail, falling jet's smoke arc, smoke column at Marina; birds; two ships and
+shells at Sentosa by day and night). The crash fireball itself is hidden
+behind Marina's towers; the column shows. Not heard on speakers.
