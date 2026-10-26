@@ -34,11 +34,12 @@ it('lays the actions on the thumb\'s sweep, not in a row', () => {
   expect(html).toMatch(/--arc-spread:[\d.]+/);
 });
 
-it('offers the expedition its supplies and checkpoints, and the range its vehicles', () => {
+it('offers the expedition its checkpoints, and the range its vehicles', () => {
   const expedition = layer(playing({ quickItem: 'Field dressing', quickCount: 2, lootPrompt: 'E · rare Combat stim', npcPrompt: 'N · Buy Kaya toast · 140 CR', travelPrompt: 'T · Travel to Raffles Place' }), 'expedition');
   expect(expedition).toContain('data-touch-action="loot"');
   expect(expedition).toContain('data-touch-action="travel"');
-  expect(expedition).toContain('data-touch-action="supply"');
+  // Supplies are tapped on the utility belt, not the sweep.
+  expect(expedition).not.toContain('data-touch-action="supply"');
   expect(expedition).toContain('data-touch-action="npc"');
   expect(expedition).not.toContain('data-touch-action="vehicle"');
   // The prompt says what it does; the keyboard hint is no use to a thumb.
@@ -64,8 +65,6 @@ it('shows a contextual action only while it can be pressed', () => {
   // slots, and the sweep keeps the same four whatever you are standing next to.
   expect(layer(playing())).not.toContain('data-touch-action="vehicle"');
   expect(layer(playing({ interact: 'E · Enter Utility 01' }))).toContain('data-touch-action="vehicle"');
-  expect(layer(playing({ quickItem: 'Field dressing', quickCount: 0 }), 'expedition')).not.toContain('data-touch-action="supply"');
-  expect(layer(playing({ quickItem: 'Field dressing', quickCount: 1 }), 'expedition')).toContain('data-touch-action="supply"');
   expect(layer(playing({ lootPrompt: '' }), 'expedition')).not.toContain('data-touch-action="loot"');
 });
 

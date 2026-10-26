@@ -112,7 +112,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         {hud.callout && <div className="fps-kill-callout" role="status"><span>ELIMINATION CHAIN ×{hud.chain}</span><strong>{hud.callout}</strong></div>}
         {!alive && <div className="expedition-respawn" role="status"><span>OPERATOR DOWN</span><strong>Regrouping in {Math.ceil(hud.arenaSelf?.respawnIn ?? 0)}s</strong></div>}
         <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />
-        <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} />
+        <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} touch={touch} />
         <div className="fps-objective">Explore. Find supplies. Meet people in the district.<small>E · PICK UP / N · INTERACT / T · CROSS CHECKPOINT</small></div>
         <div className="expedition-prompts" role="status">{hud.lootPrompt && <strong>{hud.lootPrompt}</strong>}{hud.npcPrompt && <strong>{hud.npcPrompt}</strong>}{hud.travelPrompt && <strong>{hud.travelPrompt}</strong>}{hud.lootNotice && <span>{hud.lootNotice}</span>}</div>
         {(hud.sector || hud.sectorHeat) && <div className="expedition-sector" role="status"><span>LOCATION</span><strong>{hud.sector || zone.name}</strong>

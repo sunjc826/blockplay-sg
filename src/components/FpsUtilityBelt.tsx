@@ -16,12 +16,12 @@ const HEALING: readonly UtilityKind[] = ['food', 'bandage', 'first-aid'];
  * have any. The selected slot is G's; a slot in use fills as the hands work,
  * and while health is low the slots that could fix it are marked.
  */
-export default function FpsUtilityBelt({ hud, canUse, onUse }: { hud: FpsHud; canUse: boolean; onUse?: (kind: UtilityKind) => void }) {
+export default function FpsUtilityBelt({ hud, canUse, onUse, docked = false }: { hud: FpsHud; canUse: boolean; onUse?: (kind: UtilityKind) => void; docked?: boolean }) {
   if (!hud.belt.length) return null;
   const using = hud.supplyUse?.fromBelt ? KIND_OF_STYLE[hud.supplyUse.style] : null;
   const hurt = healthBand(hud.health, hud.maxHealth) !== 'steady';
   const selected = hud.belt.find(slot => slot.kind === hud.beltSelected);
-  return <div className="fps-belt" role="group" aria-label="Utility belt" data-testid="utility-belt">
+  return <div className={`fps-belt${docked ? ' is-docked' : ''}`} role="group" aria-label="Utility belt" data-testid="utility-belt">
     <div className="fps-belt-slots">{hud.belt.map(slot => <button key={slot.kind} type="button" className="fps-belt-slot" data-kind={slot.kind} data-count={slot.count}
       data-empty={!slot.count || undefined} data-using={using === slot.kind || undefined} data-wanted={(hurt && slot.count > 0 && HEALING.includes(slot.kind)) || undefined}
       aria-pressed={slot.kind === hud.beltSelected} disabled={!canUse || !slot.count || !onUse}

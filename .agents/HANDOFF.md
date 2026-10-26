@@ -3008,3 +3008,17 @@ route list shows the two nearest crossings so it stays clear of the belt.
 Validation: vitest, typecheck; in the browser pane at 375×812 touch: swipe
 left/right and tap switch, keys 1–3 follow the new order, Upper Thomson's
 route list clears the belt. `pnpm test:touch` not run.
+
+## 2026-10-26: landscape phones — belt docks between the thumbs
+
+On a phone on its side (touch, height ≤ 560 px) the belt over the ammo block
+rose into the weapon slider and the top bar. Now `FpsWeaponHud` (given
+`touch`) renders the belt `is-docked` at bottom centre between the stick and
+the sweep (`useMediaQuery(SHORT_SCREEN)` in new `use-media-query.ts`); the
+ammo block is compact and sits at bottom 140 px, just above the sweep; the
+vehicle locator is hidden (the minimap marks both vehicles) and the route list
+keeps its nearest crossing. The sweep's supply button is gone: belt slots are
+tapped directly. Bounds checked for overlap at 640×320, 740×360 (range and
+Upper Thomson) and 844×390; portrait 375×812 unchanged. Older overlaps left
+alone: the minimap covers part of the menu chip at 640×320, and the reload
+and jump buttons' bounding boxes touch.

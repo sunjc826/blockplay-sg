@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDownToLine, ChevronsDown, ChevronsUp, Crosshair, Eye, Footprints, Hand, Menu, MessageCircle, Move3d, PackageOpen, RefreshCw, Rocket, Repeat2 } from 'lucide-react';
+import { ArrowDownToLine, ChevronsDown, ChevronsUp, Crosshair, Eye, Footprints, Menu, MessageCircle, Move3d, PackageOpen, RefreshCw, Rocket, Repeat2 } from 'lucide-react';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
 import { promptLabel, thumbArc, type StickVector } from '../game/touch-controls';
 import { visionStatus } from './FpsVisionChip';
@@ -104,7 +104,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
     sweep.push(act('jump', 'Jump', <ChevronsUp size={17} />, { onClick: () => engine?.jump() }));
     // Weapons are drawn from the slider in the top-right corner, not the sweep.
     if (mode === 'expedition') {
-      if (hud.quickItem && hud.quickCount > 0) sweep.push(act('supply', hud.quickItem, <Hand size={17} />, { onClick: () => engine?.useQuickItem() }));
+      // Supplies are tapped on the utility belt itself, which a thumb can reach.
       if (hud.lootPrompt) prompts.push(act('loot', promptLabel(hud.lootPrompt), <PackageOpen size={16} />, { onClick: () => engine?.interactLoot() }));
       if (hud.npcPrompt) prompts.push(act('npc', promptLabel(hud.npcPrompt), <MessageCircle size={16} />, { onClick: () => engine?.interactNpc() }));
       if (hud.travelPrompt) prompts.push(act('travel', promptLabel(hud.travelPrompt), <Move3d size={16} />, { onClick: () => engine?.travelZone() }));

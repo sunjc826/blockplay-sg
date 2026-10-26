@@ -28,3 +28,13 @@
   .fps-game:has(.fps-weapon-slider) .expedition-route-hud{top:98px}
 }
 @media(prefers-reduced-motion:reduce){.fps-weapon-slider-thumb{transition:none}}
+/* A phone on its side: the strip tucks under the score, and the corner below
+   it belongs to the ammo block. The vehicle distances are on the minimap
+   already, and the route list keeps to the nearest crossing. */
+@media(max-height:560px){
+  .fps-game[data-touch=on] .fps-weapon-slider{top:54px}
+  .fps-game[data-touch=on]:has(.fps-weapon-slider) .fps-vehicle-locator{display:none}
+  .fps-game[data-touch=on]:has(.fps-weapon-slider) .expedition-route-hud{top:96px}
+  .fps-game[data-touch=on]:has(.fps-weapon-slider) .expedition-route-hud strong,
+  .fps-game[data-touch=on]:has(.fps-weapon-slider) .expedition-route-hud span:nth-of-type(n+2){display:none}
+}
