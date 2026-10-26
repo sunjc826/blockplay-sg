@@ -29,8 +29,8 @@ import { getAimAssist } from './aim-assist-setting';
 import { advanceRecoil, compensateRecoil, createRecoil, recoilPose, recoilView, recordRecoilShot, resetRecoil, takeAimPush } from './fps-recoil';
 import { effectStyleForWeapon, resolveEffectStyle, type EffectStyle } from './fps-effect-styles';
 import type { ImpactProfile } from './fps-impact-profile';
-import { applyArmorDamage, consumeItem, createProfile, encikAddress, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile, type VendorPurchaseResult } from './armory-state';
-import { registerElimination, ELIMINATION_XP, type KillChain } from './progression';
+import { applyArmorDamage, claimElimination, consumeItem, createProfile, encikAddress, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile, type VendorPurchaseResult } from './armory-state';
+import { registerElimination, ELIMINATION_XP, ELIMINATION_CREDITS, type KillChain } from './progression';
 import { createFpsVehicles } from './fps-vehicles';
 import type { MinimapMarker } from './minimap';
 import type { VehicleKind } from './vehicle-rules';
@@ -1173,7 +1173,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (target.health > 0) return;
     target.alive = false; target.root.visible = false; hud.hits++;
     const chain = registerElimination(killChain, hud.elapsed); killChain = chain; hud.chain = chain.count;
-    hud.callout = chain.label; calloutTime = hud.callout ? 2.4 : 0; hud.earnedXp += ELIMINATION_XP;
+    hud.callout = chain.label; calloutTime = hud.callout ? 2.4 : 0; hud.earnedXp += ELIMINATION_XP; hud.earned += ELIMINATION_CREDITS;
     options.onElimination?.(`${roundId}:kill:${hud.hits}`);
     comms.add('kills', pilotEnabled ? 'AI pilot' : 'You', `Target ${index + 1} eliminated${chain.label ? ' · ' + chain.label : ''}.`);
     announce(hud.callout, killChain.count);
@@ -1268,7 +1268,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (options.arena || hud.health <= 0 || hud.phase === 'complete' || hud.hits !== targetPositions.length) return;
     hud.phase = 'complete'; hud.incoming = false; clearInput(); radioCall('complete');
     const reward = { id: roundId, hits: hud.hits, shots: hud.shots, landed: hud.landed, elapsed: hud.elapsed, combat: !!options.combat };
-    hud.earned = rewardAmount(reward); hud.earnedXp += completionXp(reward); options.onComplete?.(reward);
+    hud.earned += rewardAmount(reward); hud.earnedXp += completionXp(reward); options.onComplete?.(reward);
     if (document.pointerLockElement === canvas) document.exitPointerLock();
   }
   /** Host rounds already drawn here, by id. */
@@ -1609,6 +1609,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (event.killerId !== options.arena!.session.id) continue;
       const chain = registerElimination(killChain, hud.elapsed); killChain = chain; hud.chain = chain.count;
       hud.callout = chain.label || 'ELIMINATION'; calloutTime = 2.4; announce(hud.callout, chain.count);
+      // Feed ids restart with each session, so the round id keeps a kill from matching one already paid.
+      const killId = `${roundId}:kill:${event.id}`;
+      hud.earned += ELIMINATION_CREDITS; hud.earnedXp += ELIMINATION_XP; options.onElimination?.(killId);
+      if (expedition) {
+        // The wallet on screen and the profile the next district starts from both read the field copy.
+        fieldProfile = claimElimination(fieldProfile, killId); hud.credits = fieldProfile.credits;
+        expedition.onEquipment(copyProfile(fieldProfile));
+      }
     }
     if (!frame.connected && options.arena!.session.role === 'guest' && hud.phase !== 'loading') {
       hud.message = 'The host disconnected. Return to the lobby to join another match.';

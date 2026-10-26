@@ -7,7 +7,7 @@ import { createFpsEngine, initialFpsHud, type FpsEngine } from '../game/fps-engi
 import { getFpsDistrict } from '../game/fps-districts';
 import { getWorldZone, type WorldZoneId } from '../game/world-zones';
 import { useFpsFullscreen } from '../game/use-fps-fullscreen';
-import { progression } from '../game/progression';
+import { ELIMINATION_CREDITS, progression } from '../game/progression';
 import { rankInsignia } from '../game/rank-insignia';
 import { encikAddress, resolveLoadout, type ArmoryProfile, type ExerciseReward } from '../game/armory-state';
 import type { LanSession } from '../game/lan-peer';
@@ -170,6 +170,6 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
     {isArena && hud.arena && hud.phase !== 'complete' && <details className="arena-standings" open={!playing}><summary>Match scoreboard <span>{hud.arena.actors.length} combatants</span></summary><Scoreboard snapshot={hud.arena} selfId={arenaOptions.session.id} /></details>}
     {isArena ? <div className="arena-session-footer"><span>{arenaOptions.session.role === 'solo' ? 'LOCAL BOT MATCH' : hud.arenaConnected ? 'P2P CONNECTED' : 'CONNECTING'} · {arenaOptions.session.name}</span><button onClick={onLeaveArena}>Leave match <ArrowRight size={13} /></button></div> : <div className="fps-progression-summary"><RankBadge insignia={insignia} size={17} /><b>LV {rank.level} · {insignia.label}</b><progress value={rank.progress} max={1} aria-label="FPS level progress" /><span>{rank.remaining ? `${rank.remaining} XP to next level` : 'Maximum level'}</span></div>}
     </>}
-    {(debug || isArena || fullscreen.notice || hud.message) && <p className="fps-message" role="status">{fullscreen.notice || hud.message || (isArena ? 'Match scores are session-only · Infantry armor/ammo replenish on respawn · Vehicle ammo resets with the match' : 'Game balance stats · Scenery blocks shots · Armor replenishes each exercise')}</p>}
+    {(debug || isArena || fullscreen.notice || hud.message) && <p className="fps-message" role="status">{fullscreen.notice || hud.message || (isArena ? `Eliminations pay ${ELIMINATION_CREDITS} CR · Match scores are session-only · Infantry armor/ammo replenish on respawn · Vehicle ammo resets with the match` : 'Game balance stats · Scenery blocks shots · Armor replenishes each exercise')}</p>}
   </div>;
 }

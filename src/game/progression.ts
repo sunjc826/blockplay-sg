@@ -1,5 +1,7 @@
 export const MAX_LEVEL = 50;
 export const ELIMINATION_XP = 25;
+/** Credits a kill pays wherever it lands: range targets, expedition bots and arena opponents. */
+export const ELIMINATION_CREDITS = 20;
 export const xpForLevel = (level: number) => { const n = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level))) - 1; return 100 * n * (n + 2); };
 export function progression(xp: number) {
   const total = Number.isFinite(xp) ? Math.max(0, Math.floor(xp)) : 0;

@@ -3,7 +3,7 @@ import { supplyWeightKg } from './fps-encumbrance';
 import { ARMORY_CATALOG, CONSUMABLE_LIMIT, isEnemyIssue, issuedItems, itemById, type AttachmentSlot, type FittedPart, type InternalPart, type ShopItem } from './armory-catalog';
 import { visionSpec, type VisionSpec } from './vision-devices';
 import type { VehicleKind } from './vehicle-rules';
-import { progression, levelSkip, xpForLevel, ELIMINATION_XP, MAX_LEVEL } from './progression';
+import { progression, levelSkip, xpForLevel, ELIMINATION_XP, ELIMINATION_CREDITS, MAX_LEVEL } from './progression';
 import { DEFAULT_RANK_SET, isRankSet, rankInsignia } from './rank-insignia';
 import { DEFAULT_ENCIK_TONE, type EncikAddress, type EncikTone } from './encik-registers';
 import { DEFAULT_VARIANTS, validWeaponIndex, FPS_WEAPONS, type WeaponSpec, type WeaponTrait } from './fps-rules';
@@ -242,7 +242,7 @@ export function rewardAmount(result: ExerciseReward) {
 export function completionXp(result: ExerciseReward) { return 200 + Math.round(Math.min(1, result.landed / Math.max(1, result.shots)) * 100) + (result.combat ? 100 : 0); }
 export function claimElimination(profile: ArmoryProfile, id: string): ArmoryProfile {
   if (!id || profile.rewarded.includes(id)) return profile;
-  return { ...profile, xp: Math.min(1000000, profile.xp + ELIMINATION_XP), rewarded: [...profile.rewarded, id].slice(-100) };
+  return { ...profile, xp: Math.min(1000000, profile.xp + ELIMINATION_XP), credits: Math.min(1000000, profile.credits + ELIMINATION_CREDITS), rewarded: [...profile.rewarded, id].slice(-100) };
 }
 export function claimReward(profile: ArmoryProfile, result: ExerciseReward): ArmoryProfile {
   if (result.hits !== 8 || result.shots < 8 || !Number.isFinite(result.shots) || !Number.isFinite(result.landed) || result.landed < 8 || result.landed > result.shots || !Number.isFinite(result.elapsed) || result.elapsed < 0 || !result.id || profile.rewarded.includes(result.id)) return profile;

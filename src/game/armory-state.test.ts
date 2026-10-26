@@ -27,7 +27,8 @@ describe('persistent armory economy', () => {
   });
   it('persists a complete equipped loadout', () => { const profile = equip(unlock('sar-vanguard'), 'sar-vanguard', 0); expect(restoreProfile(JSON.stringify(profile))).toEqual(profile); });
   it('awards kills and completion only once and rejects incomplete or malformed rewards', () => {
-    const base = createProfile(), killed = claimElimination(base, 'round-1:kill:1'); expect(killed.xp).toBe(25); expect(claimElimination(killed, 'round-1:kill:1')).toBe(killed);
+    const base = createProfile(), killed = claimElimination(base, 'round-1:kill:1'); expect(killed.xp).toBe(25); expect(killed.credits).toBe(base.credits + 20); expect(claimElimination(killed, 'round-1:kill:1')).toBe(killed);
+    expect(claimElimination(killed, 'round-2:kill:1').credits).toBe(base.credits + 40);
     const rewarded = claimReward(killed, result); expect(rewarded.credits).toBeGreaterThan(base.credits); expect(rewarded.xp).toBeGreaterThan(300); expect(claimReward(rewarded, result)).toBe(rewarded);
     expect(claimReward(base, { ...result, hits: 7 })).toBe(base); expect(claimReward(base, { ...result, shots: Infinity })).toBe(base); expect(claimReward(base, { ...result, landed: 31 })).toBe(base);
   });

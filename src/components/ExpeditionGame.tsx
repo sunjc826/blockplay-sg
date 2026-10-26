@@ -28,7 +28,7 @@ import { getArenaFaction, PLAYER_FACTION, SQUAD_FACTIONS } from '../game/arena-f
 
 interface ExpeditionScene { zone: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: FpsCheckpoint; revision: number }
 
-export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase, onConsume, suspended = false, initialZone = 'marina-bay', destination, onZoneChange }: { profile: ArmoryProfile; nav?: ReactNode; onExit: () => void; onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult; onConsume: (catalogId: string) => void; suspended?: boolean; initialZone?: WorldZoneId; destination?: WorldZoneId; onZoneChange?: (zone: WorldZoneId) => void }) {
+export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase, onConsume, onElimination, suspended = false, initialZone = 'marina-bay', destination, onZoneChange }: { profile: ArmoryProfile; nav?: ReactNode; onExit: () => void; onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult; onConsume: (catalogId: string) => void; onElimination?: (id: string) => void; suspended?: boolean; initialZone?: WorldZoneId; destination?: WorldZoneId; onZoneChange?: (zone: WorldZoneId) => void }) {
   const [fieldProfile, setFieldProfile] = useState<ArmoryProfile>(() => structuredClone(profile));
   const fieldProfileRef = useRef(fieldProfile);
   const [loot] = useState(() => createExpeditionLoot(`${Date.now()}-${Math.random()}`));
@@ -36,6 +36,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
   const zoneChanged = useRef(onZoneChange); zoneChanged.current = onZoneChange;
   useEffect(() => { zoneChanged.current?.(scene.zone); }, [scene.zone]);
   const [hud, setHud] = useState(initialFpsHud);
+  const eliminationCallback = useRef(onElimination); eliminationCallback.current = onElimination;
   const debug = useDebugMode();
   const host = useRef<HTMLDivElement>(null), stage = useRef<HTMLDivElement>(null), engine = useRef<FpsEngine | null>(null);
   const fullscreen = useFpsFullscreen(stage, () => engine.current?.pause());
@@ -53,6 +54,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
           onVendorPurchase,
         },
         onConsume,
+        onElimination: id => eliminationCallback.current?.(id),
         onFullscreen: () => { void fullscreenAction.current(); },
       });
     } catch {

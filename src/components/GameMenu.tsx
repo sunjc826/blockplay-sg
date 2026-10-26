@@ -82,7 +82,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     return <div className={`game-screen game-screen-play game-screen-${screen}`}>
       <main className="game-screen-body"><DebugMode.Provider value={false}>
         {screen === 'training' && <FpsGame key={`training-${training}`} region={training} profile={armory.profile} nav={nav} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={() => navigate('store')} />}
-        {screen === 'world' && <ExpeditionGame key={`world-${worldStart}-${worldRun}`} initialZone={worldStart} onZoneChange={setWorldZone} nav={nav} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onExit={() => navigate('menu')} />}
+        {screen === 'world' && <ExpeditionGame key={`world-${worldStart}-${worldRun}`} initialZone={worldStart} onZoneChange={setWorldZone} nav={nav} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onElimination={armory.awardElimination} onExit={() => navigate('menu')} />}
       </DebugMode.Provider></main>
       {updateToast}
     </div>;

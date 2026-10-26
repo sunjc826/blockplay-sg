@@ -2958,3 +2958,15 @@ at night: sky .01, buildings ~.2, ground ~.4. Not seen: the desktop chip in
 mouse play (pointer capture is blocked in the pane), TI-1's freeze, and frame
 cost on a real GPU (the pane ran ~1.5 fps). The pane hides the page during a
 screenshot, which trips the engine's visibility pause; that is the harness.
+
+## 2026-10-26: kills pay credits
+
+`ELIMINATION_CREDITS = 20` (`progression.ts`) rides on `claimElimination`
+beside the 25 XP, so every kill pays 20 CR once per id. Range targets already
+called it; arena and expedition feed kills by the player now do too, keyed
+`${roundId}:kill:${feedId}` since feed ids restart per session. Expedition also
+applies the claim to its field profile so the on-screen wallet and the next
+district's start see it; `ExpeditionGame` takes `onElimination` (wired in
+GameMenu and DebugApp). The range's end banner now sums kill CR with the
+completion payout (`hud.earned +=`). Shop, wallet tooltip and arena footer copy
+name the kill payout. Not played in the browser; vitest + typecheck only.
