@@ -7,6 +7,7 @@ import { createBirds, BIRDS } from './ambient-birds';
 import { buildJet } from './combat-event-visuals';
 import { withInstanceOpacity } from './fps-impact-material';
 import type { CombatRisk } from './combat-director';
+import type { SetPieceCueKind } from './district-set-pieces';
 
 /**
  * Draws and sounds the ambient sky (ambient-sky.ts): skyline battles, jet
@@ -450,6 +451,13 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
       const a = Math.random() * Math.PI * 2, r = 15 + Math.random() * 25;
       const roost = perch ?? { x: at.x + Math.cos(a) * r, y: at.y + 8 + Math.random() * 10, z: at.z + Math.sin(a) * r };
       if (birds.startle(at, strength, roost)) sound.flutter(far(roost), pan(roost));
+    },
+    /** Plays a district set piece's sound from where it happens (district-set-pieces). */
+    cue(kind: SetPieceCueKind, at: AmbientPoint) {
+      const distance = far(at), side = pan(at);
+      if (kind === 'chime') sound.chime(distance, side);
+      else if (kind === 'horn' || kind === 'train-horn') sound.horn(distance, side, kind === 'train-horn');
+      else sound.roar(distance, side, kind === 'flypast' ? 4 : 7, kind === 'flypast' ? 1.6 : 1.2);
     },
     /** events / glows / tracers / smoke / jets / searchlights / ships / birds, for smokes and tests. */
     get census() {

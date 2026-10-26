@@ -3183,3 +3183,33 @@ still recompile every material; vision devices not warmed. Validation: unit
 tests (new: instanced-raycast, instanced-materials), typecheck, headless
 probe, scoped screenshot. Browser smokes not run; not tried on a phone or
 Windows GPU.
+
+## 2026-10-26: district set pieces — a city that keeps running
+
+`district-set-pieces.ts` wraps every region build (regions.ts) so all modes
+get them, inside the world's own `animate(time)`: pure functions of the
+clock, so LAN peers agree (FPS time is `hud.elapsed`, the host's in arenas).
+Queenstown's train (now named `queenstown-train`; its old 6 m/s loop is gone)
+keeps a timetable: in from alternate ends, brake to EW19, door chimes, 28 s
+dwell, out. Punggol's LRT shuttles station ↔ viaduct end. HarbourFront's two
+quay gantries and Tuas's two stacking cranes move a container back and forth
+(trolley, ropes, spreader; drop heights probed below the boom); the liner
+sounds its horn. Tuas's flare burns. Changi alternates arrivals and departures
+along x = 420, off the coast, nav lights at night. The Woodlands shuttle comes
+in over the Causeway rail, waits, goes back (it floats over the unmodelled
+far side beyond z −200). Marina: the Flyer (regrouped in marina-scene into
+`marina-flyer-wheel` with counter-turned `marina-flyer-capsule` pods) turns
+every 8 min with rim lights at night; Supertrees run a light programme at
+night; a fountain-and-laser bay show runs 3 min in every 10 after dark; a
+National Day–style five-jet flypast with red and white smoke crosses every
+7 min by day. Macaques sit and hop between perches at Upper Thomson (lakeside
+platform railings, kopitiam roof) and Bukit Timah (station roof and platform).
+Night comes from the atmosphere root's `timeOfDay`. All of it sits under a
+ray-proof `fpsEffect` group and adds no colliders; set pieces start at their
+time-0 places (an airliner at the origin skewed Changi's cover test).
+`RegionWorld.cues(from, to)` feeds chimes, horns and aircraft roars to the
+ambient audio. Not done: Bishan (its station has no track), Sentosa and the
+HarbourFront cable cars (already moving), and every people-based set piece
+(Chinatown, Toa Payoh, Geylang, Kampong Glam, Orchard, Jurong Lake, Raffles)
+pending a decision on civilian behaviour. Validation: unit tests, full suite,
+typecheck, build; frames rendered in headless Chrome for every piece.

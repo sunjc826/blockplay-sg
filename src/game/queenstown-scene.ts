@@ -251,7 +251,8 @@ export function buildQueenstownScene() {
     }
     sign('MRT', x, 3.8, 42.75, 4, 1.2);
   }
-  const train = new THREE.Group(); scene.add(train);
+  // Runs to a timetable, stopping at EW19 (district-set-pieces).
+  const train = new THREE.Group(); train.name = 'queenstown-train'; scene.add(train);
   for (let n = 0; n < 3; n++) {
     const x = n * 13 - 13;
     box(x, 10, 22, 12, 2.8, 3.2, cream, train); box(x, 9.3, 23.65, 12, 0.35, 0.06, red, train);
@@ -482,7 +483,7 @@ export function buildQueenstownScene() {
     mesh.computeBoundingSphere(); scene.add(mesh); instances.push(mesh);
   }
   return withVerticalPlaces({ scene, obstacles, car, stamps,
-    animate(time: number) { train.position.x = ((time * 6) % 430) - 215; stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.7; stamp.position.y = 2.2 + Math.sin(time * 2 + i) * 0.2; }); },
+    animate(time: number) { stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.7; stamp.position.y = 2.2 + Math.sin(time * 2 + i) * 0.2; }); },
     dispose() { instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose()); sun.shadow.dispose(); },
   }, QUEENSTOWN_VERTICAL_PLACES);
 }

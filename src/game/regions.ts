@@ -1,3 +1,4 @@
+import { withSetPieces, type SetPieceCue } from './district-set-pieces';
 import type * as THREE from 'three';
 import { REGION_IDS, isRegionId, type RegionId } from './region-ids';
 import { createRegionMovement, type Obstacle, type Position2D, type RegionBounds } from './region-collision';
@@ -40,6 +41,8 @@ export interface RegionWorld {
   car: THREE.Object3D;
   stamps: THREE.Object3D[];
   animate(time: number): void;
+  /** What the district's set pieces (district-set-pieces) want heard between two `animate` times. */
+  cues?(from: number, to: number): SetPieceCue[];
   dispose(): void;
 }
 
@@ -433,6 +436,9 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildOrchardScene, move: orchardMovement.move, canOccupy: orchardMovement.canOccupy,
   },
 };
+
+// Every district is built with its set pieces, whatever mode builds it.
+for (const id of REGION_IDS) { const build = definitions[id].build; definitions[id] = { ...definitions[id], build: () => withSetPieces(id, build()) }; }
 
 export const REGIONS: readonly RegionDefinition[] = REGION_IDS.map(id => definitions[id]);
 

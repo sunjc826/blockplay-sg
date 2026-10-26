@@ -89,9 +89,9 @@ export function buildMarinaScene() {
     const mesh = new THREE.Mesh(boxGeo, material); mesh.position.set(x, y, z); mesh.scale.set(w, h, d);
     mesh.castShadow = shadow; mesh.receiveShadow = true; parent.add(mesh); return mesh;
   }
-  function beam(from: THREE.Vector3, to: THREE.Vector3, width: number, material: THREE.Material) {
+  function beam(from: THREE.Vector3, to: THREE.Vector3, width: number, material: THREE.Material, parent: THREE.Object3D = scene) {
     const middle = from.clone().add(to).multiplyScalar(0.5);
-    const mesh = box(middle.x, middle.y, middle.z, width, from.distanceTo(to), width, material, scene, true);
+    const mesh = box(middle.x, middle.y, middle.z, width, from.distanceTo(to), width, material, parent, true);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize()); return mesh;
   }
   // Ground and the sand apron are laid round the basin rather than across it,
@@ -547,17 +547,21 @@ export function buildMarinaScene() {
   const capsuleGeo = geo(new THREE.CapsuleGeometry(1.05, 4.5, 3, 8));
   const capsuleGlass = mat('#587c7c', { roughness: 0.32, metalness: 0.15 });
   const axle = new THREE.Mesh(geo(new THREE.CylinderGeometry(1.1, 1.1, 7.2, 12)), steel); axle.rotation.x = Math.PI / 2; axle.position.set(258, 30, -267); scene.add(axle);
+  // The turning part is one group about the axle; each capsule hangs on its
+  // own pivot so it can be counter-turned to stay level (district-set-pieces).
+  const flyer = new THREE.Group(); flyer.name = 'marina-flyer-wheel'; flyer.position.set(258, 30, -267); scene.add(flyer);
   for (const z of [-270, -264]) {
-    const rim = new THREE.Mesh(geo(new THREE.TorusGeometry(25, 0.4, 5, 40)), pale); rim.position.set(258, 30, z); scene.add(rim);
+    const local = z + 267;
+    const rim = new THREE.Mesh(geo(new THREE.TorusGeometry(25, 0.4, 5, 40)), pale); rim.position.set(0, 0, local); flyer.add(rim);
     for (let i = 0; i < 16; i++) {
       const angle = i / 16 * Math.PI * 2;
-      beam(new THREE.Vector3(258, 30, z), new THREE.Vector3(258 + Math.cos(angle) * 25, 30 + Math.sin(angle) * 25, z), 0.12, steel);
+      beam(new THREE.Vector3(0, 0, local), new THREE.Vector3(Math.cos(angle) * 25, Math.sin(angle) * 25, local), 0.12, steel, flyer);
       if (z === -264) {
-        const x = 258 + Math.cos(angle) * 25, y = 30 + Math.sin(angle) * 25;
-        const capsule = new THREE.Mesh(capsuleGeo, capsuleGlass); capsule.rotation.x = Math.PI / 2; capsule.scale.x = 1.5; capsule.position.set(x, y, -267); scene.add(capsule); qualityDetails.wheelCapsules++;
-        box(x, y - 0.95, -267, 2.5, 0.18, 5.5, pale);
-        box(x, y + 1.05, -267, 2.3, 0.13, 5.7, pale);
-        for (const dx of [-1.53, 1.53]) for (const dz of [-2, -1, 0, 1, 2]) box(x + dx, y, -267 + dz, 0.07, 1.55, 0.07, steel);
+        const pod = new THREE.Group(); pod.name = 'marina-flyer-capsule'; pod.position.set(Math.cos(angle) * 25, Math.sin(angle) * 25, 0); flyer.add(pod);
+        const capsule = new THREE.Mesh(capsuleGeo, capsuleGlass); capsule.rotation.x = Math.PI / 2; capsule.scale.x = 1.5; pod.add(capsule); qualityDetails.wheelCapsules++;
+        box(0, -0.95, 0, 2.5, 0.18, 5.5, pale, pod);
+        box(0, 1.05, 0, 2.3, 0.13, 5.7, pale, pod);
+        for (const dx of [-1.53, 1.53]) for (const dz of [-2, -1, 0, 1, 2]) box(dx, 0, dz, 0.07, 1.55, 0.07, steel, pod);
       }
     }
     for (const x of [245, 271]) { beam(new THREE.Vector3(x, 0, z + (z === -270 ? -6 : 6)), new THREE.Vector3(258, 30, z), 1, pale); collider(x, z + (z === -270 ? -6 : 6), 2, 2); }

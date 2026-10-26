@@ -58,6 +58,44 @@ export function createAmbientSkyAudio(getContext: () => AudioContext | null, mut
       source.start(at, Math.random() * 2); source.stop(at + 1.15); beat.start(at); beat.stop(at + 1.15);
       source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); beat.disconnect(); depth.disconnect(); panner.disconnect(); };
     },
+    /** A train's door chime: three soft falling notes, heard only nearby. */
+    chime(distance: number, pan = 0) {
+      const context = ready(), level = Math.max(0, 1 - distance / 220) * .045; if (!context || level < .001) return;
+      [880, 740, 587].forEach((pitch, i) => {
+        const at = context.currentTime + farDelay(distance) + i * .32, tone = context.createOscillator(), gain = context.createGain(), panner = context.createStereoPanner();
+        tone.type = 'sine'; tone.frequency.value = pitch; panner.pan.value = Math.max(-1, Math.min(1, pan * .6));
+        gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(level, at + .02); gain.gain.exponentialRampToValueAtTime(.0001, at + .55);
+        tone.connect(gain).connect(panner).connect(context.destination); tone.start(at); tone.stop(at + .6);
+        tone.onended = () => { tone.disconnect(); gain.disconnect(); panner.disconnect(); };
+      });
+    },
+    /**
+     * A horn: a ship's two long, low blasts, or (`train`) a locomotive's two
+     * short and one long, higher. Carries far.
+     */
+    horn(distance: number, pan = 0, train = false) {
+      const context = ready(), level = farGain(distance) * (train ? .07 : .1); if (!context || level < .001) return;
+      const blasts: [number, number][] = train ? [[0, .35], [.5, .35], [1, 1.4]] : [[0, 2.2], [3, 2.2]], pitches = train ? [311, 370] : [92, 138];
+      for (const [offset, length] of blasts) {
+        const at = context.currentTime + farDelay(distance) + offset, filter = context.createBiquadFilter(), gain = context.createGain(), panner = context.createStereoPanner();
+        filter.type = 'lowpass'; filter.frequency.value = train ? 1600 : 650; panner.pan.value = Math.max(-1, Math.min(1, pan * .6));
+        gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(level, at + .08); gain.gain.setValueAtTime(level, at + length - .15); gain.gain.exponentialRampToValueAtTime(.0001, at + length);
+        filter.connect(gain).connect(panner).connect(context.destination);
+        const tones = pitches.map(pitch => { const tone = context.createOscillator(); tone.type = 'sawtooth'; tone.frequency.value = pitch; tone.connect(filter); tone.start(at); tone.stop(at + length + .05); return tone; });
+        tones[0].onended = () => { tones.forEach(t => t.disconnect()); filter.disconnect(); gain.disconnect(); panner.disconnect(); };
+      }
+    },
+    /** An aircraft going over: a long swell of engine roar, `seconds` long, peaking in the middle. */
+    roar(distance: number, pan = 0, seconds = 6, size = 1) {
+      const context = ready(), level = farGain(distance) * .09 * size; if (!context || level < .001) return;
+      const at = context.currentTime + farDelay(distance), source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain(), panner = context.createStereoPanner();
+      source.buffer = noiseBuffer(context); source.loop = true; filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(300, at); filter.frequency.linearRampToValueAtTime(900, at + seconds / 2); filter.frequency.linearRampToValueAtTime(250, at + seconds);
+      gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(level, at + seconds / 2); gain.gain.exponentialRampToValueAtTime(.0001, at + seconds);
+      panner.pan.value = Math.max(-1, Math.min(1, pan * .6));
+      source.connect(filter).connect(gain).connect(panner).connect(context.destination); source.start(at); source.stop(at + seconds + .05);
+      source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); panner.disconnect(); };
+    },
     /** A rocket leaving its rail: a rising roar that tails off. */
     whoosh(distance: number, pan = 0) {
       const context = ready(), level = farGain(distance) * .08; if (!context || level < .001) return;
