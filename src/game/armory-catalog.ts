@@ -15,6 +15,14 @@ export type ItemTier = typeof ITEM_TIERS[number];
 /** Where a tier sits in `ITEM_TIERS`: 0 for Issued up to 5 for Mythic. */
 export const tierRank = (tier: ItemTier) => ITEM_TIERS.indexOf(tier);
 /**
+ * The order weapons are shelved in: what unlocks first, then the lower rarity
+ * at the same level, then credits before tokens and the cheaper first.
+ */
+export function byUnlock(a: ShopItem, b: ShopItem) {
+  return (a.requiredLevel ?? 1) - (b.requiredLevel ?? 1) || tierRank(a.tier) - tierRank(b.tier)
+    || Number(a.currency === 'tokens') - Number(b.currency === 'tokens') || a.price - b.price || a.name.localeCompare(b.name);
+}
+/**
  * Internal hardware a variant is built from: a barrel, a carrier, a drum. It
  * takes no attachment slot and is not sold on its own, but a variant's figures
  * are the sum of its parts rather than numbers written next to its name, so the

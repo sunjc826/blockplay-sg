@@ -4,7 +4,7 @@ import { equipmentMovement } from '../game/fps-encumbrance';
 import { useState } from 'react';
 import { ArrowRight, Check, Coins, Crosshair, Eye, Gem, Shield, CarFront, Plane, SlidersHorizontal } from 'lucide-react';
 import { utilityKind, utilitySlot } from '../game/utility-belt';
-import { ARMORY_CATALOG, CONSUMABLE_LIMIT, isEnemyIssue, isShopFamily, itemById, type InternalPart, type ItemTier, type ShopItem } from '../game/armory-catalog';
+import { ARMORY_CATALOG, byUnlock, CONSUMABLE_LIMIT, isEnemyIssue, isShopFamily, itemById, type InternalPart, type ItemTier, type ShopItem } from '../game/armory-catalog';
 import { fittedParts, isEquipped, previewLoadout, resolveLoadout, SHOP_CATEGORIES, variantSpec } from '../game/armory-state';
 import type { ArmoryStore } from '../game/use-armory';
 import type { VehicleKind } from '../game/vehicle-rules';
@@ -95,6 +95,8 @@ export default function ArmoryShop({ store, onEnterRange, rangeLabel = 'Marina F
   const encikSample = (tone: EncikTone) => addressLine(encikLines('kill', { level: level.level, rank: insignia.title, tone })[0], insignia.title);
   const encikNow = encikRegister({ level: level.level, rank: insignia.title, tone: profile.encikTone });
   const items = ARMORY_CATALOG.filter(i => category === 'armor' ? i.category === 'rig' || i.category === 'plate' : category === 'food' ? i.category === 'consumable' && i.supplyType === 'food' : category === 'utility' ? i.category === 'consumable' && i.supplyType !== 'food' : i.category === category && !isEnemyIssue(i) && (i.family === undefined || i.family === family));
+  // Weapons are shelved by when they unlock, then by rarity; the other tabs keep the catalog's order.
+  if (category === 'weapon') items.sort(byUnlock);
   const item = items.find(i => i.id === selectedId) || items[0];
   const current = resolveLoadout(profile), preview = previewLoadout(profile, item, family), weapon = preview.weapons[family], equippedWeapon = current.weapons[family];
   // Supplies stack rather than unlocking, so they are held by count and the
