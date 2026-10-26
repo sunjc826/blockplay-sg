@@ -115,6 +115,21 @@ export function createCombatAudio(getContext: () => AudioContext | null, muted: 
       gain.gain.setValueAtTime(level, at); gain.gain.exponentialRampToValueAtTime(.0001, at + .12);
       source.connect(filter).connect(gain).connect(context.destination); source.start(at, Math.random() * 2); source.stop(at + .14); disconnectAfter(source, filter, gain);
     },
+    /**
+     * Someone else's shot on foot, `after` seconds from now plus its travel time.
+     * Close in it is a sharp crack; distance dulls and smears it. A heavier gun
+     * is louder, and a wider bore pitches it lower.
+     */
+    report(distance: number, calibre: number, power: number, after = 0) {
+      const weight = Math.sqrt(Math.min(3, Math.max(.6, power / 36)));
+      const context = ready(); const level = distanceGain(distance) * .14 * weight; if (!context || level < .002) return;
+      const at = context.currentTime + Math.max(0, after) + soundDelay(distance), length = .07 + Math.min(.25, distance * .0008) + .03 * (weight - 1);
+      const source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain();
+      source.buffer = noiseBuffer(context); filter.type = 'bandpass'; filter.Q.value = .7;
+      filter.frequency.value = Math.max(350, 2400 - distance * 5) * Math.pow(5.56 / Math.max(1, calibre), .35);
+      gain.gain.setValueAtTime(level, at); gain.gain.exponentialRampToValueAtTime(.0001, at + length);
+      source.connect(filter).connect(gain).connect(context.destination); source.start(at, Math.random() * 2); source.stop(at + length + .02); disconnectAfter(source, filter, gain);
+    },
     /** A mortar bomb leaving its tube: a hollow thump from wherever the pit is. */
     thunk(distance: number) {
       const context = ready(); const level = distanceGain(distance) * .3; if (!context || level < .002) return;

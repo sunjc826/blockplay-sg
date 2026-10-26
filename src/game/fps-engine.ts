@@ -67,6 +67,7 @@ import { bannerOf, threatens } from './combat-event-catalog';
 import { hostile, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
 import { HEAT_CALLS } from './faction-heat';
 import { createCombatAudio } from './combat-event-audio';
+import { gunfireReports } from './gunfire-reports';
 import { getEnvironmentSettings } from './environment-settings';
 import { createHitDirectionOverlay, createHitDirections, hitStrength } from './fps-hit-direction';
 import { advanceSupplyUse, startSupplyUse, supplyProfile, supplyProgress, SUPPLY_MOVE_SCALE, type SupplyProfile, type SupplyStyle, type SupplyUse } from './fps-healing';
@@ -1273,6 +1274,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** Host rounds already drawn here, by id. */
   const seenRounds = new Set<number>();
+  /** Each arena figure's shot count when last heard, by id. */
+  const heardShots = new Map<string, number>();
   /** Strike looks for other people's guns, built on first sight from the bore and damage the host publishes. */
   const publishedStyles = new Map<string, EffectStyle>();
   function publishedStyle(view: PublishedRound) {
@@ -1509,7 +1512,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       pendingAttack.remaining -= dt;
       if (pendingAttack.remaining <= 0) {
         const attack = pendingAttack; pendingAttack = null; hud.incoming = false;
-        if (hasLineOfSight(attack.target) && playerPoint().distanceTo(attack.aim) < .75) {
+        // The target fires whenever it still sees you, and is heard whether or not it finds you.
+        const sees = hasLineOfSight(attack.target);
+        if (sees) combatAudio.report(attackOrigin.distanceTo(camera.position), 5.56, 36);
+        if (sees && playerPoint().distanceTo(attack.aim) < .75) {
           if (vehicles.active) vehicles.damage(vehicles.active, 36);
           else { hurtPlayer(18); hitDirections.add(viewer(), attackOrigin, hitStrength(18, hud.maxHealth)); }
           resolveVehicleDestruction();
@@ -1565,6 +1571,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.arena = frame.snapshot; hud.arenaSelf = frame.self; hud.arenaConnected = frame.connected; hud.arenaStarted = frame.started;
     if (options.arena) rounds.push(...adoptPublishedRounds(frame.snapshot?.rounds ?? [], seenRounds,
       { self: options.arena.session.id, viewer: camera.position, range: REMOTE_TRACER_RANGE, room: MAX_ROUNDS_IN_FLIGHT - rounds.length, nextId: () => ++roundSerial, styleFor: publishedStyle }));
+    if (options.arena && frame.snapshot) for (const shot of gunfireReports(frame.snapshot.actors, heardShots, options.arena.session.id, camera.position)) combatAudio.report(shot.distance, shot.calibre, shot.power, shot.after);
     if (frame.snapshot) hud.elapsed = frame.snapshot.elapsed;
     if (frame.snapshot) dropFallenWeapons(frame.snapshot.actors, frame.feed);
     if (frame.self) {
