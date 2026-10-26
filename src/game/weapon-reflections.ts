@@ -110,15 +110,18 @@ export function createOpticReflectionRenderer(renderer: THREE.WebGLRenderer, { f
       const size = THREE.MathUtils.clamp(Math.ceil(screenFraction * renderer.getDrawingBufferSize(buffer).y * 1.25 / 128) * 128, 256, 1024);
       if (target.width !== size) target.setSize(size, size);
 
-      const previousTarget = renderer.getRenderTarget(), shadows = renderer.shadowMap.autoUpdate, xr = renderer.xr.enabled;
+      // three.js draws a pending shadow map with whichever render comes first and
+      // only for casters on that camera's layers. Leave the frame's update to the
+      // main view, or the sun map is redrawn from this layer's few large meshes.
+      const previousTarget = renderer.getRenderTarget(), shadows = renderer.shadowMap.autoUpdate, shadowsPending = renderer.shadowMap.needsUpdate, xr = renderer.xr.enabled;
       const fog = (world.fog as THREE.Fog | null)?.isFog ? world.fog as THREE.Fog : undefined, fogNear = fog?.near ?? 0, fogFar = fog?.far ?? 0;
       try {
-        renderer.shadowMap.autoUpdate = false; renderer.xr.enabled = false;
+        renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; renderer.xr.enabled = false;
         // Fade scenery into the fog colour before the shortened far plane cuts it.
         if (fog) { fog.far = Math.min(fogFar, far); fog.near = Math.min(fogNear, fog.far * .65); }
         renderer.setRenderTarget(target); renderer.clear(); renderer.render(world, camera);
       } finally {
-        renderer.setRenderTarget(previousTarget); renderer.shadowMap.autoUpdate = shadows; renderer.xr.enabled = xr;
+        renderer.setRenderTarget(previousTarget); renderer.shadowMap.autoUpdate = shadows; renderer.shadowMap.needsUpdate = shadowsPending; renderer.xr.enabled = xr;
         if (fog) { fog.near = fogNear; fog.far = fogFar; }
       }
       glass.uniforms.reflectionMap.value = target.texture;

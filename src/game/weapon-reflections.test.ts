@@ -6,7 +6,7 @@ import { FPS_WEAPONS } from './fps-rules';
 
 function fixture() {
   const original = new THREE.WebGLRenderTarget(8, 8);
-  const renderer = { getDrawingBufferSize: (size: THREE.Vector2) => size.set(1600, 900), getRenderTarget: () => original, setRenderTarget: vi.fn(), clear: vi.fn(), render: vi.fn(), shadowMap: { autoUpdate: true }, xr: { enabled: true } };
+  const renderer = { getDrawingBufferSize: (size: THREE.Vector2) => size.set(1600, 900), getRenderTarget: () => original, setRenderTarget: vi.fn(), clear: vi.fn(), render: vi.fn(), shadowMap: { autoUpdate: true, needsUpdate: false }, xr: { enabled: true } };
   const reflections = createOpticReflectionRenderer(renderer as unknown as THREE.WebGLRenderer);
   const model = new THREE.Group(), remove = fitWeaponOptic(model, FPS_WEAPONS[1]), sight = getWeaponSight(model)!;
   model.position.set(0, -sight.aimHeight, sight.aimDepth);
@@ -46,6 +46,18 @@ it('captures hip-position glass but skips offscreen and absent optics', () => {
   expect(f.reflections.render(f.world, f.camera, f.view, f.sight.reflection, true, 1)).toBe(false);
   expect(f.reflections.render(f.world, f.camera, f.view, undefined, true, 2)).toBe(false);
   expect(f.renderer.render).toHaveBeenCalledOnce();
+  f.dispose();
+});
+
+it('leaves a pending sun-shadow update for the main view', () => {
+  // The capture sees only the reflected layer; drawing the shadow map from it drops every small caster.
+  const f = fixture();
+  f.renderer.shadowMap.needsUpdate = true;
+  let pendingDuringPass: boolean | undefined;
+  f.renderer.render.mockImplementation(() => { pendingDuringPass = f.renderer.shadowMap.needsUpdate; });
+  expect(f.reflections.render(f.world, f.camera, f.view, f.sight.reflection, true, 0)).toBe(true);
+  expect(pendingDuringPass).toBe(false);
+  expect(f.renderer.shadowMap.needsUpdate).toBe(true);
   f.dispose();
 });
 
