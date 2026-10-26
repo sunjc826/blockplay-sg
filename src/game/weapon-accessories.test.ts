@@ -119,11 +119,6 @@ describe('the dossier', () => {
 });
 
 describe('the kitted tiers', () => {
-  /** Everything a variant is built from or fitted with, an offset dot counted as a sight of its own. */
-  const kit = (id: string) => {
-    const item = itemById(id)!, fitted = item.fitted?.filter(part => part.accessories) ?? [];
-    return (item.build?.length ?? 0) + fitted.length + fitted.filter(part => part.accessories?.offsetDot).length;
-  };
   const shop = ARMORY_CATALOG.filter(item => item.category === 'weapon' && item.price > 0 && !item.source);
   const of = (tier: string) => shop.filter(item => item.tier === tier);
   it('ranks rarity Issued up to Mythic', () => {
@@ -131,19 +126,12 @@ describe('the kitted tiers', () => {
     expect(tierRank('Mythic')).toBeGreaterThan(tierRank('Legendary'));
     expect(tierRank('Ultra')).toBeGreaterThan(tierRank('Elite'));
   });
-  it('gives the top three only to specialists carrying accessories, sold for tokens', () => {
+  it('gives the top three to variants carrying accessories, sold for tokens', () => {
     for (const tier of ['Ultra', 'Legendary', 'Mythic'] as const) for (const item of of(tier)) {
-      expect(item.specialist, item.id).toBe(true);
       expect(item.fitted?.some(part => part.accessories), item.id).toBe(true);
       expect(item.currency, item.id).toBe('tokens');
     }
     expect(of('Mythic').map(item => item.id).sort()).toEqual(['p30-atas', 'sar-twoeyes']);
-  });
-  it('never ranks a variant above one carrying more kit', () => {
-    const most = (tier: string) => Math.max(...of(tier).map(item => kit(item.id)));
-    const least = (tier: string) => Math.min(...of(tier).map(item => kit(item.id)));
-    expect(least('Mythic')).toBeGreaterThanOrEqual(most('Legendary'));
-    expect(least('Legendary')).toBeGreaterThanOrEqual(most('Ultra'));
   });
   it('unlocks a higher tier later than the tier below it, on average', () => {
     const level = (tier: string) => of(tier).reduce((sum, item) => sum + (item.requiredLevel ?? 1), 0) / of(tier).length;

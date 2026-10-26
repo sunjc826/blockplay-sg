@@ -1,4 +1,4 @@
-import { ARMORY_CATALOG, isEnemyIssue, itemById, type ShopItem } from './armory-catalog';
+import { ARMORY_CATALOG, isEnemyIssue, itemById, tierRank, type ShopItem } from './armory-catalog';
 import { applyArmorDamage, createProfile, equip, resolveLoadout } from './armory-state';
 import { listArenaRoles } from './arena-roles';
 import { findTrait, FPS_WEAPONS, hitDamage, type WeaponSpec } from './fps-rules';
@@ -133,6 +133,46 @@ export function analyseBreakpoints(opponents: readonly Opponent[] = DRILL_OPPONE
     });
   }
   return rows;
+}
+/**
+ * Whether `a` has to be at least as good as `b`. On the same platform, a gun
+ * that unlocks no earlier *and* sits in no lower tier, and is above `b` on at
+ * least one of the two, must be. Where one gun has the later level and the
+ * other the higher tier, neither outranks the other: a high tier at a low
+ * level is strong for its level, and a lower tier further up can be its equal.
+ * A sidegrade (`specialist`) trades one strength for another within its own
+ * tier, so it is not ranked against that tier in either direction.
+ */
+export function mustOutrank(a: BreakpointRow, b: BreakpointRow) {
+  if (a.family !== b.family || a.id === b.id) return false;
+  const tier = tierRank(a.tier) - tierRank(b.tier), level = a.level - b.level;
+  if (tier < 0 || level < 0 || (tier === 0 && level === 0)) return false;
+  return !(tier === 0 && (a.specialist || b.specialist));
+}
+/**
+ * Every way a gun falls short of one it must outrank: more shots to kill, or a
+ * slower kill, to the body or the head, at any sampled range against any of
+ * `opponents`; or, with `requireGain`, a kill no faster anywhere at all.
+ */
+export function outrankFailures(rows: BreakpointRow[] = analyseBreakpoints(), opponents: readonly Opponent[] = DRILL_OPPONENTS, requireGain = (row: BreakpointRow) => row.family !== 4) {
+  const failures: string[] = [];
+  for (const a of rows) for (const b of rows) {
+    if (!mustOutrank(a, b)) continue;
+    let gain = false;
+    a.ranges.forEach((here, i) => {
+      const there = b.ranges[i];
+      opponents.forEach((foe, p) => {
+        for (const [part, mine, theirs] of [['body', here.stk[p], there.stk[p]], ['head', here.headStk[p], there.headStk[p]]] as const) {
+          const quick = timeToKill(mine, a.interval), slow = timeToKill(theirs, b.interval);
+          if (mine > theirs) failures.push(`${a.name} needs more ${part} shots than ${b.name} at ${here.range}m vs ${foe.name} (${mine} > ${theirs})`);
+          else if (quick > slow + 1e-9) failures.push(`${a.name} kills slower than ${b.name} to the ${part} at ${here.range}m vs ${foe.name} (${quick.toFixed(3)}s > ${slow.toFixed(3)}s)`);
+          if (mine < theirs || (slow > 0 && (slow - quick) / slow >= TTK_MARGIN)) gain = true;
+        }
+      });
+    });
+    if (!gain && requireGain(a)) failures.push(`${a.name} is no better than ${b.name} anywhere`);
+  }
+  return failures;
 }
 /** Paid tiers that remove no threshold at all, at any range. */
 export const deadBuys = (rows: BreakpointRow[] = analyseBreakpoints()) => rows.filter(row => row.gains && !row.gains.length).map(row => row.name);

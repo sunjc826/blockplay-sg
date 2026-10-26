@@ -132,11 +132,14 @@ XP like any other: it advances rank titles and persists in the same profile.
 | SAR Steady Lah | 39 | 30 | .115 s | 1.65 s | .016 |
 | SAR Garang | 50 | 36 | .105 s | 1.53 s | .0101 |
 | SAR Own Time, Own Target | 58 | 36 | .100 s | 1.50 s | .0082 |
-| SAR Sharpshooter (semi) | 66 | 30 | .250 s | 1.80 s | .014 |
+| SAR Sharpshooter (semi) | 66 | 30 | .220 s | 1.80 s | .014 |
+| SAR Night Owl | 66 | 36 | .094 s | 1.80 s | .0079 |
+| SAR Two Eyes Open | 72 | 36 | .088 s | 1.80 s | .0076 |
 | Ultimax issued | 30 | 60 | .085 s | 2.50 s | .026 |
 | Ultimax Route March | 34 | 50 | .080 s | 2.10 s | .022 |
 | Ultimax Encik’s Favourite | 40 | 75 | .075 s | 2.10 s | .0148 |
 | Ultimax Fort Siloso | 50 | 80 | .072 s | 2.00 s | .0119 |
+| Ultimax Lights Up | 54 | 75 | .068 s | 2.50 s | .0112 |
 
 Targets alternate 100 and 115 health. Garang clears a 115-health target in three landed shots versus four for the issued SAR. The dossier draws two charts: damage against range, over hits-to-kill bands, and the spray pattern of a twenty-round held burst, laid over the same target at 12, 20 and 30 m. Both simulate through the engine's own code — `hitDamage` and the recoil module — so the shop cannot advertise a figure the range does not produce. Each variant fixes its optic, magazine capacity, recoil, recovery and ammunition behavior. Skin palettes change only materials. Variant accents and built-in hardware appear in both the preview and viewmodel.
 
@@ -174,14 +177,16 @@ a shot off the count outright: Garang drops a standard target in two hits at
 close range, Own Time, Own Target drops the tougher one in two. `armory-balance.test.ts`
 asserts that time to kill never rises with tier and falls at every step.
 
-The **SAR 21 · Sharpshooter** (level 5, 300 tokens) is a specialist beside the
-SAR ladder, not a fifth rung, after the real rifle's 3.0× marksman
-configuration. It is semi-automatic (a trigger-group part sets `fireMode`), its
-long barrel brings 66 damage, full damage to 60 m, an 80% floor and 2.4×
-precision, and it cycles at .25 s and moves at 97%. Inside the drill it is
-slower to kill than the Garang, so `ShopItem.specialist` takes it off the
-ladder: the breakpoint analysis measures it against the issued BMT, and the
-ladder tests (time to kill, damage, recoil, impact) skip it.
+The **SAR 21 · Sharpshooter** (level 5, 300 tokens) is a sidegrade among the
+Elite rifles, not a rung, after the real rifle's 3.0× marksman configuration.
+It is semi-automatic (a trigger-group part sets `fireMode`), its long barrel
+brings 66 damage, full damage to 60 m, an 80% floor and 2.4× precision, and it
+cycles at .22 s and moves at 97%. Inside the drill it is slower to kill than
+the Garang, so `ShopItem.specialist` takes it off the ladder: it is not ranked
+against the other Elite rifles, the ladder tests (time to kill, damage, recoil,
+impact) skip it, and the breakpoint analysis measures it against the issued
+BMT. It still out-kills the BMT and Steady Lah at every range, and every
+higher tier has to out-kill it (see [what outranks what](#what-outranks-what)).
 
 ## How a weapon is built
 
@@ -257,9 +262,10 @@ scaled to, and that a teardown puts the model back exactly as it was found.
 
 ## Accessories
 
-Eight specialist variants are built around what is fitted to them rather than a
-rung of the ladder (`specialist: true`, so the breakpoint analysis measures each
-against its platform's issued baseline). Each accessory is a `FittedPart` with
+Eight variants are built around what is fitted to them. Seven are the
+platforms' top tiers and out-kill everything they outrank (see
+[what outranks what](#what-outranks-what)); the Blur Like Sotong is a Field
+sidegrade (`specialist: true`). Each accessory is a `FittedPart` with
 `accessories` (`weapon-accessories.ts`), resolved onto the weapon's spec, and
 each one changes something in play besides a figure in the dossier:
 
@@ -279,20 +285,19 @@ each one changes something in play besides a figure in the dossier:
 | Variant | Tier | Level / price | Fitted | Damage · rounds · cycle |
 | --- | --- | --- | --- | --- |
 | P30 · Blur Like Sotong | Field | 3 · 1,500 CR | Laser-light module, 21-round magazine | 28 · 21 · .20 s semi |
-| P30 · Lights Out | Ultra | 8 · 400 TK | Slide-cut red dot, suppressor | 32 · 15 · .22 s semi |
-| P30 · Kiasu Hunter | Ultra | 18 · 450 TK | Long hunting barrel, 2.5× pistol scope, 2.4× precision | 54 · 15 · .34 s semi |
-| Ultimax · Lights Up | Ultra | 9 · 420 TK | Holographic sight, weapon light, compensator | 32 · 60 · .079 s |
-| SAR 21 · Night Owl | Legendary | 12 · 540 TK | Flat-top rail, holographic sight, suppressor, laser in the handguard | 39 · 30 · .12 s |
-| P30 · Chiong Ah | Legendary | 14 · 520 TK | Selective-fire sear, 33-round stick, compensator, folding brace | 24 · 33 · .07 s **auto** |
-| P30 · Atas Race Gun | Mythic | 20 · 680 TK | Long slide, race trigger, 20-round magazine, slide-cut red dot, compensator | 40 · 20 · .15 s semi |
-| SAR 21 · Two Eyes Open | Mythic | 22 · 720 TK | Chrome-lined barrel, 4× prism with offset dot, compensator | 50 · 30 · .12 s |
+| P30 · Lights Out | Ultra | 8 · 400 TK | Match barrel and trigger, slide-cut red dot, suppressor | 36 · 15 · .20 s semi |
+| P30 · Kiasu Hunter | Ultra | 18 · 450 TK | Long hunting barrel, 2.5× pistol scope, 2.4× precision | 58 · 15 · .34 s semi |
+| Ultimax · Lights Up | Ultra | 9 · 420 TK | Heavy barrel, tuned gas, 75-round drum, holographic sight, weapon light, compensator | 54 · 75 · .068 s |
+| SAR 21 · Night Owl | Legendary | 12 · 540 TK | Threaded heavy barrel, match carrier, holographic sight, suppressor, laser in the handguard | 66 · 36 · .094 s |
+| P30 · Chiong Ah | Legendary | 14 · 520 TK | Selective-fire sear, 33-round stick, compensator, folding brace | 36 · 33 · .07 s **auto** |
+| P30 · Atas Race Gun | Mythic | 20 · 680 TK | Long slide, race trigger, 20-round magazine, slide-cut red dot, compensator | 60 · 20 · .13 s semi |
+| SAR 21 · Two Eyes Open | Mythic | 22 · 720 TK | Chrome-lined match barrel, competition carrier, 4× prism with offset dot, compensator | 72 · 36 · .088 s |
 
 **Tiers above Elite.** Rarity runs Issued, Field, Elite, then **Ultra**,
 **Legendary** and **Mythic** (`ITEM_TIERS`, `tierRank`). The first three are the
-ladder every platform climbs; the top three say how heavily kitted a variant is
-— its build parts plus its fitted accessories, the offset dot counting as a
-sight of its own — and `weapon-accessories.test.ts` holds that no tier carries
-more kit than the one above it. They are token-priced and unlock later the
+ladder every platform climbs; the top three are the most heavily kitted
+variants, and they are also the strongest for their level: each one
+out-kills every gun it outranks. They are token-priced and unlock later the
 higher they go. Each has its own shop colours (teal, violet, crimson with a
 gold edge and a slow glow, which reduced motion stills), its own flash, tracer
 and brass (`fps-effect-styles`), and a rarity chip beside the weapon's name in
@@ -681,6 +686,28 @@ It reports two problems:
   experiences; a faster cycle is felt even when the shot count is unchanged.
 
 Run it after any damage, falloff or precision change.
+
+### What outranks what
+
+A gun has to be at least as good as every gun it outranks, and better
+somewhere (`mustOutrank`, `outrankFailures`, asserted in
+`armory-balance.test.ts`). On the same platform, gun A outranks gun B when A
+unlocks at the same or a later level **and** sits in the same or a higher tier,
+and is above B on at least one of the two. "At least as good" means never more
+shots to kill and never a slower kill, to the body or the head, at any of the
+seven ranges against either drill pool; "better somewhere" means a shot off the
+count or a kill at least 5% faster at some range.
+
+Where one gun has the later level and the other the higher tier, neither
+outranks the other: a high tier at a low level is strong for its level, and a
+lower tier further up can be its equal. The P30 shows it: Lights Out (Ultra,
+level 8) and Bo Bo CANNOT (Elite, level 16) are near equals, while the Kiasu
+Hunter (Ultra, level 18) has to beat both. A sidegrade (`specialist`) trades one
+strength for another inside its own tier, so it is not ranked against that
+tier, but lower tiers below its level must lose to it and higher tiers from its
+level up must beat it. The shop shelves by level with tier as the tiebreak
+(`byUnlock`), so reading a platform left to right, each gun beats everything
+before it that it outranks.
 
 The weapon dossier carries the same reading as a chart: damage against range for
 the previewed weapon and the one already equipped, drawn over bands showing how

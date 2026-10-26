@@ -3299,3 +3299,21 @@ Field. All now token-priced with later unlocks (L8–22). Shop CSS per tier,
 effect styles per tier, an HUD rarity chip (Elite+). Bot kit weights stay
 Issued–Elite (`arena-ranks`); expedition loot is untouched (it rolls only up
 to Elite).
+
+## 2026-10-27: every gun beats what it outranks
+
+`mustOutrank`/`outrankFailures` in armory-balance, asserted in its test: on a
+platform, a gun with the same or a later level *and* the same or a higher tier
+(above on one) must never need more shots or kill slower (body or head, every
+range, both drill pools) and must be better somewhere. Crossed pairs (later
+level vs higher tier) are left as equals, by the owner's call. `specialist`
+now means a sidegrade: not ranked against its own tier, still ranked across
+tiers (Sharpshooter, Sotong). The seven Ultra+ variants left the sidegrade list
+and were retuned to clear it: Night Owl 66 dmg .094 s DMR reach; Two Eyes Open
+72 dmg .088 s; Lights Up 54 dmg .068 s, 75 rounds; Lights Out 36 dmg .20 s;
+Chiong Ah 36 dmg; Kiasu Hunter 58 dmg; Atas Race Gun 60 dmg .13 s with the
+Kiasu's reach. Existing guns touched: SAR Sharpshooter .25 → .22 s (it lost to
+the BMT and Steady Lah up close), P30 Bo Bo CANNOT .22 → .20 s (its head shots
+were slower than the Sotong's). SAR descriptions now say "of 6", Ultimax "of 5".
+Validation: unit tests, typecheck. Not done: felt in play only through the
+breakpoint model (TTK assumes a semi trigger pressed at its cycle rate).

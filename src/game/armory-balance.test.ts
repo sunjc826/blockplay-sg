@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyseBreakpoints, deadBuys, DRILL_OPPONENTS, DRILL_POOLS, namedOpponents, plateOpponent, shotsToKill, shotsToKillOpponent, SPRAY_ROUNDS, sprayAccuracy, sprayPattern, TARGET_RADIUS, targetAngle, timeToKill, TTK_MARGIN, unfeltInDrill } from './armory-balance';
+import { analyseBreakpoints, deadBuys, mustOutrank, outrankFailures, DRILL_OPPONENTS, DRILL_POOLS, namedOpponents, plateOpponent, shotsToKill, shotsToKillOpponent, SPRAY_ROUNDS, sprayAccuracy, sprayPattern, TARGET_RADIUS, targetAngle, timeToKill, TTK_MARGIN, unfeltInDrill } from './armory-balance';
 import { itemById } from './armory-catalog';
 import { createProfile, equip, resolveLoadout } from './armory-state';
 
@@ -18,6 +18,21 @@ describe('weapon ladder breakpoints', () => {
     for (const row of rows.filter(row => row.family === 4)) {
       for (const range of row.ranges) expect(range.body).toBeGreaterThanOrEqual(115);
     }
+  });
+  it('makes every gun at least as good as each one it outranks, and better somewhere', () => {
+    // Same or later level and same or higher tier means never more shots or a
+    // slower kill, at any range; a high tier at a low level and a lower tier
+    // further up are left to be equals (see mustOutrank).
+    expect(outrankFailures(rows)).toEqual([]);
+  });
+  it('lets a high tier at a low level stand level with a lower tier further up', () => {
+    const at = (id: string) => rows.find(row => row.id === id)!;
+    expect(mustOutrank(at('p30-marksman'), at('p30-silent'))).toBe(false);
+    expect(mustOutrank(at('p30-silent'), at('p30-marksman'))).toBe(false);
+    expect(mustOutrank(at('p30-kiasu'), at('p30-marksman'))).toBe(true);
+    // A sidegrade is not ranked against its own tier, but a higher tier still has to beat it.
+    expect(mustOutrank(at('sar-marksman'), at('sar-sharpshooter'))).toBe(false);
+    expect(mustOutrank(at('sar-nightowl'), at('sar-sharpshooter'))).toBe(true);
   });
   it('leaves no tier that a player cannot feel without leaving the drill', () => {
     // Most play never leaves 12-30m, so a tier that is identical to the one below
