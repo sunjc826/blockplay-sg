@@ -15,17 +15,18 @@ The Armory sidebar offers twenty-six fixed weapon variants across five platforms
 | 1 | Issued weapons/finish/rig, no inserts, soft armor |
 | 2 | Steady Lah, Route March, jungle/urban skins, enhanced LBS, ceramic plates |
 | 3 | Garang, P30 Blur Like Sotong, gold skin |
-| 4 | SAR 21 Night Owl, Ultimax Lights Up, P30 Lights Out, orchid skin, Sentinel rig, Aegis ceramic inserts |
+| 4 | Orchid skin, Sentinel rig, Aegis ceramic inserts |
 | 5 | Encik’s Favourite, SAR 21 Sharpshooter |
-| 6 | Own Time, Own Target, SAR 21 Two Eyes Open |
+| 6 | Own Time, Own Target |
 | 7 | Fort Siloso |
-| 8 | P30 Kopi O Kosong |
-| 10 | P30 Chiong Ah |
-| 12 | P30 Atas Race Gun |
-| 14 | FN MAG Chope |
+| 8 | P30 Kopi O Kosong, P30 Lights Out (Ultra) |
+| 9 | Ultimax Lights Up (Ultra) |
+| 12 | SAR 21 Night Owl (Legendary) |
+| 14 | FN MAG Chope, P30 Chiong Ah (Legendary) |
 | 16 | P30 Bo Bo CANNOT |
-| 18 | P30 Kiasu Hunter |
-| 22 | CIS 50MG Tuas Shift |
+| 18 | P30 Kiasu Hunter (Ultra) |
+| 20 | P30 Atas Race Gun (Mythic) |
+| 22 | CIS 50MG Tuas Shift, SAR 21 Two Eyes Open (Mythic) |
 | 24 | FN MAG Jaga Corner |
 | 32 | CIS 50MG Merlion Roar |
 
@@ -275,16 +276,28 @@ each one changes something in play besides a figure in the dossier:
 | Offset dot | A 1× dot at 45° beside the prism. **X** rolls the weapon over onto it and back; the HUD and the scope picture switch with it | `WeaponSight.offset`, `fps-engine` |
 | Pistol scope | A 2.5× long eye-relief scope on a slide-ride mount | `weapon-sight-housings` |
 
-| Variant | Level / price | Fitted | Damage · rounds · cycle |
-| --- | --- | --- | --- |
-| P30 · Lights Out | 4 · 1,800 CR | Slide-cut red dot, suppressor | 32 · 15 · .22 s semi |
-| P30 · Blur Like Sotong | 3 · 1,500 CR | Laser-light module, 21-round magazine | 28 · 21 · .20 s semi |
-| P30 · Chiong Ah | 10 · 380 TK | Selective-fire sear, 33-round stick, compensator, folding brace | 24 · 33 · .07 s **auto** |
-| P30 · Atas Race Gun | 12 · 340 TK | Long slide, race trigger, slide-cut red dot, compensator | 40 · 20 · .15 s semi |
-| P30 · Kiasu Hunter | 18 · 450 TK | Long hunting barrel, 2.5× pistol scope, 2.4× precision | 54 · 15 · .34 s semi |
-| SAR 21 · Night Owl | 4 · 2,800 CR | Flat-top rail, holographic sight, suppressor, laser in the handguard | 39 · 30 · .12 s |
-| SAR 21 · Two Eyes Open | 6 · 340 TK | Chrome-lined barrel, 4× prism with offset dot, compensator | 50 · 30 · .12 s |
-| Ultimax · Lights Up | 4 · 2,400 CR | Holographic sight, weapon light, compensator | 32 · 60 · .079 s |
+| Variant | Tier | Level / price | Fitted | Damage · rounds · cycle |
+| --- | --- | --- | --- | --- |
+| P30 · Blur Like Sotong | Field | 3 · 1,500 CR | Laser-light module, 21-round magazine | 28 · 21 · .20 s semi |
+| P30 · Lights Out | Ultra | 8 · 400 TK | Slide-cut red dot, suppressor | 32 · 15 · .22 s semi |
+| P30 · Kiasu Hunter | Ultra | 18 · 450 TK | Long hunting barrel, 2.5× pistol scope, 2.4× precision | 54 · 15 · .34 s semi |
+| Ultimax · Lights Up | Ultra | 9 · 420 TK | Holographic sight, weapon light, compensator | 32 · 60 · .079 s |
+| SAR 21 · Night Owl | Legendary | 12 · 540 TK | Flat-top rail, holographic sight, suppressor, laser in the handguard | 39 · 30 · .12 s |
+| P30 · Chiong Ah | Legendary | 14 · 520 TK | Selective-fire sear, 33-round stick, compensator, folding brace | 24 · 33 · .07 s **auto** |
+| P30 · Atas Race Gun | Mythic | 20 · 680 TK | Long slide, race trigger, 20-round magazine, slide-cut red dot, compensator | 40 · 20 · .15 s semi |
+| SAR 21 · Two Eyes Open | Mythic | 22 · 720 TK | Chrome-lined barrel, 4× prism with offset dot, compensator | 50 · 30 · .12 s |
+
+**Tiers above Elite.** Rarity runs Issued, Field, Elite, then **Ultra**,
+**Legendary** and **Mythic** (`ITEM_TIERS`, `tierRank`). The first three are the
+ladder every platform climbs; the top three say how heavily kitted a variant is
+— its build parts plus its fitted accessories, the offset dot counting as a
+sight of its own — and `weapon-accessories.test.ts` holds that no tier carries
+more kit than the one above it. They are token-priced and unlock later the
+higher they go. Each has its own shop colours (teal, violet, crimson with a
+gold edge and a slow glow, which reduced motion stills), its own flash, tracer
+and brass (`fps-effect-styles`), and a rarity chip beside the weapon's name in
+the field HUD from Elite up. Enemy issue stays within Issued to Elite, so bots
+never carry these and expedition loot never rolls them.
 
 The sidearm carries most of them because it has the least balance to protect:
 it already trails the main weapons, so the P30 gets a machine pistol and a

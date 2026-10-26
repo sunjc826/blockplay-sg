@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { ARMORY_CATALOG, itemById } from './armory-catalog';
+import { ARMORY_CATALOG, ITEM_TIERS, itemById, tierRank } from './armory-catalog';
 import { createProfile, equip, resolveLoadout } from './armory-state';
 import { resolveEffectStyle } from './fps-effect-styles';
 import { gunfireReports } from './gunfire-reports';
@@ -115,5 +115,44 @@ describe('the dossier', () => {
     expect(parts.get('fitted:rail')?.kind).toBe('laser');
     expect(hardwareByPart('p30-chiong').get('fitted:handling')?.kind).toBe('brace');
     expect(hardwareByPart('ult-lights').get('fitted:rail')?.visual).toMatch(/torch/);
+  });
+});
+
+describe('the kitted tiers', () => {
+  /** Everything a variant is built from or fitted with, an offset dot counted as a sight of its own. */
+  const kit = (id: string) => {
+    const item = itemById(id)!, fitted = item.fitted?.filter(part => part.accessories) ?? [];
+    return (item.build?.length ?? 0) + fitted.length + fitted.filter(part => part.accessories?.offsetDot).length;
+  };
+  const shop = ARMORY_CATALOG.filter(item => item.category === 'weapon' && item.price > 0 && !item.source);
+  const of = (tier: string) => shop.filter(item => item.tier === tier);
+  it('ranks rarity Issued up to Mythic', () => {
+    expect(ITEM_TIERS).toEqual(['Issued', 'Field', 'Elite', 'Ultra', 'Legendary', 'Mythic']);
+    expect(tierRank('Mythic')).toBeGreaterThan(tierRank('Legendary'));
+    expect(tierRank('Ultra')).toBeGreaterThan(tierRank('Elite'));
+  });
+  it('gives the top three only to specialists carrying accessories, sold for tokens', () => {
+    for (const tier of ['Ultra', 'Legendary', 'Mythic'] as const) for (const item of of(tier)) {
+      expect(item.specialist, item.id).toBe(true);
+      expect(item.fitted?.some(part => part.accessories), item.id).toBe(true);
+      expect(item.currency, item.id).toBe('tokens');
+    }
+    expect(of('Mythic').map(item => item.id).sort()).toEqual(['p30-atas', 'sar-twoeyes']);
+  });
+  it('never ranks a variant above one carrying more kit', () => {
+    const most = (tier: string) => Math.max(...of(tier).map(item => kit(item.id)));
+    const least = (tier: string) => Math.min(...of(tier).map(item => kit(item.id)));
+    expect(least('Mythic')).toBeGreaterThanOrEqual(most('Legendary'));
+    expect(least('Legendary')).toBeGreaterThanOrEqual(most('Ultra'));
+  });
+  it('unlocks a higher tier later than the tier below it, on average', () => {
+    const level = (tier: string) => of(tier).reduce((sum, item) => sum + (item.requiredLevel ?? 1), 0) / of(tier).length;
+    expect(level('Mythic')).toBeGreaterThan(level('Legendary'));
+    expect(level('Legendary')).toBeGreaterThan(level('Ultra'));
+  });
+  it('draws each tier in its own colours', () => {
+    const ids = ITEM_TIERS.map(tier => resolveEffectStyle({ variant: ARMORY_CATALOG.find(item => item.category === 'weapon' && item.tier === tier)!.id }).id.split(':')[0]);
+    expect(ids).toEqual(['issued', 'field', 'elite', 'ultra', 'legendary', 'mythic']);
+    expect(resolveEffectStyle({ variant: 'sar-twoeyes' }).tracer.colour).not.toBe(resolveEffectStyle({ variant: 'sar-marksman' }).tracer.colour);
   });
 });

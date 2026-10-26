@@ -8,6 +8,9 @@
 .fps-weapon-hud .fps-crosshair.hit i{opacity:1;background:#ffd489}
 .fps-weapon-hud .fps-ammo{padding:12px 15px;border-right:2px solid var(--hud-gold);background:linear-gradient(90deg,transparent,#0c151bbe);min-width:182px}
 .fps-weapon-hud .fps-ammo>span{font-size:10px;letter-spacing:1.5px}
+.fps-weapon-hud .fps-tier{font-style:normal;font-size:.8em;letter-spacing:1px;margin-right:6px;padding:1px 4px;border:1px solid currentColor;border-radius:2px;text-transform:uppercase}
+.fps-tier[data-tier=elite]{color:#dfbd76}.fps-tier[data-tier=ultra]{color:#7fd6e2}.fps-tier[data-tier=legendary]{color:#c3a3ff}
+.fps-tier[data-tier=mythic]{color:#ff9a7a;border-color:#f0c24a;text-shadow:0 0 6px #ff5a4a88}
 .fps-weapon-hud .fps-ammo strong{font-size:46px;line-height:1.2;letter-spacing:-2px}
 .fps-weapon-hud .fps-ammo strong small{letter-spacing:0;font-size:14px;color:#b6c5c0}
 /* The round in the chamber, beside the magazine count rather than in it. */

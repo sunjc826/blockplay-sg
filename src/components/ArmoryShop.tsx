@@ -4,7 +4,7 @@ import { equipmentMovement } from '../game/fps-encumbrance';
 import { useState } from 'react';
 import { ArrowRight, Check, Coins, Crosshair, Eye, Gem, Shield, CarFront, Plane, SlidersHorizontal } from 'lucide-react';
 import { utilityKind, utilitySlot } from '../game/utility-belt';
-import { ARMORY_CATALOG, CONSUMABLE_LIMIT, isEnemyIssue, isShopFamily, itemById, type InternalPart, type ShopItem } from '../game/armory-catalog';
+import { ARMORY_CATALOG, CONSUMABLE_LIMIT, isEnemyIssue, isShopFamily, itemById, type InternalPart, type ItemTier, type ShopItem } from '../game/armory-catalog';
 import { fittedParts, isEquipped, previewLoadout, resolveLoadout, SHOP_CATEGORIES, variantSpec } from '../game/armory-state';
 import type { ArmoryStore } from '../game/use-armory';
 import type { VehicleKind } from '../game/vehicle-rules';
@@ -26,10 +26,12 @@ function Silhouette({ item }: { item: ShopItem }) {
     {item.category === 'consumable' ? item.supplyType === 'food' ? <><path d="M63 38h92l-10 36H73z" fill="currentColor" /><path d="M58 31h102v11H58z" fill="currentColor" opacity=".72" /><path d="M170 31h25v43h-25zM168 25h29v8h-29z" fill="currentColor" /><path d="M92 25c-8-7 8-10 0-17m25 17c-8-7 8-10 0-17" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" /></> : <><path d="M65 22h110l9 52H56z" fill="currentColor" /><path d="M75 12h90v18H75z" fill="currentColor" opacity=".72" /><path d="M111 37h18v25h-18zM101 45h38v9h-38z" fill="#eff2e8" opacity=".9" /></> : armor ? <><path d="M88 10h18l5 13h18l5-13h18l12 24-10 43H86L76 34z" fill="currentColor" /><path d="M97 33h46v36H97z" fill="#172225" opacity=".65" /><path d="M101 42h38m-38 9h38m-38 9h38" stroke="currentColor" strokeWidth="4" />{item.category === 'plate' && <path d="M162 28h20l8 10v39h-36V38z" fill="currentColor" stroke="#a4b9b4" />}</> : item.family === 2 ? <><path d="M69 23h112v22h-62l-9 33H82l7-33H69z" fill="currentColor" /><path d="M123 47h24v17h-28" fill="none" stroke="currentColor" strokeWidth="6" /><path d="M78 18h12v6h-12zM163 18h8v6h-8z" fill="currentColor" /></> : (item.family ?? 0) >= 3 ? <><path d="M38 30h88v24H38zM126 35h94v9h-94zM29 38h13v39H29zM48 51h40v27H48z" fill="currentColor" /><path d="M104 52l-16 27m16-27l14 27" stroke="currentColor" strokeWidth="5" /></> : <><path d="M21 37h98l13-9h32l10 8h48v7h-48l-7 8h-53l-7 22H91l4-22H68l-2 17H47l-4-17H21z" fill="currentColor" /><path d="M70 28h52v7H70zM82 20h26v9H82z" fill="currentColor" opacity=".7" /><path d="M29 41h54m45-4h27" stroke="#1c2527" strokeWidth="3" /></>}
   </svg>;
 }
+/** Silhouette ink by rarity; the tiers below Elite share the issued grey. */
+const TIER_INK: Partial<Record<ItemTier, string>> = { Elite: '#b8a676', Ultra: '#7cc9d6', Legendary: '#b494e8', Mythic: '#e8866a' };
 /** A head-mounted device by its tube count, or a thermal housing with its dark window. */
 function VisionSilhouette({ item }: { item: ShopItem }) {
   const spec = visionSpec(item.id), tubes = spec?.kind === 'nvg' ? [[120], [100, 140], [72, 102, 138, 168]][spec.generation - 1] : [];
-  return <svg className="armory-silhouette" viewBox="0 0 240 88" aria-hidden="true" style={{ color: item.tier === 'Elite' ? '#b8a676' : '#8f9a84' }}>
+  return <svg className="armory-silhouette" viewBox="0 0 240 88" aria-hidden="true" style={{ color: TIER_INK[item.tier] ?? '#8f9a84' }}>
     <path d="M96 10h48v12h-48zM112 22h16v14h-16z" fill="currentColor" opacity=".72" />
     {spec?.kind === 'nvg' && <><path d={`M${Math.min(...tubes) - 16} 34h${Math.max(...tubes) - Math.min(...tubes) + 32}v14H${Math.min(...tubes) - 16}z`} fill="currentColor" />{tubes.map(x => <g key={x}><circle cx={x} cy={60} r={spec.generation === 3 ? 13 : 16} fill="currentColor" /><circle cx={x} cy={60} r={spec.generation === 3 ? 8 : 10} fill="#1c3b33" /></g>)}</>}
     {spec?.kind === 'thermal' && <><path d={spec.generation === 1 ? 'M98 34h44v42H98z' : 'M80 34h80v42H80z'} fill="currentColor" /><circle cx={spec.generation === 1 ? 120 : 104} cy={55} r={13} fill="#2c2735" />{spec.generation === 2 && <circle cx={140} cy={55} r={8} fill="#1c3b33" />}</>}

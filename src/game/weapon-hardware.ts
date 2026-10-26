@@ -123,8 +123,11 @@ export function weaponHardware(variantId: string): WeaponHardware[] {
   // A drum-fed platform reads the same extra rounds as a deeper drum, a belt-fed
   // one as a deeper box, and a rifle as a longer magazine.
   const drum = base.feed === 'drum';
+  // A fitted can or compensator is the muzzle, so a match barrel stops behind it without a brake of its own.
+  const muzzle = item.fitted?.some(part => part.accessories?.muzzle);
   return [
-    ...(item.build ?? []).map(part => fromBuild(part, base, drum)),
+    ...(item.build ?? []).map(part => fromBuild(part, base, drum)).map(entry =>
+      muzzle && entry?.kind === 'barrel' && entry.extended ? { ...entry, visual: 'a long fluted match barrel ending at the fitted muzzle device' } : entry),
     ...(item.fitted ?? []).map(fromFitted),
   ].filter((entry): entry is WeaponHardware => !!entry).map(entry =>
     base.feed === 'belt' && entry.kind === 'magazine'

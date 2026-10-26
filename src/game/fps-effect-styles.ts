@@ -93,7 +93,34 @@ const ELITE_STYLE: EffectStyle = {
   brass: { colour: '#d9bc74', metalness: .92, roughness: .26 },
   scorch: .74,
 };
-const TIERS: Record<string, EffectStyle> = { Issued: ISSUED_STYLE, Field: FIELD_STYLE, Elite: ELITE_STYLE };
+/** Ultra kit: a cold, clean burn, white-blue tracer and nickel brass. */
+const ULTRA_STYLE: EffectStyle = {
+  ...ELITE_STYLE, id: 'ultra', name: 'Ultra',
+  flare: { core: '#f4f8ff', star: '#d8e8ff', cone: '#b9d6ff', light: '#d6e6ff', size: 1.1, reach: 1.3 },
+  tracer: { colour: '#d8ecff', opacity: .86 },
+  spark: { hot: '#ffffff', cold: '#5aa8ff', streak: 1.25 },
+  brass: { colour: '#c9ccd0', metalness: .95, roughness: .2 },
+};
+/** Legendary kit: a violet edge to the flash and the tracer, darkened brass. */
+const LEGENDARY_STYLE: EffectStyle = {
+  ...ELITE_STYLE, id: 'legendary', name: 'Legendary',
+  flare: { core: '#fbf2ff', star: '#e6c8ff', cone: '#c79bff', light: '#dcc2ff', size: 1.14, reach: 1.35 },
+  tracer: { colour: '#e2c4ff', opacity: .9 },
+  spark: { hot: '#ffffff', cold: '#a65cff', streak: 1.3 },
+  ring: { surface: '#e8d2ff', target: '#fbf5ff' },
+  brass: { colour: '#8a7a98', metalness: .9, roughness: .24 },
+};
+/** Mythic kit: a red-gold flash, a crimson tracer you can follow all the way, polished gold brass. */
+const MYTHIC_STYLE: EffectStyle = {
+  ...ELITE_STYLE, id: 'mythic', name: 'Mythic',
+  flare: { core: '#fff3e6', star: '#ffc0a0', cone: '#ff7a5a', light: '#ffb08a', size: 1.18, reach: 1.45 },
+  tracer: { colour: '#ff8a70', opacity: .95 },
+  spark: { hot: '#fff2d0', cold: '#ff2a3a', streak: 1.4 },
+  ring: { surface: '#ffc8a8', target: '#fff0e0' },
+  brass: { colour: '#f0c24a', metalness: .98, roughness: .14 },
+  scorch: .78,
+};
+const TIERS: Record<string, EffectStyle> = { Issued: ISSUED_STYLE, Field: FIELD_STYLE, Elite: ELITE_STYLE, Ultra: ULTRA_STYLE, Legendary: LEGENDARY_STYLE, Mythic: MYTHIC_STYLE };
 /** How far each part of the shot is pulled towards the weapon's accent colour. */
 const ACCENT_MIX: Record<string, number> = { star: .34, cone: .42, light: .3, core: .1, tracer: .3, sparkCold: .26 };
 

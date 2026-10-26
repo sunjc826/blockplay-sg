@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { FpsHud } from '../game/fps-engine';
 import { RELOAD_POINTS, reloadShare, type WeaponSpec } from '../game/fps-rules';
+import { itemById, tierRank } from '../game/armory-catalog';
 import { MAG_IN_START, reloadStage } from '../game/fps-weapon-motion';
 import { fillFraction, magazineDisplay } from '../game/hud-motion';
 import { useReducedMotion } from '../game/use-reduced-motion';
@@ -9,12 +10,14 @@ import type { UtilityKind } from '../game/utility-belt';
 import FpsUtilityBelt from './FpsUtilityBelt';
 import './fps-weapon-hud.css';
 
-export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, touch = false }: { hud: FpsHud; weapon: WeaponSpec; canFight: boolean; onUtility?: (kind: UtilityKind) => void; touch?: boolean }) {
+export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, touch = false }: { hud: FpsHud; weapon: WeaponSpec & { equipment?: { variant: string } }; canFight: boolean; onUtility?: (kind: UtilityKind) => void; touch?: boolean }) {
   // A phone on its side has no height for the belt over the ammo under the weapon
   // slider, so the belt docks along the bottom between the two thumbs instead.
   const docked = useMediaQuery(SHORT_SCREEN) && touch;
   const belt = <FpsUtilityBelt hud={hud} canUse={canFight && !hud.supplyUse} onUse={onUtility} docked={docked} />;
   // Canted onto an offset dot, the sight in use is a 1x one whatever sits on top.
+  // Elite and up wear their rarity beside the name, so a Mythic reads as one mid-fight too.
+  const tier = itemById(weapon.equipment?.variant ?? '')?.tier, rare = tier && tierRank(tier) >= tierRank('Elite') ? tier : null;
   const magnified = (weapon.optic === 'integrated' || weapon.optic === 'precision') && !hud.canted;
   const reloading = hud.reloading > 0, stage = reloadStage(hud.reloading, hud.reloadEmpty);
   // Truthful digits, except through a reload — see `hud-motion.ts`.
@@ -42,7 +45,7 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, touch =
     <div className={`fps-ammo ${!hud.roundReady && !reloading ? 'is-empty' : ''}`}>
       {/* Above the weapon so the two read as one kit, and so the belt rises with the ammo block wherever the thumbs push it. */}
       {!docked && belt}
-      <span>{weapon.name} <small>{hud.aiming ? 'ADS' : weapon.fireMode === 'semi' ? 'SEMI' : 'AUTO'}</small></span>
+      <span>{rare && <em className="fps-tier" data-tier={rare.toLowerCase()}>{rare}</em>}{weapon.name} <small>{hud.aiming ? 'ADS' : weapon.fireMode === 'semi' ? 'SEMI' : 'AUTO'}</small></span>
       <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}{hud.chambered && <em className="fps-chamber" aria-label="one in the chamber">+1</em>}<small>/ {hud.reserve}</small></strong>
       {prompt ? <p>{prompt}</p> : <p className="fps-ammo-detail">R RELOAD · Q TOGGLE AIM · RMB HOLD</p>}
       {(hud.rail || hud.offsetDot) && <p className="fps-ammo-detail" data-accessories>{[

@@ -3288,3 +3288,14 @@ and a pouch with the radio line. Not done: plate model not inspected up close
 (night scene); picking up a lower plate or the BMT over a better SAR variant
 still swaps down, as crates do; bots' remaining dressings are not tracked, so
 the medical roll ignores whether they used theirs.
+
+## 2026-10-26: rarity above Elite for kitted weapons
+
+`ITEM_TIERS` (Issued, Field, Elite,
+Ultra, Legendary, Mythic) and `tierRank` in armory-catalog. Ultra: P30 Lights
+Out, P30 Kiasu Hunter, Ultimax Lights Up; Legendary: SAR 21 Night Owl, P30
+Chiong Ah; Mythic: P30 Atas Race Gun, SAR 21 Two Eyes Open; Sotong stays
+Field. All now token-priced with later unlocks (L8–22). Shop CSS per tier,
+effect styles per tier, an HUD rarity chip (Elite+). Bot kit weights stay
+Issued–Elite (`arena-ranks`); expedition loot is untouched (it rolls only up
+to Elite).

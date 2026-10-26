@@ -37,7 +37,7 @@ const armedWith = (choice: ArmamentChoice) => {
   return item?.category === 'weapon' && isEnemyIssue(item) && validWeaponIndex(item.family) ? item : undefined;
 };
 /** Weighted draw of what one spawn carries; `kit`, when given, reweights each choice by its variant's tier (a rank's issue, see arena-ranks). */
-export function chooseArmament(role: Pick<ArenaRolePlugin, 'armament'>, random: () => number, kit?: Readonly<Record<ShopItem['tier'], number>>): ShopItem & { family: number } {
+export function chooseArmament(role: Pick<ArenaRolePlugin, 'armament'>, random: () => number, kit?: Readonly<Partial<Record<ShopItem['tier'], number>>>): ShopItem & { family: number } {
   const weight = (choice: ArmamentChoice) => choice.weight * (kit ? kit[armedWith(choice)!.tier] ?? 1 : 1);
   const total = role.armament.reduce((sum, choice) => sum + weight(choice), 0);
   let roll = random() * total;
