@@ -16,6 +16,7 @@ import { factionIdOf, listArenaFactions } from '../game/arena-factions';
 import FpsMinimap from './FpsMinimap';
 import RankBadge from './RankBadge';
 import FpsWeaponHud from './FpsWeaponHud';
+import FpsWeaponSlider from './FpsWeaponSlider';
 import FpsVitals from './FpsVitals';
 import FpsShield from './FpsShield';
 import FpsDebugPanel from './FpsDebugPanel';
@@ -101,6 +102,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         {hud.callout && <div key={`${hud.hits}-${hud.callout}`} className="fps-kill-callout" role="status"><span>ELIMINATION CHAIN ×{hud.chain}</span><strong>{hud.callout}</strong>{!isArena && <small>+25 XP</small>}</div>}
         <div className="fps-compass">SG <span>· · ·</span> {district.setting.toUpperCase()} <span>· · ·</span> 01</div>
         {mounted && hud.vehicleCanFire && hud.vehicleAimVisible && <div className="fps-vehicle-reticle" aria-label="Vehicle gun impact point" style={{ left: `${hud.vehicleAimX}%`, top: `${hud.vehicleAimY}%` }}>⊕</div>}
+        {!mounted && <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />}
         {!mounted && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} />}
         <div className="fps-objective">{mounted && hud.vehicleSeat !== 0 ? 'Ride together · V switch seat · E exit when stopped' : isArena && !mounted ? `FREE FOR ALL · First to ${ARENA_KILL_LIMIT} eliminations` : mounted ? hud.vehicle === 'car' ? 'W / S throttle · A / D steer · Space brake' : 'W / S cruise · A / D yaw · Space climb · C / Ctrl descend' : `Clear the ${district.targets.length} round targets around the ${district.setting}.`}<small>{hud.locked ? isArena ? 'ESC opens menu · Match keeps running' : 'ESC pauses and releases the mouse' : touch ? 'Left stick moves · Drag the scene to look · Hold FIRE and slide to aim' : 'Drag to look · On-screen controls available'}</small></div>
         {!isArena && <div className="fps-vehicle-locator">CAR {Math.round(hud.carDistance)}m <span>·</span> HELI {Math.round(hud.helicopterDistance)}m</div>}

@@ -21,7 +21,7 @@ describe('main, sidearm and premium extra carry slots', () => {
     expect(bought.tokens).toBe(100); expect(bought.carry.extra).toBeNull();
     expect(purchase(bought, EXTRA_SLOT_ID).profile).toBe(bought);
     const assigned = selectCarryWeapon(bought, 'extra', 4);
-    expect(carriedFamilies(assigned)).toEqual([0, 2, 4]);
+    expect(carriedFamilies(assigned)).toEqual([0, 4, 2]);
     expect(restoreProfile(JSON.stringify(assigned))).toEqual(assigned);
     expect(carriedFamilies(selectCarryWeapon(assigned, 'extra', null))).toEqual([0, 2]);
     expect(assigned.tokens).toBe(100);
@@ -38,7 +38,7 @@ describe('main, sidearm and premium extra carry slots', () => {
     const base = createProfile();
     const paid = selectCarryWeapon({ ...base, owned: [...base.owned, EXTRA_SLOT_ID, 'mag-jaga'] }, 'extra', 4);
     const swapped = equip(paid, 'mag-jaga', 3);
-    expect(swapped.carry).toEqual({ main: 3, extra: 4 }); expect(carriedFamilies(swapped)).toEqual([3, 2, 4]);
+    expect(swapped.carry).toEqual({ main: 3, extra: 4 }); expect(carriedFamilies(swapped)).toEqual([3, 4, 2]);
     const updatedExtra = equip(swapped, 'cis50-issued', 4);
     expect(updatedExtra.carry).toEqual(swapped.carry);
     expect(equip(updatedExtra, 'p30-issued', 2).carry).toEqual(swapped.carry);

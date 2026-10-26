@@ -1,0 +1,30 @@
+/* The weapon strip in the top-right corner. One lit segment slides to the
+   weapon in hand; the segments are equal so the slide is a single translate. */
+.fps-weapon-slider{position:absolute;top:62px;right:16px;z-index:3;display:grid;grid-template-columns:repeat(var(--slots),66px);
+  padding:3px;background:#0c151bb8;border:1px solid #ffffff2b;border-radius:4px;touch-action:none;user-select:none;-webkit-user-select:none}
+.fps-weapon-slider-thumb{position:absolute;top:3px;bottom:3px;left:3px;width:66px;border-radius:2px;background:#e0bb7226;box-shadow:inset 0 -2px 0 var(--hud-gold);
+  transform:translateX(calc(var(--slot) * 100%));transition:transform .16s ease-out;pointer-events:none}
+.fps-weapon-slider button{position:relative;height:32px;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 4px;background:none;border:0;
+  color:var(--hud-dim);font:9px monospace;letter-spacing:.6px;text-transform:uppercase;white-space:nowrap;touch-action:none}
+.fps-weapon-slider button span{overflow:hidden;text-overflow:ellipsis}
+.fps-weapon-slider button[aria-pressed=true]{color:var(--hud-ink)}
+.fps-weapon-slider kbd{min-width:0;padding:0 3px;font:7px monospace;line-height:11px;color:inherit;background:#ffffff14;border:0;border-radius:2px}
+.fps-game .fps-weapon-slider button:disabled{opacity:1}
+/* Mouse play reads it but switches with the keys; it must not catch a stray click. */
+.fps-game:not([data-touch=on]) .fps-weapon-slider{pointer-events:none}
+/* A thumb has no number keys, and the arrows say the strip slides. */
+.fps-game[data-touch=on] .fps-weapon-slider kbd{display:none}
+.fps-game[data-touch=on] .fps-weapon-slider::before,.fps-game[data-touch=on] .fps-weapon-slider::after{position:absolute;top:50%;transform:translateY(-50%);font:9px monospace;color:var(--hud-dim);pointer-events:none}
+.fps-game[data-touch=on] .fps-weapon-slider::before{content:'‹';left:-9px}
+.fps-game[data-touch=on] .fps-weapon-slider::after{content:'›';right:-9px}
+/* What used to own this corner moves down under the strip. */
+.fps-game:has(.fps-weapon-slider) .fps-vehicle-locator{top:110px}
+.fps-game:has(.fps-weapon-slider) .expedition-route-hud{top:112px}
+@media(max-width:700px){
+  .fps-weapon-slider{top:52px;right:12px;grid-template-columns:repeat(var(--slots),58px)}
+  .fps-weapon-slider-thumb{width:58px}
+  .fps-weapon-slider button{height:34px;font-size:8.5px;letter-spacing:.3px}
+  .fps-game:has(.fps-weapon-slider) .fps-vehicle-locator{top:98px}
+  .fps-game:has(.fps-weapon-slider) .expedition-route-hud{top:98px}
+}
+@media(prefers-reduced-motion:reduce){.fps-weapon-slider-thumb{transition:none}}

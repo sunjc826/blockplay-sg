@@ -10,10 +10,11 @@ export function restoreCarrySlots(value: unknown, owned: readonly string[]): Car
   const extra = owned.includes(EXTRA_SLOT_ID) && isMainWeapon(raw.extra) && raw.extra !== main ? raw.extra : null;
   return { main, extra };
 }
-/** Keyboard slots are main, sidearm, then the optional second main. Family IDs stay stable. */
+/** Keyboard slots are the mains side by side, then the sidearm last: 1–2–3 with the
+ * optional extra main, 1–2 without. Family IDs stay stable. */
 export function carriedFamilies(profile: { carry?: CarrySlots; owned: readonly string[] }): number[] {
   const carry = restoreCarrySlots(profile.carry, profile.owned);
-  return [carry.main, SIDEARM_FAMILY, ...(carry.extra === null ? [] : [carry.extra])];
+  return [carry.main, ...(carry.extra === null ? [] : [carry.extra]), SIDEARM_FAMILY];
 }
 
 /** A found main replaces the held main slot; when holding a pistol, use main. */

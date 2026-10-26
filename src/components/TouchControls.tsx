@@ -102,7 +102,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
     sweep.push(act('aim', 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': hud.aiming, 'data-on': hud.aiming || undefined }));
     sweep.push(act('reload', 'Reload', <RefreshCw size={17} />, { onClick: () => engine?.reload(), disabled: hud.reloading > 0 }));
     sweep.push(act('jump', 'Jump', <ChevronsUp size={17} />, { onClick: () => engine?.jump() }));
-    sweep.push(act('weapon', 'Swap', <Repeat2 size={17} />, { onClick: () => engine?.switchWeapon(hud.carriedWeapons[(hud.carriedWeapons.indexOf(hud.weapon) + 1) % hud.carriedWeapons.length]) }));
+    // Weapons are drawn from the slider in the top-right corner, not the sweep.
     if (mode === 'expedition') {
       if (hud.quickItem && hud.quickCount > 0) sweep.push(act('supply', hud.quickItem, <Hand size={17} />, { onClick: () => engine?.useQuickItem() }));
       if (hud.lootPrompt) prompts.push(act('loot', promptLabel(hud.lootPrompt), <PackageOpen size={16} />, { onClick: () => engine?.interactLoot() }));

@@ -11,14 +11,14 @@ export default function ArmoryCarrySlots({ store }: { store: ArmoryStore }) {
   const options = (slot: 'main' | 'extra') => FPS_WEAPONS.map((weapon, family) => isMainWeapon(family) && profile.owned.includes(profile.guns[family].variant) &&
     <option key={weapon.id} value={family} disabled={family === (slot === 'main' ? carry.extra : carry.main)}>{name(family)}</option>);
   return <section className="armory-carry" aria-label="Carried weapon slots">
-    <div className="armory-carry-heading"><strong>DEPLOYMENT LOADOUT</strong><span>One main · One sidearm · Optional extra main</span></div>
+    <div className="armory-carry-heading"><strong>DEPLOYMENT LOADOUT</strong><span>One main · Optional extra main · One sidearm</span></div>
     <div className="armory-carry-slots">
       <label><span>1 · MAIN WEAPON</span><select aria-label="Main weapon slot" value={carry.main} onChange={event => store.selectCarrySlot('main', Number(event.target.value))}>{options('main')}</select></label>
-      <div><span>2 · SIDEARM</span><strong>{name(SIDEARM_FAMILY)}</strong><small>Choose its fixed variant in the P30 platform tab.</small></div>
-      <div><span>3 · EXTRA MAIN {unlocked ? '' : '· LOCKED'}</span>{unlocked
+      <div><span>2 · EXTRA MAIN {unlocked ? '' : '· LOCKED'}</span>{unlocked
         ? <select aria-label="Extra main weapon slot" value={carry.extra ?? ''} onChange={event => store.selectCarrySlot('extra', event.target.value === '' ? null : Number(event.target.value))}><option value="">Empty — travel lighter</option>{options('extra')}</select>
         : <button disabled={profile.tokens < unlock.price} onClick={() => store.buy(EXTRA_SLOT_ID)}>Unlock permanently · {unlock.price} TK</button>}
         <small>{unlocked ? 'Carry a different main weapon, or leave this slot empty.' : 'One-time token purchase. Weapons are purchased separately.'}</small></div>
+      <div><span>{carry.extra === null ? 2 : 3} · SIDEARM</span><strong>{name(SIDEARM_FAMILY)}</strong><small>Choose its fixed variant in the P30 platform tab.</small></div>
     </div>
     <p>Only slotted weapons and their ammunition add weight. Equipping a different main platform replaces the main slot; owning weapons does not mean carrying them.</p>
   </section>;

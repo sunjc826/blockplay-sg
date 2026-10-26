@@ -26,7 +26,8 @@ it('gives every mode one stick, a trigger and a way back to the menu', () => {
 it('lays the actions on the thumb\'s sweep, not in a row', () => {
   const html = layer(playing());
   const sweep = [...html.matchAll(/data-touch-action="(aim|reload|jump|weapon)"/g)].map(match => match[1]);
-  expect(sweep).toEqual(['aim', 'reload', 'jump', 'weapon']);
+  // Weapons moved to the top-right slider, so the sweep carries no swap.
+  expect(sweep).toEqual(['aim', 'reload', 'jump']);
   // Every one of them is placed by `thumbArc`, so none is left in flow.
   for (const action of sweep) expect(control(html, action)).toMatch(/--arc-x:-?[\d.]+;--arc-y:-?[\d.]+/);
   // The trigger keeps the corner; the sweep is measured from its centre.
@@ -112,7 +113,7 @@ it('hides the bare drag surface from assistive tech, but never the buttons', () 
   const html = layer(playing());
   expect(html).toContain('aria-hidden="true"');
   // The sweep is icon-only, so the name has to live on the element itself.
-  for (const [action, label] of [['aim', 'Aim'], ['reload', 'Reload'], ['jump', 'Jump'], ['weapon', 'Swap'], ['fire', 'Fire'], ['menu', 'Pause']] as const) {
+  for (const [action, label] of [['aim', 'Aim'], ['reload', 'Reload'], ['jump', 'Jump'], ['fire', 'Fire'], ['menu', 'Pause']] as const) {
     expect(control(html, action)).toContain(`aria-label="${label}"`);
   }
   expect(html).toContain('class="touch-button"');

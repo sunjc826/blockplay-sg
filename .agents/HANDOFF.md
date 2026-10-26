@@ -2992,3 +2992,19 @@ renders, ammo pouch used from the belt (reserve 120→210, profile debited),
 heal refused at full health, store copy shows the slot and key. A heal from
 the belt was not watched live: the hidden pane froze the drill, so no damage.
 The mouse (non-touch) layout was not seen: pointer lock is blocked in the pane.
+
+## 2026-10-26: weapon slider, mains on consecutive slots
+
+`carriedFamilies` is now main, optional extra main, sidearm (keys 1–3, or 1–2
+without the extra), so the two primaries sit side by side; the armory's carry
+panel lists them in that order. New `FpsWeaponSlider` draws the carried
+weapons as a strip in the top-right corner in range, arena and expedition: a
+gold segment slides to the weapon in hand; on touch a tap draws a weapon and a
+horizontal swipe steps to the next (left) or previous (right); with a mouse it
+only shows the 1–3 keys (pointer-events off). The touch sweep's Swap button is
+gone (TouchControls test and `touch-controls-smoke` updated). The vehicle
+locator and expedition route list move down under the strip; on touch the
+route list shows the two nearest crossings so it stays clear of the belt.
+Validation: vitest, typecheck; in the browser pane at 375×812 touch: swipe
+left/right and tap switch, keys 1–3 follow the new order, Upper Thomson's
+route list clears the belt. `pnpm test:touch` not run.

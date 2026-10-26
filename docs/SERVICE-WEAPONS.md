@@ -37,8 +37,8 @@ claim it is the newest SAF standard.
 | 4 | CIS 50MG | 12.7 mm | 50 | Heavy damage and recoil, slowest movement/reload |
 
 One P30 round fires per mouse/touch press; release to fire again. The AI can
-re-press at the same cooldown limit. MGs remain automatic. Keys 1/2/3 select main/sidearm/optional extra; Touch Swap cycles only
-carried weapons. The permanent extra main slot costs 400 TK. Iron sights do not render a scope lens. Impacts inherit nominal
+re-press at the same cooldown limit. MGs remain automatic. Keys 1/2/3 select main/optional extra/sidearm (the mains sit side by side, the
+sidearm last); on touch the weapon slider at the top right cycles only carried weapons. The permanent extra main slot costs 400 TK. Iron sights do not render a scope lens. Impacts inherit nominal
 bore width and resolved variant power: the 9 mm pistol hole is wider than the
 7.62 mm GPMG hole, but its lower damage produces less depth and smoke.
 

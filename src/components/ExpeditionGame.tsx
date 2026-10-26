@@ -11,6 +11,7 @@ import { findWorldRoute, getWorldZone, WORLD_GATEWAYS, WORLD_ZONES, type WorldZo
 import { useFpsFullscreen } from '../game/use-fps-fullscreen';
 import FpsMinimap from './FpsMinimap';
 import FpsWeaponHud from './FpsWeaponHud';
+import FpsWeaponSlider from './FpsWeaponSlider';
 import FpsVitals from './FpsVitals';
 import FpsShield from './FpsShield';
 import FpsDebugPanel from './FpsDebugPanel';
@@ -79,6 +80,8 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
   const nearbyLoot = [...(hud.fieldLoot ?? [])].sort((a, b) => Math.hypot(a.x - hud.x, a.z - hud.z) - Math.hypot(b.x - hud.x, b.z - hud.z)).slice(0, 5);
   const nearbyNpcs = [...(hud.npcs ?? [])].sort((a, b) => Math.hypot(a.x - hud.x, a.z - hud.z) - Math.hypot(b.x - hud.x, b.z - hud.z)).slice(0, 3);
   const distance = (point: { x: number; z: number }) => Math.round(Math.hypot(point.x - hud.x, point.z - hud.z));
+  // A phone's corner holds the weapon slider above and the belt below, so touch lists only the nearest crossings; the map marks them all.
+  const nearestGateways = [...gateways].sort((a, b) => distance(a.position) - distance(b.position));
   const touch = useTouchControls(hud.inputMode);
   const hold = (key: string) => ({
     onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); engine.current?.setInput(key, true); },
@@ -108,6 +111,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         {hud.hit && <div className="fps-hit-label">HIT −{hud.lastDamage}</div>}
         {hud.callout && <div className="fps-kill-callout" role="status"><span>ELIMINATION CHAIN ×{hud.chain}</span><strong>{hud.callout}</strong></div>}
         {!alive && <div className="expedition-respawn" role="status"><span>OPERATOR DOWN</span><strong>Regrouping in {Math.ceil(hud.arenaSelf?.respawnIn ?? 0)}s</strong></div>}
+        <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />
         <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} />
         <div className="fps-objective">Explore. Find supplies. Meet people in the district.<small>E · PICK UP / N · INTERACT / T · CROSS CHECKPOINT</small></div>
         <div className="expedition-prompts" role="status">{hud.lootPrompt && <strong>{hud.lootPrompt}</strong>}{hud.npcPrompt && <strong>{hud.npcPrompt}</strong>}{hud.travelPrompt && <strong>{hud.travelPrompt}</strong>}{hud.lootNotice && <span>{hud.lootNotice}</span>}</div>
@@ -115,7 +119,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
           {hud.sectorHeat && <div className="expedition-heat" aria-label="Faction heat here">{[...SQUAD_FACTIONS].reverse().map(id =>
             <div key={id} data-faction={id}><small>{getArenaFaction(id)!.short}</small><i style={{ width: `${Math.round(hud.sectorHeat![id] * 100)}%`, background: getArenaFaction(id)!.accent }} /></div>)}</div>}</div>}
         {touch && !hud.pilotEnabled && <TouchControls hud={hud} engine={engine.current} mode="expedition" onMenu={() => engine.current?.pause()} />}
-        <div className="expedition-route-hud">{nextCheckpoint && <strong>ROUTE TO {getWorldZone(destination!).name.toUpperCase()}</strong>}{(nextCheckpoint ? [nextCheckpoint] : gateways).map(gateway => <span key={gateway.id}>{getWorldZone(gateway.to).name} <b>{distance(gateway.position)}m</b></span>)}</div>
+        <div className="expedition-route-hud">{nextCheckpoint && <strong>ROUTE TO {getWorldZone(destination!).name.toUpperCase()}</strong>}{(nextCheckpoint ? [nextCheckpoint] : touch ? nearestGateways.slice(0, 2) : gateways).map(gateway => <span key={gateway.id}>{getWorldZone(gateway.to).name} <b>{distance(gateway.position)}m</b></span>)}</div>
       </>}
       {!playing && <div className="fps-overlay"><div className="fps-start-card">
         {nav}
