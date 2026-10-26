@@ -3022,3 +3022,17 @@ tapped directly. Bounds checked for overlap at 640×320, 740×360 (range and
 Upper Thomson) and 844×390; portrait 375×812 unchanged. Older overlaps left
 alone: the minimap covers part of the menu chip at 640×320, and the reload
 and jump buttons' bounding boxes touch.
+
+## 2026-10-26: taps land while the other thumb steers
+
+Phones turn only the first finger into a `click`, so with the left thumb on
+the stick a right-thumb tap on Reload, Aim, Jump, the stance, prompts or belt
+produced pointer events and was ignored (Fire already acted on pointerdown).
+New `touch-tap.ts` `tapProps(action)` acts on touch pointerdown for any finger
+and keeps `onClick` for mouse and keyboard, skipping the click that follows a
+touch. `TouchControls`' `act` wraps every `onClick` with it, plus the menu chip
+and prompts; belt slots use it; the weapon slider acts on pointerup when the
+finger did not swipe (click only for keyboard, `detail === 0`). Validation:
+unit tests for `tapProps`; in the pane a non-primary pointer tap on the slider
+switched weapons, and every touch control was confirmed to carry touch-down
+handlers. Not tried on a real phone with two thumbs.

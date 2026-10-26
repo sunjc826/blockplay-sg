@@ -5,6 +5,7 @@ import { promptLabel, thumbArc, type StickVector } from '../game/touch-controls'
 import { visionStatus } from './FpsVisionChip';
 import './fps-vision.css';
 import TouchStick from './TouchStick';
+import { tapProps } from './touch-tap';
 import './touch-controls.css';
 
 /**
@@ -80,7 +81,9 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
   };
 
   type Action = { key: string; label: string; icon: React.ReactNode; props: Record<string, unknown> };
-  const act = (key: string, label: string, icon: React.ReactNode, props: Record<string, unknown> = {}): Action => ({ key, label, icon, props });
+  // A press acts on touch-down for any finger (see `tapProps`), so a tap still lands while the other thumb steers.
+  const act = (key: string, label: string, icon: React.ReactNode, props: Record<string, unknown> = {}): Action =>
+    ({ key, label, icon, props: typeof props.onClick === 'function' ? { ...props, ...tapProps(props.onClick as () => void) } : props });
 
   // The sweep, nearest the resting thumb first: what you press without stopping
   // shooting comes before what you press between fights.
@@ -120,7 +123,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
   return <div className="touch-layer" data-touch-layer={mode} data-mounted={mounted || undefined} style={{ '--arc-spread': arc.spread } as React.CSSProperties}>
     {/* Out of both sweeps: a mis-hit here costs the round, not a magazine. */}
     <div className="touch-move">
-      <button type="button" className="touch-chip" data-touch-action="menu" aria-label={mode === 'range' ? 'Pause' : 'Menu'} title={mode === 'range' ? 'Pause' : 'Menu'} onClick={onMenu}><Menu size={16} /></button>
+      <button type="button" className="touch-chip" data-touch-action="menu" aria-label={mode === 'range' ? 'Pause' : 'Menu'} title={mode === 'range' ? 'Pause' : 'Menu'} {...tapProps(onMenu)}><Menu size={16} /></button>
       <div className="touch-move-row">
         <TouchStick kind="move" label={mounted ? hud.vehicleSeat === 0 ? 'DRIVE' : 'RIDING' : 'MOVE'} onChange={mounted && hud.vehicleSeat !== 0 ? () => {} : move} />
         {stance.length > 0 && <div className="touch-stance">
@@ -130,7 +133,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
     </div>
 
     {prompts.length > 0 && <div className="touch-prompts">
-      {prompts.map(item => <button key={item.key} type="button" className="touch-prompt" data-touch-action={item.key} onClick={item.props.onClick as () => void}>{item.icon}<span>{item.label}</span></button>)}
+      {prompts.map(item => <button key={item.key} type="button" className="touch-prompt" data-touch-action={item.key} {...item.props}>{item.icon}<span>{item.label}</span></button>)}
     </div>}
 
     <div className="touch-combat">

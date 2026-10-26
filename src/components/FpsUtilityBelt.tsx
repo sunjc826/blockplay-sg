@@ -3,6 +3,7 @@ import { Bandage, BriefcaseMedical, Package, Sandwich, ShieldPlus } from 'lucide
 import type { FpsHud } from '../game/fps-engine';
 import { KIND_OF_STYLE, type UtilityKind } from '../game/utility-belt';
 import { healthBand } from '../game/vitals';
+import { tapProps } from './touch-tap';
 
 const ICONS: Record<UtilityKind, ReactNode> = {
   food: <Sandwich size={15} />, bandage: <Bandage size={15} />, 'first-aid': <BriefcaseMedical size={15} />,
@@ -26,7 +27,7 @@ export default function FpsUtilityBelt({ hud, canUse, onUse, docked = false }: {
       data-empty={!slot.count || undefined} data-using={using === slot.kind || undefined} data-wanted={(hurt && slot.count > 0 && HEALING.includes(slot.kind)) || undefined}
       aria-pressed={slot.kind === hud.beltSelected} disabled={!canUse || !slot.count || !onUse}
       aria-label={`${slot.label}: ${slot.count ? `${slot.count} carried, next ${slot.next?.name}` : 'none carried'}. Key ${slot.key}.`}
-      title={slot.next ? `${slot.next.name} · ${slot.next.effect}` : `No ${slot.label.toLowerCase()} carried`} onClick={() => onUse?.(slot.kind)}>
+      title={slot.next ? `${slot.next.name} · ${slot.next.effect}` : `No ${slot.label.toLowerCase()} carried`} {...tapProps(() => onUse?.(slot.kind))}>
       <kbd>{slot.key}</kbd>{ICONS[slot.kind]}<b>{slot.count}</b><small>{slot.label}</small>
       {using === slot.kind && <i className="fps-belt-progress" style={{ transform: `scaleX(${hud.supplyUse!.progress})` }} />}
     </button>)}</div>
