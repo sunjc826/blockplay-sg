@@ -22,6 +22,10 @@ export const STICK_RADIUS = 46;
 export const STICK_DEAD_ZONE = 0.16;
 /** Push past this and the run starts, so sprinting needs no second button. */
 export const STICK_SPRINT = 0.92;
+/** A run already going holds until the stick eases back past this, so a thumb wobbling at the rim does not flicker it. */
+export const STICK_SPRINT_RELEASE = 0.8;
+/** Whether a stick this far over runs, given whether it was running a moment ago. */
+export const stickSprints = (magnitude: number, running = false) => magnitude >= (running ? STICK_SPRINT_RELEASE : STICK_SPRINT);
 /** Pixels-per-second of equivalent mouse travel at full look deflection. */
 export const LOOK_RATE_X = 900;
 export const LOOK_RATE_Y = 620;
@@ -59,10 +63,11 @@ const held = (keys: ReadonlySet<string>, group: readonly string[]) => group.some
  * centre — a held key and a pushed stick are never summed, so a stuck key
  * cannot drag a touch player sideways — and analog magnitude survives into the
  * result, because `movementInput` only normalises vectors longer than one.
+ * `running` is whether the stick was running last frame (see `stickSprints`).
  */
-export function resolveMovement(keys: ReadonlySet<string>, stick?: StickVector | null) {
+export function resolveMovement(keys: ReadonlySet<string>, stick?: StickVector | null, running = false) {
   if (stick && stick.magnitude > 0) {
-    return { forward: stick.y, side: stick.x, sprint: stick.magnitude >= STICK_SPRINT || keys.has('shift') };
+    return { forward: stick.y, side: stick.x, sprint: stickSprints(stick.magnitude, running) || keys.has('shift') };
   }
   return {
     forward: Number(held(keys, FORWARD_KEYS)) - Number(held(keys, BACK_KEYS)),

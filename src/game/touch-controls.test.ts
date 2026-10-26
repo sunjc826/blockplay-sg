@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  LOOK_RATE_X, NEUTRAL_STICK, STICK_DEAD_ZONE, STICK_RADIUS, STICK_SPRINT,
+  LOOK_RATE_X, NEUTRAL_STICK, STICK_DEAD_ZONE, STICK_RADIUS, STICK_SPRINT, STICK_SPRINT_RELEASE,
   TOUCH_LOOK_GAIN_X, TOUCH_LOOK_GAIN_Y,
   dragLook, lookDelta, promptLabel, resolveMovement, stickKeys, stickOffset, stickVector, padSlot,
 } from './touch-controls';
@@ -76,6 +76,17 @@ describe('resolveMovement', () => {
     expect(walk.magnitude).toBeLessThan(STICK_SPRINT);
     expect(resolveMovement(new Set(), walk).sprint).toBe(false);
     expect(resolveMovement(new Set(), run).sprint).toBe(true);
+  });
+
+  it('holds a run until the stick eases well back from the rim', () => {
+    const between = stickVector(0, 0, 0, -STICK_RADIUS * (STICK_DEAD_ZONE + (1 - STICK_DEAD_ZONE) * 0.86));
+    expect(between.magnitude).toBeGreaterThan(STICK_SPRINT_RELEASE);
+    expect(between.magnitude).toBeLessThan(STICK_SPRINT);
+    // The same deflection walks from a standstill and keeps an existing run going.
+    expect(resolveMovement(new Set(), between).sprint).toBe(false);
+    expect(resolveMovement(new Set(), between, true).sprint).toBe(true);
+    const eased = stickVector(0, 0, 0, -STICK_RADIUS * 0.7);
+    expect(resolveMovement(new Set(), eased, true).sprint).toBe(false);
   });
 
   it('keeps analog magnitude: a half-pushed stick walks at half pace', () => {

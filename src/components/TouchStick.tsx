@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { NEUTRAL_STICK, STICK_RADIUS, STICK_SPRINT, stickOffset, stickVector, type StickVector } from '../game/touch-controls';
+import { NEUTRAL_STICK, STICK_RADIUS, stickOffset, stickSprints, stickVector, type StickVector } from '../game/touch-controls';
 
 /**
  * One floating thumb stick. The base is planted wherever the thumb lands inside
@@ -23,7 +23,8 @@ export default function TouchStick({ kind, label, disabled = false, onChange }: 
   const draw = (stick: StickVector) => {
     const offset = stickOffset(stick);
     if (thumb.current) thumb.current.style.transform = `translate3d(${offset.x}px, ${offset.y}px, 0)`;
-    zone.current?.setAttribute('data-sprint', String(kind === 'move' && stick.magnitude >= STICK_SPRINT));
+    const running = zone.current?.getAttribute('data-sprint') === 'true';
+    zone.current?.setAttribute('data-sprint', String(kind === 'move' && stickSprints(stick.magnitude, running)));
   };
   const release = (event: React.PointerEvent<HTMLDivElement>) => {
     if (pointer.current?.id !== event.pointerId) return;

@@ -52,6 +52,7 @@ import { createScopeRenderer, getWeaponSight } from './weapon-optics';
 import { createOpticReflectionRenderer } from './weapon-reflections';
 import { handleSide, reloadMotion, reloadStage, smoothStep } from './fps-weapon-motion';
 import { armReloadGate, reloadInterrupt } from './fps-reload';
+import { advanceSprintBreak, createSprintBreak } from './fps-sprint';
 import { createFpsComms, type CommsEntry } from './fps-comms';
 import { createEncikRadio, type EncikAddress, type EncikCallout, type EncikEvent } from './fps-callouts';
 import { createEncikAudio } from './encik-audio';
@@ -224,7 +225,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const handling: ReturnType<typeof createWeaponHandling>[] = [], emptyReload = specs.map(() => false);
   let aimProgress = 0, lastReloadStage = '';
   // Inputs held when a reload began, which do not interrupt it (see fps-reload).
+  // Only a held sprint key counts as sprint intent there: a stick pushed to the rim never stops a reload.
   let reloadGate = armReloadGate(false, false), sprintIntent = false;
+  // The trigger breaking a run (see fps-sprint); the stick's run state, for its hysteresis.
+  const sprintBreak = createSprintBreak();
+  let wasSprinting = false, stickRunning = false;
   const bloom = specs.map(() => createWeaponBloom());
   let spreadAngle = .005;
   const shotRight = new THREE.Vector3(), shotUp = new THREE.Vector3();
@@ -362,7 +367,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       ],
     });
   };
-  const clearInput = () => { prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; ads = false; touchAim = false; drag = null; moveStick = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
+  const clearInput = () => { prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; ads = false; touchAim = false; drag = null; moveStick = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -1844,7 +1849,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (pilotEnabled && ['complete', 'defeated', 'error'].includes(hud.phase)) { pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); }
     if (pilotEnabled && hud.phase === 'playing' && now >= nextPilotAt) { nextPilotAt = now + PILOT_INTERVAL * 1000; updatePilot(now / 1000); }
     if (disposed || travelPending) return;
-    let moving = false, sprinting = false;
+    let moving = false, sprinting = false, fireReady = true;
     // The arena keeps running behind pause menus, including magazine reloads.
     if (options.arena) loadout.forEach((state, i) => advanceWeapon(state, i, realDt, specs));
     if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) {
@@ -1858,18 +1863,22 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         carry.set(0, 0, 0);
       } else {
       if (!arenaRuntime) vehicles.step(keys, dt);
-      const move = resolveMovement(keys, moveStick);
+      const move = resolveMovement(keys, moveStick, stickRunning);
+      stickRunning = !!moveStick && move.sprint;
       const forward = move.forward, side = move.side;
       const onGround = grounded(), poseStance = stance(), burden = movement();
-      sprinting = sprintIntent = move.sprint && forward > .5 && poseStance === 'stand';
-      // A fresh trigger pull or sprint stops a reload; one already held when it
-      // began does not, and a held sprint drops to a run until the reload ends.
+      const wantsSprint = move.sprint && forward > .5 && poseStance === 'stand', pulled = trigger || pullBuffer > 0;
+      sprintIntent = wantsSprint && keys.has('shift');
+      // Fire beats sprint: a held trigger drops the run to a jog, and it picks back up on its own.
+      ({ sprint: sprinting, fire: fireReady } = advanceSprintBreak(sprintBreak, wantsSprint, pulled, wasSprinting, realDt));
+      // A fresh trigger pull or sprint key stops a reload; one already held when
+      // it began does not, and a held sprint drops to a run until the reload ends.
       if (loadout[hud.weapon].reloadRemaining > 0) {
-        if (reloadInterrupt(reloadGate, trigger || pullBuffer > 0, sprinting, roundReady(loadout[hud.weapon], specs[hud.weapon]))) stopReload();
+        if (reloadInterrupt(reloadGate, pulled, sprintIntent, roundReady(loadout[hud.weapon], specs[hud.weapon]))) stopReload();
         else sprinting = false;
       }
-      // A fresh trigger pull or sprint puts a supply away; one already held walks.
-      if (supplyUse) { if (reloadInterrupt(supplyGate, trigger || pullBuffer > 0, sprinting, true)) endSupply(); else sprinting = false; }
+      // A fresh trigger pull or sprint key puts a supply away; one already held walks.
+      if (supplyUse) { if (reloadInterrupt(supplyGate, pulled, sprintIntent, true)) endSupply(); else sprinting = false; }
       const speed = (poseStance === 'prone' ? .85 : poseStance === 'crouch' ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2) * (supplyUse ? SUPPLY_MOVE_SCALE : 1);
       const target = movementInput(forward, side, yaw, speed * burden.movement, 1);
       if (consumeJump(bodyMotion, onGround, poseStance === 'stand' && bodyMotion.eye > 1.6, dt)) velocityY = 5.6 * burden.jumpVelocity;
@@ -1900,7 +1909,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (vehicles.active && vehicleAimTimer <= 0) { aimVehicle(); vehicleAimTimer = .05; }
       if (supplyUse && (vehicles.active || hud.health <= 0)) endSupply();
       stepSupply(realDt);
-      if ((trigger || pullBuffer > 0) && !sprinting && !supplyUse && hud.phase === 'playing') { if (vehicles.active) shootVehicle(); else shoot(); }
+      wasSprinting = sprinting;
+      if ((trigger || pullBuffer > 0) && fireReady && !supplyUse && hud.phase === 'playing') { if (vehicles.active) shootVehicle(); else shoot(); }
       pullBuffer = Math.max(0, pullBuffer - realDt);
       if (hud.phase === 'playing' && options.combat && !options.arena) counterFire(realDt);
     } else { advanceRecoil(kick, realDt); applyAimPush(); carry.set(0, 0, 0); updateCameras(dt, false, false); }

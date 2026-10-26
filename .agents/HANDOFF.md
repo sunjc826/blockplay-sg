@@ -3060,3 +3060,24 @@ the pad; the left thumb keeps the stick only. Geometry is CSS (`--pad-size`,
 at 640×320, 740×360 (range; Upper Thomson with night vision) and 375×812: no
 overlaps except the older minimap × stick-zone one. `touch-controls-smoke`
 asserts the pad's relative positions; not run here.
+
+## 2026-10-26: fire beats sprint; the stick no longer cancels reloads
+
+Firing while sprinting used to be ignored (`shoot()` waited for `!sprinting`),
+which on touch meant easing the thumb off the stick's rim before FIRE did
+anything. New `fps-sprint.ts` `advanceSprintBreak`: a held trigger drops a
+sprint to a run, a pull out of a sprint fires after `SPRINT_OUT` (0.12 s,
+inside the 0.18 s trigger buffer so taps still fire), and the sprint resumes
+by itself `SPRINT_RESUME` (0.25 s) after the trigger is let go. Same rule on
+desktop with Shift. The reload/supply gates now get only a held Shift as sprint
+intent, so a stick at the rim (which wobbles across the threshold) never reads
+as a fresh sprint and cancels a reload; on touch only the trigger or a weapon
+change stops one. The stick sprint has hysteresis (`STICK_SPRINT` 0.92 on,
+`STICK_SPRINT_RELEASE` 0.80 off), also used by `TouchStick`'s `data-sprint`.
+Validation: unit tests for the break and the hysteresis; `touch-controls-smoke`
+gained a two-finger "FIRE fires out of a sprint" step, which passed in an
+emulated phone (headless Chrome, 5175) when run from a copy that skips the
+earlier movement steps. The full smoke fails at those movement steps in headless
+Chrome ("Lifting the thumb stops the player" drifts 0.08 m at ~5 fps on
+SwiftShader; the half/full stick comparison runs into the range barrier at pace
+2). Not tried on a real phone.

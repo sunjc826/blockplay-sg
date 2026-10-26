@@ -115,6 +115,16 @@ try {
   await push(`document.querySelector('[data-touch-action=fire]')`, 40, 0, 500);
   assert(await evaluate(ammo) < loaded, 'The FIRE button fires');
   assert(Math.abs((await evaluate(where)).yaw - aimed.yaw) > 0.05, 'Holding FIRE and sliding still aims');
+  // Fire beats sprint: with the left thumb holding the stick at the rim, a
+  // right-thumb press still fires instead of being swallowed by the run.
+  const sprintAmmo = await evaluate(ammo);
+  const base = await point(stick('move')), rim = { x: base.x, y: base.y - 60 };
+  const fireAt = await point(`document.querySelector('[data-touch-action=fire]')`);
+  await touch('touchStart', [base]); await touch('touchMove', [rim]); await delay(400);
+  assert.equal(await evaluate(`${stick('move')}.dataset.sprint`), 'true', 'A stick at the rim sprints');
+  await touch('touchStart', [rim, fireAt]); await delay(500);
+  await touch('touchEnd', []); await delay(120);
+  assert(await evaluate(ammo) < sprintAmmo, 'FIRE fires out of a sprint');
 
   // Crouch latches rather than needing a held finger, and the menu is reachable.
   await tap(`document.querySelector('[data-touch-action=crouch]')`);
