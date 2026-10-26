@@ -3103,3 +3103,21 @@ frames grabbed in headless Chrome at noon and night on the Marina range (jets,
 smoke over the towers, flares, flak, beams all visible). Downtown towers hide
 anything under ~20° up, which is why the fight sends flares and smoke high.
 Not heard on real speakers; not tried on a phone GPU.
+
+## 2026-10-26: other shooters heard; guns with weight
+
+Bots and other players fired in silence. `gunfire-reports.ts` diffs each arena
+figure's `shots` counter per snapshot (instant guns included; own shots and
+seated figures left out, since vehicles sound through `adoptShared`), capped at
+3 per figure and 6 nearest per snapshot. The range's counter-fire targets and
+raid door guns are heard too.
+
+Every gunshot (own, vehicle, others, door guns) now plays through
+`gunshot-audio.ts`: a crack, a noise body, a falling-sine thump (≈150→50 Hz
+rifle, to ≈40 Hz for the CIS 50) and an echo tail, sized by bore and damage,
+into one tanh-saturated, compressed bus. Distance strips the crack before the
+rumble and lengthens the echo; others are panned. Rendered offline in headless
+Chrome: own rifle peak .07 → .53, energy under 150 Hz 2% → 31%, no clipping.
+Chromium's compressor ducks the first ~100 ms after a context starts, so
+measure after that. The bus output gain trims every gun at once. Not heard in
+game; the pistol and rifle end up near equal loudness after compression.

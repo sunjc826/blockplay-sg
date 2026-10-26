@@ -1,8 +1,8 @@
 import type { ArenaActor, ArenaPoint } from './arena-rules';
 import { FPS_WEAPONS } from './fps-rules';
 
-/** One shot to be heard: how far off, the gun's bore and punch, and how long after now it was fired. */
-export interface GunfireReport { distance: number; calibre: number; power: number; after: number }
+/** One shot to be heard: where from and how far off, the gun's bore and punch, and how long after now it was fired. */
+export interface GunfireReport { from: ArenaPoint; distance: number; calibre: number; power: number; after: number }
 /** Reports heard in one snapshot, nearest first, so a firefight stays legible rather than a wall of noise. */
 export const MAX_REPORTS_PER_SNAPSHOT = 6;
 /** Shots one figure makes heard per snapshot, however many the host counted. */
@@ -26,7 +26,7 @@ export function gunfireReports(actors: readonly Pick<ArenaActor, 'id' | 'x' | 'y
     if (fired <= 0) continue;
     // Shots counted together were fired a cycle apart, so a burst is heard as one.
     const spec = FPS_WEAPONS[actor.weapon], distance = Math.hypot(actor.x - listener.x, actor.y - listener.y, actor.z - listener.z);
-    for (let i = 0; i < fired; i++) reports.push({ distance, calibre: spec?.caliberMm ?? 5.56, power: spec?.damage ?? 36, after: i * (spec?.interval ?? .12) });
+    for (let i = 0; i < fired; i++) reports.push({ from: { x: actor.x, y: actor.y, z: actor.z }, distance, calibre: spec?.caliberMm ?? 5.56, power: spec?.damage ?? 36, after: i * (spec?.interval ?? .12) });
   }
   for (const id of last.keys()) if (!present.has(id)) last.delete(id);
   return reports.sort((a, b) => a.distance - b.distance).slice(0, MAX_REPORTS_PER_SNAPSHOT);

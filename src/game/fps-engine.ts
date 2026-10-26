@@ -71,6 +71,7 @@ import { createCombatAudio } from './combat-event-audio';
 import { createAmbientSky } from './ambient-sky-visuals';
 import type { AmbientKind } from './ambient-sky';
 import { gunfireReports } from './gunfire-reports';
+import { createGunshotAudio, gunshotTone } from './gunshot-audio';
 import { getEnvironmentSettings } from './environment-settings';
 import { createHitDirectionOverlay, createHitDirections, hitStrength } from './fps-hit-direction';
 import { advanceSupplyUse, startSupplyUse, supplyProfile, supplyProgress, SUPPLY_MOVE_SCALE, type SupplyProfile, type SupplyStyle, type SupplyUse } from './fps-healing';
@@ -255,6 +256,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     return firstVisibleHit(eventRay, gameplayCandidates())?.point ?? null;
   }, { reduced: () => getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
   const combatAudio = createCombatAudio(() => audio, () => hud.muted);
+  const gunshots = createGunshotAudio(() => audio, () => hud.muted);
   // Scenery in the sky beyond the district: never a threat, never sent between peers (ambient-sky).
   const ambientSky = createAmbientSky(world.scene, { seed: Math.floor(Math.random() * 2 ** 32), risk: options.arena?.environment?.combatEvents?.risk ?? 'low',
     reduced: () => getEnvironmentSettings().reducedEffects || !!motionPreference?.matches, audio: () => audio, muted: () => hud.muted });
@@ -406,12 +408,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       void audio.resume().catch(() => {});
     } catch { hud.muted = true; }
   }
-  function shotSound() {
-    if (!audio || !soundBuffer || hud.muted || audio.state !== 'running') return;
-    const sound = audio.createBufferSource(), gain = audio.createGain(), filter = audio.createBiquadFilter();
-    sound.buffer = soundBuffer; filter.type = 'lowpass'; filter.frequency.value = hud.weapon ? 1100 : 1800; gain.gain.value = 0.16;
-    sound.connect(filter).connect(gain).connect(audio.destination); sound.start();
-    sound.onended = () => { sound.disconnect(); filter.disconnect(); gain.disconnect(); };
+  /** Our own shot, at the ear: the gun in hand, or the vehicle's when seated. */
+  function shotSound(gun: { caliberMm: number; damage: number }) { gunshots.fire(gunshotTone(gun.caliberMm, gun.damage, 0, true)); }
+  /** Where a sound sits between the ears, from -1 (left) to 1 (right). */
+  function panTo(at: { x: number; y: number; z: number }) {
+    const toward = new THREE.Vector3(at.x, at.y, at.z).sub(camera.position), right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+    const length = toward.length(); return length < .5 ? 0 : toward.dot(right) / length * .8;
+  }
+  /** Someone else's shot from `at`, heard after its travel time and `after` seconds more. */
+  function otherShot(at: { x: number; y: number; z: number }, calibre: number, power: number, after = 0) {
+    gunshots.fire(gunshotTone(calibre, power, camera.position.distanceTo(new THREE.Vector3(at.x, at.y, at.z))), panTo(at), after);
   }
   /** A rustle, a tear or a clack as a supply's effect lands. */
   function supplySound(style: SupplyStyle) {
@@ -1405,7 +1411,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     aimVehicle();
     const shot = vehicles.fire(); if (!shot) return;
     pullBuffer = 0;
-    hud.shots++; shotSound();
+    hud.shots++; shotSound(VEHICLE_COMBAT[mounted.kind]);
     // The round leaves from the turret base, so a muzzle poked through a wall still meets the wall; it flies like any other.
     if (rounds.length < MAX_ROUNDS_IN_FLIGHT) rounds.push(Object.assign(createRound(++roundSerial, hud.weapon, shot.base.clone(), shot.direction.clone(), shot.ballistics),
       { range: shot.range, skipVehicle: shot.kind, vehicleDamage: shot.damage }));
@@ -1462,7 +1468,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function shoot() {
     if ((!pilotEnabled && specs[hud.weapon].fireMode === 'semi' && triggerSpent) || vehicles.active || (options.arena && !hud.arenaSelf?.alive) || !fireWeapon(loadout[hud.weapon], hud.weapon, specs)) return;
-    hud.shots++; shotSound();
+    hud.shots++; shotSound(specs[hud.weapon]);
     const recoilDamage = unsupportedRecoilDamage(specs[hud.weapon], prone, grounded(), keys.has('c'));
     if (recoilDamage) {
       hud.message = `Unsupported .50 recoil: ${recoilDamage} damage before armor. Z / Prone to deploy the mount.`;
@@ -1544,7 +1550,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         const attack = pendingAttack; pendingAttack = null; hud.incoming = false;
         // The target fires whenever it still sees you, and is heard whether or not it finds you.
         const sees = hasLineOfSight(attack.target);
-        if (sees) combatAudio.report(attackOrigin.distanceTo(camera.position), 5.56, 36);
+        if (sees) otherShot(attackOrigin, 5.56, 36);
         if (sees && playerPoint().distanceTo(attack.aim) < .75) {
           if (vehicles.active) vehicles.damage(vehicles.active, 36);
           else { hurtPlayer(18); hitDirections.add(viewer(), attackOrigin, hitStrength(18, hud.maxHealth)); }
@@ -1589,7 +1595,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const oldVehicle = vehicles.active, oldSeat = vehicles.seat;
     if (frame.snapshot?.vehicles && options.arena) {
       // Their rounds arrive with the snapshot's own and are drawn in flight; the shot itself is heard.
-      for (let fired = vehicles.adoptShared(frame.snapshot.vehicles, options.arena.session.id).length; fired > 0; fired--) shotSound();
+      for (const shot of vehicles.adoptShared(frame.snapshot.vehicles, options.arena.session.id)) {
+        const gun = VEHICLE_COMBAT[shot.kind];
+        if (shot.kind === vehicles.active) shotSound(gun); else otherShot(shot.origin, gun.caliberMm, gun.damage);
+      }
       if (oldVehicle !== vehicles.active || oldSeat !== vehicles.seat) {
         if (!oldVehicle && vehicles.mounted) { yaw = vehicles.mounted.yaw; pitch = -.23; }
         clearInput(); vertical = velocityY = 0;
@@ -1601,7 +1610,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.arena = frame.snapshot; hud.arenaSelf = frame.self; hud.arenaConnected = frame.connected; hud.arenaStarted = frame.started;
     if (options.arena) rounds.push(...adoptPublishedRounds(frame.snapshot?.rounds ?? [], seenRounds,
       { self: options.arena.session.id, viewer: camera.position, range: REMOTE_TRACER_RANGE, room: MAX_ROUNDS_IN_FLIGHT - rounds.length, nextId: () => ++roundSerial, styleFor: publishedStyle }));
-    if (options.arena && frame.snapshot) for (const shot of gunfireReports(frame.snapshot.actors, heardShots, options.arena.session.id, camera.position)) combatAudio.report(shot.distance, shot.calibre, shot.power, shot.after);
+    if (options.arena && frame.snapshot) for (const shot of gunfireReports(frame.snapshot.actors, heardShots, options.arena.session.id, camera.position)) otherShot(shot.from, shot.calibre, shot.power, shot.after);
     if (frame.snapshot) hud.elapsed = frame.snapshot.elapsed;
     if (frame.snapshot) dropFallenWeapons(frame.snapshot.actors, frame.feed);
     if (frame.self) {
@@ -1802,7 +1811,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     combatAudio.transport(engine.mode, engine.distance, engine.effort);
     combatAudio.loop('jet', Math.min(jet, ambientJet)); combatAudio.loop('raid', raid); combatAudio.loop('drone', drone); combatAudio.loop('siren', siren ? 0 : Infinity);
     const happened = combatVisuals.update(dt, events, eventClock, camera, raiders);
-    happened.shots.slice(0, 2).forEach(at => combatAudio.crack(at.distanceTo(listener)));
+    // A raid helicopter's door gun.
+    happened.shots.slice(0, 2).forEach(at => otherShot(at, 7.62, 60));
     for (const { at, size } of happened.blasts) {
       const distance = at.distanceTo(listener); combatAudio.boom(distance, size);
       shake = Math.min(1, shake + Math.max(0, 1 - distance / (60 * size)) * .8);
@@ -2090,7 +2100,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // First, so every mesh has its own material back before anything else restores or disposes them.
       vision.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); world.dispose();
-      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); ambientSky.dispose(); hitOverlay.dispose();
+      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); gunshots.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); sunShadows.dispose(); occlusion.dispose(); renderer.dispose(); canvas.remove();
     },

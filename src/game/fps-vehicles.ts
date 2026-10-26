@@ -160,12 +160,12 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     setNotice(message: string) { notice = message; noticeTime = 3; },
     adoptShared(next: SharedVehicle[], id: string) {
       const first = shared === null; shared = next; selfId = id;
-      const shots: { origin: THREE.Vector3; end: THREE.Vector3 }[] = [];
+      const shots: { kind: VehicleKind; origin: THREE.Vector3; end: THREE.Vector3 }[] = [];
       for (const v of next) {
         if (!first && states[v.kind].health > 0 && v.health <= 0) effects.explode(new THREE.Vector3(v.x, v.y + 1.3, v.z));
         if (!first && v.shots > sharedShots[v.kind] && v.shotEnd) {
           flashTime[v.kind] = .085; const ray = vehicleGunRay({ ...v });
-          shots.push({ origin: new THREE.Vector3(ray.origin.x, ray.origin.y, ray.origin.z), end: new THREE.Vector3(v.shotEnd.x, v.shotEnd.y, v.shotEnd.z) });
+          shots.push({ kind: v.kind, origin: new THREE.Vector3(ray.origin.x, ray.origin.y, ray.origin.z), end: new THREE.Vector3(v.shotEnd.x, v.shotEnd.y, v.shotEnd.z) });
         }
         sharedShots[v.kind] = v.shots; Object.assign(states[v.kind], v);
         models[v.kind].getObjectByName('vehicle-turret')!.rotation.set(v.gunPitch, v.gunYaw - v.yaw, 0, 'YXZ');
