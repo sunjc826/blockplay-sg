@@ -81,6 +81,10 @@ describe('enemy weapon models', () => {
     const restore = applyEnemyWeaponConfig(model, 'xm8-inspired', 'automatic');
     expect(visible('handguard-carbine')).toBe(false); expect(visible('twin-drum')).toBe(true); expect(visible('magazine-30')).toBe(false);
     expect(model.getObjectByName('xm8-inspired__socket_muzzle')!.position.z).toBe(ENEMY_WEAPON_LAYOUT['xm8-inspired'].configs.automatic.muzzle);
+    expect(visible('ism')).toBe(true); expect(visible('telescope')).toBe(false);
+    applyEnemyWeaponConfig(model, 'xm8-inspired', 'sharpshooter');
+    // The sharpshooter swaps the red-dot module for a telescope on the handle.
+    expect(visible('ism')).toBe(false); expect(visible('telescope')).toBe(true);
     restore();
     expect(visible('handguard-carbine')).toBe(true); expect(visible('twin-drum')).toBe(false);
     expect(model.getObjectByName('xm8-inspired__socket_muzzle')!.position.z).toBe(ENEMY_WEAPON_LAYOUT['xm8-inspired'].configs.carbine.muzzle);
@@ -100,13 +104,13 @@ describe('enemy weapon models', () => {
       else expect(hit, `${id} ${config}: ${hit?.object.name}`).toBeUndefined();
     }
   });
-  it('fits a collimated dot to the XM8 and G36C and a magnified scope to the other G36s', () => {
+  it('fits a collimated dot to the XM8 and G36C and a magnified scope to the sharpshooter and the other G36s', () => {
     const fitted = (variant: string) => {
       const weapon = resolved(variant), model = buildServiceWeapon(weapon.id)!;
       dressWeapon(model, weapon);
       return { weapon, sight: getWeaponSight(model)!, optic: enemyOptic(weapon.id, itemById(variant)!.config)! };
     };
-    for (const variant of ['xm8-carbine', 'xm8-sharpshooter', 'g36c']) {
+    for (const variant of ['xm8-carbine', 'xm8-compact', 'xm8-automatic', 'g36c']) {
       const { weapon, sight, optic } = fitted(variant);
       expect(optic.kind, variant).toBe('reflex'); expect(weapon.optic, variant).toBe('reflex');
       expect(sight.magnification, variant).toBe(1);
@@ -118,6 +122,11 @@ describe('enemy weapon models', () => {
       expect(sight.magnification, variant).toBeCloseTo(3);
       expect(sight.aimDepth).toBe(optic.aimDepth);
     }
+    const sharpshooter = fitted('xm8-sharpshooter');
+    expect(sharpshooter.optic.kind).toBe('scope'); expect(sharpshooter.weapon.optic).toBe('integrated');
+    expect(sharpshooter.sight.magnification).toBeCloseTo(3.5);
+    expect(sharpshooter.sight.reticle).toBe('xm8-mil');
+    expect(sharpshooter.sight.aimHeight).toBe(sharpshooter.optic.height); expect(sharpshooter.sight.lens.position.z).toBe(sharpshooter.optic.lens);
     // The MG4 keeps its irons: no lens is fitted.
     const mg4 = buildServiceWeapon('mg4-inspired')!; dressWeapon(mg4, resolved('mg4-standard'));
     expect(getWeaponSight(mg4)).toBeUndefined();

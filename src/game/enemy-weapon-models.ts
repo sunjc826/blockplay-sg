@@ -179,22 +179,55 @@ function lowerGroup(k: Kit, z: number, top: number) {
  * shade over the front glass, a laser pod on the right with its two emitters,
  * and the battery cap on the left. weapon-optics fits the glass and the dot.
  */
-function integratedSightingModule(k: Kit) {
+function integratedSightingModule(k: Kit, parent: THREE.Object3D) {
   const { height: y, radius } = ENEMY_WEAPON_LAYOUT['xm8-inspired'].configs.carbine.optic;
   const front = -.095, rear = .005, window = radius + .0006;
-  k.section('ism-body', k.rounded(0, y, .078, .078, .016), front, rear, k.polymer, [k.circle(0, y, window, 64)]);
+  k.section('ism-body', k.rounded(0, y, .078, .078, .016), front, rear, k.polymer, [k.circle(0, y, window, 64)], parent);
   // Seen from inside, so an open double-sided wall rather than a tube's outward faces.
-  k.mesh('ism-liner', new THREE.CylinderGeometry(window - .0002, window - .0002, rear - front - .004, 64, 1, true), k.interior, 0, y, (front + rear) / 2).rotation.x = Math.PI / 2;
-  k.section('ism-shade', k.rounded(0, y + .002, .082, .084, .018), front - .016, front + .002, k.polymer, [k.circle(0, y, radius + .0045, 32)]);
-  k.tube('ism-bezel', radius + .004, window, .004, y, front + .001, k.edge);
-  k.tube('ism-eyepiece', radius + .0065, window, .011, y, rear + .004, k.rubber);
-  for (const [z, x] of [[-.012, -.012], [-.034, .012]] as const) k.box('ism-button', .013, .005, .013, x, y + .041, z, k.rubber);
-  k.box('ism-mode-switch', .008, .004, .02, 0, y + .041, -.065, k.edge);
-  k.crosswise('ism-battery-cap', .012, .008, -.041, y - .004, -.045, k.edge);
-  k.crosswise('ism-battery-grip', .0125, .003, -.045, y - .004, -.045, k.dark);
-  k.box('ism-laser-pod', .018, .03, .072, .046, y - .012, -.052);
-  for (const dy of [-.004, -.02]) k.cylinder('ism-laser-window', .0055, .004, .046, y + dy + .004, front - .002, k.lens);
-  k.box('ism-seam', .08, .002, .1, 0, y - .028, -.045, k.dark);
+  k.mesh('ism-liner', new THREE.CylinderGeometry(window - .0002, window - .0002, rear - front - .004, 64, 1, true), k.interior, 0, y, (front + rear) / 2, parent).rotation.x = Math.PI / 2;
+  k.section('ism-shade', k.rounded(0, y + .002, .082, .084, .018), front - .016, front + .002, k.polymer, [k.circle(0, y, radius + .0045, 32)], parent);
+  k.tube('ism-bezel', radius + .004, window, .004, y, front + .001, k.edge, parent);
+  k.tube('ism-eyepiece', radius + .0065, window, .011, y, rear + .004, k.rubber, parent);
+  for (const [z, x] of [[-.012, -.012], [-.034, .012]] as const) k.box('ism-button', .013, .005, .013, x, y + .041, z, k.rubber, parent);
+  k.box('ism-mode-switch', .008, .004, .02, 0, y + .041, -.065, k.edge, parent);
+  k.crosswise('ism-battery-cap', .012, .008, -.041, y - .004, -.045, k.edge, parent);
+  k.crosswise('ism-battery-grip', .0125, .003, -.045, y - .004, -.045, k.dark, parent);
+  k.box('ism-laser-pod', .018, .03, .072, .046, y - .012, -.052, k.polymer, parent);
+  for (const dy of [-.004, -.02]) k.cylinder('ism-laser-window', .0055, .004, .046, y + dy + .004, front - .002, k.lens, parent);
+  k.box('ism-seam', .08, .002, .1, 0, y - .028, -.045, k.dark, parent);
+}
+
+/**
+ * The sharpshooter's 3.5x telescope in place of the ISM: a rail along the
+ * carry handle, two rings, a straight tube with turrets at its middle, a bell
+ * at each end, and a rubber eyecup. The objective is dark glass seen from the
+ * front; weapon-optics fits the live picture to the eyepiece.
+ */
+function sharpshooterScope(k: Kit, parent: THREE.Object3D) {
+  const { height: y, lens, radius } = ENEMY_WEAPON_LAYOUT['xm8-inspired'].configs.sharpshooter.optic;
+  const top = .276, objective = -.19;
+  k.box('scope-rail', .024, .007, .19, 0, top + .0035, -.06, k.dark, parent);
+  for (let i = 0; i < 11; i++) k.box('scope-rail-tooth', .028, .004, .006, 0, top + .009, -.14 + i * .016, k.dark, parent);
+  for (const z of [-.105, -.012]) {
+    k.box('scope-ring-base', .03, y - .0135 - top - .007, .02, 0, (y - .0135 + top + .007) / 2, z, k.steel, parent);
+    k.tube('scope-ring', .0165, .0135, .018, y, z, k.steel, parent, 24);
+    k.crosswise('scope-ring-clamp', .0045, .042, 0, top + .014, z, k.edge, parent);
+  }
+  k.tube('scope-tube', .0135, .012, .17, y, -.065, k.dark, parent, 28);
+  // Objective bell: a cone up to the front glass, then a short sunshade.
+  k.mesh('scope-objective-bell', new THREE.CylinderGeometry(.0225, .0135, .04, 28, 1, true), k.dark, 0, y, objective + .045, parent).rotation.x = -Math.PI / 2;
+  k.tube('scope-sunshade', .0235, .0205, .025, y, objective + .0125, k.dark, parent, 28);
+  k.cylinder('scope-objective', .0205, .003, 0, y, objective + .022, k.lens, parent, 28);
+  // Turrets: elevation on top, windage on the right, parallax on the left.
+  k.tube('scope-turret-housing', .017, .0125, .03, y, -.06, k.dark, parent, 20);
+  k.mesh('scope-elevation', new THREE.CylinderGeometry(.0105, .0105, .014, 18), k.dark, 0, y + .022, -.06, parent);
+  k.mesh('scope-elevation-cap', new THREE.CylinderGeometry(.011, .011, .006, 18), k.edge, 0, y + .031, -.06, parent);
+  k.crosswise('scope-windage', .0095, .014, .022, y, -.06, k.dark, parent);
+  k.crosswise('scope-parallax', .0095, .012, -.021, y, -.06, k.dark, parent);
+  // Eyepiece bell and the power ring, then the rubber eyecup the lens sits in.
+  k.mesh('scope-eyepiece-bell', new THREE.CylinderGeometry(.0135, radius + .0035, .025, 28, 1, true), k.dark, 0, y, .0325, parent).rotation.x = -Math.PI / 2;
+  k.tube('scope-power-ring', radius + .0045, radius + .0005, .014, y, .045, k.rubber, parent, 28);
+  k.tube('scope-eyecup', radius + .006, radius + .0005, .022, y, lens + .001, k.rubber, parent, 28);
 }
 
 /**
@@ -257,7 +290,8 @@ function buildXm8(k: Kit) {
   k.side('receiver', [[.10, .148], [.10, .232], [.08, .246], [-.20, .246], [-.20, .155], [-.09, .150], [-.085, .136], [-.025, .136], [-.02, .146]], .062);
   k.side('carry-handle', [[.075, .246], [.05, .276], [-.16, .276], [-.20, .246]], .036, k.polymer, k.root,
     [[[.034, .252], [.024, .268], [-.125, .268], [-.155, .252]]]);
-  integratedSightingModule(k);
+  integratedSightingModule(k, k.variant('ism', ['carbine', 'compact', 'automatic']));
+  sharpshooterScope(k, k.variant('telescope', ['sharpshooter']));
   k.box('charging-handle', .018, .01, .03, 0, .255, -.03, k.edge);
   k.box('ejection-port', .004, .02, .05, .032, .215, -.035, k.dark);
   k.box('shell-seam', .064, .003, .26, 0, .19, -.05, k.dark);

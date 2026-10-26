@@ -18,21 +18,29 @@ it('widens holes with caliber independently of weapon power', () => {
   expect(stronger.smokeLifetime).toBeGreaterThan(rifle.smokeLifetime);
 });
 it('resolves each real variant from its power, including both variants in the same premium tier', () => {
+  const impactOf = (item: typeof ARMORY_CATALOG[number], family: number) => {
+    const base = createProfile(), owner = equip({ ...base, owned: [...base.owned, item.id] }, item.id, family);
+    const weapon = resolveLoadout(owner).weapons[family];
+    expect(weapon.caliberMm).toBe(5.56);
+    const result = effectStyleForWeapon(weapon).impact;
+    expect(result).toEqual(resolveEffectStyle({ variant: item.id }).impact);
+    return result;
+  };
   for (const family of [0, 1]) {
-    const profiles = ARMORY_CATALOG.filter(item => item.category === 'weapon' && item.family === family)
-      .sort((a, b) => (a.requiredLevel ?? 1) - (b.requiredLevel ?? 1)).map(item => {
-        const base = createProfile(), owner = equip({ ...base, owned: [...base.owned, item.id] }, item.id, family);
-        const weapon = resolveLoadout(owner).weapons[family];
-        expect(weapon.caliberMm).toBe(5.56);
-        const result = effectStyleForWeapon(weapon).impact;
-        expect(result).toEqual(resolveEffectStyle({ variant: item.id }).impact);
-        return result;
-      });
+    const weapons = ARMORY_CATALOG.filter(item => item.category === 'weapon' && item.family === family);
+    const profiles = weapons.filter(item => !item.specialist)
+      .sort((a, b) => (a.requiredLevel ?? 1) - (b.requiredLevel ?? 1)).map(item => impactOf(item, family));
     profiles.slice(1).forEach((profile, i) => {
       expect(profile.holeRadius).toBe(profiles[i].holeRadius);
       expect(profile.holeDepth).toBeGreaterThan(profiles[i].holeDepth);
       expect(profile.smokeSize).toBeGreaterThan(profiles[i].smokeSize);
     });
+    // A specialist sits beside the ladder; it still hits harder than issue.
+    for (const item of weapons.filter(item => item.specialist)) {
+      const profile = impactOf(item, family);
+      expect(profile.holeRadius).toBe(profiles[0].holeRadius);
+      expect(profile.holeDepth).toBeGreaterThan(profiles[0].holeDepth);
+    }
   }
 });
 it('supports bounded variant overrides without adding renderer branches', () => {

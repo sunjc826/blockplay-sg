@@ -8,6 +8,9 @@ describe('weapon ladder breakpoints', () => {
   it('measures each paid tier against the one below it on its own platform', () => {
     expect(rows.filter(row => row.previous === null).map(row => row.name)).toEqual(['SAR 21 · BMT', 'Ultimax · Sai Kang', 'P30 · Provost', 'FN MAG · Carry On', 'CIS 50MG · Big Encik']);
     for (const row of rows.filter(r => r.previous)) expect(row.gains).not.toBeNull();
+    // A specialist sits beside the ladder, so it answers to the baseline.
+    expect(rows.find(row => row.id === 'sar-sharpshooter')!.previous).toBe('SAR 21 · BMT');
+    expect(rows.find(row => row.id === 'sar-marksman')!.previous).toBe('SAR 21 · Garang');
   });
   it('requires shot-count improvements except for the already one-shot heavy platform', () => {
     // Heavy upgrades buy belt capacity, cadence and recovery; base already kills unarmored.
@@ -29,7 +32,7 @@ describe('weapon ladder breakpoints', () => {
   });
   it('shortens time to kill at drill range with every step up a platform', () => {
     for (const family of [0, 1]) {
-      const ladder = rows.filter(row => row.family === family);
+      const ladder = rows.filter(row => row.family === family && !row.specialist);
       const drillTtk = (row: typeof ladder[number]) => {
         const at = row.ranges.find(range => range.range === 20)!;
         return DRILL_POOLS.map((_, p) => timeToKill(at.stk[p], row.interval));
@@ -43,7 +46,7 @@ describe('weapon ladder breakpoints', () => {
   });
   it('keeps damage monotonic with tier at every sampled range', () => {
     for (const family of [0, 1]) {
-      const ladder = rows.filter(row => row.family === family);
+      const ladder = rows.filter(row => row.family === family && !row.specialist);
       ladder.slice(1).forEach((row, i) => {
         row.ranges.forEach((here, r) => expect(here.body).toBeGreaterThanOrEqual(ladder[i].ranges[r].body));
       });

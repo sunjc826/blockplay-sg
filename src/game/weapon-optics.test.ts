@@ -69,6 +69,9 @@ it('etches each magnified sight with its own reticle and leaves red dots alone',
   expect(reticleOf({ ...FPS_WEAPONS[0], optic: 'precision', aimFov: 40 })).toBe('match-duplex');
   expect(reticleOf({ ...FPS_WEAPONS[0], optic: 'reflex', aimFov: HIP_FOV })).toBeUndefined();
   for (const config of ['rifle', 'k', 'mg']) expect(reticleOf(g36, config)).toBe('g36-zf');
+  const xm8 = FPS_WEAPONS.find(w => w.id === 'xm8-inspired')!;
+  expect(reticleOf({ ...xm8, optic: 'integrated', aimFov: magnifiedFov(3.5) }, 'sharpshooter')).toBe('xm8-mil');
+  expect(reticleOf(xm8, 'carbine')).toBeUndefined();
   expect(reticleOf(g36, 'c')).toBeUndefined();
 });
 

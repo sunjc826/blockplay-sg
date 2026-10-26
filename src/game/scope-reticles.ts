@@ -15,11 +15,15 @@ import type { EnemyOptic } from './enemy-weapon-layout';
  *   to the field stop, broken by a small heavy ring whose clear centre holds
  *   a pinpoint dot.
  * - `match-duplex`: the marksman variant's fictional match scope, a duplex.
+ * - `xm8-mil`: the XM8 sharpshooter's 3.5x telescope. No reference image was
+ *   reviewed, so this is a generic pattern rather than the prototype's: a fine
+ *   crosshair with heavy outer posts and an open centre, mil ticks along both
+ *   hairs, and three holdover bars under the centre for longer shots.
  */
-export type ScopeReticle = 'g36-zf' | 'sar21-ring' | 'match-duplex';
+export type ScopeReticle = 'g36-zf' | 'sar21-ring' | 'match-duplex' | 'xm8-mil';
 
 export function scopeReticleFor(weapon: WeaponSpec, built: EnemyOptic | undefined): ScopeReticle {
-  if (built) return 'g36-zf';
+  if (built) return built.reticle ?? 'g36-zf';
   return weapon.optic === 'precision' ? 'match-duplex' : 'sar21-ring';
 }
 
@@ -98,6 +102,34 @@ float scopeReticle(vec2 p, float aa) {
   ink = max(ink, reticleStroke(reticleSegment(p, vec2(-0.6, 0.0), vec2(-0.2, 0.0)), 0.0095, aa));
   ink = max(ink, reticleStroke(reticleSegment(p, vec2(0.0, 0.2), vec2(0.0, 0.6)), 0.0095, aa));
   return max(ink, reticleStroke(reticleSegment(p, vec2(0.0, -0.6), vec2(0.0, -0.2)), 0.0095, aa));
+}
+`,
+  'xm8-mil': `
+float scopeReticle(vec2 p, float aa) {
+  const float hair = 0.0028;
+  // A gap at the centre leaves the target clear; a pinpoint marks the aim.
+  float ink = reticleStroke(min(abs(p.x), abs(p.y)), hair, aa) * step(0.012, length(p)) * (1.0 - step(0.3, max(abs(p.x), abs(p.y))));
+  ink = max(ink, reticleStroke(length(p), 0.0022, aa));
+  for (int i = 0; i < 4; i++) {
+    vec2 a = vec2(i == 0 ? 0.3 : i == 1 ? -0.6 : 0.0, i == 2 ? 0.3 : i == 3 ? -0.6 : 0.0);
+    vec2 b = a + (i < 2 ? vec2(0.3, 0.0) : vec2(0.0, 0.3));
+    ink = max(ink, reticleStroke(reticleSegment(p, a, b), 0.011, aa));
+  }
+  // Mil ticks: every 0.05 along each hair, the fifth one longer.
+  for (int i = 1; i <= 5; i++) {
+    float at = float(i) * 0.05, tick = i == 5 ? 0.012 : 0.006;
+    for (int s = 0; s < 2; s++) {
+      float d = s == 0 ? at : -at;
+      ink = max(ink, reticleStroke(reticleSegment(p, vec2(d, -tick), vec2(d, tick)), hair, aa));
+      if (d > 0.0) ink = max(ink, reticleStroke(reticleSegment(p, vec2(-tick, d), vec2(tick, d)), hair, aa));
+    }
+  }
+  // Holdover bars below the centre, narrowing with range.
+  for (int i = 0; i < 3; i++) {
+    float y = -0.075 - float(i) * 0.06, w = 0.03 - float(i) * 0.007;
+    ink = max(ink, reticleStroke(reticleSegment(p, vec2(-w, y), vec2(w, y)), 0.0034, aa));
+  }
+  return ink;
 }
 `,
 };

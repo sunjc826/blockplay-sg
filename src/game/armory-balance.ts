@@ -69,6 +69,8 @@ export const TTK_MARGIN = 0.05;
 export interface RangeRow { range: number; body: number; head: number; stk: number[]; headStk: number[] }
 export interface BreakpointRow {
   id: string; name: string; family: number; tier: ShopItem['tier']; level: number;
+  /** Beside the ladder (see `ShopItem.specialist`), so measured against the baseline. */
+  specialist: boolean;
   price: string; xpToUnlock: number; interval: number;
   /** Tokens to buy the levels up to this tier's gate, earning no XP at all. */
   tokensToUnlock: number;
@@ -94,7 +96,7 @@ export function analyseBreakpoints(opponents: readonly Opponent[] = DRILL_OPPONE
     .map(({ item, weapon, level }) => {
       const falloff = findTrait(weapon.traits, 'falloff'), precision = findTrait(weapon.traits, 'precision');
       return {
-        id: item.id, name: item.name, family: item.family!, tier: item.tier, level,
+        id: item.id, name: item.name, family: item.family!, tier: item.tier, level, specialist: !!item.specialist,
         price: `${item.price}${item.currency === 'tokens' ? 'TK' : 'CR'}`,
         xpToUnlock: xpForLevel(level), tokensToUnlock: skipCostToLevel(level), interval: weapon.interval,
         band: falloff ? { near: falloff.near, far: falloff.far, floor: falloff.minScale } : null,
@@ -110,7 +112,8 @@ export function analyseBreakpoints(opponents: readonly Opponent[] = DRILL_OPPONE
     });
 
   for (const row of rows) {
-    const previous = rows.filter(other => other.family === row.family && other.level < row.level).pop();
+    const rungs = rows.filter(other => other.family === row.family && !other.specialist);
+    const previous = row.specialist ? rungs[0] : rungs.filter(other => other.level < row.level).pop();
     if (!previous) continue;
     row.previous = previous.name; row.gains = [];
     row.ranges.forEach((here, i) => {

@@ -7,14 +7,17 @@
  * parts and shows only the selected set; `muzzle` is where that set's flash
  * hider ends, so flare and tracers leave from the right place.
  */
+import type { ScopeReticle } from './scope-reticles';
+
 type Point = readonly [number, number, number];
 /**
  * A sight you look through rather than over: `weapon-optics` seats its lens at
  * `lens` on the `height` line, `radius` wide, and puts the eye `aimDepth` from
  * the model origin. A `reflex` draws a collimated dot at any magnification the
- * spec asks for; a `scope` renders the magnified picture-in-picture.
+ * spec asks for; a `scope` renders the magnified picture-in-picture, etched
+ * with `reticle` (the G36's ZF pattern when none is named).
  */
-export interface EnemyOptic { kind: 'reflex' | 'scope'; height: number; lens: number; radius: number; aimDepth: number }
+export interface EnemyOptic { kind: 'reflex' | 'scope'; height: number; lens: number; radius: number; aimDepth: number; reticle?: ScopeReticle }
 interface EnemyWeaponLayout {
   axisY: number; sightHeight: number; aimDepth: number;
   defaultConfig: string;
@@ -24,6 +27,12 @@ interface EnemyWeaponLayout {
 }
 /** The XM8's integrated sighting module: a 1x red dot in a window on the carry handle. */
 const ISM: EnemyOptic = { kind: 'reflex', height: .309, lens: -.088, radius: .025, aimDepth: -.24 };
+/**
+ * The sharpshooter trades the ISM for a 3.5x telescopic sight in rings on a
+ * rail along the carry handle, its axis on the ISM's line so the hands and
+ * the cheek weld stay where they were.
+ */
+const XM8_SCOPE: EnemyOptic = { kind: 'scope', height: .309, lens: .062, radius: .018, aimDepth: -.235, reticle: 'xm8-mil' };
 /** The G36's carry handle is its optic: a 3x scope behind a rubber eyecup, with a 1x reflex on top. */
 const DUAL_OPTIC: EnemyOptic = { kind: 'scope', height: .32, lens: .128, radius: .019, aimDepth: -.30 };
 /** The G36C's short rail handle carries a tube red dot instead. */
@@ -31,7 +40,7 @@ const RAIL_DOT: EnemyOptic = { kind: 'reflex', height: .318, lens: -.047, radius
 export const ENEMY_WEAPON_LAYOUT = {
   'xm8-inspired': {
     axisY: .20, sightHeight: ISM.height, aimDepth: ISM.aimDepth, defaultConfig: 'carbine',
-    configs: { carbine: { muzzle: -.525, optic: ISM }, compact: { muzzle: -.375, optic: ISM }, sharpshooter: { muzzle: -.655, optic: ISM }, automatic: { muzzle: -.645, optic: ISM } },
+    configs: { carbine: { muzzle: -.525, optic: ISM }, compact: { muzzle: -.375, optic: ISM }, sharpshooter: { muzzle: -.655, optic: XM8_SCOPE }, automatic: { muzzle: -.645, optic: ISM } },
     hands: { right: [.027, .095, .075], support: [-.033, .128, -.235], magazine: [-.033, .04, -.06] },
   },
   'g36-inspired': {

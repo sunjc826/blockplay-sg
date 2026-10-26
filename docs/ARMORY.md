@@ -1,6 +1,6 @@
 # Field exchange, progression and FPS equipment
 
-The Armory sidebar offers seventeen fixed weapon variants across five platforms, five cosmetic finishes, three carrying rigs, four insert choices, five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition and handling hardware cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase. Three further platforms are carried only by the enemy and taken in the field; see [enemy-issue weapons](#enemy-issue-weapons).
+The Armory sidebar offers eighteen fixed weapon variants across five platforms, five cosmetic finishes, three carrying rigs, four insert choices, five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition and handling hardware cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase. Three further platforms are carried only by the enemy and taken in the field; see [enemy-issue weapons](#enemy-issue-weapons).
 
 ## Play loop
 
@@ -16,7 +16,7 @@ The Armory sidebar offers seventeen fixed weapon variants across five platforms,
 | 2 | Steady Lah, Route March, jungle/urban skins, enhanced LBS, ceramic plates |
 | 3 | Garang, gold skin |
 | 4 | Orchid skin, Sentinel rig, Aegis ceramic inserts |
-| 5 | Encik’s Favourite |
+| 5 | Encik’s Favourite, SAR 21 Sharpshooter |
 | 6 | Own Time, Own Target |
 | 7 | Fort Siloso |
 | 8 | P30 Kopi O Kosong |
@@ -128,6 +128,7 @@ XP like any other: it advances rank titles and persists in the same profile.
 | SAR Steady Lah | 39 | 30 | .115 s | 1.65 s | .016 |
 | SAR Garang | 50 | 36 | .105 s | 1.53 s | .0101 |
 | SAR Own Time, Own Target | 58 | 36 | .100 s | 1.50 s | .0082 |
+| SAR Sharpshooter (semi) | 66 | 30 | .250 s | 1.80 s | .014 |
 | Ultimax issued | 30 | 60 | .085 s | 2.50 s | .026 |
 | Ultimax Route March | 34 | 50 | .080 s | 2.10 s | .022 |
 | Ultimax Encik’s Favourite | 40 | 75 | .075 s | 2.10 s | .0148 |
@@ -145,6 +146,7 @@ Display names reflect each fixed configuration. Internal item IDs stay unchanged
 | SAR 21 · Steady Lah | Modest damage and handling upgrade | Same familiar rifle. A little more punch, a little less jump. Steady, lah. |
 | SAR 21 · Garang | 50 damage, 36 rounds and quicker cycling | Hits harder, cycles quicker, brings six extra rounds. Volunteered before the briefing ended. |
 | SAR 21 · Own Time, Own Target | Precision scope, long-range barrel and boosted headshot damage | The barrel is matched. The scope is set. For once, nobody is rushing you. |
+| SAR 21 · Sharpshooter | Semi-automatic, integrated 3.0× sight, long heavy barrel | Three times the scope, one round per press. Aim properly, don’t anyhow whack. |
 | Ultimax · Sai Kang | Issued 60-round support weapon | Sixty rounds of section support. You looked strong, so this one became your problem. |
 | Ultimax · Route March | 50-round drum, faster movement and reload | Ten rounds lighter. By the eighteenth kilometre, you will appreciate the difference. |
 | Ultimax · Encik’s Favourite | 75-round drum and buffered recoil | Seventy-five rounds, a steady muzzle, and fewer interruptions. Encik approves. |
@@ -168,6 +170,15 @@ a shot off the count outright: Garang drops a standard target in two hits at
 close range, Own Time, Own Target drops the tougher one in two. `armory-balance.test.ts`
 asserts that time to kill never rises with tier and falls at every step.
 
+The **SAR 21 · Sharpshooter** (level 5, 300 tokens) is a specialist beside the
+SAR ladder, not a fifth rung, after the real rifle's 3.0× marksman
+configuration. It is semi-automatic (a trigger-group part sets `fireMode`), its
+long barrel brings 66 damage, full damage to 60 m, an 80% floor and 2.4×
+precision, and it cycles at .25 s and moves at 97%. Inside the drill it is
+slower to kill than the Garang, so `ShopItem.specialist` takes it off the
+ladder: the breakpoint analysis measures it against the issued BMT, and the
+ladder tests (time to kill, damage, recoil, impact) skip it.
+
 ## How a weapon is built
 
 There is a hardware build behind every weapon; only the finished weapon is
@@ -188,6 +199,7 @@ Internal parts and fitted hardware are permanently part of the selected variant.
 | --- | --- | --- |
 | SAR 21 · Garang | Match trigger group | handling |
 | SAR 21 · Own Time, Own Target | Fitted 1.75x match scope, free-floated barrel and match trigger | optic, handling |
+| SAR 21 · Sharpshooter | Integrated 3.0× sight in the issued housing | optic |
 | Ultimax · Encik’s Favourite | Reinforced feed tray and buffer | handling |
 | Ultimax · Fort Siloso | Heavy barrel, bipod and buffered carrier | handling |
 
@@ -290,6 +302,7 @@ picks exactly one.
 | --- | --- | --- | --- | --- |
 | SAR 21 · BMT | 30 m | 90 m | 55% | 1.6x |
 | SAR 21 · Own Time, Own Target | 45 m | 130 m | 75% | 2.2x |
+| SAR 21 · Sharpshooter | 60 m | 150 m | 80% | 2.4x |
 | Ultimax · Sai Kang | 14 m | 45 m | 40% | 1.5x |
 | Ultimax · Fort Siloso | 24 m | 70 m | 60% | 1.9x |
 
@@ -327,6 +340,7 @@ share one batched draw rather than an object each.
 | FN MAG | 840 | 462 | .22 s |
 | P30 | 360 | 198 | .51 s |
 | SAR 21 · Own Time, Own Target | 1130 | 622 | .16 s |
+| SAR 21 · Sharpshooter | 1150 | 633 | .16 s |
 | XM8 · Sharpshooter | 1160 | 638 | .16 s |
 | Ultimax · Fort Siloso | 1050 | 578 | .17 s |
 
@@ -435,7 +449,7 @@ claiming one gets the baseline instead: taken weapons last one expedition.
 | --- | --- | --- | ---: | ---: | --- |
 | XM8 · Carbine | Issued | carbine | 33 | 30 | Integrated red dot on the carry handle |
 | XM8 · Compact Carbine | Field | compact | 30 | 30 | Fastest cycle, shortest reach, short stock |
-| XM8 · Sharpshooter | Elite | sharpshooter | 53 | 20 | Long barrel, 45 m full damage, 2.1× precision, quick bipod, travelling rounds |
+| XM8 · Sharpshooter | Elite | sharpshooter | 53 | 20 | Long barrel, 3.5× telescope, 45 m full damage, 2.1× precision, quick bipod, travelling rounds |
 | XM8 · Automatic Rifle | Elite | automatic | 36 | 100 | Heavy barrel, twin drum, bipod |
 | G36 | Issued | rifle | 36 | 30 | SAR-like reach, steadier, slower reload; 3× dual optic |
 | G36K | Field | k | 34 | 30 | Short barrel and birdcage |
@@ -488,7 +502,11 @@ tagged `userData.configs`; `applyEnemyWeaponConfig` (called by `dressWeapon`)
 shows the variant's set and moves the muzzle socket to its flash hider. Sights
 follow the real rifles. The XM8 carries its integrated sighting module (ISM): a
 squared body on the carry handle with a round window, rubber eyepiece, front
-shade, laser pod and battery cap, aimed as a 1× red dot. The G36, G36K and MG36
+shade, laser pod and battery cap, aimed as a 1× red dot. The XM8 Sharpshooter
+swaps the ISM for a 3.5× telescope (the prototype's sharpshooter sight was
+3.5×): a rail along the handle, two rings, turrets, bells and a rubber eyecup,
+fitted as a fixed `optic` and etched with the generic `xm8-mil` reticle, since
+no reference for the original's was reviewed. The G36, G36K and MG36
 carry the German dual optic: the carry handle is a 3× scope, objective in the
 front leg and eyecup behind the rear block, with a small hooded reflex on top
 (modelled, not aimed through). The G36C swaps it for a short rail handle with

@@ -3213,3 +3213,21 @@ HarbourFront cable cars (already moving), and every people-based set piece
 (Chinatown, Toa Payoh, Geylang, Kampong Glam, Orchard, Jurong Lake, Raffles)
 pending a decision on civilian behaviour. Validation: unit tests, full suite,
 typecheck, build; frames rendered in headless Chrome for every piece.
+
+## 2026-10-26: sharpshooter scopes
+
+XM8 · Sharpshooter now carries a 3.5× telescope (the prototype's figure) in
+place of the ISM: `sharpshooterScope` in enemy-weapon-models (rail on the
+handle, two rings, turrets, bells, eyecup) in a `telescope` config group, the
+ISM moved into an `ism` group for the other three configs. `XM8_SCOPE` in
+enemy-weapon-layout keeps the ISM's .309 sight line; `EnemyOptic.reticle`
+names its etching, `xm8-mil` (generic: no reference reviewed). The variant
+gets a fitted optic part with `aimFov: magnifiedFov(3.5)`. New shop variant
+**SAR 21 · Sharpshooter** (`sar-sharpshooter`, L5, 300 TK): semi-automatic via a
+trigger-group part (`InternalPart.fireMode`, applied in `applyBuild`), 66 dmg,
+.25 s, 60/150 m band at 80%, 2.4× precision, integrated 3.0× sight in the issued
+housing with the ring reticle. It is `specialist: true`: off the four-tier
+ladder, measured against the BMT in armory-balance, skipped by the ladder
+tests. Validation: unit tests, typecheck; XM8 model and reticle rendered in
+headless Chrome. Not done: no bespoke SAR 3× reticle (no reference), the SAR
+GLB is unchanged, and bots still never carry SAR variants.

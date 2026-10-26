@@ -16,6 +16,8 @@ const EXPECTED = {
   'sar-ranger': { damage: 39, capacity: 30, interval: .115, reload: 1.65, recoil: .016, recoilRecovery: 1.08, mobility: 1, aimFov: magnifiedFov(1.5), optic: 'integrated', ballistics: muzzleBallistics(970), traits: [SAR_BAND, { kind: 'precision', multiplier: 1.6 }] },
   'sar-vanguard': { damage: 50, capacity: 36, interval: .105, reload: 1.53, recoil: .01008, recoilRecovery: 1.4336, mobility: 1, aimFov: magnifiedFov(1.5), optic: 'integrated', ballistics: muzzleBallistics(970), traits: [SAR_BAND, { kind: 'precision', multiplier: 1.6 }] },
   'sar-marksman': { damage: 58, capacity: 36, interval: .1, reload: 1.5, recoil: .00816, recoilRecovery: 1.6284, mobility: 1, aimFov: 40, optic: 'precision', ballistics: muzzleBallistics(1130), traits: [SAR_BAND, { kind: 'precision', multiplier: 1.6 }, { kind: 'falloff', near: 45, far: 130, minScale: .75 }, { kind: 'precision', multiplier: 2.2 }] },
+  // Beside the ladder rather than on it: semi-automatic, slower, and far longer reaching.
+  'sar-sharpshooter': { damage: 66, capacity: 30, interval: .25, reload: 1.8, recoil: .014, recoilRecovery: 1.2, mobility: .97, aimFov: magnifiedFov(3), optic: 'integrated', ballistics: muzzleBallistics(1150), traits: [SAR_BAND, { kind: 'precision', multiplier: 1.6 }, { kind: 'falloff', near: 60, far: 150, minScale: .8 }, { kind: 'precision', multiplier: 2.4 }] },
   'ult-issued': { damage: 30, capacity: 60, interval: .085, reload: 2.5, recoil: .026, recoilRecovery: .85, mobility: 1, aimFov: HIP_FOV, optic: 'reflex', ballistics: muzzleBallistics(970), traits: [ULT_BAND, { kind: 'precision', multiplier: 1.5 }] },
   'ult-patrol': { damage: 34, capacity: 50, interval: .08, reload: 2.1, recoil: .022, recoilRecovery: .91, mobility: 1.02, aimFov: HIP_FOV, optic: 'reflex', ballistics: muzzleBallistics(970), traits: [ULT_BAND, { kind: 'precision', multiplier: 1.5 }] },
   'ult-centurion': { damage: 40, capacity: 75, interval: .075, reload: 2.1, recoil: .0148, recoilRecovery: 1.344, mobility: 1, aimFov: HIP_FOV, optic: 'reflex', ballistics: muzzleBallistics(970), traits: [ULT_BAND, { kind: 'precision', multiplier: 1.5 }] },
@@ -51,6 +53,10 @@ describe('what each weapon resolves to', () => {
     expect(got.ballistics).toEqual(want.ballistics);
     expect(got.traits).toEqual(want.traits);
   });
+  it('fires the sharpshooter one round per press', () => {
+    expect(resolved('sar-sharpshooter').fireMode).toBe('semi');
+    expect(resolved('sar-marksman').fireMode).toBeUndefined();
+  });
 });
 
 describe('how a variant gets its figures', () => {
@@ -83,7 +89,7 @@ describe('how a variant gets its figures', () => {
     // with it filled. A tier that kicked harder or settled slower than the one
     // below it would be a rung nobody should climb.
     for (const family of [0, 1]) {
-      const ladder = weapons.filter(item => item.family === family)
+      const ladder = weapons.filter(item => item.family === family && !item.specialist)
         .sort((a, b) => (a.requiredLevel || 1) - (b.requiredLevel || 1))
         .map(item => ({ name: item.name, spec: resolved(item.id) }));
       ladder.forEach((rung, i) => {
