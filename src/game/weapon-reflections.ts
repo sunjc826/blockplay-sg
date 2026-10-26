@@ -130,6 +130,13 @@ export function createOpticReflectionRenderer(renderer: THREE.WebGLRenderer, { f
       glass.uniforms.reflectionViewToCapture.value.setFromMatrix4(captureFromView);
       return true;
     },
+    /** Draws the world into the target once while loading, so the GPU builds its pipelines for this target's format before the first capture needs them. */
+    warm(world: THREE.Scene, worldCamera: THREE.Camera) {
+      const previous = renderer.getRenderTarget(), shadows = renderer.shadowMap.needsUpdate;
+      renderer.shadowMap.needsUpdate = false;
+      renderer.setRenderTarget(target); renderer.clear(); renderer.render(world, worldCamera); renderer.setRenderTarget(previous);
+      renderer.shadowMap.needsUpdate = shadows;
+    },
     dispose() { target.dispose(); },
   };
 }

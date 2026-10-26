@@ -188,7 +188,14 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
   const target = new THREE.WebGLRenderTarget(384, 384, { depthBuffer: true, stencilBuffer: false });
   const camera = new THREE.PerspectiveCamera();
   const lensPosition = new THREE.Vector3(), buffer = new THREE.Vector2();
+  /** Gives a magnified lens its picture now, so its first aim changes no material (and compiles no shader). */
+  function prepare(sight: WeaponSight) {
+    if (sight.magnification <= 1.01 || sight.lens.material.map === target.texture) return;
+    sight.lens.material.map = target.texture;
+    sight.lens.material.needsUpdate = true;
+  }
   return {
+    prepare,
     render(world: THREE.Scene, worldCamera: THREE.PerspectiveCamera, viewCamera: THREE.PerspectiveCamera, sight: WeaponSight | undefined, active: boolean, aimProgress = 1) {
       if (!sight) return false;
       // Powered reflex dots are gated by the optical aperture and eye alignment,
@@ -207,11 +214,15 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
       if (target.width !== size) target.setSize(size, size);
       const previous = renderer.getRenderTarget();
       renderer.setRenderTarget(target); renderer.clear(); renderer.render(world, camera); renderer.setRenderTarget(previous);
-      if (sight.lens.material.map !== target.texture) {
-        sight.lens.material.map = target.texture;
-        sight.lens.material.needsUpdate = true;
-      }
+      prepare(sight);
       return true;
+    },
+    /** Draws the world into the target once while loading, so the GPU builds its pipelines for this target's format before the first aim needs them. */
+    warm(world: THREE.Scene, worldCamera: THREE.Camera) {
+      const previous = renderer.getRenderTarget(), shadows = renderer.shadowMap.needsUpdate;
+      renderer.shadowMap.needsUpdate = false;
+      renderer.setRenderTarget(target); renderer.clear(); renderer.render(world, worldCamera); renderer.setRenderTarget(previous);
+      renderer.shadowMap.needsUpdate = shadows;
     },
     dispose() { target.dispose(); },
   };

@@ -492,13 +492,18 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     v.model.updateMatrixWorld(true);
   }
 
+  /** Builds one of each model now, hidden, so its geometry and shaders are ready before an event first needs one. */
+  function prewarm() {
+    for (const kind of Object.keys(props) as (keyof typeof props)[]) { const slot = prop(kind, ''); if (slot) { slot.model.visible = false; used.delete(slot); } }
+    for (const mode of ['land', 'air'] as const) vehicle(mode, '');
+  }
   function reset() {
     fire.length = smoke.length = debris.length = craters.length = emitters.length = 0; landings.clear(); seenRaiders.clear(); flash.intensity = 0;
     for (const mode of ['land', 'air'] as const) for (const v of fleet[mode]) { v.owner = ''; v.model.visible = false; }
     for (const list of Object.values(props)) for (const p of list) { p.owner = ''; p.model.visible = false; p.extra = undefined; }
   }
   return {
-    update, blast, spot, landingOf, reset,
+    update, blast, spot, landingOf, reset, prewarm,
     /** Live pool sizes, for smokes and tests. */
     get counts() {
       const shown = (kind: keyof typeof props) => props[kind].filter(p => p.owner).length;

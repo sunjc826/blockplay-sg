@@ -2037,12 +2037,34 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   };
   frame = requestAnimationFrame(animate);
 
+  /**
+   * Compiles every shader the exercise can draw while it is still loading.
+   * Three otherwise compiles one on the frame that first shows it, and that
+   * frame stalls: the first aim, the first shot, a set piece's first model.
+   * The canvas and the offscreen passes (occlusion, scope, reflections) each
+   * need their own variant, as tone mapping and colour space differ.
+   */
+  async function warmShaders() {
+    weapons.forEach(weapon => { const sight = getWeaponSight(weapon); if (sight) scopeRenderer.prepare(sight); });
+    if (options.arena) combatVisuals.prewarm();
+    const previous = renderer.getRenderTarget(), offscreen = new THREE.WebGLRenderTarget(1, 1), compiling: Promise<unknown>[] = [];
+    for (const target of [null, offscreen]) {
+      renderer.setRenderTarget(target);
+      compiling.push(renderer.compileAsync(world.scene, camera), renderer.compileAsync(viewScene, viewCamera));
+    }
+    renderer.setRenderTarget(previous);
+    await Promise.all(compiling);
+    offscreen.dispose();
+    if (disposed) return;
+    // A compiled shader still needs a pipeline per target format, built on first draw there.
+    scopeRenderer.warm(world.scene, camera); opticReflections.warm(world.scene, camera);
+  }
   const assetIds = expedition ? ['sar21-inspired', 'ultimax-inspired'] : ['sar21-inspired', 'ultimax-inspired', 'range-target', 'supply-crate', 'sandbag-wall', 'traffic-cone'];
   void Promise.all(assetIds.map(async id => {
     const gltf = await loader.loadAsync(`${import.meta.env.BASE_URL}models/field-kit/${id}.glb`);
     if (disposed) disposeAssets([gltf.scene]); else templates.push(gltf.scene);
     return gltf.scene;
-  })).then(loaded => {
+  })).then(async loaded => {
     if (disposed) return;
     weapons.push(loaded[0], loaded[1], ...FPS_WEAPONS.slice(2).map(spec => {
       const model = buildServiceWeapon(spec.id)!; templates.push(model); return model;
@@ -2080,6 +2102,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         if (expedition?.checkpoint) arenaRuntime.setVitals({ health: expedition.checkpoint.health });
       }
     }
+    await warmShaders();
+    if (disposed) return;
     hud.phase = 'ready'; updateCameras(0, false, false); publish();
     if (expedition?.checkpoint?.pilot) startPilot();
   }).catch(() => {
