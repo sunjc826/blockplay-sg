@@ -53,10 +53,29 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
     label(group, `${item.tier.toUpperCase()} / ${item.name}`, color, .95, owned);
     drops.set(item.id, { group, resources: owned });
   }
-  /** A kit set out on the ground from a supply crate: a small case in its tier colour with its name over it. */
+  /**
+   * A kit set out on the ground from a supply crate or a fallen soldier: a
+   * small case in its tier colour, or a pair of plates, with its name over it.
+   */
   function addKit(item: FieldLoot) {
     const group = new THREE.Group(), owned: { dispose(): void }[] = [], color = tierColor(item.tier);
     group.name = `drop-${item.id}`; group.position.set(item.x, (item.y ?? 0) + .02, item.z); root.add(group);
+    if (item.kind === 'armor') {
+      // Two inserts, one leaning on the other, with the tier colour on the edge.
+      const plateGeometry = new THREE.BoxGeometry(.25, .025, .32), plateMaterial = new THREE.MeshStandardMaterial({ color: '#2f3529', roughness: .85 });
+      const edgeGeometry = new THREE.BoxGeometry(.26, .03, .02), edgeMaterial = new THREE.MeshStandardMaterial({ color, roughness: .7 });
+      owned.push(plateGeometry, plateMaterial, edgeGeometry, edgeMaterial);
+      for (const [x, y, tilt] of [[-.08, .013, 0], [.1, .09, -.55]] as const) {
+        const plate = new THREE.Group(); plate.position.set(x, y, 0); plate.rotation.z = tilt; group.add(plate);
+        plate.add(new THREE.Mesh(plateGeometry, plateMaterial));
+        const edge = new THREE.Mesh(edgeGeometry, edgeMaterial); edge.position.z = .16; plate.add(edge);
+      }
+      group.rotation.y = (hashString(item.id) % 628) / 100;
+      group.traverse(node => { node.userData.fpsEffect = true; });
+      label(group, `${item.tier.toUpperCase()} / ${item.name}`, color, .75, owned);
+      drops.set(item.id, { group, resources: owned });
+      return;
+    }
     const caseGeometry = new THREE.BoxGeometry(.55, .28, .38), caseMaterial = new THREE.MeshStandardMaterial({ color: item.kind === 'medical' ? '#c9d1c4' : '#3f4a37', roughness: .8 });
     const lidGeometry = new THREE.BoxGeometry(.56, .05, .39), lidMaterial = new THREE.MeshStandardMaterial({ color: item.kind === 'medical' ? '#c43a32' : color, roughness: .7 });
     owned.push(caseGeometry, caseMaterial, lidGeometry, lidMaterial);

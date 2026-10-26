@@ -5,6 +5,7 @@ import type { Obstacle } from './marina-collision';
 import type { WorldZoneId, ZonePosition } from './world-zones';
 import type { ZoneSector } from './zone-sectors';
 import { expeditionNpcs } from './expedition-npcs';
+import type { ArenaSide } from './arena-factions';
 
 export type FieldLootKind = 'weapon' | 'ammo' | 'medical' | 'armor';
 export interface FieldLoot {
@@ -19,6 +20,39 @@ export interface FieldLoot {
 }
 /** Dropped weapons kept per district; the oldest goes when another falls. */
 export const MAX_FIELD_DROPS = 6;
+/** Dropped dressings, plates and pouches kept per district, apart from the weapons. */
+export const MAX_FIELD_KITS = 12;
+
+/** A soldier who has just fallen, as far as their kit is concerned. */
+export interface FallenSoldier {
+  /** Unique to this life (actor id and death count), so the same body always leaves the same kit. */
+  key: string;
+  side: ArenaSide;
+  /** Arena rank grade, 1 (recruit) to 3 (veteran); absent counts as a regular. */
+  rank?: number;
+  /** The enemy-issue variant in their hands. */
+  variant?: string;
+  /** Friendlies carry no variant, only the issued weapon of this family. */
+  family?: number;
+}
+type Weighted = readonly (readonly [string, number])[];
+/**
+ * What a fallen soldier leaves beside their weapon, by rank grade. It follows
+ * the kit arena-ranks hands out: recruits go without plates, regulars
+ * sometimes wear soft inserts, veterans ceramic and now and then Aegis, and
+ * the better the soldier the better the dressing in their pouch. Friendlies
+ * also leave an ammunition pouch, since it fits your rifle.
+ */
+export const FALLEN_KIT: Readonly<Record<1 | 2 | 3, { medical: number; medicalItems: Weighted; plate: number; plateItems: Weighted }>> = {
+  1: { medical: .35, medicalItems: [['kit-bandage', 1]], plate: 0, plateItems: [] },
+  2: { medical: .5, medicalItems: [['kit-dressing', .7], ['kit-first-aid', .3]], plate: .3, plateItems: [['plate-soft', 1]] },
+  3: { medical: .75, medicalItems: [['kit-first-aid', .7], ['kit-trauma', .3]], plate: .7, plateItems: [['plate-ceramic', .8], ['plate-elite', .2]] },
+};
+/** Chance a friendly leaves an ammunition pouch, and the share of the district's crate amount it holds. */
+export const FALLEN_AMMO = { chance: .6, share: .5 };
+/** The issued weapon a friendly of `family` carries: the shop's free tier, never enemy issue. */
+export const forcesIssue = (family: number | undefined) => ARMORY_CATALOG.find(item =>
+  item.category === 'weapon' && item.family === family && item.tier === 'Issued' && item.price === 0 && !isEnemyIssue(item));
 export interface LootZoneGeometry {
   id: WorldZoneId; spawn: ZonePosition;
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
@@ -109,7 +143,7 @@ export function createExpeditionLoot(seed: string | number) {
   const seedText = String(seed); const zones = new Map<WorldZoneId, FieldLoot[]>(); const collected = new Set<string>();
   // Drops live beside the rolled crates, not in them: they are not part of the
   // seed's content, and a checkpoint does not keep them.
-  const drops = new Map<WorldZoneId, FieldLoot[]>(); let dropSerial = 0;
+  const drops = new Map<WorldZoneId, FieldLoot[]>(), kits = new Map<WorldZoneId, FieldLoot[]>(); let dropSerial = 0;
   // Supply-drop contents likewise: won in play, not rolled from the seed, and not kept by a checkpoint.
   const supplies = new Map<WorldZoneId, FieldLoot[]>();
   function enterZone(geometry: LootZoneGeometry): FieldLoot[] {
@@ -228,7 +262,8 @@ export function createExpeditionLoot(seed: string | number) {
     zones.set(geometry.id, loot);
     return remaining(geometry.id);
   }
-  function remaining(zoneId: WorldZoneId): FieldLoot[] { return [...zones.get(zoneId) ?? [], ...drops.get(zoneId) ?? [], ...supplies.get(zoneId) ?? []].filter(item => !collected.has(item.id)).map(item => ({ ...item })); }
+  const allLoot = (zoneId: WorldZoneId) => [...zones.get(zoneId) ?? [], ...drops.get(zoneId) ?? [], ...kits.get(zoneId) ?? [], ...supplies.get(zoneId) ?? []];
+  function remaining(zoneId: WorldZoneId): FieldLoot[] { return allLoot(zoneId).filter(item => !collected.has(item.id)).map(item => ({ ...item })); }
   /**
    * What a supply crate held: a weapon rolled a tier up for the district, a
    * double ammunition kit and a medical kit, set out round the crate at `at`.
@@ -247,6 +282,15 @@ export function createExpeditionLoot(seed: string | number) {
     supplies.set(zoneId, [...(supplies.get(zoneId) ?? []).filter(item => !collected.has(item.id)), ...items]);
     return items.map(item => ({ ...item }));
   }
+  /** Adds to a district's drops of one kind, keeping the newest `cap`; returns the ids that made room. */
+  function lay(store: Map<WorldZoneId, FieldLoot[]>, zoneId: WorldZoneId, items: readonly FieldLoot[], cap: number) {
+    const list = [...(store.get(zoneId) ?? []).filter(entry => !collected.has(entry.id)), ...items];
+    const evicted = list.splice(0, Math.max(0, list.length - cap)).map(entry => entry.id);
+    store.set(zoneId, list); return evicted;
+  }
+  const dropped = (zoneId: WorldZoneId, kind: FieldLootKind, item: ShopItem, at: ZonePosition & { y?: number }, amount = 1): FieldLoot => ({
+    id: `drop-${zoneId}-${++dropSerial}`, zoneId, kind, catalogId: item.id, name: item.name, tier: item.tier,
+    x: at.x, z: at.z, y: Math.max(0, at.y ?? 0), amount, placement: 'field', dropped: true });
   /**
    * A fallen enemy's weapon, left where they fell. Only enemy issue drops, and
    * a district keeps the newest `MAX_FIELD_DROPS`; `evicted` names the ones
@@ -255,13 +299,39 @@ export function createExpeditionLoot(seed: string | number) {
   function drop(zoneId: WorldZoneId, catalogId: string, at: ZonePosition & { y?: number }): { loot: FieldLoot; evicted: string[] } | null {
     const item = itemById(catalogId);
     if (!ZONE_LOOT_RULES[zoneId] || item?.category !== 'weapon' || !isEnemyIssue(item) || !validWeaponIndex(item.family) || !finitePosition(at) || !Number.isFinite(at.y ?? 0)) return null;
-    const list = (drops.get(zoneId) ?? []).filter(entry => !collected.has(entry.id));
-    const loot: FieldLoot = { id: `drop-${zoneId}-${++dropSerial}`, zoneId, kind: 'weapon', catalogId: item.id, name: item.name, tier: item.tier,
-      x: at.x, z: at.z, y: Math.max(0, at.y ?? 0), amount: 1, placement: 'field', dropped: true };
-    list.push(loot);
-    const evicted = list.splice(0, Math.max(0, list.length - MAX_FIELD_DROPS)).map(entry => entry.id);
-    drops.set(zoneId, list);
-    return { loot: { ...loot }, evicted };
+    const loot = dropped(zoneId, 'weapon', item, at);
+    return { loot: { ...loot }, evicted: lay(drops, zoneId, [loot], MAX_FIELD_DROPS) };
+  }
+  /**
+   * Everything a fallen soldier leaves: their weapon where they fell (enemy
+   * issue from the opposition, the issued rifle or Ultimax from a friendly)
+   * and, round it, what `FALLEN_KIT` gives their rank, plus a friendly's
+   * ammunition pouch. The rolls are seeded by the soldier's `key`. Weapons and
+   * kit are capped apart, so a district full of dressings never pushes out a gun.
+   */
+  function fallen(zoneId: WorldZoneId, soldier: FallenSoldier, at: ZonePosition & { y?: number }): { loot: FieldLoot[]; evicted: string[] } {
+    const rules = ZONE_LOOT_RULES[zoneId];
+    if (!rules || !finitePosition(at) || !Number.isFinite(at.y ?? 0)) return { loot: [], evicted: [] };
+    const random = randomFor(`${seedText}:${zoneId}:fallen:${soldier.key}`);
+    const pick = (table: Weighted) => {
+      let roll = random() * table.reduce((total, [, weight]) => total + weight, 0);
+      return itemById(table.find(([, weight]) => (roll -= weight) <= 0)?.[0] ?? table[table.length - 1][0]);
+    };
+    const kit = FALLEN_KIT[soldier.rank === 1 || soldier.rank === 3 ? soldier.rank : 2];
+    const weapon = soldier.side === 'forces' ? forcesIssue(soldier.family) : itemById(soldier.variant ?? '');
+    const armed = weapon?.category === 'weapon' && validWeaponIndex(weapon.family) && (soldier.side === 'forces' || isEnemyIssue(weapon)) ? [dropped(zoneId, 'weapon', weapon, at)] : [];
+    // Each roll is drawn whether or not it is used, so one outcome never shifts the next.
+    const medicalRoll = random(), medical = pick(kit.medicalItems), plateRoll = random(), plate = kit.plateItems.length ? pick(kit.plateItems) : undefined, ammoRoll = random();
+    const carried: [FieldLootKind, ShopItem, number][] = [];
+    if (soldier.side === 'forces' && ammoRoll < FALLEN_AMMO.chance) carried.push(['ammo', itemById('kit-ammo')!, Math.round(rules.ammoAmount * FALLEN_AMMO.share)]);
+    if (medicalRoll < kit.medical && medical?.category === 'consumable') carried.push(['medical', medical, medical.effect?.health ?? rules.medicalAmount]);
+    if (plateRoll < kit.plate && plate?.category === 'plate') carried.push(['armor', plate, 1]);
+    // Set out round the body, inside reach of where it lies.
+    const turn = (hash(soldier.key) % 628) / 100;
+    const items = carried.map(([kind, item, amount], index) => dropped(zoneId, kind, item,
+      { x: at.x + Math.cos(turn + index * 2.1) * .8, z: at.z + Math.sin(turn + index * 2.1) * .8, y: at.y }, amount));
+    const evicted = [...lay(drops, zoneId, armed, MAX_FIELD_DROPS), ...lay(kits, zoneId, items, MAX_FIELD_KITS)];
+    return { loot: [...armed, ...items].map(item => ({ ...item })), evicted };
   }
   function nearest(zoneId: WorldZoneId, player: ZonePosition & { y?: number }, radius = 2.8): FieldLoot | null {
     if (!finitePosition(player) || !Number.isFinite(player.y ?? 0) || !Number.isFinite(radius) || radius <= 0) return null;
@@ -270,14 +340,14 @@ export function createExpeditionLoot(seed: string | number) {
   }
   function collect(zoneId: WorldZoneId, lootId: string, player: ZonePosition & { y?: number }): FieldLoot | null {
     if (!finitePosition(player) || !Number.isFinite(player.y ?? 0)) return null;
-    const item = [...zones.get(zoneId) ?? [], ...drops.get(zoneId) ?? [], ...supplies.get(zoneId) ?? []].find(candidate => candidate.id === lootId);
+    const item = allLoot(zoneId).find(candidate => candidate.id === lootId);
     if (!item || collected.has(item.id) || Math.abs((item.y ?? 0) - (player.y ?? 0)) > 1.2 || Math.hypot(item.x - player.x, (item.y ?? 0) - (player.y ?? 0), item.z - player.z) > 2.8) return null;
     collected.add(item.id); return { ...item };
   }
   function snapshot() {
     return { seed: seedText, zones: [...zones.entries()].map(([id, loot]) => ({ id, loot: loot.map(item => ({ ...item })) })), collected: [...collected].filter(id => !id.startsWith('drop-') && !id.startsWith('supply-')) };
   }
-  return { enterZone, remaining, nearest, collect, drop, supply, snapshot };
+  return { enterZone, remaining, nearest, collect, drop, fallen, supply, snapshot };
 }
 export type ExpeditionLoot = ReturnType<typeof createExpeditionLoot>;
 

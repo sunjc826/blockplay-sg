@@ -3264,3 +3264,27 @@ passed against the real engine (prism ADS, cant on/off, B on/off, a shot).
 Not done: other players do not see your laser or light; bots never carry these
 variants; the suppressor does not change bot awareness (bots react to sight,
 not sound); not tried on a phone.
+
+## 2026-10-26: fallen soldiers leave their kit
+
+`ExpeditionLoot.fallen(zone, soldier, at)` replaces the weapon-only drop in
+the engine (`dropFallenKit`, was `dropFallenWeapons`); `drop()` stays for the
+weapon alone. Enemies leave their variant; friendlies, which carry no variant,
+leave `forcesIssue(family)` (SAR 21 · BMT or Ultimax · Sai Kang) and 60% of
+the time an ammunition pouch at half the district's crate amount
+(`FALLEN_AMMO`). Both sides roll `FALLEN_KIT` by rank grade: recruits a 35%
+bandage and no plates, regulars a 50% dressing/first aid and 30% soft inserts,
+veterans a 75% first aid/medic pack and 70% ceramic (one in five Aegis).
+Seeded by expedition, district and `actorId:deaths`. Kit lies 0.8 m round the
+body; weapons keep their cap of six and kit has its own of twelve
+(`MAX_FIELD_KITS`), ids still `drop-…` so checkpoints skip them. Plates draw as
+two inserts with a tier edge (expedition-visuals `addKit`), and the armor
+prompt names the inserts it would replace. Radio: your kill → "… dropped by
+…"; a friendly down within 90 m → "… is down, 40 m to your left. Left …".
+Validation: new tests in expedition-loot.test, full suite, typecheck; the
+`enemy-drops` fixture in the browser showed a veteran leaving G36K, first aid
+kit and ceramic plates, the autopilot taking them, and a friendly leaving a BMT
+and a pouch with the radio line. Not done: plate model not inspected up close
+(night scene); picking up a lower plate or the BMT over a better SAR variant
+still swaps down, as crates do; bots' remaining dressings are not tracked, so
+the medical roll ignores whether they used theirs.

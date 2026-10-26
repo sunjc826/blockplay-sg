@@ -544,13 +544,25 @@ the kit is kept. Bots never patch up inside a marked barrage. The snapshot's
 `healing` share drives the shared rig's pose (`CharacterDrive.healing`).
 
 **Drops.** On an expedition, a bot seen alive and then dead (any cause,
-artillery included) leaves its variant where it fell
-(`ExpeditionLoot.drop`). It is drawn as the weapon itself on its side, in a
-tier-coloured ring with a label, and the HUD prompt reads like a crate's:
-`E · Elite MG4 · Sustained Fire · replace main`. Taking it uses the crate path
-(fresh magazine and reserve, or extra reserve if the same variant is already
-carried). A district keeps the newest six drops, and drops are not written into
-a checkpoint. A kill of your own also puts "… dropped by …" on the radio.
+artillery included) leaves its kit where it fell (`ExpeditionLoot.fallen`).
+An enemy leaves its variant; a friendly leaves the issued weapon of its
+family (SAR 21 · BMT, or Ultimax · Sai Kang in support) and, 60% of the time,
+an ammunition pouch with half the district's crate amount. Either side then
+rolls `FALLEN_KIT` by rank: recruits 35% for an elastic bandage and never a
+plate; regulars 50% for a field dressing or first aid kit and 30% for soft
+inserts; veterans 75% for a first aid kit or combat medic pack and 70% for
+ceramic plates (one in five of those Aegis). A dressing restores its catalog
+health; plates equip like a crate's, and the prompt names the inserts they
+replace. Rolls are seeded by the expedition, district and the bot's life, so
+the same body always leaves the same kit. The weapon is drawn as itself on its
+side, in a tier-coloured ring with a label, and the HUD prompt reads like a
+crate's: `E · Elite MG4 · Sustained Fire · replace main`; the kit lies within
+a metre round it as a case or a pair of plates. Taking a weapon uses the crate
+path (fresh magazine and reserve, or extra reserve if the same variant is
+already carried). A district keeps the newest six weapons and, apart from
+them, the newest twelve kits; none are written into a checkpoint. A kill of
+your own puts "… dropped by …" on the radio, and a friendly falling within
+90 m puts "… is down, 40 m to your left. Left …".
 
 **Models.** `enemy-weapon-models.ts` builds each platform procedurally, with
 every configuration's barrel, handguard, stock and feed on one model in groups

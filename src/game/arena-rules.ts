@@ -361,7 +361,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75, health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
       yaw: Number.isFinite(preferred?.yaw) ? preferred!.yaw! : 0, pitch: Number.isFinite(preferred?.pitch) ? clamp(preferred!.pitch!, -1.5, 1.5) : 0 });
     if (entry.role && entry.actor.faction === PLAYER_FACTION) {
-      // Friendly soldiers carry the issued rifle, or the Ultimax in support, and drop nothing.
+      // Friendly soldiers carry the issued rifle, or the Ultimax in support, which is what they drop.
       entry.actor.weapon = forcesFamily(entry.role); delete entry.actor.variant; entry.spec = undefined; entry.medkits = (entry.role.medkits ?? 1) + (entry.rank?.medkits ?? 0);
     } else if (entry.role) {
       const issued = chooseArmament(entry.role, armamentRandom, entry.rank?.kit); entry.actor.weapon = issued.family; entry.actor.variant = issued.id;

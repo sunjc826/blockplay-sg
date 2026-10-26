@@ -70,7 +70,7 @@ import { advanceBloom, createWeaponBloom, recordBloomShot, sampleShotSpread, wea
 import { combatCues, combatPhase, combatTimeline, cratePose, flyerPose, getCombatEvent, transportPose, WHISTLE_LEAD, type CombatEventDescriptor } from './combat-events';
 import { createCombatEventVisuals } from './combat-event-visuals';
 import { bannerOf, threatens } from './combat-event-catalog';
-import { hostile, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
+import { factionIdOf, getArenaFaction, hostile, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
 import { HEAT_CALLS } from './faction-heat';
 import { createCombatAudio } from './combat-event-audio';
 import { createAmbientSky } from './ambient-sky-visuals';
@@ -103,6 +103,8 @@ export interface FpsExpeditionOptions {
  * cooldown was dropped, and holding was the only pull that reliably fired.
  */
 const TRIGGER_BUFFER = .18;
+/** How near a friendly has to fall, in metres, for the radio to say what they left. */
+const FRIENDLY_KIT_CALL_RANGE = 90;
 const randomRoundId = () => globalThis.crypto?.randomUUID?.() ?? `round-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
 export interface FpsHud {
@@ -623,7 +625,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const npc = alive && vertical <= .35 && !vehicles.active ? nearestNpc(npcs, position) : null;
     const gateway = alive && vertical <= .35 ? findWorldGateway(expedition.zone, position) : null;
     const lootWeapon = nearest?.kind === 'weapon' ? itemById(nearest.catalogId ?? '') : undefined;
-    const swapLabel = validWeaponIndex(lootWeapon?.family) ? ` · replace ${pickupSlot(fieldProfile, lootWeapon.family, hud.weapon)}` : '';
+    const wornPlate = nearest?.kind === 'armor' && nearest.catalogId !== fieldProfile.plate ? itemById(fieldProfile.plate) : undefined;
+    const swapLabel = validWeaponIndex(lootWeapon?.family) ? ` · replace ${pickupSlot(fieldProfile, lootWeapon.family, hud.weapon)}`
+      : (wornPlate?.protection ?? 0) > 0 ? ` · replace ${wornPlate!.name}` : '';
     hud.lootPrompt = nearest ? `E · ${nearest.tier} ${nearest.name}${swapLabel}` : '';
     hud.npcPrompt = npc ? `N · ${npcInteractionPrompt(npc)}` : '';
     hud.travelPrompt = gateway ? `T · Travel to ${getWorldZone(gateway.to).name}` : '';
@@ -1683,7 +1687,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       { self: options.arena.session.id, viewer: camera.position, range: REMOTE_TRACER_RANGE, room: MAX_ROUNDS_IN_FLIGHT - rounds.length, nextId: () => ++roundSerial, styleFor: publishedStyle }));
     if (options.arena && frame.snapshot) for (const shot of gunfireReports(frame.snapshot.actors, heardShots, options.arena.session.id, camera.position)) otherShot(shot.from, shot.calibre, shot.power, shot.after, shot.muzzle);
     if (frame.snapshot) hud.elapsed = frame.snapshot.elapsed;
-    if (frame.snapshot) dropFallenWeapons(frame.snapshot.actors, frame.feed);
+    if (frame.snapshot) dropFallenKit(frame.snapshot.actors, frame.feed);
     if (frame.self) {
       if (vehicles.active) hud.shots = frame.self.shots;
       hud.hits = frame.self.kills; hud.health = frame.self.health; hud.armor = frame.self.armor;
@@ -1747,21 +1751,31 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
 
   /**
-   * On an expedition a fallen enemy leaves their weapon where they fell. A bot
-   * is seen alive and then not, which covers every cause of death, including
-   * artillery; the feed only says whether the kill was the player's.
+   * On an expedition a fallen soldier leaves their kit where they fell: an
+   * enemy their weapon, a friendly the issued rifle or Ultimax and a pouch of
+   * rounds, and either side whatever dressings and plates their rank carried
+   * (expedition-loot's FALLEN_KIT). A bot is seen alive and then not, which
+   * covers every cause of death, including artillery; the feed only says
+   * whether the kill was the player's.
    */
-  function dropFallenWeapons(actors: readonly ArenaActor[], feed: readonly { killerId?: string; victimId?: string }[]) {
+  function dropFallenKit(actors: readonly ArenaActor[], feed: readonly { killerId?: string; victimId?: string }[]) {
     for (const actor of actors) {
       if (!actor.bot) continue;
       const was = botsAlive.get(actor.id); botsAlive.set(actor.id, actor.alive);
-      if (!expedition || !markers || was !== true || actor.alive || !actor.variant) continue;
-      const fell = expedition.loot.drop(expedition.zone, actor.variant, { x: actor.x, z: actor.z, y: actor.ground ?? Math.max(0, actor.y - (actor.prone ? PRONE_EYE_HEIGHT : 1.75)) });
-      if (!fell) continue;
-      fell.evicted.forEach(id => markers.remove(id)); markers.addDrop(fell.loot);
+      if (!expedition || !markers || was !== true || actor.alive) continue;
+      const side = getArenaFaction(factionIdOf(actor))?.side ?? 'opposition';
+      const fell = expedition.loot.fallen(expedition.zone, { key: `${actor.id}:${actor.deaths}`, side, rank: actor.rank, variant: actor.variant, family: actor.weapon },
+        { x: actor.x, z: actor.z, y: actor.ground ?? Math.max(0, actor.y - (actor.prone ? PRONE_EYE_HEIGHT : 1.75)) });
+      if (!fell.loot.length) continue;
+      fell.evicted.forEach(id => markers.remove(id)); fell.loot.forEach(item => markers.addDrop(item));
       hud.fieldLoot = expedition.loot.remaining(expedition.zone);
-      if (feed.some(event => event.victimId === actor.id && event.killerId === options.arena?.session.id))
-        comms.add('system', 'Field', `${fell.loot.name} dropped by ${actor.name}. E to take it.`);
+      const names = fell.loot.map(item => item.name), list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
+      const take = fell.loot.length > 1 ? 'E to take them.' : 'E to take it.';
+      if (side === 'forces') {
+        // A friendly's kit is worth knowing about wherever they fell, if it is near enough to reach.
+        if (Math.hypot(actor.x - position.x, actor.z - position.z) <= FRIENDLY_KIT_CALL_RANGE) comms.add('system', 'Field', `${actor.name} is down, ${whereFrom(actor)}. Left ${list}. ${take}`);
+      } else if (feed.some(event => event.victimId === actor.id && event.killerId === options.arena?.session.id))
+        comms.add('system', 'Field', `${list} dropped by ${actor.name}. ${take}`);
     }
   }
   /** Where a point lies from the player, in words: "60 m ahead", "120 m to your left". */

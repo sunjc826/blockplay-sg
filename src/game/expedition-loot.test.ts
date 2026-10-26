@@ -3,7 +3,7 @@ import { itemById } from './armory-catalog';
 import { createProfile, variantSpec } from './armory-state';
 import {
   createExpeditionLoot, createFieldEquipment, equipFieldLoot, resolveExpeditionLoadout, rollZoneWeapon,
-  ZONE_LOOT_RULES, type FieldLoot, type LootZoneGeometry,
+  FALLEN_KIT, MAX_FIELD_DROPS, MAX_FIELD_KITS, ZONE_LOOT_RULES, type FieldLoot, type LootZoneGeometry,
 } from './expedition-loot';
 import type { WorldZoneId } from './world-zones';
 
@@ -157,4 +157,63 @@ it('moves existing supplies upstairs without changing contents or permitting pic
   expect(expedition.collect(geometry.id, upper.id, { ...upper, y: NaN })).toBeNull();
   expect(expedition.nearest(geometry.id, upper)?.id).toBe(upper.id);
   expect(expedition.collect(geometry.id, upper.id, upper)?.id).toBe(upper.id);
+});
+
+describe('kit left by fallen soldiers', () => {
+  const bodies = (side: 'forces' | 'opposition', rank: number, count = 400) => {
+    const loot = createExpeditionLoot('fallen');
+    return Array.from({ length: count }, (_, i) => loot.fallen('marina-bay', { key: `bot-${i}:1`, side, rank, variant: 'g36-rifle', family: 0 }, { x: 0, z: 0, y: 0 }).loot);
+  };
+  const share = (sets: FieldLoot[][], kind: FieldLoot['kind']) => sets.filter(set => set.some(item => item.kind === kind)).length / sets.length;
+  it('gives better soldiers better odds of dressings and plates, and recruits no plates', () => {
+    const recruits = bodies('opposition', 1), regulars = bodies('opposition', 2), veterans = bodies('opposition', 3);
+    expect(share(recruits, 'armor')).toBe(0);
+    expect(share(regulars, 'armor')).toBeCloseTo(FALLEN_KIT[2].plate, 1);
+    expect(share(veterans, 'armor')).toBeCloseTo(FALLEN_KIT[3].plate, 1);
+    expect(share(recruits, 'medical')).toBeLessThan(share(regulars, 'medical'));
+    expect(share(regulars, 'medical')).toBeLessThan(share(veterans, 'medical'));
+    const plates = veterans.flat().filter(item => item.kind === 'armor').map(item => item.catalogId);
+    expect(new Set(plates)).toEqual(new Set(['plate-ceramic', 'plate-elite']));
+    expect(new Set(recruits.flat().filter(item => item.kind === 'medical').map(item => item.catalogId))).toEqual(new Set(['kit-bandage']));
+    // A dressing restores what the catalog says it does.
+    for (const item of veterans.flat().filter(entry => entry.kind === 'medical')) expect(item.amount).toBe(itemById(item.catalogId!)!.effect!.health);
+  });
+  it('has enemies drop their enemy-issue weapon and no ammunition pouch', () => {
+    const veterans = bodies('opposition', 3);
+    expect(veterans.every(set => set.filter(item => item.kind === 'weapon').map(item => item.catalogId).join() === 'g36-rifle')).toBe(true);
+    expect(share(veterans, 'ammo')).toBe(0);
+    const loot = createExpeditionLoot('fallen');
+    // An enemy holding shop issue (which bots never do) leaves no weapon.
+    expect(loot.fallen('marina-bay', { key: 'odd:1', side: 'opposition', rank: 1, variant: 'sar-issued' }, { x: 0, z: 0 }).loot.some(item => item.kind === 'weapon')).toBe(false);
+  });
+  it('has friendlies drop their issued weapon and often a pouch of rounds', () => {
+    const friendlies = bodies('forces', 2);
+    expect(friendlies.every(set => set.filter(item => item.kind === 'weapon').map(item => item.catalogId).join() === 'sar-issued')).toBe(true);
+    expect(share(friendlies, 'ammo')).toBeGreaterThan(.45);
+    const loot = createExpeditionLoot('fallen');
+    const gunner = loot.fallen('marina-bay', { key: 'gunner:1', side: 'forces', rank: 3, family: 1 }, { x: 0, z: 0 }).loot;
+    expect(gunner.find(item => item.kind === 'weapon')?.catalogId).toBe('ult-issued');
+    for (const item of friendlies.flat().filter(entry => entry.kind === 'ammo')) expect(item.amount).toBe(Math.round(ZONE_LOOT_RULES['marina-bay'].ammoAmount / 2));
+  });
+  it('rolls the same kit for the same body and lays it within reach', () => {
+    const at = { x: 10, z: -4, y: 0 };
+    const kit = (seed: string) => createExpeditionLoot(seed).fallen('marina-bay', { key: 'vet:2', side: 'forces', rank: 3, family: 0 }, at).loot.map(({ id, ...rest }) => rest);
+    expect(kit('same')).toEqual(kit('same'));
+    const loot = createExpeditionLoot('reach');
+    const { loot: left } = loot.fallen('marina-bay', { key: 'vet:2', side: 'forces', rank: 3, family: 0 }, at);
+    for (const item of left) {
+      expect(Math.hypot(item.x - at.x, item.z - at.z)).toBeLessThan(1);
+      expect(loot.collect('marina-bay', item.id, at)).toMatchObject({ id: item.id, dropped: true });
+    }
+    expect(loot.fallen('marina-bay', { key: 'x', side: 'forces' }, { x: NaN, z: 0 }).loot).toEqual([]);
+    expect(JSON.stringify(loot.snapshot())).not.toContain('drop-');
+  });
+  it('caps weapons and kit apart, so dressings never push out a gun', () => {
+    const loot = createExpeditionLoot('caps'), evicted: string[] = [];
+    for (let i = 0; i < 40; i++) evicted.push(...loot.fallen('marina-bay', { key: `vet-${i}:1`, side: 'forces', rank: 3, family: 0 }, { x: i * 4, z: 0 }).evicted);
+    const left = loot.remaining('marina-bay').filter(item => item.dropped);
+    expect(left.filter(item => item.kind === 'weapon')).toHaveLength(MAX_FIELD_DROPS);
+    expect(left.filter(item => item.kind !== 'weapon')).toHaveLength(MAX_FIELD_KITS);
+    expect(evicted.some(id => left.some(item => item.id === id))).toBe(false);
+  });
 });
