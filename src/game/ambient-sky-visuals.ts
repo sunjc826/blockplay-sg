@@ -28,6 +28,13 @@ const DRAW_RANGE = 780;
 /** At most this many far sounds a second: a big fight is a roll, not a hailstorm. */
 const SOUNDS_PER_SECOND = 4;
 const noRaycast = () => {};
+/**
+ * Adds light and leaves coverage alone. The world view composites the scene
+ * over a separately cleared sky (world-occlusion), so plain additive blending,
+ * which also adds alpha, blots out the sky wherever a glow or beam is drawn.
+ */
+const LIGHT_BLENDING = { transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneFactor,
+  blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor } as const;
 
 interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number; size: number; grow: number; colour: THREE.Color; opacity: number; lift: number }
 interface Emitter { x: number; y: number; z: number; until: number; next: number; rate: number; colour: THREE.Color; size: number; rise: number; spread: number; life: number }
@@ -59,12 +66,44 @@ function soft(size = 64) {
   const texture = new THREE.DataTexture(data, size, size); texture.needsUpdate = true; return texture;
 }
 
-const BEAM_VERTEX = `varying float vAlong; varying vec3 vNormal; varying vec3 vView;
-void main() { vAlong = uv.y; vec4 mv = modelViewMatrix * vec4(position, 1.0); vNormal = normalize(normalMatrix * normal); vView = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`;
-// Bright at the lamp, fading up the beam; soft at its edges where the view grazes the cone.
-const BEAM_FRAGMENT = `uniform vec3 colour; uniform float strength; varying float vAlong; varying vec3 vNormal; varying vec3 vView;
-void main() { float edge = pow(abs(dot(normalize(vNormal), normalize(vView))), 2.0); float fall = pow(1.0 - vAlong, 1.4);
-  gl_FragColor = vec4(colour * strength * edge * fall, 1.0); }`;
+/** A searchlight's beam: metres long, its core's radius at the lamp and at the far end, and how far past the core the glow's shell reaches. */
+const BEAM = { length: 700, base: 1.2, top: 20, shell: 2.2 } as const;
+const BEAM_VERTEX = `varying vec3 vWorld;
+void main() { vec4 world = modelMatrix * vec4(position, 1.0); vWorld = world.xyz; gl_Position = projectionMatrix * viewMatrix * world; }`;
+/*
+ * Lit air rather than a solid: the shell is only where the shader runs. Each
+ * pixel takes its sight line's closest pass to the beam's axis and adds the
+ * light scattered there: a Gaussian core with a wider, fainter halo, so there
+ * is no edge to see. A line running along the beam crosses more lit air and
+ * shows brighter; the light thins as the beam spreads, dust drifts through it
+ * and the weather's fog dims it with distance. Only the far wall is drawn, so
+ * each pixel is counted once, from outside the beam or in it.
+ */
+const BEAM_FRAGMENT = `uniform vec3 colour; uniform float strength; uniform float time; uniform vec3 origin; uniform vec3 axis; uniform float fogNear; uniform float fogFar;
+varying vec3 vWorld;
+float hash(vec3 p) { p = fract(p * .3183099 + .1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float noise(vec3 x) {
+  vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(hash(i), hash(i + vec3(1, 0, 0)), f.x), mix(hash(i + vec3(0, 1, 0)), hash(i + vec3(1, 1, 0)), f.x), f.y),
+    mix(mix(hash(i + vec3(0, 0, 1)), hash(i + vec3(1, 0, 1)), f.x), mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+void main() {
+  vec3 ray = vWorld - cameraPosition; float reach = length(ray); ray /= reach;
+  vec3 w = cameraPosition - origin; float b = dot(ray, axis), across = max(1.0 - b * b, 1e-4);
+  float t = clamp((b * dot(axis, w) - dot(ray, w)) / across, 0.0, reach);
+  vec3 p = w + ray * t; float along = dot(p, axis), h = clamp(along / ${BEAM.length.toFixed(1)}, 0.0, 1.0);
+  float radius = mix(${BEAM.base.toFixed(1)}, ${BEAM.top.toFixed(1)}, h), q = length(p - axis * along) / radius;
+  float profile = (exp(-2.2 * q * q) + .14 * exp(-.45 * q * q)) * (1.0 - smoothstep(${(BEAM.shell * .55).toFixed(2)}, ${BEAM.shell.toFixed(2)}, q));
+  // Lit air crossed: more looking up the beam than across it, thinning as it spreads and gone before the shell's far cap.
+  float depth = 1.0 / max(sqrt(across), .22), thin = 1.0 / (1.0 + h * 7.0), ends = smoothstep(-.004, .01, along / ${BEAM.length.toFixed(1)}) * (1.0 - smoothstep(.5, 1.0, h));
+  // Dust drawn out along the beam, so looking up it does not foreshorten the motes into rungs.
+  vec3 drift = origin + p - axis * along * .8 + vec3(0.0, -time * 2.5, time * 1.2);
+  float dust = .7 + .45 * noise(drift * .045) + .25 * noise(drift * .16 + 7.0);
+  float fogged = clamp((t - fogNear) / max(1.0, fogFar * 1.6 - fogNear), 0.0, 1.0), haze = 1.0 - .7 * fogged * fogged * (3.0 - 2.0 * fogged);
+  float light = profile * depth * thin * ends * dust * haze;
+  // A little dither so the long, faint gradient does not band.
+  gl_FragColor = vec4(colour * strength * light + (hash(vec3(gl_FragCoord.xy, time)) - .5) / 255.0, 1.0);
+}`;
 
 export interface AmbientSkyFrame { camera: THREE.Camera; listener: AmbientPoint; bounds: AmbientView['bounds']; night: number; quiet: boolean }
 
@@ -83,8 +122,8 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
     const mesh = new THREE.InstancedMesh(geometry, material, count); mesh.name = name; mesh.frustumCulled = false; mesh.raycast = noRaycast;
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.count = 0; root.add(mesh); return mesh;
   };
-  const glowMesh = pool(keep(new THREE.PlaneGeometry(1, 1)), hold(new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, toneMapped: false })), GLOWS, 'ambient-glows');
-  const tracerMesh = pool(keep(new THREE.BoxGeometry(1, 1, 1)), hold(new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, toneMapped: false })), TRACERS, 'ambient-tracers');
+  const glowMesh = pool(keep(new THREE.PlaneGeometry(1, 1)), hold(new THREE.MeshBasicMaterial({ map: texture, ...LIGHT_BLENDING, fog: false, toneMapped: false })), GLOWS, 'ambient-glows');
+  const tracerMesh = pool(keep(new THREE.BoxGeometry(1, 1, 1)), hold(new THREE.MeshBasicMaterial({ ...LIGHT_BLENDING, fog: false, toneMapped: false })), TRACERS, 'ambient-tracers');
   const puffGeometry = keep(new THREE.PlaneGeometry(1, 1)), puffOpacity = new THREE.InstancedBufferAttribute(new Float32Array(PUFFS), 1).setUsage(THREE.DynamicDrawUsage);
   puffGeometry.setAttribute('effectOpacity', puffOpacity);
   const puffMesh = pool(puffGeometry, hold(withInstanceOpacity(new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }))), PUFFS, 'ambient-smoke');
@@ -108,10 +147,13 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
   const bodyMesh = pool(keep(new THREE.BoxGeometry(.09, .08, .32)), birdMaterial, BIRDS.max, 'ambient-bird-bodies');
   let passAt = 20 + Math.random() * 40;
 
-  const beamGeometry = keep(new THREE.CylinderGeometry(22, 1, 700, 24, 1, true)); beamGeometry.translate(0, 350, 0);
+  // The shell the beam's glow is drawn in, a little past the lamp at the bottom so its halo is not cut off flat. Capped,
+  // so a sight line running up the beam still meets a far wall.
+  const beamGeometry = keep(new THREE.CylinderGeometry(BEAM.top * BEAM.shell, BEAM.base * BEAM.shell, BEAM.length + 4, 32, 1)); beamGeometry.translate(0, BEAM.length / 2 - 2, 0);
   const beams = Array.from({ length: BEAMS }, () => {
-    const material = hold(new THREE.ShaderMaterial({ vertexShader: BEAM_VERTEX, fragmentShader: BEAM_FRAGMENT, uniforms: { colour: { value: new THREE.Color('#dfe8ff') }, strength: { value: 0 } },
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, forceSinglePass: true }));
+    const material = hold(new THREE.ShaderMaterial({ vertexShader: BEAM_VERTEX, fragmentShader: BEAM_FRAGMENT,
+      uniforms: { colour: { value: new THREE.Color('#dfe8ff') }, strength: { value: 0 }, time: { value: 0 }, origin: { value: new THREE.Vector3() }, axis: { value: new THREE.Vector3(0, 1, 0) }, fogNear: { value: 150 }, fogFar: { value: 750 } },
+      ...LIGHT_BLENDING, side: THREE.BackSide }));
     const mesh = new THREE.Mesh(beamGeometry, material); mesh.visible = false; mesh.raycast = noRaycast; mesh.frustumCulled = false; root.add(mesh);
     return { mesh, material, direction: new THREE.Vector3(0, 1, 0) };
   });
@@ -363,7 +405,9 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
       if (aim && i < 3) direction.lerp(toward.set(aim.x - site.x + Math.sin(clock * .6 + i) * 60, aim.y, aim.z - site.z).normalize(), .75).normalize();
       beam.direction.lerp(direction, 1 - Math.exp(-dt * .9)).normalize();
       beam.mesh.position.set(site.x, frame.listener.y > 40 ? 0 : 2, site.z); beam.mesh.quaternion.setFromUnitVectors(yAxis, beam.direction);
-      beam.material.uniforms.strength.value = strength;
+      const uniforms = beam.material.uniforms, fog = scene.fog instanceof THREE.Fog ? scene.fog : null;
+      uniforms.strength.value = strength; uniforms.time.value = clock; uniforms.origin.value.copy(beam.mesh.position); uniforms.axis.value.copy(beam.direction);
+      uniforms.fogNear.value = fog?.near ?? 150; uniforms.fogFar.value = fog?.far ?? 750;
       sprites.push({ at: { x: site.x, y: 3, z: site.z }, size: 7, colour: lamp, brightness: strength * 10 });
     });
   }

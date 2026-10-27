@@ -1,0 +1,28 @@
+<!doctype html>
+<!-- The ambient sky's searchlights at night over a block of roofs, for judging the beams by eye.
+     ?t=seconds into the sweep (default 20)  &cam=x,y,z  &look=x,y,z  (default: street level, looking at the first lamp's beam)
+     &ao=0 for a plain render; by default it goes through the world view's occlusion compositor, as in a district. -->
+<html><body style="margin:0;background:#000"><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import {createAmbientSky} from '/src/game/ambient-sky-visuals.ts';
+import {createWorldOcclusion} from '/src/game/world-occlusion.ts';
+const params=new URLSearchParams(location.search),vec=(s,d)=>s?new THREE.Vector3(...s.split(',').map(Number)):d;
+const W=innerWidth,H=innerHeight;
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(W,H);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.9;document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#0a0f1c');scene.fog=new THREE.Fog('#0a0f1c',150,700);
+scene.add(new THREE.HemisphereLight('#2a3550','#05070a',.6));
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(2000,2000),new THREE.MeshStandardMaterial({color:'#2a2d30'}));ground.rotation.x=-Math.PI/2;scene.add(ground);
+const block=new THREE.MeshStandardMaterial({color:'#4a4f58'});
+for(let i=0;i<40;i++){const a=i*2.39996,r=40+(i*37)%160,h=8+(i*13)%40,m=new THREE.Mesh(new THREE.BoxGeometry(14,h,14),block);m.position.set(Math.cos(a)*r,h/2,Math.sin(a)*r);scene.add(m);}
+const bounds={minX:-150,maxX:150,minZ:-150,maxZ:150};
+const sky=createAmbientSky(scene,{seed:7,risk:'low',reduced:()=>false,audio:()=>null,muted:()=>true});
+const camera=new THREE.PerspectiveCamera(65,W/H,.1,800);camera.position.copy(vec(params.get('cam'),new THREE.Vector3(0,1.7,0)));
+const frame=()=>({camera,listener:{x:camera.position.x,y:camera.position.y,z:camera.position.z},bounds,night:1,quiet:true});
+const t=Number(params.get('t')??20);
+camera.lookAt(vec(params.get('look'),new THREE.Vector3(-120,160,-200)));camera.updateMatrixWorld(true);
+for(let s=0;s<t;s+=1/30)sky.update(1/30,frame());
+const occlusion=createWorldOcclusion(renderer,scene,camera),ao=params.get('ao')!=='0',draw=()=>occlusion.render(ao);
+draw();
+window.searchlights={sky,scene,camera,renderer,frame,draw,occluded:ao&&occlusion.supported,step(dt=1/30){sky.update(dt,frame());draw();},
+  view(cam,look){camera.position.set(...cam);camera.lookAt(...look);camera.updateMatrixWorld(true);this.step(0);},ready:true};
+</script></body></html>
