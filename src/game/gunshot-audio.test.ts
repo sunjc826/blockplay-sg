@@ -24,6 +24,7 @@ describe('gunshot tone', () => {
     expect(far.crack / near.crack).toBeLessThan(far.thump / near.thump);
     expect(far.bodyCutoff).toBeLessThan(near.bodyCutoff);
     expect(far.tailLength).toBeGreaterThan(near.tailLength);
+    expect(far.tailSpread).toBeGreaterThan(near.tailSpread);
     expect(far.delay).toBeCloseTo(300 / SPEED_OF_SOUND);
   });
   it('is silent out of earshot', () => {
