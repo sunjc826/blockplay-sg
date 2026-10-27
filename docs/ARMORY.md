@@ -14,21 +14,26 @@ The Armory sidebar offers twenty-six fixed weapon variants across five platforms
 | --- | --- |
 | 1 | Issued weapons/finish/rig, no inserts, soft armor |
 | 2 | Steady Lah, Route March, jungle/urban skins, enhanced LBS, ceramic plates |
-| 3 | Garang, P30 Blur Like Sotong, gold skin |
+| 3 | Garang, P30 Blur Like Sotong, Ultimax Jalan Jalan, gold skin |
 | 4 | Orchid skin, Sentinel rig, Aegis ceramic inserts |
 | 5 | Encik’s Favourite, SAR 21 Sharpshooter |
-| 6 | Own Time, Own Target |
+| 6 | Own Time, Own Target, Ultimax Kongsi |
 | 7 | Fort Siloso |
-| 8 | P30 Kopi O Kosong, P30 Lights Out (Ultra) |
+| 8 | P30 Kopi O Kosong, P30 Lights Out (Ultra), Pineapple · Ong Lai inserts |
 | 9 | Ultimax Lights Up (Ultra) |
-| 12 | SAR 21 Night Owl (Legendary) |
+| 10 | FN MAG Tumpang |
+| 12 | SAR 21 Night Owl (Legendary), Steel · Lao Jiao inserts |
 | 14 | FN MAG Chope, P30 Chiong Ah (Legendary) |
+| 15 | P30 Kiasu Hunter (Ultra) |
 | 16 | P30 Bo Bo CANNOT |
-| 18 | P30 Kiasu Hunter (Ultra) |
 | 20 | P30 Atas Race Gun (Mythic) |
-| 22 | CIS 50MG Tuas Shift, SAR 21 Two Eyes Open (Mythic) |
+| 22 | CIS 50MG Tuas Shift, SAR 21 Two Eyes Open (Mythic), Composite · Tahan inserts |
 | 24 | FN MAG Jaga Corner |
+| 28 | FN MAG Lepak Position |
+| 30 | Durian · Mao Shan Wang inserts |
 | 32 | CIS 50MG Merlion Roar |
+| 34 | Heavy · Pillbox inserts |
+| 36 | CIS 50MG Bukit Timah |
 
 Ranks and XP continue to level 50. Purchases, XP and equipped items persist under `blockplay.armory.v1` in local storage. Old two-platform saves gain the three free baseline classes without changing balances or existing selections. Unknown IDs are sanitized and retired attachments are discarded without refunds. Clearing browser site data resets the profile.
 
@@ -320,11 +325,11 @@ each one changes something in play besides a figure in the dossier:
 | --- | --- | --- | --- | --- |
 | P30 · Blur Like Sotong | Field | 3 · 1,500 CR | Laser-light module, 21-round magazine | 28 · 21 · .20 s semi |
 | P30 · Lights Out | Ultra | 8 · 400 TK | Match barrel and trigger, slide-cut red dot, suppressor | 36 · 15 · .20 s semi |
-| P30 · Kiasu Hunter | Ultra | 18 · 450 TK | Long hunting barrel, 2.5× pistol scope, 2.4× precision | 58 · 15 · .34 s semi |
+| P30 · Kiasu Hunter | Ultra (specialist) | 15 · 450 TK | Long hunting barrel, 2.5× pistol scope, 2.4× precision | 50 · 15 · .32 s semi |
 | Ultimax · Lights Up | Ultra | 9 · 420 TK | Heavy barrel, tuned gas, 75-round drum, holographic sight, weapon light, compensator | 54 · 75 · .068 s |
 | SAR 21 · Night Owl | Legendary | 12 · 540 TK | Threaded match barrel, match carrier, holographic sight, suppressor, laser in the handguard | 58 · 36 · .094 s |
-| P30 · Chiong Ah | Legendary | 14 · 520 TK | Selective-fire sear, 33-round stick, compensator, folding brace | 36 · 33 · .07 s **auto** |
-| P30 · Atas Race Gun | Mythic | 20 · 680 TK | Long slide, race trigger, 20-round magazine, slide-cut red dot, compensator | 60 · 20 · .13 s semi |
+| P30 · Chiong Ah | Legendary | 14 · 520 TK | Selective-fire sear, 33-round stick, compensator, folding brace | 36 · 33 · .09 s **auto** |
+| P30 · Atas Race Gun | Mythic | 20 · 680 TK | Long slide, race trigger, 20-round magazine, slide-cut red dot, compensator | 50 · 20 · .13 s semi |
 | SAR 21 · Two Eyes Open | Mythic | 22 · 720 TK | Chrome-lined match barrel, competition carrier, 4× prism with offset dot, compensator | 60 · 36 · .088 s |
 
 **Tiers above Elite.** Rarity runs Issued, Field, Elite, then **Ultra**,
@@ -745,8 +750,8 @@ count or a kill at least 5% faster at some range.
 Where one gun has the later level and the other the higher tier, neither
 outranks the other: a high tier at a low level is strong for its level, and a
 lower tier further up can be its equal. The P30 shows it: Lights Out (Ultra,
-level 8) and Bo Bo CANNOT (Elite, level 16) are near equals, while the Kiasu
-Hunter (Ultra, level 18) has to beat both. A sidegrade (`specialist`) trades one
+level 8) and Bo Bo CANNOT (Elite, level 16) are near equals, while the Atas
+Race Gun (Mythic, level 20) has to beat both. A sidegrade (`specialist`) trades one
 strength for another inside its own tier, so it is not ranked against that
 tier, but lower tiers below its level must lose to it everywhere, and higher
 tiers from its level up must beat it at drill range (12–30 m). They are not
@@ -757,7 +762,16 @@ automatic rate, and Two Eyes Open, which had to beat that, reached 72 damage,
 more per round and more reach than any GPMG. They are now 58 (the Own Time,
 Own Target's barrel, threaded for the can) and 60 (full damage to 55 m), and
 `armory-balance.test.ts` keeps the top rifle at or below the Lepak Position's
-damage at every range. The shop shelves by level with tier as the tiebreak
+damage at every range.
+
+The P30 had the same problem from two directions. The Kiasu Hunter, a scoped
+sidegrade that was not marked as one, dropped the tougher drill target in two
+58-damage hits, and the Chiong Ah fired 36 damage at 857 rounds a minute, more
+output than the Garang rifle; the Atas Race Gun had to beat both, so it reached
+60 damage. Now the Kiasu Hunter is an Ultra specialist at level 15 with 50
+damage at .32 s and the longest reach on the sidearm; the Chiong Ah cycles at
+.09 s (about 670 rounds a minute); and the Atas Race Gun is 50 damage at .13 s,
+full damage to 30 m but falling to 50% by 70 m, short of the hunting barrel. The shop shelves by level with tier as the tiebreak
 (`byUnlock`), so reading a platform left to right, each gun beats everything
 before it that it outranks.
 

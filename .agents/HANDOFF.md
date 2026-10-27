@@ -3415,3 +3415,16 @@ night at any clock time. Validation: new marina-bay-show tests (palette
 continuity, lamps on the frame, no strobing, laser aims, jet heights, night
 only), full suite, typecheck, fixture screenshots. Not checked in the live
 game loop (the hidden browser pane would not run frames).
+
+## 2026-10-27: the P30's top tiers brought down
+
+The Atas Race Gun's 60 damage was pinned by two guns below it, not chosen: the
+Kiasu Hunter (Ultra, L18, 58 dmg two-shotting the 115 target at drill range,
+a sidegrade not marked as one) and the Chiong Ah (36 dmg at .07 s, 514
+damage a second, above the Garang). Now: Kiasu Hunter `specialist`, level 15
+(crossed with Bo Bo CANNOT at 16), 50 dmg at .32 s, band unchanged (the
+longest sidearm reach); Chiong Ah .09 s; Atas Race Gun 50 dmg at .13 s, band
+30/70/.5. New balance test: Atas below the Kiasu at 60 m and no harder-hitting
+than the Garang, Chiong below the Garang's output. Also filled in the
+unlock-level table in docs/ARMORY.md, which had missed this session's
+variants and inserts. Validation: unit tests, typecheck. Not felt in play.

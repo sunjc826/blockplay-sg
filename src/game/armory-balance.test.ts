@@ -30,10 +30,22 @@ describe('weapon ladder breakpoints', () => {
     const at = (id: string) => rows.find(row => row.id === id)!;
     expect(mustOutrank(at('p30-marksman'), at('p30-silent'))).toBe(false);
     expect(mustOutrank(at('p30-silent'), at('p30-marksman'))).toBe(false);
-    expect(mustOutrank(at('p30-kiasu'), at('p30-marksman'))).toBe(true);
+    expect(mustOutrank(at('p30-atas'), at('p30-marksman'))).toBe(true);
+    // The Kiasu Hunter (Ultra, 15) and Bo Bo CANNOT (Elite, 16) cross the same way.
+    expect(mustOutrank(at('p30-kiasu'), at('p30-marksman'))).toBe(false);
     // A sidegrade is not ranked against its own tier, but a higher tier still has to beat it.
     expect(mustOutrank(at('sar-marksman'), at('sar-sharpshooter'))).toBe(false);
     expect(mustOutrank(at('sar-nightowl'), at('sar-sharpshooter'))).toBe(true);
+    expect(mustOutrank(at('p30-atas'), at('p30-kiasu'))).toBe(true);
+  });
+  it('keeps the top sidearm below a rifle\u2019s reach and the machine pistol below a rifle\u2019s output', () => {
+    // The Atas Race Gun answers to the Kiasu Hunter only at drill range, so the
+    // hunting barrel keeps the longest reach on the sidearm.
+    const atas = row('p30-atas'), kiasu = row('p30-kiasu'), chiong = row('p30-chiong'), garang = row('sar-vanguard');
+    const at60 = atas.ranges.findIndex(range => range.range === 60);
+    expect(atas.ranges[at60].body).toBeLessThan(kiasu.ranges[at60].body);
+    expect(atas.ranges[0].body).toBeLessThanOrEqual(garang.ranges[0].body);
+    expect(chiong.ranges[0].body / chiong.interval).toBeLessThan(garang.ranges[0].body / garang.interval);
   });
   it('holds a higher tier to a sidegrade at drill range only, so the top of a platform does not inherit every specialty', () => {
     const nightOwl = row('sar-nightowl'), sharpshooter = row('sar-sharpshooter');

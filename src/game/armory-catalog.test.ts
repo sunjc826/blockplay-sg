@@ -16,7 +16,7 @@ describe('how the shop shelves weapons', () => {
     }
   });
   it('shelves the sidearm from the issued pistol up to the Mythic one', () => {
-    expect(shelf(2).map(item => item.id)).toEqual(['p30-issued', 'p30-sotong', 'p30-kopi', 'p30-silent', 'p30-chiong', 'p30-marksman', 'p30-kiasu', 'p30-atas']);
+    expect(shelf(2).map(item => item.id)).toEqual(['p30-issued', 'p30-sotong', 'p30-kopi', 'p30-silent', 'p30-chiong', 'p30-kiasu', 'p30-marksman', 'p30-atas']);
   });
   it('lets rarity decide between weapons unlocked at the same level', () => {
     const same = (tier: ShopItem['tier']) => ({ ...ARMORY_CATALOG[0], requiredLevel: 5, tier });
