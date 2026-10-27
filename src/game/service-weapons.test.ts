@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createProfile, equip, purchase, resolveLoadout, restoreProfile } from './armory-state';
 import { DEFAULT_VARIANTS, FPS_WEAPONS, advanceWeapon, beginReload, createLoadout, fireWeapon, validWeaponIndex, hitDamage, fullLoad } from './fps-rules';
-import { itemById } from './armory-catalog';
+import { ARMORY_CATALOG, itemById } from './armory-catalog';
 import { xpForLevel } from './progression';
 import { effectStyleForWeapon } from './fps-effect-styles';
 import { buildServiceWeapon } from './service-weapon-models';
@@ -87,9 +87,12 @@ it('rejects malformed or out-of-range family indexes', () => {
   for (const index of [-1, FPS_WEAPONS.length, .5, NaN, Infinity, '2', null]) expect(validWeaponIndex(index)).toBe(false);
 });
 
+/** Every variant the exchange sells on a platform, so a new one answers to the platform's envelope. */
+const shopVariants = (family: number) => ARMORY_CATALOG.filter(item => item.category === 'weapon' && item.family === family && !item.source).map(item => item.id);
+
 it('makes every .50 variant lethal unarmored at any range while retaining handling costs', () => {
   const base = createProfile();
-  for (const id of ['cis50-issued', 'cis50-tuas', 'cis50-merlion']) {
+  for (const id of shopVariants(4)) {
     const loadout = resolveLoadout(equip({ ...base, owned: [...base.owned, id] }, id, 4));
     const heavy = loadout.weapons[4], rifle = loadout.weapons[0];
     for (const range of [0, 55, 90, 140, 300]) {
@@ -105,12 +108,14 @@ it('makes every .50 variant lethal unarmored at any range while retaining handli
 
 it('places the GPMG between the rifle and heavy MG for lethality and handling', () => {
   const base = createProfile();
-  for (const id of ['mag-issued', 'mag-chope', 'mag-jaga']) {
+  for (const id of shopVariants(3)) {
+    // Reach past 120 m is for the sustained-fire gun alone, which pays for it by having to be fired braced.
+    const braced = itemById(id)!.requiresMount === true;
     const loadout = resolveLoadout(equip({ ...base, owned: [...base.owned, id] }, id, 3));
     const mag = loadout.weapons[3];
     for (const health of [100, 115]) {
       for (const range of [0, 20, 45]) expect(Math.ceil(health / hitDamage(mag, range, 'body'))).toBe(2);
-      expect(Math.ceil(health / hitDamage(mag, 120, 'body'))).toBe(3);
+      expect(Math.ceil(health / hitDamage(mag, 120, 'body'))).toBe(braced ? 2 : 3);
     }
     const heavyLoadout = resolveLoadout(equip(base, 'cis50-issued', 4));
     const rifleLoadout = resolveLoadout(base);

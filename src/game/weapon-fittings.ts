@@ -133,9 +133,10 @@ export function fitWeaponHardware(root: THREE.Object3D, weapon: EquippedWeapon) 
     // The tube runs back along the top of the barrel towards the receiver.
     mesh(use(new THREE.CylinderGeometry(.004, .004, .09, 10)), steel, 0, anchors.axisY + outer + .026, anchors.gas + .048).rotation.x = Math.PI / 2;
   }
-  function magazine({ weight }: WeaponHardware) {
+  function magazine({ weight, feed }: WeaponHardware) {
     const node = root.getObjectByName(anchors.magazine.name), spec = anchors.magazine;
     if (!node) return;
+    if (feed === 'magazine' && spec.drum) return boxForDrum(node);
     const scale = node.scale.clone();
     restore.push(() => node.scale.copy(scale));
     // A drum has nowhere to grow but its own diameter, and a box magazine grows
@@ -152,6 +153,21 @@ export function fitWeaponHardware(root: THREE.Object3D, weapon: EquippedWeapon) 
       mesh(use(new RoundedBoxGeometry(spec.width, height, spec.depth, 2, .004)), steel, 0, spec.bottom - height / 2, spec.face, node);
       mesh(use(new THREE.BoxGeometry(spec.width + .003, .006, spec.depth + .003)), accent, 0, spec.bottom - height, spec.face, node);
     }
+  }
+  /**
+   * A rifle magazine in the drum's place. The drum's own meshes are hidden and
+   * the box hangs off the same node, so the reload still swaps it; the box
+   * rises into the well the drum's top sits in (y .11 to .13).
+   */
+  function boxForDrum(node: THREE.Object3D) {
+    const shown = node.children.filter(child => child.visible);
+    shown.forEach(child => { child.visible = false; });
+    restore.push(() => shown.forEach(child => { child.visible = true; }));
+    const box = new THREE.Group(); box.rotation.x = -.16; box.position.set(0, .125, .005); node.add(box);
+    restore.push(() => box.removeFromParent());
+    mesh(use(new RoundedBoxGeometry(.03, .2, .068, 2, .004)), cut, 0, -.1, 0, box);
+    for (const side of [-1, 1]) mesh(use(new THREE.BoxGeometry(.002, .15, .05)), steel, side * .0155, -.1, 0, box);
+    mesh(use(new RoundedBoxGeometry(.036, .014, .076, 2, .004)), accent, 0, -.205, -.002, box);
   }
   function freefloat() {
     // The nut, and daylight behind it: the handguard carries no load on the barrel.

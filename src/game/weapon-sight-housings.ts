@@ -10,7 +10,10 @@ import { CANT_ROLL, type SightModel } from './weapon-accessories';
  * Mount points: the P30's slide top is y .2245 between the front sight
  * (z −.095) and the rear sight (z .07); the SAR 21's flat-top rail stands where
  * the reflex housing puts it (y .273, its teeth to .283); the Ultimax's sits
- * on the top cover at y .252 (teeth to .262).
+ * on the top cover at y .252 (teeth to .262). The machine guns take a rail
+ * along the feed cover, as the real guns do: its shell tops out at y .307 on
+ * the FN MAG and .337 on the CIS 50MG, between the hinge (z −.115) and the
+ * latch (z .127).
  */
 export interface SightPlacement {
   /** Lens centre: height, and how far off the bore line sideways (only an offset dot has one). */
@@ -32,14 +35,33 @@ export interface SightHousing {
   offset?: SightPlacement;
   /** The SAR's carry-handle optic comes off for any of these. */
   hidesIntegrated: boolean;
+  /**
+   * A moving part of the model the sight is clamped to, by node name. The
+   * machine guns' sights sit on the feed cover and swing up with it on a belt
+   * change; the node's rest pose is unrotated, so the housing's own placements
+   * stay in the model's space.
+   */
+  carrier?: string;
+  /** Nodes of the model that fold away under the sight, such as a rear aperture in its line. */
+  folds: string[];
   dispose(): void;
 }
 
-interface Mount { base: number; z: number; rail?: { y: number; length: number; z: number; teeth: number } }
+interface Mount {
+  base: number; z: number; rail?: { y: number; length: number; z: number; teeth: number };
+  /** See `SightHousing.carrier`, without the platform prefix. */
+  carrier?: string;
+  /** See `SightHousing.folds`, without the platform prefix. */
+  folds?: string[];
+}
+/** The machine guns' rear sight stands in the line of a sight on the feed cover, so it folds. */
+const REAR_SIGHT = ['rear-sight', 'rear-sight-pedestal', 'rear-index-mark'];
 const MOUNTS: Record<string, Mount> = {
   'p30-inspired': { base: .2245, z: .025 },
   'sar21-inspired': { base: .283, z: .07, rail: { y: .273, length: .30, z: .015, teeth: 12 } },
   'ultimax-inspired': { base: .262, z: .108, rail: { y: .252, length: .126, z: .108, teeth: 6 } },
+  'mag-inspired': { base: .326, z: .03, rail: { y: .316, length: .2, z: .01, teeth: 8 }, carrier: 'feed-cover', folds: REAR_SIGHT },
+  'cis50-inspired': { base: .356, z: .03, rail: { y: .346, length: .2, z: .01, teeth: 8 }, carrier: 'feed-cover', folds: REAR_SIGHT },
 };
 
 /** A holographic sight's window: about 30 by 23 mm, scaled up a little for the viewmodel. */
@@ -205,6 +227,7 @@ export function buildSightHousing(group: THREE.Group, platform: string, sight: S
   }
   return {
     main, offset, hidesIntegrated: true,
+    carrier: mount.carrier && `${platform}__${mount.carrier}`, folds: (mount.folds ?? []).map(name => `${platform}__${name}`),
     dispose() { geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
   };
 }

@@ -181,6 +181,7 @@ export function applyBuild(base: WeaponSpec, parts: readonly InternalPart[] = []
     if (part.caliberMm !== undefined) spec.caliberMm = part.caliberMm;
     if (part.ballistics) spec.ballistics = part.ballistics;
     if (part.fireMode) spec.fireMode = part.fireMode;
+    if (part.feed) spec.feed = part.feed;
     if (part.traits) spec.traits = [...spec.traits ?? [], ...part.traits];
   }
   return spec;

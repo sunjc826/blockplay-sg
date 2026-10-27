@@ -11,6 +11,8 @@ import { muzzleBallistics } from './fps-ballistics';
  */
 const SAR_BAND = { kind: 'falloff', near: 30, far: 90, minScale: .55 };
 const ULT_BAND = { kind: 'falloff', near: 14, far: 45, minScale: .4 };
+const MAG_BAND = [{ kind: 'falloff', near: 45, far: 120, minScale: .7 }, { kind: 'precision', multiplier: 1.5 }];
+const CIS_BAND = [{ kind: 'falloff', near: 55, far: 140, minScale: .75 }, { kind: 'precision', multiplier: 1.4 }];
 /** A can slows the round: the platform's own velocity, scaled by the suppressor's modifier. */
 const slowed = (metresPerSecond: number, scale: number) => ({ ...muzzleBallistics(metresPerSecond), velocity: Math.round(muzzleBallistics(metresPerSecond).velocity * scale) });
 const EXPECTED = {
@@ -36,12 +38,18 @@ const EXPECTED = {
   'sar-nightowl': { damage: 66, capacity: 36, interval: .094, reload: 1.8, recoil: .00792, recoilRecovery: 1.7, mobility: .97, aimFov: HIP_FOV, optic: 'reflex', ballistics: slowed(1150, .92), traits: [SAR_BAND, { kind: 'precision', multiplier: 1.6 }, { kind: 'falloff', near: 60, far: 150, minScale: .8 }, { kind: 'precision', multiplier: 2.4 }] },
   'sar-twoeyes': { damage: 72, capacity: 36, interval: .088, reload: 1.8, recoil: .0076, recoilRecovery: 1.76, mobility: 1, aimFov: magnifiedFov(4), optic: 'precision', ballistics: muzzleBallistics(1180), traits: [SAR_BAND, { kind: 'precision', multiplier: 1.6 }, { kind: 'falloff', near: 70, far: 160, minScale: .85 }, { kind: 'precision', multiplier: 2.5 }] },
   'ult-lights': { damage: 54, capacity: 75, interval: .068, reload: 2.5, recoil: .0112, recoilRecovery: 1.62, mobility: 1, aimFov: HIP_FOV, optic: 'reflex', ballistics: muzzleBallistics(1050), traits: [ULT_BAND, { kind: 'precision', multiplier: 1.5 }, { kind: 'falloff', near: 30, far: 80, minScale: .62 }, { kind: 'precision', multiplier: 2 }] },
+  // Beside the Ultimax ladder: one fires on the move, one runs on rifle magazines.
+  'ult-jalan': { damage: 36, capacity: 50, interval: .078, reload: 2.2, recoil: .014, recoilRecovery: 1.15, mobility: 1.04, aimFov: HIP_FOV, optic: 'reflex', ballistics: muzzleBallistics(970), traits: [ULT_BAND, { kind: 'precision', multiplier: 1.5 }, { kind: 'falloff', near: 10, far: 40, minScale: .4 }] },
+  'ult-kongsi': { damage: 40, capacity: 30, interval: .075, reload: 1.5, recoil: .018, recoilRecovery: 1.1, mobility: 1.06, aimFov: HIP_FOV, optic: 'reflex', ballistics: muzzleBallistics(970), traits: [ULT_BAND, { kind: 'precision', multiplier: 1.5 }] },
   'mag-issued': { damage: 60, capacity: 100, interval: 0.12, reload: 4.6, recoil: 0.042, recoilRecovery: 0.75, mobility: 0.74, aimFov: HIP_FOV, optic: 'iron', ballistics: muzzleBallistics(840), traits: [{ kind: 'falloff', near: 45, far: 120, minScale: 0.7 }, { kind: 'precision', multiplier: 1.5 }] },
   'mag-chope': { damage: 66, capacity: 125, interval: 0.112, reload: 5, recoil: 0.037, recoilRecovery: 0.87, mobility: 0.74, aimFov: HIP_FOV, optic: 'iron', ballistics: muzzleBallistics(840), traits: [{ kind: 'falloff', near: 45, far: 120, minScale: 0.7 }, { kind: 'precision', multiplier: 1.5 }] },
   'mag-jaga': { damage: 70, capacity: 100, interval: 0.108, reload: 4.6, recoil: 0.034, recoilRecovery: 0.95, mobility: 0.7104, aimFov: HIP_FOV, optic: 'iron', ballistics: muzzleBallistics(840), traits: [{ kind: 'falloff', near: 45, far: 120, minScale: 0.7 }, { kind: 'precision', multiplier: 1.5 }] },
+  'mag-tumpang': { damage: 65, capacity: 50, interval: .112, reload: 3.4, recoil: .042, recoilRecovery: .75, mobility: .83916, aimFov: HIP_FOV, optic: 'iron', ballistics: muzzleBallistics(840), traits: [...MAG_BAND, { kind: 'falloff', near: 30, far: 90, minScale: .6 }, { kind: 'precision', multiplier: 1.5 }] },
+  'mag-lepak': { damage: 70, capacity: 150, interval: .108, reload: 5.2, recoil: .032, recoilRecovery: 1, mobility: .666, aimFov: magnifiedFov(4), optic: 'precision', ballistics: muzzleBallistics(900), traits: [...MAG_BAND, { kind: 'falloff', near: 70, far: 160, minScale: .8 }, { kind: 'precision', multiplier: 1.8 }] },
   'cis50-issued': { damage: 160, capacity: 50, interval: 0.14, reload: 5.8, recoil: 0.064, recoilRecovery: 0.65, mobility: 0.55, aimFov: HIP_FOV, optic: 'iron', ballistics: muzzleBallistics(890), traits: [{ kind: 'falloff', near: 55, far: 140, minScale: 0.75 }, { kind: 'precision', multiplier: 1.4 }] },
   'cis50-tuas': { damage: 168, capacity: 75, interval: 0.12, reload: 6.4, recoil: 0.054, recoilRecovery: 0.75, mobility: 0.5225, aimFov: HIP_FOV, optic: 'iron', ballistics: muzzleBallistics(890), traits: [{ kind: 'falloff', near: 55, far: 140, minScale: 0.75 }, { kind: 'precision', multiplier: 1.4 }] },
   'cis50-merlion': { damage: 178, capacity: 50, interval: 0.115, reload: 5.8, recoil: 0.052, recoilRecovery: 0.83, mobility: 0.528, aimFov: HIP_FOV, optic: 'iron', ballistics: muzzleBallistics(890), traits: [{ kind: 'falloff', near: 55, far: 140, minScale: 0.75 }, { kind: 'precision', multiplier: 1.4 }] },
+  'cis50-summit': { damage: 220, capacity: 50, interval: .35, reload: 5.8, recoil: .056, recoilRecovery: .8, mobility: .55, aimFov: magnifiedFov(6), optic: 'precision', ballistics: muzzleBallistics(960), traits: [...CIS_BAND, { kind: 'falloff', near: 120, far: 300, minScale: .9 }, { kind: 'precision', multiplier: 2 }, { kind: 'penetration', surfaces: 3, decay: .7 }] },
 } as const;
 
 const resolved = (id: string) => {
@@ -71,14 +79,18 @@ describe('what each weapon resolves to', () => {
     expect(resolved('sar-nightowl').accessories).toEqual({ sight: 'holo', muzzle: 'suppressor', rail: 'laser' });
     expect(resolved('sar-twoeyes').accessories).toEqual({ sight: 'prism', offsetDot: true, muzzle: 'compensator' });
     expect(resolved('ult-lights').accessories).toEqual({ sight: 'holo', rail: 'light', muzzle: 'compensator' });
+    expect(resolved('ult-jalan').accessories).toEqual({ rail: 'laser' });
+    expect(resolved('mag-lepak').accessories).toEqual({ sight: 'prism' });
+    expect(resolved('cis50-summit').accessories).toEqual({ sight: 'prism' });
     expect(resolved('sar-issued').accessories).toBeUndefined();
   });
   it('turns the machine pistol to full automatic and leaves every other pistol semi', () => {
     expect(resolved('p30-chiong').fireMode).toBe('auto');
     for (const id of ['p30-issued', 'p30-silent', 'p30-sotong', 'p30-atas', 'p30-kiasu']) expect(resolved(id).fireMode, id).toBe('semi');
   });
-  it('fires the sharpshooter one round per press', () => {
+  it('fires the sharpshooters one round per press', () => {
     expect(resolved('sar-sharpshooter').fireMode).toBe('semi');
+    expect(resolved('cis50-summit').fireMode).toBe('semi');
     expect(resolved('sar-marksman').fireMode).toBeUndefined();
   });
 });

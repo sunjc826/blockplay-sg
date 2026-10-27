@@ -182,6 +182,13 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   const reticle = magnified ? scopeReticleFor(weapon, built) : undefined;
   const group = new THREE.Group(); group.name = 'equipped-optic'; root.add(group);
   const mount = fitted ? buildSightHousing(group, weapon.id, fitted, !!weapon.accessories?.offsetDot) : undefined;
+  // A sight on a machine gun's feed cover rides it: offset by the cover's rest
+  // position, the group keeps the model's space while the cover is shut.
+  const carrier = mount?.carrier ? root.getObjectByName(mount.carrier) : undefined;
+  if (carrier) { carrier.add(group); group.position.copy(carrier.position).negate(); }
+  const folded: THREE.Object3D[] = [];
+  root.traverse(node => { if (mount?.folds.includes(node.name) && node.visible) folded.push(node); });
+  folded.forEach(node => { node.visible = false; });
   const aimHeight = mount?.main.y ?? built?.height ?? (integrated ? .328 : sar ? .343 : .350);
   const rearZ = integrated ? .194 : sar ? .12 : .15;
   const radius = mount?.main.radius ?? built?.radius ?? (integrated ? .0235 : .042);
@@ -228,6 +235,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   sights.set(root, sight);
   return () => {
     if (original) original.visible = wasVisible;
+    folded.forEach(node => { node.visible = true; });
     sights.delete(root); group.removeFromParent(); housing?.dispose(); scopeGlass?.dispose(); main.dispose(); dot?.dispose(); dotGlass?.dispose(); mount?.dispose();
   };
 }

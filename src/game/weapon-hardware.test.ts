@@ -42,12 +42,20 @@ describe('how pronounced each fitting is', () => {
     expect(of('ult-bastion', 'barrel')!.extended).toBe(true);
     expect(of('sar-vanguard', 'barrel')!.extended).toBe(false);
   });
-  it('vents the one barrel that was lightened rather than thickened', () => {
-    // The Patrol barrel is the only part in the catalog that adds movement.
+  it('vents every barrel that was lightened rather than thickened', () => {
     expect(of('ult-patrol', 'barrel')!.lightened).toBe(true);
     expect(of('ult-patrol', 'barrel')!.label).toBe('Vented barrel');
     // On the shop's shelf, that is; the enemy's short barrels are a different ladder.
-    expect(ARMORY_CATALOG.filter(item => !isEnemyIssue(item)).flatMap(item => item.build ?? []).filter(part => (part.mobility ?? 1) > 1)).toHaveLength(1);
+    const shelf = ARMORY_CATALOG.filter(item => item.category === 'weapon' && !isEnemyIssue(item));
+    const barrels = shelf.flatMap(item => weaponHardware(item.id).filter(entry => entry.kind === 'barrel'));
+    const lightened = barrels.filter(entry => entry.lightened).map(entry => entry.part).sort();
+    expect(lightened).toEqual(['mag-tp-barrel', 'ult-jj-barrel', 'ult-light-barrel']);
+    for (const entry of barrels) expect(entry.label === 'Vented barrel', entry.part).toBe(entry.lightened);
+  });
+  it('hangs a box magazine where the drum was when a part changes the feed', () => {
+    const box = of('ult-kongsi', 'magazine')!;
+    expect(box.feed).toBe('magazine'); expect(box.label).toBe('Box magazine'); expect(box.weight).toBeLessThan(0);
+    expect(of('mag-tumpang', 'magazine')!.label).toBe('Belt pouch');
   });
   it('shrinks a drum that gave rounds up and deepens one that took them on', () => {
     expect(of('ult-patrol', 'magazine')!.weight).toBeLessThan(0);

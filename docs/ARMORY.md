@@ -140,6 +140,8 @@ XP like any other: it advances rank titles and persists in the same profile.
 | Ultimax Encik’s Favourite | 40 | 75 | .075 s | 2.10 s | .0148 |
 | Ultimax Fort Siloso | 50 | 80 | .072 s | 2.00 s | .0119 |
 | Ultimax Lights Up | 54 | 75 | .068 s | 2.50 s | .0112 |
+| Ultimax Jalan Jalan (specialist) | 36 | 50 | .078 s | 2.20 s | .014 |
+| Ultimax Kongsi (specialist) | 40 | 30 | .075 s | 1.50 s | .018 |
 
 Targets alternate 100 and 115 health. Garang clears a 115-health target in three landed shots versus four for the issued SAR. The dossier draws two charts: damage against range, over hits-to-kill bands, and the spray pattern of a twenty-round held burst, laid over the same target at 12, 20 and 30 m. Both simulate through the engine's own code — `hitDamage` and the recoil module — so the shop cannot advertise a figure the range does not produce. Each variant fixes its optic, magazine capacity, recoil, recovery and ammunition behavior. Skin palettes change only materials. Variant accents and built-in hardware appear in both the preview and viewmodel.
 
@@ -158,6 +160,11 @@ Display names reflect each fixed configuration. Internal item IDs stay unchanged
 | Ultimax · Route March | 50-round drum, faster movement and reload | Ten rounds lighter. By the eighteenth kilometre, you will appreciate the difference. |
 | Ultimax · Encik’s Favourite | 75-round drum and buffered recoil | Seventy-five rounds, a steady muzzle, and fewer interruptions. Encik approves. |
 | Ultimax · Fort Siloso | 80-round drum, bipod and strongest support recoil control | Eighty rounds and a bipod. You have selected this position for a reason. |
+| Ultimax · Jalan Jalan | No bipod, softest recoil, laser for hip fire, short reach | Encik calls it marching fire. You call it a stroll with a drum. |
+| Ultimax · Kongsi | SAR 21 thirty-round magazines instead of a drum | Your buddy’s SAR magazines fit. Your buddy has been informed. |
+| FN MAG · Tumpang | Short barrel, sliding stock, fifty-round pouch, no bipod | Short enough to tumpang the assault section. Heavy enough that they notice. |
+| FN MAG · Lepak Position | Sustained-fire barrel, 4× prism, must be fired prone | Find a good spot. Lie down. Do not move until somebody brings dinner. |
+| CIS 50MG · Bukit Timah | Single shots, 6× prism, armour-piercing round through cover | Highest point on the island, 163 metres. Everything else is in range. |
 
 ## Platform tiers
 
@@ -187,6 +194,33 @@ against the other Elite rifles, the ladder tests (time to kill, damage, recoil,
 impact) skip it, and the breakpoint analysis measures it against the issued
 BMT. It still out-kills the BMT and Steady Lah at every range, and every
 higher tier has to out-kill it (see [what outranks what](#what-outranks-what)).
+
+## Role variants
+
+Five variants change how a platform is *played* rather than adding to its
+figures. Each is built on something the platform already is, and each pays for
+what it gains in something the shop shows.
+
+| Variant | Tier · level · price | What it changes | What it costs |
+| --- | --- | --- | --- |
+| Ultimax · Jalan Jalan | Field specialist · 3 · 1,600 CR | Made to fire on the move: no bipod, the softest recoil on the platform (a longer constant-recoil spring), a laser that halves the hip cone | Reach: full damage only to 10 m, 40% by 40 m; ten rounds fewer |
+| Ultimax · Kongsi | Elite specialist · 6 · 260 TK | Runs on the SAR 21's thirty-round magazines (a `feed` part): a rifle's 1.5 s reload, 6% quicker on its feet, the Encik's Favourite's damage and cycle | Changes magazine two and a half times as often |
+| FN MAG · Tumpang | Field specialist · 10 · 3,600 CR | The one GPMG that moves with the section: short barrel, sliding stock, fifty-round pouch, 84% movement, a 3.4 s belt change, the Chope's .112 s cycle | No bipod, half the belt, and past 30 m it falls off sooner than any other GPMG |
+| FN MAG · Lepak Position | Elite · 28 · 620 TK | The sustained-fire gun: full damage to 70 m, two hits drop a drill target at 120 m, a 4× prism on the feed cover, 150 rounds, the heavy bipod | Must be fired prone like the issued .50 (20 health a burst standing, 10 crouched); 67% movement |
+| CIS 50MG · Bukit Timah | Elite · 36 · 760 TK | The .50 as a long rifle: single shots, 220 damage, full damage to 120 m, a 6× prism, and an armour-piercing round (`penetration`: three surfaces, 30% lost at each) that goes through cover and lines up two people | One round per press at .35 s; still needs the prone mount |
+
+All five clear [what outranks what](#what-outranks-what). The two sidegrades
+that trade reach had to be tuned to it: Jalan Jalan's band first fell below the
+issued Ultimax at 30 m, and the Tumpang was at first "no better than Carry On
+anywhere", a handling sidegrade the kill model cannot see, so it took the short
+barrel's slightly faster cycle. The GPMG keeps its envelope (two body hits to
+45 m, three at 120 m) on every variant except the Lepak, the one gun that has to
+be braced to reach further (`service-weapons.test.ts`).
+
+A **low-rate FN MAG** (a slower, steadier regulator setting) was considered and
+left out: the outrank model assumes every round lands, so a slower gun always
+reads as worse than the issued one, whatever it gains in accuracy. It needs a
+rate switch on one gun, or an outrank model that counts accuracy.
 
 ## How a weapon is built
 
@@ -317,6 +351,14 @@ measured off the GLBs by binning vertices along -Z, as for the build fittings.
 The torch exists only when the loadout carries one and is switched by
 intensity, because adding a light recompiles every lit material.
 Touch play gets two pad buttons (`cant`, `rail`) only for a weapon that has them.
+
+The machine guns take their sights on a rail along the feed cover, as the real
+guns do. The sight rides the cover (`SightHousing.carrier`): the housing is
+reparented to the cover node, offset by its rest position, so it swings up with
+the cover on a belt change and sits exactly where the housing says while the
+cover is shut. The rear aperture or notch folds away under it
+(`SightHousing.folds`), restored when the sight comes off. The Lepak Position's
+4× and the Bukit Timah's 6× use it.
 
 Review any variant at `/scripts/fixtures/weapon-accessories.html?variant=p30-silent`
 (`&view=side|hip|ads|cant`, `&night=1`, and `&yaw=`, `&zoom=`, `&cz=`, `&cy=`
@@ -624,6 +666,8 @@ leaves the remaining damage to health. The weapon HUD warns before firing. Empty
 no damage. The multiplayer host enforces both self-damage and the movement lock.
 Tuas Shift and Merlion Roar retain safe upright firing as arcade carryable
 configurations; their weight, handling and movement penalties remain.
+The CIS 50MG · Bukit Timah keeps the mount, and the FN MAG · Lepak Position is
+the one GPMG that takes it on: the same rule, for the reach it buys.
 
 ## Carried weight
 
@@ -821,6 +865,11 @@ The Fullscreen toolbar button and F shortcut expand the existing FPS/vehicle ses
 `use-fps-fullscreen.ts` owns native/fallback state and cleanup. `pnpm test:fullscreen` verifies native entry, FPS/car play, F toggling, Escape capture release, session continuity, denial fallback, scroll restoration and renderer cleanup. These browser checks passed locally. The combined checkout rebased onto `2f27af2` passes all 75 tests and the production build.
 
 ## Planned work
+
+A rate switch for the FN MAG's regulator, and the CIS 50MG's dual feed (ball
+and armour-piercing belts, switched in play), are designed but not built; see
+[role variants](#role-variants). The arena host still resolves only the nearest
+surface, so the Bukit Timah's penetration works in the single-player engine only.
 
 Behavioral weapon traits, ballistics, penetration, consumables and the economy
 sink are planned but not implemented. See [the armory roadmap](ARMORY-ROADMAP.md)

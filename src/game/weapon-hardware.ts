@@ -1,5 +1,5 @@
 import { itemById, type FittedPart, type InternalPart } from './armory-catalog';
-import { FPS_WEAPONS, type WeaponSpec } from './fps-rules';
+import { FPS_WEAPONS, type WeaponFeed, type WeaponSpec } from './fps-rules';
 
 /**
  * Hardware a variant wears, derived from the parts its figures are built from.
@@ -30,6 +30,8 @@ export interface WeaponHardware {
   extended: boolean;
   /** Weight taken out rather than added: cuts and vents, not a thicker profile. */
   lightened: boolean;
+  /** A magazine part that changes what the platform is fed from, as box magazines in place of a drum. */
+  feed?: WeaponFeed;
   /** Two or three words for the chip the preview prints over the model. */
   label: string;
   /** What to look for on the model, in the words the dossier prints. */
@@ -87,6 +89,11 @@ function fromBuild(part: InternalPart, base: WeaponSpec, drum: boolean): WeaponH
     const extended = !!part.ballistics, lightened = (part.mobility ?? 1) > 1;
     return { ...shared, kind: 'barrel', weight, extended, lightened, label: barrelLabel(weight, extended, lightened), visual: barrelVisual(weight, extended, lightened) };
   }
+  if (part.feed && part.feed !== base.feed) {
+    // Not more or fewer of the same rounds but a different way of carrying them.
+    const weight = clamp((part.capacity ?? 0) / base.capacity / REFERENCE.magazine);
+    return { ...shared, kind: 'magazine', weight, feed: part.feed, label: 'Box magazine', visual: drum ? 'a rifle box magazine where the drum hung' : 'a box magazine in the feed' };
+  }
   if (part.capacity) {
     const weight = clamp(part.capacity / base.capacity / REFERENCE.magazine);
     return { ...shared, kind: 'magazine', weight, label: magazineLabel(weight, drum), visual: magazineVisual(weight, drum) };
@@ -131,7 +138,8 @@ export function weaponHardware(variantId: string): WeaponHardware[] {
     ...(item.fitted ?? []).map(fromFitted),
   ].filter((entry): entry is WeaponHardware => !!entry).map(entry =>
     base.feed === 'belt' && entry.kind === 'magazine'
-      ? { ...entry, label: 'Extended belt box', visual: 'a deeper ammunition box for the longer belt' }
+      ? entry.weight < 0 ? { ...entry, label: 'Belt pouch', visual: 'a short belt in a soft pouch where the box hung' }
+        : { ...entry, label: 'Extended belt box', visual: 'a deeper ammunition box for the longer belt' }
       : entry);
 }
 /** What each part changes on the model, by the id the dossier lists parts under. */

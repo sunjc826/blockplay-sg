@@ -8,6 +8,7 @@ import { gunshotTone } from './gunshot-audio';
 import { accessorySpreadScale, hasLaser, hasLight, hipSpreadScale, muzzleSignature } from './weapon-accessories';
 import { fitWeaponAccessories, LASER_EMITTER, LIGHT_EMITTER, muzzleSocket, MUZZLE_EXIT } from './weapon-accessory-models';
 import { buildSightHousing } from './weapon-sight-housings';
+import { fitWeaponOptic, getWeaponSight } from './weapon-optics';
 import { buildServiceWeapon } from './service-weapon-models';
 import { hardwareByPart } from './weapon-hardware';
 
@@ -107,6 +108,27 @@ describe('the models', () => {
     expect(lowest).toBeGreaterThan(.324);
     expect(main.window!.width).toBeGreaterThan(main.window!.height);
     housing.dispose();
+  });
+  it('clamps a machine gun\u2019s sight to its feed cover, which it rides on a belt change, and folds the rear sight', () => {
+    for (const id of ['mag-lepak', 'cis50-summit']) {
+      const weapon = resolved(id), model = buildServiceWeapon(weapon.id)!;
+      const rear = model.getObjectByName(`${weapon.id}__rear-sight`)!, cover = model.getObjectByName(`${weapon.id}__feed-cover`)!;
+      const remove = fitWeaponOptic(model, weapon), sight = getWeaponSight(model)!;
+      expect(sight.lens.parent?.parent, id).toBe(cover);
+      expect(rear.visible, id).toBe(false);
+      // Shut, the lens is where the housing put it, over the iron sight line.
+      model.updateMatrixWorld(true);
+      const shut = model.worldToLocal(sight.lens.getWorldPosition(new THREE.Vector3()));
+      expect(shut.y, id).toBeCloseTo(sight.aimHeight, 6);
+      expect(sight.aimHeight, id).toBeGreaterThan(weapon.sightHeight);
+      // Opened as the reload opens it, the sight swings up with the cover.
+      cover.rotation.x = -.6; model.updateMatrixWorld(true);
+      expect(model.worldToLocal(sight.lens.getWorldPosition(new THREE.Vector3())).y, id).toBeGreaterThan(shut.y + .03);
+      cover.rotation.x = 0;
+      remove();
+      expect(rear.visible, id).toBe(true);
+      expect(cover.children.some(child => child.name.endsWith('-optic')), id).toBe(false);
+    }
   });
   it('fits every sight to every platform a variant puts it on', () => {
     for (const item of ARMORY_CATALOG) for (const part of item.fitted ?? []) {

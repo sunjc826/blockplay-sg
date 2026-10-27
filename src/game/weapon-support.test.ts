@@ -38,8 +38,11 @@ it('grants no free support while folding, moving, rising or airborne', () => {
 
 const variants: [number, string, BipodKind][] = [
   [1, 'ult-issued', 'standard'], [1, 'ult-patrol', 'none'], [1, 'ult-centurion', 'quick'], [1, 'ult-bastion', 'heavy'],
+  [1, 'ult-jalan', 'none'], [1, 'ult-kongsi', 'standard'],
   [3, 'mag-issued', 'standard'], [3, 'mag-chope', 'heavy'], [3, 'mag-jaga', 'quick'],
+  [3, 'mag-tumpang', 'none'], [3, 'mag-lepak', 'heavy'],
   [4, 'cis50-issued', 'heavy'], [4, 'cis50-tuas', 'quick'], [4, 'cis50-merlion', 'standard'],
+  [4, 'cis50-summit', 'heavy'],
 ];
 for (const [family, variant, kind] of variants) it(`${variant} resolves and displays its actual support package without duplicates`, () => {
   const base = createProfile(), spec = resolveLoadout(equip({ ...base, owned: [...base.owned, variant] }, variant, family)).weapons[family];
