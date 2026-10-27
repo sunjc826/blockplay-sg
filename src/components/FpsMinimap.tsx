@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import { getRegion, type RegionMapShape } from '../game/regions';
-import { localMinimapBounds, minimapHeading, minimapProjection, type MinimapMarker } from '../game/minimap';
+import { localMinimapBounds, minimapHeading, minimapProjection, MINIMAP_CONTACT_RANGE, type MinimapMarker } from '../game/minimap';
 import { getWorldZone, type WorldZoneId } from '../game/world-zones';
 import { zoneSectors } from '../game/zone-sectors';
 import './fps-minimap.css';
@@ -22,11 +22,13 @@ const VIEW = { compact: { width: 200, height: 160 }, expanded: { width: 600, hei
  * it is a local window that follows the player; expanded (M), it is the whole
  * district, with sector names and marker labels, over the centre of the scene.
  */
-export default function FpsMinimap({ zone, player, markers = [], mode, expanded = false, onToggle, dangers = [], jammed = false }: {
+export default function FpsMinimap({ zone, player, markers = [], mode, expanded = false, onToggle, dangers = [], jammed = false, contactRange = MINIMAP_CONTACT_RANGE }: {
   /** Combat events: rings for marked areas and supply crates, dots for aircraft. */
   dangers?: readonly { id: string; x: number; z: number; radius: number; kind: 'ring' | 'crate' | 'raider' }[];
   /** Jamming: static over the map and nothing on it but you. */
   jammed?: boolean;
+  /** Current visual contact range after time-of-day and weather modifiers. */
+  contactRange?: number;
   zone: WorldZoneId; player: { x: number; z: number; yaw: number };
   markers?: readonly MinimapMarker[]; mode: 'practice' | 'expedition' | 'arena';
   expanded?: boolean; onToggle?: () => void;
@@ -39,14 +41,14 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded 
   const unit = 1 / map.scale;
   const decor = (layer: 'under' | 'over') => district.decor.filter(shape => shape.kind === 'rect' && shape.fpsFill && (shape.fpsLayer ?? shape.layer ?? 'over') === layer);
   const sectors = mode === 'expedition' || expanded ? zoneSectors(zone) : [];
-  const legend = mode === 'arena' ? '▲ You · Opponents hidden' : mode === 'expedition' ? '▲ You · ■ Loot · ● NPC · ◆ Exit' : '▲ You · ● Targets · C/H Vehicles';
+  const legend = mode === 'arena' ? `▲ You · ● Ally · ◆ Enemy · ${contactRange}m sight` : mode === 'expedition' ? `■ Loot · N NPC · ◇ Exit · ● Ally · ◆ Enemy · ${contactRange}m sight` : '▲ You · ● Targets · C/H Vehicles';
   const bar = expanded ? 100 : 25;
-  return <div className={`fps-minimap ${expanded ? 'is-expanded' : ''}`} data-map-zone={zone} data-map-expanded={expanded || undefined}
+  return <div className={`fps-minimap ${expanded ? 'is-expanded' : ''}`} data-map-zone={zone} data-map-expanded={expanded || undefined} data-map-contact-range={mode !== 'practice' ? contactRange : undefined}
     aria-label={`${getWorldZone(zone).name} ${expanded ? 'district map' : 'local minimap'}`}
     onClick={onToggle} role={onToggle ? 'button' : undefined} tabIndex={onToggle ? -1 : undefined}>
     <div className="fps-minimap-heading"><strong>{getWorldZone(zone).name}{expanded && <small> · DISTRICT MAP</small>}</strong><span>{expanded ? 'M · CLOSE' : '↑ N · M MAP'}</span></div>
     <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby={title}>
-      <title id={title}>{`${getWorldZone(zone).name}: your position and facing direction. ${mode === 'arena' ? 'Opponents are not shown, unless you can smell them.' : 'Nearby roads and supplies; outlined checkpoint markers at the edge indicate distant exits.'}`}</title>
+      <title id={title}>{`${getWorldZone(zone).name}: your position and facing direction. ${mode !== 'practice' ? `Blue allies and red enemies appear within ${contactRange}m while in view with clear line of sight. Range adapts to time of day and weather. Hidden opponents stay off the map unless you can smell them. ` : ''}Nearby roads and supplies; outlined checkpoint markers at the edge indicate distant exits.`}</title>
       <defs><pattern id="fps-map-static" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#1b2420" /><rect width="2" height="1" x="1" y="1" fill="#6b7a70" /><rect width="1" height="2" x="4" y="3" fill="#4e5c53" /></pattern><clipPath id={clip}><rect x={inset} y={inset} width={width - inset * 2} height={height - inset * 2} rx="5" /></clipPath></defs>
       <rect x={inset} y={inset} width={width - inset * 2} height={height - inset * 2} rx="5" fill="#273b35" />
       <g clipPath={`url(#${clip})`}>
@@ -78,6 +80,8 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded 
               : marker.kind === 'loot' ? <rect x="-3" y="-3" width="6" height="6" fill="#91dcb0" stroke="#172820" />
               : marker.kind === 'npc' ? <><circle r="5" fill="#9bdcf0" stroke="#263f49" /><text y="3" textAnchor="middle" fill="#18303a" fontSize="7" fontWeight="800">N</text></>
               : marker.kind === 'target' ? <circle r="3" fill="#ee967c" stroke="#401e18" />
+              : marker.kind === 'ally' ? <circle r="4" fill="#70cfff" stroke="#163a50" strokeWidth="1.5" />
+              : marker.kind === 'enemy' ? <path d="M0 -5 L5 0 L0 5 L-5 0 Z" fill="#ff675c" stroke="#4a1715" strokeWidth="1.5" />
               : marker.kind === 'scent' ? <><circle r="7" fill="#c9c25a33" stroke="#c9c25a" strokeWidth="1.2" strokeDasharray="2 2" /><path d="M-3 2 q1.5 -3 0 -5 M0 2 q1.5 -3 0 -5 M3 2 q1.5 -3 0 -5" fill="none" stroke="#e3dc7a" strokeWidth="1.1" strokeLinecap="round" /></>
               : <><rect x="-6" y="-6" width="12" height="12" rx="2" fill="#182d35" stroke="#9bdcf0" /><text y="3" textAnchor="middle" fill="#c7f3ff" fontSize="9" fontWeight="700">{marker.kind === 'car' ? 'C' : 'H'}</text></>}
             {named && <text className="fps-map-label" y="-10" textAnchor="middle">{marker.label.split(' · ')[0]}</text>}

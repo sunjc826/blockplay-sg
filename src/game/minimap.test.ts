@@ -1,6 +1,26 @@
 import { expect, it } from 'vitest';
-import { localMinimapBounds, minimapHeading, minimapProjection } from './minimap';
+import { localMinimapBounds, minimapContactRange, minimapHeading, minimapProjection } from './minimap';
 import { movementInput } from './fps-rules';
+import { dayLighting, TIMES_OF_DAY } from './world-lighting';
+import { WEATHER, type WeatherId } from './world-events';
+
+it('reduces contact range at night and through every weather preset', () => {
+  const day = dayLighting(TIMES_OF_DAY.noon.hour).shift, night = dayLighting(TIMES_OF_DAY.night.hour).shift;
+  const expected: Record<WeatherId, number> = { sunny: 60, cloudy: 54, showers: 45, thunderstorm: 33, monsoon: 36, squall: 30, haze: 27 };
+  for (const weather of Object.keys(WEATHER) as WeatherId[]) {
+    expect(minimapContactRange(day, weather)).toBe(expected[weather]);
+    expect(minimapContactRange(night, weather)).toBe(Math.round(expected[weather] / 2));
+  }
+});
+
+it('blends twilight range between day and night, independent of midnight rollover', () => {
+  for (const time of ['dawn', 'dusk'] as const) {
+    const range = minimapContactRange(dayLighting(TIMES_OF_DAY[time].hour).shift, 'sunny');
+    expect(range).toBeGreaterThan(30);
+    expect(range).toBeLessThan(60);
+  }
+  expect(minimapContactRange(dayLighting(23.99).shift, 'sunny')).toBe(minimapContactRange(dayLighting(.01).shift, 'sunny'));
+});
 
 it('fits expanded region bounds inside the minimap with uniform scale', () => {
   const bounds = { minX: -300, maxX: 320, minZ: -270, maxZ: 200 };

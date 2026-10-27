@@ -77,6 +77,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
   const plannedRoute = destination ? findWorldRoute(scene.zone, destination) : [];
   const nextCheckpoint = plannedRoute[0];
   const mapMarkers: MinimapMarker[] = [
+    ...hud.mapMarkers,
     ...(hud.fieldLoot ?? []).map(item => ({ id: item.id, x: item.x, z: item.z, kind: 'loot' as const, label: `${item.name} (${item.tier})${(item.y ?? 0) > 0 ? ` · upper level +${Math.round(item.y!)}m` : ''}` })),
     ...(hud.npcs ?? []).map(npc => ({ id: npc.id, x: npc.x, z: npc.z, kind: 'npc' as const, label: `${npc.name} · ${npc.role}` })),
     ...gateways.map(gateway => ({ id: gateway.id, ...gateway.position, kind: 'checkpoint' as const, label: gateway.name, active: gateway.id === nextCheckpoint?.id })),
@@ -106,7 +107,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       <FpsCalloutWheel hud={hud} engine={engine.current} />
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus} · ESC TO STOP</div>}
       {playing && <>
-        <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} mode="expedition" expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
+        <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} contactRange={hud.mapContactRange} mode="expedition" expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
         <FpsVitals hud={hud} />
         <FpsVisionChip hud={hud} touch={touch} />
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}

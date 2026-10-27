@@ -32,7 +32,8 @@ import type { ImpactProfile } from './fps-impact-profile';
 import { applyArmorDamage, claimElimination, consumeItem, createProfile, encikAddress, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile, type VendorPurchaseResult } from './armory-state';
 import { registerElimination, ELIMINATION_XP, ELIMINATION_CREDITS, type KillChain } from './progression';
 import { createFpsVehicles } from './fps-vehicles';
-import type { MinimapMarker } from './minimap';
+import { minimapContactRange, MINIMAP_CONTACT_RANGE, type MinimapMarker } from './minimap';
+import { combatMinimapMarkers, type MinimapCloud } from './fps-minimap-contacts';
 import type { VehicleKind } from './vehicle-rules';
 import { VEHICLE_COMBAT, vehicleBlastDamage, type VehicleDamageStage } from './vehicle-combat';
 import { dressWeapon } from './armory-visuals';
@@ -154,7 +155,7 @@ export interface FpsHud {
   locked: boolean; message: string; muted: boolean; x: number; z: number; yaw: number;
   /** Look pitch. Recoil moves this as well as the mouse, so nothing outside the
    * engine can dead-reckon where the shooter is pointing. */
-  pitch: number; mapMarkers: MinimapMarker[];
+  pitch: number; mapMarkers: MinimapMarker[]; mapContactRange: number;
   /** Which control scheme the round is running under; 'touch' skips pointer capture. */
   inputMode: 'mouse' | 'touch';
   arena: ArenaSnapshot | null; arenaSelf: ArenaActor | null; arenaConnected: boolean; arenaStarted: boolean;
@@ -183,7 +184,7 @@ export interface FpsHud {
   /** The weapon in hand's laser or light (B switches it), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -410,21 +411,28 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (disposed) return;
     const state = loadout[hud.weapon];
     const burden = movement();
+    const mapContactRange = minimapContactRange(atmosphere.light.lighting.shift, atmosphere.conditions.weather);
     syncBelt();
     onHud({ ...hud, vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), ...(!expedition ? vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))) : {}), ...(vertical > .35 && !vehicles.active ? { vehiclePrompt: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
-      mapMarkers: expedition ? [] : [
+      mapContactRange, mapMarkers: [
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}`, kind: 'target', label: `Target ${index + 1}` }] : []),
-        ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
-        ...scentMarkers(),
+        ...(!expedition ? (['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })) : []),
+        ...contactMarkers(mapContactRange),
       ],
     });
   };
-  /** Opponents wearing inserts that smell: the arena map shows no one else. */
-  const scentMarkers = (): MinimapMarker[] => {
-    const self = hud.arenaSelf;
-    if (!options.arena || !self) return [];
-    return (hud.arena?.actors ?? []).filter(actor => actor.scent && actor.alive && actor.id !== self.id && hostile(self, actor))
-      .map(actor => ({ id: `scent-${actor.id}`, kind: 'scent', label: `${actor.name} · you can smell them`, x: actor.x, z: actor.z }));
+  /** Share the scene's visibility checks, including allies, at HUD update cadence. */
+  const contactMarkers = (range: number): MinimapMarker[] => {
+    if (!options.arena || !hud.arenaSelf) return [];
+    const clouds: MinimapCloud[] = [];
+    const time = Math.max(hud.arena?.elapsed ?? 0, eventClock);
+    for (const event of hud.arena?.events ?? []) {
+      const age = time - event.start;
+      for (const payload of combatTimeline(event)) if (payload.type === 'cloud' && age >= payload.from && age <= payload.until) {
+        clouds.push({ x: payload.center.x, z: payload.center.z, radius: payload.radius, ground: footMovement.supportHeight(payload.center.x, payload.center.z, 160, .1, .1) ?? 0 });
+      }
+    }
+    return combatMinimapMarkers(camera, world.scene, hud.arenaSelf, hud.arena?.actors ?? [], combatSubjects(true), clouds, range);
   };
   const clearInput = () => { prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; ads = false; touchAim = false; drag = null; moveStick = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
   function configureDebug(value: FpsDebugSettings) {
@@ -1050,12 +1058,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     pause(); start();
   }
   /** Everything the player may shoot at right now, as the pilot's sensor and the thumb's aim assist both see it. */
-  function combatSubjects(): PilotSubject[] {
+  function combatSubjects(includeAllies = false): PilotSubject[] {
     const subjects: PilotSubject[] = [];
     if (options.arena) {
       // Read rendered avatars here, never hand the authoritative actor list to a policy.
       // Articulated avatars publish their chest and face; a falling body is not a target.
-      for (const root of world.scene.children) if (root.visible && typeof root.userData.arenaActorId === 'string' && !root.userData.arenaDown && !root.userData.arenaFriendly) {
+      for (const root of world.scene.children) if (root.visible && typeof root.userData.arenaActorId === 'string' && !root.userData.arenaDown && (includeAllies || !root.userData.arenaFriendly)) {
         const named = ['avatar-aim-chest', 'avatar-aim-head'].map(name => root.getObjectByName(name)?.getWorldPosition(new THREE.Vector3()));
         subjects.push({ id: root.userData.arenaActorId, root, radius: .3, points: named.every(Boolean) ? named as THREE.Vector3[] : [1.15, 1.62].map(y => root.localToWorld(new THREE.Vector3(0, y, 0))) });
       }

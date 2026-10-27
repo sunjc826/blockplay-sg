@@ -1,4 +1,18 @@
+import type { WeatherId } from './world-events';
+
 export interface MapBounds { minX: number; maxX: number; minZ: number; maxZ: number }
+
+export const MINIMAP_CONTACT_RANGE = 60;
+/** Visibility tuning: clear daylight is the baseline; darkness and weather compound. */
+const CONTACT_WEATHER_SCALE: Record<WeatherId, number> = {
+  sunny: 1, cloudy: .9, showers: .75, thunderstorm: .55, monsoon: .6, squall: .5, haze: .45,
+};
+
+/** `darkness` is the scene lighting's shift: 0 by day, 1 at night, blended at twilight. */
+export function minimapContactRange(darkness: number, weather: WeatherId): number {
+  const lightScale = 1 - .5 * Math.max(0, Math.min(1, darkness));
+  return Math.round(MINIMAP_CONTACT_RANGE * lightScale * CONTACT_WEATHER_SCALE[weather]);
+}
 
 /** A local window follows the player, stopping at the district boundary. */
 export function localMinimapBounds(bounds: MapBounds, player: { x: number; z: number }, span = 180): MapBounds {
@@ -13,8 +27,8 @@ export function minimapHeading(yaw: number) { return -yaw * 180 / Math.PI; }
 
 export interface MinimapMarker {
   id: string; x: number; z: number; label: string;
-  /** `scent`: an opponent whose inserts smell (armor-inserts), the one kind of opponent the arena map shows. */
-  kind: 'target' | 'car' | 'helicopter' | 'loot' | 'npc' | 'checkpoint' | 'scent';
+  /** `scent`: an opponent revealed by their inserts even without visual contact. */
+  kind: 'target' | 'car' | 'helicopter' | 'loot' | 'npc' | 'checkpoint' | 'scent' | 'ally' | 'enemy';
   active?: boolean;
 }
 

@@ -95,7 +95,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
       <FpsCalloutWheel hud={hud} engine={engine.current} />
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus} · ESC TO STOP</div>}
       {playing && <>
-        <FpsMinimap zone={region} player={hud} markers={hud.mapMarkers} mode={isArena ? 'arena' : 'practice'} expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
+        <FpsMinimap zone={region} player={hud} markers={hud.mapMarkers} contactRange={hud.mapContactRange} mode={isArena ? 'arena' : 'practice'} expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
         <FpsVitals hud={hud} />
         <FpsVisionChip hud={hud} touch={touch} />
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}

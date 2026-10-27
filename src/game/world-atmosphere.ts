@@ -93,6 +93,8 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
     root,
     /** The light this frame resolved to: the hour's state and its effective key and fill, weather included. */
     get light() { return output; },
+    /** Resolved scene conditions, including the shared automatic conditions in multiplayer. */
+    get conditions() { return active; },
     update(dt: number, camera: THREE.Camera, now = Date.now()) {
       if (disposed) return;
       const settings = getEnvironmentSettings();

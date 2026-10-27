@@ -95,10 +95,25 @@ describe('world atmosphere lifecycle', () => {
     camera.position.y = 8; atmosphere.update(.1, camera); expect(rain.visible).toBe(true);
     atmosphere.dispose();
   });
-  it('ignores local weather and celebration overrides in LAN', () => {
-    setEnvironmentSettings({ weather: 'haze', celebration: 'christmas' });
-    const { camera, atmosphere } = setup(true), now = at('2026-06-01'); atmosphere.update(.1, camera, now);
+  it('ignores local weather, time and celebration overrides in LAN, including reported conditions', () => {
+    setEnvironmentSettings({ weather: 'haze', celebration: 'christmas', timeOfDay: 'night' });
+    const { camera, atmosphere } = setup(true), now = at('2026-06-01T04:00:00Z'); atmosphere.update(.1, camera, now);
     expect(atmosphere.root.userData.weather).toBe(automaticWeather(now)); expect(atmosphere.root.userData.celebration).toBe('none');
+    expect(atmosphere.conditions.weather).toBe(automaticWeather(now));
+    expect(atmosphere.conditions.hour).toBe(12);
+    expect(atmosphere.light.lighting.shift).toBe(0);
+    atmosphere.dispose();
+  });
+  it('reports changing rendered time and weather independently of cosmetic effect settings', () => {
+    setEnvironmentSettings({ weather: 'sunny', timeOfDay: 'noon' });
+    const { camera, atmosphere } = setup();
+    atmosphere.update(.1, camera);
+    expect(atmosphere.conditions.weather).toBe('sunny');
+    expect(atmosphere.light.lighting.shift).toBe(0);
+    setEnvironmentSettings({ weather: 'thunderstorm', timeOfDay: 'night', reducedEffects: true });
+    atmosphere.update(.1, camera);
+    expect(atmosphere.conditions.weather).toBe('thunderstorm');
+    expect(atmosphere.light.lighting.shift).toBe(1);
     atmosphere.dispose();
   });
 });

@@ -44,9 +44,48 @@ it('opens to the whole district with sector names, so distant loot is on it', ()
   }
 });
 
-it('shows an opponent the player can smell, the one opponent an arena map shows', () => {
+it('keeps scent reveals alongside visible combatants', () => {
   const html = renderToStaticMarkup(<FpsMinimap zone="marina-bay" player={{ x: 0, z: 0, yaw: 0 }} mode="arena"
     markers={[{ id: 'scent-bot-1', kind: 'scent', label: 'Bravo · you can smell them', x: 20, z: 10 }]} />);
   expect(html).toContain('data-minimap-marker="scent-bot-1" data-marker-kind="scent"');
   expect(html).toContain('unless you can smell them');
+});
+
+it('renders distinct ally and enemy symbols on both map sizes in combat modes', () => {
+  for (const mode of ['arena', 'expedition'] as const) for (const expanded of [false, true]) {
+    const html = renderToStaticMarkup(<FpsMinimap zone="marina-bay" player={{ x: 0, z: 0, yaw: 0 }} mode={mode} expanded={expanded}
+      markers={[
+        { id: 'ally', kind: 'ally', label: 'Alpha · Ally', x: -10, z: -15 },
+        { id: 'enemy', kind: 'enemy', label: 'Bravo · Enemy', x: 10, z: -15 },
+      ]} />);
+    expect(html).toContain('data-marker-kind="ally"');
+    expect(html).toContain('data-marker-kind="enemy"');
+    expect(html).toContain('fill="#70cfff"');
+    expect(html).toContain('fill="#ff675c"');
+    expect(html).toContain('Alpha · Ally · 18m');
+    expect(html).toContain('Bravo · Enemy · 18m');
+    expect(html).toContain('within 60m while in view with clear line of sight');
+    expect(html).not.toContain('Opponents hidden');
+  }
+});
+
+it('hides combatants and scent reveals while the map is jammed', () => {
+  const html = renderToStaticMarkup(<FpsMinimap zone="marina-bay" player={{ x: 0, z: 0, yaw: 0 }} mode="arena" jammed
+    markers={[
+      { id: 'ally', kind: 'ally', label: 'Ally', x: -10, z: 0 },
+      { id: 'enemy', kind: 'enemy', label: 'Enemy', x: 10, z: 0 },
+      { id: 'scent', kind: 'scent', label: 'Scent', x: 20, z: 0 },
+    ]} />);
+  expect(html).toContain('SIGNAL JAMMED');
+  expect(html).not.toContain('data-minimap-marker');
+});
+
+it('shows the current conditions-based range in both combat modes and map sizes', () => {
+  for (const mode of ['arena', 'expedition'] as const) for (const expanded of [false, true]) {
+    const html = renderToStaticMarkup(<FpsMinimap zone="marina-bay" player={{ x: 0, z: 0, yaw: 0 }} mode={mode} expanded={expanded} contactRange={17} />);
+    expect(html).toContain('data-map-contact-range="17"');
+    expect(html).toContain('17m sight');
+    expect(html).toContain('within 17m while in view with clear line of sight');
+    expect(html).not.toContain('60m');
+  }
 });
