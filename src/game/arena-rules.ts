@@ -17,6 +17,8 @@ import { combatPhase, combatTimeline, getCombatEvent, orbitPose, MAX_COMBAT_EVEN
 import { createCombatDirector, planTransport, type CombatRisk } from './combat-director';
 import { OVERHEAD_SHELTER, resolveBlast, type BlastTarget } from './combat-blast';
 import { DEFAULT_BOT_FACTION, getArenaFaction, hostile, PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
+import { BARK_RANGE, BARK_TUNING, createBarkDirector, type BarkEvent } from './npc-barks';
+import { CALLOUT_COOLDOWN, getPlayerCallout } from './player-callouts';
 import { ballisticPoint, isInstant, muzzleBallistics, type BallisticSpec } from './fps-ballistics';
 import type { PublishedRound } from './fps-projectiles';
 import { createHeatField, HEAT_TUNING, type HeatBand, type HeatSector } from './faction-heat';
@@ -65,6 +67,21 @@ export interface ArenaRaider {
   shots: number;
 }
 export interface ArenaFeed { id: string; text: string; killerId?: string; victimId?: string }
+/**
+ * Something said aloud: a bot's bark (npc-barks) or a player's callout from the
+ * wheel (player-callouts). Screens decide who is near enough to hear it.
+ */
+export interface ArenaBark {
+  id: string; actor: string; text: string;
+  /** The bark's reason, or 'callout' for a player's. */
+  kind: BarkEvent | 'callout';
+  /** A player's callout id. */
+  callout?: string;
+  /** Where a pinging callout points. */
+  at?: ArenaPoint;
+}
+/** Barks a snapshot carries; screens keep the ones they have not shown yet. */
+export const MAX_ARENA_BARKS = 8;
 export interface ArenaSnapshot {
   type: 'arena-snapshot'; tick: number; elapsed: number; actors: ArenaActor[];
   feed: ArenaFeed[]; finished: boolean; winner: string; vehicles?: SharedVehicle[];
@@ -76,6 +93,8 @@ export interface ArenaSnapshot {
   heat?: ArenaHeat[];
   /** Rounds in the air, for screens to draw; the host alone decides what they hit. */
   rounds?: ArenaRoundView[];
+  /** The latest things said, oldest first. */
+  barks?: ArenaBark[];
 }
 export type ArenaHeat = { sector: string } & Record<SquadFaction, number>;
 export interface ArenaInput { x: number; y: number; z: number; yaw: number; pitch: number; weapon: number; playing: boolean; reloading?: boolean; prone?: boolean; vehicleControls?: VehicleControls }
@@ -221,6 +240,12 @@ interface InternalActor {
   recruit?: boolean; reserve?: boolean;
   /** With heat: the sector this bot was dropped into, which it patrols and defends. */
   home?: string;
+  /** Bots: when they last saw an enemy or were hit, which decides whether a sighting is a fresh contact and whether they are calm enough to chat. */
+  lastFight?: number;
+  /** Bots: reloading, or running from a marked barrage, as of the last tick, so the bark goes with the start of it. */
+  barkReload?: boolean; barkFleeing?: boolean;
+  /** Players: when they last used the callout wheel. */
+  lastCallout?: number;
 }
 interface Raider extends ArenaRaider {
   vx: number; vy: number; vz: number;
@@ -324,6 +349,22 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   // What a bot is issued has its own stream, so the draw cannot move anything else the seed decides.
   let armamentSeed = 51787;
   const armamentRandom = () => { armamentSeed = (Math.imul(armamentSeed, 1664525) + 1013904223) >>> 0; return armamentSeed / 4294967296; };
+  // Barks draw on a stream of their own, so whether anyone spoke never changes how a fight goes.
+  let barkSeed = 70411, barkId = 0, idleIn = BARK_TUNING.idleEvery[0];
+  const barkRandom = () => { barkSeed = (Math.imul(barkSeed, 1664525) + 1013904223) >>> 0; return barkSeed / 4294967296; };
+  const barker = createBarkDirector(barkRandom), barks: ArenaBark[] = [], replies: { id: string; event: BarkEvent; at: number }[] = [];
+  const say = (actor: string, text: string, kind: ArenaBark['kind'], extra: Pick<ArenaBark, 'callout' | 'at'> = {}) => {
+    const said: ArenaBark = { id: String(++barkId), actor, text, kind, ...extra }; barks.push(said);
+    if (barks.length > MAX_ARENA_BARKS) barks.shift();
+    return said;
+  };
+  /** A bot has a reason to speak; the director decides whether they do and in what words. */
+  function bark(entry: InternalActor, event: BarkEvent) {
+    const actor = entry.actor;
+    if (!actor.bot || !actor.alive || entry.reserve) return;
+    const text = barker.offer(actor.id, { faction: actor.faction, side: getArenaFaction(actor.faction)?.side, role: actor.role, rank: actor.rank }, event, elapsed);
+    if (text) say(actor.id, text, event);
+  }
   const announce = (text: string, killerId?: string, victimId?: string) => {
     feed.push({ id: String(++eventId), text, ...(killerId ? { killerId } : {}), ...(victimId ? { victimId } : {}) });
     if (feed.length > 8) feed.shift();
@@ -599,12 +640,18 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (attacker && attacker !== victim) attacker.actor.kills++;
       if (factionHeat && isSquad(victim.actor.faction)) factionHeat.casualty(victim.actor.faction, factionHeat.sectorAt(victim.actor.x, victim.actor.z)?.id ?? null, heatShare(victim, attacker));
       announce(cause && !attacker ? `${cause} killed ${victim.actor.name}` : `${attacker?.actor.name ?? 'Vehicle'} eliminated ${victim.actor.name}`, attacker?.actor.id, victim.actor.id);
+      if (attacker && attacker !== victim) bark(attacker, 'kill');
+      // The nearest of their own side who saw it go down says so.
+      const witness = [...members.values()].filter(m => m !== victim && m.actor.bot && m.actor.alive && !m.reserve && m.actor.faction === victim.actor.faction && distance(m.actor, victim.actor) <= 30)
+        .sort((a, b) => distance(a.actor, victim.actor) - distance(b.actor, victim.actor))[0];
+      if (witness) bark(witness, 'man-down');
       warm(victim.actor, 4);
       if (attacker && !environment?.endless && attacker.actor.kills >= ARENA_KILL_LIMIT) { finished = true; winner = attacker.actor.name; }
     } else if (!killed && factionHeat && isSquad(victim.actor.faction) && attacker !== victim && damage > 0) {
       // Taking fire heats a side a little before anyone falls.
       factionHeat.casualty(victim.actor.faction, factionHeat.sectorAt(victim.actor.x, victim.actor.z)?.id ?? null, heatShare(victim, attacker) * HEAT_TUNING.contact * Math.min(1, damage / 100));
     }
+    if (!killed && victim.actor.bot && attacker !== victim) { victim.lastFight = elapsed; if (damage - blocked > 0) bark(victim, blasted ? 'incoming' : 'hurt'); }
     return { hitId: victim.actor.id, killed, damage: damage - blocked };
   }
   /** A player in the fight, either end of it, escalates it in full; bots fighting bots by a share. */
@@ -1353,16 +1400,18 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     // A target whose inserts smell is seen from further off, and through smoke.
     const visible = !!enemy && length < sightRangeAgainst(role.sightRange, enemy.insert) && worldWallDistance(actor, ray) >= length - 0.5 && clearSight(entry, enemy.actor.id, ray, length, dt) && !(smokeHides(enemy.insert) && smokeBetween(actor, target));
     if (role.id === 'overwatch') { if (visible) actor.aiming = true; else delete actor.aiming; }
+    if (visible) { if (elapsed - (entry.lastFight ?? -Infinity) > 6) bark(entry, 'contact'); entry.lastFight = elapsed; }
     const intent = role.think({ distance: horizontal, visible, healthFraction: actor.health / entry.healthMax, strafeDirection: entry.strafe });
     let approach = Number.isFinite(intent.approach) ? clamp(intent.approach, -1, 1) : 0;
     const wounded = botWantsHeal({ health: actor.health, healthMax: entry.healthMax, medkits: entry.medkits, sinceHurt: elapsed - entry.lastHurt, visible, danger: !!dangerExit(actor) });
     if (wounded === 'heal') {
       const feet = Math.max(0, actor.y - 1.75);
       entry.heal = { time: 0, feet, started: elapsed }; actor.healing = 0; actor.y = feet + BOT_HEAL.kneelEye; entry.burst = 0; entry.target = '';
+      bark(entry, 'healing');
       return;
     }
     // Wounded with someone in view: back away to break the line before patching up.
-    if (wounded === 'retreat' && visible) approach = -1;
+    if (wounded === 'retreat' && visible) { approach = -1; bark(entry, 'retreat'); }
     const strafe = Number.isFinite(intent.strafe) ? clamp(intent.strafe, -1, 1) : 0;
     const normal = Math.max(1, Math.hypot(approach, strafe));
     let dxStep = (direction.x * approach - direction.z * strafe) / normal * role.speed * dt;
@@ -1394,6 +1443,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     // Bots run from a marked barrage, still firing if they can see someone. An event's crew holds its post.
     const exit = entry.anchor ? null : dangerExit(actor);
     if (exit) { dxStep = exit.x * role.speed * 1.3 * dt; dzStep = exit.z * role.speed * 1.3 * dt; }
+    if (exit && !entry.barkFleeing) bark(entry, 'incoming');
+    entry.barkFleeing = !!exit;
     const vehicleSolids = vehicles.filter(v => v.y < 2).map(vehicleBounds);
     if (entry.anchor) Object.assign(actor, { x: entry.anchor.x, z: entry.anchor.z });
     else if (traversal) {
@@ -1447,6 +1498,42 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (!held && [...members.values()].filter(m => m !== entry && m.actor.alive && m.turn?.target === id && m.turn.until > elapsed).length >= BOT_AIM.shooters) return false;
     entry.turn = { target: id, until: elapsed + BOT_AIM.shooterHold }; return true;
   }
+  /** Answers owed to players' callouts, and now and then a quiet soldier near a player passing the time. */
+  function stepBarks(dt: number) {
+    for (let i = replies.length - 1; i >= 0; i--) {
+      if (replies[i].at > elapsed) continue;
+      const [reply] = replies.splice(i, 1), entry = members.get(reply.id);
+      if (entry) bark(entry, reply.event);
+    }
+    if ((idleIn -= dt) > 0) return;
+    const [low, high] = BARK_TUNING.idleEvery; idleIn = low + barkRandom() * (high - low);
+    const humans = [...members.values()].filter(m => !m.actor.bot && m.actor.alive), near = (m: InternalActor) => Math.min(Infinity, ...humans.map(h => distance(h.actor, m.actor)));
+    const calm = [...members.values()].filter(m => m.actor.bot && m.actor.alive && !m.reserve && !m.heal && !m.temporary && elapsed - (m.lastFight ?? -Infinity) > BARK_TUNING.calm && near(m) <= BARK_TUNING.idleRange)
+      .sort((a, b) => near(a) - near(b))[0];
+    if (calm) bark(calm, 'idle');
+  }
+  /**
+   * A player's callout from the wheel, by id. Returns what was said, or null
+   * when the id is unknown or the player is speaking too soon. The fallen may
+   * speak (that is when most people say "Knn"), but point at nothing. A
+   * callout that asks for a reply gets one from the nearest bot that would
+   * give it: a friendly for an order, an enemy within earshot for a taunt.
+   */
+  function callout(id: string, calloutId: string, at?: ArenaPoint) {
+    const entry = members.get(id), spoken = getPlayerCallout(calloutId);
+    if (!entry || entry.actor.bot || !spoken || elapsed - (entry.lastCallout ?? -Infinity) < CALLOUT_COOLDOWN) return null;
+    entry.lastCallout = elapsed;
+    const text = spoken.lines[Math.min(spoken.lines.length - 1, Math.floor(barkRandom() * spoken.lines.length))];
+    const mark = spoken.ping && entry.actor.alive && at && finitePoint(at) ? { x: clamp(at.x, bounds.minX, bounds.maxX), y: clamp(at.y, 0, 124), z: clamp(at.z, bounds.minZ, bounds.maxZ) } : undefined;
+    const said = say(id, text, 'callout', { callout: spoken.id, ...(mark ? { at: mark } : {}) });
+    if (spoken.reply) {
+      const range = spoken.reply === 'ack' ? BARK_RANGE.reply : BARK_RANGE.overheard;
+      const listener = [...members.values()].filter(m => m.actor.bot && m.actor.alive && !m.reserve && (spoken.reply === 'ack') !== hostile(entry.actor, m.actor) && distance(m.actor, entry.actor) <= range)
+        .sort((a, b) => distance(a.actor, entry.actor) - distance(b.actor, entry.actor))[0];
+      if (listener && !replies.some(r => r.id === listener.actor.id)) replies.push({ id: listener.actor.id, event: spoken.reply === 'ack' ? 'ack' : 'taunted', at: elapsed + .7 + barkRandom() * .6 });
+    }
+    return said;
+  }
   let navigationDeadline = 0;
   function step(dt: number) {
     if (finished || !Number.isFinite(dt) || dt <= 0) return;
@@ -1474,9 +1561,15 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       entry.velocity = { x: was.x + (vx - was.x) * smooth, z: was.z + (vz - was.z) * smooth }; entry.speed = Math.hypot(entry.velocity.x, entry.velocity.z);
       entry.lastAt = { x: entry.actor.x, z: entry.actor.z };
       entry.ammo.forEach((state, index) => advanceWeapon(state, index, dt, entry.weapons));
-      if (entry.actor.bot) stepBot(entry, dt);
+      if (entry.actor.bot) {
+        stepBot(entry, dt);
+        const reloading = (entry.ammo[entry.actor.weapon]?.reloadRemaining ?? 0) > 0;
+        if (reloading && !entry.barkReload) bark(entry, 'reloading');
+        entry.barkReload = reloading;
+      }
       if (finished) break;
     }
+    stepBarks(dt);
     if (!environment?.endless && elapsed >= ARENA_DURATION && !finished) {
       finished = true;
       const leaders = [...members.values()].map(m => m.actor).sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
@@ -1488,10 +1581,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return { type: 'arena-snapshot', tick, elapsed, actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...shieldOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
       ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target }, ...(e.descriptor.origin ? { origin: { ...e.descriptor.origin } } : {}) })) } : {}),
       ...(raiders.size ? { raiders: [...raiders.values()].map(({ event, kind, x, y, z, yaw, health, maxHealth, state, aim, shots }) => ({ event, kind, x, y, z, yaw, health, maxHealth, state, aim: aim ? { ...aim } : null, shots })) } : {}),
-      ...(factionHeat ? { heat: factionHeat.snapshot() } : {}), ...(flying.length ? { rounds: roundViews() } : {}) };
+      ...(factionHeat ? { heat: factionHeat.snapshot() } : {}), ...(flying.length ? { rounds: roundViews() } : {}),
+      ...(barks.length ? { barks: barks.map(b => ({ ...b, ...(b.at ? { at: { ...b.at } } : {}) })) } : {}) };
   }
   function reset() {
-    tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; controls.clear(); events.length = 0; raiders.clear(); liveClouds = []; heat.clear(); interests.length = 0; director?.reset();
+    tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; barks.length = 0; replies.length = 0; barker.reset(); idleIn = BARK_TUNING.idleEvery[0]; controls.clear(); events.length = 0; raiders.clear(); liveClouds = []; heat.clear(); interests.length = 0; director?.reset();
     flying.length = 0; landed.clear();
     for (const [id, entry] of members) if (entry.temporary) dismiss(id);
     // Back to the starting garrison: recruits were the reinforcements' doing.
@@ -1533,7 +1627,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return entry;
   }
   for (let i = 0; i < count; i++) enlist();
-  return { vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  return { vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

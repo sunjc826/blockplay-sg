@@ -10,16 +10,21 @@ import { VEHICLE_COMBAT } from './vehicle-combat';
 import type { VehicleKind } from './vehicle-rules';
 import { validWeaponIndex } from './fps-rules';
 import * as THREE from 'three';
-import { createArena, MAX_ARENA_ACTORS, MAX_ARENA_ROUNDS, SPAWN_SHIELD_SECONDS, type ArenaActor, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaRaiderState, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
+import { createArena, MAX_ARENA_ACTORS, MAX_ARENA_BARKS, MAX_ARENA_ROUNDS, SPAWN_SHIELD_SECONDS, type ArenaActor, type ArenaBark, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaRaiderState, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
 import { createProfile, resolveLoadout, restoreProfile, type ArmoryProfile } from './armory-state';
 import type { LanSession } from './lan-peer';
 import { getArenaRole } from './arena-roles';
 import { MAX_COMBAT_EVENTS, validCombatEvent, type CombatPlane } from './combat-events';
+import { BARK_EVENTS, BARK_RANGE } from './npc-barks';
+import { getPlayerCallout } from './player-callouts';
+import { hostile } from './arena-factions';
 import type { Obstacle } from './marina-collision';
 
 export interface ArenaRuntimeFrame {
   snapshot: ArenaSnapshot | null; self: ArenaActor | null; connected: boolean; started: boolean;
   hit: ArenaShot | null; feed: ArenaFeed[]; spawn: boolean; vehicleNotice?: string; correction?: boolean;
+  /** Barks and callouts said since the last frame, ours included. */
+  barks: ArenaBark[];
 }
 export interface ArenaRuntimeOptions {
   scene: THREE.Scene; obstacles: readonly Obstacle[]; session: LanSession;
@@ -107,6 +112,9 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       owners.add(r.event);
     }
   }
+  if (value.barks !== undefined && !(Array.isArray(value.barks) && value.barks.length <= MAX_ARENA_BARKS && value.barks.every(b => object(b) &&
+    typeof b.id === 'string' && b.id.length <= 24 && typeof b.actor === 'string' && b.actor.length <= 100 && typeof b.text === 'string' && b.text.length <= 140 &&
+    ((BARK_EVENTS as readonly unknown[]).includes(b.kind) || b.kind === 'callout' && !!getPlayerCallout(b.callout)) && (b.callout === undefined || b.kind === 'callout') && (b.at === undefined || point(b.at))))) return false;
   return value.feed.every(entry => object(entry) && typeof entry.id === 'string' && entry.id.length <= 100 && typeof entry.text === 'string' && entry.text.length <= 160 &&
     (entry.killerId === undefined || typeof entry.killerId === 'string') && (entry.victimId === undefined || typeof entry.victimId === 'string'));
 }
@@ -123,6 +131,45 @@ interface Avatar {
   previous: THREE.Vector3; velocity: THREE.Vector3;
   /** What the figure and label were built from; a respawn with a new rank or name rebuilds them. */
   key: string;
+  /** What they last said, over their head until `until` (performance.now ms); painted on first use. */
+  bubble: SpeechBubble | null;
+}
+interface SpeechBubble { sprite: THREE.Sprite; context: CanvasRenderingContext2D; texture: THREE.CanvasTexture; until: number }
+/** How long a bark stays over a speaker's head, in seconds. */
+export const BUBBLE_SECONDS = 3.6;
+/**
+ * The speech bubble: up to two lines of the text in a rounded box with a tail
+ * pointing down at the speaker. `tone` is the speaker's label colour.
+ */
+export function paintSpeechBubble(context: CanvasRenderingContext2D, text: string, tone: string) {
+  const width = context.canvas.width, height = context.canvas.height;
+  context.clearRect(0, 0, width, height); context.font = '600 26px sans-serif'; context.textAlign = 'center'; context.textBaseline = 'middle';
+  const lines: string[] = [];
+  for (const word of text.split(/\s+/)) {
+    const last = lines.length - 1;
+    if (last >= 0 && context.measureText(`${lines[last]} ${word}`).width <= width - 36) lines[last] += ` ${word}`;
+    else if (lines.length < 2) lines.push(word);
+    else { lines[last] = `${lines[last].replace(/…$/, '')}…`; break; }
+  }
+  const box = 24 + lines.length * 32, top = height - 16 - box;
+  context.fillStyle = 'rgba(248,246,236,.94)'; context.strokeStyle = tone; context.lineWidth = 4;
+  context.beginPath(); context.roundRect(4, top, width - 8, box, 16); context.fill(); context.stroke();
+  context.beginPath(); context.moveTo(width / 2 - 12, top + box - 2); context.lineTo(width / 2, height - 2); context.lineTo(width / 2 + 12, top + box - 2); context.closePath(); context.fill();
+  context.fillStyle = '#16211d';
+  lines.forEach((line, i) => context.fillText(line, width / 2, top + 12 + 16 + i * 32));
+}
+function showBubble(avatar: Avatar, text: string, tone: string) {
+  if (typeof document === 'undefined') return;
+  if (!avatar.bubble) {
+    const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 112;
+    const context = canvas.getContext('2d'); if (!context) return;
+    const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: true, depthWrite: false }); avatar.resources.push(texture, material);
+    const sprite = new THREE.Sprite(material); sprite.position.set(0, 2.72, 0); sprite.scale.set(2.4, .525, 1); sprite.raycast = noRaycast; sprite.visible = false; avatar.root.add(sprite);
+    avatar.bubble = { sprite, context, texture, until: 0 };
+  }
+  paintSpeechBubble(avatar.bubble.context, text, tone); avatar.bubble.texture.needsUpdate = true;
+  avatar.bubble.until = performance.now() + BUBBLE_SECONDS * 1000; avatar.bubble.sprite.visible = true;
 }
 /** Seconds over which a lapsing shield's halo fades out. */
 const HALO_FADE = .6;
@@ -196,7 +243,7 @@ function createAvatar(actor: ArenaActor): Avatar {
   const halo = actor.bot ? null : createHalo(resources);
   if (halo) root.add(halo.mesh);
   return { key: avatarKey(actor), rig, root, health, label, muzzle, glint, halo, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources,
-    alive: actor.alive, lastHealth: actor.health, yaw: actor.yaw, fireTimer: 0, ground: 0, groundTimer: 0, previous: new THREE.Vector3(), velocity: new THREE.Vector3() };
+    alive: actor.alive, lastHealth: actor.health, yaw: actor.yaw, fireTimer: 0, ground: 0, groundTimer: 0, previous: new THREE.Vector3(), velocity: new THREE.Vector3(), bubble: null };
 }
 /** A soft star for scope glint, shared by every sniper and never disposed with one. */
 let glintMap: THREE.DataTexture | null = null;
@@ -231,10 +278,10 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   const avatars = new Map<string, Avatar>();
   const registered = new Set<string>();
   let snapshot: ArenaSnapshot | null = null, started = false, disposed = false, inputTime = 0, helloTime = 3;
-  let pendingHit: ArenaShot | null = null, pendingFeed: ArenaFeed[] = [], spawnPending = false, localAdopted = false;
+  let pendingHit: ArenaShot | null = null, pendingFeed: ArenaFeed[] = [], pendingBarks: ArenaBark[] = [], spawnPending = false, localAdopted = false;
   let lastInput: ArenaInput | null = null, vehicleNotice = '';
   let previousSelf: ArenaActor | null = null, lastTick = -1;
-  const seenFeed = new Set<string>();
+  const seenFeed = new Set<string>(), seenBarks = new Set<string>();
   const initial = resolveLoadout(profile);
   const coverRay = new THREE.Raycaster(), coverOrigin = new THREE.Vector3(), coverDirection = new THREE.Vector3();
   // Bots ask several times a second, so the cover list is gathered at most a
@@ -266,13 +313,15 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   }
   if (simulation) { simulation.addPlayer(session.id, session.name, initial.armor, initial.absorption, initial.weapons, options.initialVitals, session.role === 'solo', initial.carriedFamilies, initial.insert); registered.add(session.id); }
   function accept(next: ArenaSnapshot) {
-    if (next.tick < lastTick) { seenFeed.clear(); localAdopted = false; }
+    if (next.tick < lastTick) { seenFeed.clear(); seenBarks.clear(); localAdopted = false; }
     lastTick = next.tick; snapshot = next;
     const self = next.actors.find(actor => actor.id === session.id) ?? null;
     if (self && (!previousSelf || (!previousSelf.alive && self.alive) || (previousSelf.deaths !== self.deaths && self.alive) || !localAdopted)) spawnPending = true;
     previousSelf = self ? { ...self } : null;
     for (const event of next.feed) if (!seenFeed.has(event.id)) { seenFeed.add(event.id); pendingFeed.push(event); }
     if (seenFeed.size > 300) { seenFeed.clear(); for (const event of next.feed) seenFeed.add(event.id); }
+    for (const said of next.barks ?? []) if (!seenBarks.has(said.id)) { seenBarks.add(said.id); pendingBarks.push(said); }
+    if (seenBarks.size > 300) { seenBarks.clear(); for (const said of next.barks ?? []) seenBarks.add(said.id); }
   }
   const publish = () => { if (simulation) { accept(simulation.snapshot()); if (session.role === 'host') session.send({ type: 'arena-state', snapshot, started }); } };
   if (simulation) accept(simulation.snapshot());
@@ -298,6 +347,9 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         session.send({ type: 'arena-vehicle-result', accepted }, from); publish();
       } else if (registered.has(from) && payload.type === 'arena-input' && validArenaInput(payload.input)) simulation.setInput(from, payload.input);
       else if (registered.has(from) && payload.type === 'arena-reload' && validWeaponIndex(payload.weapon)) simulation.reloadPlayer(from, payload.weapon);
+      else if (registered.has(from) && started && payload.type === 'arena-callout' && getPlayerCallout(payload.callout) && (payload.at === undefined || point(payload.at))) {
+        if (simulation.callout(from, payload.callout as string, payload.at as ArenaPoint | undefined)) publish();
+      }
       else if (registered.has(from) && started && payload.type === 'arena-shot' && point(payload.origin) && point(payload.direction) && validWeaponIndex(payload.weapon)) {
         // Rounds fly, so the hit is usually sent when one lands (see deliverHits); an instant one is sent now.
         const hit = simulation.shoot(from, payload.origin, payload.direction, payload.weapon, coverLimit(payload.origin, payload.direction, finite(payload.maxDistance) ? payload.maxDistance : 125));
@@ -392,7 +444,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     }
   }
   function update(dt: number, input: ArenaInput): ArenaRuntimeFrame {
-    if (disposed) return { snapshot: null, self: null, connected: false, started: false, hit: null, feed: [], spawn: false };
+    if (disposed) return { snapshot: null, self: null, connected: false, started: false, hit: null, feed: [], spawn: false, barks: [] };
     dt = Number.isFinite(dt) ? Math.max(0, Math.min(dt, 0.25)) : 0;
     const connected = authority || !!hostId && session.getPeers().some(peer => peer.id === hostId);
     inputTime += dt; helloTime += dt;
@@ -415,11 +467,20 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       if (!avatar) { avatar = createAvatar(actor); avatars.set(actor.id, avatar); scene.add(avatar.root); avatar.root.position.set(actor.x, actor.y - 1.75, actor.z); avatar.previous.copy(avatar.root.position); }
       animateAvatar(avatar, actor, dt);
     }
+    const listener = self ?? (validArenaInput(input) ? { ...input, bot: false, faction: 'armed-forces' } : null), now = performance.now();
+    for (const said of pendingBarks) {
+      const speaker = snapshot?.actors.find(actor => actor.id === said.actor), avatar = avatars.get(said.actor);
+      if (!speaker || !avatar || !speaker.alive || !listener) continue;
+      // Over a friendly head anywhere in sight; an enemy's only when near enough to overhear.
+      const range = said.kind !== 'callout' && hostile(listener, speaker) ? BARK_RANGE.overheard : BARK_RANGE.bubble;
+      if (Math.hypot(speaker.x - listener.x, speaker.z - listener.z) <= range) showBubble(avatar, said.text, arenaRoleColor(speaker));
+    }
+    for (const avatar of avatars.values()) if (avatar.bubble?.sprite.visible && (now > avatar.bubble.until || !avatar.alive)) avatar.bubble.sprite.visible = false;
     for (const [id, avatar] of avatars) if (!activeIds.has(id)) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); avatars.delete(id); }
     const correction = !!self?.alive && localAdopted && !spawnPending && Math.hypot(self.x - input.x, self.y - input.y, self.z - input.z) > 2.5;
-    const frame = { snapshot, self, connected, started, hit: pendingHit, feed: pendingFeed, spawn: spawnPending, correction, vehicleNotice };
+    const frame = { snapshot, self, connected, started, hit: pendingHit, feed: pendingFeed, spawn: spawnPending, correction, vehicleNotice, barks: pendingBarks };
     vehicleNotice = '';
-    pendingHit = null; pendingFeed = []; if (spawnPending) localAdopted = true; spawnPending = false;
+    pendingHit = null; pendingFeed = []; pendingBarks = []; if (spawnPending) localAdopted = true; spawnPending = false;
     return frame;
   }
   function vehicleAction(action: 'enter' | 'exit' | 'switch', kind?: VehicleKind) {
@@ -454,7 +515,13 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       session.send({ type: 'arena-reload', weapon });
     }
   }
-  function reset() { if (!simulation || disposed) return; simulation.reset(); started = false; localAdopted = false; previousSelf = null; seenFeed.clear(); publish(); }
+  /** A callout from the wheel, by id; `at` is where a pinging one points. The host says it, so it arrives back in a frame's barks. */
+  function callout(id: string, at?: ArenaPoint) {
+    if (disposed || !started || !localAdopted || !getPlayerCallout(id) || (at !== undefined && !point(at))) return;
+    if (simulation) { if (simulation.callout(session.id, id, at)) publish(); }
+    else session.send({ type: 'arena-callout', callout: id, ...(at ? { at } : {}) });
+  }
+  function reset() { if (!simulation || disposed) return; simulation.reset(); started = false; localAdopted = false; previousSelf = null; seenFeed.clear(); seenBarks.clear(); publish(); }
   function updateLoadout(nextProfile: ArmoryProfile) {
     if (disposed || session.role !== 'solo' || !simulation) return false;
     profile = restoreProfile(JSON.stringify(nextProfile));
@@ -483,6 +550,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     for (const avatar of avatars.values()) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); }
     avatars.clear();
   }
-  return { vehicleAction, update, shoot, reload, reset, dispose, updateLoadout, setVitals, setHealthMultiplier, triggerEvent, setCombatEvents };
+  return { vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, setVitals, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

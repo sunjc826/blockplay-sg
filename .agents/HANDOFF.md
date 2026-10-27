@@ -3350,3 +3350,33 @@ assumes every hit lands, so a slower gun always loses), MAG rate switch and
 CIS dual feed; penetration still single-player only (host resolves nearest
 surface); smell marker and arena deflection not played in a live LAN match;
 bots never wear the new inserts.
+
+## 2026-10-27: callouts and NPC barks
+
+Bots bark and players call out; subtitles only (no ElevenLabs yet). See
+docs/CALLOUTS.md. `npc-barks.ts`: lines by faction voice (forces = NS section
+Singlish, Black Kite = contractors) × rank (recruit panics, regular reports,
+veteran orders) for every event, plus role lines (tank belts, sniper relocates,
+mortar crew, overwatch); `barkKey` names each line for future recordings, so
+append rather than reorder. A director rations them (gap, per-speaker,
+per-faction-event cooldowns, voiced share) on its own seeded stream in
+`arena-rules`, so fights replay unchanged (full suite still green). Raised for
+contact (after 6 s without a fight), reload start, hurt/incoming, kill, man
+down (nearest same-faction witness ≤30 m), healing, retreat, barrage flight,
+and idle chat from the calm bot nearest a player. `ArenaSnapshot.barks` (last
+8) carries them to guests; the runtime validates them and draws speech
+bubbles over heads (enemies within 35 m, friendlies 60 m).
+
+`player-callouts.ts`: three wheel pages (Tactical, Singlish: Knn/Walao/Steady
+lah…, Banter). Hold Y and point with the mouse, Tab or scroll for pages, 1–8 to
+pick, click to send; touch has a speech chip beside the menu chip. Sent as
+ids (`arena-callout` guest→host), host picks the line, rate limit 1.2 s;
+Contact/Go here ping the crosshair point ("· 40 m to your left"). Orders get
+an `ack` from the nearest friendly bot; Knn/Don't play/Kiasu get a `taunted`
+reply from an enemy within 35 m. Fallen players can still call out (no ping).
+HUD: chatter strip (left column under the minimap; on portrait phones by the Encik line, two deep) and
+a Chatter channel in the comms log. Validation: unit tests (npc-barks,
+player-callouts, arena-barks), full suite, typecheck; headless phone run
+tapped Knn and got "Keep talking, we'll find you." back from a Black Kite
+operator. Not done: voices; pings have no world/minimap marker; bots do not
+act on orders; no mute or profanity toggle.

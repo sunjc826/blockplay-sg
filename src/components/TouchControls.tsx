@@ -6,6 +6,7 @@ import { visionStatus } from './FpsVisionChip';
 import './fps-vision.css';
 import TouchStick from './TouchStick';
 import { tapProps } from './touch-tap';
+import { CalloutChip } from './FpsCalloutWheel';
 import './touch-controls.css';
 
 /**
@@ -123,6 +124,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
   return <div className="touch-layer" data-touch-layer={mode} data-mounted={mounted || undefined}>
     {/* Not a combat control, so it is in the top-left corner, out of reach of both thumbs mid-fight. */}
     <button type="button" className="touch-chip" data-touch-action="menu" aria-label={mode === 'range' ? 'Pause' : 'Menu'} title={mode === 'range' ? 'Pause' : 'Menu'} {...tapProps(onMenu)}><Menu size={16} /></button>
+    <CalloutChip hud={hud} engine={engine} />
     <div className="touch-move">
       <TouchStick kind="move" label={mounted ? hud.vehicleSeat === 0 ? 'DRIVE' : 'RIDING' : 'MOVE'} onChange={mounted && hud.vehicleSeat !== 0 ? () => {} : move} />
     </div>

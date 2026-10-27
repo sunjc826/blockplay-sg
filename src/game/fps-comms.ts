@@ -1,4 +1,4 @@
-export type CommsChannel = 'radio' | 'kills' | 'system';
+export type CommsChannel = 'radio' | 'chatter' | 'kills' | 'system';
 export interface CommsEntry { id: number; at: number; channel: CommsChannel; source: string; text: string }
 export const COMMS_HISTORY_LIMIT = 100;
 /** Session history, carried across district engines; no browser storage or network chat. */

@@ -37,7 +37,9 @@ import type { VehicleKind } from './vehicle-rules';
 import { VEHICLE_COMBAT, vehicleBlastDamage, type VehicleDamageStage } from './vehicle-combat';
 import { dressWeapon } from './armory-visuals';
 import { createArenaRuntime } from './arena-runtime';
-import type { ArenaActor, ArenaEnvironment, ArenaHeat, ArenaSnapshot, ArenaVitals } from './arena-rules';
+import type { ArenaActor, ArenaBark, ArenaEnvironment, ArenaHeat, ArenaSnapshot, ArenaVitals } from './arena-rules';
+import { CALLOUT_COOLDOWN, CALLOUT_PAGES, getPlayerCallout, wheelSlot } from './player-callouts';
+import { BARK_RANGE } from './npc-barks';
 import { createSoloSession, type LanSession } from './lan-peer';
 import { buildDistrictWorld } from './district-world';
 import { getFpsDistrict } from './fps-districts';
@@ -71,7 +73,7 @@ import { advanceBloom, createWeaponBloom, recordBloomShot, sampleShotSpread, wea
 import { combatCues, combatPhase, combatTimeline, cratePose, flyerPose, getCombatEvent, transportPose, WHISTLE_LEAD, type CombatEventDescriptor } from './combat-events';
 import { createCombatEventVisuals } from './combat-event-visuals';
 import { bannerOf, threatens } from './combat-event-catalog';
-import { factionIdOf, getArenaFaction, hostile, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
+import { factionIdOf, getArenaFaction, hostile, PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
 import { HEAT_CALLS } from './faction-heat';
 import { createCombatAudio } from './combat-event-audio';
 import { createAmbientSky } from './ambient-sky-visuals';
@@ -108,8 +110,16 @@ const TRIGGER_BUFFER = .18;
 const FRIENDLY_KIT_CALL_RANGE = 90;
 const randomRoundId = () => globalThis.crypto?.randomUUID?.() ?? `round-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
+/** A line said near the player, on the HUD's chatter strip for a few seconds. */
+export interface ChatterLine { id: number; source: string; text: string; tone: 'self' | 'friend' | 'enemy' | 'player'; until: number }
+/** Seconds a chatter line stays on the HUD, and how many show at once. */
+const CHATTER_SECONDS = 6, CHATTER_LINES = 4;
 export interface FpsHud {
   encikCallout: EncikCallout | null; encikVoice: boolean; comms: readonly CommsEntry[];
+  /** The callout wheel while it is open: the page shown and the slot the pointer is on. */
+  calloutWheel: { page: number; slot: number | null } | null;
+  /** Barks and callouts heard lately, newest last. */
+  chatter: readonly ChatterLine[];
   pilotStrategy: 'local' | 'llm'; pilotPlan: string;
   pilotEnabled: boolean; pilotStatus: string; pilotGoal: PilotGoal | null; pilotContacts: number;
   debug: FpsDebugSettings; debugAvailable: boolean; maxHealth: number;
@@ -165,7 +175,7 @@ export interface FpsHud {
   /** The weapon in hand's laser or light (B switches it), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { calloutWheel: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -416,7 +426,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); hud.pilotStatus = 'Player controls'; hud.pilotGoal = null; hud.pilotContacts = 0;
     capturePending = false;
     if (hud.phase !== 'playing') return;
-    hud.phase = 'paused'; clearInput(); stopVoice(); encik.clear(); hud.encikCallout = null;
+    hud.phase = 'paused'; clearInput(); stopVoice(); encik.clear(); hud.encikCallout = null; wheel = null; hud.calloutWheel = null;
     if (document.pointerLockElement === canvas) document.exitPointerLock();
     publish();
   }
@@ -836,12 +846,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (pilotEnabled || hud.phase !== 'playing' || vehicles.active || hud.arenaSelf?.alive === false || loadout[hud.weapon].reloadRemaining > 0) return;
     touchAim = !touchAim; canvas.focus({ preventScroll: true }); publish();
   }
-  const keyboardKeys = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'n', 't', 'f', 'm', 'h', 'j', 'b', 'x', 'control', 'escape'];
+  const keyboardKeys = ['y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'n', 't', 'f', 'm', 'h', 'j', 'b', 'x', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
     if (key === 'f' && !event.repeat) { event.preventDefault(); options.onFullscreen?.(); return; }
     if (hud.phase !== 'playing' || !keyboardKeys.includes(key)) return;
     event.preventDefault();
+    if (key === 'y') { if (!event.repeat && !pilotEnabled) openCalloutWheel(); return; }
+    // While the wheel is open, Tab turns its page and a number says that slot at once; moving keeps working.
+    if (wheel && key === 'tab') { setCalloutPage(wheel.page + (event.shiftKey ? -1 : 1)); return; }
+    if (wheel && /^[1-8]$/.test(key)) { if (!event.repeat) sendCallout(CALLOUT_PAGES[wheel.page].callouts[Number(key) - 1].id); return; }
+    if (key === 'tab') return;
     if (key === 'q') { if (!event.repeat) toggleAim(); return; }
     if (key === 'm') { if (!event.repeat) toggleMap(); return; }
     if (key === 'escape') pause();
@@ -864,7 +879,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     else keys.add(key);
   };
   const pilotEscape = (event: KeyboardEvent) => { if (pilotEnabled && event.key === 'Escape') { event.preventDefault(); pause(); } };
-  const keyup = (event: KeyboardEvent) => keys.delete(event.key.toLowerCase());
+  const keyup = (event: KeyboardEvent) => { const key = event.key.toLowerCase(); keys.delete(key); if (key === 'y') closeCalloutWheel(true); };
+  /** With the wheel open, the scroll wheel turns its page. */
+  const scrollWheel = (event: WheelEvent) => { if (!wheel) return; event.preventDefault(); if (Math.abs(event.deltaY) > 4) setCalloutPage(wheel.page + Math.sign(event.deltaY)); };
   const pointerSource = (event: PointerEvent) => {
     lastPointerType = event.pointerType;
     if (hud.phase === 'playing' && inputMode === 'touch' && requiresFpsPointerLock(event.pointerType)) {
@@ -886,11 +903,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // burst and then releasing does not drag the sights under the target.
     compensateRecoil(kick, pitch - wasPitch, yaw - wasYaw);
   };
-  const mousemove = (event: MouseEvent) => { if (!pilotEnabled && document.pointerLockElement === canvas) look(event.movementX, event.movementY); };
+  // With the callout wheel open the mouse points at a slot instead of turning the view.
+  const mousemove = (event: MouseEvent) => { if (!pilotEnabled && document.pointerLockElement === canvas) { if (wheel) pointCalloutWheel(event.movementX, event.movementY); else look(event.movementX, event.movementY); } };
   // Pointer events only report the first press and final release of a mouse chord.
   // Mouse events report each button independently, including LMB while RMB is held.
   const mousedown = (event: MouseEvent) => {
     if (pilotEnabled || hud.phase !== 'playing' || document.pointerLockElement !== canvas) return;
+    // A click on the open wheel says the slot (left) or puts the wheel away (right); it never fires.
+    if (wheel) { closeCalloutWheel(event.button === 0); return; }
     if (event.button === 0) pullTrigger(true);
     if (event.button === 2) ads = true;
   };
@@ -941,7 +961,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   canvas.addEventListener('pointerdown', pointerdown); canvas.addEventListener('pointermove', pointermove);
   window.addEventListener('pointerup', pointerup); canvas.addEventListener('pointercancel', releasePointer); canvas.addEventListener('lostpointercapture', releasePointer);
   canvas.addEventListener('contextmenu', contextmenu); document.addEventListener('mousemove', mousemove);
-  canvas.addEventListener('mousedown', mousedown); window.addEventListener('mouseup', mouseup);
+  canvas.addEventListener('mousedown', mousedown); window.addEventListener('mouseup', mouseup); canvas.addEventListener('wheel', scrollWheel, { passive: false });
   document.addEventListener('pointerlockchange', lockchange); document.addEventListener('pointerlockerror', lockerror);
   window.addEventListener('blur', pause); document.addEventListener('visibilitychange', visibility);
 
@@ -1739,6 +1759,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       rig.visible = frame.self.alive && !vehicles.active;
     }
     if (frame.hit?.hitId) { hud.landed++; hud.lastDamage = frame.hit.damage; hitTime = .2; hud.hitKind = frame.hit.killed ? 'kill' : 'hit'; }
+    for (const said of frame.barks) if (frame.snapshot) hearBark(said, frame.snapshot.actors);
     for (const event of frame.feed) {
       comms.add('kills', 'Arena', event.text);
       if (event.killerId !== options.arena!.session.id) continue;
@@ -1791,6 +1812,74 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       } else if (feed.some(event => event.victimId === actor.id && event.killerId === options.arena?.session.id))
         comms.add('system', 'Field', `${list} dropped by ${actor.name}. ${take}`);
     }
+  }
+  /**
+   * The callout wheel (player-callouts). Held open with Y, it points with the
+   * mouse from the centre; a touchscreen or an unlocked pointer taps its
+   * buttons instead. `x`/`y` are the mouse travel since it opened.
+   */
+  let wheel: { page: number; x: number; y: number; slot: number | null } | null = null, wheelPage = 0, lastCalloutAt = -Infinity, chatterSerial = 0;
+  const pingRay = new THREE.Raycaster(), pingForward = new THREE.Vector3(), pingAt = new THREE.Vector3();
+  const syncWheel = () => { hud.calloutWheel = wheel ? { page: wheel.page, slot: wheel.slot } : null; publish(); };
+  function openCalloutWheel() {
+    if (hud.phase !== 'playing' || pilotEnabled || wheel) return;
+    wheel = { page: wheelPage, x: 0, y: 0, slot: null }; trigger = false; pullBuffer = 0; syncWheel();
+  }
+  /** Puts the wheel away; with `say`, says the slot it points at, if any. */
+  function closeCalloutWheel(say = false) {
+    if (!wheel) return;
+    const callout = wheel.slot === null ? undefined : CALLOUT_PAGES[wheel.page].callouts[wheel.slot];
+    wheel = null; hud.calloutWheel = null;
+    if (say && callout) sendCallout(callout.id); else publish();
+  }
+  function setCalloutPage(page: number) {
+    if (!wheel) return;
+    wheel.page = wheelPage = ((Math.round(page) % CALLOUT_PAGES.length) + CALLOUT_PAGES.length) % CALLOUT_PAGES.length; syncWheel();
+  }
+  function pointCalloutWheel(dx: number, dy: number) {
+    if (!wheel) return;
+    wheel.x += dx; wheel.y += dy;
+    const reach = Math.hypot(wheel.x, wheel.y);
+    if (reach > 140) { wheel.x *= 140 / reach; wheel.y *= 140 / reach; }
+    const slot = wheelSlot(wheel.x, wheel.y);
+    if (slot !== wheel.slot) { wheel.slot = slot; syncWheel(); }
+  }
+  /** Where the crosshair rests on the world, for a callout that points. */
+  function pingPoint() {
+    camera.getWorldDirection(pingForward); pingRay.set(camera.position, pingForward); pingRay.near = .3; pingRay.far = 150;
+    const hit = firstVisibleHit(pingRay, gameplayCandidates());
+    const point = hit?.point ?? pingRay.ray.at(60, pingAt);
+    return { x: point.x, y: point.y, z: point.z };
+  }
+  /** Says a callout. In a match the host says it and it comes back in the frame's barks; on the range it is only heard here. */
+  function sendCallout(id: string) {
+    const spoken = getPlayerCallout(id);
+    if (wheel) { wheel = null; hud.calloutWheel = null; }
+    const now = performance.now() / 1000;
+    if (!spoken || hud.phase !== 'playing' || now - lastCalloutAt < CALLOUT_COOLDOWN) { publish(); return false; }
+    lastCalloutAt = now;
+    const at = spoken.ping && (!arenaRuntime || hud.arenaSelf?.alive) ? pingPoint() : undefined;
+    if (arenaRuntime) arenaRuntime.callout(id, at);
+    else hear('You', spoken.lines[Math.floor(Math.random() * spoken.lines.length)] + (at ? ` · ${whereFrom(at)}` : ''), 'self');
+    publish(); return true;
+  }
+  function hear(source: string, text: string, tone: ChatterLine['tone']) {
+    comms.add('chatter', source, text);
+    const now = performance.now() / 1000;
+    hud.chatter = [...hud.chatter.filter(line => line.until > now).slice(-(CHATTER_LINES - 1)), { id: ++chatterSerial, source, text, tone, until: now + CHATTER_SECONDS }];
+  }
+  /**
+   * What reaches the player of something said: their own callouts and other
+   * players' always (the team net), a friendly bot's over the radio within
+   * range, an enemy's only when near enough to overhear.
+   */
+  function hearBark(said: ArenaBark, actors: readonly ArenaActor[]) {
+    const speaker = actors.find(actor => actor.id === said.actor); if (!speaker) return;
+    const own = speaker.id === options.arena?.session.id, enemy = !own && hostile({ bot: false, faction: PLAYER_FACTION }, speaker);
+    const range = own || !speaker.bot ? Infinity : enemy ? BARK_RANGE.overheard : BARK_RANGE.radio;
+    if (Math.hypot(speaker.x - position.x, speaker.z - position.z) > range) return;
+    const text = said.text + (said.at ? ` · ${whereFrom(said.at)}` : '');
+    hear(own ? 'You' : enemy && speaker.bot ? `${speaker.name} · overheard` : speaker.name, text, own ? 'self' : !speaker.bot ? 'player' : enemy ? 'enemy' : 'friend');
   }
   /** Where a point lies from the player, in words: "60 m ahead", "120 m to your left". */
   function whereFrom(target: { x: number; z: number }) {
@@ -1989,6 +2078,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     let moving = false, sprinting = false, fireReady = true;
     // The arena keeps running behind pause menus, including magazine reloads.
     if (options.arena) loadout.forEach((state, i) => advanceWeapon(state, i, realDt, specs));
+    if (hud.chatter.length && hud.chatter[0].until <= now / 1000) hud.chatter = hud.chatter.filter(line => line.until > now / 1000);
     if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) {
       bloom.forEach(state => advanceBloom(state, dt));
       calloutTime = Math.max(0, calloutTime - realDt); if (!calloutTime) hud.callout = '';
@@ -2222,6 +2312,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
     toggleAim, toggleMap, toggleRail, toggleCant,
+    openCalloutWheel, closeCalloutWheel, setCalloutPage, sendCallout,
+    /** Touch: the wheel's button opens it and, open, puts it away. */
+    toggleCalloutWheel() { if (wheel) closeCalloutWheel(); else openCalloutWheel(); },
     toggleVision: () => useVision('toggle'), cycleVisionPalette: () => useVision('palette'), pressVision: () => useVision('button'),
     toggleEncikVoice() { hud.encikVoice = !hud.encikVoice; if (!hud.encikVoice) stopVoice(); publish(); },
     toggleSound() { hud.muted = !hud.muted; if (hud.muted) stopVoice(); if (hud.phase === 'playing') { canvas.focus({ preventScroll: true }); if (!hud.muted) initAudio(); } publish(); },
@@ -2234,7 +2327,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       canvas.removeEventListener('pointerdown', pointerdown); canvas.removeEventListener('pointermove', pointermove);
       window.removeEventListener('pointerup', pointerup); canvas.removeEventListener('pointercancel', releasePointer); canvas.removeEventListener('lostpointercapture', releasePointer);
       canvas.removeEventListener('contextmenu', contextmenu); document.removeEventListener('mousemove', mousemove);
-      canvas.removeEventListener('mousedown', mousedown); window.removeEventListener('mouseup', mouseup);
+      canvas.removeEventListener('mousedown', mousedown); window.removeEventListener('mouseup', mouseup); canvas.removeEventListener('wheel', scrollWheel);
       document.removeEventListener('pointerlockchange', lockchange); document.removeEventListener('pointerlockerror', lockerror);
       window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility);
       // First, so every mesh has its own material back before anything else restores or disposes them.
