@@ -13,7 +13,8 @@ export function minimapHeading(yaw: number) { return -yaw * 180 / Math.PI; }
 
 export interface MinimapMarker {
   id: string; x: number; z: number; label: string;
-  kind: 'target' | 'car' | 'helicopter' | 'loot' | 'npc' | 'checkpoint';
+  /** `scent`: an opponent whose inserts smell (armor-inserts), the one kind of opponent the arena map shows. */
+  kind: 'target' | 'car' | 'helicopter' | 'loot' | 'npc' | 'checkpoint' | 'scent';
   active?: boolean;
 }
 

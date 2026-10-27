@@ -5,6 +5,7 @@ import { validVehicleControls, createSharedVehicle, seatOf, seatPoint, gunnerId,
 import { driveVehicle, flyVehicle, vehicleBounds, vehicleExit, type VehicleKind, type VehicleSpawn, type FlightObstacle } from './vehicle-rules';
 import { damageVehicle, fireVehicleWeapon, vehicleCollisionDamage, VEHICLE_COMBAT } from './vehicle-combat';
 import { applyArmorDamage } from './armory-state';
+import { insertTraits, sightRangeAgainst, smokeHides, type InsertTraits } from './armor-inserts';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage } from './fps-stance';
 import { MARINA_BOUNDS, moveInMarina, type Obstacle } from './marina-collision';
 import { advanceWeapon, beginReload, createLoadout, FPS_WEAPONS, fireWeapon, hitDamage, interruptReload, reloadCommit, reloadProgress, roundReady, type WeaponSpec, type WeaponState } from './fps-rules';
@@ -45,6 +46,8 @@ export interface ArenaActor {
   shield?: number;
   /** What is on the muzzle of the gun they last fired, which is how loud it was. */
   muzzle?: MuzzleDevice;
+  /** Their inserts smell (armor-inserts): opponents' minimaps show where they are. */
+  scent?: true;
 }
 export type ArenaRaiderState = 'inbound' | 'orbit' | 'leaving' | 'cruise' | 'lock' | 'dive' | 'down' | 'wreck' | 'exploded';
 /**
@@ -177,7 +180,7 @@ const SPAWNS = [
 interface InternalActor {
   velocityY?: number;
   navigation?: { path: NavigationPoint[]; target: NavigationPoint; retry: number; pending?: Generator<undefined, NavigationPoint[]> };
-  actor: ArenaActor; healthMax: number; armorMax: number; absorption: number; weapons: ArenaWeapon[]; allowedWeapons: number[]; role?: ArenaRolePlugin;
+  actor: ArenaActor; healthMax: number; armorMax: number; absorption: number; insert: InsertTraits; weapons: ArenaWeapon[]; allowedWeapons: number[]; role?: ArenaRolePlugin;
   /**
    * Per weapon, the same ammunition state and rules as the player's own gun
    * (fps-rules), with an unlimited reserve: magazine, chamber, cooldown and an
@@ -392,23 +395,27 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const indexes = [...new Set((allowed ?? weapons.map((_, index) => index)).filter(index => Number.isInteger(index) && index >= 0 && index < weapons.length))];
     return indexes.length ? indexes : [0];
   };
-  function addPlayer(id: string, name: string, armor = 0, absorption = 0, weapons: readonly ArenaWeapon[] = FPS_WEAPONS, initialVitals?: Partial<ArenaVitals>, usePlayerSpawn = false, allowed?: readonly number[]) {
-    const entry = addMember(id, name, armor, absorption, weapons, usePlayerSpawn, allowed); if (!entry) return;
+  function addPlayer(id: string, name: string, armor = 0, absorption = 0, weapons: readonly ArenaWeapon[] = FPS_WEAPONS, initialVitals?: Partial<ArenaVitals>, usePlayerSpawn = false, allowed?: readonly number[], insert?: Partial<InsertTraits>) {
+    const entry = addMember(id, name, armor, absorption, weapons, usePlayerSpawn, allowed, insert); if (!entry) return;
     if (initialVitals) setPlayerVitals(id, initialVitals); announce(`${entry.actor.name} joined`);
   }
   /** A new member, spawned, with nothing said in the feed. */
-  function addMember(id: string, name: string, armor: number, absorption: number, weapons: readonly ArenaWeapon[], usePlayerSpawn: boolean, allowed?: readonly number[]) {
+  function addMember(id: string, name: string, armor: number, absorption: number, weapons: readonly ArenaWeapon[], usePlayerSpawn: boolean, allowed?: readonly number[], insert?: Partial<InsertTraits>) {
     if (!id || id.length > 100 || members.has(id) || members.size >= MAX_ARENA_ACTORS) return null;
     const safeWeapons = sanitizeWeapons(weapons), allowedWeapons = allowedIndexes(safeWeapons, allowed);
     const entry: InternalActor = {
       actor: { id, name: name.trim().slice(0, 24) || 'Player', bot: false, x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0,
         health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: allowedWeapons[0], prone: false, shots: 0, role: 'player', faction: PLAYER_FACTION },
       healthMax: 100, armorMax: Number.isFinite(armor) ? clamp(armor, 0, 150) : 0, absorption: Number.isFinite(absorption) ? clamp(absorption, 0, 0.9) : 0,
-      weapons: safeWeapons, allowedWeapons, ammo: [], playing: true, movementBudget: 2, wasReloading: false, usePlayerSpawn,
+      insert: insertTraits(insert), weapons: safeWeapons, allowedWeapons, ammo: [], playing: true, movementBudget: 2, wasReloading: false, usePlayerSpawn,
       reaction: 1, target: '', strafe: random() < 0.5 ? -1 : 1, patrol: validSpawns[0], patrolTime: 0,
       burst: 0, burstFired: 0, medkits: 0, lastHurt: -Infinity,
     };
-    members.set(id, entry); spawn(entry); return entry;
+    wearInsert(entry, entry.insert); members.set(id, entry); spawn(entry); return entry;
+  }
+  function wearInsert(entry: InternalActor, insert: InsertTraits) {
+    entry.insert = insert;
+    if (insert.scent) entry.actor.scent = true; else delete entry.actor.scent;
   }
   function setPlayerVitals(id: string, vitals: Partial<ArenaVitals>) {
     const entry = members.get(id); if (!entry || entry.actor.bot) return;
@@ -425,8 +432,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.healthMax = 100 * multiplier;
     entry.actor.health = entry.healthMax * fraction;
   }
-  function setPlayerLoadout(id: string, armor: number, absorption: number, weapons: readonly ArenaWeapon[], allowed?: readonly number[]) {
+  function setPlayerLoadout(id: string, armor: number, absorption: number, weapons: readonly ArenaWeapon[], allowed?: readonly number[], insert?: Partial<InsertTraits>) {
     const entry = members.get(id); if (!entry || entry.actor.bot) return;
+    if (insert) wearInsert(entry, insertTraits(insert));
     entry.armorMax = Number.isFinite(armor) ? clamp(armor, 0, 150) : entry.armorMax;
     entry.absorption = Number.isFinite(absorption) ? clamp(absorption, 0, 0.9) : entry.absorption;
     entry.actor.armor = Math.min(entry.actor.armor, entry.armorMax);
@@ -529,8 +537,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   /** Sends a carried gun's round on its way; an instant gun still resolves at once. */
   function launch(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, weapon: ArenaWeapon, range: number, family: number): ArenaShot {
     const ballistics = entry.spec?.ballistics ?? weapon.ballistics;
-    if (!ballistics || isInstant(ballistics)) return resolveShot(entry, origin, ray, weapon.damage, range, undefined, entry.spec);
-    send({ shooter: entry, origin, direction: ray, ballistics, damage: weapon.damage, spec: entry.spec, calibre: entry.spec?.caliberMm ?? FPS_WEAPONS[family]?.caliberMm ?? 5.56, power: weapon.damage }, range);
+    const calibre = entry.spec?.caliberMm ?? FPS_WEAPONS[family]?.caliberMm ?? 5.56;
+    if (!ballistics || isInstant(ballistics)) return resolveShot(entry, origin, ray, weapon.damage, range, undefined, entry.spec, undefined, calibre);
+    send({ shooter: entry, origin, direction: ray, ballistics, damage: weapon.damage, spec: entry.spec, calibre, power: weapon.damage }, range);
     return { ...EMPTY_SHOT };
   }
   /** Queues a round, its walls and rendered cover measured once along its line now. */
@@ -550,8 +559,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const reach = Math.min(length, round.limit - round.travelled);
       if (reach > 1e-6) {
         const ray = { x: step.x / length, y: step.y / length, z: step.z / length };
-        const shot = round.shooter ? resolveShot(round.shooter, from, ray, round.damage, reach, round.vehicle, round.spec, round.travelled)
-          : strayShot(from, ray, reach, round.damage, round.cause ?? 'Gunfire');
+        const shot = round.shooter ? resolveShot(round.shooter, from, ray, round.damage, reach, round.vehicle, round.spec, round.travelled, round.calibre)
+          : strayShot(from, ray, reach, round.damage, round.cause ?? 'Gunfire', round.calibre);
         if (shot.stopped) {
           flying.splice(i, 1);
           if (shot.hitId && round.shooter && !round.shooter.actor.bot) { const list = landed.get(round.shooter.actor.id) ?? []; list.push({ hitId: shot.hitId, killed: shot.killed, damage: shot.damage }); landed.set(round.shooter.actor.id, list); }
@@ -571,14 +580,18 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   /**
    * `cause` names what did it when no actor did, as in "Artillery killed …";
    * it credits nobody. `piercing` damage (gas) goes round armour, not through it.
+   * A round's `calibre` is held to the victim's insert rating (armor-inserts).
    */
-  function hurtActor(victim: InternalActor, damage: number, attacker?: InternalActor, cause?: string, from?: ArenaPoint, blasted = false, piercing = false) {
+  function hurtActor(victim: InternalActor, damage: number, attacker?: InternalActor, cause?: string, from?: ArenaPoint, blasted = false, piercing = false, calibre?: number) {
     const source = from ?? attacker?.actor;
     if (source && attacker !== victim) victim.actor.hurtFrom = { x: source.x, z: source.z, serial: ++hurtSerial, ...(blasted ? { blast: true } : {}) };
     victim.lastHurt = elapsed;
     if (attacker && attacker !== victim) victim.grudge = { id: attacker.actor.id, until: elapsed + GRUDGE_SECONDS };
-    const blocked = piercing ? 0 : Math.min(victim.actor.armor, damage * victim.absorption);
-    victim.actor.armor -= blocked; victim.actor.health = Math.max(0, victim.actor.health - damage + blocked);
+    // Only an insert that can turn a round draws for it, so every other fight keeps its random sequence.
+    const struck = piercing ? { health: Math.max(0, victim.actor.health - damage), armor: victim.actor.armor, blocked: 0, deflected: false }
+      : applyArmorDamage(victim.actor.health, victim.actor.armor, damage, victim.absorption, { insert: victim.insert, caliberMm: calibre, roll: victim.insert.deflect > 0 && calibre !== undefined ? random() : undefined });
+    const blocked = struck.deflected ? damage : struck.blocked;
+    victim.actor.armor = struck.armor; victim.actor.health = struck.health;
     const killed = victim.actor.health <= 0;
     if (killed && victim.actor.alive) {
       victim.actor.alive = false; victim.actor.deaths++; victim.actor.respawnIn = ARENA_RESPAWN_SECONDS; releaseSeat(victim.actor.id);
@@ -603,7 +616,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    * vehicles and raiders are tested, and the hit is priced at the whole
    * distance. `stopped` says something in range took the round.
    */
-  function resolveShot(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, damage: number, range: number, ignore?: VehicleKind, spec?: WeaponSpec, flown?: number): ArenaShot & { stopped?: boolean } {
+  function resolveShot(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, damage: number, range: number, ignore?: VehicleKind, spec?: WeaponSpec, flown?: number, calibre?: number): ArenaShot & { stopped?: boolean } {
     const reach = Number.isFinite(range) ? Math.max(0, range) : 0;
     let nearest = flown === undefined ? Math.min(reach, worldWallDistance(origin, ray), cover?.(origin, ray, range) ?? Infinity) : reach;
     let hull: SharedVehicle | undefined, victim: InternalActor | undefined;
@@ -633,7 +646,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     // A round that finds one of the shooter's own side stops there and does no harm.
     if (victim && !hostile(entry.actor, victim.actor)) return { ...EMPTY_SHOT, stopped: true };
     if (victim && entry.actor.bot && !victim.actor.bot && elapsed < (victim.shieldUntil ?? 0)) return { hitId: victim.actor.id, killed: false, damage: 0, stopped: true };
-    return victim ? { ...hurtActor(victim, damage, entry, undefined, ignore ? origin : undefined), stopped: true } : { ...EMPTY_SHOT, stopped: true };
+    return victim ? { ...hurtActor(victim, damage, entry, undefined, ignore ? origin : undefined, false, false, calibre), stopped: true } : { ...EMPTY_SHOT, stopped: true };
   }
   function releaseSeat(id: string) {
     const mounted = seatOf(vehicles, id); if (mounted) mounted.vehicle.occupants[mounted.seat] = null;
@@ -890,7 +903,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function support(d: CombatEventDescriptor, roleId: string, at: CombatPlane, index: number, name: string, roof?: number) {
     const role = getArenaRole(roleId); if (!role) return;
     const armed = armamentFamilies(role), weapons = FPS_WEAPONS.map((w, i) => armed.includes(i) ? role.weapon : w);
-    const entry = addMember(`${d.id}-${roleId}-${index}`, name, role.armor, role.absorption, weapons, false); if (!entry) return;
+    const entry = addMember(`${d.id}-${roleId}-${index}`, name, role.armor, role.absorption, weapons, false, undefined, role); if (!entry) return;
     entry.role = role; entry.healthMax = role.health; Object.assign(entry.actor, { bot: true, role: role.id, faction: d.faction ?? DEFAULT_BOT_FACTION }); spawn(entry);
     entry.temporary = { event: d.id, from: d.start + (getCombatEvent(d.kind)?.warning ?? 0) }; entry.anchor = { x: at.x, z: at.z, ...(roof !== undefined ? { y: roof } : {}) };
     const feet = roof ?? floorAt({ x: at.x, y: 3.5, z: at.z });
@@ -1045,7 +1058,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     send({ origin, direction: ray, ballistics: muzzleBallistics(RAID.muzzle), damage, cause, calibre: RAID.caliberMm, power: RAID.look }, 150);
   }
   /** One stretch of a shooterless round's flight, its walls already measured. */
-  function strayShot(origin: ArenaPoint, ray: ArenaPoint, reach: number, damage: number, cause: string): ArenaShot & { stopped: boolean } {
+  function strayShot(origin: ArenaPoint, ray: ArenaPoint, reach: number, damage: number, cause: string, calibre?: number): ArenaShot & { stopped: boolean } {
     let nearest = reach, hull: SharedVehicle | undefined, victim: InternalActor | undefined;
     for (const v of vehicles) { const d = vehicleRayDistance(v, origin, ray); if (d < nearest) { nearest = d; hull = v; } }
     for (const member of members.values()) {
@@ -1054,7 +1067,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     if ((hull || victim) && !(damage > 0)) return { ...EMPTY_SHOT, stopped: true };
     if (hull) { damageHull(hull, damage, undefined, cause); return { ...EMPTY_SHOT, stopped: true }; }
-    if (victim) return { ...hurtActor(victim, damage, undefined, cause, origin), stopped: true };
+    if (victim) return { ...hurtActor(victim, damage, undefined, cause, origin, false, false, calibre), stopped: true };
     return { ...EMPTY_SHOT, stopped: false };
   }
   /** The nearest actor, player or patrol, a raider at `from` can see within `range`. Raiders belong to nobody. */
@@ -1337,7 +1350,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const line = { x: target.x - actor.x, y: (enemy?.actor.prone ? target.y - PRONE_EYE_HEIGHT + .35 : target.y - .65) - actor.y, z: target.z - actor.z };
     const length = Math.hypot(line.x, line.y, line.z);
     const ray = { x: line.x / Math.max(length, 0.01), y: line.y / Math.max(length, 0.01), z: line.z / Math.max(length, 0.01) };
-    const visible = !!enemy && length < role.sightRange && worldWallDistance(actor, ray) >= length - 0.5 && clearSight(entry, enemy.actor.id, ray, length, dt) && !smokeBetween(actor, target);
+    // A target whose inserts smell is seen from further off, and through smoke.
+    const visible = !!enemy && length < sightRangeAgainst(role.sightRange, enemy.insert) && worldWallDistance(actor, ray) >= length - 0.5 && clearSight(entry, enemy.actor.id, ray, length, dt) && !(smokeHides(enemy.insert) && smokeBetween(actor, target));
     if (role.id === 'overwatch') { if (visible) actor.aiming = true; else delete actor.aiming; }
     const intent = role.think({ distance: horizontal, visible, healthFraction: actor.health / entry.healthMax, strafeDirection: entry.strafe });
     let approach = Number.isFinite(intent.approach) ? clamp(intent.approach, -1, 1) : 0;
@@ -1512,7 +1526,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     // Each spawn puts their rank's title before this.
     const name = faction === PLAYER_FACTION ? FORCES_NAMES[friendly++ % FORCES_NAMES.length] : CALLSIGNS[i % CALLSIGNS.length];
     // Recruits arrive unannounced: the transport's banner is their entrance.
-    if (recruit) addMember(id, name, role.armor, role.absorption, weapons, false); else addPlayer(id, name, role.armor, role.absorption, weapons);
+    if (recruit) addMember(id, name, role.armor, role.absorption, weapons, false, undefined, role); else addPlayer(id, name, role.armor, role.absorption, weapons, undefined, false, undefined, role);
     const entry = members.get(id)!; entry.role = role; entry.healthMax = role.health; entry.callsign = name;
     Object.assign(entry.actor, { bot: true, role: role.id, faction }); spawn(entry);
     if (recruit) { entry.recruit = true; entry.reserve = true; Object.assign(entry.actor, { alive: false, respawnIn: 0 }); entry.waiting = elapsed; }

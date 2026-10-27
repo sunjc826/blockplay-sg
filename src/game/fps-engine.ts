@@ -49,6 +49,7 @@ import { itemById } from './armory-catalog';
 import { DEFAULT_FPS_DEBUG, FPS_REGEN_DELAY, normalizeFpsDebug, readFpsDebug, regenerateHealth, saveFpsDebug, type FpsDebugSettings } from './fps-debug';
 import { createWeaponHandling } from './fps-viewmodel';
 import { createScopeRenderer, getWeaponSight } from './weapon-optics';
+import { DEFLECT_LINE, sightRangeAgainst } from './armor-inserts';
 import { muzzleSocket, railEmitters } from './weapon-accessory-models';
 import { accessorySpreadScale, hasLight, type MuzzleDevice, type RailDevice } from './weapon-accessories';
 import { createRailEffects } from './weapon-rail-effects';
@@ -388,8 +389,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       mapMarkers: expedition ? [] : [
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
+        ...scentMarkers(),
       ],
     });
+  };
+  /** Opponents wearing inserts that smell: the arena map shows no one else. */
+  const scentMarkers = (): MinimapMarker[] => {
+    const self = hud.arenaSelf;
+    if (!options.arena || !self) return [];
+    return (hud.arena?.actors ?? []).filter(actor => actor.scent && actor.alive && actor.id !== self.id && hostile(self, actor))
+      .map(actor => ({ id: `scent-${actor.id}`, kind: 'scent', label: `${actor.name} · you can smell them`, x: actor.x, z: actor.z }));
   };
   const clearInput = () => { prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; ads = false; touchAim = false; drag = null; moveStick = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
   function configureDebug(value: FpsDebugSettings) {
@@ -1452,9 +1461,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     effects.trails(rounds);
     if (struck) { resolveVehicleDestruction(); checkCompletion(); publish(); }
   }
-  function hurtPlayer(amount: number) {
+  /** `caliberMm` when a round did it, which the inserts' rating and luck answer to (armor-inserts). */
+  function hurtPlayer(amount: number, caliberMm?: number) {
     if (hud.health <= 0 || amount <= 0) return;
-    const damage = applyArmorDamage(hud.health, hud.armor, amount, equipment.absorption);
+    const damage = applyArmorDamage(hud.health, hud.armor, amount, equipment.absorption, { insert: equipment.insert, caliberMm, roll: caliberMm === undefined ? undefined : Math.random() });
+    if (damage.deflected) { comms.add('system', 'Inserts', DEFLECT_LINE); return; }
     hud.health = damage.health; hud.armor = damage.armor; hurtTime = .4; recoveryDelay = FPS_REGEN_DELAY;
     if (!hud.health) { hud.phase = 'defeated'; clearInput(); radioCall('death'); if (document.pointerLockElement === canvas) document.exitPointerLock(); }
   }
@@ -1614,7 +1625,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!target?.alive) return false;
     target.hitZone.getWorldPosition(attackOrigin);
     const direction = playerPoint().sub(attackOrigin), distance = direction.length();
-    if (distance > 65) return false;
+    // A drill target smells a durian from half again as far.
+    if (distance > sightRangeAgainst(65, equipment.insert)) return false;
     attackRay.set(attackOrigin, direction.normalize()); attackRay.near = .07; attackRay.far = Math.max(.07, distance - .1);
     return !firstVisibleHit(attackRay, world.scene.children.filter(o => o !== target.root && !o.userData.fpsEffect && (!vehicles.active || o !== vehicles.root)));
   }
@@ -1628,7 +1640,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         if (sees) otherShot(attackOrigin, 5.56, 36);
         if (sees && playerPoint().distanceTo(attack.aim) < .75) {
           if (vehicles.active) vehicles.damage(vehicles.active, 36);
-          else { hurtPlayer(18); hitDirections.add(viewer(), attackOrigin, hitStrength(18, hud.maxHealth)); }
+          else { hurtPlayer(18, 5.56); hitDirections.add(viewer(), attackOrigin, hitStrength(18, hud.maxHealth)); }
           resolveVehicleDestruction();
           publish();
         }
@@ -1696,6 +1708,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (struck && struck.serial !== hurtSerial) {
         const lost = previousSelf ? previousSelf.health + previousSelf.armor - frame.self.health - frame.self.armor : 0;
         if (hurtSerial >= 0 && lost > 0) hitDirections.add(viewer(), struck, hitStrength(lost, hud.maxHealth), struck.blast ? 'blast' : 'shot');
+        // Struck for nothing: the host glanced the round off a lucky insert.
+        else if (hurtSerial >= 0 && !struck.blast && equipment.insert.deflect > 0) comms.add('system', 'Inserts', DEFLECT_LINE);
         hurtSerial = struck.serial;
       } else if (!struck) hurtSerial = 0;
       if (!frame.self.alive && previousSelf?.alive) { supplyUse = null; radioCall('death'); clearInput(); killChain = { count: 0, lastAt: -Infinity }; hud.chain = 0; hud.callout = ''; calloutTime = 0; }

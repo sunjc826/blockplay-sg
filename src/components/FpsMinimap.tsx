@@ -46,7 +46,7 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded 
     onClick={onToggle} role={onToggle ? 'button' : undefined} tabIndex={onToggle ? -1 : undefined}>
     <div className="fps-minimap-heading"><strong>{getWorldZone(zone).name}{expanded && <small> · DISTRICT MAP</small>}</strong><span>{expanded ? 'M · CLOSE' : '↑ N · M MAP'}</span></div>
     <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby={title}>
-      <title id={title}>{`${getWorldZone(zone).name}: your position and facing direction. ${mode === 'arena' ? 'Opponents are not shown.' : 'Nearby roads and supplies; outlined checkpoint markers at the edge indicate distant exits.'}`}</title>
+      <title id={title}>{`${getWorldZone(zone).name}: your position and facing direction. ${mode === 'arena' ? 'Opponents are not shown, unless you can smell them.' : 'Nearby roads and supplies; outlined checkpoint markers at the edge indicate distant exits.'}`}</title>
       <defs><pattern id="fps-map-static" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#1b2420" /><rect width="2" height="1" x="1" y="1" fill="#6b7a70" /><rect width="1" height="2" x="4" y="3" fill="#4e5c53" /></pattern><clipPath id={clip}><rect x={inset} y={inset} width={width - inset * 2} height={height - inset * 2} rx="5" /></clipPath></defs>
       <rect x={inset} y={inset} width={width - inset * 2} height={height - inset * 2} rx="5" fill="#273b35" />
       <g clipPath={`url(#${clip})`}>
@@ -78,6 +78,7 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded 
               : marker.kind === 'loot' ? <rect x="-3" y="-3" width="6" height="6" fill="#91dcb0" stroke="#172820" />
               : marker.kind === 'npc' ? <><circle r="5" fill="#9bdcf0" stroke="#263f49" /><text y="3" textAnchor="middle" fill="#18303a" fontSize="7" fontWeight="800">N</text></>
               : marker.kind === 'target' ? <circle r="3" fill="#ee967c" stroke="#401e18" />
+              : marker.kind === 'scent' ? <><circle r="7" fill="#c9c25a33" stroke="#c9c25a" strokeWidth="1.2" strokeDasharray="2 2" /><path d="M-3 2 q1.5 -3 0 -5 M0 2 q1.5 -3 0 -5 M3 2 q1.5 -3 0 -5" fill="none" stroke="#e3dc7a" strokeWidth="1.1" strokeLinecap="round" /></>
               : <><rect x="-6" y="-6" width="12" height="12" rx="2" fill="#182d35" stroke="#9bdcf0" /><text y="3" textAnchor="middle" fill="#c7f3ff" fontSize="9" fontWeight="700">{marker.kind === 'car' ? 'C' : 'H'}</text></>}
             {named && <text className="fps-map-label" y="-10" textAnchor="middle">{marker.label.split(' · ')[0]}</text>}
           </g>;

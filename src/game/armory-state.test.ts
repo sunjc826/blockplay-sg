@@ -96,8 +96,8 @@ describe('equipment reaches gameplay', () => {
     const plated = resolveLoadout(equip(unlock('plate-ceramic'), 'plate-ceramic', 0)); expect(plated.armor).toBe(75); expect(plated.mobility).toBe(.94);
   });
   it('absorbs only the configured share, then spills exhausted armor damage into health', () => {
-    expect(applyArmorDamage(100, 75, 20, .65)).toEqual({ health: 93, armor: 62, blocked: 13 });
-    expect(applyArmorDamage(100, 5, 20, .65)).toEqual({ health: 85, armor: 0, blocked: 5 });
+    expect(applyArmorDamage(100, 75, 20, .65)).toEqual({ health: 93, armor: 62, blocked: 13, deflected: false });
+    expect(applyArmorDamage(100, 5, 20, .65)).toEqual({ health: 85, armor: 0, blocked: 5, deflected: false });
     expect(applyArmorDamage(10, 0, 20, .65).health).toBe(0); expect(applyArmorDamage(100, 0, 20, 0).health).toBe(80);
   });
 });

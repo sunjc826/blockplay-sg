@@ -43,3 +43,10 @@ it('opens to the whole district with sector names, so distant loot is on it', ()
     expect(html).toContain('>Next district</text>');
   }
 });
+
+it('shows an opponent the player can smell, the one opponent an arena map shows', () => {
+  const html = renderToStaticMarkup(<FpsMinimap zone="marina-bay" player={{ x: 0, z: 0, yaw: 0 }} mode="arena"
+    markers={[{ id: 'scent-bot-1', kind: 'scent', label: 'Bravo · you can smell them', x: 20, z: 10 }]} />);
+  expect(html).toContain('data-minimap-marker="scent-bot-1" data-marker-kind="scent"');
+  expect(html).toContain('unless you can smell them');
+});

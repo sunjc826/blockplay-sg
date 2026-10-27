@@ -3,6 +3,7 @@ import { supplyWeightKg } from './fps-encumbrance';
 import { beltWeightKg, heldSupplies } from './utility-belt';
 import { ARMORY_CATALOG, CONSUMABLE_LIMIT, isEnemyIssue, issuedItems, itemById, type AttachmentSlot, type FittedPart, type InternalPart, type ShopItem } from './armory-catalog';
 import { visionSpec, type VisionSpec } from './vision-devices';
+import { insertTraits, PLAIN_INSERT, ratedAbsorption, threatOf, type InsertTraits } from './armor-inserts';
 import type { VehicleKind } from './vehicle-rules';
 import { progression, levelSkip, xpForLevel, ELIMINATION_XP, ELIMINATION_CREDITS, MAX_LEVEL } from './progression';
 import { DEFAULT_RANK_SET, isRankSet, rankInsignia } from './rank-insignia';
@@ -202,7 +203,9 @@ export const aimSpeedScale = (mobility: number) => Math.max(.3, 1 - carriedWeigh
 export interface WornVision { id: string; name: string; spec: VisionSpec }
 /** `mobility` is armor bulk only; equipmentMovement resolves final player motion.
  * `armorWeightKg` is everything worn: rig, inserts and a head-mounted device. */
-export interface ResolvedLoadout { vision?: WornVision; carriedFamilies: number[]; armorWeightKg: number; suppliesWeightKg: number; weapons: EquippedWeapon[]; armor: number; absorption: number; mobility: number; rigName: string; plateName: string; vehicleSkins: Record<VehicleKind, string>;
+export interface ResolvedLoadout { vision?: WornVision;
+  /** What the inserts are rated for and what else they do (armor-inserts). */
+  insert: InsertTraits; carriedFamilies: number[]; armorWeightKg: number; suppliesWeightKg: number; weapons: EquippedWeapon[]; armor: number; absorption: number; mobility: number; rigName: string; plateName: string; vehicleSkins: Record<VehicleKind, string>;
   quickItem?: ShopItem; quickCount: number;
   /** Every supply carried in, by id: the utility belt's contents at the start. */
   supplies: Record<string, number> }
@@ -231,15 +234,24 @@ export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
     return spec;
   });
   const quickItem = itemById(profile.quickItem);
-  return { vision, weapons, carriedFamilies: carriedFamilies(profile), armorWeightKg: (rig.weightKg ?? 0) + (plate.weightKg ?? 0) + (visionItem?.weightKg ?? 0), suppliesWeightKg: beltWeightKg(profile.consumables, supplyWeightKg), supplies: heldSupplies(profile.consumables), vehicleSkins: { ...profile.vehicleSkins }, quickItem, quickCount: profile.consumables[profile.quickItem] || 0, armor: plate.protection || 0, absorption: plate.absorption || 0, mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };
+  return { vision, weapons, carriedFamilies: carriedFamilies(profile), armorWeightKg: (rig.weightKg ?? 0) + (plate.weightKg ?? 0) + (visionItem?.weightKg ?? 0), suppliesWeightKg: beltWeightKg(profile.consumables, supplyWeightKg), supplies: heldSupplies(profile.consumables), vehicleSkins: { ...profile.vehicleSkins }, quickItem, quickCount: profile.consumables[profile.quickItem] || 0, armor: plate.protection || 0, absorption: plate.absorption || 0, insert: insertTraits(plate), mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };
 }
 /** Preview may temporarily own the selected item; it never mutates the actual wallet. */
 export function previewLoadout(profile: ArmoryProfile, item: ShopItem, family: number) {
   return resolveLoadout(equip({ ...profile, owned: [...profile.owned, item.id] }, item.id, family));
 }
-export function applyArmorDamage(health: number, armor: number, amount: number, absorption: number) {
-  const incoming = Math.max(0, amount), blocked = Math.min(Math.max(0, armor), incoming * Math.max(0, Math.min(1, absorption)));
-  return { health: Math.max(0, health - (incoming - blocked)), armor: Math.max(0, armor - blocked), blocked };
+/**
+ * One hit on someone wearing inserts. `hit` says what struck them: a round's
+ * calibre is held to the insert's rating, and `roll`, a draw from 0 to 1, is
+ * tested against its chance to glance a round off. Without it the hit meets
+ * the plain share, as blasts and recoil do.
+ */
+export function applyArmorDamage(health: number, armor: number, amount: number, absorption: number, hit?: { insert?: InsertTraits; caliberMm?: number; roll?: number }) {
+  const insert = hit?.insert ?? PLAIN_INSERT, round = threatOf(hit?.caliberMm) !== undefined;
+  if (round && insert.deflect > 0 && hit?.roll !== undefined && hit.roll < insert.deflect) return { health, armor, blocked: 0, deflected: true };
+  const share = round ? ratedAbsorption(absorption, insert.stops, hit?.caliberMm) : absorption;
+  const incoming = Math.max(0, amount), blocked = Math.min(Math.max(0, armor), incoming * Math.max(0, Math.min(1, share)));
+  return { health: Math.max(0, health - (incoming - blocked)), armor: Math.max(0, armor - blocked), blocked, deflected: false };
 }
 export interface ExerciseReward { id: string; hits: number; shots: number; landed: number; elapsed: number; combat: boolean }
 export function rewardAmount(result: ExerciseReward) {

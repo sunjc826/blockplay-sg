@@ -1,11 +1,14 @@
 import { FPS_WEAPONS, validWeaponIndex, type WeaponSpec } from './fps-rules';
 import { isEnemyIssue, itemById, type ShopItem } from './armory-catalog';
 import { DEFAULT_BOT_FACTION, getArenaFaction } from './arena-factions';
+import { THREAT_CLASSES, type ThreatClass } from './armor-inserts';
 
 export interface ArenaRoleContext { distance: number; visible: boolean; healthFraction: number; strafeDirection: number }
 export interface ArenaRoleIntent { approach: number; strafe: number; fire: boolean; shotDelay: number; spread: number }
 export interface ArenaRolePlugin {
   id: string; name: string; description: string; health: number; armor: number; absorption: number;
+  /** The heaviest rounds their inserts take in full (armor-inserts); rifle rounds when unset. */
+  stops?: ThreatClass;
   speed: number; sightRange: number; reaction: number;
   /**
    * Enemy-issue variants a squad member may be carrying, by relative weight,
@@ -57,7 +60,8 @@ export function registerArenaRole(plugin: ArenaRolePlugin) {
     !plugin.armament.length || plugin.armament.length > 12 || !plugin.armament.every(choice => armedWith(choice) && Number.isFinite(choice.weight) && choice.weight > 0 && choice.weight <= 100) || plugin.weapon.damage <= 0 || plugin.weapon.damage > 100 || plugin.weapon.interval < 0.06 ||
     plugin.weapon.capacity < 1 || plugin.weapon.capacity > 200 || plugin.weapon.reload < 0.4 ||
     (plugin.burst && !(Number.isInteger(plugin.burst[0]) && Number.isInteger(plugin.burst[1]) && plugin.burst[0] >= 1 && plugin.burst[1] >= plugin.burst[0] && plugin.burst[1] <= 12)) ||
-    (plugin.medkits !== undefined && !(Number.isInteger(plugin.medkits) && plugin.medkits >= 0 && plugin.medkits <= 4))) throw new Error('Role stats are outside arcade limits.');
+    (plugin.medkits !== undefined && !(Number.isInteger(plugin.medkits) && plugin.medkits >= 0 && plugin.medkits <= 4)) ||
+    (plugin.stops !== undefined && !THREAT_CLASSES.includes(plugin.stops))) throw new Error('Role stats are outside arcade limits.');
   registry.set(plugin.id, Object.freeze({ ...plugin, ...(plugin.burst ? { burst: Object.freeze([plugin.burst[0], plugin.burst[1]] as const) } : {}), armament: Object.freeze(plugin.armament.map(choice => Object.freeze({ ...choice }))), weapon: Object.freeze({ ...plugin.weapon }) }));
 }
 export const getArenaRole = (id: string) => registry.get(id);
@@ -77,7 +81,8 @@ registerArenaRole({
 });
 registerArenaRole({
   id: 'tank', name: 'Tank squad', description: 'Heavy infantry: extra plates, slow advances and sustained support-weapon fire.',
-  health: 130, armor: 100, absorption: 0.65, speed: 1.7, sightRange: 60, reaction: 0.85,
+  // Heavy infantry wear GPMG-rated plates, so a GPMG meets them as it did before ratings.
+  health: 130, armor: 100, absorption: 0.65, stops: 'gpmg', speed: 1.7, sightRange: 60, reaction: 0.85,
   armament: [{ variant: 'mg4-standard', weight: 5 }, { variant: 'mg4ke', weight: 2 }, { variant: 'mg36', weight: 1.5 }, { variant: 'xm8-automatic', weight: 1.5 }, { variant: 'mg4-sustained', weight: 1 }],
   weapon: { ...FPS_WEAPONS[1], damage: 27, capacity: 75 }, burst: [4, 8], medkits: 2,
   think: ({ distance, visible, strafeDirection }) => ({

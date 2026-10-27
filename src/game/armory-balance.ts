@@ -5,6 +5,7 @@ import { findTrait, FPS_WEAPONS, hitDamage, type WeaponSpec } from './fps-rules'
 import { advanceRecoil, createRecoil, recoilView, recordRecoilShot, takeAimPush } from './fps-recoil';
 import { advanceBloom, createWeaponBloom, recordBloomShot, sampleShotSpread, weaponSpread } from './fps-accuracy';
 import { skipCostToLevel, xpForLevel } from './progression';
+import { insertTraits, type ThreatClass } from './armor-inserts';
 
 /**
  * Breakpoint analysis for the weapon ladder. Damage alone does not tell you
@@ -21,7 +22,9 @@ import { skipCostToLevel, xpForLevel } from './progression';
  * divided by damage, and a tier that looks decisive against a bare target can
  * be ordinary against inserts.
  */
-export interface Opponent { id: string; name: string; health: number; armor: number; absorption: number }
+export interface Opponent { id: string; name: string; health: number; armor: number; absorption: number;
+  /** What their inserts are rated for (armor-inserts); rifle rounds when unset. */
+  stops?: ThreatClass }
 /** Drill targets alternate these two pools; see the target build in fps-engine.ts. */
 export const DRILL_POOLS = [100, 115] as const;
 export const DRILL_OPPONENTS: readonly Opponent[] = DRILL_POOLS.map(health => ({
@@ -29,13 +32,13 @@ export const DRILL_OPPONENTS: readonly Opponent[] = DRILL_POOLS.map(health => ({
 }));
 /** The bot compositions a LAN match actually fields. */
 export const roleOpponents = (): Opponent[] => listArenaRoles().map(role => ({
-  id: role.id, name: role.name, health: role.health, armor: role.armor, absorption: role.absorption,
+  id: role.id, name: role.name, health: role.health, armor: role.armor, absorption: role.absorption, ...(role.stops ? { stops: role.stops } : {}),
 }));
 /** An opponent wearing a catalog insert, for "what if they bought the plates". */
 export function plateOpponent(plateId: string, health = 100): Opponent | null {
   const plate = itemById(plateId);
   if (plate?.category !== 'plate') return null;
-  return { id: plateId, name: `${plate.name} at ${health}hp`, health, armor: plate.protection || 0, absorption: plate.absorption || 0 };
+  return { id: plateId, name: `${plate.name} at ${health}hp`, health, armor: plate.protection || 0, absorption: plate.absorption || 0, ...(plate.stops ? { stops: plate.stops } : {}) };
 }
 export const namedOpponents = () => [...DRILL_OPPONENTS, ...roleOpponents(),
   ...ARMORY_CATALOG.filter(item => item.category === 'plate').map(item => plateOpponent(item.id)!)];
@@ -47,13 +50,15 @@ export const shotsToKill = (pool: number, damage: number) => Math.ceil(pool / Ma
 /**
  * Shots to drop an opponent, stepping the same armor model the engine uses so
  * absorption and the moment the plates break are accounted for rather than
- * approximated.
+ * approximated. `caliberMm` holds the round to the opponent's insert rating;
+ * a lucky insert's glancing rounds are left out, since a count cannot hold a chance.
  */
-export function shotsToKillOpponent(opponent: Opponent, damage: number) {
+export function shotsToKillOpponent(opponent: Opponent, damage: number, caliberMm?: number) {
   if (!(damage > 0)) return Infinity;
   let health = opponent.health, armor = opponent.armor, shots = 0;
+  const insert = insertTraits({ stops: opponent.stops });
   while (health > 0 && shots < 200) {
-    const hit = applyArmorDamage(health, armor, damage, opponent.absorption);
+    const hit = applyArmorDamage(health, armor, damage, opponent.absorption, { insert, caliberMm });
     health = hit.health; armor = hit.armor; shots++;
   }
   return shots;
@@ -104,8 +109,8 @@ export function analyseBreakpoints(opponents: readonly Opponent[] = DRILL_OPPONE
         ranges: ranges.map(range => ({
           range,
           body: hitDamage(weapon, range), head: hitDamage(weapon, range, 'head'),
-          stk: opponents.map(foe => shotsToKillOpponent(foe, hitDamage(weapon, range))),
-          headStk: opponents.map(foe => shotsToKillOpponent(foe, hitDamage(weapon, range, 'head'))),
+          stk: opponents.map(foe => shotsToKillOpponent(foe, hitDamage(weapon, range), weapon.caliberMm)),
+          headStk: opponents.map(foe => shotsToKillOpponent(foe, hitDamage(weapon, range, 'head'), weapon.caliberMm)),
         })),
         previous: null, gains: null, drillGains: [],
       };
@@ -190,7 +195,7 @@ export interface CurvePoint { range: number; damage: number; shots: number }
 export const falloffCurve = (weapon: WeaponSpec, opponent: Opponent = STOCK_OPPONENT, ranges = curveRanges()): CurvePoint[] =>
   ranges.map(range => {
     const damage = hitDamage(weapon, range);
-    return { range, damage, shots: shotsToKillOpponent(opponent, damage) };
+    return { range, damage, shots: shotsToKillOpponent(opponent, damage, weapon.caliberMm) };
   });
 
 export interface ShotBand { shots: number; from: number; to: number }
@@ -199,10 +204,10 @@ export interface ShotBand { shots: number; from: number; to: number }
  * by dividing health, so the bands stay correct for an armored opponent whose
  * plates absorb part of each hit.
  */
-export function shotBands(opponent: Opponent = STOCK_OPPONENT, maxDamage = 100): ShotBand[] {
+export function shotBands(opponent: Opponent = STOCK_OPPONENT, maxDamage = 100, caliberMm?: number): ShotBand[] {
   const bands: ShotBand[] = [];
   for (let damage = 1; damage <= Math.max(1, Math.round(maxDamage)); damage++) {
-    const shots = shotsToKillOpponent(opponent, damage);
+    const shots = shotsToKillOpponent(opponent, damage, caliberMm);
     const last = bands[bands.length - 1];
     if (last && last.shots === shots) last.to = damage;
     else bands.push({ shots, from: damage, to: damage });

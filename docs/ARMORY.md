@@ -770,12 +770,44 @@ visually hidden table gives the same numbers to a screen reader.
 
 The rig slot supplies reserve capacity; the insert slot supplies armor points and absorption. Enhanced LBS adds 60 reserve rounds per weapon at a 2% movement cost; Sentinel adds 90 without an extra rig handling penalty; the ammunition still adds carry weight. A bare ILBV-inspired carrying rig has zero armor points.
 
-| Insert | Armor | Absorption while available | Movement |
-| --- | ---: | ---: | ---: |
-| None | 0 | 0% | 100% |
-| Soft | 35 | 45% | 98% |
-| Ceramic | 75 | 65% | 94% |
-| Aegis ceramic | 100 | 72% | 97% |
+| Insert | Level · price | Armor | Absorption while available | Rated for | Movement | Besides |
+| --- | --- | ---: | ---: | --- | ---: | --- |
+| None | 1 | 0 | 0% | — | 100% | |
+| Soft | 1 · 400 CR | 35 | 45% | rifle | 98% | |
+| Ceramic | 2 · 900 CR | 75 | 65% | rifle | 94% | |
+| Aegis ceramic | 4 · 160 TK | 100 | 72% | rifle | 97% | |
+| Pineapple · Ong Lai | 8 · 1,800 CR | 40 | 35% | rifle | 99% | One round in five glances off |
+| Steel · Lao Jiao | 12 · 2,400 CR | 90 | 55% | GPMG | 90% | |
+| Composite · Tahan | 22 · 260 TK | 110 | 72% | GPMG | 95% | |
+| Durian · Mao Shan Wang | 30 · 360 TK | 150 | 85% | GPMG | 93% | It smells |
+| Heavy · Pillbox | 34 · 420 TK | 150 | 80% | heavy MG | 84% | |
+
+**Ratings** (`armor-inserts.ts`). Rounds come in four classes by calibre:
+pistol (9–12 mm), rifle (5.56), GPMG (7.62) and heavy (12.7 and up). An insert
+takes its full share of anything up to its rating and half as much for each
+class past it (`OVERMATCH`), so a .50 meets rifle plates at a quarter of their
+share and kills through the Aegis in one hit, and only the Pillbox holds it. A
+hit that is not a round (a blast, gas, the gun's own recoil) meets the full
+share. The four inserts from before ratings are all rifle-rated, so nothing
+changes for them against rifles and pistols; against a GPMG or a .50 they hold
+less than they did. That includes the vehicles' roof GPMG and chin HMG, and the
+raid gunship. The tank bots wear GPMG-rated plates, so a GPMG meets them as
+before. Ratings run wherever a calibre is known: the arena host (every round
+carries its calibre), the drill's counter-fire (rifle) and the breakpoint
+analysis (`shotsToKillOpponent` takes the weapon's calibre).
+
+**Pineapple · Ong Lai** is the luckiest insert and one of the weakest: each
+round has a one-in-five chance (`deflect`, at most 30%) of glancing off the
+crown, taking nothing from the pool or the wearer. The host draws for it only
+for a lucky insert, so every other fight keeps its random sequence. The radio
+says "Ong lai!" when it happens, in the drill and in the arena. The breakpoint
+analysis leaves the luck out, since a shot count cannot hold a chance.
+
+**Durian · Mao Shan Wang** is the thickest insert there is and gives you away.
+In the arena it sets `scent` on the wearer's actor, and opponents' minimaps,
+which show no other opponent, draw a smell cloud where they stand. Bots see a
+scented target from half again as far (`sightRangeAgainst`) and through smoke
+(`smokeHides`); the drill's counter-fire targets do too.
 
 The optional counter-fire drill uses surviving targets with line of sight within 65 game units. A 0.7-second warning locks an aim point; move at least 0.75 units, clear the attacking target or break line of sight to avoid the shot. A hit deals 18 incoming damage. Armor consumes `min(remaining armor, incoming × absorption)` and health receives the remainder. At zero health, the exercise ends without completion rewards. Pause freezes damage and warning timing. Reset restores health, plates and ammo; owned plates never need repurchasing.
 

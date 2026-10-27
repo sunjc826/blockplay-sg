@@ -2,6 +2,7 @@ import type { BipodKind } from './weapon-support';
 import type { WeaponAccessories } from './weapon-accessories';
 import { HIP_FOV, magnifiedFov, type WeaponFeed, type WeaponSpec, type WeaponTrait } from './fps-rules';
 import { muzzleBallistics, type BallisticSpec } from './fps-ballistics';
+import type { ThreatClass } from './armor-inserts';
 export type ShopCategory = 'weapon' | 'skin' | 'rig' | 'plate' | 'vehicleSkin' | 'consumable' | 'loadout' | 'vision';
 export type SupplyType = 'food' | 'medical' | 'field-utility';
 export type AttachmentSlot = 'optic' | 'magazine' | 'handling' | 'muzzle' | 'rail';
@@ -85,6 +86,12 @@ export interface ShopItem {
   fitted?: readonly FittedPart[];
   modifiers?: { capacity?: number; reload?: number; recoil?: number; recoilRecovery?: number; aimFov?: number; mobility?: number };
   palette?: string[]; accent?: string; protection?: number; absorption?: number; mobility?: number; carry?: number;
+  /** Inserts only: the heaviest rounds it takes its full share of (armor-inserts); rifle rounds when unset. */
+  stops?: ThreatClass;
+  /** Inserts only: it smells, and gives the wearer away (armor-inserts `SCENT`). */
+  scent?: true;
+  /** Inserts only: the chance a round glances off it altogether. */
+  deflect?: number;
   /** Consumables share the quick slot, but the exchange presents local food separately from field utilities. */
   supplyType?: SupplyType;
   /** Medical supplies only: a dressing is wound on, a kit is opened and worked through. Sets the belt slot it fills. */
@@ -175,6 +182,13 @@ export const ARMORY_CATALOG: readonly ShopItem[] = [
   { id: 'plate-soft', weightKg: 2, name: 'Soft armor inserts', category: 'plate', tier: 'Field', price: 400, currency: 'credits', protection: 35, absorption: .45, mobility: .98, description: '35 armor points. Absorbs 45% of incoming drill damage until depleted; 2% movement cost.' },
   { id: 'plate-ceramic', weightKg: 6, requiredLevel: 2, name: 'Ceramic plate set', category: 'plate', tier: 'Field', price: 900, currency: 'credits', protection: 75, absorption: .65, mobility: .94, description: '75 armor points. Absorbs 65% of drill damage until depleted; 6% movement cost.' },
   { id: 'plate-elite', weightKg: 4, requiredLevel: 4, name: 'Ceramic · Aegis', category: 'plate', tier: 'Elite', price: 160, currency: 'tokens', protection: 100, absorption: .72, mobility: .97, description: 'Premium inserts: 100 armor points, 72% absorption and a smaller 3% movement cost.' },
+  // Rated inserts (armor-inserts): each one past the Aegis stops something the
+  // rifle plates do not, or does something no plate does, and pays for it.
+  { id: 'plate-pineapple', weightKg: 1.5, requiredLevel: 8, name: 'Pineapple · Ong Lai', flavorText: 'Ong lai, ong lai. Luck comes, bullets go.', category: 'plate', tier: 'Field', price: 1800, currency: 'credits', protection: 40, absorption: .35, mobility: .99, deflect: .2, description: 'Thin, light inserts under a crown of spiked rind: 40 armor points, 35% absorption and a 1% movement cost. One round in five glances off the crown altogether, taking nothing from you or the inserts, so it is the luckiest plate on the shelf and one of the weakest when the luck runs out.' },
+  { id: 'plate-steel', weightKg: 10, requiredLevel: 12, name: 'Steel · Lao Jiao', flavorText: 'Heavy, cheap, and has seen everything. Mostly from the inside of a store.', category: 'plate', tier: 'Field', price: 2400, currency: 'credits', protection: 90, absorption: .55, stops: 'gpmg', mobility: .9, description: 'Steel inserts rated for GPMG rounds: 90 armor points and 55% absorption, held in full against a 7.62 mm round that halves what rifle plates take. Less per hit than ceramic against a rifle, and the heaviest plates bought with credits: a 10% movement cost.' },
+  { id: 'plate-composite', weightKg: 5, requiredLevel: 22, name: 'Composite · Tahan', flavorText: 'Tahan one more. And one more.', category: 'plate', tier: 'Elite', price: 260, currency: 'tokens', protection: 110, absorption: .72, stops: 'gpmg', mobility: .95, description: 'Ceramic-faced composite rated for GPMG rounds: 110 armor points and the Aegis\u2019s 72% absorption, held against 7.62 mm, at a 5% movement cost.' },
+  { id: 'plate-durian', weightKg: 6.5, requiredLevel: 30, name: 'Durian · Mao Shan Wang', flavorText: 'The king of fruits. Banned on the MRT. Not banned here, unfortunately for everyone near you.', category: 'plate', tier: 'Elite', price: 360, currency: 'tokens', protection: 150, absorption: .85, stops: 'gpmg', scent: true, mobility: .93, description: 'The thickest husk there is, rated for GPMG rounds: 150 armor points and 85% absorption, the most of any insert, at a 7% movement cost. Everyone knows you are coming. In the arena it puts you on every opponent\u2019s minimap, and bots see you from half again as far and smell you through smoke.' },
+  { id: 'plate-pillbox', weightKg: 13, requiredLevel: 34, name: 'Heavy · Pillbox', flavorText: 'Built like the ones at Labrador Park. Moves like them too.', category: 'plate', tier: 'Elite', price: 420, currency: 'tokens', protection: 150, absorption: .8, stops: 'heavy', mobility: .84, description: 'The only inserts rated for heavy MG rounds: 150 armor points and 80% absorption, held in full against a .50. A 16% movement cost, the heaviest on the shelf, and slower to aim and to climb under.' },
 ];
 export const itemById = (id: string) => ARMORY_CATALOG.find(item => item.id === id);
 export const isEnemyIssue = (item: Pick<ShopItem, 'source'> | undefined) => item?.source === 'enemy';

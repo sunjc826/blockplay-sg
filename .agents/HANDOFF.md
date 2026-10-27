@@ -3317,3 +3317,36 @@ the BMT and Steady Lah up close), P30 Bo Bo CANNOT .22 → .20 s (its head shots
 were slower than the Sotong's). SAR descriptions now say "of 6", Ultimax "of 5".
 Validation: unit tests, typecheck. Not done: felt in play only through the
 breakpoint model (TTK assumes a semi trigger pressed at its cycle rate).
+
+## 2026-10-27: role variants, and inserts rated against what hits them
+
+Five weapon variants that change how a platform plays rather than adding to
+its figures (docs/ARMORY.md "Role variants"): Ultimax · Jalan Jalan (Field
+specialist, fire on the move: no bipod, softest recoil, laser, short reach),
+Ultimax · Kongsi (Elite specialist, SAR 21 box magazines via a new
+`InternalPart.feed`; weapon-fittings hides the drum meshes and hangs a box on
+the same node so the reload still plays), FN MAG · Tumpang (Field specialist,
+short barrel, pouch, 84% movement), FN MAG · Lepak Position (Elite, sustained
+fire to 120 m, 4× prism, `requiresMount`), CIS 50MG · Bukit Timah (Elite,
+semi, 6× prism, `penetration` trait). An earlier pass of eight Ultra–Mythic
+MG/Ultimax variants was dropped by the owner as copies of the SAR/Ultimax kits.
+MG sights sit on a feed-cover rail and ride the cover (`SightHousing.carrier`,
+`folds` hides the rear sight). The GPMG envelope test now covers every MAG,
+with only `requiresMount` allowed two hits at 120 m.
+
+Armor (`armor-inserts.ts`): rounds have a threat class by calibre and inserts
+a rating; an insert keeps half its share per class over (`OVERMATCH`). Old
+inserts are rifle-rated; new ones: Pineapple · Ong Lai (20% of rounds glance
+off, host draws only for it), Steel · Lao Jiao and Composite · Tahan (GPMG),
+Durian · Mao Shan Wang (150/85%, `scent`: on opponents' arena minimap, bots
+see it 1.5× as far and through smoke), Heavy · Pillbox (the only .50 rating).
+Calibre now flows through arena `hurtActor`/`resolveShot`/`strayShot`; tank
+bots are GPMG-rated. Balance shift: vehicle GPMG/HMG, the raid gunship and
+player MAG/CIS now beat rifle plates harder in the arena.
+Validation: unit tests (armor-inserts.test, hardware, variants, minimap),
+typecheck; fixture renders of all five weapons in headless Chrome; the store
+dossier for durian and pineapple. Not done: low-rate MAG (the outrank model
+assumes every hit lands, so a slower gun always loses), MAG rate switch and
+CIS dual feed; penetration still single-player only (host resolves nearest
+surface); smell marker and arena deflection not played in a live LAN match;
+bots never wear the new inserts.
