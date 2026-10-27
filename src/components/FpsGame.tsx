@@ -1,3 +1,4 @@
+import FpsVehicleHud from './FpsVehicleHud';
 import EnvironmentControls from './EnvironmentControls';
 import FpsVisionChip from './FpsVisionChip';
 import { cloudOpacity, visionKeyLabel } from '../game/vision-devices';
@@ -114,7 +115,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         {hud.interact && <div className="fps-interact-prompt">{hud.interact}</div>}
         {hud.vehicleNotice && <div className="fps-vehicle-notice" role="status">{hud.vehicleNotice}</div>}
         {touch && !hud.pilotEnabled && <TouchControls hud={hud} engine={engine.current} mode={isArena ? 'arena' : 'range'} onMenu={() => engine.current?.pause()} />}
-        {mounted && <div className="fps-vehicle-hud" data-damage={hud.vehicleDamage}><span>{hud.vehicle === 'car' ? 'UTILITY 01' : 'FALCON 01'} / {hud.vehicleSeats[hud.vehicleSeat ?? 0]?.label.toUpperCase()}</span><strong>{Math.round(hud.vehicleSpeed)}<small>KM/H</small></strong>{hud.vehicle === 'helicopter' && <b>{hud.altitude.toFixed(1)} m ALT</b>}<div className="fps-vehicle-vitals"><label>HULL {Math.ceil(hud.vehicleHealth)} / {hud.vehicleMaxHealth} HP · {hud.vehicleDamage.toUpperCase()}<meter min={0} max={hud.vehicleMaxHealth} value={hud.vehicleHealth} /></label><b>{hud.vehicleWeapon} · {hud.vehicleAmmo} / {hud.vehicleAmmoMax}</b><small>{!hud.vehicleCanFire ? 'GUNNER CONTROLS WEAPON' : hud.vehicleAmmo ? 'LMB / FIRE · LOOK TO AIM' : 'AMMUNITION DEPLETED'}</small></div><div className="fps-vehicle-seats">{hud.vehicleSeats.map((seat, i) => <span key={seat.label} data-self={seat.self || undefined}>{i + 1}. {seat.label}: {seat.name}</span>)}</div><p>V · SWITCH SEAT · E · EXIT</p><p>{hud.vehicle === 'helicopter' ? 'SHIFT BOOST · LAND TO DISMOUNT' : 'BRAKE TO DISMOUNT'}</p></div>}
+        <FpsVehicleHud hud={hud} />
       </>}
       {isArena && (!playing || disconnected) && <div className="fps-overlay arena-overlay"><div className="fps-start-card arena-start-card">
         <span className="eyebrow">{disconnected ? 'CONNECTION LOST' : hud.phase === 'complete' ? 'MATCH COMPLETE' : hud.phase === 'paused' ? 'OPERATOR MENU' : arenaOptions.session.role === 'solo' ? 'SOLO / BOT ARENA' : 'P2P / LAN ARENA'}</span>

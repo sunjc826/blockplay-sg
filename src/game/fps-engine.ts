@@ -31,6 +31,9 @@ import { effectStyleForWeapon, resolveEffectStyle, type EffectStyle } from './fp
 import type { ImpactProfile } from './fps-impact-profile';
 import { applyArmorDamage, claimElimination, consumeItem, createProfile, encikAddress, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile, type VendorPurchaseResult } from './armory-state';
 import { registerElimination, ELIMINATION_XP, ELIMINATION_CREDITS, type KillChain } from './progression';
+import { worldVehicleSpawns } from './world-vehicles';
+import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
+import { sceneFlightObstacles } from './flight-obstacles';
 import { createFpsVehicles } from './fps-vehicles';
 import { minimapContactRange, MINIMAP_CONTACT_RANGE, type MinimapMarker } from './minimap';
 import { combatMinimapMarkers, type MinimapCloud } from './fps-minimap-contacts';
@@ -230,8 +233,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
   const expeditionSession = expedition ? createSoloSession('Explorer') : null;
   if (expedition && zoneWorld && expeditionSession) options = { ...options, arena: { session: expeditionSession, profile: fieldProfile, botCount: zoneWorld.zone.botCount, composition: zoneWorld.zone.composition, environment: zoneWorld.environment, initialVitals: expedition.checkpoint } };
-  const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { spawns: district.vehicles, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay' });
-  if (expedition) vehicles.root.visible = false;
+  const npcs = expedition ? expeditionNpcs(expedition.zone, zoneSectors(expedition.zone)) : [];
+  const fleetSpawns = expedition ? worldVehicleSpawns(district.vehicles, [...world.obstacles, ...verticalVehicleObstacles({ surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })], sceneFlightObstacles(world.scene), world.bounds, [...npcs, zoneWorld?.environment.playerSpawn ?? district.spawn]) : district.vehicles;
+  const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { spawns: fleetSpawns, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay' });
   let arenaRuntime: ReturnType<typeof createArenaRuntime> | null = null;
   const chaseRay = new THREE.Raycaster();
   const camera = new THREE.PerspectiveCamera(65, 1, 0.08, 800); camera.rotation.order = 'YXZ';
@@ -305,9 +309,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let debug = debugAvailable ? readFpsDebug() : { ...DEFAULT_FPS_DEBUG }, recoveryDelay = 0;
   const keys = new Set<string>(); const hud: FpsHud = { ...initialFpsHud, weapon: equipment.carriedFamilies[0], carriedWeapons: equipment.carriedFamilies, debug, debugAvailable, quickItem: equipment.quickItem?.name || '', quickType: equipment.quickItem ? equipment.quickItem.supplyType === 'food' ? 'FOOD' : 'UTILITY' : '', quickCount: equipment.quickCount, health: 100 * debug.healthMultiplier, maxHealth: 100 * debug.healthMultiplier, armor: equipment.armor, expeditionZone: expedition?.zone ?? null,
     credits: fieldProfile.credits, tokens: fieldProfile.tokens };
-  const npcs = expedition ? expeditionNpcs(expedition.zone, zoneSectors(expedition.zone)) : [];
   hud.npcs = npcs.map(npc => ({ ...npc }));
-  if (expedition && zoneWorld) hud.fieldLoot = expedition.loot.enterZone({ id: expedition.zone, spawn: zoneWorld.zone.spawn, bounds: zoneWorld.bounds, obstacles: world.obstacles, canStand: (x, z, radius) => footMovement.canOccupy(x, 0, z, radius, 1.8), elevatedAnchors: elevatedLootAnchors(getWalkSurfaces(world.scene), footMovement), anchors: zoneWorld.zone.encounterSpawns, sectors: zoneSectors(expedition.zone) });
+  if (expedition && zoneWorld) hud.fieldLoot = expedition.loot.enterZone({ id: expedition.zone, spawn: zoneWorld.zone.spawn, bounds: zoneWorld.bounds, obstacles: vehicles.footObstacles(), canStand: (x, z, radius) => footMovement.canOccupy(x, 0, z, radius, 1.8), elevatedAnchors: elevatedLootAnchors(getWalkSurfaces(world.scene), footMovement), anchors: zoneWorld.zone.encounterSpawns, sectors: zoneSectors(expedition.zone) });
   const markers = expedition ? createExpeditionMarkers(world.scene, expedition.zone, hud.fieldLoot, npcs) : null;
   let checkpointPending = expedition?.checkpoint;
   // Which bots were last seen alive, so a death is noticed once.
@@ -413,10 +416,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const burden = movement();
     const mapContactRange = minimapContactRange(atmosphere.light.lighting.shift, atmosphere.conditions.weather);
     syncBelt();
-    onHud({ ...hud, vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), ...(!expedition ? vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))) : {}), ...(vertical > .35 && !vehicles.active ? { vehiclePrompt: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
+    onHud({ ...hud, vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(vertical > .35 && !vehicles.active ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapContactRange, mapMarkers: [
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}`, kind: 'target', label: `Target ${index + 1}` }] : []),
-        ...(!expedition ? (['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })) : []),
+        ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
         ...contactMarkers(mapContactRange),
       ],
     });
@@ -613,7 +616,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     updateCameras(0, false, false); publish();
   }
   function interactVehicle() {
-    if (hud.phase !== 'playing' || expedition || hud.arenaSelf?.alive === false || (!vehicles.active && vertical > .35)) return;
+    if (hud.phase !== 'playing' || hud.arenaSelf?.alive === false || (!vehicles.active && vertical > .35)) return;
     if (arenaRuntime) {
       arenaRuntime.vehicleAction(vehicles.active ? 'exit' : 'enter', vehicles.active ?? vehicles.nearest(position));
       clearInput(); canvas.focus({ preventScroll: true }); return;
@@ -668,7 +671,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (here && hud.phase === 'playing') comms.add('system', 'Location', `Entering ${here.name}.`);
     }
     const npc = alive && vertical <= .35 && !vehicles.active ? nearestNpc(npcs, position) : null;
-    const gateway = alive && vertical <= .35 ? findWorldGateway(expedition.zone, position) : null;
+    const gateway = alive && !vehicles.active && vertical <= .35 ? findWorldGateway(expedition.zone, position) : null;
     focusedLoot = alive && !vehicles.active ? focusLoot(hud.fieldLoot, { ...position, y: vertical }, camera.position, camera.getWorldDirection(lookDirection)) : null;
     // The pilot does not look where it walks, so it takes whatever is in reach.
     reachableLoot = alive && pilotEnabled ? hud.fieldLoot.filter(item => withinReach(item, { ...position, y: vertical }) && canTake(item))
@@ -918,7 +921,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (pilotEnabled || hud.phase !== 'playing' || vehicles.active || hud.arenaSelf?.alive === false || loadout[hud.weapon].reloadRemaining > 0) return;
     touchAim = !touchAim; canvas.focus({ preventScroll: true }); publish();
   }
-  const keyboardKeys = ['y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'n', 't', 'f', 'm', 'h', 'j', 'b', 'x', 'control', 'escape'];
+  const keyboardKeys = ['y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'v', 'n', 't', 'f', 'm', 'h', 'j', 'b', 'x', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
     if (key === 'f' && !event.repeat) { event.preventDefault(); options.onFullscreen?.(); return; }
@@ -934,7 +937,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (key === 'escape') pause();
     else if (pilotEnabled) { pause(); hud.message = 'AI stopped. Click Resume to take control.'; publish(); }
     else if (key === 'v') { if (!event.repeat) switchVehicleSeat(); }
-    else if (key === 'e') { if (!event.repeat) expedition ? interactLoot() : interactVehicle(); }
+    else if (key === 'e') { if (!event.repeat) expedition && !vehicles.active && focusedLoot ? interactLoot() : interactVehicle(); }
     else if (key === 'n') { if (!event.repeat) interactNpc(); }
     else if (key === 't') { if (!event.repeat) travelZone(); }
     else if (key === 'h') { if (!event.repeat) useVision('toggle'); }
@@ -2207,7 +2210,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const clearance = Math.max(eyeHeight(), bodyMotion.eye) + .05;
       const height = footMovement.canOccupy(position.x, vertical, position.z, .38, clearance) ? clearance : eyeHeight() + .05;
       const next = footMovement.move({ ...position, y: vertical, velocityY }, delta.x, delta.z, dt, .38, height,
-        expedition ? [] : vehicles.footObstacles().slice(world.obstacles.length), INFANTRY_GRAVITY);
+        vehicles.footObstacles().slice(world.obstacles.length), INFANTRY_GRAVITY);
       moving = Math.hypot(next.x - position.x, next.z - position.z) > .0001;
       carry.set((next.x - position.x) / Math.max(dt, 1e-4), 0, (next.z - position.z) / Math.max(dt, 1e-4));
       // A blocked axis loses momentum instead of storing a burst against the wall.
@@ -2237,7 +2240,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     updateArena(realDt);
     updateAmbientSky(realDt);
     updateCombatEvents(realDt);
-    if (arenaRuntime && !expedition) vehicles.sharedStep(dt);
+    if (arenaRuntime) vehicles.sharedStep(dt);
     if (debugAvailable && hud.phase === 'playing' && hud.health > 0) {
       recoveryDelay = Math.max(0, recoveryDelay - dt);
       if (debug.regeneration && recoveryDelay === 0 && hud.health < hud.maxHealth) {
@@ -2383,7 +2386,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // Range props are appended after asynchronous model loading; refresh the static broadphase.
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
     if (options.arena) {
-      arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, ...(!expedition ? { vehicles: { spawns: district.vehicles, flightObstacles: vehicles.flightObstacles() } } : {}) });
+      arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, vehicles: { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition } });
       hud.combatEventsAvailable = options.arena.session.role === 'solo';
       if (debugAvailable) {
         arenaRuntime.setCombatEvents(debug.combatEvents);

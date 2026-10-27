@@ -1,0 +1,6 @@
+import type { FpsHud } from '../game/fps-engine';
+
+export default function FpsVehicleHud({ hud }: { hud: FpsHud }) {
+  if (hud.vehicle === 'on-foot') return null;
+  return (<div className="fps-vehicle-hud" data-damage={hud.vehicleDamage}><span>{hud.vehicle === 'car' ? 'UTILITY 01' : 'FALCON 01'} / {hud.vehicleSeats[hud.vehicleSeat ?? 0]?.label.toUpperCase()}</span><strong>{Math.round(hud.vehicleSpeed)}<small>KM/H</small></strong>{hud.vehicle === 'helicopter' && <b>{hud.altitude.toFixed(1)} m ALT</b>}<div className="fps-vehicle-vitals"><label>HULL {Math.ceil(hud.vehicleHealth)} / {hud.vehicleMaxHealth} HP · {hud.vehicleDamage.toUpperCase()}<meter min={0} max={hud.vehicleMaxHealth} value={hud.vehicleHealth} /></label><b>{hud.vehicleWeapon} · {hud.vehicleAmmo} / {hud.vehicleAmmoMax}</b><small>{!hud.vehicleCanFire ? 'GUNNER CONTROLS WEAPON' : hud.vehicleAmmo ? 'LMB / FIRE · LOOK TO AIM' : 'AMMUNITION DEPLETED'}</small></div><div className="fps-vehicle-seats">{hud.vehicleSeats.map((seat, i) => <span key={seat.label} data-self={seat.self || undefined}>{i + 1}. {seat.label}: {seat.name}</span>)}</div><p>V · SWITCH SEAT · E · EXIT</p><p>{hud.vehicle === 'helicopter' ? 'SHIFT BOOST · LAND TO DISMOUNT' : 'BRAKE TO DISMOUNT'}</p></div>);
+}

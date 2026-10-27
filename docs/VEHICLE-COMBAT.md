@@ -1,6 +1,6 @@
 # Armed vehicles
 
-The district FPS field ranges now give both existing vehicles a mounted gun and a finite hull-health pool. LAN and solo-bot arenas share host-owned vehicles. Expedition remains its existing single-player infantry mode.
+The district FPS field ranges now give both existing vehicles a mounted gun and a finite hull-health pool. LAN and solo-bot arenas share host-owned vehicles. Expeditions now use the same vehicles with district spawning, delayed replacement and AI car crews; see [open-world vehicles](OPEN-WORLD-VEHICLES.md).
 
 | Vehicle | Health | Weapon | Total rounds | Damage per hit | Interval |
 | --- | ---: | --- | ---: | ---: | ---: |
@@ -19,7 +19,7 @@ Bullets, counter-fire, nearby vehicle blasts, and hard collisions damage hulls. 
 - 25% or lower: critical damage with smoke and flames.
 - 0 HP: one explosion, a charred wreck, stopped weapons/drive, and no re-entry.
 
-Destruction is lethal to the crew. Blasts damage nearby players, targets, and other vehicles with linear falloff and static-cover obstruction. Utility/Falcon blasts reach 9/12 m with 240/320 maximum damage. Destroyed helicopters fall onto the ground or supporting roofs. Wrecks persist until exercise reset; visual flames do not apply ongoing damage.
+Destruction is lethal to the crew. Blasts damage nearby players, targets, and other vehicles with linear falloff and static-cover obstruction. Utility/Falcon blasts reach 9/12 m with 240/320 maximum damage. Destroyed helicopters fall onto the ground or supporting roofs. On the range, wrecks persist until exercise reset; visual flames do not apply ongoing damage.
 
 All tuning lives in `src/game/vehicle-combat.ts`. Damage visuals preserve the equipped wrap and original transforms for reset. Smoke/fire/explosions use a fixed 96-particle pool and never block gameplay rays. This is arcade balancing, not a real vehicle specification.
 

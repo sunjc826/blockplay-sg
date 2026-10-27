@@ -337,7 +337,7 @@ The open world also has **combat events**, more often and more dangerous in high
 
 Bots, other players and expedition locals share one articulated character: soldiers walk, strafe, crouch, go prone, ride in vehicles, keep both hands on their weapon, flinch when hit and fall when killed (a falling body never blocks shots). Locals look toward you, turn to face you nearby, wave as you arrive and gesture when you talk to or buy from them.
 
-FPS modes share a lightweight local minimap using regional road data: practice shows targets and parked vehicles, expeditions show loot/checkpoints, and expedition and arena maps also show visible allies and enemies within the current time/weather range (up to 60 m). Regional collectible maps and companions remain separate. Expedition and arena modes are infantry-only; cars and helicopters are available in FPS practice. See [mode comparison](FEATURE-PARITY.md).
+FPS modes share a lightweight local minimap using regional road data: practice shows targets and parked vehicles, expeditions add vehicles, loot and checkpoints, and expeditions and arenas show visible allies and enemies within a time- and weather-dependent range of up to 60 m. Regional collectible maps and companions remain separate. Cars and helicopters are available in FPS practice, arenas and expeditions. Expeditions add AI car crews and delayed fleet replacements; [open-world vehicle rules](OPEN-WORLD-VEHICLES.md) describe boarding, crew exits and respawns. See [mode comparison](FEATURE-PARITY.md).
 
 ## Install it
 

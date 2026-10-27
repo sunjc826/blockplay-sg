@@ -272,8 +272,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   let profile = restoreProfile(JSON.stringify(options.profile ?? createProfile()));
   const authority = session.role !== 'guest';
   // Every shot and every bot's line of sight is checked against the rendered
-  // scene, not only the box footprints: expedition districts have no vehicles,
-  // and without this their mesh-only walls stopped nothing a bot fired.
+  // scene, not only the box footprints: mesh-only walls must stop bot fire.
   const simulation = authority ? createArena(options.obstacles, options.botCount, options.composition, options.environment, options.vehicles, { bounds: options.environment?.bounds ?? MARINA_BOUNDS, obstacles: options.obstacles, surfaces: getWalkSurfaces(scene), traversalObstacles: getTraversalObstacles(scene) },
     (origin, direction, distance) => coverLimit(origin, direction, distance)) : null;
   const hostId = authority ? session.id : session.getPeers()[0]?.id;

@@ -92,7 +92,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     ];
   }
   function nearest(player: { x: number; z: number }) {
-    const kinds = (['car', 'helicopter'] as const).filter(kind => states[kind].health > 0 && states[kind].y < .4 && (!shared || shared.find(v => v.kind === kind)?.occupants.includes(null)));
+    const kinds = (['car', 'helicopter'] as const).filter(kind => states[kind].health > 0 && states[kind].y < .4 && Math.abs(states[kind].speed) <= 2 && (!shared || shared.find(v => v.kind === kind)?.occupants.includes(null)));
     return kinds.sort((a, b) => distance(player, a) - distance(player, b)).find(kind => distance(player, kind) <= (kind === 'car' ? 4.5 : 6));
   }
   function distance(player: { x: number; z: number }, kind: VehicleKind) { return Math.hypot(player.x - states[kind].x, player.z - states[kind].z); }
@@ -116,7 +116,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
       else {
         model.rotation.x = THREE.MathUtils.damp(model.rotation.x, active === kind ? -v.speed * .007 : 0, 3, dt);
         const rotor = model.getObjectByName('main-rotor')!, tail = model.getObjectByName('tail-rotor')!;
-        if (active === kind) { rotor.rotation.y += dt * 34; tail.rotation.x += dt * 51; }
+        if (active === kind || shared?.find(v => v.kind === kind)?.occupants[0]) { rotor.rotation.y += dt * 34; tail.rotation.x += dt * 51; }
       }
     }
   }
@@ -184,8 +184,9 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     hud(player: { x: number; z: number }, names: Record<string, string> = {}) {
       const near = nearest(player);
       const viewed = active ?? near;
+      const nearLabel = near && shared?.find(v => v.kind === near)?.occupants[0] ? `Board ${near === 'car' ? 'Utility 01' : 'Falcon 01'}` : near === 'car' ? 'Drive Utility 01' : 'Pilot Falcon 01';
       return { vehicleSeat: seat(), vehicleCanFire: canFire(), vehicleSeats: active ? VEHICLE_SEATS.map((label, index) => { const occupant = shared?.find(v => v.kind === active)?.occupants[index] ?? (!shared && index === localSeat ? 'you' : null); return { label: active === 'helicopter' && index === 0 ? 'Pilot' : label, name: occupant ? names[occupant] ?? 'You' : 'Empty', occupied: occupant !== null, self: occupant === selfId || occupant === 'you' }; }) : [], vehicleHealth: viewed ? states[viewed].health : 0, vehicleMaxHealth: viewed ? VEHICLE_COMBAT[viewed].health : 0, vehicleAmmo: viewed ? states[viewed].ammo : 0, vehicleAmmoMax: viewed ? VEHICLE_COMBAT[viewed].ammo : 0, vehicleWeapon: viewed ? VEHICLE_COMBAT[viewed].name : '', vehicleDamage: viewed ? vehicleDamageStage(states[viewed]) : 'intact', vehicle: active || 'on-foot' as const, vehicleSpeed: active ? Math.abs(states[active].speed) * 3.6 : 0, altitude: active ? Math.max(0, states[active].y - .13) : 0,
-        interact: active ? `E · Exit ${active}` : near ? `E · ${near === 'car' ? 'Drive Utility 01' : 'Pilot Falcon 01'} · ${Math.ceil(states[near].health)} HP` : '', vehicleNotice: notice,
+        interact: active ? `E · Exit ${active}` : near ? `E · ${nearLabel} · ${Math.ceil(states[near].health)} HP` : '', vehicleNotice: notice,
         carDistance: distance(player, 'car'), helicopterDistance: distance(player, 'helicopter') };
     },
     reset() { active = null; shared = null; selfId = ''; localSeat = 0; sharedShots.car = sharedShots.helicopter = 0; notice = ''; noticeTime = 0; destruction.length = 0; effects.reset(); flashTime.car = flashTime.helicopter = collisionCooldown.car = collisionCooldown.helicopter = 0; for (const model of Object.values(models)) model.getObjectByName('vehicle-turret')!.rotation.set(0, 0, 0); states.car = createVehicle('car', spawns.car); states.helicopter = createVehicle('helicopter', spawns.helicopter); models.helicopter.rotation.x = 0; sync(0); },

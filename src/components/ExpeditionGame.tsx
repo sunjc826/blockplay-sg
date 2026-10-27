@@ -1,3 +1,4 @@
+import FpsVehicleHud from './FpsVehicleHud';
 import EnvironmentControls from './EnvironmentControls';
 import FpsVisionChip from './FpsVisionChip';
 import { cloudOpacity, visionKeyLabel } from '../game/vision-devices';
@@ -71,6 +72,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
   useEffect(() => { if (loaded) onLoaded?.(); }, [loaded, onLoaded]);
 
   const zone = getWorldZone(scene.zone), equipment = resolveLoadout(fieldProfile);
+  const mounted = hud.vehicle !== 'on-foot';
   const playing = hud.phase === 'playing', alive = hud.arenaSelf?.alive !== false, canFight = playing && alive;
   const weapon = equipment.weapons[hud.weapon] ?? equipment.weapons[0];
   const gateways = WORLD_GATEWAYS.filter(gateway => gateway.from === scene.zone);
@@ -95,7 +97,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
     onLostPointerCapture: () => engine.current?.setInput(key, false),
   });
   return <div className={`fps-game expedition-game ${fullscreen.immersive ? 'is-immersive' : ''}`} ref={stage} data-touch={touch ? 'on' : undefined}
-    data-phase={hud.phase} data-pilot={hud.pilotEnabled || undefined} data-pointer-locked={hud.locked} data-zone={scene.zone} data-player-x={hud.x.toFixed(3)} data-player-z={hud.z.toFixed(3)}
+    data-vehicle={hud.vehicle} data-vehicle-health={hud.vehicleHealth} data-vehicle-ammo={hud.vehicleAmmo} data-speed={hud.vehicleSpeed.toFixed(2)} data-altitude={hud.altitude.toFixed(2)} data-phase={hud.phase} data-pilot={hud.pilotEnabled || undefined} data-pointer-locked={hud.locked} data-zone={scene.zone} data-player-x={hud.x.toFixed(3)} data-player-z={hud.z.toFixed(3)}
     data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-alive={alive} data-loot-count={hud.fieldLoot?.length ?? 0} data-npc-count={hud.npcs?.length ?? 0} data-bot-count={hud.arena?.actors.filter(actor => actor.bot).length ?? 0} data-friendly-count={hud.arena?.actors.filter(actor => actor.bot && actor.faction === PLAYER_FACTION).length ?? 0}>
     <div className="viewport fps-viewport">
       <div className="world" ref={host} />
@@ -118,9 +120,13 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         {hud.hit && <div className="fps-hit-label">HIT −{hud.lastDamage}</div>}
         {hud.callout && <div className="fps-kill-callout" role="status"><span>ELIMINATION CHAIN ×{hud.chain}</span><strong>{hud.callout}</strong></div>}
         {!alive && <div className="expedition-respawn" role="status"><span>OPERATOR DOWN</span><strong>Regrouping in {Math.ceil(hud.arenaSelf?.respawnIn ?? 0)}s</strong></div>}
-        <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />
-        <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} touch={touch} />
-        <div className="fps-objective">Explore. Find supplies. Meet people in the district.<small>LOOK AT LOOT · E PICK UP / N · INTERACT / T · CROSS CHECKPOINT</small></div>
+        {!mounted && <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />}
+        {!mounted && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} touch={touch} />}
+        <FpsVehicleHud hud={hud} />
+        {hud.interact && <div className="fps-interact-prompt">{hud.interact}</div>}
+        {hud.vehicleNotice && <div className="fps-vehicle-notice" role="status">{hud.vehicleNotice}</div>}
+        {mounted && hud.vehicleCanFire && hud.vehicleAimVisible && <div className="fps-vehicle-reticle" aria-label="Vehicle gun impact point" style={{ left: `${hud.vehicleAimX}%`, top: `${hud.vehicleAimY}%` }}>⊕</div>}
+        <div className="fps-objective">{mounted ? hud.vehicleSeat !== 0 ? 'V switch seat · E exit when stopped' : hud.vehicle === 'car' ? 'W / S throttle · A / D steer · Space brake' : 'W / S cruise · A / D yaw · Space climb · C descend' : 'Explore. Find supplies. Meet people in the district.'}<small>{mounted ? 'Driver dismounts with the crew · Land before exiting' : 'E · LOOT / BOARD · N · INTERACT · T · CROSS CHECKPOINT ON FOOT'}</small></div>
         <FpsLootCard hud={hud} touch={touch} />
         <div className="expedition-prompts" role="status">{hud.npcPrompt && <strong>{hud.npcPrompt}</strong>}{hud.travelPrompt && <strong>{hud.travelPrompt}</strong>}{hud.lootNotice && <span>{hud.lootNotice}</span>}</div>
         {(hud.sector || hud.sectorHeat) && <div className="expedition-sector" role="status"><span>LOCATION</span><strong>{hud.sector || zone.name}</strong>
@@ -144,7 +150,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} touch={touch} onFullscreen={() => { void fullscreen.toggle(); }} />}
         <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') { setScene(current => ({ ...current, revision: current.revision + 1 })); return; } if (touch) fullscreen.enter(); engine.current?.start(); }}><Play size={16} />{hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry district' : hud.phase === 'paused' ? 'Resume expedition' : 'Enter district'}<ArrowRight size={17} /></button>
         {!nav && <button className="fps-shop-link" onClick={onExit}>{debug ? 'Leave expedition →' : 'Leave to menu →'}</button>}
-        <FpsControlGuide debug={debug}><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>E</kbd> Pick up what you look at</span><span><kbd>4–8</kbd> Use belt slot</span><span><kbd>G</kbd> Use last slot</span><span><kbd>M</kbd> Map</span><span><kbd>Y</kbd> Callouts</span>{equipment.vision && <span><kbd>H</kbd> {visionKeyLabel(equipment.vision.spec)}</span>}{equipment.weapons.some(weapon => weapon.accessories?.rail) && <span><kbd>B</kbd> Laser / light</span>}{equipment.weapons.some(weapon => weapon.accessories?.offsetDot) && <span><kbd>X</kbd> Offset dot</span>}<span><kbd>N</kbd> Interact nearby</span><span><kbd>T</kbd> Travel</span><span><kbd>F</kbd> Fullscreen</span></FpsControlGuide>
+        <FpsControlGuide debug={debug}><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>E</kbd> Pick up / enter / exit vehicle</span><span><kbd>V</kbd> Switch seat</span><span><kbd>Space / C</kbd> Fly up / down</span><span><kbd>4–8</kbd> Use belt slot</span><span><kbd>G</kbd> Use last slot</span><span><kbd>M</kbd> Map</span><span><kbd>Y</kbd> Callouts</span>{equipment.vision && <span><kbd>H</kbd> {visionKeyLabel(equipment.vision.spec)}</span>}{equipment.weapons.some(weapon => weapon.accessories?.rail) && <span><kbd>B</kbd> Laser / light</span>}{equipment.weapons.some(weapon => weapon.accessories?.offsetDot) && <span><kbd>X</kbd> Offset dot</span>}<span><kbd>N</kbd> Interact nearby</span><span><kbd>T</kbd> Travel</span><span><kbd>F</kbd> Fullscreen</span></FpsControlGuide>
         {debug && <small className="fps-touch-note">{touch ? 'Thumb controls appear once you enter the district. ' : ''}Field equipment lasts for this expedition. Your permanent Armory stays saved.</small>}
       </div></div>}
     </div>
@@ -159,7 +165,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
     <div className="fps-loadout" aria-label="Field loadout">{equipment.carriedFamilies.map((index, slot) => { const item = equipment.weapons[index]; return <button key={index} disabled={!canFight} aria-pressed={index === hud.weapon} onClick={() => engine.current?.switchWeapon(index)}><kbd>{slot + 1}</kbd><span>{item.name}<small>{item.role}</small></span><span className="fps-selected">{index === hud.weapon ? 'EQUIPPED' : 'EQUIP'}</span></button>; })}</div>
     <div className="fps-inputs" aria-label="Expedition touch controls">
       <div className="fps-dpad">{(['a', 'w', 's', 'd'] as const).map((key, index) => { const Icon = [ArrowLeft, ArrowUp, ArrowDown, ArrowRight][index]; return <button key={key} disabled={!canFight} aria-label={`Expedition ${['left', 'forward', 'backward', 'right'][index]}`} {...hold(key)}><Icon size={18} /></button>; })}</div>
-      <button disabled={!canFight} {...hold('shift')}>Sprint</button><button disabled={!canFight} onClick={() => engine.current?.jump()}>Jump</button><button disabled={!canFight} onClick={() => engine.current?.reload()}>Reload</button><button disabled={!canFight} title="Toggle aim (Q)" aria-pressed={hud.aiming} onClick={() => engine.current?.toggleAim()}>Aim</button><button disabled={!canFight || !hud.lootPrompt} onClick={() => engine.current?.interactLoot()}>Pick up · E</button><button disabled={!canFight || !hud.npcPrompt} onClick={() => engine.current?.interactNpc()}>Interact · N</button><button disabled={!canFight || !hud.travelPrompt} onClick={() => engine.current?.travelZone()}>Travel · T</button><button className="fps-fire-button" disabled={!canFight} {...hold('fire')}>Fire</button>
+      <button disabled={!canFight} {...hold('shift')}>Sprint</button><button disabled={!canFight} {...(mounted ? hold(' ') : { onClick: () => engine.current?.jump() })}>{mounted ? hud.vehicle === 'car' ? 'Brake' : 'Climb' : 'Jump'}</button>{mounted && hud.vehicle === 'helicopter' && <button disabled={!canFight} {...hold('c')}>Descend</button>}<button disabled={!canFight || !hud.interact} onClick={() => engine.current?.interactVehicle()}>{mounted ? 'Exit vehicle' : 'Board vehicle'}</button>{mounted && <button disabled={!canFight} onClick={() => engine.current?.switchVehicleSeat()}>Switch seat</button>}<button disabled={!canFight} onClick={() => engine.current?.reload()}>Reload</button><button disabled={!canFight} title="Toggle aim (Q)" aria-pressed={hud.aiming} onClick={() => engine.current?.toggleAim()}>Aim</button><button disabled={!canFight || !hud.lootPrompt} onClick={() => engine.current?.interactLoot()}>Pick up · E</button><button disabled={!canFight || !hud.npcPrompt} onClick={() => engine.current?.interactNpc()}>Interact · N</button><button disabled={!canFight || !hud.travelPrompt} onClick={() => engine.current?.travelZone()}>Travel · T</button><button className="fps-fire-button" disabled={!canFight || mounted && (!hud.vehicleCanFire || hud.vehicleAmmo === 0)} {...hold('fire')}>Fire</button>
     </div>
     <div className="expedition-intel">
       <section><h3>District network</h3><div className="expedition-network">{WORLD_ZONES.map(item => <div key={item.id} className={item.id === scene.zone ? 'current' : ''}><strong>{item.name}</strong><span className={`risk-${item.risk}`}>{item.risk} threat · Tier {item.lootTier}</span>{item.id === scene.zone && <small>YOU ARE HERE</small>}</div>)}</div><p>Queenstown ↔ Raffles Place ↔ Marina Bay</p><p>Raffles is the contested CBD: stronger patrols, better odds of elite weapons.</p></section>

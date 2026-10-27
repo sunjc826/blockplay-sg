@@ -113,7 +113,8 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
       if (hud.lootPrompt) prompts.push(act('loot', promptLabel(hud.lootPrompt), <PackageOpen size={16} />, { onClick: () => engine?.interactLoot() }));
       if (hud.npcPrompt) prompts.push(act('npc', promptLabel(hud.npcPrompt), <MessageCircle size={16} />, { onClick: () => engine?.interactNpc() }));
       if (hud.travelPrompt) prompts.push(act('travel', promptLabel(hud.travelPrompt), <Move3d size={16} />, { onClick: () => engine?.travelZone() }));
-    } else if (hud.interact) {
+    }
+    if (hud.interact) {
       prompts.push(act('vehicle', promptLabel(hud.interact), <Move3d size={16} />, { onClick: () => engine?.interactVehicle() }));
     }
   }
