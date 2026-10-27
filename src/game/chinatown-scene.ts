@@ -125,7 +125,8 @@ export function buildChinatownScene() {
     for (const dx of [-22, -11, 0, 11, 22]) { cylinder(x + dx, 4, z + 21.6, 0.85, 8, lacquer); solid(x + dx, z + 21.6, 1.8, 1.8); }
     box(x, 8.4, z + 21.8, 54, 0.6, 5, gold);
     for (let tier = 0; tier < 4; tier++) {
-      const span = 58 - tier * 2, y = 9 + tier * 7;
+      // Spans miss the hall's 54 m by 0.4 m, so no eave or roof end lies flush with its lit end walls.
+      const span = 58.4 - tier * 2, y = 9 + tier * 7;
       for (const side of [-1, 1]) {
         const roof = box(x, y, z + side * (span / 4.2), span, 0.7, span / 2, tileDark, scene, true);
         roof.rotation.x = side * 0.34;

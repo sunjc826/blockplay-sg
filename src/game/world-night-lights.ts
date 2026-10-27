@@ -150,6 +150,14 @@ export function buildingSized(box: THREE.Box3) {
   return h >= 7 && Math.min(w, d) >= 4.5 && Math.max(w, d) <= 260 && box.max.y >= 7;
 }
 const WINDOW_SHAPES = new Set(['BoxGeometry', 'ExtrudeGeometry', 'CylinderGeometry']);
+const uprightAxis = new THREE.Vector3();
+/**
+ * Square to the ground, with one of its own axes plumb: a pitched roof slab is
+ * tall enough to pass for a building, but its ends are no facades.
+ */
+export function upright(matrix: THREE.Matrix4) {
+  return [0, 1, 2].some(column => Math.abs(uprightAxis.setFromMatrixColumn(matrix, column).normalize().y) > .995);
+}
 /** Groups whose contents are terrain or decks, never facades. */
 const NO_WINDOWS = new Set(['Connected elevated places', 'Walkable elevated routes']);
 
@@ -284,7 +292,7 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
       compile.call(this, shader, renderer);
       Object.assign(shader.uniforms, uniforms);
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', `#include <common>\nvarying vec3 vNightWorld, vNightNormal;${windows ? '\nattribute vec3 nightSpan;\nvarying vec3 vNightSpan;' : ''}`)
+        .replace('#include <common>', `#include <common>\nvarying vec3 vNightWorld, vNightNormal;${windows ? '\nattribute vec2 nightSpan;\nvarying vec2 vNightSpan;' : ''}`)
         .replace('#include <project_vertex>', `#include <project_vertex>
           vec4 nightWorld = vec4(transformed, 1.0); vec3 nightNormal = objectNormal;
           #ifdef USE_INSTANCING
@@ -294,7 +302,7 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>
           uniform float nightLevel, nightPool, nightWindowShare; uniform sampler2D nightMap; uniform vec4 nightBounds; uniform vec3 nightLampColor;
-          varying vec3 vNightWorld, vNightNormal;${windows ? '\nvarying vec3 vNightSpan;' : ''}`)
+          varying vec3 vNightWorld, vNightNormal;${windows ? '\nvarying vec2 vNightSpan;' : ''}`)
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
           if (nightLevel > .001) {
             vec3 nightN = normalize(vNightNormal);
@@ -309,13 +317,18 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
             ${windows ? `
             float wall = 1.0 - smoothstep(.12, .3, abs(nightN.y));
             if (wall > 0.0 && vNightWorld.y > vNightSpan.x && vNightWorld.y < vNightSpan.y) {
+              // The grid and which panes are lit follow the wall's plane in the world, not the mesh:
+              // two buildings that share a wall plane light the same panes, so their overlap cannot flicker.
               vec2 along = normalize(vec2(-nightN.z, nightN.x) + 1e-5);
-              vec2 cell = vec2(dot(vNightWorld.xz, along) / 3.1, (vNightWorld.y - vNightSpan.x) / 3.3);
+              float plane = mod(floor(dot(vNightWorld.xz, normalize(nightN.xz + 1e-5)) + .37), 97.0);
+              vec2 cell = vec2(dot(vNightWorld.xz, along) / 3.1, vNightWorld.y / 3.3);
               vec2 id = floor(cell), f = fract(cell), aa = max(fwidth(cell), vec2(1e-4));
+              // Whole storeys only, so the ground floor and parapet cut no pane in half.
+              float storey = step(vNightSpan.x, id.y * 3.3) * step((id.y + 1.0) * 3.3, vNightSpan.y);
               vec2 pane2 = clamp((vec2(.28, .24) - abs(f - .5)) / aa, 0.0, 1.0);
-              float facade = floor(nightN.x * 2.0 + .5) * 7.0 + floor(nightN.z * 2.0 + .5) * 13.0 + vNightSpan.z;
+              float facade = floor(nightN.x * 2.0 + .5) * 7.0 + floor(nightN.z * 2.0 + .5) * 13.0 + plane;
               float h = fract(sin(dot(id + facade, vec2(12.9898, 78.233))) * 43758.5453);
-              float lit = step(1.0 - nightWindowShare * (.6 + .8 * fract(vNightSpan.z * .37)), h);
+              float lit = storey * step(1.0 - nightWindowShare * (.6 + .8 * fract(plane * .37)), h);
               // Far off, a grid finer than a pixel settles to its average instead of shimmering.
               float pane = mix(pane2.x * pane2.y, .56 * .48, smoothstep(.35, .9, max(aa.x, aa.y)));
               vec3 tint = mix(vec3(1.0, .74, .45), vec3(.82, .9, 1.0), step(.72, fract(h * 7.13)));
@@ -343,22 +356,22 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
     if (!geometry.boundingBox) geometry.computeBoundingBox();
     geometryBox.copy(geometry.boundingBox!);
     const instances = mesh instanceof THREE.InstancedMesh ? mesh.count : 1;
-    const span = new Float32Array(instances * 3);
+    const span = new Float32Array(instances * 2);
     let any = false;
     for (let i = 0; i < instances; i++) {
-      box.copy(geometryBox);
-      if (mesh instanceof THREE.InstancedMesh) { mesh.getMatrixAt(i, instance); box.applyMatrix4(instance.premultiply(mesh.matrixWorld)); }
-      else box.applyMatrix4(mesh.matrixWorld);
+      if (mesh instanceof THREE.InstancedMesh) { mesh.getMatrixAt(i, instance); instance.premultiply(mesh.matrixWorld); }
+      else instance.copy(mesh.matrixWorld);
+      box.copy(geometryBox).applyMatrix4(instance);
       // A round tower only when it is a tower, not a tank.
       const round = geometry.type === 'CylinderGeometry' && (box.max.y - box.min.y) < 1.4 * (box.max.x - box.min.x);
-      const ok = !round && buildingSized(box);
-      span.set(ok ? [box.min.y + 2.6, box.max.y - 1.1, Math.abs(Math.round(box.min.x * 3.1 + box.min.z * 1.7)) % 97] : [1e6, -1e6, 0], i * 3);
+      const ok = !round && upright(instance) && buildingSized(box);
+      span.set(ok ? [box.min.y + 2.6, box.max.y - 1.1] : [1e6, -1e6], i * 2);
       any ||= ok;
     }
     if (!any) return false;
     const view = viewOf(geometry);
-    const attribute = mesh instanceof THREE.InstancedMesh ? new THREE.InstancedBufferAttribute(span, 3)
-      : new THREE.BufferAttribute(new Float32Array(geometry.attributes.position.count * 3).map((_, k) => span[k % 3]), 3);
+    const attribute = mesh instanceof THREE.InstancedMesh ? new THREE.InstancedBufferAttribute(span, 2)
+      : new THREE.BufferAttribute(new Float32Array(geometry.attributes.position.count * 2).map((_, k) => span[k % 2]), 2);
     view.setAttribute('nightSpan', attribute);
     let material = windowed.get(mesh.material);
     if (!material) { material = (mesh.material as Lit).clone(); windowed.set(mesh.material, material); patch(material, true); }

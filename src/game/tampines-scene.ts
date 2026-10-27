@@ -99,7 +99,8 @@ export function buildTampinesScene() {
     for (const dz of [-20, 20]) box(x, 0.75, z + dz, 54, 0.05, 0.35, white);
     for (const side of [-1, 1]) {
       box(x + side * 37, 23, z, 14, 18, 80, pale, scene, true);
-      box(x, 24, z + side * 34, 74, 20, 12, pale, scene, true);
+      // Set 0.2 m back from the wings' ends, not flush with them, so their lit walls do not fight where they meet.
+      box(x, 24, z + side * 33.9, 74, 20, 11.8, pale, scene, true);
       // July 2024 exterior: solid warm patchwork upper block, not a
       // uniformly glazed office facade. Sparse colored slit windows puncture it.
       const warmPanels = [terra, mat('#b87960'), mat('#c29370'), mat('#a76858')];

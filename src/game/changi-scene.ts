@@ -122,7 +122,7 @@ export function buildChangiScene() {
   // under a departure viaduct carried on piers down the access road's median.
   function terminal(x: number, width: number, label: string) {
     box(x, 9, -185, width, 18, 30, pale, scene, true); solid(x, -185, width, 30);
-    for (let dx = -width / 2 + 7; dx < width / 2 - 5; dx += 14) { box(x + dx, 8, -170.4, 10, 12, 0.6, glass); box(x + dx, 15, -170.8, 11, 1.2, 1.6, steel); }
+    for (let dx = -width / 2 + 7; dx < width / 2 - 5; dx += 14) { box(x + dx, 8, -170.4, 10, 12, 0.6, glass); box(x + dx, 15, -170.7, 11, 1.2, 1.6, steel); }
     for (const side of [-1, 1]) { const roof = box(x, 19.4, -185 + side * 8, width + 8, 0.8, 18, steel, scene, true); roof.rotation.x = side * 0.1; }
     box(x, 5.4, -176, width + 4, 0.5, 14, concrete, scene, true);
     sign(label, x, 13.4, -169.8, Math.min(42, width * 0.36), 2.8, '#1f4f5e');

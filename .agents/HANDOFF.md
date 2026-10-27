@@ -3458,3 +3458,26 @@ while looking took it (belt 6 → 1, insert equipped, weapon swapped). Not
 done: the desktop card with its E chip was not screenshotted (headless entry
 needs touch); crate medical amounts per district (`medicalAmount`) no longer
 matter for crates, since the belt applies the catalogue item's effect.
+
+## 2026-10-27: lit windows no longer z-fight
+
+Night windows are drawn in the building's own shader, so wherever two surfaces
+shared a plane over a lit wall, depth could not order them and the panes
+flickered. Three causes, three fixes in `world-night-lights.ts` and the scenes:
+pitched roof slabs (Chinatown's temple, Raffles, Tampines) passed as
+building-sized and got windows on their tipped ends; now only `upright` meshes
+(one axis plumb, so stood-up extrusions still count) get them. The window grid,
+which panes are lit and each wall's occupancy now follow the wall's plane in the
+world rather than the mesh, rows anchored at world height and only whole storeys
+drawn, so two buildings sharing a wall plane light the same panes; `nightSpan`
+is now a vec2. Flush geometry nudged 0.1–0.2 m: Bishan's slab cores, Chinatown's
+temple roof tiers (spans 58.4 - 2·tier, missing the hall's 54 m), Changi's
+terminal visors, Tampines Hub's front and back bars. New test: no lit wall shares
+its plane with another box face over more than 1 m² in any district (fails on
+the old Tampines and Bishan). New fixture `scripts/fixtures/night-district.html
+?region=&cam=&look=` renders any district at night with the game's camera range.
+Validation: tests, typecheck, night screenshots of each fixed spot. Not fixed:
+sub-square-metre slivers where a strip's end meets a lit wall (Punggol, Geylang,
+Toa Payoh), and authored panels 0.1–0.15 m proud of lit walls (Queenstown,
+Geylang, Orchard), which still fight past ~370 m where 24-bit depth at a 0.08 m
+near plane runs out.

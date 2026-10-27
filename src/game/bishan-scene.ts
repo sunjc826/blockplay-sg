@@ -111,7 +111,8 @@ export function buildBishanScene() {
         for (let dx=-len/2+10;dx<len/2-5;dx+=14) box(x+dx,floor+1.2,cz+side*7.57,1.5,2.4,.1,dark);
       }
       box(x, h + 8, cz, len - 2, 1.4, 17, stone);
-      box(x + len / 2 - 6, h / 2 + 8, cz, 8, h + 2, x === -60 ? 14 : 19, concrete, scene, true);
+      // The core stands 0.2 m proud of the slab's end wall: flush, the two lit walls would fight for the same pixels.
+      box(x + len / 2 - 5.8, h / 2 + 8, cz, 8, h + 2, x === -60 ? 14 : 19, concrete, scene, true);
     }
   }
 

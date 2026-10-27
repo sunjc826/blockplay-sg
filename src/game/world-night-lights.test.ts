@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { REGIONS } from './regions';
 import { dayLighting, TIMES_OF_DAY } from './world-lighting';
-import { bakeLampMap, buildingSized, createNightLights, LAMP_HEIGHT, LAMP_REACH, LAMP_SPACING, nightLevel, PATH_LAMP, placePathLamps, placeStreetLamps } from './world-night-lights';
+import { bakeLampMap, buildingSized, createNightLights, LAMP_HEIGHT, LAMP_REACH, LAMP_SPACING, nightLevel, PATH_LAMP, placePathLamps, placeStreetLamps, upright } from './world-night-lights';
 
 describe('night level', () => {
   it('is off by day, part-lit at dusk and full at night', () => {
@@ -73,4 +73,70 @@ describe('street lamps', () => {
     expect(buildingSized(new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(.6, 9, .6)))).toBe(false);
     expect(buildingSized(new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(60, .3, 3)))).toBe(false);
   });
+  it('put windows on standing walls, not pitched roofs', () => {
+    const at = (rotation: THREE.Euler) => new THREE.Matrix4().compose(new THREE.Vector3(5, 9, 2), new THREE.Quaternion().setFromEuler(rotation), new THREE.Vector3(30, .7, 14));
+    expect(upright(at(new THREE.Euler(0, .8, 0)))).toBe(true);
+    // An extruded footprint is drawn flat and stood up a quarter turn.
+    expect(upright(at(new THREE.Euler(-Math.PI / 2, 0, 0)))).toBe(true);
+    expect(upright(at(new THREE.Euler(.34, 0, 0)))).toBe(false);
+  });
+  it('leave no lit wall flush with another surface, where the two would fight for the same pixels', () => {
+    for (const region of REGIONS) {
+      const world = region.build();
+      const night = createNightLights(world.scene, { roads: region.mapRoads, roadWidth: region.roadWidth, bounds: region.bounds, obstacles: world.obstacles });
+      const fights = flushWithLitWalls(world.scene);
+      expect(fights, region.id).toEqual([]);
+      night.dispose(); world.dispose();
+    }
+  });
 });
+
+interface WallFace { owner: number; normal: THREE.Vector3; offset: number; along: [number, number]; up: [number, number]; lit: boolean }
+
+/**
+ * Where a lit wall of a box shares its plane with another box's wall over more
+ * than a square metre: depth cannot order the two, so the windows flicker.
+ */
+function flushWithLitWalls(scene: THREE.Scene) {
+  scene.updateMatrixWorld(true);
+  const faces: WallFace[] = [], matrix = new THREE.Matrix4(), corner = new THREE.Vector3();
+  let owner = 0;
+  scene.traverse(object => {
+    if (!(object instanceof THREE.Mesh) || object.userData.fpsEffect || Array.isArray(object.material) || object.material.transparent) return;
+    const span = object.geometry.getAttribute('nightSpan') as THREE.BufferAttribute | undefined;
+    if (object.geometry.type !== 'BoxGeometry' && !(span && object.geometry.attributes.position.count === 24)) return;
+    if (!object.geometry.boundingBox) object.geometry.computeBoundingBox();
+    const box = object.geometry.boundingBox!;
+    for (let i = 0; i < (object instanceof THREE.InstancedMesh ? object.count : 1); i++, owner++) {
+      if (object instanceof THREE.InstancedMesh) { object.getMatrixAt(i, matrix); matrix.premultiply(object.matrixWorld); } else matrix.copy(object.matrixWorld);
+      const low = span?.getX(object instanceof THREE.InstancedMesh ? i : 0) ?? 1, high = span?.getY(object instanceof THREE.InstancedMesh ? i : 0) ?? 0;
+      for (const axis of [0, 1, 2] as const) for (const side of [-1, 1]) {
+        const normal = new THREE.Vector3().setFromMatrixColumn(matrix, axis).multiplyScalar(side).normalize();
+        if (Math.abs(normal.y) > .01) continue;
+        const along = new THREE.Vector2(-normal.z, normal.x);
+        const corners = [0, 1, 2, 3].map(k => {
+          const local = [0, 0, 0]; local[axis] = side; local[(axis + 1) % 3] = k & 1 ? 1 : -1; local[(axis + 2) % 3] = k & 2 ? 1 : -1;
+          corner.set(...local.map((v, j) => v > 0 ? box.max.getComponent(j) : box.min.getComponent(j)) as [number, number, number]).applyMatrix4(matrix);
+          return [corner.x * along.x + corner.z * along.y, corner.y, corner.x * normal.x + corner.z * normal.z];
+        });
+        const us = corners.map(c => c[0]), vs = corners.map(c => c[1]), lit = low < high;
+        faces.push({ owner, normal, offset: corners[0][2], along: [Math.min(...us), Math.max(...us)],
+          up: lit ? [Math.max(low, Math.min(...vs)), Math.min(high, Math.max(...vs))] : [Math.min(...vs), Math.max(...vs)], lit });
+      }
+    }
+  });
+  const key = (face: WallFace, shift = 0) => `${Math.round(face.normal.x * 50)},${Math.round(face.normal.z * 50)},${Math.round(face.offset * 10) + shift}`;
+  const planes = new Map<string, WallFace[]>();
+  for (const face of faces) planes.set(key(face), [...planes.get(key(face)) ?? [], face]);
+  const fights: string[] = [];
+  for (const face of faces) {
+    if (!face.lit || face.up[0] >= face.up[1]) continue;
+    for (const shift of [-1, 0, 1]) for (const other of planes.get(key(face, shift)) ?? []) {
+      if (other.owner === face.owner || other.normal.dot(face.normal) < .999 || Math.abs(other.offset - face.offset) > 1e-3) continue;
+      const wide = Math.min(face.along[1], other.along[1]) - Math.max(face.along[0], other.along[0]);
+      const tall = Math.min(face.up[1], other.up[1]) - Math.max(face.up[0], other.up[0]);
+      if (wide > 0 && tall > 0 && wide * tall > 1) fights.push(`${(face.along[0] + face.along[1]) / 2 | 0} along, ${face.up[0] | 0}-${face.up[1] | 0} m up, facing ${face.normal.x.toFixed(1)},${face.normal.z.toFixed(1)}`);
+    }
+  }
+  return fights;
+}

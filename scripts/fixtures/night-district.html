@@ -1,0 +1,30 @@
+<!doctype html>
+<!-- Any district at night, still, for judging lit windows and lamp pools by eye.
+     ?region=bishan  &cam=x,y,z  &look=x,y,z  &fov=65. window.night.at(cam, look) re-renders without reloading. -->
+<html><body style="margin:0;background:#000"><script type="module">
+localStorage.setItem('blockplay-sg-environment-v1', JSON.stringify({weather:'sunny',celebration:'none',timeOfDay:'night',reducedEffects:false,shadows:false,occlusion:true}));
+const {getRegion}=await import('/src/game/regions.ts');
+// The same copy of three the game's modules were given, so their instanceof checks hold.
+const THREE=await import(performance.getEntriesByType('resource').map(e=>e.name).find(n=>/deps\/three\.js/.test(n)));
+const {separateInstancedMaterials}=await import('/src/game/instanced-materials.ts');
+const {createWorldAtmosphere}=await import('/src/game/world-atmosphere.ts');
+const {createNightLights}=await import('/src/game/world-night-lights.ts');
+const {createWorldOcclusion}=await import('/src/game/world-occlusion.ts');
+const params=new URLSearchParams(location.search),vec=(s,d)=>s?s.split(',').map(Number):d;
+const W=innerWidth,H=innerHeight;
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(W,H);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.autoClear=false;document.body.append(renderer.domElement);
+const region=getRegion(params.get('region')??'bishan'),world=region.build();separateInstancedMaterials(world.scene);
+const atmosphere=createWorldAtmosphere(world.scene,region.stamps,world.obstacles,false,renderer);
+const nightLights=createNightLights(world.scene,{roads:region.mapRoads,roadWidth:region.roadWidth,bounds:region.bounds,obstacles:world.obstacles});
+// The game's own camera range, so depth precision matches play.
+const camera=new THREE.PerspectiveCamera(Number(params.get('fov')??65),W/H,.08,800);
+const occlusion=createWorldOcclusion(renderer,world.scene,camera);
+function at(cam=[0,2,0],look=[0,10,-100]){
+  camera.position.set(...cam);camera.lookAt(...look);camera.updateMatrixWorld(true);
+  atmosphere.update(1/30,camera);nightLights.update(atmosphere.light.lighting,0,1/30,camera,renderer);
+  renderer.toneMappingExposure=atmosphere.light.lighting.exposure;
+  world.animate(0);occlusion.render(true);
+}
+at(vec(params.get('cam')),vec(params.get('look')));
+window.night={world,camera,renderer,at,ready:true};
+</script></body></html>
