@@ -133,8 +133,8 @@ XP like any other: it advances rank titles and persists in the same profile.
 | SAR Garang | 50 | 36 | .105 s | 1.53 s | .0101 |
 | SAR Own Time, Own Target | 58 | 36 | .100 s | 1.50 s | .0082 |
 | SAR Sharpshooter (semi) | 66 | 30 | .220 s | 1.80 s | .014 |
-| SAR Night Owl | 66 | 36 | .094 s | 1.80 s | .0079 |
-| SAR Two Eyes Open | 72 | 36 | .088 s | 1.80 s | .0076 |
+| SAR Night Owl | 58 | 36 | .094 s | 1.80 s | .0079 |
+| SAR Two Eyes Open | 60 | 36 | .088 s | 1.80 s | .0076 |
 | Ultimax issued | 30 | 60 | .085 s | 2.50 s | .026 |
 | Ultimax Route March | 34 | 50 | .080 s | 2.10 s | .022 |
 | Ultimax Encik’s Favourite | 40 | 75 | .075 s | 2.10 s | .0148 |
@@ -322,10 +322,10 @@ each one changes something in play besides a figure in the dossier:
 | P30 · Lights Out | Ultra | 8 · 400 TK | Match barrel and trigger, slide-cut red dot, suppressor | 36 · 15 · .20 s semi |
 | P30 · Kiasu Hunter | Ultra | 18 · 450 TK | Long hunting barrel, 2.5× pistol scope, 2.4× precision | 58 · 15 · .34 s semi |
 | Ultimax · Lights Up | Ultra | 9 · 420 TK | Heavy barrel, tuned gas, 75-round drum, holographic sight, weapon light, compensator | 54 · 75 · .068 s |
-| SAR 21 · Night Owl | Legendary | 12 · 540 TK | Threaded heavy barrel, match carrier, holographic sight, suppressor, laser in the handguard | 66 · 36 · .094 s |
+| SAR 21 · Night Owl | Legendary | 12 · 540 TK | Threaded match barrel, match carrier, holographic sight, suppressor, laser in the handguard | 58 · 36 · .094 s |
 | P30 · Chiong Ah | Legendary | 14 · 520 TK | Selective-fire sear, 33-round stick, compensator, folding brace | 36 · 33 · .07 s **auto** |
 | P30 · Atas Race Gun | Mythic | 20 · 680 TK | Long slide, race trigger, 20-round magazine, slide-cut red dot, compensator | 60 · 20 · .13 s semi |
-| SAR 21 · Two Eyes Open | Mythic | 22 · 720 TK | Chrome-lined match barrel, competition carrier, 4× prism with offset dot, compensator | 72 · 36 · .088 s |
+| SAR 21 · Two Eyes Open | Mythic | 22 · 720 TK | Chrome-lined match barrel, competition carrier, 4× prism with offset dot, compensator | 60 · 36 · .088 s |
 
 **Tiers above Elite.** Rarity runs Issued, Field, Elite, then **Ultra**,
 **Legendary** and **Mythic** (`ITEM_TIERS`, `tierRank`). The first three are the
@@ -748,8 +748,16 @@ lower tier further up can be its equal. The P30 shows it: Lights Out (Ultra,
 level 8) and Bo Bo CANNOT (Elite, level 16) are near equals, while the Kiasu
 Hunter (Ultra, level 18) has to beat both. A sidegrade (`specialist`) trades one
 strength for another inside its own tier, so it is not ranked against that
-tier, but lower tiers below its level must lose to it and higher tiers from its
-level up must beat it. The shop shelves by level with tier as the tiebreak
+tier, but lower tiers below its level must lose to it everywhere, and higher
+tiers from its level up must beat it at drill range (12–30 m). They are not
+held to its specialty. Held to it at every range, as they first were, each
+higher tier had to carry every sidegrade's strength at once: the SAR 21's
+Night Owl took the semi-auto Sharpshooter's 66 damage held to 150 m at an
+automatic rate, and Two Eyes Open, which had to beat that, reached 72 damage,
+more per round and more reach than any GPMG. They are now 58 (the Own Time,
+Own Target's barrel, threaded for the can) and 60 (full damage to 55 m), and
+`armory-balance.test.ts` keeps the top rifle at or below the Lepak Position's
+damage at every range. The shop shelves by level with tier as the tiebreak
 (`byUnlock`), so reading a platform left to right, each gun beats everything
 before it that it outranks.
 

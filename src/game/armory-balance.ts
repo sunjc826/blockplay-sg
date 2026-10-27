@@ -158,6 +158,11 @@ export function mustOutrank(a: BreakpointRow, b: BreakpointRow) {
  * Every way a gun falls short of one it must outrank: more shots to kill, or a
  * slower kill, to the body or the head, at any sampled range against any of
  * `opponents`; or, with `requireGain`, a kill no faster anywhere at all.
+ *
+ * Against a sidegrade only the drill ranges count. Its specialty is what it
+ * paid for (the Sharpshooter's reach, bought with a semi trigger); held to it
+ * at every range, each higher tier had to carry every sidegrade's strength at
+ * once, and the top of a platform became all of them at automatic rates.
  */
 export function outrankFailures(rows: BreakpointRow[] = analyseBreakpoints(), opponents: readonly Opponent[] = DRILL_OPPONENTS, requireGain = (row: BreakpointRow) => row.family !== 4) {
   const failures: string[] = [];
@@ -165,6 +170,7 @@ export function outrankFailures(rows: BreakpointRow[] = analyseBreakpoints(), op
     if (!mustOutrank(a, b)) continue;
     let gain = false;
     a.ranges.forEach((here, i) => {
+      if (b.specialist && !inDrill(here.range)) return;
       const there = b.ranges[i];
       opponents.forEach((foe, p) => {
         for (const [part, mine, theirs] of [['body', here.stk[p], there.stk[p]], ['head', here.headStk[p], there.headStk[p]]] as const) {

@@ -3380,3 +3380,18 @@ player-callouts, arena-barks), full suite, typecheck; headless phone run
 tapped Knn and got "Keep talking, we'll find you." back from a Black Kite
 operator. Not done: voices; pings have no world/minimap marker; bots do not
 act on orders; no mute or profanity toggle.
+
+## 2026-10-27: higher tiers answer to sidegrades at drill range only
+
+`outrankFailures` now compares a gun with a `specialist` it outranks only at
+drill ranges (12–30 m); lower tiers must still lose to a specialist
+everywhere. Held to every range, the SAR's top tiers had inherited the
+Sharpshooter's reach at automatic rates (Night Owl 66 dmg to 150 m, Two Eyes
+Open 72, more than any GPMG). Retuned: Night Owl 58 dmg, 45/130/.75, 2.2x,
+1130 m/s (the Own Time, Own Target's barrel threaded for the can), still
+.094 s; Two Eyes Open 60 dmg, 55/140/.78, 2.4x, 1160 m/s, still .088 s. New
+balance tests: the rule itself, and the top rifle at or below the Lepak's
+damage at every range. The SAR ladder's impact test now lets an equal-damage
+rung share a crater. Validation: unit tests, typecheck. Not done: the P30's
+Ultra+ (Atas Race Gun 60 dmg) were tuned under the old rule and could come
+down the same way; not felt in play.

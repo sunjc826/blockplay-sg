@@ -28,12 +28,16 @@ it('resolves each real variant from its power, including both variants in the sa
   };
   for (const family of [0, 1]) {
     const weapons = ARMORY_CATALOG.filter(item => item.category === 'weapon' && item.family === family);
-    const profiles = weapons.filter(item => !item.specialist)
-      .sort((a, b) => (a.requiredLevel ?? 1) - (b.requiredLevel ?? 1)).map(item => impactOf(item, family));
+    const ladder = weapons.filter(item => !item.specialist).sort((a, b) => (a.requiredLevel ?? 1) - (b.requiredLevel ?? 1));
+    const profiles = ladder.map(item => impactOf(item, family));
+    const damage = ladder.map(item => resolveLoadout(equip({ ...createProfile(), owned: [...createProfile().owned, item.id] }, item.id, family)).weapons[family].damage);
+    // The crater follows the round, so a rung that buys its gain in cycle or kit
+    // at the same damage (the Night Owl over the Own Time, Own Target) digs the same.
     profiles.slice(1).forEach((profile, i) => {
       expect(profile.holeRadius).toBe(profiles[i].holeRadius);
-      expect(profile.holeDepth).toBeGreaterThan(profiles[i].holeDepth);
-      expect(profile.smokeSize).toBeGreaterThan(profiles[i].smokeSize);
+      const grows = damage[i + 1] > damage[i] ? 'toBeGreaterThan' : 'toBeGreaterThanOrEqual';
+      expect(profile.holeDepth)[grows](profiles[i].holeDepth);
+      expect(profile.smokeSize)[grows](profiles[i].smokeSize);
     });
     // A specialist sits beside the ladder; it still hits harder than issue.
     for (const item of weapons.filter(item => item.specialist)) {

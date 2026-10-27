@@ -5,6 +5,7 @@ import { createProfile, equip, resolveLoadout } from './armory-state';
 
 describe('weapon ladder breakpoints', () => {
   const rows = analyseBreakpoints();
+  const row = (id: string) => rows.find(entry => entry.id === id)!;
   it('measures each paid tier against the one below it on its own platform', () => {
     expect(rows.filter(row => row.previous === null).map(row => row.name)).toEqual(['SAR 21 · BMT', 'Ultimax · Sai Kang', 'P30 · Provost', 'FN MAG · Carry On', 'CIS 50MG · Big Encik']);
     for (const row of rows.filter(r => r.previous)) expect(row.gains).not.toBeNull();
@@ -33,6 +34,20 @@ describe('weapon ladder breakpoints', () => {
     // A sidegrade is not ranked against its own tier, but a higher tier still has to beat it.
     expect(mustOutrank(at('sar-marksman'), at('sar-sharpshooter'))).toBe(false);
     expect(mustOutrank(at('sar-nightowl'), at('sar-sharpshooter'))).toBe(true);
+  });
+  it('holds a higher tier to a sidegrade at drill range only, so the top of a platform does not inherit every specialty', () => {
+    const nightOwl = row('sar-nightowl'), sharpshooter = row('sar-sharpshooter');
+    // Past the drill the Sharpshooter's long barrel still out-hits the Night Owl, and that is allowed.
+    const far = nightOwl.ranges.findIndex(range => range.range === 120);
+    expect(nightOwl.ranges[far].body).toBeLessThan(sharpshooter.ranges[far].body);
+    expect(outrankFailures([nightOwl, sharpshooter])).toEqual([]);
+    // Inside it, the higher tier still has to win.
+    const weaker = { ...nightOwl, interval: .5 };
+    expect(outrankFailures([weaker, sharpshooter]).length).toBeGreaterThan(0);
+  });
+  it('keeps the top rifle below the GPMG per round and in reach', () => {
+    const twoEyes = row('sar-twoeyes'), lepak = row('mag-lepak');
+    twoEyes.ranges.forEach((range, i) => expect(range.body).toBeLessThanOrEqual(lepak.ranges[i].body));
   });
   it('leaves no tier that a player cannot feel without leaving the drill', () => {
     // Most play never leaves 12-30m, so a tier that is identical to the one below
