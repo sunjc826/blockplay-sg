@@ -3,7 +3,7 @@ import { CONSUMABLE_LIMIT, itemById } from './armory-catalog';
 import { variantSpec } from './armory-state';
 import type { FieldLoot } from './expedition-loot';
 import { FPS_WEAPONS } from './fps-rules';
-import { beltRoom, focusLoot, lookLimit, lootCard, lootUnits, LOOT_REACH, type LootCardContext } from './loot-focus';
+import { ammoTarget, beltRoom, focusLoot, lookLimit, lootCard, LOOT_REACH, MAX_RESERVE, type CarriedGun, type LootCardContext } from './loot-focus';
 
 const loot = (id: string, x: number, z: number, patch: Partial<FieldLoot> = {}): FieldLoot =>
   ({ id, zoneId: 'marina-bay', kind: 'medical', catalogId: 'kit-bandage', name: 'Elastic bandage', tier: 'Issued', x, z, amount: 25, ...patch });
@@ -41,9 +41,12 @@ describe('looking at loot', () => {
   });
 });
 
+const gun = (family: number, reserve: number): CarriedGun => ({ family, spec: FPS_WEAPONS[family], reserve });
+
 describe('the loot card', () => {
   const sar = FPS_WEAPONS[0], context = (patch: Partial<LootCardContext> = {}): LootCardContext => ({
     weapons: FPS_WEAPONS, belt: {}, plate: itemById('plate-soft'), replaces: family => family, variantOf: () => 'sar-issued',
+    carried: [gun(0, 120), gun(2, 60)], inHand: 0,
     variantSpec: item => variantSpec(item), ...patch,
   });
   it('compares a found weapon with the one it puts down', () => {
@@ -52,6 +55,13 @@ describe('the loot card', () => {
     expect(card.action).toBe('Swap'); expect(card.detail).toContain(sar.name);
     expect(card.stats.find(stat => stat.label === 'DMG')).toMatchObject({ trend: 'up' });
     expect(card.description).toBe(garang.flavorText);
+  });
+  it('says a found gun brings only its magazine, and keeps a same-calibre reserve', () => {
+    const route = itemById('ult-issued')!, mag = itemById('mag-tumpang')!;
+    const ultimax = lootCard(loot('gun', 0, 0, { kind: 'weapon', catalogId: route.id, name: route.name, amount: 1 }), context({ replaces: () => 0 }));
+    expect(ultimax.type).toContain('5.56 mm'); expect(ultimax.note).toBe('Magazine loaded · keeps your 120 × 5.56 mm');
+    const gpmg = lootCard(loot('gun', 0, 0, { kind: 'weapon', catalogId: mag.id, name: mag.name, amount: 1 }), context({ replaces: () => 0 }));
+    expect(gpmg.note).toBe('Magazine loaded · no 7.62 mm in reserve');
   });
   it('offers the rounds of a weapon already in hand', () => {
     const card = lootCard(loot('gun', 0, 0, { kind: 'weapon', catalogId: 'sar-issued', name: 'SAR 21 · BMT', amount: 1 }), context());
@@ -69,10 +79,20 @@ describe('the loot card', () => {
     expect(lootCard(bandage, context({ belt: { 'kit-bandage': CONSUMABLE_LIMIT } })).blocked).toBe('Bandage slot full');
     expect(lootCard(loot('food', 0, 0, { catalogId: 'food-curry-puff', name: 'Curry puff' }), context()).detail).toBe('To belt slot 4 · Food');
   });
-  it('counts an ammunition crate in pouches', () => {
-    const pouch = itemById('kit-ammo')!, crate = loot('ammo', 0, 0, { kind: 'ammo', catalogId: 'kit-ammo', name: pouch.name, amount: 180 });
-    expect(lootUnits(crate, pouch)).toBe(2); expect(lootUnits({ ...crate, amount: 30 }, pouch)).toBe(1);
-    expect(lootCard(crate, context()).name).toBe(`${pouch.name} ×2`);
-    expect(beltRoom({ 'kit-ammo': CONSUMABLE_LIMIT - 1 }, 'kit-ammo')).toBe(1);
+  it('sends loose rounds to a carried gun of their calibre, and refuses the rest', () => {
+    const rifle = loot('ammo', 0, 0, { kind: 'ammo', catalogId: undefined, name: '5.56 mm rounds', caliberMm: 5.56, amount: 60 });
+    expect(lootCard(rifle, context())).toMatchObject({ type: 'Ammunition', detail: `Into ${FPS_WEAPONS[0].name}`, stats: [{ value: '+60' }, { value: '120 → 180' }] });
+    const link = { ...rifle, name: '7.62 mm link', caliberMm: 7.62 };
+    expect(lootCard(link, context()).blocked).toBe('No 7.62 mm gun carried');
+    expect(lootCard(rifle, context({ carried: [gun(0, MAX_RESERVE)] })).blocked).toBe('Reserve full');
+    expect(lootCard({ ...rifle, caliberMm: 9 }, context()).detail).toBe(`Into ${FPS_WEAPONS[2].name}`);
+  });
+  it('fills the gun in hand first when two carried guns share a calibre', () => {
+    const carried = [gun(0, 50), gun(1, 80), gun(2, 30)];
+    expect(ammoTarget(5.56, carried, 1)?.family).toBe(1);
+    expect(ammoTarget(5.56, carried, 2)?.family).toBe(0);
+    expect(ammoTarget(5.56, [gun(0, MAX_RESERVE), gun(1, 80)], 0)?.family).toBe(1);
+    expect(ammoTarget(12.7, carried, 0)).toBeNull();
+    expect(beltRoom({ 'kit-bandage': CONSUMABLE_LIMIT - 1 }, 'kit-bandage')).toBe(1);
   });
 });

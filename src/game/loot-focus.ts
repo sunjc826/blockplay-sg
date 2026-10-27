@@ -1,7 +1,7 @@
 import { CONSUMABLE_LIMIT, itemById, type ItemTier, type ShopItem } from './armory-catalog';
-import type { FieldLoot } from './expedition-loot';
+import { calibreOf, weaponCalibre, type FieldLoot } from './expedition-loot';
 import { supplyProfile } from './fps-healing';
-import type { WeaponSpec } from './fps-rules';
+import { FPS_WEAPONS, type WeaponSpec } from './fps-rules';
 import { utilityKind, utilitySlot } from './utility-belt';
 
 /**
@@ -72,8 +72,28 @@ export interface LootCard {
   action: string;
   /** What taking it changes: what it replaces, or where on the belt it goes. */
   detail: string;
+  /** A line on what comes with it, under the figures. */
+  note?: string;
   /** Why it cannot be taken just now, if it cannot. */
   blocked?: string;
+}
+/** The most rounds a gun's reserve holds. */
+export const MAX_RESERVE = 999;
+/** A carried gun as loose rounds see it. */
+export interface CarriedGun { family: number; spec: WeaponSpec; reserve: number }
+const fires = (gun: CarriedGun, caliberMm: number | undefined) => caliberMm === undefined || Math.abs(gun.spec.caliberMm - caliberMm) < .01;
+/**
+ * The carried gun loose rounds go into: the one in hand if it fires them,
+ * otherwise the first that does, as long as its reserve has room.
+ */
+export function ammoTarget(caliberMm: number | undefined, carried: readonly CarriedGun[], inHand: number): CarriedGun | null {
+  const fit = carried.filter(gun => fires(gun, caliberMm) && gun.reserve < MAX_RESERVE);
+  return fit.find(gun => gun.family === inHand) ?? fit[0] ?? null;
+}
+/** Why loose rounds cannot be taken, if they cannot. */
+export function ammoBlocked(caliberMm: number | undefined, carried: readonly CarriedGun[], inHand: number) {
+  if (ammoTarget(caliberMm, carried, inHand)) return undefined;
+  return carried.some(gun => fires(gun, caliberMm)) ? 'Reserve full' : `No ${calibreOf(caliberMm)?.mm ?? caliberMm} mm gun carried`;
 }
 export interface LootCardContext {
   /** Each family's figures as carried now. */
@@ -88,13 +108,8 @@ export interface LootCardContext {
   plate?: ShopItem;
   /** Supplies on the belt, by catalogue id. */
   belt: Readonly<Record<string, number>>;
-}
-
-/** How many belt items a field supply stands for: an ammunition crate can hold more than one pouch. */
-export function lootUnits(loot: FieldLoot, item: ShopItem | undefined) {
-  if (loot.kind !== 'ammo') return 1;
-  const pouch = item?.effect?.reserve ?? 0;
-  return pouch > 0 && Number.isFinite(loot.amount) ? Math.max(1, Math.round(loot.amount / pouch)) : 1;
+  /** The guns carried, with their reserves, and the family in hand. */
+  carried: readonly CarriedGun[]; inHand: number;
 }
 
 /** Room left on the belt for one more of `id`. */
@@ -108,16 +123,22 @@ export function lootCard(loot: FieldLoot, context: LootCardContext): LootCard {
   const item = itemById(loot.catalogId ?? '');
   const base = { id: loot.id, name: loot.name, tier: loot.tier, kind: loot.kind, description: item?.flavorText ?? item?.description ?? '' };
   if (loot.kind === 'weapon' && item?.category === 'weapon' && item.family !== undefined) {
-    const next = context.variantSpec(item), family = item.family, held = context.weapons[context.replaces(family)];
-    const sameVariant = context.variantOf(family) === item.id;
+    const next = context.variantSpec(item), family = item.family, putDown = context.replaces(family), held = context.weapons[putDown];
+    const sameVariant = context.variantOf(family) === item.id && context.carried.some(gun => gun.family === family);
+    // A found gun brings its magazine. More rounds are a pickup of their own,
+    // unless it is fed from the reserve already carried for the gun it replaces.
+    const calibre = weaponCalibre(item), kept = context.carried.find(gun => gun.family === putDown);
+    const keeps = kept && calibre && Math.abs(kept.spec.caliberMm - calibre.mm) < .01 ? kept.reserve : 0;
     const stats: LootStat[] = next ? [
       { label: 'DMG', value: `${Math.round(next.damage)}`, trend: held && trend(next.damage, held.damage) },
       { label: 'RPM', value: `${rpm(next)}`, trend: held && trend(rpm(next), rpm(held)) },
       { label: 'MAG', value: `${next.capacity}`, trend: held && trend(next.capacity, held.capacity) },
       { label: 'RELOAD', value: `${next.reload.toFixed(1)}s`, trend: held && trend(next.reload, held.reload, false) },
     ] : [];
-    return { ...base, type: next?.role ?? 'Weapon', stats: sameVariant ? stats.map(({ label, value }) => ({ label, value })) : stats,
-      action: sameVariant ? 'Take ammo' : held ? 'Swap' : 'Pick up', detail: sameVariant ? 'Already in hand · its rounds go to your reserve' : held ? `Puts down ${held.name}` : '' };
+    const type = [next?.role ?? 'Weapon', calibre && `${calibre.mm} mm`].filter(Boolean).join(' · ');
+    if (sameVariant) return { ...base, type, stats: stats.map(({ label, value }) => ({ label, value })), action: 'Take ammo', detail: `+${next?.capacity ?? 0} rounds to your reserve` };
+    return { ...base, type, stats, action: held ? 'Swap' : 'Pick up', detail: held ? `Puts down ${held.name}` : '',
+      note: keeps ? `Magazine loaded · keeps your ${keeps} × ${calibre!.mm} mm` : calibre ? `Magazine loaded · no ${calibre.mm} mm in reserve` : 'Magazine loaded' };
   }
   if (loot.kind === 'armor' && item?.category === 'plate') {
     const worn = context.plate, same = worn?.id === item.id, protection = item.protection ?? 0, wornProtection = worn?.protection ?? 0;
@@ -129,8 +150,15 @@ export function lootCard(loot: FieldLoot, context: LootCardContext): LootCard {
       ],
       detail: same ? 'Same as worn · restores your armor' : wornProtection > 0 && worn ? `Replaces ${worn.name}` : 'Fits the empty vest' };
   }
+  if (loot.kind === 'ammo') {
+    const calibre = calibreOf(loot.caliberMm), gun = ammoTarget(loot.caliberMm, context.carried, context.inHand);
+    const guns = [...new Set(FPS_WEAPONS.filter(spec => calibre && Math.abs(spec.caliberMm - calibre.mm) < .01).map(spec => spec.name))];
+    return { ...base, type: 'Ammunition', description: guns.length ? `Loose rounds for the ${guns.join(', ')}.` : base.description, action: 'Pick up',
+      stats: [{ label: 'ROUNDS', value: `+${loot.amount}` }, ...(gun ? [{ label: 'RESERVE', value: `${gun.reserve} → ${Math.min(MAX_RESERVE, gun.reserve + loot.amount)}`, trend: 'up' as const }] : [])],
+      detail: gun ? `Into ${gun.spec.name}` : '', ...(gun ? {} : { blocked: ammoBlocked(loot.caliberMm, context.carried, context.inHand) }) };
+  }
   // Everything else is a supply, and it goes on the belt to be used later.
-  const kind = utilityKind(item), slot = kind ? utilitySlot(kind) : undefined, units = lootUnits(loot, item);
+  const kind = utilityKind(item), slot = kind ? utilitySlot(kind) : undefined;
   const held = item ? context.belt[item.id] ?? 0 : 0, room = item ? beltRoom(context.belt, item.id) : 0;
   const { health = 0, armor = 0, reserve = 0 } = item?.effect ?? {};
   const stats: LootStat[] = [
@@ -139,8 +167,8 @@ export function lootCard(loot: FieldLoot, context: LootCardContext): LootCard {
     ...(item?.category === 'consumable' ? [{ label: 'USE', value: `${supplyProfile(item).seconds.toFixed(1)}s` }] : []),
     { label: 'CARRIED', value: `${held}/${CONSUMABLE_LIMIT}` },
   ];
-  const type = item?.supplyType === 'food' ? 'Food' : loot.kind === 'ammo' ? 'Ammunition' : 'Medical';
-  return { ...base, name: units > 1 ? `${loot.name} ×${units}` : loot.name, type, stats, action: 'Pick up',
+  const type = item?.supplyType === 'food' ? 'Food' : 'Medical';
+  return { ...base, type, stats, action: 'Pick up',
     detail: slot ? `To belt slot ${slot.key} · ${slot.label}` : 'To your belt',
     ...(item && slot && !room ? { blocked: `${slot.label} slot full` } : {}) };
 }

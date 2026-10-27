@@ -81,6 +81,19 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
       drops.set(item.id, { group, resources: owned }); spot(item);
       return;
     }
+    if (item.kind === 'ammo') {
+      // Rounds: an olive ammunition can, a belt box for linked calibres, with a brass band.
+      const linked = (item.caliberMm ?? 0) > 7, canGeometry = new THREE.BoxGeometry(linked ? .3 : .26, linked ? .2 : .16, linked ? .16 : .12);
+      const canMaterial = new THREE.MeshStandardMaterial({ color: '#4b5232', roughness: .75 }), bandGeometry = new THREE.BoxGeometry(linked ? .31 : .27, .025, linked ? .165 : .125);
+      const bandMaterial = new THREE.MeshStandardMaterial({ color: '#b8964a', roughness: .45, metalness: .5 });
+      owned.push(canGeometry, canMaterial, bandGeometry, bandMaterial);
+      const can = new THREE.Mesh(canGeometry, canMaterial); can.position.y = linked ? .1 : .08; group.add(can);
+      const band = new THREE.Mesh(bandGeometry, bandMaterial); band.position.y = linked ? .17 : .13; group.add(band);
+      group.rotation.y = (hashString(item.id) % 628) / 100;
+      group.traverse(node => { node.userData.fpsEffect = true; });
+      drops.set(item.id, { group, resources: owned }); spot(item);
+      return;
+    }
     const caseGeometry = new THREE.BoxGeometry(.55, .28, .38), caseMaterial = new THREE.MeshStandardMaterial({ color: item.kind === 'medical' ? '#c9d1c4' : '#3f4a37', roughness: .8 });
     const lidGeometry = new THREE.BoxGeometry(.56, .05, .39), lidMaterial = new THREE.MeshStandardMaterial({ color: item.kind === 'medical' ? '#c43a32' : color, roughness: .7 });
     owned.push(caseGeometry, caseMaterial, lidGeometry, lidMaterial);
@@ -89,8 +102,8 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
     group.traverse(node => { node.userData.fpsEffect = true; });
     drops.set(item.id, { group, resources: owned }); spot(item);
   }
-  for (const item of loot.filter(entry => entry.dropped)) addDrop(item);
-  for (const item of loot.filter(entry => !entry.dropped)) {
+  for (const item of loot.filter(entry => entry.dropped || entry.beside)) addDrop(item);
+  for (const item of loot.filter(entry => !entry.dropped && !entry.beside)) {
     const group = new THREE.Group(); group.position.set(item.x, (item.y ?? 0) + .13, item.z); root.add(group); pickups.set(item.id,group);
     const color = tierColor(item.tier);
     mesh(group,new THREE.BoxGeometry(.9,.45,.55),'#35483d',0,.25,0);

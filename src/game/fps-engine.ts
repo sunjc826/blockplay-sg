@@ -85,7 +85,7 @@ import { createHitDirectionOverlay, createHitDirections, hitStrength } from './f
 import { advanceSupplyUse, startSupplyUse, supplyProfile, supplyProgress, SUPPLY_MOVE_SCALE, type SupplyProfile, type SupplyStyle, type SupplyUse } from './fps-healing';
 import { createSupplyViewmodel } from './fps-supply-viewmodel';
 import { heldSupplies, pickUtility, utilityBelt, utilityKind, utilitySlot, UTILITY_SLOTS, type UtilityKind, type UtilitySlotView } from './utility-belt';
-import { beltRoom, focusLoot, lootCard, lootUnits, type LootCard } from './loot-focus';
+import { ammoBlocked, ammoTarget, beltRoom, focusLoot, lootCard, MAX_RESERVE, withinReach, type CarriedGun, type LootCard } from './loot-focus';
 import { createSunShadows } from './fps-sun-shadows';
 import { createWorldOcclusion } from './world-occlusion';
 import { createVisionSystem } from './fps-vision';
@@ -660,7 +660,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const gateway = alive && vertical <= .35 ? findWorldGateway(expedition.zone, position) : null;
     focusedLoot = alive && !vehicles.active ? focusLoot(hud.fieldLoot, { ...position, y: vertical }, camera.position, camera.getWorldDirection(lookDirection)) : null;
     // The pilot does not look where it walks, so it takes whatever is in reach.
-    reachableLoot = alive && pilotEnabled ? expedition.loot.nearest(expedition.zone, { ...position, y: vertical }) : null;
+    reachableLoot = alive && pilotEnabled ? hud.fieldLoot.filter(item => withinReach(item, { ...position, y: vertical }) && canTake(item))
+      .sort((a, b) => Math.hypot(a.x - position.x, a.z - position.z) - Math.hypot(b.x - position.x, b.z - position.z))[0] ?? null : null;
     hud.lootCard = focusedLoot ? cardFor(focusedLoot) : null;
     hud.lootPrompt = hud.lootCard ? `E · ${hud.lootCard.action} ${hud.lootCard.tier} ${hud.lootCard.name}${hud.lootCard.blocked ? ` · ${hud.lootCard.blocked}` : ''}` : '';
     markers?.focus(focusedLoot?.id ?? null);
@@ -672,18 +673,26 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         ? `${npcInteractionPrompt(npc)}.` : `${npc.role}. Come closer if you want to talk.`);
     }
   }
+  /** The guns carried, with their reserves, as loose rounds see them. */
+  const carriedGuns = (): CarriedGun[] => equipment.carriedFamilies.map(family => ({ family, spec: specs[family], reserve: loadout[family].reserve }));
+  /** The family a found gun of `family` puts down: the same reading `pickupSlot` gives the pickup, the slot it fills and what is in it now. */
+  function putDownFor(family: number) {
+    const slot = pickupSlot(fieldProfile, family, hud.weapon), carry = restoreCarrySlots(fieldProfile.carry, fieldProfile.owned);
+    return slot === 'sidearm' ? family : slot === 'extra' ? carry.extra ?? family : carry.main;
+  }
+  /** Whether E would take an item now: rounds need a gun that fires them, supplies room on the belt. */
+  function canTake(loot: FieldLoot) {
+    if (loot.kind === 'ammo') return !!ammoTarget(loot.caliberMm, carriedGuns(), hud.weapon);
+    return loot.kind !== 'medical' || beltRoom(supplies, loot.catalogId ?? '') > 0;
+  }
   /** The card over a looked-at item, rebuilt only when the item or what it is weighed against changes. */
   function cardFor(loot: FieldLoot) {
-    const key = `${loot.id}|${hud.weapon}|${supplies[loot.catalogId ?? ''] ?? 0}|${fieldProfile.plate}|${fieldProfile.guns.map(gun => gun.variant).join()}|${fieldProfile.carry?.main}/${fieldProfile.carry?.extra}`;
+    const key = `${loot.id}|${hud.weapon}|${supplies[loot.catalogId ?? ''] ?? 0}|${carriedGuns().map(gun => gun.reserve).join()}|${fieldProfile.plate}|${fieldProfile.guns.map(gun => gun.variant).join()}|${fieldProfile.carry?.main}/${fieldProfile.carry?.extra}`;
     if (key !== cardKey || !lastCard) {
       cardKey = key;
       lastCard = lootCard(loot, {
-        weapons: specs, belt: supplies, plate: itemById(fieldProfile.plate), variantOf: family => fieldProfile.guns[family]?.variant ?? '',
-        // The same reading `pickupSlot` gives the pickup below: the slot it fills, and what is in it now.
-        replaces: family => {
-          const slot = pickupSlot(fieldProfile, family, hud.weapon), carry = restoreCarrySlots(fieldProfile.carry, fieldProfile.owned);
-          return slot === 'sidearm' ? family : slot === 'extra' ? carry.extra ?? family : carry.main;
-        },
+        weapons: specs, belt: supplies, carried: carriedGuns(), inHand: hud.weapon, plate: itemById(fieldProfile.plate), variantOf: family => fieldProfile.guns[family]?.variant ?? '',
+        replaces: putDownFor,
         variantSpec: item => {
           if (item.family === undefined) return null;
           const next = copyProfile(fieldProfile); next.owned = [...new Set([...next.owned, item.id])]; next.guns[item.family].variant = item.id;
@@ -699,16 +708,27 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!target) return;
     const item = target.catalogId ? itemById(target.catalogId) : undefined;
     if ((target.kind === 'weapon' && (!item || item.category !== 'weapon' || !validWeaponIndex(item.family))) || (target.kind === 'armor' && item?.category !== 'plate')) return;
+    // Loose rounds go into the reserve of a carried gun that fires them.
+    if (target.kind === 'ammo') {
+      const gun = ammoTarget(target.caliberMm, carriedGuns(), hud.weapon);
+      if (!gun) { hud.lootNotice = `${ammoBlocked(target.caliberMm, carriedGuns(), hud.weapon)}. ${target.name} stay here.`; lootNoticeTime = 3; publish(); return; }
+      const taken = expedition.loot.collect(expedition.zone, target.id, { ...position, y: vertical }); if (!taken) return;
+      const before = loadout[gun.family].reserve; loadout[gun.family].reserve = Math.min(MAX_RESERVE, before + taken.amount);
+      hud.lootNotice = `+${loadout[gun.family].reserve - before} ${taken.name} · ${specs[gun.family].name}`;
+      comms.add('system', 'Supplies', hud.lootNotice); radioCall('pickup');
+      markers?.remove(taken.id); hud.fieldLoot = expedition.loot.remaining(expedition.zone); lootNoticeTime = 3;
+      updateExpeditionPrompts(); canvas.focus({ preventScroll: true }); publish();
+      return;
+    }
     // Supplies go on the belt, to be used when they are wanted rather than where they lay.
-    if (target.kind === 'medical' || target.kind === 'ammo') {
+    if (target.kind === 'medical') {
       if (item?.category !== 'consumable') return;
       const slot = utilitySlot(utilityKind(item) ?? ''), room = beltRoom(supplies, item.id);
       if (!room) { hud.lootNotice = `${slot?.label ?? 'Belt'} slot is full. ${target.name} stays here.`; lootNoticeTime = 3; publish(); return; }
       const taken = expedition.loot.collect(expedition.zone, target.id, { ...position, y: vertical }); if (!taken) return;
-      const count = Math.min(room, lootUnits(taken, item));
-      supplies[item.id] = (supplies[item.id] ?? 0) + count; looted[item.id] = (looted[item.id] ?? 0) + count;
+      supplies[item.id] = (supplies[item.id] ?? 0) + 1; looted[item.id] = (looted[item.id] ?? 0) + 1;
       if (slot && !pickUtility(beltSelected, supplies)) beltSelected = slot.kind;
-      hud.lootNotice = `+${count} ${item.name} · belt ${slot?.key ?? ''} ${slot?.label ?? ''} (${supplies[item.id]})`;
+      hud.lootNotice = `+1 ${item.name} · belt ${slot?.key ?? ''} ${slot?.label ?? ''} (${supplies[item.id]})`;
       comms.add('system', 'Supplies', hud.lootNotice); radioCall('pickup');
       markers?.remove(taken.id); hud.fieldLoot = expedition.loot.remaining(expedition.zone); lootNoticeTime = 3;
       updateExpeditionPrompts(); canvas.focus({ preventScroll: true }); publish();
@@ -716,17 +736,25 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     const collected = expedition.loot.collect(expedition.zone, target.id, { ...position, y: vertical }); if (!collected) return;
     if (collected.kind === 'weapon' && item && validWeaponIndex(item.family)) {
-      const family = item.family, changed = fieldProfile.guns[family].variant !== item.id;
+      const family = item.family, changed = fieldProfile.guns[family].variant !== item.id, wasCarried = equipment.carriedFamilies.includes(family);
+      const putDown = putDownFor(family), sameCalibre = specs[putDown]?.caliberMm === FPS_WEAPONS[family].caliberMm;
       const next = copyProfile(fieldProfile); next.owned = [...new Set([...next.owned, item.id])]; next.guns[family].variant = item.id;
       const slot = pickupSlot(next, family, hud.weapon);
       if (slot !== 'sidearm') next.carry = { ...next.carry, [slot]: family };
       fieldProfile = next; equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
-      if (changed) loadout[family] = createLoadout(specs)[family];
-      else loadout[family].reserve = Math.min(999, loadout[family].reserve + specs[family].reserve);
+      if (!changed && wasCarried) loadout[family].reserve = Math.min(MAX_RESERVE, loadout[family].reserve + specs[family].capacity);
+      else {
+        // A found gun brings its magazine; its other rounds lie beside it as a
+        // pickup of their own. The reserve for the gun it replaces comes along
+        // when it fires the same calibre.
+        const reserve = putDown === family ? loadout[family].reserve : sameCalibre ? loadout[putDown].reserve : 0;
+        if (putDown !== family && sameCalibre) loadout[putDown].reserve = 0;
+        loadout[family] = { ...createLoadout(specs)[family], reserve };
+      }
       arenaRuntime.updateLoadout(fieldProfile);
       undress.splice(0).forEach(dispose => dispose()); weapons.forEach((model, index) => undress.push(dressWeapon(model, specs[index])));
       switchWeapon(family); expedition.onEquipment(copyProfile(fieldProfile));
-      hud.lootNotice = `${item.name} equipped for this expedition.`;
+      hud.lootNotice = !changed && wasCarried ? `+${specs[family].capacity} rounds for ${specs[family].name}.` : `${item.name} equipped for this expedition.`;
     } else if (collected.kind === 'armor' && item) {
       const next = copyProfile(fieldProfile); next.owned = [...new Set([...next.owned, item.id])]; next.plate = item.id;
       fieldProfile = next; equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
@@ -1050,7 +1078,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       return !!weaponRay.intersectObjects(weaponMeshes, false)[0];
     };
     const state = loadout[hud.weapon];
-    const waypoints: PilotObservation['waypoints'][number][] = expedition ? hud.fieldLoot.filter(item => Math.abs((item.y ?? 0)-vertical)<1.2).map(item => ({ id: item.id, x: item.x, z: item.z, kind: item.kind })) :
+    const waypoints: PilotObservation['waypoints'][number][] = expedition ? hud.fieldLoot.filter(item => Math.abs((item.y ?? 0)-vertical)<1.2 && canTake(item)).map(item => ({ id: item.id, x: item.x, z: item.z, kind: item.kind })) :
       options.arena ? [] : targets.flatMap((target, i) => target.alive ? [{ id: `target-${i}`, ...targetPositions[i], kind: 'target' as const }] : []);
     if (expedition && pilotDestination) {
       const gateway = findWorldRoute(expedition.zone, pilotDestination)[0];

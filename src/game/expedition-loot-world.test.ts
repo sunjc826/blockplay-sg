@@ -13,10 +13,12 @@ describe('expedition loot in authored scenes', () => {
     const movement = createVerticalMovement({ bounds, obstacles: [], surfaces: [],
       traversalObstacles: [{ minX: -8, maxX: 8, minZ: -8, maxZ: 8, minY: 0, maxY: 3 }] });
     const canStand = (x: number, z: number, radius: number) => movement.canOccupy(x, 0, z, radius, 1.8);
-    const loot = createExpeditionLoot('foundation').enterZone({ id: 'queenstown', spawn: { x: 0, z: 20 }, bounds,
-      obstacles: [], anchors: [{ x: 2, z: 2 }, { x: -2, z: -2 }], canStand });
+    const all = createExpeditionLoot('foundation').enterZone({ id: 'queenstown', spawn: { x: 0, z: 20 }, bounds,
+      obstacles: [], anchors: [{ x: 2, z: 2 }, { x: -2, z: -2 }], canStand }), loot = all.filter(item => !item.beside);
     expect(loot).toHaveLength(6);
     for (const item of loot) expect(canStand(item.x, item.z, .65), item.id).toBe(true);
+    // A weapon's rounds lie on clear ground beside it, never in the foundation.
+    for (const item of all.filter(entry => entry.beside)) expect(canStand(item.x, item.z, .25), item.id).toBe(true);
   });
   for (const zone of WORLD_ZONES) it(`${zone.id}: all crates are clear and reachable across several seeds`, () => {
     const world = buildExpeditionWorld(zone.id);
@@ -25,8 +27,14 @@ describe('expedition loot in authored scenes', () => {
         surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
       const canStand = (x: number, z: number, radius: number) => movement.canOccupy(x, 0, z, radius, 1.8);
       const targets = ['route-a', 'route-b', 'route-c', 'hackathon'].flatMap(seed => [false, true].flatMap(useAnchors => {
-        const loot = createExpeditionLoot(seed).enterZone({ id: zone.id, spawn: zone.spawn, bounds: world.bounds, obstacles: world.obstacles, canStand,
+        const all = createExpeditionLoot(seed).enterZone({ id: zone.id, spawn: zone.spawn, bounds: world.bounds, obstacles: world.obstacles, canStand,
           sectors: zoneSectors(zone.id), ...(useAnchors ? { anchors: zone.encounterSpawns } : {}) });
+        // A weapon's rounds are reached from where its crate is reached.
+        const loot = all.filter(item => !item.beside);
+        for (const rounds of all.filter(item => item.beside)) {
+          const crate = loot.find(item => item.id === rounds.beside)!;
+          expect(Math.hypot(rounds.x - crate.x, rounds.z - crate.z), rounds.id).toBeLessThan(1);
+        }
         const rules = ZONE_LOOT_RULES[zone.id];
         const expected = rules.weaponCount + rules.ammoCount + rules.medicalCount + rules.armorCount;
         expect(loot, `${zone.id}/${seed} crate count`).toHaveLength(expected);

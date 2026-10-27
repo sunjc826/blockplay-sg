@@ -611,8 +611,9 @@ the kit is kept. Bots never patch up inside a marked barrage. The snapshot's
 **Drops.** On an expedition, a bot seen alive and then dead (any cause,
 artillery included) leaves its kit where it fell (`ExpeditionLoot.fallen`).
 An enemy leaves its variant; a friendly leaves the issued weapon of its
-family (SAR 21 · BMT, or Ultimax · Sai Kang in support) and, 60% of the time,
-an ammunition pouch with half the district's crate amount. Either side then
+family (SAR 21 · BMT, or Ultimax · Sai Kang in support). The weapon carries
+only its magazine; beside it lie its rounds as a pickup of their own, half the
+platform's issued reserve in its calibre (`WEAPON_AMMO`). Either side then
 rolls `FALLEN_KIT` by rank: recruits 35% for an elastic bandage and never a
 plate; regulars 50% for a field dressing or first aid kit and 30% for soft
 inserts; veterans 75% for a first aid kit or combat medic pack and 70% for

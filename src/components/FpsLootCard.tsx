@@ -20,6 +20,7 @@ export default function FpsLootCard({ hud, touch }: { hud: FpsHud; touch: boolea
     {card.stats.length > 0 && <dl>{card.stats.map(stat => <div key={stat.label} data-trend={stat.trend}>
       <dt>{stat.label}</dt><dd>{stat.value}{stat.trend && <span aria-label={stat.trend === 'up' ? 'better' : 'worse'}>{stat.trend === 'up' ? '▲' : '▼'}</span>}</dd>
     </div>)}</dl>}
+    {card.note && <small className="fps-loot-note">{card.note}</small>}
     <footer>
       {card.blocked ? <span className="fps-loot-blocked">{card.blocked}</span>
         : <span className="fps-loot-action">{!touch && <kbd>E</kbd>}{card.action}</span>}

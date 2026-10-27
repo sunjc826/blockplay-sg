@@ -3498,3 +3498,30 @@ turned to it without washing out the night. Not lit: the bay and pond
 water (their own ShaderMaterial), and anything by day. Validation:
 moving-lights tests, full suite, typecheck, fixture screenshots; not
 watched in the live game loop.
+
+## 2026-10-27: weapons and their rounds drop apart, ammunition by calibre
+
+`CALIBRES` in expedition-loot: 5.56 mm (SAR 21, Ultimax, XM8, G36, MG4),
+9 mm (P30), 7.62 mm link (FN MAG), 12.7 mm link (CIS 50). Every weapon on
+the ground (crate, supply drop, fallen soldier) carries only its magazine;
+its rounds are a separate `kind: 'ammo'` pickup with `caliberMm` set beside
+it (crate weapons: `beside` = crate id, full issued reserve, placed on clear
+ground; bodies half the reserve, always, replacing the friendly-only 60%
+pouch and `FALLEN_AMMO`; supply drops: weapon, its rounds, medical, replacing
+the double generic kit). Loose ammo crates roll a calibre on their own seed
+stream (55/20/15/10), amount `ammoAmount × scale`. Field ammo no longer goes
+on the belt: `ammoTarget` in loot-focus sends it into the reserve of a
+carried gun that fires it (in hand first, cap 999); with none, the card is
+blocked ("No 7.62 mm gun carried" / "Reserve full"). Weapon pickup in the
+engine: same variant already carried adds a magazine to its reserve; a new
+variant keeps the reserve of the gun it puts down when the calibre matches,
+else starts with only its magazine (uncarried families no longer bring their
+phantom start-of-run reserve). The card shows calibre in the type line and a
+note ("Magazine loaded · keeps your 240 × 5.56 mm"). The pilot's waypoints
+and reach skip loot it cannot take. Ammo cans are drawn as olive cans with a
+brass band (link calibres larger). The shop's SAF pouch is unchanged.
+Validation: loot and world tests updated plus new calibre tests, full suite
+(1395), typecheck; headless Marina Bay runs beside P30, SAR 21 and Ultimax
+crates: rounds focused separately from the crate, 9 mm went to the carried
+P30 with the SAR in hand, Ultimax swap kept 300 × 5.56, duplicate SAR gave
++30. Not checked in play: 7.62/12.7 blocked case (unit tested only).

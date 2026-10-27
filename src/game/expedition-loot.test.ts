@@ -3,8 +3,9 @@ import { itemById } from './armory-catalog';
 import { createProfile, variantSpec } from './armory-state';
 import {
   createExpeditionLoot, createFieldEquipment, equipFieldLoot, resolveExpeditionLoadout, rollZoneWeapon,
-  FALLEN_KIT, MAX_FIELD_DROPS, MAX_FIELD_KITS, ZONE_LOOT_RULES, type FieldLoot, type LootZoneGeometry,
+  calibreOf, FALLEN_KIT, MAX_FIELD_DROPS, MAX_FIELD_KITS, WEAPON_AMMO, ZONE_LOOT_RULES, type FieldLoot, type LootZoneGeometry,
 } from './expedition-loot';
+import { FPS_WEAPONS } from './fps-rules';
 import type { WorldZoneId } from './world-zones';
 
 const zone = (id: WorldZoneId = 'marina-bay'): LootZoneGeometry => ({ id, spawn: { x: 0, z: 0 }, bounds: { minX: -100, maxX: 100, minZ: -100, maxZ: 100 }, obstacles: [] });
@@ -49,8 +50,15 @@ describe('seeded expedition loot', () => {
       ...zone('raffles-place'), spawn: { x: 1000, z: 1000 }, bounds: { minX: 950, maxX: 1050, minZ: 950, maxZ: 1050 },
       obstacles: [{ minX: 950, maxX: 1000, minZ: 950, maxZ: 1050 }],
     };
-    const items = createExpeditionLoot('cover').enterZone(geometry);
+    const all = createExpeditionLoot('cover').enterZone(geometry), items = all.filter(item => !item.beside);
     expect(items).toHaveLength(10);
+    // Each weapon's rounds sit beside it, on clear ground inside the district.
+    for (const rounds of all.filter(item => item.beside)) {
+      const weapon = all.find(item => item.id === rounds.beside)!;
+      expect(weapon.kind).toBe('weapon'); expect(Math.hypot(rounds.x - weapon.x, rounds.z - weapon.z)).toBeLessThan(1);
+      expect(rounds.x).toBeGreaterThanOrEqual(1000.25);
+    }
+    expect(all.filter(item => item.beside)).toHaveLength(items.filter(item => item.kind === 'weapon').length);
     for (const item of items) {
       expect(item.x).toBeGreaterThanOrEqual(1000.65); expect(item.x).toBeLessThanOrEqual(1049.35);
       expect(item.z).toBeGreaterThanOrEqual(950.65); expect(item.z).toBeLessThanOrEqual(1049.35);
@@ -60,7 +68,7 @@ describe('seeded expedition loot', () => {
   it('uses curated safe anchors and never places loot inside a fully blocked zone', () => {
     const anchors = Array.from({ length: 8 }, (_, i) => ({ x: 10 + i * 4, z: 10 }));
     const loot = createExpeditionLoot('anchors').enterZone({ ...zone(), anchors });
-    expect(loot.every(item => anchors.some(p => p.x === item.x && p.z === item.z))).toBe(true);
+    expect(loot.filter(item => !item.beside).every(item => anchors.some(p => p.x === item.x && p.z === item.z))).toBe(true);
     expect(createExpeditionLoot('blocked').enterZone({ ...zone(), obstacles: [{ minX: -100, maxX: 100, minZ: -100, maxZ: 100 }] })).toEqual([]);
     expect(createExpeditionLoot('invalid').enterZone({ ...zone(), spawn: { x: Infinity, z: 0 } })).toEqual([]);
   });
@@ -81,7 +89,9 @@ describe('seeded expedition loot', () => {
     const cbd = expedition.enterZone(zone('raffles-place')); const residential = expedition.enterZone(zone('queenstown'));
     expect(cbd.filter(item => item.kind === 'weapon')).toHaveLength(4);
     expect(residential.filter(item => item.kind === 'weapon')).toHaveLength(2);
-    expect(cbd.find(item => item.kind === 'ammo')!.amount).toBeGreaterThan(residential.find(item => item.kind === 'ammo')!.amount);
+    // Measured per calibre: a crate of 12.7 mm link holds fewer rounds than one of 5.56 mm.
+    const perCalibre = (item: FieldLoot) => item.amount / calibreOf(item.caliberMm)!.scale;
+    expect(perCalibre(cbd.find(item => item.kind === 'ammo' && !item.beside)!)).toBeGreaterThan(perCalibre(residential.find(item => item.kind === 'ammo' && !item.beside)!));
     expect(cbd.find(item => item.kind === 'medical')!.amount).toBeGreaterThan(residential.find(item => item.kind === 'medical')!.amount);
   });
   it('uses a weighted food-stall anchor without adding to the district loot distribution', () => {
@@ -94,13 +104,13 @@ describe('seeded expedition loot', () => {
     ] };
     const loot = createExpeditionLoot('hawker-distribution').enterZone(geometry);
     const rules = ZONE_LOOT_RULES.chinatown;
-    expect(loot).toHaveLength(rules.weaponCount + rules.ammoCount + rules.medicalCount + rules.armorCount);
+    expect(loot.filter(item => !item.beside)).toHaveLength(rules.weaponCount + rules.ammoCount + rules.medicalCount + rules.armorCount);
     const food = loot.filter(item => item.placement === 'food-stall');
     expect(food).toHaveLength(1);
     expect(foodAnchors).toContainEqual({ x: food[0].x, z: food[0].z });
     expect(itemById(food[0].catalogId!)?.supplyType).toBe('food');
     expect(loot.filter(item => item.kind === 'medical')).toHaveLength(rules.medicalCount);
-    expect(loot.filter(item => item.kind === 'ammo').every(item => item.catalogId === 'kit-ammo')).toBe(true);
+    expect(loot.filter(item => item.kind === 'ammo').every(item => calibreOf(item.caliberMm)?.name === item.name)).toBe(true);
   });
   it('uses the district sector weights when choosing between food venues', () => {
     const sectors: NonNullable<LootZoneGeometry['sectors']> = [
@@ -178,22 +188,26 @@ describe('kit left by fallen soldiers', () => {
     // A dressing restores what the catalog says it does.
     for (const item of veterans.flat().filter(entry => entry.kind === 'medical')) expect(item.amount).toBe(itemById(item.catalogId!)!.effect!.health);
   });
-  it('has enemies drop their enemy-issue weapon and no ammunition pouch', () => {
-    const veterans = bodies('opposition', 3);
+  it('has enemies drop their enemy-issue weapon and its rounds apart', () => {
+    const veterans = bodies('opposition', 3), g36 = itemById('g36-rifle')!;
     expect(veterans.every(set => set.filter(item => item.kind === 'weapon').map(item => item.catalogId).join() === 'g36-rifle')).toBe(true);
-    expect(share(veterans, 'ammo')).toBe(0);
+    expect(share(veterans, 'ammo')).toBe(1);
+    for (const item of veterans.flat().filter(entry => entry.kind === 'ammo')) expect(item).toMatchObject({ name: '5.56 mm rounds', caliberMm: 5.56,
+      amount: Math.round(FPS_WEAPONS[g36.family!].reserve * WEAPON_AMMO.fallen) });
     const loot = createExpeditionLoot('fallen');
     // An enemy holding shop issue (which bots never do) leaves no weapon.
     expect(loot.fallen('marina-bay', { key: 'odd:1', side: 'opposition', rank: 1, variant: 'sar-issued' }, { x: 0, z: 0 }).loot.some(item => item.kind === 'weapon')).toBe(false);
   });
-  it('has friendlies drop their issued weapon and often a pouch of rounds', () => {
+  it('has friendlies drop their issued weapon and rounds of its calibre', () => {
     const friendlies = bodies('forces', 2);
     expect(friendlies.every(set => set.filter(item => item.kind === 'weapon').map(item => item.catalogId).join() === 'sar-issued')).toBe(true);
-    expect(share(friendlies, 'ammo')).toBeGreaterThan(.45);
+    expect(share(friendlies, 'ammo')).toBe(1);
     const loot = createExpeditionLoot('fallen');
     const gunner = loot.fallen('marina-bay', { key: 'gunner:1', side: 'forces', rank: 3, family: 1 }, { x: 0, z: 0 }).loot;
     expect(gunner.find(item => item.kind === 'weapon')?.catalogId).toBe('ult-issued');
-    for (const item of friendlies.flat().filter(entry => entry.kind === 'ammo')) expect(item.amount).toBe(Math.round(ZONE_LOOT_RULES['marina-bay'].ammoAmount / 2));
+    for (const item of friendlies.flat().filter(entry => entry.kind === 'ammo')) expect(item.amount).toBe(Math.round(FPS_WEAPONS[0].reserve * WEAPON_AMMO.fallen));
+    const pistol = loot.fallen('marina-bay', { key: 'officer:1', side: 'forces', rank: 1, family: 2 }, { x: 0, z: 0 }).loot;
+    expect(pistol.find(item => item.kind === 'ammo')).toMatchObject({ name: '9 mm rounds', caliberMm: 9 });
   });
   it('rolls the same kit for the same body and lays it within reach', () => {
     const at = { x: 10, z: -4, y: 0 };
@@ -215,5 +229,28 @@ describe('kit left by fallen soldiers', () => {
     expect(left.filter(item => item.kind === 'weapon')).toHaveLength(MAX_FIELD_DROPS);
     expect(left.filter(item => item.kind !== 'weapon')).toHaveLength(MAX_FIELD_KITS);
     expect(evicted.some(id => left.some(item => item.id === id))).toBe(false);
+  });
+});
+
+describe('ammunition by calibre', () => {
+  it('fills loose crates with one calibre each, mostly 5.56 mm', () => {
+    const crates = Array.from({ length: 300 }, (_, i) => createExpeditionLoot(`calibre-${i}`).enterZone(zone('raffles-place')))
+      .flat().filter(item => item.kind === 'ammo' && !item.beside);
+    const share = (mm: number) => crates.filter(item => item.caliberMm === mm).length / crates.length;
+    expect(share(5.56)).toBeGreaterThan(.45); expect(share(12.7)).toBeGreaterThan(0); expect(share(12.7)).toBeLessThan(share(9));
+    expect(crates.every(item => item.amount === Math.round(ZONE_LOOT_RULES['raffles-place'].ammoAmount * calibreOf(item.caliberMm)!.scale))).toBe(true);
+  });
+  it('sets a crate weapon\'s rounds beside it, in its calibre', () => {
+    const loot = createExpeditionLoot('beside').enterZone(zone('raffles-place'));
+    for (const weapon of loot.filter(item => item.kind === 'weapon')) {
+      const rounds = loot.find(item => item.beside === weapon.id)!, family = itemById(weapon.catalogId!)!.family!;
+      expect(rounds).toMatchObject({ kind: 'ammo', caliberMm: FPS_WEAPONS[family].caliberMm, amount: FPS_WEAPONS[family].reserve });
+    }
+  });
+  it('puts a supply crate\'s weapon and its rounds out separately', () => {
+    const items = createExpeditionLoot('supply').supply('marina-bay', 'drop-1', { x: 0, z: 0 });
+    const weapon = items.find(item => item.kind === 'weapon')!, family = itemById(weapon.catalogId!)!.family!;
+    expect(items.map(item => item.kind)).toEqual(['weapon', 'ammo', 'medical']);
+    expect(items[1]).toMatchObject({ caliberMm: FPS_WEAPONS[family].caliberMm, amount: FPS_WEAPONS[family].reserve });
   });
 });
