@@ -139,3 +139,32 @@ it('fades the splash plume and foam out instead of popping them', () => {
   expect(opacity('fps-splash-column')).toBe(0); expect(opacity('fps-splash-foam')).toBe(0);
   effects.dispose();
 });
+
+it('keeps smoke after the tracer passes, fades end-on views and clears it on reset', () => {
+  const { effects, camera, mesh } = rig();
+  const from = new THREE.Vector3(-6, 1, -8), to = new THREE.Vector3(6, 1, -8);
+  effects.beam(from, to);
+  effects.update(.04, camera);
+  const wake = mesh('fps-shot-smoke');
+  expect(effects.counts.shotSmoke).toBeGreaterThan(0);
+  expect(wake.count).toBe(effects.counts.shotSmoke);
+  const material = wake.material as THREE.MeshBasicMaterial;
+  expect(material.blending).toBe(THREE.NormalBlending);
+  expect(material.depthTest).toBe(true); expect(material.depthWrite).toBe(false);
+  const opacity = () => wake.geometry.getAttribute('effectOpacity').getX(0);
+  const sideOn = opacity(); expect(sideOn).toBeGreaterThan(0);
+  effects.update(.03, camera);
+  expect(effects.counts.shotSmoke).toBeGreaterThan(0);
+  expect(effects.root.children.some(o => o instanceof THREE.Line && !(o instanceof THREE.LineSegments) && o.visible)).toBe(false);
+  const m = new THREE.Matrix4(); wake.getMatrixAt(0, m);
+  const center = new THREE.Vector3().setFromMatrixPosition(m);
+  camera.position.copy(center).add(new THREE.Vector3(-5, 0, 0));
+  effects.update(0, camera);
+  expect(opacity()).toBeLessThan(sideOn * .3);
+  expect([...wake.instanceMatrix.array].every(Number.isFinite)).toBe(true);
+  effects.reset(); expect(effects.counts.shotSmoke).toBe(0); expect(wake.count).toBe(0);
+  effects.smokeTrail(from, to, from.distanceTo(to)); effects.update(.04, camera);
+  expect(wake.count).toBeGreaterThan(0);
+  effects.update(2, camera); expect(wake.count).toBe(0);
+  effects.dispose();
+});

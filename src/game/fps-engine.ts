@@ -277,7 +277,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const weaponStyles = specs.map(effectStyleForWeapon);
   // Muzzle flare, brass, sparks, dust, scorches and tracers, pooled and batched.
   // Its whole world-space tree carries `fpsEffect`, so gameplay rays skip it.
-  const effects = createFpsEffects(world.scene, viewScene, { style: weaponStyles[0] });
+  const effects = createFpsEffects(world.scene, viewScene, { style: weaponStyles[0], reduced: () => getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
   effects.setStyles(weaponStyles, 0);
   // A laser's beam and dot, and a torch only when the loadout carries one (see weapon-rail-effects).
   const railEffects = createRailEffects(world.scene, specs.some(spec => hasLight(spec.accessories)));
@@ -1508,11 +1508,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         const from = round.skipVehicle ? vehicleCandidates(round.skipVehicle) : round.skipActor ? candidates.filter(o => o.userData.arenaActorId !== round.skipActor) : candidates;
         if (round.vehicleDamage !== undefined) {
           const hit = firstVisibleHit(roundRay, from);
+          effects.smokeTrail(step.from, hit?.point ?? step.to, round.travelled - step.distance + (hit?.distance ?? step.distance));
           if (hit) { vehicleImpact(hit, roundDirection, round.skipVehicle ?? 'car', round.vehicleDamage); rounds.splice(i, 1); struck = true; continue; }
           if (step.expired) rounds.splice(i, 1);
           continue;
         }
         const segmentHits = stopAtWater(visibleHits(roundRay, from, 1 + round.pierced));
+        const lastHit = segmentHits[segmentHits.length - 1];
+        const stopped = segmentHits.length > round.pierced || isWaterHit(lastHit);
+        const stop = round.cosmetic ? segmentHits[0] : stopped ? lastHit : undefined;
+        effects.smokeTrail(step.from, stop?.point ?? step.to, round.travelled - step.distance + (stop?.distance ?? step.distance));
         if (segmentHits.length && round.cosmetic) {
           // The arena host has the real round: this one only shows where it went.
           const first = segmentHits[0];
@@ -2252,6 +2257,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // the pools without the frame paying for four attribute writes.
     const live = effects.counts, census = `${live.casings}/${live.impacts}/${live.sparks}/${live.scorches}`;
     if (census !== canvas.dataset.fxCensus) canvas.dataset.fxCensus = census;
+    if (String(live.shotSmoke) !== canvas.dataset.fxShotSmoke) canvas.dataset.fxShotSmoke = String(live.shotSmoke);
     const water = `${live.splashes}/${live.droplets}`;
     if (water !== canvas.dataset.fxSplash) canvas.dataset.fxSplash = water;
     const kicked = kick.pitch.toFixed(4);

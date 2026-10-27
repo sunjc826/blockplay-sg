@@ -8,6 +8,7 @@ import { MAX_ROUNDS_IN_FLIGHT } from './fps-projectiles';
 import { advanceSplashes, clearSplashField, createSplashField, dropletScale, MAX_DROPLETS, MAX_SPLASHES, recordSplash, splashColumn, splashFoam, splashRings } from './fps-splashes';
 import type { ImpactProfile } from './fps-impact-profile';
 import { ISSUED_STYLE, type EffectStyle } from './fps-effect-styles';
+import { advanceShotSmoke, MAX_SHOT_SMOKE, recordShotSmoke, shotSmokeOpacity, type ShotSmoke } from './fps-shot-smoke';
 
 /**
  * Everything a shot leaves behind, drawn. The arcs, lifetimes and shapes are
@@ -19,20 +20,22 @@ import { ISSUED_STYLE, type EffectStyle } from './fps-effect-styles';
  * one instanced draw for the brass, one for the impact rings, one for the dust
  * and smoke, one for the scorches (every material's mark shares one atlas), one
  * for the chips, splinters, shards and droplets a struck surface throws, one
- * batched `LineSegments` for every spark in the air, and four for water: the foam rings and a billboard pool shared by
+ * batched `LineSegments` for every spark in the air, one for the faint shot
+ * wakes, and four for water: the foam rings and a billboard pool shared by
  * the spray columns and droplets. Nothing is created or disposed while firing, which is what
  * keeps a held trigger from sawing at the allocator on a software renderer.
  *
  * The whole world-space tree is flagged `fpsEffect`, so the engine's raycasts
  * filter it out wholesale: brass on the floor can never stop a bullet.
  *
- * Every colour comes from an `EffectStyle` rather than from a constant here, so
+ * Weapon colours come from an `EffectStyle` rather than from a constant here, so
  * a premium weapon flares, traces and ejects in its own colours without this
  * file knowing anything about the armoury. Because the pools are shared and a
  * player can switch weapons while their last burst is still in the air, each
  * spawn is tagged with the style that made it and is drawn in that style for
  * the rest of its life — switching weapons never retints the brass already on
- * the floor or the marks already on the wall.
+ * the floor or the marks already on the wall. Shot wakes stay neutral grey,
+ * distinct from every weapon's coloured, luminous tracer.
  */
 export type { ImpactKind };
 
@@ -57,6 +60,18 @@ function radialTexture(size: number, edge: number) {
     const i = (y * size + x) * 4;
     data[i] = data[i + 1] = data[i + 2] = 255;
     data[i + 3] = falloff;
+  }
+  return finishTexture(data, size);
+}
+/** Tapered, slightly curled wisps, rather than repeated round dust blobs. */
+function wakeTexture(size: number) {
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const u = (x + .5) / size * 2 - 1, v = (y + .5) / size * 2 - 1;
+    const curl = u + Math.sin(v * 5) * .17;
+    const alpha = Math.pow(Math.max(0, 1 - Math.hypot(curl, v)), 1.5) * (.78 + .22 * Math.sin(v * 13 + u * 7));
+    const i = (y * size + x) * 4;
+    data[i] = data[i + 1] = data[i + 2] = 255; data[i + 3] = Math.round(alpha * 255);
   }
   return finishTexture(data, size);
 }
@@ -106,7 +121,7 @@ function ringTexture(size: number, peak: number, width: number) {
   return finishTexture(data, size);
 }
 
-export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options: { worldLight?: boolean; style?: EffectStyle } = {}) {
+export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options: { worldLight?: boolean; style?: EffectStyle; reduced?: () => boolean } = {}) {
   const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [], textures: THREE.Texture[] = [];
   const keep = <T extends THREE.BufferGeometry>(g: T) => { geometries.push(g); return g; };
   const hold = <T extends THREE.Material>(m: T) => { materials.push(m); return m; };
@@ -245,6 +260,18 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
   trails.frustumCulled = false; trails.visible = false; trails.userData.fpsEffect = true; root.add(trails);
   let beamTime = 0;
 
+  // Soft, normally blended ribbons stay behind after the bright tracer passes.
+  // One draw, separate from impact dust: thin wakes never borrow its dense alpha.
+  const shotSmoke: ShotSmoke[] = [];
+  const wakeGeometry = keep(new THREE.PlaneGeometry(1, 1));
+  const wakeOpacity = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SHOT_SMOKE), 1).setUsage(THREE.DynamicDrawUsage);
+  wakeGeometry.setAttribute('effectOpacity', wakeOpacity);
+  const wakeMesh = new THREE.InstancedMesh(wakeGeometry, hold(withInstanceOpacity(new THREE.MeshBasicMaterial({
+    color: '#a4a7a9', map: paint(wakeTexture(64)), transparent: true, depthWrite: false,
+  }))), MAX_SHOT_SMOKE);
+  wakeMesh.name = 'fps-shot-smoke'; wakeMesh.count = 0;
+  wakeMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); wakeMesh.frustumCulled = false; wakeMesh.userData.fpsEffect = true; root.add(wakeMesh);
+
   const smoke: Smoke[] = [];
   const matrix = new THREE.Matrix4(), quaternion = new THREE.Quaternion(), position = new THREE.Vector3(), scale = new THREE.Vector3(), colour = new THREE.Color(), hotSpark = new THREE.Color();
   const axis = new THREE.Vector3(), forward = new THREE.Vector3(0, 0, 1), spin = new THREE.Quaternion();
@@ -276,7 +303,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
     root, flare,
     get style() { return current; },
     /** Live counts, surfaced so a browser smoke can assert the effects ran. */
-    get counts() { return { casings: casings.length, impacts: field.impacts.length, sparks: field.sparks.length, scorches: field.scorches.length, debris: field.debris.length, smoke: smoke.length, splashes: splashField.splashes.length, droplets: splashField.droplets.length }; },
+    get counts() { return { casings: casings.length, impacts: field.impacts.length, sparks: field.sparks.length, scorches: field.scorches.length, debris: field.debris.length, smoke: smoke.length, shotSmoke: shotSmoke.length, splashes: splashField.splashes.length, droplets: splashField.droplets.length }; },
     /** Re-parents the flare when the equipped weapon changes. */
     attachMuzzle(socket?: THREE.Object3D | null) { if (socket) socket.add(flare); else flare.removeFromParent(); },
     /**
@@ -308,6 +335,11 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
       const attribute = beamGeometry.getAttribute('position');
       attribute.setXYZ(0, from.x, from.y, from.z); attribute.setXYZ(1, to.x, to.y, to.z); attribute.needsUpdate = true;
       beamTime = .055;
+      recordShotSmoke(shotSmoke, from, to, from.distanceTo(to));
+    },
+    /** Called with the resolved flight segment, including a round's final hit. */
+    smokeTrail(from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }, travelled: number) {
+      recordShotSmoke(shotSmoke, from, to, travelled);
     },
     /** A short streak behind each round still in the air, so a slow shot reads as travelling. */
     trails(rounds: readonly { position: { x: number; y: number; z: number }; direction: { x: number; y: number; z: number }; travelled: number }[]) {
@@ -355,6 +387,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
       advanceCasings(casings, dt, groundY);
       advanceImpacts(field, dt);
       advanceSplashes(splashField, dt);
+      advanceShotSmoke(shotSmoke, dt);
       for (let i = smoke.length - 1; i >= 0; i--) {
         const wisp = smoke[i]; wisp.age += Math.max(0, Math.min(dt, .25));
         if (wisp.age >= wisp.life) { smoke.splice(i, 1); continue; }
@@ -428,6 +461,29 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
         } else { puffOpacity.setX(i, 0); puffMesh.setMatrixAt(i, hidden); }
       }
       puffMesh.instanceMatrix.needsUpdate = true; puffMesh.instanceColor!.needsUpdate = true; puffOpacity.needsUpdate = true;
+
+      // Align each ribbon with the shot, facing the viewer. End-on wakes fade
+      // away instead of stacking into a dark spot over the sights; close ones
+      // also fade as the player walks through them. Real depth testing and fog
+      // keep them behind cover and part of the scene.
+      const wakeStrength = options.reduced?.() ? .45 : 1;
+      for (let i = 0; i < shotSmoke.length; i++) {
+        const wisp = shotSmoke[i], t = wisp.age / wisp.life;
+        position.set(wisp.x, wisp.y, wisp.z);
+        axis.set(wisp.dx, wisp.dy, wisp.dz);
+        back.copy(camera.position).sub(position);
+        const distance = back.length(); back.normalize();
+        right.crossVectors(axis, back);
+        const side = right.length(); right.normalize();
+        up.crossVectors(back, right).normalize();
+        if (side > .01) quaternion.setFromRotationMatrix(matrix.makeBasis(right, up, back));
+        else camera.getWorldQuaternion(quaternion);
+        const width = (.085 + t * .16) * (.85 + Math.sin(wisp.phase) * .15);
+        wakeOpacity.setX(i, shotSmokeOpacity(wisp) * (.18 + .82 * side) * Math.min(1, Math.max(0, (distance - 1.2) / 2)) * wakeStrength);
+        wakeMesh.setMatrixAt(i, matrix.compose(position, quaternion, scale.set(width, Math.max(width * 1.4, wisp.length * side), 1)));
+      }
+      wakeMesh.count = shotSmoke.length;
+      wakeMesh.instanceMatrix.needsUpdate = true; wakeOpacity.needsUpdate = true;
 
       for (let i = 0; i < MAX_SCORCHES; i++) {
         const scorch = field.scorches[i];
@@ -510,7 +566,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
       sparkMesh.visible = field.sparks.length > 0;
     },
     reset() {
-      casings.length = 0; smoke.length = 0; clearImpactField(field); clearSplashField(splashField); resetMuzzle(muzzle);
+      casings.length = 0; smoke.length = 0; shotSmoke.length = 0; wakeMesh.count = 0; clearImpactField(field); clearSplashField(splashField); resetMuzzle(muzzle);
       beamTime = 0; beam.visible = trails.visible = flare.visible = sparkMesh.visible = false;
       viewLight.intensity = 0; if (worldLight) worldLight.intensity = 0;
       trailGeometry.setDrawRange(0, 0); sparkGeometry.setDrawRange(0, 0);
@@ -526,6 +582,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
     dispose() {
       flare.removeFromParent(); viewLight.removeFromParent(); root.removeFromParent();
       pools.forEach(mesh => mesh.dispose());
+      wakeMesh.dispose();
       geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose());
     },
   };
