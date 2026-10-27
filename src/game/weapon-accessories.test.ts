@@ -97,6 +97,17 @@ describe('the models', () => {
     expect(rolled.x).toBeCloseTo(0, 5);
     housing.dispose();
   });
+  it('raises the Ultimax holographic sight so its window looks over the carry handle', () => {
+    const housing = buildSightHousing(new THREE.Group(), 'ultimax-inspired', 'holo', false)!;
+    const { main } = housing;
+    // The handle's back end (z .02) tops out at y .324; the window's lower edge
+    // is at its front, and the eye sits aimDepth behind the model's origin.
+    const eye = -main.aimDepth, windowFront = main.lensZ - .055, handleEnd = .02;
+    const lowest = main.y - main.window!.height / 2 * (eye - handleEnd) / (eye - windowFront);
+    expect(lowest).toBeGreaterThan(.324);
+    expect(main.window!.width).toBeGreaterThan(main.window!.height);
+    housing.dispose();
+  });
   it('fits every sight to every platform a variant puts it on', () => {
     for (const item of ARMORY_CATALOG) for (const part of item.fitted ?? []) {
       const sight = part.accessories?.sight;

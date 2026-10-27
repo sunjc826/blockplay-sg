@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { scopeReticleGlsl, type ScopeReticle } from './scope-reticles';
+import { roundedRect, type SightWindow } from './weapon-sight-housings';
 
 export interface OpticGlass {
   surface: THREE.Mesh;
@@ -13,7 +14,8 @@ export interface OpticGlass {
 
 /** Curved coated glass shared by reflex and magnified optics. */
 /** A scope's `reticle` is the etching the coating thins over; a magnified sight without one shows none. */
-export function createOpticGlass(radius: number, curvature: number, profile: 'reflex' | 'scope', reticle?: ScopeReticle) {
+/** A `window` cuts the glass to that rounded rectangle instead of a disc of `radius`. */
+export function createOpticGlass(radius: number, curvature: number, profile: 'reflex' | 'scope', reticle?: ScopeReticle, window?: SightWindow) {
   const scope = profile === 'scope';
   const uniforms: OpticGlass['uniforms'] = {
     reflectionMap: { value: null }, reflectionViewToCapture: { value: new THREE.Matrix3() },
@@ -34,7 +36,9 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
     shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', `
       vec3 eye = normalize(vViewPosition);
       float grazing = pow(1.0 - abs(dot(normalize(normal), eye)), 2.0);
-      float rim = smoothstep(0.26, 0.50, length(coatingUv - 0.5));
+      ${window ? `// A rectangular pane brightens towards its edges rather than its corners.
+      vec2 edgeDistance = abs(coatingUv - 0.5);
+      float rim = smoothstep(0.36, 0.50, max(edgeDistance.x, edgeDistance.y));` : 'float rim = smoothstep(0.26, 0.50, length(coatingUv - 0.5));'}
       vec3 reflected = reflectionViewToCapture * reflect(-eye, normalize(normal));
       vec2 reflectionUv = 0.5 + reflected.xy / (max(-reflected.z, 0.001) * reflectionTanHalfFov) * 0.5;
       float inCapture = (1.0 - smoothstep(0.46, 0.50, max(abs(reflectionUv.x - 0.5), abs(reflectionUv.y - 0.5)))) * step(0.0, -reflected.z);
@@ -47,15 +51,18 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
       ${reticle ? `vec2 p = coatingUv - 0.5;
       float etched = scopeReticle(p, max(fwidth(p.x), fwidth(p.y)));` : 'float etched = 0.0;'}
       diffuseColor.a = (0.035 + rim * 0.23 + grazing * 0.30) * (1.0 - etched * 0.8);
-      ` : 'diffuseColor.a = 0.10 + rim * 0.19 + grazing * 0.25;'}
+      ` : window ? '// A holographic window is clear, faintly tinted, and bright only where it turns from the eye.\n      diffuseColor.a = 0.035 + rim * 0.10 + grazing * 0.25;' : 'diffuseColor.a = 0.10 + rim * 0.19 + grazing * 0.25;'}
       #include <opaque_fragment>
     `);
   };
-  material.customProgramCacheKey = () => `${profile}-scenery-glass-v4-${reticle ?? 'plain'}`;
-  const geometry = new THREE.RingGeometry(0, radius, 48, 8), vertices = geometry.attributes.position;
+  material.customProgramCacheKey = () => `${profile}-scenery-glass-v4-${reticle ?? 'plain'}${window ? '-window' : ''}`;
+  const geometry = window ? new THREE.ShapeGeometry(roundedRect(window.width, window.height, window.corner), 8) : new THREE.RingGeometry(0, radius, 48, 8);
+  const vertices = geometry.attributes.position, uvs = geometry.attributes.uv;
   for (let i = 0; i < vertices.count; i++) {
-    const r2 = (vertices.getX(i) ** 2 + vertices.getY(i) ** 2) / radius ** 2;
+    const r2 = Math.min(1, (vertices.getX(i) ** 2 + vertices.getY(i) ** 2) / radius ** 2);
     vertices.setZ(i, -curvature * (1 - r2));
+    // ShapeGeometry's UVs are its coordinates; spread them over the pane.
+    if (window) uvs.setXY(i, vertices.getX(i) / window.width + .5, vertices.getY(i) / window.height + .5);
   }
   geometry.computeVertexNormals();
   const surface = new THREE.Mesh(geometry, material); surface.name = 'optic-coated-glass';

@@ -20,6 +20,8 @@ export interface WeaponSight {
   offset?: WeaponSight;
 }
 const sights = new WeakMap<THREE.Object3D, WeaponSight>();
+/** The holographic ring's angular radius in the viewmodel's view: 65 MOA across in the world. */
+const HOLO_RING = '0.0076';
 export const getWeaponSight = (root: THREE.Object3D) => sights.get(root);
 
 /**
@@ -101,31 +103,45 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
       vec2 angularPosition = sightRay.xy / max(abs(sightRay.z), 0.001) - dotAt;
       float angle = length(angularPosition);
       float angularAA = max(fwidth(angle), 0.00015);
-      float core = 1.0 - smoothstep(0.0022, 0.0022 + angularAA, angle);
-      // A holographic sight's 65 MOA ring, at the same collimated angle as the dot.
-      ${ring ? 'core = max(core, (1.0 - smoothstep(0.00055, 0.00055 + angularAA, abs(angle - 0.0095))) * 0.85);' : ''}
+      ${ring ? `
+      // A holographic sight's 1 MOA dot inside a 65 MOA ring. The viewmodel is
+      // drawn at 54 degrees and the world at 65, so these view angles are 0.8 of
+      // the world's: the ring spans 65 MOA of the scene. A 1 MOA dot is smaller
+      // than a pixel, so the dot is held to about two and the ring's line to one.
+      float dotRadius = max(0.00045, angularAA * 0.5);
+      float core = 1.0 - smoothstep(dotRadius, dotRadius + angularAA, angle);
+      float ringLine = max(0.00018, angularAA * 0.35);
+      core = max(core, (1.0 - smoothstep(ringLine, ringLine + angularAA, abs(angle - ${HOLO_RING}))) * 0.9);
+      ` : 'float core = 1.0 - smoothstep(0.0022, 0.0022 + angularAA, angle);'}
       float aperture = 1.0 - smoothstep(0.46, 0.5, r);
       if (sightBloom > 0.5) {
         // Add light around the emitter without replacing the scene behind it.
         // Both halo scales are angular, so they stay steady as the eye moves.
+        ${ring ? `
+        // A laser hologram is crisp: a faint haze hugging the dot and the ring,
+        // and none of an LED dot's broad glow or streak.
+        float halo = exp(-angle * angle / 0.000003) * 0.22 + exp(-pow(angle - ${HOLO_RING}, 2.0) / 0.0000005) * 0.06;
+        float bloom = exp(-angle * angle / 0.00003) * 0.025;
+        float flare = 0.0;
+        ` : `
         float halo = exp(-angle * angle / 0.000055) * 0.30;
         float bloom = exp(-angle * angle / 0.00024) * 0.065;
         vec2 streak = angularPosition / vec2(0.014, 0.0009);
         float flare = exp(-dot(streak, streak)) * 0.045;
-        ${ring ? 'halo += exp(-pow(angle - 0.0095, 2.0) / 0.0000012) * 0.07;' : ''}
+        `}
         diffuseColor.rgb = vec3(1.0, 0.025, 0.008);
         diffuseColor.a = (halo + bloom + flare) * aperture * sightVisibility * rise;
       } else {
         // A tiny warm centre gives the emitter depth while retaining the
         // original crisp aiming diameter. The bloom is a separate light layer.
-        float hotCentre = exp(-angle * angle / 0.0000015);
+        float hotCentre = exp(-angle * angle / ${ring ? '0.0000001' : '0.0000015'});
         diffuseColor.rgb = mix(vec3(1.0, 0.025, 0.008), vec3(1.0, 0.55, 0.28), hotCentre);
         diffuseColor.a = core * aperture * sightVisibility * rise;
       }
       `}
     `);
   };
-  lensMaterial.customProgramCacheKey = () => magnified ? `scope-reticle-v4-${reticle}` : `reflex-reticle-v5${ring ? '-ring' : ''}`;
+  lensMaterial.customProgramCacheKey = () => magnified ? `scope-reticle-v4-${reticle}` : `reflex-reticle-v5${ring ? '-holo-v2' : ''}`;
   const lensGeometry = new THREE.CircleGeometry(radius, 48);
   const lens = new THREE.Mesh(lensGeometry, lensMaterial); lens.name = 'fps-scope-lens';
   lens.visible = !magnified; lens.renderOrder = 2;
@@ -137,7 +153,7 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
       lensMaterial.onBeforeCompile(shader, renderer);
       shader.uniforms.sightBloom.value = 1;
     };
-    bloomMaterial.customProgramCacheKey = () => `reflex-bloom-v2${ring ? '-ring' : ''}`;
+    bloomMaterial.customProgramCacheKey = () => `reflex-bloom-v2${ring ? '-holo-v2' : ''}`;
     const bloom = new THREE.Mesh(lensGeometry, bloomMaterial);
     bloom.name = 'fps-reflex-bloom'; bloom.renderOrder = 2;
     lens.renderOrder = 3;
@@ -173,7 +189,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   let scopeGlass: ReturnType<typeof createOpticGlass> | undefined;
   if (mount) {
     group.name = `fps-${fitted}-optic`;
-    scopeGlass = createOpticGlass(radius, magnified ? .0014 : .005, magnified ? 'scope' : 'reflex', reticle);
+    scopeGlass = createOpticGlass(radius, magnified ? .0014 : .005, magnified ? 'scope' : 'reflex', reticle, mount.main.window);
     scopeGlass.reflection.surface.position.set(0, aimHeight, mount.main.glassZ);
     group.add(scopeGlass.reflection.surface);
   } else if (built) {
