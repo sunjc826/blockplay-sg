@@ -53,6 +53,12 @@
 .game-screen-bar .game-profile { margin-left:auto; padding:4px 12px 4px 6px; }
 .game-back { display:flex; align-items:center; gap:6px; padding:7px 11px; border:1px solid var(--menu-line); border-radius:6px; color:var(--menu-ink); text-decoration:none; font-size:11px; }
 .game-back:hover { background:#ffffff10; }
+/* The store's way back sits at the start of its own header row. */
+.store-nav { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.store-nav h1 { font:700 18px 'Manrope',sans-serif; letter-spacing:-.4px; margin:0; color:var(--menu-ink); }
+.store-nav .store-settings { padding:7px 9px; }
+.game-screen-settings .game-screen-body { align-items:center; padding:clamp(16px,3vw,32px) clamp(12px,2vw,24px); }
+.game-screen-settings .armory-settings { width:min(760px,100%); }
 /* With the developer panels gone (lib/debug-mode) the game is just its
    viewport, so it takes the whole screen body. */
 .game-screen-body { flex:1; display:flex; flex-direction:column; min-height:0; padding:clamp(8px,1.2vw,16px); background:#0b1211; }
@@ -75,6 +81,28 @@
 .play-nav-district svg { position:absolute; left:10px; color:var(--menu-gold); pointer-events:none; }
 .play-nav-district select { width:100%; min-width:0; padding:0 10px 0 30px; font:600 13px 'Manrope',sans-serif; }
 .play-nav-district select option { color:#23362d; }
+
+/* Loading screen over a play screen (PlayLoading): the menu's own sky and
+   skyline, so leaving the menu reads as one move. The bar slides by transform
+   alone, which the compositor keeps running while the district builds. */
+.play-loading { position:fixed; inset:0; z-index:1001; display:flex; flex-direction:column; padding:max(20px,env(safe-area-inset-top,0px)) clamp(16px,5vw,64px) max(22px,env(safe-area-inset-bottom,0px)); overflow:hidden; color:var(--menu-ink);
+  background:radial-gradient(ellipse at 78% 110%,#ee794b2e,transparent 55%),linear-gradient(180deg,#0d1712 0%,#152a20 100%); transition:opacity .36s ease, visibility 0s linear .36s; }
+.play-loading.is-leaving { opacity:0; visibility:hidden; pointer-events:none; }
+.play-loading > :not(.game-menu-skyline) { position:relative; z-index:1; }
+.play-loading-back { display:flex; }
+.play-loading-body { flex:1; display:flex; flex-direction:column; justify-content:center; max-width:620px; padding-bottom:12vh; }
+.play-loading-kicker { font:10px ui-monospace,'SFMono-Regular',monospace; letter-spacing:2px; color:var(--menu-gold); }
+.play-loading h1 { font-family:'Manrope',sans-serif; font-size:clamp(34px,5.4vw,64px); line-height:1.05; letter-spacing:-2.5px; font-weight:700; margin:12px 0 26px; }
+.play-loading-bar { position:relative; height:3px; width:min(420px,100%); overflow:hidden; border-radius:2px; background:#ffffff1a; }
+.play-loading-bar i { position:absolute; inset:0; width:38%; border-radius:2px; background:var(--menu-accent); will-change:transform; animation:play-loading-slide 1.25s cubic-bezier(.45,0,.55,1) infinite; }
+@keyframes play-loading-slide { from { transform:translateX(-100%); } to { transform:translateX(265%); } }
+.play-loading-stage { margin:14px 0 0; font-size:13px; color:var(--menu-dim); }
+.play-loading-tip { display:flex; gap:12px; align-items:baseline; max-width:620px; margin:0; padding:14px 16px; border:1px solid var(--menu-line); border-radius:8px; background:#0d1813b3; backdrop-filter:blur(6px); font-size:12px; line-height:1.6; color:var(--menu-ink); }
+.play-loading-tip span { font:9px ui-monospace,'SFMono-Regular',monospace; letter-spacing:1.5px; color:var(--menu-gold); flex-shrink:0; }
+@media (prefers-reduced-motion:reduce) {
+  .play-loading { transition:none; }
+  .play-loading-bar i { animation:none; width:100%; opacity:.6; }
+}
 
 /* Start-card extras for players: a toggle row and the folded key list. */
 .fps-player-tools { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 14px; }
@@ -99,5 +127,8 @@
   .game-menu-copy strong { font-size:19px; }
   .game-screen-bar { flex-wrap:wrap; gap:10px; }
   .game-screen-bar h1 { font-size:15px; }
+  .store-nav { gap:6px; }
+  .store-nav .game-back > span { display:none; }
+  .store-nav h1 { font-size:16px; }
   .game-screen-body > .fps-game:not(.is-immersive) > .fps-viewport { min-height:300px; }
 }

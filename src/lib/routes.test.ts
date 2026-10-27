@@ -7,6 +7,7 @@ describe('routes', () => {
     expect(routeFromPath('/training')).toBe('training');
     expect(routeFromPath('/world/')).toBe('world');
     expect(routeFromPath('/store')).toBe('store');
+    expect(routeFromPath('/settings')).toBe('settings');
     expect(routeFromPath('/debug/')).toBe('debug');
   });
 

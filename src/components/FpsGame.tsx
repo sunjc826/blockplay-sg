@@ -37,7 +37,7 @@ function Scoreboard({ snapshot, selfId }: { snapshot: ArenaSnapshot; selfId: str
   return <div className="arena-scoreboard"><table><caption>MATCH STANDINGS <span>{listArenaFactions().map(faction => [faction, actors.filter(actor => factionIdOf(actor) === faction.id).length] as const).filter(([, n]) => n).map(([faction, n]) => `${n} ${faction.short}`).join(' · ')}</span></caption><thead><tr><th scope="col">OPERATOR</th><th scope="col">ROLE</th><th scope="col">K</th><th scope="col">D</th></tr></thead><tbody>{actors.map((actor, index) => <tr key={actor.id} className={actor.id === selfId ? 'is-self' : ''}><td><span className="arena-place">{index + 1}</span>{actor.name}{actor.id === selfId && <small>YOU</small>}{actor.bot && <small>BOT</small>}</td><td>{actor.role === 'player' ? 'Operator' : actor.role}</td><td>{actor.kills}</td><td>{actor.deaths}</td></tr>)}</tbody></table></div>;
 }
 
-export default function FpsGame({ region = 'marina-bay', suspended = false, profile, nav, onReward, onElimination, onConsume, onOpenShop, arena, onLeaveArena }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; nav?: ReactNode; onReward: (result: ExerciseReward) => void; onElimination: (id: string) => void; onConsume: (id: string) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
+export default function FpsGame({ region = 'marina-bay', suspended = false, profile, nav, onReward, onElimination, onConsume, onOpenShop, arena, onLeaveArena, onLoaded }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; onReward: (result: ExerciseReward) => void; onElimination: (id: string) => void; onConsume: (id: string) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
   const district = getFpsDistrict(region), zone = getWorldZone(region);
   const rank = progression(profile.xp);
   const insignia = rankInsignia(rank.level, profile.rankSet);
@@ -63,6 +63,8 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
     return () => { engine.current?.dispose(); engine.current = null; };
   }, [epoch, combat, equipment, arenaOptions, region]);
   useEffect(() => { if (suspended) engine.current?.pause(); }, [suspended]);
+  const loaded = hud.phase !== 'loading';
+  useEffect(() => { if (loaded) onLoaded?.(); }, [loaded, onLoaded]);
   const resetExercise = () => { startingLevel.current = rank.level; engine.current?.reset(); };
   const chooseDrill = (next: boolean) => { if (combat !== next) { startingLevel.current = rank.level; setCombat(next); } };
   const isArena = !!arenaOptions, guest = arenaOptions?.session.role === 'guest';

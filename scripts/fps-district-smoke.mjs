@@ -40,9 +40,9 @@ try {
    assert.equal(await evaluate(`document.querySelectorAll('.experience canvas').length`),1);
    assert((await evaluate(`document.querySelector('.fps-toolbar h3').textContent`)).includes(label));
    await click(`document.querySelector('.fps-shop-link')`);
-   await wait(`!!document.querySelector('.armory-footer button')`);
-   assert.equal(await evaluate(`document.querySelector('.armory-footer button').textContent.trim()`),`Deploy to ${label}`);
-   await click(`document.querySelector('.armory-footer button')`);
+   await wait(`!!document.querySelector('.armory-deploy button')`);
+   assert.equal(await evaluate(`document.querySelector('.armory-deploy button').textContent.trim()`),`Deploy to ${label}`);
+   await click(`document.querySelector('.armory-deploy button')`);
    await wait(`document.querySelector('.fps-game')?.dataset.mapZone===${JSON.stringify(id)} && ${phase('ready')}`);
    const config=await evaluate(`import('/src/game/fps-districts.ts').then(m=>m.getFpsDistrict(${JSON.stringify(id)}))`);
    await click(button('Enter range')); await wait(phase('playing'));

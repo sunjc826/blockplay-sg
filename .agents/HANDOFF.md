@@ -3525,3 +3525,29 @@ Validation: loot and world tests updated plus new calibre tests, full suite
 crates: rounds focused separately from the crate, 9 mm went to the carried
 P30 with the SAR in hand, Ultimax swap kept 300 × 5.56, duplicate SAR gave
 +30. Not checked in play: 7.62/12.7 blocked case (unit tested only).
+
+## 2026-10-28: loading screen, store dock and a settings screen
+
+Menu → Training / Open World no longer freezes on the menu. New
+`src/components/PlayLoading.tsx` wraps the game in GameMenu (keyed with it,
+so a district change gets one too): it paints first, mounts the game a frame
+later (the world build is synchronous in `createFpsEngine`, and React flushes
+a click's effects before paint), and fades when the game's new `onLoaded`
+prop fires (FpsGame and ExpeditionGame call it when `hud.phase` leaves
+`loading`); 25 s fallback hands over to the game's own card. The bar animates
+by transform only, so it keeps moving through the stall.
+Store (`ArmoryShop`): the footer is a sticky dock (`.armory` is now
+`overflow:clip` so it can stick) with the selected item's action
+(`data-testid="dock-action"`, same logic as `shop-action`) and a
+`deployments` list (menu passes Training and Open World with their saved
+districts; debug keeps `onEnterRange`/`rangeLabel`). The dossier's purchase
+block moved above the stat charts. Header is one row: optional `nav` slot
+(menu passes Menu / Store / settings gear, replacing the screen bar), level and
+XP, skip-level, wallet with the demo top-up. Insignia and Encik moved to
+`ArmorySettings`, shown at the new `/settings` route (fourth menu entry) and
+under the shop in the debug shell. Phones hide the carry-slot explanations.
+Validation: typecheck, full suite on HEAD plus these changes (two geometry
+files timed out under load and passed alone), screenshots at 1440, 900, 390,
+360 wide, timed menu → Training/Open World in Playwright (loader painted
+~40 ms after the click, before the build). `pnpm test:armory` got through all
+store steps and stopped at the headless pointer-lock check in the range.

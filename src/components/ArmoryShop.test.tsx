@@ -1,6 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ArmoryShop from './ArmoryShop';
+import ArmorySettings from './ArmorySettings';
 import { createProfile, equip } from '../game/armory-state';
 import { levelSkip, xpForLevel } from '../game/progression';
 import { rankSets } from '../game/rank-insignia';
@@ -65,7 +66,7 @@ it('says how far a short wallet is from the next level rather than offering it',
 
 it('offers every registered insignia set, previewed at the level you are', () => {
   const veteran = { ...createProfile(), xp: xpForLevel(12), rankSet: 'military' };
-  const html = renderToStaticMarkup(<ArmoryShop store={storeFor(veteran)} onEnterRange={() => {}} />);
+  const html = renderToStaticMarkup(<ArmorySettings store={storeFor(veteran)} />);
   for (const set of rankSets()) expect(html).toContain(`data-set="${set.id}"`);
   // The strip wears the chosen set, and each choice previews this same level.
   expect(html).toContain('Corporal III');
@@ -85,14 +86,14 @@ it('says what each part puts on the model, and labels the same hardware on the p
 
 it('lets a high rank keep the recorded shouting, and samples both tones in their own words', () => {
   const legend = { ...createProfile(), xp: xpForLevel(35), rankSet: 'military' };
-  const html = renderToStaticMarkup(<ArmoryShop store={storeFor(legend)} onEnterRange={() => {}} />);
+  const html = renderToStaticMarkup(<ArmorySettings store={storeFor(legend)} />);
   expect(html).toContain('data-tone="rank"'); expect(html).toContain('data-tone="recruit"');
   // The deferential sample is in this player's own rank, and the recruit
   // sample is the line the recorded pack actually says.
   expect(html).toContain('Textbook, Captain.');
   expect(html).toContain('One down. Good shot, carry on!');
   expect(html).toContain('Not voiced yet, so he subtitles.');
-  const rude = renderToStaticMarkup(<ArmoryShop store={storeFor({ ...legend, encikTone: 'recruit' })} onEnterRange={() => {}} />);
+  const rude = renderToStaticMarkup(<ArmorySettings store={storeFor({ ...legend, encikTone: 'recruit' })} />);
   expect(rude).toContain('Recorded pack, every level.');
   expect(rude).not.toContain('Not voiced yet');
 });
@@ -106,4 +107,31 @@ it('draws the spray pattern beside the falloff curve on a weapon', () => {
   expect(html).toContain('target at 12 / 20 / 30 m');
   // A screen reader gets the count as a table, not only as a picture.
   expect(html).toContain('on target');
+});
+
+it('docks the selected item’s action and every way into play', () => {
+  const html = renderToStaticMarkup(<ArmoryShop store={storeFor(createProfile())} deployments={[
+    { id: 'training', label: 'Training', detail: 'Tampines', onDeploy: () => {} },
+    { id: 'world', label: 'Open World', detail: 'Bishan', onDeploy: () => {} },
+  ]} />);
+  const dock = html.slice(html.indexOf('armory-dock'));
+  // The dock repeats the dossier's action, so neither needs a scroll to reach.
+  expect(html).toContain('data-testid="shop-action"');
+  expect(dock).toContain('data-testid="dock-action"');
+  expect(dock).toContain('data-deploy="training"');
+  expect(dock).toContain('Tampines');
+  expect(dock).toContain('data-deploy="world"');
+  expect(dock).toContain('Bishan');
+  // The purchase sits above the stat charts in the dossier, not after them.
+  expect(html.indexOf('data-testid="shop-action"')).toBeLessThan(html.indexOf('Damage against range'));
+});
+
+it('keeps profile settings out of the store', () => {
+  const html = renderToStaticMarkup(<ArmoryShop store={storeFor(createProfile())} onEnterRange={() => {}} />);
+  expect(html).not.toContain('data-set=');
+  expect(html).not.toContain('data-tone=');
+  // The level and the demo top-up share the header row rather than a band each.
+  const header = html.slice(html.indexOf('armory-header'), html.indexOf('armory-navigation'));
+  expect(header).toContain('armory-progression');
+  expect(header).toContain('+250 demo tokens');
 });

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { ArrowLeft, Coins, Crosshair, Download, Gem, Map as MapIcon, MapPin, RefreshCw, ShoppingBag, Wrench } from 'lucide-react';
+import { ArrowLeft, Coins, Crosshair, Download, Gem, Map as MapIcon, MapPin, RefreshCw, Settings, ShoppingBag, Wrench } from 'lucide-react';
 import FpsGame from './FpsGame';
 import ExpeditionGame from './ExpeditionGame';
 import ArmoryShop from './ArmoryShop';
+import ArmorySettings from './ArmorySettings';
 import RankBadge from './RankBadge';
+import PlayLoading, { Skyline } from './PlayLoading';
 import { useArmory } from '../game/use-armory';
-import { getFpsDistrict } from '../game/fps-districts';
 import { hasRegionGame } from '../game/region-selection';
 import { progression } from '../game/progression';
 import { rankInsignia } from '../game/rank-insignia';
@@ -25,6 +26,7 @@ const ENTRIES = [
   { route: 'training', icon: Crosshair, title: 'Training', detail: 'Live-fire range in any district. Earn credits and XP.' },
   { route: 'world', icon: MapIcon, title: 'Open World', detail: `${REGIONS.length} districts, patrols and supplies. Find your way.` },
   { route: 'store', icon: ShoppingBag, title: 'Store', detail: 'Weapons, armour, supplies and vehicle paint.' },
+  { route: 'settings', icon: Settings, title: 'Settings', detail: 'Rank insignia and how the Encik talks to you.' },
 ] as const;
 
 /** Remembers the last district picked on each screen; storage may be unavailable. */
@@ -36,6 +38,8 @@ function useDistrict(key: string, allowed: readonly string[]) {
   const choose = (next: WorldZoneId) => { setId(next); try { localStorage.setItem(key, next); } catch { /* private window */ } };
   return [id, choose] as const;
 }
+
+const locationName = (id: WorldZoneId) => locations.find(place => place.id === id)?.name ?? id;
 
 function link(route: Route) {
   return { href: ROUTE_PATHS[route], onClick: (event: React.MouseEvent) => { if (event.metaKey || event.ctrlKey || event.shiftKey) return; event.preventDefault(); navigate(route); } };
@@ -79,25 +83,46 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     const nav = screen === 'training'
       ? <PlayNav value={training} onChange={setTraining} options={TRAINING_DISTRICTS} />
       : <PlayNav value={worldZone} onChange={id => { setWorldStart(id); setWorldZone(id); setWorldRun(n => n + 1); }} options={locations} />;
+    // Keyed with the game, so a new district gets a fresh loading screen too.
+    const loadKey = screen === 'training' ? `training-${training}` : `world-${worldStart}-${worldRun}`;
+    const districtName = locationName(screen === 'training' ? training : worldStart);
     return <div className={`game-screen game-screen-play game-screen-${screen}`}>
       <main className="game-screen-body"><DebugMode.Provider value={false}>
-        {screen === 'training' && <FpsGame key={`training-${training}`} region={training} profile={armory.profile} nav={nav} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={() => navigate('store')} />}
-        {screen === 'world' && <ExpeditionGame key={`world-${worldStart}-${worldRun}`} initialZone={worldStart} onZoneChange={setWorldZone} nav={nav} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onElimination={armory.awardElimination} onExit={() => navigate('menu')} />}
+        <PlayLoading key={loadKey} mode={screen} district={districtName} back={<a className="play-nav-back" {...link('menu')}><ArrowLeft size={16} /><span>Menu</span></a>}>
+          {onLoaded => screen === 'training'
+            ? <FpsGame region={training} profile={armory.profile} nav={nav} onLoaded={onLoaded} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={() => navigate('store')} />
+            : <ExpeditionGame initialZone={worldStart} onZoneChange={setWorldZone} nav={nav} onLoaded={onLoaded} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onElimination={armory.awardElimination} onExit={() => navigate('menu')} />}
+        </PlayLoading>
       </DebugMode.Provider></main>
       {updateToast}
     </div>;
   }
 
   if (screen === 'store') {
+    // The store's own header row carries the way back, so the screen has no bar.
     return <div className="game-screen game-screen-store">
+      <main className="game-screen-body"><DebugMode.Provider value={false}>
+        <ArmoryShop store={armory} nav={<nav className="store-nav" aria-label="Store">
+          <a className="game-back" {...link('menu')} aria-label="Menu"><ArrowLeft size={16} /><span>Menu</span></a>
+          <h1>Store</h1>
+          <a className="game-back store-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={15} /></a>
+        </nav>} deployments={[
+          { id: 'training', label: 'Training', detail: locationName(training), onDeploy: () => navigate('training') },
+          { id: 'world', label: 'Open World', detail: locationName(worldStart), onDeploy: () => navigate('world') },
+        ]} />
+      </DebugMode.Provider></main>
+      {updateToast}
+    </div>;
+  }
+
+  if (screen === 'settings') {
+    return <div className="game-screen game-screen-settings">
       <header className="game-screen-bar">
         <a className="game-back" {...link('menu')}><ArrowLeft size={16} /><span>Menu</span></a>
-        <h1>Store</h1>
+        <h1>Settings</h1>
         {profile}
       </header>
-      <main className="game-screen-body"><DebugMode.Provider value={false}>
-        <ArmoryShop store={armory} rangeLabel={getFpsDistrict(training).label} onEnterRange={() => navigate('training')} />
-      </DebugMode.Provider></main>
+      <main className="game-screen-body"><ArmorySettings store={armory} /></main>
       {updateToast}
     </div>;
   }
@@ -118,7 +143,7 @@ function MainMenu({ profile, install, updateToast }: { profile: React.ReactNode;
   };
 
   return <div className="game-menu">
-    <div className="game-menu-skyline" aria-hidden="true">{Array.from({ length: 28 }, (_, i) => <i key={i} style={{ '--h': `${18 + ((i * 37) % 53)}%`, '--w': `${2.2 + ((i * 13) % 5) * 0.6}%` } as React.CSSProperties} className={i % 9 === 4 ? 'lit' : undefined} />)}</div>
+    <Skyline />
     <header className="game-menu-top">
       <span className="brand game-brand"><span className="brand-mark"><span /><span /><span /></span>blockplaySG<span className="brand-dot">.</span></span>
       {profile}
