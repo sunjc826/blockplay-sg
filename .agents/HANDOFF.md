@@ -3481,3 +3481,20 @@ sub-square-metre slivers where a strip's end meets a lit wall (Punggol, Geylang,
 Toa Payoh), and authored panels 0.1–0.15 m proud of lit walls (Queenstown,
 Geylang, Orchard), which still fight past ~370 m where 24-bit depth at a 0.08 m
 near plane runs out.
+
+## 2026-10-27: sky flares, motors and flashes light the city at night
+
+New `src/game/moving-lights.ts`: eight light slots (position, reach, colour)
+read by the night shader patch in `world-night-lights` that every lit
+material already runs, as a plain diffuse falloff with no specular or
+shadow. Fixed slot count, so nothing recompiles; skipped when empty, and
+independent of blackout. `ambient-sky-visuals` now returns `lights` from
+`update`: flares, rocket and missile motors, naval shells in flight, a
+burning jet, and flashes (skyline, flak, launch, shootdown, crash, naval
+guns) fading as their glow does. fps-engine passes them to
+`nightLights.shine`, which keeps the eight that matter most from the camera.
+Intensities tuned on the Marina fixture: a salvo 200 m up warms the faces
+turned to it without washing out the night. Not lit: the bay and pond
+water (their own ShaderMaterial), and anything by day. Validation:
+moving-lights tests, full suite, typecheck, fixture screenshots; not
+watched in the live game loop.

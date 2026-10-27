@@ -2072,7 +2072,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.elapsed < cueClock) cueClock = hud.elapsed;
     for (const cue of world.cues?.(cueClock, hud.elapsed) ?? []) ambientSky.cue(cue.kind, cue.at);
     cueClock = hud.elapsed;
-    ambientJet = ambientSky.update(dt, { camera, listener: camera.position, bounds: world.bounds, night: nightLevel(atmosphere.light.lighting.elevation), quiet: raid }).jet;
+    const sky = ambientSky.update(dt, { camera, listener: camera.position, bounds: world.bounds, night: nightLevel(atmosphere.light.lighting.elevation), quiet: raid });
+    ambientJet = sky.jet; nightLights.shine(sky.lights, camera.position);
     const census = ambientSky.census; if (census !== canvas.dataset.ambientSky) canvas.dataset.ambientSky = census;
   }
   /** Debug: put one of the sky's set pieces up ahead of you now, whatever the hour. */

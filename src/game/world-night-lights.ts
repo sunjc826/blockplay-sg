@@ -3,6 +3,7 @@ import type { Obstacle, RegionBounds } from './region-collision';
 import type { RegionRoad } from './regions';
 import type { LightingState } from './world-lighting';
 import { getWalkSurfaces, surfaceHeight, type WalkSurface } from './vertical-routes';
+import { createMovingLights, movingLightsChunk, MOVING_LIGHTS_DECLARATIONS, type LightSource } from './moving-lights';
 
 /**
  * The city's own light after sunset, for every district without authoring
@@ -207,6 +208,7 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
     nightLampColor: { value: new THREE.Color('#ffd9a6').multiplyScalar(4.5) },
     nightWindowShare: { value: .48 },
   };
+  const moving = createMovingLights();
 
   // Lamp furniture: instanced poles and arms, emissive heads, and soft halos.
   const root = new THREE.Group(); root.name = 'night-lights'; root.userData.fpsEffect = true; scene.add(root);
@@ -290,7 +292,7 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
     patched.set(material, { compile, key });
     material.onBeforeCompile = function (shader, renderer) {
       compile.call(this, shader, renderer);
-      Object.assign(shader.uniforms, uniforms);
+      Object.assign(shader.uniforms, uniforms, moving.uniforms);
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', `#include <common>\nvarying vec3 vNightWorld, vNightNormal;${windows ? '\nattribute vec2 nightSpan;\nvarying vec2 vNightSpan;' : ''}`)
         .replace('#include <project_vertex>', `#include <project_vertex>
@@ -302,8 +304,11 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>
           uniform float nightLevel, nightPool, nightWindowShare; uniform sampler2D nightMap; uniform vec4 nightBounds; uniform vec3 nightLampColor;
-          varying vec3 vNightWorld, vNightNormal;${windows ? '\nvarying vec2 vNightSpan;' : ''}`)
+          varying vec3 vNightWorld, vNightNormal;${windows ? '\nvarying vec2 vNightSpan;' : ''}
+          ${MOVING_LIGHTS_DECLARATIONS}`)
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+          // Flares, motors and bursts nearby (moving-lights); they still shine when a blackout puts the city out.
+          if (movingCount > 0) { vec3 movingN = normalize(vNightNormal); ${movingLightsChunk('vNightWorld', 'movingN', 'diffuseColor.rgb')} }
           if (nightLevel > .001) {
             vec3 nightN = normalize(vNightNormal);
             vec2 nightUv = (vNightWorld.xz - nightBounds.xy) * nightBounds.zw;
@@ -394,7 +399,7 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
 
   const headOff = new THREE.Color('#4d5256'), headOn = new THREE.Color('#fff1d0').multiplyScalar(4);
   const buffer = new THREE.Vector2();
-  let level = -1, sinceScan = 0, disposed = false;
+  let level = -1, dark = 0, sinceScan = 0, disposed = false;
   return {
     root,
     lamps,
@@ -413,10 +418,15 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
       const reach = Math.max(0, Math.min(1, (above + 1.5) / 1.5)) * (1 - Math.max(0, Math.min(1, (above - LAMP_HEIGHT + 2) / 5)));
       return Math.min(1, baked.light[k]) ** 2 * reach * level * level;
     },
+    /**
+     * Light from things on the move this frame (flares, motors, bursts), for
+     * the slots that matter most from `camera`. Night only, blackout or not.
+     */
+    shine(sources: readonly LightSource[], camera: { x: number; y: number; z: number }) { if (!disposed) moving.set(sources, camera, dark); },
     /** `lighting` is the hour's light; `blackout` 0–1 puts the city out (the sky stays). */
     update(lighting: Pick<LightingState, 'elevation' | 'key'>, blackout: number, dt: number, camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer) {
       if (disposed) return;
-      const elevation = lighting.elevation, dark = nightLevel(elevation);
+      const elevation = lighting.elevation; dark = nightLevel(elevation);
       const next = dark * (1 - Math.max(0, Math.min(1, blackout)));
       if (Math.abs(next - level) > 1e-3) {
         level = next; uniforms.nightLevel.value = level; uniforms.nightPool.value = level * level;

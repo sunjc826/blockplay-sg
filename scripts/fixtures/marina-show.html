@@ -12,7 +12,7 @@ const {createWorldAtmosphere}=await import('/src/game/world-atmosphere.ts');
 const {createNightLights}=await import('/src/game/world-night-lights.ts');
 const {createWorldOcclusion}=await import('/src/game/world-occlusion.ts');
 const params=new URLSearchParams(location.search),vec=(s,d)=>s?s.split(',').map(Number):d;
-const W=innerWidth,H=innerHeight;
+const W=innerWidth||800,H=innerHeight||600;
 const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(W,H);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.autoClear=false;document.body.append(renderer.domElement);
 const region=getRegion('marina-bay'),world=region.build();separateInstancedMaterials(world.scene);
 const atmosphere=createWorldAtmosphere(world.scene,region.stamps,world.obstacles,false,renderer);
@@ -26,5 +26,5 @@ function at(t,cam=[10,8,120],look=[20,40,20]){
   world.animate(t);occlusion.render(true);
 }
 at(Number(params.get('t')??30),vec(params.get('cam')),vec(params.get('look')));
-window.marina={world,camera,renderer,at,ready:true};
+window.marina={world,camera,renderer,nightLights,at,ready:true};
 </script></body></html>

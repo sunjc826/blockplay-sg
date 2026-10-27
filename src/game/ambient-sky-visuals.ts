@@ -7,6 +7,7 @@ import { createBirds, BIRDS } from './ambient-birds';
 import { buildJet } from './combat-event-visuals';
 import { withInstanceOpacity } from './fps-impact-material';
 import { LIGHT_BLENDING } from './light-blending';
+import type { LightSource } from './moving-lights';
 import type { CombatRisk } from './combat-director';
 import type { SetPieceCueKind } from './district-set-pieces';
 
@@ -30,7 +31,9 @@ const DRAW_RANGE = 780;
 const SOUNDS_PER_SECOND = 4;
 const noRaycast = () => {};
 
-interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number; size: number; grow: number; colour: THREE.Color; opacity: number; lift: number }
+interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number; size: number; grow: number; colour: THREE.Color; opacity: number; lift: number;
+  /** Light it throws on the city at its brightest: intensity, and reach in metres (moving-lights). */
+  light?: readonly [number, number] }
 interface Emitter { x: number; y: number; z: number; until: number; next: number; rate: number; colour: THREE.Color; size: number; rise: number; spread: number; life: number }
 type Prepared = { skyline?: SkylineTimeline; rockets?: Rocket[]; flak?: { rounds: FlakRound[]; aim: AmbientPoint }; naval?: NavalShell[] };
 
@@ -159,9 +162,12 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
   let clock = 0, budget = SOUNDS_PER_SECOND, lastView: AmbientView | null = null;
 
   const add = (list: Particle[], capacity: number, p: Particle) => { if (list.length >= capacity) list.shift(); list.push(p); };
-  function glow(at: AmbientPoint, size: number, life: number, colour: THREE.Color, grow = 0) {
-    add(glows, GLOWS, { x: at.x, y: at.y, z: at.z, vx: 0, vy: 0, vz: 0, age: 0, life, size, grow, colour, opacity: 1, lift: 0 });
+  function glow(at: AmbientPoint, size: number, life: number, colour: THREE.Color, grow = 0, light?: readonly [number, number]) {
+    add(glows, GLOWS, { x: at.x, y: at.y, z: at.z, vx: 0, vy: 0, vz: 0, age: 0, life, size, grow, colour, opacity: 1, lift: 0, light });
   }
+  /** This frame's light on the city from things in the air, for the night shader's moving lights. */
+  const shining: LightSource[] = [];
+  const shine = (at: AmbientPoint, colour: THREE.Color, intensity: number, reach: number) => { shining.push({ x: at.x, y: at.y, z: at.z, colour, intensity, reach }); };
   function puff(at: AmbientPoint, size: number, grow: number, life: number, colour: THREE.Color, opacity: number, rise = 0, spread = 0) {
     const a = Math.random() * Math.PI * 2, out = Math.random() * spread;
     add(puffs, PUFFS, { x: at.x, y: at.y, z: at.z, vx: Math.cos(a) * out + .6, vy: rise, vz: Math.sin(a) * out, age: 0, life: life * (.8 + Math.random() * .4), size, grow, colour, opacity, lift: 0 });
@@ -217,12 +223,12 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
       if (flash.time <= before || flash.time > age) continue;
       if (reduced && flash.size < SKYLINE_SIZE.large[0] && flash.time * 7 % 2 < 1) continue;
       const huge = flash.size >= SKYLINE_SIZE.huge;
-      glow(flash, flash.size, .18 + flash.size * .008, flashHot.clone().multiplyScalar(reduced ? .6 : 1), flash.size * .5);
+      glow(flash, flash.size, .18 + flash.size * .008, flashHot.clone().multiplyScalar(reduced ? .6 : 1), flash.size * .5, [flash.size * .15, Math.min(450, flash.size * 20)]);
       // The flash lights the haze over the roofs, which is what shows from behind a downtown skyline.
       glow({ x: flash.x, y: 45 + flash.size, z: flash.z }, flash.size * 5, .6 + flash.size * .01, skyGlow.clone().multiplyScalar(.2), flash.size);
       if (flash.size >= SKYLINE_SIZE.large[0]) {
         if (spend()) sound.rumble(far(flash), huge ? 2 : 1, pan(flash));
-        for (let i = 0; i < (huge ? 4 : 1); i++) glow({ x: flash.x + (Math.random() - .5) * flash.size * .4, y: flash.y + i * flash.size * .2, z: flash.z }, flash.size * .7, 1 + i * .3, fireball.clone().multiplyScalar(.7), flash.size * .4);
+        for (let i = 0; i < (huge ? 4 : 1); i++) glow({ x: flash.x + (Math.random() - .5) * flash.size * .4, y: flash.y + i * flash.size * .2, z: flash.z }, flash.size * .7, 1 + i * .3, fireball.clone().multiplyScalar(.7), flash.size * .4, i ? undefined : [flash.size * .08, Math.min(400, flash.size * 15)]);
       }
       // The big ones burn on: a column of dark smoke that stands over the skyline.
       if (huge) emitters.push({ x: flash.x, y: flash.y + 10, z: flash.z, until: clock + 25, next: clock, rate: reduced ? .9 : .45, colour: columnSmoke, size: 14, rise: 6, spread: 2, life: 26 });
@@ -242,6 +248,8 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
       const since = age - flare.time, { y, bright } = flarePose(flare, since); if (!bright) return;
       const at = { x: flare.x, y, z: flare.z }, tint = flare.colour === 'red' ? flareRed : flare.colour === 'green' ? flareGreen : flareWhite;
       sprites.push({ at, size: 4, colour: tint, brightness: bright }, { at, size: 30, colour: tint, brightness: bright * .3 });
+      // A flare is there to light the ground: the brightest, widest light in the sky.
+      shine(at, tint, 1.5 * bright, 450);
       const key = `${event.id}/f${i}`;
       if (since < FLARE.rise + 4 && clock >= (trailClock.get(key) ?? 0)) { trailClock.set(key, clock + (reduced ? .2 : .1)); puff(at, 1.5, 4, 6, contrail, .4); }
     });
@@ -268,11 +276,11 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
   function rockets(event: AmbientEvent, list: Rocket[], age: number, before: number, reduced: boolean) {
     for (const [i, rocket] of list.entries()) {
       if (rocket.launch > before && rocket.launch <= age) {
-        glow({ ...event.at, y: event.at.y + 4 }, 22, .4, flashWarm.clone(), 10);
+        glow({ ...event.at, y: event.at.y + 4 }, 22, .4, flashWarm.clone(), 10, [3, 300]);
         if (spend()) sound.whoosh(far(event.at), pan(event.at));
       }
       const pose = rocketPose(event, rocket, age); if (!pose.burning || far(pose) > DRAW_RANGE) continue;
-      sprites.push({ at: pose, size: 5, colour: motor, brightness: 1 }, { at: pose, size: 16, colour: motorHalo, brightness: .35 });
+      sprites.push({ at: pose, size: 5, colour: motor, brightness: 1 }, { at: pose, size: 16, colour: motorHalo, brightness: .35 }); shine(pose, motorHalo, 3, 320);
       tracer({ x: pose.x - pose.direction.x * 5, y: pose.y - pose.direction.y * 5, z: pose.z - pose.direction.z * 5 }, pose.direction, 10, .9, motor, 1);
       const key = `${event.id}/r${i}`;
       if (clock >= (trailClock.get(key) ?? 0)) { trailClock.set(key, clock + (reduced ? .25 : .12)); puff(pose, 3, 10, 8, rocketSmoke, .5, .3, .4); }
@@ -285,7 +293,7 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
       const since = age - round.time; if (since < 0 || round.time + round.flight <= before) continue;
       if (reduced && i % 2) continue;
       if (round.lead && round.time > before) {
-        glow(round.from, 6, .12, flashWarm.clone());
+        glow(round.from, 6, .12, flashWarm.clone(), 0, [1.5, 120]);
         if (spend()) sound.crackle(far(round.from), Math.round(round.lead / 2), pan(round.from));
       }
       if (since <= round.flight) {
@@ -293,7 +301,7 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
         tracer(at, slowing, 7, .8, flakTracer, 1.2);
       } else if (round.burst) {
         const at = flakPose(round, round.flight);
-        glow(at, 11, .3, flakBurst.clone(), 6); puff(at, 4, 7, 6, flakSmoke, .55, 0, .5);
+        glow(at, 11, .3, flakBurst.clone(), 6, [1.5, 280]); puff(at, 4, 7, 6, flakSmoke, .55, 0, .5);
         if (spend()) sound.rumble(far(at), .35, pan(at));
       }
     }
@@ -309,13 +317,13 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
     const pose = shootdownPose(event, age), hitAt = shootdownHit(), crashAt = hitAt + SHOOTDOWN.fallTime, key = `${event.id}/`;
     const missile = missilePose(event, age);
     if (missile.flying) {
-      sprites.push({ at: missile, size: 4, colour: motor, brightness: 1 }, { at: missile, size: 12, colour: motorHalo, brightness: .3 });
+      sprites.push({ at: missile, size: 4, colour: motor, brightness: 1 }, { at: missile, size: 12, colour: motorHalo, brightness: .3 }); shine(missile, motorHalo, 2, 260);
       tracer(missile, missile.direction, 6, .7, motor);
       if (clock >= (trailClock.get(key + 'm') ?? 0)) { trailClock.set(key + 'm', clock + (reduced ? .08 : .04)); puff(missile, 4, 10, 7, contrail, .55, 0, .3); }
     }
     if (hitAt > before && hitAt <= age) {
       const hit = shootdownPose(event, hitAt);
-      glow(hit, 36, .5, flashHot.clone(), 20); glow(hit, 22, 1.2, fireball.clone(), 14);
+      glow(hit, 36, .5, flashHot.clone(), 20, [5, 450]); glow(hit, 22, 1.2, fireball.clone(), 14, [2.5, 350]);
       for (let i = 0; i < (reduced ? 4 : 8); i++) puff(hit, 5, 14, 9, columnSmoke, .7, 0, 4);
       if (spend()) sound.rumble(far(hit), 1.4, pan(hit));
     }
@@ -325,13 +333,13 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
       if (pose.phase === 'falling') {
         // Fire streams back from the wing root and the smoke behind it stays hanging along the fall.
         const tail = { x: pose.x + Math.sin(pose.yaw) * 6, y: pose.y, z: pose.z + Math.cos(pose.yaw) * 6 };
-        sprites.push({ at: tail, size: 9, colour: fireball, brightness: .9 }, { at: pose, size: 5, colour: flashWarm, brightness: .8 });
+        sprites.push({ at: tail, size: 9, colour: fireball, brightness: .9 }, { at: pose, size: 5, colour: flashWarm, brightness: .8 }); shine(tail, fireball, 2, 300);
         if (clock >= (trailClock.get(key + 's') ?? 0)) { trailClock.set(key + 's', clock + (reduced ? .08 : .04)); puff(tail, 6, 20, 12, columnSmoke, .75, .8, .6); }
       }
     }
     if (crashAt > before && crashAt <= age) {
       const crash = { ...event.at, y: event.at.y + 4 };
-      for (let i = 0; i < 4; i++) glow({ x: crash.x + (Math.random() - .5) * 20, y: crash.y + i * 10, z: crash.z + (Math.random() - .5) * 20 }, 40, 1.4 + i * .3, fireball.clone(), 25);
+      for (let i = 0; i < 4; i++) glow({ x: crash.x + (Math.random() - .5) * 20, y: crash.y + i * 10, z: crash.z + (Math.random() - .5) * 20 }, 40, 1.4 + i * .3, fireball.clone(), 25, i ? undefined : [4, 450]);
       glow({ ...crash, y: crash.y + 40 }, 160, 1, skyGlow.clone().multiplyScalar(.25), 60);
       emitters.push({ x: crash.x, y: crash.y + 6, z: crash.z, until: clock + 35, next: clock, rate: reduced ? .8 : .4, colour: columnSmoke, size: 16, rise: 6, spread: 2, life: 28 });
       if (spend()) sound.rumble(far(crash), 2.2, pan(crash));
@@ -357,11 +365,11 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
       const since = age - shell.time; if (since < 0 || since > shell.range / NAVAL.shell) continue;
       const pose = navalShellPose(event, shell, since);
       if (shell.time > before) {
-        glow(pose.muzzle, 30, .45, flashHot.clone(), 12); glow(pose.muzzle, 18, 1.1, fireball.clone().multiplyScalar(.7), 10);
+        glow(pose.muzzle, 30, .45, flashHot.clone(), 12, [3, 450]); glow(pose.muzzle, 18, 1.1, fireball.clone().multiplyScalar(.7), 10);
         for (let i = 0; i < (reduced ? 2 : 4); i++) puff(pose.muzzle, 10, 35, 8, battleHaze, .65, .5, 3);
         if (spend()) sound.rumble(far(pose.muzzle), 1.5, pan(pose.muzzle));
       }
-      if (pose.flying && far(pose) < DRAW_RANGE) { sprites.push({ at: pose, size: 5, colour: flashWarm, brightness: 1 }); tracer(pose, pose.direction, 10, 1.2, flashWarm, 1.2); }
+      if (pose.flying && far(pose) < DRAW_RANGE) { sprites.push({ at: pose, size: 5, colour: flashWarm, brightness: 1 }); tracer(pose, pose.direction, 10, 1.2, flashWarm, 1.2); shine(pose, flashWarm, 1, 250); }
     }
   }
 
@@ -414,7 +422,7 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
     frame.camera.getWorldPosition(camPosition); camRight.setFromMatrixColumn(frame.camera.matrixWorld, 0).normalize(); frame.camera.getWorldQuaternion(facing);
     lastView = { now: clock, listener: frame.listener, bounds: frame.bounds, night: frame.night, quiet: frame.quiet, sea: options.sea };
     director.step(lastView);
-    tracers = 0; sprites.length = 0;
+    tracers = 0; sprites.length = 0; shining.length = 0;
     const used = new Set<number>(), usedShips = new Set<number>();
     let heard = Infinity, aim: AmbientPoint | null = null;
     for (const event of director.active) {
@@ -451,6 +459,8 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
       p.vy += p.lift * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
     }
 
+    // Flashes fade as they light: the same (1 - t)² the glow is drawn with.
+    for (const p of glows) if (p.light) { const t = p.age / p.life; shine(p, p.colour, p.light[0] * (1 - t) * (1 - t), p.light[1]); }
     let shown = 0;
     for (const p of glows) {
       if (shown >= GLOWS) break;
@@ -472,8 +482,8 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
       puffMesh.setMatrixAt(i, matrix.compose(position.set(p.x, p.y, p.z), facing, scale.setScalar(p.size + p.grow * t)));
     });
     puffMesh.count = puffs.length; puffMesh.instanceMatrix.needsUpdate = true; puffOpacity.needsUpdate = true; if (puffMesh.instanceColor) puffMesh.instanceColor.needsUpdate = true;
-    /** The nearest jet as heard, for the engine's jet roar. */
-    return { jet: heard };
+    /** The nearest jet as heard, for the engine's jet roar; and the light all of it throws on the city. */
+    return { jet: heard, lights: shining as readonly LightSource[] };
   }
 
   return {
