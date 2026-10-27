@@ -3428,3 +3428,33 @@ longest sidearm reach); Chiong Ah .09 s; Atas Race Gun 50 dmg at .13 s, band
 than the Garang, Chiong below the Garang's output. Also filled in the
 unlock-level table in docs/ARMORY.md, which had missed this session's
 variants and inserts. Validation: unit tests, typecheck. Not felt in play.
+
+## 2026-10-27: looting reads like Apex: look to see, take to the belt
+
+Loot no longer floats a name over every crate. New `src/game/loot-focus.ts`:
+`focusLoot` picks the item in reach (2.8 m, same level, as `collect`) that
+the view points at, inside a cone that widens close up (item size + 7°,
+capped 36°); smallest angle against its own cone wins, so neighbours are
+told apart by the crosshair. `lootCard` builds what the HUD shows: tier,
+type, flavour/description, figures with ▲/▼ against the gun it puts down
+(DMG, RPM, MAG, RELOAD) or the inserts worn (ARMOR, ABSORB, WEIGHT), or for
+supplies their effect, use time, belt count and slot; plus the E verb (Pick
+up, Swap, Equip, Take ammo, Refit) and a blocked reason when the belt slot is
+full. `FpsLootCard` draws it beside the crosshair (tier stripe, blur, 160 ms
+entrance, no E chip on touch). `expedition-visuals` dropped the loot labels
+and gained `focus(id)`: one tier-coloured ring and soft light column moved to
+the looked-at item. E takes the focused item only; the AI pilot, which does
+not look where it walks, still takes the nearest in reach.
+
+Medical, food and ammunition are no longer used on the spot: they go on the
+belt (an ammo crate is one pouch per 90 rounds). Looted counts live in the
+engine's `looted` map beside the profile's supplies, are spent first, travel
+in `FpsCheckpoint.fieldSupplies`, and never call `onConsume`, so the saved
+profile is untouched. Validation: new loot-focus tests, full suite (1384),
+typecheck, and a headless Marina Bay run (Playwright, SwiftShader) respawned
+beside a medic pack, an Aegis insert and an Ultimax: no card looking level or
+away, card and ring when looking down, E while looking away did nothing, E
+while looking took it (belt 6 → 1, insert equipped, weapon swapped). Not
+done: the desktop card with its E chip was not screenshotted (headless entry
+needs touch); crate medical amounts per district (`medicalAmount`) no longer
+matter for crates, since the belt applies the catalogue item's effect.

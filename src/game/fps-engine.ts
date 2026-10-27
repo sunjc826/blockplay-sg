@@ -8,7 +8,7 @@ import { elevatedLootAnchors } from './vertical-navigation';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import type { VehicleControls } from './vehicle-seats';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage, stanceRecoilMultiplier } from './fps-stance';
-import { pickupSlot } from './armory-slots';
+import { pickupSlot, restoreCarrySlots } from './armory-slots';
 import { equipmentMovement } from './fps-encumbrance';
 import { buildServiceWeapon } from './service-weapon-models';
 import { impactSurfaceNormal } from './fps-impact-normal';
@@ -84,7 +84,8 @@ import { getEnvironmentSettings } from './environment-settings';
 import { createHitDirectionOverlay, createHitDirections, hitStrength } from './fps-hit-direction';
 import { advanceSupplyUse, startSupplyUse, supplyProfile, supplyProgress, SUPPLY_MOVE_SCALE, type SupplyProfile, type SupplyStyle, type SupplyUse } from './fps-healing';
 import { createSupplyViewmodel } from './fps-supply-viewmodel';
-import { pickUtility, utilityBelt, utilityKind, utilitySlot, UTILITY_SLOTS, type UtilityKind, type UtilitySlotView } from './utility-belt';
+import { heldSupplies, pickUtility, utilityBelt, utilityKind, utilitySlot, UTILITY_SLOTS, type UtilityKind, type UtilitySlotView } from './utility-belt';
+import { beltRoom, focusLoot, lootCard, lootUnits, type LootCard } from './loot-focus';
 import { createSunShadows } from './fps-sun-shadows';
 import { createWorldOcclusion } from './world-occlusion';
 import { createVisionSystem } from './fps-vision';
@@ -93,7 +94,9 @@ import { activePalette, advanceVision, createVisionState, cycleVisionPalette, st
 export interface FpsArenaOptions { session: LanSession; botCount: number; composition?: string; profile: ArmoryProfile; environment?: ArenaEnvironment; initialVitals?: Partial<ArenaVitals> }
 export interface FpsCheckpoint { health: number; armor: number; weapon: number; ammunition: WeaponState[]; pilot?: boolean; pilotStrategy?: 'local' | 'llm'; encikVoice?: boolean; comms?: readonly CommsEntry[];
   /** The head-mounted device was switched on, so it stays on across the gateway. */
-  vision?: boolean }
+  vision?: boolean;
+  /** Supplies picked up on this expedition and still on the belt; they never touch the saved profile. */
+  fieldSupplies?: Record<string, number> }
 export interface FpsExpeditionOptions {
   zone: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: FpsCheckpoint; profile: ArmoryProfile; loot: ExpeditionLoot;
   onTravel: (transition: WorldTransition, checkpoint: FpsCheckpoint) => void; onEquipment: (profile: ArmoryProfile) => void;
@@ -152,7 +155,9 @@ export interface FpsHud {
   /** Which control scheme the round is running under; 'touch' skips pointer capture. */
   inputMode: 'mouse' | 'touch';
   arena: ArenaSnapshot | null; arenaSelf: ArenaActor | null; arenaConnected: boolean; arenaStarted: boolean;
-  expeditionZone: WorldZoneId | null; lootPrompt: string; npcPrompt: string; travelPrompt: string; lootNotice: string; fieldLoot: FieldLoot[]; npcs: ExpeditionNpc[];
+  expeditionZone: WorldZoneId | null; lootPrompt: string;
+  /** The item being looked at within reach, as its card shows it. */
+  lootCard: LootCard | null; npcPrompt: string; travelPrompt: string; lootNotice: string; fieldLoot: FieldLoot[]; npcs: ExpeditionNpc[];
   credits: number; tokens: number;
   /** Named sub-area the player is standing in; '' on ground that belongs to none. */
   sector: string;
@@ -175,7 +180,7 @@ export interface FpsHud {
   /** The weapon in hand's laser or light (B switches it), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { calloutWheel: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { calloutWheel: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -343,7 +348,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const rounds: InFlightRound[] = []; let roundSerial = 0;
   // Supplies carried into this exercise, by id. Spending one reports out so
   // the permanent profile can debit it; the counts here are what the belt shows.
-  let supplies = { ...equipment.supplies };
+  // Supplies picked up in the field sit on the belt beside them but are the
+  // expedition's, not the profile's: they are spent first and never reported out.
+  let looted = heldSupplies(expedition?.checkpoint?.fieldSupplies ?? {});
+  const withLooted = (held: Readonly<Record<string, number>>) => {
+    const belt = { ...held };
+    for (const [id, count] of Object.entries(looted)) belt[id] = (belt[id] ?? 0) + count;
+    return belt;
+  };
+  let supplies = withLooted(equipment.supplies);
   let beltSelected: UtilityKind = utilityKind(equipment.quickItem)
     ?? UTILITY_SLOTS.find(slot => pickUtility(slot.kind, supplies))?.kind ?? 'bandage';
   /** The belt as the HUD shows it, and the selected slot as the older quick-item fields. */
@@ -627,6 +640,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       else if (tier === 0 && was >= 2 && steps[0].down) comms.add('system', faction === 'mercenaries' ? 'Intel' : 'HQ', steps[0].down);
     }
   }
+  // The loot being looked at, what the pilot can reach, and the card last built for it.
+  let focusedLoot: FieldLoot | null = null, reachableLoot: FieldLoot | null = null, cardKey = '', lastCard: LootCard | null = null;
+  const lookDirection = new THREE.Vector3();
   function updateExpeditionPrompts() {
     if (!expedition) return;
     const alive = !!hud.arenaSelf?.alive;
@@ -640,14 +656,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       hud.sector = here?.name ?? '';
       if (here && hud.phase === 'playing') comms.add('system', 'Location', `Entering ${here.name}.`);
     }
-    const nearest = alive ? expedition.loot.nearest(expedition.zone, { ...position, y: vertical }) : null;
     const npc = alive && vertical <= .35 && !vehicles.active ? nearestNpc(npcs, position) : null;
     const gateway = alive && vertical <= .35 ? findWorldGateway(expedition.zone, position) : null;
-    const lootWeapon = nearest?.kind === 'weapon' ? itemById(nearest.catalogId ?? '') : undefined;
-    const wornPlate = nearest?.kind === 'armor' && nearest.catalogId !== fieldProfile.plate ? itemById(fieldProfile.plate) : undefined;
-    const swapLabel = validWeaponIndex(lootWeapon?.family) ? ` · replace ${pickupSlot(fieldProfile, lootWeapon.family, hud.weapon)}`
-      : (wornPlate?.protection ?? 0) > 0 ? ` · replace ${wornPlate!.name}` : '';
-    hud.lootPrompt = nearest ? `E · ${nearest.tier} ${nearest.name}${swapLabel}` : '';
+    focusedLoot = alive && !vehicles.active ? focusLoot(hud.fieldLoot, { ...position, y: vertical }, camera.position, camera.getWorldDirection(lookDirection)) : null;
+    // The pilot does not look where it walks, so it takes whatever is in reach.
+    reachableLoot = alive && pilotEnabled ? expedition.loot.nearest(expedition.zone, { ...position, y: vertical }) : null;
+    hud.lootCard = focusedLoot ? cardFor(focusedLoot) : null;
+    hud.lootPrompt = hud.lootCard ? `E · ${hud.lootCard.action} ${hud.lootCard.tier} ${hud.lootCard.name}${hud.lootCard.blocked ? ` · ${hud.lootCard.blocked}` : ''}` : '';
+    markers?.focus(focusedLoot?.id ?? null);
     hud.npcPrompt = npc ? `N · ${npcInteractionPrompt(npc)}` : '';
     hud.travelPrompt = gateway ? `T · Travel to ${getWorldZone(gateway.to).name}` : '';
     if (npc && !greetedNpcs.has(npc.id) && hud.phase === 'playing') {
@@ -656,29 +672,49 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         ? `${npcInteractionPrompt(npc)}.` : `${npc.role}. Come closer if you want to talk.`);
     }
   }
+  /** The card over a looked-at item, rebuilt only when the item or what it is weighed against changes. */
+  function cardFor(loot: FieldLoot) {
+    const key = `${loot.id}|${hud.weapon}|${supplies[loot.catalogId ?? ''] ?? 0}|${fieldProfile.plate}|${fieldProfile.guns.map(gun => gun.variant).join()}|${fieldProfile.carry?.main}/${fieldProfile.carry?.extra}`;
+    if (key !== cardKey || !lastCard) {
+      cardKey = key;
+      lastCard = lootCard(loot, {
+        weapons: specs, belt: supplies, plate: itemById(fieldProfile.plate), variantOf: family => fieldProfile.guns[family]?.variant ?? '',
+        // The same reading `pickupSlot` gives the pickup below: the slot it fills, and what is in it now.
+        replaces: family => {
+          const slot = pickupSlot(fieldProfile, family, hud.weapon), carry = restoreCarrySlots(fieldProfile.carry, fieldProfile.owned);
+          return slot === 'sidearm' ? family : slot === 'extra' ? carry.extra ?? family : carry.main;
+        },
+        variantSpec: item => {
+          if (item.family === undefined) return null;
+          const next = copyProfile(fieldProfile); next.owned = [...new Set([...next.owned, item.id])]; next.guns[item.family].variant = item.id;
+          return resolveLoadout(next).weapons[item.family] ?? null;
+        },
+      });
+    }
+    return lastCard;
+  }
   function interactLoot() {
     if (!expedition || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active || !arenaRuntime || travelPending) return;
-    const nearest = expedition.loot.nearest(expedition.zone, { ...position, y: vertical }); if (!nearest) return;
-    if (nearest.kind === 'medical' && hud.health >= hud.maxHealth) { hud.lootNotice = `Health is full. ${nearest.name} remains here.`; lootNoticeTime = 3; publish(); return; }
-    if (nearest.kind === 'ammo' && loadout[hud.weapon].reserve >= 999) { hud.lootNotice = 'Ammunition reserve is full.'; lootNoticeTime = 3; publish(); return; }
-    const item = nearest.catalogId ? itemById(nearest.catalogId) : undefined;
-    if ((nearest.kind === 'weapon' && (!item || item.category !== 'weapon' || !validWeaponIndex(item.family))) || (nearest.kind === 'armor' && item?.category !== 'plate')) return;
-    // Medical supplies are used where they lie: taken, and their health given, at the commit point.
-    if (nearest.kind === 'medical') {
-      const medical = item?.category === 'consumable' ? item : { supplyType: 'medical' as const, effect: { health: nearest.amount } };
-      beginSupply(nearest.name, nearest.catalogId ?? '', supplyProfile(medical), () => {
-        const taken = expedition.loot.collect(expedition.zone, nearest.id, { ...position, y: vertical });
-        if (!taken) { hud.lootNotice = `Moved away from ${nearest.name}.`; lootNoticeTime = 3; return false; }
-        const before = hud.health; hud.health = Math.min(hud.maxHealth, hud.health + taken.amount); arenaRuntime?.setVitals({ health: hud.health }); recoveryDelay = 0;
-        hud.lootNotice = `${taken.name} · recovered ${Math.round(hud.health - before)} health.`;
-        comms.add('system', 'Supplies', hud.lootNotice); radioCall('pickup');
-        markers?.remove(taken.id); hud.fieldLoot = expedition.loot.remaining(expedition.zone); lootNoticeTime = 4;
-        updateExpeditionPrompts(); publish();
-        return true;
-      });
+    const target = (focusedLoot && hud.fieldLoot.some(item => item.id === focusedLoot!.id) ? focusedLoot : null) ?? (pilotEnabled ? reachableLoot : null);
+    if (!target) return;
+    const item = target.catalogId ? itemById(target.catalogId) : undefined;
+    if ((target.kind === 'weapon' && (!item || item.category !== 'weapon' || !validWeaponIndex(item.family))) || (target.kind === 'armor' && item?.category !== 'plate')) return;
+    // Supplies go on the belt, to be used when they are wanted rather than where they lay.
+    if (target.kind === 'medical' || target.kind === 'ammo') {
+      if (item?.category !== 'consumable') return;
+      const slot = utilitySlot(utilityKind(item) ?? ''), room = beltRoom(supplies, item.id);
+      if (!room) { hud.lootNotice = `${slot?.label ?? 'Belt'} slot is full. ${target.name} stays here.`; lootNoticeTime = 3; publish(); return; }
+      const taken = expedition.loot.collect(expedition.zone, target.id, { ...position, y: vertical }); if (!taken) return;
+      const count = Math.min(room, lootUnits(taken, item));
+      supplies[item.id] = (supplies[item.id] ?? 0) + count; looted[item.id] = (looted[item.id] ?? 0) + count;
+      if (slot && !pickUtility(beltSelected, supplies)) beltSelected = slot.kind;
+      hud.lootNotice = `+${count} ${item.name} · belt ${slot?.key ?? ''} ${slot?.label ?? ''} (${supplies[item.id]})`;
+      comms.add('system', 'Supplies', hud.lootNotice); radioCall('pickup');
+      markers?.remove(taken.id); hud.fieldLoot = expedition.loot.remaining(expedition.zone); lootNoticeTime = 3;
+      updateExpeditionPrompts(); canvas.focus({ preventScroll: true }); publish();
       return;
     }
-    const collected = expedition.loot.collect(expedition.zone, nearest.id, { ...position, y: vertical }); if (!collected) return;
+    const collected = expedition.loot.collect(expedition.zone, target.id, { ...position, y: vertical }); if (!collected) return;
     if (collected.kind === 'weapon' && item && validWeaponIndex(item.family)) {
       const family = item.family, changed = fieldProfile.guns[family].variant !== item.id;
       const next = copyProfile(fieldProfile); next.owned = [...new Set([...next.owned, item.id])]; next.guns[family].variant = item.id;
@@ -696,9 +732,6 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       fieldProfile = next; equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
       arenaRuntime.updateLoadout(fieldProfile); arenaRuntime.setVitals({ armor: equipment.armor }); hud.armor = equipment.armor;
       expedition.onEquipment(copyProfile(fieldProfile)); hud.lootNotice = `${item.name} equipped · ${Math.round(equipment.armor)} armor.`;
-    } else if (collected.kind === 'ammo') {
-      const before = loadout[hud.weapon].reserve; loadout[hud.weapon].reserve = Math.min(999, before + collected.amount);
-      hud.lootNotice = `+${loadout[hud.weapon].reserve - before} rounds for ${specs[hud.weapon].name}.`;
     }
     comms.add('system', 'Supplies', hud.lootNotice); radioCall('pickup');
     markers?.remove(collected.id); hud.fieldLoot = expedition.loot.remaining(expedition.zone); lootNoticeTime = 4;
@@ -722,7 +755,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // wallet, inventory and newly selected quick item from the purchase.
       fieldProfile = { ...fieldProfile, credits: result.profile.credits, tokens: result.profile.tokens,
         consumables: { ...result.profile.consumables }, quickItem: result.profile.quickItem };
-      equipment = resolveLoadout(fieldProfile); supplies = { ...equipment.supplies };
+      equipment = resolveLoadout(fieldProfile); supplies = withLooted(equipment.supplies);
       beltSelected = utilityKind(itemById(npc.interaction.catalogId)) ?? beltSelected;
       hud.credits = fieldProfile.credits; hud.tokens = fieldProfile.tokens;
       expedition.onEquipment(copyProfile(fieldProfile));
@@ -736,7 +769,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const gateway = findWorldGateway(expedition.zone, position); if (!gateway) return;
     const transition = resolveWorldTransition(expedition.zone, gateway.id, position); if (!transition) return;
     comms.add('system', 'Travel', `Moving to ${getWorldZone(transition.to).name}.`);
-    const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, vision: visionState.on, health: hud.health, armor: hud.armor, weapon: hud.weapon, ammunition: loadout.map(state => ({ ...state, cooldown: 0, reloadRemaining: 0 })) };
+    const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, vision: visionState.on, fieldSupplies: { ...looted }, health: hud.health, armor: hud.armor, weapon: hud.weapon, ammunition: loadout.map(state => ({ ...state, cooldown: 0, reloadRemaining: 0 })) };
     travelPending = true; pause(); expedition.onTravel(transition, checkpoint);
   }
   function jump() { if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && stance() === 'stand') bufferJump(bodyMotion); } }
@@ -1027,7 +1060,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       ...(vertical > .35 && !vehicles.active ? { vehiclePrompt: '' } : {}), magazine: roundReady(state, specs[hud.weapon]) ? state.magazine : 0, reserve: state.reserve, reloading: state.reloadRemaining > 0, aiming: actualAim, weapon: hud.weapon, availableWeapons: equipment.carriedFamilies.filter(index => loadout[index].magazine > 0 || loadout[index].reserve > 0),
       position: { x: position.x, z: position.z }, yaw, pitch,
       contacts: visiblePilotContacts(camera, world.scene, subjects, screenBlocked), waypoints, ballistics: specs[hud.weapon].ballistics,
-      lootPrompt: hud.lootPrompt, travelPrompt: hud.travelPrompt };
+      lootPrompt: reachableLoot ? `E · ${reachableLoot.tier} ${reachableLoot.name}` : '', travelPrompt: hud.travelPrompt };
   }
   function updatePilot(time: number) {
     if (!pilotEnabled || hud.phase !== 'playing' || options.arena && !hud.arenaSelf) return;
@@ -1396,11 +1429,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (armor) { hud.armor = Math.min(equipment.armor, hud.armor + armor); arenaRuntime?.setVitals({ armor: hud.armor }); }
     if (reserve) loadout[hud.weapon].reserve = Math.min(999, loadout[hud.weapon].reserve + reserve);
     if (supplies[supply.id] > 1) supplies[supply.id]--; else delete supplies[supply.id];
+    hud.message = `${supply.name} used.`;
+    if (looted[supply.id]) { if (looted[supply.id] > 1) looted[supply.id]--; else delete looted[supply.id]; publish(); return true; }
     if (expedition) {
       fieldProfile = consumeItem(fieldProfile, supply.id); equipment = resolveLoadout(fieldProfile);
       expedition.onEquipment(copyProfile(fieldProfile));
     }
-    hud.message = `${supply.name} used.`;
     options.onConsume?.(supply.id);
     publish();
     return true;

@@ -27,3 +27,28 @@
 .expedition-game.is-immersive .expedition-intel,.expedition-game.is-immersive .expedition-footer{display:none}
 .expedition-game.is-immersive .fps-viewport{min-height:0}
 @media(max-width:700px){.expedition-intel{grid-template-columns:1fr;gap:18px;padding:18px}.expedition-network{grid-template-columns:repeat(3,minmax(0,1fr))}.expedition-network>div{padding:8px 5px}.expedition-risk,.expedition-wallet{font-size:8px;padding:6px}.expedition-footer{flex-wrap:wrap}.expedition-route-hud{top:62px;right:12px}.expedition-sector{top:92px;left:12px}.expedition-game .fps-minimap{top:128px}.expedition-sector strong{font-size:11px}.expedition-heat{width:112px}.expedition-heat div{grid-template-columns:48px 1fr}.expedition-game:has(.expedition-heat) .fps-minimap{top:154px}.expedition-game .fps-viewport{min-height:520px}.expedition-game .fps-top{gap:8px}.expedition-game .fps-badge{font-size:8px}.expedition-game .fps-objective{max-width:52%;font-size:10px}}
+/* The card beside the crosshair for the loot being looked at. */
+.fps-loot-card{--tier:#b8c9b2;position:absolute;left:calc(50% + 46px);top:50%;width:min(268px,42vw);transform:translateY(-38%);z-index:5;pointer-events:none;color:#e9efe6;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--tier) 22%,transparent) 0,transparent 46px),#0c1411d9;border:1px solid #ffffff14;border-left:3px solid var(--tier);border-radius:3px 6px 6px 3px;
+  box-shadow:0 10px 26px #0008,inset 0 1px 0 #ffffff12;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:fps-loot-in .16s cubic-bezier(.2,.8,.3,1) both;font-family:inherit}
+.fps-loot-card header{padding:9px 12px 6px;display:grid;gap:2px}
+.fps-loot-tier{display:flex;align-items:center;gap:6px;font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--tier)}
+.fps-loot-tier i{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.6}
+.fps-loot-card strong{font-size:15px;font-weight:650;letter-spacing:.01em;line-height:1.2;text-shadow:0 1px 2px #0009}
+.fps-loot-card p{margin:0;padding:0 12px 8px;font-size:11px;line-height:1.4;color:#b9c6b8;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.fps-loot-card dl{margin:0;padding:7px 12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(50px,1fr));gap:6px;border-top:1px solid #ffffff10;background:#0000002e}
+.fps-loot-card dl div{display:grid;gap:1px}
+.fps-loot-card dt{font-size:8px;letter-spacing:.12em;color:#8d9d90}
+.fps-loot-card dd{margin:0;font:600 13px/1.1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#eef3ea;display:flex;align-items:baseline;gap:3px}
+.fps-loot-card dd span{font-size:8px}
+.fps-loot-card [data-trend=up] dd span{color:#7fdc8c}.fps-loot-card [data-trend=down] dd span{color:#ef7f6e}
+.fps-loot-card footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 12px 8px;border-top:1px solid #ffffff10}
+.fps-loot-action{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.fps-loot-action kbd{min-width:18px;height:18px;display:inline-grid;place-items:center;border-radius:3px;background:#eef3ea;color:#0c1411;font:700 11px/1 inherit;box-shadow:0 2px 0 #8d9d90}
+.fps-loot-blocked{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#ef9a7e}
+.fps-loot-card footer small{font-size:10px;color:#93a396;text-align:right;line-height:1.3}
+.fps-loot-card[data-blocked]{border-left-color:#ef9a7e88}
+@keyframes fps-loot-in{from{opacity:0;transform:translate(-8px,-38%) scale(.97)}to{opacity:1;transform:translateY(-38%)}}
+@media (prefers-reduced-motion:reduce){.fps-loot-card{animation:none}}
+.fps-game[data-touch=on] .fps-loot-card{left:calc(50% + 30px);width:min(220px,46vw)}
+.fps-game[data-touch=on] .fps-loot-card p{display:none}

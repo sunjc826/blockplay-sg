@@ -9,6 +9,7 @@ import { disposeModel } from './armory-visuals';
 import { WORLD_GATEWAYS, getWorldZone, type WorldZoneId } from './world-zones';
 import { createCharacterRig, hashString, type CharacterGesture, type CharacterRig } from './character-rig';
 import { npcCharacterLook, npcIdleGesture } from './character-looks';
+import { LOOT_TIER_COLORS } from './loot-focus';
 
 export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, loot: readonly FieldLoot[], npcs: readonly ExpeditionNpc[] = []) {
   const root = new THREE.Group(); root.name = 'expedition-markers'; root.userData.fpsEffect = true; scene.add(root);
@@ -26,7 +27,13 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
     const material = new THREE.SpriteMaterial({ map:texture, depthTest:true }); owned.push(texture,material);
     const sprite = new THREE.Sprite(material); sprite.position.y = y; sprite.scale.set(3.7,.46,1); parent.add(sprite);
   }
-  const tierColor = (tier: FieldLoot['tier']) => tier === 'Elite' ? '#e5bb55' : tier === 'Field' ? '#71b8d0' : '#b8c9b2';
+  const tierColor = (tier: FieldLoot['tier']) => LOOT_TIER_COLORS[tier] ?? LOOT_TIER_COLORS.Issued;
+  // Loot carries no floating name: its card comes up only when the player is
+  // close and looking at it. Where each item rests, for the ring that marks it then.
+  const spots = new Map<string, { x: number; y: number; z: number; color: string; size: number }>();
+  const spot = (item: FieldLoot) => spots.set(item.id, { x: item.x, y: item.y ?? 0, z: item.z, color: tierColor(item.tier),
+    // A weapon lying at full length or a crate wants a wider ring than a pouch.
+    size: item.dropped ? item.kind === 'weapon' ? 1.35 : .8 : 1.15 });
   // A fallen enemy's weapon is drawn as itself, lying on its side where it fell,
   // with a tier ring so it reads from a distance. Each owns its resources, so
   // the oldest can be thrown away when a new one drops.
@@ -50,8 +57,7 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
     const ringGeometry = new THREE.TorusGeometry(.62, .025, 6, 32), ringMaterial = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .75 });
     owned.push(ringGeometry, ringMaterial);
     const ring = new THREE.Mesh(ringGeometry, ringMaterial); ring.rotation.x = Math.PI / 2; ring.position.y = .02; group.add(ring);
-    label(group, `${item.tier.toUpperCase()} / ${item.name}`, color, .95, owned);
-    drops.set(item.id, { group, resources: owned });
+    drops.set(item.id, { group, resources: owned }); spot(item);
   }
   /**
    * A kit set out on the ground from a supply crate or a fallen soldier: a
@@ -72,8 +78,7 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
       }
       group.rotation.y = (hashString(item.id) % 628) / 100;
       group.traverse(node => { node.userData.fpsEffect = true; });
-      label(group, `${item.tier.toUpperCase()} / ${item.name}`, color, .75, owned);
-      drops.set(item.id, { group, resources: owned });
+      drops.set(item.id, { group, resources: owned }); spot(item);
       return;
     }
     const caseGeometry = new THREE.BoxGeometry(.55, .28, .38), caseMaterial = new THREE.MeshStandardMaterial({ color: item.kind === 'medical' ? '#c9d1c4' : '#3f4a37', roughness: .8 });
@@ -82,8 +87,7 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
     const body = new THREE.Mesh(caseGeometry, caseMaterial); body.position.y = .14; group.add(body);
     const lid = new THREE.Mesh(lidGeometry, lidMaterial); lid.position.y = .3; group.add(lid);
     group.traverse(node => { node.userData.fpsEffect = true; });
-    label(group, `${item.tier.toUpperCase()} / ${item.name}`, color, .85, owned);
-    drops.set(item.id, { group, resources: owned });
+    drops.set(item.id, { group, resources: owned }); spot(item);
   }
   for (const item of loot.filter(entry => entry.dropped)) addDrop(item);
   for (const item of loot.filter(entry => !entry.dropped)) {
@@ -97,7 +101,7 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
       mesh(group,new THREE.CylinderGeometry(.16,.22,.13,12),'#efe2bd',-.12,.62,0);
       mesh(group,new THREE.CylinderGeometry(.1,.1,.27,10),'#c99668',.18,.64,0);
     } else if (item.kind === 'medical') { mesh(group,new THREE.BoxGeometry(.1,.24,.03),'#dbeee2',0,.26,-.292); mesh(group,new THREE.BoxGeometry(.24,.1,.03),'#dbeee2',0,.26,-.294); }
-    label(group,`${item.tier.toUpperCase()} / ${item.name}`,color,1.32);
+    spot(item);
   }
   // Locals are articulated figures standing on whatever floor is under them.
   const floorRay = new THREE.Raycaster(), floors: THREE.Mesh[] = [];
@@ -134,10 +138,29 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
     for(const x of [-3.1,3.1]) { mesh(group,new THREE.BoxGeometry(.25,3.4,.25),'#344e40',x,1.7,0); mesh(group,new THREE.BoxGeometry(.29,.35,.29),'#b8e3c1',x,3.05,0); }
     label(group,`T / ${getWorldZone(gateway.to).name.toUpperCase()}`, '#d2efcf',3.9);
   }
+  // One ring and a soft column of light, moved to whichever item is looked at.
+  const focusRing = new THREE.Group(); focusRing.name = 'loot-focus'; focusRing.visible = false; root.add(focusRing);
+  const ringGeometry = new THREE.RingGeometry(.5, .56, 40), glowGeometry = new THREE.CylinderGeometry(.5, .5, .9, 32, 1, true);
+  const ringMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: .9, side: THREE.DoubleSide, depthWrite: false });
+  const glowMaterial = new THREE.ShaderMaterial({
+    uniforms: { color: { value: new THREE.Color() }, strength: { value: .35 } }, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+    vertexShader: 'varying float h; void main() { h = position.y + .45; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+    fragmentShader: 'uniform vec3 color; uniform float strength; varying float h; void main() { gl_FragColor = vec4(color * strength * pow(1. - clamp(h / .9, 0., 1.), 2.), 1.); }',
+  });
+  resources.push(ringGeometry, glowGeometry, ringMaterial, glowMaterial);
+  const ringMesh = new THREE.Mesh(ringGeometry, ringMaterial); ringMesh.rotation.x = -Math.PI / 2; ringMesh.position.y = .03; focusRing.add(ringMesh);
+  const glowMesh = new THREE.Mesh(glowGeometry, glowMaterial); glowMesh.position.y = .48; focusRing.add(glowMesh);
+  focusRing.traverse(node => { node.userData.fpsEffect = true; node.raycast = () => {}; });
+  let focusedId: string | null = null, focusAge = 0;
   return {
     /** Idle life, head-tracking, turning to face and greeting a nearby viewer. */
     update(dt: number, viewer: THREE.Vector3) {
       dt = Number.isFinite(dt) ? Math.max(0, Math.min(dt, .1)) : 0; clock += dt;
+      if (focusRing.visible) {
+        // Opens out from the item, then breathes while it stays looked at.
+        focusAge += dt; const open = 1 - Math.pow(1 - Math.min(1, focusAge / .18), 3), breathe = 1 + Math.sin(clock * 4) * .035;
+        ringMesh.scale.setScalar((.7 + .3 * open) * breathe); ringMaterial.opacity = .9 * open; glowMaterial.uniforms.strength.value = .16 * open;
+      }
       for (const local of locals) {
         const { npc, rig } = local, dx = viewer.x - npc.x, dz = viewer.z - npc.z, distance = Math.hypot(dx, dz);
         if (distance > 14) local.greeted = false;
@@ -158,7 +181,17 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
       local.gesture = gesture; local.react = seconds; local.greeted = true;
     },
     addDrop,
+    /** Marks the item being looked at, or nothing. */
+    focus(id: string | null) {
+      const at = id ? spots.get(id) : undefined;
+      if (!at) { focusRing.visible = false; focusedId = null; return; }
+      if (id !== focusedId) {
+        focusedId = id; focusAge = 0; focusRing.visible = true; focusRing.position.set(at.x, at.y + .02, at.z); focusRing.scale.set(at.size, 1, at.size);
+        ringMaterial.color.set(at.color); glowMaterial.uniforms.color.value.set(at.color);
+      }
+    },
     remove(id:string) {
+      spots.delete(id); if (id === focusedId) { focusRing.visible = false; focusedId = null; }
       const group=pickups.get(id); if(group){group.visible=false;pickups.delete(id);}
       const dropped=drops.get(id); if(dropped){dropped.group.removeFromParent();dropped.resources.forEach(resource=>resource.dispose());drops.delete(id);}
     },
