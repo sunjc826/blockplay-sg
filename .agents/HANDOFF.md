@@ -3395,3 +3395,23 @@ damage at every range. The SAR ladder's impact test now lets an equal-damage
 rung share a crater. Validation: unit tests, typecheck. Not done: the P30's
 Ultra+ (Atas Race Gun 60 dmg) were tuned under the old rule and could come
 down the same way; not felt in play.
+
+## 2026-10-27: Marina Bay's night shows redrawn
+
+New `src/game/marina-bay-show.ts` holds the look; `district-set-pieces`'
+`marina()` drives it from the world clock. Fountains: 13 camera-facing
+spray jets (narrow jet, falling sheath, rounded mist crown, foam), lit from
+below in the show colour, not solid cones. Lasers: eight thin beams from two
+emitters on the SkyPark's west edge, a line plus faint scattered glow that
+dims rather than thickens when sub-pixel; four patterns (fan, sweep, turning
+cone, crossing), crossfaded every 15 s. Supertrees and Flyer: soft point
+lamps along the real frame (ribs, branches, forks, rim) instead of sphere
+dots, four slow programmes (wash, climb, turning slices, shimmer) on paired
+palette colours that crossfade over 3 s. The show fades up and down over 4 s.
+All of it uses `LIGHT_BLENDING` (now `src/game/light-blending.ts`, shared
+with ambient-sky-visuals) so nothing fringes black against the sky.
+`scripts/fixtures/marina-show.html?t=&cam=&look=` renders the district at
+night at any clock time. Validation: new marina-bay-show tests (palette
+continuity, lamps on the frame, no strobing, laser aims, jet heights, night
+only), full suite, typecheck, fixture screenshots. Not checked in the live
+game loop (the hidden browser pane would not run frames).

@@ -6,6 +6,7 @@ import { createAmbientSkyAudio } from './ambient-sky-audio';
 import { createBirds, BIRDS } from './ambient-birds';
 import { buildJet } from './combat-event-visuals';
 import { withInstanceOpacity } from './fps-impact-material';
+import { LIGHT_BLENDING } from './light-blending';
 import type { CombatRisk } from './combat-director';
 import type { SetPieceCueKind } from './district-set-pieces';
 
@@ -28,13 +29,6 @@ const DRAW_RANGE = 780;
 /** At most this many far sounds a second: a big fight is a roll, not a hailstorm. */
 const SOUNDS_PER_SECOND = 4;
 const noRaycast = () => {};
-/**
- * Adds light and leaves coverage alone. The world view composites the scene
- * over a separately cleared sky (world-occlusion), so plain additive blending,
- * which also adds alpha, blots out the sky wherever a glow or beam is drawn.
- */
-const LIGHT_BLENDING = { transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneFactor,
-  blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor } as const;
 
 interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number; size: number; grow: number; colour: THREE.Color; opacity: number; lift: number }
 interface Emitter { x: number; y: number; z: number; until: number; next: number; rate: number; colour: THREE.Color; size: number; rise: number; spread: number; life: number }

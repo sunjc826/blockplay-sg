@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { RegionId } from './region-ids';
 import type { RegionWorld } from './regions';
+import { aimDirection, createFountainJets, createLaserBeams, createLightString, fountainHeight, laserAim, laserColour, paletteAt, showStep, supertreeLights, supertreeProgramme } from './marina-bay-show';
 
 /**
  * District set pieces: the machinery of a working city carrying on through
@@ -84,12 +85,8 @@ function createKit(scene: THREE.Scene, root: THREE.Group) {
     const mesh = new THREE.Mesh(ball, material); mesh.position.set(x, y, z); mesh.scale.setScalar(r * 2); mesh.raycast = noRaycast; parent.add(mesh); return mesh;
   };
   const group = (parent: THREE.Object3D = root) => { const g = new THREE.Group(); parent.add(g); return g; };
-  /** A pool of small lights that can be recoloured each frame. */
-  const lights = (count: number, radius: number) => {
-    const mesh = new THREE.InstancedMesh(keep(new THREE.SphereGeometry(radius, 6, 4)), glow('#ffffff'), count);
-    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.raycast = noRaycast; mesh.frustumCulled = false; mesh.setColorAt(0, new THREE.Color());
-    root.add(mesh); return mesh;
-  };
+  /** Takes over disposal of what a builder made: its geometry and material. */
+  const own = <T extends { geometry: THREE.BufferGeometry; material: THREE.Material }>(made: T) => { geometries.push(made.geometry); materials.push(made.material); return made; };
   const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), from = new THREE.Vector3();
   /** The top surface at (x, z): a roof, a railing, a platform; the ground when there is nothing else. */
   const surface = (x: number, z: number, top = 80) => {
@@ -97,7 +94,7 @@ function createKit(scene: THREE.Scene, root: THREE.Group) {
     const hit = ray.intersectObjects(scene.children.filter(c => c !== root && !c.userData.fpsEffect), true)[0];
     return hit?.point.y ?? 0;
   };
-  return { keep, lit, glow, box, cylinder, sphere, group, lights, surface, dispose() { geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); } };
+  return { keep, lit, glow, box, cylinder, sphere, group, own, surface, dispose() { geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); } };
 }
 
 // ---------------------------------------------------------------- Queenstown
@@ -302,33 +299,28 @@ export const FLYER_TURN = 480;
 const SUPERTREES = [[291, 15, 11], [304, 65, 14], [289, 116, 10]] as const;
 /** At night the bay show runs this long, this often; the National Day rehearsal flies over by day. */
 export const BAY_SHOW = { every: 600, length: 180 } as const, FLYPAST = { every: 420, speed: 150, reach: 900, height: 140 } as const;
-const showColours = ['#ff3b6b', '#ffb02e', '#43e0ff', '#7a5cff', '#58ff8a', '#ffffff'].map(c => new THREE.Color(c));
+/** Laser emitters along the west edge of the SkyPark deck, as marina-scene builds it: [x, z], and the deck's top. */
+const SKYPARK_LASERS = [[141.4, -45], [141.4, 15]] as const, SKYPARK_TOP = 111.2;
+const FOUNTAINS = 13, LASER_REACH = 450;
 
 function marina(kit: Kit, scene: THREE.Scene): SetPiece {
   const flyer = scene.getObjectByName('marina-flyer-wheel'), pods = flyer ? flyer.children.filter(c => c.name === 'marina-flyer-capsule') : [];
-  // Rim lights on the Flyer turn with it.
-  const rimLights = new THREE.InstancedMesh(kit.keep(new THREE.SphereGeometry(.35, 6, 4)), kit.glow('#ffffff'), 64);
-  rimLights.raycast = noRaycast; rimLights.frustumCulled = false; flyer?.add(rimLights);
-  const matrix = new THREE.Matrix4(), colour = new THREE.Color(), off = new THREE.Color('#000000');
-  for (let i = 0; i < 64; i++) { const a = (i % 32) / 32 * Math.PI * 2, z = i < 32 ? -3 : 3; rimLights.setMatrixAt(i, matrix.makeTranslation(Math.cos(a) * 25.5, Math.sin(a) * 25.5, z)); rimLights.setColorAt(i, off); }
+  // A string of lamps round each of the Flyer's rims, turning with it.
+  const rimSpots = [-3, 3].flatMap(z => Array.from({ length: 160 }, (_, i) => { const a = i / 160 * Math.PI * 2; return { x: Math.cos(a) * 25.5, y: Math.sin(a) * 25.5, z, size: 1.5 }; }));
+  const rim = kit.own(createLightString(rimSpots)); flyer?.add(rim.points);
 
-  // Supertree lights: round each canopy rim, out along the branches and up the trunk.
-  const points: { x: number; y: number; z: number; tree: number; band: number; angle: number }[] = [];
-  SUPERTREES.forEach(([x, z, r], tree) => {
-    for (let i = 0; i < 30; i++) { const a = i / 30 * Math.PI * 2; points.push({ x: x + Math.cos(a) * r, y: 25.3, z: z + Math.sin(a) * r, tree, band: 3, angle: a }); }
-    for (let i = 0; i < 12; i++) for (const f of [.45, .7]) { const a = i * Math.PI / 6; points.push({ x: x + Math.cos(a) * r * f, y: 21 + f * 3, z: z + Math.sin(a) * r * f, tree, band: 2, angle: a }); }
-    for (let i = 0; i < 18; i++) { const a = i * 1.1, y = 2 + i * .95; points.push({ x: x + Math.cos(a) * 2.6, y, z: z + Math.sin(a) * 2.6, tree, band: y / 20, angle: a }); }
-  });
-  const treeLights = kit.lights(points.length, .55);
-  points.forEach((p, i) => { treeLights.setMatrixAt(i, matrix.makeTranslation(p.x, p.y, p.z)); });
+  // The Supertrees' frames lit along their ribs, branches and rims.
+  const treeSpots = supertreeLights(SUPERTREES), trees = kit.own(createLightString(treeSpots)); kit.group().add(trees.points);
 
-  // The bay show: a line of fountains across the water and lasers sweeping from the south promenade.
-  const water = kit.glow('#bfe8ff', { transparent: true, opacity: .45, depthWrite: false, blending: THREE.AdditiveBlending });
-  // Each jet flares out as it rises, like spray rather than a pole.
-  const spray = kit.keep(new THREE.CylinderGeometry(1.8, .35, 1, 12, 1, true));
-  const fountains = kit.group(), jets = Array.from({ length: 9 }, (_, i) => { const m = new THREE.Mesh(spray, water); m.position.set(-48 + i * 12, 0, 20); m.raycast = noRaycast; m.visible = false; fountains.add(m); return m; });
-  const laserMaterial = kit.glow('#43e0ff', { transparent: true, opacity: .55, depthWrite: false, blending: THREE.AdditiveBlending });
-  const lasers = Array.from({ length: 4 }, () => { const g = kit.group(); g.position.set(0, 18, 62); const beam = kit.cylinder(g, 0, 150, 0, .18, 300, laserMaterial); beam.visible = true; g.visible = false; return g; });
+  // The bay show: a line of fountains across the water, and lasers fired west over the bay from the SkyPark.
+  const fountains = kit.own(createFountainJets(FOUNTAINS)); kit.group().add(fountains.mesh);
+  const lasers = kit.own(createLaserBeams()), laserGroup = kit.group();
+  const beams = SKYPARK_LASERS.flatMap(([x, z], emitter) => Array.from({ length: 4 }, (_, k) => {
+    const mesh = lasers.beam(); mesh.position.set(x, SKYPARK_TOP, z); laserGroup.add(mesh); return { mesh, emitter, k };
+  }));
+  const emitters = kit.own(createLightString(SKYPARK_LASERS.map(([x, z]) => ({ x: x - .3, y: SKYPARK_TOP, z, size: 1.4 })))); laserGroup.add(emitters.points);
+  const main = new THREE.Color(), partner = new THREE.Color(), lit = new THREE.Color(), colour = new THREE.Color();
+  const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), scale = new THREE.Vector3(), still = new THREE.Quaternion(), direction = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
 
   // National Day rehearsal: five jets in a V with red and white smoke.
   const parade = Array.from({ length: 5 }, (_, i) => {
@@ -347,41 +339,43 @@ function marina(kit: Kit, scene: THREE.Scene): SetPiece {
         flyer.rotation.z = time / FLYER_TURN * Math.PI * 2;
         for (const pod of pods) pod.rotation.z = -flyer.rotation.z;
       }
-      // Flyer: a slow chase of colour round the rims after dark.
-      rimLights.visible = night >= .05;
-      for (let i = 0; rimLights.visible && i < 64; i++) {
-        const wave = .5 + .5 * Math.sin((i % 32) / 32 * Math.PI * 4 - time * 1.5);
-        rimLights.setColorAt(i, colour.copy(showColours[Math.floor(time / 20) % showColours.length]).multiplyScalar((.25 + .75 * wave) * night));
+      // The gardens and the Flyer move through the palette every twenty seconds, crossfading over three.
+      const step = showStep(time, 20, 3); paletteAt(step.index, step.blend, main, partner);
+      rim.points.visible = trees.points.visible = night >= .05;
+      if (rim.points.visible) {
+        // Flyer: one colour, a slow swell running round each rim.
+        rimSpots.forEach((_, i) => rim.setColour(i, colour.copy(main).multiplyScalar((.45 + .55 * (.5 + .5 * Math.sin((i % 160) / 160 * Math.PI * 4 - time * .5))) * night * 1.4)));
+        rim.commit();
+        treeSpots.forEach((light, i) => {
+          const a = supertreeProgramme(step.index, light, time), b = supertreeProgramme(step.index + 1, light, time);
+          const mix = a.mix + (b.mix - a.mix) * step.blend, level = a.level + (b.level - a.level) * step.blend;
+          trees.setColour(i, colour.copy(main).lerp(partner, mix).multiplyScalar(level * night * 1.6));
+        });
+        trees.commit();
       }
-      if (rimLights.instanceColor) rimLights.instanceColor.needsUpdate = true;
 
-      // Supertrees: the programme changes every twenty seconds; waves round the rims, colour climbing the trunks, a twinkle.
-      const programme = Math.floor(time / 20) % 4, base = showColours[Math.floor(time / 20) % showColours.length], next = showColours[(Math.floor(time / 20) + 2) % showColours.length];
-      treeLights.visible = night >= .05;
-      if (treeLights.visible) points.forEach((p, i) => {
-        let level = .6;
-        if (programme === 0) level = .5 + .5 * Math.sin(p.angle * 3 - time * 2 + p.tree);
-        else if (programme === 1) level = smooth(1 - Math.abs(((time * .4 + p.tree * .3) % 1.4) - p.band / 3.2) * 3);
-        else if (programme === 2) level = (Math.sin(i * 12.9898 + Math.floor(time * 6) * 78.233) * 43758.5453) % 1 > .55 ? 1 : .25;
-        else level = .5 + .5 * Math.sin(time * 1.2 + p.tree * 2);
-        treeLights.setColorAt(i, colour.copy(base).lerp(next, p.band / 3).multiplyScalar(Math.abs(level) * night));
-      });
-      if (treeLights.instanceColor) treeLights.instanceColor.needsUpdate = true;
-      treeLights.count = points.length; treeLights.instanceMatrix.needsUpdate = true;
-
-      // The bay show, at night only.
-      const show = time % BAY_SHOW.every, on = night > .5 && show < BAY_SHOW.length;
-      jets.forEach((jet, i) => {
-        jet.visible = on; if (!on) return;
-        const h = 6 + 26 * Math.abs(Math.sin(time * .9 + i * .55 + Math.sin(time * .2) * 2));
-        jet.scale.y = h; jet.position.y = MARINA_WATER + h / 2;
-        (jet.material as THREE.MeshBasicMaterial).color.copy(showColours[Math.floor(show / 15) % showColours.length]).lerp(new THREE.Color('#ffffff'), .5);
-      });
-      lasers.forEach((laser, i) => {
-        laser.visible = on; if (!on) return;
-        laser.rotation.set(-.9 + Math.sin(time * .5 + i) * .3, 0, (i - 1.5) * .3 + Math.sin(time * .7 + i * 1.7) * .4);
-      });
-      laserMaterial.color.copy(showColours[Math.floor(show / 15 + 2) % showColours.length]);
+      // The bay show, at night only, fading up and down rather than switching.
+      const show = time % BAY_SHOW.every, level = smooth((night - .5) / .2) * smooth(show / 4) * smooth((BAY_SHOW.length - show) / 4);
+      fountains.mesh.visible = laserGroup.visible = level > 0;
+      if (level > 0) {
+        const part = showStep(show, 15, 2.5); paletteAt(part.index + 2, part.blend, lit, partner);
+        for (let i = 0; i < FOUNTAINS; i++) {
+          const h = fountainHeight(part.index, i, FOUNTAINS, time) * (1 - part.blend) + fountainHeight(part.index + 1, i, FOUNTAINS, time) * part.blend;
+          fountains.mesh.setMatrixAt(i, matrix.compose(position.set(-48 + i * 8, MARINA_WATER, 20), still, scale.set(2 * (1.2 + .12 * h), h, 1)));
+          fountains.mesh.setColorAt(i, lit);
+        }
+        fountains.mesh.instanceMatrix.needsUpdate = true; if (fountains.mesh.instanceColor) fountains.mesh.instanceColor.needsUpdate = true;
+        fountains.material.uniforms.time.value = time; fountains.material.uniforms.level.value = level;
+        for (const { mesh, emitter, k } of beams) {
+          const a = laserAim(part.index, emitter, k, time), b = laserAim(part.index + 1, emitter, k, time);
+          aimDirection({ yaw: a.yaw + (b.yaw - a.yaw) * part.blend, pitch: a.pitch + (b.pitch - a.pitch) * part.blend }, direction);
+          mesh.quaternion.setFromUnitVectors(up, direction); mesh.scale.set(1, LASER_REACH, 1);
+        }
+        laserColour(part.index, part.blend, lasers.material.uniforms.colour.value);
+        lasers.material.uniforms.strength.value = 2.4 * level; lasers.material.uniforms.time.value = time;
+        colour.copy(lasers.material.uniforms.colour.value).multiplyScalar(2.5 * level);
+        emitters.setColour(0, colour); emitters.setColour(1, colour); emitters.commit();
+      }
 
       // The flypast, by day: in over the bay from the west, smoke on, out to the east.
       const k = Math.floor(time / FLYPAST.every), u = time - k * FLYPAST.every, flying = night < .5 && u * FLYPAST.speed <= FLYPAST.reach * 2;
