@@ -6,7 +6,7 @@ describe('player callouts', () => {
     const ids = CALLOUT_PAGES.flatMap(page => page.callouts.map(callout => callout.id));
     expect(new Set(ids).size).toBe(ids.length);
     for (const page of CALLOUT_PAGES) {
-      expect(page.callouts).toHaveLength(WHEEL_SLOTS);
+      expect(page.callouts.length).toBeGreaterThan(3); expect(page.callouts.length).toBeLessThanOrEqual(WHEEL_SLOTS);
       for (const callout of page.callouts) {
         expect(callout.label.length).toBeLessThanOrEqual(14);
         expect(callout.lines.length).toBeGreaterThan(0);
@@ -29,5 +29,20 @@ describe('player callouts', () => {
     expect(wheelSlot(-60, -60)).toBe(7);
     expect(wheelSlot(5, -10)).toBeNull();
     expect(wheelSlot(Number.NaN, 40)).toBeNull();
+  });
+});
+describe('orders on the wheel', () => {
+  it('sit on a page of their own, first, apart from talk', () => {
+    const [orders, ...talk] = CALLOUT_PAGES;
+    expect(orders.id).toBe('orders');
+    expect(orders.callouts.every(callout => callout.order)).toBe(true);
+    expect(orders.callouts.map(callout => callout.order)).toEqual(['gather', 'move', 'hold', 'focus', 'scatter', 'reinforce']);
+    // Nothing on another page reads as an order or gets an ally's answer.
+    for (const page of talk) for (const callout of page.callouts) { expect(callout.order).toBeUndefined(); expect(callout.reply ?? 'taunt').toBe('taunt'); }
+  });
+  it('space a short page evenly round the wheel', () => {
+    expect(wheelSlot(0, -60, 6)).toBe(0);
+    expect(wheelSlot(60, -35, 6)).toBe(1);
+    expect(wheelSlot(0, 60, 6)).toBe(3);
   });
 });

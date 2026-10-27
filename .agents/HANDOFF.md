@@ -3551,3 +3551,33 @@ files timed out under load and passed alone), screenshots at 1440, 900, 390,
 360 wide, timed menu → Training/Open World in Playwright (loader painted
 ~40 ms after the click, before the build). `pnpm test:armory` got through all
 store steps and stopped at the headless pointer-lock check in the range.
+
+## 2026-10-28: squad orders on the callout wheel
+
+The wheel's first page is now **Orders**, the only callouts bots act on
+(`squad-orders.ts`, docs/CALLOUTS.md "Orders"): Gather on me, Move there
+(ping), Hold position, Focus fire (ping), Scatter, Reinforce. The host gives
+friendly bots within 60 m (max 8) a standing order that steers feet only
+(eyes and trigger keep working; a marked barrage still wins): gather keeps a
+3.5 m ring round the caller, move rings the pinged point and holds, hold stands
+fast, scatter runs 16 m outward fanned by slot, and focus makes the enemy
+nearest the ping (≤25 m) their target over nearer ones. Reinforce books a
+forces transport with four recruits landing 45–90 m from the caller, who
+gather on them for 40 s after landing; expeditions only, one per player per
+150 s (`ArenaActor.reinforceIn`). The outcome rides on the bark
+(`ArenaBark.order`: allies, HQ note), the nearest ally acknowledges in
+rank-specific words, and the caller sees "· 3 allies" or why nothing happened.
+Clarity, as the owner asked: order slots are teal, square-cornered, tagged
+with their status (No allies / Ready / 74 s / Not here), the hub reads
+"Allies act on these · N in range" vs "Talk only · nobody acts on it", and
+talk no longer gets "Roger" acks (Tactical lost Push/Fall back/Go here/Hold,
+which read like orders; it gained Reloading, Enemy down, Area clear, Sniper!).
+Orders are refused while down; stale orders after a rematch are dropped by
+issue time rather than in `reset`. Validation: squad-orders and arena-orders
+unit tests (allies reach the move point, regroup, hold within 1.2 m, scatter
+8 m+, fireteam lands and gathers, cooldown, refusals), typecheck, full suite
+(scene tests need a longer timeout while the machine is loaded). Headless
+open world showed the Orders page with "0 in range" and Reinforce "Ready";
+the later reinforce/gather capture kept stalling under load (another session's
+builds), so the transport landing has only been seen in unit tests. Not done:
+markers for move/focus points; bots in vehicles ignore orders.

@@ -19,6 +19,9 @@ import { OVERHEAD_SHELTER, resolveBlast, type BlastTarget } from './combat-blast
 import { DEFAULT_BOT_FACTION, getArenaFaction, hostile, PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
 import { BARK_RANGE, BARK_TUNING, createBarkDirector, type BarkEvent } from './npc-barks';
 import { CALLOUT_COOLDOWN, getPlayerCallout } from './player-callouts';
+import { ORDER_ACKS, ORDER_TUNING, orderGoal, orderStep, standingOrder, type OrderKind, type StandingOrder } from './squad-orders';
+import { RANK_IDS } from './npc-barks';
+import { TRANSPORT_DROP_RANGE } from './combat-director';
 import { ballisticPoint, isInstant, muzzleBallistics, type BallisticSpec } from './fps-ballistics';
 import type { PublishedRound } from './fps-projectiles';
 import { createHeatField, HEAT_TUNING, type HeatBand, type HeatSector } from './faction-heat';
@@ -50,6 +53,8 @@ export interface ArenaActor {
   muzzle?: MuzzleDevice;
   /** Their inserts smell (armor-inserts): opponents' minimaps show where they are. */
   scent?: true;
+  /** Players: seconds until HQ will send them another transport (squad-orders), present while they wait. */
+  reinforceIn?: number;
 }
 export type ArenaRaiderState = 'inbound' | 'orbit' | 'leaving' | 'cruise' | 'lock' | 'dive' | 'down' | 'wreck' | 'exploded';
 /**
@@ -79,6 +84,8 @@ export interface ArenaBark {
   callout?: string;
   /** Where a pinging callout points. */
   at?: ArenaPoint;
+  /** An order's outcome: how many allies took it, and what HQ said. */
+  order?: { allies: number; note?: string };
 }
 /** Barks a snapshot carries; screens keep the ones they have not shown yet. */
 export const MAX_ARENA_BARKS = 8;
@@ -246,6 +253,12 @@ interface InternalActor {
   barkReload?: boolean; barkFleeing?: boolean;
   /** Players: when they last used the callout wheel. */
   lastCallout?: number;
+  /** Bots: a player's standing order (squad-orders), when it was given, and the enemy a player told them to focus on. */
+  order?: StandingOrder & { since: number }; focus?: { id: string; until: number; since: number };
+  /** Bots off a player's transport: who to gather on once they land. */
+  reportTo?: string;
+  /** Players: when HQ last sent them a transport. */
+  reinforcedAt?: number;
 }
 interface Raider extends ArenaRaider {
   vx: number; vy: number; vz: number;
@@ -645,6 +658,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const witness = [...members.values()].filter(m => m !== victim && m.actor.bot && m.actor.alive && !m.reserve && m.actor.faction === victim.actor.faction && distance(m.actor, victim.actor) <= 30)
         .sort((a, b) => distance(a.actor, victim.actor) - distance(b.actor, victim.actor))[0];
       if (witness) bark(witness, 'man-down');
+      victim.order = undefined; victim.focus = undefined;
       warm(victim.actor, 4);
       if (attacker && !environment?.endless && attacker.actor.kills >= ARENA_KILL_LIMIT) { finished = true; winner = attacker.actor.name; }
     } else if (!killed && factionHeat && isSquad(victim.actor.faction) && attacker !== victim && damage > 0) {
@@ -1281,6 +1295,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const point = clearSpawn(at) ? at : event.target;
     const human = [...members.values()].filter(m => !m.actor.bot && m.actor.alive).sort((a, b) => distance(a.actor, member.actor) - distance(b.actor, member.actor))[0]?.actor;
     Object.assign(member.actor, { x: point.x, z: point.z, yaw: human ? Math.atan2(-(human.x - point.x), -(human.z - point.z)) : event.heading });
+    reportIn(member, slot, event.troops ?? 1);
   }
   /** Solids a truck would hit: what vehicles already drive against, curbs aside. */
   const truckSolids = vehicleGround.filter(o => (o.maxY ?? 200) > .15);
@@ -1385,7 +1400,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const leash = HOME_LEASH * (1 + (factionHeat && entry.home && isSquad(actor.faction) ? factionHeat.surgeAt(actor.faction, entry.home) : 0));
     const enemies = [...members.values()].filter(m => m !== entry && m.actor.alive && hostile(actor, m.actor) && !(entry.temporary && m.temporary?.event === entry.temporary.event) &&
       (m.anchor?.y === undefined || m.actor.id === grudge) && (!entry.home || distance(actor, m.actor) < leash));
-    const enemy = enemies.sort((a, b) => distance(actor, a.actor) * (a.actor.bot ? 1.1 : 1) - distance(actor, b.actor) * (b.actor.bot ? 1.1 : 1))[0];
+    const enemy = focusTarget(entry) ?? enemies.sort((a, b) => distance(actor, a.actor) * (a.actor.bot ? 1.1 : 1) - distance(actor, b.actor) * (b.actor.bot ? 1.1 : 1))[0];
     entry.patrolTime -= dt;
     if (entry.patrolTime <= 0) {
       const home = entry.home ? homeSpawns(entry.home) : validSpawns, pool = home.length ? home : validSpawns;
@@ -1435,11 +1450,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if(path?.length){const p=path[0],d=Math.hypot(p.x-actor.x,p.z-actor.z),step=Math.min(d,role.speed*dt);dxStep=(p.x-actor.x)/Math.max(d,.001)*step;dzStep=(p.z-actor.z)/Math.max(d,.001)*step;}
     }
     // With nobody in sight, a patrol makes for a supply crate on the ground.
-    const crate = !visible && !entry.temporary ? lureFor(actor) : null;
+    const crate = !visible && !entry.temporary && !entry.order ? lureFor(actor) : null;
     if (crate) {
       const cx = crate.x - actor.x, cz = crate.z - actor.z, d = Math.hypot(cx, cz), stride = Math.max(0, Math.min(d - 1, role.speed * dt));
       dxStep = d > .01 ? cx / d * stride : 0; dzStep = d > .01 ? cz / d * stride : 0;
     }
+    // A player's order steers the feet and leaves the eyes and trigger alone.
+    const ordered = orderedStep(entry, role.speed, dt);
+    if (ordered) { dxStep = ordered.dx; dzStep = ordered.dz; }
     // Bots run from a marked barrage, still firing if they can see someone. An event's crew holds its post.
     const exit = entry.anchor ? null : dangerExit(actor);
     if (exit) { dxStep = exit.x * role.speed * 1.3 * dt; dzStep = exit.z * role.speed * 1.3 * dt; }
@@ -1485,6 +1503,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return { x: point.x / length, y: point.y / length, z: point.z / length };
   }
   /** A player's spawn shield as the snapshot carries it: seconds left, while it holds. */
+  /** A player's wait for HQ's next transport, as the snapshot carries it. */
+  const reinforceOf = (m: InternalActor) => {
+    const wait = m.reinforcedAt !== undefined && m.reinforcedAt <= elapsed ? ORDER_TUNING.reinforce.cooldown - (elapsed - m.reinforcedAt) : 0;
+    return !m.actor.bot && wait > 0 ? { reinforceIn: Math.ceil(wait) } : {};
+  };
   const shieldOf = (m: InternalActor) => !m.actor.bot && m.actor.alive && elapsed < (m.shieldUntil ?? 0) ? { shield: Math.round((m.shieldUntil! - elapsed) * 100) / 100 } : {};
   /**
    * Whether a bot may fire on `enemy`: always on a bot, and on a player only
@@ -1525,14 +1548,106 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.lastCallout = elapsed;
     const text = spoken.lines[Math.min(spoken.lines.length - 1, Math.floor(barkRandom() * spoken.lines.length))];
     const mark = spoken.ping && entry.actor.alive && at && finitePoint(at) ? { x: clamp(at.x, bounds.minX, bounds.maxX), y: clamp(at.y, 0, 124), z: clamp(at.z, bounds.minZ, bounds.maxZ) } : undefined;
-    const said = say(id, text, 'callout', { callout: spoken.id, ...(mark ? { at: mark } : {}) });
+    const outcome = spoken.order ? giveOrder(entry, spoken.order, mark) : undefined;
+    const said = say(id, text, 'callout', { callout: spoken.id, ...(mark ? { at: mark } : {}), ...(outcome ? { order: outcome } : {}) });
     if (spoken.reply) {
-      const range = spoken.reply === 'ack' ? BARK_RANGE.reply : BARK_RANGE.overheard;
-      const listener = [...members.values()].filter(m => m.actor.bot && m.actor.alive && !m.reserve && (spoken.reply === 'ack') !== hostile(entry.actor, m.actor) && distance(m.actor, entry.actor) <= range)
+      const listener = [...members.values()].filter(m => m.actor.bot && m.actor.alive && !m.reserve && hostile(entry.actor, m.actor) && distance(m.actor, entry.actor) <= BARK_RANGE.overheard)
         .sort((a, b) => distance(a.actor, entry.actor) - distance(b.actor, entry.actor))[0];
-      if (listener && !replies.some(r => r.id === listener.actor.id)) replies.push({ id: listener.actor.id, event: spoken.reply === 'ack' ? 'ack' : 'taunted', at: elapsed + .7 + barkRandom() * .6 });
+      if (listener && !replies.some(r => r.id === listener.actor.id)) replies.push({ id: listener.actor.id, event: 'taunted', at: elapsed + .7 + barkRandom() * .6 });
     }
     return said;
+  }
+  /** Friendly soldiers within order range of a player, nearest first, as many as take one. */
+  function alliesOf(caller: InternalActor) {
+    return [...members.values()].filter(m => m.actor.bot && m.actor.alive && !m.reserve && !m.temporary && !hostile(caller.actor, m.actor) && distance(m.actor, caller.actor) <= ORDER_TUNING.range)
+      .sort((a, b) => distance(a.actor, caller.actor) - distance(b.actor, caller.actor)).slice(0, ORDER_TUNING.most);
+  }
+  /** The nearest ally who took an order says so, in the words for that order and their rank. */
+  function acknowledge(ally: InternalActor | undefined, kind: OrderKind) {
+    if (!ally) return;
+    const lines = ORDER_ACKS[kind][RANK_IDS[clamp((ally.actor.rank ?? 2) - 1, 0, 2)]];
+    say(ally.actor.id, lines[Math.min(lines.length - 1, Math.floor(barkRandom() * lines.length))], 'ack');
+  }
+  /**
+   * Carries out an order from the wheel (squad-orders) and says how it went:
+   * how many allies took it and, where something stopped it, why. The fallen
+   * give no orders.
+   */
+  function giveOrder(caller: InternalActor, kind: OrderKind, at?: ArenaPoint): { allies: number; note?: string } {
+    if (!caller.actor.alive) return { allies: 0, note: 'You are down. Nobody takes orders from the fallen.' };
+    if (kind === 'reinforce') return callReinforcements(caller);
+    const allies = alliesOf(caller);
+    if (!allies.length) return { allies: 0, note: `No allies within ${ORDER_TUNING.range} m.` };
+    if (kind === 'focus') {
+      const mark = at ?? caller.actor;
+      const target = [...members.values()].filter(m => m.actor.alive && !m.reserve && hostile(caller.actor, m.actor) && Math.hypot(m.actor.x - mark.x, m.actor.z - mark.z) <= ORDER_TUNING.focus.reach)
+        .sort((a, b) => Math.hypot(a.actor.x - mark.x, a.actor.z - mark.z) - Math.hypot(b.actor.x - mark.x, b.actor.z - mark.z))[0];
+      if (!target) return { allies: 0, note: 'No enemy near where you pointed.' };
+      for (const ally of allies) ally.focus = { id: target.actor.id, until: elapsed + ORDER_TUNING.focus.seconds, since: elapsed };
+      acknowledge(allies[0], kind);
+      return { allies: allies.length, note: `Target: ${target.actor.name}.` };
+    }
+    allies.forEach((ally, slot) => {
+      ally.order = { ...standingOrder(kind, caller.actor.id, elapsed, slot, allies.length, caller.actor, ally.actor, at), since: elapsed };
+      // A new order replaces the old, and a hold or a scatter drops a focus target too.
+      if (kind === 'hold' || kind === 'scatter') ally.focus = undefined;
+    });
+    acknowledge(allies[0], kind);
+    return { allies: allies.length };
+  }
+  /**
+   * HQ sends a transport with a fresh fireteam to land near the caller, who
+   * then gather on them. Only where the district has transports, and at most
+   * one per player per cooldown.
+   */
+  function callReinforcements(caller: InternalActor): { allies: number; note?: string } {
+    if (!environment?.reinforcements) return { allies: 0, note: 'HQ: No transports out here. Nobody is coming.' };
+    const { cooldown, squad, drop } = ORDER_TUNING.reinforce, last = caller.reinforcedAt;
+    // A rematch rewinds the clock; a transport "sent" after now is from the last match.
+    if (last !== undefined && last <= elapsed && elapsed - last < cooldown) return { allies: 0, note: `HQ: Negative. Next transport in ${Math.ceil(cooldown - (elapsed - last))} s.` };
+    const room = Math.min(squad, MAX_ARENA_BOTS - [...members.values()].filter(m => m.actor.bot).length);
+    if (room <= 0) return { allies: 0, note: 'HQ: Negative. Every seat is out already.' };
+    const from = { x: caller.actor.x, z: caller.actor.z }, [near] = TRANSPORT_DROP_RANGE;
+    const close = validSpawns.filter(p => { const d = Math.hypot(p.x - from.x, p.z - from.z); return d >= near && d <= drop; });
+    const view = { humans: [from], bounds, clearRun, openSky };
+    const plan = (close.length ? planTransport({ ...view, drops: close }, random) : null) ?? planTransport({ ...view, drops: validSpawns }, random);
+    const descriptor = plan && startEvent({ ...plan, seed: Math.floor(random() * 0xffffffff) >>> 0, intensity: 1, troops: room, faction: PLAYER_FACTION });
+    if (!descriptor) return { allies: 0, note: 'HQ: Negative. No way in to your position.' };
+    const home = factionHeat?.sectorAt(descriptor.target.x, descriptor.target.z)?.id;
+    for (let slot = 0; slot < room; slot++) {
+      const member = enlist(true, PLAYER_FACTION);
+      member.ride = { event: descriptor.id, slot }; member.reportTo = caller.actor.id; if (home) member.home = home;
+    }
+    caller.reinforcedAt = elapsed;
+    const meters = Math.round(Math.hypot(descriptor.target.x - from.x, descriptor.target.z - from.z) / 5) * 5;
+    return { allies: room, note: `HQ: ${plan!.kind === 'transport-land' ? 'Truck' : 'Helicopter'} inbound with ${room}, landing ${meters} m out. They will find you.` };
+  }
+  /** Off the transport: a player's fireteam goes looking for them. */
+  function reportIn(member: InternalActor, slot: number, count: number) {
+    const caller = member.reportTo ? members.get(member.reportTo) : undefined; member.reportTo = undefined;
+    if (!caller?.actor.alive) return;
+    member.order = { ...standingOrder('gather', caller.actor.id, elapsed, slot, count, caller.actor, member.actor), until: elapsed + ORDER_TUNING.reinforce.follow, since: elapsed };
+    if (slot === 0) acknowledge(member, 'reinforce');
+  }
+  /** The enemy a player told this bot to go after, while it lives and the order holds. */
+  function focusTarget(entry: InternalActor) {
+    const focus = entry.focus;
+    if (!focus) return undefined;
+    const target = members.get(focus.id);
+    if (focus.until <= elapsed || focus.since > elapsed || !target?.actor.alive || target.reserve || !hostile(entry.actor, target.actor)) { entry.focus = undefined; return undefined; }
+    return target;
+  }
+  /** This tick's step on a standing order, or null when it has none or is where it should be; a hold stands still. */
+  function orderedStep(entry: InternalActor, speed: number, dt: number) {
+    const order = entry.order;
+    if (!order) return null;
+    const caller = members.get(order.by);
+    if (order.until <= elapsed || order.since > elapsed || order.kind === 'gather' && !caller?.actor.alive) { entry.order = undefined; return null; }
+    const step = orderStep(entry.actor, orderGoal(order, caller?.actor), order.slack, speed * (order.kind === 'scatter' ? ORDER_TUNING.scatter.pace : 1), dt);
+    if (step) return step;
+    // There: a scatter is done; a hold or a move stands its ground; a gather keeps its own feet near the caller.
+    if (order.kind === 'scatter') { entry.order = undefined; return null; }
+    return order.kind === 'gather' ? null : { dx: 0, dz: 0 };
   }
   let navigationDeadline = 0;
   function step(dt: number) {
@@ -1578,7 +1693,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
   }
   function snapshot(): ArenaSnapshot {
-    return { type: 'arena-snapshot', tick, elapsed, actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...shieldOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
+    return { type: 'arena-snapshot', tick, elapsed, actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
       ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target }, ...(e.descriptor.origin ? { origin: { ...e.descriptor.origin } } : {}) })) } : {}),
       ...(raiders.size ? { raiders: [...raiders.values()].map(({ event, kind, x, y, z, yaw, health, maxHealth, state, aim, shots }) => ({ event, kind, x, y, z, yaw, health, maxHealth, state, aim: aim ? { ...aim } : null, shots })) } : {}),
       ...(factionHeat ? { heat: factionHeat.snapshot() } : {}), ...(flying.length ? { rounds: roundViews() } : {}),

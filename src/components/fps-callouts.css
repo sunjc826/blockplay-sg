@@ -7,6 +7,16 @@
 .fps-callout-slot kbd{min-width:0;padding:1px 4px;border:1px solid #ffffff3a;background:transparent;color:var(--hud-dim);font-size:9px}
 .fps-callout-slot[data-selected]{background:var(--hud-gold);color:#1d1a10;border-color:var(--hud-gold-soft);transform:translate(-50%,-50%) scale(1.1)}
 .fps-callout-slot[data-selected] kbd{color:#3a311c;border-color:#3a311c66}
+.fps-callout-slot>span{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.fps-callout-slot small{font:700 8px/1 system-ui;letter-spacing:.8px;text-transform:uppercase;color:#8fd8ea}
+/* Orders move allies, so they are drawn apart from talk: teal, square-cornered, tagged. */
+.fps-callout-slot[data-order]{border-radius:6px;border-color:#5fb8cf;background:#10313acc;box-shadow:inset 3px 0 0 #5fb8cf}
+.fps-callout-slot[data-order][data-idle]{opacity:.62}
+.fps-callout-slot[data-order][data-selected]{background:#6fd0e6;color:#062028;border-color:#bff0fb}
+.fps-callout-slot[data-order][data-selected] small{color:#0b3a46}
+.fps-callout-hub>div>button[data-orders]{color:#8fd8ea}.fps-callout-hub>div>button[data-orders][aria-pressed=true]{background:#5fb8cf33;color:#c6f2fb}
+.fps-callout-kind{margin:0;font:600 10px/1.35 system-ui;color:var(--hud-dim)}
+.fps-callout-wheel[data-orders] .fps-callout-kind{color:#8fd8ea}
 .fps-callout-hub{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:132px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
 .fps-callout-hub>div{display:flex;flex-direction:column;gap:3px;width:100%}
 .fps-callout-hub>div>button{border:0;border-radius:3px;background:transparent;color:var(--hud-dim);font:600 10px system-ui;letter-spacing:.6px;padding:3px 6px;cursor:pointer;text-transform:uppercase}
@@ -23,8 +33,9 @@
   font:500 11px/1.4 system-ui;text-wrap:pretty;animation:fps-chatter-in .18s ease-out}
 .fps-chatter b{color:#bfe8aa;font-weight:700;margin-right:4px}
 .fps-chatter p[data-tone=self]{border-color:var(--hud-gold)}.fps-chatter p[data-tone=self] b{color:var(--hud-gold-soft)}
-.fps-chatter p[data-tone=player]{border-color:#7cc2e8}.fps-chatter p[data-tone=player] b{color:#b6defa}
+.fps-chatter p[data-tone=player]{border-color:#b99cff}.fps-chatter p[data-tone=player] b{color:#d6c8ff}
 .fps-chatter p[data-tone=enemy]{border-color:#e3a63f}.fps-chatter p[data-tone=enemy] b{color:#f2c27a}
+.fps-chatter p[data-tone=order]{border-color:#5fb8cf;background:#10313ae0}.fps-chatter p[data-tone=order] b{color:#8fd8ea}
 @keyframes fps-chatter-in{from{opacity:0;transform:translateX(-8px)}}
 @media(prefers-reduced-motion:reduce){.fps-chatter p{animation:none}}
 

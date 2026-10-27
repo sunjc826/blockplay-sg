@@ -1,14 +1,20 @@
+import type { OrderKind } from './squad-orders';
+
 /**
- * What a player can say from the callout wheel: three pages of eight, one per
+ * What a player can say from the callout wheel, a page at a time, one slot per
  * direction. A callout travels between peers as its id only, never as typed
  * text, so a room cannot be used for free chat and every screen shows the same
  * words; the host picks which of a callout's lines is said.
  *
- * `reply` asks the bots for an answer: a nearby friendly acknowledges an
- * order, and an enemy close enough to hear a taunt takes it personally.
- * `ping` marks the spot the player is looking at, so "Contact!" says where.
+ * Only the Orders page changes what bots do (`order`, see squad-orders): the
+ * rest is talk, and the wheel says so. No bot acknowledges talk, so nothing
+ * that does nothing sounds as if it did.
+ *
+ * `reply: 'taunt'` lets an enemy close enough to hear it take it personally,
+ * in words only. `ping` marks the spot the player is looking at, so
+ * "Contact!" says where.
  */
-export type CalloutReply = 'ack' | 'taunt';
+export type CalloutReply = 'taunt';
 export interface PlayerCallout {
   id: string;
   /** On the wheel. */
@@ -17,19 +23,29 @@ export interface PlayerCallout {
   lines: readonly string[];
   reply?: CalloutReply;
   ping?: boolean;
+  /** Allies act on it. */
+  order?: OrderKind;
 }
 export interface CalloutPage { id: string; name: string; callouts: readonly PlayerCallout[] }
 
 export const CALLOUT_PAGES: readonly CalloutPage[] = [
+  { id: 'orders', name: 'Orders', callouts: [
+    { id: 'gather', label: 'Gather on me', order: 'gather', lines: ['On me! Regroup!', 'Section, gather on me!', 'Everybody, form up on me!'] },
+    { id: 'move-there', label: 'Move there', order: 'move', ping: true, lines: ['Move up there!', 'Go there, take that spot!', 'Section, move to that position!'] },
+    { id: 'hold-position', label: 'Hold position', order: 'hold', lines: ['Hold position! Nobody move!', 'Stay where you are, hold!', 'Hold this line!'] },
+    { id: 'focus-fire', label: 'Focus fire', order: 'focus', ping: true, lines: ['Focus fire on that one!', 'Everybody shoot that one!', 'Target there, all fire!'] },
+    { id: 'scatter', label: 'Scatter', order: 'scatter', lines: ['Scatter! Spread out!', 'Don’t bunch up, scatter!', 'Split up, now!'] },
+    { id: 'reinforce', label: 'Reinforce', order: 'reinforce', lines: ['HQ, need reinforcements at my position!', 'Request backup, over!', 'Send more men, we’re getting whacked!'] },
+  ] },
   { id: 'tactical', name: 'Tactical', callouts: [
-    { id: 'contact', label: 'Contact!', lines: ['Contact! Over there!', 'Enemy there! Eyes on!', 'Got people there!'], reply: 'ack', ping: true },
-    { id: 'need-ammo', label: 'Need ammo', lines: ['Need ammo! Anyone got spare mag?', 'Running dry! Ammo, please!', 'Ammo! I’m shooting air already!'], reply: 'ack' },
-    { id: 'need-medic', label: 'Medic!', lines: ['Medic! I kena already!', 'Need medic! Fast fast!', 'Bandage! Anybody got bandage?'], reply: 'ack' },
-    { id: 'cover-me', label: 'Cover me', lines: ['Cover me, I’m moving!', 'Cover! Moving now!', 'Watch my back ah!'], reply: 'ack' },
-    { id: 'push', label: 'Chiong!', lines: ['Chiong ah! Push up!', 'Move up! Go go go!', 'Push! Don’t give them chance!'], reply: 'ack' },
-    { id: 'fall-back', label: 'Fall back', lines: ['Fall back, fall back!', 'Too hot! Pull back!', 'Retreat! Regroup at the back!'], reply: 'ack' },
-    { id: 'go-here', label: 'Go here', lines: ['Go there! Move!', 'Regroup there!', 'That spot! Go!'], reply: 'ack', ping: true },
-    { id: 'hold', label: 'Hold here', lines: ['Hold here. Don’t anyhow move.', 'Hold position!', 'Stay put, watch your sector.'], reply: 'ack' },
+    { id: 'contact', label: 'Contact!', lines: ['Contact! Over there!', 'Enemy there! Eyes on!', 'Got people there!'], ping: true },
+    { id: 'need-ammo', label: 'Need ammo', lines: ['Need ammo! Anyone got spare mag?', 'Running dry! Ammo, please!', 'Ammo! I’m shooting air already!'] },
+    { id: 'need-medic', label: 'Medic!', lines: ['Medic! I kena already!', 'Need medic! Fast fast!', 'Bandage! Anybody got bandage?'] },
+    { id: 'cover-me', label: 'Cover me', lines: ['Cover me, I’m moving!', 'Cover! Moving now!', 'Watch my back ah!'] },
+    { id: 'reloading', label: 'Reloading', lines: ['Reloading! Cover!', 'Mag change!', 'Changing mag, wait ah!'] },
+    { id: 'enemy-down', label: 'Enemy down', lines: ['Enemy down!', 'Got one!', 'One less, settled.'] },
+    { id: 'clear', label: 'Area clear', lines: ['Clear!', 'Area clear, nobody here.', 'All clear on my side.'] },
+    { id: 'sniper', label: 'Sniper!', lines: ['Sniper! There!', 'Got sniper, watch out!', 'Glint there, sniper!'], ping: true },
   ] },
   { id: 'singlish', name: 'Singlish', callouts: [
     { id: 'knn', label: 'Knn', lines: ['Knn, who shoot me sia?!', 'Knn! Camping ah?!', 'Knn, again?!'], reply: 'taunt' },
@@ -56,14 +72,15 @@ const BY_ID = new Map(CALLOUT_PAGES.flatMap(page => page.callouts.map(callout =>
 export const getPlayerCallout = (id: unknown) => typeof id === 'string' ? BY_ID.get(id) : undefined;
 /** Seconds between two callouts from one player, enforced by the host. */
 export const CALLOUT_COOLDOWN = 1.2;
-/** Which way on the wheel is which slot: 0 at the top, clockwise. */
+/** Most slots a page has; a page with fewer spaces them evenly. */
 export const WHEEL_SLOTS = 8;
 /**
- * The slot a pointer offset points at, or null in the dead zone. `x` is right
- * and `y` down, as screen and mouse movement are.
+ * The slot of `slots` a pointer offset points at, 0 at the top and clockwise,
+ * or null in the dead zone. `x` is right and `y` down, as screen and mouse
+ * movement are.
  */
-export function wheelSlot(x: number, y: number, deadZone = 28): number | null {
-  if (!Number.isFinite(x) || !Number.isFinite(y) || Math.hypot(x, y) < deadZone) return null;
-  const angle = Math.atan2(x, -y), step = Math.PI * 2 / WHEEL_SLOTS;
-  return ((Math.round(angle / step) % WHEEL_SLOTS) + WHEEL_SLOTS) % WHEEL_SLOTS;
+export function wheelSlot(x: number, y: number, slots = WHEEL_SLOTS, deadZone = 28): number | null {
+  if (!Number.isFinite(x) || !Number.isFinite(y) || Math.hypot(x, y) < deadZone || slots < 1) return null;
+  const angle = Math.atan2(x, -y), step = Math.PI * 2 / slots;
+  return ((Math.round(angle / step) % slots) + slots) % slots;
 }

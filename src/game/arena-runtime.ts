@@ -53,6 +53,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.healing !== undefined && !(finite(actor.healing) && actor.healing >= 0 && actor.healing <= 1)) ||
       (actor.rank !== undefined && !(Number.isInteger(actor.rank) && (actor.rank as number) >= 1 && (actor.rank as number) <= 3)) ||
       (actor.shield !== undefined && !(finite(actor.shield) && actor.shield > 0 && actor.shield <= SPAWN_SHIELD_SECONDS)) ||
+      (actor.reinforceIn !== undefined && !(Number.isInteger(actor.reinforceIn) && (actor.reinforceIn as number) > 0 && (actor.reinforceIn as number) <= 600)) ||
       (actor.hurtFrom !== undefined && !(object(actor.hurtFrom) && finite(actor.hurtFrom.x) && finite(actor.hurtFrom.z) && finite(actor.hurtFrom.serial) && (actor.hurtFrom.blast === undefined || actor.hurtFrom.blast === true))) || (actor.variant !== undefined && (typeof actor.variant !== 'string' || actor.variant.length > 40)) || !validWeaponIndex(actor.weapon) || typeof actor.alive !== 'boolean' || typeof actor.bot !== 'boolean' || typeof actor.faction !== 'string' || !getArenaFaction(actor.faction) || typeof actor.role !== 'string' || actor.role.length > 32 ||
       (actor.x as number) < (environment?.bounds.minX ?? -500) || (actor.x as number) > (environment?.bounds.maxX ?? 500) ||
       (actor.z as number) < (environment?.bounds.minZ ?? -500) || (actor.z as number) > (environment?.bounds.maxZ ?? 500) || (actor.y as number) < 0 || (actor.y as number) > 124 ||
@@ -114,7 +115,8 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
   }
   if (value.barks !== undefined && !(Array.isArray(value.barks) && value.barks.length <= MAX_ARENA_BARKS && value.barks.every(b => object(b) &&
     typeof b.id === 'string' && b.id.length <= 24 && typeof b.actor === 'string' && b.actor.length <= 100 && typeof b.text === 'string' && b.text.length <= 140 &&
-    ((BARK_EVENTS as readonly unknown[]).includes(b.kind) || b.kind === 'callout' && !!getPlayerCallout(b.callout)) && (b.callout === undefined || b.kind === 'callout') && (b.at === undefined || point(b.at))))) return false;
+    ((BARK_EVENTS as readonly unknown[]).includes(b.kind) || b.kind === 'callout' && !!getPlayerCallout(b.callout)) && (b.callout === undefined || b.kind === 'callout') && (b.at === undefined || point(b.at)) &&
+    (b.order === undefined || object(b.order) && Number.isInteger(b.order.allies) && (b.order.allies as number) >= 0 && (b.order.allies as number) <= 20 && (b.order.note === undefined || typeof b.order.note === 'string' && b.order.note.length <= 100))))) return false;
   return value.feed.every(entry => object(entry) && typeof entry.id === 'string' && entry.id.length <= 100 && typeof entry.text === 'string' && entry.text.length <= 160 &&
     (entry.killerId === undefined || typeof entry.killerId === 'string') && (entry.victimId === undefined || typeof entry.victimId === 'string'));
 }

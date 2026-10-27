@@ -40,6 +40,7 @@ import { createArenaRuntime } from './arena-runtime';
 import type { ArenaActor, ArenaBark, ArenaEnvironment, ArenaHeat, ArenaSnapshot, ArenaVitals } from './arena-rules';
 import { CALLOUT_COOLDOWN, CALLOUT_PAGES, getPlayerCallout, wheelSlot } from './player-callouts';
 import { BARK_RANGE } from './npc-barks';
+import { ORDER_TUNING } from './squad-orders';
 import { createSoloSession, type LanSession } from './lan-peer';
 import { buildDistrictWorld } from './district-world';
 import { getFpsDistrict } from './fps-districts';
@@ -114,13 +115,15 @@ const FRIENDLY_KIT_CALL_RANGE = 90;
 const randomRoundId = () => globalThis.crypto?.randomUUID?.() ?? `round-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
 /** A line said near the player, on the HUD's chatter strip for a few seconds. */
-export interface ChatterLine { id: number; source: string; text: string; tone: 'self' | 'friend' | 'enemy' | 'player'; until: number }
+export interface ChatterLine { id: number; source: string; text: string; tone: 'self' | 'friend' | 'enemy' | 'player' | 'order'; until: number }
 /** Seconds a chatter line stays on the HUD, and how many show at once. */
 const CHATTER_SECONDS = 6, CHATTER_LINES = 4;
 export interface FpsHud {
   encikCallout: EncikCallout | null; encikVoice: boolean; comms: readonly CommsEntry[];
   /** The callout wheel while it is open: the page shown and the slot the pointer is on. */
   calloutWheel: { page: number; slot: number | null } | null;
+  /** For the wheel's Orders page: allies in order range, and whether HQ will send a transport ('none' where it never will). */
+  orderStatus: { allies: number; reinforce: 'ready' | 'none' | number } | null;
   /** Barks and callouts heard lately, newest last. */
   chatter: readonly ChatterLine[];
   pilotStrategy: 'local' | 'llm'; pilotPlan: string;
@@ -180,7 +183,7 @@ export interface FpsHud {
   /** The weapon in hand's laser or light (B switches it), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { calloutWheel: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -916,7 +919,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (key === 'y') { if (!event.repeat && !pilotEnabled) openCalloutWheel(); return; }
     // While the wheel is open, Tab turns its page and a number says that slot at once; moving keeps working.
     if (wheel && key === 'tab') { setCalloutPage(wheel.page + (event.shiftKey ? -1 : 1)); return; }
-    if (wheel && /^[1-8]$/.test(key)) { if (!event.repeat) sendCallout(CALLOUT_PAGES[wheel.page].callouts[Number(key) - 1].id); return; }
+    if (wheel && /^[1-8]$/.test(key)) { const callout = CALLOUT_PAGES[wheel.page].callouts[Number(key) - 1]; if (callout && !event.repeat) sendCallout(callout.id); return; }
     if (key === 'tab') return;
     if (key === 'q') { if (!event.repeat) toggleAim(); return; }
     if (key === 'm') { if (!event.repeat) toggleMap(); return; }
@@ -1822,6 +1825,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     if (frame.hit?.hitId) { hud.landed++; hud.lastDamage = frame.hit.damage; hitTime = .2; hud.hitKind = frame.hit.killed ? 'kill' : 'hit'; }
     for (const said of frame.barks) if (frame.snapshot) hearBark(said, frame.snapshot.actors);
+    if (wheel) hud.orderStatus = orderStatus();
     for (const event of frame.feed) {
       comms.add('kills', 'Arena', event.text);
       if (event.killerId !== options.arena!.session.id) continue;
@@ -1882,7 +1886,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    */
   let wheel: { page: number; x: number; y: number; slot: number | null } | null = null, wheelPage = 0, lastCalloutAt = -Infinity, chatterSerial = 0;
   const pingRay = new THREE.Raycaster(), pingForward = new THREE.Vector3(), pingAt = new THREE.Vector3();
-  const syncWheel = () => { hud.calloutWheel = wheel ? { page: wheel.page, slot: wheel.slot } : null; publish(); };
+  const syncWheel = () => { hud.calloutWheel = wheel ? { page: wheel.page, slot: wheel.slot } : null; hud.orderStatus = wheel ? orderStatus() : null; publish(); };
+  /** What the Orders page needs to say: who would hear an order now, and when HQ will next send help. */
+  function orderStatus(): FpsHud['orderStatus'] {
+    const self = hud.arenaSelf;
+    if (!arenaRuntime || !self) return { allies: 0, reinforce: 'none' };
+    const allies = (hud.arena?.actors ?? []).filter(a => a.bot && a.alive && !hostile({ bot: false, faction: PLAYER_FACTION }, a) && Math.hypot(a.x - position.x, a.z - position.z) <= ORDER_TUNING.range).length;
+    return { allies, reinforce: options.arena?.environment?.reinforcements ? self.reinforceIn ?? 'ready' : 'none' };
+  }
   function openCalloutWheel() {
     if (hud.phase !== 'playing' || pilotEnabled || wheel) return;
     wheel = { page: wheelPage, x: 0, y: 0, slot: null }; trigger = false; pullBuffer = 0; syncWheel();
@@ -1903,7 +1914,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     wheel.x += dx; wheel.y += dy;
     const reach = Math.hypot(wheel.x, wheel.y);
     if (reach > 140) { wheel.x *= 140 / reach; wheel.y *= 140 / reach; }
-    const slot = wheelSlot(wheel.x, wheel.y);
+    const slot = wheelSlot(wheel.x, wheel.y, CALLOUT_PAGES[wheel.page].callouts.length);
     if (slot !== wheel.slot) { wheel.slot = slot; syncWheel(); }
   }
   /** Where the crosshair rests on the world, for a callout that points. */
@@ -1922,11 +1933,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     lastCalloutAt = now;
     const at = spoken.ping && (!arenaRuntime || hud.arenaSelf?.alive) ? pingPoint() : undefined;
     if (arenaRuntime) arenaRuntime.callout(id, at);
-    else hear('You', spoken.lines[Math.floor(Math.random() * spoken.lines.length)] + (at ? ` · ${whereFrom(at)}` : ''), 'self');
+    else {
+      hear('You', spoken.lines[Math.floor(Math.random() * spoken.lines.length)] + (at ? ` · ${whereFrom(at)}` : ''), spoken.order ? 'order' : 'self');
+      if (spoken.order) hear('Orders', 'Nobody to order on the range.', 'order', 'system');
+    }
     publish(); return true;
   }
-  function hear(source: string, text: string, tone: ChatterLine['tone']) {
-    comms.add('chatter', source, text);
+  function hear(source: string, text: string, tone: ChatterLine['tone'], channel: 'chatter' | 'system' = 'chatter') {
+    comms.add(channel, source, text);
     const now = performance.now() / 1000;
     hud.chatter = [...hud.chatter.filter(line => line.until > now).slice(-(CHATTER_LINES - 1)), { id: ++chatterSerial, source, text, tone, until: now + CHATTER_SECONDS }];
   }
@@ -1940,8 +1954,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const own = speaker.id === options.arena?.session.id, enemy = !own && hostile({ bot: false, faction: PLAYER_FACTION }, speaker);
     const range = own || !speaker.bot ? Infinity : enemy ? BARK_RANGE.overheard : BARK_RANGE.radio;
     if (Math.hypot(speaker.x - position.x, speaker.z - position.z) > range) return;
-    const text = said.text + (said.at ? ` · ${whereFrom(said.at)}` : '');
-    hear(own ? 'You' : enemy && speaker.bot ? `${speaker.name} · overheard` : speaker.name, text, own ? 'self' : !speaker.bot ? 'player' : enemy ? 'enemy' : 'friend');
+    // An order says how many took it; one that went nowhere says why.
+    const order = said.order, took = order?.allies ? ` · ${order.allies} ${order.allies === 1 ? 'ally' : 'allies'}` : '';
+    const text = said.text + (said.at ? ` · ${whereFrom(said.at)}` : '') + took;
+    hear(own ? 'You' : enemy && speaker.bot ? `${speaker.name} · overheard` : speaker.name, text, order ? 'order' : own ? 'self' : !speaker.bot ? 'player' : enemy ? 'enemy' : 'friend');
+    if (order?.note) hear(own ? 'Orders' : `Orders · ${speaker.name}`, order.note, 'order', 'system');
   }
   /** Where a point lies from the player, in words: "60 m ahead", "120 m to your left". */
   function whereFrom(target: { x: number; z: number }) {
