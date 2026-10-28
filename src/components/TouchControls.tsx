@@ -113,7 +113,8 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
     // Weapons are drawn from the slider in the top-right corner, not the pad.
     if (mode === 'expedition') {
       // Supplies are tapped on the utility belt itself, which a thumb can reach.
-      if (hud.lootPrompt) prompts.push(act('loot', promptLabel(hud.lootPrompt), <PackageOpen size={16} />, { onClick: () => engine?.interactLoot() }));
+      if (hud.lootPrompt) prompts.push(act('loot', promptLabel(hud.lootPrompt), <PackageOpen size={16} />, { onClick: () => engine?.interactLoot(), disabled: !!hud.lootCard?.blocked }));
+      if (hud.lootCard?.swap) prompts.push(act('armor-swap', 'Swap inserts', <Repeat2 size={16} />, { onClick: () => engine?.interactLoot('swap') }));
       if (hud.npcPrompt) prompts.push(act('npc', promptLabel(hud.npcPrompt), <MessageCircle size={16} />, { onClick: () => engine?.interactNpc() }));
       if (hud.travelPrompt) prompts.push(act('travel', promptLabel(hud.travelPrompt), <Move3d size={16} />, { onClick: () => engine?.travelZone() }));
     }

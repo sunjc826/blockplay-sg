@@ -666,8 +666,16 @@ rolls `FALLEN_KIT` by rank: recruits 35% for an elastic bandage and never a
 plate; regulars 50% for a field dressing or first aid kit and 30% for soft
 inserts; veterans 75% for a first aid kit or combat medic pack and 70% for
 ceramic plates (one in five of those Aegis). A dressing restores its catalog
-health; plates equip like a crate's, and the prompt names the inserts they
-replace. Rolls are seeded by the expedition, district and the bot's life, so
+health. For plates, **E / Collect** adds the dropped set's armor value to
+your current armor, capped at the capacity of your worn inserts; absorption,
+weight, rating and special traits stay with the worn set. Full armor leaves
+the pickup on the ground. With no inserts, Collect equips the dropped set at
+full armor. **I / Swap inserts** deliberately replaces the worn set and
+fills the new set to capacity, even if that lowers your current armor. The
+card previews both outcomes, including the swap's absorption, weight, rating
+and special traits; touch controls offer separate Collect and Swap buttons.
+The pilot only collects and never swaps inserts automatically. Rolls are
+seeded by the expedition, district and the bot's life, so
 the same body always leaves the same kit. The weapon is drawn as itself on its
 side, in a tier-coloured ring with a label, and the HUD prompt reads like a
 crate's: `E · Elite MG4 · Sustained Fire · replace main`; the kit lies within

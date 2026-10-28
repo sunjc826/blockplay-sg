@@ -4,6 +4,8 @@ import { supplyProfile } from './fps-healing';
 import { FPS_WEAPONS, type WeaponSpec } from './fps-rules';
 import { utilityKind, utilitySlot } from './utility-belt';
 import { FOOD_EFFECTS } from './food-effects';
+import { armorPickup } from './armor-pickup';
+import { insertTraits, THREAT_NAMES } from './armor-inserts';
 
 /**
  * Loot is read the way a player reads a room: things on the floor say nothing
@@ -77,6 +79,8 @@ export interface LootCard {
   note?: string;
   /** Why it cannot be taken just now, if it cannot. */
   blocked?: string;
+  /** A deliberate alternative to collecting armor; available even when armor is full. */
+  swap?: { stats: LootStat[]; detail: string; note: string };
 }
 /** The most rounds a gun's reserve holds. */
 export const MAX_RESERVE = 999;
@@ -107,6 +111,8 @@ export interface LootCardContext {
   variantOf: (family: number) => string;
   /** The inserts worn now. */
   plate?: ShopItem;
+  /** Remaining armor, rather than the inserts' capacity. */
+  armor: number;
   /** Supplies on the belt, by catalogue id. */
   belt: Readonly<Record<string, number>>;
   /** The guns carried, with their reserves, and the family in hand. */
@@ -143,13 +149,20 @@ export function lootCard(loot: FieldLoot, context: LootCardContext): LootCard {
   }
   if (loot.kind === 'armor' && item?.category === 'plate') {
     const worn = context.plate, same = worn?.id === item.id, protection = item.protection ?? 0, wornProtection = worn?.protection ?? 0;
-    return { ...base, type: 'Armor inserts', action: same ? 'Refit' : 'Equip',
-      stats: [
-        { label: 'ARMOR', value: `${protection}`, trend: same ? undefined : trend(protection, wornProtection) },
-        { label: 'ABSORB', value: `${Math.round((item.absorption ?? 0) * 100)}%`, trend: same ? undefined : trend(item.absorption ?? 0, worn?.absorption ?? 0) },
-        { label: 'WEIGHT', value: `${item.weightKg ?? 0}kg`, trend: same ? undefined : trend(item.weightKg ?? 0, worn?.weightKg ?? 0, false) },
-      ],
-      detail: same ? 'Same as worn · restores your armor' : wornProtection > 0 && worn ? `Replaces ${worn.name}` : 'Fits the empty vest' };
+    const result = armorPickup(context.armor, worn, item), traits = insertTraits(item);
+    const stats: LootStat[] = [
+      { label: 'ARMOR', value: `${Math.ceil(context.armor)} → ${protection}`, trend: trend(protection, context.armor) },
+      { label: 'ABSORB', value: `${Math.round((item.absorption ?? 0) * 100)}%`, trend: trend(item.absorption ?? 0, worn?.absorption ?? 0) },
+      { label: 'WEIGHT', value: `${item.weightKg ?? 0}kg`, trend: trend(item.weightKg ?? 0, worn?.weightKg ?? 0, false) },
+    ];
+    const note = [`Rated for ${THREAT_NAMES[traits.stops]}`, `${Math.round((1 - (item.mobility ?? 1)) * 100)}% movement cost`,
+      ...(traits.deflect ? [`${Math.round(traits.deflect * 100)}% deflect chance`] : []), ...(traits.scent ? ['Scent reveals you to enemies'] : [])].join(' · ');
+    return { ...base, type: 'Armor inserts', action: result.equip ? 'Equip' : 'Collect',
+      stats: result.equip ? stats : [{ label: 'ARMOR', value: `${Math.ceil(context.armor)} → ${Math.ceil(result.armor)} / ${wornProtection}`, trend: result.restored > 0 ? 'up' : undefined }],
+      detail: result.equip ? 'Fits the empty vest' : `+${Math.ceil(result.restored)} armor · keeps ${worn?.name}`,
+      blocked: result.blocked,
+      note: result.equip ? note : 'Collect restores armor up to your current capacity.',
+      ...(!same && wornProtection > 0 ? { swap: { stats, detail: `Replaces ${worn!.name}`, note } } : {}) };
   }
   if (loot.kind === 'ammo') {
     const calibre = calibreOf(loot.caliberMm), gun = ammoTarget(loot.caliberMm, context.carried, context.inHand);

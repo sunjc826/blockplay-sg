@@ -46,6 +46,9 @@
 .fps-loot-card footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 12px 8px;border-top:1px solid #ffffff10}
 .fps-loot-action{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .fps-loot-action kbd{min-width:18px;height:18px;display:inline-grid;place-items:center;border-radius:3px;background:#eef3ea;color:#0c1411;font:700 11px/1 inherit;box-shadow:0 2px 0 #8d9d90}
+.fps-loot-swap .fps-loot-action{letter-spacing:0;white-space:nowrap}
+.fps-loot-swap kbd{padding:0 3px;flex-shrink:0}
+.fps-loot-swap dd{font-size:11px}
 .fps-loot-blocked{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#ef9a7e}
 .fps-loot-card footer small{font-size:10px;color:#93a396;text-align:right;line-height:1.3}
 .fps-loot-card[data-blocked]{border-left-color:#ef9a7e88}
@@ -53,3 +56,5 @@
 @media (prefers-reduced-motion:reduce){.fps-loot-card{animation:none}}
 .fps-game[data-touch=on] .fps-loot-card{left:calc(50% + 30px);width:min(220px,46vw)}
 .fps-game[data-touch=on] .fps-loot-card p{display:none}
+.fps-game[data-touch=on]:has(.fps-loot-card[data-kind=armor]) .touch-prompts{left:calc(50% - 12px);transform:translateX(-100%);max-width:calc(50% - 24px)}
+.fps-game[data-touch=on] .touch-prompt:disabled{opacity:.45}

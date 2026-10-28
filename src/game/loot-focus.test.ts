@@ -45,7 +45,7 @@ const gun = (family: number, reserve: number): CarriedGun => ({ family, spec: FP
 
 describe('the loot card', () => {
   const sar = FPS_WEAPONS[0], context = (patch: Partial<LootCardContext> = {}): LootCardContext => ({
-    weapons: FPS_WEAPONS, belt: {}, plate: itemById('plate-soft'), replaces: family => family, variantOf: () => 'sar-issued',
+    weapons: FPS_WEAPONS, belt: {}, plate: itemById('plate-soft'), armor: 20, replaces: family => family, variantOf: () => 'sar-issued',
     carried: [gun(0, 120), gun(2, 60)], inHand: 0,
     variantSpec: item => variantSpec(item), ...patch,
   });
@@ -67,11 +67,31 @@ describe('the loot card', () => {
     const card = lootCard(loot('gun', 0, 0, { kind: 'weapon', catalogId: 'sar-issued', name: 'SAR 21 · BMT', amount: 1 }), context());
     expect(card.action).toBe('Take ammo'); expect(card.stats.every(stat => !stat.trend)).toBe(true);
   });
-  it('rates inserts against the ones worn', () => {
+  it('previews collecting separately from deliberately swapping inserts', () => {
     const card = lootCard(loot('plates', 0, 0, { kind: 'armor', catalogId: 'plate-ceramic', name: 'Ceramic plate set', tier: 'Field', amount: 1 }), context());
-    expect(card.action).toBe('Equip'); expect(card.detail).toBe('Replaces Soft armor inserts');
-    expect(card.stats.find(stat => stat.label === 'ARMOR')).toMatchObject({ value: '75', trend: 'up' });
-    expect(card.stats.find(stat => stat.label === 'WEIGHT')).toMatchObject({ trend: 'down' });
+    expect(card.action).toBe('Collect'); expect(card.detail).toBe('+15 armor · keeps Soft armor inserts');
+    expect(card.stats).toEqual([{ label: 'ARMOR', value: '20 → 35 / 35', trend: 'up' }]);
+    expect(card.swap?.detail).toBe('Replaces Soft armor inserts');
+    expect(card.swap?.stats.find(stat => stat.label === 'ARMOR')).toMatchObject({ value: '20 → 75', trend: 'up' });
+    expect(card.swap?.stats.find(stat => stat.label === 'WEIGHT')).toMatchObject({ trend: 'down' });
+  });
+  it('blocks collecting at full armor while still previewing a deliberate downgrade', () => {
+    const card = lootCard(loot('plates', 0, 0, { kind: 'armor', catalogId: 'plate-soft' }), context({ plate: itemById('plate-elite'), armor: 100 }));
+    expect(card.blocked).toBe('Armor full');
+    expect(card.swap?.stats.find(stat => stat.label === 'ARMOR')).toMatchObject({ value: '100 → 35', trend: 'down' });
+    expect(card.swap?.stats.find(stat => stat.label === 'ABSORB')).toMatchObject({ value: '45%', trend: 'down' });
+  });
+  it('equips an empty vest and does not offer redundant swaps for the same inserts', () => {
+    const plates = loot('plates', 0, 0, { kind: 'armor', catalogId: 'plate-soft' });
+    const emptyVest = lootCard(plates, context({ plate: itemById('plate-none'), armor: 0 }));
+    expect(emptyVest).toMatchObject({ action: 'Equip', detail: 'Fits the empty vest' });
+    expect(emptyVest.swap).toBeUndefined();
+    expect(lootCard(plates, context()).swap).toBeUndefined();
+  });
+  it('shows special traits and movement costs before a swap', () => {
+    const plates = loot('plates', 0, 0, { kind: 'armor', catalogId: 'plate-durian' });
+    expect(lootCard(plates, context()).swap?.note).toBe('Rated for GPMG rounds · 7% movement cost · Scent reveals you to enemies');
+    expect(lootCard({ ...plates, catalogId: 'plate-pineapple' }, context()).swap?.note).toContain('20% deflect chance');
   });
   it('sends supplies to their belt slot, and says when the slot is full', () => {
     const bandage = loot('bandage', 0, 0);

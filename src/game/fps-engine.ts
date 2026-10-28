@@ -93,6 +93,7 @@ import { createSupplyViewmodel } from './fps-supply-viewmodel';
 import { foodOptions, heldSupplies, pickUtility, utilityBelt, utilityKind, utilitySlot, utilitySlotForKey, UTILITY_SLOTS, type FoodOption, type UtilityKind, type UtilitySlotView } from './utility-belt';
 import { advanceFoodEffects, aimSpeedScale, applyFoodEffects, cycleRate, damageDealtScale, damageTakenScale, FOOD_EFFECTS, foodEffectViews, footSpeedScale, loadRelief, recoilScale, reloadRate, survivesWithAhMa, type ActiveFoodEffects, type FoodEffectView } from './food-effects';
 import { ammoBlocked, ammoTarget, beltRoom, focusLoot, lootCard, MAX_RESERVE, withinReach, type CarriedGun, type LootCard } from './loot-focus';
+import { armorPickup, type ArmorPickupAction } from './armor-pickup';
 import { createSunShadows } from './fps-sun-shadows';
 import { createWorldOcclusion } from './world-occlusion';
 import { createVisionSystem } from './fps-vision';
@@ -722,15 +723,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   /** Whether E would take an item now: rounds need a gun that fires them, supplies room on the belt. */
   function canTake(loot: FieldLoot) {
     if (loot.kind === 'ammo') return !!ammoTarget(loot.caliberMm, carriedGuns(), hud.weapon);
+    if (loot.kind === 'armor') {
+      const item = itemById(loot.catalogId ?? '');
+      return !!item && !armorPickup(hud.armor, itemById(fieldProfile.plate), item).blocked;
+    }
     return loot.kind !== 'medical' || beltRoom(supplies, loot.catalogId ?? '') > 0;
   }
   /** The card over a looked-at item, rebuilt only when the item or what it is weighed against changes. */
   function cardFor(loot: FieldLoot) {
-    const key = `${loot.id}|${hud.weapon}|${supplies[loot.catalogId ?? ''] ?? 0}|${carriedGuns().map(gun => gun.reserve).join()}|${fieldProfile.plate}|${fieldProfile.guns.map(gun => gun.variant).join()}|${fieldProfile.carry?.main}/${fieldProfile.carry?.extra}`;
+    const key = `${loot.id}|${hud.weapon}|${supplies[loot.catalogId ?? ''] ?? 0}|${carriedGuns().map(gun => gun.reserve).join()}|${fieldProfile.plate}|${hud.armor}|${fieldProfile.guns.map(gun => gun.variant).join()}|${fieldProfile.carry?.main}/${fieldProfile.carry?.extra}`;
     if (key !== cardKey || !lastCard) {
       cardKey = key;
       lastCard = lootCard(loot, {
-        weapons: specs, belt: supplies, carried: carriedGuns(), inHand: hud.weapon, plate: itemById(fieldProfile.plate), variantOf: family => fieldProfile.guns[family]?.variant ?? '',
+        weapons: specs, belt: supplies, carried: carriedGuns(), inHand: hud.weapon, plate: itemById(fieldProfile.plate), armor: hud.armor, variantOf: family => fieldProfile.guns[family]?.variant ?? '',
         replaces: putDownFor,
         variantSpec: item => {
           if (item.family === undefined) return null;
@@ -741,12 +746,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     return lastCard;
   }
-  function interactLoot() {
+  function interactLoot(action: ArmorPickupAction = 'collect') {
     if (!expedition || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active || !arenaRuntime || travelPending) return;
     const target = (focusedLoot && hud.fieldLoot.some(item => item.id === focusedLoot!.id) ? focusedLoot : null) ?? (pilotEnabled ? reachableLoot : null);
     if (!target) return;
     const item = target.catalogId ? itemById(target.catalogId) : undefined;
     if ((target.kind === 'weapon' && (!item || item.category !== 'weapon' || !validWeaponIndex(item.family))) || (target.kind === 'armor' && item?.category !== 'plate')) return;
+    if (action === 'swap' && target.kind !== 'armor') return;
+    const armorResult = target.kind === 'armor' && item ? armorPickup(hud.armor, itemById(fieldProfile.plate), item, action) : null;
+    if (armorResult?.blocked) { hud.lootNotice = `${armorResult.blocked}. ${target.name} stays here.`; lootNoticeTime = 3; publish(); return; }
     // Loose rounds go into the reserve of a carried gun that fires them.
     if (target.kind === 'ammo') {
       const gun = ammoTarget(target.caliberMm, carriedGuns(), hud.weapon);
@@ -794,11 +802,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       undress.splice(0).forEach(dispose => dispose()); weapons.forEach((model, index) => undress.push(dressWeapon(model, specs[index])));
       switchWeapon(family); expedition.onEquipment(copyProfile(fieldProfile));
       hud.lootNotice = !changed && wasCarried ? `+${specs[family].capacity} rounds for ${specs[family].name}.` : `${item.name} equipped for this expedition.`;
-    } else if (collected.kind === 'armor' && item) {
-      const next = copyProfile(fieldProfile); next.owned = [...new Set([...next.owned, item.id])]; next.plate = item.id;
-      fieldProfile = next; equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
-      arenaRuntime.updateLoadout(fieldProfile); arenaRuntime.setVitals({ armor: equipment.armor }); hud.armor = equipment.armor;
-      expedition.onEquipment(copyProfile(fieldProfile)); hud.lootNotice = `${item.name} equipped · ${Math.round(equipment.armor)} armor.`;
+    } else if (collected.kind === 'armor' && item && armorResult) {
+      if (armorResult.equip) {
+        const next = copyProfile(fieldProfile); next.owned = [...new Set([...next.owned, item.id])]; next.plate = item.id;
+        fieldProfile = next; equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
+        arenaRuntime.updateLoadout(fieldProfile);
+        expedition.onEquipment(copyProfile(fieldProfile));
+      }
+      arenaRuntime.setVitals({ armor: armorResult.armor }); hud.armor = armorResult.armor;
+      hud.lootNotice = armorResult.equip ? `${item.name} equipped · ${Math.ceil(armorResult.armor)} armor.`
+        : `+${Math.ceil(armorResult.restored)} armor · ${Math.ceil(armorResult.armor)} / ${equipment.armor} · kept ${equipment.plateName}.`;
     }
     comms.add('system', 'Supplies', hud.lootNotice); radioCall('pickup');
     markers?.remove(collected.id); hud.fieldLoot = expedition.loot.remaining(expedition.zone); lootNoticeTime = 4;
@@ -951,7 +964,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     vehicleView = firstPersonVehicle() ? 'third-person' : 'first-person';
     ads = touchAim = false; updateCameras(0, false, false); publish();
   }
-  const keyboardKeys = ['y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'v', 'l', 'n', 't', 'f', 'm', 'h', 'j', 'b', 'x', 'control', 'escape'];
+  const keyboardKeys = ['y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'i', 'v', 'l', 'n', 't', 'f', 'm', 'h', 'j', 'b', 'x', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
     if (key === 'f' && !event.repeat) { event.preventDefault(); options.onFullscreen?.(); return; }
@@ -969,6 +982,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     else if (key === 'v') { if (!event.repeat) switchVehicleSeat(); }
     else if (key === 'l') { if (!event.repeat) toggleVehicleView(); }
     else if (key === 'e') { if (!event.repeat) expedition && !vehicles.active && focusedLoot ? interactLoot() : interactVehicle(); }
+    else if (key === 'i') { if (!event.repeat && focusedLoot?.kind === 'armor') interactLoot('swap'); }
     else if (key === 'n') { if (!event.repeat) interactNpc(); }
     else if (key === 't') { if (!event.repeat) travelZone(); }
     else if (key === 'h') { if (!event.repeat) useVision('toggle'); }
