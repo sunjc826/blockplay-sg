@@ -1,7 +1,7 @@
 import { carriedFamilies, restoreCarrySlots, isMainWeapon, EXTRA_SLOT_ID, SIDEARM_FAMILY, type CarrySlots } from './armory-slots';
 import { supplyWeightKg } from './fps-encumbrance';
 import { beltWeightKg, heldSupplies } from './utility-belt';
-import { ARMORY_CATALOG, CONSUMABLE_LIMIT, isEnemyIssue, issuedItems, itemById, type AttachmentSlot, type FittedPart, type InternalPart, type ShopItem } from './armory-catalog';
+import { ARMORY_CATALOG, consumableLimit, isEnemyIssue, issuedItems, itemById, type AttachmentSlot, type FittedPart, type InternalPart, type ShopItem } from './armory-catalog';
 import { visionSpec, type VisionSpec } from './vision-devices';
 import { insertTraits, PLAIN_INSERT, ratedAbsorption, threatOf, type InsertTraits } from './armor-inserts';
 import type { VehicleKind } from './vehicle-rules';
@@ -51,7 +51,7 @@ export function restoreProfile(raw: string | null): ArmoryProfile {
     base.exercises = finiteBalance(value.exercises, 0);
     if (value.consumables && typeof value.consumables === 'object') for (const [id, held] of Object.entries(value.consumables)) {
       if (itemById(id)?.category !== 'consumable') continue;
-      const count = typeof held === 'number' && Number.isFinite(held) ? Math.max(0, Math.min(CONSUMABLE_LIMIT, Math.floor(held))) : 0;
+      const count = typeof held === 'number' && Number.isFinite(held) ? Math.max(0, Math.min(consumableLimit(itemById(id)), Math.floor(held))) : 0;
       if (count) base.consumables[id] = count;
     }
     if (typeof value.quickItem === 'string' && itemById(value.quickItem)?.category === 'consumable') base.quickItem = value.quickItem;
@@ -71,7 +71,7 @@ export function purchase(profile: ArmoryProfile, id: string) {
   if (profile[item.currency] < item.price) return { profile, message: `Not enough ${item.currency}.` };
   if (supply) {
     const held = profile.consumables[id] || 0;
-    if (held >= CONSUMABLE_LIMIT) return { profile, message: `You can carry ${CONSUMABLE_LIMIT} of those.` };
+    if (held >= consumableLimit(item)) return { profile, message: `You can carry ${consumableLimit(item)} of those.` };
     return { profile: { ...profile, [item.currency]: profile[item.currency] - item.price,
       consumables: { ...profile.consumables, [id]: held + 1 }, quickItem: profile.quickItem || id },
       message: `${item.name} added to your supplies.` };
@@ -88,7 +88,7 @@ export function purchaseFromVendor(profile: ArmoryProfile, id: string, price?: n
   if (progression(profile.xp).level < (item.requiredLevel || 1)) return { profile, message: `Unlocks at level ${item.requiredLevel}. Earn XP in the range.`, purchased: false };
   if (profile[item.currency] < cost) return { profile, message: `Not enough ${item.currency}.`, purchased: false };
   const held = profile.consumables[id] || 0;
-  if (held >= CONSUMABLE_LIMIT) return { profile, message: `You can carry ${CONSUMABLE_LIMIT} of those.`, purchased: false };
+  if (held >= consumableLimit(item)) return { profile, message: `You can carry ${consumableLimit(item)} of those.`, purchased: false };
   const next = { ...profile, [item.currency]: profile[item.currency] - cost,
     consumables: { ...profile.consumables, [id]: held + 1 }, quickItem: id };
   return { profile: next, message: `${item.name} bought for ${cost} ${item.currency === 'tokens' ? 'TK' : 'CR'} and readied.`, purchased: true };

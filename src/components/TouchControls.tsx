@@ -43,6 +43,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
   const playing = hud.phase === 'playing' && alive;
   const mounted = hud.vehicle !== 'on-foot';
   const flying = hud.vehicle === 'helicopter';
+  const aimPressed = hud.grenadeHeld ? hud.grenadeHeld.under : hud.aiming;
 
   // The engine drops every held key when it pauses or the player dies, so the
   // crouch latch has to let go too or the button would lie about the stance.
@@ -104,7 +105,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
   } else {
     pad.push(act('crouch', 'Crouch', <ChevronsDown size={17} />, { onClick: toggleCrouch, 'aria-pressed': crouched, 'data-on': crouched || undefined }));
     pad.push(act('prone', hud.prone ? 'Stand' : 'Prone', <ArrowDownToLine size={17} />, { onClick: () => { setCrouched(false); engine?.setInput('z', true); }, 'aria-pressed': hud.prone, 'data-on': hud.prone || undefined }));
-    pad.push(act('aim', 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': hud.aiming, 'data-on': hud.aiming || undefined }));
+    pad.push(act('aim', hud.grenadeHeld ? 'Underarm lob' : 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': aimPressed, 'data-on': aimPressed || undefined }));
     pad.push(act('reload', 'Reload', <RefreshCw size={17} />, { onClick: () => engine?.reload(), disabled: hud.reloading > 0 }));
     pad.push(act('jump', 'Jump', <ChevronsUp size={17} />, { onClick: () => engine?.jump() }));
     // Only a weapon that carries them shows these, each in a slot of its own.

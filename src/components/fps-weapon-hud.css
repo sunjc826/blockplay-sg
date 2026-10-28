@@ -115,3 +115,20 @@
   font:8px monospace;letter-spacing:.6px;text-transform:uppercase;pointer-events:none}
 .fps-food-choose kbd{min-width:0;padding:0 4px;font:7px monospace;line-height:12px;color:var(--hud-dim);background:#ffffff14;border:0}
 .fps-game[data-touch=on] .fps-food-choose:not(:disabled){pointer-events:auto;touch-action:manipulation}
+
+.fps-grenade-cook { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:76px; height:76px; border-radius:50%; background:conic-gradient(#efab56 var(--cook),#d7d7ca33 0); mask:radial-gradient(transparent 63%,#000 65%); pointer-events:none; }
+.fps-grenade-warning { position:absolute; left:calc(50% - 60px); top:calc(50% - 60px); width:120px; height:120px; text-align:center; color:#ff704f; font-size:22px; text-shadow:0 0 6px #321b0a; pointer-events:none; }
+.fps-attention-overlay { position:absolute; top:37%; left:50%; transform:translateX(-50%); font-size:clamp(24px,5vw,52px); font-weight:900; letter-spacing:.25em; color:#ffe7b8; text-shadow:0 3px 12px #000; }
+.fps-grenade-conditions li { color:#ffc48b; border-color:#a9653b; }
+.fps-grenade-picker .fps-food-option { font-size:10px; }
+.fps-grenade-picker.is-many .fps-callout-ring { display:flex; flex-wrap:wrap; align-content:flex-start; gap:8px; width:min(680px,90vw); height:min(600px,85dvh); padding:140px 10px 10px; overflow:auto; background:#15201ff2; border:1px solid #809b8c; border-radius:12px; }
+.fps-grenade-picker.is-many .fps-callout-slot { position:static; transform:none; flex:1 0 27%; min-height:70px; }
+.fps-grenade-picker.is-many .fps-callout-hub { top:10px; left:10px; transform:none; width:calc(100% - 20px); max-height:120px; overflow:auto; }
+.fps-game[data-touch=on] .fps-food-choose { min-height:28px; }
+.fps-belt-next { max-width:350px; }
+.fps-belt-next span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+@media(max-width:520px) {
+  .fps-game[data-touch=on] .fps-belt:not(.is-docked) { max-width:200px; justify-items:end; }
+  .fps-game[data-touch=on] .fps-belt:not(.is-docked) .fps-belt-slots { display:grid; grid-template-columns:repeat(3,40px); justify-content:end; }
+  .fps-game[data-touch=on] .fps-belt:not(.is-docked) .fps-belt-next { max-width:200px; }
+}

@@ -999,3 +999,16 @@ surface, so the Bukit Timah's penetration works in the single-player engine only
 Behavioral weapon traits, ballistics, penetration, consumables and the economy
 sink are planned but not implemented. See [the armory roadmap](ARMORY-ROADMAP.md)
 for the phases, their dependencies and the design decisions already taken.
+
+
+### Grenades
+
+The sixth utility-belt slot is Grenade, key **9**. Tap to ready; hold to pick
+from carried grenades or Auto (catalogue order). Hold fire to cook, release to
+throw, and hold aim for a half-speed underarm lob. A live pin prevents
+holstering; cooking past the fuse detonates in hand. **G** readies the next
+one after a throw. Touch uses the grenade slot as a hold/release trigger once
+readied. All thirteen items, tiers, effects and prices are in [GRENADES.md](GRENADES.md).
+Grenades contribute their actual carried mass and cap at four of each item,
+or two of each Legendary/Mythic. Allies are protected from grenade damage;
+the thrower can still be hurt. Arena hosts validate and resolve every throw.

@@ -1,3 +1,4 @@
+import { GRENADE_CATALOG, type GrenadeSpec } from './grenade-catalog';
 import type { BipodKind } from './weapon-support';
 import type { WeaponAccessories } from './weapon-accessories';
 import { HIP_FOV, magnifiedFov, type WeaponFeed, type WeaponSpec, type WeaponTrait } from './fps-rules';
@@ -5,7 +6,7 @@ import { muzzleBallistics, type BallisticSpec } from './fps-ballistics';
 import type { ThreatClass } from './armor-inserts';
 import type { FoodEffect } from './food-effects';
 export type ShopCategory = 'weapon' | 'skin' | 'rig' | 'plate' | 'vehicleSkin' | 'consumable' | 'loadout' | 'vision';
-export type SupplyType = 'food' | 'medical' | 'field-utility';
+export type SupplyType = 'food' | 'medical' | 'field-utility' | 'grenade';
 export type AttachmentSlot = 'optic' | 'magazine' | 'handling' | 'muzzle' | 'rail';
 /**
  * Rarity, lowest first. The first three are the ladder every platform climbs;
@@ -103,6 +104,7 @@ export interface ShopItem {
   effect?: { health?: number; armor?: number; reserve?: number };
   /** Food only: what the meal does for a while after, from what is in it (food-effects). */
   foodEffects?: readonly FoodEffect[];
+  grenade?: GrenadeSpec;
   /** Food only: seconds to finish it, where the meal is more than its healing says. */
   eatSeconds?: number;
   /** Food only: the HUD verb while it is used, where "eating" is not quite it. */
@@ -206,6 +208,7 @@ export const ARMORY_CATALOG: readonly ShopItem[] = [
   { id: 'plate-composite', weightKg: 5, requiredLevel: 22, name: 'Composite · Tahan', flavorText: 'Tahan one more. And one more.', category: 'plate', tier: 'Elite', price: 260, currency: 'tokens', protection: 110, absorption: .72, stops: 'gpmg', mobility: .95, description: 'Ceramic-faced composite rated for GPMG rounds: 110 armor points and the Aegis\u2019s 72% absorption, held against 7.62 mm, at a 5% movement cost.' },
   { id: 'plate-durian', weightKg: 6.5, requiredLevel: 30, name: 'Durian · Mao Shan Wang', flavorText: 'The king of fruits. Banned on the MRT. Not banned here, unfortunately for everyone near you.', category: 'plate', tier: 'Elite', price: 360, currency: 'tokens', protection: 150, absorption: .85, stops: 'gpmg', scent: true, mobility: .93, description: 'The thickest husk there is, rated for GPMG rounds: 150 armor points and 85% absorption, the most of any insert, at a 7% movement cost. Everyone knows you are coming. In the arena it puts you on every opponent\u2019s minimap, and bots see you from half again as far and smell you through smoke.' },
   { id: 'plate-pillbox', weightKg: 13, requiredLevel: 34, name: 'Heavy · Pillbox', flavorText: 'Built like the ones at Labrador Park. Moves like them too.', category: 'plate', tier: 'Elite', price: 420, currency: 'tokens', protection: 150, absorption: .8, stops: 'heavy', mobility: .84, description: 'The only inserts rated for heavy MG rounds: 150 armor points and 80% absorption, held in full against a .50. A 16% movement cost, the heaviest on the shelf, and slower to aim and to climb under.' },
+  ...GRENADE_CATALOG,
 ];
 export const itemById = (id: string) => ARMORY_CATALOG.find(item => item.id === id);
 export const isEnemyIssue = (item: Pick<ShopItem, 'source'> | undefined) => item?.source === 'enemy';
@@ -215,3 +218,6 @@ export const issuedItems = ARMORY_CATALOG.filter(item => item.price === 0 && !is
 export const isShopFamily = (family: number) => ARMORY_CATALOG.some(item => item.category === 'weapon' && item.family === family && !isEnemyIssue(item));
 /** Supplies stack; this caps how many of one kind a profile may hold. */
 export const CONSUMABLE_LIMIT = 9;
+
+/** Grenades have smaller per-item belt limits than recovery supplies. */
+export const consumableLimit = (item?: ShopItem) => item?.grenade ? ['Legendary', 'Mythic'].includes(item.tier) ? 2 : 4 : CONSUMABLE_LIMIT;

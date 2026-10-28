@@ -12,6 +12,7 @@ export interface PilotObservation {
   position: { x: number; z: number }; yaw: number; pitch: number;
   contacts: readonly PilotContact[]; waypoints: readonly PilotWaypoint[];
   lootPrompt: string; travelPrompt: string;
+  grenades?: readonly { x: number; z: number; radius: number; remaining: number }[];
   /** The equipped weapon's ballistics, so the controller can work out its own hold-over. */
   ballistics: BallisticSpec;
 }
@@ -19,7 +20,7 @@ export interface PilotAction {
   forward?: boolean; backward?: boolean; left?: boolean; right?: boolean;
   sprint?: boolean; crouch?: boolean; aim?: boolean; fire?: boolean;
   lookX?: number; lookY?: number; reload?: boolean; jump?: boolean;
-  interact?: boolean; travel?: boolean; weapon?: number;
+  interact?: boolean; travel?: boolean; weapon?: number; cancelSupply?: boolean;
   callout?: 'contact' | 'moving' | 'stuck';
 }
 export interface PilotDecision { goal: PilotGoal; status: string; action: PilotAction }
@@ -31,7 +32,7 @@ export const MAX_PILOT_MOUSE_DELTA = 100;
 const finiteDelta = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? Math.max(-MAX_PILOT_MOUSE_DELTA, Math.min(MAX_PILOT_MOUSE_DELTA, value)) : 0;
 export function normalizePilotAction(action: PilotAction): PilotAction {
   const safe: PilotAction = { lookX: finiteDelta(action.lookX), lookY: finiteDelta(action.lookY) };
-  for (const key of ['forward', 'backward', 'left', 'right', 'sprint', 'crouch', 'aim', 'fire', 'reload', 'jump', 'interact', 'travel'] as const) safe[key] = action[key] === true;
+  for (const key of ['forward', 'backward', 'left', 'right', 'sprint', 'crouch', 'aim', 'fire', 'reload', 'jump', 'interact', 'travel', 'cancelSupply'] as const) safe[key] = action[key] === true;
   if (validWeaponIndex(action.weapon)) safe.weapon = action.weapon;
   if (action.callout === 'contact' || action.callout === 'moving' || action.callout === 'stuck') safe.callout = action.callout;
   return safe;
@@ -61,6 +62,9 @@ export function createPlayerPilot(planner: PilotPlanner = localPilotPlanner): Pl
       return { goal, status, action: normalizePilotAction(action) };
     };
     if (!o.alive) { reset(); return result('Waiting to respawn', {}); }
+    const danger = o.grenades?.find(g => Math.hypot(g.x - o.position.x, g.z - o.position.z) < g.radius + 2);
+    if (danger) { const dx = o.position.x - danger.x, dz = o.position.z - danger.z; const forward = -Math.sin(o.yaw) * dx - Math.cos(o.yaw) * dz, side = Math.cos(o.yaw) * dx - Math.sin(o.yaw) * dz;
+      return result('Dodging a live grenade', { forward: forward >= 0, backward: forward < 0, right: side >= 0, left: side < 0, sprint: true, cancelSupply: true }); }
     if (moving && lastPosition && Math.hypot(o.position.x - lastPosition.x, o.position.z - lastPosition.z) < .04) stuck += dt;
     else stuck = 0;
     if (stuck > .8) { evadeUntil = o.time + 1.2; stuck = 0; }

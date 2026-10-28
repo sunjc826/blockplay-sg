@@ -3742,3 +3742,43 @@ Review command: node scripts/review-verticality.mjs queenstown --details.
 in .cache/queenstown-hdb-before; concise gallery is
 .cache/queenstown-hdb-review/index.html. See docs/QUEENSTOWN-HDB-AUDIT.md.
 This follow-up is committed separately, with unrelated concurrent work preserved.
+
+
+## 2026-10-28: grenades catalogue, controls and authority
+
+Implemented docs/GRENADES.md across the utility belt, all thirteen catalogue
+items, procedural held/world models, gravity/bounces and rest/apex/launch
+triggers, blast/shred, clouds, conditions, reveal, rally and credited mortar
+missions. Key 9 taps to ready and holds to choose; fire cooks/releases, aim
+lobs, 1–3 holster only before the pin, and G repeats the grenade slot. Touch
+uses the slot as a trigger once readied. Portrait uses two rows to clear the
+minimap. Fixed a picker-opening touch's synthetic click selecting the option
+that appeared under the finger (also applies to food).
+
+Arena owns inventory, flight, conditions and damage; validates origins, life,
+cadence and the 60-second mission cooldown, and guests spend only after an
+acceptance reply. Bounded grenadeEvents carry deterministic lingering effects
+beside the 24-flight snapshot cap. Conditions affect input, senses and hands;
+players get half daze/attention time. Shred resolves as one hit for Ah Ma.
+Roofs shelter finale embers and gate its rally. Marked opponents appear on
+maps and through cover for the caller's side. Players can hurt themselves,
+but other allies are protected. Bots carry/throw frag or smoke, run from
+rings and leave unthrown grenades in expedition loot. The AI pilot sees only
+public audible warnings and dodges before fighting or healing.
+
+Validation: full suite 1,660/1,660; after final edge-case fixes and three new
+cases, 205 targeted tests across 12 affected files pass (including actual bot
+throwing, a frozen player's fuse expiry and expedition drops). Typecheck and
+production build pass; existing bundle-size advisory remains. New
+`pnpm test:fps:grenades` passes desktop picker/cook/throw/holster/G/in-hand
+self-damage, portrait touch cook/release, landscape chooser, and solo-arena
+host flight/smoke through real Chrome. Latest mobile captures live under
+.cache/fps-grenades. Give touch entry 600 ms to finish its immersive resize
+before measuring button coordinates in a smoke. Vite HMR was disabled.
+
+The whistle has a synthesised bang/shriek and register-aware subtitle; its new
+Encik line has no recorded voice clip. No voice-generation API was called.
+A two-browser WebRTC match and a full expedition loot/throw circuit were not
+browser-checked; paired runtime authority and loot have automated coverage.
+Committed separately from overlapping ammo, pilot-recovery, inspection and
+bird work. Those edits remain preserved in the working tree.

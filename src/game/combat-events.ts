@@ -58,6 +58,8 @@ export type MunitionKind = 'shell' | 'mortar' | 'bomb' | 'canister';
 /** Something fired at the ground: a shell, a mortar bomb, an aircraft's bomb or a gas canister. */
 export interface MunitionPayload {
   type: 'munition'; id: number;
+  /** Player who called this fire mission; absent for world events. */
+  caller?: string;
   /** How it is drawn and heard; a shell when absent. */
   kind?: MunitionKind;
   /** Where it was fired from, when that is on the map: a mortar's tube thumps there. */
@@ -106,7 +108,8 @@ export interface CloudPayload { type: 'cloud'; id: number; center: CombatPlane; 
 export interface JamPayload { type: 'jam'; id: number; from: number; until: number }
 /** How long the event's live part (a crew, a sniper, a drone) lasts if nobody stops it. */
 export interface PresencePayload { type: 'presence'; id: number; until: number }
-export type CombatPayload = MunitionPayload | MarkerPayload | TransportPayload | InsertPayload | FlyerPayload | OrbitPayload | CratePayload | CloudPayload | JamPayload | PresencePayload;
+export interface RevealPayload { type: 'reveal'; id: number; center: CombatPlane; radius: number; from: number; until: number; caller: string }
+export type CombatPayload = RevealPayload | MunitionPayload | MarkerPayload | TransportPayload | InsertPayload | FlyerPayload | OrbitPayload | CratePayload | CloudPayload | JamPayload | PresencePayload;
 
 export interface CombatEventPlugin {
   id: string; name: string; description: string;
@@ -173,6 +176,7 @@ function validPayload(payload: CombatPayload, plugin: CombatEventPlugin) {
       payload.enter >= 0 && payload.arrive >= payload.enter && payload.arrive >= plugin.warning && payload.depart >= payload.arrive && payload.leave >= payload.depart && payload.leave <= plugin.duration && payload.cruise >= payload.hover && payload.hover >= 0;
   if (payload.type === 'insert')
     return finitePlane(payload.at) && finite(payload.time) && Number.isInteger(payload.slot) && payload.slot >= 0 && payload.time >= plugin.warning && payload.time <= plugin.duration;
+  if (payload.type === 'reveal') return finitePlane(payload.center) && finite(payload.radius) && payload.radius > 0 && payload.radius <= 30 && inWindow(payload.from, payload.until, plugin) && typeof payload.caller === 'string' && payload.caller.length <= 100;
   if (payload.type === 'marker')
     return finitePlane(payload.center) && finite(payload.radius) && payload.radius > 0 && finite(payload.from) && finite(payload.until) &&
       payload.from >= 0 && payload.until >= payload.from && payload.until <= plugin.duration + COMBAT_AFTERMATH;
@@ -242,7 +246,7 @@ export function payloadEnd(payload: CombatPayload) {
     case 'orbit': return payload.gone;
     // A crate's part is over when it lands; how long it then lies there is the presence's to say.
     case 'crate': return payload.land;
-    case 'cloud': case 'jam': case 'presence': return payload.until;
+    case 'reveal': case 'cloud': case 'jam': case 'presence': return payload.until;
     default: return 0;
   }
 }

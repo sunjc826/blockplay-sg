@@ -1,3 +1,6 @@
+import { createGrenadeSystem, validThrowGrenade, type ThrowGrenade, type GrenadeBurst, type LiveGrenade, type GrenadeEvent } from './grenade-system';
+import { applyGrenadeConditions, advanceGrenadeConditions, arenaConditionModifiers, type ActiveGrenadeConditions } from './grenade-effects';
+import { heldSupplies } from './utility-belt';
 import { WORLD_VEHICLES, clearVehicleSpawn } from './world-vehicles';
 import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
 import { createVerticalNavigator, type NavigationPoint } from './vertical-navigation';
@@ -51,6 +54,11 @@ export interface ArenaActor {
   ahMaSaves?: number;
   /** Players: the meals still working on them, as the host runs them (food-effects). */
   food?: ActiveFoodEffects;
+  conditions?: ActiveGrenadeConditions;
+  /** The grenade still on this bot, also used for expedition drops. */
+  grenade?: string;
+  /** Which actors can see this actor through cover after a spotter reveal. */
+  markedBy?: string[];
   /** A rooftop sniper with someone in their scope: renderers show the glint. */
   aiming?: boolean;
   /** Feet height of an actor held on a perch the walk surfaces do not describe, such as a roof. */
@@ -100,6 +108,7 @@ export interface ArenaBark {
 /** Barks a snapshot carries; screens keep the ones they have not shown yet. */
 export const MAX_ARENA_BARKS = 8;
 export interface ArenaSnapshot {
+  grenades?: LiveGrenade[]; grenadeEvents?: GrenadeEvent[];
   type: 'arena-snapshot'; tick: number; elapsed: number; actors: ArenaActor[];
   feed: ArenaFeed[]; finished: boolean; winner: string; vehicles?: SharedVehicle[];
   /** Combat events still running or lingering; each one's rounds follow from its descriptor. */
@@ -257,6 +266,7 @@ interface InternalActor {
   supplies?: Record<string, number>;
   /** When this player last used a supply, against a client that sends them faster than hands can. */
   lastSupplyAt?: number;
+  grenadeSupplies?: Record<string, number>; initialGrenades?: Record<string, number>; lastGrenadeAt?: number; lastMissionAt?: number; lastContact?: ArenaPoint & { time: number };
   /** Ground velocity and speed in m/s, smoothed over a few ticks, and where they were last measured from. */
   velocity?: { x: number; z: number }; speed?: number; lastAt?: { x: number; z: number };
   /** When a bot first had its present target in sight, for its aim to settle from. */
@@ -342,7 +352,7 @@ function bodyDistance(origin: ArenaPoint, direction: ArenaPoint, actor: ArenaAct
 }
 
 /** Host-owned match. Clients may submit movement and aim, never damage or scores. */
-export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions, traversalWorld?: VerticalWorld, coverDistance?: ArenaCoverDistance) {
+export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions, traversalWorld?: VerticalWorld, coverDistance?: ArenaCoverDistance, grenadeCoverTrace?: import('./grenade-flight').GrenadeTrace) {
   // Rendered cover stops every round, with or without vehicles in the match.
   const cover = coverDistance ?? vehicleOptions?.coverDistance;
   const bounds = environment?.bounds ?? MARINA_BOUNDS;
@@ -466,7 +476,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.ammo = entry.weapons.map(hostAmmo);
     entry.burst = 0; entry.burstFired = 0; entry.heal = undefined; entry.lastHurt = -Infinity; delete entry.actor.healing; entry.shieldUntil = elapsed + SPAWN_SHIELD_SECONDS;
     // A respawn starts hungry.
-    entry.meals = undefined; delete entry.actor.food;
+    entry.meals = undefined; delete entry.actor.food; delete entry.actor.conditions; delete entry.actor.markedBy;
+    entry.grenadeSupplies ??= {}; entry.lastContact = undefined;
+    if (entry.actor.bot && entry.actor.faction === 'mercenaries' && ['assault', 'tank'].includes(entry.role?.id ?? '')) { entry.actor.grenade = entry.role?.id === 'tank' ? 'grenade-smoke' : 'grenade-frag'; entry.grenadeSupplies[entry.actor.grenade] = 1; } else delete entry.actor.grenade;
     entry.velocity = undefined; entry.speed = 0; entry.lastAt = undefined; entry.focusSince = undefined; entry.turn = undefined;
     entry.navigation = undefined; entry.vehicleBoardAfter = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false;
@@ -526,7 +538,25 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (itemById(itemId)?.category !== 'consumable' || typeof count !== 'number' || !Number.isFinite(count)) continue;
       const whole = Math.floor(clamp(count, 0, CONSUMABLE_LIMIT)); if (whole) supplies[itemId] = whole;
     }
-    entry.supplies = supplies;
+    entry.supplies = supplies; setPlayerGrenades(id, supplies);
+  }
+  /** Register a host/solo player's brought grenades without changing supply accounting. */
+  function setPlayerGrenades(id: string, held: Record<string, number>) {
+    const entry = members.get(id); if (!entry) return;
+    entry.initialGrenades = Object.fromEntries(Object.entries(heldSupplies(held)).filter(([key]) => itemById(key)?.grenade));
+    entry.grenadeSupplies = { ...entry.initialGrenades };
+  }
+  function throwGrenade(id: string, input: ThrowGrenade) {
+    const entry = members.get(id);
+    if (!entry || finished || !entry.actor.alive || !entry.playing || seatOf(vehicles, id) || !validThrowGrenade(input) || distance(input.origin, entry.actor) > 1.5) return false;
+    if (arenaConditionModifiers(entry.actor.conditions).frozen && input.cooked < itemById(input.id)!.grenade!.fuse) return false;
+    if (elapsed - (entry.lastGrenadeAt ?? -Infinity) < .9 || (entry.grenadeSupplies?.[input.id] ?? 0) <= 0) return false;
+    if (input.id === 'grenade-red-smoke' && elapsed - (entry.lastMissionAt ?? -Infinity) < 60) return false;
+    if (!grenadeSystem.throwGrenade(id, input)) return false;
+    entry.grenadeSupplies![input.id]--; entry.lastGrenadeAt = elapsed;
+    if (entry.actor.bot) delete entry.actor.grenade;
+    if (input.id === 'grenade-red-smoke') entry.lastMissionAt = elapsed;
+    return true;
   }
   /**
    * A player uses a supply. The host heals, refills the inserts and starts the
@@ -585,13 +615,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function removePlayer(id: string) {
     const entry = members.get(id); if (!entry || entry.actor.bot) return;
-    releaseSeat(id); members.delete(id); announce(`${entry.actor.name} left`);
+    grenadeSystem.removeCaller(id); releaseSeat(id); members.delete(id); announce(`${entry.actor.name} left`);
   }
   function setInput(id: string, input: ArenaInput) {
     const entry = members.get(id); if (!entry || entry.actor.bot || finished || !input || !finitePoint(input)) return;
     if (![input.yaw, input.pitch].every(Number.isFinite)) return;
     entry.playing = input.playing === true;
     const actor = entry.actor; if (!actor.alive) return;
+    if (arenaConditionModifiers(actor.conditions).frozen) { controls.delete(id); return; }
     // Using a supply shows: the same pose a bot takes to dress a wound.
     if (Number.isFinite(input.supply)) actor.healing = clamp(input.supply!, 0, 1); else delete actor.healing;
     const mounted = seatOf(vehicles, id);
@@ -630,6 +661,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function reloadPlayer(id: string, weapon: number) {
     const entry = members.get(id);
     if (!entry || (seatOf(vehicles, id)?.seat ?? 2) < 2 || !entry.actor.alive || finished || !Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return;
+    if (arenaConditionModifiers(entry.actor.conditions).frozen) return;
     startReload(entry, weapon);
   }
   /** The host's ammunition rules are the player's, so a reload starts, resumes and commits the same way. */
@@ -647,6 +679,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function shoot(id: string, origin: ArenaPoint, direction: ArenaPoint, weapon: number, maxDistance = 125): ArenaShot {
     const entry = members.get(id);
     if (!entry || (seatOf(vehicles, id)?.seat ?? 2) < 2 || finished || !entry.actor.alive || !entry.playing || !finitePoint(origin) || !finitePoint(direction)) return { ...EMPTY_SHOT };
+    if (arenaConditionModifiers(entry.actor.conditions).frozen) return { ...EMPTY_SHOT };
     if (!Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return { ...EMPTY_SHOT };
     const ammo = entry.ammo[weapon];
     if (distance(origin, entry.actor) > 1.5 || ammo.cooldown > 1e-7 || ammo.reloadRemaining > 0) return { ...EMPTY_SHOT };
@@ -724,7 +757,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    * it credits nobody. `piercing` damage (gas) goes round armour, not through it.
    * A round's `calibre` is held to the victim's insert rating (armor-inserts).
    */
-  function hurtActor(victim: InternalActor, damage: number, attacker?: InternalActor, cause?: string, from?: ArenaPoint, blasted = false, piercing = false, calibre?: number) {
+  function hurtActor(victim: InternalActor, damage: number, attacker?: InternalActor, cause?: string, from?: ArenaPoint, blasted = false, piercing = false, calibre?: number, shred = 0) {
     const source = from ?? attacker?.actor;
     if (source && attacker !== victim) victim.actor.hurtFrom = { x: source.x, z: source.z, serial: ++hurtSerial, ...(blasted ? { blast: true } : {}) };
     victim.lastHurt = elapsed;
@@ -733,9 +766,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (victim.meals) damage *= arenaFoodModifiers(victim.meals).damageTaken;
     // Only an insert that can turn a round draws for it, so every other fight keeps its random sequence.
     const struck = piercing ? { health: Math.max(0, victim.actor.health - damage), armor: victim.actor.armor, blocked: 0, deflected: false }
-      : applyArmorDamage(victim.actor.health, victim.actor.armor, damage, victim.absorption, { insert: victim.insert, caliberMm: calibre, roll: victim.insert.deflect > 0 && calibre !== undefined ? random() : undefined });
+      : applyArmorDamage(victim.actor.health, victim.actor.armor, damage * (1 - shred), victim.absorption, { insert: victim.insert, caliberMm: calibre, roll: victim.insert.deflect > 0 && calibre !== undefined ? random() : undefined });
     const blocked = struck.deflected ? damage : struck.blocked;
-    victim.actor.armor = struck.armor; victim.actor.health = struck.health;
+    victim.actor.armor = struck.armor; victim.actor.health = Math.max(0, struck.health - damage * shred);
     // Ah Ma steps in once per tingkat: a lethal hit leaves her figure instead.
     if (victim.actor.alive && victim.meals) {
       const ahMa = survivesWithAhMa(victim.meals, victim.actor.health);
@@ -744,7 +777,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const killed = victim.actor.health <= 0;
     if (killed && victim.actor.alive) {
       victim.actor.alive = false; victim.actor.deaths++; victim.actor.respawnIn = ARENA_RESPAWN_SECONDS; releaseSeat(victim.actor.id);
-      victim.heal = undefined; delete victim.actor.healing; victim.meals = undefined; delete victim.actor.food;
+      victim.heal = undefined; delete victim.actor.conditions; delete victim.actor.markedBy; delete victim.actor.healing; victim.meals = undefined; delete victim.actor.food;
       if (attacker && attacker !== victim) attacker.actor.kills++;
       if (factionHeat && isSquad(victim.actor.faction)) factionHeat.casualty(victim.actor.faction, factionHeat.sectorAt(victim.actor.x, victim.actor.z)?.id ?? null, heatShare(victim, attacker));
       announce(cause && !attacker ? `${cause} killed ${victim.actor.name}` : `${attacker?.actor.name ?? 'Vehicle'} eliminated ${victim.actor.name}`, attacker?.actor.id, victim.actor.id);
@@ -892,12 +925,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return Math.min(worldWallDistance(from, dir), cover?.(from, dir, length) ?? Infinity) >= length - .1;
   }
   type BlastItem = { hull: SharedVehicle } | { member: InternalActor };
-  function blast(point: ArenaPoint, spec: Parameters<typeof resolveBlast>[1], attacker?: InternalActor, cause?: string, source?: SharedVehicle) {
+  function blast(point: ArenaPoint, spec: Parameters<typeof resolveBlast>[1], attacker?: InternalActor, cause?: string, source?: SharedVehicle, grenade = false, shred = 0) {
     warm(point, 3);
     const targets: BlastTarget<BlastItem>[] = [];
     // Hulls first, so a chain of wrecks resolves before the crews and bystanders, as it always has.
-    for (const other of vehicles) if (other !== source && other.health > 0) targets.push({ item: { hull: other }, point: { x: other.x, y: other.y + 1.3, z: other.z }, vehicle: true });
+    for (const other of vehicles) if (other !== source && other.health > 0 && (!grenade || !attacker || !other.occupants.some(id => id && id !== attacker.actor.id && members.has(id) && !hostile(attacker.actor, members.get(id)!.actor)))) targets.push({ item: { hull: other }, point: { x: other.x, y: other.y + 1.3, z: other.z }, vehicle: true });
     for (const member of members.values()) if (member.actor.alive && !seatOf(vehicles, member.actor.id)) {
+      if (grenade && attacker && member !== attacker && !hostile(attacker.actor, member.actor)) continue;
       const { actor } = member, low = actor.y - floorAt(actor) < 1.4;
       // Wrecks have always measured to the eye; stance-aware blasts measure to the body.
       targets.push({ item: { member }, stance: actor.prone ? 'prone' : low ? 'crouch' : 'stand',
@@ -905,8 +939,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     for (const hit of resolveBlast(point, spec, targets, clearBlast)) {
       if ('hull' in hit.item) { if (hit.item.hull.health > 0) damageHull(hit.item.hull, hit.damage, attacker, cause); }
-      else if (hit.item.member.actor.alive)
-        hurtActor(hit.item.member, spec.overhead && roofed(hit.item.member.actor) ? hit.damage * OVERHEAD_SHELTER : hit.damage, attacker, cause, point, true);
+      else if (hit.item.member.actor.alive) {
+        hurtActor(hit.item.member, spec.overhead && roofed(hit.item.member.actor) ? hit.damage * OVERHEAD_SHELTER : hit.damage, attacker, cause, point, true, false, undefined, shred);
+      }
     }
   }
   /** Whether something solid is overhead: a roof, a deck, a viaduct. */
@@ -918,6 +953,47 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    * Running combat events and the director that starts them. Rounds resolve
    * here, on the authority, at the time their descriptor says they land.
    */
+  function grenadeTrace(from: ArenaPoint, to: ArenaPoint) {
+    const meshHit = grenadeCoverTrace?.(from, to); if (meshHit) return meshHit;
+    const d = distance(from, to); if (d < 1e-8) return null;
+    const ray = { x: (to.x - from.x) / d, y: (to.y - from.y) / d, z: (to.z - from.z) / d };
+    const ground = traversal?.supportHeight(to.x, to.z, from.y + .05, .05, .05) ?? 0;
+    let hit = Math.min(worldWallDistance(from, ray), cover?.(from, ray, d) ?? Infinity);
+    let floor = false;
+    if (ray.y < 0 && to.y <= ground + .08) { const t = Math.max(0, (ground + .08 - from.y) / ray.y); if (t <= hit) { hit = t; floor = true; } }
+    if (hit >= d && !floor) return null;
+    const normal = floor ? { x: 0, y: 1, z: 0 } : Math.abs(ray.y) > Math.max(Math.abs(ray.x), Math.abs(ray.z)) ? { x: 0, y: -Math.sign(ray.y), z: 0 } : Math.abs(ray.x) > Math.abs(ray.z) ? { x: -Math.sign(ray.x), y: 0, z: 0 } : { x: 0, y: 0, z: -Math.sign(ray.z) };
+    return { point: { x: from.x + ray.x * hit, y: from.y + ray.y * hit, z: from.z + ray.z * hit }, normal };
+  }
+  function grenadeBurst(b: GrenadeBurst) {
+    const attacker = members.get(b.cause.caller);
+    if (b.blast && (b.id === 'grenade-red-smoke' || b.id === 'grenade-oranges')) b = { ...b, point: landing({ type: 'munition', id: 0, impact: b.point, time: 0, flight: 1, descent: { x: 0, y: -1, z: 0 }, blast: b.blast }) };
+    if (b.blast) blast(b.point, b.blast, attacker, itemById(b.id)?.name, undefined, true, b.shred);
+    for (const entry of members.values()) {
+      const a = entry.actor;
+      if (b.id === 'grenade-whistle' && entry === attacker) continue;
+      if (!a.alive || !attacker || entry !== attacker && !hostile(attacker.actor, a)) continue;
+      if (distance(b.point, a) > (b.radius ?? b.blast?.radius ?? 0) || !clearBlast(b.point, chestOf(a), distance(b.point, chestOf(a)))) continue;
+      const away = b.facing && (-Math.sin(a.yaw) * (b.point.x - a.x) - Math.cos(a.yaw) * (b.point.z - a.z)) < 0;
+      applyGrenadeConditions(a.conditions ??= {}, b.conditions.map(e => ({ ...e, seconds: e.seconds * (away ? .5 : 1) })), !a.bot);
+    }
+  }
+  const grenadeSystem = createGrenadeSystem(grenadeTrace, grenadeBurst);
+  function stepGrenades(dt: number) {
+    for (const m of members.values()) { if (m.actor.conditions) advanceGrenadeConditions(m.actor.conditions, dt); delete m.actor.markedBy; }
+    grenadeSystem.step(dt);
+    for (const { event, effect, point } of grenadeSystem.areas()) {
+      const attacker = members.get(event.caller); if (!attacker || !('radius' in effect)) continue;
+      for (const m of members.values()) {
+        const a = m.actor; if (!a.alive || Math.hypot(a.x - point.x, a.z - point.z) > effect.radius || Math.abs(a.y - point.y) > (effect.kind === 'cloud' && effect.overhead ? 100 : 6)) continue;
+        const enemy = m === attacker || hostile(attacker.actor, a);
+        if (effect.kind === 'cloud' && enemy && effect.dps > 0) hurtActor(m, effect.dps * dt * (effect.overhead && roofed(a) ? .2 : 1), attacker, itemById(event.id)?.name, point, false, true);
+        if (effect.kind === 'condition' && enemy) applyGrenadeConditions(a.conditions ??= {}, [{ kind: effect.condition, strength: effect.strength, seconds: effect.seconds }], !a.bot);
+        if (effect.kind === 'reveal' && m !== attacker && hostile(attacker.actor, a)) a.markedBy = [...new Set([...(a.markedBy ?? []), attacker.actor.id])].slice(0, 8);
+        if (effect.kind === 'rally' && (m === attacker || !hostile(attacker.actor, a)) && (!effect.sky || !roofed(a))) { applyFoodEffects(m.meals ??= {}, effect.effects); publishMeals(m); }
+      }
+    }
+  }
   const director = environment?.combatEvents ? createCombatDirector({ risk: environment.combatEvents.risk, seed: (seed ^ 0x5bd1e995) >>> 0 }) : null;
   let directorEnabled = !!director, eventSerial = 0;
   interface RunningEvent { descriptor: CombatEventDescriptor; resolved: Set<number>; name: string;
@@ -1185,6 +1261,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   /** Whether smoke on the ground lies across the line from `a` to `b`. A cloud is a squat cylinder; a line over its top is clear. */
   function smokeBetween(a: ArenaPoint, b: ArenaPoint) {
+    for (const area of grenadeSystem.areas()) {
+      const e = area.effect; if (e.kind !== 'cloud' || e.blocksSight === false) continue;
+      const dx = b.x - a.x, dz = b.z - a.z, length = dx * dx + dz * dz;
+      const t = length ? clamp(((area.point.x - a.x) * dx + (area.point.z - a.z) * dz) / length, 0, 1) : 0;
+      const y = a.y + (b.y - a.y) * t;
+      if (y >= area.point.y - .5 && y < area.point.y + 6 && Math.hypot(a.x + dx * t - area.point.x, a.z + dz * t - area.point.z) < e.radius) return true;
+    }
     for (const { cloud, ground } of liveClouds) {
       const top = ground + 6; if (a.y > top && b.y > top) continue;
       const dx = b.x - a.x, dz = b.z - a.z, length = dx * dx + dz * dz;
@@ -1449,6 +1532,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   /** Which way out of the nearest live danger area, or null when standing clear of all of them. A supply drop's ring is no danger. */
   function dangerExit(actor: ArenaPoint) {
+    for (const danger of grenadeSystem.dangers()) {
+      const dx = actor.x - danger.point.x, dz = actor.z - danger.point.z, d = Math.hypot(dx, dz);
+      if (d < danger.radius + 1 && Math.abs(actor.y - danger.point.y) < 8) return d > .01 ? { x: dx / d, z: dz / d } : { x: 1, z: 0 };
+    }
     for (const event of events) {
       if (!getCombatEvent(event.descriptor.kind)?.hazard || !['warning', 'active'].includes(combatPhase(event.descriptor, elapsed))) continue;
       const age = elapsed - event.descriptor.start;
@@ -1636,6 +1723,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function stepBot(entry: InternalActor, dt: number) {
     const actor = entry.actor;
+    const conditions = arenaConditionModifiers(actor.conditions);
+    if (conditions.frozen) { entry.target = ''; entry.burst = 0; return; }
     const role = entry.role!;
     // Patching up: kneeling still, weapon down, until it is done or a hit interrupts it.
     if (entry.heal) {
@@ -1670,7 +1759,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const length = Math.hypot(line.x, line.y, line.z);
     const ray = { x: line.x / Math.max(length, 0.01), y: line.y / Math.max(length, 0.01), z: line.z / Math.max(length, 0.01) };
     // A target whose inserts smell is seen from further off, and through smoke.
-    const visible = !!enemy && length < sightRangeAgainst(role.sightRange, enemy.insert) && worldWallDistance(actor, ray) >= length - 0.5 && clearSight(entry, enemy.actor.id, ray, length, dt) && !(smokeHides(enemy.insert) && smokeBetween(actor, target));
+    const visible = !conditions.dazed && !!enemy && length < sightRangeAgainst(role.sightRange, enemy.insert) && worldWallDistance(actor, ray) >= length - 0.5 && clearSight(entry, enemy.actor.id, ray, length, dt) && !(smokeHides(enemy.insert) && smokeBetween(actor, target));
+    if (visible) entry.lastContact = { x: target.x, y: target.y, z: target.z, time: elapsed };
+    const contact = entry.lastContact;
+    if (!visible && contact && elapsed - contact.time < 6 && horizontal <= 25 && actor.grenade && grenadeSystem.live.filter(g => members.get(g.caller)?.actor.bot).length < 3 && elapsed - (entry.lastGrenadeAt ?? -Infinity) >= 20) {
+      const dx = contact.x - actor.x, dz = contact.z - actor.z, d = Math.hypot(dx, dz), speed = itemById(actor.grenade)!.grenade!.throwSpeed;
+      if (d >= 5 && d <= 25) { const angle = Math.asin(Math.min(.95, 9.8 * d / (speed * speed))) / 2;
+        throwGrenade(actor.id, { id: actor.grenade, origin: actor, direction: { x: dx / d * Math.cos(angle), y: Math.sin(angle), z: dz / d * Math.cos(angle) }, under: false, cooked: 0 }); }
+    }
     if (tryBoardVehicle(entry, visible, dt)) return;
     if (role.id === 'overwatch') { if (visible) actor.aiming = true; else delete actor.aiming; }
     if (visible) { if (elapsed - (entry.lastFight ?? -Infinity) > 6) bark(entry, 'contact'); entry.lastFight = elapsed; }
@@ -1917,6 +2013,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     stepRounds(dt);
     factionHeat?.step(dt);
     stepEvents(dt);
+    stepGrenades(dt);
     for (const entry of members.values()) {
       entry.movementBudget = Math.min(8, entry.movementBudget + 40 * dt);
       if (!entry.actor.alive) {
@@ -1936,7 +2033,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       entry.lastAt = { x: entry.actor.x, z: entry.actor.z };
       if (!entry.actor.bot) stepMeals(entry, dt);
       const food = entry.meals ? arenaFoodModifiers(entry.meals) : NO_FOOD;
-      entry.ammo.forEach((state, index) => advanceWeapon(state, index, dt, entry.weapons, { reload: food.reloadRate, cycle: food.cycleRate }));
+      entry.ammo.forEach((state, index) => advanceWeapon(state, index, dt, entry.weapons, { reload: food.reloadRate * arenaConditionModifiers(entry.actor.conditions).reload, cycle: food.cycleRate }));
       if (entry.actor.bot && !seatOf(vehicles, entry.actor.id)) {
         stepBot(entry, dt);
         const reloading = (entry.ammo[entry.actor.weapon]?.reloadRemaining ?? 0) > 0;
@@ -1954,13 +2051,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
   }
   function snapshot(): ArenaSnapshot {
-    return { type: 'arena-snapshot', tick, elapsed, actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
+    return { type: 'arena-snapshot', tick, elapsed, grenades: grenadeSystem.live.map(g => ({ ...g, position: { ...g.position }, velocity: { ...g.velocity }, landing: { ...g.landing } })), grenadeEvents: grenadeSystem.events.map(e => ({ ...e, point: { ...e.point } })), actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...(m.actor.conditions ? { conditions: structuredClone(m.actor.conditions) } : {}), ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
       ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target }, ...(e.descriptor.origin ? { origin: { ...e.descriptor.origin } } : {}) })) } : {}),
       ...(raiders.size ? { raiders: [...raiders.values()].map(({ event, kind, x, y, z, yaw, health, maxHealth, state, aim, shots }) => ({ event, kind, x, y, z, yaw, health, maxHealth, state, aim: aim ? { ...aim } : null, shots })) } : {}),
       ...(factionHeat ? { heat: factionHeat.snapshot() } : {}), ...(flying.length ? { rounds: roundViews() } : {}),
       ...(barks.length ? { barks: barks.map(b => ({ ...b, ...(b.at ? { at: { ...b.at } } : {}) })) } : {}) };
   }
   function reset() {
+    grenadeSystem.reset();
     tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; barks.length = 0; replies.length = 0; barker.reset(); idleIn = BARK_TUNING.idleEvery[0]; controls.clear(); vehicleLife.clear(); events.length = 0; raiders.clear(); liveClouds = []; heat.clear(); interests.length = 0; director?.reset();
     flying.length = 0; landed.clear();
     for (const [id, entry] of members) if (entry.temporary) dismiss(id);
@@ -1968,7 +2066,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     for (const [id, entry] of members) if (entry.recruit) members.delete(id);
     enlisted = count; factionHeat?.reset(); clock = dispatchClock();
     vehicles = vehicleOptions ? (['car', 'helicopter'] as const).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind])) : [];
-    for (const entry of members.values()) { entry.actor.kills = 0; entry.actor.deaths = 0; entry.actor.shots = 0; spawn(entry); }
+    for (const entry of members.values()) { entry.actor.kills = 0; entry.actor.deaths = 0; entry.actor.shots = 0; entry.grenadeSupplies = { ...entry.initialGrenades }; entry.lastGrenadeAt = entry.lastMissionAt = undefined; spawn(entry); }
     announce('New arena match');
   }
   const count = Number.isFinite(botCount) ? Math.floor(clamp(botCount, 0, 6)) : 0;
@@ -2003,7 +2101,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return entry;
   }
   for (let i = 0; i < count; i++) enlist();
-  return { vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerSupplies, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  return { vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

@@ -1,4 +1,5 @@
-import { ARMORY_CATALOG, CONSUMABLE_LIMIT, itemById, type ShopItem } from './armory-catalog';
+import { grenadeEffectLines } from './grenade-catalog';
+import { ARMORY_CATALOG, consumableLimit, itemById, type ShopItem } from './armory-catalog';
 import { supplyProfile, type SupplyStyle } from './fps-healing';
 import { FOOD_EFFECTS, foodEffectLines } from './food-effects';
 
@@ -8,7 +9,7 @@ import { FOOD_EFFECTS, foodEffectLines } from './food-effects';
  * catalogue entry. A slot holds every item of its kind; which one comes out
  * is decided when it is used (`pickUtility`).
  */
-export type UtilityKind = 'food' | 'bandage' | 'first-aid' | 'plates' | 'ammo';
+export type UtilityKind = 'food' | 'bandage' | 'first-aid' | 'plates' | 'ammo' | 'grenade';
 export interface UtilitySlotSpec { kind: UtilityKind; label: string; key: string }
 /** Left to right on the HUD; the key uses that slot (1–3 are the weapons). */
 export const UTILITY_SLOTS: readonly UtilitySlotSpec[] = [
@@ -17,11 +18,13 @@ export const UTILITY_SLOTS: readonly UtilitySlotSpec[] = [
   { kind: 'first-aid', label: 'First aid', key: '6' },
   { kind: 'plates', label: 'Plates', key: '7' },
   { kind: 'ammo', label: 'Ammo', key: '8' },
+  { kind: 'grenade', label: 'Grenade', key: '9' },
 ];
 export const KIND_OF_STYLE: Readonly<Record<SupplyStyle, UtilityKind>> = { eat: 'food', bandage: 'bandage', medkit: 'first-aid', plates: 'plates', ammo: 'ammo' };
 
 /** The slot a supply goes in: the same reading `supplyProfile` uses to choose how the hands use it. */
 export function utilityKind(item: ShopItem | undefined): UtilityKind | null {
+  if (item?.grenade) return 'grenade';
   return item?.category === 'consumable' ? KIND_OF_STYLE[supplyProfile(item).style] : null;
 }
 export const utilitySlot = (kind: string) => UTILITY_SLOTS.find(slot => slot.kind === kind);
@@ -33,7 +36,7 @@ export function heldSupplies(consumables: Readonly<Record<string, number>>): Rec
   const held: Record<string, number> = {};
   for (const [id, count] of Object.entries(consumables)) {
     if (itemById(id)?.category !== 'consumable' || typeof count !== 'number' || !Number.isFinite(count)) continue;
-    const whole = Math.max(0, Math.min(CONSUMABLE_LIMIT, Math.floor(count)));
+    const whole = Math.max(0, Math.min(consumableLimit(itemById(id)), Math.floor(count)));
     if (whole) held[id] = whole;
   }
   return held;
@@ -49,12 +52,14 @@ export interface UtilityNeed { health: number; maxHealth: number }
  * graze does not spend a full meal, and the largest when nothing covers it.
  * Ties go to the catalogue's order, so the choice is stable from frame to frame.
  */
-export function pickUtility(kind: UtilityKind, held: Readonly<Record<string, number>>, need?: UtilityNeed, chosenFood?: string | null): ShopItem | undefined {
+export function pickUtility(kind: UtilityKind, held: Readonly<Record<string, number>>, need?: UtilityNeed, chosenFood?: string | null, chosenGrenade?: string | null): ShopItem | undefined {
+  if (kind === 'grenade' && chosenGrenade && (held[chosenGrenade] ?? 0) > 0 && itemById(chosenGrenade)?.grenade) return itemById(chosenGrenade);
   if (kind === 'food' && chosenFood && (held[chosenFood] ?? 0) > 0) {
     const chosen = itemById(chosenFood);
     if (utilityKind(chosen) === 'food') return chosen;
   }
   const items = ARMORY_CATALOG.filter(item => (held[item.id] ?? 0) > 0 && utilityKind(item) === kind);
+  if (kind === 'grenade') return items[0];
   if (items.length < 2) return items[0];
   const heal = (item: ShopItem) => item.effect?.health ?? 0;
   const missing = need ? Math.max(0, need.maxHealth - need.health) : 0;
@@ -73,16 +78,16 @@ export interface UtilitySlotView {
   /** Food only: the next item is the player's pick rather than Auto's. */
   chosen?: boolean;
 }
-const effectLine = (item: ShopItem) => [item.effect?.health && `+${item.effect.health} HP`, item.effect?.armor && `+${item.effect.armor} AP`, item.effect?.reserve && `+${item.effect.reserve} RDS`,
+const effectLine = (item: ShopItem) => item.grenade ? grenadeEffectLines(item.grenade).join(' · ') : [item.effect?.health && `+${item.effect.health} HP`, item.effect?.armor && `+${item.effect.armor} AP`, item.effect?.reserve && `+${item.effect.reserve} RDS`,
   ...(item.foodEffects ?? []).map(effect => FOOD_EFFECTS[effect.kind].label)].filter(Boolean).join(' · ');
 
 /** The belt as the HUD draws it: every slot, empty ones included, so the layout never shifts. */
-export function utilityBelt(held: Readonly<Record<string, number>>, need?: UtilityNeed, chosenFood?: string | null): UtilitySlotView[] {
+export function utilityBelt(held: Readonly<Record<string, number>>, need?: UtilityNeed, chosenFood?: string | null, chosenGrenade?: string | null): UtilitySlotView[] {
   return UTILITY_SLOTS.map(slot => {
     const count = ARMORY_CATALOG.reduce((total, item) => total + (utilityKind(item) === slot.kind ? held[item.id] ?? 0 : 0), 0);
-    const item = pickUtility(slot.kind, held, need, chosenFood);
-    const chosen = slot.kind === 'food' && !!item && item.id === chosenFood;
-    return { ...slot, count, next: item ? { id: item.id, name: item.name, effect: effectLine(item) } : null, ...(slot.kind === 'food' ? { chosen } : {}) };
+    const item = pickUtility(slot.kind, held, need, chosenFood, chosenGrenade);
+    const chosen = !!item && (slot.kind === 'food' && item.id === chosenFood || slot.kind === 'grenade' && item.id === chosenGrenade);
+    return { ...slot, count, next: item ? { id: item.id, name: item.name, effect: effectLine(item) } : null, ...(['food', 'grenade'].includes(slot.kind) ? { chosen } : {}) };
   });
 }
 
@@ -104,4 +109,9 @@ export function foodOptions(held: Readonly<Record<string, number>>, need?: Utili
 
 /** The supplies' carried weight, for whatever is still on the belt. */
 export const beltWeightKg = (held: Readonly<Record<string, number>>, weightOf: (item?: ShopItem) => number) =>
-  Object.entries(held).reduce((kg, [id, count]) => kg + weightOf(itemById(id)) * Math.max(0, Math.min(CONSUMABLE_LIMIT, Number.isFinite(count) ? count : 0)), 0);
+  Object.entries(held).reduce((kg, [id, count]) => kg + weightOf(itemById(id)) * Math.max(0, Math.min(consumableLimit(itemById(id)), Number.isFinite(count) ? count : 0)), 0);
+
+export function grenadeOptions(held: Readonly<Record<string, number>>): FoodOption[] {
+ const items = ARMORY_CATALOG.filter(i => i.grenade && (held[i.id] ?? 0) > 0);
+ return [{ id: null, name: 'Auto', tier: null, count: items.reduce((n, i) => n + held[i.id], 0), health: 0, effects: [items[0] ? `Catalogue order · now ${items[0].name}` : 'Catalogue order'] }, ...items.map(i => ({ id: i.id, name: i.name, tier: i.tier, count: held[i.id], health: 0, effects: grenadeEffectLines(i.grenade) }))];
+}

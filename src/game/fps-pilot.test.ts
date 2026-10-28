@@ -83,3 +83,9 @@ describe('ballistic aim compensation', () => {
     expect(pilot.decide({ ...compensated, time: 2 }).action.fire).toBe(true);
   });
 });
+
+it('dodges an audible grenade before engaging or eating, and stops a supply', () => {
+ const p = createPlayerPilot();
+ const decision = p.decide(observation({ health: 40, grenades: [{ x: 2, z: 0, radius: 8, remaining: 1 }], contacts: [{ id: 'seen', yawError: 0, pitchError: 0, angularRadius: .03, distance: 10 }] }));
+ expect(decision.status).toBe('Dodging a live grenade'); expect(decision.action).toMatchObject({ left: true, sprint: true, cancelSupply: true, fire: false });
+});

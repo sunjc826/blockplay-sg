@@ -1,3 +1,5 @@
+import { validGrenadeConditions } from './grenade-effects';
+import { MAX_GRENADES, MAX_GRENADE_EVENTS, validLiveGrenade, validGrenadeEvent, validThrowGrenade, type ThrowGrenade } from './grenade-system';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import { createVerticalMovement } from './vertical-movement';
 import { createCharacterRig, type CharacterRig } from './character-rig';
@@ -53,7 +55,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.prone !== undefined && typeof actor.prone !== 'boolean') || (actor.aiming !== undefined && actor.aiming !== true) || (actor.scent !== undefined && actor.scent !== true) ||
       (actor.ground !== undefined && !(finite(actor.ground) && actor.ground >= -50 && actor.ground <= 124)) ||
       (actor.healing !== undefined && !(finite(actor.healing) && actor.healing >= 0 && actor.healing <= 1)) ||
-      (actor.food !== undefined && !validMeals(actor.food)) || (actor.ahMaSaves !== undefined && !(Number.isInteger(actor.ahMaSaves) && (actor.ahMaSaves as number) >= 0)) ||
+      (actor.conditions !== undefined && !validGrenadeConditions(actor.conditions)) || (actor.grenade !== undefined && !['grenade-frag', 'grenade-smoke'].includes(String(actor.grenade))) || (actor.markedBy !== undefined && (!Array.isArray(actor.markedBy) || actor.markedBy.length > 8 || !actor.markedBy.every(id => typeof id === 'string' && id.length <= 100))) || (actor.food !== undefined && !validMeals(actor.food)) || (actor.ahMaSaves !== undefined && !(Number.isInteger(actor.ahMaSaves) && (actor.ahMaSaves as number) >= 0)) ||
       (actor.rank !== undefined && !(Number.isInteger(actor.rank) && (actor.rank as number) >= 1 && (actor.rank as number) <= 3)) ||
       (actor.shield !== undefined && !(finite(actor.shield) && actor.shield > 0 && actor.shield <= SPAWN_SHIELD_SECONDS)) ||
       (actor.reinforceIn !== undefined && !(Number.isInteger(actor.reinforceIn) && (actor.reinforceIn as number) > 0 && (actor.reinforceIn as number) <= 600)) ||
@@ -63,6 +65,8 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.health as number) < 0 || (actor.health as number) > 300 || (actor.armor as number) < 0 || (actor.armor as number) > 150) return false;
     ids.add(actor.id);
   }
+  if (value.grenades !== undefined && (!Array.isArray(value.grenades) || value.grenades.length > MAX_GRENADES || !value.grenades.every(validLiveGrenade) || new Set(value.grenades.map(g => g.serial)).size !== value.grenades.length)) return false;
+  if (value.grenadeEvents !== undefined && (!Array.isArray(value.grenadeEvents) || value.grenadeEvents.length > MAX_GRENADE_EVENTS || !value.grenadeEvents.every(e => validGrenadeEvent(e, value.elapsed as number)) || new Set(value.grenadeEvents.map(e => e.serial)).size !== value.grenadeEvents.length)) return false;
   if (value.rounds !== undefined && !(Array.isArray(value.rounds) && value.rounds.length <= MAX_ARENA_ROUNDS && value.rounds.every(r => object(r) && Number.isInteger(r.id) && point(r.origin) && point(r.direction) &&
     finite(r.velocity) && (r.velocity as number) > 0 && (r.velocity as number) <= 2000 && finite(r.drop) && (r.drop as number) >= 0 && (r.drop as number) <= 50 &&
     finite(r.limit) && (r.limit as number) >= 0 && (r.limit as number) <= 300 && finite(r.time) && (r.time as number) >= 0 && (r.time as number) <= 10 &&
@@ -137,6 +141,7 @@ interface Avatar {
   glint: THREE.Sprite | null;
   /** A player's spawn shield: a blue rim of light round the figure while it holds. */
   halo: { mesh: THREE.Mesh; material: THREE.ShaderMaterial; time: number } | null;
+  reveal: THREE.Mesh;
   shots: number; flash: number; maxHealth: number; resources: { dispose(): void }[];
   alive: boolean; lastHealth: number; yaw: number; fireTimer: number; ground: number; groundTimer: number;
   previous: THREE.Vector3; velocity: THREE.Vector3;
@@ -251,9 +256,11 @@ function createAvatar(actor: ArenaActor): Avatar {
     resources.push(material);
     glint = new THREE.Sprite(material); glint.position.set(.08, 1.12, -.45); glint.visible = false; glint.raycast = noRaycast; root.add(glint);
   }
+  const revealGeo = new THREE.CapsuleGeometry(.34, .9, 4, 8), revealMat = new THREE.MeshBasicMaterial({ color: '#e79b5b', transparent: true, opacity: .28, depthTest: false, depthWrite: false });
+  const reveal = new THREE.Mesh(revealGeo, revealMat); reveal.position.y = 1; reveal.visible = false; reveal.raycast = noRaycast; reveal.renderOrder = 10; root.add(reveal); resources.push(revealGeo, revealMat);
   const halo = actor.bot ? null : createHalo(resources);
   if (halo) root.add(halo.mesh);
-  return { key: avatarKey(actor), rig, root, health, label, muzzle, glint, halo, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources,
+  return { key: avatarKey(actor), reveal, rig, root, health, label, muzzle, glint, halo, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources,
     alive: actor.alive, lastHealth: actor.health, yaw: actor.yaw, fireTimer: 0, ground: 0, groundTimer: 0, previous: new THREE.Vector3(), velocity: new THREE.Vector3(), bubble: null };
 }
 /** A soft star for scope glint, shared by every sniper and never disposed with one. */
@@ -283,10 +290,18 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   // Every shot and every bot's line of sight is checked against the rendered
   // scene, not only the box footprints: mesh-only walls must stop bot fire.
   const simulation = authority ? createArena(options.obstacles, options.botCount, options.composition, options.environment, options.vehicles, { bounds: options.environment?.bounds ?? MARINA_BOUNDS, obstacles: options.obstacles, surfaces: getWalkSurfaces(scene), traversalObstacles: getTraversalObstacles(scene) },
-    (origin, direction, distance) => coverLimit(origin, direction, distance)) : null;
+    (origin, direction, distance) => coverLimit(origin, direction, distance), (from, to) => {
+      const distance = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z); if (distance < 1e-8) return null;
+      const d = coverLimit(from, { x: (to.x - from.x) / distance, y: (to.y - from.y) / distance, z: (to.z - from.z) / distance }, distance);
+      if (d >= distance) return null;
+      const hit = coverRay.intersectObjects(surfaces, false).find(h => h.distance <= distance && h.distance >= d - .01 && h.face);
+      return hit?.face ? { point: hit.point, normal: hit.face.normal.clone().transformDirection(hit.object.matrixWorld) } : null;
+    }) : null;
   const hostId = authority ? session.id : session.getPeers()[0]?.id;
   const avatars = new Map<string, Avatar>();
   const registered = new Set<string>();
+  let grenadeRequest = 0;
+  const grenadeRequests = new Map<number, ((accepted: boolean) => void) | undefined>();
   let snapshot: ArenaSnapshot | null = null, started = false, disposed = false, inputTime = 0, helloTime = 3;
   let pendingHit: ArenaShot | null = null, pendingFeed: ArenaFeed[] = [], pendingBarks: ArenaBark[] = [], spawnPending = false, localAdopted = false;
   let lastInput: ArenaInput | null = null, vehicleNotice = '';
@@ -321,7 +336,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     const cover = coverRay.intersectObjects(surfaces, false).find(hit => shown(hit.object));
     return Math.min(finite(supplied) ? Math.max(0, Math.min(240, supplied)) : 125, cover?.distance ?? 240);
   }
-  if (simulation) { simulation.addPlayer(session.id, session.name, initial.armor, initial.absorption, initial.weapons, options.initialVitals, session.role === 'solo', initial.carriedFamilies, initial.insert); registered.add(session.id); }
+  if (simulation) { simulation.addPlayer(session.id, session.name, initial.armor, initial.absorption, initial.weapons, options.initialVitals, session.role === 'solo', initial.carriedFamilies, initial.insert); simulation.setPlayerGrenades(session.id, profile.consumables); registered.add(session.id); }
   function accept(next: ArenaSnapshot) {
     if (next.tick < lastTick) { seenFeed.clear(); seenBarks.clear(); localAdopted = false; }
     lastTick = next.tick; snapshot = next;
@@ -359,6 +374,11 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         session.send({ type: 'arena-vehicle-result', accepted }, from); publish();
       } else if (registered.has(from) && payload.type === 'arena-input' && validArenaInput(payload.input)) simulation.setInput(from, payload.input);
       else if (registered.has(from) && payload.type === 'arena-reload' && validWeaponIndex(payload.weapon)) simulation.reloadPlayer(from, payload.weapon);
+      else if (registered.has(from) && started && payload.type === 'throwGrenade' && validThrowGrenade(payload.grenade)) {
+        const accepted = simulation.throwGrenade(from, payload.grenade);
+        if (Number.isSafeInteger(payload.request)) session.send({ type: 'grenade-result', request: payload.request, accepted }, from);
+        if (accepted) publish();
+      }
       else if (registered.has(from) && started && payload.type === 'arena-supply' && typeof payload.item === 'string' && payload.item.length <= 64) { if (simulation.useSupply(from, payload.item)) publish(); }
       else if (registered.has(from) && started && payload.type === 'arena-callout' && getPlayerCallout(payload.callout) && (payload.at === undefined || point(payload.at))) {
         if (simulation.callout(from, payload.callout as string, payload.at as ArenaPoint | undefined)) publish();
@@ -370,6 +390,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         publish();
       }
     } else if (from === hostId) {
+      if (payload.type === 'grenade-result' && Number.isSafeInteger(payload.request) && typeof payload.accepted === 'boolean' && grenadeRequests.has(payload.request as number)) { const callback = grenadeRequests.get(payload.request as number); grenadeRequests.delete(payload.request as number); callback?.(payload.accepted); }
       if (payload.type === 'arena-vehicle-result' && payload.accepted === false) vehicleNotice = 'Seat unavailable. Approach a stopped vehicle; land and slow down to exit.';
       if (payload.type === 'arena-state' && validArenaSnapshot(payload.snapshot, options.environment) && typeof payload.started === 'boolean') { started = payload.started; accept(payload.snapshot); }
       if (payload.type === 'arena-hit' && object(payload.hit) && (payload.hit.hitId === null || typeof payload.hit.hitId === 'string') && typeof payload.hit.killed === 'boolean' && finite(payload.hit.damage) && payload.hit.damage >= 0 && payload.hit.damage <= 200) pendingHit = payload.hit as unknown as ArenaShot;
@@ -405,6 +426,8 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     const respawned = actor.alive && !avatar.alive;
     avatar.alive = actor.alive;
     root.visible = actor.alive || (rig.down && rig.downTime < ARENA_CORPSE_SECONDS && !actor.vehicle);
+    const viewer = snapshot?.actors.find(a => a.id === session.id);
+    avatar.reveal.visible = actor.alive && !!viewer && !!actor.markedBy?.some(id => { const caller = snapshot?.actors.find(a => a.id === id); return caller && (caller.id === viewer.id || !hostile(viewer, caller)); });
     avatar.health.visible = actor.alive; if (avatar.label) avatar.label.visible = actor.alive;
     if (!root.visible) { avatar.shots = actor.shots; avatar.lastHealth = actor.health; return; }
     avatar.groundTimer -= dt;
@@ -483,12 +506,12 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     const listener = self ?? (validArenaInput(input) ? { ...input, bot: false, faction: 'armed-forces' } : null), now = performance.now();
     for (const said of pendingBarks) {
       const speaker = snapshot?.actors.find(actor => actor.id === said.actor), avatar = avatars.get(said.actor);
-      if (!speaker || !avatar || !speaker.alive || !listener) continue;
+      if (!speaker || !avatar || !speaker.alive || !listener || self?.conditions?.deafened) continue;
       // Over a friendly head anywhere in sight; an enemy's only when near enough to overhear.
       const range = said.kind !== 'callout' && hostile(listener, speaker) ? BARK_RANGE.overheard : BARK_RANGE.bubble;
       if (Math.hypot(speaker.x - listener.x, speaker.z - listener.z) <= range) showBubble(avatar, said.text, arenaRoleColor(speaker));
     }
-    for (const avatar of avatars.values()) if (avatar.bubble?.sprite.visible && (now > avatar.bubble.until || !avatar.alive)) avatar.bubble.sprite.visible = false;
+    for (const avatar of avatars.values()) if (avatar.bubble?.sprite.visible && (self?.conditions?.deafened || now > avatar.bubble.until || !avatar.alive)) avatar.bubble.sprite.visible = false;
     for (const [id, avatar] of avatars) if (!activeIds.has(id)) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); avatars.delete(id); }
     const correction = !!self?.alive && localAdopted && !spawnPending && Math.hypot(self.x - input.x, self.y - input.y, self.z - input.z) > 2.5;
     const frame = { snapshot, self, connected, started, hit: pendingHit, feed: pendingFeed, spawn: spawnPending, correction, vehicleNotice, barks: pendingBarks };
@@ -539,6 +562,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (disposed || session.role !== 'solo' || !simulation) return false;
     profile = restoreProfile(JSON.stringify(nextProfile));
     const loadout = resolveLoadout(profile);
+    simulation.setPlayerGrenades(session.id, profile.consumables);
     simulation.setPlayerLoadout(session.id, loadout.armor, loadout.absorption, loadout.weapons, loadout.carriedFamilies, loadout.insert); publish(); return true;
   }
   function setVitals(vitals: Partial<ArenaVitals>) {
@@ -550,6 +574,13 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
    * healing, inserts and a meal's effects follow its rules, and a guest's
    * supplies are spent from what they joined with.
    */
+  function setGrenadeSupplies(held: Record<string, number>) { if (session.role === 'solo' && simulation) simulation.setPlayerGrenades(session.id, held); }
+  function throwGrenade(grenade: ThrowGrenade, result?: (accepted: boolean) => void) {
+    if (disposed || !started || !localAdopted || !validThrowGrenade(grenade) || grenadeRequests.size >= 24) { result?.(false); return false; }
+    if (simulation) { const accepted = simulation.throwGrenade(session.id, grenade); if (accepted) publish(); result?.(accepted); return accepted; }
+    const request = ++grenadeRequest; grenadeRequests.set(request, result);
+    session.send({ type: 'throwGrenade', grenade, request }); return true;
+  }
   function useSupply(itemId: string) {
     if (disposed || !started || !localAdopted) return;
     if (simulation) { if (simulation.useSupply(session.id, itemId)) publish(); }
@@ -569,6 +600,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     simulation.setCombatEvents(enabled); return true;
   }
   function dispose() {
+    for (const callback of grenadeRequests.values()) callback?.(false); grenadeRequests.clear();
     if (disposed) return; disposed = true; clearInterval(timer); unsubscribe(); unsubscribePeers();
     for (const avatar of avatars.values()) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); }
     avatars.clear();
@@ -582,6 +614,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       avatar.root.position.set(eye.x, eye.y - (actor.vehicle === 'car' && actor.seat === 1 ? 1.75 : 1.2), eye.z);
     }
   }
-  return { presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, setVitals, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
+  return { presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

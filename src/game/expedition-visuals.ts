@@ -1,3 +1,4 @@
+import { buildGrenadeModel } from './grenade-models';
 import * as THREE from 'three';
 import type { FieldLoot } from './expedition-loot';
 import type { ExpeditionNpc } from './expedition-npcs';
@@ -95,6 +96,8 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
       drops.set(item.id, { group, resources: owned }); spot(item);
       return;
     }
+    const grenade = buildGrenadeModel(item.catalogId ?? '');
+    if (grenade) { owned.push(grenade); group.add(grenade.root); grenade.root.position.y = .12; drops.set(item.id, { group, resources: owned }); spot(item); return; }
     const meal = item.kind === 'medical' ? buildFoodModel(item.catalogId ?? '') : null;
     if (meal) {
       // Food comes out as itself, set down on the ground.

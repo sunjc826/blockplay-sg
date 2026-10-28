@@ -1,4 +1,4 @@
-import { CONSUMABLE_LIMIT, itemById, type ItemTier, type ShopItem } from './armory-catalog';
+import { consumableLimit, itemById, type ItemTier, type ShopItem } from './armory-catalog';
 import { calibreOf, weaponCalibre, type FieldLoot } from './expedition-loot';
 import { supplyProfile } from './fps-healing';
 import { FPS_WEAPONS, type WeaponSpec } from './fps-rules';
@@ -120,7 +120,7 @@ export interface LootCardContext {
 }
 
 /** Room left on the belt for one more of `id`. */
-export const beltRoom = (belt: Readonly<Record<string, number>>, id: string) => Math.max(0, CONSUMABLE_LIMIT - (belt[id] ?? 0));
+export const beltRoom = (belt: Readonly<Record<string, number>>, id: string) => Math.max(0, consumableLimit(itemById(id)) - (belt[id] ?? 0));
 
 const trend = (now: number, was: number, higherIsBetter = true): LootStat['trend'] =>
   Math.abs(now - was) < 1e-6 ? undefined : (now > was) === higherIsBetter ? 'up' : 'down';
@@ -179,10 +179,10 @@ export function lootCard(loot: FieldLoot, context: LootCardContext): LootCard {
     ...(health ? [{ label: 'HEALTH', value: `+${health}` }] : []), ...(armor ? [{ label: 'ARMOR', value: `+${armor}` }] : []),
     ...(reserve ? [{ label: 'ROUNDS', value: `+${reserve}` }] : []),
     ...(item?.foodEffects ?? []).map(effect => ({ label: FOOD_EFFECTS[effect.kind].label.toUpperCase(), value: `${effect.seconds}s`, trend: 'up' as const })),
-    ...(item?.category === 'consumable' ? [{ label: 'USE', value: `${supplyProfile(item).seconds.toFixed(1)}s` }] : []),
-    { label: 'CARRIED', value: `${held}/${CONSUMABLE_LIMIT}` },
+    ...(item?.grenade ? [{ label: 'FUSE', value: `${item.grenade.fuse}s` }, { label: 'THROW', value: `${item.grenade.throwSpeed}m/s` }] : item?.category === 'consumable' ? [{ label: 'USE', value: `${supplyProfile(item).seconds.toFixed(1)}s` }] : []),
+    { label: 'CARRIED', value: `${held}/${consumableLimit(item)}` },
   ];
-  const type = item?.supplyType === 'food' ? 'Food' : 'Medical';
+  const type = item?.grenade ? 'Grenade' : item?.supplyType === 'food' ? 'Food' : 'Medical';
   return { ...base, type, stats, action: 'Pick up',
     detail: slot ? `To belt slot ${slot.key} · ${slot.label}` : 'To your belt',
     ...(item && slot && !room ? { blocked: `${slot.label} slot full` } : {}) };

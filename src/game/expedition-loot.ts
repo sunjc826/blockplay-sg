@@ -53,6 +53,7 @@ export interface FallenSoldier {
   side: ArenaSide;
   /** Arena rank grade, 1 (recruit) to 3 (veteran); absent counts as a regular. */
   rank?: number;
+  grenade?: string;
   /** The enemy-issue variant in their hands. */
   variant?: string;
   /** Friendlies carry no variant, only the issued weapon of this family. */
@@ -361,6 +362,7 @@ export function createExpeditionLoot(seed: string | number) {
     // Each roll is drawn whether or not it is used, so one outcome never shifts the next.
     const medicalRoll = random(), medical = pick(kit.medicalItems), plateRoll = random(), plate = kit.plateItems.length ? pick(kit.plateItems) : undefined;
     const carried: [FieldLootKind, ShopItem, number][] = [];
+    const grenade = itemById(soldier.grenade ?? ''); if (soldier.side !== 'forces' && grenade?.grenade && ['grenade-frag', 'grenade-smoke'].includes(grenade.id)) carried.push(['medical', grenade, 1]);
     if (medicalRoll < kit.medical && medical?.category === 'consumable') carried.push(['medical', medical, medical.effect?.health ?? rules.medicalAmount]);
     if (plateRoll < kit.plate && plate?.category === 'plate') carried.push(['armor', plate, 1]);
     // Set out round the body, inside reach of where it lies.

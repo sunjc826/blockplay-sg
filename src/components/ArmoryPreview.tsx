@@ -1,3 +1,4 @@
+import { buildGrenadeModel } from '../game/grenade-models';
 import { buildServiceWeapon } from '../game/service-weapon-models';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
@@ -23,7 +24,7 @@ export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item:
   // Names what the variant's parts put on the model, so the differences between
   // one tier and the next are findable rather than only visible.
   const food = item.category === 'consumable' && item.supplyType === 'food';
-  const gear = item.category === 'rig' || item.category === 'plate' || item.category === 'vehicleSkin' || item.category === 'vision' || food;
+  const gear = item.category === 'rig' || item.category === 'plate' || item.category === 'vehicleSkin' || item.category === 'vision' || food || !!item.grenade;
   const fittings = gear ? [] : weaponHardware(weapon.equipment.variant);
   useEffect(() => {
     let disposed = false, model: THREE.Object3D | undefined, undress: (() => void) | undefined, frame = 0;
@@ -57,6 +58,7 @@ export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item:
     if (item.category === 'vehicleSkin') mount(buildVehicleModel(vehicle, item.id));
     else if (item.category === 'rig' || item.category === 'plate') mount(armorModel(item));
     else if (item.category === 'vision') mount(visionModel(item));
+    else if (item.grenade) { const grenade = buildGrenadeModel(item.id); if (grenade) mount(grenade.root); }
     else if (food) { const meal = buildFoodModel(item.id); if (meal) mount(meal.root); else setStatus('Preview unavailable for this item.'); }
     else if (buildServiceWeaponId(JSON.parse(signature).id)) mount(buildServiceWeapon(JSON.parse(signature).id)!);
     else void new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/field-kit/${JSON.parse(signature).id}.glb`).then(gltf => mount(gltf.scene)).catch(() => { if (!disposed) setStatus('Preview failed to load.'); });

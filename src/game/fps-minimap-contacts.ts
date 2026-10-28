@@ -4,7 +4,7 @@ import type { ArenaActor } from './arena-rules';
 import { visiblePilotContacts, type PilotSubject } from './fps-pilot-perception';
 import { MINIMAP_CONTACT_RANGE, type MinimapMarker } from './minimap';
 
-type MapActor = Pick<ArenaActor, 'id' | 'name' | 'bot' | 'faction' | 'alive' | 'x' | 'y' | 'z' | 'scent'>;
+type MapActor = Pick<ArenaActor, 'id' | 'name' | 'bot' | 'faction' | 'alive' | 'x' | 'y' | 'z' | 'scent' | 'markedBy'>;
 export interface MinimapCloud { x: number; z: number; radius: number; ground: number }
 
 /** Current visual contacts only; scent remains an independent equipment reveal. */
@@ -25,7 +25,8 @@ export function combatMinimapMarkers(camera: THREE.PerspectiveCamera, scene: THR
     .filter(contact => contact.distance <= contactRange).map(contact => contact.id));
   return others.flatMap((actor): MinimapMarker[] => {
     const enemy = hostile(self, actor);
-    if (visible.has(actor.id)) return [{ id: `actor-${actor.id}`, kind: enemy ? 'enemy' : 'ally', label: `${actor.name} · ${enemy ? 'Enemy' : 'Ally'}`, x: actor.x, z: actor.z }];
+    const marked = actor.markedBy?.some(id => id === self.id || actors.some(a => a.id === id && !hostile(self, a)));
+    if (visible.has(actor.id) || marked) return [{ id: `actor-${actor.id}`, kind: enemy ? 'enemy' : 'ally', label: `${actor.name} · ${enemy ? 'Enemy' : 'Ally'}`, x: actor.x, z: actor.z }];
     if (enemy && actor.scent) return [{ id: `scent-${actor.id}`, kind: 'scent', label: `${actor.name} · you can smell them`, x: actor.x, z: actor.z }];
     return [];
   });

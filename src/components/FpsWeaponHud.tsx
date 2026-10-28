@@ -12,11 +12,11 @@ import type { UtilityKind } from '../game/utility-belt';
 import FpsUtilityBelt from './FpsUtilityBelt';
 import './fps-weapon-hud.css';
 
-export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickFood, onInspect, touch = false }: { hud: FpsHud; weapon: WeaponSpec & { equipment?: { variant: string } }; canFight: boolean; onUtility?: (kind: UtilityKind) => void; onPickFood?: () => void; onInspect?: () => void; touch?: boolean }) {
+export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickFood, onPickGrenade, onGrenadeFire, onInspect, touch = false }: { hud: FpsHud; weapon: WeaponSpec & { equipment?: { variant: string } }; canFight: boolean; onUtility?: (kind: UtilityKind) => void; onPickFood?: () => void; onPickGrenade?: () => void; onGrenadeFire?: (held: boolean) => void; onInspect?: () => void; touch?: boolean }) {
   // A phone on its side has no height for the belt over the ammo under the weapon
   // slider, so the belt docks along the bottom between the two thumbs instead.
   const docked = useMediaQuery(SHORT_SCREEN) && touch;
-  const belt = <FpsUtilityBelt hud={hud} canUse={canFight && !hud.supplyUse} onUse={onUtility} onPickFood={onPickFood} docked={docked} />;
+  const belt = <FpsUtilityBelt hud={hud} canUse={canFight && !hud.supplyUse} onUse={onUtility} onPickFood={onPickFood} onPickGrenade={onPickGrenade} onGrenadeFire={onGrenadeFire} docked={docked} />;
   // Canted onto an offset dot, the sight in use is a 1x one whatever sits on top.
   // Elite and up wear their rarity beside the name, so a Mythic reads as one mid-fight too.
   const tier = itemById(weapon.equipment?.variant ?? '')?.tier, rare = tier && tierRank(tier) >= tierRank('Elite') ? tier : null;
@@ -29,7 +29,8 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickF
   // An interrupted reload keeps its progress for the next one (see fps-rules).
   const resume = !reloading && hud.reloadSaved > 0 ? Math.round(hud.reloadSaved * 100) : 0;
   const using = hud.supplyUse;
-  const prompt = using ? `${using.verb} · FIRE OR SPRINT TO STOP` : reloading ? `${hud.reloadEmpty ? 'EMPTY' : 'TACTICAL'} RELOAD · ${stage}`
+  const grenade = hud.grenadeHeld;
+  const prompt = grenade ? grenade.pinned ? 'RELEASE FIRE TO THROW · HOLD AIM TO LOB' : 'HOLD FIRE TO COOK · RELEASE TO THROW' : using ? `${using.verb} · FIRE OR SPRINT TO STOP` : reloading ? `${hud.reloadEmpty ? 'EMPTY' : 'TACTICAL'} RELOAD · ${stage}`
     : hud.inspecting ? 'INSPECTING · FIRE OR AIM TO READY'
     : resume ? `${hud.magazineOut ? 'NO MAGAZINE · ' : ''}R RESUME RELOAD · ${resume}%`
     : hud.magazine === 0 ? 'EMPTY · PRESS R'
@@ -41,6 +42,9 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickF
     {/* The lens owns the ADS reticle. Unmount the hip crosshair before the
         lens fades in; legacy global ADS styles must not resurrect its bars. */}
     {canFight && !hud.aiming && hud.aimProgress <= .12 && <div className="fps-crosshair fps-tactical-crosshair" aria-hidden="true"><i /><i /><i /><i /><b /></div>}
+    {canFight && grenade && <div className="fps-grenade-cook" role="progressbar" aria-label="Grenade fuse" aria-valuemin={0} aria-valuemax={grenade.fuse} aria-valuenow={grenade.cooked} style={{ '--cook': `${grenade.cooked / grenade.fuse * 100}%` } as CSSProperties}><span>{grenade.pinned ? `${Math.max(0, grenade.fuse - grenade.cooked).toFixed(1)}s` : '9'}</span></div>}
+    {canFight && hud.grenadeWarnings.map(g => <div key={g.serial} className="fps-grenade-warning" style={{ transform: `rotate(${g.angle}rad)` }} aria-label="Live grenade nearby"><b>▼</b></div>)}
+    {canFight && hud.conditions.some(c => c.kind === 'at-attention') && <div className="fps-attention-overlay" role="alert">STAND BY</div>}
     {canFight && hud.hit && <div key={`${hud.shots}-${hud.hits}`} className={`fps-impact-marker ${hud.hitKind === 'kill' ? 'is-kill' : ''}`} aria-hidden="true"><i /><i /><i /><i /></div>}
     {canFight && using && <div className="fps-reload-cue fps-supply-cue" data-supply-style={using.style} role="status"><span>{using.verb} · {using.name}</span><div><i style={{ width: `${using.progress * 100}%` }} /></div></div>}
     {canFight && reloading && !using && <div className="fps-reload-cue" aria-hidden="true"><span>{stage}</span><div><i style={{ width: `${(1 - hud.reloading) * 100}%` }} /></div></div>}
@@ -48,8 +52,8 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickF
     <div className={`fps-ammo ${!hud.roundReady && !reloading ? 'is-empty' : ''}`}>
       {/* Above the weapon so the two read as one kit, and so the belt rises with the ammo block wherever the thumbs push it. */}
       {!docked && belt}
-      <span>{rare && <em className="fps-tier" data-tier={rare.toLowerCase()}>{rare}</em>}{weapon.name} <small>{hud.aiming ? 'ADS' : weapon.fireMode === 'semi' ? 'SEMI' : 'AUTO'}</small></span>
-      <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}{hud.chambered && <em className="fps-chamber" aria-label="one in the chamber">+1</em>}<small>/ {hud.reserve}</small></strong>
+      <span>{rare && <em className="fps-tier" data-tier={rare.toLowerCase()}>{rare}</em>}{grenade?.name ?? weapon.name} <small>{hud.aiming ? 'ADS' : weapon.fireMode === 'semi' ? 'SEMI' : 'AUTO'}</small></span>
+      {grenade ? <strong>{grenade.pinned ? Math.max(0, grenade.fuse - grenade.cooked).toFixed(1) : 'READY'}<small>{grenade.pinned ? ' s' : grenade.under ? ' LOB' : ' THROW'}</small></strong> : <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}{hud.chambered && <em className="fps-chamber" aria-label="one in the chamber">+1</em>}<small>/ {hud.reserve}</small></strong>}
       {prompt ? <p>{prompt}</p> : <p className="fps-ammo-detail">R RELOAD · Q TOGGLE AIM · RMB HOLD</p>}
       {(hud.rail || hud.offsetDot) && <p className="fps-ammo-detail" data-accessories>{[
         hud.rail && `B ${hud.rail.kind === 'laser' ? 'LASER' : hud.rail.kind === 'light' ? 'LIGHT' : 'LASER-LIGHT'} ${hud.rail.on ? 'ON' : 'OFF'}`,
@@ -57,7 +61,7 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickF
       ].filter(Boolean).join(' · ')}</p>}
       <p className="fps-ammo-detail">{hud.carriedKg.toFixed(1)} KG CARRIED · {Math.round(hud.movementScale * 100)}% MOVEMENT</p>
       {onInspect && hud.vehicle === 'on-foot' && <button type="button" className="fps-inspect-button" aria-label={hud.inspecting ? 'Stop inspecting weapon' : 'Inspect weapon'} aria-pressed={hud.inspecting}
-        disabled={!canFight || hud.pilotEnabled || reloading || !!using || hud.aiming} title="Inspect weapon (K)"
+        disabled={!canFight || hud.pilotEnabled || reloading || !!using || !!grenade || hud.aiming} title="Inspect weapon (K)"
         {...tapProps(onInspect)}><Rotate3d size={13} /><span>{hud.inspecting ? 'Inspecting' : 'Inspect'}</span>{!touch && <kbd>K</kbd>}</button>}
       {weapon.requiresMount && <p>{hud.braced ? 'PRONE MOUNT DEPLOYED · Z / STAND TO MOVE' : 'Z / PRONE: SAFE · STAND 20 / CROUCH 10 BEFORE ARMOR'}</p>}
       {reloading

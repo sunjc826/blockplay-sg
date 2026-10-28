@@ -68,3 +68,10 @@ it('carries contact range and ballistics through the observation whitelist', () 
   expect(parsePilotObservation({ ...observation, ballistics: undefined })).toBeNull();
   expect(parsePilotObservation({ ...observation, contacts: [{ id: 'a', yawError: 0, pitchError: 0, angularRadius: .02 }] })).toBeNull();
 });
+
+it('whitelists grenade warnings and rejects invented or non-finite fields', () => {
+ const grenade = { x: 2, z: 0, radius: 8, remaining: 1, privateCaller: 'secret' };
+ expect(parsePilotObservation({ ...observation, grenades: [grenade] })?.grenades).toEqual([{ x: 2, z: 0, radius: 8, remaining: 1 }]);
+ expect(parsePilotObservation({ ...observation, grenades: [{ ...grenade, remaining: NaN }] })).toBeNull();
+ expect(parsePilotObservation({ ...observation, grenades: Array(25).fill(grenade) })).toBeNull();
+});

@@ -18,6 +18,10 @@ export function createEncikRadio(random = Math.random, address: () => EncikAddre
   let active: EncikCallout | null = null, lastAt = -Infinity, sequence = 0;
   const heard = new Map<EncikEvent, number>(), previous = new Map<EncikEvent, number>();
   return {
+    /** A scripted line whose wording is outside the recorded base pack. */
+    announce(text: string, now: number, register: string) {
+      active = { id: ++sequence, event: 'start', text, until: now + 6, priority: 8, register }; lastAt = now; return active;
+    },
     emit(event: EncikEvent, now: number): EncikCallout | null {
       const rank = priority(event), cooldown = ['double', 'triple', 'multi', 'kill'].includes(event) ? 6 : 22;
       if (now - (heard.get(event) ?? -Infinity) < cooldown) return null;
