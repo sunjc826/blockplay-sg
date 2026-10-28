@@ -191,12 +191,14 @@ function seatMagazine(state: WeaponState, weapon: AmmoSpec) {
   state.magazine += fresh; state.reserve -= fresh; state.magazineOut = false;
   // An open bolt that is still cocked fires straight from the fresh belt or drum.
 }
-export function advanceWeapon(state: WeaponState, index: number, dt: number, weapons: readonly AmmoSpec[] = FPS_WEAPONS) {
+const rate = (value: number | undefined) => value !== undefined && Number.isFinite(value) && value > 0 ? value : 1;
+/** `rates` speed the hands through a reload and the gun between shots (food effects); 1 is normal. */
+export function advanceWeapon(state: WeaponState, index: number, dt: number, weapons: readonly AmmoSpec[] = FPS_WEAPONS, rates: { reload?: number; cycle?: number } = {}) {
   dt = Math.max(0, dt);
-  state.cooldown = Math.max(0, state.cooldown - dt);
+  state.cooldown = Math.max(0, state.cooldown - dt * rate(rates.cycle));
   if (state.reloadRemaining <= 0) return;
   const weapon = weapons[index], empty = state.reloadEmpty === true, before = reloadProgress(state, index, weapons);
-  state.reloadRemaining = Math.max(0, state.reloadRemaining - dt);
+  state.reloadRemaining = Math.max(0, state.reloadRemaining - dt * rate(rates.reload));
   const after = state.reloadRemaining === 0 ? 1 : reloadProgress(state, index, weapons);
   const crossed = (point: number) => before < point && after >= point;
   if (crossed(reloadShare(RELOAD_POINTS.out, empty))) removeMagazine(state, weapon);

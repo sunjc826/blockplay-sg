@@ -94,3 +94,18 @@
   .fps-game[data-touch=on] .fps-weapon-hud .fps-ammo>span{font-size:8.5px}
   .fps-game[data-touch=on] .fps-weapon-hud .fps-magazine-bar,.fps-game[data-touch=on] .fps-weapon-hud .fps-reload-track{margin-top:4px}
 }
+
+/* Meals still working, over the belt: a name, the seconds left and a bar running down. */
+.fps-food-effects{margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:3px;max-width:250px}
+.fps-food-effects li{position:relative;display:flex;align-items:center;gap:5px;padding:2px 6px 3px;border:1px solid #7fd38b55;border-radius:3px;background:#0c151bb8;overflow:hidden;
+  font:600 8px monospace;letter-spacing:.6px;text-transform:uppercase;color:#bfe9c4}
+.fps-food-effects li b{font-weight:600;color:var(--hud-ink);font-variant-numeric:tabular-nums}
+.fps-food-effects li i{position:absolute;left:0;bottom:0;width:100%;height:2px;background:#7fd38b;transform-origin:left}
+.fps-food-effects li[data-kind=numb]{border-color:#e3a63f66;color:#f2c27a}.fps-food-effects li[data-kind=numb] i{background:#e3a63f}
+.fps-food-effects li[data-kind=ah-ma]{border-color:#ff8a6a80;color:#ffb49a}.fps-food-effects li[data-kind=ah-ma] i{background:#ff8a6a}
+.fps-belt-slot[data-chosen]::after{content:'';position:absolute;right:3px;bottom:3px;width:5px;height:5px;border-radius:50%;background:var(--hud-gold)}
+/* The food chooser: a hint for the keyboard, a button for a thumb. */
+.fps-food-choose{display:flex;align-items:center;gap:4px;padding:2px 6px;border:1px solid #ffffff2b;border-radius:3px;background:#0c151b99;color:var(--hud-dim);
+  font:8px monospace;letter-spacing:.6px;text-transform:uppercase;pointer-events:none}
+.fps-food-choose kbd{min-width:0;padding:0 4px;font:7px monospace;line-height:12px;color:var(--hud-dim);background:#ffffff14;border:0}
+.fps-game[data-touch=on] .fps-food-choose:not(:disabled){pointer-events:auto;touch-action:manipulation}

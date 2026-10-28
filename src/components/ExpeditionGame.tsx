@@ -21,6 +21,7 @@ import FpsPilotPanel from './FpsPilotPanel';
 import FpsCommsLog from './FpsCommsLog';
 import FpsRadio, { FpsRadioVoice } from './FpsRadio';
 import FpsCalloutWheel, { FpsChatter } from './FpsCalloutWheel';
+import FpsFoodPicker from './FpsFoodPicker';
 import TouchControls from './TouchControls';
 import { FpsControlGuide, FpsPlayerTools } from './FpsPlayerTools';
 import { useDebugMode } from '../lib/debug-mode';
@@ -107,6 +108,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       <FpsRadio hud={hud} />
       <FpsChatter hud={hud} />
       <FpsCalloutWheel hud={hud} engine={engine.current} />
+      <FpsFoodPicker hud={hud} engine={engine.current} />
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus} · ESC TO STOP</div>}
       {playing && <>
         <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} contactRange={hud.mapContactRange} mode="expedition" expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
@@ -121,7 +123,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         {hud.callout && <div className="fps-kill-callout" role="status"><span>ELIMINATION CHAIN ×{hud.chain}</span><strong>{hud.callout}</strong></div>}
         {!alive && <div className="expedition-respawn" role="status"><span>OPERATOR DOWN</span><strong>Regrouping in {Math.ceil(hud.arenaSelf?.respawnIn ?? 0)}s</strong></div>}
         {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />}
-        {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} touch={touch} />}
+        {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} onPickFood={() => engine.current?.toggleFoodPicker()} touch={touch} />}
         <FpsVehicleHud hud={hud} />
         {hud.interact && <div className="fps-interact-prompt">{hud.interact}</div>}
         {hud.vehicleNotice && <div className="fps-vehicle-notice" role="status">{hud.vehicleNotice}</div>}

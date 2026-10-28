@@ -344,3 +344,6 @@ a.text-button { text-decoration:none; }
 @keyframes fps-combat-pulse { 50% { border-color:#ff5a4560; } }
 @media (prefers-reduced-motion: reduce) { .fps-combat-banner.hazard { animation:none; } }
 @media(max-width:700px) { .fps-combat-banner { top:124px; font-size:9px; padding:5px 8px; } }
+/* A food's effects in the dossier, one per line under its healing. */
+.armory-food-effects { margin:6px 0 8px; padding:0; list-style:none; display:grid; gap:3px; }
+.armory-food-effects li { padding:4px 7px; border-left:2px solid #7fd38b; background:#7fd38b14; color:#cfe9d1; font-size:10px; line-height:1.35; }

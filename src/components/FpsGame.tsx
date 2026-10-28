@@ -25,6 +25,7 @@ import FpsPilotPanel from './FpsPilotPanel';
 import FpsCommsLog from './FpsCommsLog';
 import FpsRadio, { FpsRadioVoice } from './FpsRadio';
 import FpsCalloutWheel, { FpsChatter } from './FpsCalloutWheel';
+import FpsFoodPicker from './FpsFoodPicker';
 import TouchControls from './TouchControls';
 import { AimAssistToggle, FpsControlGuide, FpsPlayerTools } from './FpsPlayerTools';
 import { useDebugMode } from '../lib/debug-mode';
@@ -94,6 +95,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
       <FpsRadio hud={hud} />
       <FpsChatter hud={hud} />
       <FpsCalloutWheel hud={hud} engine={engine.current} />
+      <FpsFoodPicker hud={hud} engine={engine.current} />
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus} · ESC TO STOP</div>}
       {playing && <>
         <FpsMinimap zone={region} player={hud} markers={hud.mapMarkers} contactRange={hud.mapContactRange} mode={isArena ? 'arena' : 'practice'} expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
@@ -109,7 +111,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         <div className="fps-compass">SG <span>· · ·</span> {district.setting.toUpperCase()} <span>· · ·</span> 01</div>
         {mounted && hud.vehicleCanFire && hud.vehicleAimVisible && <div className="fps-vehicle-reticle" aria-label="Vehicle gun impact point" style={{ left: `${hud.vehicleAimX}%`, top: `${hud.vehicleAimY}%` }}>⊕</div>}
         {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />}
-        {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} touch={touch} />}
+        {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} onPickFood={() => engine.current?.toggleFoodPicker()} touch={touch} />}
         <div className="fps-objective">{mounted && hud.vehicleSeat !== 0 ? 'Ride together · V switch seat · E exit when stopped' : isArena && !mounted ? `FREE FOR ALL · First to ${ARENA_KILL_LIMIT} eliminations` : mounted ? hud.vehicle === 'car' ? 'W / S throttle · A / D steer · Space brake' : 'W / S cruise · A / D yaw · Space climb · C / Ctrl descend' : `Clear the ${district.targets.length} round targets around the ${district.setting}.`}<small>{hud.locked ? isArena ? 'ESC opens menu · Match keeps running' : 'ESC pauses and releases the mouse' : touch ? 'Left stick moves · Drag the scene to look · Hold FIRE and slide to aim' : 'Drag to look · On-screen controls available'}</small></div>
         {!isArena && <div className="fps-vehicle-locator">CAR {Math.round(hud.carDistance)}m <span>·</span> HELI {Math.round(hud.helicopterDistance)}m</div>}
         {hud.interact && <div className="fps-interact-prompt">{hud.interact}</div>}

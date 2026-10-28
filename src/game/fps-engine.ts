@@ -89,7 +89,8 @@ import { getEnvironmentSettings } from './environment-settings';
 import { createHitDirectionOverlay, createHitDirections, hitStrength } from './fps-hit-direction';
 import { advanceSupplyUse, startSupplyUse, supplyProfile, supplyProgress, SUPPLY_MOVE_SCALE, type SupplyProfile, type SupplyStyle, type SupplyUse } from './fps-healing';
 import { createSupplyViewmodel } from './fps-supply-viewmodel';
-import { heldSupplies, pickUtility, utilityBelt, utilityKind, utilitySlot, UTILITY_SLOTS, type UtilityKind, type UtilitySlotView } from './utility-belt';
+import { foodOptions, heldSupplies, pickUtility, utilityBelt, utilityKind, utilitySlot, utilitySlotForKey, UTILITY_SLOTS, type FoodOption, type UtilityKind, type UtilitySlotView } from './utility-belt';
+import { advanceFoodEffects, aimSpeedScale, applyFoodEffects, cycleRate, damageDealtScale, damageTakenScale, FOOD_EFFECTS, foodEffectViews, footSpeedScale, loadRelief, recoilScale, reloadRate, survivesWithAhMa, type ActiveFoodEffects, type FoodEffectView } from './food-effects';
 import { ammoBlocked, ammoTarget, beltRoom, focusLoot, lootCard, MAX_RESERVE, withinReach, type CarriedGun, type LootCard } from './loot-focus';
 import { createSunShadows } from './fps-sun-shadows';
 import { createWorldOcclusion } from './world-occlusion';
@@ -122,6 +123,9 @@ const randomRoundId = () => globalThis.crypto?.randomUUID?.() ?? `round-${Date.n
 export interface ChatterLine { id: number; source: string; text: string; tone: 'self' | 'friend' | 'enemy' | 'player' | 'order'; until: number }
 /** Seconds a chatter line stays on the HUD, and how many show at once. */
 const CHATTER_SECONDS = 6, CHATTER_LINES = 4;
+/** How long the food key is held before it opens the food picker rather than eating on release. */
+const FOOD_PICKER_HOLD_MS = 280;
+const ahMaLine = (health: number) => `Ah Ma: "Not yet! You haven't finished eating." Back up on ${Math.round(health)} HP.`;
 export interface FpsHud {
   encikCallout: EncikCallout | null; encikVoice: boolean; comms: readonly CommsEntry[];
   /** The callout wheel while it is open: the page shown and the slot the pointer is on. */
@@ -146,6 +150,8 @@ export interface FpsHud {
   supplyUse: { name: string; verb: string; progress: number; style: SupplyStyle; fromBelt: boolean } | null;
   /** The utility belt, every slot in order; `beltSelected` is the one G uses again. */
   belt: UtilitySlotView[]; beltSelected: UtilityKind;
+  /** Meals still working (food-effects); the food slot's pick, null for Auto; the food picker while it is open. */
+  foodEffects: FoodEffectView[]; foodChoice: string | null; foodPicker: { options: FoodOption[]; slot: number | null } | null;
   crosshairSpread: number; hitKind: 'hit' | 'kill'; quickItem: string; quickType: 'FOOD' | 'UTILITY' | ''; quickCount: number;
   phase: 'loading' | 'ready' | 'playing' | 'paused' | 'complete' | 'defeated' | 'error';
   carriedWeapons: number[]; carriedKg: number; movementScale: number;
@@ -187,7 +193,7 @@ export interface FpsHud {
   /** The weapon in hand's laser or light (B switches it), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], foodChoice: null, foodPicker: null, mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -368,9 +374,21 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let supplies = withLooted(equipment.supplies);
   let beltSelected: UtilityKind = utilityKind(equipment.quickItem)
     ?? UTILITY_SLOTS.find(slot => pickUtility(slot.kind, supplies))?.kind ?? 'bandage';
+  // The food slot's pick (null is Auto, which heals to need; a food chosen as
+  // the armory's quick item starts as the pick) and the meals still working.
+  let foodChoice: string | null = utilityKind(equipment.quickItem) === 'food' ? equipment.quickItem!.id : null;
+  // Offline, the meals run here. In any arena (every expedition is a solo one)
+  // the host runs them, and `foodEffects` is a copy of what it last published:
+  // the gun, damage and healing are the host's, and the copy drives only what
+  // the host never sees, the stride, the load and the sights.
+  let foodEffects: ActiveFoodEffects = {}, ahMaSavesSeen = 0;
+  const gunRates = () => ({ reload: reloadRate(foodEffects), cycle: cycleRate(foodEffects) });
+  /** When 4 went down, until it is let go: held long enough, it opens the food picker. */
+  let foodKeyAt: number | null = null, foodPicker: { x: number; y: number; slot: number | null; options: FoodOption[] } | null = null;
   /** The belt as the HUD shows it, and the selected slot as the older quick-item fields. */
   function syncBelt() {
-    hud.belt = utilityBelt(supplies, { health: hud.health, maxHealth: hud.maxHealth }); hud.beltSelected = beltSelected;
+    hud.belt = utilityBelt(supplies, { health: hud.health, maxHealth: hud.maxHealth }, foodChoice); hud.beltSelected = beltSelected;
+    hud.foodChoice = foodChoice; hud.foodEffects = foodEffectViews(foodEffects);
     const slot = hud.belt.find(entry => entry.kind === beltSelected)!;
     hud.quickItem = slot.next?.name ?? ''; hud.quickCount = slot.count;
     hud.quickType = !slot.next ? '' : slot.kind === 'food' ? 'FOOD' : 'UTILITY';
@@ -411,7 +429,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   };
   const stance = () => eyeHeight() < .8 ? 'prone' as const : eyeHeight() < 1.4 ? 'crouch' as const : 'stand' as const;
   const braced = () => !vehicles.active && weaponBraced(specs[hud.weapon], prone, grounded());
-  const movement = () => equipmentMovement(equipment, hud.weapon, loadout, supplies);
+  const movement = () => equipmentMovement(equipment, hud.weapon, loadout, supplies, loadRelief(foodEffects));
   const publish = () => {
     if (disposed) return;
     const state = loadout[hud.weapon];
@@ -439,7 +457,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     return combatMinimapMarkers(camera, world.scene, hud.arenaSelf, hud.arena?.actors ?? [], combatSubjects(true), clouds, range);
   };
-  const clearInput = () => { prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; ads = false; touchAim = false; drag = null; moveStick = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
+  const clearInput = () => { prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; ads = false; touchAim = false; drag = null; moveStick = null; foodKeyAt = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -455,7 +473,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); hud.pilotStatus = 'Player controls'; hud.pilotGoal = null; hud.pilotContacts = 0;
     capturePending = false;
     if (hud.phase !== 'playing') return;
-    hud.phase = 'paused'; clearInput(); stopVoice(); encik.clear(); hud.encikCallout = null; wheel = null; hud.calloutWheel = null;
+    hud.phase = 'paused'; clearInput(); stopVoice(); encik.clear(); hud.encikCallout = null; wheel = null; hud.calloutWheel = null; foodPicker = null; hud.foodPicker = null;
     if (document.pointerLockElement === canvas) document.exitPointerLock();
     publish();
   }
@@ -608,7 +626,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     combatVisuals.reset(); seenEvents.clear(); openedSupplies.clear(); eventClock = -1; shake = 0; blackout = 0; hud.combatBanner = null; hud.mapDangers = []; hud.mapJammed = false; hud.cloudCover = null;
     hud.health = hud.maxHealth; hud.armor = equipment.armor; hud.incoming = false; hud.hurt = false; hud.earned = 0; hud.earnedXp = 0; hud.lastDamage = 0; hud.callout = ''; hud.chain = 0;
     killChain = { count: 0, lastAt: -Infinity }; calloutTime = 0; stopVoice(); encik.reset(); comms.clear(); hud.encikCallout = null;
-    roundId = randomRoundId(); attackTimer = 3; pendingAttack = null; hurtTime = 0; hitDirections.clear(); supplyUse = null;
+    roundId = randomRoundId(); attackTimer = 3; pendingAttack = null; hurtTime = 0; hitDirections.clear(); supplyUse = null; foodEffects = {}; foodPicker = null; hud.foodPicker = null;
     if (document.pointerLockElement === canvas) document.exitPointerLock();
     vehicles.reset(); loadout = createLoadout(specs); position = { x: spawn.x, z: spawn.z }; yaw = spawn.yaw; pitch = spawn.pitch;
     vertical = velocityY = hitTime = 0; resetRecoil(kick); carry.set(0, 0, 0); clearInput();
@@ -956,13 +974,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     else if (key === 'c') setInput('c', true);
     else if (key === 'r') reload();
     else if (key === 'g') { if (!event.repeat) useQuickItem(); }
-    else if (utilitySlot(key)) { if (!event.repeat) useUtility(utilitySlot(key)!.kind); }
+    // The food key eats on release, so holding it can open the picker instead.
+    else if (utilitySlotForKey(key)?.kind === 'food') { if (!event.repeat) foodKeyAt = performance.now(); }
+    else if (utilitySlotForKey(key)) { if (!event.repeat) useUtility(utilitySlotForKey(key)!.kind); }
     else if (/^[1-3]$/.test(key)) switchWeapon(equipment.carriedFamilies[Number(key) - 1]);
     else if (key === ' ') { if (vehicles.active) keys.add(' '); else if (!event.repeat) jump(); }
     else keys.add(key);
   };
   const pilotEscape = (event: KeyboardEvent) => { if (pilotEnabled && event.key === 'Escape') { event.preventDefault(); pause(); } };
-  const keyup = (event: KeyboardEvent) => { const key = event.key.toLowerCase(); keys.delete(key); if (key === 'y') closeCalloutWheel(true); };
+  const keyup = (event: KeyboardEvent) => { const key = event.key.toLowerCase(); keys.delete(key); if (key === 'y') closeCalloutWheel(true); if (utilitySlotForKey(key)?.kind === 'food') releaseFoodKey(); };
   /** With the wheel open, the scroll wheel turns its page. */
   const scrollWheel = (event: WheelEvent) => { if (!wheel) return; event.preventDefault(); if (Math.abs(event.deltaY) > 4) setCalloutPage(wheel.page + Math.sign(event.deltaY)); };
   const pointerSource = (event: PointerEvent) => {
@@ -987,13 +1007,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     compensateRecoil(kick, pitch - wasPitch, yaw - wasYaw);
   };
   // With the callout wheel open the mouse points at a slot instead of turning the view.
-  const mousemove = (event: MouseEvent) => { if (!pilotEnabled && document.pointerLockElement === canvas) { if (wheel) pointCalloutWheel(event.movementX, event.movementY); else look(event.movementX, event.movementY); } };
+  const mousemove = (event: MouseEvent) => { if (!pilotEnabled && document.pointerLockElement === canvas) { if (wheel) pointCalloutWheel(event.movementX, event.movementY); else if (foodPicker) pointFoodPicker(event.movementX, event.movementY); else look(event.movementX, event.movementY); } };
   // Pointer events only report the first press and final release of a mouse chord.
   // Mouse events report each button independently, including LMB while RMB is held.
   const mousedown = (event: MouseEvent) => {
     if (pilotEnabled || hud.phase !== 'playing' || document.pointerLockElement !== canvas) return;
     // A click on the open wheel says the slot (left) or puts the wheel away (right); it never fires.
     if (wheel) { closeCalloutWheel(event.button === 0); return; }
+    // The same on the food picker: left picks the food pointed at, right keeps the old pick.
+    if (foodPicker) { closeFoodPicker(event.button === 0); foodKeyAt = null; return; }
     if (event.button === 0) pullTrigger(true);
     if (event.button === 2) ads = true;
   };
@@ -1236,7 +1258,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const aiming = (ads || touchAim) && !sprinting && loadout[hud.weapon].reloadRemaining === 0 && !supplyUse;
     actualAim = aiming;
     // Heavier carry costs time to settle the sights as well as ground speed.
-    aimProgress = THREE.MathUtils.damp(aimProgress, aiming ? 1 : 0, 15 * (aiming ? movement().aimSpeed : 1), dt);
+    aimProgress = THREE.MathUtils.damp(aimProgress, aiming ? 1 : 0, 15 * (aiming ? movement().aimSpeed * aimSpeedScale(foodEffects) : 1), dt);
     const aim = smoothStep(aimProgress);
     rig.visible = (!options.arena || hud.arenaSelf?.alive !== false) && (!vehicles.active || firstPersonVehicle());
     const poseStance = stance(), crouching = poseStance !== 'stand';
@@ -1406,7 +1428,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!target?.alive || scale <= 0) return;
     // Falloff reads how far the round actually travelled, which for one in flight
     // is its whole arc rather than the length of its final segment.
-    const damage = Math.max(1, Math.round((rawDamage ?? hitDamage(specs[weapon], range, zone)) * scale));
+    const damage = Math.max(1, Math.round((rawDamage ?? hitDamage(specs[weapon], range, zone)) * scale * damageDealtScale(foodEffects)));
     hud.landed++; hud.lastDamage = Math.min(target.health, damage); target.health = Math.max(0, target.health - damage);
     target.bar.scale.x = target.health / target.maxHealth; hitTime = .20; hud.hitKind = target.health === 0 ? 'kill' : 'hit';
     if (target.health > 0) return;
@@ -1485,21 +1507,31 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function useUtility(kind: UtilityKind) {
     if (hud.phase !== 'playing' || supplyUse || hud.health <= 0) return;
     beltSelected = kind;
-    const supply = pickUtility(kind, supplies, { health: hud.health, maxHealth: hud.maxHealth });
+    const supply = pickUtility(kind, supplies, { health: hud.health, maxHealth: hud.maxHealth }, foodChoice);
     if (!supply?.effect) { hud.message = `No ${utilitySlot(kind)!.label.toLowerCase()} on the belt.`; publish(); return; }
     const { armor = 0, reserve = 0 } = supply.effect;
-    const full = hud.health >= hud.maxHealth && (!armor || hud.armor >= equipment.armor) && (!reserve || loadout[hud.weapon].reserve >= 999);
-    if (full) { hud.message = 'Nothing to restore right now.'; publish(); return; }
+    // A meal with effects is worth eating at full health: the effects are why it was picked.
+    const full = hud.health >= hud.maxHealth && (!armor || hud.armor >= equipment.armor) && (!reserve || loadout[hud.weapon].reserve >= 999) && !(foodChoice && supply.foodEffects?.length);
+    if (full) { hud.message = kind === 'food' ? 'Nothing to restore. Hold 4 to pick a food for its effects.' : 'Nothing to restore right now.'; publish(); return; }
     if (!beginSupply(supply.name, supply.id, supplyProfile(supply), () => applyQuickItem(supply), true)) publish();
   }
   function applyQuickItem(supply: NonNullable<ResolvedLoadout['quickItem']>) {
     if (!supplies[supply.id] || !supply.effect) return false;
     const { health = 0, armor = 0, reserve = 0 } = supply.effect;
-    if (health) { hud.health = Math.min(hud.maxHealth, hud.health + health); arenaRuntime?.setVitals({ health: hud.health }); recoveryDelay = 0; }
-    if (armor) { hud.armor = Math.min(equipment.armor, hud.armor + armor); arenaRuntime?.setVitals({ armor: hud.armor }); }
+    // In an arena the host heals, refills the inserts and starts the meal (it
+    // owns health, and a guest's supplies); the reserve is this engine's own.
+    if (arenaRuntime) arenaRuntime.useSupply(supply.id);
+    else {
+      if (health) { hud.health = Math.min(hud.maxHealth, hud.health + health); recoveryDelay = 0; }
+      if (armor) hud.armor = Math.min(equipment.armor, hud.armor + armor);
+      if (supply.foodEffects?.length) applyFoodEffects(foodEffects, supply.foodEffects);
+    }
+    if (health) recoveryDelay = 0;
     if (reserve) loadout[hud.weapon].reserve = Math.min(999, loadout[hud.weapon].reserve + reserve);
     if (supplies[supply.id] > 1) supplies[supply.id]--; else delete supplies[supply.id];
-    hud.message = `${supply.name} used.`;
+    hud.message = supply.foodEffects?.length ? `${supply.name} eaten · ${supply.foodEffects.map(effect => FOOD_EFFECTS[effect.kind].label).join(', ')}.` : `${supply.name} used.`;
+    // The last of a picked food hands the slot back to Auto.
+    if (foodChoice === supply.id && !supplies[supply.id]) { foodChoice = null; hud.message += ' Food slot back on Auto.'; }
     if (looted[supply.id]) { if (looted[supply.id] > 1) looted[supply.id]--; else delete looted[supply.id]; publish(); return true; }
     if (expedition) {
       fieldProfile = consumeItem(fieldProfile, supply.id); equipment = resolveLoadout(fieldProfile);
@@ -1593,9 +1625,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   /** `caliberMm` when a round did it, which the inserts' rating and luck answer to (armor-inserts). */
   function hurtPlayer(amount: number, caliberMm?: number) {
     if (hud.health <= 0 || amount <= 0) return;
-    const damage = applyArmorDamage(hud.health, hud.armor, amount, equipment.absorption, { insert: equipment.insert, caliberMm, roll: caliberMm === undefined ? undefined : Math.random() });
+    const damage = applyArmorDamage(hud.health, hud.armor, amount * damageTakenScale(foodEffects), equipment.absorption, { insert: equipment.insert, caliberMm, roll: caliberMm === undefined ? undefined : Math.random() });
     if (damage.deflected) { comms.add('system', 'Inserts', DEFLECT_LINE); return; }
-    hud.health = damage.health; hud.armor = damage.armor; hurtTime = .4; recoveryDelay = FPS_REGEN_DELAY;
+    const ahMa = survivesWithAhMa(foodEffects, damage.health);
+    hud.health = ahMa.health; hud.armor = damage.armor; hurtTime = .4; recoveryDelay = FPS_REGEN_DELAY;
+    if (ahMa.saved) { hud.message = ahMaLine(hud.health); comms.add('system', 'Ah Ma', hud.message); arenaRuntime?.setVitals({ health: hud.health }); }
     if (!hud.health) { hud.phase = 'defeated'; clearInput(); radioCall('death'); if (document.pointerLockElement === canvas) document.exitPointerLock(); }
   }
   const blastRay = new THREE.Raycaster(), vehicleRay = new THREE.Raycaster();
@@ -1714,7 +1748,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     else muzzlePoint.copy(camera.position);
     if (vehicles.active) muzzlePoint.copy(shotOrigin);
     const supportMultiplier = bipodRecoilMultiplier(specs[hud.weapon].bipod, handling[hud.weapon]?.bipodDeployment ?? 0, prone, grounded(), carry.length());
-    const recoilMultiplier = stanceRecoilMultiplier(stance(), grounded(), bodyMotion.eye) * supportMultiplier;
+    const recoilMultiplier = stanceRecoilMultiplier(stance(), grounded(), bodyMotion.eye) * supportMultiplier * recoilScale(foodEffects);
     recordRecoilShot(kick, specs[hud.weapon], hud.weapon, Math.random, recoilMultiplier);
     canvas.dataset.recoilMultiplier = recoilMultiplier.toFixed(3);
     effects.fire({ recoil: specs[hud.weapon].recoil, eject: weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_eject`), camera, carry });
@@ -1808,6 +1842,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       x: position.x, y: eyeHeight() + vertical, z: position.z, yaw, pitch,
       ...(vehicles.active ? { vehicleControls: sharedVehicleControls() } : {}),
       prone, weapon: hud.weapon, playing: hud.phase === 'playing', reloading: loadout[hud.weapon].reloadRemaining > 0,
+      ...(supplyUse ? { supply: supplyProgress(supplyUse) } : {}),
     });
     const previousSelf = hud.arenaSelf;
     const previousMatch = hud.arena;
@@ -1837,6 +1872,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     if (frame.vehicleNotice) vehicles.setNotice(frame.vehicleNotice);
     hud.arena = frame.snapshot; hud.arenaSelf = frame.self; hud.arenaConnected = frame.connected; hud.arenaStarted = frame.started;
+    // The host's meals, copied: it runs the timers and the healing, and spent Ah Ma's save if she stepped in.
+    foodEffects = Object.fromEntries(Object.entries(frame.self?.food ?? {}).map(([kind, effect]) => [kind, { ...effect! }]));
+    const ahMaSaves = frame.self?.ahMaSaves ?? 0;
+    if (ahMaSaves > ahMaSavesSeen) { hud.message = ahMaLine(frame.self!.health); comms.add('system', 'Ah Ma', hud.message); }
+    ahMaSavesSeen = ahMaSaves;
     if (options.arena) rounds.push(...adoptPublishedRounds(frame.snapshot?.rounds ?? [], seenRounds,
       { self: options.arena.session.id, viewer: camera.position, range: REMOTE_TRACER_RANGE, room: MAX_ROUNDS_IN_FLIGHT - rounds.length, nextId: () => ++roundSerial, styleFor: publishedStyle }));
     if (options.arena && frame.snapshot) for (const shot of gunfireReports(frame.snapshot.actors, heardShots, options.arena.session.id, camera.position)) otherShot(shot.from, shot.calibre, shot.power, shot.after, shot.muzzle);
@@ -1951,8 +1991,61 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const allies = (hud.arena?.actors ?? []).filter(a => a.bot && a.alive && !hostile({ bot: false, faction: PLAYER_FACTION }, a) && Math.hypot(a.x - position.x, a.z - position.z) <= ORDER_TUNING.range).length;
     return { allies, reinforce: options.arena?.environment?.reinforcements ? self.reinforceIn ?? 'ready' : 'none' };
   }
+  /**
+   * The food picker. Tapping 4 eats from the food slot; holding it opens the
+   * picker over the crosshair, the mouse points at a food the way it points at
+   * a callout, and letting go makes that food the slot's pick (Auto, at the
+   * top, goes back to healing to need). Nothing pauses and moving keeps
+   * working: eating is what takes the time, not choosing.
+   */
+  function openFoodPicker() {
+    if (hud.phase !== 'playing' || pilotEnabled || wheel || foodPicker) return;
+    const options = foodOptions(supplies, { health: hud.health, maxHealth: hud.maxHealth });
+    if (options.length < 2) { foodKeyAt = null; hud.message = 'No food on the belt.'; publish(); return; }
+    foodPicker = { x: 0, y: 0, slot: null, options }; trigger = false; pullBuffer = 0; syncFoodPicker();
+  }
+  function syncFoodPicker() { hud.foodPicker = foodPicker ? { options: foodPicker.options, slot: foodPicker.slot } : null; publish(); }
+  function pointFoodPicker(dx: number, dy: number) {
+    if (!foodPicker) return;
+    foodPicker.x += dx; foodPicker.y += dy;
+    const reach = Math.hypot(foodPicker.x, foodPicker.y);
+    if (reach > 140) { foodPicker.x *= 140 / reach; foodPicker.y *= 140 / reach; }
+    const slot = wheelSlot(foodPicker.x, foodPicker.y, foodPicker.options.length);
+    if (slot !== foodPicker.slot) { foodPicker.slot = slot; syncFoodPicker(); }
+  }
+  /** Puts the picker away; with `pick`, the food it points at becomes the slot's. */
+  function closeFoodPicker(pick = false) {
+    if (!foodPicker) return;
+    const option = foodPicker.slot === null ? undefined : foodPicker.options[foodPicker.slot];
+    foodPicker = null; hud.foodPicker = null;
+    if (pick && option) chooseFood(option.id); else publish();
+  }
+  /** Makes a carried food the food slot's pick, or Auto with null. Picking it does not eat it. */
+  function chooseFood(id: string | null) {
+    const item = id ? itemById(id) : undefined;
+    if (id && (utilityKind(item) !== 'food' || !supplies[id])) return;
+    foodChoice = id; beltSelected = 'food'; foodPicker = null; hud.foodPicker = null;
+    hud.message = item ? `Food slot: ${item.name}. Tap 4 to eat.` : 'Food slot: Auto, heals to need.';
+    if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
+    publish();
+  }
+  /** 4 let go: a tap eats, a hold picks from the picker it opened. */
+  function releaseFoodKey() {
+    const tapped = foodKeyAt !== null; foodKeyAt = null;
+    if (foodPicker) closeFoodPicker(true);
+    else if (tapped && hud.phase === 'playing') useUtility('food');
+  }
+  /** Meals at work: the picker's hold, healing over time and timers running out. */
+  function stepFood(dt: number) {
+    if (foodKeyAt !== null && !foodPicker && performance.now() - foodKeyAt >= FOOD_PICKER_HOLD_MS) openFoodPicker();
+    // In an arena the host steps the meals and the copy arrives with each frame.
+    if (hud.health <= 0 || arenaRuntime) return;
+    const fed = advanceFoodEffects(foodEffects, dt);
+    if (fed.heal > 0 && hud.health < hud.maxHealth) hud.health = Math.min(hud.maxHealth, hud.health + fed.heal);
+    if (fed.expired.includes('ah-ma')) comms.add('system', 'Ah Ma', 'Ah Ma has gone home. Eat properly, ok?');
+  }
   function openCalloutWheel() {
-    if (hud.phase !== 'playing' || pilotEnabled || wheel) return;
+    if (hud.phase !== 'playing' || pilotEnabled || wheel || foodPicker) return;
     wheel = { page: wheelPage, x: 0, y: 0, slot: null }; trigger = false; pullBuffer = 0; syncWheel();
   }
   /** Puts the wheel away; with `say`, says the slot it points at, if any. */
@@ -2222,13 +2315,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     let moving = false, sprinting = false, fireReady = true;
     // The arena keeps running behind pause menus, including magazine reloads.
-    if (options.arena) loadout.forEach((state, i) => advanceWeapon(state, i, realDt, specs));
+    if (options.arena) loadout.forEach((state, i) => advanceWeapon(state, i, realDt, specs, gunRates()));
     if (hud.chatter.length && hud.chatter[0].until <= now / 1000) hud.chatter = hud.chatter.filter(line => line.until > now / 1000);
     if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) {
       bloom.forEach(state => advanceBloom(state, dt));
       calloutTime = Math.max(0, calloutTime - realDt); if (!calloutTime) hud.callout = '';
       if (!options.arena) hud.elapsed += realDt;
-      if (!options.arena) loadout.forEach((state, i) => advanceWeapon(state, i, realDt, specs));
+      if (!options.arena) loadout.forEach((state, i) => advanceWeapon(state, i, realDt, specs, gunRates()));
       if (vehicles.mounted) {
         if (!arenaRuntime) yaw += vehicles.step(drivingKeys(), dt);
         if (vehicles.mounted) position = { x: vehicles.mounted.x, z: vehicles.mounted.z };
@@ -2251,7 +2344,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       }
       // A fresh trigger pull or sprint key puts a supply away; one already held walks.
       if (supplyUse) { if (reloadInterrupt(supplyGate, pulled, sprintIntent, true)) endSupply(); else sprinting = false; }
-      const speed = (poseStance === 'prone' ? .85 : poseStance === 'crouch' ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2) * (supplyUse ? SUPPLY_MOVE_SCALE : 1);
+      const speed = (poseStance === 'prone' ? .85 : poseStance === 'crouch' ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2) * (supplyUse ? SUPPLY_MOVE_SCALE : 1) * footSpeedScale(foodEffects);
       const target = movementInput(forward, side, yaw, speed * burden.movement, 1);
       if (consumeJump(bodyMotion, onGround, poseStance === 'stand' && bodyMotion.eye > 1.6, dt)) velocityY = 5.6 * burden.jumpVelocity;
       const delta = advanceGroundMotion(bodyMotion, target.x, target.z, onGround && velocityY <= 0, burden.movement, poseStance, braced(), dt);
@@ -2281,6 +2374,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (vehicles.active && vehicleAimTimer <= 0) { aimVehicle(); vehicleAimTimer = .05; }
       if (supplyUse && (vehicles.active || hud.health <= 0)) endSupply();
       stepSupply(realDt);
+      stepFood(realDt);
       wasSprinting = sprinting;
       if ((trigger || pullBuffer > 0) && fireReady && !supplyUse && hud.phase === 'playing') { if (vehicles.active && !vehicles.canUseFirearm) shootVehicle(); else shoot(); }
       pullBuffer = Math.max(0, pullBuffer - realDt);
@@ -2459,6 +2553,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     openCalloutWheel, closeCalloutWheel, setCalloutPage, sendCallout,
     /** Touch: the wheel's button opens it and, open, puts it away. */
     toggleCalloutWheel() { if (wheel) closeCalloutWheel(); else openCalloutWheel(); },
+    /** Touch: the food slot's chooser button opens the picker and, open, puts it away. */
+    toggleFoodPicker() { if (foodPicker) closeFoodPicker(); else openFoodPicker(); },
+    chooseFood, closeFoodPicker: () => closeFoodPicker(),
     toggleVision: () => useVision('toggle'), cycleVisionPalette: () => useVision('palette'), pressVision: () => useVision('button'),
     toggleEncikVoice() { hud.encikVoice = !hud.encikVoice; if (!hud.encikVoice) stopVoice(); publish(); },
     toggleSound() { hud.muted = !hud.muted; if (hud.muted) stopVoice(); if (hud.phase === 'playing') { canvas.focus({ preventScroll: true }); if (!hud.muted) initAudio(); } publish(); },

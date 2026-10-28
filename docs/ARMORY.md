@@ -520,7 +520,7 @@ utility belt drawn above the ammo block, one slot per job (`utility-belt.ts`):
 
 | Slot | Key | Holds |
 | --- | --- | --- |
-| Food | `4` | kaya toast, curry puff, chicken rice, field ration |
+| Food | `4` | kaya toast, curry puff, chicken rice, bak kut teh, field ration, mala da la, Ah Ma's tingkat, smoking corner set (see below) |
 | Bandage | `5` | elastic bandage (25 health, 150 CR), field dressing (45 health, 300 CR) |
 | First aid | `6` | first aid kit (75 health, 560 CR), combat medic pack (full health and 60 armor, 90 TK) |
 | Plates | `7` | spare inserts (45 armor points, 380 CR) |
@@ -533,6 +533,54 @@ none does, and the line under the belt names it. Empty slots stay drawn, dimmed,
 and while health is low the slots that heal are marked green. The catalog's
 `medical` field ('dressing' or 'kit') files a medical item and chooses its hands:
 a kit is opened and worked through (4.4 s), a dressing wound on (2.7–3 s).
+
+### Food effects
+
+Food heals and then keeps working for a while (`food-effects.ts`). Every effect
+comes from something in the food, and the tier is how much of a meal it is: a
+snack carries one effect, a hawker plate two, a full ration three. Ultra and up
+are local legend rather than bigger meals and carry the strongest version of
+what they give. A test holds that no higher tier carries a weaker or shorter
+version of an effect a lower tier has.
+
+| Food | Tier | Heals | Effects, and where they come from |
+| --- | --- | --- | --- |
+| Kaya toast set | Issued | 20 | Wired: reloads 12% faster, 60 s (the kopi) |
+| Curry puff | Issued | 30 | Energised: 5% faster on foot, 45 s (pastry and potato) |
+| Chicken rice | Field | 60 | Well fed 1 HP/s, 40 s; energised 5%, 90 s (slow-burning rice) |
+| Bak kut teh | Field | 45 | Load bearer: load feels 35% lighter, 120 s (the dock coolies' breakfast); well fed 0.8 HP/s, 40 s |
+| Malt field ration | Elite | 100 | Well fed 1.5 HP/s, 60 s; energised 8%, 120 s; load bearer 50%, 180 s |
+| Mala xiang guo · Da La | Ultra | 80 | Numb: 20% less damage, 90 s (the ma); fired up: 12% faster fire and 12% more damage, 90 s (the la); well fed 1.5 HP/s, 60 s |
+| Ah Ma's tingkat | Legendary | 100 | Well fed 2 HP/s, 90 s; energised 10%, 180 s; load bearer 60%, 240 s; Ah Ma's watching: once in 300 s, a lethal hit leaves 35 HP. Takes 7 s to eat |
+| Smoking Corner Special · Cigar and Milo Set | Mythic | 50 | Five cigarettes bundled into one "cigar", a BBQ slab smoked over them, an iced Milo. Well fed 2.5 HP/s, 90 s; energised 15%, 240 s; steady aim (25% faster onto the sights, 25% less kick), 180 s; wired 25%, 180 s. Takes 6 s |
+
+An effect already running is refreshed, never stacked: the stronger strength and
+the longer time win. The effects show as timed chips over the belt and end when
+the player goes down or the exercise resets.
+
+Tapping `4` eats from the food slot. Holding it opens the food picker over the
+crosshair: Auto first, then every food carried. Point with the mouse and let go
+of `4` to pin a food to the slot (on touch, the chooser under the belt opens it
+and a tap picks). Picking does not eat. Auto heals to need as the other healing
+slots do; a pinned food is handed out while any is held, can be eaten at full
+health, and the slot returns to Auto when the last one is gone. A food chosen as
+the armory's quick item starts as the pin.
+
+In any arena (a shared LAN match, Solo vs bots, every expedition) the host owns
+supplies. At the commit point the engine sends the item's id (`useSupply`,
+`arena-supply` over the wire). The host then heals, refills the inserts up to
+what is worn, and starts the meal from the catalogue's figures, never the
+client's. It runs the timers, the healing over time, the gun and damage effects
+and Ah Ma's save. A guest's supplies are counted from the profile they joined
+with, which the host already trusts for their weapons and armor. A use is
+refused for something not brought, for the dead, and for a use sooner than half
+the item's own commit time after the last, so a modified client cannot eat
+faster than hands can. Each player's meals ride in the snapshot (`actor.food`,
+validated on arrival), and the engine copies them for the HUD and for what the
+host never sees: the stride, the load and the sights. A player using a supply
+sends its progress with their input, so everyone else sees them kneel to patch
+up or eat, as bots do. Ammo pouches stay with the engine, which owns its reserve
+pools.
 
 Armor is restored only up to the protection the equipped inserts provide, and
 reserve goes to the weapon in hand. Using one with nothing to restore reports

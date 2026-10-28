@@ -19,6 +19,7 @@ import { BARK_EVENTS, BARK_RANGE } from './npc-barks';
 import { getPlayerCallout } from './player-callouts';
 import { hostile } from './arena-factions';
 import type { Obstacle } from './marina-collision';
+import { FOOD_EFFECTS, type FoodEffectKind } from './food-effects';
 
 export interface ArenaRuntimeFrame {
   snapshot: ArenaSnapshot | null; self: ArenaActor | null; connected: boolean; started: boolean;
@@ -39,6 +40,7 @@ export function validArenaInput(value: unknown): value is ArenaInput {
     validWeaponIndex(value.weapon) && typeof value.playing === 'boolean' &&
     (value.reloading === undefined || typeof value.reloading === 'boolean') &&
     (value.prone === undefined || typeof value.prone === 'boolean') &&
+    (value.supply === undefined || finite(value.supply) && value.supply >= 0 && value.supply <= 1) &&
     (value.vehicleControls === undefined || validVehicleControls(value.vehicleControls));
 }
 export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironment): value is ArenaSnapshot {
@@ -51,6 +53,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.prone !== undefined && typeof actor.prone !== 'boolean') || (actor.aiming !== undefined && actor.aiming !== true) || (actor.scent !== undefined && actor.scent !== true) ||
       (actor.ground !== undefined && !(finite(actor.ground) && actor.ground >= -50 && actor.ground <= 124)) ||
       (actor.healing !== undefined && !(finite(actor.healing) && actor.healing >= 0 && actor.healing <= 1)) ||
+      (actor.food !== undefined && !validMeals(actor.food)) || (actor.ahMaSaves !== undefined && !(Number.isInteger(actor.ahMaSaves) && (actor.ahMaSaves as number) >= 0)) ||
       (actor.rank !== undefined && !(Number.isInteger(actor.rank) && (actor.rank as number) >= 1 && (actor.rank as number) <= 3)) ||
       (actor.shield !== undefined && !(finite(actor.shield) && actor.shield > 0 && actor.shield <= SPAWN_SHIELD_SECONDS)) ||
       (actor.reinforceIn !== undefined && !(Number.isInteger(actor.reinforceIn) && (actor.reinforceIn as number) > 0 && (actor.reinforceIn as number) <= 600)) ||
@@ -121,6 +124,12 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     (entry.killerId === undefined || typeof entry.killerId === 'string') && (entry.victimId === undefined || typeof entry.victimId === 'string'));
 }
 function point(value: unknown): value is ArenaPoint { return object(value) && finite(value.x) && finite(value.y) && finite(value.z); }
+/** A player's meals as the host publishes them: known effects, each with figures no meal exceeds. */
+function validMeals(value: unknown) {
+  return object(value) && Object.entries(value).every(([kind, effect]) => Object.hasOwn(FOOD_EFFECTS, kind as FoodEffectKind) && object(effect) &&
+    finite(effect.strength) && effect.strength >= 0 && effect.strength <= 100 && finite(effect.remaining) && effect.remaining >= 0 && effect.remaining <= 600 &&
+    finite(effect.seconds) && effect.seconds >= 0 && effect.seconds <= 600);
+}
 
 interface Avatar {
   rig: CharacterRig; root: THREE.Group; health: THREE.Sprite; label: THREE.Sprite | null; muzzle: THREE.Mesh | null;
@@ -341,13 +350,16 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         let raw: string;
         try { raw = JSON.stringify(payload.profile); } catch { return; }
         if (typeof raw !== 'string' || raw.length > 16_000) return;
-        const loadout = resolveLoadout(restoreProfile(raw));
-        simulation.addPlayer(from, peer.name, loadout.armor, loadout.absorption, loadout.weapons, undefined, false, loadout.carriedFamilies, loadout.insert); registered.add(from); publish();
+        const guest = restoreProfile(raw), loadout = resolveLoadout(guest);
+        simulation.addPlayer(from, peer.name, loadout.armor, loadout.absorption, loadout.weapons, undefined, false, loadout.carriedFamilies, loadout.insert);
+        // The host spends a guest's supplies from what they brought, as it already trusts the kit they brought.
+        simulation.setPlayerSupplies(from, guest.consumables); registered.add(from); publish();
       } else if (registered.has(from) && started && payload.type === 'arena-vehicle' && ['enter', 'exit', 'switch'].includes(String(payload.action)) && (payload.kind === undefined || payload.kind === 'car' || payload.kind === 'helicopter')) {
         const accepted = simulation.vehicleAction(from, payload.action as 'enter' | 'exit' | 'switch', payload.kind as VehicleKind | undefined);
         session.send({ type: 'arena-vehicle-result', accepted }, from); publish();
       } else if (registered.has(from) && payload.type === 'arena-input' && validArenaInput(payload.input)) simulation.setInput(from, payload.input);
       else if (registered.has(from) && payload.type === 'arena-reload' && validWeaponIndex(payload.weapon)) simulation.reloadPlayer(from, payload.weapon);
+      else if (registered.has(from) && started && payload.type === 'arena-supply' && typeof payload.item === 'string' && payload.item.length <= 64) { if (simulation.useSupply(from, payload.item)) publish(); }
       else if (registered.has(from) && started && payload.type === 'arena-callout' && getPlayerCallout(payload.callout) && (payload.at === undefined || point(payload.at))) {
         if (simulation.callout(from, payload.callout as string, payload.at as ArenaPoint | undefined)) publish();
       }
@@ -533,6 +545,16 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (disposed || session.role !== 'solo' || !simulation) return false;
     simulation.setPlayerVitals(session.id, vitals); publish(); return true;
   }
+  /**
+   * Uses a supply at its commit point. The host applies it in every role, so
+   * healing, inserts and a meal's effects follow its rules, and a guest's
+   * supplies are spent from what they joined with.
+   */
+  function useSupply(itemId: string) {
+    if (disposed || !started || !localAdopted) return;
+    if (simulation) { if (simulation.useSupply(session.id, itemId)) publish(); }
+    else session.send({ type: 'arena-supply', item: itemId });
+  }
   function setHealthMultiplier(multiplier: 1 | 5 | 10) {
     if (disposed || session.role !== 'solo' || !simulation) return false;
     simulation.setPlayerHealthMultiplier(session.id, multiplier); publish(); return true;
@@ -560,6 +582,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       avatar.root.position.set(eye.x, eye.y - (actor.vehicle === 'car' && actor.seat === 1 ? 1.75 : 1.2), eye.z);
     }
   }
-  return { presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, setVitals, setHealthMultiplier, triggerEvent, setCombatEvents };
+  return { presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, setVitals, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

@@ -3581,3 +3581,50 @@ open world showed the Orders page with "0 in range" and Reinforce "Ready";
 the later reinforce/gather capture kept stalling under load (another session's
 builds), so the transport landing has only been seen in unit tests. Not done:
 markers for move/focus points; bots in vehicles ignore orders.
+
+## 2026-10-28: food status effects, tiers and the food picker
+
+Food now heals and then keeps working (`food-effects.ts`). Each effect comes
+from something in the food (kopi → faster reloads, quick carbs → speed, a
+proper meal → regen, bak kut teh → load feels lighter, mala's ma/la → numb and
+fired up). Tier = how much of a meal it is (snack 1 effect, plate 2, ration 3);
+Ultra and up are local legend with the strongest versions. New foods: bak kut
+teh (Field), Mala xiang guo · Da La (Ultra), Ah Ma's tingkat (Legendary, saves
+one lethal hit) and the Smoking Corner Special · Cigar and Milo Set (Mythic:
+five cigarettes bundled into a "cigar", a BBQ slab smoked over them, iced Milo;
+regen, speed, new steady-aim effect, reloads). Effects refresh, never stack.
+
+Belt: tapping 4 eats (now on key release); holding 4 opens a radial food
+picker (`FpsFoodPicker.tsx`, mirrors the callout wheel); a touch chooser sits
+under the belt. Auto keeps heal-to-need; a pinned food can be eaten at full
+health and falls back to Auto when gone. Effects show as timed chips over the
+belt. Expeditions run combat in the solo arena simulation, so the engine
+reports reload/cycle/damage/damage-taken/Ah Ma to it (`setPlayerFood`, clamped)
+and reads `ahMaSaves` back; shared arenas get healing only.
+
+Validation: typecheck; full suite 1538/1538 (before the last Mythic tweak; food,
+arena-food and armory-state tests rerun after, 56/56). New `pnpm test:fps:food`
+CDP smoke passed three times in headless Chrome against Vite: picker opens on
+hold, mouse pointing pins the Mythic set, eaten at full health, four chips,
+slot returns to Auto, kick ×0.75. Not covered in a browser: an expedition
+(arena path) run, touch chooser, phone layout of the picker. Not committed:
+the working tree also holds other sessions' uncommitted work in the same files.
+
+Follow-up the same day: shared arenas. Before this, no supply worked in a LAN
+match at all: the host's snapshot overwrote whatever the client healed, for
+guests and the host's own player alike. Now every arena role sends the item at
+the commit point (`arenaRuntime.useSupply` / `arena-supply`). The simulation
+(`useSupply`) heals and refills armor from catalogue figures and runs the meals
+(`meals`, timers, regen, gun and damage effects, Ah Ma). It spends a guest's
+supplies from the hello profile (`setPlayerSupplies`) and refuses uses faster
+than half the item's commit time. Meals publish as `actor.food`, validated
+in `validArenaSnapshot`, and the engine mirrors them. Input carries `supply`
+progress, so others see the healing pose. `setPlayerFood` and the engine's
+`foodWorks` gate are gone. Validation: typecheck; full suite 1543/1543;
+`arena-food.test.ts` covers the simulation and a host+guest runtime pair over a
+fake session (guest eats on host rules, second unbrought item refused, host's
+own player uncounted, invented meals rejected). `pnpm test:fps:food` now also
+runs Solo vs bots in Chrome (host timer 239 → 237 s on the HUD, kick ×0.75).
+New `pnpm test:arena:lan:food` (two Chromes over WebRTC) could not run here:
+WebRTC never connects in this sandbox, not even two peers in one page, and the
+existing `test:arena:lan` fails at the same join step.

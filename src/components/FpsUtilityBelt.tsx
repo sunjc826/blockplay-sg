@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Bandage, BriefcaseMedical, Package, Sandwich, ShieldPlus } from 'lucide-react';
+import { Bandage, BriefcaseMedical, ChevronUp, Package, Sandwich, ShieldPlus } from 'lucide-react';
 import type { FpsHud } from '../game/fps-engine';
 import { KIND_OF_STYLE, type UtilityKind } from '../game/utility-belt';
 import { healthBand } from '../game/vitals';
@@ -17,14 +17,18 @@ const HEALING: readonly UtilityKind[] = ['food', 'bandage', 'first-aid'];
  * have any. The selected slot is G's; a slot in use fills as the hands work,
  * and while health is low the slots that could fix it are marked.
  */
-export default function FpsUtilityBelt({ hud, canUse, onUse, docked = false }: { hud: FpsHud; canUse: boolean; onUse?: (kind: UtilityKind) => void; docked?: boolean }) {
+export default function FpsUtilityBelt({ hud, canUse, onUse, onPickFood, docked = false }: { hud: FpsHud; canUse: boolean; onUse?: (kind: UtilityKind) => void; onPickFood?: () => void; docked?: boolean }) {
   if (!hud.belt.length) return null;
   const using = hud.supplyUse?.fromBelt ? KIND_OF_STYLE[hud.supplyUse.style] : null;
   const hurt = healthBand(hud.health, hud.maxHealth) !== 'steady';
   const selected = hud.belt.find(slot => slot.kind === hud.beltSelected);
+  const food = hud.belt.find(slot => slot.kind === 'food');
   return <div className={`fps-belt${docked ? ' is-docked' : ''}`} role="group" aria-label="Utility belt" data-testid="utility-belt">
+    {hud.foodEffects.length > 0 && <ul className="fps-food-effects" aria-label="Food effects">{hud.foodEffects.map(effect =>
+      <li key={effect.kind} data-kind={effect.kind} title={effect.summary}><span>{effect.label}</span><b>{effect.remaining}s</b>
+        <i style={{ transform: `scaleX(${effect.share})` }} /></li>)}</ul>}
     <div className="fps-belt-slots">{hud.belt.map(slot => <button key={slot.kind} type="button" className="fps-belt-slot" data-kind={slot.kind} data-count={slot.count}
-      data-empty={!slot.count || undefined} data-using={using === slot.kind || undefined} data-wanted={(hurt && slot.count > 0 && HEALING.includes(slot.kind)) || undefined}
+      data-empty={!slot.count || undefined} data-using={using === slot.kind || undefined} data-chosen={slot.chosen || undefined} data-wanted={(hurt && slot.count > 0 && HEALING.includes(slot.kind)) || undefined}
       aria-pressed={slot.kind === hud.beltSelected} disabled={!canUse || !slot.count || !onUse}
       aria-label={`${slot.label}: ${slot.count ? `${slot.count} carried, next ${slot.next?.name}` : 'none carried'}. Key ${slot.key}.`}
       title={slot.next ? `${slot.next.name} · ${slot.next.effect}` : `No ${slot.label.toLowerCase()} carried`} {...tapProps(() => onUse?.(slot.kind))}>
@@ -32,5 +36,7 @@ export default function FpsUtilityBelt({ hud, canUse, onUse, docked = false }: {
       {using === slot.kind && <i className="fps-belt-progress" style={{ transform: `scaleX(${hud.supplyUse!.progress})` }} />}
     </button>)}</div>
     {selected?.next && <p className="fps-belt-next"><kbd>G</kbd> {selected.next.name} <span>{selected.next.effect}</span></p>}
+    {food && food.count > 0 && onPickFood && <button type="button" className="fps-food-choose" disabled={!canUse} aria-label={`Choose food: ${food.chosen ? food.next?.name : 'Auto'}`}
+      {...tapProps(onPickFood)}><ChevronUp size={11} />{food.chosen ? food.next?.name : 'Auto food'}<kbd>hold 4</kbd></button>}
   </div>;
 }

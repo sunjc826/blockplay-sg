@@ -3,6 +3,7 @@ import { calibreOf, weaponCalibre, type FieldLoot } from './expedition-loot';
 import { supplyProfile } from './fps-healing';
 import { FPS_WEAPONS, type WeaponSpec } from './fps-rules';
 import { utilityKind, utilitySlot } from './utility-belt';
+import { FOOD_EFFECTS } from './food-effects';
 
 /**
  * Loot is read the way a player reads a room: things on the floor say nothing
@@ -164,6 +165,7 @@ export function lootCard(loot: FieldLoot, context: LootCardContext): LootCard {
   const stats: LootStat[] = [
     ...(health ? [{ label: 'HEALTH', value: `+${health}` }] : []), ...(armor ? [{ label: 'ARMOR', value: `+${armor}` }] : []),
     ...(reserve ? [{ label: 'ROUNDS', value: `+${reserve}` }] : []),
+    ...(item?.foodEffects ?? []).map(effect => ({ label: FOOD_EFFECTS[effect.kind].label.toUpperCase(), value: `${effect.seconds}s`, trend: 'up' as const })),
     ...(item?.category === 'consumable' ? [{ label: 'USE', value: `${supplyProfile(item).seconds.toFixed(1)}s` }] : []),
     { label: 'CARRIED', value: `${held}/${CONSUMABLE_LIMIT}` },
   ];

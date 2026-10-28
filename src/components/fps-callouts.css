@@ -52,3 +52,25 @@
   .fps-chatter p{font-size:10px;text-align:center}.fps-chatter p:nth-last-child(n+3){display:none}
 }
 @media(max-height:560px){.fps-callout-ring{transform:scale(.82)}}
+
+/* The food picker reuses the wheel's ring; a food's tier colours its edge, and the hub reads out its effects. */
+.fps-food-picker{--food-radius:178px}
+.fps-food-picker .fps-callout-ring{width:440px;height:440px;background:radial-gradient(circle,#0f1b16e6 0 36%,#0f1b16a6 37% 70%,#0f1b1600 72%)}
+.fps-food-option{min-width:104px;max-width:136px;white-space:normal;text-align:left;border-left-width:3px}
+.fps-food-option>span{align-items:flex-start}
+.fps-food-option small{color:var(--hud-dim);letter-spacing:.4px;text-transform:none;font-weight:600}
+.fps-food-option[data-tier=auto]{border-style:dashed}
+.fps-food-option[data-tier=field]{border-left-color:#9fc79a}
+.fps-food-option[data-tier=elite]{border-left-color:#d9bc7e}
+.fps-food-option[data-tier=ultra]{border-left-color:#6fd3e0}
+.fps-food-option[data-tier=mythic]{border-left-color:#ff8a6a;box-shadow:0 0 10px #ff8a6a40}
+.fps-food-option[data-current]:not([data-selected]){outline:1px solid var(--hud-gold-soft);outline-offset:2px}
+.fps-food-option[data-selected] small{color:#3a311c}
+.fps-food-hub{width:176px;gap:4px}
+.fps-food-hub>b{font:700 12px/1.2 system-ui;color:var(--hud-ink)}
+.fps-food-hub>em{font:700 8px/1 system-ui;letter-spacing:1px;text-transform:uppercase;font-style:normal;color:var(--hud-dim)}
+.fps-food-hub>em[data-tier=field]{color:#9fc79a}.fps-food-hub>em[data-tier=elite]{color:#d9bc7e}.fps-food-hub>em[data-tier=ultra]{color:#8fdde8}.fps-food-hub>em[data-tier=mythic]{color:#ffb49a}
+.fps-food-hub ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px}
+.fps-food-hub li{font:500 9px/1.3 system-ui;color:var(--hud-dim);text-wrap:pretty}
+.fps-food-hub li b{color:#bfe9c4;font-weight:700}
+@media(max-width:720px){.fps-food-picker{--food-radius:132px}.fps-food-picker .fps-callout-ring{width:330px;height:330px}.fps-food-option{min-width:84px;max-width:100px;padding:6px 8px;font-size:10px}.fps-food-hub{width:130px}.fps-food-hub li{font-size:8px}}

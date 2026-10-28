@@ -28,6 +28,9 @@ import type { PublishedRound } from './fps-projectiles';
 import { createHeatField, HEAT_TUNING, type HeatBand, type HeatSector } from './faction-heat';
 import { drawRank, type BotRank } from './arena-ranks';
 import { muzzleSignature, sanitizeMuzzle, type MuzzleDevice } from './weapon-accessories';
+import { advanceFoodEffects, applyFoodEffects, arenaFoodModifiers, NO_FOOD, survivesWithAhMa, type ActiveFoodEffects } from './food-effects';
+import { CONSUMABLE_LIMIT, itemById } from './armory-catalog';
+import { supplyProfile } from './fps-healing';
 
 /** All coordinates use metres; actor y is eye height, not the feet. */
 export interface ArenaActor {
@@ -38,10 +41,14 @@ export interface ArenaActor {
   faction: string;
   /** Bots: the catalog variant in their hands, which is what they drop. */
   variant?: string;
-  /** Bots: share of a field dressing already applied, while they are patching up. */
+  /** Share of a dressing applied while a bot patches up, or of a supply a player is using, so others see them busy. */
   healing?: number;
   /** Where the last thing that hurt this actor came from; `serial` changes with every hit. */
   hurtFrom?: { x: number; z: number; serial: number; blast?: boolean };
+  /** Players: how many times Ah Ma's tingkat has kept them up (food-effects), so their engine can say so. */
+  ahMaSaves?: number;
+  /** Players: the meals still working on them, as the host runs them (food-effects). */
+  food?: ActiveFoodEffects;
   /** A rooftop sniper with someone in their scope: renderers show the glint. */
   aiming?: boolean;
   /** Feet height of an actor held on a perch the walk surfaces do not describe, such as a roof. */
@@ -105,7 +112,11 @@ export interface ArenaSnapshot {
   barks?: ArenaBark[];
 }
 export type ArenaHeat = { sector: string } & Record<SquadFaction, number>;
-export interface ArenaInput { x: number; y: number; z: number; yaw: number; pitch: number; weapon: number; playing: boolean; reloading?: boolean; prone?: boolean; vehicleControls?: VehicleControls }
+export interface ArenaInput {
+  x: number; y: number; z: number; yaw: number; pitch: number; weapon: number; playing: boolean; reloading?: boolean; prone?: boolean; vehicleControls?: VehicleControls;
+  /** How far through using a supply the player is (0..1), so everyone else sees them patching up or eating. */
+  supply?: number;
+}
 export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount' | 'bolt'> & Partial<Pick<WeaponSpec, 'ballistics'>> & { accessories?: { muzzle?: MuzzleDevice } };
 export interface ArenaPoint { x: number; y: number; z: number }
 export interface ArenaShot { hitId: string | null; killed: boolean; damage: number }
@@ -234,6 +245,16 @@ interface InternalActor {
   medkits: number; heal?: { time: number; feet: number; started: number }; lastHurt: number;
   /** Arena time until which bots' rounds pass a freshly spawned player by. */
   shieldUntil?: number;
+  /** Players: the meals working on them (food-effects). The host runs the timers and the healing. */
+  meals?: ActiveFoodEffects;
+  /**
+   * Guests: the supplies they joined with, which the host spends, so a guest
+   * uses only what they brought. Unset for a player whose own engine counts
+   * them (the host's, a solo player's).
+   */
+  supplies?: Record<string, number>;
+  /** When this player last used a supply, against a client that sends them faster than hands can. */
+  lastSupplyAt?: number;
   /** Ground velocity and speed in m/s, smoothed over a few ticks, and where they were last measured from. */
   velocity?: { x: number; z: number }; speed?: number; lastAt?: { x: number; z: number };
   /** When a bot first had its present target in sight, for its aim to settle from. */
@@ -440,6 +461,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     entry.ammo = entry.weapons.map(hostAmmo);
     entry.burst = 0; entry.burstFired = 0; entry.heal = undefined; entry.lastHurt = -Infinity; delete entry.actor.healing; entry.shieldUntil = elapsed + SPAWN_SHIELD_SECONDS;
+    // A respawn starts hungry.
+    entry.meals = undefined; delete entry.actor.food;
     entry.velocity = undefined; entry.speed = 0; entry.lastAt = undefined; entry.focusSince = undefined; entry.turn = undefined;
     entry.navigation = undefined; entry.vehicleBoardAfter = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false;
@@ -491,6 +514,49 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     if (Number.isFinite(vitals.armor)) entry.actor.armor = clamp(vitals.armor!, 0, entry.armorMax);
   }
+  /** The supplies a guest joined with, cleaned: consumables only, whole numbers, capped as a profile caps them. */
+  function setPlayerSupplies(id: string, held: unknown) {
+    const entry = members.get(id); if (!entry || entry.actor.bot) return;
+    const supplies: Record<string, number> = {};
+    if (held && typeof held === 'object') for (const [itemId, count] of Object.entries(held)) {
+      if (itemById(itemId)?.category !== 'consumable' || typeof count !== 'number' || !Number.isFinite(count)) continue;
+      const whole = Math.floor(clamp(count, 0, CONSUMABLE_LIMIT)); if (whole) supplies[itemId] = whole;
+    }
+    entry.supplies = supplies;
+  }
+  /**
+   * A player uses a supply. The host heals, refills the inserts and starts the
+   * meal from the catalogue's own figures, never the client's; a guest's is
+   * spent from what they joined with. Refused for the dead, for something not
+   * held, and for a use that comes faster than the hands could have done it.
+   */
+  function useSupply(id: string, itemId: string) {
+    const entry = members.get(id), item = typeof itemId === 'string' ? itemById(itemId) : undefined;
+    if (!entry || entry.actor.bot || finished || !entry.actor.alive || item?.category !== 'consumable' || !item.effect) return false;
+    if (entry.supplies && !((entry.supplies[item.id] ?? 0) > 0)) return false;
+    const hands = supplyProfile(item);
+    if (entry.lastSupplyAt !== undefined && elapsed - entry.lastSupplyAt < hands.seconds * hands.commit * .5) return false;
+    if (entry.supplies) { if (entry.supplies[item.id] > 1) entry.supplies[item.id]--; else delete entry.supplies[item.id]; }
+    entry.lastSupplyAt = elapsed;
+    const { health = 0, armor = 0 } = item.effect;
+    if (health) entry.actor.health = Math.min(entry.healthMax, entry.actor.health + health);
+    if (armor) entry.actor.armor = Math.min(entry.armorMax, entry.actor.armor + armor);
+    if (item.foodEffects?.length) { applyFoodEffects(entry.meals ??= {}, item.foodEffects); publishMeals(entry); }
+    return true;
+  }
+  /** What the snapshot shows of a player's meals: a fresh copy, so an older snapshot never changes under its reader. */
+  function publishMeals(entry: InternalActor) {
+    const meals = entry.meals && Object.entries(entry.meals);
+    if (!meals?.length) { entry.meals = undefined; delete entry.actor.food; return; }
+    entry.actor.food = Object.fromEntries(meals.map(([kind, effect]) => [kind, { ...effect! }]));
+  }
+  /** A player's meals over a step: healing while well fed lasts, and every timer running down. */
+  function stepMeals(entry: InternalActor, dt: number) {
+    if (!entry.meals) return;
+    const fed = advanceFoodEffects(entry.meals, dt);
+    if (fed.heal > 0) entry.actor.health = Math.min(entry.healthMax, entry.actor.health + fed.heal);
+    publishMeals(entry);
+  }
   function setPlayerHealthMultiplier(id: string, multiplier: 1 | 5 | 10) {
     const entry = members.get(id); if (!entry || entry.actor.bot || ![1, 5, 10].includes(multiplier)) return;
     const fraction = entry.actor.health / entry.healthMax;
@@ -522,6 +588,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (![input.yaw, input.pitch].every(Number.isFinite)) return;
     entry.playing = input.playing === true;
     const actor = entry.actor; if (!actor.alive) return;
+    // Using a supply shows: the same pose a bot takes to dress a wound.
+    if (Number.isFinite(input.supply)) actor.healing = clamp(input.supply!, 0, 1); else delete actor.healing;
     const mounted = seatOf(vehicles, id);
     if (!mounted || mounted.seat >= 2) {
       if (entry.allowedWeapons.includes(input.weapon) && Number.isInteger(input.weapon) && input.weapon >= 0 && input.weapon < entry.weapons.length && input.weapon !== actor.weapon) {
@@ -606,8 +674,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const ballistics = entry.spec?.ballistics ?? weapon.ballistics;
     const calibre = entry.spec?.caliberMm ?? FPS_WEAPONS[family]?.caliberMm ?? 5.56;
     const ignoreHull = seatOf(vehicles, entry.actor.id)?.vehicle.kind;
-    if (!ballistics || isInstant(ballistics)) return resolveShot(entry, origin, ray, weapon.damage, range, ignoreHull, entry.spec, undefined, calibre, false);
-    send({ shooter: entry, origin, direction: ray, ballistics, damage: weapon.damage, spec: entry.spec, calibre, power: weapon.damage, ignoreHull }, range);
+    // A fired-up player (food-effects) lands every round harder.
+    const damage = weapon.damage * (entry.meals ? arenaFoodModifiers(entry.meals).damage : 1);
+    if (!ballistics || isInstant(ballistics)) return resolveShot(entry, origin, ray, damage, range, ignoreHull, entry.spec, undefined, calibre, false);
+    send({ shooter: entry, origin, direction: ray, ballistics, damage, spec: entry.spec, calibre, power: weapon.damage, ignoreHull }, range);
     return { ...EMPTY_SHOT };
   }
   /** Queues a round, its walls and rendered cover measured once along its line now. */
@@ -655,15 +725,22 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (source && attacker !== victim) victim.actor.hurtFrom = { x: source.x, z: source.z, serial: ++hurtSerial, ...(blasted ? { blast: true } : {}) };
     victim.lastHurt = elapsed;
     if (attacker && attacker !== victim) victim.grudge = { id: attacker.actor.id, until: elapsed + GRUDGE_SECONDS };
+    // A numbing meal takes the edge off what lands (food-effects).
+    if (victim.meals) damage *= arenaFoodModifiers(victim.meals).damageTaken;
     // Only an insert that can turn a round draws for it, so every other fight keeps its random sequence.
     const struck = piercing ? { health: Math.max(0, victim.actor.health - damage), armor: victim.actor.armor, blocked: 0, deflected: false }
       : applyArmorDamage(victim.actor.health, victim.actor.armor, damage, victim.absorption, { insert: victim.insert, caliberMm: calibre, roll: victim.insert.deflect > 0 && calibre !== undefined ? random() : undefined });
     const blocked = struck.deflected ? damage : struck.blocked;
     victim.actor.armor = struck.armor; victim.actor.health = struck.health;
+    // Ah Ma steps in once per tingkat: a lethal hit leaves her figure instead.
+    if (victim.actor.alive && victim.meals) {
+      const ahMa = survivesWithAhMa(victim.meals, victim.actor.health);
+      if (ahMa.saved) { victim.actor.health = Math.min(victim.healthMax, ahMa.health); victim.actor.ahMaSaves = (victim.actor.ahMaSaves ?? 0) + 1; publishMeals(victim); }
+    }
     const killed = victim.actor.health <= 0;
     if (killed && victim.actor.alive) {
       victim.actor.alive = false; victim.actor.deaths++; victim.actor.respawnIn = ARENA_RESPAWN_SECONDS; releaseSeat(victim.actor.id);
-      victim.heal = undefined; delete victim.actor.healing;
+      victim.heal = undefined; delete victim.actor.healing; victim.meals = undefined; delete victim.actor.food;
       if (attacker && attacker !== victim) attacker.actor.kills++;
       if (factionHeat && isSquad(victim.actor.faction)) factionHeat.casualty(victim.actor.faction, factionHeat.sectorAt(victim.actor.x, victim.actor.z)?.id ?? null, heatShare(victim, attacker));
       announce(cause && !attacker ? `${cause} killed ${victim.actor.name}` : `${attacker?.actor.name ?? 'Vehicle'} eliminated ${victim.actor.name}`, attacker?.actor.id, victim.actor.id);
@@ -1853,7 +1930,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const vx = clamp((entry.actor.x - from.x) / dt, -12, 12), vz = clamp((entry.actor.z - from.z) / dt, -12, 12);
       entry.velocity = { x: was.x + (vx - was.x) * smooth, z: was.z + (vz - was.z) * smooth }; entry.speed = Math.hypot(entry.velocity.x, entry.velocity.z);
       entry.lastAt = { x: entry.actor.x, z: entry.actor.z };
-      entry.ammo.forEach((state, index) => advanceWeapon(state, index, dt, entry.weapons));
+      if (!entry.actor.bot) stepMeals(entry, dt);
+      const food = entry.meals ? arenaFoodModifiers(entry.meals) : NO_FOOD;
+      entry.ammo.forEach((state, index) => advanceWeapon(state, index, dt, entry.weapons, { reload: food.reloadRate, cycle: food.cycleRate }));
       if (entry.actor.bot && !seatOf(vehicles, entry.actor.id)) {
         stepBot(entry, dt);
         const reloading = (entry.ammo[entry.actor.weapon]?.reloadRemaining ?? 0) > 0;
@@ -1920,7 +1999,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return entry;
   }
   for (let i = 0; i < count; i++) enlist();
-  return { vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  return { vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerSupplies, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

@@ -192,7 +192,7 @@ describe('supplies', () => {
   it('offers Singapore food separately from field utilities while sharing the quick slot', () => {
     const food = ARMORY_CATALOG.filter(item => item.category === 'consumable' && item.supplyType === 'food');
     const utilities = ARMORY_CATALOG.filter(item => item.category === 'consumable' && item.supplyType !== 'food');
-    expect(food.map(item => item.id)).toEqual(['food-kaya-toast', 'food-curry-puff', 'food-chicken-rice', 'food-field-ration']);
+    expect(food.map(item => item.id)).toEqual(['food-kaya-toast', 'food-curry-puff', 'food-chicken-rice', 'food-bak-kut-teh', 'food-field-ration', 'food-mala-da-la', 'food-ah-ma-tingkat', 'food-smoking-corner']);
     expect(utilities.map(item => item.id)).toEqual(['kit-ammo', 'kit-bandage', 'kit-dressing', 'kit-plates', 'kit-first-aid', 'kit-trauma']);
     const packed = purchase(veteran(), 'food-chicken-rice').profile;
     expect(resolveLoadout(packed).quickItem?.name).toBe('Chicken rice packet');

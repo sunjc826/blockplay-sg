@@ -15,7 +15,7 @@ export const supplyWeightKg = (item?: ShopItem) => item?.category === 'consumabl
  * merely transfers it. Armor stays on the body even when its protection is spent.
  */
 export function equipmentMovement(equipment: ResolvedLoadout, active: number,
-  ammunition?: readonly WeaponState[], supplies?: Readonly<Record<string, number>>) {
+  ammunition?: readonly WeaponState[], supplies?: Readonly<Record<string, number>>, loadRelief = 0) {
   const carriedWeapons = equipment.carriedFamilies.map(index => ({ weapon: equipment.weapons[index], index }));
   const weaponsKg = carriedWeapons.reduce((kg, { weapon }) => kg + bounded(weapon.weightKg, 3, 100), 0);
   const ammoKg = carriedWeapons.reduce((kg, { weapon, index }) => {
@@ -28,7 +28,9 @@ export function equipmentMovement(equipment: ResolvedLoadout, active: number,
   const suppliesKg = supplies ? beltWeightKg(supplies, supplyWeightKg) : bounded(equipment.suppliesWeightKg, 0, 1000);
   const totalKg = weaponsKg + ammoKg + suppliesKg + bounded(equipment.armorWeightKg, 0, 100);
   // Weight taxes every carried kilogram; armor's existing mobility measures bulk.
-  const carried = Math.max(.35, Math.min(1, bounded(equipment.mobility, 1, 1) / (1 + totalKg * .006)));
+  // A load-bearer meal (food-effects) takes a share off the weight, not the bulk.
+  const feltKg = totalKg * (1 - bounded(loadRelief, 0, 1));
+  const carried = Math.max(.35, Math.min(1, bounded(equipment.mobility, 1, 1) / (1 + feltKg * .006)));
   const inHand = Math.max(.25, bounded(equipment.weapons[equipment.carriedFamilies.includes(active) ? active : equipment.carriedFamilies[0]]?.mobility, 1, 1.15));
   const movement = Math.max(.2, Math.min(1, carried * inHand));
   return { totalKg, weaponsKg, ammoKg, suppliesKg, carried, inHand, movement,
