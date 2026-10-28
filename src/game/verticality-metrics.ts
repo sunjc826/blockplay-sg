@@ -1,6 +1,6 @@
 import type { Obstacle, RegionBounds } from './region-collision';
 import { createVerticalMovement } from './vertical-movement';
-import { surfaceHeight, type WalkSurface } from './vertical-routes';
+import { surfaceHeight, surfaceContains, type WalkSurface } from './vertical-routes';
 
 /** Diagnostics, never a map-quality score. Heights are feet above the current flat street datum. */
 export const VERTICALITY_DEFAULTS = { spacing: 2, elevatedHeight: 2, radius: 0.38, bodyHeight: 1.8 } as const;
@@ -77,7 +77,7 @@ export function measureVerticality(input: VerticalityInput) {
     const x = input.bounds.minX + i * spacing, z = input.bounds.minZ + j * spacing;
     const candidates = new Map<number, string[]>([[0, []]]);
     for (const s of input.surfaces) {
-      if (x < s.minX || x > s.maxX || z < s.minZ || z > s.maxZ) continue;
+      if (!surfaceContains(s,x,z)) continue;
       const y = surfaceHeight(s, x, z);
       candidates.set(y, [...(candidates.get(y) ?? []), s.id]);
     }

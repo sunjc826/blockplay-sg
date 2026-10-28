@@ -1,11 +1,30 @@
 // Local elevated-route screenshots. Start Vite and Chrome CDP9223 first.
-// Usage: node scripts/review-verticality.mjs [district-id ...]
+// Usage: node scripts/review-verticality.mjs [district-id ...] [--details]
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 const origin = process.env.REGION_APP_ORIGIN || 'http://127.0.0.1:5173';
 const chrome = process.env.CHROME_DEBUG_ORIGIN || 'http://127.0.0.1:9223';
 const output = '.cache/verticality-review';
 const allFloors = process.argv.includes('--all-floors');
-const requestedIds = process.argv.slice(2).filter(arg => arg !== '--all-floors');
+const details = process.argv.includes('--details');
+const requestedIds = process.argv.slice(2).filter(arg => arg !== '--all-floors' && arg !== '--details');
+// Small interiors are missed by the automatic largest-floor camera. These
+// standing views make the unfinished level-design pass reproducible to review.
+const detailViews = {
+  orchard: [
+    { view: 'place:orchard-retail-circuit:bookshop-entry', pose: { position: [-6,6.65,-84.8], target: [-6,6.4,-94] } },
+    { view: 'place:orchard-retail-circuit:bookshop-interior', pose: { position: [-7,6.65,-97], target: [4,6.4,-91] } },
+    { view: 'place:orchard-retail-circuit:upper-return-stair', pose: { position: [16,6.65,-81], target: [-15,11.5,-81] } },
+  ],
+  chinatown: [
+    { view: 'place:smith-shop-2:shop-entry', pose: { position: [-30,1.65,67], target: [-28,1.5,56] } },
+    { view: 'place:smith-shop-2:shop-interior', pose: { position: [-29,1.65,61], target: [-24.6,2.1,53.6] } },
+    { view: 'place:smith-shop-2:loft-interior', pose: { position: [-32,4.65,60], target: [-25,4.5,52] } },
+    { view: 'place:smith-shop-2:loft-street-window', pose: { position: [-31.1,4.65,62], target: [-31.1,4.5,80] } },
+  ],
+  'bukit-timah': [
+    { view: 'place:bukit-timah-climb:ridge-trail', pose: { position: [-160,5.65,21], target: [-159,12.5,-2] } },
+  ],
+};
 async function connect(url) {
   const socket = new WebSocket(url), pending = new Map(), listeners = []; let next = 0;
   await new Promise((resolve, reject) => { socket.addEventListener('open', resolve, { once: true }); socket.addEventListener('error', reject, { once: true }); });
@@ -45,8 +64,9 @@ try {
   for(const id of ids) {
     const places = await evaluate(`window.review.places(${JSON.stringify(id)})`);
     const views = places.length ? places.flatMap(place => [`place:${place.id}:aerial`, `place:${place.id}:entry`, ...(allFloors ? place.floors : [...new Map([...place.floors].sort((a,b) => a.area-b.area).map(f => [f.y, f])).values()]).map(floor => `place:${place.id}:floor:${floor.id}`)]) : (await evaluate(`window.review.routes(${JSON.stringify(id)})`)).map(route => `route:${route}`);
-    for (const view of views) {
-    const detail = await evaluate(`window.review.render(${JSON.stringify(id)}, ${JSON.stringify(view)})`);
+    const selectedViews = [...views.map(view => ({ view })), ...(details ? detailViews[id] ?? [] : [])];
+    for (const { view, pose } of selectedViews) {
+    const detail = await evaluate(`window.review.render(${JSON.stringify(id)}, ${JSON.stringify(view)}, ${JSON.stringify(pose)})`);
     const shot = await page.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
     const file = `${id}-${view.replaceAll(':', '-')}.png`; await writeFile(`${output}/${file}`, Buffer.from(shot.data, 'base64'));
     captures.push({ ...detail, file }); console.log(`${id}: ${view}, ${detail.calls} draw calls`);

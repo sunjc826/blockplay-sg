@@ -2,6 +2,8 @@ import { WORLD_VEHICLES, clearVehicleSpawn } from './world-vehicles';
 import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
 import { createVerticalNavigator, type NavigationPoint } from './vertical-navigation';
 import { createVerticalMovement, MAX_STEP_HEIGHT, type VerticalWorld } from './vertical-movement';
+import { footprintRayInterval, overlapsObstacleRect } from './region-collision';
+import { surfaceContains } from './vertical-routes';
 import { validVehicleControls, createSharedVehicle, seatOf, seatPoint, gunnerId, vehicleGunRay, vehicleRayDistance, type SharedVehicle, type VehicleControls } from './vehicle-seats';
 import { driveVehicle, flyVehicle, vehicleBounds, vehicleExit, type VehicleKind, type VehicleSpawn, type FlightObstacle } from './vehicle-rules';
 import { damageVehicle, fireVehicleWeapon, vehicleCollisionDamage, VEHICLE_COMBAT } from './vehicle-combat';
@@ -302,7 +304,7 @@ const UP = { x: 0, y: 1, z: 0 }, DOWN = { x: 0, y: -1, z: 0 };
 /** Where a round aimed at someone's middle goes: the chest standing, the back lying down. */
 const chestOf = (actor: ArenaActor): ArenaPoint => ({ x: actor.x, y: actor.prone ? actor.y - PRONE_EYE_HEIGHT + .35 : actor.y - .62, z: actor.z });
 
-/** Distance to a solid scene box, or Infinity. Unspecified height means a tall wall. */
+/** Distance to solid scene cover, or Infinity. Unspecified height means a tall wall. */
 export function arenaWallDistance(origin: ArenaPoint, direction: ArenaPoint, obstacles: readonly (Obstacle & { minY?: number })[]) {
   let closest = Infinity;
   for (const obstacle of obstacles) {
@@ -314,6 +316,7 @@ export function arenaWallDistance(origin: ArenaPoint, direction: ArenaPoint, obs
       if (Math.abs(d) < 1e-8) { if (o < min || o > max) { far = -1; break; } }
       else { const t1 = (min - o) / d; const t2 = (max - o) / d; near = Math.max(near, Math.min(t1, t2)); far = Math.min(far, Math.max(t1, t2)); }
     }
+    if (obstacle.footprint && far >= near) [near,far]=footprintRayInterval(obstacle.footprint,origin,direction,near,far);
     if (far >= near) closest = Math.min(closest, near);
   }
   return closest;
@@ -356,7 +359,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const slope = (s.endHeight - s.startHeight) / (high - low);
       const denominator = ray.y - slope * ray[s.axis];
       if (s.solidBelow) {
-        // Clip against the six half-spaces of the solid sloped foundation.
+        // Clip the sloped prism, including its authored terrain boundary.
         let near = 0, far = distance;
         const planes = [[origin.x - s.minX, ray.x], [s.maxX - origin.x, -ray.x],
           [origin.z - s.minZ, ray.z], [s.maxZ - origin.z, -ray.z], [origin.y, ray.y],
@@ -366,12 +369,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
           else if (direction > 0) near = Math.max(near, -offset / direction);
           else far = Math.min(far, -offset / direction);
         }
+        if (s.footprint && far >= near) [near,far]=footprintRayInterval(s.footprint,origin,ray,near,far);
         if (far >= near) distance = Math.min(distance, near);
       }
       if (Math.abs(denominator) < 1e-8) continue;
       const t = (s.startHeight + slope * (origin[s.axis] - low) - origin.y) / denominator;
       const x = origin.x + ray.x * t, z = origin.z + ray.z * t;
-      if (t >= 0 && x >= s.minX && x <= s.maxX && z >= s.minZ && z <= s.maxZ) distance = Math.min(distance, t);
+      if (t >= 0 && surfaceContains(s,x,z)) distance = Math.min(distance, t);
     }
     return distance;
   };
@@ -1546,7 +1550,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
           const d = Math.hypot(goal.x - v.x, goal.z - v.z), yaw = Math.atan2(v.x - goal.x, v.z - goal.z);
           for (let n = 0; n <= d; n += 2) {
             const hull = vehicleBounds({ ...v, x: v.x + (goal.x - v.x) * n / Math.max(d, 1), z: v.z + (goal.z - v.z) * n / Math.max(d, 1), yaw });
-            if (hull.minX < bounds.minX || hull.maxX > bounds.maxX || hull.minZ < bounds.minZ || hull.maxZ > bounds.maxZ || ground.some(o => hull.maxX > o.minX && hull.minX < o.maxX && hull.maxZ > o.minZ && hull.minZ < o.maxZ)) return false;
+            if (hull.minX < bounds.minX || hull.maxX > bounds.maxX || hull.minZ < bounds.minZ || hull.maxZ > bounds.maxZ || ground.some(o => overlapsObstacleRect(o,(hull.minX+hull.maxX)/2,(hull.minZ+hull.maxZ)/2,(hull.maxX-hull.minX)/2,(hull.maxZ-hull.minZ)/2))) return false;
           }
           return true;
         };

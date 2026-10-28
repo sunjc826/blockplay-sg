@@ -48,7 +48,7 @@ window.review = {
   ids: REGIONS.map(region => region.id),
   routes(id) { const w = getRegion(id).build(); try { return getVerticalRoutes(w.scene).map(r => r.id); } finally { w.dispose(); } },
   places(id) { const w = getRegion(id).build(); try { return getVerticalPlaces(w.scene).map(p => ({ id: p.id, floors: p.floors.map(f => ({ id: f.id, y: f.y, area: f.width*f.depth })) })); } finally { w.dispose(); } },
-  async render(id, view) {
+  async render(id, view, pose) {
     if (region?.id !== id) { world?.dispose(); renderer.renderLists.dispose(); region = getRegion(id); world = region.build(); }
     const b = region.bounds, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
     const span = Math.max(b.maxX - b.minX, b.maxZ - b.minZ);
@@ -98,12 +98,15 @@ window.review = {
       if (preset) { camera.position.fromArray(preset.position); camera.lookAt(...preset.target); }
       else { camera.position.set(region.spawn.x, 2, region.spawn.z); camera.lookAt(cx, 8, cz); }
     }
+    // Optional authored eye-height review positions for rooms too small to be
+    // represented by the automatic largest-floor view.
+    if(pose) { camera.position.fromArray(pose.position); camera.lookAt(...pose.target); }
     // Overview removes distance fog solely to inspect the full district layout.
     const fog = world.scene.fog;
     if(view === 'overview') world.scene.fog = null;
     world.car.visible = false;
     world.animate(0);
-    document.getElementById('label').textContent = `${region.name} · ${view.startsWith('route:') ? view.slice(6) : view === 'overview' ? 'overview (fog off)' : 'street view'} · authored game geometry`;
+    document.getElementById('label').textContent = `${region.name} · ${view === 'overview' ? 'overview (fog off)' : view.replaceAll(':', ' / ')} · authored game geometry`;
     renderer.render(world.scene, camera);
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     renderer.render(world.scene, camera);

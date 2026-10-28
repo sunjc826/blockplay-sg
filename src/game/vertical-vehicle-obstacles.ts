@@ -11,7 +11,7 @@ export function verticalVehicleObstacles(world: { surfaces: readonly WalkSurface
   for (const surface of world.surfaces) {
     const minHeight = Math.min(surface.startHeight, surface.endHeight), maxHeight = Math.max(surface.startHeight, surface.endHeight);
     if (maxHeight <= .15 || !surface.solidBelow && minHeight >= surfaceClearance) continue;
-    const box: Obstacle = { minX: surface.minX, maxX: surface.maxX, minZ: surface.minZ, maxZ: surface.maxZ, maxY: maxHeight };
+    const box: Obstacle = { minX: surface.minX, maxX: surface.maxX, minZ: surface.minZ, maxZ: surface.maxZ, maxY: maxHeight, ...(surface.footprint ? { footprint: surface.footprint } : {}) };
     if (!surface.solidBelow && maxHeight > surfaceClearance && minHeight < surfaceClearance) {
       // Clip the low part of an open ramp; cars can pass below its high end.
       const t = (surfaceClearance - surface.startHeight) / (surface.endHeight - surface.startHeight);

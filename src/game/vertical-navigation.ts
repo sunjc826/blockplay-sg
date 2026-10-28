@@ -1,5 +1,5 @@
 import { createVerticalMovement, type VerticalWorld } from './vertical-movement';
-import { surfaceHeight, type WalkSurface } from './vertical-routes';
+import { surfaceHeight, surfaceContains, type WalkSurface } from './vertical-routes';
 
 export interface NavigationPoint { x: number; y: number; z: number }
 type Movement = ReturnType<typeof createVerticalMovement>;
@@ -11,7 +11,7 @@ export function elevatedLootAnchors(surfaces: readonly WalkSurface[], movement: 
     const result: NavigationPoint[] = [];
     for (const tx of [.25, .5, .75]) for (const tz of [.25, .5, .75]) {
       const p = { x: s.minX+(s.maxX-s.minX)*tx, y: s.startHeight, z: s.minZ+(s.maxZ-s.minZ)*tz };
-      if (movement.canOccupy(p.x,p.y,p.z,.65,1.8)) result.push(p);
+      if (surfaceContains(s,p.x,p.z) && movement.canOccupy(p.x,p.y,p.z,.65,1.8)) result.push(p);
     }
     return result;
   });
@@ -25,7 +25,7 @@ export function createVerticalNavigator(world: VerticalWorld) {
   const movement = createVerticalMovement(world);
   const nodes: NavigationPoint[] = [];
   const add = (p: NavigationPoint) => {
-    if (movement.canOccupy(p.x,p.y,p.z,.4,1.8) && !nodes.some(n => distance(n,p)<.3)) nodes.push(p);
+    if (movement.canOccupy(p.x,p.y,p.z,.4,1.8) && Math.abs((movement.supportHeight(p.x,p.z,p.y+.01,.4,1.8)??-100)-p.y)<.02 && !nodes.some(n => distance(n,p)<.3)) nodes.push(p);
   };
   for (const s of world.surfaces) {
     const cx=(s.minX+s.maxX)/2, cz=(s.minZ+s.maxZ)/2;
@@ -44,6 +44,17 @@ export function createVerticalNavigator(world: VerticalWorld) {
   const access=nodes.filter(n=>n.y<.35);
   for(const o of world.obstacles) for(const x of [o.minX-.65,o.maxX+.65]) for(const z of [o.minZ-.65,o.maxZ+.65])
     if(access.some(n=>Math.hypot(n.x-x,n.z-z)<35)) add({x,y:0,z});
+  // Interior doors and shelves can fall between the floor's nine samples.
+  // Their corners supply approach/turn points on the floor they actually touch.
+  // Keep this to tall walls/shelves; sampling low props, posts and every thin
+  // guard would swamp this small graph. Existing floor samples cover open space.
+  for (const o of world.traversalObstacles) {
+    if (o.maxY-o.minY < 1.5 || Math.max(o.maxX-o.minX,o.maxZ-o.minZ) < 2 || Math.min(o.maxX-o.minX,o.maxZ-o.minZ) < .25) continue;
+    for (const x of [o.minX-.55,o.maxX+.55]) for (const z of [o.minZ-.55,o.maxZ+.55]) {
+      const y=movement.supportHeight(x,z,o.minY+.35,.4,1.8);
+      if (y !== null && Math.abs(y-o.minY)<.36) add({x,y,z});
+    }
+  }
   function canWalk(a:NavigationPoint,b:NavigationPoint) {
     const length=Math.hypot(a.x-b.x,a.z-b.z);
     if(length<.01) return Math.abs(a.y-b.y)<.05;
@@ -63,7 +74,7 @@ export function createVerticalNavigator(world: VerticalWorld) {
   const edges=new Map<number, {to:number;cost:number}[]>();
   const ramps = world.surfaces.filter(s => s.startHeight !== s.endHeight);
   const sharesRamp = (a: NavigationPoint, b: NavigationPoint) => ramps.some(s => [a,b].every(p =>
-    p.x >= s.minX-.01 && p.x <= s.maxX+.01 && p.z >= s.minZ-.01 && p.z <= s.maxZ+.01 &&
+    surfaceContains(s,p.x,p.z) &&
     Math.abs(surfaceHeight(s,p.x,p.z)-p.y) < .05));
   function* outgoing(i:number): Generator<undefined, {to:number;cost:number}[]> {
     let result=edges.get(i); if(result) return result;

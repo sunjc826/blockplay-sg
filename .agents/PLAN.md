@@ -630,3 +630,22 @@ see docs/WORLD-EVENTS.md and HANDOFF for supported modes and remaining limits.
 - Integrated same-sector upper supplies, height-aware pickup, incremental bot stair navigation, revised sector bounds and clear ground anchors.
 - Added actual movement/spawn reachability and mesh-clearance diagnostics plus eye-height review views; no quality grade or arbitrary verticality quota.
 - Verification and publication status recorded in HANDOFF. No new Google calls or reference claims.
+
+## 2026-10-28 — Resume uncommitted verticality work
+
+- Preserved the existing October 3 terrain/shop/retail changes and unrelated
+  live workspace edits. Added real street/rear-lane windows to both Smith Street
+  lofts with safe parapets and ray/movement regressions.
+- Fixed Orchard bookshop bot access using supported tall-wall/shelf corner
+  samples. Fixed footprint propagation into driving, vehicle spawn/route checks
+  and host shot/terrain clipping; kept existing car body envelopes.
+- Added repeatable detailed review views with `--details`; local gallery:
+  `.cache/verticality-review/index.html` (29 views, zero runtime/Google errors).
+- FPS and RegionGame browser ascent passed, including authoritative actor height,
+  elevated jump/landing and prone. Browser fixtures require HMR disabled.
+- Production typecheck/build passed; existing bundle-size advisory remains.
+  Final suite result is recorded in HANDOFF and the local validation log
+  `.cache/verticality-iteration-tests.log`.
+
+Final validation: all 1,565 tests across 161 files pass after the loft-window
+change, plus typecheck/production build and the final HMR-disabled browser smoke.

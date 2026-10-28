@@ -1,5 +1,5 @@
-import { withinBounds, type Obstacle, type RegionBounds } from './region-collision';
-import { surfaceHeight, type WalkSurface, type TraversalObstacle } from './vertical-routes';
+import { withinBounds, overlapsObstacle, type Obstacle, type RegionBounds } from './region-collision';
+import { surfaceHeight, surfaceContains, type TraversalObstacle, type WalkSurface } from './vertical-routes';
 
 export const MAX_STEP_HEIGHT = .35;
 const EPS = 1e-5;
@@ -19,8 +19,8 @@ export function createVerticalMovement(world: VerticalWorld) {
     return (x: number, z: number, radius: number): readonly T[] => radius <= .75 ? bins.get(`${Math.floor(x / 16)},${Math.floor(z / 16)}`) ?? [] : items;
   };
   const baseAt = bucket(world.obstacles), traversalAt = bucket(world.traversalObstacles), surfacesAt = bucket(world.surfaces);
-  const overlap = (o: Obstacle, x: number, z: number, r: number) => x + r > o.minX + EPS && x - r < o.maxX - EPS && z + r > o.minZ + EPS && z - r < o.maxZ - EPS;
-  const contains = (s: WalkSurface, x: number, z: number) => x >= s.minX - EPS && x <= s.maxX + EPS && z >= s.minZ - EPS && z <= s.maxZ + EPS;
+  const overlap = (o: Obstacle, x: number, z: number, r: number) => overlapsObstacle(o, x, z, r, EPS);
+  const contains = surfaceContains;
   const canOccupy = (x: number, y: number, z: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = []) => {
     if (!withinBounds(world.bounds, x, z, radius) || y < -EPS) return false;
     const blocks = (o: Obstacle) => overlap(o, x, z, radius) && y < (o.maxY ?? Infinity) - EPS && y + height > 0;
@@ -32,7 +32,7 @@ export function createVerticalMovement(world: VerticalWorld) {
     let best: number | null = maxY >= -EPS && canOccupy(x, 0, z, radius, height, extra) ? 0 : null;
     for (const s of surfacesAt(x, z, radius)) {
       const margin = Math.abs(s.startHeight - s.endHeight) < EPS ? radius : 0;
-      if (x < s.minX - margin || x > s.maxX + margin || z < s.minZ - margin || z > s.maxZ + margin) continue;
+      if (!surfaceContains(s, x, z, margin)) continue;
       const y = surfaceHeight(s, x, z);
       if (y <= maxY + EPS && (best === null || y > best) && canOccupy(x, y, z, radius, height, extra)) best = y;
     }

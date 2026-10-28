@@ -664,7 +664,7 @@ const BUKIT_TIMAH_SECTORS: readonly ZoneSector[] = [
   { id: 'rail-corridor', name: 'Rail corridor', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
     bounds: { minX: 25, maxX: 95, minZ: 0, maxZ: 85 },
     anchors: [{ x: 60, z: 40 }, { x: 86, z: 76 }, { x: 34, z: 76 }, { x: 86, z: 8 }, { x: 34, z: 8 }] },
-  { id: 'summit', name: 'Summit trails and hill foot', cover: 'dense', lootWeight: 2, tierBias: 1, botWeight: 1.5,
+  { id: 'summit', name: 'Summit trails and hill foot', cover: 'broken', lootWeight: 2, tierBias: 1, botWeight: 1.5,
     bounds: { minX: -215, maxX: -132, minZ: -76, maxZ: 49 },
     anchors: [{ x: -175, z: 43 }, { x: -205, z: 43 }, { x: -145, z: 43 }, { x: -137, z: -25 }, { x: -211, z: -25 }] },
   { id: 'nature-reserve', name: 'Nature reserve trail', cover: 'open', lootWeight: 1.5, tierBias: 1, botWeight: 1,

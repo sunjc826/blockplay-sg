@@ -3656,3 +3656,33 @@ NVG gen 1 and thermal T2 each swinging down, lighting, dying and swinging up,
 no page exceptions. Not checked: touch/phone layout, the arena, a software
 renderer. Committed in two parts without other sessions' uncommitted work in
 the same files (package.json, docs, fps-engine.ts).
+
+## 2026-10-28: resumed uncommitted verticality pass
+
+Resumed the October 3 Chinatown/Orchard/Bukit Timah level-design work.
+Added real street/rear-lane loft windows to both Smith Street shops; the 1.2 m
+parapets and guards remain solid. Added supported corner samples at tall
+interior walls/shelves so bots can traverse Orchard's offset bookshop doors on
+all three levels. Small posts, low props and thin rails are excluded to avoid
+unnecessary navigation graph growth.
+
+Completed convex-footprint integration in vehicle driving, motor-pool and bot
+vehicle-route checks, and authoritative cover rays. Host rounds now clip the
+actual outline of solid flat/sloped earth instead of hitting empty bounding-box
+corners. Existing rectangular vehicle hull envelopes remain unchanged.
+
+Validation: all 1,565 tests across 161 files pass, including all 19 districts'
+floor/stair/spawn diagnostics; typecheck and production build pass with the
+existing bundle-size advisory. Final local browser smoke passed FPS and
+RegionGame ascent, authoritative elevated actor height, jump/landing and prone.
+HMR must be disabled as the smoke's header requires: concurrent fixture writes
+otherwise reload its page and discard renderedCamera instrumentation. The
+first retry failures were this fixture reload, with no runtime exceptions.
+
+`node scripts/review-verticality.mjs orchard chinatown bukit-timah --details`
+now reproduces room, return-stair, loft-window and trail views. The latest local
+gallery has 29 captures with zero runtime errors or Google requests, at
+`.cache/verticality-review/index.html`. See docs/CONNECTED-VERTICALITY.md.
+This pass is committed independently of unrelated edits from other active work.
+Street layout redesign, smoother terrain and combat balance remain outside this
+follow-up.

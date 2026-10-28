@@ -49,13 +49,28 @@ export const ORCHARD_VERTICAL_PLACES: VerticalPlace[] = [{
     {id:`${mall}-west-escalator`,from:{x:x-15,y:0,z:-73},to:{x:x+15,y:5,z:-73},width:4,stairs:true},
     {id:`${mall}-east-escalator`,from:{x:x+15,y:0,z:-57},to:{x:x-15,y:5,z:-57},width:4,stairs:true},
     {id:`${mall}-upper-escalator`,from:{x:x-15,y:5,z:-65},to:{x:x+15,y:10,z:-65},width:4,stairs:true},
+    {id:`${mall}-rear-upper-stair`,from:{x:x+15,y:5,z:-81},to:{x:x-15,y:10,z:-81},width:4,stairs:true},
   ]),
-  fixtures: [-115,0,117].flatMap((x,mall)=>[0,5,10].flatMap(y=>[
+  fixtures: [...[-115,0,117].flatMap((x,mall)=>[0,5,10].flatMap(y=>[
     // Retail rooms face the atrium; wall breaks keep galleries continuous.
     ...[-1,1].flatMap(side=>[-88,-42].map(z=>({x:x+side*29,y:y+1.6,z,width:7,height:3.2,depth:1,color:mall===2?'#9d655a':'#718f9b'}))),
     ...[-1,1].map(side=>({x:x+side*25,y:y+.55,z:-65,width:3,height:1.1,depth:6,color:'#78906a'})),
     ...[-1,1].flatMap(side=>[-79,-51].map(z=>({x:x+side*29,y:y+.55,z,width:6,height:1.1,depth:2,color:mall===2?'#80594e':'#a6b5b8'}))),
   ])),
+  // Wisma's rear bookshop has two offset doors and a reading room. It offers
+  // a sheltered route across the north gallery, beside the exposed atrium loop.
+  ...[0,5,10].flatMap(y=>[
+    ...[-1,1].map(side=>({x:side*13,z:-94,y:y+1.8,width:.35,height:3.6,depth:14,color:'#718b88'})),
+    {x:-10.5,z:-87,y:y+1.8,width:5,height:3.6,depth:.35,color:'#718b88'},
+    {x:4.5,z:-87,y:y+1.8,width:17,height:3.6,depth:.35,color:'#718b88'},
+    {x:-4.5,z:-101,y:y+1.8,width:17,height:3.6,depth:.35,color:'#718b88'},
+    {x:10.5,z:-101,y:y+1.8,width:5,height:3.6,depth:.35,color:'#718b88'},
+    {x:0,z:-94,y:y+3.7,width:26.4,height:.25,depth:14.4,color:'#ddd2b6'},
+    {x:0,z:-94,y:y+1.4,width:7,height:2.8,depth:.7,yaw:.48,color:'#866446'},
+    {x:-10.8,z:-94,y:y+1.15,width:1.5,height:2.3,depth:7,color:'#866446'},
+    {x:10,z:-94,y:y+.6,width:2,height:1.2,depth:4,color:'#a28d69'},
+  ]),
+  ],
 }];
 
 export function buildOrchardScene() {
@@ -254,6 +269,26 @@ export function buildOrchardScene() {
   }
 
   const retailLight = mat('#f5ebd1'); retailLight.emissive.set('#efe0ba'); retailLight.emissiveIntensity = .6;
+  for(const y of [0,5,10]) {
+    sign('BOOKSHOP / READING ROOM',0,y+3.15,-86.75,18,.65,'#365d55');
+    box(-6,y+3.45,-92,5,.06,.28,retailLight);
+    box(6,y+3.45,-97,5,.06,.28,retailLight);
+    // Shelves and books sit against the solid partition, not across the doors.
+    for(const dy of [.55,1.15,1.75]) for(let dz=-2.7;dz<3;dz+=.65) {
+      box(-9.94,y+dy,-94+dz,.14,.45,.42,dz>0?granite:teal);
+    }
+    // Book spines and shelf lips give the diagonal sightline break a readable
+    // purpose at eye height. Transforms match its rotated collision footprint.
+    const shelf=(dx:number,dy:number,dz:number,w:number,h:number,d:number,material:THREE.Material)=>{
+      const mesh=box(dx*Math.cos(.48)+dz*Math.sin(.48),y+dy,-94-dx*Math.sin(.48)+dz*Math.cos(.48),w,h,d,material);
+      mesh.rotation.y=.48;
+    };
+    for(const side of [-1,1]) for(const tier of [0,1,2,3]) {
+      shelf(0,.2+tier*.65,side*.39,7,.09,.16,pale);
+      for(let n=0;n<14;n++) shelf(-3.1+n*.47,.47+tier*.65,side*.43,.3,.42+(n%3)*.05,.12,[granite,teal,cream][(n+tier)%3]);
+    }
+    sign('ATRIUM ↗',6,y+2.7,-100.7,3,.45,'#365d55');
+  }
   // Store bays and circulation signs make the opened volumes read as retail,
   // with continuous clear galleries on the atrium side of the counters.
   for (const x of [-115, 0, 117]) for (const y of [0, 5, 10]) {

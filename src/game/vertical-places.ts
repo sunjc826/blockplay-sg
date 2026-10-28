@@ -1,17 +1,23 @@
 import * as THREE from 'three';
 import type { RegionWorld } from './regions';
 import { getWalkSurfaces, getTraversalObstacles, type WalkSurface, type TraversalObstacle, type RoutePoint } from './vertical-routes';
+import { insideFootprint, type Position2D } from './region-collision';
 
 export interface PlaceFloor {
   id: string; x: number; z: number; y: number; width: number; depth: number;
   foundation?: 'solid' | 'open'; color?: string; rails?: boolean;
+  /** Convex, world-space outline for earth-backed terrain; bounds still describe the sampling envelope. */
+  outline?: readonly Position2D[];
+  supports?: boolean;
 }
 export interface PlaceConnection {
   id: string; from: RoutePoint; to: RoutePoint; width: number; stairs?: boolean; color?: string; foundation?: 'solid' | 'open';
+  outline?: readonly Position2D[]; rails?: boolean;
 }
 export interface PlaceFixture {
   x: number; y: number; z: number; width: number; height: number; depth: number;
   color?: string; solid?: boolean;
+  yaw?: number;
 }
 /** A place is inhabited floor area and its connections, rather than an isolated scenic crossing. */
 export interface VerticalPlace {
@@ -21,7 +27,7 @@ export interface VerticalPlace {
   fixtures?: readonly PlaceFixture[];
 }
 export const getVerticalPlaces = (scene: THREE.Object3D): readonly VerticalPlace[] => scene.userData.verticalPlaces ?? [];
-const contains = (f: PlaceFloor, x: number, z: number, margin = 0) => Math.abs(x-f.x) <= f.width/2+margin && Math.abs(z-f.z) <= f.depth/2+margin;
+const contains = (f: PlaceFloor, x: number, z: number, margin = 0) => Math.abs(x-f.x) <= f.width/2+margin && Math.abs(z-f.z) <= f.depth/2+margin && (!f.outline || insideFootprint(f.outline,x,z));
 
 export function withVerticalPlaces<T extends RegionWorld>(world: T, places: readonly VerticalPlace[]): T {
   const surfaces: WalkSurface[] = [...getWalkSurfaces(world.scene)];
@@ -34,12 +40,34 @@ export function withVerticalPlaces<T extends RegionWorld>(world: T, places: read
     let m=materials.get(color); if (!m) { m=new THREE.MeshStandardMaterial({color,roughness:.82,flatShading:true}); materials.set(color,m); } return m;
   };
   let parent: THREE.Object3D = root;
-  function box(x:number,y:number,z:number,w:number,h:number,d:number,color:string,solid=true) {
+  function box(x:number,y:number,z:number,w:number,h:number,d:number,color:string,solid=true,yaw=0) {
     if (w<=0 || h<=0 || d<=0) return;
     const mesh=new THREE.Mesh(unit,mat(color)); mesh.position.set(x,y,z); mesh.scale.set(w,h,d);
-    mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);
-    if(solid) obstacles.push({minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2,minY:y-h/2,maxY:y+h/2});
+    mesh.rotation.y=yaw;mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);
+    if(solid) {
+      const footprint=yaw ? [[-w/2,-d/2],[w/2,-d/2],[w/2,d/2],[-w/2,d/2]].map(([dx,dz])=>({x:x+dx*Math.cos(yaw)+dz*Math.sin(yaw),z:z-dx*Math.sin(yaw)+dz*Math.cos(yaw)})) : undefined;
+      obstacles.push({minX:footprint?Math.min(...footprint.map(p=>p.x)):x-w/2,maxX:footprint?Math.max(...footprint.map(p=>p.x)):x+w/2,minZ:footprint?Math.min(...footprint.map(p=>p.z)):z-d/2,maxZ:footprint?Math.max(...footprint.map(p=>p.z)):z+d/2,minY:y-h/2,maxY:y+h/2,footprint});
+    }
     return mesh;
+  }
+  function earth(outline: readonly Position2D[], height: (x:number,z:number)=>number, color:string) {
+    if (outline.length < 3 || outline.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.z))) throw new Error('Invalid terrain outline');
+    // Validate convexity and reject zero-area edges before constructing collision.
+    let winding = 0;
+    for(let i=0;i<outline.length;i++) {
+      const a=outline[i],b=outline[(i+1)%outline.length],c=outline[(i+2)%outline.length];
+      const cross=(b.x-a.x)*(c.z-b.z)-(b.z-a.z)*(c.x-b.x);
+      if(Math.hypot(b.x-a.x,b.z-a.z)<1e-5 || Math.abs(cross)<1e-5 || winding && Math.sign(cross)!==winding) throw new Error('Terrain outline must be strictly convex');
+      winding=Math.sign(cross);
+    }
+    const points=winding>0?[...outline].reverse():[...outline];
+    const top=points.map(p=>[p.x,height(p.x,p.z),p.z]), n=points.length;
+    const vertices=[...top,...points.map(p=>[p.x,-.04,p.z])].flat(), indices:number[]=[];
+    for(let i=1;i<n-1;i++) indices.push(0,i,i+1,n,n+i+1,n+i);
+    for(let i=0;i<n;i++){const j=(i+1)%n;indices.push(i,n+i,n+j,i,n+j,j);}
+    const geometry=new THREE.BufferGeometry(); geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+    geometry.setIndex(indices);geometry.computeVertexNormals();geometries.push(geometry);
+    const mesh=new THREE.Mesh(geometry,mat(color));mesh.castShadow=mesh.receiveShadow=true;parent.add(mesh);
   }
   const allFloors=places.flatMap(p=>p.floors), allConnections=places.flatMap(p=>p.connections);
   const seenPlaces=new Set(getVerticalPlaces(world.scene).map(p=>p.id));
@@ -58,8 +86,11 @@ export function withVerticalPlaces<T extends RegionWorld>(world: T, places: read
       const key=id(f.id);
       if(![f.x,f.y,f.z,f.width,f.depth].every(Number.isFinite)||f.y<0||f.width<1||f.depth<1)throw new Error(`Invalid floor ${key}`);
       const color=f.color??'#b8b2a2', thick=f.foundation==='solid'?Math.max(.26,f.y+.04):.26;
-      box(f.x,f.y-thick/2,f.z,f.width,thick,f.depth,color,f.y>.1);
-      surfaces.push({id:key,routeId:place.id,minX:f.x-f.width/2,maxX:f.x+f.width/2,minZ:f.z-f.depth/2,maxZ:f.z+f.depth/2,axis:'x',startHeight:f.y,endHeight:f.y,solidBelow:f.foundation==='solid'});
+      if(f.outline) {
+        if(f.foundation!=='solid'||f.rails!==false||f.outline.some(p=>Math.abs(p.x-f.x)>f.width/2+.001||Math.abs(p.z-f.z)>f.depth/2+.001))throw new Error(`Terrain outline outside floor bounds: ${key}`);
+        earth(f.outline,()=>f.y,color);
+      } else box(f.x,f.y-thick/2,f.z,f.width,thick,f.depth,color,f.y>.1);
+      surfaces.push({id:key,routeId:place.id,minX:f.x-f.width/2,maxX:f.x+f.width/2,minZ:f.z-f.depth/2,maxZ:f.z+f.depth/2,axis:'x',startHeight:f.y,endHeight:f.y,solidBelow:f.foundation==='solid',footprint:f.outline});
       if(f.y<.5) continue;
       if(f.rails!==false) for(const axis of ['x','z'] as const) for(const side of [-1,1]) {
         const length=axis==='x'?f.width:f.depth, sections=Math.ceil(length/2);
@@ -75,7 +106,7 @@ export function withVerticalPlaces<T extends RegionWorld>(world: T, places: read
           obstacles.push({minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2,minY:f.y,maxY:f.y+1.13});
         }
       }
-      if(f.foundation!=='solid' && f.y>2.3) for(const dx of [-1,1])for(const dz of [-1,1]) {
+      if(f.supports!==false && f.foundation!=='solid' && f.y>2.3) for(const dx of [-1,1])for(const dz of [-1,1]) {
         const x=f.x+dx*(f.width/2-.4),z=f.z+dz*(f.depth/2-.4);
         // Supports stop at the highest underlying floor, avoiding columns that
         // intersect every storey at once when decks are stacked.
@@ -89,9 +120,13 @@ export function withVerticalPlaces<T extends RegionWorld>(world: T, places: read
       const key=id(c.id), a=c.from,b=c.to,dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);
       if(![a.x,a.y,a.z,b.x,b.y,b.z,c.width].every(Number.isFinite)||!len||(dx!==0&&dz!==0)||c.width<2.4||Math.abs(b.y-a.y)/len>.5+1e-7||a.y<0||b.y<0)throw new Error(`Invalid connection ${key}`);
       const axis=dx!==0?'x':'z', low=(axis==='x'?a.x<b.x:a.z<b.z)?a:b,high=low===a?b:a;
-      surfaces.push({id:key,routeId:place.id,axis,minX:axis==='x'?low.x:a.x-c.width/2,maxX:axis==='x'?high.x:a.x+c.width/2,minZ:axis==='z'?low.z:a.z-c.width/2,maxZ:axis==='z'?high.z:a.z+c.width/2,startHeight:low.y,endHeight:high.y,solidBelow:c.foundation==='solid'});
+      const envelope=c.outline?{minX:Math.min(...c.outline.map(p=>p.x)),maxX:Math.max(...c.outline.map(p=>p.x)),minZ:Math.min(...c.outline.map(p=>p.z)),maxZ:Math.max(...c.outline.map(p=>p.z))}:{};
+      surfaces.push({id:key,routeId:place.id,axis,minX:axis==='x'?low.x:a.x-c.width/2,maxX:axis==='x'?high.x:a.x+c.width/2,minZ:axis==='z'?low.z:a.z-c.width/2,maxZ:axis==='z'?high.z:a.z+c.width/2,...envelope,startHeight:low.y,endHeight:high.y,solidBelow:c.foundation==='solid',footprint:c.outline});
       const color=c.color??'#bcb6a8';
-      if(c.stairs && a.y!==b.y && c.foundation!=='solid') {
+      if(c.outline) {
+        if(c.foundation!=='solid'||c.rails!==false||c.outline.some(p=>p[axis]<low[axis]-.001||p[axis]>high[axis]+.001))throw new Error(`Invalid terrain connection outline: ${key}`);
+        earth(c.outline,(x,z)=>low.y+(high.y-low.y)*((axis==='x'?x:z)-low[axis])/len,color);
+      } else if(c.stairs && a.y!==b.y && c.foundation!=='solid') {
         const count=Math.ceil(Math.abs(b.y-a.y)/.15),run=len/count;
         for(let n=0;n<count;n++) {
           const t=(n+.5)/count,top=a.y+(b.y-a.y)*(b.y>a.y?(n+1)/count:n/count);
@@ -105,6 +140,7 @@ export function withVerticalPlaces<T extends RegionWorld>(world: T, places: read
       }
       // Side guards stop inside landings, allowing lateral circulation across
       // broad floors instead of turning every connection into a fenced chute.
+      if(c.rails===false) continue;
       const count=Math.ceil(len/2);
       for(const side of [-1,1])for(let n=0;n<count;n++) {
         const t=(n+.5)/count,y=a.y+(b.y-a.y)*t,x=a.x+dx*t+(axis==='z'?side*(c.width/2+.08):0),z=a.z+dz*t+(axis==='x'?side*(c.width/2+.08):0);
@@ -119,8 +155,8 @@ export function withVerticalPlaces<T extends RegionWorld>(world: T, places: read
       }
     }
     for(const f of place.fixtures??[]) {
-      if(![f.x,f.y,f.z,f.width,f.height,f.depth].every(Number.isFinite)||f.width<=0||f.height<=0||f.depth<=0)throw new Error(`Invalid fixture in ${place.id}`);
-      box(f.x,f.y,f.z,f.width,f.height,f.depth,f.color??'#a8a49a',f.solid!==false);
+      if(![f.x,f.y,f.z,f.width,f.height,f.depth,f.yaw??0].every(Number.isFinite)||f.width<=0||f.height<=0||f.depth<=0)throw new Error(`Invalid fixture in ${place.id}`);
+      box(f.x,f.y,f.z,f.width,f.height,f.depth,f.color??'#a8a49a',f.solid!==false,f.yaw);
     }
   }
   // Repeat rails, stair treads and room fixtures share one box geometry. Batch

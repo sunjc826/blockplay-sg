@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { RegionWorld } from './regions';
-import type { Obstacle } from './region-collision';
+import { insideFootprint, type Obstacle, type Position2D } from './region-collision';
 
 export interface WalkSurface {
   id: string;
@@ -9,6 +9,7 @@ export interface WalkSurface {
   axis: 'x' | 'z';
   startHeight: number; endHeight: number;
   solidBelow?: boolean;
+  footprint?: readonly Position2D[];
 }
 export interface TraversalObstacle extends Obstacle { minY: number; maxY: number }
 export interface RoutePoint { x: number; z: number; y: number }
@@ -28,6 +29,10 @@ export interface VerticalRoute {
 export const getWalkSurfaces = (scene: THREE.Object3D): readonly WalkSurface[] => scene.userData.walkSurfaces ?? [];
 export const getTraversalObstacles = (scene: THREE.Object3D): readonly TraversalObstacle[] => scene.userData.traversalObstacles ?? [];
 export const getVerticalRoutes = (scene: THREE.Object3D): readonly VerticalRoute[] => scene.userData.verticalRoutes ?? [];
+export function surfaceContains(s: WalkSurface, x: number, z: number, margin = 0) {
+  return x >= s.minX-margin-1e-5 && x <= s.maxX+margin+1e-5 && z >= s.minZ-margin-1e-5 && z <= s.maxZ+margin+1e-5 &&
+    (!s.footprint || insideFootprint(s.footprint, x, z));
+}
 export function surfaceHeight(surface: WalkSurface, x: number, z: number) {
   const low = surface.axis === 'x' ? surface.minX : surface.minZ;
   const high = surface.axis === 'x' ? surface.maxX : surface.maxZ;

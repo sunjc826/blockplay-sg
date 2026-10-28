@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { BUKIT_TIMAH_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
-import { withVerticalPlaces } from './vertical-places';
+import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 
 // On the corridor verge, under the truss bridge, looking up at the ridge.
 export const BUKIT_TIMAH_SPAWN = { x: 60, z: 16, yaw: Math.PI / 2 };
@@ -32,6 +32,38 @@ export const BUKIT_TIMAH_MAP_ROADS = [
  * the storm canal behind. Compressed for play; see docs/WEST-DISTRICT-REVIEW.md for researched
  * corrections. Hindhede approach Street View is reviewed; railway facade uses URA photography.
  */
+// Contours taper and change direction instead of forming four rectangular decks.
+// Each band shares its exact edge with the next; the terrain mesh is the walking plane.
+const HILL_ROWS = [
+  { z:30, y:4, left:-201, right:-143 }, { z:20, y:4, left:-207, right:-148 },
+  { z:0, y:12, left:-199, right:-146 }, { z:-10, y:12, left:-205, right:-154 },
+  { z:-30, y:20, left:-197, right:-153 }, { z:-40, y:20, left:-191, right:-145 },
+  { z:-60, y:28, left:-190, right:-156 }, { z:-70, y:28, left:-181, right:-156 },
+];
+const bandOutline = (a: typeof HILL_ROWS[number], b: typeof a) => [
+  {x:a.left,z:a.z}, {x:a.right,z:a.z}, {x:b.right,z:b.z}, {x:b.left,z:b.z},
+];
+const BUKIT_TIMAH_HILL: VerticalPlace = {
+  id:'bukit-timah-climb', name:'Bukit Timah winding ridge trails',
+  note:'Irregular earth-backed contours, branching footpaths and open clearings. Compressed gameplay terrain, not surveyed topography.',
+  floors: [0,2,4,6].map(i => {
+    const a=HILL_ROWS[i],b=HILL_ROWS[i+1],left=Math.min(a.left,b.left),right=Math.max(a.right,b.right);
+    return {id:`hill-contour-${a.y}`,x:(left+right)/2,z:(a.z+b.z)/2,y:a.y,width:right-left,depth:a.z-b.z,foundation:'solid',rails:false,color:i===6?'#9b9c71':'#7e9a5e',outline:bandOutline(a,b)};
+  }),
+  connections: [
+    ...[-193,-157].map((x,i)=>({id:i?'east-trailhead':'west-trailhead',from:{x,y:0,z:42},to:{x,y:4,z:30},width:5,foundation:'solid' as const,rails:false,color:'#c2b599'})),
+    ...[1,3,5].map((i,n)=>{
+      const a=HILL_ROWS[i],b=HILL_ROWS[i+1];
+      return {id:`continuous-earth-slope-${n}`,from:{x:-175,y:a.y,z:a.z},to:{x:-175,y:b.y,z:b.z},width:5,foundation:'solid' as const,rails:false,color:n%2?'#718e53':'#779257',outline:bandOutline(a,b)};
+    }),
+  ],
+  fixtures:[
+    {x:-175,y:29.5,z:-65,width:5,height:3,depth:5,color:'#adaca2'},
+    ...[[-200,23,4],[-149,26,4],[-199,-6,12],[-151,-2,12],[-191,-32,20],[-149,-39,20],[-183,-63,28]].map(([x,z,y])=>({x,z,y:y+5,width:.8,height:10,depth:.8,color:'#6f5740'})),
+    ...[[-199,13,6.8],[-149,1,11.6],[-199,-16,14.4],[-151,-34,20],[-186,-53,25.2]].map(([x,z,y])=>({x,z,y:y+.6,width:2.7,height:1.6,depth:3,color:'#b3b2a8'})),
+  ],
+};
+
 export function buildBukitTimahScene() {
   const kit = createSceneKit({
     background: '#c9dad6', fogNear: 280, fogFar: 880,
@@ -79,28 +111,30 @@ export function buildBukitTimahScene() {
   }
 
   /** Forested ridge: terraces stepping up under dense canopy, to a marker. */
-  function ridge(x: number, z: number) {
-    // The former nested solid boxes have become genuinely traversable contours.
-    // Trees sit on the outer margins, leaving both branching ascent lanes clear.
-    for (const [tz, y] of [[25, 4], [-5, 12], [-35, 20], [-65, 28]]) {
-      for (const dx of [-29, 29]) {
-        cylinder(x + dx, y + 5, tz, .5, 10, wood);
-        blob(x + dx, y + 11, tz, 5, 3, 5, leaf);
-      }
+  function ridge() {
+    // Staggered canopy and rock outcrops frame alternating views up the climb.
+    for (const [x,z,y] of [[-200,23,4],[-149,26,4],[-199,-6,12],[-151,-2,12],[-191,-32,20],[-149,-39,20],[-183,-63,28]]) {
+      cylinder(x,y+5,z,.5,10,wood);
+      blob(x,y+11,z,5,3,5,leaf);
     }
-    // Mark two trails on the continuous traversable earth slopes. These thin
-    // wearing surfaces are visual; the broad earth prism supplies movement.
-    for (const [tz, y] of [[20, 4], [-10, 12], [-40, 20]]) for (const dx of [-18, 18]) {
-      const trail = box(x + dx, y + 4.035, tz - 10, 5, .06, Math.hypot(20, 8), paving);
-      trail.rotation.x = Math.atan2(8, 20);
+    // Two meandering paths cross broad traversable slopes; their edges are not fences.
+    const trails=[[-193,-191,-187,-191,-184,-182,-180,-175],[-157,-160,-159,-164,-162,-155,-163,-169]];
+    for(const xs of trails) for(let i=0;i<HILL_ROWS.length-1;i++) {
+      const a=HILL_ROWS[i],b=HILL_ROWS[i+1],ax=xs[i],bx=xs[i+1],half=1.65;
+      const g=geo(new THREE.BufferGeometry());
+      g.setAttribute('position',new THREE.Float32BufferAttribute([
+        ax-half,a.y+.045,a.z, ax+half,a.y+.045,a.z,
+        bx+half,b.y+.045,b.z, bx-half,b.y+.045,b.z,
+      ],3));g.setIndex([0,1,2,0,2,3]);g.computeVertexNormals();
+      const trail=new THREE.Mesh(g,paving);trail.receiveShadow=true;scene.add(trail);
     }
-    z = -65;
-    // Summit: a trig marker on its plinth, with a rail around the clearing.
-    // Summit plinth is supplied as a bounded solid fixture below.
+    for(const [x,z,y] of [[-199,13,6.8],[-149,1,11.6],[-199,-16,14.4],[-151,-34,20],[-186,-53,25.2]]) {
+      blob(x,y+.8,z,2.2,1.4,2.5,stone);
+    }
     const marker = new THREE.Mesh(geo(new THREE.ConeGeometry(1.8, 4.4, 4)), pale);
-    marker.position.set(x, 34.6, z); marker.castShadow = true; scene.add(marker);
-    for (let n = 0; n < 10; n++) { const a = n * Math.PI / 5; cylinder(x + Math.cos(a) * 9, 31.4, z + Math.sin(a) * 9, 0.12, 1.8, steel); }
-    sign('BUKIT TIMAH SUMMIT', x, 36, z + 12, 26, 2.2, '#2f5140');
+    marker.position.set(-175,34.6,-65);marker.castShadow=true;scene.add(marker);
+    sign('SUMMIT / RIDGE TRAILS', -175, 5.8, 32, 19, 1.5, '#2f5140');
+    sign('BUKIT TIMAH SUMMIT', -175, 36, -53, 26, 2.2, '#2f5140');
   }
 
   /** Rail corridor: ballast, sleepers and rails, under a keeping of tall grass. */
@@ -224,7 +258,7 @@ export function buildBukitTimahScene() {
     }
   }
 
-  ridge(-175, -25);
+  ridge();
   corridor(CORRIDOR_X);
   railwayStation();
   trussBridge(CORRIDOR_X, 40);
@@ -269,146 +303,5 @@ export function buildBukitTimahScene() {
         else { person.position.z = -60 + ((time * 1.1 + index * 23) % 150); person.rotation.y = Math.PI; }
       });
     },
-  }), [
-  {
-    "id": "bukit-timah-climb",
-    "name": "Bukit Timah branching summit trails",
-    "note": "Replaces the inaccessible decorative hill mass with four broad inhabited terrain contours and two connected ascent lanes reaching the summit marker. Heights and trail alignment are compressed gameplay terrain.",
-    "floors": [
-      {
-        "id": "hill-contour-4",
-        "x": -175,
-        "z": 25,
-        "y": 4,
-        "width": 64,
-        "depth": 10,
-        "color": "#7e9a5e",
-        "foundation": "solid"
-      },
-      {
-        "id": "hill-contour-12",
-        "x": -175,
-        "z": -5,
-        "y": 12,
-        "width": 64,
-        "depth": 10,
-        "color": "#7e9a5e",
-        "foundation": "solid"
-      },
-      {
-        "id": "hill-contour-20",
-        "x": -175,
-        "z": -35,
-        "y": 20,
-        "width": 64,
-        "depth": 10,
-        "color": "#7e9a5e",
-        "foundation": "solid"
-      },
-      {
-        "id": "hill-contour-28",
-        "x": -175,
-        "z": -65,
-        "y": 28,
-        "width": 48,
-        "depth": 10,
-        "color": "#7e9a5e",
-        "foundation": "solid"
-      }
-    ],
-    "connections": [
-      {
-        "id": "west-trailhead",
-        "from": {
-          "x": -193,
-          "y": 0,
-          "z": 42
-        },
-        "to": {
-          "x": -193,
-          "y": 4,
-          "z": 30
-        },
-        "width": 5,
-        "stairs": false,
-        "foundation": "solid"
-      },
-      {
-        "id": "east-trailhead",
-        "from": {
-          "x": -157,
-          "y": 0,
-          "z": 42
-        },
-        "to": {
-          "x": -157,
-          "y": 4,
-          "z": 30
-        },
-        "width": 5,
-        "stairs": false,
-        "foundation": "solid"
-      },
-      {
-        "id": "continuous-earth-slope-0",
-        "from": {
-          "x": -175,
-          "y": 4.0,
-          "z": 20
-        },
-        "to": {
-          "x": -175,
-          "y": 12.0,
-          "z": 0
-        },
-        "width": 64,
-        "foundation": "solid",
-        "color": "#779257"
-      },
-      {
-        "id": "continuous-earth-slope-1",
-        "from": {
-          "x": -175,
-          "y": 12.0,
-          "z": -10
-        },
-        "to": {
-          "x": -175,
-          "y": 20.0,
-          "z": -30
-        },
-        "width": 64,
-        "foundation": "solid",
-        "color": "#779257"
-      },
-      {
-        "id": "continuous-earth-slope-2",
-        "from": {
-          "x": -175,
-          "y": 20.0,
-          "z": -40
-        },
-        "to": {
-          "x": -175,
-          "y": 28.0,
-          "z": -60
-        },
-        "width": 48,
-        "foundation": "solid",
-        "color": "#779257"
-      }
-    ],
-    "fixtures": [
-      {
-        "x": -175,
-        "y": 29.5,
-        "z": -65,
-        "width": 5,
-        "height": 3,
-        "depth": 5,
-        "color": "#adaca2"
-      }
-    ]
-  }
-]);
+  }), [BUKIT_TIMAH_HILL]);
 }

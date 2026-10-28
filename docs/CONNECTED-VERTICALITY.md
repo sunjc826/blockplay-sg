@@ -53,3 +53,107 @@ Repeated place geometry uses instanced rendering; movement surfaces use spatial 
 927 tests across101 files, typecheck and production build passed. All19 districts were rendered in84 aerial, entry and player-eye views, with zero JavaScript errors and zero Google requests. Targeted views were refreshed after visual corrections. Real browser walking covered Orchard FPS and exploration ascent, authoritative actor height, jump/landing and prone. All19 districts retain valid vehicle spawn/exit points; vehicle-only collision projections block the new terrain and low structural pieces while keeping clear underpasses usable.
 
 The images still show sparse furnishings and deliberately blocky terrain in places. These checks establish substantial connected playable spaces, not finished architectural interiors, measured geographic fidelity or physical-device performance certification.
+
+## October 3 level-design audit and first revision
+
+The earlier access pass made upper floors reachable; it did not finish the level
+layouts. Inspection of the scene builders and player-eye renders found:
+
+- Sixteen of nineteen district builders use `kit.streetGrid`. The repeated
+  through-roads, right-angle junctions and perimeter loop make movement similar
+  even when landmark silhouettes differ. The other three predate that helper;
+  their absence from this count is not evidence of better layouts.
+- Orchard repeats almost the same four-sided gallery and stair arrangement for
+  three malls. A different facade does not give each interior a different route.
+- Chinatown's ordinary shophouse doors were decorative panels on solid masses.
+  The open market was usable, but did not supply the intimate rooms, rear exits
+  and street-to-building transitions implied by the surrounding architecture.
+- Many opened buildings read as roofed platforms. Sparse counters and signs do
+  not provide enclosed rooms, controlled views or a useful sheltered alternative.
+- Bukit Timah's climb used broad rectangular green ramps, repeated parallel paths
+  and guardrails. It offered real elevation but looked and played like an outdoor
+  circulation structure rather than a hillside.
+- Upper loot already provides a reason to climb, but patrol spawns remain at
+  street height. Height and access alone do not establish varied encounter design.
+
+This revision changes three contrasting districts, not all nineteen:
+
+- **Chinatown:** two Smith Street shops at x=-28 and x=8, z=57 now have offset
+  front/rear doors, a clear ground shortcut, goods shelves and a 3 m loft with
+  stairs. Their side walls support the lofts, avoiding columns in the doorways.
+- **Orchard:** Wisma's north galleries contain enclosed book/reading rooms with
+  offset entrances, a diagonal shelving partition and clear routes around it.
+  Each mall also has a second stair between its 5 m and 10 m galleries, allowing
+  a return circuit instead of requiring the same upper stair in both directions.
+- **Bukit Timah:** the same four elevations now have tapering, offset terrain
+  boundaries, unfenced meandering paths, staggered trees and rock outcrops. The
+  hill still has steep faceted sides; this is a first layout revision, not finished
+  natural topography or a terrain-engine replacement.
+
+Convex terrain footprints and rotated fixtures now share their actual plan shape
+with infantry collision. Terrain also supplies vehicle footprints and filters
+upper-loot/navigation samples. Existing rectangular geometry keeps its previous
+behavior. Outlined terrain is restricted to solid, unrailed convex bands with
+axis-aligned elevation gradients; arbitrary terrain heightfields are not implied.
+
+The major street layouts remain unchanged. The next substantive pass should
+replace district-specific routes through the blocks—courtyards and kinked alleys
+in shop districts, service/loading loops in industrial districts, and contour
+routes in park districts—while updating road maps, spawn/sector anchors and
+vehicle clearance together. More identical rooms or extra bridges would not
+address that remaining problem.
+
+Local before views: `.cache/level-design-before/`. New eye-height room and trail
+views: `.cache/level-design-detail/`; the capture report records runtime errors
+and external map requests. The review page accepts an optional camera pose for
+spaces that its automatic largest-floor view misses. Route regressions exercise
+both directions through the doors, stairs and winding trail with the wider
+exploration walker, plus exact terrain/fixture collision and bot/loot support.
+
+Validation for this revision: 984 tests across107 files and production build /
+typecheck pass. Live FPS and exploration ascent passed; FPS also checked
+camera/authoritative height, elevated jumping/landing and prone. Seven dedicated
+room/trail views reported zero runtime errors and zero external map requests.
+The production build retains its existing bundle-size advisory.
+
+## October 28 resumption
+
+The October 3 work still supports walking through the shops, ascending the
+retail galleries and following the hill trails. This follow-up addresses three
+remaining integration/layout gaps:
+
+- Smith Street lofts now have open windows toward the street and rear lane.
+  The actual wall is segmented, with a 1.2 m parapet above the loft and its
+  existing guard. Rendered rays and host cover both see through the opening;
+  standing movement still meets the parapet. These remain authored gameplay
+  interiors, without new claims about the real buildings.
+- Orchard's offset bookshop doors were missed by the bot graph's nine floor
+  samples. Supported approach points at tall wall/shelf corners now connect the
+  room in both directions on all three levels. Rails, posts and low props are
+  excluded from the added samples to bound graph growth. Edges still use the
+  walking kernel and incremental search.
+- Footprints reached infantry movement in the original pass, but vehicle driving,
+  vehicle spawn/route clearance and authoritative shot tests still treated them
+  as their enclosing rectangles. Those consumers now retain the convex shape.
+  Shot tests also clip the solid sloped terrain and its top face to the outline.
+  Cars retain their existing rectangular body envelope and street-height rules.
+
+To reproduce the detailed visual review, run
+`node scripts/review-verticality.mjs orchard chinatown bukit-timah --details`
+with Vite and isolated Chrome CDP running at the script's configured origins.
+The command adds room, return-stair, loft-window and trail views to the normal
+place views. The latest local gallery is
+`.cache/verticality-review/index.html`: 29 captures, no JavaScript errors and
+no Google requests. Use HMR disabled for the separate
+`scripts/verticality-smoke.mjs` movement fixture, as its header requires;
+full-page development reloads otherwise discard its camera instrumentation.
+
+Regressions cover supported bot routes through the reading room, real mesh and
+host rays through each loft window, retained parapet collision, unequal vehicle
+half-extents, both polygon windings, and authoritative rounds beside solid
+flat/sloped terrain. Live browser walking verifies FPS/exploration ascent,
+authoritative actor height, elevated jumping/landing and prone. District-scale
+street layouts and the hill's faceted topography still need a later design pass.
+
+Final validation: all 1,565 tests across 161 files, typecheck and production
+build passed after the window change. The existing bundle-size advisory remains.

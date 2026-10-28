@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CHINATOWN_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
-import { withVerticalPlaces } from './vertical-places';
+import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 
 export const CHINATOWN_SPAWN = { x: -55, z: 80, yaw: -Math.PI / 2 };
 export const CHINATOWN_BOUNDS = { minX: -250, maxX: 250, minZ: -210, maxZ: 210 };
@@ -44,11 +44,58 @@ export function buildChinatownScene() {
   box(0, -0.6, 0, 560, 1, 480, paving);
   kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });
 
+  const shopInteriors: VerticalPlace[] = [];
+
   /** Two-storey terrace with a five-foot way, shutters and a pitched roof. */
   function shophouseRow(startX: number, z: number, count: number, facing: 1 | -1, width = 12, paleFacade = false) {
     for (let i = 0; i < count; i++) {
       const x = startX + i * width, body = paleFacade ? plaster : shopColors[(i + (z > 0 ? 2 : 0)) % shopColors.length];
-      box(x, 5.2, z, width - 0.4, 10.4, 15, body, scene, true); solid(x, z, width, 15);
+      const enterable = (z === 57 && (i === 2 || i === 5));
+      if (!enterable) { box(x, 5.2, z, width - 0.4, 10.4, 15, body, scene, true); solid(x, z, width, 15); }
+      else {
+        const color='#d9cbb3';
+        // Two doors create a street-to-service-lane shortcut. The loft overlooks
+        // the shop, with its staircase on the opposite side from the entrance.
+        shopInteriors.push({
+          id:`smith-shop-${i}`,name:i===2?'Smith Street tea house':'Smith Street provisions',
+          note:'Enterable shop, rear lane exit and mezzanine with open street/lane sightlines; authored gameplay interior.',
+          floors:[
+            {id:'shop-floor',x,z,y:0,width:11.6,depth:14.6,rails:false,color:'#c0ad8d'},
+            {id:'loft-west',x:x-3.8,z,y:3,width:3.6,depth:14,rails:true,supports:false,color:'#9c7859'},
+            {id:'loft-rear',x:x+1.7,z:z-5.2,y:3,width:7.4,depth:3.6,supports:false,color:'#9c7859'},
+          ],
+          connections:[{id:'shop-stair',from:{x:x+3.4,z:z+4.1,y:0},to:{x:x+3.4,z:z-3.4,y:3},width:2.8,stairs:true}],
+          fixtures:[
+            ...[-1,1].map(side=>({x:x+side*5.8,z,y:5.2,width:.4,height:10.4,depth:15,color})),
+            // Front door is offset from the rear exit; the shop isn't a straight tunnel.
+            {x:x-4.9,z:z+7.3,y:2.1,width:1.8,height:4.2,depth:.4,color},
+            {x:x+2.9,z:z+7.3,y:2.1,width:5.8,height:4.2,depth:.4,color},
+            {x:x-3.9,z:z-7.3,y:2.1,width:3.8,height:4.2,depth:.4,color},
+            {x:x+3.9,z:z-7.3,y:2.1,width:3.8,height:4.2,depth:.4,color},
+            // Loft windows sit above a 1.2 m parapet. Split the actual wall so
+            // the elevated street/rear-lane views work for both rays and players.
+            ...[-1,1].flatMap(side=>[
+              {x,z:z+side*7.3,y:8.1,width:11.6,height:4.6,depth:.4,color},
+              {x,z:z+side*7.3,y:5,width:3.6,height:1.6,depth:.4,color},
+              ...[-1,1].map(edge=>({x:x+edge*5.1,z:z+side*7.3,y:5,width:1.4,height:1.6,depth:.4,color})),
+            ]),
+            {x,z,y:10.2,width:11.6,height:.3,depth:14.6,color},
+            {x:x-4.5,z:z+1,y:1.1,width:1.7,height:2.2,depth:3.2,color:'#80654d'},
+            {x:x-4.4,z:z-1,y:3.6,width:1.3,height:1.2,depth:2.4,color:'#80654d'},
+          ],
+        });
+        sign(i===2?'TEA HOUSE · OPEN':'PROVISIONS · OPEN',x,3.6,z+7.56,8,.7,'#385c4a');
+        sign('REAR LANE',x,2.7,z-6.9,3,.45,'#66523e');
+        for(const side of [-1,1]) for(const dx of [-3.1,3.1]) {
+          box(x+dx,4.18,z+side*7.35,2.8,.12,.55,wood);
+          box(x+dx,5.82,z+side*7.35,2.8,.12,.55,wood);
+        }
+        // Goods remain against the solid shelf; the middle aisle stays clear.
+        for(const y of [.45,1.15,1.85]) {
+          box(x-3.61,y-.18,z+1,.18,.08,3,plaster);
+          for(const dz of [-1,0,1]) cylinder(x-3.57,y,z+1+dz,.16,.3,i===2?jade:canopyYellow);
+        }
+      }
       const front = z + facing * 7.5;
       // Pitched terracotta roof with small tile courses.
       for (const side of [-1, 1]) { const roof = box(x, 11, z + side * 4.2, width, 0.4, 9.4, terra, scene, true); roof.rotation.x = side * 0.2; }
@@ -69,7 +116,7 @@ export function buildChinatownScene() {
         for (let y = 6.2; y < 9; y += 0.42) box(x + dx, y, front + facing * 0.24, 2.1, 0.13, 0.16, plaster);
         box(x + dx, 9.5, front + facing * 0.3, 2.9, 0.26, 0.4, plaster);
       }
-      box(x, 2.1, front + facing * 0.12, 3.4, 4.2, 0.2, wood);
+      if (!enterable) box(x, 2.1, front + facing * 0.12, 3.4, 4.2, 0.2, wood);
       box(x + width / 2 - 1.4, 6.2, front + facing * 0.5, 0.9, 5.4, 0.3, i % 2 ? lacquer : jade);
       for (const dy of [-1.6, 0, 1.6]) box(x + width / 2 - 1.4, 6.2 + dy, front + facing * 0.68, 0.55, 0.55, 0.1, gold);
       // Red lantern pair at the walkway edge.
@@ -280,7 +327,7 @@ export function buildChinatownScene() {
         person.rotation.y = -Math.PI / 2;
       });
     },
-  }), [
+  }), [...shopInteriors,
   {
     "id": "complex-market",
     "name": "Chinatown Complex market and dining level",
