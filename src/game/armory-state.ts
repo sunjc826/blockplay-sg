@@ -204,6 +204,8 @@ export interface WornVision { id: string; name: string; spec: VisionSpec }
 /** `mobility` is armor bulk only; equipmentMovement resolves final player motion.
  * `armorWeightKg` is everything worn: rig, inserts and a head-mounted device. */
 export interface ResolvedLoadout { vision?: WornVision;
+  /** Catalog identities used by the worn first person equipment. */
+  rigId: string; plateId: string;
   /** What the inserts are rated for and what else they do (armor-inserts). */
   insert: InsertTraits; carriedFamilies: number[]; armorWeightKg: number; suppliesWeightKg: number; weapons: EquippedWeapon[]; armor: number; absorption: number; mobility: number; rigName: string; plateName: string; vehicleSkins: Record<VehicleKind, string>;
   quickItem?: ShopItem; quickCount: number;
@@ -234,7 +236,7 @@ export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
     return spec;
   });
   const quickItem = itemById(profile.quickItem);
-  return { vision, weapons, carriedFamilies: carriedFamilies(profile), armorWeightKg: (rig.weightKg ?? 0) + (plate.weightKg ?? 0) + (visionItem?.weightKg ?? 0), suppliesWeightKg: beltWeightKg(profile.consumables, supplyWeightKg), supplies: heldSupplies(profile.consumables), vehicleSkins: { ...profile.vehicleSkins }, quickItem, quickCount: profile.consumables[profile.quickItem] || 0, armor: plate.protection || 0, absorption: plate.absorption || 0, insert: insertTraits(plate), mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };
+  return { rigId: rig.id, plateId: plate.id, vision, weapons, carriedFamilies: carriedFamilies(profile), armorWeightKg: (rig.weightKg ?? 0) + (plate.weightKg ?? 0) + (visionItem?.weightKg ?? 0), suppliesWeightKg: beltWeightKg(profile.consumables, supplyWeightKg), supplies: heldSupplies(profile.consumables), vehicleSkins: { ...profile.vehicleSkins }, quickItem, quickCount: profile.consumables[profile.quickItem] || 0, armor: plate.protection || 0, absorption: plate.absorption || 0, insert: insertTraits(plate), mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };
 }
 /** Preview may temporarily own the selected item; it never mutates the actual wallet. */
 export function previewLoadout(profile: ArmoryProfile, item: ShopItem, family: number) {

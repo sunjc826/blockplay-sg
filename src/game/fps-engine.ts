@@ -10,6 +10,7 @@ import { seatPoint, type VehicleControls } from './vehicle-seats';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage, stanceRecoilMultiplier } from './fps-stance';
 import { pickupSlot, restoreCarrySlots } from './armory-slots';
 import { equipmentMovement } from './fps-encumbrance';
+import { createFpsBody } from './fps-body';
 import { buildServiceWeapon } from './service-weapon-models';
 import { impactSurfaceNormal } from './fps-impact-normal';
 import { hitSurface } from './fps-surfaces';
@@ -263,6 +264,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const scopeRenderer = createScopeRenderer(renderer);
   const opticReflections = createOpticReflectionRenderer(renderer);
   const rig = new THREE.Group(); viewScene.add(rig);
+  const playerBody = createFpsBody(world.scene);
   // Hands and the supply in them; `apply` lands its effect at the commit point and says whether it could.
   const supplyHands = createSupplyViewmodel(viewScene);
   let supplyUse: (SupplyUse & { name: string; id: string; fromBelt: boolean; apply: () => boolean }) | null = null;
@@ -1246,12 +1248,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.vehicleCamera = JSON.stringify({ x: camera.position.x, y: camera.position.y, z: camera.position.z });
   }
   function updateCameras(dt: number, moving: boolean, sprinting: boolean) {
+    playerBody.root.visible = false;
     // Bounded camera-relative inertia, driven by angle deltas (not frame rate).
     const yawDelta = Math.atan2(Math.sin(yaw - lastLookYaw), Math.cos(yaw - lastLookYaw));
     lookLagX = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagX + yawDelta * .025, -.003, .003), 0, 12, dt);
     lookLagY = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagY - (pitch - lastLookPitch) * .025, -.003, .003), 0, 12, dt);
     lastLookYaw = yaw; lastLookPitch = pitch;
     if (vehicles.mounted && !vehicles.canUseFirearm) {
+      canvas.dataset.body = JSON.stringify({ visible: false, rig: equipment.rigId, plate: equipment.plateId,
+        slots: playerBody.root.userData.magazineSlots, magazines: playerBody.root.userData.magazines });
       actualAim = ads || touchAim; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0);
       updateVehicleCamera(dt); return;
     }
@@ -1265,6 +1270,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const speed = carry.length(), onGround = grounded();
     const sideSpeed = carry.x * Math.cos(yaw) - carry.z * Math.sin(yaw);
     const forwardSpeed = -carry.x * Math.sin(yaw) - carry.z * Math.cos(yaw);
+    playerBody.update(dt, equipment, loadout, {
+      x: position.x, y: vertical, z: position.z, yaw, activeFamily: hud.weapon,
+      velocity: { x: sideSpeed, z: -forwardSpeed }, turn: dt > 0 ? yawDelta / dt : 0,
+      crouch: poseStance === 'crouch' ? 1 : 0, prone: poseStance === 'prone', airborne: !onGround,
+      visible: rig.visible && hud.health > 0 && !vehicles.active,
+    });
+    canvas.dataset.body = JSON.stringify({ visible: playerBody.root.visible, rig: equipment.rigId, plate: equipment.plateId,
+      slots: playerBody.root.userData.magazineSlots, magazines: playerBody.root.userData.magazines });
     const step = advanceBodyMotion(bodyMotion, eyeHeight(), poseStance, speed, onGround, sprinting && speed > .2, sideSpeed, forwardSpeed, dt);
     if (step && hud.phase === 'playing') movementSound(poseStance === 'prone' ? .18 : poseStance === 'crouch' ? .25 : sprinting ? .65 : .4);
     const motionScale = motionPreference?.matches ? 0 : 1;
@@ -2573,7 +2586,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility);
       // First, so every mesh has its own material back before anything else restores or disposes them.
       vision.dispose();
-      void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); world.dispose();
+      void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
       healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); sunShadows.dispose(); occlusion.dispose(); renderer.dispose(); canvas.remove();

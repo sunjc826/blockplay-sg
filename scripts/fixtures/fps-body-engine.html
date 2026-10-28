@@ -1,0 +1,9 @@
+<!doctype html><html><head><meta charset="utf-8"><title>First person body engine smoke</title>
+<style>html,body,#game{margin:0;width:100%;height:100%;overflow:hidden}canvas{display:block;width:100%;height:100%}</style></head><body><div id="game"></div>
+<script type="module">
+import { createFpsEngine } from '/src/game/fps-engine.ts';
+import { createProfile, resolveLoadout } from '/src/game/armory-state.ts';
+const profile=createProfile();profile.rig='rig-sentinel';profile.plate='plate-steel';profile.consumables={'kit-ammo':1};profile.quickItem='kit-ammo';
+const equipment=resolveLoadout(profile);equipment.weapons.forEach(spec=>spec.reserve=0);
+window.engine=createFpsEngine(document.querySelector('#game'),hud=>window.hud=hud,{loadout:equipment,region:'marina-bay'});
+</script></body></html>

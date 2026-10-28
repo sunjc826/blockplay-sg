@@ -1,0 +1,29 @@
+<!doctype html><html><head><meta charset="utf-8"><title>First person body equipment</title>
+<style>body{margin:0;background:#202a30}canvas{display:block}.labels{position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);pointer-events:none}.labels span{padding:18px;color:#fff;font:14px system-ui;text-shadow:0 1px 3px #000}</style></head>
+<body><div class="labels"></div><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import { createFpsBody } from '/src/game/fps-body.ts';
+import { createProfile, resolveLoadout } from '/src/game/armory-state.ts';
+import { createLoadout } from '/src/game/fps-rules.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(1);renderer.setScissorTest(true);document.body.append(renderer.domElement);
+const feeds=new URLSearchParams(location.search).has('feeds');
+const scenarios=feeds ? [['SAR · MAGAZINES','rig-sentinel','plate-ceramic',3,{},0],['P30 · PISTOL MAGAZINES','rig-sentinel','plate-ceramic',3,{},2],['ULTIMAX · DRUMS','rig-sentinel','plate-ceramic',3,{},1],['FN MAG · AMMO BOXES','rig-sentinel','plate-ceramic',3,{},3],['CIS 50MG · AMMO BOXES','rig-sentinel','plate-ceramic',3,{},4],['MG4 · AMMO BOXES','rig-sentinel','plate-ceramic',3,{},7]] : [['ILBV · EMPTY POUCHES','rig-ilbv','plate-none',0,{}],['ILBV · CERAMIC · 3 MAGAZINES','rig-ilbv','plate-ceramic',3,{}],['LBS · STEEL · 8 SLOTS','rig-lbs','plate-steel',8,{}],['SENTINEL · DURIAN · 9 SLOTS','rig-sentinel','plate-durian',9,{}],['CROUCH · AEGIS','rig-lbs','plate-elite',5,{crouch:1}],['PRONE · PILLBOX','rig-sentinel','plate-pillbox',9,{prone:true}]];
+document.querySelector('.labels').innerHTML=scenarios.map(([label])=>`<span>${label}</span>`).join('');
+window.bodies=[];
+scenarios.forEach(([label,rig,plate,count,stance,family=0],index)=>{
+ const scene=new THREE.Scene();scene.background=new THREE.Color('#303e43');
+ scene.add(new THREE.HemisphereLight('#e5f3ff','#555344',2.4));const light=new THREE.DirectionalLight('#fff0d9',3.2);light.position.set(-2,4,-3);scene.add(light);
+ const grid=new THREE.GridHelper(100,100,'#677c7f','#45595e');scene.add(grid);
+ const body=createFpsBody(scene),equipment=resolveLoadout({...createProfile(),rig,plate});
+ if(feeds)equipment.carriedFamilies=[family];
+ const states=createLoadout(equipment.weapons);
+ states.forEach(s=>s.reserve=0);states[family].reserve=count*equipment.weapons[family].capacity;
+ for(let f=0;f<120;f++)body.update(1/60,equipment,states,{x:0,y:0,z:0,yaw:0,visible:true,activeFamily:family,...stance});
+ const camera=new THREE.PerspectiveCamera(65,(innerWidth/3)/(innerHeight/2),.08,100);
+ camera.position.set(0,stance.prone ? .55 : stance.crouch ? 1.15 : 1.75,0);camera.rotation.x=-1.35;
+ const w=innerWidth/3,h=innerHeight/2,x=index%3*w,y=(1-Math.floor(index/3))*h;
+ renderer.setViewport(x,y,w,h);renderer.setScissor(x,y,w,h);renderer.render(scene,camera);
+ window.bodies.push({slots:body.root.userData.magazineSlots,magazines:body.root.userData.magazines});
+ if(feeds){window.feeds??=[];window.feeds.push(body.root.getObjectByName('magazine-slot-0').userData.container);}
+});window.ready=true;
+</script></body></html>
