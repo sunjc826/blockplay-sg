@@ -65,7 +65,7 @@ const MOUNTS: Record<string, Mount> = {
 };
 
 /** A holographic sight's window: about 30 by 23 mm, scaled up a little for the viewmodel. */
-export const HOLO_WINDOW: SightWindow = { width: .04, height: .031, corner: .004 };
+export const HOLO_WINDOW: SightWindow = { width: .042, height: .032, corner: .0045 };
 /**
  * How high a holographic sight is raised off a platform's rail. The Ultimax's
  * carry handle (axis y .309, radius .015, back end z .02) would otherwise fill
@@ -144,45 +144,102 @@ export function buildSightHousing(group: THREE.Group, platform: string, sight: S
       box(unit, .042, riser, .074, 0, mount.base + riser / 2, z);
       for (const side of [-1, 1]) box(unit, .002, riser * .5, .044, side * .0205, mount.base + riser * .52, z, dark);
     }
-    // The base carries the laser diode, the electronics and a transverse
-    // battery; it runs past the hood at the back, where the buttons are.
-    box(unit, .046, .021, .096, 0, base + .0105, z + .004);
-    box(unit, .05, .006, .07, 0, base + .003, z + .004);
-    // Battery cap on the right at the front, knurled, and the QD throw lever on the left.
-    tube(unit, .0095, .006, .026, base + .0115, z - .03, edge).rotation.set(0, 0, Math.PI / 2);
-    tube(unit, .0075, .003, .0305, base + .0115, z - .03, dark).rotation.set(0, 0, Math.PI / 2);
-    box(unit, .004, .008, .034, -.0265, base + .004, z + .006, dark).rotation.y = -.06;
-    box(unit, .006, .011, .008, -.0275, base + .006, z + .024, edge);
-    // Brightness up and down, and the night-vision button, on the left at the back.
-    for (const buttonZ of [.026, .038]) box(unit, .004, .009, .009, -.0235, base + .012, z + buttonZ, edge);
-    box(unit, .003, .006, .005, -.0235, base + .012, z + .048, dark);
-    // The hood: one piece, broader at the shoulders than over the top, the
-    // window a rounded landscape rectangle through it.
-    const hoodLength = .062, hoodZ = z - .006, lip = .0016;
-    const outer = new THREE.Shape(), halfBottom = .0275, halfTop = .0235, top = height / 2 + .0068, bottom = -height / 2 - .0035, round = .0065;
-    outer.moveTo(-halfBottom, bottom); outer.lineTo(halfBottom, bottom);
-    outer.lineTo(halfTop + .0012, top - round); outer.quadraticCurveTo(halfTop, top, halfTop - round, top);
-    outer.lineTo(-halfTop + round, top); outer.quadraticCurveTo(-halfTop, top, -halfTop - .0012, top - round);
-    outer.closePath();
-    outer.holes.push(roundedRect(width, height, corner));
-    const hood = mesh(unit, new THREE.ExtrudeGeometry(outer, { depth: hoodLength - lip * 2, bevelEnabled: true, bevelThickness: lip, bevelSize: .0009, bevelSegments: 2, curveSegments: 6 }),
-      body, 0, centre, hoodZ - hoodLength / 2 + lip);
-    hood.name = 'sight-holo-hood';
-    // A darker frame inside the window, so the opening reads as a recess rather than a hole.
-    for (const end of [-1, 1]) {
-      const frame = roundedRect(width + .0016, height + .0016, corner + .0008);
-      frame.holes.push(roundedRect(width - .0014, height - .0014, corner - .0007));
-      mesh(unit, new THREE.ShapeGeometry(frame, 6), dark, 0, centre, hoodZ + end * (hoodLength / 2 - .0055)).rotation.y = end > 0 ? 0 : Math.PI;
+    // EXPS-style proportions: a low electronics chassis, transverse battery
+    // ahead of the window, and a separate folded protective hood. Reference:
+    // https://www.eotechinc.com/products/eotech-hws-exps3
+    const chassis = box(unit, .048, .022, .094, 0, base + .011, z + .001);
+    chassis.name = 'sight-holo-electronics';
+    box(unit, .054, .006, .074, 0, base + .003, z + .004, dark);
+    // Transverse CR123 compartment with a knurled cap on the right.
+    const battery = tube(unit, .012, .051, 0, base + .013, z - .036);
+    battery.rotation.set(0, 0, Math.PI / 2); battery.name = 'sight-holo-battery';
+    tube(unit, .0125, .005, .028, base + .013, z - .036, dark).rotation.set(0, 0, Math.PI / 2);
+    tube(unit, .0105, .0015, .031, base + .013, z - .036, body).rotation.set(0, 0, Math.PI / 2);
+    for (let i = 0; i < 20; i++) {
+      const angle = i * Math.PI / 10;
+      const ridge = box(unit, .004, .001, .0018, .028, base + .013 + Math.cos(angle) * .0125, z - .036 + Math.sin(angle) * .0125, edge);
+      ridge.rotation.x = -angle;
     }
-    // The front window: plain protective glass, the holographic window behind it carries the reticle.
-    const pane = new THREE.MeshPhysicalMaterial({ color: '#a9c6cc', roughness: .06, metalness: 0, clearcoat: 1, transparent: true, opacity: .07, depthWrite: false, side: THREE.DoubleSide });
+    // QD lever and its lock sit below the side controls.
+    box(unit, .004, .007, .041, -.029, base + .005, z + .005, dark).rotation.y = -.08;
+    box(unit, .006, .009, .009, -.030, base + .006, z + .025, body);
+    const rubber = material('#15191a', .94, .02), hoodMetal = material('#3b4143', .65, .52);
+    const screw = (x: number, y: number, atZ: number, side = false) => {
+      const head = tube(unit, .0024, .0012, x, y, atZ, dark);
+      const slot = box(unit, .0024, .0005, .0004, x, y, atZ + .0007, edge);
+      if (side) {
+        head.rotation.set(0, 0, Math.PI / 2);
+        slot.position.x = x + Math.sign(x) * .0007; slot.position.z = atZ;
+        slot.rotation.y = Math.PI / 2;
+      }
+    };
+    // The rear electronics cover is visible below the window when aiming.
+    box(unit, .043, .018, .003, 0, base + .012, z + .049, rubber).name = 'sight-holo-rear-cover';
+    for (const side of [-1, 1]) {
+      screw(side * .018, base + .017, z + .051);
+      screw(side * .018, base + .005, z + .051);
+      screw(side * .032, base + .026, z + .018, true);
+    }
+    // Left-side rubber brightness keys, with raised +/- symbols and an NV key.
+    for (const [i, buttonZ] of [.022, .037].entries()) {
+      box(unit, .004, .009, .011, -.032, base + .013, z + buttonZ, rubber);
+      box(unit, .0005, .001, .004, -.0342, base + .013, z + buttonZ, edge);
+      if (i === 0) box(unit, .0005, .004, .001, -.0342, base + .013, z + buttonZ, edge);
+    }
+    tube(unit, .0038, .002, -.032, base + .028, z + .027, rubber).rotation.set(0, 0, Math.PI / 2);
+    // Recessed slotted windage/elevation adjusters on the opposite side.
+    for (const [height, depth] of [[.012, -.006], [.028, .012]]) {
+      tube(unit, .006, .002, .0305, base + height, z + depth, rubber).rotation.set(0, 0, Math.PI / 2);
+      tube(unit, .0045, .001, .0317, base + height, z + depth, body).rotation.set(0, 0, Math.PI / 2);
+      box(unit, .0005, .0007, .006, .0323, base + height, z + depth, dark);
+    }
+    // A small laser warning plate on the left shoulder, as on the reference.
+    box(unit, .0008, .008, .020, -.0302, base + .029, z + .002, material('#b6a24b', .8, .1));
+    for (let i = 0; i < 3; i++) box(unit, .0003, .0005, .011, -.0307, base + .027 + i * .0015, z + .004, dark);
+
+    // The optical core and its rubber gasket sit inside an independent hood.
+    // A short hood and the air gap at its shoulders avoid a red-dot tube silhouette.
+    const hoodLength = .046, hoodZ = z + .010, lip = .0007;
+    const outer = new THREE.Shape(), halfBottom = .0305, halfTop = .0265;
+    const top = height / 2 + .006, bottom = -height / 2 - .021, round = .007;
+    outer.moveTo(-halfBottom, bottom); outer.lineTo(halfBottom, bottom);
+    outer.lineTo(halfBottom, -height / 2 - .002);
+    outer.lineTo(halfTop, top - round);
+    outer.quadraticCurveTo(halfTop, top, halfTop - round, top);
+    outer.lineTo(-halfTop + round, top);
+    outer.quadraticCurveTo(-halfTop, top, -halfTop, top - round);
+    outer.lineTo(-halfBottom, -height / 2 - .002); outer.closePath();
+    outer.holes.push(roundedRect(width + .0048, height + .0048, corner + .0018));
+    const hoodGeometry = new THREE.ExtrudeGeometry(outer, { depth: hoodLength - lip * 2, bevelEnabled: true, bevelThickness: lip, bevelSize: .0005, bevelSegments: 2, curveSegments: 8 });
+    // The front of the hood sweeps down towards the battery. Its top is short;
+    // its lower cheeks extend over the chassis, matching the reference profile.
+    const hoodVertices = hoodGeometry.attributes.position;
+    for (let i = 0; i < hoodVertices.count; i++) {
+      const reach = 1 - THREE.MathUtils.smoothstep(hoodVertices.getY(i), -height / 2, height / 2);
+      if (hoodVertices.getZ(i) < hoodLength / 2) hoodVertices.setZ(i, hoodVertices.getZ(i) - reach * .018);
+    }
+    hoodGeometry.computeVertexNormals();
+    const hood = mesh(unit, hoodGeometry, hoodMetal, 0, centre, hoodZ - hoodLength / 2 + lip);
+    hood.name = 'sight-holo-hood';
+    const core = roundedRect(width + .0026, height + .0026, corner + .0013);
+    core.holes.push(roundedRect(width, height, corner));
+    const coreZ = hoodZ - hoodLength / 2 + .004;
+    mesh(unit, new THREE.ExtrudeGeometry(core, { depth: hoodLength - .009, bevelEnabled: false, curveSegments: 8 }),
+      rubber, 0, centre, coreZ).name = 'sight-holo-window-gasket';
+    for (const end of [-1, 1]) {
+      const frame = roundedRect(width + .001, height + .001, corner + .0005);
+      frame.holes.push(roundedRect(width - .001, height - .001, corner - .0005));
+      mesh(unit, new THREE.ShapeGeometry(frame, 8), body, 0, centre, hoodZ + end * (hoodLength / 2 - .004)).rotation.y = end > 0 ? 0 : Math.PI;
+    }
+    // Plain protective front pane. Holographic glass is almost flat and clear,
+    // unlike the conspicuously curved, reflective combiner in a reflex sight.
+    const pane = new THREE.MeshPhysicalMaterial({ color: '#d3dfe2', roughness: .05, metalness: 0, clearcoat: 1, transparent: true, opacity: .035, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true });
     materials.push(pane);
-    const front = mesh(unit, new THREE.ShapeGeometry(roundedRect(width - .0012, height - .0012, corner - .0006), 6), pane, 0, centre, hoodZ - hoodLength / 2 + .006);
-    front.renderOrder = 0;
-    const rear = hoodZ + hoodLength / 2 - .007;
-    // The lens circle reaches the window's corners; the hood hides the rest of it.
-    main = { x: 0, y: centre, lensZ: rear, glassZ: rear - .001, radius: Math.hypot(width / 2, height / 2) + .001, aimDepth: platform === 'ultimax-inspired' ? -.47 : -.46, roll: 0,
-      window: HOLO_WINDOW };
+    const front = mesh(unit, new THREE.ShapeGeometry(roundedRect(width - .0012, height - .0012, corner - .0006), 8), pane, 0, centre, coreZ + .001);
+    front.name = 'sight-holo-front-pane'; front.renderOrder = 0;
+    const rear = hoodZ + hoodLength / 2 - .006;
+    main = { x: 0, y: centre, lensZ: rear, glassZ: rear - .001, radius: Math.hypot(width / 2, height / 2) + .001,
+      aimDepth: platform === 'ultimax-inspired' ? -.36 : -.35, roll: 0, window: HOLO_WINDOW };
   } else if (sight === 'prism') {
     const unit = new THREE.Group(); unit.name = 'sight-prism'; group.add(unit);
     const axis = mount.base + .042, length = .13, z = mount.z - .035;

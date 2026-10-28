@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { WeaponSpec } from './fps-rules';
 import { opticMagnification } from './fps-rules';
 import { buildReflexHousing } from './weapon-reflex';
-import { buildSightHousing } from './weapon-sight-housings';
+import { buildSightHousing, roundedRect, type SightWindow } from './weapon-sight-housings';
 import { createOpticGlass, type OpticGlass } from './weapon-glass';
 import { enemyOptic } from './enemy-weapon-layout';
 import { scopeReticleFor, scopeReticleGlsl, type ScopeReticle } from './scope-reticles';
@@ -10,7 +10,7 @@ import { scopeReticleFor, scopeReticleGlsl, type ScopeReticle } from './scope-re
 export interface WeaponSight {
   aimHeight: number; aimDepth: number; radius: number; magnification: number;
   visibility: { value: number };
-  lens: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
+  lens: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
   reflection?: OpticGlass;
   /** The etched pattern, for magnified sights only. */
   reticle?: ScopeReticle;
@@ -20,15 +20,16 @@ export interface WeaponSight {
   offset?: WeaponSight;
 }
 const sights = new WeakMap<THREE.Object3D, WeaponSight>();
-/** The holographic ring's angular radius in the viewmodel's view: 65 MOA across in the world. */
-const HOLO_RING = '0.0076';
+// EOTECH 0-reticle: 68 MOA ring and 1 MOA centre dot. Convert world angles
+// (65° FOV) to the viewmodel's 54° FOV, keeping the reticle target-relative.
+const HOLO_RING = (Math.tan(THREE.MathUtils.degToRad(68 / 120)) * Math.tan(THREE.MathUtils.degToRad(27)) / Math.tan(THREE.MathUtils.degToRad(32.5))).toFixed(7);
 export const getWeaponSight = (root: THREE.Object3D) => sights.get(root);
 
 /**
  * One lens: a live scope picture with its etching when magnified, otherwise a
  * collimated dot (with a holographic ring when `ring`) and its bloom.
  */
-function createLens(magnification: number, radius: number, reticle: ScopeReticle | undefined, ring: boolean) {
+function createLens(magnification: number, radius: number, reticle: ScopeReticle | undefined, ring: boolean, window?: SightWindow) {
   const magnified = magnification > 1.01;
   const visibility = { value: magnified ? 0 : 1 };
   const lensMaterial = new THREE.MeshBasicMaterial({ color: '#ffffff', side: magnified ? THREE.DoubleSide : THREE.FrontSide, forceSinglePass: true, transparent: true, depthWrite: false });
@@ -104,16 +105,23 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
       float angle = length(angularPosition);
       float angularAA = max(fwidth(angle), 0.00015);
       ${ring ? `
-      // A holographic sight's 1 MOA dot inside a 65 MOA ring. The viewmodel is
-      // drawn at 54 degrees and the world at 65, so these view angles are 0.8 of
-      // the world's: the ring spans 65 MOA of the scene. A 1 MOA dot is smaller
-      // than a pixel, so the dot is held to about two and the ring's line to one.
-      float dotRadius = max(0.00045, angularAA * 0.5);
-      float core = 1.0 - smoothstep(dotRadius, dotRadius + angularAA, angle);
-      float ringLine = max(0.00018, angularAA * 0.35);
-      core = max(core, (1.0 - smoothstep(ringLine, ringLine + angularAA, abs(angle - ${HOLO_RING}))) * 0.9);
+      // Thin 68 MOA speed ring, tiny centre, and four short cardinal ticks.
+      // Subpixel features get only enough AA coverage to remain visible.
+      float dotRadius = max(${HOLO_RING} / 68.0, angularAA * 0.22);
+      float core = 1.0 - smoothstep(dotRadius, dotRadius + angularAA * 0.65, angle);
+      float ringLine = max(0.00010, angularAA * 0.22);
+      float ringDistance = abs(angle - ${HOLO_RING});
+      vec2 axes = abs(angularPosition);
+      float tickDistance = length(vec2(min(axes.x, axes.y), max(max(axes.x, axes.y) - ${HOLO_RING} * 1.18, 0.0)));
+      // Signed distance to four outward radial strokes; keep the centre open.
+      float tick = (1.0 - smoothstep(ringLine, ringLine + angularAA * 0.7, tickDistance))
+        * smoothstep(${HOLO_RING} * 0.94, ${HOLO_RING}, max(axes.x, axes.y));
+      float ringCore = 1.0 - smoothstep(ringLine, ringLine + angularAA * 0.7, ringDistance);
+      // Restrained laser speckle, stable in angular coordinates (no time flicker).
+      float grain = fract(sin(dot(floor(angularPosition * 220000.0), vec2(12.9898, 78.233))) * 43758.5453);
+      core = max(core, max(ringCore, tick) * mix(0.78, 1.0, grain));
       ` : 'float core = 1.0 - smoothstep(0.0022, 0.0022 + angularAA, angle);'}
-      float aperture = 1.0 - smoothstep(0.46, 0.5, r);
+      ${window ? 'float aperture = 1.0; // Geometry clips the complete hologram to the rectangular window.' : 'float aperture = 1.0 - smoothstep(0.46, 0.5, r);'}
       if (sightBloom > 0.5) {
         // Add light around the emitter without replacing the scene behind it.
         // Both halo scales are angular, so they stay steady as the eye moves.
@@ -135,14 +143,18 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
         // A tiny warm centre gives the emitter depth while retaining the
         // original crisp aiming diameter. The bloom is a separate light layer.
         float hotCentre = exp(-angle * angle / ${ring ? '0.0000001' : '0.0000015'});
-        diffuseColor.rgb = mix(vec3(1.0, 0.025, 0.008), vec3(1.0, 0.55, 0.28), hotCentre);
+        diffuseColor.rgb = mix(vec3(1.0, 0.025, 0.008), vec3(1.0, ${ring ? '0.12, 0.035' : '0.55, 0.28'}), hotCentre);
         diffuseColor.a = core * aperture * sightVisibility * rise;
       }
       `}
     `);
   };
-  lensMaterial.customProgramCacheKey = () => magnified ? `scope-reticle-v4-${reticle}` : `reflex-reticle-v5${ring ? '-holo-v2' : ''}`;
-  const lensGeometry = new THREE.CircleGeometry(radius, 48);
+  lensMaterial.customProgramCacheKey = () => magnified ? `scope-reticle-v4-${reticle}` : `reflex-reticle-v5${ring ? '-holo-v3-window' : ''}`;
+  const lensGeometry = window ? new THREE.ShapeGeometry(roundedRect(window.width, window.height, window.corner), 8) : new THREE.CircleGeometry(radius, 48);
+  if (window) {
+    const positions = lensGeometry.attributes.position, uvs = lensGeometry.attributes.uv;
+    for (let i = 0; i < positions.count; i++) uvs.setXY(i, .5 + positions.getX(i) / (2 * radius), .5 + positions.getY(i) / (2 * radius));
+  }
   const lens = new THREE.Mesh(lensGeometry, lensMaterial); lens.name = 'fps-scope-lens';
   lens.visible = !magnified; lens.renderOrder = 2;
   let bloomMaterial: THREE.MeshBasicMaterial | undefined;
@@ -153,7 +165,7 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
       lensMaterial.onBeforeCompile(shader, renderer);
       shader.uniforms.sightBloom.value = 1;
     };
-    bloomMaterial.customProgramCacheKey = () => `reflex-bloom-v2${ring ? '-holo-v2' : ''}`;
+    bloomMaterial.customProgramCacheKey = () => `reflex-bloom-v2${ring ? '-holo-v3-window' : ''}`;
     const bloom = new THREE.Mesh(lensGeometry, bloomMaterial);
     bloom.name = 'fps-reflex-bloom'; bloom.renderOrder = 2;
     lens.renderOrder = 3;
@@ -196,7 +208,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   let scopeGlass: ReturnType<typeof createOpticGlass> | undefined;
   if (mount) {
     group.name = `fps-${fitted}-optic`;
-    scopeGlass = createOpticGlass(radius, magnified ? .0014 : .005, magnified ? 'scope' : 'reflex', reticle, mount.main.window);
+    scopeGlass = createOpticGlass(radius, magnified ? .0014 : mount.main.window ? .0003 : .005, magnified ? 'scope' : 'reflex', reticle, mount.main.window);
     scopeGlass.reflection.surface.position.set(0, aimHeight, mount.main.glassZ);
     group.add(scopeGlass.reflection.surface);
   } else if (built) {
@@ -216,7 +228,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
     scopeGlass.reflection.surface.position.set(0, aimHeight, rearZ + .0015);
     group.add(scopeGlass.reflection.surface);
   }
-  const main = createLens(magnification, radius, reticle, fitted === 'holo');
+  const main = createLens(magnification, radius, reticle, fitted === 'holo', mount?.main.window);
   main.lens.position.set(0, aimHeight, mount?.main.lensZ ?? built?.lens ?? (integrated ? rearZ + .001 : rearZ - .044)); group.add(main.lens);
   const sight: WeaponSight = { reticle, aimHeight, aimDepth: mount?.main.aimDepth ?? built?.aimDepth ?? (integrated ? -.36 : -.47), radius, magnification, lens: main.lens, visibility: main.visibility,
     reflection: scopeGlass?.reflection ?? housing?.reflection, aimX: 0, roll: 0 };

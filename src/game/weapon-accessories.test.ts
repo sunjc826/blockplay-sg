@@ -109,6 +109,26 @@ describe('the models', () => {
     expect(main.window!.width).toBeGreaterThan(main.window!.height);
     housing.dispose();
   });
+  it('clips the hologram and its bloom to the window while leaving its corners usable', () => {
+    for (const variant of ['sar-nightowl', 'ult-lights']) {
+      const model = new THREE.Group(), remove = fitWeaponOptic(model, resolved(variant));
+      const sight = getWeaponSight(model)!;
+      model.updateMatrixWorld(true);
+      const through = (x: number, y: number) => new THREE.Raycaster(new THREE.Vector3(x, sight.aimHeight + y, .5), new THREE.Vector3(0, 0, -1))
+        .intersectObject(sight.lens, true);
+      // The old circular reticle plane leaked beyond the rectangular aperture.
+      // Both reticle layers should cover an inside corner, but never its outside.
+      expect(through(.018, .012), variant).toHaveLength(2);
+      expect(through(.023, 0), variant).toHaveLength(0);
+      expect(through(0, .018), variant).toHaveLength(0);
+      // The centre remains clear through the complete metal housing from the eye.
+      const ray = new THREE.Raycaster(new THREE.Vector3(0, sight.aimHeight, -sight.aimDepth), new THREE.Vector3(0, 0, -1));
+      const opaque = ray.intersectObject(model.getObjectByName('sight-holo')!, true)
+        .filter(hit => !((hit.object as THREE.Mesh).material as THREE.Material).transparent);
+      expect(opaque, variant).toHaveLength(0);
+      remove();
+    }
+  });
   it('clamps a machine gun\u2019s sight to its feed cover, which it rides on a belt change, and folds the rear sight', () => {
     for (const id of ['mag-lepak', 'cis50-summit']) {
       const weapon = resolved(id), model = buildServiceWeapon(weapon.id)!;

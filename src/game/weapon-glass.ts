@@ -21,7 +21,7 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
     reflectionMap: { value: null }, reflectionViewToCapture: { value: new THREE.Matrix3() },
     reflectionReady: { value: 0 }, reflectionTanHalfFov: { value: Math.tan(THREE.MathUtils.degToRad(55)) },
   };
-  const material = new THREE.MeshPhysicalMaterial({ color: scope ? '#91bed0' : '#80c7c0', roughness: .12, metalness: .05,
+  const material = new THREE.MeshPhysicalMaterial({ color: scope ? '#91bed0' : window ? '#c4d4d8' : '#80c7c0', roughness: window ? .06 : .12, metalness: window ? 0 : .05,
     clearcoat: 1, clearcoatRoughness: .08, transparent: true, opacity: .09, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true });
   material.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, uniforms);
@@ -55,7 +55,7 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
       #include <opaque_fragment>
     `);
   };
-  material.customProgramCacheKey = () => `${profile}-scenery-glass-v4-${reticle ?? 'plain'}${window ? '-window' : ''}`;
+  material.customProgramCacheKey = () => `${profile}-scenery-glass-v4-${reticle ?? 'plain'}${window ? '-window-v2' : ''}`;
   const geometry = window ? new THREE.ShapeGeometry(roundedRect(window.width, window.height, window.corner), 8) : new THREE.RingGeometry(0, radius, 48, 8);
   const vertices = geometry.attributes.position, uvs = geometry.attributes.uv;
   for (let i = 0; i < vertices.count; i++) {
