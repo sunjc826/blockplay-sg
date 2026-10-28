@@ -939,7 +939,7 @@ off while thermal is on.
 Code: `vision-devices.ts` (specs, state, gain), `fps-vision.ts` (the thermal
 material swap and both post passes, which read the finished canvas back),
 `FpsVisionChip.tsx` (desktop HUD chip), `visionModel` in `armory-visuals.ts`
-(shop preview). Tests in `vision-devices.test.ts`. Gameplay values are
+(shop preview). Tests in `vision-devices.test.ts`; `pnpm test:fps:lens` watches both kinds switch in a browser. Gameplay values are
 fictional and the device names are game names, not real products.
 
 ## Announcements and mouse capture

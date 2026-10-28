@@ -60,6 +60,7 @@
     "test:fps:counter-fire": "node scripts/fps-counter-fire-smoke.mjs",
     "test:fps:field-kit": "node scripts/fps-field-kit-smoke.mjs",
     "test:fps:food": "node scripts/fps-food-smoke.mjs",
+    "test:fps:lens": "node scripts/fps-lens-vision-smoke.mjs",
     "analyse:weapons": "node --experimental-strip-types scripts/weapon-breakpoints.mjs",
     "analyse:cover": "node --experimental-strip-types scripts/cover-report.mjs",
     "sector:anchors": "node --experimental-strip-types scripts/sector-anchors.mjs",

@@ -32,6 +32,8 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   let lighting: LightingState = dayLighting(13);
   /** What the frame's light amounts to, for the parts of the view the scene's lights do not reach. */
   const output = { lighting, key: 1, ambient: 1, shadows: true, occlusion: true };
+  /** The air round the camera, eased like the light, for what lands on or glints in front of the lens (fps-lens). */
+  const air = { rain: 0, haze: 0, sunlight: 1, wind: 0, sheltered: false };
   const root = new THREE.Group(); root.name = 'world-atmosphere'; root.userData.fpsEffect = true; scene.add(root);
   const rainRoot = new THREE.Group(); root.add(rainRoot);
   const rainCount = 900, rainPositions = new Float32Array(rainCount * 6);
@@ -76,7 +78,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   let previousEvent: CelebrationId | undefined, lastCheck = -Infinity, lastNow = -Infinity;
   let active = resolveEnvironment(getEnvironmentSettings()), lastSettings = getEnvironmentSettings();
   const targetColor = new THREE.Color();
-  let wetness = 0, wind = 0, disposed = false, started = false;
+  let wetness = 0, wind = 0, haze = 0, sunlight = 1, disposed = false, started = false;
   const sample = (i: number, salt: number) => { const n = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453; return n - Math.floor(n); };
   const seeds = Array.from({ length: rainCount }, (_, i) => [sample(i, 1), sample(i, 2), sample(i, 3)]);
   // Index static roofs once; precipitation never scans the whole district per drop.
@@ -95,6 +97,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
     get light() { return output; },
     /** Resolved scene conditions, including the shared automatic conditions in multiplayer. */
     get conditions() { return active; },
+    get air() { return air; },
     update(dt: number, camera: THREE.Camera, now = Date.now()) {
       if (disposed) return;
       const settings = getEnvironmentSettings();
@@ -112,6 +115,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       targetColor.set(preset.sky).lerp(shiftColor.set(lighting.sky), lighting.skyWeight); background.lerp(targetColor, blend); fog.color.copy(background);
       fog.near += (preset.fogNear - fog.near) * blend; fog.far += (preset.fogFar - fog.far) * blend;
       wetness += (preset.rain - wetness) * blend; wind += (preset.wind - wind) * blend;
+      haze += ((active.weather === 'haze' ? 1 : 0) - haze) * blend; sunlight += (preset.sun - sunlight) * blend;
       const time = (now % 3600_000) / 1000;
       // A gentle cloud glow, never a full-screen white strobe. Disabled with reduced motion.
       const lightning = !reduced && active.weather === 'thunderstorm' ? Math.max(0, 1 - Math.abs(time % 23 - 1) / .4) * .16 : 0;
@@ -146,6 +150,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       sky.x = rainRoot.position.x; sky.y = rainRoot.position.y; sky.z = rainRoot.position.z;
       // Collider roofs provide shelter; low cover does not count as a roof.
       const sheltered = underRoof(sky.x, sky.y + .5, sky.z);
+      air.rain = wetness; air.haze = haze; air.sunlight = sunlight; air.wind = wind; air.sheltered = sheltered;
       const drops = Math.floor(rainCount * wetness * (reduced ? .25 : 1));
       rain.visible = drops > 0 && !sheltered; rainGeometry.setDrawRange(0, drops * 2);
       if (rain.visible) {

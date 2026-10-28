@@ -3628,3 +3628,31 @@ runs Solo vs bots in Chrome (host timer 239 → 237 s on the HUD, kick ×0.75).
 New `pnpm test:arena:lan:food` (two Chromes over WebRTC) could not run here:
 WebRTC never connects in this sandbox, not even two peers in one page, and the
 existing `test:arena:lan` fails at the same join step.
+
+
+## 2026-10-28: vision switching animations; sun flare, haze dust and lens rain
+
+Vision devices now animate on and off (`vision-devices.ts` `mount`/`fading`,
+shaders in `fps-vision.ts`). The body swings down from the top of the view
+(0.28 s) with the world visible round it and powers only once lowered, so the
+tube's gain and the thermal material swap wait for it. NVG lights centre-out
+with a brightness surge; thermal boots with a flat field, a top-down scan and a
+shutter flash. Off, the post pass holds the last frame: NVG phosphor afterglow
+(per-device `shutdown`), thermal folds to a line and a point; then it swings up.
+The post passes now draw premultiplied over the canvas. Reduced motion skips the
+swing and fade.
+
+New `fps-lens.ts` draws after the weapon, before the vision post: sun flare with
+occlusion read off the frame (sky = cleared background colour, eased in a 1×1
+target), haze dust in three angular depth layers with parallax and forward
+scattering, and simulated raindrops (land, merge, run, leave beads, dry under
+shelter or in vehicles) drawn as instanced quads that refract the frame. The
+atmosphere exposes eased `air` (rain, haze, sunlight, wind, sheltered).
+
+Validation: typecheck; full suite 1550/1550; build. New `pnpm test:fps:lens`
+CDP smoke passed in headless Chrome (Metal ANGLE) against Vite: flare at 1.0
+facing the afternoon sun, dust in haze, 55 drops in a storm drying after,
+NVG gen 1 and thermal T2 each swinging down, lighting, dying and swinging up,
+no page exceptions. Not checked: touch/phone layout, the arena, a software
+renderer. Committed in two parts without other sessions' uncommitted work in
+the same files (package.json, docs, fps-engine.ts).

@@ -96,6 +96,7 @@ import { ammoBlocked, ammoTarget, beltRoom, focusLoot, lootCard, MAX_RESERVE, wi
 import { createSunShadows } from './fps-sun-shadows';
 import { createWorldOcclusion } from './world-occlusion';
 import { createVisionSystem } from './fps-vision';
+import { createLensEffects } from './fps-lens';
 import { activePalette, advanceVision, createVisionState, cycleVisionPalette, stepVisionButton, toggleVision, type ThermalPalette, type VisionKind } from './vision-devices';
 
 export interface FpsArenaOptions { session: LanSession; botCount: number; composition?: string; profile: ArmoryProfile; environment?: ArenaEnvironment; initialVitals?: Partial<ArenaVitals> }
@@ -253,6 +254,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // Night vision and thermal (H, J for the palette): it draws over every pass below.
   const vision = createVisionSystem(renderer, { world: world.scene, view: viewScene });
   const visionState = createVisionState(!!expedition?.checkpoint?.vision && !!equipment.vision);
+  // Sun flare, haze dust and rain on the lens, over the world and weapon and under any vision device.
+  const lens = createLensEffects(renderer);
   // The weapon has its own scene, so it is lit to match the world's hour by hand: same key direction, colour and balance.
   const viewSky = new THREE.HemisphereLight('#e4efff', '#576350', 2.1); viewScene.add(viewSky);
   const weaponLight = new THREE.DirectionalLight('#fff4dd', 2.5); weaponLight.position.set(1, 2, 1); viewScene.add(weaponLight);
@@ -2475,6 +2478,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (reflectionCaptured) canvas.dataset.reflexCaptures = String(Number(canvas.dataset.reflexCaptures || 0) + 1);
     canvas.dataset.occlusion = String(occlusion.render(atmosphere.light.occlusion && !vision.thermal));
     renderer.clearDepth(); renderer.render(viewScene, viewCamera);
+    const { lighting } = atmosphere.light, air = atmosphere.air;
+    lens.present({ camera, dt: realDt, time: now / 1000, sun: lighting.key, elevation: lighting.elevation, sunColor: lighting.keyColor, dusk: lighting.shift,
+      sunlight: air.sunlight, haze: air.haze, rain: air.rain, wind: air.wind, sheltered: air.sheltered || !!vehicles.active,
+      sky: world.scene.background instanceof THREE.Color ? world.scene.background : null, thermal: vision.thermal,
+      reduced: getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
+    const lensTag = `${lens.status.flare.toFixed(2)}:${lens.status.dust.toFixed(2)}:${lens.status.drops}`;
+    if (lensTag !== canvas.dataset.lens) canvas.dataset.lens = lensTag;
     vision.end(visionSpec, visionState, now / 1000);
     const visionMotion = `${visionState.mount.toFixed(2)}:${visionState.fading.toFixed(2)}`;
     if (visionMotion !== canvas.dataset.visionMotion) canvas.dataset.visionMotion = visionMotion;
@@ -2587,7 +2597,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       document.removeEventListener('pointerlockchange', lockchange); document.removeEventListener('pointerlockerror', lockerror);
       window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility);
       // First, so every mesh has its own material back before anything else restores or disposes them.
-      vision.dispose();
+      vision.dispose(); lens.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
       healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
