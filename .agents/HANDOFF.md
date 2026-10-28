@@ -3686,3 +3686,24 @@ gallery has 29 captures with zero runtime errors or Google requests, at
 This pass is committed independently of unrelated edits from other active work.
 Street layout redesign, smoother terrain and combat balance remain outside this
 follow-up.
+
+## 2026-10-28: food models
+
+New `src/game/food-models.ts` builds all eight catalogue foods from primitives
+at real size: `held` (centred on the grip) for the supply viewmodel, `set` (the
+whole order: kaya toast with kopi and eggs, two curry puffs on greaseproof, the
+chicken rice packet with its chilli bag, bak kut teh with youtiao and dark soy,
+the ration bag and malt cup with crackers, heaped da la mala with rice, Ah Ma's
+tingkat, the smoking corner's bundled "cigar", bak kwa and Milo dinosaur) for
+the world. `fps-supply-viewmodel.ts` uses the held models in place of its
+inline shapes, keyed by catalogue id (a plain packet for anything unknown).
+`expedition-visuals.ts` sets food-stall loot on a hawker tray on a red stool
+instead of the crate, and dropped food lies on the ground as itself.
+
+Validation: typecheck; `food-models.test.ts` (every catalogue food has a model,
+held centred and hand-sized, set grounded and fits the tray); full suite 1579
+passed, with 5 district reachability tests timing out under parallel load that
+pass on their own (155/155). Visual check through
+`scripts/fixtures/food-models.html` (`?view=stall|ground|held|hands`) in the
+desktop browser pane. Not checked: a live expedition walk-up or eating in the
+running game, phone layout.

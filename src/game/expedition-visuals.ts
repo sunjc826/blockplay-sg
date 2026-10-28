@@ -10,6 +10,7 @@ import { WORLD_GATEWAYS, getWorldZone, type WorldZoneId } from './world-zones';
 import { createCharacterRig, hashString, type CharacterGesture, type CharacterRig } from './character-rig';
 import { npcCharacterLook, npcIdleGesture } from './character-looks';
 import { LOOT_TIER_COLORS } from './loot-focus';
+import { buildFoodModel } from './food-models';
 
 export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, loot: readonly FieldLoot[], npcs: readonly ExpeditionNpc[] = []) {
   const root = new THREE.Group(); root.name = 'expedition-markers'; root.userData.fpsEffect = true; scene.add(root);
@@ -94,6 +95,14 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
       drops.set(item.id, { group, resources: owned }); spot(item);
       return;
     }
+    const meal = item.kind === 'medical' ? buildFoodModel(item.catalogId ?? '') : null;
+    if (meal) {
+      // Food comes out as itself, set down on the ground.
+      owned.push(meal); group.add(meal.root); group.rotation.y = (hashString(item.id) % 628) / 100;
+      group.traverse(node => { node.userData.fpsEffect = true; });
+      drops.set(item.id, { group, resources: owned }); spot(item);
+      return;
+    }
     const caseGeometry = new THREE.BoxGeometry(.55, .28, .38), caseMaterial = new THREE.MeshStandardMaterial({ color: item.kind === 'medical' ? '#c9d1c4' : '#3f4a37', roughness: .8 });
     const lidGeometry = new THREE.BoxGeometry(.56, .05, .39), lidMaterial = new THREE.MeshStandardMaterial({ color: item.kind === 'medical' ? '#c43a32' : color, roughness: .7 });
     owned.push(caseGeometry, caseMaterial, lidGeometry, lidMaterial);
@@ -103,7 +112,21 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
     drops.set(item.id, { group, resources: owned }); spot(item);
   }
   for (const item of loot.filter(entry => entry.dropped || entry.beside)) addDrop(item);
+  // Food at a stall waits on a hawker tray on a red plastic stool, the tray's rim in its tier colour.
+  function addMeal(item: FieldLoot) {
+    const meal = item.kind === 'medical' ? buildFoodModel(item.catalogId ?? '') : null; if (!meal) return false;
+    const group = new THREE.Group(); group.position.set(item.x, item.y ?? 0, item.z); group.rotation.y = (hashString(item.id) % 628) / 100; root.add(group); pickups.set(item.id, group);
+    mesh(group,new THREE.CylinderGeometry(.16,.15,.03,20),'#c8302c',0,.435,0);
+    mesh(group,new THREE.CylinderGeometry(.13,.13,.031,20),'#a8231f',0,.437,0);
+    for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + i * Math.PI / 2, leg = mesh(group,new THREE.CylinderGeometry(.014,.018,.43,8),'#c8302c',Math.cos(a)*.12,.215,Math.sin(a)*.12); leg.rotation.set(Math.sin(a)*-.12,0,Math.cos(a)*.12); }
+    const brace = mesh(group,new THREE.TorusGeometry(.13,.008,6,24),'#c8302c',0,.13,0); brace.rotation.x = Math.PI/2;
+    mesh(group,new THREE.BoxGeometry(.36,.012,.27),tierColor(item.tier),0,.456,0);
+    mesh(group,new THREE.BoxGeometry(.33,.014,.24),'#5b7f6a',0,.458,0);
+    meal.root.position.y = .465; group.add(meal.root); resources.push(meal);
+    spot(item); return true;
+  }
   for (const item of loot.filter(entry => !entry.dropped && !entry.beside)) {
+    if (item.placement === 'food-stall' && addMeal(item)) continue;
     const group = new THREE.Group(); group.position.set(item.x, (item.y ?? 0) + .13, item.z); root.add(group); pickups.set(item.id,group);
     const color = tierColor(item.tier);
     mesh(group,new THREE.BoxGeometry(.9,.45,.55),'#35483d',0,.25,0);

@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- Every food as the world shows it: ?view=stall (default, each order on its hawker stool through
+     the real expedition markers) | held (the viewmodel's held models, close up) | ground (dropped)
+     | hands (the supply viewmodel mid-bite, one panel per food; &p=0..1 for the progress). -->
+<html><body style="margin:0;background:#111"><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import {FOOD_MODEL_IDS,buildFoodModel} from '/src/game/food-models.ts';
+import {itemById} from '/src/game/armory-catalog.ts';
+import {createExpeditionMarkers} from '/src/game/expedition-visuals.ts';
+import {createSupplyViewmodel} from '/src/game/fps-supply-viewmodel.ts';
+const params=new URLSearchParams(location.search),view=params.get('view')||'stall',W=innerWidth,H=innerHeight;
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(W,H);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#b8d0dc');
+scene.add(new THREE.HemisphereLight('#eef4ff','#5d5a4e',1.8));const sun=new THREE.DirectionalLight('#fff2dc',2.6);sun.position.set(2,4,3);scene.add(sun);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(40,40),new THREE.MeshStandardMaterial({color:'#9a948a',roughness:.95}));floor.rotation.x=-Math.PI/2;scene.add(floor);
+const camera=new THREE.PerspectiveCamera(30,W/H,.01,100);
+if(view==='hands'){
+  // Four by two panels, each the viewmodel camera on the hands eating one food.
+  const hands=new THREE.Scene();hands.background=new THREE.Color('#8fa7b3');hands.add(new THREE.HemisphereLight('#e4efff','#576350',2.1));const key=new THREE.DirectionalLight('#fff4dd',2.5);key.position.set(1,2,1);hands.add(key);
+  const supply=createSupplyViewmodel(hands),eye=new THREE.PerspectiveCamera(54,(W/4)/(H/2),.01,3);renderer.setScissorTest(true);
+  FOOD_MODEL_IDS.forEach((id,i)=>{supply.update('eat',Number(params.get('p')??.3),id);const x=(i%4)*W/4,y=(1-Math.floor(i/4))*H/2;renderer.setViewport(x,y,W/4,H/2);renderer.setScissor(x,y,W/4,H/2);renderer.render(hands,eye);});
+  window.ready=true;throw 0;
+}
+if(view==='held'){
+  FOOD_MODEL_IDS.forEach((id,i)=>{const m=buildFoodModel(id,'held');m.root.position.set((i%4-1.5)*.3,.6-Math.floor(i/4)*.28,0);m.root.rotation.x=.5;scene.add(m.root);});
+  floor.visible=false;camera.position.set(0,.75,1.5);camera.lookAt(0,.47,0);
+}else if(view==='ground'){
+  FOOD_MODEL_IDS.forEach((id,i)=>{const m=buildFoodModel(id,'set');m.root.position.set((i%4-1.5)*.38,0,(Math.floor(i/4)-.5)*.38);scene.add(m.root);});
+  camera.position.set(0,1.1,1.25);camera.lookAt(0,0,0);
+}else{
+  const loot=FOOD_MODEL_IDS.map((id,i)=>{const item=itemById(id);return {id:'f'+i,zoneId:'chinatown',kind:'medical',catalogId:id,name:item.name,tier:item.tier,x:(i%4-1.5)*.62,z:(Math.floor(i/4)-.5)*.75,y:0,amount:1,placement:'food-stall'};});
+  createExpeditionMarkers(scene,'chinatown',loot,[]);
+  camera.position.set(0,1.7,2.35);camera.lookAt(0,.3,0);
+}
+renderer.render(scene,camera);window.ready=true;
+</script></body></html>

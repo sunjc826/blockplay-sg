@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { supplyMotion, type Pose, type SupplyStyle } from './fps-healing';
+import { FOOD_MODEL_IDS, buildFoodModel } from './food-models';
 
 /**
  * The hands and the supply they hold, drawn in the viewmodel scene beside the
@@ -32,39 +33,12 @@ export function createSupplyViewmodel(parent: THREE.Object3D) {
   // Items, one group per style; only the one in use is shown.
   const items: Record<SupplyStyle, THREE.Group> = { eat: new THREE.Group(), bandage: new THREE.Group(), medkit: new THREE.Group(), plates: new THREE.Group(), ammo: new THREE.Group() };
   Object.values(items).forEach(group => { group.visible = false; root.add(group); });
-  // Food: a packed meal, re-shaped per item, shrinking with every bite.
+  // Food: the item itself (food-models), shrinking with every bite; a plain packed meal for anything else.
   const food = new THREE.Group(); items.eat.add(food);
-  const foods = {
-    toast: (() => { const g = new THREE.Group(); box(g, .1, .016, .085, material('#d7a35a', .9), 0, .012, 0); box(g, .1, .016, .085, material('#c18a43', .9), 0, -.012, 0); box(g, .092, .01, .078, material('#6f9b4a', .7)); return g; })(),
-    puff: (() => { const g = new THREE.Group(); const shell = mesh(g, new THREE.CylinderGeometry(.06, .06, .035, 16, 1, false, 0, Math.PI), material('#d9a24d', .85)); shell.rotation.x = Math.PI / 2; return g; })(),
-    packet: (() => { const g = new THREE.Group(); box(g, .11, .05, .09, material('#b48a5a', .95)); box(g, .112, .006, .03, material('#e9e2cf', .9), 0, .026, 0); return g; })(),
-    ration: (() => { const g = new THREE.Group(); box(g, .1, .06, .075, material('#5b6247', .9)); mesh(g, new THREE.CylinderGeometry(.026, .022, .07, 12), material('#7a4a2a', .6), .075, .01, 0); return g; })(),
-    // A takeaway bowl: peppery brown broth for bak kut teh, chilli-oil red for mala.
-    broth: (() => { const g = new THREE.Group(); mesh(g, new THREE.CylinderGeometry(.055, .038, .045, 18), material('#e8e1d2', .8)); mesh(g, new THREE.CylinderGeometry(.051, .051, .004, 18), material('#7a5232', .4), 0, .02, 0); return g; })(),
-    mala: (() => { const g = new THREE.Group(); mesh(g, new THREE.CylinderGeometry(.06, .04, .045, 18), material('#e8e1d2', .8)); mesh(g, new THREE.CylinderGeometry(.056, .056, .004, 18), material('#b8321c', .35), 0, .02, 0); return g; })(),
-    // The smoking corner's set: the "cigar", five cigarettes bundled into one with lit tips, a BBQ slab
-    // smoking over them, and a canteen Milo beside.
-    smoko: (() => {
-      const g = new THREE.Group(), paper = material('#ece8df', .85), filter = material('#c98a43', .8), ember = new THREE.MeshBasicMaterial({ color: '#ff6a2a' });
-      for (const [y, z] of [[0, 0], [.0085, .005], [.0085, -.005], [-.0085, .005], [-.0085, -.005]]) {
-        mesh(g, new THREE.CylinderGeometry(.004, .004, .07, 8), paper, -.035, y, z).rotation.z = Math.PI / 2;
-        mesh(g, new THREE.CylinderGeometry(.0041, .0041, .022, 8), filter, .009, y, z).rotation.z = Math.PI / 2;
-        mesh(g, new THREE.CylinderGeometry(.0042, .0042, .004, 8), ember, -.072, y, z).rotation.z = Math.PI / 2;
-      }
-      box(g, .075, .012, .045, material('#7a2e1c', .7), -.04, .03, 0); box(g, .07, .003, .04, material('#3b1a10', .9), -.04, .037, 0);
-      mesh(g, new THREE.CylinderGeometry(.03, .026, .085, 16), material('#2f6b3a', .5), .05, .02, 0);
-      mesh(g, new THREE.CylinderGeometry(.027, .027, .004, 16), material('#7a4e2c', .5), .05, .063, 0);
-      return g;
-    })(),
-    // Ah Ma's tingkat: four enamel tiers clipped together under a carry handle.
-    tingkat: (() => {
-      const g = new THREE.Group(), enamel = material('#d9e6dc', .45), band = material('#c2473a', .5);
-      for (let i = 0; i < 4; i++) { mesh(g, new THREE.CylinderGeometry(.045, .045, .028, 18), enamel, 0, -.045 + i * .03, 0); mesh(g, new THREE.CylinderGeometry(.0455, .0455, .004, 18), band, 0, -.032 + i * .03, 0); }
-      box(g, .006, .12, .006, material('#9aa3a0', .3), .05, .01, 0); box(g, .006, .12, .006, material('#9aa3a0', .3), -.05, .01, 0); box(g, .106, .006, .012, material('#9aa3a0', .3), 0, .072, 0);
-      return g;
-    })(),
-  };
-  Object.values(foods).forEach(g => food.add(g));
+  const models = FOOD_MODEL_IDS.map(foodId => buildFoodModel(foodId, 'held')!);
+  const foods = new Map<string, THREE.Object3D>(models.map((model, i) => [FOOD_MODEL_IDS[i], model.root]));
+  const packet = new THREE.Group(); box(packet, .11, .05, .09, material('#b48a5a', .95)); box(packet, .112, .006, .03, material('#e9e2cf', .9), 0, .026, 0);
+  foods.set('', packet); foods.forEach(g => food.add(g));
   // Dressing: a roll in the hand and the wrap growing round the left forearm.
   const gauze = material('#ebe7dc', .95);
   const roll = mesh(items.bandage, new THREE.CylinderGeometry(.03, .03, .065, 14), gauze); roll.rotation.z = Math.PI / 2;
@@ -100,8 +74,8 @@ export function createSupplyViewmodel(parent: THREE.Object3D) {
       wrap.visible = next === 'bandage' && motion.action > .02;
       injector.visible = next === 'medkit'; magazine.visible = next === 'ammo';
       if (next === 'eat') {
-        const kind = id.includes('toast') ? 'toast' : id.includes('puff') ? 'puff' : id.includes('ration') ? 'ration' : id.includes('kut-teh') ? 'broth' : id.includes('mala') ? 'mala' : id.includes('tingkat') ? 'tingkat' : id.includes('smoking') ? 'smoko' : 'packet';
-        Object.entries(foods).forEach(([key, g]) => g.visible = key === kind);
+        const kind = foods.has(id) ? id : '';
+        foods.forEach((g, key) => g.visible = key === kind);
         food.scale.set(motion.remaining, 1, .4 + motion.remaining * .6);
       }
       if (next === 'bandage') {
@@ -113,6 +87,6 @@ export function createSupplyViewmodel(parent: THREE.Object3D) {
       if (next === 'ammo') place(magazine, { ...motion.right, y: motion.right.y + .05 });
       return motion.weaponDown;
     },
-    dispose() { root.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
+    dispose() { models.forEach(model => model.dispose()); root.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
   };
 }
