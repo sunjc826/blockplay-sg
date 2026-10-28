@@ -26,7 +26,8 @@ Reviewers should follow alternate routes, inspect their entrances from street le
 | --- | --- |
 | Orchard | Open ION, Wisma and Ngee Ann podiums, two retail gallery levels, distributed stairs and rear links |
 | Raffles Place, Marina Bay | Open CBD podium arcades and linked promenade retail courts with roof gardens |
-| Queenstown, Bishan, Toa Payoh | Housing/community gallery circuits, open ground courts and separate stair approaches |
+| Queenstown | Six open slab-block void decks, recessed residential corridors and sheltered return stairs; see [HDB audit](QUEENSTOWN-HDB-AUDIT.md) |
+| Bishan, Toa Payoh | Housing/community gallery circuits, open ground courts and separate stair approaches |
 | Chinatown, Geylang | Open markets with complete upper food/dining circuits |
 | Kampong Glam, Tampines | Two retail/community concourses around open atriums and courts |
 | Changi | Two Jewel viewing circuits around the forest and waterfall |

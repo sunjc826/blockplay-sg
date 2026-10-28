@@ -649,3 +649,19 @@ see docs/WORLD-EVENTS.md and HANDOFF for supported modes and remaining limits.
 
 Final validation: all 1,565 tests across 161 files pass after the loft-window
 change, plus typecheck/production build and the final HMR-disabled browser smoke.
+
+## 2026-10-28 — Queenstown HDB audit and repair
+
+- Replaced the northern community-platform/cross-court design with six real
+  slab-block void decks, recessed residential corridors at 3.4/6.2 m and paired
+  sheltered return-stair cores. Structural meshes and finite collision now share
+  Queenstown-specific definitions in queenstown-housing.ts.
+- Removed infinite ground-column/lift projections through upper corridors; fixed
+  modern tower bodies versus elevated podium collision. Other districts unchanged.
+- Added 21 regressions plus a live WASD FPS/exploration walkthrough (deck, both
+  stair levels, gallery and full descent, host elevation). All pass.
+- Final verification: 1,605 tests across 165 files, typecheck/build; 50 Queenstown
+  captures, zero runtime errors/Google requests. Cached sources reused; no capture
+  allowance changes. Existing bundle-size advisory remains.
+- Audit: docs/QUEENSTOWN-HDB-AUDIT.md. Review gallery:
+  .cache/queenstown-hdb-review/index.html. Committed separately from unrelated work.

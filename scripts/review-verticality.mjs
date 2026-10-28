@@ -10,6 +10,16 @@ const requestedIds = process.argv.slice(2).filter(arg => arg !== '--all-floors' 
 // Small interiors are missed by the automatic largest-floor camera. These
 // standing views make the unfinished level-design pass reproducible to review.
 const detailViews = {
+  queenstown: [
+    { view: 'place:queenstown-estate-housing:deck-approach', pose: { position: [-91,1.65,-31], target: [-86,1.5,-45] } },
+    { view: 'place:queenstown-estate-housing:through-void-deck', pose: { position: [-97,1.65,-44], target: [-57,1.5,-44] } },
+    { view: 'place:queenstown-estate-housing:lift-lobby', pose: { position: [-62,1.65,-38], target: [-54,1.5,-44] } },
+    { view: 'place:queenstown-estate-housing:sheltered-stair-entry', pose: { position: [-108.8,1.65,-36], target: [-108.8,2.2,-44] } },
+    { view: 'place:queenstown-estate-housing:return-stair', pose: { position: [-106.7,3.35,-45.25], target: [-104.6,4.6,-40] } },
+    { view: 'place:queenstown-estate-housing:residential-corridor', pose: { position: [-96,7.85,-37.5], target: [-53,7.7,-37.5] } },
+    { view: 'place:queenstown-estate-housing:open-courtyard', pose: { position: [-103,1.65,-63.5], target: [-70,2,-63.5] } },
+    { view: 'modern-podium-clearance', pose: { position: [-195.5,1.65,-69], target: [-195.5,1.6,-79] } },
+  ],
   orchard: [
     { view: 'place:orchard-retail-circuit:bookshop-entry', pose: { position: [-6,6.65,-84.8], target: [-6,6.4,-94] } },
     { view: 'place:orchard-retail-circuit:bookshop-interior', pose: { position: [-7,6.65,-97], target: [4,6.4,-91] } },

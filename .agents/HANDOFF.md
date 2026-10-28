@@ -3707,3 +3707,38 @@ pass on their own (155/155). Visual check through
 `scripts/fixtures/food-models.html` (`?view=stall|ground|held|hands`) in the
 desktop browser pane. Not checked: a live expedition walk-up or eating in the
 running game, phone layout.
+
+## 2026-10-28: Queenstown HDB void decks, corridors and sheltered stairs
+
+User requested Queenstown first. Audited six older slab blocks and four modern
+podium/towers using cached estate-south, cyan-gallery and modern-podium images.
+Removed estate-courtyard's 3.4/7.4 m community platforms, courtyard bridges and
+15 m exposed stairs. New queenstown-housing.ts authors the structural fixtures
+and matching collision for all six slabs: open ground decks/ceilings/piers,
+lift/mailbox lobbies, proper recessed corridors at 3.4/6.2 m, solid apartment
+fronts/parapets and paired covered return stairs with 4.5 m flights. Upper stair
+tower silhouettes continue to the roof; only the first two corridor levels are
+playable. Lifts and private flats remain architectural details.
+
+Finite ground fixtures replace infinitely tall column/lift obstacles. Modern
+25×22 m tower bodies/piers are separate from their 32×29 m podium slabs at 6–8 m,
+so the clear ground overhang is usable. Stamps, roads, district extent and other
+districts are retained. Source geometry is a compressed gameplay adaptation,
+not a new surveyed-layout or reference-acceptance claim.
+
+Final verification: all 1,605 tests across 165 files pass, typecheck and production
+build pass (existing size advisory), all-district floor/stair/spawn diagnostics
+pass. queenstown-housing.test.ts adds 21 checks across both body radii and all
+six blocks, including mesh support/shelter, private-flat/parapet collision,
+modern overhang and walked bot access. New scripts/queenstown-housing-smoke.mjs
+passes actual WASD FPS and RegionGame deck crossing, both return-stair levels,
+gallery and descent, with host elevation. Run browser reviews and this smoke
+separately with HMR off: capturing another tab pauses the game on blur. Initial
+unit timeouts under concurrent build/browser load passed alone and in the full
+suite; no unresolved test failures.
+
+Review command: node scripts/review-verticality.mjs queenstown --details.
+50 Queenstown views, zero runtime errors/Google requests. Before images remain
+in .cache/queenstown-hdb-before; concise gallery is
+.cache/queenstown-hdb-review/index.html. See docs/QUEENSTOWN-HDB-AUDIT.md.
+This follow-up is committed separately, with unrelated concurrent work preserved.

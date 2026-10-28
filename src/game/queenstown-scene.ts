@@ -3,6 +3,7 @@ import { type VerticalRoute } from './vertical-routes';
 import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { QUEENSTOWN_STAMPS } from '../data/region-stamps.ts';
 import type { Obstacle } from './queenstown-collision';
+import { QUEENSTOWN_HDB_BLOCKS, QUEENSTOWN_HOUSING_PLACES, HDB_CORE_OFFSET } from './queenstown-housing';
 
 export const QUEENSTOWN_SPAWN = { x: -18, z: 83, yaw: -0.35 };
 export const QUEENSTOWN_MAP_ROADS = [
@@ -19,33 +20,7 @@ export { QUEENSTOWN_STAMPS } from '../data/region-stamps.ts';
 
 /** Compressed heritage-inspired estate, not a surveyed model or exact present-day streets. */
 export const QUEENSTOWN_VERTICAL_ROUTES: VerticalRoute[] = [];
-export const QUEENSTOWN_VERTICAL_PLACES: VerticalPlace[] = [{
-  id:'estate-courtyard',name:'Open estate community floors and courtyard galleries',
-  note:'The lower two levels of the paired northern housing blocks are opened as community rooms and galleries. Cross-court links and stairs are authored game circulation, not a surveyed HDB block layout.',
-  floors:[
-    ...[3.4,7.4].flatMap(y=>[
-      ...[-83,-44].map((z,i)=>({id:`community-${i}-${y}`,x:-73,z,y,width:59,depth:15,color:'#d1d2c4'})),
-      {id:`west-gallery-${y}`,x:-104,z:-63.5,y,width:7,depth:39,color:'#b6c9bc'},
-      {id:`east-gallery-${y}`,x:-42,z:-63.5,y,width:7,depth:39,color:'#b6c9bc'},
-      {id:`north-west-landing-${y}`,x:-108,z:-74,y,width:18,depth:6,color:'#b6c9bc'},
-      {id:`south-west-landing-${y}`,x:-108,z:-53,y,width:18,depth:6,color:'#b6c9bc'},
-      {id:`north-east-landing-${y}`,x:-38,z:-74,y,width:18,depth:6,color:'#b6c9bc'},
-      {id:`south-east-landing-${y}`,x:-38,z:-53,y,width:18,depth:6,color:'#b6c9bc'},
-    ]),
-  ],
-  connections:[
-    {id:'west-entry',from:{x:-114,y:0,z:-92},to:{x:-114,y:3.4,z:-77},width:4,stairs:true},
-    {id:'west-upper',from:{x:-114,y:3.4,z:-71},to:{x:-114,y:7.4,z:-56},width:4,stairs:true},
-    {id:'east-entry',from:{x:-32,y:0,z:-35},to:{x:-32,y:3.4,z:-50},width:4,stairs:true},
-    {id:'east-upper',from:{x:-32,y:3.4,z:-56},to:{x:-32,y:7.4,z:-71},width:4,stairs:true},
-  ],
-  fixtures:[
-    ...[-83,-44].flatMap(z=>[3.4,7.4].flatMap(y=>[
-      ...[-91,-73,-55].map(x=>({x,y:y+1.5,z,width:1,height:3,depth:7,color:'#d8d8c9'})),
-      ...[-83,-63].map(x=>({x,y:y+.45,z:z-3,width:4,height:.9,depth:1.2,color:'#b3816c'})),
-    ])),
-  ],
-}];
+export const QUEENSTOWN_VERTICAL_PLACES: VerticalPlace[] = QUEENSTOWN_HOUSING_PLACES;
 
 export function buildQueenstownScene() {
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#bcd9e7');
@@ -62,7 +37,7 @@ export function buildQueenstownScene() {
   const cream = mat('#ece7d6'), teal = mat('#6d9d92'), coral = mat('#c58c77'), glass = mat('#556f78'), dark = mat('#424b49');
   const concrete = mat('#b6b5a7'), grass = mat('#75915e'), leaf = mat('#487743'), white = mat('#f4f1df'), asphalt = mat('#555957');
   const red = mat('#b36655'), orange = mat('#f09a43'), wood = mat('#846b52');
-  const stationBlue = mat('#668faa'), walkwayBlue = mat('#36799b'), corridorGray = mat('#c5c8c3');
+  const stationBlue = mat('#668faa'), walkwayBlue = mat('#36799b');
   const paving = mat('#d6c7b2'), yellow = mat('#e2c566'), shrub = mat('#628548'), blue = mat('#729eaf');
   glass.roughness = 0.32; glass.metalness = 0.2;
   stationBlue.roughness = 0.55; walkwayBlue.roughness = 0.55;
@@ -70,7 +45,15 @@ export function buildQueenstownScene() {
   function box(x: number, y: number, z: number, w: number, h: number, d: number, material: THREE.Material, parent: THREE.Object3D = scene, shadow = false) {
     const mesh = new THREE.Mesh(unit, material); mesh.position.set(x, y, z); mesh.scale.set(w, h, d); mesh.castShadow = shadow; mesh.receiveShadow = true; parent.add(mesh); return mesh;
   }
-  function solid(x: number, z: number, w: number, d: number) { obstacles.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 }); }
+  function solid(x: number, z: number, w: number, d: number, maxY?: number) { obstacles.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, ...(maxY === undefined ? {} : {maxY}) }); }
+  function structure(x: number, y: number, z: number, w: number, h: number, d: number, material: THREE.Material) {
+    const mesh = box(x,y,z,w,h,d,material,scene,true);
+    const collider = { minX:x-w/2, maxX:x+w/2, minZ:z-d/2, maxZ:z+d/2, minY:y-h/2, maxY:y+h/2 };
+    scene.userData.traversalObstacles ??= [];
+    scene.userData.traversalObstacles.push(collider);
+    if (collider.minY <= .01) solid(x,z,w,d,collider.maxY);
+    return mesh;
+  }
   function beam(a: THREE.Vector3, b: THREE.Vector3, width: number, material: THREE.Material) {
     const middle = a.clone().add(b).multiplyScalar(0.5), direction = b.clone().sub(a);
     const mesh = box(middle.x,middle.y,middle.z,width,direction.length(),width,material,scene,true);
@@ -109,85 +92,66 @@ export function buildQueenstownScene() {
   for (const x of [-123, 118]) for (let z = 12; z <= 32; z += 3) box(x, 0.1, z, 5, 0.02, 1.5, white);
   for (const z of [-98, -10, 86]) box(0, 0.05, z, 266, 0.12, 5, concrete);
   box(-157, 0.06, 0, 5, 0.13, 266, mat('#c1ac8b'));
-  // Open ground-floor void decks: collisions on pillars/cores, never an invisible solid slab.
-  function block(x: number, z: number, floors: number, accent: THREE.Material, label: string) {
-    const width = 59, depth = 15, height = floors * 2.8;
-    const opened = x === -73;
-    box(x, opened ? (height + 14.8) / 2 : height / 2 + 3.4, z, width, opened ? height - 8 : height, depth, cream, scene, true);
-    // Preserve the upper housing silhouette; remove the sealed lower floor mass.
-    if (opened) scene.userData.traversalObstacles = [...(scene.userData.traversalObstacles ?? []), {minX:x-width/2,maxX:x+width/2,minZ:z-depth/2,maxZ:z+depth/2,minY:11.4,maxY:height+3.4}];
-    box(x, height + 3.7, z, width + 1, 0.6, depth + 1, concrete);
-    box(x - 25, height / 2 + 3.4, z + 7.6, 7, height, 0.35, accent);
-    for (const dx of [-25, -13, 0, 13, 25]) for (const dz of [-5.8, 5.8]) {
-      box(x + dx, 1.7, z + dz, 0.85, 3.4, 0.85, cream, scene, true); solid(x + dx, z + dz, 0.85, 0.85);
-    }
-    box(x + 19, 1.7, z, 7, 3.4, 6, accent); solid(x + 19, z, 7, 6);
-    // Lift-lobby doors, mailbox banks and ceiling beams give the open decks depth.
-    box(x + 19, 1.4, z + 3.05, 2.1, 2.8, 0.1, glass);
-    for (const dx of [-25, -13, 0, 13, 25]) box(x + dx, 3.25, z, 0.85, 0.3, 15, concrete);
-    for (let row = 0; row < 3; row++) for (let col = 0; col < 6; col++) box(x + 17 + col * 0.65, 0.65 + row * 0.48, z - 3.12, 0.55, 0.38, 0.15, dark);
-    for (let floor = opened ? 3 : 0; floor < floors; floor++) {
-      const y = 4.8 + floor * 2.8;
-      for (const dz of [-7.6, 7.6]) {
-        box(x, y - 1.3, z + dz, width, 0.16, 0.6, concrete);
-        for (let dx = -18; dx < 28; dx += 5.5) {
-          box(x + dx, y, z + dz, 2.5, 1.35, 0.12, glass);
-          box(x + dx + 1.8, y - 0.35, z + dz * 1.04, 0.8, 0.65, 0.5, concrete);
-          const faceZ=z+dz*1.012;
-          const frame=label==='HOME' && floor%3===1?orange:cream;
-          box(x+dx,y,faceZ,0.09,1.45,0.12,cream);
-          for(const offset of [-0.72,0.72]) box(x+dx,y+offset,faceZ,2.7,0.1,0.28,frame);
-          for(const offset of [-1.32,1.32]) box(x+dx+offset,y,faceZ,0.1,1.45,0.28,frame);
+  // Six older slab blocks share real void-deck/corridor/stair structure. All
+  // solid housing geometry is authored in queenstown-housing with finite bounds.
+  // The scene adds doors, grilles and services without sealing those spaces.
+  for (const block of QUEENSTOWN_HDB_BLOCKS) {
+    const { x, z, storeys, label } = block, height = storeys * 2.8;
+    box(x, height + 3.7, z + .5, 60, .6, 17, concrete, scene, true);
+    for (let floor = 0; floor < storeys; floor++) {
+      const level = 3.4 + floor * 2.8, y = level + 1.4;
+      // Apartment windows on the back; the south face is a recessed access
+      // gallery with individual front doors, not a painted solid black strip.
+      for (let dx = -22; dx < 28; dx += 5.5) {
+        box(x + dx, y, z - 7.6, 2.5, 1.35, .12, glass);
+        box(x + dx + 1.8, y - .35, z - 7.8, .8, .65, .5, concrete);
+        for (const offset of [-.72,.72]) box(x + dx, y + offset, z - 7.69, 2.7, .1, .28, cream);
+        for (const offset of [-1.32,0,1.32]) box(x + dx + offset, y, z - 7.69, .09, 1.45, .28, cream);
+      }
+      for (const dx of [-22,-11,0,11,22]) {
+        box(x + dx, level + 1.05, z + 4.56, 1.2, 2.1, .1, floor % 2 ? teal : wood);
+        for (const edge of [-.67,.67]) box(x + dx + edge, level + 1.1, z + 4.65, .1, 2.2, .12, cream);
+        box(x + dx, level + 2.18, z + 4.65, 1.44, .1, .12, cream);
+        box(x + dx + .38, level + 1.02, z + 4.73, .08, .16, .09, dark);
+        box(x + dx + 2.9, level + 1.55, z + 4.58, 2.2, 1.2, .1, glass);
+        for (const edge of [-1.15,0,1.15]) box(x + dx + 2.9 + edge, level + 1.55, z + 4.68, .07, 1.35, .12, cream);
+        for (const dy of [1,1.55,2.1]) box(x + dx + 2.9, level + dy, z + 4.68, 2.3, .06, .12, cream);
+        box(x + dx, level + 1.1, z + 8.4, 9.5, .1, .3, white);
+      }
+      for (const side of [-1,1]) {
+        const cx = x + side * HDB_CORE_OFFSET;
+        // Upper stair-tower vents continue the sheltered core up the building.
+        if (floor > 1) {
+          box(cx, y, z + 8.57, 4.5, 1.4, .12, dark);
+          for (const dz of [-2,2]) box(cx + side * 4.28, y, z + 3 + dz, .12, 1.4, 2.4, glass);
+          for (const dy of [-.5,0,.5]) box(cx, y + dy, z + 8.66, 4.6, .08, .12, white);
+          for (const edge of [-2.35,2.35]) box(cx + edge, y, z + 8.66, .1, 1.6, .12, cream);
         }
-      }
-      // estate-south.png: long recessed access galleries with pale-gray parapets.
-      box(x + 4, y + 0.15, z + 7.72, 46, 1.45, 0.12, dark);
-      box(x + 4, y - 0.65, z + 7.86, 46, 0.85, 0.18, corridorGray);
-      box(x + 4, y - 0.18, z + 7.98, 46, 0.12, 0.12, white);
-      for (let dx = -17; dx < 28; dx += 9) box(x + dx, y, z + 8.02, 0.3, 2.7, 0.25, cream);
-      box(x - 25, y, z + 7.85, 3.8, 1.6, 0.1, white);
-      box(x-25,y,z+7.96,3.2,1.35,0.12,dark);
-      for(const direction of [-1,1]) {const lattice=box(x-25,y,z+8.06,3.5,0.1,0.1,white); lattice.rotation.z=direction*Math.atan2(1.35,3.2);}
-      for(const edge of [-1.7,1.7]) box(x-25+edge,y,z+8.08,0.12,1.65,0.12,white);
-      for (const side of [-1, 1]) {
-        box(x + side * 29.6, y, z, 0.12, 1.5, 3.2, glass);
-        box(x + side * 29.8, y - 1.1, z, 0.55, 0.16, 4.5, concrete);
+        // Raised frames/lattice retain the reviewed end-facade vocabulary.
+        box(x + side * 29.6, y, z - 2, .12, 1.5, 3.2, glass);
+        box(x + side * 29.8, y - 1.1, z - 2, .55, .16, 4.5, concrete);
+        box(x + side * 29.72, y, z - 2, .12, .1, 3.5, white).rotation.x = .4;
+        box(x + side * 29.72, y, z - 2, .12, .1, 3.5, white).rotation.x = -.4;
       }
     }
-    for (const dx of [-24, 24]) { box(x + dx, height + 5, z, 6, 2.2, 7, cream); box(x + dx, height + 6.2, z, 6.5, 0.25, 7.5, concrete); }
-    box(x - 13, 0.65, z, 4, 0.16, 1.2, coral); // void-deck seating
-    sign(label, x - 25, 7, z + 8.02, 5, 2.4);
-  }
-  // Occupied community floors: doorway and window details sit on the existing
-  // room partitions, leaving both gallery aisles and all stair landings intact.
-  const communityLight = mat('#eee7c7');
-  communityLight.emissive.set('#dfd9b6'); communityLight.emissiveIntensity = .65;
-  for (const z of [-83, -44]) for (const y of [3.4, 7.4]) {
-    for (const [index, x] of [-91, -73, -55].entries()) for (const side of [-1, 1]) {
-      const face = x + side * .53;
-      box(face, y + 1.16, z - 1.75, .06, 2.32, 1.25, index % 2 ? teal : coral);
-      for (const dz of [-2.43, -1.07]) box(face + side * .035, y + 1.22, z + dz, .08, 2.44, .09, cream);
-      box(face + side * .035, y + 2.42, z - 1.75, .08, .12, 1.46, cream);
-      box(face + side * .09, y + 1.12, z - 1.32, .14, .08, .22, dark);
-      box(face, y + 1.72, z + 1.45, .06, 1.35, 2.2, glass);
-      for (const dz of [.3, 1.45, 2.6]) box(face + side * .04, y + 1.72, z + dz, .1, 1.5, .08, cream);
-      for (const dy of [1.02, 2.42]) box(face + side * .04, y + dy, z + 1.45, .1, .09, 2.4, cream);
-      // Horizontal window grilles and a room plate establish human scale.
-      for (const dy of [1.35, 1.72, 2.08]) box(face + side * .07, y + dy, z + 1.45, .1, .035, 2.2, corridorGray);
-      const plate = sign(['RESIDENTS', 'READING ROOM', 'COMMUNITY'][index], face + side * .1, y + 2.75, z, 3.2, .35);
-      if (plate) plate.rotation.y = side * Math.PI / 2;
-      box(face, y + .18, z, .07, .28, 6.9, teal);
+    // A readable lift lobby, mailboxes, services and seating stay in the deck.
+    box(x + 19, 1.35, z + 1.85, 2.1, 2.7, .1, glass);
+    box(x + 19, 1.35, z + 1.92, .08, 2.7, .08, concrete);
+    for (let row = 0; row < 3; row++) for (let col = 0; col < 6; col++) {
+      box(x + 17.25 + col * .65, .65 + row * .48, z - 3.05, .55, .38, .12, dark);
     }
-    for (const dz of [-5.3, 5.3]) for (const x of [-95, -73, -51]) {
-      box(x, y + 3.57, z + dz, 7, .06, .28, communityLight);
-    }
+    const light = mat('#eee7c7'); light.emissive.set('#dfd9b6'); light.emissiveIntensity = .65;
+    for (const dx of [-19,-6,7,25]) box(x + dx, 2.8, z, 3, .06, .3, light);
+    for (const level of [3.4,6.2]) for (const dx of [-19,-6,7,25]) box(x + dx, level + 2.48, z + 6.5, 3, .06, .3, light);
+    for (const side of [-1,1]) sign('STAIRS  /  LIFT LOBBY', x + side * HDB_CORE_OFFSET, 2.55, z + 8.67, 7.2, .55);
+    sign(label + '  /  VOID DECK', x - 14, 2.55, z + 8.63, 20, .65);
   }
-  block(-73, -44, 10, teal, 'ESTATE'); block(-73, -83, 12, coral, 'QUEENS');
-  block(78, 76, 16, teal, 'HDB'); block(-76, 77, 9, coral, 'HOME');
-  block(-91,-153,11,blue,'COMMONWEALTH'); block(78,151,13,teal,'DAWSON');
-  // commonwealth-close-0 and crescent-0: cyan/peach gallery parapets rather
-  // than the same gray palette on every generation of residential block.
-  for (let floor=0;floor<11;floor++) box(-87,4.15+floor*2.8,-145.08,46,0.8,0.2,floor%3===0?coral:blue);
+  // Legacy ground-only consumers (map/spawn checks) receive the same finite
+  // piers, lift shafts and stair walls, never a full rectangular block footprint.
+  for (const place of QUEENSTOWN_HOUSING_PLACES) for (const f of place.fixtures ?? []) {
+    if (f.solid === false || f.y - f.height / 2 > .01) continue;
+    obstacles.push({ minX:f.x-f.width/2, maxX:f.x+f.width/2, minZ:f.z-f.depth/2, maxZ:f.z+f.depth/2, maxY:f.y+f.height/2 });
+  }
   // Covered walkways connect open decks, estate paths and the station entrance.
   function shelter(x: number, z: number, width: number) {
     box(x, 3.05, z, width, 0.3, 4.2, concrete, scene, true);
@@ -357,8 +321,7 @@ export function buildQueenstownScene() {
   // Newer Dawson towers form solid buildings in the expanded district.
   // margaret-0/90 and library-270 inform white fins, gray recesses, planted podiums.
   for (const [x,z,height] of [[-210,-75,90],[208,-75,105],[208,72,84],[95,-155,100]]) {
-    solid(x,z,32,29);
-    box(x,height/2,z,25,height,22,white,scene,true);
+    structure(x,height/2,z,25,height,22,white);
     for (let dx=-9;dx<=9;dx+=6) {
       box(x+dx,height/2,z+11.1,3.8,height-4,0.15,glass);
       box(x+dx+2.2,height/2,z+11.5,0.55,height,1,concrete);
@@ -373,12 +336,12 @@ export function buildQueenstownScene() {
       for(let dx=-9;dx<=9;dx+=6) box(x+dx,y+1.25,z-11.2,3.5,1.8,0.15,glass);
     }
     for(const side of [-1,1]) {
-      box(x+side*12.85,height/2,z,0.6,height,2,concrete);
+      structure(x+side*12.85,height/2,z,0.6,height,2,concrete);
       box(x,3.7,z+side*11.3,20,6.5,0.15,dark);
-      for(let dx=-10;dx<=10;dx+=5) box(x+dx,3.7,z+side*11.75,0.75,7.4,1.1,white);
+      for(let dx=-10;dx<=10;dx+=5) structure(x+dx,3.7,z+side*11.75,0.75,7.4,1.1,white);
       for(let y=1;y<6.5;y+=0.5) box(x, y,z+side*11.5,19,0.12,0.35,concrete);
     }
-    box(x,7,z,32,2,29,concrete); box(x,8.2,z,31,0.6,28,shrub);
+    structure(x,7,z,32,2,29,concrete); box(x,8.2,z,31,0.6,28,shrub);
   }
   // A sheltered western residential garden and eastern civic forecourt create
   // destinations between the old estate circuit and the new outer district road.
