@@ -11,6 +11,7 @@ register('./ts-extension-hook.mjs', import.meta.url);
 const { REGIONS, getRegion } = await import('../src/game/regions.ts');
 const { coverMasses, measureCover } = await import('../src/game/cover-metrics.ts');
 const { zoneSectors } = await import('../src/game/zone-sectors.ts');
+const { analyseSceneCover } = await import('../src/game/scene-cover-metrics.ts');
 
 const flag = name => {
   const at = process.argv.indexOf(`--${name}`);
@@ -26,6 +27,11 @@ for (const region of (only ? [getRegion(only)] : REGIONS)) {
   const world = region.build();
   try {
     const masses = coverMasses(world.scene);
+    // Collectibles are hidden in FPS and must not improve its cover diagnostic.
+    const stampVisibility = world.stamps.map(stamp => stamp.visible);
+    world.stamps.forEach(stamp => { stamp.visible = false; });
+    const analysis = analyseSceneCover(world.scene, region.bounds, world.obstacles);
+    world.stamps.forEach((stamp, i) => { stamp.visible = stampVisibility[i]; });
     // Only ground a player can stand on counts as exposed; the harbour does not.
     const standable = (x, z) => region.canOccupy(x, z, 0.4, world.obstacles);
     const crouch = measureCover(region.bounds, masses.crouch, standable);
@@ -34,22 +40,25 @@ for (const region of (only ? [getRegion(only)] : REGIONS)) {
       id: sector.id, name: sector.name, declared: sector.cover,
       crouch: measureCover(sector.bounds, masses.crouch, standable),
       stand: measureCover(sector.bounds, masses.stand, standable),
+      proximity: analysis.measure(sector.bounds),
     }));
-    report.push({ id: region.id, bounds: region.bounds, crouch, stand, sectors });
+    report.push({ id: region.id, bounds: region.bounds, crouch, stand, proximity: analysis.measure(), landscape: world.scene.userData.landscape, sectors });
   } finally { world.dispose(); }
 }
 
 if (asJson) {
   console.log(JSON.stringify(report, (_key, value) => (value === Infinity ? null : value), 2));
 } else {
-  console.log('Median distance to cover. Crouch cover reaches 1.15m, standing cover 1.75m —');
-  console.log('the engine\'s two eye heights. Lower is more defensible.\n');
-  console.log(`${'district'.padEnd(15)} ${'crouch'.padStart(7)} ${'p90'.padStart(7)}  ${'stand'.padStart(7)} ${'p90'.padStart(7)}  solid`);
-  for (const row of [...report].sort((a, b) => b.crouch.median - a.crouch.median)) {
-    console.log(`${row.id.padEnd(15)} ${metres(row.crouch.median).padStart(7)} ${metres(row.crouch.p90).padStart(7)}  ${metres(row.stand.median).padStart(7)} ${metres(row.stand.p90).padStart(7)}  ${String(Math.round(row.crouch.solid * 100)).padStart(3)}%`);
-    if (!wantSectors) continue;
-    for (const sector of row.sectors) {
-      console.log(`  ${sector.id.padEnd(13)} ${metres(sector.crouch.median).padStart(7)} ${metres(sector.crouch.p90).padStart(7)}  ${metres(sector.stand.median).padStart(7)} ${metres(sector.stand.p90).padStart(7)}  ${String(Math.round(sector.crouch.solid * 100)).padStart(3)}%  declared ${sector.declared}`);
+  console.log('Ground cover proximity: mean / median / p90 metres. Solid stops rounds; visual includes solid + foliage.');
+  console.log('2m horizontal proximity proxy, 25cm terrain bands; not walking distance or directional protection.\n');
+  const print = (name, proximity) => {
+    for (const posture of ['stand', 'crouch', 'prone']) {
+      const format = s => s ? [s.mean, s.median, s.p90].map(metres).join(' / ').padStart(26) : 'no occupiable samples'.padStart(26);
+      console.log(`${name.padEnd(24)} ${posture.padEnd(6)} solid ${format(proximity[posture].solid)}  visual ${format(proximity[posture].visual)}`);
     }
+  };
+  for (const row of report) {
+    print(row.id, row.proximity);
+    if (wantSectors) for (const sector of row.sectors) print(`  ${sector.id}`, sector.proximity);
   }
 }

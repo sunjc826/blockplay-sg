@@ -4,6 +4,7 @@ import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { QUEENSTOWN_STAMPS } from '../data/region-stamps.ts';
 import type { Obstacle } from './queenstown-collision';
 import { QUEENSTOWN_HDB_BLOCKS, QUEENSTOWN_HOUSING_PLACES, HDB_CORE_OFFSET } from './queenstown-housing';
+import { QUEENSTOWN_BANKS, QUEENSTOWN_BANK_PATHS, QUEENSTOWN_LANDSCAPE_PLACES, QUEENSTOWN_PATHS, QUEENSTOWN_SHADE_TREES, QUEENSTOWN_SHRUB_BEDS, queenstownTerrainHeight } from './queenstown-landscape';
 
 export const QUEENSTOWN_SPAWN = { x: -18, z: 83, yaw: -0.35 };
 export const QUEENSTOWN_MAP_ROADS = [
@@ -20,7 +21,7 @@ export { QUEENSTOWN_STAMPS } from '../data/region-stamps.ts';
 
 /** Compressed heritage-inspired estate, not a surveyed model or exact present-day streets. */
 export const QUEENSTOWN_VERTICAL_ROUTES: VerticalRoute[] = [];
-export const QUEENSTOWN_VERTICAL_PLACES: VerticalPlace[] = QUEENSTOWN_HOUSING_PLACES;
+export const QUEENSTOWN_VERTICAL_PLACES: VerticalPlace[] = [...QUEENSTOWN_HOUSING_PLACES, ...QUEENSTOWN_LANDSCAPE_PLACES];
 
 export function buildQueenstownScene() {
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#bcd9e7');
@@ -42,6 +43,7 @@ export function buildQueenstownScene() {
   glass.roughness = 0.32; glass.metalness = 0.2;
   stationBlue.roughness = 0.55; walkwayBlue.roughness = 0.55;
   const foliageLight = mat('#6a9050'), foliageDeep = mat('#3e693e');
+  for (const foliage of [leaf, foliageLight, foliageDeep, shrub]) foliage.userData.visualCover = true;
   function box(x: number, y: number, z: number, w: number, h: number, d: number, material: THREE.Material, parent: THREE.Object3D = scene, shadow = false) {
     const mesh = new THREE.Mesh(unit, material); mesh.position.set(x, y, z); mesh.scale.set(w, h, d); mesh.castShadow = shadow; mesh.receiveShadow = true; parent.add(mesh); return mesh;
   }
@@ -92,6 +94,36 @@ export function buildQueenstownScene() {
   for (const x of [-123, 118]) for (let z = 12; z <= 32; z += 3) box(x, 0.1, z, 5, 0.02, 1.5, white);
   for (const z of [-98, -10, 86]) box(0, 0.05, z, 266, 0.12, 5, concrete);
   box(-157, 0.06, 0, 5, 0.13, 266, mat('#c1ac8b'));
+  const onStreet = (x: number, z: number, margin = 0) => QUEENSTOWN_MAP_ROADS.some((road, index) => road.points.slice(1).some((b, i) => {
+    const a = road.points[i], half = index === 1 ? 12 : index === 2 ? 6 : 7;
+    return x >= Math.min(a.x,b.x) - (a.x === b.x ? half + margin : margin) && x <= Math.max(a.x,b.x) + (a.x === b.x ? half + margin : margin) &&
+      z >= Math.min(a.z,b.z) - (a.z === b.z ? half + margin : margin) && z <= Math.max(a.z,b.z) + (a.z === b.z ? half + margin : margin);
+  }));
+  // Cut the pedestrian links at carriageways; leave their asphalt visible.
+  // Slightly raised edges read as pavement, not a second grass-coloured strip.
+  for (const path of QUEENSTOWN_PATHS) {
+    const alongX = path.width > path.depth, length = alongX ? path.width : path.depth;
+    const count = Math.ceil(length / 2), run = length / count;
+    for (let i = 0; i < count; i++) {
+      const along = -length/2 + (i+.5)*run, x = path.x + (alongX ? along : 0), z = path.z + (alongX ? 0 : along);
+      if (onStreet(x,z,1)) continue;
+      box(x,.025,z,alongX ? run : path.width,.22,alongX ? path.depth : run,paving);
+      for (const side of [-1,1]) box(x + (alongX ? 0 : side*(path.width/2-.08)),.12,z + (alongX ? side*(path.depth/2-.08) : 0),alongX ? run : .16,.08,alongX ? .16 : run,concrete);
+    }
+  }
+  // Footpaths follow the earth slopes all the way over the crests. Their
+  // movement support is the same earth plane, not floating cosmetic ramps.
+  for (const path of QUEENSTOWN_BANK_PATHS) {
+    const count=Math.ceil(path.length/2),run=path.length/count;
+    for (let i=0;i<count;i++) {
+      const offset=-path.length/2+i*run,x=path.x+(path.axis==='x'?offset:0),z=path.z+(path.axis==='z'?offset:0);
+      const bx=x+(path.axis==='x'?run:0),bz=z+(path.axis==='z'?run:0);
+      if(onStreet((x+bx)/2,(z+bz)/2,1)) continue;
+      const a=queenstownTerrainHeight(x,z),b=queenstownTerrainHeight(bx,bz),length=Math.hypot(run,b-a);
+      const strip=box((x+bx)/2,(a+b)/2+.105,(z+bz)/2,path.axis==='x'?length:2.4,.06,path.axis==='z'?length:2.4,paving);
+      if(path.axis==='x')strip.rotation.z=Math.atan2(b-a,run);else strip.rotation.x=-Math.atan2(b-a,run);
+    }
+  }
   // Six older slab blocks share real void-deck/corridor/stair structure. All
   // solid housing geometry is authored in queenstown-housing with finite bounds.
   // The scene adds doors, grilles and services without sealing those spaces.
@@ -266,12 +298,15 @@ export function buildQueenstownScene() {
   sign('QUEENSTOWN LIBRARY', 23, 5.7, -94.02, 29, 1.4);
   const crownGeo = geo(new THREE.IcosahedronGeometry(1, 1));
   const trunkGeo = geo(new THREE.CylinderGeometry(0.24,0.4,1,7));
-  function tree(x: number, z: number, height = 7) {
-    const trunk=new THREE.Mesh(trunkGeo,wood);trunk.position.set(x,height/2,z);trunk.scale.y=height;trunk.castShadow=true;scene.add(trunk);solid(x,z,0.8,0.8);
+  let treeCount = 0;
+  function tree(x: number, z: number, height = 7, mature = false, base = 0) {
+    treeCount++;
+    const thickness = mature ? 1.6 : 1;
+    const trunk=new THREE.Mesh(trunkGeo,wood);trunk.position.set(x,base+height/2,z);trunk.scale.set(thickness,height,thickness);trunk.castShadow=true;scene.add(trunk);solid(x,z,.8*thickness,.8*thickness,base+height);
     const phase=(x*0.73+z*0.37),palette=[leaf,foliageLight,foliageDeep];
     for (let j = 0; j < 4; j++) {
-      const angle=phase+j*Math.PI/2,spread=1.6+(j%2)*0.7,px=x+Math.cos(angle)*spread,pz=z+Math.sin(angle)*spread,py=height+(j%2)*0.7;
-      beam(new THREE.Vector3(x,height*0.63,z),new THREE.Vector3(px,py-0.5,pz),0.22,wood);
+      const angle=phase+j*Math.PI/2,spread=1.6+(j%2)*0.7,px=x+Math.cos(angle)*spread,pz=z+Math.sin(angle)*spread,py=base+height+(j%2)*0.7;
+      beam(new THREE.Vector3(x,base+height*0.63,z),new THREE.Vector3(px,py-0.5,pz),0.22,wood);
       const crown=new THREE.Mesh(crownGeo,palette[j%3]);crown.position.set(px,py,pz);crown.scale.set(2.6+(j%2)*0.5,1.8+(j%3)*0.25,2.8);crown.rotation.y=angle;crown.castShadow=true;scene.add(crown);
     }
   }
@@ -279,11 +314,40 @@ export function buildQueenstownScene() {
     if (x===168 && Math.abs(z-22)<10) continue; // new eastern road connector
     tree(x, z, 6 + Math.abs(z % 3));
   }
-  for (const [x, z] of [[-116,-103],[-119,-64],[-115,62],[119,79],[114,-97],[2,-75],[49,-85],[-29,92]]) tree(x, z);
+  for (const [x, z] of [[-116,-103],[-125,-64],[-115,62],[119,79],[114,-97],[2,-75],[49,-85],[-29,92]]) tree(x, z);
   // Dense roadside canopy and planted pocket spaces still leave road and deck routes clear.
   for (const x of [-122, -100, -77, -54, 58, 82, 108, 123]) tree(x, -111, 6.5);
   for (const x of [-115, -91, -65, 61, 88, 117]) tree(x, 48, 6);
   for (const x of [-124, 124]) for (const z of [-83, -44, 63, 91]) tree(x, z, 7.5);
+  for (const [x,z] of QUEENSTOWN_SHADE_TREES) if (!onStreet(x,z,1)) tree(x,z,7.5,true);
+  for (const bank of QUEENSTOWN_BANKS.slice(0,5)) {
+    // Plant on the diagonal flank, outside both full-width crest crossings.
+    const x=bank.x+Math.min(4,bank.width/8)+2,z=bank.z+Math.min(5,bank.depth/8)+2;
+    tree(x,z,7,false,queenstownTerrainHeight(x,z));
+  }
+  // Loose ellipsoid clusters have an irregular silhouette rather than solid
+  // green boxes. No movement collider: these beds conceal, but rounds pass.
+  const shrubGeo = geo(new THREE.IcosahedronGeometry(1,1));
+  for (const bed of QUEENSTOWN_SHRUB_BEDS) {
+    if (onStreet(bed.x,bed.z,2)) continue;
+    const horizontal = bed.width > bed.depth;
+    for (let i = 0; i < 5; i++) {
+      const offset = (i-2)*1.3;
+      const bush = new THREE.Mesh(shrubGeo, i%2 ? shrub : foliageLight);
+      const x=bed.x+(horizontal?offset:0),z=bed.z+(horizontal?0:offset);
+      bush.position.set(x,queenstownTerrainHeight(x,z)+bed.height*.48,z);
+      bush.scale.set(horizontal?1.5:1.1,bed.height*.55,horizontal?1.1:1.5);
+      bush.rotation.y=i*.7; bush.castShadow=bush.receiveShadow=true; scene.add(bush);
+    }
+  }
+  // Short masonry seats beside the field paths provide actual crouch cover.
+  // Broken lengths leave exits in every direction; they never fence a lawn.
+  for (const [x,z,alongX] of [[-207,-9,1],[-180,-9,1],[-207,89,1],[-180,89,1],
+    [168,-107,1],[204,-107,1],[168,-11,1],[204,-11,1],[166,99,1],[204,99,1],
+    [-128,-98,0],[-128,-26,0],[-128,48,0],[-128,102,0],[129,-80,0],[129,-18,0],[129,48,0],[129,138,0]] as const) {
+    structure(x,.66,z,alongX ? 6 : .65,1.32,alongX ? .65 : 6,concrete);
+    box(x,1.35,z,alongX ? 6.2 : .8,.08,alongX ? .8 : 6.2,cream);
+  }
   function bench(x: number, z: number) {
     box(x, 0.6, z, 3, 0.16, 0.8, wood); box(x, 1, z - 0.4, 3, 0.65, 0.12, wood);
     for (const dx of [-1, 1]) box(x + dx, 0.28, z, 0.15, 0.56, 0.65, dark);
@@ -426,27 +490,38 @@ export function buildQueenstownScene() {
   car.visible = false;
   const stampGeo = geo(new THREE.TorusGeometry(1.15, 0.16, 5, 20));
   const stamps = QUEENSTOWN_STAMPS.map(point => { const stamp = new THREE.Mesh(stampGeo, orange); stamp.position.set(point.x, 2.2, point.z); scene.add(stamp); return stamp; });
+  for (const stamp of stamps) stamp.userData.coverMetricIgnore = true;
   scene.userData.referenceFeatures = ['station-east', 'estate-north', 'estate-south', 'stirling-90', 'stirling-270-retry', 'margaret-0', 'margaret-90', 'library-270'];
   scene.userData.detailFeatures = ['open-deck-lobbies', 'station-platform-edges', 'bus-shelters', 'playground', 'community-pavilion', 'court-fence', 'parked-cars', 'layered-roadside-planting'];
   scene.userData.qualityFeatures=['rounded-viaduct-piers','projecting-station-louvers','framed-lattice-galleries','barrel-roof-seams','round-kopi-tables','four-sided-tower-facades','branched-canopies','gateway-louver-panels'];
   scene.userData.materialRoughness={glass:glass.roughness,plaster:cream.roughness,paintedMetal:stationBlue.roughness};
   scene.userData.authoredMeshCount = scene.children.filter(child => child instanceof THREE.Mesh).length;
+  scene.userData.landscape = { trees: treeCount, addedTrees: QUEENSTOWN_SHADE_TREES.length+5, shrubBeds: QUEENSTOWN_SHRUB_BEDS.length, pavementLinks: QUEENSTOWN_PATHS.length+QUEENSTOWN_BANK_PATHS.length, earthBanks: QUEENSTOWN_LANDSCAPE_PLACES.length };
   // Batch static details while leaving car, train and collectible animation independent.
   const batches = new Map<string, THREE.Mesh[]>(), instances: THREE.InstancedMesh[] = [];
   for (const child of [...scene.children]) {
     if (!(child instanceof THREE.Mesh) || Array.isArray(child.material) || stamps.includes(child)) continue;
+    // Keep gameplay meaning on the mesh: thermal vision swaps its material.
+    if (child.material.userData.visualCover) child.userData.visualCover = true;
     const key = `${child.geometry.uuid}:${child.material.uuid}:${child.castShadow}:${child.receiveShadow}`;
     const batch = batches.get(key) ?? []; batch.push(child); batches.set(key, batch);
   }
   for (const batch of batches.values()) {
     if (batch.length < 2) continue;
     const mesh = new THREE.InstancedMesh(batch[0].geometry, batch[0].material, batch.length);
+    if (batch[0].userData.visualCover) mesh.userData.visualCover = true;
     mesh.castShadow = batch[0].castShadow; mesh.receiveShadow = batch[0].receiveShadow;
     batch.forEach((item, i) => { item.updateMatrix(); mesh.setMatrixAt(i, item.matrix); scene.remove(item); });
     mesh.computeBoundingSphere(); scene.add(mesh); instances.push(mesh);
   }
-  return withVerticalPlaces({ scene, obstacles, car, stamps,
+  const world = withVerticalPlaces({ scene, obstacles, car, stamps,
     animate(time: number) { stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.7; stamp.position.y = 2.2 + Math.sin(time * 2 + i) * 0.2; }); },
     dispose() { instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose()); sun.shadow.dispose(); },
-  }, QUEENSTOWN_VERTICAL_PLACES);
+  }, QUEENSTOWN_HOUSING_PLACES);
+  withVerticalPlaces(world, QUEENSTOWN_LANDSCAPE_PLACES);
+  // Terrain proximity uses the shared walk planes, never a hill's enclosing box.
+  const landscapeRoot = scene.children.at(-1)!;
+  landscapeRoot.name = 'Queenstown walkable landscape';
+  landscapeRoot.traverse(node => { if (node instanceof THREE.Mesh) node.userData.terrain = true; });
+  return world;
 }

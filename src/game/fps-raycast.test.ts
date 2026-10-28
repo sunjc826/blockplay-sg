@@ -1,6 +1,9 @@
 import { expect, it } from 'vitest';
 import * as THREE from 'three';
 import { firstVisibleHit, visibleHits } from './fps-raycast';
+import { createSceneCover } from './scene-cover';
+import { createArena } from './arena-rules';
+import { shootAndLand } from './arena-test-shots';
 
 it('blocks a target behind scenery and ignores invisible parent groups', () => {
   const geometry = new THREE.BoxGeometry(1, 1, 1), material = new THREE.MeshBasicMaterial();
@@ -35,4 +38,27 @@ it('returns pierced surfaces nearest first, bounded by the limit', () => {
   middle.visible = false;
   expect(visibleHits(ray, objects, 2).map(h => h.object)).toEqual([near, far]);
   geometry.dispose(); material.dispose();
+});
+
+it('separates foliage sight obstruction from bullet/blast obstruction, including instanced leaves', () => {
+  const scene=new THREE.Scene(), geometry=new THREE.BoxGeometry(4,1.4,1);
+  const leaves=new THREE.MeshBasicMaterial(); leaves.userData.visualCover=true;
+  const hedge=new THREE.InstancedMesh(geometry,leaves,1);
+  hedge.setMatrixAt(0,new THREE.Matrix4().makeTranslation(0,.7,-3)); scene.add(hedge);
+  const cover=createSceneCover(scene), direction={x:0,y:0,z:-1};
+  for (const y of [.55,1.15]) {
+    const from={x:.3,y,z:0};
+    expect(cover.distance(from,direction,10)).toBe(10);
+    expect(cover.sightDistance(from,direction,10)).toBeCloseTo(2.5);
+  }
+  expect(cover.sightDistance({x:.3,y:1.75,z:0},direction,10)).toBe(10);
+  const arena=createArena([],0,'mixed',{
+    bounds:{minX:-20,maxX:20,minZ:-20,maxZ:20},spawns:[{x:0,z:0},{x:0,z:-6}],move:p=>p,
+  },undefined,undefined,cover.distance,undefined,cover.sightDistance);
+  arena.addPlayer('one','One');arena.addPlayer('two','Two');
+  const one=arena.snapshot().actors.find(a=>a.id==='one')!;
+  expect(shootAndLand(arena,'one',{...one,y:1.15},direction,0).damage).toBeGreaterThan(0);
+  hedge.visible=false;
+  expect(cover.sightDistance({x:.3,y:.55,z:0},direction,10)).toBe(10);
+  geometry.dispose(); leaves.dispose(); hedge.dispose();
 });

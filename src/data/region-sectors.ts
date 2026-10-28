@@ -171,7 +171,8 @@ const QUEENSTOWN_SECTORS: readonly ZoneSector[] = [
     anchors: [{ x: 34, z: -88 }, { x: 82, z: -131 }, { x: -12, z: -131 }, { x: 82, z: -69 }, { x: -12, z: -69 }] },
   { id: 'green-corridor', name: 'Green corridor', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
     bounds: { minX: -220, maxX: -100, minZ: 10, maxZ: 120 },
-    anchors: [{ x: -157, z: 65 }, { x: -140, z: 116 }, { x: -212, z: 111 }, { x: -212, z: 19 }, { x: -108, z: 19 }] },
+    // Keep the ground loot/patrol anchor on the pavement below the new bank.
+    anchors: [{ x: -157, z: 65 }, { x: -140, z: 116 }, { x: -212, z: 84 }, { x: -212, z: 19 }, { x: -108, z: 19 }] },
   { id: 'commonwealth', name: 'Commonwealth gardens', cover: 'open', lootWeight: 1.5, tierBias: 1, botWeight: 1,
     bounds: { minX: -255, maxX: -130, minZ: -200, maxZ: -80 },
     anchors: [{ x: -193, z: -135 }, { x: -138, z: -191 }, { x: -246, z: -191 }, { x: -138, z: -89 }, { x: -246, z: -89 }] },

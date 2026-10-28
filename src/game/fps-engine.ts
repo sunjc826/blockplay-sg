@@ -2038,7 +2038,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // A drill target smells a durian from half again as far.
     if (distance > sightRangeAgainst(65, equipment.insert)) return false;
     attackRay.set(attackOrigin, direction.normalize()); attackRay.near = .07; attackRay.far = Math.max(.07, distance - .1);
-    return !firstVisibleHit(attackRay, world.scene.children.filter(o => o !== target.root && !o.userData.fpsEffect && (!vehicles.active || o !== vehicles.root)));
+    return !firstVisibleHit(attackRay, world.scene.children.filter(o => o !== target.root && !o.userData.fpsEffect && (!vehicles.active || o !== vehicles.root)), true);
   }
   function counterFire(dt: number) {
     if (pendingAttack) {

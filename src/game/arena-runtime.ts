@@ -302,7 +302,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       if (d >= distance) return null;
       const hit = sceneCover.trace(from, { x: (to.x - from.x) / distance, y: (to.y - from.y) / distance, z: (to.z - from.z) / distance }, distance);
       return hit?.face ? { point: hit.point, normal: hit.face.normal.clone().transformDirection(hit.object.matrixWorld) } : null;
-    }) : null;
+    }, (origin, direction, distance) => sceneCover.sightDistance(origin, direction, distance)) : null;
   const hostId = authority ? session.id : session.getPeers()[0]?.id;
   const avatars = new Map<string, Avatar>();
   const registered = new Set<string>();

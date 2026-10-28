@@ -8,7 +8,7 @@ export function createSceneCover(scene: THREE.Scene) {
   const origin = new THREE.Vector3(), direction = new THREE.Vector3();
   const surfaces: THREE.Mesh[] = [];
   let refreshedAt = -Infinity;
-  function trace(from: { x: number; y: number; z: number }, heading: { x: number; y: number; z: number }, range: number) {
+  function trace(from: { x: number; y: number; z: number }, heading: { x: number; y: number; z: number }, range: number, includeFoliage = false) {
     direction.set(heading.x, heading.y, heading.z);
     if (!Number.isFinite(range) || range < 0 || ![from.x, from.y, from.z, ...direction].every(Number.isFinite) || direction.lengthSq() < 1e-8) return undefined;
     const now = performance.now();
@@ -32,9 +32,10 @@ export function createSceneCover(scene: THREE.Scene) {
         if (node === scene) return true;
       }
       return false;
-    }));
+    }), includeFoliage);
   }
   return { trace,
     distance: (from: { x: number; y: number; z: number }, heading: { x: number; y: number; z: number }, range: number) => trace(from, heading, range)?.distance ?? range,
+    sightDistance: (from: { x: number; y: number; z: number }, heading: { x: number; y: number; z: number }, range: number) => trace(from, heading, range, true)?.distance ?? range,
   };
 }

@@ -355,7 +355,7 @@ function bodyDistance(origin: ArenaPoint, direction: ArenaPoint, actor: ArenaAct
 }
 
 /** Host-owned match. Clients may submit movement and aim, never damage or scores. */
-export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions, traversalWorld?: VerticalWorld, coverDistance?: ArenaCoverDistance, grenadeCoverTrace?: import('./grenade-flight').GrenadeTrace) {
+export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions, traversalWorld?: VerticalWorld, coverDistance?: ArenaCoverDistance, grenadeCoverTrace?: import('./grenade-flight').GrenadeTrace, sightDistance?: ArenaCoverDistance) {
   // Rendered cover stops every round, with or without vehicles in the match.
   const cover = coverDistance ?? vehicleOptions?.coverDistance;
   const bounds = environment?.bounds ?? MARINA_BOUNDS;
@@ -1728,10 +1728,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    * is cached briefly per bot so a full arena does not raycast every tick.
    */
   function clearSight(entry: InternalActor, target: string, ray: ArenaPoint, length: number, dt: number) {
-    if (!cover) return worldWallDistance(entry.actor, ray) >= length - .5;
+    const sightCover = sightDistance ?? cover;
+    if (!sightCover) return worldWallDistance(entry.actor, ray) >= length - .5;
     const sight = entry.sight;
     if (sight && sight.target === target && (sight.wait -= dt) > 0) return sight.clear;
-    const clear = cover(entry.actor, ray, length) >= length - .5;
+    const clear = sightCover(entry.actor, ray, length) >= length - .5;
     entry.sight = { target, clear, wait: ARENA_SIGHT_RECHECK };
     return clear;
   }

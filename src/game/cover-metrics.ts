@@ -1,6 +1,7 @@
 import type * as THREE from 'three';
 import { sceneFlightObstacles } from './flight-obstacles';
 import type { RegionBounds } from './region-collision';
+import { isVisualCover } from './cover-kind';
 
 /**
  * How far a player must run to get out of the line of fire.
@@ -17,7 +18,7 @@ import type { RegionBounds } from './region-collision';
  */
 
 /** Eye heights the engine actually uses, from `fps-engine.ts`. */
-export const EYE = { stand: 1.75, crouch: 1.15 } as const;
+export const EYE = { stand: 1.75, crouch: 1.15, prone: .55 } as const;
 /**
  * Shorter than this along its longer plan axis and it is a lamp post, a bollard
  * or a tree trunk. Deliberately the longer axis, not the shorter: a six-metre
@@ -41,15 +42,15 @@ export interface CoverMass { minX: number; maxX: number; minZ: number; maxZ: num
  * real cover, merely bought at half movement speed.
  */
 export function coverMasses(scene: THREE.Object3D) {
-  const wide = sceneFlightObstacles(scene).filter(o =>
+  const wide = sceneFlightObstacles(scene, mesh => !isVisualCover(mesh) && !mesh.userData.terrain).filter(o =>
     Math.max(o.maxX - o.minX, o.maxZ - o.minZ) >= MIN_COVER_LENGTH && o.minY <= MAX_COVER_BASE);
   const pick = (height: number): CoverMass[] => wide.filter(o => o.maxY >= height)
     .map(({ minX, maxX, minZ, maxZ }) => ({ minX, maxX, minZ, maxZ }));
-  return { crouch: pick(EYE.crouch), stand: pick(EYE.stand) };
+  return { crouch: pick(EYE.crouch), stand: pick(EYE.stand), prone: pick(EYE.prone) };
 }
 
 /** Exact squared-distance transform along one axis (Felzenszwalb). */
-function transform1d(f: Float64Array, n: number) {
+export function transform1d(f: Float64Array, n: number) {
   const d = new Float64Array(n), v = new Int32Array(n), z = new Float64Array(n + 1);
   let k = 0; v[0] = 0; z[0] = -Infinity; z[1] = Infinity;
   for (let q = 1; q < n; q++) {
@@ -66,7 +67,7 @@ function transform1d(f: Float64Array, n: number) {
 }
 
 /**
- * Median and 90th-percentile distance from open ground to the nearest cover,
+ * Mean, median and 90th-percentile distance from open ground to the nearest cover,
  * in metres. `standable` narrows "open" to ground a player could actually
  * occupy, so water and building interiors do not read as exposure. Cover is rasterised onto the lattice and the distance field solved
  * exactly in O(cells) rather than by comparing every open cell to every mass —
@@ -91,7 +92,7 @@ export function measureCover(bounds: RegionBounds, masses: readonly CoverMass[],
   const total = cols * rows;
   // No cover at all is not merely a long run from it, so it stays Infinity
   // rather than collapsing to a large number a caller might average in.
-  if (!covered) return { median: Infinity, p90: Infinity, solid: 0, samples: total };
+  if (!covered) return { mean: Infinity, median: Infinity, p90: Infinity, solid: 0, samples: total };
   const column = new Float64Array(rows);
   for (let i = 0; i < cols; i++) {
     for (let j = 0; j < rows; j++) column[j] = grid[i * rows + j];
@@ -115,7 +116,7 @@ export function measureCover(bounds: RegionBounds, masses: readonly CoverMass[],
   }
   open.sort((a, b) => a - b);
   const at = (q: number) => open.length ? open[Math.min(open.length - 1, Math.floor(open.length * q))] : 0;
-  return { median: at(0.5), p90: at(0.9), solid: covered / total, samples: total };
+  return { mean: open.length ? open.reduce((sum, d) => sum + d, 0) / open.length : 0, median: at(0.5), p90: at(0.9), solid: covered / total, samples: total };
 }
 
 /**

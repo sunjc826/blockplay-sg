@@ -3782,3 +3782,37 @@ A two-browser WebRTC match and a full expedition loot/throw circuit were not
 browser-checked; paired runtime authority and loot have automated coverage.
 Committed separately from overlapping ammo, pilot-recovery, inspection and
 bird work. Those edits remain preserved in the working tree.
+
+
+## 2026-10-29: Queenstown residential landscape and visual cover
+
+Added 35 pavement links, 45 shade trees (175 total), 58 broken shrub beds,
+18 short masonry seats and nine walkable earth banks, 1.6–3.2 m high. Slopes
+and crest paths share authored earth planes with infantry/bot traversal.
+Roads, HDB galleries/stairs and stamps stay usable. Moved one green-corridor
+ground loot/patrol anchor onto the pavement below its new bank. Slope widths
+now describe their narrow crest crossing; trees sit clear of those crossings.
+No new reference capture or surveyed terrain claim.
+
+New scene-cover-metrics.ts reports mean/median/p90 solid and visual proximity
+for stand/crouch/prone, using local earth heights and one occupiable population.
+Visual includes solid, thin walls survive rasterisation, collectibles are
+excluded, and sector summaries retain nearby cover across boundaries. This is
+a 2 m horizontal proxy, not walking distance or directional protection. Legacy
+sector-label fields remain separate. Foliage conceals without stopping rounds
+or blasts; sight queries include it, and mesh tags survive thermal swaps.
+Same-method crouch means: solid 14.8→12.1 m, visual 14.6→11.7 m; prone visual
+14.1→10.7 m. See docs/QUEENSTOWN-LANDSCAPE.md and its comparison JSON/images.
+
+Validation: final full suite 1715/1715 across 173 files (one worker, 30 s default),
+typecheck and production build pass. Actual WASD bank ascent/crest/descent in
+FPS and RegionGame, including host crest height, passed in Chrome. Nine final
+review views have zero runtime errors/Google requests. Initial parallel tests
+timed out under memory pressure; the later broad pass caught the slope-width
+contract and one ground anchor, both fixed and covered by the clean final run.
+An isolated tree containing only this change atop 7a44271 also passes typecheck
+and 18 cover/terrain/raycast tests. Existing bundle-size advisory remains.
+
+Other sessions' ammo, pilot, bird and HUD changes were preserved. Two foliage-
+inclusion flags inside the new uncommitted bird callbacks remain with that
+ongoing feature; they are not included by staging its surrounding code here.
