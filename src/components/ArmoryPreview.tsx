@@ -9,6 +9,7 @@ import type { VehicleKind } from '../game/vehicle-rules';
 import type { ShopItem } from '../game/armory-catalog';
 import type { EquippedWeapon } from '../game/armory-state';
 import { armorModel, disposeModel, dressWeapon, visionModel } from '../game/armory-visuals';
+import { buildFoodModel } from '../game/food-models';
 import { weaponHardware } from '../game/weapon-hardware';
 import { getWeaponSight } from '../game/weapon-optics';
 import { createOpticReflectionRenderer } from '../game/weapon-reflections';
@@ -21,7 +22,8 @@ export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item:
   const signature = JSON.stringify(weapon);
   // Names what the variant's parts put on the model, so the differences between
   // one tier and the next are findable rather than only visible.
-  const gear = item.category === 'rig' || item.category === 'plate' || item.category === 'vehicleSkin' || item.category === 'vision';
+  const food = item.category === 'consumable' && item.supplyType === 'food';
+  const gear = item.category === 'rig' || item.category === 'plate' || item.category === 'vehicleSkin' || item.category === 'vision' || food;
   const fittings = gear ? [] : weaponHardware(weapon.equipment.variant);
   useEffect(() => {
     let disposed = false, model: THREE.Object3D | undefined, undress: (() => void) | undefined, frame = 0;
@@ -49,15 +51,17 @@ export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item:
       root.position.sub(center); scene.add(root);
       const armor = item.category === 'rig' || item.category === 'plate';
       if (item.category === 'vehicleSkin') { const scale = vehicle === 'car' ? .22 : .10; root.scale.setScalar(scale); root.position.multiplyScalar(scale); }
-      camera.position.set(armor ? .68 : .92, armor ? .3 : .30, armor ? 1.3 : .34); if (!armor && item.category !== 'vehicleSkin') { const size = bounds.getSize(new THREE.Vector3()).length(); camera.position.multiplyScalar(Math.max(.45, size / .85)); controls.minDistance = Math.max(.25, size * .6); } controls.target.set(0, 0, 0); controls.update(); setStatus('');
+      // Food is looked down on, as the order arrives on the table.
+      camera.position.set(food ? .22 : armor ? .68 : .92, food ? .5 : armor ? .3 : .30, food ? .62 : armor ? 1.3 : .34); if (!armor && item.category !== 'vehicleSkin') { const size = bounds.getSize(new THREE.Vector3()).length(); camera.position.multiplyScalar(Math.max(.45, size / .85)); controls.minDistance = Math.max(.25, size * .6); } controls.target.set(0, 0, 0); controls.update(); setStatus('');
     };
     if (item.category === 'vehicleSkin') mount(buildVehicleModel(vehicle, item.id));
     else if (item.category === 'rig' || item.category === 'plate') mount(armorModel(item));
     else if (item.category === 'vision') mount(visionModel(item));
+    else if (food) { const meal = buildFoodModel(item.id); if (meal) mount(meal.root); else setStatus('Preview unavailable for this item.'); }
     else if (buildServiceWeaponId(JSON.parse(signature).id)) mount(buildServiceWeapon(JSON.parse(signature).id)!);
     else void new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/field-kit/${JSON.parse(signature).id}.glb`).then(gltf => mount(gltf.scene)).catch(() => { if (!disposed) setStatus('Preview failed to load.'); });
     const render = () => { if (disposed) return; controls.update(); if (studio && model) reflections.render(studio, camera, camera, getWeaponSight(model)?.reflection, true, performance.now() / 1000); renderer.render(scene, camera); frame = requestAnimationFrame(render); }; render();
     return () => { disposed = true; cancelAnimationFrame(frame); observer.disconnect(); controls.dispose(); undress?.(); if (model) disposeModel(model); studio?.dispose(); reflections.dispose(); renderer.dispose(); renderer.domElement.remove(); };
-  }, [item.id, item.category, item.name, signature, vehicle, retry, gear]);
+  }, [item.id, item.category, item.name, signature, vehicle, retry, gear, food]);
   return <div className="armory-preview"><div ref={host} className="armory-preview-canvas" />{status ? <div className="armory-preview-status" role="status">{status}{status.includes('failed') && <button onClick={() => setRetry(n => n + 1)}>Retry preview</button>}</div> : <span className="armory-orbit-hint">DRAG TO INSPECT · SCROLL TO ZOOM</span>}{!!fittings.length && <ul className="armory-preview-fittings" aria-label="Hardware fitted to this weapon">{fittings.map(fitting => <li key={fitting.part}>{fitting.label}</li>)}</ul>}<span className="armory-preview-mark">SG / EQUIPMENT DIVISION</span></div>;
 }
