@@ -2,7 +2,7 @@ import { canFly, createVehicle, vehicleBounds, type FlightObstacle, type Vehicle
 import type { Obstacle } from './marina-collision';
 
 /** A district keeps one of each hull. Replacements never refill a vehicle in use. */
-export const WORLD_VEHICLES = { wreckSeconds: 45, abandonedSeconds: 120, reclaimDistance: 60, protectDistance: 25, boardCooldown: 12, boardRange: 24, combatRange: 35, waitForCrew: 3, stuckSeconds: 5 } as const;
+export const WORLD_VEHICLES = { wreckSeconds: 45, abandonedSeconds: 120, reclaimDistance: 60, protectDistance: 25, boardCooldown: 12, boardRange: 24, combatRange: 35, waitForCrew: 3, crewRange: 45, assembleSeconds: 18, stuckSeconds: 5 } as const;
 const overlaps = (a: Obstacle, b: Obstacle) => a.maxX > b.minX && a.minX < b.maxX && a.maxZ > b.minZ && a.minZ < b.maxZ;
 
 export function clearVehicleSpawn(kind: VehicleKind, spawn: VehicleSpawn, ground: readonly Obstacle[], flight: readonly FlightObstacle[], bounds: VehicleWorldBounds, reserved: readonly Obstacle[] = []) {

@@ -75,8 +75,10 @@ it('offers driver controls, seat switching and mounted fire only to authorized s
   expect(car).not.toContain('data-touch-action="reload"');
   expect(control(car, 'fire')).not.toContain('disabled');
   expect(car).toContain('data-touch-action="seat"');
-  const passenger = layer(playing({ vehicle: 'car', vehicleSeat: 2, vehicleCanFire: false, vehicleAmmo: 240 }), 'arena');
-  expect(control(passenger, 'fire')).toContain('disabled');
+  const passenger = layer(playing({ vehicle: 'car', vehicleSeat: 2, vehicleCanFire: false, vehiclePersonalWeapon: true, vehicleAmmo: 240 }), 'arena');
+  expect(control(passenger, 'fire')).not.toContain('disabled');
+  expect(control(passenger, 'reload')).not.toBe('');
+  expect(control(passenger, 'view')).not.toBe('');
   expect(passenger).not.toContain('data-touch-action="altitude"');
   expect(car).toContain('data-mounted="true"');
   // Getting out is contextual too, and says which vehicle it is leaving.
@@ -123,7 +125,8 @@ it('gives a vehicle the same places, and no stance', () => {
   expect(control(helicopter, 'altitude')).toContain('data-pad-slot="edge-low"');
   expect(control(helicopter, 'boost')).toContain('data-pad-slot="edge-high"');
   expect(control(helicopter, 'descend')).toContain('data-pad-slot="corner"');
-  expect(control(helicopter, 'seat')).toContain('data-pad-slot="beside"');
+  expect(control(helicopter, 'seat')).toContain('data-pad-slot="corner-left"');
+  expect(control(helicopter, 'view')).toContain('data-pad-slot="edge-top"');
   // A vehicle's left thumb is steering, and 'c' is the helicopter's descent.
   expect(helicopter).not.toContain('data-touch-action="crouch"');
 });

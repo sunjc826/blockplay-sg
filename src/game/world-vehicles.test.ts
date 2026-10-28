@@ -38,6 +38,32 @@ it('unloads the whole crew to separate clear points when the driver dismounts', 
   expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
 });
 
+it('unloads a crew after parking the car diagonally', () => {
+  const arena = createArena([], 0, 'mixed', environment, options);
+  for (let i = 0; i < 4; i++) { player(arena, `p${i}`); arena.vehicleAction(`p${i}`, 'enter', 'car'); }
+  for (let t = 0; t < 1.2; t += .05) {
+    arena.setInput('p0', { ...actor(arena, 'p0'), playing: true,
+      vehicleControls: { forward: 1, steer: 1, lift: 0, brake: false, boost: false, fire: false } }); arena.step(.05);
+  }
+  drive(arena, 1, 0);
+  expect(Math.abs(car(arena).yaw)).toBeGreaterThan(.4);
+  expect(Math.abs(car(arena).yaw)).toBeLessThan(1.2);
+  expect(arena.vehicleAction('p0', 'exit')).toBe(true);
+  expect(car(arena).occupants.every(id => id === null)).toBe(true);
+  expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
+});
+
+it('lets a whole crew step onto pavement using infantry clearance and floor height', () => {
+  const pavement = { id: 'pavement', routeId: 'street', minX: -12, maxX: 12, minZ: -12, maxZ: 12,
+    axis: 'x' as const, startHeight: .2, endHeight: .2, solidBelow: true };
+  const arena = createArena([], 0, 'mixed', environment, options,
+    { bounds: environment.bounds, obstacles: [], surfaces: [pavement], traversalObstacles: [] });
+  for (let i = 0; i < 4; i++) { player(arena, `p${i}`); expect(arena.vehicleAction(`p${i}`, 'enter', 'car')).toBe(true); }
+  expect(arena.vehicleAction('p0', 'exit')).toBe(true);
+  expect(arena.snapshot().actors.every(a => !a.vehicle && Math.abs(a.y - 1.95) < .001)).toBe(true);
+  expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
+});
+
 it('lets a driver switch to the gun without treating the seat change as a dismount', () => {
   const arena = createArena([], 0, 'mixed', environment, options); player(arena, 'p0');
   arena.vehicleAction('p0', 'enter', 'car');
@@ -51,8 +77,11 @@ it('keeps a blocked crew seated and does not teleport anyone through walls', () 
   const walls = Array.from({ length: 4 }, () => ({ minX: 100, maxX: 101, minZ: 100, maxZ: 101 }));
   const arena = createArena(walls, 0, 'mixed', environment, options);
   for (let i = 0; i < 4; i++) { player(arena, `p${i}`); expect(arena.vehicleAction(`p${i}`, 'enter', 'car')).toBe(true); }
-  for (const [i, point] of [[-3.2, 0], [3.2, 0], [0, -3.2], [0, 3.2]].entries())
-    Object.assign(walls[i], { minX: point[0] - .6, maxX: point[0] + .6, minZ: point[1] - .6, maxZ: point[1] + .6 });
+  const cage = [
+    { minX: -8, maxX: -1.65, minZ: -8, maxZ: 8 }, { minX: 1.65, maxX: 8, minZ: -8, maxZ: 8 },
+    { minX: -8, maxX: 8, minZ: -8, maxZ: -2.7 }, { minX: -8, maxX: 8, minZ: 2.7, maxZ: 8 },
+  ];
+  walls.forEach((wall, i) => Object.assign(wall, cage[i]));
   expect(arena.vehicleAction('p0', 'exit')).toBe(false);
   expect(car(arena).occupants).toEqual(['p0', 'p1', 'p2', 'p3']);
 });
@@ -68,6 +97,28 @@ it('AI boards and drives a car, but never takes an unattended helicopter pilot s
   expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
   const air = createArena([], 1, 'mixed', { ...environment, spawns: [{ x: 43.5, z: 0 }] }, options);
   tick(air, 2); expect(air.snapshot().vehicles![1].occupants[0]).toBeNull();
+});
+
+it('rallies a gunner and passengers from beyond boarding range before driving away', () => {
+  const arena = createArena([], 4, 'mixed', { ...environment,
+    spawns: [{ x: 3.5, z: 0 }, { x: -30, z: 0 }, { x: 30, z: 0 }, { x: 0, z: 32 }] }, options);
+  tick(arena, .1);
+  expect(car(arena).occupants.filter(Boolean)).toHaveLength(1);
+  tick(arena, 4);
+  expect(car(arena).x).toBe(0); expect(car(arena).z).toBe(0);
+  tick(arena, WORLD_VEHICLES.assembleSeconds - 4);
+  expect(car(arena).occupants.every(Boolean)).toBe(true);
+  expect(car(arena).occupants[1]).not.toBeNull();
+  expect(car(arena).z).toBeLessThan(-1);
+  expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
+});
+
+it('leaves a lone AI vehicle on foot when no gunner can join', () => {
+  const arena = createArena([], 1, 'mixed', environment, options);
+  tick(arena, WORLD_VEHICLES.assembleSeconds + 1);
+  expect(car(arena).occupants.every(id => id === null)).toBe(true);
+  expect(car(arena).x).toBe(0); expect(car(arena).z).toBe(0);
+  expect(arena.snapshot().actors.every(a => !a.vehicle)).toBe(true);
 });
 
 it('a lone AI driver stops, dismounts and fights visible enemies without immediately reboarding', () => {

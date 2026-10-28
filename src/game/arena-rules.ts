@@ -1,7 +1,7 @@
 import { WORLD_VEHICLES, clearVehicleSpawn } from './world-vehicles';
 import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
 import { createVerticalNavigator, type NavigationPoint } from './vertical-navigation';
-import { createVerticalMovement, type VerticalWorld } from './vertical-movement';
+import { createVerticalMovement, MAX_STEP_HEIGHT, type VerticalWorld } from './vertical-movement';
 import { validVehicleControls, createSharedVehicle, seatOf, seatPoint, gunnerId, vehicleGunRay, vehicleRayDistance, type SharedVehicle, type VehicleControls } from './vehicle-seats';
 import { driveVehicle, flyVehicle, vehicleBounds, vehicleExit, type VehicleKind, type VehicleSpawn, type FlightObstacle } from './vehicle-rules';
 import { damageVehicle, fireVehicleWeapon, vehicleCollisionDamage, VEHICLE_COMBAT } from './vehicle-combat';
@@ -197,6 +197,7 @@ interface ArenaRound {
   shooter?: InternalActor; cause?: string;
   /** A vehicle gun's own hull, which its rounds leave rather than strike. */
   vehicle?: VehicleKind;
+  ignoreHull?: VehicleKind;
 }
 /** A round in flight as snapshots carry it, so every screen can fly a copy to draw. */
 export type ArenaRoundView = PublishedRound;
@@ -360,10 +361,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const inside = (p: { x: number; z: number }, b: HeatSector['bounds']) => p.x >= b.minX && p.x <= b.maxX && p.z >= b.minZ && p.z <= b.maxZ;
   let vehicles: SharedVehicle[] = vehicleOptions ? (['car', 'helicopter'] as const).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind])) : [];
   const controls = new Map<string, { input: VehicleControls; expires: number }>();
-  const vehicleLife = new Map<VehicleKind, { idle: number; wreck: number; stuck: number; wait: number; unload: boolean; think: number; lastThink: number; goal?: VehicleSpawn }>();
+  const vehicleLife = new Map<VehicleKind, { idle: number; wreck: number; stuck: number; wait: number; unload: boolean; think: number; lastThink: number; crew: string[]; assembleUntil: number; departed: boolean; goal?: VehicleSpawn }>();
   const lifeOf = (v: SharedVehicle) => {
     let life = vehicleLife.get(v.kind);
-    if (!life) { life = { idle: 0, wreck: 0, stuck: 0, wait: 0, unload: false, think: 0, lastThink: elapsed }; vehicleLife.set(v.kind, life); }
+    if (!life) { life = { idle: 0, wreck: 0, stuck: 0, wait: 0, unload: false, think: 0, lastThink: elapsed, crew: [], assembleUntil: 0, departed: false }; vehicleLife.set(v.kind, life); }
     return life;
   };
   let tick = 0; let elapsed = 0; let finished = false; let winner = ''; let eventId = 0; let seed = 92371, hurtSerial = 0;
@@ -522,6 +523,15 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.playing = input.playing === true;
     const actor = entry.actor; if (!actor.alive) return;
     const mounted = seatOf(vehicles, id);
+    if (!mounted || mounted.seat >= 2) {
+      if (entry.allowedWeapons.includes(input.weapon) && Number.isInteger(input.weapon) && input.weapon >= 0 && input.weapon < entry.weapons.length && input.weapon !== actor.weapon) {
+        stopReload(entry, actor.weapon); actor.weapon = input.weapon; entry.wasReloading = false;
+      }
+      if (input.reloading === true && !entry.wasReloading) reloadPlayer(id, actor.weapon);
+      // The player's own reload stopped: it was interrupted, or it ended a moment before this one.
+      else if (input.reloading === false && entry.wasReloading) stopReload(entry, actor.weapon);
+      entry.wasReloading = input.reloading === true;
+    }
     if (mounted) {
       actor.yaw = input.yaw % (Math.PI * 2); actor.pitch = clamp(input.pitch, -1.5, 1.5); actor.prone = false;
       if (validVehicleControls(input.vehicleControls) && input.playing) controls.set(id, { input: input.vehicleControls, expires: elapsed + .35 }); else controls.delete(id);
@@ -544,17 +554,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (traversal && !traversal.canOccupy(position.x, Math.max(0, feet), position.z, .35, bodyHeight)) position = { x: actor.x, z: actor.z };
     entry.movementBudget = Math.max(0, entry.movementBudget - Math.hypot(position.x - actor.x, y - actor.y, position.z - actor.z));
     Object.assign(actor, position, { y, yaw: input.yaw % (Math.PI * 2), pitch: clamp(input.pitch, -1.5, 1.5) });
-    if (entry.allowedWeapons.includes(input.weapon) && Number.isInteger(input.weapon) && input.weapon >= 0 && input.weapon < entry.weapons.length && input.weapon !== actor.weapon) {
-      stopReload(entry, actor.weapon); actor.weapon = input.weapon; entry.wasReloading = false;
-    }
-    if (input.reloading === true && !entry.wasReloading) reloadPlayer(id, actor.weapon);
-    // The player's own reload stopped: it was interrupted, or it ended a moment before this one.
-    else if (input.reloading === false && entry.wasReloading) stopReload(entry, actor.weapon);
-    entry.wasReloading = input.reloading === true;
   }
   function reloadPlayer(id: string, weapon: number) {
     const entry = members.get(id);
-    if (!entry || seatOf(vehicles, id) || !entry.actor.alive || finished || !Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return;
+    if (!entry || (seatOf(vehicles, id)?.seat ?? 2) < 2 || !entry.actor.alive || finished || !Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return;
     startReload(entry, weapon);
   }
   /** The host's ammunition rules are the player's, so a reload starts, resumes and commits the same way. */
@@ -571,7 +574,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function shoot(id: string, origin: ArenaPoint, direction: ArenaPoint, weapon: number, maxDistance = 125): ArenaShot {
     const entry = members.get(id);
-    if (!entry || seatOf(vehicles, id) || finished || !entry.actor.alive || !entry.playing || !finitePoint(origin) || !finitePoint(direction)) return { ...EMPTY_SHOT };
+    if (!entry || (seatOf(vehicles, id)?.seat ?? 2) < 2 || finished || !entry.actor.alive || !entry.playing || !finitePoint(origin) || !finitePoint(direction)) return { ...EMPTY_SHOT };
     if (!Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return { ...EMPTY_SHOT };
     const ammo = entry.ammo[weapon];
     if (distance(origin, entry.actor) > 1.5 || ammo.cooldown > 1e-7 || ammo.reloadRemaining > 0) return { ...EMPTY_SHOT };
@@ -602,12 +605,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function launch(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, weapon: ArenaWeapon, range: number, family: number): ArenaShot {
     const ballistics = entry.spec?.ballistics ?? weapon.ballistics;
     const calibre = entry.spec?.caliberMm ?? FPS_WEAPONS[family]?.caliberMm ?? 5.56;
-    if (!ballistics || isInstant(ballistics)) return resolveShot(entry, origin, ray, weapon.damage, range, undefined, entry.spec, undefined, calibre);
-    send({ shooter: entry, origin, direction: ray, ballistics, damage: weapon.damage, spec: entry.spec, calibre, power: weapon.damage }, range);
+    const ignoreHull = seatOf(vehicles, entry.actor.id)?.vehicle.kind;
+    if (!ballistics || isInstant(ballistics)) return resolveShot(entry, origin, ray, weapon.damage, range, ignoreHull, entry.spec, undefined, calibre, false);
+    send({ shooter: entry, origin, direction: ray, ballistics, damage: weapon.damage, spec: entry.spec, calibre, power: weapon.damage, ignoreHull }, range);
     return { ...EMPTY_SHOT };
   }
   /** Queues a round, its walls and rendered cover measured once along its line now. */
-  function send(round: Pick<ArenaRound, 'origin' | 'direction' | 'ballistics' | 'damage' | 'spec' | 'shooter' | 'cause' | 'vehicle' | 'calibre' | 'power'>, range: number) {
+  function send(round: Pick<ArenaRound, 'origin' | 'direction' | 'ballistics' | 'damage' | 'spec' | 'shooter' | 'cause' | 'vehicle' | 'ignoreHull' | 'calibre' | 'power'>, range: number) {
     const limit = Math.min(range, worldWallDistance(round.origin, round.direction), cover?.(round.origin, round.direction, range) ?? Infinity);
     if (flying.length >= MAX_ARENA_ROUNDS) flying.shift();
     flying.push({ ...round, id: ++roundSerial, origin: { ...round.origin }, position: { ...round.origin }, limit, time: 0, travelled: 0 });
@@ -623,7 +627,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const reach = Math.min(length, round.limit - round.travelled);
       if (reach > 1e-6) {
         const ray = { x: step.x / length, y: step.y / length, z: step.z / length };
-        const shot = round.shooter ? resolveShot(round.shooter, from, ray, round.damage, reach, round.vehicle, round.spec, round.travelled, round.calibre)
+        const shot = round.shooter ? resolveShot(round.shooter, from, ray, round.damage, reach, round.vehicle ?? round.ignoreHull, round.spec, round.travelled, round.calibre, !!round.vehicle)
           : strayShot(from, ray, reach, round.damage, round.cause ?? 'Gunfire', round.calibre);
         if (shot.stopped) {
           flying.splice(i, 1);
@@ -638,7 +642,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   /** Rounds still in the air, all of them or one shooter's. */
   const inFlight = (id?: string) => id === undefined ? flying.length : flying.filter(round => round.shooter?.actor.id === id).length;
   const roundViews = (): ArenaRoundView[] => flying.map(r => ({ id: r.id, origin: { ...r.origin }, direction: { ...r.direction }, velocity: r.ballistics.velocity, drop: r.ballistics.drop,
-    limit: r.limit, time: r.time, calibre: r.calibre, power: r.power, ...(r.shooter ? { shooter: r.shooter.actor.id } : {}), ...(r.vehicle ? { vehicle: r.vehicle } : {}) }));
+    limit: r.limit, time: r.time, calibre: r.calibre, power: r.power, ...(r.shooter ? { shooter: r.shooter.actor.id } : {}), ...(r.vehicle || r.ignoreHull ? { vehicle: r.vehicle ?? r.ignoreHull } : {}) }));
   /** The hits a player's rounds have landed since last asked, oldest first. */
   function takeHits(id: string) { const list = landed.get(id) ?? []; landed.delete(id); return list; }
   /**
@@ -687,7 +691,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    * vehicles and raiders are tested, and the hit is priced at the whole
    * distance. `stopped` says something in range took the round.
    */
-  function resolveShot(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, damage: number, range: number, ignore?: VehicleKind, spec?: WeaponSpec, flown?: number, calibre?: number): ArenaShot & { stopped?: boolean } {
+  function resolveShot(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, damage: number, range: number, ignore?: VehicleKind, spec?: WeaponSpec, flown?: number, calibre?: number, mountedGun = true): ArenaShot & { stopped?: boolean } {
     const reach = Number.isFinite(range) ? Math.max(0, range) : 0;
     let nearest = flown === undefined ? Math.min(reach, worldWallDistance(origin, ray), cover?.(origin, ray, range) ?? Infinity) : reach;
     let hull: SharedVehicle | undefined, victim: InternalActor | undefined;
@@ -706,7 +710,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const intersection = raiderDistance(candidate, origin, ray);
       if (intersection < nearest) { raider = candidate; victim = undefined; hull = undefined; nearest = intersection; }
     }
-    if (ignore) {
+    if (ignore && mountedGun) {
       const v = vehicles.find(v => v.kind === ignore)!;
       v.shotEnd = { x: origin.x + ray.x * nearest, y: origin.y + ray.y * nearest, z: origin.z + ray.z * nearest };
     }
@@ -742,8 +746,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (action === 'exit' && mounted) {
       if (vehicleOptions?.openWorld && mounted.seat === 0) return unloadVehicle(mounted.vehicle);
       const others = vehicles.filter(v => v !== mounted.vehicle && v.y < 2).map(vehicleBounds);
-      const exit = vehicleExit(mounted.vehicle, [...vehicleGround, ...others], bounds); if (!exit) return false;
-      releaseSeat(id); Object.assign(entry.actor, exit, { y: 1.75 }); entry.movementBudget = 0; entry.vehicleBoardAfter = elapsed + WORLD_VEHICLES.boardCooldown; return true;
+      const exit = vehicleExit(mounted.vehicle, [...obstacles, ...others], bounds, exitFloor); if (!exit) return false;
+      releaseSeat(id); Object.assign(entry.actor, exit, { y: exit.y + 1.75 }); entry.movementBudget = 0; entry.vehicleBoardAfter = elapsed + WORLD_VEHICLES.boardCooldown; return true;
     }
     if (action === 'switch' && mounted) {
       for (let n = 1; n < 4; n++) { const seat = (mounted.seat + n) % 4; if (mounted.vehicle.occupants[seat] === null && !(entry.actor.bot && mounted.vehicle.kind === 'helicopter' && seat === 0)) {
@@ -762,24 +766,29 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const seat = v.occupants.indexOf(null); if (seat < 0 || entry.actor.bot && v.kind === 'helicopter' && seat === 0) return false;
     v.occupants[seat] = id; stopReload(entry, entry.actor.weapon);
     entry.heal = undefined; delete entry.actor.healing; entry.navigation = undefined;
-    if (seat === 0) lifeOf(v).wait = elapsed + WORLD_VEHICLES.waitForCrew;
+    if (seat === 0) {
+      const life = lifeOf(v); life.wait = elapsed + WORLD_VEHICLES.waitForCrew;
+      life.assembleUntil = elapsed + WORLD_VEHICLES.assembleSeconds; life.departed = false;
+      life.crew = entry.actor.bot ? crewCandidates(entry, v).slice(0, 3).map(m => m.actor.id) : [];
+    }
     syncOccupants(); return true;
   }
+  const exitFloor = (x: number, z: number) => traversal ? traversal.supportHeight(x, z, MAX_STEP_HEIGHT, .38, 1.8) : 0;
   /** Plan every exit before freeing a seat: never stack a squad or put it inside cover. */
   function unloadVehicle(v: SharedVehicle) {
-    const solids = [...vehicleGround, ...vehicles.filter(other => other !== v && other.y < 2).map(vehicleBounds)];
+    const solids = [...obstacles, ...vehicles.filter(other => other !== v && other.y < 2).map(vehicleBounds)];
     const crew = v.occupants.filter((id): id is string => !!id);
     for (const member of members.values()) if (member.actor.alive && !crew.includes(member.actor.id) && member.actor.y < 3) {
       solids.push({ minX: member.actor.x - .4, maxX: member.actor.x + .4, minZ: member.actor.z - .4, maxZ: member.actor.z + .4 });
     }
-    const exits: { id: string; point: { x: number; z: number } }[] = [];
+    const exits: { id: string; point: { x: number; y: number; z: number } }[] = [];
     for (const id of crew) {
-      const point = vehicleExit(v, solids, bounds); if (!point) return false;
+      const point = vehicleExit(v, solids, bounds, exitFloor); if (!point) return false;
       exits.push({ id, point }); solids.push({ minX: point.x - .45, maxX: point.x + .45, minZ: point.z - .45, maxZ: point.z + .45 });
     }
     for (const { id, point } of exits) {
       releaseSeat(id); const entry = members.get(id)!;
-      Object.assign(entry.actor, point, { y: 1.75, prone: false });
+      Object.assign(entry.actor, point, { y: point.y + 1.75, prone: false });
       entry.movementBudget = 0; entry.vehicleBoardAfter = elapsed + WORLD_VEHICLES.boardCooldown;
       entry.navigation = undefined; entry.velocityY = 0;
     }
@@ -1376,6 +1385,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       clearBlast(from, chestOf(m.actor), distance(from, chestOf(m.actor))) && !smokeBetween(from, m.actor))
       .sort((a, b) => distance(from, a.actor) - distance(from, b.actor))[0];
   }
+  function crewCandidates(driver: InternalActor, v: SharedVehicle) {
+    return [...members.values()].filter(m => m !== driver && m.actor.bot && m.actor.alive && m.actor.faction === driver.actor.faction &&
+      !m.anchor && !m.temporary && !m.heal && !(m.order && m.order.until > elapsed) && !seatOf(vehicles, m.actor.id) &&
+      m.actor.y < 2.1 && m.actor.health >= m.healthMax * .5 && elapsed >= (m.vehicleBoardAfter ?? 0) &&
+      distance(m.actor, v) <= WORLD_VEHICLES.crewRange && !dangerExit(m.actor))
+      .sort((a, b) => distance(a.actor, v) - distance(b.actor, v));
+  }
   function tryBoardVehicle(entry: InternalActor, visible: boolean, dt: number) {
     if (!vehicleOptions?.openWorld || visible || (entry.order && entry.order.until > elapsed) || entry.anchor || entry.temporary || entry.heal || entry.actor.y > 2 ||
       elapsed < (entry.vehicleBoardAfter ?? 0) || dangerExit(entry.actor) || entry.actor.health < entry.healthMax * .5) return false;
@@ -1385,7 +1401,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       // Leave an unattended motor pool for a player who is already approaching it.
       (v.occupants[0] || ![...members.values()].some(m => !m.actor.bot && m.actor.alive && distance(m.actor, v) < 12)))
       .sort((a, b) => distance(entry.actor, a) - distance(entry.actor, b))
-      .find(v => distance(entry.actor, v) < WORLD_VEHICLES.boardRange && !vehicleEnemy(entry, v));
+      .find(v => {
+        const driver = v.occupants[0] ? members.get(v.occupants[0]) : undefined;
+        const recruited = driver?.actor.bot && !lifeOf(v).departed && lifeOf(v).crew.includes(entry.actor.id);
+        return distance(entry.actor, v) < (recruited ? WORLD_VEHICLES.crewRange : WORLD_VEHICLES.boardRange) && !vehicleEnemy(entry, v);
+      });
     if (!v) return false;
     if (vehicleAction(entry.actor.id, 'enter', v.kind)) return true;
     // Walk to the hull's side using the same street collision as infantry.
@@ -1427,6 +1447,23 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         continue;
       }
       if (driver?.actor.bot) {
+        // A patrol needs its gunner. Rally the existing squad instead of adding
+        // bots to the district or driving away while they are still approaching.
+        if (life.departed && !v.occupants[1]) {
+          life.departed = false; life.assembleUntil = elapsed + WORLD_VEHICLES.assembleSeconds;
+          life.crew = crewCandidates(driver, v).slice(0, 3).map(m => m.actor.id);
+        }
+        const outstanding = life.crew.some(id => {
+          const ally = members.get(id);
+          return ally?.actor.alive && !seatOf(vehicles, id) && elapsed >= (ally.vehicleBoardAfter ?? 0) &&
+            !(ally.order && ally.order.until > elapsed) && distance(ally.actor, v) <= WORLD_VEHICLES.crewRange;
+        });
+        const assembling = !life.departed && elapsed < life.assembleUntil && (!v.occupants[1] || outstanding);
+        if (!v.occupants[1] && elapsed >= life.assembleUntil) {
+          life.unload = true; hold(driver.actor.id, neutral); unloadVehicle(v); continue;
+        }
+        if (assembling || elapsed < life.wait) { hold(driver.actor.id, neutral); continue; }
+        life.departed = true;
         const ground = [...vehicleGround, ...vehicles.filter(other => other !== v && other.y < 2).map(vehicleBounds)];
         const clearRoute = (goal: VehicleSpawn) => {
           const d = Math.hypot(goal.x - v.x, goal.z - v.z), yaw = Math.atan2(v.x - goal.x, v.z - goal.z);
@@ -1446,9 +1483,19 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         const goal = life.goal;
         const heading = goal ? Math.atan2(v.x - goal.x, v.z - goal.z) : v.yaw;
         const error = Math.atan2(Math.sin(heading - v.yaw), Math.cos(heading - v.yaw));
-        const waiting = elapsed < life.wait || !goal;
+        const waiting = !goal;
         hold(driver.actor.id, { ...neutral, forward: waiting ? 0 : Math.abs(v.speed) < 7 ? 1 : 0, steer: clamp(-error * 2, -1, 1), brake: waiting || Math.abs(v.speed) > 8 });
         if ((!waiting && Math.abs(v.speed) < .5) || !goal) life.stuck += thinkDt; else life.stuck = 0;
+      }
+      for (const id of v.occupants.slice(2)) {
+        const passenger = id ? members.get(id) : undefined;
+        if (!passenger?.actor.bot) continue;
+        const target = vehicleEnemy(passenger, v);
+        if (!target) continue;
+        const from = passenger.actor, to = chestOf(target.actor), length = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z);
+        passenger.actor.yaw = Math.atan2(from.x - to.x, from.z - to.z);
+        passenger.actor.pitch = Math.atan2(to.y - from.y, Math.hypot(to.x - from.x, to.z - from.z));
+        shoot(from.id, from, { x: (to.x - from.x) / length, y: (to.y - from.y) / length, z: (to.z - from.z) / length }, from.weapon);
       }
       const gunner = gunnerId(v), gunnerEntry = gunner ? members.get(gunner) : undefined;
       if (gunner && gunnerEntry?.actor.bot) {

@@ -2,8 +2,9 @@ import { afterEach, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { createFpsVehicles } from './fps-vehicles';
 import { firstVisibleHit } from './fps-raycast';
+import { createSharedVehicle } from './vehicle-seats';
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 it('keeps vehicle labels decorative for camera-free counter-fire rays and player shots', () => {
   vi.stubGlobal('document', { createElement: () => ({ width: 0, height: 0,
@@ -71,5 +72,37 @@ it('rotates gun direction to its aim point and excludes effects from collision',
     vehicles.damage('helicopter', 10000); vehicles.step(new Set(), .05);
     expect(scene.children.filter(o => o.userData.fpsEffect)).toHaveLength(1);
     expect(vehicles.hitKind(vehicles.models.car.children[0])).toBe('car');
+  } finally { vehicles.dispose(); }
+});
+
+it('dismounts onto a low pavement at its actual feet height', () => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  const scene = new THREE.Scene();
+  const pavement = { minX: -100, maxX: 100, minZ: -100, maxZ: 100, maxY: .2 };
+  const vehicles = createFpsVehicles(scene, [pavement], { car: '', helicopter: '' }, { exitFloor: () => .2 });
+  try {
+    vehicles.interact(vehicles.states.car);
+    vehicles.states.car.yaw = Math.PI / 4;
+    const exit = vehicles.interact(vehicles.states.car);
+    expect(exit).toMatchObject({ entered: false, y: .2 });
+    expect(vehicles.active).toBeNull();
+  } finally { vehicles.dispose(); }
+});
+
+it('keeps the rendered hull and mounted camera pose together between shared snapshots', () => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  let now = 0; vi.spyOn(performance, 'now').mockImplementation(() => now);
+  const scene = new THREE.Scene(), vehicles = createFpsVehicles(scene, [], { car: '', helicopter: '' });
+  const car = createSharedVehicle('car', { x: 0, z: 0, yaw: 0 }); car.occupants[2] = 'passenger';
+  const air = createSharedVehicle('helicopter', { x: 40, z: 0, yaw: 0 });
+  try {
+    vehicles.adoptShared([car, air], 'passenger');
+    now = 100; vehicles.adoptShared([{ ...car, z: -2, speed: 20 }, air], 'passenger');
+    now = 150; vehicles.sharedStep(.05);
+    expect(vehicles.states.car.z).toBe(-2);
+    expect(vehicles.viewMounted?.z).toBeCloseTo(-1);
+    expect(vehicles.models.car.position.z).toBeCloseTo(vehicles.viewMounted!.z);
+    expect(vehicles.canUseFirearm).toBe(true); expect(vehicles.canFire).toBe(false);
+    vehicles.reset(); expect(vehicles.viewMounted).toBeNull();
   } finally { vehicles.dispose(); }
 });

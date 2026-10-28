@@ -3,10 +3,10 @@ import { createWorldAtmosphere } from './world-atmosphere';
 import { createNightLights, nightLevel } from './world-night-lights';
 import { getRegion } from './regions';
 import { createMovementMotion, resetMovementMotion, advanceGroundMotion, advanceBodyMotion, bufferJump, consumeJump, landMovement, INFANTRY_GRAVITY } from './fps-movement';
-import { createVerticalMovement } from './vertical-movement';
+import { createVerticalMovement, MAX_STEP_HEIGHT } from './vertical-movement';
 import { elevatedLootAnchors } from './vertical-navigation';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
-import type { VehicleControls } from './vehicle-seats';
+import { seatPoint, type VehicleControls } from './vehicle-seats';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage, stanceRecoilMultiplier } from './fps-stance';
 import { pickupSlot, restoreCarrySlots } from './armory-slots';
 import { equipmentMovement } from './fps-encumbrance';
@@ -151,7 +151,7 @@ export interface FpsHud {
   carriedWeapons: number[]; carriedKg: number; movementScale: number;
   weapon: number; magazine: number; reserve: number; reloading: number;
   prone: boolean; braced: boolean; hits: number; shots: number; landed: number; health: number; armor: number; incoming: boolean; hurt: boolean; lastDamage: number; earned: number; earnedXp: number; callout: string; chain: number; elapsed: number; aiming: boolean; hit: boolean;
-  vehicleSeat: number | null; vehicleCanFire: boolean; vehicleSeats: { label: string; name: string; occupied: boolean; self: boolean }[];
+  vehicleView: 'first-person' | 'third-person'; vehiclePersonalWeapon: boolean; vehicleSeat: number | null; vehicleCanFire: boolean; vehicleSeats: { label: string; name: string; occupied: boolean; self: boolean }[];
   vehicleAimX: number; vehicleAimY: number; vehicleAimVisible: boolean;
   vehicleHealth: number; vehicleMaxHealth: number; vehicleAmmo: number; vehicleAmmoMax: number; vehicleWeapon: string; vehicleDamage: VehicleDamageStage;
   vehicle: VehicleKind | 'on-foot'; vehicleSpeed: number; altitude: number; interact: string; vehicleNotice: string; carDistance: number; helicopterDistance: number;
@@ -187,7 +187,7 @@ export interface FpsHud {
   /** The weapon in hand's laser or light (B switches it), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -235,9 +235,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   if (expedition && zoneWorld && expeditionSession) options = { ...options, arena: { session: expeditionSession, profile: fieldProfile, botCount: zoneWorld.zone.botCount, composition: zoneWorld.zone.composition, environment: zoneWorld.environment, initialVitals: expedition.checkpoint } };
   const npcs = expedition ? expeditionNpcs(expedition.zone, zoneSectors(expedition.zone)) : [];
   const fleetSpawns = expedition ? worldVehicleSpawns(district.vehicles, [...world.obstacles, ...verticalVehicleObstacles({ surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })], sceneFlightObstacles(world.scene), world.bounds, [...npcs, zoneWorld?.environment.playerSpawn ?? district.spawn]) : district.vehicles;
-  const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { spawns: fleetSpawns, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay' });
+  const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { spawns: fleetSpawns, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay', exitFloor: (x, z) => footMovement.supportHeight(x, z, MAX_STEP_HEIGHT, .38, 1.8) });
   let arenaRuntime: ReturnType<typeof createArenaRuntime> | null = null;
   const chaseRay = new THREE.Raycaster();
+  let vehicleView: 'first-person' | 'third-person' = 'third-person';
+  const firstPersonVehicle = () => vehicleView === 'first-person' || ads || touchAim;
   const camera = new THREE.PerspectiveCamera(65, 1, 0.08, 800); camera.rotation.order = 'YXZ';
   const occlusion = createWorldOcclusion(renderer, world.scene, camera);
   const viewScene = new THREE.Scene(), viewCamera = new THREE.PerspectiveCamera(65, 1, 0.01, 3);
@@ -416,7 +418,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const burden = movement();
     const mapContactRange = minimapContactRange(atmosphere.light.lighting.shift, atmosphere.conditions.weather);
     syncBelt();
-    onHud({ ...hud, vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(vertical > .35 && !vehicles.active ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
+    onHud({ ...hud, vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(vertical > .35 && !vehicles.active ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapContactRange, mapMarkers: [
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
@@ -576,7 +578,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function reload() {
     if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
     if (hud.phase === 'playing' && supplyUse) endSupply();
-    if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive) && !vehicles.active && beginReload(loadout[hud.weapon], hud.weapon, specs)) {
+    if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive) && (!vehicles.active || vehicles.canUseFirearm) && beginReload(loadout[hud.weapon], hud.weapon, specs)) {
       emptyReload[hud.weapon] = loadout[hud.weapon].reloadEmpty === true;
       reloadGate = armReloadGate(trigger, sprintIntent); pullBuffer = 0;
       radioCall('reload');
@@ -624,7 +626,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const change = vehicles.interact(position);
     if (change) {
       clearInput(); actualAim = false; stopReload();
-      position = { x: change.x, z: change.z }; vertical = velocityY = 0; resetRecoil(kick); carry.set(0, 0, 0);
+      position = { x: change.x, z: change.z }; vertical = change.y; velocityY = 0; resetMovementMotion(bodyMotion, eyeHeight()); resetRecoil(kick); carry.set(0, 0, 0);
       if (change.entered) { yaw = change.yaw; pitch = -.23; }
       else pitch = -.03;
       updateCameras(0, false, false);
@@ -914,14 +916,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** X: roll over onto the offset dot beside a magnified sight, and back. */
   function toggleCant() {
-    if (hud.phase !== 'playing' || vehicles.active || !specs[hud.weapon].accessories?.offsetDot) return;
+    if (hud.phase !== 'playing' || vehicles.active && !vehicles.canUseFirearm || !specs[hud.weapon].accessories?.offsetDot) return;
     cantWanted = !cantWanted; publish();
   }
   function toggleAim() {
-    if (pilotEnabled || hud.phase !== 'playing' || vehicles.active || hud.arenaSelf?.alive === false || loadout[hud.weapon].reloadRemaining > 0) return;
+    if (pilotEnabled || hud.phase !== 'playing' || hud.arenaSelf?.alive === false || loadout[hud.weapon].reloadRemaining > 0) return;
     touchAim = !touchAim; canvas.focus({ preventScroll: true }); publish();
   }
-  const keyboardKeys = ['y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'v', 'n', 't', 'f', 'm', 'h', 'j', 'b', 'x', 'control', 'escape'];
+  function toggleVehicleView() {
+    if (hud.phase !== 'playing' || !vehicles.active) return;
+    vehicleView = firstPersonVehicle() ? 'third-person' : 'first-person';
+    ads = touchAim = false; updateCameras(0, false, false); publish();
+  }
+  const keyboardKeys = ['y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'v', 'l', 'n', 't', 'f', 'm', 'h', 'j', 'b', 'x', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
     if (key === 'f' && !event.repeat) { event.preventDefault(); options.onFullscreen?.(); return; }
@@ -937,6 +944,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (key === 'escape') pause();
     else if (pilotEnabled) { pause(); hud.message = 'AI stopped. Click Resume to take control.'; publish(); }
     else if (key === 'v') { if (!event.repeat) switchVehicleSeat(); }
+    else if (key === 'l') { if (!event.repeat) toggleVehicleView(); }
     else if (key === 'e') { if (!event.repeat) expedition && !vehicles.active && focusedLoot ? interactLoot() : interactVehicle(); }
     else if (key === 'n') { if (!event.repeat) interactNpc(); }
     else if (key === 't') { if (!event.repeat) travelZone(); }
@@ -1189,29 +1197,48 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // never got, dragging the sights below where the shooter left them.
     if (pitch !== wanted) compensateRecoil(kick, pitch - wanted, 0);
   }
+  function updateVehicleCamera(dt: number) {
+    const v = vehicles.viewMounted; if (!v) return;
+    if (firstPersonVehicle()) {
+      const eye = seatPoint(v, vehicles.seat ?? 0);
+      if (vehicles.canFire) {
+        const offset = v.kind === 'car' ? -.45 : -1.7;
+        eye.x = v.x + Math.sin(v.yaw) * offset; eye.z = v.z + Math.cos(v.yaw) * offset;
+        eye.y = v.y + (v.kind === 'car' ? 2.72 : .9);
+      }
+      camera.position.set(eye.x, eye.y, eye.z); camera.rotation.set(pitch, yaw, 0, 'YXZ');
+    } else {
+      const target = new THREE.Vector3(v.x, v.y + 1.65, v.z), distance = v.kind === 'car' ? 8.5 : 13;
+      const direction = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
+      const wanted = target.clone().addScaledVector(direction, distance); wanted.y = Math.max(.7, wanted.y);
+      const offset = wanted.clone().sub(target); chaseRay.set(target, offset.clone().normalize()); chaseRay.near = .2; chaseRay.far = offset.length();
+      // Riders and other figures are not camera obstacles: a nearby head used
+      // to pull the chase camera into the cab on alternating frames.
+      const obstruction = firstVisibleHit(chaseRay, world.scene.children.filter(o => o !== vehicles.root && !o.userData.fpsEffect && !o.userData.arenaActorId));
+      camera.position.copy(obstruction ? target.clone().addScaledVector(offset.normalize(), Math.max(.5, obstruction.distance - .4)) : wanted);
+      camera.lookAt(target);
+    }
+    camera.fov = THREE.MathUtils.damp(camera.fov, (ads || touchAim) && !vehicles.canUseFirearm ? 48 : 68, 8, dt);
+    camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
+    canvas.dataset.vehicleView = firstPersonVehicle() ? 'first-person' : 'third-person';
+    canvas.dataset.vehicleCamera = JSON.stringify({ x: camera.position.x, y: camera.position.y, z: camera.position.z });
+  }
   function updateCameras(dt: number, moving: boolean, sprinting: boolean) {
     // Bounded camera-relative inertia, driven by angle deltas (not frame rate).
     const yawDelta = Math.atan2(Math.sin(yaw - lastLookYaw), Math.cos(yaw - lastLookYaw));
     lookLagX = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagX + yawDelta * .025, -.003, .003), 0, 12, dt);
     lookLagY = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagY - (pitch - lastLookPitch) * .025, -.003, .003), 0, 12, dt);
     lastLookYaw = yaw; lastLookPitch = pitch;
-    if (vehicles.mounted) {
-      actualAim = false; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0);
-      const v = vehicles.mounted, target = new THREE.Vector3(v.x, v.y + 1.65, v.z);
-      const distance = v.kind === 'car' ? 8.5 : 13;
-      const direction = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
-      const wanted = target.clone().addScaledVector(direction, distance); wanted.y = Math.max(.7, wanted.y);
-      const offset = wanted.clone().sub(target); chaseRay.set(target, offset.clone().normalize()); chaseRay.near = .2; chaseRay.far = offset.length();
-      const obstruction = firstVisibleHit(chaseRay, world.scene.children.filter(o => o !== vehicles.root && !o.userData.fpsEffect));
-      camera.position.copy(obstruction ? target.clone().addScaledVector(offset.normalize(), Math.max(.5, obstruction.distance - .4)) : wanted);
-      camera.lookAt(target); camera.fov = THREE.MathUtils.damp(camera.fov, 68, 8, dt); camera.updateProjectionMatrix(); camera.updateMatrixWorld(true); return;
+    if (vehicles.mounted && !vehicles.canUseFirearm) {
+      actualAim = ads || touchAim; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0);
+      updateVehicleCamera(dt); return;
     }
     const aiming = (ads || touchAim) && !sprinting && loadout[hud.weapon].reloadRemaining === 0 && !supplyUse;
     actualAim = aiming;
     // Heavier carry costs time to settle the sights as well as ground speed.
     aimProgress = THREE.MathUtils.damp(aimProgress, aiming ? 1 : 0, 15 * (aiming ? movement().aimSpeed : 1), dt);
     const aim = smoothStep(aimProgress);
-    rig.visible = !options.arena || hud.arenaSelf?.alive !== false;
+    rig.visible = (!options.arena || hud.arenaSelf?.alive !== false) && (!vehicles.active || firstPersonVehicle());
     const poseStance = stance(), crouching = poseStance !== 'stand';
     const speed = carry.length(), onGround = grounded();
     const sideSpeed = carry.x * Math.cos(yaw) - carry.z * Math.sin(yaw);
@@ -1227,6 +1254,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const view = recoilView(kick), pose = recoilPose(kick);
     camera.rotation.set(pitch + view.pitch, yaw + view.yaw, bodyMotion.lean * motionScale * (1 - aim * .9), 'YXZ');
     camera.fov = 65 + bodyMotion.sprint * 6 * (1 - aim) * motionScale;
+    if (vehicles.mounted) updateVehicleCamera(dt);
     camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
     viewCamera.fov = THREE.MathUtils.lerp(65, 54, aim); viewCamera.updateProjectionMatrix();
     const sway = Math.sin(gait) * (poseStance === 'prone' ? .025 : .014) * gaitWeight * (1 - aim * .94);
@@ -1654,7 +1682,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hadDestruction) { checkCompletion(); publish(); }
   }
   function shoot() {
-    if ((!pilotEnabled && specs[hud.weapon].fireMode === 'semi' && triggerSpent) || vehicles.active || (options.arena && !hud.arenaSelf?.alive) || !fireWeapon(loadout[hud.weapon], hud.weapon, specs)) return;
+    if ((!pilotEnabled && specs[hud.weapon].fireMode === 'semi' && triggerSpent) || vehicles.active && !vehicles.canUseFirearm || (options.arena && !hud.arenaSelf?.alive) || !fireWeapon(loadout[hud.weapon], hud.weapon, specs)) return;
     hud.shots++; shotSound(specs[hud.weapon]);
     const recoilDamage = unsupportedRecoilDamage(specs[hud.weapon], prone, grounded(), keys.has('c'));
     if (recoilDamage) {
@@ -1666,6 +1694,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       }
     }
     world.scene.updateMatrixWorld(true); ray.setFromCamera(center, camera);
+    if (vehicles.mounted && vehicles.canUseFirearm) {
+      const aimRay = ray.ray.clone(); ray.far = 180;
+      const hit = firstVisibleHit(ray, vehicleCandidates(vehicles.active!));
+      const target = hit?.point ?? aimRay.at(180, new THREE.Vector3());
+      // Authority validates the seat, not a chase camera several metres away.
+      const eye = seatPoint(vehicles.mounted, vehicles.seat!);
+      ray.ray.origin.set(eye.x, eye.y, eye.z); ray.ray.direction.copy(target).sub(ray.ray.origin).normalize();
+    }
+    const shotOrigin = ray.ray.origin.clone();
+    const shotCandidates = vehicles.active ? vehicleCandidates(vehicles.active) : gameplayCandidates();
     const dispersion = sampleShotSpread(spreadAngle);
     shotRight.set(1, 0, 0).applyQuaternion(camera.quaternion); shotUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
     ray.ray.direction.addScaledVector(shotRight, dispersion.x).addScaledVector(shotUp, dispersion.y).normalize();
@@ -1674,6 +1712,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const muzzle = muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id);
     if (muzzle) { muzzle.getWorldPosition(muzzlePoint); camera.localToWorld(muzzlePoint); }
     else muzzlePoint.copy(camera.position);
+    if (vehicles.active) muzzlePoint.copy(shotOrigin);
     const supportMultiplier = bipodRecoilMultiplier(specs[hud.weapon].bipod, handling[hud.weapon]?.bipodDeployment ?? 0, prone, grounded(), carry.length());
     const recoilMultiplier = stanceRecoilMultiplier(stance(), grounded(), bodyMotion.eye) * supportMultiplier;
     recordRecoilShot(kick, specs[hud.weapon], hud.weapon, Math.random, recoilMultiplier);
@@ -1683,17 +1722,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // and decides what it hit; this side flies a copy along the same arc to draw.
     if (needsFlight(specs[hud.weapon].ballistics)) {
       if (arenaRuntime) {
-        const first = stopAtWater(visibleHits(ray, gameplayCandidates(), 1))[0];
+        const first = stopAtWater(visibleHits(ray, shotCandidates, 1))[0];
         let figure = false;
         for (let object: THREE.Object3D | null = first?.object ?? null; object; object = object.parent) if (object.userData.arenaActorId) figure = true;
         // A figure may step aside before the round arrives, so only scenery caps how far it can go.
-        arenaRuntime.shoot(camera.position, ray.ray.direction, hud.weapon, first && !figure ? first.distance : 125, prone);
+        arenaRuntime.shoot(shotOrigin, ray.ray.direction, hud.weapon, first && !figure ? first.distance : 125, prone);
       }
-      if (rounds.length < MAX_ROUNDS_IN_FLIGHT)
-        rounds.push(createRound(++roundSerial, hud.weapon, camera.position.clone(), ray.ray.direction.clone(), specs[hud.weapon].ballistics, arenaRuntime ? 0 : pierceBudget(hud.weapon), !!arenaRuntime));
+      if (rounds.length < MAX_ROUNDS_IN_FLIGHT && !(arenaRuntime && vehicles.active))
+        rounds.push(Object.assign(createRound(++roundSerial, hud.weapon, shotOrigin, ray.ray.direction.clone(), specs[hud.weapon].ballistics, arenaRuntime ? 0 : pierceBudget(hud.weapon), !!arenaRuntime), vehicles.active ? { skipVehicle: vehicles.active } : {}));
       publish(); return;
     }
-    const candidates = gameplayCandidates();
+    const candidates = shotCandidates;
     // The arena host resolves its own shot, so it only needs the nearest surface.
     const hits = stopAtWater(arenaRuntime ? visibleHits(ray, candidates, 1) : visibleHits(ray, candidates, 1 + pierceBudget(hud.weapon)));
     const hit = hits[0];
@@ -1702,7 +1741,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (arenaRuntime) {
       let hitActor = false;
       for (let object: THREE.Object3D | null = hit?.object ?? null; object; object = object.parent) if (object.userData.arenaActorId) hitActor = true;
-      arenaRuntime.shoot(camera.position, ray.ray.direction, hud.weapon, hit ? hit.distance + (hitActor ? 0.7 : 0) : 125, prone);
+      arenaRuntime.shoot(shotOrigin, ray.ray.direction, hud.weapon, hit ? hit.distance + (hitActor ? 0.7 : 0) : 125, prone);
     } else {
       energy = resolveSurfaces(hits, hud.weapon, hit => hit.distance, 1);
       const last = hits[hits.length - 1];
@@ -1789,8 +1828,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       }
       if (oldVehicle !== vehicles.active || oldSeat !== vehicles.seat) {
         if (!oldVehicle && vehicles.mounted) { yaw = vehicles.mounted.yaw; pitch = -.23; }
-        clearInput(); vertical = velocityY = 0;
+        velocityY = 0;
+        vertical = !vehicles.active && frame.self ? Math.max(0, frame.self.y - 1.75) : 0;
         if (frame.self) position = { x: frame.self.x, z: frame.self.z };
+        clearInput();
       }
       if (vehicles.mounted) position = { x: vehicles.mounted.x, z: vehicles.mounted.z };
     }
@@ -1837,7 +1878,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         resetMovementMotion(bodyMotion, eyeHeight()); carry.set(0, 0, 0);
         updateCameras(0, false, false);
       }
-      rig.visible = frame.self.alive && !vehicles.active;
+      rig.visible = frame.self.alive && (!vehicles.active || vehicles.canUseFirearm && firstPersonVehicle());
     }
     if (frame.hit?.hitId) { hud.landed++; hud.lastDamage = frame.hit.damage; hitTime = .2; hud.hitKind = frame.hit.killed ? 'kill' : 'hit'; }
     for (const said of frame.barks) if (frame.snapshot) hearBark(said, frame.snapshot.actors);
@@ -2171,6 +2212,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (pilotEnabled && ['complete', 'defeated', 'error'].includes(hud.phase)) { pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); }
     if (pilotEnabled && hud.phase === 'playing' && now >= nextPilotAt) { nextPilotAt = now + PILOT_INTERVAL * 1000; updatePilot(now / 1000); }
     if (disposed || travelPending) return;
+    const previousVehicle = vehicles.active, previousHeading = vehicles.viewMounted?.yaw;
+    updateArena(realDt);
+    if (arenaRuntime) {
+      vehicles.sharedStep(realDt);
+      arenaRuntime.presentVehicleRiders(vehicles.viewStates);
+      if (previousVehicle === vehicles.active && previousHeading !== undefined && vehicles.viewMounted)
+        yaw += Math.atan2(Math.sin(vehicles.viewMounted.yaw - previousHeading), Math.cos(vehicles.viewMounted.yaw - previousHeading));
+    }
     let moving = false, sprinting = false, fireReady = true;
     // The arena keeps running behind pause menus, including magazine reloads.
     if (options.arena) loadout.forEach((state, i) => advanceWeapon(state, i, realDt, specs));
@@ -2233,14 +2282,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (supplyUse && (vehicles.active || hud.health <= 0)) endSupply();
       stepSupply(realDt);
       wasSprinting = sprinting;
-      if ((trigger || pullBuffer > 0) && fireReady && !supplyUse && hud.phase === 'playing') { if (vehicles.active) shootVehicle(); else shoot(); }
+      if ((trigger || pullBuffer > 0) && fireReady && !supplyUse && hud.phase === 'playing') { if (vehicles.active && !vehicles.canUseFirearm) shootVehicle(); else shoot(); }
       pullBuffer = Math.max(0, pullBuffer - realDt);
       if (hud.phase === 'playing' && options.combat && !options.arena) counterFire(realDt);
     } else { advanceRecoil(kick, realDt); applyAimPush(); carry.set(0, 0, 0); updateCameras(dt, false, false); }
-    updateArena(realDt);
     updateAmbientSky(realDt);
     updateCombatEvents(realDt);
-    if (arenaRuntime) vehicles.sharedStep(dt);
     if (debugAvailable && hud.phase === 'playing' && hud.health > 0) {
       recoveryDelay = Math.max(0, recoveryDelay - dt);
       if (debug.regeneration && recoveryDelay === 0 && hud.health < hud.maxHealth) {
@@ -2305,7 +2352,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const visionSpec = equipment.vision?.spec;
     advanceVision(visionState, visionSpec, realDt);
     renderer.toneMappingExposure = vision.begin(visionSpec, visionState, { dt: realDt, lighting: atmosphere.light.lighting, blackout, exposure: renderer.toneMappingExposure });
-    const opticActive = rig.visible && !vehicles.active && hud.phase === 'playing';
+    const opticActive = rig.visible && (!vehicles.active || vehicles.canUseFirearm) && hud.phase === 'playing';
     updateRail(opticActive);
     // Canted past halfway, the offset dot is the sight in use and the scope beside it goes dark.
     const mountedSight = weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon]) : undefined;
@@ -2408,7 +2455,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
-    toggleAim, toggleMap, toggleRail, toggleCant,
+    toggleVehicleView, toggleAim, toggleMap, toggleRail, toggleCant,
     openCalloutWheel, closeCalloutWheel, setCalloutPage, sendCallout,
     /** Touch: the wheel's button opens it and, open, puts it away. */
     toggleCalloutWheel() { if (wheel) closeCalloutWheel(); else openCalloutWheel(); },

@@ -5,9 +5,9 @@ import { arenaCharacterLook, arenaRoleColor } from './character-looks';
 import { getArenaFaction, PLAYER_FACTION } from './arena-factions';
 import { MARINA_BOUNDS } from './marina-collision';
 import { PRONE_EYE_HEIGHT } from './fps-stance';
-import { validVehicleControls } from './vehicle-seats';
+import { validVehicleControls, seatPoint } from './vehicle-seats';
 import { VEHICLE_COMBAT } from './vehicle-combat';
-import type { VehicleKind } from './vehicle-rules';
+import type { VehicleKind, VehicleState } from './vehicle-rules';
 import { validWeaponIndex } from './fps-rules';
 import * as THREE from 'three';
 import { createArena, MAX_ARENA_ACTORS, MAX_ARENA_BARKS, MAX_ARENA_ROUNDS, SPAWN_SHIELD_SECONDS, type ArenaActor, type ArenaBark, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaRaiderState, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
@@ -551,6 +551,15 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     for (const avatar of avatars.values()) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); }
     avatars.clear();
   }
-  return { vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, setVitals, setHealthMultiplier, triggerEvent, setCombatEvents };
+  function presentVehicleRiders(states: readonly VehicleState[]) {
+    for (const actor of snapshot?.actors ?? []) {
+      if (!actor.vehicle || actor.seat === undefined) continue;
+      const avatar = avatars.get(actor.id), vehicle = states.find(v => v.kind === actor.vehicle);
+      if (!avatar || !vehicle) continue;
+      const eye = seatPoint(vehicle, actor.seat);
+      avatar.root.position.set(eye.x, eye.y - (actor.vehicle === 'car' && actor.seat === 1 ? 1.75 : 1.2), eye.z);
+    }
+  }
+  return { presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, setVitals, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

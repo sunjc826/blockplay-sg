@@ -1,0 +1,15 @@
+/* A passenger has a firearm readout as well as the hull readout. */
+.fps-game .fps-vehicle-hud[data-personal]{top:140px;bottom:auto;max-width:280px;padding:10px;background:#0c151bb8;border-radius:3px}
+.fps-game[data-touch=on] .fps-vehicle-hud[data-personal]{top:290px;bottom:auto;left:12px;right:auto;width:140px;padding:6px;text-align:left}
+.fps-game[data-touch=on] .fps-vehicle-hud[data-personal]>span{display:block;font-size:8px;letter-spacing:0}
+.fps-game[data-touch=on] .fps-vehicle-hud[data-personal]>strong{display:inline-block;font-size:18px}
+.fps-game[data-touch=on] .fps-vehicle-hud[data-personal]>b{display:inline-block;margin-left:8px;font-size:10px}
+.fps-game[data-touch=on] .fps-vehicle-hud[data-personal] .fps-vehicle-vitals{font-size:8px;margin-top:3px;gap:2px}
+.fps-game[data-touch=on] .fps-vehicle-hud[data-personal] .fps-vehicle-vitals small,
+.fps-game[data-touch=on] .fps-vehicle-hud[data-personal] .fps-vehicle-seats,
+.fps-game[data-touch=on] .fps-vehicle-hud[data-personal]>p{display:none}
+@media(max-height:560px){
+ .fps-game[data-touch=on] .fps-vehicle-hud[data-personal]{top:auto;bottom:10px;width:180px}
+ .fps-game[data-touch=on] .fps-vehicle-hud[data-personal]>strong,
+ .fps-game[data-touch=on] .fps-vehicle-hud[data-personal]>b{display:none}
+}

@@ -1,3 +1,4 @@
+import { createVehiclePresentation } from './vehicle-presentation';
 import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import { VEHICLE_SEATS, seatOf, gunnerId, vehicleGunRay, type SharedVehicle } from './vehicle-seats';
@@ -6,11 +7,11 @@ import { damageVehicle, fireVehicleWeapon, VEHICLE_COMBAT, vehicleCollisionDamag
 import { createVehicleEffects, vehicleDamageVisual } from './vehicle-effects';
 import { disposeModel } from './armory-visuals';
 import { buildVehicleModel } from './vehicle-models';
-import { createVehicle, driveVehicle, flyVehicle, vehicleBounds, vehicleExit, VEHICLE_SPAWNS, type FlightObstacle, type VehicleKind, type VehicleSpawn, type VehicleWorldBounds } from './vehicle-rules';
+import { createVehicle, driveVehicle, flyVehicle, vehicleBounds, vehicleExit, VEHICLE_SPAWNS, type FlightObstacle, type VehicleKind, type VehicleSpawn, type VehicleWorldBounds, type VehicleExitFloor } from './vehicle-rules';
 import { MARINA_BOUNDS, type Obstacle } from './marina-collision';
 import { sceneFlightObstacles } from './flight-obstacles';
 
-export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], skins: Record<VehicleKind, string>, options: { spawns?: Record<VehicleKind, VehicleSpawn>; bounds?: VehicleWorldBounds; deriveFlightObstacles?: boolean } = {}) {
+export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], skins: Record<VehicleKind, string>, options: { spawns?: Record<VehicleKind, VehicleSpawn>; bounds?: VehicleWorldBounds; deriveFlightObstacles?: boolean; exitFloor?: VehicleExitFloor } = {}) {
   const spawns = options.spawns ?? VEHICLE_SPAWNS, bounds = options.bounds ?? MARINA_BOUNDS;
   const drivingObstacles = verticalVehicleObstacles({ surfaces: getWalkSurfaces(scene), traversalObstacles: getTraversalObstacles(scene) });
   const sceneObstacles = options.deriveFlightObstacles ? sceneFlightObstacles(scene) : null;
@@ -57,6 +58,9 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   let active: VehicleKind | null = null, notice = '', noticeTime = 0;
   let shared: SharedVehicle[] | null = null, selfId = '', localSeat = 0;
   const sharedShots = { car: 0, helicopter: 0 };
+  const presentation = { car: createVehiclePresentation(), helicopter: createVehiclePresentation() };
+  const visual = { car: { ...states.car }, helicopter: { ...states.helicopter } };
+  let lastSnapshot: SharedVehicle[] | null = null;
   const seat = () => shared ? seatOf(shared, selfId)?.seat ?? null : active ? localSeat : null;
   const canFire = () => !!active && (shared ? gunnerId(shared.find(v => v.kind === active)!) === selfId : localSeat < 2);
   const pad = new THREE.Mesh(new THREE.RingGeometry(5.7, 5.88, 48), new THREE.MeshBasicMaterial({ color: '#d1cfaa', side: THREE.DoubleSide }));
@@ -98,19 +102,20 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   function distance(player: { x: number; z: number }, kind: VehicleKind) { return Math.hypot(player.x - states[kind].x, player.z - states[kind].z); }
   function interact(player: { x: number; z: number }) {
     if (active) {
-      const point = vehicleExit(states[active], [...footObstacles(active), ...drivingObstacles], bounds);
+      const point = vehicleExit(states[active], footObstacles(active), bounds, options.exitFloor);
       if (!point) { notice = active === 'helicopter' ? 'Land on clear ground and slow down to exit.' : 'Brake to a stop and leave space beside the car.'; noticeTime = 3; return null; }
       states[active].speed = states[active].climb = 0; active = null; notice = ''; return { ...point, entered: false, yaw: 0 };
     }
     const kind = nearest(player);
     if (!kind) { notice = 'Approach a parked car or helicopter to enter.'; noticeTime = 3; return null; }
-    active = kind; localSeat = 0; notice = ''; return { x: states[kind].x, z: states[kind].z, entered: true, yaw: states[kind].yaw };
+    active = kind; localSeat = 0; notice = ''; return { x: states[kind].x, y: 0, z: states[kind].z, entered: true, yaw: states[kind].yaw };
   }
   function sync(dt: number) {
     for (const kind of ['car', 'helicopter'] as const) {
-      const v = states[kind], model = models[kind]; model.position.set(v.x, v.y, v.z); model.rotation.y = v.yaw;
+      const v = shared ? visual[kind] : states[kind], model = models[kind]; model.position.set(v.x, v.y, v.z); model.rotation.y = v.yaw;
       labels[kind].position.set(v.x, v.y + (kind === 'car' ? 3.3 : 4.4), v.z); labels[kind].visible = active !== kind && v.health > 0;
-      damageVisuals[kind](vehicleDamageStage(v));
+      damageVisuals[kind](vehicleDamageStage(states[kind]));
+      if (shared) { const gun = v as SharedVehicle; model.getObjectByName('vehicle-turret')!.rotation.set(gun.gunPitch, gun.gunYaw - gun.yaw, 0, 'YXZ'); }
       model.getObjectByName('vehicle-muzzle-flash')!.visible = flashTime[kind] > 0 && v.health > 0;
       if (kind === 'car') model.traverse(o => { if (o.name === 'vehicle-wheel') o.rotation.x -= v.speed * dt / .51; });
       else {
@@ -156,10 +161,13 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     flightObstacles: () => airObstacles().slice(0, -1),
     get seat() { return seat(); },
     get canFire() { return canFire(); },
+    get canUseFirearm() { return active !== null && (seat() ?? 0) >= 2; },
+    get viewStates() { return shared ? Object.values(visual) : Object.values(states); },
+    get viewMounted() { return active ? shared ? visual[active] : states[active] : null; },
     switchSeat() { if (active && !shared) { localSeat = (localSeat + 1) % 4; states[active].speed = states[active].climb = 0; } },
     setNotice(message: string) { notice = message; noticeTime = 3; },
     adoptShared(next: SharedVehicle[], id: string) {
-      const first = shared === null; shared = next; selfId = id;
+      const first = shared === null, fresh = next !== lastSnapshot, at = performance.now() / 1000; shared = next; selfId = id; lastSnapshot = next;
       const shots: { kind: VehicleKind; origin: THREE.Vector3; end: THREE.Vector3 }[] = [];
       for (const v of next) {
         if (!first && states[v.kind].health > 0 && v.health <= 0) effects.explode(new THREE.Vector3(v.x, v.y + 1.3, v.z));
@@ -168,13 +176,15 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
           shots.push({ kind: v.kind, origin: new THREE.Vector3(ray.origin.x, ray.origin.y, ray.origin.z), end: new THREE.Vector3(v.shotEnd.x, v.shotEnd.y, v.shotEnd.z) });
         }
         sharedShots[v.kind] = v.shots; Object.assign(states[v.kind], v);
-        models[v.kind].getObjectByName('vehicle-turret')!.rotation.set(v.gunPitch, v.gunYaw - v.yaw, 0, 'YXZ');
+        if (fresh) presentation[v.kind].accept(v, at);
+        Object.assign(visual[v.kind], presentation[v.kind].sample(at) ?? v);
       }
       active = seatOf(next, id)?.vehicle.kind ?? null; sync(0); return shots;
     },
     sharedStep(dt: number) {
       noticeTime = Math.max(0, noticeTime - dt); if (!noticeTime) notice = '';
       flashTime.car = Math.max(0, flashTime.car - dt); flashTime.helicopter = Math.max(0, flashTime.helicopter - dt);
+      for (const kind of ['car', 'helicopter'] as const) Object.assign(visual[kind], presentation[kind].sample(performance.now() / 1000) ?? states[kind]);
       effects.step(dt, Object.values(states)); sync(dt);
     },
     animateEffects(dt: number) { advanceWrecks(dt); effects.step(dt, Object.values(states)); sync(0); },
@@ -189,7 +199,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
         interact: active ? `E · Exit ${active}` : near ? `E · ${nearLabel} · ${Math.ceil(states[near].health)} HP` : '', vehicleNotice: notice,
         carDistance: distance(player, 'car'), helicopterDistance: distance(player, 'helicopter') };
     },
-    reset() { active = null; shared = null; selfId = ''; localSeat = 0; sharedShots.car = sharedShots.helicopter = 0; notice = ''; noticeTime = 0; destruction.length = 0; effects.reset(); flashTime.car = flashTime.helicopter = collisionCooldown.car = collisionCooldown.helicopter = 0; for (const model of Object.values(models)) model.getObjectByName('vehicle-turret')!.rotation.set(0, 0, 0); states.car = createVehicle('car', spawns.car); states.helicopter = createVehicle('helicopter', spawns.helicopter); models.helicopter.rotation.x = 0; sync(0); },
+    reset() { active = null; shared = null; lastSnapshot = null; presentation.car.reset(); presentation.helicopter.reset(); selfId = ''; localSeat = 0; sharedShots.car = sharedShots.helicopter = 0; notice = ''; noticeTime = 0; destruction.length = 0; effects.reset(); flashTime.car = flashTime.helicopter = collisionCooldown.car = collisionCooldown.helicopter = 0; for (const model of Object.values(models)) model.getObjectByName('vehicle-turret')!.rotation.set(0, 0, 0); states.car = createVehicle('car', spawns.car); states.helicopter = createVehicle('helicopter', spawns.helicopter); models.helicopter.rotation.x = 0; sync(0); },
     dispose() { effects.dispose(); root.removeFromParent(); disposeModel(root); Object.values(labels).forEach(sprite => { sprite.material.map?.dispose(); sprite.material.dispose(); }); },
   };
 }

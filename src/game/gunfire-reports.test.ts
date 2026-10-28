@@ -18,7 +18,7 @@ describe('gunfire reports', () => {
     expect(reports[0]).toMatchObject({ distance: 30, calibre: 7.62, power: FPS_WEAPONS[mg].damage, after: 0 });
     expect(reports[1].after).toBeCloseTo(FPS_WEAPONS[mg].interval);
   });
-  it('leaves out our own shots and seated figures, whose guns sound elsewhere', () => {
+  it('leaves out our own shots and mounted gunners, whose guns sound elsewhere', () => {
     const last = new Map([['me', 0], ['gunner', 0]]);
     expect(gunfireReports([figure('me', 3), figure('gunner', 3, 10, { vehicle: 'car' })], last, 'me', listener)).toEqual([]);
   });
@@ -41,3 +41,9 @@ describe('gunfire reports', () => {
     expect(last.has('gone')).toBe(false);
   });
 });
+
+ it('hears passengers firing their equipped weapons from either rear seat', () => {
+   const last = new Map([['left', 0], ['right', 0]]);
+   const reports = gunfireReports([{ ...figure('left', 1, 10, { vehicle: 'car' }), seat: 2 }, { ...figure('right', 1, 12, { vehicle: 'car' }), seat: 3 }], last, 'me', listener);
+   expect(reports).toHaveLength(2); expect(reports[0].calibre).toBe(FPS_WEAPONS[0].caliberMm);
+ });

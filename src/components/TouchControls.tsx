@@ -91,7 +91,10 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
   const pad: Action[] = [];
   const prompts: Action[] = [];
   if (mounted) {
-    pad.push(act('seat', 'Switch seat', <Repeat2 size={17} />, { onClick: () => engine?.switchVehicleSeat() }));
+    pad.push(act('seat', 'Switch seat', <Repeat2 size={17} />, { onClick: () => engine?.switchVehicleSeat(), 'data-pad-slot': 'corner-left' }));
+    pad.push(act('view', 'Switch vehicle view', <Eye size={17} />, { onClick: () => engine?.toggleVehicleView(), 'data-pad-slot': 'edge-top' }));
+    if (hud.vehicleSeat !== 0) pad.push(act('aim', 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': hud.aiming }));
+    if (hud.vehiclePersonalWeapon) pad.push(act('reload', 'Reload', <RefreshCw size={17} />, { onClick: () => engine?.reload(), disabled: hud.reloading > 0 }));
     if (hud.vehicleSeat === 0) {
       pad.push(act('boost', flying ? 'Boost' : 'Sprint', <Rocket size={17} />, hold('shift')));
       pad.push(act('altitude', flying ? 'Climb' : 'Brake', <ChevronsUp size={17} />, hold(' ')));
@@ -145,7 +148,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
         title={item.label}
         {...item.props}
       >{item.icon}</button>)}
-      <button type="button" className="touch-fire" data-touch-action="fire" aria-label="Fire" disabled={mounted && (!hud.vehicleCanFire || hud.vehicleAmmo === 0)} {...fire}>FIRE</button>
+      <button type="button" className="touch-fire" data-touch-action="fire" aria-label="Fire" disabled={mounted && !hud.vehiclePersonalWeapon && (!hud.vehicleCanFire || hud.vehicleAmmo === 0)} {...fire}>FIRE</button>
     </div>
   </div>;
 }

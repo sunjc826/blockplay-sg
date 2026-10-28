@@ -9,7 +9,7 @@ export function seatOf(vehicles: readonly SharedVehicle[], id: string) {
   return null;
 }
 export function gunnerId(v: SharedVehicle) { return v.occupants[1] ?? v.occupants[0]; }
-export function seatPoint(v: SharedVehicle, seat: number) {
+export function seatPoint(v: VehicleState, seat: number) {
   const x = seat === 0 || seat === 2 ? -.5 : seat === 3 ? .5 : 0;
   const z = seat < 2 ? -.4 : .7;
   return { x: v.x + Math.cos(v.yaw) * x + Math.sin(v.yaw) * z, y: v.y + (seat === 1 && v.kind === 'car' ? 2.8 : 1.65), z: v.z - Math.sin(v.yaw) * x + Math.cos(v.yaw) * z };

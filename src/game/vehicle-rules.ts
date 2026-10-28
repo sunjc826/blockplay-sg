@@ -1,4 +1,5 @@
 import { MARINA_BOUNDS, type Obstacle } from './marina-collision';
+import { createRegionMovement } from './region-collision';
 import { VEHICLE_COMBAT } from './vehicle-combat';
 export type VehicleKind = 'car' | 'helicopter';
 export interface VehicleSpawn { x: number; z: number; yaw: number }
@@ -54,12 +55,33 @@ export function flyVehicle(v: VehicleState, forward: number, steer: number, lift
   if (y === .13 || y === 120) climb = 0;
   return { state: { ...v, x, y, z, yaw, speed, climb }, blocked };
 }
-export function vehicleExit(v: VehicleState, obstacles: readonly Obstacle[], bounds: VehicleWorldBounds = MARINA_BOUNDS) {
+/** Feet height at a place infantry can stand; null means no safe support/headroom. */
+export type VehicleExitFloor = (x: number, z: number) => number | null;
+export function vehicleExit(v: VehicleState, obstacles: readonly Obstacle[], bounds: VehicleWorldBounds = MARINA_BOUNDS, floor: VehicleExitFloor = () => 0) {
   if (Math.abs(v.speed) > 2 || (v.kind === 'helicopter' && (v.y > .3 || Math.abs(v.climb) > .5))) return null;
-  const distance = v.kind === 'car' ? 3.2 : 4.3;
-  for (const angle of [Math.PI / 2, -Math.PI / 2, Math.PI, 0]) {
-    const x = v.x - Math.sin(v.yaw + angle) * distance, z = v.z - Math.cos(v.yaw + angle) * distance;
-    if (x - .38 >= bounds.minX && x + .38 <= bounds.maxX && z - .38 >= bounds.minZ && z + .38 <= bounds.maxZ && ![...obstacles, vehicleBounds(v)].some(o => x + .38 > o.minX && x - .38 < o.maxX && z + .38 > o.minZ && z - .38 < o.maxZ)) return { x, z };
+  const radius = .38, hull = vehicleBounds(v), nominal = v.kind === 'car' ? 3.2 : 4.3;
+  const movement = createRegionMovement(bounds);
+  const clear = (x: number, y: number, z: number) => movement.canOccupy(x, z, radius, obstacles.filter(o => y < (o.maxY ?? Infinity) - 1e-5));
+  // Keep the door-side preference, then inspect the rest of the perimeter.
+  const angles = [Math.PI / 2, -Math.PI / 2, Math.PI, 0, ...Array.from({ length: 32 }, (_, i) => i * Math.PI / 16)];
+  for (const angle of angles) {
+    const dx = -Math.sin(v.yaw + angle), dz = -Math.cos(v.yaw + angle);
+    // Infantry collides with the hull's world-aligned box. A fixed distance
+    // leaves every candidate inside that box when a vehicle is parked diagonally.
+    const edge = Math.min((hull.maxX - v.x + radius) / Math.max(Math.abs(dx), 1e-8),
+      (hull.maxZ - v.z + radius) / Math.max(Math.abs(dz), 1e-8)) + .06;
+    for (const distance of [Math.max(nominal, edge), edge, Math.max(nominal, edge) + .8]) {
+      const x = v.x + dx * distance, z = v.z + dz * distance, y = floor(x, z);
+      if (y === null || !clear(x, y, z) || !movement.canOccupy(x, z, radius, [hull])) continue;
+      // A clear endpoint beyond a wall is not an exit. Check the path out of
+      // the cab too, using infantry support rather than driving projections.
+      let reachable = true;
+      for (let d = 0; d < distance; d += .2) {
+        const px = v.x + dx * d, pz = v.z + dz * d, py = floor(px, pz);
+        if (py === null || !clear(px, py, pz)) { reachable = false; break; }
+      }
+      if (reachable) return { x, y, z };
+    }
   }
   return null;
 }

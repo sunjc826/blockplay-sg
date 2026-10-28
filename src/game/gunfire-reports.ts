@@ -14,15 +14,15 @@ export const MAX_REPORTS_PER_ACTOR = 3;
  * on foot is heard, instant ones included, not only those whose rounds fly.
  * `last` keeps each figure's count between snapshots: one first seen, or whose
  * count went back (a new match), sets a baseline rather than firing. Our own
- * shots are already heard, and so is a seated figure's: a vehicle's gun sounds
- * through the vehicle.
+ * shots are already heard; mounted guns sound through the vehicle, while
+ * passengers sound through their equipped firearms.
  */
-export function gunfireReports(actors: readonly Pick<ArenaActor, 'id' | 'x' | 'y' | 'z' | 'shots' | 'weapon' | 'vehicle' | 'muzzle'>[], last: Map<string, number>, self: string, listener: ArenaPoint): GunfireReport[] {
+export function gunfireReports(actors: readonly Pick<ArenaActor, 'id' | 'x' | 'y' | 'z' | 'shots' | 'weapon' | 'vehicle' | 'seat' | 'muzzle'>[], last: Map<string, number>, self: string, listener: ArenaPoint): GunfireReport[] {
   const reports: GunfireReport[] = [], present = new Set<string>();
   for (const actor of actors) {
     present.add(actor.id);
     const before = last.get(actor.id); last.set(actor.id, actor.shots);
-    if (before === undefined || actor.id === self || actor.vehicle) continue;
+    if (before === undefined || actor.id === self || actor.vehicle && (actor.seat ?? 0) < 2) continue;
     const fired = Math.min(MAX_REPORTS_PER_ACTOR, actor.shots - before);
     if (fired <= 0) continue;
     // Shots counted together were fired a cycle apart, so a burst is heard as one.

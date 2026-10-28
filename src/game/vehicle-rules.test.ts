@@ -51,3 +51,12 @@ describe('vehicle movement and transitions', () => {
     expect(restoreProfile(JSON.stringify({ ...base, vehicleSkins: { car: 'paint-arctic' } })).vehicleSkins.car).toBe('paint-issued');
   });
 });
+
+for (const kind of ['car', 'helicopter'] as const) it(`lets occupants leave a parked ${kind} at diagonal headings`, () => {
+  for (const yaw of [Math.PI / 4, -Math.PI / 4, Math.PI * 3 / 4]) {
+    const v = { ...createVehicle(kind), x: 0, z: 0, yaw };
+    const exit = vehicleExit(v, []);
+    expect(exit, `clear exit at yaw ${yaw}`).not.toBeNull();
+    expect(canOccupy(exit!.x, exit!.z, .38, [vehicleBounds(v)])).toBe(true);
+  }
+});

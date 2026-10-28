@@ -41,9 +41,11 @@ describe('shared vehicle seats and authority', () => {
     input(arena, 'p1', { fire: true, aim: { x: 0, y: 3, z: -100 } }); arena.step(.05);
     expect(car(arena).ammo).toBe(239); expect(car(arena).shots).toBe(1);
     expect(actor(arena, 'p2').z).toBeCloseTo(car(arena).z + .7);
+    input(arena, 'p1', { fire: false });
     const before = car(arena).ammo;
     shootAndLand(arena, 'p2', actor(arena, 'p2'), { x: 0, y: 0, z: -1 }, 0);
-    expect(actor(arena, 'p2').shots).toBe(0); expect(car(arena).ammo).toBe(before);
+    expect(actor(arena, 'p2').shots).toBe(1); expect(car(arena).ammo).toBe(before);
+    expect(car(arena).health).toBe(600);
   });
   it('vacates seats on disconnect/death, switches only into vacancies and preserves hull ammo', () => {
     const arena = arenaWithPlayers(4);
@@ -103,4 +105,35 @@ it('carries helicopter crew with the pilot and refuses airborne entry/exit', () 
   expect(arena.vehicleAction('late', 'enter', 'helicopter')).toBe(false);
   expect(arena.vehicleAction('gunner', 'switch')).toBe(true);
   expect(actor(arena, 'gunner').seat).toBe(2);
+});
+
+it.each(['car', 'helicopter'] as const)('lets passengers fire and reload their own guns from a moving %s without hitting their hull', kind => {
+  const arena = createArena([], 0, 'mixed', { ...environment, playerSpawn: { x: spawns[kind].x + 3.5, z: 0 } }, { spawns });
+  for (let i = 0; i < 4; i++) {
+    arena.addPlayer(`p${i}`, `Player ${i}`, 0, 0, [{ damage: 10, interval: .1, capacity: 10, reload: .5 }], undefined, true);
+    expect(arena.vehicleAction(`p${i}`, 'enter', kind)).toBe(true);
+  }
+  arena.addPlayer('enemy', 'Enemy', 0, 0, [], undefined, true);
+  input(arena, 'p0', { forward: 1, lift: kind === 'helicopter' ? 1 : 0 }); arena.step(.1);
+  const mounted = arena.snapshot().vehicles!.find(v => v.kind === kind)!;
+  const beforeHull = mounted.health, beforeAmmo = mounted.ammo;
+  for (const id of ['p2', 'p3']) {
+    const shooter = actor(arena, id), target = actor(arena, 'enemy');
+    const d = { x: target.x - shooter.x, y: target.y - shooter.y, z: target.z - shooter.z }, length = Math.hypot(d.x, d.y, d.z);
+    const result = shootAndLand(arena, id, shooter, { x: d.x / length, y: d.y / length, z: d.z / length }, 0);
+    expect(result.hitId, JSON.stringify({ kind, shooter, target })).toBe('enemy');
+    expect(actor(arena, id).shots).toBe(1);
+    arena.reloadPlayer(id, 0);
+    arena.shoot(id, actor(arena, id), { x: -1, y: 0, z: 0 }, 0);
+    expect(actor(arena, id).shots).toBe(1);
+    for (let i = 0; i < 20; i++) arena.step(.05);
+    arena.shoot(id, actor(arena, id), { x: -1, y: 0, z: 0 }, 0);
+    expect(actor(arena, id).shots).toBe(2);
+  }
+  arena.shoot('p0', actor(arena, 'p0'), { x: -1, y: 0, z: 0 }, 0);
+  arena.shoot('p1', actor(arena, 'p1'), { x: -1, y: 0, z: 0 }, 0);
+  expect(actor(arena, 'p0').shots).toBe(0); expect(actor(arena, 'p1').shots).toBe(0);
+  const after = arena.snapshot().vehicles!.find(v => v.kind === kind)!;
+  expect(after.health).toBe(beforeHull); expect(after.ammo).toBe(beforeAmmo);
+  expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
 });
