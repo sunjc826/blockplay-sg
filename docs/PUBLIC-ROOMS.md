@@ -5,6 +5,13 @@ available on the public site. No new secrets or TURN account are required.
 
 Open **Multiplayer** from the main menu, or `/multiplayer`:
 
+- The phone lobby puts Browse, Create and Join first, with optional room/password
+  and bot settings folded away. Connected rooms put invite sharing beside the
+  room code, with a player roster and a single enter-match action.
+- Matches fill the screen in portrait and landscape, including browsers without
+  native fullscreen. Thumb controls stay on the scene. The pause menu contains
+  scores, sound/display options and loadout information; host restart and leaving
+  remain available there. Developer panels and duplicate button bars stay in Debug.
 - Browse the global room list, refreshed every five seconds. Every room is listed,
   including locked rooms. Listings show name, host, map, occupancy and password lock.
 - Create a named room with an optional 4–64 character password. Share its invite
@@ -70,6 +77,7 @@ pnpm preview:cloudflare
 # In another terminal:
 pnpm test:rooms
 pnpm test:rooms:browser
+node scripts/public-rooms-mobile-smoke.mjs
 ```
 
 The API smoke uses Wrangler's installed WebSocket client. The browser smoke needs
@@ -98,5 +106,8 @@ and mobile tab suspension; local browser checks do not establish those propertie
 The browser smoke freezes a host tab for 70 seconds while a guest uses its invite,
 then checks reconnection and continues the two-player gameplay checks. This covers
 browser suspension beyond the normal heartbeat deadline, not actual phone OS behavior.
+The mobile smoke covers two clients at 390px portrait, 844px landscape and 320px
+width, simulated safe-area padding, touch movement/fire, pause/resume, scores,
+settings, host restart and leaving. Captures are saved in `.cache/public-rooms-mobile/`.
 
 Reference: [Cloudflare WebSocket hibernation](https://developers.cloudflare.com/durable-objects/best-practices/websockets/).

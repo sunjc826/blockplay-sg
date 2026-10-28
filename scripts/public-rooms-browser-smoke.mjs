@@ -53,9 +53,9 @@ try{
   await host.send('Page.setWebLifecycleState',{state:'frozen'});
   await guest.wait(`!!document.querySelector('.public-lobby')`);
   await guest.click(`document.querySelector('[aria-label="Refresh rooms"]')`);
-  await guest.wait(`document.querySelector('.public-rooms')?.textContent.includes(${JSON.stringify(code)})`);
+  await guest.wait(`!!document.querySelector('[data-room-code="'+${JSON.stringify(code)}+'"]')`);
   await guest.screenshot('room-browser');
-  await guest.click(`[...document.querySelectorAll('.public-rooms li')].find(row=>row.textContent.includes(${JSON.stringify(code)})).querySelector('button')`);
+  await guest.click(`document.querySelector('[data-room-code="'+${JSON.stringify(code)}+'"] button')`);
   await field(guest,'input[autocomplete="nickname"]','Bravo');
   await field(guest,'input[type="password"]','wrong-password');await guest.click(button('Join room'));
   await guest.wait(`document.querySelector('[role="alert"]')?.textContent.includes('Incorrect room password')`);
@@ -79,8 +79,15 @@ try{
   // The guest's keyboard movement must appear in a host-owned outgoing snapshot.
   const before=await guest.evaluate(position);await guest.key('w','KeyW',1400);await delay(350);const after=await guest.evaluate(position);
   assert(after.z<before.z-.3,'Guest moved using keyboard');
-  const remote=await host.evaluate(`window.lastArenaSnapshot.actors.find(a=>a.name==='Bravo')`);
-  assert(Math.abs(remote.z-after.z)<.25,'Movement replicated to authoritative host');
+  // Wait for authoritative simulation and guest prediction to converge. A
+  // larger viewport can render more slowly than the old embedded debug scene.
+  let replicated=false;
+  for(let i=0;i<50;i++){
+    const [remote,current]=await Promise.all([host.evaluate(`window.lastArenaSnapshot.actors.find(a=>a.name==='Bravo')`),guest.evaluate(position)]);
+    if(Math.abs(remote.z-current.z)<.25){replicated=true;break;}
+    await delay(100);
+  }
+  assert(replicated,'Movement replicated to authoritative host');
   console.log('Guest movement replicated');
   // A single physical desktop has one native mouse capture owner. Hand it back to the host.
   await guest.key('Escape','Escape');await guest.wait(phase('paused'));await guest.wait('!document.pointerLockElement');

@@ -3,7 +3,7 @@ import EnvironmentControls from './EnvironmentControls';
 import FpsVisionChip from './FpsVisionChip';
 import { cloudOpacity, visionKeyLabel } from '../game/vision-devices';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Maximize, Minimize, Pause, Play, RotateCcw, Users, Volume2, VolumeX } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Maximize, Menu, Minimize, Pause, Play, RotateCcw, Users, Volume2, VolumeX } from 'lucide-react';
 import { createFpsEngine, initialFpsHud, type FpsEngine } from '../game/fps-engine';
 import { getFpsDistrict } from '../game/fps-districts';
 import { getWorldZone, type WorldZoneId } from '../game/world-zones';
@@ -27,10 +27,11 @@ import FpsRadio, { FpsRadioVoice } from './FpsRadio';
 import FpsCalloutWheel, { FpsChatter } from './FpsCalloutWheel';
 import FpsFoodPicker from './FpsFoodPicker';
 import TouchControls from './TouchControls';
-import { AimAssistToggle, FpsControlGuide, FpsPlayerTools } from './FpsPlayerTools';
+import { FpsControlGuide, FpsPlayerTools } from './FpsPlayerTools';
 import { useDebugMode } from '../lib/debug-mode';
 import { useTouchControls } from '../game/use-touch-controls';
 import './arena-hud.css';
+import './arena-player.css';
 import './fps-hit-direction.css';
 
 type ArenaOptions = { session: LanSession; botCount: number; composition: string };
@@ -85,7 +86,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
     onPointerCancel: () => engine.current?.setInput(key, false),
     onLostPointerCapture: () => engine.current?.setInput(key, false),
   });
-  return <div className={`fps-game ${isArena ? 'is-arena' : ''} ${fullscreen.immersive ? 'is-immersive' : ''}`} ref={stage} data-touch={touch ? 'on' : undefined} data-map-zone={region} data-phase={hud.phase} data-pilot={hud.pilotEnabled || undefined} data-pointer-locked={hud.locked} data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-vehicle-view={hud.vehicleView} data-vehicle-personal-weapon={hud.vehiclePersonalWeapon} data-vehicle={hud.vehicle} data-vehicle-health={hud.vehicleHealth} data-vehicle-ammo={hud.vehicleAmmo} data-vehicle-damage={hud.vehicleDamage} data-speed={hud.vehicleSpeed.toFixed(2)} data-altitude={hud.altitude.toFixed(2)} data-player-x={hud.x.toFixed(3)} data-player-z={hud.z.toFixed(3)} data-player-yaw={hud.yaw.toFixed(4)} data-player-pitch={hud.pitch.toFixed(4)} data-arena={isArena || undefined} data-arena-connected={isArena ? hud.arenaConnected : undefined} data-arena-alive={hud.arenaSelf?.alive} data-arena-kills={hud.arenaSelf?.kills}>
+  return <div className={`fps-game ${isArena ? 'is-arena' : ''} ${isArena && !debug ? 'arena-player-view' : ''} ${fullscreen.immersive ? 'is-immersive' : ''}`} ref={stage} data-touch={touch ? 'on' : undefined} data-map-zone={region} data-phase={hud.phase} data-pilot={hud.pilotEnabled || undefined} data-pointer-locked={hud.locked} data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-vehicle-view={hud.vehicleView} data-vehicle-personal-weapon={hud.vehiclePersonalWeapon} data-vehicle={hud.vehicle} data-vehicle-health={hud.vehicleHealth} data-vehicle-ammo={hud.vehicleAmmo} data-vehicle-damage={hud.vehicleDamage} data-speed={hud.vehicleSpeed.toFixed(2)} data-altitude={hud.altitude.toFixed(2)} data-player-x={hud.x.toFixed(3)} data-player-z={hud.z.toFixed(3)} data-player-yaw={hud.yaw.toFixed(4)} data-player-pitch={hud.pitch.toFixed(4)} data-arena={isArena || undefined} data-arena-connected={isArena ? hud.arenaConnected : undefined} data-arena-alive={hud.arenaSelf?.alive} data-arena-kills={hud.arenaSelf?.kills}>
     <div className="viewport fps-viewport">
       <div className="world" ref={host} />
       {fullscreen.immersive && fullscreen.notice && <div className="fps-screen-notice" role="status">{fullscreen.notice}</div>}
@@ -93,6 +94,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
       {fullscreen.immersive && !playing && <button className="fps-leave-screen" onClick={() => { void fullscreen.toggle(); }}><Minimize size={14} /> Exit fullscreen</button>}
       <div className="fps-top"><span className="fps-badge"><span className="status-dot" /> {zone.name.toUpperCase()} / {isArena ? 'ARENA' : 'FIELD RANGE'}</span><span className="fps-score">{isArena ? `${hud.arenaSelf?.kills || 0} K / ${hud.arenaSelf?.deaths || 0} D` : `${hud.hits} / ${district.targets.length} TARGETS`} <b>{isArena ? arenaClock : `${hud.elapsed.toFixed(1)}s`}</b></span></div>
       {isArena && playing && <><div className="arena-kill-feed" aria-label="Elimination feed">{hud.arena?.feed.slice(-4).map(event => <p key={event.id} className={event.killerId === arenaOptions.session.id ? 'own-kill' : event.victimId === arenaOptions.session.id ? 'own-death' : ''}>{event.text}</p>)}</div>{hud.arenaSelf && !hud.arenaSelf.alive && <div className="arena-respawn" role="status"><span>ELIMINATED</span><strong>Back in {Math.ceil(hud.arenaSelf.respawnIn)}s</strong><small>Infantry armor/ammo replenish on respawn · Vehicle ammo resets with the match.</small></div>}{!hud.arenaStarted && !disconnected && <div className="arena-waiting" role="status">Waiting for the host to start the match.</div>}</>}
+      {isArena && !debug && playing && !touch && <button className="arena-menu-button" aria-label="Open match menu" onClick={() => engine.current?.pause()}><Menu size={18} /><span>Menu</span></button>}
       <FpsRadio hud={hud} />
       <FpsChatter hud={hud} />
       <FpsCalloutWheel hud={hud} engine={engine.current} />
@@ -121,24 +123,28 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         <FpsVehicleHud hud={hud} />
       </>}
       {isArena && (!playing || disconnected) && <div className="fps-overlay arena-overlay"><div className="fps-start-card arena-start-card">
-        <span className="eyebrow">{disconnected ? 'CONNECTION LOST' : hud.phase === 'complete' ? 'MATCH COMPLETE' : hud.phase === 'paused' ? 'OPERATOR MENU' : arenaOptions.session.role === 'solo' ? 'SOLO / BOT ARENA' : arenaOptions.session.transport === 'public' ? 'ONLINE / ARENA' : 'P2P / LAN ARENA'}</span>
-        <h2>{disconnected ? guest ? 'Host disconnected.' : 'Room connection lost.' : hud.phase === 'loading' ? 'Preparing the arena.' : hud.phase === 'error' ? 'Arena unavailable.' : hud.phase === 'complete' ? `${hud.arena?.winner || 'Match'} wins.` : hud.phase === 'paused' ? 'Stay in the fight.' : 'Squad up. Stand out.'}</h2>
-        <p>{disconnected ? 'The host connection has closed. Return to the lobby and reconnect to a new room.' : hud.phase === 'loading' ? 'Loading your equipped gear and connecting the match.' : hud.phase === 'error' ? hud.message : hud.phase === 'complete' ? `${hud.arenaSelf?.kills || 0} eliminations · ${hud.arenaSelf?.deaths || 0} deaths · ${accuracy}% accuracy` : hud.phase === 'paused' ? 'Your menu is open. The match and other players keep running.' : `Free for all. First to ${ARENA_KILL_LIMIT} eliminations or the highest score after 3 minutes wins. Respawn after 3 seconds and get back in.`}</p>
-        {!['loading', 'error', 'complete'].includes(hud.phase) && !disconnected && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP<br />{guest ? 'The host runs the match and the bots.' : `${arenaOptions.botCount} bots · ${arenaOptions.composition} squad · Shared vehicles`}</p>}
+        <span className="eyebrow">{disconnected ? 'CONNECTION LOST' : hud.phase === 'complete' ? 'MATCH COMPLETE' : hud.phase === 'paused' ? 'MATCH MENU' : `${zone.name.toUpperCase()} / FREE FOR ALL`}</span>
+        <h2>{disconnected ? guest ? 'Host disconnected.' : 'Room connection lost.' : hud.phase === 'loading' ? 'Preparing the arena.' : hud.phase === 'error' ? 'Arena unavailable.' : hud.phase === 'complete' ? `${hud.arena?.winner || 'Match'} wins.` : hud.phase === 'paused' ? 'Stay in the fight.' : 'Ready when you are.'}</h2>
+        <p>{disconnected ? 'The host connection has closed. Return to the lobby and reconnect to a new room.' : hud.phase === 'loading' ? 'Loading your equipped gear and connecting the match.' : hud.phase === 'error' ? hud.message : hud.phase === 'complete' ? `${hud.arenaSelf?.kills || 0} eliminations · ${hud.arenaSelf?.deaths || 0} deaths · ${accuracy}% accuracy` : hud.phase === 'paused' ? 'Your menu is open. The match and other players keep running.' : `First to ${ARENA_KILL_LIMIT} eliminations wins. Three minutes. Unlimited respawns.`}</p>
         {hud.message && hud.phase !== 'error' && !disconnected && <p className="fps-capture-error" role="alert">{hud.message}</p>}
-        <EnvironmentControls multiplayer={!!arenaOptions && arenaOptions.session.role !== 'solo'} />
-        {touch && <div className="fps-player-tools"><AimAssistToggle /></div>}
-        <FpsDebugPanel hud={hud} engine={engine.current} />
-        <FpsRadioVoice hud={hud} engine={engine.current} />
-        <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
         {hud.phase === 'complete' && hud.arena && <Scoreboard snapshot={hud.arena} selfId={arenaOptions.session.id} />}
-        {!disconnected && <button className="primary-button" disabled={hud.phase === 'loading' || suspended || (guest && hud.phase === 'complete')} onClick={() => { if (hud.phase === 'error') setEpoch(n => n + 1); else if (hud.phase === 'complete') resetExercise(); else engine.current?.start(); }}>
+        {!disconnected && <button className="primary-button" disabled={hud.phase === 'loading' || suspended || (guest && hud.phase === 'complete')} onClick={() => { if (hud.phase === 'error') setEpoch(n => n + 1); else if (hud.phase === 'complete') resetExercise(); else { if (touch) fullscreen.enter(); engine.current?.start(); } }}>
           {hud.phase === 'complete' || hud.phase === 'error' ? <RotateCcw size={16} /> : <Play size={16} />} {hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry' : hud.phase === 'complete' ? guest ? 'Waiting for host rematch' : 'Start a rematch' : hud.phase === 'paused' ? 'Resume match' : guest ? 'Enter match' : 'Start match'} <ArrowRight size={17} />
         </button>}
+        {!['loading', 'error', 'complete'].includes(hud.phase) && !disconnected && <>
+          {hud.phase === 'ready' && touch && <p className="arena-touch-brief">Left thumb to move · Drag to look · Hold FIRE to shoot</p>}
+          {hud.arena && <details className="arena-menu-section" open={hud.phase === 'paused'}><summary>Players &amp; scores <span>{hud.arena.actors.length}</span></summary><Scoreboard snapshot={hud.arena} selfId={arenaOptions.session.id} /></details>}
+          <details className="arena-menu-section"><summary>Sound &amp; display</summary>
+            <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} touch={touch} onFullscreen={() => { void fullscreen.toggle(); }} />
+            <EnvironmentControls multiplayer={arenaOptions.session.role !== 'solo'} />
+          </details>
+          <details className="arena-menu-section"><summary>Your loadout</summary><p>{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP</p><p>{guest ? 'Your equipped Armory gear is ready.' : `${arenaOptions.botCount} bots · ${arenaOptions.composition} squad`}</p><button className="fps-shop-link arena-armory-link" onClick={onOpenShop}>Leave match · open armory →</button></details>
+          {!guest && hud.phase === 'paused' && <button className="arena-reset-button" aria-label="Reset arena match" onClick={resetExercise}><RotateCcw size={14} /> Restart match</button>}
+        </>}
+        {debug && <><FpsDebugPanel hud={hud} engine={engine.current} /><FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} /></>}
         <button className="fps-shop-link" onClick={onLeaveArena}>Leave match · return to lobby →</button>
-        <button className="fps-shop-link arena-armory-link" onClick={onOpenShop}>Leave match · open armory →</button>
-        {!['complete', 'loading', 'error'].includes(hud.phase) && !disconnected && <div className="fps-control-guide"><span><kbd>WASD</kbd> Move</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>C</kbd> Crouch</span><span><kbd>Z</kbd> Prone / mount</span><span><kbd>Space</kbd> Jump</span><span><kbd>1–3</kbd> Switch</span><span><kbd>4–8 / G</kbd> Use supplies</span><span><kbd>M</kbd> Map</span><span><kbd>Y</kbd> Callouts</span>{equipment.vision && <span><kbd>H</kbd> {visionKeyLabel(equipment.vision.spec)}</span>}{equipment.weapons.some(weapon => weapon.accessories?.rail) && <span><kbd>B</kbd> Laser / light</span>}{equipment.weapons.some(weapon => weapon.accessories?.offsetDot) && <span><kbd>X</kbd> Offset dot</span>}<span><kbd>F</kbd> Fullscreen</span><span><kbd>ESC</kbd> Menu</span></div>}
-        <small className="fps-touch-note">Shared vehicles · Your equipped Armory loadout · No account required</small>
+        {!['complete', 'loading', 'error'].includes(hud.phase) && !disconnected && !touch && <FpsControlGuide debug={debug}><span><kbd>WASD</kbd> Move</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>C</kbd> Crouch</span><span><kbd>Z</kbd> Prone / mount</span><span><kbd>Space</kbd> Jump</span><span><kbd>1–3</kbd> Switch</span><span><kbd>4–8 / G</kbd> Use supplies</span><span><kbd>M</kbd> Map</span><span><kbd>Y</kbd> Callouts</span>{equipment.vision && <span><kbd>H</kbd> {visionKeyLabel(equipment.vision.spec)}</span>}{equipment.weapons.some(weapon => weapon.accessories?.rail) && <span><kbd>B</kbd> Laser / light</span>}{equipment.weapons.some(weapon => weapon.accessories?.offsetDot) && <span><kbd>X</kbd> Offset dot</span>}<span><kbd>F</kbd> Fullscreen</span><span><kbd>ESC</kbd> Menu</span></FpsControlGuide>}
+
       </div></div>}
       {!playing && !isArena && <div className="fps-overlay"><div className="fps-start-card">
         {nav}
@@ -163,7 +169,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         {debug && <small className="fps-touch-note">{touch ? 'Thumb controls appear once the range opens: the left stick moves, dragging the scene looks around, and the actions sit on the arc around the trigger.' : 'On touchscreens, drag the scene to look and use the controls below.'}</small>}
       </div></div>}
     </div>
-    {(debug || isArena) && <>
+    {debug && <>
     <div className="experience-toolbar fps-toolbar"><div className="experience-title"><span className="mode-icon">{isArena ? <Users size={22} /> : <Crosshair size={22} />}</span><div><h3>{`${district.label} · ${isArena ? 'arena' : 'field range'}`}</h3><p>{isArena ? `${arenaOptions.session.role === 'solo' ? 'Solo vs bots' : arenaOptions.session.transport === 'public' ? 'Online room' : 'P2P LAN'} · Free for all · ${ARENA_KILL_LIMIT} eliminations` : `${combat ? 'Counter-fire drill' : 'Practice drill'} · Custom loadout · 8 targets`}</p></div></div><div className="toolbar-actions">
       <button className="icon-button" aria-label={hud.muted ? 'Enable range sound' : 'Mute range sound'} onClick={() => engine.current?.toggleSound()}>{hud.muted ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
       <button className="session-button fps-fullscreen-button" aria-label={fullscreen.immersive ? 'Exit fullscreen range' : 'Fullscreen range'} aria-pressed={fullscreen.immersive} onClick={() => { void fullscreen.toggle(); }}>{fullscreen.immersive ? <Minimize size={16} /> : <Maximize size={16} />} {fullscreen.immersive ? 'Windowed' : 'Fullscreen'} <kbd>F</kbd></button>
@@ -181,6 +187,6 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
     {isArena && hud.arena && hud.phase !== 'complete' && <details className="arena-standings" open={!playing}><summary>Match scoreboard <span>{hud.arena.actors.length} combatants</span></summary><Scoreboard snapshot={hud.arena} selfId={arenaOptions.session.id} /></details>}
     {isArena ? <div className="arena-session-footer"><span>{arenaOptions.session.role === 'solo' ? 'LOCAL BOT MATCH' : hud.arenaConnected ? arenaOptions.session.transport === 'public' ? 'ONLINE CONNECTED' : 'P2P CONNECTED' : 'CONNECTING'} · {arenaOptions.session.name}</span><button onClick={onLeaveArena}>Leave match <ArrowRight size={13} /></button></div> : <div className="fps-progression-summary"><RankBadge insignia={insignia} size={17} /><b>LV {rank.level} · {insignia.label}</b><progress value={rank.progress} max={1} aria-label="FPS level progress" /><span>{rank.remaining ? `${rank.remaining} XP to next level` : 'Maximum level'}</span></div>}
     </>}
-    {(debug || isArena || fullscreen.notice || hud.message) && <p className="fps-message" role="status">{fullscreen.notice || hud.message || (isArena ? `Eliminations pay ${ELIMINATION_CREDITS} CR · Match scores are session-only · Infantry armor/ammo replenish on respawn · Vehicle ammo resets with the match` : 'Game balance stats · Scenery blocks shots · Armor replenishes each exercise')}</p>}
+    {(debug || !isArena && (fullscreen.notice || hud.message)) && <p className="fps-message" role="status">{fullscreen.notice || hud.message || (isArena ? `Eliminations pay ${ELIMINATION_CREDITS} CR · Match scores are session-only · Infantry armor/ammo replenish on respawn · Vehicle ammo resets with the match` : 'Game balance stats · Scenery blocks shots · Armor replenishes each exercise')}</p>}
   </div>;
 }
