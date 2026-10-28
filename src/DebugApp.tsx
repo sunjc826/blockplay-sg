@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Check, ChevronRight, Crosshair, Download, Globe2, MapPin, RefreshCw, Users, X } from 'lucide-react';
+import { ArrowUpRight, Check, ChevronRight, Crosshair, Download, Globe2, MapPin, Users, X } from 'lucide-react';
 import StreetView from './components/StreetView';
 import MarinaGame from './components/MarinaGame';
 import FpsGame from './components/FpsGame';
@@ -91,7 +91,7 @@ export default function DebugApp() {
         </aside>
 
         <div className="experience">
-          {expeditionOpen ? <ExpeditionGame initialZone={expeditionStart} destination={destination} onZoneChange={zone => setLocation(locations.find(place => place.id === zone)!)} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onElimination={armory.awardElimination} onExit={openFps} suspended={dialog !== null} /> : lobbyOpen ? <LanLobby onLaunch={launchArena} onBack={openFps} /> : armoryOpen ? <><ArmoryShop store={armory} rangeLabel={getFpsDistrict(location.id).label} onEnterRange={openFps} /><ArmorySettings store={armory} /></> : fpsOpen ? <FpsGame key={arena?.session.id || `practice-${location.id}`} region={location.id} arena={arena} onLeaveArena={openLobby} profile={armory.profile} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={openArmory} suspended={dialog !== null} /> : regionOpen && hasRegionGame(location.id) ? (location.id === 'marina-bay' ? <MarinaGame key={location.id} /> : <RegionGame key={location.id} region={location.id} />) : <>
+          {expeditionOpen ? <ExpeditionGame initialZone={expeditionStart} destination={destination} onZoneChange={zone => setLocation(locations.find(place => place.id === zone)!)} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onElimination={armory.awardElimination} onExit={openFps} suspended={dialog !== null || install.updateReady} /> : lobbyOpen ? <LanLobby onLaunch={launchArena} onBack={openFps} /> : armoryOpen ? <><ArmoryShop store={armory} rangeLabel={getFpsDistrict(location.id).label} onEnterRange={openFps} /><ArmorySettings store={armory} /></> : fpsOpen ? <FpsGame key={arena?.session.id || `practice-${location.id}`} region={location.id} arena={arena} onLeaveArena={openLobby} profile={armory.profile} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={openArmory} suspended={dialog !== null || install.updateReady} /> : regionOpen && hasRegionGame(location.id) ? (location.id === 'marina-bay' ? <MarinaGame key={location.id} /> : <RegionGame key={location.id} region={location.id} />) : <>
           <div className="viewport"><StreetView key={location.id} location={location} /></div>
           <div className="experience-toolbar"><div className="experience-title"><span className="mode-icon"><Globe2 size={22} /></span><div><h3>The real {location.name}</h3><p>Google Street View · Drag to look, use arrows to travel</p></div></div></div>
           </>}
@@ -101,8 +101,6 @@ export default function DebugApp() {
       <section className="below-playground"><div><span className="small-cross">+</span><p>Not just the skyline.<br /><strong>The places that make us, us.</strong></p></div><p>{location.description}</p><span className="edition">BUILT WITH ASTRA<br /><strong>SG / 2026 — PROTOTYPE 01</strong></span></section>
     </main>
     <footer><span>Made for the places we call home.</span><div><button onClick={() => { setDialog('terms'); }}>Terms</button><button onClick={() => { setDialog('privacy'); }}>Privacy</button><span>1° N, 103° E <span className="tiny-star">✳</span></span></div></footer>
-
-    {install.updateReady && <div className="update-toast" role="status"><span>A new version is ready.</span><button onClick={() => { pwa.applyUpdate(); }}><RefreshCw size={12} /> Reload</button></div>}
 
     {dialog && <div className="modal-backdrop" onClick={() => setDialog(null)}><dialog open aria-labelledby="dialog-title" onCancel={() => setDialog(null)} onClick={event => event.stopPropagation()}><button autoFocus className="icon-button modal-close" aria-label="Close dialog" onClick={() => setDialog(null)}><X size={20} /></button>
       <span className="eyebrow">blockplaySG / SINGAPORE</span><h2 id="dialog-title">{dialog === 'about' ? 'The whole island deserves to be playable.' : dialog === 'privacy' ? 'Privacy' : 'Prototype terms'}</h2>

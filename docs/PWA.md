@@ -88,10 +88,14 @@ across deployments.
 
 ## Updates
 
-A new build installs in the background and waits. The page shows **A new version
-is ready** with a Reload button rather than swapping the running game's code:
-the worker only calls `skipWaiting()` when that button asks it to, and the page
-reloads on the `controllerchange` that follows. A tab left open overnight
+A new build installs in the background and waits. Every screen shows a centered **A new version
+is ready** modal with an **Update & reload** button, including multiplayer and
+fullscreen play. The modal blocks background interaction and stays open until
+the player updates; Escape and clicking outside do not dismiss it. FPS and
+expedition controls pause and release the mouse. The prompt explains that
+reloading ends the current session while saved armory and progression stay on
+the device. The worker only calls `skipWaiting()` when the player accepts, and
+the page reloads on the `controllerchange` that follows. A tab left open overnight
 re-checks for a new worker when it becomes visible again, at most hourly.
 
 Browsers revalidate `sw.js` on their own (the default `updateViaCache: 'imports'`

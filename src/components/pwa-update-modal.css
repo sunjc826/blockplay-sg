@@ -1,0 +1,13 @@
+.pwa-update-modal { position:fixed; inset:0; margin:auto; width:440px; max-width:calc(100% - 32px); max-height:calc(100dvh - 32px); padding:32px; border:1px solid #74856b; border-radius:12px; background:#17271f; color:#f2f4e6; text-align:center; box-shadow:0 24px 90px #0008; }
+.pwa-update-modal::backdrop { background:#0a160ed9; backdrop-filter:blur(6px); }
+.pwa-update-icon { display:grid; place-items:center; width:58px; height:58px; margin:0 auto 22px; border:1px solid #e9bf7955; border-radius:50%; background:#e9bf7912; color:#e9bf79; }
+.pwa-update-modal .eyebrow { justify-content:center; color:#d9bd88; }
+.pwa-update-modal h2 { margin:14px 0 12px; font-size:28px; }
+.pwa-update-modal p { margin:0 0 24px; color:#bdcbb6; font-size:13px; line-height:1.8; }
+.pwa-update-modal button { display:flex; justify-content:center; align-items:center; gap:10px; width:100%; min-height:48px; padding:12px 16px; border:0; border-radius:5px; background:#e9bf79; color:#20331f; font:600 14px 'DM Sans',sans-serif; cursor:pointer; }
+.pwa-update-modal button:hover { background:#f3cf94; }
+.pwa-update-modal button:focus-visible { outline:2px solid #f9f5e9; outline-offset:4px; }
+.pwa-update-modal button:disabled { opacity:.7; cursor:wait; }
+.pwa-update-status { display:block; color:#bdcbb6; font-size:11px; line-height:1.6; }
+.pwa-update-status:not(:empty) { margin-top:14px; }
+@media(max-width:480px) { .pwa-update-modal { padding:26px 22px; } .pwa-update-modal h2 { font-size:25px; } }

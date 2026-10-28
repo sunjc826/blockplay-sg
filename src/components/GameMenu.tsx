@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { ArrowLeft, Coins, Crosshair, Download, Gem, Map as MapIcon, MapPin, RefreshCw, Settings, ShoppingBag, Users, Wrench } from 'lucide-react';
+import { ArrowLeft, Coins, Crosshair, Download, Gem, Map as MapIcon, MapPin, Settings, ShoppingBag, Users, Wrench } from 'lucide-react';
 import MultiplayerGame from './MultiplayerGame';
 import FpsGame from './FpsGame';
 import ExpeditionGame from './ExpeditionGame';
@@ -79,9 +79,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     <span className="game-wallet" title="Tokens"><Gem size={14} /><b>{armory.profile.tokens.toLocaleString()}</b><small>TK</small></span>
   </div>;
 
-  const updateToast = install.updateReady && <div className="update-toast" role="status"><span>A new version is ready.</span><button onClick={() => { pwa.applyUpdate(); }}><RefreshCw size={12} /> Reload</button></div>;
-
-  if (screen === 'multiplayer') return <MultiplayerGame armory={armory} />;
+  if (screen === 'multiplayer') return <MultiplayerGame armory={armory} suspended={install.updateReady} />;
 
   if (screen === 'training' || screen === 'world') {
     const nav = screen === 'training'
@@ -94,11 +92,10 @@ export default function GameMenu({ screen }: { screen: Screen }) {
       <main className="game-screen-body"><DebugMode.Provider value={false}>
         <PlayLoading key={loadKey} mode={screen} district={districtName} back={<a className="play-nav-back" {...link('menu')}><ArrowLeft size={16} /><span>Menu</span></a>}>
           {onLoaded => screen === 'training'
-            ? <FpsGame region={training} profile={armory.profile} nav={nav} onLoaded={onLoaded} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={() => navigate('store')} />
-            : <ExpeditionGame initialZone={worldStart} onZoneChange={setWorldZone} nav={nav} onLoaded={onLoaded} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onElimination={armory.awardElimination} onExit={() => navigate('menu')} />}
+            ? <FpsGame suspended={install.updateReady} region={training} profile={armory.profile} nav={nav} onLoaded={onLoaded} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={() => navigate('store')} />
+            : <ExpeditionGame suspended={install.updateReady} initialZone={worldStart} onZoneChange={setWorldZone} nav={nav} onLoaded={onLoaded} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onElimination={armory.awardElimination} onExit={() => navigate('menu')} />}
         </PlayLoading>
       </DebugMode.Provider></main>
-      {updateToast}
     </div>;
   }
 
@@ -115,7 +112,6 @@ export default function GameMenu({ screen }: { screen: Screen }) {
           { id: 'world', label: 'Open World', detail: locationName(worldStart), onDeploy: () => navigate('world') },
         ]} />
       </DebugMode.Provider></main>
-      {updateToast}
     </div>;
   }
 
@@ -127,14 +123,13 @@ export default function GameMenu({ screen }: { screen: Screen }) {
         {profile}
       </header>
       <main className="game-screen-body"><ArmorySettings store={armory} /></main>
-      {updateToast}
     </div>;
   }
 
-  return <MainMenu profile={profile} install={install.canInstall} updateToast={updateToast} />;
+  return <MainMenu profile={profile} install={install.canInstall} />;
 }
 
-function MainMenu({ profile, install, updateToast }: { profile: React.ReactNode; install: boolean; updateToast: React.ReactNode }) {
+function MainMenu({ profile, install }: { profile: React.ReactNode; install: boolean }) {
   const items = useRef<(HTMLAnchorElement | null)[]>([]);
   useEffect(() => { items.current[0]?.focus({ preventScroll: true }); }, []);
   // Arrow keys move through the entries the way a console menu would.
@@ -172,6 +167,5 @@ function MainMenu({ profile, install, updateToast }: { profile: React.ReactNode;
         SG / 2026 — PROTOTYPE 01
       </span>
     </footer>
-    {updateToast}
   </div>;
 }
