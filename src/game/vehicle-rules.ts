@@ -23,7 +23,7 @@ export function driveVehicle(v: VehicleState, forward: number, steer: number, br
   let yaw = v.yaw - steer * Math.min(Math.abs(speed) / 8, 1.3) * Math.sign(speed) * dt;
   const clear = (x: number, z: number, heading: number) => {
     const b = vehicleBounds({ ...v, x, z, yaw: heading });
-    return b.minX >= bounds.minX && b.maxX <= bounds.maxX && b.minZ >= bounds.minZ && b.maxZ <= bounds.maxZ && !obstacles.some(o => overlapsObstacleRect(o,x,z,(b.maxX-b.minX)/2,(b.maxZ-b.minZ)/2));
+    return b.minX >= bounds.minX && b.maxX <= bounds.maxX && b.minZ >= bounds.minZ && b.maxZ <= bounds.maxZ && !obstacles.some(o => b.maxX > o.minX && b.minX < o.maxX && b.maxZ > o.minZ && b.minZ < o.maxZ && (!o.footprint || overlapsObstacleRect(o,x,z,(b.maxX-b.minX)/2,(b.maxZ-b.minZ)/2)));
   };
   if (!clear(v.x, v.z, yaw)) yaw = v.yaw;
   const dx = -Math.sin(yaw) * speed * dt, dz = -Math.cos(yaw) * speed * dt;
@@ -36,7 +36,7 @@ export function driveVehicle(v: VehicleState, forward: number, steer: number, br
 export function canFly(x: number, y: number, z: number, obstacles: readonly FlightObstacle[], bounds: VehicleWorldBounds = MARINA_BOUNDS) {
   const r = 2.5;
   if (x - r < bounds.minX || x + r > bounds.maxX || z - r < bounds.minZ || z + r > bounds.maxZ || y < .13 || y > 120) return false;
-  return !obstacles.some(o => y < o.maxY && y + 3.7 > o.minY && overlapsObstacle(o,x,z,r));
+  return !obstacles.some(o => y < o.maxY && y + 3.7 > o.minY && x + r > o.minX && x - r < o.maxX && z + r > o.minZ && z - r < o.maxZ && (!o.footprint || overlapsObstacle(o,x,z,r)));
 }
 export function flyVehicle(v: VehicleState, forward: number, steer: number, lift: number, boost: boolean, dt: number, obstacles: readonly FlightObstacle[], bounds: VehicleWorldBounds = MARINA_BOUNDS) {
   if (v.health <= 0) return { state: { ...v, speed: 0, climb: 0 }, blocked: false };

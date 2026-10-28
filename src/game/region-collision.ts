@@ -61,7 +61,8 @@ export function withinBounds(bounds: RegionBounds, x: number, z: number, radius:
 export function createRegionMovement(bounds: RegionBounds) {
   const canOccupy = (x: number, z: number, radius: number, obstacles: readonly Obstacle[]) => {
     if (!withinBounds(bounds, x, z, radius)) return false;
-    return !obstacles.some(o => overlapsObstacle(o, x, z, radius));
+    // Boxes reject inline: this runs for every obstacle on every step, and the call costs more than the test.
+    return !obstacles.some(o => x + radius > o.minX && x - radius < o.maxX && z + radius > o.minZ && z - radius < o.maxZ && (!o.footprint || overlapsObstacle(o, x, z, radius)));
   };
   /** Small steps prevent tunnelling; separate axes let the player slide along walls. */
   const move = (position: Position2D, dx: number, dz: number, radius: number, obstacles: readonly Obstacle[]) => {

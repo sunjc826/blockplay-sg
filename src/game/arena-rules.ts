@@ -1550,7 +1550,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
           const d = Math.hypot(goal.x - v.x, goal.z - v.z), yaw = Math.atan2(v.x - goal.x, v.z - goal.z);
           for (let n = 0; n <= d; n += 2) {
             const hull = vehicleBounds({ ...v, x: v.x + (goal.x - v.x) * n / Math.max(d, 1), z: v.z + (goal.z - v.z) * n / Math.max(d, 1), yaw });
-            if (hull.minX < bounds.minX || hull.maxX > bounds.maxX || hull.minZ < bounds.minZ || hull.maxZ > bounds.maxZ || ground.some(o => overlapsObstacleRect(o,(hull.minX+hull.maxX)/2,(hull.minZ+hull.maxZ)/2,(hull.maxX-hull.minX)/2,(hull.maxZ-hull.minZ)/2))) return false;
+            if (hull.minX < bounds.minX || hull.maxX > bounds.maxX || hull.minZ < bounds.minZ || hull.maxZ > bounds.maxZ || ground.some(o => hull.maxX > o.minX && hull.minX < o.maxX && hull.maxZ > o.minZ && hull.minZ < o.maxZ && (!o.footprint || overlapsObstacleRect(o,(hull.minX+hull.maxX)/2,(hull.minZ+hull.maxZ)/2,(hull.maxX-hull.minX)/2,(hull.maxZ-hull.minZ)/2)))) return false;
           }
           return true;
         };
