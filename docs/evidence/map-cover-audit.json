@@ -1,0 +1,2533 @@
+[
+  {
+    "district": "marina-bay",
+    "probes": 9054,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 3595,
+    "examples": [
+      {
+        "from": {
+          "x": -80.3,
+          "y": 0.55,
+          "z": -20
+        },
+        "to": {
+          "x": 80.3,
+          "y": 0.55,
+          "z": -20
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 160.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": 0,
+          "y": 0.55,
+          "z": -90.3
+        },
+        "to": {
+          "x": 0,
+          "y": 0.55,
+          "z": 50.3
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 140.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -80.3,
+          "y": 1.25,
+          "z": -20
+        },
+        "to": {
+          "x": 80.3,
+          "y": 1.25,
+          "z": -20
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 160.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": 0,
+          "y": 1.25,
+          "z": -90.3
+        },
+        "to": {
+          "x": 0,
+          "y": 1.25,
+          "z": 50.3
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 90.14999999999999,
+        "mesh": "Mesh"
+      },
+      {
+        "from": {
+          "x": -80.3,
+          "y": 1.75,
+          "z": -20
+        },
+        "to": {
+          "x": 80.3,
+          "y": 1.75,
+          "z": -20
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 160.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": 0,
+          "y": 1.75,
+          "z": -90.3
+        },
+        "to": {
+          "x": 0,
+          "y": 1.75,
+          "z": 50.3
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 90.05840789573362,
+        "mesh": "Mesh"
+      },
+      {
+        "from": {
+          "x": -76.7,
+          "y": 0.55,
+          "z": 81
+        },
+        "to": {
+          "x": -75.3,
+          "y": 0.55,
+          "z": 81
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.6149999991059332,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -76,
+          "y": 0.55,
+          "z": 80.3
+        },
+        "to": {
+          "x": -76,
+          "y": 0.55,
+          "z": 81.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.6149999991059332,
+        "mesh": "Mesh",
+        "instance": 0
+      }
+    ]
+  },
+  {
+    "district": "raffles-place",
+    "probes": 5784,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 1921,
+    "examples": [
+      {
+        "from": {
+          "x": -39.3,
+          "y": 1.25,
+          "z": -33
+        },
+        "to": {
+          "x": -16.7,
+          "y": 1.25,
+          "z": -33
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 22.599999999999998,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -28,
+          "y": 1.25,
+          "z": -55.3
+        },
+        "to": {
+          "x": -28,
+          "y": 1.25,
+          "z": -10.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 6.999999988079068,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -39.3,
+          "y": 1.75,
+          "z": -33
+        },
+        "to": {
+          "x": -16.7,
+          "y": 1.75,
+          "z": -33
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 22.599999999999998,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -28,
+          "y": 1.75,
+          "z": -55.3
+        },
+        "to": {
+          "x": -28,
+          "y": 1.75,
+          "z": -10.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 6.999999988079068,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": 16.7,
+          "y": 1.25,
+          "z": -33
+        },
+        "to": {
+          "x": 39.3,
+          "y": 1.25,
+          "z": -33
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 22.599999999999998,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": 28,
+          "y": 1.25,
+          "z": -55.3
+        },
+        "to": {
+          "x": 28,
+          "y": 1.25,
+          "z": -10.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 6.999999988079068,
+        "mesh": "Mesh",
+        "instance": 2
+      },
+      {
+        "from": {
+          "x": 16.7,
+          "y": 1.75,
+          "z": -33
+        },
+        "to": {
+          "x": 39.3,
+          "y": 1.75,
+          "z": -33
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 22.599999999999998,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": 28,
+          "y": 1.75,
+          "z": -55.3
+        },
+        "to": {
+          "x": 28,
+          "y": 1.75,
+          "z": -10.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 6.999999988079068,
+        "mesh": "Mesh",
+        "instance": 2
+      }
+    ]
+  },
+  {
+    "district": "queenstown",
+    "probes": 11526,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 4201,
+    "examples": [
+      {
+        "from": {
+          "x": -54,
+          "y": 0.55,
+          "z": -47.3
+        },
+        "to": {
+          "x": -54,
+          "y": 0.55,
+          "z": -41.900000000000006
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.1900007642805548,
+        "mesh": "Mesh",
+        "instance": 69
+      },
+      {
+        "from": {
+          "x": -54,
+          "y": 1.25,
+          "z": -47.3
+        },
+        "to": {
+          "x": -54,
+          "y": 1.25,
+          "z": -41.900000000000006
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.1900007642805548,
+        "mesh": "Mesh",
+        "instance": 75
+      },
+      {
+        "from": {
+          "x": -54,
+          "y": 1.75,
+          "z": -47.3
+        },
+        "to": {
+          "x": -54,
+          "y": 1.75,
+          "z": -41.900000000000006
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.1900007642805548,
+        "mesh": "Mesh",
+        "instance": 81
+      },
+      {
+        "from": {
+          "x": -86,
+          "y": 0.55,
+          "z": -49.4
+        },
+        "to": {
+          "x": -86,
+          "y": 0.55,
+          "z": -47.6
+        },
+        "movementDistance": 0,
+        "renderedDistance": 0.29999997615814067,
+        "mesh": "queenstown-estate-housing repeated structure",
+        "instance": 7
+      },
+      {
+        "from": {
+          "x": -86,
+          "y": 1.25,
+          "z": -49.4
+        },
+        "to": {
+          "x": -86,
+          "y": 1.25,
+          "z": -47.6
+        },
+        "movementDistance": 0,
+        "renderedDistance": 1.7999999999999972,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -86,
+          "y": 1.75,
+          "z": -49.4
+        },
+        "to": {
+          "x": -86,
+          "y": 1.75,
+          "z": -47.6
+        },
+        "movementDistance": 0,
+        "renderedDistance": 1.7999999999999972,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -102.925,
+          "y": 1.75,
+          "z": -43.15
+        },
+        "to": {
+          "x": -102.075,
+          "y": 1.75,
+          "z": -43.15
+        },
+        "movementDistance": 0,
+        "renderedDistance": 0.29999999999999716,
+        "mesh": "queenstown-estate-housing repeated structure",
+        "instance": 62
+      },
+      {
+        "from": {
+          "x": -107.12,
+          "y": 1.25,
+          "z": -41.75
+        },
+        "to": {
+          "x": -106.28,
+          "y": 1.25,
+          "z": -41.75
+        },
+        "movementDistance": 0,
+        "renderedDistance": 0.30000305444002606,
+        "mesh": "queenstown-estate-housing repeated structure",
+        "instance": 15
+      }
+    ]
+  },
+  {
+    "district": "chinatown",
+    "probes": 4608,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 2944,
+    "examples": [
+      {
+        "from": {
+          "x": -58.3,
+          "y": 0.55,
+          "z": -114
+        },
+        "to": {
+          "x": -45.7,
+          "y": 0.55,
+          "z": -114
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.4999998092651339,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -58.3,
+          "y": 1.25,
+          "z": -114
+        },
+        "to": {
+          "x": -45.7,
+          "y": 1.25,
+          "z": -114
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.4999998092651339,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -58.3,
+          "y": 1.75,
+          "z": -114
+        },
+        "to": {
+          "x": -45.7,
+          "y": 1.75,
+          "z": -114
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.4999998092651339,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -57.55,
+          "y": 0.55,
+          "z": -103.1
+        },
+        "to": {
+          "x": -56.05,
+          "y": 0.55,
+          "z": -103.1
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.4076203949300279,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -56.8,
+          "y": 0.55,
+          "z": -103.85
+        },
+        "to": {
+          "x": -56.8,
+          "y": 0.55,
+          "z": -102.35
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.390001759467836,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -57.55,
+          "y": 1.25,
+          "z": -103.1
+        },
+        "to": {
+          "x": -56.05,
+          "y": 1.25,
+          "z": -103.1
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.4076203949300279,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -56.8,
+          "y": 1.25,
+          "z": -103.85
+        },
+        "to": {
+          "x": -56.8,
+          "y": 1.25,
+          "z": -102.35
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.390001759467836,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -57.55,
+          "y": 1.75,
+          "z": -103.1
+        },
+        "to": {
+          "x": -56.05,
+          "y": 1.75,
+          "z": -103.1
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.4076203949300279,
+        "mesh": "Mesh",
+        "instance": 0
+      }
+    ]
+  },
+  {
+    "district": "kampong-glam",
+    "probes": 6300,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 3244,
+    "examples": [
+      {
+        "from": {
+          "x": -25.3,
+          "y": 0.55,
+          "z": 20
+        },
+        "to": {
+          "x": 45.3,
+          "y": 0.55,
+          "z": 20
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 5.300000000000001,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": 10,
+          "y": 0.55,
+          "z": -7.3
+        },
+        "to": {
+          "x": 10,
+          "y": 0.55,
+          "z": 47.3
+        },
+        "movementDistance": 0.2999999999999999,
+        "renderedDistance": 3.149999904632568,
+        "mesh": "Mesh",
+        "instance": 4
+      },
+      {
+        "from": {
+          "x": -25.3,
+          "y": 1.25,
+          "z": 20
+        },
+        "to": {
+          "x": 45.3,
+          "y": 1.25,
+          "z": 20
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 5.300000000000001,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": 10,
+          "y": 1.25,
+          "z": -7.3
+        },
+        "to": {
+          "x": 10,
+          "y": 1.25,
+          "z": 47.3
+        },
+        "movementDistance": 0.2999999999999999,
+        "renderedDistance": 3.149999904632568,
+        "mesh": "Mesh",
+        "instance": 4
+      },
+      {
+        "from": {
+          "x": -25.3,
+          "y": 1.75,
+          "z": 20
+        },
+        "to": {
+          "x": 45.3,
+          "y": 1.75,
+          "z": 20
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 5.300000000000001,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": 10,
+          "y": 1.75,
+          "z": -7.3
+        },
+        "to": {
+          "x": 10,
+          "y": 1.75,
+          "z": 47.3
+        },
+        "movementDistance": 0.2999999999999999,
+        "renderedDistance": 3.149999904632568,
+        "mesh": "Mesh",
+        "instance": 4
+      },
+      {
+        "from": {
+          "x": -29.6,
+          "y": 0.55,
+          "z": -7
+        },
+        "to": {
+          "x": -22.4,
+          "y": 0.55,
+          "z": -7
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.6517248166615062,
+        "mesh": "Mesh",
+        "instance": 2
+      },
+      {
+        "from": {
+          "x": -26,
+          "y": 0.55,
+          "z": -10.600000000000001
+        },
+        "to": {
+          "x": -26,
+          "y": 0.55,
+          "z": -3.4000000000000004
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.5000000953674331,
+        "mesh": "Mesh",
+        "instance": 2
+      }
+    ]
+  },
+  {
+    "district": "jurong-lake",
+    "probes": 8826,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 2839,
+    "examples": [
+      {
+        "from": {
+          "x": -230.3,
+          "y": 0.55,
+          "z": 20
+        },
+        "to": {
+          "x": -174.7,
+          "y": 0.55,
+          "z": 20
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 55.60000000000002,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -202.5,
+          "y": 0.55,
+          "z": -80.3
+        },
+        "to": {
+          "x": -202.5,
+          "y": 0.55,
+          "z": 120.3
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 200.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -230.3,
+          "y": 1.25,
+          "z": 20
+        },
+        "to": {
+          "x": -174.7,
+          "y": 1.25,
+          "z": 20
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 55.60000000000002,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -202.5,
+          "y": 1.25,
+          "z": -80.3
+        },
+        "to": {
+          "x": -202.5,
+          "y": 1.25,
+          "z": 120.3
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 200.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -230.3,
+          "y": 1.75,
+          "z": 20
+        },
+        "to": {
+          "x": -174.7,
+          "y": 1.75,
+          "z": 20
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 55.60000000000002,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -202.5,
+          "y": 1.75,
+          "z": -80.3
+        },
+        "to": {
+          "x": -202.5,
+          "y": 1.75,
+          "z": 120.3
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 200.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -175.3,
+          "y": 0.55,
+          "z": -52.5
+        },
+        "to": {
+          "x": -109.7,
+          "y": 0.55,
+          "z": -52.5
+        },
+        "movementDistance": 0,
+        "renderedDistance": 65.60000000000001,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -142.5,
+          "y": 0.55,
+          "z": -80.3
+        },
+        "to": {
+          "x": -142.5,
+          "y": 0.55,
+          "z": -24.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 55.599999999999994,
+        "mesh": "clear"
+      }
+    ]
+  },
+  {
+    "district": "changi",
+    "probes": 6948,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 1975,
+    "examples": [
+      {
+        "from": {
+          "x": 27.42069366310729,
+          "y": 0.55,
+          "z": -12.119594589672698
+        },
+        "to": {
+          "x": 30.82069366310729,
+          "y": 0.55,
+          "z": -12.119594589672698
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.8821282144119742,
+        "mesh": "Mesh",
+        "instance": 14
+      },
+      {
+        "from": {
+          "x": 29.12069366310729,
+          "y": 0.55,
+          "z": -13.819594589672699
+        },
+        "to": {
+          "x": 29.12069366310729,
+          "y": 0.55,
+          "z": -10.419594589672696
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.37095732327137654,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": 27.42069366310729,
+          "y": 1.25,
+          "z": -12.119594589672698
+        },
+        "to": {
+          "x": 30.82069366310729,
+          "y": 1.25,
+          "z": -12.119594589672698
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.6546161819420568,
+        "mesh": "Mesh",
+        "instance": 21
+      },
+      {
+        "from": {
+          "x": 29.12069366310729,
+          "y": 1.25,
+          "z": -13.819594589672699
+        },
+        "to": {
+          "x": 29.12069366310729,
+          "y": 1.25,
+          "z": -10.419594589672696
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.37095732327137654,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": 27.42069366310729,
+          "y": 1.75,
+          "z": -12.119594589672698
+        },
+        "to": {
+          "x": 30.82069366310729,
+          "y": 1.75,
+          "z": -12.119594589672698
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.4524018624873314,
+        "mesh": "Mesh",
+        "instance": 21
+      },
+      {
+        "from": {
+          "x": 29.12069366310729,
+          "y": 1.75,
+          "z": -13.819594589672699
+        },
+        "to": {
+          "x": 29.12069366310729,
+          "y": 1.75,
+          "z": -10.419594589672696
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.37095732327137654,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": 25.0908604013832,
+          "y": 0.55,
+          "z": -3.4245384837545245
+        },
+        "to": {
+          "x": 28.4908604013832,
+          "y": 0.55,
+          "z": -3.4245384837545245
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.858830038441198,
+        "mesh": "Mesh",
+        "instance": 22
+      },
+      {
+        "from": {
+          "x": 25.0908604013832,
+          "y": 1.25,
+          "z": -3.4245384837545245
+        },
+        "to": {
+          "x": 28.4908604013832,
+          "y": 1.25,
+          "z": -3.4245384837545245
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.858830038441198,
+        "mesh": "Mesh",
+        "instance": 22
+      }
+    ]
+  },
+  {
+    "district": "upper-thomson",
+    "probes": 3516,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 1899,
+    "examples": [
+      {
+        "from": {
+          "x": -215.3,
+          "y": 0.55,
+          "z": -67
+        },
+        "to": {
+          "x": -167.7,
+          "y": 0.55,
+          "z": -67
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 47.60000000000002,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -191.5,
+          "y": 0.55,
+          "z": -120.3
+        },
+        "to": {
+          "x": -191.5,
+          "y": 0.55,
+          "z": -13.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 106.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -215.3,
+          "y": 1.25,
+          "z": -67
+        },
+        "to": {
+          "x": -167.7,
+          "y": 1.25,
+          "z": -67
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 47.60000000000002,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -191.5,
+          "y": 1.25,
+          "z": -120.3
+        },
+        "to": {
+          "x": -191.5,
+          "y": 1.25,
+          "z": -13.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 106.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -215.3,
+          "y": 1.75,
+          "z": -67
+        },
+        "to": {
+          "x": -167.7,
+          "y": 1.75,
+          "z": -67
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 47.60000000000002,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -191.5,
+          "y": 1.75,
+          "z": -120.3
+        },
+        "to": {
+          "x": -191.5,
+          "y": 1.75,
+          "z": -13.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 106.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -167.70000000000002,
+          "y": 1.75,
+          "z": -67
+        },
+        "to": {
+          "x": -165.29999999999998,
+          "y": 1.75,
+          "z": -67
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 2.400000000000034,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -166.5,
+          "y": 1.75,
+          "z": -120.3
+        },
+        "to": {
+          "x": -166.5,
+          "y": 1.75,
+          "z": -13.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 106.6,
+        "mesh": "clear"
+      }
+    ]
+  },
+  {
+    "district": "punggol",
+    "probes": 6774,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 2720,
+    "examples": [
+      {
+        "from": {
+          "x": -233.3,
+          "y": 0.55,
+          "z": -90
+        },
+        "to": {
+          "x": -171.7,
+          "y": 0.55,
+          "z": -90
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 58.999993908405315,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -202.5,
+          "y": 0.55,
+          "z": -105.3
+        },
+        "to": {
+          "x": -202.5,
+          "y": 0.55,
+          "z": -74.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 30.299999999999997,
+        "mesh": "Mesh",
+        "instance": 1
+      },
+      {
+        "from": {
+          "x": -233.3,
+          "y": 1.25,
+          "z": -90
+        },
+        "to": {
+          "x": -171.7,
+          "y": 1.25,
+          "z": -90
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 58.999993908405315,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -202.5,
+          "y": 1.25,
+          "z": -105.3
+        },
+        "to": {
+          "x": -202.5,
+          "y": 1.25,
+          "z": -74.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 30.599999999999994,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -233.3,
+          "y": 1.75,
+          "z": -90
+        },
+        "to": {
+          "x": -171.7,
+          "y": 1.75,
+          "z": -90
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 58.999993908405315,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -202.5,
+          "y": 1.75,
+          "z": -105.3
+        },
+        "to": {
+          "x": -202.5,
+          "y": 1.75,
+          "z": -74.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 30.599999999999994,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -148.3,
+          "y": 0.55,
+          "z": -90
+        },
+        "to": {
+          "x": -51.7,
+          "y": 0.55,
+          "z": -90
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 1.2000061154365653,
+        "mesh": "Mesh",
+        "instance": 1
+      },
+      {
+        "from": {
+          "x": -100,
+          "y": 0.55,
+          "z": -105.3
+        },
+        "to": {
+          "x": -100,
+          "y": 0.55,
+          "z": -74.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 1.5028067645785086,
+        "mesh": "Mesh",
+        "instance": 73
+      }
+    ]
+  },
+  {
+    "district": "harbourfront",
+    "probes": 9084,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 3094,
+    "examples": [
+      {
+        "from": {
+          "x": -128.3,
+          "y": 0.55,
+          "z": 160
+        },
+        "to": {
+          "x": 100.3,
+          "y": 0.55,
+          "z": 160
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 2.604011928816746,
+        "mesh": "Mesh",
+        "instance": 1
+      },
+      {
+        "from": {
+          "x": -14,
+          "y": 0.55,
+          "z": 139.7
+        },
+        "to": {
+          "x": -14,
+          "y": 0.55,
+          "z": 180.3
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 5.300000000000011,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -128.3,
+          "y": 1.25,
+          "z": 160
+        },
+        "to": {
+          "x": 100.3,
+          "y": 1.25,
+          "z": 160
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 2.604011928816746,
+        "mesh": "Mesh",
+        "instance": 1
+      },
+      {
+        "from": {
+          "x": -14,
+          "y": 1.25,
+          "z": 139.7
+        },
+        "to": {
+          "x": -14,
+          "y": 1.25,
+          "z": 180.3
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 5.300000000000011,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -128.3,
+          "y": 1.75,
+          "z": 160
+        },
+        "to": {
+          "x": 100.3,
+          "y": 1.75,
+          "z": 160
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 2.604011928816746,
+        "mesh": "Mesh",
+        "instance": 1
+      },
+      {
+        "from": {
+          "x": -14,
+          "y": 1.75,
+          "z": 139.7
+        },
+        "to": {
+          "x": -14,
+          "y": 1.75,
+          "z": 180.3
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 5.300000000000011,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -129,
+          "y": 0.55,
+          "z": 135.4
+        },
+        "to": {
+          "x": -127,
+          "y": 0.55,
+          "z": 135.4
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.42936605331763644,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -128,
+          "y": 0.55,
+          "z": 134.4
+        },
+        "to": {
+          "x": -128,
+          "y": 0.55,
+          "z": 136.4
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.3999938726425114,
+        "mesh": "Mesh",
+        "instance": 0
+      }
+    ]
+  },
+  {
+    "district": "sentosa",
+    "probes": 7170,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 2631,
+    "examples": [
+      {
+        "from": {
+          "x": -215.3,
+          "y": 0.55,
+          "z": 203
+        },
+        "to": {
+          "x": 215.3,
+          "y": 0.55,
+          "z": 203
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 430.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": 0,
+          "y": 0.55,
+          "z": 195.7
+        },
+        "to": {
+          "x": 0,
+          "y": 0.55,
+          "z": 210.3
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 14.600000000000023,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -215.3,
+          "y": 1.25,
+          "z": 203
+        },
+        "to": {
+          "x": 215.3,
+          "y": 1.25,
+          "z": 203
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 430.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": 0,
+          "y": 1.25,
+          "z": 195.7
+        },
+        "to": {
+          "x": 0,
+          "y": 1.25,
+          "z": 210.3
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 14.600000000000023,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -215.3,
+          "y": 1.75,
+          "z": 203
+        },
+        "to": {
+          "x": 215.3,
+          "y": 1.75,
+          "z": 203
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 430.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": 0,
+          "y": 1.75,
+          "z": 195.7
+        },
+        "to": {
+          "x": 0,
+          "y": 1.75,
+          "z": 210.3
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 14.600000000000023,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -215.3,
+          "y": 0.55,
+          "z": -200
+        },
+        "to": {
+          "x": 100.3,
+          "y": 0.55,
+          "z": -200
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 315.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -57.5,
+          "y": 0.55,
+          "z": -210.3
+        },
+        "to": {
+          "x": -57.5,
+          "y": 0.55,
+          "z": -189.7
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 20.600000000000023,
+        "mesh": "clear"
+      }
+    ]
+  },
+  {
+    "district": "geylang",
+    "probes": 2610,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 1433,
+    "examples": [
+      {
+        "from": {
+          "x": -215.3,
+          "y": 0.55,
+          "z": -136
+        },
+        "to": {
+          "x": -151.7,
+          "y": 0.55,
+          "z": -136
+        },
+        "movementDistance": 0.3000000000000114,
+        "renderedDistance": 62.09999387264253,
+        "mesh": "Mesh",
+        "instance": 14
+      },
+      {
+        "from": {
+          "x": -183.5,
+          "y": 0.55,
+          "z": -148.3
+        },
+        "to": {
+          "x": -183.5,
+          "y": 0.55,
+          "z": -123.7
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 20.23322155929884,
+        "mesh": "Mesh",
+        "instance": 1
+      },
+      {
+        "from": {
+          "x": -215.3,
+          "y": 1.25,
+          "z": -136
+        },
+        "to": {
+          "x": -151.7,
+          "y": 1.25,
+          "z": -136
+        },
+        "movementDistance": 0.3000000000000114,
+        "renderedDistance": 62.09999387264253,
+        "mesh": "Mesh",
+        "instance": 14
+      },
+      {
+        "from": {
+          "x": -183.5,
+          "y": 1.25,
+          "z": -148.3
+        },
+        "to": {
+          "x": -183.5,
+          "y": 1.25,
+          "z": -123.7
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 20.46519415335389,
+        "mesh": "Mesh",
+        "instance": 1
+      },
+      {
+        "from": {
+          "x": -215.3,
+          "y": 1.75,
+          "z": -136
+        },
+        "to": {
+          "x": -151.7,
+          "y": 1.75,
+          "z": -136
+        },
+        "movementDistance": 0.3000000000000114,
+        "renderedDistance": 62.09999387264253,
+        "mesh": "Mesh",
+        "instance": 14
+      },
+      {
+        "from": {
+          "x": -183.5,
+          "y": 1.75,
+          "z": -148.3
+        },
+        "to": {
+          "x": -183.5,
+          "y": 1.75,
+          "z": -123.7
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 20.630888863393224,
+        "mesh": "Mesh",
+        "instance": 1
+      },
+      {
+        "from": {
+          "x": -112,
+          "y": 0.55,
+          "z": -148.3
+        },
+        "to": {
+          "x": -112,
+          "y": 0.55,
+          "z": -123.7
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 20.23322155929884,
+        "mesh": "Mesh",
+        "instance": 3
+      },
+      {
+        "from": {
+          "x": -112,
+          "y": 1.25,
+          "z": -148.3
+        },
+        "to": {
+          "x": -112,
+          "y": 1.25,
+          "z": -123.7
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 20.46519415335389,
+        "mesh": "Mesh",
+        "instance": 3
+      }
+    ]
+  },
+  {
+    "district": "tuas",
+    "probes": 5244,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 1853,
+    "examples": [
+      {
+        "from": {
+          "x": -280.3,
+          "y": 0.55,
+          "z": 0
+        },
+        "to": {
+          "x": -247.7,
+          "y": 0.55,
+          "z": 0
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 32.30000000000001,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -264,
+          "y": 0.55,
+          "z": -230.3
+        },
+        "to": {
+          "x": -264,
+          "y": 0.55,
+          "z": 230.3
+        },
+        "movementDistance": 0.3000000000000114,
+        "renderedDistance": 460.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -280.3,
+          "y": 1.25,
+          "z": 0
+        },
+        "to": {
+          "x": -247.7,
+          "y": 1.25,
+          "z": 0
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 32.30000000000001,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -264,
+          "y": 1.25,
+          "z": -230.3
+        },
+        "to": {
+          "x": -264,
+          "y": 1.25,
+          "z": 230.3
+        },
+        "movementDistance": 0.3000000000000114,
+        "renderedDistance": 460.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -280.3,
+          "y": 1.75,
+          "z": 0
+        },
+        "to": {
+          "x": -247.7,
+          "y": 1.75,
+          "z": 0
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 32.60000000000002,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -264,
+          "y": 1.75,
+          "z": -230.3
+        },
+        "to": {
+          "x": -264,
+          "y": 1.75,
+          "z": 230.3
+        },
+        "movementDistance": 0.3000000000000114,
+        "renderedDistance": 460.6,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -243.55,
+          "y": 0.55,
+          "z": -210
+        },
+        "to": {
+          "x": -241.64999999999998,
+          "y": 0.55,
+          "z": -210
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.4269127881401005,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -242.6,
+          "y": 0.55,
+          "z": -210.95000000000002
+        },
+        "to": {
+          "x": -242.6,
+          "y": 0.55,
+          "z": -209.04999999999998
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.4000019712314611,
+        "mesh": "Mesh",
+        "instance": 0
+      }
+    ]
+  },
+  {
+    "district": "woodlands",
+    "probes": 8754,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 3052,
+    "examples": [
+      {
+        "from": {
+          "x": -16,
+          "y": 1.25,
+          "z": -200.3
+        },
+        "to": {
+          "x": -16,
+          "y": 1.25,
+          "z": -129.7
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.09999999701977913,
+        "mesh": "Mesh",
+        "instance": 7
+      },
+      {
+        "from": {
+          "x": -17.1,
+          "y": 1.75,
+          "z": -165
+        },
+        "to": {
+          "x": -14.899999999999999,
+          "y": 1.75,
+          "z": -165
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 2.200000000000003,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": -16,
+          "y": 1.75,
+          "z": -200.3
+        },
+        "to": {
+          "x": -16,
+          "y": 1.75,
+          "z": -129.7
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.09999999701977913,
+        "mesh": "Mesh",
+        "instance": 7
+      },
+      {
+        "from": {
+          "x": 16,
+          "y": 1.25,
+          "z": -200.3
+        },
+        "to": {
+          "x": 16,
+          "y": 1.25,
+          "z": -129.7
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.09999999701977913,
+        "mesh": "Mesh",
+        "instance": 15
+      },
+      {
+        "from": {
+          "x": 14.899999999999999,
+          "y": 1.75,
+          "z": -165
+        },
+        "to": {
+          "x": 17.1,
+          "y": 1.75,
+          "z": -165
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 2.200000000000003,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": 16,
+          "y": 1.75,
+          "z": -200.3
+        },
+        "to": {
+          "x": 16,
+          "y": 1.75,
+          "z": -129.7
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.09999999701977913,
+        "mesh": "Mesh",
+        "instance": 15
+      },
+      {
+        "from": {
+          "x": 17.45,
+          "y": 0.55,
+          "z": -144
+        },
+        "to": {
+          "x": 18.55,
+          "y": 0.55,
+          "z": -144
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.3788098159952895,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": 18,
+          "y": 0.55,
+          "z": -144.55
+        },
+        "to": {
+          "x": 18,
+          "y": 0.55,
+          "z": -143.45
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.369999992847454,
+        "mesh": "Mesh",
+        "instance": 0
+      }
+    ]
+  },
+  {
+    "district": "tampines",
+    "probes": 5256,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 1839,
+    "examples": [
+      {
+        "from": {
+          "x": -54.849999999999994,
+          "y": 0.55,
+          "z": -40
+        },
+        "to": {
+          "x": -53.150000000000006,
+          "y": 0.55,
+          "z": -40
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.4220245683319135,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -54,
+          "y": 0.55,
+          "z": -40.849999999999994
+        },
+        "to": {
+          "x": -54,
+          "y": 0.55,
+          "z": -39.150000000000006
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.40000001192092327,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -54.849999999999994,
+          "y": 1.25,
+          "z": -40
+        },
+        "to": {
+          "x": -53.150000000000006,
+          "y": 1.25,
+          "z": -40
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.4220245683319135,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -54,
+          "y": 1.25,
+          "z": -40.849999999999994
+        },
+        "to": {
+          "x": -54,
+          "y": 1.25,
+          "z": -39.150000000000006
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.40000001192092327,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -54.849999999999994,
+          "y": 1.75,
+          "z": -40
+        },
+        "to": {
+          "x": -53.150000000000006,
+          "y": 1.75,
+          "z": -40
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.4220245683319135,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -54,
+          "y": 1.75,
+          "z": -40.849999999999994
+        },
+        "to": {
+          "x": -54,
+          "y": 1.75,
+          "z": -39.150000000000006
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.40000001192092327,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -60.29407644455986,
+          "y": 0.55,
+          "z": -37.01841471974702
+        },
+        "to": {
+          "x": -54.094076444559875,
+          "y": 0.55,
+          "z": -37.01841471974702
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.39999985879020983,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -57.19407644455987,
+          "y": 0.55,
+          "z": -40.118414719747015
+        },
+        "to": {
+          "x": -57.19407644455987,
+          "y": 0.55,
+          "z": -33.91841471974703
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.10000117604584347,
+        "mesh": "Mesh",
+        "instance": 0
+      }
+    ]
+  },
+  {
+    "district": "toa-payoh",
+    "probes": 9522,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 2754,
+    "examples": [
+      {
+        "from": {
+          "x": 26.099999999999998,
+          "y": 0.55,
+          "z": -50
+        },
+        "to": {
+          "x": 33.9,
+          "y": 0.55,
+          "z": -50
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.40000000000000213,
+        "mesh": "Mesh"
+      },
+      {
+        "from": {
+          "x": 30,
+          "y": 0.55,
+          "z": -53.599999999999994
+        },
+        "to": {
+          "x": 30,
+          "y": 0.55,
+          "z": -46.400000000000006
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.3999999999999915,
+        "mesh": "Mesh"
+      },
+      {
+        "from": {
+          "x": 26.099999999999998,
+          "y": 1.75,
+          "z": -50
+        },
+        "to": {
+          "x": 33.9,
+          "y": 1.75,
+          "z": -50
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.40000000000000213,
+        "mesh": "Mesh"
+      },
+      {
+        "from": {
+          "x": 30,
+          "y": 1.75,
+          "z": -53.599999999999994
+        },
+        "to": {
+          "x": 30,
+          "y": 1.75,
+          "z": -46.400000000000006
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.3999999999999915,
+        "mesh": "Mesh"
+      },
+      {
+        "from": {
+          "x": 35,
+          "y": 0.55,
+          "z": -50
+        },
+        "to": {
+          "x": 37,
+          "y": 0.55,
+          "z": -50
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 2,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": 36,
+          "y": 0.55,
+          "z": -52.9
+        },
+        "to": {
+          "x": 36,
+          "y": 0.55,
+          "z": -47.1
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 5.799999999999997,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": 35,
+          "y": 1.25,
+          "z": -50
+        },
+        "to": {
+          "x": 37,
+          "y": 1.25,
+          "z": -50
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 2,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": 36,
+          "y": 1.25,
+          "z": -52.9
+        },
+        "to": {
+          "x": 36,
+          "y": 1.25,
+          "z": -47.1
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 5.799999999999997,
+        "mesh": "clear"
+      }
+    ]
+  },
+  {
+    "district": "bukit-timah",
+    "probes": 1284,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 957,
+    "examples": [
+      {
+        "from": {
+          "x": 29.7,
+          "y": 0.55,
+          "z": -44
+        },
+        "to": {
+          "x": 118.3,
+          "y": 0.55,
+          "z": -44
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 88.10000150203705,
+        "mesh": "Mesh",
+        "instance": 6
+      },
+      {
+        "from": {
+          "x": 74,
+          "y": 0.55,
+          "z": -56.3
+        },
+        "to": {
+          "x": 74,
+          "y": 0.55,
+          "z": -31.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.9277004554748842,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": 29.7,
+          "y": 1.25,
+          "z": -44
+        },
+        "to": {
+          "x": 118.3,
+          "y": 1.25,
+          "z": -44
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 88.10000150203705,
+        "mesh": "Mesh",
+        "instance": 6
+      },
+      {
+        "from": {
+          "x": 74,
+          "y": 1.25,
+          "z": -56.3
+        },
+        "to": {
+          "x": 74,
+          "y": 1.25,
+          "z": -31.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 2.4951948400566124,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": 29.7,
+          "y": 1.75,
+          "z": -44
+        },
+        "to": {
+          "x": 118.3,
+          "y": 1.75,
+          "z": -44
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 88.10000150203705,
+        "mesh": "Mesh",
+        "instance": 6
+      },
+      {
+        "from": {
+          "x": 74,
+          "y": 1.75,
+          "z": -56.3
+        },
+        "to": {
+          "x": 74,
+          "y": 1.75,
+          "z": -31.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 3.614833686186415,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": 141.7,
+          "y": 0.55,
+          "z": -44
+        },
+        "to": {
+          "x": 215.3,
+          "y": 0.55,
+          "z": -44
+        },
+        "movementDistance": 0,
+        "renderedDistance": 73.60000000000002,
+        "mesh": "clear"
+      },
+      {
+        "from": {
+          "x": 178.5,
+          "y": 0.55,
+          "z": -56.3
+        },
+        "to": {
+          "x": 178.5,
+          "y": 0.55,
+          "z": -31.7
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.9277004554748913,
+        "mesh": "Mesh",
+        "instance": 2
+      }
+    ]
+  },
+  {
+    "district": "bishan",
+    "probes": 7626,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 2950,
+    "examples": [
+      {
+        "from": {
+          "x": -204.55,
+          "y": 0.55,
+          "z": -78
+        },
+        "to": {
+          "x": -203.45,
+          "y": 0.55,
+          "z": -78
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.39783095699928595,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -204,
+          "y": 0.55,
+          "z": -78.55
+        },
+        "to": {
+          "x": -204,
+          "y": 0.55,
+          "z": -77.45
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.39000000357629006,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -204.55,
+          "y": 1.25,
+          "z": -78
+        },
+        "to": {
+          "x": -203.45,
+          "y": 1.25,
+          "z": -78
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.39783095699928595,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -204,
+          "y": 1.25,
+          "z": -78.55
+        },
+        "to": {
+          "x": -204,
+          "y": 1.25,
+          "z": -77.45
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.39000000357629006,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -204.55,
+          "y": 1.75,
+          "z": -78
+        },
+        "to": {
+          "x": -203.45,
+          "y": 1.75,
+          "z": -78
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.39783095699928595,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -204,
+          "y": 1.75,
+          "z": -78.55
+        },
+        "to": {
+          "x": -204,
+          "y": 1.75,
+          "z": -77.45
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.39000000357629006,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -168.55,
+          "y": 0.55,
+          "z": -78
+        },
+        "to": {
+          "x": -167.45,
+          "y": 0.55,
+          "z": -78
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.39783095699928595,
+        "mesh": "Mesh",
+        "instance": 1
+      },
+      {
+        "from": {
+          "x": -168,
+          "y": 0.55,
+          "z": -78.55
+        },
+        "to": {
+          "x": -168,
+          "y": 0.55,
+          "z": -77.45
+        },
+        "movementDistance": 0.29999999999999716,
+        "renderedDistance": 0.39000000357627584,
+        "mesh": "Mesh",
+        "instance": 1
+      }
+    ]
+  },
+  {
+    "district": "orchard",
+    "probes": 13620,
+    "authorityMismatches": 0,
+    "movementEnvelopeDifferences": 4786,
+    "examples": [
+      {
+        "from": {
+          "x": -223.10000000000002,
+          "y": 0.55,
+          "z": -13.5
+        },
+        "to": {
+          "x": -220.89999999999998,
+          "y": 0.55,
+          "z": -13.5
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.4342604333288591,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -222,
+          "y": 0.55,
+          "z": -14.600000000000001
+        },
+        "to": {
+          "x": -222,
+          "y": 0.55,
+          "z": -12.399999999999999
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.4000000119209304,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -223.10000000000002,
+          "y": 1.25,
+          "z": -13.5
+        },
+        "to": {
+          "x": -220.89999999999998,
+          "y": 1.25,
+          "z": -13.5
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.4342604333288591,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -222,
+          "y": 1.25,
+          "z": -14.600000000000001
+        },
+        "to": {
+          "x": -222,
+          "y": 1.25,
+          "z": -12.399999999999999
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.4000000119209304,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -223.10000000000002,
+          "y": 1.75,
+          "z": -13.5
+        },
+        "to": {
+          "x": -220.89999999999998,
+          "y": 1.75,
+          "z": -13.5
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.4342604333288591,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -222,
+          "y": 1.75,
+          "z": -14.600000000000001
+        },
+        "to": {
+          "x": -222,
+          "y": 1.75,
+          "z": -12.399999999999999
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.4000000119209304,
+        "mesh": "Mesh",
+        "instance": 0
+      },
+      {
+        "from": {
+          "x": -223.10000000000002,
+          "y": 0.55,
+          "z": 13.5
+        },
+        "to": {
+          "x": -220.89999999999998,
+          "y": 0.55,
+          "z": 13.5
+        },
+        "movementDistance": 0.30000000000001137,
+        "renderedDistance": 0.4342604333288591,
+        "mesh": "Mesh",
+        "instance": 1
+      },
+      {
+        "from": {
+          "x": -222,
+          "y": 0.55,
+          "z": 12.399999999999999
+        },
+        "to": {
+          "x": -222,
+          "y": 0.55,
+          "z": 14.600000000000001
+        },
+        "movementDistance": 0.3000000000000007,
+        "renderedDistance": 0.4000000119209304,
+        "mesh": "Mesh",
+        "instance": 1
+      }
+    ]
+  }
+]

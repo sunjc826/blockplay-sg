@@ -1,3 +1,4 @@
+import { MAX_CONFIRMED_IMPACTS, IMPACT_LIFETIME, type ConfirmedImpact } from './confirmed-impacts';
 import { createGrenadeSystem, validThrowGrenade, type ThrowGrenade, type GrenadeBurst, type LiveGrenade, type GrenadeEvent } from './grenade-system';
 import { applyGrenadeConditions, advanceGrenadeConditions, arenaConditionModifiers, type ActiveGrenadeConditions } from './grenade-effects';
 import { heldSupplies } from './utility-belt';
@@ -119,6 +120,8 @@ export interface ArenaSnapshot {
   heat?: ArenaHeat[];
   /** Rounds in the air, for screens to draw; the host alone decides what they hit. */
   rounds?: ArenaRoundView[];
+  /** Wounds produced only after the host applied health damage. */
+  impacts?: ConfirmedImpact[];
   /** The latest things said, oldest first. */
   barks?: ArenaBark[];
 }
@@ -362,7 +365,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const floorAt = (point: ArenaPoint) => traversal?.supportHeight(point.x, point.z, point.y - .5, .35, .6) ?? 0;
   const move = environment?.move ?? moveInMarina;
   const coverObstacles = [...obstacles, ...(traversalWorld?.traversalObstacles ?? [])];
-  const worldWallDistance = (origin: ArenaPoint, ray: ArenaPoint) => {
+  const worldWallDistance = (origin: ArenaPoint, ray: ArenaPoint, range = 240) => {
+    // Scene-backed games use rendered triangles as their sole shot/sight cover.
+    // Footprints and full-height rail guards are movement approximations only.
+    if (cover) return cover(origin, ray, range);
     let distance = arenaWallDistance(origin, ray, coverObstacles);
     for (const s of traversalWorld?.surfaces ?? []) {
       const low = s.axis === 'x' ? s.minX : s.minZ, high = s.axis === 'x' ? s.maxX : s.maxZ;
@@ -705,7 +711,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const flying: ArenaRound[] = [];
   /** Hits players' rounds have landed since the host last asked, by shooter. */
   const landed = new Map<string, ArenaShot[]>();
-  let roundSerial = 0;
+  let roundSerial = 0, impactSerial = 0;
+  const impacts: ConfirmedImpact[] = [];
   /** Sends a carried gun's round on its way; an instant gun still resolves at once. */
   function launch(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, weapon: ArenaWeapon, range: number, family: number): ArenaShot {
     const ballistics = entry.spec?.ballistics ?? weapon.ballistics;
@@ -717,9 +724,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     send({ shooter: entry, origin, direction: ray, ballistics, damage, spec: entry.spec, calibre, power: weapon.damage, ignoreHull }, range);
     return { ...EMPTY_SHOT };
   }
-  /** Queues a round, its walls and rendered cover measured once along its line now. */
+  /** Queues a round; cover is tested along each actual flight segment. */
   function send(round: Pick<ArenaRound, 'origin' | 'direction' | 'ballistics' | 'damage' | 'spec' | 'shooter' | 'cause' | 'vehicle' | 'ignoreHull' | 'calibre' | 'power'>, range: number) {
-    const limit = Math.min(range, worldWallDistance(round.origin, round.direction), cover?.(round.origin, round.direction, range) ?? Infinity);
+    const limit = range;
     if (flying.length >= MAX_ARENA_ROUNDS) flying.shift();
     flying.push({ ...round, id: ++roundSerial, origin: { ...round.origin }, position: { ...round.origin }, limit, time: 0, travelled: 0 });
   }
@@ -796,18 +803,29 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (!killed && victim.actor.bot && attacker !== victim) { victim.lastFight = elapsed; if (damage - blocked > 0) bark(victim, blasted ? 'incoming' : 'hurt'); }
     return { hitId: victim.actor.id, killed, damage: damage - blocked };
   }
+  function wound(victim: InternalActor, origin: ArenaPoint, ray: ArenaPoint, distance: number, damage: number, attacker?: InternalActor, cause?: string, from?: ArenaPoint, calibre = 5.56) {
+    const before = victim.actor.health;
+    const result = hurtActor(victim, damage, attacker, cause, from, false, false, calibre);
+    if (victim.actor.health < before) {
+      impacts.push({ id: ++impactSerial, time: elapsed, victim: victim.actor.id,
+        point: { x: origin.x + ray.x * distance, y: origin.y + ray.y * distance, z: origin.z + ray.z * distance },
+        direction: { ...ray }, calibre, power: damage });
+      if (impacts.length > MAX_CONFIRMED_IMPACTS) impacts.shift();
+    }
+    return result;
+  }
   /** A player in the fight, either end of it, escalates it in full; bots fighting bots by a share. */
   const heatShare = (victim: InternalActor, attacker?: InternalActor) => !victim.actor.bot || attacker && !attacker.actor.bot ? 1 : HEAT_TUNING.skirmish;
   /**
    * `spec`, when given, prices the hit by range and zone the way the player's
    * own rounds are. A round in flight passes `flown`, the distance it covered
-   * before this stretch: its walls were measured at launch, so only people,
-   * vehicles and raiders are tested, and the hit is priced at the whole
-   * distance. `stopped` says something in range took the round.
+   * before this stretch. Cover and bodies are tested along that segment,
+   * and the hit is priced at the whole distance. `stopped` says something in range took the round.
    */
   function resolveShot(entry: InternalActor, origin: ArenaPoint, ray: ArenaPoint, damage: number, range: number, ignore?: VehicleKind, spec?: WeaponSpec, flown?: number, calibre?: number, mountedGun = true): ArenaShot & { stopped?: boolean } {
     const reach = Number.isFinite(range) ? Math.max(0, range) : 0;
-    let nearest = flown === undefined ? Math.min(reach, worldWallDistance(origin, ray), cover?.(origin, ray, range) ?? Infinity) : reach;
+    let nearest = Math.min(reach, worldWallDistance(origin, ray, reach));
+    const wallStops = nearest < reach;
     let hull: SharedVehicle | undefined, victim: InternalActor | undefined;
     for (const v of vehicles) {
       if (v.kind === ignore) continue;
@@ -828,14 +846,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const v = vehicles.find(v => v.kind === ignore)!;
       v.shotEnd = { x: origin.x + ray.x * nearest, y: origin.y + ray.y * nearest, z: origin.z + ray.z * nearest };
     }
-    if (flown !== undefined && !raider && !hull && !victim) return { ...EMPTY_SHOT, stopped: false };
+    if (flown !== undefined && !raider && !hull && !victim) return { ...EMPTY_SHOT, stopped: wallStops };
     if (spec) damage = hitDamage(spec, (flown ?? 0) + nearest, victim && headHit(origin, ray, victim.actor, nearest) ? 'head' : undefined);
     if (raider) return { ...hurtRaider(raider, damage, entry), stopped: true };
     if (hull) { const before = hull.health; damageHull(hull, damage, entry); return { hitId: `vehicle-${hull.kind}`, killed: before > 0 && hull.health === 0, damage: Math.min(before, damage), stopped: true }; }
     // A round that finds one of the shooter's own side stops there and does no harm.
     if (victim && !hostile(entry.actor, victim.actor)) return { ...EMPTY_SHOT, stopped: true };
     if (victim && entry.actor.bot && !victim.actor.bot && elapsed < (victim.shieldUntil ?? 0)) return { hitId: victim.actor.id, killed: false, damage: 0, stopped: true };
-    return victim ? { ...hurtActor(victim, damage, entry, undefined, ignore ? origin : undefined, false, false, calibre), stopped: true } : { ...EMPTY_SHOT, stopped: true };
+    return victim ? { ...wound(victim, origin, ray, nearest, damage, entry, undefined, ignore ? origin : undefined, calibre), stopped: true } : { ...EMPTY_SHOT, stopped: true };
   }
   function releaseSeat(id: string, switching = false) {
     const mounted = seatOf(vehicles, id);
@@ -874,7 +892,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (!v || v.health <= 0 || v.y > .4 || Math.abs(v.speed) > 2 || Math.hypot(entry.actor.x - v.x, entry.actor.z - v.z) > (v.kind === 'car' ? 4.5 : 6) || entry.actor.y > 3) return false;
     const center = { x: v.x, y: v.y + 1.3, z: v.z }, d = distance(entry.actor, center);
     const ray = { x: (center.x - entry.actor.x) / d, y: (center.y - entry.actor.y) / d, z: (center.z - entry.actor.z) / d };
-    if (d > .1 && Math.min(worldWallDistance(entry.actor, ray), cover?.(entry.actor, ray, d) ?? Infinity) < d - .2) return false;
+    if (d > .1 && worldWallDistance(entry.actor, ray, d) < d - .2) return false;
     // Nobody boards the opposing side's hull, or one whose crew is unloading.
     if (vehicleOptions?.openWorld && (lifeOf(v).unload || v.occupants.some(occupant => occupant && getArenaFaction(entry.actor.faction)?.side !== getArenaFaction(members.get(occupant)!.actor.faction)?.side))) return false;
     const seat = v.occupants.indexOf(null); if (seat < 0 || entry.actor.bot && v.kind === 'helicopter' && seat === 0) return false;
@@ -922,7 +940,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function clearBlast(from: ArenaPoint, to: ArenaPoint, length: number) {
     if (length < .1) return true;
     const dir = { x: (to.x - from.x) / length, y: (to.y - from.y) / length, z: (to.z - from.z) / length };
-    return Math.min(worldWallDistance(from, dir), cover?.(from, dir, length) ?? Infinity) >= length - .1;
+    return worldWallDistance(from, dir, length) >= length - .1;
   }
   type BlastItem = { hull: SharedVehicle } | { member: InternalActor };
   function blast(point: ArenaPoint, spec: Parameters<typeof resolveBlast>[1], attacker?: InternalActor, cause?: string, source?: SharedVehicle, grenade = false, shred = 0) {
@@ -947,7 +965,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   /** Whether something solid is overhead: a roof, a deck, a viaduct. */
   function roofed(actor: ArenaPoint) {
     const origin = { x: actor.x, y: actor.y + .2, z: actor.z };
-    return Math.min(worldWallDistance(origin, UP), cover?.(origin, UP, 40) ?? Infinity) < 40;
+    return worldWallDistance(origin, UP, 40) < 40;
   }
   /**
    * Running combat events and the director that starts them. Rounds resolve
@@ -958,7 +976,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const d = distance(from, to); if (d < 1e-8) return null;
     const ray = { x: (to.x - from.x) / d, y: (to.y - from.y) / d, z: (to.z - from.z) / d };
     const ground = traversal?.supportHeight(to.x, to.z, from.y + .05, .05, .05) ?? 0;
-    let hit = Math.min(worldWallDistance(from, ray), cover?.(from, ray, d) ?? Infinity);
+    let hit = worldWallDistance(from, ray, d);
     let floor = false;
     if (ray.y < 0 && to.y <= ground + .08) { const t = Math.max(0, (ground + .08 - from.y) / ray.y); if (t <= hit) { hit = t; floor = true; } }
     if (hit >= d && !floor) return null;
@@ -1024,7 +1042,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function lineClear(from: ArenaPoint, to: ArenaPoint) {
     const length = distance(from, to); if (length < .1) return true;
     const ray = { x: (to.x - from.x) / length, y: (to.y - from.y) / length, z: (to.z - from.z) / length };
-    return worldWallDistance(from, ray) >= length - .5 && (cover?.(from, ray, length) ?? Infinity) >= length - .5 && !smokeBetween(from, to);
+    return worldWallDistance(from, ray, length) >= length - .5 && !smokeBetween(from, to);
   }
   /**
    * Where the fighting has been: shots, kills and blasts warm a coarse grid
@@ -1331,9 +1349,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     // Its strikes look like a GPMG's: its damage is set low for balance, not because it is a small gun.
     send({ origin, direction: ray, ballistics: muzzleBallistics(RAID.muzzle), damage, cause, calibre: RAID.caliberMm, power: RAID.look }, 150);
   }
-  /** One stretch of a shooterless round's flight, its walls already measured. */
+  /** One stretch of a shooterless round's flight, including rendered cover. */
   function strayShot(origin: ArenaPoint, ray: ArenaPoint, reach: number, damage: number, cause: string, calibre?: number): ArenaShot & { stopped: boolean } {
-    let nearest = reach, hull: SharedVehicle | undefined, victim: InternalActor | undefined;
+    let nearest = Math.min(reach, worldWallDistance(origin, ray, reach));
+    const wallStops = nearest < reach;
+    let hull: SharedVehicle | undefined, victim: InternalActor | undefined;
     for (const v of vehicles) { const d = vehicleRayDistance(v, origin, ray); if (d < nearest) { nearest = d; hull = v; } }
     for (const member of members.values()) {
       if (!member.actor.alive || seatOf(vehicles, member.actor.id)) continue;
@@ -1341,8 +1361,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     if ((hull || victim) && !(damage > 0)) return { ...EMPTY_SHOT, stopped: true };
     if (hull) { damageHull(hull, damage, undefined, cause); return { ...EMPTY_SHOT, stopped: true }; }
-    if (victim) return { ...hurtActor(victim, damage, undefined, cause, origin, false, false, calibre), stopped: true };
-    return { ...EMPTY_SHOT, stopped: false };
+    if (victim) return { ...wound(victim, origin, ray, nearest, damage, undefined, cause, origin, calibre), stopped: true };
+    return { ...EMPTY_SHOT, stopped: wallStops };
   }
   /** The nearest actor, player or patrol, a raider at `from` can see within `range`. Raiders belong to nobody. */
   function spot(from: ArenaPoint, range: number) {
@@ -1442,7 +1462,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (victim?.actor.alive && distance(r, chestOf(victim.actor)) > DRONE.commit) r.walk = { ...chestOf(victim.actor), y: chestOf(victim.actor).y - .4 };
     const dest = r.walk!, dx = dest.x - r.x, dy = dest.y - r.y, dz = dest.z - r.z, l = Math.hypot(dx, dy, dz) || 1;
     const ray = { x: dx / l, y: dy / l, z: dz / l }, step = DRONE.dive * dt;
-    const struck = Math.min(worldWallDistance(r, ray), cover?.(r, ray, step + .5) ?? Infinity);
+    const struck = worldWallDistance(r, ray, step + .5);
     const near = [...members.values()].some(m => m.actor.alive && distance(r, chestOf(m.actor)) < 1.6);
     if (near || struck < step + .3 || l < step + .8) {
       const reach = Math.max(0, Math.min(l, struck - .3, step));
@@ -1528,7 +1548,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   /** Nothing overhead for a helicopter to hover under. */
   function openSky(at: CombatPlane) {
     const origin = { x: at.x, y: 2, z: at.z }, up = { x: 0, y: 1, z: 0 };
-    return Math.min(worldWallDistance(origin, up), cover?.(origin, up, 70) ?? Infinity) >= 69;
+    return worldWallDistance(origin, up, 70) >= 69;
   }
   /** Which way out of the nearest live danger area, or null when standing clear of all of them. A supply drop's ring is no danger. */
   function dangerExit(actor: ArenaPoint) {
@@ -1708,7 +1728,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    * is cached briefly per bot so a full arena does not raycast every tick.
    */
   function clearSight(entry: InternalActor, target: string, ray: ArenaPoint, length: number, dt: number) {
-    if (!cover) return true;
+    if (!cover) return worldWallDistance(entry.actor, ray) >= length - .5;
     const sight = entry.sight;
     if (sight && sight.target === target && (sight.wait -= dt) > 0) return sight.clear;
     const clear = cover(entry.actor, ray, length) >= length - .5;
@@ -1759,7 +1779,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const length = Math.hypot(line.x, line.y, line.z);
     const ray = { x: line.x / Math.max(length, 0.01), y: line.y / Math.max(length, 0.01), z: line.z / Math.max(length, 0.01) };
     // A target whose inserts smell is seen from further off, and through smoke.
-    const visible = !conditions.dazed && !!enemy && length < sightRangeAgainst(role.sightRange, enemy.insert) && worldWallDistance(actor, ray) >= length - 0.5 && clearSight(entry, enemy.actor.id, ray, length, dt) && !(smokeHides(enemy.insert) && smokeBetween(actor, target));
+    const visible = !conditions.dazed && !!enemy && length < sightRangeAgainst(role.sightRange, enemy.insert) && clearSight(entry, enemy.actor.id, ray, length, dt) && !(smokeHides(enemy.insert) && smokeBetween(actor, target));
     if (visible) entry.lastContact = { x: target.x, y: target.y, z: target.z, time: elapsed };
     const contact = entry.lastContact;
     if (!visible && contact && elapsed - contact.time < 6 && horizontal <= 25 && actor.grenade && grenadeSystem.live.filter(g => members.get(g.caller)?.actor.bot).length < 3 && elapsed - (entry.lastGrenadeAt ?? -Infinity) >= 20) {
@@ -2054,13 +2074,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return { type: 'arena-snapshot', tick, elapsed, grenades: grenadeSystem.live.map(g => ({ ...g, position: { ...g.position }, velocity: { ...g.velocity }, landing: { ...g.landing } })), grenadeEvents: grenadeSystem.events.map(e => ({ ...e, point: { ...e.point } })), actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...(m.actor.conditions ? { conditions: structuredClone(m.actor.conditions) } : {}), ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
       ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target }, ...(e.descriptor.origin ? { origin: { ...e.descriptor.origin } } : {}) })) } : {}),
       ...(raiders.size ? { raiders: [...raiders.values()].map(({ event, kind, x, y, z, yaw, health, maxHealth, state, aim, shots }) => ({ event, kind, x, y, z, yaw, health, maxHealth, state, aim: aim ? { ...aim } : null, shots })) } : {}),
+      impacts: impacts.filter(e => elapsed - e.time <= IMPACT_LIFETIME).map(e => ({ ...e, point: { ...e.point }, direction: { ...e.direction } })),
       ...(factionHeat ? { heat: factionHeat.snapshot() } : {}), ...(flying.length ? { rounds: roundViews() } : {}),
       ...(barks.length ? { barks: barks.map(b => ({ ...b, ...(b.at ? { at: { ...b.at } } : {}) })) } : {}) };
   }
   function reset() {
     grenadeSystem.reset();
     tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; barks.length = 0; replies.length = 0; barker.reset(); idleIn = BARK_TUNING.idleEvery[0]; controls.clear(); vehicleLife.clear(); events.length = 0; raiders.clear(); liveClouds = []; heat.clear(); interests.length = 0; director?.reset();
-    flying.length = 0; landed.clear();
+    flying.length = 0; landed.clear(); impacts.length = 0;
     for (const [id, entry] of members) if (entry.temporary) dismiss(id);
     // Back to the starting garrison: recruits were the reinforcements' doing.
     for (const [id, entry] of members) if (entry.recruit) members.delete(id);

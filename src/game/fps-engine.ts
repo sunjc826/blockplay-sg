@@ -1,3 +1,4 @@
+import { takeConfirmedImpacts } from './confirmed-impacts';
 import { createGrenadeSystem, grenadePayloads, grenadeSmokeBetween, type GrenadeBurst, type LiveGrenade, type GrenadeEvent } from './grenade-system';
 import { createGrenadeViewmodel } from './grenade-models';
 import { createGrenadeVisuals } from './grenade-visuals';
@@ -1468,12 +1469,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function strike(hit: THREE.Intersection, direction: THREE.Vector3, energy: number, style?: string) {
     const normal = surfaceNormal(hit, direction), kind = impactKind(hit);
     const material = kind === 'surface' ? hitSurface(hit, normal.y) : undefined;
+    // Cosmetic rounds touch interpolated figures, equipment and friendly rigs.
+    // Only the host's confirmed wound events may produce arena blood.
+    if (arenaRuntime && material === 'flesh') return;
     effects.impact(hit.point, normal, kind, energy, style, material);
-    if (material !== 'flesh') return;
-    splatRay.set(hit.point, direction); splatRay.near = .05; splatRay.far = 2.4;
+    if (material === 'flesh') bloodSpatter(hit.point, direction, energy);
+  }
+  function bloodSpatter(point: THREE.Vector3, direction: THREE.Vector3, energy: number) {
+    splatRay.set(point, direction); splatRay.near = .05; splatRay.far = 2.4;
     const behind = visibleHits(splatRay, gameplayCandidates(), 8).find(next => !isWaterHit(next) && impactKind(next) === 'surface' && hitSurface(next) !== 'flesh');
     if (behind) {
-      // Thinner and wider the further the spray had to travel to reach it.
       const reach = behind.distance / splatRay.far;
       effects.decal(behind.point, impactSurfaceNormal(behind, direction, splatNormal), 'blood', (.09 + reach * .14) * Math.min(1.4, Math.max(.5, energy)));
     }
@@ -1784,11 +1789,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** Host rounds already drawn here, by id. */
   const seenRounds = new Set<number>();
+  const seenImpacts = new Set<number>();
   /** Each arena figure's shot count when last heard, by id. */
   const heardShots = new Map<string, number>();
   /** Strike looks for other people's guns, built on first sight from the bore and damage the host publishes. */
   const publishedStyles = new Map<string, EffectStyle>();
-  function publishedStyle(view: PublishedRound) {
+  function publishedStyle(view: Pick<PublishedRound, 'calibre' | 'power'>) {
     const id = `round:${view.calibre}:${Math.round(view.power)}`;
     if (!publishedStyles.has(id)) {
       publishedStyles.set(id, { ...resolveEffectStyle({ caliberMm: view.calibre, damage: Math.max(1, view.power) }), id });
@@ -1990,11 +1996,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // and decides what it hit; this side flies a copy along the same arc to draw.
     if (needsFlight(specs[hud.weapon].ballistics)) {
       if (arenaRuntime) {
-        const first = stopAtWater(visibleHits(ray, shotCandidates, 1))[0];
-        let figure = false;
-        for (let object: THREE.Object3D | null = first?.object ?? null; object; object = object.parent) if (object.userData.arenaActorId) figure = true;
-        // A figure may step aside before the round arrives, so only scenery caps how far it can go.
-        arenaRuntime.shoot(shotOrigin, ray.ray.direction, hud.weapon, first && !figure ? first.distance : 125, prone);
+        arenaRuntime.shoot(shotOrigin, ray.ray.direction, hud.weapon, 125, prone);
       }
       if (rounds.length < MAX_ROUNDS_IN_FLIGHT && !(arenaRuntime && vehicles.active))
         rounds.push(Object.assign(createRound(++roundSerial, hud.weapon, shotOrigin, ray.ray.direction.clone(), specs[hud.weapon].ballistics, arenaRuntime ? 0 : pierceBudget(hud.weapon), !!arenaRuntime), vehicles.active ? { skipVehicle: vehicles.active } : {}));
@@ -2156,7 +2158,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       }
       rig.visible = frame.self.alive && (!vehicles.active || vehicles.canUseFirearm && firstPersonVehicle());
     }
-    if (frame.hit?.hitId) { hud.landed++; hud.lastDamage = frame.hit.damage; hitTime = .2; hud.hitKind = frame.hit.killed ? 'kill' : 'hit'; }
+    if (newRound) seenImpacts.clear();
+    for (const impact of takeConfirmedImpacts(frame.snapshot?.impacts ?? [], seenImpacts, frame.snapshot?.elapsed ?? 0)) {
+      if (impact.victim === options.arena?.session.id) continue;
+      const point = new THREE.Vector3(impact.point.x, impact.point.y, impact.point.z);
+      if (point.distanceTo(camera.position) > REMOTE_TRACER_RANGE) continue;
+      const direction = new THREE.Vector3(impact.direction.x, impact.direction.y, impact.direction.z);
+      const style = publishedStyle({ calibre: impact.calibre, power: impact.power });
+      effects.impact(point, direction.clone().negate(), 'surface', 1, style, 'flesh');
+      bloodSpatter(point, direction, 1);
+    }
+    if (frame.hit?.hitId && frame.hit.damage > 0) { hud.landed++; hud.lastDamage = frame.hit.damage; hitTime = .2; hud.hitKind = frame.hit.killed ? 'kill' : 'hit'; }
     for (const said of frame.barks) if (frame.snapshot) hearBark(said, frame.snapshot.actors);
     if (wheel) hud.orderStatus = orderStatus();
     for (const event of frame.feed) {

@@ -85,6 +85,8 @@ describe('arena runtime authority and renderer bridge', () => {
       cover.position.set((target.x + attacker.x) / 2, 2, (target.z + attacker.z) / 2); scene.add(cover);
       guestSession.send({ type: 'arena-shot', origin: attacker, direction: vector, weapon: 0, maxDistance: 125 });
       expect(host.update(0.02, input(-44, 68, true)).self?.health).toBe(100);
+      // Let the first round reach the wall before removing it.
+      vi.advanceTimersByTime(200);
       scene.remove(cover); cover.geometry.dispose(); (cover.material as THREE.Material).dispose();
       vi.advanceTimersByTime(200);
       guestSession.send({ type: 'arena-shot', origin: attacker, direction: vector, weapon: 0, maxDistance: 125 });

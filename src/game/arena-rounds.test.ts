@@ -51,6 +51,7 @@ describe('travelling rounds', () => {
     for (let t = 0; t < .5; t += .02) arena.step(.02);
     expect(find(arena, 'two').health).toBe(100);
     expect(arena.takeHits('one')).toEqual([]); expect(arena.inFlight()).toBe(0);
+    expect(arena.snapshot().impacts).toEqual([]);
   });
   it('are published in snapshots for every screen to draw, and a guest rejects a forged one', () => {
     const { arena, one, direction } = duel();

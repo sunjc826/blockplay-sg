@@ -1,3 +1,5 @@
+import { MAX_CONFIRMED_IMPACTS, IMPACT_LIFETIME } from './confirmed-impacts';
+import { createSceneCover } from './scene-cover';
 import { validGrenadeConditions } from './grenade-effects';
 import { MAX_GRENADES, MAX_GRENADE_EVENTS, validLiveGrenade, validGrenadeEvent, validThrowGrenade, type ThrowGrenade } from './grenade-system';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
@@ -67,6 +69,10 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
   }
   if (value.grenades !== undefined && (!Array.isArray(value.grenades) || value.grenades.length > MAX_GRENADES || !value.grenades.every(validLiveGrenade) || new Set(value.grenades.map(g => g.serial)).size !== value.grenades.length)) return false;
   if (value.grenadeEvents !== undefined && (!Array.isArray(value.grenadeEvents) || value.grenadeEvents.length > MAX_GRENADE_EVENTS || !value.grenadeEvents.every(e => validGrenadeEvent(e, value.elapsed as number)) || new Set(value.grenadeEvents.map(e => e.serial)).size !== value.grenadeEvents.length)) return false;
+  if (value.impacts !== undefined && !(Array.isArray(value.impacts) && value.impacts.length <= MAX_CONFIRMED_IMPACTS && value.impacts.every(e =>
+    object(e) && Number.isSafeInteger(e.id) && (e.id as number) > 0 && finite(e.time) && e.time >= 0 && e.time <= (value.elapsed as number) && (value.elapsed as number) - e.time <= IMPACT_LIFETIME &&
+    typeof e.victim === 'string' && e.victim.length <= 100 && point(e.point) && point(e.direction) && Math.abs(Math.hypot(e.direction.x, e.direction.y, e.direction.z) - 1) < .01 &&
+    finite(e.calibre) && e.calibre >= 2 && e.calibre <= 25 && finite(e.power) && e.power > 0 && e.power <= 1000) && new Set(value.impacts.map(e => e.id)).size === value.impacts.length)) return false;
   if (value.rounds !== undefined && !(Array.isArray(value.rounds) && value.rounds.length <= MAX_ARENA_ROUNDS && value.rounds.every(r => object(r) && Number.isInteger(r.id) && point(r.origin) && point(r.direction) &&
     finite(r.velocity) && (r.velocity as number) > 0 && (r.velocity as number) <= 2000 && finite(r.drop) && (r.drop as number) >= 0 && (r.drop as number) <= 50 &&
     finite(r.limit) && (r.limit as number) >= 0 && (r.limit as number) <= 300 && finite(r.time) && (r.time as number) >= 0 && (r.time as number) <= 10 &&
@@ -210,7 +216,7 @@ const avatarKey = (actor: ArenaActor) => `${actor.faction}|${actor.role}|${actor
 const noRaycast = () => {};
 /** Several rounds landing in one step read as one marker: the last thing hit, a kill if any was, the damage summed. */
 export function mergeHits(hits: readonly ArenaShot[]): ArenaShot | null {
-  const struck = hits.filter(hit => hit.hitId);
+  const struck = hits.filter(hit => hit.hitId && hit.damage > 0);
   if (!struck.length) return null;
   return { hitId: struck[struck.length - 1].hitId, killed: struck.some(hit => hit.killed), damage: Math.min(200, struck.reduce((sum, hit) => sum + hit.damage, 0)) };
 }
@@ -294,7 +300,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       const distance = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z); if (distance < 1e-8) return null;
       const d = coverLimit(from, { x: (to.x - from.x) / distance, y: (to.y - from.y) / distance, z: (to.z - from.z) / distance }, distance);
       if (d >= distance) return null;
-      const hit = coverRay.intersectObjects(surfaces, false).find(h => h.distance <= distance && h.distance >= d - .01 && h.face);
+      const hit = sceneCover.trace(from, { x: (to.x - from.x) / distance, y: (to.y - from.y) / distance, z: (to.z - from.z) / distance }, distance);
       return hit?.face ? { point: hit.point, normal: hit.face.normal.clone().transformDirection(hit.object.matrixWorld) } : null;
     }) : null;
   const hostId = authority ? session.id : session.getPeers()[0]?.id;
@@ -308,33 +314,10 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   let previousSelf: ArenaActor | null = null, lastTick = -1;
   const seenFeed = new Set<string>(), seenBarks = new Set<string>();
   const initial = resolveLoadout(profile);
-  const coverRay = new THREE.Raycaster(), coverOrigin = new THREE.Vector3(), coverDirection = new THREE.Vector3();
-  // Bots ask several times a second, so the cover list is gathered at most a
-  // few times a second rather than by walking the whole scene on every cast.
-  const surfaces: THREE.Mesh[] = [];
-  let surfacesAt = -Infinity;
+  const sceneCover = createSceneCover(scene);
   function coverLimit(origin: ArenaPoint, direction: ArenaPoint, supplied: number) {
     if (!point(origin) || !point(direction)) return 0;
-    coverDirection.set(direction.x, direction.y, direction.z);
-    if (coverDirection.lengthSq() < 0.01) return 0;
-    coverRay.set(coverOrigin.set(origin.x, origin.y, origin.z), coverDirection.normalize()); coverRay.far = Math.max(0, Math.min(240, supplied));
-    const now = performance.now();
-    if (now - surfacesAt > 250) {
-      surfacesAt = now; surfaces.length = 0;
-      scene.updateMatrixWorld(true);
-      // Only solid, visible meshes are cover. Sprite raycasts require a render camera;
-      // hidden vehicle labels must never enter this world-space authority ray.
-      const collect = (node: THREE.Object3D) => {
-        if (!node.visible || node.userData.arenaActorId || node.userData.fpsEffect || node.userData.vehicleKind) return;
-        if (node instanceof THREE.Mesh) surfaces.push(node);
-        node.children.forEach(collect);
-      };
-      scene.children.forEach(collect);
-    }
-    // A cached mesh may have been hidden or removed since; only one still shown counts.
-    const shown = (node: THREE.Object3D) => { for (let n: THREE.Object3D | null = node; n; n = n.parent) { if (n === scene) return true; if (!n.visible) return false; } return false; };
-    const cover = coverRay.intersectObjects(surfaces, false).find(hit => shown(hit.object));
-    return Math.min(finite(supplied) ? Math.max(0, Math.min(240, supplied)) : 125, cover?.distance ?? 240);
+    return sceneCover.distance(origin, direction, finite(supplied) ? Math.max(0, Math.min(240, supplied)) : 125);
   }
   if (simulation) { simulation.addPlayer(session.id, session.name, initial.armor, initial.absorption, initial.weapons, options.initialVitals, session.role === 'solo', initial.carriedFamilies, initial.insert); simulation.setPlayerGrenades(session.id, profile.consumables); registered.add(session.id); }
   function accept(next: ArenaSnapshot) {
@@ -385,7 +368,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       }
       else if (registered.has(from) && started && payload.type === 'arena-shot' && point(payload.origin) && point(payload.direction) && validWeaponIndex(payload.weapon)) {
         // Rounds fly, so the hit is usually sent when one lands (see deliverHits); an instant one is sent now.
-        const hit = simulation.shoot(from, payload.origin, payload.direction, payload.weapon, coverLimit(payload.origin, payload.direction, finite(payload.maxDistance) ? payload.maxDistance : 125));
+        const hit = simulation.shoot(from, payload.origin, payload.direction, payload.weapon, finite(payload.maxDistance) ? payload.maxDistance : 125);
         if (hit.hitId) session.send({ type: 'arena-hit', hit }, from);
         publish();
       }
@@ -533,7 +516,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     const freshInput = lastInput ? { ...lastInput, prone, weapon, reloading: false, x: origin.x, y: origin.y, z: origin.z } : null;
     if (simulation) {
       if (freshInput && validArenaInput(freshInput)) simulation.setInput(session.id, freshInput);
-      const shot = simulation.shoot(session.id, origin, direction, weapon, coverLimit(origin, direction, maxDistance)); if (shot.hitId) pendingHit = shot;
+      const shot = simulation.shoot(session.id, origin, direction, weapon, maxDistance); if (shot.hitId) pendingHit = shot;
       publish();
     } else {
       if (freshInput && validArenaInput(freshInput)) session.send({ type: 'arena-input', input: freshInput });
