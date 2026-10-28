@@ -89,6 +89,14 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
       diffuseColor.rgb *= 1.0 - edge * 0.9;
       diffuseColor.a = sightVisibility;
       ` : `
+      ${ring ? `
+      // A distant virtual image: eye translation moves the window around the
+      // hologram, never drags the aim towards its edge. The physical aperture
+      // reveals partial arcs during the raise and clips it when out of view.
+      // Infinite collimation approximates the real sight's finite focus range.
+      vec2 angularPosition = sightRay.xy / max(abs(sightRay.z), 0.001);
+      float rise = 1.0;
+      ` : `
       // A strictly collimated dot only exists once the optic's axis falls inside
       // the window, which during the raise is the last instant: it would pop in.
       // While the eye is still off-axis, hold the dot inside the glass on the
@@ -102,34 +110,47 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
       vec2 dotAt = offAxis > pinned ? windowCentre * (1.0 - pinned / offAxis) : vec2(0.0);
       float rise = 1.0 - smoothstep(sightWindow * 1.0, sightWindow * 4.4, offAxis);
       vec2 angularPosition = sightRay.xy / max(abs(sightRay.z), 0.001) - dotAt;
+      `}
       float angle = length(angularPosition);
-      float angularAA = max(fwidth(angle), 0.00015);
       ${ring ? `
-      // Thin 68 MOA speed ring, tiny centre, and four short cardinal ticks.
-      // Subpixel features get only enough AA coverage to remain visible.
-      float dotRadius = max(${HOLO_RING} / 68.0, angularAA * 0.22);
-      float core = 1.0 - smoothstep(dotRadius, dotRadius + angularAA * 0.65, angle);
-      float ringLine = max(0.00010, angularAA * 0.22);
+      // Coordinate derivatives stay well-defined at the dot centre.
+      float angularAA = max(max(fwidth(angularPosition.x), fwidth(angularPosition.y)), 0.00001);
+      // 68 MOA ring / 1 MOA dot. A small display-resolution floor keeps the
+      // subpixel aiming dot usable; it does not scale with the glass or eye relief.
+      float dotRadius = ${HOLO_RING} / 68.0;
+      float dotSigma = max(dotRadius * 0.85, angularAA * 0.50);
+      float dotCore = exp(-0.5 * pow(angle / dotSigma, 2.0));
+      float ringLine = 0.00010;
+      float strokeSigma = max(ringLine, angularAA * 0.34);
       float ringDistance = abs(angle - ${HOLO_RING});
       vec2 axes = abs(angularPosition);
-      float tickDistance = length(vec2(min(axes.x, axes.y), max(max(axes.x, axes.y) - ${HOLO_RING} * 1.18, 0.0)));
-      // Signed distance to four outward radial strokes; keep the centre open.
-      float tick = (1.0 - smoothstep(ringLine, ringLine + angularAA * 0.7, tickDistance))
-        * smoothstep(${HOLO_RING} * 0.94, ${HOLO_RING}, max(axes.x, axes.y));
-      float ringCore = 1.0 - smoothstep(ringLine, ringLine + angularAA * 0.7, ringDistance);
-      // Restrained laser speckle, stable in angular coordinates (no time flicker).
-      float grain = fract(sin(dot(floor(angularPosition * 220000.0), vec2(12.9898, 78.233))) * 43758.5453);
-      core = max(core, max(ringCore, tick) * mix(0.78, 1.0, grain));
-      ` : 'float core = 1.0 - smoothstep(0.0022, 0.0022 + angularAA, angle);'}
+      float radial = max(axes.x, axes.y);
+      float tickDistance = length(vec2(min(axes.x, axes.y), max(max(${HOLO_RING} - radial, radial - ${HOLO_RING} * 1.20), 0.0)));
+      float patternDistance = min(ringDistance, tickDistance);
+      // Stable optical texture in angular space. Fade unresolved speckle to its
+      // mean instead of sampling tiny random cells that shimmer during movement.
+      const float grainCell = 0.00024;
+      vec2 grainUv = angularPosition / grainCell;
+      vec2 cell = floor(grainUv), blend = smoothstep(vec2(0.0), vec2(1.0), fract(grainUv));
+      vec4 seeds = vec4(dot(cell, vec2(127.1, 311.7))) + vec4(0.0, 127.1, 311.7, 438.8);
+      vec4 noise = fract(sin(seeds) * 43758.5453);
+      float grain = mix(mix(noise.x, noise.y, blend.x), mix(noise.z, noise.w, blend.x), blend.y);
+      float resolvedGrain = 1.0 - smoothstep(0.55, 1.4, angularAA / grainCell);
+      float laserTexture = mix(0.88, mix(0.62, 1.0, grain), resolvedGrain);
+      float patternCore = exp(-0.5 * pow(patternDistance / strokeSigma, 2.0));
+      float core = max(dotCore, patternCore * laserTexture);
+      ` : `float angularAA = max(fwidth(angle), 0.00015);
+      float core = 1.0 - smoothstep(0.0022, 0.0022 + angularAA, angle);`}
       ${window ? 'float aperture = 1.0; // Geometry clips the complete hologram to the rectangular window.' : 'float aperture = 1.0 - smoothstep(0.46, 0.5, r);'}
       if (sightBloom > 0.5) {
         // Add light around the emitter without replacing the scene behind it.
         // Both halo scales are angular, so they stay steady as the eye moves.
         ${ring ? `
-        // A laser hologram is crisp: a faint haze hugging the dot and the ring,
-        // and none of an LED dot's broad glow or streak.
-        float halo = exp(-angle * angle / 0.000003) * 0.22 + exp(-pow(angle - ${HOLO_RING}, 2.0) / 0.0000005) * 0.06;
-        float bloom = exp(-angle * angle / 0.00003) * 0.025;
+        // Low-intensity scatter hugs every illuminated stroke, including ticks.
+        // Width follows pixel resolution without a broad central red fog.
+        float scatterSigma = max(0.00025, angularAA * 0.75);
+        float halo = exp(-0.5 * pow(patternDistance / scatterSigma, 2.0)) * 0.10;
+        float bloom = exp(-0.5 * pow(angle / scatterSigma, 2.0)) * 0.14;
         float flare = 0.0;
         ` : `
         float halo = exp(-angle * angle / 0.000055) * 0.30;
@@ -140,16 +161,16 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
         diffuseColor.rgb = vec3(1.0, 0.025, 0.008);
         diffuseColor.a = (halo + bloom + flare) * aperture * sightVisibility * rise;
       } else {
-        // A tiny warm centre gives the emitter depth while retaining the
-        // original crisp aiming diameter. The bloom is a separate light layer.
-        float hotCentre = exp(-angle * angle / ${ring ? '0.0000001' : '0.0000015'});
-        diffuseColor.rgb = mix(vec3(1.0, 0.025, 0.008), vec3(1.0, ${ring ? '0.12, 0.035' : '0.55, 0.28'}), hotCentre);
+        // Holographic laser light stays red; the LED dot has a warmer centre.
+        // Bloom is a separate light layer.
+        ${ring ? 'diffuseColor.rgb = vec3(1.0, 0.008, 0.002);' : `float hotCentre = exp(-angle * angle / 0.0000015);
+        diffuseColor.rgb = mix(vec3(1.0, 0.025, 0.008), vec3(1.0, 0.55, 0.28), hotCentre);`}
         diffuseColor.a = core * aperture * sightVisibility * rise;
       }
       `}
     `);
   };
-  lensMaterial.customProgramCacheKey = () => magnified ? `scope-reticle-v4-${reticle}` : `reflex-reticle-v5${ring ? '-holo-v3-window' : ''}`;
+  lensMaterial.customProgramCacheKey = () => magnified ? `scope-reticle-v4-${reticle}` : `reflex-reticle-v6${ring ? '-holo-v4-window' : ''}`;
   const lensGeometry = window ? new THREE.ShapeGeometry(roundedRect(window.width, window.height, window.corner), 8) : new THREE.CircleGeometry(radius, 48);
   if (window) {
     const positions = lensGeometry.attributes.position, uvs = lensGeometry.attributes.uv;
@@ -165,7 +186,7 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
       lensMaterial.onBeforeCompile(shader, renderer);
       shader.uniforms.sightBloom.value = 1;
     };
-    bloomMaterial.customProgramCacheKey = () => `reflex-bloom-v2${ring ? '-holo-v3-window' : ''}`;
+    bloomMaterial.customProgramCacheKey = () => `reflex-bloom-v3${ring ? '-holo-v4-window' : ''}`;
     const bloom = new THREE.Mesh(lensGeometry, bloomMaterial);
     bloom.name = 'fps-reflex-bloom'; bloom.renderOrder = 2;
     lens.renderOrder = 3;

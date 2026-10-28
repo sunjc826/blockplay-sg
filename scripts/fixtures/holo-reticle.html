@@ -1,0 +1,33 @@
+<!doctype html>
+<!-- Optical regression fixture: real fitted lens, isolated for framebuffer measurements. -->
+<html><head><link rel="icon" href="data:,"></head><body style="margin:0;background:#111"><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import {fitWeaponOptic,getWeaponSight} from '/src/game/weapon-optics.ts';
+import {FPS_WEAPONS} from '/src/game/fps-rules.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setSize(1200,800); document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#252525');
+const root=new THREE.Group();scene.add(root);
+fitWeaponOptic(root,{...FPS_WEAPONS[0],optic:'reflex',aimFov:65,accessories:{sight:'holo'}});
+const sight=getWeaponSight(root);
+// Keep the same fitted window and shader, remove housing and coating so only
+// optical clipping contributes to the measured pixels.
+scene.attach(sight.lens);
+root.removeFromParent();
+const camera=new THREE.PerspectiveCamera(54,1.5,.01,10);
+window.draw=({x=0,y=0,distance=.25,fov=54,width=1200,height=800}={})=>{
+  renderer.setSize(width,height);camera.fov=fov;camera.aspect=width/height;camera.updateProjectionMatrix();
+  sight.lens.position.set(x,y,-distance);renderer.render(scene,camera);
+  const gl=renderer.getContext(),pixels=new Uint8Array(width*height*4);
+  gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+  let minX=width,maxX=-1,minY=height,maxY=-1,count=0,centre=0,hash=0;
+  for(let py=0;py<height;py++)for(let px=0;px<width;px++){
+    const i=(py*width+px)*4,red=pixels[i]-pixels[i+1];
+    hash=(hash+red*(1+px+py*width))%2147483647;
+    if(red>35){minX=Math.min(minX,px);maxX=Math.max(maxX,px);minY=Math.min(minY,py);maxY=Math.max(maxY,py);count++;}
+    if(Math.abs(px-width/2)<2&&Math.abs(py-height/2)<2)centre=Math.max(centre,red);
+  }
+  return {minX,maxX,minY,maxY,count,centre,hash};
+};
+window.draw();window.ready=true;
+</script></body></html>
