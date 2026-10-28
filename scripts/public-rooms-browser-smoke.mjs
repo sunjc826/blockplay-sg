@@ -47,6 +47,10 @@ try{
   const invite=await host.evaluate(`document.querySelector('input[aria-label="Invite link"]').value`);
   assert(new URL(invite).pathname==='/multiplayer' && new URL(invite).searchParams.get('room')===code);
   assert(!invite.includes('browser-secret'));
+  // Exercise actual JavaScript suspension beyond the ordinary heartbeat timeout.
+  // Lifecycle events are simulated; real iOS/Android app switching still needs a phone.
+  await host.evaluate(`window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true}))`);
+  await host.send('Page.setWebLifecycleState',{state:'frozen'});
   await guest.wait(`!!document.querySelector('.public-lobby')`);
   await guest.click(`document.querySelector('[aria-label="Refresh rooms"]')`);
   await guest.wait(`document.querySelector('.public-rooms')?.textContent.includes(${JSON.stringify(code)})`);
@@ -56,7 +60,14 @@ try{
   await field(guest,'input[type="password"]','wrong-password');await guest.click(button('Join room'));
   await guest.wait(`document.querySelector('[role="alert"]')?.textContent.includes('Incorrect room password')`);
   await field(guest,'input[type="password"]','browser-secret');await guest.click(button('Join room'));
-  await guest.wait(`!!${button('Enter multiplayer match')}`);await host.wait(`document.querySelector('.lan-roster').textContent.includes('Bravo')`);
+  await guest.wait(`!!${button('Enter multiplayer match')}`);
+  console.log('Host frozen while invite is used; waiting beyond the normal heartbeat timeout');
+  await delay(70_000);
+  await host.send('Page.setWebLifecycleState',{state:'active'});
+  await host.evaluate(`window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))`);
+  await host.wait(`document.querySelector('.lan-roster').textContent.includes('Bravo')`);
+  assert.equal(await host.evaluate(`document.querySelector('input[aria-label="Invite link"]').value`),invite);
+  await host.wait(`!${button('Enter multiplayer match')}.disabled`);
   await host.screenshot('host-roster');
   await host.click(button('Enter multiplayer match'));await guest.click(button('Enter multiplayer match'));
   await Promise.all([host.wait(phase('ready')),guest.wait(phase('ready'))]);
@@ -105,6 +116,6 @@ try{
   assert(await host.evaluate('document.documentElement.scrollWidth<=window.innerWidth'), 'Mobile lobby has no horizontal overflow');
   await host.screenshot('mobile-room-browser');
   for(const p of pages)assert.deepEqual(p.errors,[],'No browser errors');
-  console.log('PASS: two real browser clients, public browser, password rejection, invite link, host/join room, roster, shared movement, pointer capture, hitscan kill, guest death/respawn, scoreboard, shared reset and host disconnect. No state mutation used.');
+  console.log('PASS: two real browser clients, public browser, password rejection, invite link, 70-second host suspension and recovery, host/join room, roster, shared movement, pointer capture, hitscan kill, guest death/respawn, scoreboard, shared reset and host disconnect. No state mutation used.');
 }catch(error){for(let i=0;i<pages.length;i++){console.log('Browser exceptions',i,pages[i].errors);console.log('Client diagnostic',i,await pages[i].evaluate('JSON.stringify({captureErrors:window.captureErrors,phase:document.querySelector(".fps-game")?.dataset.phase,lock:!!document.pointerLockElement,snapshot:window.lastArenaSnapshot})').catch(()=>null));await pages[i].screenshot(`failure-${i}`).catch(()=>{});}throw error;}
 finally{for(const p of pages)p.close();await Promise.all(browsers.map(b=>new Promise(resolve=>{if(b.exitCode!==null||b.signalCode!==null){resolve();return;}const timer=setTimeout(()=>{b.kill('SIGKILL');resolve();},5000);b.once('exit',()=>{clearTimeout(timer);resolve();});b.kill('SIGTERM');})));await rm(directory,{recursive:true,force:true,maxRetries:10,retryDelay:300}).catch(error=>console.warn('Could not remove browser test profile:',error.code));}

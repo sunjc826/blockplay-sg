@@ -37,8 +37,11 @@ try {
   const hostTicket = await reserve('', { title: '<Public test>', name: 'Host\nName', password: 'room-secret' });
   assert.equal(await deniedSocket(hostTicket, 'https://evil.invalid'), 403);
   assert.equal(await deniedSocket({ ...hostTicket, token: '0'.repeat(64) }), 403);
-  const host = await connect(hostTicket);
-  assert.equal(await deniedSocket(hostTicket), 403, 'A ticket cannot open duplicate connections');
+  let host = await connect(hostTicket);
+  const originalHost = host;
+  host = await connect(hostTicket);
+  await new Promise(resolve => originalHost.socket.readyState === WebSocket.CLOSED ? resolve() : originalHost.socket.once('close', resolve));
+  assert.equal((await api()).body.rooms.find(room => room.code === hostTicket.code).players, 1, 'A resumed ticket replaces its old connection without claiming another seat');
   const listing = await api();
   const room = listing.body.rooms.find(room => room.code === hostTicket.code);
   assert.equal(room.locked, true); assert.equal(room.players, 1); assert.equal(room.host, 'HostName');
@@ -48,7 +51,7 @@ try {
   assert.equal((await api(`/${hostTicket.code}/join`, { ...profile, password: 'wrong' })).status, 403);
   assert.equal((await api(`/${hostTicket.code}/join`, { ...profile, password: 'room-secret', build: 'stale' })).status, 409);
   const guestTicket = await reserve(`/${hostTicket.code}/join`, { name: 'Guest', password: 'room-secret' });
-  const guest = await connect(guestTicket);
+  let guest = await connect(guestTicket);
   await host.wait(packet => packet.kind === 'roster' && packet.peers.length === 2);
   guest.send({ kind: 'data', from: 'forged', payload: { type: 'arena-input', value: 42 } });
   const inbound = await host.wait(packet => packet.kind === 'data'); assert.equal(inbound.from, guestTicket.id); assert.equal(inbound.payload.value, 42);
@@ -66,16 +69,25 @@ try {
   assert.equal((await api()).body.rooms.find(room => room.code === hostTicket.code).players, 4);
   assert.equal((await api(`/${hostTicket.code}/leave`, { id: guestTicket.id, token: 'forged' })).status, 403);
   assert.equal((await api(`/${hostTicket.code}/leave`, { id: finalTicket.id, token: finalTicket.token })).status, 200);
-  guest.socket.close();
+  // A background phone and an abnormal socket loss retain the same room/seat.
+  host.send({ kind: 'background' }); host.send({ kind: 'ping' }); await host.wait(packet => packet.kind === 'pong');
+  guest.socket.terminate();
+  guest = await connect(guestTicket);
+  host.socket.terminate();
+  host = await connect(hostTicket);
+  guest.send({ kind: 'data', payload: { recovered: true } });
+  assert.equal((await host.wait(packet => packet.payload?.recovered)).from, guestTicket.id);
+  assert.equal((await api()).body.rooms.find(room => room.code === hostTicket.code).players, 3);
+  guest.socket.close(1000, 'Left room.');
   await host.wait(packet => packet.kind === 'roster' && packet.peers.length === 2 && !packet.peers.some(peer => peer.id === guestTicket.id));
-  host.socket.close(); await second.wait(packet => packet.kind === 'closed');
+  host.socket.close(1000, 'Left room.'); await second.wait(packet => packet.kind === 'closed');
   assert(!(await api()).body.rooms.some(room => room.code === hostTicket.code));
   assert.equal((await api(`/${hostTicket.code}/join`, { ...profile, password: 'room-secret' })).status, 404);
   const openTicket = await reserve('', { title: 'Open room' }); const open = await connect(openTicket);
   const openGuest = await reserve(`/${openTicket.code}/join`, { name: 'No password' }); await connect(openGuest);
   assert.equal((await api()).body.rooms.find(room => room.code === openTicket.code).locked, false);
-  open.socket.close();
-  console.log('PASS public rooms: global list, password enforcement, private credentials, version checks, authenticated relay, sender identity, guest isolation, atomic capacity, leave/disconnect cleanup and unlocked rooms.');
+  open.socket.close(1000, 'Left room.');
+  console.log('PASS public rooms: global list, password enforcement, private credentials, version checks, authenticated relay, sender identity, guest isolation, atomic capacity, same-seat host/guest reconnection, explicit leave cleanup and unlocked rooms.');
 } finally {
   for (const ticket of tickets) await api(`/${ticket.code}/leave`, { id: ticket.id, token: ticket.token }).catch(() => {});
   for (const socket of clients) socket.terminate();

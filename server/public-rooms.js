@@ -3,6 +3,7 @@
 export const ROOM_PROTOCOL = 1;
 const MAX_ROOMS = 64, MAX_PLAYERS = 4, MAX_PACKET = 48 * 1024;
 const RESERVATION_MS = 20_000, PEER_TIMEOUT_MS = 65_000, ROOM_LIFETIME_MS = 6 * 60 * 60 * 1000;
+const RECONNECT_MS = 5 * 60_000;
 const json = (data, status = 200) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 const clean = (value, size, fallback) => typeof value === 'string' ? value.replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, size) || fallback : fallback;
 const random = () => crypto.randomUUID().replaceAll('-', '');
@@ -134,12 +135,16 @@ export class PublicRooms {
     const token = protocols.find(value => /^ticket\.[a-f0-9]{64}$/.test(value))?.slice(7);
     const room = this.rooms.get(code);
     const digest = token ? await hash(token) : '';
-    const member = room?.members.find(member => member.tokenHash === digest && !member.connected);
+    const member = room?.members.find(member => member.tokenHash === digest);
     if (!protocols.includes('blockplay-v1') || !member) return json({ error: 'Invalid or expired room session.' }, 403);
     const pair = new WebSocketPair(), [client, server] = Object.values(pair);
-    member.connected = true; member.expiresAt = Date.now() + PEER_TIMEOUT_MS;
+    // A suspended phone can leave an apparently open socket behind. A new
+    // authenticated socket takes over the same seat; late old events are ignored.
+    const previous = this.sockets(code).filter(socket => socket.deserializeAttachment()?.id === member.id);
+    member.connected = true; member.background = false; member.socketId = random(); member.expiresAt = Date.now() + PEER_TIMEOUT_MS;
     this.ctx.acceptWebSocket(server, [code]);
-    server.serializeAttachment({ code, id: member.id, window: Date.now(), messages: 0, bytes: 0 });
+    server.serializeAttachment({ code, id: member.id, socketId: member.socketId, window: Date.now(), messages: 0, bytes: 0 });
+    for (const socket of previous) try { socket.close(1000, 'Connection replaced.'); } catch {}
     await this.save();
     this.send(server, { kind: 'welcome', id: member.id, hostId: room.hostId }); this.roster(room);
     return new Response(null, { status: 101, webSocket: client, headers: { 'Sec-WebSocket-Protocol': 'blockplay-v1' } });
@@ -153,6 +158,7 @@ export class PublicRooms {
       const attachment = socket.deserializeAttachment();
       const room = this.rooms.get(attachment?.code), member = room?.members.find(member => member.id === attachment.id);
       if (!member) { socket.close(1008, 'Session expired.'); return; }
+      if (attachment.socketId !== member.socketId) return;
       if (typeof data !== 'string' || data.length > MAX_PACKET || new TextEncoder().encode(data).byteLength > MAX_PACKET) { this.remove(room, member.id); socket.close(1009, 'Packet too large.'); await this.save(); return; }
       const now = Date.now();
       if (now - attachment.window >= 1000) { attachment.window = now; attachment.messages = 0; attachment.bytes = 0; }
@@ -162,7 +168,14 @@ export class PublicRooms {
       socket.serializeAttachment(attachment);
       let packet; try { packet = JSON.parse(data); } catch { return; }
       if (!packet || typeof packet !== 'object') return;
-      member.expiresAt = now + PEER_TIMEOUT_MS;
+      if (packet.kind === 'background') {
+        member.background = true; member.expiresAt = now + RECONNECT_MS;
+        await this.save(); return;
+      }
+      if (packet.kind === 'foreground') member.background = false;
+      // Background traffic must not shorten the suspension grace period.
+      member.expiresAt = now + (member.background ? RECONNECT_MS : PEER_TIMEOUT_MS);
+      if (packet.kind === 'foreground') { this.send(socket, { kind: 'pong' }); await this.save(); return; }
       if (packet.kind === 'ping') { this.send(socket, { kind: 'pong' }); await this.save(); return; }
       if (packet.kind !== 'data' || !packet.payload || typeof packet.payload !== 'object') return;
       const host = member.id === room.hostId;
@@ -176,7 +189,19 @@ export class PublicRooms {
       }
     });
   }
-  webSocketClose(socket) { return this.exclusive(async () => { const attachment = socket.deserializeAttachment(); const room = this.rooms.get(attachment?.code); if (room) { this.remove(room, attachment.id); await this.save(); } }); }
+  webSocketClose(socket, code, reason) {
+    return this.exclusive(async () => {
+      const attachment = socket.deserializeAttachment(), room = this.rooms.get(attachment?.code);
+      const member = room?.members.find(member => member.id === attachment.id);
+      if (!member || attachment.socketId !== member.socketId) return;
+      if (code === 1000 && reason === 'Left room.') this.remove(room, member.id);
+      else {
+        // Keep the logical roster stable so the arena retains actors and scores.
+        member.socketId = null; member.expiresAt = Date.now() + RECONNECT_MS;
+      }
+      await this.save();
+    });
+  }
   webSocketError(socket) { return this.webSocketClose(socket); }
   alarm() { return this.exclusive(async () => { this.prune(); await this.save(); if (this.rooms.size) await this.ctx.storage.setAlarm(Date.now() + 15_000); }); }
 }

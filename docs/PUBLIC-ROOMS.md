@@ -8,13 +8,19 @@ Open **Multiplayer** from the main menu, or `/multiplayer`:
 - Browse the global room list, refreshed every five seconds. Every room is listed,
   including locked rooms. Listings show name, host, map, occupancy and password lock.
 - Create a named room with an optional 4–64 character password. Share its invite
-  link; send the password separately. Passwords never appear in links or listings.
+  link with the native share button where supported, or copy the invite; send the
+  password separately. Passwords never appear in links or listings.
 - Join from the list, enter a code, or follow an invite. Wrong passwords, full rooms
   and different game versions receive explicit errors.
 - Up to four players fight in the Marina Bay free-for-all arena, with 0–6 bots.
   The host chooses the bots and runs the simulation. Players may join a running match.
-- Leaving, closing the tab or losing the host ends the room. There is no host migration.
-  A silently lost connection expires within roughly 80 seconds; a normal close is immediate.
+- Switching apps or opening the share sheet preserves the room for up to five
+  minutes. Returning reconnects with the same room code, player identity and roster.
+  The host still runs the simulation, so gameplay pauses when its browser is suspended.
+- Explicitly leaving ends the host's room immediately. An interrupted connection
+  reserves its seat for five minutes; a closed/abandoned tab expires automatically.
+  A silent active connection without a background notification expires within
+  roughly 80 seconds. There is no host migration or recovery after a page reload.
 
 Open-world co-op, shared expedition travel and authoritative online progression
 are still future work.
@@ -41,6 +47,12 @@ Requests, packets, rates, pending seat reservations and room lifetimes are bound
 Unused reservations expire after 20 seconds; connections heartbeat every 20 seconds;
 rooms have a six-hour maximum lifetime. Names/titles are bounded and rendered as text.
 Build fingerprints prevent incompatible client snapshots being mixed in a room.
+Background notifications extend a seat's deadline to five minutes, and unexpected
+socket closure reserves the same seat for reconnection. Tickets remain in memory.
+An authenticated replacement socket takes over that seat; an older socket's late
+messages and close/error events cannot remove it. Recoverable interruptions keep
+the logical roster stable so actors and scores survive. Page lifecycle events never
+send a leave request; explicit Leave and component disposal still release the seat.
 
 This remains a host-authoritative prototype. Hosts and locally saved equipment are
 trusted as in LAN mode. Relay traffic and Durable Object work incur Cloudflare usage;
@@ -83,5 +95,8 @@ to be added. Set `PUBLIC_ROOMS_ENABLED=false` in Worker variables to disable the
 Keep the migration in later releases; do not remove it after the first deployment.
 After deployment, test on separate networks/devices to measure real-world latency
 and mobile tab suspension; local browser checks do not establish those properties.
+The browser smoke freezes a host tab for 70 seconds while a guest uses its invite,
+then checks reconnection and continues the two-player gameplay checks. This covers
+browser suspension beyond the normal heartbeat deadline, not actual phone OS behavior.
 
 Reference: [Cloudflare WebSocket hibernation](https://developers.cloudflare.com/durable-objects/best-practices/websockets/).
