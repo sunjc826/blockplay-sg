@@ -16,10 +16,11 @@ Explore familiar Singapore neighborhoods as stylized 3D game worlds, created usi
 - Explore the connected districts in **Open world**, finding equipment and facing bots.
 - Play each district's **FPS range**, with a shared armory, vehicles and target ranges.
 - Play **Solo arena** against configurable bots.
+- The Cloudflare build supports **public multiplayer rooms**, with a global room browser, optional passwords and four-player arena matches. See [setup and test scope](docs/PUBLIC-ROOMS.md); this revision needs deployment to enable it on the public site.
 - Play on a **phone or tablet**: every 3D mode draws twin thumb sticks and on-screen actions over the scene.
 - **Install it** to your home screen or desktop and keep playing offline.
 
-The public demo runs on Cloudflare Workers and redeploys from `main` on every push. Multiplayer host/join and live Street View are unavailable there; the AI companions answer only while the deployment carries a private key, and return a clear unavailable response without one. All of it is supported in the local project with additional setup.
+The public demo runs on Cloudflare Workers and redeploys from `main` on every push. The local LAN server is separate from the public-room backend; the AI companions answer only while the deployment carries a private key, and return a clear unavailable response without one. All of it is supported in the local project with additional setup.
 
 The worlds are authored, compressed interpretations—not surveyed maps or navigation tools. All nineteen districts have a September 2026 correction pass. Reviewed photographs support specific landmark and streetscape features; roads and distances remain compressed. See [district review and limits](docs/ALL-DISTRICTS-REVIEW.md).
 
@@ -56,5 +57,6 @@ Built with React, TypeScript, Vite and Three.js.
 - [Cloudflare deployment](docs/CLOUDFLARE.md) — game hosting, companion API, secrets and GitHub builds.
 - [Adventure companions](docs/ADVENTURE.md) — objective changes, educational guides and voice.
 - [Districts](docs/DISTRICTS.md) — what each world is, how they differ in provenance, and how to add one.
+- [Public multiplayer rooms](docs/PUBLIC-ROOMS.md) — global listings, passwords, online relay and test deployment.
 - [Open world](docs/WORLD-ZONES.md), [LAN arena](docs/LAN-ARENA.md) and [Armory](docs/ARMORY.md) — mode-specific details.
 - [Agent workspace notes](.agents/README.md) — planning, handoff, experiments and continuing development.

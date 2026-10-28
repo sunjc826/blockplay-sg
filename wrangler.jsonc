@@ -6,6 +6,10 @@
   "compatibility_date": "2026-08-28",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
+  "durable_objects": {
+    "bindings": [{ "name": "PUBLIC_ROOMS", "class_name": "PublicRooms" }]
+  },
+  "migrations": [{ "tag": "public-rooms-v1", "new_sqlite_classes": ["PublicRooms"] }],
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application",

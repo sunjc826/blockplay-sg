@@ -64,7 +64,9 @@
     "analyse:weapons": "node --experimental-strip-types scripts/weapon-breakpoints.mjs",
     "analyse:cover": "node --experimental-strip-types scripts/cover-report.mjs",
     "sector:anchors": "node --experimental-strip-types scripts/sector-anchors.mjs",
-    "analyse:verticality": "node --experimental-strip-types scripts/verticality-report.mjs"
+    "analyse:verticality": "node --experimental-strip-types scripts/verticality-report.mjs",
+    "test:rooms": "node scripts/public-rooms-check.mjs",
+    "test:rooms:browser": "node scripts/public-rooms-browser-smoke.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

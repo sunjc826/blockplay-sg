@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { ArrowLeft, Coins, Crosshair, Download, Gem, Map as MapIcon, MapPin, RefreshCw, Settings, ShoppingBag, Wrench } from 'lucide-react';
+import { ArrowLeft, Coins, Crosshair, Download, Gem, Map as MapIcon, MapPin, RefreshCw, Settings, ShoppingBag, Users, Wrench } from 'lucide-react';
+import MultiplayerGame from './MultiplayerGame';
 import FpsGame from './FpsGame';
 import ExpeditionGame from './ExpeditionGame';
 import ArmoryShop from './ArmoryShop';
@@ -25,6 +26,7 @@ const TRAINING_DISTRICTS = locations.filter(place => hasRegionGame(place.id));
 const ENTRIES = [
   { route: 'training', icon: Crosshair, title: 'Training', detail: 'Live-fire range in any district. Earn credits and XP.' },
   { route: 'world', icon: MapIcon, title: 'Open World', detail: `${REGIONS.length} districts, patrols and supplies. Find your way.` },
+  { route: 'multiplayer', icon: Users, title: 'Multiplayer', detail: 'Browse public arena rooms. Invite friends or lock a room with a password.' },
   { route: 'store', icon: ShoppingBag, title: 'Store', detail: 'Weapons, armour, supplies and vehicle paint.' },
   { route: 'settings', icon: Settings, title: 'Settings', detail: 'Rank insignia and how the Encik talks to you.' },
 ] as const;
@@ -78,6 +80,8 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   </div>;
 
   const updateToast = install.updateReady && <div className="update-toast" role="status"><span>A new version is ready.</span><button onClick={() => { pwa.applyUpdate(); }}><RefreshCw size={12} /> Reload</button></div>;
+
+  if (screen === 'multiplayer') return <MultiplayerGame armory={armory} />;
 
   if (screen === 'training' || screen === 'world') {
     const nav = screen === 'training'

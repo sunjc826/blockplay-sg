@@ -459,7 +459,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   function update(dt: number, input: ArenaInput): ArenaRuntimeFrame {
     if (disposed) return { snapshot: null, self: null, connected: false, started: false, hit: null, feed: [], spawn: false, barks: [] };
     dt = Number.isFinite(dt) ? Math.max(0, Math.min(dt, 0.25)) : 0;
-    const connected = authority || !!hostId && session.getPeers().some(peer => peer.id === hostId);
+    const connected = (session.isConnected?.() ?? true) && (authority || !!hostId && session.getPeers().some(peer => peer.id === hostId));
     inputTime += dt; helloTime += dt;
     let self = snapshot?.actors.find(actor => actor.id === session.id) ?? null;
     if (!authority && !self && connected && helloTime >= 1) { helloTime = 0; session.send({ type: 'arena-hello', profile }); }

@@ -4,7 +4,7 @@ Live deployment: **https://blockplaysg.fun** — the public demo — served by t
 
 This deployment serves the Vite game and companion API together on HTTPS. It includes all three maps, FPS, open world, solo bots, loadouts, vehicles and bundled Encik recordings. Text/voice companions and the optional LLM strategist use a private Worker secret. Without that secret, gameplay still works and companion requests return a clear unavailable response.
 
-The Node LAN rendezvous server is not deployed: the cloud build offers Solo arena and disables Host/Join. Internet matchmaking would need shared room storage and STUN/TURN support; uploading the frontend does not provide either. `pnpm lan` continues to work locally.
+The Cloudflare build now includes a public room directory and WebSocket relay via a SQLite Durable Object. Deploying this revision enables the Multiplayer menu, global room list and optional password locks without TURN credentials. The host browser still runs each arena match. See [public-room setup and limits](PUBLIC-ROOMS.md). The separate Node LAN rendezvous server remains local to `pnpm lan`.
 
 ## First deployment
 

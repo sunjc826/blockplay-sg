@@ -206,3 +206,15 @@ describe('bot fire against rendered cover', () => {
     expect(frame.self).toMatchObject({ health: 100, deaths: 0 });
   });
 });
+
+it('reports a lost public relay even for the authoritative host', () => {
+  vi.useFakeTimers();
+  let connected = true;
+  const session = { ...createSoloSession('Host'), role: 'host' as const, transport: 'public' as const, isConnected: () => connected };
+  const runtime = createArenaRuntime({ scene: new THREE.Scene(), session, obstacles: [], botCount: 0 });
+  try {
+    expect(runtime.update(.02, input()).connected).toBe(true);
+    connected = false;
+    expect(runtime.update(.02, input()).connected).toBe(false);
+  } finally { runtime.dispose(); }
+});

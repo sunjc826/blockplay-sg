@@ -6,6 +6,7 @@ describe('routes', () => {
     expect(routeFromPath('/')).toBe('menu');
     expect(routeFromPath('/training')).toBe('training');
     expect(routeFromPath('/world/')).toBe('world');
+    expect(routeFromPath('/multiplayer/')).toBe('multiplayer');
     expect(routeFromPath('/store')).toBe('store');
     expect(routeFromPath('/settings')).toBe('settings');
     expect(routeFromPath('/debug/')).toBe('debug');

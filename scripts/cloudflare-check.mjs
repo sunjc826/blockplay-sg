@@ -6,6 +6,10 @@ const get = (path, options) => fetch(new URL(path, origin), { signal: AbortSigna
 const health = await get('/api/health');
 assert.equal(health.status, 200);
 assert.equal((await health.json()).service, 'blockplay-cloudflare');
+const roomsHealth = await get('/api/rooms/health'); assert.equal(roomsHealth.status, 200);
+assert.equal((await roomsHealth.json()).service, 'blockplay-rooms');
+const roomList = await get('/api/rooms'); assert.equal(roomList.status, 200);
+assert(Array.isArray((await roomList.json()).rooms));
 const page = await get('/'); assert.equal(page.status, 200);
 const html = await page.text(); assert.match(html, /id="root"/); assert(!html.includes('/@vite/client'));
 for (const path of [...html.matchAll(/(?:src|href)="(\/assets\/[^"\s]+)"/g)].map(match => match[1])) {

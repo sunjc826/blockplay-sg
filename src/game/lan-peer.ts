@@ -1,6 +1,8 @@
 export interface LanPeer { id: string; name: string }
 export interface LanSession {
   id: string; role: 'host' | 'guest' | 'solo'; name: string;
+  transport?: 'public';
+  isConnected?(): boolean;
   send(payload: unknown, to?: string): void;
   subscribe(handler: (from: string, payload: unknown) => void): () => void;
   getPeers(): LanPeer[];
