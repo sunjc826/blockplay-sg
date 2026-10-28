@@ -894,6 +894,20 @@ and on a touchscreen one eye button walks off → on → each palette → off an
 carries the device's state as a badge. A device comes up from cold over its
 warm-up, and stays on across an expedition gateway.
 
+Switching is animated (`VisionState.mount` and `fading`). The device's body
+swings down from the top of the view in 0.28 s (`VISION_MOUNT_SECONDS`), the
+naked-eye world showing round it, and only powers once it is in front of the
+eyes, so neither the tube's gain nor the thermal material swap touches the world
+before then. A tube lights from the middle out and overshoots before its
+brightness control reins it in; a thermal core shows a flat field with boot
+noise, scans its first picture in from the top and clicks its shutter. Switched
+off, a tube's phosphor glows on with its last picture, brightest parts longest,
+closing towards the middle (`shutdown`: 0.9 s on a first-generation tube, 0.35 s
+on white phosphor), and a thermal display folds to a line, then a point; then
+the device swings back up. Switching off before it lit just swings it up. With
+reduced motion the swing and the dying are skipped. The canvas records
+`data-vision-motion` as mount:fading.
+
 | Device | Tier | Gain at night | Screen inside the image | Grain | Notes |
 | --- | --- | ---: | ---: | ---: | --- |
 | NV-1 · Blur Like Sotong | Field, LV 2, 850 CR | 3.4× | 61% | 62% | Soft, barrel-distorted, big halos, 1.4 s warm-up |

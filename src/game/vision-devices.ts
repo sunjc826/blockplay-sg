@@ -42,6 +42,8 @@ export interface VisionSpec {
   palettes: readonly ThermalPalette[];
   /** Seconds from switching on to a full picture. */
   warmup: number;
+  /** Seconds the picture takes to die once switched off: a phosphor's afterglow, a display folding away. */
+  shutdown: number;
   /** Thermal only: a non-uniformity correction that freezes the picture every `every` seconds for `hold`. */
   calibration?: { every: number; hold: number };
 }
@@ -53,11 +55,11 @@ export const PALETTE_LABELS: Record<ThermalPalette, string> = { 'white-hot': 'WH
  * what the device does to the picture.
  */
 export const VISION_DEVICES: Readonly<Record<string, VisionSpec>> = {
-  'nvg-gen1': { kind: 'nvg', generation: 1, gain: 3.4, noise: .62, aperture: .7, blur: .6, halo: 1, phosphor: '#7dff6e', distortion: .5, rows: 0, detail: 0, palettes: [], warmup: 1.4 },
-  'nvg-gen2': { kind: 'nvg', generation: 2, gain: 5.2, noise: .32, aperture: .9, blur: .28, halo: .6, phosphor: '#8dff9a', distortion: .2, rows: 0, detail: 0, palettes: [], warmup: .8 },
-  'nvg-gen3': { kind: 'nvg', generation: 3, gain: 7.5, noise: .13, aperture: 1.3, blur: .06, halo: .32, phosphor: '#e2f1ff', distortion: .05, rows: 0, detail: 0, palettes: [], warmup: .35 },
-  'thermal-t1': { kind: 'thermal', generation: 1, gain: 1, noise: .3, aperture: 1.02, blur: .3, halo: .55, phosphor: '#e3eadf', distortion: .12, rows: 160, detail: .25, palettes: ['white-hot'], warmup: 1.8, calibration: { every: 26, hold: .4 } },
-  'thermal-t2': { kind: 'thermal', generation: 2, gain: 1, noise: .1, aperture: 1.4, blur: .08, halo: .3, phosphor: '#ffffff', distortion: 0, rows: 360, detail: .7, palettes: ['white-hot', 'black-hot', 'ironbow'], warmup: .9 },
+  'nvg-gen1': { kind: 'nvg', generation: 1, gain: 3.4, noise: .62, aperture: .7, blur: .6, halo: 1, phosphor: '#7dff6e', distortion: .5, rows: 0, detail: 0, palettes: [], warmup: 1.4, shutdown: .9 },
+  'nvg-gen2': { kind: 'nvg', generation: 2, gain: 5.2, noise: .32, aperture: .9, blur: .28, halo: .6, phosphor: '#8dff9a', distortion: .2, rows: 0, detail: 0, palettes: [], warmup: .8, shutdown: .6 },
+  'nvg-gen3': { kind: 'nvg', generation: 3, gain: 7.5, noise: .13, aperture: 1.3, blur: .06, halo: .32, phosphor: '#e2f1ff', distortion: .05, rows: 0, detail: 0, palettes: [], warmup: .35, shutdown: .35 },
+  'thermal-t1': { kind: 'thermal', generation: 1, gain: 1, noise: .3, aperture: 1.02, blur: .3, halo: .55, phosphor: '#e3eadf', distortion: .12, rows: 160, detail: .25, palettes: ['white-hot'], warmup: 1.8, shutdown: .55, calibration: { every: 26, hold: .4 } },
+  'thermal-t2': { kind: 'thermal', generation: 2, gain: 1, noise: .1, aperture: 1.4, blur: .08, halo: .3, phosphor: '#ffffff', distortion: 0, rows: 360, detail: .7, palettes: ['white-hot', 'black-hot', 'ironbow'], warmup: .9, shutdown: .45 },
 };
 export const visionSpec = (id: string | undefined): VisionSpec | undefined => id ? VISION_DEVICES[id] : undefined;
 
@@ -70,21 +72,35 @@ export const HEAT_SOURCES = { body: .55, engine: .3, target: .36 } as const;
 export type HeatSource = keyof typeof HEAT_SOURCES;
 export const isHeatSource = (value: unknown): value is HeatSource => typeof value === 'string' && value in HEAT_SOURCES;
 
+/** Seconds to swing a device down over the eyes, or back up onto the helmet. */
+export const VISION_MOUNT_SECONDS = .28;
+
 export interface VisionState {
   on: boolean;
   /** Index into the spec's palettes. */
   palette: number;
-  /** 0 just switched on, 1 a full picture. */
+  /** 0 just switched on, 1 a full picture. Kept after switching off, for the picture that is dying. */
   warm: number;
+  /** How far the device is lowered: 0 up on the helmet, 1 in front of the eyes. */
+  mount: number;
+  /** After switching off, what is left of the picture: 1 the moment the power goes, 0 gone. */
+  fading: number;
   /** Seconds until the next calibration freeze, and what is left of the current one. */
   untilCalibration: number; calibrating: number;
 }
-export const createVisionState = (on = false): VisionState => ({ on, palette: 0, warm: on ? 1 : 0, untilCalibration: 0, calibrating: 0 });
+export const createVisionState = (on = false): VisionState => ({ on, palette: 0, warm: on ? 1 : 0, mount: on ? 1 : 0, fading: 0, untilCalibration: 0, calibrating: 0 });
 
-/** Switches the device; returns whether it is now on. A device always comes up from cold. */
+/**
+ * Switches the device; returns whether it is now on. A device always comes up
+ * from cold, and a picture that was up dies away before the device swings off
+ * the eyes (`advanceVision`).
+ */
 export function toggleVision(state: VisionState, spec: VisionSpec | undefined) {
+  const was = state.on;
   state.on = !!spec && !state.on;
-  state.warm = 0; state.calibrating = 0;
+  state.fading = was && !state.on && state.mount >= 1 && state.warm > 0 ? 1 : 0;
+  if (state.on) state.warm = 0;
+  state.calibrating = 0;
   state.untilCalibration = spec?.calibration?.every ?? 0;
   return state.on;
 }
@@ -104,8 +120,27 @@ export function stepVisionButton(state: VisionState, spec: VisionSpec | undefine
   if (state.palette + 1 < spec.palettes.length) return cycleVisionPalette(state, spec);
   state.palette = 0; return toggleVision(state, spec);
 }
-export function advanceVision(state: VisionState, spec: VisionSpec | undefined, dt: number) {
-  if (!spec || !state.on) return;
+/**
+ * Moves the device on by `dt` seconds. Switched on, it swings down and powers
+ * once it is in front of the eyes; switched off, its picture dies and then it
+ * swings back up. `instant` (reduced motion) skips the swing and the dying.
+ */
+export function advanceVision(state: VisionState, spec: VisionSpec | undefined, dt: number, instant = false) {
+  if (!spec) { state.mount = 0; state.fading = 0; return; }
+  if (!state.on) {
+    if (instant) { state.fading = 0; state.mount = 0; return; }
+    if (state.fading > 0) { state.fading = Math.max(0, state.fading - dt / Math.max(.05, spec.shutdown)); return; }
+    state.mount = Math.max(0, state.mount - dt / VISION_MOUNT_SECONDS);
+    return;
+  }
+  state.fading = 0;
+  if (state.mount < 1) {
+    // The rest of the frame after the device arrives goes to the tube.
+    const needed = instant ? 0 : (1 - state.mount) * VISION_MOUNT_SECONDS;
+    state.mount = dt >= needed ? 1 : state.mount + dt / VISION_MOUNT_SECONDS;
+    dt -= needed;
+    if (dt <= 0) return;
+  }
   // The calibration clock starts once the core is up, not partway through the frame that brings it up.
   const warming = state.warm < 1;
   state.warm = Math.min(1, state.warm + dt / Math.max(.05, spec.warmup));

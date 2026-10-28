@@ -23,6 +23,15 @@ import { activePalette, HEAT_SOURCES, isHeatSource, visionGain, visionStrain, ty
  *
  * Both post passes read the finished canvas back (world, weapon and all), so
  * they need nothing from the passes before them.
+ *
+ * Switching is animated. The device's body swings down from the top of the
+ * view, the naked-eye world showing round it, and only powers once it is in
+ * front of the eyes: a tube lights from the middle out with a surge its
+ * brightness control then reins in; a thermal core shows a flat field, scans
+ * its first picture in from the top and clicks its shutter. Switched off, a
+ * tube's phosphor fades on the last picture it drew, brightest parts last,
+ * and a thermal display folds to a line, then a point; then the device swings
+ * back up.
  */
 
 const THERMAL_VERTEX = /* glsl */`
@@ -199,11 +208,22 @@ uniform float uHalo;
 uniform float uAperture;
 uniform float uDistortion;
 uniform float uWarm;
+uniform float uOff;
+uniform float uLift;
+uniform float uHousing;
 uniform vec3 uTint;
 float hash(vec2 p) { p = fract(p * vec2(443.897, 441.423)); p += dot(p, p.yx + 19.19); return fract((p.x + p.y) * p.x); }
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
-/** 1 at the middle of the screen's longer edges, larger into the corners: a portrait phone loses top and bottom, not the middle. */
-float rim() { return length((vUv - 0.5) * uResolution) / (0.5 * max(uResolution.x, uResolution.y)); }
+/**
+ * 1 at the middle of the screen's longer edges, larger into the corners: a portrait phone loses top and bottom, not the middle.
+ * Measured from the device's eyepiece, which sits above the view while it swings.
+ */
+float rim() { return length((vUv - vec2(0.5, 0.5 + uLift)) * uResolution) / (0.5 * max(uResolution.x, uResolution.y)); }
+/** The device's body, opaque; the world shows round it while it swings, with a little of its shadow. */
+float body(float r) { return 1.0 - smoothstep(uHousing - 0.04, uHousing, r); }
+float shade(float r) { return (1.0 - smoothstep(uHousing, uHousing + 0.3, r)) * 0.5 * step(0.001, uLift); }
+/** Premultiplied over the canvas: the picture inside the body, the body's shadow on the world round it. */
+vec4 present(vec3 picture, float r) { float b = body(r); return vec4(picture * b, max(b, shade(r))); }
 vec2 lens(float r) { return 0.5 + (vUv - 0.5) * (1.0 - uDistortion * 0.1 * r * r); }
 /** The device's image circle: black outside, a soft rim, a gentle falloff inside. */
 float aperture(float r) {
@@ -227,17 +247,24 @@ void main() {
   float glow = luma(texture2D(tGlow, uv).rgb) * 0.4 + (luma(texture2D(tGlow, uv + h).rgb) + luma(texture2D(tGlow, uv - h).rgb)
     + luma(texture2D(tGlow, uv + vec2(h.x, -h.y)).rgb) + luma(texture2D(tGlow, uv + vec2(-h.x, h.y)).rgb)) * 0.15;
   l += glow * uHalo * 1.6;
+  // Lighting: the tube catches from the middle out, and overshoots before its brightness control reins it in.
+  float lit = 1.0 - smoothstep(uWarm * 2.4 - 0.5, uWarm * 2.4, r / uAperture);
+  float surge = smoothstep(0.12, 0.42, uWarm) * (1.0 - smoothstep(0.42, 0.95, uWarm));
+  l *= lit * (1.0 + surge * 1.5);
+  // Switched off, the phosphor glows on with the last picture, its brightest parts longest, closing towards the middle.
+  float dying = 1.0 - uOff;
+  l *= pow(dying, 1.0 + 2.5 * (1.0 - clamp(l, 0.0, 1.0))) * (1.0 - smoothstep(dying * 1.5 - 0.2, dying * 1.5 + 0.2, r / uAperture) * uOff);
   // In daylight the automatic brightness control flattens the picture.
   l = mix(l, 0.2 + l * 0.75, uDay * 0.45);
   // Grain is coarser on a blurry tube, worst when the gain is up and while the tube is still lighting.
   vec2 cell = floor(vUv * uResolution / (1.0 + uBlur * 1.5));
-  float amount = uNoise * (0.3 + 0.7 * uStrain) * (1.6 - 0.6 * uWarm);
-  l += (hash(cell + fract(uTime * 7.31) * 113.0) - 0.5) * amount * 0.55;
+  float amount = uNoise * (0.3 + 0.7 * uStrain) * (1.6 - 0.6 * uWarm) * dying;
+  l += (hash(cell + fract(uTime * 7.31) * 113.0) - 0.5) * amount * 0.55 * lit;
   // Scintillation: the odd bright speck from the photocathode.
-  l += step(1.0 - 0.0025 * uNoise * uStrain, hash(cell * 1.37 + fract(uTime * 3.7) * 71.0)) * 0.8;
+  l += step(1.0 - 0.0025 * uNoise * uStrain, hash(cell * 1.37 + fract(uTime * 3.7) * 71.0)) * 0.8 * lit * dying;
   l = max(l, 0.0);
   vec3 colour = uTint * l + smoothstep(0.85, 1.7, l) * 0.45;
-  gl_FragColor = vec4(colour * aperture(r) * smoothstep(0.0, 1.0, uWarm), 1.0);
+  gl_FragColor = present(colour * aperture(r) * smoothstep(0.0, 1.0, uWarm), r);
 }`;
 const THERMAL_POST_FRAGMENT = /* glsl */`
 ${POST_COMMON}
@@ -252,6 +279,11 @@ vec3 ironbow(float t) {
 void main() {
   float r = rim();
   vec2 uv = lens(r);
+  // Switched off, the display folds to a bright line, the line to a point, and the point goes out.
+  vec2 squeeze = max(vec2(1.0 - smoothstep(0.42, 0.78, uOff), 1.0 - smoothstep(0.0, 0.45, uOff)), vec2(0.002));
+  vec2 fold = (uv - 0.5) / squeeze, px = 1.5 / (uResolution * squeeze);
+  float shown = (1.0 - smoothstep(0.5 - px.x, 0.5, abs(fold.x))) * (1.0 - smoothstep(0.5 - px.y, 0.5, abs(fold.y)));
+  uv = 0.5 + fold;
   vec2 cells = vec2(uRows * uResolution.x / uResolution.y, uRows);
   vec2 cell = floor(uv * cells), q = (cell + 0.5) / cells;
   float sharp = luma(texture2D(tFrame, q).rgb), soft = luma(texture2D(tGlow, q).rgb);
@@ -268,9 +300,18 @@ void main() {
   t += (hash(vec2(cell.x, 7.0)) - 0.5) * uNoise * 0.14;
   t = clamp(t, 0.0, 1.0);
   vec3 colour = uPalette < 0.5 ? vec3(t) : uPalette < 1.5 ? vec3(1.0 - t) : ironbow(t);
-  // A core coming up shows a flat field that resolves into the picture.
-  colour = mix(vec3(0.32), colour, smoothstep(0.25, 1.0, uWarm)) * uTint;
-  gl_FragColor = vec4(colour * aperture(r) * smoothstep(0.0, 0.25, uWarm), 1.0);
+  // A core coming up shows a flat field with boot noise, scans its first picture in from the top,
+  // then clicks its shutter for a moment of flat grey before settling.
+  float scan = (uWarm - 0.3) / 0.45, below = 1.0 - vUv.y;
+  vec3 field = vec3(0.3 + (hash(vec2(floor(vUv.y * 90.0), floor(uTime * 24.0))) - 0.5) * 0.08 * (1.0 - step(1.0, uWarm)));
+  colour = mix(field, colour, step(below, scan));
+  colour += (1.0 - smoothstep(0.0, 0.03, abs(below - scan))) * 0.35 * step(scan, 1.0);
+  float shutter = smoothstep(0.82, 0.85, uWarm) * (1.0 - smoothstep(0.9, 0.94, uWarm));
+  colour = mix(colour, vec3(0.34), shutter);
+  // The fold's line and point burn brighter as the picture squeezes into them.
+  colour = mix(colour, vec3(1.0), smoothstep(0.25, 0.55, uOff) * 0.85) * (1.0 - smoothstep(0.8, 1.0, uOff));
+  colour *= uTint * shown;
+  gl_FragColor = present(colour * aperture(r) * smoothstep(0.0, 0.25, uWarm), r);
 }`;
 const GLOW_FRAGMENT = /* glsl */`
 varying vec2 vUv;
@@ -284,6 +325,7 @@ void main() {
 }`;
 
 const PALETTE_INDEX = { 'white-hot': 0, 'black-hot': 1, ironbow: 2 } as const;
+const easeInOut = (t: number) => t * t * (3 - 2 * t);
 
 /** The two post passes, drawn over the finished canvas. */
 function createVisionPost(renderer: THREE.WebGLRenderer) {
@@ -293,17 +335,18 @@ function createVisionPost(renderer: THREE.WebGLRenderer) {
   const quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), quadScene = new THREE.Scene();
   const glow = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false, type: THREE.HalfFloatType });
   const common = () => ({ tFrame: { value: null as THREE.Texture | null }, tGlow: { value: glow.texture }, uResolution: { value: new THREE.Vector2(1, 1) }, uTime: { value: 0 },
-    uNoise: { value: 0 }, uBlur: { value: 0 }, uHalo: { value: 0 }, uAperture: { value: 1 }, uDistortion: { value: 0 }, uWarm: { value: 1 }, uTint: { value: new THREE.Color() } });
-  const pass = (fragmentShader: string, uniforms: Record<string, THREE.IUniform>) =>
-    new THREE.ShaderMaterial({ vertexShader: POST_VERTEX, fragmentShader, uniforms, depthTest: false, depthWrite: false, toneMapped: false });
-  const nvg = pass(NVG_FRAGMENT, { ...common(), uStrain: { value: 0 }, uDay: { value: 0 } });
-  const thermal = pass(THERMAL_POST_FRAGMENT, { ...common(), uRows: { value: 240 }, uDetail: { value: 0 }, uPalette: { value: 0 } });
+    uNoise: { value: 0 }, uBlur: { value: 0 }, uHalo: { value: 0 }, uAperture: { value: 1 }, uDistortion: { value: 0 }, uWarm: { value: 1 },
+    uOff: { value: 0 }, uLift: { value: 0 }, uHousing: { value: 2 }, uTint: { value: new THREE.Color() } });
+  const pass = (fragmentShader: string, uniforms: Record<string, THREE.IUniform>, over = false) =>
+    new THREE.ShaderMaterial({ vertexShader: POST_VERTEX, fragmentShader, uniforms, depthTest: false, depthWrite: false, toneMapped: false, transparent: over, premultipliedAlpha: over });
+  const nvg = pass(NVG_FRAGMENT, { ...common(), uStrain: { value: 0 }, uDay: { value: 0 } }, true);
+  const thermal = pass(THERMAL_POST_FRAGMENT, { ...common(), uRows: { value: 240 }, uDetail: { value: 0 }, uPalette: { value: 0 } }, true);
   const bright = pass(GLOW_FRAGMENT, { tFrame: { value: null }, uTexel: { value: new THREE.Vector2() }, uThreshold: { value: 0 } });
   const quad = new THREE.Mesh(geometry, nvg); quad.frustumCulled = false; quadScene.add(quad);
   const size = new THREE.Vector2();
   let frame: THREE.FramebufferTexture | null = null;
   return {
-    /** Reads the canvas back and draws the device's picture over it. `hold` keeps the last frame (a calibration freeze). */
+    /** Reads the canvas back and draws the device's picture over it. `hold` keeps the last frame (a calibration freeze, or a dying picture). */
     present(spec: VisionSpec, state: VisionState, info: { gain: number; day: number; time: number; hold: boolean }) {
       renderer.getDrawingBufferSize(size);
       if (!frame || frame.image.width !== size.x || frame.image.height !== size.y) {
@@ -323,6 +366,10 @@ function createVisionPost(renderer: THREE.WebGLRenderer) {
       u.tFrame.value = frame; u.uResolution.value.copy(size); u.uTime.value = info.time;
       u.uNoise.value = spec.noise; u.uBlur.value = spec.blur; u.uHalo.value = spec.halo; u.uAperture.value = spec.aperture;
       u.uDistortion.value = spec.distortion; u.uWarm.value = state.warm; u.uTint.value.set(spec.phosphor);
+      u.uOff.value = state.on ? 0 : 1 - state.fading;
+      // The body covers the whole view once lowered; swinging, it is a disc whose lower edge travels down from the top.
+      const housing = Math.max(1.5, spec.aperture + .1), long = Math.max(size.x, size.y);
+      u.uHousing.value = housing; u.uLift.value = (1 - easeInOut(state.mount)) * (.52 + housing * .5 * long / size.y);
       if (thermalPass) {
         u.uRows.value = spec.rows || size.y; u.uDetail.value = spec.detail;
         u.uPalette.value = PALETTE_INDEX[activePalette(state, spec) || 'white-hot'];
@@ -349,7 +396,9 @@ export function createVisionSystem(renderer: THREE.WebGLRenderer, scenes: { worl
     get thermal() { return thermalOn; },
     get swapped() { return materials.swappedCount; },
     begin(spec: VisionSpec | undefined, state: VisionState, frame: { dt: number; lighting: LightingState; blackout: number; exposure: number }) {
-      const wantThermal = spec?.kind === 'thermal' && state.on;
+      // Nothing changes the world's picture until the device is in front of the eyes.
+      const lowered = state.on && state.mount >= 1;
+      const wantThermal = spec?.kind === 'thermal' && lowered;
       if (wantThermal !== thermalOn) {
         thermalOn = wantThermal; rescan = 0;
         if (!wantThermal) materials.restore();
@@ -365,7 +414,7 @@ export function createVisionSystem(renderer: THREE.WebGLRenderer, scenes: { worl
         return 1;
       }
       day = 1 - frame.lighting.shift;
-      gain = spec && state.on ? visionGain(spec, frame.lighting.shift, frame.blackout) : 1;
+      gain = spec && lowered ? visionGain(spec, frame.lighting.shift, frame.blackout) : 1;
       return frame.exposure * gain;
     },
     end(spec: VisionSpec | undefined, state: VisionState, time: number) {
@@ -374,7 +423,8 @@ export function createVisionSystem(renderer: THREE.WebGLRenderer, scenes: { worl
         if (saved.fog && scenes.world.fog) scenes.world.fog.color.copy(saved.fog);
         saved = null;
       }
-      if (spec && state.on) post.present(spec, state, { gain, day, time, hold: state.calibrating > 0 });
+      // Off, the canvas has gone back to the naked eye; the dying picture is the last one the device drew.
+      if (spec && (state.on || state.mount > 0)) post.present(spec, state, { gain, day, time, hold: state.calibrating > 0 || !state.on });
     },
     dispose() { materials.dispose(); post.dispose(); },
   };

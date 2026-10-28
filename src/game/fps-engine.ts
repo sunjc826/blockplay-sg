@@ -2457,7 +2457,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     // Before anything draws the world: the tube's gain goes into exposure, or the scene turns to temperature.
     const visionSpec = equipment.vision?.spec;
-    advanceVision(visionState, visionSpec, realDt);
+    advanceVision(visionState, visionSpec, realDt, !!motionPreference?.matches);
     renderer.toneMappingExposure = vision.begin(visionSpec, visionState, { dt: realDt, lighting: atmosphere.light.lighting, blackout, exposure: renderer.toneMappingExposure });
     const opticActive = rig.visible && (!vehicles.active || vehicles.canUseFirearm) && hud.phase === 'playing';
     updateRail(opticActive);
@@ -2476,6 +2476,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.occlusion = String(occlusion.render(atmosphere.light.occlusion && !vision.thermal));
     renderer.clearDepth(); renderer.render(viewScene, viewCamera);
     vision.end(visionSpec, visionState, now / 1000);
+    const visionMotion = `${visionState.mount.toFixed(2)}:${visionState.fading.toFixed(2)}`;
+    if (visionMotion !== canvas.dataset.visionMotion) canvas.dataset.visionMotion = visionMotion;
     const visionTag = visionState.on && visionSpec ? `${visionSpec.kind}:${visionSpec.generation}:${activePalette(visionState, visionSpec) || 'tube'}:${vision.swapped}` : '';
     if (visionTag !== (canvas.dataset.vision ?? '')) canvas.dataset.vision = visionTag;
     if (now - lastReport > 100) { publish(); lastReport = now; }

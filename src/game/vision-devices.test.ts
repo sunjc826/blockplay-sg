@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { ARMORY_CATALOG, itemById } from './armory-catalog';
 import { createProfile, equip, purchase, resolveLoadout, restoreProfile } from './armory-state';
 import { equipmentMovement } from './fps-encumbrance';
-import { activePalette, advanceVision, cloudOpacity, createVisionState, cycleVisionPalette, stepVisionButton, toggleVision, visibleShare, visionFigures, visionGain, visionStrain, VISION_DEVICES } from './vision-devices';
+import { activePalette, advanceVision, cloudOpacity, createVisionState, cycleVisionPalette, stepVisionButton, toggleVision, visibleShare, visionFigures, visionGain, visionStrain, VISION_DEVICES, VISION_MOUNT_SECONDS } from './vision-devices';
 import { createThermalMaterials, thermalProperties } from './fps-vision';
 
 const tubes = ['nvg-gen1', 'nvg-gen2', 'nvg-gen3'].map(id => VISION_DEVICES[id]);
@@ -54,6 +54,7 @@ describe('vision state', () => {
   it('comes up from cold and warms over the spec warm-up', () => {
     const state = createVisionState(), spec = tubes[0];
     expect(toggleVision(state, spec)).toBe(true); expect(state.warm).toBe(0);
+    advanceVision(state, spec, VISION_MOUNT_SECONDS); expect(state.mount).toBe(1); expect(state.warm).toBe(0);
     advanceVision(state, spec, spec.warmup / 2); expect(state.warm).toBeCloseTo(.5);
     advanceVision(state, spec, spec.warmup); expect(state.warm).toBe(1);
     expect(toggleVision(state, spec)).toBe(false);
@@ -61,10 +62,38 @@ describe('vision state', () => {
   });
   it('freezes a first-generation core to recalibrate on its schedule', () => {
     const state = createVisionState(), spec = cores[0];
-    toggleVision(state, spec); advanceVision(state, spec, spec.warmup);
+    toggleVision(state, spec); advanceVision(state, spec, VISION_MOUNT_SECONDS); advanceVision(state, spec, spec.warmup);
     advanceVision(state, spec, spec.calibration!.every - .1); expect(state.calibrating).toBe(0);
     advanceVision(state, spec, .2); expect(state.calibrating).toBeGreaterThan(0);
     advanceVision(state, spec, spec.calibration!.hold); expect(state.calibrating).toBe(0);
+  });
+  it('swings down before it powers, and on switching off lets the picture die before swinging up', () => {
+    for (const spec of [tubes[0], cores[1]]) {
+      const state = createVisionState();
+      toggleVision(state, spec);
+      advanceVision(state, spec, VISION_MOUNT_SECONDS / 2); expect(state.mount).toBeCloseTo(.5); expect(state.warm).toBe(0);
+      // The frame that brings it down spends the rest of its time warming.
+      advanceVision(state, spec, VISION_MOUNT_SECONDS / 2 + spec.warmup / 4); expect(state.mount).toBe(1); expect(state.warm).toBeCloseTo(.25);
+      advanceVision(state, spec, spec.warmup);
+      toggleVision(state, spec);
+      expect(state).toMatchObject({ on: false, fading: 1, mount: 1, warm: 1 });
+      advanceVision(state, spec, spec.shutdown / 2); expect(state.fading).toBeCloseTo(.5); expect(state.mount).toBe(1);
+      advanceVision(state, spec, spec.shutdown / 2); expect(state.fading).toBe(0);
+      advanceVision(state, spec, VISION_MOUNT_SECONDS); expect(state.mount).toBe(0);
+    }
+    // A tube's phosphor glows on longer than a better tube's or a display's.
+    expect(tubes[0].shutdown).toBeGreaterThan(tubes[2].shutdown);
+  });
+  it('has nothing to fade when switched off before it lit, and skips the motion when asked to', () => {
+    const state = createVisionState(), spec = tubes[1];
+    toggleVision(state, spec); advanceVision(state, spec, VISION_MOUNT_SECONDS / 2);
+    toggleVision(state, spec); expect(state.fading).toBe(0);
+    advanceVision(state, spec, VISION_MOUNT_SECONDS / 2); expect(state.mount).toBe(0);
+    const reduced = createVisionState();
+    toggleVision(reduced, spec); advanceVision(reduced, spec, .1, true); expect(reduced.mount).toBe(1); expect(reduced.warm).toBeCloseTo(.1 / spec.warmup);
+    toggleVision(reduced, spec); advanceVision(reduced, spec, .01, true); expect(reduced).toMatchObject({ mount: 0, fading: 0 });
+    // A restored checkpoint starts with the device already down and lit.
+    expect(createVisionState(true)).toMatchObject({ mount: 1, warm: 1, fading: 0 });
   });
   it('cycles palettes only on a core that has them, and walks them on the touch button', () => {
     const state = createVisionState();
