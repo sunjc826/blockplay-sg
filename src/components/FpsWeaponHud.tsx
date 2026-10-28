@@ -1,4 +1,6 @@
 import type { CSSProperties } from 'react';
+import { Rotate3d } from 'lucide-react';
+import { tapProps } from './touch-tap';
 import type { FpsHud } from '../game/fps-engine';
 import { RELOAD_POINTS, reloadShare, type WeaponSpec } from '../game/fps-rules';
 import { itemById, tierRank } from '../game/armory-catalog';
@@ -10,7 +12,7 @@ import type { UtilityKind } from '../game/utility-belt';
 import FpsUtilityBelt from './FpsUtilityBelt';
 import './fps-weapon-hud.css';
 
-export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickFood, touch = false }: { hud: FpsHud; weapon: WeaponSpec & { equipment?: { variant: string } }; canFight: boolean; onUtility?: (kind: UtilityKind) => void; onPickFood?: () => void; touch?: boolean }) {
+export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickFood, onInspect, touch = false }: { hud: FpsHud; weapon: WeaponSpec & { equipment?: { variant: string } }; canFight: boolean; onUtility?: (kind: UtilityKind) => void; onPickFood?: () => void; onInspect?: () => void; touch?: boolean }) {
   // A phone on its side has no height for the belt over the ammo under the weapon
   // slider, so the belt docks along the bottom between the two thumbs instead.
   const docked = useMediaQuery(SHORT_SCREEN) && touch;
@@ -28,6 +30,7 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickF
   const resume = !reloading && hud.reloadSaved > 0 ? Math.round(hud.reloadSaved * 100) : 0;
   const using = hud.supplyUse;
   const prompt = using ? `${using.verb} · FIRE OR SPRINT TO STOP` : reloading ? `${hud.reloadEmpty ? 'EMPTY' : 'TACTICAL'} RELOAD · ${stage}`
+    : hud.inspecting ? 'INSPECTING · FIRE OR AIM TO READY'
     : resume ? `${hud.magazineOut ? 'NO MAGAZINE · ' : ''}R RESUME RELOAD · ${resume}%`
     : hud.magazine === 0 ? 'EMPTY · PRESS R'
     : !hud.roundReady ? (hud.magazineOut ? 'NO MAGAZINE · PRESS R' : 'CHAMBER EMPTY · PRESS R')
@@ -53,6 +56,9 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickF
         hud.offsetDot && `X ${hud.canted ? 'BACK TO SCOPE' : 'OFFSET DOT'}`,
       ].filter(Boolean).join(' · ')}</p>}
       <p className="fps-ammo-detail">{hud.carriedKg.toFixed(1)} KG CARRIED · {Math.round(hud.movementScale * 100)}% MOVEMENT</p>
+      {onInspect && hud.vehicle === 'on-foot' && <button type="button" className="fps-inspect-button" aria-label={hud.inspecting ? 'Stop inspecting weapon' : 'Inspect weapon'} aria-pressed={hud.inspecting}
+        disabled={!canFight || hud.pilotEnabled || reloading || !!using || hud.aiming} title="Inspect weapon (K)"
+        {...tapProps(onInspect)}><Rotate3d size={13} /><span>{hud.inspecting ? 'Inspecting' : 'Inspect'}</span>{!touch && <kbd>K</kbd>}</button>}
       {weapon.requiresMount && <p>{hud.braced ? 'PRONE MOUNT DEPLOYED · Z / STAND TO MOVE' : 'Z / PRONE: SAFE · STAND 20 / CROUCH 10 BEFORE ARMOR'}</p>}
       {reloading
         ? <div className="fps-reload-track" role="progressbar" aria-label="Reload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((1 - hud.reloading) * 100)}><i style={{ width: `${(1 - hud.reloading) * 100}%` }} /></div>

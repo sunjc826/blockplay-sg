@@ -1,6 +1,25 @@
 import { expect, it } from 'vitest';
 import { EMPTY_RELOAD, RELOAD_POINTS, reloadCommit, reloadShare } from './fps-rules';
-import { handleSide, reloadMotion, reloadStage } from './fps-weapon-motion';
+import { handleSide, inspectMotion, reloadMotion, reloadStage } from './fps-weapon-motion';
+
+it('inspects both sides, holds each view, and returns exactly to ready', () => {
+  const ready = { x: 0, y: 0, z: 0, pitch: 0, yaw: 0, roll: 0 };
+  expect(inspectMotion(0)).toEqual(ready);
+  expect(inspectMotion(1)).toEqual(ready);
+  expect(inspectMotion(-1)).toEqual(ready);
+  expect(inspectMotion(2)).toEqual(ready);
+  expect(inspectMotion(.25)).toEqual(inspectMotion(.4));
+  expect(inspectMotion(.65)).toEqual(inspectMotion(.75));
+  expect(inspectMotion(.3).roll).toBeLessThan(-.5);
+  expect(inspectMotion(.7).roll).toBeGreaterThan(.5);
+  for (let p = 0; p <= 1; p += .001) {
+    const pose = inspectMotion(p), next = inspectMotion(p + .001);
+    for (const axis of Object.keys(pose) as (keyof typeof pose)[]) {
+      expect(Number.isFinite(pose[axis])).toBe(true);
+      expect(Math.abs(next[axis] - pose[axis])).toBeLessThan(.015);
+    }
+  }
+});
 
 it('removes and reseats the magazine, restoring the complete resting pose', () => {
   expect(reloadMotion(.34).magazineDrop).toBeCloseTo(.30);

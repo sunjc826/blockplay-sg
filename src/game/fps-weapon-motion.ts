@@ -1,6 +1,26 @@
 import { EMPTY_RELOAD, reloadLength } from './fps-rules';
 
 export const smoothStep = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };
+
+export const INSPECT_DURATION = 3.6;
+type InspectKey = readonly [time: number, x: number, y: number, z: number, pitch: number, yaw: number, roll: number];
+// Lift into view, linger over each side of the receiver, then settle at ready.
+const inspectKeys: readonly InspectKey[] = [
+  [0, 0, 0, 0, 0, 0, 0],
+  [.20, -.12, .06, .10, .12, .48, -.72],
+  [.42, -.12, .06, .10, .12, .48, -.72],
+  [.64, -.17, .07, .06, -.08, -.42, .58],
+  [.78, -.17, .07, .06, -.08, -.42, .58],
+  [1, 0, 0, 0, 0, 0, 0],
+];
+/** Cosmetic camera-space offsets only: inspection never works the weapon's action. */
+export function inspectMotion(progress: number) {
+  const t = Math.max(0, Math.min(1, progress));
+  const index = Math.min(inspectKeys.length - 2, Math.max(0, inspectKeys.findIndex((_, i) => i < inspectKeys.length - 1 && t <= inspectKeys[i + 1][0])));
+  const a = inspectKeys[index], b = inspectKeys[index + 1], s = smoothStep((t - a[0]) / (b[0] - a[0]));
+  const v = a.slice(1).map((value, i) => value + (b[i + 1] - value) * s);
+  return { x: v[0], y: v[1], z: v[2], pitch: v[3], yaw: v[4], roll: v[5] };
+}
 // Normalized timing follows the equipped weapon's reload duration, including shop modifiers.
 // Key times are in tactical reloads, so both kinds change the magazine on the same clock.
 type Key = readonly [time: number, x: number, y: number, z: number, pitch: number, yaw: number, roll: number, magazineDrop: number];

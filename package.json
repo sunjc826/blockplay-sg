@@ -45,6 +45,7 @@
     "test:combat-events": "node scripts/combat-events-smoke.mjs",
     "test:fps:optics": "node scripts/fps-optics-smoke.mjs",
     "test:fps:handling": "node scripts/fps-handling-smoke.mjs",
+    "test:fps:inspect": "node scripts/fps-inspect-smoke.mjs",
     "test:fps:armor": "node scripts/fps-armor-pickups-smoke.mjs",
     "test:fps:effects": "node scripts/fps-effects-smoke.mjs",
     "test:fps:shot-smoke": "node scripts/fps-shot-smoke.mjs",
