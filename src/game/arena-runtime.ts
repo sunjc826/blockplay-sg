@@ -24,10 +24,12 @@ import { getPlayerCallout } from './player-callouts';
 import { hostile } from './arena-factions';
 import type { Obstacle } from './marina-collision';
 import { FOOD_EFFECTS, type FoodEffectKind } from './food-effects';
+import { createInputReconciliation } from './input-reconciliation';
+import { createActorPresentation } from './actor-presentation';
 
 export interface ArenaRuntimeFrame {
   snapshot: ArenaSnapshot | null; self: ArenaActor | null; connected: boolean; started: boolean;
-  hit: ArenaShot | null; feed: ArenaFeed[]; spawn: boolean; vehicleNotice?: string; correction?: boolean;
+  hit: ArenaShot | null; feed: ArenaFeed[]; spawn: boolean; vehicleNotice?: string; correction?: ArenaPoint; hardCorrection?: boolean;
   /** Barks and callouts said since the last frame, ours included. */
   barks: ArenaBark[];
 }
@@ -305,6 +307,12 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     }, (origin, direction, distance) => sceneCover.sightDistance(origin, direction, distance)) : null;
   const hostId = authority ? session.id : session.getPeers()[0]?.id;
   const avatars = new Map<string, Avatar>();
+  const presentations = new Map<string, ReturnType<typeof createActorPresentation>>();
+  const reconciliation = createInputReconciliation();
+  const acknowledgements = new Map<string, { sequence: number; deaths: number; vehicle?: VehicleKind }>();
+  const retiredMatches = new Set<string>();
+  const newMatchId = () => `${session.id}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}`;
+  let matchId = authority ? newMatchId() : '', inputSequence = 0;
   const registered = new Set<string>();
   let grenadeRequest = 0;
   const grenadeRequests = new Map<number, ((accepted: boolean) => void) | undefined>();
@@ -325,18 +333,39 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     lastTick = next.tick; snapshot = next;
     const self = next.actors.find(actor => actor.id === session.id) ?? null;
     if (self && (!previousSelf || (!previousSelf.alive && self.alive) || (previousSelf.deaths !== self.deaths && self.alive) || !localAdopted)) spawnPending = true;
+    if (spawnPending || self?.alive !== previousSelf?.alive || self?.vehicle !== previousSelf?.vehicle || self?.seat !== previousSelf?.seat) reconciliation.reset();
     previousSelf = self ? { ...self } : null;
+    if (!authority) {
+      const present = new Set<string>();
+      for (const actor of next.actors) if (actor.id !== session.id) {
+        present.add(actor.id);
+        let presentation = presentations.get(actor.id);
+        if (!presentation) { presentation = createActorPresentation(); presentations.set(actor.id, presentation); }
+        presentation.accept(actor, next.elapsed, performance.now() / 1000);
+      }
+      for (const id of presentations.keys()) if (!present.has(id)) presentations.delete(id);
+    }
     for (const event of next.feed) if (!seenFeed.has(event.id)) { seenFeed.add(event.id); pendingFeed.push(event); }
     if (seenFeed.size > 300) { seenFeed.clear(); for (const event of next.feed) seenFeed.add(event.id); }
     for (const said of next.barks ?? []) if (!seenBarks.has(said.id)) { seenBarks.add(said.id); pendingBarks.push(said); }
     if (seenBarks.size > 300) { seenBarks.clear(); for (const said of next.barks ?? []) seenBarks.add(said.id); }
   }
-  const publish = () => { if (simulation) { accept(simulation.snapshot()); if (session.role === 'host') session.send({ type: 'arena-state', snapshot, started }); } };
+  const refresh = () => { if (simulation) accept(simulation.snapshot()); };
+  const publish = () => {
+    refresh();
+    if (session.role !== 'host' || !snapshot) return;
+    const acknowledgedInputs: Record<string, number> = {};
+    for (const actor of snapshot.actors) {
+      const ack = acknowledgements.get(actor.id);
+      if (ack && ack.deaths === actor.deaths && ack.vehicle === actor.vehicle) acknowledgedInputs[actor.id] = ack.sequence;
+    }
+    session.send({ type: 'arena-state', snapshot, started, matchId, acknowledgedInputs });
+  };
   if (simulation) accept(simulation.snapshot());
   const peersChanged = () => {
     if (!simulation) return;
     const present = new Set(session.getPeers().map(peer => peer.id));
-    for (const id of registered) if (id !== session.id && !present.has(id)) { simulation.removePlayer(id); registered.delete(id); }
+    for (const id of registered) if (id !== session.id && !present.has(id)) { simulation.removePlayer(id); registered.delete(id); acknowledgements.delete(id); }
     publish();
   };
   const unsubscribePeers = session.onPeers(peersChanged);
@@ -354,8 +383,18 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         simulation.setPlayerSupplies(from, guest.consumables); registered.add(from); publish();
       } else if (registered.has(from) && started && payload.type === 'arena-vehicle' && ['enter', 'exit', 'switch'].includes(String(payload.action)) && (payload.kind === undefined || payload.kind === 'car' || payload.kind === 'helicopter')) {
         const accepted = simulation.vehicleAction(from, payload.action as 'enter' | 'exit' | 'switch', payload.kind as VehicleKind | undefined);
+        if (accepted) acknowledgements.delete(from);
         session.send({ type: 'arena-vehicle-result', accepted }, from); publish();
-      } else if (registered.has(from) && payload.type === 'arena-input' && validArenaInput(payload.input)) simulation.setInput(from, payload.input);
+      } else if (registered.has(from) && payload.type === 'arena-input' && validArenaInput(payload.input)) {
+        const actor = snapshot?.actors.find(actor => actor.id === from);
+        if (payload.sequence !== undefined) {
+          if (!Number.isSafeInteger(payload.sequence) || (payload.sequence as number) <= 0 || payload.matchId !== matchId ||
+            !actor?.alive || payload.deaths !== actor.deaths || payload.vehicle !== actor.vehicle ||
+            (payload.sequence as number) <= (acknowledgements.get(from)?.sequence ?? 0)) return;
+          simulation.setInput(from, payload.input);
+          acknowledgements.set(from, { sequence: payload.sequence as number, deaths: actor.deaths, vehicle: actor.vehicle });
+        } else { simulation.setInput(from, payload.input); acknowledgements.delete(from); }
+      }
       else if (registered.has(from) && payload.type === 'arena-reload' && validWeaponIndex(payload.weapon)) simulation.reloadPlayer(from, payload.weapon);
       else if (registered.has(from) && started && payload.type === 'throwGrenade' && validThrowGrenade(payload.grenade)) {
         const accepted = simulation.throwGrenade(from, payload.grenade);
@@ -370,12 +409,26 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         // Rounds fly, so the hit is usually sent when one lands (see deliverHits); an instant one is sent now.
         const hit = simulation.shoot(from, payload.origin, payload.direction, payload.weapon, finite(payload.maxDistance) ? payload.maxDistance : 125);
         if (hit.hitId) session.send({ type: 'arena-hit', hit }, from);
-        publish();
+        refresh();
       }
     } else if (from === hostId) {
       if (payload.type === 'grenade-result' && Number.isSafeInteger(payload.request) && typeof payload.accepted === 'boolean' && grenadeRequests.has(payload.request as number)) { const callback = grenadeRequests.get(payload.request as number); grenadeRequests.delete(payload.request as number); callback?.(payload.accepted); }
       if (payload.type === 'arena-vehicle-result' && payload.accepted === false) vehicleNotice = 'Seat unavailable. Approach a stopped vehicle; land and slow down to exit.';
-      if (payload.type === 'arena-state' && validArenaSnapshot(payload.snapshot, options.environment) && typeof payload.started === 'boolean') { started = payload.started; accept(payload.snapshot); }
+      if (payload.type === 'arena-state' && validArenaSnapshot(payload.snapshot, options.environment) && typeof payload.started === 'boolean') {
+        if (typeof payload.matchId === 'string' && payload.matchId.length <= 100) {
+          if (retiredMatches.has(payload.matchId)) return;
+          if (matchId && payload.matchId === matchId && payload.snapshot.tick < lastTick) return;
+          if (payload.matchId !== matchId) {
+            if (matchId) retiredMatches.add(matchId);
+            if (retiredMatches.size > 8) retiredMatches.delete(retiredMatches.values().next().value!);
+            matchId = payload.matchId; localAdopted = false; reconciliation.reset(); presentations.clear();
+          }
+        }
+        started = payload.started; accept(payload.snapshot);
+        const self = payload.snapshot.actors.find(actor => actor.id === session.id);
+        const ack = object(payload.acknowledgedInputs) ? payload.acknowledgedInputs[session.id] : undefined;
+        if (self?.alive && !self.vehicle && !spawnPending && Number.isSafeInteger(ack)) reconciliation.acknowledge(ack as number, self);
+      }
       if (payload.type === 'arena-hit' && object(payload.hit) && (payload.hit.hitId === null || typeof payload.hit.hitId === 'string') && typeof payload.hit.killed === 'boolean' && finite(payload.hit.damage) && payload.hit.damage >= 0 && payload.hit.damage <= 200) pendingHit = payload.hit as unknown as ArenaShot;
     }
   });
@@ -391,8 +444,9 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (disposed || !started) return;
     for (let remaining = dt; remaining > 0.000001; remaining -= Math.min(0.25, remaining)) simulation.step(Math.min(0.25, remaining));
     deliverHits();
-    accept(simulation.snapshot()); broadcastTime += dt;
-    if (broadcastTime >= 0.1) { broadcastTime = 0; publish(); }
+    broadcastTime += dt;
+    if (broadcastTime >= 0.1 - 1e-6) { broadcastTime = Math.max(0, broadcastTime - .1 * Math.floor((broadcastTime + 1e-6) / .1)); publish(); }
+    else refresh();
   }, 50) : undefined;
 
   /** Ground under an actor, probed as the simulation stands bots, so crouching and jumping read on any deck. */
@@ -423,11 +477,14 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     const feet = seated ? actor.y - 1.2 : actor.vehicle ? actor.y - 1.75 : actor.prone ? actor.y - PRONE_EYE_HEIGHT : crouch > .02 ? avatar.ground : Math.max(0, actor.y - 1.75);
     destination.set(actor.x, feet, actor.z);
     avatar.previous.copy(root.position);
-    if (actor.alive) root.position.lerp(destination, respawned || root.position.distanceTo(destination) > 7 ? 1 : 1 - Math.exp(-15 * dt));
+    if (actor.alive) {
+      if (!authority) root.position.copy(destination);
+      else root.position.lerp(destination, respawned || root.position.distanceTo(destination) > 7 ? 1 : 1 - Math.exp(-15 * dt));
+    }
     // Velocity from what is rendered, so the stride matches the glide.
     const moved = avatar.previous.distanceTo(root.position);
     if (dt > 0) avatar.velocity.lerp(moved > 3 ? destination.set(0, 0, 0) : destination.subVectors(root.position, avatar.previous).divideScalar(dt), 1 - Math.exp(-10 * dt));
-    const turnStep = wrapAngle(actor.yaw - avatar.yaw) * (respawned ? 1 : 1 - Math.exp(-14 * dt));
+    const turnStep = wrapAngle(actor.yaw - avatar.yaw) * (respawned || !authority ? 1 : 1 - Math.exp(-14 * dt));
     avatar.yaw = wrapAngle(avatar.yaw + turnStep);
     root.rotation.set(0, avatar.yaw, 0);
     const cos = Math.cos(avatar.yaw), sin = Math.sin(avatar.yaw);
@@ -475,7 +532,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     // Never overwrite an authoritative spawn with the renderer's previous position.
     if (localAdopted && !spawnPending && validArenaInput(input)) {
       if (simulation) simulation.setInput(session.id, input);
-      else if (self && connected && inputTime >= 1 / 20) { inputTime = 0; session.send({ type: 'arena-input', input }); }
+      else if (self && connected && inputTime >= 1 / 20) { inputTime %= 1 / 20; sendInput(input); }
     }
     const activeIds = new Set<string>();
     for (const actor of snapshot?.actors ?? []) {
@@ -484,7 +541,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       let avatar = avatars.get(actor.id);
       if (avatar && avatar.key !== avatarKey(actor)) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); avatars.delete(actor.id); avatar = undefined; }
       if (!avatar) { avatar = createAvatar(actor); avatars.set(actor.id, avatar); scene.add(avatar.root); avatar.root.position.set(actor.x, actor.y - 1.75, actor.z); avatar.previous.copy(avatar.root.position); }
-      animateAvatar(avatar, actor, dt);
+      animateAvatar(avatar, presentations.get(actor.id)?.sample(performance.now() / 1000) ?? actor, dt);
     }
     const listener = self ?? (validArenaInput(input) ? { ...input, bot: false, faction: 'armed-forces' } : null), now = performance.now();
     for (const said of pendingBarks) {
@@ -496,11 +553,22 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     }
     for (const avatar of avatars.values()) if (avatar.bubble?.sprite.visible && (self?.conditions?.deafened || now > avatar.bubble.until || !avatar.alive)) avatar.bubble.sprite.visible = false;
     for (const [id, avatar] of avatars) if (!activeIds.has(id)) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); avatars.delete(id); }
-    const correction = !!self?.alive && localAdopted && !spawnPending && Math.hypot(self.x - input.x, self.y - input.y, self.z - input.z) > 2.5;
-    const frame = { snapshot, self, connected, started, hit: pendingHit, feed: pendingFeed, spawn: spawnPending, correction, vehicleNotice, barks: pendingBarks };
+    const correction = self?.alive && !self.vehicle && localAdopted && !spawnPending
+      ? authority
+        ? Math.hypot(self.x - input.x, self.y - input.y, self.z - input.z) > 2.5 ? { point: self, hard: true } : null
+        : reconciliation.correct(input, dt)
+      : null;
+    const frame = { snapshot, self, connected, started, hit: pendingHit, feed: pendingFeed, spawn: spawnPending, correction: correction?.point, hardCorrection: correction?.hard, vehicleNotice, barks: pendingBarks };
     vehicleNotice = '';
     pendingHit = null; pendingFeed = []; pendingBarks = []; if (spawnPending) localAdopted = true; spawnPending = false;
     return frame;
+  }
+  function sendInput(input: ArenaInput) {
+    const self = snapshot?.actors.find(actor => actor.id === session.id);
+    if (!self || !matchId) return;
+    const sequence = ++inputSequence;
+    if (!self.vehicle) reconciliation.record(sequence, input);
+    session.send({ type: 'arena-input', input, sequence, matchId, deaths: self.deaths, vehicle: self.vehicle });
   }
   function vehicleAction(action: 'enter' | 'exit' | 'switch', kind?: VehicleKind) {
     if (disposed || !started || !localAdopted) return;
@@ -517,9 +585,9 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (simulation) {
       if (freshInput && validArenaInput(freshInput)) simulation.setInput(session.id, freshInput);
       const shot = simulation.shoot(session.id, origin, direction, weapon, maxDistance); if (shot.hitId) pendingHit = shot;
-      publish();
+      refresh();
     } else {
-      if (freshInput && validArenaInput(freshInput)) session.send({ type: 'arena-input', input: freshInput });
+      if (freshInput && validArenaInput(freshInput)) sendInput(freshInput);
       session.send({ type: 'arena-shot', origin, direction, weapon, maxDistance });
     }
   }
@@ -530,7 +598,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       if (freshInput && validArenaInput(freshInput)) simulation.setInput(session.id, freshInput);
       simulation.reloadPlayer(session.id, weapon);
     } else {
-      if (freshInput && validArenaInput(freshInput)) session.send({ type: 'arena-input', input: freshInput });
+      if (freshInput && validArenaInput(freshInput)) sendInput(freshInput);
       session.send({ type: 'arena-reload', weapon });
     }
   }
@@ -540,7 +608,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (simulation) { if (simulation.callout(session.id, id, at)) publish(); }
     else session.send({ type: 'arena-callout', callout: id, ...(at ? { at } : {}) });
   }
-  function reset() { if (!simulation || disposed) return; simulation.reset(); started = false; localAdopted = false; previousSelf = null; seenFeed.clear(); seenBarks.clear(); publish(); }
+  function reset() { if (!simulation || disposed) return; simulation.reset(); matchId = newMatchId(); acknowledgements.clear(); reconciliation.reset(); broadcastTime = 0; started = false; localAdopted = false; previousSelf = null; seenFeed.clear(); seenBarks.clear(); publish(); }
   function updateLoadout(nextProfile: ArmoryProfile) {
     if (disposed || session.role !== 'solo' || !simulation) return false;
     profile = restoreProfile(JSON.stringify(nextProfile));
@@ -586,7 +654,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     for (const callback of grenadeRequests.values()) callback?.(false); grenadeRequests.clear();
     if (disposed) return; disposed = true; clearInterval(timer); unsubscribe(); unsubscribePeers();
     for (const avatar of avatars.values()) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); }
-    avatars.clear();
+    avatars.clear(); presentations.clear(); reconciliation.reset();
   }
   function presentVehicleRiders(states: readonly VehicleState[]) {
     for (const actor of snapshot?.actors ?? []) {

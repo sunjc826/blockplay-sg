@@ -34,6 +34,11 @@ are still future work.
 
 ## Transport and boundaries
 
+Guest movement now reconciles against acknowledged input sequences, preserving
+travel since the host processed an input. Human gunfire uses the regular 10 Hz
+state broadcast, and remote infantry has a short snapshot buffer. See
+[movement timing and latency regressions](MULTIPLAYER-PERFORMANCE.md).
+
 `server/public-rooms.js` exports the `PublicRooms` Durable Object, bound in
 `wrangler.jsonc` and re-exported from `cloudflare/worker.js`. One bounded directory
 object holds up to 64 rooms and relays their WebSockets. This gives listings and

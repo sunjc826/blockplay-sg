@@ -2151,9 +2151,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         }
         resetRecoil(kick); effects.reset(); hitTime = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; }); updateCameras(0, false, false);
       } else if (frame.correction && !vehicles.active) {
-        position = { x: frame.self.x, z: frame.self.z };
-        vertical = Math.max(0, frame.self.y - eyeHeight()); velocityY = 0;
-        resetMovementMotion(bodyMotion, eyeHeight()); carry.set(0, 0, 0);
+        position = { x: frame.correction.x, z: frame.correction.z };
+        vertical = Math.max(0, frame.correction.y - eyeHeight());
+        if (frame.hardCorrection) { velocityY = 0; resetMovementMotion(bodyMotion, eyeHeight()); carry.set(0, 0, 0); }
         updateCameras(0, false, false);
       }
       rig.visible = frame.self.alive && (!vehicles.active || vehicles.canUseFirearm && firstPersonVehicle());

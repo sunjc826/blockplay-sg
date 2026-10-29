@@ -1,5 +1,28 @@
 # Blockplay: portable agent handoff
 
+## Guest movement reconciliation and snapshot traffic (2026-10-29)
+
+Guests now send sequenced inputs stamped for the match, life and vehicle state;
+host snapshots acknowledge the input actually processed. Reconciliation compares
+that sent position, preserves subsequent local travel, avoids applying queued
+corrections twice, and smooths small real errors without resetting momentum.
+Spawns and large rejected moves remain authoritative. Human gunfire uses the
+10 Hz snapshot cadence; guests buffer remote infantry in host time. See
+`docs/MULTIPLAYER-PERFORMANCE.md` and the historical audit alongside it.
+
+Validation: full suite 1,735 tests / 177 files passed, then the added previous-life
+regression passed in the targeted ten-test network suite; typecheck and production
+build passed. Synthetic 0–600 ms latency cases retain the full sprint with zero
+corrections, including jitter, a stall and firing. A real Chrome/public-relay
+fixture at 400 ms added RTT travelled 65.81 m with zero corrections and 113
+acknowledged snapshots. The full rendered UI smoke stalled in VM graphics/CDP
+and is not claimed as passing.
+
+Manually deployed with `pnpm deploy:cloudflare`; version
+`7815f8d4-5172-40d6-8306-6ce414594fad`. Verified the matching build and production
+Cloudflare checks at `https://blockplaysg.fun`. No GitHub push. Keep root
+`AGENTS.md` local, unstaged and uncommitted under the owner's temporary workflow.
+
 ## Shared vehicle seats (2026-09-25)
 
 Follow-up adds four host-owned seats to cars/helicopters in LAN and solo arenas:
