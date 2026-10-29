@@ -10,6 +10,7 @@ import { useReducedMotion } from '../game/use-reduced-motion';
 import { SHORT_SCREEN, useMediaQuery } from '../game/use-media-query';
 import type { UtilityKind } from '../game/utility-belt';
 import FpsUtilityBelt from './FpsUtilityBelt';
+import FpsVitals from './FpsVitals';
 import './fps-weapon-hud.css';
 
 export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickFood, onPickGrenade, onGrenadeFire, onInspect, touch = false }: { hud: FpsHud; weapon: WeaponSpec & { equipment?: { variant: string } }; canFight: boolean; onUtility?: (kind: UtilityKind) => void; onPickFood?: () => void; onPickGrenade?: () => void; onGrenadeFire?: (held: boolean) => void; onInspect?: () => void; touch?: boolean }) {
@@ -49,24 +50,28 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickF
     {canFight && using && <div className="fps-reload-cue fps-supply-cue" data-supply-style={using.style} role="status"><span>{using.verb} · {using.name}</span><div><i style={{ width: `${using.progress * 100}%` }} /></div></div>}
     {canFight && reloading && !using && <div className="fps-reload-cue" aria-hidden="true"><span>{stage}</span><div><i style={{ width: `${(1 - hud.reloading) * 100}%` }} /></div></div>}
     {docked && belt}
-    <div className={`fps-ammo ${!hud.roundReady && !reloading ? 'is-empty' : ''}`}>
-      {/* Above the weapon so the two read as one kit, and so the belt rises with the ammo block wherever the thumbs push it. */}
+    <div className="fps-combat-hud" role="group" aria-label="Combat status">
       {!docked && belt}
-      <span>{rare && <em className="fps-tier" data-tier={rare.toLowerCase()}>{rare}</em>}{grenade?.name ?? weapon.name} <small>{hud.aiming ? 'ADS' : weapon.fireMode === 'semi' ? 'SEMI' : 'AUTO'}</small></span>
-      {grenade ? <strong>{grenade.pinned ? Math.max(0, grenade.fuse - grenade.cooked).toFixed(1) : 'READY'}<small>{grenade.pinned ? ' s' : grenade.under ? ' LOB' : ' THROW'}</small></strong> : <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}{hud.chambered && <em className="fps-chamber" aria-label="one in the chamber">+1</em>}<small>/ {hud.reserve}</small></strong>}
-      {prompt ? <p>{prompt}</p> : <p className="fps-ammo-detail">R RELOAD · Q TOGGLE AIM · RMB HOLD</p>}
-      {(hud.rail || hud.offsetDot) && <p className="fps-ammo-detail" data-accessories>{[
-        hud.rail && `B ${hud.rail.kind === 'laser' ? 'LASER' : hud.rail.kind === 'light' ? 'LIGHT' : 'LASER-LIGHT'} ${hud.rail.on ? 'ON' : 'OFF'}`,
-        hud.offsetDot && `X ${hud.canted ? 'BACK TO SCOPE' : 'OFFSET DOT'}`,
-      ].filter(Boolean).join(' · ')}</p>}
-      <p className="fps-ammo-detail">{hud.carriedKg.toFixed(1)} KG CARRIED · {Math.round(hud.movementScale * 100)}% MOVEMENT</p>
-      {onInspect && hud.vehicle === 'on-foot' && <button type="button" className="fps-inspect-button" aria-label={hud.inspecting ? 'Stop inspecting weapon' : 'Inspect weapon'} aria-pressed={hud.inspecting}
-        disabled={!canFight || hud.pilotEnabled || reloading || !!using || !!grenade || hud.aiming} title="Inspect weapon (K)"
-        {...tapProps(onInspect)}><Rotate3d size={13} /><span>{hud.inspecting ? 'Inspecting' : 'Inspect'}</span>{!touch && <kbd>K</kbd>}</button>}
-      {weapon.requiresMount && <p>{hud.braced ? 'PRONE MOUNT DEPLOYED · Z / STAND TO MOVE' : 'Z / PRONE: SAFE · STAND 20 / CROUCH 10 BEFORE ARMOR'}</p>}
-      {reloading
-        ? <div className="fps-reload-track" role="progressbar" aria-label="Reload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((1 - hud.reloading) * 100)}><i style={{ width: `${(1 - hud.reloading) * 100}%` }} /></div>
-        : <div className="fps-magazine-bar" aria-hidden="true"><i style={{ transform: `scaleX(${fillFraction(rounds, weapon.capacity)})` }} /></div>}
+      <div className="fps-combat-readouts">
+        <FpsVitals hud={hud} />
+        <div className={`fps-ammo ${!hud.roundReady && !reloading ? 'is-empty' : ''}`}>
+          <span>{rare && <em className="fps-tier" data-tier={rare.toLowerCase()}>{rare}</em>}{grenade?.name ?? weapon.name} <small>{hud.aiming ? 'ADS' : weapon.fireMode === 'semi' ? 'SEMI' : 'AUTO'}</small></span>
+          {grenade ? <strong>{grenade.pinned ? Math.max(0, grenade.fuse - grenade.cooked).toFixed(1) : 'READY'}<small>{grenade.pinned ? ' s' : grenade.under ? ' LOB' : ' THROW'}</small></strong> : <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}{hud.chambered && <em className="fps-chamber" aria-label="one in the chamber">+1</em>}<small>/ {hud.reserve}</small></strong>}
+          {prompt ? <p>{prompt}</p> : <p className="fps-ammo-detail">R RELOAD · Q TOGGLE AIM · RMB HOLD</p>}
+          {(hud.rail || hud.offsetDot) && <p className="fps-ammo-detail" data-accessories>{[
+            hud.rail && `B ${hud.rail.kind === 'laser' ? 'LASER' : hud.rail.kind === 'light' ? 'LIGHT' : 'LASER-LIGHT'} ${hud.rail.on ? 'ON' : 'OFF'}`,
+            hud.offsetDot && `X ${hud.canted ? 'BACK TO SCOPE' : 'OFFSET DOT'}`,
+          ].filter(Boolean).join(' · ')}</p>}
+          <p className="fps-ammo-detail">{hud.carriedKg.toFixed(1)} KG CARRIED · {Math.round(hud.movementScale * 100)}% MOVEMENT</p>
+          {onInspect && hud.vehicle === 'on-foot' && <button type="button" className="fps-inspect-button" aria-label={hud.inspecting ? 'Stop inspecting weapon' : 'Inspect weapon'} aria-pressed={hud.inspecting}
+            disabled={!canFight || hud.pilotEnabled || reloading || !!using || !!grenade || hud.aiming} title="Inspect weapon (K)"
+            {...tapProps(onInspect)}><Rotate3d size={13} /><span>{hud.inspecting ? 'Inspecting' : 'Inspect'}</span>{!touch && <kbd>K</kbd>}</button>}
+          {weapon.requiresMount && <p>{hud.braced ? 'PRONE MOUNT DEPLOYED · Z / STAND TO MOVE' : 'Z / PRONE: SAFE · STAND 20 / CROUCH 10 BEFORE ARMOR'}</p>}
+          {reloading
+            ? <div className="fps-reload-track" role="progressbar" aria-label="Reload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((1 - hud.reloading) * 100)}><i style={{ width: `${(1 - hud.reloading) * 100}%` }} /></div>
+            : <div className="fps-magazine-bar" aria-hidden="true"><i style={{ transform: `scaleX(${fillFraction(rounds, weapon.capacity)})` }} /></div>}
+        </div>
+      </div>
     </div>
   </div>;
 }

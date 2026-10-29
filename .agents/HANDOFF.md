@@ -3816,3 +3816,15 @@ and 18 cover/terrain/raycast tests. Existing bundle-size advisory remains.
 Other sessions' ammo, pilot, bird and HUD changes were preserved. Two foliage-
 inclusion flags inside the new uncommitted bird callbacks remain with that
 ongoing feature; they are not included by staging its surrounding code here.
+
+
+## 2026-10-29: grouped combat HUD and UI review
+
+Health and armor now sit beside ammo with larger digits, explicit low/critical
+health text and a readable no-armor state. The utility belt remains adjacent;
+phone and mounted readouts keep vitals clear of controls. Reduced motion
+suppresses the vital pulse. docs/UI-HUD-AUDIT.md records the remaining FPS UI
+recommendations and references. Typecheck/build and eight existing vitals/HUD
+tests passed; real-component desktop and phone previews were inspected.
+In-app pointer capture blocked a complete gameplay check. Owner requested a
+local commit and manual Cloudflare deployment, with no GitHub push.

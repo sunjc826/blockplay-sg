@@ -14,7 +14,6 @@ import FpsMinimap from './FpsMinimap';
 import FpsWeaponHud from './FpsWeaponHud';
 import FpsLootCard from './FpsLootCard';
 import FpsWeaponSlider from './FpsWeaponSlider';
-import FpsVitals from './FpsVitals';
 import FpsShield from './FpsShield';
 import FpsDebugPanel from './FpsDebugPanel';
 import FpsPilotPanel from './FpsPilotPanel';
@@ -113,7 +112,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus} · ESC TO STOP</div>}
       {playing && <>
         <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} contactRange={hud.mapContactRange} mode="expedition" expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
-        <FpsVitals hud={hud} />
+        {!touch && <span className="fps-capture-state fps-input-status" aria-label="Mouse capture status">{hud.pilotEnabled ? 'AI PILOT' : hud.locked ? 'MOUSE LOCKED' : 'DRAG TO LOOK'}</span>}
         <FpsVisionChip hud={hud} touch={touch} />
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}
         <FpsShield hud={hud} />

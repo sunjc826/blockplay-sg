@@ -1,27 +1,25 @@
+import { HeartPulse, Shield } from 'lucide-react';
 import type { FpsHud } from '../game/fps-engine';
 import { fillFraction } from '../game/hud-motion';
 import { armorState, healthBand } from '../game/vitals';
+import './fps-vitals.css';
 
-/**
- * One reading, shared by the range, the arena and the expedition: the band and
- * the armor state are attributes so the stylesheet colours them, and so the
- * browser smokes can assert the state the player is actually being shown.
- *
- * The digits are the engine's own. What moves is the bar under them, in two
- * layers: the fill tracks health at once, and the ghost behind it trails by a
- * beat, so a burst leaves a red sliver showing exactly what it cost before it
- * closes up. Regeneration is gradual in the engine, so refilling needs no help
- * here — the same fill simply grows, and the ghost comes up behind it.
- */
+/** Shared by infantry and mounted weapons; only the health bar has a known maximum. */
 export default function FpsVitals({ hud }: { hud: FpsHud }) {
   const health = fillFraction(hud.health, hud.maxHealth);
-  return <div className="fps-vitals" data-health-band={healthBand(hud.health, hud.maxHealth)} data-armor-state={armorState(hud.armor)}>
-    <span className="fps-vital is-health" data-hurt={hud.hurt || undefined}>
-      HP <b>{Math.ceil(hud.health)}</b>{hud.maxHealth > 100 && <small> / {hud.maxHealth}</small>}
+  const band = healthBand(hud.health, hud.maxHealth);
+  const warning = hud.health <= 0 ? 'OPERATOR DOWN' : band === 'critical' ? 'CRITICAL · FIND COVER' : band === 'low' ? 'LOW HEALTH · HEAL' : 'OPERATOR STATUS';
+  return <div className="fps-vitals" role="group" aria-label="Operator health and armor" data-health-band={band} data-armor-state={armorState(hud.armor)}>
+    <span className="fps-vitals-status" role="status">{warning}</span>
+    <span className="fps-vital is-health" data-hurt={hud.hurt || undefined} aria-label={`Health ${Math.ceil(hud.health)} of ${hud.maxHealth}`}>
+      <span className="fps-vital-label"><HeartPulse size={14} aria-hidden="true" />HEALTH</span>
+      <b>{Math.ceil(hud.health)}</b>{hud.maxHealth > 100 && <small> / {hud.maxHealth}</small>}
       <i className="fps-vital-ghost" style={{ transform: `scaleX(${health})` }} />
       <i className="fps-vital-fill" style={{ transform: `scaleX(${health})` }} />
     </span>
-    <span className="fps-vital is-armor">ARMOR <b>{Math.ceil(hud.armor)}</b></span>
-    <span className="fps-capture-state" aria-label="Mouse capture status">{hud.pilotEnabled ? 'AI PILOT' : hud.locked ? 'MOUSE LOCKED' : 'TOUCH LOOK'}</span>
+    <span className="fps-vital is-armor" aria-label={`Armor ${Math.ceil(hud.armor)}`}>
+      <span className="fps-vital-label"><Shield size={14} aria-hidden="true" />{hud.armor > 0 ? 'ARMOR' : 'NO ARMOR'}</span>
+      <b>{Math.ceil(hud.armor)}</b>
+    </span>
   </div>;
 }

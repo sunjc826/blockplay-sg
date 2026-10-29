@@ -18,7 +18,6 @@ import FpsMinimap from './FpsMinimap';
 import RankBadge from './RankBadge';
 import FpsWeaponHud from './FpsWeaponHud';
 import FpsWeaponSlider from './FpsWeaponSlider';
-import FpsVitals from './FpsVitals';
 import FpsShield from './FpsShield';
 import FpsDebugPanel from './FpsDebugPanel';
 import FpsPilotPanel from './FpsPilotPanel';
@@ -103,7 +102,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus} · ESC TO STOP</div>}
       {playing && <>
         <FpsMinimap zone={region} player={hud} markers={hud.mapMarkers} contactRange={hud.mapContactRange} mode={isArena ? 'arena' : 'practice'} expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
-        <FpsVitals hud={hud} />
+        {!touch && <span className="fps-capture-state fps-input-status" aria-label="Mouse capture status">{hud.pilotEnabled ? 'AI PILOT' : hud.locked ? 'MOUSE LOCKED' : 'DRAG TO LOOK'}</span>}
         <FpsVisionChip hud={hud} touch={touch} />
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}
         <FpsShield hud={hud} />
