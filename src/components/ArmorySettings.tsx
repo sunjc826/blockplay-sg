@@ -1,4 +1,5 @@
 import RankBadge from './RankBadge';
+import HudHintsToggle from './HudHintsToggle';
 import { progression } from '../game/progression';
 import { rankInsignia, rankSets } from '../game/rank-insignia';
 import { addressLine, encikLines, encikRegister, type EncikTone } from '../game/encik-registers';
@@ -15,6 +16,10 @@ export default function ArmorySettings({ store }: { store: Pick<ArmoryStore, 'pr
   const encikSample = (tone: EncikTone) => addressLine(encikLines('kill', { level: level.level, rank: insignia.title, tone })[0], insignia.title);
   const encikNow = encikRegister({ level: level.level, rank: insignia.title, tone: profile.encikTone });
   return <section className="armory-settings" aria-label="Profile settings">
+    <div className="armory-settings-group">
+      <h2>PC display</h2><p>Show HUD instructions and key reminders. Turn them off to keep combat information, objectives and warnings. Touch controls stay visible.</p>
+      <HudHintsToggle />
+    </div>
     <div className="armory-settings-group">
       <h2>Rank insignia</h2><p>The badge your rank is drawn with, previewed at your level.</p>
       <div role="group" aria-label="Rank insignia set">{rankSets().map(set => {

@@ -9,8 +9,8 @@ await fs.mkdir(output, { recursive: true });
 const fixture = new URL('fixture.html', output);
 await fs.writeFile(fixture, `<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0;background:#17231e;color:white;font:16px sans-serif}.fps-game{position:relative;margin:0;padding:0;max-width:none;width:100vw;height:calc(100dvh - 45px)}#world{height:100%;width:100%}button{padding:12px}</style>
 <button id="enter">Enter range</button><div class="fps-game"><div id="world"></div><div id="hud"></div></div><script type="module">
-import React from '/node_modules/.vite/deps/react.js';
-import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js';
+import React from 'react';
+import ReactDOM from 'react-dom/client';
 const {createRoot}=ReactDOM;
 import RefreshRuntime from '/@react-refresh';
 RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
@@ -83,9 +83,13 @@ try {
   await wait(`${progress}>.65 && ${progress}<.78`); await screenshot('rifle-second-side');
   await stopped();
   assert.deepEqual(await evaluate('({magazine:hud.magazine,reserve:hud.reserve,shots:hud.shots})'),initial);
-  // Shared HUD button starts and cancels without firing.
-  await evaluate(`document.querySelector('.fps-inspect-button').click()`); await wait('hud.inspecting');
-  await evaluate(`document.querySelector('.fps-inspect-button').click()`); await stopped();
+  // Desktop uses the keyboard hint, without a HUD button taking space.
+  assert.equal(await evaluate(`document.querySelector('.fps-inspect-button') === null`),true);
+  assert.match(await evaluate(`document.querySelector('.fps-ammo-detail').textContent`),/K INSPECT/);
+  await send('Input.dispatchKeyEvent',{type:'keyDown',key:'k',code:'KeyK'});
+  await send('Input.dispatchKeyEvent',{type:'keyUp',key:'k',code:'KeyK'}); await wait('hud.inspecting');
+  await send('Input.dispatchKeyEvent',{type:'keyDown',key:'k',code:'KeyK'});
+  await send('Input.dispatchKeyEvent',{type:'keyUp',key:'k',code:'KeyK'}); await stopped();
   await inspect(); await evaluate(`engine.setInput('fire',true)`); await stopped();
   await wait('hud.shots>0'); await evaluate(`engine.setInput('fire',false)`);
   await inspect(); await evaluate('engine.toggleAim()'); await stopped(); await wait('hud.aiming');
@@ -105,16 +109,16 @@ try {
   await evaluate('engine.start()'); await wait(`hud.phase==='playing'`);
   await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
   await inspect(); await stopped();
-  await send('Emulation.setDeviceMetricsOverride',{width:844,height:390,deviceScaleFactor:1,mobile:true});
+  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   await evaluate(`window.touchMode=true;document.querySelector('.fps-game').dataset.touch='on'`); await delay(300);
   const bounds=await evaluate(`(()=>{const r=document.querySelector('.fps-inspect-button').getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}})()`);
-  assert(bounds.x>=0 && bounds.x+bounds.w<=844 && bounds.y>=0 && bounds.y+bounds.h<=390,JSON.stringify(bounds));
+  assert(bounds.x>=0 && bounds.x+bounds.w<=390 && bounds.y>=0 && bounds.y+bounds.h<=844 && bounds.w>=36 && bounds.h>=36,JSON.stringify(bounds));
   await evaluate(`document.querySelector('.fps-inspect-button').dispatchEvent(new PointerEvent('pointerdown',{pointerType:'touch',bubbles:true}))`);
   await wait('hud.inspecting'); await screenshot('touch-inspect');
   await evaluate(`document.querySelector('.fps-inspect-button').click()`); assert.equal(await evaluate('hud.inspecting'),true,'Synthetic touch click is deduplicated');
   await evaluate('engine.reset()'); await stopped();
   assert.deepEqual(errors,[]);
-  console.log('PASS: K, repeat suppression, HUD/touch button, both sides and automatic return, ammo unchanged, fire/aim/reload/sprint/switch/pause/reset interruptions, reduced motion, mobile button bounds.');
+  console.log('PASS: K, repeat suppression, desktop hint/touch button, both sides and automatic return, ammo unchanged, fire/aim/reload/sprint/switch/pause/reset interruptions, reduced motion, mobile button bounds.');
 } catch(error) {
   console.log(errors); await screenshot('failure').catch(()=>{}); throw error;
 } finally {

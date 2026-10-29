@@ -3,6 +3,8 @@ import { Crosshair, Maximize, Minimize, Volume2, VolumeX } from 'lucide-react';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
 import { getAimAssist, setAimAssist, subscribeAimAssist } from '../game/aim-assist-setting';
 import { FpsRadioVoice } from './FpsRadio';
+import HudHintsToggle from './HudHintsToggle';
+import './fps-hints.css';
 
 /** The start card's settings for players: the toggles they reach for, nothing more. */
 export function FpsPlayerTools({ hud, engine, immersive, touch, onFullscreen }: { hud: FpsHud; engine: FpsEngine | null; immersive: boolean; touch: boolean; onFullscreen: () => void }) {
@@ -10,6 +12,7 @@ export function FpsPlayerTools({ hud, engine, immersive, touch, onFullscreen }: 
     <button className="session-button" aria-pressed={!hud.muted} onClick={() => engine?.toggleSound()}>{hud.muted ? <VolumeX size={14} /> : <Volume2 size={14} />} Sound {hud.muted ? 'off' : 'on'}</button>
     <FpsRadioVoice hud={hud} engine={engine} />
     {touch && <AimAssistToggle />}
+    {!touch && <HudHintsToggle />}
     <button className="session-button" onClick={onFullscreen}>{immersive ? <Minimize size={14} /> : <Maximize size={14} />} {immersive ? 'Windowed' : 'Fullscreen'} <kbd>F</kbd></button>
   </div>;
 }

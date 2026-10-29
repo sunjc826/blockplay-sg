@@ -3828,3 +3828,23 @@ recommendations and references. Typecheck/build and eight existing vitals/HUD
 tests passed; real-component desktop and phone previews were inspected.
 In-app pointer capture blocked a complete gameplay check. Owner requested a
 local commit and manual Cloudflare deployment, with no GitHub push.
+
+
+## 2026-10-29: compact PC inspect and optional HUD hints
+
+Desktop Inspect now shares the existing keyboard-hint line; touch retains the
+button. A persistent HUD hints toggle in Settings and ready/pause menus hides
+PC instructions and empty utility slots while preserving vitals, ammo,
+objectives, threats, accessory state and action progress. Pause references and
+touch actions remain available. The storage setting has reload, subscription
+and blocked-storage coverage. Real-component browser review verified off-mode
+critical health, empty ammo, reload and healing, portrait touch Inspect, and
+persistence into the real Settings and training menus. Typecheck and 35
+targeted tests passed before packaging; clean release checks follow.
+
+The keybinding audit (docs/KEYBINDING-AUDIT.md) compares actual handlers with
+current official FPS references and proposes a coherent default scheme. It
+flags G/9 grenade access, split E/N/T interactions, missing scroll cycling/Tab
+scores, Ctrl not crouching infantry and Shift+number handling. Only guide
+accuracy changed: 4–9 supplies and hold C; gameplay binds were not remapped.
+Existing unrelated working-tree changes remain unstaged.

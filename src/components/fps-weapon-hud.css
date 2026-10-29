@@ -22,7 +22,6 @@
 .fps-weapon-hud .fps-inspect-button:hover:not(:disabled),.fps-weapon-hud .fps-inspect-button[aria-pressed=true]{color:var(--hud-gold-soft);border-color:var(--hud-gold)}
 .fps-weapon-hud .fps-inspect-button:focus-visible{outline:2px solid var(--hud-gold);outline-offset:3px}
 .fps-weapon-hud .fps-inspect-button:disabled{opacity:.4;cursor:default}
-.fps-weapon-hud .fps-inspect-button kbd{font:8px monospace;padding:1px 4px;background:#ffffff14;border:0;border-radius:2px}
 .fps-game[data-touch=on] .fps-inspect-button{min-height:36px;padding:8px 10px}
 /* The magazine as a bar, in the slot the reload progress takes over while a
    reload runs, so the two never sweep at once. Scaled, not widened: it

@@ -31,11 +31,13 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickF
   const resume = !reloading && hud.reloadSaved > 0 ? Math.round(hud.reloadSaved * 100) : 0;
   const using = hud.supplyUse;
   const grenade = hud.grenadeHeld;
-  const prompt = grenade ? grenade.pinned ? 'RELEASE FIRE TO THROW · HOLD AIM TO LOB' : 'HOLD FIRE TO COOK · RELEASE TO THROW' : using ? `${using.verb} · FIRE OR SPRINT TO STOP` : reloading ? `${hud.reloadEmpty ? 'EMPTY' : 'TACTICAL'} RELOAD · ${stage}`
-    : hud.inspecting ? 'INSPECTING · FIRE OR AIM TO READY'
-    : resume ? `${hud.magazineOut ? 'NO MAGAZINE · ' : ''}R RESUME RELOAD · ${resume}%`
-    : hud.magazine === 0 ? 'EMPTY · PRESS R'
-    : !hud.roundReady ? (hud.magazineOut ? 'NO MAGAZINE · PRESS R' : 'CHAMBER EMPTY · PRESS R')
+  const hint = (text: string) => <span className="fps-hud-hint">{text}</span>;
+  const prompt = grenade ? <>{grenade.pinned ? 'GRENADE PINNED' : 'GRENADE READY'}{hint(grenade.pinned ? ' · RELEASE FIRE TO THROW · HOLD AIM TO LOB' : ' · HOLD FIRE TO COOK · RELEASE TO THROW')}</>
+    : using ? <>{using.verb}{hint(' · FIRE OR SPRINT TO STOP')}</> : reloading ? `${hud.reloadEmpty ? 'EMPTY' : 'TACTICAL'} RELOAD · ${stage}`
+    : hud.inspecting ? <>INSPECTING{hint(' · FIRE OR AIM TO READY')}</>
+    : resume ? <>{hud.magazineOut ? 'NO MAGAZINE · ' : ''}{hint('R · ')}RESUME RELOAD · {resume}%</>
+    : hud.magazine === 0 ? <>EMPTY{hint(' · PRESS R')}</>
+    : !hud.roundReady ? <>{hud.magazineOut ? 'NO MAGAZINE' : 'CHAMBER EMPTY'}{hint(' · PRESS R')}</>
     : null;
   return <div className="fps-weapon-hud" data-sight={magnified ? 'scope' : 'reflex'} data-aiming={hud.aiming} data-reloading={reloading}
     style={{ '--fps-aim': hud.aimProgress, '--fps-spread': `${hud.crosshairSpread}px` } as CSSProperties}>
@@ -57,16 +59,16 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickF
         <div className={`fps-ammo ${!hud.roundReady && !reloading ? 'is-empty' : ''}`}>
           <span>{rare && <em className="fps-tier" data-tier={rare.toLowerCase()}>{rare}</em>}{grenade?.name ?? weapon.name} <small>{hud.aiming ? 'ADS' : weapon.fireMode === 'semi' ? 'SEMI' : 'AUTO'}</small></span>
           {grenade ? <strong>{grenade.pinned ? Math.max(0, grenade.fuse - grenade.cooked).toFixed(1) : 'READY'}<small>{grenade.pinned ? ' s' : grenade.under ? ' LOB' : ' THROW'}</small></strong> : <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}{hud.chambered && <em className="fps-chamber" aria-label="one in the chamber">+1</em>}<small>/ {hud.reserve}</small></strong>}
-          {prompt ? <p>{prompt}</p> : <p className="fps-ammo-detail">R RELOAD · Q TOGGLE AIM · RMB HOLD</p>}
-          {(hud.rail || hud.offsetDot) && <p className="fps-ammo-detail" data-accessories>{[
-            hud.rail && `B ${hud.rail.kind === 'laser' ? 'LASER' : hud.rail.kind === 'light' ? 'LIGHT' : 'LASER-LIGHT'} ${hud.rail.on ? 'ON' : 'OFF'}`,
-            hud.offsetDot && `X ${hud.canted ? 'BACK TO SCOPE' : 'OFFSET DOT'}`,
-          ].filter(Boolean).join(' · ')}</p>}
-          <p className="fps-ammo-detail">{hud.carriedKg.toFixed(1)} KG CARRIED · {Math.round(hud.movementScale * 100)}% MOVEMENT</p>
-          {onInspect && hud.vehicle === 'on-foot' && <button type="button" className="fps-inspect-button" aria-label={hud.inspecting ? 'Stop inspecting weapon' : 'Inspect weapon'} aria-pressed={hud.inspecting}
+          {prompt ? <p>{prompt}</p> : <p className="fps-ammo-detail fps-hud-hint">R RELOAD · Q / RMB AIM{onInspect && hud.vehicle === 'on-foot' && !touch && ' · K INSPECT'}</p>}
+          {(hud.rail || hud.offsetDot) && <p className="fps-ammo-detail" data-accessories>
+            {hud.rail && <>{hint('B ')}{hud.rail.kind === 'laser' ? 'LASER' : hud.rail.kind === 'light' ? 'LIGHT' : 'LASER-LIGHT'} {hud.rail.on ? 'ON' : 'OFF'}</>}
+            {hud.rail && hud.offsetDot && ' · '}{hud.offsetDot && <>{hint('X ')}{hud.canted ? 'OFFSET DOT' : 'PRIMARY SIGHT'}</>}
+          </p>}
+          <p className="fps-ammo-detail fps-hud-hint">{hud.carriedKg.toFixed(1)} KG CARRIED · {Math.round(hud.movementScale * 100)}% MOVEMENT</p>
+          {touch && onInspect && hud.vehicle === 'on-foot' && <button type="button" className="fps-inspect-button" aria-label={hud.inspecting ? 'Stop inspecting weapon' : 'Inspect weapon'} aria-pressed={hud.inspecting}
             disabled={!canFight || hud.pilotEnabled || reloading || !!using || !!grenade || hud.aiming} title="Inspect weapon (K)"
-            {...tapProps(onInspect)}><Rotate3d size={13} /><span>{hud.inspecting ? 'Inspecting' : 'Inspect'}</span>{!touch && <kbd>K</kbd>}</button>}
-          {weapon.requiresMount && <p>{hud.braced ? 'PRONE MOUNT DEPLOYED · Z / STAND TO MOVE' : 'Z / PRONE: SAFE · STAND 20 / CROUCH 10 BEFORE ARMOR'}</p>}
+            {...tapProps(onInspect)}><Rotate3d size={13} /><span>{hud.inspecting ? 'Inspecting' : 'Inspect'}</span></button>}
+          {weapon.requiresMount && <p>{hud.braced ? <>PRONE MOUNT DEPLOYED{hint(' · Z / STAND TO MOVE')}</> : <>{hint('Z / PRONE: SAFE · ')}STAND 20 / CROUCH 10 BEFORE ARMOR</>}</p>}
           {reloading
             ? <div className="fps-reload-track" role="progressbar" aria-label="Reload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((1 - hud.reloading) * 100)}><i style={{ width: `${(1 - hud.reloading) * 100}%` }} /></div>
             : <div className="fps-magazine-bar" aria-hidden="true"><i style={{ transform: `scaleX(${fillFraction(rounds, weapon.capacity)})` }} /></div>}

@@ -2,6 +2,15 @@
 
 ## Implemented
 
+PC Inspect is now a compact K hint in the existing weapon-control line. The
+touchscreen keeps its button. **HUD hints** is available in Settings → PC display
+and the ready/pause controls, and persists between sessions. Off hides keyboard
+reminders, mouse-capture status, control instructions, secondary carry figures
+and empty supply slots. Combat state, threats, objectives, accessory state and
+reload/healing progress remain visible. Touch controls and the pause-menu
+reference stay available. The [keybinding audit](KEYBINDING-AUDIT.md) records
+the current scheme, conflicts and a proposed familiar layout.
+
 Health, armor and ammo now share one combat cluster in training, arenas and
 expeditions. On desktop, larger health and armor cards sit immediately beside
 ammo with the utility belt above. Health keeps its damage-trailing bar. The

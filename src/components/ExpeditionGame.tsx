@@ -25,6 +25,7 @@ import TouchControls from './TouchControls';
 import { FpsControlGuide, FpsPlayerTools } from './FpsPlayerTools';
 import { useDebugMode } from '../lib/debug-mode';
 import { useTouchControls } from '../game/use-touch-controls';
+import { useHudHints } from '../game/hud-hints-setting';
 import type { MinimapMarker } from '../game/minimap';
 import './expedition.css';
 import './fps-hit-direction.css';
@@ -90,13 +91,14 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
   // A phone's corner holds the weapon slider above and the belt below, so touch lists only the nearest crossings; the map marks them all.
   const nearestGateways = [...gateways].sort((a, b) => distance(a.position) - distance(b.position));
   const touch = useTouchControls(hud.inputMode);
+  const hudHints = useHudHints(), showHints = touch || hudHints;
   const hold = (key: string) => ({
     onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); engine.current?.setInput(key, true); },
     onPointerUp: () => engine.current?.setInput(key, false),
     onPointerCancel: () => engine.current?.setInput(key, false),
     onLostPointerCapture: () => engine.current?.setInput(key, false),
   });
-  return <div className={`fps-game expedition-game ${fullscreen.immersive ? 'is-immersive' : ''}`} ref={stage} data-touch={touch ? 'on' : undefined}
+  return <div className={`fps-game expedition-game ${fullscreen.immersive ? 'is-immersive' : ''}`} ref={stage} data-touch={touch ? 'on' : undefined} data-hud-hints={hudHints ? 'on' : 'off'}
     data-vehicle-view={hud.vehicleView} data-vehicle-personal-weapon={hud.vehiclePersonalWeapon} data-vehicle={hud.vehicle} data-vehicle-health={hud.vehicleHealth} data-vehicle-ammo={hud.vehicleAmmo} data-speed={hud.vehicleSpeed.toFixed(2)} data-altitude={hud.altitude.toFixed(2)} data-phase={hud.phase} data-pilot={hud.pilotEnabled || undefined} data-pointer-locked={hud.locked} data-zone={scene.zone} data-player-x={hud.x.toFixed(3)} data-player-z={hud.z.toFixed(3)}
     data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-alive={alive} data-loot-count={hud.fieldLoot?.length ?? 0} data-npc-count={hud.npcs?.length ?? 0} data-bot-count={hud.arena?.actors.filter(actor => actor.bot).length ?? 0} data-friendly-count={hud.arena?.actors.filter(actor => actor.bot && actor.faction === PLAYER_FACTION).length ?? 0}>
     <div className="viewport fps-viewport">
@@ -109,7 +111,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       <FpsCalloutWheel hud={hud} engine={engine.current} />
       <FpsFoodPicker hud={hud} engine={engine.current} />
       <FpsFoodPicker hud={hud} engine={engine.current} kind="grenade" />
-      {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus} · ESC TO STOP</div>}
+      {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus}<span className="fps-hud-hint"> · ESC TO STOP</span></div>}
       {playing && <>
         <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} contactRange={hud.mapContactRange} mode="expedition" expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
         {!touch && <span className="fps-capture-state fps-input-status" aria-label="Mouse capture status">{hud.pilotEnabled ? 'AI PILOT' : hud.locked ? 'MOUSE LOCKED' : 'DRAG TO LOOK'}</span>}
@@ -125,12 +127,12 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />}
         {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} onPickFood={() => engine.current?.toggleFoodPicker()} onInspect={() => engine.current?.inspectWeapon()} onPickGrenade={() => engine.current?.toggleGrenadePicker()} onGrenadeFire={held => engine.current?.setInput('fire', held)} touch={touch} />}
         <FpsVehicleHud hud={hud} />
-        {hud.interact && <div className="fps-interact-prompt">{hud.interact}</div>}
+        {hud.interact && <div className="fps-interact-prompt">{showHints ? hud.interact : hud.interact.replace(/^E · /, '')}</div>}
         {hud.vehicleNotice && <div className="fps-vehicle-notice" role="status">{hud.vehicleNotice}</div>}
         {mounted && hud.vehicleCanFire && hud.vehicleAimVisible && <div className="fps-vehicle-reticle" aria-label="Vehicle gun impact point" style={{ left: `${hud.vehicleAimX}%`, top: `${hud.vehicleAimY}%` }}>⊕</div>}
-        <div className="fps-objective">{mounted ? hud.vehicleSeat !== 0 ? 'V switch seat · E exit when stopped' : hud.vehicle === 'car' ? 'W / S throttle · A / D steer · Space brake' : 'W / S cruise · A / D yaw · Space climb · C descend' : 'Explore. Find supplies. Meet people in the district.'}<small>{mounted ? 'Driver dismounts with the crew · Land before exiting' : 'E · LOOT / BOARD · N · INTERACT · T · CROSS CHECKPOINT ON FOOT'}</small></div>
+        <div className={`fps-objective${mounted ? ' fps-hud-hint' : ''}`}>{mounted ? hud.vehicleSeat !== 0 ? 'V switch seat · E exit when stopped' : hud.vehicle === 'car' ? 'W / S throttle · A / D steer · Space brake' : 'W / S cruise · A / D yaw · Space climb · C descend' : 'Explore. Find supplies. Meet people in the district.'}<small>{mounted ? 'Driver dismounts with the crew · Land before exiting' : 'E · LOOT / BOARD · N · INTERACT · T · CROSS CHECKPOINT ON FOOT'}</small></div>
         <FpsLootCard hud={hud} touch={touch} />
-        <div className="expedition-prompts" role="status">{hud.npcPrompt && <strong>{hud.npcPrompt}</strong>}{hud.travelPrompt && <strong>{hud.travelPrompt}</strong>}{hud.lootNotice && <span>{hud.lootNotice}</span>}</div>
+        <div className="expedition-prompts" role="status">{hud.npcPrompt && <strong>{showHints ? hud.npcPrompt : hud.npcPrompt.replace(/^N · /, '')}</strong>}{hud.travelPrompt && <strong>{showHints ? hud.travelPrompt : hud.travelPrompt.replace(/^T · /, '')}</strong>}{hud.lootNotice && <span>{hud.lootNotice}</span>}</div>
         {(hud.sector || hud.sectorHeat) && <div className="expedition-sector" role="status"><span>LOCATION</span><strong>{hud.sector || zone.name}</strong>
           {hud.sectorHeat && <div className="expedition-heat" aria-label="Faction heat here">{[...SQUAD_FACTIONS].reverse().map(id =>
             <div key={id} data-faction={id}><small>{getArenaFaction(id)!.short}</small><i style={{ width: `${Math.round(hud.sectorHeat![id] * 100)}%`, background: getArenaFaction(id)!.accent }} /></div>)}</div>}</div>}
