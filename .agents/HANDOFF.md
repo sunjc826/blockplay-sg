@@ -3896,3 +3896,30 @@ one unrelated Queenstown bot-navigation case timed out under concurrent load.
 Its isolated rerun passed all 21 housing tests in 12 seconds, within the
 original 30-second limit. Manual deployment follows below.
 Other sessions' pending changes and local AGENTS.md are excluded.
+
+
+## 2026-10-30: playable recruit tutorial and store orientation
+
+Added /tutorial and a first main-menu entry: eleven action-checked lessons in a
+small daylight yard using the real FPS engine, issued loadout and touch controls.
+Numbered gates teach walking, sprinting, a 50 cm hurdle, a low crouch tunnel,
+prone, aim, hits, completed reloads, weapon switching and the map. The hurdle
+has a supported landing surface. Pause supports lesson skips and restart.
+Tutorial actions do not award currency or consume the persistent profile.
+
+The six-stop tour of the actual store highlights wallet/progression, categories,
+carry slots, comparisons, utilities and deployment, with category interactions,
+back/close controls and replay from the Store header. Purchases are optional.
+Portrait HUD spacing was visually corrected and checked for overlap/overflow.
+
+Typecheck and 37 focused tests passed. The broad run passed 1,698 tests but had
+four timing failures and a worker timeout under load; all 148 tests in those
+four suites passed on a single-worker rerun. Browser verification covered every
+course action, store completion/replay and touch in both orientations. A smoke
+driver sensitivity error was corrected to the live engine's .0023 mouse gain.
+
+Manually deployed with pnpm deploy:cloudflare from .cache/tutorial-release,
+based on 331bbbe and excluding unrelated pending workspace edits. Cloudflare
+version 671cb519-2a7d-41b6-b7a7-c8d73e4a1f09 succeeded. Release evidence and UI
+captures are under .cache/tutorial-release and .cache/tutorial-browser. No
+GitHub push; AGENTS.md remains local, unstaged and uncommitted.

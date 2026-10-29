@@ -9,7 +9,7 @@ import { createSkyLight, type Rgb } from './world-sky-light';
  * One bounded effect pool per scene. No textures, network traffic or shadow passes.
  * Given the renderer, the district's hemisphere light hands over to a sky light (`world-sky-light`).
  */
-export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x: number; z: number }[], obstacles: readonly Obstacle[], multiplayer = false, renderer?: THREE.WebGLRenderer) {
+export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x: number; z: number }[], obstacles: readonly Obstacle[], multiplayer = false, renderer?: THREE.WebGLRenderer, tutorialDaylight = false) {
   const originalBackground = scene.background, originalFog = scene.fog;
   const background = originalBackground instanceof THREE.Color ? originalBackground.clone() : new THREE.Color('#b9dcea');
   const fog = new THREE.Fog(background, 150, 700);
@@ -76,7 +76,8 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   root.traverse(object => { object.raycast = () => {}; object.userData.fpsEffect = true; });
   const motion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
   let previousEvent: CelebrationId | undefined, lastCheck = -Infinity, lastNow = -Infinity;
-  let active = resolveEnvironment(getEnvironmentSettings()), lastSettings = getEnvironmentSettings();
+  const courseSettings = (settings: ReturnType<typeof getEnvironmentSettings>) => tutorialDaylight ? { ...settings, timeOfDay: 'noon' as const, weather: 'sunny' as const, celebration: 'none' as const } : settings;
+  let active = resolveEnvironment(courseSettings(getEnvironmentSettings())), lastSettings = getEnvironmentSettings();
   const targetColor = new THREE.Color();
   let wetness = 0, wind = 0, haze = 0, sunlight = 1, disposed = false, started = false;
   const sample = (i: number, salt: number) => { const n = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453; return n - Math.floor(n); };
@@ -102,7 +103,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       if (disposed) return;
       const settings = getEnvironmentSettings();
       if (settings !== lastSettings || now - lastCheck >= 1000 || now < lastNow) {
-        active = resolveEnvironment(multiplayer ? { ...DEFAULT_ENVIRONMENT, reducedEffects: settings.reducedEffects, shadows: settings.shadows, occlusion: settings.occlusion } : settings, now);
+        active = resolveEnvironment(multiplayer ? { ...DEFAULT_ENVIRONMENT, reducedEffects: settings.reducedEffects, shadows: settings.shadows, occlusion: settings.occlusion } : courseSettings(settings), now);
         lastCheck = now; lastSettings = settings;
       }
       lastNow = now;

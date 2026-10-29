@@ -29,6 +29,7 @@
     "marina:reconstruct": "node scripts/reconstruct-marina.mjs",
     "marina:usage": "node scripts/api-usage.mjs",
     "test:fps": "node scripts/fps-smoke.mjs",
+    "test:tutorial": "node scripts/tutorial-smoke.mjs",
     "test:armory": "node scripts/armory-smoke.mjs",
     "test:vehicles": "node scripts/vehicle-smoke.mjs",
     "test:fullscreen": "node scripts/fullscreen-smoke.mjs",

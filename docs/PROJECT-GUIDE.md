@@ -4,6 +4,14 @@
 
 ## Game modes and controls
 
+### Recruit tutorial
+
+Choose **Tutorial** on the main menu for an eleven-lesson obstacle course using
+the real movement and weapon controls, followed by a guided store orientation.
+It uses issued practice gear, has no incoming fire and leaves your profile intact.
+Pause to skip a lesson or restart. **Tour store** in the Store header replays the
+six-stop equipment tour. See [tutorial details](TUTORIAL.md).
+
 ### Regional exploration
 
 Select Marina Bay, Queenstown or Raffles Place to open its walk/drive world. The Singapore locator highlights your selection; each region has a local minimap.

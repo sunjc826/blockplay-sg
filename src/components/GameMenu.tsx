@@ -1,3 +1,4 @@
+import TutorialGame from './TutorialGame';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { ArrowLeft, Coins, Crosshair, Download, Gem, Map as MapIcon, MapPin, Settings, ShoppingBag, Users, Wrench } from 'lucide-react';
 import MultiplayerGame from './MultiplayerGame';
@@ -24,6 +25,7 @@ type Screen = Exclude<Route, 'debug'>;
 const TRAINING_DISTRICTS = locations.filter(place => hasRegionGame(place.id));
 
 const ENTRIES = [
+  { route: 'tutorial', icon: Crosshair, title: 'Tutorial', detail: 'New here? Learn the controls, then find your way around the store.' },
   { route: 'training', icon: Crosshair, title: 'Training', detail: 'Live-fire range in any district. Earn credits and XP.' },
   { route: 'world', icon: MapIcon, title: 'Open World', detail: `${REGIONS.length} districts, patrols and supplies. Find your way.` },
   { route: 'multiplayer', icon: Users, title: 'Multiplayer', detail: 'Browse public arena rooms. Invite friends or lock a room with a password.' },
@@ -64,6 +66,7 @@ function PlayNav({ value, options, onChange }: { value: WorldZoneId; options: re
 
 export default function GameMenu({ screen }: { screen: Screen }) {
   const armory = useArmory();
+  const [storeTour, setStoreTour] = useState(false);
   const install = usePwa();
   const [training, setTraining] = useDistrict('blockplay.menu.training', TRAINING_DISTRICTS.map(place => place.id));
   const [worldStart, setWorldStart] = useDistrict('blockplay.menu.world', locations.map(place => place.id));
@@ -78,6 +81,8 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     <span className="game-wallet" title="Credits"><Coins size={14} /><b>{armory.profile.credits.toLocaleString()}</b><small>CR</small></span>
     <span className="game-wallet" title="Tokens"><Gem size={14} /><b>{armory.profile.tokens.toLocaleString()}</b><small>TK</small></span>
   </div>;
+
+  if (screen === 'tutorial') return <div className="game-screen game-screen-play"><main className="game-screen-body"><TutorialGame suspended={install.updateReady} onStore={() => { setStoreTour(true); navigate('store'); }} /></main></div>;
 
   if (screen === 'multiplayer') return <MultiplayerGame armory={armory} suspended={install.updateReady} />;
 
@@ -103,9 +108,10 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     // The store's own header row carries the way back, so the screen has no bar.
     return <div className="game-screen game-screen-store">
       <main className="game-screen-body"><DebugMode.Provider value={false}>
-        <ArmoryShop store={armory} nav={<nav className="store-nav" aria-label="Store">
+        <ArmoryShop store={armory} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined} nav={<nav className="store-nav" aria-label="Store">
           <a className="game-back" {...link('menu')} aria-label="Menu"><ArrowLeft size={16} /><span>Menu</span></a>
           <h1>Store</h1>
+          {!storeTour && <button className="store-tour-trigger" onClick={() => setStoreTour(true)}>Tour store</button>}
           <a className="game-back store-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={15} /></a>
         </nav>} deployments={[
           { id: 'training', label: 'Training', detail: locationName(training), onDeploy: () => navigate('training') },

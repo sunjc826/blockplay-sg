@@ -1,3 +1,4 @@
+import StoreTutorial from './StoreTutorial';
 import { grenadeEffectLines } from '../game/grenade-catalog';
 import { bipodDescription } from '../game/weapon-support';
 import ArmoryCarrySlots from './ArmoryCarrySlots';
@@ -87,7 +88,7 @@ function Stat({ label, value, current, unit = '', lower = false, digits = 0 }: {
 /** A way out of the store into play: a mode and where it starts. */
 export type Deployment = { id: string; label: string; detail: string; onDeploy: () => void };
 
-export default function ArmoryShop({ store, nav, deployments, onEnterRange, rangeLabel = 'Marina FPS' }: { store: ArmoryStore; nav?: ReactNode; deployments?: readonly Deployment[]; onEnterRange?: () => void; rangeLabel?: string }) {
+export default function ArmoryShop({ store, nav, deployments, onEnterRange, rangeLabel = 'Marina FPS', tutorial }: { tutorial?: { onComplete: () => void; onExit: () => void }; store: ArmoryStore; nav?: ReactNode; deployments?: readonly Deployment[]; onEnterRange?: () => void; rangeLabel?: string }) {
   const exits = deployments ?? (onEnterRange ? [{ id: 'range', label: 'Deploy to', detail: rangeLabel, onDeploy: onEnterRange }] : []);
   const [vehicle, setVehicle] = useState<VehicleKind>('car');
   const [category, setCategory] = useState<(typeof SHOP_CATEGORIES)[number]['id']>('weapon'), [family, setFamily] = useState(0), [selectedId, setSelectedId] = useState('sar-vanguard');
@@ -127,6 +128,7 @@ export default function ArmoryShop({ store, nav, deployments, onEnterRange, rang
       <div className="armory-progression"><div className="armory-level-badge" style={{ color: insignia.accent }}><RankBadge insignia={insignia} size={30} /><span>{insignia.emblem.kind === 'numeral' ? 'LEVEL' : `LV ${level.level}`}</span></div><div className="armory-xp"><div><strong>{insignia.label}</strong><span>{level.xp.toLocaleString()} XP {level.level < 50 && ` / ${level.next.toLocaleString()}`}</span></div><progress value={level.progress} max={1} aria-label={level.level >= 50 ? 'Maximum level reached' : 'Progress to next level'} /><small title={unlockNote}>{unlockNote}</small></div>{!skip.atMax && <button className="armory-level-buy" data-testid="buy-level" disabled={!!skipShort} onClick={store.buyLevel} title={`${skip.remaining.toLocaleString()} XP stand between you and level ${skip.next}. Tokens buy XP at ${XP_PER_TOKEN} XP each, so the price falls as you earn.`}><Gem size={13} /><span><strong>{skipShort ? `${skipShort.toLocaleString()} TK short` : `Skip to level ${skip.next}`}</strong><small>{skip.price.toLocaleString()} TK · {skip.remaining.toLocaleString()} XP</small></span></button>}</div>
       <div className="armory-wallet"><span title="Earned from eliminations and completed FPS exercises"><Coins size={15} /><b data-testid="credits">{profile.credits.toLocaleString()}</b><small>CR</small></span><span className="premium"><Gem size={15} /><b data-testid="tokens">{profile.tokens.toLocaleString()}</b><small>TK</small></span><button className="armory-demo" title="Demo wallet · no real payments" aria-label="+250 demo tokens" onClick={store.demoTopUp}>+250<span> demo tokens</span></button></div>
     </div>
+    {tutorial && <StoreTutorial category={category} onComplete={tutorial.onComplete} onExit={tutorial.onExit} />}
     <div className="armory-navigation"><div role="tablist" aria-label="Equipment categories">{SHOP_CATEGORIES.map(c => <button role="tab" id={`shop-tab-${c.id}`} aria-controls="shop-panel" key={c.id} aria-selected={category === c.id} onClick={() => setCategory(c.id)}>{c.label}{c.id === 'armor' && <Shield size={13} />}</button>)}</div></div>
     <ArmoryCarrySlots store={store} />
     <div className="armory-body" id="shop-panel" role="tabpanel" aria-labelledby={`shop-tab-${category}`}>

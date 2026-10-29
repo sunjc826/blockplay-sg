@@ -4,6 +4,7 @@ import { canonicalUrl, routeFromPath } from './routes';
 describe('routes', () => {
   it('maps each screen path, with or without a trailing slash', () => {
     expect(routeFromPath('/')).toBe('menu');
+    expect(routeFromPath('/tutorial/')).toBe('tutorial');
     expect(routeFromPath('/training')).toBe('training');
     expect(routeFromPath('/world/')).toBe('world');
     expect(routeFromPath('/multiplayer/')).toBe('multiplayer');

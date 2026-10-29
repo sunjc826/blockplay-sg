@@ -1,3 +1,5 @@
+import { buildTutorialWorld } from './tutorial-world';
+import { TUTORIAL_DISTRICT } from './tutorial-course';
 import { takeConfirmedImpacts } from './confirmed-impacts';
 import { createKeyboardCrouch, fpsControlKey, fpsInteractionTarget, fpsKeyAction } from './fps-keybindings';
 import { createWeaponDevices, fittedWeaponDevices, toggleWeaponDevice, toggleWeaponRail } from './weapon-device-state';
@@ -140,6 +142,8 @@ const CHATTER_SECONDS = 6, CHATTER_LINES = 4;
 const FOOD_PICKER_HOLD_MS = 280;
 const ahMaLine = (health: number) => `Ah Ma: "Not yet! You haven't finished eating." Back up on ${Math.round(health)} HP.`;
 export interface FpsHud {
+  /** Live movement telemetry for the guided recruit course. */
+  tutorial?: { feet: number; grounded: boolean; stance: 'stand' | 'crouch' | 'prone'; sprinting: boolean };
   encikCallout: EncikCallout | null; encikVoice: boolean; comms: readonly CommsEntry[];
   /** The callout wheel while it is open: the page shown and the slot the pointer is on. */
   calloutWheel: { page: number; slot: number | null } | null;
@@ -225,12 +229,12 @@ function disposeAssets(roots: THREE.Object3D[]) {
   textures.forEach(t => { t.dispose(); if (typeof ImageBitmap !== 'undefined' && t.source.data instanceof ImageBitmap) t.source.data.close(); });
 }
 
-export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { region?: WorldZoneId; playerPilot?: PlayerPilot; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string) => void; onConsume?: (id: string) => void; onFullscreen?: () => void;
+export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { tutorial?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string) => void; onConsume?: (id: string) => void; onFullscreen?: () => void;
   /** Read per callout, so a level-up mid-exercise is heard immediately. */
   encik?: () => EncikAddress } = {}) {
   const expedition = options.expedition;
   const region = expedition?.zone ?? options.region ?? 'marina-bay';
-  const district = getFpsDistrict(region), spawn = district.spawn, targetPositions = district.targets;
+  const district = options.tutorial ? TUTORIAL_DISTRICT : getFpsDistrict(region), spawn = district.spawn, targetPositions = district.targets;
   const copyProfile = (profile: ArmoryProfile): ArmoryProfile => JSON.parse(JSON.stringify(profile));
   let fieldProfile = copyProfile(expedition?.profile ?? options.arena?.profile ?? createProfile());
   let equipment = expedition ? resolveLoadout(fieldProfile) : options.loadout || resolveLoadout(createProfile()), specs = equipment.weapons;
@@ -244,11 +248,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const canvas = renderer.domElement; canvas.tabIndex = 0;
   canvas.setAttribute('aria-label', `${expedition ? getWorldZone(expedition.zone).name + ' expedition' : district.label + ' range'}. WASD to move, mouse to look, click to fire.`);
   host.append(canvas);
-  const zoneWorld = buildDistrictWorld(region, expedition?.spawn);
+  const zoneWorld = options.tutorial ? buildTutorialWorld() : buildDistrictWorld(region, expedition?.spawn);
   const world = zoneWorld; world.stamps.forEach(o => o.visible = false);
   // Before night lights and shadows patch the materials: see instanced-materials.
   separateInstancedMaterials(world.scene);
-  const atmosphere = createWorldAtmosphere(world.scene, getRegion(region).stamps, world.obstacles, !!options.arena && options.arena.session.role !== 'solo', renderer);
+  const atmosphere = createWorldAtmosphere(world.scene, getRegion(region).stamps, world.obstacles, !!options.arena && options.arena.session.role !== 'solo', renderer, options.tutorial);
   // Streetlamps, their pools and lit windows, for dusk and night.
   const nightLights = createNightLights(world.scene, { roads: getRegion(region).mapRoads, roadWidth: getRegion(region).roadWidth, bounds: world.bounds, obstacles: world.obstacles });
   const sunShadows = createSunShadows(renderer, world.scene);
@@ -470,7 +474,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const burden = movement();
     const mapContactRange = minimapContactRange(atmosphere.light.lighting.shift, atmosphere.conditions.weather);
     syncBelt();
-    onHud({ ...hud, vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
+    onHud({ ...hud, ...(options.tutorial ? { tutorial: { feet: vertical, grounded: grounded(), stance: stance(), sprinting: wasSprinting } } : {}), vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapContactRange, mapMarkers: [
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
@@ -1826,7 +1830,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     return true;
   }
   function checkCompletion() {
-    if (options.arena || hud.health <= 0 || hud.phase === 'complete' || hud.hits !== targetPositions.length) return;
+    if (options.tutorial || options.arena || hud.health <= 0 || hud.phase === 'complete' || hud.hits !== targetPositions.length) return;
     hud.phase = 'complete'; hud.incoming = false; clearInput(); radioCall('complete');
     const reward = { id: roundId, hits: hud.hits, shots: hud.shots, landed: hud.landed, elapsed: hud.elapsed, combat: !!options.combat };
     hud.earned += rewardAmount(reward); hud.earnedXp += completionXp(reward); options.onComplete?.(reward);
@@ -2851,6 +2855,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   });
 
   return {
+    setTutorialStep(step: number) { if (options.tutorial) world.scene.userData.setTutorialStep?.(step); },
     start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },

@@ -1,0 +1,72 @@
+.tutorial-game { color: #f1eee1; }
+.tutorial-game .fps-viewport { min-height: 0 !important; border-radius: 0; }
+.tutorial-eyebrow { display: block; color: #dfbf80; font: 10px ui-monospace, monospace; letter-spacing: 1.8px; }
+.tutorial-menu, .tutorial-map { position: absolute; z-index: 7; display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 10px 14px; background: #152a23ed; border: 1px solid #e5cb8c55; border-radius: 8px; color: #f4ecd9; }
+.tutorial-menu { top: 14px; left: 14px; }
+.tutorial-map { left: 50%; bottom: 22px; transform: translateX(-50%); }
+.tutorial-lesson { position: absolute; z-index: 4; top: 76px; left: 18px; width: min(320px, calc(100% - 36px)); padding: 20px; background: #122820eb; border: 1px solid #c8d3b936; border-radius: 12px; pointer-events: none; box-shadow: 0 10px 35px #0002; }
+.tutorial-lesson h2 { margin: 10px 0; font-size: 23px; line-height: 1.2; letter-spacing: -.6px; }
+.tutorial-lesson p { color: #bfccbd; line-height: 1.6; font-size: 13px; margin: 0 0 12px; }
+.tutorial-lesson strong { display: block; color: #f2d395; font-size: 12px; line-height: 1.6; }
+.tutorial-lesson small { display: block; margin-top: 12px; color: #a8c8b5; font-size: 11px; }
+.tutorial-lesson progress { display: block; width: 100%; height: 3px; margin-top: 16px; accent-color: #e7bd75; }
+.tutorial-game .tutorial-card { max-width: 480px; width: 100%; max-height: 100%; overflow: auto; text-align: left; padding: 28px; border-radius: 15px; background: #14271ff5; }
+.tutorial-card h2 { font-size: 33px; line-height: 1.1; }
+.tutorial-card > p { line-height: 1.7; font-size: 14px; color: #bdcbbd; }
+.tutorial-card > small { display: block; line-height: 1.6; color: #a7bca6; font-size: 11px; }
+.tutorial-card .primary-button { width: 100%; justify-content: center; margin: 20px 0 10px; min-height: 48px; }
+.tutorial-back, .tutorial-secondary { display: flex; align-items: center; justify-content: center; gap: 8px; background: transparent; border: 0; color: #c3d1bf; min-height: 44px; font-size: 12px; }
+.tutorial-back { padding: 0; margin: -6px 0 20px; }
+.tutorial-secondary { width: 100%; }
+.tutorial-brief { display: grid; gap: 10px; margin: 22px 0; padding: 16px; border: 1px solid #c7d4b52b; border-radius: 8px; color: #dfc58e; font-size: 12px; }
+.tutorial-crosshair { position: absolute; z-index: 3; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; color: white; font-size: 22px; }
+.tutorial-game:has(.fps-scope) .tutorial-crosshair { display: none; }
+.tutorial-game .fps-weapon-hud .fps-utility-belt { display: none; }
+.tutorial-course-map { position: absolute; z-index: 5; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #14271ff5; border: 1px solid #c8b17a; border-radius: 12px; padding: 16px; width: min(240px, 60vw); text-align: center; }
+.tutorial-course-map svg { display: block; width: 100%; height: min(300px, 40dvh); }
+.tutorial-course-map p { font-size: 11px; color: #c5d6bc; }
+.store-tour { position: sticky; top: 0; z-index: 8; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px clamp(16px, 3vw, 36px); border-bottom: 1px solid #d7ba7566; background: #203b2e; color: #e8efdf; }
+.store-tour-copy { max-width: 800px; }
+.store-tour h2 { margin: 7px 0; font-size: 20px; }
+.store-tour p { margin: 0; font-size: 13px; line-height: 1.65; color: #c0d1bd; }
+.store-tour-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.store-tour-actions button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 14px; border: 1px solid #cdbd8a66; border-radius: 7px; background: #14271e; color: #f0d79c; font-size: 12px; }
+.store-tour-actions button:disabled { opacity: .5; cursor: default; }
+.armory:has(.store-tour[data-step=wallet]) .armory-progression,
+.armory:has(.store-tour[data-step=wallet]) .armory-wallet,
+.armory:has(.store-tour[data-step=categories]) .armory-navigation,
+.armory:has(.store-tour[data-step=carry]) .armory-carry,
+.armory:has(.store-tour[data-step=compare]) .armory-details,
+.armory:has(.store-tour[data-step=supplies]) .armory-navigation,
+.armory:has(.store-tour[data-step=deploy]) .armory-deploy { outline: 2px solid #e5be74; outline-offset: -2px; background-color: #cba96010; }
+.store-tour-trigger { background: transparent; border: 1px solid #e1c88d50; border-radius: 6px; color: #e1c88d; padding: 8px 11px; font-size: 11px; }
+@media (max-width: 760px) {
+  .store-tour { flex-direction: column; align-items: stretch; gap: 14px; padding: 16px; }
+  .store-tour-actions { justify-content: flex-end; flex-wrap: wrap; }
+  .store-tour p { font-size: 12px; }
+  .tutorial-game[data-touch=on] .tutorial-lesson { top: 68px; width: min(285px, calc(100% - 36px)); padding: 14px; }
+  .tutorial-lesson h2 { font-size: 19px; }
+  .tutorial-lesson p { font-size: 12px; }
+  .tutorial-game .tutorial-card { padding: 22px; }
+}
+@media (max-height: 500px) {
+  .tutorial-lesson, .tutorial-game[data-touch=on] .tutorial-lesson { top: 12px; left: 78px; width: min(310px, calc(100% - 290px)); padding: 12px; }
+  .tutorial-lesson h2 { font-size: 16px; margin: 5px 0; }
+  .tutorial-lesson p, .tutorial-lesson strong { font-size: 10px; line-height: 1.4; }
+  .tutorial-lesson p { margin-bottom: 6px; }
+  .tutorial-lesson small { margin-top: 5px; font-size: 10px; }
+  .tutorial-lesson progress { margin-top: 8px; }
+  .tutorial-menu { top: 12px; left: 12px; padding: 10px; }
+  .tutorial-menu span { display: none; }
+}
+.fps-game.tutorial-game.is-immersive .fps-overlay { padding: 16px; }
+.tutorial-game .fps-belt { display: none; }
+
+/* Keep the lesson above the sight line and the readout above the thumb pad. */
+@media (max-width: 760px) and (min-height: 501px) {
+  .fps-game.tutorial-game[data-touch=on] .fps-weapon-slider { top: 14px; }
+  .fps-game.tutorial-game[data-touch=on] .tutorial-lesson { top: 76px; width: calc(100% - 36px); }
+  .fps-game.tutorial-game[data-touch=on] .fps-combat-hud { top: auto; bottom: 220px; }
+  .fps-game.tutorial-game[data-touch=on] .fps-vitals,
+  .fps-game.tutorial-game[data-touch=on] .fps-inspect-button { display: none; }
+}
