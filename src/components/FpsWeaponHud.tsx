@@ -61,7 +61,9 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickF
           {grenade ? <strong>{grenade.pinned ? Math.max(0, grenade.fuse - grenade.cooked).toFixed(1) : 'READY'}<small>{grenade.pinned ? ' s' : grenade.under ? ' LOB' : ' THROW'}</small></strong> : <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}{hud.chambered && <em className="fps-chamber" aria-label="one in the chamber">+1</em>}<small>/ {hud.reserve}</small></strong>}
           {prompt ? <p>{prompt}</p> : <p className="fps-ammo-detail fps-hud-hint">R RELOAD · Q / RMB AIM{onInspect && hud.vehicle === 'on-foot' && !touch && ' · K INSPECT'}</p>}
           {(hud.rail || hud.offsetDot) && <p className="fps-ammo-detail" data-accessories>
-            {hud.rail && <>{hint('B ')}{hud.rail.kind === 'laser' ? 'LASER' : hud.rail.kind === 'light' ? 'LIGHT' : 'LASER-LIGHT'} {hud.rail.on ? 'ON' : 'OFF'}</>}
+            {hud.rail && hud.rail.kind !== 'light' && <>{hint('B ')}LASER {(hud.rail.laserOn ?? hud.rail.on) ? 'ON' : 'OFF'}</>}
+            {hud.rail?.kind === 'laser-light' && ' · '}
+            {hud.rail && hud.rail.kind !== 'laser' && <>{hint('L ')}LIGHT {(hud.rail.lightOn ?? hud.rail.on) ? 'ON' : 'OFF'}</>}
             {hud.rail && hud.offsetDot && ' · '}{hud.offsetDot && <>{hint('X ')}{hud.canted ? 'OFFSET DOT' : 'PRIMARY SIGHT'}</>}
           </p>}
           <p className="fps-ammo-detail fps-hud-hint">{hud.carriedKg.toFixed(1)} KG CARRIED · {Math.round(hud.movementScale * 100)}% MOVEMENT</p>

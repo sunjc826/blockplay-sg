@@ -3871,3 +3871,28 @@ flags G/9 grenade access, split E/N/T interactions, missing scroll cycling/Tab
 scores, Ctrl not crouching infantry and Shift+number handling. Only guide
 accuracy changed: 4–9 supplies and hold C; gameplay binds were not remapped.
 Existing unrelated working-tree changes remain unstaged.
+
+
+## 2026-10-30: agreed PC stance and equipment controls
+
+Implemented Ctrl hold/C toggle crouch, Z prone, N vision/J palette, B laser
+and L weapon light, with independent emitters on combined modules. K remains
+Inspect; F is free. Mounted C changes camera and Ctrl descends helicopters;
+touch and pilot semantic controls are preserved. Contextual E prioritizes
+focused loot, then a nearby NPC, then a vehicle, with mounted E exiting. T
+travel and existing supply/grenade keys remain. Physical KeyboardEvent.code
+normalization fixes shifted number slots and movement positions on alternate
+layouts. Guides, prompts, equipment descriptions and existing smoke scripts
+now follow the accepted bindings. Broader audit proposals remain deferred.
+
+Actual-engine browser checks covered Ctrl/C/Z, pause clearing the crouch
+latch, N, independent B/L, K Inspect, F remaining free, E boarding and C
+vehicle camera. Contextual E priority has unit coverage; no complete NPC
+expedition traversal was performed. Browser evidence is in
+.cache/keybinding-implementation/controls-verified.png. Typecheck, Cloudflare
+build and 19 focused control/device/touch tests passed on an isolated staged
+release snapshot. The full run passed 1,704 of 1,705 tests across 177 files;
+one unrelated Queenstown bot-navigation case timed out under concurrent load.
+Its isolated rerun passed all 21 housing tests in 12 seconds, within the
+original 30-second limit. Manual deployment follows below.
+Other sessions' pending changes and local AGENTS.md are excluded.

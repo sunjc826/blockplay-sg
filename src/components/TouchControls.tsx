@@ -99,7 +99,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
     if (hud.vehicleSeat === 0) {
       pad.push(act('boost', flying ? 'Boost' : 'Sprint', <Rocket size={17} />, hold('shift')));
       pad.push(act('altitude', flying ? 'Climb' : 'Brake', <ChevronsUp size={17} />, hold(' ')));
-      if (flying) pad.push(act('descend', 'Descend', <ArrowDownToLine size={17} />, hold('c')));
+      if (flying) pad.push(act('descend', 'Descend', <ArrowDownToLine size={17} />, hold('control')));
     }
     if (hud.interact) prompts.push(act('vehicle', promptLabel(hud.interact), <Footprints size={16} />, { onClick: () => engine?.interactVehicle() }));
   } else {

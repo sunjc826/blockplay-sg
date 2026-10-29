@@ -1,4 +1,6 @@
 import { takeConfirmedImpacts } from './confirmed-impacts';
+import { createKeyboardCrouch, fpsControlKey, fpsInteractionTarget, fpsKeyAction } from './fps-keybindings';
+import { createWeaponDevices, fittedWeaponDevices, toggleWeaponDevice, toggleWeaponRail } from './weapon-device-state';
 import { createGrenadeSystem, grenadePayloads, grenadeSmokeBetween, type GrenadeBurst, type LiveGrenade, type GrenadeEvent } from './grenade-system';
 import { createGrenadeViewmodel } from './grenade-models';
 import { createGrenadeVisuals } from './grenade-visuals';
@@ -204,8 +206,8 @@ export interface FpsHud {
   mapExpanded: boolean;
   /** The worn night-vision or thermal device, if any, and what it is doing. */
   vision: { name: string; kind: VisionKind; generation: number; on: boolean; palette: ThermalPalette | ''; palettes: number; warm: number; calibrating: boolean } | null;
-  /** The weapon in hand's laser or light (B switches it), and its offset dot (X cants onto it). */
-  rail: { kind: RailDevice; on: boolean } | null; offsetDot: boolean; canted: boolean;
+  /** The weapon in hand's laser (B) and light (L), and its offset dot (X cants onto it). */
+  rail: { kind: RailDevice; on: boolean; laserOn?: boolean; lightOn?: boolean } | null; offsetDot: boolean; canted: boolean;
 }
 export const initialFpsHud: FpsHud = { inspecting: false, grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], foodChoice: null, foodPicker: null, mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, expeditionZone: null, lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
@@ -314,8 +316,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // A laser's beam and dot, and a torch only when the loadout carries one (see weapon-rail-effects).
   const railEffects = createRailEffects(world.scene, specs.some(spec => hasLight(spec.accessories)));
   const laserRay = new THREE.Raycaster(), railFrom = new THREE.Vector3(), railTo = new THREE.Vector3(), railLight = new THREE.Vector3(), railForward = new THREE.Vector3();
-  /** B: the rail device on or off, for every weapon. X: canted onto the offset dot, and how far over the weapon is. */
-  let railOn = true, cantWanted = false, cant = 0;
+  /** B/L: independent laser/light switches, shared across weapons. X: canted onto the offset dot, and how far over the weapon is. */
+  const weaponDevices = createWeaponDevices();
+  let cantWanted = false, cant = 0;
   // Combat events are drawn from the descriptors the authority publishes.
   const eventRay = new THREE.Raycaster();
   const combatVisuals = createCombatEventVisuals(world.scene, (origin, direction, far) => {
@@ -448,9 +451,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const ray = new THREE.Raycaster(); ray.far = 250;
   const center = new THREE.Vector2(), muzzlePoint = new THREE.Vector3();
   let prone = false;
+  const keyboardCrouch = createKeyboardCrouch();
+  const crouchRequested = () => keyboardCrouch.active || keys.has('c');
   const grounded = () => velocityY <= 0 && Math.abs(vertical - (footMovement.supportHeight(position.x, position.z, vertical + .02, .38, .6) ?? -100)) < .025;
   const eyeHeight = () => {
-    const requested = prone ? PRONE_EYE_HEIGHT : keys.has('c') ? 1.15 : 1.75;
+    const requested = prone ? PRONE_EYE_HEIGHT : crouchRequested() ? 1.15 : 1.75;
     for (const height of [requested, 1.15, PRONE_EYE_HEIGHT]) {
       if (height <= requested && footMovement.canOccupy(position.x, vertical, position.z, .38, height + .05)) return height;
     }
@@ -465,7 +470,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const burden = movement();
     const mapContactRange = minimapContactRange(atmosphere.light.lighting.shift, atmosphere.conditions.weather);
     syncBelt();
-    onHud({ ...hud, vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(vertical > .35 && !vehicles.active ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
+    onHud({ ...hud, vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapContactRange, mapMarkers: [
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
@@ -487,7 +492,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     for (const e of activeGrenadeEvents()) for (const p of grenadePayloads(e)) if (p.type === 'cloud' && time - e.start <= p.until && itemById(e.id)?.grenade?.effects.some(effect => effect.kind === 'cloud' && effect.blocksSight !== false)) clouds.push({ x: e.point.x, z: e.point.z, radius: p.radius, ground: e.point.y });
     return combatMinimapMarkers(camera, world.scene, hud.arenaSelf, hud.arena?.actors ?? [], combatSubjects(true), clouds, range);
   };
-  const clearInput = () => { stopInspect(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; ads = false; touchAim = false; drag = null; moveStick = null; foodKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
+  const clearInput = () => { stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; ads = false; touchAim = false; drag = null; moveStick = null; foodKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -743,7 +748,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.lootCard = focusedLoot ? cardFor(focusedLoot) : null;
     hud.lootPrompt = hud.lootCard ? `E · ${hud.lootCard.action} ${hud.lootCard.tier} ${hud.lootCard.name}${hud.lootCard.blocked ? ` · ${hud.lootCard.blocked}` : ''}` : '';
     markers?.focus(focusedLoot?.id ?? null);
-    hud.npcPrompt = npc ? `N · ${npcInteractionPrompt(npc)}` : '';
+    hud.npcPrompt = npc && !focusedLoot ? `E · ${npcInteractionPrompt(npc)}` : '';
     hud.travelPrompt = gateway ? `T · Travel to ${getWorldZone(gateway.to).name}` : '';
     if (npc && !greetedNpcs.has(npc.id) && hud.phase === 'playing') {
       greetedNpcs.add(npc.id);
@@ -896,8 +901,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) return;
     if (key === 'k') { if (held) inspectWeapon(); return; }
     if (key === 'v') { if (held) switchVehicleSeat(); return; }
-    if (key === 'z') { if (held && !vehicles.active && grounded()) { if (!prone || footMovement.canOccupy(position.x, vertical, position.z, .38, 1.8)) prone = !prone; keys.delete('c'); publish(); } return; }
-    if (held && key === 'c' && footMovement.canOccupy(position.x, vertical, position.z, .38, 1.2)) prone = false;
+    if (key === 'z') { if (held && !vehicles.active && grounded()) { if (!prone || footMovement.canOccupy(position.x, vertical, position.z, .38, 1.8)) prone = !prone; keyboardCrouch.clear(); keys.delete('c'); publish(); } return; }
+    if (held && !vehicles.active && (key === 'c' || key === 'control') && footMovement.canOccupy(position.x, vertical, position.z, .38, 1.2)) prone = false;
     if (key === 'fire') pullTrigger(held);
     else if (held) keys.add(key); else keys.delete(key);
   }
@@ -954,13 +959,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function updateRail(active: boolean) {
     const model = weapons[hud.weapon], spec = specs[hud.weapon];
     const emitters = railEmitters(model, spec);
-    const on = active && railOn && !supplyUse;
-    if (emitters.lens) emitters.lens.material.emissiveIntensity = railOn && emitters.light ? 2.4 : 0;
-    canvas.dataset.rail = spec?.accessories?.rail ? `${spec.accessories.rail}:${on ? 'on' : 'off'}` : '';
-    if (!on || (!emitters.laser && !emitters.light)) { railEffects.update({ camera }); return; }
+    const devices = fittedWeaponDevices(weaponDevices, spec?.accessories);
+    const enabled = active && !supplyUse;
+    const laserOn = enabled && devices.laser, lightOn = enabled && devices.light;
+    if (emitters.lens) emitters.lens.material.emissiveIntensity = devices.light && emitters.light ? 2.4 : 0;
+    canvas.dataset.rail = spec?.accessories?.rail ? `${spec.accessories.rail}:${laserOn || lightOn ? 'on' : 'off'}` : '';
+    canvas.dataset.railLaser = String(laserOn); canvas.dataset.railLight = String(lightOn);
+    if ((!laserOn && !lightOn) || (!emitters.laser && !emitters.light)) { railEffects.update({ camera }); return; }
     camera.getWorldDirection(railForward);
     let laser: Parameters<typeof railEffects.update>[0]['laser'];
-    if (emitters.laser) {
+    if (emitters.laser && laserOn) {
       emitters.laser.updateWorldMatrix(true, false);
       camera.localToWorld(emitters.laser.getWorldPosition(railFrom));
       laserRay.set(camera.position, railForward); laserRay.near = .05; laserRay.far = 150;
@@ -969,7 +977,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       laser = { from: railFrom, to: railTo, hit: !!hit };
     }
     let light: Parameters<typeof railEffects.update>[0]['light'];
-    if (emitters.light) {
+    if (emitters.light && lightOn) {
       emitters.light.updateWorldMatrix(true, false);
       light = { from: camera.localToWorld(emitters.light.getWorldPosition(railLight)), direction: railForward };
     }
@@ -977,14 +985,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function railHud(): Pick<FpsHud, 'rail' | 'offsetDot' | 'canted'> {
     const accessories = specs[hud.weapon]?.accessories;
-    return { rail: accessories?.rail ? { kind: accessories.rail, on: railOn } : null, offsetDot: !!accessories?.offsetDot, canted: cantWanted };
+    const devices = fittedWeaponDevices(weaponDevices, accessories);
+    return { rail: accessories?.rail ? { kind: accessories.rail, on: devices.laser || devices.light, laserOn: devices.laser, lightOn: devices.light } : null, offsetDot: !!accessories?.offsetDot, canted: cantWanted };
   }
   function visionHud(): FpsHud['vision'] {
     const worn = equipment.vision; if (!worn) return null;
     return { name: worn.name, kind: worn.spec.kind, generation: worn.spec.generation, on: visionState.on, palette: activePalette(visionState, worn.spec),
       palettes: worn.spec.palettes.length, warm: visionState.warm, calibrating: visionState.calibrating > 0 };
   }
-  /** H: the worn device on or off. J: the next thermal palette. The touch button walks both (see vision-devices). */
+  /** N: the worn device on or off. J: the next thermal palette. The touch button walks both (see vision-devices). */
   function useVision(step: 'toggle' | 'palette' | 'button') {
     const spec = equipment.vision?.spec;
     if (!spec || hud.phase !== 'playing') return;
@@ -994,10 +1003,29 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     visionSound(visionState.on && !was ? 'on' : !visionState.on ? 'off' : 'palette', spec.kind);
     publish();
   }
-  /** B: the laser or light on the weapon in hand, on or off. */
+  /** The touch control switches fitted devices together; PC B/L switches each emitter. */
   function toggleRail() {
-    if (hud.phase !== 'playing' || !specs[hud.weapon].accessories?.rail) return;
-    railOn = !railOn; publish();
+    if (hud.phase !== 'playing' || !toggleWeaponRail(weaponDevices, specs[hud.weapon].accessories)) return;
+    publish();
+  }
+  function toggleDevice(device: 'laser' | 'light') {
+    if (hud.phase !== 'playing' || !toggleWeaponDevice(weaponDevices, specs[hud.weapon].accessories, device)) return;
+    publish();
+  }
+  function toggleKeyboardCrouch() {
+    if (hud.phase !== 'playing' || vehicles.active || hud.arenaSelf?.alive === false) return;
+    if (prone) {
+      if (!footMovement.canOccupy(position.x, vertical, position.z, .38, 1.2)) return;
+      prone = false; keyboardCrouch.clear();
+    }
+    keyboardCrouch.toggle(); publish();
+  }
+  function interactContext() {
+    const npc = !!expedition && !vehicles.active && vertical <= .35 && !!nearestNpc(npcs, position);
+    const target = fpsInteractionTarget(!!vehicles.active, !!expedition && !!focusedLoot, npc);
+    if (target === 'loot') interactLoot();
+    else if (target === 'npc') interactNpc();
+    else interactVehicle();
   }
   /** X: roll over onto the offset dot beside a magnified sight, and back. */
   function toggleCant() {
@@ -1013,11 +1041,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     vehicleView = firstPersonVehicle() ? 'third-person' : 'first-person';
     ads = touchAim = false; updateCameras(0, false, false); publish();
   }
-  const keyboardKeys = ['y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'k', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'i', 'v', 'l', 'n', 't', 'f', 'm', 'h', 'j', 'b', 'x', 'control', 'escape'];
+  const keyboardKeys = ['y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'k', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'i', 'v', 'l', 'n', 't', 'm', 'j', 'b', 'x', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
-    const key = event.key.toLowerCase();
-    if (key === 'f' && !event.repeat) { event.preventDefault(); options.onFullscreen?.(); return; }
-    if (hud.phase !== 'playing' || !keyboardKeys.includes(key)) return;
+    const key = fpsControlKey(event);
+    if (!key || hud.phase !== 'playing' || !keyboardKeys.includes(key)) return;
     event.preventDefault();
     if (key === 'y') { if (!event.repeat && !pilotEnabled) openCalloutWheel(); return; }
     // While the wheel is open, Tab turns its page and a number says that slot at once; moving keeps working.
@@ -1028,19 +1055,28 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (key === 'm') { if (!event.repeat) toggleMap(); return; }
     if (key === 'escape') pause();
     else if (pilotEnabled) { pause(); hud.message = 'AI stopped. Click Resume to take control.'; publish(); }
-    else if (key === 'v') { if (!event.repeat) switchVehicleSeat(); }
-    else if (key === 'l') { if (!event.repeat) toggleVehicleView(); }
-    else if (key === 'e') { if (!event.repeat) expedition && !vehicles.active && focusedLoot ? interactLoot() : interactVehicle(); }
+    else if (fpsKeyAction(key, !!vehicles.active)) {
+      const action = fpsKeyAction(key, !!vehicles.active)!;
+      if (action === 'crouch-hold') {
+        keyboardCrouch.hold(event.code || key, true); setInput('control', true);
+      } else if (!event.repeat) {
+        switch (action) {
+          case 'interact': interactContext(); break;
+          case 'vision': useVision('toggle'); break;
+          case 'palette': useVision('palette'); break;
+          case 'light': toggleDevice('light'); break;
+          case 'laser': toggleDevice('laser'); break;
+          case 'cant': toggleCant(); break;
+          case 'seat': switchVehicleSeat(); break;
+          case 'vehicle-camera': toggleVehicleView(); break;
+          case 'crouch-toggle': toggleKeyboardCrouch(); break;
+          case 'prone': setInput('z', true); break;
+          case 'inspect': inspectWeapon(); break;
+        }
+      }
+    }
     else if (key === 'i') { if (!event.repeat && focusedLoot?.kind === 'armor') interactLoot('swap'); }
-    else if (key === 'n') { if (!event.repeat) interactNpc(); }
     else if (key === 't') { if (!event.repeat) travelZone(); }
-    else if (key === 'h') { if (!event.repeat) useVision('toggle'); }
-    else if (key === 'j') { if (!event.repeat) useVision('palette'); }
-    else if (key === 'b') { if (!event.repeat) toggleRail(); }
-    else if (key === 'x') { if (!event.repeat) toggleCant(); }
-    else if (key === 'z') { if (!event.repeat) setInput('z', true); }
-    else if (key === 'c') setInput('c', true);
-    else if (key === 'k') { if (!event.repeat) inspectWeapon(); }
     else if (key === 'r') reload();
     else if (key === 'g') { if (!event.repeat) useQuickItem(); }
     // The food key eats on release, so holding it can open the picker instead.
@@ -1052,7 +1088,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     else keys.add(key);
   };
   const pilotEscape = (event: KeyboardEvent) => { if (pilotEnabled && event.key === 'Escape') { event.preventDefault(); pause(); } };
-  const keyup = (event: KeyboardEvent) => { const key = event.key.toLowerCase(); keys.delete(key); if (key === '9') releaseGrenadeKey(); if (key === 'y') closeCalloutWheel(true); if (utilitySlotForKey(key)?.kind === 'food') releaseFoodKey(); };
+  const keyup = (event: KeyboardEvent) => {
+    const key = fpsControlKey(event, true); if (!key) return;
+    if (key === 'control') {
+      keyboardCrouch.hold(event.code || key, false);
+      if (!keyboardCrouch.holding) keys.delete(key);
+    } else keys.delete(key);
+    if (key === '9') releaseGrenadeKey();
+    if (key === 'y') closeCalloutWheel(true);
+    if (utilitySlotForKey(key)?.kind === 'food') releaseFoodKey();
+  };
   /** With the wheel open, the scroll wheel turns its page. */
   const scrollWheel = (event: WheelEvent) => { if (!wheel) return; event.preventDefault(); if (Math.abs(event.deltaY) > 4) setCalloutPage(wheel.page + Math.sign(event.deltaY)); };
   const pointerSource = (event: PointerEvent) => {
@@ -1377,7 +1422,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const bodyFollow = (bodyMotion.compression * .35 + bodyMotion.eyeVelocity * -.012) * motionScale * (1 - aim * .8);
     // A laser that is switched off still weighs the gun down, but it no longer shows where the round goes.
     const fitted = specs[hud.weapon].accessories;
-    spreadAngle = weaponSpread(bloom[hud.weapon], hud.weapon, aim, crouching, moving) * accessorySpreadScale(railOn ? fitted : { ...fitted, rail: undefined }, aim);
+    spreadAngle = weaponSpread(bloom[hud.weapon], hud.weapon, aim, crouching, moving) * accessorySpreadScale(fittedWeaponDevices(weaponDevices, fitted).laser ? fitted : { ...fitted, rail: undefined }, aim);
     const spreadPixels = Math.tan(spreadAngle) * canvas.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     hud.crosshairSpread = THREE.MathUtils.damp(hud.crosshairSpread, Math.max(3, spreadPixels), 20, dt);
     const state = loadout[hud.weapon], remaining = state.reloadRemaining / reloadDuration(specs[hud.weapon], emptyReload[hud.weapon]);
@@ -1958,7 +2003,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function shoot() {
     if ((!pilotEnabled && specs[hud.weapon].fireMode === 'semi' && triggerSpent) || vehicles.active && !vehicles.canUseFirearm || (options.arena && !hud.arenaSelf?.alive) || !fireWeapon(loadout[hud.weapon], hud.weapon, specs)) return;
     hud.shots++; shotSound(specs[hud.weapon]);
-    const recoilDamage = unsupportedRecoilDamage(specs[hud.weapon], prone, grounded(), keys.has('c'));
+    const recoilDamage = unsupportedRecoilDamage(specs[hud.weapon], prone, grounded(), stance() === 'crouch');
     if (recoilDamage) {
       hud.message = `Unsupported .50 recoil: ${recoilDamage} damage before armor. Z / Prone to deploy the mount.`;
       if (!arenaRuntime) {
@@ -2810,6 +2855,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
     toggleVehicleView, toggleAim, toggleMap, toggleRail, toggleCant,
+    toggleWeaponLight: () => toggleDevice('light'), toggleWeaponLaser: () => toggleDevice('laser'),
     openCalloutWheel, closeCalloutWheel, setCalloutPage, sendCallout,
     /** Touch: the wheel's button opens it and, open, puts it away. */
     toggleCalloutWheel() { if (wheel) closeCalloutWheel(); else openCalloutWheel(); },

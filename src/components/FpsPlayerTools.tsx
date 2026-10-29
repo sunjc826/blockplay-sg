@@ -13,7 +13,7 @@ export function FpsPlayerTools({ hud, engine, immersive, touch, onFullscreen }: 
     <FpsRadioVoice hud={hud} engine={engine} />
     {touch && <AimAssistToggle />}
     {!touch && <HudHintsToggle />}
-    <button className="session-button" onClick={onFullscreen}>{immersive ? <Minimize size={14} /> : <Maximize size={14} />} {immersive ? 'Windowed' : 'Fullscreen'} <kbd>F</kbd></button>
+    <button className="session-button" onClick={onFullscreen}>{immersive ? <Minimize size={14} /> : <Maximize size={14} />} {immersive ? 'Windowed' : 'Fullscreen'}</button>
   </div>;
 }
 

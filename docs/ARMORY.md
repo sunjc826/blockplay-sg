@@ -313,7 +313,7 @@ each one changes something in play besides a figure in the dossier:
 | Suppressor | Muzzle flash cut to a tenth; the report a fraction as loud, and heard by other players as if from 2.5× further off; arena heat from the shot ×0.3, so world events are drawn to you far less; the round leaves 8–10% slower | `fps-effect-styles`, `gunshot-audio`, `gunfire-reports`, `arena-rules` |
 | Compensator | Recoil ×0.78–0.8; a bigger flash, a louder, sharper report and more heat | the same |
 | Laser | Hip-fire cone halved (aimed fire unchanged); a red beam and a dot where the crosshair meets the world. **B** switches it | `accessorySpreadScale` in `fps-engine`, `weapon-rail-effects` |
-| Weapon light | A spot cone from the muzzle that lights the scene at night (a tenth as bright by day); the lens glows. **B** switches it | `weapon-rail-effects` |
+| Weapon light | A spot cone from the muzzle that lights the scene at night (a tenth as bright by day); the lens glows. **L** switches it | `weapon-rail-effects` |
 | Folding brace | Recoil ×0.75, recovery ×1.2, hip cone ×0.75 | `resolveLoadout`, `accessorySpreadScale` |
 | Slide-cut red dot | A 1× dot over the P30's iron sights, which co-witness through the window | `weapon-sight-housings`, `weapon-optics` |
 | Holographic sight | A 1× window with a 65 MOA ring around the dot | the same |
@@ -897,7 +897,7 @@ Real-world naming reference: [CMPB's issued-equipment page](https://www.cmpb.gov
 The **Night vision** tab sells head-mounted devices, after the tiers of
 S.T.A.L.K.E.R.'s suit night vision. One is worn at a time (`profile.vision`,
 default `vision-none`); it is a permanent unlock and its weight counts with the
-rig and inserts. **H** switches it on, **J** cycles a thermal core's palettes,
+rig and inserts. **N** switches it on, **J** cycles a thermal core's palettes,
 and on a touchscreen one eye button walks off → on → each palette → off and
 carries the device's state as a badge. A device comes up from cold over its
 warm-up, and stays on across an expedition gateway.

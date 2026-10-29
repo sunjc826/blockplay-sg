@@ -103,12 +103,12 @@ try {
   await conditions({ timeOfDay: 'night' });
   await delay(4000);
   await screenshot('night-naked');
-  await key('h', 'KeyH');
+  await key('n', 'KeyN');
   let seen = await watchSwitch('nvg-on', m => m.mount === 1);
   assert(seen.some(m => m.mount > 0 && m.mount < 1), 'the tube swings down rather than appearing');
   await wait(`(document.querySelector('.fps-game canvas').dataset.vision||'').startsWith('nvg')`, 3000);
   await delay(1800); await screenshot('nvg-lit');
-  await key('h', 'KeyH');
+  await key('n', 'KeyN');
   seen = await watchSwitch('nvg-off', m => m.mount === 0 && m.fading === 0);
   assert(seen.some(m => m.fading > 0), 'the phosphor fades before the tube swings up');
   assert(seen.some(m => m.fading === 0 && m.mount > 0 && m.mount < 1), 'then the tube swings up');
@@ -116,12 +116,12 @@ try {
 
   // A thermal core: the same switch, with its own boot and fold.
   await enterRange('thermal-t2', { weather: 'sunny', timeOfDay: 'noon' });
-  await key('h', 'KeyH');
+  await key('n', 'KeyN');
   await watchSwitch('thermal-on', m => m.mount === 1);
   await delay(250); await screenshot('thermal-booting');
   await delay(1200); await screenshot('thermal-lit');
   assert.equal(String(await canvasData('lens')).split(':')[0], '0.00', 'no sun flare in a thermal picture');
-  await key('h', 'KeyH');
+  await key('n', 'KeyN');
   seen = await watchSwitch('thermal-off', m => m.mount === 0 && m.fading === 0);
   assert(seen.some(m => m.fading > 0), 'the display folds away before the core swings up');
   console.log('PASS thermal: swings down, boots, folds away and swings back up.');

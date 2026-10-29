@@ -70,7 +70,8 @@ try {
   await click(button('Resume expedition')); await wait(phase('playing'));
   assert(await evaluate(`document.fullscreenElement.contains(document.querySelector('.fps-minimap'))`));
   await screenshot('expedition-fullscreen-playing');
-  await key('f','KeyF'); await wait(phase('paused')); await wait(`!document.fullscreenElement`);
+  await key('Escape','Escape'); await wait(phase('paused'));
+  if (await evaluate('!!document.fullscreenElement')) await click(`document.querySelector('.fps-leave-screen')`); await wait(`!document.fullscreenElement`);
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   await evaluate(`document.querySelector('.expedition-game').scrollIntoView({block:'start'})`);
   await screenshot('expedition-mobile');

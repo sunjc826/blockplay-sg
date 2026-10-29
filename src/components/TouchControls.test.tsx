@@ -35,7 +35,7 @@ it('lays the right thumb\'s actions out as a shooter\'s pad, each in a fixed pla
 });
 
 it('offers the expedition its checkpoints, and the range its vehicles', () => {
-  const expedition = layer(playing({ quickItem: 'Field dressing', quickCount: 2, lootPrompt: 'E · rare Combat stim', npcPrompt: 'N · Buy Kaya toast · 140 CR', travelPrompt: 'T · Travel to Raffles Place' }), 'expedition');
+  const expedition = layer(playing({ quickItem: 'Field dressing', quickCount: 2, lootPrompt: 'E · rare Combat stim', npcPrompt: 'E · Buy Kaya toast · 140 CR', travelPrompt: 'T · Travel to Raffles Place' }), 'expedition');
   expect(expedition).toContain('data-touch-action="loot"');
   expect(expedition).toContain('data-touch-action="travel"');
   // Supplies are tapped on the utility belt, not the pad.
@@ -46,7 +46,7 @@ it('offers the expedition its checkpoints, and the range its vehicles', () => {
   expect(expedition).toContain('>rare Combat stim<');
   expect(expedition).not.toContain('E · rare Combat stim');
   expect(expedition).toContain('>Buy Kaya toast · 140 CR<');
-  expect(layer(playing({ npcPrompt: 'N · Talk to Community volunteer' }), 'expedition')).toContain('>Talk to Community volunteer<');
+  expect(layer(playing({ npcPrompt: 'E · Talk to Community volunteer' }), 'expedition')).toContain('>Talk to Community volunteer<');
 
   const range = layer(playing({ interact: 'E · Drive Utility 01' }));
   expect(range).toContain('data-touch-action="vehicle"');

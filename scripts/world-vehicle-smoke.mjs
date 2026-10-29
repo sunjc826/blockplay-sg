@@ -46,11 +46,11 @@ try {
   console.log('Boarding vehicle');
   await key('e', 'KeyE'); await wait(mounted('car'));
   assert(await evaluate(`document.querySelector('.fps-vehicle-hud').textContent.includes('Driver')`));
-  await key('l', 'KeyL'); await wait(`${game}.dataset.vehicleView==='first-person'`);
-  await key('l', 'KeyL'); await wait(`${game}.dataset.vehicleView==='third-person'`);
+  await key('c', 'KeyC'); await wait(`${game}.dataset.vehicleView==='first-person'`);
+  await key('c', 'KeyC'); await wait(`${game}.dataset.vehicleView==='third-person'`);
   await key('v', 'KeyV');
   await wait(`document.querySelector('.fps-vehicle-seats [data-self]')?.textContent.includes('Gunner')`);
-  await key('l', 'KeyL'); await wait(`${game}.dataset.vehicleView==='first-person'`);
+  await key('c', 'KeyC'); await wait(`${game}.dataset.vehicleView==='first-person'`);
   await key('v', 'KeyV'); await wait(`${game}.dataset.vehiclePersonalWeapon==='true'`);
   await wait(`document.querySelector('.world canvas')?.dataset.weaponVisible==='true'`);
   const personalAmmo = await evaluate(`Number(document.querySelector('.fps-ammo strong').firstChild.textContent)`);
@@ -67,7 +67,7 @@ try {
   await screenshot('passenger-first-person');
   await key('q', 'KeyQ');
   for (let n = 0; n < 2; n++) await key('v', 'KeyV');
-  await key('l', 'KeyL'); await wait(`${game}.dataset.vehicleView==='third-person'`);
+  await key('c', 'KeyC'); await wait(`${game}.dataset.vehicleView==='third-person'`);
   await wait(`document.querySelector('.fps-vehicle-seats [data-self]')?.textContent.includes('Driver')`);
   const before = await evaluate(`Number(${game}.dataset.playerX)`);
   await key('w', 'KeyW', 1100); await delay(300);

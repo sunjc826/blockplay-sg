@@ -19,7 +19,7 @@ export default function FpsVisionChip({ hud, touch }: { hud: FpsHud; touch: bool
   if (!vision || touch) return null;
   const kind = vision.kind === 'nvg' ? `NVG GEN ${vision.generation}` : `THERMAL T${vision.generation}`;
   const state = visionStatus(vision);
-  const keys = vision.on && vision.palettes > 1 ? 'H · J' : 'H';
+  const keys = vision.on && vision.palettes > 1 ? 'N · J' : 'N';
   return <div className="fps-vision-chip" data-vision={vision.kind} data-on={vision.on || undefined} role="status" aria-label={`${vision.name}, ${vision.on ? 'on' : 'off'}`}>
     <i aria-hidden="true" /><span>{kind}</span><b>{state}</b>{keys && <kbd>{keys}</kbd>}
   </div>;
