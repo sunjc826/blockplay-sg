@@ -40,6 +40,17 @@ describe('natural night visibility', () => {
     expect(query.moon({ x: 20, y: 1, z: 0 }, up)).toBe(1);
     expect(query.moon({ x: -20, y: 1, z: 0 }, up)).toBeCloseTo(.35);
   });
+  it('lights an exposed sloping deck without letting moonlight through its underside', () => {
+    const scene = new THREE.Scene(), geometry = new THREE.BufferGeometry();
+    const top = [[0,0,-2],[10,5,-2],[10,5,2],[0,0,2]];
+    geometry.setAttribute('position',new THREE.Float32BufferAttribute([...top,...top.map(([x,y,z])=>[x,y-.22,z])].flat(),3));
+    geometry.setIndex([0,2,1,0,3,2,4,5,6,4,6,7,0,1,5,0,5,4,1,2,6,1,6,5,2,3,7,2,7,6,3,0,4,3,4,7]);
+    scene.add(new THREE.Mesh(geometry,new THREE.MeshStandardMaterial()));
+    const query=createExposureQuery(collectNightBlockers(scene)),up={x:0,y:1,z:0};
+    expect(query.moon({x:1,y:.8,z:0},up)).toBe(1);
+    expect(query.moon({x:8,y:4.3,z:0},up)).toBe(1);
+    expect(query.moon({x:8,y:2,z:0},up)).toBe(0);
+  });
   it('bakes height-aware shelter, and updates moon direction independently of sky exposure', () => {
     const scene = new THREE.Scene(); box(scene, 0, 4, 0, 20, .3, 20);
     const blockers = collectNightBlockers(scene), bounds = new THREE.Box3(new THREE.Vector3(-48, 0, -48), new THREE.Vector3(48, 40, 48));

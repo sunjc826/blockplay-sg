@@ -20,13 +20,29 @@ export function collectNightBlockers(scene: THREE.Object3D) {
       if (opaque.length) {
         if (!object.geometry.boundingBox) object.geometry.computeBoundingBox();
         const local = object.geometry.boundingBox!;
+        let clipLocal = local, shear: THREE.Matrix4 | null = null;
+        const positions = object.geometry.getAttribute('position');
+        // Authored route decks use eight corners: four on the top plane, four below.
+        // Shear a sloped top flat before clipping, so its enclosing box cannot shadow the walking surface itself.
+        if (positions?.count === 8 && object.geometry.index?.count === 36) {
+          const points = Array.from({ length: 8 }, (_, i) => new THREE.Vector3().fromBufferAttribute(positions, i));
+          const n = points[1].clone().sub(points[0]).cross(points[2].clone().sub(points[0]));
+          if (Math.abs(n.y) > 1e-6) {
+            const a = -n.x/n.y, b = -n.z/n.y, c = points[0].y-a*points[0].x-b*points[0].z;
+            if (points.slice(0,4).every(p => Math.abs(p.y-a*p.x-b*p.z-c)<1e-4) && points.slice(4).every(p => p.y-a*p.x-b*p.z<c)) {
+              shear = new THREE.Matrix4(); shear.elements[1] = -a; shear.elements[9] = -b;
+              clipLocal = new THREE.Box3().setFromPoints(points.map(p => p.applyMatrix4(shear!)));
+            }
+          }
+        }
         for (let i = 0; i < (object instanceof THREE.InstancedMesh ? object.count : 1); i++) {
           transform.copy(object.matrixWorld);
           if (object instanceof THREE.InstancedMesh) { object.getMatrixAt(i, instance); transform.multiply(instance); }
           const box = local.clone().applyMatrix4(transform), size = box.getSize(new THREE.Vector3());
           if (size.x < 1 || size.z < 1 || (size.y < .12 && Math.min(size.x, size.z) < 3)) continue;
           const green = opaque.every(m => { const c = (m as THREE.MeshStandardMaterial).color; return c.g > c.r * 1.15 && c.g > c.b * 1.08; });
-          blockers.push({ box, local: local.clone(), inverse: transform.clone().invert(), transmission: green ? .35 : 0 });
+          const inverse = transform.clone().invert(); if (shear) inverse.premultiply(shear);
+          blockers.push({ box, local: clipLocal.clone(), inverse, transmission: green ? .35 : 0 });
         }
       }
     }

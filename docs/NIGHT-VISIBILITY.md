@@ -16,7 +16,8 @@ ground bounce provide transitions around illuminated areas.
 ## Geometry controls shelter
 
 `night-exposure.ts` collects static opaque scenery as oriented boxes, retaining
-instanced roofs and rotated walls. Effects, invisible meshes, water, glass and
+instanced roofs and rotated walls. Sloping route decks are flattened for
+clipping so their enclosing boxes do not falsely shadow the exposed top. Effects, invisible meshes, water, glass and
 small trim are excluded; green canopy boxes transmit partial light. A bounded
 BVH accelerates upward sky and directional moon visibility queries.
 
