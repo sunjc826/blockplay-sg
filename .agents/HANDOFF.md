@@ -4186,3 +4186,16 @@ refraction regressions and city captures; screenshots and palette evidence
 are in .cache/fps-night-vision and .cache/thermal-circle-browser.log. Full
 release checks and manual deployment follow. No GitHub push; AGENTS.md stays
 local, unstaged and uncommitted.
+
+
+## 2026-10-30: thermal aperture release verified
+
+All 1,804 tests across 184 suites, typecheck, production build and expanded
+WebGL device/palette checks passed for code commit bedcfc9. Manually deployed
+with pnpm deploy:cloudflare from .cache/thermal-circle-release; its 2,646
+tracked files match that commit. Cloudflare version
+f8e8e569-b9f5-495c-bb0e-b20ea0a6dc27 succeeded. Both public origins serve JS/CSS
+whose hashes match the tested local build. Routing, service worker, manifest,
+models, audio and API-origin checks passed. Evidence:
+.cache/thermal-circle-release/release-evidence.json, .cache/thermal-circle-tests.log
+and .cache/thermal-circle-live-check.log. No GitHub push; AGENTS.md stays local.
