@@ -30,7 +30,7 @@ Open **Multiplayer** from the main menu, or `/multiplayer`:
   roughly 80 seconds. There is no host migration or recovery after a page reload.
 
 Open-world co-op, shared expedition travel and authoritative online progression
-are still future work.
+are still future work; see [the co-op design](MULTIPLAYER.md).
 
 ## Transport and boundaries
 
