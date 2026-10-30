@@ -25,25 +25,28 @@ describe('vision device tiers', () => {
       expect(tubes[i].warmup).toBeLessThan(tubes[i - 1].warmup);
     }
     expect(cores[1].rows).toBeGreaterThan(cores[0].rows);
+    expect(cores[1].aperture).toBeGreaterThan(cores[0].aperture);
     expect(cores[1].palettes.length).toBeGreaterThan(cores[0].palettes.length);
     expect(cores[0].calibration).toBeDefined(); expect(cores[1].calibration).toBeUndefined();
   });
   it('keeps a complete circular view in landscape, portrait and ultrawide, with more scene at each tier', () => {
-    for (const aspect of [16 / 9, 9 / 16, 21 / 9, 1]) {
-      const shares = tubes.map(spec => visibleShare(visionAperture(spec, aspect), aspect));
-      for (let i = 0; i < tubes.length; i++) {
-        // Diameter in pixels stays below the shorter viewport dimension, so no rim gets cropped.
-        const diameter = visionAperture(tubes[i], aspect) * Math.max(aspect, 1);
-        expect(diameter).toBeLessThan(Math.min(aspect, 1));
-        expect(shares[i]).toBeCloseTo(Math.PI / 4 * tubes[i].aperture ** 2 * Math.min(aspect, 1 / aspect), 2);
-        if (i > 0) expect(shares[i]).toBeGreaterThan(shares[i - 1]);
+    for (const devices of [tubes, cores]) {
+      for (const aspect of [16 / 9, 9 / 16, 21 / 9, 1]) {
+        const shares = devices.map(spec => visibleShare(visionAperture(spec, aspect), aspect));
+        for (let i = 0; i < devices.length; i++) {
+          // Diameter in pixels stays below the shorter viewport dimension, so no rim gets cropped.
+          const diameter = visionAperture(devices[i], aspect) * Math.max(aspect, 1);
+          expect(diameter).toBeLessThan(Math.min(aspect, 1));
+          expect(shares[i]).toBeCloseTo(Math.PI / 4 * devices[i].aperture ** 2 * Math.min(aspect, 1 / aspect), 2);
+          if (i > 0) expect(shares[i]).toBeGreaterThan(shares[i - 1]);
+        }
+      }
+      for (const spec of devices) {
+        expect(visibleShare(visionAperture(spec, 16 / 9), 16 / 9)).toBeCloseTo(visibleShare(visionAperture(spec, 9 / 16), 9 / 16), 3);
+        expect(visionFigures(spec).view).toBe(Math.round(visibleShare(visionAperture(spec, 16 / 9)) * 100));
       }
     }
-    for (const spec of tubes) {
-      expect(visibleShare(visionAperture(spec, 16 / 9), 16 / 9)).toBeCloseTo(visibleShare(visionAperture(spec, 9 / 16), 9 / 16), 3);
-      expect(visionFigures(spec).view).toBe(Math.round(visibleShare(visionAperture(spec, 16 / 9)) * 100));
-    }
-    for (const spec of cores) expect(visionAperture(spec, 16 / 9)).toBe(spec.aperture);
+    expect(cores[1].aperture).toBeLessThan(tubes[2].aperture);
     expect(visionFigures(undefined)).toMatchObject({ gain: 1, view: 100, grain: 0, sharpness: 100, warmup: 0 });
   });
 });

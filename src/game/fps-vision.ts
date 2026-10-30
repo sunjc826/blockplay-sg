@@ -227,7 +227,8 @@ vec4 present(vec3 picture, float r) { float b = body(r); return vec4(picture * b
 vec2 lens(float r) { return 0.5 + (vUv - 0.5) * (1.0 - uDistortion * 0.1 * r * r); }
 /** The device's image circle: black outside, a soft rim, a gentle falloff inside. */
 float aperture(float r) {
-  float edge = 0.05 + 0.08 * uBlur;
+  // Relative to the lens, so a portrait/ultrawide screen does not eat the thermal view with a wider feather.
+  float edge = uAperture * (0.02 + 0.04 * uBlur);
   return (1.0 - smoothstep(uAperture - edge, uAperture, r)) * (1.0 - 0.32 * pow(clamp(r / uAperture, 0.0, 1.0), 2.5));
 }`;
 const NVG_FRAGMENT = /* glsl */`

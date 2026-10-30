@@ -1,4 +1,4 @@
-// Real WebGL pixel checks for the three circular NVG lenses. Same Vite/Chrome
+// Real WebGL pixel checks for the three NVG and two thermal circular lenses. Same Vite/Chrome
 // prerequisites as fps-lens-vision-smoke.mjs; no remote reference requests.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -51,10 +51,16 @@ try {
   for (const [width, height] of [[1280, 760], [390, 844], [844, 390], [1920, 800]]) {
     await load(width, height, true);
     let previous = 0;
-    for (const [index, aperture] of [.76, .88, .98].entries()) {
-      const device = `nvg-gen${index + 1}`;
+    for (const [device, aperture] of [['nvg-gen1', .76], ['nvg-gen2', .88], ['nvg-gen3', .98], ['thermal-t1', .72], ['thermal-t2', .9]]) {
+      if (device === 'thermal-t1') previous = 0;
       const result = await evaluate(`(() => {
-        const v=window.visionReview; v.draw('${device}', {noise:0});
+        const v=window.visionReview;
+        // A uniformly hot chart fills thermal white-hot right up to its mask.
+        v.world.scene.children[0].userData.heat='body'; v.draw('${device}', {noise:0});
+        if('${device}'.startsWith('thermal')){
+          const u=v.world.scene.children[0].material.uniforms;u.uBase.value=2;u.uHeat.value=0;
+          v.draw('${device}',{noise:0});
+        }
         const {data,width:w,height:h}=v.pixels();
         let minX=w,minY=h,maxX=-1,maxY=-1,count=0,leaks=0;
         const radius=${aperture}*Math.min(w,h)/2;
@@ -65,15 +71,37 @@ try {
         }
         return {diameterX:maxX-minX+1,diameterY:maxY-minY+1,minX,minY,count,leaks};
       })()`);
-      assert(Math.abs(result.diameterX - result.diameterY) <= 2, `${device}: circular at ${width}x${height}`);
-      assert(Math.abs(result.diameterX - aperture * Math.min(width, height)) <= 4, `${device}: correct radius`);
+      const diameter = aperture * Math.min(width, height);
+      // Thermal's coarse sensor/soft edge can move the visible bounds within the feather band.
+      const feather = device === 'thermal-t1' ? .032 : device === 'thermal-t2' ? .0232 : 0;
+      assert(Math.abs(result.diameterX - result.diameterY) <= Math.max(2, Math.ceil(diameter * feather)), `${device}: circular at ${width}x${height} ${JSON.stringify(result)}`);
+      assert(result.diameterX >= diameter * (1 - feather) - 4 && result.diameterX <= diameter + 4, `${device}: correct radius ${JSON.stringify(result)}`);
       assert(result.minX > 0 && result.minY > 0, `${device}: complete rim visible`);
       assert.equal(result.leaks, 0, `${device}: black outside the lens`);
       assert(result.count > previous, `${device}: higher tier sees more`); previous = result.count;
       await screenshot(`${width}x${height}-${device}-chart`);
     }
-    console.log(`PASS ${width}x${height}: all three circles, increasing view, complete rims, no picture leakage.`);
+    console.log(`PASS ${width}x${height}: all five circles, increasing tier views, complete rims, no picture leakage.`);
   }
+  // Palette inversion/colour mapping must stay inside the same mask too.
+  await load(1280, 760, true);
+  const palettes = await evaluate(`(() => {
+    const v=window.visionReview,results=[];
+    for(let palette=0;palette<3;palette++){
+      v.draw('none');
+      v.world.scene.children[0].userData.heat=palette===1?'none':'body';
+      v.draw('thermal-t2',{noise:0},{on:true,palette,warm:1,mount:1,fading:0,untilCalibration:0,calibrating:0});
+      const {data,width:w,height:h}=v.pixels(),radius=.9*Math.min(w,h)/2;
+      let leaks=0,inside=0;
+      for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+        const i=(y*w+x)*4,lit=Math.max(data[i],data[i+1],data[i+2])>2;
+        if(lit){if(Math.hypot(x+.5-w/2,y+.5-h/2)>radius+1)leaks++;else inside++;}
+      }
+      results.push({palette,leaks,inside});
+    }return results;
+  })()`);
+  for(const result of palettes){assert.equal(result.leaks,0,'thermal palette stays inside the lens');assert(result.inside>1000,'thermal palette shows a picture');}
+  console.log('PASS all three thermal palettes: picture visible, black outside the circular aperture.');
   await load(1280, 760, true);
   const refraction = await evaluate(`(() => {
     const v=window.visionReview, results=[];
@@ -100,12 +128,12 @@ try {
   for (const device of ['nvg-gen1', 'nvg-gen2', 'nvg-gen3']) {
     await evaluate(`window.visionReview.draw('${device}')`); await screenshot(device);
   }
-  // The same renderer still compiles/presents both thermal cores after the NVG changes.
+  // Review both thermal tiers in the real city after measuring their masks.
   for (const device of ['thermal-t1', 'thermal-t2']) {
     await evaluate(`window.visionReview.draw('${device}')`); await screenshot(device);
   }
   assert.deepEqual(errors, [], 'no page or shader errors');
-  await fs.writeFile(new URL('validation.json', output), JSON.stringify({ refraction, errors }, null, 2));
+  await fs.writeFile(new URL('validation.json', output), JSON.stringify({ refraction, palettes, errors }, null, 2));
   console.log(`PASS city views and thermal regressions. Screenshots in ${output.pathname}`);
 } finally {
   ws.close(); await fetch(`${chrome}/json/close/${tab.id}`).catch(() => {});

@@ -935,8 +935,8 @@ reduced motion the swing and the dying are skipped. The canvas records
 | NV-1 · Blur Like Sotong | Field, LV 2, 850 CR | 3.4× | 25% | 62% | Soft, barrel-distorted, big halos, 1.4 s warm-up |
 | NV-2+ · Jaga Malam | Field, LV 4, 1,900 CR | 5.2× | 34% | 32% | Smaller halos, 0.8 s |
 | NV-3 · Confirm Plus Chop | Elite, LV 6, 280 TK | 7.5× | 42% | 13% | White phosphor, sharp, 0.35 s |
-| TI-1 · Cheap and Good | Field, LV 5, 2,600 CR | — | 96% | 30% | 160 lines, white-hot only, freezes 0.4 s every 26 s to recalibrate |
-| TI-2 · Kiasu Fusion | Elite, LV 8, 420 TK | — | 100% | 10% | 360 lines, edge enhancement, white-hot / black-hot / ironbow |
+| TI-1 · Cheap and Good | Field, LV 5, 2,600 CR | — | 23% | 30% | 160 lines, white-hot only, freezes 0.4 s every 26 s to recalibrate |
+| TI-2 · Kiasu Fusion | Elite, LV 8, 420 TK | — | 36% | 10% | 360 lines, edge enhancement, white-hot / black-hot / ironbow |
 
 A tube is a worse *instrument* at a lower tier, not a different filter: less
 gain, so the dark stays dark; more grain, worst when the gain is up; a narrower
@@ -945,8 +945,11 @@ tiers now show a complete circular lens, with diameters of 76%, 88% and 98%
 of the viewport's shorter side. The rim stays visible on portrait, landscape
 and ultrawide screens. A dark rolled edge, subtle bevel highlights and
 peripheral refraction make the lens read as curved glass; the basic tube bends
-and softens edges most. The table's screen shares use a 16:9 viewport; thermal
-keeps its existing wider aperture. A tube's automatic brightness control holds
+and softens edges most. Thermal cores use the same complete-circle scaling,
+with 72% and 90% diameters: the advanced core shows more than the basic one,
+but both give up peripheral vision to find heat. Their edge feather scales
+with the lens so the rim stays consistent across aspect ratios. The table's
+screen shares use a 16:9 viewport. A tube's automatic brightness control holds
 the gain near 1 by day and opens it as the hour's light
 goes (`visionGain`), further in a blackout, so a tube at noon is a washed-out
 green picture rather than a blinding one.

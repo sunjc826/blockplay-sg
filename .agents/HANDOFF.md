@@ -4168,3 +4168,21 @@ touch prompt overlapping the card, and contextual work now requires clear access
 The extended firing smoke compensates real recoil with public look controls;
 release verification follows. Evidence is under .cache/facilities-browser.
 AGENTS.md and unrelated .claude content remain excluded. No GitHub push.
+
+
+## 2026-10-30: circular thermal field-of-view balance
+
+Both thermal cores now use the same shorter-side circular aperture scaling
+as NVG: TI-1 has a 72% diameter and TI-2 90%, keeping a visible border in
+landscape, portrait and ultrawide. The advanced core remains wider and sharper
+than the basic core, but gives up peripheral vision compared with NV-3.
+Thermal edge feathering is proportional to the lens radius so aspect ratio
+does not consume the image. Armory screen shares now read 23%/36% at 16:9.
+
+All 16 vision tests and the isolated typecheck passed. Extended the existing
+WebGL smoke to measure all five device masks at four sizes and check all
+three TI-2 palettes for picture leakage. These passed, along with NVG
+refraction regressions and city captures; screenshots and palette evidence
+are in .cache/fps-night-vision and .cache/thermal-circle-browser.log. Full
+release checks and manual deployment follow. No GitHub push; AGENTS.md stays
+local, unstaged and uncommitted.
