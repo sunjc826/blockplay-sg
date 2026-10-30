@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SPEED_OF_SOUND } from './combat-event-audio';
-import { gunshotTone } from './gunshot-audio';
+import { gunshotSample, gunshotTone } from './gunshot-audio';
 
 const rifle = (distance = 0, own = false) => gunshotTone(5.56, 36, distance, own);
 
@@ -29,5 +29,14 @@ describe('gunshot tone', () => {
   });
   it('is silent out of earshot', () => {
     expect(rifle(650).level).toBe(0);
+  });
+  it('plays each calibre\'s recorded takes, fading into a distant take and losing its top with range', () => {
+    expect([9, 5.56, 7.62, 12.7].map(c => gunshotSample(c).near)).toEqual(['pistol-9', 'rifle-556', 'mg-762', 'hmg-127']);
+    expect(gunshotSample(12.7).far).toBe('distant-heavy');
+    expect(gunshotTone(5.56, 36, 0, false, 'suppressor').sample).toBe('suppressed');
+    expect(rifle(10).nearMix).toBe(1);
+    expect(rifle(300).nearMix).toBe(0);
+    expect(rifle(120).nearMix).toBeGreaterThan(rifle(160).nearMix);
+    expect(rifle(300).sampleCutoff).toBeLessThan(rifle(10).sampleCutoff / 3);
   });
 });

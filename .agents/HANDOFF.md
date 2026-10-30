@@ -4879,3 +4879,24 @@ Added seven scenario tests for deterministic timelines, budgets, warnings,
 whole-path safety, mixed selection, host damage/cleanup and bot escape.
 85 focused tests and typecheck pass. Rendered smoke and isolated release checks
 follow; concurrent audio/engine working-tree changes will be excluded. No push.
+
+
+## 2026-10-30: recorded gunshots, footsteps and reload sounds
+
+The user found the synthesised running sound grating and the gunshots unreal.
+Footsteps were one 70 ms noise burst replayed identically every stride. They,
+gunshots and reload stages now play ElevenLabs sound-effect takes (see
+docs/SOUND-EFFECTS.md): 55 trimmed, loudness-matched MP3s (576 KB) in
+public/audio/sfx with src/audio/sfx/manifest.json. `pnpm sfx:batch` generates
+takes and `pnpm sfx:publish` builds the pack. The 58-take batch cost about 580
+of 40,000 Starter credits. The key first lacked the Sound Effects permission;
+that 401 attempt is kept in .cache/sfx-batch/failed/. gunshotTone's distance,
+delay and suppressor model now drives take choice, near/distant crossfade and
+lowpass. Synthesis remains the fallback.
+
+Checks: new unit tests, the full suite and typecheck passed. OfflineAudioContext
+renders through the real bus put recorded shots 2–5 dB over synthesis, with
+pistol < rifle ≈ GPMG < HMG. A headless Chrome autopilot run of the range-drill
+fixture played recorded rifle shots, mag-out/mag-in and a run footfall, with no
+errors. Default PICKS were chosen from spectrograms, not by ear; the user should
+listen to .cache/sfx-batch/audition.html and prune. Not deployed.

@@ -1,0 +1,309 @@
+{
+  "version": 1,
+  "provider": "ElevenLabs",
+  "groups": {
+    "pistol-9": [
+      {
+        "file": "pistol-9-1-4b3aaca983.mp3",
+        "take": "pistol-9-2",
+        "seconds": 0.228
+      },
+      {
+        "file": "pistol-9-2-e68125618e.mp3",
+        "take": "pistol-9-v3-1",
+        "seconds": 0.912
+      },
+      {
+        "file": "pistol-9-3-d7d81bab23.mp3",
+        "take": "pistol-9-v3-2",
+        "seconds": 0.772
+      },
+      {
+        "file": "pistol-9-4-b8d89db0b9.mp3",
+        "take": "pistol-9-v3-3",
+        "seconds": 0.822
+      }
+    ],
+    "rifle-556": [
+      {
+        "file": "rifle-556-1-2c894ec22a.mp3",
+        "take": "rifle-556-2",
+        "seconds": 1
+      },
+      {
+        "file": "rifle-556-2-c477ef4692.mp3",
+        "take": "rifle-556-v3-1",
+        "seconds": 1
+      },
+      {
+        "file": "rifle-556-3-d5a7b63322.mp3",
+        "take": "rifle-556-v3-2",
+        "seconds": 0.867
+      },
+      {
+        "file": "rifle-556-4-6262bf9035.mp3",
+        "take": "rifle-556-v3-3",
+        "seconds": 0.752
+      }
+    ],
+    "mg-762": [
+      {
+        "file": "mg-762-1-c64eabc4bd.mp3",
+        "take": "mg-762-1",
+        "seconds": 1
+      },
+      {
+        "file": "mg-762-2-7d1a55629e.mp3",
+        "take": "mg-762-v3-1",
+        "seconds": 0.543
+      },
+      {
+        "file": "mg-762-3-4f40821859.mp3",
+        "take": "mg-762-v3-2",
+        "seconds": 1
+      }
+    ],
+    "hmg-127": [
+      {
+        "file": "hmg-127-1-c4f69849db.mp3",
+        "take": "hmg-127-1",
+        "seconds": 0.862
+      },
+      {
+        "file": "hmg-127-2-8147c6b3c5.mp3",
+        "take": "hmg-127-2",
+        "seconds": 1.2
+      },
+      {
+        "file": "hmg-127-3-31619d1e6e.mp3",
+        "take": "hmg-127-4",
+        "seconds": 1.2
+      }
+    ],
+    "suppressed": [
+      {
+        "file": "suppressed-1-56539af3b5.mp3",
+        "take": "suppressed-v3-1",
+        "seconds": 0.391
+      },
+      {
+        "file": "suppressed-2-eb7290d4b7.mp3",
+        "take": "suppressed-v3-3",
+        "seconds": 0.391
+      }
+    ],
+    "distant-rifle": [
+      {
+        "file": "distant-rifle-1-fbdbdd5b11.mp3",
+        "take": "distant-rifle-1",
+        "seconds": 1.794
+      },
+      {
+        "file": "distant-rifle-2-7c08090067.mp3",
+        "take": "distant-rifle-3",
+        "seconds": 2
+      },
+      {
+        "file": "distant-rifle-3-ccf1e3dd0a.mp3",
+        "take": "distant-rifle-v3-1",
+        "seconds": 1.819
+      }
+    ],
+    "distant-heavy": [
+      {
+        "file": "distant-heavy-1-e73685d790.mp3",
+        "take": "distant-heavy-2",
+        "seconds": 2.43
+      },
+      {
+        "file": "distant-heavy-2-79b1e071fd.mp3",
+        "take": "distant-heavy-v3-1",
+        "seconds": 1.624
+      }
+    ],
+    "walk": [
+      {
+        "file": "walk-1-eb4338d301.mp3",
+        "take": "walk-concrete-1",
+        "seconds": 0.316
+      },
+      {
+        "file": "walk-2-7e157ca0a6.mp3",
+        "take": "walk-concrete-1",
+        "seconds": 0.261
+      },
+      {
+        "file": "walk-3-7c22a2c8f1.mp3",
+        "take": "walk-concrete-1",
+        "seconds": 0.234
+      },
+      {
+        "file": "walk-4-40f3964ca0.mp3",
+        "take": "walk-concrete-1",
+        "seconds": 0.309
+      },
+      {
+        "file": "walk-5-bc6192d56c.mp3",
+        "take": "walk-concrete-1",
+        "seconds": 0.312
+      },
+      {
+        "file": "walk-6-150a5b4020.mp3",
+        "take": "walk-concrete-1",
+        "seconds": 0.296
+      },
+      {
+        "file": "walk-7-a0fce96494.mp3",
+        "take": "walk-concrete-2",
+        "seconds": 0.301
+      },
+      {
+        "file": "walk-8-58f11f3da7.mp3",
+        "take": "walk-concrete-2",
+        "seconds": 0.312
+      },
+      {
+        "file": "walk-9-604d439e66.mp3",
+        "take": "walk-concrete-2",
+        "seconds": 0.299
+      },
+      {
+        "file": "walk-10-e8721f8df2.mp3",
+        "take": "walk-concrete-2",
+        "seconds": 0.315
+      },
+      {
+        "file": "walk-11-456f084937.mp3",
+        "take": "walk-concrete-2",
+        "seconds": 0.315
+      },
+      {
+        "file": "walk-12-1c692c01db.mp3",
+        "take": "walk-concrete-2",
+        "seconds": 0.312
+      }
+    ],
+    "run": [
+      {
+        "file": "run-1-fe94ba5740.mp3",
+        "take": "run-concrete-1",
+        "seconds": 0.283
+      },
+      {
+        "file": "run-2-cedc77edad.mp3",
+        "take": "run-concrete-1",
+        "seconds": 0.32
+      },
+      {
+        "file": "run-3-ebe7958b36.mp3",
+        "take": "run-concrete-1",
+        "seconds": 0.265
+      },
+      {
+        "file": "run-4-5b4465c6f2.mp3",
+        "take": "run-concrete-1",
+        "seconds": 0.283
+      },
+      {
+        "file": "run-5-4a0c48265d.mp3",
+        "take": "run-concrete-1",
+        "seconds": 0.283
+      },
+      {
+        "file": "run-6-661e0927ce.mp3",
+        "take": "run-concrete-1",
+        "seconds": 0.311
+      },
+      {
+        "file": "run-7-6ac20aa6e4.mp3",
+        "take": "run-concrete-2",
+        "seconds": 0.309
+      },
+      {
+        "file": "run-8-c2d7b91354.mp3",
+        "take": "run-concrete-2",
+        "seconds": 0.277
+      },
+      {
+        "file": "run-9-9d61ed16a0.mp3",
+        "take": "run-concrete-2",
+        "seconds": 0.293
+      },
+      {
+        "file": "run-10-0f65709c0a.mp3",
+        "take": "run-concrete-2",
+        "seconds": 0.283
+      },
+      {
+        "file": "run-11-6dd05f4481.mp3",
+        "take": "run-concrete-2",
+        "seconds": 0.289
+      },
+      {
+        "file": "run-12-dc94862b29.mp3",
+        "take": "run-concrete-2",
+        "seconds": 0.304
+      }
+    ],
+    "mag-out": [
+      {
+        "file": "mag-out-1-058daa58ef.mp3",
+        "take": "mag-out-1",
+        "seconds": 0.442
+      },
+      {
+        "file": "mag-out-2-c64707bb3a.mp3",
+        "take": "mag-out-2",
+        "seconds": 0.104
+      }
+    ],
+    "mag-in": [
+      {
+        "file": "mag-in-1-bf37f4ca41.mp3",
+        "take": "mag-in-1",
+        "seconds": 0.51
+      },
+      {
+        "file": "mag-in-2-9d284a0bec.mp3",
+        "take": "mag-in-2",
+        "seconds": 0.211
+      }
+    ],
+    "mag-seat": [
+      {
+        "file": "mag-seat-1-e265c4dd58.mp3",
+        "take": "mag-seat-1",
+        "seconds": 0.133
+      },
+      {
+        "file": "mag-seat-2-6d244fa9cd.mp3",
+        "take": "mag-seat-2",
+        "seconds": 0.331
+      }
+    ],
+    "bolt-back": [
+      {
+        "file": "bolt-back-1-0936db6350.mp3",
+        "take": "bolt-back-1",
+        "seconds": 0.41
+      },
+      {
+        "file": "bolt-back-2-4fcef5b749.mp3",
+        "take": "bolt-back-2",
+        "seconds": 0.266
+      }
+    ],
+    "bolt-release": [
+      {
+        "file": "bolt-release-1-e93f25caa7.mp3",
+        "take": "bolt-release-1",
+        "seconds": 0.396
+      },
+      {
+        "file": "bolt-release-2-ff997f30ee.mp3",
+        "take": "bolt-release-2",
+        "seconds": 0.48
+      }
+    ]
+  }
+}

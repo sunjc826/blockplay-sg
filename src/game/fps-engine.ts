@@ -113,6 +113,7 @@ import { createAmbientSky } from './ambient-sky-visuals';
 import { COASTAL_SEA, type AmbientKind } from './ambient-sky';
 import { gunfireReports } from './gunfire-reports';
 import { createGunshotAudio, gunshotTone } from './gunshot-audio';
+import { createSfxBank, type SfxGroup } from './sfx-bank';
 import { getEnvironmentSettings } from './environment-settings';
 import { createHitDirectionOverlay, createHitDirections, hitStrength } from './fps-hit-direction';
 import { advanceSupplyUse, startSupplyUse, supplyProfile, supplyProgress, SUPPLY_MOVE_SCALE, type SupplyProfile, type SupplyStyle, type SupplyUse } from './fps-healing';
@@ -394,7 +395,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }, { reduced: () => getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
   const grenadeVisuals = createGrenadeVisuals(world.scene, (at, damage) => { combatVisuals.blast(at, damage > 90 ? 1 : .5); combatAudio.boom(at.distanceTo(camera.position), damage > 90 ? 1 : .5); ambientSky.startle(at, 1); }, p => { eventRay.set(p.clone().setY(160), new THREE.Vector3(0, -1, 0)); eventRay.near = 0; eventRay.far = 180; return (firstVisibleHit(eventRay, gameplayCandidates())?.point.clone() ?? p).add(new THREE.Vector3(0, .15, 0)); });
   const combatAudio = createCombatAudio(() => audio, () => hud.muted);
-  const gunshots = createGunshotAudio(() => audio, () => hud.muted);
+  const sfx = createSfxBank();
+  const gunshots = createGunshotAudio(() => audio, () => hud.muted, sfx);
   // Scenery in the sky beyond the district: never a threat, never sent between peers (ambient-sky).
   // Roost sampling runs before the first render, so static world transforms must be ready.
   world.scene.updateMatrixWorld(true);
@@ -628,6 +630,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         const samples = soundBuffer.getChannelData(0);
         for (let i = 0; i < samples.length; i++) samples[i] = (Math.random() * 2 - 1) * Math.exp(-i / (samples.length * 0.16));
       }
+      sfx.load(audio);
       void audio.resume().catch(() => {});
     } catch { hud.muted = true; }
   }
@@ -654,8 +657,20 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     source.connect(filter).connect(gain).connect(audio.destination); source.start();
     source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
   }
+  /** One recorded take straight to the speakers, a hair off pitch and level so repeats don't sound looped. Null when none has loaded. */
+  function playTake(group: SfxGroup, level: number, options: { rate?: number; cutoff?: number; pan?: number } = {}) {
+    const take = audio && sfx.pick(group); if (!audio || !take) return false;
+    const source = audio.createBufferSource(), filter = audio.createBiquadFilter(), gain = audio.createGain(), panner = audio.createStereoPanner();
+    source.buffer = take; source.playbackRate.value = (options.rate ?? 1) * (.95 + Math.random() * .1);
+    filter.type = 'lowpass'; filter.frequency.value = options.cutoff ?? 16000; gain.gain.value = level * (.88 + Math.random() * .24); panner.pan.value = options.pan ?? 0;
+    source.connect(filter).connect(gain).connect(panner).connect(audio.destination); source.start();
+    source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); panner.disconnect(); };
+    return true;
+  }
+  const HANDLING_TAKES: Record<string, [SfxGroup, number]> = { 'MAG OUT': ['mag-out', .2], 'MAG IN': ['mag-in', .22], 'SEAT MAG': ['mag-seat', .28], 'BOLT BACK': ['bolt-back', .24], CHAMBER: ['bolt-release', .3] };
   function handlingSound(stage: string) {
     if (!audio || !soundBuffer || hud.muted || audio.state !== 'running') return;
+    const recorded = HANDLING_TAKES[stage]; if (recorded && playTake(...recorded)) return;
     const source = audio.createBufferSource(), filter = audio.createBiquadFilter(), gain = audio.createGain();
     // The rack back is a long scrape and the release a sharp, loud slam.
     source.buffer = soundBuffer; source.playbackRate.value = stage === 'MAG IN' ? .65 : stage === 'BOLT BACK' ? .8 : stage === 'CHAMBER' ? 1.7 : 1.4;
@@ -679,8 +694,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     whine.connect(level).connect(context.destination); whine.start(at); whine.stop(at + 1.45);
     whine.onended = () => { whine.disconnect(); level.disconnect(); };
   }
+  let stepSide = 1;
   function movementSound(strength: number, landing = false) {
     if (!audio || !soundBuffer || hud.muted || audio.state !== 'running') return;
+    // Recorded boots on concrete, alternating feet. Quiet steps lose their heel strike; a landing is a lower, heavier step.
+    stepSide = -stepSide;
+    if (playTake(!landing && strength > .5 ? 'run' : 'walk', strength * (landing ? .4 : .24), { rate: landing ? .8 : 1, cutoff: landing ? 1800 : 1500 + strength * 9000, pan: landing ? 0 : stepSide * .1 })) return;
     const source = audio.createBufferSource(), filter = audio.createBiquadFilter(), gain = audio.createGain();
     source.buffer = soundBuffer; source.playbackRate.value = landing ? .32 : .5;
     filter.type = 'lowpass'; filter.frequency.value = landing ? 240 : 420;
@@ -3160,7 +3179,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // First, so every mesh has its own material back before anything else restores or disposes them.
       vision.dispose(); lens.dispose(); deploymentBlur.dispose(); overview.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
-      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); ambientSky.dispose(); hitOverlay.dispose();
+      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       rangeStation?.dispose();
       scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); grenadeHands.dispose(); grenadeVisuals.dispose(); sunShadows.dispose(); occlusion.dispose(); renderer.dispose(); canvas.remove();

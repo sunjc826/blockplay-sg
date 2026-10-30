@@ -1,9 +1,11 @@
 import { distanceGain, soundDelay } from './combat-event-audio';
+import type { SfxBank, SfxGroup } from './sfx-bank';
 import { muzzleSignature, type MuzzleDevice } from './weapon-accessories';
 
 /**
- * Gunshots, synthesised in the engine's own AudioContext: no files to load.
- * A shot is four layers: the crack of the muzzle and the bullet, a burst of
+ * Gunshots. Once the recorded takes have loaded (see sfx-bank), a shot is one of its calibre's takes,
+ * crossfading into a distant take with range and dulled by a lowpass as it travels. Until then, or if
+ * they never load, it is synthesised in the engine's own AudioContext from four layers: the crack of the muzzle and the bullet, a burst of
  * noise for its body, a falling sine for the thump felt in the chest, and a
  * tail that is the shot coming back off the buildings. Every shot goes through
  * one bus that saturates and compresses, so a burst stays loud without
@@ -20,7 +22,18 @@ export interface GunshotTone {
   tail: number; tailCutoff: number; tailLength: number;
   /** How far apart the echoes come back: 1 beside the shooter, wider for a distant shot. */
   tailSpread: number;
+  /** The recorded takes for this gun up close and from afar, how much of the close one is heard, and the cutoff distance leaves. */
+  sample: SfxGroup; distantSample: SfxGroup; nearMix: number; sampleCutoff: number; sampleGain: number;
 }
+/** The recorded group for a calibre: 9 mm is the pistol, 5.56 the rifles, 7.62 the GPMGs, 12.7 the heavy guns. */
+export function gunshotSample(calibre: number): { near: SfxGroup; far: SfxGroup } {
+  if (calibre >= 12) return { near: 'hmg-127', far: 'distant-heavy' };
+  if (calibre >= 8.5) return { near: 'pistol-9', far: 'distant-rifle' };
+  if (calibre >= 7) return { near: 'mg-762', far: 'distant-rifle' };
+  return { near: 'rifle-556', far: 'distant-rifle' };
+}
+/** Gain on a recorded take (loudest 50 ms at -12 dBFS RMS) that sits it a little above the synthesised layers. */
+const SAMPLE_GAIN = 1.1;
 /** Loudness of the player's own gun, at their ear, against another's at 15 m or nearer. */
 const OWN_LEVEL = .3, OTHER_LEVEL = .26;
 
@@ -34,7 +47,12 @@ export function gunshotTone(calibre: number, power: number, distance = 0, own = 
   const report = muzzleSignature(muzzle).report;
   // A can is heard as if from further off than it is, so it fades out of earshot sooner.
   const d = Math.max(0, distance) / (muzzle === 'suppressor' ? report : 1), far = Math.min(1, d / 400), punch = Math.sqrt(weight);
+  const sample = gunshotSample(calibre), across = Math.min(1, Math.max(0, (d - 30) / 190));
   const tone: GunshotTone = {
+    sample: muzzle === 'suppressor' ? 'suppressed' : sample.near, distantSample: sample.far,
+    nearMix: 1 - across * across * (3 - 2 * across), sampleCutoff: 16000 * .12 ** far,
+    // Takes are loudness-matched, so a heavier gun's weight is put back here; a can keeps a suppressed shot well below an open one.
+    sampleGain: SAMPLE_GAIN * punch ** .6 * (muzzle === 'suppressor' ? .35 : 1),
     level: (own ? OWN_LEVEL : OTHER_LEVEL * distanceGain(d)) * (.75 + .25 * punch) * Math.min(1.15, report),
     delay: own ? 0 : soundDelay(d),
     crack: .55 * (1 - far) ** 2, crackCutoff: 2600 - 900 * far,
@@ -72,10 +90,24 @@ export function whiteNoise(context: BaseAudioContext, seconds = 1) {
 /** Echoes off nearby walls: seconds after the shot, loudness against the tail, and how much of the top each keeps. */
 const ECHOES: [number, number, number][] = [[.065, 1.1, .9], [.145, .75, .7], [.26, .5, .55]];
 /** Schedules one shot at context time `at` (before its travel delay), panned -1 (left) to 1 (right). */
-export function playGunshot(context: BaseAudioContext, bus: AudioNode, noise: AudioBuffer, tone: GunshotTone, at: number, pan = 0) {
+export function playGunshot(context: BaseAudioContext, bus: AudioNode, noise: AudioBuffer, tone: GunshotTone, at: number, pan = 0, samples?: Pick<SfxBank, 'pick'>) {
   if (tone.level < .002) return;
   const t = at + tone.delay, out = context.createGain(), panner = context.createStereoPanner(), nodes: AudioNode[] = [out, panner];
   out.gain.value = tone.level; panner.pan.value = Math.max(-1, Math.min(1, pan)); out.connect(panner).connect(bus);
+  const near = samples?.pick(tone.sample) ?? null, distant = near && tone.nearMix < .98 ? samples!.pick(tone.distantSample) : null;
+  if (near) {
+    // A take from up close fading into one from afar, each a hair off pitch so a burst never sounds looped.
+    const rate = .97 + Math.random() * .06, takes: [AudioBuffer, number][] = distant ? [[near, tone.nearMix], [distant, 1 - tone.nearMix]] : [[near, 1]];
+    const ends = takes.filter(([, mix]) => mix > .02).map(([buffer, mix]) => {
+      const source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain();
+      source.buffer = buffer; source.playbackRate.value = rate; filter.type = 'lowpass'; filter.frequency.value = tone.sampleCutoff; filter.Q.value = .5;
+      gain.gain.value = mix * tone.sampleGain; source.connect(filter).connect(gain).connect(out); nodes.push(source, filter, gain);
+      source.start(t); return [source, buffer.duration / rate] as const;
+    });
+    if (!ends.length) { nodes.forEach(n => n.disconnect()); return; }
+    ends.reduce((a, b) => b[1] > a[1] ? b : a)[0].onended = () => nodes.forEach(n => n.disconnect());
+    return;
+  }
   /** One layer: a source through a filter into an envelope that rises over `attack` and dies over `length`. */
   const layer = (source: AudioScheduledSourceNode, filter: BiquadFilterNode | null, peak: number, start: number, attack: number, length: number) => {
     const gain = context.createGain(); nodes.push(gain);
@@ -112,14 +144,14 @@ export function playGunshot(context: BaseAudioContext, bus: AudioNode, noise: Au
 }
 
 /** Shots for one engine: `fire` drops them while the context is suspended or the game is muted. */
-export function createGunshotAudio(getContext: () => AudioContext | null, muted: () => boolean) {
+export function createGunshotAudio(getContext: () => AudioContext | null, muted: () => boolean, samples?: Pick<SfxBank, 'pick'>) {
   let bus: ReturnType<typeof createGunBus> | null = null, noise: AudioBuffer | null = null, owner: AudioContext | null = null;
   return {
     /** A shot `after` seconds from now, plus its own travel time. */
     fire(tone: GunshotTone, pan = 0, after = 0) {
       const context = getContext(); if (!context || context.state !== 'running' || muted()) return;
       if (owner !== context) { bus?.dispose(); bus = createGunBus(context); noise = whiteNoise(context); owner = context; }
-      playGunshot(context, bus!.input, noise!, tone, context.currentTime + Math.max(0, after), pan);
+      playGunshot(context, bus!.input, noise!, tone, context.currentTime + Math.max(0, after), pan, samples);
     },
     dispose() { bus?.dispose(); bus = null; noise = null; owner = null; },
   };
