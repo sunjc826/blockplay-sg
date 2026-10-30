@@ -29,15 +29,19 @@ describe('vision device tiers', () => {
     expect(cores[1].palettes.length).toBeGreaterThan(cores[0].palettes.length);
     expect(cores[0].calibration).toBeDefined(); expect(cores[1].calibration).toBeUndefined();
   });
-  it('keeps a complete circular view in landscape, portrait and ultrawide, with more scene at each tier', () => {
+  it('fills wide and tall screens with NVG while preserving thermal circles and tier progression', () => {
     for (const devices of [tubes, cores]) {
       for (const aspect of [16 / 9, 9 / 16, 21 / 9, 1]) {
         const shares = devices.map(spec => visibleShare(visionAperture(spec, aspect), aspect));
         for (let i = 0; i < devices.length; i++) {
-          // Diameter in pixels stays below the shorter viewport dimension, so no rim gets cropped.
           const diameter = visionAperture(devices[i], aspect) * Math.max(aspect, 1);
-          expect(diameter).toBeLessThan(Math.min(aspect, 1));
-          expect(shares[i]).toBeCloseTo(Math.PI / 4 * devices[i].aperture ** 2 * Math.min(aspect, 1 / aspect), 2);
+          if (devices[i].kind === 'thermal') {
+            expect(diameter).toBeLessThan(Math.min(aspect, 1));
+            expect(shares[i]).toBeCloseTo(Math.PI / 4 * devices[i].aperture ** 2 * Math.min(aspect, 1 / aspect), 2);
+          } else {
+            expect(diameter).toBeCloseTo(devices[i].aperture * Math.max(aspect, 1));
+            if (aspect !== 1) expect(diameter).toBeGreaterThan(Math.min(aspect, 1));
+          }
           if (i > 0) expect(shares[i]).toBeGreaterThan(shares[i - 1]);
         }
       }
@@ -46,6 +50,9 @@ describe('vision device tiers', () => {
         expect(visionFigures(spec).view).toBe(Math.round(visibleShare(visionAperture(spec, 16 / 9)) * 100));
       }
     }
+    expect(visionFigures(tubes[0]).view).toBeGreaterThanOrEqual(65);
+    expect(visionFigures(tubes[1]).view).toBeGreaterThanOrEqual(80);
+    expect(visionFigures(tubes[2]).view).toBeGreaterThanOrEqual(90);
     expect(cores[1].aperture).toBeLessThan(tubes[2].aperture);
     expect(visionFigures(undefined)).toMatchObject({ gain: 1, view: 100, grain: 0, sharpness: 100, warmup: 0 });
   });

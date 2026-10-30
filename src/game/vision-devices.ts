@@ -24,7 +24,7 @@ export interface VisionSpec {
   gain: number;
   /** Grain at full gain, 0–1. A tube grows noisier as its gain rises. */
   noise: number;
-  /** Image circle radius relative to half the viewport's shorter side, keeping the complete rim visible. */
+  /** Image circle radius relative to half the longer viewport side for NVG, shorter side for thermal. */
   aperture: number;
   /** Image softness, 0 sharp to 1 smeared. */
   blur: number;
@@ -172,9 +172,9 @@ export const nvgAimingActive = (spec: VisionSpec | undefined, state: VisionState
 export const cloudOpacity = (amount: number, thermal: boolean) => Math.min(.9, .25 + amount * .7) * (thermal ? .3 : 1);
 /** The control-guide name for a worn device's key. */
 export const visionKeyLabel = (spec: VisionSpec) => spec.kind === 'nvg' ? 'Night vision' : spec.palettes.length > 1 ? 'Thermal · J palette' : 'Thermal';
-/** Radius in the post pass's units (half the longer side). Every device keeps its complete circle in either orientation. */
+/** Radius in the post pass's units (half the longer side). NVG fills the view, cropping its circular rim at the shorter edges; thermal keeps its complete rim. */
 export function visionAperture(spec: VisionSpec, aspect: number) {
-  return spec.aperture * Math.min(aspect, 1 / aspect);
+  return spec.kind === 'nvg' ? spec.aperture : spec.aperture * Math.min(aspect, 1 / aspect);
 }
 /** Share of a screen (width / height, 16:9 by default) inside an image circle measured against its longer side, 0–1. */
 export function visibleShare(aperture: number, aspect = 16 / 9) {

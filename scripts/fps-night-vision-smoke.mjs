@@ -48,7 +48,7 @@ try {
   await send('Runtime.enable'); await send('Page.enable'); await send('Log.enable');
   // The chart stays lit right up to the aperture; measure its actual pixel mask,
   // including all four margins, rather than trusting shader uniforms.
-  for (const [width, height] of [[1280, 760], [390, 844], [844, 390], [1920, 800]]) {
+  for (const [width, height] of [[1280, 760], [390, 844], [844, 390], [1920, 800], [800, 800]]) {
     await load(width, height, true);
     let previous = 0;
     for (const [device, aperture] of [['nvg-gen1', .76], ['nvg-gen2', .88], ['nvg-gen3', .98], ['thermal-t1', .72], ['thermal-t2', .9]]) {
@@ -62,26 +62,32 @@ try {
           v.draw('${device}',{noise:0});
         }
         const {data,width:w,height:h}=v.pixels();
-        let minX=w,minY=h,maxX=-1,maxY=-1,count=0,leaks=0;
-        const radius=${aperture}*Math.min(w,h)/2;
+        let minX=w,minY=h,maxX=-1,maxY=-1,count=0,leaks=0,missing=0,interior=0;
+        const radius=${aperture}*Math.${device.startsWith('nvg') ? 'max' : 'min'}(w,h)/2;
         for(let y=0;y<h;y++)for(let x=0;x<w;x++){
           const i=(y*w+x)*4,lit=Math.max(data[i],data[i+1],data[i+2])>2;
+          const r=Math.hypot(x+.5-w/2,y+.5-h/2);
+          if(r<radius*.94){interior++;if(!lit)missing++;}
           if(lit){minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);count++;
-            if(Math.hypot(x+.5-w/2,y+.5-h/2)>radius+1)leaks++;}
+            if(r>radius+1)leaks++;}
         }
-        return {diameterX:maxX-minX+1,diameterY:maxY-minY+1,minX,minY,count,leaks};
+        return {diameterX:maxX-minX+1,diameterY:maxY-minY+1,minX,minY,count,leaks,missing,interior};
       })()`);
-      const diameter = aperture * Math.min(width, height);
+      const diameter = aperture * (device.startsWith('nvg') ? Math.max(width, height) : Math.min(width, height));
       // Thermal's coarse sensor/soft edge can move the visible bounds within the feather band.
       const feather = device === 'thermal-t1' ? .032 : device === 'thermal-t2' ? .0232 : 0;
-      assert(Math.abs(result.diameterX - result.diameterY) <= Math.max(2, Math.ceil(diameter * feather)), `${device}: circular at ${width}x${height} ${JSON.stringify(result)}`);
-      assert(result.diameterX >= diameter * (1 - feather) - 4 && result.diameterX <= diameter + 4, `${device}: correct radius ${JSON.stringify(result)}`);
-      assert(result.minX > 0 && result.minY > 0, `${device}: complete rim visible`);
+      for (const [measured, side] of [[result.diameterX, width], [result.diameterY, height]]) {
+        assert(measured >= Math.min(side, diameter * (1 - feather)) - 4 && measured <= Math.min(side, diameter) + 4,
+          `${device}: circular mask clipped to viewport at ${width}x${height} ${JSON.stringify(result)}`);
+      }
+      assert.equal(result.missing, 0, `${device}: picture fills the circular interior`);
+      if (device.startsWith('thermal')) assert(result.minX > 0 && result.minY > 0, `${device}: complete thermal rim visible`);
       assert.equal(result.leaks, 0, `${device}: black outside the lens`);
       assert(result.count > previous, `${device}: higher tier sees more`); previous = result.count;
+      if (device === 'nvg-gen3' && width !== height) assert(result.count / (width * height) > .9, 'Gen 3 fills over 90% of the viewport');
       await screenshot(`${width}x${height}-${device}-chart`);
     }
-    console.log(`PASS ${width}x${height}: all five circles, increasing tier views, complete rims, no picture leakage.`);
+    console.log(`PASS ${width}x${height}: expanded circular NVG views, increasing tiers, complete thermal rims, no picture leakage.`);
   }
   // Palette inversion/colour mapping must stay inside the same mask too.
   await load(1280, 760, true);
@@ -109,7 +115,7 @@ try {
       v.draw(id,{noise:0,distortion:0}); const a=v.pixels();
       v.draw(id,{noise:0}); const b=v.pixels();
       let centre=0,edge=0,nc=0,ne=0;
-      const radius=({ 'nvg-gen1':.76,'nvg-gen2':.88,'nvg-gen3':.98 })[id]*Math.min(a.width,a.height)/2;
+      const radius=({ 'nvg-gen1':.76,'nvg-gen2':.88,'nvg-gen3':.98 })[id]*Math.max(a.width,a.height)/2;
       for(let y=0;y<a.height;y++)for(let x=0;x<a.width;x++){
         const r=Math.hypot(x+.5-a.width/2,y+.5-a.height/2)/radius,i=(y*a.width+x)*4;
         const d=Math.abs(a.data[i+1]-b.data[i+1]);

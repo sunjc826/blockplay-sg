@@ -4459,3 +4459,20 @@ manifest, models, audio, API-origin and companion checks passed. Evidence:
 .cache/nv-aiming-deploy.log, .cache/nv-aiming-live-check.log and
 .cache/nv-aiming-release/{source-verification,release-evidence}.json.
 No GitHub push; AGENTS.md remains local and uncommitted.
+
+
+## 2026-10-30: larger night-vision view
+
+NVG image circles now scale against the viewport's longer side instead of its
+shorter side. All three generations retain circular optics, refraction and tier
+progression, but extend past the shorter screen edges. At 16:9 their visible
+screen shares rise from 25/34/42% to 68/82/92%. Thermal circles stay unchanged;
+armory figures and documentation reflect the new NVG coverage.
+
+Focused device tests, typecheck and the Cloudflare production build passed.
+Real WebGL checks passed all five devices in desktop, portrait, landscape phone,
+ultrawide and square viewports, including circular masks, filled interiors,
+increasing tier coverage, thermal palettes and peripheral refraction. Visual
+review and NV aiming-light regressions passed. Evidence: .cache/nvg-size-*.log
+and .cache/fps-night-vision/. Full suite and manual deployment verification follow.
+No GitHub push; AGENTS.md stays local, unstaged and uncommitted.
