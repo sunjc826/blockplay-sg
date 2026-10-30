@@ -41,6 +41,9 @@ export function buildQueenstownScene() {
   const stationBlue = mat('#668faa'), walkwayBlue = mat('#36799b');
   const paving = mat('#d6c7b2'), yellow = mat('#e2c566'), shrub = mat('#628548'), blue = mat('#729eaf');
   glass.roughness = 0.32; glass.metalness = 0.2;
+  // Authored apartment panes receive occupancy lighting as whole panes, even
+  // when their structure lives in the shared walkable-places renderer.
+  const apartmentGlass = glass.clone(); apartmentGlass.userData.nightWindow = true; materials.push(apartmentGlass);
   stationBlue.roughness = 0.55; walkwayBlue.roughness = 0.55;
   const foliageLight = mat('#6a9050'), foliageDeep = mat('#3e693e');
   for (const foliage of [leaf, foliageLight, foliageDeep, shrub]) foliage.userData.visualCover = true;
@@ -135,7 +138,7 @@ export function buildQueenstownScene() {
       // Apartment windows on the back; the south face is a recessed access
       // gallery with individual front doors, not a painted solid black strip.
       for (let dx = -22; dx < 28; dx += 5.5) {
-        box(x + dx, y, z - 7.6, 2.5, 1.35, .12, glass);
+        box(x + dx, y, z - 7.6, 2.5, 1.35, .12, apartmentGlass);
         box(x + dx + 1.8, y - .35, z - 7.8, .8, .65, .5, concrete);
         for (const offset of [-.72,.72]) box(x + dx, y + offset, z - 7.69, 2.7, .1, .28, cream);
         for (const offset of [-1.32,0,1.32]) box(x + dx + offset, y, z - 7.69, .09, 1.45, .28, cream);
@@ -145,7 +148,7 @@ export function buildQueenstownScene() {
         for (const edge of [-.67,.67]) box(x + dx + edge, level + 1.1, z + 4.65, .1, 2.2, .12, cream);
         box(x + dx, level + 2.18, z + 4.65, 1.44, .1, .12, cream);
         box(x + dx + .38, level + 1.02, z + 4.73, .08, .16, .09, dark);
-        box(x + dx + 2.9, level + 1.55, z + 4.58, 2.2, 1.2, .1, glass);
+        box(x + dx + 2.9, level + 1.55, z + 4.58, 2.2, 1.2, .1, apartmentGlass);
         for (const edge of [-1.15,0,1.15]) box(x + dx + 2.9 + edge, level + 1.55, z + 4.68, .07, 1.35, .12, cream);
         for (const dy of [1,1.55,2.1]) box(x + dx + 2.9, level + dy, z + 4.68, 2.3, .06, .12, cream);
         box(x + dx, level + 1.1, z + 8.4, 9.5, .1, .3, white);
@@ -155,12 +158,12 @@ export function buildQueenstownScene() {
         // Upper stair-tower vents continue the sheltered core up the building.
         if (floor > 1) {
           box(cx, y, z + 8.57, 4.5, 1.4, .12, dark);
-          for (const dz of [-2,2]) box(cx + side * 4.28, y, z + 3 + dz, .12, 1.4, 2.4, glass);
+          for (const dz of [-2,2]) box(cx + side * 4.28, y, z + 3 + dz, .12, 1.4, 2.4, apartmentGlass);
           for (const dy of [-.5,0,.5]) box(cx, y + dy, z + 8.66, 4.6, .08, .12, white);
           for (const edge of [-2.35,2.35]) box(cx + edge, y, z + 8.66, .1, 1.6, .12, cream);
         }
         // Raised frames/lattice retain the reviewed end-facade vocabulary.
-        box(x + side * 29.6, y, z - 2, .12, 1.5, 3.2, glass);
+        box(x + side * 29.6, y, z - 2, .12, 1.5, 3.2, apartmentGlass);
         box(x + side * 29.8, y - 1.1, z - 2, .55, .16, 4.5, concrete);
         box(x + side * 29.72, y, z - 2, .12, .1, 3.5, white).rotation.x = .4;
         box(x + side * 29.72, y, z - 2, .12, .1, 3.5, white).rotation.x = -.4;

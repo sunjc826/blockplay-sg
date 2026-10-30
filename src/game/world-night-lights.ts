@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { nightFacadeAttributes } from './night-facades';
 import type { Obstacle, RegionBounds } from './region-collision';
 import { footprintRayInterval } from './region-collision';
 import type { RegionRoad } from './regions';
@@ -308,8 +309,8 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
   // Every lit material in the district samples the lamp map; building-sized meshes also get windows.
   const patched = new WeakMap<THREE.Material, { compile: Lit['onBeforeCompile']; key: Lit['customProgramCacheKey'] }>();
   const windowed = new Map<THREE.Material, Lit>();
-  const swaps: { mesh: THREE.Mesh; geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[]; span: THREE.BufferAttribute }[] = [];
-  function patch(material: Lit, windows: boolean) {
+  const swaps: { mesh: THREE.Mesh; geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[]; attributes: THREE.BufferAttribute[] }[] = [];
+  function patch(material: Lit, windows: boolean, panes = false) {
     if (patched.has(material)) return;
     const compile = material.onBeforeCompile, key = material.customProgramCacheKey;
     patched.set(material, { compile, key });
@@ -317,17 +318,29 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
       compile.call(this, shader, renderer);
       Object.assign(shader.uniforms, uniforms, moving.uniforms);
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', `#include <common>\nvarying vec3 vNightWorld, vNightNormal;${windows ? '\nattribute vec2 nightSpan;\nvarying vec2 vNightSpan;' : ''}`)
+        .replace('#include <common>', `#include <common>\nvarying vec3 vNightWorld, vNightNormal;${windows ? '\nattribute vec2 nightSpan, nightEdge;\nattribute vec3 nightTangent;\nvarying vec2 vNightSpan, vNightEdge;\nvarying float vNightSeed;' : ''}`)
         .replace('#include <project_vertex>', `#include <project_vertex>
           vec4 nightWorld = vec4(transformed, 1.0); vec3 nightNormal = objectNormal;
           #ifdef USE_INSTANCING
-            nightWorld = instanceMatrix * nightWorld; nightNormal = mat3(instanceMatrix) * nightNormal;
+            nightWorld = instanceMatrix * nightWorld; nightNormal /= vec3(dot(instanceMatrix[0].xyz, instanceMatrix[0].xyz), dot(instanceMatrix[1].xyz, instanceMatrix[1].xyz), dot(instanceMatrix[2].xyz, instanceMatrix[2].xyz));
+            nightNormal = mat3(instanceMatrix) * nightNormal;
           #endif
-          vNightWorld = (modelMatrix * nightWorld).xyz; vNightNormal = mat3(modelMatrix) * nightNormal;${windows ? '\nvNightSpan = nightSpan;' : ''}`);
+          vNightWorld = (modelMatrix * nightWorld).xyz; nightNormal /= vec3(dot(modelMatrix[0].xyz, modelMatrix[0].xyz), dot(modelMatrix[1].xyz, modelMatrix[1].xyz), dot(modelMatrix[2].xyz, modelMatrix[2].xyz));
+          vNightNormal = mat3(modelMatrix) * nightNormal;${windows ? `
+vNightSpan = nightSpan;
+vec3 nightT = nightTangent; vec4 nightSeed = vec4(0.0, 0.0, 0.0, 1.0);
+#ifdef USE_INSTANCING
+  nightT = mat3(instanceMatrix) * nightT; nightSeed = instanceMatrix * nightSeed;
+#endif
+vNightEdge = nightEdge * length(mat3(modelMatrix) * nightT);
+vec3 nightCenter = (modelMatrix * nightSeed).xyz;
+// Hash once per vertex; hashing interpolated world coordinates in the fragment
+// shader amplifies rounding into stripes across an otherwise constant pane.
+vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.5453);` : ''}`);
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>
           uniform float nightLevel, nightPool, nightWindowShare; uniform sampler2D nightMap; uniform vec4 nightBounds; uniform vec3 nightLampColor;
-          varying vec3 vNightWorld, vNightNormal;${windows ? '\nvarying vec2 vNightSpan;' : ''}
+          varying vec3 vNightWorld, vNightNormal;${windows ? '\nvarying vec2 vNightSpan, vNightEdge;\nvarying float vNightSeed;' : ''}
           ${MOVING_LIGHTS_DECLARATIONS}`)
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
           // Flares, motors and bursts nearby (moving-lights); they still shine when a blackout puts the city out.
@@ -345,26 +358,30 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
             ${windows ? `
             float wall = 1.0 - smoothstep(.12, .3, abs(nightN.y));
             if (wall > 0.0 && vNightWorld.y > vNightSpan.x && vNightWorld.y < vNightSpan.y) {
-              // The grid and which panes are lit follow the wall's plane in the world, not the mesh:
-              // two buildings that share a wall plane light the same panes, so their overlap cannot flicker.
-              vec2 along = normalize(vec2(-nightN.z, nightN.x) + 1e-5);
-              float plane = mod(floor(dot(vNightWorld.xz, normalize(nightN.xz + 1e-5)) + .37), 97.0);
-              vec2 cell = vec2(dot(vNightWorld.xz, along) / 3.1, vNightWorld.y / 3.3);
+              ${panes ? `
+              // An authored pane is already the window: light its surface, preserving frames and grilles.
+              float h = vNightSeed;
+              float lit = step(1.0 - nightWindowShare, h);
+              float pane = 1.0;
+              ` : `
+              // Fit complete columns and storeys inside each actual facade, including rotated/extruded sides.
+              float height = max(.01, vNightSpan.y - vNightSpan.x);
+              vec2 count = max(vec2(1.0), floor(vec2(vNightEdge.y / 3.1, height / 3.3)));
+              vec2 cell = vec2(vNightEdge.x / max(.01, vNightEdge.y), (vNightWorld.y - vNightSpan.x) / height) * count;
               vec2 id = floor(cell), f = fract(cell), aa = max(fwidth(cell), vec2(1e-4));
-              // Whole storeys only, so the ground floor and parapet cut no pane in half.
-              float storey = step(vNightSpan.x, id.y * 3.3) * step((id.y + 1.0) * 3.3, vNightSpan.y);
               vec2 pane2 = clamp((vec2(.28, .24) - abs(f - .5)) / aa, 0.0, 1.0);
-              float facade = floor(nightN.x * 2.0 + .5) * 7.0 + floor(nightN.z * 2.0 + .5) * 13.0 + plane;
+              float facade = floor(vNightSeed * 97.0);
               float h = fract(sin(dot(id + facade, vec2(12.9898, 78.233))) * 43758.5453);
-              float lit = storey * step(1.0 - nightWindowShare * (.6 + .8 * fract(plane * .37)), h);
+              float lit = step(1.0 - nightWindowShare, h);
               // Far off, a grid finer than a pixel settles to its average instead of shimmering.
               float pane = mix(pane2.x * pane2.y, .56 * .48, smoothstep(.35, .9, max(aa.x, aa.y)));
+              `}
               vec3 tint = mix(vec3(1.0, .74, .45), vec3(.82, .9, 1.0), step(.72, fract(h * 7.13)));
               totalEmissiveRadiance += tint * (1.1 + fract(h * 3.7)) * pane * lit * wall * nightLevel;
             }` : ''}
           }`);
     };
-    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? '-windows' : ''}`; };
+    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? panes ? '-panes-v2' : '-windows-v2' : ''}`; };
     material.needsUpdate = true;
   }
   const box = new THREE.Box3(), geometryBox = new THREE.Box3(), instance = new THREE.Matrix4();
@@ -377,23 +394,31 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
     return view;
   }
   function windowsFor(mesh: THREE.Mesh) {
-    if (Array.isArray(mesh.material) || !lit(mesh.material) || !windowable(mesh.material) || !WINDOW_SHAPES.has(mesh.geometry.type)) return false;
+    if (Array.isArray(mesh.material) || !lit(mesh.material)) return false;
+    // Material metadata survives static batching and instanced-material separation.
+    const panes = mesh.material.userData.nightWindow === true;
+    if (!panes && (!windowable(mesh.material) || !WINDOW_SHAPES.has(mesh.geometry.type))) return false;
     if (mesh instanceof THREE.SkinnedMesh) return false;
-    for (let p: THREE.Object3D | null = mesh.parent; p; p = p.parent) if (NO_WINDOWS.has(p.name)) return false;
+    for (let p: THREE.Object3D | null = mesh.parent; p; p = p.parent) if (!panes && NO_WINDOWS.has(p.name)) return false;
     const geometry = mesh.geometry;
     if (!geometry.boundingBox) geometry.computeBoundingBox();
     geometryBox.copy(geometry.boundingBox!);
     const instances = mesh instanceof THREE.InstancedMesh ? mesh.count : 1;
     const span = new Float32Array(instances * 2);
     let any = false;
+    const up = new THREE.Vector3();
     for (let i = 0; i < instances; i++) {
       if (mesh instanceof THREE.InstancedMesh) { mesh.getMatrixAt(i, instance); instance.premultiply(mesh.matrixWorld); }
       else instance.copy(mesh.matrixWorld);
       box.copy(geometryBox).applyMatrix4(instance);
       // A round tower only when it is a tower, not a tank.
       const round = geometry.type === 'CylinderGeometry' && (box.max.y - box.min.y) < 1.4 * (box.max.x - box.min.x);
-      const ok = !round && upright(instance) && buildingSized(box);
-      span.set(ok ? [box.min.y + 2.6, box.max.y - 1.1] : [1e6, -1e6], i * 2);
+      const ok = panes || !round && upright(instance) && buildingSized(box);
+      if (ok && !any) {
+        const axis = [0, 1, 2].find(axis => Math.abs(new THREE.Vector3().setFromMatrixColumn(instance, axis).normalize().y) > .995) ?? 1;
+        up.setComponent(axis, Math.sign(new THREE.Vector3().setFromMatrixColumn(instance, axis).y));
+      }
+      span.set(ok ? panes ? [box.min.y - .01, box.max.y + .01] : [box.min.y + 2.6, box.max.y - 1.1] : [1e6, -1e6], i * 2);
       any ||= ok;
     }
     if (!any) return false;
@@ -401,9 +426,11 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
     const attribute = mesh instanceof THREE.InstancedMesh ? new THREE.InstancedBufferAttribute(span, 2)
       : new THREE.BufferAttribute(new Float32Array(geometry.attributes.position.count * 2).map((_, k) => span[k % 2]), 2);
     view.setAttribute('nightSpan', attribute);
+    const facade = nightFacadeAttributes(geometry, up);
+    for (const [name, buffer] of Object.entries(facade)) view.setAttribute(name, buffer);
     let material = windowed.get(mesh.material);
-    if (!material) { material = (mesh.material as Lit).clone(); windowed.set(mesh.material, material); patch(material, true); }
-    swaps.push({ mesh, geometry, material: mesh.material, span: attribute });
+    if (!material) { material = (mesh.material as Lit).clone(); windowed.set(mesh.material, material); patch(material, true, panes); }
+    swaps.push({ mesh, geometry, material: mesh.material, attributes: [attribute, ...Object.values(facade)] });
     mesh.geometry = view; mesh.material = material;
     return true;
   }
@@ -474,11 +501,11 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
     dispose() {
       if (disposed) return; disposed = true;
       scene.remove(root);
-      for (const { mesh, geometry, material, span } of swaps) {
+      for (const { mesh, geometry, material, attributes } of swaps) {
         const view = mesh.geometry;
         mesh.geometry = geometry; mesh.material = material;
-        // The view shares every buffer but its own; only that one may be freed with it.
-        for (const name of Object.keys(view.attributes)) if (view.attributes[name] !== span) view.deleteAttribute(name);
+        // Free only the facade attributes owned by this view, never the shared source buffers.
+        for (const name of Object.keys(view.attributes)) if (!attributes.includes(view.attributes[name] as THREE.BufferAttribute)) view.deleteAttribute(name);
         view.index = null; view.dispose();
       }
       windowed.forEach(material => material.dispose());

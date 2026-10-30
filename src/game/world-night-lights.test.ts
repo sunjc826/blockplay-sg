@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { REGIONS } from './regions';
+import { QUEENSTOWN_HDB_BLOCKS } from './queenstown-housing';
+import { separateInstancedMaterials } from './instanced-materials';
 import { dayLighting, TIMES_OF_DAY } from './world-lighting';
 import { bakeLampMap, buildingSized, createNightLights, LAMP_HEIGHT, LAMP_REACH, LAMP_SPACING, nightLevel, PATH_LAMP, placePathLamps, placeStreetLamps, upright } from './world-night-lights';
 
@@ -96,6 +98,43 @@ describe('street lamps', () => {
       world.dispose();
     }
   }, 30000);
+  it('lights the authored apartment panes on every Queenstown block after batching', () => {
+    const region = REGIONS.find(r => r.id === 'queenstown')!, world = region.build();
+    separateInstancedMaterials(world.scene);
+    const night = createNightLights(world.scene, { roads: region.mapRoads, roadWidth: region.roadWidth, bounds: region.bounds, obstacles: world.obstacles });
+    const counts = QUEENSTOWN_HDB_BLOCKS.map(() => 0), matrix = new THREE.Matrix4(), center = new THREE.Vector3();
+    world.scene.traverse(object => {
+      if (!(object instanceof THREE.InstancedMesh) || Array.isArray(object.material) || !object.material.userData.nightWindow) return;
+      expect(object.material.customProgramCacheKey()).toContain('night-panes');
+      const span = object.geometry.getAttribute('nightSpan');
+      for (let i = 0; i < object.count; i++) {
+        object.getMatrixAt(i, matrix); matrix.premultiply(object.matrixWorld); center.setFromMatrixPosition(matrix);
+        const block = QUEENSTOWN_HDB_BLOCKS.findIndex(b => Math.abs(center.x - b.x) < 40 && Math.abs(center.z - b.z) < 12);
+        expect(block).toBeGreaterThanOrEqual(0);
+        expect(span.getX(i)).toBeLessThan(center.y); expect(span.getY(i)).toBeGreaterThan(center.y);
+        counts[block]++;
+      }
+    });
+    QUEENSTOWN_HDB_BLOCKS.forEach((b, i) => expect(counts[i], b.id).toBe(b.storeys * 17 + (b.storeys - 2) * 4));
+    // The apartment masses remain ordinary walls: no synthetic panes across the galleries.
+    world.scene.getObjectByName('Connected elevated places')!.traverse(object => {
+      if (object instanceof THREE.Mesh) expect(object.geometry.getAttribute('nightSpan')).toBeUndefined();
+    });
+    night.dispose(); world.dispose();
+  });
+  it('supports authored panes inside elevated places and restores shared buffers on disposal', () => {
+    const scene = new THREE.Scene(), group = new THREE.Group(); group.name = 'Connected elevated places'; scene.add(group);
+    const material = new THREE.MeshStandardMaterial({ color: '#6d9d92' }); material.userData.nightWindow = true;
+    const geometry = new THREE.BoxGeometry(2.5, 1.35, .12), pane = new THREE.Mesh(geometry, material);
+    pane.position.set(3, 12, 4); group.add(pane);
+    const night = createNightLights(scene, { roads: [], roadWidth: 14, bounds: { minX: -20, maxX: 20, minZ: -20, maxZ: 20 }, obstacles: [] });
+    expect(pane.geometry.getAttribute('nightSpan').getX(0)).toBeCloseTo(12 - 1.35 / 2 - .01);
+    expect(pane.geometry.getAttribute('position')).toBe(geometry.getAttribute('position'));
+    night.dispose();
+    expect(pane.geometry).toBe(geometry); expect(pane.material).toBe(material);
+    expect(geometry.getAttribute('nightEdge')).toBeUndefined();
+    geometry.dispose(); material.dispose();
+  });
   it('size windows for buildings, not kerbs or poles', () => {
     expect(buildingSized(new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(20, 30, 15)))).toBe(true);
     expect(buildingSized(new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(.6, 9, .6)))).toBe(false);

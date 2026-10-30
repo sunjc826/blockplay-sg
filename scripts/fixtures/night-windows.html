@@ -1,0 +1,41 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Night window geometry review</title></head>
+<body style="margin:0;background:#000"><script type="module">
+import * as THREE from 'three';
+import { createNightLights } from '/src/game/world-night-lights.ts';
+import { dayLighting } from '/src/game/world-lighting.ts';
+const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+renderer.setSize(800, 800); renderer.setPixelRatio(1); document.body.append(renderer.domElement);
+const camera = new THREE.OrthographicCamera(-10, 10, 10, -10, .1, 100);
+let scene, night, target, uniforms;
+function show(mode = 'box', yaw = 0, materialType = 'standard') {
+  night?.dispose();
+  scene?.traverse(o => { if(o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+  scene = new THREE.Scene(); scene.background = new THREE.Color('black');
+  const Constructor = {standard:THREE.MeshStandardMaterial, lambert:THREE.MeshLambertMaterial, phong:THREE.MeshPhongMaterial}[materialType];
+  const material = new Constructor({ color:'#999999' });
+  if(mode === 'pane') material.userData.nightWindow = true;
+  const geometry = new THREE.BoxGeometry(1,1,1);
+  target = new THREE.InstancedMesh(geometry, material, 2);
+  // First instance is a kerb: sharing geometry/material must not give it windows.
+  target.setMatrixAt(0, new THREE.Matrix4().makeScale(15, .3, 2));
+  const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),yaw);
+  const size = mode === 'pane' ? new THREE.Vector3(6,4,.12) : new THREE.Vector3(11.2,17.4,8.7);
+  target.setMatrixAt(1,new THREE.Matrix4().compose(new THREE.Vector3(0,10,0),rotation,size)); scene.add(target);
+  night = createNightLights(scene,{roads:[],roadWidth:14,bounds:{minX:-30,maxX:30,minZ:-30,maxZ:30},obstacles:[]});
+  const compile = target.material.onBeforeCompile;
+  target.material.onBeforeCompile = function(shader,renderer) { compile.call(this,shader,renderer); uniforms=shader.uniforms; uniforms.nightWindowShare.value=1; uniforms.nightPool.value=0; };
+  const direction = new THREE.Vector3(0,0,1).applyQuaternion(rotation);
+  camera.position.copy(direction.multiplyScalar(40)).add(new THREE.Vector3(0,10,0)); camera.lookAt(0,10,0);camera.updateMatrixWorld();
+  draw('night');
+}
+function draw(time, blackout=0) {
+  night.update(dayLighting(time === 'day' ? 12 : 22.5),blackout,1/30,camera,renderer);
+  renderer.render(scene,camera);
+}
+function pixels() {
+  const copy = document.createElement('canvas'); copy.width=800;copy.height=800;
+  const context=copy.getContext('2d');context.drawImage(renderer.domElement,0,0);return context.getImageData(0,0,800,800);
+}
+window.windowReview={show,draw,pixels,get target(){return target},ready:true};show();
+</script></body></html>

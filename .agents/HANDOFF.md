@@ -4279,3 +4279,28 @@ checks passed. Evidence: .cache/moonlight-release/release-evidence.json,
 a descendant to preserve nuanced moonlight and the circular NVG/thermal work.
 No GitHub push. AGENTS.md remains local and uncommitted. Unrelated pending
 night-window/facade work was preserved and excluded from this release.
+
+
+## 2026-10-30: geometry-aligned night windows and Queenstown HDB panes
+
+Night lighting now supports authored panes through material.userData.nightWindow,
+including instanced panes and panes inside elevated-place groups. Queenstown's
+six HDB blocks tag apartment, gallery and end windows; frames, grilles, doors,
+void decks and the structural masses retain their geometry and materials.
+Occupancy and tint are constant per pane, avoiding fragment-hash precision stripes.
+
+The shared procedural fallback fits complete columns/storeys within actual facade
+edges. Extruded side planes use their own lengths and cylinders unwrap at their
+seam, with a stable circumference metric under nonuniform scaling. World normals
+now account for nonuniform object/instance scales. Daylight and blackout still
+turn off window emission; disposal restores source geometry/materials and leaves
+shared buffers intact.
+
+Validation: all 1,809 tests across 185 suites passed; the final 17 focused facade
+and night-light tests passed. Real WebGL pixel checks passed rotated instancing,
+facade margins, whole panes without stripes, Standard/Lambert/Phong materials,
+daylight and blackout. Queenstown rear/gallery, Marina and Raffles captures were
+inspected with no page/shader errors. Evidence: .cache/night-windows and
+.cache/hdb-lighting-{tests,focused,browser}.log. Final release typecheck and manual
+Cloudflare deployment follow from an isolated snapshot, excluding unrelated
+concurrent night-exposure work. No GitHub push; AGENTS.md remains local.
