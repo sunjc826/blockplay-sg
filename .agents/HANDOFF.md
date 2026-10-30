@@ -4992,3 +4992,17 @@ PICKS. Two more v3 rifle takes were generated; v3-4 replaces them and v3-5 was
 too dull. Every gunshot clip now peaks within 10 ms of its first sample.
 Chrome's decoded durations match ffmpeg's, so no MP3 priming delay is added.
 52 files, 528 KB. Not deployed.
+
+
+## 2026-10-31: recorded sound effects released
+
+The user approved deployment after the onset fix. The clean release
+.cache/sfx-release-f8c1d17 matches all 2,761 tracked files of f8c1d17. It
+passed 1,906 tests in 200 files and typecheck (vitest and tsc called directly;
+pnpm refuses to run deps checks over the linked node_modules). The Cloudflare
+build included 52 sfx clips. Manual wrangler deploy succeeded: version
+14bfc020-f306-429e-ba90-8f8bc5117544. On blockplaysg.fun and workers.dev,
+the entry JS/CSS, sw.js and all 52 /audio/sfx MP3s are byte-identical to the
+build. scripts/cloudflare-check.mjs passed against both origins with no paid
+API requests. Evidence: release-{tests,typecheck,build,deploy,verification,
+cloudflare-check}.log and source-verification.json in that directory. No push.
