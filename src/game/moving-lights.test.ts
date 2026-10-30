@@ -36,7 +36,7 @@ describe('moving lights', () => {
 
   it('lights the city from a rocket salvo as it flies', () => {
     const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera();
-    const sky = createAmbientSky(scene, { seed: 7, risk: 'low', reduced: () => false, audio: () => null, muted: () => true });
+    const sky = createAmbientSky(scene, { seed: 7, risk: 'low', reduced: () => false, audio: () => null, muted: () => true, birdSurface: () => null, birdClear: () => true });
     const frame = { camera, listener: { x: 0, y: 1.7, z: 0 }, bounds: { minX: -150, maxX: 150, minZ: -150, maxZ: 150 }, night: 1, quiet: true };
     sky.update(1 / 30, frame);
     expect(sky.trigger('rockets')).not.toBeNull();

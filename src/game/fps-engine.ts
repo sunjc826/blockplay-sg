@@ -336,9 +336,26 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const combatAudio = createCombatAudio(() => audio, () => hud.muted);
   const gunshots = createGunshotAudio(() => audio, () => hud.muted);
   // Scenery in the sky beyond the district: never a threat, never sent between peers (ambient-sky).
+  // Roost sampling runs before the first render, so static world transforms must be ready.
+  world.scene.updateMatrixWorld(true);
+  const birdRay = new THREE.Raycaster(), birdFrom = new THREE.Vector3(), birdDirection = new THREE.Vector3();
+  const birdSurfaces = () => gameplayCandidates().filter(o => o !== vehicles.root && !o.userData.arenaActorId);
   const ambientSky = createAmbientSky(world.scene, { seed: Math.floor(Math.random() * 2 ** 32), risk: options.arena?.environment?.combatEvents?.risk ?? 'low', sea: COASTAL_SEA[region],
-    reduced: () => getEnvironmentSettings().reducedEffects || !!motionPreference?.matches, audio: () => audio, muted: () => hud.muted });
-  let ambientJet = Infinity, ambientShots = 0, cueClock = 0;
+    reduced: () => getEnvironmentSettings().reducedEffects || !!motionPreference?.matches, audio: () => audio, muted: () => hud.muted,
+    birdSurface(x, z) {
+      birdRay.set(birdFrom.set(x, 512, z), birdDirection.set(0, -1, 0)); birdRay.near = 0; birdRay.far = 544;
+      const hit = firstVisibleHit(birdRay, birdSurfaces(), true);
+      if (!hit || isWaterObject(hit.object) || !hit.face) return null;
+      const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+      return normal.y > .85 ? hit.point.y : null;
+    },
+    birdClear(from, perch) {
+      birdFrom.set(from.x, from.y, from.z); birdDirection.set(perch.x, perch.y, perch.z).sub(birdFrom);
+      const distance = birdDirection.length();
+      birdRay.set(birdFrom, birdDirection.normalize()); birdRay.near = .1; birdRay.far = Math.max(.1, distance - .3);
+      return !firstVisibleHit(birdRay, birdSurfaces(), true);
+    } });
+  let ambientJet = Infinity, cueClock = 0;
   /** Events within this many metres are alarms (banner, tones); further away they are news in the comms log. */
   const COMBAT_NEAR = 130;
   const seenGrenadeCues = new Set<number>();
@@ -1956,6 +1973,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const shot = vehicles.fire(); if (!shot) return;
     pullBuffer = 0;
     hud.shots++; shotSound(VEHICLE_COMBAT[mounted.kind]);
+    ambientSky.startle(shot.base, .8, shot.direction);
     // The round leaves from the turret base, so a muzzle poked through a wall still meets the wall; it flies like any other.
     if (rounds.length < MAX_ROUNDS_IN_FLIGHT) rounds.push(Object.assign(createRound(++roundSerial, hud.weapon, shot.base.clone(), shot.direction.clone(), shot.ballistics),
       { range: shot.range, skipVehicle: shot.kind, vehicleDamage: shot.damage }));
@@ -2036,6 +2054,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const dispersion = sampleShotSpread(spreadAngle);
     shotRight.set(1, 0, 0).applyQuaternion(camera.quaternion); shotUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
     ray.ray.direction.addScaledVector(shotRight, dispersion.x).addScaledVector(shotUp, dispersion.y).normalize();
+    ambientSky.startle(shotOrigin, .45, ray.ray.direction);
     triggerSpent = true; pullBuffer = 0;
     recordBloomShot(bloom[hud.weapon], hud.weapon);
     const muzzle = muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id);
@@ -2557,12 +2576,6 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    */
   function updateAmbientSky(dt: number) {
     const raid = (hud.arena?.events ?? []).some(e => e.kind === 'air-raid' && combatPhase(e, eventClock) !== 'done');
-    // Your own shots flush birds off a roof somewhere ahead of you.
-    if (hud.shots > ambientShots) {
-      const ahead = 25 + Math.random() * 25, aside = (Math.random() - .5) * 30;
-      ambientSky.startle(camera.position, .45, { x: camera.position.x - Math.sin(yaw) * ahead + Math.cos(yaw) * aside, y: camera.position.y + 8 + Math.random() * 10, z: camera.position.z - Math.cos(yaw) * ahead - Math.sin(yaw) * aside });
-    }
-    ambientShots = hud.shots;
     // The district's set pieces (a train's door chime, a liner's horn) on the same clock that moves them.
     if (hud.elapsed < cueClock) cueClock = hud.elapsed;
     for (const cue of world.cues?.(cueClock, hud.elapsed) ?? []) ambientSky.cue(cue.kind, cue.at);

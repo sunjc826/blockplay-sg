@@ -21,8 +21,6 @@ import type { SetPieceCueKind } from './district-set-pieces';
  */
 
 const GLOWS = 160, TRACERS = 160, PUFFS = 420, BEAMS = 4;
-/** A day without startles still sees a flock cross now and then, this many seconds apart. */
-const PASSING_FLOCK = [45, 100] as const;
 /** Skyline tracer is drawn at an arcade speed: real rounds cross a hundred metres too fast to see from this far. */
 const SKYLINE_TRACER_SPEED = 120;
 /** Beyond this from the camera nothing is drawn: the far plane is at 800 m. */
@@ -108,7 +106,7 @@ export interface AmbientSkyFrame { camera: THREE.Camera; listener: AmbientPoint;
  * `sea`: which way open sea lies from the district (COASTAL_SEA), so warships
  * have somewhere to sail; inland, there are none.
  */
-export function createAmbientSky(scene: THREE.Scene, options: { seed: number; risk: CombatRisk; sea?: { x: number; z: number }; reduced: () => boolean; audio: () => AudioContext | null; muted: () => boolean }) {
+export function createAmbientSky(scene: THREE.Scene, options: { seed: number; risk: CombatRisk; sea?: { x: number; z: number }; reduced: () => boolean; audio: () => AudioContext | null; muted: () => boolean; birdSurface: (x: number, z: number) => number | null; birdClear: (from: AmbientPoint, perch: AmbientPoint) => boolean }) {
   const root = new THREE.Group(); root.name = 'ambient-sky'; root.userData.fpsEffect = true; scene.add(root);
   const director = createAmbientDirector({ seed: options.seed, risk: options.risk });
   const sound = createAmbientSkyAudio(options.audio, options.muted);
@@ -142,7 +140,6 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
   const wing = (span: number) => keep(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([0, 0, -.12, 0, 0, .12, span, 0, .06], 3)));
   const wingMeshes = [pool(wing(.45), birdMaterial, BIRDS.max, 'ambient-bird-wings-right'), pool(wing(-.45), birdMaterial, BIRDS.max, 'ambient-bird-wings-left')];
   const bodyMesh = pool(keep(new THREE.BoxGeometry(.09, .08, .32)), birdMaterial, BIRDS.max, 'ambient-bird-bodies');
-  let passAt = 20 + Math.random() * 40;
 
   // The shell the beam's glow is drawn in, a little past the lamp at the bottom so its halo is not cut off flat. Capped,
   // so a sight line running up the beam still meets a far wall.
@@ -378,12 +375,13 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
   function drawBirds() {
     let n = 0;
     for (const flock of birds.flocks) {
-      const shrink = Math.min(1, (flock.life - flock.age) / 2);
+      const shrink = flock.resting ? 1 : Math.min(1, (flock.life - flock.age) / 2);
       for (const bird of flock.birds) {
         if (n >= BIRDS.max) break;
-        birdEuler.set(Math.atan2(bird.vy, Math.hypot(bird.vx, bird.vz)) * .6, Math.atan2(-bird.vx, -bird.vz), 0); birdYaw.setFromEuler(birdEuler);
+        birdEuler.set(Math.atan2(bird.vy, Math.hypot(bird.vx, bird.vz)) * .6, flock.resting ? bird.phase : Math.atan2(-bird.vx, -bird.vz), 0); birdYaw.setFromEuler(birdEuler);
         position.set(bird.x, bird.y, bird.z); scale.setScalar(bird.size * shrink);
         bodyMesh.setMatrixAt(n, matrix.compose(position, birdYaw, scale));
+        if (flock.resting) scale.set(bird.size * .25, bird.size, bird.size * .85);
         wingMeshes.forEach((mesh, side) => {
           birdWing.setFromAxisAngle(zAxis, side ? -bird.flap : bird.flap).premultiply(birdYaw);
           mesh.setMatrixAt(n, matrix.compose(position, birdWing, scale));
@@ -440,14 +438,7 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
     ships.forEach((ship, i) => { if (!usedShips.has(i)) ship.visible = false; });
     searchlights(frame, dt, aim);
 
-    // Now and then by day a flock crosses over, a little way off and well above the street.
-    if (clock >= passAt) {
-      passAt = clock + PASSING_FLOCK[0] + Math.random() * (PASSING_FLOCK[1] - PASSING_FLOCK[0]);
-      if (frame.night < .5) {
-        const a = Math.random() * Math.PI * 2, r = 60 + Math.random() * 60, b = a + Math.PI / 2 + (Math.random() - .5);
-        birds.pass({ x: frame.listener.x + Math.cos(a) * r, y: frame.listener.y + 35 + Math.random() * 20, z: frame.listener.z + Math.sin(a) * r }, { x: Math.cos(b), z: Math.sin(b) });
-      }
-    }
+    birds.populate(frame.listener, frame.bounds, options.birdSurface);
     birds.step(dt); drawBirds();
 
     for (let i = emitters.length - 1; i >= 0; i--) {
@@ -490,15 +481,11 @@ export function createAmbientSky(scene: THREE.Scene, options: { seed: number; ri
     update,
     /** Calls one in now, ahead of `facing` (a yaw) from wherever the camera last was. Flak by day shows tracer but no searchlights. */
     trigger(kind: AmbientKind, facing?: number) { return lastView ? director.force(kind, lastView, facing) : null; },
-    /**
-     * Something loud at `at` (a shell landing, a shot): birds roosting nearby
-     * burst off the roofs. `perch` is where they were sitting, by default a
-     * roof a little way off; `strength` 1 is a shell. Flushed birds do not go twice.
-     */
-    startle(at: AmbientPoint, strength: number, perch?: AmbientPoint) {
-      const a = Math.random() * Math.PI * 2, r = 15 + Math.random() * 25;
-      const roost = perch ?? { x: at.x + Math.cos(a) * r, y: at.y + 8 + Math.random() * 10, z: at.z + Math.sin(a) * r };
-      if (birds.startle(at, strength, roost)) sound.flutter(far(roost), pan(roost));
+    /** Scatter existing roosts near a blast or in a shot's firing corridor. */
+    startle(at: AmbientPoint, strength: number, direction?: AmbientPoint) {
+      for (const roost of birds.startle(at, strength, direction, perch => options.birdClear(at, perch))) {
+        sound.flutter(far(roost), pan(roost));
+      }
     },
     /** Plays a district set piece's sound from where it happens (district-set-pieces). */
     cue(kind: SetPieceCueKind, at: AmbientPoint) {

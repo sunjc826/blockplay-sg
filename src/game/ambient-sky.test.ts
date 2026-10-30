@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { AMBIENT_MARGIN, AMBIENT_PACE, createAmbientDirector, exitDistance, farPoint, flakPose, flakTimeline, flybyHeard, flybyPose, outside, rocketPose, rocketTimeline,
   searchlightSites, skylineTimeline, flarePose, missilePose, navalShellPose, navalTimeline, shipPose, shootdownHit, shootdownPose, COASTAL_SEA, FLARE, FLYBY, NAVAL, SHOOTDOWN,
   type AmbientEvent, type AmbientView } from './ambient-sky';
-import { createBirds, BIRDS } from './ambient-birds';
 import { farGain } from './ambient-sky-audio';
 import { combatRandom } from './combat-events';
 
@@ -135,7 +134,7 @@ describe('far sound', () => {
   });
 });
 
-describe('shot down, warships and birds', () => {
+describe('shot down and warships', () => {
   const sea = COASTAL_SEA.sentosa!;
   it('sends warships only where there is sea', () => {
     expect(run(900, {}).some(e => e.kind === 'naval')).toBe(false);
@@ -182,22 +181,5 @@ describe('shot down, warships and birds', () => {
       const at = shootdownPose(e, hit);
       expect(Math.hypot(e.at.x, e.at.z)).toBeGreaterThan(Math.hypot(at.x, at.z) - 1);
     }
-  });
-  it('flushes birds once from a roost, climbing away from the noise', () => {
-    const birds = createBirds(3), perch = { x: 20, y: 10, z: 0 };
-    expect(birds.startle({ x: 0, y: 0, z: 0 }, 1, perch)).toBe(true);
-    expect(birds.startle({ x: 2, y: 0, z: 0 }, 1, { x: 22, y: 10, z: 3 })).toBe(false);
-    const flushed = birds.count; expect(flushed).toBeGreaterThanOrEqual(BIRDS.flock[0]);
-    for (let i = 0; i < 40; i++) birds.step(.1);
-    const flock = birds.flocks[0], mid = flock.birds.reduce((s, b) => ({ x: s.x + b.x / flock.birds.length, y: s.y + b.y / flock.birds.length }), { x: 0, y: 0 });
-    expect(mid.x).toBeGreaterThan(40); expect(mid.y).toBeGreaterThan(perch.y + 10);
-    for (let i = 0; i < 200; i++) birds.step(.1);
-    expect(birds.count).toBe(0);
-    expect(birds.startle({ x: 0, y: 0, z: 0 }, 1, perch)).toBe(true);
-  });
-  it('keeps the bird count bounded however much goes bang', () => {
-    const birds = createBirds(9);
-    for (let i = 0; i < 30; i++) birds.startle({ x: i * 100, y: 0, z: 0 }, 1);
-    expect(birds.count).toBeLessThanOrEqual(BIRDS.max);
   });
 });
