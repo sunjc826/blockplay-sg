@@ -1,4 +1,5 @@
 import { createDeploymentIntro } from './deployment-intro';
+import { visionMountPose } from './fps-vision-mount';
 import { districtDeploymentPoints, deploymentOrder, type DeploymentView } from './expedition-deployment';
 import { createSceneCover } from './scene-cover';
 import { districtFacilitySites } from './facility-sites';
@@ -1586,6 +1587,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (grenadeHeld) rig.visible = false;
     const weaponDown = supplyHands.update(rig.visible && supplyUse ? supplyUse.profile.style : null, supplyUse ? supplyProgress(supplyUse) : 0, supplyUse?.id);
     if (weaponDown > 0) { rig.position.x += weaponDown * .12; rig.position.y -= weaponDown * .62; rig.rotation.x -= weaponDown * .9; rig.rotation.z -= weaponDown * .35; }
+    const visionDown = motionPreference?.matches ? 0 : visionMountPose(visionState.mount).weaponDown;
+    rig.position.y -= visionDown * .48; rig.rotation.x -= visionDown * .24;
     canvas.dataset.supplyUse = supplyUse ? `${supplyUse.profile.style}:${supplyProgress(supplyUse).toFixed(2)}` : '';
     canvas.dataset.bipodDeployment = (handling[hud.weapon]?.bipodDeployment ?? 0).toFixed(3);
     const stage = reloadStage(remaining, emptyReload[hud.weapon]);
@@ -2916,6 +2919,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       compiling.push(renderer.compileAsync(world.scene, camera), renderer.compileAsync(viewScene, viewCamera));
     }
     renderer.setRenderTarget(previous);
+    compiling.push(vision.warm());
     await Promise.all(compiling);
     offscreen.dispose();
     if (disposed) return;

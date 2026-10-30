@@ -73,7 +73,7 @@ export type HeatSource = keyof typeof HEAT_SOURCES;
 export const isHeatSource = (value: unknown): value is HeatSource => typeof value === 'string' && value in HEAT_SOURCES;
 
 /** Seconds to swing a device down over the eyes, or back up onto the helmet. */
-export const VISION_MOUNT_SECONDS = .28;
+export const VISION_MOUNT_SECONDS = .86;
 
 export interface VisionState {
   on: boolean;
