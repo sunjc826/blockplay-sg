@@ -4900,3 +4900,20 @@ pistol < rifle ≈ GPMG < HMG. A headless Chrome autopilot run of the range-dril
 fixture played recorded rifle shots, mag-out/mag-in and a run footfall, with no
 errors. Default PICKS were chosen from spectrograms, not by ear; the user should
 listen to .cache/sfx-batch/audition.html and prune. Not deployed.
+
+
+## 2026-10-31: naval landing parties design proposal
+
+User requested design first. docs/NAVAL-LANDINGS.md proposes finite four-person
+landing craft missions independent of command-post ownership, sharing existing
+population limits and external dispatch reservations. Covers visible approaches,
+ramp unloading, interception, inland facility objectives, starting pacing,
+passenger losses, blocked exits, host authority and district-travel reconciliation.
+Sentosa's southern beach is the proposed pilot; other coastal districts need
+individual route audits. HarbourFront's enclosed basin and Marina's quay walls
+prevent automatic routes inferred from ambient sea directions.
+
+Documentation only: gameplay unchanged, no runtime tests or deployment needed.
+Checked source behavior, the local document reference and whitespace. Committed
+only this proposal and this handoff entry; concurrent audio/combat work is
+excluded. No push; AGENTS.md remains local, unstaged and uncommitted.
