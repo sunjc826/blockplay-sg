@@ -3,9 +3,11 @@ import { calibreOf, weaponCalibre, type FieldLoot } from './expedition-loot';
 import { supplyProfile } from './fps-healing';
 import { FPS_WEAPONS, type WeaponSpec } from './fps-rules';
 import { utilityKind, utilitySlot } from './utility-belt';
+import { MAX_RESERVE } from './ammo-pools';
 import { FOOD_EFFECTS } from './food-effects';
 import { armorPickup } from './armor-pickup';
 import { insertTraits, THREAT_NAMES } from './armor-inserts';
+export { MAX_RESERVE } from './ammo-pools';
 
 /**
  * Loot is read the way a player reads a room: things on the floor say nothing
@@ -82,14 +84,12 @@ export interface LootCard {
   /** A deliberate alternative to collecting armor; available even when armor is full. */
   swap?: { stats: LootStat[]; detail: string; note: string };
 }
-/** The most rounds a gun's reserve holds. */
-export const MAX_RESERVE = 999;
 /** A carried gun as loose rounds see it. */
 export interface CarriedGun { family: number; spec: WeaponSpec; reserve: number }
 const fires = (gun: CarriedGun, caliberMm: number | undefined) => caliberMm === undefined || Math.abs(gun.spec.caliberMm - caliberMm) < .01;
 /**
- * The carried gun loose rounds go into: the one in hand if it fires them,
- * otherwise the first that does, as long as its reserve has room.
+ * A representative of the calibre pool loose rounds go into. Prefer the gun
+ * in hand for legacy untyped pickups; matching guns share the same reserve.
  */
 export function ammoTarget(caliberMm: number | undefined, carried: readonly CarriedGun[], inHand: number): CarriedGun | null {
   const fit = carried.filter(gun => fires(gun, caliberMm) && gun.reserve < MAX_RESERVE);
@@ -132,10 +132,10 @@ export function lootCard(loot: FieldLoot, context: LootCardContext): LootCard {
   if (loot.kind === 'weapon' && item?.category === 'weapon' && item.family !== undefined) {
     const next = context.variantSpec(item), family = item.family, putDown = context.replaces(family), held = context.weapons[putDown];
     const sameVariant = context.variantOf(family) === item.id && context.carried.some(gun => gun.family === family);
-    // A found gun brings its magazine. More rounds are a pickup of their own,
-    // unless it is fed from the reserve already carried for the gun it replaces.
-    const calibre = weaponCalibre(item), kept = context.carried.find(gun => gun.family === putDown);
-    const keeps = kept && calibre && Math.abs(kept.spec.caliberMm - calibre.mm) < .01 ? kept.reserve : 0;
+    // Any matching carried gun supplies the pool, including another slot.
+    const calibre = calibreOf(next?.caliberMm) ?? weaponCalibre(item);
+    const kept = context.carried.find(gun => calibre && fires(gun, calibre.mm));
+    const keeps = kept?.reserve ?? 0;
     const stats: LootStat[] = next ? [
       { label: 'DMG', value: `${Math.round(next.damage)}`, trend: held && trend(next.damage, held.damage) },
       { label: 'RPM', value: `${rpm(next)}`, trend: held && trend(rpm(next), rpm(held)) },
@@ -169,7 +169,7 @@ export function lootCard(loot: FieldLoot, context: LootCardContext): LootCard {
     const guns = [...new Set(FPS_WEAPONS.filter(spec => calibre && Math.abs(spec.caliberMm - calibre.mm) < .01).map(spec => spec.name))];
     return { ...base, type: 'Ammunition', description: guns.length ? `Loose rounds for the ${guns.join(', ')}.` : base.description, action: 'Pick up',
       stats: [{ label: 'ROUNDS', value: `+${loot.amount}` }, ...(gun ? [{ label: 'RESERVE', value: `${gun.reserve} → ${Math.min(MAX_RESERVE, gun.reserve + loot.amount)}`, trend: 'up' as const }] : [])],
-      detail: gun ? `Into ${gun.spec.name}` : '', ...(gun ? {} : { blocked: ammoBlocked(loot.caliberMm, context.carried, context.inHand) }) };
+      detail: gun ? `Into ${gun.spec.caliberMm} mm shared reserve` : '', ...(gun ? {} : { blocked: ammoBlocked(loot.caliberMm, context.carried, context.inHand) }) };
   }
   // Everything else is a supply, and it goes on the belt to be used later.
   const kind = utilityKind(item), slot = kind ? utilitySlot(kind) : undefined;

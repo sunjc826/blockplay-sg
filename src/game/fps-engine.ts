@@ -30,7 +30,8 @@ import * as THREE from 'three';
 import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook, clampFpsPitch } from './fps-pointer';
 import { dragLook, resolveMovement, stickKeys, type StickVector } from './touch-controls';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { advanceWeapon, beginReload, chamberRound, createLoadout, findTrait, fireWeapon, fullLoad, interruptReload, reloadDuration, roundReady, validWeaponIndex, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponSpec, type WeaponState } from './fps-rules';
+import { advanceWeapon, beginReload, chamberRound, findTrait, fireWeapon, interruptReload, reloadDuration, roundReady, validWeaponIndex, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponSpec, type WeaponState } from './fps-rules';
+import { addReserveRounds, ammoPools, createPooledLoadout, MAX_RESERVE, replacePooledWeapon, type AmmoPools } from './ammo-pools';
 import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { sectorAt, zoneSectors } from './zone-sectors';
 import { adoptPublishedRounds, advanceRound, createRound, needsFlight, skipRound, MAX_ROUNDS_IN_FLIGHT, MAX_SKIPS, type InFlightRound, type PublishedRound } from './fps-projectiles';
@@ -104,7 +105,7 @@ import { advanceSupplyUse, startSupplyUse, supplyProfile, supplyProgress, SUPPLY
 import { createSupplyViewmodel } from './fps-supply-viewmodel';
 import { foodOptions, heldSupplies, pickUtility, utilityBelt, utilityKind, utilitySlot, utilitySlotForKey, UTILITY_SLOTS, type FoodOption, type UtilityKind, type UtilitySlotView } from './utility-belt';
 import { advanceFoodEffects, aimSpeedScale, applyFoodEffects, cycleRate, damageDealtScale, damageTakenScale, FOOD_EFFECTS, foodEffectViews, footSpeedScale, loadRelief, recoilScale, reloadRate, survivesWithAhMa, type ActiveFoodEffects, type FoodEffectView } from './food-effects';
-import { ammoBlocked, ammoTarget, beltRoom, focusLoot, lootCard, MAX_RESERVE, withinReach, type CarriedGun, type LootCard } from './loot-focus';
+import { ammoBlocked, ammoTarget, beltRoom, focusLoot, lootCard, withinReach, type CarriedGun, type LootCard } from './loot-focus';
 import { armorPickup, type ArmorPickupAction } from './armor-pickup';
 import { createSunShadows } from './fps-sun-shadows';
 import { createWorldOcclusion } from './world-occlusion';
@@ -114,6 +115,8 @@ import { activePalette, advanceVision, createVisionState, cycleVisionPalette, st
 
 export interface FpsArenaOptions { session: LanSession; botCount: number; composition?: string; profile: ArmoryProfile; environment?: ArenaEnvironment; initialVitals?: Partial<ArenaVitals> }
 export interface FpsCheckpoint { health: number; armor: number; weapon: number; ammunition: WeaponState[]; pilot?: boolean; pilotStrategy?: 'local' | 'llm'; encikVoice?: boolean; comms?: readonly CommsEntry[];
+  /** Loose rounds saved once per calibre, rather than once per gun using them. */
+  ammoPools?: AmmoPools;
   /** The head-mounted device was switched on, so it stays on across the gateway. */
   vision?: boolean;
   /** Supplies picked up on this expedition and still on the belt; they never touch the saved profile. */
@@ -374,7 +377,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const floorRay = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 0, 8);
   let brassFloor = 0, floorCheck = 0;
   const healthGeometry = new THREE.PlaneGeometry(.54, .055), healthMaterial = new THREE.MeshBasicMaterial({ color: "#e1a74e", side: THREE.DoubleSide });
-  let disposed = false, loadout = createLoadout(specs), position = { x: spawn.x, z: spawn.z };
+  let disposed = false, loadout = createPooledLoadout(specs, equipment.carriedFamilies), position = { x: spawn.x, z: spawn.z };
   let yaw: number = spawn.yaw, pitch: number = spawn.pitch, vertical = 0, velocityY = 0;
   let triggerSpent = false;
   let lastLookYaw = yaw, lastLookPitch = pitch, lookLagX = 0, lookLagY = 0;
@@ -680,7 +683,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     killChain = { count: 0, lastAt: -Infinity }; calloutTime = 0; stopVoice(); encik.reset(); comms.clear(); hud.encikCallout = null;
     roundId = randomRoundId(); attackTimer = 3; pendingAttack = null; hurtTime = 0; hitDirections.clear(); supplyUse = null; foodEffects = {}; foodPicker = null; hud.foodPicker = null;
     if (document.pointerLockElement === canvas) document.exitPointerLock();
-    vehicles.reset(); loadout = createLoadout(specs); position = { x: spawn.x, z: spawn.z }; yaw = spawn.yaw; pitch = spawn.pitch;
+    vehicles.reset(); loadout = createPooledLoadout(specs, equipment.carriedFamilies); position = { x: spawn.x, z: spawn.z }; yaw = spawn.yaw; pitch = spawn.pitch;
     vertical = velocityY = hitTime = 0; resetRecoil(kick); carry.set(0, 0, 0); clearInput();
     rounds.length = 0; effects.reset();
     aimProgress = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; });
@@ -802,13 +805,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (action === 'swap' && target.kind !== 'armor') return;
     const armorResult = target.kind === 'armor' && item ? armorPickup(hud.armor, itemById(fieldProfile.plate), item, action) : null;
     if (armorResult?.blocked) { hud.lootNotice = `${armorResult.blocked}. ${target.name} stays here.`; lootNoticeTime = 3; publish(); return; }
-    // Loose rounds go into the reserve of a carried gun that fires them.
+    // Loose rounds go into the calibre pool shared by matching carried guns.
     if (target.kind === 'ammo') {
       const gun = ammoTarget(target.caliberMm, carriedGuns(), hud.weapon);
       if (!gun) { hud.lootNotice = `${ammoBlocked(target.caliberMm, carriedGuns(), hud.weapon)}. ${target.name} stay here.`; lootNoticeTime = 3; publish(); return; }
       const taken = expedition.loot.collect(expedition.zone, target.id, { ...position, y: vertical }); if (!taken) return;
-      const before = loadout[gun.family].reserve; loadout[gun.family].reserve = Math.min(MAX_RESERVE, before + taken.amount);
-      hud.lootNotice = `+${loadout[gun.family].reserve - before} ${taken.name} · ${specs[gun.family].name}`;
+      const added = addReserveRounds(loadout[gun.family], taken.amount);
+      hud.lootNotice = `+${added} ${taken.name} · ${specs[gun.family].caliberMm} mm reserve`;
       comms.add('system', 'Supplies', hud.lootNotice); radioCall('pickup');
       markers?.remove(taken.id); hud.fieldLoot = expedition.loot.remaining(expedition.zone); lootNoticeTime = 3;
       updateExpeditionPrompts(); canvas.focus({ preventScroll: true }); publish();
@@ -831,19 +834,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const collected = expedition.loot.collect(expedition.zone, target.id, { ...position, y: vertical }); if (!collected) return;
     if (collected.kind === 'weapon' && item && validWeaponIndex(item.family)) {
       const family = item.family, changed = fieldProfile.guns[family].variant !== item.id, wasCarried = equipment.carriedFamilies.includes(family);
-      const putDown = putDownFor(family), sameCalibre = specs[putDown]?.caliberMm === FPS_WEAPONS[family].caliberMm;
+      const previousSpecs = specs, previousCarry = equipment.carriedFamilies;
       const next = copyProfile(fieldProfile); next.owned = [...new Set([...next.owned, item.id])]; next.guns[family].variant = item.id;
       const slot = pickupSlot(next, family, hud.weapon);
       if (slot !== 'sidearm') next.carry = { ...next.carry, [slot]: family };
       fieldProfile = next; equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
-      if (!changed && wasCarried) loadout[family].reserve = Math.min(MAX_RESERVE, loadout[family].reserve + specs[family].capacity);
+      if (!changed && wasCarried) addReserveRounds(loadout[family], specs[family].capacity);
       else {
-        // A found gun brings its magazine; its other rounds lie beside it as a
-        // pickup of their own. The reserve for the gun it replaces comes along
-        // when it fires the same calibre.
-        const reserve = putDown === family ? loadout[family].reserve : sameCalibre ? loadout[putDown].reserve : 0;
-        if (putDown !== family && sameCalibre) loadout[putDown].reserve = 0;
-        loadout[family] = { ...createLoadout(specs)[family], reserve };
+        loadout = replacePooledWeapon(loadout, previousSpecs, previousCarry, specs, equipment.carriedFamilies, family);
       }
       arenaRuntime.updateLoadout(fieldProfile);
       undress.splice(0).forEach(dispose => dispose()); weapons.forEach((model, index) => undress.push(dressWeapon(model, specs[index])));
@@ -896,7 +894,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const gateway = findWorldGateway(expedition.zone, position); if (!gateway) return;
     const transition = resolveWorldTransition(expedition.zone, gateway.id, position); if (!transition) return;
     comms.add('system', 'Travel', `Moving to ${getWorldZone(transition.to).name}.`);
-    const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, vision: visionState.on, fieldSupplies: { ...looted }, health: hud.health, armor: hud.armor, weapon: hud.weapon, ammunition: loadout.map(state => ({ ...state, cooldown: 0, reloadRemaining: 0 })) };
+    const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, vision: visionState.on, fieldSupplies: { ...looted }, health: hud.health, armor: hud.armor, weapon: hud.weapon, ammoPools: ammoPools(loadout, specs, equipment.carriedFamilies), ammunition: loadout.map(state => ({ ...state, cooldown: 0, reloadRemaining: 0 })) };
     travelPending = true; pause(); expedition.onTravel(transition, checkpoint);
   }
   function jump() {
@@ -1799,7 +1797,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!supply?.effect) { hud.message = `No ${utilitySlot(kind)!.label.toLowerCase()} on the belt.`; publish(); return; }
     const { armor = 0, reserve = 0 } = supply.effect;
     // A meal with effects is worth eating at full health: the effects are why it was picked.
-    const full = hud.health >= hud.maxHealth && (!armor || hud.armor >= equipment.armor) && (!reserve || loadout[hud.weapon].reserve >= 999) && !(foodChoice && supply.foodEffects?.length);
+    const full = hud.health >= hud.maxHealth && (!armor || hud.armor >= equipment.armor) && (!reserve || loadout[hud.weapon].reserve >= MAX_RESERVE) && !(foodChoice && supply.foodEffects?.length);
     if (full) { hud.message = kind === 'food' ? 'Nothing to restore. Hold 4 to pick a food for its effects.' : 'Nothing to restore right now.'; publish(); return; }
     if (!beginSupply(supply.name, supply.id, supplyProfile(supply), () => applyQuickItem(supply), true)) publish();
   }
@@ -1815,7 +1813,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (supply.foodEffects?.length) applyFoodEffects(foodEffects, supply.foodEffects);
     }
     if (health) recoveryDelay = 0;
-    if (reserve) loadout[hud.weapon].reserve = Math.min(999, loadout[hud.weapon].reserve + reserve);
+    if (reserve) addReserveRounds(loadout[hud.weapon], reserve);
     if (supplies[supply.id] > 1) supplies[supply.id]--; else delete supplies[supply.id];
     hud.message = supply.foodEffects?.length ? `${supply.name} eaten · ${supply.foodEffects.map(effect => FOOD_EFFECTS[effect.kind].label).join(', ')}.` : `${supply.name} used.`;
     // The last of a picked food hands the slot back to Auto.
@@ -2136,7 +2134,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (newRound) {
       hud.phase = 'ready'; hud.shots = hud.landed = hud.earned = hud.earnedXp = hud.chain = 0;
       hud.callout = ''; hud.message = ''; calloutTime = 0; killChain = { count: 0, lastAt: -Infinity };
-      clearInput(); vehicles.reset(); stopVoice(); encik.reset(); comms.clear(); hud.encikCallout = null; loadout = createLoadout(specs);
+      clearInput(); vehicles.reset(); stopVoice(); encik.reset(); comms.clear(); hud.encikCallout = null; loadout = createPooledLoadout(specs, equipment.carriedFamilies);
       if (document.pointerLockElement === canvas) document.exitPointerLock();
     }
     const oldVehicle = vehicles.active, oldSeat = vehicles.seat;
@@ -2186,13 +2184,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         if (previousSelf && !previousSelf.alive) radioCall('respawn');
         pilot.reset(); strategicPlanner?.reset();
         position = { x: frame.self.x, z: frame.self.z }; vertical = Math.max(0, frame.self.y - 1.75); velocityY = 0;
-        yaw = frame.self.yaw; pitch = frame.self.pitch; loadout = createLoadout(specs); clearInput(); supplyUse = null;
+        yaw = frame.self.yaw; pitch = frame.self.pitch; loadout = createPooledLoadout(specs, equipment.carriedFamilies); clearInput(); supplyUse = null;
         if (checkpointPending) {
-          loadout = loadout.map((fresh, index) => {
-            const carried = checkpointPending?.ammunition?.[index]; if (!carried) return fresh;
-            return { magazine: Number.isFinite(carried.magazine) ? Math.max(0, Math.min(fullLoad(specs[index]), Math.floor(carried.magazine))) : fresh.magazine,
-              reserve: Number.isFinite(carried.reserve) ? Math.max(0, Math.min(999, Math.floor(carried.reserve))) : fresh.reserve, cooldown: 0, reloadRemaining: 0 };
-          });
+          loadout = createPooledLoadout(specs, equipment.carriedFamilies, checkpointPending);
           hud.weapon = equipment.carriedFamilies.includes(checkpointPending.weapon) ? checkpointPending.weapon : equipment.carriedFamilies[0]; checkpointPending = undefined;
           weapons.forEach((weapon, index) => weapon.visible = index === hud.weapon);
           effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id));
@@ -2542,7 +2536,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       items.forEach(item => markers.addDrop(item)); hud.fieldLoot = expedition.loot.remaining(expedition.zone);
       hud.lootNotice = `Supply drop open: ${items.map(item => item.name).join(', ')}. E to take.`; lootNoticeTime = 5;
     } else {
-      loadout.forEach((state, index) => { state.reserve = Math.min(999, state.reserve + specs[index].reserve); });
+      equipment.carriedFamilies.forEach(index => addReserveRounds(loadout[index], specs[index].reserve));
       hud.health = hud.maxHealth; hud.armor = equipment.armor; arenaRuntime?.setVitals({ health: hud.health, armor: hud.armor });
       hud.lootNotice = 'Supply drop open: ammunition topped up, health and plates restored.'; lootNoticeTime = 5;
     }

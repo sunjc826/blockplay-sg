@@ -2,6 +2,7 @@ import type { ResolvedLoadout } from './armory-state';
 import type { ShopItem } from './armory-catalog';
 import type { WeaponState } from './fps-rules';
 import { beltWeightKg } from './utility-belt';
+import { reservePoolOf } from './ammo-pools';
 
 const bounded = (value: number | undefined, fallback: number, max: number) =>
   typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(max, value)) : fallback;
@@ -18,9 +19,12 @@ export function equipmentMovement(equipment: ResolvedLoadout, active: number,
   ammunition?: readonly WeaponState[], supplies?: Readonly<Record<string, number>>, loadRelief = 0) {
   const carriedWeapons = equipment.carriedFamilies.map(index => ({ weapon: equipment.weapons[index], index }));
   const weaponsKg = carriedWeapons.reduce((kg, { weapon }) => kg + bounded(weapon.weightKg, 3, 100), 0);
+  const weighedPools = new Set<object>();
   const ammoKg = carriedWeapons.reduce((kg, { weapon, index }) => {
     const state = ammunition?.[index];
-    const rounds = bounded(state?.magazine, weapon.capacity, 200) + bounded(state?.reserve, weapon.reserve, 999);
+    const pool = state && reservePoolOf(state), weighed = pool && weighedPools.has(pool);
+    if (pool) weighedPools.add(pool);
+    const rounds = bounded(state?.magazine, weapon.capacity, 200) + (weighed ? 0 : bounded(state?.reserve, weapon.reserve, Number.MAX_SAFE_INTEGER));
     return kg + rounds * roundWeightKg(weapon.caliberMm);
   }, 0);
   // Non-expedition exercises keep an immutable loadout but empty their belt as

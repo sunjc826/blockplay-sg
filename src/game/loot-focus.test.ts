@@ -101,18 +101,24 @@ describe('the loot card', () => {
   });
   it('sends loose rounds to a carried gun of their calibre, and refuses the rest', () => {
     const rifle = loot('ammo', 0, 0, { kind: 'ammo', catalogId: undefined, name: '5.56 mm rounds', caliberMm: 5.56, amount: 60 });
-    expect(lootCard(rifle, context())).toMatchObject({ type: 'Ammunition', detail: `Into ${FPS_WEAPONS[0].name}`, stats: [{ value: '+60' }, { value: '120 → 180' }] });
+    expect(lootCard(rifle, context())).toMatchObject({ type: 'Ammunition', detail: 'Into 5.56 mm shared reserve', stats: [{ value: '+60' }, { value: '120 → 180' }] });
     const link = { ...rifle, name: '7.62 mm link', caliberMm: 7.62 };
     expect(lootCard(link, context()).blocked).toBe('No 7.62 mm gun carried');
     expect(lootCard(rifle, context({ carried: [gun(0, MAX_RESERVE)] })).blocked).toBe('Reserve full');
-    expect(lootCard({ ...rifle, caliberMm: 9 }, context()).detail).toBe(`Into ${FPS_WEAPONS[2].name}`);
+    expect(lootCard({ ...rifle, caliberMm: 9 }, context()).detail).toBe('Into 9 mm shared reserve');
   });
-  it('fills the gun in hand first when two carried guns share a calibre', () => {
-    const carried = [gun(0, 50), gun(1, 80), gun(2, 30)];
+  it('selects a representative gun for the shared calibre pool', () => {
+    const carried = [gun(0, 80), gun(1, 80), gun(2, 30)];
     expect(ammoTarget(5.56, carried, 1)?.family).toBe(1);
     expect(ammoTarget(5.56, carried, 2)?.family).toBe(0);
-    expect(ammoTarget(5.56, [gun(0, MAX_RESERVE), gun(1, 80)], 0)?.family).toBe(1);
+    expect(ammoTarget(5.56, [gun(0, MAX_RESERVE), gun(1, MAX_RESERVE)], 0)).toBeNull();
     expect(ammoTarget(12.7, carried, 0)).toBeNull();
     expect(beltRoom({ 'kit-bandage': CONSUMABLE_LIMIT - 1 }, 'kit-bandage')).toBe(1);
+  });
+  it('shows the pool from another slot when a found gun replaces a different calibre', () => {
+    const found = itemById('sar-vanguard')!;
+    const card = lootCard(loot('gun', 0, 0, { kind: 'weapon', catalogId: found.id, name: found.name, amount: 1 }),
+      context({ carried: [gun(3, 100), gun(1, 75), gun(2, 30)], replaces: () => 3, variantOf: () => '' }));
+    expect(card.note).toBe('Magazine loaded · keeps your 75 × 5.56 mm');
   });
 });

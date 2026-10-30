@@ -583,7 +583,7 @@ up or eat, as bots do. Ammo pouches stay with the engine, which owns its reserve
 pools.
 
 Armor is restored only up to the protection the equipped inserts provide, and
-reserve goes to the weapon in hand. Using one with nothing to restore reports
+reserve goes to the shared calibre pool of the weapon in hand. Using one with nothing to restore reports
 that and spends nothing. `resolveLoadout` carries the selected supply and its
 count, and the belt's contents as `supplies`, so the shop, HUD and engine read
 the same selection everything else does; encumbrance weighs what is still on the belt.
@@ -733,6 +733,19 @@ the one GPMG that takes it on: the same rule, for the reach it buys.
 
 ## Carried weight
 
+Carried guns firing the same calibre share one reserve ammunition pool, while
+each keeps its own magazine and chamber. Starting reserves (including rig
+bonuses) are combined only for slotted guns. Reloads draw from that pool and
+return rounds from removed magazines to it. Loose ammunition and ammo pouches
+top up the matching pool, up to 999 loose rounds per calibre. Weapon swaps keep
+the reserve for any calibre still carried; a found gun brings its loaded
+magazine. District travel preserves each pool once, and respawning restores
+the carried loadout's starting pools.
+
+`pnpm test:fps:ammo` checks shared rifle/support reloads, separate magazines,
+an ammo pouch, the live weapon HUD and resetting in a real browser (Vite on
+5175 and an isolated Chrome DevTools endpoint on 9228, like the other FPS smokes).
+
 Movement now combines **total carried load** and **the weapon in hand**.
 `fps-encumbrance.ts` is the common calculation used by gameplay and the shop:
 
@@ -751,6 +764,7 @@ Movement now combines **total carried load** and **the weapon in hand**.
   factor. Aim-in speed is `(0.35 + 0.65 * carried) * inHand`, with a positive
   minimum. Both remain usable under extreme burdens. Vehicles are unaffected.
 - Actual ammunition mass decreases when fired and increases when picked up.
+  Each calibre's shared reserve is weighed once, plus each loaded magazine.
   Reloading conserves mass. Consuming supplies removes their mass exactly once,
   including after expedition equipment is re-resolved. Spent armor remains worn.
 

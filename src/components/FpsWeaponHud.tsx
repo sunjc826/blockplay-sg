@@ -58,7 +58,7 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickF
         <FpsVitals hud={hud} />
         <div className={`fps-ammo ${!hud.roundReady && !reloading ? 'is-empty' : ''}`}>
           <span>{rare && <em className="fps-tier" data-tier={rare.toLowerCase()}>{rare}</em>}{grenade?.name ?? weapon.name} <small>{hud.aiming ? 'ADS' : weapon.fireMode === 'semi' ? 'SEMI' : 'AUTO'}</small></span>
-          {grenade ? <strong>{grenade.pinned ? Math.max(0, grenade.fuse - grenade.cooked).toFixed(1) : 'READY'}<small>{grenade.pinned ? ' s' : grenade.under ? ' LOB' : ' THROW'}</small></strong> : <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}{hud.chambered && <em className="fps-chamber" aria-label="one in the chamber">+1</em>}<small>/ {hud.reserve}</small></strong>}
+          {grenade ? <strong>{grenade.pinned ? Math.max(0, grenade.fuse - grenade.cooked).toFixed(1) : 'READY'}<small>{grenade.pinned ? ' s' : grenade.under ? ' LOB' : ' THROW'}</small></strong> : <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}{hud.chambered && <em className="fps-chamber" aria-label="one in the chamber">+1</em>}<small title={`${weapon.caliberMm} mm shared reserve`}>/ {hud.reserve}</small></strong>}
           {prompt ? <p>{prompt}</p> : <p className="fps-ammo-detail fps-hud-hint">R RELOAD · Q / RMB AIM{onInspect && hud.vehicle === 'on-foot' && !touch && ' · K INSPECT'}</p>}
           {(hud.rail || hud.offsetDot) && <p className="fps-ammo-detail" data-accessories>
             {hud.rail && hud.rail.kind !== 'light' && <>{hint('B ')}LASER {(hud.rail.laserOn ?? hud.rail.on) ? 'ON' : 'OFF'}</>}
