@@ -1,0 +1,8 @@
+node_modules/
+clips/
+shots/
+render/
+*.mp4
+*.webm
+!README.md
+carousel/*.png

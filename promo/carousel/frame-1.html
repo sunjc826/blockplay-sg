@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>blockplaySG carousel 1 of 3</title>
+<style>
+  /* Palette and type from src/styles.css: DM Sans body, Manrope display,
+     cream #f7f7f0, ink #23362d, green #203f30, orange #ee794b. */
+  @font-face { font-family: 'Manrope'; font-weight: 800; src: url('../fonts/Manrope-800.ttf') format('truetype'); }
+  @font-face { font-family: 'Manrope'; font-weight: 600; src: url('../fonts/Manrope-600.ttf') format('truetype'); }
+  @font-face { font-family: 'DM Sans'; font-weight: 400; src: url('../fonts/DMSans-400.ttf') format('truetype'); }
+  @font-face { font-family: 'DM Sans'; font-weight: 500; src: url('../fonts/DMSans-500.ttf') format('truetype'); }
+  html, body { margin: 0; }
+  body { width: 1080px; height: 1350px; overflow: hidden; background: #f7f7f0; color: #23362d; font-family: 'DM Sans', sans-serif; font-weight: 400; -webkit-font-smoothing: antialiased; position: relative; }
+  .shot { position: absolute; inset: 0; }
+  .shot img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 42%; display: block; }
+  .brand { position: absolute; top: 56px; left: 64px; display: flex; align-items: center; font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 52px; letter-spacing: -2.5px; color: #f7f7f0; text-shadow: 0 2px 18px rgba(23,35,30,.35); }
+  .brand-mark { display: flex; align-items: flex-end; gap: 6px; width: 56px; height: 54px; margin-right: 18px; transform: skewY(-8deg); }
+  .brand-mark span { display: block; width: 13px; background: #f7f7f0; height: 40px; }
+  .brand-mark span:nth-child(2) { height: 54px; }
+  .brand-mark span:nth-child(3) { height: 31px; background: #ee794b; }
+  .brand-dot { color: #ee794b; }
+  .panel { position: absolute; left: 0; right: 0; bottom: 0; padding: 150px 64px 72px; background: linear-gradient(to top, rgba(247,247,240,1) 0%, rgba(247,247,240,1) 78%, rgba(247,247,240,0) 100%); }
+  .eyebrow { font-size: 40px; font-weight: 500; letter-spacing: 6px; color: #849087; display: flex; align-items: center; gap: 16px; }
+  .eyebrow b { color: #ee794b; font-weight: 400; font-size: 44px; }
+  h1 { font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 118px; line-height: 1.02; letter-spacing: -5px; margin: 26px 0 0; color: #23362d; }
+  h1 span { color: #7f9180; }
+  p { font-size: 44px; line-height: 1.35; margin: 34px 0 0; color: #23362d; max-width: 900px; }
+  .tag { position: absolute; top: 60px; right: 64px; background: rgba(252,253,239,.9); border: 1px solid rgba(255,255,255,.55); border-radius: 8px; padding: 14px 20px; font-size: 40px; font-weight: 500; letter-spacing: 3px; color: #23362d; display: flex; align-items: center; gap: 14px; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; background: #7a9b70; }
+</style>
+</head>
+<body>
+  <div class="shot"><img src="../shots/marina-bay.png" alt="Marina Bay, rebuilt as a low-poly game world" /></div>
+  <a class="brand"><span class="brand-mark"><span></span><span></span><span></span></span>blockplaySG<span class="brand-dot">.</span></a>
+  <div class="tag"><span class="dot"></span>MARINA BAY</div>
+  <div class="panel">
+    <div class="eyebrow"><b>✳</b>A LITTLE CLOSER TO HOME</div>
+    <h1>We rebuilt your<br /><span>neighbourhood.</span></h1>
+    <p>Marina Bay, Queenstown and Raffles Place as playable 3D worlds. Walk or drive. Collect stamps.</p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>blockplaySG carousel 3 of 3</title>
+<style>
+  /* Dark panel look from .mode-card.selected (#233f30 on #f7f6ec) and the #17231e theme colour. */
+  @font-face { font-family: 'Manrope'; font-weight: 800; src: url('../fonts/Manrope-800.ttf') format('truetype'); }
+  @font-face { font-family: 'Manrope'; font-weight: 600; src: url('../fonts/Manrope-600.ttf') format('truetype'); }
+  @font-face { font-family: 'DM Sans'; font-weight: 400; src: url('../fonts/DMSans-400.ttf') format('truetype'); }
+  @font-face { font-family: 'DM Sans'; font-weight: 500; src: url('../fonts/DMSans-500.ttf') format('truetype'); }
+  html, body { margin: 0; }
+  body { width: 1080px; height: 1350px; overflow: hidden; background: #17231e; color: #f7f6ec; font-family: 'DM Sans', sans-serif; -webkit-font-smoothing: antialiased; padding: 72px 64px 64px; box-sizing: border-box; display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 52px; letter-spacing: -2.5px; }
+  .brand-mark { display: flex; align-items: flex-end; gap: 6px; width: 56px; height: 54px; margin-right: 18px; transform: skewY(-8deg); }
+  .brand-mark span { display: block; width: 13px; background: #f7f6ec; height: 40px; }
+  .brand-mark span:nth-child(2) { height: 54px; }
+  .brand-mark span:nth-child(3) { height: 31px; background: #ee794b; }
+  .brand-dot { color: #ee794b; }
+  .eyebrow { font-size: 40px; font-weight: 500; letter-spacing: 6px; color: #b0c1ac; margin-top: 60px; }
+  h1 { font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 136px; line-height: 0.98; letter-spacing: -6px; margin: 16px 0 0; }
+  h1 span { color: #f0a34a; }
+  .lede { font-size: 44px; line-height: 1.32; margin: 30px 0 0; color: #f7f6ec; max-width: 940px; }
+  .rules { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .rule { background: #233f30; border: 2px solid #2c4432; border-radius: 14px; padding: 22px 28px; }
+  .rule small { display: block; font-size: 40px; letter-spacing: 4px; font-weight: 500; color: #90ac7a; }
+  .rule strong { display: block; font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 56px; letter-spacing: -2px; line-height: 1.05; margin-top: 10px; }
+  .rule.wide { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; }
+  .rule.wide strong { margin-top: 0; }
+  .rule.wide em { font-style: normal; font-size: 42px; color: #f0a34a; white-space: nowrap; margin-left: 24px; }
+  .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 30px; font-size: 40px; letter-spacing: 3px; color: #8e9789; }
+  .foot b { font-weight: 500; color: #f0a34a; letter-spacing: 0; }
+</style>
+</head>
+<body>
+  <div class="brand"><span class="brand-mark"><span></span><span></span><span></span></span>blockplaySG<span class="brand-dot">.</span></div>
+  <div class="eyebrow">OPENAI ASTRA HACKATHON</div>
+  <h1>Vote for<br /><span>BlockPlay.</span></h1>
+  <p class="lede">Built in one day by two people. Give it one of your three votes and help the void deck reach the finals.</p>
+  <div class="rules">
+    <div class="rule"><small>VOTING CLOSES</small><strong>16 Sept, 11:59pm SGT</strong></div>
+    <div class="rule"><small>YOU NEED</small><strong>A ChatGPT account</strong></div>
+    <div class="rule wide"><strong>3 votes per account, max 1 per project.</strong><em>Link in bio</em></div>
+  </div>
+  <div class="foot"><span>PLAY IT FIRST</span><b>blockplaysg.fun</b></div>
+</body>
+</html>

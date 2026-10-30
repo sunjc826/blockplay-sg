@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>blockplaySG carousel 2 of 3</title>
+<style>
+  /* Palette and type from src/styles.css. Cards echo .location-card and .section-label. */
+  @font-face { font-family: 'Manrope'; font-weight: 800; src: url('../fonts/Manrope-800.ttf') format('truetype'); }
+  @font-face { font-family: 'Manrope'; font-weight: 600; src: url('../fonts/Manrope-600.ttf') format('truetype'); }
+  @font-face { font-family: 'DM Sans'; font-weight: 400; src: url('../fonts/DMSans-400.ttf') format('truetype'); }
+  @font-face { font-family: 'DM Sans'; font-weight: 500; src: url('../fonts/DMSans-500.ttf') format('truetype'); }
+  html, body { margin: 0; }
+  body { width: 1080px; height: 1350px; overflow: hidden; background: #f7f7f0; color: #23362d; font-family: 'DM Sans', sans-serif; -webkit-font-smoothing: antialiased; padding: 64px; box-sizing: border-box; display: flex; flex-direction: column; }
+  .label { display: flex; justify-content: space-between; align-items: center; font-size: 40px; font-weight: 500; letter-spacing: 5px; color: #718071; }
+  h1 { font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 88px; line-height: 1.02; letter-spacing: -4px; margin: 20px 0 36px; }
+  h1 span { color: #7f9180; }
+  .cards { display: flex; flex-direction: column; gap: 20px; }
+  .card { display: flex; align-items: stretch; gap: 30px; background: #ecf0e4; border: 2px solid #d4dec9; border-radius: 16px; padding: 16px; height: 252px; box-sizing: border-box; }
+  .card img { width: 300px; height: 100%; border-radius: 10px; object-fit: cover; display: block; }
+  .copy { display: flex; flex-direction: column; justify-content: center; flex: 1; }
+  .copy small { font-size: 40px; letter-spacing: 4px; font-weight: 500; color: #849087; }
+  .copy strong { font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 70px; letter-spacing: -2.5px; line-height: 1.05; margin: 8px 0 10px; display: block; }
+  .copy p { font-size: 42px; line-height: 1.3; margin: 0; color: #23362d; }
+  .num { font-family: 'Manrope', sans-serif; font-weight: 600; font-size: 44px; color: #ee794b; align-self: center; padding-right: 10px; }
+  .foot { display: flex; justify-content: space-between; align-items: center; margin-top: auto; font-size: 40px; color: #8e9789; }
+  .foot b { font-weight: 400; color: #75836f; }
+  .foot .star { color: #d0a078; font-size: 48px; margin-right: 14px; }
+</style>
+</head>
+<body>
+  <div class="label"><span>01 / PICK YOUR PLACE</span><span>3 LEVELS</span></div>
+  <h1>Three neighbourhoods.<br /><span>One little island.</span></h1>
+  <div class="cards">
+    <div class="card"><img src="../shots/marina-bay.png" alt="" /><div class="copy"><small>DOWNTOWN</small><strong>Marina Bay</strong><p>The postcard route.</p></div><span class="num">01</span></div>
+    <div class="card"><img src="../shots/queenstown.png" alt="" /><div class="copy"><small>SOUTHWEST</small><strong>Queenstown</strong><p>A different kind of royalty.</p></div><span class="num">02</span></div>
+    <div class="card"><img src="../shots/raffles-place.png" alt="" /><div class="copy"><small>CITY CORE</small><strong>Raffles Place</strong><p>Between towers and the river.</p></div><span class="num">03</span></div>
+  </div>
+  <div class="foot"><span><span class="star">✳</span>Big adventures. <b>Very local energy.</b></span><span>blockplaysg.fun</span></div>
+</body>
+</html>

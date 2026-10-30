@@ -1,0 +1,23 @@
+{
+  "name": "blockplay-promo",
+  "private": true,
+  "type": "module",
+  "description": "Instagram promo capture and assembly tooling for blockplaySG.",
+  "scripts": {
+    "capture": "node capture.mjs",
+    "assemble": "node assemble.mjs",
+    "carousel": "node carousel.mjs",
+    "browser": "playwright install chromium"
+  },
+  "devDependencies": {
+    "playwright": "1.55.0"
+  },
+  "optionalDependencies": {
+    "ffmpeg-static": "5.2.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "ffmpeg-static"
+    ]
+  }
+}
