@@ -4956,3 +4956,26 @@ Evidence: .cache/helicopter-crew/, .cache/creeping-artillery/,
 .cache/creeping-release-626a23b/release-tests.log. Final isolated build/manual
 Cloudflare deployment and production verification follow. No GitHub push;
 AGENTS.md and .claude stay local and uncommitted.
+
+## 2026-10-31 — helicopter crew and mixed barrages released
+
+Manual pnpm deploy:cloudflare succeeded for code revision b4cdbe1, Cloudflare
+version a23c60e4-9301-481c-a2ec-9668e93420f6. The isolated source archive
+.cache/combat-release-b4cdbe1 matches all 2,764 tracked files of that revision.
+It includes the latest committed audio and documentation work. Final clean-copy
+typecheck and production build passed; the 255 combat/vehicle checks and nine
+actual host/guest renderer scenarios passed before freezing this identical
+source. The 1,890-check full barrage baseline and both rendered smoke records
+are preserved inside the release alongside the final screenshots.
+
+Both blockplaysg.fun and workers.dev serve JS/CSS, sw.js and sampled newly
+committed sound files with byte hashes identical to the build. Service-worker
+cache: blockplay-shell-0737d2f2de29. The production routing/assets/manifest/model/
+recording/API-origin checks passed without paid API requests. Evidence:
+source-verification.json, release-evidence.json, release-typecheck.log,
+release-deploy.log, release-verification.log, release-cloudflare-check.log,
+combat-tests.log, barrage-full-tests.log, helicopter-browser.log and
+barrage-browser.log in the release; .cache/{helicopter-crew,creeping-artillery}/
+beneath it contains results and reviewed images. Task-owned Vite/Chrome stopped.
+Local main commits only; no GitHub push. AGENTS.md and .claude remain local,
+unstaged and uncommitted.
