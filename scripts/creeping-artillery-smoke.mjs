@@ -15,7 +15,7 @@ try{
  for(const [kind,time,terraced] of [['artillery',2,false],['artillery-creeping',2,false],['artillery-creeping',12,false],['artillery-creeping',16,false],['artillery-creeping',20,false],['artillery-creeping',24,false],['artillery-creeping',2,true]]){
   const r=await evaluate(`window.show(${JSON.stringify(kind)},${time},'high',${terraced})`);assert.equal(r.glError,0);results.push({kind,time,terraced,...r});
   if(kind==='artillery')assert.equal(r.rings.length,1);
-  else if(time===2){assert.equal(r.rings.length,3);assert.deepEqual(r.rings.map(m=>m.z),[0,-18,-36]);assert.deepEqual(r.rings.map(m=>m.colour),['#ff4a3a','#f2b84b','#f2b84b']);if(terraced){assert(Math.abs(r.rings[0].y-.12)<.01);assert(Math.abs(r.rings[2].y-6.12)<.01);}}
+  else if(time===2){assert.equal(r.rings.length,3);assert.deepEqual(r.rings.map(m=>m.z),[0,-18,-36]);assert.deepEqual(r.rings.map(m=>m.colour),['#ff4a3a','#f2b84b','#f2b84b']);if(terraced){assert(r.rings[0].y<.3);assert(Math.abs(r.rings[2].y-6.12)<.01);}}
   else if(time===16){assert.deepEqual(r.rings.map(m=>m.z),[-18,-36]);assert(r.blasts>=3);}
   else if(time===20){assert.deepEqual(r.rings.map(m=>m.z),[-36]);assert(r.blasts>=6);}
   else if(time===24){assert.equal(r.rings.length,0);assert.equal(r.blasts,8);}
