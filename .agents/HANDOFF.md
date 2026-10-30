@@ -4684,3 +4684,21 @@ texture-unit use and portrait resize return zero GL errors, and bypass releases
 the texture. Visual review passed. Evidence: .cache/intro-motion/ and
 .cache/intro-motion-{focused,typecheck,browser,tests}.log. Full regression and
 manual release verification follow. No GitHub push; AGENTS.md stays local.
+
+
+## 2026-10-30: cinematic deployment motion and briefing released
+
+All 1,866 tests / 194 suites passed, plus the final 17-tap real WebGL browser
+checks and visual review. The clean release .cache/intro-motion-release-6b4413a
+matches all 2,683 tracked files of code revision 6b4413a and passed typecheck,
+41 focused checks and the production build.
+
+Manual pnpm deploy:cloudflare succeeded: version
+d843bf2b-ad78-4ab5-9fb6-bee9335dcf14. Both blockplaysg.fun and workers.dev serve
+JS/CSS and the service worker with byte hashes identical to that build. The
+production assets, manifest, models, audio, SPA fallback, API routing/origin and
+companion checks passed without paid API requests. Evidence: release-*.log,
+source-verification.json and release-evidence.json inside the clean release;
+.cache/intro-motion-tests.log and .cache/intro-motion/{verification.json,*.png}
+hold full-suite and browser/visual evidence. Task-owned Vite/Chrome stopped.
+No GitHub push. AGENTS.md and .claude remain local, unstaged and uncommitted.
