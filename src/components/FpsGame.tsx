@@ -1,3 +1,4 @@
+import type { RaiderBounty } from '../game/combat-rewards';
 import FpsVehicleHud from './FpsVehicleHud';
 import { hasLaser, hasLight } from '../game/weapon-accessories';
 import EnvironmentControls from './EnvironmentControls';
@@ -41,7 +42,7 @@ function Scoreboard({ snapshot, selfId }: { snapshot: ArenaSnapshot; selfId: str
   return <div className="arena-scoreboard"><table><caption>MATCH STANDINGS <span>{listArenaFactions().map(faction => [faction, actors.filter(actor => factionIdOf(actor) === faction.id).length] as const).filter(([, n]) => n).map(([faction, n]) => `${n} ${faction.short}`).join(' · ')}</span></caption><thead><tr><th scope="col">OPERATOR</th><th scope="col">ROLE</th><th scope="col">K</th><th scope="col">D</th></tr></thead><tbody>{actors.map((actor, index) => <tr key={actor.id} className={actor.id === selfId ? 'is-self' : ''}><td><span className="arena-place">{index + 1}</span>{actor.name}{actor.id === selfId && <small>YOU</small>}{actor.bot && <small>BOT</small>}</td><td>{actor.role === 'player' ? 'Operator' : actor.role}</td><td>{actor.kills}</td><td>{actor.deaths}</td></tr>)}</tbody></table></div>;
 }
 
-export default function FpsGame({ region = 'marina-bay', suspended = false, profile, nav, onReward, onElimination, onConsume, onOpenShop, arena, onLeaveArena, onLoaded }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; onReward: (result: ExerciseReward) => void; onElimination: (id: string) => void; onConsume: (id: string) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
+export default function FpsGame({ region = 'marina-bay', suspended = false, profile, nav, onReward, onElimination, onConsume, onOpenShop, arena, onLeaveArena, onLoaded }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; onReward: (result: ExerciseReward) => void; onElimination: (id: string, bounty?: RaiderBounty) => void; onConsume: (id: string) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
   const district = getFpsDistrict(region), zone = getWorldZone(region);
   const rank = progression(profile.xp);
   const insignia = rankInsignia(rank.level, profile.rankSet);
@@ -62,7 +63,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
   const debug = useDebugMode();
   useEffect(() => {
     setHud({ ...initialFpsHud });
-    try { engine.current = createFpsEngine(host.current!, setHud, { region, loadout: equipment, combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onElimination: id => eliminationCallback.current(id), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); }, encik: () => speaking.current }); }
+    try { engine.current = createFpsEngine(host.current!, setHud, { region, loadout: equipment, combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onElimination: (id, bounty) => eliminationCallback.current(id, bounty), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); }, encik: () => speaking.current }); }
     catch { setHud(h => ({ ...h, phase: 'error', message: '3D graphics could not start. Check that WebGL is enabled, then retry.' })); }
     return () => { engine.current?.dispose(); engine.current = null; };
   }, [epoch, combat, equipment, arenaOptions, region]);

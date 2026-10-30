@@ -64,8 +64,8 @@ registerCombatEvent({
  * the length of the approach, `troops` how many get out.
  */
 export const TRANSPORT = {
-  land: { warning: 3, duration: 70, speed: 11, leaving: 8 },
-  air: { warning: 4, duration: 40, speed: 32, cruise: 55, hover: 9, overfly: 220 },
+  land: { warning: 3, duration: 100, speed: 11, leaving: 8 },
+  air: { warning: 4, duration: 90, speed: 32, cruise: 55, hover: 9, overfly: 220 },
 } as const;
 const clampTo = (value: number | undefined, low: number, high: number, fallback: number) => Number.isFinite(value) ? Math.max(low, Math.min(high, value!)) : fallback;
 function transportTimeline(event: Readonly<CombatEventDescriptor>, mode: 'land' | 'air'): CombatPayload[] {

@@ -1,3 +1,4 @@
+import { combatFeedReward, type RaiderBounty } from './combat-rewards';
 import { createDeploymentIntro } from './deployment-intro';
 import { visionMountPose } from './fps-vision-mount';
 import { districtDeploymentPoints, deploymentOrder, type DeploymentView } from './expedition-deployment';
@@ -242,7 +243,7 @@ function disposeAssets(roots: THREE.Object3D[]) {
   textures.forEach(t => { t.dispose(); if (typeof ImageBitmap !== 'undefined' && t.source.data instanceof ImageBitmap) t.source.data.close(); });
 }
 
-export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { tutorial?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string) => void; onConsume?: (id: string) => void; onFullscreen?: () => void;
+export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { tutorial?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; onConsume?: (id: string) => void; onFullscreen?: () => void;
   /** Read per callout, so a level-up mid-exercise is heard immediately. */
   encik?: () => EncikAddress } = {}) {
   const expedition = options.expedition;
@@ -2346,15 +2347,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (wheel) hud.orderStatus = orderStatus();
     for (const event of frame.feed) {
       comms.add('kills', 'Arena', event.text);
-      if (event.killerId !== options.arena!.session.id) continue;
+      const reward = combatFeedReward(event);
+      if (event.killerId !== options.arena!.session.id || !reward) continue;
       const chain = registerElimination(killChain, hud.elapsed); killChain = chain; hud.chain = chain.count;
-      hud.callout = chain.label || 'ELIMINATION'; calloutTime = 2.4; announce(hud.callout, chain.count);
+      hud.callout = event.bounty ? `BOUNTY +${reward.credits} CR · +${reward.xp} XP` : chain.label || 'ELIMINATION'; calloutTime = 2.4; announce(hud.callout, chain.count);
       // Feed ids restart with each session, so the round id keeps a kill from matching one already paid.
       const killId = `${roundId}:kill:${event.id}`;
-      hud.earned += ELIMINATION_CREDITS; hud.earnedXp += ELIMINATION_XP; options.onElimination?.(killId);
+      hud.earned += reward.credits; hud.earnedXp += reward.xp; options.onElimination?.(killId, event.bounty);
       if (expedition) {
         // The wallet on screen and the profile the next district starts from both read the field copy.
-        fieldProfile = claimElimination(fieldProfile, killId); hud.credits = fieldProfile.credits;
+        fieldProfile = claimElimination(fieldProfile, killId, event.bounty); hud.credits = fieldProfile.credits;
         expedition.onEquipment(copyProfile(fieldProfile));
       }
     }
@@ -2594,9 +2596,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (event.kind === 'air-raid' && live) siren = true;
       for (const payload of combatTimeline(event)) {
         if (payload.type === 'transport') {
-          const pose = transportPose(payload, age), distance = Math.hypot(pose.x - listener.x, pose.y - listener.y, pose.z - listener.z);
+          const active = snapshot?.transports?.find(t => t.event === event.id);
+          const pose = active ? { ...active, effort: active.health <= 0 || !active.driverAlive ? 0 : active.state === 'stopped' ? .2 : .85 } : transportPose(payload, age);
+          const distance = Math.hypot(pose.x - listener.x, pose.y - listener.y, pose.z - listener.z);
           if (pose.visible && distance < engine.distance) engine = { mode: payload.mode, distance, effort: pose.effort };
-          if (!plugin.hazard && age < payload.depart) offer(`${age < payload.arrive ? bannerOf(event, plugin).warning : bannerOf(event, plugin).active} · ${whereFrom(payload.drop)}`, 'notice', 1);
+          if (active?.state === 'landing' || active?.state === 'stopped') offer(`TRANSPORT ${active.driverAlive ? 'CRITICAL' : 'DRIVER DOWN'} · TROOPS EVACUATING · ${whereFrom(active)}`, 'notice', 2);
+          else if (active && (active.state === 'down' || active.state === 'wreck')) offer(`TRANSPORT DESTROYED · ${whereFrom(active)}`, 'notice', 1);
+          else if (!plugin.hazard && age < payload.depart) offer(`${age < payload.arrive ? bannerOf(event, plugin).warning : bannerOf(event, plugin).active} · ${whereFrom(payload.drop)}`, 'notice', 1);
         } else if (payload.type === 'flyer') {
           const pose = flyerPose(payload, age); if (pose.visible) jet = Math.min(jet, Math.hypot(pose.x - listener.x, pose.y, pose.z - listener.z));
         } else if (payload.type === 'marker' && age >= payload.from && age <= payload.until) {
@@ -2649,7 +2655,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     blackout += ((jammed ? 1 : 0) - blackout) * Math.min(1, dt * 1.5);
     combatAudio.transport(engine.mode, engine.distance, engine.effort);
     combatAudio.loop('jet', Math.min(jet, ambientJet)); combatAudio.loop('raid', raid); combatAudio.loop('drone', drone); combatAudio.loop('siren', siren ? 0 : Infinity);
-    const happened = combatVisuals.update(dt, events, eventClock, camera, raiders);
+    const happened = combatVisuals.update(dt, events, eventClock, camera, raiders, snapshot?.transports ?? []);
     // A raid helicopter's door gun.
     happened.shots.slice(0, 2).forEach(at => otherShot(at, 7.62, 60));
     for (const { at, size } of happened.blasts) {

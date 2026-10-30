@@ -4616,3 +4616,44 @@ passed on both origins without paid API calls. Evidence: .cache/vision-mount/
 source-verification.json, live-hashes.json, live-check.log, workers-live-check.log,
 clean-gameplay.log, thermal-gameplay.log and the device/portrait PNGs).
 No GitHub push. AGENTS.md remains local, unstaged and uncommitted.
+
+## 2026-10-30 — shootable reinforcement transports and raider bounties
+
+Reinforcement trucks (800 HP) and helicopters (1,000 HP) now have host-owned
+hulls and a real 100 HP driver/pilot actor, visible through cockpit glazing.
+The hull and driver have separate hitboxes; rays stop at the first hull/body or
+world surface. Friendly small-arms fire is harmless; world blasts can damage
+hulls. At <=25% hull health, a truck stops or a helicopter descends at 5 m/s;
+half the remaining passengers attempt to leave, rounded down. A driver/pilot
+kill releases all remaining passengers, including after a partial evacuation.
+Helicopter occupants wait for touchdown. Exits retry when blocked/occupied;
+passengers leave every .7 s and run clear for up to 3 s before resuming combat.
+Destruction kills the driver, cancels booked inserts, removes undelivered
+recruits and restarts fallen regulars' waiting clocks. Escaped troops remain
+vulnerable to the shared cover-aware blast. Air wrecks fall; smoke, fire,
+scorched paint, stopped rotors and HUD/audio follow live state. Departure,
+reset and bounded event cleanup release driver actors and passenger bookings.
+The hulls remain scripted transports, separate from the drivable fleet.
+
+Raid helicopter shoot-downs pay 100 credits / 125 XP; drone shoot-downs pay
+40 credits / 50 XP. A validated host feed bounty credits the final shooter
+once through the existing profile ledger and both FPS/expedition callbacks.
+It appears in the HUD and contributes to callouts, without adding an infantry
+kill to match scoring. Destruction notices alone no longer pay an infantry
+reward. Withdrawal, drone self-detonation and uncredited outcomes pay nothing.
+
+Validation: full suite 1,862 tests / 193 files passed; final departure cleanup
+then passed 47 targeted transport/reward/runtime/arena tests (14 transport
+regressions). Typecheck and production build passed. The new
+pnpm test:combat-transports smoke passed nine real Chrome/WebGL scenarios with
+zero runtime errors, using the real host and character rigs. Inspected cockpit,
+evacuation, smoke and wreck screenshots in .cache/transport-review/. Tests also
+cover inbound stopping, lone passengers, blocked exits, pilot descent, blasts,
+malformed snapshots, high-altitude drivers, duplicate rewards and reset.
+
+Manual pnpm deploy:cloudflare succeeded: version
+9cda24af-3463-4f9a-bcd4-cdc9c64abf97. Verified https://blockplaysg.fun serves the
+tested /assets/index-DnqAMp8m.js and service-worker cache
+blockplay-shell-a11bd35652af. The production Cloudflare routing, assets, models,
+audio, PWA and origin checks passed without paid API requests. No GitHub push.
+AGENTS.md and the unrelated .claude directory remain local and uncommitted.

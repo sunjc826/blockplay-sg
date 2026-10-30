@@ -1,3 +1,4 @@
+import { RAIDER_BOUNTIES, validRaiderBounty, type RaiderBounty } from './combat-rewards';
 import { carriedFamilies, restoreCarrySlots, isMainWeapon, EXTRA_SLOT_ID, SIDEARM_FAMILY, type CarrySlots } from './armory-slots';
 import { supplyWeightKg } from './fps-encumbrance';
 import { beltWeightKg, heldSupplies } from './utility-belt';
@@ -261,9 +262,10 @@ export function rewardAmount(result: ExerciseReward) {
   return 250 + Math.round(accuracy * 100) + Math.max(0, 100 - Math.floor(result.elapsed)) + (result.combat ? 100 : 0);
 }
 export function completionXp(result: ExerciseReward) { return 200 + Math.round(Math.min(1, result.landed / Math.max(1, result.shots)) * 100) + (result.combat ? 100 : 0); }
-export function claimElimination(profile: ArmoryProfile, id: string): ArmoryProfile {
+export function claimElimination(profile: ArmoryProfile, id: string, bounty?: RaiderBounty): ArmoryProfile {
   if (!id || profile.rewarded.includes(id)) return profile;
-  return { ...profile, xp: Math.min(1000000, profile.xp + ELIMINATION_XP), credits: Math.min(1000000, profile.credits + ELIMINATION_CREDITS), rewarded: [...profile.rewarded, id].slice(-100) };
+  const reward = validRaiderBounty(bounty) ? RAIDER_BOUNTIES[bounty] : { xp: ELIMINATION_XP, credits: ELIMINATION_CREDITS };
+  return { ...profile, xp: Math.min(1000000, profile.xp + reward.xp), credits: Math.min(1000000, profile.credits + reward.credits), rewarded: [...profile.rewarded, id].slice(-100) };
 }
 export function claimReward(profile: ArmoryProfile, result: ExerciseReward): ArmoryProfile {
   if (result.hits !== 8 || result.shots < 8 || !Number.isFinite(result.shots) || !Number.isFinite(result.landed) || result.landed < 8 || result.landed > result.shots || !Number.isFinite(result.elapsed) || result.elapsed < 0 || !result.id || profile.rewarded.includes(result.id)) return profile;

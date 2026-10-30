@@ -141,7 +141,7 @@ describe('reinforcements', () => {
     const arena = createArena([], 1, 'assault', open(spawns, { reinforcements: true, population: 7 }));
     arena.addPlayer('one', 'Alpha', 0, 0, undefined, undefined, true);
     arena.setPlayerHealthMultiplier('one', 10);
-    const bots = () => arena.snapshot().actors.filter(a => a.bot);
+    const bots = () => arena.snapshot().actors.filter(a => a.bot && !a.transport);
     advance(arena, REINFORCEMENT_TOP_UP - 1);
     expect(arena.snapshot().events).toBeUndefined();
     // Recruits ride in reserve: nobody sees them until they step off.
@@ -196,7 +196,7 @@ describe('faction heat in the arena', () => {
     let friendlyRide: CombatEventDescriptor | undefined;
     advance(arena, 160, () => { friendlyRide ??= arena.snapshot().events?.find(e => e.faction === 'armed-forces'); });
     expect(friendlyRide?.kind).toMatch(/^transport/);
-    const friends = arena.snapshot().actors.filter(a => a.bot && a.faction === 'armed-forces');
+    const friends = arena.snapshot().actors.filter(a => a.bot && !a.transport && a.faction === 'armed-forces');
     expect(friends.length).toBeGreaterThan(0);
     expect(friends.length).toBeLessThanOrEqual(FACTION_SCALE['armed-forces'].troops[1]);
     expect(friends.every(f => /^(Pte|Cpl|Sgt) /.test(f.name) && f.variant === undefined)).toBe(true);

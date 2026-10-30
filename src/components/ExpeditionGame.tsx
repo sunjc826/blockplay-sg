@@ -1,3 +1,4 @@
+import type { RaiderBounty } from '../game/combat-rewards';
 import FpsFacilityHud from './FpsFacilityHud';
 import ExpeditionDeployment from './ExpeditionDeployment';
 import type { ArenaSnapshot } from '../game/arena-rules';
@@ -37,7 +38,7 @@ import { getArenaFaction, PLAYER_FACTION, SQUAD_FACTIONS } from '../game/arena-f
 
 interface ExpeditionScene { zone: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: FpsCheckpoint; revision: number }
 
-export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase, onConsume, onElimination, suspended = false, initialZone = 'marina-bay', destination, onZoneChange, onLoaded }: { profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; onExit: () => void; onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult; onConsume: (catalogId: string) => void; onElimination?: (id: string) => void; suspended?: boolean; initialZone?: WorldZoneId; destination?: WorldZoneId; onZoneChange?: (zone: WorldZoneId) => void }) {
+export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase, onConsume, onElimination, suspended = false, initialZone = 'marina-bay', destination, onZoneChange, onLoaded }: { profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; onExit: () => void; onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult; onConsume: (catalogId: string) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; suspended?: boolean; initialZone?: WorldZoneId; destination?: WorldZoneId; onZoneChange?: (zone: WorldZoneId) => void }) {
   const [fieldProfile, setFieldProfile] = useState<ArmoryProfile>(() => structuredClone(profile));
   const fieldProfileRef = useRef(fieldProfile);
   const [loot] = useState(() => createExpeditionLoot(`${Date.now()}-${Math.random()}`));
@@ -64,7 +65,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
           onVendorPurchase,
         },
         onConsume,
-        onElimination: id => eliminationCallback.current?.(id),
+        onElimination: (id, bounty) => eliminationCallback.current?.(id, bounty),
         onFullscreen: () => { void fullscreenAction.current(); },
       });
     } catch {

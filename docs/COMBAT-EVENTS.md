@@ -8,7 +8,7 @@ events. They are **artillery**, **troop transports** (truck and helicopter),
 **air raid**, **helicopter raid**, **mortar fire**, **loitering drone**,
 **rooftop sniper**, **supply drop**, **smoke screen**, **tear gas** and
 **blackout**. Still proposals: the range adapter, a World conditions setting,
-LAN, raid inserts and bounties. Each section below says which it is.
+LAN and raid inserts. Reinforcement transports now have damageable hulls and real drivers; downed raiders pay bounties. Each section below says which it is.
 
 [Back to README](../README.md)
 
@@ -282,11 +282,18 @@ preferably within 120 m so the arrival can be seen. It then picks the ride:
   refills.
 
 Each trooper is a real bot, fallen or recruited, set down at its `insert` time and place,
-facing the nearest player. The transport itself is drawn but cannot be shot
-yet (it carries `fpsEffect`, so it stops nothing either). The banner and comms
+facing the nearest player. The host resolves shots against the transport hull and its driver independently; the visual effect tree remains excluded from scene raycasts. The banner and comms
 log say "BLACK KITE TRUCK INBOUND · REINFORCEMENTS · 90 m to your right" for a
 mercenary ride, "FRIENDLY TRUCK INBOUND · ARMED FORCES" for a friendly one (see
 [factions](FACTIONS.md)).
+
+**Transport damage and evacuation** (built)
+
+- Truck hull: **800 HP**; helicopter hull: **1,000 HP**. Each has a real, visible, unarmored **100 HP** driver/pilot in the cab, with a separate head/body hitbox. Cockpit glazing admits shots; the hull stops them. Friendly small-arms fire does no damage.
+- At **25% hull health or less**, the truck stops or the helicopter descends at **5 m/s**. Half the passengers still aboard (rounded down) attempt to evacuate, one every **0.7 s**, then run clear of the hull for up to **3 s** before resuming combat. The rest stay aboard with the living driver. A single passenger therefore stays aboard on hull damage alone.
+- Killing the driver/pilot stops normal delivery and lets **all remaining passengers** attempt to evacuate. Helicopter occupants wait for touchdown. A blocked or occupied exit is retried; troops never teleport to the scheduled drop. Killing the driver after a partial evacuation releases the remainder.
+- Destruction kills the driver and loses the troops still aboard; it cancels their scheduled inserts. Fallen regulars re-enter the reinforcement queue with a fresh wait, while undelivered recruits are removed. Already escaped troops remain in the fight and can be hurt by the explosion. Wreck blasts use cover and the shared blast resolver; an airborne wreck falls.
+- Driver actors and live hull state are bounded and validated in snapshots, and cleared on reset, departure and event cleanup. Drivers cannot fire while seated. Smoke, fire, destroyed hulls, stopped rotors and evacuation notices follow host state. These scripted hulls are separate from the player-drivable fleet.
 
 **Artillery** (built)
 
@@ -318,7 +325,7 @@ mercenary ride, "FRIENDLY TRUCK INBOUND · ARMED FORCES" for a friendly one (see
 - Counterplay: get indoors or under a deck. This is the event that makes the
   verticality work pay off. Bots run out of the ring rather than for a roof.
 
-**Helicopter raid** (built, except inserts and the bounty)
+**Helicopter raid** (built, except inserts)
 
 - Warning 8 s: the heavier rotor growing as it comes in, a countdown banner.
 - A dark attack helicopter flies the pure `orbit` path. It comes in 220 m along
@@ -338,7 +345,7 @@ mercenary ride, "FRIENDLY TRUCK INBOUND · ARMED FORCES" for a friendly one (see
   raid helicopter"), which counts toward the kill chain callout but not kills.
 - The snapshot carries `raiders: { event, kind, x, y, z, yaw, health,
   maxHealth, state, aim, shots }[]`; a rising `shots` is a tracer to draw.
-- Not built: fast-rope inserts and a bounty.
+- Not built: raid fast-rope inserts. Shooting down a raid helicopter pays **100 credits / 125 XP**; shooting down a drone pays **40 credits / 50 XP**. The host credits the final shooter once. Withdrawal, self-detonation and environmental outcomes pay nothing. Bounties persist through the usual profile reward ledger, appear in the HUD, and do not add infantry kills to the match score.
 
 **Mortar fire** (built)
 
@@ -579,6 +586,13 @@ once and must draw something (a pit, jets, a raider, a cloud, a crate, a
 jammed map) and announce itself. Finally a soak must see the director call an
 event of its own. `COMBAT_SMOKE_ONLY=mortar,drone` limits the second pass.
 
+`pnpm test:combat-transports` runs nine rendered truck/helicopter scenarios in
+`scripts/fixtures/transports.html`, using the real host simulation and shared
+character rigs. It checks partial/full evacuation and destruction, and saves
+cockpit, smoke, troop and wreck screenshots under `.cache/transport-review/`.
+Use the same `EXPEDITION_APP_ORIGIN` and `EXPEDITION_CHROME_ORIGIN` overrides as
+the combat-events smoke.
+
 ## Build order
 
 1. **Done.** `combat-events.ts`, `combat-blast.ts` (wreck blasts now use it),
@@ -586,11 +600,11 @@ event of its own. `COMBAT_SMOKE_ONLY=mortar,drone` limits the second pass.
    visuals, audio and debug triggers. The director and bot avoidance were
    pulled forward from step 2, so the open world runs strikes and
    reinforcements unattended.
-2. Range adapter, a proper setting in World conditions, voiced radio lines,
-   shootable transports. *(Minimap rings are done: hazard rings, the supply
+2. Range adapter, a proper setting in World conditions and voiced radio lines.
+   **Shootable transports are built**, including real drivers, emergency exits and hull destruction. *(Minimap rings are done: hazard rings, the supply
    ring and raider pips, hidden while jammed.)*
 3. **Done.** **Air raid**: flyers, overhead shelter, siren.
-4. **Done, except inserts and the bounty.** **Helicopter raid**: raider state in
+4. **Done, except inserts.** **Helicopter raid**: raider state in
    the snapshot, the door gunner. Built alongside it: mortar fire, the drone,
    the rooftop sniper, the supply drop, smoke, tear gas and blackout, with
    temporary event crews (`temporary`, `anchor`) and the `ended`/`outcome` cut.
@@ -606,8 +620,6 @@ Each step ships on its own and leaves the game playable with events off.
   the Encik on the radio, blank-fire smoke, "simulated" in the feed — fits the
   game's NS voice and is gentler than depicting a real attack. That choice
   changes copy, not the framework.
-- **Rewards.** Should surviving an event or downing a raider pay credits or XP
-  in expedition and range?
+- **Rewards.** Raider bounties are built. Rewards simply for surviving an event remain undecided.
 - **LAN.** Ship events to LAN at step 5, or keep them solo-only?
-- **Player-called support.** The `caller` field leaves room for a mortar or
-  artillery quick item in the armory; is that wanted?
+- **Player-called support.** Red smoke already calls a credited mortar fire mission (see [grenades](GRENADES.md)). A separate artillery support item remains undecided.

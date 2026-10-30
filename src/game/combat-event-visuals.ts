@@ -1,3 +1,4 @@
+import type { ArenaTransport } from './combat-transports';
 import * as THREE from 'three';
 import { combatPhase, combatRandom, combatTimeline, cratePose, flyerPose, orbitPose, transportPose, type CombatEventDescriptor, type MunitionPayload, type TransportPayload } from './combat-events';
 import type { ArenaRaider } from './arena-rules';
@@ -9,11 +10,11 @@ import { withInstanceOpacity } from './fps-impact-material';
  * moments of flight, blasts, smoke, craters, danger rings, the transports that
  * bring reinforcements, crossing jets, raid helicopters and drones, mortar
  * pits, supply crates and clouds of smoke or gas. Every pool is fixed at
- * creation; the whole tree carries `fpsEffect` and stops no ray, so nothing
- * here changes what a shot hits (raiders are hit by the host's own spheres).
+ * creation; the whole tree carries `fpsEffect` and stops no ray, so the host
+ * resolves hits on live raiders, transport hulls and seated drivers separately.
  */
 
-const FIRE = 96, SMOKE = 256, DEBRIS = 96, SHELLS = 24, CRATERS = 40, MARKERS = 8, TRANSPORTS = 2, ROPERS = 6;
+const FIRE = 96, SMOKE = 256, DEBRIS = 96, SHELLS = 24, CRATERS = 40, MARKERS = 8, TRANSPORTS = 3, ROPERS = 6;
 const BOMBS = 16, FLYERS = 4, RAIDERS = 2, PITS = 2, CRATES = 2, PUFFS = 192;
 /** Shells are drawn at an arcade speed so their last half-second is visible at all. */
 const SHELL_SPEED = 120;
@@ -40,20 +41,45 @@ function radial(size: number, edge: number) {
 function buildTruck() {
   const root = new THREE.Group(), olive = new THREE.MeshStandardMaterial({ color: '#4a5236', roughness: .8 }),
     canvas = new THREE.MeshStandardMaterial({ color: '#5d6045', roughness: .95 }), dark = new THREE.MeshStandardMaterial({ color: '#1d2120', roughness: .85 }),
-    glass = new THREE.MeshStandardMaterial({ color: '#27424b', roughness: .2, metalness: .4 });
+    glass = new THREE.MeshStandardMaterial({ color: '#809fa0', roughness: .2, metalness: .1, transparent: true, opacity: .22, depthWrite: false });
   root.userData.heat = 'engine';
   const box = (w: number, h: number, d: number, x: number, y: number, z: number, material: THREE.Material) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material); mesh.position.set(x, y, z); root.add(mesh); return mesh;
   };
   box(2.3, .35, 6.6, 0, .95, 0, dark);              // chassis
-  box(2.3, 1.5, 1.8, 0, 1.85, -2.35, olive);        // cab
-  box(2.1, .55, .06, 0, 2.15, -3.26, glass);        // windscreen
+  box(2.3, .85, 1.8, 0, 1.525, -2.35, olive);
+  box(2.3, .15, 1.8, 0, 2.72, -2.35, olive);
+  for (const x of [-1.1, 1.1]) { box(.1, .75, .12, x, 2.25, -3.17, olive); box(.1, .75, .12, x, 2.25, -1.5, olive); box(.04, .65, 1.55, x, 2.25, -2.35, glass); }
+  box(2.1, .65, .06, 0, 2.3, -3.26, glass);
+  box(.7, .18, .65, .55, 1.5, -2.4, dark); box(.7, .7, .15, .55, 1.85, -2.05, dark);
+  const wheel = new THREE.Mesh(new THREE.TorusGeometry(.23, .035, 6, 16), dark); wheel.position.set(.55, 2.03, -2.98); wheel.rotation.x = -.4; root.add(wheel);
   box(2.4, .5, 4.4, 0, 1.4, 1.05, olive);           // bed
   box(2.4, 1.6, 4.3, 0, 2.45, 1.1, canvas);         // canopy
   for (const z of [-2.3, .6, 2.1]) for (const x of [-1.15, 1.15]) {
     const wheel = new THREE.Mesh(new THREE.CylinderGeometry(.52, .52, .4, 12), dark); wheel.rotation.z = Math.PI / 2; wheel.position.set(x, .52, z); root.add(wheel);
   }
   return root;
+}
+
+/** Open the upper nose under the glazing so the seated pilot can actually be seen. */
+function buildTransportHelicopter() {
+  const model = buildVehicleModel('helicopter');
+  const shell = model.children.find(n => n instanceof THREE.Mesh && n.geometry instanceof THREE.SphereGeometry) as THREE.Mesh | undefined;
+  if (shell) {
+    const geometry = shell.geometry.toNonIndexed(), positions = geometry.getAttribute('position'), kept: number[] = [];
+    for (let i = 0; i < positions.count; i += 3) {
+      const y = (positions.getY(i) + positions.getY(i + 1) + positions.getY(i + 2)) / 3;
+      const z = (positions.getZ(i) + positions.getZ(i + 1) + positions.getZ(i + 2)) / 3;
+      if (y > -.3 && z < -.25) continue;
+      kept.push(i, i + 1, i + 2);
+    }
+    geometry.setIndex(kept); shell.geometry.dispose(); shell.geometry = geometry;
+  }
+  const dark = new THREE.MeshStandardMaterial({ color: '#252a26', roughness: .8 });
+  for (const [w, h, d, x, y, z] of [[.65, .18, .7, .45, 1.2, -1.6], [.65, .7, .15, .45, 1.6, -1.25], [.07, .55, .07, .45, 1.55, -1.95]]) {
+    const part = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), dark); part.position.set(x, y, z); model.add(part);
+  }
+  return model;
 }
 
 /** An original fast jet: fuselage, delta wing, fin. Forward is local -Z. */
@@ -206,6 +232,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     return slot;
   }
   /** Last frame's raider states and shot counts, so a change can be drawn once. */
+  const seenTransports = new Map<string, number>();
   const seenRaiders = new Map<string, { state: string; shots: number }>();
   const trail = new THREE.Color('#2f2d2a');
 
@@ -215,7 +242,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     const list = fleet[mode];
     let slot = list.find(v => v.owner === owner) ?? list.find(v => !v.owner);
     if (!slot && list.length < TRANSPORTS) {
-      const model = mode === 'land' ? buildTruck() : buildVehicleModel('helicopter');
+      const model = mode === 'land' ? buildTruck() : buildTransportHelicopter();
       model.traverse(node => {
         node.raycast = noRaycast;
         if (node instanceof THREE.Mesh) { geometries.push(node.geometry); (Array.isArray(node.material) ? node.material : [node.material]).forEach(m => { materials.push(m); if ('map' in m && m.map instanceof THREE.Texture) textures.push(m.map); }); }
@@ -341,7 +368,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     return happened;
   }
 
-  function update(dt: number, events: readonly CombatEventDescriptor[], time: number, camera: THREE.Camera, raiders: readonly ArenaRaider[] = []): RaiderHappenings {
+  function update(dt: number, events: readonly CombatEventDescriptor[], time: number, camera: THREE.Camera, raiders: readonly ArenaRaider[] = [], transports: readonly ArenaTransport[] = []): RaiderHappenings {
     clock += dt;
     // Lingering signal smoke from spotting rounds and downwash dust under a hovering helicopter.
     for (let i = emitters.length - 1; i >= 0; i--) {
@@ -433,10 +460,11 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
           m.mesh.position.set(payload.center.x, y + .12, payload.center.z); m.mesh.scale.setScalar(payload.radius); m.mesh.visible = true;
           m.material.color.set(payload.colour); m.material.opacity = (.35 + .25 * Math.sin(clock * 6)) * Math.min(1, (payload.until - age) / 1.5);
         } else if (payload.type === 'transport') {
-          drawTransport(event, payload, age, dt, live);
+          const active = transports.find(t => t.event === event.id);
+          drawTransport(event, payload, age, dt, live, active);
           if (payload.mode === 'air') {
             const v = fleet.air.find(s => s.owner === event.id);
-            const roping = age >= payload.arrive + .5 && age <= payload.depart - .4;
+            const roping = (!active || active.state === 'unloading') && age >= payload.arrive + .5 && age <= payload.depart - .4;
             if (v && roping && ropeLines < TRANSPORTS * 2) for (const side of [-1, 1]) {
               ropeTop.set(side * 1.3, 1.1, -.3).applyMatrix4(v.model.matrixWorld);
               ropeArray.setXYZ(ropeLines * 2, ropeTop.x, ropeTop.y, ropeTop.z); ropeArray.setXYZ(ropeLines * 2 + 1, ropeTop.x, v.ground + .1, ropeTop.z); ropeLines++;
@@ -444,7 +472,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
             if (v && roping && !options.reduced() && Math.random() < dt * 14)
               add(smoke, SMOKE, particle(position.set(payload.drop.x + (Math.random() - .5) * 8, v.ground + .2, payload.drop.z + (Math.random() - .5) * 8), 6, .8, 1.6, 1.6, 2.4, wash));
             // Troops slide the last stretch of rope just before they are on the ground.
-            if (v) for (const insert of combatTimeline(event)) {
+            if (v && roping) for (const insert of combatTimeline(event)) {
               if (insert.type !== 'insert' || ropers >= ROPERS) continue;
               const until = insert.time - age; if (until <= 0 || until > 1.2) continue;
               const side = insert.slot % 2 ? -1 : 1, top = ropeTop.set(side * 1.3, 1.1, -.3).applyMatrix4(v.model.matrixWorld);
@@ -492,19 +520,43 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     });
     craterMesh.count = craters.length; craterMesh.instanceMatrix.needsUpdate = true; craterQuad.opacity.needsUpdate = true;
     flash.intensity *= Math.exp(-dt * 14); if (flash.intensity < .05) flash.intensity = 0;
+    for (const t of transports) {
+      const before = seenTransports.get(t.event);
+      if (before !== undefined && before > 0 && t.health === 0) {
+        const at = new THREE.Vector3(t.x, t.y + 1.3, t.z), size = t.mode === 'air' ? 1.25 : 1;
+        blast(at, size); happened.blasts.push({ at, size });
+      }
+      seenTransports.set(t.event, t.health);
+    }
+    const presentTransports = new Set(transports.map(t => t.event));
+    for (const id of seenTransports.keys()) if (!presentTransports.has(id)) seenTransports.delete(id);
     return happened;
   }
 
-  function drawTransport(event: CombatEventDescriptor, payload: TransportPayload, age: number, dt: number, live: Set<string>) {
-    const pose = transportPose(payload, age);
+  function drawTransport(event: CombatEventDescriptor, payload: TransportPayload, age: number, dt: number, live: Set<string>, active?: ArenaTransport) {
+    const pose = active ? { ...active, effort: active.health <= 0 || !active.driverAlive ? 0 : active.state === 'stopped' ? .2 : .85 } : transportPose(payload, age);
     if (!pose.visible) return;
     const v = vehicle(payload.mode, event.id); if (!v) return;
     live.add(event.id);
     // The ground under a transport is sampled a few times a second, not every frame.
     if (clock - v.groundAt > .15) { v.ground = groundAt(pose.x, pose.z); v.groundAt = clock; }
-    v.model.visible = true; v.model.position.set(pose.x, v.ground + pose.y, pose.z); v.model.rotation.set(0, pose.yaw, 0);
-    if (v.rotor) v.rotor.rotation.y += dt * 38 * Math.max(.4, pose.effort);
-    if (v.tail) v.tail.rotation.x += dt * 60;
+    v.model.visible = true; v.model.position.set(pose.x, active ? pose.y : v.ground + pose.y, pose.z); v.model.rotation.set(active?.state === 'down' ? -.2 : 0, pose.yaw, active?.state === 'wreck' && active.mode === 'air' ? -.18 : 0);
+    const stage = !active || active.health > active.maxHealth * .5 ? 1 : active.health > 0 ? .8 : .38;
+    if (v.model.userData.transportTint !== stage) {
+      v.model.userData.transportTint = stage;
+      v.model.traverse(node => { if (!(node instanceof THREE.Mesh)) return;
+        for (const material of Array.isArray(node.material) ? node.material : [node.material]) if (material instanceof THREE.MeshStandardMaterial) {
+          material.userData.transportBase ??= material.color.clone(); material.color.copy(material.userData.transportBase).multiplyScalar(stage);
+        }
+      });
+    }
+    if (active && active.health <= active.maxHealth * .5 && Math.random() < dt * (options.reduced() ? 2 : 8)) {
+      const at = position.set(active.x, active.y + 1.8, active.z);
+      const puff = particle(at, .5, 1.3, 3.5, 1.1, 1.2, soot); puff.lift = 1; add(smoke, SMOKE, puff);
+      if (active.health <= active.maxHealth * .25) add(fire, FIRE, particle(at, .4, .8, .7, .8, 1.2, fireMid));
+    }
+    if (v.rotor) v.rotor.rotation.y += dt * 38 * pose.effort;
+    if (v.tail) v.tail.rotation.x += dt * 60 * pose.effort;
     v.model.updateMatrixWorld(true);
   }
 
@@ -514,7 +566,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     for (const mode of ['land', 'air'] as const) vehicle(mode, '');
   }
   function reset() {
-    fire.length = smoke.length = debris.length = craters.length = emitters.length = 0; landings.clear(); seenRaiders.clear(); flash.intensity = 0;
+    fire.length = smoke.length = debris.length = craters.length = emitters.length = 0; landings.clear(); seenRaiders.clear(); seenTransports.clear(); flash.intensity = 0;
     for (const mode of ['land', 'air'] as const) for (const v of fleet[mode]) { v.owner = ''; v.model.visible = false; }
     for (const list of Object.values(props)) for (const p of list) { p.owner = ''; p.model.visible = false; p.extra = undefined; }
   }

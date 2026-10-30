@@ -1,3 +1,4 @@
+import type { RaiderBounty } from './combat-rewards';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { selectCarryWeapon, chooseEncikTone, chooseRankSet, claimReward, claimElimination, consumeItem, createProfile, equip, purchase, purchaseFromVendor, purchaseLevel, restoreProfile, STORAGE_KEY, type ArmoryProfile, type ExerciseReward } from './armory-state';
 import type { VehicleKind } from './vehicle-rules';
@@ -19,7 +20,7 @@ export function useArmory() {
   const selectCarrySlot = useCallback((slot: 'main' | 'extra', family: number | null) => { const next = selectCarryWeapon(current.current, slot, family); const changed = next !== current.current; update(next); setMessage(changed ? 'Carry slots updated.' : 'That weapon cannot go in this slot.'); }, [update]);
   const award = useCallback((reward: ExerciseReward) => update(claimReward(current.current, reward)), [update]);
   const consume = useCallback((id: string) => update(consumeItem(current.current, id)), [update]);
-  const awardElimination = useCallback((id: string) => update(claimElimination(current.current, id)), [update]);
+  const awardElimination = useCallback((id: string, bounty?: RaiderBounty) => update(claimElimination(current.current, id, bounty)), [update]);
   const demoTopUp = useCallback(() => { update({ ...current.current, tokens: Math.min(1000000, current.current.tokens + 250) }); setMessage('250 demo tokens added. No payment was made.'); }, [update]);
   return { profile, selectCarrySlot, buy, buyFromVendor, buyLevel, wearRankSet, setEncikTone, equipItem, award, awardElimination, consume, demoTopUp, message, saveError };
 }

@@ -114,7 +114,9 @@ describe('raid helicopter', () => {
     for (let shot = 0; shot < 8 && raider(arena, raid.id)?.state !== 'down'; shot++) fireAt(arena, 'one', ahead());
     expect(raider(arena, raid.id)!.state).toBe('down');
     expect(event(arena, raid.id)!.outcome).toBe('downed');
-    expect(arena.snapshot().feed.some(f => f.killerId === 'one' && f.text === 'Alpha downed the raid helicopter')).toBe(true);
+    expect(arena.snapshot().feed.filter(f => f.bounty === 'gunship')).toHaveLength(1);
+    expect(actor(arena, 'one')!.kills).toBe(0);
+    expect(arena.snapshot().feed.some(f => f.killerId === 'one' && f.bounty === 'gunship' && f.text === 'Alpha downed the raid helicopter')).toBe(true);
     advance(arena, 15);
     expect(raider(arena, raid.id)).toBeUndefined();
   });
@@ -171,6 +173,7 @@ describe('loitering drone', () => {
       if (r && r.health > 0) fireAt(arena, 'one', { x: r.x, y: r.y, z: r.z });
     });
     expect(event(arena, drone.id)!.outcome).toBe('downed');
+    expect(arena.snapshot().feed.filter(f => f.bounty === 'drone' && f.killerId === 'one')).toHaveLength(1);
     advance(arena, 10);
     expect(actor(arena, 'one')!.health).toBe(1000);
   });

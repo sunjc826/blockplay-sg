@@ -1,0 +1,33 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Transport evacuation review</title><style>
+body{margin:0;background:#151c24;color:white;font:15px system-ui}header{position:absolute;top:18px;left:22px;text-shadow:0 1px 3px #000}small{display:block;margin-top:5px;color:#e3e7d9}canvas{display:block}
+</style></head><body><header>Reinforcement transports<small id="status">Loading</small></header><script type="module">
+import * as THREE from 'three';
+import { createArena } from '/src/game/arena-rules.ts';
+import { combatTimeline } from '/src/game/combat-events.ts';
+import { transportPoint, transportDriverPoint } from '/src/game/combat-transports.ts';
+import { createCombatEventVisuals } from '/src/game/combat-event-visuals.ts';
+import { createCharacterRig } from '/src/game/character-rig.ts';
+import { arenaCharacterLook } from '/src/game/character-looks.ts';
+const renderer = new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1200,800);renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#b8d9ef');scene.add(new THREE.HemisphereLight('#ecf5ff','#646b4e',2.2));const sun=new THREE.DirectionalLight('#fff5dd',2.6);sun.position.set(30,60,-40);scene.add(sun);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(1000,1000),new THREE.MeshStandardMaterial({color:'#aaa797',roughness:.9}));ground.rotation.x=-Math.PI/2;scene.add(ground);
+const camera=new THREE.PerspectiveCamera(50,1.5,.1,800), rigs=new Map();
+const cast=(origin,direction,far)=>{if(direction.y>=0)return null;const d=-origin.y/direction.y;return d>=0&&d<=far?origin.clone().addScaledVector(direction,d):null;};
+const visuals=createCombatEventVisuals(scene,cast,{reduced:()=>false});
+let arena,spawn,mode,event;
+const gun=[{damage:200,interval:.06,capacity:100,reload:1}];
+const transport=()=>arena.snapshot().transports.find(t=>t.event===event.id);
+function render(dt=.05,draw=false){const snapshot=arena.snapshot();visuals.update(dt,snapshot.events??[],snapshot.elapsed,camera,[],snapshot.transports??[]);
+ const present=new Set();for(const actor of snapshot.actors.filter(a=>a.bot&&a.alive)){present.add(actor.id);let rig=rigs.get(actor.id);if(!rig){rig=createCharacterRig(arenaCharacterLook(actor),actor.id);rig.root.userData.fpsEffect=true;scene.add(rig.root);rigs.set(actor.id,rig);}rig.root.position.set(actor.x,actor.y-(actor.transport?1.2:1.75),actor.z);rig.root.rotation.y=actor.yaw;rig.update(dt,{seated:!!actor.transport,driving:!!actor.transport,aim:actor.transport?0:.2});}
+ for(const[id,rig]of rigs)if(!present.has(id)){rig.root.removeFromParent();rig.dispose();rigs.delete(id);}if(draw)renderer.render(scene,camera);}
+function advance(seconds){for(let t=0;t<seconds-1e-8;t+=.05){arena.step(Math.min(.05,seconds-t));render(Math.min(.05,seconds-t));}}
+function shoot(at){advance(.065);const from=arena.snapshot().actors.find(a=>a.id==='one');const ray=new THREE.Vector3(at.x-from.x,at.y-from.y,at.z-from.z).normalize();arena.shoot('one',from,ray,0);for(let i=0;i<300&&arena.inFlight('one');i++){arena.step(.002);render(.002);}}
+window.reviewTransport=(scenario='intact',ride='land',close=false)=>{visuals.reset();for(const rig of rigs.values()){rig.root.removeFromParent();rig.dispose();}rigs.clear();mode=ride;spawn={x:0,z:0};arena=createArena([],0,'assault',{bounds:{minX:-300,maxX:300,minZ:-300,maxZ:300},spawns:[{x:0,z:0},{x:80,z:0}],playerSpawn:spawn,endless:true,population:8,reinforcements:true,move:(p,dx,dz)=>({x:p.x+dx,z:p.z+dz})});arena.addPlayer('planner','Planner',0,0,gun,undefined,true);event=arena.triggerEvent(`transport-${mode}`);const p=combatTimeline(event).find(p=>p.type==='transport');advance(p.arrive+.05);let t=transport();const base={...t};const eye=transportPoint(t,close?2.7:10,close?2.5:6,close?-6:-13),look=transportPoint(t,0,mode==='air'?1.8:1.6,0);camera.position.set(eye.x,eye.y,eye.z);camera.lookAt(look.x,look.y,look.z);camera.updateMatrixWorld(true);
+ Object.assign(spawn,transportPoint(t,.55,1.75,-12));arena.addPlayer('one','Alpha',0,0,gun,undefined,true);arena.setPlayerHealthMultiplier('one',10);render();
+ if(scenario==='critical'||scenario==='wreck'){const count=scenario==='critical'?(mode==='air'?4:3):(mode==='air'?5:4);for(let n=0;n<count;n++)shoot(transportPoint(transport(),0,1.4,1));advance(scenario==='critical'?5:1);}
+ if(scenario==='driver'){shoot(transportDriverPoint(transport()));advance(mode==='air'?8:7);}
+ t=transport();if(mode==='air'&&scenario!=='intact'){const eye=transportPoint(base,12,-base.y+7,-14);camera.position.set(eye.x,eye.y,eye.z);camera.lookAt(t.x,2,t.z);}
+ render(.05,true);const soldiers=arena.snapshot().actors.filter(a=>a.bot&&!a.transport&&a.alive).length;document.querySelector('#status').textContent=`${mode==='land'?'Truck':'Helicopter'} · ${scenario} · hull ${t.health}/${t.maxHealth} · driver ${t.driverAlive?'alive':'down'} · ${t.passengers} aboard · ${soldiers} dismounted`;
+ return {scenario,mode,state:t.state,health:t.health,driverAlive:t.driverAlive,passengers:t.passengers,soldiers,draws:renderer.info.render.calls};};
+window.reviewTransport();
+</script></body></html>

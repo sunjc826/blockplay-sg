@@ -1,3 +1,5 @@
+import { validTransport } from './combat-transports';
+import { validRaiderBounty } from './combat-rewards';
 import { MAX_CONFIRMED_IMPACTS, IMPACT_LIFETIME } from './confirmed-impacts';
 import { createSceneCover } from './scene-cover';
 import { validGrenadeConditions } from './grenade-effects';
@@ -59,16 +61,17 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     if (!object(actor) || typeof actor.id !== 'string' || actor.id.length > 100 || ids.has(actor.id) || typeof actor.name !== 'string' || actor.name.length > 24 ||
       !['x', 'y', 'z', 'yaw', 'pitch', 'health', 'armor', 'kills', 'deaths', 'respawnIn', 'shots', 'weapon'].every(key => finite(actor[key])) ||
       (actor.squad !== undefined && (typeof actor.squad !== 'string' || actor.squad.length > 100)) ||
+      (actor.transport !== undefined && (typeof actor.transport !== 'string' || actor.transport.length > 100)) ||
       (actor.prone !== undefined && typeof actor.prone !== 'boolean') || (actor.aiming !== undefined && actor.aiming !== true) || (actor.scent !== undefined && actor.scent !== true) ||
-      (actor.ground !== undefined && !(finite(actor.ground) && actor.ground >= -50 && actor.ground <= 124)) ||
+      (actor.ground !== undefined && !(finite(actor.ground) && actor.ground >= -50 && actor.ground <= (actor.transport ? 405 : 124))) ||
       (actor.healing !== undefined && !(finite(actor.healing) && actor.healing >= 0 && actor.healing <= 1)) ||
       (actor.conditions !== undefined && !validGrenadeConditions(actor.conditions)) || (actor.grenade !== undefined && !['grenade-frag', 'grenade-smoke'].includes(String(actor.grenade))) || (actor.markedBy !== undefined && (!Array.isArray(actor.markedBy) || actor.markedBy.length > 8 || !actor.markedBy.every(id => typeof id === 'string' && id.length <= 100))) || (actor.food !== undefined && !validMeals(actor.food)) || (actor.ahMaSaves !== undefined && !(Number.isInteger(actor.ahMaSaves) && (actor.ahMaSaves as number) >= 0)) ||
       (actor.rank !== undefined && !(Number.isInteger(actor.rank) && (actor.rank as number) >= 1 && (actor.rank as number) <= 3)) ||
       (actor.shield !== undefined && !(finite(actor.shield) && actor.shield > 0 && actor.shield <= SPAWN_SHIELD_SECONDS)) ||
       (actor.reinforceIn !== undefined && !(Number.isInteger(actor.reinforceIn) && (actor.reinforceIn as number) > 0 && (actor.reinforceIn as number) <= 600)) ||
       (actor.hurtFrom !== undefined && !(object(actor.hurtFrom) && finite(actor.hurtFrom.x) && finite(actor.hurtFrom.z) && finite(actor.hurtFrom.serial) && (actor.hurtFrom.blast === undefined || actor.hurtFrom.blast === true))) || (actor.variant !== undefined && (typeof actor.variant !== 'string' || actor.variant.length > 40)) || !validWeaponIndex(actor.weapon) || typeof actor.alive !== 'boolean' || typeof actor.bot !== 'boolean' || typeof actor.faction !== 'string' || !getArenaFaction(actor.faction) || typeof actor.role !== 'string' || actor.role.length > 32 ||
-      (actor.x as number) < (environment?.bounds.minX ?? -500) || (actor.x as number) > (environment?.bounds.maxX ?? 500) ||
-      (actor.z as number) < (environment?.bounds.minZ ?? -500) || (actor.z as number) > (environment?.bounds.maxZ ?? 500) || (actor.y as number) < 0 || (actor.y as number) > 124 ||
+      (actor.x as number) < (actor.transport ? -5000 : environment?.bounds.minX ?? -500) || (actor.x as number) > (actor.transport ? 5000 : environment?.bounds.maxX ?? 500) ||
+      (actor.z as number) < (actor.transport ? -5000 : environment?.bounds.minZ ?? -500) || (actor.z as number) > (actor.transport ? 5000 : environment?.bounds.maxZ ?? 500) || (actor.y as number) < 0 || (actor.y as number) > (actor.transport ? 405 : 124) ||
       (actor.health as number) < 0 || (actor.health as number) > 300 || (actor.armor as number) < 0 || (actor.armor as number) > 150) return false;
     ids.add(actor.id);
   }
@@ -119,6 +122,20 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       eventIds.add(event.id);
     }
   }
+  if (value.transports !== undefined) {
+    if (!Array.isArray(value.transports) || value.transports.length > MAX_COMBAT_EVENTS) return false;
+    const owners = new Set<string>(), drivers = new Set<string>();
+    for (const t of value.transports) {
+      if (!validTransport(t) || owners.has(t.event) || drivers.has(t.driver)) return false;
+      const event = Array.isArray(value.events) && value.events.find(e => object(e) && e.id === t.event);
+      if (!event || event.kind !== `transport-${t.mode}`) return false;
+      const driver = value.actors.find(a => a.id === t.driver);
+      if (t.visible && t.driverAlive && (!driver?.alive || driver.transport !== t.event || !driver.bot)) return false;
+      if (driver && (driver.alive !== t.driverAlive || driver.transport !== t.event || driver.faction !== (event.faction ?? 'mercenaries'))) return false;
+      owners.add(t.event); drivers.add(t.driver);
+    }
+  }
+  if (value.actors.some(a => a.transport !== undefined && (!Array.isArray(value.transports) || !value.transports.some(t => t.event === a.transport && t.driver === a.id)))) return false;
   if (value.raiders !== undefined) {
     const events = new Set((Array.isArray(value.events) ? value.events : []).map(event => (event as { id: string }).id)), owners = new Set<string>();
     if (!Array.isArray(value.raiders) || value.raiders.length > MAX_COMBAT_EVENTS) return false;
@@ -136,7 +153,8 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     ((BARK_EVENTS as readonly unknown[]).includes(b.kind) || b.kind === 'callout' && !!getPlayerCallout(b.callout)) && (b.callout === undefined || b.kind === 'callout') && (b.at === undefined || point(b.at)) &&
     (b.order === undefined || object(b.order) && Number.isInteger(b.order.allies) && (b.order.allies as number) >= 0 && (b.order.allies as number) <= 20 && (b.order.note === undefined || typeof b.order.note === 'string' && b.order.note.length <= 100))))) return false;
   return value.feed.every(entry => object(entry) && typeof entry.id === 'string' && entry.id.length <= 100 && typeof entry.text === 'string' && entry.text.length <= 160 &&
-    (entry.killerId === undefined || typeof entry.killerId === 'string') && (entry.victimId === undefined || typeof entry.victimId === 'string'));
+    (entry.killerId === undefined || typeof entry.killerId === 'string') && (entry.victimId === undefined || typeof entry.victimId === 'string') &&
+    (entry.bounty === undefined || validRaiderBounty(entry.bounty) && typeof entry.killerId === 'string' && entry.victimId === undefined));
 }
 function point(value: unknown): value is ArenaPoint { return object(value) && finite(value.x) && finite(value.y) && finite(value.z); }
 /** A player's meals as the host publishes them: known effects, each with figures no meal exceeds. */
@@ -466,7 +484,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     else if (actor.alive && !avatar.alive) { setAvatarDown(avatar, false); avatar.groundTimer = 0; }
     const respawned = actor.alive && !avatar.alive;
     avatar.alive = actor.alive;
-    root.visible = actor.alive || (rig.down && rig.downTime < ARENA_CORPSE_SECONDS && !actor.vehicle);
+    root.visible = actor.alive || (rig.down && rig.downTime < ARENA_CORPSE_SECONDS && !actor.vehicle && !actor.transport);
     const viewer = snapshot?.actors.find(a => a.id === session.id);
     avatar.reveal.visible = actor.alive && !!viewer && !!actor.markedBy?.some(id => { const caller = snapshot?.actors.find(a => a.id === id); return caller && (caller.id === viewer.id || !hostile(viewer, caller)); });
     avatar.health.visible = actor.alive; if (avatar.label) avatar.label.visible = actor.alive;
@@ -474,15 +492,15 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     avatar.groundTimer -= dt;
     if (actor.ground !== undefined) avatar.ground = actor.ground;
     else if (avatar.groundTimer <= 0) { avatar.groundTimer = .12; avatar.ground = groundBelow(actor.x, actor.z, actor.y); }
-    const gunner = actor.vehicle === 'car' && actor.seat === 1, seated = !!actor.vehicle && !gunner;
+    const gunner = actor.vehicle === 'car' && actor.seat === 1, seated = !!actor.transport || !!actor.vehicle && !gunner;
     const eyeAbove = actor.y - avatar.ground;
-    const crouch = actor.vehicle || actor.prone ? 0 : Math.max(0, Math.min(1, (1.75 - eyeAbove) / (1.75 - 1.15)));
-    const airborne = !actor.vehicle && !actor.prone && eyeAbove > 1.95;
+    const crouch = actor.transport || actor.vehicle || actor.prone ? 0 : Math.max(0, Math.min(1, (1.75 - eyeAbove) / (1.75 - 1.15)));
+    const airborne = !actor.transport && !actor.vehicle && !actor.prone && eyeAbove > 1.95;
     const feet = seated ? actor.y - 1.2 : actor.vehicle ? actor.y - 1.75 : actor.prone ? actor.y - PRONE_EYE_HEIGHT : crouch > .02 ? avatar.ground : Math.max(0, actor.y - 1.75);
     destination.set(actor.x, feet, actor.z);
     avatar.previous.copy(root.position);
     if (actor.alive) {
-      if (!authority) root.position.copy(destination);
+      if (!authority || actor.transport) root.position.copy(destination);
       else root.position.lerp(destination, respawned || root.position.distanceTo(destination) > 7 ? 1 : 1 - Math.exp(-15 * dt));
     }
     // Velocity from what is rendered, so the stride matches the glide.
@@ -510,8 +528,8 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       } else avatar.halo.time = 0;
     }
     rig.update(dt, {
-      velocity: actor.vehicle ? { x: 0, z: 0 } : local, turn: actor.vehicle ? 0 : turnStep / Math.max(dt, 1e-3), pitch: actor.pitch,
-      crouch, prone: !!actor.prone, seated, driving: seated && actor.seat === 0, airborne,
+      velocity: actor.transport || actor.vehicle ? { x: 0, z: 0 } : local, turn: actor.transport || actor.vehicle ? 0 : turnStep / Math.max(dt, 1e-3), pitch: actor.pitch,
+      crouch, prone: !!actor.prone, seated, driving: seated && (actor.seat === 0 || !!actor.transport), airborne,
       aim: actor.healing !== undefined ? 0 : avatar.fireTimer > 0 || speed < 1.2 || actor.prone ? 1 : .15,
       ...(actor.healing !== undefined ? { healing: actor.healing } : {}),
     });
