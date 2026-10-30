@@ -26,6 +26,7 @@ import type { Obstacle } from './marina-collision';
 import { FOOD_EFFECTS, type FoodEffectKind } from './food-effects';
 import { createInputReconciliation } from './input-reconciliation';
 import { createActorPresentation } from './actor-presentation';
+import { validFacilitySnapshot } from './facilities';
 
 export interface ArenaRuntimeFrame {
   snapshot: ArenaSnapshot | null; self: ArenaActor | null; connected: boolean; started: boolean;
@@ -50,12 +51,14 @@ export function validArenaInput(value: unknown): value is ArenaInput {
     (value.vehicleControls === undefined || validVehicleControls(value.vehicleControls));
 }
 export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironment): value is ArenaSnapshot {
+  if (object(value) && value.facilities !== undefined && !validFacilitySnapshot(value.facilities)) return false;
   if (!object(value) || value.type !== 'arena-snapshot' || !finite(value.tick) || value.tick < 0 || !finite(value.elapsed) || value.elapsed < 0 || value.elapsed > (environment?.endless ? 1e9 : 181) ||
     typeof value.finished !== 'boolean' || typeof value.winner !== 'string' || value.winner.length > 80 || !Array.isArray(value.actors) || value.actors.length > MAX_ARENA_ACTORS || !Array.isArray(value.feed) || value.feed.length > 8) return false;
   const ids = new Set<string>();
   for (const actor of value.actors) {
     if (!object(actor) || typeof actor.id !== 'string' || actor.id.length > 100 || ids.has(actor.id) || typeof actor.name !== 'string' || actor.name.length > 24 ||
       !['x', 'y', 'z', 'yaw', 'pitch', 'health', 'armor', 'kills', 'deaths', 'respawnIn', 'shots', 'weapon'].every(key => finite(actor[key])) ||
+      (actor.squad !== undefined && (typeof actor.squad !== 'string' || actor.squad.length > 100)) ||
       (actor.prone !== undefined && typeof actor.prone !== 'boolean') || (actor.aiming !== undefined && actor.aiming !== true) || (actor.scent !== undefined && actor.scent !== true) ||
       (actor.ground !== undefined && !(finite(actor.ground) && actor.ground >= -50 && actor.ground <= 124)) ||
       (actor.healing !== undefined && !(finite(actor.healing) && actor.healing >= 0 && actor.healing <= 1)) ||
@@ -84,7 +87,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     if (!Array.isArray(value.vehicles) || value.vehicles.length !== 2) return false;
     const kinds = new Set<string>(), seated = new Set<string>();
     for (const v of value.vehicles) {
-      if (!object(v) || (v.kind !== 'car' && v.kind !== 'helicopter') || kinds.has(v.kind) ||
+      if (!object(v) || (v.faction !== undefined && (typeof v.faction !== 'string' || !getArenaFaction(v.faction))) || (v.kind !== 'car' && v.kind !== 'helicopter') || kinds.has(v.kind) ||
         !['x', 'y', 'z', 'yaw', 'speed', 'climb', 'health', 'ammo', 'weaponCooldown', 'gunYaw', 'gunPitch', 'shots'].every(k => finite(v[k])) ||
         !Array.isArray(v.occupants) || v.occupants.length !== 4 || !Number.isInteger(v.ammo) || !Number.isInteger(v.shots) ||
         (v.shots as number) < 0 || (v.shots as number) > VEHICLE_COMBAT[v.kind].ammo ||
@@ -402,6 +405,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         if (accepted) publish();
       }
       else if (registered.has(from) && started && payload.type === 'arena-supply' && typeof payload.item === 'string' && payload.item.length <= 64) { if (simulation.useSupply(from, payload.item)) publish(); }
+      else if (registered.has(from) && started && payload.type === 'facility-action' && typeof payload.site === 'string' && payload.site.length <= 100) { if (simulation.facilityAction(from, payload.site)) publish(); }
       else if (registered.has(from) && started && payload.type === 'arena-callout' && getPlayerCallout(payload.callout) && (payload.at === undefined || point(payload.at))) {
         if (simulation.callout(from, payload.callout as string, payload.at as ArenaPoint | undefined)) publish();
       }
@@ -577,6 +581,11 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       publish();
     } else session.send({ type: 'arena-vehicle', action, kind });
   }
+  function facilityAction(site: string) {
+    if (disposed || !started || !localAdopted || typeof site !== 'string' || site.length > 100) return;
+    if (simulation) { simulation.facilityAction(session.id, site); publish(); }
+    else session.send({ type: 'facility-action', site });
+  }
   function shoot(origin: ArenaPoint, direction: ArenaPoint, weapon: number, maxDistance = 125, prone = lastInput?.prone ?? false) {
     if (disposed || !started || !localAdopted) return;
     // A shot means the reload is over: say so first, or the host would still be
@@ -665,6 +674,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       avatar.root.position.set(eye.x, eye.y - (actor.vehicle === 'car' && actor.seat === 1 ? 1.75 : 1.2), eye.z);
     }
   }
-  return { presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
+  return { getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { facilities: s.facilities, vehicles: s.vehicles } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

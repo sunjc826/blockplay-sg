@@ -41,7 +41,7 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded 
   const unit = 1 / map.scale;
   const decor = (layer: 'under' | 'over') => district.decor.filter(shape => shape.kind === 'rect' && shape.fpsFill && (shape.fpsLayer ?? shape.layer ?? 'over') === layer);
   const sectors = mode === 'expedition' || expanded ? zoneSectors(zone) : [];
-  const legend = mode === 'arena' ? `▲ You · ● Ally · ◆ Enemy · ${contactRange}m sight` : mode === 'expedition' ? `■ Loot · N NPC · ◇ Exit · ● Ally · ◆ Enemy · ${contactRange}m sight` : '▲ You · ● Targets · C/H Vehicles';
+  const legend = mode === 'arena' ? `▲ You · ● Ally · ◆ Enemy · ${contactRange}m sight` : mode === 'expedition' ? `▣ Facility · ■ Loot · N NPC · ◇ Exit · ● Ally · ◆ Enemy · ${contactRange}m sight` : '▲ You · ● Targets · C/H Vehicles';
   const bar = expanded ? 100 : 25;
   return <div className={`fps-minimap ${expanded ? 'is-expanded' : ''}`} data-map-zone={zone} data-map-expanded={expanded || undefined} data-map-contact-range={mode !== 'practice' ? contactRange : undefined}
     aria-label={`${getWorldZone(zone).name} ${expanded ? 'district map' : 'local minimap'}`}
@@ -72,11 +72,11 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded 
           const outside = x < edge || x > width - edge || y < edge || y > height - edge;
           if (outside && marker.kind !== 'checkpoint') return null;
           const px = Math.max(edge, Math.min(width - edge, x)), py = Math.max(edge, Math.min(height - edge, y));
-          const named = expanded && (marker.kind === 'checkpoint' || marker.kind === 'npc' || marker.kind === 'car' || marker.kind === 'helicopter');
+          const named = expanded && (marker.kind === 'facility' || marker.kind === 'checkpoint' || marker.kind === 'npc' || marker.kind === 'car' || marker.kind === 'helicopter');
           return <g key={marker.id} data-minimap-marker={marker.id} data-marker-kind={marker.kind} data-edge={outside} data-active={!!marker.active} transform={`translate(${px} ${py})${expanded ? ' scale(1.25)' : ''}`}>
             <title>{`${marker.label} · ${Math.round(Math.hypot(marker.x - player.x, marker.z - player.z))}m${outside ? ' · beyond map edge' : ''}`}</title>
             {marker.active && <circle r="9" fill="#efd07733" stroke="#efd077" strokeWidth="1" />}
-            {marker.kind === 'checkpoint' ? <path d="M0 -6 L6 0 L0 6 L-6 0 Z" fill={outside ? '#26362c' : '#efd077'} stroke="#efd077" strokeWidth="2" />
+            {marker.kind === 'facility' ? <><rect x="-5" y="-5" width="10" height="10" fill="#16231f" stroke={marker.side === 'ally' ? '#70cfff' : marker.side === 'enemy' ? '#ff8870' : '#cbd2c7'} strokeWidth="2" strokeDasharray={marker.inactive ? '2 2' : undefined} /><text y="3" textAnchor="middle" fontSize="8" fill="#eef2e4">{marker.inactive ? '×' : '+'}</text></> : marker.kind === 'checkpoint' ? <path d="M0 -6 L6 0 L0 6 L-6 0 Z" fill={outside ? '#26362c' : '#efd077'} stroke="#efd077" strokeWidth="2" />
               : marker.kind === 'loot' ? <rect x="-3" y="-3" width="6" height="6" fill="#91dcb0" stroke="#172820" />
               : marker.kind === 'npc' ? <><circle r="5" fill="#9bdcf0" stroke="#263f49" /><text y="3" textAnchor="middle" fill="#18303a" fontSize="7" fontWeight="800">N</text></>
               : marker.kind === 'target' ? <circle r="3" fill="#ee967c" stroke="#401e18" />

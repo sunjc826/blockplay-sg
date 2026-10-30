@@ -2,7 +2,7 @@ import { createVehicle, type VehicleKind, type VehicleSpawn, type VehicleState }
 
 export const VEHICLE_SEATS = ['Driver', 'Gunner', 'Passenger left', 'Passenger right'] as const;
 export interface VehicleControls { forward: number; steer: number; lift: number; brake: boolean; boost: boolean; fire: boolean; aim?: { x: number; y: number; z: number } }
-export interface SharedVehicle extends VehicleState { occupants: (string | null)[]; gunYaw: number; gunPitch: number; shots: number; shotEnd: { x: number; y: number; z: number } | null }
+export interface SharedVehicle extends VehicleState { faction?: string; occupants: (string | null)[]; gunYaw: number; gunPitch: number; shots: number; shotEnd: { x: number; y: number; z: number } | null }
 export const createSharedVehicle = (kind: VehicleKind, spawn: VehicleSpawn): SharedVehicle => ({ ...createVehicle(kind, spawn), occupants: [null, null, null, null], gunYaw: spawn.yaw, gunPitch: 0, shots: 0, shotEnd: null });
 export function seatOf(vehicles: readonly SharedVehicle[], id: string) {
   for (const vehicle of vehicles) { const seat = vehicle.occupants.indexOf(id); if (seat >= 0) return { vehicle, seat }; }

@@ -1,5 +1,7 @@
 # Combat events: design
 
+Expedition facility rules now govern normal infantry waves and fleet replacements: operational command posts, garages and helipads are required, with shared supply costs and local deployment safety. Off-map combat support remains available. See [facilities](FACILITIES.md) for these overrides to the original reinforcement and replacement behavior described below.
+
 Status: **steps 1, 3 and 4 are built**, for the open world (expedition) and
 the solo arena: the core, the shared blast resolver, the director, and twelve
 events. They are **artillery**, **troop transports** (truck and helicopter),

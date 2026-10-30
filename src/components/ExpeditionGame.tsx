@@ -1,3 +1,5 @@
+import FpsFacilityHud from './FpsFacilityHud';
+import type { ArenaSnapshot } from '../game/arena-rules';
 import FpsVehicleHud from './FpsVehicleHud';
 import { hasLaser, hasLight } from '../game/weapon-accessories';
 import EnvironmentControls from './EnvironmentControls';
@@ -38,6 +40,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
   const [fieldProfile, setFieldProfile] = useState<ArmoryProfile>(() => structuredClone(profile));
   const fieldProfileRef = useRef(fieldProfile);
   const [loot] = useState(() => createExpeditionLoot(`${Date.now()}-${Math.random()}`));
+  const [infrastructure] = useState(() => new Map<WorldZoneId, Pick<ArenaSnapshot, 'facilities' | 'vehicles'>>());
   const [scene, setScene] = useState<ExpeditionScene>(() => ({ zone: initialZone, revision: 0 }));
   const zoneChanged = useRef(onZoneChange); zoneChanged.current = onZoneChange;
   useEffect(() => { zoneChanged.current?.(scene.zone); }, [scene.zone]);
@@ -54,7 +57,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         loadout: resolveLoadout(fieldProfileRef.current),
         expedition: {
           zone: scene.zone, spawn: scene.spawn, checkpoint: scene.checkpoint,
-          profile: fieldProfileRef.current, loot,
+          profile: fieldProfileRef.current, loot, infrastructure,
           onTravel: (transition, checkpoint) => setScene(current => ({ zone: transition.to, spawn: transition.spawn, checkpoint, revision: current.revision + 1 })),
           onEquipment: next => { fieldProfileRef.current = next; setFieldProfile(next); },
           onVendorPurchase,
@@ -67,7 +70,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       setHud(current => ({ ...current, phase: 'error', message: 'The district could not load. Check that WebGL is available, then retry.' }));
     }
     return () => { engine.current?.dispose(); engine.current = null; };
-  }, [scene, loot, onVendorPurchase, onConsume]);
+  }, [scene, loot, infrastructure, onVendorPurchase, onConsume]);
   useEffect(() => { engine.current?.setPilotDestination(destination); }, [destination, scene]);
   useEffect(() => { if (suspended) engine.current?.pause(); }, [suspended]);
   const loaded = hud.phase !== 'loading';
@@ -101,7 +104,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
   });
   return <div className={`fps-game expedition-game ${fullscreen.immersive ? 'is-immersive' : ''}`} ref={stage} data-touch={touch ? 'on' : undefined} data-hud-hints={hudHints ? 'on' : 'off'}
     data-vehicle-view={hud.vehicleView} data-vehicle-personal-weapon={hud.vehiclePersonalWeapon} data-vehicle={hud.vehicle} data-vehicle-health={hud.vehicleHealth} data-vehicle-ammo={hud.vehicleAmmo} data-speed={hud.vehicleSpeed.toFixed(2)} data-altitude={hud.altitude.toFixed(2)} data-phase={hud.phase} data-pilot={hud.pilotEnabled || undefined} data-pointer-locked={hud.locked} data-zone={scene.zone} data-player-x={hud.x.toFixed(3)} data-player-z={hud.z.toFixed(3)}
-    data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-alive={alive} data-loot-count={hud.fieldLoot?.length ?? 0} data-npc-count={hud.npcs?.length ?? 0} data-bot-count={hud.arena?.actors.filter(actor => actor.bot).length ?? 0} data-friendly-count={hud.arena?.actors.filter(actor => actor.bot && actor.faction === PLAYER_FACTION).length ?? 0}>
+    data-facility-count={hud.arena?.facilities?.sites.length ?? 0} data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-alive={alive} data-loot-count={hud.fieldLoot?.length ?? 0} data-npc-count={hud.npcs?.length ?? 0} data-bot-count={hud.arena?.actors.filter(actor => actor.bot).length ?? 0} data-friendly-count={hud.arena?.actors.filter(actor => actor.bot && actor.faction === PLAYER_FACTION).length ?? 0}>
     <div className="viewport fps-viewport">
       <div className="world" ref={host} />
       <div className="fps-top"><span className="fps-badge"><span className="status-dot" /> {zone.name.toUpperCase()} / EXPEDITION</span><span className="expedition-wallet">{hud.credits.toLocaleString()} CR · {hud.tokens.toLocaleString()} TK</span><span className={`expedition-risk risk-${zone.risk}`}>{zone.risk.toUpperCase()} THREAT</span></div>
@@ -128,6 +131,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />}
         {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} onPickFood={() => engine.current?.toggleFoodPicker()} onPickGrenade={() => engine.current?.toggleGrenadePicker()} onGrenadeFire={held => engine.current?.setInput('fire', held)} onInspect={() => engine.current?.inspectWeapon()} touch={touch} />}
         <FpsVehicleHud hud={hud} />
+        <FpsFacilityHud hud={hud} engine={engine.current} touch={touch} />
         {hud.interact && <div className="fps-interact-prompt">{showHints ? hud.interact : hud.interact.replace(/^E · /, '')}</div>}
         {hud.vehicleNotice && <div className="fps-vehicle-notice" role="status">{hud.vehicleNotice}</div>}
         {mounted && hud.vehicleCanFire && hud.vehicleAimVisible && <div className="fps-vehicle-reticle" aria-label="Vehicle gun impact point" style={{ left: `${hud.vehicleAimX}%`, top: `${hud.vehicleAimY}%` }}>⊕</div>}
@@ -144,7 +148,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         {nav}
         <span className="eyebrow">SOLO EXPEDITION / {zone.risk.toUpperCase()} THREAT</span>
         <h2>{hud.phase === 'loading' ? `Entering ${zone.name}.` : hud.phase === 'error' ? 'District unavailable.' : hud.phase === 'paused' ? 'Operator menu.' : `Welcome to ${zone.name}.`}</h2>
-        <p>{hud.phase === 'loading' ? 'Preparing the district, its patrols and supplies.' : hud.phase === 'error' ? hud.message : hud.phase === 'paused' ? 'Your controls are paused. Patrols remain active while the menu is open.' : `${zone.description} Search supply crates, equip weapons and cross marked checkpoints on foot.`}</p>
+        <p>{hud.phase === 'loading' ? 'Preparing the district, its patrols and supplies.' : hud.phase === 'error' ? hud.message : hud.phase === 'paused' ? 'Your controls are paused. Patrols remain active while the menu is open.' : `${zone.description} Capture enemy equipment intact, destroy it, or build at ruined sites. Command posts reinforce infantry; garages and helipads replace vehicles. Approach a cabinet and use E or tap its action. Open M for facilities and routes.`}</p>
         {!['loading', 'error'].includes(hud.phase) && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName}<br />{zone.botCount} defenders · {zone.composition} roles · No match timer</p>}
         {hud.message && hud.phase !== 'error' && <p className="fps-capture-error" role="alert">{hud.message}</p>}
         <EnvironmentControls />

@@ -1,0 +1,51 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Facility gameplay verification</title>
+<style>html,body{margin:0;height:100%;overflow:hidden}#stage{position:relative;height:100vh;background:#10221d}#world{position:absolute;inset:0}#controls{position:absolute;top:12px;left:230px;z-index:12;display:flex;gap:8px}#controls button{padding:12px}#overlay{position:absolute;inset:0;pointer-events:none}#overlay button{pointer-events:auto}.fps-facility-card{pointer-events:auto}</style></head>
+<body><div id="stage" class="fps-game expedition-game"><div id="world"></div><div id="overlay"></div><div id="controls"><button id="start">Enter district</button><button id="return">Leave and return</button></div></div><script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import '/src/styles.css';
+import '/src/components/expedition.css';
+import { createFpsEngine, initialFpsHud } from '/src/game/fps-engine.ts';
+import { createProfile, resolveLoadout } from '/src/game/armory-state.ts';
+import { createExpeditionLoot } from '/src/game/expedition-loot.ts';
+import { buildDistrictWorld } from '/src/game/district-world.ts';
+import { districtFacilitySites } from '/src/game/facility-sites.ts';
+import { getFpsDistrict } from '/src/game/fps-districts.ts';
+import { worldVehicleSpawns } from '/src/game/world-vehicles.ts';
+import { getWalkSurfaces, getTraversalObstacles } from '/src/game/vertical-routes.ts';
+import { createVerticalMovement } from '/src/game/vertical-movement.ts';
+import { verticalVehicleObstacles } from '/src/game/vertical-vehicle-obstacles.ts';
+import { sceneFlightObstacles } from '/src/game/flight-obstacles.ts';
+import { expeditionNpcs } from '/src/game/expedition-npcs.ts';
+import { zoneSectors } from '/src/game/zone-sectors.ts';
+import FpsFacilityHud from '/src/components/FpsFacilityHud.tsx';
+import FpsMinimap from '/src/components/FpsMinimap.tsx';
+import FpsWeaponHud from '/src/components/FpsWeaponHud.tsx';
+import TouchControls from '/src/components/TouchControls.tsx';
+const params = new URLSearchParams(location.search), zone = params.get('zone') || 'queenstown', kind = params.get('kind') || 'helipad';
+const world = buildDistrictWorld(zone), surfaces = getWalkSurfaces(world.scene), traversalObstacles = getTraversalObstacles(world.scene);
+const foot = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces, traversalObstacles });
+const npcs = expeditionNpcs(zone, zoneSectors(zone));
+const fleet = worldVehicleSpawns(getFpsDistrict(zone).vehicles, [...world.obstacles, ...verticalVehicleObstacles({ surfaces, traversalObstacles })], sceneFlightObstacles(world.scene), world.bounds, [...npcs, world.zone.spawn]);
+const sites = districtFacilitySites(zone, fleet, (x,z) => foot.canOccupy(x,0,z,1.1,2) && Math.abs(foot.supportHeight(x,z,.1,.4,1.8) ?? 100)<.05, npcs);
+const target = sites.find(s => s.kind === kind);
+const position = Array.from({length:16},(_,i)=>({x:target.x+Math.sin(i*Math.PI/8)*3,z:target.z+Math.cos(i*Math.PI/8)*3})).find(p => foot.canOccupy(p.x,0,p.z,.4,1.8));
+const spawn = { ...position, yaw: Math.atan2(position.x-target.x, position.z-target.z), pitch: -.1 };
+world.dispose();
+const profile = createProfile(), loot = createExpeditionLoot('facility-browser'), infrastructure = new Map();
+const root = createRoot(document.getElementById('overlay'));
+window.hud = initialFpsHud; window.sites = sites; window.target = target; window.infrastructure = infrastructure;
+function mount() {
+  window.engine = createFpsEngine(document.getElementById('world'), hud => {
+    window.hud = hud; document.getElementById('stage').dataset.phase=hud.phase; document.getElementById('stage').dataset.touch=hud.inputMode==='touch'?'on':'off';
+    root.render(React.createElement(React.Fragment, null,
+      React.createElement(FpsFacilityHud,{hud,engine:window.engine,touch:hud.inputMode==='touch'}),
+      React.createElement(FpsWeaponHud,{hud,weapon:resolveLoadout(profile).weapons[hud.weapon],canFight:hud.phase==='playing',touch:hud.inputMode==='touch',onUtility:k=>window.engine.useUtility(k)}),
+      React.createElement(TouchControls,{hud,engine:window.engine,mode:'expedition',onMenu:()=>window.engine.pause()}),
+      React.createElement(FpsMinimap,{zone,player:hud,markers:hud.mapMarkers,mode:'expedition',expanded:hud.mapExpanded,onToggle:()=>window.engine.toggleMap()})));
+  }, { region:zone, expedition:{zone,spawn,profile,loot,infrastructure,onTravel:()=>{},onEquipment:()=>{},onVendorPurchase:()=>({ok:false,message:'Fixture'})} });
+}
+mount();
+document.getElementById('start').onclick=()=>window.engine.start();
+document.getElementById('return').onclick=()=>{window.engine.dispose();mount();};
+</script></body></html>

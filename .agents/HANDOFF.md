@@ -4131,3 +4131,40 @@ manifest, models, audio and API-origin checks passed. Evidence:
 .cache/darker-night-release/release-evidence.json, .cache/darker-night-full-tests.log
 and .cache/darker-night-live-check.log. No GitHub push. Unrelated pending
 facility work was excluded and AGENTS.md remains local and uncommitted.
+
+
+## 2026-10-30: expedition facility warfare
+
+Implemented independent allied/Black Kite command posts, garages and helipads
+across all 19 expedition districts. Local infantry advantage advances explicit
+capture/build/repair work even with remaining defenders; equal presence stalls
+it, and sustained enemy advantage at the equipment suppresses deployment.
+Equipment takes real bullet/blast damage. Capture preserves health, destruction
+stops production, and paid reconstruction/repair restores it. Supplies belong
+to each faction's district operation, separate from the permanent armory.
+
+Operational posts deploy bounded four-soldier waves; garages/helipads gate and
+charge fleet replacements. Losing every post enables slower transports through
+a small set of authored outer anchors; arbitrary 45-second respawns are disabled.
+Bots have stable small squad identities and shared facility objectives, including
+autonomous takeover, spaced approach positions and replacement leadership.
+Existing player orders override movement. Vehicle crews approach squad objectives
+and dismount nearby. These are basic objective squads, not full formation AI.
+
+Facilities and fleet health/positions survive district travel during one
+expedition. Work is canceled/refunded on return; vehicle seats clear and infantry
+is re-established from posts/reserves. Unloaded districts do not simulate, and
+new expeditions start fresh. Motor pool placement uses the district's fixed spawn
+so arrivals cannot move facilities; equipment avoids gateways, arrivals and NPCs.
+Landmark buildings remain intact. There is no territory-wide capture meter or
+campaign victory system. See docs/FACILITIES.md.
+
+Validation: broad suite 1,803/1,803 across 184 files; final facility/site/vehicle
+checks 79/79, including a newly added autonomous squad capture. Typecheck and
+Cloudflare build passed. Browser checks have exercised paid construction, intact
+capture preserving health, friendly protection, district return and all three
+viewport shapes with actual weapon HUD/touch controls. Review removed a redundant
+touch prompt overlapping the card, and contextual work now requires clear access.
+The extended firing smoke compensates real recoil with public look controls;
+release verification follows. Evidence is under .cache/facilities-browser.
+AGENTS.md and unrelated .claude content remain excluded. No GitHub push.
