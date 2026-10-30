@@ -58,3 +58,13 @@
 .fps-game[data-touch=on] .fps-loot-card p{display:none}
 .fps-game[data-touch=on]:has(.fps-loot-card[data-kind=armor]) .touch-prompts{left:calc(50% - 12px);transform:translateX(-100%);max-width:calc(50% - 24px)}
 .fps-game[data-touch=on] .touch-prompt:disabled{opacity:.45}
+.expedition-intro{position:absolute;inset:0;z-index:12;pointer-events:none;color:#f3f5ef;background:linear-gradient(#060e1633,transparent 22%,transparent 70%,#060e1699)}
+.expedition-intro::before,.expedition-intro::after{content:"";position:absolute;left:0;right:0;height:7%;background:#060b10}
+.expedition-intro::before{top:0}.expedition-intro::after{bottom:0}
+.expedition-intro-fade{position:absolute;inset:0;background:#060b10}
+.expedition-intro-caption{position:absolute;bottom:13%;left:6%;display:grid;gap:7px;text-shadow:0 2px 8px #000}
+.expedition-intro-caption span{font-size:11px;letter-spacing:.16em}.expedition-intro-caption strong{font-size:clamp(18px,3vw,30px);font-weight:600}
+.expedition-intro-actions{position:absolute;right:5%;bottom:13%;display:flex;gap:8px;pointer-events:auto}
+.expedition-intro-actions button{min-height:44px;padding:9px 13px;border:1px solid #b0c2c580;border-radius:5px;background:#101b22dc;color:#fff;font:inherit;font-size:12px;cursor:pointer}
+.expedition-intro-actions kbd{margin-left:9px;font-size:10px;opacity:.7}
+@media(max-width:600px){.expedition-intro-caption{bottom:24%}.expedition-intro-actions{left:6%;right:auto}}

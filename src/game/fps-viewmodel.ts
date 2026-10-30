@@ -1,7 +1,7 @@
 import { FPS_WEAPONS } from './fps-rules';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { handleSide, reloadMotion } from './fps-weapon-motion';
+import { handleSide, reloadMotion, readyMotion } from './fps-weapon-motion';
 import { getWeaponSight } from './weapon-optics';
 import { createBipodMotion, type BipodMotionInput } from './weapon-bipod';
 import { MACHINE_GUN_LAYOUT } from './machine-gun-layout';
@@ -90,9 +90,9 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
     resetBipod: bipod.reset,
     get aimHeight() { return getWeaponSight(model)?.aimHeight ?? FPS_WEAPONS[index].sightHeight; },
     get aimDepth() { return getWeaponSight(model)?.aimDepth ?? enemy?.aimDepth ?? (index === 2 ? -.52 : index === 3 ? MACHINE_GUN_LAYOUT['mag-inspired'].aimDepth : index === 4 ? MACHINE_GUN_LAYOUT['cis50-inspired'].aimDepth : -.36); },
-    update(progress: number | null, empty: boolean, bipodInput?: BipodMotionInput) {
+    update(progress: number | null, empty: boolean, bipodInput?: BipodMotionInput, ready?: number) {
       bipod.update(bipodInput);
-      const motion = reloadMotion(progress ?? 0, empty, side);
+      const motion = ready === undefined ? reloadMotion(progress ?? 0, empty, side) : readyMotion(ready, side);
       if (cover && coverHome) { cover.rotation.copy(coverHome); cover.rotation.x -= motion.handToMagazine * .9; }
       if (belt) belt.visible = motion.magazineVisible;
       if (magazine) {
@@ -118,7 +118,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       left.rotation.set(-.15 + motion.handToMagazine * .3, -.2 + motion.handToHandle * grip.turn, .32 - motion.handToMagazine * .35 - motion.handToHandle * .3);
       // From empty the support hand takes the handle and draws it the full stroke.
       const stroke = motion.action * (index === 2 ? .035 : .075);
-      if (progress !== null) left.position.lerp(new THREE.Vector3(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + stroke), motion.handToHandle);
+      if (progress !== null || ready !== undefined) left.position.lerp(new THREE.Vector3(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + stroke), motion.handToHandle);
       control.position.z = controlZ + stroke;
     },
     dispose() {

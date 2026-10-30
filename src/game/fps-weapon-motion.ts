@@ -88,6 +88,14 @@ export function reloadMotion(progress: number, empty = false, side: HandleSide =
     action: empty ? handleTravel(t) : 0,
   };
 }
+/** Raise, rack and shoulder the loaded weapon, without a magazine change. */
+export function readyMotion(progress: number, side: HandleSide = 'right') {
+  const p = Math.max(0, Math.min(1, progress)), lift = smoothStep(p / .22);
+  const motion = reloadMotion((.80 + (EMPTY_RELOAD.length - .80) * p) / EMPTY_RELOAD.length, true, side);
+  return { ...motion, x: motion.x * lift, y: motion.y * lift - .55 * (1 - lift), z: motion.z * lift,
+    pitch: motion.pitch * lift - .45 * (1 - lift), yaw: motion.yaw * lift, roll: motion.roll * lift,
+    magazineDrop: 0, magazineVisible: true, handToMagazine: 0, beltSeated: 1 };
+}
 /** Where the fresh magazine starts in: the end of the MAG OUT stage, in tactical reloads. */
 export const MAG_IN_START = .47;
 export function reloadStage(remaining: number, empty = false) {

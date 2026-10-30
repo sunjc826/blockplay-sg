@@ -4483,3 +4483,29 @@ asset, routing, manifest, models, recorded audio, API-origin and companion
 availability checks passed. Evidence: .cache/nvg-size-deploy.log,
 .cache/nvg-size-live-{build,check}.log and .cache/nvg-size-live-evidence.json.
 No GitHub push; AGENTS.md stays local, unstaged and uncommitted.
+
+
+## 2026-10-30: expedition deployment camera and weapon-ready intro
+
+Fresh expeditions now use a dedicated deploying phase: a 3s overhead descent
+turns into the existing first-person eye/aim, then a 1.65s support-hand rack
+works the equipped gun's charging handle and settles at ready. The pure local
+clock lives in deployment-intro.ts; readyMotion drives both the weapon and the
+existing hands/action, preserving magazine, feed cover, belt and ammunition.
+Combat stays unstarted until completion/skip. Space or the phone/desktop Skip
+intro button starts play; Menu/Escape/blur freeze it, Resume continues it.
+Normal pause/resume never replays it. Reduced motion omits the sky travel;
+checkpoint arrivals and death respawns bypass it. A roof above the selected
+entry triggers an obscured cut below the roof instead of a clipping descent.
+
+Focused tests cover the clock/roof transition, both handle sides, all eight
+weapon-family hand/action resets and deployment/runtime regressions. Real WebGL
+checks using the real expedition component passed overhead/weapon-rack views,
+unchanged selected point/health, frozen host, pause/resume, phone skip, reduced
+motion, desktop pointer capture and Space skip. The existing spawn-selection
+browser smoke also passed. Evidence: .cache/deployment-intro/,
+.cache/intro-{focused,handling,browser,deployment-regression,typecheck,tests}.log.
+Full regression and manual deployment evidence follow. No GitHub push.
+AGENTS.md remains local and uncommitted. The unrelated combat-event-visuals.ts
+work in the shared checkout belongs to another ongoing task and is excluded
+from this change.

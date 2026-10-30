@@ -79,6 +79,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
 
   const zone = getWorldZone(scene.zone), equipment = resolveLoadout(fieldProfile);
   const mounted = hud.vehicle !== 'on-foot';
+  const deploying = hud.phase === 'deploying';
   const playing = hud.phase === 'playing', alive = hud.arenaSelf?.alive !== false, canFight = playing && alive;
   const weapon = equipment.weapons[hud.weapon] ?? equipment.weapons[0];
   const gateways = WORLD_GATEWAYS.filter(gateway => gateway.from === scene.zone);
@@ -104,7 +105,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
     onLostPointerCapture: () => engine.current?.setInput(key, false),
   });
   return <div className={`fps-game expedition-game ${fullscreen.immersive ? 'is-immersive' : ''}`} ref={stage} data-touch={touch ? 'on' : undefined} data-hud-hints={hudHints ? 'on' : 'off'}
-    data-deployment-choice={hud.deployment?.choice} data-deployment-point={hud.deployment?.resolved ?? undefined}
+    data-arena-started={hud.arenaStarted} data-deployment-choice={hud.deployment?.choice} data-deployment-point={hud.deployment?.resolved ?? undefined}
     data-vehicle-view={hud.vehicleView} data-vehicle-personal-weapon={hud.vehiclePersonalWeapon} data-vehicle={hud.vehicle} data-vehicle-health={hud.vehicleHealth} data-vehicle-ammo={hud.vehicleAmmo} data-speed={hud.vehicleSpeed.toFixed(2)} data-altitude={hud.altitude.toFixed(2)} data-phase={hud.phase} data-pilot={hud.pilotEnabled || undefined} data-pointer-locked={hud.locked} data-zone={scene.zone} data-player-x={hud.x.toFixed(3)} data-player-z={hud.z.toFixed(3)}
     data-facility-count={hud.arena?.facilities?.sites.length ?? 0} data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-alive={alive} data-loot-count={hud.fieldLoot?.length ?? 0} data-npc-count={hud.npcs?.length ?? 0} data-bot-count={hud.arena?.actors.filter(actor => actor.bot).length ?? 0} data-friendly-count={hud.arena?.actors.filter(actor => actor.bot && actor.faction === PLAYER_FACTION).length ?? 0}>
     <div className="viewport fps-viewport">
@@ -146,11 +147,16 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         {touch && !hud.pilotEnabled && <TouchControls hud={hud} engine={engine.current} mode="expedition" onMenu={() => engine.current?.pause()} />}
         <div className="expedition-route-hud">{nextCheckpoint && <strong>ROUTE TO {getWorldZone(destination!).name.toUpperCase()}</strong>}{(nextCheckpoint ? [nextCheckpoint] : touch ? nearestGateways.slice(0, 2) : gateways).map(gateway => <span key={gateway.id}>{getWorldZone(gateway.to).name} <b>{distance(gateway.position)}m</b></span>)}</div>
       </>}
-      {!playing && <div className="fps-overlay"><div className="fps-start-card">
+      {deploying && <div className="expedition-intro" data-stage={hud.deploymentIntro?.stage}>
+        <div className="expedition-intro-fade" style={{ opacity: hud.deploymentIntro?.fade ?? 0 }} />
+        <div className="expedition-intro-caption" role="status"><span>DEPLOYING / {zone.name.toUpperCase()}</span><strong>{hud.deploymentIntro?.stage === 'descent' ? 'Closing on entry point' : 'Ready your weapon'}</strong></div>
+        <div className="expedition-intro-actions"><button onClick={() => engine.current?.pause()}>Menu</button><button onClick={() => engine.current?.skipDeployment()}>Skip intro{!touch && <kbd>SPACE</kbd>}</button></div>
+      </div>}
+      {!playing && !deploying && <div className="fps-overlay"><div className="fps-start-card">
         {nav}
         <span className="eyebrow">SOLO EXPEDITION / {zone.risk.toUpperCase()} THREAT</span>
         <h2>{hud.phase === 'loading' ? `Entering ${zone.name}.` : hud.phase === 'error' ? 'District unavailable.' : hud.phase === 'paused' ? 'Operator menu.' : `Welcome to ${zone.name}.`}</h2>
-        <p>{hud.phase === 'loading' ? 'Preparing the district, its patrols and supplies.' : hud.phase === 'error' ? hud.message : hud.phase === 'paused' ? 'Your controls are paused. Patrols remain active while the menu is open.' : `${zone.description} Capture enemy equipment intact, destroy it, or build at ruined sites. Command posts reinforce infantry; garages and helipads replace vehicles. Approach a cabinet and use E or tap its action. Open M for facilities and routes.`}</p>
+        <p>{hud.phase === 'loading' ? 'Preparing the district, its patrols and supplies.' : hud.phase === 'error' ? hud.message : hud.phase === 'paused' ? hud.arenaStarted ? 'Your controls are paused. Patrols remain active while the menu is open.' : 'Deployment is on hold. Resume when you are ready.' : `${zone.description} Capture enemy equipment intact, destroy it, or build at ruined sites. Command posts reinforce infantry; garages and helipads replace vehicles. Approach a cabinet and use E or tap its action. Open M for facilities and routes.`}</p>
         {!['loading', 'error'].includes(hud.phase) && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName}<br />{zone.botCount} defenders · {zone.composition} roles · No match timer</p>}
         {hud.message && hud.phase !== 'error' && <p className="fps-capture-error" role="alert">{hud.message}</p>}
         <ExpeditionDeployment zone={scene.zone} deployment={hud.deployment} onChoose={id => engine.current?.chooseDeployment(id)} />
@@ -169,7 +175,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
     {debug && <>
     <div className="experience-toolbar fps-toolbar"><div className="experience-title"><span className="mode-icon"><Compass size={22} /></span><div><h3>{zone.name} · expedition</h3><p>Connected districts · Random supplies · Solo survival</p></div></div><div className="toolbar-actions">
       <button className="session-button" aria-label={fullscreen.immersive ? 'Exit expedition fullscreen' : 'Fullscreen expedition'} onClick={() => { void fullscreen.toggle(); }}>{fullscreen.immersive ? <Minimize size={16} /> : <Maximize size={16} />} Fullscreen</button>
-      <button className="session-button" disabled={['loading', 'error'].includes(hud.phase) || suspended} onClick={() => playing ? engine.current?.pause() : engine.current?.start()}>{playing ? <Pause size={15} /> : <Play size={15} />}{playing ? 'Menu' : 'Resume'}</button>
+      <button className="session-button" disabled={['loading', 'error'].includes(hud.phase) || suspended} onClick={() => playing || deploying ? engine.current?.pause() : engine.current?.start()}>{playing || deploying ? <Pause size={15} /> : <Play size={15} />}{playing || deploying ? 'Menu' : 'Resume'}</button>
     </div></div>
     <FpsCommsLog entries={hud.comms} />
     <FpsRadioVoice hud={hud} engine={engine.current} />

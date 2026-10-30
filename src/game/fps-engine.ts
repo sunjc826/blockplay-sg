@@ -1,3 +1,4 @@
+import { createDeploymentIntro } from './deployment-intro';
 import { districtDeploymentPoints, deploymentOrder, type DeploymentView } from './expedition-deployment';
 import { createSceneCover } from './scene-cover';
 import { districtFacilitySites } from './facility-sites';
@@ -82,7 +83,7 @@ import { createRailEffects } from './weapon-rail-effects';
 import { accelerateInstancedRaycasts } from './instanced-raycast';
 import { separateInstancedMaterials } from './instanced-materials';
 import { createOpticReflectionRenderer } from './weapon-reflections';
-import { handleSide, INSPECT_DURATION, inspectMotion, reloadMotion, reloadStage, smoothStep } from './fps-weapon-motion';
+import { handleSide, INSPECT_DURATION, inspectMotion, reloadMotion, readyMotion, reloadStage, smoothStep } from './fps-weapon-motion';
 import { armReloadGate, reloadInterrupt } from './fps-reload';
 import { advanceSprintBreak, createSprintBreak } from './fps-sprint';
 import { createFpsComms, type CommsEntry } from './fps-comms';
@@ -182,7 +183,7 @@ export interface FpsHud {
   conditions: GrenadeConditionView[]; grenadeWarnings: { serial: number; angle: number; remaining: number }[];
   foodEffects: FoodEffectView[]; foodChoice: string | null; foodPicker: { options: FoodOption[]; slot: number | null } | null;
   crosshairSpread: number; hitKind: 'hit' | 'kill'; quickItem: string; quickType: 'FOOD' | 'UTILITY' | ''; quickCount: number;
-  phase: 'loading' | 'ready' | 'playing' | 'paused' | 'complete' | 'defeated' | 'error';
+  phase: 'loading' | 'ready' | 'deploying' | 'playing' | 'paused' | 'complete' | 'defeated' | 'error';
   carriedWeapons: number[]; carriedKg: number; movementScale: number;
   weapon: number; magazine: number; reserve: number; reloading: number;
   prone: boolean; braced: boolean; hits: number; shots: number; landed: number; health: number; armor: number; incoming: boolean; hurt: boolean; lastDamage: number; earned: number; earnedXp: number; callout: string; chain: number; elapsed: number; aiming: boolean; hit: boolean;
@@ -198,6 +199,7 @@ export interface FpsHud {
   inputMode: 'mouse' | 'touch';
   arena: ArenaSnapshot | null; arenaSelf: ArenaActor | null; arenaConnected: boolean; arenaStarted: boolean;
   deployment: DeploymentView | null;
+  deploymentIntro: { stage: 'descent' | 'ready'; fade: number } | null;
   expeditionZone: WorldZoneId | null; facility: FacilityState | null; facilityPrompt: string; lootPrompt: string;
   /** The item being looked at within reach, as its card shows it. */
   lootCard: LootCard | null; npcPrompt: string; travelPrompt: string; lootNotice: string; fieldLoot: FieldLoot[]; npcs: ExpeditionNpc[];
@@ -223,7 +225,7 @@ export interface FpsHud {
   /** The weapon in hand's laser (B) and light (L), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean; laserOn?: boolean; lightOn?: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], foodChoice: null, foodPicker: null, mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, deployment: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], foodChoice: null, foodPicker: null, mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, deployment: null, deploymentIntro: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -287,6 +289,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     npcs.every(n => Math.hypot(n.x - x, n.z - z) > 3) && Object.values(fleetSpawns).every(v => Math.hypot(v.x - x, v.z - z) > 8) &&
     facilitySites.every(f => Math.hypot(f.x - x, f.z - z) > (f.initialOwner === 'mercenaries' ? 35 : 8)),
     (x, z) => footMovement.canOccupy(x, 0, z, .5, 1.8, vehicles.footObstacles()) && Math.abs(footMovement.supportHeight(x, z, .1, .4, 1.8) ?? 100) < .05) : [];
+  const deploymentIntro = createDeploymentIntro();
+  let deploymentRoof: number | null = null, readySound = 0;
+  const introEligible = !!expedition && !expedition.checkpoint && !expedition.spawn;
   let deploymentChoice = 'random', deploymentResolved = false, resolvedDeployment: string | null = null;
   if (options.arena?.environment && deploymentPoints.length) options.arena.environment.deployments = deploymentPoints;
   let arenaRuntime: ReturnType<typeof createArenaRuntime> | null = null;
@@ -519,6 +524,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const burden = movement();
     const mapContactRange = minimapContactRange(atmosphere.light.lighting.shift, atmosphere.conditions.weather);
     syncBelt();
+    const introFrame = deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof);
+    hud.deploymentIntro = hud.phase === 'deploying' ? { stage: introFrame.stage, fade: introFrame.fade } : null;
     hud.deployment = deploymentPoints.length ? { points: deploymentPoints, choice: deploymentChoice, resolved: resolvedDeployment, canChoose: hud.phase === 'ready' && !deploymentResolved && !hud.arenaStarted } : null;
     const nearby = !vehicles.active && hud.arenaSelf?.alive ? hud.arena?.facilities?.sites.filter(s => Math.abs(s.y - vertical) < 2 && Math.hypot(s.x - position.x, s.z - position.z) <= 18).sort((a, b) => Math.hypot(a.x - position.x, a.z - position.z) - Math.hypot(b.x - position.x, b.z - position.z))[0] : null;
     hud.facility = nearby ?? null;
@@ -566,7 +573,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function pause() {
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); hud.pilotStatus = 'Player controls'; hud.pilotGoal = null; hud.pilotContacts = 0;
     capturePending = false;
-    if (hud.phase !== 'playing') return;
+    if (!['playing', 'deploying'].includes(hud.phase)) return;
     hud.phase = 'paused'; clearInput(); stopVoice(); encik.clear(); hud.encikCallout = null; wheel = null; hud.calloutWheel = null; foodPicker = null; hud.foodPicker = null;
     if (document.pointerLockElement === canvas) document.exitPointerLock();
     publish();
@@ -688,7 +695,21 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (disposed || !['ready', 'paused'].includes(hud.phase)) return;
     if (!pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) { captureFailed(); return; }
     if (!deployInitially()) return;
-    capturePending = false; hud.phase = 'playing'; hud.message = ''; lastTime = performance.now(); clearInput(); canvas.focus(); initAudio(); radioCall('start'); publish();
+    capturePending = false; hud.message = ''; lastTime = performance.now(); clearInput(); canvas.focus(); initAudio();
+    if (introEligible && !deploymentIntro.begun) {
+      deploymentIntro.begin(!!motionPreference?.matches);
+      // Cast down onto roof faces, excluding the local body/effects and ground below the eye.
+      const roofRay = new THREE.Raycaster(new THREE.Vector3(position.x, vertical + eyeHeight() + 180, position.z), new THREE.Vector3(0, -1, 0), .1, 179.6);
+      deploymentRoof = firstVisibleHit(roofRay, gameplayCandidates())?.point.y ?? null;
+    }
+    hud.phase = deploymentIntro.active ? 'deploying' : 'playing';
+    if (hud.phase === 'playing') radioCall('start');
+    updateCameras(0, false, false); publish();
+  }
+  function finishDeployment() {
+    if (hud.phase !== 'deploying') return;
+    deploymentIntro.skip(); clearInput(); hud.phase = 'playing';
+    updateCameras(0, false, false); canvas.focus({ preventScroll: true }); radioCall('start'); publish();
   }
   function captureFailed() {
     if (disposed) return;
@@ -737,7 +758,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function switchWeapon(index: number) {
     if (grenadeHeld?.pinned) return;
     if (grenadeHeld) { grenadeHeld = null; publish(); }
-    if (hud.phase === 'loading' || hud.phase === 'error' || index === hud.weapon || !validWeaponIndex(index) || !equipment.carriedFamilies.includes(index)) return;
+    if (hud.phase === 'deploying' || deploymentIntro.active || hud.phase === 'loading' || hud.phase === 'error' || index === hud.weapon || !validWeaponIndex(index) || !equipment.carriedFamilies.includes(index)) return;
     stopInspect(); stopReload(); endSupply();
     trigger = false; pullBuffer = 0; triggerSpent = false; ads = false; touchAim = false; resetRecoil(kick); cantWanted = false; cant = 0;
     hud.weapon = index; weapons.forEach((w, i) => w.visible = i === index);
@@ -749,7 +770,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.phase === 'loading' || hud.phase === 'error') return;
     if (options.arena?.session.role === 'guest') return;
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset();
-    deploymentResolved = false; resolvedDeployment = null;
+    deploymentResolved = false; resolvedDeployment = null; deploymentIntro.reset(); deploymentRoof = null; readySound = 0;
     arenaRuntime?.reset();
     capturePending = false; hud.phase = 'ready'; hud.hits = 0; hud.shots = 0; hud.landed = 0; hud.elapsed = 0; hud.message = '';
     localGrenades.reset(); seenGrenadeCues.clear(); grenadeVisuals.reset(); grenadeHeld = null; grenadePicker = null; conditions = {}; grenadeLastAt = missionLastAt = -Infinity;
@@ -1126,6 +1147,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const keyboardKeys = ['y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'k', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'i', 'v', 'l', 'n', 't', 'm', 'j', 'b', 'x', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = fpsControlKey(event);
+    if (hud.phase === 'deploying' && (key === 'escape' || key === ' ')) {
+      event.preventDefault(); if (!event.repeat) { if (key === 'escape') pause(); else finishDeployment(); } return;
+    }
     if (!key || hud.phase !== 'playing' || !keyboardKeys.includes(key)) return;
     event.preventDefault();
     if (key === 'y') { if (!event.repeat && !pilotEnabled) openCalloutWheel(); return; }
@@ -1252,8 +1276,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const lockchange = () => {
     const locked = document.pointerLockElement === canvas;
     if (locked && capturePending) enterPlay();
-    else if (locked && hud.phase !== 'playing') document.exitPointerLock();
-    if (!locked && !pilotEnabled && hud.phase === 'playing' && (wasLocked || inputMode === 'mouse')) pause(); wasLocked = locked; publish();
+    else if (locked && !['playing', 'deploying'].includes(hud.phase)) document.exitPointerLock();
+    if (!locked && !pilotEnabled && ['playing', 'deploying'].includes(hud.phase) && (wasLocked || inputMode === 'mouse')) pause(); wasLocked = locked; publish();
   };
   const lockerror = () => { if (!capturePromisePending) captureFailed(); };
   const contextmenu = (event: Event) => event.preventDefault();
@@ -1513,7 +1537,22 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const spreadPixels = Math.tan(spreadAngle) * canvas.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     hud.crosshairSpread = THREE.MathUtils.damp(hud.crosshairSpread, Math.max(3, spreadPixels), 20, dt);
     const state = loadout[hud.weapon], remaining = state.reloadRemaining / reloadDuration(specs[hud.weapon], emptyReload[hud.weapon]);
-    const progress = remaining > 0 ? 1 - remaining : null, motion = reloadMotion(progress ?? 0, emptyReload[hud.weapon], handleSide(specs[hud.weapon].id));
+    const intro = deploymentIntro.active ? deploymentIntro.frame(vertical + visualEye, pitch, deploymentRoof) : null;
+    const readyProgress = intro?.stage === 'ready' ? intro.ready : undefined;
+    if (intro) {
+      camera.position.y = intro.height; camera.rotation.set(intro.pitch, yaw, 0, 'YXZ'); camera.fov = intro.fov;
+      camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
+      rig.visible = intro.stage === 'ready'; playerBody.root.visible = false;
+      if (hud.phase === 'deploying' && readyProgress !== undefined) {
+        if (readyProgress >= .25 && readySound < 1) { handlingSound('BOLT BACK'); readySound = 1; }
+        if (readyProgress >= .66 && readySound < 2) { handlingSound('CHAMBER'); readySound = 2; }
+      }
+    }
+    canvas.dataset.deploymentIntro = hud.phase === 'deploying' ? intro?.stage ?? '' : '';
+    canvas.dataset.deploymentCamera = JSON.stringify({ y: camera.position.y, pitch: camera.rotation.x, fov: camera.fov, ready: readyProgress ?? null });
+    const progress = remaining > 0 ? 1 - remaining : null;
+    const motion = readyProgress === undefined ? reloadMotion(progress ?? 0, emptyReload[hud.weapon], handleSide(specs[hud.weapon].id)) : readyMotion(readyProgress, handleSide(specs[hud.weapon].id));
+    canvas.dataset.readyAction = readyProgress === undefined ? '' : motion.action.toFixed(3);
     // A supported gun stays low for reloads; hands, magazine and feed cover
     // still perform their complete handling animation around the planted legs.
     const reloadTravel = 1 - (handling[hud.weapon]?.bipodDeployment ?? 0);
@@ -1541,7 +1580,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     rig.position.x += inspection.x * inspectScale; rig.position.y += inspection.y * inspectScale; rig.position.z += inspection.z * inspectScale;
     rig.rotation.x += inspection.pitch * inspectScale; rig.rotation.y += inspection.yaw * inspectScale; rig.rotation.z += inspection.roll * inspectScale;
     handling.forEach((model, i) => model.update(i === hud.weapon ? progress : null, emptyReload[i],
-      i === hud.weapon ? { prone: prone && hud.phase === 'playing', grounded: onGround, speed, eyeHeight: bodyMotion.eye, dt } : undefined));
+      i === hud.weapon ? { prone: prone && hud.phase === 'playing', grounded: onGround, speed, eyeHeight: bodyMotion.eye, dt } : undefined, i === hud.weapon ? readyProgress : undefined));
     // A supply in the hands takes the weapon down and out of view while it is used.
     grenadeHands.update(grenadeHeld?.id ?? null, grenadeHeld?.ready ?? 0, grenadeHeld?.cooked ?? 0);
     if (grenadeHeld) rig.visible = false;
@@ -2674,9 +2713,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const animate = (now: number) => {
     if (disposed) return;
     // Stop controls even if a browser/VM delays or drops pointerlockchange.
-    if (hud.phase === 'playing' && !pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) pause();
+    if (['playing', 'deploying'].includes(hud.phase) && !pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) pause();
     const realDt = Math.max((now - lastTime) / 1000, 0), dt = Math.min(realDt, 0.05); lastTime = now;
     if (pilotEnabled && ['complete', 'defeated', 'error'].includes(hud.phase)) { pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); }
+    if (hud.phase === 'deploying') {
+      deploymentIntro.advance(realDt);
+      if (!deploymentIntro.active) finishDeployment();
+    }
     if (pilotEnabled && hud.phase === 'playing' && now >= nextPilotAt) { nextPilotAt = now + PILOT_INTERVAL * 1000; updatePilot(now / 1000); }
     if (disposed || travelPending) return;
     const previousVehicle = vehicles.active, previousHeading = vehicles.viewMounted?.yaw;
@@ -2934,7 +2977,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
 
   return {
     setTutorialStep(step: number) { if (options.tutorial) world.scene.userData.setTutorialStep?.(step); },
-    chooseDeployment, start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, interactFacility, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
+    chooseDeployment, skipDeployment: finishDeployment, start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, interactFacility, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
     toggleVehicleView, toggleAim, toggleMap, toggleRail, toggleCant,

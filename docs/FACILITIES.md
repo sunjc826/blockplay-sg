@@ -21,6 +21,15 @@ Selection does not rebuild the world or move facilities. The choice is locked
 once play starts; pause/resume preserves it. Death respawns keep the existing
 post/fallback rules, and checkpoint travel keeps its authored arrival point.
 
+Entering a fresh expedition plays a 4.65-second deployment intro: a downward
+sky view descends into first person, then the support hand racks and releases
+the weapon's charging handle. The simulation starts after the sequence, so
+patrols cannot hurt the player during it. Space or **Skip intro** starts play
+immediately; Escape or **Menu** freezes the intro, and Resume continues it.
+Reduced-motion preferences omit the aerial travel. The animation doesn't change
+ammunition or health. It doesn't replay after pausing, on death respawns or on
+checkpoint travel. A sheltered entry uses a brief fade across its roof.
+
 Open the map with M to find facility squares: blue allied, orange hostile, gray
 unbuilt. Dashed squares indicate destroyed or unbuilt equipment. Approach the
 equipment cabinet; the nearby card explains its owner, health and operation.
