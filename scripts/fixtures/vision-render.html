@@ -3,16 +3,17 @@
      window.visionReview.draw(id, { noise: 0, distortion: 0 }) compares optics without reloading. -->
 <html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Night vision lens review</title></head>
 <body style="margin:0;background:#000;overflow:hidden"><script type="module">
-import * as THREE from '/node_modules/three/build/three.module.js';
+import * as THREE from 'three';
 import { createVisionSystem } from '/src/game/fps-vision.ts';
 import { createVisionState, VISION_DEVICES } from '/src/game/vision-devices.ts';
 import { dayLighting } from '/src/game/world-lighting.ts';
+import { setEnvironmentSettings } from '/src/game/environment-settings.ts';
 const params = new URLSearchParams(location.search), chart = params.has('chart');
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight); renderer.autoClear = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 document.body.append(renderer.domElement);
-let world, camera, atmosphere, lights;
+let world, camera, atmosphere, lights, region, createAtmosphere;
 if (chart) {
   world = { scene: new THREE.Scene() };
   camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -25,19 +26,36 @@ if (chart) {
     }`,
   })));
 } else {
-  localStorage.setItem('blockplay-sg-environment-v1', JSON.stringify({ weather:'sunny', celebration:'none', timeOfDay:'night', reducedEffects:false, shadows:false }));
+  setEnvironmentSettings({ weather:params.get('weather') || 'sunny', celebration:'none', timeOfDay:params.get('time') || 'night', reducedEffects:false, shadows:false });
   const { getRegion } = await import('/src/game/regions.ts');
-  const { createWorldAtmosphere } = await import('/src/game/world-atmosphere.ts');
+  ({ createWorldAtmosphere: createAtmosphere } = await import('/src/game/world-atmosphere.ts'));
   const { createNightLights } = await import('/src/game/world-night-lights.ts');
-  const region = getRegion('marina-bay'); world = region.build();
-  atmosphere = createWorldAtmosphere(world.scene, region.stamps, world.obstacles, false, renderer);
+  const { separateInstancedMaterials } = await import('/src/game/instanced-materials.ts');
+  region = getRegion(params.get('region') || 'marina-bay'); world = region.build();
+  if (params.has('yard')) {
+    world.dispose();
+    const scene = new THREE.Scene(); scene.background = new THREE.Color('#b9dcea');
+    scene.add(new THREE.HemisphereLight('#e4efff', '#707060', 1.8));
+    const sun = new THREE.DirectionalLight('#fff3e2', 2); sun.position.set(20, 40, 30); scene.add(sun);
+    const material = new THREE.MeshStandardMaterial({ color:'#888888', roughness:1 });
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), material); floor.rotation.x = -Math.PI / 2; floor.name='review-floor'; scene.add(floor);
+    for (const [x,z] of [[-12,-6],[2,-10],[12,-6]]) {
+      const box = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 2), material); box.position.set(x,1.5,z); scene.add(box);
+    }
+    world = { scene, obstacles:[], animate(){} };
+    region = { stamps:[], mapRoads:[{ points:[{x:-90,z:0},{x:90,z:0}] }], roadWidth:14, bounds:{minX:-100,maxX:100,minZ:-100,maxZ:100} };
+  }
+  separateInstancedMaterials(world.scene);
+  atmosphere = createAtmosphere(world.scene, region.stamps, world.obstacles, false, renderer);
   lights = createNightLights(world.scene, { roads:region.mapRoads, roadWidth:region.roadWidth, bounds:region.bounds, obstacles:world.obstacles });
   camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, .08, 800);
-  camera.position.set(0, 2, 18); camera.lookAt(0, 7, -100); camera.updateMatrixWorld(true);
+  const vector = (key, fallback) => params.has(key) ? params.get(key).split(',').map(Number) : fallback;
+  camera.position.set(...vector('cam', params.has('yard') ? [0,14,36] : [0,2,18]));
+  camera.lookAt(...vector('look', params.has('yard') ? [0,0,-4] : [0,7,-100])); camera.updateMatrixWorld(true);
 }
 const system = createVisionSystem(renderer, { world:world.scene, view:new THREE.Scene() });
 function draw(id = params.get('device') || 'nvg-gen1', overrides = {}, state = createVisionState(true)) {
-  const spec = { ...VISION_DEVICES[id], ...overrides };
+  const spec = VISION_DEVICES[id] ? { ...VISION_DEVICES[id], ...overrides } : undefined;
   atmosphere?.update(1 / 30, camera);
   const lighting = atmosphere?.light.lighting ?? dayLighting(22.5);
   lights?.update(lighting, 0, 1 / 30, camera, renderer);
@@ -49,6 +67,11 @@ function pixels() {
   const context = copy.getContext('2d'); context.drawImage(renderer.domElement, 0, 0);
   return context.getImageData(0, 0, copy.width, copy.height);
 }
-window.visionReview = { draw, pixels, renderer, camera, ready:true };
+function conditions(patch) {
+  setEnvironmentSettings(patch); atmosphere.dispose();
+  atmosphere = createAtmosphere(world.scene, region.stamps, world.obstacles, false, renderer);
+  draw('none');
+}
+window.visionReview = { draw, pixels, conditions, renderer, camera, world, lights, get atmosphere(){return atmosphere}, ready:true };
 draw();
 </script></body></html>

@@ -66,8 +66,9 @@ export interface LightingState {
 }
 /** Keyed by sun elevation in degrees. Between keys every number and colour is interpolated. */
 const KEYS: readonly (Omit<LightingState, 'key' | 'elevation'> & { at: number })[] = [
-  { at: -14, keyColor: '#9ab2e4', keyScale: .3, ambientScale: .5, skyFill: '#4c6290', groundFill: '#262c3c', sky: '#18223b', skyWeight: 1, shift: 1, exposure: 1.45 },
-  { at: -4, keyColor: '#b4a4c8', keyScale: .05, ambientScale: .5, skyFill: '#7a7fa6', groundFill: '#33303a', sky: '#5d5f86', skyWeight: .9, shift: 1, exposure: 1.25 },
+  // Keep navigation silhouettes in moonlight; useful detail comes from local lamps or a vision tube.
+  { at: -14, keyColor: '#9ab2e4', keyScale: .07, ambientScale: .12, skyFill: '#34455e', groundFill: '#0c111a', sky: '#080d19', skyWeight: 1, shift: 1, exposure: 1.05 },
+  { at: -4, keyColor: '#b4a4c8', keyScale: .025, ambientScale: .32, skyFill: '#7a7fa6', groundFill: '#25232e', sky: '#5d5f86', skyWeight: .9, shift: 1, exposure: 1.05 },
   { at: 2, keyColor: '#ff9a5a', keyScale: .55, ambientScale: .55, skyFill: '#f0b997', groundFill: '#58463d', sky: '#eaa27c', skyWeight: .7, shift: .9, exposure: 1.05 },
   { at: 9, keyColor: '#ffbf80', keyScale: .85, ambientScale: .6, skyFill: '#f6d4b5', groundFill: '#5e5246', sky: '#f2c6a0', skyWeight: .4, shift: .6, exposure: .98 },
   { at: 22, keyColor: '#ffe3c1', keyScale: 1.02, ambientScale: .6, skyFill: '#eaf0f6', groundFill: '#6c6758', sky: '#d9e4ea', skyWeight: .12, shift: .2, exposure: .93 },

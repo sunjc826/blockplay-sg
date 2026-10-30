@@ -4086,3 +4086,30 @@ HTML and campaign copy are committed; the README marks voting dates as archival.
 The remaining map-cover corrections and earlier release records are retained.
 No GitHub push or new Cloudflare deployment was performed for this commit-only
 request. AGENTS.md and .claude/launch.json remain local and uncommitted.
+
+
+## 2026-10-30: darker nights with retained streetlighting
+
+Reduced full-night ambient fill to 0.12, moonlight to 0.07 and exposure to
+1.05; the sky/fog and ground bounce are darker, with a smooth twilight
+transition. Streetlamp heads, windows and 15 m road pools remain bright.
+Park lamps now have 52 m spacing and 8.5 m pools, leaving dark gaps. The
+static lamp map clips lamp-to-ground rays against solid authored footprints
+and traversal walls/decks; this is a ground-lighting approximation, not
+dynamic point-light shadows. First-person weapon lighting inherits the new
+shared night values.
+
+Water reflections now follow the sky/fog and key-light direction. Water body,
+foam and glint dim at night; atmosphere disposal restores authored daylight.
+No new render passes or runtime lamp-shadow rays were added.
+
+All 55 focused lighting/water/vision tests and the isolated release typecheck
+passed. The new before/after WebGL smoke passed shadow visibility, retained
+streetlight pools, NVG tier usefulness, daytime floor lighting and dark water,
+plus three districts, portrait, dusk and storm night. The existing circular
+NVG pixel smoke and thermal render regressions also passed. The fixture now
+uses the same Three.js module and instanced-material separation as gameplay.
+Evidence: .cache/fps-dark-night/validation.json and screenshots,
+.cache/darker-night-focused-release.log and .cache/darker-night-lens-regression.log.
+Full release tests, build and manual Cloudflare deployment follow. Unrelated
+ongoing facility work is excluded. No GitHub push; AGENTS.md stays local.

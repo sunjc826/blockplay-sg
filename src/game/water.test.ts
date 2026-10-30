@@ -3,6 +3,10 @@ import * as THREE from 'three';
 import { createWaterMaterial, isWaterObject, markWater, MAX_WATER_RIPPLES, rippleWater } from './water';
 import { buildMarinaScene, MARINA_BAY } from './marina-scene';
 import { buildJurongLakeScene } from './jurong-lake-scene';
+import { dayLighting } from './world-lighting';
+import { createWorldAtmosphere } from './world-atmosphere';
+import { setEnvironmentSettings } from './environment-settings';
+import { DEFAULT_ENVIRONMENT } from './world-events';
 
 const options = { deep: '#1d4750', shallow: '#3d7c84', sky: '#8db6d4', horizon: '#557788', sun: new THREE.Vector3(0, 1, 0) };
 
@@ -30,6 +34,37 @@ describe('water surfaces', () => {
   });
   it('ignores a ripple on water that has no shader surface', () => {
     expect(() => rippleWater(new THREE.Mesh(new THREE.BoxGeometry(), markWater(new THREE.MeshStandardMaterial())), 0, 0)).not.toThrow();
+  });
+  it('follows the night sky, dims the water body and foam, and restores authored daylight', () => {
+    const material = createWaterMaterial(options), u = material.uniforms;
+    const night = dayLighting(22.5), sky = new THREE.Color(night.sky);
+    material.userData.setLighting(night, sky, sky, 1, 1);
+    for (const key of ['uSky', 'uHorizon']) u[key].value.toArray().forEach((channel: number, i: number) => expect(channel).toBeCloseTo(sky.toArray()[i], 12));
+    expect(u.uSurfaceLight.value).toBeLessThan(.05);
+    expect(u.uGlintStrength.value).toBeLessThan(.2);
+    expect(u.uSun.value.toArray()).toEqual([night.key.x, night.key.y, night.key.z]);
+    // Returning to clear midday restores the authored colours, not a cumulative dark tint.
+    material.userData.setLighting(dayLighting(13), new THREE.Color('#ffffff'), sky, 1, 1);
+    u.uSky.value.toArray().forEach((channel: number, i: number) => expect(channel).toBeCloseTo(new THREE.Color(options.sky).toArray()[i], 12));
+    expect(u.uSurfaceLight.value).toBe(1); expect(u.uGlintStrength.value).toBe(2.4);
+    material.userData.resetLighting();
+    expect(u.uSun.value.equals(options.sun)).toBe(true);
+    material.dispose();
+  });
+  it('updates shared water materials through the atmosphere and resets them on disposal', () => {
+    const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera();
+    const material = createWaterMaterial(options);
+    scene.add(new THREE.Mesh(new THREE.PlaneGeometry(), material));
+    setEnvironmentSettings({ weather: 'sunny', timeOfDay: 'night', celebration: 'none' });
+    const atmosphere = createWorldAtmosphere(scene, [], []);
+    try {
+      atmosphere.update(.1, camera);
+      expect(material.uniforms.uSurfaceLight.value).toBeLessThan(.05);
+      expect(material.uniforms.uSky.value.equals(scene.background)).toBe(true);
+      atmosphere.dispose();
+      expect(material.uniforms.uSurfaceLight.value).toBe(1);
+      expect(material.uniforms.uSky.value.equals(new THREE.Color(options.sky))).toBe(true);
+    } finally { atmosphere.dispose(); material.dispose(); setEnvironmentSettings({ ...DEFAULT_ENVIRONMENT }); }
   });
 });
 

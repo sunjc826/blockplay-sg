@@ -4,6 +4,7 @@ import { getEnvironmentSettings } from './environment-settings';
 import { CELEBRATIONS, DEFAULT_ENVIRONMENT, WEATHER, resolveEnvironment, type CelebrationId } from './world-events';
 import { dayLighting, singaporeDayOfYear, type LightingState } from './world-lighting';
 import { createSkyLight, type Rgb } from './world-sky-light';
+import type { WaterMaterial } from './water';
 
 /**
  * One bounded effect pool per scene. No textures, network traffic or shadow passes.
@@ -16,7 +17,11 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   scene.background = background; scene.fog = fog;
   // Each district authored one sun and one sky; time of day moves and recolours them from those originals.
   const lights: { light: THREE.Light; intensity: number; sun: boolean; color: THREE.Color; ground?: THREE.Color; reach: number }[] = [];
+  const water = new Set<WaterMaterial>();
   scene.traverse(object => {
+    if (object instanceof THREE.Mesh) for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+      if (material.userData.fpsWater && typeof material.userData.setLighting === 'function') water.add(material as WaterMaterial);
+    }
     if (object instanceof THREE.DirectionalLight || object instanceof THREE.HemisphereLight) lights.push({ light: object, intensity: object.intensity, sun: object instanceof THREE.DirectionalLight,
       color: object.color.clone(), ground: object instanceof THREE.HemisphereLight ? object.groundColor.clone() : undefined,
       reach: object instanceof THREE.DirectionalLight ? Math.max(60, object.position.distanceTo(object.target.position)) : 0 });
@@ -132,6 +137,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
           light.groundColor.copy(ground).lerp(shiftColor.set(lighting.groundFill), lighting.shift);
         }
       }
+      for (const material of water) material.userData.setLighting(lighting, background, fog.color, preset.sun + lightning, blend);
       if (skyLight && skyFill) {
         const fill = Math.max(1e-4, skyFill.intensity);
         skyLight.update({ sky: rgb(skyFill.color), horizon: rgb(background), ground: rgb(skyFill.groundColor), key: rgb(sunLight?.color ?? skyFill.color),
@@ -181,6 +187,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       if (disposed) return; disposed = true;
       bulbs.forEach(mesh => mesh.dispose());
       skyLight?.dispose(); if (skyFill) skyFill.visible = true;
+      for (const material of water) material.userData.resetLighting();
       scene.remove(root); scene.background = originalBackground; scene.fog = originalFog;
       lights.forEach(({ light, intensity, color, ground }, index) => {
         light.intensity = intensity; light.color.copy(color); light.position.copy(originalPositions[index]);

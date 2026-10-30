@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { LightingState } from './world-lighting';
 
 /**
  * Open water: a surface a round can splash into rather than a floor it chips.
@@ -90,6 +91,9 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uSky;
   uniform vec3 uHorizon;
   uniform vec3 uSun;
+  uniform float uSurfaceLight;
+  uniform float uGlintStrength;
+  uniform vec3 uGlintColor;
   // xy = centre on the surface (world x, z), z = birth time, w = strength.
   uniform vec4 uRipples[RIPPLES];
   varying vec3 vWorld;
@@ -141,11 +145,11 @@ const fragmentShader = /* glsl */ `
 
     vec3 reflected = reflect(-toEye, normal);
     vec3 sky = mix(uHorizon, uSky, smoothstep(0.0, 0.45, reflected.y));
-    vec3 body = mix(uDeep, uShallow, clamp(facing * 0.6 + slope.x * 2.0, 0.0, 1.0) * 0.55);
+    vec3 body = mix(uDeep, uShallow, clamp(facing * 0.6 + slope.x * 2.0, 0.0, 1.0) * 0.55) * uSurfaceLight;
     vec3 colour = mix(body, sky, fresnel);
     float glint = pow(max(dot(reflected, uSun), 0.0), 380.0);
-    colour += vec3(1.0, 0.96, 0.86) * glint * 2.4;
-    colour = mix(colour, vec3(0.9, 0.96, 0.97), clamp(foam, 0.0, 0.85));
+    colour += uGlintColor * glint * uGlintStrength;
+    colour = mix(colour, vec3(0.9, 0.96, 0.97) * uSurfaceLight, clamp(foam, 0.0, 0.85));
 
     float alpha = clamp(mix(uClarity, 1.0, fresnel) + glint + foam, 0.0, 1.0);
     gl_FragColor = vec4(colour, alpha);
@@ -156,7 +160,13 @@ const fragmentShader = /* glsl */ `
 `;
 
 export type WaterMaterial = THREE.ShaderMaterial & {
-  userData: { fpsWater: true; ripple: (x: number, z: number, strength?: number) => void; setTime: (seconds: number) => void };
+  userData: {
+    fpsWater: true;
+    ripple: (x: number, z: number, strength?: number) => void;
+    setTime: (seconds: number) => void;
+    setLighting: (lighting: LightingState, sky: THREE.Color, horizon: THREE.Color, sunlight: number, blend: number) => void;
+    resetLighting: () => void;
+  };
 };
 
 export function createWaterMaterial(options: WaterOptions): WaterMaterial {
@@ -172,6 +182,9 @@ export function createWaterMaterial(options: WaterOptions): WaterMaterial {
       uSky: { value: new THREE.Color(options.sky) },
       uHorizon: { value: new THREE.Color(options.horizon) },
       uSun: { value: options.sun.clone().normalize() },
+      uSurfaceLight: { value: 1 },
+      uGlintStrength: { value: 2.4 },
+      uGlintColor: { value: new THREE.Color(1, .96, .86) },
       uRipples: { value: ripples },
     }]),
     vertexShader, fragmentShader, fog: true, transparent: true, depthWrite: false,
@@ -185,6 +198,29 @@ export function createWaterMaterial(options: WaterOptions): WaterMaterial {
     next = (next + 1) % MAX_WATER_RIPPLES;
   };
   material.userData.setTime = seconds => { material.uniforms.uTime.value = seconds; };
+  const daySky = new THREE.Color(options.sky), dayHorizon = new THREE.Color(options.horizon);
+  const daySun = options.sun.clone().normalize();
+  const targetSky = new THREE.Color(), targetHorizon = new THREE.Color(), targetGlint = new THREE.Color();
+  const u = material.uniforms;
+  material.userData.setLighting = (lighting, sky, horizon, sunlight, blend) => {
+    // Reflections follow the same eased sky as the world; the water body and
+    // fresh foam must also lose their daylight brightness after sunset.
+    targetSky.lerpColors(daySky, sky, lighting.skyWeight);
+    targetHorizon.lerpColors(dayHorizon, horizon, lighting.skyWeight);
+    u.uSky.value.lerp(targetSky, blend); u.uHorizon.value.lerp(targetHorizon, blend);
+    const weather = THREE.MathUtils.clamp(sunlight, .05, 1);
+    const surfaceLight = (1 - .96 * lighting.shift) * weather;
+    u.uSurfaceLight.value += (surfaceLight - u.uSurfaceLight.value) * blend;
+    const glint = 2.4 * weather * (1 - lighting.shift + lighting.shift * lighting.keyScale);
+    u.uGlintStrength.value += (glint - u.uGlintStrength.value) * blend;
+    targetGlint.setRGB(1, .96, .86).lerp(targetSky.set(lighting.keyColor), lighting.shift);
+    u.uGlintColor.value.lerp(targetGlint, blend);
+    u.uSun.value.set(lighting.key.x, lighting.key.y, lighting.key.z);
+  };
+  material.userData.resetLighting = () => {
+    u.uSky.value.copy(daySky); u.uHorizon.value.copy(dayHorizon); u.uSun.value.copy(daySun);
+    u.uSurfaceLight.value = 1; u.uGlintStrength.value = 2.4; u.uGlintColor.value.setRGB(1, .96, .86);
+  };
   return material;
 }
 

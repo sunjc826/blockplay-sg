@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import type { Obstacle, RegionBounds } from './region-collision';
+import { footprintRayInterval } from './region-collision';
 import type { RegionRoad } from './regions';
 import type { LightingState } from './world-lighting';
-import { getWalkSurfaces, surfaceHeight, type WalkSurface } from './vertical-routes';
+import { getTraversalObstacles, getWalkSurfaces, surfaceHeight, type WalkSurface } from './vertical-routes';
 import { createMovingLights, movingLightsChunk, MOVING_LIGHTS_DECLARATIONS, type LightSource } from './moving-lights';
 
 /**
@@ -21,8 +22,8 @@ export const LAMP_SPACING = 30;
 /** Metres a lamp's pool reaches on the ground. */
 export const LAMP_REACH = 15;
 export const LAMP_HEIGHT = 7.5;
-/** Park and plaza lamps: shorter, closer, no arm. */
-export const PATH_LAMP = { spacing: 34, height: 4.2, reach: 11 } as const;
+/** Park and plaza lamps: shorter, sparser, smaller pools, no arm. */
+export const PATH_LAMP = { spacing: 52, height: 4.2, reach: 8.5 } as const;
 const ARM = 1.7, MAX_LAMPS = 700;
 /** Light-map cell, metres. */
 const CELL = 1.25, MAX_MAP = 1024;
@@ -94,8 +95,8 @@ export function placeStreetLamps(roads: readonly RegionRoad[], roadWidth: number
 }
 
 /**
- * Plazas, parks and courtyards out of reach of every streetlamp get short
- * path lamps on a jittered grid, so open ground is not left to the moon.
+ * Plazas, parks and courtyards get sparse short lamps with gaps of moonlit
+ * ground between them, instead of a blanket of overlapping light.
  */
 export function placePathLamps(existing: readonly StreetLamp[], roads: readonly RegionRoad[], roadWidth: number, obstacles: readonly Obstacle[], bounds: RegionBounds,
   options: { ground?: (x: number, z: number) => number | null } = {}): StreetLamp[] {
@@ -117,19 +118,41 @@ export function placePathLamps(existing: readonly StreetLamp[], roads: readonly 
   return lamps;
 }
 
-/** Top-down lamp light, one texel per `CELL`: R is the pools' summed brightness, G the ground height under them. */
-export function bakeLampMap(lamps: readonly StreetLamp[], bounds: RegionBounds) {
+type LampBlocker = Obstacle & { minY?: number };
+/** Clips the lamp-to-ground segment against solid walls, decks and authored convex footprints. Bake time only. */
+function blocksLamp(o: LampBlocker, cx: number, cy: number, cz: number, x: number, y: number, z: number) {
+  const dx = x - cx, dy = y - cy, dz = z - cz;
+  let near = .001, far = .999;
+  if (Math.abs(dx) < 1e-8) { if (cx < o.minX || cx > o.maxX) return false; }
+  else { const a = (o.minX - cx) / dx, b = (o.maxX - cx) / dx; near = Math.max(near, Math.min(a, b)); far = Math.min(far, Math.max(a, b)); }
+  if (Math.abs(dz) < 1e-8) { if (cz < o.minZ || cz > o.maxZ) return false; }
+  else { const a = (o.minZ - cz) / dz, b = (o.maxZ - cz) / dz; near = Math.max(near, Math.min(a, b)); far = Math.min(far, Math.max(a, b)); }
+  // Every sample lies below its lamp head, so dy is negative.
+  near = Math.max(near, ((o.maxY ?? 12) - cy) / dy);
+  far = Math.min(far, ((o.minY ?? -Infinity) - cy) / dy);
+  if (near > far) return false;
+  if (o.footprint) [near, far] = footprintRayInterval(o.footprint, { x: cx, z: cz }, { x: dx, z: dz }, near, far);
+  return near <= far;
+}
+
+/** Top-down lamp light, one texel per `CELL`: R is the visible pools' brightness, G their ground height. */
+export function bakeLampMap(lamps: readonly StreetLamp[], bounds: RegionBounds, obstacles: readonly LampBlocker[] = []) {
   const width = Math.max(1, Math.min(MAX_MAP, Math.ceil((bounds.maxX - bounds.minX) / CELL)));
   const height = Math.max(1, Math.min(MAX_MAP, Math.ceil((bounds.maxZ - bounds.minZ) / CELL)));
   const sx = width / (bounds.maxX - bounds.minX), sz = height / (bounds.maxZ - bounds.minZ);
   const light = new Float32Array(width * height), ground = new Float32Array(width * height);
   for (const lamp of lamps) {
     const cx = lamp.x + lamp.dx * ARM, cz = lamp.z + lamp.dz * ARM, reach = lamp.reach;
+    const headY = lamp.y + lamp.height;
+    const blockers = obstacles.filter(o => o.maxX >= cx - reach && o.minX <= cx + reach && o.maxZ >= cz - reach && o.minZ <= cz + reach
+      && (o.maxY ?? 12) > lamp.y + .15 && (o.minY ?? -Infinity) < headY);
     const x0 = Math.max(0, Math.floor((cx - reach - bounds.minX) * sx)), x1 = Math.min(width - 1, Math.ceil((cx + reach - bounds.minX) * sx));
     const z0 = Math.max(0, Math.floor((cz - reach - bounds.minZ) * sz)), z1 = Math.min(height - 1, Math.ceil((cz + reach - bounds.minZ) * sz));
     for (let j = z0; j <= z1; j++) for (let i = x0; i <= x1; i++) {
-      const d = Math.hypot(bounds.minX + (i + .5) / sx - cx, bounds.minZ + (j + .5) / sz - cz) / reach;
+      const x = bounds.minX + (i + .5) / sx, z = bounds.minZ + (j + .5) / sz;
+      const d = Math.hypot(x - cx, z - cz) / reach;
       if (d >= 1) continue;
+      if (blockers.some(o => blocksLamp(o, cx, headY, cz, x, lamp.y + .05, z))) continue;
       // A soft pool with a brighter hot spot under the head.
       const k = j * width + i, value = (1 - d * d) ** 2 * .75 + Math.exp(-d * d * 18) * .25;
       if (value > light[k] * .5) ground[k] = lamp.y;
@@ -196,7 +219,7 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
   };
   const streets = placeStreetLamps(options.roads, options.roadWidth, options.obstacles, bounds, { ground });
   const lamps = [...streets, ...placePathLamps(streets, options.roads, options.roadWidth, options.obstacles, bounds, { ground })];
-  const baked = bakeLampMap(lamps, bounds);
+  const baked = bakeLampMap(lamps, bounds, [...options.obstacles, ...getTraversalObstacles(scene)]);
   const map = new THREE.DataTexture(baked.data, baked.width, baked.height, THREE.RGBAFormat);
   map.magFilter = THREE.LinearFilter; map.minFilter = THREE.LinearFilter; map.wrapS = map.wrapT = THREE.ClampToEdgeWrapping; map.needsUpdate = true;
   const uniforms = {

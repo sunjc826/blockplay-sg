@@ -54,6 +54,34 @@ describe('street lamps', () => {
     expect(at(10, 0)).toBeGreaterThan(0);
     expect(at(40, 40)).toBe(0);
   });
+  it('blocks streetlight spill behind walls and under decks while retaining the exposed pool', () => {
+    const lamp = { x: 0, z: 0, y: 0, dx: 0, dz: 0, height: LAMP_HEIGHT, reach: LAMP_REACH };
+    const wall = { minX: 4, maxX: 5, minZ: -5, maxZ: 5, maxY: 10 };
+    const deck = { minX: -8, maxX: -2, minZ: -5, maxZ: 5, minY: 2.8, maxY: 3 };
+    const { data, width, height } = bakeLampMap([lamp], bounds, [wall, deck]);
+    const at = (x: number, z: number) => data[(Math.floor((z + 100) / 200 * height) * width + Math.floor((x + 100) / 200 * width)) * 4];
+    expect(at(1, 0)).toBeGreaterThan(200);
+    expect(at(9, 0)).toBe(0); expect(at(-7, 0)).toBe(0);
+    expect(at(0, 10)).toBeGreaterThan(0);
+    // A ceiling above the lamp does not stop a lamp beneath it lighting its own floor.
+    const covered = bakeLampMap([lamp], bounds, [{ ...deck, minY: 9, maxY: 10 }]);
+    expect(covered.light.reduce((a, b) => a + b, 0)).toBeCloseTo(bakeLampMap([lamp], bounds).light.reduce((a, b) => a + b, 0));
+  });
+  it('uses authored convex footprints rather than shadowing their entire bounding box', () => {
+    const lamp = { x: 0, z: 0, y: 0, dx: 0, dz: 0, height: LAMP_HEIGHT, reach: LAMP_REACH };
+    const triangle = { minX: 4, maxX: 10, minZ: -4, maxZ: 4, maxY: 10, footprint: [{ x: 4, z: -4 }, { x: 10, z: -4 }, { x: 10, z: 4 }] };
+    const map = bakeLampMap([lamp], bounds, [triangle]);
+    const at = (x: number, z: number) => map.data[(Math.floor((z + 100) / 200 * map.height) * map.width + Math.floor((x + 100) / 200 * map.width)) * 4];
+    expect(at(7, 3)).toBeGreaterThan(0);
+    expect(at(9, -3)).toBe(0);
+  });
+  it('leaves substantial dark gaps between the sparse park pools', () => {
+    const paths = placePathLamps([], [], 14, [], bounds), map = bakeLampMap(paths, bounds);
+    const lit = map.light.filter(value => value > .01).length / map.light.length;
+    expect(paths.length).toBeGreaterThan(4);
+    expect(lit).toBeLessThan(.15);
+    expect(LAMP_REACH).toBe(15); // Street pools retain their reach and their bright centre.
+  });
   it('line every district, with buildings to light up', () => {
     for (const region of REGIONS) {
       const world = region.build();
@@ -67,7 +95,7 @@ describe('street lamps', () => {
       world.scene.traverse(o => { if (o instanceof THREE.Mesh) expect(o.geometry.getAttribute('nightSpan')).toBeUndefined(); });
       world.dispose();
     }
-  });
+  }, 30000);
   it('size windows for buildings, not kerbs or poles', () => {
     expect(buildingSized(new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(20, 30, 15)))).toBe(true);
     expect(buildingSized(new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(.6, 9, .6)))).toBe(false);

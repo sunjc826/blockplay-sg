@@ -43,4 +43,14 @@ describe('time-of-day light', () => {
       previous = next;
     }
   });
+  it('leaves night detail to local light sources without dimming daytime', () => {
+    const night = dayLighting(TIMES_OF_DAY.night.hour), noon = dayLighting(TIMES_OF_DAY.noon.hour);
+    expect(night.ambientScale).toBeLessThanOrEqual(.15);
+    expect(night.keyScale).toBeLessThanOrEqual(.08);
+    expect(night.exposure).toBeLessThanOrEqual(1.1);
+    const brightness = (hex: string) => [1, 3, 5].reduce((sum, i) => sum + parseInt(hex.slice(i, i + 2), 16), 0);
+    expect(brightness(night.sky)).toBeLessThan(brightness('#18223b') / 2);
+    expect(brightness(night.groundFill)).toBeLessThan(brightness(night.skyFill) / 2);
+    expect(noon).toMatchObject({ keyScale: 1.12, ambientScale: .58, exposure: .9, shift: 0 });
+  });
 });
