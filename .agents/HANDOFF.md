@@ -4113,3 +4113,21 @@ Evidence: .cache/fps-dark-night/validation.json and screenshots,
 .cache/darker-night-focused-release.log and .cache/darker-night-lens-regression.log.
 Full release tests, build and manual Cloudflare deployment follow. Unrelated
 ongoing facility work is excluded. No GitHub push; AGENTS.md stays local.
+
+
+## 2026-10-30: darker nights deployed and verified
+
+All 1,759 tests across 181 suites passed on isolated code commit a4b9c96,
+along with typecheck and the production build. The actual Marina Bay FPS
+engine also passed unaided night, NVG on/off and weapon-light switching
+without runtime/shader errors; captures and log are in .cache/fps-dark-night
+and .cache/darker-night-runtime-verified.log.
+
+Manually deployed with pnpm deploy:cloudflare from .cache/darker-night-release,
+whose 2,635 tracked files match a4b9c96. Cloudflare version
+6c5498c7-707a-4ff5-ad82-e09c7e624279 succeeded. Asset hashes on blockplaysg.fun
+and workers.dev match the local release; production routing, service worker,
+manifest, models, audio and API-origin checks passed. Evidence:
+.cache/darker-night-release/release-evidence.json, .cache/darker-night-full-tests.log
+and .cache/darker-night-live-check.log. No GitHub push. Unrelated pending
+facility work was excluded and AGENTS.md remains local and uncommitted.
