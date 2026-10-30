@@ -1,4 +1,5 @@
 import type { RaiderBounty } from '../game/combat-rewards';
+import DeploymentBriefing from './DeploymentBriefing';
 import FpsFacilityHud from './FpsFacilityHud';
 import ExpeditionDeployment from './ExpeditionDeployment';
 import type { ArenaSnapshot } from '../game/arena-rules';
@@ -150,7 +151,10 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       </>}
       {deploying && <div className="expedition-intro" data-stage={hud.deploymentIntro?.stage}>
         <div className="expedition-intro-fade" style={{ opacity: hud.deploymentIntro?.fade ?? 0 }} />
-        <div className="expedition-intro-caption" role="status"><span>DEPLOYING / {zone.name.toUpperCase()}</span><strong>{hud.deploymentIntro?.stage === 'descent' ? 'Closing on entry point' : 'Ready your weapon'}</strong></div>
+        <div className="expedition-intro-caption"><span>EXPEDITION / INSERTION</span>
+          {hud.deploymentIntro && <DeploymentBriefing location={zone.name} {...hud.deploymentIntro} />}
+          <strong>{hud.deploymentIntro?.stage === 'descent' ? 'Closing on entry point' : 'Ready your weapon'}</strong>
+        </div>
         <div className="expedition-intro-actions"><button onClick={() => engine.current?.pause()}>Menu</button><button onClick={() => engine.current?.skipDeployment()}>Skip intro{!touch && <kbd>SPACE</kbd>}</button></div>
       </div>}
       {!playing && !deploying && <div className="fps-overlay"><div className="fps-start-card">

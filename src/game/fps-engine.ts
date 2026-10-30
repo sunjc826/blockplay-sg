@@ -1,4 +1,6 @@
 import { combatFeedReward, type RaiderBounty } from './combat-rewards';
+import { WEATHER } from './world-events';
+import { createDeploymentBlur } from './deployment-blur';
 import { createDeploymentIntro } from './deployment-intro';
 import { visionMountPose } from './fps-vision-mount';
 import { districtDeploymentPoints, deploymentOrder, type DeploymentView } from './expedition-deployment';
@@ -201,7 +203,7 @@ export interface FpsHud {
   inputMode: 'mouse' | 'touch';
   arena: ArenaSnapshot | null; arenaSelf: ArenaActor | null; arenaConnected: boolean; arenaStarted: boolean;
   deployment: DeploymentView | null;
-  deploymentIntro: { stage: 'descent' | 'ready'; fade: number } | null;
+  deploymentIntro: { stage: 'descent' | 'ready'; fade: number; elapsed: number; reduced: boolean; time: string; weather: string } | null;
   expeditionZone: WorldZoneId | null; facility: FacilityState | null; facilityPrompt: string; lootPrompt: string;
   /** The item being looked at within reach, as its card shows it. */
   lootCard: LootCard | null; npcPrompt: string; travelPrompt: string; lootNotice: string; fieldLoot: FieldLoot[]; npcs: ExpeditionNpc[];
@@ -293,6 +295,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     (x, z) => footMovement.canOccupy(x, 0, z, .5, 1.8, vehicles.footObstacles()) && Math.abs(footMovement.supportHeight(x, z, .1, .4, 1.8) ?? 100) < .05) : [];
   const deploymentIntro = createDeploymentIntro();
   let deploymentRoof: number | null = null, readySound = 0;
+  let deploymentConditions = { time: '', weather: '' };
   const introEligible = !!expedition && !expedition.checkpoint && !expedition.spawn;
   let deploymentChoice = 'random', deploymentResolved = false, resolvedDeployment: string | null = null;
   if (options.arena?.environment && deploymentPoints.length) options.arena.environment.deployments = deploymentPoints;
@@ -308,6 +311,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const visionState = createVisionState(!!expedition?.checkpoint?.vision && !!equipment.vision);
   // Sun flare, haze dust and rain on the lens, over the world and weapon and under any vision device.
   const lens = createLensEffects(renderer);
+  const deploymentBlur = createDeploymentBlur(renderer);
   // The weapon has its own scene, so it is lit to match the world's hour by hand: same key direction, colour and balance.
   const viewSky = new THREE.HemisphereLight('#e4efff', '#576350', 2.1); viewScene.add(viewSky);
   const weaponLight = new THREE.DirectionalLight('#fff4dd', 2.5); weaponLight.position.set(1, 2, 1); viewScene.add(weaponLight);
@@ -527,7 +531,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const mapContactRange = minimapContactRange(atmosphere.light.lighting.shift, atmosphere.conditions.weather);
     syncBelt();
     const introFrame = deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof);
-    hud.deploymentIntro = hud.phase === 'deploying' ? { stage: introFrame.stage, fade: introFrame.fade } : null;
+    hud.deploymentIntro = hud.phase === 'deploying' ? { stage: introFrame.stage, fade: introFrame.fade, elapsed: introFrame.elapsed, reduced: introFrame.reduced, ...deploymentConditions } : null;
     hud.deployment = deploymentPoints.length ? { points: deploymentPoints, choice: deploymentChoice, resolved: resolvedDeployment, canChoose: hud.phase === 'ready' && !deploymentResolved && !hud.arenaStarted } : null;
     const nearby = !vehicles.active && hud.arenaSelf?.alive ? hud.arena?.facilities?.sites.filter(s => Math.abs(s.y - vertical) < 2 && Math.hypot(s.x - position.x, s.z - position.z) <= 18).sort((a, b) => Math.hypot(a.x - position.x, a.z - position.z) - Math.hypot(b.x - position.x, b.z - position.z))[0] : null;
     hud.facility = nearby ?? null;
@@ -700,6 +704,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     capturePending = false; hud.message = ''; lastTime = performance.now(); clearInput(); canvas.focus(); initAudio();
     if (introEligible && !deploymentIntro.begun) {
       deploymentIntro.begin(!!motionPreference?.matches);
+      const conditions = atmosphere.conditions, minutes = Math.floor(conditions.hour * 60) % 1440;
+      deploymentConditions = { time: `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`, weather: WEATHER[conditions.weather].name };
       // Cast down onto roof faces, excluding the local body/effects and ground below the eye.
       const roofRay = new THREE.Raycaster(new THREE.Vector3(position.x, vertical + eyeHeight() + 180, position.z), new THREE.Vector3(0, -1, 0), .1, 179.6);
       deploymentRoof = firstVisibleHit(roofRay, gameplayCandidates())?.point.y ?? null;
@@ -1540,18 +1546,18 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.crosshairSpread = THREE.MathUtils.damp(hud.crosshairSpread, Math.max(3, spreadPixels), 20, dt);
     const state = loadout[hud.weapon], remaining = state.reloadRemaining / reloadDuration(specs[hud.weapon], emptyReload[hud.weapon]);
     const intro = deploymentIntro.active ? deploymentIntro.frame(vertical + visualEye, pitch, deploymentRoof) : null;
-    const readyProgress = intro?.stage === 'ready' ? intro.ready : undefined;
+    const readyProgress = intro?.weaponVisible ? intro.ready : undefined;
     if (intro) {
       camera.position.y = intro.height; camera.rotation.set(intro.pitch, yaw, 0, 'YXZ'); camera.fov = intro.fov;
       camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
-      rig.visible = intro.stage === 'ready'; playerBody.root.visible = false;
+      rig.visible = intro.weaponVisible; playerBody.root.visible = false;
       if (hud.phase === 'deploying' && readyProgress !== undefined) {
         if (readyProgress >= .25 && readySound < 1) { handlingSound('BOLT BACK'); readySound = 1; }
         if (readyProgress >= .66 && readySound < 2) { handlingSound('CHAMBER'); readySound = 2; }
       }
     }
     canvas.dataset.deploymentIntro = hud.phase === 'deploying' ? intro?.stage ?? '' : '';
-    canvas.dataset.deploymentCamera = JSON.stringify({ y: camera.position.y, pitch: camera.rotation.x, fov: camera.fov, ready: readyProgress ?? null });
+    canvas.dataset.deploymentCamera = JSON.stringify({ y: camera.position.y, pitch: camera.rotation.x, fov: camera.fov, ready: readyProgress ?? null, speed: intro?.speed ?? 0, blur: intro?.blur ?? 0 });
     const progress = remaining > 0 ? 1 - remaining : null;
     const motion = readyProgress === undefined ? reloadMotion(progress ?? 0, emptyReload[hud.weapon], handleSide(specs[hud.weapon].id)) : readyMotion(readyProgress, handleSide(specs[hud.weapon].id));
     canvas.dataset.readyAction = readyProgress === undefined ? '' : motion.action.toFixed(3);
@@ -2891,6 +2897,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.reflexReflection = String(sight?.magnification === 1 && canvas.dataset.opticReflection === 'true');
     if (reflectionCaptured) canvas.dataset.reflexCaptures = String(Number(canvas.dataset.reflexCaptures || 0) + 1);
     canvas.dataset.occlusion = String(occlusion.render(atmosphere.light.occlusion && !vision.thermal));
+    const descent = hud.phase === 'deploying' ? deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof) : null;
+    const blurAmount = descent && !motionPreference?.matches && !getEnvironmentSettings().reducedEffects ? descent.blur : 0;
+    deploymentBlur.present(blurAmount); canvas.dataset.deploymentBlur = blurAmount.toFixed(4);
     renderer.clearDepth(); renderer.render(viewScene, viewCamera);
     const { lighting } = atmosphere.light, air = atmosphere.air;
     lens.present({ camera, dt: realDt, time: now / 1000, sun: lighting.key, elevation: lighting.elevation, sunColor: lighting.keyColor, dusk: lighting.shift,
@@ -2925,7 +2934,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       compiling.push(renderer.compileAsync(world.scene, camera), renderer.compileAsync(viewScene, viewCamera));
     }
     renderer.setRenderTarget(previous);
-    compiling.push(vision.warm());
+    compiling.push(vision.warm(), deploymentBlur.warm());
     await Promise.all(compiling);
     offscreen.dispose();
     if (disposed) return;
@@ -3019,7 +3028,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       document.removeEventListener('pointerlockchange', lockchange); document.removeEventListener('pointerlockerror', lockerror);
       window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility);
       // First, so every mesh has its own material back before anything else restores or disposes them.
-      vision.dispose(); lens.dispose();
+      vision.dispose(); lens.dispose(); deploymentBlur.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
       healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();

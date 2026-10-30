@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#050c10}canvas{display:block}</style></head><body><script type="module">
+import * as THREE from '/node_modules/.vite/deps/three.js';
+import { createDeploymentBlur } from '/src/game/deployment-blur.ts';
+const renderer = new THREE.WebGLRenderer({preserveDrawingBuffer:true});
+renderer.setSize(384,256); renderer.autoClear=false; document.body.append(renderer.domElement);
+const scene=new THREE.Scene(), camera=new THREE.Camera();
+const geometry=new THREE.PlaneGeometry(2,2);
+const material=new THREE.ShaderMaterial({vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position,1.);}',fragmentShader:`varying vec2 vUv;void main(){float c=step(.5,fract(vUv.x*96.))*step(.5,fract(vUv.y*64.));if(distance(vUv,vec2(.5))<.09)c=1.;gl_FragColor=vec4(vec3(c)*vec3(.65,.85,1.),1.);}`});
+scene.add(new THREE.Mesh(geometry,material));
+const blur=createDeploymentBlur(renderer); await blur.warm();
+window.renderBlur=(amount,width=384,height=256)=>{
+ renderer.setSize(width,height);renderer.clear();renderer.render(scene,camera);
+ // Exercise the cached-texture/active-unit edge case repeatedly.
+ renderer.state.activeTexture(renderer.getContext().TEXTURE1);
+ const applied=blur.present(amount), gl=renderer.getContext(), pixels=new Uint8Array(width*height*4);
+ gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+ let variation=0,center=0,count=0;
+ for(let y=1;y<height;y++)for(let x=1;x<width;x++){
+  const i=(y*width+x)*4,r=Math.hypot(x/width-.5,y/height-.5);
+  if(r>.24){variation+=Math.abs(pixels[i]-pixels[i-4])+Math.abs(pixels[i]-pixels[i-width*4]);count++;}
+  if(r<.025)center+=pixels[i];
+ }
+ return {applied,variation:variation/count,center,error:gl.getError(),textures:renderer.info.memory.textures};
+};
+window.ready=true;
+</script></body></html>

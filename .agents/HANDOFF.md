@@ -4657,3 +4657,30 @@ tested /assets/index-DnqAMp8m.js and service-worker cache
 blockplay-shell-a11bd35652af. The production Cloudflare routing, assets, models,
 audio, PWA and origin checks passed without paid API requests. No GitHub push.
 AGENTS.md and the unrelated .claude directory remain local and uncommitted.
+
+
+## 2026-10-30: continuous cinematic deployment and mission briefing
+
+The 3s camera descent now uses a quintic distance curve in logarithmic height:
+zero starting/ending velocity and acceleration, a fast middle and smooth
+braking. A bounded, 17-tap radial shutter blur follows descent speed, fades
+before arrival and draws before the weapon. Its single framebuffer copy is
+released whenever inactive; reduced motion/effects bypass it. The draw starts
+.85s before the descent ends, so the gun is already rising/racking when the
+camera levels into first person. Total intro time is now 3.8s instead of 4.65s.
+
+Staggered typewriter Location, Time and Weather lines use the actual district
+and the resolved Singapore world clock/weather captured at deployment. The
+same local clock drives the text and animation, preserving pause/resume; reduced
+motion shows all lines immediately. The briefing has a stable accessible full
+announcement and fits the portrait phone layout.
+
+21 focused unit checks and typecheck passed. The actual expedition-component
+browser smoke passed overlap before first person, chosen spawn/health, frozen
+host, pause/resume, phone layout and skip, mouse capture/Space, real time/weather
+labels and reduced motion. A real GPU fixture measures blurred edge gradients
+at 32.5% of sharp while the central sample stays identical; repeated cached
+texture-unit use and portrait resize return zero GL errors, and bypass releases
+the texture. Visual review passed. Evidence: .cache/intro-motion/ and
+.cache/intro-motion-{focused,typecheck,browser,tests}.log. Full regression and
+manual release verification follow. No GitHub push; AGENTS.md stays local.

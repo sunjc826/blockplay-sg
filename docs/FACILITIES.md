@@ -21,13 +21,18 @@ Selection does not rebuild the world or move facilities. The choice is locked
 once play starts; pause/resume preserves it. Death respawns keep the existing
 post/fallback rules, and checkpoint travel keeps its authored arrival point.
 
-Entering a fresh expedition plays a 4.65-second deployment intro: a downward
-sky view descends into first person, then the support hand racks and releases
-the weapon's charging handle. The simulation starts after the sequence, so
-patrols cannot hurt the player during it. Space or **Skip intro** starts play
+Entering a fresh expedition plays a 3.8-second deployment intro: a downward
+sky view accelerates into a dive, brakes smoothly and levels into first person.
+Speed-driven radial blur softens the world during the dive and fades before
+arrival. The weapon begins rising during the final .85 seconds of approach,
+so its support-hand rack already flows into the first-person view. The gun
+stays sharp. Staggered mission-style lines reveal the district, Singapore time
+and simulated weather from the actual entry conditions. The simulation starts
+after the sequence, so patrols cannot hurt the player during it. Space or **Skip intro** starts play
 immediately; Escape or **Menu** freezes the intro, and Resume continues it.
-Reduced-motion preferences omit the aerial travel. The animation doesn't change
-ammunition or health. It doesn't replay after pausing, on death respawns or on
+Reduced-motion preferences omit the aerial travel and blur and show all three
+briefing lines immediately. Reduced effects also disables the blur. The animation
+doesn't change ammunition or health. It doesn't replay after pausing, on death respawns or on
 checkpoint travel. A sheltered entry uses a brief fade across its roof.
 
 Open the map with M to find facility squares: blue allied, orange hostile, gray
