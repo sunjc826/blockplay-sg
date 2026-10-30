@@ -4,6 +4,7 @@ export function fpsControlKey(event: Pick<KeyboardEvent, 'code' | 'key' | 'altKe
   const code = event.code;
   if (/^Key[A-Z]$/.test(code)) return code.slice(3).toLowerCase();
   if (/^Digit[0-9]$/.test(code)) return code.slice(5);
+  if (/^Numpad[0-9]$/.test(code) && event.key === code.slice(6)) return event.key;
   if (/^Control(Left|Right)$/.test(code)) return 'control';
   if (/^Shift(Left|Right)$/.test(code)) return 'shift';
   if (code === 'Space') return ' ';

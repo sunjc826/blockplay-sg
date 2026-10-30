@@ -63,6 +63,7 @@
     "test:cloudflare": "node scripts/cloudflare-check.mjs",
     "test:fps:counter-fire": "node scripts/fps-counter-fire-smoke.mjs",
     "test:fps:field-kit": "node scripts/fps-field-kit-smoke.mjs",
+    "test:fps:utility-belt": "node scripts/fps-utility-belt-smoke.mjs",
     "test:fps:grenades": "node scripts/fps-grenades-smoke.mjs",
     "test:fps:food": "node scripts/fps-food-smoke.mjs",
     "test:fps:lens": "node scripts/fps-lens-vision-smoke.mjs",

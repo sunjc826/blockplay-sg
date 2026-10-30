@@ -2,9 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { ARMORY_CATALOG, itemById } from './armory-catalog';
 import { createProfile, resolveLoadout } from './armory-state';
 import { supplyProfile } from './fps-healing';
-import { heldSupplies, pickUtility, utilityBelt, utilityKind, UTILITY_SLOTS } from './utility-belt';
+import { heldSupplies, pickUtility, utilityBelt, utilityKind, utilitySlot, utilitySlotForKey, UTILITY_SLOTS } from './utility-belt';
 
 describe('utility belt', () => {
+  it.each([
+    ['4', 'food'], ['5', 'bandage'], ['6', 'first-aid'], ['7', 'plates'], ['8', 'ammo'], ['9', 'grenade'],
+  ])('routes number key %s to the %s slot', (key, kind) => {
+    expect(utilitySlotForKey(key)).toBe(utilitySlot(kind));
+    expect(utilitySlotForKey(key)?.kind).toBe(kind);
+  });
+  it.each(['1', '2', '3', '0', 'g', 'food', 'ArrowLeft'])('leaves %s outside utility shortcuts', key => {
+    expect(utilitySlotForKey(key)).toBeUndefined();
+  });
   it('gives every consumable a slot, and every slot something to sell', () => {
     for (const item of ARMORY_CATALOG.filter(entry => entry.category === 'consumable')) expect(utilityKind(item)).not.toBeNull();
     for (const slot of UTILITY_SLOTS) expect(ARMORY_CATALOG.some(item => utilityKind(item) === slot.kind)).toBe(true);
