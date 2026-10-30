@@ -4577,3 +4577,42 @@ Typecheck, 1,840 tests and production build passed. Playwright at iPhone 13
 and 1280x800 confirmed no focus on phone, first entry focused on desktop,
 cover/reveal frames, /training and /store reached, store at scroll top, wipe
 removed afterwards. Not committed to GitHub; AGENTS.md stays local.
+
+
+## 2026-10-30: physical hand-operated vision-device mount
+
+Commit 2d6e6af adds a camera-space left glove reaching for the housing, gripping,
+rotating its helmet hinge down, seating the eyecup and withdrawing; switching
+OFF reverses the same path after the existing phosphor fade/display fold. The
+rifle lowers with its support hand during the gesture. NVG Gen 1 is a bulky
+monocular, Gen 2 a compact monocular, Gen 3 a tan dual-tube unit; Thermal T1 has
+a deep sensor box/side battery and T2 a shallow wide housing/cooling grille.
+Focus collars, rubber eyecups, dial, screws and generation markings are authored
+Three geometry, with no downloaded assets. The mount takes .86 seconds and the
+sensor blends in only as the eyecup seats. Interrupted toggles retrace the pose;
+reduced motion/checkpoint restores skip the hands. Hardware stays outside the
+thermal/material swaps and optic captures, warms its shaders during loading,
+and disposes its owned geometry/materials. Portrait framing keeps the device
+and gripping hand readable.
+
+All 1,845 tests / 191 suites, typecheck and the production build passed in an
+isolated release; all 2,673 tracked files match commit 2d6e6af. The isolated
+release excludes concurrent unfinished arena/reward/transport edits, which
+remain in the shared working tree, including their fps-engine.ts changes.
+WebGL fixture review covers all five models at six desktop poses and two
+portrait poses, with no console/shader errors. Gameplay checks confirmed NVG
+lower/light/fade/lift and thermal lower/boot/fold/lift (thermal shutdown slowed
+6x in the test browser to sample it reliably with SwiftShader). The broad
+lens/weather smoke timed out at its haze/dust assertion; no weather code changed.
+Initial screenshot-heavy runs also missed short transitions or timed out on
+screenshots; the final vision-only control checks omit synchronous screenshots.
+
+Manual pnpm deploy:cloudflare succeeded, version
+1841f773-5a1e-44c0-a284-b51742d47809. Both blockplaysg.fun and workers.dev serve
+JS/CSS and service-worker hashes identical to the isolated build. Production
+asset/model/audio/PWA, SPA fallback, room/companion API routing and origin checks
+passed on both origins without paid API calls. Evidence: .cache/vision-mount/
+(release-tests.log, release-typecheck.log, release-focused.log, deploy.log,
+source-verification.json, live-hashes.json, live-check.log, workers-live-check.log,
+clean-gameplay.log, thermal-gameplay.log and the device/portrait PNGs).
+No GitHub push. AGENTS.md remains local, unstaged and uncommitted.
