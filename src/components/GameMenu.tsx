@@ -1,6 +1,6 @@
 import TutorialGame from './TutorialGame';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, Map as MapIcon, MapPin, Settings, ShoppingBag, Users, Wrench } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, GraduationCap, Map as MapIcon, MapPin, Settings, ShoppingBag, Users, Wrench } from 'lucide-react';
 import MultiplayerGame from './MultiplayerGame';
 import FpsGame from './FpsGame';
 import ExpeditionGame from './ExpeditionGame';
@@ -16,7 +16,7 @@ import { REGIONS } from '../game/regions';
 import type { WorldZoneId } from '../game/world-zones';
 import { locations } from '../data/locations';
 import { navigate, ROUTE_PATHS, type Route } from '../lib/routes';
-import { transitionTo } from '../lib/route-transition';
+import { transitionTo, useWipe } from '../lib/route-transition';
 import { DebugMode } from '../lib/debug-mode';
 import { pwa, usePwa } from '../lib/pwa';
 import './game-menu.css';
@@ -25,13 +25,15 @@ type Screen = Exclude<Route, 'debug'>;
 
 const TRAINING_DISTRICTS = locations.filter(place => hasRegionGame(place.id));
 
+// The three ways to play lead; the rest sit in a row of tiles beneath, so
+// the whole menu fits one screen without scrolling.
 const ENTRIES = [
-  { route: 'tutorial', icon: Crosshair, title: 'Tutorial', detail: 'New here? Learn the controls, then find your way around the store.' },
-  { route: 'training', icon: Crosshair, title: 'Training', detail: 'Live-fire range in any district. Earn credits and XP.' },
-  { route: 'world', icon: MapIcon, title: 'Open World', detail: `${REGIONS.length} districts, patrols and supplies. Find your way.` },
-  { route: 'multiplayer', icon: Users, title: 'Multiplayer', detail: 'Browse public arena rooms. Invite friends or lock a room with a password.' },
-  { route: 'store', icon: ShoppingBag, title: 'Store', detail: 'Weapons, armour, supplies and vehicle paint.' },
-  { route: 'settings', icon: Settings, title: 'Settings', detail: 'Rank insignia and how the Encik talks to you.' },
+  { route: 'training', icon: Crosshair, title: 'Training', detail: 'Live-fire range in any district.', mode: true },
+  { route: 'world', icon: MapIcon, title: 'Open World', detail: `${REGIONS.length} districts, patrols and supplies.`, mode: true },
+  { route: 'multiplayer', icon: Users, title: 'Multiplayer', detail: 'Public rooms, or invite your friends.', mode: true },
+  { route: 'tutorial', icon: GraduationCap, title: 'Tutorial', detail: 'New here?', mode: false },
+  { route: 'store', icon: ShoppingBag, title: 'Store', detail: 'Gear and supplies', mode: false },
+  { route: 'settings', icon: Settings, title: 'Settings', detail: 'Rank and voice', mode: false },
 ] as const;
 
 /** Remembers the last district picked on each screen; storage may be unavailable. */
@@ -46,8 +48,13 @@ function useDistrict(key: string, allowed: readonly string[]) {
 
 const locationName = (id: WorldZoneId) => locations.find(place => place.id === id)?.name ?? id;
 
-function link(route: Route) {
-  return { href: ROUTE_PATHS[route], onClick: (event: React.MouseEvent) => { if (event.metaKey || event.ctrlKey || event.shiftKey) return; event.preventDefault(); navigate(route); } };
+/** A link that changes screen in place; with a label it goes behind the wipe. */
+function link(route: Route, label?: string) {
+  return { href: ROUTE_PATHS[route], onClick: (event: React.MouseEvent) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+    event.preventDefault();
+    if (label) transitionTo(route, label); else navigate(route);
+  } };
 }
 
 /**
@@ -56,7 +63,7 @@ function link(route: Route) {
  */
 function PlayNav({ value, options, onChange }: { value: WorldZoneId; options: readonly { id: WorldZoneId; name: string }[]; onChange: (id: WorldZoneId) => void }) {
   return <nav className="play-nav" aria-label="Game">
-    <a className="play-nav-back" {...link('menu')}><ArrowLeft size={16} /><span>Menu</span></a>
+    <a className="play-nav-back" {...link('menu', 'Menu')}><ArrowLeft size={16} /><span>Menu</span></a>
     <label className="play-nav-district"><MapPin size={14} aria-hidden="true" />
       <select aria-label="District" value={value} onChange={event => onChange(event.target.value as WorldZoneId)}>
         {options.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
@@ -96,10 +103,10 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     const districtName = locationName(screen === 'training' ? training : worldStart);
     return <div className={`game-screen game-screen-play game-screen-${screen}`}>
       <main className="game-screen-body"><DebugMode.Provider value={false}>
-        <PlayLoading key={loadKey} mode={screen} district={districtName} back={<a className="play-nav-back" {...link('menu')}><ArrowLeft size={16} /><span>Menu</span></a>}>
+        <PlayLoading key={loadKey} mode={screen} district={districtName} back={<a className="play-nav-back" {...link('menu', 'Menu')}><ArrowLeft size={16} /><span>Menu</span></a>}>
           {onLoaded => screen === 'training'
-            ? <FpsGame suspended={install.updateReady} region={training} profile={armory.profile} nav={nav} onLoaded={onLoaded} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={() => navigate('store')} />
-            : <ExpeditionGame suspended={install.updateReady} initialZone={worldStart} onZoneChange={setWorldZone} nav={nav} onLoaded={onLoaded} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onElimination={armory.awardElimination} onExit={() => navigate('menu')} />}
+            ? <FpsGame suspended={install.updateReady} region={training} profile={armory.profile} nav={nav} onLoaded={onLoaded} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={() => transitionTo('store', 'Store')} />
+            : <ExpeditionGame suspended={install.updateReady} initialZone={worldStart} onZoneChange={setWorldZone} nav={nav} onLoaded={onLoaded} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onElimination={armory.awardElimination} onExit={() => transitionTo('menu', 'Menu')} />}
         </PlayLoading>
       </DebugMode.Provider></main>
     </div>;
@@ -110,10 +117,10 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     return <div className="game-screen game-screen-store">
       <main className="game-screen-body"><DebugMode.Provider value={false}>
         <ArmoryShop store={armory} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined} nav={<nav className="store-nav" aria-label="Store">
-          <a className="game-back" {...link('menu')} aria-label="Menu"><ArrowLeft size={16} /><span>Menu</span></a>
+          <a className="game-back" {...link('menu', 'Menu')} aria-label="Menu"><ArrowLeft size={16} /><span>Menu</span></a>
           <h1>Store</h1>
           {!storeTour && <button className="store-tour-trigger" onClick={() => setStoreTour(true)}>Tour store</button>}
-          <a className="game-back store-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={15} /></a>
+          <a className="game-back store-settings" {...link('settings', 'Settings')} aria-label="Settings" title="Settings"><Settings size={15} /></a>
         </nav>} deployments={[
           { id: 'training', label: 'Training', detail: locationName(training), onDeploy: () => transitionTo('training', locationName(training), 'TRAINING') },
           { id: 'world', label: 'Open World', detail: locationName(worldStart), onDeploy: () => transitionTo('world', locationName(worldStart), 'OPEN WORLD') },
@@ -125,7 +132,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   if (screen === 'settings') {
     return <div className="game-screen game-screen-settings">
       <header className="game-screen-bar">
-        <a className="game-back" {...link('menu')}><ArrowLeft size={16} /><span>Menu</span></a>
+        <a className="game-back" {...link('menu', 'Menu')}><ArrowLeft size={16} /><span>Menu</span></a>
         <h1>Settings</h1>
         {profile}
       </header>
@@ -139,15 +146,19 @@ export default function GameMenu({ screen }: { screen: Screen }) {
 function MainMenu({ profile, install, districts }: { profile: React.ReactNode; install: boolean; districts: Partial<Record<Route, string>> }) {
   const items = useRef<(HTMLAnchorElement | null)[]>([]);
   const [chosen, setChosen] = useState<number | null>(null);
+  // Back from another screen, the wipe is still clearing: hold the entrance for it.
+  const wipe = useWipe();
+  const [arriving] = useState(() => wipe?.phase === 'reveal');
   const [ripple, setRipple] = useState<{ index: number; x: number; y: number; key: number } | null>(null);
   // Nothing is chosen until the player picks; the arrow keys then move through
-  // the entries the way a console menu would, starting from either end.
+  // the entries the way a console menu would, starting from either end
+  // (left and right too, for the row of tiles).
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (!event.key.startsWith('Arrow') || event.altKey || event.ctrlKey || event.metaKey) return;
       event.preventDefault();
       const at = items.current.findIndex(item => item === document.activeElement);
-      const down = event.key === 'ArrowDown';
+      const down = event.key === 'ArrowDown' || event.key === 'ArrowRight';
       const next = at < 0 ? (down ? 0 : ENTRIES.length - 1) : (at + (down ? 1 : -1) + ENTRIES.length) % ENTRIES.length;
       items.current[next]?.focus();
     };
@@ -167,7 +178,20 @@ function MainMenu({ profile, install, districts }: { profile: React.ReactNode; i
     try { navigator.vibrate?.(12); } catch { /* not allowed here */ }
   };
 
-  return <div className={`game-menu${chosen === null ? '' : ' is-leaving'}`}>
+  const item = (index: number) => {
+    const entry = ENTRIES[index];
+    return <a key={entry.route} ref={node => { items.current[index] = node; }} href={ROUTE_PATHS[entry.route]}
+      className={`game-menu-item${entry.mode ? '' : ' is-tile'}${chosen === index ? ' is-chosen' : ''}`} style={{ '--i': index } as React.CSSProperties}
+      onPointerDown={event => press(index, event)} onClick={event => choose(index, event)}>
+      {ripple?.index === index && <span key={ripple.key} className="game-menu-ripple" style={{ left: ripple.x, top: ripple.y }} onAnimationEnd={() => setRipple(null)} />}
+      {entry.mode && <span className="game-menu-index">0{index + 1}</span>}
+      <entry.icon size={entry.mode ? 26 : 20} />
+      <span className="game-menu-copy"><strong>{entry.title}</strong><small>{entry.detail}</small></span>
+      {entry.mode && <ChevronRight className="game-menu-go" size={20} aria-hidden="true" />}
+    </a>;
+  };
+
+  return <div className={`game-menu${chosen === null ? '' : ' is-leaving'}${arriving ? ' is-arriving' : ''}`}>
     <Skyline />
     <header className="game-menu-top">
       <span className="brand game-brand"><span className="brand-mark"><span /><span /><span /></span>blockplaySG<span className="brand-dot">.</span></span>
@@ -177,15 +201,8 @@ function MainMenu({ profile, install, districts }: { profile: React.ReactNode; i
     <main className="game-menu-main">
       <div className="game-menu-title"><span>1° N, 103° E · SINGAPORE</span><h1>Your neighbourhood.<br /><em>Your playground.</em></h1></div>
       <nav className="game-menu-list" aria-label="Main menu">
-        {ENTRIES.map((entry, index) => <a key={entry.route} ref={node => { items.current[index] = node; }} href={ROUTE_PATHS[entry.route]}
-          className={`game-menu-item${chosen === index ? ' is-chosen' : ''}`} style={{ '--i': index } as React.CSSProperties}
-          onPointerDown={event => press(index, event)} onClick={event => choose(index, event)}>
-          {ripple?.index === index && <span key={ripple.key} className="game-menu-ripple" style={{ left: ripple.x, top: ripple.y }} onAnimationEnd={() => setRipple(null)} />}
-          <span className="game-menu-index">0{index + 1}</span>
-          <entry.icon size={26} />
-          <span className="game-menu-copy"><strong>{entry.title}</strong><small>{entry.detail}</small></span>
-          <ChevronRight className="game-menu-go" size={20} aria-hidden="true" />
-        </a>)}
+        <div className="game-menu-modes">{ENTRIES.map((entry, index) => entry.mode && item(index))}</div>
+        <div className="game-menu-more">{ENTRIES.map((entry, index) => !entry.mode && item(index))}</div>
       </nav>
     </main>
 
@@ -194,7 +211,7 @@ function MainMenu({ profile, install, districts }: { profile: React.ReactNode; i
       <span className="game-menu-hint"><kbd>↑</kbd><kbd>↓</kbd> choose · <kbd>Enter</kbd> select</span>
       <span className="game-menu-edition">
         {install && <button className="game-install" onClick={() => { void pwa.install(); }}><Download size={13} /> Install</button>}
-        SG / 2026 — PROTOTYPE 01
+        <span>SG / 2026 — PROTOTYPE 01</span>
       </span>
     </footer>
   </div>;

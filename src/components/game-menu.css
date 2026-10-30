@@ -15,27 +15,39 @@
 .game-wallet b { color:var(--menu-ink); font:600 13px 'Manrope',sans-serif; font-variant-numeric:tabular-nums; }
 .game-wallet small { font:8px monospace; color:var(--menu-dim); }
 
-/* Main menu */
-.game-menu { position:relative; overflow:hidden; display:flex; flex-direction:column; padding:0 clamp(16px,5vw,64px);
+/* Main menu. It is one screen, never a page: every size below scales with the
+   viewport's height as well as its width, so the menu fits without a scroll
+   bar from a desktop window down to a phone on its side. */
+.game-menu { position:relative; height:100dvh; min-height:0; overflow:hidden; display:flex; flex-direction:column;
+  padding:env(safe-area-inset-top,0px) max(clamp(16px,5vw,64px),env(safe-area-inset-right,0px)) 0 max(clamp(16px,5vw,64px),env(safe-area-inset-left,0px));
   background:radial-gradient(ellipse at 78% 110%,#ee794b2e,transparent 55%),linear-gradient(180deg,#0d1712 0%,#152a20 100%); }
 .game-menu-skyline { position:absolute; left:0; right:0; bottom:0; height:46%; display:flex; align-items:flex-end; gap:.5%; padding:0 2%; opacity:.55; pointer-events:none; }
 .game-menu-skyline i { display:block; height:var(--h); width:var(--w); flex-shrink:0; transform:skewY(-6deg); transform-origin:bottom;
   background:repeating-linear-gradient(0deg,transparent 0 9px,#ffffff0d 9px 11px),linear-gradient(180deg,#24402f,#16291f); }
 .game-menu-skyline i.lit { background:repeating-linear-gradient(0deg,transparent 0 9px,#e0bb7238 9px 11px),linear-gradient(180deg,#2c4a36,#16291f); }
 .game-menu-top, .game-menu-main, .game-menu-foot { position:relative; z-index:1; }
-.game-menu-top { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px; padding:24px 0; }
+.game-menu-top { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:clamp(12px,3vh,24px) 0; }
+.game-brand { min-width:0; flex-shrink:1; overflow:hidden; white-space:nowrap; }
 .game-brand { color:var(--menu-ink); }
 .game-brand .brand-mark span { background:var(--menu-ink); }
 .game-brand .brand-mark span:nth-child(3) { background:var(--menu-accent); }
-.game-menu-main { flex:1; display:flex; flex-direction:column; justify-content:center; gap:36px; padding:24px 0 56px; max-width:620px; }
+.game-menu-main { flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center; gap:clamp(14px,4vh,36px); padding:clamp(4px,2vh,24px) 0 clamp(12px,5vh,56px); width:100%; max-width:620px; }
 .game-menu-title > span { font:10px ui-monospace,'SFMono-Regular',monospace; letter-spacing:2px; color:var(--menu-dim); }
-.game-menu-title h1 { font-family:'Manrope',sans-serif; font-size:clamp(34px,5.4vw,64px); line-height:1.05; letter-spacing:-2.5px; font-weight:700; margin:12px 0 0; }
+.game-menu-title h1 { font-family:'Manrope',sans-serif; font-size:clamp(28px,min(5.4vw,6.4vh),64px); line-height:1.05; letter-spacing:-2.5px; font-weight:700; margin:clamp(6px,1.4vh,12px) 0 0; }
 .game-menu-title em { font-style:normal; color:var(--menu-accent); }
-.game-menu-list { display:flex; flex-direction:column; gap:10px; }
-.game-menu-item { position:relative; overflow:hidden; display:flex; align-items:center; gap:18px; padding:18px 22px; border:1px solid var(--menu-line); border-radius:10px; background:#0d1813b3; backdrop-filter:blur(6px); text-decoration:none; color:var(--menu-ink);
+.game-menu-list { display:flex; flex-direction:column; gap:clamp(8px,1.4vh,12px); }
+.game-menu-modes { display:flex; flex-direction:column; gap:clamp(6px,1.2vh,10px); }
+.game-menu-more { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:clamp(6px,1.2vh,10px); }
+.game-menu-item { position:relative; overflow:hidden; display:flex; align-items:center; gap:18px; padding:clamp(10px,2vh,18px) 22px; border:1px solid var(--menu-line); border-radius:10px; background:#0d1813b3; backdrop-filter:blur(6px); text-decoration:none; color:var(--menu-ink);
   -webkit-tap-highlight-color:transparent; -webkit-touch-callout:none; user-select:none; touch-action:manipulation;
   transition:background .16s,border-color .16s,transform .2s cubic-bezier(.2,.8,.2,1);
-  animation:game-menu-in .5s cubic-bezier(.2,.8,.2,1) backwards; animation-delay:calc(var(--i,0) * 55ms + 140ms); }
+  animation:game-menu-in .5s cubic-bezier(.2,.8,.2,1) backwards; animation-delay:calc(var(--i,0) * 55ms + 140ms + var(--arrive,0ms)); }
+/* Utility tiles: icon over a name, a third of the row each. */
+.game-menu-item.is-tile { flex-direction:column; align-items:flex-start; gap:clamp(4px,1vh,8px); padding:clamp(10px,1.6vh,14px) 14px; }
+.game-menu-item.is-tile .game-menu-copy strong { font-size:clamp(14px,2vh,16px); letter-spacing:-.3px; }
+.game-menu-item.is-tile .game-menu-copy small { margin-top:2px; font-size:11px; }
+/* Back from another screen the wipe is still clearing off, so wait for it. */
+.game-menu.is-arriving { --arrive:300ms; }
 .game-menu-item svg { color:var(--menu-gold); flex-shrink:0; }
 .game-menu-item .game-menu-go { margin-left:auto; color:var(--menu-dim); transition:transform .2s cubic-bezier(.2,.8,.2,1),color .16s; }
 .game-menu-item::before { content:''; position:absolute; left:0; top:12px; bottom:12px; width:3px; border-radius:2px; background:var(--menu-accent); transform:scaleY(0); transition:transform .2s cubic-bezier(.2,.8,.2,1); }
@@ -53,7 +65,7 @@
 .game-menu-ripple { position:absolute; width:16px; height:16px; margin:-8px 0 0 -8px; border-radius:50%; background:radial-gradient(circle,#ee794b59 0%,#ee794b26 55%,transparent 70%); pointer-events:none; animation:game-menu-ripple .6s cubic-bezier(.2,.8,.2,1) forwards; }
 @keyframes game-menu-ripple { from { transform:scale(0); opacity:1; } to { transform:scale(60); opacity:0; } }
 @keyframes game-menu-in { from { opacity:0; transform:translateY(18px); } }
-.game-menu-title { animation:game-menu-in .55s cubic-bezier(.2,.8,.2,1) 40ms backwards; }
+.game-menu-title { animation:game-menu-in .55s cubic-bezier(.2,.8,.2,1) backwards; animation-delay:calc(40ms + var(--arrive,0ms)); }
 
 /* On the way out the chosen entry lights up and a glint runs across it while
    the rest fall away to the left, ahead of the wipe (RouteWipe) sweeping in. */
@@ -70,10 +82,12 @@
   .game-menu-item, .game-menu-title { animation:none; }
   .game-menu-ripple, .game-menu-item.is-chosen::after { display:none; }
 }
+.game-menu-copy { flex:1; min-width:0; }
+.game-menu-copy small { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .game-menu-index { font:10px monospace; color:var(--menu-dim); letter-spacing:1px; }
-.game-menu-copy strong { display:block; font:700 22px/1.2 'Manrope',sans-serif; letter-spacing:-.6px; }
+.game-menu-copy strong { display:block; font:700 clamp(17px,2.8vh,22px)/1.2 'Manrope',sans-serif; letter-spacing:-.6px; }
 .game-menu-copy small { display:block; margin-top:4px; font-size:12px; color:var(--menu-dim); }
-.game-menu-foot { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 0 22px; border-top:1px solid var(--menu-line); font-size:10px; color:var(--menu-dim); }
+.game-menu-foot { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:clamp(8px,2vh,18px) 0 max(clamp(8px,2.4vh,22px),env(safe-area-inset-bottom,0px)); border-top:1px solid var(--menu-line); font-size:10px; color:var(--menu-dim); }
 .game-debug-link { display:flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--menu-line); border-radius:5px; color:var(--menu-dim); text-decoration:none; font:10px ui-monospace,'SFMono-Regular',monospace; letter-spacing:1px; text-transform:uppercase; }
 @media (hover:none) { .game-menu-hint { display:none; } }
 .game-debug-link:hover { color:var(--menu-ink); border-color:#ffffff40; }
@@ -160,17 +174,46 @@
    ammo panel's small print. */
 .fps-game[data-touch=on] .fps-controls-fold, .fps-game[data-touch=on] .fps-player-tools kbd, .fps-game[data-touch=on] .fps-ammo-detail { display:none; }
 
+/* Short screens drop the small print first, then the headline. */
+@media (max-height:640px) {
+  .game-menu-title > span, .game-menu-modes .game-menu-copy small { display:none; }
+  .game-menu-title h1 { margin:0; }
+}
+@media (max-height:480px) {
+  .game-menu-title, .game-menu-foot { display:none; }
+  .game-menu-main { padding-bottom:max(12px,env(safe-area-inset-bottom,0px)); }
+}
+/* A phone on its side: headline beside the list rather than above it. */
+@media (max-height:560px) and (min-width:600px) and (orientation:landscape) {
+  .game-menu-main { flex-direction:row; align-items:center; max-width:none; gap:clamp(20px,4vw,48px); }
+  .game-menu-title { display:block; flex:1; }
+  .game-menu-list { flex:1.4; }
+}
+
 @media(max-width:720px) {
   .game-profile .game-rank-copy, .game-menu-hint { display:none; }
   .game-profile { gap:10px; padding:5px 10px 5px 6px; }
-  .game-brand { font-size:22px; }
-  .game-brand .brand-mark { width:24px; height:24px; margin-right:7px; }
-  .game-menu-item { padding:15px 16px; gap:14px; }
-  .game-menu-copy strong { font-size:19px; }
+  .game-menu-top .game-brand { font-size:clamp(17px,5.4vw,20px); }
+  .game-brand .brand-mark { width:22px; height:22px; margin-right:7px; }
+  .game-wallet small, .game-menu-edition > :not(button) { display:none; }
+  .game-menu-item { padding:clamp(10px,1.8vh,15px) 14px; gap:12px; }
+  .game-menu-index { display:none; }
+  .game-menu-item.is-tile { padding:clamp(9px,1.5vh,12px) 12px; }
+  .game-menu-item.is-tile .game-menu-copy small { display:none; }
   .game-screen-bar { flex-wrap:wrap; gap:10px; }
   .game-screen-bar h1 { font-size:15px; }
   .store-nav { gap:6px; }
   .store-nav .game-back > span { display:none; }
   .store-nav h1 { font-size:16px; }
   .game-screen-body > .fps-game:not(.is-immersive) > .fps-viewport { min-height:300px; }
+}
+
+/* The narrowest phones keep the whole wordmark and drop the rank badge,
+   which the store and settings still show. */
+@media (max-width:360px) {
+  .game-profile .game-rank { display:none; }
+  .game-profile { gap:8px; padding:5px 9px; }
+  .game-menu-top { gap:8px; }
+  .game-menu-top .game-brand { font-size:17px; }
+  .game-brand .brand-mark { width:18px; height:18px; margin-right:5px; }
 }

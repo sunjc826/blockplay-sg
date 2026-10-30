@@ -4742,3 +4742,28 @@ Unrelated menu/transition edits are in the shared worktree. Release checks and
 manual Cloudflare deployment will use an isolated archive of this code revision,
 excluding those uncommitted edits. No GitHub push; AGENTS.md and .claude remain
 local, unstaged and uncommitted. See docs/RANGE-DRILLS.md for rules and commands.
+
+
+## 2026-10-30: one-screen main menu and back wipes
+
+The main menu no longer scrolls. It is a fixed 100dvh screen whose spacing and
+type scale with viewport height: Training, Open World and Multiplayer are the
+mode cards (one-line blurbs); Tutorial, Store and Settings are a row of three
+tiles. Short screens drop the coordinates kicker and blurbs (<=640px tall), then
+the headline and footer (<=480px); phones on their side put the headline beside
+the list. On <=360px wide the rank badge is hidden so the wordmark fits. Menu
+wordmark sizes use `.game-menu-top .game-brand` because a global `.brand` phone
+rule in styles.css loads later. Arrow keys also take Left/Right for the tiles.
+
+Wipes now run both ways: `transitionTo` defaults to a mirrored, left-to-right
+wipe for the menu. Every Menu link, the tutorial/lobby backs, the expedition
+exit, Settings from the store and every in-game Open-store hand-off use it, and
+browser Back/Forward plays a reveal-only sweep (`revealAfterHistory`). The menu
+holds its entrance for 300ms while a wipe is still clearing.
+
+Playwright: no page scroll and no clipped entry at iPhone 13/SE/13 Mini,
+Pixel 7, iPhone landscape, iPad Mini, 1280x800 and 1440x700; no blurb
+truncated on phones; store->menu wipe and browser Back reveal both run and
+clear. Typecheck and build passed on HEAD plus only these files; the shared
+checkout's typecheck currently fails in the concurrent range-drills work
+(fps-engine.ts rangeDirector null checks), not here.

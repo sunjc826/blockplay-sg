@@ -5,7 +5,7 @@ import { createProfile, resolveLoadout } from '../game/armory-state';
 import { advanceCourse, COURSE_STEPS, startCourse } from '../game/tutorial-course';
 import { useTouchControls } from '../game/use-touch-controls';
 import { useFpsFullscreen } from '../game/use-fps-fullscreen';
-import { navigate } from '../lib/routes';
+import { transitionTo } from '../lib/route-transition';
 import TouchControls from './TouchControls';
 import FpsWeaponSlider from './FpsWeaponSlider';
 import FpsWeaponHud from './FpsWeaponHud';
@@ -58,7 +58,7 @@ export default function TutorialGame({ suspended, onStore }: { suspended: boolea
         {touch && <TouchControls hud={hud} engine={engine.current} mode="range" onMenu={() => engine.current?.pause()} />}
       </>}
       {(!playing || complete) && <div className="fps-overlay"><div className="fps-start-card tutorial-card">
-        <button className="tutorial-back" onClick={() => navigate('menu')}><ArrowLeft size={15} /> Menu</button>
+        <button className="tutorial-back" onClick={() => transitionTo('menu', 'Menu')}><ArrowLeft size={15} /> Menu</button>
         <span className="tutorial-eyebrow">RECRUIT / FIELD SCHOOL</span>
         <h2>{complete ? 'Ready for your first deployment.' : hud.phase === 'loading' ? 'Setting up the yard…' : hud.phase === 'error' ? 'Course unavailable.' : hud.phase === 'paused' ? 'Take your time.' : 'Learn by doing.'}</h2>
         <p>{complete ? 'You’ve reached the end of the control lessons. Next, find your way around the store and prepare a loadout.' : hud.phase === 'error' ? hud.message : hud.phase === 'paused' ? `Next: ${lesson.title}. Your progress is saved while this course stays open.` : 'A short obstacle course, then a guided visit to the store. Move, sprint, jump, crouch and practise with your weapon at your own pace.'}</p>

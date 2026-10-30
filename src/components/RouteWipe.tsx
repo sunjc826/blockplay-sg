@@ -1,4 +1,5 @@
-import { useWipe } from '../lib/route-transition';
+import { useEffect } from 'react';
+import { revealAfterHistory, useWipe } from '../lib/route-transition';
 import './route-wipe.css';
 
 /**
@@ -7,8 +8,12 @@ import './route-wipe.css';
  */
 export default function RouteWipe() {
   const wipe = useWipe();
+  useEffect(() => {
+    window.addEventListener('popstate', revealAfterHistory);
+    return () => window.removeEventListener('popstate', revealAfterHistory);
+  }, []);
   if (!wipe) return null;
-  return <div key={wipe.id} className={`route-wipe is-${wipe.phase}`} aria-hidden="true">
+  return <div key={wipe.id} className={`route-wipe is-${wipe.phase} is-${wipe.direction}`} aria-hidden="true">
     <i className="route-wipe-stripe" />
     <i className="route-wipe-stripe" />
     <i className="route-wipe-stripe route-wipe-panel">
