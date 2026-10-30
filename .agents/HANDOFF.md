@@ -4858,3 +4858,24 @@ source-verification.json, release-evidence.json, release-*.log and
 .cache/{aerial-deployment,intro-motion,aerial-live}/ screenshots/verification.
 Task-owned Vite/Chrome stopped. No GitHub push. Concurrent audio/combat changes
 remain untouched and outside the release; AGENTS.md stays local and uncommitted.
+
+## 2026-10-30 — stationary and moving artillery mix
+
+Added `artillery-creeping` alongside the existing stationary barrage. Every risk
+pool splits the old artillery weight of 3 into 1.5 for each kind, retaining the
+same pacing and 45 s cooldowns. The new mission keeps two harmless spotting
+rounds and 6–12 damaging shells, split into three salvos at 11/15/19 s, with
+centres advancing 18 m each time. All three 24 m warning rings appear upfront:
+amber previews turn red at least five seconds before their salvo, then clear
+1.5 s after its last shell. The banner tells players to escape sideways; bots
+also leave across the corridor. Damage, cover, stance, audio, attribution and
+snapshot format use the existing event framework.
+
+The director validates the complete moving corridor against district edges and
+protected arrivals, and checks every later damaging round against humans.
+Ring terrain heights are cached separately per marker; the bounded pool now
+accommodates three moving hazards. Debug survival exposes Moving barrage.
+Added seven scenario tests for deterministic timelines, budgets, warnings,
+whole-path safety, mixed selection, host damage/cleanup and bot escape.
+85 focused tests and typecheck pass. Rendered smoke and isolated release checks
+follow; concurrent audio/engine working-tree changes will be excluded. No push.

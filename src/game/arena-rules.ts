@@ -1817,7 +1817,15 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       for (const payload of combatTimeline(event.descriptor)) {
         if (payload.type !== 'marker' || age < payload.from || age > payload.until) continue;
         const dx = actor.x - payload.center.x, dz = actor.z - payload.center.z, d = Math.hypot(dx, dz);
-        if (d < payload.radius + 2) return d > .01 ? { x: dx / d, z: dz / d } : { x: 1, z: 0 };
+        if (d < payload.radius + 2) {
+          if (event.descriptor.kind === 'artillery-creeping') {
+            // Leave the whole corridor sideways instead of fleeing along it into the next salvo.
+            const x = -Math.cos(event.descriptor.heading), z = Math.sin(event.descriptor.heading);
+            const side = (actor.x - event.descriptor.target.x) * x + (actor.z - event.descriptor.target.z) * z < 0 ? -1 : 1;
+            return { x: x * side, z: z * side };
+          }
+          return d > .01 ? { x: dx / d, z: dz / d } : { x: 1, z: 0 };
+        }
       }
     }
     return null;

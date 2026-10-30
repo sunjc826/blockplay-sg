@@ -56,6 +56,45 @@ registerCombatEvent({
   },
 });
 
+/** Three short salvos advance along the bearing; ammunition stays at the stationary barrage's 6–12 shells. */
+export const CREEPING_ARTILLERY = { salvos: 3, step: 18, interval: 4, first: FIRE_FOR_EFFECT, radius: 24 } as const;
+registerCombatEvent({
+  id: 'artillery-creeping',
+  name: 'Moving artillery barrage',
+  description: 'Three salvos advance along the marked path. Move sideways out of the corridor.',
+  warning: 5,
+  duration: 28,
+  cause: 'Artillery',
+  banner: { warning: 'MOVING ARTILLERY INBOUND · CLEAR THE MARKED PATH', active: 'MOVING ARTILLERY · ESCAPE SIDEWAYS' },
+  hazard: true,
+  timeline(event) {
+    const random = combatRandom(event.seed), offset = frame(event), gaussian = gaussianFrom(random);
+    const descent = descentAlong(event.heading, 1.13), payloads: CombatPayload[] = [];
+    let id = 0;
+    // Same harmless ranging sequence as stationary artillery, aimed at the first salvo.
+    for (const [time, low, spread] of [[5.5, 30, 20], [8.5, 12, 6]]) {
+      const bearing = random() * Math.PI * 2, distance = low + random() * spread;
+      payloads.push({ type: 'munition', id: id++, impact: { x: event.target.x + Math.cos(bearing) * distance, z: event.target.z + Math.sin(bearing) * distance },
+        time, flight: 2.4, descent, blast: null, smoke: '#d8463a' });
+    }
+    const shells = Math.round(6 + 6 * (clampIntensity(event.intensity) - .5) / 1.5);
+    for (let salvo = 0; salvo < CREEPING_ARTILLERY.salvos; salvo++) {
+      const forward = salvo * CREEPING_ARTILLERY.step, center = offset(forward, 0), first = FIRE_FOR_EFFECT + salvo * CREEPING_ARTILLERY.interval;
+      const count = Math.floor(shells / 3) + (salvo < shells % 3 ? 1 : 0);
+      let last = first;
+      for (let shell = 0; shell < count; shell++) {
+        last = first + shell * .45 + random() * .2;
+        payloads.push({ type: 'munition', id: id++, impact: offset(forward + gaussian() * 4.5, gaussian() * 3), time: last, flight: 2.4, descent, blast: { ...ARTILLERY_SHELL } });
+      }
+      // Preview the entire route from the outset; red advances five seconds before each salvo.
+      const warn = salvo ? first - 5 : 0;
+      if (warn) payloads.push({ type: 'marker', id: id++, center, radius: CREEPING_ARTILLERY.radius, from: 0, until: warn, colour: '#f2b84b' });
+      payloads.push({ type: 'marker', id: id++, center, radius: CREEPING_ARTILLERY.radius, from: warn, until: last + 1.5, colour: '#ff4a3a' });
+    }
+    return payloads;
+  },
+});
+
 /**
  * Troop transports: how the enemy's dead come back. A bot that falls waits
  * for a ride instead of reappearing at a spawn point, and the ride is visible

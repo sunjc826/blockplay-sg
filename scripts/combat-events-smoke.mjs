@@ -68,6 +68,7 @@ try {
   const room = async () => { for (let i = 0; i < 400; i++) { if ((await census())[0] <= 1) return; await delay(500); } };
   const jammed = () => evaluate(`!!document.querySelector('[data-map-jammed]')`);
   const checks = [
+    ['Moving barrage', null, null, /MOVING ARTILLERY/],
     ['Mortar', 'mortar pit', c => c[7] >= 1, /MORTAR/], ['Air raid', 'jets', c => c[5] >= 1, /AIR RAID/],
     ['Gunship', 'raid helicopter', c => c[6] >= 1, /HELICOPTER/], ['Drone', 'drone', c => c[6] >= 1, /DRONE/],
     ['Sniper', null, null, /SNIPER/], ['Tear gas', 'gas cloud', c => c[9] > 0, /GAS/], ['Smoke', 'smoke cloud', c => c[9] > 0, /SMOKE/],

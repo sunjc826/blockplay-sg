@@ -21,17 +21,17 @@ export const COMBAT_PACE: Readonly<Record<CombatRisk, { first: readonly [number,
  */
 export const COMBAT_TABLES: Readonly<Record<CombatRisk, readonly CombatDirectorEntry[]>> = {
   low: [
-    { kind: 'artillery', weight: 3, cooldown: 45 }, { kind: 'mortar', weight: 2, cooldown: 90 }, { kind: 'smoke-screen', weight: 1, cooldown: 90 },
+    { kind: 'artillery', weight: 1.5, cooldown: 45 }, { kind: 'artillery-creeping', weight: 1.5, cooldown: 45 }, { kind: 'mortar', weight: 2, cooldown: 90 }, { kind: 'smoke-screen', weight: 1, cooldown: 90 },
     { kind: 'supply-drop', weight: 2, cooldown: 150 }, { kind: 'blackout', weight: 1, cooldown: 240 }, { kind: 'drone', weight: 1, cooldown: 120 },
   ],
   medium: [
-    { kind: 'artillery', weight: 3, cooldown: 45 }, { kind: 'mortar', weight: 2, cooldown: 90 }, { kind: 'drone', weight: 2, cooldown: 90 },
+    { kind: 'artillery', weight: 1.5, cooldown: 45 }, { kind: 'artillery-creeping', weight: 1.5, cooldown: 45 }, { kind: 'mortar', weight: 2, cooldown: 90 }, { kind: 'drone', weight: 2, cooldown: 90 },
     { kind: 'sniper', weight: 2, cooldown: 120 }, { kind: 'smoke-screen', weight: 1, cooldown: 90 }, { kind: 'tear-gas', weight: 1, cooldown: 90 },
     { kind: 'supply-drop', weight: 2, cooldown: 150 }, { kind: 'blackout', weight: 1, cooldown: 240 },
     { kind: 'air-raid', weight: 1, cooldown: 180 }, { kind: 'helicopter-raid', weight: 1, cooldown: 180 },
   ],
   high: [
-    { kind: 'artillery', weight: 3, cooldown: 45 }, { kind: 'mortar', weight: 2, cooldown: 75 }, { kind: 'drone', weight: 2, cooldown: 75 },
+    { kind: 'artillery', weight: 1.5, cooldown: 45 }, { kind: 'artillery-creeping', weight: 1.5, cooldown: 45 }, { kind: 'mortar', weight: 2, cooldown: 75 }, { kind: 'drone', weight: 2, cooldown: 75 },
     { kind: 'sniper', weight: 2, cooldown: 100 }, { kind: 'air-raid', weight: 2, cooldown: 150 }, { kind: 'helicopter-raid', weight: 2, cooldown: 150 },
     { kind: 'tear-gas', weight: 1, cooldown: 90 }, { kind: 'smoke-screen', weight: 1, cooldown: 90 },
     { kind: 'supply-drop', weight: 1, cooldown: 150 }, { kind: 'blackout', weight: 1, cooldown: 240 },
@@ -106,7 +106,13 @@ export function createCombatDirector(options: { risk: CombatRisk; seed: number; 
       if (view.avoid?.some(p => Math.hypot(p.x - target.x, p.z - target.z) < COMBAT_SPAWN_CLEAR)) continue;
       // Check the actual rounds and clouds, not just the aim point: dispersion reaches well past it.
       const probe = { ...directive, id: 'probe', start: view.now };
-      const close = combatTimeline(probe).some(p => view.humans.some(h =>
+      const payloads = combatTimeline(probe);
+      // A moving mission's whole marked corridor must fit, including later salvos and protected arrivals.
+      if (kind === 'artillery-creeping' && payloads.some(p => p.type === 'marker' && (
+        p.center.x - p.radius < bounds.minX || p.center.x + p.radius > bounds.maxX ||
+        p.center.z - p.radius < bounds.minZ || p.center.z + p.radius > bounds.maxZ ||
+        view.avoid?.some(a => Math.hypot(a.x - p.center.x, a.z - p.center.z) < p.radius + COMBAT_SPAWN_CLEAR)))) continue;
+      const close = payloads.some(p => view.humans.some(h =>
         p.type === 'munition' ? !!p.blast && Math.hypot(h.x - p.impact.x, h.z - p.impact.z) < COMBAT_BRACKET
           : p.type === 'cloud' && p.dps > 0 && Math.hypot(h.x - p.center.x, h.z - p.center.z) < p.radius + 3));
       if (!close) return directive;

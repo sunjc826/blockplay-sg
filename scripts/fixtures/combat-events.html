@@ -1,6 +1,6 @@
 <!doctype html><html><head><meta charset="utf-8"><title>Combat events</title><style>
 body{margin:0;background:#161e25;color:#d9e4e9;font:14px system-ui}canvas{display:block}header{position:absolute;top:14px;left:20px;text-shadow:0 1px 2px #000}header small{display:block;color:#c3d0d8;margin-top:4px}
-</style></head><body><header>Combat events • combat-events → combat-event-visuals<small>window.show(kind, seconds, view) runs one event from its descriptor to `seconds` and renders it; kind is artillery, transport-land or transport-air; view is 'near' or 'wide'</small></header>
+</style></head><body><header>Combat events • combat-events → combat-event-visuals<small>window.show(kind, seconds, view) runs one event from its descriptor to `seconds` and renders it; kind is artillery, artillery-creeping, transport-land or transport-air; view is 'near' or 'wide'</small></header>
 <script type="module">
 // The bare specifier, so this page shares the app's three instance: lights made by the visuals must belong to this renderer.
 import * as THREE from 'three';
@@ -21,10 +21,12 @@ const cast=(origin,direction,far)=>{ray.set(origin,direction);ray.near=0;ray.far
 const visuals=createCombatEventVisuals(world,cast,{reduced:()=>false});
 const camera=new THREE.PerspectiveCamera(60,1.5,.1,800);
 const VIEWS={near:{eye:[0,1.7,46],at:[0,2,0]},wide:{eye:[60,30,90],at:[0,4,-10]},high:{eye:[0,70,80],at:[0,0,-20]}};
-window.show=(kind='artillery',seconds=13,view='near')=>{
+const terrace=new THREE.Mesh(new THREE.BoxGeometry(12,6,12),mat('#b1bba4'));terrace.position.set(0,3,-36);
+window.show=(kind='artillery',seconds=13,view='near',terraced=false)=>{
+  terrace.removeFromParent();if(terraced)world.add(terrace);
   visuals.reset();
   // A transport drives up the street from the south; its drop is the plaza.
-  const event={id:`fixture-${Math.random()}`,kind,seed:20261024,start:0,target:{x:0,z:0},heading:kind==='artillery'?Math.PI/2:Math.PI,intensity:1,reach:kind==='transport-air'?180:150,troops:4};
+  const event={id:`fixture-${Math.random()}`,kind,seed:20261024,start:0,target:{x:0,z:0},heading:kind==='artillery-creeping'?0:kind==='artillery'?Math.PI/2:Math.PI,intensity:1,reach:kind==='transport-air'?180:150,troops:4};
   const v=VIEWS[view]??VIEWS.near;camera.position.set(...v.eye);camera.lookAt(...v.at);camera.updateMatrixWorld(true);world.updateMatrixWorld(true);
   const tally={blasts:0,spots:0};
   for(let t=0;t<seconds;t+=1/60){
@@ -34,7 +36,9 @@ window.show=(kind='artillery',seconds=13,view='near')=>{
     visuals.update(dt,[event],t+dt,camera);
   }
   renderer.render(world,camera);
-  return {...tally,counts:visuals.counts,payloads:combatTimeline(event).length};
+  const rings=[];world.traverse(o=>{if(o.name==='combat-danger-ring'&&o.visible)rings.push({x:o.position.x,y:o.position.y,z:o.position.z,radius:o.scale.x,colour:'#'+o.material.color.getHexString()});});
+  document.querySelector('header small').textContent=`${kind} · ${seconds}s · ${tally.blasts} impacts · ${rings.length} warning rings`;
+  return {...tally,counts:visuals.counts,payloads:combatTimeline(event).length,rings,glError:renderer.getContext().getError()};
 };
 window.show();
 </script></body></html>

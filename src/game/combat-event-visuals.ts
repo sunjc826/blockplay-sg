@@ -14,7 +14,7 @@ import { withInstanceOpacity } from './fps-impact-material';
  * resolves hits on live raiders, transport hulls and seated drivers separately.
  */
 
-const FIRE = 96, SMOKE = 256, DEBRIS = 96, SHELLS = 24, CRATERS = 40, MARKERS = 8, TRANSPORTS = 3, ROPERS = 6;
+const FIRE = 96, SMOKE = 256, DEBRIS = 96, SHELLS = 24, CRATERS = 40, MARKERS = 18, TRANSPORTS = 3, ROPERS = 6;
 const BOMBS = 16, FLYERS = 4, RAIDERS = 2, PITS = 2, CRATES = 2, PUFFS = 192;
 /** Shells are drawn at an arcade speed so their last half-second is visible at all. */
 const SHELL_SPEED = 120;
@@ -205,7 +205,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
   const ringGeometry = keep(new THREE.RingGeometry(.94, 1, 72));
   const markers = Array.from({ length: MARKERS }, () => {
     const material = hold(new THREE.MeshBasicMaterial({ color: '#ff4a3a', transparent: true, opacity: 0, side: THREE.DoubleSide, forceSinglePass: true, depthWrite: false }));
-    const mesh = new THREE.Mesh(ringGeometry, material); mesh.rotation.x = -Math.PI / 2; mesh.visible = false; mesh.raycast = noRaycast; root.add(mesh);
+    const mesh = new THREE.Mesh(ringGeometry, material); mesh.name = 'combat-danger-ring'; mesh.rotation.x = -Math.PI / 2; mesh.visible = false; mesh.raycast = noRaycast; root.add(mesh);
     return { mesh, material };
   });
   const ropeGeometry = keep(new THREE.BufferGeometry()); ropeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(TRANSPORTS * 2 * 2 * 3), 3));
@@ -455,8 +455,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
             puffMesh.setMatrixAt(puffs++, matrix.compose(position, cameraQuaternion, scale.setScalar(size)));
           }
         } else if (payload.type === 'marker' && marker < MARKERS && age >= payload.from && age <= payload.until) {
-          const m = markers[marker++], y = landings.get(`${event.id}/marker`)?.y ?? groundAt(payload.center.x, payload.center.z);
-          if (!landings.has(`${event.id}/marker`)) landings.set(`${event.id}/marker`, new THREE.Vector3(payload.center.x, y, payload.center.z));
+          const m = markers[marker++], y = groundOnce(`${event.id}/${payload.id}/marker`, payload.center.x, payload.center.z);
           m.mesh.position.set(payload.center.x, y + .12, payload.center.z); m.mesh.scale.setScalar(payload.radius); m.mesh.visible = true;
           m.material.color.set(payload.colour); m.material.opacity = (.35 + .25 * Math.sin(clock * 6)) * Math.min(1, (payload.until - age) / 1.5);
         } else if (payload.type === 'transport') {

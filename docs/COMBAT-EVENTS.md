@@ -3,8 +3,8 @@
 Expedition facility rules now govern normal infantry waves and fleet replacements: operational command posts, garages and helipads are required, with shared supply costs and local deployment safety. Off-map combat support remains available. See [facilities](FACILITIES.md) for these overrides to the original reinforcement and replacement behavior described below.
 
 Status: **steps 1, 3 and 4 are built**, for the open world (expedition) and
-the solo arena: the core, the shared blast resolver, the director, and twelve
-events. They are **artillery**, **troop transports** (truck and helicopter),
+the solo arena: the core, the shared blast resolver, the director, and thirteen
+events. They are **stationary and moving artillery**, **troop transports** (truck and helicopter),
 **air raid**, **helicopter raid**, **mortar fire**, **loitering drone**,
 **rooftop sniper**, **supply drop**, **smoke screen**, **tear gas** and
 **blackout**. Still proposals: the range adapter, a World conditions setting,
@@ -309,7 +309,29 @@ mercenary ride, "FRIENDLY TRUCK INBOUND · ARMED FORCES" for a friendly one (see
   shell's own path against the rendered scene, so a shell can burst on a roof
   or a wall face.
 - Counterplay: leave the ring, or go prone behind hard cover.
-- Variant for later: `creeping` moves the aim point along `heading` each salvo.
+
+**Moving artillery** (`artillery-creeping`, built)
+
+- Retains the two harmless spotting rounds and the same total **6–12 damaging
+  shells**, split across **three salvos**. The first starts at **11 s**, then
+  the next two at **15 s** and **19 s**. Their centres advance **18 m** per
+  salvo along `heading`, covering a **36 m** path.
+- All three **24 m rings** appear immediately. Future sections are amber;
+  each turns red at least **5 s** before its first impact. Cleared sections
+  disappear **1.5 s** after their last shell. The minimap shows the remaining
+  marked path and the banner calls out moving artillery. Every shell's planned ground
+  blast footprint fits within its section's warning ring.
+- Counterplay: move **sideways out of the corridor**; running along it can put
+  you under the next salvo. Bots also escape across the corridor.
+- Every risk table splits the previous artillery weight of 3 into **1.5
+  stationary / 1.5 moving**, with **45 s** cooldowns. Overall event pacing is
+  unchanged. Actual placement can favour stationary barrages in cramped areas:
+  the moving mission's entire marked path must fit within district bounds and
+  stay clear of protected arrival points; every damaging round is checked
+  against humans, including later salvos.
+- Timeline, effects and host damage share the existing descriptor/seed format,
+  blast/cover/stance rules, whistles and craters. No new snapshot fields.
+
 
 **Air raid** (built)
 
@@ -489,9 +511,9 @@ What the director picks from (`COMBAT_TABLES`, weight / cooldown in seconds):
 
 | Risk | Table |
 | --- | --- |
-| Low | artillery 3/45, mortar 2/90, supply drop 2/150, smoke 1/90, drone 1/120, blackout 1/240 |
-| Medium | artillery 3/45, mortar 2/90, drone 2/90, sniper 2/120, supply drop 2/150, smoke 1/90, tear gas 1/90, air raid 1/180, helicopter raid 1/180, blackout 1/240 |
-| High | artillery 3/45, mortar 2/75, drone 2/75, sniper 2/100, air raid 2/150, helicopter raid 2/150, tear gas 1/90, smoke 1/90, supply drop 1/150, blackout 1/240 |
+| Low | stationary artillery 1.5/45, moving artillery 1.5/45, mortar 2/90, supply drop 2/150, smoke 1/90, drone 1/120, blackout 1/240 |
+| Medium | stationary artillery 1.5/45, moving artillery 1.5/45, mortar 2/90, drone 2/90, sniper 2/120, supply drop 2/150, smoke 1/90, tear gas 1/90, air raid 1/180, helicopter raid 1/180, blackout 1/240 |
+| High | stationary artillery 1.5/45, moving artillery 1.5/45, mortar 2/75, drone 2/75, sniper 2/100, air raid 2/150, helicopter raid 2/150, tear gas 1/90, smoke 1/90, supply drop 1/150, blackout 1/240 |
 
 **The world, not just the player.** When the host offers `heat` (shots, kills
 and blasts, warmed into 16 m cells that cool over 45 s) or `places` (the
@@ -578,8 +600,12 @@ and gas through armour and bots leaving it.
 
 `scripts/fixtures/combat-events.html` runs one event from its descriptor in a
 small street scene for visual review: `window.show(kind, seconds, view)`, with
-kind `artillery`, `transport-land` or `transport-air` and view `near`, `wide`
-or `high` (artillery and transports only). `pnpm test:combat-events` drives a
+kind `artillery`, `artillery-creeping`, `transport-land` or `transport-air` and view `near`, `wide`
+or `high` (artillery and transports only). `node scripts/creeping-artillery-smoke.mjs`
+checks both barrage renderers, the advancing warning rings, impacts, cleanup and
+per-section terrain heights. `combat-creeping.test.ts` covers the mixed director,
+whole-path placement safety, warning coverage, deterministic snapshots, host
+damage at both ends and bots escaping sideways. `pnpm test:combat-events` drives a
 real expedition with the AI pilot playing. A debug truck, helicopter and
 barrage must draw, and craters must appear. Then every other event is called
 once and must draw something (a pit, jets, a raider, a cloud, a crate, a
