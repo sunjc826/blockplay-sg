@@ -4199,3 +4199,28 @@ whose hashes match the tested local build. Routing, service worker, manifest,
 models, audio and API-origin checks passed. Evidence:
 .cache/thermal-circle-release/release-evidence.json, .cache/thermal-circle-tests.log
 and .cache/thermal-circle-live-check.log. No GitHub push; AGENTS.md stays local.
+
+
+## 2026-10-30: facility warfare deployed and verified
+
+Code commit 8c83ca2 was exported to .cache/facility-release-8c83ca2; all 2,646
+tracked files matched the commit. The clean snapshot passed typecheck, 79 focused
+facility/site/fleet checks and the Cloudflare build. pnpm deploy:cloudflare
+succeeded manually: version 00ecf41b-64bd-4a5d-a186-8769e072da33. Production
+routing, service worker, manifest, models, audio and API checks passed; JS/CSS
+hashes on blockplaysg.fun and workers.dev match the exact release build.
+Evidence: source-verification.json, release-evidence.json, release-checks.log,
+release-build.log, release-deploy.log and release-live-check.log in that folder.
+
+The real-engine browser checks passed construction, intact capture preserving
+health, friendly protection, district-return persistence and desktop/portrait/
+landscape layout with the actual weapon HUD and touch controls. Destruction was
+also verified against the clean release: gunfire reduced equipment to zero while
+ownership remained Black Kite. Earlier firing-driver corrections repeated stale
+HUD values under slow software rendering; e6803a0 corrects once per published
+frame and adds a focused destruction run. Its passing evidence is under
+.cache/facilities-browser/destruction-verification.json. Disable Vite HMR during
+browser smokes, including reloads triggered by other sessions' cache files.
+
+No GitHub push. AGENTS.md remains local and uncommitted. Other sessions' pending
+night-vision edits were preserved and excluded from the release snapshot.
