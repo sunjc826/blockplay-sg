@@ -78,13 +78,27 @@ function buildCargo() {
   const fin = new THREE.Mesh(new THREE.BoxGeometry(.3, 5, 3.2), skin); fin.position.set(0, 3.6, 11); root.add(fin);
   return root;
 }
-/** An original quadcopter: body, two crossed arms, four rotor discs and a warning light. */
+/** An original quadcopter with small navigation lamps visible from the ground. */
 function buildDrone() {
   const root = new THREE.Group(), shell = new THREE.MeshStandardMaterial({ color: '#2a2e2c', roughness: .6 }), blade = new THREE.MeshBasicMaterial({ color: '#111', transparent: true, opacity: .45 });
   root.add(new THREE.Mesh(new THREE.BoxGeometry(.42, .16, .62), shell));
   const warhead = new THREE.Mesh(new THREE.CylinderGeometry(.09, .12, .5, 8), new THREE.MeshStandardMaterial({ color: '#59604e', roughness: .7 })); warhead.rotation.x = Math.PI / 2; warhead.position.set(0, -.14, -.05); root.add(warhead);
   for (const angle of [Math.PI / 4, -Math.PI / 4]) { const arm = new THREE.Mesh(new THREE.BoxGeometry(1.15, .04, .06), shell); arm.rotation.y = angle; root.add(arm); }
   for (const [x, z] of [[.4, .4], [-.4, .4], [.4, -.4], [-.4, -.4]]) { const rotor = new THREE.Mesh(new THREE.CylinderGeometry(.24, .24, .01, 14), blade); rotor.position.set(x, .06, z); root.add(rotor); }
+  // Steady underside lamps stay visible between warning blinks. Their small,
+  // depth-tested halos give the NVG's normal gain a signal without lighting terrain.
+  const glow = radial(32, 2), lampGeometry = new THREE.SphereGeometry(.055, 6, 4);
+  for (const [name, colour, x, y, z] of [
+    ['port', '#ff6552', -.4, -.035, -.4],
+    ['starboard', '#70ffa0', .4, -.035, -.4],
+    ['tail', '#fff0cc', 0, -.13, .3],
+  ] as const) {
+    const lamp = new THREE.Mesh(lampGeometry, new THREE.MeshBasicMaterial({ color: colour, toneMapped: false }));
+    lamp.name = `drone-nav-${name}`; lamp.position.set(x, y, z); root.add(lamp);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: colour, opacity: .45,
+      blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    halo.name = `drone-nav-${name}-glow`; halo.position.copy(lamp.position); halo.scale.setScalar(.34); root.add(halo);
+  }
   const light = new THREE.Mesh(new THREE.SphereGeometry(.05, 6, 4), new THREE.MeshBasicMaterial({ color: '#ff3a2a', toneMapped: false })); light.name = 'drone-light'; light.position.set(0, .1, -.32); root.add(light);
   return root;
 }
@@ -123,12 +137,14 @@ function buildGunship() {
   const gun = new THREE.Mesh(new THREE.BoxGeometry(.08, .08, .9), new THREE.MeshStandardMaterial({ color: '#1a1c1b', roughness: .5 })); gun.position.set(-1.25, .9, -.6); root.add(gun);
   return root;
 }
-/** Every mesh's geometry, materials and textures, for a model built on demand. */
+/** Every drawable's owned geometry, materials and textures, for a model built on demand. */
 function ownership(model: THREE.Object3D, geometries: THREE.BufferGeometry[], materials: THREE.Material[], textures: THREE.Texture[]) {
   model.traverse(node => {
     node.raycast = noRaycast;
     if (node instanceof THREE.Mesh || node instanceof THREE.LineSegments) {
       geometries.push(node.geometry);
+    }
+    if (node instanceof THREE.Mesh || node instanceof THREE.LineSegments || node instanceof THREE.Sprite) {
       (Array.isArray(node.material) ? node.material : [node.material]).forEach((m: THREE.Material) => { materials.push(m); if ('map' in m && m.map instanceof THREE.Texture) textures.push(m.map); });
     }
   });

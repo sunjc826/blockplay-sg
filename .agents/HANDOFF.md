@@ -4509,3 +4509,28 @@ Full regression and manual deployment evidence follow. No GitHub push.
 AGENTS.md remains local and uncommitted. The unrelated combat-event-visuals.ts
 work in the shared checkout belongs to another ongoing task and is excluded
 from this change.
+
+
+## 2026-10-30: subtle drone navigation lamps
+
+Loitering drones now have steady red/green underside arm lamps and a warm-white
+underside tail lamp, with small depth-tested additive halos. They stay visible
+between the original warning light's blinks and give every NVG tier a signal
+from the ground. No point lights, gameplay/hitbox changes or new controls.
+On-demand prop ownership now disposes sprite materials/textures with the model.
+
+All 1,828 tests / 188 suites and typecheck passed in an isolated release copied
+from acaa323, differing only in combat-event-visuals.ts. Real WebGL comparisons
+at approximately 59m passed bare-eye night and all three NVG generations with
+the warning blink off; dive warning, wreck/reset hiding and depth tests passed,
+with no shader errors. Screenshots and measurements: .cache/drone-lights/.
+
+Manual pnpm deploy:cloudflare succeeded, version
+51cf466b-adbc-483e-82e6-9bea8b703b1f. Both public origins' JS/CSS and service worker
+match the isolated build; production Cloudflare checks passed. The initial
+shared-workspace deployment picked up concurrent expedition-intro work and is
+superseded by this isolated release. The intro's separate commit/work was left
+untouched and is not in this release. Final evidence:
+.cache/drone-lights/{release-source.json,isolated-tests.log,isolated-typecheck.log,
+final-release-deploy.log,final-live-check.log,live-evidence.json}.
+No GitHub push; AGENTS.md stays local, unstaged and uncommitted.
