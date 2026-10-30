@@ -4767,3 +4767,37 @@ truncated on phones; store->menu wipe and browser Back reveal both run and
 clear. Typecheck and build passed on HEAD plus only these files; the shared
 checkout's typecheck currently fails in the concurrent range-drills work
 (fps-engine.ts rangeDirector null checks), not here.
+
+## 2026-10-30 — range drills and equipment resupply released
+
+Code revisions 83c0255 and 64bed2d add the range features above. Final native phone
+verification caught the End drill button and summary note in the arena overlay;
+64bed2d moves them into the range overlay. The actual React UI smoke now passes
+Classic/Continuous/Timed selection, countdown, 390px layout, real touch resupply,
+persistent inventory isolation, pause and early-end summary, with no runtime
+errors. Final desktop/phone screenshots were captured and reviewed using Metal.
+
+All 106 focused checks passed against the frozen feature source. Final release
+typecheck and production build passed. The earlier broad run passed 1,877 tests
+with two map timeouts; both affected files subsequently passed all 155 checks
+with one worker. Two redundant clean-copy broad reruns were interrupted during
+severe shared-host load and are not recorded as passing runs. Engine browser
+coverage includes Classic completion, more than eight Continuous clears, the
+full 90-second challenge, pause semantics, session-only grenade/utility use,
+restock without accumulation and unique rewards.
+
+Manual pnpm deploy:cloudflare succeeded with version
+1a331482-9c7e-49fd-923d-eef06ed5f536. The isolated release
+.cache/range-drills-release-64bed2d matches all 2,694 tracked files of 64bed2d,
+including the newly committed d84c3a5 menu improvements, while excluding the
+concurrent uncommitted expedition/intro/audio work. Both blockplaysg.fun and
+workers.dev serve JS/CSS and sw.js with byte hashes identical to this build
+(cache blockplay-shell-55e6589eb0e4). Production routing/assets/API-origin checks
+passed on retry after one network timeout, without paid API requests.
+
+Evidence: source-verification.json, release-evidence.json, release-typecheck.log,
+release-deploy.log, release-verification.log, release-cloudflare-retry.log,
+focused-tests.log, engine-browser.log and workspace-*-tests.log in the isolated
+release; .cache/range-drills/ beneath it holds final UI results and screenshots.
+Task-owned Vite and Chrome processes were stopped. No GitHub push. AGENTS.md,
+.claude and unrelated working-tree changes remain unstaged and uncommitted.
