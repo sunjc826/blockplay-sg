@@ -1,0 +1,35 @@
+/* Screen-change wipe (RouteWipe). Three slanted stripes, orange, gold, then
+   the menu's own green, sweep in from the right; the route changes beneath
+   them and they carry on off the left edge, the top stripe first, so each
+   colour flashes past before the new screen shows. Transforms only, so the
+   reveal keeps moving while a district blocks the main thread as it builds.
+   Timings match COVER_MS and REVEAL_MS in lib/route-transition. */
+.route-wipe { position:fixed; inset:0; z-index:2000; overflow:hidden; pointer-events:auto; }
+.route-wipe.is-reveal { pointer-events:none; }
+/* Wider than the screen by the slant's reach, so no corner shows through. */
+.route-wipe-stripe { position:absolute; inset:0 calc(-12vh - 24px); display:block; transform:translateX(105%) skewX(-12deg); will-change:transform;
+  background:#ee794b; animation:route-wipe-in .36s cubic-bezier(.7,0,.3,1) both; }
+.route-wipe-stripe:nth-child(2) { background:#e0bb72; animation-delay:55ms; }
+.route-wipe-stripe:nth-child(3) { animation-delay:110ms; }
+.route-wipe-panel { display:grid; place-items:center;
+  background:radial-gradient(ellipse at 70% 120%,#ee794b33,transparent 60%),linear-gradient(180deg,#0d1712,#152a20); box-shadow:inset 7px 0 0 #ee794b; }
+.route-wipe.is-reveal .route-wipe-stripe { transform:none; animation:route-wipe-out .38s cubic-bezier(.7,0,.3,1) both; }
+.route-wipe.is-reveal .route-wipe-stripe:nth-child(3) { animation-delay:0ms; }
+.route-wipe.is-reveal .route-wipe-stripe:nth-child(2) { animation-delay:55ms; }
+.route-wipe.is-reveal .route-wipe-stripe:nth-child(1) { animation-delay:110ms; }
+@keyframes route-wipe-in { from { transform:translateX(105%) skewX(-12deg); } to { transform:translateX(0) skewX(-12deg); } }
+@keyframes route-wipe-out { from { transform:translateX(0) skewX(-12deg); } to { transform:translateX(-105%) skewX(-12deg); } }
+
+/* The destination's name, upright on the slanted panel. */
+.route-wipe-label { display:flex; flex-direction:column; align-items:center; gap:10px; padding:0 24px; text-align:center; color:#eef3e3; transform:skewX(12deg); }
+.route-wipe.is-cover .route-wipe-label { animation:route-wipe-label .3s cubic-bezier(.2,.8,.2,1) .17s both; }
+.route-wipe-label small { font:10px ui-monospace,'SFMono-Regular',monospace; letter-spacing:3px; color:#e0bb72; }
+.route-wipe-label strong { font:800 clamp(38px,8vw,92px)/1 'Manrope',sans-serif; letter-spacing:-.04em; text-transform:uppercase; }
+@keyframes route-wipe-label { from { opacity:0; transform:skewX(12deg) translateX(48px); letter-spacing:.1em; } to { opacity:1; transform:skewX(12deg) translateX(0); } }
+.route-wipe-mark { display:flex; align-items:flex-end; gap:4px; height:30px; transform:skewY(-8deg); }
+.route-wipe-mark span { display:block; width:8px; height:22px; background:#eef3e3; transform-origin:bottom; animation:route-wipe-bar .34s cubic-bezier(.3,1.6,.5,1) both; }
+.route-wipe-mark span:nth-child(1) { animation-delay:.2s; }
+.route-wipe-mark span:nth-child(2) { height:30px; animation-delay:.25s; }
+.route-wipe-mark span:nth-child(3) { height:17px; background:#ee794b; animation-delay:.3s; }
+.route-wipe.is-reveal .route-wipe-mark span { animation:none; }
+@keyframes route-wipe-bar { from { transform:scaleY(0); } to { transform:scaleY(1); } }

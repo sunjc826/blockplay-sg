@@ -1,6 +1,6 @@
 import TutorialGame from './TutorialGame';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { ArrowLeft, Coins, Crosshair, Download, Gem, Map as MapIcon, MapPin, Settings, ShoppingBag, Users, Wrench } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, Map as MapIcon, MapPin, Settings, ShoppingBag, Users, Wrench } from 'lucide-react';
 import MultiplayerGame from './MultiplayerGame';
 import FpsGame from './FpsGame';
 import ExpeditionGame from './ExpeditionGame';
@@ -16,6 +16,7 @@ import { REGIONS } from '../game/regions';
 import type { WorldZoneId } from '../game/world-zones';
 import { locations } from '../data/locations';
 import { navigate, ROUTE_PATHS, type Route } from '../lib/routes';
+import { transitionTo } from '../lib/route-transition';
 import { DebugMode } from '../lib/debug-mode';
 import { pwa, usePwa } from '../lib/pwa';
 import './game-menu.css';
@@ -82,7 +83,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     <span className="game-wallet" title="Tokens"><Gem size={14} /><b>{armory.profile.tokens.toLocaleString()}</b><small>TK</small></span>
   </div>;
 
-  if (screen === 'tutorial') return <div className="game-screen game-screen-play"><main className="game-screen-body"><TutorialGame suspended={install.updateReady} onStore={() => { setStoreTour(true); navigate('store'); }} /></main></div>;
+  if (screen === 'tutorial') return <div className="game-screen game-screen-play"><main className="game-screen-body"><TutorialGame suspended={install.updateReady} onStore={() => { setStoreTour(true); transitionTo('store', 'Store'); }} /></main></div>;
 
   if (screen === 'multiplayer') return <MultiplayerGame armory={armory} suspended={install.updateReady} />;
 
@@ -114,8 +115,8 @@ export default function GameMenu({ screen }: { screen: Screen }) {
           {!storeTour && <button className="store-tour-trigger" onClick={() => setStoreTour(true)}>Tour store</button>}
           <a className="game-back store-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={15} /></a>
         </nav>} deployments={[
-          { id: 'training', label: 'Training', detail: locationName(training), onDeploy: () => navigate('training') },
-          { id: 'world', label: 'Open World', detail: locationName(worldStart), onDeploy: () => navigate('world') },
+          { id: 'training', label: 'Training', detail: locationName(training), onDeploy: () => transitionTo('training', locationName(training), 'TRAINING') },
+          { id: 'world', label: 'Open World', detail: locationName(worldStart), onDeploy: () => transitionTo('world', locationName(worldStart), 'OPEN WORLD') },
         ]} />
       </DebugMode.Provider></main>
     </div>;
@@ -132,12 +133,21 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     </div>;
   }
 
-  return <MainMenu profile={profile} install={install.canInstall} />;
+  return <MainMenu profile={profile} install={install.canInstall} districts={{ training: locationName(training), world: locationName(worldStart) }} />;
 }
 
-function MainMenu({ profile, install }: { profile: React.ReactNode; install: boolean }) {
+/** A mouse or trackpad, which can hover; a phone or tablet has no such thing. */
+function finePointer() {
+  try { return window.matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; }
+}
+
+function MainMenu({ profile, install, districts }: { profile: React.ReactNode; install: boolean; districts: Partial<Record<Route, string>> }) {
   const items = useRef<(HTMLAnchorElement | null)[]>([]);
-  useEffect(() => { items.current[0]?.focus({ preventScroll: true }); }, []);
+  const [chosen, setChosen] = useState<number | null>(null);
+  const [ripple, setRipple] = useState<{ index: number; x: number; y: number; key: number } | null>(null);
+  // A console-style menu starts on its first entry, but only where a keyboard
+  // and pointer drive it; on a touchscreen nothing is chosen until it's tapped.
+  useEffect(() => { if (finePointer()) items.current[0]?.focus({ preventScroll: true }); }, []);
   // Arrow keys move through the entries the way a console menu would.
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
@@ -146,8 +156,20 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: boo
     const next = (at + (event.key === 'ArrowDown' ? 1 : -1) + ENTRIES.length) % ENTRIES.length;
     items.current[next]?.focus();
   };
+  const press = (index: number, event: React.PointerEvent<HTMLAnchorElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    setRipple({ index, x: event.clientX - box.left, y: event.clientY - box.top, key: event.timeStamp });
+  };
+  const choose = (index: number, event: React.MouseEvent) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+    event.preventDefault();
+    const entry = ENTRIES[index];
+    if (!transitionTo(entry.route, entry.title, districts[entry.route]?.toUpperCase())) return;
+    setChosen(index);
+    try { navigator.vibrate?.(12); } catch { /* not allowed here */ }
+  };
 
-  return <div className="game-menu">
+  return <div className={`game-menu${chosen === null ? '' : ' is-leaving'}`}>
     <Skyline />
     <header className="game-menu-top">
       <span className="brand game-brand"><span className="brand-mark"><span /><span /><span /></span>blockplaySG<span className="brand-dot">.</span></span>
@@ -157,10 +179,14 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: boo
     <main className="game-menu-main">
       <div className="game-menu-title"><span>1° N, 103° E · SINGAPORE</span><h1>Your neighbourhood.<br /><em>Your playground.</em></h1></div>
       <nav className="game-menu-list" aria-label="Main menu" onKeyDown={onKeyDown}>
-        {ENTRIES.map((entry, index) => <a key={entry.route} ref={node => { items.current[index] = node; }} className="game-menu-item" {...link(entry.route)}>
+        {ENTRIES.map((entry, index) => <a key={entry.route} ref={node => { items.current[index] = node; }} href={ROUTE_PATHS[entry.route]}
+          className={`game-menu-item${chosen === index ? ' is-chosen' : ''}`} style={{ '--i': index } as React.CSSProperties}
+          onPointerDown={event => press(index, event)} onClick={event => choose(index, event)}>
+          {ripple?.index === index && <span key={ripple.key} className="game-menu-ripple" style={{ left: ripple.x, top: ripple.y }} onAnimationEnd={() => setRipple(null)} />}
           <span className="game-menu-index">0{index + 1}</span>
           <entry.icon size={26} />
           <span className="game-menu-copy"><strong>{entry.title}</strong><small>{entry.detail}</small></span>
+          <ChevronRight className="game-menu-go" size={20} aria-hidden="true" />
         </a>)}
       </nav>
     </main>

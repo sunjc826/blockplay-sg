@@ -4556,3 +4556,24 @@ passed without paid API calls. Evidence: .cache/intro-tests.log,
 .cache/intro-handling.log, .cache/deployment-intro/ and the combined-* logs plus
 source-verification.json/release-evidence.json in the release folder.
 No GitHub push. AGENTS.md remains local, unstaged and uncommitted.
+
+
+## 2026-10-30: touch-first main menu and screen-change wipe
+
+The main menu no longer starts with Tutorial selected on touchscreens: the
+first entry is focused only under `(hover: hover) and (pointer: fine)`, hover
+styles are gated behind `@media (hover:hover)` so they don't stick after a tap,
+and the keyboard hint hides on `(hover:none)`. Entries get a press scale, a
+ripple from the touch point, a chevron, a short vibration where supported, and
+a staggered entrance. Choosing one lights it with a glint while the others fall
+away, then `transitionTo` (src/lib/route-transition.ts) runs RouteWipe: orange,
+gold and green slanted stripes cover the screen with the destination's name,
+the route changes underneath (scrolled to top), and the stripes clear onto the
+loading screen or store, whose contents then rise in. Store Deploy buttons and
+the tutorial's store hand-off use the same wipe. Transform/opacity only, so the
+reveal keeps moving while a district builds; reduced motion skips it.
+
+Typecheck, 1,840 tests and production build passed. Playwright at iPhone 13
+and 1280x800 confirmed no focus on phone, first entry focused on desktop,
+cover/reveal frames, /training and /store reached, store at scroll top, wipe
+removed afterwards. Not committed to GitHub; AGENTS.md stays local.
