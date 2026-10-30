@@ -4396,3 +4396,19 @@ manifest/models/audio/API-origin and companion checks passed. Evidence:
 .cache/gen1-release/{source-verification,release-evidence}.json.
 No GitHub push. AGENTS.md stays local and uncommitted. Future deployments
 should include this revision or a descendant to preserve the NVG rebalance.
+
+
+## 2026-10-30: expedition entry selection deployed and verified
+
+Code commit a407b0f was exported to .cache/deployment-release-a407b0f. All 2,662
+tracked files match that commit. The clean snapshot passed typecheck, 51 focused
+checks and its Cloudflare build. Manual pnpm deploy:cloudflare succeeded with
+version 4fb8e4b4-691d-4d42-acb3-8dbb2243929e. Both blockplaysg.fun and workers.dev
+serve JS/CSS hashes identical to that exact build. Public routing, service worker,
+manifest, model, audio, API routing/origin and companion-availability checks passed
+without paid API requests. Source/release evidence and test/deployment/live-check
+logs are in the release folder. Browser evidence remains under
+.cache/expedition-deployment and .cache/deployment-browser.log.
+
+No GitHub push. AGENTS.md remains local, unstaged and uncommitted. The release
+includes the latest committed moonlight and geometry-aligned night-window work.
