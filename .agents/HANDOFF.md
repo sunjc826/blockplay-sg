@@ -4304,3 +4304,22 @@ inspected with no page/shader errors. Evidence: .cache/night-windows and
 .cache/hdb-lighting-{tests,focused,browser}.log. Final release typecheck and manual
 Cloudflare deployment follow from an isolated snapshot, excluding unrelated
 concurrent night-exposure work. No GitHub push; AGENTS.md remains local.
+
+
+## 2026-10-30: HDB and facade lighting deployed and verified
+
+Code commit b3a7f2e includes the completed nuanced-moonlight release and the
+geometry-aligned window changes. All 2,654 tracked files in the isolated
+.cache/hdb-lighting-release-b3a7f2e snapshot match that commit. The final combined
+snapshot passed all 1,816 tests across 186 suites, typecheck, the production build
+and the WebGL window checks, including inspected Queenstown, Marina and Raffles
+captures. The earlier 1,809-test result predates the concurrent moonlight commits.
+
+Manual pnpm deploy:cloudflare succeeded: version
+3241a526-4e00-4728-9989-5b1ab289c873. blockplaysg.fun and the workers.dev origin
+serve JS/CSS hashes identical to the tested build. Production assets, service
+worker, manifest, models, audio, SPA fallback, API routing and origin checks
+passed without paid API requests. Evidence: source-verification.json,
+release-evidence.json, release-{tests,typecheck,browser,deploy,live-check}.log
+and .cache/night-windows/ under that release folder. No GitHub push. AGENTS.md
+and .claude content remain local, unstaged and uncommitted.
