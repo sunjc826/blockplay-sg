@@ -1,5 +1,5 @@
 import TutorialGame from './TutorialGame';
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, Map as MapIcon, MapPin, Settings, ShoppingBag, Users, Wrench } from 'lucide-react';
 import MultiplayerGame from './MultiplayerGame';
 import FpsGame from './FpsGame';
@@ -136,26 +136,24 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   return <MainMenu profile={profile} install={install.canInstall} districts={{ training: locationName(training), world: locationName(worldStart) }} />;
 }
 
-/** A mouse or trackpad, which can hover; a phone or tablet has no such thing. */
-function finePointer() {
-  try { return window.matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; }
-}
-
 function MainMenu({ profile, install, districts }: { profile: React.ReactNode; install: boolean; districts: Partial<Record<Route, string>> }) {
   const items = useRef<(HTMLAnchorElement | null)[]>([]);
   const [chosen, setChosen] = useState<number | null>(null);
   const [ripple, setRipple] = useState<{ index: number; x: number; y: number; key: number } | null>(null);
-  // A console-style menu starts on its first entry, but only where a keyboard
-  // and pointer drive it; on a touchscreen nothing is chosen until it's tapped.
-  useEffect(() => { if (finePointer()) items.current[0]?.focus({ preventScroll: true }); }, []);
-  // Arrow keys move through the entries the way a console menu would.
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-    event.preventDefault();
-    const at = items.current.findIndex(item => item === document.activeElement);
-    const next = (at + (event.key === 'ArrowDown' ? 1 : -1) + ENTRIES.length) % ENTRIES.length;
-    items.current[next]?.focus();
-  };
+  // Nothing is chosen until the player picks; the arrow keys then move through
+  // the entries the way a console menu would, starting from either end.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' || event.altKey || event.ctrlKey || event.metaKey) return;
+      event.preventDefault();
+      const at = items.current.findIndex(item => item === document.activeElement);
+      const down = event.key === 'ArrowDown';
+      const next = at < 0 ? (down ? 0 : ENTRIES.length - 1) : (at + (down ? 1 : -1) + ENTRIES.length) % ENTRIES.length;
+      items.current[next]?.focus();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
   const press = (index: number, event: React.PointerEvent<HTMLAnchorElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
     setRipple({ index, x: event.clientX - box.left, y: event.clientY - box.top, key: event.timeStamp });
@@ -178,7 +176,7 @@ function MainMenu({ profile, install, districts }: { profile: React.ReactNode; i
 
     <main className="game-menu-main">
       <div className="game-menu-title"><span>1° N, 103° E · SINGAPORE</span><h1>Your neighbourhood.<br /><em>Your playground.</em></h1></div>
-      <nav className="game-menu-list" aria-label="Main menu" onKeyDown={onKeyDown}>
+      <nav className="game-menu-list" aria-label="Main menu">
         {ENTRIES.map((entry, index) => <a key={entry.route} ref={node => { items.current[index] = node; }} href={ROUTE_PATHS[entry.route]}
           className={`game-menu-item${chosen === index ? ' is-chosen' : ''}`} style={{ '--i': index } as React.CSSProperties}
           onPointerDown={event => press(index, event)} onClick={event => choose(index, event)}>

@@ -4560,8 +4560,8 @@ No GitHub push. AGENTS.md remains local, unstaged and uncommitted.
 
 ## 2026-10-30: touch-first main menu and screen-change wipe
 
-The main menu no longer starts with Tutorial selected on touchscreens: the
-first entry is focused only under `(hover: hover) and (pointer: fine)`, hover
+The main menu no longer starts with Tutorial selected on any device; the
+first ArrowDown (or ArrowUp) focuses the first (or last) entry. Hover
 styles are gated behind `@media (hover:hover)` so they don't stick after a tap,
 and the keyboard hint hides on `(hover:none)`. Entries get a press scale, a
 ripple from the touch point, a chevron, a short vibration where supported, and
@@ -4574,7 +4574,7 @@ the tutorial's store hand-off use the same wipe. Transform/opacity only, so the
 reveal keeps moving while a district builds; reduced motion skips it.
 
 Typecheck, 1,840 tests and production build passed. Playwright at iPhone 13
-and 1280x800 confirmed no focus on phone, first entry focused on desktop,
+and 1280x800 confirmed nothing focused on load, arrows then reach entries,
 cover/reveal frames, /training and /store reached, store at scroll top, wipe
 removed afterwards. Not committed to GitHub; AGENTS.md stays local.
 
