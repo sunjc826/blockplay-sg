@@ -4379,3 +4379,20 @@ Escape to avoid immersive touch-resize timing. Evidence: .cache/deployment-tests
 .cache/deployment-browser.log and .cache/expedition-deployment. Manual deployment
 and public verification follow. AGENTS.md stays local, unstaged and uncommitted;
 no GitHub push.
+
+
+## 2026-10-30: Gen 1 NVG rebalance deployed and verified
+
+Code 75c814c passed all 1,816 tests across 186 suites, final focused device
+tests, typecheck, production build and before/after WebGL shadow-signal checks.
+All five device circles, thermal palettes and peripheral refraction passed.
+The 2,655 tracked files in .cache/gen1-release match that code revision.
+Manual pnpm deploy:cloudflare succeeded: version
+c2c2aaee-fc0f-47cc-864f-09b6d92c6b3a. Both public origins serve JS/CSS hashes
+identical to the tested build; production routing/assets/service-worker/
+manifest/models/audio/API-origin and companion checks passed. Evidence:
+.cache/gen1-{tests,typecheck,build,final-focused,browser,devices,deploy,live-check}.log,
+.cache/fps-gen1-vision/validation.json and
+.cache/gen1-release/{source-verification,release-evidence}.json.
+No GitHub push. AGENTS.md stays local and uncommitted. Future deployments
+should include this revision or a descendant to preserve the NVG rebalance.
