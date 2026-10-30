@@ -1,3 +1,4 @@
+import { AIRCREW, aircrewFacing, aircrewPoint, helicopterCrew, helicopterGunPoint, helicopterGunRay, rifleSeat, type AircrewRole } from './helicopter-crew';
 import { TRANSPORT_HULL, TRANSPORT_CRITICAL, TRANSPORT_EXIT_SECONDS, transportDriverPoint, transportPoint, transportRayDistance, type ArenaTransport } from './combat-transports';
 import { validRaiderBounty, type RaiderBounty } from './combat-rewards';
 import { MAX_CONFIRMED_IMPACTS, IMPACT_LIFETIME, type ConfirmedImpact } from './confirmed-impacts';
@@ -79,10 +80,12 @@ export interface ArenaActor {
   /** Players: seconds until HQ will send them another transport (squad-orders), present while they wait. */
   reinforceIn?: number;
   squad?: string;
-  /** A real driver seated in a reinforcement transport, separate from the drivable fleet. */
+  /** An occupant of a scripted transport or raid helicopter, separate from the drivable fleet. */
   transport?: string;
+  /** Helicopter pilot or a passenger firing their own rifle. */
+  aircrew?: AircrewRole;
 }
-export type ArenaRaiderState = 'inbound' | 'orbit' | 'leaving' | 'cruise' | 'lock' | 'dive' | 'down' | 'wreck' | 'exploded';
+export type ArenaRaiderState = 'landing' | 'landed' | 'inbound' | 'orbit' | 'leaving' | 'cruise' | 'lock' | 'dive' | 'down' | 'wreck' | 'exploded';
 /**
  * A combat event's machine that can be shot: a raid helicopter or a drone.
  * Its event says where it was meant to go; this is where it is and what it
@@ -96,6 +99,8 @@ export interface ArenaRaider {
   aim: ArenaPoint | null;
   /** Rounds fired so far; a change is a shot for the renderer to draw. */
   shots: number;
+  /** Finite mounted-gun stock; absent on drones. */
+  ammo?: number;
 }
 export interface ArenaFeed { id: string; text: string; killerId?: string; victimId?: string; bounty?: RaiderBounty }
 /**
@@ -202,8 +207,8 @@ export const HEAT_PACE: Readonly<Record<SquadFaction, number>> = { mercenaries: 
 export const MAX_ARENA_BOTS = 20;
 /** A bot with a home sector only answers contacts this close and otherwise patrols home; a surging side ranges up to twice as far. */
 export const HOME_LEASH = 90;
-/** Most actors one match holds: every bot and room for players. */
-export const MAX_ARENA_ACTORS = MAX_ARENA_BOTS + 8;
+/** Infantry, room players and up to three attached crew for each bounded combat event. */
+export const MAX_ARENA_ACTORS = MAX_ARENA_BOTS + 8 + MAX_COMBAT_EVENTS * 3;
 /** Every bot's planned route shares this many milliseconds of search per tick. */
 const NAVIGATION_BUDGET = 6;
 /** Friendly soldiers' surnames, after their rank's title. */
@@ -305,6 +310,8 @@ interface InternalActor {
   lastFight?: number;
   /** Bots: reloading, or running from a marked barrage, as of the last tick, so the bark goes with the start of it. */
   barkReload?: boolean; barkFleeing?: boolean;
+  /** Personal-weapon passenger burst timing, independent of the mounted gun. */
+  airNext?: number; airBurst?: number;
   /** Players: when they last used the callout wheel. */
   lastCallout?: number;
   /** Bots: a player's standing order (squad-orders), when it was given, and the enemy a player told them to focus on. */
@@ -716,7 +723,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function shoot(id: string, origin: ArenaPoint, direction: ArenaPoint, weapon: number, maxDistance = 125): ArenaShot {
     const entry = members.get(id);
-    if (!entry || entry.actor.transport || (seatOf(vehicles, id)?.seat ?? 2) < 2 || finished || !entry.actor.alive || !entry.playing || !finitePoint(origin) || !finitePoint(direction)) return { ...EMPTY_SHOT };
+    if (!entry || entry.actor.transport && !rifleSeat(entry.actor.aircrew) || (seatOf(vehicles, id)?.seat ?? 2) < 2 || finished || !entry.actor.alive || !entry.playing || !finitePoint(origin) || !finitePoint(direction)) return { ...EMPTY_SHOT };
     if (arenaConditionModifiers(entry.actor.conditions).frozen) return { ...EMPTY_SHOT };
     if (!Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return { ...EMPTY_SHOT };
     const ammo = entry.ammo[weapon];
@@ -825,7 +832,16 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const witness = [...members.values()].filter(m => m !== victim && m.actor.bot && m.actor.alive && !m.reserve && m.actor.faction === victim.actor.faction && distance(m.actor, victim.actor) <= 30)
         .sort((a, b) => distance(a.actor, victim.actor) - distance(b.actor, victim.actor))[0];
       if (witness) bark(witness, 'man-down');
-      if (victim.actor.transport) { const t = transports.get(victim.actor.transport); if (t && t.health > 0) evacuateTransport(t, true); }
+      if (victim.actor.transport) {
+        const t = transports.get(victim.actor.transport);
+        if (t && t.driver === victim.actor.id && t.health > 0) evacuateTransport(t, true);
+        const r = raiders.get(victim.actor.transport);
+        if (r?.kind === 'gunship' && r.health > 0 && victim.actor.aircrew === 'pilot') {
+          r.state = 'landing'; r.aim = null; r.victim = undefined; r.vx = r.vz = 0;
+          const event = events.find(e => e.descriptor.id === r.event); if (event) endEvent(event, 'silenced');
+          announce('Raid pilot down · helicopter making an emergency descent');
+        }
+      }
       victim.order = undefined; victim.focus = undefined;
       warm(victim.actor, 4);
       if (attacker && !environment?.endless && attacker.actor.kills >= ARENA_KILL_LIMIT) { finished = true; winner = attacker.actor.name; }
@@ -866,18 +882,19 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (distance < nearest) { nearest = distance; hull = v; }
     }
     for (const other of members.values()) {
-      if (other === entry || !other.actor.alive || other.reserve || seatOf(vehicles, other.actor.id)) continue;
+      if (other === entry || entry.actor.transport && entry.actor.transport === other.actor.transport || !other.actor.alive || other.reserve || seatOf(vehicles, other.actor.id)) continue;
       const intersection = bodyDistance(origin, ray, other.actor);
       if (intersection < nearest) { victim = other; hull = undefined; nearest = intersection; }
     }
     let raider: Raider | undefined;
     for (const candidate of raiders.values()) {
+      if (entry.actor.transport === candidate.event) continue;
       const intersection = raiderDistance(candidate, origin, ray);
       if (intersection < nearest) { raider = candidate; victim = undefined; hull = undefined; nearest = intersection; }
     }
     let transport: Transport | undefined;
     for (const candidate of transports.values()) {
-      if (candidate.driver === entry.actor.id) continue;
+      if (entry.actor.transport === candidate.event) continue;
       const intersection = transportRayDistance(candidate, origin, ray);
       if (intersection < nearest) { transport = candidate; nearest = intersection; raider = undefined; victim = undefined; hull = undefined; }
     }
@@ -1237,8 +1254,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     } else if (d.kind === 'helicopter-raid' || d.kind === 'drone') {
       const gunship = d.kind === 'helicopter-raid', from = gunship ? d.target : d.origin!;
       raiders.set(d.id, { event: d.id, kind: gunship ? 'gunship' : 'drone', x: from.x, y: d.altitude ?? 40, z: from.z, yaw: d.heading,
-        health: gunship ? RAID.health : DRONE.health, maxHealth: gunship ? RAID.health : DRONE.health, state: gunship ? 'inbound' : 'cruise',
+        health: gunship ? RAID.health : DRONE.health, maxHealth: gunship ? RAID.health : DRONE.health, ...(gunship ? { ammo: VEHICLE_COMBAT.helicopter.ammo } : {}), state: gunship ? 'inbound' : 'cruise',
         aim: null, shots: 0, vx: 0, vy: 0, vz: 0, since: 0, fired: 0, next: 0, lost: 0, until: Infinity, angle: 0 });
+      if (gunship) {
+        const r = raiders.get(d.id)!, orbit = combatTimeline(d).find((p): p is OrbitPayload => p.type === 'orbit');
+        if (orbit) Object.assign(r, orbitPose(orbit, 0, d.altitude ?? 40));
+        if (!fieldAircrew(d, r)) { raiders.delete(d.id); return false; }
+      }
     }
     return !event.crew || [...members.values()].some(m => m.temporary?.event === d.id);
   }
@@ -1252,11 +1274,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     seed = savedSeed;
     if (!driver) return false;
     driver.actor.bot = true; driver.actor.role = 'assault'; driver.actor.faction = d.faction ?? DEFAULT_BOT_FACTION;
-    driver.actor.transport = d.id; driver.temporary = { event: d.id, from: Infinity }; driver.reserve = true;
+    driver.actor.transport = d.id; if (payload.mode === 'air') driver.actor.aircrew = 'pilot'; driver.temporary = { event: d.id, from: Infinity }; driver.reserve = true;
     const pose = transportPose(payload, 0), ground = groundHeight(pose.x, pose.z), health = TRANSPORT_HULL[payload.mode].health;
     const t: Transport = { event: d.id, mode: payload.mode, x: pose.x, y: ground + pose.y, z: pose.z, yaw: pose.yaw, health, maxHealth: health,
       state: 'inbound', visible: false, driver: driver.actor.id, driverAlive: true, passengers: 0, payload, emergency: false, escape: 0, nextExit: 0, fallSpeed: 0, ground };
-    transports.set(d.id, t); syncTransportDriver(t); return true;
+    transports.set(d.id, t); if (payload.mode === 'air') fieldAircrew(d, t, driver.actor.id); syncTransportDriver(t); return true;
   }
   function syncTransportDriver(t: Transport) {
     const driver = members.get(t.driver); if (!driver) return;
@@ -1264,6 +1286,59 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const seat = transportDriverPoint(t);
     Object.assign(driver.actor, seat, { yaw: t.yaw, pitch: 0, ground: seat.y - 1.2 });
     t.driverAlive = driver.actor.alive;
+    if (t.mode === 'air') syncAircrew(t.event, t, t.visible && t.state !== 'departed');
+  }
+  function fieldAircrew(d: CombatEventDescriptor, frame: { x: number; y: number; z: number; yaw: number }, existingPilot?: string) {
+    let pilot = !!existingPilot;
+    for (const role of helicopterCrew(d)) {
+      if (role === 'pilot' && existingPilot) continue;
+      const savedSeed = seed;
+      const weapons = FPS_WEAPONS.map(w => ({ ...w, damage: AIRCREW.damage, capacity: 24, interval: AIRCREW.interval }));
+      const entry = addMember(`${d.id}-${role}`, role === 'pilot' ? 'Gunship pilot' : role === 'door-left' ? 'Left rifleman' : 'Right rifleman', 0, 0, weapons, false, [0]);
+      seed = savedSeed;
+      if (!entry) continue;
+      Object.assign(entry.actor, { bot: true, role: 'assault', faction: d.faction ?? DEFAULT_BOT_FACTION, transport: d.id, aircrew: role });
+      entry.role = getArenaRole('assault'); entry.temporary = { event: d.id, from: d.start + (getCombatEvent(d.kind)?.warning ?? 0) };
+      entry.reserve = true; if (role === 'pilot') pilot = true;
+    }
+    syncAircrew(d.id, frame, !existingPilot); return pilot;
+  }
+  function syncAircrew(id: string, frame: { x: number; y: number; z: number; yaw: number }, visible: boolean) {
+    for (const entry of members.values()) if (entry.actor.transport === id && entry.actor.aircrew) {
+      const seat = aircrewPoint(frame, entry.actor.aircrew);
+      Object.assign(entry.actor, seat, { ground: seat.y - 1.2 }); entry.reserve = !visible;
+      if (!rifleSeat(entry.actor.aircrew) || !entry.target) Object.assign(entry.actor, { yaw: aircrewFacing(frame.yaw, entry.actor.aircrew), pitch: 0 });
+    }
+  }
+  function evacuateAircrew(id: string, frame: { x: number; y: number; z: number; yaw: number; ground?: number }) {
+    let slot = 0;
+    for (const entry of members.values()) if (entry.actor.transport === id && rifleSeat(entry.actor.aircrew) && entry.actor.alive) {
+      const at = transportExit({ ...frame, ground: frame.ground ?? groundHeight(frame.x, frame.z) }, slot++); if (!at) continue;
+      Object.assign(entry.actor, at); delete entry.actor.transport; delete entry.actor.aircrew; delete entry.actor.ground;
+      entry.reserve = false; entry.target = ''; entry.temporary = { event: id, from: elapsed };
+      entry.patrol = { x: clamp(at.x + (at.x - frame.x) * 2, bounds.minX + 1, bounds.maxX - 1), z: clamp(at.z + (at.z - frame.z) * 2, bounds.minZ + 1, bounds.maxZ - 1) };
+      entry.evacuating = { ...entry.patrol, until: elapsed + 3 };
+    }
+  }
+  function stepAircrew() {
+    for (const entry of members.values()) {
+      const actor = entry.actor; if (!actor.transport || !rifleSeat(actor.aircrew) || !actor.alive || entry.reserve || elapsed < (entry.temporary?.from ?? 0)) continue;
+      const frame = transports.get(actor.transport) ?? raiders.get(actor.transport); if (!frame || frame.health <= 0) continue;
+      const facing = aircrewFacing(frame.yaw, actor.aircrew!), fx = -Math.sin(facing), fz = -Math.cos(facing);
+      const victim = [...members.values()].filter(m => m.actor.alive && !m.reserve && m.actor.transport !== actor.transport && hostile(actor, m.actor) && distance(actor, m.actor) < AIRCREW.range &&
+        (m.actor.x - actor.x) * fx + (m.actor.z - actor.z) * fz > 0 && lineClear(actor, chestOf(m.actor)))
+        .sort((a, b) => distance(actor, a.actor) - distance(actor, b.actor))[0];
+      if (!victim) { entry.target = ''; continue; }
+      entry.target = victim.actor.id;
+      const aim = chestOf(victim.actor), dx = aim.x - actor.x, dy = aim.y - actor.y, dz = aim.z - actor.z, length = Math.hypot(dx, dy, dz);
+      actor.yaw = Math.atan2(-dx, -dz); actor.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+      if (elapsed < (entry.airNext ?? 0)) continue;
+      const spread = .035, ray = { x: dx / length + (random() - .5) * spread, y: dy / length + (random() - .5) * spread, z: dz / length + (random() - .5) * spread };
+      shoot(actor.id, actor, ray, actor.weapon);
+      entry.airBurst = (entry.airBurst ?? 0) + 1;
+      entry.airNext = elapsed + (entry.airBurst >= AIRCREW.burst ? AIRCREW.pause : AIRCREW.interval);
+      if (entry.airBurst >= AIRCREW.burst) entry.airBurst = 0;
+    }
   }
   /** Stop where the host actually is. An airborne pilot loss makes a bounded emergency descent. */
   function evacuateTransport(t: Transport, all: boolean) {
@@ -1288,8 +1363,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (t.health === 0) {
       t.emergency = true; t.escape = 0; t.driverAlive = false; t.ground = groundHeight(t.x, t.z);
       t.state = t.mode === 'air' && t.y > t.ground + .4 ? 'down' : 'wreck';
-      const driver = members.get(t.driver);
-      if (driver?.actor.alive) hurtActor(driver, driver.actor.health + driver.actor.armor + 1, attacker, cause);
+      for (const crew of members.values()) if (crew.actor.transport === t.event && crew.actor.alive)
+        hurtActor(crew, crew.actor.health + crew.actor.armor + 1, attacker, cause);
       // Nobody still booked into this wreck may appear at its old drop or use an expired fallback clock.
       for (const passenger of transportPassengers(t)) {
         passenger.ride = undefined; passenger.waiting = elapsed; passenger.actor.respawnIn = ARENA_RESPAWN_SECONDS;
@@ -1304,7 +1379,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return { hitId: `transport-${t.event}`, damage: Math.min(before, damage), killed: t.health === 0 };
   }
   /** A clear way out beside the stopped hull, never the original scheduled drop. */
-  function transportExit(t: Transport, slot: number) {
+  function transportExit(t: Pick<Transport, 'x' | 'y' | 'z' | 'yaw' | 'ground'>, slot: number) {
     for (let trial = 0; trial < 12; trial++) {
       const side = (slot + trial) % 2 ? -1 : 1, row = Math.floor(trial / 2);
       const at = transportPoint(t, side * (3 + Math.floor(row / 3)), 1.75, (row % 3 - 1) * 1.8);
@@ -1318,7 +1393,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function clearTransport(id: string) {
     const t = transports.get(id); if (!t) return;
     for (const passenger of transportPassengers(t)) { passenger.ride = undefined; passenger.waiting = elapsed; }
-    dismiss(t.driver); transports.delete(id);
+    for (const member of members.values()) if (member.actor.transport === id) dismiss(member.actor.id);
+    transports.delete(id);
   }
   function stepTransports(dt: number) {
     for (const t of transports.values()) {
@@ -1348,10 +1424,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         }
       }
       if (age > t.payload.leave && !t.emergency) {
-        t.visible = false; dismiss(t.driver);
+        t.visible = false; for (const member of members.values()) if (member.actor.transport === t.event) dismiss(member.actor.id);
         for (const passenger of transportPassengers(t)) { passenger.ride = undefined; passenger.waiting = elapsed; }
       }
       syncTransportDriver(t);
+      if (t.state === 'stopped' && !t.driverAlive) evacuateAircrew(t.event, t);
     }
   }
   /** A temporary bot of `roleId` for event `d`, kneeling at `at`, on a roof at `roof` when given. */
@@ -1420,7 +1497,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         else if (payload.blast) { budget--; blast(landing(payload), payload.blast, undefined, event.name); }
       }
     }
-    cool(dt); stepGas(dt); stepCrates(dt); stepRaiders(dt);
+    cool(dt); stepGas(dt); stepCrates(dt); stepRaiders(dt); stepAircrew();
     for (let i = interests.length - 1; i >= 0; i--) if (interests[i].until < elapsed) interests.splice(i, 1);
     // A crew all down silences its event; a crew whose event has run its course pulls out.
     for (const event of events) {
@@ -1496,19 +1573,19 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function raiderDistance(r: Raider, origin: ArenaPoint, ray: ArenaPoint) {
     if (r.health <= 0) return Infinity;
     if (r.kind === 'drone') return sphereDistance(origin, ray, { x: r.x, y: r.y, z: r.z }, .75);
-    return Math.min(sphereDistance(origin, ray, { x: r.x, y: r.y + 1.3, z: r.z }, 2.2),
-      sphereDistance(origin, ray, { x: r.x + Math.sin(r.yaw) * 4.4, y: r.y + 1.6, z: r.z + Math.cos(r.yaw) * 4.4 }, .9));
+    return transportRayDistance({ ...r, mode: 'air', visible: true, state: 'inbound' }, origin, ray);
   }
-  function hurtRaider(r: Raider, damage: number, attacker: InternalActor): ArenaShot {
+  function hurtRaider(r: Raider, damage: number, attacker?: InternalActor): ArenaShot {
     const event = events.find(e => e.descriptor.id === r.event), before = r.health;
-    if (!(damage > 0) || before <= 0) return { ...EMPTY_SHOT };
+    if (!(damage > 0) || before <= 0 || r.kind === 'gunship' && attacker && !hostile(attacker.actor, { bot: true, faction: event?.descriptor.faction ?? DEFAULT_BOT_FACTION })) return { ...EMPTY_SHOT };
     r.health = Math.max(0, r.health - damage);
     const killed = before > 0 && r.health === 0;
     if (killed) {
       r.state = 'down'; r.aim = null; r.victim = undefined;
       // Shot down outranks breaking off: a raid already heading home that is brought down was downed.
       if (event) { endEvent(event, 'downed'); event.descriptor.outcome = 'downed'; }
-      announce(`${attacker.actor.name} downed the ${r.kind === 'drone' ? 'drone' : 'raid helicopter'}`, attacker.actor.id, undefined, r.kind);
+      for (const crew of members.values()) if (crew.actor.transport === r.event && crew.actor.alive) hurtActor(crew, crew.actor.health + crew.actor.armor + 1, attacker, 'Helicopter destruction');
+      announce(`${attacker?.actor.name ?? 'Fire support'} downed the ${r.kind === 'drone' ? 'drone' : 'raid helicopter'}`, attacker?.actor.id, undefined, attacker ? r.kind : undefined);
     } else if (r.kind === 'gunship' && r.health < r.maxHealth * .25 && event && event.descriptor.ended === undefined) {
       // Badly hit, it breaks off: its path turns for home from wherever it is.
       endEvent(event, 'withdrawn'); announce('Raid helicopter breaking off');
@@ -1517,9 +1594,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   /** A raider's round: whatever it meets first, a wall, a hull or a body. */
   /** A raider's round: nobody's, so it hits whoever it meets, credited to `cause`. */
-  function raiderShot(origin: ArenaPoint, ray: ArenaPoint, damage: number, cause: string) {
+  function raiderShot(origin: ArenaPoint, ray: ArenaPoint, damage: number, cause: string, shooter?: InternalActor) {
     // Its strikes look like a GPMG's: its damage is set low for balance, not because it is a small gun.
-    send({ origin, direction: ray, ballistics: muzzleBallistics(RAID.muzzle), damage, cause, calibre: RAID.caliberMm, power: RAID.look }, 150);
+    send({ shooter, origin, direction: ray, ballistics: muzzleBallistics(RAID.muzzle), damage, cause, calibre: RAID.caliberMm, power: RAID.look }, 150);
   }
   /** One stretch of a shooterless round's flight, including rendered cover. */
   function strayShot(origin: ArenaPoint, ray: ArenaPoint, reach: number, damage: number, cause: string, calibre?: number): ArenaShot & { stopped: boolean } {
@@ -1546,13 +1623,19 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return { ...EMPTY_SHOT, stopped: wallStops };
   }
   /** The nearest actor, player or patrol, a raider at `from` can see within `range`. Raiders belong to nobody. */
-  function spot(from: ArenaPoint, range: number) {
-    return [...members.values()].filter(m => m.actor.alive).filter(m => !seatOf(vehicles, m.actor.id) && distance(from, m.actor) <= range && lineClear(from, chestOf(m.actor)))
+  function spot(from: ArenaPoint, range: number, ownCrew?: string) {
+    return [...members.values()].filter(m => m.actor.alive && !m.reserve && (!ownCrew || m.actor.transport !== ownCrew && hostile(members.get(`${ownCrew}-pilot`)?.actor ?? { bot: true }, m.actor))).filter(m => !seatOf(vehicles, m.actor.id) && distance(from, m.actor) <= range && lineClear(from, chestOf(m.actor)))
       .sort((a, b) => distance(from, a.actor) - distance(from, b.actor))[0] ?? null;
   }
   function stepRaiders(dt: number) {
     for (const [id, r] of raiders) {
       const event = events.find(e => e.descriptor.id === id); if (!event) { raiders.delete(id); continue; }
+      if (r.kind === 'gunship' && (r.state === 'landing' || r.state === 'landed')) {
+        const ground = groundHeight(r.x, r.z); r.y = Math.max(ground, r.y - AIRCREW.descent * dt);
+        if (r.y <= ground + .01) { if (r.state !== 'landed') r.until = elapsed + 15; r.state = 'landed'; evacuateAircrew(id, r); }
+        syncAircrew(id, r, true); if (elapsed > r.until) { for (const m of members.values()) if (m.actor.transport === id) dismiss(m.actor.id); raiders.delete(id); }
+        continue;
+      }
       if (r.state === 'exploded' || r.state === 'wreck') { if (elapsed > r.until) raiders.delete(id); continue; }
       if (r.state === 'down') {
         // Out of the sky: what it was doing carries it on while it falls.
@@ -1574,15 +1657,15 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const pose = orbitPose(orbit, age, d.altitude ?? 40);
     if (dt > 0) { r.vx = (pose.x - r.x) / dt; r.vz = (pose.z - r.z) / dt; r.vy = 0; }
     Object.assign(r, { x: pose.x, y: pose.y, z: pose.z, yaw: pose.yaw });
-    if (age > orbit.gone) { raiders.delete(d.id); return; }
+    if (age > orbit.gone) { for (const m of members.values()) if (m.actor.transport === r.event) dismiss(m.actor.id); raiders.delete(d.id); return; }
+    syncAircrew(r.event, r, pose.visible);
     r.state = age < orbit.arrive ? 'inbound' : age <= orbit.leave ? 'orbit' : 'leaving';
-    if (r.state !== 'orbit' || age < RAID.warning) { r.aim = null; r.victim = undefined; return; }
-    // The left door faces the middle of the orbit; the gun hangs just below the sill.
-    const inward = { x: orbit.center.x - r.x, z: orbit.center.z - r.z }, l = Math.hypot(inward.x, inward.z) || 1;
-    const gun = { x: r.x + inward.x / l * 1.3, y: r.y + .7, z: r.z + inward.z / l * 1.3 };
+    if (r.ammo === 0 && d.ended === undefined) endEvent(event, 'withdrawn');
+    if (r.state !== 'orbit' || age < RAID.warning || r.ammo === 0) { r.aim = null; r.victim = undefined; return; }
+    const gun = helicopterGunPoint(r);
     if (!r.victim) {
       if (elapsed < r.next) { r.aim = null; return; }
-      const sighted = spot(gun, RAID.sight);
+      const sighted = spot(gun, RAID.sight, r.event);
       if (!sighted) { r.next = elapsed + .5; r.aim = null; return; }
       const chest = chestOf(sighted.actor), side = random() * Math.PI * 2;
       // The walk-in starts a few metres off and its tracers creep onto them: that second is the warning.
@@ -1594,11 +1677,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const chest = chestOf(victim.actor), walk = r.walk ?? chest, k = Math.min(1, t / RAID.walkIn) * .85;
     r.aim = t < RAID.walkIn ? { x: walk.x + (chest.x - walk.x) * k, y: walk.y + (chest.y - walk.y) * k, z: walk.z + (chest.z - walk.z) * k } : chest;
     for (const due = Math.floor(t / RAID.rate) + 1; r.fired < due; r.fired++) {
-      r.shots++;
+      if (!(r.ammo! > 0)) break;
+      r.ammo!--; r.shots++;
       // The walk-in rounds are real tracers but harmless: they warn, the burst after them kills.
-      const line = { x: r.aim.x - gun.x, y: r.aim.y - gun.y, z: r.aim.z - gun.z }, length = Math.hypot(line.x, line.y, line.z) || 1, spread = RAID.spread;
-      const ray = { x: line.x / length + (random() - .5) * spread, y: line.y / length + (random() - .5) * spread, z: line.z / length + (random() - .5) * spread }, norm = Math.hypot(ray.x, ray.y, ray.z);
-      raiderShot(gun, { x: ray.x / norm, y: ray.y / norm, z: ray.z / norm }, t < RAID.walkIn ? 0 : RAID.round, event.name);
+      const line = helicopterGunRay(r, r.aim).direction, spread = RAID.spread;
+      const ray = { x: line.x + (random() - .5) * spread, y: line.y + (random() - .5) * spread, z: line.z + (random() - .5) * spread }, norm = Math.hypot(ray.x, ray.y, ray.z);
+      raiderShot(gun, { x: ray.x / norm, y: ray.y / norm, z: ray.z / norm }, t < RAID.walkIn ? 0 : RAID.round, event.name, members.get(`${r.event}-pilot`));
     }
   }
   function stepDrone(r: Raider, event: RunningEvent, dt: number) {
@@ -1694,7 +1778,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const faction = site.owner;
       const all = [...members.values()], mine = all.filter(m => m.actor.bot && !m.temporary && m.actor.faction === faction);
       const waiting = mine.filter(m => !m.actor.alive && !m.ride && m.actor.respawnIn === 0);
-      const room = Math.max(0, Math.min(population(faction) - mine.length, MAX_ARENA_BOTS - all.filter(m => m.actor.bot).length));
+      const room = Math.max(0, Math.min(population(faction) - mine.length, MAX_ARENA_BOTS - all.filter(m => m.actor.bot && !m.temporary).length));
       let deployed = 0;
       for (const point of deploymentPoints(site)) {
         if (deployed >= 4 || !clearSpawn(point) || [...members.values()].some(m => m.actor.alive && Math.hypot(m.actor.x - point.x, m.actor.z - point.z) < (m.actor.faction === faction ? 1.5 : 16))) continue;
@@ -1746,7 +1830,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     const mine = (m: InternalActor) => m.actor.bot && !m.temporary && m.actor.faction === faction, all = [...members.values()];
     const waiting = all.filter(m => mine(m) && !m.actor.alive && m.waiting !== undefined && !m.ride).sort((a, b) => a.waiting! - b.waiting!);
-    const room = Math.max(0, Math.min(population(faction) - all.filter(mine).length, MAX_ARENA_BOTS - all.filter(m => m.actor.bot).length));
+    const room = Math.max(0, Math.min(population(faction) - all.filter(mine).length, MAX_ARENA_BOTS - all.filter(m => m.actor.bot && !m.temporary).length));
     const state = clock[faction];
     if (!force) {
       // One transport per side on the road at a time, booked seats or not: a debug ride counts too.
@@ -2263,7 +2347,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const { cooldown, squad, drop } = ORDER_TUNING.reinforce, last = caller.reinforcedAt;
     // A rematch rewinds the clock; a transport "sent" after now is from the last match.
     if (last !== undefined && last <= elapsed && elapsed - last < cooldown) return { allies: 0, note: `HQ: Negative. Next transport in ${Math.ceil(cooldown - (elapsed - last))} s.` };
-    const room = Math.min(squad, MAX_ARENA_BOTS - [...members.values()].filter(m => m.actor.bot).length, Math.max(0, MAX_ARENA_ACTORS - members.size - 1));
+    const room = Math.min(squad, MAX_ARENA_BOTS - [...members.values()].filter(m => m.actor.bot && !m.temporary).length, Math.max(0, MAX_ARENA_ACTORS - members.size - 1));
     if (room <= 0) return { allies: 0, note: 'HQ: Negative. Every seat is out already.' };
     const from = { x: caller.actor.x, z: caller.actor.z }, [near] = TRANSPORT_DROP_RANGE;
     const close = validSpawns.filter(p => { const d = Math.hypot(p.x - from.x, p.z - from.z); return d >= near && d <= drop; });
@@ -2360,7 +2444,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return { type: 'arena-snapshot', tick, elapsed, ...(facilities ? { facilities: facilities.snapshot() } : {}), grenades: grenadeSystem.live.map(g => ({ ...g, position: { ...g.position }, velocity: { ...g.velocity }, landing: { ...g.landing } })), grenadeEvents: grenadeSystem.events.map(e => ({ ...e, point: { ...e.point } })), actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...(m.actor.conditions ? { conditions: structuredClone(m.actor.conditions) } : {}), ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
       ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target }, ...(e.descriptor.origin ? { origin: { ...e.descriptor.origin } } : {}) })) } : {}),
       ...(transports.size ? { transports: [...transports.values()].map(({ event, mode, x, y, z, yaw, health, maxHealth, state, visible, driver, driverAlive, passengers }) => ({ event, mode, x, y, z, yaw, health, maxHealth, state, visible, driver, driverAlive, passengers })) } : {}),
-      ...(raiders.size ? { raiders: [...raiders.values()].map(({ event, kind, x, y, z, yaw, health, maxHealth, state, aim, shots }) => ({ event, kind, x, y, z, yaw, health, maxHealth, state, aim: aim ? { ...aim } : null, shots })) } : {}),
+      ...(raiders.size ? { raiders: [...raiders.values()].map(({ event, kind, x, y, z, yaw, health, maxHealth, state, aim, shots, ammo }) => ({ event, kind, x, y, z, yaw, health, maxHealth, state, aim: aim ? { ...aim } : null, shots, ...(ammo !== undefined ? { ammo } : {}) })) } : {}),
       impacts: impacts.filter(e => elapsed - e.time <= IMPACT_LIFETIME).map(e => ({ ...e, point: { ...e.point }, direction: { ...e.direction } })),
       ...(factionHeat ? { heat: factionHeat.snapshot() } : {}), ...(flying.length ? { rounds: roundViews() } : {}),
       ...(barks.length ? { barks: barks.map(b => ({ ...b, ...(b.at ? { at: { ...b.at } } : {}) })) } : {}) };

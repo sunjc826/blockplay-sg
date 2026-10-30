@@ -8,7 +8,7 @@ events. They are **stationary and moving artillery**, **troop transports** (truc
 **air raid**, **helicopter raid**, **mortar fire**, **loitering drone**,
 **rooftop sniper**, **supply drop**, **smoke screen**, **tear gas** and
 **blackout**. Still proposals: the range adapter, a World conditions setting,
-LAN and raid inserts. Reinforcement transports now have damageable hulls and real drivers; downed raiders pay bounties. Each section below says which it is.
+and LAN. Attack raids use their guns; troop insertion belongs to transport helicopters. Reinforcement transports now have damageable hulls and real drivers; downed raiders pay bounties. Each section below says which it is.
 
 [Back to README](../README.md)
 
@@ -324,7 +324,7 @@ mercenary ride, "FRIENDLY TRUCK INBOUND · ARMED FORCES" for a friendly one (see
 - Counterplay: move **sideways out of the corridor**; running along it can put
   you under the next salvo. Bots also escape across the corridor.
 - Every risk table splits the previous artillery weight of 3 into **1.5
-  stationary / 1.5 moving**, with **45 s** cooldowns. Overall event pacing is
+  stationary / 1.5 moving**, with a shared **45 s** artillery cooldown. Overall event pacing is
   unchanged. Actual placement can favour stationary barrages in cramped areas:
   the moving mission's entire marked path must fit within district bounds and
   stay clear of protected arrival points; every damaging round is checked
@@ -355,19 +355,59 @@ mercenary ride, "FRIENDLY TRUCK INBOUND · ARMED FORCES" for a friendly one (see
   height (`altitude`) 18 m above every roof the host samples round the ring and
   at least 30 m above the ground. It circles for 32–56 s by intensity, then
   leaves. Both sides draw it from the descriptor.
-- Its door gunner is live on the host. It belongs to nobody: it picks the
-  nearest actor, player or patrol, it has a smoke-free line to (within 110 m) and walks tracers onto them for 1 s, which
-  does no damage. Then it fires a 1.5 s burst at 10 rounds a second, 12 damage
-  each with a 0.06 spread (about half land at orbit range), each round a ray
-  that a wall, hull or body can stop. It pauses 2.5–4 s
-  between bursts.
-- It is a real target: 700 health, two spheres (body and tail) in the host's
-  `resolveShot`. Below 25% it breaks off (`withdrawn`: its orbit turns for
-  home). At zero it falls, and the feed credits the shooter ("Alpha downed the
-  raid helicopter"), which counts toward the kill chain callout but not kills.
-- The snapshot carries `raiders: { event, kind, x, y, z, yaw, health,
-  maxHealth, state, aim, shots }[]`; a rising `shots` is a tracer to draw.
-- Not built: raid fast-rope inserts. Shooting down a raid helicopter pays **100 credits / 125 XP**; shooting down a drone pays **40 credits / 50 XP**. The host credits the final shooter once. Withdrawal, self-detonation and environmental outcomes pay nothing. Bounties persist through the usual profile reward ledger, appear in the HUD, and do not add infantry kills to the match score.
+- The pilot controls the existing chin-mounted gun, as a player can. It picks a
+  hostile actor within 110 m with a smoke-free line, walks harmless tracers onto
+  them for 1 s, then fires a 1.5 s burst at 10 rounds/s, 12 damage each, with
+  a 2.5–4 s pause. It carries **400 mounted rounds**, separate from rifles.
+  The mount uses the same pivot as the player helicopter. Walls, hulls, bodies,
+  friendly-fire rules and the normal projectile resolver stop its rounds.
+- Every raid has one real, unarmored **100 HP pilot**, plus **0–2 rifle
+  passengers**, drawn once from the event seed. Higher intensity makes riflemen
+  more likely; the crew does not reroll per frame or client. There is no
+  mandatory copilot or separate cannon operator. Rifle passengers fire their
+  own magazines in short bursts through the ordinary infantry weapon system,
+  from the side that can see their target. They cannot shoot through their own
+  cabin or take over the mounted gun. Killing one stops that rifle source.
+- The **700 HP hull** has the same oriented body/cockpit hit rules as the troop
+  helicopter. Exposed heads/bodies are separate real actor hitboxes; glazing
+  admits return fire while the lower hull and aft cabin stop it. Crew ride
+  actual seats, with open door positions and benches, and follow the exact
+  helicopter pose in both host and guest renderers.
+- Killing the pilot stops the mounted gun and forces a **5 m/s emergency
+  descent** at the current location, preserving remaining hull health. Surviving
+  rifle passengers stay aboard until touchdown, then use the same safe-exit
+  checks as transport passengers and run clear before fighting on foot. A
+  blocked exit is retried. They cannot teleport down or resume flight.
+- Below **25% hull health**, a raid with a living pilot breaks off as before.
+  At zero health it crashes and any crew still aboard die. The shooter receives
+  the existing **100 CR / 125 XP** hull bounty once. Real crew deaths count as
+  infantry eliminations, consistently with occupied player/fleet vehicles;
+  the hull bounty itself adds no infantry kill. A pilot kill and safe forced
+  landing alone do not award a destruction bounty. Drones still pay **40 CR /
+  50 XP** when shot down; withdrawal and environmental outcomes pay nothing.
+- Snapshots carry the existing raider state plus mounted `ammo`; real occupants
+  use `actor.transport` and `actor.aircrew` (`pilot`, `door-left`, `door-right`).
+  Validation checks unique seats, real ownership, faction, seated positions,
+  flight-state pilot presence and bounded ammunition. Event crews have bounded
+  actor slots separate from the 20 regular infantry slots, so adding guards
+  does not silently reduce delivered troop counts.
+- Friendly gunships target hostiles and appear as fire-support news rather than
+  an enemy alert. Both hull and crew respect faction rules. When a normal raid
+  finishes, the helicopter leaves with surviving crew and cleans up its seats.
+  **Raid troop insertion is intentionally omitted**: troop transports own that
+  role.
+
+**Rappel transport cover crew** (built)
+
+Troop helicopters retain their existing six delivery seats, real pilot,
+damage/evacuation rules, approach, ropes and departure. They can additionally
+carry **0–2 optional rifle guards**, using the same seeded crew, seat, weapon,
+hit and faction rules as gunships. Guards cover the approach and unloading once
+the warning has elapsed, stay aboard during a successful delivery, and fly away
+with the pilot. They remain shootable during departure. Shooting a guard does
+not trigger pilot-loss evacuation or cancel the troop inserts. Pilot loss
+brings all surviving delivered troops and guards out through safe exits after
+landing. Destruction kills occupants still aboard and cancels pending inserts.
 
 **Mortar fire** (built)
 
@@ -611,6 +651,13 @@ barrage must draw, and craters must appear. Then every other event is called
 once and must draw something (a pit, jets, a raider, a cloud, a crate, a
 jammed map) and announce itself. Finally a soak must see the director call an
 event of its own. `COMBAT_SMOKE_ONLY=mortar,drone` limits the second pass.
+
+`node scripts/helicopter-crew-smoke.mjs` runs nine scenarios through the real
+host and validated guest renderer: visible pilot/rifle seats, independent crew
+hits, emergency descent/evacuation, normal delivery and departure. Evidence is
+written to `.cache/helicopter-crew/`. `helicopter-crew.test.ts` also covers seeded
+variation, intensity, crew snapshot tampering, mounted ammunition, firing,
+cover, friendly support, and unchanged rappel troop capacity.
 
 `pnpm test:combat-transports` runs nine rendered truck/helicopter scenarios in
 `scripts/fixtures/transports.html`, using the real host simulation and shared

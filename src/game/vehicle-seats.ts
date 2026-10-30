@@ -27,7 +27,7 @@ export function vehicleRayDistance(v: VehicleState, origin: { x: number; y: numb
   }
   return far >= near ? near : Infinity;
 }
-export function vehicleGunRay(v: SharedVehicle, aim?: { x: number; y: number; z: number }) {
+export function vehicleGunRay(v: Pick<SharedVehicle, 'kind' | 'x' | 'y' | 'z' | 'yaw' | 'gunYaw' | 'gunPitch'>, aim?: { x: number; y: number; z: number }) {
   const offset = v.kind === 'car' ? -.45 : -1.7;
   const origin = { x: v.x + Math.sin(v.yaw) * offset, y: v.y + (v.kind === 'car' ? 2.55 : .72), z: v.z + Math.cos(v.yaw) * offset };
   if (aim) {

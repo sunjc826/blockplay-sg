@@ -1,0 +1,47 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Helicopter occupants</title><style>body{margin:0;background:#151e24;color:#edf0e0;font:15px system-ui}canvas{display:block}header{position:absolute;left:18px;top:15px;text-shadow:0 1px 3px #000}small{display:block;margin-top:6px}</style></head><body><header>Helicopter occupants · real host and guest renderer<small id="status">Loading</small></header><script type="module">
+import * as THREE from 'three';
+import { createArena } from '/src/game/arena-rules.ts';
+import { createArenaRuntime, validArenaSnapshot } from '/src/game/arena-runtime.ts';
+import { combatCues, combatTimeline } from '/src/game/combat-events.ts';
+import { aircrewPoint, rifleSeat } from '/src/game/helicopter-crew.ts';
+import { transportPoint } from '/src/game/combat-transports.ts';
+import { createCombatEventVisuals } from '/src/game/combat-event-visuals.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1200,800);renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#bddcef');scene.add(new THREE.HemisphereLight('#edf4ff','#727358',2.3));const sun=new THREE.DirectionalLight('#fff0d5',2.6);sun.position.set(30,60,-40);scene.add(sun);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(1000,1000),new THREE.MeshStandardMaterial({color:'#aba995',roughness:.95}));ground.rotation.x=-Math.PI/2;scene.add(ground);
+const ray=new THREE.Raycaster();const cast=(o,d,far)=>{ray.set(o,d);ray.near=0;ray.far=far;return ray.intersectObjects(scene.children.filter(o=>!o.userData.fpsEffect&&!o.userData.arenaActorId),true)[0]?.point??null;};
+const visuals=createCombatEventVisuals(scene,cast,{reduced:()=>false}),camera=new THREE.PerspectiveCamera(50,1.5,.1,1000);
+let arena,runtime,event,spawn,env,deliver;
+const gun=[{damage:200,interval:.06,capacity:100,reload:1,ballistics:{velocity:1500,drop:0}}];
+const crew=()=>arena.snapshot().actors.filter(a=>a.transport===event.id);
+const frame=()=>arena.snapshot().raiders?.find(r=>r.event===event.id)??arena.snapshot().transports?.find(t=>t.event===event.id);
+function render(dt=.05,draw=false){const s=arena.snapshot(),packet={...s,actors:s.actors.filter(a=>a.health<=300)};
+ if(!validArenaSnapshot(packet,env))throw Error('Rejected crew snapshot at '+s.elapsed);
+ deliver('host',{type:'arena-state',snapshot:packet,started:true,matchId:event.id});
+ const received=runtime.update(dt,{x:0,y:1.75,z:0,yaw:0,pitch:0,weapon:0,playing:false}).snapshot;
+ if(received?.tick!==s.tick)throw Error('Guest failed to accept snapshot');
+ visuals.update(dt,s.events??[],s.elapsed,camera,s.raiders??[],s.transports??[]);if(draw)renderer.render(scene,camera);}
+function advance(seconds){for(let t=0;t<seconds-1e-8;t+=.05){const dt=Math.min(.05,seconds-t);arena.step(dt);render(dt);}}
+function setup(kind,variant=0){runtime?.dispose();visuals.reset();spawn={x:0,z:0};env={bounds:{minX:-350,maxX:350,minZ:-350,maxZ:350},spawns:[{x:0,z:0},{x:100,z:0}],playerSpawn:spawn,endless:true,...(kind==='transport-air'?{population:6,reinforcements:true}:{}),move:(p,dx,dz)=>({x:p.x+dx,z:p.z+dz})};
+ arena=createArena([],0,'assault',env);for(let n=0;n<=variant;n++){arena.addPlayer('planner-'+n,'Planner',0,0,gun,undefined,true);arena.setPlayerHealthMultiplier('planner-'+n,10);}
+ event=arena.triggerEvent(kind,{x:0,z:0},0);if(!event)throw Error('No event');
+ runtime=createArenaRuntime({scene,obstacles:[],botCount:0,environment:env,session:{id:'viewer',role:'guest',name:'Viewer',send(){},subscribe(cb){deliver=cb;return()=>{}},getPeers:()=>[{id:'host',name:'Host'}],onPeers:()=>()=>{},close(){}}});
+ const ride=combatTimeline(event).find(p=>p.type==='transport');advance(ride?ride.arrive+.1:8.1);}
+function addShooter(side){const f=frame(),p=transportPoint(f,side==='front'?.45:side==='left'?-80:80,1.75,side==='front'?-80:.2);Object.assign(spawn,p);arena.addPlayer('shooter','Alpha',0,0,gun,undefined,true);arena.setPlayerHealthMultiplier('shooter',10);render();}
+function shootActor(id){const before=arena.snapshot().actors.find(a=>a.id===id);advance(.02);const current=arena.snapshot().actors.find(a=>a.id===id),from=arena.snapshot().actors.find(a=>a.id==='shooter'),flight=Math.hypot(current.x-from.x,current.y-from.y,current.z-from.z)/1500;
+ const at={x:current.x+(current.x-before.x)/.02*flight,y:current.y+(current.y-before.y)/.02*flight,z:current.z+(current.z-before.z)/.02*flight};const v=new THREE.Vector3(at.x-from.x,at.y-from.y,at.z-from.z).normalize();arena.shoot('shooter',from,v,0);for(let n=0;n<400&&arena.inFlight('shooter');n++)advance(.002);}
+window.reviewHelicopter=(kind='helicopter-raid',scenario='intact',view='front')=>{
+ for(let v=0;v<5;v++){setup(kind,v);if(crew().some(a=>rifleSeat(a.aircrew)))break;}
+ if(kind==='transport-air'&&scenario==='intact')advance(1.3);
+ let stoppedShots;const initial=frame(),pilot=crew().find(a=>a.aircrew==='pilot'),rifle=crew().find(a=>rifleSeat(a.aircrew));
+ if(scenario==='rifle'){addShooter(rifle.aircrew==='door-left'?'left':'right');shootActor(rifle.id);advance(2);}
+ if(scenario.startsWith('pilot')){addShooter('front');shootActor(pilot.id);stoppedShots=frame().shots;advance(scenario==='pilot-air'?1:initial.y/5+3);}
+ if(scenario==='depart'){const ride=combatTimeline(event).find(p=>p.type==='transport');advance(ride.leave-arena.snapshot().elapsed+.3);}
+ const f=frame()??initial;if(view==='front'){const eye=transportPoint(f,7,3.8,-11),look=transportPoint(f,0,1.6,-.5);camera.position.set(eye.x,eye.y,eye.z);camera.lookAt(look.x,look.y,look.z);}else if(view==='wide'){const eye=transportPoint(f,12,5,-18),look=transportPoint(f,0,-1,0);camera.position.set(eye.x,eye.y,eye.z);camera.lookAt(look.x,look.y,look.z);}else{const eye=transportPoint(f,-11,3,-2);camera.position.set(eye.x,eye.y,eye.z);camera.lookAt(f.x,f.y+1.5,f.z);}
+ camera.updateMatrixWorld(true);render(.01,true);
+ let seatError=0,rendered=0;scene.traverse(o=>{if(!o.userData.arenaActorId||!o.visible)return;const a=crew().find(a=>a.id===o.userData.arenaActorId&&a.alive);if(a){seatError=Math.max(seatError,Math.hypot(o.position.x-a.x,o.position.y-(a.y-1.2),o.position.z-a.z));rendered++;}});
+ const s=arena.snapshot(),occupants=crew();document.querySelector('#status').textContent=`${kind} · ${scenario} · ${occupants.filter(a=>a.alive).length} aboard · hull ${f.health} · ${f.state}`;
+ return {kind,scenario,state:f.state,health:f.health,driverAlive:f.driverAlive,passengers:f.passengers,shots:f.shots,initialShots:initial.shots,stoppedShots,crew:occupants.map(a=>({id:a.id,role:a.aircrew,alive:a.alive,shots:a.shots})),foot:s.actors.filter(a=>a.id.startsWith(event.id)&&a.alive&&!a.transport).map(a=>({id:a.id,y:a.y})),rendered,seatError,draws:renderer.info.render.calls,glError:renderer.getContext().getError()};
+};
+window.reviewHelicopter();
+</script></body></html>

@@ -11,7 +11,7 @@ const open = (extra: Partial<ArenaEnvironment> = {}): ArenaEnvironment => ({
   move: (p, dx, dz) => ({ x: p.x + dx, z: p.z + dz }), endless: true, playerSpawn: { x: 0, z: 0 }, ...extra,
 });
 function advance(arena: ArenaSimulation, seconds: number) { for (let t = 0; t < seconds; t += .1) arena.step(.1); }
-const allies = (arena: ArenaSimulation) => arena.snapshot().actors.filter(a => a.bot && a.alive && a.faction === 'armed-forces');
+const allies = (arena: ArenaSimulation) => arena.snapshot().actors.filter(a => a.bot && a.alive && !a.transport && a.faction === 'armed-forces');
 const me = (arena: ArenaSimulation) => arena.snapshot().actors.find(a => a.id === 'p')!;
 const gap = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z);
 /** Says an order once the callout cooldown allows. */

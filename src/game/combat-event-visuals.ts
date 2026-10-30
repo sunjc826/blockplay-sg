@@ -1,3 +1,4 @@
+import { helicopterGunPoint } from './helicopter-crew';
 import type { ArenaTransport } from './combat-transports';
 import * as THREE from 'three';
 import { combatPhase, combatRandom, combatTimeline, cratePose, flyerPose, orbitPose, transportPose, type CombatEventDescriptor, type MunitionPayload, type TransportPayload } from './combat-events';
@@ -69,8 +70,9 @@ function buildTransportHelicopter() {
     const geometry = shell.geometry.toNonIndexed(), positions = geometry.getAttribute('position'), kept: number[] = [];
     for (let i = 0; i < positions.count; i += 3) {
       const y = (positions.getY(i) + positions.getY(i + 1) + positions.getY(i + 2)) / 3;
+      const x = (positions.getX(i) + positions.getX(i + 1) + positions.getX(i + 2)) / 3;
       const z = (positions.getZ(i) + positions.getZ(i + 1) + positions.getZ(i + 2)) / 3;
-      if (y > -.3 && z < -.25) continue;
+      if (y > -.3 && (z < -.25 || Math.abs(x) > .55 && z < .8)) continue;
       kept.push(i, i + 1, i + 2);
     }
     geometry.setIndex(kept); shell.geometry.dispose(); shell.geometry = geometry;
@@ -79,6 +81,11 @@ function buildTransportHelicopter() {
   for (const [w, h, d, x, y, z] of [[.65, .18, .7, .45, 1.2, -1.6], [.65, .7, .15, .45, 1.6, -1.25], [.07, .55, .07, .45, 1.55, -1.95]]) {
     const part = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), dark); part.position.set(x, y, z); model.add(part);
   }
+  // Side benches and a cabin floor give exposed rifle passengers actual seats.
+  for (const x of [-1, 1]) {
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(.8, .16, .75), dark); bench.position.set(x, 1.1, .2); model.add(bench);
+  }
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(2.2, .1, 1.8), dark); floor.position.set(0, 1.02, .25); model.add(floor);
   return model;
 }
 
@@ -150,17 +157,16 @@ function buildCrate() {
   canopy.add(lines);
   return root;
 }
-/** The transport helicopter, repainted dark, with a door gun on its left. */
+/** A dark utility gunship with an exposed cockpit, open rifle positions and the fleet chin mount. */
 function buildGunship() {
-  const root = buildVehicleModel('helicopter');
+  const root = buildTransportHelicopter();
   root.traverse(node => {
     if (!(node instanceof THREE.Mesh)) return;
     node.material = (Array.isArray(node.material) ? node.material : [node.material]).map(m => {
-      const paint = m.clone(); if ('color' in paint && paint.color instanceof THREE.Color) paint.color.multiplyScalar(.42); return paint;
+      const paint = m.clone(); if (!paint.transparent && 'color' in paint && paint.color instanceof THREE.Color) paint.color.multiplyScalar(.42); return paint;
     });
     if (Array.isArray(node.material) && node.material.length === 1) node.material = node.material[0];
   });
-  const gun = new THREE.Mesh(new THREE.BoxGeometry(.08, .08, .9), new THREE.MeshStandardMaterial({ color: '#1a1c1b', roughness: .5 })); gun.position.set(-1.25, .9, -.6); root.add(gun);
   return root;
 }
 /** Every drawable's owned geometry, materials and textures, for a model built on demand. */
@@ -357,8 +363,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
         if (r.kind === 'gunship') emitters.push({ x: r.x, y: r.y, z: r.z, colour: trail.clone(), until: clock + 20, next: clock, rate: options.reduced() ? .4 : .12 });
       }
       if (r.kind === 'gunship' && r.shots > seen.shots && r.aim) {
-        const gunship = props.gunship.find(p => p.owner === r.event)?.model;
-        if (gunship) gunAt.set(-1.25, .9, -1).applyMatrix4(gunship.matrixWorld); else gunAt.set(r.x, r.y + .7, r.z);
+        const muzzle = helicopterGunPoint(r); gunAt.set(muzzle.x, muzzle.y, muzzle.z);
         // The rounds themselves fly in the snapshot and are drawn with everyone else's; this is the muzzle and the sound.
         for (let n = 0; n < Math.min(3, r.shots - seen.shots); n++) happened.shots.push(gunAt.clone());
       }
@@ -398,7 +403,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
         const orbit = combatTimeline(event).find(p => p.type === 'orbit');
         const live = raiders.find(r => r.event === event.id);
         // A flying raid is drawn from its own pure path; one coming down follows the host.
-        const falling = live && (live.state === 'down' || live.state === 'wreck');
+        const falling = live && ['down', 'wreck', 'landing', 'landed'].includes(live.state);
         const pose = orbit?.type === 'orbit' && !falling ? orbitPose(orbit, age, event.altitude ?? 40) : null;
         if ((pose?.visible || falling) && live) {
           const v = prop('gunship', event.id);
@@ -407,8 +412,13 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
             if (pose) { v.model.position.set(pose.x, pose.y, pose.z); v.model.rotation.set(0, pose.yaw, 0); }
             else { v.model.position.lerp(position.set(live.x, live.y, live.z), smoothing); v.model.rotation.set(live.state === 'wreck' ? .25 : 0, live.yaw, live.state === 'wreck' ? .4 : 0); }
             const rotor = v.model.getObjectByName('main-rotor'), tail = v.model.getObjectByName('tail-rotor');
-            if (rotor && live.state !== 'wreck') rotor.rotation.y += dt * 38;
-            if (tail && live.state !== 'wreck') tail.rotation.x += dt * 60;
+            if (rotor && live.state !== 'wreck' && live.state !== 'landed') rotor.rotation.y += dt * 38;
+            if (tail && live.state !== 'wreck' && live.state !== 'landed') tail.rotation.x += dt * 60;
+            const turret = v.model.getObjectByName('vehicle-turret');
+            if (turret && live.aim) {
+              const mount = helicopterGunPoint(live), dx = live.aim.x - mount.x, dy = live.aim.y - mount.y, dz = live.aim.z - mount.z;
+              turret.rotation.set(Math.max(-1.05, Math.min(.65, Math.atan2(dy, Math.hypot(dx, dz)))), Math.atan2(-dx, -dz) - live.yaw, 0);
+            }
             v.model.updateMatrixWorld(true);
           }
         }

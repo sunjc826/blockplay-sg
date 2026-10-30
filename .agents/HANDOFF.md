@@ -4917,3 +4917,42 @@ Documentation only: gameplay unchanged, no runtime tests or deployment needed.
 Checked source behavior, the local document reference and whitespace. Committed
 only this proposal and this handoff entry; concurrent audio/combat work is
 excluded. No push; AGENTS.md remains local, unstaged and uncommitted.
+
+## 2026-10-31 — helicopter occupants and barrage verification
+
+User settled on one pilot controlling the mounted gun, with zero to two optional
+rifle passengers, using player/fleet seat behavior as the reference. Added
+seeded crew variation to gunships and troop helicopters; greater intensity
+increases rifle-guard likelihood. All are real 100 HP actors with separate
+head/body hitboxes. Pilot loss stops the mounted gun, descends at 5 m/s, and
+survivors evacuate through the existing safe-exit checks after touchdown. Rifle
+loss removes only that source of fire. A successful troop delivery retains all
+six troop seats, leaves its cover crew aboard and flies away. Gunships use the
+fleet chin pivot and pitch limits, finite mounted ammo and faction rules; rifle
+passengers use normal magazines, reloads, projectiles, cover and friendly fire.
+
+Cockpits/door positions are open, with benches; pilot-held rifles are hidden.
+The actual guest renderer follows exact seat poses without infantry interpolation
+lag. Snapshots validate seat uniqueness, seeded roles, ownership, faction,
+positions, pilots for active flight and ammo bounds. Crews get bounded event
+slots separate from the 20 regular infantry slots (46 total actors maximum).
+Crew losses count as infantry eliminations; a destroyed gunship pays its hull
+bounty once. A forced landing alone does not pay the destruction bounty. Friendly
+gunships appear as support news and do not get enemy minimap marks.
+
+Barrage baseline: all 1,890 tests / 198 files passed in the clean 626a23b copy,
+plus typecheck and rendered stationary/moving warning, impact, cleanup and terrain
+checks. The road is 2 cm above the plaza; 2bf6bc1 corrects that browser assertion.
+The final variants now share their 45 s family cooldown, including at high tempo.
+
+Helicopter validation: all 255 combat/vehicle checks / 23 files pass, including
+crew shots, seat tampering, pilot-loss descent, safe exits, normal departure,
+mounted ammo and unchanged troop capacity. Typecheck passed. Nine browser
+scenarios run the real host and validated guest renderer, covering visible crew,
+independent hits, emergency descent/evacuation, departure and exact attachment;
+no WebGL/runtime errors. Screenshots reviewed, including active fast ropes.
+Evidence: .cache/helicopter-crew/, .cache/creeping-artillery/,
+/tmp/astra-aircrew-{combat-final,browser-final,typecheck-final}.log and
+.cache/creeping-release-626a23b/release-tests.log. Final isolated build/manual
+Cloudflare deployment and production verification follow. No GitHub push;
+AGENTS.md and .claude stay local and uncommitted.

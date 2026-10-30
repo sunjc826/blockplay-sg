@@ -105,6 +105,7 @@ describe('raid helicopter', () => {
     const arena = soloArena();
     const raid = arena.triggerEvent('helicopter-raid')!;
     advance(arena, RAID.warning + 2);
+    const crewCount = arena.snapshot().actors.filter(a => a.transport === raid.id).length;
     // Rounds fly, so lead it by where it will be when the round gets there.
     const ahead = () => {
       const was = raider(arena, raid.id)!; arena.step(.05);
@@ -115,7 +116,7 @@ describe('raid helicopter', () => {
     expect(raider(arena, raid.id)!.state).toBe('down');
     expect(event(arena, raid.id)!.outcome).toBe('downed');
     expect(arena.snapshot().feed.filter(f => f.bounty === 'gunship')).toHaveLength(1);
-    expect(actor(arena, 'one')!.kills).toBe(0);
+    expect(actor(arena, 'one')!.kills).toBe(crewCount);
     expect(arena.snapshot().feed.some(f => f.killerId === 'one' && f.bounty === 'gunship' && f.text === 'Alpha downed the raid helicopter')).toBe(true);
     advance(arena, 15);
     expect(raider(arena, raid.id)).toBeUndefined();

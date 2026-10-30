@@ -1,3 +1,4 @@
+import { validAircrewRole, aircrewPoint, helicopterCrew, rifleSeat } from './helicopter-crew';
 import { validTransport } from './combat-transports';
 import { validRaiderBounty } from './combat-rewards';
 import { MAX_CONFIRMED_IMPACTS, IMPACT_LIFETIME } from './confirmed-impacts';
@@ -42,7 +43,7 @@ export interface ArenaRuntimeOptions {
   environment?: ArenaEnvironment; vehicles?: ArenaVehicleOptions; initialVitals?: Partial<ArenaVitals>;
 }
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
-const RAIDER_STATES: readonly ArenaRaiderState[] = ['inbound', 'orbit', 'leaving', 'cruise', 'lock', 'dive', 'down', 'wreck', 'exploded'];
+const RAIDER_STATES: readonly ArenaRaiderState[] = ['landing', 'landed', 'inbound', 'orbit', 'leaving', 'cruise', 'lock', 'dive', 'down', 'wreck', 'exploded'];
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 export function validArenaInput(value: unknown): value is ArenaInput {
   return object(value) && ['x', 'y', 'z', 'yaw', 'pitch'].every(key => finite(value[key])) &&
@@ -61,6 +62,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     if (!object(actor) || typeof actor.id !== 'string' || actor.id.length > 100 || ids.has(actor.id) || typeof actor.name !== 'string' || actor.name.length > 24 ||
       !['x', 'y', 'z', 'yaw', 'pitch', 'health', 'armor', 'kills', 'deaths', 'respawnIn', 'shots', 'weapon'].every(key => finite(actor[key])) ||
       (actor.squad !== undefined && (typeof actor.squad !== 'string' || actor.squad.length > 100)) ||
+      (actor.aircrew !== undefined && (!validAircrewRole(actor.aircrew) || typeof actor.transport !== 'string' || !actor.bot)) ||
       (actor.transport !== undefined && (typeof actor.transport !== 'string' || actor.transport.length > 100)) ||
       (actor.prone !== undefined && typeof actor.prone !== 'boolean') || (actor.aiming !== undefined && actor.aiming !== true) || (actor.scent !== undefined && actor.scent !== true) ||
       (actor.ground !== undefined && !(finite(actor.ground) && actor.ground >= -50 && actor.ground <= (actor.transport ? 405 : 124))) ||
@@ -135,7 +137,6 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       owners.add(t.event); drivers.add(t.driver);
     }
   }
-  if (value.actors.some(a => a.transport !== undefined && (!Array.isArray(value.transports) || !value.transports.some(t => t.event === a.transport && t.driver === a.id)))) return false;
   if (value.raiders !== undefined) {
     const events = new Set((Array.isArray(value.events) ? value.events : []).map(event => (event as { id: string }).id)), owners = new Set<string>();
     if (!Array.isArray(value.raiders) || value.raiders.length > MAX_COMBAT_EVENTS) return false;
@@ -144,10 +145,26 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
         !['x', 'y', 'z', 'yaw', 'health', 'maxHealth', 'shots'].every(k => finite(r[k])) || !RAIDER_STATES.includes(r.state as ArenaRaiderState) ||
         (r.maxHealth as number) <= 0 || (r.maxHealth as number) > 1000 || (r.health as number) < 0 || (r.health as number) > (r.maxHealth as number) ||
         !Number.isInteger(r.shots) || (r.shots as number) < 0 || Math.abs(r.x as number) > 5000 || Math.abs(r.z as number) > 5000 || (r.y as number) < -50 || (r.y as number) > 400 ||
+        (r.kind === 'gunship' ? !Number.isInteger(r.ammo) || (r.ammo as number) < 0 || (r.ammo as number) > VEHICLE_COMBAT.helicopter.ammo : r.ammo !== undefined || ['landing', 'landed'].includes(String(r.state))) ||
         !(r.aim === null || point(r.aim))) return false;
       owners.add(r.event);
     }
   }
+  const crewSeats = new Set<string>();
+  for (const actor of value.actors) if (actor.transport !== undefined) {
+    const t = (value.transports as ArenaSnapshot['transports'])?.find(t => t.event === actor.transport);
+    const r = (value.raiders as ArenaSnapshot['raiders'])?.find(r => r.event === actor.transport && r.kind === 'gunship');
+    const event = (value.events as ArenaSnapshot['events'])?.find(e => e.id === actor.transport);
+    if ((!t && !r) || !event || actor.faction !== (event.faction ?? 'mercenaries') || !actor.bot) return false;
+    if (!actor.aircrew) { if (!t || t.mode !== 'land' || t.driver !== actor.id) return false; continue; }
+    if (!helicopterCrew(event).includes(actor.aircrew)) return false;
+    if (t && (t.mode !== 'air' || actor.aircrew === 'pilot' && t.driver !== actor.id || actor.aircrew !== 'pilot' && t.driver === actor.id)) return false;
+    const key = `${actor.transport}/${actor.aircrew}`; if (crewSeats.has(key)) return false; crewSeats.add(key);
+    const expected = aircrewPoint((t ?? r)!, actor.aircrew);
+    if (Math.hypot(expected.x - actor.x, expected.y - actor.y, expected.z - actor.z) > .25) return false;
+  }
+  for (const r of (value.raiders as ArenaSnapshot['raiders']) ?? []) if (r.kind === 'gunship' && ['inbound', 'orbit', 'leaving'].includes(r.state) && r.health > 0 &&
+    !value.actors.some(a => a.transport === r.event && a.aircrew === 'pilot' && a.alive)) return false;
   if (value.barks !== undefined && !(Array.isArray(value.barks) && value.barks.length <= MAX_ARENA_BARKS && value.barks.every(b => object(b) &&
     typeof b.id === 'string' && b.id.length <= 24 && typeof b.actor === 'string' && b.actor.length <= 100 && typeof b.text === 'string' && b.text.length <= 140 &&
     ((BARK_EVENTS as readonly unknown[]).includes(b.kind) || b.kind === 'callout' && !!getPlayerCallout(b.callout)) && (b.callout === undefined || b.kind === 'callout') && (b.at === undefined || point(b.at)) &&
@@ -529,10 +546,11 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     }
     rig.update(dt, {
       velocity: actor.transport || actor.vehicle ? { x: 0, z: 0 } : local, turn: actor.transport || actor.vehicle ? 0 : turnStep / Math.max(dt, 1e-3), pitch: actor.pitch,
-      crouch, prone: !!actor.prone, seated, driving: seated && (actor.seat === 0 || !!actor.transport), airborne,
+      crouch, prone: !!actor.prone, seated, driving: seated && (actor.seat === 0 || !!actor.transport && !rifleSeat(actor.aircrew)), airborne,
       aim: actor.healing !== undefined ? 0 : avatar.fireTimer > 0 || speed < 1.2 || actor.prone ? 1 : .15,
       ...(actor.healing !== undefined ? { healing: actor.healing } : {}),
     });
+    if (rig.weapon) rig.weapon.visible = actor.aircrew !== 'pilot';
     avatar.health.scale.x = Math.max(0.01, 0.75 * actor.health / avatar.maxHealth);
     if (avatar.muzzle) avatar.muzzle.visible = avatar.flash > 0 && actor.alive && !!rig.weapon?.visible;
     if (avatar.glint) {
@@ -563,7 +581,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       let avatar = avatars.get(actor.id);
       if (avatar && avatar.key !== avatarKey(actor)) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); avatars.delete(actor.id); avatar = undefined; }
       if (!avatar) { avatar = createAvatar(actor); avatars.set(actor.id, avatar); scene.add(avatar.root); avatar.root.position.set(actor.x, actor.y - 1.75, actor.z); avatar.previous.copy(avatar.root.position); }
-      animateAvatar(avatar, presentations.get(actor.id)?.sample(performance.now() / 1000) ?? actor, dt);
+      animateAvatar(avatar, actor.transport ? actor : presentations.get(actor.id)?.sample(performance.now() / 1000) ?? actor, dt);
     }
     const listener = self ?? (validArenaInput(input) ? { ...input, bot: false, faction: 'armed-forces' } : null), now = performance.now();
     for (const said of pendingBarks) {

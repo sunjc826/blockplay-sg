@@ -2780,7 +2780,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // Hunters: their warning is a countdown; once here, where they are is what matters.
       if (phase === 'warning') { offer(`${plugin.banner.warning} · ${countdown}`, 'hazard', 3); continue; }
       if (event.kind === 'sniper') { if (event.ended === undefined && event.origin) offer(`${plugin.banner.active} · ${whereFrom(event.origin)}`, 'hazard', 2); continue; }
-      if (!raider || ['down', 'wreck', 'exploded'].includes(raider.state)) continue;
+      if (!raider || ['down', 'wreck', 'exploded', 'landing', 'landed'].includes(raider.state)) continue;
       const onMe = !!raider.aim && Math.hypot(raider.aim.x - position.x, raider.aim.z - position.z) < 2.5;
       if (event.kind === 'drone' && onMe && (raider.state === 'lock' || raider.state === 'dive')) { lockedOn = true; offer('DRONE LOCKED ON · BREAK LINE OF SIGHT OR SHOOT IT', 'hazard', 5); }
       else offer(`${plugin.banner.active} · ${whereFrom(raider)}`, 'hazard', event.kind === 'helicopter-raid' ? 3 : 2);
@@ -2788,10 +2788,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // An enemy sniper who has fired or shown a glint has given their position away.
     for (const actor of snapshot.actors) if (actor.role === 'overwatch' && actor.alive && (actor.aiming || actor.shots > 0) && hostile({ bot: false }, actor)) dangers.push({ id: `sniper-${actor.id}`, x: actor.x, z: actor.z, radius: 0, kind: 'raider' });
     for (const r of raiders) {
-      if (['wreck', 'exploded'].includes(r.state)) continue;
+      if (['wreck', 'exploded', 'landed'].includes(r.state)) continue;
       const distance = Math.hypot(r.x - listener.x, r.y - listener.y, r.z - listener.z);
       if (r.kind === 'gunship') raid = Math.min(raid, distance); else drone = Math.min(drone, distance);
-      if (r.state !== 'down') dangers.push({ id: `raider-${r.event}`, x: r.x, z: r.z, radius: 0, kind: 'raider' });
+      const owner = events.find(e => e.id === r.event);
+      if (r.state !== 'down' && (!owner || threatens(owner, getCombatEvent(owner.kind)!))) dangers.push({ id: `raider-${r.event}`, x: r.x, z: r.z, radius: 0, kind: 'raider' });
     }
     lockBeep -= dt;
     if (lockedOn && lockBeep <= 0) { combatAudio.beep(); lockBeep = .22; }
@@ -2801,7 +2802,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     combatAudio.transport(engine.mode, engine.distance, engine.effort);
     combatAudio.loop('jet', Math.min(jet, ambientJet)); combatAudio.loop('raid', raid); combatAudio.loop('drone', drone); combatAudio.loop('siren', siren ? 0 : Infinity);
     const happened = combatVisuals.update(dt, events, eventClock, camera, raiders, snapshot?.transports ?? []);
-    // A raid helicopter's door gun.
+    // The raid helicopter's pilot-controlled chin mount; rifle passengers use regular actor shots.
     happened.shots.slice(0, 2).forEach(at => otherShot(at, 7.62, 60));
     for (const { at, size } of happened.blasts) {
       const distance = at.distanceTo(listener); combatAudio.boom(distance, size);

@@ -84,6 +84,7 @@ export function createCombatDirector(options: { risk: CombatRisk; seed: number; 
   const random = combatRandom(options.seed);
   const between = ([low, high]: readonly [number, number]) => low + random() * (high - low);
   const lastFired = new Map<string, number>();
+  const cooldownKey = (kind: string) => kind === 'artillery-creeping' ? 'artillery' : kind;
   /** The wait began at `since` and runs `drawn` seconds at tempo 1; `retry` holds off a look that found nothing to do. */
   let since = 0, drawn = between(pace.first), retry = 0;
   const due = (tempo = 1) => Math.max(retry, since + drawn / Math.min(4, Math.max(.25, Number.isFinite(tempo) ? tempo : 1)));
@@ -139,17 +140,17 @@ export function createCombatDirector(options: { risk: CombatRisk; seed: number; 
       // One hazard at a time: the next one is timed from when the last finishes landing.
       // News (a reinforcement truck, a supply drop, a blackout) does not hold fire control up.
       if (view.active.some(e => getCombatEvent(e.kind)?.hazard && ['warning', 'active'].includes(combatPhase(e, view.now)))) { retry = view.now + RETRY; return null; }
-      const ready = table.filter(e => view.now - (lastFired.get(e.kind) ?? -Infinity) >= e.cooldown);
+      const ready = table.filter(e => view.now - (lastFired.get(cooldownKey(e.kind)) ?? -Infinity) >= e.cooldown);
       if (!ready.length || !view.humans.length) { retry = view.now + RETRY; return null; }
       let pick = random() * ready.reduce((sum, e) => sum + e.weight, 0), entry = ready[0];
       for (const candidate of ready) { pick -= candidate.weight; if (pick <= 0) { entry = candidate; break; } }
       const directive = aim(entry.kind, view);
       if (!directive) { retry = view.now + RETRY; return null; }
-      lastFired.set(entry.kind, view.now); since = view.now; drawn = between(pace.gap);
+      lastFired.set(cooldownKey(entry.kind), view.now); since = view.now; drawn = between(pace.gap);
       return directive;
     },
     /** The host could not place what it was handed (no perch, no pit): forget it and look again soon. */
-    refused(directive: CombatDirective, now: number) { lastFired.delete(directive.kind); since = now; drawn = 0; retry = now + RETRY; },
+    refused(directive: CombatDirective, now: number) { lastFired.delete(cooldownKey(directive.kind)); since = now; drawn = 0; retry = now + RETRY; },
     reset() { lastFired.clear(); since = 0; drawn = between(pace.first); retry = 0; },
   };
 }

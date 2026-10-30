@@ -70,6 +70,13 @@ describe('mixed barrage director', () => {
       expect(seen.has('artillery')).toBe(true); expect(seen.has('artillery-creeping')).toBe(true);
     }
   });
+  it('shares the artillery cooldown so alternating variants cannot bypass it in a heated fight', () => {
+    const director = createCombatDirector({ risk: 'high', seed: 12, table: COMBAT_TABLES.high.filter(e => e.kind.startsWith('artillery')) });
+    const times: number[] = [];
+    for (let now = 0; now < 600; now += .5) if (director.step({ now, active: [], humans: [{ x: 0, z: 0 }], bounds, tempo: 4 })) times.push(now);
+    expect(times.length).toBeGreaterThan(5);
+    expect(times.slice(1).every((time, index) => time - times[index] >= 45)).toBe(true);
+  });
   it('checks every later section against district edges, arrivals and humans before scheduling', () => {
     const avoid = [{ x: -40, z: 25 }], humans = [{ x: 85, z: 85 }]; let scheduled = 0;
     for (let seed = 0; seed < 80; seed++) {

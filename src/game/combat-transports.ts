@@ -21,7 +21,7 @@ export function transportDriverPoint(t: ArenaTransport) {
   return t.mode === 'land' ? transportPoint(t, .55, 2.4, -2.4) : transportPoint(t, .45, 2.05, -1.6);
 }
 /** Oriented hull boxes leave the cockpit glazing open to hits on its driver. */
-export function transportRayDistance(t: ArenaTransport, origin: CombatVector, ray: CombatVector) {
+export function transportRayDistance(t: Pick<ArenaTransport, 'x' | 'y' | 'z' | 'yaw' | 'mode' | 'visible' | 'state'>, origin: CombatVector, ray: CombatVector) {
   if (!t.visible || t.state === 'departed') return Infinity;
   const c = Math.cos(t.yaw), s = Math.sin(t.yaw), dx = origin.x - t.x, dz = origin.z - t.z;
   const o = [dx * c - dz * s, origin.y - t.y, dx * s + dz * c];
