@@ -1,5 +1,5 @@
 <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#050c10}canvas{display:block}</style></head><body><script type="module">
-import * as THREE from '/node_modules/.vite/deps/three.js';
+import * as THREE from 'three';
 import { createDeploymentBlur } from '/src/game/deployment-blur.ts';
 const renderer = new THREE.WebGLRenderer({preserveDrawingBuffer:true});
 renderer.setSize(384,256); renderer.autoClear=false; document.body.append(renderer.domElement);

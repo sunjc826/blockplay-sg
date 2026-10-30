@@ -53,6 +53,18 @@ it('supports skip, reset and a reduced-motion version without aerial travel', ()
   intro.reset(); intro.begin(false); expect(intro.active).toBe(true);
 });
 
+it('continues from the overview camera and arrives at the selected player without a camera cut', () => {
+  const intro = createDeploymentIntro(); intro.begin(false, {height:900,x:120,z:-80,yaw:1.2,fov:65});
+  expect(intro.frame(1.75, 0)).toMatchObject({height:901.75,x:120,z:-80,yaw:1.2,fov:65});
+  intro.advance(.5);
+  expect(intro.frame(1.75, 0).x).toBeCloseTo(0); expect(intro.frame(1.75, 0).z).toBeCloseTo(0);
+  expect(intro.frame(1.75, 0).height).toBeGreaterThan(790);
+  intro.advance(DEPLOYMENT_DESCENT - .5);
+  expect(intro.frame(1.75, 0)).toMatchObject({height:1.75,x:0,z:0,yaw:0,fov:65,weaponVisible:true});
+  intro.reset(); intro.begin(true, {height:900,x:120,z:-80,yaw:1.2,fov:65});
+  expect(intro.frame(1.75, 0)).toMatchObject({height:1.75,x:0,z:0,yaw:0});
+});
+
 it('cuts below a roof only while obscured, never descends through the ceiling', () => {
   const intro = createDeploymentIntro(); intro.begin(false); let cut = false;
   for (let i = 0; i < 300; i++) {

@@ -41,7 +41,7 @@ try {
  await touch(button('Resume expedition')); await wait(`${game}.dataset.phase==='deploying'`);
  await wait(`document.querySelector('canvas').dataset.deploymentIntro==='descent' && JSON.parse(document.querySelector('canvas').dataset.deploymentCamera).ready>.1`);
  const overlap=await evaluate(`({camera:JSON.parse(document.querySelector('canvas').dataset.deploymentCamera),weapon:document.querySelector('canvas').dataset.weaponVisible,blur:Number(document.querySelector('canvas').dataset.deploymentBlur),text:document.querySelector('.deployment-briefing').textContent})`);
- assert.equal(overlap.weapon,'true'); assert.ok(overlap.camera.pitch<0 && overlap.camera.ready>.1,JSON.stringify(overlap));
+ assert.equal(overlap.weapon,'true'); assert.ok(overlap.camera.pitch<=0 && overlap.camera.ready>.1,JSON.stringify(overlap));
  assert.match(overlap.text,/LOCATION.*QUEENSTOWN, SINGAPORE.*TIME.*13:00 SGT.*WEATHER.*SUNNY & HUMID/s);
  await screenshot('overlap');
  await wait(`Number(document.querySelector('canvas').dataset.readyAction)>.8`);

@@ -1,32 +1,34 @@
-import { useId } from 'react';
+import type { ReactNode } from 'react';
 import type { DeploymentView } from '../game/expedition-deployment';
-import type { WorldZoneId } from '../game/world-zones';
-import { getRegion } from '../game/regions';
-import { minimapProjection } from '../game/minimap';
+import { getWorldZone, type WorldZoneId } from '../game/world-zones';
 import './expedition-deployment.css';
 
-export default function ExpeditionDeployment({ zone, deployment, onChoose }: { zone: WorldZoneId; deployment: DeploymentView | null; onChoose: (id: string) => void }) {
-  const id = useId();
+export default function ExpeditionDeployment({ zone, deployment, onChoose, onZoom, onResetView, disabled = false, children }: {
+  zone: WorldZoneId; deployment: DeploymentView | null; onChoose: (id: string) => void;
+  onZoom?: (factor: number) => void; onResetView?: () => void; disabled?: boolean; children?: ReactNode;
+}) {
   if (!deployment?.canChoose) return null;
-  const region = getRegion(zone), map = minimapProjection(region.bounds, 360, 190, 14);
-  return <fieldset className="expedition-deployment" aria-label="Starting location">
-    <legend>Starting location</legend>
-    <label htmlFor={id}>Deploy at</label>
-    <select id={id} value={deployment.choice} onChange={e => onChoose(e.target.value)}>
-      <option value="random">Random entry point</option>
-      {deployment.points.map((p, i) => <option key={p.id} value={p.id}>{i + 1}. {p.name}</option>)}
-    </select>
-    <small>{deployment.choice === 'random' ? 'A clear entry point will be chosen when you enter.' : 'Your entry is selected. Enter the district to deploy.'}</small>
-    <details><summary>View entry points on map</summary>
-      <svg viewBox="0 0 360 190" role="group" aria-label="Choose a deployment point">
-        <rect width="360" height="190" rx="5" fill="#20372f" />
-        <g transform={map.transform}>{region.mapRoads.map((road, i) => <polyline key={i} points={road.points.map(p => `${p.x},${p.z}`).join(' ')} fill="none" stroke="#657b6b" strokeWidth={2 / map.scale} />)}</g>
-        {deployment.points.map((p, i) => <g key={p.id} data-deployment-id={p.id} data-world-x={p.x} data-world-z={p.z} transform={`translate(${map.x(p.x)} ${map.y(p.z)})`} role="button" tabIndex={0} aria-label={`Deploy at ${p.name}`} aria-pressed={deployment.choice === p.id}
-          onClick={() => onChoose(p.id)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onChoose(p.id); } }}>
-          <title>{p.name}</title><circle r="12" fill={deployment.choice === p.id ? '#f0d18a' : '#182c25'} stroke="#f0d18a" strokeWidth="2" />
-          <text y="4" textAnchor="middle" fill={deployment.choice === p.id ? '#14241c' : '#fff1c6'} fontSize="11" fontWeight="700">{i + 1}</text>
-        </g>)}
-      </svg>
-    </details>
-  </fieldset>;
+  const selected = deployment.points.find(point => point.id === deployment.choice);
+  return <section className="expedition-deployment" aria-label="Aerial deployment">
+    <header><span>DEPLOYMENT / {getWorldZone(zone).name.toUpperCase()}</span><h2>Choose your landing zone</h2><p>Select a marker · Drag to pan · Zoom to inspect</p></header>
+    <div className="deployment-pins" role="group" aria-label="Landing zones in the district">
+      {deployment.points.map((point, i) => {
+        const marker = deployment.markers?.find(m => m.id === point.id);
+        if (!marker?.visible) return null;
+        return <button key={point.id} className="deployment-pin" style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+          data-deployment-id={point.id} data-world-x={point.x} data-world-z={point.z}
+          aria-label={`Deploy at ${point.name}`} aria-pressed={deployment.choice === point.id} disabled={disabled}
+          onClick={() => onChoose(point.id)}><span className="deployment-pin-target">{i + 1}</span><span className="deployment-pin-name">{point.name}</span></button>;
+      })}
+    </div>
+    <div className="deployment-view-controls" role="group" aria-label="Aerial camera">
+      <button aria-label="Zoom in on district" disabled={disabled || (deployment.zoom ?? 1) >= 4} onClick={() => onZoom?.(1.4)}>+</button>
+      <button aria-label="Zoom out of district" disabled={disabled || (deployment.zoom ?? 1) <= 1} onClick={() => onZoom?.(1 / 1.4)}>−</button>
+      <button onClick={onResetView} disabled={disabled}>View all</button>
+    </div>
+    <footer className="deployment-dock">
+      <div className="deployment-choice" role="status"><span>LANDING ZONE</span><strong>{selected?.name ?? 'Random entry point'}</strong><small>{selected ? 'Landing zone selected. Enter the district when ready.' : 'Pick a marker, or let deployment choose a clear entry.'}</small></div>
+      <div className="deployment-actions"><button className="deployment-random" aria-pressed={deployment.choice === 'random'} disabled={disabled} onClick={() => onChoose('random')}>Random entry point</button>{children}</div>
+    </footer>
+  </section>;
 }

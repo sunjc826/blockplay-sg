@@ -4,6 +4,7 @@ import { createRangeResupply, rangeResupplyPoint } from './range-resupply';
 import { combatFeedReward, type RaiderBounty } from './combat-rewards';
 import { WEATHER } from './world-events';
 import { createDeploymentBlur } from './deployment-blur';
+import { createDeploymentOverview, deploymentMarkers, overviewFrame } from './deployment-overview';
 import { createDeploymentIntro } from './deployment-intro';
 import { visionMountPose } from './fps-vision-mount';
 import { districtDeploymentPoints, deploymentOrder, type DeploymentView } from './expedition-deployment';
@@ -316,6 +317,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let deploymentRoof: number | null = null, readySound = 0;
   let deploymentConditions = { time: '', weather: '' };
   const introEligible = !!expedition && !expedition.checkpoint && !expedition.spawn;
+  const overview = createDeploymentOverview(world.scene, deploymentPoints);
+  const overviewHighest = world.obstacles.reduce((height, o) => Math.max(height, o.maxY ?? 12), 80);
+  let overviewZoom = 1, overviewPan = { x: 0, z: 0 }, overviewDrag: { id: number; x: number; y: number } | null = null;
+  const overviewActive = () => introEligible && ['loading', 'ready'].includes(hud.phase) && !deploymentIntro.begun;
+  const overviewView = () => overviewFrame(world.bounds, canvas.clientWidth, canvas.clientHeight, overviewHighest, overviewZoom, overviewPan);
   let deploymentChoice = 'random', deploymentResolved = false, resolvedDeployment: string | null = null;
   if (options.arena?.environment && deploymentPoints.length) options.arena.environment.deployments = deploymentPoints;
   let arenaRuntime: ReturnType<typeof createArenaRuntime> | null = null;
@@ -551,7 +557,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     syncBelt();
     const introFrame = deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof);
     hud.deploymentIntro = hud.phase === 'deploying' ? { stage: introFrame.stage, fade: introFrame.fade, elapsed: introFrame.elapsed, reduced: introFrame.reduced, ...deploymentConditions } : null;
-    hud.deployment = deploymentPoints.length ? { points: deploymentPoints, choice: deploymentChoice, resolved: resolvedDeployment, canChoose: hud.phase === 'ready' && !deploymentResolved && !hud.arenaStarted } : null;
+    hud.deployment = deploymentPoints.length ? { points: deploymentPoints, choice: deploymentChoice, resolved: resolvedDeployment, canChoose: hud.phase === 'ready' && !deploymentResolved && !hud.arenaStarted, markers: overviewActive() ? deploymentMarkers(deploymentPoints, camera) : [], zoom: overviewZoom } : null;
     const nearby = !vehicles.active && hud.arenaSelf?.alive ? hud.arena?.facilities?.sites.filter(s => Math.abs(s.y - vertical) < 2 && Math.hypot(s.x - position.x, s.z - position.z) <= 18).sort((a, b) => Math.hypot(a.x - position.x, a.z - position.z) - Math.hypot(b.x - position.x, b.z - position.z))[0] : null;
     hud.facility = nearby ?? null;
     let canWork = false;
@@ -715,6 +721,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     position = { x: point.x, z: point.z }; yaw = point.yaw; pitch = point.pitch; vertical = velocityY = 0;
     hud.message = ''; updateCameras(0, false, false); publish(); return true;
   }
+  function zoomDeployment(factor: number) {
+    if (!overviewActive() || !Number.isFinite(factor) || factor <= 0) return;
+    overviewZoom = THREE.MathUtils.clamp(overviewZoom * factor, 1, 4); updateCameras(0, false, false); publish();
+  }
+  function resetDeploymentView() {
+    if (!overviewActive()) return;
+    overviewZoom = 1; overviewPan = { x: 0, z: 0 }; updateCameras(0, false, false); publish();
+  }
   function deployInitially() {
     if (deploymentResolved || !deploymentPoints.length) return true;
     for (const point of deploymentOrder(deploymentPoints, deploymentChoice)) if (arenaRuntime?.selectDeployment(point.id)) {
@@ -731,7 +745,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!deployInitially()) return;
     capturePending = false; hud.message = ''; lastTime = performance.now(); clearInput(); canvas.focus(); initAudio();
     if (introEligible && !deploymentIntro.begun) {
-      deploymentIntro.begin(!!motionPreference?.matches);
+      deploymentIntro.begin(!!motionPreference?.matches, {
+        height: camera.position.y - (vertical + eyeHeight()), x: camera.position.x - position.x, z: camera.position.z - position.z,
+        yaw: Math.atan2(Math.sin(-yaw), Math.cos(-yaw)), fov: camera.fov,
+      });
       const conditions = atmosphere.conditions, minutes = Math.floor(conditions.hour * 60) % 1440;
       deploymentConditions = { time: `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`, weather: WEATHER[conditions.weather].name };
       // Cast down onto roof faces, excluding the local body/effects and ground below the eye.
@@ -806,7 +823,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.phase === 'loading' || hud.phase === 'error') return;
     if (options.arena?.session.role === 'guest') return;
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset();
-    deploymentResolved = false; resolvedDeployment = null; deploymentIntro.reset(); deploymentRoof = null; readySound = 0;
+    deploymentResolved = false; resolvedDeployment = null; deploymentIntro.reset(); deploymentRoof = null; readySound = 0; overviewZoom = 1; overviewPan = { x: 0, z: 0 };
     arenaRuntime?.reset();
     capturePending = false; hud.phase = 'ready'; hud.hits = 0; hud.shots = 0; hud.landed = 0; hud.elapsed = 0; hud.message = '';
     localGrenades.reset(); seenGrenadeCues.clear(); grenadeVisuals.reset(); grenadeHeld = null; grenadePicker = null; conditions = {}; grenadeLastAt = missionLastAt = -Infinity;
@@ -1245,7 +1262,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (utilitySlotForKey(key)?.kind === 'food') releaseFoodKey();
   };
   /** With the wheel open, the scroll wheel turns its page. */
-  const scrollWheel = (event: WheelEvent) => { if (!wheel) return; event.preventDefault(); if (Math.abs(event.deltaY) > 4) setCalloutPage(wheel.page + Math.sign(event.deltaY)); };
+  const scrollWheel = (event: WheelEvent) => { if (overviewActive()) { event.preventDefault(); zoomDeployment(Math.exp(-event.deltaY * .0015)); return; } if (!wheel) return; event.preventDefault(); if (Math.abs(event.deltaY) > 4) setCalloutPage(wheel.page + Math.sign(event.deltaY)); };
   const pointerSource = (event: PointerEvent) => {
     lastPointerType = event.pointerType;
     if (hud.phase === 'playing' && inputMode === 'touch' && requiresFpsPointerLock(event.pointerType)) {
@@ -1287,6 +1304,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (event.button === 2) ads = false;
   };
   const pointerdown = (event: PointerEvent) => {
+    if (overviewActive() && event.button === 0) {
+      event.preventDefault(); canvas.setPointerCapture(event.pointerId); overviewDrag = { id: event.pointerId, x: event.clientX, y: event.clientY }; return;
+    }
     if (pilotEnabled) return;
     if (hud.phase !== 'playing') return;
     canvas.focus();
@@ -1298,6 +1318,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
   };
   const pointermove = (event: PointerEvent) => {
+    if (overviewActive() && overviewDrag?.id === event.pointerId) {
+      const scale = overviewView().metresPerPixel;
+      overviewPan.x = THREE.MathUtils.clamp(overviewPan.x - (event.clientX - overviewDrag.x) * scale, -(world.bounds.maxX - world.bounds.minX) / 2, (world.bounds.maxX - world.bounds.minX) / 2);
+      overviewPan.z = THREE.MathUtils.clamp(overviewPan.z - (event.clientY - overviewDrag.y) * scale, -(world.bounds.maxZ - world.bounds.minZ) / 2, (world.bounds.maxZ - world.bounds.minZ) / 2);
+      overviewDrag.x = event.clientX; overviewDrag.y = event.clientY; updateCameras(0, false, false); publish(); return;
+    }
     if (document.pointerLockElement === canvas || !drag || event.pointerId !== drag.id) return;
     // The scene is the look surface on a touchscreen: a drag anywhere the thumb
     // layer is not turns the camera, at the gain a thumb needs rather than a mouse's.
@@ -1305,11 +1331,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     look(travel.dx, travel.dy, true); drag.x = event.clientX; drag.y = event.clientY;
   };
   const pointerup = (event: PointerEvent) => {
+    if (overviewDrag?.id === event.pointerId) overviewDrag = null;
     if (drag?.id === event.pointerId) drag = null;
   };
   // A look drag ending on the glass is not the trigger letting go: the fire
   // button may still be held under the other thumb.
   const releasePointer = (event: PointerEvent) => {
+    if (overviewDrag?.id === event.pointerId) overviewDrag = null;
     if (drag?.id === event.pointerId) drag = null;
     if (event.pointerType !== 'touch') { trigger = false; pullBuffer = 0; triggerSpent = false; ads = false; }
   };
@@ -1527,6 +1555,18 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     canvas.dataset.inspectProgress = inspectElapsed === null ? '' : (inspectElapsed / INSPECT_DURATION).toFixed(3);
     playerBody.root.visible = false;
+    camera.far = 800; overview.update(overviewActive(), deploymentChoice);
+    if (overviewActive()) {
+      const view = overviewView();
+      camera.position.set(view.x, view.y, view.z); camera.rotation.set(-Math.PI / 2, 0, 0, 'YXZ'); camera.fov = 65; camera.far = view.far;
+      camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
+      actualAim = false; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0); grenadeHands.update(null, 0, 0);
+      canvas.dataset.weaponVisible = 'false'; canvas.dataset.deploymentIntro = ''; canvas.dataset.readyAction = '';
+      canvas.dataset.deploymentOverview = 'true';
+      canvas.dataset.deploymentCamera = JSON.stringify({ x: view.x, y: view.y, z: view.z, pitch: -Math.PI / 2, yaw: 0, fov: 65, ready: null, speed: 0, blur: 0 });
+      return;
+    }
+    canvas.dataset.deploymentOverview = 'false';
     // Bounded camera-relative inertia, driven by angle deltas (not frame rate).
     const yawDelta = Math.atan2(Math.sin(yaw - lastLookYaw), Math.cos(yaw - lastLookYaw));
     lookLagX = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagX + yawDelta * .025, -.003, .003), 0, 12, dt);
@@ -1581,7 +1621,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const intro = deploymentIntro.active ? deploymentIntro.frame(vertical + visualEye, pitch, deploymentRoof) : null;
     const readyProgress = intro?.weaponVisible ? intro.ready : undefined;
     if (intro) {
-      camera.position.y = intro.height; camera.rotation.set(intro.pitch, yaw, 0, 'YXZ'); camera.fov = intro.fov;
+      camera.position.set(position.x + intro.x, intro.height, position.z + intro.z); camera.rotation.set(intro.pitch, yaw + intro.yaw, 0, 'YXZ'); camera.fov = intro.fov; camera.far = Math.max(800, intro.height + 400);
       camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
       rig.visible = intro.weaponVisible; playerBody.root.visible = false;
       if (hud.phase === 'deploying' && readyProgress !== undefined) {
@@ -1590,7 +1630,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       }
     }
     canvas.dataset.deploymentIntro = hud.phase === 'deploying' ? intro?.stage ?? '' : '';
-    canvas.dataset.deploymentCamera = JSON.stringify({ y: camera.position.y, pitch: camera.rotation.x, fov: camera.fov, ready: readyProgress ?? null, speed: intro?.speed ?? 0, blur: intro?.blur ?? 0 });
+    canvas.dataset.deploymentCamera = JSON.stringify({ x: camera.position.x, y: camera.position.y, z: camera.position.z, pitch: camera.rotation.x, yaw: camera.rotation.y, fov: camera.fov, ready: readyProgress ?? null, speed: intro?.speed ?? 0, blur: intro?.blur ?? 0 });
     const progress = remaining > 0 ? 1 - remaining : null;
     const motion = readyProgress === undefined ? reloadMotion(progress ?? 0, emptyReload[hud.weapon], handleSide(specs[hud.weapon].id)) : readyMotion(readyProgress, handleSide(specs[hud.weapon].id));
     canvas.dataset.readyAction = readyProgress === undefined ? '' : motion.action.toFixed(3);
@@ -2951,6 +2991,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // Shadows move the sun's target first; the atmosphere then places the sun from it.
     lightView(realDt);
     atmosphere.update(dt, camera);
+    // The overview's altitude must not turn a ground-level weather preset into
+    // an opaque sheet. Restore the exact world fog after this presentation pass.
+    const aerialFog = (overviewActive() || deploymentIntro.active) && world.scene.fog instanceof THREE.Fog ? world.scene.fog : null;
+    const fogNear = aerialFog?.near ?? 0, fogFar = aerialFog?.far ?? 0;
+    if (aerialFog) { const lift = Math.max(0, camera.position.y - 100); aerialFog.near += lift; aerialFog.far += lift; }
     // Blast shake, two-axis and quickly settling; none at all with reduced motion.
     if (shake > .001) {
       const amount = motionPreference?.matches ? 0 : shake * shake * .035;
@@ -2977,7 +3022,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.opticReflection = String(!!sight?.reflection?.uniforms.reflectionReady.value && opticActive);
     canvas.dataset.reflexReflection = String(sight?.magnification === 1 && canvas.dataset.opticReflection === 'true');
     if (reflectionCaptured) canvas.dataset.reflexCaptures = String(Number(canvas.dataset.reflexCaptures || 0) + 1);
-    canvas.dataset.occlusion = String(occlusion.render(atmosphere.light.occlusion && !vision.thermal));
+    canvas.dataset.occlusion = String(occlusion.render(!overviewActive() && atmosphere.light.occlusion && !vision.thermal));
     const descent = hud.phase === 'deploying' ? deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof) : null;
     const blurAmount = descent && !motionPreference?.matches && !getEnvironmentSettings().reducedEffects ? descent.blur : 0;
     deploymentBlur.present(blurAmount); canvas.dataset.deploymentBlur = blurAmount.toFixed(4);
@@ -2994,6 +3039,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (visionMotion !== canvas.dataset.visionMotion) canvas.dataset.visionMotion = visionMotion;
     const visionTag = visionState.on && visionSpec ? `${visionSpec.kind}:${visionSpec.generation}:${activePalette(visionState, visionSpec) || 'tube'}:${vision.swapped}` : '';
     if (visionTag !== (canvas.dataset.vision ?? '')) canvas.dataset.vision = visionTag;
+    if (aerialFog) { aerialFog.near = fogNear; aerialFog.far = fogFar; }
     if (now - lastReport > 100) { publish(); lastReport = now; }
     frame = requestAnimationFrame(animate);
   };
@@ -3080,7 +3126,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   return {
     setTutorialStep(step: number) { if (options.tutorial) world.scene.userData.setTutorialStep?.(step); },
     setRangeDrill, endDrill, resupplyRange,
-    chooseDeployment, skipDeployment: finishDeployment, start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, interactFacility, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
+    chooseDeployment, zoomDeployment, resetDeploymentView, skipDeployment: finishDeployment, start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, interactFacility, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
     toggleVehicleView, toggleAim, toggleMap, toggleRail, toggleCant,
@@ -3112,7 +3158,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       document.removeEventListener('pointerlockchange', lockchange); document.removeEventListener('pointerlockerror', lockerror);
       window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility);
       // First, so every mesh has its own material back before anything else restores or disposes them.
-      vision.dispose(); lens.dispose(); deploymentBlur.dispose();
+      vision.dispose(); lens.dispose(); deploymentBlur.dispose(); overview.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
       healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();

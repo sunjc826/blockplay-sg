@@ -11,8 +11,12 @@ Facility ownership, local enemy pressure and equipment health are separate.
 
 ## Playing
 
-New expeditions start with **Random entry point** selected. Before entering,
-choose a named starting location from the list or the numbered map. Each map
+New expeditions open on a live aerial view of the district, with **Random entry
+point** selected. Click or tap a landing marker directly over the 3D scenery to
+choose that starting location. Drag to pan; use the wheel or +/− to zoom, and
+**View all** to restore the full district. The controls sit beside the map on
+short landscape screens. **Briefing & settings** holds mission and environment
+options, and **Enter district** deploys from the current aerial camera. Each map
 offers its original district entry plus up to five spread-out entries drawn
 from existing authored ground anchors and checked against scenery, vehicles,
 NPCs and facility positions. The authority rechecks occupancy when deploying;

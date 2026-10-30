@@ -1,5 +1,6 @@
 import { getWorldZone, type WorldZoneId, type ZoneSpawn } from './world-zones';
 import { zoneSectors } from './zone-sectors';
+import type { DeploymentMarker } from './deployment-overview';
 
 export interface DeploymentPoint extends ZoneSpawn { id: string; name: string }
 export interface DeploymentView {
@@ -7,6 +8,8 @@ export interface DeploymentView {
   choice: string;
   resolved: string | null;
   canChoose: boolean;
+  markers?: readonly DeploymentMarker[];
+  zoom?: number;
 }
 
 /** Stable named entries from authored map anchors; geometry is checked by the caller. */

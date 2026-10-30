@@ -37,7 +37,7 @@ try {
   await wait(phase('ready'), 60000);
   await wait(`!document.querySelector('.play-loading')`);
   console.log('District ready');
-  await evaluate(`(()=>{const e=document.querySelector('.expedition-deployment select');if(e){const set=Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set;set.call(e,'entry');e.dispatchEvent(new Event('change',{bubbles:true}));}})()`); await click(button('Enter district')); await wait(phase('playing'));
+  await evaluate(`document.querySelector('[data-deployment-id="entry"]')?.click()`); await click(button('Enter district')); await wait(phase('playing'));
   const game = `document.querySelector('.expedition-game')`;
   const mounted = kind => `${game}?.dataset.vehicle===${JSON.stringify(kind)}`;
   await wait(`!!document.querySelector('[data-minimap-marker=car]')`);
@@ -87,7 +87,7 @@ try {
   await send('Emulation.setTouchEmulationEnabled', { enabled: true });
   await send('Page.reload'); await wait(phase('ready'), 60000);
   await wait(`!document.querySelector('.play-loading')`);
-  await evaluate(`(()=>{const e=document.querySelector('.expedition-deployment select');if(e){const set=Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set;set.call(e,'entry');e.dispatchEvent(new Event('change',{bubbles:true}));}})()`); await tap(button('Enter district')); await wait(phase('playing'));
+  await evaluate(`document.querySelector('[data-deployment-id="entry"]')?.click()`); await tap(button('Enter district')); await wait(phase('playing'));
   await wait(`!!document.querySelector('[data-touch-action=vehicle]')`);
   await tap(`document.querySelector('[data-touch-action=vehicle]')`); await wait(mounted('car'));
   assert(await evaluate(`!!document.querySelector('[data-touch-action=seat]')`));

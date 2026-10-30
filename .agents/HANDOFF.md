@@ -4801,3 +4801,36 @@ focused-tests.log, engine-browser.log and workspace-*-tests.log in the isolated
 release; .cache/range-drills/ beneath it holds final UI results and screenshots.
 Task-owned Vite and Chrome processes were stopped. No GitHub push. AGENTS.md,
 .claude and unrelated working-tree changes remain unstaged and uncommitted.
+
+
+## 2026-10-30: real aerial deployment selection
+
+Fresh expeditions now show the actual 3D district from a north-up overhead
+camera while loading/ready, with the weapon/body hidden and the host unstarted.
+World-space landing rings and accessible, projected 44px buttons replace the
+spawn dropdown and road/node diagram. Tap a landing point or retain Random,
+drag the scenery to pan, use the wheel/+/- to zoom and View all to reset. A
+compact bottom dock holds deployment and Briefing & settings; short landscape
+screens put it to the right so the map/markers stay exposed. Named entries,
+authority validation, facilities and travel/death respawn rules are preserved.
+
+The existing cinematic begins at the overview's exact position/FOV, aligns
+horizontally while still above the district's roofs, and descends into the
+selected player. Reduced motion still goes straight to the weapon readying.
+Altitude-compensated fog is scoped to aerial presentation and restored after
+each frame; it does not change ground weather. This uses the existing renderer,
+not a second map scene/renderer. Markers/projected coordinates refresh on resize,
+zoom and pan. Legacy deterministic UI/vehicle smokes now choose the real entry
+button. The actual-component fixture matches the player shell rather than the
+developer panels and GPU fixture imports use the Vite-managed dependency.
+
+All 19 districts pass framing checks for desktop/portrait/landscape, including
+roof clearance and world/screen ray alignment. Browser checks passed actual
+aerial/hidden gun, map pan, zoom/reset, point/random deployment, authority,
+no reroll on resume and responsive docks, with no runtime errors. Visual review
+passed. Initial browser attempts hit another Vite process replacing the shared
+optimizer cache; .cache/aerial-vite.config.ts uses a dedicated cacheDir and
+ignores archived cache files. Evidence: .cache/aerial-deployment/ and
+.cache/aerial-{focused,runtime,layout,final-focused,typecheck,browser}.log.
+Final clean-release intro regression and deployment checks follow.
+No GitHub push; AGENTS.md stays local. Concurrent audio work is excluded.
