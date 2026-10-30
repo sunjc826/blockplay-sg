@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { ARMORY_CATALOG, itemById } from './armory-catalog';
 import { createProfile, equip, purchase, resolveLoadout, restoreProfile } from './armory-state';
 import { equipmentMovement } from './fps-encumbrance';
-import { activePalette, advanceVision, cloudOpacity, createVisionState, cycleVisionPalette, stepVisionButton, toggleVision, visibleShare, visionAperture, visionFigures, visionGain, visionStrain, VISION_DEVICES, VISION_MOUNT_SECONDS } from './vision-devices';
+import { activePalette, advanceVision, cloudOpacity, createVisionState, cycleVisionPalette, stepVisionButton, toggleVision, visibleShare, visionAperture, visionFigures, visionGain, visionStrain, nvgAimingActive, VISION_DEVICES, VISION_MOUNT_SECONDS } from './vision-devices';
 import { createThermalMaterials, thermalProperties } from './fps-vision';
 
 const tubes = ['nvg-gen1', 'nvg-gen2', 'nvg-gen3'].map(id => VISION_DEVICES[id]);
@@ -49,6 +49,18 @@ describe('vision device tiers', () => {
     expect(cores[1].aperture).toBeLessThan(tubes[2].aperture);
     expect(visionFigures(undefined)).toMatchObject({ gain: 1, view: 100, grain: 0, sharpness: 100, warmup: 0 });
   });
+});
+
+it('uses NV aiming only with a lowered, powered intensifier and restores it for thermal or bare eyes', () => {
+  const state = createVisionState(true);
+  expect(nvgAimingActive(tubes[0], state)).toBe(true);
+  state.mount = .99;
+  expect(nvgAimingActive(tubes[0], state)).toBe(false);
+  state.mount = 1; state.on = false; state.fading = 1;
+  expect(nvgAimingActive(tubes[0], state)).toBe(false);
+  state.on = true;
+  expect(nvgAimingActive(cores[0], state)).toBe(false);
+  expect(nvgAimingActive(undefined, state)).toBe(false);
 });
 
 describe('vision gain', () => {

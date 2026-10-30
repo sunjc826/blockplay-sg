@@ -57,3 +57,12 @@ advantage, darker storms and unchanged daylight. Vite defaults are 5200 for the
 previous build and 5201 for the candidate, with Chrome DevTools on 9228. Both
 servers need the current `vision-render.html`; disable HMR for stable captures.
 Evidence is saved in `.cache/fps-moonlight/`.
+
+
+`node scripts/fps-nv-aiming-smoke.mjs` checks the actual fitted dot/holographic
+shaders, rail laser and NVG post pass in `scripts/fixtures/nv-aiming.html`.
+It measures a visible central aiming point, controlled scatter, enhanced laser
+response, unchanged bare-eye rendering and correct mount/power/thermal gating
+across all three tubes. Repeated on/off frames also guard against stale copied
+NVG images. Default Vite port is 5204 and Chrome DevTools port is 9228; override
+with `FPS_APP_ORIGIN` / `FPS_CHROME_ORIGIN`. Evidence: `.cache/nv-aiming/`.

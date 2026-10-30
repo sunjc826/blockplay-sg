@@ -943,6 +943,16 @@ wearing it. It keeps the smallest view, softer optics, more grain and bloom, and
 a slower startup than Gen 2. NVG grain follows the available image signal so
 noise cannot wash out faint detail; occasional bright scintillation remains.
 
+Powered, lowered NVGs also change the response of visible aiming lights. Laser
+spots stand out more at the same hit point and angular size, with tube colour
+and tier-dependent halo supplied by the intensifier. Red-dot, holographic and
+canted sights automatically use an NV illumination profile: a readable core or
+ring with less broad optical scatter. This is a simplified intensifier response,
+not a separate IR-laser mode. Raising or switching off the NVGs restores the
+normal sight illumination; thermal does not enable this profile. Magnified
+scopes retain their existing etching and target image.
+
+
 A tube is a worse *instrument* at a lower tier, not a different filter: less
 gain, so the dark stays dark; more grain, worst when the gain is up; a narrower
 image circle; and halos that hide what stands under a lamp. All three NVG

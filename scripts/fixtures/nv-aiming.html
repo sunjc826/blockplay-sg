@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- Real fitted optics, rail effects and intensifier post pass; no external assets. -->
+<html><head><meta charset="utf-8"><link rel="icon" href="data:,"></head>
+<body style="margin:0;background:#000"><script type="module">
+import * as THREE from 'three';
+import { fitWeaponOptic, getWeaponSight, setSightNightVision } from '/src/game/weapon-optics.ts';
+import { createRailEffects } from '/src/game/weapon-rail-effects.ts';
+import { createVisionSystem } from '/src/game/fps-vision.ts';
+import { VISION_DEVICES, createVisionState, nvgAimingActive } from '/src/game/vision-devices.ts';
+import { FPS_WEAPONS } from '/src/game/fps-rules.ts';
+import { dayLighting } from '/src/game/world-lighting.ts';
+const width=1200,height=800;
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setSize(width,height);renderer.autoClear=false;renderer.toneMapping=THREE.ACESFilmicToneMapping;
+document.body.append(renderer.domElement);
+const world=new THREE.Scene(),view=new THREE.Scene();world.background=new THREE.Color('#080d17');
+world.add(new THREE.HemisphereLight('#8090af','#202020',.4));
+const wall=new THREE.Mesh(new THREE.PlaneGeometry(40,25),new THREE.MeshStandardMaterial({color:'#555555',roughness:1}));wall.position.z=-12.02;world.add(wall);
+// A small dark target behind the aiming point makes loss of detail easy to inspect.
+const target=new THREE.Mesh(new THREE.PlaneGeometry(.12,.25),new THREE.MeshStandardMaterial({color:'#222222'}));target.position.set(.15,0,-12);world.add(target);
+const camera=new THREE.PerspectiveCamera(54,width/height,.01,100),views={};
+for(const kind of ['dot','holo']){
+ const root=new THREE.Group();view.add(root);
+ fitWeaponOptic(root,{...FPS_WEAPONS[kind==='dot'?1:0],optic:'reflex',aimFov:65,...(kind==='holo'?{accessories:{sight:'holo'}}:{})});
+ const sight=getWeaponSight(root);view.attach(sight.lens);root.removeFromParent();sight.lens.position.set(0,0,-.25);views[kind]=sight;
+}
+const rail=createRailEffects(world,false),system=createVisionSystem(renderer,{world,view});
+const laserPoint=new THREE.Vector3(1.6,-.6,-12);
+function draw({device='nvg-gen1',profile=true,optic='dot',laser=true,reticle=true,noise=0,state=createVisionState(true)}={}){
+ const base=VISION_DEVICES[device],spec=base?{...base,noise}:undefined;
+ const nv=profile&&nvgAimingActive(spec,state);
+ for(const [kind,sight] of Object.entries(views)){setSightNightVision(sight,nv);sight.lens.visible=reticle&&kind===optic;}
+ rail.update({camera,nightVision:nv,laser:laser?{from:new THREE.Vector3(.2,-.2,-.3),to:laserPoint,hit:true}:undefined,dark:1});
+ renderer.toneMappingExposure=system.begin(spec,state,{dt:1/30,lighting:dayLighting(22.5),blackout:0,exposure:1.05});
+ renderer.clear();renderer.render(world,camera);renderer.clearDepth();renderer.render(view,camera);system.end(spec,state,1.17);
+ return {nv,glError:renderer.getContext().getError(),reticleProfile:views[optic].nightVision.value};
+}
+function pixels(){const c=document.createElement('canvas');c.width=width;c.height=height;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(renderer.domElement,0,0);return ctx.getImageData(0,0,width,height);}
+window.nvAiming={draw,pixels,camera,laserPoint,renderer,views,ready:true};draw();
+</script></body></html>

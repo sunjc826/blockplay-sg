@@ -74,7 +74,7 @@ import { expeditionNpcs, nearestNpc, npcInteractionPrompt, type ExpeditionNpc } 
 import { itemById } from './armory-catalog';
 import { DEFAULT_FPS_DEBUG, FPS_REGEN_DELAY, normalizeFpsDebug, readFpsDebug, regenerateHealth, saveFpsDebug, type FpsDebugSettings } from './fps-debug';
 import { createWeaponHandling } from './fps-viewmodel';
-import { createScopeRenderer, getWeaponSight } from './weapon-optics';
+import { createScopeRenderer, getWeaponSight, setSightNightVision } from './weapon-optics';
 import { DEFLECT_LINE, sightRangeAgainst } from './armor-inserts';
 import { muzzleSocket, railEmitters } from './weapon-accessory-models';
 import { accessorySpreadScale, hasLight, type MuzzleDevice, type RailDevice } from './weapon-accessories';
@@ -116,7 +116,7 @@ import { createSunShadows } from './fps-sun-shadows';
 import { createWorldOcclusion } from './world-occlusion';
 import { createVisionSystem } from './fps-vision';
 import { createLensEffects } from './fps-lens';
-import { activePalette, advanceVision, createVisionState, cycleVisionPalette, stepVisionButton, toggleVision, type ThermalPalette, type VisionKind } from './vision-devices';
+import { activePalette, advanceVision, nvgAimingActive, createVisionState, cycleVisionPalette, stepVisionButton, toggleVision, type ThermalPalette, type VisionKind } from './vision-devices';
 
 export interface FpsArenaOptions { session: LanSession; botCount: number; composition?: string; profile: ArmoryProfile; environment?: ArenaEnvironment; initialVitals?: Partial<ArenaVitals> }
 export interface FpsCheckpoint { health: number; armor: number; weapon: number; ammunition: WeaponState[]; pilot?: boolean; pilotStrategy?: 'local' | 'llm'; encikVoice?: boolean; comms?: readonly CommsEntry[];
@@ -1033,7 +1033,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    * goes through the camera to reach the world. The beam meets the world where
    * the crosshair does, which is where the round goes.
    */
-  function updateRail(active: boolean) {
+  function updateRail(active: boolean, nightVision = false) {
     const model = weapons[hud.weapon], spec = specs[hud.weapon];
     const emitters = railEmitters(model, spec);
     const devices = fittedWeaponDevices(weaponDevices, spec?.accessories);
@@ -1058,7 +1058,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       emitters.light.updateWorldMatrix(true, false);
       light = { from: camera.localToWorld(emitters.light.getWorldPosition(railLight)), direction: railForward };
     }
-    railEffects.update({ camera, laser, light, dark: atmosphere.light.lighting.shift });
+    railEffects.update({ camera, laser, light, nightVision, dark: atmosphere.light.lighting.shift });
   }
   function railHud(): Pick<FpsHud, 'rail' | 'offsetDot' | 'canted'> {
     const accessories = specs[hud.weapon]?.accessories;
@@ -2823,9 +2823,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     advanceVision(visionState, visionSpec, realDt, !!motionPreference?.matches);
     renderer.toneMappingExposure = vision.begin(visionSpec, visionState, { dt: realDt, lighting: atmosphere.light.lighting, blackout, exposure: renderer.toneMappingExposure });
     const opticActive = rig.visible && (!vehicles.active || vehicles.canUseFirearm) && hud.phase === 'playing';
-    updateRail(opticActive);
+    const nvgAiming = nvgAimingActive(visionSpec, visionState);
+    updateRail(opticActive, nvgAiming);
     // Canted past halfway, the offset dot is the sight in use and the scope beside it goes dark.
     const mountedSight = weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon]) : undefined;
+    setSightNightVision(mountedSight, nvgAiming);
     const sight = mountedSight?.offset && cant > .5 ? mountedSight.offset : mountedSight;
     if (mountedSight?.offset) (sight === mountedSight ? mountedSight.offset : mountedSight).lens.visible = false;
     canvas.dataset.cant = cant.toFixed(2);

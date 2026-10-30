@@ -4412,3 +4412,32 @@ logs are in the release folder. Browser evidence remains under
 
 No GitHub push. AGENTS.md remains local, unstaged and uncommitted. The release
 includes the latest committed moonlight and geometry-aligned night-window work.
+
+
+## 2026-10-30: NV-compatible aiming lights
+
+Lowered, powered intensifiers now activate a shared aiming profile. Visible
+laser spots use a stronger neutral tube response at their original hit point
+and size, then receive the actual tube's phosphor, blur and halo; the beam stays
+restrained. Fitted red dots, holographic rings and canted dots use a controlled
+NV core with 78% less broad optical scatter. Both canted/primary sights update
+before rendering; magnified etchings stay unchanged. Raising, switching off,
+thermal and bare-eye views restore ordinary illumination. This adds no separate
+IR mode or new player controls, and changes no aiming/spread rules.
+
+The GPU fixture exposed a Three r180 texture-state edge case: when the NV frame
+was already cached on texture unit 0 while glow left unit 1 active, a framebuffer
+copy could target the smaller glow texture, raise INVALID_VALUE and retain an
+old picture. Explicitly activate unit 0 through renderer.state before each live
+copy; held afterglow/calibration frames still deliberately keep their image.
+
+Added scripts/fixtures/nv-aiming.html and scripts/fps-nv-aiming-smoke.mjs to check
+real optics, rail effects and intensifier passes. All three tubes pass visible
+cores, reduced dot scatter, brighter laser spots, unchanged bare-eye frames,
+mount/power/thermal gating and repeated error-free framebuffer refreshes.
+Unit checks cover shared live shader uniforms, canted dots and preserved scope
+etching. Initial full suite: 1,828 tests/188 suites passed; final repeat after the
+texture-state fix, production build/typecheck, actual-engine check and manual
+release verification follow. Evidence: .cache/nv-aiming/ and
+.cache/nv-aiming-{focused,browser,tests,final-tests,typecheck,build,runtime}.log.
+No GitHub push; AGENTS.md stays local and uncommitted.

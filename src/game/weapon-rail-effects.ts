@@ -19,6 +19,8 @@ export interface RailEffectsFrame {
   camera: THREE.Camera;
   /** 0 by day to 1 at night: a torch barely shows in daylight, so it is mostly a night tool. */
   dark?: number;
+  /** Intensifier response; thermal and bare-eye views retain the visible red laser. */
+  nightVision?: boolean;
 }
 
 export function createRailEffects(world: THREE.Scene, withLight: boolean) {
@@ -28,15 +30,22 @@ export function createRailEffects(world: THREE.Scene, withLight: boolean) {
   const beamMaterial = new THREE.MeshBasicMaterial({ color: '#ff2a18', transparent: true, opacity: .28, blending: THREE.AdditiveBlending, depthWrite: false, forceSinglePass: true });
   const beam = new THREE.Mesh(beamGeometry, beamMaterial); beam.name = 'fps-laser-beam'; beam.frustumCulled = false; beam.visible = false; root.add(beam);
   // The dot: a soft red disc with a hot centre, always facing the eye.
-  const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
-  const context = canvas.getContext('2d');
-  if (context) {
-    const glow = context.createRadialGradient(32, 32, 0, 32, 32, 32);
-    // Saturated through the middle, so it still reads red on a sunlit wall rather than washing to orange.
-    glow.addColorStop(0, 'rgba(255,120,100,1)'); glow.addColorStop(.22, 'rgba(255,20,10,1)'); glow.addColorStop(.5, 'rgba(230,0,0,.4)'); glow.addColorStop(1, 'rgba(200,0,0,0)');
-    context.fillStyle = glow; context.fillRect(0, 0, 64, 64);
+  function makeDotTexture(nightVision: boolean) {
+    const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
+    const context = canvas.getContext('2d');
+    if (context) {
+      const glow = context.createRadialGradient(32, 32, 0, 32, 32, 32);
+      // Saturated through the middle, so it still reads red on a sunlit wall rather than washing to orange.
+      glow.addColorStop(0, nightVision ? 'rgba(255,255,255,1)' : 'rgba(255,120,100,1)');
+      glow.addColorStop(.22, nightVision ? 'rgba(240,240,240,1)' : 'rgba(255,20,10,1)');
+      glow.addColorStop(.5, nightVision ? 'rgba(200,200,200,.4)' : 'rgba(230,0,0,.4)');
+      glow.addColorStop(1, nightVision ? 'rgba(160,160,160,0)' : 'rgba(200,0,0,0)');
+      context.fillStyle = glow; context.fillRect(0, 0, 64, 64);
+    }
+    const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
   }
-  const dotTexture = new THREE.CanvasTexture(canvas); dotTexture.colorSpace = THREE.SRGBColorSpace;
+  const dotTexture = makeDotTexture(false), nvgDotTexture = makeDotTexture(true);
   const dotMaterial = new THREE.SpriteMaterial({ map: dotTexture, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
   const dot = new THREE.Sprite(dotMaterial); dot.name = 'fps-laser-dot'; dot.visible = false; root.add(dot);
   const torch = withLight ? new THREE.SpotLight('#fff1dc', 0, 70, .34, .55, 1.4) : null;
@@ -46,6 +55,11 @@ export function createRailEffects(world: THREE.Scene, withLight: boolean) {
     /** Draws one frame; anything left out of `frame` is switched off. */
     update(frame: RailEffectsFrame) {
       const laser = frame.laser;
+      // Stronger tube response at the same hit point and angular size. Let the
+      // device post pass supply phosphor colour and tier-dependent lamp bloom.
+      dotMaterial.map = frame.nightVision ? nvgDotTexture : dotTexture;
+      beamMaterial.color.set(frame.nightVision ? '#a8a8a8' : '#ff2a18');
+      beamMaterial.opacity = frame.nightVision ? .18 : .28;
       beam.visible = !!laser; dot.visible = !!laser?.hit;
       if (laser) {
         const length = laser.from.distanceTo(laser.to);
@@ -68,7 +82,7 @@ export function createRailEffects(world: THREE.Scene, withLight: boolean) {
       }
     },
     dispose() {
-      root.removeFromParent(); beamGeometry.dispose(); beamMaterial.dispose(); dotTexture.dispose(); dotMaterial.dispose(); torch?.dispose();
+      root.removeFromParent(); beamGeometry.dispose(); beamMaterial.dispose(); dotTexture.dispose(); nvgDotTexture.dispose(); dotMaterial.dispose(); torch?.dispose();
     },
   };
 }

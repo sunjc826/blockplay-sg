@@ -381,7 +381,13 @@ function createVisionPost(renderer: THREE.WebGLRenderer) {
       }
       const previous = renderer.getRenderTarget();
       renderer.setRenderTarget(null);
-      if (!info.hold) renderer.copyFramebufferToTexture(frame);
+      if (!info.hold) {
+        // Three can skip activating unit 0 when this texture is still cached
+        // there. Copying on the glow's active unit then targets its smaller
+        // texture and leaves the old picture in place (INVALID_VALUE).
+        renderer.state.activeTexture(renderer.getContext().TEXTURE0);
+        renderer.copyFramebufferToTexture(frame);
+      }
       const thermalPass = spec.kind === 'thermal';
       bright.uniforms.tFrame.value = frame; bright.uniforms.uTexel.value.set(2 / size.x, 2 / size.y);
       // Night vision halos only what is bright; thermal blurs everything for its soft sensor average.

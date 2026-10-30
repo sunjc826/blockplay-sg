@@ -165,6 +165,9 @@ export function visionGain(spec: VisionSpec | undefined, darkness: number, black
 /** How hard the tube is working, 0–1, which is how noisy its picture is. */
 export const visionStrain = (spec: VisionSpec | undefined, gain: number) =>
   spec?.kind === 'nvg' && spec.gain > 1 ? Math.max(0, Math.min(1, (gain - 1) / (spec.gain - 1))) : spec?.kind === 'thermal' ? .5 : 0;
+/** NV-compatible aiming response starts only once an intensifier is over the eyes. */
+export const nvgAimingActive = (spec: VisionSpec | undefined, state: VisionState) =>
+  spec?.kind === 'nvg' && state.on && state.mount >= 1;
 /** How much of a smoke or gas cloud the view shows, 0–.9: a thermal core sees through most of it. */
 export const cloudOpacity = (amount: number, thermal: boolean) => Math.min(.9, .25 + amount * .7) * (thermal ? .3 : 1);
 /** The control-guide name for a worn device's key. */

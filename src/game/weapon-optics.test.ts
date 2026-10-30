@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { createScopeRenderer, fitWeaponOptic, getWeaponSight, scopeFov } from './weapon-optics';
+import { createScopeRenderer, fitWeaponOptic, getWeaponSight, scopeFov, setSightNightVision } from './weapon-optics';
 import { FPS_WEAPONS, HIP_FOV, magnifiedFov, opticMagnification } from './fps-rules';
 import { createProfile, equip, purchase, resolveLoadout, restoreProfile } from './armory-state';
 
@@ -155,5 +155,43 @@ it('brings the Ultimax dot in with the window rather than popping it in at full 
   expect(shader.fragmentShader).toContain('vec2(0.0)');
   expect(shader.fragmentShader).toContain('core * aperture * sightVisibility * rise');
   expect(shader.fragmentShader).toContain('(halo + bloom + flare) * aperture * sightVisibility * rise');
+  remove();
+});
+
+
+it('shares live NV illumination between a reflex core and its bloom, restoring normal light without recompiling', () => {
+  const root = new THREE.Group();
+  const remove = fitWeaponOptic(root, { ...FPS_WEAPONS[1], optic: 'reflex', aimFov: HIP_FOV });
+  const sight = getWeaponSight(root)!;
+  const bloom = root.getObjectByName('fps-reflex-bloom') as THREE.Mesh;
+  const shaderFor = (material: THREE.Material) => {
+    const shader = { vertexShader: THREE.ShaderLib.basic.vertexShader, fragmentShader: THREE.ShaderLib.basic.fragmentShader, uniforms: {} as Record<string, { value: unknown }> };
+    material.onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
+    return shader;
+  };
+  const core = shaderFor(sight.lens.material), scatter = shaderFor(bloom.material as THREE.Material);
+  expect(core.uniforms.sightNightVision).toBe(scatter.uniforms.sightNightVision);
+  expect(core.uniforms.sightNightVision).toBe(sight.nightVision);
+  const version = sight.lens.material.version;
+  setSightNightVision(sight, true);
+  expect(core.uniforms.sightNightVision.value).toBe(1);
+  expect(scatter.uniforms.sightNightVision.value).toBe(1);
+  setSightNightVision(sight, false);
+  expect(core.uniforms.sightNightVision.value).toBe(0);
+  expect(sight.lens.material.version).toBe(version);
+  remove();
+});
+
+it('applies NV illumination to a canted dot without lighting the magnified etching', () => {
+  const root = new THREE.Group();
+  const remove = fitWeaponOptic(root, { ...FPS_WEAPONS[0], accessories: { sight: 'prism', offsetDot: true } });
+  const sight = getWeaponSight(root)!;
+  expect(sight.magnification).toBeGreaterThan(1);
+  expect(sight.offset).toBeDefined();
+  setSightNightVision(sight, true);
+  expect(sight.nightVision.value).toBe(0);
+  expect(sight.offset!.nightVision.value).toBe(1);
+  setSightNightVision(sight, false);
+  expect(sight.offset!.nightVision.value).toBe(0);
   remove();
 });
