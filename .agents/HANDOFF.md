@@ -3605,6 +3605,58 @@ the later reinforce/gather capture kept stalling under load (another session's
 builds), so the transport landing has only been seen in unit tests. Not done:
 markers for move/focus points; bots in vehicles ignore orders.
 
+## 2026-10-28: AI pilot recovers with its carried belt supplies
+
+`fps-pilot` now exposes healing belt options and supply-use/cancellation
+intents. Both local and async strategies retain local recovery decisions:
+at <=85% health, wait four seconds without visible contacts, damage,
+incoming fire, nearby gunfire or marked hazards, then crouch and use the
+smallest item that covers the wound (largest available otherwise). Hold
+still until the normal supply animation finishes; cancel immediately on a
+new threat. `fps-engine` uses the same `useUtility`/`endSupply` path as human
+input, preserving normal commit timing, inventory spending and expedition
+callbacks. The strategy observation whitelist retains only public recovery
+fields. Existing squad NPCs retain their separate dressing behavior.
+
+Validation: 30 pilot/strategy/server tests pass, including quiet-period
+resets, returning enemies, damage, inventory choice and lifecycle reset.
+`scripts/fps-pilot-recovery-smoke.mjs` passed in headless Chrome: real food
+restored health and was spent once; first aid interrupted before commit was
+kept, then consumed once after another lull. Typecheck and production build
+pass. The full suite had 1484 passes and two failures: a native server import
+regression (fixed by keeping the controller import type-only in the shared
+strategy contract) and an unrelated world-vehicles blocked crew-exit failure
+during concurrent vehicle edits. Both failed files now pass on rerun; the
+final targeted run passed all 65 tests across pilot, strategy, native server
+loading and world vehicles. The complete suite was not repeated afterward.
+
+
+## 2026-10-28: shared ammunition reserves by calibre
+
+Carried weapons of the same resolved calibre now share one loose-ammo pool
+(`ammo-pools.ts`), while magazines, chambers and reload progress stay per gun.
+Starting reserves and rig bonuses combine only for slotted weapons; stored guns
+contribute nothing. The existing weapon rules operate on numeric reserve
+accessors backed by shared pools, so magazine removal, interrupted reloads and
+seating conserve rounds. Pickups, duplicate weapons, ammo pouches and supply
+crates top up those pools; returning a magazine can exceed the pickup cap
+without a later top-up discarding rounds. Weapon swaps retain any calibre still
+carried and bring only the new gun's loaded magazine.
+
+Travel checkpoints save each pool once, restore the shared links, retain chamber
+and interrupted-magazine state, and merge older independent reserves. Live
+encumbrance weighs each shared reserve once plus every loaded gun. The Armory
+shows calibre totals, carry instructions explain sharing, and pickup cards/HUD
+reserve tooltips name the pool.
+
+Validation: all 1,518 tests across 156 files pass (four workers, 30-second default
+timeout; district diagnostics have their own longer timeout). Typecheck and
+production build pass. New `pnpm test:fps:ammo` browser smoke passed through the
+real engine and weapon HUD: rifle/support firing and reloading, separate
+magazines, an ammo pouch spent once, HUD reserve, and reset to the starting pool.
+Used the bundled Node runtime because Homebrew Node's simdjson dependency is
+broken locally. Existing unrelated workspace edits were preserved.
+
 ## 2026-10-28: food status effects, tiers and the food picker
 
 Food now heals and then keeps working (`food-effects.ts`). Each effect comes
@@ -3766,7 +3818,6 @@ in .cache/queenstown-hdb-before; concise gallery is
 .cache/queenstown-hdb-review/index.html. See docs/QUEENSTOWN-HDB-AUDIT.md.
 This follow-up is committed separately, with unrelated concurrent work preserved.
 
-
 ## 2026-10-28: grenades catalogue, controls and authority
 
 Implemented docs/GRENADES.md across the utility belt, all thirteen catalogue
@@ -3803,8 +3854,8 @@ The whistle has a synthesised bang/shriek and register-aware subtitle; its new
 Encik line has no recorded voice clip. No voice-generation API was called.
 A two-browser WebRTC match and a full expedition loot/throw circuit were not
 browser-checked; paired runtime authority and loot have automated coverage.
-Committed separately from overlapping ammo, pilot-recovery, inspection and
-bird work. Those edits remain preserved in the working tree.
+Changes are local and not committed with the other sessions' overlapping
+ammo, pilot-recovery, inspection and bird work. Those edits were preserved.
 
 
 ## 2026-10-29: Queenstown residential landscape and visual cover
@@ -3853,6 +3904,19 @@ In-app pointer capture blocked a complete gameplay check. Owner requested a
 local commit and manual Cloudflare deployment, with no GitHub push.
 
 
+## 2026-10-29: HUD release deployed directly to Cloudflare
+
+Local commit 96c3ce8 was exported into .cache/hud-release-96c3ce8 to exclude
+unrelated unfinished workspace edits. All 1,675 tests across 171 files,
+typecheck and Cloudflare build passed for that snapshot. After the owner
+renewed Wrangler authentication, pnpm deploy:cloudflare succeeded using Node
+22.23.4. Version: 64b2412c-e04d-49fd-bb70-f7183057813a. Public origin
+https://blockplaysg.fun passed scripts/cloudflare-check.mjs; its JS/CSS asset
+hashes and the workers.dev origin both match the exact release build. No
+GitHub push was performed. AGENTS.md remains local and uncommitted. Release
+evidence is in .cache/hud-release-96c3ce8/release-evidence.json.
+
+
 ## 2026-10-29: compact PC inspect and optional HUD hints
 
 Desktop Inspect now shares the existing keyboard-hint line; touch retains the
@@ -3871,6 +3935,23 @@ flags G/9 grenade access, split E/N/T interactions, missing scroll cycling/Tab
 scores, Ctrl not crouching infantry and Shift+number handling. Only guide
 accuracy changed: 4–9 supplies and hold C; gameplay binds were not remapped.
 Existing unrelated working-tree changes remain unstaged.
+
+
+## 2026-10-29: quiet-HUD release verified live
+
+Committed locally as 2c03cf1 and exported to .cache/hud-hints-release-2c03cf1,
+excluding unrelated pending work. All 43 targeted tests across seven files,
+typecheck and Cloudflare build passed. Manual pnpm deploy:cloudflare succeeded
+using Node 22; version bef3867c-b3dd-41ab-bd4f-65f2ddd2418a. Production routing,
+assets, service worker, manifest, models, recorded audio and API-origin checks
+passed. Public/custom and workers.dev JS/CSS hashes match the exact release.
+No GitHub push. Local browser review covered hint persistence, the actual
+Settings/training toggles, hints-off warnings and reload/healing progress, and
+touch Inspect. A later browser attempt to view the live settings timed out;
+production availability is verified by HTTP checks and exact asset hashes.
+Release evidence lives beside the clean snapshot; UI captures are in
+.cache/hud-layout. The keybinding changes remain proposals in the audit, with
+existing gameplay bindings preserved.
 
 
 ## 2026-10-30: agreed PC stance and equipment controls
@@ -3896,6 +3977,18 @@ one unrelated Queenstown bot-navigation case timed out under concurrent load.
 Its isolated rerun passed all 21 housing tests in 12 seconds, within the
 original 30-second limit. Manual deployment follows below.
 Other sessions' pending changes and local AGENTS.md are excluded.
+
+
+## 2026-10-30: agreed controls deployed and verified
+
+Local commit 331bbbe was deployed manually with pnpm deploy:cloudflare from
+.cache/keybinding-release-candidate, whose 2,598 tracked files match that
+commit. Cloudflare version a60e95d1-c121-4645-85f8-601c2d921c1c succeeded.
+Production routing, service worker, manifest, models, audio and API-origin
+checks passed. JS/CSS asset hashes on blockplaysg.fun and workers.dev match
+the exact release build. Evidence: release-evidence.json in the clean
+snapshot and .cache/keybinding-implementation/validation.json. No GitHub push;
+AGENTS.md stays local, unstaged and uncommitted.
 
 
 ## 2026-10-30: playable recruit tutorial and store orientation
@@ -3960,3 +4053,36 @@ blockplaysg.fun and workers.dev match the local build; production routing,
 service worker, manifest, models, audio and API-origin checks passed. Evidence:
 .cache/nvg-release/release-evidence.json and .cache/nvg-live-check.log. No
 GitHub push. AGENTS.md remains local, unstaged and uncommitted.
+
+
+## 2026-10-30: pending work organized into local commits
+
+Committed the shared calibre reserves (08e7715), pilot belt recovery
+(49f7364), world bird roosts (6ebca95), utility-belt controls (2a88fdc),
+inspection polish (5e10da2), historical co-op design (60ae5cf) and reusable
+promo sources (f96aa51). Shared engine and package changes were staged by
+feature so unrelated work did not enter those commits. The co-op proposal now
+points to the current WebSocket room implementation and identifies its older
+LAN/WebRTC assumptions as historical.
+
+Validation found that physical-key normalization had dropped numeric-keypad
+shortcuts. Restored numeric keypad digits while leaving Num Lock navigation
+and OS shortcuts alone. The full suite passed all 1,752 tests across 181 suites
+before this fix; afterward all 25 focused keybinding/belt tests, typecheck and
+a fresh production build passed. Ammunition, pilot recovery and utility-belt
+browser smokes passed, including interrupted first aid, both number inputs,
+repeat suppression and pause guards. The inspection smoke fixture's bare
+React imports were corrected to the same Vite dependency paths used by the
+ammo smoke. The inspection browser check loaded and verified the rifle-side
+captures plus fire, aim, reload and sprint interruptions, but did not finish:
+one run timed out restarting inspection after sprint, and subsequent runs
+missed the animation-capture timing window under SwiftShader. No page errors
+were reported after the import correction. This check is not counted as a pass.
+
+Promo script syntax checks and all three carousel renders passed. Moved the
+misplaced font-directory ignore rules to promo/.gitignore and excluded carousel
+PNGs, leaving generated media and archives on disk. Source scripts, fonts,
+HTML and campaign copy are committed; the README marks voting dates as archival.
+The remaining map-cover corrections and earlier release records are retained.
+No GitHub push or new Cloudflare deployment was performed for this commit-only
+request. AGENTS.md and .claude/launch.json remain local and uncommitted.

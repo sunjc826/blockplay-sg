@@ -12,8 +12,9 @@ have legacy ground footprints without a maximum height; treating those as
 shot cover extended them to 200 m. The same combination affected low props and
 open structures throughout the districts.
 
-`createSceneCover` supplies shot/blast cover and sight queries.
-Rendered surfaces, including glass, still block shots. Do not infer
+`createSceneCover` supplies shot/blast cover and sight queries. Designated
+visual-only foliage participates in sight without becoming ballistic cover.
+Other rendered surfaces, including glass, still block shots. Do not infer
 bullet permeability from material opacity. Effects, avatars and vehicles are
 excluded from static cover; the simulation resolves actors and vehicles itself.
 Flying rounds check each flight segment, including gravity drop, instead of
@@ -90,6 +91,6 @@ the host confirmed damage and published a wound, and the effect pool rendered
 impacts without browser exceptions. The older general solo-arena smoke stopped
 at its scoreboard DOM assertion before combat; it was not counted as a pass.
 
-Final validation: 135 targeted map/combat tests across 14 files passed, plus
+Final validation: 136 targeted map/combat tests across 14 files passed, plus
 the visibility-cache regression rerun. TypeScript and the production Vite build
 passed. The full suite was not rerun to completion on the final checkout.
