@@ -4534,3 +4534,25 @@ untouched and is not in this release. Final evidence:
 .cache/drone-lights/{release-source.json,isolated-tests.log,isolated-typecheck.log,
 final-release-deploy.log,final-live-check.log,live-evidence.json}.
 No GitHub push; AGENTS.md stays local, unstaged and uncommitted.
+
+
+## 2026-10-30: combined expedition intro release verified
+
+The full regression passed 1,832 tests / 189 suites, plus the eight additional
+weapon-family handling tests added after full-suite discovery. The clean intro
+snapshot passed typecheck and all 40 focused checks. Both real-component browser
+smokes passed, with overhead, rack, desktop/phone, reduced motion, pointer lock,
+skip, pause/resume and chosen-entry preservation verified.
+
+A concurrent isolated drone-lights release replaced the first intro deployment
+during verification; its missing intro asset URLs correctly failed the live
+check. The final release therefore includes both changes from ff4cf9a, whose
+2,668 tracked files exactly match .cache/intro-release-ff4cf9a. Combined typecheck
+and production build passed. Manual pnpm deploy:cloudflare succeeded, version
+f49a6619-b7dd-40a5-9138-2f7411d1d0d2. Both blockplaysg.fun and workers.dev now serve
+JS/CSS hashes identical to this combined build. Public assets, service worker,
+manifest, model/audio, SPA fallback, API routing/origin and companion checks
+passed without paid API calls. Evidence: .cache/intro-tests.log,
+.cache/intro-handling.log, .cache/deployment-intro/ and the combined-* logs plus
+source-verification.json/release-evidence.json in the release folder.
+No GitHub push. AGENTS.md remains local, unstaged and uncommitted.
