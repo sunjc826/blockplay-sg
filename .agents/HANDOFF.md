@@ -4441,3 +4441,21 @@ texture-state fix, production build/typecheck, actual-engine check and manual
 release verification follow. Evidence: .cache/nv-aiming/ and
 .cache/nv-aiming-{focused,browser,tests,final-tests,typecheck,build,runtime}.log.
 No GitHub push; AGENTS.md stays local and uncommitted.
+
+
+## 2026-10-30: NV aiming deployed and verified
+
+Final code 2c8dbfb passed all 1,828 tests across 188 suites after the texture-state
+fix, plus typecheck, production build, 48 focused device/optic/accessory tests,
+GPU image measurements and actual-engine Night Owl hologram/laser with Gen 1,
+on/off, camera movement and daylight restoration. All 2,664 tracked release
+files match that revision in .cache/nv-aiming-release.
+
+Manual pnpm deploy:cloudflare succeeded: version
+65ccb883-3732-4401-a59f-45d4f9540a99. Both public origins serve JS/CSS hashes
+identical to the tested local build. Production asset, routing, service-worker,
+manifest, models, audio, API-origin and companion checks passed. Evidence:
+.cache/nv-aiming-final-tests.log, .cache/nv-aiming-runtime.log,
+.cache/nv-aiming-deploy.log, .cache/nv-aiming-live-check.log and
+.cache/nv-aiming-release/{source-verification,release-evidence}.json.
+No GitHub push; AGENTS.md remains local and uncommitted.
