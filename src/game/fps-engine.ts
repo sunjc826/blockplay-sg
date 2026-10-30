@@ -84,7 +84,7 @@ import { createFpsComms, type CommsEntry } from './fps-comms';
 import { createEncikRadio, type EncikAddress, type EncikCallout, type EncikEvent } from './fps-callouts';
 import { createEncikAudio } from './encik-audio';
 import { encikRecordingUrl } from './encik-recordings';
-import { createPlayerPilot, normalizePilotAction, PILOT_INTERVAL, type PilotObservation, type PilotGoal, type PlayerPilot } from './fps-pilot';
+import { createPlayerPilot, normalizePilotAction, PILOT_HEALING_KINDS, PILOT_INTERVAL, type PilotObservation, type PilotGoal, type PlayerPilot } from './fps-pilot';
 import { visiblePilotContacts, type PilotSubject } from './fps-pilot-perception';
 import { createStrategyPlanner, llmPilotStrategy } from './pilot-strategy';
 import { findWorldRoute } from './world-zones';
@@ -443,6 +443,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   hud.pilotStrategy = strategyMode;
   let pilotEnabled = false, nextPilotAt = 0, pilotDestination: WorldZoneId | undefined;
   let lastPilotObservation: PilotObservation | null = null;
+  let pilotGunfireUntil = 0;
   let capturePending = false, capturePromisePending = false;
   let lastPointerType = 'mouse', inputMode: 'mouse' | 'touch' = 'mouse';
   let lastTime = performance.now(), frame = 0, lastReport = 0, wasLocked = false;
@@ -541,7 +542,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** Someone else's shot from `at`, heard after its travel time and `after` seconds more. */
   function otherShot(at: { x: number; y: number; z: number }, calibre: number, power: number, after = 0, muzzle?: MuzzleDevice) {
-    gunshots.fire(gunshotTone(calibre, power, camera.position.distanceTo(new THREE.Vector3(at.x, at.y, at.z)), false, muzzle), panTo(at), after);
+    const distance = camera.position.distanceTo(new THREE.Vector3(at.x, at.y, at.z));
+    if (distance <= 80) pilotGunfireUntil = Math.max(pilotGunfireUntil, performance.now() / 1000 + Math.max(0, after) + .25);
+    gunshots.fire(gunshotTone(calibre, power, distance, false, muzzle), panTo(at), after);
   }
   /** A rustle, a tear or a clack as a supply's effect lands. */
   function supplySound(style: SupplyStyle) {
@@ -1251,7 +1254,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       ...(vertical > .35 && !vehicles.active ? { vehiclePrompt: '' } : {}), magazine: roundReady(state, specs[hud.weapon]) ? state.magazine : 0, reserve: state.reserve, reloading: state.reloadRemaining > 0, aiming: actualAim, weapon: hud.weapon, availableWeapons: equipment.carriedFamilies.filter(index => loadout[index].magazine > 0 || loadout[index].reserve > 0),
       position: { x: position.x, z: position.z }, yaw, pitch,
       contacts: visiblePilotContacts(camera, world.scene, subjects, screenBlocked), waypoints, ballistics: specs[hud.weapon].ballistics,
-      grenades: activeGrenades().filter(g => !conditions.deafened && Math.hypot(g.position.x - position.x, g.position.z - position.z) <= grenadeDangerRadius(itemById(g.id)!.grenade!) + 2).map(g => ({ x: g.landing.x, z: g.landing.z, radius: grenadeDangerRadius(itemById(g.id)!.grenade!) + 2, remaining: g.remaining })),
+      supplies: PILOT_HEALING_KINDS.flatMap(kind => {
+        const item = pickUtility(kind, supplies, { health: hud.health, maxHealth: hud.maxHealth }, foodChoice);
+        return item?.effect?.health ? [{ kind, health: item.effect.health, seconds: supplyProfile(item).seconds }] : [];
+      }), grenades: activeGrenades().filter(g => !conditions.deafened && Math.hypot(g.position.x - position.x, g.position.z - position.z) <= grenadeDangerRadius(itemById(g.id)!.grenade!) + 2).map(g => ({ x: g.landing.x, z: g.landing.z, radius: grenadeDangerRadius(itemById(g.id)!.grenade!) + 2, remaining: g.remaining })), usingSupply: !!supplyUse,
+      underThreat: hud.incoming || hurtTime > 0 || time < pilotGunfireUntil || hud.cloudCover?.kind === 'gas' || hud.mapDangers.some(d => d.kind !== 'crate' && Math.hypot(d.x - position.x, d.z - position.z) <= d.radius + 8),
       lootPrompt: reachableLoot ? `E · ${reachableLoot.tier} ${reachableLoot.name}` : '', travelPrompt: hud.travelPrompt };
   }
   function updatePilot(time: number) {
@@ -1273,6 +1280,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       prone = specs[hud.weapon].requiresMount === true && action.fire === true && grounded();
       if (action.reload) reload();
       if (action.jump) jump();
+      if (action.useSupply) useUtility(action.useSupply);
       if (action.interact) expedition ? interactLoot() : interactVehicle();
       if (action.travel) travelZone();
     } catch {

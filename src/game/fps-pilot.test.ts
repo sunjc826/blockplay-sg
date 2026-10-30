@@ -1,9 +1,63 @@
 import { describe, expect, it } from 'vitest';
-import { createPlayerPilot, localPilotPlanner, MAX_PILOT_MOUSE_DELTA, normalizePilotAction, type PilotObservation } from './fps-pilot';
+import { createPlayerPilot, localPilotPlanner, MAX_PILOT_MOUSE_DELTA, normalizePilotAction, PILOT_RECOVERY_QUIET, type PilotObservation } from './fps-pilot';
 import { dropCompensation, HITSCAN } from './fps-ballistics';
 const observation = (patch: Partial<PilotObservation> = {}): PilotObservation => ({
   time: 1, alive: true, health: 100, maxHealth: 100, armor: 0, magazine: 30, reserve: 120, reloading: false, aiming: false, weapon: 0,
   position: { x: 0, z: 0 }, yaw: 0, pitch: 0, contacts: [], waypoints: [], lootPrompt: '', travelPrompt: '', ballistics: HITSCAN, ...patch,
+});
+
+describe('pilot recovery during a safe lull', () => {
+  const contact = { id: 'enemy', yawError: 0, pitchError: 0, angularRadius: .02, distance: 20 };
+  const wounded = (patch: Partial<PilotObservation> = {}) => observation({ health: 50, supplies: [{ kind: 'food', health: 60, seconds: 3.1 }, { kind: 'first-aid', health: 75, seconds: 4.4 }], ...patch });
+  const settle = (pilot: ReturnType<typeof createPlayerPilot>, input = wounded()) => {
+    pilot.decide(input);
+    return pilot.decide({ ...input, time: input.time + PILOT_RECOVERY_QUIET });
+  };
+  it('waits for a sustained lull, then eats and stays still through the use', () => {
+    const pilot = createPlayerPilot(), input = wounded();
+    expect(pilot.decide(input).action.useSupply).toBeUndefined();
+    expect(pilot.decide({ ...input, time: 4.9 }).action.useSupply).toBeUndefined();
+    expect(pilot.decide({ ...input, time: 5 }).action).toMatchObject({ useSupply: 'food', crouch: true, fire: false, forward: false, sprint: false });
+    // Even after the effect commits, keep hands still until putting it away finishes.
+    expect(pilot.decide({ ...input, time: 5.1, health: 100, usingSupply: true }).action).toMatchObject({ crouch: true, cancelSupply: false, forward: false, reload: false, fire: false });
+    expect(pilot.decide({ ...input, time: 8.5, health: 100 }).action.forward).toBe(true);
+  });
+  it('chooses first aid for a serious wound and a smaller dressing for a lighter one', () => {
+    expect(settle(createPlayerPilot(), wounded({ health: 25 })).action.useSupply).toBe('first-aid');
+    expect(settle(createPlayerPilot(), wounded({ health: 75, supplies: [{ kind: 'bandage', health: 25, seconds: 2.7 }, { kind: 'first-aid', health: 75, seconds: 4.4 }] })).action.useSupply).toBe('bandage');
+    expect(settle(createPlayerPilot(), wounded({ health: 10 })).action.useSupply).toBe('first-aid');
+  });
+  it.each(['contacts', 'underThreat', 'health', 'armor'] as const)('restarts the quiet period after %s signals combat', signal => {
+    const pilot = createPlayerPilot(), input = wounded({ armor: 40 });
+    settle(pilot, input);
+    const threat = { ...input, time: 6, ...(signal === 'contacts' ? { contacts: [contact] } : signal === 'underThreat' ? { underThreat: true } : signal === 'health' ? { health: 40 } : { armor: 20 }) };
+    expect(pilot.decide(threat).action.useSupply).toBeUndefined();
+    const quiet = { ...threat, contacts: [], underThreat: false, time: 9.9 };
+    expect(pilot.decide(quiet).action.useSupply).toBeUndefined();
+    expect(pilot.decide({ ...quiet, time: 10 }).action.useSupply).toBe('food');
+  });
+  it('puts treatment away immediately on a threat, even before a shot can align', () => {
+    const pilot = createPlayerPilot(); settle(pilot);
+    expect(pilot.decide(wounded({ time: 5.1, usingSupply: true, contacts: [{ ...contact, yawError: .4 }] })).action).toMatchObject({ cancelSupply: true, fire: false });
+    expect(pilot.decide(wounded({ time: 5.2, usingSupply: true, underThreat: true })).action.cancelSupply).toBe(true);
+  });
+  it('does not spend supplies on a graze, without inventory, while reloading or while dead', () => {
+    for (const input of [wounded({ health: 95 }), wounded({ supplies: [] }), wounded({ reloading: true }), wounded({ alive: false })]) {
+      expect(settle(createPlayerPilot(), input).action.useSupply).toBeUndefined();
+    }
+  });
+  it('resets its safety estimate on takeover and recovers with a strategic travel plan too', () => {
+    const pilot = createPlayerPilot({ chooseGoal: () => 'travel', preferredWaypoint: () => 'exit' });
+    expect(settle(pilot).action.useSupply).toBe('food');
+    pilot.reset();
+    expect(pilot.decide(wounded({ time: 20 })).action.useSupply).toBeUndefined();
+    expect(pilot.decide(wounded({ time: 24 })).action.useSupply).toBe('food');
+  });
+  it('permits only healing slot intents and a boolean cancellation', () => {
+    expect(normalizePilotAction({ useSupply: 'first-aid', cancelSupply: true })).toMatchObject({ useSupply: 'first-aid', cancelSupply: true });
+    expect(normalizePilotAction({ useSupply: 'grant-health', cancelSupply: 'yes' } as never)).toMatchObject({ cancelSupply: false });
+    expect(normalizePilotAction({ useSupply: 'grant-health' } as never)).not.toHaveProperty('useSupply');
+  });
 });
 describe('player pilot rules', () => {
   it('reacts to visible contacts, stops firing when they disappear, and reacquires with a delay', () => {
@@ -86,6 +140,6 @@ describe('ballistic aim compensation', () => {
 
 it('dodges an audible grenade before engaging or eating, and stops a supply', () => {
  const p = createPlayerPilot();
- const decision = p.decide(observation({ health: 40, grenades: [{ x: 2, z: 0, radius: 8, remaining: 1 }], contacts: [{ id: 'seen', yawError: 0, pitchError: 0, angularRadius: .03, distance: 10 }] }));
+ const decision = p.decide(observation({ health: 40, usingSupply: true, grenades: [{ x: 2, z: 0, radius: 8, remaining: 1 }], contacts: [{ id: 'seen', yawError: 0, pitchError: 0, angularRadius: .03, distance: 10 }] }));
  expect(decision.status).toBe('Dodging a live grenade'); expect(decision.action).toMatchObject({ left: true, sprint: true, cancelSupply: true, fire: false });
 });

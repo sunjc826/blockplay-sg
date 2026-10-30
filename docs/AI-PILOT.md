@@ -6,6 +6,8 @@ The pilot controls the player's infantry slot in practice, arenas and expedition
 
 **Local planner** works offline. It chooses combat, resupply, travel or exploration from current observations. A 10 Hz controller turns, aims, shoots, reloads, switches weapons, moves and interacts through the same engine functions as human input. ADS engages after alignment, retains the current visible target and holds steady while the sight rises. If the scope continues hiding the target, the controller reacquires at hip level and suppresses ADS for three seconds so it can complete a burst without cycling the sight. It never fires or tracks a target while that target is hidden.
 
+Both strategies let the local controller recover with carried food, bandages or first-aid kits when health is at or below 85%. It waits four seconds without visible enemies, damage, incoming fire, gunfire within 80 m or nearby marked hazards. It chooses the smallest available belt item that covers the wound (otherwise the largest), crouches and stays still through the normal supply animation. A returning threat puts the item away immediately; before the normal commit point, the item is kept. Safety is an estimate from player-visible cues, so an unseen ambush can still interrupt recovery.
+
 **LLM strategist** chooses a high-level goal and optional known waypoint. The local controller keeps running while requests are pending and handles immediate visible threats. Requests are throttled to one per ten seconds with one outstanding request. Plans expire after twenty seconds; missing waypoints, errors and unavailable service fall back to local planning. Pause, respawn, strategy changes and zone disposal cancel outstanding plans.
 
 To try it, configure private `OPENAI_API_KEY` in `.env.local`, run/restart `pnpm server`, and run `pnpm dev` in another terminal. Select **LLM strategist**, then **Watch AI play**. `PILOT_MODEL` optionally overrides the server's `gpt-5.6-luna` default. No key is needed for the local planner. The public Cloudflare deployment serves that backend from its own origin, so the strategist works there while the Worker carries its private `OPENAI_API_KEY` secret; without one it falls back to the local planner. A static host with no backend always falls back.
@@ -16,7 +18,7 @@ The server uses the Responses API with [Structured Outputs](https://developers.o
 
 `fps-pilot-perception.ts` exposes on-screen, line-of-sight checked contact bearings and apparent size, accounting for scene occlusion and the weapon's viewing aperture. It does not expose enemy world coordinates, health, hidden actors or collision maps. Own vitals/ammo/pose, current prompts and waypoints already shown on the HUD/minimap are available. This is structured game perception, not a screenshot vision model.
 
-`PilotAction` permits held movement/aim/fire, bounded relative look deltas, reload, jump, weapon selection, pickup and checkpoint interaction. The pilot may also request `contact`, `moving` or `stuck` radio callouts; the shared radio director applies cooldowns and selects an Encik line. Reload, kill and other action events produce the same radio feedback as human actions. It cannot teleport, grant ammo or directly apply damage. The server independently whitelists observation fields before sending a strategy request.
+`PilotAction` permits held movement/aim/fire, bounded relative look deltas, reload, jump, weapon selection, pickup, checkpoint interaction and using or cancelling a healing belt supply. Observations include the available healing options, whether the hands are busy using a supply and a public danger signal. The pilot may also request `contact`, `moving` or `stuck` radio callouts; the shared radio director applies cooldowns and selects an Encik line. Reload, kill and other action events produce the same radio feedback as human actions. It cannot teleport, grant ammo or directly apply damage. The server independently whitelists observation fields before sending a strategy request.
 
 ## Extension points
 
@@ -34,6 +36,7 @@ Run `pnpm test` and `pnpm build`. With Vite at `127.0.0.1:5175` and an isolated 
 ```sh
 NO_PROXY='*' no_proxy='*' pnpm test:fps:pilot
 NO_PROXY='*' no_proxy='*' pnpm test:fps:pilot:travel
+NO_PROXY='*' no_proxy='*' node scripts/fps-pilot-recovery-smoke.mjs
 ```
 
-Override `FPS_APP_ORIGIN` and `FPS_CHROME_ORIGIN` for other ports. The range check covers all eight targets, stopping and pointer-locked takeover. The travel fixture declares a starting position near a real checkpoint and seeded weapon crate, then verifies autonomous pickup, travel and resumption with one renderer. These checks need no model key or external map requests.
+Override `FPS_APP_ORIGIN` and `FPS_CHROME_ORIGIN` for other ports. The range check covers all eight targets, stopping and pointer-locked takeover. The travel fixture declares a starting position near a real checkpoint and seeded weapon crate, then verifies autonomous pickup, travel and resumption with one renderer. The recovery fixture checks real belt consumption and restored health, and injects a public threat cue to verify interruption before first aid commits and subsequent recovery. These checks need no model key or external map requests.

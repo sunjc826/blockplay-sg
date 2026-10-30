@@ -22,9 +22,14 @@ export function parsePilotObservation(value: unknown): PilotObservation | null {
   if (!o.ballistics || typeof o.ballistics !== 'object' || !finite(o.ballistics.drop) || o.ballistics.drop < 0 ||
     !o.contacts.every(c => c && id(c.id) && finite(c.yawError) && finite(c.pitchError) && finite(c.angularRadius) && finite(c.distance)) ||
     !o.waypoints.every(w => w && id(w.id) && finite(w.x) && finite(w.z) && ['medical', 'ammo', 'armor', 'weapon', 'checkpoint', 'target'].includes(w.kind))) return null;
+  if (['usingSupply', 'underThreat'].some(k => o[k as keyof PilotObservation] !== undefined && typeof o[k as keyof PilotObservation] !== 'boolean') ||
+    (o.supplies !== undefined && (!Array.isArray(o.supplies) || o.supplies.length > 3 ||
+      !o.supplies.every(s => s && ['food', 'bandage', 'first-aid'].includes(s.kind) && finite(s.health) && s.health > 0 && finite(s.seconds) && s.seconds > 0)))) return null;
   if (o.grenades !== undefined && (!Array.isArray(o.grenades) || o.grenades.length > 24 || !o.grenades.every(g => g && [g.x, g.z, g.radius, g.remaining].every(finite) && g.radius > 0 && g.radius <= 40 && g.remaining >= 0 && g.remaining <= 16))) return null;
   return { ...(o.grenades ? { grenades: o.grenades.map(g => ({ x: g.x, z: g.z, radius: g.radius, remaining: g.remaining })) } : {}), time: o.time, alive: o.alive, health: o.health, maxHealth: o.maxHealth, armor: o.armor, magazine: o.magazine, reserve: o.reserve,
     reloading: o.reloading, aiming: o.aiming, weapon: o.weapon, position: { x: o.position.x, z: o.position.z }, yaw: o.yaw, pitch: o.pitch,
+    ...(o.supplies !== undefined ? { supplies: o.supplies.map(s => ({ kind: s.kind, health: s.health, seconds: s.seconds })) } : {}),
+    ...(o.usingSupply !== undefined ? { usingSupply: o.usingSupply } : {}), ...(o.underThreat !== undefined ? { underThreat: o.underThreat } : {}),
     // JSON carries no Infinity, so a hitscan velocity arrives as null over the
     // wire. Anything that is not a finite speed means instant, not malformed.
     ballistics: { velocity: finite(o.ballistics.velocity) ? o.ballistics.velocity : Infinity, drop: o.ballistics.drop },

@@ -6,13 +6,18 @@ export type PilotGoal = 'engage' | 'resupply' | 'travel' | 'explore';
  * the sensor gives angles alone and the bot can only point straight at a target. */
 export interface PilotContact { id: string; yawError: number; pitchError: number; angularRadius: number; distance: number }
 export interface PilotWaypoint { id: string; x: number; z: number; kind: 'medical' | 'ammo' | 'armor' | 'weapon' | 'checkpoint' | 'target' }
+export const PILOT_HEALING_KINDS = ['food', 'bandage', 'first-aid'] as const;
+export type PilotHealingKind = typeof PILOT_HEALING_KINDS[number];
+export interface PilotSupply { kind: PilotHealingKind; health: number; seconds: number }
 export interface PilotObservation {
   time: number; alive: boolean; health: number; maxHealth: number; armor: number;
   availableWeapons?: readonly number[]; magazine: number; reserve: number; reloading: boolean; aiming: boolean; weapon: number;
   position: { x: number; z: number }; yaw: number; pitch: number;
   contacts: readonly PilotContact[]; waypoints: readonly PilotWaypoint[];
   lootPrompt: string; travelPrompt: string;
+  /** Own belt options and hands, plus danger already signalled by the HUD or nearby gunfire. */
   grenades?: readonly { x: number; z: number; radius: number; remaining: number }[];
+  supplies?: readonly PilotSupply[]; usingSupply?: boolean; underThreat?: boolean;
   /** The equipped weapon's ballistics, so the controller can work out its own hold-over. */
   ballistics: BallisticSpec;
 }
@@ -20,7 +25,8 @@ export interface PilotAction {
   forward?: boolean; backward?: boolean; left?: boolean; right?: boolean;
   sprint?: boolean; crouch?: boolean; aim?: boolean; fire?: boolean;
   lookX?: number; lookY?: number; reload?: boolean; jump?: boolean;
-  interact?: boolean; travel?: boolean; weapon?: number; cancelSupply?: boolean;
+  interact?: boolean; travel?: boolean; weapon?: number;
+  useSupply?: PilotHealingKind; cancelSupply?: boolean;
   callout?: 'contact' | 'moving' | 'stuck';
 }
 export interface PilotDecision { goal: PilotGoal; status: string; action: PilotAction }
@@ -29,10 +35,13 @@ export interface PilotPlanner { chooseGoal(observation: Readonly<PilotObservatio
 export interface PlayerPilot { decide(observation: Readonly<PilotObservation>): PilotDecision; reset(): void }
 export const PILOT_INTERVAL = .1;
 export const MAX_PILOT_MOUSE_DELTA = 100;
+/** Wait for a sustained lull rather than treating a lost sight picture as safety. */
+export const PILOT_RECOVERY_QUIET = 4;
 const finiteDelta = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? Math.max(-MAX_PILOT_MOUSE_DELTA, Math.min(MAX_PILOT_MOUSE_DELTA, value)) : 0;
 export function normalizePilotAction(action: PilotAction): PilotAction {
   const safe: PilotAction = { lookX: finiteDelta(action.lookX), lookY: finiteDelta(action.lookY) };
   for (const key of ['forward', 'backward', 'left', 'right', 'sprint', 'crouch', 'aim', 'fire', 'reload', 'jump', 'interact', 'travel', 'cancelSupply'] as const) safe[key] = action[key] === true;
+  if (PILOT_HEALING_KINDS.includes(action.useSupply as PilotHealingKind)) safe.useSupply = action.useSupply;
   if (validWeaponIndex(action.weapon)) safe.weapon = action.weapon;
   if (action.callout === 'contact' || action.callout === 'moving' || action.callout === 'stuck') safe.callout = action.callout;
   return safe;
@@ -52,19 +61,34 @@ export function createPlayerPilot(planner: PilotPlanner = localPilotPlanner): Pl
   let target = '', seenSince = 0, lastSeenAt = -Infinity, lastPosition: PilotObservation['position'] | undefined;
   let adsBlockedUntil = 0;
   let stuck = 0, moving = false, evadeUntil = 0, previousTime = 0;
-  const reset = () => { target = ''; seenSince = 0; lastSeenAt = -Infinity; adsBlockedUntil = 0; lastPosition = undefined; stuck = 0; moving = false; evadeUntil = 0; previousTime = 0; };
+  let lastUnsafeAt: number | undefined, lastHealth: number | undefined, lastArmor: number | undefined;
+  const reset = () => { target = ''; seenSince = 0; lastSeenAt = -Infinity; adsBlockedUntil = 0; lastPosition = undefined; stuck = 0; moving = false; evadeUntil = 0; previousTime = 0; lastUnsafeAt = lastHealth = lastArmor = undefined; };
   return { reset, decide(o) {
     const dt = Math.min(.25, Math.max(0, o.time - previousTime)); previousTime = o.time;
     const goal = planner.chooseGoal(o);
+    const unsafe = !!o.contacts.length || o.underThreat === true || (lastHealth !== undefined && o.health < lastHealth) || (lastArmor !== undefined && o.armor < lastArmor);
+    if (lastUnsafeAt === undefined || unsafe) lastUnsafeAt = o.time;
+    lastHealth = o.health; lastArmor = o.armor;
+    const safeToRecover = !unsafe && o.time - lastUnsafeAt >= PILOT_RECOVERY_QUIET;
     const result = (status: string, action: PilotAction): PilotDecision => {
       moving = !!(action.forward || action.backward || action.left || action.right);
       lastPosition = { ...o.position };
-      return { goal, status, action: normalizePilotAction(action) };
+      return { goal, status, action: normalizePilotAction({ ...action, cancelSupply: action.cancelSupply || !!o.usingSupply && !safeToRecover }) };
     };
     if (!o.alive) { reset(); return result('Waiting to respawn', {}); }
     const danger = o.grenades?.find(g => Math.hypot(g.x - o.position.x, g.z - o.position.z) < g.radius + 2);
     if (danger) { const dx = o.position.x - danger.x, dz = o.position.z - danger.z; const forward = -Math.sin(o.yaw) * dx - Math.cos(o.yaw) * dz, side = Math.cos(o.yaw) * dx - Math.sin(o.yaw) * dz;
       return result('Dodging a live grenade', { forward: forward >= 0, backward: forward < 0, right: side >= 0, left: side < 0, sprint: true, cancelSupply: true }); }
+    if (safeToRecover && o.usingSupply) return result('Recovering while the area is quiet', { crouch: true });
+    if (safeToRecover && !o.reloading && o.health <= o.maxHealth * .85) {
+      const missing = o.maxHealth - o.health;
+      const supplies = [...(o.supplies ?? [])].filter(s => s.health > 0 && s.seconds > 0);
+      // Cover the wound with the smallest suitable item, or use the largest
+      // available. Prefer the quicker use when two supplies heal equally.
+      const covering = supplies.filter(s => s.health >= missing);
+      const supply = (covering.length ? covering : supplies).sort((a, b) => (covering.length ? a.health - b.health : b.health - a.health) || a.seconds - b.seconds)[0];
+      if (supply) return result(supply.kind === 'food' ? 'Eating while the area is quiet' : 'Applying first aid while the area is quiet', { useSupply: supply.kind, crouch: true });
+    }
     if (moving && lastPosition && Math.hypot(o.position.x - lastPosition.x, o.position.z - lastPosition.z) < .04) stuck += dt;
     else stuck = 0;
     if (stuck > .8) { evadeUntil = o.time + 1.2; stuck = 0; }

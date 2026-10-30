@@ -69,6 +69,16 @@ it('carries contact range and ballistics through the observation whitelist', () 
   expect(parsePilotObservation({ ...observation, contacts: [{ id: 'a', yawError: 0, pitchError: 0, angularRadius: .02 }] })).toBeNull();
 });
 
+it('whitelists public recovery cues and belt options without leaking extra item data', () => {
+  const parsed = parsePilotObservation({ ...observation, usingSupply: true, underThreat: false,
+    supplies: [{ kind: 'food', health: 30, seconds: 2.5, privateData: 'hidden' }] });
+  expect(parsed).toMatchObject({ usingSupply: true, underThreat: false, supplies: [{ kind: 'food', health: 30, seconds: 2.5 }] });
+  expect(parsed?.supplies?.[0]).not.toHaveProperty('privateData');
+  for (const patch of [{ usingSupply: 'yes' }, { underThreat: 1 }, { supplies: [null] }, { supplies: [{ kind: 'ammo', health: 20, seconds: 2 }] }, { supplies: [{ kind: 'food', health: Infinity, seconds: 2 }] }]) {
+    expect(parsePilotObservation({ ...observation, ...patch })).toBeNull();
+  }
+});
+
 it('whitelists grenade warnings and rejects invented or non-finite fields', () => {
  const grenade = { x: 2, z: 0, radius: 8, remaining: 1, privateCaller: 'secret' };
  expect(parsePilotObservation({ ...observation, grenades: [grenade] })?.grenades).toEqual([{ x: 2, z: 0, radius: 8, remaining: 1 }]);
