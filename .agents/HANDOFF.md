@@ -4349,3 +4349,33 @@ passed existing WebGL checks. Evidence: .cache/fps-gen1-vision,
 build passed; the full suite and manual deployment follow. Unrelated expedition
 entry changes were excluded using .cache/gen1-release. No GitHub push;
 AGENTS.md stays local and uncommitted.
+
+
+## 2026-10-30: selectable and random expedition deployment
+
+New expeditions default to Random entry point, with the original district entry
+and up to five named alternatives selectable from a dropdown or numbered map.
+Candidates reuse authored ground anchors, spread across each map, and avoid
+scenery, motor pools, NPCs and nearby hostile facilities. All 19 maps retain a
+physically clear original entry and at least three approved choices. Selection
+updates the existing camera/authority instead of rebuilding the renderer.
+
+The authority accepts approved point ids only before initial deployment and
+rechecks collision, occupancy and nearby hostile troops. Random resolves once
+on entry and can try another approved point if occupied. Pause/resume cannot
+reroll or teleport; checkpoint travel and explicit fixture arrivals bypass the
+picker. Death respawns retain their post/fallback behavior. District reference
+spawns, facility positions and initial owners remain fixed. Existing vehicle/UI
+journey scripts now explicitly select District entry for their fixed paths.
+
+Validation: broad suite 1,824/1,824; final 51 focused deployment, all-district,
+runtime and network checks passed after retaining the original entry, plus
+final typecheck/build checks. Real ExpeditionGame browser checks passed map
+selection, exact authoritative coordinates, one renderer, default random entry,
+pause/resume locking and portrait/landscape layout with no runtime errors.
+An initial test expression needed parentheses around negative coordinates;
+headless capture uses compositor screenshots, and pause is exercised through
+Escape to avoid immersive touch-resize timing. Evidence: .cache/deployment-tests.log,
+.cache/deployment-browser.log and .cache/expedition-deployment. Manual deployment
+and public verification follow. AGENTS.md stays local, unstaged and uncommitted;
+no GitHub push.

@@ -11,6 +11,16 @@ Facility ownership, local enemy pressure and equipment health are separate.
 
 ## Playing
 
+New expeditions start with **Random entry point** selected. Before entering,
+choose a named starting location from the list or the numbered map. Each map
+offers its original district entry plus up to five spread-out entries drawn
+from existing authored ground anchors and checked against scenery, vehicles,
+NPCs and facility positions. The authority rechecks occupancy when deploying;
+random selection can fall back to another approved point if one is blocked.
+Selection does not rebuild the world or move facilities. The choice is locked
+once play starts; pause/resume preserves it. Death respawns keep the existing
+post/fallback rules, and checkpoint travel keeps its authored arrival point.
+
 Open the map with M to find facility squares: blue allied, orange hostile, gray
 unbuilt. Dashed squares indicate destroyed or unbuilt equipment. Approach the
 equipment cabinet; the nearby card explains its owner, health and operation.

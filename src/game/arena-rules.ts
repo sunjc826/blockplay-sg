@@ -38,6 +38,7 @@ import { advanceFoodEffects, applyFoodEffects, arenaFoodModifiers, NO_FOOD, surv
 import { CONSUMABLE_LIMIT, itemById } from './armory-catalog';
 import { supplyProfile } from './fps-healing';
 import { createFacilities, facilityOperational, facilityRayDistance, FACILITY_RULES, type FacilitySite, type FacilitySnapshot, type FacilityState } from './facilities';
+import type { DeploymentPoint } from './expedition-deployment';
 
 /** All coordinates use metres; actor y is eye height, not the feet. */
 export interface ArenaActor {
@@ -139,6 +140,7 @@ export interface ArenaPoint { x: number; y: number; z: number }
 export interface ArenaShot { hitId: string | null; killed: boolean; damage: number }
 export interface ArenaVitals { health: number; armor: number }
 export interface ArenaEnvironment {
+  deployments?: readonly DeploymentPoint[];
   facilities?: { sites: readonly FacilitySite[]; saved?: FacilitySnapshot; savedVehicles?: SharedVehicle[] };
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
   move: (position: { x: number; z: number }, dx: number, dz: number, radius: number, obstacles: readonly Obstacle[]) => { x: number; z: number };
@@ -541,6 +543,15 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function wearInsert(entry: InternalActor, insert: InsertTraits) {
     entry.insert = insert;
     if (insert.scent) entry.actor.scent = true; else delete entry.actor.scent;
+  }
+  /** Initial deployment only: the caller submits an approved id, never coordinates. */
+  function setPlayerDeployment(id: string, pointId: string) {
+    const entry = members.get(id), point = environment?.deployments?.find(p => p.id === pointId);
+    if (!entry || entry.actor.bot || !entry.actor.alive || entry.actor.deaths !== 0 || elapsed !== 0 || finished || seatOf(vehicles, id) || !point || !clearSpawn(point)) return false;
+    if ([...members.values()].some(m => m !== entry && m.actor.alive && Math.hypot(m.actor.x - point.x, m.actor.z - point.z) < (m.actor.faction === entry.actor.faction ? 1.5 : 30))) return false;
+    Object.assign(entry.actor, { x: point.x, y: 1.75, z: point.z, yaw: point.yaw, pitch: point.pitch, prone: false });
+    entry.lastAt = undefined; entry.velocity = undefined; entry.speed = 0; entry.navigation = undefined; entry.velocityY = 0;
+    return true;
   }
   function setPlayerVitals(id: string, vitals: Partial<ArenaVitals>) {
     const entry = members.get(id); if (!entry || entry.actor.bot) return;
@@ -2252,7 +2263,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   for (let i = 0; i < count; i++) enlist();
   if (facilities) for (let i = 0; i < 4; i++) enlist(false, PLAYER_FACTION);
-  return { facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  return { setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

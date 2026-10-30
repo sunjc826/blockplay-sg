@@ -586,6 +586,11 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (simulation) { simulation.facilityAction(session.id, site); publish(); }
     else session.send({ type: 'facility-action', site });
   }
+  function selectDeployment(pointId: string) {
+    if (disposed || started || session.role !== 'solo' || !simulation || !simulation.setPlayerDeployment(session.id, pointId)) return false;
+    previousSelf = null; spawnPending = true; localAdopted = false; reconciliation.reset(); publish();
+    return true;
+  }
   function shoot(origin: ArenaPoint, direction: ArenaPoint, weapon: number, maxDistance = 125, prone = lastInput?.prone ?? false) {
     if (disposed || !started || !localAdopted) return;
     // A shot means the reload is over: say so first, or the host would still be
@@ -674,6 +679,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       avatar.root.position.set(eye.x, eye.y - (actor.vehicle === 'car' && actor.seat === 1 ? 1.75 : 1.2), eye.z);
     }
   }
-  return { getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { facilities: s.facilities, vehicles: s.vehicles } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
+  return { selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { facilities: s.facilities, vehicles: s.vehicles } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

@@ -47,7 +47,7 @@ try {
   assert.equal(await evaluate(`document.querySelector('.expedition-game').dataset.lootCount`),'8');
   assert.equal(await evaluate(`document.querySelectorAll('[data-map-link]').length`),2);
   await screenshot('expedition-ready');
-  await click(button('Enter district')); await wait(phase('playing'));
+  await evaluate(`(()=>{const e=document.querySelector('.expedition-deployment select');if(e){const set=Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set;set.call(e,'entry');e.dispatchEvent(new Event('change',{bubbles:true}));}})()`); await click(button('Enter district')); await wait(phase('playing'));
   assert(await evaluate('!!document.pointerLockElement'),'Entry captures pointer');
   assert.equal(await evaluate(`document.querySelector('.fps-minimap').dataset.mapZone`),'marina-bay');
   assert(await evaluate(`!!document.querySelector('[data-marker-kind=loot]')`));
@@ -96,7 +96,7 @@ try {
   await key('Enter','Enter');
   await wait(`document.querySelector('.singapore-route-details').textContent.includes('Queenstown → Raffles Place → Marina Bay')`);
   assert.equal(await evaluate(`document.querySelector('.expedition-game').dataset.zone`),'queenstown','Keyboard route selection preserves the active district');
-  await click(button('Enter district'));await wait(phase('playing'));
+  await evaluate(`(()=>{const e=document.querySelector('.expedition-deployment select');if(e){const set=Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set;set.call(e,'entry');e.dispatchEvent(new Event('change',{bubbles:true}));}})()`); await click(button('Enter district'));await wait(phase('playing'));
   assert.equal(await evaluate(`document.querySelector('.fps-minimap').dataset.mapZone`),'queenstown');
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   await evaluate(`document.querySelector('.fps-viewport').scrollIntoView({block:'center'})`);

@@ -341,6 +341,12 @@ The armory is accessed from each region’s FPS briefing or pause screen. It inc
 
 ### Open world and solo arena
 
+**Choose your starting location.** Before entering a new expedition, keep
+**Random entry point** or choose one of the named entries using the dropdown or
+numbered map. Facilities retain their fixed locations and owners. Starting
+locations are locked during play; checkpoint travel and death respawns keep
+their existing rules.
+
 **Facility warfare.** Each expedition district has independent command posts, a garage and a helipad. Capture intact enemy equipment, destroy it with weapons, or rebuild a ruined site using shared faction supplies. Local infantry advantage advances timed work even if some defenders remain; sustained enemy pressure can suppress deployment. Posts reinforce squads, garages replace cars, and helipads replace helicopters. Ownership and equipment/fleet condition persist between district visits during the expedition. See [facility controls and rules](FACILITIES.md).
 
 **Open world** connects every district through checkpoints. Look at loot within reach to see its card, and E takes it: weapons and inserts are equipped, medical supplies and food go on the belt for later, and loose rounds go into the reserve of a carried gun of that calibre. A weapon carries only its magazine; its rounds lie beside it. T crosses a nearby checkpoint. Fallen enemies drop the XM8, G36 or MG4 variant they carried, which E takes for the rest of the expedition; these are never sold ([enemy-issue weapons](ARMORY.md#enemy-issue-weapons)). Fallen friendlies drop their issued rifle or Ultimax; every dropped weapon leaves its rounds beside it, and soldiers on either side may leave dressings and, from regulars up, armor plates, better with rank. Temporary gear, health and ammo carry between districts; permanent armory purchases remain separate. The island locator previews routes and threat/loot tiers without resetting the expedition. See [zones and loot](WORLD-ZONES.md).
