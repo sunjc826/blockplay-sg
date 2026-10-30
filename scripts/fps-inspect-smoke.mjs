@@ -9,8 +9,8 @@ await fs.mkdir(output, { recursive: true });
 const fixture = new URL('fixture.html', output);
 await fs.writeFile(fixture, `<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0;background:#17231e;color:white;font:16px sans-serif}.fps-game{position:relative;margin:0;padding:0;max-width:none;width:100vw;height:calc(100dvh - 45px)}#world{height:100%;width:100%}button{padding:12px}</style>
 <button id="enter">Enter range</button><div class="fps-game"><div id="world"></div><div id="hud"></div></div><script type="module">
-import React from 'react';
-import ReactDOM from 'react-dom/client';
+import React from '/node_modules/.vite/deps/react.js';
+import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js';
 const {createRoot}=ReactDOM;
 import RefreshRuntime from '/@react-refresh';
 RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
