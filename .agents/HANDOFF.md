@@ -3948,3 +3948,15 @@ The user also requested recommendations for darker nights. Suggested reducing
 ambient/ground fill and moonlight first, then sky/fog and exposure, preserving
 streetlamp pools, windows and other local emitters. No lighting balance values
 were changed as part of this visual lens update. Manual deployment follows.
+
+
+## 2026-10-30: circular lenses deployed and verified
+
+Local code commit c0d7043 was deployed manually with pnpm deploy:cloudflare
+from .cache/nvg-release. Its 2,609 tracked files matched that commit, excluding
+unrelated pending workspace edits. Cloudflare version
+2f3c6929-30e9-4e2b-bbc1-9df84a479a06 succeeded. Production JS/CSS hashes on
+blockplaysg.fun and workers.dev match the local build; production routing,
+service worker, manifest, models, audio and API-origin checks passed. Evidence:
+.cache/nvg-release/release-evidence.json and .cache/nvg-live-check.log. No
+GitHub push. AGENTS.md remains local, unstaged and uncommitted.
