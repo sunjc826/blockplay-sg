@@ -4474,5 +4474,12 @@ Real WebGL checks passed all five devices in desktop, portrait, landscape phone,
 ultrawide and square viewports, including circular masks, filled interiors,
 increasing tier coverage, thermal palettes and peripheral refraction. Visual
 review and NV aiming-light regressions passed. Evidence: .cache/nvg-size-*.log
-and .cache/fps-night-vision/. Full suite and manual deployment verification follow.
+and .cache/fps-night-vision/. All 1,828 tests across 188 suites passed.
+
+Code commit 5ee6c19 was manually deployed with pnpm deploy:cloudflare, version
+58dc91b5-c1e2-4e69-8fa2-2cc00a84a8a5. Both public origins serve JS/CSS and the
+service worker with hashes identical to the tested local build. Production
+asset, routing, manifest, models, recorded audio, API-origin and companion
+availability checks passed. Evidence: .cache/nvg-size-deploy.log,
+.cache/nvg-size-live-{build,check}.log and .cache/nvg-size-live-evidence.json.
 No GitHub push; AGENTS.md stays local, unstaged and uncommitted.
