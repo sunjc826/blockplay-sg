@@ -4834,3 +4834,27 @@ ignores archived cache files. Evidence: .cache/aerial-deployment/ and
 .cache/aerial-{focused,runtime,layout,final-focused,typecheck,browser}.log.
 Final clean-release intro regression and deployment checks follow.
 No GitHub push; AGENTS.md stays local. Concurrent audio work is excluded.
+
+
+## 2026-10-30: aerial deployment released and verified
+
+Code f1fdae7 passed all 1,883 tests across 197 suites in its clean release,
+plus typecheck and the production build. The release's 2,696 tracked files
+exactly match that commit. Final actual-component smokes passed aerial camera,
+world selection, pan/zoom/reset, random/named authority, single renderer,
+responsive docks, cinematic overlap, pause/skip, mouse capture, reduced motion
+and GPU blur checks. Production /world itself also passed native Chrome marker
+selection/hidden-gun and portrait layout checks in Marina Bay, with no runtime
+errors; live desktop/portrait captures were inspected.
+
+Manual pnpm deploy:cloudflare succeeded, version
+cd28af30-5b78-4d18-b27f-b8c1dd53050f. Both blockplaysg.fun and workers.dev serve
+JS/CSS and sw.js hashes identical to the tested build. The first secondary-origin
+requests timed out/returned 500 through the network proxy; fresh no-cache,
+cache-busted verification passed every asset on both origins. Primary production
+asset/model/audio/PWA, SPA fallback, API routing/origin and companion checks passed
+without paid API requests. Evidence: .cache/aerial-release-f1fdae7/ contains
+source-verification.json, release-evidence.json, release-*.log and
+.cache/{aerial-deployment,intro-motion,aerial-live}/ screenshots/verification.
+Task-owned Vite/Chrome stopped. No GitHub push. Concurrent audio/combat changes
+remain untouched and outside the release; AGENTS.md stays local and uncommitted.
