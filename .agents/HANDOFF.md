@@ -3923,3 +3923,28 @@ based on 331bbbe and excluding unrelated pending workspace edits. Cloudflare
 version 671cb519-2a7d-41b6-b7a7-c8d73e4a1f09 succeeded. Release evidence and UI
 captures are under .cache/tutorial-release and .cache/tutorial-browser. No
 GitHub push; AGENTS.md remains local, unstaged and uncommitted.
+
+
+## 2026-10-30: circular night vision lenses
+
+All three NVG tiers now show complete circles at 76%, 88% and 98% of the
+viewport's shorter side, giving higher tiers more view while preserving the
+rim on desktop, portrait, landscape and ultrawide screens. The post pass adds
+a rolled dark edge, directional bevel highlights, radial refraction and a
+faint displaced edge image, strongest on the basic tube. Existing phosphor,
+grain, gain, halos and switch animations remain; thermal apertures retain
+their existing sizing. Armory view figures now use the same aperture scaling.
+
+Validation on an isolated release snapshot: all 1,712 tests across 179 suites,
+typecheck and the Cloudflare build passed. The new focused WebGL smoke
+(scripts/fps-night-vision-smoke.mjs) passed actual pixel checks at 1280x760,
+390x844, 844x390 and 1920x800: circular bounds, increasing view, full rims,
+black outside the lens, peripheral refraction, city captures and both thermal
+cores, with no page/shader errors. Evidence: .cache/fps-night-vision and
+.cache/nvg-release-tests.log. The older interactive all-effects lens smoke
+timed out during UI startup before reaching vision checks.
+
+The user also requested recommendations for darker nights. Suggested reducing
+ambient/ground fill and moonlight first, then sky/fog and exposure, preserving
+streetlamp pools, windows and other local emitters. No lighting balance values
+were changed as part of this visual lens update. Manual deployment follows.

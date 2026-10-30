@@ -1,0 +1,54 @@
+<!doctype html>
+<!-- Deterministic NVG review: ?device=nvg-gen1 (also gen2/gen3), &chart for pixel checks.
+     window.visionReview.draw(id, { noise: 0, distortion: 0 }) compares optics without reloading. -->
+<html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Night vision lens review</title></head>
+<body style="margin:0;background:#000;overflow:hidden"><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import { createVisionSystem } from '/src/game/fps-vision.ts';
+import { createVisionState, VISION_DEVICES } from '/src/game/vision-devices.ts';
+import { dayLighting } from '/src/game/world-lighting.ts';
+const params = new URLSearchParams(location.search), chart = params.has('chart');
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight); renderer.autoClear = false;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.append(renderer.domElement);
+let world, camera, atmosphere, lights;
+if (chart) {
+  world = { scene: new THREE.Scene() };
+  camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  world.scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+    vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
+    fragmentShader: `varying vec2 vUv;void main(){
+      vec2 grid=step(vec2(0.14),fract(vUv*vec2(32.,24.)));
+      float value=0.16+0.34*grid.x*grid.y;
+      gl_FragColor=vec4(vec3(value),1.);
+    }`,
+  })));
+} else {
+  localStorage.setItem('blockplay-sg-environment-v1', JSON.stringify({ weather:'sunny', celebration:'none', timeOfDay:'night', reducedEffects:false, shadows:false }));
+  const { getRegion } = await import('/src/game/regions.ts');
+  const { createWorldAtmosphere } = await import('/src/game/world-atmosphere.ts');
+  const { createNightLights } = await import('/src/game/world-night-lights.ts');
+  const region = getRegion('marina-bay'); world = region.build();
+  atmosphere = createWorldAtmosphere(world.scene, region.stamps, world.obstacles, false, renderer);
+  lights = createNightLights(world.scene, { roads:region.mapRoads, roadWidth:region.roadWidth, bounds:region.bounds, obstacles:world.obstacles });
+  camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, .08, 800);
+  camera.position.set(0, 2, 18); camera.lookAt(0, 7, -100); camera.updateMatrixWorld(true);
+}
+const system = createVisionSystem(renderer, { world:world.scene, view:new THREE.Scene() });
+function draw(id = params.get('device') || 'nvg-gen1', overrides = {}, state = createVisionState(true)) {
+  const spec = { ...VISION_DEVICES[id], ...overrides };
+  atmosphere?.update(1 / 30, camera);
+  const lighting = atmosphere?.light.lighting ?? dayLighting(22.5);
+  lights?.update(lighting, 0, 1 / 30, camera, renderer);
+  renderer.toneMappingExposure = system.begin(spec, state, { dt:1 / 30, lighting, blackout:0, exposure:lighting.exposure });
+  world.animate?.(0); renderer.clear(); renderer.render(world.scene, camera); system.end(spec, state, 1);
+}
+function pixels() {
+  const copy = document.createElement('canvas'); copy.width = innerWidth; copy.height = innerHeight;
+  const context = copy.getContext('2d'); context.drawImage(renderer.domElement, 0, 0);
+  return context.getImageData(0, 0, copy.width, copy.height);
+}
+window.visionReview = { draw, pixels, renderer, camera, ready:true };
+draw();
+</script></body></html>

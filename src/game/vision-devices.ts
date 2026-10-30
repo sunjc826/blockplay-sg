@@ -24,7 +24,7 @@ export interface VisionSpec {
   gain: number;
   /** Grain at full gain, 0–1. A tube grows noisier as its gain rises. */
   noise: number;
-  /** Image circle radius as a share of half the screen's longer side; above about 1.15 only the corners darken. */
+  /** Image circle radius relative to half the shorter side for NVG, half the longer side for thermal. */
   aperture: number;
   /** Image softness, 0 sharp to 1 smeared. */
   blur: number;
@@ -55,9 +55,9 @@ export const PALETTE_LABELS: Record<ThermalPalette, string> = { 'white-hot': 'WH
  * what the device does to the picture.
  */
 export const VISION_DEVICES: Readonly<Record<string, VisionSpec>> = {
-  'nvg-gen1': { kind: 'nvg', generation: 1, gain: 3.4, noise: .62, aperture: .7, blur: .6, halo: 1, phosphor: '#7dff6e', distortion: .5, rows: 0, detail: 0, palettes: [], warmup: 1.4, shutdown: .9 },
-  'nvg-gen2': { kind: 'nvg', generation: 2, gain: 5.2, noise: .32, aperture: .9, blur: .28, halo: .6, phosphor: '#8dff9a', distortion: .2, rows: 0, detail: 0, palettes: [], warmup: .8, shutdown: .6 },
-  'nvg-gen3': { kind: 'nvg', generation: 3, gain: 7.5, noise: .13, aperture: 1.3, blur: .06, halo: .32, phosphor: '#e2f1ff', distortion: .05, rows: 0, detail: 0, palettes: [], warmup: .35, shutdown: .35 },
+  'nvg-gen1': { kind: 'nvg', generation: 1, gain: 3.4, noise: .62, aperture: .76, blur: .6, halo: 1, phosphor: '#7dff6e', distortion: .5, rows: 0, detail: 0, palettes: [], warmup: 1.4, shutdown: .9 },
+  'nvg-gen2': { kind: 'nvg', generation: 2, gain: 5.2, noise: .32, aperture: .88, blur: .28, halo: .6, phosphor: '#8dff9a', distortion: .2, rows: 0, detail: 0, palettes: [], warmup: .8, shutdown: .6 },
+  'nvg-gen3': { kind: 'nvg', generation: 3, gain: 7.5, noise: .13, aperture: .98, blur: .06, halo: .32, phosphor: '#e2f1ff', distortion: .05, rows: 0, detail: 0, palettes: [], warmup: .35, shutdown: .35 },
   'thermal-t1': { kind: 'thermal', generation: 1, gain: 1, noise: .3, aperture: 1.02, blur: .3, halo: .55, phosphor: '#e3eadf', distortion: .12, rows: 160, detail: .25, palettes: ['white-hot'], warmup: 1.8, shutdown: .55, calibration: { every: 26, hold: .4 } },
   'thermal-t2': { kind: 'thermal', generation: 2, gain: 1, noise: .1, aperture: 1.4, blur: .08, halo: .3, phosphor: '#ffffff', distortion: 0, rows: 360, detail: .7, palettes: ['white-hot', 'black-hot', 'ironbow'], warmup: .9, shutdown: .45 },
 };
@@ -169,12 +169,16 @@ export const visionStrain = (spec: VisionSpec | undefined, gain: number) =>
 export const cloudOpacity = (amount: number, thermal: boolean) => Math.min(.9, .25 + amount * .7) * (thermal ? .3 : 1);
 /** The control-guide name for a worn device's key. */
 export const visionKeyLabel = (spec: VisionSpec) => spec.kind === 'nvg' ? 'Night vision' : spec.palettes.length > 1 ? 'Thermal · J palette' : 'Thermal';
-/** Share of a screen (long side over short, 16:9 by default) inside a device's image circle, 0–1. */
+/** Radius in the post pass's units (half the longer side). NVG keeps its complete circle in either orientation. */
+export function visionAperture(spec: VisionSpec, aspect: number) {
+  return spec.aperture * (spec.kind === 'nvg' ? Math.min(aspect, 1 / aspect) : 1);
+}
+/** Share of a screen (width / height, 16:9 by default) inside an image circle measured against its longer side, 0–1. */
 export function visibleShare(aperture: number, aspect = 16 / 9) {
   let inside = 0; const n = 64;
   for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
     const x = ((i + .5) / n - .5) * aspect, y = (j + .5) / n - .5;
-    if (Math.hypot(x, y) / (.5 * aspect) <= aperture) inside++;
+    if (Math.hypot(x, y) / (.5 * Math.max(aspect, 1)) <= aperture) inside++;
   }
   return inside / (n * n);
 }
@@ -183,7 +187,7 @@ export function visibleShare(aperture: number, aspect = 16 / 9) {
  * tube is compared with what it costs you as well as what it gives.
  */
 export function visionFigures(spec: VisionSpec | undefined) {
-  return { gain: spec?.kind === 'nvg' ? spec.gain : 1, view: Math.round(visibleShare(spec?.aperture ?? 9) * 100), grain: Math.round((spec?.noise ?? 0) * 100),
+  return { gain: spec?.kind === 'nvg' ? spec.gain : 1, view: Math.round(visibleShare(spec ? visionAperture(spec, 16 / 9) : 9) * 100), grain: Math.round((spec?.noise ?? 0) * 100),
     sharpness: Math.round((1 - (spec?.blur ?? 0)) * 100), halo: Math.round((spec?.kind === 'nvg' ? spec.halo : 0) * 100),
     lines: spec?.kind === 'thermal' ? spec.rows : 0, palettes: spec?.palettes.length ?? 0, warmup: spec?.warmup ?? 0 };
 }

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { ARMORY_CATALOG, itemById } from './armory-catalog';
 import { createProfile, equip, purchase, resolveLoadout, restoreProfile } from './armory-state';
 import { equipmentMovement } from './fps-encumbrance';
-import { activePalette, advanceVision, cloudOpacity, createVisionState, cycleVisionPalette, stepVisionButton, toggleVision, visibleShare, visionFigures, visionGain, visionStrain, VISION_DEVICES, VISION_MOUNT_SECONDS } from './vision-devices';
+import { activePalette, advanceVision, cloudOpacity, createVisionState, cycleVisionPalette, stepVisionButton, toggleVision, visibleShare, visionAperture, visionFigures, visionGain, visionStrain, VISION_DEVICES, VISION_MOUNT_SECONDS } from './vision-devices';
 import { createThermalMaterials, thermalProperties } from './fps-vision';
 
 const tubes = ['nvg-gen1', 'nvg-gen2', 'nvg-gen3'].map(id => VISION_DEVICES[id]);
@@ -28,9 +28,22 @@ describe('vision device tiers', () => {
     expect(cores[1].palettes.length).toBeGreaterThan(cores[0].palettes.length);
     expect(cores[0].calibration).toBeDefined(); expect(cores[1].calibration).toBeUndefined();
   });
-  it('costs view: a first-generation tube shows well under the whole screen, a third nearly all of it', () => {
-    expect(visibleShare(tubes[0].aperture)).toBeLessThan(.65);
-    expect(visibleShare(tubes[2].aperture)).toBeGreaterThan(.85);
+  it('keeps a complete circular view in landscape, portrait and ultrawide, with more scene at each tier', () => {
+    for (const aspect of [16 / 9, 9 / 16, 21 / 9, 1]) {
+      const shares = tubes.map(spec => visibleShare(visionAperture(spec, aspect), aspect));
+      for (let i = 0; i < tubes.length; i++) {
+        // Diameter in pixels stays below the shorter viewport dimension, so no rim gets cropped.
+        const diameter = visionAperture(tubes[i], aspect) * Math.max(aspect, 1);
+        expect(diameter).toBeLessThan(Math.min(aspect, 1));
+        expect(shares[i]).toBeCloseTo(Math.PI / 4 * tubes[i].aperture ** 2 * Math.min(aspect, 1 / aspect), 2);
+        if (i > 0) expect(shares[i]).toBeGreaterThan(shares[i - 1]);
+      }
+    }
+    for (const spec of tubes) {
+      expect(visibleShare(visionAperture(spec, 16 / 9), 16 / 9)).toBeCloseTo(visibleShare(visionAperture(spec, 9 / 16), 9 / 16), 3);
+      expect(visionFigures(spec).view).toBe(Math.round(visibleShare(visionAperture(spec, 16 / 9)) * 100));
+    }
+    for (const spec of cores) expect(visionAperture(spec, 16 / 9)).toBe(spec.aperture);
     expect(visionFigures(undefined)).toMatchObject({ gain: 1, view: 100, grain: 0, sharpness: 100, warmup: 0 });
   });
 });

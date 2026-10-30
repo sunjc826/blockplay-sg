@@ -918,17 +918,22 @@ reduced motion the swing and the dying are skipped. The canvas records
 
 | Device | Tier | Gain at night | Screen inside the image | Grain | Notes |
 | --- | --- | ---: | ---: | ---: | --- |
-| NV-1 · Blur Like Sotong | Field, LV 2, 850 CR | 3.4× | 61% | 62% | Soft, barrel-distorted, big halos, 1.4 s warm-up |
-| NV-2+ · Jaga Malam | Field, LV 4, 1,900 CR | 5.2× | 84% | 32% | Smaller halos, 0.8 s |
-| NV-3 · Confirm Plus Chop | Elite, LV 6, 280 TK | 7.5× | 100% | 13% | White phosphor, sharp, 0.35 s |
+| NV-1 · Blur Like Sotong | Field, LV 2, 850 CR | 3.4× | 25% | 62% | Soft, barrel-distorted, big halos, 1.4 s warm-up |
+| NV-2+ · Jaga Malam | Field, LV 4, 1,900 CR | 5.2× | 34% | 32% | Smaller halos, 0.8 s |
+| NV-3 · Confirm Plus Chop | Elite, LV 6, 280 TK | 7.5× | 42% | 13% | White phosphor, sharp, 0.35 s |
 | TI-1 · Cheap and Good | Field, LV 5, 2,600 CR | — | 96% | 30% | 160 lines, white-hot only, freezes 0.4 s every 26 s to recalibrate |
 | TI-2 · Kiasu Fusion | Elite, LV 8, 420 TK | — | 100% | 10% | 360 lines, edge enhancement, white-hot / black-hot / ironbow |
 
 A tube is a worse *instrument* at a lower tier, not a different filter: less
 gain, so the dark stays dark; more grain, worst when the gain is up; a narrower
-image circle (scaled from the screen's longer side, so a portrait phone loses
-top and bottom); and halos that hide what stands under a lamp. Its automatic
-brightness control holds the gain near 1 by day and opens it as the hour's light
+image circle; and halos that hide what stands under a lamp. All three NVG
+tiers now show a complete circular lens, with diameters of 76%, 88% and 98%
+of the viewport's shorter side. The rim stays visible on portrait, landscape
+and ultrawide screens. A dark rolled edge, subtle bevel highlights and
+peripheral refraction make the lens read as curved glass; the basic tube bends
+and softens edges most. The table's screen shares use a 16:9 viewport; thermal
+keeps its existing wider aperture. A tube's automatic brightness control holds
+the gain near 1 by day and opens it as the hour's light
 goes (`visionGain`), further in a blackout, so a tube at noon is a washed-out
 green picture rather than a blinding one.
 
@@ -947,7 +952,11 @@ off while thermal is on.
 Code: `vision-devices.ts` (specs, state, gain), `fps-vision.ts` (the thermal
 material swap and both post passes, which read the finished canvas back),
 `FpsVisionChip.tsx` (desktop HUD chip), `visionModel` in `armory-visuals.ts`
-(shop preview). Tests in `vision-devices.test.ts`; `pnpm test:fps:lens` watches both kinds switch in a browser. Gameplay values are
+(shop preview). Tests in `vision-devices.test.ts`; `pnpm test:fps:lens` watches
+both kinds switch in a browser. `node scripts/fps-night-vision-smoke.mjs` checks
+the rendered circles and peripheral refraction at four viewport sizes, and
+captures city views for all three tubes and both thermal cores using
+`scripts/fixtures/vision-render.html`. Gameplay values are
 fictional and the device names are game names, not real products.
 
 ## Announcements and mouse capture

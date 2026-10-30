@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { LightingState } from './world-lighting';
 import { isWaterObject } from './water';
-import { activePalette, HEAT_SOURCES, isHeatSource, visionGain, visionStrain, type VisionSpec, type VisionState } from './vision-devices';
+import { activePalette, HEAT_SOURCES, isHeatSource, visionAperture, visionGain, visionStrain, type VisionSpec, type VisionState } from './vision-devices';
 
 /**
  * Draws what a worn vision device sees (vision-devices holds the devices).
@@ -236,12 +236,22 @@ uniform float uStrain;
 uniform float uDay;
 void main() {
   float r = rim();
-  vec2 uv = lens(r);
+  float radial = r / uAperture;
+  vec2 centre = vec2(0.5, 0.5 + uLift), delta = vUv - centre;
+  // The curved shoulder bends the scene more sharply in the last part of the glass.
+  // Even the best tube has a little refraction; its centre stays undistorted.
+  float shoulder = smoothstep(0.72, 1.0, radial);
+  float bend = (0.025 + uDistortion * 0.12) * pow(radial, 4.0)
+    + (0.018 + uDistortion * 0.045) * shoulder * shoulder;
+  vec2 uv = centre + delta * (1.0 - bend);
   // A cheap tube is soft everywhere and softer at its rim.
-  vec2 px = uBlur * (1.0 + 1.6 * r * r) * 1.8 / uResolution;
+  vec2 px = (uBlur * (1.0 + 1.6 * radial * radial) * 1.8 + shoulder * (0.7 + uDistortion * 2.0)) / uResolution;
   float l = luma(texture2D(tFrame, uv).rgb) * 0.4
     + (luma(texture2D(tFrame, uv + px).rgb) + luma(texture2D(tFrame, uv - px).rgb)
     + luma(texture2D(tFrame, uv + vec2(px.x, -px.y)).rgb) + luma(texture2D(tFrame, uv + vec2(-px.x, px.y)).rgb)) * 0.15;
+  // A displaced, faint second image at the bevel reads as thick glass, in the tube's phosphor colour.
+  float refracted = luma(texture2D(tFrame, uv - delta * (0.012 + uDistortion * 0.035)).rgb);
+  l = mix(l, refracted, shoulder * (0.12 + uDistortion * 0.18));
   // Halos: bright points spread into the tube around them.
   vec2 h = (0.004 + 0.012 * uHalo) * vec2(uResolution.y / uResolution.x, 1.0);
   float glow = luma(texture2D(tGlow, uv).rgb) * 0.4 + (luma(texture2D(tGlow, uv + h).rgb) + luma(texture2D(tGlow, uv - h).rgb)
@@ -264,7 +274,16 @@ void main() {
   l += step(1.0 - 0.0025 * uNoise * uStrain, hash(cell * 1.37 + fract(uTime * 3.7) * 71.0)) * 0.8 * lit * dying;
   l = max(l, 0.0);
   vec3 colour = uTint * l + smoothstep(0.85, 1.7, l) * 0.45;
-  gl_FragColor = present(colour * aperture(r) * smoothstep(0.0, 1.0, uWarm), r);
+  // Keep the circumference readable on every tier, with a dark rolled edge and a fine lit bevel.
+  float aa = 2.0 / (uAperture * max(uResolution.x, uResolution.y));
+  float circle = 1.0 - smoothstep(1.0 - aa, 1.0, radial);
+  float rolloff = (1.0 - 0.22 * pow(clamp(radial, 0.0, 1.0), 3.0))
+    * (1.0 - 0.82 * smoothstep(0.91, 1.0, radial));
+  vec2 direction = normalize(delta * uResolution + vec2(0.0001));
+  float reflection = 0.25 + 0.75 * pow(abs(dot(direction, normalize(vec2(-0.6, 0.8)))), 5.0);
+  float bevel = smoothstep(0.955, 0.978, radial) * (1.0 - smoothstep(0.985, 1.0, radial));
+  colour = colour * rolloff + uTint * bevel * reflection * (0.055 + 0.035 * uDistortion) * (1.0 - uOff);
+  gl_FragColor = present(colour * circle * smoothstep(0.0, 1.0, uWarm), r);
 }`;
 const THERMAL_POST_FRAGMENT = /* glsl */`
 ${POST_COMMON}
@@ -364,7 +383,7 @@ function createVisionPost(renderer: THREE.WebGLRenderer) {
       quad.material = bright; renderer.setRenderTarget(glow); renderer.render(quadScene, quadCamera);
       const material = thermalPass ? thermal : nvg, u = material.uniforms;
       u.tFrame.value = frame; u.uResolution.value.copy(size); u.uTime.value = info.time;
-      u.uNoise.value = spec.noise; u.uBlur.value = spec.blur; u.uHalo.value = spec.halo; u.uAperture.value = spec.aperture;
+      u.uNoise.value = spec.noise; u.uBlur.value = spec.blur; u.uHalo.value = spec.halo; u.uAperture.value = visionAperture(spec, size.x / size.y);
       u.uDistortion.value = spec.distortion; u.uWarm.value = state.warm; u.uTint.value.set(spec.phosphor);
       u.uOff.value = state.on ? 0 : 1 - state.fading;
       // The body covers the whole view once lowered; swinging, it is a disc whose lower edge travels down from the top.
