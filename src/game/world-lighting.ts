@@ -66,8 +66,8 @@ export interface LightingState {
 }
 /** Keyed by sun elevation in degrees. Between keys every number and colour is interpolated. */
 const KEYS: readonly (Omit<LightingState, 'key' | 'elevation'> & { at: number })[] = [
-  // Keep navigation silhouettes in moonlight; useful detail comes from local lamps or a vision tube.
-  { at: -14, keyColor: '#9ab2e4', keyScale: .07, ambientScale: .12, skyFill: '#34455e', groundFill: '#0c111a', sky: '#080d19', skyWeight: 1, shift: 1, exposure: 1.05 },
+  // Direct moonlight supports navigation; local sky/moon visibility keeps sheltered detail difficult unaided.
+  { at: -14, keyColor: '#afbcd4', keyScale: .24, ambientScale: .24, skyFill: '#5c6a80', groundFill: '#202735', sky: '#101827', skyWeight: 1, shift: 1, exposure: 1.05 },
   { at: -4, keyColor: '#b4a4c8', keyScale: .025, ambientScale: .32, skyFill: '#7a7fa6', groundFill: '#25232e', sky: '#5d5f86', skyWeight: .9, shift: 1, exposure: 1.05 },
   { at: 2, keyColor: '#ff9a5a', keyScale: .55, ambientScale: .55, skyFill: '#f0b997', groundFill: '#58463d', sky: '#eaa27c', skyWeight: .7, shift: .9, exposure: 1.05 },
   { at: 9, keyColor: '#ffbf80', keyScale: .85, ambientScale: .6, skyFill: '#f6d4b5', groundFill: '#5e5246', sky: '#f2c6a0', skyWeight: .4, shift: .6, exposure: .98 },
@@ -97,3 +97,8 @@ function normalise(v: Direction): Direction { const l = Math.hypot(v.x, v.y, v.z
 /** The hour a setting stands for: a named time, or Singapore's clock when automatic. */
 export const resolveHour = (time: TimeOfDayId | 'auto', now: number) => time === 'auto' ? singaporeHour(now) : TIMES_OF_DAY[time].hour;
 export const mixColor = mixHex;
+/** Full geometry-based night attenuation after twilight; daylight and warm dusk retain their authored light. */
+export function nightExposureAmount(elevation: number) {
+  const t = Math.max(0, Math.min(1, (-3 - elevation) / 9));
+  return t * t * (3 - 2 * t);
+}

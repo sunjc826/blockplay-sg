@@ -1534,10 +1534,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     renderer.toneMappingExposure = lighting.exposure * (1 - .5 * blackout * lighting.shift);
     sunShadows.update(shadows, camera, lighting.key, dt);
     nightLights.update(lighting, blackout, dt, camera, renderer);
-    viewSky.intensity = 2.1 * Math.min(1.25, ambient / .58);
+    viewSky.intensity = 2.1 * Math.min(1.25, ambient / .58) * atmosphere.light.skyVisibility;
     viewSky.color.copy(VIEW_SKY).lerp(viewTint.set(lighting.skyFill), lighting.shift);
     viewSky.groundColor.copy(VIEW_GROUND).lerp(viewTint.set(lighting.groundFill), lighting.shift);
-    weaponLight.intensity = 2.5 * Math.min(1.25, key / 1.12);
+    weaponLight.intensity = 2.5 * Math.min(1.25, key / 1.12) * atmosphere.light.moonVisibility;
     weaponLight.color.copy(VIEW_KEY).lerp(viewTint.set(lighting.keyColor), lighting.shift);
     weaponLight.position.set(lighting.key.x, lighting.key.y, lighting.key.z).applyQuaternion(viewQuaternion.copy(camera.quaternion).invert());
     lampLight.intensity = 3.2 * nightLights.lightAt(camera.position);

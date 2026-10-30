@@ -272,7 +272,7 @@ void main() {
   float amount = uNoise * (0.3 + 0.7 * uStrain) * (1.6 - 0.6 * uWarm) * dying;
   l += (hash(cell + fract(uTime * 7.31) * 113.0) - 0.5) * amount * 0.55 * lit;
   // Scintillation: the odd bright speck from the photocathode.
-  l += step(1.0 - 0.0025 * uNoise * uStrain, hash(cell * 1.37 + fract(uTime * 3.7) * 71.0)) * 0.8 * lit * dying;
+  l += step(1.0 - 0.0025 * uNoise * uStrain, hash(cell * 1.37 + fract(uTime * 3.7) * 71.0)) * min(1.0, uNoise * 100.0) * 0.8 * lit * dying;
   l = max(l, 0.0);
   vec3 colour = uTint * l + smoothstep(0.85, 1.7, l) * 0.45;
   // Keep the circumference readable on every tier, with a dark rolled edge and a fine lit bevel.

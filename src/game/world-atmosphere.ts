@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import type { Obstacle } from './region-collision';
 import { getEnvironmentSettings } from './environment-settings';
 import { CELEBRATIONS, DEFAULT_ENVIRONMENT, WEATHER, resolveEnvironment, type CelebrationId } from './world-events';
-import { dayLighting, singaporeDayOfYear, type LightingState } from './world-lighting';
+import { dayLighting, nightExposureAmount, singaporeDayOfYear, type LightingState } from './world-lighting';
 import { createSkyLight, type Rgb } from './world-sky-light';
 import type { WaterMaterial } from './water';
+import { createNightExposure, skyVisibility } from './night-exposure';
 
 /**
  * One bounded effect pool per scene. No textures, network traffic or shadow passes.
@@ -30,13 +31,15 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   const sunLight = lights.find(l => l.sun)?.light as THREE.DirectionalLight | undefined;
   const skyFill = lights.find(l => !l.sun)?.light as THREE.HemisphereLight | undefined;
   const skyLight = renderer && skyFill ? createSkyLight(renderer, scene) : null;
+  const exposure = createNightExposure(scene);
   // The sky light replaces the hemisphere's lighting; the hemisphere keeps being driven so its colours and intensity feed the sky.
   if (skyLight && skyFill) skyFill.visible = false;
   const rgb = (c: THREE.Color): Rgb => [c.r, c.g, c.b];
   const keyDirection = new THREE.Vector3(), shiftColor = new THREE.Color();
+  const exposurePoint = new THREE.Vector3();
   let lighting: LightingState = dayLighting(13);
   /** What the frame's light amounts to, for the parts of the view the scene's lights do not reach. */
-  const output = { lighting, key: 1, ambient: 1, shadows: true, occlusion: true };
+  const output = { lighting, key: 1, ambient: 1, skyVisibility: 1, moonVisibility: 1, shadows: true, occlusion: true };
   /** The air round the camera, eased like the light, for what lands on or glints in front of the lens (fps-lens). */
   const air = { rain: 0, haze: 0, sunlight: 1, wind: 0, sheltered: false };
   const root = new THREE.Group(); root.name = 'world-atmosphere'; root.userData.fpsEffect = true; scene.add(root);
@@ -104,6 +107,8 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
     /** Resolved scene conditions, including the shared automatic conditions in multiplayer. */
     get conditions() { return active; },
     get air() { return air; },
+    /** Static natural-light visibility, also useful for renderer-independent review. */
+    get exposure() { return exposure; },
     update(dt: number, camera: THREE.Camera, now = Date.now()) {
       if (disposed) return;
       const settings = getEnvironmentSettings();
@@ -118,6 +123,12 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       const step = Math.max(0, Math.min(.1, Number.isFinite(dt) ? dt : 0)), blend = started ? 1 - Math.exp(-step * .65) : 1;
       started = true;
       lighting = dayLighting(active.hour, singaporeDayOfYear(now));
+      const night = nightExposureAmount(lighting.elevation);
+      const cloudFill = 1 - night * .55 * (1 - preset.sun);
+      exposure.update(night, lighting.key, step);
+      const local = exposure.sample(camera.getWorldPosition(exposurePoint));
+      output.skyVisibility = 1 - night * (1 - skyVisibility(local.sky));
+      output.moonVisibility = 1 - night * .975 * (1 - local.moon);
       targetColor.set(preset.sky).lerp(shiftColor.set(lighting.sky), lighting.skyWeight); background.lerp(targetColor, blend); fog.color.copy(background);
       fog.near += (preset.fogNear - fog.near) * blend; fog.far += (preset.fogFar - fog.far) * blend;
       wetness += (preset.rain - wetness) * blend; wind += (preset.wind - wind) * blend;
@@ -127,7 +138,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       const lightning = !reduced && active.weather === 'thunderstorm' ? Math.max(0, 1 - Math.abs(time % 23 - 1) / .4) * .16 : 0;
       keyDirection.set(lighting.key.x, lighting.key.y, lighting.key.z);
       for (const { light, intensity, sun, color, ground, reach } of lights) {
-        light.intensity += (intensity * (sun ? (preset.sun + lightning) * lighting.keyScale : (preset.ambient + lightning) * lighting.ambientScale) - light.intensity) * blend;
+        light.intensity += (intensity * (sun ? (preset.sun + lightning) * lighting.keyScale : (preset.ambient * cloudFill + lightning) * lighting.ambientScale) - light.intensity) * blend;
         if (light instanceof THREE.DirectionalLight) {
           // Kept at its authored distance from wherever its target is, so a following shadow frustum follows too.
           light.position.copy(light.target.position).addScaledVector(keyDirection, reach);
@@ -143,7 +154,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
         skyLight.update({ sky: rgb(skyFill.color), horizon: rgb(background), ground: rgb(skyFill.groundColor), key: rgb(sunLight?.color ?? skyFill.color),
           keyDirection: lighting.key, keyRatio: sunLight ? sunLight.intensity / fill : 0 }, skyFill.intensity, step);
       }
-      output.lighting = lighting; output.key = preset.sun * lighting.keyScale; output.ambient = preset.ambient * lighting.ambientScale; output.shadows = active.shadows; output.occlusion = active.occlusion;
+      output.lighting = lighting; output.key = preset.sun * lighting.keyScale; output.ambient = preset.ambient * cloudFill * lighting.ambientScale; output.shadows = active.shadows; output.occlusion = active.occlusion;
       root.userData.timeOfDay = active.hour;
       if (previousEvent !== active.celebration) {
         previousEvent = active.celebration;
@@ -187,6 +198,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       if (disposed) return; disposed = true;
       bulbs.forEach(mesh => mesh.dispose());
       skyLight?.dispose(); if (skyFill) skyFill.visible = true;
+      exposure.dispose();
       for (const material of water) material.userData.resetLighting();
       scene.remove(root); scene.background = originalBackground; scene.fog = originalFog;
       lights.forEach(({ light, intensity, color, ground }, index) => {

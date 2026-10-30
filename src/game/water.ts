@@ -209,7 +209,8 @@ export function createWaterMaterial(options: WaterOptions): WaterMaterial {
     targetHorizon.lerpColors(dayHorizon, horizon, lighting.skyWeight);
     u.uSky.value.lerp(targetSky, blend); u.uHorizon.value.lerp(targetHorizon, blend);
     const weather = THREE.MathUtils.clamp(sunlight, .05, 1);
-    const surfaceLight = (1 - .96 * lighting.shift) * weather;
+    const nightLight = .025 + .34 * lighting.keyScale + .10 * lighting.ambientScale;
+    const surfaceLight = (1 - lighting.shift + lighting.shift * nightLight) * weather;
     u.uSurfaceLight.value += (surfaceLight - u.uSurfaceLight.value) * blend;
     const glint = 2.4 * weather * (1 - lighting.shift + lighting.shift * lighting.keyScale);
     u.uGlintStrength.value += (glint - u.uGlintStrength.value) * blend;

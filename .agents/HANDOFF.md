@@ -4224,3 +4224,35 @@ browser smokes, including reloads triggered by other sessions' cache files.
 
 No GitHub push. AGENTS.md remains local and uncommitted. Other sessions' pending
 night-vision edits were preserved and excluded from the release snapshot.
+
+
+## 2026-10-30: navigable moonlight with geometry-based shelter
+
+Defined comfortable as normal walking/navigation with readable nearby road
+edges, kerbs and obstacles, plus exposed silhouettes; fine detail and people
+in shade should remain difficult unaided. Restored clear-night moonlight and
+sky fill to 0.24 each, kept exposure at 1.05 and used a muted brighter sky fill.
+Cloud/rain reduce sky fill as well as direct moonlight. Water body brightness
+now follows available natural light rather than a fixed nighttime percentage.
+
+Added night-exposure.ts: a static oriented-box BVH bakes sky/moon visibility
+at nine heights. Lit materials attenuate natural diffuse/specular light while
+local lamps, windows, torches and flashes retain their illumination. Foliage
+transmits partial light; effects, invisible meshes and water are not blockers.
+Weapon lighting and water reflections use the local visibility. This works
+with GPU shadows/AO disabled. The coarse field is static geometry, not dynamic
+triangle shadows. Moon-channel updates are bounded to 2,048 samples per frame
+and uploaded atomically, avoiding periodic full-bake frame stalls.
+
+Fixed controller recreation binding stale uniforms in cached material programs;
+night/day round trips now restore unchanged daylight. Noiseless NVG review
+mode also suppresses zero-noise scintillation. All 33 focused tests and
+typecheck passed. The new moonlight WebGL review passed exposed navigation,
+dark shelter, NVG advantage, weather contrast, daylight round trips, eye-level
+figures and three districts. Existing NVG/thermal mask/palette smokes passed.
+Evidence: .cache/fps-moonlight, .cache/moonlight-focused.log and
+.cache/moonlight-device-regression.log. Initial exposure creation in the three
+district captures took about 0.3–0.9 s; steady-state use adds no scene pass.
+See docs/NIGHT-VISIBILITY.md. Full checks and manual deployment follow.
+Unrelated pending night-window/facade work is excluded. No GitHub push;
+AGENTS.md remains local and uncommitted.

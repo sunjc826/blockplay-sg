@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dayLighting, resolveHour, singaporeHour, sunDirection, TIMES_OF_DAY } from './world-lighting';
+import { dayLighting, nightExposureAmount, resolveHour, singaporeHour, sunDirection, TIMES_OF_DAY } from './world-lighting';
 
 describe('Singapore sun path', () => {
   it('rises in the east after 7, stands near overhead after 1 pm, sets in the west after 7 pm', () => {
@@ -43,14 +43,18 @@ describe('time-of-day light', () => {
       previous = next;
     }
   });
-  it('leaves night detail to local light sources without dimming daytime', () => {
+  it('supports moonlit navigation while leaving fine shadow detail to local lights or NVG', () => {
     const night = dayLighting(TIMES_OF_DAY.night.hour), noon = dayLighting(TIMES_OF_DAY.noon.hour);
-    expect(night.ambientScale).toBeLessThanOrEqual(.15);
-    expect(night.keyScale).toBeLessThanOrEqual(.08);
+    expect(night.ambientScale).toBeGreaterThanOrEqual(.2); expect(night.ambientScale).toBeLessThan(.3);
+    expect(night.keyScale).toBeGreaterThanOrEqual(.16); expect(night.keyScale).toBeLessThan(.25);
     expect(night.exposure).toBeLessThanOrEqual(1.1);
     const brightness = (hex: string) => [1, 3, 5].reduce((sum, i) => sum + parseInt(hex.slice(i, i + 2), 16), 0);
-    expect(brightness(night.sky)).toBeLessThan(brightness('#18223b') / 2);
+    expect(brightness(night.sky)).toBeLessThan(brightness('#18223b'));
     expect(brightness(night.groundFill)).toBeLessThan(brightness(night.skyFill) / 2);
     expect(noon).toMatchObject({ keyScale: 1.12, ambientScale: .58, exposure: .9, shift: 0 });
+  });
+  it('applies shelter attenuation only after twilight, with a continuous handover', () => {
+    expect(nightExposureAmount(45)).toBe(0); expect(nightExposureAmount(-3)).toBe(0);
+    expect(nightExposureAmount(-7.5)).toBeCloseTo(.5); expect(nightExposureAmount(-12)).toBe(1);
   });
 });

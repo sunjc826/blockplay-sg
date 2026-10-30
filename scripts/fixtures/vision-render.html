@@ -13,7 +13,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffe
 renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight); renderer.autoClear = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 document.body.append(renderer.domElement);
-let world, camera, atmosphere, lights, region, createAtmosphere;
+let world, camera, atmosphere, lights, region, createAtmosphere, exposureBakeMs = 0;
 if (chart) {
   world = { scene: new THREE.Scene() };
   camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -42,11 +42,27 @@ if (chart) {
     for (const [x,z] of [[-12,-6],[2,-10],[12,-6]]) {
       const box = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 2), material); box.position.set(x,1.5,z); scene.add(box);
     }
+    if (params.has('shelter')) {
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(16, .35, 20), material); roof.position.set(-18,4,-14); scene.add(roof);
+      for (const x of [10, 26]) {
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(1, 9, 30), material); wall.position.set(x,4.5,-14); scene.add(wall);
+      }
+    }
+    if (params.has('people')) {
+      const { createCharacterRig } = await import('/src/game/character-rig.ts');
+      const { arenaCharacterLook } = await import('/src/game/character-looks.ts');
+      for (const [id,x,z] of [['moonlit',4,-12],['covered',-18,-14]]) {
+        const rig = createCharacterRig(arenaCharacterLook({bot:true,role:'assault',id,rank:2}),id);
+        rig.root.position.set(x,0,z); rig.root.rotation.y=Math.PI;rig.update(1/60,{aim:.15});scene.add(rig.root);
+      }
+    }
     world = { scene, obstacles:[], animate(){} };
     region = { stamps:[], mapRoads:[{ points:[{x:-90,z:0},{x:90,z:0}] }], roadWidth:14, bounds:{minX:-100,maxX:100,minZ:-100,maxZ:100} };
   }
   separateInstancedMaterials(world.scene);
+  const bakeStart = performance.now();
   atmosphere = createAtmosphere(world.scene, region.stamps, world.obstacles, false, renderer);
+  exposureBakeMs = performance.now() - bakeStart;
   lights = createNightLights(world.scene, { roads:region.mapRoads, roadWidth:region.roadWidth, bounds:region.bounds, obstacles:world.obstacles });
   camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, .08, 800);
   const vector = (key, fallback) => params.has(key) ? params.get(key).split(',').map(Number) : fallback;
@@ -58,7 +74,7 @@ function draw(id = params.get('device') || 'nvg-gen1', overrides = {}, state = c
   const spec = VISION_DEVICES[id] ? { ...VISION_DEVICES[id], ...overrides } : undefined;
   atmosphere?.update(1 / 30, camera);
   const lighting = atmosphere?.light.lighting ?? dayLighting(22.5);
-  lights?.update(lighting, 0, 1 / 30, camera, renderer);
+  lights?.update(lighting, params.has('shelter') ? 1 : 0, 1 / 30, camera, renderer);
   renderer.toneMappingExposure = system.begin(spec, state, { dt:1 / 30, lighting, blackout:0, exposure:lighting.exposure });
   world.animate?.(0); renderer.clear(); renderer.render(world.scene, camera); system.end(spec, state, 1);
 }
@@ -72,6 +88,6 @@ function conditions(patch) {
   atmosphere = createAtmosphere(world.scene, region.stamps, world.obstacles, false, renderer);
   draw('none');
 }
-window.visionReview = { draw, pixels, conditions, renderer, camera, world, lights, get atmosphere(){return atmosphere}, ready:true };
+window.visionReview = { draw, pixels, conditions, renderer, camera, world, lights, exposureBakeMs, get atmosphere(){return atmosphere}, ready:true };
 draw();
 </script></body></html>

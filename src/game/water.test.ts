@@ -40,13 +40,16 @@ describe('water surfaces', () => {
     const night = dayLighting(22.5), sky = new THREE.Color(night.sky);
     material.userData.setLighting(night, sky, sky, 1, 1);
     for (const key of ['uSky', 'uHorizon']) u[key].value.toArray().forEach((channel: number, i: number) => expect(channel).toBeCloseTo(sky.toArray()[i], 12));
-    expect(u.uSurfaceLight.value).toBeLessThan(.05);
-    expect(u.uGlintStrength.value).toBeLessThan(.2);
+    expect(u.uSurfaceLight.value).toBeGreaterThan(.08); expect(u.uSurfaceLight.value).toBeLessThan(.16);
+    expect(u.uGlintStrength.value).toBeLessThan(.6);
+    const clearNight = u.uSurfaceLight.value;
+    material.userData.setLighting(night, sky, sky, .18, 1);
+    expect(u.uSurfaceLight.value).toBeLessThan(clearNight * .25);
     expect(u.uSun.value.toArray()).toEqual([night.key.x, night.key.y, night.key.z]);
     // Returning to clear midday restores the authored colours, not a cumulative dark tint.
     material.userData.setLighting(dayLighting(13), new THREE.Color('#ffffff'), sky, 1, 1);
     u.uSky.value.toArray().forEach((channel: number, i: number) => expect(channel).toBeCloseTo(new THREE.Color(options.sky).toArray()[i], 12));
-    expect(u.uSurfaceLight.value).toBe(1); expect(u.uGlintStrength.value).toBe(2.4);
+    expect(u.uSurfaceLight.value).toBeCloseTo(1, 12); expect(u.uGlintStrength.value).toBeCloseTo(2.4, 12);
     material.userData.resetLighting();
     expect(u.uSun.value.equals(options.sun)).toBe(true);
     material.dispose();
@@ -59,7 +62,8 @@ describe('water surfaces', () => {
     const atmosphere = createWorldAtmosphere(scene, [], []);
     try {
       atmosphere.update(.1, camera);
-      expect(material.uniforms.uSurfaceLight.value).toBeLessThan(.05);
+      expect(material.uniforms.uSurfaceLight.value).toBeGreaterThan(.08);
+      expect(material.uniforms.uSurfaceLight.value).toBeLessThan(.16);
       expect(material.uniforms.uSky.value.equals(scene.background)).toBe(true);
       atmosphere.dispose();
       expect(material.uniforms.uSurfaceLight.value).toBe(1);

@@ -966,6 +966,10 @@ most of a smoke or gas cloud (`cloudOpacity`). Because the swap is on the meshes
 the PiP scope and optic reflections show the same picture. Ambient occlusion is
 off while thermal is on.
 
+Clear direct moonlight supports unaided navigation, while sheltered detail
+remains difficult without NVG or a weapon light. Geometry controls sky/moon
+visibility instead of dimming every location alike; see [night visibility](NIGHT-VISIBILITY.md).
+
 Code: `vision-devices.ts` (specs, state, gain), `fps-vision.ts` (the thermal
 material swap and both post passes, which read the finished canvas back),
 `FpsVisionChip.tsx` (desktop HUD chip), `visionModel` in `armory-visuals.ts`
