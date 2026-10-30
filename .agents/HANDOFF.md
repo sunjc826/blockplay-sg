@@ -4256,3 +4256,26 @@ district captures took about 0.3–0.9 s; steady-state use adds no scene pass.
 See docs/NIGHT-VISIBILITY.md. Full checks and manual deployment follow.
 Unrelated pending night-window/facade work is excluded. No GitHub push;
 AGENTS.md remains local and uncommitted.
+
+
+## 2026-10-30: nuanced moonlight deployed and verified
+
+Final code revision 004f117 includes the sloping-deck correction: authored ramp
+prisms no longer shade their own exposed top, while their underside stays dark.
+All 2,650 tracked files in .cache/moonlight-release match that revision. The
+final snapshot passed all 1,811 tests in 185 suites, typecheck and the production
+build, plus 34 focused lighting/water/exposure tests, WebGL moonlight comparisons,
+existing NVG/thermal device checks and actual-engine walking/NVG/daylight checks.
+
+Manual pnpm deploy:cloudflare succeeded with version
+1bf20db9-bd8c-4bd1-8e80-f2f1b3bdb56f. Both blockplaysg.fun and the workers.dev
+origin serve JS/CSS with hashes identical to the tested build. Production asset,
+service-worker, manifest, model, audio, SPA fallback, API routing and origin
+checks passed. Evidence: .cache/moonlight-release/release-evidence.json,
+.cache/moonlight-final-tests.log, .cache/moonlight-final-typecheck.log,
+.cache/moonlight-final-build.log, .cache/moonlight-final-browser.log,
+.cache/moonlight-runtime.log, .cache/moonlight-deploy.log and
+.cache/moonlight-live-check.log. Future deployments should include 004f117 or
+a descendant to preserve nuanced moonlight and the circular NVG/thermal work.
+No GitHub push. AGENTS.md remains local and uncommitted. Unrelated pending
+night-window/facade work was preserved and excluded from this release.
