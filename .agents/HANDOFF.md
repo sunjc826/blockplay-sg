@@ -4323,3 +4323,29 @@ passed without paid API requests. Evidence: source-verification.json,
 release-evidence.json, release-{tests,typecheck,browser,deploy,live-check}.log
 and .cache/night-windows/ under that release folder. No GitHub push. AGENTS.md
 and .claude content remain local, unstaged and uncommitted.
+
+
+## 2026-10-30: make first-generation NVG worth wearing
+
+Rebalanced NV-1 to 4.4x gain (was 3.4), 0.42 noise (was 0.62), 0.42 blur,
+0.78 halo and 0.38 distortion. Its circular aperture, green phosphor, 1.4 s
+startup, price and weight remain the entry-tier tradeoffs; Gen 2/3 retain better
+gain, view and optics. Updated the catalog and armory guide to match.
+
+The shared NVG shader caps grain by available image signal rather than adding
+a fixed snow floor that overwhelmed faint shadows. Reduced scintillation
+frequency/brightness and replaced the large-multiplier hash whose loss of
+float precision aligned flashes in columns. Other NVG tiers benefit from the
+same shadow-signal protection; thermal noise uses the corrected hash.
+
+Added scripts/fps-gen1-vision-smoke.mjs: compares an old/candidate Vite server,
+measures sheltered signal and noise and captures eye-level figures plus Marina
+and Queenstown. In its shaded ground patch, Gen 1 green signal rose 3.90 to
+5.19 / 255 while sustained noise RMS fell 16.28 to 1.31. Bare-eye signal was
+identical and higher NVG tiers retained more signal. Inspected the figure and
+city captures; all five device masks, refraction and thermal palettes also
+passed existing WebGL checks. Evidence: .cache/fps-gen1-vision,
+.cache/gen1-browser.log and .cache/gen1-devices.log. Typecheck and production
+build passed; the full suite and manual deployment follow. Unrelated expedition
+entry changes were excluded using .cache/gen1-release. No GitHub push;
+AGENTS.md stays local and uncommitted.

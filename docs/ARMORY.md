@@ -932,11 +932,16 @@ reduced motion the swing and the dying are skipped. The canvas records
 
 | Device | Tier | Gain at night | Screen inside the image | Grain | Notes |
 | --- | --- | ---: | ---: | ---: | --- |
-| NV-1 · Blur Like Sotong | Field, LV 2, 850 CR | 3.4× | 25% | 62% | Soft, barrel-distorted, big halos, 1.4 s warm-up |
+| NV-1 · Blur Like Sotong | Field, LV 2, 850 CR | 4.4× | 25% | 42% | Soft, barrel-distorted, noticeable halos, 1.4 s warm-up |
 | NV-2+ · Jaga Malam | Field, LV 4, 1,900 CR | 5.2× | 34% | 32% | Smaller halos, 0.8 s |
 | NV-3 · Confirm Plus Chop | Elite, LV 6, 280 TK | 7.5× | 42% | 13% | White phosphor, sharp, 0.35 s |
 | TI-1 · Cheap and Good | Field, LV 5, 2,600 CR | — | 23% | 30% | 160 lines, white-hot only, freezes 0.4 s every 26 s to recalibrate |
 | TI-2 · Kiasu Fusion | Elite, LV 8, 420 TK | — | 36% | 10% | 360 lines, edge enhancement, white-hot / black-hot / ironbow |
+
+Gen 1 should reveal nearby obstacles and people in shade well enough to justify
+wearing it. It keeps the smallest view, softer optics, more grain and bloom, and
+a slower startup than Gen 2. NVG grain follows the available image signal so
+noise cannot wash out faint detail; occasional bright scintillation remains.
 
 A tube is a worse *instrument* at a lower tier, not a different filter: less
 gain, so the dark stays dark; more grain, worst when the gain is up; a narrower

@@ -55,7 +55,7 @@ export const PALETTE_LABELS: Record<ThermalPalette, string> = { 'white-hot': 'WH
  * what the device does to the picture.
  */
 export const VISION_DEVICES: Readonly<Record<string, VisionSpec>> = {
-  'nvg-gen1': { kind: 'nvg', generation: 1, gain: 3.4, noise: .62, aperture: .76, blur: .6, halo: 1, phosphor: '#7dff6e', distortion: .5, rows: 0, detail: 0, palettes: [], warmup: 1.4, shutdown: .9 },
+  'nvg-gen1': { kind: 'nvg', generation: 1, gain: 4.4, noise: .42, aperture: .76, blur: .42, halo: .78, phosphor: '#7dff6e', distortion: .38, rows: 0, detail: 0, palettes: [], warmup: 1.4, shutdown: .9 },
   'nvg-gen2': { kind: 'nvg', generation: 2, gain: 5.2, noise: .32, aperture: .88, blur: .28, halo: .6, phosphor: '#8dff9a', distortion: .2, rows: 0, detail: 0, palettes: [], warmup: .8, shutdown: .6 },
   'nvg-gen3': { kind: 'nvg', generation: 3, gain: 7.5, noise: .13, aperture: .98, blur: .06, halo: .32, phosphor: '#e2f1ff', distortion: .05, rows: 0, detail: 0, palettes: [], warmup: .35, shutdown: .35 },
   'thermal-t1': { kind: 'thermal', generation: 1, gain: 1, noise: .3, aperture: .72, blur: .3, halo: .55, phosphor: '#e3eadf', distortion: .12, rows: 160, detail: .25, palettes: ['white-hot'], warmup: 1.8, shutdown: .55, calibration: { every: 26, hold: .4 } },

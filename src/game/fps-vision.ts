@@ -212,7 +212,9 @@ uniform float uOff;
 uniform float uLift;
 uniform float uHousing;
 uniform vec3 uTint;
-float hash(vec2 p) { p = fract(p * vec2(443.897, 441.423)); p += dot(p, p.yx + 19.19); return fract((p.x + p.y) * p.x); }
+// Reduce pixel coordinates before mixing; large multipliers made bright specks
+// line up in columns as float precision ran out on some renderers.
+float hash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 /**
  * 1 at the middle of the screen's longer edges, larger into the corners: a portrait phone loses top and bottom, not the middle.
@@ -270,9 +272,12 @@ void main() {
   // Grain is coarser on a blurry tube, worst when the gain is up and while the tube is still lighting.
   vec2 cell = floor(vUv * uResolution / (1.0 + uBlur * 1.5));
   float amount = uNoise * (0.3 + 0.7 * uStrain) * (1.6 - 0.6 * uWarm) * dying;
-  l += (hash(cell + fract(uTime * 7.31) * 113.0) - 0.5) * amount * 0.55 * lit;
+  // Keep grain below the image signal: fixed-strength snow used to drown the
+  // very shadows the tube is meant to reveal, especially on the first generation.
+  float grain = min(amount * 0.55, max(l, 0.0) * (0.35 + uNoise));
+  l += (hash(cell + fract(uTime * 7.31) * 113.0) - 0.5) * grain * lit;
   // Scintillation: the odd bright speck from the photocathode.
-  l += step(1.0 - 0.0025 * uNoise * uStrain, hash(cell * 1.37 + fract(uTime * 3.7) * 71.0)) * min(1.0, uNoise * 100.0) * 0.8 * lit * dying;
+  l += step(1.0 - 0.0008 * uNoise * uStrain, hash(cell * 1.37 + fract(uTime * 3.7) * 71.0)) * min(1.0, uNoise * 100.0) * 0.35 * lit * dying;
   l = max(l, 0.0);
   vec3 colour = uTint * l + smoothstep(0.85, 1.7, l) * 0.45;
   // Keep the circumference readable on every tier, with a dark rolled edge and a fine lit bevel.
