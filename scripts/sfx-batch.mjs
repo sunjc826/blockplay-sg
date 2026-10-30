@@ -30,7 +30,7 @@ export const SOUNDS = [
   { id: 'bolt-release', takes: 2, seconds: 0.5, prompt: `A rifle bolt released and slamming forward to chamber a round, a sharp loud metallic clack, close perspective. ${DRY}` },
 ];
 /** The newer model gets its own takes of every gunshot, so the two can be compared by ear. */
-const V3 = SOUNDS.filter(s => /^(rifle|pistol|mg|hmg|suppressed|distant)/.test(s.id)).map(s => ({ ...s, id: s.id + '-v3', takes: Math.min(3, s.takes), model: 'eleven_text_to_sound_v3' }));
+const V3 = SOUNDS.filter(s => /^(rifle|pistol|mg|hmg|suppressed|distant)/.test(s.id)).map(s => ({ ...s, id: s.id + '-v3', takes: s.id === 'rifle-556' ? 5 : Math.min(3, s.takes), model: 'eleven_text_to_sound_v3' }));
 SOUNDS.push(...V3);
 export const settings = { model_id: 'eleven_text_to_sound_v2', prompt_influence: 0.5 };
 export const takes = SOUNDS.flatMap(sound => Array.from({ length: sound.takes }, (_, i) => ({ id: `${sound.id}-${i + 1}`, sound: sound.id, request: { ...settings, ...sound.model && { model_id: sound.model }, text: sound.prompt, duration_seconds: sound.seconds } })));

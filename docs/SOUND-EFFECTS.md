@@ -35,8 +35,12 @@ runtime like the Encik recordings.
   sharper gunshots than v2, whose pistol and suppressed takes were near
   silent.
 - `pnpm sfx:publish` is free and offline. `PICKS` in `scripts/sfx-publish.mjs`
-  chooses the takes for each group. Takes are trimmed, loudness-matched (loudest
-  50 ms at -12 dBFS RMS, peaks capped) and encoded as 96 kbps mono MP3s.
+  chooses the takes for each group. Each take starts 1 ms before its main
+  transient (the first sample at 30% of peak), so a quiet lead-in never makes a
+  shot land late. Takes are loudness-matched (loudest 50 ms at -12 dBFS RMS,
+  peaks capped) and encoded as 96 kbps mono MP3s. Publishing warns about any
+  non-distant take that peaks more than 40 ms in. Shots peaking 30 ms or more
+  after their onset were heard as late and are left out of `PICKS`.
   Footstep sequences are sliced into single footfalls, keeping the six most
   even per take. The manifest and public files are rewritten, and
   `.cache/sfx-batch/audition.html` lists every raw take next to what the game

@@ -4979,3 +4979,16 @@ barrage-browser.log in the release; .cache/{helicopter-crew,creeping-artillery}/
 beneath it contains results and reviewed images. Task-owned Vite/Chrome stopped.
 Local main commits only; no GitHub push. AGENTS.md and .claude remain local,
 unstaged and uncommitted.
+
+
+## 2026-10-31: recorded gunshots no longer land late
+
+The user heard gunshots very slightly after the trigger. Own shots start with
+no delay. The 5%-of-peak trim had left quiet lead-ins, though: rifle-556-2
+peaked 83 ms in, rifle-556-v3-1 and pistol-9-v3-1 at 30–36 ms. sfx-publish now
+starts each take 1 ms before its first sample at 30% of peak and warns when a
+non-distant take peaks after 40 ms. Late takes and mag-in-1 (171 ms) are out of
+PICKS. Two more v3 rifle takes were generated; v3-4 replaces them and v3-5 was
+too dull. Every gunshot clip now peaks within 10 ms of its first sample.
+Chrome's decoded durations match ffmpeg's, so no MP3 priming delay is added.
+52 files, 528 KB. Not deployed.

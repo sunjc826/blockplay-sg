@@ -22,8 +22,10 @@ const ffmpeg = process.env.FFMPEG ?? path.join(root, 'promo/node_modules/ffmpeg-
  */
 export const PICKS = {
   // v3 shots have the sharper onset. Near-silent v2 takes and v3 takes that fire a burst instead of one round are left out.
-  'pistol-9': ['pistol-9-2', 'pistol-9-v3-1', 'pistol-9-v3-2', 'pistol-9-v3-3'],
-  'rifle-556': ['rifle-556-2', 'rifle-556-v3-1', 'rifle-556-v3-2', 'rifle-556-v3-3'],
+  'pistol-9': ['pistol-9-2', 'pistol-9-v3-2', 'pistol-9-v3-3'],
+  // A shot whose peak comes more than ~10 ms after its onset is heard as late (rifle-556-2 at 83 ms, rifle-556-v3-1
+  // and pistol-9-v3-1 at 30-36 ms), so those are left out; rifle-556-v3-5 came out dull.
+  'rifle-556': ['rifle-556-v3-2', 'rifle-556-v3-3', 'rifle-556-v3-4'],
   'mg-762': ['mg-762-1', 'mg-762-v3-1', 'mg-762-v3-2'],
   'hmg-127': ['hmg-127-1', 'hmg-127-2', 'hmg-127-4'],
   suppressed: ['suppressed-v3-1', 'suppressed-v3-3'],
@@ -32,7 +34,7 @@ export const PICKS = {
   walk: ['walk-concrete-1', 'walk-concrete-2'],
   run: ['run-concrete-1', 'run-concrete-2'],
   'mag-out': ['mag-out-1', 'mag-out-2'],
-  'mag-in': ['mag-in-1', 'mag-in-2'],
+  'mag-in': ['mag-in-2'],
   'mag-seat': ['mag-seat-1', 'mag-seat-2'],
   'bolt-back': ['bolt-back-1', 'bolt-back-2'],
   'bolt-release': ['bolt-release-1', 'bolt-release-2'],
@@ -56,11 +58,14 @@ function envelope(s, window = Math.round(RATE * .005)) {
   for (let w = 0; w < out.length; w++) { let sum = 0, n = 0; for (let i = w * window; i < Math.min(s.length, (w + 1) * window); i++, n++) sum += s[i] * s[i]; out[w] = Math.sqrt(sum / Math.max(1, n)); }
   return { out, window };
 }
-/** Starts just before the first sound, ends once it has died 50 dB below its peak, fades the last 15 ms, and is set to LOUDNESS. */
+/**
+ * Starts 1 ms before the main transient (the first sample at 30% of peak), so a quiet lead-in never makes a shot
+ * or a reload stage land late; ends once it has died 50 dB below its peak, fades the last 15 ms, and is set to LOUDNESS.
+ */
 function shape(s) {
   const peak = peakOf(s) || 1, { out, window } = envelope(s);
   const loudest = out.reduce((m, v) => Math.max(m, v), 0);
-  let start = s.findIndex(v => Math.abs(v) > peak * .05); start = Math.max(0, start - Math.round(RATE * .002));
+  let start = s.findIndex(v => Math.abs(v) >= peak * .3); start = Math.max(0, start - Math.round(RATE * .001));
   let end = out.length - 1; while (end > 0 && out[end] < loudest * .003) end--;
   const clip = s.slice(start, Math.min(s.length, (end + 1) * window));
   const fade = Math.min(clip.length, Math.round(RATE * .015));
@@ -111,6 +116,8 @@ if (process.argv.includes('--analyse')) {
         const file = `${group}-${n}-${digest}.mp3`;
         await encode(clip, path.join(publicDirectory, file));
         groups[group].push({ file, take: id, seconds: +(clip.length / RATE).toFixed(3) });
+        const peakMs = clip.findIndex(v => Math.abs(v) >= peakOf(clip) * .999) / RATE * 1000;
+        if (!STEPS.has(group) && !group.startsWith('distant') && peakMs > 40) console.warn(`${group}: ${id} peaks ${peakMs.toFixed(0)} ms in and may sound late`);
       }
     }
     console.log(`${group}: ${groups[group].length} clips`);
