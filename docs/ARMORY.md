@@ -1058,3 +1058,12 @@ readied. All thirteen items, tiers, effects and prices are in [GRENADES.md](GREN
 Grenades contribute their actual carried mass and cap at four of each item,
 or two of each Legendary/Mythic. Allies are protected from grenade damage;
 the thrower can still be hurt. Arena hosts validate and resolve every throw.
+
+
+## Practice range equipment
+
+Field ranges use session copies of carried consumables. The equipment box near
+the start provides free ammunition, fragmentation/smoke grenades and medical /
+utility supplies. Using or restocking those items cannot spend purchased stock
+or add free stock to the saved profile. Other modes retain their existing
+consumption rules. See [range drills and resupply](RANGE-DRILLS.md).

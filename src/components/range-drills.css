@@ -1,0 +1,9 @@
+.range-drill-picker{border:0;padding:0;margin:16px 0 10px;display:flex;flex-wrap:wrap;gap:7px;text-align:left}
+.range-drill-picker legend{font:10px monospace;letter-spacing:1.5px;margin-bottom:7px;color:#b6c3ac}
+.range-drill-picker button,.range-end-drill{border:1px solid #718363;border-radius:7px;background:#253b2c;color:#e5ebd8;padding:9px 12px;font-family:inherit;font-weight:600;font-size:12px;cursor:pointer;min-height:40px}
+.range-drill-picker button[aria-pressed=true]{background:#d1c18d;border-color:#d1c18d;color:#243422}
+.range-end-drill{display:block;width:100%;margin-top:9px}
+.range-summary-note{font-size:12px!important;color:#b6c3ac!important}
+@media(max-width:480px){.range-drill-picker{gap:5px}.range-drill-picker button{font-size:11px;padding:8px}.fps-game:not(.is-arena) .fps-badge{font-size:9px}.fps-game:not(.is-arena) .fps-score{font-size:10px}}
+/* Keep both top-left controls distinct regardless of shared stylesheet order. */
+.fps-game:not(.is-arena) .touch-chip.touch-callout{left:calc(var(--edge-left) + 46px)}

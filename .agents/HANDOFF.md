@@ -4702,3 +4702,43 @@ source-verification.json and release-evidence.json inside the clean release;
 .cache/intro-motion-tests.log and .cache/intro-motion/{verification.json,*.png}
 hold full-suite and browser/visual evidence. Task-owned Vite/Chrome stopped.
 No GitHub push. AGENTS.md and .claude remain local, unstaged and uncommitted.
+
+## 2026-10-30 — range drills and equipment resupply
+
+Added Classic, Continuous and a 90-second challenge to every district's practice
+range, independently of Practice / Counter-fire. The seeded director reuses the
+eight authored target slots, keeps up to three appearing/active targets, assigns
+unique activation IDs, raises/retracts targets and cools each position for 2–5 s.
+New appearances avoid positions within 4 m of the player. Maps and pilot subjects
+track current activations, and clearing a target cancels its pending counter-fire.
+Retracted targets release their movement collider. Changing drill reuses the
+loaded renderer/assets; reset and pause preserve the intended clock semantics.
+Continuous and early-ended timed drills keep elimination rewards without a
+completion bonus; a finished timed challenge and Classic validate their own
+finish rules rather than a universal count of eight. Tutorial/arena/expedition
+rules remain separate. Waves and moving targets are deferred.
+
+Every field range has a labelled equipment box near the start, with a map marker,
+clear-line E interaction and a contextual touch action. It tops each carried
+calibre's reserve up once, preserves magazines/chambers/reload progress and
+surplus rounds, and restocks frag/smoke grenades, medical and field utilities.
+Carried consumables are copied into the practice session, and use/restock cannot
+spend purchased inventory or export free items to the profile. Stock is a reusable
+EquipmentStock definition. Dry AI pilots can return for ammo. Touch pause and
+callout controls are kept separate regardless of stylesheet loading order.
+
+Validation before isolated release: 106 focused tests and typecheck passed.
+The broad suite passed 1,877 tests; two map tests hit the default five-second
+limit while Chrome was rendering, then both files passed all 155 tests with one
+worker. The live engine browser smoke passed continuous recycling beyond eight,
+Classic completion, a full timed challenge, pause, early termination, equipment
+restock, actual grenade/utility use, unique rewards and permanent inventory
+isolation, with no runtime errors or Google requests. Evidence is in
+.cache/range-drills/ and /tmp/astra-range-*.log. Screenshot-heavy phone runs found
+an overlapping pause/callout control and then stalled in CDP capture; the overlap
+is corrected and the final touch control run omits synchronous captures.
+
+Unrelated menu/transition edits are in the shared worktree. Release checks and
+manual Cloudflare deployment will use an isolated archive of this code revision,
+excluding those uncommitted edits. No GitHub push; AGENTS.md and .claude remain
+local, unstaged and uncommitted. See docs/RANGE-DRILLS.md for rules and commands.

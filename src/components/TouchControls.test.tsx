@@ -137,3 +137,9 @@ it('offers prone deployment and a way to stand again in every combat mode', () =
     expect(control(layer(playing({ prone: true }), mode), 'prone')).toContain('aria-label="Stand"');
   }
 });
+
+it('offers the same contextual range resupply action on touch', () => {
+  const html = layer(playing({ rangeSupplyPrompt: 'E · Resupply ammo, grenades & utilities' }));
+  expect(control(html, 'resupply')).toBeTruthy();
+  expect(layer(playing())).not.toContain('data-touch-action="resupply"');
+});

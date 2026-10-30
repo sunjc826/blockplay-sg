@@ -1,3 +1,4 @@
+import { rangeResupplyPoint } from './range-resupply';
 import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import { expect, it } from 'vitest';
@@ -24,6 +25,10 @@ for (const { id } of WORLD_ZONES) it(`${id}: practice spawns, all targets and ve
     }
     const props = config.props.map(([, x, z, w, d]) => ({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 }));
     const targets = config.targets.map(p => ({ minX: p.x - .42, maxX: p.x + .42, minZ: p.z - .42, maxZ: p.z + .42 }));
+    const station = rangeResupplyPoint(config.spawn, world.bounds, [...world.obstacles, ...props, ...targets], Object.values(config.vehicles));
+    expect(station, 'range resupply fits beside the start').not.toBeNull();
+    expect(clear(station!.x, station!.z, .9), 'range resupply clearance').toBe(true);
+    expect(Math.hypot(station!.x - config.spawn.x, station!.z - config.spawn.z)).toBeLessThanOrEqual(7.01);
     for (const kind of ['car', 'helicopter'] as const) {
       const vehicle = createVehicle(kind, config.vehicles[kind]), b = vehicleBounds(vehicle);
       const other = createVehicle(kind === 'car' ? 'helicopter' : 'car', config.vehicles[kind === 'car' ? 'helicopter' : 'car']);

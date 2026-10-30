@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Range drill engine review</title><style>
+html,body,#game{margin:0;width:100%;height:100%;overflow:hidden}body{background:#18271f;color:white;font:13px system-ui}canvas{display:block}header{position:absolute;z-index:10;left:18px;top:12px;padding:10px 14px;background:#142217dc;border-radius:8px;pointer-events:none}small{display:block;margin-top:5px}
+</style></head><body><div id="game"></div><header>Range drills · live engine<small id="status">Loading</small></header><script type="module">
+import { createFpsEngine } from '/src/game/fps-engine.ts';
+import { createProfile, resolveLoadout, claimElimination, claimReward, consumeItem } from '/src/game/armory-state.ts';
+import { createPlayerPilot } from '/src/game/fps-pilot.ts';
+localStorage.setItem('blockplay-sg-environment-v1',JSON.stringify({weather:'sunny',celebration:'none',timeOfDay:'afternoon',reducedEffects:true,shadows:false,occlusion:false}));
+window.profile=createProfile();window.profile.consumables={'grenade-frag':1,'kit-ammo':1};window.profile.quickItem='kit-ammo';
+window.records={completions:[],eliminations:[],consumed:[]};window.action={};window.control='idle';window.level=false;
+window.mount=(mode='continuous',combat=false)=>{window.engine?.dispose();window.hud=null;window.action={};window.control='idle';window.level=false;const equipment=resolveLoadout(window.profile);equipment.weapons[0]={...equipment.weapons[0],damage:200,interval:.1,reserve:21};const pilot=createPlayerPilot();
+ window.engine=createFpsEngine(document.querySelector('#game'),hud=>{window.hud=hud;document.querySelector('#status').textContent=`${mode} · ${hud.phase} · ${hud.hits} cleared · ${hud.elapsed.toFixed(1)}s · ${hud.magazine}+${hud.reserve} rounds · ${hud.rangeSupplyPrompt||hud.message}`;},{region:'marina-bay',loadout:equipment,rangeDrill:mode,combat,playerPilot:{reset(){pilot.reset();},decide(o){if(window.control==='hunt'){
+ const target=JSON.parse(document.querySelector('canvas').dataset.rangeTargets||'[]').find(t=>t.alive);
+ if(target){const dx=target.x-o.position.x,dz=target.z-o.position.z,yaw=Math.atan2(-dx,-dz),pitch=Math.atan2(target.y-1.75,Math.hypot(dx,dz));const ex=Math.atan2(Math.sin(yaw-o.yaw),Math.cos(yaw-o.yaw)),ey=pitch-o.pitch;
+ return {goal:'engage',status:'Deterministic drill test',action:{lookX:-ex/.0023*.8,lookY:-ey/.0023*.8,aim:true,fire:Math.abs(ex)<.008&&Math.abs(ey)<.008,reload:!o.magazine&&o.reserve>0}};}
+ return {goal:'engage',status:'Waiting for next appearance',action:{}};
+ }return {goal:'engage',status:'Test controls',action:{...window.action,...(window.level?{lookY:o.pitch/.0023*.5}:{})}};}},onComplete:r=>{window.records.completions.push(r);window.profile=claimReward(window.profile,r);},onElimination:id=>{window.records.eliminations.push(id);window.profile=claimElimination(window.profile,id);},onConsume:id=>{window.records.consumed.push(id);window.profile=consumeItem(window.profile,id);}});
+};window.mount(new URL(location.href).searchParams.get('mode')||'continuous');
+</script></body></html>

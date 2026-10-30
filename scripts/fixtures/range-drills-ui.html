@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Range drill UI review</title></head><body><div id="root"></div><script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import FpsGame from '/src/components/FpsGame.tsx';
+import { DebugMode } from '/src/lib/debug-mode.ts';
+import { createProfile, claimReward, claimElimination, consumeItem } from '/src/game/armory-state.ts';
+import '/src/styles.css';
+import '/src/components/game-menu.css';
+localStorage.setItem('blockplay-sg-environment-v1',JSON.stringify({weather:'sunny',celebration:'none',timeOfDay:'afternoon',reducedEffects:true,shadows:false,occlusion:false}));
+function App(){const[profile,setProfile]=React.useState(()=>{const p=createProfile();p.consumables={'kit-ammo':1};return p;});window.fixtureProfile=profile;
+ return React.createElement(DebugMode.Provider,{value:false},React.createElement(FpsGame,{profile,region:'marina-bay',onReward:r=>setProfile(p=>claimReward(p,r)),onElimination:(id,bounty)=>setProfile(p=>claimElimination(p,id,bounty)),onConsume:id=>setProfile(p=>consumeItem(p,id)),onOpenShop:()=>{}}));}
+createRoot(document.querySelector('#root')).render(React.createElement(App));
+</script></body></html>

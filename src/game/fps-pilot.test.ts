@@ -143,3 +143,10 @@ it('dodges an audible grenade before engaging or eating, and stops a supply', ()
  const decision = p.decide(observation({ health: 40, usingSupply: true, grenades: [{ x: 2, z: 0, radius: 8, remaining: 1 }], contacts: [{ id: 'seen', yawError: 0, pitchError: 0, angularRadius: .03, distance: 10 }] }));
  expect(decision.status).toBe('Dodging a live grenade'); expect(decision.action).toMatchObject({ left: true, sprint: true, cancelSupply: true, fire: false });
 });
+
+it('returns to an ammo station when every carried gun is dry, then resupplies even with visible targets', () => {
+  const pilot = createPlayerPilot();
+  const dry = observation({ magazine: 0, reserve: 0, availableWeapons: [], contacts: [{ id: 'target', yawError: 0, pitchError: 0, angularRadius: .02, distance: 20 }], waypoints: [{ id: 'range-resupply', x: 0, z: -10, kind: 'ammo' }] });
+  expect(pilot.decide(dry).status).toBe('Returning for ammunition');
+  expect(pilot.decide({ ...dry, time: 2, position: { x: 0, z: -8 }, lootPrompt: 'E · Range resupply' }).action.interact).toBe(true);
+});

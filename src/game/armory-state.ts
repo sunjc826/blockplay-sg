@@ -1,3 +1,4 @@
+import { RANGE_DURATION, validRangeDrill, type RangeDrillId } from './range-drills';
 import { RAIDER_BOUNTIES, validRaiderBounty, type RaiderBounty } from './combat-rewards';
 import { carriedFamilies, restoreCarrySlots, isMainWeapon, EXTRA_SLOT_ID, SIDEARM_FAMILY, type CarrySlots } from './armory-slots';
 import { supplyWeightKg } from './fps-encumbrance';
@@ -256,7 +257,7 @@ export function applyArmorDamage(health: number, armor: number, amount: number, 
   const incoming = Math.max(0, amount), blocked = Math.min(Math.max(0, armor), incoming * Math.max(0, Math.min(1, share)));
   return { health: Math.max(0, health - (incoming - blocked)), armor: Math.max(0, armor - blocked), blocked, deflected: false };
 }
-export interface ExerciseReward { id: string; hits: number; shots: number; landed: number; elapsed: number; combat: boolean }
+export interface ExerciseReward { drill?: RangeDrillId; targetCount?: number; id: string; hits: number; shots: number; landed: number; elapsed: number; combat: boolean }
 export function rewardAmount(result: ExerciseReward) {
   const accuracy = Math.min(1, result.landed / Math.max(1, result.shots));
   return 250 + Math.round(accuracy * 100) + Math.max(0, 100 - Math.floor(result.elapsed)) + (result.combat ? 100 : 0);
@@ -268,7 +269,14 @@ export function claimElimination(profile: ArmoryProfile, id: string, bounty?: Ra
   return { ...profile, xp: Math.min(1000000, profile.xp + reward.xp), credits: Math.min(1000000, profile.credits + reward.credits), rewarded: [...profile.rewarded, id].slice(-100) };
 }
 export function claimReward(profile: ArmoryProfile, result: ExerciseReward): ArmoryProfile {
-  if (result.hits !== 8 || result.shots < 8 || !Number.isFinite(result.shots) || !Number.isFinite(result.landed) || result.landed < 8 || result.landed > result.shots || !Number.isFinite(result.elapsed) || result.elapsed < 0 || !result.id || profile.rewarded.includes(result.id)) return profile;
+  if (!result.id || profile.rewarded.includes(result.id) || !Number.isFinite(result.elapsed) || result.elapsed < 0 ||
+    ![result.hits, result.shots, result.landed].every(n => Number.isSafeInteger(n) && n >= 0) || result.landed > result.shots) return profile;
+  if (result.drill === undefined) { if (result.hits !== 8 || result.shots < 8 || result.landed < 8) return profile; }
+  else {
+    if (!validRangeDrill(result.drill) || result.drill === 'continuous' || result.hits < 1) return profile;
+    if (result.drill === 'classic' && (!Number.isInteger(result.targetCount) || result.targetCount! < 1 || result.targetCount! > 64 || result.hits !== result.targetCount)) return profile;
+    if (result.drill === 'timed' && (result.elapsed < RANGE_DURATION || result.elapsed > RANGE_DURATION + .25)) return profile;
+  }
   return { ...profile, xp: Math.min(1000000, profile.xp + completionXp(result)), credits: Math.min(1000000, profile.credits + rewardAmount(result)), rewarded: [...profile.rewarded, result.id].slice(-100), exercises: profile.exercises + 1 };
 }
 export const SHOP_CATEGORIES = [

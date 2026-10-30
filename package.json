@@ -43,6 +43,8 @@
     "test:arena:solo": "node scripts/arena-solo-smoke.mjs",
     "test:expedition": "node scripts/expedition-ui-smoke.mjs",
     "test:expedition:travel": "node scripts/expedition-travel-smoke.mjs",
+    "test:range-drills:ui": "node scripts/range-drills-ui-smoke.mjs",
+    "test:range-drills": "node scripts/range-drills-smoke.mjs",
     "test:combat-transports": "node scripts/transport-evacuation-smoke.mjs",
     "test:combat-events": "node scripts/combat-events-smoke.mjs",
     "test:fps:optics": "node scripts/fps-optics-smoke.mjs",

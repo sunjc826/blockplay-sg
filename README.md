@@ -14,7 +14,7 @@ Explore familiar Singapore neighborhoods as stylized 3D game worlds, created usi
 
 - Walk or drive around **nineteen districts** — Marina Bay, Raffles Place, Queenstown, Chinatown, Kampong Glam, Jurong Lake, Changi, Upper Thomson, Punggol, HarbourFront, Sentosa, Geylang, Tuas, Woodlands, Tampines, Toa Payoh, Bukit Timah, Bishan and Orchard Road — collecting stamps.
 - Explore the connected districts in **Open world**, finding equipment and facing bots.
-- Play each district's **FPS range**, with a shared armory, vehicles and target ranges.
+- Play each district's **FPS range** in Classic, Continuous or 90-second drills, with a shared armory, vehicles and a free equipment resupply box.
 - Play **Solo arena** against configurable bots.
 - The Cloudflare build supports **public multiplayer rooms**, with a global room browser, optional passwords and four-player arena matches. See [setup and test scope](docs/PUBLIC-ROOMS.md); this revision needs deployment to enable it on the public site.
 - Play on a **phone or tablet**: every 3D mode draws twin thumb sticks and on-screen actions over the scene.

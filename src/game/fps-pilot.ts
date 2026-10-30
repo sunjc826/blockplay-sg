@@ -98,7 +98,12 @@ export function createPlayerPilot(planner: PilotPlanner = localPilotPlanner): Pl
     const nearSupply = [...o.waypoints].filter(p => !['checkpoint', 'target'].includes(p.kind) && Math.hypot(p.x - o.position.x, p.z - o.position.z) <= 2.8)
       .sort((a, b) => Math.hypot(a.x - o.position.x, a.z - o.position.z) - Math.hypot(b.x - o.position.x, b.z - o.position.z))[0];
     const canUseSupply = nearSupply && !(nearSupply.kind === 'medical' && o.health >= o.maxHealth) && !(nearSupply.kind === 'ammo' && o.reserve >= 999);
-    if (o.lootPrompt && canUseSupply && !o.contacts.length) return result('Taking nearby supplies', { interact: true });
+    if (o.lootPrompt && canUseSupply && (!o.contacts.length || !o.magazine && !o.reserve)) return result('Taking nearby supplies', { interact: true });
+    if (!o.magazine && !o.reserve) {
+      const ammo = o.waypoints.filter(p => p.kind === 'ammo').sort((a, b) => Math.hypot(a.x - o.position.x, a.z - o.position.z) - Math.hypot(b.x - o.position.x, b.z - o.position.z))[0];
+      if (ammo) { const turn = wrapAngle(Math.atan2(-(ammo.x - o.position.x), -(ammo.z - o.position.z)) - o.yaw);
+        return result('Returning for ammunition', { lookX: -turn / .0023 * .65, lookY: o.pitch / .0023 * .5, forward: Math.abs(turn) < .5 }); }
+    }
     // Raising the scope can briefly cover the current target. Hold the view rather
     // than snapping to a peripheral contact; do not shoot or track through cover.
     if (target && o.aiming && !o.contacts.some(c => c.id === target) && !o.reloading) {

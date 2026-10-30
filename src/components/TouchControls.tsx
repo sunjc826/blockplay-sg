@@ -119,6 +119,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
       if (hud.npcPrompt) prompts.push(act('npc', promptLabel(hud.npcPrompt), <MessageCircle size={16} />, { onClick: () => engine?.interactNpc() }));
       if (hud.travelPrompt) prompts.push(act('travel', promptLabel(hud.travelPrompt), <Move3d size={16} />, { onClick: () => engine?.travelZone() }));
     }
+    if (hud.rangeSupplyPrompt) prompts.push(act('resupply', 'Resupply', <PackageOpen size={16} />, { onClick: () => engine?.resupplyRange() }));
     if (hud.interact) {
       prompts.push(act('vehicle', promptLabel(hud.interact), <Move3d size={16} />, { onClick: () => engine?.interactVehicle() }));
     }
