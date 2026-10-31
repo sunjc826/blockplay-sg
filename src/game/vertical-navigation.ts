@@ -110,6 +110,7 @@ export function createVerticalNavigator(world: VerticalWorld, groundAnchors: rea
   }
   const edgeJobs=new Map<number,ReturnType<typeof buildOutgoing>>();
   function* outgoing(i:number): Generator<undefined, {to:number;cost:number}[]> {
+    const cached=edges.get(i);if(cached)return cached;
     // Nearby squad members share cold edge validation as well as finished edges.
     // Otherwise every soldier repeats the same long collision walk while waiting.
     let job=edgeJobs.get(i);

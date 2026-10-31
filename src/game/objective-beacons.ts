@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { FacilitySite, FacilityState } from './facilities';
-import { enemyObjectives } from './expedition-objectives';
+import { captureObjectives } from './expedition-objectives';
 
 export interface ObjectiveHint { id: string; name: string; distance: number; x: number; y: number; edge: boolean; bearing: number }
 
@@ -33,7 +33,7 @@ export function createObjectiveBeacons(scene: THREE.Scene, sites: readonly Facil
     root,
     update(sites: readonly FacilityState[], enabled: boolean) {
       root.visible = enabled;
-      const targets = new Set(enabled ? enemyObjectives(sites, { x: 0, z: 0 }).map(s => s.id) : []);
+      const targets = new Set(enabled ? captureObjectives(sites, { x: 0, z: 0 }).map(s => s.id) : []);
       markers.forEach((marker, id) => { marker.visible = targets.has(id); });
     },
     dispose() { scene.remove(root); ringGeo.dispose(); arrowGeo.dispose(); beamGeo.dispose(); solid.dispose(); glow.dispose(); },

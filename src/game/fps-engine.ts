@@ -16,7 +16,7 @@ import { validatedNavalSites } from './naval-route-validation';
 import { SENTOSA_LANDING_SITES } from './naval-landing-sites';
 import { districtFacilitySites } from './facility-sites';
 import { createObjectiveBeacons, objectiveHint, type ObjectiveHint } from './objective-beacons';
-import { enemyObjectives } from './expedition-objectives';
+import { captureObjectives } from './expedition-objectives';
 import { createFacilityVisuals } from './facility-visuals';
 import { facilityPrompt, facilityStatus, facilityActionFor, type FacilityState } from './facilities';
 import { buildTutorialWorld } from './tutorial-world';
@@ -589,7 +589,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const introFrame = deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof);
     hud.deploymentIntro = hud.phase === 'deploying' ? { stage: introFrame.stage, fade: introFrame.fade, elapsed: introFrame.elapsed, reduced: introFrame.reduced, ...deploymentConditions } : null;
     hud.respawn = arenaRuntime?.getRespawn() ?? null;
-    hud.objectiveMarkers = expedition && hud.objectiveHints && hud.phase === 'playing' && hud.arenaSelf?.alive !== false ? enemyObjectives(hud.arena?.facilities?.sites ?? [], position).map(site => objectiveHint(site, camera, position)) : [];
+    hud.objectiveMarkers = expedition && hud.objectiveHints && hud.phase === 'playing' && hud.arenaSelf?.alive !== false ? captureObjectives(hud.arena?.facilities?.sites ?? [], position).map(site => objectiveHint(site, camera, position)) : [];
     hud.deployment = deploymentPoints.length ? { points: deploymentPoints, choice: deploymentChoice, resolved: resolvedDeployment, canChoose: hud.phase === 'ready' && !deploymentResolved && !hud.arenaStarted, markers: overviewActive() ? deploymentMarkers(deploymentPoints, camera) : [], zoom: overviewZoom } : null;
     const nearby = !vehicles.active && hud.arenaSelf?.alive ? hud.arena?.facilities?.sites.filter(s => Math.abs(s.y - vertical) < 2 && Math.hypot(s.x - position.x, s.z - position.z) <= 18).sort((a, b) => Math.hypot(a.x - position.x, a.z - position.z) - Math.hypot(b.x - position.x, b.z - position.z))[0] : null;
     hud.facility = nearby ?? null;

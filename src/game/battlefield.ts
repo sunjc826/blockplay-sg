@@ -19,7 +19,7 @@ export function assignBattlefieldFronts(squads: readonly BattlefieldSquad[], sit
     const homes = sites.filter(s => s.kind === 'command' && s.owner === faction && s.health > 0);
     // Keep a rear guard once there are enough squads to run several fronts.
     const home = homes.find(s => s.initialOwner === faction) ?? homes[0];
-    const guard = home && groups.length >= 3 ? [...groups].sort((a,b) => Math.hypot(a.x-home.x,a.z-home.z)-Math.hypot(b.x-home.x,b.z-home.z))[0] : undefined;
+    const guard = home && groups.length >= 3 ? groups.find(s=>s.previous===home.id) ?? [...groups].sort((a,b) => Math.hypot(a.x-home.x,a.z-home.z)-Math.hypot(b.x-home.x,b.z-home.z))[0] : undefined;
     if (guard && home) { assignments.set(guard.id, home.id); loads.set(home.id, 1); }
     for (const group of groups) {
       if (group === guard) continue;

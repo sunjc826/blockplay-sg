@@ -35,7 +35,7 @@ import { useDebugMode } from '../lib/debug-mode';
 import { useTouchControls } from '../game/use-touch-controls';
 import { useHudHints } from '../game/hud-hints-setting';
 import type { MinimapMarker } from '../game/minimap';
-import { enemyObjectives } from '../game/expedition-objectives';
+import { captureObjectives } from '../game/expedition-objectives';
 import './expedition.css';
 import './fps-hit-direction.css';
 import { getArenaFaction, PLAYER_FACTION, SQUAD_FACTIONS } from '../game/arena-factions';
@@ -98,9 +98,9 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
     ...(hud.npcs ?? []).map(npc => ({ id: npc.id, x: npc.x, z: npc.z, kind: 'npc' as const, label: `${npc.name} · ${npc.role}` })),
     ...gateways.map(gateway => ({ id: gateway.id, ...gateway.position, kind: 'checkpoint' as const, label: gateway.name, active: gateway.id === nextCheckpoint?.id })),
   ];
-  const objectives = enemyObjectives(hud.arena?.facilities?.sites ?? [], hud);
+  const objectives = captureObjectives(hud.arena?.facilities?.sites ?? [], hud);
   const nextObjective = objectives[0];
-  const objectiveText = nextObjective ? `Capture or destroy ${nextObjective.name} · ${Math.round(Math.hypot(nextObjective.x - hud.x, nextObjective.z - hud.z))}m · ${objectives.length} enemy ${objectives.length === 1 ? 'site' : 'sites'} left` : 'Enemy facilities neutralized · Secure ruined sites and defend allied equipment';
+  const objectiveText = nextObjective ? `Secure ${nextObjective.name} · ${Math.round(Math.hypot(nextObjective.x - hud.x, nextObjective.z - hud.z))}m · ${objectives.length} ${objectives.length === 1 ? 'location' : 'locations'} to capture` : 'Active locations secured · Rebuild ruined sites and defend allied equipment';
   const nearbyLoot = [...(hud.fieldLoot ?? [])].sort((a, b) => Math.hypot(a.x - hud.x, a.z - hud.z) - Math.hypot(b.x - hud.x, b.z - hud.z)).slice(0, 5);
   const nearbyNpcs = [...(hud.npcs ?? [])].sort((a, b) => Math.hypot(a.x - hud.x, a.z - hud.z) - Math.hypot(b.x - hud.x, b.z - hud.z)).slice(0, 3);
   const distance = (point: { x: number; z: number }) => Math.round(Math.hypot(point.x - hud.x, point.z - hud.z));

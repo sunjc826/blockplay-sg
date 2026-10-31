@@ -21,7 +21,8 @@ window.measureTrial=async(seconds)=>{
  engine.skipDeployment();await new Promise(r=>setTimeout(r,2000));frames=[];last=undefined;recording=true;
  await new Promise(r=>setTimeout(r,seconds*1000));recording=false;
  const sorted=[...frames].sort((a,b)=>a-b),actors=hud.arena.actors.filter(a=>a.bot&&a.squad);
- return {phase:hud.phase,frames:frames.length,averageFps:1000/(frames.reduce((a,b)=>a+b,0)/frames.length),frameMs:{p50:sorted[Math.floor(sorted.length*.5)],p95:sorted[Math.floor(sorted.length*.95)]},alive:actors.filter(a=>a.alive).length,objectives:[...new Set(actors.map(a=>a.objective).filter(Boolean))],sites:hud.arena.facilities.sites.length};
+ const gl=document.querySelector('canvas').getContext('webgl2'),debug=gl?.getExtension('WEBGL_debug_renderer_info');
+ return {phase:hud.phase,renderer:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):'unavailable',viewport:[innerWidth,innerHeight],frames:frames.length,averageFps:1000/(frames.reduce((a,b)=>a+b,0)/frames.length),frameMs:{p50:sorted[Math.floor(sorted.length*.5)],p95:sorted[Math.floor(sorted.length*.95)]},alive:actors.filter(a=>a.alive).length,objectives:[...new Set(actors.map(a=>a.objective).filter(Boolean))],sites:hud.arena.facilities.sites.length};
 };
 window.ready=true;
 </script></body></html>

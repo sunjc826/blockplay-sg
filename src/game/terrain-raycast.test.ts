@@ -13,7 +13,7 @@ it('keeps tiled terrain rays identical to the rendered triangles, including obli
     const ray=new THREE.Raycaster(origin,direction,0,100);
     const a=ray.intersectObject(fast)[0],b=ray.intersectObject(exact)[0];
     expect(!!a).toBe(!!b);
-    if(a&&b){expect(a.distance).toBeCloseTo(b.distance,5);expect(a.point.distanceTo(b.point)).toBeLessThan(1e-5);expect(a.object).toBe(fast);}
+    if(a&&b){expect(a.distance).toBeCloseTo(b.distance,5);expect(a.point.distanceTo(b.point)).toBeLessThan(1e-5);expect(a.object).toBe(fast);expect(a.faceIndex).toBe(b.faceIndex);expect([a.face!.a,a.face!.b,a.face!.c]).toEqual([b.face!.a,b.face!.b,b.face!.c]);}
   }
   terrain.dispose();
 });

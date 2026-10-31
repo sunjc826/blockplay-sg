@@ -20,3 +20,9 @@ export function enemyObjectives(sites: readonly FacilityState[], player: { x: nu
   return sites.filter(s => s.health > 0 && s.owner && s.owner !== PLAYER_FACTION)
     .sort((a, b) => Math.hypot(a.x - player.x, a.z - player.z) - Math.hypot(b.x - player.x, b.z - player.z) || a.id.localeCompare(b.id));
 }
+
+/** Intact neutral forward posts and depots are actionable capture objectives too. */
+export function captureObjectives(sites: readonly FacilityState[], player: { x: number; z: number }): FacilityState[] {
+  return sites.filter(s=>s.health>0 && s.owner!==PLAYER_FACTION)
+    .sort((a,b)=>Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z)||a.id.localeCompare(b.id));
+}

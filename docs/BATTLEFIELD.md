@@ -1,0 +1,17 @@
+# District battles
+
+Open-world districts start with **32 regular AI: 20 mercenaries and 12 armed-forces soldiers**, organized into fireteams of four. Casualties return through owned command posts or the existing external reserve transports. The regular roster stays bounded, including soldiers waiting for deployment. Temporary event crews have separate room within the bounded actor envelope. LAN arena bot selection keeps its existing six-bot starting limit.
+
+Every district has **seven capturable locations**: two rear command posts, a garage, a helipad, two forward command posts and a supply depot. Forward posts and the depot start intact and neutral. Capturing a forward post unlocks infantry waves; owning an operational depot adds 30 supply per minute. The depot is not a player deployment point. Original facility IDs remain stable so saved ownership and damage survive re-entry. New locations are placed on clear authored anchors, at least 32 metres from existing objectives; Queenstown equipment uses local terrain height.
+
+Squad objectives are allocated together every two seconds. A rear guard remains at an owned command post; other squads prioritize neutral locations, threatened sites and enemy equipment. Assignments penalize objectives already receiving troops and retain existing assignments where practical. At larger populations, reinforcement of an existing front is possible after spreading troops across the available sites. Player orders still override movement for nearby allies.
+
+Ground navigation follows authored roads, patrol anchors and collision-checked building approaches. Route costs discourage following another squad's planned corridor. Parked vehicles block planned paths, with approach corners around motor pools and replanning when a soldier stalls. Cold graph edges are shared between soldiers. Cooperative searches share six milliseconds per host update, with a rotating queue so later squads receive planning time. Queenstown's dense terrain and paving use exact triangle broadphases for rays; the rendered meshes and walk heights remain authoritative.
+
+## Scale checks
+
+The shipped default is 32. The optional probe configurations are 48 (28 mercenaries / 20 armed forces) and 64 (40 / 24). These are test configurations, not a claim that every device sustains them.
+
+`pnpm analyse:battlefield` runs 90 simulated seconds at 20 Hz in Queenstown, Marina Bay and Raffles Place at all three counts. It uses scene-backed sight and cover, accelerated instanced geometry, actual vehicles and facility deployment. JSON results include CPU percentiles, living populations, objective assignments, capture progress and navigation diagnostics. Results go to `.cache/battlefield-benchmark/`. Override `BATTLEFIELD_DISTRICTS`, `BATTLEFIELD_SIZES`, `BATTLEFIELD_SECONDS` and `BATTLEFIELD_OUTPUT` for bounded runs. CPU timings are not frame rates.
+
+`pnpm test:fps:battlefield` requires Vite at `127.0.0.1:5192` and an isolated Chrome at debugging port 9357. The fixture runs the actual FPS engine, including rigs, shadows, effects and its authority timer. It checks initial counts, seven locations, multiple assignments and runtime errors, records frame intervals and captures screenshots. Configure `FPS_APP_ORIGIN`, `FPS_CHROME_ORIGIN`, `BATTLEFIELD_BROWSER_TRIALS` (for example `queenstown:32,queenstown:64`) and `BATTLEFIELD_BROWSER_SECONDS`. Results go to `.cache/battlefield-browser/`. Normal district entry always uses 32; only the explicit test fixture sets the higher counts.

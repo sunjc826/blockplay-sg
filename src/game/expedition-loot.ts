@@ -292,10 +292,11 @@ export function createExpeditionLoot(seed: string | number) {
     // Each weapon crate's rounds sit beside it, wherever the crate ended up.
     for (const item of loot.filter(entry => entry.kind === 'weapon')) {
       const rounds = roundsBeside(item, WEAPON_AMMO.crate); if (!rounds) continue;
-      const turn = (hash(item.id) % 628) / 100, raised = (item.y ?? 0) > 0;
+      const turn = (hash(item.id) % 628) / 100, raised = (item.y ?? 0) > (geometry.bounds.groundHeight?.(item.x,item.z) ?? 0)+.05;
       const place = (angle: number, distance: number) => ({ x: Math.round((item.x + Math.cos(angle) * distance) * 100) / 100, z: Math.round((item.z + Math.sin(angle) * distance) * 100) / 100 });
-      const spot = raised ? place(turn, .65) : Array.from({ length: 8 }, (_, i) => place(turn + i * Math.PI / 4, .85)).find(point => clearGround(point, geometry, .25)) ?? place(turn, .5);
-      loot.push({ ...rounds, id: `${item.id}-rounds`, sectorId: item.sectorId, ...spot, ...(item.y !== undefined ? { y: item.y } : {}), beside: item.id });
+      const spot = raised ? place(turn, .65) : Array.from({ length: 8 }, (_, i) => place(turn + i * Math.PI / 4, .85)).find(point => clearGround(point, geometry, geometry.bounds.groundHeight ? .65 : .25)) ?? {x:item.x,z:item.z};
+      const y=!raised && geometry.bounds.groundHeight ? geometry.bounds.groundHeight(spot.x,spot.z) : item.y;
+      loot.push({ ...rounds, id: `${item.id}-rounds`, sectorId: item.sectorId, ...spot, ...(y !== undefined ? { y } : {}), beside: item.id });
     }
     zones.set(geometry.id, loot);
     return remaining(geometry.id);

@@ -20,7 +20,10 @@ it('assigns distinct fronts to three nearby squads while retaining a rear guard'
 it('makes neutral forward posts capturable and supply ownership increase income',()=>{
   const facilities=createFacilities(sites);
   expect(facilityActionFor(facilities.sites[2],'armed-forces')).toBe('capture');
-  facilities.sites[4].owner='armed-forces';facilities.step(10,[]);
+  const worker={id:'p',x:0,z:72,y:1.75,feet:0,faction:'armed-forces',alive:true};
+  facilities.step(.1,[worker]);expect(facilities.request('front-2','p')).toBe(true);
+  facilities.step(24,[worker]);expect(facilities.sites[4].owner).toBe('armed-forces');
+  facilities.step(10,[]);
   expect(facilities.supplies['armed-forces']-facilities.supplies.mercenaries).toBeCloseTo(5);
 });
 it.each([32,48,64] as BattlefieldSize[])('starts and resets exactly %i regular AI with valid snapshots and several fronts',size=>{

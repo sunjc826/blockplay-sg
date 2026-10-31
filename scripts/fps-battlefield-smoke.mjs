@@ -11,7 +11,7 @@ const evaluate=async expression=>{const r=await send('Runtime.evaluate',{express
 const wait=async expression=>{const start=Date.now();while(!await evaluate(expression)){if(Date.now()-start>60000)throw Error('Timeout '+expression);await new Promise(r=>setTimeout(r,100));}};
 try{
  await send('Runtime.enable');await send('Network.enable');await send('Page.enable');await send('Emulation.setFocusEmulationEnabled',{enabled:true});await send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});await wait('window.ready===true');
- const trials=process.env.BATTLEFIELD_BROWSER_TRIALS?.split(',').map(s=>{const [id,size]=s.split(':');return [id,Number(size)];})||[['queenstown',32],['queenstown',48],['queenstown',64],['marina-bay',32],['raffles-place',32],['raffles-place',48],['raffles-place',64]];
+ const trials=process.env.BATTLEFIELD_BROWSER_TRIALS?.split(',').map(s=>{const [id,size]=s.split(':');return [id,Number(size)];})||['queenstown','marina-bay','raffles-place'].flatMap(id=>[32,48,64].map(size=>[id,size]));
  for(const [id,size] of trials){
   const initial=await evaluate(`loadTrial(${JSON.stringify(id)},${size})`);assert.equal(initial.bots,size);assert.equal(initial.sites.length,7);
   const point=await evaluate(`(()=>{const r=document.querySelector('#start').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);

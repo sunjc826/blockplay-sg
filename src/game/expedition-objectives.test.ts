@@ -1,12 +1,17 @@
 import { expect, it } from 'vitest';
 import { PerspectiveCamera, Scene, Mesh, Material } from 'three';
 import { createFacilities } from './facilities';
-import { enemyObjectives, sectorFacilityControl } from './expedition-objectives';
+import { captureObjectives, enemyObjectives, sectorFacilityControl } from './expedition-objectives';
 import { createObjectiveBeacons, objectiveHint } from './objective-beacons';
 import { zoneSectors } from './zone-sectors';
 import { PLAYER_FACTION } from './arena-factions';
 
 const sector = zoneSectors('marina-bay')[0];
+it('includes intact neutral capture locations and retires them after capture',()=>{
+  const sites=fixture();sites[1].owner=null;
+  expect(captureObjectives(sites,sites[0]).map(s=>s.id)).toEqual(['b']);
+  sites[1].owner=PLAYER_FACTION;expect(captureObjectives(sites,sites[0])).toEqual([]);
+});
 function fixture() {
   const { minX, maxX, minZ, maxZ } = sector.bounds;
   const x = (minX + maxX) / 2, z = (minZ + maxZ) / 2;
