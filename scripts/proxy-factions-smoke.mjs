@@ -61,7 +61,7 @@ try {
   assert.equal(await evaluate("getComputedStyle(document.querySelector('canvas')).filter"), 'grayscale(1)');
   await capture('desktop-grayscale');
   await click('Compare factions');
-  assert.deepEqual((await capture('four-factions-grayscale')).names, ['Armed Forces', 'Black Kite', 'Freedom Force', 'Collective Cops']);
+  assert.deepEqual((await capture('four-factions-grayscale')).names, ['Armed Forces', 'Black Kite', 'Freedom Force', 'Collective Corps']);
   await click('Four specialists'); await click('Grayscale');
   for (const pose of ['walking', 'crouched']) {
     await evaluate(`(()=>{const select=document.querySelector('select');select.value=${JSON.stringify(pose)};select.dispatchEvent(new Event('change',{bubbles:true}));})()`);

@@ -5,10 +5,15 @@ import { createCharacterRig } from '../game/character-rig';
 import { PROXY_FACTIONS, proxyCharacterLook } from '../game/proxy-factions';
 import { navigate } from '../lib/routes';
 import './faction-designs.css';
+import ProxyWeaponStudies from './ProxyWeaponStudies';
 
 type Pose = 'standing' | 'walking' | 'crouched';
 
 export default function FactionDesigns() {
+  return new URLSearchParams(window.location.search).get('study') === 'weapons' ? <ProxyWeaponStudies /> : <OperatorDesigns />;
+}
+
+function OperatorDesigns() {
   const host = useRef<HTMLDivElement>(null), yaw = useRef(.2);
   const [compare, setCompare] = useState(false), [gray, setGray] = useState(false), [pose, setPose] = useState<Pose>('standing');
   const [status, setStatus] = useState('Preparing model studies…');
@@ -73,6 +78,7 @@ export default function FactionDesigns() {
   return <main className="faction-designs">
     <header className="fd-top"><a href="/" onClick={event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate('menu'); }}>← Back to game</a><span>BLOCKPLAY / DESIGN STUDIES</span><span className="fd-status">CONCEPT MODELS</span></header>
     <section className="fd-intro"><div><p className="fd-eyebrow">FACTIONS / 02 NEW DETACHMENTS</p><h1>Proxy detachments</h1></div><p>Small, elite foreign formations with their own equipment and specialist jobs. Art prototypes for a future proxy conflict; alliances and live encounters are still open.</p></section>
+    <nav className="fd-study-links" aria-label="Design study pages"><a href="/faction-designs" aria-current="page">Operator studies</a><a href="/faction-designs?study=weapons">Weapon studies →</a></nav>
     <section className="fd-gallery" aria-label="Interactive faction model gallery">
       <div className="fd-toolbar"><div className="fd-segments"><button aria-pressed={!compare} onClick={() => setCompare(false)}>Four specialists</button><button aria-pressed={compare} onClick={() => setCompare(true)}>Compare factions</button></div><div className="fd-tools"><button aria-pressed={gray} onClick={() => setGray(value => !value)}>Grayscale</button><button onClick={() => { yaw.current = 0; }}>Front</button><button onClick={() => { yaw.current = Math.PI / 2; }}>Side</button><button onClick={() => { yaw.current = Math.PI; }}>Rear</button><label><span className="fd-sr">Model pose</span><select value={pose} onChange={event => setPose(event.target.value as Pose)}><option value="standing">Standing</option><option value="walking">Walking</option><option value="crouched">Crouched</option></select></label></div></div>
       <div className={`fd-stage${gray ? ' is-gray' : ''}`}><div ref={host} className="fd-canvas" />{status && <p className="fd-preview-status" role="status">{status}</p>}<div className="fd-model-labels">{models.map(model => <div key={model.name}><strong>{model.name}</strong><span>{model.detail}</span></div>)}</div></div>

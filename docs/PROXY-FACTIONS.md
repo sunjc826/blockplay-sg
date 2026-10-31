@@ -1,7 +1,7 @@
 # Proxy faction design studies
 
 Status: **art prototypes, not active combat factions**. Freedom Force and
-Collective Cops are small, highly elite foreign detachments intended to support
+Collective Corps are small, highly elite foreign detachments intended to support
 a future proxy-conflict premise. This pass establishes color, silhouette,
 identification and four animated model studies. The names and specialist jobs
 are working designs; combat integration remains open.
@@ -17,7 +17,7 @@ faction selector.
 
 Freedom Force draws on Western/US expeditionary equipment language: modular
 plates, exposed communications gear, observation equipment and compact field
-loads. Collective Cops draws on Eastern-bloc/Chinese security-equipment language:
+loads. Collective Corps draws on Eastern-bloc/Chinese security-equipment language:
 enclosed head protection, repeated rectangular armor modules, protected entry
 and coordinated sensing. These are original fictional organizations, not
 reproductions of actual national uniforms or insignia. Faces and skin tones vary
@@ -28,7 +28,7 @@ partners, extraction and limited direct intervention. Their presence should
 suggest a wider conflict without replacing the local factions with two more
 large patrol armies. Neither has been assigned as the player's automatic ally
 or enemy. The Armed Forces are not implicitly Freedom Force's client, and Black
-Kite is not implicitly Collective Cops' client. Relationships need their own
+Kite is not implicitly Collective Corps' client. Relationships need their own
 design pass.
 
 A possible future deployment scale is a two-to-four-operator cell around a
@@ -63,7 +63,7 @@ voice behavior attached.
 | **Lancer** | Precision entry specialist | Hip-mounted breaching-tool scabbard, compact tool pouch, rifle placeholder; compact rather than a conventional heavy gunner |
 | **Wayfinder** | Reconnaissance and target designation | One tall radio mast and observation case, leaner build, scoped rifle placeholder; shares the faction helmet rather than copying the current boonie sniper |
 
-## Collective Cops
+## Collective Corps
 
 **Read:** slate fabric, jade ceramic panels, continuous dark visor and jaw guard,
 square shoulder shells and two segmented hip plates. A squared open-gate device
@@ -103,7 +103,7 @@ placeholders, not new purchasable weapons or claims of national weapon issue.
 | Armed Forces, current | Covered helmet, open webbing, horizontal shoulder bedroll | Paired horizontal bars |
 | Black Kite, current | Raised collar, face wrap, faceted shoulder guards | Single kite |
 | Freedom Force, concept | Folded optical pods, comms ear cups, tapered armor, open shoulders | Spread wing |
-| Collective Cops, concept | Continuous visor/jaw guard, square shoulders, hip armor | Open gate |
+| Collective Corps, concept | Continuous visor/jaw guard, square shoulders, hip armor | Open gate |
 
 Check head/shoulder-only sightings, front, rear, side, movement and smaller
 on-screen sizes. Markings repeat where weapons can obscure the chest. They are
@@ -142,3 +142,12 @@ pairings. The design gallery is `src/components/FactionDesigns.tsx`.
 
 No new faction barks or sound effects were commissioned in this pass. Future
 voice and sound work follows the repository's ElevenLabs once-only workflow.
+
+## Weapon art studies
+
+A separate four-model shortlist and exterior preview is now available at
+`/faction-designs?study=weapons`. See [proxy weapon studies](PROXY-WEAPONS.md)
+for MCX/SCAR and QBZ-family inspirations, original model names and integration
+boundaries. Operator hands and live weapon catalogs still use their existing
+placeholders. The display name is now Collective Corps; the stable internal
+ID remains `collective-cops`.

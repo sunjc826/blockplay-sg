@@ -29,7 +29,7 @@ still applies.
 
 ## Proposed proxy factions
 
-Freedom Force and Collective Cops are art prototypes for small elite foreign
+Freedom Force and Collective Corps are art prototypes for small elite foreign
 detachments in a possible proxy conflict. They have their own palettes,
 equipment silhouettes and two specialist models each, reviewed at
 `/faction-designs`. They are absent from the live faction and role registries;

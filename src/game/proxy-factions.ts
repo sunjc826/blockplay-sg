@@ -42,7 +42,7 @@ export const PROXY_FACTIONS: readonly ProxyFactionDesign[] = [
     ],
   },
   {
-    id: 'collective-cops', name: 'Collective Cops', influence: 'Eastern security-force influence',
+    id: 'collective-cops', name: 'Collective Corps', influence: 'Eastern security-force influence',
     premise: 'An elite security detachment projecting influence through protected infrastructure, surveillance and disciplined intervention.',
     silhouette: 'Continuous visor and jaw guard, square jade shoulder shells and segmented hip armor. An open gate marks chest, shoulders and pack.',
     palette: { top: '#677273', bottom: '#424e53', shoes: '#252f34', vest: '#344b49', backpack: '#3d5352', gloves: '#28383c', helmet: '#5d7470', boonie: '#677273' },
