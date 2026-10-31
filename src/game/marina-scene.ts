@@ -246,6 +246,9 @@ export function buildMarinaScene() {
   // Three slender blue-glass towers. Curved/splayed lower legs are approximated
   // by offset floor bands; dimensions share the same 0.54 landmark scale.
   const h = MARINA_LANDMARKS.towerHeight;
+  // Each floor band is too short for automatic building windows. Author the
+  // room panes between its mullions so occupancy lighting follows the splay.
+  const sandsGlass = glass.clone(); sandsGlass.userData.nightWindow = true; materials.push(sandsGlass);
   for (const z of [-65, -15, 35]) {
     collider(151, z, 24, 32, 114);
     for (let floor = 0; floor < 54; floor++) {
@@ -262,6 +265,10 @@ export function buildMarinaScene() {
         box(142.35 - splay * 0.2, y, z + dz, 0.1, 1.96, 0.1, steel);
         box(159.65 + splay, y, z + dz, 0.13, 1.96, 0.13, pale);
         qualityDetails.sandsMullions += 2;
+      }
+      if (floor >= 2) for (let dz = -12; dz <= 12; dz += 3) {
+        box(142.45 - splay * 0.2, y, z + dz, 0.04, 1.68, 2.8, sandsGlass);
+        box(159.55 + splay, y, z + dz, 0.04, 1.68, 2.8, sandsGlass);
       }
     }
     box(151, 2, z, 27, 4, 33, pale);

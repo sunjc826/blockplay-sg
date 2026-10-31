@@ -135,6 +135,36 @@ describe('street lamps', () => {
     expect(geometry.getAttribute('nightEdge')).toBeUndefined();
     geometry.dispose(); material.dispose();
   });
+  it('lights all three Sands towers between their splayed facade frames after batching', () => {
+    const region = REGIONS.find(r => r.id === 'marina-bay')!, world = region.build();
+    separateInstancedMaterials(world.scene);
+    const night = createNightLights(world.scene, { roads: region.mapRoads, roadWidth: region.roadWidth, bounds: region.bounds, obstacles: world.obstacles });
+    try {
+      const counts = [0, 0, 0, 0, 0, 0], matrix = new THREE.Matrix4(), center = new THREE.Vector3(), size = new THREE.Vector3();
+      world.scene.traverse(object => {
+        if (!(object instanceof THREE.InstancedMesh) || Array.isArray(object.material) || !object.material.userData.nightWindow) return;
+        expect(object.material.customProgramCacheKey()).toContain('night-panes');
+        const span = object.geometry.getAttribute('nightSpan');
+        for (let i = 0; i < object.count; i++) {
+          object.getMatrixAt(i, matrix); matrix.premultiply(object.matrixWorld);
+          center.setFromMatrixPosition(matrix); size.setFromMatrixScale(matrix);
+          const tower = [-65, -15, 35].findIndex(z => Math.abs(center.z - z) <= 12);
+          expect(tower).toBeGreaterThanOrEqual(0);
+          const rear = center.x > 151, splay = (1 - center.y / 108) ** 2 * 8;
+          // Panes sit outside the glass mass and behind the projecting frames.
+          expect(center.x).toBeCloseTo(rear ? 159.55 + splay : 142.45 - splay * .2);
+          expect(center.y - size.y / 2).toBeGreaterThan(4);
+          expect(center.y + size.y / 2).toBeLessThan(108);
+          expect(size.z).toBeLessThan(3 - .13);
+          expect(size.y).toBeLessThan(2 - .12);
+          expect(span.getX(i)).toBeLessThan(center.y - size.y / 2);
+          expect(span.getY(i)).toBeGreaterThan(center.y + size.y / 2);
+          counts[tower * 2 + Number(rear)]++;
+        }
+      });
+      expect(counts).toEqual(Array(6).fill(52 * 9));
+    } finally { night.dispose(); world.dispose(); }
+  });
   it('size windows for buildings, not kerbs or poles', () => {
     expect(buildingSized(new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(20, 30, 15)))).toBe(true);
     expect(buildingSized(new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(.6, 9, .6)))).toBe(false);

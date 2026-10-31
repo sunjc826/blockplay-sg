@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const origin = process.env.FPS_APP_ORIGIN || 'http://127.0.0.1:5175';
 const chrome = process.env.FPS_CHROME_ORIGIN || 'http://127.0.0.1:9228';
+const timeoutMs = Number(process.env.NIGHT_WINDOWS_TIMEOUT_MS || 30000);
 const output = new URL('../.cache/night-windows/', import.meta.url);
 await fs.mkdir(output, { recursive:true });
 const tab = await (await fetch(`${chrome}/json/new?about:blank`, { method:'PUT' })).json();
@@ -23,7 +24,7 @@ ws.onmessage = event => {
 };
 function send(method, params = {}) {
   return new Promise((resolve, reject) => {
-    const n = ++id, timer = setTimeout(() => { pending.delete(n); reject(new Error(`CDP timeout: ${method}`)); }, 30000);
+    const n = ++id, timer = setTimeout(() => { pending.delete(n); reject(new Error(`CDP timeout: ${method}`)); }, timeoutMs);
     pending.set(n, { resolve, reject, timer }); ws.send(JSON.stringify({ id:n, method, params }));
   });
 }
@@ -42,7 +43,7 @@ try {
   await send('Page.navigate',{url:origin+'/scripts/fixtures/night-windows.html'});
   const start=Date.now();
   while(!await evaluate('!!window.windowReview?.ready')) {
-    if(Date.now()-start>60000)throw new Error('window fixture did not load');
+    if(Date.now()-start>timeoutMs*2)throw new Error('window fixture did not load');
     await new Promise(r=>setTimeout(r,100));
   }
   const results=[];
@@ -90,17 +91,38 @@ try {
     ['queenstown','-73,20,-123','-73,19,-83','queenstown-back'],
     ['queenstown','-73,18,-4','-73,17,-44','queenstown-gallery'],
     ['marina-bay','0,2,18','0,30,-100','marina'],
+    ['marina-bay','-15,48,80','151,53,-15','sands-bayfront'],
+    ['marina-bay','285,60,65','151,53,-15','sands-rear'],
     ['raffles-place','0,2,18','0,30,-100','raffles'],
   ]) {
     await evaluate('window.visionReview=undefined');
     await send('Page.navigate',{url:`${origin}/scripts/fixtures/vision-render.html?region=${region}&device=none&cam=${cam}&look=${look}`});
     const start=Date.now();
     while(!await evaluate('!!window.visionReview?.ready')) {
-      if(Date.now()-start>60000)throw new Error(region+' fixture did not load');
+      if(Date.now()-start>timeoutMs*2)throw new Error(region+' fixture did not load');
       await new Promise(r=>setTimeout(r,100));
     }
     await evaluate("window.visionReview.draw('none')");
     await screenshot(label);
+    if (label.startsWith('sands-')) {
+      const bright = () => evaluate(`(() => {
+        const {data,width,height}=window.visionReview.pixels(); let count=0;
+        for(let y=height*.15|0;y<height*.8;y++)for(let x=width*.2|0;x<width*.8;x++){
+          const i=(y*width+x)*4;if(Math.max(data[i],data[i+1],data[i+2])>150)count++;
+        }
+        return count;
+      })()`);
+      const on = await bright();
+      await evaluate(`(() => {
+        window.visionReview.world.scene.traverse(o => {
+          if(o.isMesh && o.material?.userData.nightWindow) o.visible=false;
+        });
+        window.visionReview.draw('none');
+      })()`);
+      const off = await bright();
+      assert(on > off + 500, `${label}: authored tower windows visibly shine at night (${on} vs ${off})`);
+      results.push({view:label,on,off});
+    }
   }
   assert.deepEqual(errors,[],'no page/shader errors');
   await fs.writeFile(new URL('validation.json',output),JSON.stringify({results,errors},null,2));
