@@ -2,6 +2,8 @@ import { expect, it } from 'vitest';
 import { createArena, type ArenaEnvironment, type ArenaSimulation } from './arena-rules';
 import { createFacilities, type FacilitySite } from './facilities';
 import { moveInMarina } from './marina-collision';
+import { createProfile, resolveLoadout } from './armory-state';
+import { respawnEquipment } from './respawn-equipment';
 
 const zone = (id: string, x: number, initialOwner: FacilitySite['initialOwner'] = 'armed-forces', kind: FacilitySite['kind'] = 'command'): FacilitySite =>
   ({ id, name: id, kind, initialOwner, x, y: 0, z: 0, deployment: { x, z: 0, yaw: .7 } });
@@ -94,4 +96,22 @@ it('keeps the ordinary arena three-second automatic respawn', () => {
   const env = environment(); delete env.facilities;
   const a = setup(env); down(a); tick(a, 3.1);
   expect(self(a).alive).toBe(true); expect(a.playerRespawn('p')).toBeNull();
+});
+
+for (const automatic of [false, true]) it(`respawns with starting equipment after a pickup (${automatic ? 'automatic' : 'manual'})`, () => {
+  const starting = createProfile(); starting.owned.push('plate-soft'); starting.plate = 'plate-soft';
+  const original = resolveLoadout(starting), a = createArena([], 0, 'mixed', environment());
+  a.addPlayer('p', 'Operator', original.armor, original.absorption, original.weapons, undefined, true, original.carriedFamilies, original.insert);
+  const pickedUp = structuredClone(starting); pickedUp.carry = { main: 1, extra: null }; pickedUp.plate = 'plate-elite';
+  const update = (profile: typeof starting) => {
+    const kit = resolveLoadout(profile);
+    a.setPlayerLoadout('p', kit.armor, kit.absorption, kit.weapons, kit.carriedFamilies, kit.insert);
+  };
+  update(pickedUp); expect(self(a).weapon).toBe(1);
+  down(a); update(respawnEquipment(pickedUp, starting));
+  if (automatic) a.setPlayerAutoRespawn('p', true); else a.choosePlayerRespawn('p', 'West post');
+  tick(a, 3.1);
+  expect(self(a)).toMatchObject({ alive: true, armor: original.armor, weapon: original.carriedFamilies[0] });
+  down(a); if (!automatic) a.choosePlayerRespawn('p', 'West post'); tick(a, 3.1);
+  expect(self(a)).toMatchObject({ alive: true, armor: original.armor, weapon: original.carriedFamilies[0] });
 });

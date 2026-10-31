@@ -46,6 +46,7 @@ interface ExpeditionScene { zone: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: F
 export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase, onConsume, onElimination, suspended = false, initialZone = 'marina-bay', destination, onZoneChange, onLoaded }: { profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; onExit: () => void; onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult; onConsume: (catalogId: string) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; suspended?: boolean; initialZone?: WorldZoneId; destination?: WorldZoneId; onZoneChange?: (zone: WorldZoneId) => void }) {
   const [fieldProfile, setFieldProfile] = useState<ArmoryProfile>(() => structuredClone(profile));
   const fieldProfileRef = useRef(fieldProfile);
+  const [startingProfile] = useState(() => structuredClone(fieldProfile));
   const autoRespawn = useRef(false);
   const [loot] = useState(() => createExpeditionLoot(`${Date.now()}-${Math.random()}`));
   const [infrastructure] = useState(() => new Map<WorldZoneId, Pick<ArenaSnapshot, 'facilities' | 'vehicles' | 'reinforcementClocks'>>());
@@ -65,7 +66,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         loadout: resolveLoadout(fieldProfileRef.current),
         expedition: {
           autoRespawn: autoRespawn.current, zone: scene.zone, spawn: scene.spawn, checkpoint: scene.checkpoint,
-          profile: fieldProfileRef.current, loot, infrastructure,
+          profile: fieldProfileRef.current, startingProfile, loot, infrastructure,
           onTravel: (transition, checkpoint) => setScene(current => ({ zone: transition.to, spawn: transition.spawn, checkpoint, revision: current.revision + 1 })),
           onEquipment: next => { fieldProfileRef.current = next; setFieldProfile(next); },
           onVendorPurchase,
@@ -78,7 +79,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       setHud(current => ({ ...current, phase: 'error', message: 'The district could not load. Check that WebGL is available, then retry.' }));
     }
     return () => { engine.current?.dispose(); engine.current = null; };
-  }, [scene, loot, infrastructure, onVendorPurchase, onConsume]);
+  }, [scene, loot, infrastructure, startingProfile, onVendorPurchase, onConsume]);
   useEffect(() => { engine.current?.setPilotDestination(destination); }, [destination, scene]);
   useEffect(() => { if (suspended) engine.current?.pause(); }, [suspended]);
   const loaded = hud.phase !== 'loading';

@@ -1,6 +1,7 @@
 import { createDropColumnCheck } from './paratrooper-route-validation';
 import { createRangeDirector, rangeTargetRise, rangeTargetHeight, validRangeDrill, RANGE_DURATION, type RangeDrillId, type RangeDrillView } from './range-drills';
 import { resupplyEquipment, rangeEquipmentStock } from './equipment-resupply';
+import { respawnEquipment } from './respawn-equipment';
 import { createRangeResupply, rangeResupplyPoint } from './range-resupply';
 import { combatFeedReward, type RaiderBounty } from './combat-rewards';
 import { WEATHER } from './world-events';
@@ -159,6 +160,8 @@ export interface FpsExpeditionOptions {
   /** Optional scale probes; normal district entry uses the 32-soldier default. */
   battlefieldSize?: BattlefieldSize;
   autoRespawn?: boolean;
+  /** Chosen before expedition entry; survives district travel and field pickups. */
+  startingProfile?: ArmoryProfile;
   infrastructure?: Map<WorldZoneId, Pick<ArenaSnapshot, 'facilities' | 'vehicles' | 'reinforcementClocks'>>;
   zone: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: FpsCheckpoint; profile: ArmoryProfile; loot: ExpeditionLoot;
   onTravel: (transition: WorldTransition, checkpoint: FpsCheckpoint) => void; onEquipment: (profile: ArmoryProfile) => void;
@@ -289,6 +292,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let rangeEndedEarly = false;
   const copyProfile = (profile: ArmoryProfile): ArmoryProfile => JSON.parse(JSON.stringify(profile));
   let fieldProfile = copyProfile(expedition?.profile ?? options.arena?.profile ?? createProfile());
+  const startingProfile = copyProfile(expedition?.startingProfile ?? fieldProfile);
   let equipment = expedition ? resolveLoadout(fieldProfile) : options.loadout || resolveLoadout(createProfile()), specs = equipment.weapons;
   const undress: (() => void)[] = [];
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -2555,7 +2559,25 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         hurtSerial = struck.serial;
       } else if (!struck) hurtSerial = 0;
       if (expedition && !frame.self.alive && document.pointerLockElement === canvas) document.exitPointerLock();
-      if (!frame.self.alive && previousSelf?.alive) { supplyUse = null; radioCall('death'); clearInput(); killChain = { count: 0, lastAt: -Infinity }; hud.chain = 0; hud.callout = ''; calloutTime = 0; }
+      if (!frame.self.alive && previousSelf?.alive) {
+        supplyUse = null; radioCall('death'); clearInput(); killChain = { count: 0, lastAt: -Infinity }; hud.chain = 0; hud.callout = ''; calloutTime = 0;
+        if (expedition) {
+          // Fallen-kit drops above still see this life's pickups. Prepare the
+          // authority now so either manual or automatic respawn uses issued armor.
+          fieldProfile = respawnEquipment(fieldProfile, startingProfile);
+          equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
+          looted = {}; supplies = { ...equipment.supplies };
+          arenaRuntime.updateLoadout(fieldProfile);
+          reloadAudio.clear(); stopInspect(); grenadeHeld = null; grenadePicker = null;
+          hud.weapon = equipment.carriedFamilies[0];
+          loadout = createPooledLoadout(specs, equipment.carriedFamilies);
+          undress.splice(0).forEach(dispose => dispose());
+          weapons.forEach((weapon, index) => { undress.push(dressWeapon(weapon, specs[index])); weapon.visible = index === hud.weapon; });
+          effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id));
+          effects.setStyles(weaponStyles, hud.weapon);
+          expedition.onEquipment(copyProfile(fieldProfile));
+        }
+      }
       if (frame.spawn) {
         if (previousSelf && !previousSelf.alive) radioCall('respawn');
         pilot.reset(); strategicPlanner?.reset();
