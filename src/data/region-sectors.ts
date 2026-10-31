@@ -449,7 +449,8 @@ const SENTOSA_SECTORS: readonly ZoneSector[] = [
     anchors: [{ x: -187, z: 8 }, { x: -187, z: -20 }, { x: -236, z: 62 }, { x: -236, z: -62 }, { x: -158, z: 62 }] },
   { id: 'siloso-beach', name: 'Siloso beach', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
     bounds: { minX: -70, maxX: 70, minZ: 150, maxZ: 205 },
-    anchors: [{ x: 0, z: 192 }, { x: 62, z: 158 }, { x: -62, z: 158 }, { x: 42, z: 194 }, { x: -42, z: 194 }] },
+    // Keep ground-level entries inland of the raised southern beach walk surface.
+    anchors: [{ x: 0, z: 182 }, { x: 62, z: 158 }, { x: -62, z: 158 }, { x: 42, z: 182 }, { x: -42, z: 182 }] },
   { id: 'island-spine', name: 'Island spine', cover: 'open', lootWeight: 1.5, botWeight: 1,
     bounds: { minX: -90, maxX: -10, minZ: 75, maxZ: 150 },
     anchors: [{ x: -30, z: 100 }, { x: -82, z: 142 }, { x: -18, z: 142 }, { x: -74, z: 100 }, { x: -50, z: 128 }] },

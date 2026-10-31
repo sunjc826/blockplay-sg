@@ -5151,3 +5151,12 @@ release-{tests,typecheck,build,deploy,verification,cloudflare-check}.log,
 release-evidence.json and rendered-checks/ in that directory. Task-owned Vite and
 Chrome stopped. Local commits only; no GitHub push. AGENTS.md stays local,
 unstaged and uncommitted.
+
+Respawn release follow-up: the combined clean copy typechecks after 901ea21's
+naval-test correction. Its full suite reached 1,934 passing tests but exposed
+Siloso's three former ground anchors inside the newly registered .33 m beach
+walk surface, and one worker RPC timeout under load. Moved those entries to
+clear inland ground (z=182), preserving the beach and naval ramps. Twelve
+Sentosa-specific vertical-route, sector, driving, loot and facility checks now
+pass. This is a deployment blocker fix discovered by the respawn release, not a
+new district reconstruction. The final full-suite rerun and manual deploy follow.
