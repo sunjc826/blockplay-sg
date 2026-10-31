@@ -5202,5 +5202,13 @@ Validation: all 29 focused vehicle/camera/crew checks passed. A real tutorial
 engine browser fixture passed pilot/gunner/both passenger seats, takeoff,
 mounted fire, passenger aim, view switching and portrait HUD, without runtime or
 WebGL errors. Captures reviewed in `.cache/helicopter-view/`; regression runner:
-`scripts/helicopter-view-smoke.mjs`. Typecheck and manual deployment follow.
-No GitHub push; AGENTS.md stays local, unstaged and uncommitted.
+`scripts/helicopter-view-smoke.mjs`. Typecheck and production build passed.
+
+Local code commit `3839f54`; all 2,794 tracked source files verified in the frozen
+release. Manual `pnpm deploy:cloudflare` succeeded, Cloudflare version
+`9cf6775b-e147-491a-a0e0-ed9006cd46f6`. Both blockplaysg.fun and workers.dev serve
+the release JS/CSS/Three.js/service worker byte-for-byte; production asset,
+manifest, model/audio, SPA/API routing and origin checks passed. Evidence:
+`.cache/helicopter-view/{source-verification,live-verification,results}.json`
+and `{tests,browser,typecheck,deploy,cloudflare-check}.log`. Task-owned browser
+and Vite stopped. No GitHub push; AGENTS.md stays local, unstaged and uncommitted.
