@@ -14,7 +14,7 @@ is not expanded into matching assault/heavy/sniper classes.
 
 | Faction / specialist | Recommended reference | Original game study | Why start here |
 |---|---|---|---|
-| Freedom Force / Lancer experimental option | XM29 OICW · Block 3 | **XM29 OICW study** (`ff-oicw`) | Stacked rifle/launcher muzzles, bulky upper receiver, large sight housing and separate front/rear feed silhouettes |
+| Freedom Force / Lancer experimental option | XM29 OICW · Block 3 | **Peace Offering · Escalation Clause** (`ff-oicw`) | Stacked rifle/launcher muzzles, bulky upper receiver, large sight housing and separate front/rear feed silhouettes |
 | Freedom Force / Lancer option | FN SCAR-L | **Soft Power · Foreign Aid** (`ff-scar-l`) | Compact family upper, narrow curved magazine, shared folding-style stock and a low reflex hood |
 | Freedom Force / Wayfinder option | FN SCAR-H | **Hard Power · Strings Attached** (`ff-scar-h`) | Broader receiver and magazine well, wider straight magazine, prism optic; distinct from the Longwatch precision configuration |
 | Freedom Force / Wayfinder | FN Mk 20 / SCAR 20S | **Longwatch** (`ff-longwatch`) | Extended upper, precision stock, short box magazine, large scope and folded bipod give the observer a distinct long silhouette |
@@ -90,8 +90,14 @@ Extended Stay. Democracy Lite / Democracy Deluxe were superseded working titles.
 The owner's requested Chinese counterpart to the XM29 is represented by a
 separate **QTS-11 study** (`cc-qts11`), a Conductor experimental option. It adds
 a seventh candidate alongside the two named Collective Corps rifle families;
-it does not replace them or expand the specialist roster. Both experimental
-systems keep their reference names until fictional names are chosen.
+it does not replace them or expand the specialist roster.
+
+The agreed XM29 study name is **Peace Offering · Escalation Clause**:
+**Peace Offering** is its family label and **Escalation Clause** its signature
+variant. The gallery separates the two labels and retains XM29 OICW as the base
+reference. Its stable `ff-oicw` ID is unchanged. QTS-11 keeps its working reference
+name until a fictional name is chosen. The SCAR-L remains **Soft Power · Foreign
+Aid** and the SCAR-H remains **Hard Power · Strings Attached**.
 
 The counterpart relationship describes the combined rifle/launcher concept,
 not equivalent real-world performance or matched gameplay roles. QTS-11 is the
@@ -100,14 +106,13 @@ asserted here as confirmed aliases.
 
 ## Model interpretation
 
-**XM29 OICW study:** replaces the retired compact-carbine study. The visual
+**Peace Offering · Escalation Clause (XM29 OICW):** replaces the retired compact-carbine study. The visual
 reference is the boxy Block 3 exterior: a broad upper launcher body over a
 smaller projecting rifle, two bore heights, a rear launcher-feed box, a forward
 rifle magazine and a large chamfered sight housing. Freedom Force's sand/bone
 shell, dark hardware, steel-blue side covers and amber marks adapt the reference
 to the faction. Both muzzle openings and the supported sight case have real
-geometry. The working display name remains XM29 OICW study; no new funny name
-has been selected for this replacement.
+geometry. The family/signature naming follows the agreed Freedom Force pattern.
 
 The dual muzzle/feed arrangement is exterior art only. The lower rifle muzzle
 and upper launcher muzzle have separate optional art sockets, as do the two
@@ -148,7 +153,8 @@ anyone in gameplay.
 
 No real manufacturer logos, national flags, specifications for fabrication,
 weapon purchases or ballistics are added. Faction weapon names are fictional;
-XM29 OICW and QTS-11 remain reference names for their unnamed studies.
+XM29 OICW remains the base reference for Peace Offering; QTS-11 retains its
+working reference name.
 
 ## Existing systems and integration boundary
 
