@@ -212,11 +212,12 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
   scene.traverse(o => { if (o instanceof THREE.Mesh && o.userData.fpsWater) water.push(new THREE.Box3().setFromObject(o)); });
   const ground = (x: number, z: number) => {
     if (water.some(b => x >= b.min.x && x <= b.max.x && z >= b.min.z && z <= b.max.z && b.max.y < 2)) return null;
-    let y = 0, raised = false;
+    const base=bounds.groundHeight?.(x,z)??0;
+    let y = base, raised = false;
     for (const s of surfaces as readonly WalkSurface[]) if (x >= s.minX && x <= s.maxX && z >= s.minZ && z <= s.maxZ) {
       if (s.solidBelow) y = Math.max(y, surfaceHeight(s, x, z)); else raised = true;
     }
-    return raised && y === 0 ? null : y;
+    return raised && y === base ? null : y;
   };
   const streets = placeStreetLamps(options.roads, options.roadWidth, options.obstacles, bounds, { ground });
   const lamps = [...streets, ...placePathLamps(streets, options.roads, options.roadWidth, options.obstacles, bounds, { ground })];
