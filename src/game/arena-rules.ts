@@ -41,7 +41,7 @@ import { weaponRange } from './weapon-range';
 import { BOT_THREAT, nearBullet, type BotThreat } from './bot-threat';
 import type { BotDifficulty } from './bot-difficulty';
 import { createBotSpotting, spottingStance, type BotSpotting, type SpottingCandidate } from './bot-spotting';
-import { objectiveStep } from './bot-objectives';
+import { objectiveApproach, objectiveStep, spacedObjectiveStep } from './bot-objectives';
 import { assignBattlefieldFronts, BATTLEFIELD_POPULATIONS, type BattlefieldSize } from './battlefield';
 import { createHeatField, HEAT_TUNING, type HeatBand, type HeatSector } from './faction-heat';
 import { drawRank, type BotRank } from './arena-ranks';
@@ -49,7 +49,7 @@ import { muzzleSignature, sanitizeMuzzle, type MuzzleDevice } from './weapon-acc
 import { advanceFoodEffects, applyFoodEffects, arenaFoodModifiers, NO_FOOD, survivesWithAhMa, type ActiveFoodEffects } from './food-effects';
 import { CONSUMABLE_LIMIT, itemById } from './armory-catalog';
 import { supplyProfile } from './fps-healing';
-import { createFacilities, facilityOperational, facilityRayDistance, FACILITY_RULES, type FacilitySite, type FacilitySnapshot, type FacilityState } from './facilities';
+import { createFacilities, facilityActionFor, facilityOperational, facilityRayDistance, FACILITY_RULES, type FacilitySite, type FacilitySnapshot, type FacilityState } from './facilities';
 import type { DeploymentPoint } from './expedition-deployment';
 import type { PlayerRespawnView } from './player-respawn';
 
@@ -334,6 +334,7 @@ interface InternalActor {
   /** With heat: the sector this bot was dropped into, which it patrols and defends. */
   home?: string;
   mission?: { x: number; z: number; y?: number };
+  assignment?: { site: string; via?: ArenaPoint; until: number };
   /** Bots: when they last saw an enemy or were hit, which decides whether a sighting is a fresh contact and whether they are calm enough to chat. */
   lastFight?: number;
   /** Bots: reloading, or running from a marked barrage, as of the last tick, so the bark goes with the start of it. */
@@ -550,7 +551,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (entry.actor.bot && entry.actor.faction === 'mercenaries' && ['assault', 'tank'].includes(entry.role?.id ?? '')) { entry.actor.grenade = entry.role?.id === 'tank' ? 'grenade-smoke' : 'grenade-frag'; entry.grenadeSupplies[entry.actor.grenade] = 1; } else delete entry.actor.grenade;
     entry.velocity = undefined; entry.speed = 0; entry.lastAt = undefined; entry.aimFocus = undefined; entry.turn = undefined;
     entry.spotting = undefined; entry.shotFlash = undefined;
-    entry.parachute = undefined; delete entry.actor.parachuting; entry.navigation = undefined; entry.navalTransit = undefined; delete entry.actor.ground; entry.evacuating = undefined; entry.vehicleBoardAfter = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
+    entry.parachute = undefined; delete entry.actor.parachuting; entry.navigation = undefined; entry.assignment = undefined; entry.mission = undefined; delete entry.actor.objective; entry.navalTransit = undefined; delete entry.actor.ground; entry.evacuating = undefined; entry.vehicleBoardAfter = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false; entry.threat = undefined; entry.grudge = undefined;
   };
   function sanitizeWeapons(weapons: readonly ArenaWeapon[]) {
@@ -1941,27 +1942,44 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   let squadThink = 0;
   const squadObjectives = new Map<string, string>();
+  const squadApproaches = new Map<string, { site: string; via?: ArenaPoint; until: number }>();
+  let approachSerial = 0;
   function stepSquads(dt: number) {
     if (!facilities || (squadThink -= dt) > 0) return;
     squadThink = 2;
     const groups = new Map<string, InternalActor[]>();
-    for (const entry of members.values()) if (entry.actor.squad && entry.actor.alive && !entry.temporary) {
+    for (const entry of members.values()) if (entry.actor.squad && entry.actor.alive && !entry.reserve && !entry.temporary) {
       const group = groups.get(entry.actor.squad) ?? []; group.push(entry); groups.set(entry.actor.squad, group);
     }
     const assignments = assignBattlefieldFronts([...groups].map(([id,group]) => ({ id, faction:group[0].actor.faction as SquadFaction,
-      x:group[0].actor.x, z:group[0].actor.z, previous:squadObjectives.get(id) })), facilities.sites);
+      x:group[0].actor.x, z:group[0].actor.z, members:group.length, previous:squadObjectives.get(id) })), facilities.sites);
     for (const [id, group] of groups) {
       const site=facilities.sites.find(s=>s.id===assignments.get(id)); if (!site) continue;
       squadObjectives.set(id,site.id);
-      const leader=group.find(m=>!m.order || m.order.until<=elapsed) ?? group[0];
+      const leader=group.find(m=>m.actor.id===site.action?.by && (!m.order || m.order.until<=elapsed)) ?? group.find(m=>!m.order || m.order.until<=elapsed) ?? group[0];
+      const working = facilityActionFor(site, leader.actor.faction) !== null;
+      let approach = squadApproaches.get(id);
+      if (!approach || approach.site !== site.id) {
+        const center = { x: group.reduce((n,m)=>n+m.actor.x,0)/group.length, z: group.reduce((n,m)=>n+m.actor.z,0)/group.length };
+        const point = working ? objectiveApproach(center, site, navigationAnchors, (approachSerial++ % 3) - 1, clearSpawn,
+          [...squadApproaches.values()].flatMap(a=>a.via && a.until>elapsed?[a.via]:[])) : undefined;
+        approach = { site: site.id, via: point ? {...point,y:groundHeight(point.x,point.z)+1.75} : undefined,
+          until: elapsed + (point ? Math.hypot(center.x-point.x,center.z-point.z) / 2 + 20 : 0) };
+        squadApproaches.set(id, approach);
+      }
       group.forEach((entry,i)=> {
         entry.actor.objective=site.id;
-        const angle=i*Math.PI/2;
-        const point={x:site.x+Math.sin(angle)*2.6,z:site.z+Math.cos(angle)*2.6};
+        if (entry.assignment?.site !== site.id) { entry.assignment = {...approach}; entry.navigation=undefined; }
+        // One worker operates the cabinet; the rest cover a broad perimeter.
+        // Quiet friendly posts rotate their patrol instead of camping the slot.
+        const worker = working && entry === leader;
+        const radius = worker ? 2.6 : working ? 8 + i * 2 : 14 + i * 3;
+        const angle=i*Math.PI/2 + (working ? 0 : Math.floor(elapsed/22)*Math.PI/2);
+        const point={x:site.x+Math.sin(angle)*radius,z:site.z+Math.cos(angle)*radius};
         // Capture slots must be reachable at the objective's actual terrain height.
-        const fallback=Array.from({length:12},(_,j)=>({x:site.x+Math.sin(j*Math.PI/6)*2.6,z:site.z+Math.cos(j*Math.PI/6)*2.6})).find(clearSpawn);
+        const fallback=[radius,2.6].flatMap(r=>Array.from({length:12},(_,j)=>({x:site.x+Math.sin(angle+j*Math.PI/6)*r,z:site.z+Math.cos(angle+j*Math.PI/6)*r}))).find(clearSpawn);
         const slot=clearSpawn(point)?point:fallback;
-        if(slot)entry.mission={...slot,y:site.y+1.75};
+        entry.mission=slot?{...slot,y:groundHeight(slot.x,slot.z)+1.75}:undefined;
       });
       if (!leader.order || leader.order.until<=elapsed) facilities.request(site.id,leader.actor.id);
     }
@@ -2506,7 +2524,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     let dxStep = (direction.x * approach - direction.z * strafe) / normal * role.speed * dt;
     let dzStep = (direction.z * approach + direction.x * strafe) / normal * role.speed * dt;
     const evading = threat && elapsed < threat.evadeUntil ? threat : undefined;
-    const destination: ArenaPoint = evading?.cover ?? (entry.mission ? { ...entry.mission, y: entry.mission.y ?? 1.75 } : target);
+    const assignment = entry.assignment;
+    if (assignment?.via && (elapsed >= assignment.until || Math.hypot(actor.x-assignment.via.x,actor.z-assignment.via.z)<5)) {
+      assignment.via=undefined; entry.navigation=undefined;
+    }
+    const mission = assignment?.via ?? entry.mission;
+    const destination: ArenaPoint = evading?.cover ?? (mission ? { ...mission, y: mission.y ?? 1.75 } : target);
     if (evading?.cover) {
       const d = Math.hypot(destination.x - actor.x, destination.z - actor.z), step = Math.min(Math.max(0, d - .4), role.speed * dt);
       dxStep = (destination.x - actor.x) / Math.max(.001, d) * step; dzStep = (destination.z - actor.z) / Math.max(.001, d) * step;
@@ -2515,8 +2538,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       dxStep = -direction.z * entry.strafe * role.speed * dt;
       dzStep = direction.x * entry.strafe * role.speed * dt;
     }
-    if (entry.mission && !evading) {
-      const step = objectiveStep(actor, entry.mission, { dx: dxStep, dz: dzStep }, role.speed * dt);
+    if (mission && !evading) {
+      const step = objectiveStep(actor, mission, { dx: dxStep, dz: dzStep }, role.speed * dt);
       dxStep = step.dx; dzStep = step.dz;
     }
     const routeNeeded = !!entry.mission || !visible && !!searching || !!evading?.cover || Math.abs(target.y - actor.y) > .6 || !!entry.navigation?.pending || !!entry.navigation?.path.length;
@@ -2550,6 +2573,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (escaping) {
       const dx = escaping.x - actor.x, dz = escaping.z - actor.z, d = Math.hypot(dx, dz), stride = Math.min(d, role.speed * 1.3 * dt);
       dxStep = dx / Math.max(d, .001) * stride; dzStep = dz / Math.max(d, .001) * stride;
+    }
+    if (mission && !ordered && !escaping && !evading && !entry.navigation?.pending) {
+      const step = spacedObjectiveStep(actor, {dx:dxStep,dz:dzStep}, [...members.values()]
+        .filter(m=>m!==entry && m.actor.alive && !m.reserve && !m.actor.vehicle && m.actor.faction===actor.faction).map(m=>m.actor),
+        role.speed*dt, Math.min(Math.hypot(destination.x-actor.x,destination.z-actor.z),
+          entry.navigation?.path[0] ? Math.hypot(entry.navigation.path[0].x-actor.x,entry.navigation.path[0].z-actor.z) : Infinity));
+      dxStep=step.dx; dzStep=step.dz;
     }
     // Bots run from a marked barrage, still firing if they can see someone. An event's crew holds its post.
     const exit = entry.anchor ? null : dangerExit(actor);
@@ -2845,7 +2875,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function reset() {
     grenadeSystem.reset();
     facilities = environment?.facilities ? createFacilities(environment.facilities.sites) : null;
-    squadObjectives.clear(); squadThink = 0;
+    squadObjectives.clear(); squadApproaches.clear(); approachSerial = 0; squadThink = 0;
     for (const f of SQUAD_FACTIONS) { reserveAt[f] = FACILITY_RULES.reserveSeconds; navalAt[f] = NAVAL.interval; airborneAt[f] = PARATROOPERS.interval; }
     tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; barks.length = 0; replies.length = 0; barker.reset(); idleIn = BARK_TUNING.idleEvery[0]; controls.clear(); vehicleLife.clear(); events.length = 0; raiders.clear(); transports.clear(); airborneMissions.clear(); liveClouds = []; heat.clear(); interests.length = 0; director?.reset();
     flying.length = 0; landed.clear(); impacts.length = 0;
@@ -2894,7 +2924,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   for (let i = 0; i < count; i++) enlist();
   if (facilities) for (let i = 0; i < (environment?.battlefield ? BATTLEFIELD_POPULATIONS[environment.battlefield.size][PLAYER_FACTION] : 4); i++) enlist(false, PLAYER_FACTION);
-  const navigationStatus = () => [...members.values()].filter(m=>m.actor.bot && m.actor.alive && m.actor.squad).map(m=>({id:m.actor.id,objective:m.actor.objective,pending:!!m.navigation?.pending,path:m.navigation?.path.length??0,x:m.actor.x,z:m.actor.z,goal:m.navigation?.target}));
+  const navigationStatus = () => [...members.values()].filter(m=>m.actor.bot && m.actor.alive && m.actor.squad).map(m=>({id:m.actor.id,objective:m.actor.objective,pending:!!m.navigation?.pending,path:m.navigation?.path.length??0,x:m.actor.x,z:m.actor.z,goal:m.navigation?.target,via:m.assignment?.via,mission:m.mission}));
   return { navigationStatus, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 

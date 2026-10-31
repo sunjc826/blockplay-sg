@@ -32,6 +32,35 @@ it('treats adjacent objectives as one front when another part of the map needs t
   const targets=[...assignBattlefieldFronts(squads,locations.sites).values()];
   expect(targets).toContain('home');expect(targets).toContain('front-0');expect(targets).toContain('front-2');expect(targets).not.toContain('front-1');
 });
+it('keeps surplus squads attacking when most posts are already friendly, including a contested home',()=>{
+  const facilities=createFacilities(sites);
+  facilities.sites.forEach(s=>{s.owner='armed-forces';s.health=s.maxHealth;});
+  facilities.sites[1].owner='mercenaries';facilities.sites[0].contested=true;
+  const squads=Array.from({length:8},(_,i)=>({id:`squad-${i}`,faction:'armed-forces' as const,x:-90,z:0,previous:'home'}));
+  const assignments=assignBattlefieldFronts(squads,facilities.sites);
+  expect([...assignments.values()].filter(id=>id==='home')).toHaveLength(1);
+  expect([...assignments.values()].filter(id=>id==='enemy')).toHaveLength(7);
+});
+it('keeps at least half the living soldiers attacking with uneven squad casualties',()=>{
+  const facilities=createFacilities(sites.slice(0,2));
+  const squads=[4,1,1].map((members,i)=>({id:`squad-${i}`,faction:'armed-forces' as const,x:-90,z:0,members,previous:i===0?'home':undefined}));
+  const assignments=assignBattlefieldFronts(squads,facilities.sites);
+  const attacking=squads.filter(s=>assignments.get(s.id)==='enemy').reduce((n,s)=>n+s.members,0);
+  expect(attacking).toBeGreaterThanOrEqual(3);
+  expect(assignments.get('squad-0')).toBe('enemy');
+});
+it('sends one- and two-squad teams forward and still assigns patrols after total map control',()=>{
+  const facilities=createFacilities(sites.slice(0,2));
+  for(const count of [1,2,5]) {
+    const squads=Array.from({length:count},(_,i)=>({id:`squad-${i}`,faction:'armed-forces' as const,x:-90,z:0}));
+    const targets=[...assignBattlefieldFronts(squads,facilities.sites).values()];
+    expect(targets.filter(id=>id==='enemy').length).toBeGreaterThanOrEqual(Math.ceil(count/2));
+    facilities.sites[1].owner='armed-forces';
+    expect(assignBattlefieldFronts(squads,facilities.sites).size).toBe(count);
+    expect(assignBattlefieldFronts(squads,facilities.sites.slice(0,1)).size).toBe(count);
+    facilities.sites[1].owner='mercenaries';
+  }
+});
 it.each([32,48,64] as BattlefieldSize[])('starts and resets exactly %i regular AI with valid snapshots and several fronts',size=>{
   const environment:ArenaEnvironment={bounds:{minX:-200,maxX:200,minZ:-200,maxZ:200},move:(p,dx,dz)=>({x:p.x+dx,z:p.z+dz}),spawns:[{x:120,z:100},{x:-120,z:100}],endless:true,reinforcements:true,battlefield:{size},facilities:{sites}};
   const arena=createArena([],0,'mixed',environment);

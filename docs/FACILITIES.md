@@ -2,7 +2,8 @@
 
 Expedition combat is organized around independent equipment sites. Each district
 starts with an allied command post, a Black Kite command post and garage, and an
-unbuilt helipad. Sites use the existing authored ground anchors and validated
+unbuilt helipad, plus two neutral forward posts and a supply depot where space
+permits. Supply depots increase their owner's supply income. Sites use the existing authored ground anchors and validated
 motor pools; they are gameplay additions, not claims about real facilities.
 
 There is no territory-wide percentage capture. A faction can own disconnected
@@ -122,11 +123,22 @@ interval and shared eighty-second external gate. A warning and cargo flyover
 precede vulnerable infantry descending under parachutes to validated open ground.
 Booked casualties cannot also deploy through a command post.
 
-Bots are grouped into stable squads of up to four, with shared facility
-objectives and spaced approach positions. An available surviving member leads
-work at the target. Existing player orders override their movement assignment;
-individual fighting, healing and danger avoidance continue. This is a first
-objective-based squad implementation, not a formation or suppression simulator.
+Bots are grouped into stable squads of up to four. A side with at least three
+living squads keeps at most one rear guard, never more than half its living
+troops. The remaining squads attack neutral or enemy sites, reinforcing active
+fronts when there are fewer targets than squads. Once every site is friendly,
+they patrol those sites instead. Existing player orders override assignments.
+
+Long advances alternate between direct routes and bounded flanks through
+authored ground anchors. Squads avoid reusing another squad's approach when
+alternatives exist; blocked approaches expire so they cannot hold an attack
+indefinitely. Nearby soldiers spread laterally while travelling, converging
+at turns and entrances. Collision and stair navigation still govern movement.
+
+One available soldier operates the cabinet while squadmates cover positions
+8–14 m out. Quiet friendly posts rotate patrol positions 14–23 m out instead
+of keeping everyone in the capture circle. Fighting, healing and danger
+avoidance continue during assignments.
 
 ## Persistence and scope
 
