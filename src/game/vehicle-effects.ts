@@ -25,6 +25,7 @@ export function createVehicleEffects(scene: THREE.Scene) {
       if (emission >= .09) {
         emission %= .09;
         for (const v of states) {
+          if (v.despawned) continue;
           const stage = vehicleDamageStage(v);
           if (stage === 'intact' || stage === 'damaged') continue;
           const point = new THREE.Vector3(v.x + Math.sin(v.yaw), v.y + 1.5, v.z + Math.cos(v.yaw));

@@ -1,3 +1,4 @@
+import { WORLD_VEHICLES } from './world-vehicles';
 import { terrainVehicleTilt } from './terrain-vehicle';
 import { createVehiclePresentation } from './vehicle-presentation';
 import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
@@ -27,6 +28,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   const effects = createVehicleEffects(scene);
   const damageVisuals = { car: vehicleDamageVisual(models.car), helicopter: vehicleDamageVisual(models.helicopter) };
   const destruction: { kind: VehicleKind; point: THREE.Vector3; occupied: boolean }[] = [];
+  const wreckTime = { car: 0, helicopter: 0 };
   const flashTime = { car: 0, helicopter: 0 };
   function damage(kind: VehicleKind, amount: number) {
     if (damageVehicle(states[kind], amount)) {
@@ -84,9 +86,9 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     sprite.raycast = () => {};
   }
   function footObstacles(except?: VehicleKind) {
-    return [...obstacles, ...(['car', 'helicopter'] as const).filter(kind => kind !== except && states[kind].y < (bounds.groundHeight?.(states[kind].x,states[kind].z)??0)+2).map(kind => vehicleBounds(states[kind]))];
+    return [...obstacles, ...(['car', 'helicopter'] as const).filter(kind => kind !== except && !states[kind].despawned && states[kind].y < (bounds.groundHeight?.(states[kind].x,states[kind].z)??0)+2).map(kind => vehicleBounds(states[kind]))];
   }
-  function airObstacles(): FlightObstacle[] {
+  function airObstacles(includeCar = true): FlightObstacle[] {
     return [
       ...obstacles.map(o => ({ ...o, minY: o.minY??0, maxY: o.maxY ?? 2.5 })),
       ...getTraversalObstacles(scene),
@@ -96,7 +98,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
       { minX: 21, maxX: 90, minZ: -103, maxZ: -93, minY: 0, maxY: 6.5 },
       { minX: 229, maxX: 286, minZ: -281, maxZ: -253, minY: 0, maxY: 67 },
       ]),
-      { ...vehicleBounds(states.car), minY: states.car.y, maxY: states.car.y+2.7 },
+      ...(includeCar && !states.car.despawned ? [{ ...vehicleBounds(states.car), minY: states.car.y, maxY: states.car.y+2.7 }] : []),
     ];
   }
   function nearest(player: { x: number; z: number }) {
@@ -117,6 +119,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   function sync(dt: number) {
     for (const kind of ['car', 'helicopter'] as const) {
       const v = shared ? visual[kind] : states[kind], model = models[kind], previousYaw = model.rotation.y; model.position.set(v.x, v.y, v.z); model.rotation.y = v.yaw;
+      model.visible = !states[kind].despawned;
       labels[kind].position.set(v.x, v.y + (kind === 'car' ? 3.3 : 4.4), v.z); labels[kind].visible = active !== kind && v.health > 0;
       damageVisuals[kind](vehicleDamageStage(states[kind]));
       if (shared) { const gun = v as SharedVehicle; model.getObjectByName('vehicle-turret')!.rotation.set(gun.gunPitch, gun.gunYaw - gun.yaw, 0, 'YXZ'); }
@@ -137,6 +140,9 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   function advanceWrecks(dt: number) {
     for (const kind of ['car', 'helicopter'] as const) {
       const v = states[kind];
+      wreckTime[kind] = v.health <= 0 ? wreckTime[kind] + dt : 0;
+      if (v.health <= 0 && wreckTime[kind] >= WORLD_VEHICLES.despawnSeconds) v.despawned = true;
+      if (v.despawned) continue;
       if (v.health <= 0 && v.y > .13) {
         // A wreck falls onto the highest support beneath it, never through a roof.
         const ground = airObstacles().filter(o => o.maxY <= v.y && v.x >= o.minX && v.x <= o.maxX && v.z >= o.minZ && v.z <= o.maxZ).reduce((y, o) => Math.max(y, o.maxY), .13);
@@ -167,7 +173,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   sync(0);
   return {
     root, models, states, footObstacles, interact, step, damage, hitKind, aim, fire, nearest,
-    flightObstacles: () => airObstacles().slice(0, -1),
+    flightObstacles: () => airObstacles(false),
     get seat() { return seat(); },
     get canFire() { return canFire(); },
     get canUseFirearm() { return active !== null && (seat() ?? 0) >= 2; },
@@ -208,7 +214,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
         interact: active ? `E · Exit ${active}` : near ? `E · ${nearLabel} · ${Math.ceil(states[near].health)} HP` : '', vehicleNotice: notice,
         carDistance: distance(player, 'car'), helicopterDistance: distance(player, 'helicopter') };
     },
-    reset() { active = null; shared = null; lastSnapshot = null; presentation.car.reset(); presentation.helicopter.reset(); selfId = ''; localSeat = 0; sharedShots.car = sharedShots.helicopter = 0; notice = ''; noticeTime = 0; destruction.length = 0; effects.reset(); flashTime.car = flashTime.helicopter = 0; for (const model of Object.values(models)) model.getObjectByName('vehicle-turret')!.rotation.set(0, 0, 0); states.car = createVehicle('car', spawns.car); states.helicopter = createVehicle('helicopter', spawns.helicopter); for(const v of Object.values(states))v.y=(bounds.groundHeight?.(v.x,v.z)??0)+.13; models.helicopter.rotation.x = 0; models.car.getObjectByName('humvee-steering-wheel')!.rotation.z = 0; sync(0); },
+    reset() { active = null; shared = null; lastSnapshot = null; presentation.car.reset(); presentation.helicopter.reset(); selfId = ''; localSeat = 0; sharedShots.car = sharedShots.helicopter = 0; notice = ''; noticeTime = 0; destruction.length = 0; wreckTime.car = wreckTime.helicopter = 0; effects.reset(); flashTime.car = flashTime.helicopter = 0; for (const model of Object.values(models)) model.getObjectByName('vehicle-turret')!.rotation.set(0, 0, 0); states.car = createVehicle('car', spawns.car); states.helicopter = createVehicle('helicopter', spawns.helicopter); for(const v of Object.values(states))v.y=(bounds.groundHeight?.(v.x,v.z)??0)+.13; models.helicopter.rotation.x = 0; models.car.getObjectByName('humvee-steering-wheel')!.rotation.z = 0; sync(0); },
     dispose() { effects.dispose(); root.removeFromParent(); disposeModel(root); Object.values(labels).forEach(sprite => { sprite.material.map?.dispose(); sprite.material.dispose(); }); },
   };
 }

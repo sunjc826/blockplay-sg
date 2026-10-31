@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { createFpsVehicles } from './fps-vehicles';
+import { WORLD_VEHICLES } from './world-vehicles';
 import { firstVisibleHit } from './fps-raycast';
 import { createSharedVehicle } from './vehicle-seats';
 
@@ -181,5 +182,51 @@ it('drives the Humvee steering wheel and speedometer from actual movement, and r
     vehicles.reset();
     expect(needle.rotation.z).toBeCloseTo(parked);
     expect(wheel.rotation.z).toBeCloseTo(0);
+  } finally { vehicles.dispose(); }
+});
+
+
+it.each(['car', 'helicopter'] as const)('despawns the local %s wreck, clears collision and effects, and restores it on reset', kind => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  const scene = new THREE.Scene(), vehicles = createFpsVehicles(scene, [], { car: '', helicopter: '' });
+  try {
+    vehicles.damage(kind, 10000);
+    const before = vehicles.footObstacles().length;
+    vehicles.step(new Set(), WORLD_VEHICLES.despawnSeconds - 1);
+    expect(vehicles.models[kind].visible).toBe(true);
+    vehicles.step(new Set(), 1);
+    expect(vehicles.models[kind].visible).toBe(false);
+    expect(vehicles.states[kind].despawned).toBe(true);
+    expect(vehicles.footObstacles()).toHaveLength(before - 1);
+    expect(vehicles.nearest(vehicles.states[kind])).toBeUndefined();
+    vehicles.damage(kind === 'car' ? 'helicopter' : 'car', 10000);
+    vehicles.animateEffects(WORLD_VEHICLES.despawnSeconds + 1);
+    vehicles.animateEffects(3);
+    const effects = scene.children.find(o => o.userData.fpsEffect)!;
+    expect(effects.children.some(o => o.visible)).toBe(false);
+    expect(vehicles.models.car.visible).toBe(false);
+    expect(vehicles.models.helicopter.visible).toBe(false);
+    vehicles.reset();
+    expect(vehicles.models[kind].visible).toBe(true);
+    expect(vehicles.states[kind].despawned).toBe(false);
+    expect(vehicles.footObstacles()).toHaveLength(before);
+  } finally { vehicles.dispose(); }
+});
+
+it('uses authoritative shared despawns and restores a replacement in the same slot', () => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  const vehicles = createFpsVehicles(new THREE.Scene(), [], { car: '', helicopter: '' });
+  try {
+    const car = createSharedVehicle('car', { x: 0, z: 0, yaw: 0 });
+    const air = createSharedVehicle('helicopter', { x: 40, z: 0, yaw: 0 });
+    vehicles.adoptShared([{ ...car, health: 0 }, air], 'self');
+    vehicles.sharedStep(WORLD_VEHICLES.despawnSeconds + 1);
+    expect(vehicles.models.car.visible).toBe(true); // Only authority owns the shared timer.
+    vehicles.adoptShared([{ ...car, health: 0, despawned: true }, air], 'self');
+    expect(vehicles.models.car.visible).toBe(false);
+    expect(vehicles.footObstacles()).toHaveLength(1);
+    vehicles.adoptShared([car, air], 'self');
+    expect(vehicles.models.car.visible).toBe(true);
+    expect(vehicles.footObstacles()).toHaveLength(2);
   } finally { vehicles.dispose(); }
 });

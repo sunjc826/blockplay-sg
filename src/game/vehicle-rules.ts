@@ -4,12 +4,12 @@ import { VEHICLE_COMBAT } from './vehicle-combat';
 export type VehicleKind = 'car' | 'helicopter';
 export interface VehicleSpawn { x: number; z: number; yaw: number }
 export type VehicleWorldBounds = RegionBounds;
-export interface VehicleState { kind: VehicleKind; x: number; y: number; z: number; yaw: number; speed: number; climb: number; health: number; ammo: number; weaponCooldown: number }
+export interface VehicleState { despawned?: boolean; kind: VehicleKind; x: number; y: number; z: number; yaw: number; speed: number; climb: number; health: number; ammo: number; weaponCooldown: number }
 export interface FlightObstacle extends Obstacle { minY: number; maxY: number }
 /** Impact speed is the velocity into rejected movement axes, before the solver stops them. */
 export interface VehicleMovement { state: VehicleState; blocked: boolean; impactSpeed: number }
 export const VEHICLE_SPAWNS = { car: { x: -48, z: 68, yaw: -Math.PI / 2 }, helicopter: { x: -65, z: 69, yaw: 0 } };
-export const createVehicle = (kind: VehicleKind, spawn: VehicleSpawn = VEHICLE_SPAWNS[kind]): VehicleState => ({ kind, ...spawn, y: .13, speed: 0, climb: 0, health: VEHICLE_COMBAT[kind].health, ammo: VEHICLE_COMBAT[kind].ammo, weaponCooldown: 0 });
+export const createVehicle = (kind: VehicleKind, spawn: VehicleSpawn = VEHICLE_SPAWNS[kind]): VehicleState => ({ kind, despawned: false, ...spawn, y: .13, speed: 0, climb: 0, health: VEHICLE_COMBAT[kind].health, ammo: VEHICLE_COMBAT[kind].ammo, weaponCooldown: 0 });
 const damp = (a: number, b: number, rate: number, dt: number) => b + (a - b) * Math.exp(-rate * dt);
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
 export function vehicleBounds(v: VehicleState): Obstacle {

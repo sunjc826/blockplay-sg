@@ -494,7 +494,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const groundObstacles = obstacles.filter(o => (o.maxY ?? 200) > 0.15);
   const clearSpawn = (p: { x: number; z: number }) => Number.isFinite(p.x) && Number.isFinite(p.z) &&
     p.x - 0.5 >= bounds.minX && p.x + 0.5 <= bounds.maxX && p.z - 0.5 >= bounds.minZ && p.z + 0.5 <= bounds.maxZ &&
-    !vehicles.some(v => { const b = vehicleBounds(v); return v.y < 2 && p.x + .5 > b.minX && p.x - .5 < b.maxX && p.z + .5 > b.minZ && p.z - .5 < b.maxZ; }) &&
+    !vehicles.some(v => { if (v.despawned) return false; const b = vehicleBounds(v); return v.y < 2 && p.x + .5 > b.minX && p.x - .5 < b.maxX && p.z + .5 > b.minZ && p.z - .5 < b.maxZ; }) &&
     !groundObstacles.some(o => p.x + 0.5 > o.minX && p.x - 0.5 < o.maxX && p.z + 0.5 > o.minZ && p.z - 0.5 < o.maxZ);
   const validSpawns = (environment?.spawns ?? SPAWNS).filter(clearSpawn);
   if (!validSpawns.length) {
@@ -730,7 +730,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const y = actor.y + (target.y - actor.y) * scale;
     const bodyHeight = actor.prone ? .6 : target.y - floor < 1.4 ? 1.2 : 1.8;
     const feet = y - (bodyHeight - .05);
-    const solids = [...obstacles, ...vehicles.filter(v => v.y < 2).map(vehicleBounds)].filter(o => (o.maxY ?? 200) > feet + 1e-5);
+    const solids = [...obstacles, ...vehicles.filter(v => !v.despawned && v.y < 2).map(vehicleBounds)].filter(o => (o.maxY ?? 200) > feet + 1e-5);
     if (traversalWorld) solids.push(...traversalWorld.traversalObstacles.filter(o => o.maxY > feet + 1e-5 && o.minY < y + .05));
     let position = move(actor, (target.x - actor.x) * scale, (target.z - actor.z) * scale, 0.35, solids);
     if (traversal && !traversal.canOccupy(position.x, Math.max(0, feet), position.z, .35, bodyHeight)) position = { x: actor.x, z: actor.z };
@@ -1026,7 +1026,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const mounted = seatOf(vehicles, id);
     if (action === 'exit' && mounted) {
       if (vehicleOptions?.openWorld && mounted.seat === 0) return unloadVehicle(mounted.vehicle);
-      const others = vehicles.filter(v => v !== mounted.vehicle && v.y < 2).map(vehicleBounds);
+      const others = vehicles.filter(v => !v.despawned && v !== mounted.vehicle && v.y < 2).map(vehicleBounds);
       const exit = vehicleExit(mounted.vehicle, [...obstacles, ...others], bounds, exitFloor); if (!exit) return false;
       releaseSeat(id); Object.assign(entry.actor, exit, { y: exit.y + 1.75 }); entry.movementBudget = 0; entry.vehicleBoardAfter = elapsed + WORLD_VEHICLES.boardCooldown; return true;
     }
@@ -1057,7 +1057,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const exitFloor = (x: number, z: number) => traversal ? traversal.supportHeight(x, z, (bounds.groundHeight?.(x,z)??0)+MAX_STEP_HEIGHT, .38, 1.8) : 0;
   /** Plan every exit before freeing a seat: never stack a squad or put it inside cover. */
   function unloadVehicle(v: SharedVehicle) {
-    const solids = [...obstacles, ...vehicles.filter(other => other !== v && other.y < 2).map(vehicleBounds)];
+    const solids = [...obstacles, ...vehicles.filter(other => !other.despawned && other !== v && other.y < 2).map(vehicleBounds)];
     const crew = v.occupants.filter((id): id is string => !!id);
     for (const member of members.values()) if (member.actor.alive && !crew.includes(member.actor.id) && member.actor.y < 3) {
       solids.push({ minX: member.actor.x - .4, maxX: member.actor.x + .4, minZ: member.actor.z - .4, maxZ: member.actor.z + .4 });
@@ -2257,7 +2257,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.navigation = undefined;
     const d = Math.hypot(v.x - entry.actor.x, v.z - entry.actor.z), stride = Math.min(d, entry.role!.speed * dt);
     const dx = (v.x - entry.actor.x) / Math.max(.01, d) * stride, dz = (v.z - entry.actor.z) / Math.max(.01, d) * stride;
-    const solids = vehicles.filter(other => other.y < 2).map(vehicleBounds);
+    const solids = vehicles.filter(other => !other.despawned && other.y < 2).map(vehicleBounds);
     if (traversal) {
       const next = traversal.move({ x: entry.actor.x, y: Math.max(0, entry.actor.y - 1.75), z: entry.actor.z, velocityY: entry.velocityY ?? 0 }, dx, dz, dt, .4, 1.8, solids);
       Object.assign(entry.actor, { x: next.x, y: next.y + 1.75, z: next.z }); entry.velocityY = next.velocityY;
@@ -2278,14 +2278,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     for (const v of vehicles) {
       const life = lifeOf(v), occupied = v.occupants.some(Boolean);
       life.idle = occupied ? 0 : life.idle + dt;
-      life.wreck = v.health <= 0 ? life.wreck + dt : 0;
       const facility = facilities?.sites.find(s => s.kind === (v.kind === 'car' ? 'garage' : 'helipad') && facilityOperational(s));
       const spawn = facility?.deployment ?? vehicleOptions!.spawns[v.kind];
       const replace = v.health <= 0 ? life.wreck >= WORLD_VEHICLES.wreckSeconds : life.idle >= WORLD_VEHICLES.abandonedSeconds && Math.hypot(v.x - spawn.x, v.z - spawn.z) > 12;
       const near = [...members.values()].some(m => m.actor.alive && (distance(m.actor, { ...spawn, y: 1.75 }) < (m.actor.bot ? 8 : WORLD_VEHICLES.protectDistance) ||
-        distance(m.actor, v) < (m.actor.bot ? 8 : v.health <= 0 ? WORLD_VEHICLES.protectDistance : WORLD_VEHICLES.reclaimDistance)));
+        !v.despawned && distance(m.actor, v) < (m.actor.bot ? 8 : v.health <= 0 ? WORLD_VEHICLES.protectDistance : WORLD_VEHICLES.reclaimDistance)));
       if (!occupied && replace && !near && (!facilities || facility && facility.deployIn === 0) && clearVehicleSpawn(v.kind, spawn, vehicleGround, vehicleOptions!.flightObstacles ?? [], bounds,
-        vehicles.filter(other => other !== v && other.y < 6).map(vehicleBounds)) &&
+        vehicles.filter(other => !other.despawned && other !== v && other.y < 6).map(vehicleBounds)) &&
         (!facilities || facilities.spend(facility!.owner!, v.kind === 'car' ? FACILITY_RULES.carCost : FACILITY_RULES.helicopterCost))) {
         Object.assign(v, createSharedVehicle(v.kind, spawn)); if (facility) { v.faction = facility.owner!; facility.deployIn = 45; }
         vehicleLife.delete(v.kind); continue;
@@ -2324,7 +2323,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         }
         if (assembling || elapsed < life.wait) { hold(driver.actor.id, neutral); continue; }
         life.departed = true;
-        const ground = [...vehicleGround, ...vehicles.filter(other => other !== v && other.y < 2).map(vehicleBounds)];
+        const ground = [...vehicleGround, ...vehicles.filter(other => !other.despawned && other !== v && other.y < 2).map(vehicleBounds)];
         const clearRoute = (goal: VehicleSpawn) => {
           const d = Math.hypot(goal.x - v.x, goal.z - v.z), yaw = Math.atan2(v.x - goal.x, v.z - goal.z);
           for (let n = 0; n <= d; n += 2) {
@@ -2369,11 +2368,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function stepVehicles(dt: number) {
     for (const v of vehicles) {
+      if (v.despawned) continue;
       v.weaponCooldown = Math.max(0, v.weaponCooldown - dt);
       const held = (id: string | null) => id && (controls.get(id)?.expires ?? 0) > elapsed ? controls.get(id)!.input : undefined;
       const drive = held(v.occupants[0]);
-      const ground = [...vehicleGround, ...vehicles.filter(other => other !== v && other.y < 2).map(vehicleBounds)];
-      const flight = [...(vehicleOptions?.flightObstacles ?? obstacles.map(o => ({ ...o, minY: 0, maxY: o.maxY ?? 2.5 }))), ...vehicles.filter(other => other !== v).map(other => ({ ...vehicleBounds(other), minY: other.y, maxY: other.y + 2.7 }))];
+      const ground = [...vehicleGround, ...vehicles.filter(other => !other.despawned && other !== v && other.y < 2).map(vehicleBounds)];
+      const flight = [...(vehicleOptions?.flightObstacles ?? obstacles.map(o => ({ ...o, minY: 0, maxY: o.maxY ?? 2.5 }))), ...vehicles.filter(other => !other.despawned && other !== v).map(other => ({ ...vehicleBounds(other), minY: other.y, maxY: other.y + 2.7 }))];
       if (v.health <= 0) {
         const support = flight.filter(o => o.maxY <= v.y && v.x >= o.minX && v.x <= o.maxX && v.z >= o.minZ && v.z <= o.maxZ).reduce((y, o) => Math.max(y, o.maxY), .13);
         v.climb -= 9.8 * dt; v.y = Math.max(support, v.y + v.climb * dt); if (v.y === support) v.climb = 0; continue;
@@ -2528,7 +2528,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if(navigator && (!entry.navigation || !entry.navigation.pending && entry.navigation.retry<=0 && (!entry.navigation.path.length && distance(feet,goal)>.7 || distance(entry.navigation.target,goal)>4))) {
         const traffic=[...members.values()].filter(m=>m!==entry && m.actor.alive && m.actor.faction===actor.faction && m.actor.squad!==actor.squad)
           .flatMap(m=>m.navigation?.path.filter((_,i)=>i%3===0) ?? []);
-        const blockers=vehicles.filter(v=>v.y-groundHeight(v.x,v.z)<2).map(v=>({...vehicleBounds(v),minY:v.y,maxY:v.y+3}));
+        const blockers=vehicles.filter(v=>!v.despawned && v.y-groundHeight(v.x,v.z)<2).map(v=>({...vehicleBounds(v),minY:v.y,maxY:v.y+3}));
         entry.navigation={path:[],target:goal,retry:1.5,pending:navigator.plan(feet,goal,p=>traffic.some(q=>Math.hypot(p.x-q.x,p.z-q.z)<8)?12:0,blockers)};
       }
       if (entry.navigation?.pending) { dxStep=0; dzStep=0; }
@@ -2556,7 +2556,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (exit) { dxStep = exit.x * role.speed * 1.3 * dt; dzStep = exit.z * role.speed * 1.3 * dt; }
     if (exit && !entry.barkFleeing) bark(entry, 'incoming');
     entry.barkFleeing = !!exit;
-    const vehicleSolids = vehicles.filter(v => v.y-groundHeight(v.x,v.z) < 2).map(vehicleBounds);
+    const vehicleSolids = vehicles.filter(v => !v.despawned && v.y-groundHeight(v.x,v.z) < 2).map(vehicleBounds);
     const beforeMove={x:actor.x,z:actor.z};
     if (entry.anchor) Object.assign(actor, { x: entry.anchor.x, z: entry.anchor.z });
     else if (traversal) {
@@ -2779,6 +2779,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     threatCoverQueries = 0;
     dt = Math.min(dt, 0.25); elapsed = environment?.endless ? elapsed + dt : Math.min(ARENA_DURATION, elapsed + dt); tick++;
     stepFacilities(dt); stepSquads(dt);
+    // Wreck cleanup is independent of nearby players, facility supply and replacement safety.
+    for (const v of vehicles) {
+      const life = lifeOf(v);
+      life.wreck = v.health <= 0 ? life.wreck + dt : 0;
+      if (v.health <= 0 && !v.occupants.some(Boolean) && life.wreck >= WORLD_VEHICLES.despawnSeconds) v.despawned = true;
+    }
     if (vehicleOptions?.openWorld) stepVehicleBrains(dt);
     for (let remaining = dt; remaining > 1e-6; remaining -= Math.min(.05, remaining)) stepVehicles(Math.min(.05, remaining));
     if (vehicleOptions?.openWorld) stepVehiclePickups(dt);

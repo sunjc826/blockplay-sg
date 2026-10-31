@@ -12,6 +12,7 @@ import { expeditionNpcs } from './expedition-npcs';
 import { zoneSectors } from './zone-sectors';
 import { WORLD_ZONES } from './world-zones';
 import { shootAndLand } from './arena-test-shots';
+import { vehicleRayDistance } from './vehicle-seats';
 import { vehicleExit, vehicleBounds, createVehicle } from './vehicle-rules';
 
 const spawns = { car: { x: 0, z: 0, yaw: 0 }, helicopter: { x: 40, z: 0, yaw: 0 } };
@@ -184,7 +185,7 @@ it('recovers distant abandoned hulls after two minutes, without refilling a play
   expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
 });
 
-it('replaces a wreck after 45 seconds only when its old position and motor pool are clear', () => {
+it('despawns a nearby wreck after 30 seconds but waits for the motor pool to clear before replacing it', () => {
   const arena = createArena([], 0, 'mixed', environment, options);
   arena.addPlayer('shooter', 'Shooter', 0, 0, [{ damage: 200, interval: .06, capacity: 100, reload: 1 }], undefined, true);
   for (let i = 0; i < 3; i++) {
@@ -193,9 +194,41 @@ it('replaces a wreck after 45 seconds only when its old position and motor pool 
     shootAndLand(arena, 'shooter', from, { x: aim.x / d, y: aim.y / d, z: aim.z / d }, 0); tick(arena, .1);
   }
   expect(car(arena).health).toBe(0);
-  tick(arena, WORLD_VEHICLES.wreckSeconds + 1); expect(car(arena).health).toBe(0);
+  tick(arena, WORLD_VEHICLES.despawnSeconds - 1); expect(car(arena).despawned).toBe(false);
+  tick(arena, 2); expect(car(arena).despawned).toBe(true);
+  expect(vehicleRayDistance(car(arena), { x: 10, y: 1.5, z: 0 }, { x: -1, y: 0, z: 0 })).toBe(Infinity);
+  expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
+  const invalid = arena.snapshot(); invalid.vehicles![0].health = 100;
+  expect(validArenaSnapshot(invalid, environment)).toBe(false);
+  tick(arena, WORLD_VEHICLES.wreckSeconds); expect(car(arena).health).toBe(0);
   arena.removePlayer('shooter'); tick(arena, .1);
-  expect(car(arena).health).toBe(600); expect(car(arena).occupants.every(id => id === null)).toBe(true);
+  expect(car(arena).health).toBe(600); expect(car(arena).despawned).toBe(false); expect(car(arena).occupants.every(id => id === null)).toBe(true);
+  expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
+});
+
+it.each([false, true])('clears a remote wreck beside a player and only replenishes open-world vehicles (%s)', openWorld => {
+  const arena = createArena([], 0, 'mixed', environment, { ...options, openWorld });
+  arena.addPlayer('p0', 'Shooter', 0, 0, [{ damage: 200, interval: .06, capacity: 100, reload: 1 }], undefined, true);
+  expect(arena.vehicleAction('p0', 'enter', 'car')).toBe(true);
+  drive(arena, 5); drive(arena, 1, 0);
+  expect(arena.vehicleAction('p0', 'exit')).toBe(true);
+  expect(Math.abs(car(arena).z)).toBeGreaterThan(60);
+  arena.setPlayerHealthMultiplier('p0', 5);
+  arena.setPlayerVitals('p0', { health: 250 });
+  for (let i = 0; i < 3; i++) {
+    const from = actor(arena, 'p0'), v = car(arena), aim = { x: v.x - from.x, y: v.y + 1.3 - from.y, z: v.z - from.z };
+    const d = Math.hypot(aim.x, aim.y, aim.z);
+    shootAndLand(arena, 'p0', from, { x: aim.x / d, y: aim.y / d, z: aim.z / d }, 0); tick(arena, .1);
+  }
+  expect(car(arena).health).toBe(0);
+  expect(actor(arena, 'p0').alive).toBe(true);
+  tick(arena, WORLD_VEHICLES.despawnSeconds + 1);
+  expect(car(arena).despawned).toBe(true);
+  expect(car(arena).health).toBe(0);
+  expect(arena.vehicleAction('p0', 'enter', 'car')).toBe(false);
+  tick(arena, WORLD_VEHICLES.wreckSeconds - WORLD_VEHICLES.despawnSeconds);
+  expect(car(arena).health).toBe(openWorld ? 600 : 0);
+  expect(car(arena).despawned).toBe(!openWorld);
   expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
 });
 

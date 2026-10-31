@@ -23,6 +23,7 @@ export function seatPoint(v: VehicleState, seat: number) {
 }
 /** Slab test in hull-local space, including wrecks; no client hit claims needed. */
 export function vehicleRayDistance(v: VehicleState, origin: { x: number; y: number; z: number }, direction: { x: number; y: number; z: number }) {
+  if (v.despawned) return Infinity;
   const c = Math.cos(v.yaw), s = Math.sin(v.yaw), dx = origin.x - v.x, dz = origin.z - v.z;
   const starts = [c * dx - s * dz, origin.y - v.y, s * dx + c * dz];
   const rays = [c * direction.x - s * direction.z, direction.y, s * direction.x + c * direction.z];
