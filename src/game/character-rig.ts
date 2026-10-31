@@ -21,6 +21,9 @@ export interface CharacterLook {
   hairStyle?: 'short' | 'long' | 'bald';
   sleeves?: 'long' | 'short'; shorts?: boolean; gloves?: string;
   vest?: string; plates?: boolean; backpack?: string;
+  /** Persistent faction silhouette; independent of rank, role and HUD colour. */
+  uniform?: 'field' | 'contractor';
+  roleKit?: 'rifleman' | 'gunner' | 'marksman' | 'mortar';
   apron?: string; lanyard?: string; towel?: string;
   /** Team or role colour on the sleeves and helmet band. */
   accent?: string;
@@ -223,17 +226,18 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
   };
   /**
    * A badge sewn flat on a surface whose outward normal is ±x (a sleeve) or -z
-   * (the chest). Pieces are laid out in the badge's own plane: u across, v up.
+   * (the chest) or +z (the back). Pieces are laid out in the badge's own plane: u across, v up.
    */
-  const sew = (bone: THREE.Object3D, badge: PatchLook, x: number, y: number, z: number, normal: 1 | -1 | 'front', w: number, h: number) => {
+  const sew = (bone: THREE.Object3D, badge: PatchLook, x: number, y: number, z: number, normal: 1 | -1 | 'front' | 'back', w: number, h: number) => {
     const piece = (u: number, v: number, pw: number, ph: number, angle: number, color: string, depth: number) => {
-      if (normal === 'front') add(bone, place(box(pw, ph, depth), x + u, y + v, z - depth / 2, 1, 1, 1, 0, 0, angle), color);
+      if (normal === 'front' || normal === 'back') add(bone, place(box(pw, ph, depth), x + u, y + v, z + (normal === 'front' ? -1 : 1) * depth / 2, 1, 1, 1, 0, 0, angle), color);
       else add(bone, place(box(depth, ph, pw), x + normal * depth / 2, y + v, z + u, 1, 1, 1, angle), color);
     };
     const cloth = .008, device = .012, { field, mark } = badge;
     piece(0, 0, w, h, 0, field, cloth);
     if (badge.design === 'flag') piece(0, h / 4, w, h / 2, 0, mark, device);
     if (badge.design === 'bar') piece(0, 0, w, h * .28, 0, mark, device);
+    if (badge.design === 'bars') for (const v of [-.22, .22]) piece(0, h * v, w * .8, h * .16, 0, mark, device);
     if (badge.design === 'diamond') piece(0, 0, Math.min(w, h) * .5, Math.min(w, h) * .5, Math.PI / 4, mark, device);
     if (badge.design === 'chevron') for (const s of [-1, 1]) piece(s * w * .17, h * .05, w * .44, h * .2, s * .62, mark, device);
     // Rank stripes: one chevron per grade, stacked point up.
@@ -283,6 +287,55 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     add(chest, place(box(.3 * build, .36, .14), 0, .1, .18), look.backpack);
     add(chest, place(box(.24 * build, .12, .06), 0, -.03, .26), shade(look.backpack, .8));
   }
+  // Faction identity is authored into the same bone meshes, adding no draws.
+  // Field troops have open webbing and a broad bedroll; contractors have a
+  // hard raised collar, clipped shoulder armour and a covered lower face.
+  const contractor = look.uniform === 'contractor', field = look.uniform === 'field';
+  const kit = look.vest ?? belt, idField = '#202723', idMark = '#e8e2cc';
+  if (field) {
+    const front = look.plates ? -.199 : -.151;
+    for (const side of [-1, 1]) {
+      add(chest, place(box(.038, .33, .025), side * .13 * build, .115, front), '#a8ac82');
+      add(chest, place(box(.052, .025, .032), side * .13 * build, .19, front - .009), '#333b2d');
+    }
+    add(chest, place(cylinder(.07, .07, .43 * build, 12), 0, .235, look.backpack ? .28 : .20, 1, 1, 1, 0, 0, Math.PI / 2), look.backpack ?? kit);
+    for (const side of [-1, 1]) add(chest, place(box(.027, .14, .14), side * .13 * build, .235, look.backpack ? .28 : .20), '#a8ac82');
+  }
+  if (contractor) {
+    for (const side of [-1, 1]) add(chest, place(box(.065, .13, .25), side * .09, .29, .012, 1, 1, 1, 0, 0, side * .18), kit);
+    add(chest, place(box(.19, .09, .055), 0, .29, .12), kit);
+    add(head, place(box(.19, .075, .12), 0, .025, -.075), shade(kit, 1.2));
+    // Two diagonal seams keep the mask legible as fabric rather than a new face.
+    for (const side of [-1, 1]) add(head, place(box(.075, .009, .008), side * .038, .032, -.14, 1, 1, 1, 0, 0, side * .22), '#70777c');
+  }
+  if (field || contractor) {
+    const badge: PatchLook = { design: contractor ? 'diamond' : 'bars', field: idField, mark: idMark };
+    const front = look.plates ? -.19 : -.14;
+    sew(chest, badge, 0, .19, front - .025, 'front', .15, .12);
+    const back = look.backpack ? .255 : look.plates ? .19 : .14;
+    sew(chest, badge, 0, .065, back + .025, 'back', .23, .20);
+  }
+  // Jobs remain readable when a weapon or helmet is hidden by the pose.
+  if (look.roleKit === 'gunner') {
+    for (const side of [-1, 1]) {
+      add(hips, place(box(.13, .18, .13), side * .21 * build, -.035, .005), kit);
+      add(hips, place(box(.09, .025, .14), side * .21 * build, .06, .005), '#92977b');
+    }
+  }
+  if (look.roleKit === 'marksman') {
+    // A short split shoulder drape, leaving the faction plate and insignia exposed.
+    for (const side of [-1, 1]) {
+      add(chest, place(box(.13, .06, .30), side * .19 * build, .235, .015, 1, 1, 1, 0, 0, side * -.16), look.top, false, topFabric);
+      for (let i = 0; i < 4; i++) add(chest, place(box(.035, .11 + i % 2 * .025, .025), side * (.14 + i * .03) * build, .16, .17), look.top, false, topFabric);
+    }
+  }
+  if (look.roleKit === 'mortar') {
+    // Two tall, capped shell carriers extend above either shoulder, behind the head.
+    for (const side of [-1, 1]) {
+      add(chest, place(cylinder(.048, .048, .51, 10), side * .14 * build, .22, .30), kit);
+      for (const y of [.005, .43]) add(chest, place(cylinder(.053, .053, .035, 10), side * .14 * build, y, .30), '#9a9e8a');
+    }
+  }
   // Neck and head. The face points down -z.
   add(neck, place(cylinder(.055, .062, .12), 0, .02, 0), look.skin);
   if (look.headwear === 'headscarf') add(neck, place(cylinder(.1, .19 * build, .16, 14), 0, -.04, .005), look.headwearColor ?? look.hair);
@@ -331,11 +384,20 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     add(upper, place(sphere(.066), 0, -.012, 0), look.top, false, topFabric);
     if (look.sleeves === 'short') { limb(upper, D.upperArm, .066, .052, look.top, 0, .14, topFabric); limb(upper, D.upperArm, .06, .05, look.skin, .14, D.upperArm); }
     else limb(upper, D.upperArm, .066, .054, look.top, 0, D.upperArm, topFabric);
+    if (contractor || look.roleKit === 'gunner') {
+      // Faceted guards widen the contractor silhouette even on recruits.
+      const radius = look.roleKit === 'gunner' ? .10 : .087;
+      add(upper, place(cylinder(radius, radius * .85, .12, 5), 0, -.035, 0), kit);
+    }
+    if (field || contractor) {
+      const x = -side * (contractor || look.roleKit === 'gunner' ? .094 : .071);
+      sew(upper, { design: contractor ? 'diamond' : 'bars', field: idField, mark: idMark }, x, -.035, 0, side < 0 ? 1 : -1, .09, .085);
+    }
     // Badges replace the plain armband: they carry the side, the helmet band the role.
     // The arm IK keeps each upper arm's local +x on the hinge, which points
     // across the body, so the outside of either arm is local -side·x.
     const badge = side < 0 ? look.patches?.left : look.patches?.right;
-    if (badge) sew(upper, badge, -side * .062, -.085, 0, side < 0 ? 1 : -1, .062, .07);
+    if (badge) sew(upper, badge, -side * .062, look.uniform ? -.155 : -.085, 0, side < 0 ? 1 : -1, .062, .07);
     else if (combat && look.accent) add(upper, place(cylinder(.068, .066, .045), 0, -.1, 0), sleeve);
     const sleeved = look.sleeves !== 'short';
     add(fore, place(sphere(.053), 0, 0, 0), sleeved ? look.top : look.skin, false, sleeved && topFabric);

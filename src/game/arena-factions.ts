@@ -28,7 +28,7 @@ export interface ArenaFactionPalette {
  */
 export interface CamoPattern { style: 'digital' | 'blotch'; colors: readonly [string, string, string]; scale: number }
 /** A sewn-on badge, about 7 cm across. `field` is the cloth, `mark` the device on it; `count` stacks a `chevrons` rank badge. */
-export interface PatchLook { design: 'flag' | 'bar' | 'diamond' | 'chevron' | 'chevrons' | 'tape'; field: string; mark: string; count?: number }
+export interface PatchLook { design: 'flag' | 'bar' | 'bars' | 'diamond' | 'chevron' | 'chevrons' | 'tape'; field: string; mark: string; count?: number }
 export type ArenaSide = 'forces' | 'opposition';
 export interface ArenaFaction {
   id: string; name: string; description: string;
@@ -36,6 +36,8 @@ export interface ArenaFaction {
   short: string;
   side: ArenaSide;
   palette: Readonly<ArenaFactionPalette>;
+  /** Large, colour-independent equipment and identification shapes, retained at every rank. */
+  uniform?: 'field' | 'contractor';
   /** Printed over the palette's cloth: the shirt alone (`top`) or the whole uniform and helmet cover (`all`). */
   camo: { pattern: CamoPattern; on: 'all' | 'top' };
   /** One on the outside of each upper arm, one on the left breast. */
@@ -76,7 +78,8 @@ export const hostile = (a: { bot: boolean; faction?: string }, b: { bot: boolean
 
 registerArenaFaction({
   id: 'armed-forces', name: 'Armed forces', short: 'FORCES', side: 'forces',
-  description: 'Jungle-green pixel camouflage, olive webbing and a covered helmet, flag on the left shoulder: the players and their friendly squads.',
+  uniform: 'field',
+  description: 'Covered helmets, open webbing, a horizontal bedroll and paired identification bars over jungle-green pixel camouflage: the players and their friendly squads.',
   palette: { top: '#4a5d38', bottom: '#3c4b2e', shoes: '#1c1d18', vest: '#3a452d', backpack: '#435134', gloves: '#262b1f', helmet: '#3d4a31', boonie: '#56663f' },
   camo: { pattern: { style: 'digital', colors: ['#2f3d24', '#1e2119', '#6b5a3c'], scale: 42 }, on: 'all' },
   patches: {
@@ -88,7 +91,8 @@ registerArenaFaction({
 });
 registerArenaFaction({
   id: 'mercenaries', name: 'Black Kite mercenaries', short: 'BLACK KITE', side: 'opposition',
-  description: 'Deep navy contractor kit in soft camouflage over near-black plate carriers, caps and shades on patrol, an orange kite on the shoulder. The squads that come for you.',
+  uniform: 'contractor',
+  description: 'Angular shoulder guards, a raised collar and face wrap, large pale kite emblems on dark navy contractor kit. The squads that come for you.',
   palette: { top: '#1f3557', bottom: '#172840', shoes: '#121318', vest: '#151c29', backpack: '#1b2537', gloves: '#10141c', helmet: '#192334', boonie: '#2a4166' },
   camo: { pattern: { style: 'blotch', colors: ['#2c4670', '#14223a', '#3a5a86'], scale: 9 }, on: 'top' },
   patches: {

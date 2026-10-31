@@ -45,6 +45,8 @@ export function arenaCharacterLook(actor: { bot: boolean; role: string; id?: str
     top: mix(palette.top, '#9a9a88', wear), bottom: mix(palette.bottom, '#20221e', wear), shoes: palette.shoes, gloves: palette.gloves,
     camo: { pattern: faction.camo.pattern, on: faction.camo.on, headwear: headwear === 'boonie' || faction.camo.on === 'all' && headwear === 'helmet' },
     patches,
+    uniform: faction.uniform,
+    roleKit: heavy ? 'gunner' : sniper ? 'marksman' : actor.role === 'mortar-crew' ? 'mortar' : 'rifleman',
     build: heavy ? 1.16 : sniper ? .95 : 1,
     headwear, headwearColor: headwear === 'boonie' ? palette.boonie : palette.helmet,
     eyewear: veteran || headwear === 'cap' && !recruit ? '#121314' : undefined,

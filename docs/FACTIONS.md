@@ -2,14 +2,16 @@
 
 Every soldier fights for a faction registered in `src/game/arena-factions.ts`
 (`registerArenaFaction`). A faction carries the uniform (palette, printed
-camouflage, sewn badges), its role accents, and a `side`. Factions on the same
-side never fight each other.
+camouflage, equipment silhouette, sewn badges), its role accents, and a `side`.
+Factions on the same side never fight each other.
 
 | | Armed forces (`armed-forces`) | Black Kite mercenaries (`mercenaries`) |
 |---|---|---|
 | Who | Every player, the friendly squads, and the crews of friendly fire support | Enemy squads, and the crews of events aimed at players |
 | Side | forces | opposition |
 | Uniform | Jungle-green pixel camouflage (`digital`) on shirt, trousers and helmet cover | Deep navy, soft `blotch` camouflage on the shirt over plain trousers, near-black plate carriers |
+| Faction silhouette | Open webbing and a horizontal bedroll behind the shoulders | Faceted shoulder guards, a raised collar and lower-face wrap at every rank |
+| Identification | Paired pale horizontal bars on chest, back and both shoulders | A single large pale kite on chest, back and both shoulders |
 | Headwear | Camouflaged helmet; boonie for marksmen | Cap and wraparound shades on patrol; helmets for heavies; boonies for marksmen |
 | Badges | Red-over-white flag (left), gold bar (right), name tape (chest) | Orange kite on black (left, chest), orange chevron (right) |
 | Band accent | Leaf green; lime mortar crew, yellow overwatch | Amber, red (tank), lavender (sniper), orange (mortar crew), yellow (overwatch) |
@@ -38,9 +40,14 @@ still applies.
 - A bot only picks hostile targets. A round that strikes someone on the
   shooter's own side stops there and does no damage. Artillery and vehicle
   wrecks hurt everyone, whatever their side.
-- The role still sets the silhouette within a side (plates and a belt-fed gun
-  for the tank, a boonie and a scoped rifle for the sniper), and the role
-  colour stays on the helmet band and health bar.
+- Faction equipment and large identification shapes persist through every role
+  and rank, including recruits, veterans, elites, event crews and remote players.
+  The paired bars and single kite use the same pale-on-dark colours: shape,
+  placement and kit distinguish the sides without reading a coloured label.
+- Roles add equipment within each faction: gunners have wider shoulder guards
+  and two hip ammunition boxes; marksmen have a split shoulder drape, boonie
+  and scoped rifle; mortar crews carry two tall capped shell tubes. Riflemen
+  keep compact kit. Role colour remains on the helmet band and health bar.
 
 ## Friendly squads
 
@@ -133,9 +140,21 @@ material, while `customProgramCacheKey` shares one compiled program per style
 across every figure.
 
 Badges are flat boxes sewn onto the outside of each upper arm and the left
-breast. The arm IK keeps each upper arm's local +x on the elbow hinge, which
-points across the body, so the outside of either arm is local `-side·x`.
+breast. Large faction markings also sit high on the chest and on the outermost
+backpack or rear plate. Sleeve rank badges sit below the faction markings.
+Faction and role equipment are merged into the existing bone meshes, adding
+no mesh draw calls. The arm IK keeps each upper arm's local +x on the elbow
+hinge, which points across the body, so the outside of either arm is local
+`-side·x`.
 
 The badge and camouflage colours are validated `#rrggbb` at registration, like
 the rest of the palette. Review: `scripts/fixtures/faction-uniforms.html` (`?zoom=.3&focus=1.3&yaw=1.15&cols=3`
 frames the shoulders).
+
+Colour-independent review: `scripts/fixtures/faction-readability.html` shows
+the same four jobs in both factions. Use `?gray=1&labels=0` to hide names and
+remove colour, `&yaw=3.14` for the rear, `&rank=1` or `3` for rank extremes,
+and `&distance=12` for a smaller on-screen target. `?pose=run|crouch|prone`
+reviews combat poses. `node scripts/faction-readability-smoke.mjs` captures
+ten views with Vite on 5183 and isolated Chrome CDP on 9237 (origins can be
+overridden with `FACTION_APP_ORIGIN` / `FACTION_CHROME_ORIGIN`).
