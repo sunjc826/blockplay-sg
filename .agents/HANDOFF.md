@@ -5903,3 +5903,50 @@ cloudflare-custom.log, cloudflare-workers.log, dev/live-browser-results.json,
 live-browser.log and screenshots). Temporary private env copies removed; task
 Vite/Chrome stopped. No paid requests or GitHub push. Keep AGENTS.md local and
 unstaged/uncommitted; preserve pre-existing handoff edits and .claude/ files.
+
+
+## Collective Corps QTS-11 counterpart (2026-10-31)
+
+Owner requested the Chinese counterpart to XM29 OICW. Local main code commit
+`7d6e19f` adds QTS-11 study / cc-qts11 as a seventh exterior candidate, assigned
+to Conductor as an experimental option. The two named Collective Corps rifle
+families remain. No fictional name has yet been chosen for either experimental
+system. Gallery intro, shortlist, integration notes and browser smoke now cover
+seven models. The new study has two projecting barrels, a slim upper shell,
+forward curved rifle magazine, stock with real negative space and a supported
+sight with an offset jade sensor pod. Slate/graphite/jade and cinnabar belong to
+Collective Corps; body/stock/asymmetry distinguish it from XM29 in grayscale.
+Launcher muzzle socket is optional independently of the launcher magazine;
+QTS-11 has the former, XM29 has both. No live weapons, stats, ammo, targeting,
+airburst, reloads or operator hand poses were integrated.
+
+Directly inspected CCTV report dated 2018-05-17 names QTS11 and identifies two
+barrels. Its photo credited to PLA Pictorial was downloaded and visually
+reviewed for broad dual-barrel/sight layout, not shipped. China Military's
+2019-01-09 indexed report compares its combined rifle/launcher concept to XM29;
+direct retrieval timed out. Model stock/pod/faction proportions are stylized
+exterior choices, not a dimensional or production-variant certification.
+Sources and retrieval limits are recorded in docs/PROXY-WEAPONS.md.
+
+Frozen release verified all 3,099 tracked files against 7d6e19f. Typecheck,
+40 focused tests / four files and Cloudflare production build pass. Local and
+live gallery browser smokes pass 42 views: seven models/four angles, grayscale,
+mouse/touch rotation, preset reset, mobile overflow and navigation; no browser
+exceptions. Final deployed oblique/front/profile and portrait views reviewed.
+Manual pnpm deploy:cloudflare succeeded; version:
+4ed78e90-f88f-4713-affd-8d1354b4302c. Both production domains served matching
+entry HTML and all six exact release JS/CSS/service-worker files. Cloudflare
+routing/assets/PWA/model/audio/API-origin checks pass on both domains.
+
+An initial archive failed for lack of disk space before deployment. Removed
+only temporary release copies from qts11-study, oicw-study, collective-names and
+scar-names; logs, references, review receipts and screenshots remain. Retried
+archive verified successfully. This task's final temporary release copy is
+also removed after verification to reclaim space. Evidence: .cache/qts11-study/
+(source-verification.json, release-typecheck.log, release-tests.log, deploy.log,
+live-verification.json/log, cloudflare-custom.log, cloudflare-workers.log,
+dev/live-browser-results.json, browser/live-browser.log and screenshots).
+Private env copies removed; task Vite/Chrome stopped. No paid requests or
+GitHub push. Concurrent arena/patrol/benchmark/Queenstown work was preserved and
+excluded from the frozen release; keep local AGENTS.md unstaged/uncommitted,
+pre-existing handoff changes and .claude/ files.
