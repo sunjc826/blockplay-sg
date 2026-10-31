@@ -21,6 +21,9 @@ describe('map objectives during player contact', () => {
     const arena = createArena([], 1, 'assault', environment);
     arena.addPlayer('you', 'You', 0, 0, FPS_WEAPONS, undefined, true); arena.setPlayerHealthMultiplier('you', 10);
     for (let i = 0; i < 1100; i++) {
+      // This is a map-control observation, not a survival test: settled fire
+      // can now kill even a 10x-health stationary observer during the 55 s run.
+      arena.setPlayerVitals('you', { health: 1000 });
       if (harassment && i % 5 === 0) {
         const actors = arena.snapshot().actors, bot = actors.find(a => a.id === 'bot-1')!, player = actors.find(a => a.id === 'you')!;
         const horizontal = Math.hypot(bot.x - player.x, bot.z - player.z), flight = horizontal / FPS_WEAPONS[0].ballistics.velocity;
