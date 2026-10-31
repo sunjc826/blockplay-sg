@@ -345,3 +345,7 @@ a.text-button { text-decoration:none; }
 /* A food's effects in the dossier, one per line under its healing. */
 .armory-food-effects { margin:6px 0 8px; padding:0; list-style:none; display:grid; gap:3px; }
 .armory-food-effects li { padding:4px 7px; border-left:2px solid #7fd38b; background:#7fd38b14; color:#cfe9d1; font-size:10px; line-height:1.35; }
+
+/* Status messages overlay the canvas so appearing or wrapping never resizes it. */
+.fps-viewport > .fps-message { position:absolute; left:50%; bottom:82px; transform:translateX(-50%); z-index:4; width:max-content; max-width:calc(100% - 24px); margin:0; padding:6px 10px; border-radius:4px; background:var(--hud-bg-solid); color:var(--hud-ink); text-align:center; overflow-wrap:anywhere; pointer-events:none; }
+.fps-game[data-touch=on] .fps-viewport > .fps-message { bottom:calc(82px + var(--touch-inset,0px)); }

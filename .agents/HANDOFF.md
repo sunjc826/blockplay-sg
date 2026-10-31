@@ -5006,3 +5006,18 @@ the entry JS/CSS, sw.js and all 52 /audio/sfx MP3s are byte-identical to the
 build. scripts/cloudflare-check.mjs passed against both origins with no paid
 API requests. Evidence: release-{tests,typecheck,build,deploy,verification,
 cloudflare-check}.log and source-verification.json in that directory. No push.
+
+## 2026-10-31 — item status messages preserve game size
+
+Moved range and expedition status messages inside the game viewport and made
+these noninteractive overlays above the utility belt. A message appearing or
+wrapping no longer consumes a flex row or changes the canvas height. Removed
+the player shell's obsolete footer-message styling. Existing fullscreen message
+visibility is preserved.
+
+Validation: isolated-copy typecheck passed; 31 food-effect/vision checks passed.
+The broad suite and full-game browser smoke encountered local resource/CDP
+timeouts and are not claimed as passing. Release copy includes committed thermal
+radius update 971eb71 and excludes unrelated unfinished workspace edits. Manual
+Cloudflare deployment is pending verification. No GitHub push; AGENTS.md stays
+local, unstaged and uncommitted.

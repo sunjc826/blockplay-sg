@@ -113,7 +113,6 @@
 .game-screen-body { flex:1; display:flex; flex-direction:column; min-height:0; padding:clamp(8px,1.2vw,16px); background:#0b1211; }
 .game-screen-body > .fps-game { flex:1; display:flex; flex-direction:column; min-height:0; }
 .game-screen-body > .fps-game:not(.is-immersive) > .fps-viewport { flex:1 1 0; height:auto; min-height:420px; border-radius:8px; }
-.game-screen-body > .fps-game > .fps-message { color:var(--menu-dim); margin:8px 2px 0; }
 
 /* Training and the open world are the game and nothing else: edge to edge,
    clear of a notch, with the way back to the menu and the district choice on
