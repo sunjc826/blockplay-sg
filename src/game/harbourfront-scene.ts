@@ -3,6 +3,7 @@ import { HARBOURFRONT_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
 import { withVerticalPlaces } from './vertical-places';
+import { buildBoardwalkConnection } from './boardwalk-connection';
 import { buildCoastalGround, harbourfrontGroundHeight, HARBOURFRONT_RIDGE_STAIR, HARBOURFRONT_RIDGE_REST, coastalBench, COASTAL_GROUND_SOURCES } from './harbourfront-sentosa-ground';
 
 // On the quay between the mall and the water, looking along the berth.
@@ -78,13 +79,14 @@ export function buildHarbourfrontScene() {
   // Quay promenade between the road and the water, and the boardwalk south.
   box(0, 0.2, 132, 460, 0.4, 12, paving);
   for (let x = -210; x <= 90; x += 26) { cylinder(x, 3.6, 129, 0.16, 7.2, dark); box(x, 6.9, 129, 0.9, 0.35, 0.9, pale); solid(x, 129, 0.5, 0.5); }
-  box(BOARDWALK_X, 0.42, 165, 14, 0.3, 56, plank);
+  box(BOARDWALK_X, -0.11, 165, 14, 0.3, 56, plank);
   for (let z = 138; z <= 192; z += 4) {
-    box(BOARDWALK_X, 0.6, z, 13.6, 0.06, 1.8, wood);
+    box(BOARDWALK_X, 0.025, z, 13.6, 0.03, 1.8, wood);
     for (const dx of [-6, 6]) { cylinder(BOARDWALK_X + dx, 0.2, z, 0.26, 1, wood); if (z % 12 < 4) { cylinder(BOARDWALK_X + dx, 1.5, z, 0.16, 2.6, wood); solid(BOARDWALK_X + dx, z, 0.5, 0.5); } }
   }
   for (const dx of [-5.8, 5.8]) box(BOARDWALK_X + dx, 1.6, 165, 0.14, 0.9, 56, wood);
   sign('SENTOSA BOARDWALK', BOARDWALK_X, 4.2, 137, 20, 2, '#2f6b78');
+  buildBoardwalkConnection(kit, 'harbourfront');
 
   /** Stepped waterfront mall: retail terraces, a rooftop deck and a bowl. */
   function steppedMall(x: number, z: number) {

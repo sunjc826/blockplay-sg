@@ -28,6 +28,8 @@ export interface WorldGateway {
   readonly kind?: 'ferry';
   /** Orient marker posts across the landing rather than along its approach. */
   readonly markerYaw?: number;
+  /** A physical boundary, crossed by walking out through its width. */
+  readonly border?: { readonly axis: 'x' | 'z'; readonly direction: 1 | -1; readonly halfWidth: number };
 }
 export interface WorldTransition {
   readonly gatewayId: string;
@@ -89,7 +91,8 @@ export const WORLD_ZONES: readonly WorldZone[] = [
 
 // These connections compress travel between districts. They do not claim that
 // their scene coordinate systems line up or represent a continuous street map.
-// Arrivals face into the new district, twelve metres beyond its return gateway.
+// Explicit checkpoint arrivals face inwards, twelve metres past the return point.
+// The physical boardwalk instead maps movement across paired boundary planes.
 export const WORLD_GATEWAYS: readonly WorldGateway[] = [
   { id: 'changi-to-pulau-ubin', from: 'changi', to: 'pulau-ubin', name: 'Changi Point bumboat to Pulau Ubin', kind: 'ferry', markerYaw: Math.PI / 2, position: { x: 267, z: 180 }, radius: 4, arrival: { x: 0, z: 193, yaw: 0, pitch: 0 } },
   { id: 'pulau-ubin-to-changi', from: 'pulau-ubin', to: 'changi', name: 'Ubin village bumboat to Changi', kind: 'ferry', position: { x: 0, z: 205 }, radius: 4, arrival: { x: 255, z: 180, yaw: Math.PI/2, pitch: 0 } },
@@ -126,8 +129,8 @@ export const WORLD_GATEWAYS: readonly WorldGateway[] = [
   { id: 'changi-to-punggol', from: 'changi', to: 'punggol', name: 'Punggol checkpoint', position: { x: 80, z: 210 }, radius: 4, arrival: { x: 233, z: 20, yaw: Math.PI / 2, pitch: 0 } },
   { id: 'queenstown-to-harbourfront', from: 'queenstown', to: 'harbourfront', name: 'HarbourFront checkpoint', position: { x: -15, z: 185 }, radius: 4, arrival: { x: -218, z: -20, yaw: -Math.PI / 2, pitch: 0 } },
   { id: 'harbourfront-to-queenstown', from: 'harbourfront', to: 'queenstown', name: 'Queenstown checkpoint', position: { x: -230, z: -20 }, radius: 4, arrival: { x: -15, z: 173, yaw: 0, pitch: 0 } },
-  { id: 'harbourfront-to-sentosa', from: 'harbourfront', to: 'sentosa', name: 'Sentosa checkpoint', position: { x: 109, z: 185 }, radius: 4, arrival: { x: 108, z: -184, yaw: Math.PI, pitch: 0 } },
-  { id: 'sentosa-to-harbourfront', from: 'sentosa', to: 'harbourfront', name: 'HarbourFront checkpoint', position: { x: 108, z: -196 }, radius: 4, arrival: { x: 109, z: 173, yaw: 0, pitch: 0 } },
+  { id: 'harbourfront-to-sentosa', from: 'harbourfront', to: 'sentosa', name: 'Sentosa Boardwalk', position: { x: 109, z: 210 }, radius: 4, arrival: { x: 108, z: -204.85, yaw: Math.PI, pitch: 0 }, border: { axis: 'z', direction: 1, halfWidth: 4.5 } },
+  { id: 'sentosa-to-harbourfront', from: 'sentosa', to: 'harbourfront', name: 'HarbourFront Boardwalk', position: { x: 108, z: -205 }, radius: 4, arrival: { x: 109, z: 209.85, yaw: 0, pitch: 0 }, border: { axis: 'z', direction: -1, halfWidth: 4.5 } },
   { id: 'kampong-glam-to-geylang', from: 'kampong-glam', to: 'geylang', name: 'Geylang checkpoint', position: { x: 205, z: -30 }, radius: 4, arrival: { x: -218, z: 0, yaw: -Math.PI / 2, pitch: 0 } },
   { id: 'geylang-to-kampong-glam', from: 'geylang', to: 'kampong-glam', name: 'Kampong Glam checkpoint', position: { x: -230, z: 0 }, radius: 4, arrival: { x: 193, z: -30, yaw: Math.PI / 2, pitch: 0 } },
   { id: 'geylang-to-changi', from: 'geylang', to: 'changi', name: 'Changi checkpoint', position: { x: 230, z: 0 }, radius: 4, arrival: { x: 80, z: -198, yaw: Math.PI, pitch: 0 } },
@@ -169,7 +172,30 @@ export function getWorldZone(id: WorldZoneId): WorldZone {
 
 /** Player-facing travel action shared by the HUD and travel guide. */
 export function worldGatewayAction(gateway: WorldGateway): string {
+  if (gateway.border) return `Follow the boardwalk to ${getWorldZone(gateway.to).name}`;
   return `${gateway.kind === 'ferry' ? 'Board bumboat' : 'Travel'} to ${getWorldZone(gateway.to).name}`;
+}
+
+/** Crossing a plane outwards, rather than proximity, commits a physical route.
+ * Paired routes share an orientation; retain lateral position, overshoot and view.
+ * Arriving just inside the opposite plane allows a deliberate immediate walk back
+ * without a cooldown or an automatic bounce when continuing forwards.
+ */
+export function resolveWorldBorderCrossing(zone: WorldZoneId, previous: ZonePosition, next: ZonePosition, view: Pick<ZoneSpawn, 'yaw' | 'pitch'>): WorldTransition | null {
+  if (![previous.x, previous.z, next.x, next.z, view.yaw, view.pitch].every(Number.isFinite)) return null;
+  for (const gateway of WORLD_GATEWAYS) {
+    if (gateway.from !== zone || !gateway.border) continue;
+    const { axis, direction, halfWidth } = gateway.border, lateral = axis === 'z' ? 'x' : 'z';
+    const before = (previous[axis] - gateway.position[axis]) * direction, after = (next[axis] - gateway.position[axis]) * direction;
+    if (before >= 0 || after < 0) continue;
+    const at = -before / (after - before), offset = previous[lateral] + (next[lateral] - previous[lateral]) * at - gateway.position[lateral];
+    if (Math.abs(offset) > halfWidth || Math.abs(next[lateral] - gateway.position[lateral]) > halfWidth) continue;
+    const spawn = { ...gateway.arrival, ...view };
+    spawn[lateral] += next[lateral] - gateway.position[lateral];
+    spawn[axis] += next[axis] - gateway.position[axis];
+    return { gatewayId: gateway.id, from: zone, to: gateway.to, spawn };
+  }
+  return null;
 }
 
 /** Fewest checkpoint crossings, using gameplay links rather than GPS distance. */

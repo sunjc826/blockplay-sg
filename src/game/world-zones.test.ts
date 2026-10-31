@@ -25,7 +25,7 @@ describe('connected world travel', () => {
       if (reached.has(gateway.from)) reached.add(gateway.to);
       const reverse = WORLD_GATEWAYS.find(candidate => candidate.from === gateway.to && candidate.to === gateway.from);
       expect(reverse, gateway.id).toBeDefined();
-      expect(findWorldGateway(gateway.to, gateway.arrival), gateway.id).toBeNull();
+      if (!gateway.border) expect(findWorldGateway(gateway.to, gateway.arrival), gateway.id).toBeNull();
       const awayX = gateway.arrival.x - reverse!.position.x, awayZ = gateway.arrival.z - reverse!.position.z;
       const facingDot = awayX * -Math.sin(gateway.arrival.yaw) + awayZ * -Math.cos(gateway.arrival.yaw);
       expect(facingDot, `arrival must face into destination: ${gateway.id}`).toBeGreaterThan(0);

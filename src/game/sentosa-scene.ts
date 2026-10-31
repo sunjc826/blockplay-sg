@@ -4,6 +4,7 @@ import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
 import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
+import { buildBoardwalkConnection } from './boardwalk-connection';
 import { buildCoastalGround, sentosaGroundHeight, SENTOSA_FORT_GROUND, coastalBench, COASTAL_GROUND_SOURCES } from './harbourfront-sentosa-ground';
 
 // Just inside the boardwalk landing, looking down the island's spine.
@@ -25,7 +26,6 @@ export const SENTOSA_MAP_ROADS = [
   ...EW_ROADS.map(z => ({ points: [{ x: -EDGE_X, z }, { x: EDGE_X, z }] })),
   ...NS_ROADS.map(x => ({ points: [{ x, z: -EDGE_Z }, { x, z: EDGE_Z }] })),
   { points: [{ x: -EDGE_X, z: -EDGE_Z }, { x: EDGE_X, z: -EDGE_Z }, { x: EDGE_X, z: EDGE_Z }, { x: -EDGE_X, z: EDGE_Z }, { x: -EDGE_X, z: -EDGE_Z }] },
-  { points: [{ x: LANDING_X, z: -EDGE_Z }, { x: LANDING_X, z: -200 }] },
 ];
 
 /**
@@ -75,9 +75,9 @@ export function buildSentosaScene() {
 
   /** Boardwalk across the strait: the island's only landing. */
   function landing(x: number) {
-    box(x, 0.45, -192, 14, 0.3, 30, plank);
+    box(x, -0.11, -192, 14, 0.3, 30, plank);
     for (let z = -206; z <= -178; z += 4) {
-      box(x, 0.62, z, 13.6, 0.06, 1.8, wood);
+      box(x, 0.025, z, 13.6, 0.03, 1.8, wood);
       for (const dx of [-6, 6]) { cylinder(x + dx, 0.2, z, 0.26, 1, wood); if (z % 12 < 4) { cylinder(x + dx, 1.6, z, 0.16, 2.8, wood); solid(x + dx, z, 0.5, 0.5); } }
     }
     for (const dx of [-5.8, 5.8]) box(x + dx, 1.7, -192, 0.14, 0.9, 30, wood);
@@ -89,6 +89,7 @@ export function buildSentosaScene() {
     sign('SENTOSA BOARDWALK', x, 6.4, -176, 22, 2.1, '#2f6b78');
   }
   landing(LANDING_X);
+  buildBoardwalkConnection(kit, 'sentosa');
 
   /** Palm: a leaning trunk in collars under a crown of fronds. */
   function palm(x: number, z: number, height: number, lean = 0) {

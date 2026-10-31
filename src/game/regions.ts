@@ -339,7 +339,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'rect', x: -210, z: -130, width: 50, depth: 90, fill: '#87a86a', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
       { kind: 'rect', x: 150, z: 0, width: 60, depth: 100, fill: '#9fb37c', layer: 'over', fpsFill: '#3d5840', fpsLayer: 'over' },
       { kind: 'line', from: { x: 5, z: -70 }, to: { x: 5, z: 170 }, stroke: '#c0ccd2', width: 4, layer: 'over' },
-      { kind: 'line', from: { x: 109, z: 138 }, to: { x: 109, z: 192 }, stroke: '#b08a5c', width: 5, layer: 'over' },
+      { kind: 'rect', x: 104, z: 132, width: 10, depth: 82, fill: '#b08a5c', layer: 'over', fpsFill: '#9c7c57', fpsLayer: 'over' },
     ],
     hasGuide: false, build: buildHarbourfrontScene, move: harbourfrontMovement.move, canOccupy: harbourfrontMovement.canOccupy,
   },
@@ -351,6 +351,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     spawn: SENTOSA_SPAWN, stamps: SENTOSA_STAMPS, bounds: SENTOSA_BOUNDS, mapRoads: SENTOSA_MAP_ROADS,
     mapPaper: '#d9dcc9', roadStroke: '#93968b', roadWidth: 14,
     decor: [
+      { kind: 'rect', x: 103, z: -209, width: 10, depth: 32, fill: '#b08a5c', layer: 'over', fpsFill: '#9c7c57', fpsLayer: 'over' },
       { kind: 'rect', x: -215, z: 196, width: 430, depth: 14, fill: '#5f9fb5', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
       { kind: 'rect', x: -215, z: -210, width: 315, depth: 20, fill: '#5f9fb5', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },
       { kind: 'rect', x: 116, z: -210, width: 99, depth: 20, fill: '#5f9fb5', layer: 'under', fpsFill: '#2f5a63', fpsLayer: 'under' },

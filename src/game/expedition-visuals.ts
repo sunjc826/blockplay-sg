@@ -172,6 +172,7 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
   const viewerLocal = new THREE.Vector3();
   let clock = 0;
   for (const gateway of WORLD_GATEWAYS.filter(gateway=>gateway.from===zone)) {
+    if (gateway.border) continue; // The physical route and its signs belong to the scene.
     const group = new THREE.Group(); group.position.set(gateway.position.x,.12,gateway.position.z); root.add(group);
     group.rotation.y = gateway.markerYaw ?? 0;
     const ring = mesh(group,new THREE.TorusGeometry(3,.055,6,40),'#9ad9bd',0,.1,0); ring.rotation.x = Math.PI/2;

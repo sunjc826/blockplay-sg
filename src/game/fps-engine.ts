@@ -93,7 +93,8 @@ import { buildDistrictWorld } from './district-world';
 import { getFpsDistrict } from './fps-districts';
 import { createExpeditionMarkers } from './expedition-visuals';
 import { createLootGround } from './expedition-ground';
-import { worldGatewayAction, findWorldGateway, resolveWorldTransition, getWorldZone, type WorldZoneId, type WorldTransition, type ZoneSpawn } from './world-zones';
+import { worldGatewayAction, findWorldGateway, resolveWorldTransition, resolveWorldBorderCrossing, getWorldZone, type WorldZoneId, type WorldTransition, type ZoneSpawn } from './world-zones';
+import { createFpsSurface, type FpsSurface } from './fps-surface';
 import type { ExpeditionLoot, FieldLoot } from './expedition-loot';
 import { expeditionNpcs, nearestNpc, npcInteractionPrompt, type ExpeditionNpc } from './expedition-npcs';
 import { itemById } from './armory-catalog';
@@ -150,6 +151,8 @@ import { activePalette, advanceVision, nvgAimingActive, createVisionState, cycle
 
 export interface FpsArenaOptions { session: LanSession; botCount: number; composition?: string; profile: ArmoryProfile; environment?: ArenaEnvironment; initialVitals?: Partial<ArenaVitals> }
 export interface FpsCheckpoint { health: number; armor: number; weapon: number; ammunition: WeaponState[]; pilot?: boolean; pilotStrategy?: 'local' | 'llm'; encikVoice?: boolean; comms?: readonly CommsEntry[];
+  /** Only physical crossings resume automatically on the retained surface. */
+  continuation?: { inputMode: 'mouse' | 'touch'; keys: string[]; muted: boolean; stick?: StickVector | null };
   /** Legacy calibre pools, read only when migrating an older checkpoint. */
   ammoPools?: AmmoPools;
   magazineInventory?: MagazineInventory;
@@ -281,7 +284,7 @@ function disposeAssets(roots: THREE.Object3D[]) {
   textures.forEach(t => { t.dispose(); if (typeof ImageBitmap !== 'undefined' && t.source.data instanceof ImageBitmap) t.source.data.close(); });
 }
 
-export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { rangeDrill?: RangeDrillId; tutorial?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; onLoadout?: (equipment: ResolvedLoadout) => void; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; onConsume?: (id: string) => void; onFullscreen?: () => void;
+export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { surface?: FpsSurface; rangeDrill?: RangeDrillId; tutorial?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; onLoadout?: (equipment: ResolvedLoadout) => void; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; onConsume?: (id: string) => void; onFullscreen?: () => void;
   /** Read per callout, so a level-up mid-exercise is heard immediately. */
   encik?: () => EncikAddress } = {}) {
   const expedition = options.expedition;
@@ -297,15 +300,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let respawnProfile = startingProfile;
   let equipment = expedition ? resolveLoadout(fieldProfile) : options.loadout || resolveLoadout(createProfile()), specs = equipment.weapons;
   const undress: (() => void)[] = [];
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.9;
+  const fpsSurface = options.surface ?? createFpsSurface(host), { renderer } = fpsSurface;
   // Sun shadows follow the camera (fps-sun-shadows) and stay off on software renderers.
   renderer.shadowMap.enabled = false; renderer.autoClear = false;
   const canvas = renderer.domElement; canvas.tabIndex = 0;
   canvas.setAttribute('aria-label', `${expedition ? getWorldZone(expedition.zone).name + ' expedition' : district.label + ' range'}. WASD to move, mouse to look, click to fire.`);
-  host.append(canvas);
   const zoneWorld = options.tutorial ? buildTutorialWorld() : buildDistrictWorld(region, expedition?.spawn);
   const world = zoneWorld; world.stamps.forEach(o => o.visible = false);
   // Before night lights and shadows patch the materials: see instanced-materials.
@@ -474,6 +473,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const markers = expedition ? createExpeditionMarkers(world.scene, expedition.zone, hud.fieldLoot, npcs) : null;
   const lootGround = expedition ? createLootGround(world.scene) : undefined;
   let checkpointPending = expedition?.checkpoint;
+  let resumeCrossing = !!expedition?.checkpoint?.continuation;
+  let resumePilot = !!expedition?.checkpoint?.pilot;
+  const crossingKeys = new Set(expedition?.checkpoint?.continuation?.keys ?? []);
+  let crossingStick = expedition?.checkpoint?.continuation?.stick ?? null;
   // Which bots were last seen alive, so a death is noticed once.
   const botsAlive = new Map<string, boolean>();
   let travelPending = false, lootNoticeTime = 0;
@@ -566,7 +569,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let lastPilotObservation: PilotObservation | null = null;
   let pilotGunfireUntil = 0;
   let capturePending = false, capturePromisePending = false;
-  let lastPointerType = 'mouse', inputMode: 'mouse' | 'touch' = 'mouse';
+  let inputMode: 'mouse' | 'touch' = expedition?.checkpoint?.continuation?.inputMode ?? 'mouse';
+  let lastPointerType: string = inputMode;
   let lastTime = performance.now(), frame = 0, lastReport = 0, wasLocked = false;
   let drag: { id: number; x: number; y: number } | null = null;
   // The on-screen movement stick. It sits beside the keyboard rather than
@@ -666,6 +670,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.health = hud.maxHealth; arenaRuntime?.setVitals({ health: hud.health }); recoveryDelay = 0; publish();
   }
   function pause() {
+    if (resumeCrossing) {
+      resumeCrossing = false; resumePilot = false; crossingKeys.clear(); crossingStick = null;
+      if (document.pointerLockElement === canvas) document.exitPointerLock();
+    }
     gunshots.clear();
     impactAudio.clear();
     reloadAudio.clear();
@@ -826,7 +834,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       deploymentRoof = firstVisibleHit(roofRay, gameplayCandidates())?.point.y ?? null;
     }
     hud.phase = deploymentIntro.active ? 'deploying' : 'playing';
-    if (hud.phase === 'playing') radioCall('start');
+    if (hud.phase === 'playing' && !expedition?.checkpoint?.continuation) radioCall('start');
     updateCameras(0, false, false); publish();
   }
   function finishDeployment() {
@@ -987,7 +995,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.lootPrompt = hud.lootCard ? `E · ${hud.lootCard.action} ${hud.lootCard.tier} ${hud.lootCard.name}${hud.lootCard.blocked ? ` · ${hud.lootCard.blocked}` : ''}` : '';
     markers?.focus(focusedLoot?.id ?? null);
     hud.npcPrompt = npc && !focusedLoot ? `E · ${npcInteractionPrompt(npc)}` : '';
-    hud.travelPrompt = gateway ? `T · ${worldGatewayAction(gateway)}` : '';
+    hud.travelPrompt = gateway ? `${gateway.border ? '' : 'T · '}${worldGatewayAction(gateway)}` : '';
     if (npc && !greetedNpcs.has(npc.id) && hud.phase === 'playing') {
       greetedNpcs.add(npc.id);
       comms.add('system', npc.name, npc.interaction.kind === 'vendor'
@@ -1128,11 +1136,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function travelZone() {
     if (!expedition || travelPending || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active || vertical > .35) return;
     const gateway = findWorldGateway(expedition.zone, position); if (!gateway) return;
+    if (gateway.border) return; // Walk through the boundary; T cannot shortcut it.
     const transition = resolveWorldTransition(expedition.zone, gateway.id, position); if (!transition) return;
-    comms.add('system', 'Travel', gateway.kind === 'ferry' ? `Taking the bumboat to ${getWorldZone(transition.to).name}.` : `Moving to ${getWorldZone(transition.to).name}.`);
+    commitTravel(transition, false, gateway.kind === 'ferry');
+  }
+  function commitTravel(transition: WorldTransition, physical = false, ferry = false) {
+    if (!expedition || travelPending) return;
+    comms.add('system', 'Travel', ferry ? `Taking the bumboat to ${getWorldZone(transition.to).name}.` : `Moving to ${getWorldZone(transition.to).name}.`);
     stopReload();
     const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, vision: visionState.on, fieldSupplies: { ...looted }, health: hud.health, armor: hud.armor, weapon: hud.weapon, magazineInventory: loadout[equipment.carriedFamilies[0]]?.magazineInventory, ammunition: loadout.map(state => ({ ...state, magazineInventory: undefined, reserveMagazine: undefined, cooldown: 0, reloadRemaining: 0 })) };
-    travelPending = true; pause(); expedition.onTravel(transition, checkpoint);
+    if (physical) checkpoint.continuation = { inputMode, keys: [...keys].filter(key => ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(key)), muted: hud.muted, stick: moveStick ? { ...moveStick } : null };
+    travelPending = true;
+    if (!physical) pause();
+    expedition.onTravel(transition, checkpoint);
   }
   function jump() {
     if (arenaConditionModifiers(conditions).frozen) return; if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && stance() === 'stand') bufferJump(bodyMotion); } }
@@ -1161,6 +1177,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** Analog movement from the left thumb stick; a null or centred stick hands control back to the keys. */
   function setMoveAxis(stick: StickVector | null) {
+    if (resumeCrossing && hud.phase === 'loading') { crossingStick = stick && stick.magnitude > 0 ? { ...stick } : null; return; }
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) { moveStick = null; return; }
     moveStick = stick && stick.magnitude > 0 ? stick : null;
   }
@@ -1293,6 +1310,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const keyboardKeys = ['y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'k', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'i', 'v', 'l', 'n', 't', 'm', 'h', 'j', 'b', 'x', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = fpsControlKey(event);
+    if (resumeCrossing && hud.phase === 'loading') {
+      if (key === 'escape') pause();
+      else if (key && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(key)) crossingKeys.add(key);
+      return;
+    }
     if (hud.phase === 'deploying' && (key === 'escape' || key === ' ')) {
       event.preventDefault(); if (!event.repeat) { if (key === 'escape') pause(); else finishDeployment(); } return;
     }
@@ -1343,6 +1365,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const pilotEscape = (event: KeyboardEvent) => { if (pilotEnabled && event.key === 'Escape') { event.preventDefault(); pause(); } };
   const keyup = (event: KeyboardEvent) => {
     const key = fpsControlKey(event, true); if (!key) return;
+    crossingKeys.delete(key);
     if (key === 'control') {
       keyboardCrouch.hold(event.code || key, false);
       if (!keyboardCrouch.holding) keys.delete(key);
@@ -1519,7 +1542,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         return item?.effect?.health ? [{ kind, health: item.effect.health, seconds: supplyProfile(item).seconds }] : [];
       }), grenades: activeGrenades().filter(g => !conditions.deafened && Math.hypot(g.position.x - position.x, g.position.z - position.z) <= grenadeDangerRadius(itemById(g.id)!.grenade!) + 2).map(g => ({ x: g.landing.x, z: g.landing.z, radius: grenadeDangerRadius(itemById(g.id)!.grenade!) + 2, remaining: g.remaining })), usingSupply: !!supplyUse,
       underThreat: hud.incoming || hurtTime > 0 || time < pilotGunfireUntil || hud.cloudCover?.kind === 'gas' || hud.mapDangers.some(d => d.kind !== 'crate' && Math.hypot(d.x - position.x, d.z - position.z) <= d.radius + 8),
-      lootPrompt: canResupply() && spareMagazines(state) < 1 ? 'E · Range resupply' : reachableLoot ? `E · ${reachableLoot.tier} ${reachableLoot.name}` : '', travelPrompt: hud.travelPrompt };
+      lootPrompt: canResupply() && spareMagazines(state) < 1 ? 'E · Range resupply' : reachableLoot ? `E · ${reachableLoot.tier} ${reachableLoot.name}` : '', travelPrompt: hud.travelPrompt.startsWith('T · ') ? hud.travelPrompt : '' };
   }
   function updatePilot(time: number) {
     if (!pilotEnabled || hud.phase !== 'playing' || options.arena && !hud.arenaSelf) return;
@@ -3092,8 +3115,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (Math.abs(next.x - position.x - delta.x) > .001) bodyMotion.x = carry.x;
       if (Math.abs(next.z - position.z - delta.z) > .001) bodyMotion.z = carry.z;
       if (next.impactSpeed > 1.5) { landMovement(bodyMotion, next.impactSpeed); movementSound(Math.min(1, next.impactSpeed / 9), true); }
+      const previousPosition = position;
       position = next;
       vertical = next.y; velocityY = next.velocityY;
+      if (expedition && !vehicles.active && vertical <= .35 && velocityY <= 0) {
+        const crossing = resolveWorldBorderCrossing(expedition.zone, previousPosition, position, { yaw, pitch });
+        if (crossing) { commitTravel(crossing, true); return; }
+      }
       }
       // Recoil and the effect pools run on wall-clock time, as the weapon
       // cooldowns already do: on a renderer slow enough that `dt` is clamped,
@@ -3304,9 +3332,26 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     await warmShaders();
     if (disposed) return;
     hud.phase = 'ready'; updateCameras(0, false, false); publish();
-    if (expedition?.checkpoint?.pilot) startPilot();
+    if (resumeCrossing) {
+      resumeCrossing = false;
+      hud.muted = expedition?.checkpoint?.continuation?.muted ?? hud.muted;
+      if (!document.hidden && (inputMode === 'touch' || document.pointerLockElement === canvas)) {
+        // Apply the authoritative initial position/ammunition before restoring held movement.
+        updateArena(0); enterPlay();
+        if (['playing'].includes(hud.phase)) {
+          for (const key of crossingKeys) keys.add(key);
+          moveStick = crossingStick;
+        }
+      }
+      crossingKeys.clear(); crossingStick = null;
+    }
+    if (resumePilot) startPilot();
   }).catch(() => {
-    if (!disposed) { hud.phase = 'error'; hud.message = 'The range assets could not load. Retry to load the local models.'; publish(); }
+    if (!disposed) {
+      resumeCrossing = false; crossingKeys.clear();
+      if (document.pointerLockElement === canvas) document.exitPointerLock();
+      hud.phase = 'error'; hud.message = 'The range assets could not load. Retry to load the local models.'; publish();
+    }
   });
 
   return {
@@ -3353,7 +3398,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (expedition && infrastructure) expedition.infrastructure?.set(expedition.zone, infrastructure);
       facilityVisuals.dispose(); objectiveBeacons?.dispose();
       disposed = true; pilot.reset(); strategicPlanner?.reset(); encikAudio.dispose(); cancelAnimationFrame(frame); observer.disconnect(); clearInput();
-      if (document.pointerLockElement === canvas) document.exitPointerLock();
+      if (!options.surface && document.pointerLockElement === canvas) document.exitPointerLock();
       window.removeEventListener('keydown', pilotEscape, true);
       canvas.removeEventListener('keydown', keydown); window.removeEventListener('keyup', keyup);
       window.removeEventListener('pointerdown', pointerSource, true); window.removeEventListener('pointermove', pointerSource, true);
@@ -3370,7 +3415,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); impactAudio.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       rangeStation?.dispose();
-      scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); grenadeHands.dispose(); grenadeVisuals.dispose(); sunShadows.dispose(); occlusion.dispose(); renderer.dispose(); canvas.remove();
+      scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); grenadeHands.dispose(); grenadeVisuals.dispose(); sunShadows.dispose(); occlusion.dispose();
+      renderer.setRenderTarget(null); renderer.renderLists.dispose();
+      if (!options.surface) fpsSurface.dispose();
     },
   };
 }

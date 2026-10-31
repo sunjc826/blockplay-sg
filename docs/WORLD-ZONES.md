@@ -4,6 +4,40 @@ Every playable district is an expedition zone; [districts](DISTRICTS.md) lists t
 
 The design borrows the connected-area structure of survival shooters. Singapore locations, equipment and world content remain the project's own. The links compress travel distances; they are not a surveyed route between real streets.
 
+## Physical crossing pilot: HarbourFront ↔ Sentosa
+
+In Open world, follow the Sentosa Boardwalk from the HarbourFront quay to its
+southern playable edge, or follow the boardwalk north from Sentosa. Walk through
+the covered wind shelter to cross automatically. This pair has no glowing ring
+or T interaction. The map draws the boardwalk as a pedestrian path to the edge,
+separate from drivable roads. The matching shelter, staggered windbreaks, deck,
+rails and signs are fictional connecting scenery, not surveyed bridge geometry
+or additional reference-informed landmark claims.
+
+The two districts still load separately. A short loading fade covers the change;
+the next district resumes without a deployment intro or an Enter click. The
+expedition retains its WebGL canvas and renderer so desktop pointer capture and
+fullscreen can survive. Lateral position, viewing direction, health, armor,
+ammunition and existing expedition state carry through. Held movement keys and
+the touch stick continue; releases during loading cancel the corresponding input.
+Escape, focus loss or visibility loss cancels automatic resume. A failed asset
+load releases mouse capture and offers the existing retry/menu path.
+
+The boundary is directional: standing near it does nothing, continuing into the
+destination does not bounce back, and deliberately walking back crosses again.
+This prototype supports infantry on the pedestrian boardwalk. Vehicles and
+following squads do not transfer. Other district links retain their explicit
+checkpoint interactions; ferry behavior remains unchanged. Public transport as
+a general fast-travel system is undecided and is not introduced by this pilot.
+
+`world-border.test.ts` checks directional crossings, mapped offsets, return
+behavior, invalid input and real collision across the crossing width.
+`node scripts/boardwalk-crossing-smoke.mjs` uses Vite on 5196 and isolated Chrome
+CDP on 9356. It declares fixture entry poses in a copy of the actual expedition
+UI, then uses real keyboard and touch input. It stalls model responses to check
+key release and Escape during loading, and checks view/vitals/ammo, retained
+canvas/pointer capture, both directions, held/released touch input and cleanup.
+
 ## Playing the expedition
 
 Choose **Open world** in the sidebar, then **Enter district**. The expedition starts in the district selected on the Singapore locator, with a copy of your equipped Armory loadout. Marina Bay remains the default selection. WASD moves, Shift sprints, the mouse looks, left click fires, right click aims, and R reloads. E picks up nearby supplies; T crosses a nearby checkpoint. F toggles fullscreen and Escape opens the operator menu. Touch controls sit beneath the scene; drag the scene to look.

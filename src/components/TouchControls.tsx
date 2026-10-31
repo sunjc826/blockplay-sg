@@ -31,16 +31,17 @@ import './touch-controls.css';
  * drag surface has nothing useful to announce — these buttons and the bar
  * below the scene are the reachable path to the same commands.
  */
-export default function TouchControls({ hud, engine, mode, onMenu }: {
+export default function TouchControls({ hud, engine, mode, onMenu, crossing = false }: {
   hud: FpsHud;
   engine: FpsEngine | null;
   mode: 'range' | 'arena' | 'expedition';
   onMenu: () => void;
+  crossing?: boolean;
 }) {
   const [crouched, setCrouched] = useState(false);
   const firePointer = useRef<{ id: number; x: number; y: number } | null>(null);
   const alive = mode !== 'arena' || hud.arenaSelf?.alive !== false;
-  const playing = hud.phase === 'playing' && alive;
+  const playing = (hud.phase === 'playing' || crossing) && alive;
   const mounted = hud.vehicle !== 'on-foot';
   const flying = hud.vehicle === 'helicopter';
   const aimPressed = hud.grenadeHeld ? hud.grenadeHeld.under : hud.aiming;
@@ -117,7 +118,7 @@ export default function TouchControls({ hud, engine, mode, onMenu }: {
       if (hud.lootPrompt) prompts.push(act('loot', promptLabel(hud.lootPrompt), <PackageOpen size={16} />, { onClick: () => engine?.interactLoot(), disabled: !!hud.lootCard?.blocked }));
       if (hud.lootCard?.swap) prompts.push(act('armor-swap', 'Swap inserts', <Repeat2 size={16} />, { onClick: () => engine?.interactLoot('swap') }));
       if (hud.npcPrompt) prompts.push(act('npc', promptLabel(hud.npcPrompt), <MessageCircle size={16} />, { onClick: () => engine?.interactNpc() }));
-      if (hud.travelPrompt) prompts.push(act('travel', promptLabel(hud.travelPrompt), <Move3d size={16} />, { onClick: () => engine?.travelZone() }));
+      if (hud.travelPrompt.startsWith('T · ')) prompts.push(act('travel', promptLabel(hud.travelPrompt), <Move3d size={16} />, { onClick: () => engine?.travelZone() }));
     }
     if (hud.rangeSupplyPrompt) prompts.push(act('resupply', 'Resupply', <PackageOpen size={16} />, { onClick: () => engine?.resupplyRange() }));
     if (hud.interact) {

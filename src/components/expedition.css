@@ -73,3 +73,13 @@
 .expedition-objective-toggle{position:absolute;right:20px;top:116px;z-index:5;display:flex;align-items:center;gap:6px;background:#14231dec;border:1px solid #ff887077;border-radius:4px;padding:8px 10px;color:#ffe5d9;font:600 11px sans-serif;cursor:pointer}.expedition-objective-toggle[aria-pressed=true]{border-color:#ff8870;background:#3c2924ed}.expedition-objective-toggle kbd{font:inherit;border:1px solid #ff887066;border-radius:2px;padding:1px 4px}
 .expedition-objective-markers{position:absolute;inset:0;pointer-events:none;z-index:3}.expedition-objective-marker{position:absolute;transform:translate(-50%,-50%);display:grid;justify-items:center;text-align:center;gap:3px;max-width:180px;color:#ffb29a;font:11px sans-serif;text-shadow:0 1px 3px #000,0 0 5px #000}.expedition-objective-marker strong,.expedition-objective-marker small{background:#201b18d9;padding:3px 6px;border-radius:3px}.expedition-objective-marker small{font-size:9px;color:#ffe3d8}.expedition-objective-arrow{font-size:24px;line-height:1}
 @media(max-width:700px){.expedition-objective-toggle{top:110px;right:10px;font-size:10px;padding:7px}.expedition-objective-marker{max-width:135px;font-size:10px}.expedition-objective-marker small{font-size:8px}.expedition-game .fps-objective{max-width:80%}}
+.expedition-crossing {
+  position: absolute; inset: 0; z-index: 60; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px; background: #14231f;
+  color: #e5eee7; pointer-events: none;
+}
+.expedition-crossing span { font-size: 11px; letter-spacing: .2em; color: #a4c5b6; }
+.expedition-crossing strong { font-size: clamp(20px, 4vw, 30px); font-weight: 500; }
+.expedition-crossing.has-arrived { animation: expedition-crossing-arrival .25s ease-out forwards; }
+@keyframes expedition-crossing-arrival { to { opacity: 0; visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .expedition-crossing.has-arrived { animation-duration: .01s; } }
