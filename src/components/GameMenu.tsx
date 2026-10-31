@@ -120,7 +120,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
         <ArmoryShop store={armory} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined} nav={<nav className="store-nav" aria-label="Store">
           <a className="game-back" {...link('menu', 'Menu')} aria-label="Menu"><ArrowLeft size={16} /><span>Menu</span></a>
           <h1>Store</h1>
-          {!storeTour && <button className="store-tour-trigger" onClick={() => setStoreTour(true)}>Tour store</button>}
+          <button className="store-tour-trigger" aria-pressed={storeTour} onClick={() => setStoreTour(true)}>Tour store</button>
           <a className="game-back store-settings" {...link('settings', 'Settings')} aria-label="Settings" title="Settings"><Settings size={15} /></a>
         </nav>} deployments={[
           { id: 'training', label: 'Training', detail: locationName(training), onDeploy: () => transitionTo('training', locationName(training), 'TRAINING') },

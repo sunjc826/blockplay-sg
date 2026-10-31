@@ -7,7 +7,7 @@ import './tutorial.css';
 
 type Category = typeof SHOP_CATEGORIES[number]['id'];
 const STOPS = [
-  { id: 'wallet', title: 'Know your buying power', text: 'Earn credits (CR) through eliminations and training. Tokens (TK) are a separate currency. Reaching an item’s level opens its purchase — you still pay its price.', hint: 'Your rank, XP and wallet live here.' },
+  { id: 'wallet', title: 'Know your buying power', text: 'Earn credits (CR) through eliminations and training. Tokens (TK) are a separate currency. Reaching an item’s level opens its purchase — you still pay its price.', hint: 'Your credits and tokens are always shown here.' },
   { id: 'categories', title: 'Find your equipment', text: 'Each tab opens a different shelf. Armor holds carrying rigs and protective inserts.', hint: 'Click or tap the Armor tab.', category: 'armor', tab: 'Armor' },
   { id: 'carry', title: 'Choose what comes with you', text: 'These slots decide which weapons deploy with you. Your sidearm comes along; an extra main slot needs a permanent unlock. Gear left in your locker adds no carried weight.', hint: 'Review your deployment loadout. No purchase needed.' },
   { id: 'compare', title: 'Inspect before you equip', text: 'Select an equipment card to see its model and dossier. Stat changes compare it with your equipped weapon. Each variant is a complete, fixed build.', hint: 'Click or tap the highlighted weapon card.', category: 'weapon', tab: 'Weapons' },
