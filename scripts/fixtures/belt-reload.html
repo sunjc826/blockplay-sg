@@ -1,0 +1,41 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Belt reload contact review</title><style>
+body{margin:0;background:#18222a;color:#e4ebed;font:14px system-ui}canvas{display:block}header{position:absolute;inset:12px 16px auto;display:flex;gap:12px;align-items:center;background:#18222ae8;padding:12px;border-radius:8px}button,select,input{font:inherit}input[type=range]{width:260px}#state{position:absolute;bottom:16px;left:24px;white-space:pre;pointer-events:none}
+</style></head><body><header><select id="family"><option value="3">FN MAG</option><option value="4">CIS .50</option><option value="7">MG4</option></select><button id="play">Play</button><input id="time" type="range" min="0" max="1.5" step=".001" value="0"><label><input id="empty" type="checkbox">Empty reload</label><select id="view"><option value="side">Side view</option><option value="player">Player view</option></select><span id="label"></span></header><div id="state"></div><script type="module">
+import * as THREE from '/node_modules/.vite/deps/three.js';
+import { buildServiceWeapon } from '/src/game/service-weapon-models.ts';
+import { createWeaponHandling } from '/src/game/fps-viewmodel.ts';
+import { FPS_WEAPONS, reloadLength } from '/src/game/fps-rules.ts';
+import { beltWeaponMotion } from '/src/game/fps-weapon-motion.ts';
+import { disposeModel } from '/src/game/armory-visuals.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(1);renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#18222a');scene.add(new THREE.HemisphereLight('#e8efff','#535f49',2.8));
+const key=new THREE.DirectionalLight('#ffefd6',3);key.position.set(-1,2,2);scene.add(key);
+const parent=new THREE.Group();scene.add(parent);
+const source=new THREE.Group(),box=new THREE.Mesh(new THREE.BoxGeometry(.085,.095,.072),new THREE.MeshStandardMaterial({color:'#424b4d',metalness:.6,roughness:.4}));box.position.set(0,.027,-.012);source.add(box);scene.add(source);
+const band=new THREE.Mesh(new THREE.BoxGeometry(.09,.014,.08),new THREE.MeshStandardMaterial({color:'#687044',roughness:.8}));band.position.set(-.27,-.15,.16);scene.add(band);
+const input={model:source,worldToView:new THREE.Matrix4(),shoulder:new THREE.Vector3(-.19,.28,.20)};
+const sideCamera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.01,20);sideCamera.position.set(-.80,.54,.92);sideCamera.lookAt(-.08,.13,0);
+const playerCamera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.01,20);playerCamera.position.set(0,.32,.78);playerCamera.lookAt(0,.32,-2);
+let model,handling,spec,clock=0,playing=false,last=performance.now();
+function select(family){handling?.dispose();if(model){disposeModel(model);model.removeFromParent();}spec=FPS_WEAPONS[family];model=buildServiceWeapon(spec.id);parent.add(model);handling=createWeaponHandling(model,family);}
+function draw(time=clock){
+  clock=time;const empty=document.querySelector('#empty').checked;
+  const motion=beltWeaponMotion(time/reloadLength(empty),empty);
+  parent.position.set(motion.x,motion.y,motion.z);parent.rotation.set(motion.pitch,motion.yaw,motion.roll);
+  source.position.set(-.27,-.12,.16);source.rotation.set(.1,.2,-.15);source.visible=time<.47;
+  const pending=time>=.47&&time<.74;
+  handling.update(time/reloadLength(empty),empty,undefined,undefined,{source:input,magazineOut:time>=.38&&time<.74,pending,capacity:spec.capacity,baseCapacity:spec.capacity,saved:time/reloadLength(empty)},
+    {rounds:time<.38?(empty?0:spec.capacity):time<.74?0:spec.capacity,capacity:spec.capacity});
+  scene.updateMatrixWorld(true);renderer.render(scene,document.querySelector('#view').value==='player'?playerCamera:sideCamera);
+  const state=handling.beltReload;document.querySelector('#label').textContent=`${time.toFixed(3)} · ${state.phase}`;
+  document.querySelector('#state').textContent=`${state.attachment}\nLink spacing error: ${state.spacingError.toExponential(2)} m\nHand contact error: ${state.handError===null?'approaching':state.handError.toExponential(2)+' m'}`;
+  document.querySelector('#time').value=String(time);
+}
+document.querySelector('#family').onchange=event=>{select(Number(event.target.value));draw();};
+document.querySelector('#time').oninput=event=>{playing=false;draw(Number(event.target.value));};
+document.querySelector('#empty').onchange=()=>draw();document.querySelector('#view').onchange=()=>draw();
+document.querySelector('#play').onclick=()=>{playing=!playing;if(playing)clock=0;};
+select(Number(new URLSearchParams(location.search).get('family')??3));
+window.fixture={setTime:draw,select:family=>{select(family);draw();},get handling(){return handling;},get model(){return model;},get source(){return source;},get input(){return input;}};
+function tick(now){const dt=Math.min(.03,(now-last)/1000);last=now;if(playing){clock+=dt/spec.reload;const end=reloadLength(document.querySelector('#empty').checked);if(clock>end){clock=end;playing=false;}}draw();requestAnimationFrame(tick);}requestAnimationFrame(tick);window.ready=true;
+</script></body></html>

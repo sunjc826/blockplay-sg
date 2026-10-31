@@ -64,7 +64,7 @@ for (const [family, variants] of [[3, ['mag-issued', 'mag-chope', 'mag-jaga']], 
     const homes = rounds.map(round => round.position.clone()), mouth = homes[0].clone().sub(magazine.position);
     expect(rounds).toHaveLength(8);
     // Box half off: the first round stays at the box mouth, the free end hangs below where it fed.
-    handling.update(.3, false);
+    handling.update(.34, false);
     expect(rounds[0].position.distanceTo(mouth.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), magazine.rotation.z).add(magazine.position))).toBeLessThan(.02);
     expect(rounds[7].position.y).toBeLessThan(homes[7].y - .1);
     handling.update(null, false);

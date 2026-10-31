@@ -106,7 +106,7 @@ import { createRailEffects } from './weapon-rail-effects';
 import { accelerateInstancedRaycasts } from './instanced-raycast';
 import { separateInstancedMaterials } from './instanced-materials';
 import { createOpticReflectionRenderer } from './weapon-reflections';
-import { handleSide, INSPECT_DURATION, inspectMotion, reloadMotion, readyMotion, reloadStage, smoothStep } from './fps-weapon-motion';
+import { beltWeaponMotion, handleSide, INSPECT_DURATION, inspectMotion, reloadMotion, readyMotion, reloadStage, smoothStep } from './fps-weapon-motion';
 import { armReloadGate, reloadInterrupt } from './fps-reload';
 import { advanceSprintBreak, createSprintBreak } from './fps-sprint';
 import { createFpsComms, type CommsEntry } from './fps-comms';
@@ -1707,7 +1707,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.deploymentIntro = hud.phase === 'deploying' ? intro?.stage ?? '' : '';
     canvas.dataset.deploymentCamera = JSON.stringify({ x: camera.position.x, y: camera.position.y, z: camera.position.z, pitch: camera.rotation.x, yaw: camera.rotation.y, fov: camera.fov, ready: readyProgress ?? null, speed: intro?.speed ?? 0, blur: intro?.blur ?? 0 });
     const progress = remaining > 0 ? 1 - remaining : null;
-    const motion = readyProgress === undefined ? reloadMotion(progress ?? 0, emptyReload[hud.weapon], handleSide(specs[hud.weapon].id)) : readyMotion(readyProgress, handleSide(specs[hud.weapon].id));
+    const beltProgress = progress ?? (specs[hud.weapon].feed === 'belt' ? state.reloadSaved ?? 0 : 0);
+    const motion = readyProgress === undefined ? specs[hud.weapon].feed === 'belt'
+      ? beltWeaponMotion(beltProgress, emptyReload[hud.weapon]) : reloadMotion(progress ?? 0, emptyReload[hud.weapon], handleSide(specs[hud.weapon].id))
+      : readyMotion(readyProgress, handleSide(specs[hud.weapon].id));
     canvas.dataset.readyAction = readyProgress === undefined ? '' : motion.action.toFixed(3);
     // A supported gun stays low for reloads; hands, magazine and feed cover
     // still perform their complete handling animation around the planted legs.
@@ -1736,7 +1739,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     rig.position.x += inspection.x * inspectScale; rig.position.y += inspection.y * inspectScale; rig.position.z += inspection.z * inspectScale;
     rig.rotation.x += inspection.pitch * inspectScale; rig.rotation.y += inspection.yaw * inspectScale; rig.rotation.z += inspection.roll * inspectScale;
     if (state.reloadSlot !== undefined && state.reloadSlot >= 0) {
-      const pocketPose = pouchWeaponOffset(progress, emptyReload[hud.weapon]);
+      const pocketPose = pouchWeaponOffset(specs[hud.weapon].feed === 'belt' ? beltProgress : progress, emptyReload[hud.weapon]);
       rig.position.x += pocketPose.x; rig.position.y += pocketPose.y; rig.position.z += pocketPose.z;
       rig.rotation.y += pocketPose.yaw; rig.rotation.z += pocketPose.roll;
     }
@@ -1754,6 +1757,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       { rounds: magazineRounds(loadout[i], specs[i]), capacity: magazineCapacity(loadout[i], specs[i]) }));
     canvas.dataset.magazineAmmo = JSON.stringify(weapons[hud.weapon] ? magazineAmmoState(weapons[hud.weapon]) : []);
     canvas.dataset.beltAmmo = JSON.stringify(handling[hud.weapon]?.beltAmmo ?? null);
+    canvas.dataset.beltReload = JSON.stringify(handling[hud.weapon]?.beltReload ?? null);
     canvas.dataset.reloadReach = JSON.stringify(handling[hud.weapon]?.reloadReach ?? null);
     canvas.dataset.magazineInventory = JSON.stringify({ slots: state.magazineInventory?.slots, reloadSlot: state.reloadSlot, pending: state.pendingMagazine ?? null, capacity: magazineCapacity(state, specs[hud.weapon]), spares: spareMagazines(state) });
     // A supply in the hands takes the weapon down and out of view while it is used.

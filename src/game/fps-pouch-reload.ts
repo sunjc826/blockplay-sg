@@ -16,8 +16,14 @@ function localBounds(object: THREE.Object3D) {
   const result = new THREE.Box3(), inverse = object.matrixWorld.clone().invert();
   object.traverse(node => {
     if (!(node instanceof THREE.Mesh)) return;
-    node.geometry.computeBoundingBox();
-    if (node.geometry.boundingBox) result.union(node.geometry.boundingBox.clone().applyMatrix4(inverse.clone().multiply(node.matrixWorld)));
+    if (node.userData.pouchDecoration) return;
+    // Ignore the root's visibility (a taken pouch is hidden), but exclude
+    // inactive weapon configurations from the physical container's bounds.
+    for (let part: THREE.Object3D | null = node; part && part !== object; part = part.parent) if (!part.visible) return;
+    let box: THREE.Box3 | null;
+    if (node instanceof THREE.InstancedMesh) { node.computeBoundingBox(); box = node.boundingBox; }
+    else { node.geometry.computeBoundingBox(); box = node.geometry.boundingBox; }
+    if (box && !box.isEmpty()) result.union(box.clone().applyMatrix4(inverse.clone().multiply(node.matrixWorld)));
   });
   return result;
 }
@@ -49,6 +55,7 @@ export function createPouchReload(model: THREE.Object3D, hand: THREE.Object3D, m
   const wellCentre = magazineBounds.getCenter(new THREE.Vector3()), wellSize = magazineBounds.getSize(new THREE.Vector3());
   const wellPosition = magazine?.position.clone() ?? new THREE.Vector3(), wellRotation = magazine?.quaternion.clone() ?? new THREE.Quaternion();
   const wellMatrix = new THREE.Matrix4(), targetSize = new THREE.Vector3(), targetScale = new THREE.Vector3();
+  const carriedMapping = new THREE.Matrix4(), fit = new THREE.Vector3();
   let debug: { phase: PouchReloadPhase; hand: number[]; magazine: number[] | null; source: number[]; sourceVisible: boolean } | null = null;
   function segment(mesh: THREE.Mesh, a: THREE.Vector3, b: THREE.Vector3, radius: number) {
     const delta = b.clone().sub(a);
@@ -56,11 +63,41 @@ export function createPouchReload(model: THREE.Object3D, hand: THREE.Object3D, m
     mesh.scale.set(radius, delta.length(), radius);
     mesh.quaternion.setFromUnitVectors(Y, delta.normalize());
   }
-  function hide() { root.visible = false; debug = null; }
+  function hide() { root.visible = false; if (carried) carried.visible = false; debug = null; }
+  function updateArm(input?: PouchReloadSource, force = false) {
+    if (!input || !root.visible && !force) return false;
+    root.visible = true;
+    model.updateWorldMatrix(true, false); inverse.copy(model.matrixWorld).invert();
+    shoulder.copy(input.shoulder).applyMatrix4(input.worldToView);
+    hand.updateWorldMatrix(true, false); wrist.set(0, -.05, .01).applyMatrix4(hand.matrixWorld);
+    direction.copy(wrist).sub(shoulder); const distance = Math.max(.001, direction.length()); direction.divideScalar(distance);
+    const upperLength = Math.max(.31, distance * .54), lowerLength = Math.max(.28, distance * .50);
+    const along = (upperLength ** 2 - lowerLength ** 2 + distance ** 2) / (2 * distance);
+    const bend = Math.sqrt(Math.max(0, upperLength ** 2 - along ** 2));
+    pole.set(-1, -.3, .4).addScaledVector(direction, -new THREE.Vector3(-1, -.3, .4).dot(direction)).normalize();
+    elbow.copy(shoulder).addScaledVector(direction, along).addScaledVector(pole, bend);
+    shoulder.applyMatrix4(inverse); elbow.applyMatrix4(inverse); wrist.applyMatrix4(inverse);
+    const parentScale = model.getWorldScale(new THREE.Vector3()).x;
+    segment(upper, shoulder, elbow, .043 / parentScale); segment(forearm, elbow, wrist, .034 / parentScale);
+    return true;
+  }
   hide();
   return {
     get debug() { return debug; },
-    update(time: number, pending: boolean, input?: PouchReloadSource) {
+    updateArm,
+    /** Map a point on the authored box to the actual box being carried. Bounds
+     * mapping handles the rig's differently sized box and the foreground scale. */
+    magazineMatrix(target: THREE.Matrix4) {
+      if (!carried?.visible || !root.visible) return false;
+      model.updateWorldMatrix(true, false); carried.updateWorldMatrix(true, false);
+      fit.copy(sourceSize).divide(wellSize);
+      carriedMapping.makeTranslation(sourceCentre.x, sourceCentre.y, sourceCentre.z)
+        .multiply(new THREE.Matrix4().makeScale(fit.x, fit.y, fit.z))
+        .multiply(new THREE.Matrix4().makeTranslation(-wellCentre.x, -wellCentre.y, -wellCentre.z));
+      target.copy(model.matrixWorld).invert().multiply(carried.matrixWorld).multiply(carriedMapping);
+      return true;
+    },
+    update(time: number, pending: boolean, input?: PouchReloadSource, options?: { mountMatrix?: THREE.Matrix4; deferArm?: boolean }) {
       hide();
       if (!input || !magazine || time < RELOAD_POINTS.out || time >= .84) return false;
       const originalHand = hand.position.clone(), originalRotation = hand.quaternion.clone();
@@ -68,15 +105,22 @@ export function createPouchReload(model: THREE.Object3D, hand: THREE.Object3D, m
       input.model.updateWorldMatrix(true, false);
       sourceMatrix.multiplyMatrices(input.worldToView, input.model.matrixWorld);
       sourceMatrix.decompose(sourcePosition, sourceRotation, sourceScale);
+      if (time <= RELOAD_POINTS.take || source !== input.model) {
+        const bounds = localBounds(magazine); bounds.getCenter(wellCentre); bounds.getSize(wellSize);
+      }
       if (source !== input.model) {
         carried?.removeFromParent(); source = input.model;
         carried = source.clone(true); carried.name = 'reload-carried-magazine'; root.add(carried);
+        // The moving belt replaces the rig's folded belt/raised handle cue.
+        // Those decorations remain on the original stowed container.
+        if (options?.mountMatrix) carried.traverse(node => { if (node.userData.pouchDecoration) node.visible = false; });
         // Authored gun meshes often have identity transforms and offset vertices.
         // Align physical bounds, never assume that a mesh's origin is its grip.
         const bounds = localBounds(source); bounds.getCenter(sourceCentre); bounds.getSize(sourceSize);
       }
       from.copy(sourceCentre).applyMatrix4(sourceMatrix);
-      wellMatrix.compose(wellPosition, wellRotation, magazine.scale).premultiply(model.matrixWorld);
+      if (options?.mountMatrix) wellMatrix.copy(options.mountMatrix); else wellMatrix.compose(wellPosition, wellRotation, magazine.scale);
+      wellMatrix.premultiply(model.matrixWorld);
       to.copy(wellCentre).applyMatrix4(wellMatrix);
       wellMatrix.decompose(sourcePosition, targetRotation, targetScale); targetSize.copy(wellSize).multiply(targetScale);
       const up = Y.clone().transformDirection(sourceMatrix);
@@ -92,7 +136,9 @@ export function createPouchReload(model: THREE.Object3D, hand: THREE.Object3D, m
       // magazine clear of the near plane, without moving its initial pickup pose.
       if (centre.z > -.30) centre.z = THREE.MathUtils.lerp(centre.z, -.30, extract * (1 - insert));
       rotation.copy(sourceRotation).slerp(targetRotation, travel);
-      const fitScale = targetSize.clone().divide(sourceSize).clampScalar(.15, 3);
+      // Exact bounds fit keeps attached parts continuous when the carried
+      // container hands over to the mounted one, including large ammo boxes.
+      const fitScale = targetSize.clone().divide(sourceSize);
       scale.copy(sourceScale).lerp(fitScale, insert);
       const grasp = new THREE.Vector3(-sourceSize.x * .5, sourceSize.y * .12, sourceSize.z * .15).multiply(scale).applyQuaternion(rotation);
       grip.copy(centre).add(grasp);
@@ -112,17 +158,7 @@ export function createPouchReload(model: THREE.Object3D, hand: THREE.Object3D, m
       }
       // A connected two-segment sleeve follows the wrist all the way down to
       // the selected upper, lower or side pouch, including crouch and prone.
-      shoulder.copy(input.shoulder).applyMatrix4(input.worldToView);
-      hand.updateWorldMatrix(true, false); wrist.set(0, -.05, .01).applyMatrix4(hand.matrixWorld);
-      direction.copy(wrist).sub(shoulder); const distance = Math.max(.001, direction.length()); direction.divideScalar(distance);
-      const upperLength = Math.max(.31, distance * .54), lowerLength = Math.max(.28, distance * .50);
-      const along = (upperLength ** 2 - lowerLength ** 2 + distance ** 2) / (2 * distance);
-      const bend = Math.sqrt(Math.max(0, upperLength ** 2 - along ** 2));
-      pole.set(-1, -.3, .4).addScaledVector(direction, -new THREE.Vector3(-1, -.3, .4).dot(direction)).normalize();
-      elbow.copy(shoulder).addScaledVector(direction, along).addScaledVector(pole, bend);
-      shoulder.applyMatrix4(inverse); elbow.applyMatrix4(inverse); wrist.applyMatrix4(inverse);
-      const parentScale = model.getWorldScale(new THREE.Vector3()).x;
-      segment(upper, shoulder, elbow, .043 / parentScale); segment(forearm, elbow, wrist, .034 / parentScale);
+      if (!options?.deferArm) updateArm(input);
       const phase: PouchReloadPhase = time < .445 ? 'reach' : time < RELOAD_POINTS.take ? 'grip' : time < .56 ? 'extract' : time < .67 ? 'carry' : time < RELOAD_POINTS.seat ? 'insert' : 'return';
       debug = { phase, hand: hand.getWorldPosition(new THREE.Vector3()).toArray(), magazine: carried!.visible ? centre.toArray() : null, source: from.toArray(), sourceVisible: input.model.visible };
       return true;

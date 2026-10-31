@@ -70,17 +70,18 @@ export function createFpsBody(scene: THREE.Scene) {
         box(model, 'ammo-box-body', .085, .095, .072, 0, .027, -.012, metal);
         box(model, 'ammo-box-lid', .093, .012, .08, 0, .081, -.012, trim);
         for (const side of [-1, 1]) {
-          box(model, 'handle-post', .008, .023, .009, side * .027, .098, -.005, metal);
+          box(model, 'handle-post', .008, .023, .009, side * .027, .098, -.005, metal).userData.pouchDecoration = true;
           box(model, 'lid-latch', .014, .03, .009, side * .029, .065, -.055, trim);
         }
-        box(model, 'carry-handle', .062, .009, .011, 0, .113, -.005, metal);
+        box(model, 'carry-handle', .062, .009, .011, 0, .113, -.005, metal).userData.pouchDecoration = true;
         brass ??= new THREE.MeshStandardMaterial({ color: '#bd9746', metalness: .65, roughness: .4 });
         // A short linked belt folded across the lid makes the feed type legible
         // from the downward first person angle, even when the box is in a pouch.
         for (let round = 0; round < 5; round++) {
           const cartridge = new THREE.Mesh(new THREE.CylinderGeometry(.0035, .0035, .031, 6), brass);
+          cartridge.userData.pouchDecoration = true;
           cartridge.rotation.x = Math.PI / 2; cartridge.position.set((round - 2) * .012, .092, -.032); model.add(cartridge);
-          box(model, 'belt-link', .009, .006, .007, (round - 2) * .012, .092, -.025, metal);
+          box(model, 'belt-link', .009, .006, .007, (round - 2) * .012, .092, -.025, metal).userData.pouchDecoration = true;
         }
       } else if (kind === 'drum') {
         const drum = new THREE.Mesh(new THREE.CylinderGeometry(.043, .043, .058, 20), metal);

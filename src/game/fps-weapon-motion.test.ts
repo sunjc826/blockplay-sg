@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { EMPTY_RELOAD, RELOAD_POINTS, reloadCommit, reloadShare } from './fps-rules';
-import { handleSide, inspectMotion, reloadMotion, reloadStage } from './fps-weapon-motion';
+import { beltWeaponMotion, handleSide, inspectMotion, reloadMotion, reloadStage } from './fps-weapon-motion';
 
 it('inspects both sides, holds each view, and returns exactly to ready', () => {
   const ready = { x: 0, y: 0, z: 0, pitch: 0, yaw: 0, roll: 0 };
@@ -66,4 +66,16 @@ it('stages an empty reload through the charging handle', () => {
   expect(stage(1.3)).toBe('READY');
   expect(reloadCommit(true)).toBeCloseTo(reloadShare(EMPTY_RELOAD.chamber, true));
   expect(reloadStage(0)).toBe('');
+});
+
+it('holds belt-fed weapons steady around the tray and joins the existing empty charging stroke', () => {
+  expect(beltWeaponMotion(0)).toEqual(reloadMotion(0));
+  expect(beltWeaponMotion(1)).toEqual(reloadMotion(0));
+  expect(beltWeaponMotion(.55).roll).toBeCloseTo(-.14);
+  expect(beltWeaponMotion(reloadShare(1.08, true), true)).toEqual(reloadMotion(reloadShare(1.08, true), true));
+  for (const empty of [false, true]) for (let p = .001; p <= 1; p += .001) {
+    const previous = beltWeaponMotion(p - .001, empty), current = beltWeaponMotion(p, empty);
+    for (const axis of ['x', 'y', 'z', 'pitch', 'yaw', 'roll'] as const)
+      expect(Math.abs(current[axis] - previous[axis])).toBeLessThan(.03);
+  }
 });

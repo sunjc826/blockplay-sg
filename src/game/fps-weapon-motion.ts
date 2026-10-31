@@ -88,6 +88,18 @@ export function reloadMotion(progress: number, empty = false, side: HandleSide =
     action: empty ? handleTravel(t) : 0,
   };
 }
+/** A small, steady cant exposes the feed tray while the other hand works.
+ * From empty, join the existing charging stroke after the cover is closed. */
+export function beltWeaponMotion(progress: number, empty = false) {
+  const motion = reloadMotion(progress, empty), time = Math.max(0, Math.min(1, progress)) * reloadLength(empty);
+  const hold = smoothStep(time / .15) * (1 - smoothStep((time - .74) / .26));
+  const charge = empty ? smoothStep((time - .82) / .12) : 0;
+  return { ...motion, x: -.025 * hold * (1 - charge) + motion.x * charge,
+    y: .075 * hold * (1 - charge) + motion.y * charge, z: .025 * hold * (1 - charge) + motion.z * charge,
+    pitch: .06 * hold * (1 - charge) + motion.pitch * charge,
+    yaw: .12 * hold * (1 - charge) + motion.yaw * charge,
+    roll: -.14 * hold * (1 - charge) + motion.roll * charge };
+}
 /** Raise, rack and shoulder the loaded weapon, without a magazine change. */
 export function readyMotion(progress: number, side: HandleSide = 'right') {
   const p = Math.max(0, Math.min(1, progress)), lift = smoothStep(p / .22);

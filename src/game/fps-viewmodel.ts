@@ -8,23 +8,7 @@ import { createBipodMotion, type BipodMotionInput } from './weapon-bipod';
 import { MACHINE_GUN_LAYOUT } from './machine-gun-layout';
 import { ENEMY_WEAPON_LAYOUT, isEnemyWeaponId } from './enemy-weapon-layout';
 import { updateMagazineAmmo } from './magazine-ammo';
-
-const Z_AXIS = new THREE.Vector3(0, 0, 1);
-/**
- * A belt hanging free from its box mouth: the same link spacing as when it is
- * seated, each link turned a little further down, so the loose end curls under.
- * `roll` is how far each round turns from its seated heading.
- */
-function hangingBelt(homes: THREE.Vector3[]) {
-  const heading = (a: THREE.Vector3, b: THREE.Vector3) => Math.atan2(b.y - a.y, b.x - a.x);
-  const out = homes.slice(0, 1).map(position => ({ position: position.clone(), roll: 0 }));
-  for (let i = 1; i < homes.length; i++) {
-    const seated = heading(homes[i - 1], homes[i]), angle = THREE.MathUtils.lerp(heading(homes[0], homes[1]), -1.35, i / (homes.length - 1));
-    const step = Math.hypot(homes[i].x - homes[i - 1].x, homes[i].y - homes[i - 1].y), last = out[i - 1].position;
-    out.push({ position: new THREE.Vector3(last.x + Math.cos(angle) * step, last.y + Math.sin(angle) * step, homes[i].z), roll: angle - seated });
-  }
-  return out;
-}
+import { beltPouchTime, createBeltReload } from './fps-belt-reload';
 
 /** Lightweight rigid hand poses; no extra render target or skinning. */
 export function createWeaponHandling(model: THREE.Group, index: number) {
@@ -82,19 +66,15 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   const grip = side === 'top' ? { x: -.052, y: .004, turn: 1.77 } : { x: .035, y: .01, turn: -1.2 };
   if (index >= 3 && !authoredControl) control.position.set(index === 4 ? .095 : .063, FPS_WEAPONS[index].sightHeight - .07, .04);
   const cover = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__feed-cover`) : undefined;
-  const coverHome = cover?.rotation.clone();
   const belt = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__feed-belt`) : undefined;
-  const rounds = magazine ? belt?.children.filter(round => round.name.endsWith('__belt-round')) ?? [] : [];
-  const beltVisible = belt?.visible, roundVisible = rounds.map(round => round.visible);
-  let beltRounds = rounds.length;
-  const roundHomes = rounds.map(round => round.position.clone()), hanging = hangingBelt(roundHomes);
-  const carried = new THREE.Vector3(), taut = new THREE.Vector3();
   const controlZ = control.position.z;
   const bipod = createBipodMotion(model, FPS_WEAPONS[index].id);
   const pouchReload = createPouchReload(model, left, magazine, sleeve);
+  const beltReload = magazine && belt && cover ? createBeltReload(model, magazine, belt, cover, left) : undefined;
   return {
     get reloadReach() { return pouchReload.debug; },
-    get beltAmmo() { return rounds.length ? { total: rounds.length, remaining: beltRounds, visible: belt?.visible ? beltRounds : 0 } : null; },
+    get beltAmmo() { return beltReload?.ammo ?? null; },
+    get beltReload() { return beltReload?.debug ?? null; },
     get bipodDeployment() { return bipod.progress; },
     resetBipod: bipod.reset,
     get aimHeight() { return getWeaponSight(model)?.aimHeight ?? FPS_WEAPONS[index].sightHeight; },
@@ -104,32 +84,11 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       bipod.update(bipodInput);
       const motionProgress = progress ?? (reload?.magazineOut ? reload.saved : 0);
       const motion = ready === undefined ? reloadMotion(motionProgress, empty, side) : readyMotion(ready, side);
-      if (cover && coverHome) { cover.rotation.copy(coverHome); cover.rotation.x -= motion.handToMagazine * .9; }
-      if (belt) belt.visible = reload?.magazineOut && !reload.pending ? false : motion.magazineVisible;
-      // Authored rounds run from box mouth to feed tray. As the last N feed,
-      // shorten the tail first, keeping the last cartridge beside the action.
-      // A replacement belt belongs to the incoming box while it is threaded;
-      // gameplay does not own those fresh rounds until the seat point.
-      beltRounds = Math.max(0, Math.min(rounds.length, Math.floor(reload?.magazineOut && reload.pending ? reload.capacity : ammunition?.rounds ?? rounds.length)));
       if (magazine) {
         magazine.position.copy(magazineHome); magazine.position.y -= motion.magazineDrop;
         magazine.rotation.copy(magazineRotation); magazine.rotation.z += motion.magazineDrop * -.35;
         magazine.visible = reload?.magazineOut && !reload.pending ? false : motion.magazineVisible;
       }
-      // The belt stays fed from the box mouth. Seated, it runs to the tray, drawn
-      // taut while the box is away; peeled out, it hangs and curls from the box.
-      const drop = motion.magazineDrop, turn = drop * -.35;
-      const carry = (point: THREE.Vector3, out: THREE.Vector3) => {
-        out.copy(point).sub(magazineHome).applyAxisAngle(Z_AXIS, turn).add(magazineHome); out.y -= drop; return out;
-      };
-      rounds.forEach((round, i) => {
-        round.visible = i >= rounds.length - beltRounds;
-        const along = i / Math.max(1, rounds.length - 1);
-        taut.lerpVectors(carry(roundHomes[i], carried), roundHomes[i], along);
-        carry(hanging[i].position, carried);
-        round.position.lerpVectors(carried, taut, motion.beltSeated);
-        round.rotation.z = THREE.MathUtils.lerp(hanging[i].roll + turn, turn * (1 - along), motion.beltSeated);
-      });
       left.position.copy(support).lerp(magazineGrip, motion.handToMagazine);
       left.position.y -= motion.magazineDrop * motion.handToMagazine;
       left.rotation.set(-.15 + motion.handToMagazine * .3, -.2 + motion.handToHandle * grip.turn, .32 - motion.handToMagazine * .35 - motion.handToHandle * .3);
@@ -140,18 +99,22 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
         magazine.userData.loadedCapacity = reload?.capacity ?? FPS_WEAPONS[index].capacity;
         if (reload && magazineScale) magazine.scale.y = magazineScale.y * Math.max(.75, Math.min(1.4, reload.capacity / (reload.baseCapacity ?? FPS_WEAPONS[index].capacity)));
       }
-      const reaching = pouchReload.update(ready === undefined ? motionProgress * reloadLength(empty) : 0, reload?.pending === true, reload?.source);
-      const stub = left.getObjectByName('hand-forearm-stub'); if (stub) stub.visible = !reaching;
       const time = motionProgress * reloadLength(empty);
-      const closed = reaching ? smoothStep((time - .425) / .045) * (1 - smoothStep((time - .76) / .08)) : .35;
+      const beltActive = ready === undefined && (progress !== null || reload?.magazineOut === true || (reload?.saved ?? 0) > 0);
+      const beltTime = (progress ?? reload?.saved ?? 0) * reloadLength(empty);
+      beltReload?.prepare(beltTime, beltActive, reload, ammunition, empty);
+      const reaching = pouchReload.update(ready === undefined ? beltReload ? beltPouchTime(beltTime) : time : 0,
+        reload?.pending === true, reload?.source, beltReload ? { mountMatrix: beltReload.mountMatrix, deferArm: true } : undefined);
+      beltReload?.update(pouchReload);
+      const connected = beltReload && beltActive ? pouchReload.updateArm(reload?.source, true) : reaching;
+      const stub = left.getObjectByName('hand-forearm-stub'); if (stub) stub.visible = !connected;
+      const closed = beltReload && beltActive ? beltReload.grip : reaching ? smoothStep((time - .425) / .045) * (1 - smoothStep((time - .76) / .08)) : .35;
       for (let finger = 0; finger < 4; finger++) left.getObjectByName(`grip-finger-${finger}`)!.rotation.x = .12 + closed * .95;
       left.getObjectByName('grip-thumb')!.rotation.z = -.55 - closed * .35;
       control.position.z = controlZ + stroke;
     },
     dispose() {
-      pouchReload.dispose(); bipod.reset(); control.position.z = controlZ;
-      if (belt) belt.visible = beltVisible!;
-      rounds.forEach((round, i) => { round.position.copy(roundHomes[i]); round.rotation.z = 0; round.visible = roundVisible[i]; });
+      pouchReload.dispose(); beltReload?.dispose(); bipod.reset(); control.position.z = controlZ;
       additions.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
   };
 }
