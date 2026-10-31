@@ -89,7 +89,7 @@ describe('level design routes',()=>{
     expect(cars.canOccupy(-188,-69,.1,projection)).toBe(true);
     expect(cars.canOccupy(-171,-62,.1,projection)).toBe(false);
     for(const p of elevatedLootAnchors([surface],movement)) expect(surfaceContains(surface,p.x,p.z)).toBe(true);
-    walk(movement,[{x:-157,y:0,z:42},{x:-157,y:4,z:30},{x:-160,y:4,z:20},{x:-159,y:12,z:0},{x:-164,y:12,z:-10},{x:-162,y:20,z:-30},{x:-155,y:20,z:-40},{x:-163,y:28,z:-60}]);
+    walk(movement,[{x:-157,y:0,z:42},{x:-157,y:0,z:30},{x:-160,y:4,z:20},{x:-159,y:12,z:0},{x:-164,y:12,z:-10},{x:-162,y:20,z:-30},{x:-155,y:20,z:-40},{x:-163,y:28,z:-60}]);
     const navigator=createVerticalNavigator({bounds:getRegion('bukit-timah').bounds,obstacles:world.obstacles,surfaces,traversalObstacles:getTraversalObstacles(world.scene)});
     expect(navigator.route({x:-157,y:0,z:42},{x:-163,y:28,z:-60}).length).toBeGreaterThan(1);
   }));

@@ -4,10 +4,12 @@ import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
 import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
+import { buildUpperThomsonForestGround, upperThomsonGroundHeight } from './upper-thomson-ground';
+import { THOMSON_FOREST_REST, THOMSON_PLAZA_ACCESS } from './bukit-thomson-rest-places';
 
 // On the eating strip's five-foot way, looking west toward the reservoir.
 export const UPPER_THOMSON_SPAWN = { x: -50, z: -12, yaw: Math.PI / 2 };
-export const UPPER_THOMSON_BOUNDS = { minX: -260, maxX: 260, minZ: -220, maxZ: 220 };
+export const UPPER_THOMSON_BOUNDS = { minX: -260, maxX: 260, minZ: -220, maxZ: 220, groundHeight:upperThomsonGroundHeight };
 export { UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
 
 const EW_ROADS = [-140, 0, 140], NS_ROADS = [-120, 20, 150];
@@ -51,6 +53,7 @@ export function buildUpperThomsonScene() {
   const shopColors = ['#e0d3ae', '#a9c2b4', '#d9bfa2', '#9fb4c6', '#cfa79b', '#d8cf9e'].map(color => mat(color));
 
   box(0, -0.6, 0, 620, 1, 540, grass);
+  const forestGround = buildUpperThomsonForestGround(); scene.add(forestGround.mesh);
   kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });
 
   // Reservoir: surface, the two collision pools and a drift of ripples.
@@ -100,13 +103,14 @@ export function buildUpperThomsonScene() {
   }
 
   /** Secondary forest: bare trunks under a layered canopy, thinning at the road. */
-  function forestTree(x: number, z: number, height: number) {
+  function forestTree(x: number, z: number, height: number, base = 0) {
     // Shore-side crowns must clear the full raised deck, not only its centreline.
     // Lowest crown bottom is height - 6.7; 13m leaves 2.1m above standing heads.
     if (x === FOREST.minX && z >= -116 && z <= -20) height = Math.max(height, 13);
-    cylinder(x, height / 2, z, 0.42, height, wood); solid(x, z, 0.9, 0.9);
+    cylinder(x, base + height / 2, z, 0.42, height, wood); solid(x, z, 0.9, 0.9);
+    const trunk=kit.obstacles.at(-1)!; trunk.minY=base; trunk.maxY=base+height;
     for (let layer = 0; layer < 3; layer++) {
-      const y = height - layer * 2.6, spread = 4.4 - layer * 0.9;
+      const y = base + height - layer * 2.6, spread = 4.4 - layer * 0.9;
       blob(x + (layer % 2 ? 1.2 : -1.2), y, z + (layer % 2 ? -1 : 1), spread, 1.5, spread, [leaf, fern, deep][layer % 3]);
     }
   }
@@ -115,16 +119,18 @@ export function buildUpperThomsonScene() {
     forestTree(x, z, 11 + ((Math.round(x) + Math.round(z)) % 5));
   }
 
-  // Trees grow from the new contour shelves rather than disappearing below
-  // the raised earth; crowns clear both branches of the walking trail.
-  for (const [z,y] of [[42,2],[78,5],[105,8]] as const) {
-    blob(-144,y+7.5,z,3.5,2,3.5,leaf);
-    blob(-143,y+9,z,2.8,1.8,2.8,fern);
+  // A narrow forest route has planted edges, not three ornamental trees on
+  // isolated grass platforms. Crowns clear standing heads on the upper bank.
+  for (const [i,[x,z]] of [[-155,26],[-133,44],[-155,67],[-133,91],[-155,114],[-133,128]].entries())
+    forestTree(x,z,13+i%3,upperThomsonGroundHeight(x,z));
+  for (const [x,z] of [[-155,40],[-154,80],[-155,106],[-132,30],[-133,62],[-132,109]]) {
+    const y=upperThomsonGroundHeight(x,z);
+    blob(x,y+.65,z,1.3,.65,2,fern);
   }
 
   // The TreeTop Walk is a separate forest excursion, several kilometres from
   // the eating strip. A trail junction replaces the invented roadside span.
-  box(BRIDGE_X, 0.19, 0, 5, 0.2, 132, paving);
+  box(BRIDGE_X, -.015, -25, 5, .03, 82, paving);
   sign('NATURE TRAIL', BRIDGE_X, 3.5, -64, 16, 1.8, '#2f5140');
 
   /** Two-storey shop terrace: zinc awning, five-foot way, tiled upper facade. */
@@ -283,7 +289,7 @@ export function buildUpperThomsonScene() {
   scene.userData.districtFeatures = ['zinc-awning-five-foot-way', 'open-sided-kopitiam', 'ceiling-fan-bays', 'rooftop-car-park-deck', 'blue-framed-plaza-facade', 'terrace-house-porches', 'reservoir-causeway', 'pile-boardwalk', 'layered-secondary-forest', 'forest-trail-junction'];
   scene.userData.referenceFeatures = ['thomson-shops-road-0:two-storey-pitched-roof-terrace', 'thomson-shops-road-0:continuous-low-awning', 'thomson-plaza-outdoor02-0:white-clad-facade-with-offset-blue-squares'];
 
-  return withVerticalPlaces(withVerticalRoutes(kit.finish({
+  const world = withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.35 + index) * 1.5; });
@@ -297,23 +303,10 @@ export function buildUpperThomsonScene() {
       points: [{ x: -162, z: -116, y: 0 }, { x: -162, z: -104, y: 2.4 }, { x: -162, z: -32, y: 2.4 }, { x: -162, z: -20, y: 0 }],
       note: 'Authored low boardwalk rise replaces the existing north shore deck; not the distant TreeTop Walk.' },
 
-  ]), [{
-    id: 'thomson-forest-contours', name: 'Reservoir forest contour trails',
-    note: 'Broad earth-backed contour shelves with branching climbs in the compressed forest strip; does not represent the distant TreeTop Walk.',
-    floors: [
-      {id:'lower-clearing',x:-144,z:42,y:2,width:22,depth:20,foundation:'solid',color:'#81925c',rails:false},
-      {id:'middle-clearing',x:-144,z:78,y:5,width:22,depth:14,foundation:'solid',color:'#82945c',rails:false},
-      {id:'upper-clearing',x:-144,z:105,y:8,width:22,depth:14,foundation:'solid',color:'#82945c',rails:false},
-    ],
-    connections: [
-      {id:'trailhead-west',from:{x:-150,z:16,y:0},to:{x:-150,z:32,y:2},width:6,foundation:'solid' as const,color:'#a08c67'},
-      {id:'trailhead-east',from:{x:-138,z:16,y:0},to:{x:-138,z:32,y:2},width:6,foundation:'solid' as const,color:'#a08c67'},
-      ...[[-150,'west'],[-138,'east']].flatMap(([x,side]) => [
-        {id:`lower-${side}`,from:{x:Number(x),z:52,y:2},to:{x:Number(x),z:71,y:5},width:6,foundation:'solid' as const,color:'#a08c67'},
-        {id:`upper-${side}`,from:{x:Number(x),z:85,y:5},to:{x:Number(x),z:98,y:8},width:6,foundation:'solid' as const,color:'#a08c67'},
-      ]),
-      {id:'northern-descent',from:{x:-144,z:112,y:8},to:{x:-144,z:132,y:0},width:7,foundation:'solid' as const,color:'#a08c67'},
-    ],
-    fixtures: [[42,2],[78,5],[105,8]].map(([z,y]) => ({x:-144,z,y:y+3.4,width:.8,height:6.8,depth:.8,color:'#7a6046'})),
-  }]);
+  ]), [THOMSON_FOREST_REST,THOMSON_PLAZA_ACCESS]);
+  scene.userData.groundDesign = { type:'low-connected-forest-shoulder', maximumRelativeHeight:2,
+    surveyed:false, sources:['docs/BUKIT-TIMAH-THOMSON-GROUND-DESIGN.md'] };
+  const dispose = world.dispose; let disposed = false;
+  world.dispose = () => { if (disposed) return; disposed=true; forestGround.dispose(); dispose(); };
+  return world;
 }

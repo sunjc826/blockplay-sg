@@ -3,6 +3,7 @@ import { BUKIT_TIMAH_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
 import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
+import { BUKIT_TIMAH_STATION_ACCESS, trailBench } from './bukit-thomson-rest-places';
 
 // On the corridor verge, under the truss bridge, looking up at the ridge.
 export const BUKIT_TIMAH_SPAWN = { x: 60, z: 16, yaw: Math.PI / 2 };
@@ -35,7 +36,7 @@ export const BUKIT_TIMAH_MAP_ROADS = [
 // Contours taper and change direction instead of forming four rectangular decks.
 // Each band shares its exact edge with the next; the terrain mesh is the walking plane.
 const HILL_ROWS = [
-  { z:30, y:4, left:-201, right:-143 }, { z:20, y:4, left:-207, right:-148 },
+  { z:30, y:0, left:-201, right:-143 }, { z:20, y:4, left:-207, right:-148 },
   { z:0, y:12, left:-199, right:-146 }, { z:-10, y:12, left:-205, right:-154 },
   { z:-30, y:20, left:-197, right:-153 }, { z:-40, y:20, left:-191, right:-145 },
   { z:-60, y:28, left:-190, right:-156 }, { z:-70, y:28, left:-181, right:-156 },
@@ -46,20 +47,22 @@ const bandOutline = (a: typeof HILL_ROWS[number], b: typeof a) => [
 const BUKIT_TIMAH_HILL: VerticalPlace = {
   id:'bukit-timah-climb', name:'Bukit Timah winding ridge trails',
   note:'Irregular earth-backed contours, branching footpaths and open clearings. Compressed gameplay terrain, not surveyed topography.',
-  floors: [0,2,4,6].map(i => {
+  floors: [2,4,6].map(i => {
     const a=HILL_ROWS[i],b=HILL_ROWS[i+1],left=Math.min(a.left,b.left),right=Math.max(a.right,b.right);
     return {id:`hill-contour-${a.y}`,x:(left+right)/2,z:(a.z+b.z)/2,y:a.y,width:right-left,depth:a.z-b.z,foundation:'solid',rails:false,color:i===6?'#9b9c71':'#7e9a5e',outline:bandOutline(a,b)};
   }),
   connections: [
-    ...[-193,-157].map((x,i)=>({id:i?'east-trailhead':'west-trailhead',from:{x,y:0,z:42},to:{x,y:4,z:30},width:5,foundation:'solid' as const,rails:false,color:'#c2b599'})),
+    ...[-193,-157].map((x,i)=>({id:i?'east-trailhead':'west-trailhead',from:{x,y:0,z:42},to:{x,y:0,z:30},width:5,foundation:'solid' as const,rails:false,color:'#c2b599'})),
+    {id:'broad-hill-foot',from:{x:-175,y:0,z:30},to:{x:-175,y:4,z:20},width:5,foundation:'solid',rails:false,color:'#779257',outline:bandOutline(HILL_ROWS[0],HILL_ROWS[1])},
     ...[1,3,5].map((i,n)=>{
       const a=HILL_ROWS[i],b=HILL_ROWS[i+1];
       return {id:`continuous-earth-slope-${n}`,from:{x:-175,y:a.y,z:a.z},to:{x:-175,y:b.y,z:b.z},width:5,foundation:'solid' as const,rails:false,color:n%2?'#718e53':'#779257',outline:bandOutline(a,b)};
     }),
   ],
   fixtures:[
+    ...trailBench(-175,-5,12),...trailBench(-174,-35,20),
     {x:-175,y:29.5,z:-65,width:5,height:3,depth:5,color:'#adaca2'},
-    ...[[-200,23,4],[-149,26,4],[-199,-6,12],[-151,-2,12],[-191,-32,20],[-149,-39,20],[-183,-63,28]].map(([x,z,y])=>({x,z,y:y+5,width:.8,height:10,depth:.8,color:'#6f5740'})),
+    ...[[-200,23,2.8],[-149,26,1.6],[-199,-6,12],[-151,-2,12],[-191,-32,20],[-149,-39,20],[-183,-63,28]].map(([x,z,y])=>({x,z,y:y+5,width:.8,height:10,depth:.8,color:'#6f5740'})),
     ...[[-199,13,6.8],[-149,1,11.6],[-199,-16,14.4],[-151,-34,20],[-186,-53,25.2]].map(([x,z,y])=>({x,z,y:y+.6,width:2.7,height:1.6,depth:3,color:'#b3b2a8'})),
   ],
 };
@@ -113,7 +116,7 @@ export function buildBukitTimahScene() {
   /** Forested ridge: terraces stepping up under dense canopy, to a marker. */
   function ridge() {
     // Staggered canopy and rock outcrops frame alternating views up the climb.
-    for (const [x,z,y] of [[-200,23,4],[-149,26,4],[-199,-6,12],[-151,-2,12],[-191,-32,20],[-149,-39,20],[-183,-63,28]]) {
+    for (const [x,z,y] of [[-200,23,2.8],[-149,26,1.6],[-199,-6,12],[-151,-2,12],[-191,-32,20],[-149,-39,20],[-183,-63,28]]) {
       cylinder(x,y+5,z,.5,10,wood);
       blob(x,y+11,z,5,3,5,leaf);
     }
@@ -181,7 +184,8 @@ export function buildBukitTimahScene() {
    */
   function railwayStation() {
     const x = 98, z = 130;
-    box(x, 0.25, z, 22, 0.5, 42, stone);
+    // Public apron/waiting surfaces belong to STATION_ACCESS; no duplicate slab.
+    for (const dz of [-15,15]) box(x+1,0.25,z+dz,20,0.5,18,stone);
     // Photo review: an open waiting shelter separates the pale service room
     // and brick station-master's room. It is not a solid brick hall.
     box(x, 3.2, z - 12, 18, 6, 12, pale, scene, true); solid(x, z - 12, 18, 12);
@@ -203,7 +207,7 @@ export function buildBukitTimahScene() {
     const stationSign = sign('BUKIT TIMAH', x - 9.8, 5.3, z - 12, 9, 1.2, '#f1edda', '#252d2d');
     if (stationSign) stationSign.rotation.y = -Math.PI / 2;
     for (const dz of [-5, 4]) cylinder(78, 3.8, z + dz, 0.1, 7.6, pale);
-    box(75, 0.24, z, 8, 0.4, 44, pale);
+    // The conserved track and station node stay at the existing street datum.
   }
 
   /** Black-and-white bungalow: raised on piers, deep verandah, hipped roof. */
@@ -293,6 +297,8 @@ export function buildBukitTimahScene() {
   const stamps = stampRings(BUKIT_TIMAH_STAMPS, orange);
   scene.userData.districtFeatures = ['terraced-forest-ridge', 'trig-marker-summit', 'green-corridor-retained-heritage-track', 'red-brick-railway-station', 'warren-truss-web', 'timber-banded-render', 'bungalow-pier-undercroft', 'deep-verandah-posts', 'clerestory-market-roof', 'trapezoidal-storm-canal', 'canal-street-bridges'];
   scene.userData.referenceFeatures = ['hindhede-2024-tall-forked-entrance-canopy', 'bukit-timah-road-2024-dark-open-rail-truss'];
+  scene.userData.groundDesign = { type:'reserve-hill-foot-and-level-heritage-apron', surveyed:false,
+    sources:['docs/BUKIT-TIMAH-THOMSON-GROUND-DESIGN.md'] };
 
   return withVerticalPlaces(kit.finish({
     car, stamps,
@@ -303,5 +309,5 @@ export function buildBukitTimahScene() {
         else { person.position.z = -60 + ((time * 1.1 + index * 23) % 150); person.rotation.y = Math.PI; }
       });
     },
-  }), [BUKIT_TIMAH_HILL]);
+  }), [BUKIT_TIMAH_HILL, BUKIT_TIMAH_STATION_ACCESS]);
 }
