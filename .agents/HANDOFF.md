@@ -5831,3 +5831,34 @@ deploy.log, live-verification.json/log, live-browser-results.json/log and
 screenshots). Temporary private environment copies removed; task Vite/Chrome
 stopped. No paid requests or GitHub push. Keep AGENTS.md local, unstaged and
 uncommitted; preserve pre-existing handoff edits and .claude files.
+
+
+## Collective Corps family and signature names (2026-10-31)
+
+Owner supplied Consensus Builder / Unanimous Vote for one family and Strong
+Objection No. ?? / Final Warning No. 497 for the other. Local main code commit
+`a5bba27` assigns Consensus Builder · Unanimous Vote to Conductor's QBZ-191
+study (cc-network), and Strong Objection No. 496 · Final Warning No. 497 to
+Bastion's QBZ-95 study (cc-gatekeeper). 496 fills the unspecified first number
+so the notices are successive; it is a creative naming choice. The full name
+remains in descriptions/accessibility labels; preview banners now separate
+family and signature, matching the picker and fitting longer names on phones.
+Docs record the assignments and supersede Gatekeeper/Network display names.
+Models, IDs, roles, stats and live registries are unchanged.
+
+11 existing relevant checks / two files and typecheck pass; isolated Cloudflare
+production build passes. No new tests or full-suite rerun for naming/layout.
+The existing 36-view smoke passes locally and on production, including six
+studies, grayscale, mouse/touch rotation, mobile layout and navigation. Live
+portrait labels visually reviewed with no clipping or browser exceptions.
+
+Manual pnpm deploy:cloudflare succeeded from the isolated archive of a5bba27,
+with all 3,099 tracked files verified. Version:
+759b86de-1aae-4ced-984e-419708bb1c04. Both production domains serve matching
+entry HTML and all six exact release JS/CSS/service-worker files. Production
+routing/assets/PWA/model/audio/API-origin checks pass on both domains. Evidence:
+.cache/collective-names/ (tests.log, typecheck.log, source-verification.json,
+deploy.log, live-verification.json/log, live-browser-results.json/log and
+screenshots). Temporary private environment copies removed; task Vite/Chrome
+stopped. No paid requests or GitHub push. AGENTS.md stays local, unstaged and
+uncommitted; preserve pre-existing handoff edits and .claude files.
