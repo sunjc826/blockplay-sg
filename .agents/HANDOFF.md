@@ -5862,3 +5862,44 @@ deploy.log, live-verification.json/log, live-browser-results.json/log and
 screenshots). Temporary private environment copies removed; task Vite/Chrome
 stopped. No paid requests or GitHub push. AGENTS.md stays local, unstaged and
 uncommitted; preserve pre-existing handoff edits and .claude files.
+
+
+## XM29 OICW replaces MCX exterior study (2026-10-31)
+
+Owner requested removing the SIG MCX in favor of XM29 OICW. Local main code
+commit `048dafd` replaces Strider / ff-strider with XM29 OICW study / ff-oicw
+in the six-model gallery, default selection, browser smoke and design docs.
+The old art ID is removed rather than aliased; it was never a gameplay ID.
+Freedom Force sand/bone, steel-blue side covers and amber identification remain.
+The new silhouette has a bulky upper launcher body, stacked large/small muzzle
+openings, separate forward rifle/rear launcher feed shapes and a supported large
+sight case. Optional launcher muzzle/magazine art sockets accompany existing
+rifle sockets. Launcher barrel/rim surfaces meet without coplanar overlap.
+No new humorous name was selected. No weapons, ammunition, stats, roles, reloads,
+airburst/launcher behavior or operator hand fitting are integrated into combat.
+
+Block 3 reference photo attributed to US Army / PM Soldier was downloaded and
+visually reviewed from Commons (source linked in gallery/docs); it is cached
+locally, not shipped. Army 2003 handbook indexed text supports integrated dual
+barrels/fire control; direct PDF returned 403, so full PDF was not inspected.
+Geometry is original exterior interpretation, not an internal/dimensional copy.
+
+The frozen release has all 3,099 tracked source files verified against 048dafd.
+Its typecheck, 39 focused tests across four files and production build pass.
+The local 36-view browser check passed; final deployed 36-view smoke also passes
+six studies/four angles, grayscale, rotation, mobile layout and navigation with
+no browser exceptions. Live front/oblique/profile/portrait views reviewed.
+Workspace typecheck initially encountered an unused import in concurrent arena
+work; those uncommitted arena/patrol files were preserved and excluded from this
+isolated release. No unrelated edits were staged or fixed.
+
+Manual pnpm deploy:cloudflare succeeded. Version:
+b504790e-78c3-400b-b0d7-0664e95cf265. Both production domains serve matching entry
+HTML and all six exact release JS/CSS/service-worker files. Cloudflare routing,
+assets, PWA, model/audio and API-origin checks pass on both domains. Evidence:
+.cache/oicw-study/ (release-typecheck.log, release-tests.log,
+source-verification.json, deploy.log, live-verification.json/log,
+cloudflare-custom.log, cloudflare-workers.log, dev/live-browser-results.json,
+live-browser.log and screenshots). Temporary private env copies removed; task
+Vite/Chrome stopped. No paid requests or GitHub push. Keep AGENTS.md local and
+unstaged/uncommitted; preserve pre-existing handoff edits and .claude/ files.
