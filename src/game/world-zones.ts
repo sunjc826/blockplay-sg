@@ -75,12 +75,24 @@ export const WORLD_ZONES: readonly WorldZone[] = [
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: -8, z: 5 }, { x: -115, z: -18 }, { x: -24, z: 22 }, { x: 117, z: -20 }, { x: 205, z: 60 }, { x: -170, z: 5 }] },
   { id: 'yishun', name: 'Yishun', description: 'Final boss of the heartlands. Fictional high-threat combat: hot patrols, elite supplies, and kopi that refuses to go cold.', spawn: { x: 0, z: 70, yaw: 0, pitch: 0 },
     risk: 'high', lootTier: 3, botCount: 8, composition: 'mixed', encounterSpawns: [{ x: -194, z: -145 }, { x: -70, z: -70 }, { x: 48, z: -100 }, { x: -194, z: -30 }, { x: 82, z: 65 }, { x: -70, z: 60 }, { x: 190, z: 150 }, { x: 82, z: 151 }] },
+  { id: 'little-india', name: 'Little India', description: 'Market mornings and painted lanes. Close market passages and open lane crossings.', spawn: { x: 20, z: 70, yaw: 0, pitch: 0 },
+    risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: -170, z: 96 }, { x: -170, z: 148 }, { x: -65, z: 120 }, { x: -65, z: 8 }, { x: -70, z: -99 }, { x: -70, z: -115 }, { x: -170, z: -118 }, { x: 78, z: -8 }, { x: 78, z: 124 }, { x: 180, z: 55 }] },
+  { id: 'katong-joo-chiat', name: 'Katong / Joo Chiat', description: 'Pastel streets and five-foot ways. Sheltered terraces, rear lanes and a quieter neighbourhood courtyard.', spawn: { x: 30, z: 110, yaw: 0, pitch: 0 },
+    risk: 'low', lootTier: 1, botCount: 3, composition: 'assault', encounterSpawns: [{ x: -45, z: -84 }, { x: -190, z: -88 }, { x: -45, z: -144 }, { x: 85, z: 13 }, { x: -190, z: 49 }, { x: -190, z: 158 }, { x: -45, z: 112 }, { x: 85, z: 143 }, { x: 195, z: 65 }, { x: -115, z: 15 }] },
 ];
 
 // These connections compress travel between districts. They do not claim that
 // their scene coordinate systems line up or represent a continuous street map.
 // Arrivals face into the new district, twelve metres beyond its return gateway.
 export const WORLD_GATEWAYS: readonly WorldGateway[] = [
+  { id: 'little-india-to-kampong-glam', from: 'little-india', to: 'kampong-glam', name: 'Kampong Glam checkpoint', position: { x: -220, z: 30 }, radius: 4, arrival: { x: -193, z: -30, yaw: -1.5707963267948966, pitch: 0 } },
+  { id: 'kampong-glam-to-little-india', from: 'kampong-glam', to: 'little-india', name: 'Little India checkpoint', position: { x: -205, z: -30 }, radius: 4, arrival: { x: -208, z: 30, yaw: -1.5707963267948966, pitch: 0 } },
+  { id: 'little-india-to-orchard', from: 'little-india', to: 'orchard', name: 'Orchard checkpoint', position: { x: 20, z: 180 }, radius: 4, arrival: { x: 223, z: 140, yaw: 1.5707963267948966, pitch: 0 } },
+  { id: 'orchard-to-little-india', from: 'orchard', to: 'little-india', name: 'Little India checkpoint', position: { x: 235, z: 140 }, radius: 4, arrival: { x: 20, z: 168, yaw: 0, pitch: 0 } },
+  { id: 'katong-joo-chiat-to-geylang', from: 'katong-joo-chiat', to: 'geylang', name: 'Geylang checkpoint', position: { x: -240, z: 70 }, radius: 4, arrival: { x: -218, z: 120, yaw: -1.5707963267948966, pitch: 0 } },
+  { id: 'geylang-to-katong-joo-chiat', from: 'geylang', to: 'katong-joo-chiat', name: 'Katong Joo Chiat checkpoint', position: { x: -230, z: 120 }, radius: 4, arrival: { x: -228, z: 70, yaw: -1.5707963267948966, pitch: 0 } },
+  { id: 'katong-joo-chiat-to-changi', from: 'katong-joo-chiat', to: 'changi', name: 'Changi checkpoint', position: { x: 240, z: 70 }, radius: 4, arrival: { x: 243, z: 130, yaw: 1.5707963267948966, pitch: 0 } },
+  { id: 'changi-to-katong-joo-chiat', from: 'changi', to: 'katong-joo-chiat', name: 'Katong Joo Chiat checkpoint', position: { x: 255, z: 130 }, radius: 4, arrival: { x: 228, z: 70, yaw: 1.5707963267948966, pitch: 0 } },
   { id: 'upper-thomson-to-yishun', from: 'upper-thomson', to: 'yishun', name: 'Yishun checkpoint — good luck', position: { x: 0, z: -195 }, radius: 4, arrival: { x: 0, z: 188, yaw: 0, pitch: 0 } },
   { id: 'yishun-to-upper-thomson', from: 'yishun', to: 'upper-thomson', name: 'Upper Thomson checkpoint', position: { x: 0, z: 200 }, radius: 4, arrival: { x: 0, z: -183, yaw: Math.PI, pitch: 0 } },
   { id: 'woodlands-to-yishun', from: 'woodlands', to: 'yishun', name: 'Yishun checkpoint — good luck', position: { x: 235, z: 32 }, radius: 4, arrival: { x: -228, z: 35, yaw: -Math.PI / 2, pitch: 0 } },

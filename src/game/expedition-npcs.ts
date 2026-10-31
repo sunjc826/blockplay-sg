@@ -32,6 +32,8 @@ type NpcConfig = NpcConfigBase & (
  * rounded to ten credits so this reads as game economy, not a live rent quote.
  */
 export const DISTRICT_VENDOR_PRICE_INDEX: Readonly<Partial<Record<WorldZoneId, number>>> = {
+  'little-india': .95,
+  'katong-joo-chiat': 1,
   yishun: .85,
   'toa-payoh': .8,
   tampines: .85,
@@ -49,6 +51,12 @@ export const DISTRICT_VENDOR_PRICE_INDEX: Readonly<Partial<Record<WorldZoneId, n
  * it adds a config and one interaction handler.
  */
 const NPC_CONFIGS: readonly NpcConfig[] = [
+  { zoneId: 'little-india', sectorId: 'tekka-market', name: 'Tekka stallholder', role: 'Market vendor', anchor: 'food', interaction: { kind: 'vendor', catalogId: 'food-curry-puff' } },
+  { zoneId: 'little-india', sectorId: 'campbell-lane', name: 'Campbell Lane guide', role: 'Neighbourhood guide', anchor: 'sector', anchorIndex: 1,
+    interaction: { kind: 'dialogue', lines: ['Follow the covered arcades from the market to the painted lanes.', 'The market gallery has two stairways. The temple gateway opens onto a forecourt.'] } },
+  { zoneId: 'katong-joo-chiat', sectorId: 'east-coast-eats', name: 'East Coast stallholder', role: 'Kopi vendor', anchor: 'food', interaction: { kind: 'vendor', catalogId: 'food-kaya-toast' } },
+  { zoneId: 'katong-joo-chiat', sectorId: 'courtyard', name: 'Joo Chiat neighbour', role: 'Neighbourhood guide', anchor: 'sector', anchorIndex: 1,
+    interaction: { kind: 'dialogue', lines: ['The five-foot ways connect the pastel terraces. There is another route along the back lanes.', 'The pavilion veranda is open to explore; the residential rooms stay closed.'] } },
   { zoneId: 'yishun', sectorId: 'chong-pang', name: 'Chong Pang stallholder', role: 'Kopi vendor', anchor: 'food', interaction: { kind: 'vendor', catalogId: 'food-kaya-toast' } },
   { zoneId: 'yishun', sectorId: 'northpoint', name: 'Yishun local', role: 'Neighbourhood guide', anchor: 'sector', anchorIndex: 1,
     interaction: { kind: 'dialogue', lines: ['Welcome to Yishun. The kopi is hot. The game difficulty is hotter.', 'The briefing says high threat. The stallholder says breakfast is still on.', 'Two exits, one pond, and a market stall still serving breakfast. You have options.'] } },

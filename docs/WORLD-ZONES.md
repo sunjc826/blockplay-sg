@@ -22,7 +22,7 @@ While playing, the upper-left minimap follows the operator in the current distri
 
 ## Sectors
 
-Every district is divided into named sub-areas — nine to eleven each, 204 in
+Every district is divided into named sub-areas — nine to eleven each, 223 in
 all. A sector carries bounds, a measured cover band, a loot weight, an optional
 tier bias, a patrol weight and curated anchor positions. They are listed in
 `src/data/region-sectors.ts`.
@@ -81,6 +81,8 @@ Each expedition gets a fresh seed. Each district rolls its contents and position
 | Bishan | 2 | 56% | 36% | 8% | 7 |
 | Orchard Road | 3 | 32% | 48% | 20% | 9 |
 | Yishun | 5 | 10% | 35% | 55% | 13 |
+| Little India | 3 | 35% | 49% | 16% | 9 |
+| Katong / Joo Chiat | 2 | 55% | 36% | 9% | 7 |
 
 Other crates contain loose ammunition, medical supplies or armor plates. Elite odds apply to weapon rolls; a particular visit does not guarantee an elite drop. Supply locations are checked against each district's bounds and obstacles, and are distributed across the district's sectors rather than scattered around the spawn.
 
@@ -113,6 +115,11 @@ pace within that roster, rather than adding unlimited enemies. The danger is
 fictional game tuning, not a claim about real-world safety. See [Yishun](YISHUN.md). Loot generation consumes this metadata separately.
 
 `WorldZoneId` matches the application's location IDs. `ZoneSpawn` is a ground-level `{x,z,yaw,pitch}` transform; the FPS engine adds eye height. Each zone has several collision-tested `encounterSpawns`. Scene adapters should use the zone's existing `*_BOUNDS`, `moveIn*` function and scene-produced obstacles. Never apply Marina's bounds or movement function to another district.
+
+Little India adds medium-risk market lanes connected to Kampong Glam and
+Orchard Road. Katong/Joo Chiat adds low-risk terrace streets connected to Geylang
+and Changi. Both use normal district heat, NPC vendors, bounded battlefield
+populations and the shared capture/vehicle systems.
 
 ## Checkpoints
 

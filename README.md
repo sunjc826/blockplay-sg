@@ -12,7 +12,7 @@ Explore familiar Singapore neighborhoods as stylized 3D game worlds, created usi
 
 ## What you can play
 
-- Walk or drive around **twenty districts** — Marina Bay, Raffles Place, Queenstown, Chinatown, Kampong Glam, Jurong Lake, Changi, Upper Thomson, Punggol, HarbourFront, Sentosa, Geylang, Tuas, Woodlands, Tampines, Toa Payoh, Bukit Timah, Bishan, Orchard Road and Yishun — collecting stamps.
+- Walk or drive around **twenty-two districts** — Marina Bay, Raffles Place, Queenstown, Chinatown, Kampong Glam, Jurong Lake, Changi, Upper Thomson, Punggol, HarbourFront, Sentosa, Geylang, Tuas, Woodlands, Tampines, Toa Payoh, Bukit Timah, Bishan, Orchard Road, Yishun, Little India and Katong/Joo Chiat — collecting stamps.
 - Explore the connected districts in **Open world**, finding equipment and facing bots.
 - Play each district's **FPS range** in Classic, Continuous or 90-second drills, with a shared armory, vehicles and a free equipment resupply box.
 - Play **Solo arena** against configurable bots.
@@ -22,7 +22,7 @@ Explore familiar Singapore neighborhoods as stylized 3D game worlds, created usi
 
 The public demo runs on Cloudflare Workers and redeploys from `main` on every push. The local LAN server is separate from the public-room backend; the AI companions answer only while the deployment carries a private key, and return a clear unavailable response without one. All of it is supported in the local project with additional setup.
 
-The worlds are authored, compressed interpretations—not surveyed maps or navigation tools. The original nineteen districts have a September 2026 correction pass. Yishun is a later schematic addition with a deliberately exaggerated, fictional high-threat combat preset. Reviewed photographs support specific landmark and streetscape features; roads and distances remain compressed. See [district review and limits](docs/ALL-DISTRICTS-REVIEW.md).
+The worlds are authored, compressed interpretations—not surveyed maps or navigation tools. The original nineteen districts have a September 2026 correction pass. Yishun, Little India and Katong/Joo Chiat are later schematic additions with researched landmark selection. Yishun has a deliberately exaggerated, fictional high-threat combat preset. Reviewed photographs support specific landmark and streetscape features; roads and distances remain compressed. See [district review and limits](docs/ALL-DISTRICTS-REVIEW.md).
 
 ## How we build locations
 
@@ -56,6 +56,7 @@ Built with React, TypeScript, Vite and Three.js.
 - [Installable app](docs/PWA.md) — home-screen install, what is cached and offline play.
 - [Cloudflare deployment](docs/CLOUDFLARE.md) — game hosting, companion API, secrets and GitHub builds.
 - [Adventure companions](docs/ADVENTURE.md) — objective changes, educational guides and voice.
+- [Little India and Katong/Joo Chiat](docs/HERITAGE-DISTRICTS.md) — the later heritage districts and their schematic scope.
 - [Districts](docs/DISTRICTS.md) — what each world is, how they differ in provenance, and how to add one.
 - [Public multiplayer rooms](docs/PUBLIC-ROOMS.md) — global listings, passwords, online relay and test deployment.
 - [Open world](docs/WORLD-ZONES.md), [LAN arena](docs/LAN-ARENA.md) and [Armory](docs/ARMORY.md) — mode-specific details.

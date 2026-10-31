@@ -106,8 +106,9 @@ try {
   const regions = await evaluate(`Array.from(document.querySelectorAll('.location-card strong')).map(e=>e.textContent)`);
   assert.equal(regions[0], 'Marina Bay', 'developed regions are selectable with Marina first');
   assert(regions.length >= 3, 'the developed regions are selectable');
-  // Orchard Road is a display label; its registry and map ID is orchard.
-  const regionId = name => name === 'Orchard Road' ? 'orchard' : name.toLowerCase().replaceAll(' ', '-');
+  // Display labels need not be URL-like (Orchard Road, Katong / Joo Chiat).
+  const idsByName = await evaluate(`import('/src/game/regions.ts').then(m=>Object.fromEntries(m.REGIONS.map(r=>[r.name,r.id])))`);
+  const regionId = name => idsByName[name];
   const selected = requested.length ? regions.filter(name => requested.includes(regionId(name))) : regions;
   assert.equal(selected.length, requested.length || regions.length, 'every requested district exists');
   assert(selected.length > 0, 'at least one district is selected');

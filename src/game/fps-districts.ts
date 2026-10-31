@@ -8,6 +8,18 @@ export interface FpsDistrict {
   props: readonly (readonly [asset: number, x: number, z: number, width: number, depth: number])[];
 }
 const districts: Record<WorldZoneId, FpsDistrict> = {
+  'katong-joo-chiat': {
+    label: 'Katong FPS', setting: 'neighbourhood green', spawn: { x: 195, z: 115, yaw: 0, pitch: -.03 },
+    targets: [{ x: 195, z: 85 }, { x: 189, z: 86 }, { x: 201, z: 86 }, { x: 183, z: 91 }, { x: 207, z: 91 }, { x: 181, z: 99 }, { x: 209, z: 99 }, { x: 195, z: 75 }],
+    vehicles: { car: { x: 185, z: 119, yaw: -Math.PI / 2 }, helicopter: { x: 215, z: 115, yaw: 0 } },
+    props: [[3, 193, 121, .77, .52], [4, 199, 118, 1.87, .41], [5, 194, 122, .37, .37], [5, 196, 122, .37, .37]],
+  },
+  'little-india': {
+    label: 'Little India FPS', setting: 'neighbourhood green', spawn: { x: 180, z: 105, yaw: 0, pitch: -.03 },
+    targets: [{ x: 180, z: 75 }, { x: 174, z: 76 }, { x: 186, z: 76 }, { x: 168, z: 81 }, { x: 192, z: 81 }, { x: 166, z: 89 }, { x: 194, z: 89 }, { x: 180, z: 65 }],
+    vehicles: { car: { x: 170, z: 109, yaw: -Math.PI / 2 }, helicopter: { x: 200, z: 105, yaw: 0 } },
+    props: [[3, 178, 111, .77, .52], [4, 184, 108, 1.87, .41], [5, 179, 112, .37, .37], [5, 181, 112, .37, .37]],
+  },
   yishun: {
     label: 'Yishun FPS', setting: 'neighbourhood field', spawn: { x: 190, z: 115, yaw: 0, pitch: -.03 },
     targets: [{ x: 190, z: 85 }, { x: 184, z: 86 }, { x: 196, z: 86 }, { x: 178, z: 91 }, { x: 202, z: 91 }, { x: 176, z: 99 }, { x: 204, z: 99 }, { x: 190, z: 75 }],

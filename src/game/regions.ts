@@ -1,3 +1,7 @@
+import { buildLittleIndiaScene, LITTLE_INDIA_BOUNDS, LITTLE_INDIA_MAP_ROADS, LITTLE_INDIA_SPAWN } from './little-india-scene';
+import { LITTLE_INDIA_STAMPS } from '../data/region-stamps';
+import { buildKatongJooChiatScene, KATONG_JOO_CHIAT_BOUNDS, KATONG_JOO_CHIAT_MAP_ROADS, KATONG_JOO_CHIAT_SPAWN } from './katong-joo-chiat-scene';
+import { KATONG_JOO_CHIAT_STAMPS } from '../data/region-stamps';
 import { withSetPieces, type SetPieceCue } from './district-set-pieces';
 import type * as THREE from 'three';
 import { REGION_IDS, isRegionId, type RegionId } from './region-ids';
@@ -103,7 +107,43 @@ const orchardMovement = createRegionMovement(ORCHARD_BOUNDS);
 
 const yishunMovement = createRegionMovement(YISHUN_BOUNDS);
 
+const little_indiaMovement = createRegionMovement(LITTLE_INDIA_BOUNDS);
+const katong_joo_chiatMovement = createRegionMovement(KATONG_JOO_CHIAT_BOUNDS);
 const definitions: Record<RegionId, RegionDefinition> = {
+  'katong-joo-chiat': {
+    id: 'katong-joo-chiat', name: 'Katong / Joo Chiat', shortName: 'Katong', modeName: 'Katong 3D', modeSubtitle: 'Pastel streets and five-foot ways',
+    className: 'katong-joo-chiat-game', badge: 'KATONG · GAME WORLD', title: 'Katong / Joo Chiat · heritage streets',
+    subtitle: 'Authored, compressed neighbourhood · schematic landmarks', mapTitle: 'PASTEL STREETS & PORCHES',
+    stampNoun: 'heritage stamps', exploreNoun: 'Katong / Joo Chiat', cameraFar: 1400,
+    spawn: KATONG_JOO_CHIAT_SPAWN, stamps: KATONG_JOO_CHIAT_STAMPS, bounds: KATONG_JOO_CHIAT_BOUNDS, mapRoads: KATONG_JOO_CHIAT_MAP_ROADS,
+    mapPaper: '#e0d9c6', roadStroke: '#999183', roadWidth: 14,
+    decor: [
+      ...([-190,-45,85] as const).flatMap(x => [-108,-22].map((z): RegionMapShape =>
+        ({ kind: 'rect', x: x-36, z: z-12, width: 72, depth: 24, fill: '#c4b2ba', layer: 'over' }))),
+      { kind: 'rect', x: -213, z: 13, width: 46, depth: 26, fill: '#b76c5c', layer: 'over' },
+      { kind: 'rect', x: -226, z: 107, width: 72, depth: 24, fill: '#c4b2ba', layer: 'over' },
+      { kind: 'rect', x: 55, z: 107, width: 60, depth: 24, fill: '#c4b2ba', layer: 'over' },
+      { kind: 'rect', x: -86, z: 142, width: 82, depth: 20, fill: '#d8cdb3', layer: 'over' },
+    ],
+    hasGuide: false, build: buildKatongJooChiatScene, move: katong_joo_chiatMovement.move, canOccupy: katong_joo_chiatMovement.canOccupy,
+  },
+  'little-india': {
+    id: 'little-india', name: 'Little India', shortName: 'Little India', modeName: 'Little India 3D', modeSubtitle: 'Market mornings and painted lanes',
+    className: 'little-india-game', badge: 'LITTLE INDIA · GAME WORLD', title: 'Little India · heritage streets',
+    subtitle: 'Authored, compressed neighbourhood · schematic landmarks', mapTitle: 'MARKET & LANES',
+    stampNoun: 'heritage stamps', exploreNoun: 'Little India', cameraFar: 1400,
+    spawn: LITTLE_INDIA_SPAWN, stamps: LITTLE_INDIA_STAMPS, bounds: LITTLE_INDIA_BOUNDS, mapRoads: LITTLE_INDIA_MAP_ROADS,
+    mapPaper: '#e0d9c6', roadStroke: '#999183', roadWidth: 14,
+    decor: [
+      { kind: 'rect', x: -208, z: 58, width: 76, depth: 76, fill: '#d7b15b', layer: 'over' },
+      { kind: 'rect', x: -83, z: 86, width: 36, depth: 24, fill: '#c4809f', layer: 'over' },
+      { kind: 'rect', x: -101, z: -57, width: 72, depth: 44, fill: '#669b9c', layer: 'over' },
+      { kind: 'rect', x: -114, z: -174, width: 88, depth: 72, fill: '#cbb8a0', layer: 'over' },
+      ...([[-170,-140,60],[-170,-35,60],[78,-140,84],[78,-30,84],[78,100,72],[185,-140,36],[185,-30,36]] as const).map(([x,z,width]): RegionMapShape =>
+        ({ kind: 'rect', x: x-width/2, z: z-12, width, depth: 24, fill: '#c3b294', layer: 'over' })),
+    ],
+    hasGuide: false, build: buildLittleIndiaScene, move: little_indiaMovement.move, canOccupy: little_indiaMovement.canOccupy,
+  },
   yishun: {
     id: 'yishun', name: 'Yishun', shortName: 'Yishun', modeName: 'Yishun 3D', modeSubtitle: 'Final boss of the heartlands',
     className: 'yishun-game', badge: 'YISHUN · GOOD LUCK', title: 'Yishun · final boss of the heartlands',

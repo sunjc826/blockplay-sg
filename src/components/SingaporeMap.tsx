@@ -36,6 +36,8 @@ const labels: Record<Location['id'], { x: number; y: number; width: number; area
   sentosa: { x: 26, y: 116, width: 90, area: 'island' },
   geylang: { x: 200, y: 116, width: 90, area: 'island' },
   tuas: { x: 6, y: 70, width: 88, area: 'island' },
+  'little-india': { x: 118, y: 202, width: 86, area: 'central' },
+  'katong-joo-chiat': { x: 188, y: 140, width: 126, area: 'island' },
   yishun: { x: 202, y: 20, width: 78, area: 'island' },
   woodlands: { x: 96, y: 20, width: 100, area: 'island' },
   tampines: { x: 232, y: 96, width: 86, area: 'island' },

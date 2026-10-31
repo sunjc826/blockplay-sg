@@ -277,3 +277,31 @@ export const YISHUN_STAMPS = [
   { name: 'East neighbourhood pavilion', x: 190, z: 150 },
   { name: 'Made it out of Yishun', x: 0, z: 185 },
 ];
+
+export const LITTLE_INDIA_STAMPS = [
+  { name: 'Serangoon approach', x: 20, z: 60 },
+  { name: 'Tekka market aisle', x: -170, z: 96 },
+  { name: 'Tekka south apron', x: -170, z: 148 },
+  { name: 'Painted villa veranda', x: -65, z: 120 },
+  { name: 'Campbell Lane', x: -65, z: 8 },
+  { name: 'Temple forecourt', x: -70, z: -99 },
+  { name: 'Temple gateway passage', x: -70, z: -115 },
+  { name: 'Serangoon shop row', x: -170, z: -118 },
+  { name: 'Textile arcade', x: 78, z: -8 },
+  { name: 'Little India Arcade', x: 78, z: 124 },
+  { name: 'East neighbourhood green', x: 180, z: 55 },
+];
+
+export const KATONG_JOO_CHIAT_STAMPS = [
+  { name: 'Joo Chiat approach', x: 30, z: 100 },
+  { name: 'Koon Seng pastel row', x: -45, z: -84 },
+  { name: 'Sheltered five-foot way', x: -190, z: -88 },
+  { name: 'Northern back lane', x: -45, z: -144 },
+  { name: 'Southern back lane', x: 85, z: 13 },
+  { name: 'Red House corner', x: -190, z: 49 },
+  { name: 'Raised terrace threshold', x: -190, z: 158 },
+  { name: 'Neighbourhood courtyard', x: -45, z: 112 },
+  { name: 'East Coast food row', x: 85, z: 143 },
+  { name: 'East green', x: 195, z: 65 },
+  { name: 'Tembeling lane', x: -115, z: 15 },
+];

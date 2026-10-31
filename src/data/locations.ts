@@ -219,6 +219,20 @@ export const locations = [
       { label: 'Pond park', lat: 1.4245, lng: 103.8380, heading: 0 },
     ],
   },
+  {
+    id: 'little-india', name: 'Little India', subtitle: 'Market mornings and painted lanes', district: 'ROCHOR',
+    description: 'Tekka-inspired market, a colourful villa, Campbell Lane and a tiered temple gateway. Authored, compressed heritage streets with sheltered arcades.',
+    lat: 1.3065, lng: 103.8518, heading: 0, color: '#c79a60', block: 1,
+    tags: ['Heritage streets', 'Market quarter'],
+    viewpoints: [{ label: 'Neighbourhood streets', lat: 1.3065, lng: 103.8518, heading: 0 }],
+  },
+  {
+    id: 'katong-joo-chiat', name: 'Katong / Joo Chiat', subtitle: 'Pastel streets and five-foot ways', district: 'EAST COAST',
+    description: 'Pastel Koon Seng-inspired terraces, continuous five-foot ways, raised porches and quiet back lanes. Authored and compressed for play.',
+    lat: 1.3094, lng: 103.9023, heading: 0, color: '#b6a6be', block: 1,
+    tags: ['Heritage streets', 'Peranakan terraces'],
+    viewpoints: [{ label: 'Neighbourhood streets', lat: 1.3094, lng: 103.9023, heading: 0 }],
+  },
 ] as const;
 
 export type Location = (typeof locations)[number];

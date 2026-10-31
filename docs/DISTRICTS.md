@@ -1,6 +1,6 @@
 # Districts
 
-Twenty Singapore districts are playable. Every one is an authored, compressed
+Twenty-two Singapore districts are playable. Every one is an authored, compressed
 interpretation built for play — none is a surveyed map, a reconstruction or a
 navigation tool. Real place names label stylised counterparts.
 
@@ -26,17 +26,20 @@ navigation tool. Real place names label stylised counterparts.
 | Bishan | Central-north | 11 | Reviewed details; schematic layout |
 | Orchard Road | Central | 11 | Reviewed details; schematic layout |
 | Yishun | North | 11 | Researched landmarks; schematic geometry, no reviewed photograph claims |
+| Little India | Rochor | 11 | Researched landmarks; schematic geometry, no reviewed photograph claims |
+| Katong / Joo Chiat | East coast | 11 | Researched landmarks; schematic geometry, no reviewed photograph claims |
 
 ## Reference coverage
 
-The original nineteen maps received a September 2026 correction pass.
-[Yishun](YISHUN.md) was added later with researched landmark selection and
-schematic geometry. Its exaggerated danger rating is fictional game tuning;
-it has no accepted photographic reference features or reviewed learning cards. The original three
-reuse their reviewed cached imagery. The others now have bounded Street View
-previews, explicit acceptance/rejection records, researched landmark corrections
-and revised sectors where geometry changed. [The district review](ALL-DISTRICTS-REVIEW.md)
-records what changed and what remains approximate.
+The original nineteen maps received a September 2026 correction pass. Their
+original three scenes reuse reviewed cached imagery; the other sixteen have
+bounded previews, acceptance/rejection records and feature corrections. The
+[district review](ALL-DISTRICTS-REVIEW.md) records those changes and limits.
+
+[Yishun](YISHUN.md), [Little India and Katong/Joo Chiat](HERITAGE-DISTRICTS.md)
+were added later with researched landmark selection and schematic geometry.
+These three additions have no accepted photographic-reference features or
+reviewed learning cards. Yishun’s exaggerated danger is fictional game tuning.
 
 `scene.userData.referenceFeatures` lists only features actually informed by
 accepted references. It does not certify an entire district. Source and image
