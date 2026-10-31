@@ -5754,3 +5754,49 @@ cloudflare-custom.log/cloudflare-workers.log). No paid requests or GitHub push.
 Temporary private environment copies removed; task-owned Vite/Chrome stopped.
 AGENTS.md remains local, unstaged and uncommitted. Preserve pre-existing
 uncommitted handoff history and .claude files.
+
+
+## SCAR-L / SCAR-H art variants and paired joke names (2026-10-31)
+
+Owner requested both SCAR-L and SCAR-H variants and funny names. Local main
+code commit `a365605` adds separate `ff-scar-l` / `ff-scar-h` exterior studies
+to the existing `/faction-designs?study=weapons` gallery. Provisional displayed
+names: Democracy Lite / Democracy Deluxe. Alternatives recorded in
+PROXY-WEAPONS.md: Polite Request / Final Notice; Small Talk / Big Talk; Freedom
+Trial / Freedom Subscription. The optional naming preference was left open;
+these are working titles, with stable IDs independent of the names.
+
+Both share the SCAR-family stock, cheek rest and rail. The chosen L study has
+a compact fore-end, narrower receiver, curved magazine, reflex hood and single
+amber mark. The H study has a longer/broader receiver, larger external magazine
+well, wider straight magazine, prism optic and twin marks. Actual geometric
+width/length/magazine differences are tested, including real openings in both
+stocks. Longwatch remains the separate Mk20/SCAR20 precision study with scope,
+precision stock and bipod; Strider and both Collective Corps studies remain.
+Neither new option creates a specialist role or enters active weapon families,
+loadouts, shop, loot, spawns, ammunition, stats or alliances. The gallery now
+shows six studies; desktop picker spacing and docs counts are updated. Official
+FN SCAR-L and SCAR-H pages support the external reference labels; no real-world
+performance is assigned to the game models.
+
+38 focused tests / four files and typecheck pass in the workspace and frozen
+release; the Cloudflare production build passes. No full-suite rerun is claimed
+for this bounded art follow-up. Expanded browser QA passes locally and on
+production: 36 views covering six models at four angles, grayscale, mobile
+layout, mouse/touch rotation, active-preset reset and operator/menu navigation.
+No browser exceptions. Final public profile images reviewed. The smoke now
+accepts PROXY_WEAPONS_EVIDENCE_DIR for per-task receipts.
+
+Manual `pnpm deploy:cloudflare` succeeded from the isolated git archive at
+a365605, with all 3,099 tracked files verified. Version:
+`a4724908-4210-469e-b1b7-5a9a41328057`. Both production domains serve matching
+entry HTML and all six exact release JS/CSS/service-worker files. Production
+routing/assets/PWA/model/audio/API-origin checks pass on both domains, and the
+public gallery passes its complete desktop/mobile smoke. Evidence:
+.cache/scar-variants/ (tests.log, typecheck.log, release-tests.log,
+release-typecheck.log, source-verification.json, deploy.log,
+live-verification.json/log, live-browser-results.json/log, screenshots and
+cloudflare-custom.log/cloudflare-workers.log). No paid requests or GitHub push.
+Temporary private environment copies removed; task-owned Vite/Chrome stopped.
+AGENTS.md remains local, unstaged and uncommitted. Preserve pre-existing
+uncommitted handoff history and .claude files.
