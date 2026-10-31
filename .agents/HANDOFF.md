@@ -1,5 +1,52 @@
 # Blockplay: portable agent handoff
 
+## Physical spare magazines and rig reload retrieval (2026-10-31)
+
+Owner approved magazine-count ammunition, discarding rounds on early reloads,
+visible-first retrieval and six permissive compatibility groups. Local code
+commits `9111bb9` and `b9e0671` implement a shared, bounded physical inventory:
+six/eight/nine rig positions; four rifle plus two pistol spares by default;
+three drum/belt containers with a single support main; an extra main divides
+existing space. Extended magazines keep donor capacity across similar weapons.
+Groups: 5.56 rifle magazines (SAR, box-fed XM8/G36, Ultimax Kongsi), 5.56 drums
+(other Ultimax, XM8 Automatic, MG36), MG4 5.56 belts, P30 9 mm magazines,
+FN MAG 7.62 belts, CIS 50MG 12.7 belts. Enemy support variants now declare drums.
+
+Reloads discard old magazine rounds at removal, retain a chambered round, and
+consume the most visible compatible pouch at the grab stage (.47 tactical
+reload share). Hands carry the new magazine from that pouch to the gun. Empty
+pouches stay fixed; torso upper rows clear first. Pending magazines and their
+pouch reservations survive interruptions and district travel without double
+consumption. A full/usable last magazine cannot be needlessly ejected. Legacy
+pools migrate once into bounded whole magazines. Arena clients retain carried
+stock ownership; the host mirrors incoming capacity for shot validation.
+
+Pickups fill real vacancies, ammo kits provide at most two magazines, practice
+stations refill vacancies, and carried mass counts physical spares once plus
+loaded/held ammunition. HUD, shop, loot previews, utility belt, course and armory
+docs describe the new rules. Existing weapon-specific reload recordings are
+reused at natural speed; no paid audio requests. Pouch coordinate updates run
+only while needed and do not traverse the entire body each frame.
+
+Validation: 288 relevant tests / 20 files and typecheck pass, plus the final
+five-test body/handling regression. Real Chrome/Metal smoke in the isolated
+training world passes actual firing, reload pickup, persistent holes, separate
+rifle/drum stocks, two-magazine ammo kits, HUD, reset and zero browser errors.
+Screenshots and grab-time inventory evidence: `.cache/fps-magazines/`;
+logs: `.cache/magazine-{focused-tests,typecheck,browser-final,render-regression}.log`.
+The broad suite was stopped after 217 reported files while a map diagnostic
+continued. It surfaced map/loot-placement and the existing SFX URL-regex failures;
+no full-suite pass is claimed. Ammo-related legacy expectations were corrected
+and the affected service-weapon/network suites pass in the focused run.
+
+Manual `pnpm deploy:cloudflare` succeeded, final version
+`519bb00c-fe9a-47d5-a7a4-64fefa62e190`. Both blockplaysg.fun and workers.dev serve
+byte-identical built entry JS/CSS and service worker. Production Cloudflare
+routing, PWA, assets and API-origin checks pass. Receipts:
+`.cache/magazine-deploy-final.log`, `.cache/magazine-live-verification.json`,
+`.cache/magazine-cloudflare-check.log`. No GitHub push. AGENTS.md remains local,
+unstaged and uncommitted; preserve unrelated handoff and .claude work.
+
 ## Weapon-specific ElevenLabs reload actions (2026-10-31)
 
 Replaced the shared five handling clips with 40 newly generated ElevenLabs v3
