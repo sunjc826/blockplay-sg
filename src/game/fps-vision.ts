@@ -391,7 +391,7 @@ function createVisionPost(renderer: THREE.WebGLRenderer) {
       quad.material = bright; renderer.setRenderTarget(glow); renderer.render(quadScene, quadCamera);
       const material = thermalPass ? thermal : nvg, u = material.uniforms;
       u.tFrame.value = frame; u.uResolution.value.copy(size); u.uTime.value = info.time;
-      u.uNoise.value = spec.noise; u.uBlur.value = spec.blur; u.uHalo.value = spec.halo; u.uAperture.value = visionAperture(spec, size.x / size.y);
+      u.uNoise.value = spec.noise; u.uBlur.value = spec.blur; u.uHalo.value = spec.halo; u.uAperture.value = visionAperture(spec);
       u.uDistortion.value = spec.distortion; u.uWarm.value = state.warm; u.uTint.value.set(spec.phosphor);
       u.uOff.value = state.on ? 0 : 1 - state.fading;
       // The physical eyecup meets the eye before the sensor takes over. The

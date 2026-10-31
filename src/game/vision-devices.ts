@@ -24,7 +24,7 @@ export interface VisionSpec {
   gain: number;
   /** Grain at full gain, 0–1. A tube grows noisier as its gain rises. */
   noise: number;
-  /** Image circle radius relative to half the longer viewport side for NVG, shorter side for thermal. */
+  /** Image circle radius relative to half the longer viewport side for all devices. */
   aperture: number;
   /** Image softness, 0 sharp to 1 smeared. */
   blur: number;
@@ -58,8 +58,8 @@ export const VISION_DEVICES: Readonly<Record<string, VisionSpec>> = {
   'nvg-gen1': { kind: 'nvg', generation: 1, gain: 4.4, noise: .42, aperture: .76, blur: .42, halo: .78, phosphor: '#7dff6e', distortion: .38, rows: 0, detail: 0, palettes: [], warmup: 1.4, shutdown: .9 },
   'nvg-gen2': { kind: 'nvg', generation: 2, gain: 5.2, noise: .32, aperture: .88, blur: .28, halo: .6, phosphor: '#8dff9a', distortion: .2, rows: 0, detail: 0, palettes: [], warmup: .8, shutdown: .6 },
   'nvg-gen3': { kind: 'nvg', generation: 3, gain: 7.5, noise: .13, aperture: .98, blur: .06, halo: .32, phosphor: '#e2f1ff', distortion: .05, rows: 0, detail: 0, palettes: [], warmup: .35, shutdown: .35 },
-  'thermal-t1': { kind: 'thermal', generation: 1, gain: 1, noise: .3, aperture: .72, blur: .3, halo: .55, phosphor: '#e3eadf', distortion: .12, rows: 160, detail: .25, palettes: ['white-hot'], warmup: 1.8, shutdown: .55, calibration: { every: 26, hold: .4 } },
-  'thermal-t2': { kind: 'thermal', generation: 2, gain: 1, noise: .1, aperture: .9, blur: .08, halo: .3, phosphor: '#ffffff', distortion: 0, rows: 360, detail: .7, palettes: ['white-hot', 'black-hot', 'ironbow'], warmup: .9, shutdown: .45 },
+  'thermal-t1': { kind: 'thermal', generation: 1, gain: 1, noise: .3, aperture: .76, blur: .3, halo: .55, phosphor: '#e3eadf', distortion: .12, rows: 160, detail: .25, palettes: ['white-hot'], warmup: 1.8, shutdown: .55, calibration: { every: 26, hold: .4 } },
+  'thermal-t2': { kind: 'thermal', generation: 2, gain: 1, noise: .1, aperture: .98, blur: .08, halo: .3, phosphor: '#ffffff', distortion: 0, rows: 360, detail: .7, palettes: ['white-hot', 'black-hot', 'ironbow'], warmup: .9, shutdown: .45 },
 };
 export const visionSpec = (id: string | undefined): VisionSpec | undefined => id ? VISION_DEVICES[id] : undefined;
 
@@ -172,9 +172,9 @@ export const nvgAimingActive = (spec: VisionSpec | undefined, state: VisionState
 export const cloudOpacity = (amount: number, thermal: boolean) => Math.min(.9, .25 + amount * .7) * (thermal ? .3 : 1);
 /** The control-guide name for a worn device's key. */
 export const visionKeyLabel = (spec: VisionSpec) => spec.kind === 'nvg' ? 'Night vision' : spec.palettes.length > 1 ? 'Thermal · J palette' : 'Thermal';
-/** Radius in the post pass's units (half the longer side). NVG fills the view, cropping its circular rim at the shorter edges; thermal keeps its complete rim. */
-export function visionAperture(spec: VisionSpec, aspect: number) {
-  return spec.kind === 'nvg' ? spec.aperture : spec.aperture * Math.min(aspect, 1 / aspect);
+/** Radius in the post pass's units (half the longer side). Every device crops its circular rim at the shorter edges. */
+export function visionAperture(spec: VisionSpec) {
+  return spec.aperture;
 }
 /** Share of a screen (width / height, 16:9 by default) inside an image circle measured against its longer side, 0–1. */
 export function visibleShare(aperture: number, aspect = 16 / 9) {
@@ -190,7 +190,7 @@ export function visibleShare(aperture: number, aspect = 16 / 9) {
  * tube is compared with what it costs you as well as what it gives.
  */
 export function visionFigures(spec: VisionSpec | undefined) {
-  return { gain: spec?.kind === 'nvg' ? spec.gain : 1, view: Math.round(visibleShare(spec ? visionAperture(spec, 16 / 9) : 9) * 100), grain: Math.round((spec?.noise ?? 0) * 100),
+  return { gain: spec?.kind === 'nvg' ? spec.gain : 1, view: Math.round(visibleShare(spec ? visionAperture(spec) : 9) * 100), grain: Math.round((spec?.noise ?? 0) * 100),
     sharpness: Math.round((1 - (spec?.blur ?? 0)) * 100), halo: Math.round((spec?.kind === 'nvg' ? spec.halo : 0) * 100),
     lines: spec?.kind === 'thermal' ? spec.rows : 0, palettes: spec?.palettes.length ?? 0, warmup: spec?.warmup ?? 0 };
 }

@@ -935,8 +935,8 @@ reduced motion the swing and the dying are skipped. The canvas records
 | NV-1 · Blur Like Sotong | Field, LV 2, 850 CR | 4.4× | 68% | 42% | Soft, barrel-distorted, noticeable halos, 1.4 s warm-up |
 | NV-2+ · Jaga Malam | Field, LV 4, 1,900 CR | 5.2× | 82% | 32% | Smaller halos, 0.8 s |
 | NV-3 · Confirm Plus Chop | Elite, LV 6, 280 TK | 7.5× | 92% | 13% | White phosphor, sharp, 0.35 s |
-| TI-1 · Cheap and Good | Field, LV 5, 2,600 CR | — | 23% | 30% | 160 lines, white-hot only, freezes 0.4 s every 26 s to recalibrate |
-| TI-2 · Kiasu Fusion | Elite, LV 8, 420 TK | — | 36% | 10% | 360 lines, edge enhancement, white-hot / black-hot / ironbow |
+| TI-1 · Cheap and Good | Field, LV 5, 2,600 CR | — | 68% | 30% | 160 lines, white-hot only, freezes 0.4 s every 26 s to recalibrate |
+| TI-2 · Kiasu Fusion | Elite, LV 8, 420 TK | — | 92% | 10% | 360 lines, edge enhancement, white-hot / black-hot / ironbow |
 
 Gen 1 should reveal nearby obstacles and people in shade well enough to justify
 wearing it. It keeps the smallest view, softer optics, more grain and bloom, and
@@ -961,9 +961,9 @@ of the viewport's longer side. The circle extends beyond the shorter edges
 on portrait, landscape and ultrawide screens, giving Gen 3 roughly 92% screen
 coverage at 16:9. A dark rolled edge, subtle bevel highlights and
 peripheral refraction make the lens read as curved glass; the basic tube bends
-and softens edges most. Thermal cores keep their complete circles,
-with diameters of 72% and 90% of the shorter side: the advanced core shows more
-than the basic one, but both give up peripheral vision to find heat. Their edge feather scales
+and softens edges most. Thermal cores use the same longer-side sizing,
+with diameters of 76% and 98%: basic thermal matches Gen 1 NVG and advanced
+thermal matches Gen 3, including on portrait and ultrawide screens. Their edge feather scales
 with the lens so the rim stays consistent across aspect ratios. The table's
 screen shares use a 16:9 viewport. A tube's automatic brightness control holds
 the gain near 1 by day and opens it as the hour's light

@@ -51,7 +51,7 @@ try {
   for (const [width, height] of [[1280, 760], [390, 844], [844, 390], [1920, 800], [800, 800]]) {
     await load(width, height, true);
     let previous = 0;
-    for (const [device, aperture] of [['nvg-gen1', .76], ['nvg-gen2', .88], ['nvg-gen3', .98], ['thermal-t1', .72], ['thermal-t2', .9]]) {
+    for (const [device, aperture] of [['nvg-gen1', .76], ['nvg-gen2', .88], ['nvg-gen3', .98], ['thermal-t1', .76], ['thermal-t2', .98]]) {
       if (device === 'thermal-t1') previous = 0;
       const result = await evaluate(`(() => {
         const v=window.visionReview;
@@ -63,7 +63,7 @@ try {
         }
         const {data,width:w,height:h}=v.pixels();
         let minX=w,minY=h,maxX=-1,maxY=-1,count=0,leaks=0,missing=0,interior=0;
-        const radius=${aperture}*Math.${device.startsWith('nvg') ? 'max' : 'min'}(w,h)/2;
+        const radius=${aperture}*Math.max(w,h)/2;
         for(let y=0;y<h;y++)for(let x=0;x<w;x++){
           const i=(y*w+x)*4,lit=Math.max(data[i],data[i+1],data[i+2])>2;
           const r=Math.hypot(x+.5-w/2,y+.5-h/2);
@@ -73,7 +73,7 @@ try {
         }
         return {diameterX:maxX-minX+1,diameterY:maxY-minY+1,minX,minY,count,leaks,missing,interior};
       })()`);
-      const diameter = aperture * (device.startsWith('nvg') ? Math.max(width, height) : Math.min(width, height));
+      const diameter = aperture * Math.max(width, height);
       // Thermal's coarse sensor/soft edge can move the visible bounds within the feather band.
       const feather = device === 'thermal-t1' ? .032 : device === 'thermal-t2' ? .0232 : 0;
       for (const [measured, side] of [[result.diameterX, width], [result.diameterY, height]]) {
@@ -81,13 +81,12 @@ try {
           `${device}: circular mask clipped to viewport at ${width}x${height} ${JSON.stringify(result)}`);
       }
       assert.equal(result.missing, 0, `${device}: picture fills the circular interior`);
-      if (device.startsWith('thermal')) assert(result.minX > 0 && result.minY > 0, `${device}: complete thermal rim visible`);
       assert.equal(result.leaks, 0, `${device}: black outside the lens`);
       assert(result.count > previous, `${device}: higher tier sees more`); previous = result.count;
       if (device === 'nvg-gen3' && width !== height) assert(result.count / (width * height) > .9, 'Gen 3 fills over 90% of the viewport');
       await screenshot(`${width}x${height}-${device}-chart`);
     }
-    console.log(`PASS ${width}x${height}: expanded circular NVG views, increasing tiers, complete thermal rims, no picture leakage.`);
+    console.log(`PASS ${width}x${height}: expanded NVG and thermal views, increasing tiers, no picture leakage.`);
   }
   // Palette inversion/colour mapping must stay inside the same mask too.
   await load(1280, 760, true);
@@ -97,7 +96,7 @@ try {
       v.draw('none');
       v.world.scene.children[0].userData.heat=palette===1?'none':'body';
       v.draw('thermal-t2',{noise:0},{on:true,palette,warm:1,mount:1,fading:0,untilCalibration:0,calibrating:0});
-      const {data,width:w,height:h}=v.pixels(),radius=.9*Math.min(w,h)/2;
+      const {data,width:w,height:h}=v.pixels(),radius=.98*Math.max(w,h)/2;
       let leaks=0,inside=0;
       for(let y=0;y<h;y++)for(let x=0;x<w;x++){
         const i=(y*w+x)*4,lit=Math.max(data[i],data[i+1],data[i+2])>2;
