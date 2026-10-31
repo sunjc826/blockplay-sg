@@ -202,3 +202,15 @@ suites, and `FpsMinimap.test.tsx`. The rendered host/guest smoke is
 (or EXPEDITION_APP_ORIGIN / EXPEDITION_CHROME_ORIGIN). It uses the actual Sentosa
 scene and saves evidence under `.cache/naval-landings/`. The full engine smoke
 checks the in-game warning, map marker and expedition travel state.
+
+
+## Verified pilot release
+
+The Sentosa pilot was manually deployed to Cloudflare on 31 October 2026,
+version `fb54f642-705f-4723-a478-d4ce794b3838`. Runtime revision `6c7157a`
+includes the naval implementation and the correction that keeps existing ground
+anchors clear of the raised beach. Both production domains serve assets whose
+hashes match the tested build. Forty-one combat/facility scenarios, the Sentosa
+ground check, typecheck and production build passed. Rendered landing and
+real-engine desktop/phone checks passed. Broad map-audit runs had unrelated
+timeouts under machine load; a complete suite pass is not claimed.
