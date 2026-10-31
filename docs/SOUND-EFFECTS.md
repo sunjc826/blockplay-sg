@@ -22,6 +22,25 @@ remain as the fallback while the files load, or if they never do.
 Files are served from `public/audio/sfx/`, which the service worker caches at
 runtime like the Encik recordings.
 
+## Main menu
+
+The owner chose the Glass hover/click pair from five ElevenLabs v3 auditions,
+then requested a less shrill version. `public/audio/menu/` holds that softened
+pair; `src/audio/menu/manifest.json` records source/output hashes and processing.
+Pitch is lowered about three semitones, the treble shelf cuts 9 dB above
+2.6 kHz, a 4.8 kHz lowpass softens the top, and overall gain is reduced by 20%.
+Hover stays quieter than confirmation. This processing is offline and used no
+additional API credits; the ten original auditions cost 50 credits total.
+
+`src/lib/menu-audio.ts` preloads two local clips and reuses them across menu
+visits. Only `MainMenu` in `GameMenu.tsx` triggers them: mouse entry or visible
+keyboard focus plays hover; accepted selections play confirmation, including
+touch taps. Unloaded hovers are dropped, pointer sweeps are limited to one tick
+per 75 ms, and confirmation suppresses hover. Leaving the menu cancels hover
+while allowing the short click to finish over the transition. Browser autoplay
+restrictions can keep hover silent until the first click or keypress. Audio
+failure never delays navigation. The private API key is never used in gameplay.
+
 ## Generating and publishing
 
 - `pnpm sfx:batch` prints every take without sending requests.

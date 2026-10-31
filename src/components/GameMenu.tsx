@@ -19,6 +19,7 @@ import { navigate, ROUTE_PATHS, type Route } from '../lib/routes';
 import { transitionTo, useWipe } from '../lib/route-transition';
 import { DebugMode } from '../lib/debug-mode';
 import { pwa, usePwa } from '../lib/pwa';
+import { playMenuSound, prepareMenuAudio, stopMenuHover } from '../lib/menu-audio';
 import './game-menu.css';
 
 type Screen = Exclude<Route, 'debug'>;
@@ -150,6 +151,17 @@ function MainMenu({ profile, install, districts }: { profile: React.ReactNode; i
   const wipe = useWipe();
   const [arriving] = useState(() => wipe?.phase === 'reveal');
   const [ripple, setRipple] = useState<{ index: number; x: number; y: number; key: number } | null>(null);
+  useEffect(() => {
+    prepareMenuAudio();
+    document.addEventListener('visibilitychange', stopMenuHover);
+    return () => { stopMenuHover(); document.removeEventListener('visibilitychange', stopMenuHover); };
+  }, []);
+  const hover = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.pointerType === 'mouse' && chosen === null && !wipe) playMenuSound('hover');
+  };
+  const focus = (event: React.FocusEvent<HTMLElement>) => {
+    if (event.currentTarget.matches(':focus-visible') && chosen === null && !wipe) playMenuSound('hover');
+  };
   // Nothing is chosen until the player picks; the arrow keys then move through
   // the entries the way a console menu would, starting from either end
   // (left and right too, for the row of tiles).
@@ -174,6 +186,7 @@ function MainMenu({ profile, install, districts }: { profile: React.ReactNode; i
     event.preventDefault();
     const entry = ENTRIES[index];
     if (!transitionTo(entry.route, entry.title, districts[entry.route]?.toUpperCase())) return;
+    playMenuSound('click');
     setChosen(index);
     try { navigator.vibrate?.(12); } catch { /* not allowed here */ }
   };
@@ -182,6 +195,7 @@ function MainMenu({ profile, install, districts }: { profile: React.ReactNode; i
     const entry = ENTRIES[index];
     return <a key={entry.route} ref={node => { items.current[index] = node; }} href={ROUTE_PATHS[entry.route]}
       className={`game-menu-item${entry.mode ? '' : ' is-tile'}${chosen === index ? ' is-chosen' : ''}`} style={{ '--i': index } as React.CSSProperties}
+      onPointerEnter={hover} onFocus={focus}
       onPointerDown={event => press(index, event)} onClick={event => choose(index, event)}>
       {ripple?.index === index && <span key={ripple.key} className="game-menu-ripple" style={{ left: ripple.x, top: ripple.y }} onAnimationEnd={() => setRipple(null)} />}
       {entry.mode && <span className="game-menu-index">0{index + 1}</span>}
@@ -207,10 +221,13 @@ function MainMenu({ profile, install, districts }: { profile: React.ReactNode; i
     </main>
 
     <footer className="game-menu-foot">
-      <a className="game-debug-link" {...link('debug')}><Wrench size={13} /> Debug</a>
+      <a className="game-debug-link" {...link('debug')} onPointerEnter={hover} onFocus={focus} onClick={event => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        playMenuSound('click'); link('debug').onClick(event);
+      }}><Wrench size={13} /> Debug</a>
       <span className="game-menu-hint"><kbd>↑</kbd><kbd>↓</kbd> choose · <kbd>Enter</kbd> select</span>
       <span className="game-menu-edition">
-        {install && <button className="game-install" onClick={() => { void pwa.install(); }}><Download size={13} /> Install</button>}
+        {install && <button className="game-install" onPointerEnter={hover} onFocus={focus} onClick={() => { playMenuSound('click'); void pwa.install(); }}><Download size={13} /> Install</button>}
         <span>SG / 2026 — PROTOTYPE 01</span>
       </span>
     </footer>

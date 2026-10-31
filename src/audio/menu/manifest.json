@@ -1,0 +1,19 @@
+{
+  "provider": "ElevenLabs",
+  "model": "eleven_text_to_sound_v3",
+  "processing": "asetrate=37084,aresample=44100,treble=g=-9:f=2600:w=0.7,lowpass=f=4800:p=2,volume=0.8",
+  "clips": {
+    "hover": {
+      "file": "glass-soft-hover-51196bec60.mp3",
+      "sha256": "51196bec6029d2696936638050442614ee50eaaa32c74473598bd294a8e4ed3b",
+      "source": "03-glass-hover",
+      "sourceSha256": "6912e956c69ecf46ec354a83b9c515c811bc382a5da6940dd2f87698c291247e"
+    },
+    "click": {
+      "file": "glass-soft-click-0011ad998c.mp3",
+      "sha256": "0011ad998caed9aed8f6558fe3e149103b409f7beb5a59cd05bf48fdf090df50",
+      "source": "03-glass-click",
+      "sourceSha256": "a60e780087e7ae73f6d4f0d2d234fdfe7ba70dfeee42e35d9838927f05098b16"
+    }
+  }
+}
