@@ -5800,3 +5800,34 @@ cloudflare-custom.log/cloudflare-workers.log). No paid requests or GitHub push.
 Temporary private environment copies removed; task-owned Vite/Chrome stopped.
 AGENTS.md remains local, unstaged and uncommitted. Preserve pre-existing
 uncommitted handoff history and .claude files.
+
+
+## Agreed SCAR family and signature names (2026-10-31)
+
+Owner accepted Soft Power / Hard Power as family labels and Foreign Aid /
+Strings Attached as signature variants. Local main code commit `c43cf0b`
+updates the art catalog to **Soft Power · Foreign Aid** (SCAR-L, ff-scar-l)
+and **Hard Power · Strings Attached** (SCAR-H, ff-scar-h). The gallery picker
+separates family/signature labels; previews, accessible labels and descriptions
+use the full names. Longer names fit desktop and portrait layouts. The art
+metadata is not a live weapon-family registry or loadout change. Models and
+stable IDs are unchanged. docs/PROXY-WEAPONS.md records the agreed hierarchy,
+superseded working titles and the owner's Final Warning reservation for a
+future Collective Corps weapon, without selecting a specific model.
+
+11 existing relevant checks / two files, typecheck and the isolated production
+build pass. No new tests or full-suite rerun for this naming/layout edit.
+The existing 36-view gallery smoke passes locally and on production, including
+all six studies, grayscale, mouse/touch rotation, mobile overflow and navigation.
+Final live portrait labels visually reviewed; no browser exceptions.
+
+Manual pnpm deploy:cloudflare succeeded from the isolated archive of c43cf0b,
+with all 3,099 tracked files verified. Version:
+3f77197b-9593-405f-87f2-dfee1d0a8421. Both production domains serve matching
+entry HTML and all six exact release JS/CSS/service-worker files. Production
+routing/assets/PWA/model/audio/API-origin checks pass on both domains. Evidence:
+.cache/scar-names/ (tests.log, typecheck.log, source-verification.json,
+deploy.log, live-verification.json/log, live-browser-results.json/log and
+screenshots). Temporary private environment copies removed; task Vite/Chrome
+stopped. No paid requests or GitHub push. Keep AGENTS.md local, unstaged and
+uncommitted; preserve pre-existing handoff edits and .claude files.
