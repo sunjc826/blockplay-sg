@@ -55,10 +55,10 @@ const HARBOURFRONT_SECTORS: readonly ZoneSector[] = [
   { id: 'boardwalk', name: 'Sentosa boardwalk', cover: 'dense', lootWeight: 0.5, tierBias: 1, botWeight: 0.5,
     bounds: { minX: 100, maxX: 120, minZ: 132, maxZ: 196 },
     anchors: [{ x: 109, z: 165 }, { x: 109, z: 145 }, { x: 109, z: 180 }] },
-  // Terraces stacked to a lookout. They are impassable, so the fighting is in
-  // the lanes between their skirts and the perimeter: short sightlines, and the
-  // one place in the district that is not overlooked by something else.
-  { id: 'faber-ridge', name: 'Mount Faber ridge', cover: 'broken', lootWeight: 1.5, tierBias: 1, botWeight: 1,
+  // Connected, traversable ground now replaces the impassable stacked mound.
+  // The cover band measures nearby solid objects, not the terrain patch's
+  // enclosing box; the ridge's grade and sightlines remain separate geometry.
+  { id: 'faber-ridge', name: 'Mount Faber ridge', cover: 'open', lootWeight: 1.5, tierBias: 1, botWeight: 1,
     bounds: { minX: -226, maxX: -150, minZ: -146, maxZ: -30 },
     anchors: [{ x: -185, z: -140 }, { x: -152, z: -85 }, { x: -218, z: -85 }, { x: -185, z: -35 }] },
   // The green continuing north off the ridge, and the ground the Queenstown
