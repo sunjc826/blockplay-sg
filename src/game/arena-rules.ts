@@ -2477,7 +2477,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const step = objectiveStep(actor, entry.mission, { dx: dxStep, dz: dzStep }, role.speed * dt);
       dxStep = step.dx; dzStep = step.dz;
     }
-    const routeNeeded = !!entry.mission || !visible && !!searching || !!evading?.cover || Math.abs(target.y - actor.y) > .6;
+    const finishingVerticalRoute = entry.navigation && entry.navigation.path.length > 0 && Math.abs(entry.navigation.target.y - Math.max(0, actor.y - 1.75)) > .04;
+    const routeNeeded = !!entry.mission || !visible && !!searching || !!evading?.cover || Math.abs(target.y - actor.y) > .6 || finishingVerticalRoute;
     if (!routeNeeded) entry.navigation = undefined;
     if(!entry.anchor && (!evading || !!evading.cover) && ((navigator && routeNeeded) || entry.navigation?.path.length)) {
       const feet={x:actor.x,y:Math.max(0,actor.y-1.75),z:actor.z};

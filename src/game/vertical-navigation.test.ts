@@ -20,15 +20,17 @@ it('excludes narrow connections and blocked crate positions',()=>{
  const anchors=elevatedLootAnchors(world.surfaces,createVerticalMovement(world));expect(anchors.length).toBe(9);expect(anchors.every(p=>p.x>12&&p.y===3)).toBe(true);
 });
 
-it('arena bots follow the stair route to an elevated opponent', async()=>{
+it('arena bots follow the stair route to a visibly exposed elevated opponent', async()=>{
  const {createArena}=await import('./arena-rules'), {createRegionMovement}=await import('./region-collision');
- const arena=createArena([],1,'mixed',{bounds:world.bounds,move:createRegionMovement(world.bounds).move,spawns:[{x:18,z:10}],playerSpawn:{x:20,z:0}},undefined,world);
+ const arena=createArena([],1,'mixed',{bounds:world.bounds,move:createRegionMovement(world.bounds).move,spawns:[{x:18,z:10}],playerSpawn:{x:20,z:5}},undefined,world);
  arena.addPlayer('upstairs','Upstairs',0,0,undefined,undefined,true);
  let highest=0;
  for(let i=0;i<600;i++){
    arena.step(.05);
    arena.setPlayerVitals('upstairs',{health:100});
-   arena.setInput('upstairs',{x:20,y:4.75,z:0,yaw:0,pitch:0,weapon:0,playing:true});
+   // The balcony edge is visible from below; a player hidden over the middle
+   // of a solid floor must not reveal their coordinates to the bot.
+   arena.setInput('upstairs',{x:20,y:4.75,z:5,yaw:0,pitch:0,weapon:0,playing:true});
    highest=Math.max(highest,arena.snapshot().actors.find(a=>a.bot)!.y);
  }
  expect(highest).toBeGreaterThan(4.6);

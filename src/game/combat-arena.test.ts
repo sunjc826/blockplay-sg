@@ -200,6 +200,8 @@ describe('faction heat in the arena', () => {
     expect(friends.length).toBeGreaterThan(0);
     expect(friends.length).toBeLessThanOrEqual(FACTION_SCALE['armed-forces'].troops[1]);
     expect(friends.every(f => /^(Pte|Cpl|Sgt) /.test(f.name) && f.variant === undefined)).toBe(true);
+    // Isolate this friendly-fire probe from unrelated hostile rounds in flight.
+    for (const enemy of arena.snapshot().actors.filter(a => a.faction === 'mercenaries')) arena.removePlayer(enemy.id);
     // Friendly rounds stop on the player and do nothing.
     const friend = friends.find(f => f.alive)!;
     const player = actor(arena, 'one'), before = player.health;
