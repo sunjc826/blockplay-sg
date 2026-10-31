@@ -1,3 +1,4 @@
+import { queenstownTerrainHeight } from './queenstown-terrain';
 import type { PlaceFixture, VerticalPlace } from './vertical-places';
 
 /** Compressed estate blocks, not surveyed addresses or public apartment access. */
@@ -82,5 +83,10 @@ export const QUEENSTOWN_HOUSING_PLACES: VerticalPlace[] = QUEENSTOWN_HDB_BLOCKS.
     fixture(cx, (9 + top) / 2, z + 3, 8.4, top - 9, 11, color);
     fixture(cx, top + .3, z + 3, 9, .6, 11.6, '#b6b5a7');
   }
-  return place;
+  const base = queenstownTerrainHeight(x,z);
+  return { ...place,
+    floors: place.floors.map(f=>({...f,y:f.y+base})),
+    connections: place.connections.map(c=>({...c,from:{...c.from,y:c.from.y+base},to:{...c.to,y:c.to.y+base}})),
+    fixtures: place.fixtures?.map(f=>({...f,y:f.y+base})),
+  };
 });

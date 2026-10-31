@@ -1,7 +1,7 @@
 /** Shared axis-aligned collision core. Every region supplies only its bounds. */
-export interface Obstacle { minX: number; maxX: number; minZ: number; maxZ: number; maxY?: number; footprint?: readonly Position2D[] }
+export interface Obstacle { minX: number; maxX: number; minZ: number; maxZ: number; maxY?: number; minY?: number; footprint?: readonly Position2D[] }
 export interface Position2D { x: number; z: number }
-export interface RegionBounds { minX: number; maxX: number; minZ: number; maxZ: number }
+export interface RegionBounds { minX: number; maxX: number; minZ: number; maxZ: number; groundHeight?: (x: number, z: number) => number }
 
 /** Convex authored footprints retain a bounding box for the spatial index. */
 export function insideFootprint(points: readonly Position2D[], x: number, z: number) {

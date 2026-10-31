@@ -22,14 +22,15 @@ export function createVerticalMovement(world: VerticalWorld) {
   const overlap = (o: Obstacle, x: number, z: number, r: number) => overlapsObstacle(o, x, z, r, EPS);
   const contains = surfaceContains;
   const canOccupy = (x: number, y: number, z: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = []) => {
-    if (!withinBounds(world.bounds, x, z, radius) || y < -EPS) return false;
-    const blocks = (o: Obstacle) => overlap(o, x, z, radius) && y < (o.maxY ?? Infinity) - EPS && y + height > 0;
+    if (!withinBounds(world.bounds, x, z, radius) || y < (world.bounds.groundHeight?.(x,z) ?? 0) - EPS) return false;
+    const blocks = (o: Obstacle) => overlap(o, x, z, radius) && y < (o.maxY ?? Infinity) - EPS && y + height > (o.minY ?? 0) + EPS;
     if (baseAt(x, z, radius).some(blocks) || extra.some(blocks)) return false;
     if (surfacesAt(x, z, radius).some(s => { const roof = surfaceHeight(s, x, z); return contains(s, x, z) && roof > y + EPS && (s.solidBelow || roof < y + height - EPS); })) return false;
     return !traversalAt(x, z, radius).some(o => overlap(o, x, z, radius) && y < o.maxY - EPS && y + height > o.minY + EPS);
   };
   const supportHeight = (x: number, z: number, maxY: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = []): number | null => {
-    let best: number | null = maxY >= -EPS && canOccupy(x, 0, z, radius, height, extra) ? 0 : null;
+    const ground = world.bounds.groundHeight?.(x,z) ?? 0;
+    let best: number | null = maxY >= ground-EPS && canOccupy(x, ground, z, radius, height, extra) ? ground : null;
     for (const s of surfacesAt(x, z, radius)) {
       const margin = Math.abs(s.startHeight - s.endHeight) < EPS ? radius : 0;
       if (!surfaceContains(s, x, z, margin)) continue;

@@ -1,3 +1,4 @@
+import { queenstownTerrainHeight } from './queenstown-terrain';
 import { afterAll, describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { buildQueenstownScene } from './queenstown-scene';
@@ -14,6 +15,7 @@ world.scene.updateMatrixWorld(true);
 afterAll(() => world.dispose());
 
 function walk(points: RoutePoint[], radius: number) {
+  points=points.map(p=>({...p,y:p.y+queenstownTerrainHeight(p.x,p.z)}));
   let state = { ...points[0], velocityY: 0 };
   for (const target of points.slice(1)) {
     const next = movement.move(state, target.x-state.x, target.z-state.z, 0, radius, 1.8);
@@ -25,18 +27,18 @@ function walk(points: RoutePoint[], radius: number) {
 }
 
 describe.each(QUEENSTOWN_HDB_BLOCKS)('$label housing', block => {
-  const {x,z}=block;
+  const {x,z}=block,base=queenstownTerrainHeight(x,z);
   it('supports cross-deck and through-deck routes under a real ceiling', () => {
     for (const radius of [.38,.65]) {
       const across = [{x:x-28,y:0,z},{x:x+10,y:0,z},{x:x+10,y:0,z:z+3.8},{x:x+28,y:0,z:z+3.8}];
       const through = [{x:x-6,y:0,z:z-10},{x:x-6,y:0,z:z+11}];
       for (const path of [across,through]) { walk(path,radius); walk([...path].reverse(),radius); }
     }
-    const roofRay = new THREE.Raycaster(new THREE.Vector3(x-6,1.8,z),new THREE.Vector3(0,1,0),0,3);
+    const roofRay = new THREE.Raycaster(new THREE.Vector3(x-6,base+1.8,z),new THREE.Vector3(0,1,0),0,3);
     const roof = roofRay.intersectObject(world.scene.getObjectByName('Connected elevated places')!,true)[0];
     expect(roof).toBeDefined();
-    expect(roof.point.y).toBeCloseTo(3.14);
-    expect(movement.move({x:x-6,y:0,z,velocityY:8},0,0,.8).y).toBeLessThanOrEqual(3.14-1.8+.001);
+    expect(roof.point.y).toBeCloseTo(base+3.14);
+    expect(movement.move({x:x-6,y:base,z,velocityY:8},0,0,.8).y).toBeLessThanOrEqual(base+3.14-1.8+.001);
   });
 
   it('walks both sheltered return stairs and connected residential corridors in both modes', () => {
@@ -63,7 +65,8 @@ describe.each(QUEENSTOWN_HDB_BLOCKS)('$label housing', block => {
   });
 
   it('blocks private flats and parapets without projecting ground columns into corridors', () => {
-    for (const y of HDB_GALLERY_LEVELS) {
+    for (const level of HDB_GALLERY_LEVELS) {
+      const y=base+level;
       expect(movement.canOccupy(x,y,z,.65,1.8)).toBe(false);
       expect(movement.canOccupy(x,y,z+5.8,.65,1.8)).toBe(true);
       expect(movement.canOccupy(x,y,z+8.4,.38,1.8)).toBe(false);
@@ -89,18 +92,18 @@ it('has short, sheltered flights with mesh support and standing headroom', () =>
 });
 
 it('uses the actual modern-tower ground footprint and preserves the high podium overhang', () => {
-  expect(movement.canOccupy(-195.5,0,-72,.65,1.8)).toBe(true);
-  expect(movement.canOccupy(-195.5,5,-72,.65,1.8)).toBe(false);
-  expect(movement.canOccupy(-210,0,-75,.65,1.8)).toBe(false);
+  expect(movement.canOccupy(-195.5,queenstownTerrainHeight(-195.5,-72),-72,.65,1.8)).toBe(true);
+  expect(movement.canOccupy(-195.5,queenstownTerrainHeight(-195.5,-72)+5,-72,.65,1.8)).toBe(false);
+  expect(movement.canOccupy(-210,queenstownTerrainHeight(-210,-75),-75,.65,1.8)).toBe(false);
 });
 
 it('routes bots from the void-deck stair entrance to the second residential corridor', () => {
   const navigator=createVerticalNavigator(input),block=QUEENSTOWN_HDB_BLOCKS[0];
-  const from={x:block.x-HDB_CORE_OFFSET-2.1,y:0,z:block.z+6.5},to={x:block.x,y:6.2,z:block.z+6.5};
+  const from={x:block.x-HDB_CORE_OFFSET-2.1,y:queenstownTerrainHeight(block.x,block.z),z:block.z+6.5},to={x:block.x,y:queenstownTerrainHeight(block.x,block.z)+6.2,z:block.z+6.5};
   const route=navigator.route(from,to);
   expect(route.length).toBeGreaterThan(3);
-  walk([from,...route],.4);
+  walk([from,...route].map(p=>({...p,y:p.y-queenstownTerrainHeight(p.x,p.z)})),.4);
   const back=navigator.route(to,from);
   expect(back.length).toBeGreaterThan(3);
-  walk([to,...back],.4);
+  walk([to,...back].map(p=>({...p,y:p.y-queenstownTerrainHeight(p.x,p.z)})),.4);
 },30000);

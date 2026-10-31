@@ -1,3 +1,4 @@
+import { QUEENSTOWN_TERRACES } from './queenstown-terrain';
 import type { VerticalPlace } from './vertical-places';
 
 /** Authored residential landscape, not surveyed present-day terrain. */
@@ -21,66 +22,27 @@ export const QUEENSTOWN_PATHS = [
   { x: 0, z: 58, width: 240, depth: 3.2 },
 ] as const;
 
-export const QUEENSTOWN_BANKS = [
-  { id: 'west-common', x: -197, z: -26, width: 42, depth: 36, height: 2.8 },
-  { id: 'west-garden', x: -194, z: 110, width: 42, depth: 40, height: 3.2 },
-  { id: 'east-library', x: 184, z: -133, width: 42, depth: 44, height: 3 },
-  { id: 'east-common', x: 188, z: -32, width: 42, depth: 36, height: 2.8 },
-  { id: 'dawson-green', x: 174, z: 72, width: 30, depth: 32, height: 2.6 },
-  { id: 'gateway-west', x: -31, z: -157, width: 26, depth: 32, height: 2.4 },
-  { id: 'gateway-east', x: 145, z: -156, width: 30, depth: 34, height: 2.8 },
-  { id: 'court-garden', x: 51, z: -42, width: 20, depth: 22, height: 2.1 },
-  { id: 'estate-courtyard', x: -74, z: -63, width: 42, depth: 16, height: 1.6 },
+// The old isolated four-sided banks have been replaced by connected terrain.
+export { queenstownTerrainHeight, QUEENSTOWN_TERRACES } from './queenstown-terrain';
+
+/** Contour promenade and estate approaches. Existing paths connect into these. */
+export const QUEENSTOWN_HILLSIDE_PATHS = [
+  { id: 'west-contour', width: 3.2, points: [[-218,4],[-204,-20],[-186,-42],[-184,-64],[-185,-100],[-171,-124],[-146,-138]] },
+  { id: 'upper-approach', width: 3.2, points: [[-149,-104],[-130,-104],[-119,-101],[-119,-68],[-119,-59],[-119,-22],[-131,-6]] },
+  { id: 'library-garden', width: 3.2, points: [[-4,-88],[-4,-81],[0,-76],[23,-76],[48,-85],[56,-104]] },
 ] as const;
 
-export function queenstownTerrainHeight(x: number, z: number) {
-  let height = 0;
-  for (const b of QUEENSTOWN_BANKS) {
-    const hx=b.width/2,hz=b.depth/2,cx=Math.min(4,hx*.25),cz=Math.min(5,hz*.25);
-    const rise=Math.max(0,Math.min(1,(hx-Math.abs(x-b.x))/(hx-cx),(hz-Math.abs(z-b.z))/(hz-cz)));
-    height=Math.max(height,b.height*rise);
-  }
-  return height;
-}
-
-export const QUEENSTOWN_BANK_PATHS = [
-  {axis:'x',x:-187,z:-26,length:76}, {axis:'x',x:-187,z:110,length:76},
-  {axis:'x',x:187,z:-133,length:76}, {axis:'x',x:187,z:-32,length:76},
-  {axis:'z',x:174,z:71,length:46}, {axis:'z',x:-31,z:-150,length:70},
-  {axis:'z',x:145,z:-156,length:40}, {axis:'x',x:-75.5,z:-63,length:87},
-  {axis:'x',x:50,z:-42,length:26},
-] as const;
-
-/** Four broad, continuous earth slopes and a small crest, all traversable.
- * Trapezoids meet along their diagonal seams: no empty bounding-box corners,
- * floating terrain tops, stairs, rails or vertical cliff perimeter. */
-export const QUEENSTOWN_LANDSCAPE_PLACES: VerticalPlace[] = QUEENSTOWN_BANKS.map(bank => {
-  const { id, x, z, width, depth, height } = bank;
-  const halfX = width / 2, halfZ = depth / 2;
-  const crestX = Math.min(4, halfX * .25), crestZ = Math.min(5, halfZ * .25);
-  const color = '#7f9863';
-  return {
-    id: `queenstown-${id}-terrain`, name: `${id.replaceAll('-', ' ')} planted earth bank`,
-    note: 'Authored gentle residential earthwork with four-sided walkable slopes; interrupts low sightlines without changing the street datum.',
-    floors: [{ id: 'crest', x, z, y: height, width: crestX * 2, depth: crestZ * 2,
-      foundation: 'solid', rails: false, color,
-      outline: [{ x: x - crestX, z: z - crestZ }, { x: x + crestX, z: z - crestZ }, { x: x + crestX, z: z + crestZ }, { x: x - crestX, z: z + crestZ }] }],
-    connections: [
-      // Connection width is the narrowest usable crossing at the crest; the
-      // outline still renders/supports the entire flared earth slope.
-      ...([-1, 1] as const).map(side => ({ id: `slope-x-${side}`, width: crestZ * 2,
-        from: { x: x + side * halfX, y: 0, z }, to: { x: x + side * crestX, y: height, z },
-        foundation: 'solid' as const, rails: false, color,
-        outline: [{ x: x + side * halfX, z: z - halfZ }, { x: x + side * crestX, z: z - crestZ }, { x: x + side * crestX, z: z + crestZ }, { x: x + side * halfX, z: z + halfZ }],
-      })),
-      ...([-1, 1] as const).map(side => ({ id: `slope-z-${side}`, width: crestX * 2,
-        from: { x, y: 0, z: z + side * halfZ }, to: { x, y: height, z: z + side * crestZ },
-        foundation: 'solid' as const, rails: false, color,
-        outline: [{ x: x - halfX, z: z + side * halfZ }, { x: x - crestX, z: z + side * crestZ }, { x: x + crestX, z: z + side * crestZ }, { x: x + halfX, z: z + side * halfZ }],
-      })),
-    ],
-  };
-});
+/** A direct stair shortcut connects the two residential forecourts. */
+export const QUEENSTOWN_LANDSCAPE_PLACES: VerticalPlace[] = [{
+  id: 'queenstown-stirling-terrace-stairs', name: 'Stirling forecourt steps',
+  note: 'Authored connection between lower and upper residential terraces; relative game levels.',
+  floors: [{id:'lower-landing',x:-65,z:-58,y:3.6,width:4,depth:2,rails:false,supports:false},{id:'upper-landing',x:-65,z:-69,y:6.4,width:4,depth:2,rails:false,supports:false}],
+  fixtures: QUEENSTOWN_TERRACES.slice(0,3).flatMap(p=>[
+    {x:p.x+p.width/2+.12,y:p.y-.2,z:p.z,width:.24,height:2.2,depth:20,color:'#a8a695'},
+    {x:p.x+p.width/2+.12,y:p.y+.94,z:p.z,width:.4,height:.08,depth:20.2,color:'#d6cfbb'},
+  ]),
+  connections: [{ id:'garden-steps', from:{x:-65,y:3.6,z:-59},to:{x:-65,y:6.4,z:-68},width:4,stairs:true,rails:true,color:'#c5beaa' }],
+}];
 
 // Supplemental shade trees at path junctions and the edges of large lawns.
 // Mature trunks offer local cover; high crowns leave the walking view open.

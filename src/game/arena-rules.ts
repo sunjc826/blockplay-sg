@@ -12,7 +12,7 @@ import { WORLD_VEHICLES, clearVehicleSpawn } from './world-vehicles';
 import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
 import { createVerticalNavigator, type NavigationPoint } from './vertical-navigation';
 import { createVerticalMovement, MAX_STEP_HEIGHT, type VerticalWorld } from './vertical-movement';
-import { footprintRayInterval, overlapsObstacleRect } from './region-collision';
+import { type RegionBounds, footprintRayInterval, overlapsObstacleRect } from './region-collision';
 import { surfaceContains } from './vertical-routes';
 import { validVehicleControls, createSharedVehicle, seatOf, seatPoint, gunnerId, vehicleGunRay, vehicleRayDistance, type SharedVehicle, type VehicleControls } from './vehicle-seats';
 import { driveVehicle, flyVehicle, vehicleBounds, vehicleExit, type VehicleKind, type VehicleSpawn, type FlightObstacle } from './vehicle-rules';
@@ -165,7 +165,7 @@ export interface ArenaEnvironment {
   savedReinforcementClocks?: ReinforcementClocks;
   deployments?: readonly DeploymentPoint[];
   facilities?: { sites: readonly FacilitySite[]; saved?: FacilitySnapshot; savedVehicles?: SharedVehicle[] };
-  bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
+  bounds: RegionBounds;
   move: (position: { x: number; z: number }, dx: number, dz: number, radius: number, obstacles: readonly Obstacle[]) => { x: number; z: number };
   spawns: readonly { x: number; z: number }[];
   endless?: boolean;
@@ -393,9 +393,9 @@ function bodyDistance(origin: ArenaPoint, direction: ArenaPoint, actor: ArenaAct
 export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions, traversalWorld?: VerticalWorld, coverDistance?: ArenaCoverDistance, grenadeCoverTrace?: import('./grenade-flight').GrenadeTrace, sightDistance?: ArenaCoverDistance) {
   // Rendered cover stops every round, with or without vehicles in the match.
   const cover = coverDistance ?? vehicleOptions?.coverDistance;
-  const bounds = environment?.bounds ?? MARINA_BOUNDS;
+  const bounds: RegionBounds = environment?.bounds ?? MARINA_BOUNDS;
   const traversal = traversalWorld ? createVerticalMovement(traversalWorld) : null;
-  const vehicleGround = [...obstacles, ...(traversalWorld ? verticalVehicleObstacles(traversalWorld) : [])];
+  const vehicleGround = [...obstacles, ...(traversalWorld ? verticalVehicleObstacles({...traversalWorld,bounds}) : [])];
   const navigator = traversalWorld?.surfaces.length ? createVerticalNavigator(traversalWorld) : null;
   const floorAt = (point: ArenaPoint) => traversal?.supportHeight(point.x, point.z, point.y - .5, .35, .6) ?? 0;
   const move = environment?.move ?? moveInMarina;
@@ -513,7 +513,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       entry.armorMax = clamp(entry.role.armor * entry.rank.armor * (strength === undefined ? 1 : .75 + .5 * strength), 0, 150);
       if (entry.callsign) entry.actor.name = `${entry.rank.title[getArenaFaction(entry.actor.faction)?.side ?? 'opposition']} ${entry.callsign}`;
     }
-    Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75 + (destination?.y ?? 0), health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
+    Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75 + (destination?.y ?? bounds.groundHeight?.(p.x,p.z) ?? 0), health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
       yaw: destination?.yaw ?? (Number.isFinite(preferred?.yaw) ? preferred!.yaw! : 0), pitch: Number.isFinite(preferred?.pitch) ? clamp(preferred!.pitch!, -1.5, 1.5) : 0 });
     if (entry.role && entry.actor.faction === PLAYER_FACTION) {
       // Friendly soldiers carry the issued rifle, or the Ultimax in support, which is what they drop.
@@ -580,7 +580,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const entry = members.get(id), point = environment?.deployments?.find(p => p.id === pointId);
     if (!entry || entry.actor.bot || !entry.actor.alive || entry.actor.deaths !== 0 || elapsed !== 0 || finished || seatOf(vehicles, id) || !point || !clearSpawn(point)) return false;
     if ([...members.values()].some(m => m !== entry && m.actor.alive && Math.hypot(m.actor.x - point.x, m.actor.z - point.z) < (m.actor.faction === entry.actor.faction ? 1.5 : 30))) return false;
-    Object.assign(entry.actor, { x: point.x, y: 1.75, z: point.z, yaw: point.yaw, pitch: point.pitch, prone: false });
+    Object.assign(entry.actor, { x: point.x, y: (bounds.groundHeight?.(point.x,point.z)??0)+1.75, z: point.z, yaw: point.yaw, pitch: point.pitch, prone: false });
     entry.lastAt = undefined; entry.velocity = undefined; entry.speed = 0; entry.navigation = undefined; entry.velocityY = 0;
     return true;
   }
@@ -1030,7 +1030,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     syncOccupants(); return true;
   }
-  const exitFloor = (x: number, z: number) => traversal ? traversal.supportHeight(x, z, MAX_STEP_HEIGHT, .38, 1.8) : 0;
+  const exitFloor = (x: number, z: number) => traversal ? traversal.supportHeight(x, z, (bounds.groundHeight?.(x,z)??0)+MAX_STEP_HEIGHT, .38, 1.8) : 0;
   /** Plan every exit before freeing a seat: never stack a squad or put it inside cover. */
   function unloadVehicle(v: SharedVehicle) {
     const solids = [...obstacles, ...vehicles.filter(other => other !== v && other.y < 2).map(vehicleBounds)];
@@ -1988,7 +1988,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   /** Dry, ground-level support and a full canopy-sized open descent column. */
   function clearDrop(p: CombatPlane) {
     if (!clearSpawn(p)) return false;
-    const floor = traversal?.supportHeight(p.x, p.z, .6, .4, 1.8) ?? 0;
+    const floor = traversal?.supportHeight(p.x, p.z, (bounds.groundHeight?.(p.x,p.z)??0)+.6, .4, 1.8) ?? 0;
     if (environment?.dropColumnClear && !environment.dropColumnClear(p, floor)) return false;
     if (Math.abs(floor) > .45 || traversal && !traversal.canOccupy(p.x, floor, p.z, .5, 1.8)) return false;
     for (const [dx, dz] of [[0, 0], [2.6, 0], [-2.6, 0], [0, 2.6], [0, -2.6]]) {
@@ -2027,7 +2027,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         const slot = m.ride.slot, p = mission.points[slot];
         if (elapsed < event.start + PARATROOPERS.warning + slot * PARATROOPERS.spacing) continue;
         if (!clearDrop(p)) { m.ride = undefined; m.waiting = elapsed; continue; }
-        const floor = traversal?.supportHeight(p.x, p.z, .6, .4, 1.8) ?? 0;
+        const floor = traversal?.supportHeight(p.x, p.z, (bounds.groundHeight?.(p.x,p.z)??0)+.6, .4, 1.8) ?? 0;
         spawn(m); m.shieldUntil = 0;
         Object.assign(m.actor, p, { y: floor + PARATROOPERS.height + 1.75, parachuting: true });
         m.parachute = { event: id, since: elapsed, floor };

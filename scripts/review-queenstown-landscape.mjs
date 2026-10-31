@@ -7,14 +7,13 @@ const output = '.cache/queenstown-landscape-review';
 // Fixed eye-height views compare terrain, pavements and posture-dependent planting.
 const detailViews = { queenstown: [
   {view:'overview'},
-  {view:'west-path-and-bank',pose:{position:[-214,1.75,-4],target:[-184,2,-26]}},
-  {view:'west-garden-footpath',pose:{position:[-218,1.75,84],target:[-185,2.4,110]}},
-  {view:'east-residential-bank',pose:{position:[158,1.75,-6],target:[192,2,-32]}},
-  {view:'estate-courtyard-relief',pose:{position:[-103,1.75,-63],target:[-67,1.5,-63]}},
-  {view:'hdb-pedestrian-links',pose:{position:[-119,1.75,-27],target:[-88,2,-34]}},
-  {view:'crouching-shrub-cover',pose:{position:[-196,1.15,-108.5],target:[-196,1,-98]}},
-  {view:'standing-shrub-view',pose:{position:[-196,1.75,-108.5],target:[-196,1.75,-98]}},
-  {view:'crest-view',pose:{position:[-197,4.55,-26],target:[-149,1.75,-4]}},
+  {view:'connected-hillside',pose:{position:[-160,23,-12],target:[-80,7,-110]}},
+  {view:'lower-forecourt',pose:{position:[-119,5.8,-29],target:[-64,5,-55]}},
+  {view:'terrace-stairs',pose:{position:[-65,5.35,-57],target:[-65,7.1,-70]}},
+  {view:'retaining-edge',pose:{position:[-18,5.1,-49],target:[-32,4.4,-49]}},
+  {view:'road-climb',pose:{position:[-140,2.8,-14],target:[-140,9,-125]}},
+  {view:'contour-path',pose:{position:[-205,5.2,-20],target:[-184,7.6,-64]}},
+  {view:'upper-forecourt',pose:{position:[-116,11.95,-140],target:[-83,11.8,-151]}},
 ] };
 async function connect(url) {
   const socket = new WebSocket(url), pending = new Map(), listeners = []; let next = 0;
@@ -44,6 +43,7 @@ try {
   // Freeze this review document against Vite hot reload while district files are edited.
   await page.send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { const NativeWebSocket = window.WebSocket; window.WebSocket = class extends NativeWebSocket { constructor(url, protocols) { super(protocols === 'vite-hmr' ? 'ws://127.0.0.1:1/disabled-hmr' : url, protocols); } }; })();` });
   await page.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  await page.send('Page.bringToFront');
   await page.send('Page.navigate', { url: `${origin}/scripts/pages/district-review.html` });
   const evaluate = async expression => { const result = await page.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }); if(result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || 'Review evaluation failed'); return result.result.value; };
   let ready = false;

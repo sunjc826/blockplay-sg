@@ -16,7 +16,8 @@ const {getFpsDistrict}=await import('/src/game/fps-districts.ts');
 const {createFpsEngine}=await import('/src/game/fps-engine.ts');
 const {createSoloSession}=await import('/src/game/lan-peer.ts');
 const {createProfile}=await import('/src/game/armory-state.ts');
-const region=getRegion('queenstown'),build=region.build,start={x:-197,z:-48,yaw:0,pitch:0};
+const {queenstownTerrainHeight}=await import('/src/game/queenstown-terrain.ts');window.terrainHeight=queenstownTerrainHeight;
+const region=getRegion('queenstown'),build=region.build,start={x:-119,z:14,yaw:0,pitch:0};
 Object.assign(region.spawn,start);Object.assign(getFpsDistrict('queenstown').spawn,start);
 region.build=()=>{const world=build();world.scene.onBeforeRender=(_r,_s,camera)=>{if(camera.isPerspectiveCamera&&camera.far>100)window.hdbCamera={x:camera.position.x,y:camera.position.y,z:camera.position.z};};return world;};
 window.session=createSoloSession('Landscape check');
@@ -38,22 +39,20 @@ const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function wait(expression,timeout=60000){const start=Date.now();while(Date.now()-start<timeout){if(errors.length)throw Error(errors.join('\n'));if(await evaluate(expression))return;await delay(150);}throw Error('Timeout: '+expression);}
 async function screenshot(name){const shot=await send('Page.captureScreenshot',{format:'png'});await fs.writeFile(new URL(name+'.png',output),Buffer.from(shot.data,'base64'));}
 // Waypoints follow the actual ground planes. The controller only presses keys.
-const path=[
- {x:-197,y:0,z:-48},{x:-197,y:0,z:-44},
- {x:-197,y:2.8,z:-31},{x:-197,y:2.8,z:-26},{x:-197,y:2.8,z:-21},
- {x:-197,y:0,z:-8},{x:-197,y:0,z:-4},
-];
+let path;
+
 async function walk(mode,points){
  await evaluate(`window.walkProbe={mode:${JSON.stringify(mode)},points:${JSON.stringify(points)},index:0,hits:[],error:null};
  (()=>{const held=new Set();const press=(key,on)=>{if(walkProbe.mode==='fps'){engine.setInput(key,on);return;}
   if(held.has(key)===on)return;on?held.add(key):held.delete(key);
   const e=new KeyboardEvent(on?'keydown':'keyup',{key,bubbles:true});(on?document.querySelector('canvas'):window).dispatchEvent(e);};
+ press('shift',true);
  const tick=()=>{const p=window.hdbCamera,w=walkProbe;if(!p){w.frame=requestAnimationFrame(tick);return;}
-  let target=w.points[w.index];const dx=target.x-p.x,dz=target.z-p.z;
+  let target=w.points[w.index];const dx=target.x-p.x,dz=target.z-p.z;press('shift',Math.hypot(dx,dz)>2);
   if(Math.abs(dx)<.14&&Math.abs(dz)<.14){const feet=p.y-1.75;
    if(Math.abs(feet-target.y)>.18)w.error=JSON.stringify({at:w.index,target,feet});
    w.hits.push({target,camera:{...p},actor:window.hud?.arenaSelf&&{y:hud.arenaSelf.y}});w.index++;
-   if(w.error||w.index===w.points.length){for(const key of ['w','a','s','d'])press(key,false);return;}
+   if(w.error||w.index===w.points.length){for(const key of ['w','a','s','d','shift'])press(key,false);return;}
   }else{press('a',dx<-.14);press('d',dx>.14);press('w',dz<-.14);press('s',dz>.14);}
   w.frame=requestAnimationFrame(tick);
  };tick();})();`);
@@ -70,18 +69,19 @@ try{
  await send('Page.bringToFront');
  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:80,y:20,button:'left',clickCount:1});
  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:80,y:20,button:'left',clickCount:1});
- await wait("hud.phase==='playing'&&!!window.hdbCamera");
- reports.push(await walk('fps',path));await screenshot('fps-earth-bank-crossed');
- assert(reports[0].hits.some(hit=>hit.target.y===2.8&&Math.abs(hit.actor?.y-4.55)<.2),'Host actor must follow the earth crest');
- reports.push(await walk('fps',[...path].reverse()));await screenshot('fps-earth-bank-return');
+ await wait("window.hud?.phase==='playing'&&!!window.hdbCamera");
+ path=await evaluate('[[ -119,14],[-119,4],[-119,-22],[-119,-59],[-119,-68],[-119,-101]].map(([x,z])=>({x,z,y:terrainHeight(x,z)}))');
+ reports.push(await walk('fps',path));await screenshot('fps-hillside-crossed');
+ assert(reports[0].hits.some(hit=>hit.target.y>5&&Math.abs(hit.actor?.y-hit.target.y-1.75)<.2),'Host actor must follow the hillside');
+ reports.push(await walk('fps',[...path].reverse()));await screenshot('fps-hillside-return');
  await evaluate('engine.dispose();session.close();window.hdbCamera=null');
  await evaluate(`(async()=>{const {default:React}=await import('/node_modules/.vite/deps/react.js');const {default:ReactDOM}=await import('/node_modules/.vite/deps/react-dom_client.js');const {default:RegionGame}=await import('/src/components/RegionGame.tsx');document.body.innerHTML='<style>.marina-viewport{width:640px;height:420px}</style><div id="explore"></div>';window.exploreRoot=ReactDOM.createRoot(document.querySelector('#explore'));exploreRoot.render(React.createElement(RegionGame,{region:'queenstown'}));})();`);
  await wait("!!window.hdbCamera&&!!document.querySelector('canvas')");
  await evaluate("document.querySelector('canvas').focus()");
- reports.push(await walk('exploration',path));await screenshot('exploration-earth-bank-crossed');
- reports.push(await walk('exploration',[...path].reverse()));await screenshot('exploration-earth-bank-return');
+ reports.push(await walk('exploration',path));await screenshot('exploration-hillside-crossed');
+ reports.push(await walk('exploration',[...path].reverse()));await screenshot('exploration-hillside-return');
  assert.equal(googleRequests,0);assert.deepEqual(errors,[]);
  await fs.writeFile(new URL('report.json',output),JSON.stringify({reports,googleRequests,errors},null,2));
- console.log('PASS Queenstown FPS and exploration: ordinary WASD ascent, crest crossing and descent in both directions, host terrain elevation; no runtime errors or Google requests.');
+ console.log('PASS Queenstown FPS and exploration: ordinary WASD ascent, terrace approach and descent in both directions, host terrain elevation; no runtime errors or Google requests.');
 }catch(error){console.log(await evaluate('({probe:window.walkProbe,camera:window.hdbCamera,phase:window.hud?.phase})'));await screenshot('failure');throw error;}
 finally{await evaluate('cancelAnimationFrame(window.walkProbe?.frame);window.engine?.dispose();window.exploreRoot?.unmount();window.session?.close()').catch(()=>{});ws.close();await fetch(chrome+'/json/close/'+tab.id);await fs.rm(fixture,{force:true});}

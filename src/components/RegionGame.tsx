@@ -1,3 +1,4 @@
+import { terrainVehicleTilt } from '../game/terrain-vehicle';
 import { verticalVehicleObstacles } from '../game/vertical-vehicle-obstacles';
 import EnvironmentControls from './EnvironmentControls';
 import { createWorldAtmosphere } from '../game/world-atmosphere';
@@ -52,8 +53,9 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
     const world = region.build();
     const atmosphere = createWorldAtmosphere(world.scene, region.stamps, world.obstacles, false, renderer);
     const walking = createVerticalMovement({ bounds: region.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
-    const drivingObstacles = [...world.obstacles, ...verticalVehicleObstacles({ surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })];
-    let feetY = 0, velocityY = 0;
+    const drivingObstacles = [...world.obstacles, ...verticalVehicleObstacles({ bounds: region.bounds, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })];
+    const ground=(x:number,z:number)=>region.bounds.groundHeight?.(x,z)??0;
+    let feetY = ground(region.spawn.x,region.spawn.z), velocityY = 0;
     renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -70,7 +72,7 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
     const report = () => setHud({ distance, speed, ...position, collected: [...collected] });
     reset.current = () => {
       setGuideSession(value => value + 1);
-      position = { x: region.spawn.x, z: region.spawn.z }; yaw = region.spawn.yaw; pitch = 0.14; speed = 0; distance = 0; feetY = velocityY = 0; collected.clear();
+      position = { x: region.spawn.x, z: region.spawn.z }; yaw = region.spawn.yaw; pitch = 0.14; speed = 0; distance = 0; feetY = ground(position.x,position.z); velocityY = 0; collected.clear();
       driveLook = defaultDriveLook(); drag = undefined; lastLookAt = 0;
       world.stamps.forEach(stamp => { stamp.visible = true; }); keys.current.clear(); report();
     };
@@ -113,8 +115,8 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
         driveLook = defaultDriveLook(); drag = undefined; lastLookAt = 0;
         lastTravel = travelRef.current;
         // Driving remains on roads; switching from an elevated walk returns to the district start.
-        if (driving && feetY > .35) position = { x: region.spawn.x, z: region.spawn.z };
-        feetY = velocityY = 0;
+        if (driving && feetY > ground(position.x,position.z)+.35) position = { x: region.spawn.x, z: region.spawn.z };
+        feetY = ground(position.x,position.z);velocityY = 0;
       }
       if (lookStick.current) {
         // A drag is a displacement and the stick is a rate, but both end up in
@@ -134,22 +136,25 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
         dz = (-Math.cos(yaw) * forward - Math.sin(yaw) * side) / normal * rate * dt;
       }
       const walked = driving ? null : walking.move({ ...position, y: feetY, velocityY }, dx, dz, dt, .65, 1.8);
-      const next = walked ?? region.move(position, dx, dz, 1.35, drivingObstacles);
+      let next = walked ?? region.move(position, dx, dz, 1.35, drivingObstacles);
+      if(driving && region.bounds.groundHeight && Math.abs(ground(next.x,next.z)-ground(position.x,position.z))>Math.hypot(next.x-position.x,next.z-position.z)*.25+1e-5) { next=position;speed=0; }
+      if(driving)feetY=ground(next.x,next.z);
       if (walked) { feetY = walked.y; velocityY = walked.velocityY; }
       const step = Math.hypot(next.x - position.x, next.z - position.z);
       if (driving && step < Math.hypot(dx, dz) * 0.2) speed = 0;
       distance += step; position = next;
-      world.car.visible = driving; world.car.position.set(position.x, 0.12, position.z); world.car.rotation.y = yaw;
+      world.car.visible = driving; world.car.position.set(position.x, feetY+.12, position.z);
+      const tilt=terrainVehicleTilt(ground,position.x,position.z,yaw);world.car.rotation.set(tilt.pitch,yaw,tilt.roll,'YXZ');
       if (driving) {
         if (!drag && Math.abs(speed) > 0.5 && now - lastLookAt > 800) driveLook = settleDriveLook(driveLook, dt);
         const offset = driveCameraOffset(yaw, driveLook);
-        camera.position.set(position.x + offset.x, 1.3 + offset.y, position.z + offset.z);
-        camera.lookAt(position.x, 1.3, position.z);
+        camera.position.set(position.x + offset.x, feetY + 1.3 + offset.y, position.z + offset.z);
+        camera.lookAt(position.x, feetY+1.3, position.z);
       } else {
         camera.position.set(position.x, feetY + 1.75, position.z); camera.rotation.set(pitch, yaw, 0, 'YXZ');
       }
       stamps.forEach((stamp, i) => {
-        if (feetY <= .35 && !collected.has(i) && Math.hypot(stamp.x - position.x, stamp.z - position.z) < 4) { collected.add(i); world.stamps[i].visible = false; }
+        if (Math.abs(feetY-ground(stamp.x,stamp.z)) <= .35 && !collected.has(i) && Math.hypot(stamp.x - position.x, stamp.z - position.z) < 4) { collected.add(i); world.stamps[i].visible = false; }
       });
       world.animate(now / 1000); atmosphere.update(dt, camera); renderer.toneMappingExposure = atmosphere.light.lighting.exposure; occlusion.render(atmosphere.light.occlusion);
       if (now - lastReport > 150) { report(); lastReport = now; }

@@ -301,7 +301,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const expeditionSession = expedition ? createSoloSession('Explorer') : null;
   if (expedition && zoneWorld && expeditionSession) options = { ...options, arena: { session: expeditionSession, profile: fieldProfile, botCount: zoneWorld.zone.botCount, composition: zoneWorld.zone.composition, environment: zoneWorld.environment, initialVitals: expedition.checkpoint } };
   const npcs = expedition ? expeditionNpcs(expedition.zone, zoneSectors(expedition.zone)) : [];
-  const fleetSpawns = expedition ? worldVehicleSpawns(district.vehicles, [...world.obstacles, ...verticalVehicleObstacles({ surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })], sceneFlightObstacles(world.scene), world.bounds, [...npcs, zoneWorld?.zone.spawn ?? district.spawn]) : district.vehicles;
+  const fleetSpawns = expedition ? worldVehicleSpawns(district.vehicles, [...world.obstacles, ...verticalVehicleObstacles({ bounds:world.bounds, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })], sceneFlightObstacles(world.scene), world.bounds, [...npcs, zoneWorld?.zone.spawn ?? district.spawn]) : district.vehicles;
   const facilitySites = expedition ? districtFacilitySites(expedition.zone, fleetSpawns,
     (x, z) => footMovement.canOccupy(x, 0, z, 1.1, 2) && Math.abs(footMovement.supportHeight(x, z, .1, .4, 1.8) ?? 100) < .05, npcs) : [];
   if (expedition && options.arena?.environment) {
@@ -326,7 +326,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const objectiveBeacons = expedition ? createObjectiveBeacons(world.scene, facilitySites) : null;
   const facilityCover = createSceneCover(world.scene);
   if (options.arena?.environment?.paratroopers) options.arena.environment.dropColumnClear = createDropColumnCheck(facilityCover);
-  const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { spawns: fleetSpawns, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay', exitFloor: (x, z) => footMovement.supportHeight(x, z, MAX_STEP_HEIGHT, .38, 1.8) });
+  const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { spawns: fleetSpawns, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay', exitFloor: (x, z) => footMovement.supportHeight(x, z, (world.bounds.groundHeight?.(x,z)??0)+MAX_STEP_HEIGHT, .38, 1.8) });
   const deploymentPoints = expedition && !expedition.checkpoint && !expedition.spawn ? districtDeploymentPoints(expedition.zone, (x, z) =>
     footMovement.canOccupy(x, 0, z, .5, 1.8) && Math.abs(footMovement.supportHeight(x, z, .1, .4, 1.8) ?? 100) < .05 &&
     npcs.every(n => Math.hypot(n.x - x, n.z - z) > 3) && Object.values(fleetSpawns).every(v => Math.hypot(v.x - x, v.z - z) > 8) &&
