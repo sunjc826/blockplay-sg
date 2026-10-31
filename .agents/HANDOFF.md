@@ -1,5 +1,29 @@
 # Blockplay: portable agent handoff
 
+## Main-menu hover and click auditions awaiting selection (2026-10-31)
+
+The owner requested ElevenLabs menu click options, then added mouse hover sounds
+for the main menu only. Generated five paired directions (soft tactile, tactical
+switch, glass, arcade, minimal digital), ten half-second v3 requests in total.
+Each response receipt reports five credits: 50 credits total, confirmed by the
+follow-up subscription count increasing from 846 to 896 of 40,000 credits.
+Receipts and usage checks are saved alongside the audio. Do not regenerate this
+batch just to reopen it.
+
+Local ignored workspace: `.cache/menu-sfx-audition/`. `generate.mjs` reuses the
+existing once-only request markers; `prepare.mjs` trims and levels the clips,
+with hover quieter than click, and builds ten preview clips plus five four-second
+hover/click comparison tracks. All ten originals decode and are non-silent.
+`index.html` is the listening page with individual previews, volume control and
+sample menu buttons. Serve that directory over localhost (currently port 4197);
+the browser successfully loaded/decoded all ten interactive samples.
+
+Await the owner's choice, allowing a mixed hover/click pair, before changing
+game playback. The integration belongs in `MainMenu` in
+`src/components/GameMenu.tsx`; other screens must stay outside this scope.
+No game assets or gameplay code changed, and no deployment was performed for
+these auditions. No GitHub push; preserve unrelated working-tree edits.
+
 ## Guest movement reconciliation and snapshot traffic (2026-10-29)
 
 Guests now send sequenced inputs stamped for the match, life and vehicle state;
