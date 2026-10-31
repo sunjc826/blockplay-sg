@@ -5980,3 +5980,62 @@ release-result, typecheck/tests, deployment, initial/final verification logs,
 live-browser-results and screenshots). Deployment lock released in finally;
 private env/release copies removed and task Chrome stopped. No paid requests or
 GitHub push. Preserve pre-existing local handoff edits, AGENTS.md and .claude/.
+
+## Yishun: fictional high-threat heartland (2026-10-31)
+
+Owner requested Yishun as a joke and one of the most dangerous game areas.
+Local main code commit `4c42882` adds the twentieth district: Northpoint-inspired
+retail wings and a traversable terrace with two stair entries, elevated MRT and
+moving train, Chong Pang-inspired market aisle, nine housing slabs with open
+void decks, sheltered links and pond park. Eleven stamps, nine named sectors,
+an eight-target FPS range, two NPCs including a vendor, seven capture sites and
+two reversible routes to Woodlands/Upper Thomson use the shared registries.
+The locator, picker, About and current district documentation now count twenty.
+
+“Final boss of the heartlands” and the “WELCOME TO YISHUN — GOOD LUCK” sign carry
+the joke. Combat is explicitly fictional: high risk, tier 3 loot, the largest
+mixed patrol preset (eight) and mercenary sector heat floors .75–.9 with
+hair-trigger curves. Actual district heat strength is .988 and heat-based
+top-up interval about 12.3 s, versus .732 / 19.5 s for Raffles, Changi and Tuas.
+Open world retains its bounded shared battlefield roster; heat changes kit and
+reinforcement pressure, not unlimited population. Thirteen tactical supply
+crates have a 55% base elite weapon chance; food remains separate. Market cover
+is measured broken; the remaining sectors measure open. Public HDB/NParks/PUB
+research supports landmark selection; geometry is schematic, referenceFeatures
+is empty and there are no reviewed learning cards. No paid captures/audio/model
+requests. Sources and limits: `docs/YISHUN.md`.
+
+Validation: 21 focused cases across eleven files pass, including actual roads,
+spawns/checkpoints, anchors, loot, facilities, vehicle clearances, upper-floor
+access, cover labels, batching/disposal and adapter heat. Registry/graph/NPC
+rechecks pass 32 tests; all 13 paratrooper tests pass separately. Typecheck and
+Cloudflare production build pass. Full suite: 2,292 passed / 246 files, with an
+existing Upper Thomson `thomson-plaza` ground-anchor collision and a Queenstown
+5 s timeout. The identical Thomson failure reproduces in a clean pre-change
+`ddaeaf2` source snapshot; Queenstown passes on recheck. No full-suite pass is
+claimed. One registry recheck hit temporary ENOSPC during module loading; its
+13-test paratrooper file subsequently passed separately.
+
+Real Chrome checks pass local world deployment (32 AI, two NPCs, seven sites),
+movement, actual FPS target damage/elimination, 390 px mobile layout, twenty
+picker options and rendered landmarks/terrace. Exploration walked 10 m and
+collected a stamp; driving increased total distance to 24 m while preserving
+it. No runtime errors or paid/map requests. Browser scripts, screenshots and
+JSON receipts are in `.cache/yishun/`; terrace captures also remain in
+`.cache/verticality-review/`. The shooting smoke compensates actual recoil
+between trigger pulls rather than assuming a sustained burst stays centred.
+
+Manual `pnpm deploy:cloudflare` succeeded: version
+`4e4008c7-aa63-4f03-a569-5c1f1e2d27f3`. The isolated release matched 1,972 selected
+runtime/server/script/public files of exact `4c4288251b2b1a4df94d454bab1648697351448b`.
+Both production domains serve matching exact HTML, entry JS/CSS, Three.js and
+service worker (ten byte comparisons). Production routing, PWA, GLB/audio,
+API-origin and companion-availability checks pass without paid requests.
+Receipts: `source-verification.json`, `deploy.log`, `live-verification.json`,
+`cloudflare-check.log`. Initial release preparation filled the local disk;
+only this task's temporary copies were removed. The smaller release reused
+installed node_modules with dependency auto-verification disabled for that
+symlink, and included the server sources required by the Worker. Private env
+copies and the deployment lock were removed. Temporary release removed after
+verification. No GitHub push. AGENTS.md stays local, unstaged and uncommitted;
+pre-existing handoff/.claude changes remain intact.
