@@ -9,14 +9,14 @@ import type { ArmoryStore } from '../game/use-armory';
 
 it('shows maximum-level copy instead of asking level 50 players to keep climbing', () => {
   const profile = createProfile(); profile.xp = xpForLevel(50);
-  const store: ArmoryStore = { profile, selectCarrySlot: vi.fn(), buy: vi.fn(), buyFromVendor: vi.fn(), buyLevel: vi.fn(), wearRankSet: vi.fn(), setEncikTone: vi.fn(), equipItem: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), message: '', saveError: false };
+  const store: ArmoryStore = { profile, selectCarrySlot: vi.fn(), buy: vi.fn(), buyFromVendor: vi.fn(), buyLevel: vi.fn(), wearRankSet: vi.fn(), setEncikTone: vi.fn(), equipItem: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), demoCreditTopUp: vi.fn(), message: '', saveError: false };
   const html = renderToStaticMarkup(<ArmoryShop store={store} onEnterRange={() => {}} />);
   expect(html).toContain('Maximum level reached');
   expect(html).not.toContain('Keep climbing to level 50');
 });
 
 const storeFor = (profile: ReturnType<typeof createProfile>): ArmoryStore =>
-  ({ profile, selectCarrySlot: vi.fn(), buy: vi.fn(), buyFromVendor: vi.fn(), buyLevel: vi.fn(), wearRankSet: vi.fn(), setEncikTone: vi.fn(), equipItem: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), message: '', saveError: false });
+  ({ profile, selectCarrySlot: vi.fn(), buy: vi.fn(), buyFromVendor: vi.fn(), buyLevel: vi.fn(), wearRankSet: vi.fn(), setEncikTone: vi.fn(), equipItem: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), demoCreditTopUp: vi.fn(), message: '', saveError: false });
 
 it('lists a premium weapon’s fitted hardware and marks those slots fixed', () => {
   const base = createProfile();
@@ -134,4 +134,29 @@ it('keeps profile settings out of the store', () => {
   const header = html.slice(html.indexOf('armory-header'), html.indexOf('armory-navigation'));
   expect(header).toContain('armory-progression');
   expect(header).toContain('+250 demo tokens');
+  expect(header).toContain('+1,000 demo credits');
+});
+
+it('offers weapon rental durations with offline expiry terms and retains permanent ownership', () => {
+  const profile = { ...createProfile(), xp: xpForLevel(8) };
+  const html = renderToStaticMarkup(<ArmoryShop store={storeFor(profile)} />);
+  for (const term of ['1d', '7d', '30d', 'permanent']) expect(html).toContain(`data-rental-term="${term}"`);
+  expect(html).toContain('TIMED RENTAL');
+  expect(html).toContain('24 TK');
+  expect(html).toContain('runs while offline');
+  expect(html).toContain('No automatic charges');
+  const owned = { ...profile, owned: [...profile.owned, 'sar-vanguard'] };
+  const permanent = renderToStaticMarkup(<ArmoryShop store={storeFor(owned)} />);
+  expect(permanent).toContain('PERMANENT UNLOCK');
+  expect(permanent).not.toContain('data-rental-term=');
+});
+
+it('shows rental expiry and renewal alongside equipping, without calling a rental permanent', () => {
+  const profile = { ...createProfile(), xp: xpForLevel(8), rentals: { 'sar-vanguard': Date.now() + 86400000 } };
+  const html = renderToStaticMarkup(<ArmoryShop store={storeFor(profile)} />);
+  expect(html).toContain('RENTAL ACTIVE');
+  expect(html).toContain('shop-renew');
+  expect(html).toContain('Equip on SAR');
+  expect(html).toContain('<time dateTime=');
+  expect(html).not.toContain('PERMANENT UNLOCK');
 });

@@ -164,7 +164,7 @@ export interface ArenaInput {
   /** How far through using a supply the player is (0..1), so everyone else sees them patching up or eating. */
   supply?: number;
 }
-export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount' | 'bolt'> & Partial<Pick<WeaponSpec, 'ballistics'>> & { accessories?: { muzzle?: MuzzleDevice } };
+export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount' | 'bolt'> & Partial<Pick<WeaponSpec, 'ballistics'>> & { accessories?: { muzzle?: MuzzleDevice }; rentalExpiresAt?: number };
 export interface ArenaPoint { x: number; y: number; z: number }
 export interface ArenaShot { hitId: string | null; killed: boolean; damage: number }
 export interface ArenaVitals { health: number; armor: number }
@@ -575,7 +575,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false; entry.threat = undefined; entry.grudge = undefined;
   };
   function sanitizeWeapons(weapons: readonly ArenaWeapon[]) {
-    return (weapons.length ? weapons : FPS_WEAPONS).slice(0, FPS_WEAPONS.length).map((w, index): ArenaWeapon => ({
+    return (weapons.length ? weapons : FPS_WEAPONS).slice(0, FPS_WEAPONS.length).map((w: ArenaWeapon, index): ArenaWeapon => ({
+      ...(Number.isSafeInteger(w.rentalExpiresAt) ? { rentalExpiresAt: w.rentalExpiresAt } : {}),
       requiresMount: w.requiresMount === true, bolt: w.bolt === 'open' ? 'open' : 'closed',
       damage: Number.isFinite(w.damage) ? clamp(w.damage, 1, 200) : 36,
       interval: Number.isFinite(w.interval) ? clamp(w.interval, 0.06, 3) : 0.12,
@@ -713,6 +714,16 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.allowedWeapons = allowedIndexes(next, allowed ?? entry.allowedWeapons);
     if (!entry.allowedWeapons.includes(entry.actor.weapon)) entry.actor.weapon = entry.allowedWeapons[0]; entry.wasReloading = false;
   }
+  /** The authority uses wall time, including when a guest keeps an old loadout open. */
+  function expirePlayerRentals(entry: InternalActor, now = Date.now()) {
+    if (entry.actor.bot) return;
+    entry.weapons.forEach((weapon, family) => {
+      if (weapon.rentalExpiresAt === undefined || weapon.rentalExpiresAt > now) return;
+      entry.weapons[family] = sanitizeWeapons(FPS_WEAPONS)[family];
+      entry.ammo[family] = hostAmmo(entry.weapons[family]);
+      entry.wasReloading = false;
+    });
+  }
   function removePlayer(id: string) {
     const entry = members.get(id); if (!entry || entry.actor.bot) return;
     grenadeSystem.removeCaller(id); releaseSeat(id); members.delete(id); respawnChoices.delete(id); announce(`${entry.actor.name} left`);
@@ -785,6 +796,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (!entry || entry.actor.transport && !rifleSeat(entry.actor.aircrew) || (seatOf(vehicles, id)?.seat ?? 2) < 2 || finished || !entry.actor.alive || !entry.playing || !finitePoint(origin) || !finitePoint(direction)) return { ...EMPTY_SHOT };
     if (arenaConditionModifiers(entry.actor.conditions).frozen) return { ...EMPTY_SHOT };
     if (!Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return { ...EMPTY_SHOT };
+    expirePlayerRentals(entry);
     const ammo = entry.ammo[weapon];
     if (distance(origin, entry.actor) > 1.5 || ammo.cooldown > 1e-7 || ammo.reloadRemaining > 0) return { ...EMPTY_SHOT };
     const length = Math.hypot(direction.x, direction.y, direction.z); if (length < 0.5 || length > 1.5) return { ...EMPTY_SHOT };
@@ -2961,6 +2973,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function step(dt: number) {
     if (finished || !Number.isFinite(dt) || dt <= 0) return;
+    const wallTime = Date.now();
+    for (const entry of members.values()) expirePlayerRentals(entry, wallTime);
     navigationDeadline = performance.now() + NAVIGATION_BUDGET;
     threatCoverQueries = 0;
     dt = Math.min(dt, 0.25); elapsed = environment?.endless ? elapsed + dt : Math.min(ARENA_DURATION, elapsed + dt); tick++;

@@ -1,3 +1,4 @@
+import { hasItemAccess, rentalTimeLeft } from '../game/weapon-rentals';
 import { EXTRA_SLOT_ID, SIDEARM_FAMILY, restoreCarrySlots, isMainWeapon } from '../game/armory-slots';
 import { itemById } from '../game/armory-catalog';
 import { FPS_WEAPONS } from '../game/fps-rules';
@@ -6,9 +7,9 @@ import type { ArmoryStore } from '../game/use-armory';
 export default function ArmoryCarrySlots({ store }: { store: ArmoryStore }) {
   const { profile } = store, carry = restoreCarrySlots(profile.carry, profile.owned);
   const unlocked = profile.owned.includes(EXTRA_SLOT_ID), unlock = itemById(EXTRA_SLOT_ID)!;
-  const name = (family: number) => itemById(profile.guns[family].variant)?.name ?? FPS_WEAPONS[family].name;
-  // Owned platforms only, which keeps enemy issue (never owned outside an expedition) off the list.
-  const options = (slot: 'main' | 'extra') => FPS_WEAPONS.map((weapon, family) => isMainWeapon(family) && profile.owned.includes(profile.guns[family].variant) &&
+  const name = (family: number) => (itemById(profile.guns[family].variant)?.name ?? FPS_WEAPONS[family].name) + (profile.rentals?.[profile.guns[family].variant] ? ` · ${rentalTimeLeft(profile.rentals[profile.guns[family].variant])}` : '');
+  // Available platforms only, which keeps enemy issue (never owned outside an expedition) off the list.
+  const options = (slot: 'main' | 'extra') => FPS_WEAPONS.map((weapon, family) => isMainWeapon(family) && hasItemAccess(profile, profile.guns[family].variant) &&
     <option key={weapon.id} value={family} disabled={family === (slot === 'main' ? carry.extra : carry.main)}>{name(family)}</option>);
   return <section className="armory-carry" aria-label="Carried weapon slots">
     <div className="armory-carry-heading"><strong>DEPLOYMENT LOADOUT</strong><span>One main · Optional extra main · One sidearm</span></div>

@@ -1,6 +1,6 @@
 # Field exchange, progression and FPS equipment
 
-The Armory sidebar offers twenty-six fixed weapon variants across five platforms, five cosmetic finishes, three carrying rigs, four insert choices, five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition, handling hardware and [accessories](#accessories) cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token button does not charge money. There is no checkout, expiry, rental or random purchase. Three further platforms are carried only by the enemy and taken in the field; see [enemy-issue weapons](#enemy-issue-weapons).
+The Armory sidebar offers twenty-six fixed weapon variants across five platforms, five cosmetic finishes, three carrying rigs, four insert choices, five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition, handling hardware and [accessories](#accessories) cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token and +1,000 demo-credit buttons do not charge money. Weapons offer timed rentals as well as permanent ownership. There is no checkout or random purchase. Three further platforms are carried only by the enemy and taken in the field; see [enemy-issue weapons](#enemy-issue-weapons).
 
 ## Play loop
 
@@ -38,6 +38,35 @@ The Armory sidebar offers twenty-six fixed weapon variants across five platforms
 Ranks and XP continue to level 50. Purchases, XP and equipped items persist under `blockplay.armory.v1` in local storage. Old two-platform saves gain the three free baseline classes without changing balances or existing selections. Unknown IDs are sanitized and retired attachments are discarded without refunds. Clearing browser site data resets the profile.
 
 See [service-inspired classes](SERVICE-WEAPONS.md) for source references, controls, role tradeoffs and the new fixed variants.
+
+## Weapon rentals
+
+Paid shop weapons default to a **1-day** rental. Choose **1 day**, **7 days**,
+**30 days** or **Permanent** before purchasing. Prices are 10%, 30%, 60% and
+100% of the catalog's permanent price, rounded up in the same currency. For
+example, Steady Lah costs 90 / 270 / 540 / 900 CR; Garang costs
+24 / 72 / 144 / 240 TK. Level requirements apply to every term.
+
+Time starts immediately at purchase and continues while offline, paused or
+outside the game. The shop and carry slots show remaining time; the dossier
+also shows the local expiry date. Buying a rental grants access, then **Equip**
+puts it in the loadout. **Extend** adds the selected duration to remaining time;
+an expired rental starts from the new purchase time. There are no automatic
+renewals or charges. A permanent upgrade costs the full permanent price and
+clears the timer; rental fees are not credited towards it.
+
+Expiry replaces the rented variant with the issued variant of the same platform,
+including in a running range, expedition or multiplayer match. Carry slots,
+cosmetic finishes, armour and supplies remain. The match authority also expires
+rental damage and magazine stats. Renew and equip again from the Store.
+Issued weapons always remain available. Other equipment keeps its existing
+permanent ownership or consumable rules; enemy weapons remain field pickups.
+
+Existing permanent purchases remain permanent. Rentals are stored separately as
+absolute expiry times in `rentals` under the existing local profile key. Restoring
+an older save preserves its wallet, progression and ownership; expired or invalid
+rental entries are discarded. Like the rest of this prototype's inventory,
+rentals are local to this browser profile.
 
 ## Rank insignia
 

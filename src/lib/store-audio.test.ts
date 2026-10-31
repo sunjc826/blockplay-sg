@@ -23,10 +23,11 @@ describe('store feedback', () => {
     const { storeWithAudio } = await import('./store-audio');
     const play = vi.fn();
     const source = { buy: vi.fn().mockReturnValueOnce(true).mockReturnValueOnce(false), buyLevel: vi.fn(() => true),
-      equipItem: vi.fn(() => true), selectCarrySlot: vi.fn(() => false), demoTopUp: vi.fn(() => true) };
+      equipItem: vi.fn(() => true), selectCarrySlot: vi.fn(() => false), demoCreditTopUp: vi.fn(() => true), demoTopUp: vi.fn(() => true) };
     const store = storeWithAudio(source as unknown as ArmoryStore, play);
     expect(play).not.toHaveBeenCalled();
-    expect(store.buy('kit-bandage')).toBe(true);
+    expect(store.buy('sar-ranger', '7d')).toBe(true);
+    expect(source.buy).toHaveBeenCalledWith('sar-ranger', '7d');
     expect(store.buy('kit-bandage')).toBe(false);
     expect(store.equipItem('paint-issued', 0, 'helicopter')).toBe(true);
     expect(source.equipItem).toHaveBeenCalledWith('paint-issued', 0, 'helicopter');

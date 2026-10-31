@@ -349,3 +349,12 @@ a.text-button { text-decoration:none; }
 /* Status messages overlay the canvas so appearing or wrapping never resizes it. */
 .fps-viewport > .fps-message { position:absolute; left:50%; bottom:82px; transform:translateX(-50%); z-index:4; width:max-content; max-width:calc(100% - 24px); margin:0; padding:6px 10px; border-radius:4px; background:var(--hud-bg-solid); color:var(--hud-ink); text-align:center; overflow-wrap:anywhere; pointer-events:none; }
 .fps-game[data-touch=on] .fps-viewport > .fps-message { bottom:calc(82px + var(--touch-inset,0px)); }
+
+/* Weapon rental terms fit the dossier at desktop and phone widths. */
+.armory-rental-terms { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; padding:0; border:0; margin:0 0 14px; min-width:0; }
+.armory-rental-terms legend { color:#a7b4a6; font-size:10px; margin-bottom:8px; }
+.armory-rental-terms button { display:flex; flex-direction:column; gap:5px; padding:10px 6px; border:1px solid #566153; border-radius:3px; background:#202c26; color:#c8d2c3; font-size:10px; cursor:pointer; }
+.armory-rental-terms button[aria-pressed="true"] { border-color:#dbc08b; background:#3c3d2d; color:#eed7ad; }
+.armory-rental-terms button:focus-visible { outline:2px solid #eed7ad; outline-offset:2px; }
+.armory-purchase>.armory-secondary { background:transparent; color:#dbc08b; border:1px solid #dbc08b80; }
+.armory-rental-expiry { margin-bottom:10px; }

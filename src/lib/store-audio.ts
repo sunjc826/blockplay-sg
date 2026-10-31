@@ -58,7 +58,7 @@ export function storeWithAudio(store: ArmoryStore, play: (sound: StoreSound) => 
     equipItem: outcome(store.equipItem, id => storeEquipSound(id)),
     selectCarrySlot: outcome(store.selectCarrySlot, (_slot, family) =>
       family === null ? 'equip' : storeEquipSound(store.profile.guns[family]?.variant)),
-    demoTopUp: outcome(store.demoTopUp, 'purchase'),
+    demoTopUp: outcome(store.demoTopUp, 'purchase'), demoCreditTopUp: outcome(store.demoCreditTopUp, 'purchase'),
   };
 }
 

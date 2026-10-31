@@ -14,7 +14,7 @@ import { getWorldZone, type WorldZoneId } from '../game/world-zones';
 import { useFpsFullscreen } from '../game/use-fps-fullscreen';
 import { ELIMINATION_CREDITS, progression } from '../game/progression';
 import { rankInsignia } from '../game/rank-insignia';
-import { encikAddress, resolveLoadout, type ArmoryProfile, type ExerciseReward } from '../game/armory-state';
+import { encikAddress, expireLoadoutRentals, resolveLoadout, type ArmoryProfile, type ExerciseReward } from '../game/armory-state';
 import type { LanSession } from '../game/lan-peer';
 import { ARENA_DURATION, ARENA_KILL_LIMIT, type ArenaSnapshot } from '../game/arena-rules';
 import { factionIdOf, listArenaFactions } from '../game/arena-factions';
@@ -55,7 +55,8 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
   const startingLevel = useRef(rank.level);
   const eliminationCallback = useRef(onElimination); eliminationCallback.current = onElimination;
   const consumeCallback = useRef(onConsume); consumeCallback.current = onConsume;
-  const [equipment] = useState(() => resolveLoadout(profile));
+  const [startingEquipment] = useState(() => resolveLoadout(profile));
+  const equipment = expireLoadoutRentals(startingEquipment);
   const [arenaOptions] = useState(() => arena ? { ...arena, profile } : undefined);
   const [combat, setCombat] = useState(false);
   const [drill, setDrill] = useState<RangeDrillId>('classic');
@@ -67,10 +68,10 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
   const debug = useDebugMode();
   useEffect(() => {
     setHud({ ...initialFpsHud });
-    try { engine.current = createFpsEngine(host.current!, setHud, { region, rangeDrill: drill, loadout: equipment, combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onElimination: (id, bounty) => eliminationCallback.current(id, bounty), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); }, encik: () => speaking.current }); }
+    try { engine.current = createFpsEngine(host.current!, setHud, { region, rangeDrill: drill, loadout: expireLoadoutRentals(startingEquipment), combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onElimination: (id, bounty) => eliminationCallback.current(id, bounty), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); }, encik: () => speaking.current }); }
     catch { setHud(h => ({ ...h, phase: 'error', message: '3D graphics could not start. Check that WebGL is enabled, then retry.' })); }
     return () => { engine.current?.dispose(); engine.current = null; };
-  }, [epoch, combat, equipment, arenaOptions, region]);
+  }, [epoch, combat, startingEquipment, arenaOptions, region]);
   useEffect(() => { if (suspended) engine.current?.pause(); }, [suspended]);
   const loaded = hud.phase !== 'loading';
   useEffect(() => { if (loaded) onLoaded?.(); }, [loaded, onLoaded]);

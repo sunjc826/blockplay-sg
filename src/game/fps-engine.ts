@@ -70,7 +70,7 @@ import { getAimAssist } from './aim-assist-setting';
 import { advanceRecoil, compensateRecoil, createRecoil, recoilPose, recoilView, recordRecoilShot, resetRecoil, takeAimPush } from './fps-recoil';
 import { effectStyleForWeapon, resolveEffectStyle, type EffectStyle } from './fps-effect-styles';
 import type { ImpactProfile } from './fps-impact-profile';
-import { applyArmorDamage, claimElimination, consumeItem, createProfile, encikAddress, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile, type VendorPurchaseResult } from './armory-state';
+import { expireLoadoutRentals, expireRentals, applyArmorDamage, claimElimination, consumeItem, createProfile, encikAddress, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile, type VendorPurchaseResult } from './armory-state';
 import { registerElimination, ELIMINATION_XP, ELIMINATION_CREDITS, type KillChain } from './progression';
 import { worldVehicleSpawns } from './world-vehicles';
 import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
@@ -2998,6 +2998,23 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const observer = new ResizeObserver(resize); observer.observe(host); resize();
   const animate = (now: number) => {
     if (disposed) return;
+    const wallTime = Date.now();
+    if (specs.some(weapon => weapon.rentalExpiresAt !== undefined && weapon.rentalExpiresAt <= wallTime)) {
+      const previous = specs;
+      const expired = specs.flatMap((weapon, family) => weapon.rentalExpiresAt !== undefined && weapon.rentalExpiresAt <= wallTime ? [family] : []);
+      if (expired.includes(hud.weapon)) { clearInput(); stopReload(); reloadAudio.clear(); cantWanted = false; cant = 0; }
+      equipment = expireLoadoutRentals({ ...equipment, weapons: specs }, wallTime); specs = equipment.weapons;
+      for (const family of expired) {
+        loadout = replacePooledWeapon(loadout, previous, equipment.carriedFamilies, specs, equipment.carriedFamilies, family);
+        weaponStyles[family] = effectStyleForWeapon(specs[family]);
+      }
+      effects.setStyles(weaponStyles, hud.weapon);
+      undress.splice(0).forEach(dispose => dispose()); weapons.forEach((model, family) => undress.push(dressWeapon(model, specs[family])));
+      fieldProfile = expireRentals(fieldProfile, wallTime);
+      expedition?.onEquipment(copyProfile(fieldProfile));
+      hud.message = 'Weapon rental expired. Switched to issued gear. Renew in the armory.';
+      comms.add('system', 'Armory', hud.message); publish();
+    }
     // Stop controls even if a browser/VM delays or drops pointerlockchange.
     if (['playing', 'deploying'].includes(hud.phase) && (!expedition || hud.arenaSelf?.alive !== false) && !pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) pause();
     const realDt = Math.max((now - lastTime) / 1000, 0), dt = Math.min(realDt, 0.05); lastTime = now;

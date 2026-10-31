@@ -10,7 +10,7 @@ type Category = typeof SHOP_CATEGORIES[number]['id'];
 const STOPS = [
   { id: 'wallet', title: 'Know your buying power', text: 'Earn credits (CR) through eliminations and training. Tokens (TK) are a separate currency. Reaching an item’s level opens its purchase — you still pay its price.', hint: 'Your credits and tokens are always shown here.' },
   { id: 'categories', title: 'Find your equipment', text: 'Each tab opens a different shelf. Armor holds carrying rigs and protective inserts.', hint: 'Click or tap the Armor tab.', category: 'armor', tab: 'Armor' },
-  { id: 'carry', title: 'Choose what comes with you', text: 'These slots decide which weapons deploy with you. Your sidearm comes along; an extra main slot needs a permanent unlock. Gear left in your locker adds no carried weight.', hint: 'Review your deployment loadout. No purchase needed.' },
+  { id: 'carry', title: 'Choose what comes with you', text: 'These slots decide which weapons deploy with you. Rentals count down even while offline. Your sidearm comes along; an extra main slot needs a permanent unlock. Gear left in your locker adds no carried weight.', hint: 'Review your deployment loadout. No purchase needed.' },
   { id: 'compare', title: 'Inspect before you equip', text: 'Select an equipment card to see its model and dossier. Stat changes compare it with your equipped weapon. Each variant is a complete, fixed build.', hint: 'Click or tap the highlighted weapon card.', category: 'weapon', tab: 'Weapons' },
   { id: 'supplies', title: 'Pack for the field', text: 'Food and utilities are bought one at a time and spent when used. The held count shows your stock. In play, use belt buttons or keys 4–9; G repeats the selected slot.', hint: 'Click or tap the Utilities tab.', category: 'utility', tab: 'Utilities' },
   { id: 'deploy', title: 'Ready when you are', text: 'Training is a good place to try your loadout before exploring Open World. Finish the tour to choose your destination. You can replay it from the Store header.', hint: 'Your equipped loadout travels with you.' },
@@ -25,7 +25,7 @@ export default function StoreTutorial({ category, rootRef, onComplete, onExit }:
   callbacks.current = { onExit };
   const stop = STOPS[step], ready = !('category' in stop) || category === stop.category;
   const canContinue = ready && (stop.id !== 'compare' || inspected);
-  const hint = !ready && 'tab' in stop ? `Click or tap the ${stop.tab} tab.` : stop.id === 'categories' ? 'Armor shelf opened. Continue when ready.' : stop.id === 'supplies' ? 'Utilities shelf opened. No purchase needed.' : stop.id === 'compare' && inspected ? 'Unlock buys an item. Equip adds owned gear to your loadout. No purchase needed.' : stop.hint;
+  const hint = !ready && 'tab' in stop ? `Click or tap the ${stop.tab} tab.` : stop.id === 'categories' ? 'Armor shelf opened. Continue when ready.' : stop.id === 'supplies' ? 'Utilities shelf opened. No purchase needed.' : stop.id === 'compare' && inspected ? 'Choose a rental duration or permanent ownership. Equip adds available gear to your loadout. No purchase needed.' : stop.hint;
 
   useLayoutEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
