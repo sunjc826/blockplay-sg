@@ -8,7 +8,7 @@ type View = 'profile' | 'opposite' | 'oblique' | 'front';
 const presetTurn = (view: View) => ({ yaw: view === 'opposite' ? Math.PI : view === 'oblique' ? .65 : view === 'front' ? Math.PI / 2 : 0, pitch: view === 'oblique' ? -.15 : 0 });
 
 export default function ProxyWeaponStudies() {
-  const [selected, setSelected] = useState<ProxyWeaponId>('ff-strider'), [gray, setGray] = useState(false), [view, setView] = useState<View>('profile');
+  const [selected, setSelected] = useState<ProxyWeaponId>('ff-oicw'), [gray, setGray] = useState(false), [view, setView] = useState<View>('profile');
   const [status, setStatus] = useState('Preparing weapon study…');
   const host = useRef<HTMLDivElement>(null), turn = useRef({ yaw: 0, pitch: 0 });
   const study = PROXY_WEAPONS.find(model => model.id === selected)!;
@@ -53,7 +53,7 @@ export default function ProxyWeaponStudies() {
 
   return <main className="faction-designs fd-weapon-studies">
     <header className="fd-top"><a href="/" onClick={event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate('menu'); }}>← Back to game</a><span>BLOCKPLAY / WEAPON STUDIES</span><span className="fd-status">ART PROTOTYPES</span></header>
-    <section className="fd-intro"><div><p className="fd-eyebrow">FREEDOM FORCE / COLLECTIVE CORPS</p><h1>Proxy weapon studies</h1></div><p>Six exterior studies, including separate SCAR-L- and SCAR-H-inspired options for Freedom Force. Shared family traits, different proportions and magazines.</p></section>
+    <section className="fd-intro"><div><p className="fd-eyebrow">FREEDOM FORCE / COLLECTIVE CORPS</p><h1>Proxy weapon studies</h1></div><p>Six exterior studies: an XM29 OICW-inspired experimental system, the SCAR-family options and two Collective Corps designs. Shared faction finishes, distinct silhouettes.</p></section>
     <nav className="fd-study-links" aria-label="Design study pages"><a href="/faction-designs">Operator studies</a><a href="/faction-designs?study=weapons" aria-current="page">Weapon studies</a></nav>
     <div className="fd-weapon-layout"><section className="fd-gallery" aria-label="Interactive weapon preview">
       <div className="fd-toolbar"><div className="fd-segments">{(['profile', 'opposite', 'oblique', 'front'] as const).map(preset => <button key={preset} aria-pressed={view === preset} onClick={() => { turn.current = presetTurn(preset); setView(preset); }}>{preset === 'opposite' ? 'Other side' : preset[0].toUpperCase() + preset.slice(1)}</button>)}</div><button aria-pressed={gray} onClick={() => setGray(value => !value)}>Grayscale</button></div>

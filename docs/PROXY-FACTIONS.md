@@ -147,7 +147,7 @@ voice and sound work follows the repository's ElevenLabs once-only workflow.
 
 A separate six-model shortlist and exterior preview is now available at
 `/faction-designs?study=weapons`. See [proxy weapon studies](PROXY-WEAPONS.md)
-for MCX/SCAR and QBZ-family inspirations, original model names and integration
+for XM29/SCAR and QBZ-family inspirations, original model names and integration
 boundaries. Operator hands and live weapon catalogs still use their existing
 placeholders. The display name is now Collective Corps; the stable internal
 ID remains `collective-cops`.

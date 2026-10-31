@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-export type ProxyWeaponId = 'ff-strider' | 'ff-scar-l' | 'ff-scar-h' | 'ff-longwatch' | 'cc-gatekeeper' | 'cc-network';
+export type ProxyWeaponId = 'ff-oicw' | 'ff-scar-l' | 'ff-scar-h' | 'ff-longwatch' | 'cc-gatekeeper' | 'cc-network';
 export interface ProxyWeaponStudy {
   id: ProxyWeaponId; faction: 'freedom-force' | 'collective-cops'; name: string; operator: string;
   /** Display labels for art studies, not entries in the live weapon-family registry. */
@@ -10,7 +10,7 @@ export interface ProxyWeaponStudy {
 }
 /** Exterior art studies only: no shop IDs, ballistics, ammunition or live role registration. */
 export const PROXY_WEAPONS: readonly ProxyWeaponStudy[] = [
-  { id: 'ff-strider', faction: 'freedom-force', name: 'Strider', operator: 'Lancer', reference: 'SIG MCX SPEAR LT', referenceUrl: 'https://www.sigsauer.com/mcx-spear-lt.html', silhouette: 'Compact fore-end, open folding-stock triangle, forward curved magazine, low reflex hood.', interpretation: 'Sand receiver, dark skeletal furniture and a small steel-blue identification panel. The short cylindrical muzzle shroud is a visual concept.' },
+  { id: 'ff-oicw', faction: 'freedom-force', name: 'XM29 OICW study', operator: 'Lancer · experimental option', reference: 'XM29 OICW · Block 3', referenceUrl: 'https://commons.wikimedia.org/wiki/File:XM29_Block3.jpg', silhouette: 'Stacked rifle and launcher muzzles, a bulky integrated upper body, a large sight housing and separate forward/rear feed silhouettes.', interpretation: 'An original exterior interpretation of the XM29 OICW reference, in Freedom Force sand, bone and steel blue. The lower rifle, upper launcher and sight housing are static art; no launcher or airburst behavior is attached.' },
   { id: 'ff-scar-l', faction: 'freedom-force', name: 'Soft Power · Foreign Aid', familyLabel: 'Soft Power', variantLabel: 'Foreign Aid', operator: 'Lancer · option', reference: 'FN SCAR-L', referenceUrl: 'https://fnherstal.com/en/defence/portable-weapons/fn-scar-l-mk2/', silhouette: 'Compact SCAR-family upper, curved narrow magazine, folding-style cheek-rest stock and a small reflex sight.', interpretation: 'Soft Power is the family label; Foreign Aid is its signature variant. Sand and bone furniture, a single amber marker and an open lower stock notch identify the smaller member of the pair.' },
   { id: 'ff-scar-h', faction: 'freedom-force', name: 'Hard Power · Strings Attached', familyLabel: 'Hard Power', variantLabel: 'Strings Attached', operator: 'Wayfinder · option', reference: 'FN SCAR-H', referenceUrl: 'https://fnherstal.com/en/defence/portable-weapons/fn-scar-h-mk2/', silhouette: 'Broader and longer SCAR-family receiver, deeper magazine well, wider straight magazine and a compact prism optic.', interpretation: 'Hard Power is the family label; Strings Attached is its signature variant. Twin amber markers and the same folding-style stock connect it to Soft Power. Longwatch remains the separate precision study with its long scope and bipod.' },
   { id: 'ff-longwatch', faction: 'freedom-force', name: 'Longwatch', operator: 'Wayfinder', reference: 'FN Mk 20 / SCAR 20S', referenceUrl: 'https://fnamerica.com/press-releases/fn-announces-release-fn-scar-20s-precision-rifle/', silhouette: 'Long monolithic upper, adjustable precision stock, short box magazine, large scope and folded bipod.', interpretation: 'A heavier, angular precision silhouette in bone and sand, with restrained blue hardware. Scope and bipod are static art.' },
@@ -20,7 +20,7 @@ export const PROXY_WEAPONS: readonly ProxyWeaponStudy[] = [
 
 export interface ProxyWeaponModel {
   root: THREE.Group;
-  sockets: Readonly<Record<'grip' | 'foregrip' | 'magazine' | 'muzzle', THREE.Object3D>>;
+  sockets: Readonly<Record<'grip' | 'foregrip' | 'magazine' | 'muzzle', THREE.Object3D> & { launcherMuzzle?: THREE.Object3D; launcherMagazine?: THREE.Object3D }>;
   dispose(): void;
 }
 type Point = readonly [number, number];
@@ -103,14 +103,44 @@ export function buildProxyWeapon(id: ProxyWeaponId): ProxyWeaponModel {
       box(.017, .025, .045, w / 2 + .006, .19, z, metal);
     }
   };
-  let front = -.6, foreZ = -.28, magZ = -.105, gripZ = .025;
-  if (id === 'ff-strider') {
-    side([[-.18, .02], [.13, .02], [.14, .10], [.10, .13], [-.18, .13]], .065);
-    vented(-.425, -.18, .035, 4); rail(-.42, .12, .14); grip(.025); magazine(-.105, .17, .024);
-    side([[.13, .12], [.36, .10], [.38, .015], [.33, -.045], [.15, .015]], .04, furniture, [[[.17, .085], [.32, .078], [.33, .017], [.18, .039]]]);
-    box(.055, .16, .025, 0, .025, .38, dark); box(.07, .06, .02, 0, .074, .137, dark);
-    box(.005, .042, .125, -.035, .075, -.028, trim); box(.007, .009, .025, -.039, .075, -.025, accent);
-    optic('reflex', -.07); front = muzzle(-.61, -.42, .083, true); foreZ = -.29;
+  let front = -.6, foreZ = -.28, magZ = -.105, gripZ = .025, muzzleY = .083;
+  let launcherFront: number | undefined;
+  const launcherY = .175, launcherMagZ = .25;
+  if (id === 'ff-oicw') {
+    // OICW exterior: upper bullpup launcher body over a conventional rifle.
+    // These are visual shells and art sockets, not simulated weapon internals.
+    side([[-.34, .105], [-.18, .07], [.19, .07], [.22, .015], [.37, .015], [.39, .055], [.38, .25], [-.28, .25], [-.34, .19]], .105, furniture);
+    side([[-.32, .015], [.095, .015], [.115, .083], [-.275, .12], [-.32, .09]], .065, metal);
+    grip(.025); magazine(-.13, .17, .024); magZ = -.13;
+    // The upper assembly's rear feed is a separate, broad rectangular exterior box.
+    box(.057, .19, .11, 0, .009, launcherMagZ, dark);
+    box(.063, .014, .12, 0, -.087, launcherMagZ, metal);
+    for (const x of [-.031, .031]) for (const z of [.224, .263]) box(.003, .12, .005, x, .004, z, metal);
+    box(.112, .26, .027, 0, .13, .398, dark);
+    // Projecting rifle fore-end and palm ledge below the upper launcher's barrel.
+    side([[-.435, .005], [-.205, .005], [-.20, .087], [-.40, .087], [-.44, .047]], .073, metal,
+      [opening(-.397, -.367, .028, .053), opening(-.347, -.317, .028, .053), opening(-.297, -.267, .028, .053)]);
+    box(.068, .024, .12, 0, -.004, -.31, dark);
+    // Two visibly different bore heights, with the smaller rifle projecting farther.
+    muzzleY = .055; front = muzzle(-.60, -.415, muzzleY); foreZ = -.30;
+    launcherFront = -.455;
+    // The tube starts behind the rim, avoiding overlapping front/bore surfaces.
+    const bore = [[.025, 0], [.039, 0], [.039, .131], [.025, .131], [.025, 0]].map(([r, y]) => new THREE.Vector2(r, y - .0655));
+    add(new THREE.LatheGeometry(bore, 24), dark, 0, launcherY, launcherFront + .0795, Math.PI / 2);
+    const rim = [[.025, 0], [.043, 0], [.043, .014], [.025, .014], [.025, 0]].map(([r, y]) => new THREE.Vector2(r, y - .007));
+    add(new THREE.LatheGeometry(rim, 24), metal, 0, launcherY, launcherFront + .007, Math.PI / 2);
+    // Supported, chamfered fire-control housing with distinct front/eyepiece lenses.
+    box(.07, .032, .31, 0, .258, -.045, dark);
+    side([[-.27, .272], [.095, .272], [.095, .335], [.065, .355], [-.22, .355], [-.27, .325]], .103, dark);
+    box(.073, .036, .004, 0, .302, -.274, glass);
+    box(.085, .018, .006, 0, .343, -.24, trim, -.35);
+    box(.066, .042, .005, 0, .307, .099, glass);
+    // Side covers and vents stay external; all details merge by material.
+    for (const x of [-.055, .055]) {
+      box(.005, .06, .19, x, .164, .065, trim);
+      box(.007, .009, .032, x, .164, .07, accent);
+      for (let i = 0; i < 3; i++) box(.004, .012, .029, x, .211, -.19 + i * .05, dark);
+    }
   } else if (id === 'ff-scar-l' || id === 'ff-scar-h') {
     // Same visual family, independently authored receiver and magazine envelopes.
     const heavy = id === 'ff-scar-h', receiverFront = heavy ? -.23 : -.19, width = heavy ? .081 : .068;
@@ -174,7 +204,7 @@ export function buildProxyWeapon(id: ProxyWeaponId): ProxyWeaponModel {
     const mesh = new THREE.Mesh(merged, m); mesh.name = `${id}__${m.name}`; root.add(mesh); geometries.push(merged);
   }
   const socket = (name: string, x: number, y: number, z: number) => { const node = new THREE.Object3D(); node.name = `${id}__study_${name}`; node.position.set(x, y, z); root.add(node); return node; };
-  const sockets = { grip: socket('grip', 0, 0, gripZ), foregrip: socket('foregrip', 0, .01, foreZ), magazine: socket('magazine', 0, .02, magZ), muzzle: socket('muzzle', 0, .083, front - .002) };
+  const sockets = { grip: socket('grip', 0, 0, gripZ), foregrip: socket('foregrip', 0, .01, foreZ), magazine: socket('magazine', 0, .02, magZ), muzzle: socket('muzzle', 0, muzzleY, front - .002), ...(launcherFront === undefined ? {} : { launcherMuzzle: socket('launcher_muzzle', 0, launcherY, launcherFront - .002), launcherMagazine: socket('launcher_magazine', 0, .07, launcherMagZ) }) };
   let disposed = false;
   return { root, sockets, dispose() { if (disposed) return; disposed = true; root.removeFromParent(); geometries.forEach(geometry => geometry.dispose()); materials.forEach(m => m.dispose()); } };
 }

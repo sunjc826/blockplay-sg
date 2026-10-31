@@ -14,7 +14,7 @@ is not expanded into matching assault/heavy/sniper classes.
 
 | Faction / specialist | Recommended reference | Original game study | Why start here |
 |---|---|---|---|
-| Freedom Force / Lancer | SIG MCX SPEAR LT | **Strider** (`ff-strider`) | Compact modular rifle; open folding-stock shape and low reflex sight suit the expeditionary entry specialist |
+| Freedom Force / Lancer experimental option | XM29 OICW · Block 3 | **XM29 OICW study** (`ff-oicw`) | Stacked rifle/launcher muzzles, bulky upper receiver, large sight housing and separate front/rear feed silhouettes |
 | Freedom Force / Lancer option | FN SCAR-L | **Soft Power · Foreign Aid** (`ff-scar-l`) | Compact family upper, narrow curved magazine, shared folding-style stock and a low reflex hood |
 | Freedom Force / Wayfinder option | FN SCAR-H | **Hard Power · Strings Attached** (`ff-scar-h`) | Broader receiver and magazine well, wider straight magazine, prism optic; distinct from the Longwatch precision configuration |
 | Freedom Force / Wayfinder | FN Mk 20 / SCAR 20S | **Longwatch** (`ff-longwatch`) | Extended upper, precision stock, short box magazine, large scope and folded bipod give the observer a distinct long silhouette |
@@ -86,16 +86,24 @@ Extended Stay. Democracy Lite / Democracy Deluxe were superseded working titles.
 
 ## Model interpretation
 
-**Strider:** sand receiver, pale skeleton stock, a steel-blue side panel and a
-small amber identification mark. Preserve the stock's open triangle, forward
-curved magazine, compact vented fore-end and reflex hood. A short cylindrical
-muzzle shroud is an original visual treatment. This should not read as the
-existing XM8's rounded polymer shell and integrated sighting module, or a G36's
-high carry handle.
+**XM29 OICW study:** replaces the retired compact-carbine study. The visual
+reference is the boxy Block 3 exterior: a broad upper launcher body over a
+smaller projecting rifle, two bore heights, a rear launcher-feed box, a forward
+rifle magazine and a large chamfered sight housing. Freedom Force's sand/bone
+shell, dark hardware, steel-blue side covers and amber marks adapt the reference
+to the faction. Both muzzle openings and the supported sight case have real
+geometry. The working display name remains XM29 OICW study; no new funny name
+has been selected for this replacement.
+
+The dual muzzle/feed arrangement is exterior art only. The lower rifle muzzle
+and upper launcher muzzle have separate optional art sockets, as do the two
+magazine positions. This does not implement launcher firing, airburst/fuze
+settings, targeting electronics, ammunition or reload behavior. Prototype
+integration and hand fitting remain separate work.
 
 **Longwatch:** bone/sand furniture, long upper rail, broad precision cheek rest,
-shorter straight magazine, large tube optic and folded bipod. It is a heavier
-precision visual rather than a longer recolor of Strider. The tall optic and
+shorter straight magazine, large tube optic and folded bipod. Its precision stock, long scope and folded bipod distinguish it from the
+SCAR-L and SCAR-H studies. The tall optic and
 stock profile must remain readable in grayscale. The fore-end uses actual
 openings; the sight lenses are opaque material studies, not functional scopes.
 
@@ -114,12 +122,14 @@ mark keep the two in one faction. The observation optic does not detect or mark
 anyone in gameplay.
 
 No real manufacturer logos, national flags, specifications for fabrication,
-weapon purchases or ballistics are added. The model names are fictional.
+weapon purchases or ballistics are added. Faction weapon names are fictional;
+XM29 OICW remains the reference name for its unnamed study.
 
 ## Existing systems and integration boundary
 
 - `src/game/proxy-weapon-models.ts` owns the six studies, reference links,
-  geometry builder, grip/foregrip/magazine/muzzle art sockets and disposal.
+  geometry builder, grip/foregrip/magazine/muzzle art sockets and disposal. The
+  OICW also has optional launcher muzzle and rear-feed art sockets.
   Outside surfaces merge by material, using at most six weapon mesh draws.
 - `src/components/ProxyWeaponStudies.tsx` provides the review page inside the
   existing faction-design route. The operator gallery still uses the original
@@ -143,8 +153,7 @@ navigation between weapon and operator studies.
 
 ## Primary references and evidence limits
 
-- [SIG MCX SPEAR LT product family](https://www.sigsauer.com/mcx-spear-lt.html)
-  and [SIG operator manual](https://www.sigoptics.com/media/sigsauer/resources/OPERATORS-MANUAL-MCX-SPEAR-LT-2402988-01_REV01.pdf): compact modular rifle and folding-stock external language. Product family listings and the manual description informed the reference choice; no internal mechanism is reproduced.
+- [U.S. Army 2003 Weapon Systems Handbook](https://asc.army.mil/docs/wsh2/2003-wsh.pdf): the indexed OICW entry describes an integrated dual-barrel system and fire-control unit. Direct retrieval returned HTTP 403 in this pass, so its full PDF was not inspected. The [Block 3 photo attributed to U.S. Army / PM Soldier](https://commons.wikimedia.org/wiki/File:XM29_Block3.jpg) was downloaded to the local review cache and visually inspected for the outside silhouette, sight housing, barrel stack and feed positions. The photo is reference evidence, not a shipped game texture or mesh. No dimensional replica or internal mechanism is reproduced.
 - [FN's SCAR 20S announcement](https://fnamerica.com/press-releases/fn-announces-release-fn-scar-20s-precision-rifle/): identifies the Mk 20 SSR relationship, extended receiver and adjustable precision stock. The manufacturer's external side image informed the broad silhouette.
 - [Australian Army DATE: QBZ 95](https://date.army.gov.au/equipment/qbz-95): identifies the bullpup layout and curved polymer box magazine. The study is QBZ-95-family-inspired, not an asserted exact 95B/95-1 configuration.
 - [China Military: 191 rifle family](https://eng.chinamil.com.cn/CHINA_209163/WeaponryEquipment/News_209182/15962288.html): the indexed article identifies marksman, automatic-rifle and short-rifle members. The page timed out during direct retrieval in this pass, so family naming is supported by its indexed text rather than an inspected full article. [China Military's earlier comparison](https://eng.chinamil.com.cn/CHINA_209163/TopStories_209189/9660844.html) describes the transition from a bullpup to a conventional layout. Detailed geometry, sensors and faction finishes here remain original interpretation.

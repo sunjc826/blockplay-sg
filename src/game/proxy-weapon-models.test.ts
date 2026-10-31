@@ -36,6 +36,26 @@ describe('proxy weapon exterior studies', () => {
     expect(new Set(shapes).size).toBe(6);
   });
 
+  it('replaces the MCX study with an OICW exterior carrying two separate muzzle and feed cues', () => {
+    expect(PROXY_WEAPONS.some(study => study.reference.includes('MCX'))).toBe(false);
+    expect(() => buildProxyWeapon('ff-strider' as Parameters<typeof buildProxyWeapon>[0])).toThrow(/Unknown/);
+    const model = buildProxyWeapon('ff-oicw'), { muzzle, magazine, grip, launcherMuzzle, launcherMagazine } = model.sockets;
+    expect(launcherMuzzle).toBeDefined(); expect(launcherMagazine).toBeDefined();
+    expect(launcherMuzzle!.position.y).toBeGreaterThan(muzzle.position.y + .08);
+    expect(muzzle.position.z).toBeLessThan(launcherMuzzle!.position.z);
+    expect(magazine.position.z).toBeLessThan(grip.position.z);
+    expect(launcherMagazine!.position.z).toBeGreaterThan(grip.position.z);
+    // Front sightlines meet each barrel's actual exterior rim, not a painted mark.
+    model.root.updateMatrixWorld(true);
+    for (const socket of [muzzle, launcherMuzzle!]) {
+      const ray = new THREE.Raycaster(new THREE.Vector3(socket === muzzle ? .014 : .034, socket.position.y, -1), new THREE.Vector3(0, 0, 1), 0, 2);
+      const hits = ray.intersectObject(model.root, true);
+      expect(hits.length).toBeGreaterThan(0);
+      expect(Math.abs(hits[0].point.z - socket.position.z)).toBeLessThan(.006);
+    }
+    model.dispose();
+  });
+
   it('makes the SCAR-H physically wider and longer than the L, with a larger box-magazine profile', () => {
     const light = buildProxyWeapon('ff-scar-l'), heavy = buildProxyWeapon('ff-scar-h');
     const size = (model: ReturnType<typeof buildProxyWeapon>) => new THREE.Box3().setFromObject(model.root).getSize(new THREE.Vector3());
@@ -69,7 +89,7 @@ describe('proxy weapon exterior studies', () => {
   });
 
   it('authors real negative space through carbine/SCAR stocks and the bullpup carry bridge', () => {
-    for (const [id, y, z] of [['ff-strider', .063, .245], ['ff-scar-l', .06, .24], ['ff-scar-h', .06, .24], ['cc-gatekeeper', .197, .02]] as const) {
+    for (const [id, y, z] of [['ff-scar-l', .06, .24], ['ff-scar-h', .06, .24], ['cc-gatekeeper', .197, .02]] as const) {
       const model = buildProxyWeapon(id); model.root.updateMatrixWorld(true);
       const ray = new THREE.Raycaster(new THREE.Vector3(.5, y, z), new THREE.Vector3(-1, 0, 0), 0, 1);
       expect(ray.intersectObject(model.root, true)).toHaveLength(0);

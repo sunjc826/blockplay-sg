@@ -54,7 +54,7 @@ try {
   await send('Runtime.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
   await ready(); await pause(350);
-  const ids=['ff-strider','ff-scar-l','ff-scar-h','ff-longwatch','cc-gatekeeper','cc-network'];
+  const ids=['ff-oicw','ff-scar-l','ff-scar-h','ff-longwatch','cc-gatekeeper','cc-network'];
   for(const [index,id] of ids.entries()) {
     await evaluate(`document.querySelectorAll('.fd-weapon-picker button')[${index}].click()`);await pause(200);await ready();
     for(const angle of ['Profile','Other side','Oblique','Front']) {
