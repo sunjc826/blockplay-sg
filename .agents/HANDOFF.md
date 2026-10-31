@@ -5341,3 +5341,39 @@ live descent and saved travel clocks pass. Typecheck passed. Full suite and
 manual Cloudflare deployment are being completed; see the subsequent release
 entry for confirmed results. Evidence: .cache/paratroopers/. No GitHub push.
 Preserve AGENTS.md and concurrent handoff edits unstaged/uncommitted.
+
+
+## Helicopter HUD, forward clearance and live dashboard (2026-10-31)
+
+Code commit `4b12b0f` replaces opaque helicopter status cards with unboxed
+readouts and fine transparent flight symbology, including a scrolling compass.
+The instrument stack is 20 cm lower with a shallower glare shield. Projection
+checks keep the shield in the bottom quarter of the normal forward view;
+visibility rays verify that both front-seat readouts clear glazing and the lip.
+
+Physical dashboard repeaters and main avionics now display authoritative hull
+health and chin-gun ammunition, with damage/empty warnings and live flight data.
+Front-seat first-person HUDs omit duplicate hull/ammo counts; other crew retain
+HUD readouts. Accessible labels still expose the counts. Textures refresh only
+when displayed values change and initialize/reset for local/shared authority.
+
+Validation: all 43 focused checks pass on the final combined source `f1c87d7`,
+and standalone typecheck plus production tsc/Vite build pass. The actual-engine
+browser smoke passed flight, firing, all seats, passenger aim, desktop and touch
+portrait/landscape, transparent status and removed duplicate counts, without
+runtime/WebGL errors. Final captures reviewed in `.cache/helicopter-sleek/`.
+
+Manual `pnpm deploy:cloudflare` succeeded, version
+`1df9946a-1215-4055-a9ca-1e118698b891`, from all 2,892 verified tracked files of
+`f1c87d7c7d9c5350f7af6ac0c895073c492bcc0f`. Includes the committed reload,
+tutorial and Queenstown fixes that landed during validation. Both production
+origins serve byte-identical JS/CSS/Three.js and sw.js; bundle markers verify
+the live HUD/dashboard. Production asset/manifest/model/audio, SPA/API routing
+and origin checks pass without paid requests. Initial 4b12b0f build/upload was
+stopped before confirmed publication to include those newer committed changes.
+
+Evidence: `.cache/helicopter-sleek/` source/live verification JSON, browser
+results/captures, release-tests.log, visibility-tests.log, typecheck.log,
+deploy.log and cloudflare-check.log. Task-owned Vite and Chrome stopped.
+No GitHub push. Preserve concurrent handoff edits; AGENTS.md remains local,
+unstaged and uncommitted.
