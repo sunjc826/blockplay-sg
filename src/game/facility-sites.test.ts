@@ -13,19 +13,24 @@ import { REGION_IDS } from './region-ids';
 import { districtDeploymentPoints } from './expedition-deployment';
 import { createVehicle, vehicleBounds } from './vehicle-rules';
 
-it.each(REGION_IDS)('%s has two clear command posts and usable garage/helipad equipment sites', id => {
+it.each(REGION_IDS)('%s has seven clear objectives, forward deployment and three separate fronts', id => {
   const world = buildDistrictWorld(id);
   try {
     const surfaces = getWalkSurfaces(world.scene), traversalObstacles = getTraversalObstacles(world.scene);
     const nav = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces, traversalObstacles });
     const npcs = expeditionNpcs(id, zoneSectors(id));
     const fleet = worldVehicleSpawns(getFpsDistrict(id).vehicles, [...world.obstacles, ...verticalVehicleObstacles({ surfaces, traversalObstacles })], sceneFlightObstacles(world.scene), world.bounds, [...npcs, world.zone.spawn]);
-    const clear = (x: number, z: number) => nav.canOccupy(x, 0, z, 1.1, 2) && Math.abs(nav.supportHeight(x, z, .1, .4, 1.8) ?? 100) < .05;
-    const sites = districtFacilitySites(id, fleet, clear, npcs);
-    expect(sites.map(s => s.kind)).toEqual(['command', 'command', 'garage', 'helipad']);
+    const ground = (x:number,z:number) => world.bounds.groundHeight?.(x,z) ?? 0;
+    const clear = (x: number, z: number) => nav.canOccupy(x, ground(x,z), z, 1.1, 2) && Math.abs((nav.supportHeight(x, z, ground(x,z)+.1, .4, 1.8) ?? 100)-ground(x,z)) < .05;
+    const sites = districtFacilitySites(id, fleet, clear, npcs, ground);
+    expect(sites.map(s => s.kind)).toEqual(['command', 'command', 'garage', 'helipad', 'command', 'command', 'supply']);
     for (const site of sites) expect(clear(site.x, site.z)).toBe(true);
-    expect(sites.filter(s => s.kind === 'command').map(s => s.initialOwner)).toEqual(['armed-forces', 'mercenaries']);
-    const cabinets = sites.map(s => ({ minX: s.x - .85, maxX: s.x + .85, minZ: s.z - .65, maxZ: s.z + .65, maxY: 1.8 }));
+    expect(sites.filter(s => s.kind === 'command').map(s => s.initialOwner)).toEqual(['armed-forces', 'mercenaries', null, null]);
+    for (const site of sites.slice(4)) {
+      expect(site.initiallyBuilt).toBe(true);
+      expect(sites.every(other => other===site || Math.hypot(other.x-site.x,other.z-site.z)>=32)).toBe(true);
+    }
+    const cabinets = sites.map(s => ({ minX: s.x - .85, maxX: s.x + .85, minZ: s.z - .65, maxZ: s.z + .65, minY:s.y, maxY:s.y+1.8 }));
     const hulls = (['car', 'helicopter'] as const).map(kind => vehicleBounds(createVehicle(kind, fleet[kind])));
     const entries = districtDeploymentPoints(id, (x, z) => nav.canOccupy(x, 0, z, .5, 1.8) && Math.abs(nav.supportHeight(x, z, .1, .4, 1.8) ?? 100) < .05 &&
       npcs.every(n => Math.hypot(n.x - x, n.z - z) > 3) && Object.values(fleet).every(v => Math.hypot(v.x - x, v.z - z) > 8) &&

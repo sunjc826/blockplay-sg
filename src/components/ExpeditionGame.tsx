@@ -1,3 +1,4 @@
+import { BATTLEFIELD_POPULATIONS, DEFAULT_BATTLEFIELD_SIZE } from '../game/battlefield';
 import type { RaiderBounty } from '../game/combat-rewards';
 import DeploymentBriefing from './DeploymentBriefing';
 import ExpeditionRespawn from './ExpeditionRespawn';
@@ -184,7 +185,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         <span className="eyebrow">SOLO EXPEDITION / {zone.risk.toUpperCase()} THREAT</span>
         <h2>{hud.phase === 'loading' ? `Entering ${zone.name}.` : hud.phase === 'error' ? 'District unavailable.' : hud.phase === 'paused' ? 'Operator menu.' : `Welcome to ${zone.name}.`}</h2>
         <p>{hud.phase === 'loading' ? 'Preparing the district, its patrols and supplies.' : hud.phase === 'error' ? hud.message : hud.phase === 'paused' ? hud.arenaStarted ? 'Your controls are paused. Patrols remain active while the menu is open.' : 'Deployment is on hold. Resume when you are ready.' : `${zone.description} Capture enemy equipment intact, destroy it, or build at ruined sites. Command posts reinforce infantry; garages and helipads replace vehicles. Approach a cabinet and use E or tap its action. Press H for enemy facility beacons, names and distances. Open M for facility control and routes.`}</p>
-        {!['loading', 'error'].includes(hud.phase) && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName}<br />{zone.botCount} defenders · {zone.composition} roles · No match timer</p>}
+        {!['loading', 'error'].includes(hud.phase) && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName}<br />{BATTLEFIELD_POPULATIONS[DEFAULT_BATTLEFIELD_SIZE].mercenaries} opposing troops · {BATTLEFIELD_POPULATIONS[DEFAULT_BATTLEFIELD_SIZE]['armed-forces']} allied troops · 7 capture locations · No match timer</p>}
         {hud.message && hud.phase !== 'error' && <p className="fps-capture-error" role="alert">{hud.message}</p>}
         <EnvironmentControls />
         {debug ? <>

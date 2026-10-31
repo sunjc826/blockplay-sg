@@ -20,15 +20,29 @@ it('excludes narrow connections and blocked crate positions',()=>{
  const anchors=elevatedLootAnchors(world.surfaces,createVerticalMovement(world));expect(anchors.length).toBe(9);expect(anchors.every(p=>p.x>12&&p.y===3)).toBe(true);
 });
 
+it('routes ground troops around a parked vehicle while keeping the cached ground graph usable',()=>{
+ const ground={bounds:{minX:-40,maxX:40,minZ:-40,maxZ:40},obstacles:[],surfaces:[],traversalObstacles:[]};
+ const anchors=[{x:-20,z:0},{x:20,z:0},...[-7,7].flatMap(x=>[-7,7].map(z=>({x,z})))];
+ const navigator=createVerticalNavigator(ground,anchors),blocker={minX:-3,maxX:3,minZ:-4,maxZ:4,maxY:3};
+ const search=navigator.plan({x:-20,y:0,z:0},{x:20,y:0,z:0},undefined,[blocker]);
+ let result=search.next();while(!result.done)result=search.next();
+ expect(result.value.some(p=>Math.abs(p.z)>4.4)).toBe(true);
+ const movement=createVerticalMovement(ground);let state={x:-20,y:0,z:0,velocityY:0};
+ for(const to of result.value){const next=movement.move(state,to.x-state.x,to.z-state.z,0,.4,1.8,[blocker]);expect(Math.hypot(next.x-to.x,next.z-to.z)).toBeLessThan(.12);expect(movement.canOccupy(next.x,next.y,next.z,.4,1.8,[blocker])).toBe(true);state=next;}
+ expect(navigator.route({x:-20,y:0,z:0},{x:20,y:0,z:0})).toEqual([{x:20,y:0,z:0}]);
+});
+
 it('arena bots follow the stair route to an elevated opponent', async()=>{
  const {createArena}=await import('./arena-rules'), {createRegionMovement}=await import('./region-collision');
- const arena=createArena([],1,'mixed',{bounds:world.bounds,move:createRegionMovement(world.bounds).move,spawns:[{x:18,z:10}],playerSpawn:{x:20,z:0}},undefined,world);
+ // The exposed deck edge gives the bot a sighting to investigate; a hidden
+ // player behind the floor is intentionally unknown to the spotting system.
+ const arena=createArena([],1,'mixed',{bounds:world.bounds,move:createRegionMovement(world.bounds).move,spawns:[{x:18,z:10}],playerSpawn:{x:20,z:5.5}},undefined,world);
  arena.addPlayer('upstairs','Upstairs',0,0,undefined,undefined,true);
  let highest=0;
  for(let i=0;i<600;i++){
    arena.step(.05);
    arena.setPlayerVitals('upstairs',{health:100});
-   arena.setInput('upstairs',{x:20,y:4.75,z:0,yaw:0,pitch:0,weapon:0,playing:true});
+   arena.setInput('upstairs',{x:20,y:4.75,z:5.5,yaw:0,pitch:0,weapon:0,playing:true});
    highest=Math.max(highest,arena.snapshot().actors.find(a=>a.bot)!.y);
  }
  expect(highest).toBeGreaterThan(4.6);

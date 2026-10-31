@@ -1,5 +1,6 @@
 import { createVerticalMovement, type VerticalWorld } from './vertical-movement';
 import { surfaceHeight, surfaceContains, type WalkSurface } from './vertical-routes';
+import type { Obstacle } from './region-collision';
 
 export interface NavigationPoint { x: number; y: number; z: number }
 type Movement = ReturnType<typeof createVerticalMovement>;
@@ -21,16 +22,18 @@ export function elevatedLootAnchors(surfaces: readonly WalkSurface[], movement: 
  * Every edge is walked through the same collision/step kernel as infantry.
  * It deliberately does not infer access to decorative roofs or teleport bots.
  */
-export function createVerticalNavigator(world: VerticalWorld) {
+export function createVerticalNavigator(world: VerticalWorld, groundAnchors: readonly { x: number; z: number }[] = []) {
   const movement = createVerticalMovement(world);
   const nodes: NavigationPoint[] = [];
   const add = (p: NavigationPoint) => {
     if (movement.canOccupy(p.x,p.y,p.z,.4,1.8) && Math.abs((movement.supportHeight(p.x,p.z,p.y+.01,.4,1.8)??-100)-p.y)<.02 && !nodes.some(n => distance(n,p)<.3)) nodes.push(p);
   };
+  const groundAt = (p: { x: number; z: number }) => world.bounds.groundHeight?.(p.x, p.z) ?? 0;
+  for (const p of groundAnchors) add({ ...p, y: groundAt(p) });
   for (const s of world.surfaces) {
     const cx=(s.minX+s.maxX)/2, cz=(s.minZ+s.maxZ)/2;
     if (s.startHeight !== s.endHeight) {
-      for (const x of [s.minX-.65,s.maxX+.65]) for (const z of [s.minZ-.65,s.maxZ+.65]) add({x,y:0,z});
+      for (const x of [s.minX-.65,s.maxX+.65]) for (const z of [s.minZ-.65,s.maxZ+.65]) add({x,y:groundAt({x,z}),z});
       for (const t of [0,.5,1]) {
         const x=s.axis==='x'?s.minX+(s.maxX-s.minX)*t:cx, z=s.axis==='z'?s.minZ+(s.maxZ-s.minZ)*t:cz;
         add({x,y:surfaceHeight(s,x,z),z});
@@ -41,9 +44,9 @@ export function createVerticalNavigator(world: VerticalWorld) {
   }
   // Ground corners near authored access let bots go around the building they
   // need to enter; the rest of their ground combat movement stays unchanged.
-  const access=nodes.filter(n=>n.y<.35);
+  const access=nodes.filter(n=>Math.abs(n.y-groundAt(n))<.35);
   for(const o of world.obstacles) for(const x of [o.minX-.65,o.maxX+.65]) for(const z of [o.minZ-.65,o.maxZ+.65])
-    if(access.some(n=>Math.hypot(n.x-x,n.z-z)<35)) add({x,y:0,z});
+    if(access.some(n=>Math.hypot(n.x-x,n.z-z)<35)) add({x,y:groundAt({x,z}),z});
   // Interior doors and shelves can fall between the floor's nine samples.
   // Their corners supply approach/turn points on the floor they actually touch.
   // Keep this to tall walls/shelves; sampling low props, posts and every thin
@@ -55,13 +58,15 @@ export function createVerticalNavigator(world: VerticalWorld) {
       if (y !== null && Math.abs(y-o.minY)<.36) add({x,y,z});
     }
   }
-  function canWalk(a:NavigationPoint,b:NavigationPoint) {
+  function* canWalk(a:NavigationPoint,b:NavigationPoint, extra: readonly Obstacle[] = []): Generator<undefined, boolean> {
     const length=Math.hypot(a.x-b.x,a.z-b.z);
     if(length<.01) return Math.abs(a.y-b.y)<.05;
     const count=Math.ceil(length/.4);
     let state={...a,velocityY:0};
     for(let i=0;i<count;i++) {
-      const step=movement.move(state,(b.x-a.x)/count,(b.z-a.z)/count,0,.4,1.8);
+      // A long edge must also yield inside its collision walk, not just between edges.
+      if (i % 8 === 0) yield;
+      const step=movement.move(state,(b.x-a.x)/count,(b.z-a.z)/count,0,.4,1.8,extra);
       if(!step.grounded) return false;
       state=step;
       const t=(i+1)/count;
@@ -76,26 +81,60 @@ export function createVerticalNavigator(world: VerticalWorld) {
   const sharesRamp = (a: NavigationPoint, b: NavigationPoint) => ramps.some(s => [a,b].every(p =>
     surfaceContains(s,p.x,p.z) &&
     Math.abs(surfaceHeight(s,p.x,p.z)-p.y) < .05));
-  function* outgoing(i:number): Generator<undefined, {to:number;cost:number}[]> {
+  const compatible = (a: NavigationPoint, b: NavigationPoint) => Math.abs(a.y-b.y)<.36 ||
+    Math.abs(a.y-groundAt(a))<.05 && Math.abs(b.y-groundAt(b))<.05 || sharesRamp(a,b);
+  const bins=new Map<string,number[]>();
+  nodes.forEach((p,i)=>{const key=`${Math.floor(p.x/45)},${Math.floor(p.z/45)}`;const list=bins.get(key)??[];list.push(i);bins.set(key,list);});
+  const neighbours=nodes.map((a,i)=>{
+    const nearby:number[]=[];
+    for(let x=Math.floor(a.x/45)-1;x<=Math.floor(a.x/45)+1;x++)for(let z=Math.floor(a.z/45)-1;z<=Math.floor(a.z/45)+1;z++)
+      nearby.push(...(bins.get(`${x},${z}`)??[]));
+    const sorted=nearby.filter(j=>j!==i && distance(a,nodes[j])<=45 && compatible(a,nodes[j])).sort((j,k)=>distance(a,nodes[j])-distance(a,nodes[k]));
+    const directions=new Set<number>(),selected=new Set(sorted.slice(0,12));
+    for(const j of sorted){const b=nodes[j],direction=Math.floor((Math.atan2(b.z-a.z,b.x-a.x)+Math.PI)*4/Math.PI)%8;if(!directions.has(direction)){directions.add(direction);selected.add(j);}}
+    return [...selected];
+  });
+  function* buildOutgoing(i:number): Generator<undefined, {to:number;cost:number}[]> {
     let result=edges.get(i); if(result) return result;
     result=[];
-    for(let j=0;j<nodes.length;j++) {
+    for(const j of neighbours[i]) {
       yield;
       const a=nodes[i], b=nodes[j];
       if(i===j || distance(a,b)>45) continue;
       // Changes of height must follow an authored slope. Level visibility
       // edges connect floor interiors and landings, including across places.
-      if(Math.abs(a.y-b.y)>=.05 && !sharesRamp(a,b)) continue;
-      if(canWalk(a,b)) result.push({to:j,cost:distance(a,b)});
+      if(!compatible(a,b)) continue;
+      if(yield* canWalk(a,b)) result.push({to:j,cost:distance(a,b)});
     }
     edges.set(i,result); return result;
   }
-  function* plan(from:NavigationPoint,to:NavigationPoint):Generator<undefined,NavigationPoint[]> {
+  const edgeJobs=new Map<number,ReturnType<typeof buildOutgoing>>();
+  function* outgoing(i:number): Generator<undefined, {to:number;cost:number}[]> {
+    // Nearby squad members share cold edge validation as well as finished edges.
+    // Otherwise every soldier repeats the same long collision walk while waiting.
+    let job=edgeJobs.get(i);
+    if (!job) {job=buildOutgoing(i);edgeJobs.set(i,job);}
+    while (!edges.has(i)) {
+      const result=job.next();
+      if (result.done) {edgeJobs.delete(i);return result.value;}
+      yield;
+    }
+    return edges.get(i)!;
+  }
+  const crosses=(a:NavigationPoint,b:NavigationPoint,o:Obstacle)=>{
+    if(Math.min(a.y,b.y)>=(o.maxY??Infinity))return false;
+    let near=0,far=1;
+    for(const axis of ['x','z'] as const){const delta=b[axis]-a[axis],lo=(axis==='x'?o.minX:o.minZ)-.45,hi=(axis==='x'?o.maxX:o.maxZ)+.45;
+      if(Math.abs(delta)<1e-8){if(a[axis]<lo||a[axis]>hi)return false;}
+      else {near=Math.max(near,Math.min((lo-a[axis])/delta,(hi-a[axis])/delta));far=Math.min(far,Math.max((lo-a[axis])/delta,(hi-a[axis])/delta));}}
+    return near<=far;
+  };
+  function* plan(from:NavigationPoint,to:NavigationPoint, congestion: (point: NavigationPoint) => number = () => 0, extra:readonly Obstacle[]=[]):Generator<undefined,NavigationPoint[]> {
     yield;
-    if(distance(from,to)<=55 && canWalk(from,to)) return [to];
+    if(distance(from,to)<=55 && (yield* canWalk(from,to,extra))) return [to];
     const starts:{p:NavigationPoint;i:number;d:number}[]=[],ends:typeof starts=[];
-    for(const n of nodes.map((p,i)=>({p,i,d:distance(p,from)})).filter(n=>n.d<55 && (Math.abs(n.p.y-from.y)<.36 || sharesRamp(n.p,from))).sort((a,b)=>a.d-b.d).slice(0,16)){yield;if(canWalk(from,n.p))starts.push(n);}
-    for(const n of nodes.map((p,i)=>({p,i,d:distance(p,to)})).filter(n=>n.d<55 && (Math.abs(n.p.y-to.y)<.36 || sharesRamp(n.p,to))).sort((a,b)=>a.d-b.d).slice(0,16)){yield;if(canWalk(n.p,to))ends.push(n);}
+    for(const n of nodes.map((p,i)=>({p,i,d:distance(p,from)})).filter(n=>n.d<55 && compatible(n.p,from)).sort((a,b)=>a.d-b.d).slice(0,8)){yield;if(yield* canWalk(from,n.p,extra))starts.push(n);}
+    for(const n of nodes.map((p,i)=>({p,i,d:distance(p,to)})).filter(n=>n.d<55 && compatible(n.p,to)).sort((a,b)=>a.d-b.d).slice(0,8)){yield;if(yield* canWalk(n.p,to,extra))ends.push(n);}
     if(!starts.length || !ends.length) return [];
     const end=new Map(ends.map(n=>[n.i,n.d])), costs=new Map(starts.map(n=>[n.i,n.d])), previous=new Map<number,number>(), open=new Set(starts.map(n=>n.i));
     let finish=-1,best=Infinity;
@@ -103,7 +142,11 @@ export function createVerticalNavigator(world: VerticalWorld) {
       const current=[...open].reduce((a,b)=>costs.get(a)!+distance(nodes[a],to)<costs.get(b)!+distance(nodes[b],to)?a:b);open.delete(current);
       const cost=costs.get(current)!;if(cost+distance(nodes[current],to)>=best) break;
       if(end.has(current) && cost+end.get(current)!<best){finish=current;best=cost+end.get(current)!;}
-      for(const edge of yield* outgoing(current)) if(cost+edge.cost<(costs.get(edge.to)??Infinity)){costs.set(edge.to,cost+edge.cost);previous.set(edge.to,current);open.add(edge.to);}
+      for(const edge of yield* outgoing(current)) {
+        if(extra.some(o=>crosses(nodes[current],nodes[edge.to],o)))continue;
+        const next=cost+edge.cost+Math.max(0,congestion(nodes[edge.to]));
+        if(next<(costs.get(edge.to)??Infinity)){costs.set(edge.to,next);previous.set(edge.to,current);open.add(edge.to);}
+      }
     }
     if(finish<0)return [];
     const path=[to];for(let i:number|undefined=finish;i!==undefined;i=previous.get(i))path.unshift(nodes[i]);

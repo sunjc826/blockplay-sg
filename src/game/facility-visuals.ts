@@ -26,7 +26,7 @@ export function createFacilityVisuals(scene: THREE.Scene, sites: readonly Facili
     const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: '#70cfff', side: THREE.DoubleSide, transparent: true, opacity: .7, depthWrite: false }));
     resources.push(ring.material); ring.rotation.x = -Math.PI / 2; ring.position.y = .04; root.add(ring);
     const pad = new THREE.Group(); pad.userData.facilityId = site.id;
-    if (site.kind !== 'command') {
+    if (site.kind === 'garage' || site.kind === 'helipad') {
       const g = new THREE.RingGeometry(site.kind === 'helipad' ? 5.5 : 2.5, site.kind === 'helipad' ? 5.7 : 2.65, 40); resources.push(g);
       const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: '#ddd4a4', side: THREE.DoubleSide, transparent: true, opacity: .6, depthWrite: false })); resources.push(m.material);
       m.rotation.x = -Math.PI / 2; pad.position.set(site.deployment.x, .04, site.deployment.z); pad.add(m); scene.add(pad);
@@ -37,7 +37,7 @@ export function createFacilityVisuals(scene: THREE.Scene, sites: readonly Facili
     update(snapshot?: FacilitySnapshot) {
       for (const v of roots) {
         const s = snapshot?.sites.find(s => s.id === v.site.id); if (!s) continue;
-        const color = !s.health ? '#8a8e88' : s.suppressed ? '#f4cd61' : s.owner === PLAYER_FACTION ? '#70cfff' : '#f17c61';
+        const color = !s.health ? '#8a8e88' : s.suppressed ? '#f4cd61' : !s.owner ? '#efd077' : s.owner === PLAYER_FACTION ? '#70cfff' : '#f17c61';
         v.accent.color.set(color); v.accent.emissive.set(color); (v.ring.material as THREE.MeshBasicMaterial).color.set(color);
         v.cabinet.scale.y = 1; v.cabinet.position.y = .9;
         v.metal.color.set(s.health ? '#53615d' : '#34332e'); v.mast.visible = s.health > 0;

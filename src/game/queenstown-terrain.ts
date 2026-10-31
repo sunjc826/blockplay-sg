@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { accelerateTerrainRaycast } from './terrain-raycast';
 
 /** Relative game levels informed by Queenstown's hillside estates, not surveyed RLs. */
 export const QUEENSTOWN_TERRACES = [
@@ -93,5 +94,6 @@ export function buildQueenstownTerrain() {
   const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.96});
   const mesh=new THREE.Mesh(geometry,material);mesh.name='Queenstown connected hillside';
   mesh.receiveShadow=true;mesh.userData.terrain=true;mesh.userData.groundSurface=true;
-  return {mesh,dispose(){geometry.dispose();material.dispose();}};
+  const disposeRaycast=accelerateTerrainRaycast(mesh,QUEENSTOWN_TERRAIN_X.length,QUEENSTOWN_TERRAIN_Z.length);
+  return {mesh,dispose(){disposeRaycast();geometry.dispose();material.dispose();}};
 }

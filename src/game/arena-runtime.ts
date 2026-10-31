@@ -66,6 +66,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     if (!object(actor) || typeof actor.id !== 'string' || actor.id.length > 100 || ids.has(actor.id) || typeof actor.name !== 'string' || actor.name.length > 24 ||
       !['x', 'y', 'z', 'yaw', 'pitch', 'health', 'armor', 'kills', 'deaths', 'respawnIn', 'shots', 'weapon'].every(key => finite(actor[key])) ||
       (actor.squad !== undefined && (typeof actor.squad !== 'string' || actor.squad.length > 100)) ||
+      (actor.objective !== undefined && (typeof actor.objective !== 'string' || actor.objective.length > 100)) ||
       (actor.aircrew !== undefined && (!validAircrewRole(actor.aircrew) || typeof actor.transport !== 'string' || !actor.bot)) ||
       (actor.transport !== undefined && (typeof actor.transport !== 'string' || actor.transport.length > 100)) ||
       (actor.parachuting !== undefined && (actor.parachuting !== true || !actor.bot || !actor.alive || actor.transport !== undefined || actor.vehicle !== undefined)) ||

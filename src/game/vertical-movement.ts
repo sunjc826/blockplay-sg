@@ -41,6 +41,13 @@ export function createVerticalMovement(world: VerticalWorld) {
   };
   function move(state: VerticalState, dx: number, dz: number, dt: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = [], gravity = { rise: 15, fall: 15 }) {
     let { x, y, z, velocityY } = state;
+    // A grounded waiting soldier does not need six identical gravity/collision
+    // substeps per host tick. Recheck support so moving cover is still respected.
+    if (dx === 0 && dz === 0 && velocityY <= 0) {
+      const support=supportHeight(x,z,y+EPS,radius,height,extra);
+      if (support!==null && Math.abs(y-support)<.025)
+        return {x,y:support,z,velocityY:0,grounded:true,impactSpeed:Math.max(0,-velocityY)};
+    }
     const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / .2), Math.ceil(dt / (1 / 120)));
     const tick = Math.max(0, dt) / steps;
     let grounded = false, impactSpeed = 0;

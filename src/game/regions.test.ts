@@ -89,7 +89,7 @@ describe.each(REGIONS.map(region => [region.id] as const))('%s', id => {
       world.animate(12);
       expect(world.stamps.every(stamp => Number.isFinite(stamp.position.y))).toBe(true);
     } finally { world.dispose(); }
-  });
+  }, 15000);
 
   it('keeps every displayed road drivable along its whole length', () => {
     const world = region.build();

@@ -1,3 +1,4 @@
+import { BATTLEFIELD_POPULATIONS, DEFAULT_BATTLEFIELD_SIZE } from '../game/battlefield';
 import { useId } from 'react';
 import { findWorldRoute, getWorldZone, WORLD_GATEWAYS, type WorldZoneId } from '../game/world-zones';
 import { locations, type Location } from '../data/locations';
@@ -116,7 +117,7 @@ export default function SingaporeMap({ selected, onSelect, expedition = false, d
     </svg>
     <p className="singapore-map-selection" aria-live="polite"><span aria-hidden="true" />{selected.name}<small>{expedition ? 'YOU ARE HERE' : 'SELECTED'}</small></p>
     {expedition && <div className="singapore-route-details" role="status">
-      {target ? <><strong>{target.name} · {target.risk} threat · Loot tier {target.lootTier}</strong><p>{target.botCount} defenders · {target.composition} roles</p>
+      {target ? <><strong>{target.name} · {target.risk} threat · Loot tier {target.lootTier}</strong><p>{BATTLEFIELD_POPULATIONS[DEFAULT_BATTLEFIELD_SIZE].mercenaries} opposing troops · {BATTLEFIELD_POPULATIONS[DEFAULT_BATTLEFIELD_SIZE]['armed-forces']} allied troops · 7 capture locations</p>
         {next ? <><p>{[selected.name, ...route.map(step => getWorldZone(step.to).name)].join(' → ')}</p><p>Next: {getWorldZone(next.to).name} checkpoint at X {next.position.x}, Z {next.position.z}. Press T within {next.radius}m.</p></> : <p>You are in this district.</p>}
       </> : <p>Select a district to see its threat, loot tier and checkpoint route.</p>}
     </div>}

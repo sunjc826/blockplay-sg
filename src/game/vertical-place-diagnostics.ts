@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createVerticalMovement, type VerticalWorld } from './vertical-movement';
+import { accelerateInstancedRaycasts } from './instanced-raycast';
 
 type Point = { x: number; y: number; z: number };
 export interface DiagnosticPlace {
@@ -10,6 +11,7 @@ export interface DiagnosticPlace {
 
 /** Geometric facts and suspected defects, never a quality grade. */
 export function inspectVerticalPlaces(scene: THREE.Scene, world: VerticalWorld, places: readonly DiagnosticPlace[], isReachable?: (point: Point) => boolean) {
+  accelerateInstancedRaycasts(scene);
   scene.updateMatrixWorld(true);
   const movement = createVerticalMovement(world);
   const radius = .38, height = 1.8;

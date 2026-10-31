@@ -14,7 +14,7 @@ for (const region of REGIONS) describe(`${region.id} authored elevation`, () => 
       const routes = getVerticalRoutes(world.scene);
       const movement = createVerticalMovement({ bounds: region.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
       for (const sector of zoneSectors(region.id)) for (const anchor of [...sector.anchors, ...(sector.foodAnchors ?? [])]) {
-        expect(movement.canOccupy(anchor.x, 0, anchor.z, .4, 1.8), `${sector.id} ground anchor ${anchor.x},${anchor.z}`).toBe(true);
+        expect(movement.canOccupy(anchor.x, region.bounds.groundHeight?.(anchor.x,anchor.z) ?? 0, anchor.z, .4, 1.8), `${sector.id} ground anchor ${anchor.x},${anchor.z}`).toBe(true);
       }
       for (const route of routes) for (const radius of [.38, .65]) for (const points of [route.points, [...route.points].reverse()]) {
         let state = { ...points[0], velocityY: 0 };

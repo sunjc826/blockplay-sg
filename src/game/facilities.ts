@@ -1,11 +1,13 @@
 import { PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
 
-export type FacilityKind = 'command' | 'garage' | 'helipad';
+export type FacilityKind = 'command' | 'garage' | 'helipad' | 'supply';
 export type FacilityActionKind = 'capture' | 'build' | 'repair';
 export interface FacilityPoint { x: number; y: number; z: number }
 export interface FacilitySite extends FacilityPoint {
   id: string; name: string; kind: FacilityKind; initialOwner: SquadFaction | null;
   deployment: { x: number; z: number; yaw: number };
+  /** Intact neutral objectives can be captured without paying to rebuild them. */
+  initiallyBuilt?: boolean;
 }
 export interface FacilityState extends FacilitySite {
   owner: SquadFaction | null; health: number; maxHealth: number;
@@ -30,6 +32,7 @@ export const FACILITY_KINDS = {
   command: { label: 'Command post', health: 450, cost: 35 },
   garage: { label: 'Garage', health: 650, cost: 50 },
   helipad: { label: 'Helipad', health: 550, cost: 70 },
+  supply: { label: 'Supply depot', health: 350, cost: 25 },
 } as const;
 const faction = (value: string): value is SquadFaction => (SQUAD_FACTIONS as readonly string[]).includes(value);
 const horizontal = (a: FacilityPoint, b: FacilityPoint) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -58,7 +61,7 @@ export function createFacilities(definitions: readonly FacilitySite[], saved?: F
   const sites: FacilityState[] = definitions.map(site => {
     const previous = saved?.sites.find(s => s.id === site.id);
     return { ...structuredClone(site), owner: previous?.owner ?? (previous ? null : site.initialOwner),
-      health: previous ? Math.max(0, Math.min(FACILITY_KINDS[site.kind].health, previous.health)) : site.initialOwner ? FACILITY_KINDS[site.kind].health : 0,
+      health: previous ? Math.max(0, Math.min(FACILITY_KINDS[site.kind].health, previous.health)) : site.initialOwner || site.initiallyBuilt ? FACILITY_KINDS[site.kind].health : 0,
       maxHealth: FACILITY_KINDS[site.kind].health, contested: false, suppressed: false, pressure: 0,
       deployIn: previous?.deployIn ?? 12, action: null };
   });
@@ -99,7 +102,7 @@ export function createFacilities(definitions: readonly FacilitySite[], saved?: F
   function step(dt: number, present: readonly FacilityActor[], clear: typeof visible = () => true) {
     actors = present; visible = clear; visibility.clear();
     if (!Number.isFinite(dt) || dt <= 0) return;
-    for (const f of SQUAD_FACTIONS) supplies[f] = Math.min(FACILITY_RULES.supplyCap, supplies[f] + FACILITY_RULES.income * dt);
+    for (const f of SQUAD_FACTIONS) supplies[f] = Math.min(FACILITY_RULES.supplyCap, supplies[f] + FACILITY_RULES.income * dt * (1 + sites.filter(s => s.kind === 'supply' && facilityOperational(s,f)).length));
     for (const site of sites) {
       site.deployIn = Math.max(0, site.deployIn - dt);
       const local = site.owner ? balance(site, site.owner) : null;
@@ -152,7 +155,7 @@ export function validFacilitySnapshot(value: unknown): value is FacilitySnapshot
   return v.sites.every(s => {
     if (!s || typeof s.id !== 'string' || s.id.length > 100 || ids.has(s.id) || typeof s.name !== 'string' || s.name.length > 100 || !Object.hasOwn(FACILITY_KINDS, s.kind)) return false;
     ids.add(s.id);
-    return (s.owner === null || faction(s.owner)) && (s.initialOwner === null || faction(s.initialOwner)) &&
+    return (s.initiallyBuilt === undefined || typeof s.initiallyBuilt === 'boolean') && (s.owner === null || faction(s.owner)) && (s.initialOwner === null || faction(s.initialOwner)) &&
       [s.x, s.y, s.z, s.health, s.maxHealth, s.pressure, s.deployIn, s.deployment?.x, s.deployment?.z, s.deployment?.yaw].every(Number.isFinite) &&
       s.maxHealth === FACILITY_KINDS[s.kind].health && s.health >= 0 && s.health <= s.maxHealth && s.pressure >= 0 && s.pressure <= FACILITY_RULES.suppressionSeconds && s.deployIn >= 0 && s.deployIn <= 120 &&
       typeof s.contested === 'boolean' && typeof s.suppressed === 'boolean' &&

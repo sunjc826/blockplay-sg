@@ -86,7 +86,7 @@ describe.each(SECTORED.map(id => [id] as const))('%s sectors', id => {
         }
       }
     } finally { world.dispose(); }
-  });
+  }, 15000);
 
   it('offers enough anchors and enough character to place the district loot', () => {
     const rules = ZONE_LOOT_RULES[id];

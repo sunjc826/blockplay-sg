@@ -75,7 +75,7 @@ export function measureVerticality(input: VerticalityInput) {
   const rows = Math.floor((input.bounds.maxZ - input.bounds.minZ) / spacing) + 1;
   for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
     const x = input.bounds.minX + i * spacing, z = input.bounds.minZ + j * spacing;
-    const candidates = new Map<number, string[]>([[0, []]]);
+    const candidates = new Map<number, string[]>([[input.bounds.groundHeight?.(x,z) ?? 0, []]]);
     for (const s of input.surfaces) {
       if (!surfaceContains(s,x,z)) continue;
       const y = surfaceHeight(s, x, z);
@@ -105,7 +105,7 @@ export function measureVerticality(input: VerticalityInput) {
       }
     }
   }
-  const spawn = { ...input.spawn, y: input.spawn.y ?? 0 };
+  const spawn = { ...input.spawn, y: input.spawn.y ?? input.bounds.groundHeight?.(input.spawn.x,input.spawn.z) ?? 0 };
   const reachable = new Set<number>(), pending: number[] = [];
   if (movement.canOccupy(spawn.x, spawn.y, spawn.z, radius, bodyHeight)) {
     for (let id = 0; id < samples.length; id++) {

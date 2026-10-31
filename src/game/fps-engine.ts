@@ -83,6 +83,7 @@ import type { ArenaActor, ArenaBark, ArenaEnvironment, ArenaHeat, ArenaSnapshot,
 import { CALLOUT_COOLDOWN, CALLOUT_PAGES, getPlayerCallout, wheelSlot } from './player-callouts';
 import { BARK_RANGE } from './npc-barks';
 import { ORDER_TUNING } from './squad-orders';
+import type { BattlefieldSize } from './battlefield';
 import { createSoloSession, type LanSession } from './lan-peer';
 import { buildDistrictWorld } from './district-world';
 import { getFpsDistrict } from './fps-districts';
@@ -151,6 +152,8 @@ export interface FpsCheckpoint { health: number; armor: number; weapon: number; 
   /** Supplies picked up on this expedition and still on the belt; they never touch the saved profile. */
   fieldSupplies?: Record<string, number> }
 export interface FpsExpeditionOptions {
+  /** Optional scale probes; normal district entry uses the 32-soldier default. */
+  battlefieldSize?: BattlefieldSize;
   autoRespawn?: boolean;
   infrastructure?: Map<WorldZoneId, Pick<ArenaSnapshot, 'facilities' | 'vehicles' | 'reinforcementClocks'>>;
   zone: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: FpsCheckpoint; profile: ArmoryProfile; loot: ExpeditionLoot;
@@ -307,12 +310,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const npcs = expedition ? expeditionNpcs(expedition.zone, zoneSectors(expedition.zone)) : [];
   const fleetSpawns = expedition ? worldVehicleSpawns(district.vehicles, [...world.obstacles, ...verticalVehicleObstacles({ bounds:world.bounds, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })], sceneFlightObstacles(world.scene), world.bounds, [...npcs, zoneWorld?.zone.spawn ?? district.spawn]) : district.vehicles;
   const facilitySites = expedition ? districtFacilitySites(expedition.zone, fleetSpawns,
-    (x, z) => footMovement.canOccupy(x, 0, z, 1.1, 2) && Math.abs(footMovement.supportHeight(x, z, .1, .4, 1.8) ?? 100) < .05, npcs) : [];
+    (x, z) => { const y=world.bounds.groundHeight?.(x,z) ?? 0; return footMovement.canOccupy(x, y, z, 1.1, 2) && Math.abs((footMovement.supportHeight(x, z, y+.1, .4, 1.8) ?? 100)-y) < .05; }, npcs, world.bounds.groundHeight) : [];
   if (expedition && options.arena?.environment) {
+    if(expedition.battlefieldSize)options.arena.environment.battlefield={size:expedition.battlefieldSize};
     const saved = expedition.infrastructure?.get(expedition.zone);
     options.arena.environment.savedReinforcementClocks = saved?.reinforcementClocks;
     options.arena.environment.facilities = { sites: facilitySites, saved: saved?.facilities, savedVehicles: saved?.vehicles };
-    for (const site of facilitySites) world.obstacles.push({ minX: site.x - .85, maxX: site.x + .85, minZ: site.z - .65, maxZ: site.z + .65, maxY: 1.8 });
+    for (const site of facilitySites) world.obstacles.push({ minX: site.x - .85, maxX: site.x + .85, minZ: site.z - .65, maxZ: site.z + .65, minY:site.y, maxY: site.y+1.8 });
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
   }
   const rangeStock = rangeEquipmentStock(equipment.supplies);
@@ -453,7 +457,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const keys = new Set<string>(); const hud: FpsHud = { ...initialFpsHud, weapon: equipment.carriedFamilies[0], carriedWeapons: equipment.carriedFamilies, debug, debugAvailable, quickItem: equipment.quickItem?.name || '', quickType: equipment.quickItem ? equipment.quickItem.supplyType === 'food' ? 'FOOD' : 'UTILITY' : '', quickCount: equipment.quickCount, health: 100 * debug.healthMultiplier, maxHealth: 100 * debug.healthMultiplier, armor: equipment.armor, expeditionZone: expedition?.zone ?? null,
     credits: fieldProfile.credits, tokens: fieldProfile.tokens };
   hud.npcs = npcs.map(npc => ({ ...npc }));
-  if (expedition && zoneWorld) hud.fieldLoot = expedition.loot.enterZone({ id: expedition.zone, spawn: zoneWorld.zone.spawn, bounds: zoneWorld.bounds, obstacles: vehicles.footObstacles(), canStand: (x, z, radius) => footMovement.canOccupy(x, 0, z, radius, 1.8), elevatedAnchors: elevatedLootAnchors(getWalkSurfaces(world.scene), footMovement), anchors: zoneWorld.zone.encounterSpawns, sectors: zoneSectors(expedition.zone) });
+  if (expedition && zoneWorld) hud.fieldLoot = expedition.loot.enterZone({ id: expedition.zone, spawn: zoneWorld.zone.spawn, bounds: zoneWorld.bounds, obstacles: vehicles.footObstacles(), canStand: (x, z, radius) => footMovement.canOccupy(x, world.bounds.groundHeight?.(x,z) ?? 0, z, radius, 1.8), elevatedAnchors: elevatedLootAnchors(getWalkSurfaces(world.scene), footMovement), anchors: zoneWorld.zone.encounterSpawns, sectors: zoneSectors(expedition.zone) });
   const markers = expedition ? createExpeditionMarkers(world.scene, expedition.zone, hud.fieldLoot, npcs) : null;
   const lootGround = expedition ? createLootGround(world.scene) : undefined;
   let checkpointPending = expedition?.checkpoint;

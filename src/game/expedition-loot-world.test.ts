@@ -25,7 +25,8 @@ describe('expedition loot in authored scenes', () => {
     try {
       const movement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles,
         surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
-      const canStand = (x: number, z: number, radius: number) => movement.canOccupy(x, 0, z, radius, 1.8);
+      const ground=(x:number,z:number)=>world.bounds.groundHeight?.(x,z) ?? 0;
+      const canStand = (x: number, z: number, radius: number) => movement.canOccupy(x, ground(x,z), z, radius, 1.8);
       const targets = ['route-a', 'route-b', 'route-c', 'hackathon'].flatMap(seed => [false, true].flatMap(useAnchors => {
         const all = createExpeditionLoot(seed).enterZone({ id: zone.id, spawn: zone.spawn, bounds: world.bounds, obstacles: world.obstacles, canStand,
           sectors: zoneSectors(zone.id), ...(useAnchors ? { anchors: zone.encounterSpawns } : {}) });
@@ -45,7 +46,7 @@ describe('expedition loot in authored scenes', () => {
       const radius = .38;
       const clear = (x: number, z: number) => canStand(x, z, radius);
       const walk = (p: { x: number; z: number }, dx: number, dz: number) =>
-        movement.move({ ...p, y: 0, velocityY: 0 }, dx, dz, 0, radius, 1.8);
+        movement.move({ ...p, y: ground(p.x,p.z), velocityY: 0 }, dx, dz, 0, radius, 1.8);
       for (const target of targets) expect(clear(target.x, target.z), target.id).toBe(true);
       const queue = [{ x: zone.spawn.x, z: zone.spawn.z }]; const seen = new Set([`${zone.spawn.x},${zone.spawn.z}`]);
       const pending = new Set(targets);
@@ -53,13 +54,13 @@ describe('expedition loot in authored scenes', () => {
         const p = queue[i];
         for (const target of pending) if (Math.hypot(p.x - target.x, p.z - target.z) <= 2.5) {
           const end = walk(p, target.x - p.x, target.z - p.z);
-          if (Math.hypot(end.x - target.x, end.z - target.z) < .01 && Math.abs(end.y) < .01 && end.grounded) pending.delete(target);
+          if (Math.hypot(end.x - target.x, end.z - target.z) < .01 && Math.abs(end.y-ground(target.x,target.z)) < .01 && end.grounded) pending.delete(target);
         }
         for (const [dx, dz] of [[2, 0], [-2, 0], [0, 2], [0, -2]]) {
           const x = p.x + dx; const z = p.z + dz; const key = `${x},${z}`;
           if (seen.has(key) || !clear(x, z)) continue;
           const end = walk(p, dx, dz);
-          if (Math.hypot(end.x - x, end.z - z) > .01 || Math.abs(end.y) > .01 || !end.grounded) continue;
+          if (Math.hypot(end.x - x, end.z - z) > .01 || Math.abs(end.y-ground(x,z)) > .01 || !end.grounded) continue;
           seen.add(key); queue.push({ x, z });
         }
       }

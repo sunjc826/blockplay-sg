@@ -6,6 +6,7 @@ import type { WorldZoneId, ZonePosition } from './world-zones';
 import type { ZoneSector } from './zone-sectors';
 import { expeditionNpcs } from './expedition-npcs';
 import type { ArenaSide } from './arena-factions';
+import type { RegionBounds } from './region-collision';
 
 export type FieldLootKind = 'weapon' | 'ammo' | 'medical' | 'armor';
 /** Resting height on the rendered geometry below an item's release position. */
@@ -81,7 +82,7 @@ export const forcesIssue = (family: number | undefined) => ARMORY_CATALOG.find(i
   item.category === 'weapon' && item.family === family && item.tier === 'Issued' && item.price === 0 && !isEnemyIssue(item));
 export interface LootZoneGeometry {
   id: WorldZoneId; spawn: ZonePosition;
-  bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
+  bounds: RegionBounds;
   obstacles: readonly Obstacle[]; anchors?: readonly ZonePosition[];
   /** Actual standing clearance at street level, including elevated-route foundations. */
   canStand?: (x: number, z: number, radius: number) => boolean;
@@ -174,7 +175,7 @@ export function createExpeditionLoot(seed: string | number) {
   const supplies = new Map<WorldZoneId, FieldLoot[]>();
   function enterZone(geometry: LootZoneGeometry): FieldLoot[] {
     if (zones.has(geometry.id)) return remaining(geometry.id);
-    if (!ZONE_LOOT_RULES[geometry.id] || !finitePosition(geometry.spawn) || !Object.values(geometry.bounds).every(Number.isFinite) ||
+    if (!ZONE_LOOT_RULES[geometry.id] || !finitePosition(geometry.spawn) || ![geometry.bounds.minX,geometry.bounds.maxX,geometry.bounds.minZ,geometry.bounds.maxZ].every(Number.isFinite) ||
       geometry.bounds.minX >= geometry.bounds.maxX || geometry.bounds.minZ >= geometry.bounds.maxZ) return [];
     // Content and positions have separate streams: adding cover cannot change which gear was rolled.
     const random = randomFor(`${seedText}:${geometry.id}:contents`);
@@ -195,7 +196,7 @@ export function createExpeditionLoot(seed: string | number) {
     const slots = kinds.map((kind, index) => ({ kind, index, point: null as ZonePosition | null, food: false }));
     function accept(slot: typeof slots[number], point: ZonePosition) {
       if (!clearGround(point, geometry) || occupied.some(p => Math.hypot(p.x - point.x, p.z - point.z) < 3)) return false;
-      slot.point = { ...point }; occupied.push(point); return true;
+      slot.point = { ...point, ...(geometry.bounds.groundHeight ? {y:geometry.bounds.groundHeight(point.x,point.z)} : {}) }; occupied.push(point); return true;
     }
     // Sector choice runs on its own stream, so a district gaining sectors cannot
     // disturb the gear an existing expedition seed already rolled.

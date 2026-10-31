@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildQueenstownTerrain, QUEENSTOWN_TERRACES, QUEENSTOWN_TERRAIN_X, QUEENSTOWN_TERRAIN_Z } from './queenstown-terrain';
+import { accelerateMeshRaycast } from './mesh-raycast';
 import { type VerticalRoute } from './vertical-routes';
 import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { QUEENSTOWN_STAMPS } from '../data/region-stamps.ts';
@@ -32,6 +33,7 @@ export function buildQueenstownScene() {
   sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -275, right: 275, top: 230, bottom: -230, far: 650 });
   sun.shadow.normalBias = 0.2; scene.add(sun);
   const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [], textures: THREE.Texture[] = [];
+  const raycastDisposers: (() => void)[] = [];
   const obstacles: Obstacle[] = [];
   const absoluteObstacles=new Set<Obstacle>();
   const geo = <T extends THREE.BufferGeometry>(g: T) => { geometries.push(g); return g; };
@@ -561,6 +563,7 @@ export function buildQueenstownScene() {
     }
     const geometry=geo(new THREE.BufferGeometry());geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geometry.computeVertexNormals();
     const mesh=new THREE.Mesh(geometry,material);mesh.name='Queenstown graded paving';mesh.userData.groundSurface=true;mesh.receiveShadow=true;scene.add(mesh);
+    raycastDisposers.push(accelerateMeshRaycast(mesh));
   }
   for (const batch of batches.values()) {
     if (batch.length < 2) continue;
@@ -572,7 +575,7 @@ export function buildQueenstownScene() {
   }
   const world = withVerticalPlaces({ scene, obstacles, car, stamps,
     animate(time: number) { stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.7; stamp.position.y = queenstownTerrainHeight(stamp.position.x,stamp.position.z) + 2.2 + Math.sin(time * 2 + i) * 0.2; }); },
-    dispose() { instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose()); sun.shadow.dispose(); terrain.dispose(); },
+    dispose() { raycastDisposers.forEach(dispose=>dispose()); instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose()); sun.shadow.dispose(); terrain.dispose(); },
   }, QUEENSTOWN_HOUSING_PLACES);
   withVerticalPlaces(world, QUEENSTOWN_LANDSCAPE_PLACES);
   // Terrain proximity uses the shared walk planes, never a hill's enclosing box.

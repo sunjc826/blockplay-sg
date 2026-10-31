@@ -20,7 +20,7 @@ it('places supplies on valid upper floors across every district while preserving
  for(const region of REGIONS){const world=region.build();try{
   const movement=createVerticalMovement({...world,bounds:region.bounds,surfaces:getWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene)});
   const anchors=elevatedLootAnchors(getWalkSurfaces(world.scene),movement), zone=getWorldZone(region.id);
-  const geometry={id:region.id,spawn:zone.spawn,bounds:region.bounds,obstacles:world.obstacles,canStand:(x:number,z:number,r:number)=>movement.canOccupy(x,0,z,r,1.8),sectors:zoneSectors(region.id),anchors:zone.encounterSpawns};
+  const geometry={id:region.id,spawn:zone.spawn,bounds:region.bounds,obstacles:world.obstacles,canStand:(x:number,z:number,r:number)=>movement.canOccupy(x,region.bounds.groundHeight?.(x,z) ?? 0,z,r,1.8),sectors:zoneSectors(region.id),anchors:zone.encounterSpawns};
   let upstairs=0;
   for(let seed=0;seed<8;seed++){
    const original=createExpeditionLoot(seed).enterZone(geometry),raised=createExpeditionLoot(seed).enterZone({...geometry,elevatedAnchors:anchors});
