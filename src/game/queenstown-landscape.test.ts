@@ -1,3 +1,4 @@
+import { sceneFlightObstacles } from './flight-obstacles';
 import { createArena } from './arena-rules';
 import { FPS_WEAPONS } from './fps-rules';
 import * as THREE from 'three';
@@ -9,7 +10,7 @@ import { createVerticalMovement } from './vertical-movement';
 import { getTraversalObstacles, getWalkSurfaces } from './vertical-routes';
 import { createSceneCover } from './scene-cover';
 import { accelerateInstancedRaycasts } from './instanced-raycast';
-import { createVehicle, driveVehicle, flyVehicle, vehicleExit } from './vehicle-rules';
+import { createVehicle, driveVehicle, flyVehicle, canFly, vehicleExit } from './vehicle-rules';
 import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
 
 let world: ReturnType<typeof buildQueenstownScene>, movement: ReturnType<typeof createVerticalMovement>;
@@ -95,4 +96,11 @@ it('lands a helicopter on raised ground with a settled climb rate and usable exi
   for(let i=0;i<100;i++)helicopter=flyVehicle(helicopter,0,0,-1,false,.02,[],QUEENSTOWN_BOUNDS).state;
   expect(helicopter.y).toBeCloseTo(base+.13,5);expect(helicopter.climb).toBe(0);
   expect(vehicleExit(helicopter,[],QUEENSTOWN_BOUNDS,queenstownTerrainHeight)).not.toBeNull();
+});
+
+it('keeps low airspace open above continuous terrain and graded paving',()=>{
+  const flight=sceneFlightObstacles(world.scene);
+  expect(canFly(0,.13,116,flight,QUEENSTOWN_BOUNDS)).toBe(true);
+  expect(canFly(0,5,116,flight,QUEENSTOWN_BOUNDS)).toBe(true);
+  expect(canFly(-140,queenstownTerrainHeight(-140,-122)-.1,-122,flight,QUEENSTOWN_BOUNDS)).toBe(false);
 });

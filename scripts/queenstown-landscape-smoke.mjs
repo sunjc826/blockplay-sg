@@ -6,9 +6,11 @@ const origin=process.env.FPS_APP_ORIGIN||'http://127.0.0.1:5175';
 const chrome=process.env.FPS_CHROME_ORIGIN||'http://127.0.0.1:9228';
 const output=new URL('../.cache/queenstown-landscape-smoke/',import.meta.url);
 await fs.mkdir(output,{recursive:true});
-const fixture=new URL('fixture.html',output);
-await fs.writeFile(fixture,`<!doctype html><style>body{margin:0}button{padding:12px}#stage{width:640px;height:420px}.marina-viewport{width:640px;height:420px}</style>
+const fixture=new URL('fixture.html',output), fixtureModule=new URL('fixture.mjs',output);
+const fixtureHtml=`<!doctype html><style>body{margin:0}button{padding:12px}#stage{width:640px;height:420px}.marina-viewport{width:640px;height:420px}</style>
 <button id="enter">Enter Queenstown landscape check</button><div id="stage"></div><script type="module">
+import React from 'react';
+import {createRoot} from 'react-dom/client';
 import RefreshRuntime from '/@react-refresh';
 RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
 const {getRegion}=await import('/src/game/regions.ts');
@@ -17,6 +19,7 @@ const {createFpsEngine}=await import('/src/game/fps-engine.ts');
 const {createSoloSession}=await import('/src/game/lan-peer.ts');
 const {createProfile}=await import('/src/game/armory-state.ts');
 const {queenstownTerrainHeight}=await import('/src/game/queenstown-terrain.ts');window.terrainHeight=queenstownTerrainHeight;
+window.mountExplore=async()=>{const {default:RegionGame}=await import('/src/components/RegionGame.tsx');document.body.innerHTML='<style>.marina-viewport{width:640px;height:420px}</style><div id="explore"></div>';window.exploreRoot=createRoot(document.querySelector('#explore'));exploreRoot.render(React.createElement(RegionGame,{region:'queenstown'}));};
 const region=getRegion('queenstown'),build=region.build,start={x:-119,z:14,yaw:0,pitch:0};
 Object.assign(region.spawn,start);Object.assign(getFpsDistrict('queenstown').spawn,start);
 region.build=()=>{const world=build();world.scene.onBeforeRender=(_r,_s,camera)=>{if(camera.isPerspectiveCamera&&camera.far>100)window.hdbCamera={x:camera.position.x,y:camera.position.y,z:camera.position.z};};return world;};
@@ -24,7 +27,10 @@ window.session=createSoloSession('Landscape check');
 window.engine=createFpsEngine(document.querySelector('#stage'),hud=>window.hud=hud,{region:'queenstown',arena:{session,profile:createProfile(),botCount:0,environment:{bounds:region.bounds,move:region.move,spawns:[start],playerSpawn:start}}});
 engine.configureDebug({combatEvents:false});
 document.querySelector('#enter').onclick=()=>engine.start();
-</script>`);
+</script>`;
+const fixtureSource=fixtureHtml.match(/<script type="module">([\s\S]*)<\/script>/)[1];
+await fs.writeFile(fixtureModule,fixtureSource);
+await fs.writeFile(fixture,fixtureHtml.replace(/<script type="module">[\s\S]*<\/script>/,'<script type="module" src="./fixture.mjs"></script>'));
 const tab=await(await fetch(chrome+'/json/new?'+encodeURIComponent(origin+'/@fs'+decodeURIComponent(fixture.pathname)),{method:'PUT'})).json();
 const ws=new WebSocket(tab.webSocketDebuggerUrl);
 await new Promise((resolve,reject)=>{ws.onopen=resolve;ws.onerror=reject;});
@@ -74,8 +80,9 @@ try{
  reports.push(await walk('fps',path));await screenshot('fps-hillside-crossed');
  assert(reports[0].hits.some(hit=>hit.target.y>5&&Math.abs(hit.actor?.y-hit.target.y-1.75)<.2),'Host actor must follow the hillside');
  reports.push(await walk('fps',[...path].reverse()));await screenshot('fps-hillside-return');
+ await fs.writeFile(new URL('fps-report.json',output),JSON.stringify({reports,googleRequests,errors},null,2));
  await evaluate('engine.dispose();session.close();window.hdbCamera=null');
- await evaluate(`(async()=>{const {default:React}=await import('/node_modules/.vite/deps/react.js');const {default:ReactDOM}=await import('/node_modules/.vite/deps/react-dom_client.js');const {default:RegionGame}=await import('/src/components/RegionGame.tsx');document.body.innerHTML='<style>.marina-viewport{width:640px;height:420px}</style><div id="explore"></div>';window.exploreRoot=ReactDOM.createRoot(document.querySelector('#explore'));exploreRoot.render(React.createElement(RegionGame,{region:'queenstown'}));})();`);
+ await evaluate('window.mountExplore()');
  await wait("!!window.hdbCamera&&!!document.querySelector('canvas')");
  await evaluate("document.querySelector('canvas').focus()");
  reports.push(await walk('exploration',path));await screenshot('exploration-hillside-crossed');
@@ -84,4 +91,4 @@ try{
  await fs.writeFile(new URL('report.json',output),JSON.stringify({reports,googleRequests,errors},null,2));
  console.log('PASS Queenstown FPS and exploration: ordinary WASD ascent, terrace approach and descent in both directions, host terrain elevation; no runtime errors or Google requests.');
 }catch(error){console.log(await evaluate('({probe:window.walkProbe,camera:window.hdbCamera,phase:window.hud?.phase})'));await screenshot('failure');throw error;}
-finally{await evaluate('cancelAnimationFrame(window.walkProbe?.frame);window.engine?.dispose();window.exploreRoot?.unmount();window.session?.close()').catch(()=>{});ws.close();await fetch(chrome+'/json/close/'+tab.id);await fs.rm(fixture,{force:true});}
+finally{await evaluate('cancelAnimationFrame(window.walkProbe?.frame);window.engine?.dispose();window.exploreRoot?.unmount();window.session?.close()').catch(()=>{});ws.close();await fetch(chrome+'/json/close/'+tab.id);await fs.rm(fixture,{force:true});await fs.rm(fixtureModule,{force:true});}

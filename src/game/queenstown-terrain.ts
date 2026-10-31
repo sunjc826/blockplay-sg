@@ -92,6 +92,6 @@ export function buildQueenstownTerrain() {
   geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geometry.computeVertexNormals();
   const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.96});
   const mesh=new THREE.Mesh(geometry,material);mesh.name='Queenstown connected hillside';
-  mesh.receiveShadow=true;mesh.userData.terrain=true;
+  mesh.receiveShadow=true;mesh.userData.terrain=true;mesh.userData.groundSurface=true;
   return {mesh,dispose(){geometry.dispose();material.dispose();}};
 }

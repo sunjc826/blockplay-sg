@@ -560,7 +560,7 @@ export function buildQueenstownScene() {
       scene.remove(mesh);
     }
     const geometry=geo(new THREE.BufferGeometry());geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geometry.computeVertexNormals();
-    const mesh=new THREE.Mesh(geometry,material);mesh.name='Queenstown graded paving';mesh.receiveShadow=true;scene.add(mesh);
+    const mesh=new THREE.Mesh(geometry,material);mesh.name='Queenstown graded paving';mesh.userData.groundSurface=true;mesh.receiveShadow=true;scene.add(mesh);
   }
   for (const batch of batches.values()) {
     if (batch.length < 2) continue;
