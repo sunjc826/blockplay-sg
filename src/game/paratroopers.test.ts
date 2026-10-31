@@ -20,7 +20,7 @@ function setup(extra: Partial<ArenaEnvironment> = {}, cover?: (o: {x: number; y:
 const bots = (a: ArenaSimulation) => a.snapshot().actors.filter(a => a.bot && a.alive);
 describe('paratrooper reinforcements', () => {
   it('covers every inland district, including lakes, and no coast', () => {
-    expect(REGION_IDS.filter(districtParatroopers)).toHaveLength(12);
+    expect(REGION_IDS.filter(districtParatroopers)).toHaveLength(13);
     for (const id of REGION_IDS) expect(districtParatroopers(id)).toBe(!COASTAL_SEA[id]);
   });
   it('checks every canopy column and clear path, humans and protected arrivals', () => {

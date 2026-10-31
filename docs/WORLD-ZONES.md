@@ -22,7 +22,7 @@ While playing, the upper-left minimap follows the operator in the current distri
 
 ## Sectors
 
-Every district is divided into named sub-areas — nine to eleven each, 195 in
+Every district is divided into named sub-areas — nine to eleven each, 204 in
 all. A sector carries bounds, a measured cover band, a loot weight, an optional
 tier bias, a patrol weight and curated anchor positions. They are listed in
 `src/data/region-sectors.ts`.
@@ -80,6 +80,7 @@ Each expedition gets a fresh seed. Each district rolls its contents and position
 | Bukit Timah | 3 | 38% | 44% | 18% | 8 |
 | Bishan | 2 | 56% | 36% | 8% | 7 |
 | Orchard Road | 3 | 32% | 48% | 20% | 9 |
+| Yishun | 5 | 10% | 35% | 55% | 13 |
 
 Other crates contain loose ammunition, medical supplies or armor plates. Elite odds apply to weapon rolls; a particular visit does not guarantee an elite drop. Supply locations are checked against each district's bounds and obstacles, and are distributed across the district's sectors rather than scattered around the spawn.
 
@@ -103,7 +104,13 @@ A found weapon replaces its family slot and uses existing catalog stats. Plates 
 | Raffles Place / CBD | High | 3 | 6 mixed-role bots | Marina Bay, Queenstown, Chinatown |
 | Changi | High | 3 | 5 mixed-role bots | Kampong Glam |
 
-The mixed preset includes the existing heavy and sniper behaviors. These values describe an initial encounter budget, not a guarantee of a particular item drop. Raffles is the contested hub with the most defenders and access to the highest tier. Loot generation consumes this metadata separately.
+The mixed preset includes the existing heavy and sniper behaviors. These values describe an initial encounter budget, not a guarantee of a particular item drop. Raffles is a contested high-tier hub. Yishun is the deliberately exaggerated
+late-game alternative: high risk, tier 3 loot, an eight-bot mixed patrol preset
+and mercenary sector heat floors of .75–.9 with hair-trigger curves. Its two
+reversible routes lead to Woodlands and Upper Thomson. The current open world
+uses the shared battlefield roster; heat increases kit quality and reinforcement
+pace within that roster, rather than adding unlimited enemies. The danger is
+fictional game tuning, not a claim about real-world safety. See [Yishun](YISHUN.md). Loot generation consumes this metadata separately.
 
 `WorldZoneId` matches the application's location IDs. `ZoneSpawn` is a ground-level `{x,z,yaw,pitch}` transform; the FPS engine adds eye height. Each zone has several collision-tested `encounterSpawns`. Scene adapters should use the zone's existing `*_BOUNDS`, `moveIn*` function and scene-produced obstacles. Never apply Marina's bounds or movement function to another district.
 

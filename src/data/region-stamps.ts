@@ -263,3 +263,17 @@ export const CHANGI_STAMPS = [
   { name: 'Coastal palms', x: 234, z: 120 },
   { name: 'Arrival garden', x: -232, z: 100 },
 ];
+
+export const YISHUN_STAMPS = [
+  { name: 'Welcome to Yishun — good luck', x: 0, z: 60 },
+  { name: 'Northpoint forecourt', x: -70, z: -70 },
+  { name: 'Yishun station approach', x: 48, z: -100 },
+  { name: 'Chong Pang market aisle', x: -194, z: -145 },
+  { name: 'Market kopi corner', x: -194, z: -104 },
+  { name: 'West void decks', x: -194, z: -30 },
+  { name: 'Heartland linkway', x: -70, z: 60 },
+  { name: 'Pond north bank', x: 82, z: 65 },
+  { name: 'Pond south bank', x: 82, z: 151 },
+  { name: 'East neighbourhood pavilion', x: 190, z: 150 },
+  { name: 'Made it out of Yishun', x: 0, z: 185 },
+];

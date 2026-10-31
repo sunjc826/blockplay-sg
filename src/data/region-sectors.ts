@@ -776,6 +776,48 @@ const ORCHARD_SECTORS: readonly ZoneSector[] = [
     anchors: [{ x: 205, z: 60 }, { x: 158, z: 19 }, { x: 158, z: 101 }, { x: 246, z: 19 }, { x: 246, z: 101 }] },
 ];
 
+
+/** Fictional late-game pressure: heat affects reinforcement pace, kit and events even with a fixed battlefield roster. */
+export const YISHUN_SECTORS: readonly ZoneSector[] = [
+  { id: 'chong-pang', name: 'Chong Pang market', cover: 'broken', lootWeight: 3, tierBias: 1, botWeight: 3,
+    heat: { mercenaries: { min: 0.88, max: 1, curve: 'hair-trigger' }, 'armed-forces': { min: .1, max: .45 } },
+    bounds: { minX: -232, maxX: -155, minZ: -180, maxZ: -100 },
+    foodAnchors: [{ x: -194, z: -153 }, { x: -206, z: -153 }],
+    anchors: [{ x: -194, z: -145 }, { x: -218, z: -145 }, { x: -170, z: -145 }, { x: -194, z: -104 }] },
+  { id: 'northpoint', name: 'Northpoint forecourt', cover: 'open', lootWeight: 3, tierBias: 1, botWeight: 3,
+    heat: { mercenaries: { min: 0.9, max: 1, curve: 'hair-trigger' }, 'armed-forces': { min: .1, max: .45 } },
+    bounds: { minX: -126, maxX: -15, minZ: -110, maxZ: -48 },
+    anchors: [{ x: -70, z: -70 }, { x: -95, z: -70 }, { x: -45, z: -70 }, { x: -70, z: -104 }] },
+  { id: 'station', name: 'Yishun station approach', cover: 'open', lootWeight: 2, tierBias: 0, botWeight: 2,
+    heat: { mercenaries: { min: 0.85, max: 1, curve: 'hair-trigger' }, 'armed-forces': { min: .1, max: .45 } },
+    bounds: { minX: 3, maxX: 55, minZ: -188, maxZ: -93 },
+    anchors: [{ x: 48, z: -100 }, { x: 48, z: -140 }, { x: 48, z: -178 }, { x: 8, z: -100 }] },
+  { id: 'west-decks', name: 'West void decks', cover: 'open', lootWeight: 1.5, tierBias: 0, botWeight: 2,
+    heat: { mercenaries: { min: 0.82, max: 1, curve: 'hair-trigger' }, 'armed-forces': { min: .1, max: .45 } },
+    bounds: { minX: -230, maxX: -150, minZ: -70, maxZ: 10 },
+    anchors: [{ x: -194, z: -30 }, { x: -217, z: -60 }, { x: -170, z: -60 }, { x: -194, z: 0 }] },
+  { id: 'central-estate', name: 'Central heartland', cover: 'open', lootWeight: 1.5, tierBias: 0, botWeight: 2,
+    heat: { mercenaries: { min: 0.85, max: 1, curve: 'hair-trigger' }, 'armed-forces': { min: .1, max: .45 } },
+    bounds: { minX: -125, maxX: -15, minZ: -45, maxZ: 25 },
+    anchors: [{ x: -70, z: -25 }, { x: -110, z: 0 }, { x: -30, z: 0 }, { x: -70, z: 15 }] },
+  { id: 'east-estate', name: 'East estate lanes', cover: 'open', lootWeight: 2, tierBias: 0, botWeight: 3,
+    heat: { mercenaries: { min: 0.86, max: 1, curve: 'hair-trigger' }, 'armed-forces': { min: .1, max: .45 } },
+    bounds: { minX: 45, maxX: 230, minZ: -75, maxZ: 20 },
+    anchors: [{ x: 77, z: -25 }, { x: 195, z: -25 }, { x: 110, z: 0 }, { x: 175, z: 0 }] },
+  { id: 'linkways', name: 'Sheltered linkways', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
+    heat: { mercenaries: { min: 0.75, max: 1, curve: 'hair-trigger' }, 'armed-forces': { min: .1, max: .45 } },
+    bounds: { minX: -230, maxX: -20, minZ: 48, maxZ: 160 },
+    anchors: [{ x: -194, z: 80 }, { x: -70, z: 75 }, { x: -194, z: 130 }, { x: -70, z: 115 }] },
+  { id: 'pond-park', name: 'Yishun Pond park', cover: 'open', lootWeight: 2, tierBias: 1, botWeight: 2,
+    heat: { mercenaries: { min: 0.8, max: 1, curve: 'hair-trigger' }, 'armed-forces': { min: .1, max: .45 } },
+    bounds: { minX: 30, maxX: 133, minZ: 49, maxZ: 164 },
+    anchors: [{ x: 82, z: 65 }, { x: 82, z: 151 }, { x: 38, z: 106 }, { x: 126, z: 106 }] },
+  { id: 'east-field', name: 'Neighbourhood field', cover: 'open', lootWeight: 2, tierBias: 0, botWeight: 2,
+    heat: { mercenaries: { min: 0.84, max: 1, curve: 'hair-trigger' }, 'armed-forces': { min: .1, max: .45 } },
+    bounds: { minX: 155, maxX: 230, minZ: 55, maxZ: 162 },
+    anchors: [{ x: 190, z: 75 }, { x: 190, z: 115 }, { x: 190, z: 150 }, { x: 160, z: 115 }] },
+];
+
 /** Every district is sectored. HarbourFront's were written by hand as the pilot. */
 export const REGION_SECTORS: Record<WorldZoneId, readonly ZoneSector[]> = {
   'marina-bay': MARINA_BAY_SECTORS,
@@ -796,5 +838,6 @@ export const REGION_SECTORS: Record<WorldZoneId, readonly ZoneSector[]> = {
   'bukit-timah': BUKIT_TIMAH_SECTORS,
   'bishan': BISHAN_SECTORS,
   'orchard': ORCHARD_SECTORS,
+  yishun: YISHUN_SECTORS,
   harbourfront: HARBOURFRONT_SECTORS,
 };

@@ -2,7 +2,7 @@ import type { Position2D } from './region-collision';
 
 export const PARATROOPERS = { interval: 150, externalGap: 80, retry: 10, seats: 4, warning: 12, height: 60, descent: 12, spacing: 1 } as const;
 /** Explicit inland eligibility; lakes and canals do not make a district coastal. */
-export const PARATROOPER_DISTRICTS = ['raffles-place', 'queenstown', 'chinatown', 'kampong-glam', 'jurong-lake', 'upper-thomson', 'geylang', 'tampines', 'toa-payoh', 'bukit-timah', 'bishan', 'orchard'] as const;
+export const PARATROOPER_DISTRICTS = ['raffles-place', 'queenstown', 'chinatown', 'kampong-glam', 'jurong-lake', 'upper-thomson', 'geylang', 'tampines', 'toa-payoh', 'bukit-timah', 'bishan', 'orchard', 'yishun'] as const;
 export const districtParatroopers = (id: string) => (PARATROOPER_DISTRICTS as readonly string[]).includes(id);
 export const dropPoints = (center: Position2D) => [-1, 1].flatMap(x => [-1, 1].map(z => ({ x: center.x + x * 3.5, z: center.z + z * 3.5 })));
 /** Keep a full canopy column and a connected, flat route out of every touchdown. */

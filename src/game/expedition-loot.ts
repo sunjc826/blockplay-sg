@@ -108,6 +108,7 @@ export function biasedChances(rules: ZoneLootRules, tierBias: -1 | 0 | 1 = 0) {
 
 /** Tier probabilities apply to each weapon crate, independently. CBD means Raffles Place. */
 export const ZONE_LOOT_RULES: Readonly<Record<WorldZoneId, Readonly<ZoneLootRules>>> = {
+  yishun: { eliteChance: .55, fieldChance: .35, weaponCount: 5, ammoCount: 4, medicalCount: 2, armorCount: 2, ammoAmount: 95, medicalAmount: 60 },
   queenstown: { eliteChance: 0.05, fieldChance: 0.3, weaponCount: 2, ammoCount: 2, medicalCount: 1, armorCount: 1, ammoAmount: 45, medicalAmount: 25 },
   'marina-bay': { eliteChance: 0.15, fieldChance: 0.55, weaponCount: 3, ammoCount: 2, medicalCount: 2, armorCount: 1, ammoAmount: 60, medicalAmount: 40 },
   'raffles-place': { eliteChance: 0.5, fieldChance: 0.4, weaponCount: 4, ammoCount: 3, medicalCount: 1, armorCount: 2, ammoAmount: 90, medicalAmount: 60 },

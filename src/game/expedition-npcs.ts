@@ -32,6 +32,7 @@ type NpcConfig = NpcConfigBase & (
  * rounded to ten credits so this reads as game economy, not a live rent quote.
  */
 export const DISTRICT_VENDOR_PRICE_INDEX: Readonly<Partial<Record<WorldZoneId, number>>> = {
+  yishun: .85,
   'toa-payoh': .8,
   tampines: .85,
   geylang: .9,
@@ -48,6 +49,9 @@ export const DISTRICT_VENDOR_PRICE_INDEX: Readonly<Partial<Record<WorldZoneId, n
  * it adds a config and one interaction handler.
  */
 const NPC_CONFIGS: readonly NpcConfig[] = [
+  { zoneId: 'yishun', sectorId: 'chong-pang', name: 'Chong Pang stallholder', role: 'Kopi vendor', anchor: 'food', interaction: { kind: 'vendor', catalogId: 'food-kaya-toast' } },
+  { zoneId: 'yishun', sectorId: 'northpoint', name: 'Yishun local', role: 'Neighbourhood guide', anchor: 'sector', anchorIndex: 1,
+    interaction: { kind: 'dialogue', lines: ['Welcome to Yishun. The kopi is hot. The game difficulty is hotter.', 'The briefing says high threat. The stallholder says breakfast is still on.', 'Two exits, one pond, and a market stall still serving breakfast. You have options.'] } },
   { zoneId: 'raffles-place', sectorId: 'market-street', name: 'Market Street stallholder', role: 'Snack vendor', anchor: 'food', interaction: { kind: 'vendor', catalogId: 'food-curry-puff' } },
   { zoneId: 'chinatown', sectorId: 'smith-street', name: 'Smith Street stallholder', role: 'Hawker', anchor: 'food', interaction: { kind: 'vendor', catalogId: 'food-curry-puff' } },
   { zoneId: 'chinatown', sectorId: 'chinatown-complex', name: 'Chinatown Complex stallholder', role: 'Rice vendor', anchor: 'food', interaction: { kind: 'vendor', catalogId: 'food-chicken-rice' } },

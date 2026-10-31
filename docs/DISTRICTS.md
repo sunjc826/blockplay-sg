@@ -1,6 +1,6 @@
 # Districts
 
-Nineteen Singapore districts are playable. Every one is an authored, compressed
+Twenty Singapore districts are playable. Every one is an authored, compressed
 interpretation built for play — none is a surveyed map, a reconstruction or a
 navigation tool. Real place names label stylised counterparts.
 
@@ -25,10 +25,14 @@ navigation tool. Real place names label stylised counterparts.
 | Bukit Timah | North-west | 11 | Reviewed details; schematic layout |
 | Bishan | Central-north | 11 | Reviewed details; schematic layout |
 | Orchard Road | Central | 11 | Reviewed details; schematic layout |
+| Yishun | North | 11 | Researched landmarks; schematic geometry, no reviewed photograph claims |
 
 ## Reference coverage
 
-All nineteen maps received a September 2026 correction pass. The original three
+The original nineteen maps received a September 2026 correction pass.
+[Yishun](YISHUN.md) was added later with researched landmark selection and
+schematic geometry. Its exaggerated danger rating is fictional game tuning;
+it has no accepted photographic reference features or reviewed learning cards. The original three
 reuse their reviewed cached imagery. The others now have bounded Street View
 previews, explicit acceptance/rejection records, researched landmark corrections
 and revised sectors where geometry changed. [The district review](ALL-DISTRICTS-REVIEW.md)

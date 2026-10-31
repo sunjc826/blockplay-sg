@@ -24,7 +24,8 @@ import { buildToaPayohScene, TOA_PAYOH_BOUNDS, TOA_PAYOH_MAP_ROADS, TOA_PAYOH_SP
 import { buildBukitTimahScene, BUKIT_TIMAH_BOUNDS, BUKIT_TIMAH_MAP_ROADS, BUKIT_TIMAH_SPAWN } from './bukit-timah-scene';
 import { buildBishanScene, BISHAN_BOUNDS, BISHAN_MAP_ROADS, BISHAN_SPAWN } from './bishan-scene';
 import { buildOrchardScene, ORCHARD_BOUNDS, ORCHARD_MAP_ROADS, ORCHARD_SPAWN } from './orchard-scene';
-import { BISHAN_STAMPS, BUKIT_TIMAH_STAMPS, CHANGI_STAMPS, CHINATOWN_STAMPS, GEYLANG_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, TAMPINES_STAMPS, TOA_PAYOH_STAMPS, TUAS_STAMPS, UPPER_THOMSON_STAMPS, WOODLANDS_STAMPS } from '../data/region-stamps.ts';
+import { buildYishunScene, YISHUN_BOUNDS, YISHUN_MAP_ROADS, YISHUN_SPAWN } from './yishun-scene';
+import { YISHUN_STAMPS, BISHAN_STAMPS, BUKIT_TIMAH_STAMPS, CHANGI_STAMPS, CHINATOWN_STAMPS, GEYLANG_STAMPS, HARBOURFRONT_STAMPS, JURONG_LAKE_STAMPS, KAMPONG_GLAM_STAMPS, MARINA_STAMPS, ORCHARD_STAMPS, PUNGGOL_STAMPS, QUEENSTOWN_STAMPS, RAFFLES_STAMPS, SENTOSA_STAMPS, TAMPINES_STAMPS, TOA_PAYOH_STAMPS, TUAS_STAMPS, UPPER_THOMSON_STAMPS, WOODLANDS_STAMPS } from '../data/region-stamps.ts';
 
 export { REGION_IDS, isRegionId };
 export type { RegionId };
@@ -100,7 +101,25 @@ const bukitTimahMovement = createRegionMovement(BUKIT_TIMAH_BOUNDS);
 const bishanMovement = createRegionMovement(BISHAN_BOUNDS);
 const orchardMovement = createRegionMovement(ORCHARD_BOUNDS);
 
+const yishunMovement = createRegionMovement(YISHUN_BOUNDS);
+
 const definitions: Record<RegionId, RegionDefinition> = {
+  yishun: {
+    id: 'yishun', name: 'Yishun', shortName: 'Yishun', modeName: 'Yishun 3D', modeSubtitle: 'Final boss of the heartlands',
+    className: 'yishun-game', badge: 'YISHUN · GOOD LUCK', title: 'Yishun · final boss of the heartlands',
+    subtitle: 'Authored heartland · fictional high-threat combat preset', mapTitle: 'MARKET, MRT & POND',
+    stampNoun: 'heartland stamps', exploreNoun: 'Yishun', cameraFar: 1400,
+    spawn: YISHUN_SPAWN, stamps: YISHUN_STAMPS, bounds: YISHUN_BOUNDS, mapRoads: YISHUN_MAP_ROADS,
+    mapPaper: '#ded9c7', roadStroke: '#938e82', roadWidth: 16,
+    decor: [
+      { kind: 'rect', x: -119, z: -177, width: 98, depth: 64, fill: '#c0957e', layer: 'over' },
+      { kind: 'rect', x: -227, z: -175, width: 66, depth: 60, fill: '#b5765e', layer: 'over' },
+      { kind: 'rect', x: 31, z: 48, width: 102, depth: 116, fill: '#a2b57b', layer: 'over' },
+      { kind: 'rect', x: 49, z: 77, width: 66, depth: 64, fill: '#4c8d89', layer: 'over' },
+      { kind: 'line', from: { x: 23, z: -195 }, to: { x: 23, z: 195 }, stroke: '#b6b6ac', width: 5, layer: 'over' },
+    ],
+    hasGuide: false, build: buildYishunScene, move: yishunMovement.move, canOccupy: yishunMovement.canOccupy,
+  },
   'marina-bay': {
     id: 'marina-bay', name: 'Marina Bay', shortName: 'Marina', modeName: 'Marina 3D', modeSubtitle: 'Explore the expanded bay',
     className: 'marina-game', badge: 'MARINA BAY · GAME WORLD', title: 'Marina Bay · waterfront & gardens',

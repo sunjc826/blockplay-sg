@@ -8,6 +8,12 @@ export interface FpsDistrict {
   props: readonly (readonly [asset: number, x: number, z: number, width: number, depth: number])[];
 }
 const districts: Record<WorldZoneId, FpsDistrict> = {
+  yishun: {
+    label: 'Yishun FPS', setting: 'neighbourhood field', spawn: { x: 190, z: 115, yaw: 0, pitch: -.03 },
+    targets: [{ x: 190, z: 85 }, { x: 184, z: 86 }, { x: 196, z: 86 }, { x: 178, z: 91 }, { x: 202, z: 91 }, { x: 176, z: 99 }, { x: 204, z: 99 }, { x: 190, z: 75 }],
+    vehicles: { car: { x: 180, z: 119, yaw: -Math.PI / 2 }, helicopter: { x: 210, z: 115, yaw: 0 } },
+    props: [[3, 188, 121, .77, .52], [4, 194, 118, 1.87, .41], [5, 189, 122, .37, .37], [5, 191, 122, .37, .37]],
+  },
   'marina-bay': {
     label: 'Marina FPS', setting: 'promenade', spawn: FPS_SPAWN, targets: FPS_TARGETS, vehicles: VEHICLE_SPAWNS,
     props: [[3, -48, 71, .77, .52], [4, -40, 63, 1.87, .41], [4, -52, 64, 1.87, .41], [5, -45, 72, .37, .37], [5, -43, 72, .37, .37]],

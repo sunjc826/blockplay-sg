@@ -73,12 +73,18 @@ export const WORLD_ZONES: readonly WorldZone[] = [
     risk: 'low', lootTier: 1, botCount: 3, composition: 'assault', encounterSpawns: [{ x: 75, z: -74 }, { x: 10, z: -35 }, { x: -150, z: -74 }, { x: 75, z: 40 }, { x: -60, z: 40 }, { x: 185, z: 40 }] },
   { id: 'orchard', name: 'Orchard Road', description: 'Wide boulevard and mall forecourts; long sightlines beneath the rain trees.', spawn: { x: 30, z: 5, yaw: Math.PI / 2, pitch: 0 },
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: -8, z: 5 }, { x: -115, z: -18 }, { x: -24, z: 22 }, { x: 117, z: -20 }, { x: 205, z: 60 }, { x: -170, z: 5 }] },
+  { id: 'yishun', name: 'Yishun', description: 'Final boss of the heartlands. Fictional high-threat combat: hot patrols, elite supplies, and kopi that refuses to go cold.', spawn: { x: 0, z: 70, yaw: 0, pitch: 0 },
+    risk: 'high', lootTier: 3, botCount: 8, composition: 'mixed', encounterSpawns: [{ x: -194, z: -145 }, { x: -70, z: -70 }, { x: 48, z: -100 }, { x: -194, z: -30 }, { x: 82, z: 65 }, { x: -70, z: 60 }, { x: 190, z: 150 }, { x: 82, z: 151 }] },
 ];
 
 // These connections compress travel between districts. They do not claim that
 // their scene coordinate systems line up or represent a continuous street map.
 // Arrivals face into the new district, twelve metres beyond its return gateway.
 export const WORLD_GATEWAYS: readonly WorldGateway[] = [
+  { id: 'upper-thomson-to-yishun', from: 'upper-thomson', to: 'yishun', name: 'Yishun checkpoint — good luck', position: { x: 0, z: -195 }, radius: 4, arrival: { x: 0, z: 188, yaw: 0, pitch: 0 } },
+  { id: 'yishun-to-upper-thomson', from: 'yishun', to: 'upper-thomson', name: 'Upper Thomson checkpoint', position: { x: 0, z: 200 }, radius: 4, arrival: { x: 0, z: -183, yaw: Math.PI, pitch: 0 } },
+  { id: 'woodlands-to-yishun', from: 'woodlands', to: 'yishun', name: 'Yishun checkpoint — good luck', position: { x: 235, z: 32 }, radius: 4, arrival: { x: -228, z: 35, yaw: -Math.PI / 2, pitch: 0 } },
+  { id: 'yishun-to-woodlands', from: 'yishun', to: 'woodlands', name: 'Woodlands checkpoint', position: { x: -240, z: 35 }, radius: 4, arrival: { x: 223, z: 32, yaw: Math.PI / 2, pitch: 0 } },
   { id: 'marina-to-raffles', from: 'marina-bay', to: 'raffles-place', name: 'Raffles Place checkpoint', position: { x: -103, z: 94 }, radius: 4, arrival: { x: 246, z: 45, yaw: Math.PI / 2, pitch: 0 } },
   { id: 'raffles-to-marina', from: 'raffles-place', to: 'marina-bay', name: 'Marina Bay checkpoint', position: { x: 258, z: 45 }, radius: 4, arrival: { x: -91, z: 94, yaw: -Math.PI / 2, pitch: 0 } },
   { id: 'raffles-to-queenstown', from: 'raffles-place', to: 'queenstown', name: 'Queenstown checkpoint', position: { x: -258, z: 45 }, radius: 4, arrival: { x: 223, z: 22, yaw: Math.PI / 2, pitch: 0 } },

@@ -208,6 +208,17 @@ export const locations = [
       { label: 'Emerald Hill', lat: 1.3021, lng: 103.8375, heading: 0 },
     ],
   },
+  {
+    id: 'yishun', name: 'Yishun', subtitle: 'Final boss of the heartlands', district: 'NORTH',
+    description: 'Northpoint-inspired terraces, an elevated MRT, Chong Pang market and a pond park. Our fictional high-threat combat zone turns the Yishun meme up to eleven. Authored and compressed for play.',
+    lat: 1.4295, lng: 103.8350, heading: 180, color: '#c47b58', block: 666,
+    tags: ['High threat · game fiction', 'Heartland legend'],
+    viewpoints: [
+      { label: 'Town centre', lat: 1.4295, lng: 103.8350, heading: 180 },
+      { label: 'Chong Pang', lat: 1.4310, lng: 103.8280, heading: 90 },
+      { label: 'Pond park', lat: 1.4245, lng: 103.8380, heading: 0 },
+    ],
+  },
 ] as const;
 
 export type Location = (typeof locations)[number];
