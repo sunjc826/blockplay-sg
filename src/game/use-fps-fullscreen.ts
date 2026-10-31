@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { createFpsKeyboardLock, type FpsKeyboard } from './fps-keyboard-lock';
 
 /** Native fullscreen where available, with a viewport-filling fallback for embedded browsers. */
 export function useFpsFullscreen(stage: RefObject<HTMLDivElement | null>, onPause: () => void) {
@@ -28,15 +29,25 @@ export function useFpsFullscreen(stage: RefObject<HTMLDivElement | null>, onPaus
     node.requestFullscreen().catch(() => { /* iPhone Safari, embedded views */ });
   }, [stage]);
   useEffect(() => {
+    const keyboard = createFpsKeyboardLock((navigator as Navigator & { keyboard?: FpsKeyboard }).keyboard);
+    let mounted = true;
     const fullscreen = () => {
-      if (document.fullscreenElement === stage.current) { native.current = true; change(true); setNotice(''); }
-      else if (native.current) { native.current = false; change(false); pause.current(); }
+      if (stage.current && document.fullscreenElement === stage.current) {
+        native.current = true; change(true); setNotice('');
+        void keyboard.enter().then(locked => {
+          if (locked === false && mounted && document.fullscreenElement === stage.current) setNotice('Ctrl+W protection unavailable · Use C to toggle crouch.');
+        });
+      } else {
+        keyboard.exit();
+        if (native.current) { native.current = false; change(false); setNotice(''); pause.current(); }
+      }
     };
     const keydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && active.current && !document.fullscreenElement) { change(false); setNotice(''); pause.current(); }
     };
     document.addEventListener('fullscreenchange', fullscreen); window.addEventListener('keydown', keydown);
-    return () => { document.removeEventListener('fullscreenchange', fullscreen); window.removeEventListener('keydown', keydown); };
+    fullscreen();
+    return () => { mounted = false; keyboard.exit(); document.removeEventListener('fullscreenchange', fullscreen); window.removeEventListener('keydown', keydown); };
   }, [change, stage]);
   useEffect(() => {
     if (!immersive) return;

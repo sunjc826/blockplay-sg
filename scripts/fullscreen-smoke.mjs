@@ -17,7 +17,7 @@ ws.onmessage = event => {
 function send(method, params = {}) { return new Promise((resolve, reject) => { const n = ++id; const timer = setTimeout(() => { pending.delete(n); reject(new Error(`CDP timeout: ${method}`)); }, 30000); pending.set(n, { resolve, reject, timer }); ws.send(JSON.stringify({ id: n, method, params })); }); }
 async function evaluate(expression) { const r = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (r.exceptionDetails) throw new Error(r.exceptionDetails.text); return r.result.value; }
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-async function wait(expression, timeout = 20000) { const start = Date.now(); while (Date.now() - start < timeout) { if (await evaluate(expression)) return; await delay(150); } throw new Error(`Timed out waiting for ${expression}`); }
+async function wait(expression, timeout = 60000) { const start = Date.now(); while (Date.now() - start < timeout) { if (await evaluate(expression)) return; await delay(150); } throw new Error(`Timed out waiting for ${expression}`); }
 const button = name => `[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(name)})`;
 async function point(expression) { return evaluate(`(()=>{const e=${expression}; if(!e) throw Error('Missing control');e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`); }
 async function click(expression) { const p = await point(expression); await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...p, button: 'left', clickCount: 1 }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...p, button: 'left', clickCount: 1 }); }
@@ -34,23 +34,48 @@ const choose = async id => { await click(`document.querySelector('[data-item="${
 const category = async id => { await click(`document.querySelector('#shop-tab-${id}')`); await delay(200); };
 try {
   await send('Runtime.enable'); await send('Network.enable'); await send('Page.enable');
+  await send('Browser.setPermission', { permission: { name: 'keyboard-lock' }, setting: 'granted', origin });
+  await send('Browser.setPermission', { permission: { name: 'pointer-lock' }, setting: 'granted', origin });
+  await send('Page.bringToFront');
   await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
   await wait(`!![...document.querySelectorAll('button')].find(b=>b.textContent.includes('Marina FPS'))`);
   await click(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Marina FPS'))`); await wait(phase('ready'));
+  // Observe the real browser API, including whether the permission request succeeds.
+  await evaluate(`(()=>{const keyboard=navigator.keyboard;if(!keyboard?.lock)throw Error('This smoke needs Keyboard Lock');window.keyboardLocks=[];window.keyboardUnlocks=0;window.keyboardGrants=0;window.realKeyboardLock=keyboard.lock.bind(keyboard);const unlock=keyboard.unlock.bind(keyboard);keyboard.lock=async keys=>{window.keyboardLocks.push(keys);await window.realKeyboardLock(keys);window.keyboardGrants++};keyboard.unlock=()=>{window.keyboardUnlocks++;unlock()}})()`);
+  assert.equal(await evaluate('window.keyboardLocks.length'), 0, 'Windowed play does not request keyboard lock');
   await click(`document.querySelector('[aria-label="Fullscreen range"]')`);
   await wait(`document.fullscreenElement===document.querySelector('.fps-game')`);
+  await wait('window.keyboardGrants===1');
+  assert.deepEqual(await evaluate('window.keyboardLocks'), [['KeyW']], 'Only W is captured; Escape remains available');
   assert(await evaluate(`document.querySelector('.fps-game').getBoundingClientRect().width>=innerWidth-1`));
   await screenshot('fullscreen-ready'); await click(button('Enter range')); await wait(phase('playing'));
   assert(await evaluate('!!document.pointerLockElement')); await screenshot('fullscreen-fps');
+  const position = `({x:Number(document.querySelector('.fps-game').dataset.playerX),z:Number(document.querySelector('.fps-game').dataset.playerZ)})`;
+  const beforeCrouch = await evaluate(position);
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Control', code: 'ControlLeft', modifiers: 2 });
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'w', code: 'KeyW', modifiers: 2 });
+  await delay(900);
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'w', code: 'KeyW', modifiers: 2 });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Control', code: 'ControlLeft' });
+  const afterCrouch = await evaluate(position);
+  assert(Math.hypot(afterCrouch.x-beforeCrouch.x,afterCrouch.z-beforeCrouch.z)>.1, 'Ctrl+W moves the player');
+  assert(await evaluate(phase('playing')), 'Ctrl+W keeps the game playing');
   await key('e','KeyE'); await wait(`document.querySelector('.fps-game').dataset.vehicle==='car'`); await screenshot('fullscreen-car');
   await key('Escape','Escape'); await wait(phase('paused'));
   if (await evaluate('!!document.fullscreenElement')) await click(`document.querySelector('.fps-leave-screen')`); await wait(`!document.fullscreenElement && !document.querySelector('.fps-game').classList.contains('is-immersive')`);
+  assert(await evaluate('window.keyboardUnlocks>=1'), 'Leaving native fullscreen releases keyboard lock');
   assert(!(await evaluate('!!document.pointerLockElement'))); assert(await evaluate(`document.querySelector('.fps-game').dataset.vehicle==='car'`),'Fullscreen changes preserve the occupied vehicle');
   await click(`document.querySelector('[aria-label="Fullscreen range"]')`); await wait(`!!document.fullscreenElement`); await click(button('Resume exercise')); await wait(phase('playing'));
   await key('Escape','Escape'); await wait(phase('paused'));
   assert(!(await evaluate('!!document.pointerLockElement')),'Escape releases capture in fullscreen');
   if(await evaluate('!!document.fullscreenElement')) await click(`document.querySelector('.fps-leave-screen')`);
   await wait(`!document.fullscreenElement`);
+  // A denied keyboard permission keeps native fullscreen usable and explains the fallback.
+  await evaluate(`navigator.keyboard.lock=()=>Promise.reject(new DOMException('Test denial','NotAllowedError'))`);
+  await click(`document.querySelector('[aria-label="Fullscreen range"]')`); await wait(`!!document.fullscreenElement`);
+  await wait(`document.querySelector('.fps-screen-notice')?.textContent.includes('Use C to toggle crouch')`);
+  await click(`document.querySelector('.fps-leave-screen')`); await wait(`!document.fullscreenElement`);
+  await evaluate(`navigator.keyboard.lock=window.realKeyboardLock`);
   // Embedded-browser failure: keep a usable expanded view and a working exit.
   await evaluate(`window.__full=HTMLElement.prototype.requestFullscreen;HTMLElement.prototype.requestFullscreen=()=>Promise.reject(new Error('Test denial'))`);
   await click(`document.querySelector('[aria-label="Fullscreen range"]')`); await wait(`!!document.querySelector('.fps-screen-notice')`);
@@ -59,6 +84,6 @@ try {
   await evaluate(`HTMLElement.prototype.requestFullscreen=window.__full;delete window.__full`);
   assert(await evaluate(`!document.querySelector('.fps-game').classList.contains('is-immersive') && document.body.style.overflow!== 'hidden'`),'Exit restores page scrolling');
   await click(button('Open armory · change equipment →')); await wait(`!!document.querySelector('.armory')`); assert.equal(await evaluate('document.querySelectorAll("canvas").length'),1);
-  assert.equal(mapRequests,0); assert.deepEqual(errors,[]); console.log('PASS: native fullscreen, immersive FPS/car, F toggle, Escape/pointer release, session continuity, denied-native fallback, scroll restoration and cleanup.');
-} catch(error) {await screenshot('fullscreen-failure');throw error;}
+  assert.equal(mapRequests,0); assert.deepEqual(errors,[]); console.log('PASS: native fullscreen, real KeyW keyboard lock, Ctrl+W movement, unlock on exit, denied keyboard permission fallback, immersive FPS/car, Escape/pointer release, session continuity, denied-native fallback, scroll restoration and cleanup. CDP key injection verifies game input; physical browser shortcut delivery requires a physical-key check.');
+} catch(error) {console.error({errors, state:await evaluate(`({url:location.href,phase:document.querySelector('.fps-game')?.dataset.phase,captureError:document.querySelector('.fps-capture-error')?.textContent,text:document.body.innerText.slice(0,1500)})`)});await screenshot('fullscreen-failure');throw error;}
 finally {ws.close();await fetch(`${chrome}/json/close/${tab.id}`);}

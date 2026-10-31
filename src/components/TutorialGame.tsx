@@ -43,6 +43,7 @@ export default function TutorialGame({ suspended, onStore }: { suspended: boolea
   return <div className={`fps-game tutorial-game${fullscreen.immersive ? ' is-immersive' : ''}`} ref={stage} data-phase={hud.phase} data-step={lesson?.id ?? 'complete'} data-touch={touch ? 'on' : undefined} data-player-x={hud.x} data-player-z={hud.z} data-player-yaw={hud.yaw} data-player-pitch={hud.pitch}>
     <div className="viewport fps-viewport">
       <div className="world" ref={host} />
+      {fullscreen.notice && <div className="fps-screen-notice" role="status">{fullscreen.notice}</div>}
       {playing && !complete && <>
         <button className="tutorial-menu" aria-label="Pause tutorial" onClick={() => engine.current?.pause()}><Menu size={18} /> <span>Menu</span></button>
         <aside className="tutorial-lesson" aria-label="Current lesson">

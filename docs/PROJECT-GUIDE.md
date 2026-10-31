@@ -111,6 +111,11 @@ with remote debugging, as the other browser smokes do.
 
 [Map setup and validation](FPS-DISTRICTS.md).
 
+Use the game's **Fullscreen** button for Ctrl+W crouch movement: supported
+browsers request keyboard-lock permission so this combination does not close the
+tab. Escape still opens the menu and releases the mouse. Windowed play and
+browsers without keyboard lock can use **C** to toggle crouch, then **W** to move.
+
 Select a district → its FPS range → choose Classic, Continuous or the 90-second challenge → Enter range. Classic clears the eight authored targets once; dynamic drills keep up to three targets appearing at those positions. Practice and Counter-fire work with every drill. A marked equipment box near the start supplies free practice ammunition, grenades and utilities with E or touch; practice supplies never spend purchased inventory. Cars and helicopters remain available. Switching regions starts a fresh range; the armory returns to that map. See [range drills and resupply](RANGE-DRILLS.md).
 
 WASD moves, mouse looks, left mouse fires, Q toggles aim, right mouse holds aim, R reloads, 1–3 switch weapons (mains first, sidearm last), 4–9 use the utility belt's slots (food, bandage, first aid, plates, ammo, grenades; hold 4 to pick which food), G uses the last slot again, and M opens the district map. N switches a worn night-vision or thermal device on, and J cycles a thermal core's palettes ([details](ARMORY.md#night-vision-and-thermal)). B switches a fitted laser; L independently switches a fitted weapon light, and X cants a rifle onto its offset red dot ([accessories](ARMORY.md#accessories)). Shift sprints, hold Ctrl crouches, C toggles crouch, Z toggles prone and Space jumps. While mounted, C changes camera and Ctrl descends a helicopter. K inspects; F is unassigned, with fullscreen available from the menu. E picks up focused loot, talks to a nearby NPC, or boards/exits a vehicle, in that priority order. Escape pauses and releases the pointer. Desktop play requires pointer capture; touch devices get twin thumb sticks and on-screen actions over the scene (see [touch controls](#touch-controls)).

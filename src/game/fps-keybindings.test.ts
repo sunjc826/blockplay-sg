@@ -19,6 +19,11 @@ it('preserves OS shortcuts but can release a held control after a modifier chang
   expect(fpsControlKey(event('ControlLeft', 'Control', { metaKey: true }), true)).toBe('control');
 });
 
+it('keeps forward movement bound while holding Ctrl to crouch', () => {
+  expect(fpsControlKey(event('KeyW', 'w', { ctrlKey: true }))).toBe('w');
+  expect(fpsControlKey(event('KeyW', 'W', { ctrlKey: true, shiftKey: true }))).toBe('w');
+});
+
 it('accepts numeric keypad digits without treating Num Lock navigation as a number slot', () => {
   for (const digit of '0123456789') expect(fpsControlKey(event(`Numpad${digit}`, digit))).toBe(digit);
   expect(fpsControlKey(event('Numpad4', 'ArrowLeft'))).toBeNull();
