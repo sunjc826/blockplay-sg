@@ -27,13 +27,13 @@ export function buildDistrictWorld(id: WorldZoneId, arrival?: ZoneSpawn) {
   const zone = getWorldZone(id), region = getRegion(id);
   const world = region.build();
   const { bounds, move } = region;
-  const navigationAnchors = [...patrolSpawns(id), ...region.mapRoads.flatMap(road => road.points.flatMap((p,i) => {
+  const navigationAnchors = [...patrolSpawns(id), ...zoneSectors(id).flatMap(s=>s.anchors), ...region.mapRoads.flatMap(road => road.points.flatMap((p,i) => {
     const next=road.points[i+1]; if (!next) return [p];
     const steps=Math.ceil(Math.hypot(next.x-p.x,next.z-p.z)/20);
     return Array.from({length:steps},(_,j)=>({x:p.x+(next.x-p.x)*j/steps,z:p.z+(next.z-p.z)*j/steps}));
   }))];
   const environment: ArenaEnvironment = { bounds, move, spawns: patrolSpawns(id), endless: true, playerSpawn: arrival ?? zone.spawn,
-    battlefield: { size: DEFAULT_BATTLEFIELD_SIZE }, navigationAnchors,
+    battlefield: { size: DEFAULT_BATTLEFIELD_SIZE }, navigationAnchors, patrolSectors: zoneSectors(id),
     // The open world is where events happen: random strikes paced by risk, and the dead return on transports.
     // The battlefield fixes the roster. Heat still drives transport pace, kit and event pressure.
     combatEvents: { risk: zone.risk }, reinforcements: true, navalSites: districtNavalSites(id), paratroopers: districtParatroopers(id),

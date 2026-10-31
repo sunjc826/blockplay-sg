@@ -23,7 +23,11 @@ try {
         assert(validArenaSnapshot(snapshot,environment),`${id}/${size}: valid snapshot`);
         assert(regular.length<=size,`${id}/${size}: bounded regular roster`);
         samples.push({seconds:Math.round(snapshot.elapsed),alive:regular.filter(a=>a.alive).length,
-          factions:Object.fromEntries(['mercenaries','armed-forces'].map(f=>[f,{alive:regular.filter(a=>a.alive&&a.faction===f).length,objectives:[...new Set(regular.filter(a=>a.alive&&a.faction===f).map(a=>a.objective).filter(Boolean))]}])),
+          factions:Object.fromEntries(['mercenaries','armed-forces'].map(f=>[f,{alive:regular.filter(a=>a.alive&&a.faction===f).length,
+            duties:Object.fromEntries(['attack','sentry','patrol','respond','investigate'].map(d=>[d,regular.filter(a=>a.alive&&a.faction===f&&a.duty===d).length])),
+            patrolSectors:[...new Set(regular.filter(a=>a.alive&&a.faction===f).map(a=>a.patrolSector).filter(Boolean))],
+            objectives:[...new Set(regular.filter(a=>a.alive&&a.faction===f).map(a=>a.objective).filter(Boolean))]}])),
+          patrolCoverage:arena.patrolStatus().map(s=>({sector:s.sector,factions:s.factions})),
           moved10m:regular.filter(a=>{const p=initial.find(p=>p.id===a.id);return p&&Math.hypot(a.x-p.x,a.z-p.z)>10;}).length,
           sites:snapshot.facilities.sites.map(s=>({id:s.id,owner:s.owner,health:s.health}))});
       };

@@ -124,11 +124,13 @@ interval and shared eighty-second external gate. A warning and cargo flyover
 precede vulnerable infantry descending under parachutes to validated open ground.
 Booked casualties cannot also deploy through a command post.
 
-Bots are grouped into stable squads of up to four. A side with at least three
-living squads keeps at most one rear guard, never more than half its living
-troops. The remaining squads attack neutral or enemy sites, reinforcing active
-fronts when there are fewer targets than squads. Once every site is friendly,
-they patrol those sites instead. Existing player orders override assignments.
+Bots are grouped into stable squads of up to four. Their assignments distinguish
+camp sentries, sector patrols and offensive squads. While neutral/enemy targets
+remain, at least half the living regular troops receive offensive assignments.
+A side with at least three squads can reserve one camp team and additional
+patrol squads within that budget. Surplus attackers reinforce active fronts.
+Once every site is friendly, remaining squads spread into sector patrols.
+Existing player orders override autonomous assignments.
 
 Long advances alternate between direct routes and bounded flanks through
 authored ground anchors. Squads avoid reusing another squad's approach when
@@ -144,14 +146,30 @@ aisles, and their roofs, posts and perimeter cover participate in movement and
 gunfire. Furnishings remain after the control equipment is destroyed; rebuilding
 the central console restores the post's operation.
 
-One available soldier operates the control equipment while squadmates cover
-positions 8–14 m out. Quiet command camps send their rear guards on separate
-patrol legs approximately 18–40 m from the center. They start in different parts
-of the perimeter, walk in opposing directions and pause briefly on arrival.
-Blocked legs time out. Guards return to close defense or equipment work when
-the center is contested or damaged. Other quiet facilities retain their
-14–23 m perimeter patrols. Fighting, healing, player orders and danger avoidance
-continue during assignments.
+One available soldier operates control equipment during captures/repairs while
+squadmates cover positions 8–14 m out. In a camp team of four, two remain as
+local sentries and two patrol the surrounding named sector. Additional patrol
+squads can cover sectors without a camp. A camp is a physical location; its
+ownership does not establish security across its sector.
+
+Sector patrols use the sector's reachable anchors and road points rather than
+a radius around the camp. They lease different stops, prefer ground not visited
+recently, and pause briefly after arrival. Physical visits within 12 m of a
+sampled stop count toward coverage, including friendly troops passing through;
+orders, planned destinations and failed paths do not. Coverage becomes stale
+after 90 seconds. The director can shift patrol squads between sectors after
+their initial assignment period. This measures sampled route coverage, not a
+percentage of every walkable square metre.
+
+Known sightings can interrupt a patrol for a ten-second investigation within
+or just outside its assigned area, followed by a fifteen-second patrol interval.
+Continuous sightings cannot renew pursuit indefinitely. Blocked legs time out
+and temporarily exclude the failed stop. A threatened or damaged command camp
+can recall at most two nearby patrollers within 110 m, and no more than half
+the patrollers on that side, leaving others on coverage. They resume their
+sector assignment when the camp is clear. Sentries, combat, wounds, explicit
+player orders and danger avoidance continue independently. Legacy environments
+without named patrol areas retain their local perimeter behavior.
 
 ## Persistence and scope
 

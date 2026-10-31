@@ -44,6 +44,7 @@ import { createBotSpotting, spottingStance, type BotSpotting, type SpottingCandi
 import { objectiveApproach, objectiveStep, spacedObjectiveStep } from './bot-objectives';
 import { assignBattlefieldFronts, BATTLEFIELD_POPULATIONS, type BattlefieldSize } from './battlefield';
 import { commandPatrolStops, guardPatrolGoal, type GuardPatrol } from './command-camp';
+import { advancePatrolInvestigation, createSectorPatrols, SECTOR_PATROL, type BattlefieldDuty, type PatrolInvestigation, type PatrolSector } from './sector-patrols';
 import { createHeatField, HEAT_TUNING, type HeatBand, type HeatSector } from './faction-heat';
 import { BOT_RANKS, drawRank, type BotRank } from './arena-ranks';
 import { ELITE_SQUAD, eliteRoster, eliteSquadPoints, isEliteEvent, isEliteRole } from './elite-squads';
@@ -95,6 +96,8 @@ export interface ArenaActor {
   squad?: string;
   /** Current squad objective, for the tactical snapshot and diagnostics. */
   objective?: string;
+  duty?: BattlefieldDuty;
+  patrolSector?: string;
   /** An occupant of a scripted transport or raid helicopter, separate from the drivable fleet. */
   transport?: string;
   /** Helicopter pilot or a passenger firing their own rifle. */
@@ -168,6 +171,8 @@ export interface ArenaVitals { health: number; armor: number }
 export interface ArenaEnvironment {
   battlefield?: { size: BattlefieldSize };
   navigationAnchors?: readonly { x: number; z: number }[];
+  /** Geographical patrol areas, independent of camp footprints and heat. */
+  patrolSectors?: readonly PatrolSector[];
   paratroopers?: boolean;
   /** Built-scene canopy clearance, including foliage; never supplied by guests. */
   dropColumnClear?: (p: CombatPlane, floor: number) => boolean;
@@ -338,6 +343,7 @@ interface InternalActor {
   mission?: { x: number; z: number; y?: number };
   assignment?: { site: string; via?: ArenaPoint; until: number };
   guardPatrol?: GuardPatrol;
+  investigation?: PatrolInvestigation;
   /** Bots: when they last saw an enemy or were hit, which decides whether a sighting is a fresh contact and whether they are calm enough to chat. */
   lastFight?: number;
   /** Bots: reloading, or running from a marked barrage, as of the last tick, so the bark goes with the start of it. */
@@ -496,10 +502,17 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (feed.length > 8) feed.shift();
   };
   const groundObstacles = obstacles.filter(o => (o.maxY ?? 200) > 0.15);
-  const clearSpawn = (p: { x: number; z: number }) => Number.isFinite(p.x) && Number.isFinite(p.z) &&
+  const patrolGround = (x:number,z:number) => {
+    const floor=bounds.groundHeight?.(x,z)??0;
+    return traversal?.supportHeight(x,z,floor+.35,.4,1.8)??floor;
+  };
+  const clearSpawn = (p: { x: number; z: number }) => {
+    const floor=patrolGround(p.x,p.z);
+    return Number.isFinite(p.x) && Number.isFinite(p.z) &&
     p.x - 0.5 >= bounds.minX && p.x + 0.5 <= bounds.maxX && p.z - 0.5 >= bounds.minZ && p.z + 0.5 <= bounds.maxZ &&
     !vehicles.some(v => { if (v.despawned) return false; const b = vehicleBounds(v); return v.y < 2 && p.x + .5 > b.minX && p.x - .5 < b.maxX && p.z + .5 > b.minZ && p.z - .5 < b.maxZ; }) &&
-    !groundObstacles.some(o => p.x + 0.5 > o.minX && p.x - 0.5 < o.maxX && p.z + 0.5 > o.minZ && p.z - 0.5 < o.maxZ);
+    !groundObstacles.some(o => (o.minY??0)<floor+1.8 && (o.maxY??Infinity)>floor && p.x + 0.5 > o.minX && p.x - 0.5 < o.maxX && p.z + 0.5 > o.minZ && p.z - 0.5 < o.maxZ);
+  };
   const validSpawns = (environment?.spawns ?? SPAWNS).filter(clearSpawn);
   if (!validSpawns.length) {
     const area = environment ? { minX: bounds.minX + 0.75, maxX: bounds.maxX - 0.75, minZ: bounds.minZ + 0.75, maxZ: bounds.maxZ - 0.75 } : { minX: -78, maxX: 20, minZ: 54, maxZ: 80 };
@@ -511,6 +524,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   // Real Marina has many valid spawn points; explicit failure avoids spawning inside walls.
   if (!validSpawns.length) throw new Error('No clear arena spawn point is available.');
+  const sectorPatrols = environment?.patrolSectors?.length ? createSectorPatrols(environment.patrolSectors,navigationAnchors,p=> {
+    const y=patrolGround(p.x,p.z);
+    return clearSpawn(p) && (!traversal || traversal.canOccupy(p.x,y,p.z,.4,1.8) && Math.abs((traversal.supportHeight(p.x,p.z,y+.1,.4,1.8)??100)-y)<.1);
+  },patrolGround) : undefined;
   const respawnChoices = new Map<string, { selected: string | null; automatic: boolean }>();
   const spawn = (entry: InternalActor, destination?: { x: number; z: number; y: number; yaw: number }) => {
     releaseSeat(entry.actor.id);
@@ -554,7 +571,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (entry.actor.bot && entry.actor.faction === 'mercenaries' && ['assault', 'tank'].includes(entry.role?.id ?? '')) { entry.actor.grenade = entry.role?.id === 'tank' ? 'grenade-smoke' : 'grenade-frag'; entry.grenadeSupplies[entry.actor.grenade] = 1; } else delete entry.actor.grenade;
     entry.velocity = undefined; entry.speed = 0; entry.lastAt = undefined; entry.aimFocus = undefined; entry.turn = undefined;
     entry.spotting = undefined; entry.shotFlash = undefined;
-    entry.parachute = undefined; delete entry.actor.parachuting; entry.navigation = undefined; entry.assignment = undefined; entry.guardPatrol = undefined; entry.mission = undefined; delete entry.actor.objective; entry.navalTransit = undefined; delete entry.actor.ground; entry.evacuating = undefined; entry.vehicleBoardAfter = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
+    entry.parachute = undefined; delete entry.actor.parachuting; entry.navigation = undefined; entry.assignment = undefined; entry.guardPatrol = undefined; entry.investigation = undefined; sectorPatrols?.release(entry.actor.id); entry.mission = undefined; delete entry.actor.objective; delete entry.actor.duty; delete entry.actor.patrolSector; entry.navalTransit = undefined; delete entry.actor.ground; entry.evacuating = undefined; entry.vehicleBoardAfter = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false; entry.threat = undefined; entry.grudge = undefined;
   };
   function sanitizeWeapons(weapons: readonly ArenaWeapon[]) {
@@ -1999,16 +2016,80 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const squadApproaches = new Map<string, { site: string; via?: ArenaPoint; until: number }>();
   let approachSerial = 0;
   function stepSquads(dt: number) {
-    if (!facilities || (squadThink -= dt) > 0) return;
+    if ((!facilities && !sectorPatrols?.areas.length) || (squadThink -= dt) > 0) return;
+    const sites=facilities?.sites??[];
     squadThink = 2;
     const groups = new Map<string, InternalActor[]>();
     for (const entry of members.values()) if (entry.actor.squad && entry.actor.alive && !entry.reserve && !entry.temporary) {
       const group = groups.get(entry.actor.squad) ?? []; group.push(entry); groups.set(entry.actor.squad, group);
     }
-    const assignments = assignBattlefieldFronts([...groups].map(([id,group]) => ({ id, faction:group[0].actor.faction as SquadFaction,
-      x:group[0].actor.x, z:group[0].actor.z, members:group.length, previous:squadObjectives.get(id) })), facilities.sites);
+    const teams=[...groups].map(([id,group]) => ({ id, faction:group[0].actor.faction as SquadFaction,
+      x:group.reduce((n,m)=>n+m.actor.x,0)/group.length,z:group.reduce((n,m)=>n+m.actor.z,0)/group.length,
+      members:group.length,previous:squadObjectives.get(id),available:group.every(m=>!m.actor.vehicle&&!m.actor.transport&&!m.parachute&&(!m.order||m.order.until<=elapsed)) }));
+    const director=sectorPatrols?.areas.length?sectorPatrols:undefined;
+    director?.observe([...members.values()].filter(m=>m.actor.alive&&!m.reserve&&!m.actor.vehicle&&!m.actor.transport&&!m.parachute).map(m=>m.actor),elapsed);
+    const duties=director?.allocate(teams,sites,elapsed);
+    const assignments = assignBattlefieldFronts(teams.filter(t=>!duties?.has(t.id)), sites, {rearGuard:!director});
+    const patrollers:InternalActor[]=[];
+    const setDuty=(entry:InternalActor,duty:BattlefieldDuty,sector?:string)=>{
+      const before=entry.actor.duty==='investigate'?'patrol':entry.actor.duty,after=duty==='investigate'?'patrol':duty;
+      if(entry.actor.patrolSector!==sector || before!==after) {
+        entry.investigation=undefined;entry.navigation=undefined;entry.assignment=undefined;
+      }
+      entry.actor.duty=duty;
+      if(sector)entry.actor.patrolSector=sector;else delete entry.actor.patrolSector;
+    };
+    const postSlot=(entry:InternalActor,site:FacilityState,radius:number,angle:number)=>{
+      const slot=Array.from({length:12},(_,i)=>({x:site.x+Math.sin(angle+i*Math.PI/6)*radius,z:site.z+Math.cos(angle+i*Math.PI/6)*radius})).find(clearSpawn);
+      entry.mission=slot?{...slot,y:patrolGround(slot.x,slot.z)+1.75}:undefined;
+    };
+    if(director&&duties) {
+      for(const [id,group] of groups) {
+        const duty=duties.get(id);if(!duty)continue;
+        const home=sites.find(s=>s.id===duty.homeCamp);
+        const sentries=duty.kind==='camp-defense'?Math.min(2,Math.max(1,Math.floor(group.length/2))):0;
+        if(sentries&&home)squadObjectives.set(id,home.id);else squadObjectives.delete(id);
+        group.forEach((entry,i)=>{
+          entry.assignment=undefined;entry.guardPatrol=undefined;
+          if(i<sentries&&home) {
+            setDuty(entry,'sentry');entry.actor.objective=home.id;
+            const working=facilityActionFor(home,entry.actor.faction)!==null;
+            postSlot(entry,home,working&&i===0?2.6:8+i*4,i*Math.PI+(working||home.contested?0:Math.floor(elapsed/35)*Math.PI/2));
+            if(i===0)facilities?.request(home.id,entry.actor.id);
+          } else {setDuty(entry,entry.actor.duty==='respond'?'respond':'patrol',duty.sector);delete entry.actor.objective;patrollers.push(entry);}
+        });
+      }
+      const responders=new Map<string,FacilityState>();
+      for(const faction of ['mercenaries','armed-forces'] as const) {
+        const side=patrollers.filter(m=>m.actor.faction===faction),limit=Math.min(2,Math.floor(side.length/2));
+        for(const site of sites.filter(s=>s.kind==='command'&&s.owner===faction&&(s.contested||s.health<s.maxHealth))) {
+          for(const member of side.filter(m=>!responders.has(m.actor.id)&&distance(m.actor,{...site,y:site.y+1.75})<SECTOR_PATROL.respondRadius)
+            .sort((a,b)=>Math.hypot(a.actor.x-site.x,a.actor.z-site.z)-Math.hypot(b.actor.x-site.x,b.actor.z-site.z))) {
+            if(side.filter(m=>responders.has(m.actor.id)).length>=limit)break;
+            responders.set(member.actor.id,site);
+          }
+        }
+      }
+      const covering=new Set<string>();
+      for(const entry of patrollers) {
+        const site=responders.get(entry.actor.id);
+        if(site) {
+          setDuty(entry,'respond',entry.actor.patrolSector);entry.investigation=undefined;entry.actor.objective=site.id;
+          const ids=[...responders].filter(([,s])=>s.id===site.id).map(([id])=>id),index=ids.indexOf(entry.actor.id);
+          const worker=facilityActionFor(site,entry.actor.faction)!==null&&(site.action?site.action.by===entry.actor.id:index===0);
+          postSlot(entry,site,worker?2.6:10+index*2,index*Math.PI);facilities?.request(site.id,entry.actor.id);
+        } else {
+          setDuty(entry,'patrol',entry.actor.patrolSector);
+          const point=director.goal({id:entry.actor.id,faction:entry.actor.faction as SquadFaction,sector:entry.actor.patrolSector!,x:entry.actor.x,z:entry.actor.z},elapsed);
+          entry.mission=point?{...point,y:patrolGround(point.x,point.z)+1.75}:undefined;
+          covering.add(entry.actor.id);
+        }
+      }
+      director.sync(covering);
+    }
     for (const [id, group] of groups) {
-      const site=facilities.sites.find(s=>s.id===assignments.get(id)); if (!site) continue;
+      if(duties?.has(id))continue;
+      const site=sites.find(s=>s.id===assignments.get(id)); if (!site) continue;
       squadObjectives.set(id,site.id);
       const leader=group.find(m=>m.actor.id===site.action?.by && (!m.order || m.order.until<=elapsed)) ?? group.find(m=>!m.order || m.order.until<=elapsed) ?? group[0];
       const working = facilityActionFor(site, leader.actor.faction) !== null;
@@ -2017,15 +2098,16 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         const center = { x: group.reduce((n,m)=>n+m.actor.x,0)/group.length, z: group.reduce((n,m)=>n+m.actor.z,0)/group.length };
         const point = working ? objectiveApproach(center, site, navigationAnchors, (approachSerial++ % 3) - 1, clearSpawn,
           [...squadApproaches.values()].flatMap(a=>a.via && a.until>elapsed?[a.via]:[])) : undefined;
-        approach = { site: site.id, via: point ? {...point,y:groundHeight(point.x,point.z)+1.75} : undefined,
+        approach = { site: site.id, via: point ? {...point,y:patrolGround(point.x,point.z)+1.75} : undefined,
           until: elapsed + (point ? Math.hypot(center.x-point.x,center.z-point.z) / 2 + 20 : 0) };
         squadApproaches.set(id, approach);
       }
       group.forEach((entry,i)=> {
+        if(director)setDuty(entry,'attack');
         entry.actor.objective=site.id;
         if (entry.assignment?.site !== site.id) { entry.assignment = {...approach}; entry.navigation=undefined; }
         const patrolling = site.kind==='command' && !working && !site.contested && (!entry.order || entry.order.until<=elapsed);
-        const stops = patrolling ? site.camp?.patrol ?? commandPatrolStops(site,(x,z)=>clearSpawn({x,z}),groundHeight) : [];
+        const stops = patrolling ? site.camp?.patrol ?? commandPatrolStops(site,(x,z)=>clearSpawn({x,z}),patrolGround) : [];
         const patrol = patrolling ? guardPatrolGoal(entry.guardPatrol,site.id,stops,entry.actor,elapsed,i) : undefined;
         if(patrol) {
           entry.guardPatrol=patrol.state;
@@ -2044,9 +2126,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         // Capture slots must be reachable at the objective's actual terrain height.
         const fallback=[radius,2.6].flatMap(r=>Array.from({length:12},(_,j)=>({x:site.x+Math.sin(angle+j*Math.PI/6)*r,z:site.z+Math.cos(angle+j*Math.PI/6)*r}))).find(clearSpawn);
         const slot=clearSpawn(point)?point:fallback;
-        entry.mission=slot?{...slot,y:groundHeight(slot.x,slot.z)+1.75}:undefined;
+        entry.mission=slot?{...slot,y:patrolGround(slot.x,slot.z)+1.75}:undefined;
       });
-      if (!leader.order || leader.order.until<=elapsed) facilities.request(site.id,leader.actor.id);
+      if (!leader.order || leader.order.until<=elapsed) facilities?.request(site.id,leader.actor.id);
     }
   }
   /** Battlefield rosters stay fixed; heat still controls kit, events and reserve timing. */
@@ -2566,9 +2648,17 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (d >= 5 && d <= 25) { const angle = Math.asin(Math.min(.95, 9.8 * d / (speed * speed))) / 2;
         throwGrenade(actor.id, { id: actor.grenade, origin: actor, direction: { x: dx / d * Math.cos(angle), y: Math.sin(angle), z: dz / d * Math.cos(angle) }, under: false, cooked: 0 }); }
     }
-    if (tryBoardVehicle(entry, visible, dt)) { entry.aimFocus = undefined; return; }
+    if (actor.duty!=='sentry'&&!actor.patrolSector&&tryBoardVehicle(entry, visible, dt)) { entry.aimFocus = undefined; return; }
     if (role.id === 'overwatch') { if (visible) actor.aiming = true; else delete actor.aiming; }
     if (visible) { if (elapsed - (entry.lastFight ?? -Infinity) > 6) bark(entry, 'contact'); entry.lastFight = elapsed; }
+    const patrolling=actor.patrolSector&&(actor.duty==='patrol'||actor.duty==='investigate')&&!entry.order;
+    if(patrolling&&sectorPatrols) {
+      const before=entry.investigation,clue=enemy?.actor??searching;
+      entry.investigation=advancePatrolInvestigation(before,clue,actor,elapsed,p=>sectorPatrols.contains(actor.patrolSector!,p,SECTOR_PATROL.pursuitMargin)&&clearSpawn(p));
+      const active=entry.investigation&&elapsed<entry.investigation.until;
+      if(!!active!==(!!before&&elapsed-dt<before.until))entry.navigation=undefined;
+      actor.duty=active?'investigate':'patrol';
+    }
     const intent = role.think({ distance: horizontal, visible, healthFraction: actor.health / entry.healthMax, strafeDirection: entry.strafe });
     let approach = Number.isFinite(intent.approach) ? clamp(intent.approach, -1, 1) : 0;
     const wounded = botWantsHeal({ health: actor.health, healthMax: entry.healthMax, medkits: entry.medkits, sinceHurt: elapsed - entry.lastHurt, visible, danger: !!dangerExit(actor) });
@@ -2593,7 +2683,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (assignment?.via && (elapsed >= assignment.until || Math.hypot(actor.x-assignment.via.x,actor.z-assignment.via.z)<5)) {
       assignment.via=undefined; entry.navigation=undefined;
     }
-    const mission = assignment?.via ?? entry.mission;
+    const investigation=patrolling&&entry.investigation&&elapsed<entry.investigation.until?entry.investigation.point:undefined;
+    const mission = investigation?{...investigation,y:patrolGround(investigation.x,investigation.z)+1.75}:assignment?.via??entry.mission;
     const destination: ArenaPoint = evading?.cover ?? (mission ? { ...mission, y: mission.y ?? 1.75 } : target);
     if (evading?.cover) {
       const d = Math.hypot(destination.x - actor.x, destination.z - actor.z), step = Math.min(Math.max(0, d - .4), role.speed * dt);
@@ -2607,7 +2698,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const step = objectiveStep(actor, mission, { dx: dxStep, dz: dzStep }, role.speed * dt);
       dxStep = step.dx; dzStep = step.dz;
     }
-    const routeNeeded = !!entry.mission || !visible && !!searching || !!evading?.cover || Math.abs(target.y - actor.y) > .6 || !!entry.navigation?.pending || !!entry.navigation?.path.length;
+    const routeNeeded = !!mission || !visible && !!searching || !!evading?.cover || Math.abs(target.y - actor.y) > .6 || !!entry.navigation?.pending || !!entry.navigation?.path.length;
     if (!routeNeeded) entry.navigation = undefined;
     if(!entry.anchor && (!evading || !!evading.cover) && ((navigator && routeNeeded) || entry.navigation?.path.length)) {
       const feet={x:actor.x,y:Math.max(0,actor.y-1.75),z:actor.z};
@@ -2940,7 +3031,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function reset() {
     grenadeSystem.reset();
     facilities = environment?.facilities ? createFacilities(environment.facilities.sites) : null;
-    squadObjectives.clear(); squadApproaches.clear(); approachSerial = 0; squadThink = 0;
+    squadObjectives.clear(); squadApproaches.clear(); sectorPatrols?.reset(); approachSerial = 0; squadThink = 0;
     for (const f of SQUAD_FACTIONS) { reserveAt[f] = FACILITY_RULES.reserveSeconds; navalAt[f] = NAVAL.interval; airborneAt[f] = PARATROOPERS.interval; }
     tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; barks.length = 0; replies.length = 0; barker.reset(); idleIn = BARK_TUNING.idleEvery[0]; controls.clear(); vehicleLife.clear(); events.length = 0; raiders.clear(); transports.clear(); airborneMissions.clear(); liveClouds = []; heat.clear(); interests.length = 0; director?.reset();
     flying.length = 0; landed.clear(); impacts.length = 0;
@@ -2981,7 +3072,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (recruit) addMember(id, name, role.armor, role.absorption, weapons, false, undefined, role); else addPlayer(id, name, role.armor, role.absorption, weapons, undefined, false, undefined, role);
     const entry = members.get(id)!; entry.role = role; entry.healthMax = role.health; entry.callsign = name;
     Object.assign(entry.actor, { bot: true, role: role.id, faction });
-    if (facilities) { const sameSide = [...members.values()].filter(m => m !== entry && m.actor.bot && !m.temporary && m.actor.faction === faction).length; entry.actor.squad = `${faction}-${Math.floor(sameSide / 4) + 1}`; }
+    if (facilities || sectorPatrols?.areas.length) { const sameSide = [...members.values()].filter(m => m !== entry && m.actor.bot && !m.temporary && m.actor.faction === faction).length; entry.actor.squad = `${faction}-${Math.floor(sameSide / 4) + 1}`; }
     spawn(entry);
     if (facilities && !facilities.sites.some(s => s.kind === 'command' && facilityOperational(s, faction))) { entry.reserve = true; entry.actor.alive = false; entry.actor.respawnIn = 0; entry.waiting = elapsed; }
     if (recruit) { entry.recruit = true; entry.reserve = true; Object.assign(entry.actor, { alive: false, respawnIn: 0 }); entry.waiting = elapsed; }
@@ -2989,8 +3080,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   for (let i = 0; i < count; i++) enlist();
   if (facilities) for (let i = 0; i < (environment?.battlefield ? BATTLEFIELD_POPULATIONS[environment.battlefield.size][PLAYER_FACTION] : 4); i++) enlist(false, PLAYER_FACTION);
-  const navigationStatus = () => [...members.values()].filter(m=>m.actor.bot && m.actor.alive && m.actor.squad).map(m=>({id:m.actor.id,objective:m.actor.objective,pending:!!m.navigation?.pending,path:m.navigation?.path.length??0,x:m.actor.x,z:m.actor.z,goal:m.navigation?.target,via:m.assignment?.via,mission:m.mission}));
-  return { navigationStatus, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  const navigationStatus = () => [...members.values()].filter(m=>m.actor.bot && m.actor.alive && m.actor.squad).map(m=>({id:m.actor.id,objective:m.actor.objective,duty:m.actor.duty,sector:m.actor.patrolSector,pending:!!m.navigation?.pending,path:m.navigation?.path.length??0,x:m.actor.x,z:m.actor.z,goal:m.navigation?.target,via:m.assignment?.via,mission:m.mission}));
+  const patrolStatus = () => sectorPatrols?.status(elapsed)??[];
+  return { patrolStatus, navigationStatus, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

@@ -1,0 +1,34 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sector patrol coverage</title><style>
+*{box-sizing:border-box}body{margin:0;background:#111f25;color:#deebe6;font:14px system-ui}header{padding:16px 22px;background:#1d3036}h1{font-size:21px;margin:0 0 5px}p{margin:5px 0;color:#b2c8c2}#map{display:block;width:100vw;height:calc(100vh - 127px)}#stats{font-variant-numeric:tabular-nums}footer{position:absolute;bottom:10px;left:16px;padding:6px 10px;background:#132327db;border-radius:6px;font-size:12px;max-width:95vw}
+</style></head><body><header><h1>Sector patrol coverage</h1><p>Named areas extend beyond camps. Filled waypoints show physical visits; dashed lines show current patrol destinations.</p><div id="stats">Loading</div></header><canvas id="map"></canvas><footer>Blue: Armed Forces · Coral: Black Kite · Squares: sentries · Triangles: offense · Circles: patrols · Grey waypoints: unattended</footer><script type="module">
+import {createBattlefieldScenario} from '/scripts/lib/battlefield-scenario.ts';
+import {getRegion} from '/src/game/regions.ts';
+const canvas=document.querySelector('#map'),context=canvas.getContext('2d');let trial,zone;
+window.loadTrial=(id='marina-bay',size=32)=>{trial?.dispose();zone=id;trial=createBattlefieldScenario(id,size);trial.arena.step(.05);draw();return status();};
+function status(){const state=trial.arena.snapshot();return {seconds:state.elapsed,actors:state.actors.filter(a=>a.bot&&a.squad&&a.alive),coverage:trial.arena.patrolStatus(),sites:trial.sites,navigation:trial.arena.navigationStatus()};}
+window.patrolState=status;
+function draw(){if(!trial)return;const s=status(),b=trial.world.bounds,w=canvas.width,h=canvas.height,scale=Math.min((w-50)/(b.maxX-b.minX),(h-45)/(b.maxZ-b.minZ));
+ const ox=(w-(b.maxX-b.minX)*scale)/2,oz=(h-(b.maxZ-b.minZ)*scale)/2;
+ const xy=p=>[ox+(p.x-b.minX)*scale,oz+(p.z-b.minZ)*scale];context.fillStyle='#14262d';context.fillRect(0,0,w,h);
+ context.strokeStyle='#426063';context.lineWidth=3;
+ for(const road of getRegion(zone).mapRoads){context.beginPath();road.points.forEach((p,i)=>{const [x,y]=xy(p);i?context.lineTo(x,y):context.moveTo(x,y);});context.stroke();}
+ for(const area of s.coverage){const [x,y]=xy({x:area.bounds.minX,z:area.bounds.minZ}),aw=(area.bounds.maxX-area.bounds.minX)*scale,ah=(area.bounds.maxZ-area.bounds.minZ)*scale;
+  context.fillStyle='#8bbdad0c';context.fillRect(x,y,aw,ah);context.strokeStyle='#607e73';context.lineWidth=1;context.strokeRect(x,y,aw,ah);
+  context.fillStyle='#d1e1d4';context.font=`${Math.max(9,Math.min(13,w/95))}px system-ui`;context.fillText(area.name,x+5,y+13);
+  for(const point of area.points){const [px,py]=xy(point),blue=point.last['armed-forces'],red=point.last.mercenaries,visited=blue!==undefined||red!==undefined;
+   const last=Math.max(blue??-Infinity,red??-Infinity);context.fillStyle=!visited?'#5e7378':s.seconds-last>90?'#b09c63':(blue??-Infinity)>(red??-Infinity)?'#65c9f0':'#ef987b';
+   context.beginPath();context.arc(px,py,visited?3.5:2,0,Math.PI*2);context.fill();}
+ }
+ for(const site of s.sites){const [x,y]=xy(site);context.strokeStyle=site.initialOwner==='armed-forces'?'#8cd6f3':'#efb28c';context.strokeRect(x-5,y-5,10,10);}
+ context.setLineDash([3,5]);context.lineWidth=1;context.strokeStyle='#cdd6a877';
+ for(const n of s.navigation.filter(n=>n.duty==='patrol'||n.duty==='investigate'))if(n.mission){context.beginPath();context.moveTo(...xy(n));context.lineTo(...xy(n.mission));context.stroke();}context.setLineDash([]);
+ for(const actor of s.actors){const [x,y]=xy(actor);context.fillStyle=actor.faction==='armed-forces'?'#72d5ff':'#ff9d80';context.beginPath();
+  if(actor.duty==='sentry')context.rect(x-4,y-4,8,8);else if(actor.duty==='attack'){context.moveTo(x,y-5);context.lineTo(x+4,y+4);context.lineTo(x-4,y+4);context.closePath();}else context.arc(x,y,4,0,Math.PI*2);context.fill();}
+ const counts=Object.fromEntries(['attack','sentry','patrol','respond','investigate'].map(d=>[d,s.actors.filter(a=>a.duty===d).length]));
+ const visited=s.coverage.reduce((n,a)=>n+a.points.filter(p=>Object.keys(p.last).length>0).length,0),total=s.coverage.reduce((n,a)=>n+a.points.length,0);
+ document.querySelector('#stats').textContent=`${zone} · ${Math.round(s.seconds)}s · ${counts.attack} offense / ${counts.sentry} sentries / ${counts.patrol} patrol / ${counts.respond} responding / ${counts.investigate} investigating · ${visited}/${total} waypoints visited`;
+}
+window.advance=async(seconds)=>{const samples=[];for(let i=0;i<seconds*20;i++){trial.arena.step(.05);if(i%200===0){samples.push(status());draw();await new Promise(r=>setTimeout(r,0));}}draw();return {samples,final:status()};};
+function resize(){canvas.width=innerWidth;canvas.height=Math.max(250,innerHeight-127);draw();}addEventListener('resize',resize);resize();
+window.dispose=()=>{trial?.dispose();removeEventListener('resize',resize)};window.ready=true;
+</script></body></html>

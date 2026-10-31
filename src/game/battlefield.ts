@@ -11,7 +11,7 @@ export const BATTLEFIELD_POPULATIONS: Record<BattlefieldSize, Record<SquadFactio
 export interface BattlefieldSquad { id: string; faction: SquadFaction; x: number; z: number; previous?: string; members?: number }
 
 /** Allocate fronts together: distance, urgency and continuity, with a strong cost for piling on. */
-export function assignBattlefieldFronts(squads: readonly BattlefieldSquad[], sites: readonly FacilityState[]) {
+export function assignBattlefieldFronts(squads: readonly BattlefieldSquad[], sites: readonly FacilityState[], options: { rearGuard?: boolean } = {}) {
   const assignments = new Map<string, string>();
   for (const faction of ['mercenaries', 'armed-forces'] as const) {
     const groups = squads.filter(s => s.faction === faction).sort((a,b) => a.id.localeCompare(b.id));
@@ -21,7 +21,7 @@ export function assignBattlefieldFronts(squads: readonly BattlefieldSquad[], sit
     const home = homes.find(s => s.initialOwner === faction) ?? homes[0];
     const total = groups.reduce((n, s) => n + (s.members ?? 4), 0);
     const guards = groups.filter(s => (s.members ?? 4) <= total / 2);
-    const guard = home && groups.length >= 3 ? guards.find(s=>s.previous===home.id) ?? [...guards].sort((a,b) => Math.hypot(a.x-home.x,a.z-home.z)-Math.hypot(b.x-home.x,b.z-home.z))[0] : undefined;
+    const guard = options.rearGuard !== false && home && groups.length >= 3 ? guards.find(s=>s.previous===home.id) ?? [...guards].sort((a,b) => Math.hypot(a.x-home.x,a.z-home.z)-Math.hypot(b.x-home.x,b.z-home.z))[0] : undefined;
     if (guard && home) { assignments.set(guard.id, home.id); loads.set(home.id, 1); }
     // Surplus attack squads reinforce an active front instead of filling every
     // friendly cabinet. Even a contested home may only keep the rear guard.
