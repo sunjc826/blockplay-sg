@@ -6039,3 +6039,64 @@ symlink, and included the server sources required by the Worker. Private env
 copies and the deployment lock were removed. Temporary release removed after
 verification. No GitHub push. AGENTS.md stays local, unstaged and uncommitted;
 pre-existing handoff/.claude changes remain intact.
+
+## Little India and Katong / Joo Chiat (2026-10-31)
+
+Owner requested both previously suggested heritage areas. Local main code commit
+`9448d56` adds districts 21 and 22, with eleven stamps each. Little India has a
+Tekka-inspired open market/gallery, painted villa, Campbell Lane apron, faceted
+heritage-centre form, tiered temple gateway and textile/flower arcades. Katong /
+Joo Chiat has facing pastel terraces, arched mouldings and shutters, paved
+five-foot ways, separate rear lanes, a Red House-inspired corner, raised porch,
+food row and a generic public pavilion veranda. Market/gallery headroom and
+porch/arcade paving were corrected during visual review. Closed residential
+rooms remain separate from public paths. No fictional beachfront was added.
+
+Both use shared walking/driving, FPS ranges, vehicles, two NPCs, seven capture
+sites, deployment choices, upper-floor loot and travel. Little India is medium
+risk, tier 2, four mixed patrol bots and nine tactical supplies, connected to
+Kampong Glam/Orchard. Katong is low risk, tier 1, three assault patrol bots and
+seven tactical supplies, connected to Geylang/Changi. Yishun retains its distinct
+high-pressure joke tuning. Nineteen new sectors bring the total to 223. The
+inland reinforcement list now has fifteen districts. Registry, picker, locator,
+minimaps, About and current documentation count twenty-two. The region browser
+smoke now resolves display names through the registry, including the slash in
+Katong / Joo Chiat, instead of constructing IDs from labels.
+
+Sources/scope: `docs/HERITAGE-DISTRICTS.md` lists public STB, NHB, URA and SG101
+research. Geometry is schematic, not a surveyed reconstruction. Both record an
+empty referenceFeatures list and have no reviewed learning cards. No accepted
+photographic records were invented, and no paid captures/model/audio requests
+were made. Existing recordings and food items are reused.
+
+Validation: all 36 focused cases across ten files pass on final geometry,
+including car-width road/stamp/anchor reachability, checkpoints, FPS sightlines,
+vehicle departure/exit clearance, facilities, loot, measured cover, upper-floor
+walking/diagnostics, batching/disposal and map-cover authority. Typecheck and
+Cloudflare build pass. The broad suite passed 2,329 cases / 245 files, with one
+existing failure in the Upper Thomson thomson-plaza ground anchor (already
+reproduced on pre-Yishun main in `.cache/yishun/baseline-thomson.log`). No broad
+suite pass is claimed. Final focused checks cover subsequent paving/roof tweaks.
+
+Real Chrome checks pass both open-world entries, movement, actual target damage
+and elimination, two NPCs/seven facilities, and 390 px mobile layout. Walking
+collected one stamp after 10 m in each map; driving preserved it and increased
+distance to 25 m / 24 m. The shared region smoke also passes desktop reset,
+stationary/moving camera orbit, independent car trajectory, recenter/mode switch,
+mobile touch layout and map mouse/keyboard selection for both districts. No
+runtime exceptions or paid/map requests. Render reviews include landmark street
+views and market gallery, pavilion and raised-porch aerial/entry/floor views.
+Evidence/scripts: `.cache/heritage-districts/`; final place images/report remain
+in `.cache/verticality-review/`.
+
+Manual `pnpm deploy:cloudflare` succeeded: version
+`263ff877-00a0-46d2-89f5-96d1c6c74835`. The isolated release matched 1,975 selected
+runtime/server/script/public files of exact `9448d56256636b9a66de8cbd7111b0967c147985`.
+Both production domains serve exact release HTML, entry JS/CSS, Three.js and
+service worker (ten byte comparisons). Production routing/PWA/model/audio/
+API-origin checks pass without paid requests. Logs and JSON receipts are in
+`.cache/heritage-districts/`. Installed dependencies were reused by symlink;
+only that release's dependency auto-verification was disabled. Private environment
+copies and the shared deployment lock were removed. Temporary release/profile
+removed and task Vite/Chrome stopped after checks. No GitHub push. AGENTS.md stays
+local, untracked and unstaged; pre-existing handoff/.claude work is preserved.
