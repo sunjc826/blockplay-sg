@@ -14,15 +14,62 @@
  .fps-game[data-touch=on] .fps-vehicle-hud[data-personal]>b{display:none}
 }
 
-/* Quiet, transparent flight symbology leaves the windscreen and outside view clear. */
-.helicopter-flight-hud{position:absolute;pointer-events:none;left:50%;top:47%;transform:translate(-50%,-50%);width:min(68%,850px);color:#a0fbc4;filter:drop-shadow(0 1px 2px #001c10);opacity:.87}
-.helicopter-flight-hud svg{display:block;width:100%;overflow:visible;fill:currentColor;font:13px ui-monospace,monospace;letter-spacing:1px}
-.helicopter-flight-hud path{fill:none;stroke:currentColor;stroke-width:1.4}
-.helicopter-flight-hud .flight-value{font-size:25px;letter-spacing:0}
-.helicopter-flight-hud[data-warning]{color:#ffb37d}
-@media(max-width:700px){.helicopter-flight-hud{width:92%;top:43%}}
-@media(max-height:500px){.helicopter-flight-hud{width:min(65%,570px);top:48%}}
-
-.fps-game .fps-vehicle-hud[data-cockpit]{max-width:240px;padding:10px;background:#0c151b9c;border-radius:3px}
-.fps-game .fps-vehicle-hud[data-cockpit]>strong,.fps-game .fps-vehicle-hud[data-cockpit]>b,.fps-game .fps-vehicle-hud[data-cockpit] .fps-vehicle-seats{display:none}
-@media(max-width:700px){.helicopter-flight-hud svg{font-size:18px}.helicopter-flight-hud .flight-value{font-size:28px}}
+/* Flight symbology has no backing surface and a single, restrained contrast shadow. */
+.helicopter-flight-hud{position:absolute;pointer-events:none;left:50%;top:46%;transform:translate(-50%,-50%);width:min(70%,780px);color:#d6fff1;opacity:.88;filter:drop-shadow(0 1px .8px #002a2dd9)}
+.helicopter-flight-hud svg{display:block;width:100%;overflow:visible;fill:currentColor;font:400 10px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;letter-spacing:1px}
+.helicopter-flight-hud path{fill:none;stroke:currentColor;stroke-width:.9;stroke-linecap:round;stroke-linejoin:round}
+.helicopter-flight-hud .flight-ladder{opacity:.78}
+.helicopter-flight-hud .flight-ladder text{font-size:9px;letter-spacing:0}
+.helicopter-flight-hud .flight-heading{font-size:13px;letter-spacing:2px}
+.helicopter-flight-hud .flight-value{font-size:26px;font-weight:400;letter-spacing:-.5px}
+.helicopter-flight-hud .flight-unit{font-size:8px;letter-spacing:1.2px;opacity:.72}
+.helicopter-flight-hud .flight-climb{font-size:13px;letter-spacing:.4px}
+.helicopter-flight-hud .flight-mode{font-size:9px;letter-spacing:2.5px;opacity:.7}
+.helicopter-flight-hud[data-warning]{color:#ffd0a3}
+/* Helicopter status stays unboxed in every seat, including touch layouts. */
+.fps-game .helicopter-status-hud{position:absolute;right:24px;bottom:24px;width:246px;box-sizing:border-box;padding:0;color:#d5e5df;background:none;border:0;box-shadow:none;pointer-events:none;font:400 10px/1.5 'Manrope',sans-serif;letter-spacing:.7px;text-shadow:0 1px 2px #081615b3;font-variant-numeric:tabular-nums}
+.helicopter-status-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:9px;letter-spacing:1.8px;color:#b3d2cb;text-transform:uppercase}
+.helicopter-status-heading b{font-weight:500;color:#edf5f0}
+.helicopter-status-heading>span:last-child{font-size:8px;letter-spacing:1px;opacity:.7}
+.helicopter-travel{display:flex;justify-content:space-between;gap:14px;margin:10px 0 8px;font-size:23px;font-weight:400;letter-spacing:-.5px;line-height:1.2}
+.helicopter-travel small{margin-left:5px;font-size:8px;letter-spacing:1px;opacity:.65}
+.helicopter-readouts{display:flex;justify-content:space-between;gap:12px;margin:12px 0 9px;padding:0}
+.helicopter-readouts>div{min-width:0}
+.helicopter-readouts dt{font-size:8px;letter-spacing:1.3px;color:#a6beb7}
+.helicopter-readouts dd{margin:3px 0 0;font-size:21px;line-height:1.15;letter-spacing:-.5px;font-weight:400}
+.helicopter-readouts dd small{margin-left:2px;font-size:8px;letter-spacing:0;opacity:.6}
+.helicopter-readouts [data-alert],.helicopter-status-warning{color:#ffd0a3}
+.helicopter-hull-line{height:1px;background:#a8ccc324;overflow:hidden;margin-bottom:8px}
+.helicopter-hull-line i{display:block;height:100%;background:#b8e9df99}
+.helicopter-status-warning{font-size:9px;letter-spacing:1.5px;margin:4px 0}
+.helicopter-status-hud[data-warning] .helicopter-hull-line i{background:#ffd0a3}
+.helicopter-weapon-state{font-size:8px;color:#bacbc5;letter-spacing:1px;margin:5px 0;text-transform:uppercase}
+.helicopter-crew{display:flex;gap:14px;align-items:center;margin-top:10px;font-size:8px;color:#a6beb7;letter-spacing:1px}
+.helicopter-crew>span:first-child{margin-right:auto;font-size:7px}
+.helicopter-crew>span:not(:first-child){display:flex;align-items:center;gap:4px;pointer-events:auto}
+.helicopter-crew i{width:3px;height:3px;border:1px solid #a6beb780;border-radius:50%}
+.helicopter-crew [data-occupied] i{background:#b8e9df99;border-color:transparent}
+.helicopter-crew [data-self]{color:#e6f5ed}
+.helicopter-controls{display:flex;justify-content:space-between;gap:10px;font-size:7px;letter-spacing:.7px;margin-top:7px;color:#9cafaa}
+.fps-game .helicopter-status-hud[data-personal]{top:140px;bottom:auto}
+@media(max-width:700px){
+ .helicopter-flight-hud{width:90%;top:43%}
+ .helicopter-flight-hud svg{font-size:14px}
+ .helicopter-flight-hud .flight-value{font-size:30px}
+ .helicopter-flight-hud .flight-unit{font-size:10px}
+ .helicopter-flight-hud .flight-ladder text{font-size:11px}
+ .helicopter-flight-hud .flight-mode{font-size:11px}
+ .fps-game .helicopter-status-hud{right:14px;bottom:18px;width:218px}
+ .helicopter-readouts{gap:8px}
+ .helicopter-readouts dd{font-size:20px}
+}
+.fps-game[data-touch=on] .helicopter-status-hud{top:94px;bottom:auto;right:14px;width:190px}
+.fps-game[data-touch=on] .helicopter-status-hud[data-personal]{top:290px;left:14px;right:auto;width:160px}
+.fps-game[data-touch=on] .helicopter-controls{display:none}
+@media(max-height:560px){
+ .helicopter-flight-hud{width:min(64%,570px);top:48%}
+ .fps-game[data-touch=on] .helicopter-status-hud{top:62px;width:190px}
+ .fps-game[data-touch=on] .helicopter-status-hud[data-personal]{top:auto;bottom:14px;width:165px}
+ .helicopter-readouts{margin-top:7px}
+ .helicopter-crew{margin-top:6px}
+}

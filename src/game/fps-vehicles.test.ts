@@ -6,6 +6,30 @@ import { createSharedVehicle } from './vehicle-seats';
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
+it('updates cockpit hull/ammunition from local and shared authority and restores it on reset', () => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  const vehicles = createFpsVehicles(new THREE.Scene(), [], { car: '', helicopter: '' });
+  const dashboard = vehicles.models.helicopter.getObjectByName('helicopter-dashboard')!;
+  const screen = dashboard.getObjectByName('cockpit-status-display') as THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  try {
+    expect(dashboard.userData.telemetry).toMatchObject({ health: 900, ammo: 400, critical: false });
+    const initial = screen.material.map!.version;
+    vehicles.step(new Set(), .05);
+    expect(screen.material.map!.version).toBe(initial); // unchanged telemetry does not upload again
+    vehicles.interact(vehicles.states.helicopter); vehicles.aim(new THREE.Vector3(0, 5, -100));
+    expect(vehicles.fire()).not.toBeNull(); vehicles.step(new Set(), .05);
+    expect(dashboard.userData.telemetry.ammo).toBe(399);
+    vehicles.damage('helicopter', 700);
+    expect(dashboard.userData.telemetry).toMatchObject({ health: 200, ammo: 399, critical: true });
+    const air = createSharedVehicle('helicopter', { x: 0, z: 0, yaw: 0 });
+    air.health = 125; air.ammo = 0; air.occupants[0] = 'pilot';
+    vehicles.adoptShared([createSharedVehicle('car', { x: 40, z: 0, yaw: 0 }), air], 'pilot');
+    expect(dashboard.userData.telemetry).toMatchObject({ health: 125, ammo: 0, critical: true });
+    vehicles.reset();
+    expect(dashboard.userData.telemetry).toMatchObject({ health: 900, ammo: 400, critical: false });
+  } finally { vehicles.dispose(); }
+});
+
 it('applies speed-dependent damage at contact and allows separate impacts without a timer', () => {
   vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
   const wall = { minX: -10, maxX: 10, minZ: -5, maxZ: 0 };

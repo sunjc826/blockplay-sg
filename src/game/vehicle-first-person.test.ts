@@ -5,9 +5,34 @@ import { createVehicle } from './vehicle-rules';
 import { seatFacing, seatLocalPoint, seatPoint } from './vehicle-seats';
 import { placeVehicleFirstPersonCamera } from './vehicle-first-person';
 import { disposeModel } from './armory-visuals';
+import { firstVisibleHit } from './fps-raycast';
 
 afterEach(() => vi.unstubAllGlobals());
 const stubCanvas = () => vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+
+it('keeps the helicopter glare shield in the bottom quarter of the normal forward view', () => {
+  stubCanvas(); const model = buildVehicleModel('helicopter'); model.updateMatrixWorld(true);
+  const v = createVehicle('helicopter', { x: 0, z: 0, yaw: 0 }); v.y = 0;
+  const coaming = model.getObjectByName('dashboard-coaming') as THREE.Mesh;
+  coaming.geometry.computeBoundingBox();
+  try {
+    for (const seat of [0, 1]) {
+      const camera = new THREE.PerspectiveCamera(68, 16 / 9, .08, 800);
+      placeVehicleFirstPersonCamera(camera, model, v, seat, 0, -.06); camera.updateMatrixWorld(true);
+      const screen = model.getObjectsByProperty('name', 'cockpit-status-display')[seat];
+      for (const x of [-.19, .19]) for (const y of [-.032, .032]) {
+        const target = screen.localToWorld(new THREE.Vector3(x, y, 0)), delta = target.sub(camera.position);
+        const ray = new THREE.Raycaster(camera.position, delta.clone().normalize(), .08, delta.length() + .001);
+        expect(firstVisibleHit(ray, [model])?.object.name).toBe(screen.name);
+      }
+      const bounds = coaming.geometry.boundingBox!;
+      for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
+        const point = coaming.localToWorld(new THREE.Vector3(x, y, z)).project(camera);
+        expect((1 - point.y) / 2).toBeGreaterThan(.75);
+      }
+    }
+  } finally { disposeModel(model); }
+});
 
 it('keeps pilot and gunner eyes in their seats regardless of who controls the chin gun', () => {
   const v = createVehicle('helicopter', { x: 10, z: -8, yaw: .7 }); v.y = 20;

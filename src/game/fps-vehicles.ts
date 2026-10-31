@@ -9,6 +9,7 @@ import { createVehicleEffects, vehicleDamageVisual } from './vehicle-effects';
 import { disposeModel } from './armory-visuals';
 import { buildVehicleModel } from './vehicle-models';
 import { updateHumveeInstruments } from './humvee-cabin';
+import { updateHelicopterDashboard } from './helicopter-dashboard';
 import { createVehicle, driveVehicle, flyVehicle, vehicleBounds, vehicleExit, VEHICLE_SPAWNS, type FlightObstacle, type VehicleKind, type VehicleSpawn, type VehicleWorldBounds, type VehicleExitFloor } from './vehicle-rules';
 import { MARINA_BOUNDS, type Obstacle } from './marina-collision';
 import { sceneFlightObstacles } from './flight-obstacles';
@@ -127,6 +128,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
       }
       else {
         model.rotation.x = THREE.MathUtils.damp(model.rotation.x, active === kind ? -v.speed * .007 : 0, 3, dt);
+        updateHelicopterDashboard(model, states.helicopter);
         const rotor = model.getObjectByName('main-rotor')!, tail = model.getObjectByName('tail-rotor')!;
         if (active === kind || shared?.find(v => v.kind === kind)?.occupants[0]) { rotor.rotation.y += dt * 34; tail.rotation.x += dt * 51; }
       }

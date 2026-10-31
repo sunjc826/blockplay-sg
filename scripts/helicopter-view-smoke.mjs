@@ -18,6 +18,8 @@ try{
  await send('Input.dispatchMouseEvent',{type:'mousePressed',...p,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',...p,button:'left',clickCount:1});
  await wait('hud.phase === "playing"');await evaluate('engine.interactVehicle()');await wait('hud.vehicle === "helicopter"');
  await evaluate('engine.toggleVehicleView()');await wait('hud.vehicleView === "first-person" && !!document.querySelector(".helicopter-flight-hud")');
+ assert.equal(await evaluate('getComputedStyle(document.querySelector(".helicopter-status-hud")).backgroundColor'),'rgba(0, 0, 0, 0)');
+ assert.equal(await evaluate('[...document.querySelectorAll(".helicopter-readouts dt")].some(e=>/HULL|GUN/.test(e.textContent))'),false,'front cockpit uses physical dashboard for hull/ammunition');
  await record('pilot');assert(states.at(-1).camera.y>2,'pilot sits above the chin mount');
  const ammo=await evaluate('hud.vehicleAmmo');await evaluate('engine.setInput("fire",true)');await new Promise(r=>setTimeout(r,500));await evaluate('engine.setInput("fire",false)');await wait(`hud.vehicleAmmo < ${ammo}`);
  await evaluate('engine.setInput(" ",true)');await wait('hud.altitude > 5');await evaluate('engine.setInput(" ",false)');await record('pilot-airborne');
@@ -29,5 +31,8 @@ try{
  await evaluate('engine.toggleAim();engine.toggleVehicleView()');await wait('hud.vehicleView === "third-person"');await record('exterior');
  await evaluate('engine.switchVehicleSeat();engine.toggleVehicleView()');await wait('hud.vehicleSeat === 0 && !!document.querySelector(".helicopter-flight-hud")');
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await record('pilot-portrait');
+ await evaluate('document.querySelector("#stage").dataset.touch="on"');await record('pilot-touch-portrait');
+ await send('Emulation.setDeviceMetricsOverride',{width:844,height:390,deviceScaleFactor:1,mobile:true});await record('pilot-touch-landscape');
+ assert(await evaluate('(()=>{const r=document.querySelector(".helicopter-status-hud").getBoundingClientRect();return r.x>=0&&r.y>=0&&r.right<=innerWidth&&r.bottom<=innerHeight})()'),'touch status stays within the viewport');
  assert.deepEqual(errors,[]);await fs.writeFile(new URL('results.json',output),JSON.stringify({passed:true,states,errors},null,2));console.log('PASS real engine pilot/gunner/side seats, flight, mounted fire, passenger aim, view switching, portrait HUD; no runtime/WebGL errors.');
 }catch(error){console.error({errors,state:await evaluate('({ready:document.readyState,body:document.body.innerText,phase:window.hud?.phase})').catch(()=>null)});await capture('failure').catch(()=>{});throw error;}finally{ws.close();await fetch(`${chrome}/json/close/${tab.id}`).catch(()=>{});}
