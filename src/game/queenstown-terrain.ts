@@ -1,3 +1,4 @@
+import { QUEENSTOWN_DECK_FOOTPRINTS, onQueenstownDeck } from './queenstown-housing-layout';
 import * as THREE from 'three';
 import { accelerateTerrainRaycast } from './terrain-raycast';
 
@@ -63,8 +64,8 @@ function authoredHeight(x: number, z: number) {
 const axis = (min:number,max:number,extra:number[]) => [...new Set([
   ...Array.from({length:(max-min)/4+1},(_,i)=>min+i*4),...extra.filter(n=>n>min&&n<max),
 ])].sort((a,b)=>a-b);
-export const QUEENSTOWN_TERRAIN_X = axis(-272,272,QUEENSTOWN_TERRACES.flatMap(p=>[p.x-p.width/2-10,p.x-p.width/2,p.x+p.width/2,p.x+p.width/2+10]).concat(QUEENSTOWN_TERRACES.slice(0,3).flatMap(p=>[p.x+p.width/2+.3,p.x+p.width/2+10]),[-67.1,-62.9,-150,-65,-5,100,240,...[-235,-140,-15,0,140,235].flatMap(x=>[x-7,x,x+7])]));
-export const QUEENSTOWN_TERRAIN_Z = axis(-224,224,QUEENSTOWN_TERRACES.flatMap(p=>[p.z-p.depth/2-10,p.z-p.depth/2,p.z+p.depth/2,p.z+p.depth/2+10]).concat(QUEENSTOWN_TERRACES.slice(0,3).flatMap(p=>[p.z-12,p.z-10,p.z+10,p.z+12]),[-68,-59,-165,-110,-70,-30,10,...[-185,-122,22,116,185].flatMap(z=>[z-7,z,z+7])]));
+export const QUEENSTOWN_TERRAIN_X = axis(-272,272,QUEENSTOWN_TERRACES.flatMap(p=>[p.x-p.width/2-10,p.x-p.width/2,p.x+p.width/2,p.x+p.width/2+10]).concat(QUEENSTOWN_DECK_FOOTPRINTS.flatMap(f=>[f.minX,f.maxX]),QUEENSTOWN_TERRACES.slice(0,3).flatMap(p=>[p.x+p.width/2+.3,p.x+p.width/2+10]),[-67.1,-62.9,-150,-65,-5,100,240,...[-235,-140,-15,0,140,235].flatMap(x=>[x-7,x,x+7])]));
+export const QUEENSTOWN_TERRAIN_Z = axis(-224,224,QUEENSTOWN_TERRACES.flatMap(p=>[p.z-p.depth/2-10,p.z-p.depth/2,p.z+p.depth/2,p.z+p.depth/2+10]).concat(QUEENSTOWN_DECK_FOOTPRINTS.flatMap(f=>[f.minZ,f.maxZ]),QUEENSTOWN_TERRACES.slice(0,3).flatMap(p=>[p.z-12,p.z-10,p.z+10,p.z+12]),[-68,-59,-165,-110,-70,-30,10,...[-185,-122,22,116,185].flatMap(z=>[z-7,z,z+7])]));
 const heights=QUEENSTOWN_TERRAIN_Z.map(z=>QUEENSTOWN_TERRAIN_X.map(x=>authoredHeight(x,z)));
 const cell=(axis:readonly number[],n:number) => {
   let low=0,high=axis.length-1;
@@ -86,7 +87,7 @@ export function buildQueenstownTerrain() {
   QUEENSTOWN_TERRAIN_Z.forEach((z,j)=>QUEENSTOWN_TERRAIN_X.forEach((x,i)=>{
     const y=heights[j][i],color=low.clone().lerp(high,Math.min(1,y/12));
     positions.push(x,y,z);colors.push(color.r,color.g,color.b);
-    if(i<width-1&&j<QUEENSTOWN_TERRAIN_Z.length-1){const n=j*width+i;indices.push(n,n+width,n+1,n+width+1,n+1,n+width);}
+    if(i<width-1&&j<QUEENSTOWN_TERRAIN_Z.length-1 && !onQueenstownDeck((x+QUEENSTOWN_TERRAIN_X[i+1])/2,(z+QUEENSTOWN_TERRAIN_Z[j+1])/2)){const n=j*width+i;indices.push(n,n+width,n+1,n+width+1,n+1,n+width);}
   }));
   const geometry=new THREE.BufferGeometry();geometry.setIndex(indices);
   geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));

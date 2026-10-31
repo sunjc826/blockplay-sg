@@ -1,3 +1,4 @@
+import { onQueenstownDeck } from './queenstown-housing-layout';
 import * as THREE from 'three';
 import { buildQueenstownTerrain, QUEENSTOWN_TERRACES, QUEENSTOWN_TERRAIN_X, QUEENSTOWN_TERRAIN_Z } from './queenstown-terrain';
 import { accelerateMeshRaycast } from './mesh-raycast';
@@ -58,7 +59,7 @@ export function buildQueenstownScene() {
     const vertices:number[]=[],indices:number[]=[];
     zs.forEach((pz,j)=>xs.forEach((px,i)=>{
       vertices.push(px-x,queenstownTerrainHeight(px,pz)+h/2,pz-z);
-      if(i<xs.length-1&&j<zs.length-1 && (material!==paving || !onStreet((px+xs[i+1])/2,(pz+zs[j+1])/2))){const n=j*xs.length+i;indices.push(n,n+xs.length,n+1,n+xs.length+1,n+1,n+xs.length);}
+      if(i<xs.length-1&&j<zs.length-1 && !onQueenstownDeck((px+xs[i+1])/2,(pz+zs[j+1])/2) && (material!==paving || !onStreet((px+xs[i+1])/2,(pz+zs[j+1])/2))){const n=j*xs.length+i;indices.push(n,n+xs.length,n+1,n+xs.length+1,n+1,n+xs.length);}
     }));
     const geometry=geo(new THREE.BufferGeometry());geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geometry.setIndex(indices);geometry.computeVertexNormals();
     const mesh=new THREE.Mesh(geometry,material);mesh.position.set(x,y,z);mesh.userData.grounded=true;mesh.receiveShadow=true;scene.add(mesh);return mesh;

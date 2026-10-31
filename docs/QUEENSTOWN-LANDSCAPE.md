@@ -8,6 +8,24 @@ These are relative gameplay heights in the compressed district, informed by
 [the Singapore elevation research](SINGAPORE-ELEVATION-RESEARCH.md); they are not
 surveyed Singapore ground levels.
 
+## Design principles
+
+- Shape a continuous landform before adding local cover and planting. Hillsides
+  should connect places and change the horizon over a sustained walk.
+- Set buildings and communal spaces on level pads within that landform. Explain
+  level differences with retaining edges, slopes and deliberate access routes.
+- Make roads, pavements, entrances and forecourts meet at coherent levels.
+- Preserve separate surfaces for bridges, upper galleries and the routes below
+  them; one ground height cannot describe stacked circulation.
+- Give each visible ground area one surface owner. Inside a void deck or stair
+  entrance, its concrete floor replaces the terrain and exterior paving.
+- Share geometry data with movement and collision. Fix overlaps in the geometry
+  rather than hiding them with camera-dependent depth bias or floating floors.
+- Keep authored relative heights distinct from surveyed elevations and keep
+  feature-level reference provenance explicit.
+- Verify the result at walking height and on complete routes, alongside overhead
+  views and automated checks.
+
 ## Terrain and access
 
 `queenstown-terrain.ts` defines the ground and level building pads. The renderer
@@ -36,6 +54,15 @@ conceal, while earth, masonry and trunks stop rounds. Existing station, housing,
 landmark and stamp layouts remain compressed gameplay adaptations. The new
 landform does not add image acceptance records or claim surveyed fidelity.
 
+## Void deck surface ownership
+
+The housing layout defines the concrete deck and stair-entry footprints once.
+Those same edges split the terrain grid and clip exterior paving, leaving a
+single visible floor at the existing walking datum. This prevents coplanar grass
+and concrete from flickering and keeps exterior paths from painting over the
+interior finish. Terrain ray acceleration reads the actual rendered triangle
+indices, preserving these openings in collision and cover queries as well.
+
 ## Verification
 
 - `queenstown-landscape.test.ts` checks sustained relief and level site interiors,
@@ -43,7 +70,9 @@ landform does not add image acceptance records or claim surveyed fidelity.
   radii, direct terrace steps, road gradients, uphill/downhill driving, elevated
   dismount support and terrain-relative foliage concealment.
 - `queenstown-housing.test.ts` checks void decks, ceilings, galleries and stairs
-  at each building's actual base level, including bot access.
+  at each building's actual base level, including bot access. Ground-deck
+  regression rays check that each of the 18 deck/entry footprints has one visible
+  floor and no hidden terrain surface.
 - Queenstown scene checks cover open roads, reachable stamps, solid furniture,
   retained facade detail and scene batching. Shared movement and vehicle suites
   guard the other districts' flat-ground behaviour.

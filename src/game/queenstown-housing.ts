@@ -1,18 +1,8 @@
 import { queenstownTerrainHeight } from './queenstown-terrain';
 import type { PlaceFixture, VerticalPlace } from './vertical-places';
 
-/** Compressed estate blocks, not surveyed addresses or public apartment access. */
-export const QUEENSTOWN_HDB_BLOCKS = [
-  { id: 'estate', x: -73, z: -44, storeys: 10, color: '#6d9d92', label: 'ESTATE' },
-  { id: 'queens', x: -73, z: -83, storeys: 12, color: '#c58c77', label: 'QUEENS' },
-  { id: 'hdb', x: 78, z: 76, storeys: 16, color: '#6d9d92', label: 'HDB' },
-  { id: 'home', x: -76, z: 77, storeys: 9, color: '#c58c77', label: 'HOME' },
-  { id: 'commonwealth', x: -91, z: -153, storeys: 11, color: '#729eaf', label: 'COMMONWEALTH' },
-  { id: 'dawson', x: 78, z: 151, storeys: 13, color: '#6d9d92', label: 'DAWSON' },
-] as const;
-export const HDB_GALLERY_LEVELS = [3.4, 6.2] as const;
-export const HDB_WIDTH = 59;
-export const HDB_CORE_OFFSET = 33.7;
+import { QUEENSTOWN_HDB_BLOCKS, HDB_GALLERY_LEVELS, HDB_WIDTH, HDB_CORE_OFFSET, queenstownGroundFloors } from './queenstown-housing-layout';
+export { QUEENSTOWN_HDB_BLOCKS, HDB_GALLERY_LEVELS, HDB_WIDTH, HDB_CORE_OFFSET } from './queenstown-housing-layout';
 
 /** Structure and collision have one source. Decorative facades live in the scene. */
 export const QUEENSTOWN_HOUSING_PLACES: VerticalPlace[] = QUEENSTOWN_HDB_BLOCKS.map(block => {
@@ -47,14 +37,13 @@ export const QUEENSTOWN_HOUSING_PLACES: VerticalPlace[] = QUEENSTOWN_HDB_BLOCKS.
     id: `queenstown-${block.id}-housing`, name: `${block.label} void deck and access galleries`,
     note: 'Open ground deck, private apartment fronts and two accessible residential corridors with sheltered return stairs; compressed gameplay adaptation.',
     floors: [
-      { id: 'void-deck', x, z: z + .5, y: 0, width: HDB_WIDTH, depth: 16, rails: false, color: '#c5c8c3' },
+      ...queenstownGroundFloors(block),
       ...HDB_GALLERY_LEVELS.map(y => ({ id: `access-gallery-${y}`, x, z: z + 6.5, y, width: HDB_WIDTH, depth: 4, rails: false, supports: false, color: '#c5c8c3' })),
     ], connections: [], fixtures,
   };
   for (const side of [-1, 1]) {
     const cx = x + side * HDB_CORE_OFFSET, core = side < 0 ? 'west' : 'east';
     place.floors = [...place.floors,
-      { id: `${core}-entry`, x: cx, z: z + 3, y: 0, width: 8.4, depth: 11, rails: false, color: '#c5c8c3' },
       ...HDB_GALLERY_LEVELS.flatMap((y, i) => {
         const base = i ? HDB_GALLERY_LEVELS[i - 1] : 0;
         return [

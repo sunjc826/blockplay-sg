@@ -107,3 +107,15 @@ it('routes bots from the void-deck stair entrance to the second residential corr
   expect(back.length).toBeGreaterThan(3);
   walk([to,...back].map(p=>({...p,y:p.y-queenstownTerrainHeight(p.x,p.z)})),.4);
 },30000);
+
+it('gives each ground deck one visible floor, without terrain or exterior paving underneath', () => {
+  const terrain=world.scene.getObjectByName('Queenstown connected hillside')!;
+  for(const place of QUEENSTOWN_HOUSING_PLACES) for(const floor of place.floors.filter(f=>f.id==='void-deck'||f.id.endsWith('-entry'))) {
+    const x=floor.x+floor.width*.17,z=floor.z+floor.depth*.13;
+    const ray=new THREE.Raycaster(new THREE.Vector3(x,floor.y+.24,z),new THREE.Vector3(0,-1,0),0,.3);
+    expect(ray.intersectObject(terrain),`${place.id}/${floor.id}: buried terrain is removed`).toHaveLength(0);
+    const finishes=ray.intersectObject(world.scene,true).filter(hit=>hit.face!.normal.y>.99&&hit.point.y>=floor.y-1e-5);
+    expect(finishes,`${place.id}/${floor.id}: one visible finish`).toHaveLength(1);
+    expect(finishes[0].point.y).toBeCloseTo(floor.y,5);
+  }
+});
