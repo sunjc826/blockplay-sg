@@ -14,6 +14,8 @@ import { NAVAL as NAVAL_LANDING } from './naval-landings';
 import { validatedNavalSites } from './naval-route-validation';
 import { SENTOSA_LANDING_SITES } from './naval-landing-sites';
 import { districtFacilitySites } from './facility-sites';
+import { createObjectiveBeacons, objectiveHint, type ObjectiveHint } from './objective-beacons';
+import { enemyObjectives } from './expedition-objectives';
 import { createFacilityVisuals } from './facility-visuals';
 import { facilityPrompt, facilityStatus, facilityActionFor, type FacilityState } from './facilities';
 import { buildTutorialWorld } from './tutorial-world';
@@ -81,6 +83,7 @@ import { createSoloSession, type LanSession } from './lan-peer';
 import { buildDistrictWorld } from './district-world';
 import { getFpsDistrict } from './fps-districts';
 import { createExpeditionMarkers } from './expedition-visuals';
+import { createLootGround } from './expedition-ground';
 import { findWorldGateway, resolveWorldTransition, getWorldZone, type WorldZoneId, type WorldTransition, type ZoneSpawn } from './world-zones';
 import type { ExpeditionLoot, FieldLoot } from './expedition-loot';
 import { expeditionNpcs, nearestNpc, npcInteractionPrompt, type ExpeditionNpc } from './expedition-npcs';
@@ -236,12 +239,13 @@ export interface FpsHud {
   cloudCover: { kind: 'smoke' | 'gas'; amount: number } | null;
   /** The district map is open full-size (M) instead of the corner minimap. */
   mapExpanded: boolean;
+  objectiveHints: boolean; objectiveMarkers: ObjectiveHint[];
   /** The worn night-vision or thermal device, if any, and what it is doing. */
   vision: { name: string; kind: VisionKind; generation: number; on: boolean; palette: ThermalPalette | ''; palettes: number; warm: number; calibrating: boolean } | null;
   /** The weapon in hand's laser (B) and light (L), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean; laserOn?: boolean; lightOn?: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], foodChoice: null, foodPicker: null, mapExpanded: false, combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deployment: null, deploymentIntro: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], foodChoice: null, foodPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deployment: null, deploymentIntro: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -314,6 +318,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
   }
   const facilityVisuals = createFacilityVisuals(world.scene, facilitySites);
+  const objectiveBeacons = expedition ? createObjectiveBeacons(world.scene, facilitySites) : null;
   const facilityCover = createSceneCover(world.scene);
   const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { spawns: fleetSpawns, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay', exitFloor: (x, z) => footMovement.supportHeight(x, z, MAX_STEP_HEIGHT, .38, 1.8) });
   const deploymentPoints = expedition && !expedition.checkpoint && !expedition.spawn ? districtDeploymentPoints(expedition.zone, (x, z) =>
@@ -340,7 +345,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const camera = new THREE.PerspectiveCamera(65, 1, 0.08, 800); camera.rotation.order = 'YXZ';
   const occlusion = createWorldOcclusion(renderer, world.scene, camera);
   const viewScene = new THREE.Scene(), viewCamera = new THREE.PerspectiveCamera(65, 1, 0.01, 3);
-  // Night vision and thermal (H, J for the palette): it draws over every pass below.
+  // Night vision and thermal (N, J for the palette): it draws over every pass below.
   const vision = createVisionSystem(renderer, { world: world.scene, view: viewScene });
   const visionState = createVisionState(!!expedition?.checkpoint?.vision && !!equipment.vision);
   // Sun flare, haze dust and rain on the lens, over the world and weapon and under any vision device.
@@ -438,6 +443,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   hud.npcs = npcs.map(npc => ({ ...npc }));
   if (expedition && zoneWorld) hud.fieldLoot = expedition.loot.enterZone({ id: expedition.zone, spawn: zoneWorld.zone.spawn, bounds: zoneWorld.bounds, obstacles: vehicles.footObstacles(), canStand: (x, z, radius) => footMovement.canOccupy(x, 0, z, radius, 1.8), elevatedAnchors: elevatedLootAnchors(getWalkSurfaces(world.scene), footMovement), anchors: zoneWorld.zone.encounterSpawns, sectors: zoneSectors(expedition.zone) });
   const markers = expedition ? createExpeditionMarkers(world.scene, expedition.zone, hud.fieldLoot, npcs) : null;
+  const lootGround = expedition ? createLootGround(world.scene) : undefined;
   let checkpointPending = expedition?.checkpoint;
   // Which bots were last seen alive, so a death is noticed once.
   const botsAlive = new Map<string, boolean>();
@@ -568,6 +574,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const introFrame = deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof);
     hud.deploymentIntro = hud.phase === 'deploying' ? { stage: introFrame.stage, fade: introFrame.fade, elapsed: introFrame.elapsed, reduced: introFrame.reduced, ...deploymentConditions } : null;
     hud.respawn = arenaRuntime?.getRespawn() ?? null;
+    hud.objectiveMarkers = expedition && hud.objectiveHints && hud.phase === 'playing' && hud.arenaSelf?.alive !== false ? enemyObjectives(hud.arena?.facilities?.sites ?? [], position).map(site => objectiveHint(site, camera, position)) : [];
     hud.deployment = deploymentPoints.length ? { points: deploymentPoints, choice: deploymentChoice, resolved: resolvedDeployment, canChoose: hud.phase === 'ready' && !deploymentResolved && !hud.arenaStarted, markers: overviewActive() ? deploymentMarkers(deploymentPoints, camera) : [], zoom: overviewZoom } : null;
     const nearby = !vehicles.active && hud.arenaSelf?.alive ? hud.arena?.facilities?.sites.filter(s => Math.abs(s.y - vertical) < 2 && Math.hypot(s.x - position.x, s.z - position.z) <= 18).sort((a, b) => Math.hypot(a.x - position.x, a.z - position.z) - Math.hypot(b.x - position.x, b.z - position.z))[0] : null;
     hud.facility = nearby ?? null;
@@ -858,6 +865,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset();
     deploymentResolved = false; resolvedDeployment = null; deploymentIntro.reset(); deploymentRoof = null; readySound = 0; overviewZoom = 1; overviewPan = { x: 0, z: 0 };
     arenaRuntime?.reset();
+    hud.objectiveHints = false; hud.objectiveMarkers = [];
     capturePending = false; hud.phase = 'ready'; hud.hits = 0; hud.shots = 0; hud.landed = 0; hud.elapsed = 0; hud.message = '';
     localGrenades.reset(); seenGrenadeCues.clear(); grenadeVisuals.reset(); grenadeHeld = null; grenadePicker = null; conditions = {}; grenadeLastAt = missionLastAt = -Infinity;
     combatVisuals.reset(); seenEvents.clear(); openedSupplies.clear(); eventClock = -1; shake = 0; blackout = 0; hud.combatBanner = null; hud.mapDangers = []; hud.mapJammed = false; hud.cloudCover = null;
@@ -1136,6 +1144,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     look(travel.dx, travel.dy, true);
   }
   /** Opens the whole-district map over the scene, or folds it back into the corner. */
+  function toggleObjectiveHints() {
+    if (!expedition || hud.phase !== 'playing' || hud.arenaSelf?.alive === false) return;
+    hud.objectiveHints = !hud.objectiveHints; canvas.focus({ preventScroll: true }); publish();
+  }
   function toggleMap() { hud.mapExpanded = !hud.mapExpanded; publish(); }
   /**
    * The laser's beam and dot and the torch, from the emitters on the weapon in
@@ -1234,7 +1246,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     vehicleView = firstPersonVehicle() ? 'third-person' : 'first-person';
     ads = touchAim = false; updateCameras(0, false, false); publish();
   }
-  const keyboardKeys = ['y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'k', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'i', 'v', 'l', 'n', 't', 'm', 'j', 'b', 'x', 'control', 'escape'];
+  const keyboardKeys = ['y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'k', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'i', 'v', 'l', 'n', 't', 'm', 'h', 'j', 'b', 'x', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = fpsControlKey(event);
     if (hud.phase === 'deploying' && (key === 'escape' || key === ' ')) {
@@ -1249,6 +1261,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (key === 'tab') return;
     if (key === 'q') { if (!event.repeat) toggleAim(); return; }
     if (key === 'm') { if (!event.repeat) toggleMap(); return; }
+    if (key === 'h') { if (!event.repeat) toggleObjectiveHints(); return; }
     if (key === 'escape') pause();
     else if (pilotEnabled) { pause(); hud.message = 'AI stopped. Click Resume to take control.'; publish(); }
     else if (fpsKeyAction(key, !!vehicles.active)) {
@@ -2546,7 +2559,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (!expedition || !markers || was !== true || actor.alive) continue;
       const side = getArenaFaction(factionIdOf(actor))?.side ?? 'opposition';
       const fell = expedition.loot.fallen(expedition.zone, { key: `${actor.id}:${actor.deaths}`, side, rank: actor.rank, grenade: actor.grenade, variant: actor.variant, family: actor.weapon },
-        { x: actor.x, z: actor.z, y: actor.ground ?? Math.max(0, actor.y - (actor.prone ? PRONE_EYE_HEIGHT : 1.75)) });
+        { x: actor.x, z: actor.z, y: actor.ground ?? Math.max(0, actor.y - (actor.prone ? PRONE_EYE_HEIGHT : 1.75)) }, lootGround);
       if (!fell.loot.length) continue;
       fell.evicted.forEach(id => markers.remove(id)); fell.loot.forEach(item => markers.addDrop(item));
       hud.fieldLoot = expedition.loot.remaining(expedition.zone);
@@ -2835,7 +2848,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   /** A supply crate this player reached first: field loot round it on an expedition, a top-up anywhere else. */
   function openSupply(event: CombatEventDescriptor) {
     if (expedition && markers) {
-      const items = expedition.loot.supply(expedition.zone, event.id, { x: event.target.x, z: event.target.z, y: vertical });
+      const items = expedition.loot.supply(expedition.zone, event.id, { x: event.target.x, z: event.target.z, y: vertical }, lootGround);
       items.forEach(item => markers.addDrop(item)); hud.fieldLoot = expedition.loot.remaining(expedition.zone);
       hud.lootNotice = `Supply drop open: ${items.map(item => item.name).join(', ')}. E to take.`; lootNoticeTime = 5;
     } else {
@@ -3027,6 +3040,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       else if (loadout[hud.weapon].reserve < 20) radioCall('lowAmmo');
     }
     hud.encikCallout = encik.current(now / 1000);
+    objectiveBeacons?.update(hud.arena?.facilities?.sites ?? [], hud.objectiveHints && hud.phase === 'playing' && hud.arenaSelf?.alive !== false && !hud.mapExpanded);
     world.animate(hud.elapsed);
     markers?.update(realDt, camera.position);
     // Shadows move the sun's target first; the atmosphere then places the sun from it.
@@ -3173,7 +3187,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     chooseDeployment, zoomDeployment, resetDeploymentView, skipDeployment: finishDeployment, start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, interactFacility, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
-    toggleVehicleView, toggleAim, toggleMap, toggleRail, toggleCant,
+    toggleVehicleView, toggleAim, toggleMap, toggleObjectiveHints, toggleRail, toggleCant,
     toggleWeaponLight: () => toggleDevice('light'), toggleWeaponLaser: () => toggleDevice('laser'),
     openCalloutWheel, closeCalloutWheel, setCalloutPage, sendCallout,
     /** Touch: the wheel's button opens it and, open, puts it away. */
@@ -3189,7 +3203,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     dispose() {
       const infrastructure = arenaRuntime?.getWorldState();
       if (expedition && infrastructure) expedition.infrastructure?.set(expedition.zone, infrastructure);
-      facilityVisuals.dispose();
+      facilityVisuals.dispose(); objectiveBeacons?.dispose();
       disposed = true; pilot.reset(); strategicPlanner?.reset(); encikAudio.dispose(); cancelAnimationFrame(frame); observer.disconnect(); clearInput();
       if (document.pointerLockElement === canvas) document.exitPointerLock();
       window.removeEventListener('keydown', pilotEscape, true);

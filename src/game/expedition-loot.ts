@@ -8,6 +8,11 @@ import { expeditionNpcs } from './expedition-npcs';
 import type { ArenaSide } from './arena-factions';
 
 export type FieldLootKind = 'weapon' | 'ammo' | 'medical' | 'armor';
+/** Resting height on the rendered geometry below an item's release position. */
+export type LootGround = (x: number, z: number, height: number) => number;
+const onGround = (at: ZonePosition & { y?: number }, ground?: LootGround) => ({
+  ...at, y: ground ? ground(at.x, at.z, at.y ?? 0) : Math.max(0, at.y ?? 0),
+});
 export interface FieldLoot {
   id: string; zoneId: WorldZoneId; kind: FieldLootKind; catalogId?: string;
   name: string; tier: ShopItem['tier']; x: number; z: number; y?: number; amount: number;
@@ -307,12 +312,12 @@ export function createExpeditionLoot(seed: string | number) {
    * full reserve of its calibre and a medical kit, set out round the crate at `at`.
    * `key` (the drop's event id) makes the same crate hold the same things.
    */
-  function supply(zoneId: WorldZoneId, key: string, at: ZonePosition & { y?: number }): FieldLoot[] {
+  function supply(zoneId: WorldZoneId, key: string, at: ZonePosition & { y?: number }, ground?: LootGround): FieldLoot[] {
     const rules = ZONE_LOOT_RULES[zoneId];
     if (!rules || !finitePosition(at) || !Number.isFinite(at.y ?? 0)) return [];
     const random = randomFor(`${seedText}:${zoneId}:supply:${key}`);
     const weapon = rollZoneWeapon(zoneId, random, 1), medical = itemById(random() < .5 ? 'kit-trauma' : 'kit-dressing')!;
-    const around = (index: number) => ({ x: at.x + Math.cos(index * 2.1) * 1.2, z: at.z + Math.sin(index * 2.1) * 1.2, y: Math.max(0, at.y ?? 0) });
+    const around = (index: number) => onGround({ x: at.x + Math.cos(index * 2.1) * 1.2, z: at.z + Math.sin(index * 2.1) * 1.2, y: at.y }, ground);
     const gun: FieldLoot = { id: `supply-${zoneId}-${++dropSerial}`, zoneId, kind: 'weapon', catalogId: weapon.id, name: weapon.name, tier: weapon.tier, ...around(0), amount: 1, placement: 'field', dropped: true };
     const rounds = roundsBeside(gun, WEAPON_AMMO.crate);
     const items: FieldLoot[] = [gun, ...(rounds ? [{ ...rounds, id: `supply-${zoneId}-${++dropSerial}`, ...around(1), dropped: true }] : []),
@@ -328,16 +333,16 @@ export function createExpeditionLoot(seed: string | number) {
   }
   const dropped = (zoneId: WorldZoneId, kind: FieldLootKind, item: ShopItem, at: ZonePosition & { y?: number }, amount = 1): FieldLoot => ({
     id: `drop-${zoneId}-${++dropSerial}`, zoneId, kind, catalogId: item.id, name: item.name, tier: item.tier,
-    x: at.x, z: at.z, y: Math.max(0, at.y ?? 0), amount, placement: 'field', dropped: true });
+    x: at.x, z: at.z, y: at.y ?? 0, amount, placement: 'field', dropped: true });
   /**
    * A fallen enemy's weapon, left where they fell. Only enemy issue drops, and
    * a district keeps the newest `MAX_FIELD_DROPS`; `evicted` names the ones
    * that made room so the world can stop drawing them.
    */
-  function drop(zoneId: WorldZoneId, catalogId: string, at: ZonePosition & { y?: number }): { loot: FieldLoot; evicted: string[] } | null {
+  function drop(zoneId: WorldZoneId, catalogId: string, at: ZonePosition & { y?: number }, ground?: LootGround): { loot: FieldLoot; evicted: string[] } | null {
     const item = itemById(catalogId);
     if (!ZONE_LOOT_RULES[zoneId] || item?.category !== 'weapon' || !isEnemyIssue(item) || !validWeaponIndex(item.family) || !finitePosition(at) || !Number.isFinite(at.y ?? 0)) return null;
-    const loot = dropped(zoneId, 'weapon', item, at);
+    const loot = dropped(zoneId, 'weapon', item, onGround(at, ground));
     return { loot: { ...loot }, evicted: lay(drops, zoneId, [loot], MAX_FIELD_DROPS) };
   }
   /**
@@ -348,7 +353,7 @@ export function createExpeditionLoot(seed: string | number) {
    * the soldier's `key`. Weapons and
    * kit are capped apart, so a district full of dressings never pushes out a gun.
    */
-  function fallen(zoneId: WorldZoneId, soldier: FallenSoldier, at: ZonePosition & { y?: number }): { loot: FieldLoot[]; evicted: string[] } {
+  function fallen(zoneId: WorldZoneId, soldier: FallenSoldier, at: ZonePosition & { y?: number }, ground?: LootGround): { loot: FieldLoot[]; evicted: string[] } {
     const rules = ZONE_LOOT_RULES[zoneId];
     if (!rules || !finitePosition(at) || !Number.isFinite(at.y ?? 0)) return { loot: [], evicted: [] };
     const random = randomFor(`${seedText}:${zoneId}:fallen:${soldier.key}`);
@@ -358,7 +363,7 @@ export function createExpeditionLoot(seed: string | number) {
     };
     const kit = FALLEN_KIT[soldier.rank === 1 || soldier.rank === 3 ? soldier.rank : 2];
     const weapon = soldier.side === 'forces' ? forcesIssue(soldier.family) : itemById(soldier.variant ?? '');
-    const armed = weapon?.category === 'weapon' && validWeaponIndex(weapon.family) && (soldier.side === 'forces' || isEnemyIssue(weapon)) ? [dropped(zoneId, 'weapon', weapon, at)] : [];
+    const armed = weapon?.category === 'weapon' && validWeaponIndex(weapon.family) && (soldier.side === 'forces' || isEnemyIssue(weapon)) ? [dropped(zoneId, 'weapon', weapon, onGround(at, ground))] : [];
     // Each roll is drawn whether or not it is used, so one outcome never shifts the next.
     const medicalRoll = random(), medical = pick(kit.medicalItems), plateRoll = random(), plate = kit.plateItems.length ? pick(kit.plateItems) : undefined;
     const carried: [FieldLootKind, ShopItem, number][] = [];
@@ -367,7 +372,7 @@ export function createExpeditionLoot(seed: string | number) {
     if (plateRoll < kit.plate && plate?.category === 'plate') carried.push(['armor', plate, 1]);
     // Set out round the body, inside reach of where it lies.
     const turn = (hash(soldier.key) % 628) / 100;
-    const round = (index: number) => ({ x: at.x + Math.cos(turn + index * 2.1) * .8, z: at.z + Math.sin(turn + index * 2.1) * .8, y: Math.max(0, at.y ?? 0) });
+    const round = (index: number) => onGround({ x: at.x + Math.cos(turn + index * 2.1) * .8, z: at.z + Math.sin(turn + index * 2.1) * .8, y: at.y }, ground);
     const rounds = armed[0] && roundsBeside(armed[0], WEAPON_AMMO.fallen);
     const items = [...(rounds ? [{ ...rounds, id: `drop-${zoneId}-${++dropSerial}`, ...round(0), dropped: true }] : []),
       ...carried.map(([kind, item, amount], index) => dropped(zoneId, kind, item, round(index + 1), amount))];
