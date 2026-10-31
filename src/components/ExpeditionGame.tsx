@@ -1,3 +1,5 @@
+import RespawnLoadoutSelector from './RespawnLoadoutSelector';
+import { applyRespawnLoadout, type RespawnLoadoutSelection } from '../game/respawn-loadout';
 import { BATTLEFIELD_POPULATIONS, DEFAULT_BATTLEFIELD_SIZE } from '../game/battlefield';
 import type { RaiderBounty } from '../game/combat-rewards';
 import DeploymentBriefing from './DeploymentBriefing';
@@ -47,6 +49,14 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
   const [fieldProfile, setFieldProfile] = useState<ArmoryProfile>(() => structuredClone(profile));
   const fieldProfileRef = useRef(fieldProfile);
   const [startingProfile] = useState(() => structuredClone(fieldProfile));
+  const [nextProfile, setNextProfile] = useState(startingProfile), nextProfileRef = useRef(nextProfile);
+  const [loadoutOpen, setLoadoutOpen] = useState(false);
+  const openLoadout = () => { engine.current?.pause(); setLoadoutOpen(true); };
+  const queueLoadout = async (selection: RespawnLoadoutSelection) => {
+    const next = applyRespawnLoadout(profile, selection);
+    if (!next || !await engine.current?.queueRespawnLoadout(selection)) return false;
+    nextProfileRef.current = next; setNextProfile(next); return true;
+  };
   const autoRespawn = useRef(false);
   const [loot] = useState(() => createExpeditionLoot(`${Date.now()}-${Math.random()}`));
   const [infrastructure] = useState(() => new Map<WorldZoneId, Pick<ArenaSnapshot, 'facilities' | 'vehicles' | 'reinforcementClocks'>>());
@@ -66,7 +76,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         loadout: resolveLoadout(fieldProfileRef.current),
         expedition: {
           autoRespawn: autoRespawn.current, zone: scene.zone, spawn: scene.spawn, checkpoint: scene.checkpoint,
-          profile: fieldProfileRef.current, startingProfile, loot, infrastructure,
+          profile: fieldProfileRef.current, startingProfile: nextProfileRef.current, loot, infrastructure,
           onTravel: (transition, checkpoint) => setScene(current => ({ zone: transition.to, spawn: transition.spawn, checkpoint, revision: current.revision + 1 })),
           onEquipment: next => { fieldProfileRef.current = next; setFieldProfile(next); },
           onVendorPurchase,
@@ -122,6 +132,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
     data-objective-hints={hud.objectiveHints} data-facility-count={hud.arena?.facilities?.sites.length ?? 0} data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-alive={alive} data-loot-count={hud.fieldLoot?.length ?? 0} data-npc-count={hud.npcs?.length ?? 0} data-bot-count={hud.arena?.actors.filter(actor => actor.bot).length ?? 0} data-friendly-count={hud.arena?.actors.filter(actor => actor.bot && actor.faction === PLAYER_FACTION).length ?? 0}>
     <div className="viewport fps-viewport">
       <div className="world" ref={host} />
+      {loadoutOpen && <RespawnLoadoutSelector inventory={profile} selected={nextProfile} onSave={queueLoadout} onClose={() => setLoadoutOpen(false)} />}
       {(debug || fullscreen.notice || hud.message) && <p className="fps-message" role="status">{fullscreen.notice || hud.message || (touch ? 'The left stick moves, dragging the scene looks around, and holding FIRE keeps the aim correctable. The Menu button pauses you; the district stays active.' : 'Drag the scene to look on touchscreens. ESC opens the menu; the district remains active.')}</p>}
       <div className="fps-top"><span className="fps-badge"><span className="status-dot" /> {zone.name.toUpperCase()} / EXPEDITION</span><span className="expedition-wallet">{hud.credits.toLocaleString()} CR · {hud.tokens.toLocaleString()} TK</span><span className={`expedition-risk risk-${zone.risk}`}>{zone.risk.toUpperCase()} THREAT</span></div>
       {fullscreen.immersive && <div className="fps-immersive-hint">ESC · MENU & RELEASE MOUSE</div>}
@@ -153,7 +164,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         {hud.hit && <div className="fps-hit-label">HIT −{hud.lastDamage}</div>}
         {hud.callout && <div className="fps-kill-callout" role="status"><span>ELIMINATION CHAIN ×{hud.chain}</span><strong>{hud.callout}</strong></div>}
         {!alive && hud.respawn && <ExpeditionRespawn view={hud.respawn} seconds={hud.arenaSelf?.respawnIn ?? 0}
-          onMenu={() => engine.current?.pause()} onChoose={id => engine.current?.chooseRespawn(id)}
+          onLoadout={openLoadout} onMenu={() => engine.current?.pause()} onChoose={id => engine.current?.chooseRespawn(id)}
           onAutomatic={checked => { autoRespawn.current = checked; engine.current?.setAutoRespawn(checked); }} />}
         {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />}
         {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} onPickFood={() => engine.current?.toggleFoodPicker()} onPickGrenade={() => engine.current?.toggleGrenadePicker()} onGrenadeFire={held => engine.current?.setInput('fire', held)} onInspect={() => engine.current?.inspectWeapon()} touch={touch} />}
@@ -191,6 +202,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         <p>{hud.phase === 'loading' ? 'Preparing the district, its patrols and supplies.' : hud.phase === 'error' ? hud.message : hud.phase === 'paused' ? hud.arenaStarted ? 'Your controls are paused. Patrols remain active while the menu is open.' : 'Deployment is on hold. Resume when you are ready.' : `${zone.description} Capture enemy equipment intact, destroy it, or build at ruined sites. Command posts reinforce infantry; garages and helipads replace vehicles. Approach a cabinet and use E or tap its action. Press H for enemy facility beacons, names and distances. Open M for facility control and routes.`}</p>
         {!['loading', 'error'].includes(hud.phase) && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName}<br />{BATTLEFIELD_POPULATIONS[DEFAULT_BATTLEFIELD_SIZE].mercenaries} opposing troops · {BATTLEFIELD_POPULATIONS[DEFAULT_BATTLEFIELD_SIZE]['armed-forces']} allied troops · 7 capture locations · No match timer</p>}
         {hud.message && hud.phase !== 'error' && <p className="fps-capture-error" role="alert">{hud.message}</p>}
+        <button type="button" className="respawn-loadout-trigger" onClick={openLoadout}>Choose next respawn loadout</button>
         <EnvironmentControls />
         {debug ? <>
           <FpsDebugPanel hud={hud} engine={engine.current} />

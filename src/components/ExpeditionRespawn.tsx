@@ -2,9 +2,9 @@ import { useEffect, useRef } from 'react';
 import type { PlayerRespawnView } from '../game/player-respawn';
 import './expedition-respawn.css';
 
-export default function ExpeditionRespawn({ view, seconds, onChoose, onAutomatic, onMenu }: {
+export default function ExpeditionRespawn({ view, seconds, onChoose, onAutomatic, onMenu, onLoadout }: {
   view: PlayerRespawnView; seconds: number;
-  onChoose: (id: string) => void; onAutomatic: (checked: boolean) => void; onMenu: () => void;
+  onChoose: (id: string) => void; onAutomatic: (checked: boolean) => void; onMenu: () => void; onLoadout?: () => void;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
@@ -27,6 +27,7 @@ export default function ExpeditionRespawn({ view, seconds, onChoose, onAutomatic
         <span>Auto-respawn<small>Automatically choose an available allied zone when the timer ends.</small></span>
       </label>
       <p className="respawn-selection" role="status">{selected ? `${selected.name} selected. ${ready ? 'Deploying…' : 'You will respawn here when the timer ends.'}` : view.automatic ? 'An available allied zone will be chosen for you.' : 'Select an allied zone to return to the fight.'}</p>
+      {onLoadout && <button type="button" className="respawn-loadout-trigger" onClick={onLoadout}>Choose next respawn loadout</button>}
       <button className="respawn-menu" type="button" onClick={onMenu}>Menu</button>
     </section>
   </div>;

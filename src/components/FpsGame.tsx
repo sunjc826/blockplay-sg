@@ -1,3 +1,5 @@
+import RespawnLoadoutSelector from './RespawnLoadoutSelector';
+import { applyRespawnLoadout, type RespawnLoadoutSelection } from '../game/respawn-loadout';
 import { RANGE_DRILLS, RANGE_DURATION, type RangeDrillId } from '../game/range-drills';
 import './range-drills.css';
 import type { RaiderBounty } from '../game/combat-rewards';
@@ -56,7 +58,9 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
   const eliminationCallback = useRef(onElimination); eliminationCallback.current = onElimination;
   const consumeCallback = useRef(onConsume); consumeCallback.current = onConsume;
   const [startingEquipment] = useState(() => resolveLoadout(profile));
-  const equipment = expireLoadoutRentals(startingEquipment);
+  const [liveEquipment, setLiveEquipment] = useState(startingEquipment);
+  const equipment = expireLoadoutRentals(liveEquipment);
+  const [nextProfile, setNextProfile] = useState(profile), [loadoutOpen, setLoadoutOpen] = useState(false);
   const [arenaOptions] = useState(() => arena ? { ...arena, profile } : undefined);
   const [combat, setCombat] = useState(false);
   const [drill, setDrill] = useState<RangeDrillId>('classic');
@@ -68,13 +72,19 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
   const debug = useDebugMode();
   useEffect(() => {
     setHud({ ...initialFpsHud });
-    try { engine.current = createFpsEngine(host.current!, setHud, { region, rangeDrill: drill, loadout: expireLoadoutRentals(startingEquipment), combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onElimination: (id, bounty) => eliminationCallback.current(id, bounty), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); }, encik: () => speaking.current }); }
+    try { engine.current = createFpsEngine(host.current!, setHud, { region, rangeDrill: drill, loadout: expireLoadoutRentals(startingEquipment), onLoadout: setLiveEquipment, combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onElimination: (id, bounty) => eliminationCallback.current(id, bounty), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); }, encik: () => speaking.current }); }
     catch { setHud(h => ({ ...h, phase: 'error', message: '3D graphics could not start. Check that WebGL is enabled, then retry.' })); }
     return () => { engine.current?.dispose(); engine.current = null; };
   }, [epoch, combat, startingEquipment, arenaOptions, region]);
   useEffect(() => { if (suspended) engine.current?.pause(); }, [suspended]);
   const loaded = hud.phase !== 'loading';
   useEffect(() => { if (loaded) onLoaded?.(); }, [loaded, onLoaded]);
+  const openLoadout = () => { engine.current?.pause(); setLoadoutOpen(true); };
+  const queueLoadout = async (selection: RespawnLoadoutSelection) => {
+    const next = applyRespawnLoadout(profile, selection);
+    if (!next || !await engine.current?.queueRespawnLoadout(selection)) return false;
+    setNextProfile(next); return true;
+  };
   const resetExercise = () => { startingLevel.current = rank.level; engine.current?.reset(); };
   const chooseDrill = (next: boolean) => { if (combat !== next) { startingLevel.current = rank.level; setCombat(next); } };
   const isArena = !!arenaOptions, guest = arenaOptions?.session.role === 'guest';
@@ -99,12 +109,13 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
   return <div className={`fps-game ${isArena ? 'is-arena' : ''} ${isArena && !debug ? 'arena-player-view' : ''} ${fullscreen.immersive ? 'is-immersive' : ''}`} ref={stage} data-range-drill={!isArena ? drill : undefined} data-range-eliminations={!isArena ? hud.hits : undefined} data-range-supply={hud.rangeSupplyPrompt ? 'available' : undefined} data-touch={touch ? 'on' : undefined} data-hud-hints={hudHints ? 'on' : 'off'} data-map-zone={region} data-phase={hud.phase} data-pilot={hud.pilotEnabled || undefined} data-pointer-locked={hud.locked} data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-vehicle-view={hud.vehicleView} data-vehicle-personal-weapon={hud.vehiclePersonalWeapon} data-vehicle={hud.vehicle} data-vehicle-health={hud.vehicleHealth} data-vehicle-ammo={hud.vehicleAmmo} data-vehicle-damage={hud.vehicleDamage} data-speed={hud.vehicleSpeed.toFixed(2)} data-altitude={hud.altitude.toFixed(2)} data-player-x={hud.x.toFixed(3)} data-player-z={hud.z.toFixed(3)} data-player-yaw={hud.yaw.toFixed(4)} data-player-pitch={hud.pitch.toFixed(4)} data-arena={isArena || undefined} data-arena-connected={isArena ? hud.arenaConnected : undefined} data-arena-alive={hud.arenaSelf?.alive} data-arena-kills={hud.arenaSelf?.kills}>
     <div className="viewport fps-viewport">
       <div className="world" ref={host} />
+      {loadoutOpen && <RespawnLoadoutSelector inventory={profile} selected={nextProfile} onSave={queueLoadout} onClose={() => setLoadoutOpen(false)} />}
       {(debug || !isArena && (fullscreen.notice || hud.message)) && <p className="fps-message" role="status">{fullscreen.notice || hud.message || (isArena ? `Eliminations pay ${ELIMINATION_CREDITS} CR · Match scores are session-only · Infantry armor/ammo replenish on respawn · Vehicle ammo resets with the match` : 'Game balance stats · Scenery blocks shots · Armor replenishes each exercise')}</p>}
       {fullscreen.immersive && fullscreen.notice && <div className="fps-screen-notice" role="status">{fullscreen.notice}</div>}
       {fullscreen.immersive && <div className="fps-immersive-hint">ESC · PAUSE & RELEASE MOUSE</div>}
       {fullscreen.immersive && !playing && <button className="fps-leave-screen" onClick={() => { void fullscreen.toggle(); }}><Minimize size={14} /> Exit fullscreen</button>}
       <div className="fps-top"><span className="fps-badge"><span className="status-dot" /> {zone.name.toUpperCase()}{(!touch || isArena) && ` / ${isArena ? 'ARENA' : 'FIELD RANGE'}`}</span><span className="fps-score">{isArena ? `${hud.arenaSelf?.kills || 0} K / ${hud.arenaSelf?.deaths || 0} D` : drill === 'classic' ? `${hud.hits} / ${district.targets.length} TARGETS` : `${hud.hits} CLEARED`} <b>{isArena ? arenaClock : rangeClock}</b></span></div>
-      {isArena && playing && <><div className="arena-kill-feed" aria-label="Elimination feed">{hud.arena?.feed.slice(-4).map(event => <p key={event.id} className={event.killerId === arenaOptions.session.id ? 'own-kill' : event.victimId === arenaOptions.session.id ? 'own-death' : ''}>{event.text}</p>)}</div>{hud.arenaSelf && !hud.arenaSelf.alive && <div className="arena-respawn" role="status"><span>ELIMINATED</span><strong>Back in {Math.ceil(hud.arenaSelf.respawnIn)}s</strong><small>Infantry armor/ammo replenish on respawn · Vehicle ammo resets with the match.</small></div>}{!hud.arenaStarted && !disconnected && <div className="arena-waiting" role="status">Waiting for the host to start the match.</div>}</>}
+      {isArena && playing && <><div className="arena-kill-feed" aria-label="Elimination feed">{hud.arena?.feed.slice(-4).map(event => <p key={event.id} className={event.killerId === arenaOptions.session.id ? 'own-kill' : event.victimId === arenaOptions.session.id ? 'own-death' : ''}>{event.text}</p>)}</div>{hud.arenaSelf && !hud.arenaSelf.alive && <div className="arena-respawn" role="status"><span>ELIMINATED</span><strong>Back in {Math.ceil(hud.arenaSelf.respawnIn)}s</strong><small>Infantry armor/ammo replenish on respawn · Vehicle ammo resets with the match.</small><button type="button" className="respawn-loadout-trigger" onClick={openLoadout}>Choose next respawn loadout</button></div>}{!hud.arenaStarted && !disconnected && <div className="arena-waiting" role="status">Waiting for the host to start the match.</div>}</>}
       {isArena && !debug && playing && !touch && <button className="arena-menu-button" aria-label="Open match menu" onClick={() => engine.current?.pause()}><Menu size={18} /><span>Menu</span></button>}
       <FpsHudLayout hud={hud} history={debug && fullscreen.immersive}>
         {playing && <FpsMinimap zone={region} player={hud} markers={hud.mapMarkers} contactRange={hud.mapContactRange} mode={isArena ? 'arena' : 'practice'} expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />}
@@ -151,7 +162,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
             <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} touch={touch} onFullscreen={() => { void fullscreen.toggle(); }} />
             <EnvironmentControls multiplayer={arenaOptions.session.role !== 'solo'} />
           </details>
-          <details className="arena-menu-section"><summary>Your loadout</summary><p>{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP</p><p>{guest ? 'Your equipped Armory gear is ready.' : `${arenaOptions.botCount} bots · ${arenaOptions.composition} squad`}</p><button className="fps-shop-link arena-armory-link" onClick={onOpenShop}>Leave match · open armory →</button></details>
+          <details className="arena-menu-section"><summary>Your loadout</summary><button type="button" className="respawn-loadout-trigger" onClick={openLoadout}>Choose next respawn loadout</button><p>{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP</p><p>{guest ? 'Your equipped Armory gear is ready.' : `${arenaOptions.botCount} bots · ${arenaOptions.composition} squad`}</p><button className="fps-shop-link arena-armory-link" onClick={onOpenShop}>Leave match · open armory →</button></details>
           {!guest && hud.phase === 'paused' && <button className="arena-reset-button" aria-label="Reset arena match" onClick={resetExercise}><RotateCcw size={14} /> Restart match</button>}
         </>}
         {debug && <><FpsDebugPanel hud={hud} engine={engine.current} /><FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} /></>}

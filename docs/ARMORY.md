@@ -68,6 +68,23 @@ an older save preserves its wallet, progression and ownership; expired or invali
 rental entries are discarded. Like the rest of this prototype's inventory,
 rentals are local to this browser profile.
 
+## Choosing the next respawn loadout
+
+Open **Choose next respawn loadout** from the Open World pause menu or the
+allied-zone respawn card. In multiplayer, use **Your loadout** in the match menu,
+or the loadout button while down. The dedicated selector offers a main weapon,
+a sidearm and an optional extra main if its slot is unlocked. Choose a platform,
+then one of its owned or currently rented variants, and confirm **Use on next
+respawn**. You can change the queued choice again before respawning.
+
+Confirmation queues weapons for the next life; it does not change the current
+life, armour, supplies, wallet or saved Store loadout. The battle and respawn
+timer keep running while the screen is open. Choices last through subsequent
+lives and Open World district travel in the current session. Multiplayer hosts
+validate guest choices against the inventory they joined with. Expired rentals
+are unavailable at confirmation; a rental that expires while queued falls back
+to the issued variant at respawn. Field-only enemy pickups are not locker choices.
+
 ## Rank insignia
 
 What a level is *called* is a set, and there are four of them. The choice is

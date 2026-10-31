@@ -1,3 +1,4 @@
+import { applyRespawnLoadout, type RespawnLoadoutSelection } from './respawn-loadout';
 import { createDropColumnCheck } from './paratrooper-route-validation';
 import { createRangeDirector, rangeTargetRise, rangeTargetHeight, validRangeDrill, RANGE_DURATION, type RangeDrillId, type RangeDrillView } from './range-drills';
 import { resupplyEquipment, rangeEquipmentStock } from './equipment-resupply';
@@ -280,7 +281,7 @@ function disposeAssets(roots: THREE.Object3D[]) {
   textures.forEach(t => { t.dispose(); if (typeof ImageBitmap !== 'undefined' && t.source.data instanceof ImageBitmap) t.source.data.close(); });
 }
 
-export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { rangeDrill?: RangeDrillId; tutorial?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; onConsume?: (id: string) => void; onFullscreen?: () => void;
+export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { rangeDrill?: RangeDrillId; tutorial?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; onLoadout?: (equipment: ResolvedLoadout) => void; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; onConsume?: (id: string) => void; onFullscreen?: () => void;
   /** Read per callout, so a level-up mid-exercise is heard immediately. */
   encik?: () => EncikAddress } = {}) {
   const expedition = options.expedition;
@@ -293,6 +294,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const copyProfile = (profile: ArmoryProfile): ArmoryProfile => JSON.parse(JSON.stringify(profile));
   let fieldProfile = copyProfile(expedition?.profile ?? options.arena?.profile ?? createProfile());
   const startingProfile = copyProfile(expedition?.startingProfile ?? fieldProfile);
+  let respawnProfile = startingProfile;
   let equipment = expedition ? resolveLoadout(fieldProfile) : options.loadout || resolveLoadout(createProfile()), specs = equipment.weapons;
   const undress: (() => void)[] = [];
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -2564,7 +2566,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         if (expedition) {
           // Fallen-kit drops above still see this life's pickups. Prepare the
           // authority now so either manual or automatic respawn uses issued armor.
-          fieldProfile = respawnEquipment(fieldProfile, startingProfile);
+          fieldProfile = respawnEquipment(fieldProfile, respawnProfile);
           equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
           looted = {}; supplies = { ...equipment.supplies };
           arenaRuntime.updateLoadout(fieldProfile);
@@ -2579,6 +2581,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         }
       }
       if (frame.spawn) {
+        if (previousSelf && (!previousSelf.alive || frame.self.deaths > previousSelf.deaths) && !checkpointPending) {
+          fieldProfile = respawnEquipment(fieldProfile, respawnProfile);
+          equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
+          hud.weapon = equipment.carriedFamilies[0];
+          undress.splice(0).forEach(dispose => dispose());
+          weapons.forEach((model, family) => { undress.push(dressWeapon(model, specs[family])); model.visible = family === hud.weapon; weaponStyles[family] = effectStyleForWeapon(specs[family]); });
+          effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id)); effects.setStyles(weaponStyles, hud.weapon);
+          expedition?.onEquipment(copyProfile(fieldProfile)); options.onLoadout?.(equipment);
+        }
         if (previousSelf && !previousSelf.alive) radioCall('respawn');
         pilot.reset(); strategicPlanner?.reset();
         position = { x: frame.self.x, z: frame.self.z }; vertical = Math.max(0, frame.self.y - 1.75); velocityY = 0;
@@ -3309,6 +3320,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // A skipped firing lesson must still leave a reloadable practice magazine.
       if (COURSE_STEPS[step]?.id === 'reload') loadout[hud.weapon].magazine = Math.max(0, loadout[hud.weapon].magazine - 1);
       updateCameras(0, false, false); publish();
+    },
+    async queueRespawnLoadout(selection: RespawnLoadoutSelection) {
+      const next = applyRespawnLoadout(startingProfile, selection);
+      if (!next || !arenaRuntime || disposed) return false;
+      const accepted = await arenaRuntime.queueRespawnLoadout(selection);
+      if (!accepted || disposed) return false;
+      respawnProfile = next;
+      hud.message = 'Weapon loadout queued for your next respawn.'; publish(); return true;
     },
     setRangeDrill, endDrill, resupplyRange,
     chooseRespawn: (zone: string) => { const accepted = arenaRuntime?.chooseRespawn(zone) ?? false; publish(); return accepted; },

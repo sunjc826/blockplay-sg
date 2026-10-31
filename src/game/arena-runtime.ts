@@ -1,3 +1,4 @@
+import { applyRespawnLoadout, type RespawnLoadoutSelection } from './respawn-loadout';
 import { createParachute } from './parachute-model';
 import { validAircrewRole, aircrewPoint, helicopterCrew, rifleSeat } from './helicopter-crew';
 import { validReinforcementClocks } from './naval-landings';
@@ -344,6 +345,10 @@ const wrapAngle = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle)
 export function createArenaRuntime(options: ArenaRuntimeOptions) {
   const { scene, session } = options;
   let profile = restoreProfile(JSON.stringify(options.profile ?? createProfile()));
+  const inventory = profile;
+  const peerInventories = new Map<string, ArmoryProfile>();
+  let loadoutRequest = 0;
+  const loadoutRequests = new Map<number, (accepted: boolean) => void>();
   const authority = session.role !== 'guest';
   // Every shot and every bot's line of sight is checked against the rendered
   // scene, not only the box footprints: mesh-only walls must stop bot fire.
@@ -415,7 +420,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   const peersChanged = () => {
     if (!simulation) return;
     const present = new Set(session.getPeers().map(peer => peer.id));
-    for (const id of registered) if (id !== session.id && !present.has(id)) { simulation.removePlayer(id); registered.delete(id); acknowledgements.delete(id); }
+    for (const id of registered) if (id !== session.id && !present.has(id)) { simulation.removePlayer(id); registered.delete(id); acknowledgements.delete(id); peerInventories.delete(id); }
     publish();
   };
   const unsubscribePeers = session.onPeers(peersChanged);
@@ -428,9 +433,15 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         try { raw = JSON.stringify(payload.profile); } catch { return; }
         if (typeof raw !== 'string' || raw.length > 16_000) return;
         const guest = restoreProfile(raw), loadout = resolveLoadout(guest);
+        peerInventories.set(from, guest);
         simulation.addPlayer(from, peer.name, loadout.armor, loadout.absorption, loadout.weapons, undefined, false, loadout.carriedFamilies, loadout.insert);
         // The host spends a guest's supplies from what they brought, as it already trusts the kit they brought.
         simulation.setPlayerSupplies(from, guest.consumables); registered.add(from); publish();
+      } else if (registered.has(from) && payload.type === 'arena-loadout' && Number.isSafeInteger(payload.request)) {
+        const admitted = peerInventories.get(from), next = admitted && applyRespawnLoadout(admitted, payload.selection);
+        const loadout = next && resolveLoadout(next);
+        const accepted = !!loadout && simulation.queuePlayerWeapons(from, loadout.weapons, loadout.carriedFamilies);
+        session.send({ type: 'arena-loadout-result', request: payload.request, accepted }, from);
       } else if (registered.has(from) && started && payload.type === 'arena-vehicle' && ['enter', 'exit', 'switch'].includes(String(payload.action)) && (payload.kind === undefined || payload.kind === 'car' || payload.kind === 'helicopter')) {
         const accepted = simulation.vehicleAction(from, payload.action as 'enter' | 'exit' | 'switch', payload.kind as VehicleKind | undefined);
         if (accepted) acknowledgements.delete(from);
@@ -465,7 +476,11 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     } else if (from === hostId) {
       if (payload.type === 'grenade-result' && Number.isSafeInteger(payload.request) && typeof payload.accepted === 'boolean' && grenadeRequests.has(payload.request as number)) { const callback = grenadeRequests.get(payload.request as number); grenadeRequests.delete(payload.request as number); callback?.(payload.accepted); }
       if (payload.type === 'arena-vehicle-result' && payload.accepted === false) vehicleNotice = 'Seat unavailable. Approach a stopped vehicle; land and slow down to exit.';
-      if (payload.type === 'arena-state' && validArenaSnapshot(payload.snapshot, options.environment) && typeof payload.started === 'boolean') {
+      if (payload.type === 'arena-loadout-result' && Number.isSafeInteger(payload.request) && typeof payload.accepted === 'boolean') {
+        const done = loadoutRequests.get(payload.request as number);
+        loadoutRequests.delete(payload.request as number); done?.(payload.accepted);
+      }
+      else if (payload.type === 'arena-state' && validArenaSnapshot(payload.snapshot, options.environment) && typeof payload.started === 'boolean') {
         if (typeof payload.matchId === 'string' && payload.matchId.length <= 100) {
           if (retiredMatches.has(payload.matchId)) return;
           if (matchId && payload.matchId === matchId && payload.snapshot.tick < lastTick) return;
@@ -576,6 +591,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (disposed) return { snapshot: null, self: null, connected: false, started: false, hit: null, feed: [], spawn: false, barks: [] };
     dt = Number.isFinite(dt) ? Math.max(0, Math.min(dt, 0.25)) : 0;
     const connected = (session.isConnected?.() ?? true) && (authority || !!hostId && session.getPeers().some(peer => peer.id === hostId));
+    if (!connected) { for (const done of loadoutRequests.values()) done(false); loadoutRequests.clear(); }
     inputTime += dt; helloTime += dt;
     let self = snapshot?.actors.find(actor => actor.id === session.id) ?? null;
     if (!authority && !self && connected && helloTime >= 1) { helloTime = 0; session.send({ type: 'arena-hello', profile }); }
@@ -680,6 +696,14 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     else session.send({ type: 'arena-callout', callout: id, ...(at ? { at } : {}) });
   }
   function reset() { if (!simulation || disposed) return; simulation.reset(); matchId = newMatchId(); acknowledgements.clear(); reconciliation.reset(); broadcastTime = 0; started = false; localAdopted = false; previousSelf = null; seenFeed.clear(); seenBarks.clear(); publish(); }
+  function queueRespawnLoadout(selection: RespawnLoadoutSelection): Promise<boolean> {
+    const next = applyRespawnLoadout(inventory, selection);
+    if (disposed || !next) return Promise.resolve(false);
+    const loadout = resolveLoadout(next);
+    if (simulation) return Promise.resolve(simulation.queuePlayerWeapons(session.id, loadout.weapons, loadout.carriedFamilies));
+    if (!hostId || !snapshot?.actors.some(actor => actor.id === session.id) || !(session.isConnected?.() ?? true)) return Promise.resolve(false);
+    return new Promise(resolve => { const request = ++loadoutRequest; loadoutRequests.set(request, resolve); session.send({ type: 'arena-loadout', request, selection }, hostId); });
+  }
   function updateLoadout(nextProfile: ArmoryProfile) {
     if (disposed || session.role !== 'solo' || !simulation) return false;
     profile = restoreProfile(JSON.stringify(nextProfile));
@@ -722,6 +746,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     simulation.setCombatEvents(enabled); return true;
   }
   function dispose() {
+    for (const done of loadoutRequests.values()) done(false); loadoutRequests.clear();
     for (const callback of grenadeRequests.values()) callback?.(false); grenadeRequests.clear();
     if (disposed) return; disposed = true; clearInterval(timer); unsubscribe(); unsubscribePeers();
     for (const avatar of avatars.values()) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); }
@@ -736,6 +761,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       avatar.root.position.set(eye.x, eye.y - (actor.vehicle === 'car' && actor.seat === 1 ? 1.75 : 1.2), eye.z);
     }
   }
-  return { chooseRespawn, setAutoRespawn, getRespawn: () => simulation?.playerRespawn(session.id) ?? null, selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
+  return { chooseRespawn, setAutoRespawn, getRespawn: () => simulation?.playerRespawn(session.id) ?? null, selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

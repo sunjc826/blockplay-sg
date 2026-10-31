@@ -4,6 +4,9 @@ import type { ArmoryProfile } from './armory-state';
 export function respawnEquipment(current: ArmoryProfile, starting: ArmoryProfile): ArmoryProfile {
   return {
     ...current,
+    // Field pickups are licences for the previous life, not permanent locker ownership.
+    owned: [...starting.owned],
+    rentals: { ...starting.rentals },
     guns: structuredClone(starting.guns),
     carry: { ...starting.carry },
     rig: starting.rig,

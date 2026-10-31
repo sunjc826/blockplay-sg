@@ -282,7 +282,7 @@ interface InternalActor {
   evacuating?: { x: number; z: number; until: number };
   velocityY?: number;
   navigation?: { path: NavigationPoint[]; target: NavigationPoint; retry: number; stuck?: number; pending?: Generator<undefined, NavigationPoint[]> };
-  actor: ArenaActor; healthMax: number; armorMax: number; absorption: number; insert: InsertTraits; weapons: ArenaWeapon[]; allowedWeapons: number[]; role?: ArenaRolePlugin;
+  actor: ArenaActor; healthMax: number; armorMax: number; absorption: number; insert: InsertTraits; weapons: ArenaWeapon[]; nextWeapons?: { weapons: ArenaWeapon[]; allowed: number[] }; allowedWeapons: number[]; role?: ArenaRolePlugin;
   /**
    * Per weapon, the same ammunition state and rules as the player's own gun
    * (fps-rules), with an unlimited reserve: magazine, chamber, cooldown and an
@@ -563,6 +563,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     const respawnChoice = respawnChoices.get(entry.actor.id);
     if (respawnChoice) respawnChoice.selected = null;
+    if (entry.nextWeapons && !entry.actor.bot) {
+      entry.weapons = entry.nextWeapons.weapons; entry.allowedWeapons = entry.nextWeapons.allowed;
+      entry.actor.weapon = entry.allowedWeapons[0]; entry.nextWeapons = undefined;
+      expirePlayerRentals(entry);
+    }
     entry.ammo = entry.weapons.map(hostAmmo);
     entry.burst = 0; entry.burstFired = 0; entry.heal = undefined; entry.lastHurt = -Infinity; delete entry.actor.healing; entry.shieldUntil = elapsed + SPAWN_SHIELD_SECONDS;
     // A respawn starts hungry.
@@ -713,6 +718,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.weapons = next; entry.ammo.length = next.length;
     entry.allowedWeapons = allowedIndexes(next, allowed ?? entry.allowedWeapons);
     if (!entry.allowedWeapons.includes(entry.actor.weapon)) entry.actor.weapon = entry.allowedWeapons[0]; entry.wasReloading = false;
+  }
+  function queuePlayerWeapons(id: string, weapons: readonly ArenaWeapon[], allowed: readonly number[]) {
+    const entry = members.get(id); if (!entry || entry.actor.bot || finished) return false;
+    const next = sanitizeWeapons(weapons);
+    entry.nextWeapons = { weapons: next, allowed: allowedIndexes(next, allowed) };
+    return true;
   }
   /** The authority uses wall time, including when a guest keeps an old loadout open. */
   function expirePlayerRentals(entry: InternalActor, now = Date.now()) {
@@ -3096,7 +3107,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   if (facilities) for (let i = 0; i < (environment?.battlefield ? BATTLEFIELD_POPULATIONS[environment.battlefield.size][PLAYER_FACTION] : 4); i++) enlist(false, PLAYER_FACTION);
   const navigationStatus = () => [...members.values()].filter(m=>m.actor.bot && m.actor.alive && m.actor.squad).map(m=>({id:m.actor.id,objective:m.actor.objective,duty:m.actor.duty,sector:m.actor.patrolSector,pending:!!m.navigation?.pending,path:m.navigation?.path.length??0,x:m.actor.x,z:m.actor.z,goal:m.navigation?.target,via:m.assignment?.via,mission:m.mission}));
   const patrolStatus = () => sectorPatrols?.status(elapsed)??[];
-  return { patrolStatus, navigationStatus, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  return { patrolStatus, navigationStatus, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

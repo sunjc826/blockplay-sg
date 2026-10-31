@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createArenaRuntime, validArenaInput, validArenaSnapshot } from './arena-runtime';
 import { createArena, type ArenaInput } from './arena-rules';
-import { createProfile } from './armory-state';
+import { createProfile, purchase } from './armory-state';
+import { selectedRespawnLoadout } from './respawn-loadout';
 import type { LanSession } from './lan-peer';
 import { createSoloSession } from './lan-peer';
 import { MARINA_BOUNDS, moveInMarina } from './marina-collision';
@@ -264,4 +265,24 @@ it('reports a lost public relay even for the authoritative host', () => {
     connected = false;
     expect(runtime.update(.02, input()).connected).toBe(false);
   } finally { runtime.dispose(); }
+});
+
+it('acknowledges guest respawn loadouts and rejects weapons outside the admitted locker', async () => {
+  vi.useFakeTimers();
+  const [hostSession, guestSession] = localPair();
+  const profile = purchase({ ...createProfile(), xp: 100000, tokens: 10000 }, 'sar-vanguard', '1d').profile;
+  const host = createArenaRuntime({ scene: new THREE.Scene(), obstacles: [], botCount: 0, session: hostSession });
+  const guest = createArenaRuntime({ scene: new THREE.Scene(), obstacles: [], botCount: 0, session: guestSession, profile });
+  try {
+    guest.update(.1, input()); host.update(.1, input());
+    const selection = selectedRespawnLoadout(profile); selection.variants[0] = 'sar-vanguard'; selection.carry.main = 1;
+    expect(await guest.queueRespawnLoadout(selection)).toBe(true);
+    expect(guest.update(.1, input()).self?.weapon).toBe(0);
+    let reply: unknown;
+    const unsubscribe = guestSession.subscribe((_from, payload) => { if ((payload as { type: string }).type === 'arena-loadout-result') reply = payload; });
+    const invalid = selectedRespawnLoadout(profile); invalid.variants[0] = 'sar-marksman';
+    guestSession.send({ type: 'arena-loadout', request: 999, selection: invalid });
+    expect(reply).toEqual({ type: 'arena-loadout-result', request: 999, accepted: false });
+    unsubscribe();
+  } finally { guest.dispose(); host.dispose(); }
 });
