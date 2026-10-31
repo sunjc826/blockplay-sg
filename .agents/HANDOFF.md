@@ -5526,3 +5526,40 @@ JS/CSS, Three.js and service-worker hashes (eight asset checks). Receipts:
 and `.cache/vehicle-pickup-live-verification.json`. No GitHub push or paid API
 requests. AGENTS.md stays local, unstaged and uncommitted. Preserve the
 pre-existing unstaged handoff changes and .claude directory.
+
+## Destroyed vehicle cleanup (2026-10-31)
+
+Owner requested wrecks clear space for replacements. Local main code commit
+`910ca05` despawns empty Utility/Falcon wrecks after 30 simulation seconds in
+practice and authoritative arena/expedition play. Models, foot/vehicle/flight
+collision, ballistic interception, navigation blockers and new smoke/fire
+emissions clear together. Existing particles finish their short fade. The fleet
+slot remains in shared snapshots with a validated `despawned` flag; resets and
+replacements explicitly restore it. Shared clients follow authority for cleanup.
+
+Open-world replacements still wait 45 seconds and retain facility/supply costs,
+pad clearance and nearby-player/AI protection at the destination. A player beside
+the old, cleared wreck no longer blocks a distant motor pool. Healthy occupied
+vehicles and abandoned working-vehicle reclamation retain their existing rules.
+Practice and non-open-world arena cleanup does not introduce automatic refills.
+
+Validation: 142 focused checks across nine files pass in aggregate. The first
+run passed 141 with the Queenstown scene timing out under heavy host load; all
+36 world-vehicle checks then passed on the frozen release with a longer timeout.
+The initial broader full-suite attempt was stopped after load-related scene
+and worker timeouts; no full-suite-pass claim. Workspace typecheck passed. Real
+Chrome/Three.js rendering checked both wrecks before cleanup, absent models,
+collision/ballistics/smoke, reset and authoritative replacement, with no runtime
+errors. Screenshots/results: `.cache/vehicle-despawn/`. The task's Chrome and Vite
+were stopped. Release source hashes verify all 2,945 tracked files at `910ca05`.
+
+The production Cloudflare build passed its TypeScript/build checks. Manual
+`pnpm deploy:cloudflare` succeeded from the exact frozen source: version
+`d7e50e90-7721-43e1-8ad6-bbee6ca3ed22`. Both public domains serve byte-identical
+entry JS/CSS, preload chunks and service worker; production routing, assets,
+PWA and API-origin checks pass. Logs/receipts are in `.cache/vehicle-despawn/`.
+The initial pnpm attempt stopped before building because of the shared dependency
+link; retry used `pnpm_config_verify_deps_before_run=false` with unchanged
+installed dependencies and lockfile. Private build environment copies removed.
+No GitHub push. AGENTS.md remains local, unstaged and uncommitted. Preserve other
+unfinished work and handoff edits.
