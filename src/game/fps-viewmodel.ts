@@ -7,6 +7,7 @@ import { getWeaponSight } from './weapon-optics';
 import { createBipodMotion, type BipodMotionInput } from './weapon-bipod';
 import { MACHINE_GUN_LAYOUT } from './machine-gun-layout';
 import { ENEMY_WEAPON_LAYOUT, isEnemyWeaponId } from './enemy-weapon-layout';
+import { updateMagazineAmmo } from './magazine-ammo';
 
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
 /**
@@ -95,7 +96,8 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
     resetBipod: bipod.reset,
     get aimHeight() { return getWeaponSight(model)?.aimHeight ?? FPS_WEAPONS[index].sightHeight; },
     get aimDepth() { return getWeaponSight(model)?.aimDepth ?? enemy?.aimDepth ?? (index === 2 ? -.52 : index === 3 ? MACHINE_GUN_LAYOUT['mag-inspired'].aimDepth : index === 4 ? MACHINE_GUN_LAYOUT['cis50-inspired'].aimDepth : -.36); },
-    update(progress: number | null, empty: boolean, bipodInput?: BipodMotionInput, ready?: number, reload?: { source?: PouchReloadSource; magazineOut: boolean; pending: boolean; capacity: number; baseCapacity?: number; saved: number }) {
+    update(progress: number | null, empty: boolean, bipodInput?: BipodMotionInput, ready?: number, reload?: { source?: PouchReloadSource; magazineOut: boolean; pending: boolean; capacity: number; baseCapacity?: number; saved: number }, ammunition?: { rounds: number; capacity: number }) {
+      if (ammunition) updateMagazineAmmo(model, ammunition.rounds, ammunition.capacity);
       bipod.update(bipodInput);
       const motionProgress = progress ?? (reload?.magazineOut ? reload.saved : 0);
       const motion = ready === undefined ? reloadMotion(motionProgress, empty, side) : readyMotion(ready, side);

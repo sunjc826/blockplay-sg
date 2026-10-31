@@ -1,0 +1,36 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Translucent magazine ammunition</title><style>
+body{margin:0;background:#18222a;color:#e4ebed;font:14px system-ui}canvas{display:block}.labels{position:absolute;inset:0;pointer-events:none;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr)}.labels span{align-self:end;padding:14px 22px}small{display:block;color:#a3b6be}
+</style></head><body><div class="labels" id="labels"></div><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import { GLTFLoader } from '/node_modules/three/examples/jsm/loaders/GLTFLoader.js';
+import { buildEnemyWeapon } from '/src/game/enemy-weapon-models.ts';
+import { dressWeapon } from '/src/game/armory-visuals.ts';
+import { createProfile, equip, resolveLoadout } from '/src/game/armory-state.ts';
+import { updateMagazineAmmo, magazineAmmoState } from '/src/game/magazine-ammo.ts';
+const params = new URLSearchParams(location.search);
+const variants = [params.get('sar') ?? 'sar-issued', params.get('xm8') ?? 'xm8-carbine', params.get('g36') ?? 'g36-rifle'];
+const families = [0,5,6], fills = [1,.5,0], cells = [];
+const renderer = new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(1); renderer.setSize(innerWidth,innerHeight); renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.setClearColor('#18222a'); renderer.setScissorTest(true); document.body.append(renderer.domElement);
+for(let row=0;row<3;row++) for(let col=0;col<3;col++) {
+  const base=createProfile(), variant=variants[row], family=families[row];
+  const weapon=resolveLoadout(equip({...base,owned:[...base.owned,variant]},variant,family)).weapons[family];
+  const root=row===0 ? (await new GLTFLoader().loadAsync('/models/field-kit/sar21-inspired.glb')).scene : buildEnemyWeapon(weapon.id);
+  const remove=dressWeapon(root,weapon);
+  updateMagazineAmmo(root,Math.round(weapon.capacity*fills[col]),weapon.capacity);
+  const scene=new THREE.Scene(); scene.add(root,new THREE.HemisphereLight('#e8efff','#535f49',2.5));
+  const key=new THREE.DirectionalLight('#ffefd6',3); key.position.set(1,1,1); scene.add(key);
+  const centre=row===0 ? new THREE.Vector3(0,-.025,.239) : new THREE.Vector3(0,.06,-.078);
+  const camera=new THREE.OrthographicCamera(-.17,.17,.145,-.145,.01,10);
+  camera.position.copy(centre).add(new THREE.Vector3(.65,.025,.13)); camera.lookAt(centre);
+  cells.push({root,scene,camera,remove,weapon,row,col});
+  document.getElementById('labels').insertAdjacentHTML('beforeend',`<span>${weapon.name} · ${Math.round(weapon.capacity*fills[col])}/${weapon.capacity}<small>${['Full','Half','Empty'][col]}</small></span>`);
+}
+function draw(){
+  for(const cell of cells){const {row,col,scene,camera}=cell,w=innerWidth/3,h=innerHeight/3;
+    renderer.setViewport(col*w,innerHeight-(row+1)*h,w,h); renderer.setScissor(col*w,innerHeight-(row+1)*h,w,h); renderer.render(scene,camera);}
+}
+draw(); window.fixture={cells,renderer,draw,states:()=>cells.map(({root,weapon})=>({id:weapon.id,stacks:magazineAmmoState(root)}))};
+window.ready=true;
+</script></body></html>

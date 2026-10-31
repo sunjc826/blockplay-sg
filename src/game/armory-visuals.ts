@@ -7,6 +7,7 @@ import { fitWeaponHardware } from './weapon-fittings';
 import { fitWeaponAccessories } from './weapon-accessory-models';
 import { buildWeaponBipod } from './weapon-bipod';
 import { applyEnemyWeaponConfig } from './enemy-weapon-models';
+import { fitMagazineAmmo } from './magazine-ammo';
 
 /** Each preview owns its materials. Restore originals before disposing the source GLB. */
 export function dressWeapon(root: THREE.Object3D, weapon: EquippedWeapon) {
@@ -56,9 +57,11 @@ export function dressWeapon(root: THREE.Object3D, weapon: EquippedWeapon) {
   const removeHardware = fitWeaponHardware(root, weapon);
   // Its muzzle device, rail device and brace, each with something the engine drives.
   const removeAccessories = fitWeaponAccessories(root, weapon);
+  const removeMagazineAmmo = fitMagazineAmmo(root, weapon.id, weapon.capacity);
   if (weapon.equipment.attachments.magazine) addBand(.036, .07, .13, '#b8a17a');
   if (weapon.equipment.attachments.handling) addBand(0, .07, -.20, '#555b5e');
   return () => {
+    removeMagazineAmmo();
     removeOptic(); removeHardware(); removeAccessories(); removeConfig();
     if (bipod) { bipod.removeFromParent(); disposeModel(bipod); }
     if (originalBipod && bipodParent) bipodParent.add(originalBipod);

@@ -53,7 +53,7 @@ import * as THREE from 'three';
 import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook, clampFpsPitch } from './fps-pointer';
 import { dragLook, resolveMovement, stickKeys, type StickVector } from './touch-controls';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { advanceWeapon, beginReload, chamberRound, findTrait, fireWeapon, interruptReload, reloadDuration, roundReady, validWeaponIndex, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponSpec, type WeaponState } from './fps-rules';
+import { advanceWeapon, beginReload, chamberRound, magazineRounds, findTrait, fireWeapon, interruptReload, reloadDuration, roundReady, validWeaponIndex, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponSpec, type WeaponState } from './fps-rules';
 import { addReserveMagazines, magazineCapacity, nextMagazineSlot, reserveRoom, spareMagazines, type MagazineInventory } from './magazine-inventory';
 import { addReserveRounds, createPooledLoadout, replacePooledWeapon, type AmmoPools } from './ammo-pools';
 import { firstVisibleHit, visibleHits } from './fps-raycast';
@@ -97,6 +97,7 @@ import { itemById } from './armory-catalog';
 import { DEFAULT_FPS_DEBUG, FPS_REGEN_DELAY, normalizeFpsDebug, readFpsDebug, regenerateHealth, saveFpsDebug, type FpsDebugSettings } from './fps-debug';
 import { pouchWeaponOffset } from './fps-pouch-reload';
 import { createWeaponHandling } from './fps-viewmodel';
+import { magazineAmmoState } from './magazine-ammo';
 import { createScopeRenderer, getWeaponSight, setSightNightVision } from './weapon-optics';
 import { DEFLECT_LINE, sightRangeAgainst } from './armor-inserts';
 import { muzzleSocket, railEmitters } from './weapon-accessory-models';
@@ -1749,7 +1750,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const worldToView = source ? new THREE.Matrix4().makeScale(projectionScale, projectionScale, 1).multiply(camera.matrixWorldInverse) : null;
     handling.forEach((model, i) => model.update(i === hud.weapon ? progress : null, emptyReload[i],
       i === hud.weapon ? { prone: prone && hud.phase === 'playing', grounded: onGround, speed, eyeHeight: bodyMotion.eye, dt } : undefined, i === hud.weapon ? readyProgress : undefined,
-      i === hud.weapon ? { source: source && worldToView ? { ...source, worldToView } : undefined, magazineOut: state.magazineOut === true, pending: !!state.pendingMagazine, capacity: state.pendingMagazine?.capacity ?? magazineCapacity(state, specs[i]), baseCapacity: specs[i].capacity, saved: state.reloadSaved ?? 0 } : undefined));
+      i === hud.weapon ? { source: source && worldToView ? { ...source, worldToView } : undefined, magazineOut: state.magazineOut === true, pending: !!state.pendingMagazine, capacity: state.pendingMagazine?.capacity ?? magazineCapacity(state, specs[i]), baseCapacity: specs[i].capacity, saved: state.reloadSaved ?? 0 } : undefined,
+      { rounds: magazineRounds(loadout[i], specs[i]), capacity: magazineCapacity(loadout[i], specs[i]) }));
+    canvas.dataset.magazineAmmo = JSON.stringify(weapons[hud.weapon] ? magazineAmmoState(weapons[hud.weapon]) : []);
     canvas.dataset.reloadReach = JSON.stringify(handling[hud.weapon]?.reloadReach ?? null);
     canvas.dataset.magazineInventory = JSON.stringify({ slots: state.magazineInventory?.slots, reloadSlot: state.reloadSlot, pending: state.pendingMagazine ?? null, capacity: magazineCapacity(state, specs[hud.weapon]), spares: spareMagazines(state) });
     // A supply in the hands takes the weapon down and out of view while it is used.
