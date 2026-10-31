@@ -128,7 +128,6 @@ export function createFpsBody(scene: THREE.Scene) {
     magazinePosition(slot: number, target = new THREE.Vector3()) {
       const pouch = magazines[slot]?.root;
       if (!pouch) return null;
-      root.updateWorldMatrix(true, true);
       return pouch.localToWorld(target.set(0, .04, 0));
     },
     update(dt: number, equipment: ResolvedLoadout, states: readonly WeaponState[], pose: CharacterDrive & { x: number; y: number; z: number; yaw: number; visible: boolean; activeFamily?: number }) {

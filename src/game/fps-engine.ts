@@ -1728,7 +1728,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     rig.position.x += inspection.x * inspectScale; rig.position.y += inspection.y * inspectScale; rig.position.z += inspection.z * inspectScale;
     rig.rotation.x += inspection.pitch * inspectScale; rig.rotation.y += inspection.yaw * inspectScale; rig.rotation.z += inspection.roll * inspectScale;
     viewScene.updateMatrixWorld(true);
-    const pouchWorld = state.reloadSlot === undefined ? null : playerBody.magazinePosition(state.reloadSlot);
+    const pouchWorld = state.reloadSlot === undefined || progress === null && !state.magazineOut ? null : playerBody.magazinePosition(state.reloadSlot);
     const pouch = pouchWorld ? camera.worldToLocal(pouchWorld) : null;
     handling.forEach((model, i) => model.update(i === hud.weapon ? progress : null, emptyReload[i],
       i === hud.weapon ? { prone: prone && hud.phase === 'playing', grounded: onGround, speed, eyeHeight: bodyMotion.eye, dt } : undefined, i === hud.weapon ? readyProgress : undefined,
