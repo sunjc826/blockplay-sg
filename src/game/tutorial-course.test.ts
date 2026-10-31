@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceCourse, COURSE_STEPS, COURSE_LAYOUT as L, startCourse, tutorialCheckpoint } from './tutorial-course';
+import { advanceCourse, COURSE_STEPS, COURSE_LAYOUT as L, startCourse, tutorialCheckpoint, type CourseProgress } from './tutorial-course';
 import type { FpsHud } from './fps-engine';
 const sample = (values: Partial<FpsHud> = {}): FpsHud => ({ phase: 'playing', x: L.laneX, z: L.spawnZ, yaw: 0, pitch: -.03, prone: false, aiming: false, landed: 0, weapon: 0, reloading: 0, reloadSaved: 0, magazine: 30, mapExpanded: false, tutorial: { feet: 0, grounded: true, stance: 'stand', sprinting: false }, ...values } as FpsHud);
 const at = (id: string) => ({ ...startCourse(), step: COURSE_STEPS.findIndex(s => s.id === id) });
@@ -14,11 +14,11 @@ describe('recruit course progression', () => {
     expect(advanceCourse(at('walk'), sample({ z: L.walkZ })).step).toBe(2);
     const sprint = { feet: 0, grounded: true, stance: 'stand' as const, sprinting: true };
     expect(advanceCourse(at('sprint'), sample({ z: L.sprintZ, tutorial: sprint })).step).toBe(2);
-    let progress = { ...at('sprint'), lastZ: L.walkZ };
+    let progress: CourseProgress = { ...at('sprint'), lastZ: L.walkZ };
     for (let z = L.walkZ - 1; z >= L.sprintZ; z--) progress = advanceCourse(progress, sample({ z, tutorial: sprint }));
     expect(progress.step).toBe(3);
     expect(progress.sprintMetres).toBeGreaterThanOrEqual(35);
-    let walked = { ...at('sprint'), lastZ: L.walkZ };
+    let walked: CourseProgress = { ...at('sprint'), lastZ: L.walkZ };
     for (let z = L.walkZ - 1; z > L.sprintZ; z--) walked = advanceCourse(walked, sample({ z }));
     expect(advanceCourse(walked, sample({ z: L.sprintZ, tutorial: sprint })).step).toBe(2);
     expect(advanceCourse({ ...at('sprint'), lastZ: 40 }, sample({ x: L.laneX + 8, z: 39, tutorial: sprint })).sprintMetres).toBe(0);
