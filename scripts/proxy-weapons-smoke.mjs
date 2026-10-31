@@ -54,7 +54,7 @@ try {
   await send('Runtime.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
   await ready(); await pause(350);
-  const ids=['ff-oicw','ff-scar-l','ff-scar-h','ff-longwatch','cc-gatekeeper','cc-network'];
+  const ids=['ff-oicw','ff-scar-l','ff-scar-h','ff-longwatch','cc-gatekeeper','cc-network','cc-qts11'];
   for(const [index,id] of ids.entries()) {
     await evaluate(`document.querySelectorAll('.fd-weapon-picker button')[${index}].click()`);await pause(200);await ready();
     for(const angle of ['Profile','Other side','Oblique','Front']) {
@@ -85,7 +85,7 @@ try {
   assert.equal(await evaluate("document.querySelectorAll('.fd-canvas canvas').length"),0);
   assert.deepEqual(errors, []);
   await fs.writeFile(new URL('browser-results.json', out), JSON.stringify({ results, errors, drag: true, touchDrag: true, navigationCleanup: true }, null, 2));
-  console.log(`PASS: ${results.length} weapon views, six exterior models at four angles, grayscale, mouse/touch rotation, preset reset, mobile layout and operator navigation; no browser exceptions.`);
+  console.log(`PASS: ${results.length} weapon views, seven exterior models at four angles, grayscale, mouse/touch rotation, preset reset, mobile layout and operator navigation; no browser exceptions.`);
 } finally {
   ws.close(); for (const entry of pending.values()) clearTimeout(entry.timer);
   await fetch(`${chrome}/json/close/${tab.id}`);

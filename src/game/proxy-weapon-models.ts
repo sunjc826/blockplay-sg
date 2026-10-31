@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-export type ProxyWeaponId = 'ff-oicw' | 'ff-scar-l' | 'ff-scar-h' | 'ff-longwatch' | 'cc-gatekeeper' | 'cc-network';
+export type ProxyWeaponId = 'ff-oicw' | 'ff-scar-l' | 'ff-scar-h' | 'ff-longwatch' | 'cc-gatekeeper' | 'cc-network' | 'cc-qts11';
 export interface ProxyWeaponStudy {
   id: ProxyWeaponId; faction: 'freedom-force' | 'collective-cops'; name: string; operator: string;
   /** Display labels for art studies, not entries in the live weapon-family registry. */
@@ -16,6 +16,7 @@ export const PROXY_WEAPONS: readonly ProxyWeaponStudy[] = [
   { id: 'ff-longwatch', faction: 'freedom-force', name: 'Longwatch', operator: 'Wayfinder', reference: 'FN Mk 20 / SCAR 20S', referenceUrl: 'https://fnamerica.com/press-releases/fn-announces-release-fn-scar-20s-precision-rifle/', silhouette: 'Long monolithic upper, adjustable precision stock, short box magazine, large scope and folded bipod.', interpretation: 'A heavier, angular precision silhouette in bone and sand, with restrained blue hardware. Scope and bipod are static art.' },
   { id: 'cc-gatekeeper', faction: 'collective-cops', name: 'Strong Objection No. 496 · Final Warning No. 497', familyLabel: 'Strong Objection No. 496', variantLabel: 'Final Warning No. 497', operator: 'Bastion', reference: 'QBZ-95 family', referenceUrl: 'https://date.army.gov.au/equipment/qbz-95', silhouette: 'Bullpup action and curved magazine behind the grip, open raised carry bridge and compact pointed fore-end.', interpretation: 'Strong Objection No. 496 is the family label; Final Warning No. 497 is its signature variant. Graphite, jade and cinnabar frame the numbered-notice joke. The open carry bridge distinguishes the silhouette from the SAR 21’s integrated scope housing.' },
   { id: 'cc-network', faction: 'collective-cops', name: 'Consensus Builder · Unanimous Vote', familyLabel: 'Consensus Builder', variantLabel: 'Unanimous Vote', operator: 'Conductor', reference: 'QBZ-191 family', referenceUrl: 'https://eng.chinamil.com.cn/CHINA_209163/WeaponryEquipment/News_209182/15962288.html', silhouette: 'Conventional forward magazine, long flat upper rail, stepped telescoping stock and angular observation optic.', interpretation: 'Consensus Builder is the family label; Unanimous Vote is its signature variant. Slate metal, graphite furniture and a jade observation-optic casing suit Conductor’s coordination role.' },
+  { id: 'cc-qts11', faction: 'collective-cops', name: 'QTS-11 study', operator: 'Conductor · experimental option', reference: 'QTS-11 integrated combat system', referenceUrl: 'https://news.cctv.com/2018/05/17/ARTImlq4JrQyBg9bmY4Lh44O180517.shtml', silhouette: 'Two projecting barrels, a slim upper launcher shell, open triangular stock and an offset sensor housing beside the sight.', interpretation: 'Collective Corps’ counterpart to the XM29 study, in slate, graphite and jade with cinnabar identification. The open stock, slimmer body and offset sight equipment distinguish it in grayscale. Exterior art only; no launcher, targeting or airburst behavior is attached.' },
 ];
 
 export interface ProxyWeaponModel {
@@ -104,9 +105,10 @@ export function buildProxyWeapon(id: ProxyWeaponId): ProxyWeaponModel {
     }
   };
   let front = -.6, foreZ = -.28, magZ = -.105, gripZ = .025, muzzleY = .083;
-  let launcherFront: number | undefined;
-  const launcherY = .175, launcherMagZ = .25;
+  let launcherFront: number | undefined, launcherMagZ: number | undefined;
+  const launcherY = .175;
   if (id === 'ff-oicw') {
+    launcherMagZ = .25;
     // OICW exterior: upper bullpup launcher body over a conventional rifle.
     // These are visual shells and art sockets, not simulated weapon internals.
     side([[-.34, .105], [-.18, .07], [.19, .07], [.22, .015], [.37, .015], [.39, .055], [.38, .25], [-.28, .25], [-.34, .19]], .105, furniture);
@@ -140,6 +142,33 @@ export function buildProxyWeapon(id: ProxyWeaponId): ProxyWeaponModel {
       box(.005, .06, .19, x, .164, .065, trim);
       box(.007, .009, .032, x, .164, .07, accent);
       for (let i = 0; i < 3; i++) box(.004, .012, .029, x, .211, -.19 + i * .05, dark);
+    }
+  } else if (id === 'cc-qts11') {
+    // Original QTS-11-inspired outside silhouette, kept leaner than the XM29.
+    side([[-.30, .025], [.14, .025], [.14, .125], [-.27, .125]], .071);
+    side([[-.30, .12], [.13, .12], [.14, .20], [.09, .225], [-.27, .225], [-.30, .205]], .079, furniture);
+    vented(-.455, -.285, .022, 3, furniture);
+    grip(.02); gripZ = .02; magazine(-.125, .17, .03); magZ = -.125;
+    // Skeletal stock is real negative space, not a second launcher-feed box.
+    side([[.135, .105], [.34, .14], [.385, .105], [.38, -.055], [.31, -.055], [.27, .014], [.135, .025]], .043, furniture,
+      [[[.173, .052], [.29, .04], [.34, .075], [.326, .107], [.174, .082]]]);
+    box(.057, .17, .025, 0, .032, .39, dark);
+    box(.052, .024, .115, 0, .13, .30, metal);
+    muzzleY = .06; front = muzzle(-.69, -.44, muzzleY); foreZ = -.34;
+    launcherFront = -.565;
+    // One stepped hollow shell avoids coplanar barrel/rim surfaces.
+    const tube = [[.022, 0], [.033, 0], [.033, .016], [.029, .016], [.029, .282], [.022, .282], [.022, 0]].map(([r, y]) => new THREE.Vector2(r, y - .141));
+    add(new THREE.LatheGeometry(tube, 20), metal, 0, launcherY, launcherFront + .141, Math.PI / 2);
+    // Supported optic and offset sensor pod: deliberately asymmetric in front view.
+    box(.05, .028, .20, 0, .238, -.055, dark);
+    side([[-.20, .25], [.09, .25], [.09, .31], [.06, .329], [-.18, .329], [-.20, .306]], .066, dark);
+    box(.049, .045, .004, 0, .286, -.204, glass);
+    box(.045, .038, .004, 0, .284, .094, glass);
+    box(.05, .06, .17, -.055, .255, -.13, trim);
+    box(.035, .04, .004, -.055, .255, -.217, glass);
+    for (const x of [-.043, .043]) {
+      box(.005, .032, .12, x, .176, .025, trim);
+      box(.007, .009, .026, x, .177, .025, accent);
     }
   } else if (id === 'ff-scar-l' || id === 'ff-scar-h') {
     // Same visual family, independently authored receiver and magazine envelopes.
@@ -204,7 +233,7 @@ export function buildProxyWeapon(id: ProxyWeaponId): ProxyWeaponModel {
     const mesh = new THREE.Mesh(merged, m); mesh.name = `${id}__${m.name}`; root.add(mesh); geometries.push(merged);
   }
   const socket = (name: string, x: number, y: number, z: number) => { const node = new THREE.Object3D(); node.name = `${id}__study_${name}`; node.position.set(x, y, z); root.add(node); return node; };
-  const sockets = { grip: socket('grip', 0, 0, gripZ), foregrip: socket('foregrip', 0, .01, foreZ), magazine: socket('magazine', 0, .02, magZ), muzzle: socket('muzzle', 0, muzzleY, front - .002), ...(launcherFront === undefined ? {} : { launcherMuzzle: socket('launcher_muzzle', 0, launcherY, launcherFront - .002), launcherMagazine: socket('launcher_magazine', 0, .07, launcherMagZ) }) };
+  const sockets = { grip: socket('grip', 0, 0, gripZ), foregrip: socket('foregrip', 0, .01, foreZ), magazine: socket('magazine', 0, .02, magZ), muzzle: socket('muzzle', 0, muzzleY, front - .002), ...(launcherFront === undefined ? {} : { launcherMuzzle: socket('launcher_muzzle', 0, launcherY, launcherFront - .002) }), ...(launcherMagZ === undefined ? {} : { launcherMagazine: socket('launcher_magazine', 0, .07, launcherMagZ) }) };
   let disposed = false;
   return { root, sockets, dispose() { if (disposed) return; disposed = true; root.removeFromParent(); geometries.forEach(geometry => geometry.dispose()); materials.forEach(m => m.dispose()); } };
 }

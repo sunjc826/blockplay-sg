@@ -1,6 +1,6 @@
 # Proxy faction weapon studies
 
-Status: **six exterior art candidates**, not locked loadouts. Review at
+Status: **seven exterior art candidates**, not locked loadouts. Review at
 **`/faction-designs?study=weapons`**, linked from the operator gallery. Profile,
 other-side, oblique and front presets, drag rotation and grayscale support
 silhouette review on desktop and mobile. Every study uses the same viewing
@@ -20,6 +20,7 @@ is not expanded into matching assault/heavy/sniper classes.
 | Freedom Force / Wayfinder | FN Mk 20 / SCAR 20S | **Longwatch** (`ff-longwatch`) | Extended upper, precision stock, short box magazine, large scope and folded bipod give the observer a distinct long silhouette |
 | Collective Corps / Bastion | QBZ-95 family | **Strong Objection No. 496 · Final Warning No. 497** (`cc-gatekeeper`) | Bullpup magazine behind the hand, raised open carry bridge, integrated rear stock and pointed fore-end give the protected-entry specialist a different equipment language |
 | Collective Corps / Conductor | QBZ-191 family | **Consensus Builder · Unanimous Vote** (`cc-network`) | Conventional forward magazine, continuous rail and stepped adjustable-stock shape suit a modern sensor-coordination concept |
+| Collective Corps / Conductor experimental option | QTS-11 integrated combat system | **QTS-11 study** (`cc-qts11`) | Dual projecting barrels, a slimmer upper launcher shell, open stock and offset sight/sensor housing contrast with the XM29 |
 
 The shortlist is an art-direction recommendation. It is not a claim that any
 real unit equips these weapons together, or that their real performance defines
@@ -84,6 +85,19 @@ Other brainstormed names retained for later use: Polite Request / Final Notice,
 Small Talk / Big Talk, Budget Approval / Cost Overrun and Limited Intervention /
 Extended Stay. Democracy Lite / Democracy Deluxe were superseded working titles.
 
+## Paired experimental systems
+
+The owner's requested Chinese counterpart to the XM29 is represented by a
+separate **QTS-11 study** (`cc-qts11`), a Conductor experimental option. It adds
+a seventh candidate alongside the two named Collective Corps rifle families;
+it does not replace them or expand the specialist roster. Both experimental
+systems keep their reference names until fictional names are chosen.
+
+The counterpart relationship describes the combined rifle/launcher concept,
+not equivalent real-world performance or matched gameplay roles. QTS-11 is the
+label used by the inspected CCTV report. Other reported designations are not
+asserted here as confirmed aliases.
+
 ## Model interpretation
 
 **XM29 OICW study:** replaces the retired compact-carbine study. The visual
@@ -100,6 +114,17 @@ and upper launcher muzzle have separate optional art sockets, as do the two
 magazine positions. This does not implement launcher firing, airburst/fuze
 settings, targeting electronics, ammunition or reload behavior. Prototype
 integration and hand fitting remain separate work.
+
+**QTS-11 study:** a narrower slate/graphite upper launcher shell sits above a
+conventional rifle with a forward curved magazine. Two projecting muzzle
+openings, a skeletal stock with real negative space, a supported long sight and
+an offset jade sensor pod create an asymmetric silhouette. Cinnabar marks keep
+it within Collective Corps' palette. These exterior choices contrast with the
+XM29's broad rear body and launcher-feed box in color and grayscale. The model
+has a launcher muzzle socket but no protruding rear launcher magazine or rear
+magazine socket. Stock proportions, pod shape and faction panels are stylized
+art choices, not a dimensional reproduction of a particular production variant.
+No launcher, sight electronics or targeting behavior is implemented.
 
 **Longwatch:** bone/sand furniture, long upper rail, broad precision cheek rest,
 shorter straight magazine, large tube optic and folded bipod. Its precision stock, long scope and folded bipod distinguish it from the
@@ -123,13 +148,14 @@ anyone in gameplay.
 
 No real manufacturer logos, national flags, specifications for fabrication,
 weapon purchases or ballistics are added. Faction weapon names are fictional;
-XM29 OICW remains the reference name for its unnamed study.
+XM29 OICW and QTS-11 remain reference names for their unnamed studies.
 
 ## Existing systems and integration boundary
 
-- `src/game/proxy-weapon-models.ts` owns the six studies, reference links,
+- `src/game/proxy-weapon-models.ts` owns the seven studies, reference links,
   geometry builder, grip/foregrip/magazine/muzzle art sockets and disposal. The
-  OICW also has optional launcher muzzle and rear-feed art sockets.
+  experimental systems also have optional launcher muzzle art sockets; only
+  the XM29 has a rear-feed art socket.
   Outside surfaces merge by material, using at most six weapon mesh draws.
 - `src/components/ProxyWeaponStudies.tsx` provides the review page inside the
   existing faction-design route. The operator gallery still uses the original
@@ -145,14 +171,15 @@ XM29 OICW remains the reference name for its unnamed study.
   Weapon-specific sound work follows the local ElevenLabs once-only workflow;
   none is commissioned here.
 
-Tests check absence from live catalogs, six different geometric silhouettes,
+Tests check absence from live catalogs, seven different geometric silhouettes,
 magazine layout relative to the grip, real stock/bridge openings, finite
-geometry, render budget and idempotent cleanup. Browser review covers all six
+geometry, render budget and idempotent cleanup. Browser review covers all seven
 models at multiple angles, grayscale, mouse/touch rotation, portrait layout and
 navigation between weapon and operator studies.
 
 ## Primary references and evidence limits
 
+- [CCTV, 17 May 2018](https://news.cctv.com/2018/05/17/ARTImlq4JrQyBg9bmY4Lh44O180517.shtml): directly inspected report names QTS11 and identifies two barrels. Its photo, credited to PLA Pictorial, was downloaded and visually reviewed for broad dual-barrel/sight layout; it is cached reference evidence and is not shipped. [China Military, 9 January 2019](https://eng.chinamil.com.cn/CHINA_209163/TopStories_209189/9400035.html) describes a rifle/launcher with an aiming module and compares the concept to XM29; indexed article text was available, but direct retrieval timed out. These sources do not establish exact dimensions, service status today or performance parity.
 - [U.S. Army 2003 Weapon Systems Handbook](https://asc.army.mil/docs/wsh2/2003-wsh.pdf): the indexed OICW entry describes an integrated dual-barrel system and fire-control unit. Direct retrieval returned HTTP 403 in this pass, so its full PDF was not inspected. The [Block 3 photo attributed to U.S. Army / PM Soldier](https://commons.wikimedia.org/wiki/File:XM29_Block3.jpg) was downloaded to the local review cache and visually inspected for the outside silhouette, sight housing, barrel stack and feed positions. The photo is reference evidence, not a shipped game texture or mesh. No dimensional replica or internal mechanism is reproduced.
 - [FN's SCAR 20S announcement](https://fnamerica.com/press-releases/fn-announces-release-fn-scar-20s-precision-rifle/): identifies the Mk 20 SSR relationship, extended receiver and adjustable precision stock. The manufacturer's external side image informed the broad silhouette.
 - [Australian Army DATE: QBZ 95](https://date.army.gov.au/equipment/qbz-95): identifies the bullpup layout and curved polymer box magazine. The study is QBZ-95-family-inspired, not an asserted exact 95B/95-1 configuration.

@@ -12,8 +12,8 @@ function meshes(root: THREE.Object3D) {
 
 describe('proxy weapon exterior studies', () => {
   it('keeps candidates out of game weapon families, stores, roles and operator hand poses', () => {
-    expect(PROXY_WEAPONS).toHaveLength(6);
-    expect(new Set(PROXY_WEAPONS.map(study => study.id)).size).toBe(6);
+    expect(PROXY_WEAPONS).toHaveLength(7);
+    expect(new Set(PROXY_WEAPONS.map(study => study.id)).size).toBe(7);
     for (const study of PROXY_WEAPONS) {
       expect(itemById(study.id)).toBeUndefined(); expect(getArenaRole(study.id)).toBeUndefined(); expect(buildServiceWeapon(study.id)).toBeUndefined();
       expect(study.referenceUrl).toMatch(/^https:\/\//);
@@ -21,7 +21,7 @@ describe('proxy weapon exterior studies', () => {
     for (const faction of PROXY_FACTIONS) for (const operator of faction.operators) expect(['rifle', 'marksman']).toContain(proxyCharacterLook(faction.id, operator.id).weapon);
   });
 
-  it('has six different geometric silhouettes with bounded render cost and finite exterior surfaces', () => {
+  it('has seven different geometric silhouettes with bounded render cost and finite exterior surfaces', () => {
     const shapes = PROXY_WEAPONS.map(study => {
       const model = buildProxyWeapon(study.id), parts = meshes(model.root), bounds = new THREE.Box3().setFromObject(model.root), size = bounds.getSize(new THREE.Vector3());
       expect(parts.length).toBeLessThanOrEqual(6);
@@ -33,7 +33,7 @@ describe('proxy weapon exterior studies', () => {
       const shape = JSON.stringify(parts.map(part => Array.from(part.geometry.getAttribute('position').array)));
       model.dispose(); return shape;
     });
-    expect(new Set(shapes).size).toBe(6);
+    expect(new Set(shapes).size).toBe(7);
   });
 
   it('replaces the MCX study with an OICW exterior carrying two separate muzzle and feed cues', () => {
@@ -54,6 +54,23 @@ describe('proxy weapon exterior studies', () => {
       expect(Math.abs(hits[0].point.z - socket.position.z)).toBeLessThan(.006);
     }
     model.dispose();
+  });
+
+  it('gives the QTS-11 its own launcher muzzle, open stock and asymmetric sensor silhouette', () => {
+    const model = buildProxyWeapon('cc-qts11'), western = buildProxyWeapon('ff-oicw');
+    const { muzzle, launcherMuzzle, launcherMagazine } = model.sockets;
+    expect(launcherMuzzle).toBeDefined(); expect(launcherMagazine).toBeUndefined();
+    expect(launcherMuzzle!.position.y).toBeGreaterThan(muzzle.position.y + .1);
+    expect(muzzle.position.z).toBeLessThan(launcherMuzzle!.position.z);
+    model.root.updateMatrixWorld(true);
+    const ray = new THREE.Raycaster(new THREE.Vector3(.027, launcherMuzzle!.position.y, -1), new THREE.Vector3(0, 0, 1), 0, 2);
+    expect(Math.abs(ray.intersectObject(model.root, true)[0].point.z - launcherMuzzle!.position.z)).toBeLessThan(.006);
+    // The offset pod extends farther on one side; the XM29 remains symmetric.
+    const bounds = new THREE.Box3().setFromObject(model.root), other = new THREE.Box3().setFromObject(western.root);
+    expect(Math.abs(bounds.min.x) - bounds.max.x).toBeGreaterThan(.02);
+    expect(Math.abs(other.min.x + other.max.x)).toBeLessThan(.015);
+    expect(bounds.getSize(new THREE.Vector3()).y).toBeLessThan(other.getSize(new THREE.Vector3()).y);
+    model.dispose(); western.dispose();
   });
 
   it('makes the SCAR-H physically wider and longer than the L, with a larger box-magazine profile', () => {
@@ -89,7 +106,7 @@ describe('proxy weapon exterior studies', () => {
   });
 
   it('authors real negative space through carbine/SCAR stocks and the bullpup carry bridge', () => {
-    for (const [id, y, z] of [['ff-scar-l', .06, .24], ['ff-scar-h', .06, .24], ['cc-gatekeeper', .197, .02]] as const) {
+    for (const [id, y, z] of [['cc-qts11', .073, .24], ['ff-scar-l', .06, .24], ['ff-scar-h', .06, .24], ['cc-gatekeeper', .197, .02]] as const) {
       const model = buildProxyWeapon(id); model.root.updateMatrixWorld(true);
       const ray = new THREE.Raycaster(new THREE.Vector3(.5, y, z), new THREE.Vector3(-1, 0, 0), 0, 1);
       expect(ray.intersectObject(model.root, true)).toHaveLength(0);
