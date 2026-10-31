@@ -6100,3 +6100,70 @@ only that release's dependency auto-verification was disabled. Private environme
 copies and the shared deployment lock were removed. Temporary release/profile
 removed and task Vite/Chrome stopped after checks. No GitHub push. AGENTS.md stays
 local, untracked and unstaged; pre-existing handoff/.claude work is preserved.
+
+## Pulau Ubin and the Changi bumboat (2026-10-31)
+
+Owner requested Pulau Ubin and mainland access. Local main code commit
+`d78eab5daeeadb531c8057c65c03b0f0e14ad560` adds district 23: an irregular island
+shore, timber jetty, low kampong village, winding dirt-road loop, quarry and
+two connected lookout platforms, forest, mangrove roots, wetland boardwalk
+and visitor cottage. Eleven stamps, ten sectors (233 total), medium risk/tier 2,
+four mixed patrol bots, eight tactical supplies, two NPCs, a forest FPS range,
+shared vehicles/facilities/deployment choices and upper-floor loot are registered.
+The existing car/helicopter remain the vehicles; bicycle racks are scenery.
+Village panes use the existing authored night-window support.
+
+Ubin's sole mainland graph connection is a reversible ferry pair to Changi.
+The separately signed Changi Point/Changi Village landing is at X267,Z180;
+board on foot with T within 4 m. Ubin arrival is X0,Z193, return trigger X0,Z205,
+Changi arrival X255,Z180. Safe arrivals face inland beyond the reverse trigger.
+The crossing is instantaneous and free in game, preserving existing checkpoint
+state and seeded supplies. It does not simulate sailing, fares, queues or a
+boat vehicle. Gateway prompts, touch actions, locator routes and travel guide
+identify the bumboat. Marker posts face across the Changi approach rather than
+blocking its view. Mainland water renders above the original lawn base.
+
+Scope/research: `docs/PULAU-UBIN.md` cites NParks/MPA, including the real on-demand
+bumboat from Changi Point Ferry Terminal beside Changi Village (51 Lorong
+Bekukong), about 10 minutes, typically S$4 each way. Geometry is schematic,
+with compressed airport-to-village distance. New island referenceFeatures are
+empty and hasGuide false; no existing photographic claims or allowances were
+changed. No new paid imagery, audio or model calls. Inland paratrooper districts
+remain at fifteen; Ubin gets coastal ambience.
+
+Validation: 40 focused district/Changi cases passed across ten files, covering
+roads, stamps/anchors, graph access, sightlines, vehicles, facilities, loot,
+cover and elevated routes/disposal. Ferry, touch and paratrooper checks passed
+27 cases. Final lighting/upper-supply/selection/ferry regressions passed 23;
+all world gateway/ferry tests passed 30 (20s timeout used after two unrelated
+5s flood-fill timeouts under concurrent browser load). Typecheck and production
+build pass. The broad suite passed 2,346 cases before finding three Ubin-related
+issues (old selection exclusion, unlit village panes, lookout outside sector)
+that were corrected and covered by final regressions. Its fourth failure is the
+existing Upper Thomson thomson-plaza ground anchor, previously reproduced before
+Yishun in `.cache/yishun/baseline-thomson.log`. No full-suite pass is claimed.
+
+Real Chrome checks pass island world entry, movement, NPCs/facilities, actual
+range damage/elimination, eleven-stamp walking/driving progress and 390px layout.
+Shared region smoke passes desktop movement/reset/orbit/car trajectory/mode
+switch and mobile touch/map keyboard/mouse selection, without paid/map requests
+or runtime errors. Quarry lookout renders were reviewed. A dedicated real-engine
+fixture walked from safe Changi arrival into the boarding trigger, fired one
+round, used actual T input both ways, and preserved health64, armour21, weapon,
+magazine6/reserve60 and Changi supply IDs; arrival prompts stayed clear and only
+one canvas remained. The successful armoured round-trip was observed before the final cosmetic water
+height adjustment. Subsequent desktop harness retries were blocked at mouse
+capture on Enter (phase ready), so they did not exercise a new crossing; their
+logs/current ferry-results retain that limitation rather than a final pass.
+Earlier standard Ubin/region smoke receipts are under `.cache/pulau-ubin/`;
+render images also in `.cache/verticality-review/`.
+
+Manual `pnpm deploy:cloudflare` succeeded, version
+`859f07f2-6f5c-46e3-8712-0170f7050cc8`. The isolated release matched 1,978 selected
+runtime/server/script/public files of exact source commit above. Ten byte checks
+confirm both production domains serve its HTML, JS/CSS, Three.js and service
+worker. Production PWA/model/audio/SPA/API-origin checks pass without paid calls.
+Logs/receipts: `.cache/pulau-ubin/`. Existing dependencies reused by symlink;
+release-only dependency auto-verification disabled. Private environment copies
+and shared deployment lock were removed. No GitHub push. AGENTS.md remains local,
+untracked and unstaged. Preserve the pre-existing handoff and .claude changes.
