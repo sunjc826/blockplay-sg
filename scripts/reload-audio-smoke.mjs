@@ -107,7 +107,7 @@ try {
   await evaluate('window.action={};window.engine.reload()');
   await wait("window.playedReloads.some(s=>s.label.includes('reload-bullpup-release'))");
   await wait('window.hud.reloading===0');
-  await evaluate('window.engine.switchWeapon(2);window.action={fire:true}'); await wait('window.hud.weapon===2 && window.hud.magazine<15');
+  await evaluate('window.engine.switchWeapon(2);window.action={fire:true}'); await wait('window.hud.weapon===2 && window.hud.magazine<16');
   await evaluate('window.action={};window.engine.reload()');
   await wait("window.playedReloads.some(s=>s.label.includes('reload-pistol-out'))");
   await evaluate('window.engine.switchWeapon(0);window.engine.pause()');

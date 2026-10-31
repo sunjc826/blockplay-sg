@@ -25,11 +25,19 @@ unstaged and uncommitted as instructed.
 Validation: 21 focused audio/weapon-motion tests passed. Browser OfflineAudio
 renders all 40 recordings plus five Kongsi actions (45 checks): prompt onset,
 natural speed and peaks below .3. Nine full-timing empty reload WAV previews and
-`audition.html` are in `.cache/reload-audio-work`. Full in-game browser smoke
-stalled while the range engine remained loading; no gameplay playback pass is
-claimed. The broad suite was stopped under heavy machine contention; no full
-suite pass is claimed. Isolated release typecheck and manual deployment are
-pending; receipts and logs will be saved in that same cache directory.
+`audition.html` are in `.cache/reload-audio-work`. Full in-game browser smoke passed on retry:
+tactical and empty rifle reloads, sidearm reload, switch/pause cleanup and
+natural playback speed, with zero paid requests. The sidearm smoke threshold
+now accounts for the P30's initial 15+1 loaded rounds. The broad suite was
+stopped under heavy machine contention; no full suite pass is claimed.
+Isolated release typecheck and production build passed. Manual
+`pnpm deploy:cloudflare` succeeded; after a concurrent older deployment briefly
+replaced the first upload, the final version is
+`58ef6a7c-4a68-46b5-9439-e5c38a906e6d`. Production Cloudflare checks passed;
+blockplaysg.fun serves byte-identical entry JS/CSS, service worker and all 40
+reload MP3s from the frozen release (based on `f1c87d7`, including reload commit
+`3176471` and the latest committed terrain, helicopter and tutorial changes).
+Receipts, checksums, browser results and logs are in `.cache/reload-audio-work`.
 No GitHub push. Preserve unrelated working-tree edits.
 
 ## Main-menu hover and click auditions awaiting selection (2026-10-31)
