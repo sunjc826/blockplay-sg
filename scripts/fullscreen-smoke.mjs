@@ -50,6 +50,13 @@ try {
   assert(await evaluate(`document.querySelector('.fps-game').getBoundingClientRect().width>=innerWidth-1`));
   await screenshot('fullscreen-ready'); await click(button('Enter range')); await wait(phase('playing'));
   assert(await evaluate('!!document.pointerLockElement')); await screenshot('fullscreen-fps');
+  await key('e','KeyE'); await wait(`document.querySelector('.fps-game').dataset.vehicle==='car'`); await screenshot('fullscreen-car');
+  await key('Escape','Escape'); await wait(phase('paused'));
+  if (await evaluate('!!document.fullscreenElement')) await click(`document.querySelector('.fps-leave-screen')`); await wait(`!document.fullscreenElement && !document.querySelector('.fps-game').classList.contains('is-immersive')`);
+  assert(await evaluate('window.keyboardUnlocks>=1'), 'Leaving native fullscreen releases keyboard lock');
+  assert(!(await evaluate('!!document.pointerLockElement'))); assert(await evaluate(`document.querySelector('.fps-game').dataset.vehicle==='car'`),'Fullscreen changes preserve the occupied vehicle');
+  await click(`document.querySelector('[aria-label="Fullscreen range"]')`); await wait(`!!document.fullscreenElement`); await click(button('Resume exercise')); await wait(phase('playing'));
+  await key('e','KeyE'); await wait(`document.querySelector('.fps-game').dataset.vehicle==='on-foot'`);
   const position = `({x:Number(document.querySelector('.fps-game').dataset.playerX),z:Number(document.querySelector('.fps-game').dataset.playerZ)})`;
   const beforeCrouch = await evaluate(position);
   await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Control', code: 'ControlLeft', modifiers: 2 });
@@ -60,12 +67,6 @@ try {
   const afterCrouch = await evaluate(position);
   assert(Math.hypot(afterCrouch.x-beforeCrouch.x,afterCrouch.z-beforeCrouch.z)>.1, 'Ctrl+W moves the player');
   assert(await evaluate(phase('playing')), 'Ctrl+W keeps the game playing');
-  await key('e','KeyE'); await wait(`document.querySelector('.fps-game').dataset.vehicle==='car'`); await screenshot('fullscreen-car');
-  await key('Escape','Escape'); await wait(phase('paused'));
-  if (await evaluate('!!document.fullscreenElement')) await click(`document.querySelector('.fps-leave-screen')`); await wait(`!document.fullscreenElement && !document.querySelector('.fps-game').classList.contains('is-immersive')`);
-  assert(await evaluate('window.keyboardUnlocks>=1'), 'Leaving native fullscreen releases keyboard lock');
-  assert(!(await evaluate('!!document.pointerLockElement'))); assert(await evaluate(`document.querySelector('.fps-game').dataset.vehicle==='car'`),'Fullscreen changes preserve the occupied vehicle');
-  await click(`document.querySelector('[aria-label="Fullscreen range"]')`); await wait(`!!document.fullscreenElement`); await click(button('Resume exercise')); await wait(phase('playing'));
   await key('Escape','Escape'); await wait(phase('paused'));
   assert(!(await evaluate('!!document.pointerLockElement')),'Escape releases capture in fullscreen');
   if(await evaluate('!!document.fullscreenElement')) await click(`document.querySelector('.fps-leave-screen')`);
