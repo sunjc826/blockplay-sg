@@ -53,7 +53,8 @@ import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook, clampFpsPit
 import { dragLook, resolveMovement, stickKeys, type StickVector } from './touch-controls';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { advanceWeapon, beginReload, chamberRound, findTrait, fireWeapon, interruptReload, reloadDuration, roundReady, validWeaponIndex, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponSpec, type WeaponState } from './fps-rules';
-import { addReserveRounds, ammoPools, createPooledLoadout, MAX_RESERVE, replacePooledWeapon, type AmmoPools } from './ammo-pools';
+import { addReserveMagazines, magazineCapacity, nextMagazineSlot, reserveRoom, spareMagazines, type MagazineInventory } from './magazine-inventory';
+import { addReserveRounds, createPooledLoadout, replacePooledWeapon, type AmmoPools } from './ammo-pools';
 import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { sectorAt, zoneSectors } from './zone-sectors';
 import { adoptPublishedRounds, advanceRound, createRound, needsFlight, skipRound, MAX_ROUNDS_IN_FLIGHT, MAX_SKIPS, type InFlightRound, type PublishedRound } from './fps-projectiles';
@@ -142,8 +143,9 @@ import { activePalette, advanceVision, nvgAimingActive, createVisionState, cycle
 
 export interface FpsArenaOptions { session: LanSession; botCount: number; composition?: string; profile: ArmoryProfile; environment?: ArenaEnvironment; initialVitals?: Partial<ArenaVitals> }
 export interface FpsCheckpoint { health: number; armor: number; weapon: number; ammunition: WeaponState[]; pilot?: boolean; pilotStrategy?: 'local' | 'llm'; encikVoice?: boolean; comms?: readonly CommsEntry[];
-  /** Loose rounds saved once per calibre, rather than once per gun using them. */
+  /** Legacy calibre pools, read only when migrating an older checkpoint. */
   ammoPools?: AmmoPools;
+  magazineInventory?: MagazineInventory;
   /** The head-mounted device was switched on, so it stays on across the gateway. */
   vision?: boolean;
   /** Supplies picked up on this expedition and still on the belt; they never touch the saved profile. */
@@ -207,6 +209,7 @@ export interface FpsHud {
   crosshairSpread: number; hitKind: 'hit' | 'kill'; quickItem: string; quickType: 'FOOD' | 'UTILITY' | ''; quickCount: number;
   phase: 'loading' | 'ready' | 'deploying' | 'playing' | 'paused' | 'complete' | 'defeated' | 'error';
   carriedWeapons: number[]; carriedKg: number; movementScale: number;
+  spareMagazines?: number; magazineCapacity?: number; reloadCapacity?: number;
   weapon: number; magazine: number; reserve: number; reloading: number;
   rangeDrill: RangeDrillView | null; rangeSupplyPrompt: string;
   prone: boolean; braced: boolean; hits: number; shots: number; landed: number; health: number; armor: number; incoming: boolean; hurt: boolean; lastDamage: number; earned: number; earnedXp: number; callout: string; chain: number; elapsed: number; aiming: boolean; hit: boolean;
@@ -600,7 +603,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       canvas.dataset.rangeTargets = JSON.stringify(targets.map((t, i) => ({ id: `target-${i}-${t.activation}`, x: t.root.position.x, y: t.hitZone.getWorldPosition(new THREE.Vector3()).y, z: t.root.position.z, alive: t.alive, health: t.health })));
       canvas.dataset.rangeStation = JSON.stringify(rangeStation ? { x: rangeStation.point.x, z: rangeStation.point.z, available: !!hud.rangeSupplyPrompt } : null);
     }
-    onHud({ ...hud, ...(options.tutorial ? { tutorial: { feet: vertical, grounded: grounded(), stance: stance(), sprinting: wasSprinting } } : {}), vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
+    onHud({ ...hud, ...(options.tutorial ? { tutorial: { feet: vertical, grounded: grounded(), stance: stance(), sprinting: wasSprinting } } : {}), vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, spareMagazines: spareMagazines(state), magazineCapacity: magazineCapacity(state, specs[hud.weapon]), reloadCapacity: state.pendingMagazine?.capacity ?? state.magazineInventory?.slots[state.reloadSlot ?? nextMagazineSlot(state)]?.capacity ?? magazineCapacity(state, specs[hud.weapon]), reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapContactRange, mapMarkers: [
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}-${targets[index].activation}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(rangeStation ? [{ id: 'range-resupply', x: rangeStation.point.x, z: rangeStation.point.z, kind: 'loot' as const, label: 'Range resupply · ammo, grenades & utilities' }] : []),
@@ -850,7 +853,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       emptyReload[hud.weapon] = loadout[hud.weapon].reloadEmpty === true;
       reloadGate = armReloadGate(trigger, sprintIntent); pullBuffer = 0;
       radioCall('reload');
-      arenaRuntime?.reload(hud.weapon); ads = false; touchAim = false; actualAim = false; lastReloadStage = ''; publish();
+      arenaRuntime?.reload(hud.weapon, loadout[hud.weapon].pendingMagazine?.capacity ?? loadout[hud.weapon].magazineInventory?.slots[loadout[hud.weapon].reloadSlot ?? -1]?.capacity); ads = false; touchAim = false; actualAim = false; lastReloadStage = ''; publish();
     }
   }
   /** Stops the held weapon's reload, keeping its progress if no rounds went in yet. */
@@ -974,8 +977,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         ? `${npcInteractionPrompt(npc)}.` : `${npc.role}. Come closer if you want to talk.`);
     }
   }
-  /** The guns carried, with their reserves, as loose rounds see them. */
-  const carriedGuns = (): CarriedGun[] => equipment.carriedFamilies.map(family => ({ family, spec: specs[family], reserve: loadout[family].reserve }));
+  /** Compatible spares and free physical positions for pickups. */
+  const carriedGuns = (): CarriedGun[] => equipment.carriedFamilies.map(family => ({ family, spec: specs[family], reserve: loadout[family].reserve, magazines: spareMagazines(loadout[family]), room: loadout[family].magazineInventory?.slots.filter((mag, slot) => mag === null && !loadout[family].magazineInventory?.heldSlots?.includes(slot)).length }));
   /** The family a found gun of `family` puts down: the same reading `pickupSlot` gives the pickup, the slot it fills and what is in it now. */
   function putDownFor(family: number) {
     const slot = pickupSlot(fieldProfile, family, hud.weapon), carry = restoreCarrySlots(fieldProfile.carry, fieldProfile.owned);
@@ -984,6 +987,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   /** Whether E would take an item now: rounds need a gun that fires them, supplies room on the belt. */
   function canTake(loot: FieldLoot) {
     if (loot.kind === 'ammo') return !!ammoTarget(loot.caliberMm, carriedGuns(), hud.weapon);
+    if (loot.kind === 'weapon') {
+      const item = itemById(loot.catalogId ?? '');
+      if (item?.family !== undefined && equipment.carriedFamilies.includes(item.family) && fieldProfile.guns[item.family].variant === item.id) return reserveRoom(loadout[item.family]);
+    }
     if (loot.kind === 'armor') {
       const item = itemById(loot.catalogId ?? '');
       return !!item && !armorPickup(hud.armor, itemById(fieldProfile.plate), item).blocked;
@@ -992,7 +999,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** The card over a looked-at item, rebuilt only when the item or what it is weighed against changes. */
   function cardFor(loot: FieldLoot) {
-    const key = `${loot.id}|${hud.weapon}|${supplies[loot.catalogId ?? ''] ?? 0}|${carriedGuns().map(gun => gun.reserve).join()}|${fieldProfile.plate}|${hud.armor}|${fieldProfile.guns.map(gun => gun.variant).join()}|${fieldProfile.carry?.main}/${fieldProfile.carry?.extra}`;
+    const key = `${loot.id}|${hud.weapon}|${supplies[loot.catalogId ?? ''] ?? 0}|${carriedGuns().map(gun => `${gun.reserve}/${gun.room}`).join()}|${fieldProfile.plate}|${hud.armor}|${fieldProfile.guns.map(gun => gun.variant).join()}|${fieldProfile.carry?.main}/${fieldProfile.carry?.extra}`;
     if (key !== cardKey || !lastCard) {
       cardKey = key;
       lastCard = lootCard(loot, {
@@ -1014,6 +1021,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const item = target.catalogId ? itemById(target.catalogId) : undefined;
     if ((target.kind === 'weapon' && (!item || item.category !== 'weapon' || !validWeaponIndex(item.family))) || (target.kind === 'armor' && item?.category !== 'plate')) return;
     if (action === 'swap' && target.kind !== 'armor') return;
+    if (target.kind === 'weapon' && item?.family !== undefined && equipment.carriedFamilies.includes(item.family) && fieldProfile.guns[item.family].variant === item.id && !reserveRoom(loadout[item.family])) { hud.lootNotice = 'Rig pouches full. Magazine stays here.'; lootNoticeTime = 3; publish(); return; }
     const armorResult = target.kind === 'armor' && item ? armorPickup(hud.armor, itemById(fieldProfile.plate), item, action) : null;
     if (armorResult?.blocked) { hud.lootNotice = `${armorResult.blocked}. ${target.name} stays here.`; lootNoticeTime = 3; publish(); return; }
     // Loose rounds go into the calibre pool shared by matching carried guns.
@@ -1022,7 +1030,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (!gun) { hud.lootNotice = `${ammoBlocked(target.caliberMm, carriedGuns(), hud.weapon)}. ${target.name} stay here.`; lootNoticeTime = 3; publish(); return; }
       const taken = expedition.loot.collect(expedition.zone, target.id, { ...position, y: vertical }); if (!taken) return;
       const added = addReserveRounds(loadout[gun.family], taken.amount);
-      hud.lootNotice = `+${added} ${taken.name} · ${specs[gun.family].caliberMm} mm reserve`;
+      hud.lootNotice = `+${added / specs[gun.family].capacity} compatible magazines · ${specs[gun.family].caliberMm} mm · ${spareMagazines(loadout[gun.family])} spare`;
       comms.add('system', 'Supplies', hud.lootNotice); radioCall('pickup');
       markers?.remove(taken.id); hud.fieldLoot = expedition.loot.remaining(expedition.zone); lootNoticeTime = 3;
       updateExpeditionPrompts(); canvas.focus({ preventScroll: true }); publish();
@@ -1105,7 +1113,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const gateway = findWorldGateway(expedition.zone, position); if (!gateway) return;
     const transition = resolveWorldTransition(expedition.zone, gateway.id, position); if (!transition) return;
     comms.add('system', 'Travel', `Moving to ${getWorldZone(transition.to).name}.`);
-    const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, vision: visionState.on, fieldSupplies: { ...looted }, health: hud.health, armor: hud.armor, weapon: hud.weapon, ammoPools: ammoPools(loadout, specs, equipment.carriedFamilies), ammunition: loadout.map(state => ({ ...state, cooldown: 0, reloadRemaining: 0 })) };
+    stopReload();
+    const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, vision: visionState.on, fieldSupplies: { ...looted }, health: hud.health, armor: hud.armor, weapon: hud.weapon, magazineInventory: loadout[equipment.carriedFamilies[0]]?.magazineInventory, ammunition: loadout.map(state => ({ ...state, magazineInventory: undefined, reserveMagazine: undefined, cooldown: 0, reloadRemaining: 0 })) };
     travelPending = true; pause(); expedition.onTravel(transition, checkpoint);
   }
   function jump() {
@@ -1479,13 +1488,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const state = loadout[hud.weapon];
     const waypoints: PilotObservation['waypoints'][number][] = expedition ? hud.fieldLoot.filter(item => Math.abs((item.y ?? 0)-vertical)<1.2 && canTake(item)).map(item => ({ id: item.id, x: item.x, z: item.z, kind: item.kind })) :
       options.arena ? [] : targets.flatMap((target, i) => target.alive ? [{ id: `target-${i}-${target.activation}`, ...targetPositions[i], kind: 'target' as const }] : []);
-    if (rangeStation && state.reserve < 20) waypoints.push({ id: 'range-resupply', x: rangeStation.point.x, z: rangeStation.point.z, kind: 'ammo' });
+    if (rangeStation && spareMagazines(state) < 1) waypoints.push({ id: 'range-resupply', x: rangeStation.point.x, z: rangeStation.point.z, kind: 'ammo' });
     if (expedition && pilotDestination) {
       const gateway = findWorldRoute(expedition.zone, pilotDestination)[0];
       if (gateway) waypoints.push({ id: gateway.id, ...gateway.position, kind: 'checkpoint' });
     }
     return { time, alive: hud.arenaSelf?.alive !== false, health: hud.health, maxHealth: hud.maxHealth, armor: hud.armor,
-      ...(vertical > .35 && !vehicles.active ? { vehiclePrompt: '' } : {}), magazine: roundReady(state, specs[hud.weapon]) ? state.magazine : 0, reserve: state.reserve, reloading: state.reloadRemaining > 0, aiming: actualAim, weapon: hud.weapon, availableWeapons: equipment.carriedFamilies.filter(index => loadout[index].magazine > 0 || loadout[index].reserve > 0),
+      ...(vertical > .35 && !vehicles.active ? { vehiclePrompt: '' } : {}), magazine: roundReady(state, specs[hud.weapon]) ? state.magazine : 0, reserve: state.reserve, reloading: state.reloadRemaining > 0, aiming: actualAim, weapon: hud.weapon, availableWeapons: equipment.carriedFamilies.filter(index => loadout[index].magazine > 0 || loadout[index].reserve > 0 || !!loadout[index].pendingMagazine),
       position: { x: position.x, z: position.z }, yaw, pitch,
       contacts: visiblePilotContacts(camera, world.scene, subjects, screenBlocked), waypoints, ballistics: specs[hud.weapon].ballistics,
       supplies: PILOT_HEALING_KINDS.flatMap(kind => {
@@ -1493,7 +1502,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         return item?.effect?.health ? [{ kind, health: item.effect.health, seconds: supplyProfile(item).seconds }] : [];
       }), grenades: activeGrenades().filter(g => !conditions.deafened && Math.hypot(g.position.x - position.x, g.position.z - position.z) <= grenadeDangerRadius(itemById(g.id)!.grenade!) + 2).map(g => ({ x: g.landing.x, z: g.landing.z, radius: grenadeDangerRadius(itemById(g.id)!.grenade!) + 2, remaining: g.remaining })), usingSupply: !!supplyUse,
       underThreat: hud.incoming || hurtTime > 0 || time < pilotGunfireUntil || hud.cloudCover?.kind === 'gas' || hud.mapDangers.some(d => d.kind !== 'crate' && Math.hypot(d.x - position.x, d.z - position.z) <= d.radius + 8),
-      lootPrompt: canResupply() && state.reserve < 20 ? 'E · Range resupply' : reachableLoot ? `E · ${reachableLoot.tier} ${reachableLoot.name}` : '', travelPrompt: hud.travelPrompt };
+      lootPrompt: canResupply() && spareMagazines(state) < 1 ? 'E · Range resupply' : reachableLoot ? `E · ${reachableLoot.tier} ${reachableLoot.name}` : '', travelPrompt: hud.travelPrompt };
   }
   function updatePilot(time: number) {
     if (!pilotEnabled || hud.phase !== 'playing' || options.arena && !hud.arenaSelf) return;
@@ -1718,8 +1727,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const inspectScale = motionPreference?.matches ? .25 : 1;
     rig.position.x += inspection.x * inspectScale; rig.position.y += inspection.y * inspectScale; rig.position.z += inspection.z * inspectScale;
     rig.rotation.x += inspection.pitch * inspectScale; rig.rotation.y += inspection.yaw * inspectScale; rig.rotation.z += inspection.roll * inspectScale;
+    viewScene.updateMatrixWorld(true);
+    const pouchWorld = state.reloadSlot === undefined ? null : playerBody.magazinePosition(state.reloadSlot);
+    const pouch = pouchWorld ? camera.worldToLocal(pouchWorld) : null;
     handling.forEach((model, i) => model.update(i === hud.weapon ? progress : null, emptyReload[i],
-      i === hud.weapon ? { prone: prone && hud.phase === 'playing', grounded: onGround, speed, eyeHeight: bodyMotion.eye, dt } : undefined, i === hud.weapon ? readyProgress : undefined));
+      i === hud.weapon ? { prone: prone && hud.phase === 'playing', grounded: onGround, speed, eyeHeight: bodyMotion.eye, dt } : undefined, i === hud.weapon ? readyProgress : undefined,
+      i === hud.weapon ? { pouch, magazineOut: state.magazineOut === true, pending: !!state.pendingMagazine, capacity: state.pendingMagazine?.capacity ?? magazineCapacity(state, specs[i]), baseCapacity: specs[i].capacity, saved: state.reloadSaved ?? 0 } : undefined));
+    canvas.dataset.magazineInventory = JSON.stringify({ slots: state.magazineInventory?.slots, reloadSlot: state.reloadSlot, pending: state.pendingMagazine ?? null, capacity: magazineCapacity(state, specs[hud.weapon]), spares: spareMagazines(state) });
     // A supply in the hands takes the weapon down and out of view while it is used.
     grenadeHands.update(grenadeHeld?.id ?? null, grenadeHeld?.ready ?? 0, grenadeHeld?.cooked ?? 0);
     if (grenadeHeld) rig.visible = false;
@@ -2067,12 +2081,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!supply?.effect) { hud.message = `No ${utilitySlot(kind)!.label.toLowerCase()} on the belt.`; publish(); return; }
     const { armor = 0, reserve = 0 } = supply.effect;
     // A meal with effects is worth eating at full health: the effects are why it was picked.
-    const full = hud.health >= hud.maxHealth && (!armor || hud.armor >= equipment.armor) && (!reserve || loadout[hud.weapon].reserve >= MAX_RESERVE) && !(foodChoice && supply.foodEffects?.length);
+    const full = hud.health >= hud.maxHealth && (!armor || hud.armor >= equipment.armor) && (!reserve || !reserveRoom(loadout[hud.weapon])) && !(foodChoice && supply.foodEffects?.length);
+    if (reserve && !reserveRoom(loadout[hud.weapon])) { hud.message = 'Rig pouches full.'; publish(); return; }
     if (full) { hud.message = kind === 'food' ? 'Nothing to restore. Hold 4 to pick a food for its effects.' : 'Nothing to restore right now.'; publish(); return; }
     if (!beginSupply(supply.name, supply.id, supplyProfile(supply), () => applyQuickItem(supply), true)) publish();
   }
   function applyQuickItem(supply: NonNullable<ResolvedLoadout['quickItem']>) {
-    if (!supplies[supply.id] || !supply.effect) return false;
+    if (!supplies[supply.id] || !supply.effect || supply.effect.reserve && !reserveRoom(loadout[hud.weapon])) return false;
     const { health = 0, armor = 0, reserve = 0 } = supply.effect;
     // In an arena the host heals, refills the inserts and starts the meal (it
     // owns health, and a guest's supplies); the reserve is this engine's own.
@@ -2083,7 +2098,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (supply.foodEffects?.length) applyFoodEffects(foodEffects, supply.foodEffects);
     }
     if (health) recoveryDelay = 0;
-    if (reserve) addReserveRounds(loadout[hud.weapon], reserve);
+    if (reserve) addReserveMagazines(loadout[hud.weapon], 2);
     if (supplies[supply.id] > 1) supplies[supply.id]--; else delete supplies[supply.id];
     hud.message = supply.foodEffects?.length ? `${supply.name} eaten · ${supply.foodEffects.map(effect => FOOD_EFFECTS[effect.kind].label).join(', ')}.` : `${supply.name} used.`;
     // The last of a picked food hands the slot back to Auto.
@@ -2146,7 +2161,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!canResupply()) return;
     stopInspect(); endSupply();
     const refill = resupplyEquipment(loadout, specs, equipment.carriedFamilies, supplies, rangeStock);
-    hud.message = refill.rounds || refill.items ? `Range resupply · +${refill.rounds} reserve rounds · +${refill.items} grenades / utilities. Free practice stock; reload to load ammunition.` : 'Range equipment already stocked. Reload to load ammunition.';
+    hud.message = refill.rounds || refill.items ? `Range resupply · +${refill.rounds} rounds in rig magazines · +${refill.items} grenades / utilities. Free practice stock; reload to load ammunition.` : 'Range equipment already stocked. Reload to load ammunition.';
     comms.add('system', 'Range', hud.message); publish(); canvas.focus({ preventScroll: true });
   }
   /** Host rounds already drawn here, by id. */
@@ -2874,7 +2889,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       items.forEach(item => markers.addDrop(item)); hud.fieldLoot = expedition.loot.remaining(expedition.zone);
       hud.lootNotice = `Supply drop open: ${items.map(item => item.name).join(', ')}. E to take.`; lootNoticeTime = 5;
     } else {
-      equipment.carriedFamilies.forEach(index => addReserveRounds(loadout[index], specs[index].reserve));
+      resupplyEquipment(loadout, specs, equipment.carriedFamilies, supplies, { ammunition: true, supplies: {} });
       hud.health = hud.maxHealth; hud.armor = equipment.armor; arenaRuntime?.setVitals({ health: hud.health, armor: hud.armor });
       hud.lootNotice = 'Supply drop open: ammunition topped up, health and plates restored.'; lootNoticeTime = 5;
     }
@@ -3062,7 +3077,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (hud.health < hud.maxHealth * .3) radioCall('medical');
       else if (hurtTime > 0) radioCall('hurt');
       else if (hud.incoming) radioCall('contact');
-      else if (loadout[hud.weapon].reserve < 20) radioCall('lowAmmo');
+      else if (spareMagazines(loadout[hud.weapon]) < 1) radioCall('lowAmmo');
     }
     hud.encikCallout = encik.current(now / 1000);
     objectiveBeacons?.update(hud.arena?.facilities?.sites ?? [], hud.objectiveHints && hud.phase === 'playing' && hud.arenaSelf?.alive !== false && !hud.mapExpanded);

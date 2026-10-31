@@ -1,7 +1,7 @@
-import { FPS_WEAPONS } from './fps-rules';
+import { FPS_WEAPONS, reloadLength } from './fps-rules';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { handleSide, reloadMotion, readyMotion } from './fps-weapon-motion';
+import { handleSide, reloadMotion, readyMotion, smoothStep } from './fps-weapon-motion';
 import { getWeaponSight } from './weapon-optics';
 import { createBipodMotion, type BipodMotionInput } from './weapon-bipod';
 import { MACHINE_GUN_LAYOUT } from './machine-gun-layout';
@@ -60,6 +60,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   if (index === 4) { right.position.set(.115, .1, .23); support.set(-.115, .1, .23); magazineGrip.set(-.15, .12, -.03); }
   const id = FPS_WEAPONS[index].id, enemy = isEnemyWeaponId(id) ? ENEMY_WEAPON_LAYOUT[id] : undefined;
   if (enemy) { right.position.fromArray(enemy.hands.right); support.fromArray(enemy.hands.support); magazineGrip.fromArray(enemy.hands.magazine); }
+  const magazineScale = magazine?.scale.clone();
   const magazineHome = magazine?.position.clone() ?? new THREE.Vector3();
   const magazineRotation = magazine?.rotation.clone() ?? new THREE.Euler();
   // Animated control is decorative; gameplay ammunition remains owned by weapon rules.
@@ -90,15 +91,16 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
     resetBipod: bipod.reset,
     get aimHeight() { return getWeaponSight(model)?.aimHeight ?? FPS_WEAPONS[index].sightHeight; },
     get aimDepth() { return getWeaponSight(model)?.aimDepth ?? enemy?.aimDepth ?? (index === 2 ? -.52 : index === 3 ? MACHINE_GUN_LAYOUT['mag-inspired'].aimDepth : index === 4 ? MACHINE_GUN_LAYOUT['cis50-inspired'].aimDepth : -.36); },
-    update(progress: number | null, empty: boolean, bipodInput?: BipodMotionInput, ready?: number) {
+    update(progress: number | null, empty: boolean, bipodInput?: BipodMotionInput, ready?: number, reload?: { pouch: THREE.Vector3 | null; magazineOut: boolean; pending: boolean; capacity: number; baseCapacity?: number; saved: number }) {
       bipod.update(bipodInput);
-      const motion = ready === undefined ? reloadMotion(progress ?? 0, empty, side) : readyMotion(ready, side);
+      const motionProgress = progress ?? (reload?.magazineOut ? reload.saved : 0);
+      const motion = ready === undefined ? reloadMotion(motionProgress, empty, side) : readyMotion(ready, side);
       if (cover && coverHome) { cover.rotation.copy(coverHome); cover.rotation.x -= motion.handToMagazine * .9; }
       if (belt) belt.visible = motion.magazineVisible;
       if (magazine) {
         magazine.position.copy(magazineHome); magazine.position.y -= motion.magazineDrop;
         magazine.rotation.copy(magazineRotation); magazine.rotation.z += motion.magazineDrop * -.35;
-        magazine.visible = motion.magazineVisible;
+        magazine.visible = reload?.magazineOut && !reload.pending ? false : motion.magazineVisible;
       }
       // The belt stays fed from the box mouth. Seated, it runs to the tray, drawn
       // taut while the box is away; peeled out, it hangs and curls from the box.
@@ -119,6 +121,27 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       // From empty the support hand takes the handle and draws it the full stroke.
       const stroke = motion.action * (index === 2 ? .035 : .075);
       if (progress !== null || ready !== undefined) left.position.lerp(new THREE.Vector3(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + stroke), motion.handToHandle);
+      // Reach the real pouch, then carry that magazine to the weapon. Pouch
+      // coordinates are camera-space, converted through this weapon's pose.
+      const time = motionProgress * reloadLength(empty);
+      if (reload?.pouch && ready === undefined && time >= .34 && time < .74) {
+        model.updateWorldMatrix(true, false);
+        const pouch = model.worldToLocal(reload.pouch.clone());
+        const reach = smoothStep((time - .34) / .13), seat = smoothStep((time - .47) / .27);
+        const grasp = pouch.clone().add(magazineGrip.clone().sub(magazineHome));
+        left.position.lerp(grasp, reach * (1 - seat));
+        if (magazine && reload.pending) {
+          magazine.position.lerpVectors(pouch, magazineHome, seat);
+          magazine.rotation.copy(magazineRotation);
+          magazine.rotation.z += (1 - seat) * -.4;
+          magazine.visible = true;
+          left.position.copy(magazine.position).add(magazineGrip.clone().sub(magazineHome));
+        }
+      }
+      if (magazine) {
+        magazine.userData.loadedCapacity = reload?.capacity ?? FPS_WEAPONS[index].capacity;
+        if (reload && magazineScale) magazine.scale.y = magazineScale.y * Math.max(.75, Math.min(1.4, reload.capacity / (reload.baseCapacity ?? FPS_WEAPONS[index].capacity)));
+      }
       control.position.z = controlZ + stroke;
     },
     dispose() {

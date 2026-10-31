@@ -1,121 +1,103 @@
 import { describe, expect, it } from 'vitest';
-import { addReserveRounds, ammoCalibre, ammoPools, createPooledLoadout, MAX_RESERVE, replacePooledWeapon, startingAmmoPools } from './ammo-pools';
-import { advanceWeapon, beginReload, createLoadout, fireWeapon, FPS_WEAPONS, fullLoad, interruptReload } from './fps-rules';
-import { createProfile, resolveLoadout, selectCarryWeapon } from './armory-state';
-import { EXTRA_SLOT_ID } from './armory-slots';
+import { addReserveRounds, createPooledLoadout, replacePooledWeapon, startingAmmoPools } from './ammo-pools';
+import { advanceWeapon, beginReload, chamberRound, createLoadout, fireWeapon, FPS_WEAPONS, interruptReload } from './fps-rules';
+import { addReserveMagazines, magazineCapacity, magazineGroup, reserveRoom, spareMagazines } from './magazine-inventory';
+import { createProfile, resolveLoadout, variantSpec } from './armory-state';
+import { itemById } from './armory-catalog';
 import { equipmentMovement, roundWeightKg } from './fps-encumbrance';
-import { ammoBlocked } from './loot-focus';
 
-const carried = [0, 1, 2];
-const poolKey = ammoCalibre(5.56);
-const kit = () => {
-  const profile = createProfile();
-  return resolveLoadout(selectCarryWeapon({ ...profile, owned: [...profile.owned, EXTRA_SLOT_ID] }, 'extra', 1));
-};
-const totalRifleRounds = (states: ReturnType<typeof createPooledLoadout>) => states[0].magazine + states[1].magazine + states[0].reserve;
-
-describe('carried ammunition pools', () => {
-  it('combines only carried starting reserves and keeps magazines separate', () => {
-    const states = createPooledLoadout(FPS_WEAPONS, carried);
-    expect(states[0].reserve).toBe(300); expect(states[1].reserve).toBe(300);
-    expect(startingAmmoPools(FPS_WEAPONS, carried)[poolKey]).toBe(300);
-    expect(states[2].reserve).toBe(60); expect(states[5].reserve).toBe(0);
-    expect(fireWeapon(states[0], 0)).toBe(true);
-    expect(states[0].magazine).toBe(30); expect(states[1].magazine).toBe(60);
-    states[1].reserve += 90;
-    expect(states[0].reserve).toBe(390); expect(states[2].reserve).toBe(60);
-    expect(createPooledLoadout(FPS_WEAPONS, [0, 2])[0].reserve).toBe(120);
+const specs = FPS_WEAPONS;
+const inventory = (states: ReturnType<typeof createPooledLoadout>) => states[0].magazineInventory!;
+describe('physical magazine inventory', () => {
+  it('packs four rifle and two pistol spares in six positions; stored guns add nothing', () => {
+    const states = createPooledLoadout(specs, [0, 2]);
+    expect(inventory(states).slots.map(m => m?.family)).toEqual([0, 0, 0, 0, 2, 2]);
+    expect(states[0].reserve).toBe(120); expect(states[2].reserve).toBe(30); expect(states[1].reserve).toBe(0);
+    expect(startingAmmoPools(specs, [0, 2])).toEqual({ '5.56:magazine': 120, '9.00:magazine': 30 });
+    expect(addReserveMagazines(states[0], 1)).toBe(0);
   });
-
-  it('lets either gun reload from the same exhausted pool without creating rounds', () => {
-    const states = createPooledLoadout(FPS_WEAPONS, carried);
-    states[0].magazine = 0; states[0].chambered = false;
-    states[1].magazine = 0; states[1].chambered = false;
-    states[0].reserve = 40;
-    beginReload(states[0], 0); advanceWeapon(states[0], 0, 10);
-    expect(states[0].magazine).toBe(30); expect(states[1].reserve).toBe(10);
-    beginReload(states[1], 1); advanceWeapon(states[1], 1, 10);
-    expect(states[1].magazine).toBe(10); expect(states[0].reserve).toBe(0);
-    expect(totalRifleRounds(states)).toBe(40);
-    expect(beginReload(states[0], 0)).toBe(false);
+  it('shares rifle magazines across platforms and splits capacity with an extra weapon', () => {
+    const states = createPooledLoadout(specs, [0, 2, 5]);
+    expect(spareMagazines(states[0])).toBe(4); expect(spareMagazines(states[5])).toBe(4);
+    expect(inventory(states).slots.filter(Boolean)).toHaveLength(6);
+    states[5].magazine = 3;
+    beginReload(states[5], 5); advanceWeapon(states[5], 5, 10);
+    expect(spareMagazines(states[0])).toBe(3); expect(inventory(states).slots[0]).toBeNull();
+    expect(inventory(states).slots[1]?.family).toBe(5);
   });
-
-  it('returns an interrupted magazine to the shared pool and conserves carry weight', () => {
-    const equipment = kit(), states = createPooledLoadout(equipment.weapons, carried);
-    states[0].magazine = 12;
-    const total = totalRifleRounds(states), mass = equipmentMovement(equipment, 0, states).ammoKg;
-    beginReload(states[0], 0, equipment.weapons);
-    advanceWeapon(states[0], 0, equipment.weapons[0].reload * .5, equipment.weapons);
-    interruptReload(states[0], 0, equipment.weapons);
-    expect(states[0].magazineOut).toBe(true); expect(states[1].reserve).toBe(311);
-    states[1].magazine = 0; states[1].chambered = false;
-    // Account for the sixty rounds explicitly removed for this empty-gun setup.
-    beginReload(states[1], 1, equipment.weapons); advanceWeapon(states[1], 1, 10, equipment.weapons);
-    beginReload(states[0], 0, equipment.weapons); advanceWeapon(states[0], 0, 10, equipment.weapons);
-    expect(totalRifleRounds(states)).toBe(total - 60);
-    expect(equipmentMovement(equipment, 0, states).ammoKg).toBeCloseTo(mass - 60 * roundWeightKg(5.56));
+  it('implements the six groups including box-fed Kongsi and enemy support drums', () => {
+    const group = (id: string) => magazineGroup(variantSpec(itemById(id)!)!);
+    expect(group('sar-vanguard')).toBe(group('xm8-sharpshooter')); expect(group('g36c')).toBe(group('ult-kongsi'));
+    expect(group('ult-centurion')).toBe(group('xm8-automatic')); expect(group('mg36')).toBe(group('ult-issued'));
+    expect(new Set(['sar-issued', 'ult-issued', 'mg4-standard', 'p30-chiong', 'mag-tumpang', 'cis50-tuas'].map(group)).size).toBe(6);
   });
-
-  it('weighs a shared reserve once and weighs every loaded magazine', () => {
-    const equipment = kit(), states = createPooledLoadout(equipment.weapons, carried);
-    const expected = (31 + 60 + 300) * roundWeightKg(5.56) + (16 + 60) * roundWeightKg(9);
-    expect(equipmentMovement(equipment, 0, states).ammoKg).toBeCloseTo(expected);
-    expect(equipmentMovement(equipment, 1, states).ammoKg).toBeCloseTo(expected);
-    states[1].reserve += 25;
-    expect(equipmentMovement(equipment, 0, states).ammoKg).toBeCloseTo(expected + 25 * roundWeightKg(5.56));
+  it('discards remaining rounds at removal, takes upper-row spares at the grab, and keeps chambered rounds', () => {
+    const states = createPooledLoadout(specs, [0, 2]), state = states[0]; state.magazine = 12;
+    beginReload(state, 0); expect(state.reloadSlot).toBe(0);
+    advanceWeapon(state, 0, specs[0].reload * .39);
+    expect(state.magazine).toBe(1); expect(state.reserve).toBe(120); expect(state.pendingMagazine).toBeUndefined();
+    advanceWeapon(state, 0, specs[0].reload * .1);
+    expect(state.pendingMagazine?.capacity).toBe(30); expect(spareMagazines(state)).toBe(3);
+    expect(inventory(states).slots[0]).toBeNull(); expect(inventory(states).slots[3]).not.toBeNull();
+    advanceWeapon(state, 0, 10); expect(state.magazine).toBe(31); expect(chamberRound(state, specs[0])).toBe(1);
+    expect(state.pendingMagazine).toBeUndefined(); expect(beginReload(state, 0)).toBe(false);
   });
-
-  it('applies pickup capacity to the shared reserve but never discards returned magazine rounds', () => {
-    const states = createPooledLoadout(FPS_WEAPONS, carried);
-    states[0].reserve = MAX_RESERVE - 5;
-    states[1].reserve = Math.min(MAX_RESERVE, states[1].reserve + 90);
-    const guns = carried.map(family => ({ family, spec: FPS_WEAPONS[family], reserve: states[family].reserve }));
-    expect(ammoBlocked(5.56, guns, 0)).toBe('Reserve full');
-    states[0].magazine = 12;
-    const total = totalRifleRounds(states);
-    beginReload(states[0], 0); advanceWeapon(states[0], 0, FPS_WEAPONS[0].reload * .5);
-    expect(states[1].reserve).toBe(MAX_RESERVE + 11);
-    expect(addReserveRounds(states[1], 90)).toBe(0);
-    expect(states[1].reserve).toBe(MAX_RESERVE + 11);
-    expect(totalRifleRounds(states)).toBe(total);
+  it('keeps donor magazine capacity, including smaller marksman and extended magazines', () => {
+    const custom = specs.map(s => ({ ...s })); custom[0].capacity = 36;
+    const states = createPooledLoadout(custom, [0, 2, 5]); states[5].magazine = 0; states[5].chambered = false;
+    beginReload(states[5], 5, custom); advanceWeapon(states[5], 5, 10, custom);
+    expect(states[5].magazine).toBe(36); expect(magazineCapacity(states[5], custom[5])).toBe(36);
+    states[5].magazine = 37; expect(beginReload(states[5], 5, custom)).toBe(false);
+    custom[5].capacity = 20;
+    states[0].magazineInventory!.slots[1] = { ...states[5].reserveMagazine!, capacity: 20 };
+    states[0].magazine = 2; beginReload(states[0], 0, custom); advanceWeapon(states[0], 0, 10, custom);
+    expect(states[0].magazine).toBe(21); expect(magazineCapacity(states[0], custom[0])).toBe(20);
   });
-
-  it('round-trips through JSON and repeated district travel without multiplying reserves', () => {
-    let states = createPooledLoadout(FPS_WEAPONS, carried);
-    states[0].reserve = 83; states[0].magazine = 1; states[0].magazineOut = true; states[0].reloadSaved = .5;
+  it('resumes a grabbed magazine once after a switch, with no duplicated stock or carry weight', () => {
+    const equipment = resolveLoadout(createProfile()), states = createPooledLoadout(equipment.weapons, [0, 2]), state = states[0];
+    state.magazine = 10; const before = equipmentMovement(equipment, 0, states).ammoKg;
+    beginReload(state, 0); advanceWeapon(state, 0, specs[0].reload * .5); interruptReload(state, 0);
+    expect(equipmentMovement(equipment, 0, states).ammoKg).toBeCloseTo(before - 9 * roundWeightKg(5.56));
+    expect(reserveRoom(state)).toBe(false); expect(addReserveMagazines(state, 1)).toBe(0);
+    beginReload(state, 0); advanceWeapon(state, 0, 10);
+    expect(spareMagazines(state)).toBe(3); expect(state.magazine).toBe(31);
+    expect(equipmentMovement(equipment, 0, states).ammoKg).toBeCloseTo(before - 9 * roundWeightKg(5.56));
+    expect(addReserveMagazines(state, 2)).toBe(1); expect(spareMagazines(state)).toBe(4);
+  });
+  it('never ejects a usable last magazine and can chamber an already seated one without a spare', () => {
+    const states = createPooledLoadout(specs, [0, 2]), state = states[0]; state.reserve = 0; state.magazine = 8;
+    expect(beginReload(state, 0)).toBe(false); expect(state.magazineOut).not.toBe(true);
+    state.chambered = false; beginReload(state, 0); advanceWeapon(state, 0, 10);
+    expect(state.magazine).toBe(8); expect(fireWeapon(state, 0)).toBe(true);
+  });
+  it('preserves holes, pending magazine and capacities through repeated JSON travel', () => {
+    let states = createPooledLoadout(specs, [0, 2]); states[0].magazine = 6;
+    beginReload(states[0], 0); advanceWeapon(states[0], 0, specs[0].reload * .5); interruptReload(states[0], 0);
     for (let trip = 0; trip < 3; trip++) {
-      const checkpoint = JSON.parse(JSON.stringify({ ammunition: states, ammoPools: ammoPools(states, FPS_WEAPONS, carried) }));
-      expect(checkpoint.ammoPools[poolKey]).toBe(83);
-      states = createPooledLoadout(FPS_WEAPONS, carried, checkpoint);
-      expect(states[0].reserve).toBe(83); expect(states[1].reserve).toBe(83);
-      expect(states[0].magazineOut).toBe(true); expect(states[0].reloadSaved).toBe(.5);
+      const checkpoint = JSON.parse(JSON.stringify({ ammunition: states, magazineInventory: inventory(states) }));
+      states = createPooledLoadout(specs, [0, 2], checkpoint);
+      expect(inventory(states).slots[0]).toBeNull(); expect(spareMagazines(states[0])).toBe(3);
+      expect(states[0].pendingMagazine?.capacity).toBe(30); expect(states[0].reloadSaved).toBeCloseTo(.5);
     }
-    states[1].reserve -= 10; expect(states[0].reserve).toBe(73);
+    beginReload(states[0], 0); advanceWeapon(states[0], 0, 10); expect(states[0].magazine).toBe(31); expect(spareMagazines(states[0])).toBe(3);
   });
-
-  it('merges legacy per-weapon checkpoints and resets to issued pools on respawn', () => {
-    const old = createLoadout(); old[0].reserve = 20; old[1].reserve = 35;
-    const restored = createPooledLoadout(FPS_WEAPONS, carried, { ammunition: old });
-    expect(restored[0].reserve).toBe(55); expect(restored[1].reserve).toBe(55);
-    expect(createPooledLoadout(FPS_WEAPONS, carried)[0].reserve).toBe(300);
+  it('bounds legacy migration and rejects malformed saved containers without replenishing them', () => {
+    const old = createLoadout(); old[0].reserve = 60; old[2].reserve = 15;
+    let states = createPooledLoadout(specs, [0, 2], { ammunition: old });
+    expect(spareMagazines(states[0])).toBe(2); expect(spareMagazines(states[2])).toBe(1);
+    states = createPooledLoadout(specs, [0, 1, 2], { ammunition: old, ammoPools: { '5.56': 120, '9.00': 30 } });
+    expect(states[0].reserve).toBe(120); expect(states[1].reserve).toBe(0);
+    const checkpoint = JSON.parse(JSON.stringify({ ammunition: states, magazineInventory: inventory(states) }));
+    checkpoint.magazineInventory.slots[0].capacity = 999;
+    states = createPooledLoadout(specs, [0, 1, 2], checkpoint); expect(inventory(states).slots[0]).toBeNull();
   });
-
-  it('keeps matching reserves on a swap, including the pool from another carry slot', () => {
-    const states = createPooledLoadout(FPS_WEAPONS, carried);
-    states[0].reserve = 73; states[1].magazine = 7;
-    const next = replacePooledWeapon(states, FPS_WEAPONS, carried, FPS_WEAPONS, [5, 1, 2], 5);
-    expect(next[5].reserve).toBe(73); expect(next[1].reserve).toBe(73);
-    expect(next[0].reserve).toBe(0); expect(next[5].magazine).toBe(fullLoad(FPS_WEAPONS[5]));
-    expect(next[1].magazine).toBe(7);
-    const swapped = replacePooledWeapon(next, FPS_WEAPONS, [5, 1, 2], FPS_WEAPONS, [3, 1, 2], 3);
-    expect(swapped[3].reserve).toBe(0); expect(swapped[1].reserve).toBe(73);
-  });
-
-  it('uses the resolved calibre when a variant changes calibre within its family', () => {
-    const states = createPooledLoadout(FPS_WEAPONS, carried), specs = FPS_WEAPONS.map(spec => ({ ...spec }));
-    specs[0].caliberMm = 7.62;
-    const next = replacePooledWeapon(states, FPS_WEAPONS, carried, specs, carried, 0);
-    expect(next[0].reserve).toBe(0); expect(next[1].reserve).toBe(300);
-    next[0].reserve = 40; expect(next[1].reserve).toBe(300);
+  it('keeps compatible magazines and their capacities on a pickup; never grants hidden reserves', () => {
+    const states = createPooledLoadout(specs, [0, 2]); inventory(states).slots[0]!.capacity = 36;
+    const swapped = replacePooledWeapon(states, specs, [0, 2], specs, [5, 2], 5);
+    expect(swapped[5].reserve).toBe(126); expect(swapped[5].magazineInventory!.slots[0]!.capacity).toBe(36);
+    expect(swapped[0].reserve).toBe(0);
+    const heavy = replacePooledWeapon(swapped, specs, [5, 2], specs, [3, 2], 3);
+    expect(heavy[3].reserve).toBe(0); expect(addReserveRounds(heavy[3], 100)).toBe(100);
+    expect(spareMagazines(heavy[3])).toBe(1);
   });
 });

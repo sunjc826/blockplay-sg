@@ -5,13 +5,13 @@ import { rangeEquipmentStock, resupplyEquipment } from './equipment-resupply';
 import { createProfile } from './armory-state';
 
 describe('equipment station stock', () => {
-  it('tops up shared carried ammunition once and preserves magazines, chamber and reload progress', () => {
+  it('refills empty rig positions once and preserves magazines, chamber and reload progress', () => {
     const carried = [0, 1, 2], states = createPooledLoadout(FPS_WEAPONS, carried), original = states[0].reserve;
-    states[0].reserve = 0; states[2].reserve = 0; states[0].magazine = 2; states[0].reloadSaved = .3; states[0].magazineOut = true;
+    states[0].reserve = 0; states[1].reserve = 0; states[2].reserve = 0; states[0].magazine = 2; states[0].reloadSaved = .3; states[0].magazineOut = true;
     const supplies = {}, result = resupplyEquipment(states, FPS_WEAPONS, carried, supplies, rangeEquipmentStock({}));
-    expect(states[0].reserve).toBe(original); expect(states[1].reserve).toBe(original);
+    expect(states[0].reserve).toBe(original); expect(states[1].reserve).toBe(120);
     expect(states[0]).toMatchObject({ magazine: 2, magazineOut: true, reloadSaved: .3 });
-    expect(result.rounds).toBe(original + FPS_WEAPONS[2].reserve);
+    expect(result.rounds).toBe(original + 120 + 30);
     expect(resupplyEquipment(states, FPS_WEAPONS, carried, supplies, rangeEquipmentStock({}))).toEqual({ rounds: 0, items: 0 });
   });
   it('provides bounded grenades and utilities without accumulating or changing a profile', () => {
@@ -23,9 +23,9 @@ describe('equipment station stock', () => {
     delete supplies['grenade-frag']; resupplyEquipment(states, FPS_WEAPONS, [0, 2], supplies, stock); expect(supplies['grenade-frag']).toBe(2);
     expect(JSON.stringify(p)).toBe(before);
   });
-  it('preserves surplus rounds and ignores uncarried guns and invalid stock entries', () => {
+  it('preserves filled magazines and ignores uncarried guns and invalid stock entries', () => {
     const states = createPooledLoadout(FPS_WEAPONS, [0]); states[0].reserve = 999; states[4].reserve = 0;
     const supplies = {}; resupplyEquipment(states, FPS_WEAPONS, [0], supplies, { ammunition: true, supplies: { 'sar-issued': 4, 'grenade-frag': Infinity } });
-    expect(states[0].reserve).toBe(999); expect(states[4].reserve).toBe(0); expect(supplies).toEqual({});
+    expect(states[0].reserve).toBe(180); expect(states[4].reserve).toBe(0); expect(supplies).toEqual({});
   });
 });

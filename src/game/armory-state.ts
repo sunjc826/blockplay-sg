@@ -224,7 +224,8 @@ export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
     const fittings = variant.fitted ?? [];
     const built = variantSpec(variant)!;
     const spec: EquippedWeapon = { ...built, name: variant.name, equipment: { ...gun, attachments: {} }, accent: variant.accent,
-      reserve: FPS_WEAPONS[i].reserve + (rig.carry || 0),
+      rigSlots: 6 + Math.ceil((rig.carry || 0) / 30),
+      reserve: built.capacity * (i === 2 ? 2 : built.feed && built.feed !== 'magazine' ? 3 : 4),
       traits: collectTraits(built.traits, ...fittings.map(part => part.traits)) };
     for (const part of fittings) {
       if (part.slot === 'optic' && part.stats?.optic) spec.optic = part.stats.optic;

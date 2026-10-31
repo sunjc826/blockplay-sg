@@ -540,7 +540,7 @@ utility belt drawn above the ammo block, one slot per job (`utility-belt.ts`):
 | Bandage | `5` | elastic bandage (25 health, 150 CR), field dressing (45 health, 300 CR) |
 | First aid | `6` | first aid kit (75 health, 560 CR), combat medic pack (full health and 60 armor, 90 TK) |
 | Plates | `7` | spare inserts (45 armor points, 380 CR) |
-| Ammo | `8` | ammunition pouch (90 reserve rounds, 260 CR) |
+| Ammo | `8` | ammunition pouch (two compatible magazines, 260 CR) |
 
 A slot's key (or a tap on touch) uses it; `G` uses the last slot again, and the
 armory's quick slot only picks which slot `G` starts on. A slot with several
@@ -595,11 +595,10 @@ faster than hands can. Each player's meals ride in the snapshot (`actor.food`,
 validated on arrival), and the engine copies them for the HUD and for what the
 host never sees: the stride, the load and the sights. A player using a supply
 sends its progress with their input, so everyone else sees them kneel to patch
-up or eat, as bots do. Ammo pouches stay with the engine, which owns its reserve
-pools.
+up or eat, as bots do. Ammo pouches stay with the engine, which owns the physical magazine inventory.
 
 Armor is restored only up to the protection the equipped inserts provide, and
-reserve goes to the shared calibre pool of the weapon in hand. Using one with nothing to restore reports
+ammunition fills up to two empty rig pouches with magazines compatible with the weapon in hand. Using one with nothing to restore reports
 that and spends nothing. `resolveLoadout` carries the selected supply and its
 count, and the belt's contents as `supplies`, so the shop, HUD and engine read
 the same selection everything else does; encumbrance weighs what is still on the belt.
@@ -696,8 +695,8 @@ the same body always leaves the same kit. The weapon is drawn as itself on its
 side, in a tier-coloured ring with a label, and the HUD prompt reads like a
 crate's: `E · Elite MG4 · Sustained Fire · replace main`; the kit lies within
 a metre round it as a case or a pair of plates. Taking a weapon uses the crate
-path (fresh magazine and reserve, or extra reserve if the same variant is
-already carried). A district keeps the newest six weapons and, apart from
+path (a loaded magazine and preserved compatible spares, or one full spare
+magazine in an empty pouch if the same variant is already carried). A district keeps the newest six weapons and, apart from
 them, the newest twelve kits; none are written into a checkpoint. A kill of
 your own puts "… dropped by …" on the radio, and a friendly falling within
 90 m puts "… is down, 40 m to your left. Left …".
@@ -749,18 +748,42 @@ the one GPMG that takes it on: the same rule, for the reach it buys.
 
 ## Carried weight
 
-Carried guns firing the same calibre share one reserve ammunition pool, while
-each keeps its own magazine and chamber. Starting reserves (including rig
-bonuses) are combined only for slotted guns. Reloads draw from that pool and
-return rounds from removed magazines to it. Loose ammunition and ammo pouches
-top up the matching pool, up to 999 loose rounds per calibre. Weapon swaps keep
-the reserve for any calibre still carried; a found gun brings its loaded
-magazine. District travel preserves each pool once, and respawning restores
-the carried loadout's starting pools.
+Spare ammunition is a physical magazine inventory, bounded by the worn rig:
+ILBV has six positions, Enhanced LBS eight, Sentinel nine. The issued rifle and
+pistol start with four rifle magazines and two pistol magazines, plus the loaded
+magazine in each gun. A single drum/belt main starts with three spare containers;
+rig upgrades add positions. A second main divides the main's allocation rather
+than adding an invisible reserve. Damage and reload durations are unchanged.
 
-`pnpm test:fps:ammo` checks shared rifle/support reloads, separate magazines,
-an ammo pouch, the live weapon HUD and resetting in a real browser (Vite on
-5175 and an isolated Chrome DevTools endpoint on 9228, like the other FPS smokes).
+Compatibility follows six gameplay groups: 5.56 rifle magazines (SAR, box-fed
+XM8/G36 variants, Ultimax Kongsi); 5.56 drums (other Ultimax variants, XM8 Automatic
+Rifle, MG36); MG4 5.56 belt boxes; P30 9 mm magazines; FN MAG 7.62 belt boxes;
+CIS 50MG 12.7 belt boxes. Extended containers fit within their group and keep
+their own capacity: a 36-round rifle magazine still holds 36 rounds in an XM8.
+
+Reloading discards rounds in the removed magazine, preserving a closed-bolt
+weapon's chambered round. A full magazine cannot be reloaded, and a usable last
+magazine cannot be ejected without a replacement. A seated, uncharged magazine
+can still be readied without a spare. The hand takes compatible magazines from
+the upper torso row first, then the lower row and side pouches. Each pouch stays
+put and empty pouches reveal those below. The spare disappears at the grab stage,
+not on pressing R. A grabbed magazine remains with its interrupted reload until
+seated and cannot be counted, picked up or consumed twice.
+
+Calibre pickups provide whole containers for the matching held weapon (or a
+matching carried weapon), capped by free pouches. Ammo kits fill at most two
+pouches. Range stations refill missing starting positions without changing loaded
+or held magazines. Found weapons bring only their loaded magazine; compatible
+spares retain their size and position, while spares no longer usable by a carried
+weapon leave with the replaced gun. District travel saves exact pouch positions,
+capacities and interrupted reloads. Legacy round pools migrate once into bounded
+whole magazines; respawn restores the starting inventory.
+
+The HUD shows rounds in the inserted magazine, the chambered round separately,
+and the number of compatible spare magazines. `pnpm test:fps:ammo` checks physical
+pouch removal, separate rifle/drum stock, ammo kits, HUD and reset in a real browser
+(Vite on 5175, isolated Chrome DevTools on 9228; overridable through the script's
+environment variables).
 
 Movement now combines **total carried load** and **the weapon in hand**.
 `fps-encumbrance.ts` is the common calculation used by gameplay and the shop:
@@ -780,8 +803,8 @@ Movement now combines **total carried load** and **the weapon in hand**.
   factor. Aim-in speed is `(0.35 + 0.65 * carried) * inHand`, with a positive
   minimum. Both remain usable under extreme burdens. Vehicles are unaffected.
 - Actual ammunition mass decreases when fired and increases when picked up.
-  Each calibre's shared reserve is weighed once, plus each loaded magazine.
-  Reloading conserves mass. Consuming supplies removes their mass exactly once,
+  Each physical spare is weighed once, plus loaded and hand-held ammunition.
+  Discarded rounds reduce carried weight; taking and seating a spare conserve it. Consuming supplies removes their mass exactly once,
   including after expedition equipment is re-resolved. Spent armor remains worn.
 
 The shop compares full-load weight, carried mobility, in-hand mobility and
@@ -877,7 +900,7 @@ visually hidden table gives the same numbers to a screen reader.
 
 ## Armor and counter-fire
 
-The rig slot supplies reserve capacity; the insert slot supplies armor points and absorption. Enhanced LBS adds 60 reserve rounds per weapon at a 2% movement cost; Sentinel adds 90 without an extra rig handling penalty; the ammunition still adds carry weight. A bare ILBV-inspired carrying rig has zero armor points.
+The rig slot supplies reserve capacity; the insert slot supplies armor points and absorption. Enhanced LBS adds two visible magazine positions at a 2% movement cost; Sentinel adds three without an extra rig handling penalty; the ammunition still adds carry weight. A bare ILBV-inspired carrying rig has zero armor points.
 
 | Insert | Level · price | Armor | Absorption while available | Rated for | Movement | Besides |
 | --- | --- | ---: | ---: | --- | ---: | --- |

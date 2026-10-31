@@ -38,14 +38,14 @@ for (const family of [2, 3, 4]) describe(FPS_WEAPONS[family].name, () => {
     expect(saved.guns[family].variant).toBe(id);
     expect(resolveLoadout(saved).weapons[family].equipment.attachments).toEqual({});
   });
-  it('enforces cooldown and conserves ammo on reload', () => {
+  it('enforces cooldown and discards the old magazine on reload', () => {
     const state = createLoadout()[family], spec = FPS_WEAPONS[family];
     expect(fireWeapon(state, family)).toBe(true); expect(fireWeapon(state, family)).toBe(false);
     advanceWeapon(state, family, spec.interval);
     expect(beginReload(state, family)).toBe(true); expect(fireWeapon(state, family)).toBe(false);
     advanceWeapon(state, family, spec.reload);
-    // A tactical reload keeps a closed bolt's chambered round, and loses no round.
-    expect(state.magazine).toBe(fullLoad(spec)); expect(state.reserve).toBe(spec.reserve - 1);
+    // The chambered round stays; the old magazine's remaining rounds are discarded.
+    expect(state.magazine).toBe(fullLoad(spec)); expect(state.reserve).toBe(spec.reserve - spec.capacity);
   });
   it('provides muzzle/ejection/reload nodes and unobstructed iron sights', () => {
     const weapon = resolveLoadout(createProfile()).weapons[family], model = buildServiceWeapon(weapon.id)!;

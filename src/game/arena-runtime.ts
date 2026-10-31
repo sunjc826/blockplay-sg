@@ -441,7 +441,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
           acknowledgements.set(from, { sequence: payload.sequence as number, deaths: actor.deaths, vehicle: actor.vehicle });
         } else { simulation.setInput(from, payload.input); acknowledgements.delete(from); }
       }
-      else if (registered.has(from) && payload.type === 'arena-reload' && validWeaponIndex(payload.weapon)) simulation.reloadPlayer(from, payload.weapon);
+      else if (registered.has(from) && payload.type === 'arena-reload' && validWeaponIndex(payload.weapon)) simulation.reloadPlayer(from, payload.weapon, typeof payload.capacity === 'number' ? payload.capacity : undefined);
       else if (registered.has(from) && started && payload.type === 'throwGrenade' && validThrowGrenade(payload.grenade)) {
         const accepted = simulation.throwGrenade(from, payload.grenade);
         if (Number.isSafeInteger(payload.request)) session.send({ type: 'grenade-result', request: payload.request, accepted }, from);
@@ -658,15 +658,15 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       session.send({ type: 'arena-shot', origin, direction, weapon, maxDistance });
     }
   }
-  function reload(weapon: number) {
+  function reload(weapon: number, capacity?: number) {
     if (disposed || !localAdopted) return;
     const freshInput = lastInput ? { ...lastInput, weapon, reloading: true } : null;
     if (simulation) {
       if (freshInput && validArenaInput(freshInput)) simulation.setInput(session.id, freshInput);
-      simulation.reloadPlayer(session.id, weapon);
+      simulation.reloadPlayer(session.id, weapon, capacity);
     } else {
       if (freshInput && validArenaInput(freshInput)) sendInput(freshInput);
-      session.send({ type: 'arena-reload', weapon });
+      session.send({ type: 'arena-reload', weapon, capacity });
     }
   }
   /** A callout from the wheel, by id; `at` is where a pinging one points. The host says it, so it arrives back in a frame's barks. */

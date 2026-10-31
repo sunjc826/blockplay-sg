@@ -21,13 +21,13 @@ describe('FPS ammunition lifecycle', () => {
     expect(ultimax.magazine).toBe(60); expect(chamberRound(ultimax, FPS_WEAPONS[1])).toBe(0);
     expect(fullLoad(FPS_WEAPONS[0])).toBe(31); expect(fullLoad(FPS_WEAPONS[1])).toBe(60);
   });
-  it('returns a removed magazine\'s rounds to the reserve and conserves every round', () => {
+  it('discards rounds from the removed magazine and retains the chambered round', () => {
     const state = createLoadout()[0]; state.magazine = 24; state.reserve = 3;
     beginReload(state, 0); advanceWeapon(state, 0, 1);
     // Past MAG OUT: only the chambered round is still in the gun.
-    expect(state.magazine).toBe(1); expect(state.magazineOut).toBe(true); expect(state.reserve).toBe(26);
+    expect(state.magazine).toBe(1); expect(state.magazineOut).toBe(true); expect(state.reserve).toBe(3);
     advanceWeapon(state, 0, 1);
-    expect(state.magazine).toBe(27); expect(state.reserve).toBe(0); expect(state.magazineOut).toBe(false);
+    expect(state.magazine).toBe(4); expect(state.reserve).toBe(0); expect(state.magazineOut).toBe(false);
     expect(beginReload(state, 0)).toBe(false);
   });
   it('does not refill or reset reload timing on repeated reload input', () => {
@@ -37,17 +37,17 @@ describe('FPS ammunition lifecycle', () => {
     expect(beginReload(state, 1)).toBe(false);
     expect(state.reloadRemaining).toBe(1.5);
     state.reloadRemaining = 0; // a cancelled reload creates no ammunition
-    advanceWeapon(state, 1, 5); expect(state.magazine + state.reserve).toBe(185);
+    advanceWeapon(state, 1, 5); expect(state.magazine + state.reserve).toBe(180);
     expect(createLoadout()[1].magazine).toBe(60);
   });
   it('keeps the chambered round on a tactical reload: a full magazine plus one', () => {
     const state = createLoadout()[0], reload = FPS_WEAPONS[0].reload; state.magazine = 12;
     beginReload(state, 0); expect(state.reloadEmpty).toBe(false);
-    advanceWeapon(state, 0, reload * (RELOAD_POINTS.seat - .02)); expect(state.magazine).toBe(1); expect(state.reserve).toBe(131);
-    advanceWeapon(state, 0, reload * .04); expect(state.magazine).toBe(31); expect(state.reserve).toBe(101);
+    advanceWeapon(state, 0, reload * (RELOAD_POINTS.seat - .02)); expect(state.magazine).toBe(1); expect(state.reserve).toBe(120);
+    advanceWeapon(state, 0, reload * .04); expect(state.magazine).toBe(31); expect(state.reserve).toBe(90);
     // Ready at the seat, still reloading through the settle, and nothing more moves.
     expect(state.reloadRemaining).toBeGreaterThan(0); expect(fireWeapon(state, 0)).toBe(false);
-    advanceWeapon(state, 0, reload); expect(state.magazine).toBe(31); expect(state.reserve).toBe(101);
+    advanceWeapon(state, 0, reload); expect(state.magazine).toBe(31); expect(state.reserve).toBe(90);
   });
   it('chambers a round from empty, so an empty reload ends one short of a tactical one', () => {
     const state = createLoadout()[0], reload = FPS_WEAPONS[0].reload; state.magazine = 0; state.chambered = false;
@@ -64,7 +64,7 @@ describe('FPS ammunition lifecycle', () => {
     const state = createLoadout()[0], reload = FPS_WEAPONS[0].reload; state.magazine = 7;
     beginReload(state, 0); advanceWeapon(state, 0, reload * .5);
     expect(interruptReload(state, 0)).toBe('suspended');
-    expect(state.magazineOut).toBe(true); expect(state.magazine).toBe(1); expect(state.reserve).toBe(126); expect(state.reloadSaved).toBeCloseTo(.5);
+    expect(state.magazineOut).toBe(true); expect(state.magazine).toBe(1); expect(state.reserve).toBe(120); expect(state.reloadSaved).toBeCloseTo(.5);
     expect(fireWeapon(state, 0)).toBe(true); expect(state.magazine).toBe(0); expect(state.chambered).toBe(false);
     advanceWeapon(state, 0, 1); expect(fireWeapon(state, 0)).toBe(false);
     // Resumed from empty, it picks up at MAG IN on the same clock and still has to rack the handle.
@@ -72,7 +72,7 @@ describe('FPS ammunition lifecycle', () => {
     advanceWeapon(state, 0, reload * .3); expect(state.magazine).toBe(30); expect(roundReady(state, FPS_WEAPONS[0])).toBe(false);
     advanceWeapon(state, 0, reload * .3); expect(roundReady(state, FPS_WEAPONS[0])).toBe(false);
     advanceWeapon(state, 0, reload * .1); expect(roundReady(state, FPS_WEAPONS[0])).toBe(true);
-    expect(interruptReload(state, 0)).toBe('finished'); expect(state.reserve).toBe(96);
+    expect(interruptReload(state, 0)).toBe('finished'); expect(state.reserve).toBe(90);
   });
   it('lets an open bolt fire nothing with its belt out and re-cocks it after running dry', () => {
     const state = createLoadout()[1], ultimax = FPS_WEAPONS[1]; state.magazine = 1;

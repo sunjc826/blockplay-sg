@@ -59,9 +59,9 @@ describe('the loot card', () => {
   it('says a found gun brings only its magazine, and keeps a same-calibre reserve', () => {
     const route = itemById('ult-issued')!, mag = itemById('mag-tumpang')!;
     const ultimax = lootCard(loot('gun', 0, 0, { kind: 'weapon', catalogId: route.id, name: route.name, amount: 1 }), context({ replaces: () => 0 }));
-    expect(ultimax.type).toContain('5.56 mm'); expect(ultimax.note).toBe('Magazine loaded · keeps your 120 × 5.56 mm');
+    expect(ultimax.type).toContain('5.56 mm'); expect(ultimax.note).toBe('Magazine loaded · no compatible spare magazines');
     const gpmg = lootCard(loot('gun', 0, 0, { kind: 'weapon', catalogId: mag.id, name: mag.name, amount: 1 }), context({ replaces: () => 0 }));
-    expect(gpmg.note).toBe('Magazine loaded · no 7.62 mm in reserve');
+    expect(gpmg.note).toBe('Magazine loaded · no compatible spare magazines');
   });
   it('offers the rounds of a weapon already in hand', () => {
     const card = lootCard(loot('gun', 0, 0, { kind: 'weapon', catalogId: 'sar-issued', name: 'SAR 21 · BMT', amount: 1 }), context());
@@ -101,11 +101,11 @@ describe('the loot card', () => {
   });
   it('sends loose rounds to a carried gun of their calibre, and refuses the rest', () => {
     const rifle = loot('ammo', 0, 0, { kind: 'ammo', catalogId: undefined, name: '5.56 mm rounds', caliberMm: 5.56, amount: 60 });
-    expect(lootCard(rifle, context())).toMatchObject({ type: 'Ammunition', detail: 'Into 5.56 mm shared reserve', stats: [{ value: '+60' }, { value: '120 → 180' }] });
+    expect(lootCard(rifle, context())).toMatchObject({ type: 'Ammunition', detail: 'Fits SAR 21 · 0 spare · 0 empty pouches', stats: [{ value: '+2' }] });
     const link = { ...rifle, name: '7.62 mm link', caliberMm: 7.62 };
     expect(lootCard(link, context()).blocked).toBe('No 7.62 mm gun carried');
-    expect(lootCard(rifle, context({ carried: [gun(0, MAX_RESERVE)] })).blocked).toBe('Reserve full');
-    expect(lootCard({ ...rifle, caliberMm: 9 }, context()).detail).toBe('Into 9 mm shared reserve');
+    expect(lootCard(rifle, context({ carried: [gun(0, MAX_RESERVE)] })).blocked).toBe('Rig pouches full');
+    expect(lootCard({ ...rifle, caliberMm: 9 }, context()).detail).toBe('Fits P30 · 0 spare · 0 empty pouches');
   });
   it('selects a representative gun for the shared calibre pool', () => {
     const carried = [gun(0, 80), gun(1, 80), gun(2, 30)];
@@ -115,10 +115,10 @@ describe('the loot card', () => {
     expect(ammoTarget(12.7, carried, 0)).toBeNull();
     expect(beltRoom({ 'kit-bandage': CONSUMABLE_LIMIT - 1 }, 'kit-bandage')).toBe(1);
   });
-  it('shows the pool from another slot when a found gun replaces a different calibre', () => {
+  it('does not treat another feed type as compatible when replacing a gun', () => {
     const found = itemById('sar-vanguard')!;
     const card = lootCard(loot('gun', 0, 0, { kind: 'weapon', catalogId: found.id, name: found.name, amount: 1 }),
       context({ carried: [gun(3, 100), gun(1, 75), gun(2, 30)], replaces: () => 3, variantOf: () => '' }));
-    expect(card.note).toBe('Magazine loaded · keeps your 75 × 5.56 mm');
+    expect(card.note).toBe('Magazine loaded · no compatible spare magazines');
   });
 });

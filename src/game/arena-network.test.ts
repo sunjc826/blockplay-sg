@@ -64,7 +64,7 @@ it.each([0, 100, 200, 300, 400, 500, 600])('preserves a ten-second sprint at %i 
       z += advanceGroundMotion(body, 0, -7 * mobility, true, mobility, 'stand', false, .01).z;
     }
     expect(corrections).toBe(0);
-    expect(initialZ - z).toBeCloseTo(65.74, 1);
+    expect(initialZ - z).toBeCloseTo(65.86, 1);
     expect(network.outbound.some(({ packet }) => packet.type === 'arena-state' && Object.keys(packet.acknowledgedInputs as object).includes('guest'))).toBe(true);
   } finally { network.dispose(); }
 }, 30000);

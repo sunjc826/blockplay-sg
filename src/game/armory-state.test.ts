@@ -92,7 +92,7 @@ describe('equipment reaches gameplay', () => {
     expect(profile.guns[0].skin).toBe('skin-issued'); expect(profile.tokens).toBe(300); expect(after.weapons[0].equipment.skin).toBe('skin-gold'); expect(after.weapons[0].damage).toBe(before.weapons[0].damage); expect(after.weapons[0].reload).toBe(before.weapons[0].reload);
   });
   it('separates rig carrying capacity from armor protection', () => {
-    const rig = resolveLoadout(equip(unlock('rig-lbs'), 'rig-lbs', 0)); expect(rig.armor).toBe(0); expect(rig.weapons[0].reserve).toBe(180);
+    const rig = resolveLoadout(equip(unlock('rig-lbs'), 'rig-lbs', 0)); expect(rig.armor).toBe(0); expect(rig.weapons[0].rigSlots).toBe(8);
     const plated = resolveLoadout(equip(unlock('plate-ceramic'), 'plate-ceramic', 0)); expect(plated.armor).toBe(75); expect(plated.mobility).toBe(.94);
   });
   it('absorbs only the configured share, then spills exhausted armor damage into health', () => {

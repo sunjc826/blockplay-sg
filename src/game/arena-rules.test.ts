@@ -344,3 +344,16 @@ describe('mesh cover without vehicles', () => {
     expect(fireAt(arena).hitId).toBeNull(); expect(actor(arena, 'two').health).toBe(100);
   });
 });
+
+it('mirrors an interchangeable extended magazine without rejecting its extra shots', () => {
+  const arena = pair();
+  const player = actor(arena, 'one');
+  const ray = { x: 0, y: 1, z: 0 };
+  arena.shoot('one', player, ray, 0); advance(arena, .2);
+  arena.reloadPlayer('one', 0, 36); advance(arena, 3);
+  const before = actor(arena, 'one').shots;
+  for (let shot = 0; shot < 37; shot++) {
+    arena.shoot('one', actor(arena, 'one'), ray, 0); advance(arena, .13);
+  }
+  expect(actor(arena, 'one').shots - before).toBe(37);
+});

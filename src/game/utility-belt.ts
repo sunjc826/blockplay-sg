@@ -78,7 +78,7 @@ export interface UtilitySlotView {
   /** Food only: the next item is the player's pick rather than Auto's. */
   chosen?: boolean;
 }
-const effectLine = (item: ShopItem) => item.grenade ? grenadeEffectLines(item.grenade).join(' · ') : [item.effect?.health && `+${item.effect.health} HP`, item.effect?.armor && `+${item.effect.armor} AP`, item.effect?.reserve && `+${item.effect.reserve} RDS`,
+const effectLine = (item: ShopItem) => item.grenade ? grenadeEffectLines(item.grenade).join(' · ') : [item.effect?.health && `+${item.effect.health} HP`, item.effect?.armor && `+${item.effect.armor} AP`, item.effect?.reserve && '+2 MAGS',
   ...(item.foodEffects ?? []).map(effect => FOOD_EFFECTS[effect.kind].label)].filter(Boolean).join(' · ');
 
 /** The belt as the HUD draws it: every slot, empty ones included, so the layout never shifts. */

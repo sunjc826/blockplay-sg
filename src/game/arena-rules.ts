@@ -721,10 +721,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.movementBudget = Math.max(0, entry.movementBudget - Math.hypot(position.x - actor.x, y - actor.y, position.z - actor.z));
     Object.assign(actor, position, { y, yaw: input.yaw % (Math.PI * 2), pitch: clamp(input.pitch, -1.5, 1.5) });
   }
-  function reloadPlayer(id: string, weapon: number) {
+  function reloadPlayer(id: string, weapon: number, capacity?: number) {
     const entry = members.get(id);
     if (!entry || (seatOf(vehicles, id)?.seat ?? 2) < 2 || !entry.actor.alive || finished || !Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return;
     if (arenaConditionModifiers(entry.actor.conditions).frozen) return;
+    if (capacity !== undefined) {
+      if (!Number.isInteger(capacity) || capacity < 1 || capacity > 200) return;
+      entry.ammo[weapon].reloadCapacity = capacity;
+    }
     startReload(entry, weapon);
   }
   /** The host's ammunition rules are the player's, so a reload starts, resumes and commits the same way. */

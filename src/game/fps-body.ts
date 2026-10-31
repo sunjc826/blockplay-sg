@@ -3,6 +3,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { itemById } from './armory-catalog';
 import type { ResolvedLoadout } from './armory-state';
 import type { WeaponState } from './fps-rules';
+import { startingMagazineInventory } from './ammo-pools';
 import { arenaCharacterLook } from './character-looks';
 import { createCharacterRig, type CharacterDrive } from './character-rig';
 import { disposeModel } from './armory-visuals';
@@ -12,30 +13,9 @@ export function bodyMagazineSlots(rigId: string) {
   return 6 + Math.ceil((itemById(rigId)?.carry ?? 0) / 30);
 }
 
-/** Reserve rounds represented as magazines/feed boxes. The chamber and loaded
- * magazine stay on the gun. A shared calibre pool is represented only once.
- * Overflow stays in inventory; these pouches are a bounded visual summary. */
-export function bodyMagazines(equipment: ResolvedLoadout, states: readonly WeaponState[], activeFamily?: number) {
-  const seen = new Set<number>();
-  const active = activeFamily !== undefined && equipment.carriedFamilies.includes(activeFamily) ? activeFamily : undefined;
-  const pools = equipment.carriedFamilies.flatMap(first => {
-    // A shared calibre follows the gun in hand: loose rounds can feed either
-    // rifle magazines or an MG's drum/box, but must never appear twice.
-    const family = active !== undefined && equipment.weapons[active]?.caliberMm === equipment.weapons[first]?.caliberMm ? active : first;
-    const spec = equipment.weapons[family], state = states[family];
-    if (!spec || !state || seen.has(spec.caliberMm)) return [];
-    seen.add(spec.caliberMm);
-    const reserve = Number.isFinite(state.reserve) ? Math.max(0, Math.floor(state.reserve)) : 0;
-    return [{ family, remaining: Math.ceil(reserve / Math.max(1, spec.capacity)) }];
-  });
-  const result: number[] = [], limit = bodyMagazineSlots(equipment.rigId);
-  // Round-robin keeps a sidearm or second calibre visible alongside the main.
-  while (result.length < limit && pools.some(pool => pool.remaining > 0)) {
-    for (const pool of pools) if (pool.remaining > 0 && result.length < limit) {
-      result.push(pool.family); pool.remaining--;
-    }
-  }
-  return result;
+/** Fixed pouch positions; a reload leaves a hole, never repacks the rig. */
+export function bodyMagazines(equipment: ResolvedLoadout, states: readonly WeaponState[], _activeFamily?: number) {
+  return (states[equipment.carriedFamilies[0]]?.magazineInventory ?? startingMagazineInventory(equipment.weapons, equipment.carriedFamilies)).slots.map(mag => mag?.family);
 }
 
 const PLATE_COLORS: Record<string, string> = {
@@ -145,6 +125,12 @@ export function createFpsBody(scene: THREE.Scene) {
   }
   return {
     root,
+    magazinePosition(slot: number, target = new THREE.Vector3()) {
+      const pouch = magazines[slot]?.root;
+      if (!pouch) return null;
+      root.updateWorldMatrix(true, true);
+      return pouch.localToWorld(target.set(0, .04, 0));
+    },
     update(dt: number, equipment: ResolvedLoadout, states: readonly WeaponState[], pose: CharacterDrive & { x: number; y: number; z: number; yaw: number; visible: boolean; activeFamily?: number }) {
       if (identity !== `${equipment.rigId}|${equipment.plateId}`) rebuild(equipment);
       root.visible = pose.visible;
@@ -155,22 +141,26 @@ export function createFpsBody(scene: THREE.Scene) {
       crouchDrop = THREE.MathUtils.damp(crouchDrop, pose.prone ? 0 : Math.min(1, Math.max(0, pose.crouch ?? 0)) * .17, 12, dt);
       character.joints.spine.position.y = .1 - crouchDrop;
       character.update(dt, { ...pose, pitch: 0, aim: 0 });
+      const inventory = states[equipment.carriedFamilies[0]]?.magazineInventory ?? startingMagazineInventory(equipment.weapons, equipment.carriedFamilies);
       const carried = bodyMagazines(equipment, states, pose.activeFamily);
       magazines.forEach((slot, index) => {
         Object.values(slot.models).forEach(model => { model.visible = false; });
         const family = carried[index];
         const spec = family !== undefined ? equipment.weapons[family] : undefined;
-        const kind: ReserveContainer = spec?.feed === 'belt' ? 'ammo-box' : spec?.feed === 'drum' ? 'drum' : spec?.id === 'p30-inspired' ? 'pistol-magazine' : 'magazine';
+        const mag = inventory.slots[index];
+        const kind: ReserveContainer = mag?.feed === 'belt' ? 'ammo-box' : mag?.feed === 'drum' ? 'drum' : mag?.caliberMm === 9 ? 'pistol-magazine' : 'magazine';
         const bulky = kind === 'ammo-box' || kind === 'drum';
         slot.sleeve.scale.set(1, 1, bulky ? 1.4 : 1); slot.band.scale.set(1, 1, bulky ? 1.4 : 1);
         slot.root.userData.container = family !== undefined ? kind : null;
         if (!spec) return;
         let model = slot.models[kind];
         if (!model) { model = buildContainer(kind); slot.models[kind] = model; slot.root.add(model); }
-        model.visible = true; model.userData.family = family;
+        model.visible = true; model.userData.family = family; model.userData.capacity = mag?.capacity;
+        model.scale.y = (kind === 'pistol-magazine' ? .75 : 1) * Math.min(1.35, Math.max(.8, (mag?.capacity ?? 30) / (kind === 'pistol-magazine' ? 15 : kind === 'magazine' ? 30 : 100)));
       });
       root.userData.magazineSlots = magazines.length;
-      root.userData.magazines = carried.length;
+      root.userData.magazines = carried.filter(family => family !== undefined).length;
+      root.userData.magazineLayout = inventory.slots.map(mag => mag ? { group: mag.group, capacity: mag.capacity } : null);
     },
     dispose() { disposeModel(gear); character.dispose(); },
   };

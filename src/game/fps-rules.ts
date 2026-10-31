@@ -1,3 +1,4 @@
+import { magazineCapacity, nextMagazineSlot, spareMagazines, takeRigMagazine, type RigMagazine, type MagazineInventory } from './magazine-inventory';
 import type { BipodKind } from './weapon-support';
 import type { WeaponAccessories } from './weapon-accessories';
 /** Arcade tuning, intentionally independent of real equipment specifications. */
@@ -39,7 +40,7 @@ export function findTrait<K extends WeaponTraitKind>(traits: readonly WeaponTrai
 export type WeaponFeed = 'magazine' | 'drum' | 'belt';
 /** How the action holds its next round: closed (rifles, pistol) keeps one in the chamber; open (machine guns) does not. */
 export type WeaponBolt = 'open' | 'closed';
-export interface WeaponSpec { bipod?: BipodKind; /** Muzzle, rail, sight and brace the variant is fitted with; see weapon-accessories. */ accessories?: WeaponAccessories; feed?: WeaponFeed; bolt?: WeaponBolt; requiresMount?: boolean; /** Unloaded arcade carry mass, in kg. */ weightKg?: number; fireMode?: 'auto' | 'semi'; caliberMm: number; id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; recoilRecovery: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
+export interface WeaponSpec { /** Physical spare-container positions on the worn rig. */ rigSlots?: number; bipod?: BipodKind; /** Muzzle, rail, sight and brace the variant is fitted with; see weapon-accessories. */ accessories?: WeaponAccessories; feed?: WeaponFeed; bolt?: WeaponBolt; requiresMount?: boolean; /** Unloaded arcade carry mass, in kg. */ weightKg?: number; fireMode?: 'auto' | 'semi'; caliberMm: number; id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; recoilRecovery: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
 export const FPS_WEAPONS: readonly WeaponSpec[] = [
   // The rifle holds its damage to twice the support weapon's range; the support
   // weapon trades that away for its volume of fire. Paid variants lift both bands.
@@ -87,11 +88,20 @@ export const DEFAULT_VARIANTS = ['sar-issued', 'ult-issued', 'p30-issued', 'mag-
  * A reload takes the magazine out (`RELOAD_POINTS.out`), seats a fresh one
  * (`seat`) and, from empty, goes on to work the charging handle, chambering a
  * round or cocking the bolt (`EMPTY_RELOAD.chamber`).
- * The rounds left in a removed magazine go back to the reserve. A reload can be
- * interrupted (`interruptReload`); `reloadSaved` keeps how far it got, and the
+ * The rounds left in a removed magazine are discarded; a chambered round stays.
+ * A reload can be interrupted (`interruptReload`); `reloadSaved` keeps how far it got, and the
  * next reload of that weapon resumes there.
  */
-export interface WeaponState { magazine: number; reserve: number; cooldown: number; reloadRemaining: number;
+export interface WeaponState {
+  magazineInventory?: MagazineInventory;
+  magazineGroup?: string;
+  reserveMagazine?: RigMagazine;
+  loadedCapacity?: number;
+  /** Host mirror of the next magazine; carried stock remains client-owned. */
+  reloadCapacity?: number;
+  pendingMagazine?: RigMagazine;
+  reloadSlot?: number;
+  magazine: number; reserve: number; cooldown: number; reloadRemaining: number;
   /** Closed bolt: a round sits in the chamber. Open bolt: the bolt is cocked. Missing reads as "rounds in the gun". */
   chambered?: boolean;
   /** The magazine is out of the gun: an interrupted reload left the well empty. */
@@ -118,7 +128,7 @@ export function roundReady(state: WeaponState, weapon: AmmoSpec) {
 export const createLoadout = (weapons: readonly (AmmoSpec & { reserve: number })[] = FPS_WEAPONS): WeaponState[] =>
   weapons.map(w => ({ magazine: fullLoad(w), reserve: w.reserve, cooldown: 0, reloadRemaining: 0, chambered: true }));
 /** Shares of a tactical reload: the magazine comes out, then the fresh one seats. */
-export const RELOAD_POINTS = { out: .38, seat: .74 } as const;
+export const RELOAD_POINTS = { out: .38, take: .47, seat: .74 } as const;
 /**
  * An empty reload changes the magazine on the same clock, then works the
  * charging handle as a step of its own: reach, rack it back, hold, release.
@@ -145,12 +155,15 @@ export const reloadProgress = (state: WeaponState, index: number, weapons: reado
  * or a seated magazine whose round still has to be chambered.
  */
 export function canReload(state: WeaponState, weapon: AmmoSpec) {
-  if (state.magazineOut) return true;
+  if (state.magazineOut) return !!state.pendingMagazine || (state.magazineInventory ? spareMagazines(state) > 0 : state.reserve > 0);
   if (!isChambered(state) && state.magazine > 0) return true;
-  return state.reserve > 0 && magazineRounds(state, weapon) < weapon.capacity;
+  const replacement = !!state.pendingMagazine || (state.magazineInventory ? spareMagazines(state) > 0 : state.reserve > 0);
+  return replacement && magazineRounds(state, weapon) < magazineCapacity(state, weapon);
 }
 export function beginReload(state: WeaponState, index: number, weapons: readonly AmmoSpec[] = FPS_WEAPONS) {
   if (state.reloadRemaining > 0 || !canReload(state, weapons[index])) return false;
+  const chamberOnly = !state.magazineOut && !isChambered(state) && state.magazine > 0;
+  if (!state.pendingMagazine) state.reloadSlot = nextMagazineSlot(state);
   const wasEmpty = state.reloadEmpty === true;
   state.reloadEmpty = !roundReady({ ...state, magazineOut: false }, weapons[index]);
   // Nothing ready means nothing chambered (or no bolt cocked), whatever was last recorded.
@@ -160,7 +173,7 @@ export function beginReload(state: WeaponState, index: number, weapons: readonly
   // share is of the reload that stopped; a tactical reload that ran dry resumes
   // as an empty one at the same moment of the magazine change.
   const kept = Number.isFinite(state.reloadSaved) ? state.reloadSaved! * reloadLength(wasEmpty) / reloadLength(state.reloadEmpty) : 0;
-  const saved = Math.max(0, Math.min(reloadCommit(state.reloadEmpty) - .01, kept));
+  const saved = chamberOnly ? reloadShare(RELOAD_POINTS.seat + .01, true) : Math.max(0, Math.min(reloadCommit(state.reloadEmpty) - .01, kept));
   state.reloadRemaining = reloadDuration(weapons[index], state.reloadEmpty) * (1 - saved);
   state.reloadSaved = 0;
   return true;
@@ -183,12 +196,24 @@ export function interruptReload(state: WeaponState, index: number, weapons: read
 function removeMagazine(state: WeaponState, weapon: AmmoSpec) {
   if (state.magazineOut) return;
   const kept = chamberRound(state, weapon);
-  state.reserve += state.magazine - kept; state.magazine = kept; state.magazineOut = true;
+  state.magazine = kept; state.magazineOut = true;
 }
 function seatMagazine(state: WeaponState, weapon: AmmoSpec) {
   removeMagazine(state, weapon);
-  const fresh = Math.max(0, Math.min(weapon.capacity, state.reserve));
-  state.magazine += fresh; state.reserve -= fresh; state.magazineOut = false;
+  if (state.magazineInventory) {
+    takeRigMagazine(state);
+    if (!state.pendingMagazine) return;
+    state.loadedCapacity = state.pendingMagazine.capacity;
+    state.magazine += state.pendingMagazine.capacity;
+    state.magazineInventory.heldSlots = state.magazineInventory.heldSlots?.filter(slot => slot !== state.reloadSlot);
+    delete state.pendingMagazine;
+  } else {
+    const capacity = state.reloadCapacity ?? weapon.capacity;
+    const fresh = Math.max(0, Math.min(capacity, state.reserve));
+    state.loadedCapacity = capacity;
+    state.magazine += fresh; state.reserve -= fresh;
+  }
+  state.magazineOut = false;
   // An open bolt that is still cocked fires straight from the fresh belt or drum.
 }
 const rate = (value: number | undefined) => value !== undefined && Number.isFinite(value) && value > 0 ? value : 1;
@@ -202,6 +227,7 @@ export function advanceWeapon(state: WeaponState, index: number, dt: number, wea
   const after = state.reloadRemaining === 0 ? 1 : reloadProgress(state, index, weapons);
   const crossed = (point: number) => before < point && after >= point;
   if (crossed(reloadShare(RELOAD_POINTS.out, empty))) removeMagazine(state, weapon);
+  if (crossed(reloadShare(RELOAD_POINTS.take, empty))) takeRigMagazine(state);
   if (crossed(reloadShare(RELOAD_POINTS.seat, empty))) seatMagazine(state, weapon);
   if (empty && crossed(reloadCommit(true))) {
     // The charging handle: a round from the fresh magazine into the chamber, or the bolt cocked.

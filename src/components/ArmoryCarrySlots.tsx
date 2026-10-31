@@ -20,6 +20,6 @@ export default function ArmoryCarrySlots({ store }: { store: ArmoryStore }) {
         <small>{unlocked ? 'Carry a different main weapon, or leave this slot empty.' : 'One-time token purchase. Weapons are purchased separately.'}</small></div>
       <div><span>{carry.extra === null ? 2 : 3} · SIDEARM</span><strong>{name(SIDEARM_FAMILY)}</strong><small>Choose its fixed variant in the P30 platform tab.</small></div>
     </div>
-    <p>Only slotted weapons and their ammunition add weight. Guns of the same calibre share reserve rounds; each keeps its own magazine. Equipping a different main platform replaces the main slot.</p>
+    <p>Only slotted weapons and their ammunition add weight. Similar guns share compatible spare magazines. Both main weapons use the same rig space. Reloading discards unused rounds. Equipping a different main platform replaces the main slot.</p>
   </section>;
 }
