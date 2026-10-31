@@ -20,7 +20,7 @@ import { enemyObjectives } from './expedition-objectives';
 import { createFacilityVisuals } from './facility-visuals';
 import { facilityPrompt, facilityStatus, facilityActionFor, type FacilityState } from './facilities';
 import { buildTutorialWorld } from './tutorial-world';
-import { TUTORIAL_DISTRICT } from './tutorial-course';
+import { TUTORIAL_DISTRICT, tutorialCheckpoint, COURSE_STEPS } from './tutorial-course';
 import { takeConfirmedImpacts } from './confirmed-impacts';
 import { createKeyboardCrouch, fpsControlKey, fpsInteractionTarget, fpsKeyAction } from './fps-keybindings';
 import { createWeaponDevices, fittedWeaponDevices, toggleWeaponDevice, toggleWeaponRail } from './weapon-device-state';
@@ -3208,7 +3208,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   });
 
   return {
-    setTutorialStep(step: number) { if (options.tutorial) world.scene.userData.setTutorialStep?.(step); },
+    setTutorialStep(step: number, reposition = false) {
+      if (!options.tutorial) return;
+      world.scene.userData.setTutorialStep?.(step);
+      if (!reposition) return;
+      clearInput(); stopReload(); endSupply();
+      position = tutorialCheckpoint(step); vertical = velocityY = 0; yaw = 0; pitch = -.03;
+      carry.set(0, 0, 0); resetMovementMotion(bodyMotion); resetRecoil(kick);
+      // A skipped firing lesson must still leave a reloadable practice magazine.
+      if (COURSE_STEPS[step]?.id === 'reload') loadout[hud.weapon].magazine = Math.max(0, loadout[hud.weapon].magazine - 1);
+      updateCameras(0, false, false); publish();
+    },
     setRangeDrill, endDrill, resupplyRange,
     chooseRespawn: (zone: string) => { const accepted = arenaRuntime?.chooseRespawn(zone) ?? false; publish(); return accepted; },
     setAutoRespawn: (automatic: boolean) => { arenaRuntime?.setAutoRespawn(automatic); publish(); },

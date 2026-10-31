@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, Menu, Play, RotateCcw } from 'lucide-react';
 import { createFpsEngine, initialFpsHud, type FpsEngine, type FpsHud } from '../game/fps-engine';
 import { createProfile, resolveLoadout } from '../game/armory-state';
-import { advanceCourse, COURSE_STEPS, startCourse } from '../game/tutorial-course';
+import { advanceCourse, COURSE_STEPS, COURSE_LAYOUT, startCourse } from '../game/tutorial-course';
 import { useTouchControls } from '../game/use-touch-controls';
 import { useFpsFullscreen } from '../game/use-fps-fullscreen';
 import { transitionTo } from '../lib/route-transition';
@@ -36,7 +36,7 @@ export default function TutorialGame({ suspended, onStore }: { suspended: boolea
   const complete = step >= COURSE_STEPS.length, lesson = COURSE_STEPS[step];
   const playing = hud.phase === 'playing';
   useEffect(() => { if (complete) engine.current?.pause(); }, [complete]);
-  const skip = () => { progress.current = { ...progress.current, step: step + 1, weapon: hud.weapon }; setStep(step + 1); engine.current?.setTutorialStep(step + 1); };
+  const skip = () => { progress.current = { ...progress.current, step: step + 1, weapon: hud.weapon }; setStep(step + 1); engine.current?.setTutorialStep(step + 1, true); };
   const restart = () => setEpoch(n => n + 1);
   const begin = () => { if (touch) fullscreen.enter(); engine.current?.start(); };
   const toStore = () => { engine.current?.pause(); if (fullscreen.immersive) void fullscreen.toggle(); onStore(); };
@@ -48,10 +48,11 @@ export default function TutorialGame({ suspended, onStore }: { suspended: boolea
         <aside className="tutorial-lesson" aria-label="Current lesson">
           <span className="tutorial-eyebrow">FIELD SCHOOL · {String(step + 1).padStart(2, '0')} / {COURSE_STEPS.length}</span>
           <h2 aria-live="polite">{lesson.title}</h2><p>{lesson.detail}</p><strong>{touch ? lesson.touch : lesson.desktop}</strong>
-          {'x' in lesson && <small>{Math.round(Math.hypot(hud.x - lesson.x, hud.z - lesson.z))} m to gate {String(step).padStart(2, '0')}</small>}
+          {'x' in lesson && <small>{Math.round(Math.hypot(hud.x - lesson.x, hud.z - lesson.z))} m to station {String(step).padStart(2, '0')}</small>}
+          {lesson.id === 'sprint' && <small>{Math.min(COURSE_LAYOUT.sprintRequired, Math.floor(progress.current.sprintMetres))} / {COURSE_LAYOUT.sprintRequired} m sprinted</small>}
           <progress value={step} max={COURSE_STEPS.length} aria-label="Course progress" />
         </aside>
-        {hud.mapExpanded && <div className="tutorial-course-map"><span className="tutorial-eyebrow">TRAINING YARD</span><svg viewBox="-8 -30 16 64" role="img" aria-label="Course map with your position"><path d="M-3 30V-18H3V30" fill="#476450" stroke="#789f7d" strokeWidth=".2" />{COURSE_STEPS.map(s => 'x' in s ? <circle key={s.id} cx={s.x} cy={s.z} r=".9" fill="#e1bf7d" /> : null)}<circle cx={hud.x} cy={hud.z} r="1.2" fill="#ffffff" /></svg><p>White dot: you · Gold rings: gates</p><p>{touch ? 'Tap Map again to close.' : 'Press M again to close.'}</p></div>}
+        {hud.mapExpanded && <div className="tutorial-course-map"><span className="tutorial-eyebrow">FIELD SCHOOL</span><svg viewBox="-58 -102 114 198" role="img" aria-label="Course map with your position, obstacle lane and firing range"><path d={`M${COURSE_LAYOUT.laneX} ${COURSE_LAYOUT.spawnZ}V${COURSE_LAYOUT.bendZ}H${COURSE_LAYOUT.rangeX}V-94`} fill="none" stroke="#789f7d" strokeWidth="7" />{[COURSE_LAYOUT.crouch, COURSE_LAYOUT.crawl].map((s, i) => <rect key={i} x={COURSE_LAYOUT.laneX - 4} y={s.exitZ} width="8" height={s.entryZ - s.exitZ} fill="#a59373" />)}{COURSE_STEPS.map(s => 'x' in s ? <circle key={s.id} cx={s.x} cy={s.z} r="2.4" fill="#e1bf7d" /> : null)}<circle cx={hud.x} cy={hud.z} r="3" fill="#ffffff" /></svg><p>White dot: you · Gold rings: stations</p><p>{touch ? 'Tap Map again to close.' : 'Press M again to close.'}</p></div>}
         <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name)} canSwitch onSwitch={family => engine.current?.switchWeapon(family)} />
         <FpsWeaponHud hud={hud} weapon={equipment.weapons[hud.weapon]} canFight onUtility={() => {}} onInspect={() => engine.current?.inspectWeapon()} touch={touch} />
         {lesson.id === 'map' && <button className="tutorial-map" aria-pressed={hud.mapExpanded} onClick={() => engine.current?.toggleMap()}>Map <kbd>M</kbd></button>}

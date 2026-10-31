@@ -31,7 +31,7 @@
     "marina:reconstruct": "node scripts/reconstruct-marina.mjs",
     "marina:usage": "node scripts/api-usage.mjs",
     "test:fps": "node scripts/fps-smoke.mjs",
-    "test:tutorial": "node scripts/tutorial-smoke.mjs",
+    "test:tutorial": "node --experimental-strip-types scripts/tutorial-smoke.mjs",
     "test:store-tour": "node scripts/store-tour-smoke.mjs",
     "test:armory": "node scripts/armory-smoke.mjs",
     "test:vehicles": "node scripts/vehicle-smoke.mjs",
