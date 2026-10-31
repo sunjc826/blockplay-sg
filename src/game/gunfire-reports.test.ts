@@ -15,7 +15,7 @@ describe('gunfire reports', () => {
     const last = new Map([['bot', 4]]), mg = FPS_WEAPONS.findIndex(w => w.caliberMm === 7.62);
     const reports = gunfireReports([figure('bot', 6, 30, { weapon: mg })], last, 'me', listener);
     expect(reports).toHaveLength(2);
-    expect(reports[0]).toMatchObject({ distance: 30, calibre: 7.62, power: FPS_WEAPONS[mg].damage, after: 0 });
+    expect(reports[0]).toMatchObject({ emitter: 'actor:bot', distance: 30, calibre: 7.62, power: FPS_WEAPONS[mg].damage, after: 0 });
     expect(reports[1].after).toBeCloseTo(FPS_WEAPONS[mg].interval);
   });
   it('leaves out our own shots and mounted gunners, whose guns sound elsewhere', () => {

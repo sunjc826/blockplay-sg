@@ -3,12 +3,12 @@ import type { SfxBank, SfxGroup } from './sfx-bank';
 import { muzzleSignature, type MuzzleDevice } from './weapon-accessories';
 
 /**
- * Gunshots. Once the recorded takes have loaded (see sfx-bank), a shot is one of its calibre's takes,
+ * Gunshots. Once the recorded takes have loaded (see sfx-bank), a shot uses its calibre's reference take,
  * crossfading into a distant take with range and dulled by a lowpass as it travels. Until then, or if
  * they never load, it is synthesised in the engine's own AudioContext from four layers: the crack of the muzzle and the bullet, a burst of
  * noise for its body, a falling sine for the thump felt in the chest, and a
  * tail that is the shot coming back off the buildings. Every shot goes through
- * one bus that saturates and compresses, so a burst stays loud without
+ * one bus with gentle saturation and compression, so a burst stays loud without
  * clipping and the thump's harmonics carry its bass on small speakers.
  */
 export interface GunshotTone {
@@ -75,10 +75,10 @@ export function gunshotTone(calibre: number, power: number, distance = 0, own = 
 export function createGunBus(context: BaseAudioContext, destination: AudioNode = context.destination) {
   const input = context.createGain(), shaper = context.createWaveShaper(), compressor = context.createDynamicsCompressor(), output = context.createGain();
   const curve = new Float32Array(1024);
-  for (let i = 0; i < curve.length; i++) { const x = i / (curve.length - 1) * 2 - 1; curve[i] = Math.tanh(2.2 * x) / Math.tanh(2.2); }
+  for (let i = 0; i < curve.length; i++) { const x = i / (curve.length - 1) * 2 - 1; curve[i] = Math.tanh(1.25 * x) / Math.tanh(1.25); }
   shaper.curve = curve; shaper.oversample = '2x';
-  compressor.threshold.value = -16; compressor.knee.value = 10; compressor.ratio.value = 4; compressor.attack.value = .002; compressor.release.value = .18;
-  output.gain.value = .85;
+  compressor.threshold.value = -10; compressor.knee.value = 6; compressor.ratio.value = 2.5; compressor.attack.value = .001; compressor.release.value = .055;
+  output.gain.value = .95;
   input.connect(shaper).connect(compressor).connect(output).connect(destination);
   return { input, dispose() { [input, shaper, compressor, output].forEach(n => n.disconnect()); } };
 }
@@ -89,28 +89,48 @@ export function whiteNoise(context: BaseAudioContext, seconds = 1) {
 }
 /** Echoes off nearby walls: seconds after the shot, loudness against the tail, and how much of the top each keeps. */
 const ECHOES: [number, number, number][] = [[.065, 1.1, .9], [.145, .75, .7], [.26, .5, .55]];
+/** One coherent report per calibre; only a ±0.4% pitch variation between rounds. */
+const REFERENCE_TAKES: Partial<Record<SfxGroup, number>> = { 'rifle-556': 2, 'pistol-9': 1, 'hmg-127': 1 };
+export interface GunshotVoice { start: number; end: number; fade: (at: number) => void; stop: () => void }
 /** Schedules one shot at context time `at` (before its travel delay), panned -1 (left) to 1 (right). */
-export function playGunshot(context: BaseAudioContext, bus: AudioNode, noise: AudioBuffer, tone: GunshotTone, at: number, pan = 0, samples?: Pick<SfxBank, 'pick'>) {
+export function playGunshot(context: BaseAudioContext, bus: AudioNode, noise: AudioBuffer, tone: GunshotTone, at: number, pan = 0, samples?: Pick<SfxBank, 'get'>, onEnd?: () => void): GunshotVoice | undefined {
   if (tone.level < .002) return;
   const t = at + tone.delay, out = context.createGain(), panner = context.createStereoPanner(), nodes: AudioNode[] = [out, panner];
-  out.gain.value = tone.level; panner.pan.value = Math.max(-1, Math.min(1, pan)); out.connect(panner).connect(bus);
-  const near = samples?.pick(tone.sample) ?? null, distant = near && tone.nearMix < .98 ? samples!.pick(tone.distantSample) : null;
+  out.gain.setValueAtTime(tone.level, t); panner.pan.value = Math.max(-1, Math.min(1, pan)); out.connect(panner).connect(bus);
+  const sources: AudioScheduledSourceNode[] = [];
+  let released = false;
+  const release = () => { if (released) return; released = true; nodes.forEach(n => n.disconnect()); onEnd?.(); };
+  const stop = () => { if (released) return; sources.forEach(s => { s.onended = null; s.stop(); }); release(); };
+  const voice = (end: number): GunshotVoice => ({ start: t, end, stop,
+    fade(at) {
+      if (released || at >= end) return;
+      // Ease the previous echo under the new attack; the final round keeps its natural tail.
+      const from = Math.max(t, at);
+      out.gain.cancelScheduledValues(from); out.gain.setValueAtTime(tone.level, from);
+      out.gain.linearRampToValueAtTime(tone.level * .18, from + .012);
+      out.gain.linearRampToValueAtTime(0, from + .06);
+      sources.forEach(s => s.stop(from + .065));
+    },
+  });
+  const near = samples?.get(tone.sample, REFERENCE_TAKES[tone.sample] ?? 0) ?? null;
+  const distant = near && tone.nearMix < .98 ? samples!.get(tone.distantSample) : null;
   if (near) {
-    // A take from up close fading into one from afar, each a hair off pitch so a burst never sounds looped.
-    const rate = .97 + Math.random() * .06, takes: [AudioBuffer, number][] = distant ? [[near, tone.nearMix], [distant, 1 - tone.nearMix]] : [[near, 1]];
+    // Preserve the same report, with variation small enough to keep the weapon recognisable.
+    const rate = .996 + Math.random() * .008, takes: [AudioBuffer, number][] = distant ? [[near, tone.nearMix], [distant, 1 - tone.nearMix]] : [[near, 1]];
     const ends = takes.filter(([, mix]) => mix > .02).map(([buffer, mix]) => {
       const source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain();
       source.buffer = buffer; source.playbackRate.value = rate; filter.type = 'lowpass'; filter.frequency.value = tone.sampleCutoff; filter.Q.value = .5;
-      gain.gain.value = mix * tone.sampleGain; source.connect(filter).connect(gain).connect(out); nodes.push(source, filter, gain);
+      gain.gain.value = mix * tone.sampleGain; source.connect(filter).connect(gain).connect(out); nodes.push(source, filter, gain); sources.push(source);
       source.start(t); return [source, buffer.duration / rate] as const;
     });
     if (!ends.length) { nodes.forEach(n => n.disconnect()); return; }
-    ends.reduce((a, b) => b[1] > a[1] ? b : a)[0].onended = () => nodes.forEach(n => n.disconnect());
-    return;
+    const longest = ends.reduce((a, b) => b[1] > a[1] ? b : a);
+    longest[0].onended = release;
+    return voice(t + longest[1]);
   }
   /** One layer: a source through a filter into an envelope that rises over `attack` and dies over `length`. */
   const layer = (source: AudioScheduledSourceNode, filter: BiquadFilterNode | null, peak: number, start: number, attack: number, length: number) => {
-    const gain = context.createGain(); nodes.push(gain);
+    const gain = context.createGain(); nodes.push(source, gain); sources.push(source);
     gain.gain.setValueAtTime(0, start); gain.gain.linearRampToValueAtTime(peak, start + attack); gain.gain.exponentialRampToValueAtTime(.0001, start + attack + length);
     (filter ? source.connect(filter).connect(gain) : source.connect(gain)).connect(out);
     if (source instanceof AudioBufferSourceNode) source.start(start, Math.random() * .6); else source.start(start);
@@ -140,19 +160,44 @@ export function playGunshot(context: BaseAudioContext, bus: AudioNode, noise: Au
   rumble.filter.frequency.setValueAtTime(tone.tailCutoff * .65, from); rumble.filter.frequency.exponentialRampToValueAtTime(Math.min(200, tone.tailCutoff * .3), from + tone.tailLength);
   tail.push([layer(rumble.source, rumble.filter, tone.tail * .55, from, .012, tone.tailLength), from + tone.tailLength]);
   // Whichever of them ends last takes the whole shot's nodes down with it.
-  tail.reduce((a, b) => b[1] > a[1] ? b : a)[0].onended = () => nodes.forEach(n => n.disconnect());
+  const longest = tail.reduce((a, b) => b[1] > a[1] ? b : a);
+  longest[0].onended = release;
+  return voice(longest[1] + .021);
 }
 
-/** Shots for one engine: `fire` drops them while the context is suspended or the game is muted. */
-export function createGunshotAudio(getContext: () => AudioContext | null, muted: () => boolean, samples?: Pick<SfxBank, 'pick'>) {
+/** Shots for one engine, with independent echo handoffs for each shooter. */
+export function createGunshotAudio(getContext: () => AudioContext | null, muted: () => boolean, samples?: Pick<SfxBank, 'get'>) {
   let bus: ReturnType<typeof createGunBus> | null = null, noise: AudioBuffer | null = null, owner: AudioContext | null = null;
+  const active = new Set<GunshotVoice>(), streams = new Map<string, Set<GunshotVoice>>();
+  function clear() { for (const voice of [...active]) voice.stop(); active.clear(); streams.clear(); }
   return {
     /** A shot `after` seconds from now, plus its own travel time. */
-    fire(tone: GunshotTone, pan = 0, after = 0) {
+    fire(tone: GunshotTone, pan = 0, after = 0, emitter = 'own') {
       const context = getContext(); if (!context || context.state !== 'running' || muted()) return;
-      if (owner !== context) { bus?.dispose(); bus = createGunBus(context); noise = whiteNoise(context); owner = context; }
-      playGunshot(context, bus!.input, noise!, tone, context.currentTime + Math.max(0, after), pan, samples);
+      if (owner !== context) { clear(); bus?.dispose(); bus = createGunBus(context); noise = whiteNoise(context); owner = context; }
+      if (tone.level < .002) return;
+      // Bound busy firefights, retaining the player's immediate feedback.
+      if (active.size >= 48) { if (emitter !== 'own') return; active.values().next().value?.stop(); }
+      let shot: GunshotVoice | undefined;
+      shot = playGunshot(context, bus!.input, noise!, tone, context.currentTime + Math.max(0, after), pan, samples, () => {
+        if (shot) {
+          active.delete(shot);
+          const stream = streams.get(emitter); stream?.delete(shot);
+          if (!stream?.size) streams.delete(emitter);
+        }
+      });
+      if (shot) {
+        const stream = streams.get(emitter) ?? new Set<GunshotVoice>();
+        const ordered = [...stream].sort((a, b) => a.start - b.start);
+        // Snapshots may insert a nearer shot ahead of one already queued.
+        const previous = ordered.filter(v => v.start <= shot!.start).at(-1);
+        const next = ordered.find(v => v.start > shot!.start);
+        previous?.fade(shot.start); if (next) shot.fade(next.start);
+        stream.add(shot); streams.set(emitter, stream); active.add(shot);
+      }
     },
-    dispose() { bus?.dispose(); bus = null; noise = null; owner = null; },
+    clear,
+    update() { if (muted() || getContext()?.state !== 'running') clear(); },
+    dispose() { clear(); bus?.dispose(); bus = null; noise = null; owner = null; },
   };
 }

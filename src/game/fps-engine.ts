@@ -414,7 +414,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const grenadeVisuals = createGrenadeVisuals(world.scene, (at, damage) => { combatVisuals.blast(at, damage > 90 ? 1 : .5); combatAudio.boom(at.distanceTo(camera.position), damage > 90 ? 1 : .5); ambientSky.startle(at, 1); }, p => { eventRay.set(p.clone().setY(160), new THREE.Vector3(0, -1, 0)); eventRay.near = 0; eventRay.far = 180; return (firstVisibleHit(eventRay, gameplayCandidates())?.point.clone() ?? p).add(new THREE.Vector3(0, .15, 0)); });
   const combatAudio = createCombatAudio(() => audio, () => hud.muted);
   const sfx = createSfxBank();
-  const gunshots = createGunshotAudio(() => audio, () => hud.muted, sfx);
+  const gunshots = createGunshotAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx);
   const impactAudio = createImpactAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx);
   // Scenery in the sky beyond the district: never a threat, never sent between peers (ambient-sky).
   // Roost sampling runs before the first render, so static world transforms must be ready.
@@ -644,6 +644,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.health = hud.maxHealth; arenaRuntime?.setVitals({ health: hud.health }); recoveryDelay = 0; publish();
   }
   function pause() {
+    gunshots.clear();
     impactAudio.clear();
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); hud.pilotStatus = 'Player controls'; hud.pilotGoal = null; hud.pilotContacts = 0;
     capturePending = false;
@@ -674,10 +675,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const length = toward.length(); return length < .5 ? 0 : toward.dot(right) / length * .8;
   }
   /** Someone else's shot from `at`, heard after its travel time and `after` seconds more. */
-  function otherShot(at: { x: number; y: number; z: number }, calibre: number, power: number, after = 0, muzzle?: MuzzleDevice) {
+  function otherShot(at: { x: number; y: number; z: number }, calibre: number, power: number, after = 0, muzzle?: MuzzleDevice, emitter?: string) {
     const distance = camera.position.distanceTo(new THREE.Vector3(at.x, at.y, at.z));
     if (distance <= 80) pilotGunfireUntil = Math.max(pilotGunfireUntil, performance.now() / 1000 + Math.max(0, after) + .25);
-    gunshots.fire(gunshotTone(calibre, power, distance, false, muzzle), panTo(at), after);
+    gunshots.fire(gunshotTone(calibre, power, distance, false, muzzle), panTo(at), after,
+      emitter ?? `world:${Math.round(at.x)}:${Math.round(at.y)}:${Math.round(at.z)}`);
   }
   function impactSound(at: THREE.Vector3, surface: ImpactSurface, energy = 1) {
     impactAudio.hit(surface, camera.position.distanceTo(at), panTo(at), energy);
@@ -874,6 +876,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     effects.setStyles(weaponStyles, index); publish();
   }
   function reset() {
+    gunshots.clear();
     impactAudio.clear();
     if (hud.phase === 'loading' || hud.phase === 'error') return;
     if (options.arena?.session.role === 'guest') return;
@@ -2411,7 +2414,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         const attack = pendingAttack; pendingAttack = null; hud.incoming = false;
         // The target fires whenever it still sees you, and is heard whether or not it finds you.
         const sees = targets[attack.target]?.activation === attack.activation && hasLineOfSight(attack.target);
-        if (sees) otherShot(attackOrigin, 5.56, 36);
+        if (sees) otherShot(attackOrigin, 5.56, 36, 0, undefined, `target:${attack.target}`);
         if (sees && playerPoint().distanceTo(attack.aim) < .75) {
           if (vehicles.active) vehicles.damage(vehicles.active, 36);
           else { hurtPlayer(18, 5.56); hitDirections.add(viewer(), attackOrigin, hitStrength(18, hud.maxHealth)); }
@@ -2459,7 +2462,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // Their rounds arrive with the snapshot's own and are drawn in flight; the shot itself is heard.
       for (const shot of vehicles.adoptShared(frame.snapshot.vehicles, options.arena.session.id)) {
         const gun = VEHICLE_COMBAT[shot.kind];
-        if (shot.kind === vehicles.active) shotSound(gun); else otherShot(shot.origin, gun.caliberMm, gun.damage);
+        if (shot.kind === vehicles.active) shotSound(gun); else otherShot(shot.origin, gun.caliberMm, gun.damage, 0, undefined, `vehicle:${shot.kind}`);
       }
       if (oldVehicle !== vehicles.active || oldSeat !== vehicles.seat) {
         if (vehicles.mounted) {
@@ -2484,7 +2487,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     ahMaSavesSeen = ahMaSaves;
     if (options.arena) rounds.push(...adoptPublishedRounds(frame.snapshot?.rounds ?? [], seenRounds,
       { self: options.arena.session.id, viewer: camera.position, range: REMOTE_TRACER_RANGE, room: MAX_ROUNDS_IN_FLIGHT - rounds.length, nextId: () => ++roundSerial, styleFor: publishedStyle }));
-    if (options.arena && frame.snapshot) for (const shot of gunfireReports(frame.snapshot.actors, heardShots, options.arena.session.id, camera.position)) otherShot(shot.from, shot.calibre, shot.power, shot.after, shot.muzzle);
+    if (options.arena && frame.snapshot) for (const shot of gunfireReports(frame.snapshot.actors, heardShots, options.arena.session.id, camera.position)) otherShot(shot.from, shot.calibre, shot.power, shot.after, shot.muzzle, shot.emitter);
     if (frame.snapshot) hud.elapsed = frame.snapshot.elapsed;
     if (frame.snapshot) dropFallenKit(frame.snapshot.actors, frame.feed);
     if (frame.self) {
@@ -3035,6 +3038,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // A hair proud of the deck, so a case lies on it rather than in it.
     effects.update(realDt, camera, brassFloor + .004);
     impactAudio.update();
+    gunshots.update();
     // One string, written only when it changes, so a browser smoke can watch
     // the pools without the frame paying for four attribute writes.
     const live = effects.counts, census = `${live.casings}/${live.impacts}/${live.sparks}/${live.scorches}`;
@@ -3220,7 +3224,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     chooseFood, closeFoodPicker: () => closeFoodPicker(),
     toggleVision: () => useVision('toggle'), cycleVisionPalette: () => useVision('palette'), pressVision: () => useVision('button'),
     toggleEncikVoice() { hud.encikVoice = !hud.encikVoice; if (!hud.encikVoice) stopVoice(); publish(); },
-    toggleSound() { hud.muted = !hud.muted; if (hud.muted) { stopVoice(); impactAudio.clear(); } if (hud.phase === 'playing') { canvas.focus({ preventScroll: true }); if (!hud.muted) initAudio(); } publish(); },
+    toggleSound() { hud.muted = !hud.muted; if (hud.muted) { stopVoice(); impactAudio.clear(); gunshots.clear(); } if (hud.phase === 'playing') { canvas.focus({ preventScroll: true }); if (!hud.muted) initAudio(); } publish(); },
     dispose() {
       const infrastructure = arenaRuntime?.getWorldState();
       if (expedition && infrastructure) expedition.infrastructure?.set(expedition.zone, infrastructure);

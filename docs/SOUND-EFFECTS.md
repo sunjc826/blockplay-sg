@@ -8,13 +8,24 @@ remain as the fallback while the files load, or if they never do.
 
 - `src/game/sfx-bank.ts` fetches and decodes every group in
   `src/audio/sfx/manifest.json` once per `AudioContext`, and `pick(group)`
-  rotates through a group's takes without repeating the last one.
+  rotates through a group's takes without repeating the last one. `get(group,
+  index)` returns a stable reference take for gunfire.
 - `src/game/gunshot-audio.ts` keeps the existing shot model (`gunshotTone`):
   calibre picks the take (9 mm pistol, 5.56 rifle, 7.62 GPMG, 12.7 HMG,
   suppressed), a distant take crossfades in from 30 m to 220 m, and a lowpass
   closes with range. Takes are loudness-matched, so `sampleGain` restores each
   gun's weight; `SAMPLE_GAIN` sits recorded shots a few dB above the synthesis
   they replaced. Echo slaps and the synthesised layers play only on fallback.
+  Each calibre now uses one reference report rather than alternating unrelated
+  generated takes: rifle v3-4, pistol v3-2, GPMG v2-1, HMG v2-2, suppressed v3-1,
+  and the first published take of each distant group. Pitch varies only ±0.4%.
+  When the same shooter fires again, the previous report fades to 18% over
+  12 ms, then to silence by 60 ms; the final shot retains its natural tail.
+  Actor IDs keep simultaneous shooters independent, including queued snapshot
+  shots inserted out of order. The bus uses milder saturation and a compressor
+  with a 55 ms release, so successive attacks avoid sustained gain reduction.
+  Up to 48 gunshot voices are retained, with priority for immediate player fire.
+  Pause, reset, master mute and disposal cancel playing and queued shots.
 - `src/game/fps-engine.ts` plays `walk`/`run` footfalls (alternating feet,
   slight pitch and level variation) and the `MAG OUT`, `MAG IN`, `SEAT MAG`,
   `BOLT BACK` and `CHAMBER` reload stages.
@@ -80,3 +91,14 @@ failure never delays navigation. The private API key is never used in gameplay.
   and raw audio stay in the ignored cache; no API key ships with the soundpack.
   Impact clips trim to 1 ms before the first sample at 90% of peak, removing
   soft preliminary taps before the main strike.
+
+## Burst verification
+
+`node scripts/gunshot-burst-smoke.mjs` requires Vite and an isolated Chrome with
+autoplay enabled (defaults: ports 5194 and 9254; override `FPS_APP_ORIGIN` and
+`FPS_CHROME_ORIGIN`). It verifies live automatic-fire take consistency and mute,
+then renders rifle, Ultimax, MG4, pistol, GPMG, HMG, suppressed and distant bursts
+through real Web Audio. It checks attack-level stability, clipping and expiry,
+and saves rifle/MG4 WAV previews plus measurements in `.cache/gunshot-bursts/`.
+An optional `GUNSHOT_BASELINE_MODULE` browser module path adds before/after renders.
+No API generations are required for these mixing changes or checks.

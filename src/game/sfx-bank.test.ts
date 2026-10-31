@@ -25,4 +25,13 @@ describe('sfx bank', () => {
     bank.load(fakeContext()); await settle();
     expect(bank.pick('rifle-556')).toBeNull();
   });
+  it('keeps reference takes stable independently of rotating impact and footstep takes', async () => {
+    const bank = createSfxBank(async () => new Response(new ArrayBuffer(8)));
+    expect(bank.get('rifle-556')).toBeNull(); bank.load(fakeContext()); await settle();
+    const reference = bank.get('rifle-556', 2);
+    expect(reference).not.toBeNull(); expect(reference).not.toBe(bank.get('rifle-556', 0));
+    for (let i = 0; i < 20; i++) { bank.pick('rifle-556'); expect(bank.get('rifle-556', 2)).toBe(reference); }
+    expect(bank.get('rifle-556', 99)).toBe(bank.get('rifle-556', 0));
+    bank.dispose(); expect(bank.get('rifle-556')).toBeNull();
+  });
 });

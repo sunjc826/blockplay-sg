@@ -39,6 +39,11 @@ export function createSfxBank(fetcher: typeof fetch = fetch, random = Math.rando
       const buffer = choices[Math.floor(random() * choices.length)]; last.set(group, buffer);
       return buffer;
     },
+    /** A consistent reference take, for weapons whose timbre must not change every shot. */
+    get(group: SfxGroup, index = 0): AudioBuffer | null {
+      const takes = buffers.get(group);
+      return takes?.[index] ?? takes?.[0] ?? null;
+    },
     dispose() { owner = null; buffers.clear(); last.clear(); },
   };
 }
