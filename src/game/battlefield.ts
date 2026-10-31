@@ -25,7 +25,8 @@ export function assignBattlefieldFronts(squads: readonly BattlefieldSquad[], sit
       if (group === guard) continue;
       const score = (site: FacilityState) => {
         const urgency = site.contested && site.owner === faction ? 160 : site.owner === null ? 110 : site.owner !== faction ? 90 : site.health < site.maxHealth ? 70 : 0;
-        return Math.hypot(site.x-group.x,site.z-group.z) * .35 - urgency + (loads.get(site.id) ?? 0) * 250 - (site.id === group.previous ? 30 : 0);
+        const nearbyFront=[...loads].some(([id,count])=>count>0 && id!==site.id && sites.some(other=>other.id===id && Math.hypot(site.x-other.x,site.z-other.z)<65));
+        return Math.hypot(site.x-group.x,site.z-group.z) * .35 - urgency + (loads.get(site.id) ?? 0) * 250 + (nearbyFront?100:0) - (site.id === group.previous ? 30 : 0);
       };
       const site = [...sites].sort((a,b) => score(a)-score(b) || a.id.localeCompare(b.id))[0];
       if (site) { assignments.set(group.id, site.id); loads.set(site.id, (loads.get(site.id) ?? 0)+1); }

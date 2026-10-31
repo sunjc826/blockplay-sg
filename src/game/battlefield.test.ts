@@ -26,6 +26,12 @@ it('makes neutral forward posts capturable and supply ownership increase income'
   facilities.step(10,[]);
   expect(facilities.supplies['armed-forces']-facilities.supplies.mercenaries).toBeCloseTo(5);
 });
+it('treats adjacent objectives as one front when another part of the map needs troops',()=>{
+  const locations=createFacilities([sites[0],sites[1],...sites.slice(2).map((s,i)=>({...s,x:0,z:[0,18,130][i]}))]);
+  const squads=Array.from({length:3},(_,i)=>({id:`squad-${i}`,faction:'armed-forces' as const,x:-90,z:0}));
+  const targets=[...assignBattlefieldFronts(squads,locations.sites).values()];
+  expect(targets).toContain('home');expect(targets).toContain('front-0');expect(targets).toContain('front-2');expect(targets).not.toContain('front-1');
+});
 it.each([32,48,64] as BattlefieldSize[])('starts and resets exactly %i regular AI with valid snapshots and several fronts',size=>{
   const environment:ArenaEnvironment={bounds:{minX:-200,maxX:200,minZ:-200,maxZ:200},move:(p,dx,dz)=>({x:p.x+dx,z:p.z+dz}),spawns:[{x:120,z:100},{x:-120,z:100}],endless:true,reinforcements:true,battlefield:{size},facilities:{sites}};
   const arena=createArena([],0,'mixed',environment);
