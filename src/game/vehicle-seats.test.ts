@@ -20,6 +20,26 @@ function input(arena: ArenaSimulation, id: string, held: Partial<VehicleControls
   arena.setInput(id, { ...actor(arena, id), playing, vehicleControls: controls(held) });
 }
 describe('shared vehicle seats and authority', () => {
+  it.each([false, true])('scales authoritative crash damage with approach speed (open world: %s)', openWorld => {
+    for (const [ticks, expectedDamage] of [[19, 50], [29, 200], [39, 450]]) {
+      const wall = { minX: -10, maxX: 10, minZ: -90, maxZ: -89 };
+      const arena = createArena([wall], 0, 'mixed', environment, { spawns, openWorld });
+      arena.addPlayer('driver', 'Driver', 0, 0, [], undefined, true);
+      expect(arena.vehicleAction('driver', 'enter', 'car')).toBe(true);
+      for (let i = 0; i < ticks; i++) { input(arena, 'driver', { forward: 1 }); arena.step(.05); }
+      const before = car(arena);
+      // Put a wall just ahead after the run-up, then exercise authority normally.
+      Object.assign(wall, { minZ: before.z - 3.4, maxZ: before.z - 2.4 });
+      input(arena, 'driver', { forward: 1 }); arena.step(.05);
+      expect(car(arena).health).toBeCloseTo(600 - expectedDamage);
+      expect(car(arena).speed).toBe(0);
+      for (let i = 0; i < 20; i++) { input(arena, 'driver', { forward: 1 }); arena.step(.05); }
+      expect(car(arena).health).toBeCloseTo(600 - expectedDamage);
+      expect(actor(arena, 'driver').alive).toBe(true);
+      expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
+    }
+  });
+
   it('assigns unique seats, rejects full/remote/dead entry, and never steals a seat', () => {
     const arena = arenaWithPlayers(5);
     for (let i = 0; i < 4; i++) expect(arena.vehicleAction(`p${i}`, 'enter', 'car')).toBe(true);

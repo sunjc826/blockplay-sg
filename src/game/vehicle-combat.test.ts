@@ -29,3 +29,12 @@ it('rejects invalid damage and falls off blast damage to zero at the radius', ()
   expect(vehicleBlastDamage('car', 20)).toBe(0); expect(vehicleCollisionDamage(4)).toBe(0);
   expect(vehicleCollisionDamage(20)).toBeGreaterThan(vehicleCollisionDamage(10));
 });
+
+it('scales collision damage quadratically above the bump tolerance in either direction', () => {
+  for (const speed of [0, 4, 5, NaN, Infinity, -Infinity]) expect(vehicleCollisionDamage(speed)).toBe(0);
+  expect(vehicleCollisionDamage(6)).toBe(2);
+  expect(vehicleCollisionDamage(10)).toBe(50);
+  expect(vehicleCollisionDamage(15)).toBe(200);
+  expect(vehicleCollisionDamage(20)).toBe(450);
+  expect(vehicleCollisionDamage(-10)).toBe(50);
+});

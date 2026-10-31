@@ -52,6 +52,69 @@ describe('vehicle movement and transitions', () => {
   });
 });
 
+describe('vehicle collision approach speed', () => {
+  it.each([0, 4, 10, 20])('reports the controlled approach speed for a %s m/s head-on impact', speed => {
+    const v = { ...createVehicle('car'), x: 0, z: 7.4, yaw: 0, speed };
+    const hit = driveVehicle(v, 1, 0, false, .05, [wall]);
+    // Slow approaches do not reach the wall in this frame.
+    if (speed === 0) { expect(hit.impactSpeed).toBe(0); return; }
+    expect(hit.blocked).toBe(true);
+    expect(hit.impactSpeed).toBeCloseTo(Math.min(speed + .5, 20));
+    expect(hit.state.speed).toBe(0);
+    expect(driveVehicle(hit.state, 1, 0, false, .05, [wall]).impactSpeed).toBeLessThan(1);
+  });
+
+  it('detects contact near the end of a frame and captures reverse impacts', () => {
+    const v = { ...createVehicle('car'), x: 0, z: 8.2, yaw: 0, speed: 20 };
+    const hit = driveVehicle(v, 1, 0, false, .05, [wall]);
+    expect(v.z - hit.state.z).toBeGreaterThan(.5);
+    expect(hit.blocked).toBe(true); expect(hit.impactSpeed).toBe(20); expect(hit.state.speed).toBe(0);
+    const reverse = driveVehicle({ ...v, z: -7.4, speed: -6 }, -1, 0, false, .05, [wall]);
+    expect(reverse.blocked).toBe(true); expect(reverse.impactSpeed).toBe(6); expect(reverse.state.speed).toBeCloseTo(0);
+  });
+
+  it.each(['car', 'helicopter'] as const)('uses only the blocked component of a glancing %s impact', kind => {
+    const v = { ...createVehicle(kind), x: 0, y: kind === 'car' ? .13 : 10, z: 20, yaw: .2, speed: 20 };
+    const side = { minX: -5, maxX: 5, minZ: -100, maxZ: 100, minY: 0, maxY: 30 };
+    v.x = 5 + (kind === 'car' ? vehicleBounds(v).maxX : 2.5) + .01;
+    const hit = kind === 'car' ? driveVehicle(v, 1, 0, false, .05, [side]) : flyVehicle(v, 1, 0, 0, false, .05, [side]);
+    expect(hit.blocked).toBe(true);
+    expect(hit.impactSpeed).toBeCloseTo(Math.sin(.2) * 20);
+    expect(hit.state.z).toBeLessThan(v.z);
+    expect(hit.state.speed).toBeGreaterThan(19); expect(hit.state.speed).toBeLessThan(20);
+  });
+
+  it('measures roof contact vertically without charging for horizontal helicopter speed', () => {
+    const roof = { minX: -50, maxX: 50, minZ: -50, maxZ: 50, minY: 0, maxY: 5 };
+    const v = { ...createVehicle('helicopter'), x: 0, z: 20, y: 5.02, yaw: 0, speed: 20, climb: -2 };
+    const hit = flyVehicle(v, 1, 0, 0, false, .05, [roof]);
+    expect(hit.blocked).toBe(true); expect(hit.impactSpeed).toBeCloseTo(2 * Math.exp(-.15));
+    expect(hit.state.climb).toBe(0); expect(hit.state.speed).toBe(20); expect(hit.state.y).toBe(v.y);
+    const hard = flyVehicle({ ...v, climb: -12 }, 1, 0, -1, false, .05, [roof]);
+    expect(hard.impactSpeed).toBeGreaterThan(10);
+  });
+
+  it('captures hard ground/ceiling contacts and combines blocked corner components once', () => {
+    const v = { ...createVehicle('helicopter'), x: 0, z: 0, yaw: 0, y: .15, climb: -12 };
+    const ground = flyVehicle(v, 0, 0, -1, false, .05, []);
+    expect(ground.state.y).toBe(.13); expect(ground.state.climb).toBe(0); expect(ground.impactSpeed).toBeGreaterThan(10);
+    const ceiling = flyVehicle({ ...v, y: 6.25, climb: 12 }, 0, 0, 1, false, .05,
+      [{ minX: -10, maxX: 10, minZ: -10, maxZ: 10, minY: 10, maxY: 12 }]);
+    expect(ceiling.impactSpeed).toBeGreaterThan(10); expect(ceiling.state.climb).toBe(0);
+    const corner = flyVehicle({ ...v, x: -2.49, z: -2.49, y: 10, climb: 0, speed: 20, yaw: Math.PI / 4 }, 1, 0, 0, false, .05, [],
+      { minX: -5, maxX: 50, minZ: -5, maxZ: 50 });
+    expect(corner.impactSpeed).toBeCloseTo(20); expect(corner.state.speed).toBe(0);
+  });
+
+  it('reports no impact without movement or after destruction', () => {
+    for (const kind of ['car', 'helicopter'] as const) {
+      const v = { ...createVehicle(kind), speed: 20, climb: 10 };
+      const step = (state: typeof v, dt: number) => kind === 'car' ? driveVehicle(state, 1, 0, false, dt, [wall]) : flyVehicle(state, 1, 0, 1, false, dt, [wall]);
+      expect(step(v, 0).impactSpeed).toBe(0); expect(step({ ...v, health: 0 }, .05).impactSpeed).toBe(0);
+    }
+  });
+});
+
 for (const kind of ['car', 'helicopter'] as const) it(`lets occupants leave a parked ${kind} at diagonal headings`, () => {
   for (const yaw of [Math.PI / 4, -Math.PI / 4, Math.PI * 3 / 4]) {
     const v = { ...createVehicle(kind), x: 0, z: 0, yaw };

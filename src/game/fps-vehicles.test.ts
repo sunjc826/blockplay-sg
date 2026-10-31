@@ -6,6 +6,42 @@ import { createSharedVehicle } from './vehicle-seats';
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
+it('applies speed-dependent damage at contact and allows separate impacts without a timer', () => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  const wall = { minX: -10, maxX: 10, minZ: -5, maxZ: 0 };
+  const spawns = { car: { x: 0, z: 2.4, yaw: 0 }, helicopter: { x: 30, z: 0, yaw: 0 } };
+  const vehicles = createFpsVehicles(new THREE.Scene(), [wall], { car: '', helicopter: '' }, { spawns });
+  try {
+    expect(vehicles.interact(vehicles.states.car)?.entered).toBe(true);
+    for (const [speed, damage] of [[4, 0], [9.5, 50], [14.5, 200], [19.5, 450]]) {
+      Object.assign(vehicles.states.car, spawns.car, { speed, health: 600 });
+      vehicles.step(new Set(['w']), .05);
+      expect(vehicles.states.car.health).toBeCloseTo(600 - damage);
+      const afterImpact = vehicles.states.car.health;
+      for (let i = 0; i < 20; i++) vehicles.step(new Set(['w']), .05);
+      expect(vehicles.states.car.health).toBe(afterImpact);
+    }
+    Object.assign(vehicles.states.car, spawns.car, { speed: 20, health: 600 });
+    vehicles.step(new Set(['w', ' ']), .05);
+    expect(vehicles.states.car.health).toBeGreaterThan(550);
+  } finally { vehicles.dispose(); }
+});
+
+it('does not damage a fast helicopter for a gentle vertical roof contact', () => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  const roof = { minX: -10, maxX: 10, minZ: -10, maxZ: 10, maxY: 5 };
+  const spawns = { car: { x: -30, z: 0, yaw: 0 }, helicopter: { x: 0, z: 0, yaw: 0 } };
+  const vehicles = createFpsVehicles(new THREE.Scene(), [roof], { car: '', helicopter: '' }, { spawns });
+  try {
+    expect(vehicles.interact(vehicles.states.helicopter)?.entered).toBe(true);
+    Object.assign(vehicles.states.helicopter, { y: 5.02, speed: 20, climb: -2 });
+    vehicles.step(new Set(['w']), .05);
+    expect(vehicles.states.helicopter.health).toBe(900);
+    expect(vehicles.states.helicopter.climb).toBe(0);
+    expect(vehicles.states.helicopter.speed).toBe(20);
+  } finally { vehicles.dispose(); }
+});
+
 it('keeps vehicle labels decorative for camera-free counter-fire rays and player shots', () => {
   vi.stubGlobal('document', { createElement: () => ({ width: 0, height: 0,
     getContext: () => ({ fillRect() {}, fillText() {} }),

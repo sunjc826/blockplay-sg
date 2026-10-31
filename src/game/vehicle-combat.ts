@@ -27,4 +27,7 @@ export function vehicleBlastDamage(kind: VehicleKind, distance: number) {
   const spec = VEHICLE_COMBAT[kind];
   return Math.max(0, spec.blastDamage * (1 - Math.max(0, distance) / spec.blastRadius));
 }
-export function vehicleCollisionDamage(speed: number) { return Math.max(0, Math.abs(speed) - 5) ** 2 * 2; }
+/** Forgive bumps up to 5 m/s; harder impacts grow quadratically with approach speed. */
+export function vehicleCollisionDamage(impactSpeed: number) {
+  return Number.isFinite(impactSpeed) ? Math.max(0, Math.abs(impactSpeed) - 5) ** 2 * 2 : 0;
+}

@@ -24,7 +24,6 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   const damageVisuals = { car: vehicleDamageVisual(models.car), helicopter: vehicleDamageVisual(models.helicopter) };
   const destruction: { kind: VehicleKind; point: THREE.Vector3; occupied: boolean }[] = [];
   const flashTime = { car: 0, helicopter: 0 };
-  const collisionCooldown = { car: 0, helicopter: 0 };
   function damage(kind: VehicleKind, amount: number) {
     if (damageVehicle(states[kind], amount)) {
       const v = states[kind], point = new THREE.Vector3(v.x, v.y + 1.3, v.z);
@@ -145,18 +144,18 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     for (const kind of ['car', 'helicopter'] as const) {
       states[kind].weaponCooldown = Math.max(0, states[kind].weaponCooldown - dt);
       flashTime[kind] = Math.max(0, flashTime[kind] - dt);
-      collisionCooldown[kind] = Math.max(0, collisionCooldown[kind] - dt);
     }
     advanceWrecks(dt);
     effects.step(dt, Object.values(states));
     if (!active || localSeat !== 0) { sync(dt); return 0; }
     const forward = Number(keys.has('w') || keys.has('arrowup')) - Number(keys.has('s') || keys.has('arrowdown'));
     const steer = Number(keys.has('d') || keys.has('arrowright')) - Number(keys.has('a') || keys.has('arrowleft'));
-    const kind = active, beforeYaw = states[kind].yaw, beforeSpeed = Math.hypot(states[kind].speed, states[kind].climb);
+    const kind = active, beforeYaw = states[kind].yaw;
     const result = active === 'car' ? driveVehicle(states.car, forward, steer, keys.has(' '), dt, [...footObstacles('car'), ...drivingObstacles], bounds) : flyVehicle(states.helicopter, forward, steer, Number(keys.has(' ')) - Number(keys.has('c') || keys.has('control')), keys.has('shift'), dt, airObstacles(), bounds);
     states[active] = result.state;
     if (result.blocked) { notice = active === 'car' ? 'Route blocked · reverse or steer clear' : 'Airframe clearance · move away from the obstacle'; noticeTime = .5; }
-    if (result.blocked && collisionCooldown[kind] === 0) { damage(kind, vehicleCollisionDamage(beforeSpeed)); collisionCooldown[kind] = .6; }
+    const collisionDamage = vehicleCollisionDamage(result.impactSpeed);
+    if (collisionDamage > 0) damage(kind, collisionDamage);
     sync(dt); return states[kind].yaw - beforeYaw;
   }
   sync(0);
@@ -203,7 +202,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
         interact: active ? `E · Exit ${active}` : near ? `E · ${nearLabel} · ${Math.ceil(states[near].health)} HP` : '', vehicleNotice: notice,
         carDistance: distance(player, 'car'), helicopterDistance: distance(player, 'helicopter') };
     },
-    reset() { active = null; shared = null; lastSnapshot = null; presentation.car.reset(); presentation.helicopter.reset(); selfId = ''; localSeat = 0; sharedShots.car = sharedShots.helicopter = 0; notice = ''; noticeTime = 0; destruction.length = 0; effects.reset(); flashTime.car = flashTime.helicopter = collisionCooldown.car = collisionCooldown.helicopter = 0; for (const model of Object.values(models)) model.getObjectByName('vehicle-turret')!.rotation.set(0, 0, 0); states.car = createVehicle('car', spawns.car); states.helicopter = createVehicle('helicopter', spawns.helicopter); models.helicopter.rotation.x = 0; models.car.getObjectByName('humvee-steering-wheel')!.rotation.z = 0; sync(0); },
+    reset() { active = null; shared = null; lastSnapshot = null; presentation.car.reset(); presentation.helicopter.reset(); selfId = ''; localSeat = 0; sharedShots.car = sharedShots.helicopter = 0; notice = ''; noticeTime = 0; destruction.length = 0; effects.reset(); flashTime.car = flashTime.helicopter = 0; for (const model of Object.values(models)) model.getObjectByName('vehicle-turret')!.rotation.set(0, 0, 0); states.car = createVehicle('car', spawns.car); states.helicopter = createVehicle('helicopter', spawns.helicopter); models.helicopter.rotation.x = 0; models.car.getObjectByName('humvee-steering-wheel')!.rotation.z = 0; sync(0); },
     dispose() { effects.dispose(); root.removeFromParent(); disposeModel(root); Object.values(labels).forEach(sprite => { sprite.material.map?.dispose(); sprite.material.dispose(); }); },
   };
 }

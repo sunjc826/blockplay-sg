@@ -2286,11 +2286,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         v.climb -= 9.8 * dt; v.y = Math.max(support, v.y + v.climb * dt); if (v.y === support) v.climb = 0; continue;
       }
       // Substeps keep vehicle physics advancing at wall-clock speed with slow hosts.
-      const speed = Math.hypot(v.speed, v.climb);
       const result = v.kind === 'car' ? driveVehicle(v, drive?.forward ?? 0, drive?.steer ?? 0, drive?.brake ?? !drive, dt, ground, bounds)
         : flyVehicle(v, drive?.forward ?? 0, drive?.steer ?? 0, drive?.lift ?? (vehicleOptions?.openWorld && lifeOf(v).unload && v.y > .13 ? -1 : 0), drive?.boost ?? false, dt, flight, bounds);
       Object.assign(v, result.state);
-      if (result.blocked) damageHull(v, vehicleCollisionDamage(speed));
+      const collisionDamage = vehicleCollisionDamage(result.impactSpeed);
+      if (collisionDamage > 0) damageHull(v, collisionDamage);
       const gunner = gunnerId(v), gun = held(gunner);
       const ray = vehicleGunRay(v, gun?.aim);
       if (gun?.fire && gunner && fireVehicleWeapon(v)) {
