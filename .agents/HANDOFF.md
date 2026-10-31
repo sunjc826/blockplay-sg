@@ -5119,3 +5119,35 @@ are in its .cache/thermal-chart-review/. Older build attempts were stopped
 before upload to preserve concurrent committed changes. Task-owned browser,
 Vite and diagnostic processes were stopped. No GitHub push. AGENTS.md remains
 local, unstaged and uncommitted.
+
+
+## 2026-10-31 — Marina Bay Sands window lighting released
+
+The hotel's 1.94 m floor bands were below automatic building detection, leaving
+all three towers dark. Added 2,808 separate room panes on the bay-facing and rear
+facades above the podium, inset between existing mullions and floor rails and
+following each floor's splay. A dedicated glass material opts into existing
+whole-pane occupancy lighting, dusk/day fading and blackout control. Panes batch
+into one additional draw; other shared glass remains unchanged. Code: 20acbc1.
+
+Clean-copy verification passed 22 focused tests across Marina geometry, night
+facades and lighting. One broad all-district lamp-placement check was excluded;
+initial shared-host runs had test/reporting timeouts. The successful retry used
+one thread and extended time limits. tsc -b and the Cloudflare build passed; the
+duplicate standalone tsc --noEmit was stopped to reduce memory pressure. Direct
+WebGL renders of the actual Marina scene/night shader passed both facade views:
+32,409 vs 1,820 bright pixels bay-facing; 44,748 vs 365 rear, with/without panes.
+Both captures were inspected and there were no page/shader errors. These renders
+use fixed low ambient light; the full atmosphere smoke was stopped under load.
+
+Manual pnpm deploy:cloudflare succeeded, version
+8bb423cf-e79c-4249-8c75-6227a8b85d90. The frozen release in
+.cache/sands-release-20acbc1 matches all 2,761 tracked files of 20acbc1. Live
+entry JS/CSS and sw.js match its bytes on blockplaysg.fun and workers.dev;
+production routing/assets/model/audio/PWA/API-origin checks passed. No paid API
+requests. The snapshot includes committed thermal/status-overlay fixes; later
+naval/respawn commits are outside this release. Evidence: source-verification.json,
+release-{tests,typecheck,build,deploy,verification,cloudflare-check}.log,
+release-evidence.json and rendered-checks/ in that directory. Task-owned Vite and
+Chrome stopped. Local commits only; no GitHub push. AGENTS.md stays local,
+unstaged and uncommitted.
