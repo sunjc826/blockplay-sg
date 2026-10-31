@@ -5605,3 +5605,47 @@ cloudflare-custom.log/cloudflare-workers.log). Temporary private environment
 copies removed; task-owned Vite and Chrome stopped. No GitHub push. AGENTS.md
 remains local, unstaged and uncommitted; unrelated handoff and facilities/camp
 work in progress is preserved.
+
+
+## Ultra enemy firearms and rare veteran squads (2026-10-31)
+
+Local main code commit 4120632 adds five enemy-only weapons: Ultra XM8 Spectre
+(suppressed breacher), G36 Sentinel (scoped rifle) and MG4 Bastion (heavy
+support); Legendary XM8 Sovereign and G36 Regent are command-leader rifles.
+Fixed muzzle/rail fittings have real reversible geometry and match the host's
+resolved recoil, optic, velocity and signature. Regular patrols, purchases,
+crates and persistent profiles exclude these; expedition casualties drop their
+actual carried variant through the existing pickup system.
+
+Elite sweeps: four Ultra veterans, medium/high risk only, eligible after 180 s.
+Command hunts: one Legendary leader and three Ultra veterans, after 360 s and
+45 continuous seconds of mercenary sector heat >= .8. Weighted rare director
+entries share a 600 s cooldown and never overlap another elite event. Ten-second
+warning and marked formation; every slot is checked for terrain, occupancy,
+45 m player separation and 30 m protected-arrival clearance, including again at
+insertion. Compromised sites abort. Roles have 110-150 GPMG-rated armor, 72-78%
+absorption, veteran leading/aim and normal sight, cover, reload, healing and
+shooter limits. Blue Ultra and gold commander markings. No respawns; squads
+end silenced or withdraw at expiry. Both events have debug buttons.
+
+Workspace: 2,221 tests / 237 files and typecheck pass. A parallel frozen run
+had one Vitest RPC onTaskUpdate timeout after all assertions passed; the clean
+single-worker rerun passes all 2,221 with exit 0. Typecheck/build pass on frozen
+4120632. The subsequent committed faction visuals (7566ea4) were included in
+final integration: 143 focused tests / 8 files, typecheck, production build and
+six host/render browser scenarios plus side/sight views of all five weapons.
+Final screenshots reviewed. Source verification matches all 3,083 tracked files
+of 7566ea4 and excludes AGENTS.md, .claude and uncommitted work.
+
+An earlier task-owned deployment was terminated during asset upload after the
+RPC timeout was found; it did not report a published worker version. The combined
+7566ea4 release was then manually deployed successfully with the concurrent
+faction-visual task: Cloudflare version 40a7df87-8192-4fdb-9a9f-497f20637a73.
+This task independently verified exact release HTML, JS/CSS/Three.js and service
+worker on both production domains (10 byte comparisons), plus production
+routing/assets/PWA/model/audio/API-origin checks on both. Evidence:
+.cache/elite-squads/ (tests/typecheck/build/browser/source/live receipts), and
+.cache/faction-readability/deploy.log for the successful manual deployment.
+No paid generation/API calls or GitHub pushes. Task-owned Vite/Chrome stopped;
+private copied environment files removed. Preserve unrelated command-camp,
+battlefield-scenario, engine, facility and pre-existing handoff changes.
