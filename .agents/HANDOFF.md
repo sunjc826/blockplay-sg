@@ -5212,3 +5212,37 @@ manifest, model/audio, SPA/API routing and origin checks passed. Evidence:
 `.cache/helicopter-view/{source-verification,live-verification,results}.json`
 and `{tests,browser,typecheck,deploy,cloudflare-check}.log`. Task-owned browser
 and Vite stopped. No GitHub push; AGENTS.md stays local, unstaged and uncommitted.
+
+
+## Store tour spotlight overlay (2026-10-31)
+
+Local commits `7cd0a8f`, `d85ae95` and `bedd497` replace the sticky store-tour
+banner with a portalled viewport overlay. A dark scrim blocks irrelevant clicks;
+gold animated corner brackets expose the active wallet, required category tab,
+main slot, weapon card, purchase summary or deployment controls. Floating copy
+includes six-step progress, action prompts, Back/Next, Escape, focus restoration
+and reduced-motion support. Required category/card actions gate progression;
+no spending is required. Keeping the header trigger mounted prevents mobile
+reflow. The coach shortens and scrolls internally when a centered target leaves
+limited space, preserving the tap target after manual scrolling.
+
+Validation: 17 focused layout/store tests, typecheck and production build pass.
+Desktop 1440x1000, mobile 390x844 and landscape 844x390 browser flows pass real
+taps, scrim blocking, target/card separation, manual scrolling, unchanged shop
+layout, preview without buying, completion/replay and keyboard exit. Captures
+inspected. Ready-state tutorial-to-store automatic entry also passes. An extra
+stress check skipping before shader warmup produced a Three compile/dispose
+`isReady` console error while the overlay still mounted; that engine teardown
+race is outside this change. The broad suite was stopped under concurrent host
+load; no full-suite pass is claimed.
+
+Manual `pnpm deploy:cloudflare` succeeded, version
+`62f099d6-9175-4c72-8c7c-a0ed17f4bf7d`. The frozen release in
+`.cache/store-tour-release-d85ae95/` was updated and all 2,794 tracked files
+verified against `bedd497`. Public blockplaysg.fun serves byte-identical entry
+JS/CSS and sw.js; production asset/PWA/model/audio/SPA/API/origin checks pass.
+Evidence: `.cache/store-tour-{focused-final,release-typecheck-final,
+release-build-final,release-browser-final,deploy,cloudflare-check}.log`,
+`.cache/store-tour-release-live.json`, the frozen source-verification.json and
+`.cache/store-tour-browser/` captures. Task-owned Chrome and preview stopped.
+Local commits only; no GitHub push. AGENTS.md remains local and uncommitted.
