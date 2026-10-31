@@ -52,7 +52,10 @@ try {
   await key('z','KeyZ'); await forward((L.crawl.entryZ + L.crawl.exitZ) / 2); await screenshot('03-low-crawl');
   await forward(L.crawl.exitZ - 2); await key('z','KeyZ'); await forward(L.proneZ); await wait(step('aim')); console.log('Prone traversal passed; standing after exit passed');
   await forward(L.bendZ); await look(-Math.PI / 2); await down('w','KeyW'); await wait(`Number(document.querySelector('.tutorial-game').dataset.playerX)>=${L.rangeX}`,60000); await up('w','KeyW');
-  await look(0); await forward(L.firingZ); await key('q','KeyQ'); await wait(step('fire')); console.log('Aim passed'); await screenshot('04-range');
+  await look(0); await forward(L.firingZ); await key('q','KeyQ'); await wait(step('fire'));
+  const firing = await evaluate("({x:Number(document.querySelector('.tutorial-game').dataset.playerX),z:Number(document.querySelector('.tutorial-game').dataset.playerZ)})");
+  await look(Math.atan2(firing.x - L.rangeX, firing.z + 91), Math.atan2(1.43 - 1.75, Math.hypot(firing.x - L.rangeX, firing.z + 91)));
+  console.log('Aim passed'); await screenshot('04-range');
   await send('Input.dispatchMouseEvent',{type:'mousePressed',x:720,y:500,button:'left',clickCount:1});
   await wait(step('reload')); await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:720,y:500,button:'left',clickCount:1}); console.log('Hit passed');
   await key('r','KeyR'); await wait(step('switch'),30000); console.log('Reload passed');

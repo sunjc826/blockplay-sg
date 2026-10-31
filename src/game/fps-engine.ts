@@ -3167,7 +3167,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const root = new THREE.Group(); root.position.set(p.x, 0.13, p.z);
       // Heated, as a thermal-sight range's targets are.
       root.userData.heat = 'target';
-      root.rotation.y = Math.atan2(spawn.x - p.x, spawn.z - p.z);
+      const facing = options.tutorial ? tutorialCheckpoint(7) : spawn;
+      root.rotation.y = Math.atan2(facing.x - p.x, facing.z - p.z);
       root.add(loaded[2].clone(true));
       const hitZone = new THREE.Mesh(targetGeometry, targetMaterial); hitZone.position.set(0, 1.3, 0.026); hitZone.userData.fpsTarget = i; root.add(hitZone);
       // A separate, smaller collider above centre mass. It never overlaps the body
