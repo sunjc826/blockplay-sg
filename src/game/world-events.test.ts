@@ -88,11 +88,11 @@ describe('world atmosphere lifecycle', () => {
     expect(sparks.visible).toBe(false); expect(rain.geometry.drawRange.count).toBeLessThanOrEqual(450);
     atmosphere.dispose();
   });
-  it('suppresses rain under a roof but not above it', () => {
+  it('reports shelter while keeping surrounding outdoor rain visible', () => {
     setEnvironmentSettings({ weather: 'squall' });
     const { camera, atmosphere } = setup(false, [{ minX: -3, maxX: 3, minZ: -3, maxZ: 3, maxY: 5 }]);
-    atmosphere.update(.1, camera); const rain = atmosphere.root.children[0].children[0]; expect(rain.visible).toBe(false);
-    camera.position.y = 8; atmosphere.update(.1, camera); expect(rain.visible).toBe(true);
+    atmosphere.update(.1, camera); const rain = atmosphere.root.children[0].children[0]; expect(rain.visible).toBe(true); expect(atmosphere.air.sheltered).toBe(true);
+    camera.position.y = 8; atmosphere.update(.1, camera); expect(rain.visible).toBe(true); expect(atmosphere.air.sheltered).toBe(false);
     atmosphere.dispose();
   });
   it('ignores local weather, time and celebration overrides in LAN, including reported conditions', () => {

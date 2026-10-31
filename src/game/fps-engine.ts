@@ -33,6 +33,7 @@ import { applyGrenadeConditions, advanceGrenadeConditions, arenaConditionModifie
 import { resolveBlast } from './combat-blast';
 import { bipodRecoilMultiplier } from './weapon-support';
 import { createWorldAtmosphere } from './world-atmosphere';
+import { createWetSurfaces } from './wet-surfaces';
 import { createNightLights, nightLevel } from './world-night-lights';
 import { getRegion } from './regions';
 import { createMovementMotion, resetMovementMotion, advanceGroundMotion, advanceBodyMotion, bufferJump, consumeJump, landMovement, INFANTRY_GRAVITY } from './fps-movement';
@@ -300,7 +301,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const world = zoneWorld; world.stamps.forEach(o => o.visible = false);
   // Before night lights and shadows patch the materials: see instanced-materials.
   separateInstancedMaterials(world.scene);
-  const atmosphere = createWorldAtmosphere(world.scene, getRegion(region).stamps, world.obstacles, !!options.arena && options.arena.session.role !== 'solo', renderer, options.tutorial);
+  const atmosphere = createWorldAtmosphere(world.scene, getRegion(region).stamps, world.obstacles, !!options.arena && options.arena.session.role !== 'solo', renderer, options.tutorial, world.bounds.groundHeight);
   // Streetlamps, their pools and lit windows, for dusk and night.
   const nightLights = createNightLights(world.scene, { roads: getRegion(region).mapRoads, roadWidth: getRegion(region).roadWidth, bounds: world.bounds, obstacles: world.obstacles });
   const sunShadows = createSunShadows(renderer, world.scene);
@@ -360,6 +361,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const occlusion = createWorldOcclusion(renderer, world.scene, camera);
   const viewScene = new THREE.Scene(), viewCamera = new THREE.PerspectiveCamera(65, 1, 0.01, 3);
   // Night vision and thermal (N, J for the palette): it draws over every pass below.
+  const wetView = createWetSurfaces(viewScene, true);
   const vision = createVisionSystem(renderer, { world: world.scene, view: viewScene });
   const visionState = createVisionState(!!expedition?.checkpoint?.vision && !!equipment.vision);
   // Sun flare, haze dust and rain on the lens, over the world and weapon and under any vision device.
@@ -1763,6 +1765,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     renderer.toneMappingExposure = lighting.exposure * (1 - .5 * blackout * lighting.shift);
     sunShadows.update(shadows, camera, lighting.key, dt);
     nightLights.update(lighting, blackout, dt, camera, renderer);
+    // The viewmodel lives in camera-local space. Rotate the shared sky with the
+    // world camera so highlights stay fixed in the world when the player turns.
+    viewScene.environment = world.scene.environment;
+    viewScene.environmentIntensity = world.scene.environmentIntensity * .85;
+    // Three negates these Euler angles when uploading the sampling matrix.
+    viewScene.environmentRotation.copy(camera.rotation);
+    viewScene.environmentRotation.x *= -1; viewScene.environmentRotation.y *= -1; viewScene.environmentRotation.z *= -1;
+    wetView.update(dt, atmosphere.air.sheltered ? 0 : atmosphere.air.rain);
+    canvas.dataset.wetSurfaces = wetView.wetness.toFixed(3);
     viewSky.intensity = 2.1 * Math.min(1.25, ambient / .58) * atmosphere.light.skyVisibility;
     viewSky.color.copy(VIEW_SKY).lerp(viewTint.set(lighting.skyFill), lighting.shift);
     viewSky.groundColor.copy(VIEW_GROUND).lerp(viewTint.set(lighting.groundFill), lighting.shift);
@@ -3090,6 +3101,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // Shadows move the sun's target first; the atmosphere then places the sun from it.
     lightView(realDt);
     atmosphere.update(dt, camera);
+    canvas.dataset.rain = JSON.stringify(atmosphere.root.userData.rain);
     // The overview's altitude must not turn a ground-level weather preset into
     // an opaque sheet. Restore the exact world fog after this presentation pass.
     const aerialFog = (overviewActive() || deploymentIntro.active) && world.scene.fog instanceof THREE.Fog ? world.scene.fog : null;
@@ -3272,6 +3284,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility);
       // First, so every mesh has its own material back before anything else restores or disposes them.
       vision.dispose(); lens.dispose(); deploymentBlur.dispose(); overview.dispose();
+      wetView.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
       healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); impactAudio.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();

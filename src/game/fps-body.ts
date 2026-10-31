@@ -36,6 +36,7 @@ export function createFpsBody(scene: THREE.Scene) {
   const look = arenaCharacterLook({ bot: false, role: 'rifleman', id: 'local-player' });
   const character = createCharacterRig({ ...look, vest: undefined, plates: false, backpack: undefined, weapon: null }, 'fps-body');
   const root = character.root;
+  root.userData.wetSurface = true;
   // Exclude our own geometry from bullets, interaction and camera obstruction.
   root.userData.fpsEffect = true;
   // Give the eye room above the carrier while leaving the hips and boots

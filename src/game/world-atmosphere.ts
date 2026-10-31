@@ -6,12 +6,14 @@ import { dayLighting, nightExposureAmount, singaporeDayOfYear, type LightingStat
 import { createSkyLight, type Rgb } from './world-sky-light';
 import type { WaterMaterial } from './water';
 import { createNightExposure, skyVisibility } from './night-exposure';
+import { createRainEffects, createRainSurface } from './rain-effects';
+import { createWetSurfaces } from './wet-surfaces';
 
 /**
  * One bounded effect pool per scene. No textures, network traffic or shadow passes.
  * Given the renderer, the district's hemisphere light hands over to a sky light (`world-sky-light`).
  */
-export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x: number; z: number }[], obstacles: readonly Obstacle[], multiplayer = false, renderer?: THREE.WebGLRenderer, tutorialDaylight = false) {
+export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x: number; z: number }[], obstacles: readonly Obstacle[], multiplayer = false, renderer?: THREE.WebGLRenderer, tutorialDaylight = false, groundHeight?: (x: number, z: number) => number) {
   const originalBackground = scene.background, originalFog = scene.fog;
   const background = originalBackground instanceof THREE.Color ? originalBackground.clone() : new THREE.Color('#b9dcea');
   const fog = new THREE.Fog(background, 150, 700);
@@ -43,11 +45,9 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   /** The air round the camera, eased like the light, for what lands on or glints in front of the lens (fps-lens). */
   const air = { rain: 0, haze: 0, sunlight: 1, wind: 0, sheltered: false };
   const root = new THREE.Group(); root.name = 'world-atmosphere'; root.userData.fpsEffect = true; scene.add(root);
-  const rainRoot = new THREE.Group(); root.add(rainRoot);
-  const rainCount = 900, rainPositions = new Float32Array(rainCount * 6);
-  const rainGeometry = new THREE.BufferGeometry(); rainGeometry.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3).setUsage(THREE.DynamicDrawUsage));
-  const rainMaterial = new THREE.LineBasicMaterial({ color: '#cde9f4', transparent: true, opacity: .45, depthWrite: false });
-  const rain = new THREE.LineSegments(rainGeometry, rainMaterial); rain.frustumCulled = false; rainRoot.add(rain);
+  const rainSurface = createRainSurface(obstacles, groundHeight);
+  const rainEffects = createRainEffects(root, rainSurface);
+  const wetSurfaces = createWetSurfaces(scene);
   const celebrationRoot = new THREE.Group(); root.add(celebrationRoot);
   const bulbGeometry = new THREE.SphereGeometry(.2, 6, 4);
   const lanternGeometry = new THREE.SphereGeometry(.48, 8, 6);
@@ -88,17 +88,6 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   let active = resolveEnvironment(courseSettings(getEnvironmentSettings())), lastSettings = getEnvironmentSettings();
   const targetColor = new THREE.Color();
   let wetness = 0, wind = 0, haze = 0, sunlight = 1, disposed = false, started = false;
-  const sample = (i: number, salt: number) => { const n = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453; return n - Math.floor(n); };
-  const seeds = Array.from({ length: rainCount }, (_, i) => [sample(i, 1), sample(i, 2), sample(i, 3)]);
-  // Index static roofs once; precipitation never scans the whole district per drop.
-  const roofs = new Map<string, Obstacle[]>(), cell = 12;
-  for (const obstacle of obstacles) {
-    for (let x = Math.floor(obstacle.minX / cell); x <= Math.floor(obstacle.maxX / cell); x++)
-      for (let z = Math.floor(obstacle.minZ / cell); z <= Math.floor(obstacle.maxZ / cell); z++) {
-        const key = `${x},${z}`, bucket = roofs.get(key) ?? []; bucket.push(obstacle); roofs.set(key, bucket);
-      }
-  }
-  const underRoof = (x: number, y: number, z: number) => (roofs.get(`${Math.floor(x / cell)},${Math.floor(z / cell)}`) ?? []).some(o => x >= o.minX && x <= o.maxX && z >= o.minZ && z <= o.maxZ && y < (o.maxY ?? 12));
   const sky = { x: 0, y: 0, z: 0 };
   return {
     root,
@@ -164,23 +153,13 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
         festivalObjects.forEach(({ lantern, star }) => { lantern.visible = active.celebration === 'lunar-new-year'; star.visible = !lantern.visible; });
         sparkMaterial.color.set(event.colors[0]);
       }
-      camera.getWorldPosition(rainRoot.position);
-      sky.x = rainRoot.position.x; sky.y = rainRoot.position.y; sky.z = rainRoot.position.z;
-      // Collider roofs provide shelter; low cover does not count as a roof.
-      const sheltered = underRoof(sky.x, sky.y + .5, sky.z);
+      camera.getWorldPosition(exposurePoint);
+      sky.x = exposurePoint.x; sky.y = exposurePoint.y; sky.z = exposurePoint.z;
+      const sheltered = rainSurface(sky.x, sky.z) > sky.y + .5;
       air.rain = wetness; air.haze = haze; air.sunlight = sunlight; air.wind = wind; air.sheltered = sheltered;
-      const drops = Math.floor(rainCount * wetness * (reduced ? .25 : 1));
-      rain.visible = drops > 0 && !sheltered; rainGeometry.setDrawRange(0, drops * 2);
-      if (rain.visible) {
-        for (let i = 0; i < drops; i++) {
-          const seed = seeds[i], x = ((seed[0] * 44 + time * wind) % 44) - 22, z = seed[1] * 44 - 22;
-          const y = ((seed[2] * 26 - time * 22) % 26 + 26) % 26 - 5;
-          const roof = sky.y + y < .1 || underRoof(sky.x + x, sky.y + y, sky.z + z);
-          const k = i * 6; rainPositions[k] = x; rainPositions[k + 1] = y; rainPositions[k + 2] = z;
-          rainPositions[k + 3] = x + (roof ? 0 : wind * .05); rainPositions[k + 4] = y - (roof ? 0 : .85); rainPositions[k + 5] = z;
-        }
-        rainGeometry.attributes.position.needsUpdate = true;
-      }
+      rainEffects.update(step, exposurePoint, wetness, wind, reduced);
+      wetSurfaces.update(step, wetness);
+      root.userData.rain = rainEffects.counts;
       sparks.visible = !reduced && CELEBRATIONS[active.celebration].fireworks && places.length > 0;
       if (sparks.visible) {
         const burst = Math.floor(time / 5), age = time % 5, anchor = places[burst % places.length];
@@ -197,6 +176,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
     dispose() {
       if (disposed) return; disposed = true;
       bulbs.forEach(mesh => mesh.dispose());
+      rainEffects.dispose(); wetSurfaces.dispose();
       skyLight?.dispose(); if (skyFill) skyFill.visible = true;
       exposure.dispose();
       for (const material of water) material.userData.resetLighting();
@@ -205,8 +185,8 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
         light.intensity = intensity; light.color.copy(color); light.position.copy(originalPositions[index]);
         if (light instanceof THREE.HemisphereLight && ground) light.groundColor.copy(ground);
       });
-      [rainGeometry, bulbGeometry, lanternGeometry, starGeometry, cordGeometry, sparkGeometry].forEach(g => g.dispose());
-      [rainMaterial, cordMaterial, sparkMaterial, ...materials].forEach(m => m.dispose());
+      [bulbGeometry, lanternGeometry, starGeometry, cordGeometry, sparkGeometry].forEach(g => g.dispose());
+      [cordMaterial, sparkMaterial, ...materials].forEach(m => m.dispose());
     },
   };
 }

@@ -10,6 +10,7 @@ import { applyEnemyWeaponConfig } from './enemy-weapon-models';
 
 /** Each preview owns its materials. Restore originals before disposing the source GLB. */
 export function dressWeapon(root: THREE.Object3D, weapon: EquippedWeapon) {
+  root.userData.wetSurface = true;
   const skin = itemById(weapon.equipment.skin), originals: [THREE.Mesh, THREE.Material | THREE.Material[]][] = [];
   const materials: THREE.Material[] = [];
   let texture: THREE.CanvasTexture | undefined;
