@@ -36,6 +36,7 @@ try {
   await send('Runtime.enable'); await send('Network.enable'); await send('Page.enable');
   await send('Browser.setPermission', { permission: { name: 'keyboard-lock' }, setting: 'granted', origin });
   await send('Browser.setPermission', { permission: { name: 'pointer-lock' }, setting: 'granted', origin });
+  await send('Emulation.setFocusEmulationEnabled', { enabled: true });
   await send('Page.bringToFront');
   await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
   await wait(`!![...document.querySelectorAll('button')].find(b=>b.textContent.includes('Marina FPS'))`);
