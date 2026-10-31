@@ -7,7 +7,7 @@ import { createFpsEngine } from '/src/game/fps-engine.ts';
 import { createProfile } from '/src/game/armory-state.ts';
 import { createExpeditionLoot } from '/src/game/expedition-loot.ts';
 import FpsMinimap from '/src/components/FpsMinimap.tsx';
-const infrastructure=new Map([['sentosa',{reinforcementClocks:{naval:{mercenaries:0,'armed-forces':150},external:{mercenaries:0,'armed-forces':80}}}]]);
+const infrastructure=new Map([['sentosa',{facilities:{sites:[{id:'sentosa-enemy-post',owner:'mercenaries',health:0,deployIn:12,action:null}],supplies:{mercenaries:100,'armed-forces':100}},reinforcementClocks:{naval:{mercenaries:0,'armed-forces':150},external:{mercenaries:0,'armed-forces':80}}}]]);
 const root=createRoot(document.getElementById('overlay')),profile=createProfile();window.infrastructure=infrastructure;
 window.engine=createFpsEngine(document.getElementById('world'),hud=>{
  window.hud=hud;
