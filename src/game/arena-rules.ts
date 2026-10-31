@@ -44,6 +44,7 @@ import { CONSUMABLE_LIMIT, itemById } from './armory-catalog';
 import { supplyProfile } from './fps-healing';
 import { createFacilities, facilityOperational, facilityRayDistance, FACILITY_RULES, type FacilitySite, type FacilitySnapshot, type FacilityState } from './facilities';
 import type { DeploymentPoint } from './expedition-deployment';
+import type { PlayerRespawnView } from './player-respawn';
 
 /** All coordinates use metres; actor y is eye height, not the feet. */
 export interface ArenaActor {
@@ -483,7 +484,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   // Real Marina has many valid spawn points; explicit failure avoids spawning inside walls.
   if (!validSpawns.length) throw new Error('No clear arena spawn point is available.');
-  const spawn = (entry: InternalActor) => {
+  const respawnChoices = new Map<string, { selected: string | null; automatic: boolean }>();
+  const spawn = (entry: InternalActor, destination?: { x: number; z: number; y: number; yaw: number }) => {
     releaseSeat(entry.actor.id);
     const others = [...members.values()].filter(m => m !== entry && m.actor.alive && !m.reserve && !m.actor.transport);
     const positions = [...validSpawns].sort((a, b) => {
@@ -494,7 +496,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const post = facilities?.sites.find(s => s.kind === 'command' && facilityOperational(s, entry.actor.faction));
     const postPoints = post ? deploymentPoints(post) : [];
     const factionPoint = postPoints.find(p => clearSpawn(p) && others.every(m => Math.hypot(m.actor.x - p.x, m.actor.z - p.z) > (m.actor.faction === entry.actor.faction ? 1.5 : 16)));
-    const p = facilities && !entry.actor.bot && entry.actor.deaths > 0 && factionPoint ? factionPoint : preferred ?? (facilities && entry.actor.bot && factionPoint ? factionPoint : positions[0]);
+    const p = destination ?? (facilities && !entry.actor.bot && entry.actor.deaths > 0 && factionPoint ? factionPoint : preferred ?? (facilities && entry.actor.bot && factionPoint ? factionPoint : positions[0]));
     if (entry.role) {
       // A fresh soldier off the transport: rank first, since it decides the kit.
       const strength = factionHeat && isSquad(entry.actor.faction) ? factionHeat.strength(entry.actor.faction, entry.home ?? null) : undefined;
@@ -503,8 +505,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       entry.armorMax = clamp(entry.role.armor * entry.rank.armor * (strength === undefined ? 1 : .75 + .5 * strength), 0, 150);
       if (entry.callsign) entry.actor.name = `${entry.rank.title[getArenaFaction(entry.actor.faction)?.side ?? 'opposition']} ${entry.callsign}`;
     }
-    Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75, health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
-      yaw: Number.isFinite(preferred?.yaw) ? preferred!.yaw! : 0, pitch: Number.isFinite(preferred?.pitch) ? clamp(preferred!.pitch!, -1.5, 1.5) : 0 });
+    Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75 + (destination?.y ?? 0), health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
+      yaw: destination?.yaw ?? (Number.isFinite(preferred?.yaw) ? preferred!.yaw! : 0), pitch: Number.isFinite(preferred?.pitch) ? clamp(preferred!.pitch!, -1.5, 1.5) : 0 });
     if (entry.role && entry.actor.faction === PLAYER_FACTION) {
       // Friendly soldiers carry the issued rifle, or the Ultimax in support, which is what they drop.
       entry.actor.weapon = forcesFamily(entry.role); delete entry.actor.variant; entry.spec = undefined; entry.medkits = (entry.role.medkits ?? 1) + (entry.rank?.medkits ?? 0);
@@ -515,6 +517,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (entry.spec) entry.weapons[issued.family] = sanitizeWeapons([entry.spec])[0];
       entry.medkits = (entry.role.medkits ?? 1) + (entry.rank?.medkits ?? 0);
     }
+    const respawnChoice = respawnChoices.get(entry.actor.id);
+    if (respawnChoice) respawnChoice.selected = null;
     entry.ammo = entry.weapons.map(hostAmmo);
     entry.burst = 0; entry.burstFired = 0; entry.heal = undefined; entry.lastHurt = -Infinity; delete entry.actor.healing; entry.shieldUntil = elapsed + SPAWN_SHIELD_SECONDS;
     // A respawn starts hungry.
@@ -666,7 +670,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function removePlayer(id: string) {
     const entry = members.get(id); if (!entry || entry.actor.bot) return;
-    grenadeSystem.removeCaller(id); releaseSeat(id); members.delete(id); announce(`${entry.actor.name} left`);
+    grenadeSystem.removeCaller(id); releaseSeat(id); members.delete(id); respawnChoices.delete(id); announce(`${entry.actor.name} left`);
   }
   function setInput(id: string, input: ArenaInput) {
     const entry = members.get(id); if (!entry || entry.actor.bot || finished || !input || !finitePoint(input)) return;
@@ -1775,6 +1779,49 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function deploymentPoints(site: FacilitySite) {
     return Array.from({ length: 12 }, (_, i) => ({ x: site.deployment.x + Math.sin(i * Math.PI / 6) * 3.6, z: site.deployment.z + Math.cos(i * Math.PI / 6) * 3.6 }));
   }
+  function respawnChoice(id: string) {
+    let choice = respawnChoices.get(id);
+    if (!choice) { choice = { selected: null, automatic: false }; respawnChoices.set(id, choice); }
+    return choice;
+  }
+  function respawnPoint(entry: InternalActor, site: FacilityState) {
+    if (!facilityOperational(site, entry.actor.faction)) return undefined;
+    return deploymentPoints(site).find(p => clearSpawn(p) && [...members.values()].every(m =>
+      m === entry || !m.actor.alive || m.reserve || m.actor.transport || Math.abs(floorAt(m.actor) - site.y) >= 2 ||
+      Math.hypot(m.actor.x - p.x, m.actor.z - p.z) > (m.actor.faction === entry.actor.faction ? 1.5 : 16)));
+  }
+  function playerRespawn(id: string): PlayerRespawnView | null {
+    const entry = members.get(id);
+    if (!facilities || !entry || entry.actor.bot) return null;
+    const choice = respawnChoice(id);
+    const zones = facilities.sites.filter(s => s.owner === entry.actor.faction).map(site => {
+      const available = !!respawnPoint(entry, site);
+      return { id: site.id, name: site.name, x: site.deployment.x, z: site.deployment.z, available,
+        reason: !site.health ? 'Equipment destroyed' : site.suppressed ? 'Deployment suppressed' : available ? '' : 'Landing zone blocked or unsafe' };
+    });
+    if (!zones.some(z => z.id === choice.selected && z.available)) choice.selected = null;
+    return { zones, ...choice };
+  }
+  function choosePlayerRespawn(id: string, zone: string) {
+    const entry = members.get(id), view = playerRespawn(id);
+    if (!entry || entry.actor.alive || finished || !view?.zones.some(z => z.id === zone && z.available)) return false;
+    respawnChoice(id).selected = zone; return true;
+  }
+  function setPlayerAutoRespawn(id: string, automatic: boolean) {
+    if (!playerRespawn(id) || finished || typeof automatic !== 'boolean') return false;
+    respawnChoice(id).automatic = automatic; return true;
+  }
+  function respawnPlayer(entry: InternalActor) {
+    const view = playerRespawn(entry.actor.id);
+    if (!view) return;
+    const available = view.zones.filter(z => z.available);
+    const safety = (zone: { x: number; z: number }) => Math.min(1000, ...[...members.values()]
+      .filter(m => m.actor.alive && hostile(entry.actor, m.actor)).map(m => Math.hypot(m.actor.x - zone.x, m.actor.z - zone.z)));
+    const selected = available.find(z => z.id === view.selected) ?? (view.automatic ? available.sort((a, b) => safety(b) - safety(a))[0] : undefined);
+    const site = selected && facilities?.sites.find(s => s.id === selected.id);
+    const point = site && respawnPoint(entry, site);
+    if (site && point) spawn(entry, { ...point, y: site.y, yaw: site.deployment.yaw });
+  }
   function damageFacility(site: FacilityState, damage: number, side?: string) {
     const taken = facilities?.damage(site.id, damage, side) ?? 0;
     if (taken && site.health === 0) announce(`${site.name}: equipment destroyed. Deployment offline.`);
@@ -2526,7 +2573,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         if (entry.temporary) { if (entry.actor.respawnIn === 0) dismiss(entry.actor.id); continue; }
         if (entry.actor.respawnIn === 0) {
           // With reinforcements, a fallen bot comes back on a transport; only one left waiting too long walks back in.
-          if (!environment?.reinforcements || !entry.actor.bot) spawn(entry);
+          if (facilities && !entry.actor.bot) respawnPlayer(entry);
+          else if (!environment?.reinforcements || !entry.actor.bot) spawn(entry);
           else { entry.waiting ??= elapsed; if (!facilities && !entry.ride && elapsed - entry.waiting > REINFORCEMENT_FALLBACK) spawn(entry); }
         }
         continue;
@@ -2617,7 +2665,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   for (let i = 0; i < count; i++) enlist();
   if (facilities) for (let i = 0; i < 4; i++) enlist(false, PLAYER_FACTION);
-  return { setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  return { playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

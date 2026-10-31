@@ -1,0 +1,12 @@
+.expedition-respawn-picker{position:absolute;inset:0;z-index:20;display:grid;place-items:center;padding:20px;background:#0b141be6;color:#edf4ef;pointer-events:auto;overflow:auto;box-sizing:border-box;text-align:left}
+.respawn-card{width:min(100%,520px);max-height:100%;overflow:auto;box-sizing:border-box;background:#14252b;border:1px solid #67828a80;border-radius:14px;padding:24px;box-shadow:0 14px 60px #0005}
+.respawn-card header>span{font:10px ui-monospace,monospace;letter-spacing:.2em;color:#edb6a1}
+.respawn-card h2{font-size:25px;line-height:1.2;margin:8px 0;outline:none}.respawn-card header p{font-size:13px;color:#a9ced4;margin:0 0 20px}
+.respawn-zones{display:grid;gap:8px}.respawn-zones button{display:flex;align-items:center;gap:12px;width:100%;min-height:66px;padding:12px;border:1px solid #567780;border-radius:8px;background:#1b343c;color:#edf4ef;text-align:left;cursor:pointer;font:inherit}
+.respawn-zone-icon{font-size:26px;color:#a0d7df}.respawn-zones button>span:nth-child(2){flex:1;min-width:0}.respawn-zones strong{display:block;font-size:14px;overflow-wrap:anywhere}.respawn-zones small{display:block;margin-top:5px;color:#b2c8ca;font-size:11px;line-height:1.4}.respawn-zone-action{font:9px ui-monospace,monospace;letter-spacing:.06em}
+.respawn-zones button[aria-pressed=true]{border-color:#f1d294;background:#384339}.respawn-zones button:disabled{opacity:.55;cursor:default}.respawn-zones button:focus-visible,.respawn-automatic input:focus-visible{outline:2px solid #f1d294;outline-offset:3px}
+.respawn-automatic{display:flex;align-items:flex-start;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid #67828a50;cursor:pointer;font-size:14px}.respawn-automatic input{width:20px;height:20px;flex-shrink:0;margin:0;accent-color:#ecd08d}.respawn-automatic small{display:block;font-size:11px;line-height:1.5;margin-top:5px;color:#b2c8ca}
+.respawn-card .respawn-selection,.respawn-card .respawn-empty{font-size:12px;line-height:1.6;margin:16px 0 0;color:#e8d7b7}
+@media(max-width:600px),(max-height:500px){.expedition-respawn-picker{padding:10px}.respawn-card{padding:16px}.respawn-card h2{font-size:21px}.respawn-card header p{margin-bottom:12px}.respawn-zones button{min-height:56px;padding:9px}.respawn-automatic{margin-top:12px;padding-top:12px}}
+
+.respawn-menu{display:block;margin:16px 0 0 auto;padding:8px 14px;border:1px solid #67828a80;border-radius:6px;background:transparent;color:#d6e4df;font:inherit;font-size:12px;cursor:pointer}.respawn-menu:focus-visible{outline:2px solid #f1d294;outline-offset:3px}

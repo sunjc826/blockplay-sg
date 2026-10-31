@@ -5061,3 +5061,26 @@ release is claimed. The final isolated copy includes 20acbc1 (also preserving
 the committed Marina lighting fix); source-verification.json documents its
 matching tracked sources. Logs remain in .cache/status-overlay-release/.
 Code commit da874fe is on local main. AGENTS.md remains untracked; no push.
+
+## 2026-10-31 — choose an allied respawn zone
+
+Facility expeditions now hold a dead player for a manual allied control-zone
+choice, or choose an available allied site at timeout when Auto-respawn is
+checked. The checkbox defaults off, lasts through deaths and district travel,
+and each spawn clears the manual selection. Command posts, garages and helipads
+must remain allied and operational with a clear exit; the authority rechecks at
+spawn. No eligible zone means waiting. Ordinary arenas retain their three-second
+automatic respawn. Desktop death releases capture for the picker; Resume captures
+the mouse after spawning. The picker includes Menu/Escape and mobile scrolling.
+
+Validation so far: 18 targeted respawn/facility tests pass (the initial facility
+timeout passed on rerun with more time), plus the existing network/rules targeted
+checks. Browser authority/UI smoke passes manual choice at zero, Menu/Resume,
+selected destination, auto checkbox, and portrait/landscape bounds with zero
+runtime errors; images inspected. The full rendered district fixture stalled
+under severe machine memory pressure, so full-game mouse capture is not claimed
+as browser-verified. The parallel full-suite run was stopped to free memory;
+clean-copy typecheck/build and manual Cloudflare deployment are still pending.
+Evidence: /tmp/astra-respawn-targeted-final.log,
+/tmp/astra-respawn-panel-browser-final.log and .cache/player-respawn/.
+AGENTS.md and .claude remain local and uncommitted. No GitHub push.

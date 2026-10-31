@@ -624,6 +624,14 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (simulation) { simulation.facilityAction(session.id, site); publish(); }
     else session.send({ type: 'facility-action', site });
   }
+  function chooseRespawn(zone: string) {
+    if (disposed || !started || session.role !== 'solo' || !simulation) return false;
+    const accepted = simulation.choosePlayerRespawn(session.id, zone); publish(); return accepted;
+  }
+  function setAutoRespawn(automatic: boolean) {
+    if (disposed || session.role !== 'solo' || !simulation) return false;
+    const accepted = simulation.setPlayerAutoRespawn(session.id, automatic); publish(); return accepted;
+  }
   function selectDeployment(pointId: string) {
     if (disposed || started || session.role !== 'solo' || !simulation || !simulation.setPlayerDeployment(session.id, pointId)) return false;
     previousSelf = null; spawnPending = true; localAdopted = false; reconciliation.reset(); publish();
@@ -717,6 +725,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       avatar.root.position.set(eye.x, eye.y - (actor.vehicle === 'car' && actor.seat === 1 ? 1.75 : 1.2), eye.z);
     }
   }
-  return { selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
+  return { chooseRespawn, setAutoRespawn, getRespawn: () => simulation?.playerRespawn(session.id) ?? null, selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

@@ -22,8 +22,17 @@ from existing authored ground anchors and checked against scenery, vehicles,
 NPCs and facility positions. The authority rechecks occupancy when deploying;
 random selection can fall back to another approved point if one is blocked.
 Selection does not rebuild the world or move facilities. The choice is locked
-once play starts; pause/resume preserves it. Death respawns keep the existing
-post/fallback rules, and checkpoint travel keeps its authored arrival point.
+once play starts; pause/resume preserves it. After death, choose an operational allied control zone (command post, garage
+or helipad). You can select during the three-second timeout, or wait and choose
+after it ends. **Auto-respawn** is unchecked by default; checking it chooses an
+available allied zone automatically at timeout, preferring distance from enemies.
+The preference lasts for the expedition, including district travel. Each death
+clears the manual selection. Destroyed, suppressed or blocked destinations are
+disabled; ownership and safe exits are rechecked at respawn. If a selected zone
+becomes unavailable, select another or enable auto-respawn. With no available
+allied zone, you wait until one becomes available. Desktop death releases mouse
+capture so the choices can be clicked; Resume captures the mouse after respawn.
+Checkpoint travel keeps its authored arrival point.
 
 Entering a fresh expedition plays a 3.8-second deployment intro: a downward
 sky view accelerates into a dive, brakes smoothly and levels into first person.

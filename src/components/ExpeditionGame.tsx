@@ -1,5 +1,6 @@
 import type { RaiderBounty } from '../game/combat-rewards';
 import DeploymentBriefing from './DeploymentBriefing';
+import ExpeditionRespawn from './ExpeditionRespawn';
 import FpsFacilityHud from './FpsFacilityHud';
 import ExpeditionDeployment from './ExpeditionDeployment';
 import type { ArenaSnapshot } from '../game/arena-rules';
@@ -42,6 +43,7 @@ interface ExpeditionScene { zone: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: F
 export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase, onConsume, onElimination, suspended = false, initialZone = 'marina-bay', destination, onZoneChange, onLoaded }: { profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; onExit: () => void; onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult; onConsume: (catalogId: string) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; suspended?: boolean; initialZone?: WorldZoneId; destination?: WorldZoneId; onZoneChange?: (zone: WorldZoneId) => void }) {
   const [fieldProfile, setFieldProfile] = useState<ArmoryProfile>(() => structuredClone(profile));
   const fieldProfileRef = useRef(fieldProfile);
+  const autoRespawn = useRef(false);
   const [loot] = useState(() => createExpeditionLoot(`${Date.now()}-${Math.random()}`));
   const [infrastructure] = useState(() => new Map<WorldZoneId, Pick<ArenaSnapshot, 'facilities' | 'vehicles' | 'reinforcementClocks'>>());
   const [scene, setScene] = useState<ExpeditionScene>(() => ({ zone: initialZone, revision: 0 }));
@@ -59,7 +61,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       engine.current = createFpsEngine(host.current!, setHud, {
         loadout: resolveLoadout(fieldProfileRef.current),
         expedition: {
-          zone: scene.zone, spawn: scene.spawn, checkpoint: scene.checkpoint,
+          autoRespawn: autoRespawn.current, zone: scene.zone, spawn: scene.spawn, checkpoint: scene.checkpoint,
           profile: fieldProfileRef.current, loot, infrastructure,
           onTravel: (transition, checkpoint) => setScene(current => ({ zone: transition.to, spawn: transition.spawn, checkpoint, revision: current.revision + 1 })),
           onEquipment: next => { fieldProfileRef.current = next; setFieldProfile(next); },
@@ -134,7 +136,9 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         {hud.combatBanner && <div className={`fps-combat-banner ${hud.combatBanner.tone}`} role="status">{hud.combatBanner.text}</div>}
         {hud.hit && <div className="fps-hit-label">HIT −{hud.lastDamage}</div>}
         {hud.callout && <div className="fps-kill-callout" role="status"><span>ELIMINATION CHAIN ×{hud.chain}</span><strong>{hud.callout}</strong></div>}
-        {!alive && <div className="expedition-respawn" role="status"><span>OPERATOR DOWN</span><strong>Regrouping in {Math.ceil(hud.arenaSelf?.respawnIn ?? 0)}s</strong></div>}
+        {!alive && hud.respawn && <ExpeditionRespawn view={hud.respawn} seconds={hud.arenaSelf?.respawnIn ?? 0}
+          onMenu={() => engine.current?.pause()} onChoose={id => engine.current?.chooseRespawn(id)}
+          onAutomatic={checked => { autoRespawn.current = checked; engine.current?.setAutoRespawn(checked); }} />}
         {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />}
         {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} onPickFood={() => engine.current?.toggleFoodPicker()} onPickGrenade={() => engine.current?.toggleGrenadePicker()} onGrenadeFire={held => engine.current?.setInput('fire', held)} onInspect={() => engine.current?.inspectWeapon()} touch={touch} />}
         <FpsVehicleHud hud={hud} />
