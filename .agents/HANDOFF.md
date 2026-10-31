@@ -5275,3 +5275,29 @@ model/audio, SPA/API routing and origin checks passed without paid API requests.
 Evidence: `.cache/humvee-view/{source-verification,live-verification,results}.json`
 and `{tests,browser,typecheck,deploy,cloudflare-check}.log`. Task-owned Vite and
 Chrome stopped. No GitHub push. AGENTS.md remains local, unstaged and uncommitted.
+
+## Inland paratrooper reinforcements (2026-10-31)
+
+The twelve inland Open World districts now support host-owned, finite parachute
+reinforcements independently of command posts. Lakes/canals remain eligible;
+coastal maps retain their existing rules. Up to four reservists/recruits share
+population/actor limits and booked-passenger exclusions with posts/transports.
+A 150-second airborne interval and shared eighty-second external gate persist
+across district travel; old saved clocks migrate safely.
+
+A twelve-second warning, faction-colored parachute map symbol and cargo flyover
+precede staggered sixty-metre descents. Troops have no shield and cannot fire or
+capture facilities aloft; survivors join ordinary squads. Real-scene canopy
+columns include foliage/roof clearance, dry support and connected flat ground.
+Human/deployment separation is checked before launch. Blocked release returns
+its booked troop to reserve; obstructed touchdown causes a normal casualty.
+The cargo aircraft is presentation only. Debug survival adds Paratroopers.
+
+All twelve real-scene district route checks and 88 combat/runtime/map tests
+passed (100 focused checks total, including the final added regressions).
+Five rendered Queenstown host/guest scenarios pass warning/descent/touchdown,
+friendly and portrait views; actual expedition desktop/phone warning, marker,
+live descent and saved travel clocks pass. Typecheck passed. Full suite and
+manual Cloudflare deployment are being completed; see the subsequent release
+entry for confirmed results. Evidence: .cache/paratroopers/. No GitHub push.
+Preserve AGENTS.md and concurrent handoff edits unstaged/uncommitted.

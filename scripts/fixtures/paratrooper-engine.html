@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Airborne expedition engine</title><style>html,body,#stage{margin:0;height:100%;overflow:hidden}#world,#overlay{position:absolute;inset:0}#overlay{pointer-events:none}#overlay button{pointer-events:auto}#start{position:absolute;z-index:20;right:16px;bottom:16px;padding:16px}</style></head><body><div id="stage" class="fps-game expedition-game"><div id="world"></div><div id="overlay"></div><button id="start">Enter Queenstown</button></div><script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import '/src/styles.css';
+import '/src/components/expedition.css';
+import { createFpsEngine } from '/src/game/fps-engine.ts';
+import { createProfile } from '/src/game/armory-state.ts';
+import { createExpeditionLoot } from '/src/game/expedition-loot.ts';
+import FpsMinimap from '/src/components/FpsMinimap.tsx';
+const infrastructure=new Map([['queenstown',{facilities:{sites:[{id:'queenstown-enemy-post',owner:'mercenaries',health:0,deployIn:12,action:null}],supplies:{mercenaries:100,'armed-forces':100}},reinforcementClocks:{airborne:{mercenaries:0,'armed-forces':150},naval:{mercenaries:0,'armed-forces':150},external:{mercenaries:0,'armed-forces':80}}}]]);
+const root=createRoot(document.getElementById('overlay')),profile=createProfile();window.infrastructure=infrastructure;
+window.engine=createFpsEngine(document.getElementById('world'),hud=>{
+ window.hud=hud;
+ root.render(React.createElement(React.Fragment,null,
+  React.createElement(FpsMinimap,{zone:'queenstown',player:{x:hud.x,z:hud.z,yaw:hud.yaw},markers:hud.mapMarkers,mode:'expedition',expanded:hud.mapExpanded,onToggle:()=>window.engine.toggleMap()}),
+  hud.combatBanner&&React.createElement('div',{className:'fps-combat-banner '+hud.combatBanner.tone,role:'status'},hud.combatBanner.text)));
+},{region:'queenstown',expedition:{zone:'queenstown',spawn:{x:-18,z:83,yaw:-.35,pitch:0},profile,loot:createExpeditionLoot('paratrooper-engine'),infrastructure,onTravel(){},onEquipment(){},onVendorPurchase(){return{ok:false,message:'Fixture'};}}});
+document.getElementById('start').onclick=()=>{window.engine.configureDebug({combatEvents:false});window.engine.start();};
+</script></body></html>

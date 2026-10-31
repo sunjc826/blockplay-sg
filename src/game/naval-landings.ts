@@ -3,13 +3,14 @@ import type { Position2D } from './region-collision';
 import type { NavalLandingSite } from './naval-landing-sites';
 
 export const NAVAL = { interval: 150, externalGap: 80, retry: 10, seats: 4, approach: 15, rampSeconds: 2, hold: 10, exitSeconds: 12, humanClearance: 45 } as const;
-export interface ReinforcementClocks { naval: Record<SquadFaction, number>; external: Record<SquadFaction, number> }
+export interface ReinforcementClocks { airborne?: Record<SquadFaction, number>; naval: Record<SquadFaction, number>; external: Record<SquadFaction, number> }
 export function validReinforcementClocks(value: unknown): value is ReinforcementClocks {
   if (!value || typeof value !== 'object') return false;
   const c = value as ReinforcementClocks;
-  return ['naval', 'external'].every(k => !!c[k as keyof ReinforcementClocks] && ['mercenaries', 'armed-forces'].every(f => {
-    const n = c[k as keyof ReinforcementClocks][f as SquadFaction]; return Number.isFinite(n) && n >= 0 && n <= 150;
-  }));
+  const valid = (clock: unknown) => !!clock && typeof clock === 'object' && !Array.isArray(clock) && ['mercenaries', 'armed-forces'].every(f => {
+    const n = (clock as Record<string, unknown>)[f]; return typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 150;
+  });
+  return valid(c.naval) && valid(c.external) && (c.airborne === undefined || valid(c.airborne));
 }
 export function planNavalLanding(sites: readonly NavalLandingSite[], faction: SquadFaction, humans: readonly Position2D[], busy: ReadonlySet<string>, clearDry: (p: Position2D) => boolean, protectedPoints: readonly Position2D[] = []) {
   return sites.find(s => s.factions.includes(faction) && !busy.has(s.id) &&

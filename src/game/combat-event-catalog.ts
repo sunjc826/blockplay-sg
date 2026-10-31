@@ -1,3 +1,4 @@
+import { PARATROOPERS } from './paratroopers';
 import { NAVAL } from './naval-landings';
 import { PLAYER_FACTION } from './arena-factions';
 import { combatRandom, descentAlong, registerCombatEvent, MAX_TROOPS, type BlastSpec, type CombatEventDescriptor, type CombatPayload, type CombatPlane } from './combat-events';
@@ -151,6 +152,19 @@ registerCombatEvent({
   warning: TRANSPORT.air.warning, duration: TRANSPORT.air.duration, hazard: false,
   banner: { warning: 'BLACK KITE HELICOPTER INBOUND · REINFORCEMENTS', active: 'MERCENARIES FAST-ROPING IN' },
   timeline: event => transportTimeline(event, 'air'),
+});
+
+registerCombatEvent({
+  id: 'paratroopers', name: 'Paratroopers', description: 'A cargo flyover drops a finite infantry squad under parachutes.',
+  warning: PARATROOPERS.warning, duration: 30, hazard: false,
+  banner: { warning: 'HOSTILE PARATROOPERS INBOUND', active: 'HOSTILE PARATROOPERS DESCENDING' },
+  timeline(event) {
+    return [
+      { type: 'marker', id: 0, center: event.target, radius: 9, from: 0, until: 28, colour: event.faction === PLAYER_FACTION ? '#69c3dd' : '#e58a56' },
+      { type: 'flyer', id: 1, model: 'cargo', from: { x: event.target.x, z: event.target.z + 650 }, to: { x: event.target.x, z: event.target.z - 650 }, height: 85, enter: 2, leave: 22 },
+      { type: 'presence', id: 2, until: 28 },
+    ];
+  },
 });
 
 registerCombatEvent({
@@ -365,6 +379,7 @@ registerCombatEvent({
 /** A friendly ride is the same truck or helicopter; only what the HUD and comms call it changes. */
 const FRIENDLY_BANNERS: Readonly<Record<string, { warning: string; active: string }>> = {
   'transport-land': { warning: 'FRIENDLY TRUCK INBOUND · ARMED FORCES', active: 'FRIENDLY SECTION DISMOUNTING' },
+  paratroopers: { warning: 'FRIENDLY PARATROOPERS INBOUND', active: 'FRIENDLY PARATROOPERS DESCENDING' },
   'transport-sea': { warning: 'FRIENDLY LANDING CRAFT INBOUND', active: 'FRIENDLY LANDING PARTY ASHORE' },
   'transport-air': { warning: 'FRIENDLY HELICOPTER INBOUND · ARMED FORCES', active: 'FRIENDLY SECTION FAST-ROPING IN' },
   'helicopter-raid': { warning: 'FRIENDLY GUNSHIP INBOUND · ARMED FORCES', active: 'FRIENDLY HELICOPTER PROVIDING FIRE SUPPORT' },

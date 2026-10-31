@@ -274,6 +274,7 @@ export function validCombatEvent(value: unknown, now: number, bounds?: { minX: n
     const site = SENTOSA_LANDING_SITES.find(s => s.id === e.landing);
     if (!site || !e.origin || e.origin.x !== site.entry.x || e.origin.z !== site.entry.z || e.target!.x !== site.berth.x || e.target!.z !== site.berth.z || e.altitude !== site.waterY || e.heading !== 0 || !e.troops || e.troops > 4) return false;
   } else if (e.landing !== undefined) return false;
+  if (e.kind === 'paratroopers' && (!Number.isInteger(e.troops) || e.troops! < 1 || e.troops! > 4 || e.altitude !== undefined || e.origin !== undefined || e.heading !== 0)) return false;
   if (e.troops !== undefined && (!Number.isInteger(e.troops) || e.troops < 1 || e.troops > MAX_TROOPS)) return false;
   if (e.faction !== undefined && (typeof e.faction !== 'string' || !getArenaFaction(e.faction))) return false;
   if (e.origin !== undefined && (!finitePlane(e.origin) || Math.abs(e.origin.x) > 5000 || Math.abs(e.origin.z) > 5000)) return false;

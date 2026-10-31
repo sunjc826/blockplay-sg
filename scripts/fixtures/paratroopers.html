@@ -1,0 +1,40 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Inland paratroopers</title><style>body{margin:0;background:#b9d5dd;font:15px system-ui}canvas{display:block}header{position:absolute;left:16px;top:16px;color:white;text-shadow:0 1px 3px #000}small{display:block}</style></head><body><header>Queenstown · external airborne reinforcements<small id="status">Loading</small></header><script type="module">
+import * as THREE from 'three';
+import { buildDistrictWorld } from '/src/game/district-world.ts';
+import { createArena } from '/src/game/arena-rules.ts';
+import { createArenaRuntime, validArenaSnapshot } from '/src/game/arena-runtime.ts';
+import { createCombatEventVisuals } from '/src/game/combat-event-visuals.ts';
+import { createSceneCover } from '/src/game/scene-cover.ts';
+import { createDropColumnCheck } from '/src/game/paratrooper-route-validation.ts';
+import { getWalkSurfaces, getTraversalObstacles } from '/src/game/vertical-routes.ts';
+const world=buildDistrictWorld('queenstown'),scene=world.scene,cover=createSceneCover(scene);
+const traversal={bounds:world.bounds,obstacles:world.obstacles,surfaces:getWalkSurfaces(scene),traversalObstacles:getTraversalObstacles(scene)};
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.append(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,1500);
+const visuals=createCombatEventVisuals(scene,(o,d,far)=>{const n=cover.distance(o,d,far);return n<far?o.clone().addScaledVector(d,n):null;},{reduced:()=>false});
+let arena,runtime,env,event,deliver;
+function render(dt=.05,draw=false){const s=arena.snapshot();if(!validArenaSnapshot(s,env))throw Error('Invalid host snapshot '+s.elapsed);
+ deliver('host',{type:'arena-state',snapshot:s,started:true,matchId:event.id});
+ const guest=runtime.update(dt,{x:0,y:1.75,z:0,yaw:0,pitch:0,weapon:0,playing:false}).snapshot;
+ if(guest?.tick!==s.tick)throw Error('Guest rejected snapshot');
+ visuals.update(dt,s.events??[],s.elapsed,camera,s.raiders??[],s.transports??[]);if(draw)renderer.render(scene,camera);}
+window.reviewParatroopers=(phase='descent',friendly=false)=>{
+ runtime?.dispose();visuals.reset();
+ env={...world.environment,combatEvents:undefined,heat:undefined,population:4,facilities:{sites:[]},dropColumnClear:createDropColumnCheck(cover),
+ ...(friendly?{heat:{defaults:{mercenaries:{min:0,max:0},'armed-forces':{min:1,max:1}},sectors:[]},savedReinforcementClocks:{airborne:{mercenaries:150,'armed-forces':0},naval:{mercenaries:150,'armed-forces':150},external:{mercenaries:80,'armed-forces':0}}}:{})};
+ arena=createArena(world.obstacles,0,'assault',env,undefined,traversal,cover.distance);
+ if(friendly){arena.step(.05);event=arena.snapshot().events?.find(e=>e.kind==='paratroopers');}else event=arena.triggerEvent('paratroopers');
+ if(!event)throw Error('No valid drop zone');
+ runtime=createArenaRuntime({scene,obstacles:world.obstacles,environment:env,botCount:0,session:{id:'viewer',name:'Viewer',role:'guest',send(){},subscribe(cb){deliver=cb;return()=>{}},getPeers:()=>[{id:'host',name:'Host'}],onPeers:()=>()=>{},close(){}}});
+ const time=phase==='warning'?8:phase==='descent'?18:29;
+ for(let t=0;t<time;t+=.05){arena.step(.05);render();}
+ const s=arena.snapshot(),troops=s.actors.filter(a=>a.bot&&a.alive),center=event.target;
+ if(phase==='descent'){camera.position.set(center.x+22,24,center.z+30);camera.lookAt(center.x,26,center.z);}
+ else{camera.position.set(center.x+22,15,center.z+30);camera.lookAt(center.x,3,center.z);}
+ camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();camera.updateMatrixWorld(true);renderer.setSize(innerWidth,innerHeight);render(.01,true);
+ let canopies=0;scene.traverse(o=>{if(o.name==='infantry-parachute'&&o.visible)canopies++;});
+ document.querySelector('#status').textContent=`${friendly?'Friendly':'Hostile'} · ${phase} · ${troops.length} troops · ${canopies} parachutes`;
+ return{phase,friendly,accepted:true,time:s.elapsed,canopies,actors:troops.map(a=>({id:a.id,x:a.x,y:a.y,z:a.z,parachuting:!!a.parachuting,faction:a.faction,shots:a.shots})),clocks:s.reinforcementClocks,glError:renderer.getContext().getError()};
+};
+window.reviewParatroopers();
+</script></body></html>

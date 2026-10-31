@@ -1,3 +1,4 @@
+import { createParachute } from './parachute-model';
 import { validAircrewRole, aircrewPoint, helicopterCrew, rifleSeat } from './helicopter-crew';
 import { validReinforcementClocks } from './naval-landings';
 import { validTransport } from './combat-transports';
@@ -66,6 +67,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.squad !== undefined && (typeof actor.squad !== 'string' || actor.squad.length > 100)) ||
       (actor.aircrew !== undefined && (!validAircrewRole(actor.aircrew) || typeof actor.transport !== 'string' || !actor.bot)) ||
       (actor.transport !== undefined && (typeof actor.transport !== 'string' || actor.transport.length > 100)) ||
+      (actor.parachuting !== undefined && (actor.parachuting !== true || !actor.bot || !actor.alive || actor.transport !== undefined || actor.vehicle !== undefined)) ||
       (actor.prone !== undefined && typeof actor.prone !== 'boolean') || (actor.aiming !== undefined && actor.aiming !== true) || (actor.scent !== undefined && actor.scent !== true) ||
       (actor.ground !== undefined && !(finite(actor.ground) && actor.ground >= -50 && actor.ground <= (actor.transport ? 405 : 124))) ||
       (actor.healing !== undefined && !(finite(actor.healing) && actor.healing >= 0 && actor.healing <= 1)) ||
@@ -189,6 +191,7 @@ interface Avatar {
   glint: THREE.Sprite | null;
   /** A player's spawn shield: a blue rim of light round the figure while it holds. */
   halo: { mesh: THREE.Mesh; material: THREE.ShaderMaterial; time: number } | null;
+  parachute: THREE.Group;
   reveal: THREE.Mesh;
   shots: number; flash: number; maxHealth: number; resources: { dispose(): void }[];
   alive: boolean; lastHealth: number; yaw: number; fireTimer: number; ground: number; groundTimer: number;
@@ -278,7 +281,8 @@ function createAvatar(actor: ArenaActor): Avatar {
   // A friendly squad's uniform is plain to see, so the AI pilot may read it off the figure.
   root.userData.arenaFriendly = actor.bot && actor.faction === PLAYER_FACTION;
   const color = arenaRoleColor(actor);
-  const resources: { dispose(): void }[] = [...rig.resources];
+  const parachute = createParachute(actor.faction === PLAYER_FACTION ? '#718862' : '#a48d60'); root.add(parachute.root);
+  const resources: { dispose(): void }[] = [...rig.resources, ...parachute.resources];
   let muzzle: THREE.Mesh | null = null;
   if (rig.muzzle) {
     const glow = new THREE.MeshBasicMaterial({ color: '#ffce72', transparent: true, opacity: 0.9 }), geometry = new THREE.BoxGeometry(0.11, 0.1, 0.18);
@@ -308,7 +312,7 @@ function createAvatar(actor: ArenaActor): Avatar {
   const reveal = new THREE.Mesh(revealGeo, revealMat); reveal.position.y = 1; reveal.visible = false; reveal.raycast = noRaycast; reveal.renderOrder = 10; root.add(reveal); resources.push(revealGeo, revealMat);
   const halo = actor.bot ? null : createHalo(resources);
   if (halo) root.add(halo.mesh);
-  return { key: avatarKey(actor), reveal, rig, root, health, label, muzzle, glint, halo, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources,
+  return { key: avatarKey(actor), parachute: parachute.root, reveal, rig, root, health, label, muzzle, glint, halo, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources,
     alive: actor.alive, lastHealth: actor.health, yaw: actor.yaw, fireTimer: 0, ground: 0, groundTimer: 0, previous: new THREE.Vector3(), velocity: new THREE.Vector3(), bubble: null };
 }
 /** A soft star for scope glint, shared by every sniper and never disposed with one. */
@@ -325,8 +329,9 @@ function glintTexture() {
 /** Falling bodies stay visible briefly but never stop a shot or read as a target. */
 function setAvatarDown(avatar: Avatar, down: boolean) {
   avatar.rig.setDown(down); avatar.root.userData.arenaDown = down;
-  avatar.root.traverse(node => { if (node instanceof THREE.Mesh && node !== avatar.muzzle && node !== avatar.halo?.mesh) node.raycast = down ? noRaycast : THREE.Mesh.prototype.raycast; });
+  avatar.root.traverse(node => { if (node instanceof THREE.Mesh && node !== avatar.muzzle && node !== avatar.halo?.mesh && !isParachutePart(node, avatar.parachute)) node.raycast = down ? noRaycast : THREE.Mesh.prototype.raycast; });
 }
+function isParachutePart(node: THREE.Object3D, root: THREE.Object3D) { for (let p: THREE.Object3D | null = node; p; p = p.parent) if (p === root) return true; return false; }
 const ARENA_CORPSE_SECONDS = 1.6;
 const wrapAngle = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));
 
@@ -499,6 +504,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   const destination = new THREE.Vector3(), local = { x: 0, z: 0 };
   function animateAvatar(avatar: Avatar, actor: ArenaActor, dt: number) {
     const { rig, root } = avatar;
+    avatar.parachute.visible = actor.alive && actor.parachuting === true;
     if (!actor.alive && avatar.alive) setAvatarDown(avatar, true);
     else if (actor.alive && !avatar.alive) { setAvatarDown(avatar, false); avatar.groundTimer = 0; }
     const respawned = actor.alive && !avatar.alive;

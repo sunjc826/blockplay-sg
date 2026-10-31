@@ -120,3 +120,15 @@ it('keeps distant facility directions at the compact map edge', () => {
   ]} />);
   expect(html).toContain('data-minimap-marker="enemy-post" data-marker-kind="facility" data-edge="true"');
 });
+
+
+it('shows faction-colored parachute directions and ETA at either map size, respecting jamming', () => {
+  for (const expanded of [false, true]) {
+    const props = { zone: 'queenstown' as const, player: { x: 0, z: 0, yaw: 0 }, mode: 'expedition' as const, expanded, markers: [
+      { id: 'drop', x: 180, z: 180, kind: 'parachute' as const, label: 'Friendly paratroopers · Drop in 12s', side: 'ally' as const },
+    ] };
+    const html = renderToStaticMarkup(<FpsMinimap {...props} />);
+    expect(html).toContain('data-marker-kind="parachute"'); expect(html).toContain('Drop in 12s'); expect(html).toContain('fill="#70cfff"');
+    expect(renderToStaticMarkup(<FpsMinimap {...props} jammed />)).not.toContain('data-marker-kind="parachute"');
+  }
+});

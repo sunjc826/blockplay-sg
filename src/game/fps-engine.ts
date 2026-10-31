@@ -1,3 +1,4 @@
+import { createDropColumnCheck } from './paratrooper-route-validation';
 import { createRangeDirector, rangeTargetRise, rangeTargetHeight, validRangeDrill, RANGE_DURATION, type RangeDrillId, type RangeDrillView } from './range-drills';
 import { resupplyEquipment, rangeEquipmentStock } from './equipment-resupply';
 import { createRangeResupply, rangeResupplyPoint } from './range-resupply';
@@ -322,6 +323,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const facilityVisuals = createFacilityVisuals(world.scene, facilitySites);
   const objectiveBeacons = expedition ? createObjectiveBeacons(world.scene, facilitySites) : null;
   const facilityCover = createSceneCover(world.scene);
+  if (options.arena?.environment?.paratroopers) options.arena.environment.dropColumnClear = createDropColumnCheck(facilityCover);
   const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { spawns: fleetSpawns, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay', exitFloor: (x, z) => footMovement.supportHeight(x, z, MAX_STEP_HEIGHT, .38, 1.8) });
   const deploymentPoints = expedition && !expedition.checkpoint && !expedition.spawn ? districtDeploymentPoints(expedition.zone, (x, z) =>
     footMovement.canOccupy(x, 0, z, .5, 1.8) && Math.abs(footMovement.supportHeight(x, z, .1, .4, 1.8) ?? 100) < .05 &&
@@ -599,6 +601,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}-${targets[index].activation}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(rangeStation ? [{ id: 'range-resupply', x: rangeStation.point.x, z: rangeStation.point.z, kind: 'loot' as const, label: 'Range resupply · ammo, grenades & utilities' }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
+        ...(hud.arena?.events ?? []).filter(e => e.kind === 'paratroopers' && (hud.arena?.elapsed ?? 0) - e.start <= 28).map((e): MinimapMarker => ({
+          id: `parachute-${e.id}`, x: e.target.x, z: e.target.z, kind: 'parachute', side: e.faction === PLAYER_FACTION ? 'ally' : 'enemy',
+          label: `${e.faction === PLAYER_FACTION ? 'Friendly' : 'Hostile'} paratroopers · ${(hud.arena?.elapsed ?? 0) < e.start + 12 ? `Drop in ${Math.ceil(e.start + 12 - (hud.arena?.elapsed ?? 0))}s` : 'Landing zone'}`,
+        })),
         ...(hud.arena?.transports ?? []).filter(t => t.mode === 'sea' && t.visible && t.state !== 'departed').map((t): MinimapMarker => {
           const event = hud.arena?.events?.find(e => e.id === t.event), friendly = event?.faction === PLAYER_FACTION;
           const coast = SENTOSA_LANDING_SITES.find(s => s.id === event?.landing)?.name ?? 'Coast';
@@ -2751,6 +2757,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const named = `${event.faction === 'armed-forces' ? 'FRIENDLY ' : ''}${plugin.name.toUpperCase()}`;
       const coast = event.landing ? SENTOSA_LANDING_SITES.find(s => s.id === event.landing)?.name : undefined;
       comms.add('system', threat && near ? 'Fire control' : 'Intel', near ? `${bannerOf(event, plugin).warning} · ${whereFrom(event.target)}` : `${named} · ${whereFrom(event.target)}`);
+      if (event.kind === 'paratroopers') comms.add('system', 'Air control', `${whereFrom(event.target)} · Drop in ${Math.max(0, Math.ceil(event.start + 12 - eventClock))}s`);
       if (coast) comms.add('system', 'Naval control', `${coast} · ETA ${Math.max(0, Math.ceil(event.start + NAVAL_LANDING.approach + NAVAL_LANDING.rampSeconds - eventClock))}s`);
       if (threat && near) combatAudio.alert();
     }
@@ -2787,7 +2794,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         } else if (payload.type === 'flyer') {
           const pose = flyerPose(payload, age); if (pose.visible) jet = Math.min(jet, Math.hypot(pose.x - listener.x, pose.y, pose.z - listener.z));
         } else if (payload.type === 'marker' && age >= payload.from && age <= payload.until) {
-          dangers.push({ id: `${event.id}/${payload.id}`, x: payload.center.x, z: payload.center.z, radius: payload.radius, kind: plugin.hazard ? 'ring' : 'crate' });
+          if (event.kind !== 'paratroopers') dangers.push({ id: `${event.id}/${payload.id}`, x: payload.center.x, z: payload.center.z, radius: payload.radius, kind: plugin.hazard ? 'ring' : 'crate' });
+          if (event.kind === 'paratroopers' && !far) offer(`${age < plugin.warning ? bannerOf(event, plugin).warning + ' · ' + countdown : bannerOf(event, plugin).active} · ${whereFrom(event.target)}`, 'notice', 2);
           if (!plugin.hazard || far) continue;
           const inside = Math.hypot(position.x - payload.center.x, position.z - payload.center.z) < payload.radius + 12;
           const crew = event.kind === 'mortar' && event.origin && event.ended === undefined ? ` · crew ${whereFrom(event.origin)}` : '';

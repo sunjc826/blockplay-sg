@@ -114,7 +114,13 @@ external transports share an 80-second minimum dispatch gap. Incoming craft are
 announced in comms and marked on the map. Destroying the boat loses troops still
 aboard; already landed soldiers continue fighting. Menu-open expeditions remain
 active, while district travel saves the remaining clocks. Other districts are
-not enabled. See [naval landing rules and validation](NAVAL-LANDINGS.md).
+not enabled for boats. See [naval landing rules and validation](NAVAL-LANDINGS.md).
+
+The twelve inland districts instead support [paratrooper drops](PARATROOPERS.md),
+independent of post ownership, with the same four-person manifest, 150-second
+interval and shared eighty-second external gate. A warning and cargo flyover
+precede vulnerable infantry descending under parachutes to validated open ground.
+Booked casualties cannot also deploy through a command post.
 
 Bots are grouped into stable squads of up to four, with shared facility
 objectives and spaced approach positions. An available surviving member leads
