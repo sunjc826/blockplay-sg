@@ -124,6 +124,7 @@ import { COASTAL_SEA, type AmbientKind } from './ambient-sky';
 import { gunfireReports } from './gunfire-reports';
 import { createGunshotAudio, gunshotTone } from './gunshot-audio';
 import { createImpactAudio, type ImpactSurface } from './impact-audio';
+import { createReloadAudio } from './reload-audio';
 import { createSfxBank, type SfxGroup } from './sfx-bank';
 import { getEnvironmentSettings } from './environment-settings';
 import { createHitDirectionOverlay, createHitDirections, hitStrength } from './fps-hit-direction';
@@ -417,6 +418,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const sfx = createSfxBank();
   const gunshots = createGunshotAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx);
   const impactAudio = createImpactAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx);
+  const reloadAudio = createReloadAudio(() => audio, () => hud.muted || !['playing', 'deploying'].includes(hud.phase), sfx);
   // Scenery in the sky beyond the district: never a threat, never sent between peers (ambient-sky).
   // Roost sampling runs before the first render, so static world transforms must be ready.
   world.scene.updateMatrixWorld(true);
@@ -646,6 +648,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function pause() {
     gunshots.clear();
     impactAudio.clear();
+    reloadAudio.clear();
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); hud.pilotStatus = 'Player controls'; hud.pilotGoal = null; hud.pilotContacts = 0;
     capturePending = false;
     if (!['playing', 'deploying'].includes(hud.phase)) return;
@@ -704,17 +707,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); panner.disconnect(); };
     return true;
   }
-  const HANDLING_TAKES: Record<string, [SfxGroup, number]> = { 'MAG OUT': ['mag-out', .2], 'MAG IN': ['mag-in', .22], 'SEAT MAG': ['mag-seat', .28], 'BOLT BACK': ['bolt-back', .24], CHAMBER: ['bolt-release', .3] };
   function handlingSound(stage: string) {
-    if (!audio || !soundBuffer || hud.muted || audio.state !== 'running') return;
-    const recorded = HANDLING_TAKES[stage]; if (recorded && playTake(...recorded)) return;
-    const source = audio.createBufferSource(), filter = audio.createBiquadFilter(), gain = audio.createGain();
-    // The rack back is a long scrape and the release a sharp, loud slam.
-    source.buffer = soundBuffer; source.playbackRate.value = stage === 'MAG IN' ? .65 : stage === 'BOLT BACK' ? .8 : stage === 'CHAMBER' ? 1.7 : 1.4;
-    filter.type = 'bandpass'; filter.frequency.value = stage === 'CHAMBER' ? 2300 : stage === 'BOLT BACK' ? 1600 : 1000; filter.Q.value = .7;
-    gain.gain.value = stage === 'MAG IN' ? .16 : stage === 'CHAMBER' ? .2 : stage === 'BOLT BACK' ? .12 : .09;
-    source.connect(filter).connect(gain).connect(audio.destination); source.start();
-    source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
+    reloadAudio.play(specs[hud.weapon], stage);
   }
   /** A switch click, and on a tube the rising whine of its power supply. */
   function visionSound(step: 'on' | 'off' | 'palette', kind: VisionKind) {
@@ -861,6 +855,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** Stops the held weapon's reload, keeping its progress if no rounds went in yet. */
   function stopReload() {
+    reloadAudio.clear();
     if (!interruptReload(loadout[hud.weapon], hud.weapon, specs)) return;
     lastReloadStage = ''; publish();
   }
@@ -878,6 +873,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function reset() {
     gunshots.clear();
     impactAudio.clear();
+    reloadAudio.clear();
     if (hud.phase === 'loading' || hud.phase === 'error') return;
     if (options.arena?.session.role === 'guest') return;
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset();
@@ -3042,6 +3038,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     effects.update(realDt, camera, brassFloor + .004);
     impactAudio.update();
     gunshots.update();
+    reloadAudio.update();
     // One string, written only when it changes, so a browser smoke can watch
     // the pools without the frame paying for four attribute writes.
     const live = effects.counts, census = `${live.casings}/${live.impacts}/${live.sparks}/${live.scorches}`;
@@ -3238,7 +3235,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     chooseFood, closeFoodPicker: () => closeFoodPicker(),
     toggleVision: () => useVision('toggle'), cycleVisionPalette: () => useVision('palette'), pressVision: () => useVision('button'),
     toggleEncikVoice() { hud.encikVoice = !hud.encikVoice; if (!hud.encikVoice) stopVoice(); publish(); },
-    toggleSound() { hud.muted = !hud.muted; if (hud.muted) { stopVoice(); impactAudio.clear(); gunshots.clear(); } if (hud.phase === 'playing') { canvas.focus({ preventScroll: true }); if (!hud.muted) initAudio(); } publish(); },
+    toggleSound() { hud.muted = !hud.muted; if (hud.muted) { stopVoice(); impactAudio.clear(); gunshots.clear(); reloadAudio.clear(); } if (hud.phase === 'playing') { canvas.focus({ preventScroll: true }); if (!hud.muted) initAudio(); } publish(); },
     dispose() {
       const infrastructure = arenaRuntime?.getWorldState();
       if (expedition && infrastructure) expedition.infrastructure?.set(expedition.zone, infrastructure);
@@ -3257,7 +3254,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // First, so every mesh has its own material back before anything else restores or disposes them.
       vision.dispose(); lens.dispose(); deploymentBlur.dispose(); overview.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
-      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); impactAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
+      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); impactAudio.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       rangeStation?.dispose();
       scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); grenadeHands.dispose(); grenadeVisuals.dispose(); sunShadows.dispose(); occlusion.dispose(); renderer.dispose(); canvas.remove();

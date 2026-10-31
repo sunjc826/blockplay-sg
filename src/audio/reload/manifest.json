@@ -1,0 +1,810 @@
+{
+  "version": 1,
+  "provider": "ElevenLabs",
+  "model": "eleven_text_to_sound_v3",
+  "processing": "44100 Hz mono; silence trimmed; fixed per-mechanism maximum length; 20 ms fade; peak <= .9 and loudest 50 ms RMS <= .23; original pitch and speed",
+  "groups": {
+    "reload-pistol-out": [
+      {
+        "file": "reload-pistol-out-0f23f29328.mp3",
+        "seconds": 0.13312925170068027
+      }
+    ],
+    "reload-pistol-in": [
+      {
+        "file": "reload-pistol-in-2758b774c1.mp3",
+        "seconds": 0.15090702947845805
+      }
+    ],
+    "reload-pistol-seat": [
+      {
+        "file": "reload-pistol-seat-227b8887c5.mp3",
+        "seconds": 0.10188208616780045
+      }
+    ],
+    "reload-pistol-back": [
+      {
+        "file": "reload-pistol-back-6c6d530129.mp3",
+        "seconds": 0.1865079365079365
+      }
+    ],
+    "reload-pistol-release": [
+      {
+        "file": "reload-pistol-release-bf39bf55fe.mp3",
+        "seconds": 0.10435374149659864
+      }
+    ],
+    "reload-bullpup-out": [
+      {
+        "file": "reload-bullpup-out-31636e5739.mp3",
+        "seconds": 0.28
+      }
+    ],
+    "reload-bullpup-in": [
+      {
+        "file": "reload-bullpup-in-f4ba257b13.mp3",
+        "seconds": 0.28
+      }
+    ],
+    "reload-bullpup-seat": [
+      {
+        "file": "reload-bullpup-seat-a2890513ee.mp3",
+        "seconds": 0.28
+      }
+    ],
+    "reload-bullpup-back": [
+      {
+        "file": "reload-bullpup-back-a242adb8db.mp3",
+        "seconds": 0.1537641723356009
+      }
+    ],
+    "reload-bullpup-release": [
+      {
+        "file": "reload-bullpup-release-d1977fdfa6.mp3",
+        "seconds": 0.25764172335600904
+      }
+    ],
+    "reload-carbine-out": [
+      {
+        "file": "reload-carbine-out-7a51e1a6ce.mp3",
+        "seconds": 0.088140589569161
+      }
+    ],
+    "reload-carbine-in": [
+      {
+        "file": "reload-carbine-in-dc1265787c.mp3",
+        "seconds": 0.26
+      }
+    ],
+    "reload-carbine-seat": [
+      {
+        "file": "reload-carbine-seat-1db4325325.mp3",
+        "seconds": 0.08154195011337868
+      }
+    ],
+    "reload-carbine-back": [
+      {
+        "file": "reload-carbine-back-e8d63c9105.mp3",
+        "seconds": 0.26
+      }
+    ],
+    "reload-carbine-release": [
+      {
+        "file": "reload-carbine-release-e093244ea4.mp3",
+        "seconds": 0.11331065759637188
+      }
+    ],
+    "reload-rifle-out": [
+      {
+        "file": "reload-rifle-out-93f658974b.mp3",
+        "seconds": 0.27485260770975056
+      }
+    ],
+    "reload-rifle-in": [
+      {
+        "file": "reload-rifle-in-493cf714b2.mp3",
+        "seconds": 0.18714285714285714
+      }
+    ],
+    "reload-rifle-seat": [
+      {
+        "file": "reload-rifle-seat-d1e7dd8e06.mp3",
+        "seconds": 0.18603174603174602
+      }
+    ],
+    "reload-rifle-back": [
+      {
+        "file": "reload-rifle-back-7b393503a2.mp3",
+        "seconds": 0.28
+      }
+    ],
+    "reload-rifle-release": [
+      {
+        "file": "reload-rifle-release-980e2ca5d0.mp3",
+        "seconds": 0.17494331065759638
+      }
+    ],
+    "reload-drum-out": [
+      {
+        "file": "reload-drum-out-2da4dd130d.mp3",
+        "seconds": 0.36
+      }
+    ],
+    "reload-drum-in": [
+      {
+        "file": "reload-drum-in-aa5b2051de.mp3",
+        "seconds": 0.17868480725623584
+      }
+    ],
+    "reload-drum-seat": [
+      {
+        "file": "reload-drum-seat-51de7114ec.mp3",
+        "seconds": 0.36
+      }
+    ],
+    "reload-drum-back": [
+      {
+        "file": "reload-drum-back-b321ee4d0d.mp3",
+        "seconds": 0.36
+      }
+    ],
+    "reload-drum-release": [
+      {
+        "file": "reload-drum-release-4bf48fd4d9.mp3",
+        "seconds": 0.3517687074829932
+      }
+    ],
+    "reload-light-belt-out": [
+      {
+        "file": "reload-light-belt-out-3ef8ecab31.mp3",
+        "seconds": 0.31272108843537416
+      }
+    ],
+    "reload-light-belt-in": [
+      {
+        "file": "reload-light-belt-in-b12a2de56b.mp3",
+        "seconds": 0.13995464852607709
+      }
+    ],
+    "reload-light-belt-seat": [
+      {
+        "file": "reload-light-belt-seat-53f3675ff8.mp3",
+        "seconds": 0.14253968253968255
+      }
+    ],
+    "reload-light-belt-back": [
+      {
+        "file": "reload-light-belt-back-199307e1ef.mp3",
+        "seconds": 0.21290249433106576
+      }
+    ],
+    "reload-light-belt-release": [
+      {
+        "file": "reload-light-belt-release-35d2ab7a19.mp3",
+        "seconds": 0.25253968253968256
+      }
+    ],
+    "reload-belt-out": [
+      {
+        "file": "reload-belt-out-0613bfacf5.mp3",
+        "seconds": 0.1926984126984127
+      }
+    ],
+    "reload-belt-in": [
+      {
+        "file": "reload-belt-in-e5a9eb1528.mp3",
+        "seconds": 0.2219501133786848
+      }
+    ],
+    "reload-belt-seat": [
+      {
+        "file": "reload-belt-seat-fbe6c8a0e4.mp3",
+        "seconds": 0.19990929705215418
+      }
+    ],
+    "reload-belt-back": [
+      {
+        "file": "reload-belt-back-e1e4135879.mp3",
+        "seconds": 0.3090249433106576
+      }
+    ],
+    "reload-belt-release": [
+      {
+        "file": "reload-belt-release-533166b4a2.mp3",
+        "seconds": 0.20156462585034013
+      }
+    ],
+    "reload-heavy-belt-out": [
+      {
+        "file": "reload-heavy-belt-out-10d1e6d7b4.mp3",
+        "seconds": 0.44
+      }
+    ],
+    "reload-heavy-belt-in": [
+      {
+        "file": "reload-heavy-belt-in-5cdc8a1d71.mp3",
+        "seconds": 0.19639455782312926
+      }
+    ],
+    "reload-heavy-belt-seat": [
+      {
+        "file": "reload-heavy-belt-seat-d0ebb41ffe.mp3",
+        "seconds": 0.23337868480725624
+      }
+    ],
+    "reload-heavy-belt-back": [
+      {
+        "file": "reload-heavy-belt-back-ea1ca42231.mp3",
+        "seconds": 0.12546485260770976
+      }
+    ],
+    "reload-heavy-belt-release": [
+      {
+        "file": "reload-heavy-belt-release-950c8e44ce.mp3",
+        "seconds": 0.2234467120181406
+      }
+    ]
+  },
+  "receipts": [
+    {
+      "id": "reload-pistol-out",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "HK P30 compact 9mm pistol with a small polymer grip and light steel slide. The magazine release clicks and the empty box magazine slides out of the magazine well, one compact dry click and a short sliding scrape. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "a1b38cd19c1c5a69b7459c33896967752099c95c3649240d0e685707c8fc87f6",
+      "sha256": "0f23f29328a1d67f69b7e38b525b86b2d9a4f173225b74e980100a5bbbceb180",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0
+    },
+    {
+      "id": "reload-pistol-in",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "HK P30 compact 9mm pistol with a small polymer grip and light steel slide. A loaded box magazine slides into the magazine well, a short close sliding friction sound ending in a solid compact clack. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "1eef0f18c3aff90b570ffd4aacf00e2f85af74b2941aed04ef21b756227182f3",
+      "sha256": "2758b774c17b9517e245989c6cfcfc0a14f7890fe2ba5987e430dacca868db50",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.10462585034013605
+    },
+    {
+      "id": "reload-pistol-seat",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "HK P30 compact 9mm pistol with a small polymer grip and light steel slide. The base of the box magazine is tapped firmly home, one compact blunt palm slap and a tiny locking latch click. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "c3583fa09407ab2d3ef4b338a8cf1bdae68466355e20d4e1f21e5a99a6fea7be",
+      "sha256": "227b8887c516c8579d90296a95026d30b66736b192f4bcd491e30a0bddb0e7f3",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.008594104308390022
+    },
+    {
+      "id": "reload-pistol-back",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "HK P30 compact 9mm pistol with a small polymer grip and light steel slide. The pistol slide is racked sharply back, a short light steel slide scrape ending in a crisp click. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "043937972d30ec82e3ec3eb003e2a6af8eb22938d41c4943824982e2ce80c408",
+      "sha256": "6c6d530129c0259351b7085f34b28ccb3da3472d0d60c0e2b960c2d43e612b3f",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0
+    },
+    {
+      "id": "reload-pistol-release",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "HK P30 compact 9mm pistol with a small polymer grip and light steel slide. The pistol slide release sends the slide sharply forward, one very crisp light steel snap. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "b67e1ebb50a3a01823378716682090a726bd134006d51c6d6fd8730402e1b8c4",
+      "sha256": "bf39bf55fe6a220ca7fac3270f5c957124af5f82384cdd23443a84f4ce750359",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.03335600907029478
+    },
+    {
+      "id": "reload-bullpup-out",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "SAR 21 bullpup rifle with a hollow polymer stock and rear magazine well. The magazine release clicks and the empty box magazine slides out of the magazine well, one compact dry click and a short sliding scrape. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "37fce922291a33e884b7540cd455a78e767e0277fbbf8513fbc3d7ad5797deaf",
+      "sha256": "31636e57390c2ecad177039075861d8e2d4bb9d46c6547c7cdee9f8395c163e6",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.03390022675736962
+    },
+    {
+      "id": "reload-bullpup-in",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "SAR 21 bullpup rifle with a hollow polymer stock and rear magazine well. A loaded box magazine slides into the magazine well, a short close sliding friction sound ending in a solid compact clack. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "590b0eb51aa6be9aec5d0adf49f154d4c5d00ec807155c7172128eae5dafb787",
+      "sha256": "f4ba257b138e3ef23ae831280b299c37ff9937b8a55fb6ee563b7e83e2885412",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.0029705215419501135
+    },
+    {
+      "id": "reload-bullpup-seat",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "SAR 21 bullpup rifle with a hollow polymer stock and rear magazine well. The base of the box magazine is tapped firmly home, one compact blunt palm slap and a tiny locking latch click. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "37882e71d6a2fbf44d5862be85e3160727c663a456bff5663cc41f84a453b000",
+      "sha256": "a2890513eecf18955f06fb76d6726bdf83e2b84d3c7d6f578f31baed0eb02d56",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.07811791383219954
+    },
+    {
+      "id": "reload-bullpup-back",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "SAR 21 bullpup rifle with a hollow polymer stock and rear magazine well. The charging handle pulls the bolt carrier back, a short spring-loaded sliding metal scrape ending in a crisp stop. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "6886e04a036e3435c43be80f2eb5f7ee1b3b9439c0e7e2975e5dc1256f4bd974",
+      "sha256": "a242adb8dbe46881774d11989a9d2a063ea9a509506c65bf9cfbf42aaa37e9bd",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.21988662131519274
+    },
+    {
+      "id": "reload-bullpup-release",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "SAR 21 bullpup rifle with a hollow polymer stock and rear magazine well. The bolt release sends the steel bolt carrier sharply forward, one solid short mechanical chambering clack. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "0ec49aaf271151fa5585ceeace7d83ad9b6377006a04b505a591c4409722827e",
+      "sha256": "d1977fdfa6e9c4b3fe26650460ef425a03f970163bbfb0dc39ae17cdcbcfd65d",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.0263718820861678
+    },
+    {
+      "id": "reload-carbine-out",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM8 lightweight polymer carbine with a compact plastic receiver. The magazine release clicks and the empty box magazine slides out of the magazine well, one compact dry click and a short sliding scrape. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "d4db28895912eb581d93caf6a03a3c07cd608deef02b322a12acf21887be4bc8",
+      "sha256": "7a51e1a6ce43605233b4f7b02e766e77476bfa1a8d911483433da31a10e436a9",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.02945578231292517
+    },
+    {
+      "id": "reload-carbine-in",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM8 lightweight polymer carbine with a compact plastic receiver. A loaded box magazine slides into the magazine well, a short close sliding friction sound ending in a solid compact clack. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "efe36041e7ebd473e2668546c2632dc818bf9a90ff35f23c81f61c3cb1facea8",
+      "sha256": "dc1265787c4d50f2a54b48e5ac2579af9366bd1b997bb70bceedcb8214b9fe81",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.008458049886621315
+    },
+    {
+      "id": "reload-carbine-seat",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM8 lightweight polymer carbine with a compact plastic receiver. The base of the box magazine is tapped firmly home, one compact blunt palm slap and a tiny locking latch click. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "7ee5b542d548ff5e70327d92f36271505993953b83d10baf178ea6caa34ddef5",
+      "sha256": "1db4325325d525d24aee142d4aa04082cf0c3fc2f8e86c5fbdec29f46b21ff3a",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.014399092970521542
+    },
+    {
+      "id": "reload-carbine-back",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM8 lightweight polymer carbine with a compact plastic receiver. The charging handle pulls the bolt carrier back, a short spring-loaded sliding metal scrape ending in a crisp stop. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "20c89c5f1a5573b44834dd7534c07f744c4cf3f52c3f585b3f599fa8da244c5d",
+      "sha256": "e8d63c91058eaca4a436afb26249f6cf9a902ba9c36e33c605c1935d4454071b",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.09040816326530612
+    },
+    {
+      "id": "reload-carbine-release",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM8 lightweight polymer carbine with a compact plastic receiver. The bolt release sends the steel bolt carrier sharply forward, one solid short mechanical chambering clack. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "bd1631a58b4724052cb9a3130f56f02d7ee1fdbb046da1db243b46c6cc270282",
+      "sha256": "e093244ea419312df5ede2f74e6e3c5cd12a1000287464420cdc932e798d7da1",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.13698412698412699
+    },
+    {
+      "id": "reload-rifle-out",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "G36 polymer assault rifle with a longer receiver and steel bolt carrier. The magazine release clicks and the empty box magazine slides out of the magazine well, one compact dry click and a short sliding scrape. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "fbad9e7807590a73bb52835775a83e0d0861d1ccb28c899285fbd61f2390bda0",
+      "sha256": "93f658974b1367304a9550e6d4ddd86828ed8d9dd42d5d15226d9886e14440c0",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.07544217687074829
+    },
+    {
+      "id": "reload-rifle-in",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "G36 polymer assault rifle with a longer receiver and steel bolt carrier. A loaded box magazine slides into the magazine well, a short close sliding friction sound ending in a solid compact clack. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "a7681527e3fc35753130dc778ee7078227613247b457b8a49c5cf4a5815376ae",
+      "sha256": "493cf714b2b4d1d98826c5eff47988f23ffbf3688598e7b850b0a93eb0979c49",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.13052154195011337
+    },
+    {
+      "id": "reload-rifle-seat",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "G36 polymer assault rifle with a longer receiver and steel bolt carrier. The base of the box magazine is tapped firmly home, one compact blunt palm slap and a tiny locking latch click. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "12d47d015ada18ad8144249b8b50036421fb0d56ad82fd0102401e0c77765ce7",
+      "sha256": "d1e7dd8e068c70ee98a972167053e2aa46176e1a5585be3c6ed6331079139c6b",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.030272108843537416
+    },
+    {
+      "id": "reload-rifle-back",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "G36 polymer assault rifle with a longer receiver and steel bolt carrier. The charging handle pulls the bolt carrier back, a short spring-loaded sliding metal scrape ending in a crisp stop. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "63f2811c7b8675f53356ec174afab2e3da84fdf2cacc18e7d90da7685e07c810",
+      "sha256": "7b393503a23146945d296d50072d5690108d60fb6028c63a387fee77b0f3187e",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.027210884353741496
+    },
+    {
+      "id": "reload-rifle-release",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "G36 polymer assault rifle with a longer receiver and steel bolt carrier. The bolt release sends the steel bolt carrier sharply forward, one solid short mechanical chambering clack. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "119f2cce46da75a58bfc816856381bb07dd3db52acb1abf5cb1710e862c67f44",
+      "sha256": "980e2ca5d0cec87aea336eea5a6bb2b49a3ff78f2175bbf3e9fc77a8772c06ac",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.1579591836734694
+    },
+    {
+      "id": "reload-drum-out",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "Ultimax light machine gun with a large hollow metal ammunition drum. The drum magazine latch releases, a large hollow ammunition drum pulls free with a hollow metal clonk and brief internal cartridge rattle. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "721627651bffc85ccc4477899cb0a9c63172e5a6538ca0e112baf4ba59338fa3",
+      "sha256": "2da4dd130dc83d94be05a369e70e4aeaae243fc79ee13def37808329f2d3a245",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.07129251700680272
+    },
+    {
+      "id": "reload-drum-in",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "Ultimax light machine gun with a large hollow metal ammunition drum. A heavy loaded cylindrical drum magazine is pushed into the receiver, a hollow resonant metal clunk and brief cartridge rattle. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "cdb319d1482d076922446f3840e3ad3eec52f7cdd8988b361981293a47ca6faa",
+      "sha256": "aa5b2051dea633c34a3df1700b4a8e3a34342262fe2665fd04c4724718e66a83",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.00873015873015873
+    },
+    {
+      "id": "reload-drum-seat",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "Ultimax light machine gun with a large hollow metal ammunition drum. The bottom of a large hollow metal ammunition drum is tapped firmly to seat its latch, a low hollow clonk followed by a small latch click. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "d7de7768373cc86556edd40863a941984d9cd190e4cafae69f1a43207ee53f70",
+      "sha256": "51de7114ecd8a9e2ceb5717a35fd97a9b857507529b374b14ba7073968d80c8b",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.02233560090702948
+    },
+    {
+      "id": "reload-drum-back",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "Ultimax light machine gun with a large hollow metal ammunition drum. The long machine-gun charging handle is pulled back, gritty sliding metal and a firm spring-loaded rear stop clack. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "449605020434ba9b100808e87504df16fae781f02b2bc4c98ff1d36fb90a2b2f",
+      "sha256": "b321ee4d0dea86339590f9faed099466270065fa4829d67482b5caf175a7a881",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.015170068027210885
+    },
+    {
+      "id": "reload-drum-release",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "Ultimax light machine gun with a large hollow metal ammunition drum. The open-bolt charging assembly catches in its ready position, a firm steel sear clack and tiny short spring rattle, no firing. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "edc79e1f6a31427fa8133313db0a50a6dc6c376d82a029f29a6e8d222094d4b6",
+      "sha256": "4bf48fd4d98e8a05f484751aa6ebf86004ed01557c8d77290db993b36605acc9",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0
+    },
+    {
+      "id": "reload-light-belt-out",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "MG4 belt-fed 5.56mm light machine gun with a light steel top feed cover. The feed cover latch clicks open, the hinged metal lid lifts with a short hinge scrape and loose ammunition links jingle briefly. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "de1e6b1a8cc147a485a71ede2ced3096039a6fee971b07367b6979e2b3caeb86",
+      "sha256": "3ef8ecab315a59d90f2a18a5c8a013827f71d65a10bb5a10fc6e78bcc17aee27",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.03578231292517007
+    },
+    {
+      "id": "reload-light-belt-in",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "MG4 belt-fed 5.56mm light machine gun with a light steel top feed cover. A short belt of brass cartridges and steel links is laid across the feed tray, several close irregular metallic link ticks and a small tray clink. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "4c7bdf6311c56c37ed5f2f75af778a0d88dc94c712b00b46134b8b6912170971",
+      "sha256": "b12a2de56b86927f26bc00c0ca11dcba76d36a3494f259a3fe8fcc03800c36ee",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.13560090702947847
+    },
+    {
+      "id": "reload-light-belt-seat",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "MG4 belt-fed 5.56mm light machine gun with a light steel top feed cover. The top feed cover is slapped shut firmly, a solid broad metal lid clack followed immediately by the latch snapping closed. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "b51ae9db5fad9cb9f2fa2f4a6037a7aaaf08e6df1708f96b662c2359e22dda09",
+      "sha256": "53f3675ff8501d90a6018d83b6408a987771cc59eb8d70ff391057c9e1b120d9",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.01217687074829932
+    },
+    {
+      "id": "reload-light-belt-back",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "MG4 belt-fed 5.56mm light machine gun with a light steel top feed cover. The charging handle is pulled back against its spring, a short gritty steel-on-steel ratchet ending in a hard rear stop clunk. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "765de82bc013a53d43e9aa0150fd48663b7691415e51c9973191967a21f930b0",
+      "sha256": "199307e1effb278d278301471baa9d9eb0a209c4bcf5c4a785c089d08eab1db1",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0
+    },
+    {
+      "id": "reload-light-belt-release",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "MG4 belt-fed 5.56mm light machine gun with a light steel top feed cover. The heavy bolt carrier snaps forward under spring force, a sharp dense mechanical steel slam with a tiny ammunition-link rattle. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "4fe5be7bc031da78b33a0b425cc115b13dfc0937078e1c66e7368d784a65ed1f",
+      "sha256": "35d2ab7a196cd2f50a3ec21c6357118b50810edbf951bbd77074a5130520d813",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.0067346938775510205
+    },
+    {
+      "id": "reload-belt-out",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "FN MAG belt-fed 7.62mm machine gun with a substantial steel receiver and hinged top feed cover. The feed cover latch clicks open, the hinged metal lid lifts with a short hinge scrape and loose ammunition links jingle briefly. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "6b5bd2dd309ac55fd9a29127045b1eccb64da356c450dcff552c1782e89d06f3",
+      "sha256": "0613bfacf563ff78831e4db2a3d5c79743b51428ca086f979efb92f7a5e91690",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.08700680272108843
+    },
+    {
+      "id": "reload-belt-in",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "FN MAG belt-fed 7.62mm machine gun with a substantial steel receiver and hinged top feed cover. A short belt of brass cartridges and steel links is laid across the feed tray, several close irregular metallic link ticks and a small tray clink. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "7d3710643f2d69cea4d67b4fbc2930b53ae1ed340f3fd0c84f98dca29ef1d9a0",
+      "sha256": "e5a9eb1528b403b33291908221f2804c527b4b68a459cece9b0fe2b9f679228a",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.024195011337868482
+    },
+    {
+      "id": "reload-belt-seat",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "FN MAG belt-fed 7.62mm machine gun with a substantial steel receiver and hinged top feed cover. The top feed cover is slapped shut firmly, a solid broad metal lid clack followed immediately by the latch snapping closed. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "cf290d557ddba53cdbaa2e8207f186150ac9410dcf62cc617e015c1dbf440e7d",
+      "sha256": "fbe6c8a0e44346cd511534f847faf044fd3a89d95bc40f05a1e5717d95a65a96",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.01235827664399093
+    },
+    {
+      "id": "reload-belt-back",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "FN MAG belt-fed 7.62mm machine gun with a substantial steel receiver and hinged top feed cover. The charging handle is pulled back against its spring, a short gritty steel-on-steel ratchet ending in a hard rear stop clunk. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "428cde8a7f3d33e50957e7916ccb308d1f0cb0ddc7314f407f96946b1898496d",
+      "sha256": "e1e41358798e4f5d151a2ce9f3cbe776fb57147deb0a5eb21cfbbf41ba6bb84a",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.017551020408163264
+    },
+    {
+      "id": "reload-belt-release",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "FN MAG belt-fed 7.62mm machine gun with a substantial steel receiver and hinged top feed cover. The heavy bolt carrier snaps forward under spring force, a sharp dense mechanical steel slam with a tiny ammunition-link rattle. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "f5f5fdf6fefb890550b94702ebe02d462400a292c3fdfe87865cf10727b431d0",
+      "sha256": "533166b4a20c4b35c1a06509eb44a17a99b924e6e150c26e12aa9d55f77bb62e",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.10981859410430839
+    },
+    {
+      "id": "reload-heavy-belt-out",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "CIS 50MG belt-fed .50 calibre heavy machine gun with a massive heavy steel receiver and top feed cover. The feed cover latch clicks open, the hinged metal lid lifts with a short hinge scrape and loose ammunition links jingle briefly. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "14dd7f3a407ab0e9cab77a645dddd2dd3d86012b957a483ef9c52b3a502c2f7e",
+      "sha256": "10d1e6d7b407db237bbcd93a6c6e444b5a928a13eafed7c95b34d91164587342",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.039523809523809524
+    },
+    {
+      "id": "reload-heavy-belt-in",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "CIS 50MG belt-fed .50 calibre heavy machine gun with a massive heavy steel receiver and top feed cover. A short belt of brass cartridges and steel links is laid across the feed tray, several close irregular metallic link ticks and a small tray clink. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "0ab09eda653bea55bca0001ce0bbfa9aace344e21d9f98a774b4adc7838addab",
+      "sha256": "5cdc8a1d71b0fe561d648758f22e86e13ee119dae8bbb938455bd2f631300c12",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.10421768707482994
+    },
+    {
+      "id": "reload-heavy-belt-seat",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "CIS 50MG belt-fed .50 calibre heavy machine gun with a massive heavy steel receiver and top feed cover. The top feed cover is slapped shut firmly, a solid broad metal lid clack followed immediately by the latch snapping closed. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "4b915e35ae67281cfc22cb45c835e1a866f1e0afeaee4c262bf3b958f77db208",
+      "sha256": "d0ebb41ffeca359d635cc27d3380e5220f4e5eda65584a0949dfd076c971c127",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.0436281179138322
+    },
+    {
+      "id": "reload-heavy-belt-back",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "CIS 50MG belt-fed .50 calibre heavy machine gun with a massive heavy steel receiver and top feed cover. The charging handle is pulled back against its spring, a short gritty steel-on-steel ratchet ending in a hard rear stop clunk. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "a97a22c704c81a204bcec2f424bab72104f575562a49ead44a87dd053d7f8b7a",
+      "sha256": "ea1ca42231fc109cfd5d60e48c764d44235f80fb73bdc856004817e0dc9ffc8a",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.024671201814058956
+    },
+    {
+      "id": "reload-heavy-belt-release",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "CIS 50MG belt-fed .50 calibre heavy machine gun with a massive heavy steel receiver and top feed cover. The heavy bolt carrier snaps forward under spring force, a sharp dense mechanical steel slam with a tiny ammunition-link rattle. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "1a9a111be9553a72909601f6db1aa55a8d31f22c82c2a369c5f7f1add48d0c31",
+      "sha256": "950c8e44ce761d728a2aeaa585f722ba26ce5cb5e32490b3fe3066684b5e4a37",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.0810657596371882
+    }
+  ]
+}

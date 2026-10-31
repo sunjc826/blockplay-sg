@@ -1,5 +1,37 @@
 # Blockplay: portable agent handoff
 
+## Weapon-specific ElevenLabs reload actions (2026-10-31)
+
+Replaced the shared five handling clips with 40 newly generated ElevenLabs v3
+recordings: five isolated actions for P30, SAR 21, XM8, G36, Ultimax drum, MG4,
+FN MAG and CIS 50MG hardware. Belts have lid/latch and ammunition-link foley;
+drum changes have hollow drum resonance and cartridge rattle. Sound selection
+uses the equipped feed, including all catalog variants: Ultimax Kongsi uses
+box-magazine changes while retaining the Ultimax charging action. Clips play at
+natural speed; weapon/food reload modifiers move the animation stage onsets.
+
+`reload-audio.ts` owns bounded voices, interrupt/mute/pause/dispose cleanup and
+cached mechanism-specific procedural fallback while recordings load or fail.
+`sfx-bank.ts` loads the separate reload manifest so `sfx:publish` cannot erase
+this pack. `scripts/reload-sfx.mjs` reuses once-only paid receipts and publishes
+cached audio offline, with fixed action lengths, onset trimming and fade-outs.
+The failed first request exceeded the provider's 450-character prompt limit;
+it remains preserved in `.cache/reload-sfx-v1`. The corrected v2 batch generated
+40 half-second actions at 5 credits each. Follow-up subscription usage confirms
+1023 → 1223 of 40,000 included credits, exactly 200 credits. Do not regenerate.
+Local `AGENTS.md` now documents ElevenLabs for requested audio work; keep it
+unstaged and uncommitted as instructed.
+
+Validation: 21 focused audio/weapon-motion tests passed. Browser OfflineAudio
+renders all 40 recordings plus five Kongsi actions (45 checks): prompt onset,
+natural speed and peaks below .3. Nine full-timing empty reload WAV previews and
+`audition.html` are in `.cache/reload-audio-work`. Full in-game browser smoke
+stalled while the range engine remained loading; no gameplay playback pass is
+claimed. The broad suite was stopped under heavy machine contention; no full
+suite pass is claimed. Isolated release typecheck and manual deployment are
+pending; receipts and logs will be saved in that same cache directory.
+No GitHub push. Preserve unrelated working-tree edits.
+
 ## Main-menu hover and click auditions awaiting selection (2026-10-31)
 
 The owner requested ElevenLabs menu click options, then added mouse hover sounds
