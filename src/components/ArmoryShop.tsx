@@ -4,7 +4,7 @@ import { bipodDescription } from '../game/weapon-support';
 import ArmoryCarrySlots from './ArmoryCarrySlots';
 import { equipmentMovement } from '../game/fps-encumbrance';
 import { startingAmmoPools } from '../game/ammo-pools';
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { ArrowRight, Check, Coins, Crosshair, Eye, Gem, Map as MapIcon, Shield, CarFront, Plane, SlidersHorizontal } from 'lucide-react';
 import { utilityKind, utilitySlot } from '../game/utility-belt';
 import { ARMORY_CATALOG, byUnlock, consumableLimit, isEnemyIssue, isShopFamily, itemById, type InternalPart, type ItemTier, type ShopItem } from '../game/armory-catalog';
@@ -90,6 +90,7 @@ function Stat({ label, value, current, unit = '', lower = false, digits = 0 }: {
 export type Deployment = { id: string; label: string; detail: string; onDeploy: () => void };
 
 export default function ArmoryShop({ store, nav, deployments, onEnterRange, rangeLabel = 'Marina FPS', tutorial }: { tutorial?: { onComplete: () => void; onExit: () => void }; store: ArmoryStore; nav?: ReactNode; deployments?: readonly Deployment[]; onEnterRange?: () => void; rangeLabel?: string }) {
+  const shopRef = useRef<HTMLElement>(null);
   const exits = deployments ?? (onEnterRange ? [{ id: 'range', label: 'Deploy to', detail: rangeLabel, onDeploy: onEnterRange }] : []);
   const [vehicle, setVehicle] = useState<VehicleKind>('car');
   const [category, setCategory] = useState<(typeof SHOP_CATEGORIES)[number]['id']>('weapon'), [family, setFamily] = useState(0), [selectedId, setSelectedId] = useState('sar-vanguard');
@@ -123,14 +124,13 @@ export default function ArmoryShop({ store, nav, deployments, onEnterRange, rang
     ? { disabled: locked || full || !affordable, run: () => store.buy(item.id), label: locked ? `Unlocks at level ${item.requiredLevel}` : full ? `Carrying ${consumableLimit(item)}, the most you can` : !affordable ? short : <>Buy one{held ? ` (you hold ${held})` : ''} <ArrowRight size={15} /></> }
     : { disabled: equipped || locked || (!owned && !affordable), run: () => owned ? store.equipItem(item.id, family, vehicle) : store.buy(item.id), label: equipped ? <><Check size={15} /> Equipped</> : owned ? <>Equip {vehiclePaint ? (vehicle === 'car' ? 'on Utility 01' : 'on Falcon 01') : armor ? 'armor' : vision ? 'device' : `on ${FPS_WEAPONS[family].name}`} <ArrowRight size={15} /></> : locked ? `Unlocks at level ${item.requiredLevel}` : !affordable ? short : <>Unlock for {item.price} {unit} <ArrowRight size={15} /></> };
   const quickSlot = { disabled: equipped || !held, run: () => store.equipItem(item.id, family, vehicle), label: equipped ? <><Check size={15} /> In your quick slot</> : held ? 'Put in quick slot' : 'Buy one to carry it' };
-  return <section className="armory" aria-label="Equipment shop">
+  return <><section ref={shopRef} className="armory" aria-label="Equipment shop">
     {/* One row: the way out, your level and your wallet. Profile settings
         (insignia, Encik) live on their own screen (ArmorySettings). */}
     <div className="armory-header">{nav ?? <div className="armory-title"><span className="armory-kicker">blockplaySG / ARMORY 01</span><h2>Field exchange<span>®</span></h2></div>}
       <div className="armory-progression"><div className="armory-level-badge" style={{ color: insignia.accent }}><RankBadge insignia={insignia} size={30} /><span>{insignia.emblem.kind === 'numeral' ? 'LEVEL' : `LV ${level.level}`}</span></div><div className="armory-xp"><div><strong>{insignia.label}</strong><span>{level.xp.toLocaleString()} XP {level.level < 50 && ` / ${level.next.toLocaleString()}`}</span></div><progress value={level.progress} max={1} aria-label={level.level >= 50 ? 'Maximum level reached' : 'Progress to next level'} /><small title={unlockNote}>{unlockNote}</small></div>{!skip.atMax && <button className="armory-level-buy" data-testid="buy-level" disabled={!!skipShort} onClick={store.buyLevel} title={`${skip.remaining.toLocaleString()} XP stand between you and level ${skip.next}. Tokens buy XP at ${XP_PER_TOKEN} XP each, so the price falls as you earn.`}><Gem size={13} /><span><strong>{skipShort ? `${skipShort.toLocaleString()} TK short` : `Skip to level ${skip.next}`}</strong><small>{skip.price.toLocaleString()} TK · {skip.remaining.toLocaleString()} XP</small></span></button>}</div>
       <div className="armory-wallet"><span title="Earned from eliminations and completed FPS exercises"><Coins size={15} /><b data-testid="credits">{profile.credits.toLocaleString()}</b><small>CR</small></span><span className="premium"><Gem size={15} /><b data-testid="tokens">{profile.tokens.toLocaleString()}</b><small>TK</small></span><button className="armory-demo" title="Demo wallet · no real payments" aria-label="+250 demo tokens" onClick={store.demoTopUp}>+250<span> demo tokens</span></button></div>
     </div>
-    {tutorial && <StoreTutorial category={category} onComplete={tutorial.onComplete} onExit={tutorial.onExit} />}
     <div className="armory-navigation"><div role="tablist" aria-label="Equipment categories">{SHOP_CATEGORIES.map(c => <button role="tab" id={`shop-tab-${c.id}`} aria-controls="shop-panel" key={c.id} aria-selected={category === c.id} onClick={() => setCategory(c.id)}>{c.label}{c.id === 'armor' && <Shield size={13} />}</button>)}</div></div>
     <ArmoryCarrySlots store={store} />
     <div className="armory-body" id="shop-panel" role="tabpanel" aria-labelledby={`shop-tab-${category}`}>
@@ -159,5 +159,5 @@ export default function ArmoryShop({ store, nav, deployments, onEnterRange, rang
       <div className="armory-dock-item"><span><small>SELECTED</small>{item.name}</span><button data-testid="dock-action" disabled={action.disabled} onClick={action.run}>{action.label}</button>{supply && held > 0 && !equipped && <button className="armory-secondary" onClick={quickSlot.run}>{quickSlot.label}</button>}</div>
       {!!exits.length && <nav className="armory-deploy" aria-label="Deploy">{exits.map(exit => <button key={exit.id} data-deploy={exit.id} onClick={exit.onDeploy}>{exit.id === 'world' ? <MapIcon size={16} /> : <Crosshair size={16} />}<span>{exit.label} <small>{exit.detail}</small></span><ArrowRight size={15} /></button>)}</nav>}
     </div>
-  </section>;
+  </section>{tutorial && <StoreTutorial rootRef={shopRef} category={category} onComplete={tutorial.onComplete} onExit={tutorial.onExit} />}</>;
 }

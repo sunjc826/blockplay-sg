@@ -56,7 +56,7 @@ try {
   await next(); await wait(tourStep('categories'));
   assert(await evaluate(`document.querySelectorAll('.store-tour-actions button')[1].disabled`));
   await click(`document.querySelector('#shop-tab-armor')`); await next(); await wait(tourStep('carry')); await next();
-  await wait(tourStep('compare')); await click(`document.querySelector('#shop-tab-weapon')`); await next();
+  await wait(tourStep('compare')); await click(`document.querySelector('#shop-tab-weapon')`); await click(`document.querySelector('.armory-item')`); await next();
   await wait(tourStep('supplies')); await click(`document.querySelector('#shop-tab-utility')`); await next();
   await wait(tourStep('deploy')); await screenshot('07-deploy'); await click(`[...document.querySelectorAll('.store-tour-actions button')].find(b=>b.textContent.includes('Finish'))`);
   await wait(`!document.querySelector('.store-tour')`); await click(`document.querySelector('.store-tour-trigger')`); await wait(tourStep('wallet')); console.log('Store tour passed, replay passed');

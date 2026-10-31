@@ -25,25 +25,8 @@
 .tutorial-course-map { position: absolute; z-index: 5; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #14271ff5; border: 1px solid #c8b17a; border-radius: 12px; padding: 16px; width: min(240px, 60vw); text-align: center; }
 .tutorial-course-map svg { display: block; width: 100%; height: min(300px, 40dvh); }
 .tutorial-course-map p { font-size: 11px; color: #c5d6bc; }
-.store-tour { position: sticky; top: 0; z-index: 8; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px clamp(16px, 3vw, 36px); border-bottom: 1px solid #d7ba7566; background: #203b2e; color: #e8efdf; }
-.store-tour-copy { max-width: 800px; }
-.store-tour h2 { margin: 7px 0; font-size: 20px; }
-.store-tour p { margin: 0; font-size: 13px; line-height: 1.65; color: #c0d1bd; }
-.store-tour-actions { display: flex; gap: 8px; flex-shrink: 0; }
-.store-tour-actions button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 14px; border: 1px solid #cdbd8a66; border-radius: 7px; background: #14271e; color: #f0d79c; font-size: 12px; }
-.store-tour-actions button:disabled { opacity: .5; cursor: default; }
-.armory:has(.store-tour[data-step=wallet]) .armory-progression,
-.armory:has(.store-tour[data-step=wallet]) .armory-wallet,
-.armory:has(.store-tour[data-step=categories]) .armory-navigation,
-.armory:has(.store-tour[data-step=carry]) .armory-carry,
-.armory:has(.store-tour[data-step=compare]) .armory-details,
-.armory:has(.store-tour[data-step=supplies]) .armory-navigation,
-.armory:has(.store-tour[data-step=deploy]) .armory-deploy { outline: 2px solid #e5be74; outline-offset: -2px; background-color: #cba96010; }
 .store-tour-trigger { background: transparent; border: 1px solid #e1c88d50; border-radius: 6px; color: #e1c88d; padding: 8px 11px; font-size: 11px; }
 @media (max-width: 760px) {
-  .store-tour { flex-direction: column; align-items: stretch; gap: 14px; padding: 16px; }
-  .store-tour-actions { justify-content: flex-end; flex-wrap: wrap; }
-  .store-tour p { font-size: 12px; }
   .tutorial-game[data-touch=on] .tutorial-lesson { top: 68px; width: min(285px, calc(100% - 36px)); padding: 14px; }
   .tutorial-lesson h2 { font-size: 19px; }
   .tutorial-lesson p { font-size: 12px; }
@@ -70,3 +53,40 @@
   .fps-game.tutorial-game[data-touch=on] .fps-vitals,
   .fps-game.tutorial-game[data-touch=on] .fps-inspect-button { display: none; }
 }
+
+/* Portalled HUD: never occupies space in the store layout. */
+.store-tour-overlay { position: fixed; inset: 0; z-index: 1000; pointer-events: none; }
+.store-tour-scrim { position: absolute; inset: 0; pointer-events: none; }
+.store-tour-scrim path { fill: #030c10d6; pointer-events: fill; }
+.store-tour-spotlight { position: absolute; box-sizing: border-box; border: 1px solid #f3cc7b; border-radius: 6px; box-shadow: 0 0 0 3px #e8bd6c18, 0 0 28px #e8bd6c30, inset 0 0 18px #e8bd6c12; animation: store-tour-pulse 2s ease-in-out infinite; }
+.store-tour-spotlight>span { position: absolute; width: 13px; height: 13px; border: solid #ffe3a6; }
+.store-tour-spotlight>span:nth-child(1) { left: -2px; top: -2px; border-width: 3px 0 0 3px; border-radius: 5px 0 0; }
+.store-tour-spotlight>span:nth-child(2) { right: -2px; top: -2px; border-width: 3px 3px 0 0; border-radius: 0 5px 0 0; }
+.store-tour-spotlight>span:nth-child(3) { right: -2px; bottom: -2px; border-width: 0 3px 3px 0; border-radius: 0 0 5px; }
+.store-tour-spotlight>span:nth-child(4) { left: -2px; bottom: -2px; border-width: 0 0 3px 3px; border-radius: 0 0 0 5px; }
+.store-tour { position: absolute; box-sizing: border-box; width: min(360px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; padding: 20px; background: linear-gradient(140deg, #24382e, #101e1c 80%); color: #f3f0e3; border: 1px solid #d7ba7570; border-radius: 10px; box-shadow: 0 18px 70px #0009; pointer-events: auto; outline: none; }
+.store-tour:focus-visible { outline: 2px solid #ffe3a6; outline-offset: 3px; }
+.store-tour-pointer { position: absolute; width: 10px; height: 10px; transform: translate(-50%, -50%) rotate(45deg); background: #d9bb79; pointer-events: none; }
+.store-tour-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.store-tour-close { display: grid; place-items: center; width: 44px; height: 44px; margin: -12px -12px -6px 0; border: 0; border-radius: 5px; color: #c0cabb; background: transparent; }
+.store-tour-close:hover { background: #ffffff10; color: #fff0cd; }
+.store-tour-progress { display: flex; align-items: center; gap: 5px; margin: 12px 0 18px; }
+.store-tour-progress>span { height: 3px; flex: 1; background: #ffffff15; }
+.store-tour-progress>span[data-state=done] { background: #8eaa82; }
+.store-tour-progress>span[data-state=current] { background: #efc875; box-shadow: 0 0 10px #efc87566; }
+.store-tour-progress>b { margin-left: 8px; color: #b5c1af; font: 10px ui-monospace, monospace; white-space: nowrap; }
+.store-tour h2 { margin: 0 0 10px; font-size: 22px; line-height: 1.15; letter-spacing: -.5px; }
+.store-tour p { margin: 0; font-size: 12px; line-height: 1.7; color: #bac9b9; }
+.store-tour-hint { display: flex; align-items: flex-start; gap: 9px; margin-top: 16px; padding: 12px; background: #e9c77e0c; border-left: 2px solid #e9c77e; color: #f0d69b; font-size: 12px; line-height: 1.5; }
+.store-tour-hint svg { flex-shrink: 0; margin-top: 1px; }
+.store-tour-hint strong { font-weight: 500; }
+.store-tour-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 18px; }
+.store-tour-actions button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 14px; border: 1px solid #cdbd8a55; border-radius: 5px; background: transparent; color: #d9dfce; font-size: 12px; }
+.store-tour-actions .store-tour-next { background: #e8c582; color: #1c2922; border-color: #e8c582; min-width: 112px; font-weight: 600; }
+.store-tour-actions button:disabled { opacity: .35; cursor: default; }
+.store-tour button:focus-visible { outline: 2px solid #fff0cc; outline-offset: 3px; }
+.store-tour-key { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; color: #8ea48f; font-size: 9px; line-height: 1.5; }
+.store-tour-key>span { white-space: nowrap; }
+@keyframes store-tour-pulse { 50% { box-shadow: 0 0 0 5px #e8bd6c12, 0 0 36px #e8bd6c55, inset 0 0 18px #e8bd6c12; } }
+@media (max-height: 500px) { .store-tour { width: min(330px, calc(100vw - 24px)); padding: 14px; } .store-tour-progress { margin: 6px 0 10px; } .store-tour h2 { font-size: 18px; } .store-tour p { font-size: 11px; line-height: 1.5; } .store-tour-hint { margin-top: 10px; padding: 8px; font-size: 11px; } .store-tour-actions { margin-top: 10px; } .store-tour-key { display: none; } }
+@media (prefers-reduced-motion: reduce) { .store-tour-spotlight { animation: none; } }
