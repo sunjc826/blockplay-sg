@@ -24,7 +24,7 @@ import { MARINA_BOUNDS, moveInMarina, type Obstacle } from './marina-collision';
 import { advanceWeapon, beginReload, createLoadout, FPS_WEAPONS, fireWeapon, hitDamage, interruptReload, reloadCommit, reloadProgress, roundReady, type WeaponSpec, type WeaponState } from './fps-rules';
 import { armamentFamilies, chooseArmament, getArenaRole, type ArenaRolePlugin } from './arena-roles';
 import { variantSpec } from './armory-state';
-import { BOT_AIM, BOT_HEAL, botAimScale, botFireCadence, botShotSpread, botWantsHeal } from './arena-bot-combat';
+import { BOT_AIM, BOT_HEAL, advanceBotAimFocus, botAimScale, botBurstLimit, botFireCadence, botShotSpread, botTransverseSpeed, botWantsHeal, type BotAimFocus } from './arena-bot-combat';
 import { DRONE, DRONE_BLAST, MORTAR, OVERWATCH, RAID, SUPPLY } from './combat-event-catalog';
 import { combatPhase, combatTimeline, getCombatEvent, orbitPose, transportPose, MAX_COMBAT_EVENTS, MAX_TROOPS, type CloudPayload, type CombatEventDescriptor, type CombatOutcome, type CombatPlane, type CratePayload, type MunitionPayload, type OrbitPayload, type TransportPayload } from './combat-events';
 import { createCombatDirector, planTransport, type CombatRisk } from './combat-director';
@@ -39,6 +39,7 @@ import { ballisticPoint, isInstant, muzzleBallistics, type BallisticSpec } from 
 import type { PublishedRound } from './fps-projectiles';
 import { weaponRange } from './weapon-range';
 import { BOT_THREAT, nearBullet, type BotThreat } from './bot-threat';
+import type { BotDifficulty } from './bot-difficulty';
 import { createBotSpotting, spottingStance, type BotSpotting, type SpottingCandidate } from './bot-spotting';
 import { objectiveStep } from './bot-objectives';
 import { assignBattlefieldFronts, BATTLEFIELD_POPULATIONS, type BattlefieldSize } from './battlefield';
@@ -176,6 +177,8 @@ export interface ArenaEnvironment {
   move: (position: { x: number; z: number }, dx: number, dz: number, radius: number, obstacles: readonly Obstacle[]) => { x: number; z: number };
   spawns: readonly { x: number; z: number }[];
   endless?: boolean;
+  /** Authority-owned accuracy preference, read live; shared matches use Normal. */
+  botDifficulty?: () => BotDifficulty;
   playerSpawn?: { x: number; z: number; yaw?: number; pitch?: number };
   /** Random combat events scheduled by a director, paced by district risk. */
   combatEvents?: { risk: CombatRisk };
@@ -313,8 +316,8 @@ interface InternalActor {
   spotting?: BotSpotting;
   /** Accepted host shots only; clients cannot submit a flash or spotting confidence. */
   shotFlash?: { at: number; flare: number };
-  /** When a bot first had its present target in sight, for its aim to settle from. */
-  focusSince?: number;
+  /** Exposure to the same target life, with short-lived aim memory after losing sight. */
+  aimFocus?: BotAimFocus;
   /** A bot's turn to fire on a player, held while it keeps a shot; see BOT_AIM.shooters. */
   turn?: { target: string; until: number };
   /** A bot's rank this life, and the name it goes by after its rank's title. */
@@ -400,7 +403,7 @@ function bodyDistance(origin: ArenaPoint, direction: ArenaPoint, actor: ArenaAct
 }
 
 /** Host-owned match. Clients may submit movement and aim, never damage or scores. */
-export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions, traversalWorld?: VerticalWorld, coverDistance?: ArenaCoverDistance, grenadeCoverTrace?: import('./grenade-flight').GrenadeTrace, sightDistance?: ArenaCoverDistance) {
+export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions, traversalWorld?: VerticalWorld, coverDistance?: ArenaCoverDistance, grenadeCoverTrace?: import('./grenade-flight').GrenadeTrace, sightDistance?: ArenaCoverDistance, difficulty: () => BotDifficulty = () => environment?.botDifficulty?.() ?? 'normal') {
   // Rendered cover stops every round, with or without vehicles in the match.
   const cover = coverDistance ?? vehicleOptions?.coverDistance;
   const bounds: RegionBounds = environment?.bounds ?? MARINA_BOUNDS;
@@ -545,7 +548,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.meals = undefined; delete entry.actor.food; delete entry.actor.conditions; delete entry.actor.markedBy;
     entry.grenadeSupplies ??= {}; entry.lastContact = undefined;
     if (entry.actor.bot && entry.actor.faction === 'mercenaries' && ['assault', 'tank'].includes(entry.role?.id ?? '')) { entry.actor.grenade = entry.role?.id === 'tank' ? 'grenade-smoke' : 'grenade-frag'; entry.grenadeSupplies[entry.actor.grenade] = 1; } else delete entry.actor.grenade;
-    entry.velocity = undefined; entry.speed = 0; entry.lastAt = undefined; entry.focusSince = undefined; entry.turn = undefined;
+    entry.velocity = undefined; entry.speed = 0; entry.lastAt = undefined; entry.aimFocus = undefined; entry.turn = undefined;
     entry.spotting = undefined; entry.shotFlash = undefined;
     entry.parachute = undefined; delete entry.actor.parachuting; entry.navigation = undefined; entry.navalTransit = undefined; delete entry.actor.ground; entry.evacuating = undefined; entry.vehicleBoardAfter = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false; entry.threat = undefined; entry.grudge = undefined;
@@ -2422,7 +2425,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function stepBot(entry: InternalActor, dt: number) {
     const actor = entry.actor;
     const conditions = arenaConditionModifiers(actor.conditions);
-    if (conditions.frozen) { entry.target = ''; entry.burst = 0; return; }
+    if (conditions.frozen) { entry.target = ''; entry.burst = 0; entry.aimFocus = undefined; return; }
     const role = entry.role!;
     // Patching up: kneeling still, weapon down, until it is done or a hit interrupts it.
     if (entry.heal) {
@@ -2480,7 +2483,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (d >= 5 && d <= 25) { const angle = Math.asin(Math.min(.95, 9.8 * d / (speed * speed))) / 2;
         throwGrenade(actor.id, { id: actor.grenade, origin: actor, direction: { x: dx / d * Math.cos(angle), y: Math.sin(angle), z: dz / d * Math.cos(angle) }, under: false, cooked: 0 }); }
     }
-    if (tryBoardVehicle(entry, visible, dt)) return;
+    if (tryBoardVehicle(entry, visible, dt)) { entry.aimFocus = undefined; return; }
     if (role.id === 'overwatch') { if (visible) actor.aiming = true; else delete actor.aiming; }
     if (visible) { if (elapsed - (entry.lastFight ?? -Infinity) > 6) bark(entry, 'contact'); entry.lastFight = elapsed; }
     const intent = role.think({ distance: horizontal, visible, healthFraction: actor.health / entry.healthMax, strafeDirection: entry.strafe });
@@ -2488,13 +2491,17 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const wounded = botWantsHeal({ health: actor.health, healthMax: entry.healthMax, medkits: entry.medkits, sinceHurt: elapsed - entry.lastHurt, visible, danger: !!dangerExit(actor) });
     if (wounded === 'heal') {
       const feet = Math.max(0, actor.y - 1.75);
+      entry.aimFocus = undefined;
       entry.heal = { time: 0, feet, started: elapsed }; actor.healing = 0; actor.y = feet + BOT_HEAL.kneelEye; entry.burst = 0; entry.target = '';
       bark(entry, 'healing');
       return;
     }
     // Wounded with someone in view: back away to break the line before patching up.
     if (wounded === 'retreat' && visible) { approach = -1; bark(entry, 'retreat'); }
-    const strafe = Number.isFinite(intent.strafe) ? clamp(intent.strafe, -1, 1) : 0;
+    let strafe = Number.isFinite(intent.strafe) ? clamp(intent.strafe, -1, 1) : 0;
+    // Objective movement and danger avoidance take priority over deliberate fire.
+    if (visible && entry.aimFocus?.target === `${enemy.actor.id}:${enemy.actor.deaths}` && horizontal >= BOT_AIM.controlledRange && entry.aimFocus.exposure >= .6 &&
+      !entry.mission && !entry.order && !threat && !wounded) { approach = 0; strafe = 0; }
     const normal = Math.max(1, Math.hypot(approach, strafe));
     let dxStep = (direction.x * approach - direction.z * strafe) / normal * role.speed * dt;
     let dzStep = (direction.z * approach + direction.x * strafe) / normal * role.speed * dt;
@@ -2565,14 +2572,15 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const stride = entry.anchor ? 0 : Math.hypot(dxStep, dzStep) / Math.max(1e-6, role.speed * dt);
     // An event's crew may not open fire before the event has been announced; a bot waiting its turn on a player holds fire.
     const reaction = Math.max(.1, role.reaction + (entry.rank?.reaction ?? 0));
-    if (escaping || !visible || !intent.fire || (entry.temporary && elapsed < entry.temporary.from) || !takeTurn(entry, enemy)) { entry.reaction = reaction; entry.target = ''; entry.burst = 0; return; }
-    if (entry.target !== enemy.actor.id) { entry.target = enemy.actor.id; entry.reaction = reaction + random() * 0.3; entry.burst = 0; entry.focusSince = elapsed; }
+    if (escaping || !visible || !intent.fire || (entry.temporary && elapsed < entry.temporary.from) || !takeTurn(entry, enemy)) { entry.aimFocus = advanceBotAimFocus(entry.aimFocus, undefined, dt); entry.reaction = reaction; entry.target = ''; entry.burst = 0; return; }
+    entry.aimFocus = advanceBotAimFocus(entry.aimFocus, `${enemy.actor.id}:${enemy.actor.deaths}`, dt);
+    if (entry.target !== enemy.actor.id) { entry.target = enemy.actor.id; entry.reaction = reaction + random() * 0.3; entry.burst = 0; }
     entry.reaction -= dt;
     if (entry.reaction <= 0) {
       // Bursts at the weapon's own cycle, then a pause the role decides.
-      if (entry.burst <= 0) { const [low, high] = role.burst ?? [1, 1]; entry.burst = low + Math.floor(random() * (high - low + 1)); entry.burstFired = 0; }
+      if (entry.burst <= 0) { const [low, high] = role.burst ?? [1, 1]; entry.burst = Math.min(botBurstLimit(role.id, horizontal), low + Math.floor(random() * (high - low + 1))); entry.burstFired = 0; }
       // The role's aim error, steadier with rank, wide on first sight and against a mover; recoil opens it through a burst.
-      const base = (Number.isFinite(intent.spread) ? clamp(intent.spread, 0.005, 0.2) : 0.05) * (entry.rank?.aim ?? 1) * botAimScale(elapsed - (entry.focusSince ?? elapsed), enemy.speed ?? 0, stride);
+      const base = (Number.isFinite(intent.spread) ? clamp(intent.spread, 0.005, 0.2) : 0.05) * (entry.rank?.aim ?? 1) * botAimScale(entry.aimFocus?.exposure ?? 0, botTransverseSpeed(direction, enemy.velocity), stride, horizontal, actor.faction === PLAYER_FACTION ? 'normal' : difficulty());
       const spread = entry.spec ? botShotSpread(base, entry.spec, entry.burstFired) : base;
       const aim = leadRay(entry, actor, enemy, { x: line.x + actor.x, y: line.y + actor.y, z: line.z + actor.z });
       shoot(actor.id, actor, { x: aim.x + (random() - 0.5) * spread, y: aim.y + (random() - 0.5) * spread, z: aim.z + (random() - 0.5) * spread }, actor.weapon);

@@ -34,7 +34,7 @@ const ENTRIES = [
   { route: 'multiplayer', icon: Users, title: 'Multiplayer', detail: 'Public rooms, or invite your friends.', mode: true },
   { route: 'tutorial', icon: GraduationCap, title: 'Tutorial', detail: 'New here?', mode: false },
   { route: 'store', icon: ShoppingBag, title: 'Store', detail: 'Gear and supplies', mode: false },
-  { route: 'settings', icon: Settings, title: 'Settings', detail: 'Rank and voice', mode: false },
+  { route: 'settings', icon: Settings, title: 'Settings', detail: 'Difficulty, display and profile', mode: false },
 ] as const;
 
 /** Remembers the last district picked on each screen; storage may be unavailable. */

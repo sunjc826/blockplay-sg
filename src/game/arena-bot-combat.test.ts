@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { BOT_AIM, BOT_HEAL, botAimScale, botFireCadence, botShotSpread, botWantsHeal } from './arena-bot-combat';
+import { BOT_AIM, BOT_HEAL, advanceBotAimFocus, botAimScale, botBurstLimit, botTransverseSpeed, botFireCadence, botShotSpread, botWantsHeal } from './arena-bot-combat';
 import { createArena, SPAWN_SHIELD_SECONDS, type ArenaEnvironment, type ArenaSimulation } from './arena-rules';
 import { itemById } from './armory-catalog';
 import { variantSpec } from './armory-state';
 import { FPS_WEAPONS, hitDamage } from './fps-rules';
+import { BOT_DIFFICULTIES, type BotDifficulty } from './bot-difficulty';
 import { shootAndLand } from './arena-test-shots';
 
 const environment = (bot: { x: number; z: number }, player: { x: number; z: number }): ArenaEnvironment => ({
@@ -45,13 +46,52 @@ describe('bot weapon handling', () => {
     expect(botShotSpread(.05, mg4, 5)).toBeGreaterThan(botShotSpread(.05, mg4, 0));
     expect(botShotSpread(.05, g36, 0)).toBeLessThan(botShotSpread(.05, mg4, 0));
   });
-  it('aims wide on first sight and settles over a second and a half, wider against a mover or on the move', () => {
-    expect(botAimScale(0, 0, 0)).toBeCloseTo(BOT_AIM.settled * BOT_AIM.opening);
-    expect(botAimScale(BOT_AIM.settle, 0, 0)).toBeCloseTo(BOT_AIM.settled);
-    expect(botAimScale(10, 0, 0)).toBeCloseTo(BOT_AIM.settled);
-    expect(botAimScale(10, 7, 0)).toBeCloseTo(botAimScale(10, 0, 0) * 2.05);
-    expect(botAimScale(10, 4.2, 0)).toBeGreaterThan(botAimScale(10, 0, 0));
-    expect(botAimScale(10, 0, 1)).toBeCloseTo(botAimScale(10, 0, 0) * (1 + BOT_AIM.ownMotion));
+  it('keeps rough opening aim, tightens quickly, then refines until four seconds on Normal', () => {
+    const errors = [0, .5, 1, 2, 3, 4, 8].map(t => botAimScale(t, 0, 0));
+    expect(errors[0]).toBe(6); expect(errors[1]).toBe(6);
+    expect(errors[2]).toBeLessThan(3.1);
+    expect(errors[3]).toBeCloseTo(.6);
+    expect(errors[4]).toBeCloseTo(.36);
+    expect(errors[5]).toBeCloseTo(.12);
+    expect(errors[6]).toBeCloseTo(errors[5]);
+    // Normal regular assault: under 0.6 m across at 100 m before optic/recoil.
+    expect(.045 * errors[5] * 100).toBeLessThan(.6);
+  });
+  it('orders the difficulty presets throughout acquisition and settled tracking', () => {
+    for (const time of [0, .5, 1, 1.5, 2, 3, 4, 5, 10]) {
+      expect(botAimScale(time, 4, 1, 100, 'easy')).toBeGreaterThan(botAimScale(time, 4, 1, 100, 'normal'));
+      expect(botAimScale(time, 4, 1, 100, 'normal')).toBeGreaterThan(botAimScale(time, 4, 1, 100, 'hard'));
+    }
+    for (const difficulty of ['easy', 'normal', 'hard'] as const) {
+      expect(botAimScale(10, 0, 0, 100, difficulty)).toBeCloseTo(BOT_DIFFICULTIES[difficulty].settled);
+    }
+  });
+  it('penalizes sideways tracking most at close range, and retains a bounded own-motion penalty', () => {
+    expect(botTransverseSpeed({ x: 0, z: 1 }, { x: 7, z: 0 })).toBe(7);
+    expect(botTransverseSpeed({ x: 0, z: 1 }, { x: 0, z: 7 })).toBe(0);
+    expect(botAimScale(10, 7, 0, 100)).toBeLessThan(botAimScale(10, 7, 0, 20));
+    expect(botAimScale(10, 7, 0, 20)).toBeCloseTo(.12 * 1.49);
+    expect(botAimScale(10, 0, 1)).toBeCloseTo(.12 * (1 + BOT_AIM.ownMotion));
+    expect(botAimScale(-10, -7, -1)).toBe(6);
+  });
+  it('retains aim through a brief interruption, loses it behind sustained cover, and resets on target/life changes', () => {
+    const focused = { target: 'player:0', exposure: 4, unseen: 0 };
+    const glimpse = advanceBotAimFocus(focused, undefined, .2)!;
+    expect(glimpse.exposure).toBe(4);
+    expect(advanceBotAimFocus(glimpse, 'player:0', .05)?.exposure).toBeGreaterThanOrEqual(4);
+    const covered = advanceBotAimFocus(glimpse, undefined, .8)!;
+    expect(covered.exposure).toBeLessThan(1.1);
+    expect(advanceBotAimFocus(covered, undefined, .6)).toBeUndefined();
+    expect(advanceBotAimFocus(focused, 'player:1', .05)?.exposure).toBe(0);
+    expect(advanceBotAimFocus(focused, 'other:0', .05)?.exposure).toBe(0);
+    let stepped = focused;
+    for (let i = 0; i < 10; i++) stepped = advanceBotAimFocus(stepped, undefined, .1)!;
+    expect(stepped.exposure).toBeCloseTo(covered.exposure);
+  });
+  it('uses controlled distant bursts while preserving close-range and support fire', () => {
+    expect(botBurstLimit('assault', 100)).toBe(2);
+    expect(botBurstLimit('tank', 100)).toBe(4);
+    expect(botBurstLimit('assault', 10)).toBeGreaterThanOrEqual(4);
   });
 });
 
@@ -138,5 +178,50 @@ describe('bots in the arena', () => {
     expect(healed.healing).toBeUndefined();
     expect(healed.health).toBeCloseTo(Math.min(100, hurt + 100 * BOT_HEAL.restore), 5);
     expect(healed.y).toBeCloseTo(1.75, 2);
+  });
+});
+
+function accuracyTrial(difficulty: BotDifficulty, range = 100) {
+  const arena = createArena([], 1, 'assault', {
+    ...environment({ x: 1000, z: 1000 + range }, { x: 1000, z: 1000 }),
+    bounds: { minX: 800, maxX: 1300, minZ: 800, maxZ: 1300 },
+    move: p => p, botDifficulty: () => difficulty,
+  });
+  arena.addPlayer('you', 'You', 0, 0, undefined, undefined, true);
+  arena.setPlayerHealthMultiplier('you', 10);
+  const seen = new Set<number>(), samples: { time: number; error: number }[] = [];
+  let first = 0;
+  for (let t = 0; t < 18; t += .025) {
+    arena.step(.025);
+    const snapshot = arena.snapshot();
+    for (const round of snapshot.rounds ?? []) {
+      if (round.shooter !== 'bot-1' || seen.has(round.id)) continue;
+      seen.add(round.id);
+      if (!first) first = snapshot.elapsed;
+      samples.push({ time: snapshot.elapsed - first, error: Math.abs(round.direction.x / round.direction.z) * range });
+    }
+  }
+  return { samples, health: find(arena, 'you').health, bot: find(arena, 'bot-1') };
+}
+
+describe('actual distant bot fire', () => {
+  it('narrows real shot directions and hits exposed targets at 100 and 180 metres', () => {
+    for (const range of [100, 180]) {
+      const trial = accuracyTrial('normal', range);
+      const opening = trial.samples.filter(s => s.time < 1.2), settled = trial.samples.filter(s => s.time > 4);
+      expect(opening.length).toBeGreaterThan(0); expect(settled.length).toBeGreaterThan(5);
+      const mean = (shots: typeof opening) => shots.reduce((n, s) => n + s.error, 0) / shots.length;
+      expect(mean(settled)).toBeLessThan(mean(opening) * .2);
+      expect(mean(settled)).toBeLessThan(range * .003);
+      expect(trial.health).toBeLessThan(1000);
+    }
+  });
+  it('applies the selected difficulty to actual shots', () => {
+    const mean = (difficulty: BotDifficulty) => {
+      const samples = accuracyTrial(difficulty).samples.filter(s => s.time > 5);
+      return samples.reduce((n, s) => n + s.error, 0) / samples.length;
+    };
+    expect(mean('easy')).toBeGreaterThan(mean('normal'));
+    expect(mean('normal')).toBeGreaterThan(mean('hard'));
   });
 });

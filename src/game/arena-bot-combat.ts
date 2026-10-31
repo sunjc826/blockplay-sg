@@ -1,4 +1,5 @@
 import type { WeaponSpec } from './fps-rules';
+import { BOT_DIFFICULTIES, type BotDifficulty } from './bot-difficulty';
 
 /**
  * How a bot handles its own weapon and its own wounds. The arena owns when a
@@ -50,33 +51,50 @@ export function botShotSpread(base: number, spec: Pick<WeaponSpec, 'recoil' | 'o
   return base * optic * (1 + Math.max(0, fired) * spec.recoil * 9);
 }
 
-/**
- * How a bot's aim settles on someone. Rounds are hitscan and the bot tracks
- * its target's present position, so without these a strafing player is as
- * easy to hit as a standing one and the first round is as good as the tenth.
- */
+/** Aim error is angular, so a tighter settled cone also improves distant shots. */
 export const BOT_AIM = {
-  /** Settled aim error, as a multiple of the role's own `spread`. */
-  settled: 1.5,
-  /** Aim error on first sighting a target, as a multiple of the settled error. */
-  opening: 4,
-  /** Seconds of unbroken sight for the error to narrow to settled. */
-  settle: 1.6,
-  /** Extra error per m/s of the target's own speed: a walk (4.2) adds about 60%, a sprint (7) doubles it. */
-  targetMotion: .15,
-  /** Extra error while the bot is itself moving at its full stride. */
-  ownMotion: .5,
-  /** Most bots that may fire on one player at a time; the rest hold fire and keep moving. */
+  openingGrace: .5,
+  targetMotion: .07,
+  ownMotion: .35,
+  memoryGrace: .3,
+  memorySeconds: 1.5,
+  controlledRange: 35,
   shooters: 2,
-  /** Seconds a bot keeps its turn on a player after it last had a shot. */
   shooterHold: .5,
 } as const;
 
-/**
- * Multiplier on a bot's base aim error: wide on first sight and narrowing over
- * `settle`, opened further by the target's speed and the bot's own.
- */
-export function botAimScale(focus: number, targetSpeed: number, ownStride: number) {
-  const settling = Math.max(0, 1 - Math.max(0, focus) / BOT_AIM.settle);
-  return BOT_AIM.settled * (1 + (BOT_AIM.opening - 1) * settling) * (1 + BOT_AIM.targetMotion * Math.min(7, Math.max(0, targetSpeed))) * (1 + BOT_AIM.ownMotion * Math.min(1, Math.max(0, ownStride)));
+/** Absolute multipliers of role spread: rough opening, tracking, then fine aim. */
+export function botAimScale(focus: number, transverseSpeed: number, ownStride: number, range = 35, difficulty: BotDifficulty = 'normal') {
+  const profile = BOT_DIFFICULTIES[difficulty], time = Math.max(0, focus);
+  const acquire = Math.max(0, Math.min(1, (time - BOT_AIM.openingGrace) / (profile.acquire - BOT_AIM.openingGrace)));
+  // Ease out the large opening error quickly, then refine the final aim slowly.
+  const opening = profile.tracking + (profile.opening - profile.tracking) * (1 - acquire) ** 2;
+  const refine = Math.max(0, Math.min(1, (time - profile.acquire) / (profile.settle - profile.acquire)));
+  const error = opening + (profile.settled - profile.tracking) * refine;
+  const tracking = Math.min(7, Math.max(0, transverseSpeed)) * Math.min(1, 35 / Math.max(1, range));
+  return error * (1 + BOT_AIM.targetMotion * tracking) * (1 + BOT_AIM.ownMotion * Math.min(1, Math.max(0, ownStride)));
+}
+
+export interface BotAimFocus { target: string; exposure: number; unseen: number }
+/** No tracking through cover: retain a brief glimpse, then lose the accumulated aim. */
+export function advanceBotAimFocus(previous: BotAimFocus | undefined, target: string | undefined, dt: number): BotAimFocus | undefined {
+  const step = Math.max(0, dt);
+  if (target) return previous?.target === target
+    ? { target, exposure: Math.min(5, previous.exposure + step), unseen: 0 }
+    : { target, exposure: 0, unseen: 0 };
+  if (!previous) return undefined;
+  const unseen = previous.unseen + step;
+  if (unseen >= BOT_AIM.memorySeconds) return undefined;
+  const decayTime = Math.max(0, unseen - BOT_AIM.memoryGrace) - Math.max(0, previous.unseen - BOT_AIM.memoryGrace);
+  return { ...previous, unseen, exposure: Math.max(0, previous.exposure - decayTime * 5 / (BOT_AIM.memorySeconds - BOT_AIM.memoryGrace)) };
+}
+
+/** Sideways speed across the sightline; movement straight toward the bot is easier to track. */
+export function botTransverseSpeed(direction: { x: number; z: number }, velocity?: { x: number; z: number }) {
+  return velocity ? Math.abs(direction.x * velocity.z - direction.z * velocity.x) : 0;
+}
+
+/** Rifles use pairs at range; support weapons retain short suppressive bursts. */
+export function botBurstLimit(role: string, range: number) {
+  return range < BOT_AIM.controlledRange ? 12 : role === 'tank' ? 4 : 2;
 }

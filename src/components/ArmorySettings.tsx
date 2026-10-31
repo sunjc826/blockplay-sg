@@ -1,5 +1,6 @@
 import RankBadge from './RankBadge';
 import HudHintsToggle from './HudHintsToggle';
+import BotDifficultySettings from './BotDifficultySettings';
 import { progression } from '../game/progression';
 import { rankInsignia, rankSets } from '../game/rank-insignia';
 import { addressLine, encikLines, encikRegister, type EncikTone } from '../game/encik-registers';
@@ -16,6 +17,7 @@ export default function ArmorySettings({ store }: { store: Pick<ArmoryStore, 'pr
   const encikSample = (tone: EncikTone) => addressLine(encikLines('kill', { level: level.level, rank: insignia.title, tone })[0], insignia.title);
   const encikNow = encikRegister({ level: level.level, rank: insignia.title, tone: profile.encikTone });
   return <section className="armory-settings" aria-label="Profile settings">
+    <BotDifficultySettings />
     <div className="armory-settings-group">
       <h2>PC display</h2><p>Show HUD instructions and key reminders. Turn them off to keep combat information, objectives and warnings. Touch controls stay visible.</p>
       <HudHintsToggle />

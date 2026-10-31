@@ -33,6 +33,7 @@ import { FOOD_EFFECTS, type FoodEffectKind } from './food-effects';
 import { createInputReconciliation } from './input-reconciliation';
 import { createActorPresentation } from './actor-presentation';
 import { validFacilitySnapshot } from './facilities';
+import { getBotDifficulty } from './bot-difficulty-setting';
 
 export interface ArenaRuntimeFrame {
   snapshot: ArenaSnapshot | null; self: ArenaActor | null; connected: boolean; started: boolean;
@@ -351,7 +352,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       if (d >= distance) return null;
       const hit = sceneCover.trace(from, { x: (to.x - from.x) / distance, y: (to.y - from.y) / distance, z: (to.z - from.z) / distance }, distance);
       return hit?.face ? { point: hit.point, normal: hit.face.normal.clone().transformDirection(hit.object.matrixWorld) } : null;
-    }, (origin, direction, distance) => sceneCover.sightDistance(origin, direction, distance)) : null;
+    }, (origin, direction, distance) => sceneCover.sightDistance(origin, direction, distance), session.role === 'solo' ? getBotDifficulty : () => 'normal') : null;
   const hostId = authority ? session.id : session.getPeers()[0]?.id;
   const avatars = new Map<string, Avatar>();
   const presentations = new Map<string, ReturnType<typeof createActorPresentation>>();
