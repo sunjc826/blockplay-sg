@@ -43,6 +43,14 @@ describe('paratrooper reinforcements', () => {
     advance(arena, 12); expect(bots(arena)).toHaveLength(4); expect(bots(arena).every(a => !a.parachuting && a.y < 2)).toBe(true);
     expect(new Set(bots(arena).map(a => a.id)).size).toBe(4); expect(arena.triggerEvent('paratroopers')).toBeNull();
   });
+  it('reserves separate landing zones for simultaneous opposing drops', () => {
+    const { arena, env } = setup({ heat: { defaults: { mercenaries: { min: 1, max: 1 }, 'armed-forces': { min: 1, max: 1 } }, sectors: [] },
+      savedReinforcementClocks: { airborne: { mercenaries: 0, 'armed-forces': 0 }, naval: { mercenaries: 150, 'armed-forces': 150 }, external: { mercenaries: 0, 'armed-forces': 0 } } });
+    advance(arena, .05);
+    const events = arena.snapshot().events!.filter(e => e.kind === 'paratroopers'); expect(events).toHaveLength(2);
+    expect(Math.hypot(events[0].target.x - events[1].target.x, events[0].target.z - events[1].target.z)).toBeGreaterThan(20);
+    advance(arena, 16); expect(bots(arena)).toHaveLength(8); expect(validArenaSnapshot(arena.snapshot(), env)).toBe(true);
+  });
   it('reserves existing casualties instead of recruiting duplicate soldiers', () => {
     const { env } = setup();
     const arena = createArena([], 4, 'assault', env);

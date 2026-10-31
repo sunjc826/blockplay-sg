@@ -1963,7 +1963,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (!count) return null;
     const protectedPoints = [...(environment.playerSpawn ? [environment.playerSpawn] : []), ...(environment.deployments ?? [])];
     const target = planParatroopers(validSpawns, all.filter(m => !m.actor.bot && m.actor.alive).map(m => m.actor), protectedPoints,
-      p => clearDrop(p) && !all.some(m => m.actor.alive && !m.reserve && Math.hypot(m.actor.x - p.x, m.actor.z - p.z) < 2));
+      p => clearDrop(p) && ![...airborneMissions.values()].some(mission => mission.points.some(at => Math.hypot(at.x - p.x, at.z - p.z) < 9)) && !all.some(m => m.actor.alive && !m.reserve && Math.hypot(m.actor.x - p.x, m.actor.z - p.z) < 2));
     if (!target) { if (!force) airborneAt[faction] = elapsed + PARATROOPERS.retry; return null; }
     const descriptor = startEvent({ kind: 'paratroopers', seed: Math.floor(random() * 0xffffffff) >>> 0, target, heading: 0, intensity: 1, troops: count, faction });
     if (!descriptor) return null;
