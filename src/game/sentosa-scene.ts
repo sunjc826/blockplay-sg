@@ -4,10 +4,11 @@ import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
 import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
+import { buildCoastalGround, sentosaGroundHeight, SENTOSA_FORT_GROUND, coastalBench, COASTAL_GROUND_SOURCES } from './harbourfront-sentosa-ground';
 
 // Just inside the boardwalk landing, looking down the island's spine.
 export const SENTOSA_SPAWN = { x: 108, z: -168, yaw: Math.PI };
-export const SENTOSA_BOUNDS = { minX: -250, maxX: 250, minZ: -210, maxZ: 210 };
+export const SENTOSA_BOUNDS = { minX: -250, maxX: 250, minZ: -210, maxZ: 210, groundHeight: sentosaGroundHeight };
 export { SENTOSA_STAMPS } from '../data/region-stamps.ts';
 
 const EW_ROADS = [-110, 20, 130], NS_ROADS = [-150, -30, 90];
@@ -153,25 +154,43 @@ export function buildSentosaScene() {
   /** Headland battery: a sloped rampart, a parapet and its guns. */
   function battery(x: number, z: number) {
     // Continuous earth between defensive terraces; marked paths rest on it.
-    for (const [tz, y, run, rise] of [[2, 4, 14, 4], [-24, 8, 10, 4.2]]) for (const dx of [-11, 4]) {
+    for (const [tz, y, run, rise] of [[-10, 4, 12, 4], [-28, 8, 12, 4.2]]) for (const dx of [-11, 4]) {
       const path = box(x + dx, y + rise / 2 + .035, tz - run / 2, 5, .06, Math.hypot(run, rise), stone);
       path.rotation.x = Math.atan2(rise, run);
+      path.geometry = geo(path.geometry.clone());
+      path.userData.groundSurface = true;
     }
 
     // Rampart floor now has movement support from the terrain network.
     for (const side of [-1, 1]) {
-      box(x + side * 17, 13.4, z, 2.6, 3.4, 22, stone);
+      box(x + side * 17, 13.4, z - 3, 2.6, 3.4, 16, stone);
       // Low continuous gun parapets, not medieval battlements.
     }
-    for (const dz of [-7, 0, 7]) {
+    for (const dz of [-7, -2, 3]) {
       const barrel = cylinder(x + 13, 13.4, z + dz, 0.7, 9, dark);
       barrel.rotation.z = -Math.PI / 2 + 0.22;
       for (const dx of [-1.6, 1.6]) cylinder(x + 9 + dx, 12, z + dz, 1.3, 0.5, wood);
       box(x + 8, 12.4, z + dz, 4.4, 1.4, 2.6, wood);
     }
-    cylinder(x - 24, 19, z, 0.35, 22, pale); solid(x - 24, z, 0.9, 0.9);
-    box(x - 21.4, 27.4, z, 5.4, 3.4, 0.16, rust);
+    const flagBase = sentosaGroundHeight(x - 24, z);
+    cylinder(x - 24, flagBase + 11, z, 0.35, 22, pale);
+    kit.obstacles.push({ minX:x-24.45,maxX:x-23.55,minZ:z-.45,maxZ:z+.45,minY:flagBase,maxY:flagBase+22 });
+    box(x - 21.4, flagBase + 19.4, z, 5.4, 3.4, 0.16, rust);
     sign('FORT SILOSO', x, 16.4, z - 44.4, 26, 2.2, '#5c6b3f');
+    coastalBench(kit, -111, -7, 4);
+    coastalBench(kit, -110, -25, 8);
+    coastalBench(kit, -99, -49, 12.2);
+    // Short retained downhill edges leave the entrances and traverse routes open.
+    for (const [px,pz,y,length] of [[-117,-7,4,6],[-114,-25,8,6],[-107,-50,12.2,6]]) {
+      box(px,y-.65,pz,.3,1.3,length,stone);
+      box(px,y+.04,pz,.45,.12,length+.2,concrete);
+    }
+    for (const [px,pz] of [[-131,-42],[-124,-64],[-119,-76],[-62,-63],[-56,-37]]) {
+      const base = sentosaGroundHeight(px,pz);
+      cylinder(px,base+4.5,pz,.28,9,wood);
+      blob(px,base+9,pz,4,3.1,4.4,leaf);
+      kit.obstacles.push({minX:px-.35,maxX:px+.35,minZ:pz-.35,maxZ:pz+.35,minY:base,maxY:base+9});
+    }
   }
 
   /** Monorail: a slim beam on single piers, with a platform box midway. */
@@ -310,7 +329,9 @@ export function buildSentosaScene() {
   scene.userData.districtFeatures = ['strait-boardwalk-ribs', 'leaning-palm-collars', 'arcaded-podium', 'tiered-pavilion-domes', 'water-stair', 'balcony-band-slabs', 'sky-bridge', 'earthwork-gun-emplacements', 'palawan-suspension-bridge', 'monorail-beam', 'fort-siloso-skywalk'];
   scene.userData.referenceFeatures = ['palawan-suspension-bridge', 'palawan-paired-roofed-lookouts', 'palawan-palm-lined-sand-shore'];
 
-  return withVerticalPlaces(withVerticalRoutes(kit.finish({
+  const ground = buildCoastalGround('sentosa'); scene.add(ground.mesh);
+  scene.userData.groundDesign = { type: 'low-shore-and-defensive-hillside', sources: COASTAL_GROUND_SOURCES, surveyed: false };
+  const world = withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.36 + index) * 1.8; });
@@ -472,137 +493,17 @@ export function buildSentosaScene() {
       }
     ]
   },
-  {
-    "id": "siloso-rampart-terrain",
-    "name": "Fort Siloso connected hillside and battery",
-    "note": "The formerly solid earthwork is playable as linked lower slopes, middle terrace and gun rampart, with two approaches and cross-slope alternatives.",
-    "floors": [
-      {
-        "id": "battery-lower",
-        "x": -90,
-        "z": 8,
-        "y": 4,
-        "width": 54,
-        "depth": 12,
-        "color": "#7a945e",
-        "foundation": "solid"
-      },
-      {
-        "id": "battery-middle",
-        "x": -90,
-        "z": -18,
-        "y": 8,
-        "width": 48,
-        "depth": 12,
-        "color": "#839661",
-        "foundation": "solid"
-      },
-      {
-        "id": "battery-rampart",
-        "x": -90,
-        "z": -45,
-        "y": 12.2,
-        "width": 34,
-        "depth": 22,
-        "color": "#b9b1a0",
-        "foundation": "solid"
-      }
-    ],
-    "connections": [
-      {
-        "id": "west-fort-entry",
-        "from": {
-          "x": -101,
-          "y": 0,
-          "z": 30
-        },
-        "to": {
-          "x": -101,
-          "y": 4,
-          "z": 14
-        },
-        "width": 5,
-        "stairs": false,
-        "foundation": "solid"
-      },
-      {
-        "id": "east-fort-entry",
-        "from": {
-          "x": -86,
-          "y": 0,
-          "z": 30
-        },
-        "to": {
-          "x": -86,
-          "y": 4,
-          "z": 14
-        },
-        "width": 5,
-        "stairs": false,
-        "foundation": "solid"
-      },
-      {
-        "id": "continuous-fort-earth-0",
-        "from": {
-          "x": -90,
-          "y": 4,
-          "z": 2
-        },
-        "to": {
-          "x": -90,
-          "y": 8,
-          "z": -12
-        },
-        "width": 44,
-        "foundation": "solid",
-        "color": "#839661"
-      },
-      {
-        "id": "continuous-fort-earth-1",
-        "from": {
-          "x": -90,
-          "y": 8,
-          "z": -24
-        },
-        "to": {
-          "x": -90,
-          "y": 12.2,
-          "z": -34
-        },
-        "width": 28,
-        "foundation": "solid",
-        "color": "#839661"
-      }
-    ],
-    "fixtures": [
-      {
-        "x": -82,
-        "y": 12.8,
-        "z": -52,
-        "width": 4.4,
-        "height": 1.2,
-        "depth": 2.6,
-        "color": "#7c6248"
-      },
-      {
-        "x": -82,
-        "y": 12.8,
-        "z": -45,
-        "width": 4.4,
-        "height": 1.2,
-        "depth": 2.6,
-        "color": "#7c6248"
-      },
-      {
-        "x": -82,
-        "y": 12.8,
-        "z": -38,
-        "width": 4.4,
-        "height": 1.2,
-        "depth": 2.6,
-        "color": "#7c6248"
-      }
-    ]
-  }
+  SENTOSA_FORT_GROUND,
 ]);
+  // The hillside follows the ground sampler. Its broad earth-backed slabs and
+  // wedges must not become tall boxes that seal airspace above a low slope.
+  const earthColors = new Set([...SENTOSA_FORT_GROUND.floors, ...SENTOSA_FORT_GROUND.connections].map(p => new THREE.Color(p.color).getHexString()));
+  scene.getObjectByName(SENTOSA_FORT_GROUND.id)?.traverse(node => {
+    if (node instanceof THREE.Mesh && node.material instanceof THREE.MeshStandardMaterial && earthColors.has(node.material.color.getHexString())) {
+      node.userData.groundSurface = node.userData.terrain = true;
+    }
+  });
+  const dispose = world.dispose;
+  world.dispose = () => { ground.dispose(); dispose(); };
+  return world;
 }

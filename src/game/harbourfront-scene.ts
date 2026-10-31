@@ -3,10 +3,11 @@ import { HARBOURFRONT_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
 import { withVerticalPlaces } from './vertical-places';
+import { buildCoastalGround, harbourfrontGroundHeight, HARBOURFRONT_RIDGE_STAIR, HARBOURFRONT_RIDGE_REST, coastalBench, COASTAL_GROUND_SOURCES } from './harbourfront-sentosa-ground';
 
 // On the quay between the mall and the water, looking along the berth.
 export const HARBOURFRONT_SPAWN = { x: 20, z: 134, yaw: Math.PI / 2 };
-export const HARBOURFRONT_BOUNDS = { minX: -255, maxX: 255, minZ: -215, maxZ: 215 };
+export const HARBOURFRONT_BOUNDS = { minX: -255, maxX: 255, minZ: -215, maxZ: 215, groundHeight: harbourfrontGroundHeight };
 export { HARBOURFRONT_STAMPS } from '../data/region-stamps.ts';
 
 const EW_ROADS = [-150, -20, 120], NS_ROADS = [-140, 130];
@@ -30,7 +31,7 @@ export const HARBOURFRONT_MAP_ROADS = [
 ];
 
 /**
- * An authored, compressed interpretation of the HarbourFront edge: a stepped
+ * An authored, compressed interpretation of the HarbourFront edge: a low
  * waterfront mall with a rooftop deck, a cruise hall with a liner alongside,
  * container gantries down the wharf, a cable line crossing overhead and the
  * ridge park behind it all. Compressed for play; reviewed exterior features are listed in referenceFeatures.
@@ -171,18 +172,41 @@ export function buildHarbourfrontScene() {
     for (let dz = -1; dz <= 1; dz += 2) cylinder(x + 14, 28, z + dz * 1.6, 0.08, 8, steel);
   }
 
-  /** Ridge park: stacked terraces up to a lookout deck and a cable station. */
+  /** A connected forested shoulder, with a direct stair and contour path. */
   function ridgePark(x: number, z: number) {
-    for (let step = 0; step < 5; step++) {
-      const w = 50 - step * 8, d = 90 - step * 14, y = 5 + step * 5;
-      box(x, y / 2, z, w, y, d, step % 2 ? lawn : grass, scene, true); solid(x, z, w, d);
-      for (let dz = -d / 2 + 5; dz < d / 2 - 3; dz += 9) blob(x + (step % 2 ? 6 : -6), y + 2.6, z + dz, 4, 2.6, 4, [leaf, fern][step % 2]);
+    // The terrain grid is cut at the stair strip, so the treads own its finish.
+    for (let i = 1; i < HARBOURFRONT_RIDGE_STAIR.length; i++) {
+      const a = HARBOURFRONT_RIDGE_STAIR[i - 1], b = HARBOURFRONT_RIDGE_STAIR[i];
+      if (a.y === b.y) { box(x,a.y-.13,(a.z+b.z)/2,6,.26,a.z-b.z,stone); continue; }
+      const count = Math.ceil((b.y - a.y) / .15), run = (a.z - b.z) / count;
+      for (let n = 0; n < count; n++) {
+        const top = a.y + (b.y - a.y) * (n + 1) / count;
+        box(x, top - .10, a.z - (n + .5) * run, 6, .20, run, stone);
+      }
+      for (const dx of [-2.9, 2.9]) beam(new THREE.Vector3(x + dx, a.y + 1.05, a.z), new THREE.Vector3(x + dx, b.y + 1.05, b.z), .09, wood);
+      for (let n=0;n<=4;n++) for(const dx of [-2.9,2.9]) {
+        const y=a.y+(b.y-a.y)*n/4,pz=a.z+(b.z-a.z)*n/4;
+        cylinder(x+dx,y+.525,pz,.065,1.05,wood);
+      }
     }
-    box(x, 27.4, z, 22, 1.2, 30, plank);
-    for (const side of [-1, 1]) { box(x + side * 10.4, 28.6, z, 0.3, 1.4, 30, steel); for (let dz = -13; dz <= 13; dz += 3.5) cylinder(x + side * 10.4, 28.4, z + dz, 0.1, 1.6, steel); }
-    for (let i = 0; i < 5; i++) { const angle = i * Math.PI / 4; cylinder(x + Math.cos(angle) * 7, 30.4, z - 10 + Math.sin(angle) * 7, 0.2, 5, steel); }
-    box(x, 33.4, z - 10, 20, 0.5, 20, steel, scene, true);
-    sign('MOUNT FABER', x, 30.4, z + 16, 20, 2.2, '#2f5140');
+    for (const side of [-1, 1]) {
+      // Low retained outer edge and open view rail at the level lookout.
+      box(x + side * 10.8, 21.4, -92, .45, 1.2, 16, stone);
+      for (let dz = -7; dz <= 7; dz += 3) cylinder(x + side * 10.8, 22.5, -92 + dz, .08, 1.1, steel);
+      box(x + side * 10.8, 23.05, -92, .1, .1, 16, steel);
+    }
+    coastalBench(kit, x - 5.6, z - 7, 22, true);
+    coastalBench(kit, x + 5.2, z - 2, 22);
+    const rest = HARBOURFRONT_RIDGE_REST;
+    coastalBench(kit, rest.x - 2.4, rest.z, rest.y, false, true);
+    // Forest grows from the shoulder, never from a repeated stack of blocks.
+    for (const [px, pz, h] of [[-216,-64,9],[-216,-104,11],[-202,-120,10],[-164,-84,10],[-164,-114,11],[-202,-54,9],[-214,-82,10],[-216,-122,9],[-208,-132,10],[-174,-128,11],[-157,-106,9],[-158,-58,10],[-198,-44,8],[-198,-102,8],[-172,-62,9]]) {
+      const base = harbourfrontGroundHeight(px,pz);
+      cylinder(px, base+h/2, pz, .35, h, wood);
+      for (const dx of [-2,2]) blob(px+dx,base+h,pz,4,3,4,leaf);
+      kit.obstacles.push({minX:px-.4,maxX:px+.4,minZ:pz-.4,maxZ:pz+.4,minY:base,maxY:base+h});
+    }
+    sign('MOUNT FABER · RIDGE WALK', x, 24.4, z - 11, 20, 1.4, '#2f5140');
   }
 
   /**
@@ -239,12 +263,17 @@ export function buildHarbourfrontScene() {
         for (const dx of [-4.3, 4.3]) { box(x + dx, 1.2, 131.5, 0.45, 2.4, 4.8, pale); solid(x + dx, 131.5, 0.7, 5); }
         box(x, 1.2, 133.5, 8.6, 2.4, 0.45, pale); solid(x, 133.5, 8.8, 0.7);
         for (const dx of [-2.2, 2.2]) box(x + dx, 0.75, 130.2, 3, 0.5, 1.2, plank);
-      } else if (i % 3 === 1) {
+      } else if (i % 3 === 1 && x < -110) {
         // Baggage cages off the ferry hall, stacked two high.
         for (let n = 0; n < 2; n++) {
           box(x + n * 3.4, 1.3 + n * 2.5, 131.2, 3.1, 2.5, 2.5, container[(i + n) % container.length], scene, true);
         }
         solid(x, 131.2, 3.3, 2.7); solid(x + 3.4, 131.2, 3.3, 2.7);
+      } else if (i % 3 === 1) {
+        // Visitor frontage: seats and low planting, not cargo cages by the mall.
+        box(x, .55, 131.8, 8, 1.1, 1.3, stone); solid(x,131.8,8,1.3);
+        for(const dx of [-2.5,0,2.5]) blob(x+dx,1.5,131.8,1.5,.6,.65,fern);
+        coastalBench(kit,x,129.8,.4);
       } else {
         // Planter wall, chest high, hedged along the top.
         box(x, 0.7, 131.2, 10, 1.4, 2.1, stone); solid(x, 131.2, 10.2, 2.3);
@@ -409,7 +438,9 @@ export function buildHarbourfrontScene() {
   scene.userData.districtFeatures = ['white-wave-retail-frontage', 'rooftop-water-deck', 'quay-amphitheatre', 'wave-vault-hall', 'boarding-gangways', 'raked-liner-hull', 'portal-gantry-boom', 'container-yard-rows', 'ridge-terraces', 'cable-span-cabins'];
   scene.userData.referenceFeatures = ['vivocity-white-waterfront-balcony-rails', 'vivocity-restaurant-colonnade-pergola'];
 
-  return withVerticalPlaces(kit.finish({
+  const ground = buildCoastalGround('harbourfront'); scene.add(ground.mesh);
+  scene.userData.groundDesign = { type: 'level-quay-and-wooded-ridge', sources: COASTAL_GROUND_SOURCES, surveyed: false };
+  const world = withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.32 + index) * 1.8; });
@@ -626,4 +657,7 @@ export function buildHarbourfrontScene() {
     ]
   }
 ]);
+  const dispose = world.dispose;
+  world.dispose = () => { ground.dispose(); dispose(); };
+  return world;
 }
