@@ -5649,3 +5649,53 @@ routing/assets/PWA/model/audio/API-origin checks on both. Evidence:
 No paid generation/API calls or GitHub pushes. Task-owned Vite/Chrome stopped;
 private copied environment files removed. Preserve unrelated command-camp,
 battlefield-scenario, engine, facility and pre-existing handoff changes.
+
+
+## Freedom Force and Collective Cops art prototypes (2026-10-31)
+
+Owner requested initial palettes, soldier models and design documentation for
+small elite Western/US-inspired Freedom Force and Eastern/Chinese-inspired
+Collective Cops in a possible proxy conflict. Local main code commit `1245ad4`
+adds the art-only catalog in src/game/proxy-factions.ts, four reusable animated
+CharacterLook models and a directly addressable `/faction-designs` gallery.
+Freedom Force: sand/bone, steel blue and amber, a wing emblem, comms ear cups,
+folded twin optics and tapered armor; Lancer entry-tool kit and Wayfinder recon
+mast/observation kit. Collective Cops: slate/jade, graphite and cinnabar, a gate
+emblem, full visor/jaw guard, square shoulders and hip plates; Bastion slung
+shield and Conductor twin sensor heads/tablet case. Faces vary independently
+of faction. Existing rifle geometry is a placeholder; shield/sensors/optics are
+visual studies with no new combat behavior.
+
+The catalog is absent from live faction/role registries, spawning, heat,
+loadout pools and alliances. The two-side ArenaSide/hostile assumptions remain
+unchanged. docs/PROXY-FACTIONS.md specifies palettes/hex values, insignia,
+recognition matrix, bespoke operator jobs, proxy-conflict premise and decisions
+needed before integration. docs/FACTIONS.md and PROJECT-GUIDE.md link it.
+The lazy-loaded gallery supports mouse/touch rotation, keyboard-accessible
+front/side/rear presets, standing/walking/crouched poses, grayscale, four-current/
+concept-faction comparison and a two-column mobile view. It is not a playable
+mode or main-menu faction selector. New geometry merges into existing bones.
+
+All 2,236 tests / 240 files, typecheck and normal production build pass.
+The isolated release passes 32 focused tests / five files, typecheck and its
+Cloudflare build. Five new model tests cover absence from live registries,
+palette/marking contrast, deterministic faces, four geometry-distinct loadouts
+with weapons hidden, finite combat poses, render budgets and complete disposal.
+Browser checks pass locally and on production: nine views each, four specialists,
+comparison with current factions, mouse/touch rotation, grayscale, two animated
+poses, mobile overflow and cleanup on navigation. Final screenshots reviewed;
+profile framing leaves room for the scoped rifle. No browser exceptions.
+
+Manual `pnpm deploy:cloudflare` succeeded from the isolated archive of 1245ad4,
+with all 3,094 tracked files verified. Version:
+`81ff8d5d-3fd9-45d6-9357-84403a5df5fe`. Both production domains serve matching
+entry HTML and all six exact release JS/CSS/service-worker files, including the
+new lazy gallery bundle. Production routing/assets/PWA/model/audio/API-origin
+checks pass on both domains, and the public gallery's full desktop/mobile
+browser checks pass. Evidence: .cache/proxy-factions/ (full-tests.log,
+release-tests.log, release-typecheck.log, source-verification.json, deploy.log,
+live-verification.json/log, live-browser-results.json/log, screenshots and
+cloudflare-custom.log/cloudflare-workers.log). No paid requests or GitHub push.
+Copied private environment files removed; task-owned Vite/Chrome stopped.
+AGENTS.md remains local, unstaged and uncommitted. Preserve pre-existing
+uncommitted handoff history and .claude files.
