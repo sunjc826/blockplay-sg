@@ -5699,3 +5699,58 @@ cloudflare-custom.log/cloudflare-workers.log). No paid requests or GitHub push.
 Copied private environment files removed; task-owned Vite/Chrome stopped.
 AGENTS.md remains local, unstaged and uncommitted. Preserve pre-existing
 uncommitted handoff history and .claude files.
+
+
+## Proxy faction weapon exterior studies (2026-10-31)
+
+Owner forked a separate session for Freedom Force / Collective Corps weapon
+design and representative base-model suggestions. Local main code commit
+`6625549` adds four original procedural exterior studies and a directly
+addressable `/faction-designs?study=weapons` preview, linked from the operator
+gallery. Strider / Lancer: SIG MCX SPEAR LT-inspired compact fore-end, open
+stock triangle and forward curved magazine. Longwatch / Wayfinder: FN Mk 20 /
+SCAR 20S-inspired long upper, precision stock, short magazine, scope and folded
+bipod. Gatekeeper / Bastion: QBZ-95-family-inspired bullpup, curved rear magazine,
+open carry bridge and pointed fore-end. Network / Conductor: QBZ-191-inspired
+conventional layout, stepped stock and angular observation optic. Same-scale
+profile/other-side/oblique/front views, drag rotation, grayscale and responsive
+mobile selection support review. Material merges keep each model at five or
+six draws / 936–1,852 triangles. Rails and folded bipod have attached supports;
+stock, trigger and bridge openings are real negative space.
+
+Collective Corps is now the display name in current catalog/docs/gallery;
+stable `collective-cops` IDs remain unchanged. No active factions, encounters,
+alliances, stats, ammo pools, weapon families, shop or loot entries are added.
+The operator rigs still carry their original rifle/marksman placeholders;
+these studies are not fitted to their hands or reload/optic systems yet.
+`docs/PROXY-WEAPONS.md` records the shortlist, primary references, original
+interpretations, QBU-191 alternative and integration boundaries. Links added
+in PROXY-FACTIONS, PROJECT-GUIDE and ARMORY. No sound work was commissioned.
+The China Military 191-family page timed out during direct retrieval; its
+indexed text supports family naming only. FN's manufacturer image was reviewed;
+these are stylized exterior interpretations, not dimensional replicas.
+
+Full suite: 2,241 tests / 241 files pass. Following final rail/bipod attachment
+refinement, all 37 focused tests / four files and typecheck pass in both the
+workspace and frozen release; normal and Cloudflare builds pass. Five new
+checks cover exclusion from live catalogs, four geometry-distinct silhouettes,
+magazine placement relative to the hand, real openings, finite/bounded geometry,
+draw budget and idempotent resource cleanup. Browser QA: 24 weapon views locally
+and on production, all four angles/models, grayscale, mouse/touch rotation,
+active-preset reset, mobile overflow and navigation to operators/menu. Existing
+operator gallery's nine-view local smoke also passes with the Corps display
+name. No browser exceptions. Final production images reviewed.
+
+Manual `pnpm deploy:cloudflare` succeeded from the isolated archive at
+6625549, with all 3,099 tracked files verified. Cloudflare version:
+`b414c59d-0a4a-4792-b670-c8ba361ce95d`. Both public domains serve matching
+entry HTML and all six exact release JS/CSS/service-worker files. Production
+routing/assets/PWA/model/audio/API-origin checks pass on both; the new public
+weapon preview passes its full desktop/mobile browser smoke. Evidence:
+.cache/proxy-weapons/ (full-tests.log, tests.log, release-tests.log,
+release-typecheck.log, source-verification.json, deploy.log,
+live-verification.json/log, live-browser-results.json/log, screenshots and
+cloudflare-custom.log/cloudflare-workers.log). No paid requests or GitHub push.
+Temporary private environment copies removed; task-owned Vite/Chrome stopped.
+AGENTS.md remains local, unstaged and uncommitted. Preserve pre-existing
+uncommitted handoff history and .claude files.
