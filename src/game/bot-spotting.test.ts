@@ -97,6 +97,21 @@ describe('gradual visual spotting', () => {
     expect(spotting.update([target], 0, .02, () => true)).toBeUndefined();
     expect(spotting.update([target], .02, .02, () => false, undefined, target.id)).toBe(target.id);
   });
+  it('notices a nearby newcomer while slowly identifying a distant target', () => {
+    const spotting = createBotSpotting(), far = candidate({ distance: 250, stance: 'prone' });
+    spotting.update([far], .02, .02, () => true);
+    const near = candidate({ id: 'near', distance: 4 });
+    let identified: string | undefined;
+    for (let now = .04; now < 1; now += .02) identified = spotting.update([near, far], now, .02, () => true) ?? identified;
+    expect(identified).toBe('near');
+  });
+  it('does not let an unseen nearby actor prevent identifying a clear distant actor', () => {
+    const spotting = createBotSpotting(), far = candidate({ distance: 150 }), hidden = candidate({ id: 'hidden', distance: 4 });
+    spotting.update([far], .02, .02, () => true);
+    let identified: string | undefined;
+    for (let now = .04; now < 6; now += .02) identified = spotting.update([hidden, far], now, .02, c => c.id !== hidden.id) ?? identified;
+    expect(identified).toBe(far.id);
+  });
   it('derives settled stances from authoritative eye and support heights', () => {
     expect(spottingStance(false, 11.75, 10)).toBe('stand');
     expect(spottingStance(false, 11.15, 10)).toBe('crouch');

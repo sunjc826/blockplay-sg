@@ -32,6 +32,7 @@ export const spottingStance = (prone: boolean | undefined, eyeHeight: number, gr
 export function createBotSpotting() {
   const contacts = new Map<string, Contact>();
   let candidateId = '', clear = false, checkedAt = -Infinity, updatedAt = -Infinity;
+  let rejectedNear = '', rejectedAt = -Infinity;
   function update(candidates: readonly SpottingCandidate[], now: number, dt: number,
     sample: (candidate: SpottingCandidate) => boolean, preferred?: string, confirmed?: string): string | undefined {
     const step = Math.max(0, Math.min(.25, dt));
@@ -50,14 +51,25 @@ export function createBotSpotting() {
     if (urgent) { current = urgent; candidateId = urgent.id; clear = true; checkedAt = now; }
     else if (!current || now - checkedAt >= SPOTTING.recheck - 1e-8 || gap > SPOTTING.recheck * 2) {
       const ordered = preferred ? candidates.find(c => c.id === preferred) : undefined;
+      const nearby = current && clear ? candidates.find(c => c.id !== current!.id && c.distance < 12 && c.distance < current!.distance / 2 &&
+        (rejectedNear !== `${c.id}:${c.life}` || now - rejectedAt >= 1)) : undefined;
+      const previous = current;
+      const probingNearby = !ordered && !!nearby;
       if (ordered && ordered !== current) current = ordered;
+      else if (probingNearby) current = nearby;
       else if (!current || !clear) {
         const previous = candidates.findIndex(c => c.id === candidateId);
         current = candidates.length ? candidates[(previous + 1) % candidates.length] : undefined;
       }
       candidateId = current?.id ?? ''; checkedAt = now;
       // One normal visual sample per bot per recheck, even with a crowd behind walls.
-      clear = !!current && sample(current);
+      const sampledClear = !!current && sample(current);
+      if (probingNearby && !sampledClear && previous) {
+        // An occluded close actor must not monopolize attention or erase the
+        // evidence already accumulating for a clear distant actor.
+        rejectedNear = `${current!.id}:${current!.life}`; rejectedAt = now;
+        current = previous; candidateId = previous.id;
+      } else clear = sampledClear;
     }
     for (const [id, contact] of contacts) {
       if (id !== current?.id || !clear) contact.confidence = Math.max(0, contact.confidence - gap / SPOTTING.forgetSeconds);

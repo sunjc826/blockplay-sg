@@ -32,17 +32,17 @@ it('routes ground troops around a parked vehicle while keeping the cached ground
  expect(navigator.route({x:-20,y:0,z:0},{x:20,y:0,z:0})).toEqual([{x:20,y:0,z:0}]);
 });
 
-it('arena bots follow the stair route to an elevated opponent', async()=>{
+it('arena bots follow the stair route to a visibly exposed elevated opponent', async()=>{
  const {createArena}=await import('./arena-rules'), {createRegionMovement}=await import('./region-collision');
  // The exposed deck edge gives the bot a sighting to investigate; a hidden
  // player behind the floor is intentionally unknown to the spotting system.
- const arena=createArena([],1,'mixed',{bounds:world.bounds,move:createRegionMovement(world.bounds).move,spawns:[{x:18,z:10}],playerSpawn:{x:20,z:5.5}},undefined,world);
+ const arena=createArena([],1,'mixed',{bounds:world.bounds,move:createRegionMovement(world.bounds).move,spawns:[{x:18,z:10}],playerSpawn:{x:20,z:5}},undefined,world);
  arena.addPlayer('upstairs','Upstairs',0,0,undefined,undefined,true);
  let highest=0;
  for(let i=0;i<600;i++){
    arena.step(.05);
    arena.setPlayerVitals('upstairs',{health:100});
-   arena.setInput('upstairs',{x:20,y:4.75,z:5.5,yaw:0,pitch:0,weapon:0,playing:true});
+   arena.setInput('upstairs',{x:20,y:4.75,z:5,yaw:0,pitch:0,weapon:0,playing:true});
    highest=Math.max(highest,arena.snapshot().actors.find(a=>a.bot)!.y);
  }
  expect(highest).toBeGreaterThan(4.6);

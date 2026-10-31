@@ -471,6 +471,8 @@ block visual evidence. Partial glimpses fade; identifying one actor does not
 identify another or a new respawned life. Normal visual memory lasts six seconds
 and stores only the last confirmed position. Each bot performs at most one
 normal sight sample per 0.2-second recheck, rotating past obstructed candidates.
+Nearby newcomers can interrupt slow identification of a distant target; an
+occluded nearby actor cannot monopolize attention.
 
 Direct hits and bullets passing within 2.5 m create a twelve-second threat report and alert up to
 four same-faction bots within 35 m. Alerted bots evade for four seconds, seeking

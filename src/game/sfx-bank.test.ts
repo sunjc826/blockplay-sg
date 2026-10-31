@@ -10,7 +10,7 @@ const settle = () => new Promise(resolve => setTimeout(resolve, 0));
 
 describe('sfx bank', () => {
   it('has a published file for every take of every group', () => {
-    for (const group of SFX_GROUPS) expect(sfxUrls(group, '/').every(url => /^\/audio\/sfx\/[\w-]+\.mp3$/.test(url))).toBe(true);
+    for (const group of SFX_GROUPS) expect(sfxUrls(group, '/').every(url => /^\/audio\/(?:sfx|reload)\/[\w-]+\.mp3$/.test(url))).toBe(true);
     expect(SFX_GROUPS).toEqual(expect.arrayContaining(['rifle-556', 'pistol-9', 'mg-762', 'hmg-127', 'walk', 'run', 'bolt-release']));
   });
   it('gives nothing until loaded, then never the same take twice running', async () => {
