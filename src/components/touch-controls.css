@@ -167,11 +167,6 @@
 .fps-game[data-touch=on] .fps-ammo{bottom:calc(22px + var(--touch-inset))}
 .fps-game[data-touch=on] .fps-vehicle-hud{bottom:calc(22px + var(--touch-inset))}
 .fps-game[data-touch=on] .fps-vehicle-notice{bottom:calc(46px + var(--touch-inset))}
-.fps-game[data-touch=on] .fps-radio{bottom:calc(66px + var(--touch-inset))}
-/* Landscape spends its width on the vitals and the ammo block, so the callout
-   is narrowed to the strip between them rather than printed over both. */
-@media(max-height:560px){.fps-game[data-touch=on] .fps-radio{width:min(400px,calc(100% - 480px))}}
-.fps-game[data-touch=on].is-immersive>.fps-comms{bottom:calc(60px + var(--touch-inset) + var(--safe-bottom))}
 /* The layer puts a pressable prompt where these lines go, so the reading copy
    would only be saying it twice. A keyboard still gets both. */
 .fps-game[data-touch=on][data-phase=playing]:not([data-pilot]) .fps-interact-prompt,
@@ -198,7 +193,4 @@
      carries the heading, which is the part you steer by. */
   .fps-game[data-touch=on] .fps-compass{display:none}
   .fps-game[data-touch=on] .fps-ammo,.fps-game[data-touch=on] .fps-vehicle-hud{top:128px;bottom:auto;right:12px}
-  /* Portrait is the one shape with room for the log, so the callout has to
-     clear it rather than print the same line through it. */
-  .fps-game[data-touch=on].is-immersive .fps-radio{bottom:calc(160px + var(--touch-inset))}
 }

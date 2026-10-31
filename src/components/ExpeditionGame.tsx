@@ -26,8 +26,9 @@ import FpsShield from './FpsShield';
 import FpsDebugPanel from './FpsDebugPanel';
 import FpsPilotPanel from './FpsPilotPanel';
 import FpsCommsLog from './FpsCommsLog';
-import FpsRadio, { FpsRadioVoice } from './FpsRadio';
-import FpsCalloutWheel, { FpsChatter } from './FpsCalloutWheel';
+import { FpsRadioVoice } from './FpsRadio';
+import FpsHudLayout from './FpsHudLayout';
+import FpsCalloutWheel from './FpsCalloutWheel';
 import FpsFoodPicker from './FpsFoodPicker';
 import TouchControls from './TouchControls';
 import { FpsControlGuide, FpsPlayerTools } from './FpsPlayerTools';
@@ -124,14 +125,19 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       <div className="fps-top"><span className="fps-badge"><span className="status-dot" /> {zone.name.toUpperCase()} / EXPEDITION</span><span className="expedition-wallet">{hud.credits.toLocaleString()} CR · {hud.tokens.toLocaleString()} TK</span><span className={`expedition-risk risk-${zone.risk}`}>{zone.risk.toUpperCase()} THREAT</span></div>
       {fullscreen.immersive && <div className="fps-immersive-hint">ESC · MENU & RELEASE MOUSE</div>}
       {fullscreen.immersive && !playing && <button className="fps-leave-screen" onClick={() => { void fullscreen.toggle(); }}><Minimize size={14} /> Exit fullscreen</button>}
-      <FpsRadio hud={hud} />
-      <FpsChatter hud={hud} />
+      <FpsHudLayout hud={hud} history={debug && fullscreen.immersive}>
+        {playing && <>
+          {(hud.sector || hud.sectorHeat) && <div className="expedition-sector" role="status"><span>LOCATION</span><strong>{hud.sector || zone.name}</strong>
+            {hud.sectorHeat && <div className="expedition-heat" aria-label="Faction heat here">{[...SQUAD_FACTIONS].reverse().map(id =>
+              <div key={id} data-faction={id}><small>{getArenaFaction(id)!.short}</small><i style={{ width: `${Math.round(hud.sectorHeat![id] * 100)}%`, background: getArenaFaction(id)!.accent }} /></div>)}</div>}</div>}
+          <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} facilities={hud.arena?.facilities?.sites} contactRange={hud.mapContactRange} mode="expedition" expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
+        </>}
+      </FpsHudLayout>
       <FpsCalloutWheel hud={hud} engine={engine.current} />
       <FpsFoodPicker hud={hud} engine={engine.current} />
       <FpsFoodPicker hud={hud} engine={engine.current} kind="grenade" />
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus}<span className="fps-hud-hint"> · ESC TO STOP</span></div>}
       {playing && <>
-        <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} facilities={hud.arena?.facilities?.sites} contactRange={hud.mapContactRange} mode="expedition" expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
         {alive && <button type="button" className="expedition-objective-toggle" aria-pressed={hud.objectiveHints} onClick={() => engine.current?.toggleObjectiveHints()}>{!touch && <kbd>H</kbd>} {hud.objectiveHints ? 'Hide objectives' : 'Show objectives'}</button>}
         {alive && hud.objectiveHints && !hud.mapExpanded && <div className="expedition-objective-markers" aria-label="Enemy facility directions">{hud.objectiveMarkers.map(marker => <div key={marker.id} className="expedition-objective-marker" data-objective-id={marker.id} data-edge={marker.edge} style={{ left: `${marker.x}%`, top: `${marker.y}%` }}>
           <span className="expedition-objective-arrow" style={marker.edge ? { transform: `rotate(${marker.bearing}deg)` } : undefined}>{marker.edge ? '↑' : '◆'}</span><strong>{marker.name}</strong><small>{marker.distance}m · CAPTURE / DESTROY</small>
@@ -158,9 +164,6 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         <div className={`fps-objective${mounted ? ' fps-hud-hint' : ''}`}>{mounted ? hud.vehicleSeat !== 0 ? 'V switch seat · E exit when stopped' : hud.vehicle === 'car' ? 'W / S throttle · A / D steer · Space brake' : 'W / S cruise · A / D yaw · Space climb · Ctrl descend' : objectiveText}<small>{mounted ? 'Driver dismounts with the crew · Land before exiting' : 'E near a cabinet to capture · Stay close with infantry advantage · H objectives · M control map'}</small></div>
         <FpsLootCard hud={hud} touch={touch} />
         <div className="expedition-prompts" role="status">{hud.npcPrompt && <strong>{showHints ? hud.npcPrompt : hud.npcPrompt.replace(/^E · /, '')}</strong>}{hud.travelPrompt && <strong>{showHints ? hud.travelPrompt : hud.travelPrompt.replace(/^T · /, '')}</strong>}{hud.lootNotice && <span>{hud.lootNotice}</span>}</div>
-        {(hud.sector || hud.sectorHeat) && <div className="expedition-sector" role="status"><span>LOCATION</span><strong>{hud.sector || zone.name}</strong>
-          {hud.sectorHeat && <div className="expedition-heat" aria-label="Faction heat here">{[...SQUAD_FACTIONS].reverse().map(id =>
-            <div key={id} data-faction={id}><small>{getArenaFaction(id)!.short}</small><i style={{ width: `${Math.round(hud.sectorHeat![id] * 100)}%`, background: getArenaFaction(id)!.accent }} /></div>)}</div>}</div>}
         {touch && !hud.pilotEnabled && <TouchControls hud={hud} engine={engine.current} mode="expedition" onMenu={() => engine.current?.pause()} />}
         <div className="expedition-route-hud">{nextCheckpoint && <strong>ROUTE TO {getWorldZone(destination!).name.toUpperCase()}</strong>}{(nextCheckpoint ? [nextCheckpoint] : touch ? nearestGateways.slice(0, 2) : gateways).map(gateway => <span key={gateway.id}>{getWorldZone(gateway.to).name} <b>{distance(gateway.position)}m</b></span>)}</div>
       </>}
@@ -204,7 +207,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       <button className="session-button" aria-label={fullscreen.immersive ? 'Exit expedition fullscreen' : 'Fullscreen expedition'} onClick={() => { void fullscreen.toggle(); }}>{fullscreen.immersive ? <Minimize size={16} /> : <Maximize size={16} />} Fullscreen</button>
       <button className="session-button" disabled={['loading', 'error'].includes(hud.phase) || suspended} onClick={() => playing || deploying ? engine.current?.pause() : engine.current?.start()}>{playing || deploying ? <Pause size={15} /> : <Play size={15} />}{playing || deploying ? 'Menu' : 'Resume'}</button>
     </div></div>
-    <FpsCommsLog entries={hud.comms} />
+    {!fullscreen.immersive && <FpsCommsLog entries={hud.comms} />}
     <FpsRadioVoice hud={hud} engine={engine.current} />
     <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
     <div className="fps-loadout" aria-label="Field loadout">{equipment.carriedFamilies.map((index, slot) => { const item = equipment.weapons[index]; return <button key={index} disabled={!canFight} aria-pressed={index === hud.weapon} onClick={() => engine.current?.switchWeapon(index)}><kbd>{slot + 1}</kbd><span>{item.name}<small>{item.role}</small></span><span className="fps-selected">{index === hud.weapon ? 'EQUIPPED' : 'EQUIP'}</span></button>; })}</div>

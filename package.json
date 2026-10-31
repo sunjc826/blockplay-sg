@@ -62,6 +62,7 @@
     "test:fps:survival": "node scripts/fps-survival-smoke.mjs",
     "test:fps:aim-toggle": "node scripts/fps-aim-toggle-smoke.mjs",
     "test:fps:radio": "node scripts/fps-radio-smoke.mjs",
+    "test:hud:layout": "node scripts/hud-layout-smoke.mjs",
     "test:fps:pilot": "node scripts/fps-pilot-smoke.mjs",
     "test:fps:pilot:travel": "node scripts/fps-pilot-expedition-smoke.mjs",
     "build:cloudflare": "tsc -b && vite build --mode cloudflare",

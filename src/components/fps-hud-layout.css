@@ -1,0 +1,58 @@
+/* Two rows reserve real height for speech, including wrapped lines. The map,
+   sector and scrollable history occupy the remaining space above it. */
+.fps-hud-layout{position:absolute;inset:0;display:grid;grid-template-rows:minmax(0,1fr) auto;gap:12px;padding:108px 18px 155px;pointer-events:none}
+.fps-hud-navigation{display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-height:0}
+.fps-hud-navigation>.fps-minimap:not(.is-expanded){position:static;flex-shrink:0}
+.fps-hud-navigation>.expedition-sector{position:static;flex-shrink:0}
+.fps-subtitles{display:flex;flex-direction:column;gap:8px;width:min(470px,100%);justify-self:center;min-width:0;z-index:5}
+.fps-subtitles>.fps-radio{position:static;transform:none;width:100%}
+.fps-subtitles>.fps-radio:empty{display:none}
+.fps-subtitles>.fps-chatter{position:static;width:100%;align-items:stretch}
+.fps-subtitles .fps-chatter p{overflow-wrap:anywhere}
+.fps-subtitles .fps-chatter p:nth-last-child(n+3){display:none}
+.fps-hud-navigation>.fps-comms{display:flex;flex-direction:column;flex:0 1 auto;min-height:0;width:min(360px,100%);margin:0;z-index:4;pointer-events:auto}
+.fps-hud-navigation>.fps-comms>header{flex-shrink:0;flex-wrap:wrap;gap:4px 8px}
+.fps-hud-navigation>.fps-comms>header>div{flex-wrap:wrap}
+.fps-hud-navigation .fps-comms-entries{min-height:0;flex-shrink:1}
+.fps-hud-navigation .fps-comms-entry{display:block}
+.fps-hud-navigation .fps-comms-entry time,.fps-hud-navigation .fps-comms-entry b{margin-right:6px}
+.fps-hud-layout:has(.fps-minimap.is-expanded) .fps-subtitles,
+.fps-hud-layout:has(.fps-minimap.is-expanded) .fps-comms,
+.fps-hud-layout:has(.fps-minimap.is-expanded) .expedition-sector{visibility:hidden}
+@media(max-width:720px){
+  .fps-hud-layout{padding:106px 12px 153px;gap:10px}
+  .fps-subtitles{width:100%}
+  .fps-subtitles>.fps-chatter{left:auto;right:auto;bottom:auto}
+}
+.fps-game[data-touch=on] .fps-hud-layout{padding-bottom:calc(66px + var(--touch-inset))}
+/* Size queries follow the game panel, including a windowed debug preview. */
+.fps-viewport{container-name:fps-hud;container-type:size}
+@container fps-hud (min-width:521px) and (min-height:561px){
+  .fps-game[data-touch=on] .fps-subtitles{width:min(470px,calc(100% - 420px))}
+}
+@container fps-hud (min-width:521px) and (max-height:800px){
+  .fps-hud-navigation>.fps-comms{display:none}
+}
+@container fps-hud (max-height:560px){
+  .fps-hud-navigation>.fps-comms{display:none}
+  .fps-hud-layout{grid-template-columns:166px minmax(0,1fr) 166px;grid-template-rows:minmax(0,1fr);padding-bottom:140px}
+  .fps-subtitles{grid-column:2;grid-row:1;align-self:end}
+  .fps-game[data-touch=on] .fps-hud-layout{grid-template-columns:112px minmax(0,1fr) 190px;padding-top:66px;padding-bottom:140px}
+  .fps-hud-navigation>.expedition-sector{display:none}
+}
+@container fps-hud (max-width:520px) and (min-height:561px){
+  .fps-game[data-touch=on] .fps-hud-layout{padding-bottom:calc(66px + var(--touch-inset))}
+  .fps-hud-navigation>.fps-comms .fps-comms-entries{height:56px}
+}
+@container fps-hud (max-width:520px) and (max-height:760px){
+  .fps-hud-layout{padding-top:66px}
+  .fps-game[data-touch=on] .fps-hud-layout{padding-bottom:170px}
+  .fps-hud-navigation>.fps-comms,.fps-hud-navigation>.expedition-sector{display:none}
+  .fps-subtitles .fps-chatter p:nth-last-child(n+2){display:none}
+}
+@container fps-hud (max-width:520px) and (max-height:560px){
+  .fps-game .fps-hud-layout{grid-template-columns:112px minmax(0,1fr);padding:66px 12px 110px}
+  .fps-subtitles{align-self:start}
+  .fps-subtitles .fps-chatter p:nth-last-child(n+2){display:none}
+  .fps-subtitles .fps-radio-message>p{font-size:10px}
+}

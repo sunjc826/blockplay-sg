@@ -26,8 +26,9 @@ import FpsShield from './FpsShield';
 import FpsDebugPanel from './FpsDebugPanel';
 import FpsPilotPanel from './FpsPilotPanel';
 import FpsCommsLog from './FpsCommsLog';
-import FpsRadio, { FpsRadioVoice } from './FpsRadio';
-import FpsCalloutWheel, { FpsChatter } from './FpsCalloutWheel';
+import { FpsRadioVoice } from './FpsRadio';
+import FpsHudLayout from './FpsHudLayout';
+import FpsCalloutWheel from './FpsCalloutWheel';
 import FpsFoodPicker from './FpsFoodPicker';
 import TouchControls from './TouchControls';
 import { FpsControlGuide, FpsPlayerTools } from './FpsPlayerTools';
@@ -104,14 +105,14 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
       <div className="fps-top"><span className="fps-badge"><span className="status-dot" /> {zone.name.toUpperCase()}{(!touch || isArena) && ` / ${isArena ? 'ARENA' : 'FIELD RANGE'}`}</span><span className="fps-score">{isArena ? `${hud.arenaSelf?.kills || 0} K / ${hud.arenaSelf?.deaths || 0} D` : drill === 'classic' ? `${hud.hits} / ${district.targets.length} TARGETS` : `${hud.hits} CLEARED`} <b>{isArena ? arenaClock : rangeClock}</b></span></div>
       {isArena && playing && <><div className="arena-kill-feed" aria-label="Elimination feed">{hud.arena?.feed.slice(-4).map(event => <p key={event.id} className={event.killerId === arenaOptions.session.id ? 'own-kill' : event.victimId === arenaOptions.session.id ? 'own-death' : ''}>{event.text}</p>)}</div>{hud.arenaSelf && !hud.arenaSelf.alive && <div className="arena-respawn" role="status"><span>ELIMINATED</span><strong>Back in {Math.ceil(hud.arenaSelf.respawnIn)}s</strong><small>Infantry armor/ammo replenish on respawn · Vehicle ammo resets with the match.</small></div>}{!hud.arenaStarted && !disconnected && <div className="arena-waiting" role="status">Waiting for the host to start the match.</div>}</>}
       {isArena && !debug && playing && !touch && <button className="arena-menu-button" aria-label="Open match menu" onClick={() => engine.current?.pause()}><Menu size={18} /><span>Menu</span></button>}
-      <FpsRadio hud={hud} />
-      <FpsChatter hud={hud} />
+      <FpsHudLayout hud={hud} history={debug && fullscreen.immersive}>
+        {playing && <FpsMinimap zone={region} player={hud} markers={hud.mapMarkers} contactRange={hud.mapContactRange} mode={isArena ? 'arena' : 'practice'} expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />}
+      </FpsHudLayout>
       <FpsCalloutWheel hud={hud} engine={engine.current} />
       <FpsFoodPicker hud={hud} engine={engine.current} />
       <FpsFoodPicker hud={hud} engine={engine.current} kind="grenade" />
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus}<span className="fps-hud-hint"> · ESC TO STOP</span></div>}
       {playing && <>
-        <FpsMinimap zone={region} player={hud} markers={hud.mapMarkers} contactRange={hud.mapContactRange} mode={isArena ? 'arena' : 'practice'} expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
         {!touch && <span className="fps-capture-state fps-input-status" aria-label="Mouse capture status">{hud.pilotEnabled ? 'AI PILOT' : hud.locked ? 'MOUSE LOCKED' : 'DRAG TO LOOK'}</span>}
         <FpsVisionChip hud={hud} touch={touch} />
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}
@@ -190,7 +191,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
       {!guest && <button className="icon-button" aria-label={isArena ? 'Reset arena match' : 'Reset FPS exercise'} disabled={hud.phase === 'loading' || hud.phase === 'error'} onClick={resetExercise}><RotateCcw size={16} /></button>}
       <button className="session-button" disabled={disconnected || hud.phase === 'loading' || hud.phase === 'error' || hud.phase === 'complete' || hud.phase === 'defeated' || suspended} onClick={() => playing ? engine.current?.pause() : engine.current?.start()}>{playing ? <Pause size={15} /> : <Play size={15} />}{playing ? isArena ? 'Menu' : 'Pause' : hud.phase === 'ready' ? 'Start' : 'Resume'}</button>
     </div></div>
-    <FpsCommsLog entries={hud.comms} />
+    {!fullscreen.immersive && <FpsCommsLog entries={hud.comms} />}
     <FpsRadioVoice hud={hud} engine={engine.current} />
     <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
     <div className="fps-loadout" aria-label="Weapon selection">{equipment.carriedFamilies.map((i, slot) => { const w = equipment.weapons[i]; return <button key={w.id} aria-pressed={i === hud.weapon} disabled={hud.phase === 'loading' || hud.phase === 'error'} onClick={() => engine.current?.switchWeapon(i)}><kbd>{slot + 1}</kbd><span>{w.name}<small>{w.role}</small></span><span className="fps-selected">{i === hud.weapon ? 'EQUIPPED' : 'EQUIP'}</span></button>; })}{hud.quickItem && <button className="fps-supply" data-testid="quick-item" disabled={!hud.quickCount || hud.phase !== 'playing'} onClick={() => engine.current?.useQuickItem()}><kbd>G</kbd><span>{hud.quickItem}<small>{hud.quickType}</small></span><span className="fps-selected">x{hud.quickCount}</span></button>}<div className="fps-accuracy"><span>ACCURACY</span><strong>{accuracy}%</strong></div></div>
