@@ -16,13 +16,16 @@ const MATERIALS: Record<ImpactSurface, { level: number; pitch: number; ring: num
   water: { level: .8, pitch: 850, ring: .2, decay: .06 },
 };
 
-/** A quieter, shorter-range sound than a muzzle report, heard from the struck point. */
+/** A shorter-range sound than a muzzle report, heard from the struck point. */
 export function impactTone(surface: ImpactSurface, distance = 0, energy = 1) {
   const d = Number.isFinite(distance) ? Math.max(0, distance) : IMPACT_SOUND_RANGE;
   const strength = Number.isFinite(energy) ? Math.min(2, Math.max(0, energy)) : 1;
   return {
     sample: `impact-${surface}` as SfxGroup,
-    level: .24 * MATERIALS[surface].level * Math.sqrt(strength) * Math.min(1, 8 / Math.max(8, d)) * Math.max(0, 1 - d / IMPACT_SOUND_RANGE),
+    // The old 8 m reference plus range fade buried even 25–50 m hits under
+    // the muzzle report. Keep the recorded transient clear at fighting range;
+    // softer materials, spent rounds and distant hits still stay quieter.
+    level: .42 * MATERIALS[surface].level * Math.sqrt(strength) * Math.min(1, 24 / Math.max(24, d)) * Math.max(0, 1 - d / IMPACT_SOUND_RANGE),
     delay: soundDelay(d), cutoff: 15000 * .15 ** Math.min(1, d / IMPACT_SOUND_RANGE),
     rate: 1.08 - .08 * Math.sqrt(strength),
   };

@@ -55,30 +55,49 @@ try {
   await new Promise(r => setTimeout(r, 500));
   assert.equal(await evaluate('window.playedSfx.length'), paused, 'Pause schedules no further takes');
   const rendered = await evaluate(`(async()=>{
-    const {createSfxBank,SFX_GROUPS}=await import('/src/game/sfx-bank.ts');
+    const {createSfxBank}=await import('/src/game/sfx-bank.ts');
     const {createImpactAudio}=await import('/src/game/impact-audio.ts');
+    const {createGunshotAudio,gunshotTone}=await import('/src/game/gunshot-audio.ts');
     const context=new AudioContext(), bank=createSfxBank();bank.load(context);
     const surfaces=['concrete','metal','wood','glass','foliage','dirt','flesh','water'];
     const until=performance.now()+20000;
-    while(!surfaces.every(s=>bank.pick('impact-'+s))){if(performance.now()>until)throw Error('Impact samples did not decode');await new Promise(r=>setTimeout(r,40));}
+    while(!surfaces.every(s=>bank.get('impact-'+s,1))||!bank.get('rifle-556',2)){if(performance.now()>until)throw Error('Impact/gunshot samples did not decode');await new Promise(r=>setTimeout(r,40));}
+    // Render the actual gunshot bus too: isolated near-field non-silence did
+    // not catch impacts disappearing under sustained fire at combat range.
+    const burstContext=new OfflineAudioContext(2,88200,44100);
+    Object.defineProperty(burstContext,'state',{get:()=> 'running'});
+    const gunshots=createGunshotAudio(()=>burstContext,()=>false,bank);
+    for(const after of [0,.1,.2,.3])gunshots.fire(gunshotTone(5.56,36,0,true),0,after);
+    const burst=(await burstContext.startRendering()).getChannelData(0);gunshots.dispose();
     const result=[];
-    for(const surface of surfaces)for(let take=0;take<2;take++){
+    for(const surface of surfaces)for(let take=0;take<2;take++)for(const distance of [3,25,50,80]){
       const offline=new OfflineAudioContext(2,44100,44100);
       Object.defineProperty(offline,'state',{get:()=> 'running'});
-      const audio=createImpactAudio(()=>offline,()=>false,bank);
-      audio.hit(surface,3,-.75);const buffer=await offline.startRendering();
-      const left=buffer.getChannelData(0),right=buffer.getChannelData(1);let energy=0,rightEnergy=0,peak=0,first=-1;
-      for(let i=0;i<left.length;i++){energy+=left[i]**2;rightEnergy+=right[i]**2;peak=Math.max(peak,Math.abs(left[i]));if(first<0&&Math.abs(left[i])>.001)first=i;}
-      result.push({surface,take,peak,rms:Math.sqrt(energy/left.length),leftEnergy:energy,rightEnergy,firstMs:first/44.1});audio.dispose();
+      const audio=createImpactAudio(()=>offline,()=>false,{pick:group=>bank.get(group,take)});
+      audio.hit(surface,distance,distance===3?-.75:0);const buffer=await offline.startRendering();
+      const left=buffer.getChannelData(0),right=buffer.getChannelData(1);let energy=0,rightEnergy=0,peak=0,first=-1,attackPeak=0,gunPeak=0,mixedPeak=0;
+      const from=Math.floor(distance/343*44100),to=from+2205;
+      for(let i=0;i<left.length;i++){
+        energy+=left[i]**2;rightEnergy+=right[i]**2;peak=Math.max(peak,Math.abs(left[i]));if(first<0&&Math.abs(left[i])>.001)first=i;
+        mixedPeak=Math.max(mixedPeak,Math.abs(left[i]+burst[i]));
+        if(i>=from&&i<to){attackPeak=Math.max(attackPeak,Math.abs(left[i]));gunPeak=Math.max(gunPeak,Math.abs(burst[i]));}
+      }
+      result.push({surface,take,distance,peak,attackPeak,gunPeak,mixedPeak,attackRelativeDb:20*Math.log10(attackPeak/gunPeak),rms:Math.sqrt(energy/left.length),leftEnergy:energy,rightEnergy,firstMs:first/44.1});audio.dispose();
     }
     bank.dispose();await context.close();return result;
   })()`);
   for (const take of rendered) {
-    assert(take.peak > .005 && take.peak < .95, `${take.surface}: audible without clipping`);
-    assert(take.leftEnergy > take.rightEnergy * 4, `${take.surface}: panned from the hit`);
-    assert(take.firstMs > 7 && take.firstMs < 25, `${take.surface}: onset follows only the 3 m sound delay`);
+    assert(take.peak > .003 && take.mixedPeak < .95, `${take.surface} at ${take.distance} m: non-silent and mixed burst does not clip`);
+    if (take.distance === 3) {
+      assert(take.leftEnergy > take.rightEnergy * 4, `${take.surface}: panned from the hit`);
+      assert(take.firstMs > 7 && take.firstMs < 25, `${take.surface}: onset follows only the 3 m sound delay`);
+    }
+    if (take.distance === 50) {
+      assert(take.attackPeak > .018, `${take.surface} take ${take.take}: combat-range transient has useful output level`);
+      assert(take.attackRelativeDb > -20, `${take.surface} take ${take.take}: transient stays within 20 dB of overlapping automatic fire`);
+    }
   }
   assert.equal(paidRequests, 0); assert.deepEqual(errors, []);
   await fs.writeFile(new URL('results.json', output), JSON.stringify({ engineHits, rendered, paidRequests, errors }, null, 2));
-  console.log('PASS actual-engine target impacts; all 16 recorded takes decode, render, pan and start promptly; pause and zero ElevenLabs requests.');
+  console.log('PASS actual-engine target impacts; all 16 takes at 3/25/50/80 m, combat-range transients against automatic gunfire, unclipped mixed bursts, panning, onset, pause and zero ElevenLabs requests.');
 } finally { ws.close(); await fetch(`${chrome}/json/close/${tab.id}`); }

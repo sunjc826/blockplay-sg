@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createImpactAudio, impactTone, IMPACT_SOUND_RANGE, MAX_IMPACT_VOICES } from './impact-audio';
 import { SURFACE_KINDS } from './fps-surfaces';
 import { sfxUrls } from './sfx-bank';
+import { gunshotTone } from './gunshot-audio';
 
 function makeNode() {
   const n = { buffer: null as unknown, gain: { value: 0 }, pan: { value: 0 }, frequency: { value: 0 }, Q: { value: 0 }, playbackRate: { value: 1 }, type: '',
@@ -29,13 +30,28 @@ describe('surface impact audio', () => {
   });
   it('arrives from the impact after sound travel and falls quiet with distance or spent energy', () => {
     const near = impactTone('metal', 3), far = impactTone('metal', 80);
-    expect(far.level).toBeLessThan(near.level / 8);
+    expect(far.level).toBeLessThan(near.level / 6);
     expect(far.cutoff).toBeLessThan(near.cutoff);
     expect(far.delay).toBeCloseTo(80 / 343);
     expect(impactTone('metal', IMPACT_SOUND_RANGE).level).toBe(0);
     expect(impactTone('metal', 3, 0).level).toBe(0);
     expect(impactTone('metal', 3, .3).level).toBeLessThan(near.level);
     expect(impactTone('foliage').level).toBeLessThan(impactTone('concrete').level);
+  });
+  it('keeps combat-range hit transients in the mix beside the player muzzle report', () => {
+    const muzzle = gunshotTone(5.56, 36, 0, true).level;
+    expect(impactTone('concrete', 25).level).toBeGreaterThan(muzzle * .9);
+    expect(impactTone('concrete', 50).level).toBeGreaterThan(muzzle * .35);
+    expect(impactTone('flesh', 50).level).toBeGreaterThan(muzzle * .25);
+    expect(impactTone('concrete', 80).level).toBeGreaterThan(muzzle * .15);
+    // No distant loudness floor: nearby strikes stay stronger and the range
+    // boundary, including invalid distances, remains silent.
+    for (const surface of [...SURFACE_KINDS, 'water'] as const) {
+      const levels = [0, 25, 50, 80, 120, 140].map(d => impactTone(surface, d).level);
+      expect(levels[0]).toBeLessThan(.5);
+      expect(levels.every((level, i) => i === 0 || level < levels[i - 1])).toBe(true);
+      expect(impactTone(surface, NaN).level).toBe(0);
+    }
   });
   it('plays the recorded material from the struck direction, through a distance lowpass', () => {
     const f = fixture(); f.audio.hit('glass', 34.3, -.7);

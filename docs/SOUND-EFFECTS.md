@@ -37,6 +37,12 @@ remain as the fallback while the files load, or if they never do.
   sound travel, fading out by 140 m. Energy changes level and pitch. At most
   24 impact voices can overlap; pause, reset, master mute and disposal cancel
   queued sounds. Material-specific synthesis covers missing/unloaded clips.
+  The impact mix keeps its close-range level through a 24 m reference distance
+  before inverse-distance attenuation, alongside the 140 m fade. This lifts
+  hits at 25–80 m by about 14 dB over the original mix, so their attacks remain
+  distinct under gunfire. `scripts/impact-audio-smoke.mjs` renders every take at
+  3, 25, 50 and 80 m against an automatic rifle burst to check the mix as well
+  as playback, panning and cleanup. Existing ElevenLabs recordings are reused.
 
 Files are served from `public/audio/sfx/`, which the service worker caches at
 runtime like the Encik recordings.
