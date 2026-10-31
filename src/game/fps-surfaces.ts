@@ -7,8 +7,8 @@ import * as THREE from 'three';
  * name) unless something along the hit object's parent chain, or its
  * material, declares one outright with `userData.impactSurface`.
  *
- * This decides only what the hit looks like: chips, splinters, shards or
- * blood, and which mark it leaves. Damage and penetration never read it.
+ * This decides how the hit looks and sounds: chips, splinters, shards or
+ * blood, its impact sound and its mark. Damage and penetration never read it.
  */
 export type SurfaceKind = 'concrete' | 'metal' | 'wood' | 'glass' | 'foliage' | 'dirt' | 'flesh';
 export const SURFACE_KINDS: readonly SurfaceKind[] = ['concrete', 'metal', 'wood', 'glass', 'foliage', 'dirt', 'flesh'];

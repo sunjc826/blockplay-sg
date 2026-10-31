@@ -289,6 +289,102 @@
         "take": "bolt-release-2",
         "seconds": 0.48
       }
+    ],
+    "impact-concrete": [
+      {
+        "file": "impact-concrete-1-99962d8afb.mp3",
+        "take": "impact-concrete-1",
+        "seconds": 0.531
+      },
+      {
+        "file": "impact-concrete-2-797f8333fa.mp3",
+        "take": "impact-concrete-2",
+        "seconds": 0.45
+      }
+    ],
+    "impact-metal": [
+      {
+        "file": "impact-metal-1-b318fa597d.mp3",
+        "take": "impact-metal-1",
+        "seconds": 0.679
+      },
+      {
+        "file": "impact-metal-2-eab7d30361.mp3",
+        "take": "impact-metal-2",
+        "seconds": 0.68
+      }
+    ],
+    "impact-wood": [
+      {
+        "file": "impact-wood-1-eee3accb27.mp3",
+        "take": "impact-wood-1",
+        "seconds": 0.588
+      },
+      {
+        "file": "impact-wood-2-61e4504315.mp3",
+        "take": "impact-wood-2",
+        "seconds": 0.417
+      }
+    ],
+    "impact-glass": [
+      {
+        "file": "impact-glass-1-68c223fbc8.mp3",
+        "take": "impact-glass-1",
+        "seconds": 0.425
+      },
+      {
+        "file": "impact-glass-2-37a3543363.mp3",
+        "take": "impact-glass-2",
+        "seconds": 0.434
+      }
+    ],
+    "impact-foliage": [
+      {
+        "file": "impact-foliage-1-a560ce5264.mp3",
+        "take": "impact-foliage-1",
+        "seconds": 0.674
+      },
+      {
+        "file": "impact-foliage-2-4dd4d96bd2.mp3",
+        "take": "impact-foliage-2",
+        "seconds": 0.542
+      }
+    ],
+    "impact-dirt": [
+      {
+        "file": "impact-dirt-1-1369e8954b.mp3",
+        "take": "impact-dirt-1",
+        "seconds": 0.482
+      },
+      {
+        "file": "impact-dirt-2-be37200e73.mp3",
+        "take": "impact-dirt-2",
+        "seconds": 0.137
+      }
+    ],
+    "impact-flesh": [
+      {
+        "file": "impact-flesh-1-d2f6855e22.mp3",
+        "take": "impact-flesh-1",
+        "seconds": 0.248
+      },
+      {
+        "file": "impact-flesh-2-c7fead3b8a.mp3",
+        "take": "impact-flesh-2",
+        "seconds": 0.395
+      }
+    ],
+    "impact-water": [
+      {
+        "file": "impact-water-1-2e88c2e960.mp3",
+        "take": "impact-water-1",
+        "seconds": 0.566
+      },
+      {
+        "file": "impact-water-2-a03a35e81b.mp3",
+        "take": "impact-water-2",
+        "seconds": 0.675
+      }
     ]
   }
 }

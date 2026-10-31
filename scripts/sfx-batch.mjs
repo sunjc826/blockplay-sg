@@ -32,6 +32,21 @@ export const SOUNDS = [
 /** The newer model gets its own takes of every gunshot, so the two can be compared by ear. */
 const V3 = SOUNDS.filter(s => /^(rifle|pistol|mg|hmg|suppressed|distant)/.test(s.id)).map(s => ({ ...s, id: s.id + '-v3', takes: s.id === 'rifle-556' ? 5 : Math.min(3, s.takes), model: 'eleven_text_to_sound_v3' }));
 SOUNDS.push(...V3);
+// Impacts are separate from the muzzle report: one strike, with a short material tail.
+const IMPACTS = {
+  concrete: 'a hard concrete wall: a sharp dry stone tick and gritty chips scattering',
+  metal: 'a steel plate: a bright metallic ping with a short ringing resonance',
+  wood: 'a timber plank: a woody hollow thock and brief splintering crack',
+  glass: 'a glass pane: a brittle sharp crack and a brief tinkle of small shards',
+  foliage: 'dense green leaves: a quick papery snap and soft leaf rustle',
+  dirt: 'soft soil: a dull earthy thud and short scattering of grit',
+  flesh: 'a clothed body: a muted solid thud with a brief fabric snap, restrained and non-graphic',
+  water: 'water: a sharp small plip followed by a short splash of droplets',
+};
+SOUNDS.push(...Object.entries(IMPACTS).map(([surface, description]) => ({
+  id: `impact-${surface}`, takes: 2, seconds: .7,
+  prompt: `One single bullet hitting ${description}. Only the impact at close perspective, immediate attack, no gunshot or muzzle blast, no ricochet flyby, no repeated hits. ${DRY}`,
+})));
 export const settings = { model_id: 'eleven_text_to_sound_v2', prompt_influence: 0.5 };
 export const takes = SOUNDS.flatMap(sound => Array.from({ length: sound.takes }, (_, i) => ({ id: `${sound.id}-${i + 1}`, sound: sound.id, request: { ...settings, ...sound.model && { model_id: sound.model }, text: sound.prompt, duration_seconds: sound.seconds } })));
 const writeJson = (file, data) => fs.writeFile(file, JSON.stringify(data, null, 2) + '\n');

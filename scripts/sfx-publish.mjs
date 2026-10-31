@@ -1,5 +1,5 @@
 // Turns cached ElevenLabs takes into the game's sound pack: trimmed, peak-normalised mono MP3s plus a manifest.
-// Free and offline: it only reads .cache/sfx-batch. Usage: pnpm sfx:publish [--analyse]
+// Free and offline: it only reads .cache/sfx-batch. Usage: pnpm sfx:publish [--analyse] [group…]
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
@@ -38,6 +38,8 @@ export const PICKS = {
   'mag-seat': ['mag-seat-1', 'mag-seat-2'],
   'bolt-back': ['bolt-back-1', 'bolt-back-2'],
   'bolt-release': ['bolt-release-1', 'bolt-release-2'],
+  ...Object.fromEntries(['concrete', 'metal', 'wood', 'glass', 'foliage', 'dirt', 'flesh', 'water']
+    .map(surface => [`impact-${surface}`, [`impact-${surface}-1`, `impact-${surface}-2`]])),
 };
 const STEPS = new Set(['walk', 'run']);
 
@@ -62,10 +64,12 @@ function envelope(s, window = Math.round(RATE * .005)) {
  * Starts 1 ms before the main transient (the first sample at 30% of peak), so a quiet lead-in never makes a shot
  * or a reload stage land late; ends once it has died 50 dB below its peak, fades the last 15 ms, and is set to LOUDNESS.
  */
-function shape(s) {
+function shape(s, impact = false) {
   const peak = peakOf(s) || 1, { out, window } = envelope(s);
   const loudest = out.reduce((m, v) => Math.max(m, v), 0);
-  let start = s.findIndex(v => Math.abs(v) >= peak * .3); start = Math.max(0, start - Math.round(RATE * .001));
+  // Generated impacts can contain a soft preliminary tap before the main strike.
+  // Start on the strong strike so alternating takes don't feel out of sync.
+  let start = s.findIndex(v => Math.abs(v) >= peak * (impact ? .9 : .3)); start = Math.max(0, start - Math.round(RATE * .001));
   let end = out.length - 1; while (end > 0 && out[end] < loudest * .003) end--;
   const clip = s.slice(start, Math.min(s.length, (end + 1) * window));
   const fade = Math.min(clip.length, Math.round(RATE * .015));
@@ -103,15 +107,20 @@ if (process.argv.includes('--analyse')) {
     console.log(take.id.padEnd(22), JSON.stringify(analyse(await decode(file))));
   }
 } else {
-  await fs.rm(publicDirectory, { recursive: true, force: true });
+  const only = process.argv.slice(2);
+  for (const group of only) if (!(group in PICKS)) throw Error(`Unknown group: ${group}`);
+  // Incremental publishing preserves existing, auditioned clips byte for byte.
+  const previous = only.length ? JSON.parse(await fs.readFile(manifestFile, 'utf8')).groups : {};
+  if (!only.length) await fs.rm(publicDirectory, { recursive: true, force: true });
   await fs.mkdir(publicDirectory, { recursive: true });
-  const groups = {};
+  const groups = { ...previous };
   for (const [group, ids] of Object.entries(PICKS)) {
+    if (only.length && !only.includes(group)) continue;
     groups[group] = [];
     for (const id of ids) {
       const take = takes.find(t => t.id === id); if (!take) throw Error(`${group}: unknown take ${id}`);
       const source = await decode(path.join(cacheDirectory, id + '.mp3'));
-      for (const clip of STEPS.has(group) ? footfalls(source) : [shape(source)]) {
+      for (const clip of STEPS.has(group) ? footfalls(source) : [shape(source, group.startsWith('impact-'))]) {
         const n = groups[group].length + 1, digest = createHash('sha256').update(Buffer.from(clip.buffer)).digest('hex').slice(0, 10);
         const file = `${group}-${n}-${digest}.mp3`;
         await encode(clip, path.join(publicDirectory, file));
@@ -124,6 +133,9 @@ if (process.argv.includes('--analyse')) {
   }
   await fs.mkdir(path.dirname(manifestFile), { recursive: true });
   await fs.writeFile(manifestFile, JSON.stringify({ version: 1, provider: 'ElevenLabs', groups }, null, 2) + '\n');
+  const retained = new Set(Object.values(groups).flat().map(clip => clip.file));
+  for (const group of only) for (const clip of previous[group] ?? [])
+    if (!retained.has(clip.file)) await fs.rm(path.join(publicDirectory, clip.file), { force: true });
   // A local listening page (not deployed): every raw take, the ones in use marked, then what the game plays.
   const picked = new Set(Object.values(PICKS).flat()), audio = src => `<audio controls preload="none" src="${src}"></audio>`;
   const raw = [...new Set(takes.map(t => t.sound))].map(sound => `<h2>${sound}</h2><p>${takes.find(t => t.sound === sound).request.text}</p>` +

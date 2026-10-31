@@ -122,6 +122,7 @@ import { createAmbientSky } from './ambient-sky-visuals';
 import { COASTAL_SEA, type AmbientKind } from './ambient-sky';
 import { gunfireReports } from './gunfire-reports';
 import { createGunshotAudio, gunshotTone } from './gunshot-audio';
+import { createImpactAudio, type ImpactSurface } from './impact-audio';
 import { createSfxBank, type SfxGroup } from './sfx-bank';
 import { getEnvironmentSettings } from './environment-settings';
 import { createHitDirectionOverlay, createHitDirections, hitStrength } from './fps-hit-direction';
@@ -414,6 +415,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const combatAudio = createCombatAudio(() => audio, () => hud.muted);
   const sfx = createSfxBank();
   const gunshots = createGunshotAudio(() => audio, () => hud.muted, sfx);
+  const impactAudio = createImpactAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx);
   // Scenery in the sky beyond the district: never a threat, never sent between peers (ambient-sky).
   // Roost sampling runs before the first render, so static world transforms must be ready.
   world.scene.updateMatrixWorld(true);
@@ -642,6 +644,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.health = hud.maxHealth; arenaRuntime?.setVitals({ health: hud.health }); recoveryDelay = 0; publish();
   }
   function pause() {
+    impactAudio.clear();
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); hud.pilotStatus = 'Player controls'; hud.pilotGoal = null; hud.pilotContacts = 0;
     capturePending = false;
     if (!['playing', 'deploying'].includes(hud.phase)) return;
@@ -675,6 +678,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const distance = camera.position.distanceTo(new THREE.Vector3(at.x, at.y, at.z));
     if (distance <= 80) pilotGunfireUntil = Math.max(pilotGunfireUntil, performance.now() / 1000 + Math.max(0, after) + .25);
     gunshots.fire(gunshotTone(calibre, power, distance, false, muzzle), panTo(at), after);
+  }
+  function impactSound(at: THREE.Vector3, surface: ImpactSurface, energy = 1) {
+    impactAudio.hit(surface, camera.position.distanceTo(at), panTo(at), energy);
   }
   /** A rustle, a tear or a clack as a supply's effect lands. */
   function supplySound(style: SupplyStyle) {
@@ -868,6 +874,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     effects.setStyles(weaponStyles, index); publish();
   }
   function reset() {
+    impactAudio.clear();
     if (hud.phase === 'loading' || hud.phase === 'error') return;
     if (options.arena?.session.role === 'guest') return;
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset();
@@ -1779,6 +1786,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // Only the host's confirmed wound events may produce arena blood.
     if (arenaRuntime && material === 'flesh') return;
     effects.impact(hit.point, normal, kind, energy, style, material);
+    impactSound(hit.point, material ?? 'metal', energy);
     if (material === 'flesh') bloodSpatter(hit.point, direction, energy);
   }
   function bloodSpatter(point: THREE.Vector3, direction: THREE.Vector3, energy: number) {
@@ -1809,6 +1817,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const normal = surfaceNormal(hit, direction);
     const skip = waterRicochet(direction, normal), profile = look ?? (weapon === undefined ? undefined : weaponStyles[weapon]?.impact);
     effects.splash(hit.point, direction, skip ? energy * .6 : energy, profile);
+    impactSound(hit.point, 'water', skip ? energy * .6 : energy);
     // A heavier round rocks the surface harder as well as throwing more spray.
     rippleWater(hit.object, hit.point.x, hit.point.z, (skip ? energy * .6 : energy) * splashWeight(profile).size);
     return skip;
@@ -2521,6 +2530,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const direction = new THREE.Vector3(impact.direction.x, impact.direction.y, impact.direction.z);
       const style = publishedStyle({ calibre: impact.calibre, power: impact.power });
       effects.impact(point, direction.clone().negate(), 'surface', 1, style, 'flesh');
+      impactSound(point, 'flesh');
       bloodSpatter(point, direction, 1);
     }
     if (frame.hit?.hitId && frame.hit.damage > 0) { hud.landed++; hud.lastDamage = frame.hit.damage; hitTime = .2; hud.hitKind = frame.hit.killed ? 'kill' : 'hit'; }
@@ -3024,6 +3034,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     // A hair proud of the deck, so a case lies on it rather than in it.
     effects.update(realDt, camera, brassFloor + .004);
+    impactAudio.update();
     // One string, written only when it changes, so a browser smoke can watch
     // the pools without the frame paying for four attribute writes.
     const live = effects.counts, census = `${live.casings}/${live.impacts}/${live.sparks}/${live.scorches}`;
@@ -3209,7 +3220,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     chooseFood, closeFoodPicker: () => closeFoodPicker(),
     toggleVision: () => useVision('toggle'), cycleVisionPalette: () => useVision('palette'), pressVision: () => useVision('button'),
     toggleEncikVoice() { hud.encikVoice = !hud.encikVoice; if (!hud.encikVoice) stopVoice(); publish(); },
-    toggleSound() { hud.muted = !hud.muted; if (hud.muted) stopVoice(); if (hud.phase === 'playing') { canvas.focus({ preventScroll: true }); if (!hud.muted) initAudio(); } publish(); },
+    toggleSound() { hud.muted = !hud.muted; if (hud.muted) { stopVoice(); impactAudio.clear(); } if (hud.phase === 'playing') { canvas.focus({ preventScroll: true }); if (!hud.muted) initAudio(); } publish(); },
     dispose() {
       const infrastructure = arenaRuntime?.getWorldState();
       if (expedition && infrastructure) expedition.infrastructure?.set(expedition.zone, infrastructure);
@@ -3228,7 +3239,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // First, so every mesh has its own material back before anything else restores or disposes them.
       vision.dispose(); lens.dispose(); deploymentBlur.dispose(); overview.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
-      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
+      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); impactAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       rangeStation?.dispose();
       scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); grenadeHands.dispose(); grenadeVisuals.dispose(); sunShadows.dispose(); occlusion.dispose(); renderer.dispose(); canvas.remove();
