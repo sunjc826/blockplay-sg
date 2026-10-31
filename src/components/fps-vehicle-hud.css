@@ -13,3 +13,16 @@
  .fps-game[data-touch=on] .fps-vehicle-hud[data-personal]>strong,
  .fps-game[data-touch=on] .fps-vehicle-hud[data-personal]>b{display:none}
 }
+
+/* Quiet, transparent flight symbology leaves the windscreen and outside view clear. */
+.helicopter-flight-hud{position:absolute;pointer-events:none;left:50%;top:47%;transform:translate(-50%,-50%);width:min(68%,850px);color:#a0fbc4;filter:drop-shadow(0 1px 2px #001c10);opacity:.87}
+.helicopter-flight-hud svg{display:block;width:100%;overflow:visible;fill:currentColor;font:13px ui-monospace,monospace;letter-spacing:1px}
+.helicopter-flight-hud path{fill:none;stroke:currentColor;stroke-width:1.4}
+.helicopter-flight-hud .flight-value{font-size:25px;letter-spacing:0}
+.helicopter-flight-hud[data-warning]{color:#ffb37d}
+@media(max-width:700px){.helicopter-flight-hud{width:92%;top:43%}}
+@media(max-height:500px){.helicopter-flight-hud{width:min(65%,570px);top:48%}}
+
+.fps-game .fps-vehicle-hud[data-cockpit]{max-width:240px;padding:10px;background:#0c151b9c;border-radius:3px}
+.fps-game .fps-vehicle-hud[data-cockpit]>strong,.fps-game .fps-vehicle-hud[data-cockpit]>b,.fps-game .fps-vehicle-hud[data-cockpit] .fps-vehicle-seats{display:none}
+@media(max-width:700px){.helicopter-flight-hud svg{font-size:18px}.helicopter-flight-hud .flight-value{font-size:28px}}

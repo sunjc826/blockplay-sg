@@ -38,7 +38,8 @@ import { createMovementMotion, resetMovementMotion, advanceGroundMotion, advance
 import { createVerticalMovement, MAX_STEP_HEIGHT } from './vertical-movement';
 import { elevatedLootAnchors } from './vertical-navigation';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
-import { seatPoint, type VehicleControls } from './vehicle-seats';
+import { seatPoint, seatFacing, type VehicleControls } from './vehicle-seats';
+import { placeVehicleFirstPersonCamera } from './vehicle-first-person';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage, stanceRecoilMultiplier } from './fps-stance';
 import { pickupSlot, restoreCarrySlots } from './armory-slots';
 import { equipmentMovement } from './fps-encumbrance';
@@ -208,6 +209,7 @@ export interface FpsHud {
   vehicleView: 'first-person' | 'third-person'; vehiclePersonalWeapon: boolean; vehicleSeat: number | null; vehicleCanFire: boolean; vehicleSeats: { label: string; name: string; occupied: boolean; self: boolean }[];
   vehicleAimX: number; vehicleAimY: number; vehicleAimVisible: boolean;
   vehicleHealth: number; vehicleMaxHealth: number; vehicleAmmo: number; vehicleAmmoMax: number; vehicleWeapon: string; vehicleDamage: VehicleDamageStage;
+  vehicleHeading: number; vehicleClimb: number; vehiclePitch: number;
   vehicle: VehicleKind | 'on-foot'; vehicleSpeed: number; altitude: number; interact: string; vehicleNotice: string; carDistance: number; helicopterDistance: number;
   locked: boolean; message: string; muted: boolean; x: number; z: number; yaw: number;
   /** Look pitch. Recoil moves this as well as the mouse, so nothing outside the
@@ -245,7 +247,7 @@ export interface FpsHud {
   /** The weapon in hand's laser (B) and light (L), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean; laserOn?: boolean; lightOn?: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], foodChoice: null, foodPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deployment: null, deploymentIntro: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], foodChoice: null, foodPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deployment: null, deploymentIntro: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -894,7 +896,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (change) {
       clearInput(); actualAim = false; stopReload();
       position = { x: change.x, z: change.z }; vertical = change.y; velocityY = 0; resetMovementMotion(bodyMotion, eyeHeight()); resetRecoil(kick); carry.set(0, 0, 0);
-      if (change.entered) { yaw = change.yaw; pitch = -.23; }
+      if (change.entered) { yaw = change.yaw; pitch = vehicles.active === 'helicopter' ? -.06 : -.23; }
       else pitch = -.03;
       updateCameras(0, false, false);
     }
@@ -902,7 +904,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function switchVehicleSeat() {
     if (hud.phase !== 'playing' || !vehicles.active) return;
-    if (arenaRuntime) arenaRuntime.vehicleAction('switch'); else vehicles.switchSeat();
+    if (arenaRuntime) arenaRuntime.vehicleAction('switch'); else {
+      vehicles.switchSeat();
+      if (vehicles.mounted?.kind === 'helicopter') { yaw = vehicles.mounted.yaw + seatFacing('helicopter', vehicles.seat ?? 0); pitch = -.06; }
+      updateCameras(0, false, false);
+    }
     clearInput(); canvas.focus({ preventScroll: true }); publish();
   }
   /**
@@ -1567,13 +1573,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function updateVehicleCamera(dt: number) {
     const v = vehicles.viewMounted; if (!v) return;
     if (firstPersonVehicle()) {
-      const eye = seatPoint(v, vehicles.seat ?? 0);
-      if (vehicles.canFire) {
-        const offset = v.kind === 'car' ? -.45 : -1.7;
-        eye.x = v.x + Math.sin(v.yaw) * offset; eye.z = v.z + Math.cos(v.yaw) * offset;
-        eye.y = v.y + (v.kind === 'car' ? 2.72 : .9);
-      }
-      camera.position.set(eye.x, eye.y, eye.z); camera.rotation.set(pitch, yaw, 0, 'YXZ');
+      placeVehicleFirstPersonCamera(camera, vehicles.models[v.kind], v, vehicles.seat ?? 0, yaw, pitch, vehicles.canFire);
     } else {
       const target = new THREE.Vector3(v.x, v.y + 1.65, v.z), distance = v.kind === 'car' ? 8.5 : 13;
       const direction = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
@@ -2447,7 +2447,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         if (shot.kind === vehicles.active) shotSound(gun); else otherShot(shot.origin, gun.caliberMm, gun.damage);
       }
       if (oldVehicle !== vehicles.active || oldSeat !== vehicles.seat) {
-        if (!oldVehicle && vehicles.mounted) { yaw = vehicles.mounted.yaw; pitch = -.23; }
+        if (vehicles.mounted && (!oldVehicle || vehicles.mounted.kind === 'helicopter')) {
+          yaw = vehicles.mounted.yaw + seatFacing(vehicles.mounted.kind, vehicles.seat ?? 0); pitch = vehicles.mounted.kind === 'helicopter' ? -.06 : -.23;
+        }
         velocityY = 0;
         vertical = !vehicles.active && frame.self ? Math.max(0, frame.self.y - 1.75) : 0;
         if (frame.self) position = { x: frame.self.x, z: frame.self.z };

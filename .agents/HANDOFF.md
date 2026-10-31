@@ -5184,3 +5184,23 @@ clear inland ground (z=182), preserving the beach and naval ramps. Twelve
 Sentosa-specific vertical-route, sector, driving, loot and facility checks now
 pass. This is a deployment blocker fix discovered by the respawn release, not a
 new district reconstruction. The final full-suite rerun and manual deploy follow.
+
+
+## Helicopter cockpit and side-seat first person (2026-10-31)
+
+Replaced the closed sphere airframe with a hollow, framed cockpit and open side
+cabin: dual avionics displays, coaming, cyclics, pedals, seats, floor, rear
+bulkhead, grab rails and door steps. Pilot/gunner cameras now sit in the cockpit
+instead of at the chin gun. Passenger eyes sit on the side benches and face the
+correct doorway on seat changes. Camera transforms follow the rendered hull,
+including pitch and shared presentation interpolation. Pilot-only flight HUD
+shows heading, attitude, speed, altitude, vertical speed, hull and ammunition;
+duplicate cockpit readouts are compacted. Exterior navigation lamps were moved
+out of the passenger doorways.
+
+Validation: all 29 focused vehicle/camera/crew checks passed. A real tutorial
+engine browser fixture passed pilot/gunner/both passenger seats, takeoff,
+mounted fire, passenger aim, view switching and portrait HUD, without runtime or
+WebGL errors. Captures reviewed in `.cache/helicopter-view/`; regression runner:
+`scripts/helicopter-view-smoke.mjs`. Typecheck and manual deployment follow.
+No GitHub push; AGENTS.md stays local, unstaged and uncommitted.

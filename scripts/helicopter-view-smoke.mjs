@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+const chrome=process.env.FPS_CHROME_ORIGIN||'http://127.0.0.1:9352',origin=process.env.FPS_APP_ORIGIN||'http://127.0.0.1:5198';
+const output=new URL('../.cache/helicopter-view/',import.meta.url);await fs.mkdir(output,{recursive:true});
+const tab=await(await fetch(`${chrome}/json/new?${encodeURIComponent(origin+'/scripts/fixtures/helicopter-view.html')}`,{method:'PUT'})).json();
+const ws=new WebSocket(tab.webSocketDebuggerUrl);await new Promise((r,j)=>{ws.onopen=r;ws.onerror=j;});let id=0;const pending=new Map(),errors=[];
+ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.id){const p=pending.get(m.id);if(p){pending.delete(m.id);clearTimeout(p.timer);m.error?p.reject(Error(m.error.message)):p.resolve(m.result);}}if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails.exception?.description||m.params.exceptionDetails.text);if(m.method==='Log.entryAdded'&&m.params.entry.level==='error')errors.push({text:m.params.entry.text,url:m.params.entry.url});};
+const send=(method,params={})=>new Promise((resolve,reject)=>{const n=++id,timer=setTimeout(()=>{pending.delete(n);reject(Error('Timeout '+method));},45000);pending.set(n,{resolve,reject,timer});ws.send(JSON.stringify({id:n,method,params}));});
+const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;};
+const wait=async expression=>{const until=Date.now()+180000;while(!await evaluate(expression)){assert(Date.now()<until,expression);await new Promise(r=>setTimeout(r,150));}};
+const capture=async name=>{const shot=await send('Page.captureScreenshot',{format:'png'});await fs.writeFile(new URL(name+'.png',output),Buffer.from(shot.data,'base64'));};
+const states=[];
+const record=async name=>{await new Promise(r=>setTimeout(r,350));states.push({name,...await evaluate('({seat:hud.vehicleSeat,yaw:hud.yaw,view:hud.vehicleView,altitude:hud.altitude,ammo:hud.vehicleAmmo,camera:JSON.parse(document.querySelector("canvas").dataset.vehicleCamera)})')});await capture(name);};
+try{
+ await send('Runtime.enable');await send('Log.enable');await send('Page.enable');await send('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
+ await wait('window.hud?.phase === "ready"');
+ const p=await evaluate('(()=>{const r=document.querySelector("#start").getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()');
+ await send('Input.dispatchMouseEvent',{type:'mousePressed',...p,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',...p,button:'left',clickCount:1});
+ await wait('hud.phase === "playing"');await evaluate('engine.interactVehicle()');await wait('hud.vehicle === "helicopter"');
+ await evaluate('engine.toggleVehicleView()');await wait('hud.vehicleView === "first-person" && !!document.querySelector(".helicopter-flight-hud")');
+ await record('pilot');assert(states.at(-1).camera.y>2,'pilot sits above the chin mount');
+ const ammo=await evaluate('hud.vehicleAmmo');await evaluate('engine.setInput("fire",true)');await new Promise(r=>setTimeout(r,500));await evaluate('engine.setInput("fire",false)');await wait(`hud.vehicleAmmo < ${ammo}`);
+ await evaluate('engine.setInput(" ",true)');await wait('hud.altitude > 5');await evaluate('engine.setInput(" ",false)');await record('pilot-airborne');
+ await evaluate('engine.switchVehicleSeat()');await wait('hud.vehicleSeat === 1');assert.equal(await evaluate('!!document.querySelector(".helicopter-flight-hud")'),false);await record('gunner');
+ await evaluate('engine.switchVehicleSeat()');await wait('hud.vehicleSeat === 2');await record('left-seat');assert(Math.abs(states.at(-1).yaw-Math.PI/2)<.01);assert(states.at(-1).camera.x<19.3);
+ await evaluate('engine.lookBy(525, 65)');await record('left-seat-cabin');
+ await evaluate('engine.switchVehicleSeat()');await wait('hud.vehicleSeat === 3');await record('right-seat');assert(Math.abs(states.at(-1).yaw+Math.PI/2)<.01);assert(states.at(-1).camera.x>20.7);
+ await evaluate('engine.toggleAim()');await wait('hud.aiming');await record('right-seat-aim');assert.equal(await evaluate('document.querySelector("canvas").dataset.weaponVisible'),'true');
+ await evaluate('engine.toggleAim();engine.toggleVehicleView()');await wait('hud.vehicleView === "third-person"');await record('exterior');
+ await evaluate('engine.switchVehicleSeat();engine.toggleVehicleView()');await wait('hud.vehicleSeat === 0 && !!document.querySelector(".helicopter-flight-hud")');
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await record('pilot-portrait');
+ assert.deepEqual(errors,[]);await fs.writeFile(new URL('results.json',output),JSON.stringify({passed:true,states,errors},null,2));console.log('PASS real engine pilot/gunner/side seats, flight, mounted fire, passenger aim, view switching, portrait HUD; no runtime/WebGL errors.');
+}catch(error){console.error({errors,state:await evaluate('({ready:document.readyState,body:document.body.innerText,phase:window.hud?.phase})').catch(()=>null)});await capture('failure').catch(()=>{});throw error;}finally{ws.close();await fetch(`${chrome}/json/close/${tab.id}`).catch(()=>{});}

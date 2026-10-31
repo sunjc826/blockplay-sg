@@ -9,10 +9,17 @@ export function seatOf(vehicles: readonly SharedVehicle[], id: string) {
   return null;
 }
 export function gunnerId(v: SharedVehicle) { return v.occupants[1] ?? v.occupants[0]; }
+/** Eye positions in the authored airframe, shared by authority, avatars and the camera. */
+export function seatLocalPoint(kind: VehicleKind, seat: number) {
+  if (kind === 'helicopter') return { x: seat < 2 ? (seat === 0 ? -.49 : .49) : (seat === 2 ? -.82 : .82), y: 2.08, z: seat < 2 ? -.98 : .55 };
+  return { x: seat === 0 || seat === 2 ? -.5 : seat === 3 ? .5 : 0, y: seat === 1 ? 2.8 : 1.65, z: seat < 2 ? -.4 : .7 };
+}
+export function seatFacing(kind: VehicleKind, seat: number) {
+  return kind === 'helicopter' && seat >= 2 ? (seat === 2 ? Math.PI / 2 : -Math.PI / 2) : 0;
+}
 export function seatPoint(v: VehicleState, seat: number) {
-  const x = seat === 0 || seat === 2 ? -.5 : seat === 3 ? .5 : 0;
-  const z = seat < 2 ? -.4 : .7;
-  return { x: v.x + Math.cos(v.yaw) * x + Math.sin(v.yaw) * z, y: v.y + (seat === 1 && v.kind === 'car' ? 2.8 : 1.65), z: v.z - Math.sin(v.yaw) * x + Math.cos(v.yaw) * z };
+  const { x, y, z } = seatLocalPoint(v.kind, seat);
+  return { x: v.x + Math.cos(v.yaw) * x + Math.sin(v.yaw) * z, y: v.y + y, z: v.z - Math.sin(v.yaw) * x + Math.cos(v.yaw) * z };
 }
 /** Slab test in hull-local space, including wrecks; no client hit claims needed. */
 export function vehicleRayDistance(v: VehicleState, origin: { x: number; y: number; z: number }, direction: { x: number; y: number; z: number }) {

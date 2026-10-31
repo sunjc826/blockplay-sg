@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { itemById } from './armory-catalog';
 import type { VehicleKind } from './vehicle-rules';
+import { buildHelicopterCabin } from './helicopter-cabin';
 
 export function vehiclePaint(id: string) {
   const item = itemById(id), canvas = document.createElement('canvas'); canvas.width = canvas.height = 256;
@@ -50,18 +51,14 @@ export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
     for (const z of [-.9, 0, 1.4]) rod([-.85, 2.13, z], [.85, 2.13, z], .045, dark);
     box(1.3, .35, .7, 0, 2.28, .65, dark);
   } else {
-    const shell = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), paint); shell.position.set(0, 1.55, -.25); shell.scale.set(1.13, 1.05, 2.0); root.add(shell);
-    const canopy = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 14), glass); canopy.position.set(0, 1.69, -1.05); canopy.scale.set(.96, .8, 1.22); root.add(canopy);
-    // Center windscreen seam and cabin door outlines.
-    rod([0, 2.41, -1.55], [0, 1.23, -2.22], .038, metal);
-    for (const x of [-1.01, 1.01]) { box(.045, 1.14, .04, x, 1.61, -.28, metal); box(.048, .04, 1.1, x, 1.08, .20, metal); box(.06, .08, .25, x, 1.60, .30, dark); }
-    box(1.34, .48, 1.85, 0, 2.36, .3); box(.68, .36, .95, 0, 2.58, .49, dark);
+    root.add(buildHelicopterCabin(paint));
+    box(1.34, .30, 1.85, 0, 2.8, .3); box(.68, .20, .95, 0, 2.95, .49, dark);
     const tail = new THREE.Mesh(new THREE.CylinderGeometry(.13, .38, 4.7, 14), paint); tail.position.set(0, 1.67, 3.3); tail.rotation.x = Math.PI / 2; root.add(tail);
     const finShape = new THREE.Shape(); finShape.moveTo(0, 0); finShape.lineTo(.7, 0); finShape.lineTo(.95, 1.65); finShape.lineTo(.3, 1.4); finShape.closePath();
     const fin = new THREE.Mesh(new THREE.ExtrudeGeometry(finShape, { depth: .09, bevelEnabled: true, bevelSize: .035, bevelThickness: .02, bevelSegments: 2, steps: 1 }), paint); fin.rotation.y = Math.PI / 2; fin.position.set(-.045, 1.5, 5.6); root.add(fin);
     box(2.2, .09, .55, 0, 1.72, 4.7);
-    const rotor = new THREE.Group(); rotor.name = 'main-rotor'; rotor.position.set(0, 3.02, .15); root.add(rotor);
-    rod([0, 2.56, .15], [0, 3.12, .15], .11, metal);
+    const rotor = new THREE.Group(); rotor.name = 'main-rotor'; rotor.position.set(0, 3.22, .15); root.add(rotor);
+    rod([0, 2.8, .15], [0, 3.32, .15], .11, metal);
     for (let i = 0; i < 4; i++) { const blade = new THREE.Group(); blade.rotation.y = i * Math.PI / 2; rotor.add(blade); box(.22, .055, 5.2, 0, 0, -2.62, dark, blade, .015); box(.23, .06, .4, 0, 0, -4.99, lamp, blade, .01); }
     const tailRotor = new THREE.Group(); tailRotor.name = 'tail-rotor'; tailRotor.position.set(.24, 2.11, 5.29); root.add(tailRotor);
     box(.07, 1.5, .11, 0, 0, 0, dark, tailRotor); box(.07, .11, 1.5, 0, 0, 0, dark, tailRotor);
@@ -69,7 +66,7 @@ export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
       rod([x, .17, -1.75], [x, .17, 1.6], .095, dark); rod([x, .17, -1.75], [x, .38, -2.1], .095, dark);
       for (const z of [-.8, .85]) rod([x, .17, z], [x * .62, .93, z], .075, metal);
     }
-    box(.22, .16, .2, -.95, 1.7, .60, red); box(.22, .16, .2, .95, 1.7, .60, lamp);
+    box(.16, .12, .16, -1.2, 2.6, 1.25, red); box(.16, .12, .16, 1.2, 2.6, 1.25, lamp);
   }
   const turret = new THREE.Group(); turret.name = 'vehicle-turret';
   turret.position.set(0, kind === 'car' ? 2.55 : .72, kind === 'car' ? -.45 : -1.7); root.add(turret);
