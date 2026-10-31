@@ -27,9 +27,13 @@ describe('rounds in flight', () => {
   });
   it('marks the final segment expired without discarding it', () => {
     const round = createRound(3, 0, origin, forward, arcade);
-    expect(advanceRound(round, .1, 40).expired).toBe(false);
+    const first = advanceRound(round, .1, 40);
+    expect(first.expired).toBe(false);
     const last = advanceRound(round, .1, 40);
     expect(last.expired).toBe(true); expect(last.distance).toBeGreaterThan(0);
+    expect(round.travelled).toBe(40);
+    expect(Math.hypot(last.to.x - last.from.x, last.to.y - last.from.y, last.to.z - last.from.z)).toBeCloseTo(40 - first.distance, 8);
+    expect(advanceRound(round, 1, 40)).toMatchObject({ distance: 0, expired: true });
   });
   it('treats a non-positive step as no movement rather than reversing', () => {
     const round = createRound(4, 0, origin, forward, arcade);

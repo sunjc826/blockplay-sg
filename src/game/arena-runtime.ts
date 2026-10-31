@@ -17,7 +17,8 @@ import { PRONE_EYE_HEIGHT } from './fps-stance';
 import { validVehicleControls, seatPoint } from './vehicle-seats';
 import { VEHICLE_COMBAT } from './vehicle-combat';
 import type { VehicleKind, VehicleState } from './vehicle-rules';
-import { validWeaponIndex } from './fps-rules';
+import { FPS_WEAPONS, validWeaponIndex } from './fps-rules';
+import { MAX_WEAPON_RANGE, weaponRange } from './weapon-range';
 import * as THREE from 'three';
 import { createArena, MAX_ARENA_ACTORS, MAX_ARENA_BARKS, MAX_ARENA_ROUNDS, SPAWN_SHIELD_SECONDS, type ArenaActor, type ArenaBark, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaRaiderState, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
 import { createProfile, resolveLoadout, restoreProfile, type ArmoryProfile } from './armory-state';
@@ -89,7 +90,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     finite(e.calibre) && e.calibre >= 2 && e.calibre <= 25 && finite(e.power) && e.power > 0 && e.power <= 1000) && new Set(value.impacts.map(e => e.id)).size === value.impacts.length)) return false;
   if (value.rounds !== undefined && !(Array.isArray(value.rounds) && value.rounds.length <= MAX_ARENA_ROUNDS && value.rounds.every(r => object(r) && Number.isInteger(r.id) && point(r.origin) && point(r.direction) &&
     finite(r.velocity) && (r.velocity as number) > 0 && (r.velocity as number) <= 2000 && finite(r.drop) && (r.drop as number) >= 0 && (r.drop as number) <= 50 &&
-    finite(r.limit) && (r.limit as number) >= 0 && (r.limit as number) <= 300 && finite(r.time) && (r.time as number) >= 0 && (r.time as number) <= 10 &&
+    finite(r.limit) && (r.limit as number) >= 0 && (r.limit as number) <= MAX_WEAPON_RANGE && finite(r.time) && (r.time as number) >= 0 && (r.time as number) <= 10 &&
     finite(r.calibre) && (r.calibre as number) >= 2 && (r.calibre as number) <= 25 && finite(r.power) && (r.power as number) >= 0 && (r.power as number) <= 300 &&
     (r.shooter === undefined || typeof r.shooter === 'string' && r.shooter.length <= 100) && (r.vehicle === undefined || r.vehicle === 'car' || r.vehicle === 'helicopter')))) return false;
   if (value.vehicles !== undefined) {
@@ -370,7 +371,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   const sceneCover = createSceneCover(scene);
   function coverLimit(origin: ArenaPoint, direction: ArenaPoint, supplied: number) {
     if (!point(origin) || !point(direction)) return 0;
-    return sceneCover.distance(origin, direction, finite(supplied) ? Math.max(0, Math.min(240, supplied)) : 125);
+    return sceneCover.distance(origin, direction, finite(supplied) ? Math.max(0, Math.min(MAX_WEAPON_RANGE, supplied)) : MAX_WEAPON_RANGE);
   }
   if (simulation) { simulation.addPlayer(session.id, session.name, initial.armor, initial.absorption, initial.weapons, options.initialVitals, session.role === 'solo', initial.carriedFamilies, initial.insert); simulation.setPlayerGrenades(session.id, profile.consumables); registered.add(session.id); }
   function accept(next: ArenaSnapshot) {
@@ -453,7 +454,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       }
       else if (registered.has(from) && started && payload.type === 'arena-shot' && point(payload.origin) && point(payload.direction) && validWeaponIndex(payload.weapon)) {
         // Rounds fly, so the hit is usually sent when one lands (see deliverHits); an instant one is sent now.
-        const hit = simulation.shoot(from, payload.origin, payload.direction, payload.weapon, finite(payload.maxDistance) ? payload.maxDistance : 125);
+        const hit = simulation.shoot(from, payload.origin, payload.direction, payload.weapon, payload.maxDistance === undefined ? undefined : finite(payload.maxDistance) ? payload.maxDistance : 0);
         if (hit.hitId) session.send({ type: 'arena-hit', hit }, from);
         refresh();
       }
@@ -643,7 +644,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     previousSelf = null; spawnPending = true; localAdopted = false; reconciliation.reset(); publish();
     return true;
   }
-  function shoot(origin: ArenaPoint, direction: ArenaPoint, weapon: number, maxDistance = 125, prone = lastInput?.prone ?? false) {
+  function shoot(origin: ArenaPoint, direction: ArenaPoint, weapon: number, maxDistance = weaponRange(FPS_WEAPONS[weapon]), prone = lastInput?.prone ?? false) {
     if (disposed || !started || !localAdopted) return;
     // A shot means the reload is over: say so first, or the host would still be
     // reloading this frame (an interrupted reload) and refuse the round.

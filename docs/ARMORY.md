@@ -440,10 +440,10 @@ drills and expedition only until the arena resolves shots per tick. See
 Every carried gun's rounds travel. A weapon's `ballistics` gives a muzzle
 velocity and a downward acceleration, set by `muzzleBallistics` from the gun's
 real muzzle velocity times `BALLISTIC_SCALE` (.55) under real gravity (9.8). The
-districts are compressed and fights happen inside 125 m: at real speed a round
+districts are compressed and most fights happen at short range: at real speed a round
 would read as instant, and scaled by the whole compression it would crawl. At
 .55 a rifle round crosses 100 m in about a fifth of a second, so a long shot on
-a moving target needs a little lead, and drop stays under a third of a metre.
+a moving target needs a little lead. Longer shots require more holdover.
 Hitscan (`HITSCAN`, infinite velocity) is still the degenerate case of the same
 code, but no catalog weapon uses it.
 
@@ -451,6 +451,23 @@ Rounds are stepped per frame and raycast segment by segment, so they can be
 blocked in mid-air and arrive late. Falloff reads the whole arc a round
 travelled rather than its final segment. Rounds in flight are capped, and they
 share one batched draw rather than an object each.
+
+Infantry travel limits are shared by the range, arena authority and local
+visuals: rifles and light MGs reach 300 m, the carried FN MAG and CIS 50MG
+reach 400 m, and the P30 reaches 180 m. These limits are separate from damage
+falloff: each weapon retains its existing minimum damage beyond its far band.
+Cover still stops rounds along their actual arc. Vehicle-gun limits are separate.
+
+Passive bot spotting still uses role limits (60–65 m for ordinary infantry,
+110 m for snipers and 125 m for rooftop overwatch). Direct hits and bullets
+passing within 2.5 m now create a twelve-second threat report and alert up to
+four same-faction bots within 35 m. Alerted bots evade for four seconds, seeking
+nearby cover when available, and can return fire at a visually confirmed attacker
+out to their own weapon's travel limit, even beyond their sector leash. Cover,
+foliage and smoke still control sight. Hidden attackers leave a saved position
+to investigate; reports expire rather than tracking their hidden movement.
+Existing reaction delays, aim spread and the two-bot firing limit remain.
+Gradual, distance-dependent spotting is a separate future change.
 
 | Weapon | Real m/s | Game m/s | 100 m flight |
 | --- | ---: | ---: | ---: |
@@ -466,8 +483,7 @@ share one batched draw rather than an object each.
 | Ultimax · Fort Siloso | 1050 | 578 | .17 s |
 
 In the arena and the open world the host flies the real round (`launch` and
-`stepRounds` in arena-rules): walls and rendered cover are measured once along
-its line as it leaves, and people, vehicles and raiders are tested along each
+`stepRounds` in arena-rules): walls, rendered cover, people, vehicles and raiders are tested along each
 tick's stretch of its arc, so a target can step out of its way. Hits reach the
 shooter when the round lands (`takeHits`; a guest gets an `arena-hit` message
 then). The shooter's own screen flies a show-only copy along the same arc for

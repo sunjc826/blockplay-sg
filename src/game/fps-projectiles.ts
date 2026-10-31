@@ -42,8 +42,16 @@ export interface RoundStep { from: BallisticPoint; to: BallisticPoint; distance:
 export function advanceRound(round: InFlightRound, dt: number, maxDistance: number): RoundStep {
   const step = Math.max(0, dt), from = round.position;
   const to = ballisticPoint(round.origin, round.direction, round.ballistics, round.time + step);
-  const distance = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z);
-  round.time += step; round.position = to; round.travelled += distance;
+  const length = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z);
+  const distance = Math.min(length, Math.max(0, maxDistance - round.travelled));
+  const fraction = length > 0 ? distance / length : 0;
+  // Match the authority's clipped final collision segment, even on a slow frame.
+  if (fraction < 1) {
+    to.x = from.x + (to.x - from.x) * fraction;
+    to.y = from.y + (to.y - from.y) * fraction;
+    to.z = from.z + (to.z - from.z) * fraction;
+  }
+  round.time += step * fraction; round.position = to; round.travelled += distance;
   return { from, to, distance, expired: round.travelled >= maxDistance };
 }
 /** A round in flight as the arena host publishes it (arena-rules' ArenaRoundView). */

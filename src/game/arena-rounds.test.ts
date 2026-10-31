@@ -9,6 +9,7 @@ import { BOT_RANKS } from './arena-ranks';
 import { BALLISTIC_SCALE, flightTime } from './fps-ballistics';
 import { FPS_WEAPONS } from './fps-rules';
 import { needsFlight } from './fps-projectiles';
+import { weaponRange } from './weapon-range';
 
 const field = (spawns: { x: number; z: number }[]): ArenaEnvironment => ({
   bounds: { minX: 800, maxX: 1200, minZ: 800, maxZ: 1200 }, spawns,
@@ -48,7 +49,8 @@ describe('travelling rounds', () => {
     arena.shoot('one', one, direction, one.weapon);
     arena.step(.02);
     arena.setInput('two', { ...two, x: two.x + 1.2, playing: true });
-    for (let t = 0; t < .5; t += .02) arena.step(.02);
+    const lifetime = flightTime(weaponRange(FPS_WEAPONS[one.weapon]), FPS_WEAPONS[one.weapon].ballistics);
+    for (let t = 0; t < lifetime + .02; t += .02) arena.step(.02);
     expect(find(arena, 'two').health).toBe(100);
     expect(arena.takeHits('one')).toEqual([]); expect(arena.inFlight()).toBe(0);
     expect(arena.snapshot().impacts).toEqual([]);

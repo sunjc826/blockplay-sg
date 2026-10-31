@@ -6,6 +6,7 @@ import { createProfile } from './armory-state';
 import type { LanSession } from './lan-peer';
 import { createSoloSession } from './lan-peer';
 import { MARINA_BOUNDS, moveInMarina } from './marina-collision';
+import { FPS_WEAPONS } from './fps-rules';
 
 function localPair() {
   const handlers = [new Set<(from: string, packet: unknown) => void>(), new Set<(from: string, packet: unknown) => void>()];
@@ -19,6 +20,50 @@ function localPair() {
 }
 const input = (x = -44, z = 68, playing = false): ArenaInput => ({ x, y: 1.75, z, yaw: 0, pitch: 0, weapon: 0, playing });
 afterEach(() => vi.useRealTimers());
+
+it.each([
+  ['host', 0, 250, false], ['guest', 0, 250, false],
+  ['host', 4, 350, false], ['guest', 4, 350, false],
+  ['guest', 0, 250, true],
+] as const)('resolves %s family %i at %i m with cover=%s across the host/guest bridge', (side, family, distance, blocked) => {
+  vi.useFakeTimers();
+  const [hostSession, guestSession] = localPair();
+  const scene = new THREE.Scene();
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 2), new THREE.MeshBasicMaterial());
+  wall.position.set(0, 5, -200); if (blocked) scene.add(wall);
+  const environment = { bounds: { minX: -500, maxX: 500, minZ: -500, maxZ: 500 },
+    spawns: [{ x: 0, z: 0 }, { x: 0, z: -distance }], endless: true,
+    move: (p: { x: number; z: number }, dx: number, dz: number) => ({ x: p.x + dx, z: p.z + dz }) };
+  const profile = { ...createProfile(), carry: { main: family, extra: null } };
+  const host = createArenaRuntime({ scene, session: hostSession, obstacles: [], botCount: 0, environment, profile });
+  const guest = createArenaRuntime({ scene: new THREE.Scene(), session: guestSession, obstacles: [], botCount: 0, environment, profile });
+  try {
+    const h = host.update(.02, input()).self!, g = guest.update(.02, input()).self!;
+    host.update(.02, input(h.x, h.z, true)); guest.update(.02, input(g.x, g.z, true));
+    const shooter = side === 'host' ? h : g, target = side === 'host' ? g : h;
+    expect(Math.hypot(shooter.x - target.x, shooter.z - target.z)).toBe(distance);
+    const spec = FPS_WEAPONS[family], flight = distance / spec.ballistics.velocity;
+    const aim = new THREE.Vector3(target.x - shooter.x, target.y - .65 - shooter.y + .5 * spec.ballistics.drop * flight * flight, target.z - shooter.z).normalize();
+    const firing = side === 'host' ? host : guest;
+    firing.shoot(shooter, aim, family);
+    vi.advanceTimersByTime(100);
+    const airborne = guest.update(.02, input(g.x, g.z, true)).snapshot!;
+    expect(validArenaSnapshot(airborne, environment)).toBe(true);
+    if (!blocked) {
+      expect(airborne.rounds?.some(r => r.limit === (family === 4 ? 400 : 300))).toBe(true);
+      expect(validArenaSnapshot({ ...airborne, rounds: airborne.rounds!.map(r => ({ ...r, limit: 401 })) }, environment)).toBe(false);
+    }
+    vi.advanceTimersByTime(1100);
+    const hAfter = host.update(.02, input(h.x, h.z, true)), gAfter = guest.update(.02, input(g.x, g.z, true));
+    expect(gAfter.snapshot?.actors).toEqual(hAfter.snapshot?.actors);
+    const victim = gAfter.snapshot!.actors.find(a => a.id === target.id)!;
+    if (blocked) expect(victim.health).toBe(100);
+    else {
+      expect(victim.health).toBeLessThan(100);
+      expect((side === 'host' ? hAfter : gAfter).hit?.damage).toBeGreaterThan(0);
+    }
+  } finally { host.dispose(); guest.dispose(); wall.geometry.dispose(); wall.material.dispose(); }
+});
 
 describe('arena runtime authority and renderer bridge', () => {
   it('carries solo vitals to a zone arrival and applies loot without recreating bots or restoring health', () => {

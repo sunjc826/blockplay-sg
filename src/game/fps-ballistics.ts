@@ -1,7 +1,7 @@
 /**
  * Arcade ballistics. Every carried gun flies its rounds at its real muzzle
  * velocity scaled by BALLISTIC_SCALE, under real gravity: the districts are
- * compressed and fights happen inside 125 m, so real speeds would read as
+ * compressed and most fights happen at short range, so real speeds would read as
  * instant, while scaling by the full compression would have rounds crawl.
  * Hitscan remains the degenerate case: a spec with infinite velocity and no
  * drop yields the single straight segment a raycast traces.

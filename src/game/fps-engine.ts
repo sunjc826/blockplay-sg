@@ -57,6 +57,7 @@ import { addReserveRounds, ammoPools, createPooledLoadout, MAX_RESERVE, replaceP
 import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { sectorAt, zoneSectors } from './zone-sectors';
 import { adoptPublishedRounds, advanceRound, createRound, needsFlight, skipRound, MAX_ROUNDS_IN_FLIGHT, MAX_SKIPS, type InFlightRound, type PublishedRound } from './fps-projectiles';
+import { MAX_WEAPON_RANGE, weaponRange } from './weapon-range';
 import { SKIP_ENERGY, splashWeight, waterRicochet } from './fps-splashes';
 import { isWaterObject, rippleWater } from './water';
 import { createFpsEffects, type ImpactKind } from './fps-effects';
@@ -532,9 +533,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.quickType = !slot.next ? '' : slot.kind === 'food' ? 'FOOD' : 'UTILITY';
   }
   syncBelt();
-  const ROUND_RANGE = 180;
   /** Other people's rounds are drawn only when they start this close. */
-  const REMOTE_TRACER_RANGE = 220;
+  const REMOTE_TRACER_RANGE = MAX_WEAPON_RANGE;
   const roundRay = new THREE.Raycaster(), roundOrigin = new THREE.Vector3(), roundDirection = new THREE.Vector3(), splashPoint = new THREE.Vector3();
   let strategyMode: 'local' | 'llm' = expedition?.checkpoint?.pilotStrategy ?? 'local';
   let strategicPlanner = strategyMode === 'llm' ? createStrategyPlanner(llmPilotStrategy()) : null;
@@ -1831,12 +1831,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    * and may strike something — or skim again — further out.
    */
   function skipInstantShot(from: THREE.Vector3, direction: { x: number; y: number; z: number }, travelled: number, energy: number, weapon: number) {
+    const rangeLimit = weaponRange(specs[weapon]);
     let skips = 0, at = from, heading: { x: number; y: number; z: number } | null = direction;
-    while (heading && skips++ < MAX_SKIPS && travelled < ROUND_RANGE) {
+    while (heading && skips++ < MAX_SKIPS && travelled < rangeLimit) {
       skipDirection.set(heading.x, heading.y, heading.z);
       // Off the surface by a hair, or the new ray starts inside the water it left.
       skipRay.set(skipOrigin.copy(at).addScaledVector(skipDirection, .05).setY(skipOrigin.y + .01), skipDirection);
-      skipRay.near = 0; skipRay.far = ROUND_RANGE - travelled; energy *= SKIP_ENERGY;
+      skipRay.near = 0; skipRay.far = rangeLimit - travelled; energy *= SKIP_ENERGY;
       const hits = stopAtWater(visibleHits(skipRay, gameplayCandidates(), 1)), hit = hits[0];
       if (!hit) return;
       const range = travelled + hit.distance;
@@ -2175,7 +2176,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const candidates = gameplayCandidates();
     let struck = false;
     for (let i = rounds.length - 1; i >= 0; i--) {
-      const round = rounds[i], step = advanceRound(round, dt, round.range ?? ROUND_RANGE);
+      const round = rounds[i], step = advanceRound(round, dt, round.range ?? weaponRange(specs[round.weapon]));
       if (step.distance > 1e-6) {
         roundDirection.set(step.to.x - step.from.x, step.to.y - step.from.y, step.to.z - step.from.z).normalize();
         roundRay.set(roundOrigin.set(step.from.x, step.from.y, step.from.z), roundDirection);
@@ -2334,10 +2335,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       }
     }
     world.scene.updateMatrixWorld(true); ray.setFromCamera(center, camera);
+    const rangeLimit = weaponRange(specs[hud.weapon]);
+    ray.near = 0; ray.far = rangeLimit;
     if (vehicles.mounted && vehicles.canUseFirearm) {
-      const aimRay = ray.ray.clone(); ray.far = 180;
+      const aimRay = ray.ray.clone();
       const hit = firstVisibleHit(ray, vehicleCandidates(vehicles.active!));
-      const target = hit?.point ?? aimRay.at(180, new THREE.Vector3());
+      const target = hit?.point ?? aimRay.at(rangeLimit, new THREE.Vector3());
       // Authority validates the seat, not a chase camera several metres away.
       const eye = seatPoint(vehicles.mounted, vehicles.seat!);
       ray.ray.origin.set(eye.x, eye.y, eye.z); ray.ray.direction.copy(target).sub(ray.ray.origin).normalize();
@@ -2363,10 +2366,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // and decides what it hit; this side flies a copy along the same arc to draw.
     if (needsFlight(specs[hud.weapon].ballistics)) {
       if (arenaRuntime) {
-        arenaRuntime.shoot(shotOrigin, ray.ray.direction, hud.weapon, 125, prone);
+        arenaRuntime.shoot(shotOrigin, ray.ray.direction, hud.weapon, rangeLimit, prone);
       }
       if (rounds.length < MAX_ROUNDS_IN_FLIGHT && !(arenaRuntime && vehicles.active))
-        rounds.push(Object.assign(createRound(++roundSerial, hud.weapon, shotOrigin, ray.ray.direction.clone(), specs[hud.weapon].ballistics, arenaRuntime ? 0 : pierceBudget(hud.weapon), !!arenaRuntime), vehicles.active ? { skipVehicle: vehicles.active } : {}));
+        rounds.push(Object.assign(createRound(++roundSerial, hud.weapon, shotOrigin, ray.ray.direction.clone(), specs[hud.weapon].ballistics, arenaRuntime ? 0 : pierceBudget(hud.weapon), !!arenaRuntime), { range: rangeLimit }, vehicles.active ? { skipVehicle: vehicles.active } : {}));
       publish(); return;
     }
     const candidates = shotCandidates;
@@ -2378,14 +2381,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (arenaRuntime) {
       let hitActor = false;
       for (let object: THREE.Object3D | null = hit?.object ?? null; object; object = object.parent) if (object.userData.arenaActorId) hitActor = true;
-      arenaRuntime.shoot(shotOrigin, ray.ray.direction, hud.weapon, hit ? hit.distance + (hitActor ? 0.7 : 0) : 125, prone);
+      arenaRuntime.shoot(shotOrigin, ray.ray.direction, hud.weapon, hit ? Math.min(rangeLimit, hit.distance + (hitActor ? 0.7 : 0)) : rangeLimit, prone);
     } else {
       energy = resolveSurfaces(hits, hud.weapon, hit => hit.distance, 1);
       const last = hits[hits.length - 1];
       if (last) applySplash(last.point, hud.weapon, last.distance, energy, last.object.userData.fpsTarget);
     }
     const struck = hits[hits.length - 1];
-    const end = struck?.point ?? ray.ray.at(180, new THREE.Vector3());
+    const end = struck?.point ?? ray.ray.at(rangeLimit, new THREE.Vector3());
     effects.beam(muzzlePoint, end);
     if (isWaterHit(struck)) {
       const skip = meetWater(struck, ray.ray.direction, energy, hud.weapon);

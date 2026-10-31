@@ -115,17 +115,21 @@ describe('bots in the arena', () => {
   });
 
   it('kneel to apply a dressing out of sight, and a hit interrupts it without spending it', () => {
-    // An assault bot sees 65 m; the player stands 100 m off and can still reach it.
-    const arena = createArena([], 1, 'assault', environment({ x: 1000, z: 1050 }, { x: 1000, z: 950 }));
+    // Actual lost sight is required now: a distant attacker is still a threat.
+    let hidden = false;
+    const arena = createArena([], 1, 'assault', { ...environment({ x: 1000, z: 1050 }, { x: 1000, z: 950 }), move: p => p }, undefined, undefined,
+      (_p, _ray, range) => hidden ? Math.min(.1, range) : range);
     arena.addPlayer('you', 'You', 0, 0, [{ ...FPS_WEAPONS[0], damage: 24 }], undefined, true);
     for (let i = 0; i < 4; i++) expect(shootBot(arena).hitId).toBe('bot-1');
     const wounded = find(arena, 'bot-1');
     expect(wounded.health).toBeLessThan(50);
     expect(wounded.hurtFrom).toMatchObject({ x: 1000, z: 950 });
+    hidden = true;
     for (let t = 0; t < BOT_HEAL.quiet + .3; t += .1) arena.step(.1);
     expect(find(arena, 'bot-1').healing).toBeGreaterThanOrEqual(0);
     expect(find(arena, 'bot-1').y).toBeCloseTo(BOT_HEAL.kneelEye, 2);
-    const interrupted = shootBot(arena);
+    hidden = false;
+    const interrupted = shootBot(arena); hidden = true;
     expect(interrupted, JSON.stringify(find(arena, 'bot-1'))).toMatchObject({ hitId: 'bot-1' });
     expect(find(arena, 'bot-1').healing).toBeUndefined();
     const hurt = find(arena, 'bot-1').health;
