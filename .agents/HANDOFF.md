@@ -1,5 +1,29 @@
 # Blockplay: portable agent handoff
 
+## Empty pouches fold flat (2026-10-31)
+
+Owner requested collapsed empty magazine pouches. Local code commit `4e20870`
+anims only the cloth sleeve and retention band: empty depth drops to 18% of
+standard pouch depth, the mouth folds down and the cloth settles against the
+vest. The transition is frame-rate independent and reverses on refill. Loaded
+rifle/pistol pouches and bulkier drum/box pouches keep their original full shape;
+empty bulky pouches retain their previous depth while collapsing. Pouch mounts,
+magazine models and hand source anchors stay fixed during extraction.
+
+20 existing relevant tests and typecheck pass. Real Chrome/Metal rendering
+confirmed rifle/drum collapse, unchanged lower filled pouches, stable local grab
+anchors and restored depth after refill, with zero browser errors. Full/empty
+screenshots and numeric evidence: `.cache/flat-pouches/`.
+
+Final manual `pnpm deploy:cloudflare` succeeded from the frozen local snapshot
+`.cache/flat-pouches-release/`, matching code commit `4e20870` and excluding other
+in-flight workspace edits. Its focused tests and typecheck passed independently.
+Final version: `2a129e03-c709-4b3f-a1b8-c1578ae0c525`. Both production domains serve
+the matching exact entry JS/CSS and service worker; production Cloudflare routing,
+assets, PWA and API-origin checks pass. Logs/receipts are in that release folder.
+No GitHub push. Keep AGENTS.md local, unstaged and uncommitted; unrelated handoff,
+rain/vehicle/store work and .claude files are preserved.
+
 ## Visible pouch reach and magazine extraction (2026-10-31)
 
 Owner reported that the first magazine-inventory animation still looked like a
