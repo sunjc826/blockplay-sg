@@ -1,3 +1,4 @@
+import { districtNavalSites } from './naval-landing-sites';
 import { getRegion } from './regions';
 import { getWorldZone, type WorldZoneId, type ZonePosition, type ZoneSpawn } from './world-zones';
 import { zoneSectors } from './zone-sectors';
@@ -27,7 +28,7 @@ export function buildDistrictWorld(id: WorldZoneId, arrival?: ZoneSpawn) {
   const environment: ArenaEnvironment = { bounds, move, spawns: patrolSpawns(id), endless: true, playerSpawn: arrival ?? zone.spawn,
     // The open world is where events happen: random strikes paced by risk, and the dead return on transports.
     // Faction heat, by sector, decides how many troops each side sends, where, how often and how well kitted.
-    combatEvents: { risk: zone.risk }, reinforcements: true,
+    combatEvents: { risk: zone.risk }, reinforcements: true, navalSites: districtNavalSites(id),
     heat: { defaults: DISTRICT_HEAT[zone.risk], sectors: zoneSectors(id).map(s => ({ id: s.id, parent: s.parent, bounds: s.bounds, weight: s.botWeight ?? s.lootWeight, heat: s.heat })) } };
   return { ...world, zone, bounds, move, environment };
 }

@@ -7,6 +7,7 @@
  * a timeline of payloads with a pure function, so whoever renders an event
  * computes exactly the shells the host resolves, from a handful of numbers.
  */
+import { SENTOSA_LANDING_SITES } from './naval-landing-sites';
 import { getArenaFaction } from './arena-factions';
 
 export interface CombatPlane { x: number; z: number }
@@ -27,6 +28,8 @@ export interface CombatEventDescriptor {
   intensity: number;
   /** Transports: metres of approach before the drop, along `heading`. */
   reach?: number;
+  /** Authored sea route; clients never invent water access from a target. */
+  landing?: string;
   /** Transports: how many troops it carries. */
   troops?: number;
   /** Where the event's own people or machine are: a mortar pit, a sniper's perch, a drone's launch point. */
@@ -83,7 +86,7 @@ export interface MarkerPayload { type: 'marker'; id: number; center: CombatPlane
  * waits while they get out, and leaves for `exit`. Times are after `start`.
  */
 export interface TransportPayload {
-  type: 'transport'; id: number; mode: 'land' | 'air';
+  type: 'transport'; id: number; mode: 'land' | 'air' | 'sea';
   entry: CombatPlane; drop: CombatPlane; exit: CombatPlane;
   /** Appears at `entry`, reaches `drop`, sets off again, and is gone. */
   enter: number; arrive: number; depart: number; leave: number;
@@ -172,7 +175,7 @@ function validPayload(payload: CombatPayload, plugin: CombatEventPlugin) {
   if (payload.type === 'jam') return inWindow(payload.from, payload.until, plugin);
   if (payload.type === 'presence') return finite(payload.until) && payload.until >= 0 && payload.until <= plugin.duration;
   if (payload.type === 'transport')
-    return [payload.entry, payload.drop, payload.exit].every(finitePlane) && [payload.enter, payload.arrive, payload.depart, payload.leave, payload.cruise, payload.hover].every(finite) &&
+    return ['land', 'air', 'sea'].includes(payload.mode) && [payload.entry, payload.drop, payload.exit].every(finitePlane) && [payload.enter, payload.arrive, payload.depart, payload.leave, payload.cruise, payload.hover].every(finite) &&
       payload.enter >= 0 && payload.arrive >= payload.enter && payload.arrive >= plugin.warning && payload.depart >= payload.arrive && payload.leave >= payload.depart && payload.leave <= plugin.duration && payload.cruise >= payload.hover && payload.hover >= 0;
   if (payload.type === 'insert')
     return finitePlane(payload.at) && finite(payload.time) && Number.isInteger(payload.slot) && payload.slot >= 0 && payload.time >= plugin.warning && payload.time <= plugin.duration;
@@ -267,6 +270,10 @@ export function validCombatEvent(value: unknown, now: number, bounds?: { minX: n
   if (!finite(e.start) || !finite(e.heading) || !finite(e.intensity) || e.intensity < .5 || e.intensity > 2 || !finitePlane(e.target)) return false;
   if (e.start > now + 1 || now - e.start > plugin.duration + COMBAT_AFTERMATH + 1) return false;
   if (e.reach !== undefined && (!finite(e.reach) || e.reach < 0 || e.reach > 400)) return false;
+  if (e.kind === 'transport-sea') {
+    const site = SENTOSA_LANDING_SITES.find(s => s.id === e.landing);
+    if (!site || !e.origin || e.origin.x !== site.entry.x || e.origin.z !== site.entry.z || e.target!.x !== site.berth.x || e.target!.z !== site.berth.z || e.altitude !== site.waterY || e.heading !== 0 || !e.troops || e.troops > 4) return false;
+  } else if (e.landing !== undefined) return false;
   if (e.troops !== undefined && (!Number.isInteger(e.troops) || e.troops < 1 || e.troops > MAX_TROOPS)) return false;
   if (e.faction !== undefined && (typeof e.faction !== 'string' || !getArenaFaction(e.faction))) return false;
   if (e.origin !== undefined && (!finitePlane(e.origin) || Math.abs(e.origin.x) > 5000 || Math.abs(e.origin.z) > 5000)) return false;
@@ -317,7 +324,7 @@ const turnBetween = (from: number, to: number, t: number) => from + Math.atan2(M
  * under it; the renderer adds the ground.
  */
 export function transportPose(payload: TransportPayload, age: number): TransportPose {
-  const { entry, drop, exit, enter, arrive, depart, leave, cruise, hover } = payload, air = payload.mode === 'air';
+  const { entry, drop, exit, enter, arrive, depart, leave, cruise, hover } = payload, air = payload.mode === 'air', sea = payload.mode === 'sea';
   const inward = yawToward(entry, drop), outward = yawToward(drop, exit);
   const along = (a: CombatPlane, b: CombatPlane, t: number) => ({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t });
   if (age < enter || age > leave) return { ...entry, y: air ? cruise : 0, yaw: inward, visible: false, effort: 0 };
@@ -330,12 +337,12 @@ export function transportPose(payload: TransportPayload, age: number): Transport
   if (age < depart) {
     const t = (age - arrive) / Math.max(.1, depart - arrive);
     // A truck turns round while the troops get out; a helicopter holds its hover.
-    return air ? { ...drop, y: hover + Math.sin(age * 2.1) * .15, yaw: inward, visible: true, effort: .85 }
+    return sea ? { ...drop, y: 0, yaw: inward, visible: true, effort: .2 } : air ? { ...drop, y: hover + Math.sin(age * 2.1) * .15, yaw: inward, visible: true, effort: .85 }
       : { ...drop, y: 0, yaw: turnBetween(inward, outward, smooth(t)), visible: true, effort: .3 };
   }
   const t = (age - depart) / Math.max(.1, leave - depart);
   return { ...along(drop, exit, t * t), y: air ? hover + (cruise - hover) * smooth(t * 2.5) : 0,
-    yaw: air ? turnBetween(inward, outward, smooth(t * 2)) : outward, visible: true, effort: 1 };
+    yaw: sea ? inward : air ? turnBetween(inward, outward, smooth(t * 2)) : outward, visible: true, effort: 1 };
 }
 
 /** Where a crossing aircraft is: straight from `from` to `to`; `y` is height above the ground. */

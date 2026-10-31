@@ -81,6 +81,16 @@ transports can deliver troops through a bounded set of authored outer anchors,
 at most once every 80 seconds. The former arbitrary 45-second bot respawn is
 disabled in facility expeditions. Combat support events remain off-map support.
 
+Sentosa also receives external naval landing parties through two authored southern
+beach lanes, even while command posts are operational. Each craft brings up to
+four infantry, uses the existing population limits and casualty reservations,
+and leaves after unloading. A faction's naval interval is 150 seconds; all its
+external transports share an 80-second minimum dispatch gap. Incoming craft are
+announced in comms and marked on the map. Destroying the boat loses troops still
+aboard; already landed soldiers continue fighting. Menu-open expeditions remain
+active, while district travel saves the remaining clocks. Other districts are
+not enabled. See [naval landing rules and validation](NAVAL-LANDINGS.md).
+
 Bots are grouped into stable squads of up to four, with shared facility
 objectives and spaced approach positions. An available surviving member leads
 work at the target. Existing player orders override their movement assignment;

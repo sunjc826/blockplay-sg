@@ -1,3 +1,5 @@
+import { NAVAL, navalRampPoint, planNavalLanding, validReinforcementClocks, type ReinforcementClocks } from './naval-landings';
+import type { NavalLandingSite } from './naval-landing-sites';
 import { AIRCREW, aircrewFacing, aircrewPoint, helicopterCrew, helicopterGunPoint, helicopterGunRay, rifleSeat, type AircrewRole } from './helicopter-crew';
 import { TRANSPORT_HULL, TRANSPORT_CRITICAL, TRANSPORT_EXIT_SECONDS, transportDriverPoint, transportPoint, transportRayDistance, type ArenaTransport } from './combat-transports';
 import { validRaiderBounty, type RaiderBounty } from './combat-rewards';
@@ -124,6 +126,7 @@ export interface ArenaSnapshot {
   facilities?: FacilitySnapshot;
   grenades?: LiveGrenade[]; grenadeEvents?: GrenadeEvent[];
   type: 'arena-snapshot'; tick: number; elapsed: number; actors: ArenaActor[];
+  reinforcementClocks?: ReinforcementClocks;
   feed: ArenaFeed[]; finished: boolean; winner: string; vehicles?: SharedVehicle[];
   /** Combat events still running or lingering; each one's rounds follow from its descriptor. */
   events?: CombatEventDescriptor[];
@@ -150,6 +153,8 @@ export interface ArenaPoint { x: number; y: number; z: number }
 export interface ArenaShot { hitId: string | null; killed: boolean; damage: number }
 export interface ArenaVitals { health: number; armor: number }
 export interface ArenaEnvironment {
+  navalSites?: readonly NavalLandingSite[];
+  savedReinforcementClocks?: ReinforcementClocks;
   deployments?: readonly DeploymentPoint[];
   facilities?: { sites: readonly FacilitySite[]; saved?: FacilitySnapshot; savedVehicles?: SharedVehicle[] };
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
@@ -265,6 +270,7 @@ interface InternalActor {
   sight?: { target: string; clear: boolean; wait: number };
   /** Reinforcements: when this fallen bot started waiting for a ride, and the seat it was given. */
   waiting?: number; ride?: { event: string; slot: number };
+  navalTransit?: { site: NavalLandingSite; event: string; since: number };
   /**
    * Bots: the drawn variant's own figures, so a G36 hits, cycles, falls off and
    * reloads like a G36 rather than like whatever the role was balanced on.
@@ -516,7 +522,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.grenadeSupplies ??= {}; entry.lastContact = undefined;
     if (entry.actor.bot && entry.actor.faction === 'mercenaries' && ['assault', 'tank'].includes(entry.role?.id ?? '')) { entry.actor.grenade = entry.role?.id === 'tank' ? 'grenade-smoke' : 'grenade-frag'; entry.grenadeSupplies[entry.actor.grenade] = 1; } else delete entry.actor.grenade;
     entry.velocity = undefined; entry.speed = 0; entry.lastAt = undefined; entry.focusSince = undefined; entry.turn = undefined;
-    entry.navigation = undefined; entry.evacuating = undefined; entry.vehicleBoardAfter = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
+    entry.navigation = undefined; entry.navalTransit = undefined; delete entry.actor.ground; entry.evacuating = undefined; entry.vehicleBoardAfter = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false;
   };
   function sanitizeWeapons(weapons: readonly ArenaWeapon[]) {
@@ -1093,7 +1099,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     securing?: number }
   const events: RunningEvent[] = [];
   const raiders = new Map<string, Raider>();
-  interface Transport extends ArenaTransport { payload: TransportPayload; emergency: boolean; escape: number; nextExit: number; fallSpeed: number; ground: number; }
+  interface Transport extends ArenaTransport { payload: TransportPayload; emergency: boolean; escape: number; nextExit: number; fallSpeed: number; ground: number; sea?: { site: NavalLandingSite; departing?: number; blocked?: number }; }
   const transports = new Map<string, Transport>();
   /** Where a round falling along `descent` onto `impact` first meets something solid. */
   function landing(payload: MunitionPayload): ArenaPoint {
@@ -1144,7 +1150,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     for (const m of members.values()) if (m.actor.alive && !m.temporary) { const d = Math.hypot(m.actor.x - at.x, m.actor.z - at.z); if (d < best) { best = d; nearest = m.actor; } }
     return nearest && getArenaFaction(nearest.faction)?.side === 'opposition' ? PLAYER_FACTION : DEFAULT_BOT_FACTION;
   }
-  function startEvent(directive: Pick<CombatEventDescriptor, 'kind' | 'seed' | 'target' | 'heading' | 'intensity' | 'reach' | 'troops' | 'faction'>) {
+  function startEvent(directive: Pick<CombatEventDescriptor, 'kind' | 'seed' | 'target' | 'heading' | 'intensity' | 'reach' | 'troops' | 'faction' | 'landing' | 'origin' | 'altitude'>) {
     const plugin = getCombatEvent(directive.kind);
     // At most three of a kind at once: transports are news and hazards are not, so a busy road never holds back a barrage.
     const alike = events.filter(e => combatPhase(e.descriptor, elapsed) !== 'aftermath' && !!getCombatEvent(e.descriptor.kind)?.hazard === !!plugin?.hazard);
@@ -1157,6 +1163,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       heading: Number.isFinite(directive.heading) ? directive.heading : 0, intensity: clamp(Number.isFinite(directive.intensity) ? directive.intensity : 1, .5, 2),
       ...(Number.isFinite(directive.reach) ? { reach: clamp(directive.reach!, 0, 400) } : {}),
       ...(Number.isInteger(directive.troops) ? { troops: clamp(directive.troops!, 1, MAX_TROOPS) } : {}), ...(owner === PLAYER_FACTION ? { faction: owner } : {}) };
+    if (directive.landing) descriptor.landing = directive.landing;
+    if (directive.origin) descriptor.origin = { ...directive.origin };
+    if (directive.altitude !== undefined) descriptor.altitude = directive.altitude;
     if (!place(descriptor)) return null;
     const event: RunningEvent = { descriptor, resolved: new Set(), name: plugin.cause ?? plugin.name.split(' ')[0] };
     events.push(event);
@@ -1169,6 +1178,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    * height clear of the roofs. False when the district offers nowhere.
    */
   function place(d: CombatEventDescriptor) {
+    if (d.kind === 'transport-sea' && !environment?.navalSites?.some(s => s.id === d.landing)) return false;
     if (d.kind === 'mortar') {
       const pit = mortarSite(d.target); if (!pit) return false;
       d.origin = pit; d.heading = Math.atan2(-(d.target.x - pit.x), -(d.target.z - pit.z));
@@ -1243,7 +1253,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   /** The crew or the machine an event brings. False when it brings people and none fit in the match. */
   function field(event: RunningEvent) {
     const d = event.descriptor;
-    if (d.kind === 'transport-land' || d.kind === 'transport-air') return fieldTransport(event);
+    if (d.kind.startsWith('transport-')) return fieldTransport(event);
     if (d.kind === 'mortar' && d.origin) {
       const across = { x: Math.cos(d.heading), z: -Math.sin(d.heading) };
       for (let i = 0; i < MORTAR.crew; i++) support(d, 'mortar-crew', { x: d.origin.x + across.x * (i ? 1.3 : -1.3), z: d.origin.z + across.z * (i ? 1.3 : -1.3) }, i, `Mortar crew ${i + 1}`);
@@ -1270,14 +1280,15 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const d = event.descriptor, payload = combatTimeline(d).find(p => p.type === 'transport');
     if (!payload || payload.type !== 'transport') return false;
     const savedSeed = seed;
-    const driver = addMember(`${d.id}-driver`, payload.mode === 'land' ? 'Transport driver' : 'Transport pilot', 0, 0, FPS_WEAPONS, false);
+    const driver = addMember(`${d.id}-driver`, payload.mode === 'sea' ? 'Coxswain' : payload.mode === 'land' ? 'Transport driver' : 'Transport pilot', 0, 0, FPS_WEAPONS, false);
     seed = savedSeed;
     if (!driver) return false;
     driver.actor.bot = true; driver.actor.role = 'assault'; driver.actor.faction = d.faction ?? DEFAULT_BOT_FACTION;
     driver.actor.transport = d.id; if (payload.mode === 'air') driver.actor.aircrew = 'pilot'; driver.temporary = { event: d.id, from: Infinity }; driver.reserve = true;
-    const pose = transportPose(payload, 0), ground = groundHeight(pose.x, pose.z), health = TRANSPORT_HULL[payload.mode].health;
+    const pose = transportPose(payload, 0), ground = payload.mode === 'sea' ? d.altitude! : groundHeight(pose.x, pose.z), health = TRANSPORT_HULL[payload.mode].health;
     const t: Transport = { event: d.id, mode: payload.mode, x: pose.x, y: ground + pose.y, z: pose.z, yaw: pose.yaw, health, maxHealth: health,
       state: 'inbound', visible: false, driver: driver.actor.id, driverAlive: true, passengers: 0, payload, emergency: false, escape: 0, nextExit: 0, fallSpeed: 0, ground };
+    if (payload.mode === 'sea') { t.ramp = 0; t.sea = { site: environment!.navalSites!.find(s => s.id === d.landing)! }; }
     transports.set(d.id, t); if (payload.mode === 'air') fieldAircrew(d, t, driver.actor.id); syncTransportDriver(t); return true;
   }
   function syncTransportDriver(t: Transport) {
@@ -1344,6 +1355,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function evacuateTransport(t: Transport, all: boolean) {
     if (t.health <= 0 || t.state === 'departed') return;
     const aboard = transportPassengers(t);
+    if (t.mode === 'sea') {
+      if (all) { t.driverAlive = false; t.emergency = true; t.state = 'stopped'; }
+      // A damaged hull cannot conjure exits in open water. At the beach its dry ramp still works.
+      if (all) announce('Coxswain down · landing craft stopped');
+      return;
+    }
     if (all) t.driverAlive = false;
     if (!t.emergency) {
       t.emergency = true; t.ground = groundHeight(t.x, t.z);
@@ -1361,7 +1378,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (attacker && !explosive && !hostile(attacker.actor, { bot: true, faction: transportFaction(t) })) return { ...EMPTY_SHOT };
     t.health = Math.max(0, before - damage);
     if (t.health === 0) {
-      t.emergency = true; t.escape = 0; t.driverAlive = false; t.ground = groundHeight(t.x, t.z);
+      t.emergency = true; t.escape = 0; t.driverAlive = false; t.ground = t.sea?.site.waterY ?? groundHeight(t.x, t.z);
       t.state = t.mode === 'air' && t.y > t.ground + .4 ? 'down' : 'wreck';
       for (const crew of members.values()) if (crew.actor.transport === t.event && crew.actor.alive)
         hurtActor(crew, crew.actor.health + crew.actor.armor + 1, attacker, cause);
@@ -1373,7 +1390,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       t.passengers = 0;
       const spec = TRANSPORT_HULL[t.mode];
       blast(transportPoint(t, 0, 1.3, 0), { radius: spec.blastRadius, damage: spec.blastDamage, minScale: 0, vehicleScale: 1, stance: true }, attacker, cause);
-      announce(`${t.mode === 'land' ? 'Troop truck' : 'Troop helicopter'} destroyed`, attacker?.actor.id);
+      announce(`${t.mode === 'sea' ? 'Landing craft' : t.mode === 'land' ? 'Troop truck' : 'Troop helicopter'} destroyed`, attacker?.actor.id);
       const event = events.find(e => e.descriptor.id === t.event); if (event) endEvent(event, 'downed');
     } else if (t.health <= t.maxHealth * TRANSPORT_CRITICAL && !t.emergency) evacuateTransport(t, false);
     return { hitId: `transport-${t.event}`, damage: Math.min(before, damage), killed: t.health === 0 };
@@ -1400,6 +1417,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     for (const t of transports.values()) {
       const event = events.find(e => e.descriptor.id === t.event); if (!event) continue;
       const age = elapsed - event.descriptor.start;
+      if (t.sea) { stepSeaTransport(t, event.descriptor, age); syncTransportDriver(t); if (t.state === 'departed') for (const m of members.values()) if (m.actor.transport === t.event) dismiss(m.actor.id); continue; }
       if (!t.emergency) {
         const pose = transportPose(t.payload, age);
         Object.assign(t, { x: pose.x, z: pose.z, yaw: pose.yaw, visible: pose.visible });
@@ -1454,6 +1472,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    * are waiting (or nobody, when none are).
    */
   function triggerEvent(kind: string, target?: CombatPlane, heading = random() * Math.PI * 2) {
+    if (kind === 'transport-sea') return dispatchNavalLanding('mercenaries', true);
     if (kind === 'transport-land' || kind === 'transport-air') return dispatchReinforcements(kind === 'transport-land' ? 'land' : 'air');
     const human = [...members.values()].find(m => !m.actor.bot && m.actor.alive)?.actor;
     const aim = target ?? (human ? { x: human.x, z: human.z } : null);
@@ -1475,7 +1494,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         heat: [...heat.values()], places: validSpawns, tempo });
       if (directive && !startEvent(directive)) director.refused(directive, elapsed);
     }
-    if (environment?.reinforcements) { dispatchReinforcements(); if (factionHeat) dispatchReinforcements(undefined, PLAYER_FACTION); }
+    if (environment?.reinforcements) {
+      for (const faction of SQUAD_FACTIONS) if (faction === 'mercenaries' || factionHeat) { dispatchNavalLanding(faction); dispatchReinforcements(undefined, faction); }
+    }
     stepTransports(dt);
     let budget = BLASTS_PER_TICK;
     liveClouds = [];
@@ -1748,7 +1769,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const topUpDue = (faction: SquadFaction, last: number | null) => last === null && faction !== PLAYER_FACTION ? REINFORCEMENT_TOP_UP : (last ?? 0) + topUpEvery(faction);
   const dispatchClock = (): Record<SquadFaction, { next: number; last: number | null }> => ({ mercenaries: { next: 0, last: null }, 'armed-forces': { next: 0, last: null } });
   let clock = dispatchClock();
-  const reserveAt: Record<SquadFaction, number> = { mercenaries: FACILITY_RULES.reserveSeconds, 'armed-forces': FACILITY_RULES.reserveSeconds };
+  const savedClocks = validReinforcementClocks(environment?.savedReinforcementClocks) ? environment!.savedReinforcementClocks : undefined;
+  const reserveAt: Record<SquadFaction, number> = { mercenaries: savedClocks?.external.mercenaries ?? FACILITY_RULES.reserveSeconds, 'armed-forces': savedClocks?.external['armed-forces'] ?? FACILITY_RULES.reserveSeconds };
+  const navalAt: Record<SquadFaction, number> = { mercenaries: savedClocks?.naval.mercenaries ?? NAVAL.interval, 'armed-forces': savedClocks?.naval['armed-forces'] ?? NAVAL.interval };
   function deploymentPoints(site: FacilitySite) {
     return Array.from({ length: 12 }, (_, i) => ({ x: site.deployment.x + Math.sin(i * Math.PI / 6) * 3.6, z: site.deployment.z + Math.cos(i * Math.PI / 6) * 3.6 }));
   }
@@ -1779,13 +1802,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const all = [...members.values()], mine = all.filter(m => m.actor.bot && !m.temporary && m.actor.faction === faction);
       const waiting = mine.filter(m => !m.actor.alive && !m.ride && m.actor.respawnIn === 0);
       const room = Math.max(0, Math.min(population(faction) - mine.length, MAX_ARENA_BOTS - all.filter(m => m.actor.bot && !m.temporary).length));
-      let deployed = 0;
+      let deployed = 0, recruited = 0;
       for (const point of deploymentPoints(site)) {
         if (deployed >= 4 || !clearSpawn(point) || [...members.values()].some(m => m.actor.alive && Math.hypot(m.actor.x - point.x, m.actor.z - point.z) < (m.actor.faction === faction ? 1.5 : 16))) continue;
         const member = waiting.shift();
-        if (!member && deployed >= room) break;
+        if (!member && recruited >= room) break;
         if (!facilities.spend(faction, FACILITY_RULES.infantryCost)) break;
-        const soldier = member ?? enlist(true, faction); spawn(soldier);
+        const soldier = member ?? enlist(true, faction); if (!member) recruited++; spawn(soldier);
         Object.assign(soldier.actor, point); soldier.home = factionHeat?.sectorAt(point.x, point.z)?.id; deployed++;
       }
       if (deployed) { site.deployIn = FACILITY_RULES.waveSeconds; announce(`${site.name}: ${deployed} reinforcements deployed.`); }
@@ -1825,6 +1848,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    * that most needs troops. `force` sends one now, by road or air, waiting or not.
    */
   function dispatchReinforcements(force?: 'land' | 'air', faction: SquadFaction = 'mercenaries') {
+    if (environment?.navalSites?.length && (elapsed < reserveAt[faction] || externalTransportActive(faction))) return null;
     if (facilities) {
       if (facilities.sites.some(s => s.kind === 'command' && facilityOperational(s, faction)) || elapsed < reserveAt[faction]) return null;
     }
@@ -1855,8 +1879,95 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     troops.forEach((member, slot) => { member.ride = { event: descriptor.id, slot }; if (home) member.home = home; });
     transports.get(descriptor.id)!.passengers = troops.length;
     state.last = elapsed;
-    if (facilities) reserveAt[faction] = elapsed + FACILITY_RULES.reserveSeconds;
+    if (facilities || environment?.navalSites?.length) reserveAt[faction] = elapsed + FACILITY_RULES.reserveSeconds;
     return descriptor;
+  }
+  function externalTransportActive(faction: SquadFaction) {
+    return [...transports.values()].some(t => transportFaction(t) === faction && t.state !== 'departed' && t.health > 0);
+  }
+  function dispatchNavalLanding(faction: SquadFaction, force = false) {
+    const sites = environment?.navalSites;
+    if (!environment || !sites?.length || !environment.reinforcements || !force && (elapsed < navalAt[faction] || elapsed < reserveAt[faction]) || externalTransportActive(faction)) return null;
+    const all = [...members.values()], mine = all.filter(m => m.actor.bot && !m.temporary && m.actor.faction === faction);
+    const waiting = mine.filter(m => !m.actor.alive && m.actor.respawnIn === 0 && m.waiting !== undefined && !m.ride).sort((a, b) => a.waiting! - b.waiting!);
+    const room = Math.max(0, Math.min(population(faction) - mine.length, MAX_ARENA_BOTS - all.filter(m => m.actor.bot && !m.temporary).length, MAX_ARENA_ACTORS - members.size - 1));
+    const count = Math.min(NAVAL.seats, waiting.length + room);
+    if (!count) return null;
+    const humans = all.filter(m => !m.actor.bot && m.actor.alive).map(m => m.actor);
+    const busy = new Set([...transports.values()].filter(t => t.sea && t.state !== 'departed').map(t => t.sea!.site.id));
+    const protectedPoints = [...(environment.playerSpawn ? [environment.playerSpawn] : []), ...(environment.deployments ?? [])];
+    const clearDry = (p: CombatPlane) => clearSpawn(p) && !all.some(m => m.actor.alive && !m.reserve && !m.actor.transport && Math.hypot(m.actor.x - p.x, m.actor.z - p.z) < 1.2);
+    const site = planNavalLanding(sites, faction, humans, busy, clearDry, protectedPoints);
+    if (!site) { if (!force) navalAt[faction] = elapsed + NAVAL.retry; return null; }
+    const descriptor = startEvent({ kind: 'transport-sea', seed: Math.floor(random() * 0xffffffff) >>> 0, target: site.berth, heading: 0, intensity: 1,
+      troops: count, faction, landing: site.id, origin: site.entry, altitude: site.waterY });
+    if (!descriptor) { if (!force) navalAt[faction] = elapsed + NAVAL.retry; return null; }
+    const troops = waiting.slice(0, count);
+    while (troops.length < count) troops.push(enlist(true, faction));
+    troops.forEach((m, slot) => { m.ride = { event: descriptor.id, slot }; });
+    transports.get(descriptor.id)!.passengers = troops.length;
+    navalAt[faction] = elapsed + NAVAL.interval; reserveAt[faction] = elapsed + NAVAL.externalGap;
+    announce(`${getArenaFaction(faction)?.short ?? faction}: landing craft inbound · ${site.name} · ${troops.length} troops · ETA ${NAVAL.approach + NAVAL.rampSeconds}s`);
+    return descriptor;
+  }
+  function releaseSeaPassengers(t: Transport) {
+    for (const m of transportPassengers(t)) { m.ride = undefined; m.waiting = elapsed; }
+    t.passengers = 0;
+  }
+  function stepSeaTransport(t: Transport, d: CombatEventDescriptor, age: number) {
+    const sea = t.sea!, site = sea.site;
+    if (t.health <= 0) { t.ramp = 0; return; }
+    const atBeach = Math.hypot(t.x - site.berth.x, t.z - site.berth.z) < .2;
+    if (t.emergency && !atBeach) {
+      // No safe emergency exit offshore. The surviving manifest withdraws to reserve after a bounded wait.
+      if (age >= t.payload.leave) { releaseSeaPassengers(t); t.visible = false; t.state = 'departed'; }
+      return;
+    }
+    if (sea.departing !== undefined) {
+      const k = Math.min(1, (age - sea.departing) / NAVAL.exitSeconds);
+      t.ramp = Math.max(0, 1 - k * 6); t.x = site.berth.x + (site.entry.x - site.berth.x) * k * k;
+      t.z = site.berth.z + (site.entry.z - site.berth.z) * k * k; t.state = k >= 1 ? 'departed' : 'leaving'; t.visible = k < 1;
+      if (k >= 1) releaseSeaPassengers(t);
+      return;
+    }
+    if (age < NAVAL.approach) {
+      const pose = transportPose(t.payload, age); Object.assign(t, { x: pose.x, z: pose.z, yaw: pose.yaw, y: site.waterY, visible: pose.visible, state: 'inbound' }); return;
+    }
+    t.x = site.berth.x; t.z = site.berth.z; t.y = site.waterY; t.visible = true;
+    t.ramp = Math.min(1, (age - NAVAL.approach) / NAVAL.rampSeconds);
+    if (!t.emergency) t.state = t.ramp < 1 ? 'ramping' : 'unloading';
+    const passengers = transportPassengers(t); t.passengers = passengers.length;
+    if (t.ramp < 1 || elapsed < t.nextExit) return;
+    if (passengers.length && age < t.payload.depart) {
+      const clear = clearSpawn(site.ramp.to) && ![...members.values()].some(m => m.actor.alive && !m.reserve && !m.actor.transport &&
+        Math.abs(m.actor.x - site.ramp.to.x) < 1.2 && m.actor.z >= site.ramp.to.z - 1.2 && m.actor.z <= site.ramp.from.z + 1.2);
+      if (!clear) { sea.blocked ??= age; if (age - sea.blocked < NAVAL.hold) return; }
+      else {
+        sea.blocked = undefined;
+        const m = passengers[0], slot = m.ride!.slot;
+        spawn(m); m.shieldUntil = 0;
+        const point = navalRampPoint(site, 0); Object.assign(m.actor, point, { y: point.y + 1.75, ground: point.y, yaw: 0 });
+        m.navalTransit = { site, event: t.event, since: elapsed }; m.evacuating = { ...site.rally, until: elapsed + 12 };
+        m.home = factionHeat?.sectorAt(site.rally.x, site.rally.z)?.id;
+        reportIn(m, slot, d.troops ?? 1); t.passengers = transportPassengers(t).length; t.nextExit = elapsed + 1; return;
+      }
+    }
+    // Let the last soldier finish crossing before raising the ramp.
+    if ([...members.values()].some(m => m.actor.alive && m.navalTransit?.event === t.event)) return;
+    releaseSeaPassengers(t);
+    if (t.driverAlive) { sea.departing = age; t.state = 'leaving'; }
+    else if (age >= t.payload.leave) { t.visible = false; t.state = 'departed'; }
+  }
+  function stepNavalTransit(entry: InternalActor) {
+    const transit = entry.navalTransit!;
+    const t = transports.get(transit.event), progress = Math.min(1, (elapsed - transit.since) / .95);
+    if (!t || t.health <= 0) {
+      if (entry.actor.z > transit.site.water.minZ - .5) hurtActor(entry, entry.actor.health + entry.actor.armor + 1, undefined, 'Landing craft destruction');
+      delete entry.actor.ground; entry.navalTransit = undefined; return;
+    }
+    const point = navalRampPoint(transit.site, progress);
+    Object.assign(entry.actor, point, { y: point.y + 1.75, ground: point.y, yaw: 0 });
+    if (progress >= 1) { entry.navalTransit = undefined; delete entry.actor.ground; }
   }
   /** A waiting bot steps off its transport at `at`, or at the drop if that spot is blocked. */
   function disembark(event: CombatEventDescriptor, slot: number, at: CombatPlane) {
@@ -2246,7 +2357,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const wait = m.reinforcedAt !== undefined && m.reinforcedAt <= elapsed ? ORDER_TUNING.reinforce.cooldown - (elapsed - m.reinforcedAt) : 0;
     return !m.actor.bot && wait > 0 ? { reinforceIn: Math.ceil(wait) } : {};
   };
-  const shieldOf = (m: InternalActor) => !m.actor.bot && m.actor.alive && elapsed < (m.shieldUntil ?? 0) ? { shield: Math.round((m.shieldUntil! - elapsed) * 100) / 100 } : {};
+  const shieldOf = (m: InternalActor) => {
+    const shield = Math.round(Math.max(0, (m.shieldUntil ?? 0) - elapsed) * 100) / 100;
+    return !m.actor.bot && m.actor.alive && shield > 0 ? { shield } : {};
+  };
   /**
    * Whether a bot may fire on `enemy`: always on a bot, and on a player only
    * once their spawn shield is down and while it holds one of BOT_AIM.shooters
@@ -2417,6 +2531,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         }
         continue;
       }
+      if (entry.navalTransit) { stepNavalTransit(entry); continue; }
       const from = entry.lastAt ?? entry.actor, was = entry.velocity ?? { x: 0, z: 0 }, smooth = Math.min(1, dt * 6);
       const vx = clamp((entry.actor.x - from.x) / dt, -12, 12), vz = clamp((entry.actor.z - from.z) / dt, -12, 12);
       entry.velocity = { x: was.x + (vx - was.x) * smooth, z: was.z + (vz - was.z) * smooth }; entry.speed = Math.hypot(entry.velocity.x, entry.velocity.z);
@@ -2441,9 +2556,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
   }
   function snapshot(): ArenaSnapshot {
-    return { type: 'arena-snapshot', tick, elapsed, ...(facilities ? { facilities: facilities.snapshot() } : {}), grenades: grenadeSystem.live.map(g => ({ ...g, position: { ...g.position }, velocity: { ...g.velocity }, landing: { ...g.landing } })), grenadeEvents: grenadeSystem.events.map(e => ({ ...e, point: { ...e.point } })), actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...(m.actor.conditions ? { conditions: structuredClone(m.actor.conditions) } : {}), ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
+    const reinforcementClocks: ReinforcementClocks = { naval: { mercenaries: Math.max(0, navalAt.mercenaries - elapsed), 'armed-forces': Math.max(0, navalAt['armed-forces'] - elapsed) }, external: { mercenaries: Math.max(0, reserveAt.mercenaries - elapsed), 'armed-forces': Math.max(0, reserveAt['armed-forces'] - elapsed) } };
+    return { type: 'arena-snapshot', tick, elapsed, ...(facilities || environment?.navalSites?.length ? { reinforcementClocks } : {}), ...(facilities ? { facilities: facilities.snapshot() } : {}), grenades: grenadeSystem.live.map(g => ({ ...g, position: { ...g.position }, velocity: { ...g.velocity }, landing: { ...g.landing } })), grenadeEvents: grenadeSystem.events.map(e => ({ ...e, point: { ...e.point } })), actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...(m.actor.conditions ? { conditions: structuredClone(m.actor.conditions) } : {}), ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
       ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target }, ...(e.descriptor.origin ? { origin: { ...e.descriptor.origin } } : {}) })) } : {}),
-      ...(transports.size ? { transports: [...transports.values()].map(({ event, mode, x, y, z, yaw, health, maxHealth, state, visible, driver, driverAlive, passengers }) => ({ event, mode, x, y, z, yaw, health, maxHealth, state, visible, driver, driverAlive, passengers })) } : {}),
+      ...(transports.size ? { transports: [...transports.values()].map(({ event, mode, x, y, z, yaw, health, maxHealth, state, visible, driver, driverAlive, passengers, ramp }) => ({ event, mode, x, y, z, yaw, health, maxHealth, state, visible, driver, driverAlive, passengers, ...(ramp !== undefined ? { ramp } : {}) })) } : {}),
       ...(raiders.size ? { raiders: [...raiders.values()].map(({ event, kind, x, y, z, yaw, health, maxHealth, state, aim, shots, ammo }) => ({ event, kind, x, y, z, yaw, health, maxHealth, state, aim: aim ? { ...aim } : null, shots, ...(ammo !== undefined ? { ammo } : {}) })) } : {}),
       impacts: impacts.filter(e => elapsed - e.time <= IMPACT_LIFETIME).map(e => ({ ...e, point: { ...e.point }, direction: { ...e.direction } })),
       ...(factionHeat ? { heat: factionHeat.snapshot() } : {}), ...(flying.length ? { rounds: roundViews() } : {}),
@@ -2453,7 +2569,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     grenadeSystem.reset();
     facilities = environment?.facilities ? createFacilities(environment.facilities.sites) : null;
     squadObjectives.clear(); squadThink = 0;
-    for (const f of SQUAD_FACTIONS) reserveAt[f] = FACILITY_RULES.reserveSeconds;
+    for (const f of SQUAD_FACTIONS) { reserveAt[f] = FACILITY_RULES.reserveSeconds; navalAt[f] = NAVAL.interval; }
     tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; barks.length = 0; replies.length = 0; barker.reset(); idleIn = BARK_TUNING.idleEvery[0]; controls.clear(); vehicleLife.clear(); events.length = 0; raiders.clear(); transports.clear(); liveClouds = []; heat.clear(); interests.length = 0; director?.reset();
     flying.length = 0; landed.clear(); impacts.length = 0;
     for (const [id, entry] of members) if (entry.temporary) dismiss(id);

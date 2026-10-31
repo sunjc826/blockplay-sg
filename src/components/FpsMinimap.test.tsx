@@ -3,6 +3,16 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import FpsMinimap from './FpsMinimap';
 import { WORLD_ZONES } from '../game/world-zones';
 
+it('keeps announced offshore landing craft visible at the map edge, with their faction and sector', () => {
+  for (const expanded of [false, true]) {
+    const html = renderToStaticMarkup(<FpsMinimap zone="sentosa" player={{ x: 0, z: 0, yaw: 0 }} mode="expedition" expanded={expanded} markers={[
+      { id: 'boat-1', kind: 'boat', side: 'ally', label: 'Friendly landing craft · Southern beach west · ETA 17s', x: -155, z: 330 },
+    ]} />);
+    expect(html).toContain('data-minimap-marker="boat-1" data-marker-kind="boat" data-edge="true"');
+    expect(html).toContain('fill="#70cfff"'); expect(html).toContain('Southern beach west');
+  }
+});
+
 it('uses each district map and clips distant loot while keeping distant checkpoint directions', () => {
   for (const zone of WORLD_ZONES) {
     const player = zone.spawn;

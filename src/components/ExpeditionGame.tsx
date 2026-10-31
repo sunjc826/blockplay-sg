@@ -43,7 +43,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
   const [fieldProfile, setFieldProfile] = useState<ArmoryProfile>(() => structuredClone(profile));
   const fieldProfileRef = useRef(fieldProfile);
   const [loot] = useState(() => createExpeditionLoot(`${Date.now()}-${Math.random()}`));
-  const [infrastructure] = useState(() => new Map<WorldZoneId, Pick<ArenaSnapshot, 'facilities' | 'vehicles'>>());
+  const [infrastructure] = useState(() => new Map<WorldZoneId, Pick<ArenaSnapshot, 'facilities' | 'vehicles' | 'reinforcementClocks'>>());
   const [scene, setScene] = useState<ExpeditionScene>(() => ({ zone: initialZone, revision: 0 }));
   const zoneChanged = useRef(onZoneChange); zoneChanged.current = onZoneChange;
   useEffect(() => { zoneChanged.current?.(scene.zone); }, [scene.zone]);

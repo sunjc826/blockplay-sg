@@ -84,14 +84,14 @@ export function createCombatAudio(getContext: () => AudioContext | null, muted: 
       });
     },
     /** The nearest transport's engine or rotor; `distance` Infinity silences it. */
-    transport(mode: 'land' | 'air' | null, distance: number, effort: number) {
+    transport(mode: 'land' | 'air' | 'sea' | null, distance: number, effort: number) {
       const context = getContext(); if (!context) return;
       const engine = voice(context, 'engine');
       const level = mode && !muted() && context.state === 'running' ? distanceGain(distance) * .09 * (.5 + effort * .5) : 0;
       engine.gain.gain.setTargetAtTime(level, context.currentTime, .15);
       // A rotor chops at a steady low rate; a diesel climbs with effort.
-      engine.tone?.frequency.setTargetAtTime(mode === 'air' ? 21 : 38 + effort * 26, context.currentTime, .2);
-      engine.filter.frequency.setTargetAtTime(mode === 'air' ? 180 : 320, context.currentTime, .2);
+      engine.tone?.frequency.setTargetAtTime(mode === 'air' ? 21 : mode === 'sea' ? 30 + effort * 18 : 38 + effort * 26, context.currentTime, .2);
+      engine.filter.frequency.setTargetAtTime(mode === 'air' ? 180 : mode === 'sea' ? 230 : 320, context.currentTime, .2);
     },
     /**
      * A jet's roar, a raid helicopter's heavier rotor, a drone's whine or the

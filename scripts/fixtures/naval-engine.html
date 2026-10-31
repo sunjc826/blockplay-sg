@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Naval expedition engine</title><style>html,body,#stage{margin:0;height:100%;overflow:hidden}#world,#overlay{position:absolute;inset:0}#overlay{pointer-events:none}#overlay button{pointer-events:auto}#start{position:absolute;z-index:20;right:16px;bottom:16px;padding:16px}</style></head><body><div id="stage" class="fps-game expedition-game"><div id="world"></div><div id="overlay"></div><button id="start">Enter Sentosa</button></div><script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import '/src/styles.css';
+import '/src/components/expedition.css';
+import { createFpsEngine } from '/src/game/fps-engine.ts';
+import { createProfile } from '/src/game/armory-state.ts';
+import { createExpeditionLoot } from '/src/game/expedition-loot.ts';
+import FpsMinimap from '/src/components/FpsMinimap.tsx';
+const infrastructure=new Map([['sentosa',{reinforcementClocks:{naval:{mercenaries:0,'armed-forces':150},external:{mercenaries:0,'armed-forces':80}}}]]);
+const root=createRoot(document.getElementById('overlay')),profile=createProfile();window.infrastructure=infrastructure;
+window.engine=createFpsEngine(document.getElementById('world'),hud=>{
+ window.hud=hud;
+ root.render(React.createElement(React.Fragment,null,
+  React.createElement(FpsMinimap,{zone:'sentosa',player:{x:hud.x,z:hud.z,yaw:hud.yaw},markers:hud.mapMarkers,mode:'expedition',expanded:hud.mapExpanded,onToggle:()=>window.engine.toggleMap()}),
+  hud.combatBanner&&React.createElement('div',{className:'fps-combat-banner '+hud.combatBanner.tone,role:'status'},hud.combatBanner.text)));
+},{region:'sentosa',expedition:{zone:'sentosa',spawn:{x:-155,z:140,yaw:Math.PI,pitch:0},profile,loot:createExpeditionLoot('naval-engine'),infrastructure,onTravel(){},onEquipment(){},onVendorPurchase(){return{ok:false,message:'Fixture'};}}});
+document.getElementById('start').onclick=()=>{window.engine.configureDebug({healthMultiplier:10,regeneration:true,combatEvents:false});window.engine.start();};
+</script></body></html>

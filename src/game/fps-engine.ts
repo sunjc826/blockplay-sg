@@ -9,6 +9,9 @@ import { createDeploymentIntro } from './deployment-intro';
 import { visionMountPose } from './fps-vision-mount';
 import { districtDeploymentPoints, deploymentOrder, type DeploymentView } from './expedition-deployment';
 import { createSceneCover } from './scene-cover';
+import { NAVAL as NAVAL_LANDING } from './naval-landings';
+import { validatedNavalSites } from './naval-route-validation';
+import { SENTOSA_LANDING_SITES } from './naval-landing-sites';
 import { districtFacilitySites } from './facility-sites';
 import { createFacilityVisuals } from './facility-visuals';
 import { facilityPrompt, facilityStatus, facilityActionFor, type FacilityState } from './facilities';
@@ -137,7 +140,7 @@ export interface FpsCheckpoint { health: number; armor: number; weapon: number; 
   /** Supplies picked up on this expedition and still on the belt; they never touch the saved profile. */
   fieldSupplies?: Record<string, number> }
 export interface FpsExpeditionOptions {
-  infrastructure?: Map<WorldZoneId, Pick<ArenaSnapshot, 'facilities' | 'vehicles'>>;
+  infrastructure?: Map<WorldZoneId, Pick<ArenaSnapshot, 'facilities' | 'vehicles' | 'reinforcementClocks'>>;
   zone: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: FpsCheckpoint; profile: ArmoryProfile; loot: ExpeditionLoot;
   onTravel: (transition: WorldTransition, checkpoint: FpsCheckpoint) => void; onEquipment: (profile: ArmoryProfile) => void;
   onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult;
@@ -291,6 +294,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     (x, z) => footMovement.canOccupy(x, 0, z, 1.1, 2) && Math.abs(footMovement.supportHeight(x, z, .1, .4, 1.8) ?? 100) < .05, npcs) : [];
   if (expedition && options.arena?.environment) {
     const saved = expedition.infrastructure?.get(expedition.zone);
+    options.arena.environment.savedReinforcementClocks = saved?.reinforcementClocks;
     options.arena.environment.facilities = { sites: facilitySites, saved: saved?.facilities, savedVehicles: saved?.vehicles };
     for (const site of facilitySites) world.obstacles.push({ minX: site.x - .85, maxX: site.x + .85, minZ: site.z - .65, maxZ: site.z + .65, maxY: 1.8 });
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
@@ -314,6 +318,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     npcs.every(n => Math.hypot(n.x - x, n.z - z) > 3) && Object.values(fleetSpawns).every(v => Math.hypot(v.x - x, v.z - z) > 8) &&
     facilitySites.every(f => Math.hypot(f.x - x, f.z - z) > (f.initialOwner === 'mercenaries' ? 35 : 8)),
     (x, z) => footMovement.canOccupy(x, 0, z, .5, 1.8, vehicles.footObstacles()) && Math.abs(footMovement.supportHeight(x, z, .1, .4, 1.8) ?? 100) < .05) : [];
+  if (options.arena?.environment?.navalSites?.length) options.arena.environment.navalSites = validatedNavalSites(world.scene, options.arena.environment.navalSites, world.bounds, footMovement);
   const deploymentIntro = createDeploymentIntro();
   let deploymentRoof: number | null = null, readySound = 0;
   let deploymentConditions = { time: '', weather: '' };
@@ -581,6 +586,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}-${targets[index].activation}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(rangeStation ? [{ id: 'range-resupply', x: rangeStation.point.x, z: rangeStation.point.z, kind: 'loot' as const, label: 'Range resupply · ammo, grenades & utilities' }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
+        ...(hud.arena?.transports ?? []).filter(t => t.mode === 'sea' && t.visible && t.state !== 'departed').map((t): MinimapMarker => {
+          const event = hud.arena?.events?.find(e => e.id === t.event), friendly = event?.faction === PLAYER_FACTION;
+          const coast = SENTOSA_LANDING_SITES.find(s => s.id === event?.landing)?.name ?? 'Coast';
+          return { id: `boat-${t.event}`, x: t.x, z: t.z, kind: 'boat', side: friendly ? 'ally' : 'enemy', label: `${friendly ? 'Friendly' : 'Hostile'} landing craft · ${coast} · ${t.state === 'inbound' ? `ETA ${Math.max(0, Math.ceil((event?.start ?? 0) + NAVAL_LANDING.approach + NAVAL_LANDING.rampSeconds - (hud.arena?.elapsed ?? 0)))}s · ` : ''}${t.passengers} aboard` };
+        }),
         ...(hud.arena?.facilities?.sites ?? []).map((s): MinimapMarker => ({ id: s.id, x: s.x, z: s.z, kind: 'facility', label: `${s.name} · ${facilityStatus(s)}`, side: s.owner === PLAYER_FACTION ? 'ally' : s.owner ? 'enemy' : 'neutral', inactive: s.health === 0, active: !!s.action })),
         ...contactMarkers(mapContactRange),
       ],
@@ -2719,7 +2729,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // Something happening across the district is news; only one near you is an alarm.
       const near = Math.hypot(event.target.x - position.x, event.target.z - position.z) < COMBAT_NEAR, threat = threatens(event, plugin);
       const named = `${event.faction === 'armed-forces' ? 'FRIENDLY ' : ''}${plugin.name.toUpperCase()}`;
+      const coast = event.landing ? SENTOSA_LANDING_SITES.find(s => s.id === event.landing)?.name : undefined;
       comms.add('system', threat && near ? 'Fire control' : 'Intel', near ? `${bannerOf(event, plugin).warning} · ${whereFrom(event.target)}` : `${named} · ${whereFrom(event.target)}`);
+      if (coast) comms.add('system', 'Naval control', `${coast} · ETA ${Math.max(0, Math.ceil(event.start + NAVAL_LANDING.approach + NAVAL_LANDING.rampSeconds - eventClock))}s`);
       if (threat && near) combatAudio.alert();
     }
     if (seenEvents.size > 200) { seenEvents.clear(); events.forEach(e => seenEvents.add(e.id)); }
@@ -2727,7 +2739,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     for (const event of events) if (event.kind === 'supply-drop' && event.outcome === 'claimed' && !openedSupplies.has(event.id)) {
       openedSupplies.add(event.id); if (event.claimedBy === options.arena?.session.id) openSupply(event);
     }
-    let banner: FpsHud['combatBanner'] = null, rank = 0, engine: { mode: 'land' | 'air' | null; distance: number; effort: number } = { mode: null, distance: Infinity, effort: 0 };
+    let banner: FpsHud['combatBanner'] = null, rank = 0, engine: { mode: 'land' | 'air' | 'sea' | null; distance: number; effort: number } = { mode: null, distance: Infinity, effort: 0 };
     // Higher rank wins: a drone diving at you beats a barrage you stand in, which beats news.
     const offer = (text: string, tone: 'hazard' | 'notice', priority: number) => { if (priority > rank) { rank = priority; banner = { text, tone }; } };
     let jet = Infinity, raid = Infinity, drone = Infinity, siren = false, jammed = false, cloud: FpsHud['cloudCover'] = null, lockedOn = false;
@@ -2742,9 +2754,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       for (const payload of combatTimeline(event)) {
         if (payload.type === 'transport') {
           const active = snapshot?.transports?.find(t => t.event === event.id);
-          const pose = active ? { ...active, effort: active.health <= 0 || !active.driverAlive ? 0 : active.state === 'stopped' ? .2 : .85 } : transportPose(payload, age);
+          const pose = active ? { ...active, effort: active.health <= 0 || !active.driverAlive ? 0 : active.state === 'stopped' || active.mode === 'sea' && !['inbound', 'leaving'].includes(active.state) ? .2 : .85 } : transportPose(payload, age);
           const distance = Math.hypot(pose.x - listener.x, pose.y - listener.y, pose.z - listener.z);
           if (pose.visible && distance < engine.distance) engine = { mode: payload.mode, distance, effort: pose.effort };
+          if (payload.mode === 'sea' && active?.visible) {
+            const coast = SENTOSA_LANDING_SITES.find(s => s.id === event.landing)?.name ?? 'Coast';
+            if (!far && active.state === 'inbound') offer(`${bannerOf(event, plugin).warning} · ${coast} · ${Math.max(0, Math.ceil(event.start + NAVAL_LANDING.approach + NAVAL_LANDING.rampSeconds - eventClock))}s`, 'notice', 2);
+          }
           if (active?.state === 'landing' || active?.state === 'stopped') offer(`TRANSPORT ${active.driverAlive ? 'CRITICAL' : 'DRIVER DOWN'} · TROOPS EVACUATING · ${whereFrom(active)}`, 'notice', 2);
           else if (active && (active.state === 'down' || active.state === 'wreck')) offer(`TRANSPORT DESTROYED · ${whereFrom(active)}`, 'notice', 1);
           else if (!plugin.hazard && age < payload.depart) offer(`${age < payload.arrive ? bannerOf(event, plugin).warning : bannerOf(event, plugin).active} · ${whereFrom(payload.drop)}`, 'notice', 1);
@@ -2848,7 +2864,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    */
   function triggerCombatEvent(kind: string) {
     if (!arenaRuntime || !hud.combatEventsAvailable || disposed) return;
-    const plugin = getCombatEvent(kind), transport = kind === 'transport-land' || kind === 'transport-air'; if (!plugin) return;
+    const plugin = getCombatEvent(kind), transport = kind.startsWith('transport-'); if (!plugin) return;
     const reach = transport || plugin.targeting?.policy === 'player' ? null : ({ 'smoke-screen': 25, 'supply-drop': 30, blackout: 0 } as Record<string, number>)[kind] ?? 35;
     const ahead = reach === null ? undefined : { x: position.x - Math.sin(yaw) * reach, z: position.z - Math.cos(yaw) * reach };
     const event = arenaRuntime.triggerEvent(kind, ahead);

@@ -1,4 +1,5 @@
 import { helicopterGunPoint } from './helicopter-crew';
+import { buildLandingCraft } from './landing-craft-model';
 import type { ArenaTransport } from './combat-transports';
 import * as THREE from 'three';
 import { combatPhase, combatRandom, combatTimeline, cratePose, flyerPose, orbitPose, transportPose, type CombatEventDescriptor, type MunitionPayload, type TransportPayload } from './combat-events';
@@ -243,12 +244,12 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
   const trail = new THREE.Color('#2f2d2a');
 
   // Transport models are built on first use: most matches never see one of each.
-  const fleet: Record<'land' | 'air', { model: THREE.Group; rotor?: THREE.Object3D; tail?: THREE.Object3D; ground: number; groundAt: number; owner: string }[]> = { land: [], air: [] };
-  function vehicle(mode: 'land' | 'air', owner: string) {
+  const fleet: Record<'land' | 'air' | 'sea', { model: THREE.Group; rotor?: THREE.Object3D; tail?: THREE.Object3D; ground: number; groundAt: number; owner: string }[]> = { land: [], air: [], sea: [] };
+  function vehicle(mode: 'land' | 'air' | 'sea', owner: string) {
     const list = fleet[mode];
     let slot = list.find(v => v.owner === owner) ?? list.find(v => !v.owner);
     if (!slot && list.length < TRANSPORTS) {
-      const model = mode === 'land' ? buildTruck() : buildTransportHelicopter();
+      const model = mode === 'sea' ? buildLandingCraft() : mode === 'land' ? buildTruck() : buildTransportHelicopter();
       model.traverse(node => {
         node.raycast = noRaycast;
         if (node instanceof THREE.Mesh) { geometries.push(node.geometry); (Array.isArray(node.material) ? node.material : [node.material]).forEach(m => { materials.push(m); if ('map' in m && m.map instanceof THREE.Texture) textures.push(m.map); }); }
@@ -493,7 +494,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
       }
     }
     camera.getWorldQuaternion(quaternion);
-    for (const mode of ['land', 'air'] as const) for (const v of fleet[mode]) if (!live.has(v.owner)) { v.owner = ''; v.model.visible = false; }
+    for (const mode of ['land', 'air', 'sea'] as const) for (const v of fleet[mode]) if (!live.has(v.owner)) { v.owner = ''; v.model.visible = false; }
     const happened = drawRaiders(raiders, dt);
     for (const list of Object.values(props)) for (const p of list) if (!used.has(p)) { p.owner = ''; p.model.visible = false; }
     bombMesh.count = bombs; bombMesh.instanceMatrix.needsUpdate = true;
@@ -543,13 +544,13 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
   }
 
   function drawTransport(event: CombatEventDescriptor, payload: TransportPayload, age: number, dt: number, live: Set<string>, active?: ArenaTransport) {
-    const pose = active ? { ...active, effort: active.health <= 0 || !active.driverAlive ? 0 : active.state === 'stopped' ? .2 : .85 } : transportPose(payload, age);
+    const pose = active ? { ...active, effort: active.health <= 0 || !active.driverAlive ? 0 : active.state === 'stopped' || active.mode === 'sea' && !['inbound', 'leaving'].includes(active.state) ? .2 : .85 } : transportPose(payload, age);
     if (!pose.visible) return;
     const v = vehicle(payload.mode, event.id); if (!v) return;
     live.add(event.id);
     // The ground under a transport is sampled a few times a second, not every frame.
     if (clock - v.groundAt > .15) { v.ground = groundAt(pose.x, pose.z); v.groundAt = clock; }
-    v.model.visible = true; v.model.position.set(pose.x, active ? pose.y : v.ground + pose.y, pose.z); v.model.rotation.set(active?.state === 'down' ? -.2 : 0, pose.yaw, active?.state === 'wreck' && active.mode === 'air' ? -.18 : 0);
+    v.model.visible = true; v.model.position.set(pose.x, active ? pose.y : (payload.mode === 'sea' ? event.altitude ?? 0 : v.ground) + pose.y, pose.z); v.model.rotation.set(active?.state === 'down' ? -.2 : 0, pose.yaw, active?.state === 'wreck' && active.mode === 'air' ? -.18 : 0);
     const stage = !active || active.health > active.maxHealth * .5 ? 1 : active.health > 0 ? .8 : .38;
     if (v.model.userData.transportTint !== stage) {
       v.model.userData.transportTint = stage;
@@ -564,6 +565,11 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
       const puff = particle(at, .5, 1.3, 3.5, 1.1, 1.2, soot); puff.lift = 1; add(smoke, SMOKE, puff);
       if (active.health <= active.maxHealth * .25) add(fire, FIRE, particle(at, .4, .8, .7, .8, 1.2, fireMid));
     }
+    if (payload.mode === 'sea') {
+      const ramp = v.model.getObjectByName('bow-ramp'), wake = v.model.getObjectByName('craft-wake');
+      if (ramp) { const k = active?.ramp ?? 0; ramp.rotation.x = Math.PI / 2 + (-Math.atan2(.41, 5) - Math.PI / 2) * k; ramp.scale.z = .28 + .72 * k; }
+      if (wake) { wake.visible = pose.effort > .3 && (active?.health ?? 1) > 0; wake.scale.x = 1 + Math.sin(clock * 5) * .06; }
+    }
     if (v.rotor) v.rotor.rotation.y += dt * 38 * pose.effort;
     if (v.tail) v.tail.rotation.x += dt * 60 * pose.effort;
     v.model.updateMatrixWorld(true);
@@ -572,11 +578,11 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
   /** Builds one of each model now, hidden, so its geometry and shaders are ready before an event first needs one. */
   function prewarm() {
     for (const kind of Object.keys(props) as (keyof typeof props)[]) { const slot = prop(kind, ''); if (slot) { slot.model.visible = false; used.delete(slot); } }
-    for (const mode of ['land', 'air'] as const) vehicle(mode, '');
+    for (const mode of ['land', 'air', 'sea'] as const) vehicle(mode, '');
   }
   function reset() {
     fire.length = smoke.length = debris.length = craters.length = emitters.length = 0; landings.clear(); seenRaiders.clear(); seenTransports.clear(); flash.intensity = 0;
-    for (const mode of ['land', 'air'] as const) for (const v of fleet[mode]) { v.owner = ''; v.model.visible = false; }
+    for (const mode of ['land', 'air', 'sea'] as const) for (const v of fleet[mode]) { v.owner = ''; v.model.visible = false; }
     for (const list of Object.values(props)) for (const p of list) { p.owner = ''; p.model.visible = false; p.extra = undefined; }
   }
   return {
@@ -584,7 +590,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     /** Live pool sizes, for smokes and tests. */
     get counts() {
       const shown = (kind: keyof typeof props) => props[kind].filter(p => p.owner).length;
-      return { fire: fire.length, smoke: smoke.length, debris: debris.length, craters: craters.length, transports: fleet.land.filter(v => v.owner).length + fleet.air.filter(v => v.owner).length,
+      return { fire: fire.length, smoke: smoke.length, debris: debris.length, craters: craters.length, transports: fleet.land.filter(v => v.owner).length + fleet.air.filter(v => v.owner).length + fleet.sea.filter(v => v.owner).length,
         flyers: shown('jet') + shown('cargo'), raiders: shown('gunship') + shown('drone'), pits: shown('mortar'), crates: shown('crate'), puffs: puffMesh.count };
     },
     dispose() {

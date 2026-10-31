@@ -1,4 +1,5 @@
 import { validAircrewRole, aircrewPoint, helicopterCrew, rifleSeat } from './helicopter-crew';
+import { validReinforcementClocks } from './naval-landings';
 import { validTransport } from './combat-transports';
 import { validRaiderBounty } from './combat-rewards';
 import { MAX_CONFIRMED_IMPACTS, IMPACT_LIFETIME } from './confirmed-impacts';
@@ -54,6 +55,7 @@ export function validArenaInput(value: unknown): value is ArenaInput {
     (value.vehicleControls === undefined || validVehicleControls(value.vehicleControls));
 }
 export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironment): value is ArenaSnapshot {
+  if (object(value) && value.reinforcementClocks !== undefined && !validReinforcementClocks(value.reinforcementClocks)) return false;
   if (object(value) && value.facilities !== undefined && !validFacilitySnapshot(value.facilities)) return false;
   if (!object(value) || value.type !== 'arena-snapshot' || !finite(value.tick) || value.tick < 0 || !finite(value.elapsed) || value.elapsed < 0 || value.elapsed > (environment?.endless ? 1e9 : 181) ||
     typeof value.finished !== 'boolean' || typeof value.winner !== 'string' || value.winner.length > 80 || !Array.isArray(value.actors) || value.actors.length > MAX_ARENA_ACTORS || !Array.isArray(value.feed) || value.feed.length > 8) return false;
@@ -156,7 +158,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     const r = (value.raiders as ArenaSnapshot['raiders'])?.find(r => r.event === actor.transport && r.kind === 'gunship');
     const event = (value.events as ArenaSnapshot['events'])?.find(e => e.id === actor.transport);
     if ((!t && !r) || !event || actor.faction !== (event.faction ?? 'mercenaries') || !actor.bot) return false;
-    if (!actor.aircrew) { if (!t || t.mode !== 'land' || t.driver !== actor.id) return false; continue; }
+    if (!actor.aircrew) { if (!t || !['land', 'sea'].includes(t.mode) || t.driver !== actor.id) return false; continue; }
     if (!helicopterCrew(event).includes(actor.aircrew)) return false;
     if (t && (t.mode !== 'air' || actor.aircrew === 'pilot' && t.driver !== actor.id || actor.aircrew !== 'pilot' && t.driver === actor.id)) return false;
     const key = `${actor.transport}/${actor.aircrew}`; if (crewSeats.has(key)) return false; crewSeats.add(key);
@@ -715,6 +717,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       avatar.root.position.set(eye.x, eye.y - (actor.vehicle === 'car' && actor.seat === 1 ? 1.75 : 1.2), eye.z);
     }
   }
-  return { selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { facilities: s.facilities, vehicles: s.vehicles } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
+  return { selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

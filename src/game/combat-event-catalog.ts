@@ -1,3 +1,4 @@
+import { NAVAL } from './naval-landings';
 import { PLAYER_FACTION } from './arena-factions';
 import { combatRandom, descentAlong, registerCombatEvent, MAX_TROOPS, type BlastSpec, type CombatEventDescriptor, type CombatPayload, type CombatPlane } from './combat-events';
 
@@ -150,6 +151,19 @@ registerCombatEvent({
   warning: TRANSPORT.air.warning, duration: TRANSPORT.air.duration, hazard: false,
   banner: { warning: 'BLACK KITE HELICOPTER INBOUND · REINFORCEMENTS', active: 'MERCENARIES FAST-ROPING IN' },
   timeline: event => transportTimeline(event, 'air'),
+});
+
+registerCombatEvent({
+  id: 'transport-sea', name: 'Landing craft', description: 'A coastal craft beaches, lowers its ramp and delivers one infantry squad.',
+  warning: NAVAL.approach, duration: 48, hazard: false,
+  banner: { warning: 'BLACK KITE LANDING CRAFT INBOUND', active: 'HOSTILE LANDING PARTY ASHORE' },
+  timeline(event) {
+    const drop = { ...event.target }, entry = event.origin ?? { x: drop.x, z: drop.z + 129 };
+    const depart = NAVAL.approach + NAVAL.rampSeconds + NAVAL.hold + NAVAL.seats + 2;
+    // Sea inserts are host-owned: the manifest unloads only through a clear ramp.
+    return [{ type: 'transport', id: 0, mode: 'sea', entry, drop, exit: entry, enter: 0, arrive: NAVAL.approach,
+      depart, leave: depart + NAVAL.exitSeconds, cruise: 0, hover: 0 }];
+  },
 });
 
 /**
@@ -351,6 +365,7 @@ registerCombatEvent({
 /** A friendly ride is the same truck or helicopter; only what the HUD and comms call it changes. */
 const FRIENDLY_BANNERS: Readonly<Record<string, { warning: string; active: string }>> = {
   'transport-land': { warning: 'FRIENDLY TRUCK INBOUND · ARMED FORCES', active: 'FRIENDLY SECTION DISMOUNTING' },
+  'transport-sea': { warning: 'FRIENDLY LANDING CRAFT INBOUND', active: 'FRIENDLY LANDING PARTY ASHORE' },
   'transport-air': { warning: 'FRIENDLY HELICOPTER INBOUND · ARMED FORCES', active: 'FRIENDLY SECTION FAST-ROPING IN' },
   'helicopter-raid': { warning: 'FRIENDLY GUNSHIP INBOUND · ARMED FORCES', active: 'FRIENDLY HELICOPTER PROVIDING FIRE SUPPORT' },
   sniper: { warning: 'FRIENDLY SNIPER MOVING UP · ARMED FORCES', active: 'FRIENDLY OVERWATCH ON THE ROOFS' },

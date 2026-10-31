@@ -64,8 +64,12 @@ export function buildSentosaScene() {
     }
   }
   openWater(-215, 215, SEA.minZ, SEA.maxZ, 30);
+  // Authored offshore approach for landing craft, outside infantry bounds.
+  box(0, -.06, 280, 430, .4, 140, sea);
+  scene.userData.navalWater = { minX: -215, maxX: 215, minZ: 196, maxZ: 350 };
   for (const [fromX, toX] of STRAIT_SPANS) openWater(fromX, toX, STRAIT.minZ, STRAIT.maxZ, 10);
   box(0, 0.16, 191, 440, 0.34, 12, sand);
+  scene.userData.walkSurfaces = [{ id: 'southern-beach', routeId: 'southern-beach', minX: -220, maxX: 220, minZ: 185, maxZ: 196, axis: 'z', startHeight: .33, endHeight: .33 }];
   box(0, 0.16, -186, 440, 0.34, 10, sand);
 
   /** Boardwalk across the strait: the island's only landing. */

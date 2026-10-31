@@ -1,6 +1,6 @@
 # Naval landing parties — design proposal
 
-Status: proposed, 31 October 2026. No gameplay implementation or deployment.
+Status: Sentosa pilot implemented, 31 October 2026. Other coastal districts remain proposed.
 
 ## Purpose
 
@@ -143,8 +143,9 @@ district's expedition state. Follow the current rule that unloaded districts do
 not simulate. For the first version, district travel withdraws active boats and
 returns undelivered reservations to the casualty queue while retaining the
 cooldown; landed troops follow existing district re-entry rules. This must not
-duplicate troops, restart a free wave, or accumulate overdue missions. Pause
-freezes the lifecycle; a new expedition resets it.
+duplicate troops, restart a free wave, or accumulate overdue missions. The
+existing expedition continues while its menu is open, including naval arrivals;
+unloaded districts suspend their remaining clocks. A new expedition resets them.
 
 Suggested code boundaries:
 
@@ -168,8 +169,36 @@ Suggested code boundaries:
   and aborted approaches settle every passenger and release every reservation.
 - An interception delays the next mission; a nearby player can ambush after
   announcement without causing the craft or passengers to teleport.
-- Pause, reset, district travel and return preserve clocks without extra waves.
+- Menu, reset, district travel and return follow expedition clock rules without extra waves.
 - Host snapshots validate sea states; browser checks cover warnings, real hull
   damage, ramp traversal, inland squad movement, cleanup and phone layouts.
 - Relevant unit tests, full suite and typecheck pass before the playable version
   is manually deployed and verified. Longer combat playtests tune the values above.
+
+
+## Playing the Sentosa pilot
+
+Open World in Sentosa enables two southern beach lanes, west and east. Each
+faction may send up to four troops after 150 seconds, subject to casualties,
+headcount, clear routes and its shared 80-second external dispatch gate. No boat
+launches while that side is at full strength. Command-post ownership does not
+disable naval support. Posts and boats cannot deploy the same reservist.
+
+Comms and the district map identify incoming craft. Approach takes 15 seconds,
+the bow ramp takes two seconds to lower, and soldiers cross one at a time before
+moving inland. The 900 HP hull and its coxswain are separately vulnerable. An
+open-water driver loss holds the passengers aboard; a beached craft can still
+unload through its ramp. Destruction loses the remaining manifest. A blocked
+ramp holds for up to ten seconds, then returns undelivered troops to reserve.
+Troops already ashore remain ordinary infantry and can fight for facilities.
+
+The existing Debug survival panel has a **Landing craft** button. It can bypass
+the initial naval timer for inspection, but still needs a free lane, population
+room or waiting casualties, and a safe approach. Other districts have no routes.
+
+Source tests: `naval-landings.test.ts`, the transport/event and arena-runtime
+suites, and `FpsMinimap.test.tsx`. The rendered host/guest smoke is
+`node scripts/naval-landings-smoke.mjs`, with Vite on 5196 and Chrome CDP on 9346
+(or EXPEDITION_APP_ORIGIN / EXPEDITION_CHROME_ORIGIN). It uses the actual Sentosa
+scene and saves evidence under `.cache/naval-landings/`. The full engine smoke
+checks the in-game warning, map marker and expedition travel state.
