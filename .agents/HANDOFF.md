@@ -5950,3 +5950,33 @@ Private env copies removed; task Vite/Chrome stopped. No paid requests or
 GitHub push. Concurrent arena/patrol/benchmark/Queenstown work was preserved and
 excluded from the frozen release; keep local AGENTS.md unstaged/uncommitted,
 pre-existing handoff changes and .claude/ files.
+
+
+## XM29 Peace Offering / Escalation Clause names (2026-10-31)
+
+Owner accepted the separate XM29 naming suggestion after confirming SCAR names.
+Local main code commit 6027ace sets ff-oicw full name to Peace Offering ·
+Escalation Clause, family label Peace Offering and signature Escalation Clause.
+The picker/banner use separate labels; descriptions and accessible canvas name
+use the full name. XM29 OICW remains its base reference. SCAR-L stays Soft Power ·
+Foreign Aid and SCAR-H stays Hard Power · Strings Attached. QTS-11 working name,
+geometry, IDs, roster and gameplay remain unchanged. docs/PROXY-WEAPONS.md updated.
+
+Typecheck and 13 existing relevant tests pass locally and in the frozen release;
+no new tests for this display-only change. Frozen latest main 6027ace under the
+shared district-principles deployment lock; all 3,117 source files verified.
+Manual pnpm deploy:cloudflare succeeded, version:
+98e7c5ff-5819-4fa0-a8cc-e505ea65db94. Both domains pass Cloudflare routing/assets/
+PWA/model/audio/API-origin checks. Live gallery smoke passes 42 views, seven
+models, grayscale, mouse/touch rotation, preset reset, mobile overflow and
+navigation; no browser exceptions. Mobile labels visually reviewed and fit.
+
+Initial asset hash verification received one mismatching index JS response;
+initial logs/result retained. Fresh requests matched expected bytes on both
+domains. A reproducible rebuild of the exact deployed commit matched all six
+release JS/CSS/service-worker files and entry HTML using cache-busting queries.
+No second deployment was needed. Evidence: .cache/oicw-names/ (source-verification,
+release-result, typecheck/tests, deployment, initial/final verification logs,
+live-browser-results and screenshots). Deployment lock released in finally;
+private env/release copies removed and task Chrome stopped. No paid requests or
+GitHub push. Preserve pre-existing local handoff edits, AGENTS.md and .claude/.
