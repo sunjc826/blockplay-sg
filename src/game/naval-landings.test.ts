@@ -21,12 +21,12 @@ function setup(extra: Partial<ArenaEnvironment> = {}, launch = true) {
   const env: ArenaEnvironment = { bounds: { minX: -250, maxX: 250, minZ: -210, maxZ: 210 }, spawns: [{ x: 0, z: 0 }, { x: 30, z: 0 }], playerSpawn: spawn,
     move: (p, dx, dz) => ({ x: p.x + dx, z: p.z + dz }), endless: true, reinforcements: true, population: 4, navalSites: SENTOSA_LANDING_SITES, ...extra };
   const arena = createArena([], 0, 'assault', env);
-  arena.addPlayer('player', 'Alpha', 0, 0, gun, undefined, true); arena.setPlayerHealthMultiplier('player', 3);
+  arena.addPlayer('player', 'Alpha', 0, 0, gun, undefined, true);
   const event = launch ? arena.triggerEvent('transport-sea') : null;
   return { arena, env, spawn, event };
 }
 function shooter(ctx: ReturnType<typeof setup>, point: ArenaPoint) {
-  Object.assign(ctx.spawn, point); ctx.arena.addPlayer('shooter', 'Bravo', 0, 0, gun, undefined, true); ctx.arena.setPlayerHealthMultiplier('shooter', 3);
+  Object.assign(ctx.spawn, point); ctx.arena.addPlayer('shooter', 'Bravo', 0, 0, gun, undefined, true);
 }
 function fire(ctx: ReturnType<typeof setup>, at: ArenaPoint) {
   advance(ctx.arena, .07);
@@ -128,7 +128,7 @@ describe('host-owned landing parties', () => {
   });
   it('holds a blocked ramp and returns passengers to reserve without teleporting them', () => {
     const ctx = setup(); advance(ctx.arena, 15.1);
-    Object.assign(ctx.spawn, SENTOSA_LANDING_SITES[0].ramp.to); ctx.arena.addPlayer('blocker', 'Blocker', 0, 0, gun, undefined, true); ctx.arena.setPlayerHealthMultiplier('blocker', 3);
+    Object.assign(ctx.spawn, SENTOSA_LANDING_SITES[0].ramp.to); ctx.arena.addPlayer('blocker', 'Blocker', 0, 0, gun, undefined, true);
     advance(ctx.arena, 25); expect(infantry(ctx.arena)).toHaveLength(0); expect(ride(ctx.arena).passengers).toBe(0);
     expect(ctx.arena.snapshot().reinforcementClocks!.naval.mercenaries).toBeGreaterThan(109);
     expect(ctx.arena.snapshot().events!.filter(e => e.kind === 'transport-sea')).toHaveLength(1);

@@ -30,11 +30,11 @@ function setup(friendly=false){runtime?.dispose();visuals.reset();spawn={x:0,z:-
  env={bounds:world.bounds,move:world.move,spawns:[{x:0,z:130},{x:90,z:130}],playerSpawn:spawn,endless:true,reinforcements:true,population:4,navalSites:sites,facilities:{sites:[]},
  ...(friendly?{heat:{defaults:{mercenaries:{min:0,max:0},'armed-forces':{min:1,max:1}},sectors:[]},savedReinforcementClocks:{naval:{mercenaries:150,'armed-forces':0},external:{mercenaries:80,'armed-forces':0}}}: {})};
  arena=createArena(world.obstacles,0,'assault',env,undefined,traversal,cover.distance);
- arena.addPlayer('planner','Planner',0,0,gun,undefined,true);arena.setPlayerHealthMultiplier('planner',3);
+ arena.addPlayer('planner','Planner',0,0,gun,undefined,true);
  if(friendly){arena.step(.05);event=arena.snapshot().events.find(e=>e.kind==='transport-sea');}else event=arena.triggerEvent('transport-sea');
  if(!event)throw Error('No boat launched');
  runtime=createArenaRuntime({scene,obstacles:world.obstacles,environment:env,botCount:0,session:{id:'viewer',name:'Viewer',role:'guest',send(){},subscribe(cb){deliver=cb;return()=>{}},getPeers:()=>[{id:'host',name:'Host'}],onPeers:()=>()=>{},close(){}}});}
-function shooter(at){Object.assign(spawn,at);arena.addPlayer('shooter','Bravo',0,0,gun,undefined,true);arena.setPlayerHealthMultiplier('shooter',3);}
+function shooter(at){Object.assign(spawn,at);arena.addPlayer('shooter','Bravo',0,0,gun,undefined,true);}
 function fire(at){advance(.07);const from=arena.snapshot().actors.find(a=>a.id==='shooter'),ray=new THREE.Vector3(at.x-from.x,at.y-from.y,at.z-from.z).normalize();arena.shoot('shooter',from,ray,0);for(let i=0;i<400&&arena.inFlight('shooter');i++)advance(.002);}
 window.reviewNaval=(scenario='unloading',friendly=false)=>{
  setup(friendly);
@@ -43,7 +43,7 @@ window.reviewNaval=(scenario='unloading',friendly=false)=>{
  else if(scenario==='unloading')advance(17.5);
  else if(scenario==='depart')advance(28);
  else if(scenario==='complete')advance(46);
- else if(scenario==='blocked'){advance(15.1);Object.assign(spawn,sites[0].ramp.to);arena.addPlayer('blocker','Blocker',0,0,gun,undefined,true);arena.setPlayerHealthMultiplier('blocker',3);advance(15);}
+ else if(scenario==='blocked'){advance(15.1);Object.assign(spawn,sites[0].ramp.to);arena.addPlayer('blocker','Blocker',0,0,gun,undefined,true);advance(15);}
  else if(scenario==='driver'){advance(10);const t=boat();shooter({x:t.x+.65,z:180});fire(transportDriverPoint(t));advance(8);}
  else if(scenario==='destroyed'){advance(15.1);const t=boat();shooter({x:t.x+20,z:194});for(let i=0;i<5;i++)fire(transportPoint(boat(),0,.2,0));advance(3);}
  const t=boat(),site=sites.find(s=>s.id===event.landing),s=arena.snapshot();
