@@ -896,7 +896,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (change) {
       clearInput(); actualAim = false; stopReload();
       position = { x: change.x, z: change.z }; vertical = change.y; velocityY = 0; resetMovementMotion(bodyMotion, eyeHeight()); resetRecoil(kick); carry.set(0, 0, 0);
-      if (change.entered) { yaw = change.yaw; pitch = vehicles.active === 'helicopter' ? -.06 : -.23; }
+      if (change.entered) { yaw = change.yaw; pitch = -.06; }
       else pitch = -.03;
       updateCameras(0, false, false);
     }
@@ -906,7 +906,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.phase !== 'playing' || !vehicles.active) return;
     if (arenaRuntime) arenaRuntime.vehicleAction('switch'); else {
       vehicles.switchSeat();
-      if (vehicles.mounted?.kind === 'helicopter') { yaw = vehicles.mounted.yaw + seatFacing('helicopter', vehicles.seat ?? 0); pitch = -.06; }
+      if (vehicles.mounted) { yaw = vehicles.mounted.yaw + seatFacing(vehicles.mounted.kind, vehicles.seat ?? 0); pitch = -.06; }
       updateCameras(0, false, false);
     }
     clearInput(); canvas.focus({ preventScroll: true }); publish();
@@ -1573,7 +1573,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function updateVehicleCamera(dt: number) {
     const v = vehicles.viewMounted; if (!v) return;
     if (firstPersonVehicle()) {
-      placeVehicleFirstPersonCamera(camera, vehicles.models[v.kind], v, vehicles.seat ?? 0, yaw, pitch, vehicles.canFire);
+      placeVehicleFirstPersonCamera(camera, vehicles.models[v.kind], v, vehicles.seat ?? 0, yaw, pitch);
     } else {
       const target = new THREE.Vector3(v.x, v.y + 1.65, v.z), distance = v.kind === 'car' ? 8.5 : 13;
       const direction = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
@@ -2447,8 +2447,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         if (shot.kind === vehicles.active) shotSound(gun); else otherShot(shot.origin, gun.caliberMm, gun.damage);
       }
       if (oldVehicle !== vehicles.active || oldSeat !== vehicles.seat) {
-        if (vehicles.mounted && (!oldVehicle || vehicles.mounted.kind === 'helicopter')) {
-          yaw = vehicles.mounted.yaw + seatFacing(vehicles.mounted.kind, vehicles.seat ?? 0); pitch = vehicles.mounted.kind === 'helicopter' ? -.06 : -.23;
+        if (vehicles.mounted) {
+          yaw = vehicles.mounted.yaw + seatFacing(vehicles.mounted.kind, vehicles.seat ?? 0); pitch = -.06;
         }
         velocityY = 0;
         vertical = !vehicles.active && frame.self ? Math.max(0, frame.self.y - 1.75) : 0;

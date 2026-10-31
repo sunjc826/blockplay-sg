@@ -5246,3 +5246,24 @@ release-build-final,release-browser-final,deploy,cloudflare-check}.log`,
 `.cache/store-tour-release-live.json`, the frozen source-verification.json and
 `.cache/store-tour-browser/` captures. Task-owned Chrome and preview stopped.
 Local commits only; no GitHub push. AGENTS.md remains local and uncommitted.
+
+
+## Humvee cabin and seated first person (2026-10-31)
+
+Replaced the transparent cab box with a hollow interior: framed windscreen,
+open passenger windows, solid doors/posts/floor, seat backs/headrests, dashboard,
+vents/radio, pedals, gear lever and steering wheel. Steering follows actual
+vehicle turning and gauge needles follow speed, including shared presentation.
+The driver stays behind the wheel even when controlling the roof gun. Rear
+passengers face their own windows; the standing gunner looks from above/behind
+the mount through a matching roof hatch. Cargo/rack bars clear that hatch.
+All cameras use the rendered hull transform, keeping seats stable during travel.
+Interior trim has restrained fill so cabin details remain readable in shadow.
+
+Validation: 40 focused camera, vehicle authority/presentation/combat and crew
+checks passed. Real-engine browser checks cover driving/turning, both mounted
+weapon roles, both passengers, rifle aim, seat/view switching, portrait and
+safe dismount without runtime/WebGL errors. Rendered captures reviewed in
+`.cache/humvee-view/`; runner `scripts/humvee-view-smoke.mjs`. Typecheck passed;
+manual Cloudflare release follows. No GitHub push. AGENTS.md remains local,
+unstaged and uncommitted.

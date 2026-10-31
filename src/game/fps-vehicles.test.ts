@@ -106,3 +106,20 @@ it('keeps the rendered hull and mounted camera pose together between shared snap
     vehicles.reset(); expect(vehicles.viewMounted).toBeNull();
   } finally { vehicles.dispose(); }
 });
+
+it('drives the Humvee steering wheel and speedometer from actual movement, and resets both', () => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  const vehicles = createFpsVehicles(new THREE.Scene(), [], { car: '', helicopter: '' });
+  try {
+    vehicles.interact(vehicles.states.car);
+    const wheel = vehicles.models.car.getObjectByName('humvee-steering-wheel')!;
+    const needle = vehicles.models.car.getObjectByName('humvee-speed-needle')!;
+    const parked = needle.rotation.z;
+    for (let i = 0; i < 20; i++) vehicles.step(new Set(['w', 'd']), .05);
+    expect(wheel.rotation.z).toBeLessThan(-.05);
+    expect(needle.rotation.z).toBeLessThan(parked);
+    vehicles.reset();
+    expect(needle.rotation.z).toBeCloseTo(parked);
+    expect(wheel.rotation.z).toBeCloseTo(0);
+  } finally { vehicles.dispose(); }
+});

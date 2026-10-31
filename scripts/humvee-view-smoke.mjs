@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+const chrome=process.env.FPS_CHROME_ORIGIN||'http://127.0.0.1:9353',origin=process.env.FPS_APP_ORIGIN||'http://127.0.0.1:5199';
+const output=new URL('../.cache/humvee-view/',import.meta.url);await fs.mkdir(output,{recursive:true});
+const tab=await(await fetch(`${chrome}/json/new?${encodeURIComponent(origin+'/scripts/fixtures/humvee-view.html')}`,{method:'PUT'})).json();
+const ws=new WebSocket(tab.webSocketDebuggerUrl);await new Promise((r,j)=>{ws.onopen=r;ws.onerror=j;});let id=0;const pending=new Map(),errors=[];
+ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.id){const p=pending.get(m.id);if(p){pending.delete(m.id);clearTimeout(p.timer);m.error?p.reject(Error(m.error.message)):p.resolve(m.result);}}if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails.exception?.description||m.params.exceptionDetails.text);if(m.method==='Log.entryAdded'&&m.params.entry.level==='error')errors.push({text:m.params.entry.text,url:m.params.entry.url});};
+const send=(method,params={})=>new Promise((resolve,reject)=>{const n=++id,timer=setTimeout(()=>{pending.delete(n);reject(Error('Timeout '+method));},45000);pending.set(n,{resolve,reject,timer});ws.send(JSON.stringify({id:n,method,params}));});
+const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;};
+const wait=async expression=>{const until=Date.now()+180000;while(!await evaluate(expression)){assert(Date.now()<until,expression);await new Promise(r=>setTimeout(r,150));}};
+const capture=async name=>{const shot=await send('Page.captureScreenshot',{format:'png'});await fs.writeFile(new URL(name+'.png',output),Buffer.from(shot.data,'base64'));};
+const states=[];
+const record=async name=>{await new Promise(r=>setTimeout(r,350));states.push({name,...await evaluate('({seat:hud.vehicleSeat,yaw:hud.yaw,view:hud.vehicleView,altitude:hud.altitude,ammo:hud.vehicleAmmo,camera:JSON.parse(document.querySelector("canvas").dataset.vehicleCamera)})')});await capture(name);};
+try{
+ await send('Runtime.enable');await send('Log.enable');await send('Page.enable');await send('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
+ await wait('window.hud?.phase === "ready"');
+ const p=await evaluate('(()=>{const r=document.querySelector("#start").getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()');
+ await send('Input.dispatchMouseEvent',{type:'mousePressed',...p,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',...p,button:'left',clickCount:1});
+ await wait('hud.phase === "playing"');await evaluate('engine.interactVehicle()');await wait('hud.vehicle === "car"');
+ await evaluate('engine.toggleVehicleView()');await wait('hud.vehicleView === "first-person"');
+ await record('driver');assert(states.at(-1).camera.y<2,'driver remains seated below the roof');assert(states.at(-1).camera.x<-17.4,'driver sits on the left');
+ const ammo=await evaluate('hud.vehicleAmmo');await evaluate('engine.setInput("fire",true)');await new Promise(r=>setTimeout(r,400));await evaluate('engine.setInput("fire",false)');await wait(`hud.vehicleAmmo < ${ammo}`);
+ await evaluate('engine.setInput("w",true);engine.setInput("d",true)');await wait('hud.vehicleSpeed > 15');await record('driver-turning');
+ assert(states.at(-1).yaw<-.1,'driver view turns with the moving cab');
+ await evaluate('engine.setInput("w",false);engine.setInput("d",false);engine.setInput(" ",true)');await wait('hud.vehicleSpeed < .2');await evaluate('engine.setInput(" ",false)');
+ await evaluate('engine.lookBy(-100,65)');await record('driver-dashboard');
+ await evaluate('engine.switchVehicleSeat()');await wait('hud.vehicleSeat === 1');await record('roof-gunner');assert(states.at(-1).camera.y>2.7,'gunner uses the roof hatch');
+ const gunAmmo=await evaluate('hud.vehicleAmmo');await evaluate('engine.setInput("fire",true)');await new Promise(r=>setTimeout(r,400));await evaluate('engine.setInput("fire",false)');await wait(`hud.vehicleAmmo < ${gunAmmo}`);
+ await evaluate('engine.switchVehicleSeat()');await wait('hud.vehicleSeat === 2');await record('left-passenger');assert(states.at(-1).camera.y<2);
+ await evaluate('engine.toggleAim()');await wait('hud.aiming');await record('left-passenger-aim');assert.equal(await evaluate('document.querySelector("canvas").dataset.weaponVisible'),'true');await evaluate('engine.toggleAim()');
+ await evaluate('engine.switchVehicleSeat()');await wait('hud.vehicleSeat === 3');await record('right-passenger');assert(states.at(-1).camera.y<2);
+ await evaluate('engine.lookBy(525,60)');await record('right-passenger-cabin');
+ await evaluate('engine.toggleVehicleView()');await wait('hud.vehicleView === "third-person"');await record('exterior');
+ await evaluate('engine.switchVehicleSeat();engine.toggleVehicleView()');await wait('hud.vehicleSeat === 0 && hud.vehicleView === "first-person"');
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await record('driver-portrait');
+ await evaluate('engine.interactVehicle()');await wait('hud.vehicle === "on-foot"');
+ assert.deepEqual(errors,[]);await fs.writeFile(new URL('results.json',output),JSON.stringify({passed:true,states,errors},null,2));console.log('PASS real engine seated driver, animated driving/turning, roof gunner, both rear passengers, mounted fire, passenger aim, view switching, portrait and dismount; no runtime/WebGL errors.');
+}catch(error){console.error({errors,state:await evaluate('({ready:document.readyState,body:document.body.innerText,phase:window.hud?.phase})').catch(()=>null)});await capture('failure').catch(()=>{});throw error;}finally{ws.close();await fetch(`${chrome}/json/close/${tab.id}`).catch(()=>{});}

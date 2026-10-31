@@ -3,6 +3,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { itemById } from './armory-catalog';
 import type { VehicleKind } from './vehicle-rules';
 import { buildHelicopterCabin } from './helicopter-cabin';
+import { buildHumveeCabin } from './humvee-cabin';
 
 export function vehiclePaint(id: string) {
   const item = itemById(id), canvas = document.createElement('canvas'); canvas.width = canvas.height = 256;
@@ -20,7 +21,6 @@ export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
   root.userData.heat = 'engine';
   const dark = new THREE.MeshStandardMaterial({ color: '#20272a', roughness: .8 });
   const metal = new THREE.MeshStandardMaterial({ color: '#737b75', roughness: .4, metalness: .75 });
-  const glass = new THREE.MeshStandardMaterial({ color: '#254652', roughness: .18, metalness: .4, transparent: true, opacity: .6, depthWrite: false });
   const lamp = new THREE.MeshStandardMaterial({ color: '#e7dbb1', emissive: '#b29e64', emissiveIntensity: .4 });
   const red = new THREE.MeshStandardMaterial({ color: '#a44836', emissive: '#641c10', emissiveIntensity: .35 });
   const box = (w: number, h: number, d: number, x: number, y: number, z: number, material = paint, parent: THREE.Object3D = root, radius = .045) => {
@@ -31,11 +31,11 @@ export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
     const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, direction.length(), 10), material); mesh.position.copy(from.add(to).multiplyScalar(.5)); mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize()); parent.add(mesh); return mesh;
   };
   if (kind === 'car') {
-    box(2.05, .55, 4.45, 0, .8, 0); box(1.86, .85, 2.5, 0, 1.45, .24, glass);
-    box(2.04, .17, 2.85, 0, 1.99, .25); box(1.96, .24, 1.25, 0, 1.13, -1.54);
+    box(2.05, .55, 4.45, 0, .8, 0);
+    root.add(buildHumveeCabin(paint));
+    box(1.96, .24, 1.25, 0, 1.13, -1.54);
     for (const x of [-.98, .98]) {
-      for (const z of [-1.02, .32, 1.62]) box(.08, .93, .10, x, 1.5, z);
-      box(.09, .45, 2.4, x, 1.11, .27); box(.18, .12, 2.8, x, .48, .18, dark);
+      box(.18, .12, 2.8, x, .48, .18, dark);
       box(.24, .20, .25, x * 1.17, 1.49, -.81, dark); for (const z of [-.45, .92]) box(.05, .05, .20, x * 1.025, 1.35, z, metal);
       for (const z of [-1.45, 1.45]) {
         const wheel = new THREE.Group(); wheel.name = 'vehicle-wheel'; wheel.position.set(x * 1.03, .5, z); root.add(wheel);
@@ -48,8 +48,8 @@ export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
     box(.92, .30, .03, 0, .96, -2.245, dark); for (let i = -3; i <= 3; i++) box(.045, .23, .03, i * .12, .96, -2.265, metal);
     for (const x of [-.77, .77]) { box(.35, .25, .08, x, .98, -2.25, lamp); box(.22, .24, .08, x, .91, 2.25, red); }
     for (const x of [-.8, .8]) rod([x, 2.13, -.9], [x, 2.13, 1.4], .045, dark);
-    for (const z of [-.9, 0, 1.4]) rod([-.85, 2.13, z], [.85, 2.13, z], .045, dark);
-    box(1.3, .35, .7, 0, 2.28, .65, dark);
+    for (const z of [-.9, .6, 1.4]) rod([-.85, 2.13, z], [.85, 2.13, z], .045, dark);
+    box(1.3, .35, .7, 0, 2.28, 1.15, dark);
   } else {
     root.add(buildHelicopterCabin(paint));
     box(1.34, .30, 1.85, 0, 2.8, .3); box(.68, .20, .95, 0, 2.95, .49, dark);

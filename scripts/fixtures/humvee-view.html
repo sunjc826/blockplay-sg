@@ -1,0 +1,12 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Humvee first person</title><style>html,body,#stage{margin:0;height:100%;overflow:hidden}#world,#overlay{position:absolute;inset:0}#overlay{pointer-events:none}#start{position:absolute;z-index:20;right:16px;bottom:16px;padding:16px}</style></head><body><div id="stage" class="fps-game"><div id="world"></div><div id="overlay"></div><button id="start">Board Humvee</button></div><script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import '/src/styles.css';
+import { createFpsEngine } from '/src/game/fps-engine.ts';
+import { TUTORIAL_DISTRICT } from '/src/game/tutorial-course.ts';
+import FpsVehicleHud from '/src/components/FpsVehicleHud.tsx';
+const root=createRoot(document.getElementById('overlay'));
+TUTORIAL_DISTRICT.spawn={x:-17,z:26,yaw:0,pitch:-.06};
+window.engine=createFpsEngine(document.getElementById('world'),hud=>{window.hud=structuredClone(hud);root.render(React.createElement(FpsVehicleHud,{hud}));},{tutorial:true,combat:false});
+document.getElementById('start').onclick=()=>{window.engine.start();document.getElementById('start').remove();};
+</script></body></html>

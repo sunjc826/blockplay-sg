@@ -7,6 +7,7 @@ import { damageVehicle, fireVehicleWeapon, VEHICLE_COMBAT, vehicleCollisionDamag
 import { createVehicleEffects, vehicleDamageVisual } from './vehicle-effects';
 import { disposeModel } from './armory-visuals';
 import { buildVehicleModel } from './vehicle-models';
+import { updateHumveeInstruments } from './humvee-cabin';
 import { createVehicle, driveVehicle, flyVehicle, vehicleBounds, vehicleExit, VEHICLE_SPAWNS, type FlightObstacle, type VehicleKind, type VehicleSpawn, type VehicleWorldBounds, type VehicleExitFloor } from './vehicle-rules';
 import { MARINA_BOUNDS, type Obstacle } from './marina-collision';
 import { sceneFlightObstacles } from './flight-obstacles';
@@ -112,12 +113,15 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   }
   function sync(dt: number) {
     for (const kind of ['car', 'helicopter'] as const) {
-      const v = shared ? visual[kind] : states[kind], model = models[kind]; model.position.set(v.x, v.y, v.z); model.rotation.y = v.yaw;
+      const v = shared ? visual[kind] : states[kind], model = models[kind], previousYaw = model.rotation.y; model.position.set(v.x, v.y, v.z); model.rotation.y = v.yaw;
       labels[kind].position.set(v.x, v.y + (kind === 'car' ? 3.3 : 4.4), v.z); labels[kind].visible = active !== kind && v.health > 0;
       damageVisuals[kind](vehicleDamageStage(states[kind]));
       if (shared) { const gun = v as SharedVehicle; model.getObjectByName('vehicle-turret')!.rotation.set(gun.gunPitch, gun.gunYaw - gun.yaw, 0, 'YXZ'); }
       model.getObjectByName('vehicle-muzzle-flash')!.visible = flashTime[kind] > 0 && v.health > 0;
-      if (kind === 'car') model.traverse(o => { if (o.name === 'vehicle-wheel') o.rotation.x -= v.speed * dt / .51; });
+      if (kind === 'car') {
+        model.traverse(o => { if (o.name === 'vehicle-wheel') o.rotation.x -= v.speed * dt / .51; });
+        updateHumveeInstruments(model, v.speed, dt > 0 ? Math.atan2(Math.sin(v.yaw - previousYaw), Math.cos(v.yaw - previousYaw)) / dt : 0, dt);
+      }
       else {
         model.rotation.x = THREE.MathUtils.damp(model.rotation.x, active === kind ? -v.speed * .007 : 0, 3, dt);
         const rotor = model.getObjectByName('main-rotor')!, tail = model.getObjectByName('tail-rotor')!;
@@ -199,7 +203,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
         interact: active ? `E · Exit ${active}` : near ? `E · ${nearLabel} · ${Math.ceil(states[near].health)} HP` : '', vehicleNotice: notice,
         carDistance: distance(player, 'car'), helicopterDistance: distance(player, 'helicopter') };
     },
-    reset() { active = null; shared = null; lastSnapshot = null; presentation.car.reset(); presentation.helicopter.reset(); selfId = ''; localSeat = 0; sharedShots.car = sharedShots.helicopter = 0; notice = ''; noticeTime = 0; destruction.length = 0; effects.reset(); flashTime.car = flashTime.helicopter = collisionCooldown.car = collisionCooldown.helicopter = 0; for (const model of Object.values(models)) model.getObjectByName('vehicle-turret')!.rotation.set(0, 0, 0); states.car = createVehicle('car', spawns.car); states.helicopter = createVehicle('helicopter', spawns.helicopter); models.helicopter.rotation.x = 0; sync(0); },
+    reset() { active = null; shared = null; lastSnapshot = null; presentation.car.reset(); presentation.helicopter.reset(); selfId = ''; localSeat = 0; sharedShots.car = sharedShots.helicopter = 0; notice = ''; noticeTime = 0; destruction.length = 0; effects.reset(); flashTime.car = flashTime.helicopter = collisionCooldown.car = collisionCooldown.helicopter = 0; for (const model of Object.values(models)) model.getObjectByName('vehicle-turret')!.rotation.set(0, 0, 0); states.car = createVehicle('car', spawns.car); states.helicopter = createVehicle('helicopter', spawns.helicopter); models.helicopter.rotation.x = 0; models.car.getObjectByName('humvee-steering-wheel')!.rotation.z = 0; sync(0); },
     dispose() { effects.dispose(); root.removeFromParent(); disposeModel(root); Object.values(labels).forEach(sprite => { sprite.material.map?.dispose(); sprite.material.dispose(); }); },
   };
 }

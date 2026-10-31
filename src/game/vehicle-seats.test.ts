@@ -40,7 +40,7 @@ describe('shared vehicle seats and authority', () => {
     expect(car(arena).z).toBeLessThan(0); expect(car(arena).ammo).toBe(240);
     input(arena, 'p1', { fire: true, aim: { x: 0, y: 3, z: -100 } }); arena.step(.05);
     expect(car(arena).ammo).toBe(239); expect(car(arena).shots).toBe(1);
-    expect(actor(arena, 'p2').z).toBeCloseTo(car(arena).z + .7);
+    expect(actor(arena, 'p2').z).toBeCloseTo(car(arena).z + .94);
     input(arena, 'p1', { fire: false });
     const before = car(arena).ammo;
     shootAndLand(arena, 'p2', actor(arena, 'p2'), { x: 0, y: 0, z: -1 }, 0);

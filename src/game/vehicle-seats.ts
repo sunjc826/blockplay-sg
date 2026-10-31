@@ -9,13 +9,13 @@ export function seatOf(vehicles: readonly SharedVehicle[], id: string) {
   return null;
 }
 export function gunnerId(v: SharedVehicle) { return v.occupants[1] ?? v.occupants[0]; }
-/** Eye positions in the authored airframe, shared by authority, avatars and the camera. */
+/** Eye positions in the authored vehicle, shared by authority, avatars and the camera. */
 export function seatLocalPoint(kind: VehicleKind, seat: number) {
   if (kind === 'helicopter') return { x: seat < 2 ? (seat === 0 ? -.49 : .49) : (seat === 2 ? -.82 : .82), y: 2.08, z: seat < 2 ? -.98 : .55 };
-  return { x: seat === 0 || seat === 2 ? -.5 : seat === 3 ? .5 : 0, y: seat === 1 ? 2.8 : 1.65, z: seat < 2 ? -.4 : .7 };
+  return seat === 1 ? { x: 0, y: 2.9, z: .12 } : { x: seat === 3 ? .5 : -.5, y: 1.77, z: seat === 0 ? -.35 : .94 };
 }
-export function seatFacing(kind: VehicleKind, seat: number) {
-  return kind === 'helicopter' && seat >= 2 ? (seat === 2 ? Math.PI / 2 : -Math.PI / 2) : 0;
+export function seatFacing(_kind: VehicleKind, seat: number) {
+  return seat >= 2 ? (seat === 2 ? Math.PI / 2 : -Math.PI / 2) : 0;
 }
 export function seatPoint(v: VehicleState, seat: number) {
   const { x, y, z } = seatLocalPoint(v.kind, seat);
