@@ -1,8 +1,8 @@
-import type { ArmoryProfile } from './armory-state';
+import { expireRentals, type ArmoryProfile } from './armory-state';
 
 /** Keep the expedition's accounting, but issue the equipment chosen before entry. */
 export function respawnEquipment(current: ArmoryProfile, starting: ArmoryProfile): ArmoryProfile {
-  return {
+  return expireRentals({
     ...current,
     // Field pickups are licences for the previous life, not permanent locker ownership.
     owned: [...starting.owned],
@@ -12,5 +12,5 @@ export function respawnEquipment(current: ArmoryProfile, starting: ArmoryProfile
     rig: starting.rig,
     plate: starting.plate,
     vision: starting.vision,
-  };
+  });
 }

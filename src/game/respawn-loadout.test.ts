@@ -87,5 +87,7 @@ it('does not let ownership from a fallen life keep an expired rented variant on 
   const respawned = respawnEquipment(field, selected);
   expect(respawned.owned).not.toContain('sar-vanguard');
   expect(respawned.owned).not.toContain('xm8-carbine');
+  expect(respawned.guns[0].variant).toBe('sar-issued');
+  expect(respawned.rentals['sar-vanguard']).toBeUndefined();
   expect(resolveLoadout(respawned).weapons[0].equipment.variant).toBe('sar-issued');
 });
