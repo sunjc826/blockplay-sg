@@ -19,8 +19,9 @@ async function evaluate(expression) { const r = await send('Runtime.evaluate', {
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function wait(expression, timeout = 20000) { const start = Date.now(); while (Date.now() - start < timeout) { if (await evaluate(expression)) return; await delay(150); } throw new Error(`Timed out waiting for ${expression}`); }
 const button = name => `[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(name)})`;
-async function point(expression) { return evaluate(`(()=>{const e=${expression}; if(!e) throw Error('Missing control');e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`); }
-async function click(expression) { const p = await point(expression); await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...p, button: 'left', clickCount: 1 }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...p, button: 'left', clickCount: 1 }); }
+async function point(expression) { return evaluate(`(()=>{const e=${expression}; if(!e) throw Error('Missing control');let r=e.getBoundingClientRect();if(r.top<0||r.bottom>innerHeight||r.left<0||r.right>innerWidth){e.scrollIntoView({block:'center'});r=e.getBoundingClientRect();}return {x:r.x+r.width/2,y:r.y+r.height/2}})()`); }
+let useTouch = false;
+async function click(expression) { const p = await point(expression); if(useTouch){await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...p,id:1}]});await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});return;} await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...p, button: 'left', clickCount: 1 }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...p, button: 'left', clickCount: 1 }); }
 async function key(key, code, held = 0) { await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code }); if (held) await delay(held); await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code }); }
 async function screenshot(name) { const shot = await send('Page.captureScreenshot', { format: 'png' }); await fs.writeFile(new URL(name + '.png', output), Buffer.from(shot.data, 'base64')); }
 const tourStep = id => `document.querySelector('.store-tour')?.dataset.step===${JSON.stringify(id)}`;
@@ -38,8 +39,9 @@ async function verify(label) {
 }
 try {
   console.log('Connected to Chrome');
-  await send('Runtime.enable'); await send('Network.enable'); await send('Page.enable');
+  await send('Runtime.enable'); await send('Network.enable'); await send('Network.setBypassServiceWorker',{bypass:true}); await send('Page.enable');
   for (const [name, width, height, touch] of [['desktop',1440,1000,false],['mobile',390,844,true],['landscape',844,390,true]]) {
+    useTouch = touch;
     await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: touch });
     await send('Emulation.setTouchEmulationEnabled', { enabled: touch, maxTouchPoints: 5 });
     console.log(`Loading ${name} store`);
@@ -64,6 +66,7 @@ try {
     await click(`document.querySelector('#shop-tab-armor')`); await wait(`!document.querySelector('.store-tour-next').disabled`);
     await next(); await wait(tourStep('carry')); await verify(`${name}-03-carry`); await next();
     await wait(tourStep('compare')); await click(`document.querySelector('#shop-tab-weapon')`); await verify(`${name}-04-card`);
+    if(touch){await evaluate(`document.querySelector('.armory-item').scrollIntoView({block:'center'})`);await verify(`${name}-04-centered-card`);}
     assert(await evaluate(`document.querySelector('.store-tour-next').disabled`),'Inspection waits for a real card selection');
     const wallet = await evaluate(`localStorage.getItem('blockplay.armory.v1')`);
     await click(`document.querySelector('.armory-item')`); await wait(`!document.querySelector('.store-tour-next').disabled`); await verify(`${name}-05-dossier`);

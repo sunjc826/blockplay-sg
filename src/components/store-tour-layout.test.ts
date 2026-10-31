@@ -18,6 +18,14 @@ it.each([
 });
 it('keeps an oversized coach anchored inside a very short viewport for scrolling', () => {
   const layout = placeStoreTour({ left: 5, top: 20, right: 200, bottom: 50 }, { width: 280, height: 340 }, { width: 320, height: 240 });
-  expect(layout.top).toBe(12);
+  expect(layout.top).toBeGreaterThanOrEqual(12);
+  expect(layout.top + layout.maxHeight).toBeLessThanOrEqual(228);
   expect(layout.left).toBeGreaterThanOrEqual(12);
+});
+
+it('shortens the coach to keep a centered mobile target usable after manual scrolling', () => {
+  const target = { left: 20, top: 344, right: 190, bottom: 500 };
+  const layout = placeStoreTour(target, { width: 360, height: 350 }, { width: 390, height: 844 });
+  expect(layout.maxHeight).toBeLessThan(350);
+  expect(layout.top >= target.bottom || layout.top + layout.maxHeight <= target.top).toBe(true);
 });
