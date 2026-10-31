@@ -788,7 +788,9 @@ weapon's chambered round. A full magazine cannot be reloaded, and a usable last
 magazine cannot be ejected without a replacement. A seated, uncharged magazine
 can still be readied without a spare. The hand takes compatible magazines from
 the upper torso row first, then the lower row and side pouches. Each pouch stays
-put and empty pouches reveal those below. The spare disappears at the grab stage,
+put; empty cloth folds flat against the vest and the retaining band settles
+down, exposing the pouches below. Refilling restores their loaded shape. The
+spare disappears at the grab stage,
 not on pressing R. A grabbed magazine remains with its interrupted reload until
 seated and cannot be counted, picked up or consumed twice.
 

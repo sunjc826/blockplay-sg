@@ -29,6 +29,7 @@ type ReserveContainer = 'magazine' | 'pistol-magazine' | 'drum' | 'ammo-box';
 interface ReserveSlot {
   root: THREE.Group; sleeve: THREE.Mesh; band: THREE.Mesh;
   models: Partial<Record<ReserveContainer, THREE.Group>>;
+  fullness?: number; fullDepth: number;
 }
 
 /** World-space lower body: it follows yaw and feet, never the camera's pitch.
@@ -121,7 +122,7 @@ export function createFpsBody(scene: THREE.Scene) {
       const sleeve = box(pouch, 'pouch', .094, .105, .06, 0, -.025, 0);
       const band = box(pouch, 'retention-band', .098, .018, .066, 0, .015, -.003, trim);
       const magazine = buildContainer('magazine'); pouch.add(magazine); magazine.visible = false;
-      magazines.push({ root: pouch, sleeve, band, models: { magazine } });
+      magazines.push({ root: pouch, sleeve, band, models: { magazine }, fullDepth: 1 });
     }
     identity = `${equipment.rigId}|${equipment.plateId}`;
   }
@@ -159,7 +160,23 @@ export function createFpsBody(scene: THREE.Scene) {
         const mag = inventory.slots[index];
         const kind: ReserveContainer = mag?.feed === 'belt' ? 'ammo-box' : mag?.feed === 'drum' ? 'drum' : mag?.caliberMm === 9 ? 'pistol-magazine' : 'magazine';
         const bulky = kind === 'ammo-box' || kind === 'drum';
-        slot.sleeve.scale.set(1, 1, bulky ? 1.4 : 1); slot.band.scale.set(1, 1, bulky ? 1.4 : 1);
+        // Only the fabric collapses. Magazine models and pouch roots stay put,
+        // so the hand's source pose remains continuous during extraction.
+        if (spec) slot.fullDepth = bulky ? 1.4 : 1;
+        const target = spec ? 1 : 0;
+        slot.fullness = slot.fullness === undefined ? target : THREE.MathUtils.damp(slot.fullness, target, 22, Math.max(0, dt));
+        if (Math.abs(slot.fullness - target) < .001) slot.fullness = target;
+        const depth = THREE.MathUtils.lerp(.18, slot.fullDepth, slot.fullness);
+        const height = THREE.MathUtils.lerp(.82, 1, slot.fullness);
+        slot.sleeve.scale.set(1, height, depth);
+        // Fold cloth back against the vest while its bottom edge stays anchored.
+        slot.sleeve.position.z = THREE.MathUtils.lerp(.06, .03 * slot.fullDepth, slot.fullness) - .03 * depth;
+        slot.sleeve.position.y = -.025 - .105 * (1 - height) / 2;
+        slot.band.scale.set(1, THREE.MathUtils.lerp(.6, 1, slot.fullness), depth);
+        slot.band.position.z = THREE.MathUtils.lerp(.06, -.003 + .033 * slot.fullDepth, slot.fullness) - .033 * depth;
+        slot.band.position.y = .015 - .01 * (1 - slot.fullness);
+        slot.band.rotation.x = .20 * (1 - slot.fullness);
+        slot.root.userData.fullness = slot.fullness;
         slot.root.userData.container = family !== undefined ? kind : null;
         if (!spec) return;
         let model = slot.models[kind];
