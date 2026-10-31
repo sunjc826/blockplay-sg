@@ -9,7 +9,9 @@ export interface ArenaRolePlugin {
   id: string; name: string; description: string; health: number; armor: number; absorption: number;
   /** The heaviest rounds their inserts take in full (armor-inserts); rifle rounds when unset. */
   stops?: ThreatClass;
-  speed: number; sightRange: number; reaction: number;
+  speed: number;
+  /** Reference distance for spotting speed; carried-weapon range caps identification. */
+  sightRange: number; reaction: number;
   /**
    * Enemy-issue variants a squad member may be carrying, by relative weight,
    * drawn again at every spawn. This decides what they hold, what they drop

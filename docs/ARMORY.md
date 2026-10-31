@@ -458,16 +458,36 @@ reach 400 m, and the P30 reaches 180 m. These limits are separate from damage
 falloff: each weapon retains its existing minimum damage beyond its far band.
 Cover still stops rounds along their actual arc. Vehicle-gun limits are separate.
 
-Passive bot spotting still uses role limits (60–65 m for ordinary infantry,
-110 m for snipers and 125 m for rooftop overwatch). Direct hits and bullets
-passing within 2.5 m now create a twelve-second threat report and alert up to
+Infantry identification builds gradually for each observed actor. Role sight
+figures are reference distances for spotting speed; passive identification can
+reach the carried weapon's travel limit when sight is clear and the target stays
+exposed long enough. For ordinary assault infantry, a stationary standing target
+takes about 0.4 seconds at 20 m, 1.2 seconds at 65 m, 4 seconds at 150 m and
+9 seconds at 250 m to identify, followed by the existing reaction delay. Moving
+targets are easier to notice; settled crouch and prone reduce exposure to 60%
+and 28%. Accepted shots add a brief fading visual cue, with compensators more
+conspicuous and suppressors less conspicuous. Walls, foliage and smoke still
+block visual evidence. Partial glimpses fade; identifying one actor does not
+identify another or a new respawned life. Normal visual memory lasts six seconds
+and stores only the last confirmed position. Each bot performs at most one
+normal sight sample per 0.2-second recheck, rotating past obstructed candidates.
+
+Direct hits and bullets passing within 2.5 m create a twelve-second threat report and alert up to
 four same-faction bots within 35 m. Alerted bots evade for four seconds, seeking
 nearby cover when available, and can return fire at a visually confirmed attacker
 out to their own weapon's travel limit, even beyond their sector leash. Cover,
 foliage and smoke still control sight. Hidden attackers leave a saved position
 to investigate; reports expire rather than tracking their hidden movement.
 Existing reaction delays, aim spread and the two-bot firing limit remain.
-Gradual, distance-dependent spotting is a separate future change.
+
+Capture squads keep their assigned facility as their movement goal while
+observing or firing at players. At the site they stay close enough to complete
+capture/build/repair work. Searching for a lost player cannot replace that
+objective. A short evasive action may interrupt the approach, but repeated
+harassment cannot restart that four-second detour indefinitely. Barrage escape
+and explicit squad orders retain their priority. Unassigned patrols search a
+last confirmed position briefly, then return to patrolling; they do not follow
+the live coordinates of unidentified or hidden players.
 
 | Weapon | Real m/s | Game m/s | 100 m flight |
 | --- | ---: | ---: | ---: |

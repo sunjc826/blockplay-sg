@@ -133,7 +133,7 @@ it('has an assault bot throw its carried frag at a recently covered contact', ()
    (_from, direction, distance) => blocked && Math.abs(direction.y) < .3 ? Math.min(1, distance) : distance);
  arena.addPlayer('player', 'Contact'); advance(arena, .5);
  expect(actor(arena, 'bot-1').grenade).toBe('grenade-frag');
- blocked = true; advance(arena, .1);
+ blocked = true; advance(arena, .3);
  expect(arena.snapshot().grenades?.some(g => g.id === 'grenade-frag' && g.caller === 'bot-1')).toBe(true);
  expect(actor(arena, 'bot-1').grenade).toBeUndefined();
 });

@@ -28,7 +28,7 @@ function fire(arena: ArenaSimulation, miss = 0) {
 }
 
 describe('bot under-fire response', () => {
-  it('keeps passive spotting limits, then returns fire at a visually confirmed distant attacker', () => {
+  it('does not instantly spot a distant player, then returns fire at a confirmed attacker', () => {
     const arena = scenario(); advance(arena, 4);
     expect(find(arena, 'bot-1').shots).toBe(0);
     fire(arena);

@@ -1,0 +1,64 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Infantry spotting regression</title>
+<style>html,body{margin:0;overflow:hidden;background:#738da0;color:white;font:16px system-ui}#info{position:absolute;top:16px;left:16px;max-width:calc(100% - 64px);padding:16px;background:#15232fe8;border-radius:8px}canvas{display:block}</style></head>
+<body><div id="info">Infantry spotting and map control<br><span id="state">Loading</span></div><script type="module">
+import * as THREE from 'three';
+import {createArena} from '/src/game/arena-rules.ts';
+import {createSceneCover} from '/src/game/scene-cover.ts';
+import {FPS_WEAPONS} from '/src/game/fps-rules.ts';
+import {createCharacterRig} from '/src/game/character-rig.ts';
+import {arenaCharacterLook} from '/src/game/character-looks.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#738da0');scene.add(new THREE.HemisphereLight('#eff6ff','#6c765f',3));
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshStandardMaterial({color:'#899d78'}));ground.rotation.x=-Math.PI/2;scene.add(ground,new THREE.GridHelper(600,60,0x3e4b38,0x6c805e));
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.1,1000);
+const wall=new THREE.Mesh(new THREE.BoxGeometry(100,8,2),new THREE.MeshStandardMaterial({color:'#a6a7a5'}));scene.add(wall);
+const marker=new THREE.Mesh(new THREE.CircleGeometry(4,32),new THREE.MeshBasicMaterial({color:'#e6b95f',transparent:true,opacity:.7}));marker.rotation.x=-Math.PI/2;marker.position.y=.04;marker.userData.fpsEffect=true;scene.add(marker);
+const cover=createSceneCover(scene),rigs=new Map();let arena,running=false;
+addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.render(scene,camera);});
+function render(state){
+ for(const actor of state.actors){
+  let rig=rigs.get(actor.id);if(!rig){rig=createCharacterRig(arenaCharacterLook(actor));rig.root.userData.arenaActorId=actor.id;rigs.set(actor.id,rig);scene.add(rig.root);}
+  const height=actor.prone ? .55 : actor.y<1.3?1.15:1.75;
+  rig.root.position.set(actor.x,actor.y-height,actor.z);rig.root.rotation.y=actor.yaw;rig.setDown(!actor.alive);rig.update(.05,{pitch:actor.pitch,prone:actor.prone,crouch:height===1.15?1:0,aim:actor.shots?1:0});
+ }
+ renderer.render(scene,camera);
+}
+window.runTrial=async(options={})=>{
+ if(running)throw Error('Trial already running');running=true;
+ for(const rig of rigs.values()){scene.remove(rig.root);rig.dispose();}rigs.clear();
+ const d=options.distance??150,mission=!!options.mission;marker.visible=mission;
+ wall.position.set(0,4,d/2);wall.visible=!mission;wall.updateMatrixWorld(true);
+ const environment={bounds:{minX:-400,maxX:400,minZ:-400,maxZ:400},spawns:[mission?{x:-45,z:0}:{x:0,z:d}],playerSpawn:{x:0,z:mission?120:0},endless:true,reinforcements:mission,
+  move:(p,dx,dz)=>!mission&&p.z===d?p:{x:p.x+dx,z:p.z+dz},
+  ...(mission?{facilities:{sites:[{id:'point',name:'Objective',kind:'garage',x:0,y:0,z:0,initialOwner:null,deployment:{x:30,z:0,yaw:0}},{id:'home',name:'Home post',kind:'command',x:-50,y:0,z:-25,initialOwner:'mercenaries',deployment:{x:-50,z:-25,yaw:0}}]}}:{})};
+ arena=createArena([],1,'assault',environment,undefined,undefined,cover.distance,undefined,cover.sightDistance);
+ const weapons=FPS_WEAPONS.map(w=>({...w,accessories:{...w.accessories,muzzle:options.muzzle}}));
+ arena.addPlayer('you','Observer target',0,0,weapons,undefined,true);arena.setPlayerHealthMultiplier('you',10);
+ if(!mission){for(let i=0;i<64;i++)arena.step(.05);wall.visible=!!options.occluded;}
+ camera.position.set(mission?-20:8,mission?24:5,mission?42:d+12);camera.lookAt(mission?-10:0,1,mission?0:d);
+ const began=arena.snapshot().elapsed;let tick=0,firstShot=null;
+ return await new Promise(resolve=>{
+  const frame=()=>{
+   for(let j=0;j<8;j++){
+    const actors=arena.snapshot().actors,bot=actors.find(a=>a.id==='bot-1'),you=actors.find(a=>a.id==='you');
+    arena.setInput('you',{...you,x:you.x+(options.speed??0)*.05,y:options.prone ? .55 : options.crouch?1.15:1.75,prone:!!options.prone,playing:true});
+    if((options.firing||options.harassment)&&tick%4===0){
+     let aim={x:0,y:0,z:-1};
+     if(options.harassment){const flight=Math.hypot(bot.x-you.x,bot.z-you.z)/FPS_WEAPONS[0].ballistics.velocity;aim={x:bot.x+2-you.x,y:bot.y-.62-you.y+.5*9.8*flight*flight,z:bot.z-you.z};const n=Math.hypot(aim.x,aim.y,aim.z);aim={x:aim.x/n,y:aim.y/n,z:aim.z/n};}
+     arena.shoot('you',you,aim,0);
+    }
+    arena.step(.05);tick++;
+    if(arena.snapshot().actors.find(a=>a.id==='bot-1').shots>0&&firstShot===null)firstShot=arena.snapshot().elapsed-began;
+   }
+   const state=arena.snapshot(),bot=state.actors.find(a=>a.id==='bot-1'),elapsed=state.elapsed-began;
+   document.querySelector('#state').textContent=`${mission?'Capture mission':d+' m · '+(options.prone?'prone':options.crouch?'crouched':options.speed?'moving':'standing')} · ${elapsed.toFixed(1)} s · enemy shots ${bot.shots}${mission?' · owner '+state.facilities.sites[0].owner:''}`;
+   render(state);
+   if(mission?elapsed>=55:options.occluded?elapsed>=8:firstShot!==null||elapsed>=30){
+    const result={options,firstShot,elapsed,bot,owner:state.facilities?.sites[0].owner};window.result=result;running=false;resolve(result);
+   }else requestAnimationFrame(frame);
+  };requestAnimationFrame(frame);
+ });
+};
+window.ready=true;
+</script></body></html>

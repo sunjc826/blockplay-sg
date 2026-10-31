@@ -39,6 +39,8 @@ import { ballisticPoint, isInstant, muzzleBallistics, type BallisticSpec } from 
 import type { PublishedRound } from './fps-projectiles';
 import { weaponRange } from './weapon-range';
 import { BOT_THREAT, nearBullet, type BotThreat } from './bot-threat';
+import { createBotSpotting, spottingStance, type BotSpotting, type SpottingCandidate } from './bot-spotting';
+import { objectiveStep } from './bot-objectives';
 import { createHeatField, HEAT_TUNING, type HeatBand, type HeatSector } from './faction-heat';
 import { drawRank, type BotRank } from './arena-ranks';
 import { muzzleSignature, sanitizeMuzzle, type MuzzleDevice } from './weapon-accessories';
@@ -303,6 +305,9 @@ interface InternalActor {
   grenadeSupplies?: Record<string, number>; initialGrenades?: Record<string, number>; lastGrenadeAt?: number; lastMissionAt?: number; lastContact?: ArenaPoint & { time: number };
   /** Ground velocity and speed in m/s, smoothed over a few ticks, and where they were last measured from. */
   velocity?: { x: number; z: number }; speed?: number; lastAt?: { x: number; z: number };
+  spotting?: BotSpotting;
+  /** Accepted host shots only; clients cannot submit a flash or spotting confidence. */
+  shotFlash?: { at: number; flare: number };
   /** When a bot first had its present target in sight, for its aim to settle from. */
   focusSince?: number;
   /** A bot's turn to fire on a player, held while it keeps a shot; see BOT_AIM.shooters. */
@@ -534,6 +539,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.grenadeSupplies ??= {}; entry.lastContact = undefined;
     if (entry.actor.bot && entry.actor.faction === 'mercenaries' && ['assault', 'tank'].includes(entry.role?.id ?? '')) { entry.actor.grenade = entry.role?.id === 'tank' ? 'grenade-smoke' : 'grenade-frag'; entry.grenadeSupplies[entry.actor.grenade] = 1; } else delete entry.actor.grenade;
     entry.velocity = undefined; entry.speed = 0; entry.lastAt = undefined; entry.focusSince = undefined; entry.turn = undefined;
+    entry.spotting = undefined; entry.shotFlash = undefined;
     entry.parachute = undefined; delete entry.actor.parachuting; entry.navigation = undefined; entry.navalTransit = undefined; delete entry.actor.ground; entry.evacuating = undefined; entry.vehicleBoardAfter = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false; entry.threat = undefined; entry.grudge = undefined;
   };
@@ -765,6 +771,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     // A can draws the fighting far less than a bare muzzle, and every listener hears it quieter.
     const muzzle = entry.weapons[weapon].accessories?.muzzle;
     if (muzzle) entry.actor.muzzle = muzzle; else delete entry.actor.muzzle;
+    entry.shotFlash = { at: elapsed, flare: muzzleSignature(muzzle).flare };
     ammo.cooldown = 0; fireWeapon(ammo, weapon, entry.weapons); entry.actor.shots++; warm(entry.actor, muzzleSignature(muzzle).heat); entry.shieldUntil = 0;
     if (!roundReady(ammo, entry.weapons[weapon])) startReload(entry, weapon);
     return launch(entry, origin, ray, entry.weapons[weapon], Number.isFinite(maxDistance) ? Math.min(weaponRange(FPS_WEAPONS[weapon]), Math.max(0, maxDistance)) : 0, weapon);
@@ -913,7 +920,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     // A radio report cannot replace a fresh personal contact with another attacker.
     if (!direct && previous?.direct && previous.until > elapsed && previous.id !== attacker.actor.id) return false;
     entry.threat = { id: attacker.actor.id, point: { ...source }, until: elapsed + BOT_THREAT.memory,
-      evadeUntil: elapsed + BOT_THREAT.evade, reportedAt: elapsed, direct,
+      // Continuous harassment must not indefinitely pin a capture squad off its objective.
+      evadeUntil: entry.mission && previous && previous.until > elapsed ? previous.evadeUntil : elapsed + BOT_THREAT.evade, reportedAt: elapsed, direct,
       cover: previous?.id === attacker.actor.id && previous.until > elapsed ? previous.cover : threatCover(entry, source) };
     entry.lastFight = elapsed;
     return true;
@@ -2342,7 +2350,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const ray = vehicleGunRay(v, gun?.aim);
       if (gun?.fire && gunner && fireVehicleWeapon(v)) {
         const entry = members.get(gunner); if (!entry) continue;
-        v.shots++; entry.actor.shots++;
+        v.shots++; entry.actor.shots++; entry.shotFlash = { at: elapsed, flare: 1 };
         send({ shooter: entry, origin: ray.origin, direction: ray.direction, ballistics: VEHICLE_COMBAT[v.kind].ballistics, damage: VEHICLE_COMBAT[v.kind].damage, vehicle: v.kind,
           calibre: VEHICLE_COMBAT[v.kind].caliberMm, power: VEHICLE_COMBAT[v.kind].damage }, VEHICLE_COMBAT[v.kind].range);
       }
@@ -2405,23 +2413,30 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       (m.anchor?.y === undefined || m.actor.id === grudge) && (!entry.home || distance(actor, m.actor) < leash));
     const reported = threat ? members.get(threat.id) : undefined;
     const confirmed: InternalActor | undefined = reported && hostile(actor, reported.actor) && seesThreat(entry, reported, weaponRange(entry.spec ?? FPS_WEAPONS[actor.weapon]), dt) ? reported : undefined;
-    const nearest = enemies.sort((a, b) => distance(actor, a.actor) * (a.actor.bot ? 1.1 : 1) - distance(actor, b.actor) * (b.actor.bot ? 1.1 : 1))[0];
-    // An incoming attack gets attention beyond the home leash. Once hidden,
-    // only its saved report guides the search; never follow live coordinates.
-    const enemy: InternalActor | undefined = focusTarget(entry) ?? confirmed ?? (threat && nearest && !seesThreat(entry, nearest, sightRangeAgainst(role.sightRange, nearest.insert), dt) ? undefined : nearest);
+    const focused = focusTarget(entry);
+    const candidates = enemies.sort((a, b) => distance(actor, a.actor) * (a.actor.bot ? 1.1 : 1) - distance(actor, b.actor) * (b.actor.bot ? 1.1 : 1));
+    for (const priority of [focused, confirmed]) if (priority && !candidates.includes(priority)) candidates.push(priority);
+    const spotting = entry.spotting ??= createBotSpotting();
+    const observations: SpottingCandidate[] = candidates.map(m => ({ id: m.actor.id, life: m.actor.deaths,
+      position: m.actor, distance: distance(actor, chestOf(m.actor)), referenceRange: sightRangeAgainst(role.sightRange, m.insert),
+      speed: m.speed ?? 0, stance: m.actor.vehicle || m.actor.transport ? 'stand' : spottingStance(m.actor.prone, m.actor.y, m.actor.ground ?? floorAt(m.actor)),
+      flashAt: m.shotFlash?.at, flare: m.shotFlash?.flare }));
+    const identified = spotting.update(observations, elapsed, dt, c => {
+      const target = members.get(c.id);
+      return !!target && seesThreat(entry, target, weaponRange(entry.spec ?? FPS_WEAPONS[actor.weapon]), ARENA_SIGHT_RECHECK);
+    }, focused?.actor.id, confirmed?.actor.id);
+    const enemy: InternalActor | undefined = identified ? members.get(identified) : undefined;
     entry.patrolTime -= dt;
     if (entry.patrolTime <= 0) {
       const home = entry.home ? homeSpawns(entry.home) : validSpawns, pool = home.length ? home : validSpawns;
       entry.patrol = pool[Math.floor(random() * pool.length)]; entry.patrolTime = 3 + random() * 3; entry.strafe *= -1;
     }
-    const target: ArenaPoint = enemy?.actor ?? (threat?.point ?? { ...(entry.mission ?? entry.patrol), y: 1.75 });
+    const searching = threat?.point ?? spotting.lastKnown(elapsed);
+    const target: ArenaPoint = enemy?.actor ?? (searching ?? { ...(entry.mission ?? entry.patrol), y: 1.75 });
     const dx = target.x - actor.x; const dz = target.z - actor.z; const horizontal = Math.hypot(dx, dz);
     const direction = { x: dx / Math.max(horizontal, 0.01), y: 0, z: dz / Math.max(horizontal, 0.01) };
     const line = { x: target.x - actor.x, y: (enemy?.actor.prone ? target.y - PRONE_EYE_HEIGHT + .35 : target.y - .65) - actor.y, z: target.z - actor.z };
-    const length = Math.hypot(line.x, line.y, line.z);
-    const ray = { x: line.x / Math.max(length, 0.01), y: line.y / Math.max(length, 0.01), z: line.z / Math.max(length, 0.01) };
-    // A target whose inserts smell is seen from further off, and through smoke.
-    const visible = !conditions.dazed && !!enemy && (enemy === confirmed || length < sightRangeAgainst(role.sightRange, enemy.insert) && clearSight(entry, enemy.actor.id, ray, length, dt) && !(smokeHides(enemy.insert) && smokeBetween(actor, target)));
+    const visible = !conditions.dazed && !!enemy;
     if (visible && threat && enemy?.actor.id === threat.id) { threat.point = { x: target.x, y: target.y, z: target.z }; threat.until = elapsed + BOT_THREAT.memory; }
     if (visible) entry.lastContact = { x: target.x, y: target.y, z: target.z, time: elapsed };
     const contact = entry.lastContact;
@@ -2449,8 +2464,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     let dxStep = (direction.x * approach - direction.z * strafe) / normal * role.speed * dt;
     let dzStep = (direction.z * approach + direction.x * strafe) / normal * role.speed * dt;
     const evading = threat && elapsed < threat.evadeUntil ? threat : undefined;
-    const destination: ArenaPoint = evading?.cover ?? (entry.mission && !visible && !threat ? { ...entry.mission, y: 1.75 } : target);
-    if (evading?.cover || entry.mission && !visible && !threat) {
+    const destination: ArenaPoint = evading?.cover ?? (entry.mission ? { ...entry.mission, y: 1.75 } : target);
+    if (evading?.cover) {
       const d = Math.hypot(destination.x - actor.x, destination.z - actor.z), step = Math.min(Math.max(0, d - .4), role.speed * dt);
       dxStep = (destination.x - actor.x) / Math.max(.001, d) * step; dzStep = (destination.z - actor.z) / Math.max(.001, d) * step;
     }
@@ -2458,7 +2473,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       dxStep = -direction.z * entry.strafe * role.speed * dt;
       dzStep = direction.x * entry.strafe * role.speed * dt;
     }
-    if(!entry.anchor && (!evading || !!evading.cover) && ((navigator && (threat || entry.mission && !visible || Math.abs(target.y-actor.y)>.6)) || entry.navigation?.path.length)) {
+    if (entry.mission && !evading) {
+      const step = objectiveStep(actor, entry.mission, { dx: dxStep, dz: dzStep }, role.speed * dt);
+      dxStep = step.dx; dzStep = step.dz;
+    }
+    const routeNeeded = !!entry.mission || !visible && !!searching || !!evading?.cover || Math.abs(target.y - actor.y) > .6;
+    if (!routeNeeded) entry.navigation = undefined;
+    if(!entry.anchor && (!evading || !!evading.cover) && ((navigator && routeNeeded) || entry.navigation?.path.length)) {
       const feet={x:actor.x,y:Math.max(0,actor.y-1.75),z:actor.z};
       const goal={x:destination.x,y:floorAt(destination),z:destination.z};
       if(entry.navigation) entry.navigation.retry-=dt;
@@ -2477,7 +2498,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if(path?.length){const p=path[0],d=Math.hypot(p.x-actor.x,p.z-actor.z),step=Math.min(d,role.speed*dt);dxStep=(p.x-actor.x)/Math.max(d,.001)*step;dzStep=(p.z-actor.z)/Math.max(d,.001)*step;}
     }
     // With nobody in sight, a patrol makes for a supply crate on the ground.
-    const crate = !visible && !threat && !entry.temporary && !entry.order && !entry.mission ? lureFor(actor) : null;
+    const crate = !visible && !searching && !entry.temporary && !entry.order && !entry.mission ? lureFor(actor) : null;
     if (crate) {
       const cx = crate.x - actor.x, cz = crate.z - actor.z, d = Math.hypot(cx, cz), stride = Math.max(0, Math.min(d - 1, role.speed * dt));
       dxStep = d > .01 ? cx / d * stride : 0; dzStep = d > .01 ? cz / d * stride : 0;
