@@ -151,7 +151,7 @@
 /* The bottom centre is the prompt's and the callout's. The briefing line would
    be a third thing stacked there saying what the pause card already says. */
 .fps-game[data-touch=on] .fps-objective{display:none}
-.fps-game[data-touch=on] .fps-minimap{width:112px;padding:5px}
+.fps-game[data-touch=on] .fps-minimap:not(.is-expanded){width:112px;padding:5px}
 /* Whether the mouse is captured is a mouse player's question. On a phone the
    chip only widens the vitals row into the middle of the screen, and the AI
    pilot has its own indicator when it is the one playing. */
@@ -161,7 +161,7 @@
    badge row already names the district, so the sector is the one that goes. */
 @media(max-height:560px){
   .expedition-game[data-touch=on] .expedition-sector{display:none}
-  .expedition-game[data-touch=on] .fps-minimap{top:106px}
+  .expedition-game[data-touch=on] .fps-minimap:not(.is-expanded){top:106px}
 }
 /* Clear of the pad, whose reach the inset already accounts for. */
 .fps-game[data-touch=on] .fps-ammo{bottom:calc(22px + var(--touch-inset))}
