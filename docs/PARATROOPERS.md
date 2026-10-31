@@ -8,7 +8,7 @@ their current rules; this does not enable new naval routes.
 
 Each faction can dispatch up to four troops after 150 seconds, independently
 of command-post ownership. Casualties awaiting deployment take priority over
-new recruits. The existing faction headcount, twenty-bot district cap and
+new recruits. Concurrent missions reserve separate landing areas. The existing faction headcount, twenty-bot district cap and
 actor limit apply. Reservations prevent a post or another transport deploying
 the same soldier. Every launch spends the shared eighty-second external gate
 and the airborne interval, including an intercepted or aborted mission.
@@ -45,3 +45,14 @@ but still requires a valid inland site and available troops. Tests live in
 host/guest smoke is `node scripts/paratroopers-smoke.mjs` (Vite 5198, Chrome CDP
 9348, or EXPEDITION_APP_ORIGIN / EXPEDITION_CHROME_ORIGIN). Evidence is saved in
 `.cache/paratroopers/`.
+
+
+## Verified release
+
+Manually deployed on 31 October 2026, runtime `dbfcdef`,
+Cloudflare version `2654c18f-b08c-4396-b453-152d4cb4e597`. Both production origins serve
+assets matching the tested build. All 103 focused checks, production typecheck
+and build pass. Rendered host/guest drops and actual expedition desktop/phone
+warnings, map glyphs, descent and travel cooldown checks pass. The broad suite
+passed 1,988 tests with one unrelated night-light audit timeout; that file's
+15 tests passed on isolated rerun. A full single-run green result is not claimed.
