@@ -5,7 +5,7 @@
 Range, arena and expedition now share `FpsHudLayout`. Sector information,
 the compact map and fullscreen debug history stack in normal flow. Nearby
 speech sits above the Encik subtitle in a separate reserved row, showing the
-latest two nearby lines (one on short portrait screens). History scrolls in
+latest two nearby lines (one on portrait screens). History scrolls in
 the remaining space and yields on short screens. Short landscape panels use
 separate navigation, speech and combat columns. Container queries follow the
 actual game panel dimensions, and expanded maps stay centered while hiding
@@ -16,7 +16,8 @@ Run `pnpm test:hud:layout` with Vite and a Chrome remote-debugging session
 uses the real HUD components, four pending nearby lines, wrapped radio text,
 sector heat and history. It checks map/speech/history separation, health/ammo
 clearance, screen bounds and expanded-map centering in all three game modes
-across desktop, tablet, portrait and landscape sizes. It makes no paid API
+across desktop, tablet, portrait and landscape sizes. Short portrait screens
+prioritize the active radio line and keep it beside the combat readouts. It makes no paid API
 requests. Evidence is saved to `.cache/hud-overlap/`.
 
 ## Implemented

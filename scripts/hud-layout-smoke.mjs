@@ -22,6 +22,7 @@ const h=React.createElement,equipment=resolveLoadout(createProfile());
 function Preview(){
  const [config,set]=React.useState({mode:'expedition',touch:false,expanded:false,hints:true});window.setHudLayoutTest=set;
  const hud={...initialFpsHud,phase:'playing',magazine:30,reserve:120,
+  belt:['food','bandage','first-aid','plates','ammo','grenade'].map((kind,id)=>({kind,label:kind,key:String(id+4),count:0})),
   encikCallout:{id:1,event:'start',text:'Section, move towards the command post. Stay together and watch the road for enemy patrols.'},
   chatter:[{id:3,source:'Allies',tone:'friend',text:'Older line waiting to expire.'},{id:4,source:'Allies',tone:'friend',text:'Another older line waiting to expire.'},{id:1,source:'Section leader',tone:'friend',text:'Enemy infantry moving across the road. Find cover and watch the left flank.'},{id:2,source:'You',tone:'self',text:'Moving to the command post. Cover me while I cross the open ground.'}],
   comms:Array.from({length:16},(_,id)=>({id,at:1000+id*1000,channel:id%2?'chatter':'radio',source:'Section leader',text:'Hold this position and watch the approach to the command post.'}))};
@@ -49,7 +50,7 @@ ws.onmessage = event => {
 function send(method, params = {}) { return new Promise((resolve, reject) => { const id = ++sequence, timer = setTimeout(() => reject(Error(method + ' timed out')), 30000); pending.set(id, { resolve, reject, timer }); ws.send(JSON.stringify({ id, method, params })); }); }
 async function evaluate(expression) { const result = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (result.exceptionDetails) throw Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text); return result.result.value; }
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-const boxes = `(()=>{const box=s=>{const e=document.querySelector(s);if(!e||!e.getClientRects().length||getComputedStyle(e).visibility==='hidden')return null;const r=e.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};return Object.fromEntries(['.fps-minimap','.fps-radio-message','.fps-chatter','.fps-comms','.fps-comms>header','.expedition-sector','.fps-combat-hud','.touch-move','.touch-fire'].map(s=>[s,box(s)]));})()`;
+const boxes = `(()=>{const box=s=>{const e=document.querySelector(s);if(!e||!e.getClientRects().length||getComputedStyle(e).visibility==='hidden')return null;const r=e.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};return Object.fromEntries(['.fps-minimap','.fps-radio-message','.fps-chatter','.fps-comms','.fps-comms>header','.expedition-sector','.fps-combat-hud','.fps-ammo','.fps-vitals','.fps-belt','.touch-move','.touch-fire'].map(s=>[s,box(s)]));})()`;
 const overlaps = (a,b) => a && b && a.x < b.right-1 && a.right > b.x+1 && a.y < b.bottom-1 && a.bottom > b.y+1;
 const results = [];
 async function screenshot(name) { const result = await send('Page.captureScreenshot', { format: 'png' }); await fs.writeFile(new URL(name + '.png', output), Buffer.from(result.data, 'base64')); }
@@ -66,8 +67,8 @@ try {
    assert(!overlaps(layout['.fps-minimap'],layout['.fps-comms']),name+': history covers map');
    if(layout['.fps-comms'])assert(layout['.fps-comms'].height>=layout['.fps-comms>header'].height,name+': history controls are clipped');
    assert(!overlaps(layout['.fps-chatter'],layout['.fps-radio-message']),name+': speech lines overlap');
-   for(const s of ['.fps-radio-message','.fps-chatter'])assert(!overlaps(layout[s],layout['.fps-combat-hud']),name+': speech covers combat status '+JSON.stringify(layout));
-   for(const selector of ['.fps-minimap','.fps-radio-message','.fps-chatter']) {const b=layout[selector];assert(b&&b.width>0&&b.height>0&&b.x>=0&&b.y>=0&&b.right<=width+1&&b.bottom<=height+1,name+' '+selector+' is outside the screen '+JSON.stringify(layout));}
+   for(const s of ['.fps-radio-message','.fps-chatter','.fps-comms'])for(const combat of ['.fps-ammo','.fps-vitals','.fps-belt'])assert(!overlaps(layout[s],layout[combat]),name+': '+s+' covers '+combat+' '+JSON.stringify(layout));
+   for(const selector of ['.fps-minimap','.fps-radio-message','.fps-chatter']) {const b=layout[selector];if(selector==='.fps-chatter'&&name==='portrait-small'){assert.equal(b,null);continue;}assert(b&&b.width>0&&b.height>0&&b.x>=0&&b.y>=0&&b.right<=width+1&&b.bottom<=height+1,name+' '+selector+' is outside the screen '+JSON.stringify(layout));}
    assert(await evaluate('document.documentElement.scrollWidth<=innerWidth'),name+': horizontal overflow');
    results.push({name,mode,layout});
    if(mode==='expedition')await screenshot(name);

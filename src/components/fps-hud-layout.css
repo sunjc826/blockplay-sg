@@ -42,6 +42,11 @@
 }
 @container fps-hud (max-width:520px) and (min-height:561px){
   .fps-game[data-touch=on] .fps-hud-layout{padding-bottom:calc(66px + var(--touch-inset))}
+  .fps-subtitles .fps-chatter p:nth-last-child(n+2){display:none}
+  .fps-hud-navigation>.fps-comms{width:calc(50% - 24px)}
+  .fps-hud-navigation>.fps-comms>header>div{order:1;flex-basis:100%;gap:2px}
+  .fps-hud-navigation>.fps-comms>header>button{margin-left:auto}
+  .fps-hud-navigation>.fps-comms button{font-size:9px;padding:3px 4px}
   .fps-hud-navigation>.fps-comms .fps-comms-entries{height:56px}
 }
 @container fps-hud (max-width:520px) and (max-height:760px){
@@ -49,6 +54,8 @@
   .fps-game[data-touch=on] .fps-hud-layout{padding-bottom:170px}
   .fps-hud-navigation>.fps-comms,.fps-hud-navigation>.expedition-sector{display:none}
   .fps-subtitles .fps-chatter p:nth-last-child(n+2){display:none}
+  .fps-subtitles{width:calc(50% - 24px);justify-self:start}
+  .fps-subtitles:has(.fps-radio-message)>.fps-chatter{display:none}
 }
 @container fps-hud (max-width:520px) and (max-height:560px){
   .fps-game .fps-hud-layout{grid-template-columns:112px minmax(0,1fr);padding:66px 12px 110px}
