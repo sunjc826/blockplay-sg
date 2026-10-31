@@ -18,8 +18,8 @@ is not expanded into matching assault/heavy/sniper classes.
 | Freedom Force / Lancer option | FN SCAR-L | **Soft Power · Foreign Aid** (`ff-scar-l`) | Compact family upper, narrow curved magazine, shared folding-style stock and a low reflex hood |
 | Freedom Force / Wayfinder option | FN SCAR-H | **Hard Power · Strings Attached** (`ff-scar-h`) | Broader receiver and magazine well, wider straight magazine, prism optic; distinct from the Longwatch precision configuration |
 | Freedom Force / Wayfinder | FN Mk 20 / SCAR 20S | **Longwatch** (`ff-longwatch`) | Extended upper, precision stock, short box magazine, large scope and folded bipod give the observer a distinct long silhouette |
-| Collective Corps / Bastion | QBZ-95 family | **Gatekeeper** (`cc-gatekeeper`) | Bullpup magazine behind the hand, raised open carry bridge, integrated rear stock and pointed fore-end give the protected-entry specialist a different equipment language |
-| Collective Corps / Conductor | QBZ-191 family | **Network** (`cc-network`) | Conventional forward magazine, continuous rail and stepped adjustable-stock shape suit a modern sensor-coordination concept |
+| Collective Corps / Bastion | QBZ-95 family | **Strong Objection No. 496 · Final Warning No. 497** (`cc-gatekeeper`) | Bullpup magazine behind the hand, raised open carry bridge, integrated rear stock and pointed fore-end give the protected-entry specialist a different equipment language |
+| Collective Corps / Conductor | QBZ-191 family | **Consensus Builder · Unanimous Vote** (`cc-network`) | Conventional forward magazine, continuous rail and stepped adjustable-stock shape suit a modern sensor-coordination concept |
 
 The shortlist is an art-direction recommendation. It is not a claim that any
 real unit equips these weapons together, or that their real performance defines
@@ -61,12 +61,24 @@ The agreed two-level display names are:
 The family labels communicate the intended light/heavy art distinction; the
 signature names provide the proxy-conflict joke. These are display labels for
 art candidates, not new entries in the live weapon-family registry. Stable
-`ff-scar-l` / `ff-scar-h` IDs are unchanged. The gallery picker separates family
-and signature labels; the preview and description use the full name.
+`ff-scar-l` / `ff-scar-h` IDs are unchanged. The gallery picker and preview banner separate family and signature labels;
+the description and accessible canvas label use the full name.
 
-**Final Warning** is reserved for a future Collective Corps weapon, referencing
-[China's final warning](https://en.wikipedia.org/wiki/China%27s_final_warning).
-No specific Collective Corps model has been assigned that name yet.
+## Collective Corps family and signature names
+
+| Reference / specialist | Family label | Signature variant | Stable study ID |
+|---|---|---|---|
+| QBZ-191 family / Conductor | **Consensus Builder** | **Unanimous Vote** | `cc-network` |
+| QBZ-95 family / Bastion | **Strong Objection No. 496** | **Final Warning No. 497** | `cc-gatekeeper` |
+
+Consensus Builder / Unanimous Vote fits Conductor's coordination theme. The
+numbered-notice pair fits Bastion's protected-entry/interdiction study. **496**
+fills the owner's unspecified first number so it immediately precedes **497**;
+this is a naming choice, not an asserted historical sequence for the models.
+Final Warning No. 497 references [China's final warning](https://en.wikipedia.org/wiki/China%27s_final_warning),
+as requested. Gatekeeper and Network are superseded display names; stable IDs,
+models and the two-operator roster are unchanged. All four family/signature
+pairs remain display labels for art studies, with no live family registration.
 
 Other brainstormed names retained for later use: Polite Request / Final Notice,
 Small Talk / Big Talk, Budget Approval / Cost Overrun and Limited Intervention /
@@ -87,16 +99,16 @@ precision visual rather than a longer recolor of Strider. The tall optic and
 stock profile must remain readable in grayscale. The fore-end uses actual
 openings; the sight lenses are opaque material studies, not functional scopes.
 
-**Gatekeeper:** graphite body, jade fore-end inserts, a small cinnabar marker,
+**Strong Objection No. 496 · Final Warning No. 497:** graphite body, jade fore-end inserts, a small cinnabar marker,
 curved rear magazine and open carry bridge. The existing SAR 21 is already a
 bullpup, so magazine position alone does not create enough distinction. Keep the
 QBZ-inspired bridge and compact pointed fore-end prominent; avoid copying the
 SAR's long integrated cylindrical optic housing. The bridge and trigger guard
 have real negative space rather than a dark painted rectangle.
 
-**Network:** slate receiver, graphite stock/fore-end and jade observation-optic
+**Consensus Builder · Unanimous Vote:** slate receiver, graphite stock/fore-end and jade observation-optic
 casing. Preserve the forward magazine, low straight upper, stepped telescoping
-stock and compact angular optic. It is visually distinct from Gatekeeper's
+stock and compact angular optic. It is visually distinct from the QBZ-95 study's
 bullpup architecture, while its panels and restrained cinnabar identification
 mark keep the two in one faction. The observation optic does not detect or mark
 anyone in gameplay.
