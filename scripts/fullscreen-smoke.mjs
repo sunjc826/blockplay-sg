@@ -50,7 +50,8 @@ try {
   assert(await evaluate(`document.querySelector('.fps-game').getBoundingClientRect().width>=innerWidth-1`));
   await screenshot('fullscreen-ready'); await click(button('Enter range')); await wait(phase('playing'));
   assert(await evaluate('!!document.pointerLockElement')); await screenshot('fullscreen-fps');
-  await key('e','KeyE'); await wait(`document.querySelector('.fps-game').dataset.vehicle==='car'`); await screenshot('fullscreen-car');
+  // Use the dedicated vehicle action: E prioritizes the nearby range supply box.
+  await evaluate(`${button('Enter vehicle')}.click()`); await wait(`document.querySelector('.fps-game').dataset.vehicle==='car'`); await screenshot('fullscreen-car');
   await key('Escape','Escape'); await wait(phase('paused'));
   if (await evaluate('!!document.fullscreenElement')) await click(`document.querySelector('.fps-leave-screen')`); await wait(`!document.fullscreenElement && !document.querySelector('.fps-game').classList.contains('is-immersive')`);
   assert(await evaluate('window.keyboardUnlocks>=1'), 'Leaving native fullscreen releases keyboard lock');
