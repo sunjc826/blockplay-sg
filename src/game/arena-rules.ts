@@ -883,6 +883,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   /** A player in the fight, either end of it, escalates it in full; bots fighting bots by a share. */
   const heatShare = (victim: InternalActor, attacker?: InternalActor) => !victim.actor.bot || attacker && !attacker.actor.bot ? 1 : HEAT_TUNING.skirmish;
+  let threatCoverQueries = 0;
   /** A short dash to nearby cover, checked against the direction of the report. */
   function threatCover(entry: InternalActor, source: ArenaPoint): ArenaPoint | undefined {
     let best: ArenaPoint | undefined, bestDistance = Infinity;
@@ -890,6 +891,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const angle = i * Math.PI / 4;
       const point = { x: entry.actor.x + Math.cos(angle) * radius, y: entry.actor.y, z: entry.actor.z + Math.sin(angle) * radius };
       if (!clearSpawn(point)) continue;
+      // A squad reacting together shares a small mesh-ray budget; others evade.
+      if (threatCoverQueries >= 8) return best;
+      threatCoverQueries++;
       point.y = floorAt(point) + 1.75;
       const length = distance(point, source);
       if (length < .01) continue;
@@ -2686,6 +2690,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function step(dt: number) {
     if (finished || !Number.isFinite(dt) || dt <= 0) return;
     navigationDeadline = performance.now() + NAVIGATION_BUDGET;
+    threatCoverQueries = 0;
     dt = Math.min(dt, 0.25); elapsed = environment?.endless ? elapsed + dt : Math.min(ARENA_DURATION, elapsed + dt); tick++;
     stepFacilities(dt); stepSquads(dt);
     if (vehicleOptions?.openWorld) stepVehicleBrains(dt);
