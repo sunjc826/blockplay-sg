@@ -27,6 +27,16 @@ insignia, and the camouflage is only in the spirit of a pixelated temperate
 pattern. The About copy's disclaimer of any Singapore Armed Forces affiliation
 still applies.
 
+## Proposed proxy factions
+
+Freedom Force and Collective Cops are art prototypes for small elite foreign
+detachments in a possible proxy conflict. They have their own palettes,
+equipment silhouettes and two specialist models each, reviewed at
+`/faction-designs`. They are absent from the live faction and role registries;
+no alliances, spawns, heat, equipment statistics or encounter rules are assigned.
+See [proxy faction design](PROXY-FACTIONS.md) for the visual specification,
+operator studies, narrative direction and outstanding integration decisions.
+
 ## Rules
 
 - `ArenaActor.faction` is set by the host: players get `armed-forces`, squad

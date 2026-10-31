@@ -5,11 +5,12 @@ import { useEffect, useState } from 'react';
  * so `/debug` is a URL worth sharing; the Cloudflare asset server and the
  * service worker both answer any extensionless navigation with the app shell.
  */
-export type Route = 'menu' | 'tutorial' | 'training' | 'world' | 'multiplayer' | 'store' | 'settings' | 'debug';
+export type Route = 'menu' | 'tutorial' | 'training' | 'world' | 'multiplayer' | 'store' | 'settings' | 'debug' | 'faction-designs';
 
 export const ROUTE_PATHS: Record<Route, string> = {
   menu: '/', tutorial: '/tutorial', training: '/training', world: '/world', store: '/store', settings: '/settings', debug: '/debug',
   multiplayer: '/multiplayer',
+  'faction-designs': '/faction-designs',
 };
 
 export function routeFromPath(pathname: string): Route {

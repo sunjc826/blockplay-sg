@@ -11,6 +11,7 @@ describe('routes', () => {
     expect(routeFromPath('/store')).toBe('store');
     expect(routeFromPath('/settings')).toBe('settings');
     expect(routeFromPath('/debug/')).toBe('debug');
+    expect(routeFromPath('/faction-designs/')).toBe('faction-designs');
   });
 
   it('falls back to the menu for unknown paths', () => {

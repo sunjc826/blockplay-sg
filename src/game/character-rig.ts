@@ -22,8 +22,11 @@ export interface CharacterLook {
   sleeves?: 'long' | 'short'; shorts?: boolean; gloves?: string;
   vest?: string; plates?: boolean; backpack?: string;
   /** Persistent faction silhouette; independent of rank, role and HUD colour. */
-  uniform?: 'field' | 'contractor';
-  roleKit?: 'rifleman' | 'gunner' | 'marksman' | 'mortar';
+  uniform?: 'field' | 'contractor' | 'expeditionary' | 'collective';
+  roleKit?: 'rifleman' | 'gunner' | 'marksman' | 'mortar' | 'lancer' | 'wayfinder' | 'bastion' | 'conductor';
+  /** Prototype-faction armour panels and insignia, separate from role bands. */
+  panel?: string;
+  identification?: PatchLook;
   apron?: string; lanyard?: string; towel?: string;
   /** Team or role colour on the sleeves and helmet band. */
   accent?: string;
@@ -239,6 +242,14 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     if (badge.design === 'bar') piece(0, 0, w, h * .28, 0, mark, device);
     if (badge.design === 'bars') for (const v of [-.22, .22]) piece(0, h * v, w * .8, h * .16, 0, mark, device);
     if (badge.design === 'diamond') piece(0, 0, Math.min(w, h) * .5, Math.min(w, h) * .5, Math.PI / 4, mark, device);
+    if (badge.design === 'wing') {
+      piece(0, 0, w * .12, h * .7, 0, mark, device);
+      for (const side of [-1, 1]) for (let row = 0; row < 2; row++) piece(side * w * .23, h * (.17 - row * .28), w * .42, h * .12, side * .3, mark, device);
+    }
+    if (badge.design === 'gate') {
+      for (const side of [-1, 1]) piece(side * w * .28, 0, w * .16, h * .7, 0, mark, device);
+      piece(0, h * .27, w * .7, h * .16, 0, mark, device);
+    }
     if (badge.design === 'chevron') for (const s of [-1, 1]) piece(s * w * .17, h * .05, w * .44, h * .2, s * .62, mark, device);
     // Rank stripes: one chevron per grade, stacked point up.
     if (badge.design === 'chevrons') {
@@ -315,6 +326,64 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     const back = look.backpack ? .255 : look.plates ? .19 : .14;
     sew(chest, badge, 0, .065, back + .025, 'back', .23, .20);
   }
+  const expeditionary = look.uniform === 'expeditionary', collective = look.uniform === 'collective';
+  const panel = look.panel ?? kit;
+  if (expeditionary) {
+    // Tapered expeditionary plate with open shoulders and pale outer ribs.
+    add(chest, place(cylinder(.14 * build, .18 * build, .27, 6), 0, .12, -.17, 1, 1, .26), panel);
+    for (const side of [-1, 1]) {
+      add(chest, place(box(.033, .30, .035), side * .16 * build, .12, -.17, 1, 1, 1, 0, 0, side * -.12), kit);
+      add(head, place(box(.045, .085, .095), side * .126, .085, .015), panel);
+    }
+    // Folded twin optical pods and a short boom microphone, not active optics.
+    add(head, place(box(.12, .035, .04), 0, .255, -.025), kit);
+    for (const side of [-1, 1]) add(head, place(cylinder(.024, .024, .07, 10), side * .036, .30, -.025), '#303b44');
+    add(head, place(box(.012, .012, .14), -.13, .055, -.08), panel);
+    add(head, place(box(.035, .018, .025), -.11, .055, -.15), '#303b44');
+  }
+  if (collective) {
+    // A continuous visor and jaw guard distinguish even a head-only sighting.
+    add(head, place(box(.245, .075, .065), 0, .125, -.115), '#253d43');
+    add(head, place(box(.23, .014, .07), 0, .171, -.115), panel);
+    for (const side of [-1, 1]) add(head, place(box(.046, .10, .11), side * .11, .04, -.065, 1, 1, 1, 0, 0, side * .16), panel);
+    add(head, place(box(.19, .045, .055), 0, -.005, -.10), panel);
+    add(chest, place(box(.40 * build, .29, .055), 0, .13, -.20), panel);
+    for (const side of [-1, 1]) {
+      add(hips, place(box(.13, .22, .045), side * .125 * build, -.13, -.12, 1, 1, 1, -.1, 0, side * -.10), panel);
+      add(chest, place(box(.055, .24, .025), side * .19 * build, .12, -.238), kit);
+    }
+  }
+  if (look.identification) {
+    sew(chest, look.identification, 0, .19, collective ? -.23 : -.225, 'front', .15, .12);
+    sew(chest, look.identification, 0, .09, look.backpack ? .295 : .19, 'back', .22, .17);
+  }
+  if (look.roleKit === 'lancer') {
+    // Compact breaching-tool scabbard and chunky explosive/tool pouch.
+    add(hips, place(box(.085, .28, .075), -.20 * build, -.11, .035, 1, 1, 1, 0, 0, -.12), panel);
+    add(hips, place(box(.12, .035, .06), -.22 * build, .04, .035), '#303b44');
+    add(hips, place(box(.12, .12, .09), .20 * build, -.04, -.02), kit);
+  }
+  if (look.roleKit === 'wayfinder') {
+    add(chest, place(box(.11, .24, .12), .19, .12, .22), panel);
+    add(chest, place(cylinder(.007, .007, .43, 6), .19, .43, .22), '#303b44');
+    add(chest, place(box(.07, .055, .045), .19, .66, .22), panel);
+    add(chest, place(box(.12, .08, .045), -.12, .03, -.23), kit);
+  }
+  if (look.roleKit === 'bastion') {
+    // Slung shield is an equipment study; it has no collision/blocking logic.
+    add(chest, place(box(.27, .57, .045), -.25 * build, .09, .31, 1, 1, 1, 0, 0, -.10), panel);
+    add(chest, place(box(.20, .085, .052), -.25 * build, .23, .31, 1, 1, 1, 0, 0, -.10), '#253d43');
+    if (look.identification) sew(chest, look.identification, -.25 * build, .015, .34, 'back', .16, .16);
+  }
+  if (look.roleKit === 'conductor') {
+    // Symmetric raised sensor heads and a hard command-tablet case.
+    for (const side of [-1, 1]) {
+      add(chest, place(cylinder(.012, .012, .27, 8), side * .17, .36, .24), kit);
+      add(chest, place(box(.085, .065, .08), side * .17, .51, .24), panel);
+      add(chest, place(box(.045, .027, .008), side * .17, .51, .195), '#253d43');
+    }
+    add(hips, place(box(.045, .21, .15), .21 * build, -.05, -.025), panel);
+  }
   // Jobs remain readable when a weapon or helmet is hidden by the pose.
   if (look.roleKit === 'gunner') {
     for (const side of [-1, 1]) {
@@ -384,6 +453,9 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     add(upper, place(sphere(.066), 0, -.012, 0), look.top, false, topFabric);
     if (look.sleeves === 'short') { limb(upper, D.upperArm, .066, .052, look.top, 0, .14, topFabric); limb(upper, D.upperArm, .06, .05, look.skin, .14, D.upperArm); }
     else limb(upper, D.upperArm, .066, .054, look.top, 0, D.upperArm, topFabric);
+    if (expeditionary) add(upper, place(sphere(.075, 10, 6), 0, -.025, 0, 1, .7, 1), panel);
+    if (collective) add(upper, place(box(.17, .10, .19), 0, -.015, 0, 1, 1, 1, 0, 0, side * .15), panel);
+    if (look.identification) sew(upper, look.identification, -side * (collective ? .091 : .079), -.04, 0, side < 0 ? 1 : -1, .09, .075);
     if (contractor || look.roleKit === 'gunner') {
       // Faceted guards widen the contractor silhouette even on recruits.
       const radius = look.roleKit === 'gunner' ? .10 : .087;

@@ -22,7 +22,7 @@ import { pwa, usePwa } from '../lib/pwa';
 import { playMenuSound, prepareMenuAudio, stopMenuHover } from '../lib/menu-audio';
 import './game-menu.css';
 
-type Screen = Exclude<Route, 'debug'>;
+type Screen = Exclude<Route, 'debug' | 'faction-designs'>;
 
 const TRAINING_DISTRICTS = locations.filter(place => hasRegionGame(place.id));
 

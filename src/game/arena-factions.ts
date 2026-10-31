@@ -28,7 +28,7 @@ export interface ArenaFactionPalette {
  */
 export interface CamoPattern { style: 'digital' | 'blotch'; colors: readonly [string, string, string]; scale: number }
 /** A sewn-on badge, about 7 cm across. `field` is the cloth, `mark` the device on it; `count` stacks a `chevrons` rank badge. */
-export interface PatchLook { design: 'flag' | 'bar' | 'bars' | 'diamond' | 'chevron' | 'chevrons' | 'tape'; field: string; mark: string; count?: number }
+export interface PatchLook { design: 'flag' | 'bar' | 'bars' | 'diamond' | 'chevron' | 'chevrons' | 'tape' | 'wing' | 'gate'; field: string; mark: string; count?: number }
 export type ArenaSide = 'forces' | 'opposition';
 export interface ArenaFaction {
   id: string; name: string; description: string;
