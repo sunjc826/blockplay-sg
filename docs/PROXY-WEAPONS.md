@@ -15,8 +15,8 @@ is not expanded into matching assault/heavy/sniper classes.
 | Faction / specialist | Recommended reference | Original game study | Why start here |
 |---|---|---|---|
 | Freedom Force / Lancer | SIG MCX SPEAR LT | **Strider** (`ff-strider`) | Compact modular rifle; open folding-stock shape and low reflex sight suit the expeditionary entry specialist |
-| Freedom Force / Lancer option | FN SCAR-L | **Democracy Lite** (`ff-scar-l`) | Compact family upper, narrow curved magazine, shared folding-style stock and a low reflex hood |
-| Freedom Force / Wayfinder option | FN SCAR-H | **Democracy Deluxe** (`ff-scar-h`) | Broader receiver and magazine well, wider straight magazine, prism optic; distinct from the Longwatch precision configuration |
+| Freedom Force / Lancer option | FN SCAR-L | **Soft Power · Foreign Aid** (`ff-scar-l`) | Compact family upper, narrow curved magazine, shared folding-style stock and a low reflex hood |
+| Freedom Force / Wayfinder option | FN SCAR-H | **Hard Power · Strings Attached** (`ff-scar-h`) | Broader receiver and magazine well, wider straight magazine, prism optic; distinct from the Longwatch precision configuration |
 | Freedom Force / Wayfinder | FN Mk 20 / SCAR 20S | **Longwatch** (`ff-longwatch`) | Extended upper, precision stock, short box magazine, large scope and folded bipod give the observer a distinct long silhouette |
 | Collective Corps / Bastion | QBZ-95 family | **Gatekeeper** (`cc-gatekeeper`) | Bullpup magazine behind the hand, raised open carry bridge, integrated rear stock and pointed fore-end give the protected-entry specialist a different equipment language |
 | Collective Corps / Conductor | QBZ-191 family | **Network** (`cc-network`) | Conventional forward magazine, continuous rail and stepped adjustable-stock shape suit a modern sensor-coordination concept |
@@ -34,7 +34,7 @@ sniper. The QBU alternative is not modeled in this pass. AK-pattern references a
 possible Eastern-bloc route, but mixing more visual families now would weaken
 the chosen slate/jade security-force identity.
 
-## SCAR-L / SCAR-H variants and working names
+## SCAR-L / SCAR-H variants and agreed names
 
 Both variants are separate selectable studies, not recolors or replacements for
 Longwatch. They retain the same SCAR-family stock, cheek rest and upper rail.
@@ -51,16 +51,26 @@ recoil or caliber rules are added. The greater length in this particular H
 study is an art choice, not a claim that every H configuration is longer than
 every L configuration. Neither variant adds a specialist role or live loadout.
 
-Working paired-name ideas, with stable IDs independent of the eventual names:
+The agreed two-level display names are:
 
-| L / H pair | Tone |
-|---|---|
-| **Democracy Lite / Democracy Deluxe** | Recommended provisional pair: Freedom Force's policy sold in two packages |
-| **Polite Request / Final Notice** | Dry escalation, with a bureaucratic edge |
-| **Small Talk / Big Talk** | Short and readable; communication-themed swagger |
-| **Freedom Trial / Freedom Subscription** | A more overt software-subscription joke |
+| Reference | Family label | Signature variant | Full display name |
+|---|---|---|---|
+| SCAR-L | **Soft Power** | **Foreign Aid** | **Soft Power · Foreign Aid** |
+| SCAR-H | **Hard Power** | **Strings Attached** | **Hard Power · Strings Attached** |
 
-The first pair is displayed provisionally in the gallery. Names are not locked.
+The family labels communicate the intended light/heavy art distinction; the
+signature names provide the proxy-conflict joke. These are display labels for
+art candidates, not new entries in the live weapon-family registry. Stable
+`ff-scar-l` / `ff-scar-h` IDs are unchanged. The gallery picker separates family
+and signature labels; the preview and description use the full name.
+
+**Final Warning** is reserved for a future Collective Corps weapon, referencing
+[China's final warning](https://en.wikipedia.org/wiki/China%27s_final_warning).
+No specific Collective Corps model has been assigned that name yet.
+
+Other brainstormed names retained for later use: Polite Request / Final Notice,
+Small Talk / Big Talk, Budget Approval / Cost Overrun and Limited Intervention /
+Extended Stay. Democracy Lite / Democracy Deluxe were superseded working titles.
 
 ## Model interpretation
 
