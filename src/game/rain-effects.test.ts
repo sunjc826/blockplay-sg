@@ -50,3 +50,10 @@ describe('bounded rain and splashes', () => {
     expect(effects.streaks.visible).toBe(true); effects.dispose();
   });
 });
+
+
+it('keeps ground impacts in view from a raised vehicle chase camera', () => {
+  const effects = createRainEffects(new THREE.Scene(), () => 0), eye = new THREE.Vector3(0, 7, 0);
+  for (let n = 0; n < 180; n++) effects.update(1 / 60, eye, 1, 2, false);
+  expect(effects.counts.splashes).toBeGreaterThan(20); effects.dispose();
+});

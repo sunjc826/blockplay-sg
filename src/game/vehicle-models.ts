@@ -24,11 +24,11 @@ export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
   const lamp = new THREE.MeshStandardMaterial({ color: '#e7dbb1', emissive: '#b29e64', emissiveIntensity: .4 });
   const red = new THREE.MeshStandardMaterial({ color: '#a44836', emissive: '#641c10', emissiveIntensity: .35 });
   const box = (w: number, h: number, d: number, x: number, y: number, z: number, material = paint, parent: THREE.Object3D = root, radius = .045) => {
-    const mesh = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, Math.min(radius, w / 4, h / 4, d / 4)), material); mesh.position.set(x, y, z); parent.add(mesh); return mesh;
+    const mesh = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, Math.min(radius, w / 4, h / 4, d / 4)), material); mesh.position.set(x, y, z); parent.add(mesh); mesh.userData.rainReceiver = mesh.userData.wetSurface = true; return mesh;
   };
   const rod = (a: number[], b: number[], radius = .06, material = metal, parent: THREE.Object3D = root) => {
     const from = new THREE.Vector3(...a), to = new THREE.Vector3(...b), direction = to.clone().sub(from);
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, direction.length(), 10), material); mesh.position.copy(from.add(to).multiplyScalar(.5)); mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize()); parent.add(mesh); return mesh;
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, direction.length(), 10), material); mesh.position.copy(from.add(to).multiplyScalar(.5)); mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize()); parent.add(mesh); mesh.userData.rainReceiver = mesh.userData.wetSurface = true; return mesh;
   };
   if (kind === 'car') {
     box(2.05, .55, 4.45, 0, .8, 0);
@@ -39,7 +39,7 @@ export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
       box(.24, .20, .25, x * 1.17, 1.49, -.81, dark); for (const z of [-.45, .92]) box(.05, .05, .20, x * 1.025, 1.35, z, metal);
       for (const z of [-1.45, 1.45]) {
         const wheel = new THREE.Group(); wheel.name = 'vehicle-wheel'; wheel.position.set(x * 1.03, .5, z); root.add(wheel);
-        const tire = new THREE.Mesh(new THREE.CylinderGeometry(.51, .51, .35, 24), dark); tire.rotation.z = Math.PI / 2; wheel.add(tire);
+        const tire = new THREE.Mesh(new THREE.CylinderGeometry(.51, .51, .35, 24), dark); tire.userData.wetSurface = true; tire.rotation.z = Math.PI / 2; wheel.add(tire);
         for (const side of [-1, 1]) { const hub = new THREE.Mesh(new THREE.CylinderGeometry(.28, .28, .015, 12), metal); hub.rotation.z = Math.PI / 2; hub.position.x = side * .181; wheel.add(hub); }
         for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; const tread = box(.37, .10, .13, 0, Math.cos(a) * .49, Math.sin(a) * .49, dark, wheel, .012); tread.rotation.x = a; }
       }
@@ -53,9 +53,9 @@ export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
   } else {
     root.add(buildHelicopterCabin(paint));
     box(1.34, .30, 1.85, 0, 2.8, .3); box(.68, .20, .95, 0, 2.95, .49, dark);
-    const tail = new THREE.Mesh(new THREE.CylinderGeometry(.13, .38, 4.7, 14), paint); tail.position.set(0, 1.67, 3.3); tail.rotation.x = Math.PI / 2; root.add(tail);
+    const tail = new THREE.Mesh(new THREE.CylinderGeometry(.13, .38, 4.7, 14), paint); tail.position.set(0, 1.67, 3.3); tail.rotation.x = Math.PI / 2; tail.userData.rainReceiver = tail.userData.wetSurface = true; root.add(tail);
     const finShape = new THREE.Shape(); finShape.moveTo(0, 0); finShape.lineTo(.7, 0); finShape.lineTo(.95, 1.65); finShape.lineTo(.3, 1.4); finShape.closePath();
-    const fin = new THREE.Mesh(new THREE.ExtrudeGeometry(finShape, { depth: .09, bevelEnabled: true, bevelSize: .035, bevelThickness: .02, bevelSegments: 2, steps: 1 }), paint); fin.rotation.y = Math.PI / 2; fin.position.set(-.045, 1.5, 5.6); root.add(fin);
+    const fin = new THREE.Mesh(new THREE.ExtrudeGeometry(finShape, { depth: .09, bevelEnabled: true, bevelSize: .035, bevelThickness: .02, bevelSegments: 2, steps: 1 }), paint); fin.rotation.y = Math.PI / 2; fin.position.set(-.045, 1.5, 5.6); fin.userData.rainReceiver = fin.userData.wetSurface = true; root.add(fin);
     box(2.2, .09, .55, 0, 1.72, 4.7);
     const rotor = new THREE.Group(); rotor.name = 'main-rotor'; rotor.position.set(0, 3.22, .15); root.add(rotor);
     rod([0, 2.8, .15], [0, 3.32, .15], .11, metal);
@@ -77,6 +77,13 @@ export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
   const flash = new THREE.Mesh(new THREE.ConeGeometry(.19, .65, 7), new THREE.MeshBasicMaterial({ color: '#ffcb66' }));
   flash.name = 'vehicle-muzzle-flash'; flash.rotation.x = -Math.PI / 2; flash.position.z = -1.9; flash.visible = false;
   flash.raycast = () => {}; turret.add(flash);
+  tagRainReceivers(root);
   root.userData.vehicleKind = kind;
   return root;
+}
+
+/** Name only the exterior cabin panels: seats, controls and trim stay dry. */
+function tagRainReceivers(root: THREE.Object3D) {
+  const exterior = /^(cab-roof-|cab-door$|cab-rear-wall$|cab-rear-header$|cab-windscreen$|cab-rear-window$|cabin-roof$|cabin-belly$|rear-bulkhead$|nose-fairing$|cockpit-sill$|cockpit-glazing$|door-jamb$)/;
+  root.traverse(o => { if (o instanceof THREE.Mesh && exterior.test(o.name)) o.userData.rainReceiver = o.userData.wetSurface = true; });
 }

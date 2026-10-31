@@ -1,0 +1,30 @@
+<!doctype html><html><body style="margin:0;background:#28343a"><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import {buildVehicleModel} from '/src/game/vehicle-models.ts';
+import {createWorldAtmosphere} from '/src/game/world-atmosphere.ts';
+import {setEnvironmentSettings} from '/src/game/environment-settings.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1100,740);renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#81949e');scene.add(new THREE.HemisphereLight('#e4efff','#576350',2.1));const sun=new THREE.DirectionalLight('#fff4dd',2.5);sun.position.set(1,2,1);scene.add(sun);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshStandardMaterial({color:'#343e41',roughness:.5}));ground.rotation.x=-Math.PI/2;scene.add(ground);
+for(let i=-2;i<=2;i++){const line=new THREE.Mesh(new THREE.BoxGeometry(.07,.012,30),new THREE.MeshStandardMaterial({color:'#929283'}));line.position.set(i*5,.005,0);scene.add(line);}
+const car=buildVehicleModel('car'),helicopter=buildVehicleModel('helicopter');scene.add(car,helicopter);
+const camera=new THREE.PerspectiveCamera(48,1100/740,.05,150);
+setEnvironmentSettings({weather:'thunderstorm',timeOfDay:'noon',celebration:'none',reducedEffects:false});
+const atmosphere=createWorldAtmosphere(scene,[],[],false,renderer);
+let tick=0;
+window.show=(view='outside',moving=true,reduced=false)=>{
+  setEnvironmentSettings({weather:'thunderstorm',reducedEffects:reduced});
+  car.position.set(-3,.13,0);car.rotation.set(0,.3,0);helicopter.position.set(3,1.2,1);helicopter.rotation.set(0,-.4,0);
+  camera.position.set(11,7,15);camera.lookAt(0,1.5,0);
+  for(let n=0;n<180;n++){
+    if(moving){car.position.z-=.02;helicopter.getObjectByName('main-rotor').rotation.y+=34/60;helicopter.position.y=1.2+Math.sin(n/60)*.25;}
+    if(view==='driver'){camera.position.set(-.5,1.72,-.4).applyMatrix4(car.updateMatrixWorld(true)||car.matrixWorld);camera.lookAt(car.localToWorld(new THREE.Vector3(-.5,1.65,-8)));}
+    if(view==='pilot'){camera.position.set(-.49,1.95,-1).applyMatrix4(helicopter.updateMatrixWorld(true)||helicopter.matrixWorld);camera.lookAt(helicopter.localToWorld(new THREE.Vector3(-.49,1.9,-8)));}
+    atmosphere.update(1/60,camera,Date.parse('2026-10-31T05:00:00Z')+(tick++)*17);
+  }
+  renderer.render(scene,camera);
+  const paint=car.getObjectByName('cab-roof-front').material;
+  return {view,moving,reduced,sheltered:atmosphere.air.sheltered,counts:atmosphere.root.userData.rain,roughness:paint.roughness,draws:renderer.info.render.calls};
+};
+window.show();window.ready=true;
+</script></body></html>

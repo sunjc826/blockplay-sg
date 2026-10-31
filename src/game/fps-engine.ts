@@ -3152,7 +3152,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     renderer.clearDepth(); renderer.render(viewScene, viewCamera);
     const { lighting } = atmosphere.light, air = atmosphere.air;
     lens.present({ camera, dt: realDt, time: now / 1000, sun: lighting.key, elevation: lighting.elevation, sunColor: lighting.keyColor, dusk: lighting.shift,
-      sunlight: air.sunlight, haze: air.haze, rain: air.rain, wind: air.wind, sheltered: air.sheltered || !!vehicles.active,
+      sunlight: air.sunlight, haze: air.haze, rain: air.rain, wind: air.wind, sheltered: air.sheltered,
       sky: world.scene.background instanceof THREE.Color ? world.scene.background : null, thermal: vision.thermal,
       reduced: getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
     const lensTag = `${lens.status.flare.toFixed(2)}:${lens.status.dust.toFixed(2)}:${lens.status.drops}`;
