@@ -5084,3 +5084,38 @@ clean-copy typecheck/build and manual Cloudflare deployment are still pending.
 Evidence: /tmp/astra-respawn-targeted-final.log,
 /tmp/astra-respawn-panel-browser-final.log and .cache/player-respawn/.
 AGENTS.md and .claude remain local and uncommitted. No GitHub push.
+
+
+## 2026-10-31 — thermal goggles match night vision radius
+
+Thermal now measures its circular aperture against the viewport's longer side,
+matching NVG on portrait, landscape and ultrawide screens. TI-1 uses .76 like
+Gen 1 NVG; TI-2 uses .98 like Gen 3. At 16:9 their geometric screen coverage
+increases from 23%/36% to 68%/92%. Updated the armory figures/docs and existing
+unit/pixel regressions. Code commit: 971eb71.
+
+Validation: all 22 vision/mount unit checks passed, isolated typecheck passed,
+and the production tsc build passed. Real WebGL chart checks passed at five
+screen sizes, all three thermal palettes and NVG peripheral refraction, with
+no runtime/shader errors; chart screenshots were reviewed. Full city screenshot
+capture hit a CDP timeout. The broad test run completed 199/200 suites with
+14 unrelated five-second scene timeouts; its remaining long diagnostics were
+stopped. The timeout retry passed all 96 sector checks before interruption.
+The broad suite and full city smoke are not claimed as passing.
+
+Manual pnpm deploy:cloudflare succeeded for frozen source 20acbc1, containing
+the thermal change, status overlays and Sands lighting. Its 2,761 tracked files
+match the source verification. Cloudflare version:
+acc257a1-c2ee-4941-9fa1-7670862bcc02. Both blockplaysg.fun and workers.dev serve
+JS/CSS and sw.js byte-identical to this build. Production asset, manifest, GLB,
+recording, SPA/API routing and origin checks passed without paid API requests.
+Later naval/respawn commits were outside this frozen release.
+
+Evidence: .cache/thermal-radius-release/{source-verification.json,
+release-evidence.json,release-tests.log,release-tests-retry.log,
+release-typecheck.log,release-chart-browser.log,release-deploy-current.log,
+release-verification.json,release-cloudflare-check.log}; reviewed chart captures
+are in its .cache/thermal-chart-review/. Older build attempts were stopped
+before upload to preserve concurrent committed changes. Task-owned browser,
+Vite and diagnostic processes were stopped. No GitHub push. AGENTS.md remains
+local, unstaged and uncommitted.
