@@ -5021,3 +5021,43 @@ timeouts and are not claimed as passing. Release copy includes committed thermal
 radius update 971eb71 and excludes unrelated unfinished workspace edits. Manual
 Cloudflare deployment is pending verification. No GitHub push; AGENTS.md stays
 local, unstaged and uncommitted.
+
+
+## 2026-10-31: Sentosa naval landing parties implemented
+
+Added two authored southern beach lanes and offshore water, with real-scene
+water/hull and inland-route validation. The arena sends up to four infantry on
+a 900 HP landing craft independently of command-post ownership. Casualty and
+population reservations prevent duplicate deployments; naval missions have a
+150 s interval and share the 80 s external dispatch gate with truck/air reserves.
+A real coxswain, bow ramp, sequential vulnerable infantry crossings, inland squad
+objectives, damage/wrecks, blocked-ramp withdrawal and bounded driver-loss handling
+run on the host. Guests validate sea descriptors and transport states. Comms,
+ETA, a faction-colored boat map glyph and the debug Landing craft button expose
+it. Remaining naval/external clocks persist through district travel; unloaded
+districts suspend, while the open expedition retains its menu-active behavior.
+
+Initial 97 combat/facility/map checks and ten rendered Sentosa host/guest scenarios
+passed; screenshots reviewed in .cache/naval-landings/. The per-tick renderer
+caught a spawn shield rounding to zero, which now omits the expired shield.
+Final verification is running against .cache/naval-release-candidate, based on
+20acbc1 plus only this feature. It excludes concurrent respawn code. Shared-host
+load caused a 5 s test timeout; final tests use one worker and a bounded 60 s test
+timeout. Typecheck, full-suite, actual-engine UI and release results follow.
+No deployment claimed yet. Local main commit only; no GitHub push. AGENTS.md
+and .claude remain local and uncommitted.
+
+Status-overlay validation follow-up: the lightweight browser layout check passed
+at 1440×1000, 390×844 and 844×390, including message appearance, multi-line
+wrapping and dismissal; canvas bounds stayed identical. Screenshots and logs
+are in .cache/status-overlay-{390,844,1440}.png and
+.cache/status-overlay-release/release-layout.log. This is layout validation,
+not a full rendered gameplay smoke.
+
+Manual deployment did not complete. Both ordinary and 512 MB heap-limited
+pnpm deploy:cloudflare attempts stalled in tsc -b under severe local memory
+pressure (about 9 GB swap); they were stopped before Vite/upload. No live
+release is claimed. The final isolated copy includes 20acbc1 (also preserving
+the committed Marina lighting fix); source-verification.json documents its
+matching tracked sources. Logs remain in .cache/status-overlay-release/.
+Code commit da874fe is on local main. AGENTS.md remains untracked; no push.
