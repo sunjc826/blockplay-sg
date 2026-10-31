@@ -5563,3 +5563,45 @@ link; retry used `pnpm_config_verify_deps_before_run=false` with unchanged
 installed dependencies and lockfile. Private build environment copies removed.
 No GitHub push. AGENTS.md remains local, unstaged and uncommitted. Preserve other
 unfinished work and handoff edits.
+
+
+## Soldiers identify their faction through shape and equipment (2026-10-31)
+
+Owner requested clearer faction and role recognition without relying on the
+colour of a soldier's description. Local main code commit `7566ea4` adds persistent
+faction silhouettes and large, identical-colour identification shapes. Armed
+Forces wear open webbing and a horizontal shoulder bedroll, with paired pale
+bars on chest, back and both shoulders. Black Kite wear faceted shoulder guards,
+a raised collar and lower-face wrap, with a single pale kite on those surfaces.
+These cues persist through every rank and role, including elites, friendly
+support crews and remote players. Original flags, contractor badges, rank
+chevrons, camouflage and role bands remain; sleeve badges sit below the larger
+faction panels. Civilians retain their existing appearance.
+
+Gunners gain broader guards and two hip ammunition boxes, marksmen a short
+split shoulder drape, and mortar crews two tall capped shell carriers. All new
+parts merge into existing bone meshes, adding no draws (18–19 rendered calls
+in the review). Gameplay, faction hostility, equipment stats and hit logic are
+unchanged. Model visibility still depends on ordinary world lighting and cover.
+
+All 2,225 tests / 238 files and typecheck pass. The isolated committed release
+also passes 60 focused tests / six files and typecheck. Four new checks cover
+all roles/ranks, actual geometry differences with identical colours/headwear,
+role equipment with weapons hidden, finite combat poses and mesh/triangle
+budgets. Browser QA renders 80 soldiers across ten colour/grayscale front,
+side/rear, rank-extreme, 12m distance and running/crouched/prone views, with no
+browser exceptions. Reusable review: scripts/fixtures/faction-readability.html;
+script: scripts/faction-readability-smoke.mjs. Docs: docs/FACTIONS.md.
+
+Manual `pnpm deploy:cloudflare` succeeded from the isolated git archive at
+7566ea4, with all 3,083 tracked files verified. Version:
+`40a7df87-8192-4fdb-9a9f-497f20637a73`. Both public domains serve the exact
+release JS/CSS/Three.js and service worker, with matching entry HTML. Production
+routing/assets/PWA/model/audio/API-origin checks pass on both domains without
+paid requests. Evidence: .cache/faction-readability/ (screenshots,
+browser-results.json, full-tests.log, release-tests.log, release-typecheck.log,
+source-verification.json, deploy.log, live-verification.json/log and
+cloudflare-custom.log/cloudflare-workers.log). Temporary private environment
+copies removed; task-owned Vite and Chrome stopped. No GitHub push. AGENTS.md
+remains local, unstaged and uncommitted; unrelated handoff and facilities/camp
+work in progress is preserved.
