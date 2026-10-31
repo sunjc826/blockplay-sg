@@ -4,10 +4,11 @@ import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
 import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
+import { TOA_PAYOH_GROUND_PLACES, addToaPayohSocialDetails, toaPayohGroundHeight } from './toa-payoh-ground';
 
 // In the precinct courtyard, looking across the sand pit at the dragon.
 export const TOA_PAYOH_SPAWN = { x: 50, z: -2, yaw: Math.PI / 2 };
-export const TOA_PAYOH_BOUNDS = { minX: -255, maxX: 255, minZ: -210, maxZ: 210 };
+export const TOA_PAYOH_BOUNDS = { minX: -255, maxX: 255, minZ: -210, maxZ: 210, groundHeight: toaPayohGroundHeight };
 export { TOA_PAYOH_STAMPS } from '../data/region-stamps.ts';
 
 const EW_ROADS = [-110, 10, 120], NS_ROADS = [-130, -10, 110];
@@ -40,7 +41,7 @@ export function buildToaPayohScene() {
   markWater(water, shallow);
   const concrete = mat('#aaa99f'), pale = mat('#e7e1d3'), stone = mat('#b4b3aa'), dark = mat('#36434a');
   const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148');
-  const sand = mat('#ddcda4'), scale1 = mat('#b8453a'), scale2 = mat('#d8a02a'), scale3 = mat('#e6e0d2');
+  const scale1 = mat('#b8453a'), scale2 = mat('#d8a02a'), scale3 = mat('#e6e0d2');
   const teal = mat('#2f7b84'), rust = mat('#a8563a'), leaf = mat('#45713e'), fern = mat('#5b8a4c');
   const orange = mat('#f0a044'), skin = mat('#b18c71'), terra = mat('#b0644a');
   const bands = ['#e3d9c0', '#b7c6bc', '#d9c3a6', '#a9bccb', '#cfc3a4'].map(color => mat(color));
@@ -57,7 +58,7 @@ export function buildToaPayohScene() {
     box(x, height / 2 + 3.4, z, length, height, 13, pale, scene, true); if (x === 50 && (z === -86 || z === -18)) {
       (scene.userData.traversalObstacles ??= []).push({ minX:x-length/2,maxX:x+length/2,minZ:z-6.5,maxZ:z+6.5,minY:3.4,maxY:height+3.4 });
     } else solid(x, z, length, 13);
-    for (const dx of [-length / 2 + 4, 0, length / 2 - 4]) for (const dz of [-5, 5]) { box(x + dx, 1.7, z + dz, 2.2, 3.4, 2.2, concrete); solid(x + dx, z + dz, 2.6, 2.6); }
+    for (const dx of [-length / 2 + 4, 0, length / 2 - 4]) for (const dz of [-5, 5]) { box(x + dx, 1.7, z + dz, 2.2, 3.4, 2.2, concrete); solid(x + dx, z + dz, 2.6, 2.6); kit.obstacles.at(-1)!.maxY = 3.4; }
     box(x, 3.6, z, length, 0.6, 15, concrete);
     for (let level = 0; level < Math.floor(height / 3.1); level++) {
       const y = 5.4 + level * 3.1, band = bands[(level + Math.abs(Math.round(x / 40))) % bands.length];
@@ -111,7 +112,7 @@ export function buildToaPayohScene() {
 
   /** Dragon over its sand pit: a mosaic head, arched spine and a tail. */
   function dragonPlayground(x: number, z: number) {
-    box(x, 0.16, z, 56, 0.34, 40, sand);
+    // Shared ground place supplies the sand finish and walking height.
     for (let i = 0; i < 40; i++) {
       const a = i * 0.9, r = 20 + (i % 3) * 3;
       box(x + Math.cos(a) * r, 0.34, z + Math.sin(a) * r * 0.7, 2.4, 0.04, 2.4, i % 2 ? paving : stone);
@@ -185,7 +186,7 @@ export function buildToaPayohScene() {
       const ripple = box(x - width / 2 + 6 + (i * 17) % (width - 12), 0.16, z - depth / 2 + 5 + (i * 11) % (depth - 10), 6 + i % 3, 0.02, 0.2, shallow);
       ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
     }
-    for (const side of [-1, 1]) box(x, 0.6, z + side * (depth / 2 + 1.4), width + 6, 1.1, 3, stone);
+    for (const side of [-1, 1]) box(x, .22, z + side * (depth / 2 + .25), width + 6, .44, .5, stone);
     // The bank-side bridge is built with walking support at finish.
     for (const dx of [-32, 32]) for (const dz of [-24, 24]) tree(x + dx, z + dz, 9, wood, fern);
   }
@@ -232,8 +233,8 @@ export function buildToaPayohScene() {
   earlySlab(50, -86, 92, 30); earlySlab(50, -18, 80, 27, -1);
   lookoutTower(-180, -20); pond();
   // May 2016 exterior: a straight, narrow paver path under the park trees.
-  box(-218, 0.14, -42, 5, 0.16, 92, paving);
-  for (let z = -87; z <= 3; z += 2) {
+  // Ground-place ownership replaces the old decorative paving slab.
+  for (let z = -87; z <= -3; z += 2) {
     box(-218, 0.23, z, 5, 0.015, 0.055, stone);
     box(-218 + (Math.round(z) % 4 ? 0.7 : -0.7), 0.23, z + 0.8, 0.055, 0.015, 1.6, stone);
   }
@@ -257,6 +258,7 @@ export function buildToaPayohScene() {
   for (const x of [-EDGE_X - 16, EDGE_X + 16]) for (let z = -150; z <= 150; z += 28) tree(x, z, 8, wood, fern);
   for (let x = -200; x <= 200; x += 30) { tree(x, -EDGE_Z - 16, 8, wood, leaf); tree(x, EDGE_Z + 16, 8, wood, leaf); }
 
+  const disposeSocial = addToaPayohSocialDetails(kit);
   const pedestrians = ['#e9e7d8', '#6f95a6', '#a8563a', '#8fb6ae'].map(color => mat(color))
     .flatMap((shirt, index) => [walker(20 + index * 16, -2, shirt, skin, dark), walker(-180 + index * 14, 24, shirt, skin, dark)]);
   const car = kit.car(mat('#8a9ea4'), glass, mat('#dad5c5'), dark);
@@ -264,7 +266,7 @@ export function buildToaPayohScene() {
   scene.userData.districtFeatures = ['balcony-access-decks', 'end-service-stairs', 'y-plan-point-block', 'mosaic-dragon-head', 'arched-spine-segments', 'sand-pit-apron', 'open-modernist-lookout', 'ramped-pond-bank-walk', 'banded-hub-towers', 'vented-hawker-roof'];
   scene.userData.referenceFeatures = ['town-park-road-0:straight-shaded-paver-path'];
 
-  return withVerticalPlaces(withVerticalRoutes(kit.finish({
+  const world = withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.34 + index) * 1.3; });
@@ -296,4 +298,8 @@ export function buildToaPayohScene() {
     ],
     fixtures: [4.2, 8.4].flatMap(y => [-99, -5].map(z => ({ x: 50, z, y: y + .65, width: 7, depth: 2, height: 1.3, color: '#c5a467' }))),
   }]);
+  withVerticalPlaces(world, TOA_PAYOH_GROUND_PLACES);
+  const dispose = world.dispose;
+  world.dispose = () => { disposeSocial(); dispose(); };
+  return world;
 }

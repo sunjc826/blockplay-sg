@@ -3,10 +3,12 @@ import { TAMPINES_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { withVerticalPlaces } from './vertical-places';
 import { markWater } from './water';
+import { addTampinesGround, tampinesGroundHeight } from './tampines-ground';
+import { addTampinesSocialDetails } from './tampines-social-details';
 
 // On the town-centre verge, looking across at the round market.
 export const TAMPINES_SPAWN = { x: -20, z: 8, yaw: Math.PI / 2 };
-export const TAMPINES_BOUNDS = { minX: -260, maxX: 260, minZ: -215, maxZ: 215 };
+export const TAMPINES_BOUNDS = { minX: -260, maxX: 260, minZ: -215, maxZ: 215, groundHeight: tampinesGroundHeight };
 export { TAMPINES_STAMPS } from '../data/region-stamps.ts';
 
 const EW_ROADS = [-100, 20, 130], NS_ROADS = [-140, -20, 110];
@@ -41,12 +43,17 @@ export function buildTampinesScene() {
   const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148');
   const terra = mat('#b0644a'), teal = mat('#2f7b84'), rust = mat('#a8563a'), safety = mat('#d8a02a');
   const leaf = mat('#45713e'), fern = mat('#5b8a4c'), reed = mat('#94a558'), orange = mat('#f0a044'), skin = mat('#b18c71');
-  const turf = mat('#4f8a46'), clay = mat('#9c6a4a');
+  const clay = mat('#9c6a4a');
   const panels = ['#dcc98f', '#8fb6ae', '#c9a2a8', '#9db2c6', '#cfd3b6'].map(color => mat(color));
 
   const ripples: THREE.Mesh[] = [];
   box(0, -0.6, 0, 620, 1, 520, grass);
   kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });
+  // Cut the street-grid kerb at the Hub's broad arrival. Its shared graded
+  // ground replaces this strip, rather than disappearing under a raised kerb.
+  for (const mesh of [...scene.children]) if (mesh instanceof THREE.Mesh && mesh.geometry.type === 'BoxGeometry' && mesh.position.z === 9.5 && mesh.scale.z === 3 && mesh.scale.x === EDGE_X * 2) scene.remove(mesh);
+  box((-EDGE_X + 40) / 2, .12, 9.5, EDGE_X + 40, .22, 3, kerb);
+  box((70 + EDGE_X) / 2, .12, 9.5, EDGE_X - 70, .22, 3, kerb);
 
   /** Round market: a drum of stalls under a radial roof and a vented cap. */
   function roundMarket(x: number, z: number) {
@@ -84,7 +91,7 @@ export function buildTampinesScene() {
    * the footprint remains compressed to preserve the town-centre loop.
    */
   function stadium(x: number, z: number) {
-    box(x, 0.2, z, 96, 0.4, 88, paving);
+    // Shared ground mesh owns the arrival and level sports surface below.
     // Court and lower community wings are now enterable.
     // Structural piers continue above the upper concourse to the retained wings.
     for (const side of [-1, 1]) for (const along of [-18, 18]) {
@@ -94,9 +101,8 @@ export function buildTampinesScene() {
       }
     }
     // Retain the court as a visible central void rather than a freestanding bowl.
-    box(x, 0.5, z, 58, 0.4, 43, turf);
-    for (const dx of [-27, 0, 27]) box(x + dx, 0.75, z, 0.35, 0.05, 40, white);
-    for (const dz of [-20, 20]) box(x, 0.75, z + dz, 54, 0.05, 0.35, white);
+    for (const dx of [-27, 0, 27]) box(x + dx, 0.704, z, 0.35, 0.008, 40, white);
+    for (const dz of [-20, 20]) box(x, 0.704, z + dz, 54, 0.008, 0.35, white);
     for (const side of [-1, 1]) {
       box(x + side * 37, 23, z, 14, 18, 80, pale, scene, true);
       // Set 0.2 m back from the wings' ends, not flush with them, so their lit walls do not fight where they meet.
@@ -202,13 +208,8 @@ export function buildTampinesScene() {
       const ripple = box(x - width / 2 + 8 + (i * 19) % (width - 14), 0.16, z - depth / 2 + 6 + (i * 13) % (depth - 12), 7 + i % 3, 0.02, 0.2, shallow);
       ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
     }
-    for (const side of [-1, 1]) for (let dz = -depth / 2; dz <= depth / 2; dz += 7) {
-      for (let step = 0; step < 3; step++) {
-        const face = box(x + side * (width / 2 + 2 + step * 2.4), 1.4 + step * 1.8, z + dz, 4.4, 3.6, 7, step % 2 ? clay : stone);
-        face.rotation.z = side * 0.14;
-      }
-    }
-    for (let dx = -width / 2; dx <= width / 2; dx += 6) for (let step = 0; step < 3; step++) box(x + dx, 0.6 + step * 0.5, z - depth / 2 - 2 - step * 2.6, 6, 1, 3, step % 2 ? mat('#cbbd97') : clay);
+    // Former sand quarry: the repeated exposed-rock stair blocks are replaced
+    // by connected vegetated banks and dirt approaches in tampines-ground.
     for (let dx = -width / 2 + 6; dx < width / 2; dx += 9) for (let r = 0; r < 4; r++) blob(x + dx + r * 1.2, 1.4, z + depth / 2 + 3, 0.8, 2.2, 0.6, reed);
     sign('TAMPINES QUARRY', x, 5.4, z - depth / 2 - 14, 28, 2.3, '#2f6b78');
   }
@@ -232,6 +233,8 @@ export function buildTampinesScene() {
   mallCluster(40, 75);
   precinct(-188, -40); precinct(-188, 75); precinct(172, -40);
   quarry();
+  const disposeGround = addTampinesGround(kit);
+  addTampinesSocialDetails(kit);
   cyclePath([[-20, -170], [-20, -60], [-52, 6], [-52, 96], [-20, 150]]);
 
   // Eco green: rough grassland with scattered scrub, and the range within it.
@@ -254,10 +257,10 @@ export function buildTampinesScene() {
     .flatMap((shirt, index) => [walker(-80 + index * 18, 10, shirt, skin, dark), walker(-20, -60 + index * 22, shirt, skin, dark)]);
   const car = kit.car(mat('#8aa0a6'), glass, mat('#dad5c5'), dark);
   const stamps = stampRings(TAMPINES_STAMPS, orange);
-  scene.userData.districtFeatures = ['radial-market-roof', 'vented-drum-cap', 'outward-stall-bays', 'integrated-hub-courtyard', 'screened-community-block', 'planted-roof-terraces', 'mall-link-bridges', 'sawtooth-berths', 'hawker-deck-slabs', 'worked-quarry-faces', 'cycle-path-run'];
+  scene.userData.districtFeatures = ['radial-market-roof', 'vented-drum-cap', 'outward-stall-bays', 'integrated-hub-courtyard', 'screened-community-block', 'planted-roof-terraces', 'mall-link-bridges', 'sawtooth-berths', 'hawker-deck-slabs', 'vegetated-quarry-banks', 'cycle-path-run'];
   scene.userData.referenceFeatures = ['hub-exterior-0:sheltered-arrival-columns-and-louvres-only', 'hub-outdoor02-0:terracotta-patchwork-and-colored-slit-windows'];
 
-  return withVerticalPlaces(kit.finish({
+  const world = withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.35 + index) * 1.4; });
@@ -351,7 +354,7 @@ export function buildTampinesScene() {
         "from": {
           "x": 44,
           "z": -40,
-          "y": 0
+          "y": 0.7
         },
         "to": {
           "x": 26,
@@ -366,7 +369,7 @@ export function buildTampinesScene() {
         "from": {
           "x": 66,
           "z": -40,
-          "y": 0
+          "y": 0.7
         },
         "to": {
           "x": 84,
@@ -531,4 +534,7 @@ export function buildTampinesScene() {
     ]
   }
 ]);
+  const dispose = world.dispose;
+  world.dispose = () => { disposeGround(); dispose(); };
+  return world;
 }
