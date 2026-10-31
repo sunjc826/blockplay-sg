@@ -11,9 +11,9 @@ it('lists exactly the developed worlds in the location picker', () => {
 
 it('offers real region maps only for implemented destinations', () => {
   for (const id of REGION_IDS) expect(hasRegionGame(id)).toBe(true);
-  // Real places kept deliberately off the roadmap, so building a district
-  // never quietly turns this assertion into a tautology again.
-  expect(hasRegionGame('pulau-ubin')).toBe(false);
+  // Keep explicit examples of both an implemented island and a destination
+  // without a scene, independently of the registry loop above.
+  expect(hasRegionGame('pulau-ubin')).toBe(true);
   expect(hasRegionGame('lim-chu-kang')).toBe(false);
   expect(hasRegionGame('unknown')).toBe(false);
 });

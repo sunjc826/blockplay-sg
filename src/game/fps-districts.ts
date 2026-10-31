@@ -8,6 +8,12 @@ export interface FpsDistrict {
   props: readonly (readonly [asset: number, x: number, z: number, width: number, depth: number])[];
 }
 const districts: Record<WorldZoneId, FpsDistrict> = {
+  'pulau-ubin': {
+    label: 'Ubin FPS', setting: 'forest clearing', spawn: { x: 80, z: 0, yaw: 0, pitch: -.03 },
+    targets: [{x:80,z:-30},{x:74,z:-29},{x:86,z:-29},{x:68,z:-24},{x:92,z:-24},{x:66,z:-16},{x:94,z:-16},{x:80,z:-40}],
+    vehicles: { car: { x: 70, z: 4, yaw: -Math.PI/2 }, helicopter: { x: 110, z: 0, yaw: 0 } },
+    props: [[3,78,6,.77,.52],[4,84,3,1.87,.41],[5,79,7,.37,.37],[5,81,7,.37,.37]],
+  },
   'katong-joo-chiat': {
     label: 'Katong FPS', setting: 'neighbourhood green', spawn: { x: 195, z: 115, yaw: 0, pitch: -.03 },
     targets: [{ x: 195, z: 85 }, { x: 189, z: 86 }, { x: 201, z: 86 }, { x: 183, z: 91 }, { x: 207, z: 91 }, { x: 181, z: 99 }, { x: 209, z: 99 }, { x: 195, z: 75 }],

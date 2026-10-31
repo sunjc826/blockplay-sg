@@ -16,7 +16,7 @@ import { createFpsEngine, initialFpsHud, type FpsCheckpoint, type FpsEngine } fr
 import { resolveLoadout, type ArmoryProfile, type VendorPurchaseResult } from '../game/armory-state';
 import { createExpeditionLoot } from '../game/expedition-loot';
 import { itemById } from '../game/armory-catalog';
-import { findWorldRoute, getWorldZone, WORLD_GATEWAYS, WORLD_ZONES, type WorldZoneId, type ZoneSpawn } from '../game/world-zones';
+import { worldGatewayAction, findWorldRoute, getWorldZone, WORLD_GATEWAYS, WORLD_ZONES, type WorldZoneId, type ZoneSpawn } from '../game/world-zones';
 import { useFpsFullscreen } from '../game/use-fps-fullscreen';
 import FpsMinimap from './FpsMinimap';
 import FpsWeaponHud from './FpsWeaponHud';
@@ -165,7 +165,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         <FpsLootCard hud={hud} touch={touch} />
         <div className="expedition-prompts" role="status">{hud.npcPrompt && <strong>{showHints ? hud.npcPrompt : hud.npcPrompt.replace(/^E · /, '')}</strong>}{hud.travelPrompt && <strong>{showHints ? hud.travelPrompt : hud.travelPrompt.replace(/^T · /, '')}</strong>}{hud.lootNotice && <span>{hud.lootNotice}</span>}</div>
         {touch && !hud.pilotEnabled && <TouchControls hud={hud} engine={engine.current} mode="expedition" onMenu={() => engine.current?.pause()} />}
-        <div className="expedition-route-hud">{nextCheckpoint && <strong>ROUTE TO {getWorldZone(destination!).name.toUpperCase()}</strong>}{(nextCheckpoint ? [nextCheckpoint] : touch ? nearestGateways.slice(0, 2) : gateways).map(gateway => <span key={gateway.id}>{getWorldZone(gateway.to).name} <b>{distance(gateway.position)}m</b></span>)}</div>
+        <div className="expedition-route-hud">{nextCheckpoint && <strong>ROUTE TO {getWorldZone(destination!).name.toUpperCase()}</strong>}{(nextCheckpoint ? [nextCheckpoint] : touch ? nearestGateways.slice(0, 2) : gateways).map(gateway => <span key={gateway.id}>{getWorldZone(gateway.to).name}{gateway.kind === 'ferry' ? ' · Bumboat' : ''} <b>{distance(gateway.position)}m</b></span>)}</div>
       </>}
       {deploying && <div className="expedition-intro" data-stage={hud.deploymentIntro?.stage}>
         <div className="expedition-intro-fade" style={{ opacity: hud.deploymentIntro?.fade ?? 0 }} />
@@ -217,7 +217,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
     </div>
     <div className="expedition-intel">
       <section><h3>District network</h3><div className="expedition-network">{WORLD_ZONES.map(item => <div key={item.id} className={item.id === scene.zone ? 'current' : ''}><strong>{item.name}</strong><span className={`risk-${item.risk}`}>{item.risk} threat · Tier {item.lootTier}</span>{item.id === scene.zone && <small>YOU ARE HERE</small>}</div>)}</div><p>Queenstown ↔ Raffles Place ↔ Marina Bay</p><p>Raffles is the contested CBD: stronger patrols, better odds of elite weapons.</p></section>
-      <section><h3>Checkpoints</h3>{destination && <p className="expedition-planned-route" role="status">{scene.zone === destination ? `You are in ${zone.name}.` : `Planned route: ${[zone.name, ...plannedRoute.map(step => getWorldZone(step.to).name)].join(" → ")}`}</p>}{gateways.map(gateway => <p key={gateway.id}><strong>{getWorldZone(gateway.to).name} · {distance(gateway.position)}m</strong><br /><span>Head to X {gateway.position.x}, Z {gateway.position.z}. Press T within 4m.</span></p>)}<small>Your position: X {Math.round(hud.x)}, Z {Math.round(hud.z)}</small></section>
+      <section><h3>District crossings</h3>{destination && <p className="expedition-planned-route" role="status">{scene.zone === destination ? `You are in ${zone.name}.` : `Planned route: ${[zone.name, ...plannedRoute.map(step => getWorldZone(step.to).name)].join(" → ")}`}</p>}{gateways.map(gateway => <p key={gateway.id}><strong>{getWorldZone(gateway.to).name} · {distance(gateway.position)}m</strong><br /><span>{worldGatewayAction(gateway)}. Head to X {gateway.position.x}, Z {gateway.position.z}. Press T within 4m{gateway.kind === 'ferry' ? ' while on foot. The game crossing is free.' : '.'}</span></p>)}<small>Your position: X {Math.round(hud.x)}, Z {Math.round(hud.z)}</small></section>
       <section><h3>Local contacts &amp; supplies</h3>{nearbyNpcs.map(npc => <p key={npc.id}><strong>{npc.name} · {distance(npc)}m</strong><br /><span>{npc.interaction.kind === 'vendor' ? `${itemById(npc.interaction.catalogId)?.name} · ${npc.interaction.price} ${npc.interaction.currency === 'tokens' ? 'TK' : 'CR'}` : `${npc.role} · Talk`}</span></p>)}{nearbyLoot.length ? nearbyLoot.map(item => <p key={item.id}><strong>{item.name} · {distance(item)}m</strong><br /><span>{item.tier.toUpperCase()} · X {Math.round(item.x)}, Z {Math.round(item.z)}{(item.y ?? 0) > 0 ? ` · Upper level +${Math.round(item.y!)}m` : ''}</span></p>) : <p>{hud.phase === 'loading' ? 'Scanning the district…' : 'No random supplies remain nearby.'}</p>}<small>NPC interactions are additional to random loot. Press N near a local contact; look at supplies on your level and press E.</small></section>
     </div>
     <div className="expedition-footer"><span>Field gear is temporary · Armory purchases stay saved</span><button onClick={onExit}>Leave expedition <ArrowRight size={14} /></button></div>

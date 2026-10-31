@@ -22,7 +22,7 @@ While playing, the upper-left minimap follows the operator in the current distri
 
 ## Sectors
 
-Every district is divided into named sub-areas — nine to eleven each, 223 in
+Every district is divided into named sub-areas — nine to eleven each, 233 in
 all. A sector carries bounds, a measured cover band, a loot weight, an optional
 tier bias, a patrol weight and curated anchor positions. They are listed in
 `src/data/region-sectors.ts`.
@@ -83,6 +83,7 @@ Each expedition gets a fresh seed. Each district rolls its contents and position
 | Yishun | 5 | 10% | 35% | 55% | 13 |
 | Little India | 3 | 35% | 49% | 16% | 9 |
 | Katong / Joo Chiat | 2 | 55% | 36% | 9% | 7 |
+| Pulau Ubin | 3 | 36% | 46% | 18% | 8 |
 
 Other crates contain loose ammunition, medical supplies or armor plates. Elite odds apply to weapon rolls; a particular visit does not guarantee an elite drop. Supply locations are checked against each district's bounds and obstacles, and are distributed across the district's sectors rather than scattered around the spawn.
 
@@ -120,6 +121,21 @@ Little India adds medium-risk market lanes connected to Kampong Glam and
 Orchard Road. Katong/Joo Chiat adds low-risk terrace streets connected to Geylang
 and Changi. Both use normal district heat, NPC vendors, bounded battlefield
 populations and the shared capture/vehicle systems.
+
+## Pulau Ubin ferry
+
+Pulau Ubin connects to the mainland through a bumboat gateway in Changi. The
+marked Changi Point landing is at X 267, Z 180; walk there and press T within
+4 m to board. Arrival is at Ubin’s village jetty (X 0, Z 193). The return boat
+boards at X 0, Z 205 and lands back at Changi (X 255, Z 180). The game crossing
+is free and instantaneous; no wait for passengers is simulated. Exit a vehicle
+before boarding. Health, armour, ammunition and carried gear use the same
+checkpoint persistence as land travel, and supplies do not reroll on return.
+
+The landing is an authored Changi Village/Changi Point counterpart placed in
+the existing compressed Changi map. It is not a claim that the real ferry
+leaves from the airport. The district selector still allows starting directly
+on Ubin. [Island layout, research and travel scope](PULAU-UBIN.md).
 
 ## Checkpoints
 

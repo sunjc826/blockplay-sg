@@ -233,6 +233,13 @@ export const locations = [
     tags: ['Heritage streets', 'Peranakan terraces'],
     viewpoints: [{ label: 'Neighbourhood streets', lat: 1.3094, lng: 103.9023, heading: 0 }],
   },
+  {
+    id: 'pulau-ubin', name: 'Pulau Ubin', subtitle: 'A bumboat away', district: 'NORTHEAST ISLAND',
+    description: 'A village jetty, kampong houses, granite quarry, forest loop and wetland boardwalk. Take the marked bumboat crossing from Changi. Authored and compressed for play.',
+    lat: 1.4050, lng: 103.9700, heading: 0, color: '#8fa782', block: 1,
+    tags: ['Island trails', 'Bumboat crossing'],
+    viewpoints: [{ label: 'Village jetty', lat: 1.4011, lng: 103.9700, heading: 0 }],
+  },
 ] as const;
 
 export type Location = (typeof locations)[number];

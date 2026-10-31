@@ -41,6 +41,7 @@ const AMBIENT_LIMIT: Readonly<Record<AmbientKind, number>> = { skyline: 2, flyby
  * only sail where there is one; a lake or a canal does not count.
  */
 export const COASTAL_SEA: Readonly<Partial<Record<string, { x: number; z: number }>>> = {
+  'pulau-ubin': { x: 0, z: 1 },
   'marina-bay': { x: .45, z: .89 }, changi: { x: 1, z: 0 }, harbourfront: { x: 0, z: 1 }, sentosa: { x: 0, z: 1 },
   tuas: { x: -1, z: 0 }, woodlands: { x: 0, z: -1 }, punggol: { x: 0, z: 1 },
 };

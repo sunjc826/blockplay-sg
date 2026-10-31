@@ -34,6 +34,7 @@ type NpcConfig = NpcConfigBase & (
 export const DISTRICT_VENDOR_PRICE_INDEX: Readonly<Partial<Record<WorldZoneId, number>>> = {
   'little-india': .95,
   'katong-joo-chiat': 1,
+  'pulau-ubin': .95,
   yishun: .85,
   'toa-payoh': .8,
   tampines: .85,
@@ -51,6 +52,9 @@ export const DISTRICT_VENDOR_PRICE_INDEX: Readonly<Partial<Record<WorldZoneId, n
  * it adds a config and one interaction handler.
  */
 const NPC_CONFIGS: readonly NpcConfig[] = [
+  { zoneId: 'pulau-ubin', sectorId: 'village', name: 'Ubin provision stallholder', role: 'Kopi vendor', anchor: 'food', interaction: { kind: 'vendor', catalogId: 'food-kaya-toast' } },
+  { zoneId: 'pulau-ubin', sectorId: 'village', name: 'Ubin jetty guide', role: 'Island guide', anchor: 'sector', anchorIndex: 0,
+    interaction: { kind: 'dialogue', lines: ['The main island connection is the bumboat to Changi Point. Follow the jetty and board on foot.', 'Press T at the marked landing to return. The game crossing is free; your carried equipment travels with you.', 'The dirt loop goes past the quarry and wetlands. The lookout trail climbs above the quarry.'] } },
   { zoneId: 'little-india', sectorId: 'tekka-market', name: 'Tekka stallholder', role: 'Market vendor', anchor: 'food', interaction: { kind: 'vendor', catalogId: 'food-curry-puff' } },
   { zoneId: 'little-india', sectorId: 'campbell-lane', name: 'Campbell Lane guide', role: 'Neighbourhood guide', anchor: 'sector', anchorIndex: 1,
     interaction: { kind: 'dialogue', lines: ['Follow the covered arcades from the market to the painted lanes.', 'The market gallery has two stairways. The temple gateway opens onto a forecourt.'] } },

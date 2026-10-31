@@ -173,6 +173,7 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
   let clock = 0;
   for (const gateway of WORLD_GATEWAYS.filter(gateway=>gateway.from===zone)) {
     const group = new THREE.Group(); group.position.set(gateway.position.x,.12,gateway.position.z); root.add(group);
+    group.rotation.y = gateway.markerYaw ?? 0;
     const ring = mesh(group,new THREE.TorusGeometry(3,.055,6,40),'#9ad9bd',0,.1,0); ring.rotation.x = Math.PI/2;
     for(const x of [-3.1,3.1]) { mesh(group,new THREE.BoxGeometry(.25,3.4,.25),'#344e40',x,1.7,0); mesh(group,new THREE.BoxGeometry(.29,.35,.29),'#b8e3c1',x,3.05,0); }
     label(group,`T / ${getWorldZone(gateway.to).name.toUpperCase()}`, '#d2efcf',3.9);

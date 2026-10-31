@@ -305,3 +305,17 @@ export const KATONG_JOO_CHIAT_STAMPS = [
   { name: 'East green', x: 195, z: 65 },
   { name: 'Tembeling lane', x: -115, z: 15 },
 ];
+
+export const PULAU_UBIN_STAMPS = [
+  { name: 'Ubin village approach', x: 0, z: 135 },
+  { name: 'Bumboat landing', x: 0, z: 193 },
+  { name: 'Kampong provisions', x: -35, z: 130 },
+  { name: 'Forest loop junction', x: -50, z: 0 },
+  { name: 'Quarry shore', x: -175, z: -90 },
+  { name: 'Quarry lookout trailhead', x: -180, z: -30 },
+  { name: 'Northern forest lane', x: 60, z: -140 },
+  { name: 'East woodland bend', x: 190, z: -20 },
+  { name: 'Visitor cottage approach', x: 215, z: 45 },
+  { name: 'Wetland boardwalk', x: 205, z: 100 },
+  { name: 'Southern grove', x: 70, z: 145 },
+];

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { bumboat } from './bumboat';
 import { CHANGI_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { withVerticalPlaces } from './vertical-places';
@@ -241,16 +242,30 @@ export function buildChangiScene() {
   for (const z of [-40, 60]) { box(-224, 0.85, z, 8, 0.22, 2.4, wood); solid(-224, z, 8, 2.4); }
   for (let x = -240; x < 250; x += 34) tree(x, -EDGE_Z - 18, 7, wood, leaf);
 
+  // Authored Changi Village / Changi Point landing at the east boundary.
+  // Its airport-to-village distance is compressed; no airport ferry is implied.
+  box(236,2.6,180,18,5.2,18,pale,scene,true);solid(236,180,18,18);
+  box(240,5.6,180,28,.5,24,steel);
+  for(const z of [170,190]) { cylinder(251,2.7,z,.25,5.4,steel);solid(251,z,.6,.6); }
+  box(268,.025,180,28,.12,12,wood);
+  box(440,.015,180,324,.04,100,water);
+  const ferryPanel=sign('CHANGI POINT / UBIN BUMBOAT',246,4.5,180,33,1.8,'#376961');
+  if(ferryPanel)ferryPanel.rotation.y=Math.PI/2;
+  sign('UBIN BUMBOAT · BOARD ON FOOT',267,4,174,34,1.6,'#376961');
+  const ubinFerry=bumboat(kit,293,180,Math.PI/2);
+  scene.userData.ferryLanding={name:'Changi Point Ferry Terminal',x:267,z:180};
+
   const pedestrians = ['#eceadc', '#7fa3b0', '#d8b24a', '#5d8a4c'].map(color => mat(color))
     .flatMap((shirt, index) => [walker(10 + index * 6, -30, shirt, skin, dark), walker(-120 + index * 22, -166, shirt, skin, dark)]);
   const car = kit.car(mat('#93a7ae'), glass, mat('#ddd8c8'), dark);
   const stamps = stampRings(CHANGI_STAMPS, orange);
-  scene.userData.districtFeatures = ['toroidal-glazed-roof', 'radial-rib-mullions', 'oculus-waterfall', 'terraced-basin', 'ring-walkways', 'terminal-viaduct', 'flared-control-cab', 'stand-markings', 'wide-body-airliner', 'coastal-palms'];
+  scene.userData.districtFeatures = ['toroidal-glazed-roof', 'radial-rib-mullions', 'oculus-waterfall', 'terraced-basin', 'ring-walkways', 'terminal-viaduct', 'flared-control-cab', 'stand-markings', 'wide-body-airliner', 'coastal-palms', 'changi-point-bumboat-landing'];
   scene.userData.referenceFeatures = ['jewel-triangular-exterior-glazing', 'changi-tower-pale-shaft-blue-strip', 'changi-tower-spherical-radome'];
 
   return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
+      ubinFerry.animate(time);
       fall.forEach(drop => {
         const phase = (time * 0.9 + drop.userData.phase * 0.2) % 1;
         drop.scale.x = drop.scale.z = (6.4 + drop.userData.phase * 0.9) * (0.94 + phase * 0.12);

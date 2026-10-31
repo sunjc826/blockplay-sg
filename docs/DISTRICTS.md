@@ -1,6 +1,6 @@
 # Districts
 
-Twenty-two Singapore districts are playable. Every one is an authored, compressed
+Twenty-three Singapore districts are playable. Every one is an authored, compressed
 interpretation built for play — none is a surveyed map, a reconstruction or a
 navigation tool. Real place names label stylised counterparts.
 
@@ -28,6 +28,7 @@ navigation tool. Real place names label stylised counterparts.
 | Yishun | North | 11 | Researched landmarks; schematic geometry, no reviewed photograph claims |
 | Little India | Rochor | 11 | Researched landmarks; schematic geometry, no reviewed photograph claims |
 | Katong / Joo Chiat | East coast | 11 | Researched landmarks; schematic geometry, no reviewed photograph claims |
+| Pulau Ubin | Northeast island | 11 | Researched landmarks; schematic geometry, no reviewed photograph claims |
 
 ## Reference coverage
 
@@ -36,9 +37,9 @@ original three scenes reuse reviewed cached imagery; the other sixteen have
 bounded previews, acceptance/rejection records and feature corrections. The
 [district review](ALL-DISTRICTS-REVIEW.md) records those changes and limits.
 
-[Yishun](YISHUN.md), [Little India and Katong/Joo Chiat](HERITAGE-DISTRICTS.md)
-were added later with researched landmark selection and schematic geometry.
-These three additions have no accepted photographic-reference features or
+[Yishun](YISHUN.md), [Little India and Katong/Joo Chiat](HERITAGE-DISTRICTS.md),
+and [Pulau Ubin](PULAU-UBIN.md) were added later with researched landmark selection and schematic geometry.
+These four additions have no accepted photographic-reference features or
 reviewed learning cards. Yishun’s exaggerated danger is fictional game tuning.
 
 `scene.userData.referenceFeatures` lists only features actually informed by

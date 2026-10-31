@@ -2,6 +2,8 @@ import { buildLittleIndiaScene, LITTLE_INDIA_BOUNDS, LITTLE_INDIA_MAP_ROADS, LIT
 import { LITTLE_INDIA_STAMPS } from '../data/region-stamps';
 import { buildKatongJooChiatScene, KATONG_JOO_CHIAT_BOUNDS, KATONG_JOO_CHIAT_MAP_ROADS, KATONG_JOO_CHIAT_SPAWN } from './katong-joo-chiat-scene';
 import { KATONG_JOO_CHIAT_STAMPS } from '../data/region-stamps';
+import { buildPulauUbinScene, PULAU_UBIN_BOUNDS, PULAU_UBIN_MAP_ROADS, PULAU_UBIN_SPAWN } from './pulau-ubin-scene';
+import { PULAU_UBIN_STAMPS } from '../data/region-stamps';
 import { withSetPieces, type SetPieceCue } from './district-set-pieces';
 import type * as THREE from 'three';
 import { REGION_IDS, isRegionId, type RegionId } from './region-ids';
@@ -109,7 +111,24 @@ const yishunMovement = createRegionMovement(YISHUN_BOUNDS);
 
 const little_indiaMovement = createRegionMovement(LITTLE_INDIA_BOUNDS);
 const katong_joo_chiatMovement = createRegionMovement(KATONG_JOO_CHIAT_BOUNDS);
+const pulauUbinMovement = createRegionMovement(PULAU_UBIN_BOUNDS);
 const definitions: Record<RegionId, RegionDefinition> = {
+  'pulau-ubin': {
+    id: 'pulau-ubin', name: 'Pulau Ubin', shortName: 'Ubin', modeName: 'Pulau Ubin 3D', modeSubtitle: 'A bumboat away',
+    className: 'pulau-ubin-game', badge: 'PULAU UBIN · GAME WORLD', title: 'Pulau Ubin · village, quarry & wetlands',
+    subtitle: 'Authored island · forest loop and a Changi bumboat crossing', mapTitle: 'VILLAGE, QUARRY & WETLANDS',
+    stampNoun: 'island stamps', exploreNoun: 'Pulau Ubin', cameraFar: 1500,
+    spawn: PULAU_UBIN_SPAWN, stamps: PULAU_UBIN_STAMPS, bounds: PULAU_UBIN_BOUNDS, mapRoads: PULAU_UBIN_MAP_ROADS,
+    mapPaper: '#b8c8a3', roadStroke: '#b09b73', roadWidth: 10,
+    decor: [
+      { kind: 'rect', x: -150, z: -130, width: 85, depth: 70, fill: '#4f807b', layer: 'over' },
+      { kind: 'rect', x: 145, z: 65, width: 50, depth: 50, fill: '#7c8e70', layer: 'over' },
+      { kind: 'rect', x: -8, z: 155, width: 16, depth: 55, fill: '#80604b', layer: 'over' },
+      ...([[-52,112,30],[44,112,30],[-64,72,26],[54,72,26],[214,20,24]] as const).map(([x,z,width]): RegionMapShape =>
+        ({ kind:'rect',x:x-width/2,z:z-8,width,depth:16,fill:'#b5a68a',layer:'over' })),
+    ],
+    hasGuide: false, build: buildPulauUbinScene, move: pulauUbinMovement.move, canOccupy: pulauUbinMovement.canOccupy,
+  },
   'katong-joo-chiat': {
     id: 'katong-joo-chiat', name: 'Katong / Joo Chiat', shortName: 'Katong', modeName: 'Katong 3D', modeSubtitle: 'Pastel streets and five-foot ways',
     className: 'katong-joo-chiat-game', badge: 'KATONG · GAME WORLD', title: 'Katong / Joo Chiat · heritage streets',

@@ -38,6 +38,7 @@ const labels: Record<Location['id'], { x: number; y: number; width: number; area
   tuas: { x: 6, y: 70, width: 88, area: 'island' },
   'little-india': { x: 118, y: 202, width: 86, area: 'central' },
   'katong-joo-chiat': { x: 188, y: 140, width: 126, area: 'island' },
+  'pulau-ubin': { x: 204, y: 0, width: 88, area: 'island' },
   yishun: { x: 202, y: 20, width: 78, area: 'island' },
   woodlands: { x: 96, y: 20, width: 100, area: 'island' },
   tampines: { x: 232, y: 96, width: 86, area: 'island' },
@@ -61,14 +62,14 @@ export default function SingaporeMap({ selected, onSelect, expedition = false, d
   const links = WORLD_GATEWAYS.filter(gateway => gateway.from < gateway.to);
   const link = (gateway: typeof links[number], point: (location: Location) => { x: number; y: number }) => {
     const from = point(at(gateway.from)), to = point(at(gateway.to));
-    return <path key={gateway.id} className={`singapore-checkpoint-link ${planned(gateway) ? 'planned' : ''}`} data-map-link={`${gateway.from}:${gateway.to}`} d={`M${from.x} ${from.y} L${to.x} ${to.y}`}><title>{`${getWorldZone(gateway.from).name} ↔ ${getWorldZone(gateway.to).name} checkpoint link`}</title></path>;
+    return <path key={gateway.id} className={`singapore-checkpoint-link ${planned(gateway) ? 'planned' : ''}`} data-map-link={`${gateway.from}:${gateway.to}`} d={`M${from.x} ${from.y} L${to.x} ${to.y}`}><title>{`${getWorldZone(gateway.from).name} ↔ ${getWorldZone(gateway.to).name} ${gateway.kind === 'ferry' ? 'bumboat crossing' : 'checkpoint link'}`}</title></path>;
   };
   return <section className="singapore-locator" aria-label="Singapore location map">
     <div className="singapore-locator-heading"><strong>{expedition ? 'EXPEDITION ROUTES' : 'YOUR PLACE ON THE ISLAND'}</strong><span>SG</span></div>
     <svg viewBox="0 0 320 309" aria-labelledby={titleId}>
       <title id={titleId}>{`Singapore overview and central-area detail. ${expedition ? 'Current district' : 'Selected'}: ${selected.name}.`}</title>
       <path className="singapore-island" d="M20 114 L29 94 45 88 51 66 72 60 81 43 102 42 111 28 130 35 139 29 158 43 178 42 188 54 201 54 214 66 231 64 246 79 265 84 279 98 302 109 296 122 271 126 253 135 228 137 211 145 190 143 176 137 163 138 150 143 137 138 125 145 111 140 105 131 87 133 78 127 61 132 49 121 34 125 Z" />
-      <path className="singapore-island singapore-islets" d="M80 145 l16 -4 12 7 -8 7 -18 -2 Z M130 153 l13 -4 13 4 -8 6 -13 -1 Z M262 62 l17 -3 8 6 -14 5 Z" />
+      <path className="singapore-island singapore-islets" d="M80 145 l16 -4 12 7 -8 7 -18 -2 Z M130 153 l13 -4 13 4 -8 6 -13 -1 Z M243 63 l10 -7 20 3 5 6 -13 4 -16 -1 Z" />
       <text className="singapore-map-country" x="153" y="88" textAnchor="middle">SINGAPORE</text>
       <g className="singapore-map-north" aria-hidden="true"><path d="M294 48 v-19 m-4 6 4 -6 4 6" /><text x="294" y="23" textAnchor="middle">N</text></g>
       <rect className="singapore-map-detail-box" x="144" y="111" width="49" height="26" rx="4" />

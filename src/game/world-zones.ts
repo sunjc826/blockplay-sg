@@ -24,6 +24,10 @@ export interface WorldGateway {
   readonly position: ZonePosition;
   readonly radius: number;
   readonly arrival: ZoneSpawn;
+  /** A ferry uses the same protected on-foot transition, with a boarding action. */
+  readonly kind?: 'ferry';
+  /** Orient marker posts across the landing rather than along its approach. */
+  readonly markerYaw?: number;
 }
 export interface WorldTransition {
   readonly gatewayId: string;
@@ -79,12 +83,16 @@ export const WORLD_ZONES: readonly WorldZone[] = [
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: -170, z: 96 }, { x: -170, z: 148 }, { x: -65, z: 120 }, { x: -65, z: 8 }, { x: -70, z: -99 }, { x: -70, z: -115 }, { x: -170, z: -118 }, { x: 78, z: -8 }, { x: 78, z: 124 }, { x: 180, z: 55 }] },
   { id: 'katong-joo-chiat', name: 'Katong / Joo Chiat', description: 'Pastel streets and five-foot ways. Sheltered terraces, rear lanes and a quieter neighbourhood courtyard.', spawn: { x: 30, z: 110, yaw: 0, pitch: 0 },
     risk: 'low', lootTier: 1, botCount: 3, composition: 'assault', encounterSpawns: [{ x: -45, z: -84 }, { x: -190, z: -88 }, { x: -45, z: -144 }, { x: 85, z: 13 }, { x: -190, z: 49 }, { x: -190, z: 158 }, { x: -45, z: 112 }, { x: 85, z: 143 }, { x: 195, z: 65 }, { x: -115, z: 15 }] },
+  { id: 'pulau-ubin', name: 'Pulau Ubin', description: 'Village lanes, quarry trails and wetland boardwalks. Reach the island on foot via the Changi Point bumboat crossing; the return boat leaves from the village jetty.', spawn: { x: 0, z: 145, yaw: 0, pitch: 0 },
+    risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{x:0,z:135},{x:-50,z:0},{x:-175,z:-90},{x:60,z:-140},{x:190,z:-20},{x:215,z:45},{x:205,z:100},{x:70,z:145}] },
 ];
 
 // These connections compress travel between districts. They do not claim that
 // their scene coordinate systems line up or represent a continuous street map.
 // Arrivals face into the new district, twelve metres beyond its return gateway.
 export const WORLD_GATEWAYS: readonly WorldGateway[] = [
+  { id: 'changi-to-pulau-ubin', from: 'changi', to: 'pulau-ubin', name: 'Changi Point bumboat to Pulau Ubin', kind: 'ferry', markerYaw: Math.PI / 2, position: { x: 267, z: 180 }, radius: 4, arrival: { x: 0, z: 193, yaw: 0, pitch: 0 } },
+  { id: 'pulau-ubin-to-changi', from: 'pulau-ubin', to: 'changi', name: 'Ubin village bumboat to Changi', kind: 'ferry', position: { x: 0, z: 205 }, radius: 4, arrival: { x: 255, z: 180, yaw: Math.PI/2, pitch: 0 } },
   { id: 'little-india-to-kampong-glam', from: 'little-india', to: 'kampong-glam', name: 'Kampong Glam checkpoint', position: { x: -220, z: 30 }, radius: 4, arrival: { x: -193, z: -30, yaw: -1.5707963267948966, pitch: 0 } },
   { id: 'kampong-glam-to-little-india', from: 'kampong-glam', to: 'little-india', name: 'Little India checkpoint', position: { x: -205, z: -30 }, radius: 4, arrival: { x: -208, z: 30, yaw: -1.5707963267948966, pitch: 0 } },
   { id: 'little-india-to-orchard', from: 'little-india', to: 'orchard', name: 'Orchard checkpoint', position: { x: 20, z: 180 }, radius: 4, arrival: { x: 223, z: 140, yaw: 1.5707963267948966, pitch: 0 } },
@@ -157,6 +165,11 @@ export function getWorldZone(id: WorldZoneId): WorldZone {
   const zone = WORLD_ZONES.find(candidate => candidate.id === id);
   if (!zone) throw new Error(`Unknown world zone: ${String(id)}`);
   return zone;
+}
+
+/** Player-facing travel action shared by the HUD and travel guide. */
+export function worldGatewayAction(gateway: WorldGateway): string {
+  return `${gateway.kind === 'ferry' ? 'Board bumboat' : 'Travel'} to ${getWorldZone(gateway.to).name}`;
 }
 
 /** Fewest checkpoint crossings, using gameplay links rather than GPS distance. */

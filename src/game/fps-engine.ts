@@ -91,7 +91,7 @@ import { buildDistrictWorld } from './district-world';
 import { getFpsDistrict } from './fps-districts';
 import { createExpeditionMarkers } from './expedition-visuals';
 import { createLootGround } from './expedition-ground';
-import { findWorldGateway, resolveWorldTransition, getWorldZone, type WorldZoneId, type WorldTransition, type ZoneSpawn } from './world-zones';
+import { worldGatewayAction, findWorldGateway, resolveWorldTransition, getWorldZone, type WorldZoneId, type WorldTransition, type ZoneSpawn } from './world-zones';
 import type { ExpeditionLoot, FieldLoot } from './expedition-loot';
 import { expeditionNpcs, nearestNpc, npcInteractionPrompt, type ExpeditionNpc } from './expedition-npcs';
 import { itemById } from './armory-catalog';
@@ -981,7 +981,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.lootPrompt = hud.lootCard ? `E · ${hud.lootCard.action} ${hud.lootCard.tier} ${hud.lootCard.name}${hud.lootCard.blocked ? ` · ${hud.lootCard.blocked}` : ''}` : '';
     markers?.focus(focusedLoot?.id ?? null);
     hud.npcPrompt = npc && !focusedLoot ? `E · ${npcInteractionPrompt(npc)}` : '';
-    hud.travelPrompt = gateway ? `T · Travel to ${getWorldZone(gateway.to).name}` : '';
+    hud.travelPrompt = gateway ? `T · ${worldGatewayAction(gateway)}` : '';
     if (npc && !greetedNpcs.has(npc.id) && hud.phase === 'playing') {
       greetedNpcs.add(npc.id);
       comms.add('system', npc.name, npc.interaction.kind === 'vendor'
@@ -1123,7 +1123,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!expedition || travelPending || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active || vertical > .35) return;
     const gateway = findWorldGateway(expedition.zone, position); if (!gateway) return;
     const transition = resolveWorldTransition(expedition.zone, gateway.id, position); if (!transition) return;
-    comms.add('system', 'Travel', `Moving to ${getWorldZone(transition.to).name}.`);
+    comms.add('system', 'Travel', gateway.kind === 'ferry' ? `Taking the bumboat to ${getWorldZone(transition.to).name}.` : `Moving to ${getWorldZone(transition.to).name}.`);
     stopReload();
     const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, vision: visionState.on, fieldSupplies: { ...looted }, health: hud.health, armor: hud.armor, weapon: hud.weapon, magazineInventory: loadout[equipment.carriedFamilies[0]]?.magazineInventory, ammunition: loadout.map(state => ({ ...state, magazineInventory: undefined, reserveMagazine: undefined, cooldown: 0, reloadRemaining: 0 })) };
     travelPending = true; pause(); expedition.onTravel(transition, checkpoint);
