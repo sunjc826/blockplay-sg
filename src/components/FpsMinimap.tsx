@@ -3,6 +3,8 @@ import { getRegion, type RegionMapShape } from '../game/regions';
 import { localMinimapBounds, minimapHeading, minimapProjection, MINIMAP_CONTACT_RANGE, type MinimapMarker } from '../game/minimap';
 import { getWorldZone, type WorldZoneId } from '../game/world-zones';
 import { zoneSectors } from '../game/zone-sectors';
+import type { FacilityState } from '../game/facilities';
+import { CONTROL_COLOR, CONTROL_LABEL, sectorFacilityControl } from '../game/expedition-objectives';
 import './fps-minimap.css';
 
 /** Only district furniture with an FPS palette is drawn on the dark minimap. */
@@ -22,7 +24,8 @@ const VIEW = { compact: { width: 200, height: 160 }, expanded: { width: 600, hei
  * it is a local window that follows the player; expanded (M), it is the whole
  * district, with sector names and marker labels, over the centre of the scene.
  */
-export default function FpsMinimap({ zone, player, markers = [], mode, expanded = false, onToggle, dangers = [], jammed = false, contactRange = MINIMAP_CONTACT_RANGE }: {
+export default function FpsMinimap({ zone, player, markers = [], mode, expanded = false, onToggle, dangers = [], jammed = false, contactRange = MINIMAP_CONTACT_RANGE, facilities = [] }: {
+  facilities?: readonly FacilityState[];
   /** Combat events: rings for marked areas and supply crates, dots for aircraft. */
   dangers?: readonly { id: string; x: number; z: number; radius: number; kind: 'ring' | 'crate' | 'raider' }[];
   /** Jamming: static over the map and nothing on it but you. */
@@ -43,6 +46,7 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded 
   const sectors = mode === 'expedition' || expanded ? zoneSectors(zone) : [];
   const legend = mode === 'arena' ? `▲ You · ● Ally · ◆ Enemy · ${contactRange}m sight` : mode === 'expedition' ? `▣ Facility · ■ Loot · N NPC · ◇ Exit · ● Ally · ◆ Enemy · ${contactRange}m sight` : '▲ You · ● Targets · C/H Vehicles';
   const bar = expanded ? 100 : 25;
+  const controls = new Map(sectors.map(sector => [sector.id, sectorFacilityControl(sector, facilities)]));
   return <div className={`fps-minimap ${expanded ? 'is-expanded' : ''}`} data-map-zone={zone} data-map-expanded={expanded || undefined} data-map-contact-range={mode !== 'practice' ? contactRange : undefined}
     aria-label={`${getWorldZone(zone).name} ${expanded ? 'district map' : 'local minimap'}`}
     onClick={onToggle} role={onToggle ? 'button' : undefined} tabIndex={onToggle ? -1 : undefined}>
@@ -61,8 +65,17 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded 
           {district.mapRoads.map((road, index) => <polyline key={index} points={road.points.map(p => `${p.x},${p.z}`).join(' ')} fill="none" stroke="#63766a" strokeWidth={expanded ? Math.max(6, 3 * unit) : 12} />)}
           <FpsMapShapes shapes={decor('over')} />
         </g>
+        {!jammed && mode === 'expedition' && <g transform={map.transform}>{sectors.map(sector => {
+          const control = controls.get(sector.id)!;
+          return <rect key={sector.id} data-sector-control={control} data-control-sector={sector.id}
+            x={sector.bounds.minX} y={sector.bounds.minZ} width={sector.bounds.maxX - sector.bounds.minX} height={sector.bounds.maxZ - sector.bounds.minZ}
+            fill={CONTROL_COLOR[control]} fillOpacity={control === 'neutral' ? .025 : .14} stroke={CONTROL_COLOR[control]} strokeOpacity={control === 'neutral' ? .35 : .8}
+            strokeWidth={unit * (expanded ? 1.5 : 1)} strokeDasharray={control === 'contested' ? `${4 * unit} ${3 * unit}` : undefined}>
+            <title>{`${sector.name} · ${CONTROL_LABEL[control]} · based on surviving facilities`}</title>
+          </rect>;
+        })}</g>}
         {expanded && sectors.map(sector => <text key={sector.id} className="fps-map-sector" data-map-sector={sector.id}
-          x={map.x((sector.bounds.minX + sector.bounds.maxX) / 2)} y={map.y((sector.bounds.minZ + sector.bounds.maxZ) / 2)} textAnchor="middle">{sector.name}</text>)}
+          x={map.x((sector.bounds.minX + sector.bounds.maxX) / 2)} y={map.y((sector.bounds.minZ + sector.bounds.maxZ) / 2)} textAnchor="middle">{sector.name}{mode === 'expedition' && !jammed && <tspan x={map.x((sector.bounds.minX + sector.bounds.maxX) / 2)} dy="13" className="fps-map-control-label" fill={CONTROL_COLOR[controls.get(sector.id)!]}>{CONTROL_LABEL[controls.get(sector.id)!]}</tspan>}</text>)}
         {!jammed && dangers.map(danger => danger.kind === 'raider'
           ? <g key={danger.id} data-map-danger={danger.kind} transform={`translate(${map.x(danger.x)} ${map.y(danger.z)})`}><path d="M0 -5 L5 4 L-5 4 Z" fill="#ff5a45" stroke="#2a0d0a" strokeWidth="1" /></g>
           : <circle key={danger.id} data-map-danger={danger.kind} cx={map.x(danger.x)} cy={map.y(danger.z)} r={Math.max(3, danger.radius * map.scale)}
@@ -70,7 +83,7 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded 
         {!jammed && markers.map(marker => {
           const x = map.x(marker.x), y = map.y(marker.z);
           const outside = x < edge || x > width - edge || y < edge || y > height - edge;
-          if (outside && marker.kind !== 'checkpoint' && marker.kind !== 'boat') return null;
+          if (outside && marker.kind !== 'checkpoint' && marker.kind !== 'boat' && marker.kind !== 'facility') return null;
           const px = Math.max(edge, Math.min(width - edge, x)), py = Math.max(edge, Math.min(height - edge, y));
           const named = expanded && (marker.kind === 'boat' || marker.kind === 'facility' || marker.kind === 'checkpoint' || marker.kind === 'npc' || marker.kind === 'car' || marker.kind === 'helicopter');
           return <g key={marker.id} data-minimap-marker={marker.id} data-marker-kind={marker.kind} data-edge={outside} data-active={!!marker.active} transform={`translate(${px} ${py})${expanded ? ' scale(1.25)' : ''}`}>
@@ -98,5 +111,6 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded 
       {expanded && <text x={width - edge} y={edge + 10} textAnchor="end" fontSize="11" fill="#efd077" fontWeight="700">↑ N</text>}
     </svg>
     <div className="fps-minimap-legend">{legend}</div>
+    {mode === 'expedition' && <div className="fps-map-control-legend">Facility control: <span style={{ color: CONTROL_COLOR.ally }}>Blue allied</span> · <span style={{ color: CONTROL_COLOR.enemy }}>Red enemy</span> · <span style={{ color: CONTROL_COLOR.contested }}>Gold contested</span> · Grey unclaimed</div>}
   </div>;
 }

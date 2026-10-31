@@ -12,3 +12,4 @@
 .fps-map-label{font:600 7px sans-serif;fill:#fff9db;paint-order:stroke;stroke:#13221d;stroke-width:2.5px}
 @media(max-width:700px){.fps-minimap{top:106px;left:10px;width:112px;padding:5px}.fps-minimap-heading{font-size:8px}.fps-minimap-legend{font-size:7px}.fps-minimap-heading span{font-size:8px}
   .fps-minimap.is-expanded,.expedition-game .fps-minimap.is-expanded,.fps-game[data-touch=on] .fps-minimap.is-expanded{top:50%;left:50%;width:calc(100% - 32px);padding:8px}.fps-minimap.is-expanded .fps-minimap-heading{font-size:11px}}
+.fps-map-control-label{font:600 8px sans-serif;letter-spacing:0}.fps-map-control-legend{font:8px sans-serif;line-height:1.5;text-align:center;color:var(--hud-dim);margin-top:3px}.fps-minimap.is-expanded .fps-map-control-legend{font-size:11px}

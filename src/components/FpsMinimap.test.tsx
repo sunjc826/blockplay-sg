@@ -99,3 +99,24 @@ it('shows the current conditions-based range in both combat modes and map sizes'
     expect(html).not.toContain('60m');
   }
 });
+
+it('shows facility ownership on both map sizes and removes control intel when jammed', async () => {
+  const { createFacilities } = await import('../game/facilities');
+  const { zoneSectors } = await import('../game/zone-sectors');
+  const sector = zoneSectors('marina-bay')[0], x = (sector.bounds.minX + sector.bounds.maxX) / 2, z = (sector.bounds.minZ + sector.bounds.maxZ) / 2;
+  const sites = createFacilities([{ id: 'post', name: 'Enemy post', kind: 'command', initialOwner: 'mercenaries', x, y: 0, z, deployment: { x, z, yaw: 0 } }]).sites;
+  for (const expanded of [false, true]) {
+    const html = renderToStaticMarkup(<FpsMinimap zone="marina-bay" player={{ x, z, yaw: 0 }} mode="expedition" expanded={expanded} facilities={sites} />);
+    expect(html).toContain(`data-sector-control="enemy" data-control-sector="${sector.id}"`);
+    expect(html).toContain('Enemy control'); expect(html).toContain('Facility control:');
+    const jammed = renderToStaticMarkup(<FpsMinimap zone="marina-bay" player={{ x, z, yaw: 0 }} mode="expedition" expanded={expanded} facilities={sites} jammed />);
+    expect(jammed).not.toContain('data-sector-control'); expect(jammed).not.toContain('Enemy control');
+  }
+});
+
+it('keeps distant facility directions at the compact map edge', () => {
+  const html = renderToStaticMarkup(<FpsMinimap zone="marina-bay" player={{ x: 0, z: 0, yaw: 0 }} mode="expedition" markers={[
+    { id: 'enemy-post', x: 350, z: -250, kind: 'facility', label: 'Enemy post', side: 'enemy' },
+  ]} />);
+  expect(html).toContain('data-minimap-marker="enemy-post" data-marker-kind="facility" data-edge="true"');
+});

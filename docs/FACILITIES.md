@@ -48,6 +48,22 @@ briefing lines immediately. Reduced effects also disables the blur. The animatio
 doesn't change ammunition or health. It doesn't replay after pausing, on death respawns or on
 checkpoint travel. A sheltered entry uses a brief fade across its roof.
 
+The playing HUD names the nearest surviving enemy facility, its distance, and
+how many enemy sites remain. **H** or **Show objectives** toggles red 3D beams
+and downward pointers over enemy cabinets, with names, distances and bearings
+for objectives outside your view. These are known infrastructure locations;
+they do not reveal hidden soldiers. Captured or destroyed sites stop being
+objectives immediately. The toggle also works on touch and defaults off when
+entering a district or resetting the expedition.
+
+Both map sizes tint named sectors by surviving facility ownership: **blue
+allied**, **red enemy**, **gold contested**, **gray unclaimed**. Mixed ownership,
+a facility under attack, suppression or an opposing capture makes the sector
+contested. Sectors with no surviving owned equipment remain unclaimed; the
+colors describe infrastructure control rather than guaranteeing safe streets.
+The expanded map labels each sector's control. Jamming hides control intel and
+facility markers. Distant facilities remain indicated at the compact map edge.
+
 Open the map with M to find facility squares: blue allied, orange hostile, gray
 unbuilt. Dashed squares indicate destroyed or unbuilt equipment. Approach the
 equipment cabinet; the nearby card explains its owner, health and operation.
