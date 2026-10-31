@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, MousePointer2, X } from 'lucide-react';
 import type { SHOP_CATEGORIES } from '../game/armory-state';
 import { placeStoreTour, type TourRect } from './store-tour-layout';
 import './tutorial.css';
+import { playStoreSound, storeSoundEvents } from '../lib/store-audio';
 
 type Category = typeof SHOP_CATEGORIES[number]['id'];
 const STOPS = [
@@ -74,7 +75,7 @@ export default function StoreTutorial({ category, rootRef, onComplete, onExit }:
     // Keep keyboard navigation within the same controls that the spotlight exposes.
     const focusables = () => [...target.querySelectorAll<HTMLElement>('button, a[href], select, input, [tabindex="0"]'), ...(target.matches('button, a[href], select, input, [tabindex="0"]') ? [target] : []), ...panel.querySelectorAll<HTMLElement>('button')].filter(el => !el.matches(':disabled') && el.getClientRects().length > 0);
     const keydown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); callbacks.current.onExit(); }
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); playStoreSound('select'); callbacks.current.onExit(); }
       if (event.key !== 'Tab') return;
       const controls = focusables();
       if (!controls.length) return;
@@ -96,7 +97,7 @@ export default function StoreTutorial({ category, rootRef, onComplete, onExit }:
   }, [stop.id, ready, inspected, rootRef]);
 
   const move = (direction: number) => { setInspected(false); setStep(n => n + direction); };
-  return createPortal(<div className="store-tour-overlay">
+  return createPortal(<div className="store-tour-overlay" {...storeSoundEvents}>
     <svg className="store-tour-scrim" width="100%" height="100%" aria-hidden="true">
       <path fillRule="evenodd" d={layout ? `M0 0H${layout.width}V${layout.height}H0Z M${layout.target.left} ${layout.target.top}H${layout.target.right}V${layout.target.bottom}H${layout.target.left}Z` : 'M0 0H100000V100000H0Z'} />
     </svg>

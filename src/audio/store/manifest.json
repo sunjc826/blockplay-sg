@@ -1,0 +1,28 @@
+{
+  "provider": "ElevenLabs",
+  "model": "eleven_text_to_sound_v3",
+  "processing": "asetrate=39690,aresample=44100,treble=g=-7:f=2600:w=0.7,lowpass=f=4400:p=2",
+  "clips": {
+    "equip": {
+      "file": "equip-740e065b11.mp3",
+      "sha256": "740e065b11447d01a0e4dda8dfb990af3f6614aaed9ae436a1d6bdf820842436",
+      "source": "equip",
+      "sourceSha256": "5483f76d5f05d1bb8fc1b0fc2c202802557480bf91eb030c8e378db876a91fd8",
+      "seconds": 0.227
+    },
+    "purchase": {
+      "file": "purchase-c4e4c956d7.mp3",
+      "sha256": "c4e4c956d746d9b242fec39b19d781f39f9031ad8ba39ec7b959d8b1b7a0ce32",
+      "source": "purchase-soft",
+      "sourceSha256": "7dd8b9f225032c06f8affc647c8abddb55b984814cb11535023e6e3b3e319205",
+      "seconds": 0.453
+    },
+    "blocked": {
+      "file": "blocked-7cf7c21ce3.mp3",
+      "sha256": "7cf7c21ce3b40184c1c9c4e9cfb7e2fdd27bd79c9f09180ff4d5f96cdb418871",
+      "source": "blocked",
+      "sourceSha256": "daab12a69df44daee5cb244135b29e60822c4ca9616629a39e089fc9ba96ad1c",
+      "seconds": 0.22
+    }
+  }
+}

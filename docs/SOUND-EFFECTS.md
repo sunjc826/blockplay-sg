@@ -60,6 +60,40 @@ while allowing the short click to finish over the transition. Browser autoplay
 restrictions can keep hover silent until the first click or keypress. Audio
 failure never delays navigation. The private API key is never used in gameplay.
 
+## Store UI
+
+The store keeps the softened glass hover and selection sounds for tabs, platform
+switches, item previews, navigation and guide controls. Three additional
+ElevenLabs v3 recordings provide action feedback:
+
+| Action | Sound |
+| --- | --- |
+| Hover or visible keyboard focus | Quiet softened glass tick |
+| Browse, preview, navigate, advance/close the guide | Softened glass selection |
+| Equip equipment, change a carry slot | Small warm mechanical latch |
+| Successful unlock, supply purchase, level skip or demo token addition | Restrained rising two-note glass confirmation |
+| Rejected store action | Quiet low wooden knock |
+
+`src/lib/store-audio.ts` decorates only the store UI's callbacks. `useArmory`
+returns whether a purchase/equip operation changed the profile; the corresponding
+cue follows that result. Controls marked `data-store-outcome` skip the generic
+selection cue, so purchases do not play two confirmations. Both purchase buttons,
+carry controls and the portalled store guide are covered. Disabled buttons stay
+silent; model dragging and chart inspection do not trigger UI sounds.
+
+The store preloads five clips on entry, reusing the two menu assets. Hover is
+limited to one tick per 80 ms and suppressed during action feedback; voices
+replace each other rather than stacking. Cold or unavailable audio is dropped,
+autoplay denial is caught, hiding the page stops playback, and exiting stops
+hover while allowing a short action tail to finish. Nothing is triggered by
+in-game/vendor callbacks outside this UI.
+
+`public/audio/store/` contains the three new short mono MP3s. The manifest in
+`src/audio/store/manifest.json` records source/output hashes, durations and the
+offline pitch/treble processing. The three half-second generations cost 15
+credits in total; the private API key is not shipped. Raw receipts and the
+navigation/equip/purchase/rejection preview are in `.cache/store-sfx/`.
+
 ## Generating and publishing
 
 - `pnpm sfx:batch` prints every take without sending requests.
