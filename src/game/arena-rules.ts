@@ -450,10 +450,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   let vehicles: SharedVehicle[] = environment?.facilities?.savedVehicles ? structuredClone(environment.facilities.savedVehicles) : vehicleOptions ? (['car', 'helicopter'] as const).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind])) : [];
   if (environment?.facilities?.savedVehicles) for (const v of vehicles) { v.occupants = [null, null, null, null]; v.speed = v.climb = 0; }
   const controls = new Map<string, { input: VehicleControls; expires: number }>();
-  const vehicleLife = new Map<VehicleKind, { idle: number; wreck: number; stuck: number; wait: number; unload: boolean; think: number; lastThink: number; crew: string[]; assembleUntil: number; departed: boolean; goal?: VehicleSpawn }>();
+  const vehicleLife = new Map<VehicleKind, { idle: number; wreck: number; stuck: number; wait: number; unload: boolean; think: number; lastThink: number; crew: string[]; assembleUntil: number; departed: boolean; pickupDriver?: string; pickupStopped: number; goal?: VehicleSpawn }>();
   const lifeOf = (v: SharedVehicle) => {
     let life = vehicleLife.get(v.kind);
-    if (!life) { life = { idle: 0, wreck: 0, stuck: 0, wait: 0, unload: false, think: 0, lastThink: elapsed, crew: [], assembleUntil: 0, departed: false }; vehicleLife.set(v.kind, life); }
+    if (!life) { life = { idle: 0, wreck: 0, stuck: 0, wait: 0, unload: false, think: 0, lastThink: elapsed, crew: [], assembleUntil: 0, departed: false, pickupStopped: 0 }; vehicleLife.set(v.kind, life); }
     return life;
   };
   let tick = 0; let elapsed = 0; let finished = false; let winner = ''; let eventId = 0; let seed = 92371, hurtSerial = 0;
@@ -1003,7 +1003,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const mounted = seatOf(vehicles, id);
     if (mounted) {
       mounted.vehicle.occupants[mounted.seat] = null;
-      if (vehicleOptions?.openWorld && mounted.seat === 0 && !switching) lifeOf(mounted.vehicle).unload = true;
+      if (mounted.seat === 0) { const life = lifeOf(mounted.vehicle); life.pickupDriver = undefined; life.pickupStopped = 0; }
+      if (vehicleOptions?.openWorld && !switching && (mounted.seat === 0 ||
+        !members.get(id)?.actor.bot && !mounted.vehicle.occupants[0] && !mounted.vehicle.occupants.some(occupant => occupant && !members.get(occupant)?.actor.bot))) lifeOf(mounted.vehicle).unload = true;
     }
     const actor = members.get(id)?.actor; if (actor) { delete actor.vehicle; delete actor.seat; }
     controls.delete(id);
@@ -1033,7 +1035,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     if (action !== 'enter' || mounted) return false;
     const v = vehicles.find(v => v.kind === kind);
-    if (!v || v.health <= 0 || v.y > .4 || Math.abs(v.speed) > 2 || Math.hypot(entry.actor.x - v.x, entry.actor.z - v.z) > (v.kind === 'car' ? 4.5 : 6) || entry.actor.y > 3) return false;
+    if (!v || v.health <= 0 || v.y > (bounds.groundHeight?.(v.x, v.z) ?? 0) + .4 || Math.abs(v.speed) > 2 || v.kind === 'helicopter' && Math.abs(v.climb) > .5 || Math.hypot(entry.actor.x - v.x, entry.actor.z - v.z) > (v.kind === 'car' ? 4.5 : 6) || Math.abs(entry.actor.y - 1.75 - (v.y - .13)) > 1.25) return false;
     const center = { x: v.x, y: v.y + 1.3, z: v.z }, d = distance(entry.actor, center);
     const ray = { x: (center.x - entry.actor.x) / d, y: (center.y - entry.actor.y) / d, z: (center.z - entry.actor.z) / d };
     if (d > .1 && worldWallDistance(entry.actor, ray, d) < d - .2) return false;
@@ -2224,22 +2226,32 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       .sort((a, b) => distance(a.actor, v) - distance(b.actor, v));
   }
   function tryBoardVehicle(entry: InternalActor, visible: boolean, dt: number) {
-    if (!vehicleOptions?.openWorld || visible || (entry.order && entry.order.until > elapsed) || entry.anchor || entry.temporary || entry.heal || entry.actor.y > 2 ||
+    const order = entry.order && entry.order.until > elapsed && entry.order.since <= elapsed ? entry.order : undefined;
+    if (!vehicleOptions?.openWorld || order && order.kind !== 'gather' || entry.anchor || entry.temporary || entry.heal || entry.actor.y > (bounds.groundHeight?.(entry.actor.x, entry.actor.z) ?? 0) + 2 ||
       elapsed < (entry.vehicleBoardAfter ?? 0) || dangerExit(entry.actor) || entry.actor.health < entry.healthMax * .5) return false;
-    const v = vehicles.filter(v => (!v.faction || v.faction === entry.actor.faction) && v.health > VEHICLE_COMBAT[v.kind].health * .35 && v.ammo > 0 && v.y < .3 && Math.abs(v.speed) < 1 &&
+    const v = vehicles.filter(v => (!v.faction || v.faction === entry.actor.faction) && v.health > VEHICLE_COMBAT[v.kind].health * .35 && v.y < (bounds.groundHeight?.(v.x, v.z) ?? 0) + .3 && Math.abs(v.speed) < WORLD_VEHICLES.pickupSpeed && Math.abs(v.climb) <= .5 &&
       !lifeOf(v).unload && v.occupants.includes(null) && (v.kind === 'car' || !!v.occupants[0]) &&
       v.occupants.every(id => !id || members.get(id)?.actor.faction === entry.actor.faction) &&
+      // A player changing seats keeps their crew, but does not invite an AI driver.
+      (v.occupants[0] || !v.occupants.some(id => id && !members.get(id)?.actor.bot)) &&
       // Leave an unattended motor pool for a player who is already approaching it.
       (v.occupants[0] || ![...members.values()].some(m => !m.actor.bot && m.actor.alive && distance(m.actor, v) < 12)))
       .sort((a, b) => distance(entry.actor, a) - distance(entry.actor, b))
       .find(v => {
         const driver = v.occupants[0] ? members.get(v.occupants[0]) : undefined;
+        const pickup = driver && !driver.actor.bot && driver.actor.alive && driver.playing &&
+          lifeOf(v).pickupDriver === driver.actor.id && lifeOf(v).pickupStopped >= WORLD_VEHICLES.pickupSeconds;
+        if (driver && !driver.actor.bot && !pickup) return false;
+        // Follow the caller into their vehicle; explicit positioning orders still win.
+        if (order && (!pickup || order.by !== driver?.actor.id)) return false;
+        if (!pickup && (visible || v.ammo <= 0 || vehicleEnemy(entry, v))) return false;
         const recruited = driver?.actor.bot && !lifeOf(v).departed && lifeOf(v).crew.includes(entry.actor.id);
-        return distance(entry.actor, v) < (recruited ? WORLD_VEHICLES.crewRange : WORLD_VEHICLES.boardRange) && !vehicleEnemy(entry, v);
+        return distance(entry.actor, v) < (recruited ? WORLD_VEHICLES.crewRange : WORLD_VEHICLES.boardRange);
       });
     if (!v) return false;
     if (vehicleAction(entry.actor.id, 'enter', v.kind)) return true;
     // Walk to the hull's side using the same street collision as infantry.
+    entry.navigation = undefined;
     const d = Math.hypot(v.x - entry.actor.x, v.z - entry.actor.z), stride = Math.min(d, entry.role!.speed * dt);
     const dx = (v.x - entry.actor.x) / Math.max(.01, d) * stride, dz = (v.z - entry.actor.z) / Math.max(.01, d) * stride;
     const solids = vehicles.filter(other => other.y < 2).map(vehicleBounds);
@@ -2248,6 +2260,16 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       Object.assign(entry.actor, { x: next.x, y: next.y + 1.75, z: next.z }); entry.velocityY = next.velocityY;
     } else Object.assign(entry.actor, move(entry.actor, dx, dz, .4, [...groundObstacles, ...solids]));
     entry.actor.yaw = Math.atan2(-dx, -dz); return true;
+  }
+  /** Observe actual movement each tick: a brief pause or a seat change is not a pickup. */
+  function stepVehiclePickups(dt: number) {
+    for (const v of vehicles) {
+      const life = lifeOf(v), driver = v.occupants[0] ? members.get(v.occupants[0]) : undefined;
+      const stopped = driver && !driver.actor.bot && driver.actor.alive && driver.playing && v.health > 0 && !life.unload &&
+        Math.abs(v.speed) < WORLD_VEHICLES.pickupSpeed && Math.abs(v.climb) <= .5 && v.y < (bounds.groundHeight?.(v.x, v.z) ?? 0) + .3;
+      life.pickupStopped = stopped ? (life.pickupDriver === driver.actor.id ? life.pickupStopped : 0) + dt : 0;
+      life.pickupDriver = stopped ? driver.actor.id : undefined;
+    }
   }
   function stepVehicleBrains(dt: number) {
     for (const v of vehicles) {
@@ -2751,6 +2773,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     stepFacilities(dt); stepSquads(dt);
     if (vehicleOptions?.openWorld) stepVehicleBrains(dt);
     for (let remaining = dt; remaining > 1e-6; remaining -= Math.min(.05, remaining)) stepVehicles(Math.min(.05, remaining));
+    if (vehicleOptions?.openWorld) stepVehiclePickups(dt);
     stepRounds(dt);
     factionHeat?.step(dt);
     stepEvents(dt);

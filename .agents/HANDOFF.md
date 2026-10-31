@@ -5424,3 +5424,42 @@ results/captures, release-tests.log, visibility-tests.log, typecheck.log,
 deploy.log and cloudflare-check.log. Task-owned Vite and Chrome stopped.
 No GitHub push. Preserve concurrent handoff edits; AGENTS.md remains local,
 unstaged and uncommitted.
+
+
+## Player vehicle pickups and crew dismounts (2026-10-31)
+
+Player-driven cars and helicopters now invite nearby friendly infantry after
+one continuous second below 1 m/s, with helicopters landed and settled. Allies
+gathering on that driver can join, while explicit hold, move and scatter orders
+and another player's followers retain precedence. Existing physical entry
+range, cover, collision, health and danger checks remain; pickups can proceed
+under enemy fire and with an empty mounted gun. Gunner and then passenger
+vacancies fill without displacing occupants. Movement, driver departure and
+seat changes cancel the invitation. Ground-relative checks support raised
+terrain without boarding between different floors.
+
+Seat switching still cycles only vacant seats and keeps the crew aboard.
+AI cannot fill an empty driver seat while a human remains aboard. When the last
+human leaves after switching out of the driver seat, the remaining driverless
+crew safely unloads too. Existing driver-exit/death/disconnect unloading and
+12-second reboard cooldown remain; stops and nearby enemies do not unload a
+player's seated crew. Standing gather orders survive the ride.
+
+Validation: 125 relevant tests across eight files pass across the final targeted
+run and isolated world-vehicle recheck, including 20 new pickup regressions;
+typecheck and Cloudflare production build pass. The parallel run's Marina motor
+pool check exceeded its five-second timeout under machine contention; all 34
+world-vehicle tests passed when rerun with one worker and a 20-second timeout.
+The full suite was stopped after unrelated Queenstown upper-floor loot and
+Orchard map-timeout failures while prolonged map diagnostics continued; no
+full-suite or new visual browser-smoke pass is claimed. Logs are
+`.cache/vehicle-pickup-{final-tests,world-recheck,typecheck,full-tests}.log`.
+
+Manual `pnpm deploy:cloudflare` succeeded, version
+`1e2f9d87-b19c-467b-b899-6e4fbc642c60`. Production routing/assets/PWA/API-origin
+checks pass. Both blockplaysg.fun and workers.dev serve matching built entry
+JS/CSS, Three.js and service-worker hashes (eight asset checks). Receipts:
+`.cache/vehicle-pickup-deploy.log`, `.cache/vehicle-pickup-cloudflare-check.log`
+and `.cache/vehicle-pickup-live-verification.json`. No GitHub push or paid API
+requests. AGENTS.md stays local, unstaged and uncommitted. Preserve the
+pre-existing unstaged handoff changes and .claude directory.
