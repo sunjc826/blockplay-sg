@@ -192,6 +192,23 @@ export function applyBuild(base: WeaponSpec, parts: readonly InternalPart[] = []
 /** A variant as it leaves the armoury, before its fixed fittings are applied. */
 export const variantSpec = (item: ShopItem) =>
   item.category === 'weapon' && item.family !== undefined ? { ...applyBuild(FPS_WEAPONS[item.family], item.build), bipod: item.bipod ?? FPS_WEAPONS[item.family].bipod, requiresMount: item.requiresMount ?? FPS_WEAPONS[item.family].requiresMount, weightKg: item.weightKg ?? FPS_WEAPONS[item.family].weightKg } : null;
+/** Host bots and player loadouts must fire the same fitted weapon, including its suppressor and optic. */
+export function fittedVariantSpec(item: ShopItem): WeaponSpec | null {
+  const spec = variantSpec(item);
+  return spec ? applyFixedFittings({ ...spec, traits: collectTraits(spec.traits, ...(item.fitted ?? []).map(part => part.traits)) }, item.fitted ?? []) : null;
+}
+function applyFixedFittings<T extends WeaponSpec>(spec: T, fittings: readonly FittedPart[]): T {
+  for (const part of fittings) {
+    if (part.slot === 'optic' && part.stats?.optic) spec.optic = part.stats.optic;
+    if (part.accessories) spec.accessories = { ...spec.accessories, ...part.accessories };
+    const mod = part.modifiers; if (!mod) continue;
+    spec.capacity += mod.capacity || 0; spec.reload *= mod.reload || 1; spec.recoil *= mod.recoil || 1;
+    spec.recoilRecovery *= mod.recoilRecovery || 1; spec.mobility *= mod.mobility || 1;
+    if (mod.aimFov) spec.aimFov = mod.aimFov;
+    if (mod.velocity) spec.ballistics = Object.freeze({ ...spec.ballistics, velocity: Math.round(spec.ballistics.velocity * mod.velocity) });
+  }
+  return spec;
+}
 export interface EquippedWeapon extends WeaponSpec { equipment: GunEquipment; accent?: string; traits: readonly WeaponTrait[] }
 /**
  * What a rig and its inserts cost in movement. `mobility` scales walking speed;
@@ -227,16 +244,7 @@ export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
       rigSlots: 6 + Math.ceil((rig.carry || 0) / 30),
       reserve: built.capacity * (i === 2 ? 2 : built.feed && built.feed !== 'magazine' ? 3 : 4),
       traits: collectTraits(built.traits, ...fittings.map(part => part.traits)) };
-    for (const part of fittings) {
-      if (part.slot === 'optic' && part.stats?.optic) spec.optic = part.stats.optic;
-      if (part.accessories) spec.accessories = { ...spec.accessories, ...part.accessories };
-      const mod = part.modifiers; if (!mod) continue;
-      spec.capacity += mod.capacity || 0; spec.reload *= mod.reload || 1; spec.recoil *= mod.recoil || 1;
-      spec.recoilRecovery *= mod.recoilRecovery || 1; spec.mobility *= mod.mobility || 1;
-      if (mod.aimFov) spec.aimFov = mod.aimFov;
-      if (mod.velocity) spec.ballistics = Object.freeze({ ...spec.ballistics, velocity: Math.round(spec.ballistics.velocity * mod.velocity) });
-    }
-    return spec;
+    return applyFixedFittings(spec, fittings);
   });
   const quickItem = itemById(profile.quickItem);
   return { rigId: rig.id, plateId: plate.id, vision, weapons, carriedFamilies: carriedFamilies(profile), armorWeightKg: (rig.weightKg ?? 0) + (plate.weightKg ?? 0) + (visionItem?.weightKg ?? 0), suppliesWeightKg: beltWeightKg(profile.consumables, supplyWeightKg), supplies: heldSupplies(profile.consumables), vehicleSkins: { ...profile.vehicleSkins }, quickItem, quickCount: profile.consumables[profile.quickItem] || 0, armor: plate.protection || 0, absorption: plate.absorption || 0, insert: insertTraits(plate), mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };

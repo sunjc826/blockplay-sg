@@ -29,7 +29,7 @@ const only = new URLSearchParams(location.search).get('only');
 const variants = ARMORY_CATALOG.filter(item => item.category === 'weapon' && isEnemyIssue(item) && (!only || only.split(',').includes(item.id)));
 const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(innerWidth, innerHeight); renderer.setPixelRatio(1);
 renderer.setClearColor('#161e25'); renderer.outputColorSpace = THREE.SRGBColorSpace; document.body.append(renderer.domElement);
-const cols = only ? Math.min(2, variants.length) : 4, rows = only ? Math.ceil(variants.length / 2) : 3, w = innerWidth / cols, h = innerHeight / rows, scenes = [];
+const cols = only ? Math.min(2, variants.length) : 4, rows = Math.ceil(variants.length / cols), w = innerWidth / cols, h = innerHeight / rows, scenes = [];
 variants.forEach((item, i) => {
   const platform = FPS_WEAPONS[item.family], model = buildServiceWeapon(platform.id);
   // Resolved as the game resolves it, fixed fittings (the G36C's red dot) included.

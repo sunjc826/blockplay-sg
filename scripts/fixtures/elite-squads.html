@@ -1,0 +1,31 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Elite squad review</title><style>
+body{margin:0;background:#19222b;color:white;font:16px system-ui}header{position:absolute;top:20px;left:24px;text-shadow:0 1px 4px #000}small{display:block;margin-top:8px}canvas{display:block}
+</style></head><body><header>Black Kite special deployments<small id="status">Loading</small></header><script type="module">
+import * as THREE from 'three';
+import { createArena } from '/src/game/arena-rules.ts';
+import { validArenaSnapshot } from '/src/game/arena-runtime.ts';
+import { createCharacterRig } from '/src/game/character-rig.ts';
+import { arenaCharacterLook } from '/src/game/character-looks.ts';
+import { createCombatEventVisuals } from '/src/game/combat-event-visuals.ts';
+import { itemById } from '/src/game/armory-catalog.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#b4c8d1');scene.add(new THREE.HemisphereLight('#eef4ff','#515844',2.4));const sun=new THREE.DirectionalLight('#fff2d8',2.8);sun.position.set(10,30,5);scene.add(sun);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(500,500),new THREE.MeshStandardMaterial({color:'#8c9184',roughness:.9}));floor.rotation.x=-Math.PI/2;scene.add(floor);
+const grid=new THREE.GridHelper(400,80,'#787d73','#858b7e');scene.add(grid);
+const camera=new THREE.PerspectiveCamera(44,innerWidth/innerHeight,.1,500),rigs=[];
+const cast=(origin,direction,far)=>{if(direction.y>=0)return null;const d=-origin.y/direction.y;return d>=0&&d<=far?origin.clone().addScaledVector(direction,d):null;};
+const visuals=createCombatEventVisuals(scene,cast,{reduced:()=>false});
+window.reviewElite=(kind='command-hunt',age=10.1)=>{
+  for(const rig of rigs){scene.remove(rig.root);rig.dispose();}rigs.length=0;visuals.reset();
+  const environment={bounds:{minX:-200,maxX:200,minZ:-200,maxZ:200},spawns:[{x:0,z:0},{x:80,z:0}],playerSpawn:{x:0,z:0},endless:true,move:(p,dx,dz)=>({x:p.x+dx,z:p.z+dz})};
+  const arena=createArena([],0,'mixed',environment);arena.addPlayer('one','Alpha',0,0,undefined,undefined,true);
+  const event=arena.triggerEvent(kind,{x:80,z:0},0);for(let t=0;t<age-1e-8;t+=.05)arena.step(Math.min(.05,age-t));
+  const snapshot=arena.snapshot(),actors=snapshot.actors.filter(a=>a.id.includes('-elite-'));
+  for(const actor of actors){const rig=createCharacterRig(arenaCharacterLook(actor),actor.id);rig.root.position.set(actor.x,actor.y-1.75,actor.z);rig.root.rotation.y=actor.yaw;rig.update(.05,{aim:.65});scene.add(rig.root);rigs.push(rig);}
+  const center=event.origin;camera.position.set(center.x-13,7,center.z-17);camera.lookAt(center.x,1,center.z);camera.updateMatrixWorld(true);
+  visuals.update(.05,snapshot.events??[],snapshot.elapsed,camera);renderer.render(scene,camera);
+  const tiers=actors.map(a=>itemById(a.variant).tier);document.querySelector('#status').textContent=`${kind} · ${age.toFixed(1)}s · ${actors.length} veterans · ${tiers.join(' / ')}`;
+  return {kind,age,actors:actors.map(a=>({role:a.role,rank:a.rank,health:a.health,armor:a.armor,variant:a.variant})),valid:validArenaSnapshot(JSON.parse(JSON.stringify(snapshot)),environment),draws:renderer.info.render.calls};
+};
+window.reviewElite();window.ready=true;
+</script></body></html>

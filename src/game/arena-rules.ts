@@ -23,7 +23,7 @@ import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage } from './fps-s
 import { MARINA_BOUNDS, moveInMarina, type Obstacle } from './marina-collision';
 import { advanceWeapon, beginReload, createLoadout, FPS_WEAPONS, fireWeapon, hitDamage, interruptReload, reloadCommit, reloadProgress, roundReady, type WeaponSpec, type WeaponState } from './fps-rules';
 import { armamentFamilies, chooseArmament, getArenaRole, type ArenaRolePlugin } from './arena-roles';
-import { variantSpec } from './armory-state';
+import { fittedVariantSpec } from './armory-state';
 import { BOT_AIM, BOT_HEAL, advanceBotAimFocus, botAimScale, botBurstLimit, botFireCadence, botShotSpread, botTransverseSpeed, botWantsHeal, type BotAimFocus } from './arena-bot-combat';
 import { DRONE, DRONE_BLAST, MORTAR, OVERWATCH, RAID, SUPPLY } from './combat-event-catalog';
 import { combatPhase, combatTimeline, getCombatEvent, orbitPose, transportPose, MAX_COMBAT_EVENTS, MAX_TROOPS, type CloudPayload, type CombatEventDescriptor, type CombatOutcome, type CombatPlane, type CratePayload, type MunitionPayload, type OrbitPayload, type TransportPayload } from './combat-events';
@@ -44,7 +44,8 @@ import { createBotSpotting, spottingStance, type BotSpotting, type SpottingCandi
 import { objectiveApproach, objectiveStep, spacedObjectiveStep } from './bot-objectives';
 import { assignBattlefieldFronts, BATTLEFIELD_POPULATIONS, type BattlefieldSize } from './battlefield';
 import { createHeatField, HEAT_TUNING, type HeatBand, type HeatSector } from './faction-heat';
-import { drawRank, type BotRank } from './arena-ranks';
+import { BOT_RANKS, drawRank, type BotRank } from './arena-ranks';
+import { ELITE_SQUAD, eliteRoster, eliteSquadPoints, isEliteEvent, isEliteRole } from './elite-squads';
 import { muzzleSignature, sanitizeMuzzle, type MuzzleDevice } from './weapon-accessories';
 import { advanceFoodEffects, applyFoodEffects, arenaFoodModifiers, NO_FOOD, survivesWithAhMa, type ActiveFoodEffects } from './food-effects';
 import { CONSUMABLE_LIMIT, itemById } from './armory-catalog';
@@ -524,9 +525,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (entry.role) {
       // A fresh soldier off the transport: rank first, since it decides the kit.
       const strength = factionHeat && isSquad(entry.actor.faction) ? factionHeat.strength(entry.actor.faction, entry.home ?? null) : undefined;
-      entry.rank = drawRank(strength, armamentRandom); entry.actor.rank = entry.rank.grade;
+      entry.rank = isEliteRole(entry.role.id) ? BOT_RANKS[2] : drawRank(strength, armamentRandom); entry.actor.rank = entry.rank.grade;
       // Armour follows rank and heat: a hot sector's troops come back with heavier plates.
-      entry.armorMax = clamp(entry.role.armor * entry.rank.armor * (strength === undefined ? 1 : .75 + .5 * strength), 0, 150);
+      entry.armorMax = isEliteRole(entry.role.id) ? entry.role.armor : clamp(entry.role.armor * entry.rank.armor * (strength === undefined ? 1 : .75 + .5 * strength), 0, 150);
       if (entry.callsign) entry.actor.name = `${entry.rank.title[getArenaFaction(entry.actor.faction)?.side ?? 'opposition']} ${entry.callsign}`;
     }
     Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75 + (destination?.y ?? bounds.groundHeight?.(p.x,p.z) ?? 0), health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
@@ -537,7 +538,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     } else if (entry.role) {
       const issued = chooseArmament(entry.role, armamentRandom, entry.rank?.kit); entry.actor.weapon = issued.family; entry.actor.variant = issued.id;
       // What they carry is what they fire: the variant's damage, falloff, cycle, magazine and reload.
-      entry.spec = variantSpec(issued) ?? undefined;
+      entry.spec = fittedVariantSpec(issued) ?? undefined;
       if (entry.spec) entry.weapons[issued.family] = sanitizeWeapons([entry.spec])[0];
       entry.medkits = (entry.role.medkits ?? 1) + (entry.rank?.medkits ?? 0);
     }
@@ -1230,13 +1231,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function startEvent(directive: Pick<CombatEventDescriptor, 'kind' | 'seed' | 'target' | 'heading' | 'intensity' | 'reach' | 'troops' | 'faction' | 'landing' | 'origin' | 'altitude'>) {
     const plugin = getCombatEvent(directive.kind);
+    if (isEliteEvent(directive.kind) && events.some(e => isEliteEvent(e.descriptor.kind) && ['warning', 'active'].includes(combatPhase(e.descriptor, elapsed)))) return null;
     // At most three of a kind at once: transports are news and hazards are not, so a busy road never holds back a barrage.
     const alike = events.filter(e => combatPhase(e.descriptor, elapsed) !== 'aftermath' && !!getCombatEvent(e.descriptor.kind)?.hazard === !!plugin?.hazard);
     if (!plugin || finished || events.length >= MAX_COMBAT_EVENTS || alike.length >= 3) return null;
     const target = { x: clamp(directive.target.x, bounds.minX, bounds.maxX), z: clamp(directive.target.z, bounds.minZ, bounds.maxZ) };
     // Whose event it is: a transport says; anything else belongs to the side opposing whoever is nearest its
     // target, so shelling a player is the mercenaries' doing and shelling a mercenary patrol is fire support.
-    const owner = directive.faction ?? (plugin.id.startsWith('transport') ? DEFAULT_BOT_FACTION : ownerAt(target));
+    const owner = isEliteEvent(plugin.id) ? DEFAULT_BOT_FACTION : directive.faction ?? (plugin.id.startsWith('transport') ? DEFAULT_BOT_FACTION : ownerAt(target));
     const descriptor: CombatEventDescriptor = { id: `event-${++eventSerial}`, kind: plugin.id, seed: directive.seed >>> 0, start: elapsed, target,
       heading: Number.isFinite(directive.heading) ? directive.heading : 0, intensity: clamp(Number.isFinite(directive.intensity) ? directive.intensity : 1, .5, 2),
       ...(Number.isFinite(directive.reach) ? { reach: clamp(directive.reach!, 0, 400) } : {}),
@@ -1256,6 +1258,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    * height clear of the roofs. False when the district offers nowhere.
    */
   function place(d: CombatEventDescriptor) {
+    if (isEliteEvent(d.kind)) {
+      const center = eliteSite(d); if (!center) return false;
+      d.origin = center;
+    }
     if (d.kind === 'transport-sea' && !environment?.navalSites?.some(s => s.id === d.landing)) return false;
     if (d.kind === 'mortar') {
       const pit = mortarSite(d.target); if (!pit) return false;
@@ -1269,6 +1275,45 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       d.origin = { x: clamp(d.target.x + back.x * reach, bounds.minX - 30, bounds.maxX + 30), z: clamp(d.target.z + back.z * reach, bounds.minZ - 30, bounds.maxZ + 30) };
       d.altitude = flyingHeight(d.target, DRONE.loiter, 10, DRONE.height);
     }
+    return true;
+  }
+  /** All four slots must be walkable and distant from players and protected arrivals. */
+  function eliteSlotsClear(d: CombatEventDescriptor, center: CombatPlane) {
+    const points = eliteSquadPoints(center, d.heading), humans = humansAlive();
+    return points.every(p => {
+      const floor = floorAt({ ...p, y: (bounds.groundHeight?.(p.x, p.z) ?? 0) + 3.5 });
+      return clearSpawn(p) && Math.abs(groundHeight(p.x, p.z) - floor) < .6 &&
+        humans.every(h => Math.hypot(h.actor.x - p.x, h.actor.z - p.z) >= ELITE_SQUAD.minimumDistance) &&
+        (!environment?.playerSpawn || Math.hypot(environment.playerSpawn.x - p.x, environment.playerSpawn.z - p.z) >= ELITE_SQUAD.spawnClearance) &&
+        [...members.values()].every(m => !m.actor.alive || m.reserve || Math.hypot(m.actor.x - p.x, m.actor.z - p.z) >= 2);
+    });
+  }
+  function eliteSite(d: CombatEventDescriptor): CombatPlane | null {
+    const candidates = [d.target, ...validSpawns];
+    for (let i = 0; i < 16; i++) for (const radius of [55, 75, 95]) {
+      const a = d.heading + i * Math.PI / 8;
+      candidates.push({ x: d.target.x + Math.cos(a) * radius, z: d.target.z + Math.sin(a) * radius });
+    }
+    return candidates.filter(p => eliteSlotsClear(d, p)).sort((a, b) =>
+      Math.hypot(a.x - d.target.x, a.z - d.target.z) - Math.hypot(b.x - d.target.x, b.z - d.target.z))[0] ?? null;
+  }
+  /** Insert once after the warning. A player entering the marked area cancels the insertion. */
+  function fieldElite(event: RunningEvent) {
+    const d = event.descriptor, roster = eliteRoster(d.kind);
+    if (!d.origin || members.size + roster.length > MAX_ARENA_ACTORS || !eliteSlotsClear(d, d.origin)) return false;
+    const points = eliteSquadPoints(d.origin, d.heading);
+    roster.forEach((roleId, slot) => {
+      const role = getArenaRole(roleId)!, at = points[slot];
+      const entry = addMember(`${d.id}-elite-${slot}`, role.name, role.armor, role.absorption, FPS_WEAPONS, false, undefined, role)!;
+      entry.role = role; entry.healthMax = role.health;
+      Object.assign(entry.actor, { bot: true, role: role.id, faction: DEFAULT_BOT_FACTION, squad: d.id });
+      spawn(entry, { ...at, y: floorAt({ ...at, y: (bounds.groundHeight?.(at.x, at.z) ?? 0) + 3.5 }), yaw: d.heading });
+      entry.temporary = { event: d.id, from: elapsed }; entry.shieldUntil = 0;
+      entry.actor.name = slot === 0 && d.kind === 'command-hunt' ? 'Legendary Commander' : `Ultra ${role.name.replace(' rifleman', '').replace(' breacher', '').replace(' gunner', '')}`;
+      entry.mission = { ...d.target }; entry.actor.objective = d.kind;
+    });
+    event.crew = d.kind === 'command-hunt' ? 'Command squad' : 'Elite squad';
+    announce(d.kind === 'command-hunt' ? 'Command squad deployed · leader carries a Legendary rifle' : 'Elite sweep deployed · recover Ultra weapons from fallen specialists');
     return true;
   }
   /** A height `clear` metres over every roof round `center` out to `radius`, and at least `least` over the ground there. */
@@ -1570,7 +1615,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       // The hotter the fight, the sooner the next strike: contractors calling fire most, the forces' own support some.
       const tempo = factionHeat ? 1 + HEAT_PACE.mercenaries * factionHeat.surge('mercenaries') + HEAT_PACE['armed-forces'] * factionHeat.surge(PLAYER_FACTION) : 1;
       const directive = director.step({ now: elapsed, active: events.map(e => e.descriptor), humans, bounds, avoid: environment?.playerSpawn ? [environment.playerSpawn] : [],
-        heat: [...heat.values()], places: validSpawns, tempo });
+        heat: [...heat.values()], places: validSpawns, tempo, enemyHeat: factionHeat ? Math.max(...factionHeat.snapshot().map(row => row.mercenaries)) : 0 });
       if (directive && !startEvent(directive)) director.refused(directive, elapsed);
     }
     if (environment?.reinforcements) {
@@ -1582,6 +1627,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     liveClouds = [];
     for (const event of events) {
       const age = elapsed - event.descriptor.start;
+      if (isEliteEvent(event.descriptor.kind) && event.descriptor.ended === undefined && age >= ELITE_SQUAD.warning && !event.resolved.has(-1)) {
+        event.resolved.add(-1);
+        if (!fieldElite(event)) { endEvent(event, 'withdrawn'); announce('Elite insertion aborted · landing area compromised'); }
+      }
       for (const payload of combatTimeline(event.descriptor)) {
         if (payload.type === 'cloud') {
           if (age < payload.from || age > payload.until) continue;
@@ -1606,6 +1655,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const d = event.descriptor, crew = [...members.values()].filter(m => m.temporary?.event === d.id);
       if (d.ended === undefined && !crew.some(m => m.actor.alive)) { endEvent(event, 'silenced'); announce(`${event.crew} silenced`); }
       const presence = combatTimeline(d).find(p => p.type === 'presence');
+      if (isEliteEvent(d.kind) && presence && elapsed - d.start > presence.until && d.ended === undefined) {
+        endEvent(event, 'withdrawn'); announce(`${event.crew} withdrew`);
+      }
       if (presence && elapsed - d.start > presence.until) for (const m of crew) if (m.actor.alive) dismiss(m.actor.id);
     }
     for (let i = events.length - 1; i >= 0; i--) if (combatPhase(events[i].descriptor, elapsed) === 'done') { const id = events[i].descriptor.id; clearTransport(id); raiders.delete(id); events.splice(i, 1); }

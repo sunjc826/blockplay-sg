@@ -340,8 +340,9 @@ out-kills every gun it outranks. They are token-priced and unlock later the
 higher they go. Each has its own shop colours (teal, violet, crimson with a
 gold edge and a slow glow, which reduced motion stills), its own flash, tracer
 and brass (`fps-effect-styles`), and a rarity chip beside the weapon's name in
-the field HUD from Elite up. Enemy issue stays within Issued to Elite, so bots
-never carry these and expedition loot never rolls them.
+the field HUD from Elite up. Ordinary enemy patrols stay within Issued to Elite.
+Rare Black Kite squads carry their own Ultra and Legendary enemy configurations;
+these must be recovered from casualties and never roll in supply crates.
 
 The sidearm carries most of them because it has the least balance to protect:
 it already trails the main weapons, so the P30 gets a machine pistol and a
@@ -664,17 +665,29 @@ claiming one gets the baseline instead: taken weapons last one expedition.
 | MG4 | Issued | standard | 31 | 100 | Belt-fed, bipod |
 | MG4KE | Field | short | 29 | 100 | Short barrel, quick bipod |
 | MG4 · Sustained Fire | Elite | heavy | 38 | 200 | Heavy barrel, 200-round box |
+| XM8 · Spectre | Ultra | compact | 40 | 30 | Suppressed breacher, laser/light, 24 m full damage |
+| G36 · Sentinel | Ultra | rifle | 46 | 30 | Braked rifle, 3× scope, laser/light, 42 m full damage |
+| MG4 · Bastion | Ultra | heavy | 43 | 200 | Control brake, heavy bipod, 38 m full damage; long belt change |
+| XM8 · Sovereign | Legendary | sharpshooter | 58 | 20 | Suppressed command DMR, 3.5× scope, 2.2× precision, 55 m full damage |
+| G36 · Regent | Legendary | rifle | 51 | 30 | Suppressed command rifle, 3× scope, 2× precision, 48 m full damage |
+
+**Rare deployments.** [Elite sweeps and command hunts](COMBAT-EVENTS.md#rare-black-kite-squads)
+are the only source of these five variants. Every member is a veteran in
+GPMG-rated composite plates. Ultra specialists have blue helmet bands and labels;
+the legendary commander uses gold. Equipment remains expedition-only, following
+the same enemy-drop and save-restoration rules as ordinary enemy weapons.
 
 **Who carries what.** Each bot role lists weighted `armament`
 (`arena-roles.ts`), drawn again at every spawn on its own seeded stream:
 assault squads carry XM8 and G36 rifles, tanks the MG4 family, MG36 and XM8 AR,
 snipers the XM8 Sharpshooter or a G36. The draw decides what they hold, what
 they leave behind and how they fight with it: a bot's loadout slot takes the
-drawn variant's own figures (`variantSpec`), so its damage, falloff and
+drawn variant's fitted figures (`fittedVariantSpec`), so its damage, falloff and
 precision multiplier (`hitDamage`, by range and by whether the round reached
 the head), cycle, magazine and reload are the variant's. A role's `weapon` is
 only the fallback for a slot no draw fills. Every mode's bots are armed this
-way; only an expedition has pickups.
+way; only an expedition has pickups. Fixed suppressors, optics, recoil and muzzle
+velocity resolve identically for the bot and the player who takes its weapon.
 
 **How bots shoot it** (`arena-bot-combat.ts`). A trigger pull is a burst of
 the role's `burst` length (assault 2–4, tank 4–8, sniper 1) at the weapon's own

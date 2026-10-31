@@ -1,4 +1,5 @@
 import { GRENADE_CATALOG, type GrenadeSpec } from './grenade-catalog';
+import { ENEMY_ULTRA_CATALOG } from './enemy-ultra-catalog';
 import type { BipodKind } from './weapon-support';
 import type { WeaponAccessories } from './weapon-accessories';
 import { HIP_FOV, magnifiedFov, type WeaponFeed, type WeaponSpec, type WeaponTrait } from './fps-rules';
@@ -209,6 +210,7 @@ export const ARMORY_CATALOG: readonly ShopItem[] = [
   { id: 'plate-durian', weightKg: 6.5, requiredLevel: 30, name: 'Durian · Mao Shan Wang', flavorText: 'The king of fruits. Banned on the MRT. Not banned here, unfortunately for everyone near you.', category: 'plate', tier: 'Elite', price: 360, currency: 'tokens', protection: 150, absorption: .85, stops: 'gpmg', scent: true, mobility: .93, description: 'The thickest husk there is, rated for GPMG rounds: 150 armor points and 85% absorption, the most of any insert, at a 7% movement cost. Everyone knows you are coming. In the arena it puts you on every opponent\u2019s minimap, and bots see you from half again as far and smell you through smoke.' },
   { id: 'plate-pillbox', weightKg: 13, requiredLevel: 34, name: 'Heavy · Pillbox', flavorText: 'Built like the ones at Labrador Park. Moves like them too.', category: 'plate', tier: 'Elite', price: 420, currency: 'tokens', protection: 150, absorption: .8, stops: 'heavy', mobility: .84, description: 'The only inserts rated for heavy MG rounds: 150 armor points and 80% absorption, held in full against a .50. A 16% movement cost, the heaviest on the shelf, and slower to aim and to climb under.' },
   ...GRENADE_CATALOG,
+  ...ENEMY_ULTRA_CATALOG,
 ];
 export const itemById = (id: string) => ARMORY_CATALOG.find(item => item.id === id);
 export const isEnemyIssue = (item: Pick<ShopItem, 'source'> | undefined) => item?.source === 'enemy';

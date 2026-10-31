@@ -27,7 +27,7 @@ export interface BotRank {
   /** Field dressings carried beyond the role's own. */
   medkits: number;
   /** Multiplier on each armament choice's weight, by the variant's catalog tier. */
-  /** Weights by rarity. Enemy issue goes no higher than Elite; the kitted tiers above it are shop-only. */
+  /** Ordinary patrol pools end at Elite. Rare event roles have their own Ultra/Legendary pools. */
   kit: Readonly<Record<Extract<ShopItem['tier'], 'Issued' | 'Field' | 'Elite'>, number>>;
 }
 

@@ -5,6 +5,7 @@ import './fps-debug.css';
 const DEBUG_EVENTS = [
   ['artillery', 'Artillery', '35 m ahead'], ['artillery-creeping', 'Moving barrage', '3 advancing salvos'], ['mortar', 'Mortar', '35 m ahead'], ['air-raid', 'Air raid', '35 m ahead'],
   ['helicopter-raid', 'Gunship', 'hunts you'], ['drone', 'Drone', 'hunts you'], ['sniper', 'Sniper', 'overlooks you'],
+  ['elite-sweep', 'Elite sweep', '4 Ultra-equipped veterans'], ['command-hunt', 'Command hunt', 'legendary squad leader'],
   ['tear-gas', 'Tear gas', '35 m ahead'], ['smoke-screen', 'Smoke', '25 m ahead'], ['supply-drop', 'Supply drop', '30 m ahead'],
   ['blackout', 'Blackout', 'jams the map'], ['transport-land', 'Truck', 'reinforce'], ['transport-air', 'Helicopter', 'reinforce'], ['transport-sea', 'Landing craft', 'Sentosa coast'], ['paratroopers', 'Paratroopers', 'inland drop'],
 ] as const;

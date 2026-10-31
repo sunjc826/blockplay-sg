@@ -120,6 +120,24 @@ registerArenaRole({
   think: ({ visible }) => ({ approach: 0, strafe: 0, fire: visible, shotDelay: 2.4, spread: 0.006 }),
 });
 
+// Event-only specialists keep rare gear out of ordinary patrol and respawn draws.
+for (const [id, name, armament, health, armor, speed, spread, delay, burst] of [
+  ['elite-rifleman', 'Sentinel rifleman', [{ variant: 'g36-sentinel', weight: 1 }], 120, 120, 2.8, .018, .75, [2, 3]],
+  ['elite-breacher', 'Spectre breacher', [{ variant: 'xm8-spectre', weight: 1 }], 115, 110, 3.3, .023, .65, [2, 4]],
+  ['elite-gunner', 'Bastion gunner', [{ variant: 'mg4-bastion', weight: 1 }], 140, 150, 1.9, .028, 1.2, [4, 6]],
+  ['elite-commander', 'Legendary commander', [{ variant: 'xm8-sovereign', weight: 1 }, { variant: 'g36-regent', weight: 1 }], 150, 150, 2.6, .01, 1.1, [1, 2]],
+] as const) registerArenaRole({
+  id, name, description: 'Veteran Black Kite specialist. Rare event deployment only, with rated composite plates and exceptional aim.',
+  health, armor, absorption: id === 'elite-commander' ? .78 : .72, stops: 'gpmg', speed,
+  sightRange: id === 'elite-commander' ? 115 : 95, reaction: id === 'elite-commander' ? .6 : .7,
+  eventOnly: true, armament, weapon: { ...FPS_WEAPONS[0] }, burst, medkits: 2,
+  think: ({ distance, visible, strafeDirection }) => ({
+    approach: !visible || distance > (id === 'elite-breacher' ? 18 : id === 'elite-gunner' ? 35 : 40) ? 1 : distance < 12 ? -.7 : 0,
+    strafe: visible ? strafeDirection * (id === 'elite-gunner' ? .12 : .45) : strafeDirection * .2,
+    fire: visible, shotDelay: delay, spread,
+  }),
+});
+
 export const ARENA_ROLE_OPTIONS = [
   { id: 'mixed', name: 'Mixed squad', description: 'A mix of assault, heavy infantry and sniper bots.' },
   ...listArenaRoles().map(({ id, name, description }) => ({ id, name, description })),

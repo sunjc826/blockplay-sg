@@ -1,6 +1,7 @@
 import { PARATROOPERS } from './paratroopers';
 import { NAVAL } from './naval-landings';
 import { PLAYER_FACTION } from './arena-factions';
+import { ELITE_SQUAD } from './elite-squads';
 import { combatRandom, descentAlong, registerCombatEvent, MAX_TROOPS, type BlastSpec, type CombatEventDescriptor, type CombatPayload, type CombatPlane } from './combat-events';
 
 /**
@@ -376,6 +377,21 @@ registerCombatEvent({
   banner: { warning: 'JAMMING DETECTED', active: 'COMMS JAMMED · MAP DOWN' },
   timeline: () => [{ type: 'jam', id: 0, from: BLACKOUT.warning, until: BLACKOUT.until }],
 });
+for (const [id, name, duration, warning, active] of [
+  ['elite-sweep', 'Black Kite elite sweep', 150, 'ELITE SQUAD INBOUND · ULTRA GEAR', 'ELITE SWEEP · COMPOSITE PLATES / ULTRA WEAPONS'],
+  ['command-hunt', 'Black Kite command hunt', 180, 'COMMAND SQUAD INBOUND · LEGENDARY LEADER', 'COMMAND HUNT · LEADER CARRIES A LEGENDARY WEAPON'],
+] as const) registerCombatEvent({
+  id, name, duration, warning: ELITE_SQUAD.warning, hazard: true, targeting: { policy: 'area', range: [55, 95] },
+  description: id === 'elite-sweep'
+    ? 'Four veteran specialists sweep the district with Ultra weapons and composite plates. Defeat them to recover their equipment.'
+    : 'A legendary commander and three Ultra-equipped veterans hunt the district after sustained high heat. Kill the leader to recover their rifle.',
+  banner: { warning, active },
+  timeline: event => [
+    { type: 'marker', id: 0, center: { ...(event.origin ?? event.target) }, radius: 9, from: 0, until: ELITE_SQUAD.warning, colour: id === 'command-hunt' ? '#d4ad58' : '#8ba7ed' },
+    { type: 'presence', id: 1, until: duration },
+  ],
+});
+
 /** A friendly ride is the same truck or helicopter; only what the HUD and comms call it changes. */
 const FRIENDLY_BANNERS: Readonly<Record<string, { warning: string; active: string }>> = {
   'transport-land': { warning: 'FRIENDLY TRUCK INBOUND · ARMED FORCES', active: 'FRIENDLY SECTION DISMOUNTING' },

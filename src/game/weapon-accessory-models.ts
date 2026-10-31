@@ -26,12 +26,17 @@ const RAIL: Record<string, RailMount> = {
   // Right side of each handguard, which the GLBs put at x ±.040 and ±.032.
   'sar21-inspired': { x: .052, y: .19, z: -.2, under: false },
   'ultimax-inspired': { x: .044, y: .18, z: -.29, under: false },
+  'xm8-inspired': { x: .054, y: .20, z: -.245, under: false },
+  'g36-inspired': { x: .055, y: .20, z: -.27, under: false },
 };
 /** The muzzle device's bore radius and length, by platform. */
 const MUZZLE: Record<string, { radius: number; suppressor: number; compensator: number }> = {
   'p30-inspired': { radius: .0165, suppressor: .15, compensator: .042 },
   'sar21-inspired': { radius: .021, suppressor: .17, compensator: .06 },
   'ultimax-inspired': { radius: .021, suppressor: .17, compensator: .06 },
+  'xm8-inspired': { radius: .021, suppressor: .17, compensator: .06 },
+  'g36-inspired': { radius: .021, suppressor: .17, compensator: .06 },
+  'mg4-inspired': { radius: .023, suppressor: .18, compensator: .065 },
 };
 
 export const MUZZLE_EXIT = 'fps-muzzle-exit';

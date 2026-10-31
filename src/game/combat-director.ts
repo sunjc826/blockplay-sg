@@ -1,4 +1,5 @@
 import { combatPhase, combatRandom, combatTimeline, getCombatEvent, type CombatEventDescriptor, type CombatPlane } from './combat-events';
+import { ELITE_SQUAD, isEliteEvent } from './elite-squads';
 
 /**
  * Decides when a combat event starts and where it lands. Pure and seeded: the
@@ -7,7 +8,7 @@ import { combatPhase, combatRandom, combatTimeline, getCombatEvent, type CombatE
  */
 
 export type CombatRisk = 'low' | 'medium' | 'high';
-export interface CombatDirectorEntry { kind: string; weight: number; cooldown: number }
+export interface CombatDirectorEntry { kind: string; weight: number; cooldown: number; minElapsed?: number; minHotSeconds?: number }
 /** Seconds to the first event and between events, and how much each throws, by district risk. */
 export const COMBAT_PACE: Readonly<Record<CombatRisk, { first: readonly [number, number]; gap: readonly [number, number]; intensity: number }>> = {
   low: { first: [45, 75], gap: [110, 190], intensity: .75 },
@@ -29,12 +30,16 @@ export const COMBAT_TABLES: Readonly<Record<CombatRisk, readonly CombatDirectorE
     { kind: 'sniper', weight: 2, cooldown: 120 }, { kind: 'smoke-screen', weight: 1, cooldown: 90 }, { kind: 'tear-gas', weight: 1, cooldown: 90 },
     { kind: 'supply-drop', weight: 2, cooldown: 150 }, { kind: 'blackout', weight: 1, cooldown: 240 },
     { kind: 'air-raid', weight: 1, cooldown: 180 }, { kind: 'helicopter-raid', weight: 1, cooldown: 180 },
+    { kind: 'elite-sweep', weight: .35, cooldown: ELITE_SQUAD.cooldown, minElapsed: 180 },
+    { kind: 'command-hunt', weight: .12, cooldown: ELITE_SQUAD.cooldown, minElapsed: 360, minHotSeconds: 45 },
   ],
   high: [
     { kind: 'artillery', weight: 1.5, cooldown: 45 }, { kind: 'artillery-creeping', weight: 1.5, cooldown: 45 }, { kind: 'mortar', weight: 2, cooldown: 75 }, { kind: 'drone', weight: 2, cooldown: 75 },
     { kind: 'sniper', weight: 2, cooldown: 100 }, { kind: 'air-raid', weight: 2, cooldown: 150 }, { kind: 'helicopter-raid', weight: 2, cooldown: 150 },
     { kind: 'tear-gas', weight: 1, cooldown: 90 }, { kind: 'smoke-screen', weight: 1, cooldown: 90 },
     { kind: 'supply-drop', weight: 1, cooldown: 150 }, { kind: 'blackout', weight: 1, cooldown: 240 },
+    { kind: 'elite-sweep', weight: .55, cooldown: ELITE_SQUAD.cooldown, minElapsed: 180 },
+    { kind: 'command-hunt', weight: .25, cooldown: ELITE_SQUAD.cooldown, minElapsed: 360, minHotSeconds: 45 },
   ],
 };
 /** Artillery alone: what tests and callers that want only the original barrage pass as `table`. */
@@ -76,6 +81,8 @@ export interface CombatDirectorView {
    * mid-wait brings the next strike forward.
    */
   tempo?: number;
+  /** Highest current mercenary sector heat. Command hunts need >= .8 continuously for 45 s. */
+  enemyHeat?: number;
 }
 export type CombatDirective = Pick<CombatEventDescriptor, 'kind' | 'seed' | 'target' | 'heading' | 'intensity'>;
 
@@ -84,7 +91,8 @@ export function createCombatDirector(options: { risk: CombatRisk; seed: number; 
   const random = combatRandom(options.seed);
   const between = ([low, high]: readonly [number, number]) => low + random() * (high - low);
   const lastFired = new Map<string, number>();
-  const cooldownKey = (kind: string) => kind === 'artillery-creeping' ? 'artillery' : kind;
+  const cooldownKey = (kind: string) => isEliteEvent(kind) ? 'elite-squad' : kind === 'artillery-creeping' ? 'artillery' : kind;
+  let hotSince: number | undefined;
   /** The wait began at `since` and runs `drawn` seconds at tempo 1; `retry` holds off a look that found nothing to do. */
   let since = 0, drawn = between(pace.first), retry = 0;
   const due = (tempo = 1) => Math.max(retry, since + drawn / Math.min(4, Math.max(.25, Number.isFinite(tempo) ? tempo : 1)));
@@ -136,11 +144,15 @@ export function createCombatDirector(options: { risk: CombatRisk; seed: number; 
     /** Seconds until the director next tries; for diagnostics and tests. */
     get next() { return due(); },
     step(view: CombatDirectorView): CombatDirective | null {
+      if ((view.enemyHeat ?? 0) >= .8) hotSince ??= view.now; else hotSince = undefined;
       if (!table.length || view.now < due(view.tempo)) return null;
       // One hazard at a time: the next one is timed from when the last finishes landing.
       // News (a reinforcement truck, a supply drop, a blackout) does not hold fire control up.
       if (view.active.some(e => getCombatEvent(e.kind)?.hazard && ['warning', 'active'].includes(combatPhase(e, view.now)))) { retry = view.now + RETRY; return null; }
-      const ready = table.filter(e => view.now - (lastFired.get(cooldownKey(e.kind)) ?? -Infinity) >= e.cooldown);
+      const ready = table.filter(e => view.now >= (e.minElapsed ?? 0) &&
+        (!e.minHotSeconds || hotSince !== undefined && view.now - hotSince >= e.minHotSeconds) &&
+        (!isEliteEvent(e.kind) || !view.active.some(a => isEliteEvent(a.kind) && ['warning', 'active'].includes(combatPhase(a, view.now)))) &&
+        view.now - (lastFired.get(cooldownKey(e.kind)) ?? -Infinity) >= e.cooldown);
       if (!ready.length || !view.humans.length) { retry = view.now + RETRY; return null; }
       let pick = random() * ready.reduce((sum, e) => sum + e.weight, 0), entry = ready[0];
       for (const candidate of ready) { pick -= candidate.weight; if (pick <= 0) { entry = candidate; break; } }
@@ -151,7 +163,7 @@ export function createCombatDirector(options: { risk: CombatRisk; seed: number; 
     },
     /** The host could not place what it was handed (no perch, no pit): forget it and look again soon. */
     refused(directive: CombatDirective, now: number) { lastFired.delete(cooldownKey(directive.kind)); since = now; drawn = 0; retry = now + RETRY; },
-    reset() { lastFired.clear(); since = 0; drawn = between(pace.first); retry = 0; },
+    reset() { lastFired.clear(); hotSince = undefined; since = 0; drawn = between(pace.first); retry = 0; },
   };
 }
 export type CombatDirector = ReturnType<typeof createCombatDirector>;

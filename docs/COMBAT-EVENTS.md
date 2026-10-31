@@ -592,6 +592,58 @@ strikes come about 2.4 times as often.
 
 The clock restarts in each district, because each one runs its own match.
 
+## Rare Black Kite squads
+
+Two rare infantry events use the normal host combat simulation, HUD warnings,
+map markers and expedition weapon drops. They are hostile Black Kite troops,
+including when their arrival point is near a mercenary patrol. Low-risk districts
+never schedule them. **Random events** disables automatic calls; **Elite sweep**
+and **Command hunt** in the debug panel can call them directly for review.
+
+| Event | Automatic eligibility | Weight, medium / high | Composition | Duration |
+| --- | --- | --- | --- | --- |
+| Elite sweep | At least 180 s in the district | 0.35 / 0.55 | Two Sentinel riflemen, one Spectre breacher, one Bastion gunner; all Ultra | 150 s |
+| Command hunt | At least 360 s, with maximum mercenary sector heat at least 0.8 continuously for 45 s | 0.12 / 0.25 | A Sovereign or Regent legendary commander, one Sentinel, one Spectre, one Bastion | 180 s |
+
+Weights are relative to the other eligible combat events, not per-frame chances.
+Both share a **600 s cooldown**, and only one elite event may be warning or
+active at once. Falling below 0.8 heat resets the command qualification timer.
+The usual director hazard exclusion still applies, so a barrage is not scheduled
+on top of an active elite deployment. District changes reset these clocks.
+
+The host marks a clear four-person formation and gives **10 s warning**. Every
+slot must be walkable, at least **45 m from every living player**, **30 m from
+the protected arrival**, and 2 m from existing living actors. It checks again
+at insertion: a compromised site cancels the event instead of relocating onto
+the player. All four slots must fit; partial squads are refused.
+
+| Specialist | Health / armor | Absorption | Movement | Base aim error |
+| --- | --- | --- | --- | --- |
+| Sentinel rifleman | 120 / 120 | 72% | 2.8 m/s | 0.018 |
+| Spectre breacher | 115 / 110 | 72% | 3.3 m/s | 0.023 |
+| Bastion gunner | 140 / 150 | 72% | 1.9 m/s | 0.028 |
+| Legendary commander | 150 / 150 | 78% | 2.6 m/s | 0.010 |
+
+All are veterans: 0.75× role aim error, improved target leading, composite plates
+rated for GPMG rounds, and three dressings. Ultra bands/labels are blue, command
+bands/labels gold. They advance toward the event objective and fight visible
+hostiles using normal sight acquisition, cover, target-motion penalties, burst
+limits, reloads, healing and player shooter limits. They have no wall vision or
+automatic hits. Breaking sight, flanking the slow support gunner and attacking
+during reloads remain effective.
+
+The actual carried variant is the dropped weapon. All three Ultra firearms and
+both legendary rifles are enemy-only: no ordinary patrol draw, purchase, crate,
+or permanent ownership. Defeating the squad ends the event `silenced`; surviving
+troops withdraw at expiry. None respawn. Reset removes the event and its troops.
+
+Validation: `elite-squads.test.ts` covers equipment, scheduling/heat/cooldown,
+warning safety, compromised/blocked sites, combat, snapshot round trips, drops,
+deaths and withdrawal. `node scripts/elite-squads-smoke.mjs` uses Vite on 5181
+and isolated Chrome CDP on 9231 to inspect both real host deployments and all
+five dressed weapon models. Fixtures live in `scripts/fixtures/elite-squads.html`
+and `enemy-weapons.html`; evidence goes to `.cache/elite-squads/`.
+
 ## Budgets
 
 - Concurrent events: 2 (one major, one minor). Descriptors in a snapshot: ≤ 4
