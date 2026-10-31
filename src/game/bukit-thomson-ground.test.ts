@@ -67,9 +67,11 @@ it('connects both low station approaches to the public waiting shelter', () => {
 it('reaches the same sheltered Plaza landing by direct steps and the longer side ramp', () => {
   walk(tm,[{x:85,y:0,z:-8},{x:85,y:0,z:-9},{x:85,y:.6,z:-13},{x:85,y:.6,z:-17}]);
   walk(tm,[{x:49,y:0,z:-17},{x:50,y:0,z:-17},{x:73,y:.6,z:-17},{x:85,y:.6,z:-17}]);
-  const ray=new THREE.Raycaster(new THREE.Vector3(84.27,.9,-16.71),new THREE.Vector3(0,-1,0),0,.4);
-  const floor=ray.intersectObject(thomson.scene,true).filter(hit=>hit.face!.normal.y>.99);
-  expect(floor).toHaveLength(1); expect(floor[0].point.y).toBeCloseTo(.6);
+  for (const [x,z] of [[84.27,-16.71],[85.17,-21.12]]) {
+    const ray=new THREE.Raycaster(new THREE.Vector3(x,.9,z),new THREE.Vector3(0,-1,0),0,.4);
+    const floor=ray.intersectObject(thomson.scene,true).filter(hit=>hit.face!.normal.y>.99);
+    expect(floor).toHaveLength(1); expect(floor[0].point.y).toBeCloseTo(.6);
+  }
 });
 
 it('keeps the steep reserve hill beyond the road instead of ramping up its carriageway', () => {

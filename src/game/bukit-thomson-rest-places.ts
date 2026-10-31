@@ -40,7 +40,7 @@ export const THOMSON_FOREST_REST: VerticalPlace = {
 export const THOMSON_PLAZA_ACCESS: VerticalPlace = {
   id:'thomson-plaza-entrance', name:'Thomson Plaza entrance landing',
   note:'A low sheltered landing with a direct stair and longer side ramp, adapted from the reviewed exterior photo.',
-  floors:[{id:'entrance-landing',x:85,z:-17,y:.6,width:24,depth:8,foundation:'solid',supports:false,rails:false,color:'#c9c4b3'}],
+  floors:[{id:'entrance-landing',x:85,z:-17.5,y:.6,width:24,depth:9,foundation:'solid',supports:false,rails:false,color:'#c9c4b3'}],
   connections:[
     {id:'side-ramp',from:{x:50,z:-17,y:0},to:{x:73,z:-17,y:.6},width:4,foundation:'solid',rails:false,color:'#c9c4b3'},
     {id:'front-steps',from:{x:85,z:-9,y:0},to:{x:85,z:-13,y:.6},width:6,stairs:true,rails:false,color:'#c9c4b3'},
