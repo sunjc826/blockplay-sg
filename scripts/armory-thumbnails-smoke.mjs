@@ -39,7 +39,8 @@ try {
     throw new Error(`Timeout waiting for ${expression}`);
   }
   async function checkCards(label) {
-    await evaluate(`Promise.all([...document.querySelectorAll('.armory-item-preview')].map(i=>{i.loading='eager';return i.decode()}))`);
+    await evaluate(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
+    await evaluate(`Promise.all([...document.querySelectorAll('.armory-item-preview')].map(i=>{i.loading='eager';return i.decode().catch(()=>{throw new Error('Image failed: '+i.src)})}))`);
     const result = await evaluate(`({cards:document.querySelectorAll('.armory-item').length,images:[...document.querySelectorAll('.armory-item-preview')].filter(i=>i.complete&&i.naturalWidth===480).length,canvases:document.querySelectorAll('canvas').length,overflow:document.documentElement.scrollWidth>innerWidth+1})`);
     if(!result.cards || result.cards!==result.images || result.canvases!==1 || result.overflow) throw new Error(label+JSON.stringify(result));
     console.log(label, result);
