@@ -1,12 +1,12 @@
 # Proxy faction weapon studies
 
-Status: **four exterior art candidates**, not locked loadouts. Review at
+Status: **six exterior art candidates**, not locked loadouts. Review at
 **`/faction-designs?study=weapons`**, linked from the operator gallery. Profile,
 other-side, oblique and front presets, drag rotation and grayscale support
 silhouette review on desktop and mobile. Every study uses the same viewing
 scale, so the compact bullpup and long precision rifle retain their differences.
 
-This is a bounded first pass for Freedom Force and the newly named **Collective
+This is a bounded art pass for Freedom Force and the newly named **Collective
 Corps**. The stable faction ID remains `collective-cops`. The specialist roster
 is not expanded into matching assault/heavy/sniper classes.
 
@@ -15,6 +15,8 @@ is not expanded into matching assault/heavy/sniper classes.
 | Faction / specialist | Recommended reference | Original game study | Why start here |
 |---|---|---|---|
 | Freedom Force / Lancer | SIG MCX SPEAR LT | **Strider** (`ff-strider`) | Compact modular rifle; open folding-stock shape and low reflex sight suit the expeditionary entry specialist |
+| Freedom Force / Lancer option | FN SCAR-L | **Democracy Lite** (`ff-scar-l`) | Compact family upper, narrow curved magazine, shared folding-style stock and a low reflex hood |
+| Freedom Force / Wayfinder option | FN SCAR-H | **Democracy Deluxe** (`ff-scar-h`) | Broader receiver and magazine well, wider straight magazine, prism optic; distinct from the Longwatch precision configuration |
 | Freedom Force / Wayfinder | FN Mk 20 / SCAR 20S | **Longwatch** (`ff-longwatch`) | Extended upper, precision stock, short box magazine, large scope and folded bipod give the observer a distinct long silhouette |
 | Collective Corps / Bastion | QBZ-95 family | **Gatekeeper** (`cc-gatekeeper`) | Bullpup magazine behind the hand, raised open carry bridge, integrated rear stock and pointed fore-end give the protected-entry specialist a different equipment language |
 | Collective Corps / Conductor | QBZ-191 family | **Network** (`cc-network`) | Conventional forward magazine, continuous rail and stepped adjustable-stock shape suit a modern sensor-coordination concept |
@@ -28,9 +30,37 @@ low-poly style, not authored as dimensional replicas.
 the older bullpup direction if a coherent modern 191-family identity becomes
 more important than mixed silhouettes. That would require reconsidering the
 specialist job; it should not automatically turn Bastion into a conventional
-sniper. No fifth model is added in this pass. AK-pattern references are another
+sniper. The QBU alternative is not modeled in this pass. AK-pattern references are another
 possible Eastern-bloc route, but mixing more visual families now would weaken
 the chosen slate/jade security-force identity.
+
+## SCAR-L / SCAR-H variants and working names
+
+Both variants are separate selectable studies, not recolors or replacements for
+Longwatch. They retain the same SCAR-family stock, cheek rest and upper rail.
+In these chosen art configurations, the L has a shorter fore-end, narrower
+receiver, curved magazine and reflex sight; the H has a longer fore-end, broader
+receiver/well, wider straight magazine and prism optic. Single versus twin amber
+side marks reinforce the distinction without replacing the geometry cues.
+Longwatch keeps the precision stock, long tube scope and folded bipod.
+
+The real-world references are the [SCAR-L](https://fnherstal.com/en/defence/portable-weapons/fn-scar-l-mk2/)
+(5.56mm) and [SCAR-H](https://fnherstal.com/en/defence/portable-weapons/fn-scar-h-mk2/)
+(7.62mm). Those labels identify the art inspirations; no ammunition, damage,
+recoil or caliber rules are added. The greater length in this particular H
+study is an art choice, not a claim that every H configuration is longer than
+every L configuration. Neither variant adds a specialist role or live loadout.
+
+Working paired-name ideas, with stable IDs independent of the eventual names:
+
+| L / H pair | Tone |
+|---|---|
+| **Democracy Lite / Democracy Deluxe** | Recommended provisional pair: Freedom Force's policy sold in two packages |
+| **Polite Request / Final Notice** | Dry escalation, with a bureaucratic edge |
+| **Small Talk / Big Talk** | Short and readable; communication-themed swagger |
+| **Freedom Trial / Freedom Subscription** | A more overt software-subscription joke |
+
+The first pair is displayed provisionally in the gallery. Names are not locked.
 
 ## Model interpretation
 
@@ -66,7 +96,7 @@ weapon purchases or ballistics are added. The model names are fictional.
 
 ## Existing systems and integration boundary
 
-- `src/game/proxy-weapon-models.ts` owns the four studies, reference links,
+- `src/game/proxy-weapon-models.ts` owns the six studies, reference links,
   geometry builder, grip/foregrip/magazine/muzzle art sockets and disposal.
   Outside surfaces merge by material, using at most six weapon mesh draws.
 - `src/components/ProxyWeaponStudies.tsx` provides the review page inside the
@@ -83,9 +113,9 @@ weapon purchases or ballistics are added. The model names are fictional.
   Weapon-specific sound work follows the local ElevenLabs once-only workflow;
   none is commissioned here.
 
-Tests check absence from live catalogs, four different geometric silhouettes,
+Tests check absence from live catalogs, six different geometric silhouettes,
 magazine layout relative to the grip, real stock/bridge openings, finite
-geometry, render budget and idempotent cleanup. Browser review covers all four
+geometry, render budget and idempotent cleanup. Browser review covers all six
 models at multiple angles, grayscale, mouse/touch rotation, portrait layout and
 navigation between weapon and operator studies.
 

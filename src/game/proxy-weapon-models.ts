@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-export type ProxyWeaponId = 'ff-strider' | 'ff-longwatch' | 'cc-gatekeeper' | 'cc-network';
+export type ProxyWeaponId = 'ff-strider' | 'ff-scar-l' | 'ff-scar-h' | 'ff-longwatch' | 'cc-gatekeeper' | 'cc-network';
 export interface ProxyWeaponStudy {
   id: ProxyWeaponId; faction: 'freedom-force' | 'collective-cops'; name: string; operator: string;
   reference: string; referenceUrl: string; silhouette: string; interpretation: string;
@@ -9,6 +9,8 @@ export interface ProxyWeaponStudy {
 /** Exterior art studies only: no shop IDs, ballistics, ammunition or live role registration. */
 export const PROXY_WEAPONS: readonly ProxyWeaponStudy[] = [
   { id: 'ff-strider', faction: 'freedom-force', name: 'Strider', operator: 'Lancer', reference: 'SIG MCX SPEAR LT', referenceUrl: 'https://www.sigsauer.com/mcx-spear-lt.html', silhouette: 'Compact fore-end, open folding-stock triangle, forward curved magazine, low reflex hood.', interpretation: 'Sand receiver, dark skeletal furniture and a small steel-blue identification panel. The short cylindrical muzzle shroud is a visual concept.' },
+  { id: 'ff-scar-l', faction: 'freedom-force', name: 'Democracy Lite', operator: 'Lancer · option', reference: 'FN SCAR-L', referenceUrl: 'https://fnherstal.com/en/defence/portable-weapons/fn-scar-l-mk2/', silhouette: 'Compact SCAR-family upper, curved narrow magazine, folding-style cheek-rest stock and a small reflex sight.', interpretation: 'The smaller member of a matched pair: sand and bone furniture, a single amber marker and an open lower stock notch. “Democracy Lite” is a provisional joke name, not a gameplay tier.' },
+  { id: 'ff-scar-h', faction: 'freedom-force', name: 'Democracy Deluxe', operator: 'Wayfinder · option', reference: 'FN SCAR-H', referenceUrl: 'https://fnherstal.com/en/defence/portable-weapons/fn-scar-h-mk2/', silhouette: 'Broader and longer SCAR-family receiver, deeper magazine well, wider straight magazine and a compact prism optic.', interpretation: 'The substantial member of the pair, with twin amber markers and the same folding-style stock language. It remains a battle-rifle art option, separate from Longwatch’s precision stock, long scope and bipod.' },
   { id: 'ff-longwatch', faction: 'freedom-force', name: 'Longwatch', operator: 'Wayfinder', reference: 'FN Mk 20 / SCAR 20S', referenceUrl: 'https://fnamerica.com/press-releases/fn-announces-release-fn-scar-20s-precision-rifle/', silhouette: 'Long monolithic upper, adjustable precision stock, short box magazine, large scope and folded bipod.', interpretation: 'A heavier, angular precision silhouette in bone and sand, with restrained blue hardware. Scope and bipod are static art.' },
   { id: 'cc-gatekeeper', faction: 'collective-cops', name: 'Gatekeeper', operator: 'Bastion', reference: 'QBZ-95 family', referenceUrl: 'https://date.army.gov.au/equipment/qbz-95', silhouette: 'Bullpup action and curved magazine behind the grip, open raised carry bridge and compact pointed fore-end.', interpretation: 'Graphite shell with jade fore-end panels and a small cinnabar marker. The carry bridge keeps it distinct from the SAR 21’s integrated scope housing.' },
   { id: 'cc-network', faction: 'collective-cops', name: 'Network', operator: 'Conductor', reference: 'QBZ-191 family', referenceUrl: 'https://eng.chinamil.com.cn/CHINA_209163/WeaponryEquipment/News_209182/15962288.html', silhouette: 'Conventional forward magazine, long flat upper rail, stepped telescoping stock and angular observation optic.', interpretation: 'Slate metal, graphite furniture and jade optic casing. The optic housing suggests the operator’s sensor role without granting detection mechanics.' },
@@ -71,9 +73,9 @@ export function buildProxyWeapon(id: ProxyWeaponId): ProxyWeaponModel {
     box(.008, .026, .009, 0, -.004, z - .018, dark, -.25);
     for (const x of [-.021, .021]) box(.004, .012, .024, x, .018, z + .004, dark);
   };
-  const magazine = (z: number, height: number, curve: number) => {
-    side([[z - .035, .035], [z + .03, .035], [z + .033, -.025], [z + .022 - curve, -height], [z - .043 - curve, -height + .008], [z - .04, -.02]], .031, dark);
-    for (const x of [-.017, .017]) for (let i = 0; i < 3; i++) box(.002, height * .65, .003, x, -height * .43, z - .022 + i * .019 - curve * .35, metal, Math.atan2(curve, height));
+  const magazine = (z: number, height: number, curve: number, breadth = 1) => {
+    side([[z - .035 * breadth, .035], [z + .03 * breadth, .035], [z + .033 * breadth, -.025], [z + .022 * breadth - curve, -height], [z - .043 * breadth - curve, -height + .008], [z - .04 * breadth, -.02]], .031 * breadth, dark);
+    for (const x of [-.017 * breadth, .017 * breadth]) for (let i = 0; i < 3; i++) box(.002, height * .65, .003, x, -height * .43, z + (-.022 + i * .019) * breadth - curve * .35, metal, Math.atan2(curve, height));
   };
   const muzzle = (front: number, start: number, y: number, shroud = false) => {
     cylinder(.012, start - front, 0, y, (front + start) / 2);
@@ -107,6 +109,26 @@ export function buildProxyWeapon(id: ProxyWeaponId): ProxyWeaponModel {
     box(.055, .16, .025, 0, .025, .38, dark); box(.07, .06, .02, 0, .074, .137, dark);
     box(.005, .042, .125, -.035, .075, -.028, trim); box(.007, .009, .025, -.039, .075, -.025, accent);
     optic('reflex', -.07); front = muzzle(-.61, -.42, .083, true); foreZ = -.29;
+  } else if (id === 'ff-scar-l' || id === 'ff-scar-h') {
+    // Same visual family, independently authored receiver and magazine envelopes.
+    const heavy = id === 'ff-scar-h', receiverFront = heavy ? -.23 : -.19, width = heavy ? .081 : .068;
+    side([[receiverFront, .02], [.145, .02], [.15, .10], [.125, .137], [receiverFront + .015, .137], [receiverFront, .11]], width);
+    const foreEnd = heavy ? -.47 : -.415;
+    vented(foreEnd, receiverFront + .005, .034, heavy ? 5 : 4); rail(foreEnd - .006, .135, .148); grip(.025);
+    magZ = heavy ? -.135 : -.105;
+    magazine(magZ, heavy ? .128 : .165, heavy ? 0 : .026, heavy ? 1.35 : 1);
+    // The H's wider box magazine is supported by a deeper, wider external well.
+    box(heavy ? .064 : .048, heavy ? .048 : .025, heavy ? .115 : .084, 0, heavy ? .014 : .026, magZ, metal);
+    side([[.15, .105], [.22, .102], [.25, .145], [.355, .145], [.395, .105], [.39, -.066], [.326, -.066], [.302, .015], [.16, .023]], .05, furniture,
+      [[[.186, .043], [.285, .043], [.302, .075], [.235, .075]]]);
+    box(.064, .027, .115, 0, .148, .302, furniture); box(.062, .163, .024, 0, .025, .40, dark);
+    box(.073, .068, .016, 0, .079, .15, dark);
+    for (const x of [-1, 1]) {
+      box(.004, .027, .125, x * (width / 2 + .003), .075, -.035, trim);
+      for (let mark = 0; mark < (heavy ? 2 : 1); mark++) box(.005, .008, .015, x * (width / 2 + .006), .075, -.055 + mark * .027, accent);
+    }
+    optic(heavy ? 'prism' : 'reflex', -.065);
+    front = muzzle(heavy ? -.68 : -.575, foreEnd + .01, .083); foreZ = heavy ? -.32 : -.275;
   } else if (id === 'ff-longwatch') {
     side([[-.195, .035], [.15, .035], [.15, .135], [-.175, .135], [-.195, .11]], .076);
     vented(-.45, -.19, .033, 6); rail(-.46, .13, .148); grip(.025); magazine(-.105, .105, 0);

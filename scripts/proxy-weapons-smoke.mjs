@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const origin = process.env.PROXY_WEAPONS_APP_ORIGIN || 'http://127.0.0.1:5183';
 const chrome = process.env.PROXY_WEAPONS_CHROME_ORIGIN || 'http://127.0.0.1:9237';
-const out = new URL('../.cache/proxy-weapons/', import.meta.url);
+const out = new URL(process.env.PROXY_WEAPONS_EVIDENCE_DIR || '../.cache/proxy-weapons/', import.meta.url);
 await fs.mkdir(out, { recursive: true });
 const tab = await (await fetch(`${chrome}/json/new?${encodeURIComponent(origin + '/faction-designs?study=weapons')}`, { method: 'PUT' })).json();
 const ws = new WebSocket(tab.webSocketDebuggerUrl);
@@ -54,7 +54,7 @@ try {
   await send('Runtime.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
   await ready(); await pause(350);
-  const ids=['ff-strider','ff-longwatch','cc-gatekeeper','cc-network'];
+  const ids=['ff-strider','ff-scar-l','ff-scar-h','ff-longwatch','cc-gatekeeper','cc-network'];
   for(const [index,id] of ids.entries()) {
     await evaluate(`document.querySelectorAll('.fd-weapon-picker button')[${index}].click()`);await pause(200);await ready();
     for(const angle of ['Profile','Other side','Oblique','Front']) {
@@ -85,7 +85,7 @@ try {
   assert.equal(await evaluate("document.querySelectorAll('.fd-canvas canvas').length"),0);
   assert.deepEqual(errors, []);
   await fs.writeFile(new URL('browser-results.json', out), JSON.stringify({ results, errors, drag: true, touchDrag: true, navigationCleanup: true }, null, 2));
-  console.log(`PASS: ${results.length} weapon views, four exterior models at four angles, grayscale, mouse/touch rotation, preset reset, mobile layout and operator navigation; no browser exceptions.`);
+  console.log(`PASS: ${results.length} weapon views, six exterior models at four angles, grayscale, mouse/touch rotation, preset reset, mobile layout and operator navigation; no browser exceptions.`);
 } finally {
   ws.close(); for (const entry of pending.values()) clearTimeout(entry.timer);
   await fetch(`${chrome}/json/close/${tab.id}`);

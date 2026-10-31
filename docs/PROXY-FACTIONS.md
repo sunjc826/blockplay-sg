@@ -145,7 +145,7 @@ voice and sound work follows the repository's ElevenLabs once-only workflow.
 
 ## Weapon art studies
 
-A separate four-model shortlist and exterior preview is now available at
+A separate six-model shortlist and exterior preview is now available at
 `/faction-designs?study=weapons`. See [proxy weapon studies](PROXY-WEAPONS.md)
 for MCX/SCAR and QBZ-family inspirations, original model names and integration
 boundaries. Operator hands and live weapon catalogs still use their existing

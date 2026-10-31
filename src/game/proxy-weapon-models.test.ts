@@ -12,8 +12,8 @@ function meshes(root: THREE.Object3D) {
 
 describe('proxy weapon exterior studies', () => {
   it('keeps candidates out of game weapon families, stores, roles and operator hand poses', () => {
-    expect(PROXY_WEAPONS).toHaveLength(4);
-    expect(new Set(PROXY_WEAPONS.map(study => study.id)).size).toBe(4);
+    expect(PROXY_WEAPONS).toHaveLength(6);
+    expect(new Set(PROXY_WEAPONS.map(study => study.id)).size).toBe(6);
     for (const study of PROXY_WEAPONS) {
       expect(itemById(study.id)).toBeUndefined(); expect(getArenaRole(study.id)).toBeUndefined(); expect(buildServiceWeapon(study.id)).toBeUndefined();
       expect(study.referenceUrl).toMatch(/^https:\/\//);
@@ -21,7 +21,7 @@ describe('proxy weapon exterior studies', () => {
     for (const faction of PROXY_FACTIONS) for (const operator of faction.operators) expect(['rifle', 'marksman']).toContain(proxyCharacterLook(faction.id, operator.id).weapon);
   });
 
-  it('has four different geometric silhouettes with bounded render cost and finite exterior surfaces', () => {
+  it('has six different geometric silhouettes with bounded render cost and finite exterior surfaces', () => {
     const shapes = PROXY_WEAPONS.map(study => {
       const model = buildProxyWeapon(study.id), parts = meshes(model.root), bounds = new THREE.Box3().setFromObject(model.root), size = bounds.getSize(new THREE.Vector3());
       expect(parts.length).toBeLessThanOrEqual(6);
@@ -33,7 +33,29 @@ describe('proxy weapon exterior studies', () => {
       const shape = JSON.stringify(parts.map(part => Array.from(part.geometry.getAttribute('position').array)));
       model.dispose(); return shape;
     });
-    expect(new Set(shapes).size).toBe(4);
+    expect(new Set(shapes).size).toBe(6);
+  });
+
+  it('makes the SCAR-H physically wider and longer than the L, with a larger box-magazine profile', () => {
+    const light = buildProxyWeapon('ff-scar-l'), heavy = buildProxyWeapon('ff-scar-h');
+    const size = (model: ReturnType<typeof buildProxyWeapon>) => new THREE.Box3().setFromObject(model.root).getSize(new THREE.Vector3());
+    expect(size(heavy).z).toBeGreaterThan(size(light).z + .08);
+    expect(size(heavy).x).toBeGreaterThan(size(light).x + .005);
+    // The magazine can be observed separately from the receiver without relying on colors.
+    const magBounds = (model: ReturnType<typeof buildProxyWeapon>) => {
+      const bounds = new THREE.Box3();
+      for (const mesh of meshes(model.root)) {
+        const vertices = mesh.geometry.getAttribute('position');
+        for (let i = 0; i < vertices.count; i++) {
+          const point = new THREE.Vector3().fromBufferAttribute(vertices, i);
+          if (point.y < -.055 && point.z < -.06) bounds.expandByPoint(point);
+        }
+      }
+      return bounds.getSize(new THREE.Vector3());
+    };
+    expect(magBounds(heavy).z).toBeGreaterThan(magBounds(light).z);
+    expect(magBounds(heavy).x).toBeGreaterThan(magBounds(light).x);
+    light.dispose(); heavy.dispose();
   });
 
   it('places the bullpup magazine behind the hand and conventional magazines in front', () => {
@@ -46,8 +68,8 @@ describe('proxy weapon exterior studies', () => {
     }
   });
 
-  it('authors real negative space through the carbine stock and bullpup carry bridge', () => {
-    for (const [id, y, z] of [['ff-strider', .063, .245], ['cc-gatekeeper', .197, .02]] as const) {
+  it('authors real negative space through carbine/SCAR stocks and the bullpup carry bridge', () => {
+    for (const [id, y, z] of [['ff-strider', .063, .245], ['ff-scar-l', .06, .24], ['ff-scar-h', .06, .24], ['cc-gatekeeper', .197, .02]] as const) {
       const model = buildProxyWeapon(id); model.root.updateMatrixWorld(true);
       const ray = new THREE.Raycaster(new THREE.Vector3(.5, y, z), new THREE.Vector3(-1, 0, 0), 0, 1);
       expect(ray.intersectObject(model.root, true)).toHaveLength(0);

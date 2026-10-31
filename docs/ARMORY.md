@@ -1160,7 +1160,7 @@ consumption rules. See [range drills and resupply](RANGE-DRILLS.md).
 
 ## Proxy faction art candidates
 
-Freedom Force and Collective Corps have four [weapon exterior studies](PROXY-WEAPONS.md)
+Freedom Force and Collective Corps have six [weapon exterior studies](PROXY-WEAPONS.md)
 at `/faction-designs?study=weapons`. These are not armory entries, purchasable
 weapons, loot, extra weapon families or balance changes. Existing elite Black
 Kite weapons remain separate.
