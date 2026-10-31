@@ -5264,6 +5264,14 @@ Validation: 40 focused camera, vehicle authority/presentation/combat and crew
 checks passed. Real-engine browser checks cover driving/turning, both mounted
 weapon roles, both passengers, rifle aim, seat/view switching, portrait and
 safe dismount without runtime/WebGL errors. Rendered captures reviewed in
-`.cache/humvee-view/`; runner `scripts/humvee-view-smoke.mjs`. Typecheck passed;
-manual Cloudflare release follows. No GitHub push. AGENTS.md remains local,
-unstaged and uncommitted.
+`.cache/humvee-view/`; runner `scripts/humvee-view-smoke.mjs`. Typecheck and the
+production tsc/Vite build passed. Local code commit `5f877d8`.
+
+Manual `pnpm deploy:cloudflare` succeeded from a frozen, verified copy of all
+2,797 tracked source files. Cloudflare version:
+`5642b207-4380-4753-bd7b-d87303ec4457`. Both blockplaysg.fun and workers.dev serve
+JS/CSS/Three.js and sw.js byte-identical to the build. Production asset, manifest,
+model/audio, SPA/API routing and origin checks passed without paid API requests.
+Evidence: `.cache/humvee-view/{source-verification,live-verification,results}.json`
+and `{tests,browser,typecheck,deploy,cloudflare-check}.log`. Task-owned Vite and
+Chrome stopped. No GitHub push. AGENTS.md remains local, unstaged and uncommitted.
