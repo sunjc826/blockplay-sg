@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ArmoryStore } from '../game/use-armory';
+import { createProfile } from '../game/armory-state';
+import manifest from '../audio/store/manifest.json';
 
 const made: FakeAudio[] = [];
 class FakeAudio {
@@ -37,9 +39,27 @@ describe('store feedback', () => {
   it('preloads once and reuses the approved menu pair for browsing', async () => {
     const { prepareStoreAudio } = await import('./store-audio');
     prepareStoreAudio(); prepareStoreAudio();
-    expect(made).toHaveLength(5);
+    expect(made).toHaveLength(2 + Object.keys(manifest.clips).length);
     expect(made.slice(0, 2).every(a => a.src.includes('/audio/menu/glass-soft-'))).toBe(true);
     expect(made.slice(2).every(a => a.src.includes('/audio/store/'))).toBe(true);
+  });
+
+  it('uses the item and selected carry platform for successful equip actions only', async () => {
+    const { storeWithAudio } = await import('./store-audio');
+    const play = vi.fn(), profile = createProfile();
+    const source = { profile, buy: vi.fn(), buyLevel: vi.fn(), demoTopUp: vi.fn(),
+      equipItem: vi.fn().mockReturnValueOnce(true).mockReturnValueOnce(true).mockReturnValueOnce(true).mockReturnValueOnce(false),
+      selectCarrySlot: vi.fn(() => true) };
+    const store = storeWithAudio(source as unknown as ArmoryStore, play);
+    store.equipItem('sar-issued', 0);
+    store.equipItem('kit-bandage', 0);
+    store.equipItem('grenade-frag', 0);
+    store.equipItem('sar-issued', 0);
+    store.selectCarrySlot('main', 1);
+    store.selectCarrySlot('extra', null);
+    expect(play.mock.calls.map(([sound]) => sound)).toEqual([
+      'equip-gun-bullpup', 'equip-medical', 'equip-grenade', 'blocked', 'equip-gun-drum', 'equip',
+    ]);
   });
 
   it('suppresses hover during confirmation and interrupts old voices instead of stacking', async () => {

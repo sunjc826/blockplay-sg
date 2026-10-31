@@ -63,14 +63,18 @@ failure never delays navigation. The private API key is never used in gameplay.
 ## Store UI
 
 The store keeps the softened glass hover and selection sounds for tabs, platform
-switches, item previews, navigation and guide controls. Three additional
-ElevenLabs v3 recordings provide action feedback:
+switches, item previews, navigation and guide controls. ElevenLabs v3 recordings
+provide action feedback, with longer equip sequences selected from the equipment:
 
 | Action | Sound |
 | --- | --- |
 | Hover or visible keyboard focus | Quiet softened glass tick |
 | Browse, preview, navigate, advance/close the guide | Softened glass selection |
-| Equip equipment, change a carry slot | Small warm mechanical latch |
+| Equip a gun or assign it to a carry slot | Magazine/feed insertion, seating, charging and release; roughly 0.9–1.6 s, matched to the weapon's feed and action |
+| Equip food | Paper wrapper and takeaway-container handling; about 1.3 s |
+| Equip medical supplies | Medical pouch, sterile wrapper and fastening; about 1.3 s |
+| Equip grenades | Metal lever/ring handling and a nylon pouch closure; about 0.9 s |
+| Equip other gear/cosmetics or empty a carry slot | Small warm mechanical latch |
 | Successful unlock, supply purchase, level skip or demo token addition | Restrained rising two-note glass confirmation |
 | Rejected store action | Quiet low wooden knock |
 
@@ -81,18 +85,29 @@ selection cue, so purchases do not play two confirmations. Both purchase buttons
 carry controls and the portalled store guide are covered. Disabled buttons stay
 silent; model dragging and chart inspection do not trigger UI sounds.
 
-The store preloads five clips on entry, reusing the two menu assets. Hover is
+The store preloads 17 clips on entry, reusing the two menu assets. Hover is
 limited to one tick per 80 ms and suppressed during action feedback; voices
 replace each other rather than stacking. Cold or unavailable audio is dropped,
 autoplay denial is caught, hiding the page stops playback, and exiting stops
 hover while allowing a short action tail to finish. Nothing is triggered by
 in-game/vendor callbacks outside this UI.
 
-`public/audio/store/` contains the three new short mono MP3s. The manifest in
+`public/audio/store/` contains the mono MP3s. The manifest in
 `src/audio/store/manifest.json` records source/output hashes, durations and the
 offline pitch/treble processing. The three half-second generations cost 15
 credits in total; the private API key is not shipped. Raw receipts and the
 navigation/equip/purchase/rejection preview are in `.cache/store-sfx/`.
+
+`scripts/store-equip-sfx.mjs` lists its bounded batch by default. Run it with
+`--generate` using the private environment to generate/reuse three 1.4 s
+food/medical/grenade recordings (42 credits total), or `--publish` to assemble
+the new equip clips offline. Nine gun sequences reuse the already generated,
+weapon-specific reload actions at their natural pitch and speed, with gaps
+between insertion, seating, charging and release. Source hashes and onset times
+are preserved. Box-fed Ultimax uses rifle magazines and its own charging action;
+drum and belt variants follow their actual feed. Gun assembly uses no new API
+credits. The four-category preview and source receipts are in
+`.cache/store-equip/`. Selection does not start a gameplay reload or spend ammo.
 
 ## Generating and publishing
 

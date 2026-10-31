@@ -1,7 +1,7 @@
 {
   "provider": "ElevenLabs",
   "model": "eleven_text_to_sound_v3",
-  "processing": "asetrate=39690,aresample=44100,treble=g=-7:f=2600:w=0.7,lowpass=f=4400:p=2",
+  "processing": "Legacy equip/purchase/blocked retain their original shaping; equipment sequences preserve natural pitch/speed and specify processing per clip.",
   "clips": {
     "equip": {
       "file": "equip-740e065b11.mp3",
@@ -23,6 +23,330 @@
       "source": "blocked",
       "sourceSha256": "daab12a69df44daee5cb244135b29e60822c4ca9616629a39e089fc9ba96ad1c",
       "seconds": 0.22
+    },
+    "equip-food": {
+      "file": "equip-food-01478dbbf5.mp3",
+      "sha256": "01478dbbf5597da80f0f0b681da7f3d9dcb833d2534ea0b433bb5fd2358c36f8",
+      "seconds": 1.298,
+      "sources": [
+        {
+          "source": "equip-food",
+          "sha256": "83f42f23b1778473d0c6daa16027799498bdd1be3718506581f36f06b16ad7ec"
+        }
+      ],
+      "processing": "Natural pitch/speed; onset/tail trimmed; 20 ms fade; loudest 50 ms RMS <= .105; peak <= .65; -5 dB treble shelf / 5.2 kHz lowpass"
+    },
+    "equip-medical": {
+      "file": "equip-medical-93eb5d7481.mp3",
+      "sha256": "93eb5d7481c9243173978a14b85943c5b8f1083311fdfd275065a51a9bd63df0",
+      "seconds": 1.292,
+      "sources": [
+        {
+          "source": "equip-medical",
+          "sha256": "e7a2c9416b3b3839441d1c4651a49af71530ec8be71a5a72ced8b3e6aa524ddf"
+        }
+      ],
+      "processing": "Natural pitch/speed; onset/tail trimmed; 20 ms fade; loudest 50 ms RMS <= .105; peak <= .65; -5 dB treble shelf / 5.2 kHz lowpass"
+    },
+    "equip-grenade": {
+      "file": "equip-grenade-16b354dbea.mp3",
+      "sha256": "16b354dbeadd86f31d7053cd1516826ce148f1d252efcc6332ee01430095dc96",
+      "seconds": 0.915,
+      "sources": [
+        {
+          "source": "equip-grenade",
+          "sha256": "fb7edc9bc07b1a4d713eb1bdf0ef4c8aa5066f2459f68b2100b1d217f3d26464"
+        }
+      ],
+      "processing": "Natural pitch/speed; onset/tail trimmed; 20 ms fade; loudest 50 ms RMS <= .105; peak <= .65; -5 dB treble shelf / 5.2 kHz lowpass"
+    },
+    "equip-gun-pistol": {
+      "file": "equip-gun-pistol-3bc25f369d.mp3",
+      "sha256": "3bc25f369d4923bf7748dcdb2b5842299c1d8f592ab284646cfae3beb70060e8",
+      "seconds": 0.926,
+      "sources": [
+        {
+          "group": "reload-pistol-in",
+          "file": "reload-pistol-in-2758b774c1.mp3",
+          "sha256": "2758b774c17b9517e245989c6cfcfc0a14f7890fe2ba5987e430dacca868db50",
+          "at": 0.02
+        },
+        {
+          "group": "reload-pistol-seat",
+          "file": "reload-pistol-seat-227b8887c5.mp3",
+          "sha256": "227b8887c516c8579d90296a95026d30b66736b192f4bcd491e30a0bddb0e7f3",
+          "at": 0.271
+        },
+        {
+          "group": "reload-pistol-back",
+          "file": "reload-pistol-back-6c6d530129.mp3",
+          "sha256": "6c6d530129c0259351b7085f34b28ccb3da3472d0d60c0e2b960c2d43e612b3f",
+          "at": 0.543
+        },
+        {
+          "group": "reload-pistol-release",
+          "file": "reload-pistol-release-bf39bf55fe.mp3",
+          "sha256": "bf39bf55fe6a220ca7fac3270f5c957124af5f82384cdd23443a84f4ce750359",
+          "at": 0.829
+        }
+      ],
+      "processing": "Natural pitch/speed; onset/tail trimmed; 20 ms fade; loudest 50 ms RMS <= .105; peak <= .65; -5 dB treble shelf / 5.2 kHz lowpass"
+    },
+    "equip-gun-bullpup": {
+      "file": "equip-gun-bullpup-373bed4414.mp3",
+      "sha256": "373bed4414f701b5f962d1398c5fb18ec4575df8c246a5dc1488ec88fc7804a4",
+      "seconds": 1.34,
+      "sources": [
+        {
+          "group": "reload-bullpup-in",
+          "file": "reload-bullpup-in-f4ba257b13.mp3",
+          "sha256": "f4ba257b138e3ef23ae831280b299c37ff9937b8a55fb6ee563b7e83e2885412",
+          "at": 0.02
+        },
+        {
+          "group": "reload-bullpup-seat",
+          "file": "reload-bullpup-seat-a2890513ee.mp3",
+          "sha256": "a2890513eecf18955f06fb76d6726bdf83e2b84d3c7d6f578f31baed0eb02d56",
+          "at": 0.4
+        },
+        {
+          "group": "reload-bullpup-back",
+          "file": "reload-bullpup-back-a242adb8db.mp3",
+          "sha256": "a242adb8dbe46881774d11989a9d2a063ea9a509506c65bf9cfbf42aaa37e9bd",
+          "at": 0.85
+        },
+        {
+          "group": "reload-bullpup-release",
+          "file": "reload-bullpup-release-d1977fdfa6.mp3",
+          "sha256": "d1977fdfa6e9c4b3fe26650460ef425a03f970163bbfb0dc39ae17cdcbcfd65d",
+          "at": 1.104
+        }
+      ],
+      "processing": "Natural pitch/speed; onset/tail trimmed; 20 ms fade; loudest 50 ms RMS <= .105; peak <= .65; -5 dB treble shelf / 5.2 kHz lowpass"
+    },
+    "equip-gun-carbine": {
+      "file": "equip-gun-carbine-27655b8dcd.mp3",
+      "sha256": "27655b8dcdc0e1b4456e513220d5b23f747b5b1614988d0559d8fa6874edd984",
+      "seconds": 1.094,
+      "sources": [
+        {
+          "group": "reload-carbine-in",
+          "file": "reload-carbine-in-dc1265787c.mp3",
+          "sha256": "dc1265787c4d50f2a54b48e5ac2579af9366bd1b997bb70bceedcb8214b9fe81",
+          "at": 0.02
+        },
+        {
+          "group": "reload-carbine-seat",
+          "file": "reload-carbine-seat-1db4325325.mp3",
+          "sha256": "1db4325325d525d24aee142d4aa04082cf0c3fc2f8e86c5fbdec29f46b21ff3a",
+          "at": 0.38
+        },
+        {
+          "group": "reload-carbine-back",
+          "file": "reload-carbine-back-e8d63c9105.mp3",
+          "sha256": "e8d63c91058eaca4a436afb26249f6cf9a902ba9c36e33c605c1935d4454071b",
+          "at": 0.632
+        },
+        {
+          "group": "reload-carbine-release",
+          "file": "reload-carbine-release-e093244ea4.mp3",
+          "sha256": "e093244ea419312df5ede2f74e6e3c5cd12a1000287464420cdc932e798d7da1",
+          "at": 0.992
+        }
+      ],
+      "processing": "Natural pitch/speed; onset/tail trimmed; 20 ms fade; loudest 50 ms RMS <= .105; peak <= .65; -5 dB treble shelf / 5.2 kHz lowpass"
+    },
+    "equip-gun-rifle": {
+      "file": "equip-gun-rifle-4556252699.mp3",
+      "sha256": "4556252699d4f23df2b76ec4ad326edacced5c3099e698ccc9e36edcec8dc711",
+      "seconds": 1.216,
+      "sources": [
+        {
+          "group": "reload-rifle-in",
+          "file": "reload-rifle-in-493cf714b2.mp3",
+          "sha256": "493cf714b2b4d1d98826c5eff47988f23ffbf3688598e7b850b0a93eb0979c49",
+          "at": 0.02
+        },
+        {
+          "group": "reload-rifle-seat",
+          "file": "reload-rifle-seat-d1e7dd8e06.mp3",
+          "sha256": "d1e7dd8e068c70ee98a972167053e2aa46176e1a5585be3c6ed6331079139c6b",
+          "at": 0.307
+        },
+        {
+          "group": "reload-rifle-back",
+          "file": "reload-rifle-back-7b393503a2.mp3",
+          "sha256": "7b393503a23146945d296d50072d5690108d60fb6028c63a387fee77b0f3187e",
+          "at": 0.663
+        },
+        {
+          "group": "reload-rifle-release",
+          "file": "reload-rifle-release-980e2ca5d0.mp3",
+          "sha256": "980e2ca5d0cec87aea336eea5a6bb2b49a3ff78f2175bbf3e9fc77a8772c06ac",
+          "at": 1.043
+        }
+      ],
+      "processing": "Natural pitch/speed; onset/tail trimmed; 20 ms fade; loudest 50 ms RMS <= .105; peak <= .65; -5 dB treble shelf / 5.2 kHz lowpass"
+    },
+    "equip-gun-drum": {
+      "file": "equip-gun-drum-99a57132c6.mp3",
+      "sha256": "99a57132c69033b1ed6f8ffaa40cdfee11ad2f215fa88188a1d34c99d95b91df",
+      "seconds": 1.638,
+      "sources": [
+        {
+          "group": "reload-drum-in",
+          "file": "reload-drum-in-aa5b2051de.mp3",
+          "sha256": "aa5b2051dea633c34a3df1700b4a8e3a34342262fe2665fd04c4724718e66a83",
+          "at": 0.02
+        },
+        {
+          "group": "reload-drum-seat",
+          "file": "reload-drum-seat-51de7114ec.mp3",
+          "sha256": "51de7114ecd8a9e2ceb5717a35fd97a9b857507529b374b14ba7073968d80c8b",
+          "at": 0.299
+        },
+        {
+          "group": "reload-drum-back",
+          "file": "reload-drum-back-b321ee4d0d.mp3",
+          "sha256": "b321ee4d0dea86339590f9faed099466270065fa4829d67482b5caf175a7a881",
+          "at": 0.829
+        },
+        {
+          "group": "reload-drum-release",
+          "file": "reload-drum-release-4bf48fd4d9.mp3",
+          "sha256": "4bf48fd4d98e8a05f484751aa6ebf86004ed01557c8d77290db993b36605acc9",
+          "at": 1.289
+        }
+      ],
+      "processing": "Natural pitch/speed; onset/tail trimmed; 20 ms fade; loudest 50 ms RMS <= .105; peak <= .65; -5 dB treble shelf / 5.2 kHz lowpass"
+    },
+    "equip-gun-light-belt": {
+      "file": "equip-gun-light-belt-45bcf33826.mp3",
+      "sha256": "45bcf338265737b23a1d54fc56e8db31a8cea08d7a4fb6f96bfa7cd3dc940778",
+      "seconds": 1.136,
+      "sources": [
+        {
+          "group": "reload-light-belt-in",
+          "file": "reload-light-belt-in-b12a2de56b.mp3",
+          "sha256": "b12a2de56b86927f26bc00c0ca11dcba76d36a3494f259a3fe8fcc03800c36ee",
+          "at": 0.02
+        },
+        {
+          "group": "reload-light-belt-seat",
+          "file": "reload-light-belt-seat-53f3675ff8.mp3",
+          "sha256": "53f3675ff8501d90a6018d83b6408a987771cc59eb8d70ff391057c9e1b120d9",
+          "at": 0.26
+        },
+        {
+          "group": "reload-light-belt-back",
+          "file": "reload-light-belt-back-199307e1ef.mp3",
+          "sha256": "199307e1effb278d278301471baa9d9eb0a209c4bcf5c4a785c089d08eab1db1",
+          "at": 0.572
+        },
+        {
+          "group": "reload-light-belt-release",
+          "file": "reload-light-belt-release-35d2ab7a19.mp3",
+          "sha256": "35d2ab7a196cd2f50a3ec21c6357118b50810edbf951bbd77074a5130520d813",
+          "at": 0.885
+        }
+      ],
+      "processing": "Natural pitch/speed; onset/tail trimmed; 20 ms fade; loudest 50 ms RMS <= .105; peak <= .65; -5 dB treble shelf / 5.2 kHz lowpass"
+    },
+    "equip-gun-belt": {
+      "file": "equip-gun-belt-ff7ef03c71.mp3",
+      "sha256": "ff7ef03c71e0f84c9c7b06ede0ddbaff1ea90d3f415795384db65c3f2858fbe7",
+      "seconds": 1.307,
+      "sources": [
+        {
+          "group": "reload-belt-in",
+          "file": "reload-belt-in-e5a9eb1528.mp3",
+          "sha256": "e5a9eb1528b403b33291908221f2804c527b4b68a459cece9b0fe2b9f679228a",
+          "at": 0.02
+        },
+        {
+          "group": "reload-belt-seat",
+          "file": "reload-belt-seat-fbe6c8a0e4.mp3",
+          "sha256": "fbe6c8a0e44346cd511534f847faf044fd3a89d95bc40f05a1e5717d95a65a96",
+          "at": 0.342
+        },
+        {
+          "group": "reload-belt-back",
+          "file": "reload-belt-back-e1e4135879.mp3",
+          "sha256": "e1e41358798e4f5d151a2ce9f3cbe776fb57147deb0a5eb21cfbbf41ba6bb84a",
+          "at": 0.712
+        },
+        {
+          "group": "reload-belt-release",
+          "file": "reload-belt-release-533166b4a2.mp3",
+          "sha256": "533166b4a20c4b35c1a06509eb44a17a99b924e6e150c26e12aa9d55f77bb62e",
+          "at": 1.121
+        }
+      ],
+      "processing": "Natural pitch/speed; onset/tail trimmed; 20 ms fade; loudest 50 ms RMS <= .105; peak <= .65; -5 dB treble shelf / 5.2 kHz lowpass"
+    },
+    "equip-gun-heavy-belt": {
+      "file": "equip-gun-heavy-belt-4a5281c222.mp3",
+      "sha256": "4a5281c2229c4dd6e71b08fce1927155edfa5674ee67562ffdafbebb5ce9ddaa",
+      "seconds": 1.164,
+      "sources": [
+        {
+          "group": "reload-heavy-belt-in",
+          "file": "reload-heavy-belt-in-5cdc8a1d71.mp3",
+          "sha256": "5cdc8a1d71b0fe561d648758f22e86e13ee119dae8bbb938455bd2f631300c12",
+          "at": 0.02
+        },
+        {
+          "group": "reload-heavy-belt-seat",
+          "file": "reload-heavy-belt-seat-d0ebb41ffe.mp3",
+          "sha256": "d0ebb41ffeca359d635cc27d3380e5220f4e5eda65584a0949dfd076c971c127",
+          "at": 0.316
+        },
+        {
+          "group": "reload-heavy-belt-back",
+          "file": "reload-heavy-belt-back-ea1ca42231.mp3",
+          "sha256": "ea1ca42231fc109cfd5d60e48c764d44235f80fb73bdc856004817e0dc9ffc8a",
+          "at": 0.72
+        },
+        {
+          "group": "reload-heavy-belt-release",
+          "file": "reload-heavy-belt-release-950c8e44ce.mp3",
+          "sha256": "950c8e44ce761d728a2aeaa585f722ba26ce5cb5e32490b3fe3066684b5e4a37",
+          "at": 0.945
+        }
+      ],
+      "processing": "Natural pitch/speed; onset/tail trimmed; 20 ms fade; loudest 50 ms RMS <= .105; peak <= .65; -5 dB treble shelf / 5.2 kHz lowpass"
+    },
+    "equip-gun-drum-box": {
+      "file": "equip-gun-drum-box-14971a11ec.mp3",
+      "sha256": "14971a11ecf9283f73fa38e95b0b4c4366114b1c933c3a0408b7efb39134feb2",
+      "seconds": 1.473,
+      "sources": [
+        {
+          "group": "reload-rifle-in",
+          "file": "reload-rifle-in-493cf714b2.mp3",
+          "sha256": "493cf714b2b4d1d98826c5eff47988f23ffbf3688598e7b850b0a93eb0979c49",
+          "at": 0.02
+        },
+        {
+          "group": "reload-rifle-seat",
+          "file": "reload-rifle-seat-d1e7dd8e06.mp3",
+          "sha256": "d1e7dd8e068c70ee98a972167053e2aa46176e1a5585be3c6ed6331079139c6b",
+          "at": 0.307
+        },
+        {
+          "group": "reload-drum-back",
+          "file": "reload-drum-back-b321ee4d0d.mp3",
+          "sha256": "b321ee4d0dea86339590f9faed099466270065fa4829d67482b5caf175a7a881",
+          "at": 0.663
+        },
+        {
+          "group": "reload-drum-release",
+          "file": "reload-drum-release-4bf48fd4d9.mp3",
+          "sha256": "4bf48fd4d98e8a05f484751aa6ebf86004ed01557c8d77290db993b36605acc9",
+          "at": 1.123
+        }
+      ],
+      "processing": "Natural pitch/speed; onset/tail trimmed; 20 ms fade; loudest 50 ms RMS <= .105; peak <= .65; -5 dB treble shelf / 5.2 kHz lowpass"
     }
   }
 }

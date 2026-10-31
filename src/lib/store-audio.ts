@@ -2,8 +2,9 @@ import type { FocusEvent, MouseEvent, PointerEvent } from 'react';
 import type { ArmoryStore } from '../game/use-armory';
 import menu from '../audio/menu/manifest.json';
 import manifest from '../audio/store/manifest.json';
+import { storeEquipSound } from './store-equip-sound';
 
-export type StoreSound = 'hover' | 'select' | 'equip' | 'purchase' | 'blocked';
+export type StoreSound = 'hover' | 'select' | keyof typeof manifest.clips;
 let tracks: Record<StoreSound, HTMLAudioElement> | null = null;
 let foreground: HTMLAudioElement | null = null;
 let lastHover = -Infinity;
@@ -19,10 +20,9 @@ export function prepareStoreAudio() {
   tracks = {
     hover: make('menu', menu.clips.hover.file, .5),
     select: make('menu', menu.clips.click.file, .55),
-    equip: make('store', manifest.clips.equip.file, .65),
-    purchase: make('store', manifest.clips.purchase.file, .65),
-    blocked: make('store', manifest.clips.blocked.file, .45),
-  };
+    ...Object.fromEntries(Object.entries(manifest.clips).map(([sound, clip]) =>
+      [sound, make('store', clip.file, sound === 'blocked' ? .45 : .65)])),
+  } as Record<StoreSound, HTMLAudioElement>;
 }
 
 export function stopStoreHover() { tracks?.hover.pause(); }
@@ -48,14 +48,16 @@ export function playStoreSound(sound: StoreSound) {
 
 /** Feedback comes from the actual state mutation, including stale/double-click rejection. */
 export function storeWithAudio(store: ArmoryStore, play: (sound: StoreSound) => void = playStoreSound): ArmoryStore {
-  const outcome = <Args extends unknown[]>(run: (...args: Args) => boolean, sound: 'purchase' | 'equip') => (...args: Args) => {
+  const outcome = <Args extends unknown[]>(run: (...args: Args) => boolean, sound: StoreSound | ((...args: Args) => StoreSound)) => (...args: Args) => {
     const changed = run(...args);
-    play(changed ? sound : 'blocked');
+    play(changed ? typeof sound === 'function' ? sound(...args) : sound : 'blocked');
     return changed;
   };
   return { ...store,
     buy: outcome(store.buy, 'purchase'), buyLevel: outcome(store.buyLevel, 'purchase'),
-    equipItem: outcome(store.equipItem, 'equip'), selectCarrySlot: outcome(store.selectCarrySlot, 'equip'),
+    equipItem: outcome(store.equipItem, id => storeEquipSound(id)),
+    selectCarrySlot: outcome(store.selectCarrySlot, (_slot, family) =>
+      family === null ? 'equip' : storeEquipSound(store.profile.guns[family]?.variant)),
     demoTopUp: outcome(store.demoTopUp, 'purchase'),
   };
 }
