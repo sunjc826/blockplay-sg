@@ -7,6 +7,7 @@ import { HDB_CORE_OFFSET, HDB_GALLERY_LEVELS, QUEENSTOWN_HDB_BLOCKS, QUEENSTOWN_
 import { createVerticalMovement } from './vertical-movement';
 import { getTraversalObstacles, getWalkSurfaces, type RoutePoint } from './vertical-routes';
 import { createVerticalNavigator } from './vertical-navigation';
+import { QUEENSTOWN_DECK_TABLES, QUEENSTOWN_DECK_BENCHES } from './queenstown-void-deck-furniture';
 
 const world = buildQueenstownScene();
 const input = { bounds: QUEENSTOWN_BOUNDS, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) };
@@ -118,4 +119,29 @@ it('gives each ground deck one visible floor, without terrain or exterior paving
     expect(finishes,`${place.id}/${floor.id}: one visible finish`).toHaveLength(1);
     expect(finishes[0].point.y).toBeCloseTo(floor.y,5);
   }
+});
+
+it('grounds communal furniture on every terrace with solid tops and unobstructed social approaches', () => {
+  const furniture=world.scene.getObjectByName('Queenstown communal stone furniture')!;
+  expect(furniture).toBeDefined();
+  for(const block of QUEENSTOWN_HDB_BLOCKS) {
+    const tables=QUEENSTOWN_DECK_TABLES.filter(t=>t.block===block.id);
+    expect(tables).toHaveLength(2);
+    for(const t of tables) {
+      expect(t.y).toBeCloseTo(queenstownTerrainHeight(t.x,t.z));
+      const ray=new THREE.Raycaster(new THREE.Vector3(t.x+.17,t.y+.96,t.z+.13),new THREE.Vector3(0,-1,0),0,.2);
+      const tops=ray.intersectObject(furniture,true).filter(hit=>hit.face!.normal.y>.99);
+      expect(tops,`${t.block}: one actual tabletop cap`).toHaveLength(1);
+      expect(tops[0].point.y).toBeCloseTo(t.y+.85);
+      expect(movement.canOccupy(t.x,t.y,t.z,.38,1.8)).toBe(false);
+      expect(movement.canOccupy(t.x,t.y,t.z+2.75,.38,1.8)).toBe(true);
+    }
+  }
+  for(const b of QUEENSTOWN_DECK_BENCHES) {
+    expect(movement.canOccupy(b.x,b.y,b.z,.38,1.8)).toBe(false);
+    const ray=new THREE.Raycaster(new THREE.Vector3(b.x,b.y+.65,b.z),new THREE.Vector3(0,-1,0),0,.2);
+    expect(ray.intersectObject(furniture,true)[0].point.y).toBeCloseTo(b.y+.57);
+  }
+  expect(world.scene.userData.voidDeckFurniture.boards).toBe(4);
+  expect(new Set(QUEENSTOWN_DECK_TABLES.map(t=>t.seating)).size).toBe(2);
 });

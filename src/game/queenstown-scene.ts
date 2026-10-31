@@ -2,6 +2,7 @@ import { onQueenstownDeck } from './queenstown-housing-layout';
 import * as THREE from 'three';
 import { buildQueenstownTerrain, QUEENSTOWN_TERRACES, QUEENSTOWN_TERRAIN_X, QUEENSTOWN_TERRAIN_Z } from './queenstown-terrain';
 import { accelerateMeshRaycast } from './mesh-raycast';
+import { addQueenstownVoidDeckFurniture } from './queenstown-void-deck-furniture';
 import { type VerticalRoute } from './vertical-routes';
 import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { QUEENSTOWN_STAMPS } from '../data/region-stamps.ts';
@@ -583,5 +584,9 @@ export function buildQueenstownScene() {
   const landscapeRoot = scene.children.at(-1)!;
   landscapeRoot.name = 'Queenstown walkable landscape';
   landscapeRoot.traverse(node => { if (node instanceof THREE.Mesh) node.userData.terrain = true; });
+  const furniture = addQueenstownVoidDeckFurniture(scene);
+  obstacles.push(...furniture.obstacles);
+  const dispose = world.dispose;
+  world.dispose = () => { furniture.dispose(); dispose(); };
   return world;
 }

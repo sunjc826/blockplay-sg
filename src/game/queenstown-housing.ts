@@ -24,8 +24,6 @@ export const QUEENSTOWN_HOUSING_PLACES: VerticalPlace[] = QUEENSTOWN_HDB_BLOCKS.
     fixture(x + dx, 2.99, z + .5, .85, .3, 16, '#b6b5a7');
   }
   fixture(x + 19, 1.57, z - .6, 5.6, 3.14, 4.8, color);
-  fixture(x - 13, .28, z - 4.5, 4, .56, 1.2, '#b6b5a7');
-  fixture(x - 13, .86, z - 4.95, 4, .6, .2, '#b3816c');
   for (let floor = 0; floor < block.storeys; floor++) {
     const y = 3.4 + floor * 2.8;
     if (floor > 2) fixture(x, y - .13, z + 6.5, HDB_WIDTH, .26, 4, '#b6b5a7');

@@ -63,6 +63,38 @@ and concrete from flickering and keeps exterior paths from painting over the
 interior finish. Terrain ray acceleration reads the actual rendered triangle
 indices, preserving these openings in collision and cover queries as well.
 
+## Communal furniture and photo references
+
+Void decks have two small social pockets per block, with twelve pedestal tables
+across the six blocks, separate three-seat benches, four- or six-stool groups,
+and paired curved benches. Granite, jade mosaic and terracotta finishes vary
+between pockets. Four of the twelve tables carry an inlaid game panel: two
+Chinese-chess grids with a river and palace diagonals, and two checkerboards.
+The panel is baked into the actual tabletop cap material, with no coplanar decal.
+Seats and backs have finite-height collision derived from their geometry;
+curved seats preserve the openings around the table. The middle passage,
+cross-deck route and stair approaches remain open. Furniture uses each block's
+existing level pad rather than sampling a new local height for every seat.
+
+The following real photographs were directly viewed on 2026-10-31:
+
+- [The Lion Raw, *Communal Chinese chess tables*, 20 June 2013](https://thelionraw.wordpress.com/2013/06/20/communal-chinese-chess-tables/):
+  `img_1193.jpg` shows a granite pedestal table, built-in checkerboard and six
+  drum stools; `img_1195.jpg` shows red mosaic tables, white edges and curved
+  benches. These informed the two seating families and stone proportions.
+- [Jonathan Tan, *Lepak Downstairs*, reproduced by frankie, 4 June 2021](https://www.frankie.com.au/gallery/symmetrical-snaps-from-singapores-public-housing-blocks-565513):
+  photographs `...frankie-4.jpg` and `...frankie-11.jpg` show a green mosaic
+  horseshoe bench around a plain dark tabletop, and a blue mosaic table with
+  six stools and an inset Chinese-chess grid. These informed curved backs,
+  plain-table variation and the grid's river/palace layout.
+
+The geometry, surface patterns and furniture positions are authored adaptations.
+Reference photos are review-only and are not redistributed as game textures.
+These public-photo references do not add Google capture allowance, accepted
+Static imagery records or claims about the current furniture at particular
+Queenstown addresses. `scene.userData.voidDeckFurniture` records their scope
+separately from the district's existing accepted reference features.
+
 ## Verification
 
 - `queenstown-landscape.test.ts` checks sustained relief and level site interiors,
@@ -73,6 +105,9 @@ indices, preserving these openings in collision and cover queries as well.
   at each building's actual base level, including bot access. Ground-deck
   regression rays check that each of the 18 deck/entry footprints has one visible
   floor and no hidden terrain surface.
+- Furniture checks cover table/bench collision, single tabletop caps, the social
+  approaches and pad heights. Existing complete deck/stair routes remain part of
+  the checks. Flight checks guard against merged furniture sealing open airspace.
 - Queenstown scene checks cover open roads, reachable stamps, solid furniture,
   retained facade detail and scene batching. Shared movement and vehicle suites
   guard the other districts' flat-ground behaviour.
