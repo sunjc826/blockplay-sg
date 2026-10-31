@@ -1,5 +1,44 @@
 # Blockplay: portable agent handoff
 
+## Visible pouch reach and magazine extraction (2026-10-31)
+
+Owner reported that the first magazine-inventory animation still looked like a
+standard reload plus a disappearing pouch magazine. Local code commit `642d20a`
+replaces that blend with a separate reach, grip, extract, carry, insert and return
+sequence. Fingers close around the selected actual pouch visual; connected upper
+arm / forearm segments follow the wrist from the body's shoulder. The gun parks
+to the right to clear the path. A carried visual borrows the pouch's geometry
+and materials and starts at its exact projected pose when inventory transfers;
+the gun's seated magazine stays hidden until insertion. Physical mesh bounds
+handle GLB vertices offset from identity transforms. Camera-FOV matching keeps
+contact aligned during ADS exit; near-plane clearance keeps extraction readable.
+
+Grab/seat timing (.47/.74), total reload duration, ammo rules and existing
+weapon-specific audio onsets remain unchanged. No paid sound-generation calls.
+Pending magazines hold their extraction pose across interrupted empty/tactical
+reloads, and geometry/material ownership remains with the body. The carry helper
+owns/disposes only its two arm meshes and detaches borrowed visuals on cleanup.
+
+Validation: 105 focused tests / 12 files and typecheck pass, including actual
+geometry-bound pickup alignment, lower/side pouch transforms, ADS projection,
+empty reloads, interruption and borrowed-resource disposal. Real Chrome/Metal
+checks capture all five transfer phases for SAR, side-pouch P30 on Sentinel,
+Ultimax drum, FN MAG box and CIS 50MG box: original stays until grip, exact
+pouch becomes empty at transfer, one spare consumed, no browser errors.
+Reproduce with `scripts/fps-pouch-reload-smoke.mjs`; captures/JSON are in
+`.cache/fps-pouch-reload/`. The native-speed SAR recording contains 110 frames
+across 1.85 s; preview: `preview/native-reload.gif`. Logs:
+`.cache/pouch-reach-{tests,typecheck,browser-sar,browser-pistol,browser-drum,
+browser-belt,browser-heavy,film}.log`.
+
+Manual `pnpm deploy:cloudflare` succeeded: final version
+`ca6b1aa9-34b3-438d-a206-1575756b3af5`. Both blockplaysg.fun and workers.dev serve
+the exact built entry JS/CSS and service worker. Production routing, assets,
+PWA and API-origin checks pass; receipts in `.cache/pouch-reach-deploy.log`,
+`.cache/pouch-reach-live-verification.json` and
+`.cache/pouch-reach-cloudflare-check.log`. No GitHub push. Keep AGENTS.md local,
+unstaged and uncommitted; unrelated handoff/.claude work is preserved.
+
 ## Physical spare magazines and rig reload retrieval (2026-10-31)
 
 Owner approved magazine-count ammunition, discarding rounds on early reloads,
