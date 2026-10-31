@@ -354,7 +354,7 @@ numbered map. Facilities retain their fixed locations and owners. Starting
 locations are locked during play; checkpoint travel and death respawns keep
 their existing rules.
 
-**Facility warfare.** Each expedition district has independent command posts, a garage and a helipad. Capture intact enemy equipment, destroy it with weapons, or rebuild a ruined site using shared faction supplies. Local infantry advantage advances timed work even if some defenders remain; sustained enemy pressure can suppress deployment. Posts reinforce squads, garages replace cars, and helipads replace helicopters. Ownership and equipment/fleet condition persist between district visits during the expedition. See [facility controls and rules](FACILITIES.md).
+**Facility warfare.** Each expedition district has independent command camps, forward posts, a supply depot, a garage and a helipad where space permits. Command camps have a central radio/map table, shelters, supplies and perimeter cover, with rear guards patrolling separate routes outside the center. Capture intact enemy control equipment, destroy it with weapons, or rebuild a ruined site using shared faction supplies. Local infantry advantage advances timed work even if some defenders remain; sustained enemy pressure can suppress deployment. Posts reinforce squads, supply depots increase income, garages replace cars, and helipads replace helicopters. Ownership and equipment/fleet condition persist between district visits during the expedition. See [facility controls and rules](FACILITIES.md).
 
 Inland districts have [paratrooper reinforcements](PARATROOPERS.md): finite squads descend under visible parachutes after a cargo flyover, sharing reserve limits and travel-persistent cooldowns.
 

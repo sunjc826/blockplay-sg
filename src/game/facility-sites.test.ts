@@ -12,6 +12,7 @@ import { zoneSectors } from './zone-sectors';
 import { REGION_IDS } from './region-ids';
 import { districtDeploymentPoints } from './expedition-deployment';
 import { createVehicle, vehicleBounds } from './vehicle-rules';
+import { campPropBounds, facilityObstacles } from './command-camp';
 
 it.each(REGION_IDS)('%s has seven clear objectives, forward deployment and three separate fronts', id => {
   const world = buildDistrictWorld(id);
@@ -30,7 +31,17 @@ it.each(REGION_IDS)('%s has seven clear objectives, forward deployment and three
       expect(site.initiallyBuilt).toBe(true);
       expect(sites.every(other => other===site || Math.hypot(other.x-site.x,other.z-site.z)>=32)).toBe(true);
     }
-    const cabinets = sites.map(s => ({ minX: s.x - .85, maxX: s.x + .85, minZ: s.z - .65, maxZ: s.z + .65, minY:s.y, maxY:s.y+1.8 }));
+    const cabinets = sites.flatMap(facilityObstacles);
+    for(const site of sites.filter(s=>s.kind==='command')) {
+      expect(site.camp).toBeDefined();
+      expect(site.camp!.patrol.length).toBeGreaterThanOrEqual(4);
+      for(const point of site.camp!.patrol)expect(clear(point.x,point.z)).toBe(true);
+      for(const prop of site.camp!.props) {
+        const b=campPropBounds(prop);
+        for(const x of [b.minX,prop.x,b.maxX])for(const z of [b.minZ,prop.z,b.maxZ])expect(clear(x,z)).toBe(true);
+      }
+    }
+    const campMovement=createVerticalMovement({bounds:world.bounds,obstacles:[...world.obstacles,...cabinets],surfaces,traversalObstacles});
     const hulls = (['car', 'helicopter'] as const).map(kind => vehicleBounds(createVehicle(kind, fleet[kind])));
     const entries = districtDeploymentPoints(id, (x, z) => nav.canOccupy(x, 0, z, .5, 1.8) && Math.abs(nav.supportHeight(x, z, .1, .4, 1.8) ?? 100) < .05 &&
       npcs.every(n => Math.hypot(n.x - x, n.z - z) > 3) && Object.values(fleet).every(v => Math.hypot(v.x - x, v.z - z) > 8) &&
@@ -41,7 +52,7 @@ it.each(REGION_IDS)('%s has seven clear objectives, forward deployment and three
     expect(new Set(entries.map(p => p.id)).size).toBe(entries.length);
     for (const entry of entries) {
       expect(nav.canOccupy(entry.x, 0, entry.z, .5, 1.8)).toBe(true);
-      expect(nav.canOccupy(entry.x, 0, entry.z, .5, 1.8, [...cabinets, ...hulls])).toBe(true);
+      expect(campMovement.canOccupy(entry.x, 0, entry.z, .5, 1.8, hulls)).toBe(true);
       expect(entry.id === 'entry' || sites.every(s => Math.hypot(s.x - entry.x, s.z - entry.z) > 8)).toBe(true);
       expect(entries.every(p => p === entry || Math.hypot(p.x - entry.x, p.z - entry.z) >= 28)).toBe(true);
     }

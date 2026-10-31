@@ -1,0 +1,48 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Command camp patrol verification</title><style>
+html,body{margin:0;background:#182a2a;color:#edf4e9;font:14px system-ui;overflow:hidden}canvas{display:block}#info{position:absolute;left:16px;top:16px;padding:14px 18px;background:#132925e8;border-radius:10px;max-width:390px;pointer-events:none}#info p{margin:5px 0;color:#c4d2be}strong{font-size:18px}
+</style></head><body><div id="info"><strong>Command camp</strong><p id="state">Loading Marina Bay…</p><p>Central radio / map table · shelter · supplies · perimeter cover</p></div><script type="module">
+import * as THREE from 'three';
+import {createBattlefieldScenario} from '/scripts/lib/battlefield-scenario.ts';
+import {createCharacterRig} from '/src/game/character-rig.ts';
+import {arenaCharacterLook} from '/src/game/character-looks.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(1);renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;document.body.append(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.1,1600);
+let trial,site,playing=false,last;
+const rigs=new Map();
+function disposeRigs(){for(const rig of rigs.values())rig.dispose();rigs.clear();}
+function present(){
+ for(const rig of rigs.values())rig.root.visible=false;
+ for(const actor of trial.arena.snapshot().actors.filter(a=>a.bot&&a.alive&&Math.hypot(a.x-site.x,a.z-site.z)<100)) {
+  let rig=rigs.get(actor.id);
+  if(!rig){rig=createCharacterRig(arenaCharacterLook(actor),actor.id);rig.root.userData.arenaActorId=actor.id;trial.world.scene.add(rig.root);rigs.set(actor.id,rig);}
+  rig.root.visible=true;rig.root.position.set(actor.x,actor.y-1.75,actor.z);rig.root.rotation.y=actor.yaw;rig.update(.05,{aim:.2});
+ }
+}
+window.loadTrial=(zone='marina-bay',side='armed-forces')=>{
+ disposeRigs();trial?.dispose();trial=createBattlefieldScenario(zone,32);site=trial.sites.find(s=>s.kind==='command'&&s.initialOwner===side);window.trial=trial;window.site=site;
+ camera.position.set(site.x+25,site.y+22,site.z+29);camera.lookAt(site.x,site.y,site.z);
+ document.querySelector('#state').textContent=`${zone} · ${side} · ${site.camp.props.length} camp sections · ${site.camp.patrol.length} patrol stops`;
+ trial.arena.step(.05);trial.visuals.update(trial.arena.snapshot().facilities);present();trial.world.scene.updateMatrixWorld(true);renderer.render(trial.world.scene,camera);
+ return {site,sites:trial.sites.map(s=>({id:s.id,kind:s.kind,props:s.camp?.props.length,patrol:s.camp?.patrol.length})),draws:renderer.info.render.calls};
+};
+window.viewCamp=(mode='overview')=>{
+ if(mode==='ground')camera.position.set(site.x+9,site.y+2.2,site.z+11);
+ else if(mode==='overhead')camera.position.set(site.x,site.y+65,site.z+.01);
+ else {const scale=Math.max(1,1.25/camera.aspect);camera.position.set(site.x+25*scale,site.y+22*scale,site.z+29*scale);}
+ camera.lookAt(site.x,site.y+(mode==='ground'?1:0),site.z);renderer.render(trial.world.scene,camera);
+};
+window.advance=async(seconds)=>{
+ const positions=[];
+ for(let i=0;i<seconds*20;i++){
+  trial.arena.step(.05);
+  if(i%100===0) {positions.push({time:i/20,guards:trial.arena.navigationStatus().filter(n=>n.objective===site.id)});await new Promise(r=>setTimeout(r,0));}
+ }
+ trial.visuals.update(trial.arena.snapshot().facilities);present();renderer.render(trial.world.scene,camera);return positions;
+};
+window.render=()=>{renderer.render(trial.world.scene,camera);return {calls:renderer.info.render.calls,triangles:renderer.info.render.triangles}};
+function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();if(trial)window.viewCamp('overview');}
+window.addEventListener('resize',resize);resize();
+window.play=()=>playing=true;window.stop=()=>playing=false;
+function frame(time){if(trial&&playing){const dt=last?Math.min(.05,(time-last)/1000):.016;trial.arena.step(dt);trial.visuals.update(trial.arena.snapshot().facilities);present();renderer.render(trial.world.scene,camera);}last=time;requestAnimationFrame(frame)}requestAnimationFrame(frame);
+window.dispose=()=>{playing=false;window.removeEventListener('resize',resize);disposeRigs();trial?.dispose();renderer.dispose();};window.ready=true;
+</script></body></html>

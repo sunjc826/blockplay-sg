@@ -67,7 +67,8 @@ facility markers. Distant facilities remain indicated at the compact map edge.
 
 Open the map with M to find facility squares: blue allied, orange hostile, gray
 unbuilt. Dashed squares indicate destroyed or unbuilt equipment. Approach the
-equipment cabinet; the nearby card explains its owner, health and operation.
+central radio/map table at a command camp, or the equipment cabinet at other
+facilities; the nearby card explains its owner, health and operation.
 Within 4 m, press E or tap the action button to start work:
 
 - **Capture intact:** 24 seconds at a one-person advantage, free, preserves health.
@@ -81,7 +82,7 @@ advantage of two or more doubles the work rate. Dead troops, vehicle occupants,
 paused players and troops on other floors do not contribute. Leaving, dying or
 boarding cancels unfinished work and refunds its supply cost.
 
-Shoot the cabinet or use explosions to destroy enemy equipment. Landmark
+Shoot the control equipment or use explosions to destroy enemy equipment. Landmark
 buildings remain intact. Allied infrastructure is protected from friendly fire.
 Destroyed equipment retains its owner but cannot deploy anything until rebuilt.
 Sustained hostile numerical advantage within 9 m of the cabinet suppresses
@@ -135,10 +136,22 @@ alternatives exist; blocked approaches expire so they cannot hold an attack
 indefinitely. Nearby soldiers spread laterally while travelling, converging
 at turns and entrances. Collision and stair navigation still govern movement.
 
-One available soldier operates the cabinet while squadmates cover positions
-8–14 m out. Quiet friendly posts rotate patrol positions 14–23 m out instead
-of keeping everyone in the capture circle. Fighting, healing and danger
-avoidance continue during assignments.
+Command posts are small field camps with an open command canopy over a radio
+and map table, rest shelters, supply stacks and separated sandbag positions.
+The layout adapts to available ground, preserving approaches and nearby entry
+points; narrow locations may have fewer furnishings. Shelters have walkable
+aisles, and their roofs, posts and perimeter cover participate in movement and
+gunfire. Furnishings remain after the control equipment is destroyed; rebuilding
+the central console restores the post's operation.
+
+One available soldier operates the control equipment while squadmates cover
+positions 8–14 m out. Quiet command camps send their rear guards on separate
+patrol legs approximately 18–40 m from the center. They start in different parts
+of the perimeter, walk in opposing directions and pause briefly on arrival.
+Blocked legs time out. Guards return to close defense or equipment work when
+the center is contested or damaged. Other quiet facilities retain their
+14–23 m perimeter patrols. Fighting, healing, player orders and danger avoidance
+continue during assignments.
 
 ## Persistence and scope
 

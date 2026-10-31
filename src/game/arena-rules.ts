@@ -43,6 +43,7 @@ import type { BotDifficulty } from './bot-difficulty';
 import { createBotSpotting, spottingStance, type BotSpotting, type SpottingCandidate } from './bot-spotting';
 import { objectiveApproach, objectiveStep, spacedObjectiveStep } from './bot-objectives';
 import { assignBattlefieldFronts, BATTLEFIELD_POPULATIONS, type BattlefieldSize } from './battlefield';
+import { commandPatrolStops, guardPatrolGoal, type GuardPatrol } from './command-camp';
 import { createHeatField, HEAT_TUNING, type HeatBand, type HeatSector } from './faction-heat';
 import { BOT_RANKS, drawRank, type BotRank } from './arena-ranks';
 import { ELITE_SQUAD, eliteRoster, eliteSquadPoints, isEliteEvent, isEliteRole } from './elite-squads';
@@ -336,6 +337,7 @@ interface InternalActor {
   home?: string;
   mission?: { x: number; z: number; y?: number };
   assignment?: { site: string; via?: ArenaPoint; until: number };
+  guardPatrol?: GuardPatrol;
   /** Bots: when they last saw an enemy or were hit, which decides whether a sighting is a fresh contact and whether they are calm enough to chat. */
   lastFight?: number;
   /** Bots: reloading, or running from a marked barrage, as of the last tick, so the bark goes with the start of it. */
@@ -552,7 +554,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (entry.actor.bot && entry.actor.faction === 'mercenaries' && ['assault', 'tank'].includes(entry.role?.id ?? '')) { entry.actor.grenade = entry.role?.id === 'tank' ? 'grenade-smoke' : 'grenade-frag'; entry.grenadeSupplies[entry.actor.grenade] = 1; } else delete entry.actor.grenade;
     entry.velocity = undefined; entry.speed = 0; entry.lastAt = undefined; entry.aimFocus = undefined; entry.turn = undefined;
     entry.spotting = undefined; entry.shotFlash = undefined;
-    entry.parachute = undefined; delete entry.actor.parachuting; entry.navigation = undefined; entry.assignment = undefined; entry.mission = undefined; delete entry.actor.objective; entry.navalTransit = undefined; delete entry.actor.ground; entry.evacuating = undefined; entry.vehicleBoardAfter = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
+    entry.parachute = undefined; delete entry.actor.parachuting; entry.navigation = undefined; entry.assignment = undefined; entry.guardPatrol = undefined; entry.mission = undefined; delete entry.actor.objective; entry.navalTransit = undefined; delete entry.actor.ground; entry.evacuating = undefined; entry.vehicleBoardAfter = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false; entry.threat = undefined; entry.grudge = undefined;
   };
   function sanitizeWeapons(weapons: readonly ArenaWeapon[]) {
@@ -2022,11 +2024,22 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       group.forEach((entry,i)=> {
         entry.actor.objective=site.id;
         if (entry.assignment?.site !== site.id) { entry.assignment = {...approach}; entry.navigation=undefined; }
+        const patrolling = site.kind==='command' && !working && !site.contested && (!entry.order || entry.order.until<=elapsed);
+        const stops = patrolling ? site.camp?.patrol ?? commandPatrolStops(site,(x,z)=>clearSpawn({x,z}),groundHeight) : [];
+        const patrol = patrolling ? guardPatrolGoal(entry.guardPatrol,site.id,stops,entry.actor,elapsed,i) : undefined;
+        if(patrol) {
+          entry.guardPatrol=patrol.state;
+          entry.assignment.via=undefined;
+          entry.mission={...patrol.goal,y:patrol.goal.y+1.75};
+          return;
+        }
+        entry.guardPatrol=undefined;
         // One worker operates the cabinet; the rest cover a broad perimeter.
         // Quiet friendly posts rotate their patrol instead of camping the slot.
         const worker = working && entry === leader;
-        const radius = worker ? 2.6 : working ? 8 + i * 2 : 14 + i * 3;
-        const angle=i*Math.PI/2 + (working ? 0 : Math.floor(elapsed/22)*Math.PI/2);
+        const covering = working || site.contested;
+        const radius = worker ? 2.6 : covering ? 8 + i * 2 : 14 + i * 3;
+        const angle=i*Math.PI/2 + (covering ? 0 : Math.floor(elapsed/22)*Math.PI/2);
         const point={x:site.x+Math.sin(angle)*radius,z:site.z+Math.cos(angle)*radius};
         // Capture slots must be reachable at the objective's actual terrain height.
         const fallback=[radius,2.6].flatMap(r=>Array.from({length:12},(_,j)=>({x:site.x+Math.sin(angle+j*Math.PI/6)*r,z:site.z+Math.cos(angle+j*Math.PI/6)*r}))).find(clearSpawn);

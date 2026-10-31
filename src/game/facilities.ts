@@ -1,4 +1,5 @@
 import { PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
+import { facilityCoreBounds, validCommandCamp, type CommandCamp } from './command-camp';
 
 export type FacilityKind = 'command' | 'garage' | 'helipad' | 'supply';
 export type FacilityActionKind = 'capture' | 'build' | 'repair';
@@ -8,6 +9,8 @@ export interface FacilitySite extends FacilityPoint {
   deployment: { x: number; z: number; yaw: number };
   /** Intact neutral objectives can be captured without paying to rebuild them. */
   initiallyBuilt?: boolean;
+  /** Authored-space camp furnishings and individual rear-guard patrol stops. */
+  camp?: CommandCamp;
 }
 export interface FacilityState extends FacilitySite {
   owner: SquadFaction | null; health: number; maxHealth: number;
@@ -136,11 +139,12 @@ export function createFacilities(definitions: readonly FacilitySite[], saved?: F
   return { sites, supplies, step, request, damage, spend, balance, snapshot };
 }
 
-/** The equipment cabinet is the damageable objective; scenery is kept intact. */
+/** The central console/cabinet is damageable; the surrounding camp is cover. */
 export function facilityRayDistance(site: FacilityState, origin: FacilityPoint, ray: FacilityPoint) {
   if (!site.health) return Infinity;
   let near = 0, far = Infinity;
-  for (const [p, d, lo, hi] of [[origin.x, ray.x, site.x - .85, site.x + .85], [origin.y, ray.y, site.y, site.y + 1.8], [origin.z, ray.z, site.z - .65, site.z + .65]]) {
+  const b=facilityCoreBounds(site);
+  for (const [p, d, lo, hi] of [[origin.x, ray.x, b.minX, b.maxX], [origin.y, ray.y, b.minY!, b.maxY!], [origin.z, ray.z, b.minZ, b.maxZ]]) {
     if (Math.abs(d) < 1e-8) { if (p < lo || p > hi) return Infinity; }
     else { const a = (lo - p) / d, b = (hi - p) / d; near = Math.max(near, Math.min(a, b)); far = Math.min(far, Math.max(a, b)); }
   }
@@ -155,7 +159,8 @@ export function validFacilitySnapshot(value: unknown): value is FacilitySnapshot
   return v.sites.every(s => {
     if (!s || typeof s.id !== 'string' || s.id.length > 100 || ids.has(s.id) || typeof s.name !== 'string' || s.name.length > 100 || !Object.hasOwn(FACILITY_KINDS, s.kind)) return false;
     ids.add(s.id);
-    return (s.initiallyBuilt === undefined || typeof s.initiallyBuilt === 'boolean') && (s.owner === null || faction(s.owner)) && (s.initialOwner === null || faction(s.initialOwner)) &&
+    return (s.camp === undefined || s.kind === 'command' && validCommandCamp(s.camp,s)) &&
+      (s.initiallyBuilt === undefined || typeof s.initiallyBuilt === 'boolean') && (s.owner === null || faction(s.owner)) && (s.initialOwner === null || faction(s.initialOwner)) &&
       [s.x, s.y, s.z, s.health, s.maxHealth, s.pressure, s.deployIn, s.deployment?.x, s.deployment?.z, s.deployment?.yaw].every(Number.isFinite) &&
       s.maxHealth === FACILITY_KINDS[s.kind].health && s.health >= 0 && s.health <= s.maxHealth && s.pressure >= 0 && s.pressure <= FACILITY_RULES.suppressionSeconds && s.deployIn >= 0 && s.deployIn <= 120 &&
       typeof s.contested === 'boolean' && typeof s.suppressed === 'boolean' &&

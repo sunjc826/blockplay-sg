@@ -18,6 +18,7 @@ import { districtFacilitySites } from './facility-sites';
 import { createObjectiveBeacons, objectiveHint, type ObjectiveHint } from './objective-beacons';
 import { captureObjectives } from './expedition-objectives';
 import { createFacilityVisuals } from './facility-visuals';
+import { facilityCeilings, facilityNavigationAnchors, facilityObstacles } from './command-camp';
 import { facilityPrompt, facilityStatus, facilityActionFor, type FacilityState } from './facilities';
 import { buildTutorialWorld } from './tutorial-world';
 import { TUTORIAL_DISTRICT, tutorialCheckpoint, COURSE_STEPS } from './tutorial-course';
@@ -319,7 +320,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const saved = expedition.infrastructure?.get(expedition.zone);
     options.arena.environment.savedReinforcementClocks = saved?.reinforcementClocks;
     options.arena.environment.facilities = { sites: facilitySites, saved: saved?.facilities, savedVehicles: saved?.vehicles };
-    for (const site of facilitySites) world.obstacles.push({ minX: site.x - .85, maxX: site.x + .85, minZ: site.z - .65, maxZ: site.z + .65, minY:site.y, maxY: site.y+1.8 });
+    world.obstacles.push(...facilitySites.flatMap(facilityObstacles));
+    world.scene.userData.traversalObstacles=[...getTraversalObstacles(world.scene),...facilitySites.flatMap(facilityCeilings)];
+    options.arena.environment.navigationAnchors=[...(options.arena.environment.navigationAnchors??[]),...facilitySites.flatMap(facilityNavigationAnchors)];
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
   }
   const rangeStock = rangeEquipmentStock(equipment.supplies);
