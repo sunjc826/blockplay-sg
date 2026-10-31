@@ -3,6 +3,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { itemById } from './armory-catalog';
 import type { ResolvedLoadout } from './armory-state';
 import type { WeaponState } from './fps-rules';
+import type { RigMagazine } from './magazine-inventory';
 import { startingMagazineInventory } from './ammo-pools';
 import { arenaCharacterLook } from './character-looks';
 import { createCharacterRig, type CharacterDrive } from './character-rig';
@@ -130,6 +131,14 @@ export function createFpsBody(scene: THREE.Scene) {
       const pouch = magazines[slot]?.root;
       if (!pouch) return null;
       return pouch.localToWorld(target.set(0, .04, 0));
+    },
+    magazineSource(slot: number, mag: RigMagazine) {
+      const pouch = magazines[slot]; if (!pouch) return null;
+      const kind: ReserveContainer = mag.feed === 'belt' ? 'ammo-box' : mag.feed === 'drum' ? 'drum' : mag.caliberMm === 9 ? 'pistol-magazine' : 'magazine';
+      let model = pouch.models[kind];
+      if (!model) { model = buildContainer(kind); model.visible = false; pouch.models[kind] = model; pouch.root.add(model); }
+      model.scale.y = (kind === 'pistol-magazine' ? .75 : 1) * Math.min(1.35, Math.max(.8, mag.capacity / (kind === 'pistol-magazine' ? 15 : kind === 'magazine' ? 30 : 100)));
+      return { model, shoulder: character.joints.upperArmL.getWorldPosition(new THREE.Vector3()) };
     },
     update(dt: number, equipment: ResolvedLoadout, states: readonly WeaponState[], pose: CharacterDrive & { x: number; y: number; z: number; yaw: number; visible: boolean; activeFamily?: number }) {
       if (identity !== `${equipment.rigId}|${equipment.plateId}`) rebuild(equipment);

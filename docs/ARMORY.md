@@ -792,6 +792,20 @@ put and empty pouches reveal those below. The spare disappears at the grab stage
 not on pressing R. A grabbed magazine remains with its interrupted reload until
 seated and cannot be counted, picked up or consumed twice.
 
+The support hand now reaches the actual pouch visual, closes its fingers,
+extracts a matching magazine vertically, carries it clear of the rig and aligns
+it with the weapon's physical magazine well. A connected upper arm and forearm
+follow the wrist; the gun parks to the right to clear the path. Body and weapon
+camera projections are matched, including when leaving ADS. The carry visual
+shares the pouch's geometry and materials until seating; the gun's own seated
+magazine is hidden during that transfer. Reload duration, grab/seat timings,
+ammunition rules and recorded sound onsets are unchanged.
+
+`node scripts/fps-pouch-reload-smoke.mjs` captures reach, grip, extraction,
+carry and insertion in the training world. Set `POUCH_RELOAD_FAMILY=0..7` and
+`POUCH_RELOAD_RIG=rig-ilbv|rig-lbs|rig-sentinel` to exercise each platform and
+pouch layout, using the same Vite/Chrome environment variables as the ammo smoke.
+
 Calibre pickups provide whole containers for the matching held weapon (or a
 matching carried weapon), capped by free pouches. Ammo kits fill at most two
 pouches. Range stations refill missing starting positions without changing loaded

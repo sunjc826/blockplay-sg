@@ -95,6 +95,7 @@ import type { ExpeditionLoot, FieldLoot } from './expedition-loot';
 import { expeditionNpcs, nearestNpc, npcInteractionPrompt, type ExpeditionNpc } from './expedition-npcs';
 import { itemById } from './armory-catalog';
 import { DEFAULT_FPS_DEBUG, FPS_REGEN_DELAY, normalizeFpsDebug, readFpsDebug, regenerateHealth, saveFpsDebug, type FpsDebugSettings } from './fps-debug';
+import { pouchWeaponOffset } from './fps-pouch-reload';
 import { createWeaponHandling } from './fps-viewmodel';
 import { createScopeRenderer, getWeaponSight, setSightNightVision } from './weapon-optics';
 import { DEFLECT_LINE, sightRangeAgainst } from './armor-inserts';
@@ -1733,12 +1734,23 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const inspectScale = motionPreference?.matches ? .25 : 1;
     rig.position.x += inspection.x * inspectScale; rig.position.y += inspection.y * inspectScale; rig.position.z += inspection.z * inspectScale;
     rig.rotation.x += inspection.pitch * inspectScale; rig.rotation.y += inspection.yaw * inspectScale; rig.rotation.z += inspection.roll * inspectScale;
+    if (state.reloadSlot !== undefined && state.reloadSlot >= 0) {
+      const pocketPose = pouchWeaponOffset(progress, emptyReload[hud.weapon]);
+      rig.position.x += pocketPose.x; rig.position.y += pocketPose.y; rig.position.z += pocketPose.z;
+      rig.rotation.y += pocketPose.yaw; rig.rotation.z += pocketPose.roll;
+    }
     viewScene.updateMatrixWorld(true);
-    const pouchWorld = state.reloadSlot === undefined || progress === null && !state.magazineOut ? null : playerBody.magazinePosition(state.reloadSlot);
-    const pouch = pouchWorld ? camera.worldToLocal(pouchWorld) : null;
+    const reaching = state.reloadSlot !== undefined && (progress !== null || state.magazineOut);
+    const sourceMagazine = state.pendingMagazine ?? state.magazineInventory?.slots[state.reloadSlot ?? -1] ?? (state.reserveMagazine ? { ...state.reserveMagazine, capacity: magazineCapacity(state, specs[hud.weapon]) } : undefined);
+    const source = reaching && sourceMagazine ? playerBody.magazineSource(state.reloadSlot!, sourceMagazine) : null;
+    // The foreground camera can use a narrower FOV than the body camera. Match
+    // projections so the palm contacts the visible magazine, including during ADS exit.
+    const projectionScale = Math.tan(THREE.MathUtils.degToRad(viewCamera.fov / 2)) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const worldToView = source ? new THREE.Matrix4().makeScale(projectionScale, projectionScale, 1).multiply(camera.matrixWorldInverse) : null;
     handling.forEach((model, i) => model.update(i === hud.weapon ? progress : null, emptyReload[i],
       i === hud.weapon ? { prone: prone && hud.phase === 'playing', grounded: onGround, speed, eyeHeight: bodyMotion.eye, dt } : undefined, i === hud.weapon ? readyProgress : undefined,
-      i === hud.weapon ? { pouch, magazineOut: state.magazineOut === true, pending: !!state.pendingMagazine, capacity: state.pendingMagazine?.capacity ?? magazineCapacity(state, specs[i]), baseCapacity: specs[i].capacity, saved: state.reloadSaved ?? 0 } : undefined));
+      i === hud.weapon ? { source: source && worldToView ? { ...source, worldToView } : undefined, magazineOut: state.magazineOut === true, pending: !!state.pendingMagazine, capacity: state.pendingMagazine?.capacity ?? magazineCapacity(state, specs[i]), baseCapacity: specs[i].capacity, saved: state.reloadSaved ?? 0 } : undefined));
+    canvas.dataset.reloadReach = JSON.stringify(handling[hud.weapon]?.reloadReach ?? null);
     canvas.dataset.magazineInventory = JSON.stringify({ slots: state.magazineInventory?.slots, reloadSlot: state.reloadSlot, pending: state.pendingMagazine ?? null, capacity: magazineCapacity(state, specs[hud.weapon]), spares: spareMagazines(state) });
     // A supply in the hands takes the weapon down and out of view while it is used.
     grenadeHands.update(grenadeHeld?.id ?? null, grenadeHeld?.ready ?? 0, grenadeHeld?.cooked ?? 0);

@@ -2,6 +2,7 @@ import { FPS_WEAPONS, reloadLength } from './fps-rules';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { handleSide, reloadMotion, readyMotion, smoothStep } from './fps-weapon-motion';
+import { createPouchReload, type PouchReloadSource } from './fps-pouch-reload';
 import { getWeaponSight } from './weapon-optics';
 import { createBipodMotion, type BipodMotionInput } from './weapon-bipod';
 import { MACHINE_GUN_LAYOUT } from './machine-gun-layout';
@@ -38,15 +39,16 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   const box = (parent: THREE.Object3D, w: number, h: number, d: number, x: number, y: number, z: number, m = glove) =>
     mesh(parent, new RoundedBoxGeometry(w, h, d, 1, .004), m, x, y, z);
   const hand = (left: boolean) => {
-    const group = new THREE.Group(); additions.add(group);
+    const group = new THREE.Group(); group.name = left ? 'reload-hand-left' : 'reload-hand-right'; additions.add(group);
     box(group, .062, .077, .044, 0, 0, 0);
     box(group, .052, .035, .009, 0, .016, .025, pad);
     for (let i = 0; i < 4; i++) {
-      box(group, .013, .045 - Math.abs(i - 1) * .003, .017, -.023 + i * .015, .044, -.008);
-      box(group, .012, .016, .01, -.023 + i * .015, .029, .022, pad);
+      const finger = new THREE.Group(); finger.name = `grip-finger-${i}`; finger.position.set(-.023 + i * .015, .025, -.005); group.add(finger);
+      box(finger, .013, .045 - Math.abs(i - 1) * .003, .017, 0, .019, -.003);
+      box(finger, .012, .016, .01, 0, .004, .027, pad);
     }
-    const thumb = box(group, .019, .045, .025, left ? .035 : -.035, -.002, -.014); thumb.rotation.z = left ? -.55 : .55;
-    mesh(group, new THREE.CylinderGeometry(.034, .046, .16, 8), sleeve, 0, -.13, .028).rotation.x = -.28;
+    const thumb = box(group, .019, .045, .025, left ? .035 : -.035, -.002, -.014); thumb.rotation.z = left ? -.55 : .55; thumb.name = 'grip-thumb';
+    const stub = mesh(group, new THREE.CylinderGeometry(.034, .046, .16, 8), sleeve, 0, -.13, .028); stub.rotation.x = -.28; stub.name = 'hand-forearm-stub';
     box(group, .073, .025, .060, 0, -.065, .005, pad);
     return group;
   };
@@ -86,12 +88,14 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   const carried = new THREE.Vector3(), taut = new THREE.Vector3();
   const controlZ = control.position.z;
   const bipod = createBipodMotion(model, FPS_WEAPONS[index].id);
+  const pouchReload = createPouchReload(model, left, magazine, sleeve);
   return {
+    get reloadReach() { return pouchReload.debug; },
     get bipodDeployment() { return bipod.progress; },
     resetBipod: bipod.reset,
     get aimHeight() { return getWeaponSight(model)?.aimHeight ?? FPS_WEAPONS[index].sightHeight; },
     get aimDepth() { return getWeaponSight(model)?.aimDepth ?? enemy?.aimDepth ?? (index === 2 ? -.52 : index === 3 ? MACHINE_GUN_LAYOUT['mag-inspired'].aimDepth : index === 4 ? MACHINE_GUN_LAYOUT['cis50-inspired'].aimDepth : -.36); },
-    update(progress: number | null, empty: boolean, bipodInput?: BipodMotionInput, ready?: number, reload?: { pouch: THREE.Vector3 | null; magazineOut: boolean; pending: boolean; capacity: number; baseCapacity?: number; saved: number }) {
+    update(progress: number | null, empty: boolean, bipodInput?: BipodMotionInput, ready?: number, reload?: { source?: PouchReloadSource; magazineOut: boolean; pending: boolean; capacity: number; baseCapacity?: number; saved: number }) {
       bipod.update(bipodInput);
       const motionProgress = progress ?? (reload?.magazineOut ? reload.saved : 0);
       const motion = ready === undefined ? reloadMotion(motionProgress, empty, side) : readyMotion(ready, side);
@@ -121,31 +125,20 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       // From empty the support hand takes the handle and draws it the full stroke.
       const stroke = motion.action * (index === 2 ? .035 : .075);
       if (progress !== null || ready !== undefined) left.position.lerp(new THREE.Vector3(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + stroke), motion.handToHandle);
-      // Reach the real pouch, then carry that magazine to the weapon. Pouch
-      // coordinates are camera-space, converted through this weapon's pose.
-      const time = motionProgress * reloadLength(empty);
-      if (reload?.pouch && ready === undefined && time >= .34 && time < .74) {
-        model.updateWorldMatrix(true, false);
-        const pouch = model.worldToLocal(reload.pouch.clone());
-        const reach = smoothStep((time - .34) / .13), seat = smoothStep((time - .47) / .27);
-        const grasp = pouch.clone().add(magazineGrip.clone().sub(magazineHome));
-        left.position.lerp(grasp, reach * (1 - seat));
-        if (magazine && reload.pending) {
-          magazine.position.lerpVectors(pouch, magazineHome, seat);
-          magazine.rotation.copy(magazineRotation);
-          magazine.rotation.z += (1 - seat) * -.4;
-          magazine.visible = true;
-          left.position.copy(magazine.position).add(magazineGrip.clone().sub(magazineHome));
-        }
-      }
       if (magazine) {
         magazine.userData.loadedCapacity = reload?.capacity ?? FPS_WEAPONS[index].capacity;
         if (reload && magazineScale) magazine.scale.y = magazineScale.y * Math.max(.75, Math.min(1.4, reload.capacity / (reload.baseCapacity ?? FPS_WEAPONS[index].capacity)));
       }
+      const reaching = pouchReload.update(ready === undefined ? motionProgress * reloadLength(empty) : 0, reload?.pending === true, reload?.source);
+      const stub = left.getObjectByName('hand-forearm-stub'); if (stub) stub.visible = !reaching;
+      const time = motionProgress * reloadLength(empty);
+      const closed = reaching ? smoothStep((time - .425) / .045) * (1 - smoothStep((time - .76) / .08)) : .35;
+      for (let finger = 0; finger < 4; finger++) left.getObjectByName(`grip-finger-${finger}`)!.rotation.x = .12 + closed * .95;
+      left.getObjectByName('grip-thumb')!.rotation.z = -.55 - closed * .35;
       control.position.z = controlZ + stroke;
     },
     dispose() {
-      bipod.reset(); control.position.z = controlZ; rounds.forEach((round, i) => { round.position.copy(roundHomes[i]); round.rotation.z = 0; });
+      pouchReload.dispose(); bipod.reset(); control.position.z = controlZ; rounds.forEach((round, i) => { round.position.copy(roundHomes[i]); round.rotation.z = 0; });
       additions.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
   };
 }
