@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Feed belt ammunition</title><style>
+body{margin:0;background:#18222a;color:#e4ebed;font:14px system-ui}canvas{display:block}.labels{position:absolute;inset:0;pointer-events:none;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr)}.labels span{align-self:end;padding:12px 16px}small{display:block;color:#a3b6be}
+</style></head><body><div class="labels" id="labels"></div><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import { buildServiceWeapon } from '/src/game/service-weapon-models.ts';
+import { createWeaponHandling } from '/src/game/fps-viewmodel.ts';
+import { FPS_WEAPONS } from '/src/game/fps-rules.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true}),cells=[];
+renderer.setPixelRatio(1);renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.setClearColor('#18222a');renderer.setScissorTest(true);document.body.append(renderer.domElement);
+for(const [row,family] of [3,4,7].entries()) for(let col=0;col<4;col++) {
+  const spec=FPS_WEAPONS[family],root=buildServiceWeapon(spec.id),handling=createWeaponHandling(root,family);
+  const total=root.getObjectsByProperty('name',spec.id+'__belt-round').length,rounds=[total,total-1,1,0][col];
+  handling.update(null,false,undefined,undefined,undefined,{rounds,capacity:spec.capacity});
+  const scene=new THREE.Scene();scene.add(root,new THREE.HemisphereLight('#e8efff','#535f49',2.5));
+  const key=new THREE.DirectionalLight('#ffefd6',3);key.position.set(-1,2,1);scene.add(key);
+  const centre=family===7?new THREE.Vector3(-.06,.19,-.05):new THREE.Vector3(family===4?-.15:-.11,.235,-.025);
+  const camera=new THREE.OrthographicCamera(-.15,.15,.12,-.12,.01,10);
+  camera.position.copy(centre).add(new THREE.Vector3(-.5,.3,.45));camera.lookAt(centre);
+  cells.push({root,scene,camera,handling,spec,row,col});
+  document.getElementById('labels').insertAdjacentHTML('beforeend',`<span>${spec.name} · ${rounds} rounds<small>${['Full visible belt','Tail starts feeding','Last round at feed tray','Empty'][col]}</small></span>`);
+}
+function draw(){for(const cell of cells){const {scene,camera,row,col}=cell,w=innerWidth/4,h=innerHeight/3;
+  renderer.setViewport(col*w,innerHeight-(row+1)*h,w,h);renderer.setScissor(col*w,innerHeight-(row+1)*h,w,h);renderer.render(scene,camera);cell.calls=renderer.info.render.calls;}}
+draw();window.fixture={cells,renderer,draw,states:()=>cells.map(({spec,handling,calls})=>({id:spec.id,...handling.beltAmmo,calls}))};window.ready=true;
+</script></body></html>

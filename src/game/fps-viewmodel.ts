@@ -85,6 +85,8 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   const coverHome = cover?.rotation.clone();
   const belt = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__feed-belt`) : undefined;
   const rounds = magazine ? belt?.children.filter(round => round.name.endsWith('__belt-round')) ?? [] : [];
+  const beltVisible = belt?.visible, roundVisible = rounds.map(round => round.visible);
+  let beltRounds = rounds.length;
   const roundHomes = rounds.map(round => round.position.clone()), hanging = hangingBelt(roundHomes);
   const carried = new THREE.Vector3(), taut = new THREE.Vector3();
   const controlZ = control.position.z;
@@ -92,6 +94,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   const pouchReload = createPouchReload(model, left, magazine, sleeve);
   return {
     get reloadReach() { return pouchReload.debug; },
+    get beltAmmo() { return rounds.length ? { total: rounds.length, remaining: beltRounds, visible: belt?.visible ? beltRounds : 0 } : null; },
     get bipodDeployment() { return bipod.progress; },
     resetBipod: bipod.reset,
     get aimHeight() { return getWeaponSight(model)?.aimHeight ?? FPS_WEAPONS[index].sightHeight; },
@@ -102,7 +105,12 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       const motionProgress = progress ?? (reload?.magazineOut ? reload.saved : 0);
       const motion = ready === undefined ? reloadMotion(motionProgress, empty, side) : readyMotion(ready, side);
       if (cover && coverHome) { cover.rotation.copy(coverHome); cover.rotation.x -= motion.handToMagazine * .9; }
-      if (belt) belt.visible = motion.magazineVisible;
+      if (belt) belt.visible = reload?.magazineOut && !reload.pending ? false : motion.magazineVisible;
+      // Authored rounds run from box mouth to feed tray. As the last N feed,
+      // shorten the tail first, keeping the last cartridge beside the action.
+      // A replacement belt belongs to the incoming box while it is threaded;
+      // gameplay does not own those fresh rounds until the seat point.
+      beltRounds = Math.max(0, Math.min(rounds.length, Math.floor(reload?.magazineOut && reload.pending ? reload.capacity : ammunition?.rounds ?? rounds.length)));
       if (magazine) {
         magazine.position.copy(magazineHome); magazine.position.y -= motion.magazineDrop;
         magazine.rotation.copy(magazineRotation); magazine.rotation.z += motion.magazineDrop * -.35;
@@ -115,6 +123,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
         out.copy(point).sub(magazineHome).applyAxisAngle(Z_AXIS, turn).add(magazineHome); out.y -= drop; return out;
       };
       rounds.forEach((round, i) => {
+        round.visible = i >= rounds.length - beltRounds;
         const along = i / Math.max(1, rounds.length - 1);
         taut.lerpVectors(carry(roundHomes[i], carried), roundHomes[i], along);
         carry(hanging[i].position, carried);
@@ -140,7 +149,9 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       control.position.z = controlZ + stroke;
     },
     dispose() {
-      pouchReload.dispose(); bipod.reset(); control.position.z = controlZ; rounds.forEach((round, i) => { round.position.copy(roundHomes[i]); round.rotation.z = 0; });
+      pouchReload.dispose(); bipod.reset(); control.position.z = controlZ;
+      if (belt) belt.visible = beltVisible!;
+      rounds.forEach((round, i) => { round.position.copy(roundHomes[i]); round.rotation.z = 0; round.visible = roundVisible[i]; });
       additions.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
   };
 }

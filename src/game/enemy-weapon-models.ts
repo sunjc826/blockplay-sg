@@ -457,7 +457,7 @@ function buildMg4(k: Kit) {
   ammoBox('box-200', ['heavy'], .1, .17, .2);
   const belt = new THREE.Group(); belt.name = 'mg4-inspired__feed-belt'; k.root.add(belt);
   for (let i = 0; i < 6; i++) {
-    const t = i / 5, x = THREE.MathUtils.lerp(-.07, -.047, t), yy = THREE.MathUtils.lerp(.152, .232, t) + Math.sin(t * Math.PI) * .01;
+    const t = i / 5, x = THREE.MathUtils.lerp(-.07, -.057, t), yy = THREE.MathUtils.lerp(.152, .232, t) + Math.sin(t * Math.PI) * .01;
     const round = new THREE.Group(); round.name = 'mg4-inspired__belt-round'; round.position.set(x, yy, 0); belt.add(round);
     k.cylinder('belt-case', .0045, .042, 0, 0, -.05, k.brass, round);
     const tip = k.mesh('belt-projectile', new THREE.ConeGeometry(.0038, .016, 10), k.copper, 0, 0, -.079, round); tip.rotation.x = -Math.PI / 2;

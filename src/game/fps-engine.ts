@@ -1753,6 +1753,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       i === hud.weapon ? { source: source && worldToView ? { ...source, worldToView } : undefined, magazineOut: state.magazineOut === true, pending: !!state.pendingMagazine, capacity: state.pendingMagazine?.capacity ?? magazineCapacity(state, specs[i]), baseCapacity: specs[i].capacity, saved: state.reloadSaved ?? 0 } : undefined,
       { rounds: magazineRounds(loadout[i], specs[i]), capacity: magazineCapacity(loadout[i], specs[i]) }));
     canvas.dataset.magazineAmmo = JSON.stringify(weapons[hud.weapon] ? magazineAmmoState(weapons[hud.weapon]) : []);
+    canvas.dataset.beltAmmo = JSON.stringify(handling[hud.weapon]?.beltAmmo ?? null);
     canvas.dataset.reloadReach = JSON.stringify(handling[hud.weapon]?.reloadReach ?? null);
     canvas.dataset.magazineInventory = JSON.stringify({ slots: state.magazineInventory?.slots, reloadSlot: state.reloadSlot, pending: state.pendingMagazine ?? null, capacity: magazineCapacity(state, specs[hud.weapon]), spares: spareMagazines(state) });
     // A supply in the hands takes the weapon down and out of view while it is used.

@@ -88,7 +88,9 @@ export function buildMachineGun(id: MachineGunId) {
   // Each round is its own node, from the box mouth (first) to the feed tray
   // (last), so the reload can peel the belt out and let it hang from the box.
   const belt = new THREE.Group(); belt.name = `${id}__feed-belt`; root.add(belt);
-  const start = heavy ? -.23 : -.165, end = -half + .005;
+  // Leave the last cartridge outside the solid feed-mouth detail so a single
+  // remaining round is still visible before it disappears into the action.
+  const start = heavy ? -.23 : -.165, end = -half - .025;
   for (let i = 0; i < 8; i++) {
     const t = i / 7, x = THREE.MathUtils.lerp(start, end, t), yy = THREE.MathUtils.lerp(.220, y + .027, t) - Math.sin(t * Math.PI) * .012;
     const radius = heavy ? .007 : .005;
