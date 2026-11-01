@@ -42,7 +42,7 @@ export default function DebugApp() {
 
   const openLobby = () => { leaveSession(); setLocation(locations.find(place => place.id === 'marina-bay')!); setArmoryOpen(false); setFpsOpen(false); setRegionOpen(false); setLobbyOpen(true); };
   const openExpedition = () => { if (expeditionOpen) return; leaveSession(); setExpeditionStart(location.id); setDestination(undefined); setArmoryOpen(false); setFpsOpen(false); setRegionOpen(false); setExpeditionOpen(true); };
-  const launchArena = (session: LanSession, bots: number, squad: 'mixed' | 'assault' | 'tank' | 'sniper') => {
+  const launchArena = (session: LanSession, bots: number, squad: 'mixed' | 'assault' | 'tank' | 'sniper' | 'heavy') => {
     setExpeditionOpen(false); lanSession.current?.close(); lanSession.current = session;
     setArena({ session, botCount: bots, composition: squad }); setLobbyOpen(false); setFpsOpen(true);
   };

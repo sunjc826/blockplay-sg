@@ -36,7 +36,7 @@ export function arenaCharacterLook(actor: { bot: boolean; role: string; id?: str
   if (actor.faction === 'freedom-force') return proxyCharacterLook(actor.faction, actor.role === 'sniper' ? 'wayfinder' : 'lancer', actor.id);
   if (actor.faction === 'collective-cops') return proxyCharacterLook(actor.faction, actor.role === 'tank' ? 'bastion' : 'conductor', actor.id);
   const faction = arenaFaction(actor), { palette } = faction, seed = hashString(actor.id ?? actor.role);
-  const heavy = actor.bot && (actor.role === 'tank' || actor.role === 'elite-gunner'), sniper = actor.bot && (actor.role === 'sniper' || actor.role === 'overwatch' || actor.role === 'elite-commander');
+  const heavy = actor.bot && (actor.role === 'tank' || actor.role === 'heavy' || actor.role === 'elite-gunner'), sniper = actor.bot && (actor.role === 'sniper' || actor.role === 'overwatch' || actor.role === 'elite-commander');
   const rank = actor.bot ? actor.rank : undefined, recruit = rank === 1, veteran = rank === 3;
   const headwear = sniper ? 'boonie' : faction.caps && actor.bot && !heavy && !veteran ? 'cap' : 'helmet';
   // A little fade or wear per soldier, so a squad is a squad and not a print run; a recruit's kit is the most worn.

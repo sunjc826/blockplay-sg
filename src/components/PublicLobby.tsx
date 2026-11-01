@@ -6,7 +6,7 @@ import { HAS_PUBLIC_ROOMS } from '../lib/deployment';
 import './lan-lobby.css';
 import './public-lobby.css';
 
-type Squad = 'mixed' | 'assault' | 'tank' | 'sniper';
+type Squad = 'mixed' | 'assault' | 'tank' | 'sniper' | 'heavy';
 const invitedRoom = () => new URLSearchParams(window.location.search).get('room')?.replace(/[^a-f0-9]/gi, '').slice(0, 6).toUpperCase() || '';
 export default function PublicLobby({ onLaunch, onBack }: { onLaunch: (session: LanSession, bots: number, squad: Squad) => void; onBack: () => void }) {
   const [mode, setMode] = useState<'browse' | 'create' | 'join'>(() => invitedRoom() ? 'join' : 'browse');
@@ -57,7 +57,7 @@ export default function PublicLobby({ onLaunch, onBack }: { onLaunch: (session: 
 
   const matchSettings = <details className="public-options"><summary>Match settings <span>{bots} bots</span></summary>
     <div className="lan-bot-control"><div><label htmlFor="public-bots">Bot opponents</label><output>{bots}</output></div><input id="public-bots" type="range" min={0} max={6} value={bots} onChange={event => setBots(Number(event.target.value))} /></div>
-    <div className="lan-squad-control"><label htmlFor="public-squad">Bot squad</label><select id="public-squad" value={squad} onChange={event => setSquad(event.target.value as Squad)} disabled={!bots}><option value="mixed">Mixed squad</option><option value="assault">Assault squad</option><option value="tank">Tank squad</option><option value="sniper">Sniper squad</option></select></div>
+    <div className="lan-squad-control"><label htmlFor="public-squad">Bot squad</label><select id="public-squad" value={squad} onChange={event => setSquad(event.target.value as Squad)} disabled={!bots}><option value="mixed">Mixed squad</option><option value="assault">Assault squad</option><option value="tank">Tank squad</option><option value="heavy">Heavy MG squad</option><option value="sniper">Sniper squad</option></select></div>
   </details>;
   return <section className={`lan-lobby public-lobby ${session ? 'has-room' : ''}`} aria-label="Public multiplayer lobby">
     <header className="lan-header"><div><span className="lan-kicker">BLOCKPLAY</span><h2>{session ? 'Your room is ready.' : 'Multiplayer'}</h2><p>Marina Bay <span>·</span> Free for all <span>·</span> Up to 4 players</p></div><span className="lan-network-badge"><span className="status-dot" /> Online</span></header>

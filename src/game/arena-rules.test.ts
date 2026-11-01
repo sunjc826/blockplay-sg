@@ -229,7 +229,7 @@ describe('bot role plugins', () => {
     expect(getArenaRole('sniper')!.think({ ...context, distance: 40 })).toMatchObject({ approach: 0, strafe: 0 });
   });
   it('builds a mixed squad with all three roles and suppresses fire without sight', () => {
-    expect(createArena([], 3).snapshot().actors.map(a => a.role)).toEqual(['assault', 'tank', 'sniper']);
+    expect(createArena([], 3).snapshot().actors.map(a => a.role)).toEqual(['assault', 'heavy', 'sniper']);
     for (const role of listArenaRoles()) expect(role.think({ ...context, visible: false }).fire).toBe(false);
   });
   it('allows a local role plugin to change simulated behavior and rejects duplicate or invalid registration', () => {

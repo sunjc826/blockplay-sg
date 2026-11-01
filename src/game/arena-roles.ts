@@ -93,6 +93,17 @@ registerArenaRole({
   }),
 });
 registerArenaRole({
+  id: 'heavy', name: 'Heavy MG squad', description: 'Armored MG4 gunners that prioritize visible helicopters. Slow movement and long belt changes leave openings.',
+  health: 140, armor: 100, absorption: .65, stops: 'gpmg', speed: 1.6, sightRange: 90, reaction: 1,
+  armament: [{ variant: 'mg4-standard', weight: 3 }, { variant: 'mg4-sustained', weight: 1 }],
+  weapon: { ...FPS_WEAPONS[7] }, burst: [6, 10], medkits: 1,
+  think: ({ distance, visible, strafeDirection }) => ({
+    approach: !visible || distance > 40 ? 1 : distance < 12 ? -.5 : 0,
+    strafe: visible ? strafeDirection * .1 : strafeDirection * .2,
+    fire: visible, shotDelay: .9, spread: .06,
+  }),
+});
+registerArenaRole({
   id: 'sniper', name: 'Sniper squad', description: 'Long-range marksmen that hold their ground and retreat when crowded.',
   health: 80, armor: 10, absorption: 0.25, speed: 2.3, sightRange: 110, reaction: 1.1,
   armament: [{ variant: 'xm8-sharpshooter', weight: 3 }, { variant: 'g36-rifle', weight: 2 }],
@@ -139,6 +150,6 @@ for (const [id, name, armament, health, armor, speed, spread, delay, burst] of [
 });
 
 export const ARENA_ROLE_OPTIONS = [
-  { id: 'mixed', name: 'Mixed squad', description: 'A mix of assault, heavy infantry and sniper bots.' },
+  { id: 'mixed', name: 'Mixed squad', description: 'Assault, tank, heavy MG and sniper bots. Heavy gunners watch for helicopters.' },
   ...listArenaRoles().map(({ id, name, description }) => ({ id, name, description })),
 ];

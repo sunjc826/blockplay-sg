@@ -47,6 +47,20 @@ layout and allocation. Camps are still ordinary damageable/capturable sites.
 
 ## Vehicle participation
 
+Mixed enemy squads now include a dedicated **Heavy MG** role alongside assault,
+tank and sniper infantry; the same role is selectable in arena lobbies. These
+armored, slow-moving gunners carry MG4s (standard or sustained-fire variants).
+Friendly heavy reinforcements use the FN MAG. This changes the roster mix without
+adding soldiers to the configured population.
+
+Heavy gunners prioritize visible hostile helicopter hulls within 220 m, including
+occupied drivable helicopters, scripted gunships and air transports. They lead
+moving aircraft and fire normal travelling rounds with the weapon's own damage,
+falloff, magazines and belt reloads. Cover and smoke block identification;
+abandoned and friendly aircraft are ignored. Their aim takes time to settle,
+and movement orders, objectives, healing and danger avoidance still apply.
+Breaking sight or attacking during a belt change gives a pilot an opening.
+
 Operational command posts no longer veto road/air reinforcement transports.
 These still share each faction's existing regular roster, require casualties or
 recruitment room, obey the 80-second external reserve clock and avoid overlapping

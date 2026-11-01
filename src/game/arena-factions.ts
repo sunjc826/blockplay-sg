@@ -111,7 +111,7 @@ registerArenaFaction({
     chest: { design: 'diamond', field: '#0d0f14', mark: '#e8833a' },
   },
   caps: true,
-  accent: '#e3a63f', roleAccents: { assault: '#e3a63f', tank: '#ef5d4f', sniper: '#b99cff', 'mortar-crew': '#ff9150', overwatch: '#f1d45a' },
+  accent: '#e3a63f', roleAccents: { assault: '#e3a63f', tank: '#ef5d4f', heavy: '#ffca65', sniper: '#b99cff', 'mortar-crew': '#ff9150', overwatch: '#f1d45a' },
 });
 
 for (const design of PROXY_FACTIONS) registerArenaFaction({

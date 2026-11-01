@@ -96,5 +96,5 @@ export function botTransverseSpeed(direction: { x: number; z: number }, velocity
 
 /** Rifles use pairs at range; support weapons retain short suppressive bursts. */
 export function botBurstLimit(role: string, range: number) {
-  return range < BOT_AIM.controlledRange ? 12 : role === 'tank' ? 4 : 2;
+  return range < BOT_AIM.controlledRange ? 12 : role === 'heavy' ? 8 : role === 'tank' ? 4 : 2;
 }

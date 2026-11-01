@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { arenaCharacterLook, npcCharacterLook } from './character-looks';
 import { createCharacterRig, type CharacterLook, type CharacterRig } from './character-rig';
 
-const roles = ['assault', 'tank', 'sniper', 'mortar-crew', 'overwatch', 'elite-gunner', 'elite-commander'];
+const roles = ['assault', 'tank', 'heavy', 'sniper', 'mortar-crew', 'overwatch', 'elite-gunner', 'elite-commander'];
 function meshes(rig: CharacterRig) {
   const found: THREE.Mesh[] = [];
   rig.root.traverse(node => { if (node instanceof THREE.Mesh) found.push(node); });
@@ -42,7 +42,7 @@ describe('colour-independent soldier recognition', () => {
       });
       expect(new Set(shapes).size).toBe(4);
     }
-    for (const faction of ['armed-forces', 'mercenaries']) for (const [role, roleKit] of [['assault', 'rifleman'], ['tank', 'gunner'], ['sniper', 'marksman'], ['overwatch', 'marksman'], ['mortar-crew', 'mortar'], ['elite-gunner', 'gunner'], ['elite-commander', 'marksman']]) {
+    for (const faction of ['armed-forces', 'mercenaries']) for (const [role, roleKit] of [['assault', 'rifleman'], ['tank', 'gunner'], ['heavy', 'gunner'], ['sniper', 'marksman'], ['overwatch', 'marksman'], ['mortar-crew', 'mortar'], ['elite-gunner', 'gunner'], ['elite-commander', 'marksman']]) {
       expect(arenaCharacterLook({ bot: true, role, faction }).roleKit).toBe(roleKit);
     }
   });

@@ -4,6 +4,7 @@ import { validArenaSnapshot } from './arena-runtime';
 import { DISTRICT_HEAT, FACTION_SCALE, HEAT_TUNING } from './faction-heat';
 import { combatTimeline, getCombatEvent, type CombatEventDescriptor, type InsertPayload } from './combat-events';
 import { shootAndLand } from './arena-test-shots';
+import { hostile } from './arena-factions';
 
 const open = (spawns: { x: number; z: number }[], extra: Partial<ArenaEnvironment> = {}): ArenaEnvironment => ({
   bounds: { minX: -200, maxX: 200, minZ: -200, maxZ: 200 }, spawns,
@@ -200,13 +201,13 @@ describe('faction heat in the arena', () => {
     expect(friends.length).toBeGreaterThan(0);
     expect(friends.length).toBeLessThanOrEqual(FACTION_SCALE['armed-forces'].troops[1]);
     expect(friends.every(f => /^(Pte|Cpl|Sgt) /.test(f.name) && f.variant === undefined)).toBe(true);
-    // Isolate this friendly-fire probe from unrelated hostile rounds in flight.
-    for (const enemy of arena.snapshot().actors.filter(a => a.faction === 'mercenaries')) arena.removePlayer(enemy.id);
-    // Friendly rounds stop on the player and do nothing.
+    // Inspect only this shooter's result: other contractors can still fire
+    // while a friendly round travels, so total player health is not isolated.
     const friend = friends.find(f => f.alive)!;
-    const player = actor(arena, 'one'), before = player.health;
-    if (friend) expect(shootDead(arena, friend.id, player).damage).toBe(0);
-    expect(actor(arena, 'one').health).toBe(before);
+    expect(friend).toBeDefined();
+    expect(hostile(friend, actor(arena, 'one'))).toBe(false);
+    const shot = shootDead(arena, friend.id, actor(arena, 'one'));
+    expect(shot.damage).toBe(0);
     expect(validArenaSnapshot(checkable(arena), hot())).toBe(true);
     expect(arena.snapshot().heat?.find(h => h.sector === 'east')?.mercenaries).toBeGreaterThanOrEqual(.7);
   });

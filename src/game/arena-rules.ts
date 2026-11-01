@@ -588,8 +588,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75 + (destination?.y ?? bounds.groundHeight?.(p.x,p.z) ?? 0), health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
       yaw: destination?.yaw ?? (Number.isFinite(preferred?.yaw) ? preferred!.yaw! : 0), pitch: Number.isFinite(preferred?.pitch) ? clamp(preferred!.pitch!, -1.5, 1.5) : 0 });
     if (entry.role && entry.actor.faction === PLAYER_FACTION) {
-      // Friendly soldiers carry the issued rifle, or the Ultimax in support, which is what they drop.
-      entry.actor.weapon = forcesFamily(entry.role); delete entry.actor.variant; entry.spec = undefined; entry.medkits = (entry.role.medkits ?? 1) + (entry.rank?.medkits ?? 0);
+      // Heavy gunners carry the issued FN MAG; other support troops use the Ultimax.
+      entry.actor.weapon = forcesFamily(entry.role); delete entry.actor.variant;
+      entry.spec = entry.role.id === 'heavy' ? FPS_WEAPONS[entry.actor.weapon] : undefined;
+      if (entry.spec) entry.weapons[entry.actor.weapon] = sanitizeWeapons([entry.spec])[0];
+      entry.medkits = (entry.role.medkits ?? 1) + (entry.rank?.medkits ?? 0);
     } else if (entry.role) {
       const issued = chooseArmament(entry.role, armamentRandom, entry.rank?.kit); entry.actor.weapon = issued.family; entry.actor.variant = issued.id;
       // What they carry is what they fire: the variant's damage, falloff, cycle, magazine and reload.
@@ -2870,6 +2873,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function seesThreat(entry: InternalActor, enemy: InternalActor, range: number, dt: number): boolean {
     if (arenaConditionModifiers(entry.actor.conditions).dazed || !enemy.actor.alive || enemy.reserve) return false;
+    // Heavies identify helicopters as hulls, rather than acquiring their crew as distant infantry.
+    if (entry.role?.id === 'heavy' && (enemy.actor.vehicle === 'helicopter' || enemy.actor.aircrew)) return false;
     const chest = chestOf(enemy.actor), length = distance(entry.actor, chest);
     if (length >= range || length < .01) return false;
     const ray = { x: (chest.x - entry.actor.x) / length, y: (chest.y - entry.actor.y) / length, z: (chest.z - entry.actor.z) / length };
@@ -2892,6 +2897,41 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         navigation:grounded.map(v=>({...vehicleBounds(v),minY:v.y,maxY:v.y+3}))};
     }
     return botVehicleGeometry;
+  }
+  interface AircraftTarget { id: string; point: ArenaPoint; velocity: ArenaPoint }
+  /** Heavy gunners identify the hull itself, including raids with no exposed target soldier. */
+  function heavyAircraftTarget(entry: InternalActor, dt: number): AircraftTarget | undefined {
+    if (entry.role?.id !== 'heavy' || arenaConditionModifiers(entry.actor.conditions).dazed) return;
+    const candidates: AircraftTarget[] = [];
+    for (const v of vehicles) {
+      if (v.kind !== 'helicopter' || v.health <= 0 || v.despawned) continue;
+      const crew = v.occupants.flatMap(id => id && members.get(id) ? [members.get(id)!] : []);
+      // Empty/abandoned hulls are not threats; a player's spawn shield still holds.
+      if (!crew.some(m => m.actor.alive && hostile(entry.actor, m.actor) && elapsed >= (m.shieldUntil ?? 0))) continue;
+      candidates.push({ id: 'aircraft-helicopter', point: { x: v.x, y: v.y + 1.6, z: v.z },
+        velocity: { x: -Math.sin(v.yaw) * v.speed + Math.cos(v.yaw) * (v.lateralSpeed ?? 0), y: v.climb, z: -Math.cos(v.yaw) * v.speed - Math.sin(v.yaw) * (v.lateralSpeed ?? 0) } });
+    }
+    for (const r of raiders.values()) {
+      const event = events.find(e => e.descriptor.id === r.event);
+      if (r.kind !== 'gunship' || r.health <= 0 || !hostile(entry.actor, { bot: true, faction: event?.descriptor.faction ?? DEFAULT_BOT_FACTION })) continue;
+      candidates.push({ id: `aircraft-${r.event}`, point: { x: r.x, y: r.y + 1.6, z: r.z }, velocity: { x: r.vx, y: r.vy, z: r.vz } });
+    }
+    for (const t of transports.values()) {
+      const event = events.find(e => e.descriptor.id === t.event);
+      if (t.mode !== 'air' || !t.visible || t.health <= 0 || t.state === 'departed' || !hostile(entry.actor, { bot: true, faction: event?.descriptor.faction ?? DEFAULT_BOT_FACTION })) continue;
+      const driver = members.get(t.driver);
+      candidates.push({ id: `aircraft-${t.event}`, point: { x: t.x, y: t.y + 1.6, z: t.z },
+        velocity: { x: driver?.velocity?.x ?? 0, y: 0, z: driver?.velocity?.z ?? 0 } });
+    }
+    const range = Math.min(220, weaponRange(entry.spec ?? FPS_WEAPONS[entry.actor.weapon]));
+    return candidates.filter(c => distance(entry.actor, c.point) <= range)
+      .sort((a, b) => distance(entry.actor, a.point) - distance(entry.actor, b.point))
+      .find(c => {
+        const length = distance(entry.actor, c.point);
+        if (length < .1) return false;
+        const ray = { x: (c.point.x - entry.actor.x) / length, y: (c.point.y - entry.actor.y) / length, z: (c.point.z - entry.actor.z) / length };
+        return clearSight(entry, c.id, ray, length, dt) && !smokeBetween(entry.actor, c.point);
+      });
   }
   function stepBot(entry: InternalActor, dt: number) {
     const actor = entry.actor;
@@ -2935,18 +2975,21 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       return !!target && seesThreat(entry, target, weaponRange(entry.spec ?? FPS_WEAPONS[actor.weapon]), ARENA_SIGHT_RECHECK);
     }, focused?.actor.id, confirmed?.actor.id);
     const enemy: InternalActor | undefined = identified ? members.get(identified) : undefined;
+    const aircraft = heavyAircraftTarget(entry, dt);
+    const targetId = aircraft?.id ?? enemy?.actor.id;
+    const focusKey = aircraft?.id ?? (enemy ? `${enemy.actor.id}:${enemy.actor.deaths}` : undefined);
     entry.patrolTime -= dt;
     if (entry.patrolTime <= 0) {
       const home = entry.home ? homeSpawns(entry.home) : validSpawns, pool = home.length ? home : validSpawns;
       entry.patrol = pool[Math.floor(random() * pool.length)]; entry.patrolTime = 3 + random() * 3; entry.strafe *= -1;
     }
     const searching = threat?.point ?? spotting.lastKnown(elapsed);
-    const target: ArenaPoint = enemy?.actor ?? (searching ?? { ...(entry.mission ?? entry.patrol), y: 1.75 });
+    const target: ArenaPoint = aircraft?.point ?? enemy?.actor ?? (searching ?? { ...(entry.mission ?? entry.patrol), y: 1.75 });
     const dx = target.x - actor.x; const dz = target.z - actor.z; const horizontal = Math.hypot(dx, dz);
     const direction = { x: dx / Math.max(horizontal, 0.01), y: 0, z: dz / Math.max(horizontal, 0.01) };
-    const line = { x: target.x - actor.x, y: (enemy?.actor.prone ? target.y - PRONE_EYE_HEIGHT + .35 : target.y - .65) - actor.y, z: target.z - actor.z };
-    const visible = !conditions.dazed && !!enemy;
-    if (visible && threat && enemy?.actor.id === threat.id) { threat.point = { x: target.x, y: target.y, z: target.z }; threat.until = elapsed + BOT_THREAT.memory; }
+    const line = { x: target.x - actor.x, y: (aircraft ? target.y : enemy?.actor.prone ? target.y - PRONE_EYE_HEIGHT + .35 : target.y - .65) - actor.y, z: target.z - actor.z };
+    const visible = !conditions.dazed && (!!enemy || !!aircraft);
+    if (visible && !aircraft && threat && enemy?.actor.id === threat.id) { threat.point = { x: target.x, y: target.y, z: target.z }; threat.until = elapsed + BOT_THREAT.memory; }
     if (visible) entry.lastContact = { x: target.x, y: target.y, z: target.z, time: elapsed };
     const contact = entry.lastContact;
     if (!visible && contact && elapsed - contact.time < 6 && horizontal <= 25 && actor.grenade && grenadeSystem.live.filter(g => members.get(g.caller)?.actor.bot).length < 3 && elapsed - (entry.lastGrenadeAt ?? -Infinity) >= 20) {
@@ -2954,7 +2997,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (d >= 5 && d <= 25) { const angle = Math.asin(Math.min(.95, 9.8 * d / (speed * speed))) / 2;
         throwGrenade(actor.id, { id: actor.grenade, origin: actor, direction: { x: dx / d * Math.cos(angle), y: Math.sin(angle), z: dz / d * Math.cos(angle) }, under: false, cooked: 0 }); }
     }
-    if (actor.duty!=='sentry'&&!actor.patrolSector&&tryBoardVehicle(entry, dt)) { entry.aimFocus = undefined; return; }
+    if (!aircraft && actor.duty!=='sentry'&&!actor.patrolSector&&tryBoardVehicle(entry, dt)) { entry.aimFocus = undefined; return; }
     if (role.id === 'overwatch') { if (visible) actor.aiming = true; else delete actor.aiming; }
     if (visible) { if (elapsed - (entry.lastFight ?? -Infinity) > 6) bark(entry, 'contact'); entry.lastFight = elapsed; }
     const patrolling=actor.patrolSector&&(actor.duty==='patrol'||actor.duty==='investigate')&&!entry.order;
@@ -2979,8 +3022,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (wounded === 'retreat' && visible) { approach = -1; bark(entry, 'retreat'); }
     let strafe = Number.isFinite(intent.strafe) ? clamp(intent.strafe, -1, 1) : 0;
     // Objective movement and danger avoidance take priority over deliberate fire.
-    if (visible && entry.aimFocus?.target === `${enemy.actor.id}:${enemy.actor.deaths}` && horizontal >= BOT_AIM.controlledRange && entry.aimFocus.exposure >= .6 &&
+    if (visible && entry.aimFocus?.target === focusKey && horizontal >= BOT_AIM.controlledRange && (entry.aimFocus?.exposure ?? 0) >= .6 &&
       !entry.mission && !entry.order && !threat && !wounded) { approach = 0; strafe = 0; }
+    // Brace against aircraft instead of trying to navigate to a point in the sky.
+    if (aircraft && !wounded) { approach = 0; strafe = 0; }
     const normal = Math.max(1, Math.hypot(approach, strafe));
     let dxStep = (direction.x * approach - direction.z * strafe) / normal * role.speed * dt;
     let dzStep = (direction.z * approach + direction.x * strafe) / normal * role.speed * dt;
@@ -3004,7 +3049,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const step = objectiveStep(actor, mission, { dx: dxStep, dz: dzStep }, role.speed * dt);
       dxStep = step.dx; dzStep = step.dz;
     }
-    const routeNeeded = !!mission || !visible && !!searching || !!evading?.cover || Math.abs(target.y - actor.y) > .6 || !!entry.navigation?.pending || !!entry.navigation?.path.length;
+    if (aircraft && !mission && !evading?.cover) entry.navigation = undefined;
+    const routeNeeded = !!mission || !visible && !!searching || !!evading?.cover || !aircraft && Math.abs(target.y - actor.y) > .6 || !!entry.navigation?.pending || !!entry.navigation?.path.length;
     if (!routeNeeded) entry.navigation = undefined;
     if(!entry.anchor && (!evading || !!evading.cover) && ((navigator && routeNeeded) || entry.navigation?.path.length)) {
       const feet={x:actor.x,y:Math.max(0,actor.y-1.75),z:actor.z};
@@ -3064,17 +3110,18 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const stride = entry.anchor ? 0 : Math.hypot(dxStep, dzStep) / Math.max(1e-6, role.speed * dt);
     // An event's crew may not open fire before the event has been announced; a bot waiting its turn on a player holds fire.
     const reaction = Math.max(.1, role.reaction + (entry.rank?.reaction ?? 0));
-    if (escaping || !visible || !intent.fire || (entry.temporary && elapsed < entry.temporary.from) || !takeTurn(entry, enemy)) { entry.aimFocus = advanceBotAimFocus(entry.aimFocus, undefined, dt); entry.reaction = reaction; entry.target = ''; entry.burst = 0; return; }
-    entry.aimFocus = advanceBotAimFocus(entry.aimFocus, `${enemy.actor.id}:${enemy.actor.deaths}`, dt);
-    if (entry.target !== enemy.actor.id) { entry.target = enemy.actor.id; entry.reaction = reaction + random() * 0.3; entry.burst = 0; }
+    if (escaping || !visible || !intent.fire || (entry.temporary && elapsed < entry.temporary.from) || (!aircraft && (!enemy || !takeTurn(entry, enemy)))) { entry.aimFocus = advanceBotAimFocus(entry.aimFocus, undefined, dt); entry.reaction = reaction; entry.target = ''; entry.burst = 0; return; }
+    entry.aimFocus = advanceBotAimFocus(entry.aimFocus, focusKey, dt);
+    if (entry.target !== targetId) { entry.target = targetId!; entry.reaction = reaction + random() * 0.3; entry.burst = 0; }
     entry.reaction -= dt;
     if (entry.reaction <= 0) {
       // Bursts at the weapon's own cycle, then a pause the role decides.
       if (entry.burst <= 0) { const [low, high] = role.burst ?? [1, 1]; entry.burst = Math.min(botBurstLimit(role.id, horizontal), low + Math.floor(random() * (high - low + 1))); entry.burstFired = 0; }
       // The role's aim error, steadier with rank, wide on first sight and against a mover; recoil opens it through a burst.
-      const base = (Number.isFinite(intent.spread) ? clamp(intent.spread, 0.005, 0.2) : 0.05) * (entry.rank?.aim ?? 1) * botAimScale(entry.aimFocus?.exposure ?? 0, botTransverseSpeed(direction, enemy.velocity), stride, horizontal, actor.faction === PLAYER_FACTION ? 'normal' : difficulty());
+      const base = (Number.isFinite(intent.spread) ? clamp(intent.spread, 0.005, 0.2) : 0.05) * (entry.rank?.aim ?? 1) * botAimScale(entry.aimFocus?.exposure ?? 0, botTransverseSpeed(direction, aircraft?.velocity ?? enemy?.velocity), stride, horizontal, actor.faction === PLAYER_FACTION ? 'normal' : difficulty());
       const spread = entry.spec ? botShotSpread(base, entry.spec, entry.burstFired) : base;
-      const aim = leadRay(entry, actor, enemy, { x: line.x + actor.x, y: line.y + actor.y, z: line.z + actor.z });
+      const chest = { x: line.x + actor.x, y: line.y + actor.y, z: line.z + actor.z };
+      const aim = aircraft ? leadPoint(entry, actor, chest, aircraft.velocity) : leadRay(entry, actor, enemy!, chest);
       shoot(actor.id, actor, { x: aim.x + (random() - 0.5) * spread, y: aim.y + (random() - 0.5) * spread, z: aim.z + (random() - 0.5) * spread }, actor.weapon);
       entry.burst--; entry.burstFired++;
       const pause = (Number.isFinite(intent.shotDelay) ? clamp(intent.shotDelay, 0.1, 5) : 0.5) + random() * 0.15;
@@ -3087,10 +3134,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    * round's drop over it.
    */
   function leadRay(entry: InternalActor, from: ArenaPoint, enemy: InternalActor, chest: ArenaPoint) {
+    return leadPoint(entry, from, chest, enemy.velocity);
+  }
+  function leadPoint(entry: InternalActor, from: ArenaPoint, chest: ArenaPoint, motion?: { x: number; y?: number; z: number }) {
     const ballistics = entry.spec?.ballistics ?? entry.weapons[entry.actor.weapon]?.ballistics;
     const range = Math.hypot(chest.x - from.x, chest.y - from.y, chest.z - from.z);
-    const flight = ballistics && !isInstant(ballistics) ? range / ballistics.velocity : 0, lead = (entry.rank?.lead ?? .6) * flight, velocity = enemy.velocity ?? { x: 0, z: 0 };
-    const point = { x: chest.x + velocity.x * lead - from.x, y: chest.y + .5 * (ballistics?.drop ?? 0) * flight * flight - from.y, z: chest.z + velocity.z * lead - from.z };
+    const flight = ballistics && !isInstant(ballistics) ? range / ballistics.velocity : 0, lead = (entry.rank?.lead ?? .6) * flight, velocity = motion ?? { x: 0, z: 0 };
+    const point = { x: chest.x + velocity.x * lead - from.x, y: chest.y + (velocity.y ?? 0) * lead + .5 * (ballistics?.drop ?? 0) * flight * flight - from.y, z: chest.z + velocity.z * lead - from.z };
     const length = Math.hypot(point.x, point.y, point.z) || 1;
     return { x: point.x / length, y: point.y / length, z: point.z / length };
   }
@@ -3364,13 +3414,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const count = environment?.battlefield ? BATTLEFIELD_POPULATIONS[environment.battlefield.size].mercenaries : Number.isFinite(botCount) ? Math.floor(clamp(botCount, 0, 6)) : 0;
   const fixedPopulation = environment?.reinforcements && Number.isFinite(environment.population) ? Math.floor(clamp(environment.population!, count, regularLimit)) : count;
   let enlisted = 0, friendly = 0;
-  /** Friendly soldiers carry the issued rifle, or the Ultimax in a support role, and drop nothing. */
-  const forcesFamily = (role: ArenaRolePlugin) => role.id === 'tank' ? 1 : 0;
+  /** Friendly soldiers carry issued rifles, Ultimax support weapons or FN MAGs, and drop nothing. */
+  const forcesFamily = (role: ArenaRolePlugin) => role.id === 'heavy' ? 3 : role.id === 'tank' ? 1 : 0;
   /** A recruit's role under heat: the hotter the side, the more support gunners and marksmen in the mix. */
   function heatedRole(faction: SquadFaction) {
-    const s = factionHeat!.districtStrength(faction), weights = faction === PLAYER_FACTION ? [1, .3 * s, .3 * s] : [1, .2 + .8 * s, .2 + .5 * s];
+    const s = factionHeat!.districtStrength(faction), weights = faction === PLAYER_FACTION ? [1, .3 * s, .3 * s, .2 * s] : [1, .2 + .8 * s, .2 + .5 * s, .2 + .5 * s];
     let roll = armamentRandom() * weights.reduce((a, b) => a + b, 0);
-    return (['assault', 'tank', 'sniper'] as const).find((_, i) => (roll -= weights[i]) <= 0) ?? 'assault';
+    return (['assault', 'tank', 'sniper', 'heavy'] as const).find((_, i) => (roll -= weights[i]) <= 0) ?? 'assault';
   }
   /**
    * Signs up the next soldier for a squad faction. The garrison spawns at once; a recruit is
@@ -3380,7 +3430,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function enlist(recruit = false, faction: SquadFaction = 'mercenaries') {
     const i = enlisted++, id = `bot-${i + 1}`;
     const roleId = recruit && factionHeat && (composition === 'mixed' || faction === PLAYER_FACTION) ? heatedRole(faction)
-      : faction === PLAYER_FACTION ? 'assault' : composition === 'mixed' ? ['assault', 'tank', 'sniper'][i % 3] : composition;
+      : faction === PLAYER_FACTION ? 'assault' : composition === 'mixed' ? ['assault', 'heavy', 'sniper', 'tank'][i % 4] : composition;
     const role = getArenaRole(roleId) ?? getArenaRole('assault')!;
     const armed = faction === PLAYER_FACTION ? [forcesFamily(role)] : armamentFamilies(role), weapons = FPS_WEAPONS.map((w, index) => armed.includes(index) ? role.weapon : w);
     // Each spawn puts their rank's title before this.
