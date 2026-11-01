@@ -25,15 +25,21 @@ export function assignBattlefieldFronts(squads: readonly BattlefieldSquad[], sit
     if (guard && home) { assignments.set(guard.id, home.id); loads.set(home.id, 1); }
     // Surplus attack squads reinforce an active front instead of filling every
     // friendly cabinet. Even a contested home may only keep the rear guard.
-    const fronts = sites.filter(s => s.owner !== faction);
+    // A compact battle keeps its staging camps out of the attack rotation.
+    // Hold captured courts while the other side regroups, instead of ending
+    // the local battle by sending every winning squad to the last spawn.
+    const focalSites = sites.filter(s => s.combatFocus);
+    const focused = focalSites.length > 0;
+    const fronts = (focused ? focalSites : sites).filter(s => s.owner !== faction);
     for (const group of groups) {
       if (group === guard) continue;
-      const patrols = sites.filter(s => s !== home || !guard);
+      const patrols = focused ? focalSites : sites.filter(s => s !== home || !guard);
       const candidates = fronts.length ? fronts : patrols.length ? patrols : sites;
       const score = (site: FacilityState) => {
         const urgency = site.contested && site.owner === faction ? 160 : site.owner === null ? 110 : site.owner !== faction ? 90 : site.health < site.maxHealth ? 70 : 0;
         const nearbyFront=[...loads].some(([id,count])=>count>0 && id!==site.id && sites.some(other=>other.id===id && Math.hypot(site.x-other.x,site.z-other.z)<65));
-        return Math.hypot(site.x-group.x,site.z-group.z) * .35 - urgency + (loads.get(site.id) ?? 0) * 250 + (nearbyFront?100:0) - (site.id === group.previous ? 30 : 0);
+        return Math.hypot(site.x-group.x,site.z-group.z) * .35 - urgency + (loads.get(site.id) ?? 0) * (focused ? 24 : 250) + (nearbyFront && !focused ? 100 : 0) -
+          (focused ? site.combatFocus === 'primary' ? 190 : site.combatFocus === 'secondary' ? 130 : 0 : 0) - (site.id === group.previous ? 30 : 0);
       };
       const site = [...candidates].sort((a,b) => score(a)-score(b) || a.id.localeCompare(b.id))[0];
       if (site) { assignments.set(group.id, site.id); loads.set(site.id, (loads.get(site.id) ?? 0)+1); }

@@ -9,6 +9,8 @@ export interface FacilitySite extends FacilityPoint {
   deployment: { x: number; z: number; yaw: number };
   /** Intact neutral objectives can be captured without paying to rebuild them. */
   initiallyBuilt?: boolean;
+  /** An authored local battle: concentrate squads before expanding to other posts. */
+  combatFocus?: 'primary' | 'secondary';
   /** Authored-space camp furnishings and individual rear-guard patrol stops. */
   camp?: CommandCamp;
 }

@@ -4,6 +4,7 @@ import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { MARINA_STAMPS } from '../data/region-stamps.ts';
 import type { Obstacle } from './marina-collision';
 import { createWaterMaterial } from './water';
+import { MARINA_GARDEN_PAVILIONS, MARINA_GARDEN_WALLS, MARINA_GARDEN_KIOSKS } from './marina-combat';
 
 export const MARINA_SPAWN = { x: -44, z: 67, yaw: -0.82 };
 // Landmark scale 0.54: SkyPark 340 × 38m, elevation 200m (Arup/MBS).
@@ -142,7 +143,8 @@ export function buildMarinaScene() {
     box(x, 0.6, 80.5, 0.75, 1.2, 0.65, dark); collider(x, 81, 0.8, 0.8, 7.8);
   }
   // Broad, darker expansion bands observed in south-waterfront.png.
-  for (const x of [-64, -32, 0, 32, 64]) box(x, 0.115, 66, 0.7, 0.025, 27, mat('#777b79'));
+  const promenadeBand = mat('#777b79');
+  for (const x of [-64, -32, 0, 32, 64]) box(x, 0.115, 66, 0.7, 0.025, 27, promenadeBand);
   for (let x = -80; x <= 80; x += 3) {
     beam(new THREE.Vector3(x, 0.05, 51), new THREE.Vector3(x, 1.16, 50.5), 0.075, steel);
   }
@@ -669,6 +671,58 @@ export function buildMarinaScene() {
     box(-120.2, 3, z - 2.3, 0.6, 6, 0.5, pale);
     box(-117, 0.35, z, 1.5, 0.7, 4.5, cream); box(-117, 1, z, 1.2, 0.9, 4.2, hedge); collider(-117, z, 1.5, 4.5, 1.5);
   }
+  // Authored combat gardens replace the southern lawns with connected courts.
+  // Reuse the existing materials/instance batches; solid screens stop both
+  // sight and shots, while low planters allow standing fire over their tops.
+  for (const [x,z,w,d] of [[0,129,184,50],[147,126,70,54],[-27,180,132,12],[119,180,128,12]]) {
+    box(x, .025, z, w, .09, d, sand);
+    for (let offset=-w/2+4;offset<w/2;offset+=8) box(x+offset,.078,z,.07,.012,d,dark);
+    for (let offset=-d/2+4;offset<d/2;offset+=8) box(x,.078,z+offset,w,.012,.07,dark);
+  }
+  for (const wall of MARINA_GARDEN_WALLS) {
+    const {x,z,width,depth,height}=wall;
+    box(x,height/2,z,width,height,depth,cream,scene,true);collider(x,z,width,depth,height);
+    box(x,height+.06,z,width+.16,.12,depth+.16,pale);
+    // Narrow planted beds at the wall foot; foliage is scenery above masonry.
+    const alongZ=depth>width,px=x+(alongZ?1.7:0),pz=z+(alongZ?0:1.7);
+    box(px,.3,pz,alongZ?2:width,.6,alongZ?depth:2,cream);
+    collider(px,pz,alongZ?2:width,alongZ?depth:2,.6);
+    box(px,.62,pz,alongZ?1.7:width-.3,.04,alongZ?depth-.3:1.7,gardenSoil);
+    const length=alongZ?depth:width;
+    if(height>2) for(let offset=-length/2+.4;offset<length/2;offset+=1.5)
+      box(x+(alongZ?-.63:offset),height/2,z+(alongZ?offset:-.73),alongZ?.08:.14,height-.25,alongZ?.14:.08,wood);
+    for(let offset=-length/2+1;offset<length/2;offset+=2){
+      const plant=new THREE.Mesh(shrubGeo,offset%3?leaf:hedge);
+      plant.position.set(px+(alongZ?0:offset),1.05,pz+(alongZ?offset:0));plant.scale.set(1.1,.65,1.1);plant.castShadow=true;scene.add(plant);
+    }
+  }
+  for (const {x,z} of MARINA_GARDEN_PAVILIONS) {
+    // Open-sided garden kiosks: substantial end walls break east/west fire,
+    // two generous openings let infantry pass through instead of dead-ending.
+    box(x,3.35,z,15,.35,9,wood,scene,true);
+    box(x,3.58,z,15.6,.12,9.6,pale);
+    for (const dx of [-6,6]) {
+      box(x+dx,1.55,z,.8,3.1,7,cream,scene,true);collider(x+dx,z,.8,7,3.1);
+      for(const dz of [-3.7,3.7])box(x+dx,1.65,z+dz,1.1,3.3,.15,wood);
+    }
+    box(x,.6,z+2.2,6,1.2,1,cream);collider(x,z+2.2,6,1,1.2);
+    box(x,1.25,z+2.2,6.3,.1,1.25,wood);
+    for(const dx of [-3,0,3])box(x+dx,3.12,z,1.4,.08,.8,pale);
+    // A short path joins the front opening to the garden loop.
+    box(x,.04,z-5.5,5,.08,4,sand);
+  }
+  for(const {x,z} of MARINA_GARDEN_KIOSKS){
+    box(x,1.8,z,10,3.6,8,cream,scene,true);collider(x,z,10,8,3.6);
+    box(x,3.75,z,11.4,.3,9.4,wood,scene,true);
+    box(x,3.95,z,11.8,.1,9.8,pale);
+    box(x,2.1,z+4.03,7,1.5,.08,dark);
+    box(x,1.3,z+4.25,7.4,.16,.65,wood);
+    for(const dx of [-4.7,4.7])for(let y=.35;y<3.5;y+=.35)box(x+dx,y,z+4.1,.5,.14,.12,wood);
+    box(x,3.1,z+4.12,4,.35,.15,mint);
+  }
+  scene.userData.marinaCombat = { name:'Waterfront garden front', authored:true,
+    walls:MARINA_GARDEN_WALLS.length,pavilions:MARINA_GARDEN_PAVILIONS.length,kiosks:MARINA_GARDEN_KIOSKS.length };
+
   // Record which reviewed images informed authored features (not photogrammetry).
   scene.userData.qualityDetails = qualityDetails;
   scene.userData.referenceFeatures = ['museum-shell', 'bay-skyline', 'fullerton-materials', 'fullerton-glazing', 'sands-canopy', 'sands-streetscape', 'south-waterfront', 'south-palms', 'merlion-waterfront-east', 'bayfront-gardens-east', 'south-promenade-north', 'gardens-grove-03-0', 'conservatory-road-03-90', 'barrage-approach-03-180', 'east-garden-03-180', 'flyer-road-03-270', 'float-waterfront-03-90', 'esplanade-road-03-180', 'promenade-road-03-180', 'downtown-green-03-180', 'marina-one-street-03-90'];

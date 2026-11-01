@@ -47,7 +47,8 @@ export function createSectorPatrols(sectors:readonly PatrolSector[], anchors:rea
     for(const faction of ['mercenaries','armed-forces'] as const) {
       const groups=squads.filter(s=>s.faction===faction).sort((a,b)=>a.id.localeCompare(b.id));
       const available=groups.filter(s=>s.available!==false),total=groups.reduce((n,s)=>n+(s.members??4),0);
-      const fronts=sites.some(s=>s.owner!==faction),budget=fronts?Math.floor(total/2):total;
+      const fronts=sites.some(s=>s.owner!==faction),focused=sites.some(s=>s.combatFocus);
+      const budget=fronts?Math.floor(total * (focused ? .2 : .5)):total;
       const home=sites.find(s=>s.kind==='command'&&s.owner===faction&&s.initialOwner===faction&&s.health>0)??sites.find(s=>s.kind==='command'&&s.owner===faction&&s.health>0);
       const eligible=available.filter(s=>(s.members??4)<=budget);
       const guard=home&&groups.length>=3?eligible.find(s=>duties.get(s.id)?.kind==='camp-defense'&&duties.get(s.id)?.homeCamp===home.id)??[...eligible].sort((a,b)=>distance(a,home)-distance(b,home))[0]:undefined;
@@ -56,7 +57,7 @@ export function createSectorPatrols(sectors:readonly PatrolSector[], anchors:rea
         const sector=nearest(home);
         if(sector){result.set(guard.id,{kind:'camp-defense',sector:sector.id,homeCamp:home.id});assigned+=guard.members??4;loads.set(sector.id,1);}
       }
-      const target=fronts?Math.floor(groups.length*.4):groups.length;
+      const target=fronts?(focused?1:Math.floor(groups.length*.4)):groups.length;
       const candidates=available.filter(s=>s!==guard).sort((a,b)=>Number(duties.has(b.id))-Number(duties.has(a.id))||a.id.localeCompare(b.id));
       for(const group of candidates) {
         if(fronts&&(groups.length<3||resultForFaction()>=target||assigned+(group.members??4)>budget))continue;

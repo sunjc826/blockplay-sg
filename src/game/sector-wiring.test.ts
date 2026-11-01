@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createExpeditionLoot, rollZoneWeapon, ZONE_LOOT_RULES, type LootZoneGeometry } from './expedition-loot';
 import { patrolSpawns } from './district-world';
+import { MARINA_COMBAT_BOUNDS, MARINA_COMBAT_ANCHORS } from './marina-combat';
 import { getRegion } from './regions';
 import { sectorAt, zoneSectors } from './zone-sectors';
 import { getWorldZone, WORLD_ZONES, type WorldZoneId } from './world-zones';
@@ -95,8 +96,8 @@ describe('tier bias', () => {
 });
 
 describe('patrol spawns', () => {
-  it('keeps every district\'s own spawns and adds ground from its sectors', () => {
-    for (const zone of WORLD_ZONES) {
+  it('keeps exploration spawns and sector ground outside the Marina pilot', () => {
+    for (const zone of WORLD_ZONES.filter(z => z.id !== 'marina-bay')) {
       const spawns = patrolSpawns(zone.id);
       for (const own of zone.encounterSpawns) expect(spawns, zone.id).toContainEqual(own);
       expect(spawns.length, zone.id).toBeGreaterThan(zone.encounterSpawns.length);
@@ -115,4 +116,13 @@ describe('patrol spawns', () => {
       } finally { world.dispose(); }
     }
   });
+});
+
+it('keeps Marina reinforcement anchors inside the authored garden battle',()=>{
+  const points=patrolSpawns('marina-bay');
+  expect(points).toEqual(MARINA_COMBAT_ANCHORS);
+  for(const p of points){
+    expect(p.x).toBeGreaterThanOrEqual(MARINA_COMBAT_BOUNDS.minX);expect(p.x).toBeLessThanOrEqual(MARINA_COMBAT_BOUNDS.maxX);
+    expect(p.z).toBeGreaterThanOrEqual(MARINA_COMBAT_BOUNDS.minZ);expect(p.z).toBeLessThanOrEqual(MARINA_COMBAT_BOUNDS.maxZ);
+  }
 });
