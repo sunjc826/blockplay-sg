@@ -6209,3 +6209,47 @@ release-tests.log, deploy.log, live-verification.json/log, cloudflare-custom.log
 cloudflare-workers.log). Temporary private env copies were removed. No GitHub
 push. Preserve pre-existing handoff/.claude changes; AGENTS.md stays local,
 unstaged and uncommitted.
+
+
+## M200 Intervention exterior study
+
+Owner suggested adding the famous CheyTac Intervention in the weapon-design
+thread. Local main code commit 8afd566 adds ff-intervention / M200 Intervention
+study as an eighth gallery candidate and Wayfinder precision option alongside
+Longwatch. Asked whether to extend it to playable cargo rewards; no answer had
+arrived, so this pass follows the gallery-first scope. No fictional name was
+selected. Existing SCAR-L/H and Longwatch cargo integrations remain unchanged;
+Intervention has no live family/catalog/reward entry or bolt/reload/ammo/audio.
+
+Directly inspected CheyTac's M200 product page and downloaded its side-view
+Black1-1024x340.png photo for visual reference, not shipped. Read 2026 military
+catalog text for bipod/stock/monopod; model geometry follows the product photo,
+not catalog image detail. Original exterior features: long exposed barrel,
+round fore-end, open under-barrel carry handle, twin stock rods, cheek rest,
+large scope, static bolt-handle cue, splayed bipod and rear monopod. Finish is
+Freedom Force sand/bone, blue panels and amber marks. Geometry has actual carry
+handle/stock gaps. No internal construction or manufacturer performance claims
+are used as game rules. Sources and limits recorded in docs/PROXY-WEAPONS.md.
+
+Portrait framing now allows the longer profile using the same viewing scale
+for all eight models. Corrected outdated gallery/docs claims that all models
+were outside gameplay: SCAR-L/H and Longwatch already have live cargo variants.
+New geometry assertions cover negative spaces, length difference from Longwatch,
+muzzle rim alignment and bipod stance; existing isolation/budget/disposal checks
+include the eighth model. Typecheck and 41 tests across four relevant files pass
+in the workspace and frozen release. Local/live gallery smokes pass 48 views,
+eight models, four angles, grayscale, mouse/touch rotation, portrait layout,
+preset reset and navigation; no browser exceptions. Profile/oblique/front and
+portrait images visually reviewed; longer barrel fits with margins.
+
+Manual pnpm deploy:cloudflare succeeded under the shared deployment lock,
+freezing latest main 8afd566 and verifying all 3,221 tracked files. Version:
+f8b151ba-870b-4f8e-a5ae-9bcaa8747f73. Both production domains serve matching
+entry HTML and all six exact release JS/CSS/service-worker files; Cloudflare
+routing/assets/PWA/model/audio/API-origin checks pass on both. Evidence:
+.cache/intervention-study/ (references, source-verification.json,
+release-result.json, typecheck/tests and release logs, dev/live-browser-results,
+production verification logs and screenshots). Lock released in finally;
+private env/release copies removed and task Vite/Chrome stopped. No paid
+requests or GitHub push. Preserve pre-existing local handoff changes, AGENTS.md
+and .claude/; only this handoff addition is staged from the tracked baseline.
