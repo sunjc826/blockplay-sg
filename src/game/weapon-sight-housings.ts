@@ -233,7 +233,7 @@ export function buildSightHousing(group: THREE.Group, platform: string, sight: S
     }
     // Plain protective front pane. Holographic glass is almost flat and clear,
     // unlike the conspicuously curved, reflective combiner in a reflex sight.
-    const pane = new THREE.MeshPhysicalMaterial({ color: '#d3dfe2', roughness: .05, metalness: 0, clearcoat: 1, transparent: true, opacity: .035, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true });
+    const pane = new THREE.MeshPhysicalMaterial({ color: '#edf2f2', roughness: .05, metalness: 0, clearcoat: 1, transparent: true, opacity: .018, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true });
     materials.push(pane);
     const front = mesh(unit, new THREE.ShapeGeometry(roundedRect(width - .0012, height - .0012, corner - .0006), 8), pane, 0, centre, coreZ + .001);
     front.name = 'sight-holo-front-pane'; front.renderOrder = 0;

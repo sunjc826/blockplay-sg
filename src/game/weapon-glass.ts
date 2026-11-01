@@ -21,7 +21,7 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
     reflectionMap: { value: null }, reflectionViewToCapture: { value: new THREE.Matrix3() },
     reflectionReady: { value: 0 }, reflectionTanHalfFov: { value: Math.tan(THREE.MathUtils.degToRad(55)) },
   };
-  const material = new THREE.MeshPhysicalMaterial({ color: scope ? '#91bed0' : window ? '#c4d4d8' : '#80c7c0', roughness: window ? .06 : .12, metalness: window ? 0 : .05,
+  const material = new THREE.MeshPhysicalMaterial({ color: scope ? '#91bed0' : window ? '#e6eeee' : '#80c7c0', roughness: window ? .06 : .12, metalness: window ? 0 : .05,
     clearcoat: 1, clearcoatRoughness: .08, transparent: true, opacity: .09, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true });
   material.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, uniforms);
@@ -43,7 +43,9 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
       vec2 reflectionUv = 0.5 + reflected.xy / (max(-reflected.z, 0.001) * reflectionTanHalfFov) * 0.5;
       float inCapture = (1.0 - smoothstep(0.46, 0.50, max(abs(reflectionUv.x - 0.5), abs(reflectionUv.y - 0.5)))) * step(0.0, -reflected.z);
       vec3 scenery = texture2D(reflectionMap, clamp(reflectionUv, vec2(0.003), vec2(0.997))).rgb;
-      vec3 coating = mix(vec3(0.64, 0.93, 0.98), vec3(1.0, 0.63, 0.30), clamp(rim * 0.65 + grazing, 0.0, 1.0));
+      ${window ? `// Flat holographic glass has a neutral sight picture; the cool
+      // coating becomes apparent as the pane turns away from the eye.
+      vec3 coating = mix(vec3(0.98, 1.0, 1.0), vec3(0.83, 0.94, 1.0), grazing);` : 'vec3 coating = mix(vec3(0.64, 0.93, 0.98), vec3(1.0, 0.63, 0.30), clamp(rim * 0.65 + grazing, 0.0, 1.0));'}
       outgoingLight = mix(outgoingLight, scenery * coating + outgoingLight * 0.18, reflectionReady * inCapture);
       ${scope ? `
       // The scope image and etched reticle sit underneath this coating.
@@ -51,11 +53,11 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
       ${reticle ? `vec2 p = coatingUv - 0.5;
       float etched = scopeReticle(p, max(fwidth(p.x), fwidth(p.y)));` : 'float etched = 0.0;'}
       diffuseColor.a = (0.035 + rim * 0.23 + grazing * 0.30) * (1.0 - etched * 0.8);
-      ` : window ? '// A holographic window is clear, faintly tinted, and bright only where it turns from the eye.\n      diffuseColor.a = 0.035 + rim * 0.10 + grazing * 0.25;' : 'diffuseColor.a = 0.10 + rim * 0.19 + grazing * 0.25;'}
+      ` : window ? '// Keep the aiming area clear; reflections reveal the rim and oblique pane.\n      diffuseColor.a = 0.018 + rim * 0.065 + grazing * 0.30;' : 'diffuseColor.a = 0.10 + rim * 0.19 + grazing * 0.25;'}
       #include <opaque_fragment>
     `);
   };
-  material.customProgramCacheKey = () => `${profile}-scenery-glass-v4-${reticle ?? 'plain'}${window ? '-window-v2' : ''}`;
+  material.customProgramCacheKey = () => `${profile}-scenery-glass-v4-${reticle ?? 'plain'}${window ? '-window-v3' : ''}`;
   const geometry = window ? new THREE.ShapeGeometry(roundedRect(window.width, window.height, window.corner), 8) : new THREE.RingGeometry(0, radius, 48, 8);
   const vertices = geometry.attributes.position, uvs = geometry.attributes.uv;
   for (let i = 0; i < vertices.count; i++) {
