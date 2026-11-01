@@ -1,3 +1,4 @@
+import { applyVehicleImpactCamera } from './vehicle-impact';
 import { createProxyCampaign, PROXY_WEAPON, type ProxyAction, type ProxyCampaign } from './proxy-operations';
 import { createProxyOperationVisuals } from './proxy-operation-visuals';
 import { applyRespawnLoadout, type RespawnLoadoutSelection } from './respawn-loadout';
@@ -372,7 +373,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const objectiveBeacons = expedition ? createObjectiveBeacons(world.scene, facilitySites) : null;
   const facilityCover = createSceneCover(world.scene);
   if (options.arena?.environment?.paratroopers) options.arena.environment.dropColumnClear = createDropColumnCheck(facilityCover);
-  const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { spawns: fleetSpawns, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay', exitFloor: (x, z) => footMovement.supportHeight(x, z, (world.bounds.groundHeight?.(x,z)??0)+MAX_STEP_HEIGHT, .38, 1.8) });
+  const motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { spawns: fleetSpawns, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay', reducedMotion: () => !!motionPreference?.matches, exitFloor: (x, z) => footMovement.supportHeight(x, z, (world.bounds.groundHeight?.(x,z)??0)+MAX_STEP_HEIGHT, .38, 1.8) });
   const deploymentPoints = expedition && !expedition.checkpoint && !expedition.spawn ? districtDeploymentPoints(expedition.zone, (x, z) =>
     footMovement.canOccupy(x, 0, z, .5, 1.8) && Math.abs(footMovement.supportHeight(x, z, .1, .4, 1.8) ?? 100) < .05 &&
     npcs.every(n => Math.hypot(n.x - x, n.z - z) > 3) && Object.values(fleetSpawns).every(v => Math.hypot(v.x - x, v.z - z) > 8) &&
@@ -544,7 +546,6 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let lastLookYaw = yaw, lastLookPitch = pitch, lookLagX = 0, lookLagY = 0;
   let trigger = false, pullBuffer = 0, ads = false, touchAim = false, actualAim = false, hitTime = 0;
   const bodyMotion = createMovementMotion();
-  const motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   // Two-stage recoil: see fps-recoil. The view still couples through the same
   // scale the old scalar did, so a burst costs the aim it always did.
   const kick = createRecoil();
@@ -1740,10 +1741,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       camera.position.copy(obstruction ? target.clone().addScaledVector(offset.normalize(), Math.max(.5, obstruction.distance - .4)) : wanted);
       camera.lookAt(target);
     }
+    const impact = vehicles.impactView;
+    applyVehicleImpactCamera(camera, impact, firstPersonVehicle());
+    canvas.dataset.vehicleImpact = JSON.stringify(impact);
     camera.fov = THREE.MathUtils.damp(camera.fov, (ads || touchAim) && !vehicles.canUseFirearm ? 48 : 68, 8, dt);
     camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
     canvas.dataset.vehicleView = firstPersonVehicle() ? 'first-person' : 'third-person';
-    canvas.dataset.vehicleCamera = JSON.stringify({ x: camera.position.x, y: camera.position.y, z: camera.position.z });
+    canvas.dataset.vehicleCamera = JSON.stringify({ x: camera.position.x, y: camera.position.y, z: camera.position.z, pitch: camera.rotation.x, yaw: camera.rotation.y, roll: camera.rotation.z });
   }
   function updateCameras(dt: number, moving: boolean, sprinting: boolean) {
     // Combat and movement always take priority over this local cosmetic action.

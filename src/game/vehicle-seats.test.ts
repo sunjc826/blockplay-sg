@@ -33,6 +33,7 @@ describe('shared vehicle seats and authority', () => {
       input(arena, 'driver', { forward: 1 }); arena.step(.05);
       expect(car(arena).health).toBeCloseTo(600 - expectedDamage);
       expect(car(arena).speed).toBeLessThan(0);
+      expect(car(arena).impact).toMatchObject({ serial: 1, speed: ticks / 2 + .5, x: 0, y: 0, z: 1 });
       for (let i = 0; i < 20; i++) { input(arena, 'driver', { forward: 1 }); arena.step(.05); }
       expect(car(arena).health).toBeCloseTo(600 - expectedDamage);
       expect(actor(arena, 'driver').alive).toBe(true);
@@ -170,5 +171,19 @@ it('validates shared skid/spin fields while accepting older snapshots', () => {
     expect(validArenaSnapshot(forged, environment)).toBe(false);
   }
   delete v.lateralSpeed; delete v.yawSpeed;
+  expect(validArenaSnapshot(snapshot, environment)).toBe(true);
+});
+
+
+it('validates authority collision receipts while allowing legacy snapshots', () => {
+  const arena = arenaWithPlayers(1), snapshot = arena.snapshot();
+  snapshot.vehicles![0].impact = { serial: 1, speed: 20, x: 0, y: 0, z: 1 };
+  expect(validArenaSnapshot(snapshot, environment)).toBe(true);
+  for (const invalid of [{ serial: -1 }, { speed: NaN }, { x: Infinity }, { z: 4 }]) {
+    const forged = structuredClone(snapshot);
+    Object.assign(forged.vehicles![0].impact!, invalid);
+    expect(validArenaSnapshot(forged, environment)).toBe(false);
+  }
+  delete snapshot.vehicles![0].impact;
   expect(validArenaSnapshot(snapshot, environment)).toBe(true);
 });

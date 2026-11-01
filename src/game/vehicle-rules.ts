@@ -1,9 +1,11 @@
 import { MARINA_BOUNDS, type Obstacle } from './marina-collision';
 import { type RegionBounds, createRegionMovement, overlapsObstacle, overlapsObstacleRect } from './region-collision';
+import { recordVehicleImpact } from './vehicle-impact';
 import { VEHICLE_COMBAT } from './vehicle-combat';
 export type VehicleKind = 'car' | 'helicopter';
 export interface VehicleSpawn { x: number; z: number; yaw: number }
 export type VehicleWorldBounds = RegionBounds;
+export interface VehicleImpact { serial: number; speed: number; x: number; y: number; z: number }
 export interface VehicleState {
   despawned?: boolean;
   kind: VehicleKind;
@@ -12,6 +14,8 @@ export interface VehicleState {
   lateralSpeed?: number;
   /** Collision-induced yaw rate, rad/s. */
   yawSpeed?: number;
+  /** Most recent collision, retained for shared visual feedback. */
+  impact?: VehicleImpact;
   health: number; ammo: number; weaponCooldown: number;
 }
 export interface FlightObstacle extends Obstacle { minY: number; maxY: number }
@@ -48,14 +52,14 @@ function horizontalMotion(v: VehicleState, yaw: number, speed: number, lateral: 
   const sin = Math.sin(yaw), cos = Math.cos(yaw);
   let vx = -sin * speed + cos * lateral, vz = -cos * speed - sin * lateral;
   let { x, z } = v;
-  let hitX = 0, hitZ = 0, blocked = false;
+  let hitX = 0, hitZ = 0, impulseX = 0, impulseZ = 0, blocked = false;
   const steps = Math.max(1, Math.ceil(Math.hypot(vx, vz) * dt / .25));
   const impulse = (axis: 'x' | 'z') => {
     const incoming = axis === 'x' ? vx : vz, approach = Math.abs(incoming);
     const restitution = approach > 2.5 ? (v.kind === 'car' ? .22 : .16) : 0;
     const outgoing = -incoming * restitution;
-    if (axis === 'x') { hitX = Math.max(hitX, approach); vx = outgoing; }
-    else { hitZ = Math.max(hitZ, approach); vz = outgoing; }
+    if (axis === 'x') { if (approach > hitX) impulseX = outgoing - incoming; hitX = Math.max(hitX, approach); vx = outgoing; }
+    else { if (approach > hitZ) impulseZ = outgoing - incoming; hitZ = Math.max(hitZ, approach); vz = outgoing; }
     // A corner leading into a wall gives the hull a turn away from the impact.
     // Symmetric, head-on contacts have no lever arm and do not invent a spin.
     const nx = axis === 'x' ? -Math.sign(incoming) : 0, nz = axis === 'z' ? -Math.sign(incoming) : 0;
@@ -82,7 +86,7 @@ function horizontalMotion(v: VehicleState, yaw: number, speed: number, lateral: 
       if (fraction < 1) impulse('z');
     }
   }
-  return { x, z, speed: (-sin * vx - cos * vz) || 0, lateralSpeed: (cos * vx - sin * vz) || 0, yawSpeed, blocked, impactSpeed: Math.hypot(hitX, hitZ) };
+  return { x, z, speed: (-sin * vx - cos * vz) || 0, lateralSpeed: (cos * vx - sin * vz) || 0, yawSpeed, blocked, impulse: { x: impulseX, y: 0, z: impulseZ }, impactSpeed: Math.hypot(hitX, hitZ) };
 }
 
 export function driveVehicle(v: VehicleState, forward: number, steer: number, brake: boolean, dt: number, obstacles: readonly Obstacle[], bounds: VehicleWorldBounds = MARINA_BOUNDS): VehicleMovement {
@@ -105,8 +109,10 @@ export function driveVehicle(v: VehicleState, forward: number, steer: number, br
   const across = lateral * Math.cos(turn) + speed * Math.sin(turn);
   const gradeClear = (x: number, z: number, nx: number, nz: number) => !bounds.groundHeight || Math.abs(bounds.groundHeight(nx, nz) - bounds.groundHeight(x, z)) <= Math.hypot(nx - x, nz - z) * .25 + 1e-5;
   const motion = horizontalMotion(v, yaw, along, across, yawSpeed, dt, clear, gradeClear);
-  const { blocked, impactSpeed, ...next } = motion;
-  return { state: { ...v, ...next, yaw, y: (bounds.groundHeight?.(next.x, next.z) ?? 0) + .13 }, blocked, impactSpeed };
+  const { blocked, impactSpeed, impulse, ...next } = motion;
+  const state = { ...v, ...next, yaw, y: (bounds.groundHeight?.(next.x, next.z) ?? 0) + .13 };
+  recordVehicleImpact(state, impactSpeed, impulse);
+  return { state, blocked, impactSpeed };
 }
 export function canFly(x: number, y: number, z: number, obstacles: readonly FlightObstacle[], bounds: VehicleWorldBounds = MARINA_BOUNDS) {
   const r = 2.5;
@@ -118,7 +124,7 @@ export function flyVehicle(v: VehicleState, forward: number, steer: number, lift
   dt = clamp(dt, 0, .05);
   if (dt === 0) return { state: { ...v }, blocked: false, impactSpeed: 0 };
   const speed = damp(v.speed, forward * (boost ? 30 : 20), 1.8, dt);
-  let climb = damp(v.climb, lift * 5, 3, dt), y = v.y, impactY = 0, blockedY = false;
+  let climb = damp(v.climb, lift * 5, 3, dt), y = v.y, impactY = 0, impulseY = 0, blockedY = false;
   const yawSpeed = damp(v.yawSpeed ?? 0, 0, 4, dt), yaw = v.yaw - steer * 1.05 * dt + yawSpeed * dt;
   const turn = yawSpeed * dt, lateral = damp(v.lateralSpeed ?? 0, 0, 1.2, dt);
   const along = speed * Math.cos(turn) - lateral * Math.sin(turn), across = lateral * Math.cos(turn) + speed * Math.sin(turn);
@@ -128,8 +134,11 @@ export function flyVehicle(v: VehicleState, forward: number, steer: number, lift
     const fraction = contactFraction(t => canFly(v.x, y + dy * t, v.z, obstacles, bounds));
     y += dy * fraction;
     if (fraction < 1) {
-      blockedY = true; impactY = Math.max(impactY, Math.abs(climb));
+      blockedY = true;
+      const incoming = climb;
       climb = Math.abs(climb) > 3 ? -climb * .12 : 0;
+      if (Math.abs(incoming) > impactY) impulseY = climb - incoming;
+      impactY = Math.max(impactY, Math.abs(incoming));
       // Exact ground contact keeps ordinary landings on the terrain datum.
       const ground = (bounds.groundHeight?.(v.x, v.z) ?? 0) + .13;
       if (dy < 0 && Math.abs(y - ground) < 1e-4) y = ground;
@@ -137,8 +146,10 @@ export function flyVehicle(v: VehicleState, forward: number, steer: number, lift
     }
   }
   const motion = horizontalMotion(v, yaw, along, across, yawSpeed, dt, (x, z) => canFly(x, y, z, obstacles, bounds));
-  const { blocked, impactSpeed, ...next } = motion;
-  return { state: { ...v, ...next, y, yaw, climb }, blocked: blocked || blockedY, impactSpeed: Math.hypot(impactSpeed, impactY) };
+  const { blocked, impactSpeed, impulse, ...next } = motion;
+  const totalImpact = Math.hypot(impactSpeed, impactY), state = { ...v, ...next, y, yaw, climb };
+  recordVehicleImpact(state, totalImpact, { ...impulse, y: impulseY });
+  return { state, blocked: blocked || blockedY, impactSpeed: totalImpact };
 }
 /** Feet height at a place infantry can stand; null means no safe support/headroom. */
 export type VehicleExitFloor = (x: number, z: number) => number | null;

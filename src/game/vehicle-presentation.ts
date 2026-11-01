@@ -23,6 +23,8 @@ export function createVehiclePresentation(delay = .1) {
       const state = { ...b.state };
       for (const key of ['x', 'y', 'z', 'speed', 'climb', 'gunPitch'] as const) state[key] = a.state[key] + (b.state[key] - a.state[key]) * t;
       for (const key of ['lateralSpeed', 'yawSpeed'] as const) state[key] = (a.state[key] ?? 0) + ((b.state[key] ?? 0) - (a.state[key] ?? 0)) * t;
+      // Play a contact when the rendered hull reaches its authority tick.
+      state.impact = t < 1 ? a.state.impact : b.state.impact;
       state.yaw = angle(a.state.yaw, b.state.yaw, t); state.gunYaw = angle(a.state.gunYaw, b.state.gunYaw, t);
       return state;
     },

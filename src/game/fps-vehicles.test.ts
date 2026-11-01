@@ -230,3 +230,49 @@ it('uses authoritative shared despawns and restores a replacement in the same sl
     expect(vehicles.footObstacles()).toHaveLength(2);
   } finally { vehicles.dispose(); }
 });
+
+it('jolts the rendered hull on a crash, keeps physical coordinates stable, and settles/reset without drift', () => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  let reduced = false;
+  const spawns = { car: { x: 0, z: 2.4, yaw: 0 }, helicopter: { x: 30, z: 0, yaw: 0 } };
+  const vehicles = createFpsVehicles(new THREE.Scene(), [{ minX: -10, maxX: 10, minZ: -5, maxZ: 0 }], { car: '', helicopter: '' }, { spawns, reducedMotion: () => reduced });
+  try {
+    vehicles.interact(vehicles.states.car); vehicles.states.car.speed = 19.5;
+    vehicles.step(new Set(['w']), .05);
+    expect(vehicles.models.car.rotation.x).toBeLessThan(-.02);
+    expect(vehicles.states.car.y).toBe(.13); expect(vehicles.states.car.yaw).toBe(0);
+    expect(Math.abs(vehicles.impactView.camera.pitch)).toBeGreaterThan(.005);
+    reduced = true; vehicles.step(new Set(), .01);
+    expect(vehicles.models.car.rotation.x).toBe(0); expect(vehicles.models.car.position.y).toBe(.13);
+    expect(vehicles.impactView.camera.pitch).toBe(0);
+    reduced = false;
+    for (let i = 0; i < 100; i++) vehicles.step(new Set(), .02);
+    expect(vehicles.models.car.rotation.x).toBe(0); expect(vehicles.models.car.position.y).toBe(.13);
+    vehicles.reset(); expect(vehicles.impactView.camera.pitch).toBe(0);
+  } finally { vehicles.dispose(); }
+});
+
+it('shows shared collisions once at rendered contact for passengers, skipping initial/replacement/travel receipts', () => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  let now = 0; vi.spyOn(performance, 'now').mockImplementation(() => now);
+  const vehicles = createFpsVehicles(new THREE.Scene(), [], { car: '', helicopter: '' });
+  const car = createSharedVehicle('car', { x: 0, z: 3, yaw: 0 }); car.occupants[2] = 'passenger';
+  car.impact = { serial: 5, speed: 20, x: 0, y: 0, z: 1 };
+  try {
+    vehicles.adoptShared([car], 'passenger'); vehicles.sharedStep(.05);
+    expect(vehicles.impactView.body.pitch).toBe(0);
+    now = 100;
+    const crash = { ...car, z: 2.35, impact: { ...car.impact, serial: 6 } };
+    vehicles.adoptShared([crash], 'passenger'); vehicles.sharedStep(.05);
+    expect(vehicles.impactView.body.pitch).toBe(0);
+    now = 200; vehicles.sharedStep(.05);
+    expect(vehicles.impactView.body.pitch).toBeLessThan(-.02);
+    for (let i = 0; i < 40; i++) { now += 50; vehicles.adoptShared([crash], 'passenger'); vehicles.sharedStep(.05); }
+    expect(vehicles.impactView.body.pitch).toBe(0);
+    now += 100;
+    vehicles.adoptShared([{ ...crash, x: 100, impact: { ...car.impact, serial: 7 } }], 'passenger'); vehicles.sharedStep(.05);
+    expect(vehicles.impactView.body.pitch).toBe(0);
+    vehicles.reset(); vehicles.restoreTravel(crash, 2); vehicles.step(new Set(), .05);
+    expect(vehicles.impactView.body.pitch).toBe(0);
+  } finally { vehicles.dispose(); }
+});

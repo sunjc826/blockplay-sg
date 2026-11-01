@@ -39,3 +39,13 @@ it('interpolates skid and spin and treats legacy snapshots as settled', () => {
   expect(view.sample(.15)!.lateralSpeed).toBeCloseTo(3);
   expect(view.sample(.15)!.yawSpeed).toBeCloseTo(-.4);
 });
+
+it('releases impact receipts when the rendered hull reaches contact, retaining them across quiet ticks', () => {
+  const view = createVehiclePresentation(), state = createSharedVehicle('car', { x: 0, z: 3, yaw: 0 });
+  const impact = { serial: 1, speed: 20, x: 0, y: 0, z: 1 };
+  view.accept(state, 0); view.accept({ ...state, z: 2.35, impact }, .1);
+  expect(view.sample(.15)!.impact).toBeUndefined();
+  expect(view.sample(.2)!.impact).toEqual(impact);
+  view.accept({ ...state, z: 2.7, impact }, .2);
+  expect(view.sample(.25)!.impact).toEqual(impact);
+});

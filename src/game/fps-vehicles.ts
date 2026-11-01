@@ -1,3 +1,4 @@
+import { createVehicleImpactMotion, createEmptyImpactPose } from './vehicle-impact';
 import { WORLD_VEHICLES } from './world-vehicles';
 import { terrainVehicleTilt } from './terrain-vehicle';
 import { createVehiclePresentation } from './vehicle-presentation';
@@ -15,7 +16,7 @@ import { createVehicle, vehicleSpeed, stopVehicle, driveVehicle, flyVehicle, veh
 import { MARINA_BOUNDS, type Obstacle } from './marina-collision';
 import { sceneFlightObstacles } from './flight-obstacles';
 
-export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], skins: Record<VehicleKind, string>, options: { spawns?: Record<VehicleKind, VehicleSpawn>; bounds?: VehicleWorldBounds; deriveFlightObstacles?: boolean; exitFloor?: VehicleExitFloor } = {}) {
+export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], skins: Record<VehicleKind, string>, options: { spawns?: Record<VehicleKind, VehicleSpawn>; bounds?: VehicleWorldBounds; deriveFlightObstacles?: boolean; exitFloor?: VehicleExitFloor; reducedMotion?: () => boolean } = {}) {
   const spawns = options.spawns ?? VEHICLE_SPAWNS;
   const bounds: VehicleWorldBounds = options.bounds ?? MARINA_BOUNDS;
   const drivingObstacles = verticalVehicleObstacles({ bounds, surfaces: getWalkSurfaces(scene), traversalObstacles: getTraversalObstacles(scene) });
@@ -30,6 +31,8 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   const destruction: { kind: VehicleKind; point: THREE.Vector3; occupied: boolean }[] = [];
   const wreckTime = { car: 0, helicopter: 0 };
   const flashTime = { car: 0, helicopter: 0 };
+  const impacts = { car: createVehicleImpactMotion(), helicopter: createVehicleImpactMotion() };
+  let helicopterPitch = 0;
   function damage(kind: VehicleKind, amount: number) {
     if (states[kind].despawned) return;
     if (damageVehicle(states[kind], amount)) {
@@ -120,18 +123,24 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   function sync(dt: number) {
     for (const kind of ['car', 'helicopter'] as const) {
       const v = shared ? visual[kind] : states[kind], model = models[kind], previousYaw = model.rotation.y; model.position.set(v.x, v.y, v.z); model.rotation.y = v.yaw;
+      if (v.health > 0 && !states[kind].despawned) impacts[kind].accept(v.impact, v.yaw);
+      else impacts[kind].reset(v.impact?.serial ?? 0);
+      impacts[kind].advance(dt);
+      const jolt = impacts[kind].sample(options.reducedMotion?.()).body;
+      model.position.y += jolt.heave;
       model.visible = !states[kind].despawned;
       labels[kind].position.set(v.x, v.y + (kind === 'car' ? 3.3 : 4.4), v.z); labels[kind].visible = !states[kind].despawned && active !== kind && v.health > 0;
       damageVisuals[kind](vehicleDamageStage(states[kind]));
       if (shared) { const gun = v as SharedVehicle; model.getObjectByName('vehicle-turret')!.rotation.set(gun.gunPitch, gun.gunYaw - gun.yaw, 0, 'YXZ'); }
       model.getObjectByName('vehicle-muzzle-flash')!.visible = flashTime[kind] > 0 && v.health > 0;
       if (kind === 'car') {
-        const tilt=terrainVehicleTilt(bounds.groundHeight??(()=>0),v.x,v.z,v.yaw);model.rotation.set(tilt.pitch,v.yaw,tilt.roll,'YXZ');
+        const tilt=terrainVehicleTilt(bounds.groundHeight??(()=>0),v.x,v.z,v.yaw);model.rotation.set(tilt.pitch + jolt.pitch,v.yaw,tilt.roll + jolt.roll,'YXZ');
         model.traverse(o => { if (o.name === 'vehicle-wheel') o.rotation.x -= v.speed * dt / .51; });
         updateHumveeInstruments(model, v.speed, dt > 0 ? Math.atan2(Math.sin(v.yaw - previousYaw), Math.cos(v.yaw - previousYaw)) / dt : 0, dt);
       }
       else {
-        model.rotation.x = THREE.MathUtils.damp(model.rotation.x, active === kind ? -v.speed * .007 : 0, 3, dt);
+        helicopterPitch = THREE.MathUtils.damp(helicopterPitch, active === kind ? -v.speed * .007 : 0, 3, dt);
+        model.rotation.set(helicopterPitch + jolt.pitch, v.yaw, jolt.roll, 'YXZ');
         updateHelicopterDashboard(model, states.helicopter);
         const rotor = model.getObjectByName('main-rotor')!, tail = model.getObjectByName('tail-rotor')!;
         if (active === kind || shared?.find(v => v.kind === kind)?.occupants[0]) { rotor.rotation.y += dt * 34; tail.rotation.x += dt * 51; }
@@ -176,13 +185,14 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     root, models, states, footObstacles, interact, step, damage, hitKind, aim, fire, nearest,
     flightObstacles: () => airObstacles(false),
     restoreTravel(state: VehicleState, seatIndex: number) {
-      states[state.kind] = structuredClone(state); active = state.kind; localSeat = seatIndex; sync(0);
+      states[state.kind] = structuredClone(state); impacts[state.kind].reset(state.impact?.serial ?? 0); active = state.kind; localSeat = seatIndex; sync(0);
     },
     omit(kinds: readonly VehicleKind[]) { for (const kind of kinds) states[kind].despawned = true; sync(0); },
     get seat() { return seat(); },
     get canFire() { return canFire(); },
     get canUseFirearm() { return active !== null && (seat() ?? 0) >= 2; },
     get viewStates() { return shared ? Object.values(visual) : Object.values(states); },
+    get impactView() { return active ? impacts[active].sample(options.reducedMotion?.()) : createEmptyImpactPose(); },
     get viewMounted() { return active ? shared ? visual[active] : states[active] : null; },
     switchSeat() { if (active && !shared) { localSeat = (localSeat + 1) % 4; stopVehicle(states[active]); } },
     setNotice(message: string) { notice = message; noticeTime = 3; },
@@ -191,6 +201,9 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
       const shots: { kind: VehicleKind; origin: THREE.Vector3; end: THREE.Vector3 }[] = [];
       for (const kind of ['car', 'helicopter'] as const) if (!next.some(v => v.kind === kind)) states[kind].despawned = true;
       for (const v of next) {
+        if (first || states[v.kind].despawned || v.health > 0 && states[v.kind].health <= 0 ||
+          Math.hypot(v.x - states[v.kind].x, v.y - states[v.kind].y, v.z - states[v.kind].z) > 30)
+          impacts[v.kind].reset(v.impact?.serial ?? 0);
         if (!first && states[v.kind].health > 0 && v.health <= 0) effects.explode(new THREE.Vector3(v.x, v.y + 1.3, v.z));
         if (!first && v.shots > sharedShots[v.kind] && v.shotEnd) {
           flashTime[v.kind] = .085; const ray = vehicleGunRay({ ...v });
@@ -220,7 +233,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
         interact: active ? `E · Exit ${active}` : near ? `E · ${nearLabel} · ${Math.ceil(states[near].health)} HP` : '', vehicleNotice: notice,
         carDistance: distance(player, 'car'), helicopterDistance: distance(player, 'helicopter') };
     },
-    reset() { active = null; shared = null; lastSnapshot = null; presentation.car.reset(); presentation.helicopter.reset(); selfId = ''; localSeat = 0; sharedShots.car = sharedShots.helicopter = 0; notice = ''; noticeTime = 0; destruction.length = 0; wreckTime.car = wreckTime.helicopter = 0; effects.reset(); flashTime.car = flashTime.helicopter = 0; for (const model of Object.values(models)) model.getObjectByName('vehicle-turret')!.rotation.set(0, 0, 0); states.car = createVehicle('car', spawns.car); states.helicopter = createVehicle('helicopter', spawns.helicopter); for(const v of Object.values(states))v.y=(bounds.groundHeight?.(v.x,v.z)??0)+.13; models.helicopter.rotation.x = 0; models.car.getObjectByName('humvee-steering-wheel')!.rotation.z = 0; sync(0); },
+    reset() { impacts.car.reset(); impacts.helicopter.reset(); helicopterPitch = 0; active = null; shared = null; lastSnapshot = null; presentation.car.reset(); presentation.helicopter.reset(); selfId = ''; localSeat = 0; sharedShots.car = sharedShots.helicopter = 0; notice = ''; noticeTime = 0; destruction.length = 0; wreckTime.car = wreckTime.helicopter = 0; effects.reset(); flashTime.car = flashTime.helicopter = 0; for (const model of Object.values(models)) model.getObjectByName('vehicle-turret')!.rotation.set(0, 0, 0); states.car = createVehicle('car', spawns.car); states.helicopter = createVehicle('helicopter', spawns.helicopter); for(const v of Object.values(states))v.y=(bounds.groundHeight?.(v.x,v.z)??0)+.13; models.helicopter.rotation.x = 0; models.car.getObjectByName('humvee-steering-wheel')!.rotation.z = 0; sync(0); },
     dispose() { effects.dispose(); root.removeFromParent(); disposeModel(root); Object.values(labels).forEach(sprite => { sprite.material.map?.dispose(); sprite.material.dispose(); }); },
   };
 }
