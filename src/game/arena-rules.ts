@@ -16,7 +16,7 @@ import { createVerticalMovement, MAX_STEP_HEIGHT, type VerticalWorld } from './v
 import { type RegionBounds, footprintRayInterval, overlapsObstacleRect } from './region-collision';
 import { surfaceContains } from './vertical-routes';
 import { validVehicleControls, createSharedVehicle, seatOf, seatPoint, gunnerId, vehicleGunRay, vehicleRayDistance, type SharedVehicle, type VehicleControls } from './vehicle-seats';
-import { driveVehicle, flyVehicle, vehicleBounds, vehicleExit, type VehicleKind, type VehicleSpawn, type FlightObstacle } from './vehicle-rules';
+import { vehicleSpeed, stopVehicle, driveVehicle, flyVehicle, vehicleBounds, vehicleExit, type VehicleKind, type VehicleSpawn, type FlightObstacle } from './vehicle-rules';
 import { damageVehicle, fireVehicleWeapon, vehicleCollisionDamage, VEHICLE_COMBAT } from './vehicle-combat';
 import { applyArmorDamage } from './armory-state';
 import { insertTraits, sightRangeAgainst, smokeHides, type InsertTraits } from './armor-inserts';
@@ -467,7 +467,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const isSquad = (faction: string): faction is SquadFaction => (SQUAD_FACTIONS as readonly string[]).includes(faction);
   const inside = (p: { x: number; z: number }, b: HeatSector['bounds']) => p.x >= b.minX && p.x <= b.maxX && p.z >= b.minZ && p.z <= b.maxZ;
   let vehicles: SharedVehicle[] = environment?.facilities?.savedVehicles ? structuredClone(environment.facilities.savedVehicles) : vehicleOptions ? (['car', 'helicopter'] as const).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind])) : [];
-  if (environment?.facilities?.savedVehicles) for (const v of vehicles) { v.occupants = [null, null, null, null]; v.speed = v.climb = 0; }
+  if (environment?.facilities?.savedVehicles) for (const v of vehicles) { v.occupants = [null, null, null, null]; stopVehicle(v); }
   const controls = new Map<string, { input: VehicleControls; expires: number }>();
   const vehicleLife = new Map<VehicleKind, { idle: number; wreck: number; stuck: number; wait: number; unload: boolean; think: number; lastThink: number; crew: string[]; assembleUntil: number; departed: boolean; pickupDriver?: string; pickupStopped: number; goal?: VehicleSpawn }>();
   const lifeOf = (v: SharedVehicle) => {
@@ -1093,7 +1093,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     if (action !== 'enter' || mounted) return false;
     const v = vehicles.find(v => v.kind === kind);
-    if (!v || v.health <= 0 || v.y > (bounds.groundHeight?.(v.x, v.z) ?? 0) + .4 || Math.abs(v.speed) > 2 || v.kind === 'helicopter' && Math.abs(v.climb) > .5 || Math.hypot(entry.actor.x - v.x, entry.actor.z - v.z) > (v.kind === 'car' ? 4.5 : 6) || Math.abs(entry.actor.y - 1.75 - (v.y - .13)) > 1.25) return false;
+    if (!v || v.health <= 0 || v.y > (bounds.groundHeight?.(v.x, v.z) ?? 0) + .4 || vehicleSpeed(v) > 2 || v.kind === 'helicopter' && Math.abs(v.climb) > .5 || Math.hypot(entry.actor.x - v.x, entry.actor.z - v.z) > (v.kind === 'car' ? 4.5 : 6) || Math.abs(entry.actor.y - 1.75 - (v.y - .13)) > 1.25) return false;
     const center = { x: v.x, y: v.y + 1.3, z: v.z }, d = distance(entry.actor, center);
     const ray = { x: (center.x - entry.actor.x) / d, y: (center.y - entry.actor.y) / d, z: (center.z - entry.actor.z) / d };
     if (d > .1 && worldWallDistance(entry.actor, ray, d) < d - .2) return false;
@@ -1128,7 +1128,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       entry.movementBudget = 0; entry.vehicleBoardAfter = elapsed + WORLD_VEHICLES.boardCooldown;
       entry.navigation = undefined; entry.velocityY = 0;
     }
-    v.speed = v.climb = 0; lifeOf(v).unload = false; return true;
+    stopVehicle(v); lifeOf(v).unload = false; return true;
   }
   function damageHull(v: SharedVehicle, damage: number, attacker?: InternalActor, cause?: string) {
     if (!damageVehicle(v, damage)) return;
@@ -2528,7 +2528,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const order = entry.order && entry.order.until > elapsed && entry.order.since <= elapsed ? entry.order : undefined;
     if (!vehicleOptions?.openWorld || order && order.kind !== 'gather' || entry.anchor || entry.temporary || entry.heal || entry.actor.y > (bounds.groundHeight?.(entry.actor.x, entry.actor.z) ?? 0) + 2 ||
       elapsed < (entry.vehicleBoardAfter ?? 0) || dangerExit(entry.actor) || entry.actor.health < entry.healthMax * .5) return false;
-    const v = vehicles.filter(v => (!v.faction || v.faction === entry.actor.faction) && v.health > VEHICLE_COMBAT[v.kind].health * .35 && v.y < (bounds.groundHeight?.(v.x, v.z) ?? 0) + .3 && Math.abs(v.speed) < WORLD_VEHICLES.pickupSpeed && Math.abs(v.climb) <= .5 &&
+    const v = vehicles.filter(v => (!v.faction || v.faction === entry.actor.faction) && v.health > VEHICLE_COMBAT[v.kind].health * .35 && v.y < (bounds.groundHeight?.(v.x, v.z) ?? 0) + .3 && vehicleSpeed(v) < WORLD_VEHICLES.pickupSpeed && Math.abs(v.climb) <= .5 &&
       !lifeOf(v).unload && v.occupants.includes(null) && (v.kind === 'car' || !!v.occupants[0]) &&
       v.occupants.every(id => !id || members.get(id)?.actor.faction === entry.actor.faction) &&
       // A player changing seats keeps their crew, but does not invite an AI driver.
@@ -2565,7 +2565,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     for (const v of vehicles) {
       const life = lifeOf(v), driver = v.occupants[0] ? members.get(v.occupants[0]) : undefined;
       const stopped = driver && !driver.actor.bot && driver.actor.alive && driver.playing && v.health > 0 && !life.unload &&
-        Math.abs(v.speed) < WORLD_VEHICLES.pickupSpeed && Math.abs(v.climb) <= .5 && v.y < (bounds.groundHeight?.(v.x, v.z) ?? 0) + .3;
+        vehicleSpeed(v) < WORLD_VEHICLES.pickupSpeed && Math.abs(v.climb) <= .5 && v.y < (bounds.groundHeight?.(v.x, v.z) ?? 0) + .3;
       life.pickupStopped = stopped ? (life.pickupDriver === driver.actor.id ? life.pickupStopped : 0) + dt : 0;
       life.pickupDriver = stopped ? driver.actor.id : undefined;
     }
@@ -2598,7 +2598,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (life.unload) {
         // A missing helicopter pilot brings the craft down before the remaining crew exits.
         if (driver) hold(driver.actor.id, neutral);
-        if (Math.abs(v.speed) <= 2 && v.y < .3 && Math.abs(v.climb) <= .5) unloadVehicle(v);
+        if (vehicleSpeed(v) <= 2 && v.y < .3 && Math.abs(v.climb) <= .5) unloadVehicle(v);
         continue;
       }
       if (driver?.actor.bot) {
@@ -2640,8 +2640,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         const heading = goal ? Math.atan2(v.x - goal.x, v.z - goal.z) : v.yaw;
         const error = Math.atan2(Math.sin(heading - v.yaw), Math.cos(heading - v.yaw));
         const waiting = !goal;
-        hold(driver.actor.id, { ...neutral, forward: waiting ? 0 : Math.abs(v.speed) < 7 ? 1 : 0, steer: clamp(-error * 2, -1, 1), brake: waiting || Math.abs(v.speed) > 8 });
-        if ((!waiting && Math.abs(v.speed) < .5) || !goal) life.stuck += thinkDt; else life.stuck = 0;
+        hold(driver.actor.id, { ...neutral, forward: waiting ? 0 : vehicleSpeed(v) < 7 ? 1 : 0, steer: clamp(-error * 2, -1, 1), brake: waiting || vehicleSpeed(v) > 8 });
+        if ((!waiting && vehicleSpeed(v) < .5) || !goal) life.stuck += thinkDt; else life.stuck = 0;
       }
       for (const id of v.occupants.slice(2)) {
         const passenger = id ? members.get(id) : undefined;

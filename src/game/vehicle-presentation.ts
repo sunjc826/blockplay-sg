@@ -22,6 +22,7 @@ export function createVehiclePresentation(delay = .1) {
       const t = b.at > a.at ? Math.max(0, Math.min(1, (at - a.at) / (b.at - a.at))) : 1;
       const state = { ...b.state };
       for (const key of ['x', 'y', 'z', 'speed', 'climb', 'gunPitch'] as const) state[key] = a.state[key] + (b.state[key] - a.state[key]) * t;
+      for (const key of ['lateralSpeed', 'yawSpeed'] as const) state[key] = (a.state[key] ?? 0) + ((b.state[key] ?? 0) - (a.state[key] ?? 0)) * t;
       state.yaw = angle(a.state.yaw, b.state.yaw, t); state.gunYaw = angle(a.state.gunYaw, b.state.gunYaw, t);
       return state;
     },

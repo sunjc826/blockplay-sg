@@ -29,3 +29,13 @@ it('snaps replacements and teleports rather than sweeping a hull through the dis
   expect(view.sample(.3)!.x).toBe(85);
   view.reset(); expect(view.sample(1)).toBeNull();
 });
+
+
+it('interpolates skid and spin and treats legacy snapshots as settled', () => {
+  const view = createVehiclePresentation(), state = createSharedVehicle('car', { x: 0, z: 0, yaw: 0 });
+  delete state.lateralSpeed; delete state.yawSpeed;
+  view.accept(state, 0);
+  view.accept({ ...state, lateralSpeed: 6, yawSpeed: -.8 }, .1);
+  expect(view.sample(.15)!.lateralSpeed).toBeCloseTo(3);
+  expect(view.sample(.15)!.yawSpeed).toBeCloseTo(-.4);
+});

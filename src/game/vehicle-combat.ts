@@ -15,7 +15,7 @@ export function damageVehicle(v: VehicleState, damage: number) {
   if (!Number.isFinite(damage) || damage <= 0 || v.health <= 0) return false;
   v.health = Math.max(0, v.health - damage);
   if (v.health > 0) return false;
-  v.speed = v.climb = 0;
+  v.speed = v.climb = v.lateralSpeed = v.yawSpeed = 0;
   return true; // Exactly one destruction event, even during a chain explosion.
 }
 export function fireVehicleWeapon(v: VehicleState) {

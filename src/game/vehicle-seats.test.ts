@@ -32,7 +32,7 @@ describe('shared vehicle seats and authority', () => {
       Object.assign(wall, { minZ: before.z - 3.4, maxZ: before.z - 2.4 });
       input(arena, 'driver', { forward: 1 }); arena.step(.05);
       expect(car(arena).health).toBeCloseTo(600 - expectedDamage);
-      expect(car(arena).speed).toBe(0);
+      expect(car(arena).speed).toBeLessThan(0);
       for (let i = 0; i < 20; i++) { input(arena, 'driver', { forward: 1 }); arena.step(.05); }
       expect(car(arena).health).toBeCloseTo(600 - expectedDamage);
       expect(actor(arena, 'driver').alive).toBe(true);
@@ -156,4 +156,19 @@ it.each(['car', 'helicopter'] as const)('lets passengers fire and reload their o
   const after = arena.snapshot().vehicles!.find(v => v.kind === kind)!;
   expect(after.health).toBe(beforeHull); expect(after.ammo).toBe(beforeAmmo);
   expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
+});
+
+
+it('validates shared skid/spin fields while accepting older snapshots', () => {
+  const arena = arenaWithPlayers(1);
+  const snapshot = arena.snapshot(), v = snapshot.vehicles![0];
+  v.lateralSpeed = 8; v.yawSpeed = -.8;
+  expect(validArenaSnapshot(snapshot, environment)).toBe(true);
+  for (const [key, invalid] of [['lateralSpeed', NaN], ['lateralSpeed', 41], ['yawSpeed', Infinity], ['yawSpeed', 1.3]] as const) {
+    const forged = structuredClone(snapshot);
+    forged.vehicles![0][key] = invalid;
+    expect(validArenaSnapshot(forged, environment)).toBe(false);
+  }
+  delete v.lateralSpeed; delete v.yawSpeed;
+  expect(validArenaSnapshot(snapshot, environment)).toBe(true);
 });

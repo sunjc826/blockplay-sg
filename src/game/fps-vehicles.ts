@@ -11,7 +11,7 @@ import { disposeModel } from './armory-visuals';
 import { buildVehicleModel } from './vehicle-models';
 import { updateHumveeInstruments } from './humvee-cabin';
 import { updateHelicopterDashboard } from './helicopter-dashboard';
-import { createVehicle, driveVehicle, flyVehicle, vehicleBounds, vehicleExit, VEHICLE_SPAWNS, type FlightObstacle, type VehicleKind, type VehicleSpawn, type VehicleWorldBounds, type VehicleExitFloor } from './vehicle-rules';
+import { createVehicle, vehicleSpeed, stopVehicle, driveVehicle, flyVehicle, vehicleBounds, vehicleExit, VEHICLE_SPAWNS, type FlightObstacle, type VehicleKind, type VehicleSpawn, type VehicleWorldBounds, type VehicleExitFloor } from './vehicle-rules';
 import { MARINA_BOUNDS, type Obstacle } from './marina-collision';
 import { sceneFlightObstacles } from './flight-obstacles';
 
@@ -102,7 +102,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     ];
   }
   function nearest(player: { x: number; z: number }) {
-    const kinds = (['car', 'helicopter'] as const).filter(kind => states[kind].health > 0 && states[kind].y < (bounds.groundHeight?.(states[kind].x,states[kind].z)??0)+.4 && Math.abs(states[kind].speed) <= 2 && (!shared || shared.find(v => v.kind === kind)?.occupants.includes(null)));
+    const kinds = (['car', 'helicopter'] as const).filter(kind => states[kind].health > 0 && states[kind].y < (bounds.groundHeight?.(states[kind].x,states[kind].z)??0)+.4 && vehicleSpeed(states[kind]) <= 2 && (!shared || shared.find(v => v.kind === kind)?.occupants.includes(null)));
     return kinds.sort((a, b) => distance(player, a) - distance(player, b)).find(kind => distance(player, kind) <= (kind === 'car' ? 4.5 : 6));
   }
   function distance(player: { x: number; z: number }, kind: VehicleKind) { return Math.hypot(player.x - states[kind].x, player.z - states[kind].z); }
@@ -110,7 +110,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     if (active) {
       const point = vehicleExit(states[active], footObstacles(active), bounds, options.exitFloor);
       if (!point) { notice = active === 'helicopter' ? 'Land on clear ground and slow down to exit.' : 'Brake to a stop and leave space beside the car.'; noticeTime = 3; return null; }
-      states[active].speed = states[active].climb = 0; active = null; notice = ''; return { ...point, entered: false, yaw: 0 };
+      stopVehicle(states[active]); active = null; notice = ''; return { ...point, entered: false, yaw: 0 };
     }
     const kind = nearest(player);
     if (!kind) { notice = 'Approach a parked car or helicopter to enter.'; noticeTime = 3; return null; }
@@ -179,7 +179,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     get canUseFirearm() { return active !== null && (seat() ?? 0) >= 2; },
     get viewStates() { return shared ? Object.values(visual) : Object.values(states); },
     get viewMounted() { return active ? shared ? visual[active] : states[active] : null; },
-    switchSeat() { if (active && !shared) { localSeat = (localSeat + 1) % 4; states[active].speed = states[active].climb = 0; } },
+    switchSeat() { if (active && !shared) { localSeat = (localSeat + 1) % 4; stopVehicle(states[active]); } },
     setNotice(message: string) { notice = message; noticeTime = 3; },
     adoptShared(next: SharedVehicle[], id: string) {
       const first = shared === null, fresh = next !== lastSnapshot, at = performance.now() / 1000; shared = next; selfId = id; lastSnapshot = next;
@@ -210,7 +210,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
       const near = nearest(player);
       const viewed = active ?? near;
       const nearLabel = near && shared?.find(v => v.kind === near)?.occupants[0] ? `Board ${near === 'car' ? 'Utility 01' : 'Falcon 01'}` : near === 'car' ? 'Drive Utility 01' : 'Pilot Falcon 01';
-      return { vehicleSeat: seat(), vehicleCanFire: canFire(), vehicleSeats: active ? VEHICLE_SEATS.map((label, index) => { const occupant = shared?.find(v => v.kind === active)?.occupants[index] ?? (!shared && index === localSeat ? 'you' : null); return { label: active === 'helicopter' && index === 0 ? 'Pilot' : label, name: occupant ? names[occupant] ?? 'You' : 'Empty', occupied: occupant !== null, self: occupant === selfId || occupant === 'you' }; }) : [], vehicleHealth: viewed ? states[viewed].health : 0, vehicleMaxHealth: viewed ? VEHICLE_COMBAT[viewed].health : 0, vehicleAmmo: viewed ? states[viewed].ammo : 0, vehicleAmmoMax: viewed ? VEHICLE_COMBAT[viewed].ammo : 0, vehicleWeapon: viewed ? VEHICLE_COMBAT[viewed].name : '', vehicleDamage: viewed ? vehicleDamageStage(states[viewed]) : 'intact', vehicle: active || 'on-foot' as const, vehicleHeading: active ? states[active].yaw : 0, vehicleClimb: active ? states[active].climb : 0, vehiclePitch: active === 'helicopter' ? models.helicopter.rotation.x : 0, vehicleSpeed: active ? Math.abs(states[active].speed) * 3.6 : 0, altitude: active ? Math.max(0, states[active].y - .13) : 0,
+      return { vehicleSeat: seat(), vehicleCanFire: canFire(), vehicleSeats: active ? VEHICLE_SEATS.map((label, index) => { const occupant = shared?.find(v => v.kind === active)?.occupants[index] ?? (!shared && index === localSeat ? 'you' : null); return { label: active === 'helicopter' && index === 0 ? 'Pilot' : label, name: occupant ? names[occupant] ?? 'You' : 'Empty', occupied: occupant !== null, self: occupant === selfId || occupant === 'you' }; }) : [], vehicleHealth: viewed ? states[viewed].health : 0, vehicleMaxHealth: viewed ? VEHICLE_COMBAT[viewed].health : 0, vehicleAmmo: viewed ? states[viewed].ammo : 0, vehicleAmmoMax: viewed ? VEHICLE_COMBAT[viewed].ammo : 0, vehicleWeapon: viewed ? VEHICLE_COMBAT[viewed].name : '', vehicleDamage: viewed ? vehicleDamageStage(states[viewed]) : 'intact', vehicle: active || 'on-foot' as const, vehicleHeading: active ? states[active].yaw : 0, vehicleClimb: active ? states[active].climb : 0, vehiclePitch: active === 'helicopter' ? models.helicopter.rotation.x : 0, vehicleSpeed: active ? vehicleSpeed(states[active]) * 3.6 : 0, altitude: active ? Math.max(0, states[active].y - .13) : 0,
         interact: active ? `E · Exit ${active}` : near ? `E · ${nearLabel} · ${Math.ceil(states[near].health)} HP` : '', vehicleNotice: notice,
         carDistance: distance(player, 'car'), helicopterDistance: distance(player, 'helicopter') };
     },

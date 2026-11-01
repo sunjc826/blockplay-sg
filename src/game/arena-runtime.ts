@@ -117,6 +117,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     for (const v of value.vehicles) {
       if (!object(v) || (v.despawned !== undefined && (typeof v.despawned !== 'boolean' || v.despawned && v.health !== 0)) || (v.faction !== undefined && (typeof v.faction !== 'string' || !getArenaFaction(v.faction))) || (v.kind !== 'car' && v.kind !== 'helicopter') || kinds.has(v.kind) ||
         !['x', 'y', 'z', 'yaw', 'speed', 'climb', 'health', 'ammo', 'weaponCooldown', 'gunYaw', 'gunPitch', 'shots'].every(k => finite(v[k])) ||
+        !['lateralSpeed', 'yawSpeed'].every(k => v[k] === undefined || finite(v[k]) && Math.abs(v[k] as number) <= (k === 'yawSpeed' ? 1.2 : 40)) ||
         !Array.isArray(v.occupants) || v.occupants.length !== 4 || !Number.isInteger(v.ammo) || !Number.isInteger(v.shots) ||
         (v.shots as number) < 0 || (v.shots as number) > VEHICLE_COMBAT[v.kind].ammo ||
         (v.ammo as number) < 0 || (v.ammo as number) > VEHICLE_COMBAT[v.kind].ammo ||
