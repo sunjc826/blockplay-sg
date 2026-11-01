@@ -5,7 +5,8 @@ Collective Corps deploy as finite two-person cells during contested prototype
 operations. Personal favor and encounter-local targets are active; faction-wide
 diplomacy remains a proposal. See [proxy operations](PROXY-OPERATIONS.md).
 The existing gallery remains a visual study; specialist shield/sensor mechanics
-and the seven proxy weapon models are not yet live equipment.
+remain proposals. SCAR-L, SCAR-H and Longwatch have playable Freedom Force
+cargo variants; the other five weapon designs remain gallery studies.
 
 Review the actual procedural models at **`/faction-designs`**. Drag to rotate,
 use Front/Rear, inspect Standing/Walking/Crouched poses, and toggle Grayscale.
@@ -146,9 +147,9 @@ voice and sound work follows the repository's ElevenLabs once-only workflow.
 
 ## Weapon art studies
 
-A separate seven-model shortlist and exterior preview is now available at
+A separate eight-model shortlist and exterior preview is now available at
 `/faction-designs?study=weapons`. See [proxy weapon studies](PROXY-WEAPONS.md)
-for XM29/SCAR and QTS-11/QBZ-family inspirations, original model names and integration
-boundaries. Operator hands and live weapon catalogs still use their existing
-placeholders. The display name is now Collective Corps; the stable internal
+for XM29/SCAR/M200 and QTS-11/QBZ-family inspirations, original model names and integration
+boundaries. Operator studies still carry their existing placeholders.
+The display name is now Collective Corps; the stable internal
 ID remains `collective-cops`.

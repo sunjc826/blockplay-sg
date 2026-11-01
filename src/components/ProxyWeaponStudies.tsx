@@ -42,7 +42,7 @@ export default function ProxyWeaponStudies() {
     setStatus('');
     const render = () => {
       // Same viewing distance for every study: long and compact weapons retain their scale difference.
-      const distance = Math.max(1.65, 1.35 / (2 * Math.tan(16 * Math.PI / 180) * camera.aspect));
+      const distance = Math.max(1.65, 1.65 / (2 * Math.tan(16 * Math.PI / 180) * camera.aspect));
       camera.position.set(-distance, .035, 0); camera.lookAt(0, 0, 0);
       pivot.rotation.set(turn.current.pitch, turn.current.yaw, 0); renderer.render(scene, camera);
       node.dataset.ready = 'true'; node.dataset.model = selected; node.dataset.draws = String(renderer.info.render.calls); node.dataset.triangles = String(renderer.info.render.triangles); node.dataset.yaw = turn.current.yaw.toFixed(3);
@@ -53,7 +53,7 @@ export default function ProxyWeaponStudies() {
 
   return <main className="faction-designs fd-weapon-studies">
     <header className="fd-top"><a href="/" onClick={event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigate('menu'); }}>← Back to game</a><span>BLOCKPLAY / WEAPON STUDIES</span><span className="fd-status">ART PROTOTYPES</span></header>
-    <section className="fd-intro"><div><p className="fd-eyebrow">FREEDOM FORCE / COLLECTIVE CORPS</p><h1>Proxy weapon studies</h1></div><p>Seven exterior studies: XM29 OICW and QTS-11 experimental systems, the SCAR-family options and two Collective Corps rifle designs. Shared faction finishes, distinct silhouettes.</p></section>
+    <section className="fd-intro"><div><p className="fd-eyebrow">FREEDOM FORCE / COLLECTIVE CORPS</p><h1>Proxy weapon studies</h1></div><p>Eight exterior studies: XM29 OICW and QTS-11 experimental systems, SCAR-family options, an M200 Intervention-inspired precision rifle and two Collective Corps rifle designs. Shared faction finishes, distinct silhouettes.</p></section>
     <nav className="fd-study-links" aria-label="Design study pages"><a href="/faction-designs">Operator studies</a><a href="/faction-designs?study=weapons" aria-current="page">Weapon studies</a></nav>
     <div className="fd-weapon-layout"><section className="fd-gallery" aria-label="Interactive weapon preview">
       <div className="fd-toolbar"><div className="fd-segments">{(['profile', 'opposite', 'oblique', 'front'] as const).map(preset => <button key={preset} aria-pressed={view === preset} onClick={() => { turn.current = presetTurn(preset); setView(preset); }}>{preset === 'opposite' ? 'Other side' : preset[0].toUpperCase() + preset.slice(1)}</button>)}</div><button aria-pressed={gray} onClick={() => setGray(value => !value)}>Grayscale</button></div>
@@ -61,6 +61,6 @@ export default function ProxyWeaponStudies() {
       <p className="fd-caption">DRAG TO ROTATE <span>Same scale · exterior art study · no combat statistics</span></p>
     </section><aside className="fd-weapon-picker" aria-label="Select a weapon study">{PROXY_WEAPONS.map(model => <button key={model.id} aria-pressed={model.id === selected} onClick={() => setSelected(model.id)}><span>{model.faction === 'freedom-force' ? 'FREEDOM FORCE' : 'COLLECTIVE CORPS'} / {model.operator}</span><strong>{model.familyLabel ?? model.name}</strong>{model.variantLabel && <em>{model.variantLabel}</em>}<small>{model.reference} inspiration</small></button>)}</aside></div>
     <section className="fd-weapon-notes"><div><p className="fd-eyebrow">{study.operator.toUpperCase()} / EXTERIOR LANGUAGE</p><h2>{study.name}</h2><p>{study.silhouette}</p></div><div><h3>Faction interpretation</h3><p>{study.interpretation}</p><a href={study.referenceUrl} target="_blank" rel="noreferrer">Base reference: {study.reference} ↗</a></div></section>
-    <footer className="fd-footer">Candidate designs, not locked loadouts. These models are outside the store, loot tables, weapon families and live encounters. Operator studies still carry their existing placeholders while hand fit, reloads, sights and gameplay integration remain open.</footer>
+    <footer className="fd-footer">The SCAR-L, SCAR-H and Longwatch also have playable Freedom Force cargo variants. The Intervention, XM29 and Collective Corps weapons remain gallery studies. Operator studies still carry their existing placeholders.</footer>
   </main>;
 }

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-export type ProxyWeaponId = 'ff-oicw' | 'ff-scar-l' | 'ff-scar-h' | 'ff-longwatch' | 'cc-gatekeeper' | 'cc-network' | 'cc-qts11';
+export type ProxyWeaponId = 'ff-oicw' | 'ff-scar-l' | 'ff-scar-h' | 'ff-longwatch' | 'ff-intervention' | 'cc-gatekeeper' | 'cc-network' | 'cc-qts11';
 export interface ProxyWeaponStudy {
   id: ProxyWeaponId; faction: 'freedom-force' | 'collective-cops'; name: string; operator: string;
   /** Family and signature labels shared by the gallery and cargo rewards. */
@@ -14,6 +14,7 @@ export const PROXY_WEAPONS: readonly ProxyWeaponStudy[] = [
   { id: 'ff-scar-l', faction: 'freedom-force', name: 'Soft Power · Foreign Aid', familyLabel: 'Soft Power', variantLabel: 'Foreign Aid', operator: 'Lancer · option', reference: 'FN SCAR-L', referenceUrl: 'https://fnherstal.com/en/defence/portable-weapons/fn-scar-l-mk2/', silhouette: 'Compact SCAR-family upper, curved narrow magazine, folding-style cheek-rest stock and a small reflex sight.', interpretation: 'Soft Power is the family label; Foreign Aid is its signature variant. Sand and bone furniture, a single amber marker and an open lower stock notch identify the smaller member of the pair.' },
   { id: 'ff-scar-h', faction: 'freedom-force', name: 'Hard Power · Strings Attached', familyLabel: 'Hard Power', variantLabel: 'Strings Attached', operator: 'Wayfinder · option', reference: 'FN SCAR-H', referenceUrl: 'https://fnherstal.com/en/defence/portable-weapons/fn-scar-h-mk2/', silhouette: 'Broader and longer SCAR-family receiver, deeper magazine well, wider straight magazine and a compact prism optic.', interpretation: 'Hard Power is the family label; Strings Attached is its signature variant. Twin amber markers and the same folding-style stock connect it to Soft Power. Longwatch remains the separate precision study with its long scope and bipod.' },
   { id: 'ff-longwatch', faction: 'freedom-force', name: 'Longwatch', operator: 'Wayfinder', reference: 'FN Mk 20 / SCAR 20S', referenceUrl: 'https://fnamerica.com/press-releases/fn-announces-release-fn-scar-20s-precision-rifle/', silhouette: 'Long monolithic upper, adjustable precision stock, short box magazine, large scope and folded bipod.', interpretation: 'A heavier, angular precision silhouette in bone and sand, with restrained blue hardware. Scope and bipod are static art.' },
+  { id: 'ff-intervention', faction: 'freedom-force', name: 'M200 Intervention study', operator: 'Wayfinder · precision option', reference: 'CheyTac M200 Intervention', referenceUrl: 'https://cheytac.com/precision-firearms/m200-intervention-sniper-rifle/', silhouette: 'Long exposed barrel, round fore-end, open under-barrel carry handle, twin stock rods, large scope, bipod and rear monopod.', interpretation: 'An original M200-inspired exterior in Freedom Force sand, bone and steel blue. The exposed barrel, tubular fore-end and open stock distinguish it from Longwatch in grayscale. Working reference name; exterior study only, with no new firing, reload or ammunition behavior.' },
   { id: 'cc-gatekeeper', faction: 'collective-cops', name: 'Strong Objection No. 496 · Final Warning No. 497', familyLabel: 'Strong Objection No. 496', variantLabel: 'Final Warning No. 497', operator: 'Bastion', reference: 'QBZ-95 family', referenceUrl: 'https://date.army.gov.au/equipment/qbz-95', silhouette: 'Bullpup action and curved magazine behind the grip, open raised carry bridge and compact pointed fore-end.', interpretation: 'Strong Objection No. 496 is the family label; Final Warning No. 497 is its signature variant. Graphite, jade and cinnabar frame the numbered-notice joke. The open carry bridge distinguishes the silhouette from the SAR 21’s integrated scope housing.' },
   { id: 'cc-network', faction: 'collective-cops', name: 'Consensus Builder · Unanimous Vote', familyLabel: 'Consensus Builder', variantLabel: 'Unanimous Vote', operator: 'Conductor', reference: 'QBZ-191 family', referenceUrl: 'https://eng.chinamil.com.cn/CHINA_209163/WeaponryEquipment/News_209182/15962288.html', silhouette: 'Conventional forward magazine, long flat upper rail, stepped telescoping stock and angular observation optic.', interpretation: 'Consensus Builder is the family label; Unanimous Vote is its signature variant. Slate metal, graphite furniture and a jade observation-optic casing suit Conductor’s coordination role.' },
   { id: 'cc-qts11', faction: 'collective-cops', name: 'QTS-11 study', operator: 'Conductor · experimental option', reference: 'QTS-11 integrated combat system', referenceUrl: 'https://news.cctv.com/2018/05/17/ARTImlq4JrQyBg9bmY4Lh44O180517.shtml', silhouette: 'Two projecting barrels, a slim upper launcher shell, open triangular stock and an offset sensor housing beside the sight.', interpretation: 'Collective Corps’ counterpart to the XM29 study, in slate, graphite and jade with cinnabar identification. The open stock, slimmer body and offset sight equipment distinguish it in grayscale. Exterior art only; no launcher, targeting or airburst behavior is attached.' },
@@ -217,6 +218,47 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false): ProxyWeap
     for (const x of [-.025, .025]) box(.018, .047, .02, x, .027, -.295, dark);
     for (const x of [-.04, .04]) box(.008, .025, .12, x, .087, -.06, trim);
     optic('scope', -.12); front = muzzle(-.75, -.43, .083); foreZ = -.32;
+  } else if (id === 'ff-intervention') {
+    // M200 exterior study: long exposed barrel, round fore-end and open chassis.
+    cylinder(.043, .33, 0, .083, -.015, metal);
+    side([[-.18, .015], [.15, .015], [.17, .082], [.13, .12], [-.16, .12]], .069, metal);
+    grip(.05); gripZ = .05; magazine(-.09, .115, 0, 1.12); magZ = -.09;
+    cylinder(.048, .31, 0, .083, -.335, furniture);
+    cylinder(.052, .022, 0, .083, -.195, dark);
+    cylinder(.052, .023, 0, .083, -.40, metal);
+    // Open carry handle is below the fore-end, separate from the trigger guard.
+    side([[-.425, .045], [-.40, -.10], [-.17, -.10], [-.15, .035]], .029, metal,
+      [[[-.39, .015], [-.37, -.068], [-.20, -.068], [-.18, .015]]]);
+    box(.034, .021, .15, 0, -.105, -.285, dark);
+    // Collapsing-style twin rods leave daylight below the cheek rest.
+    for (const x of [-.024, .024]) cylinder(.007, .29, x, .056, .285, dark);
+    box(.058, .027, .16, 0, .128, .345, furniture);
+    side([[.275, .055], [.30, .055], [.30, .137], [.275, .137]], .045, furniture);
+    side([[.405, .145], [.465, .145], [.475, -.055], [.425, -.055], [.405, -.01]], .052, furniture);
+    box(.061, .20, .021, 0, .044, .48, dark);
+    // Rear monopod and splayed bipod are static display equipment.
+    box(.017, .10, .018, 0, -.10, .435, dark);
+    box(.04, .012, .035, 0, -.153, .435, metal);
+    for (const sign of [-1, 1]) {
+      box(.018, .18, .024, sign * .067, -.047, -.40, dark, 0, 0, sign * .47);
+      box(.041, .018, .044, sign * .109, -.13, -.40, furniture);
+      box(.02, .045, .037, sign * .026, .039, -.40, metal);
+    }
+    // A longer, thicker exposed barrel and banded muzzle device, all exterior.
+    cylinder(.018, .42, 0, .083, -.69, dark);
+    for (const x of [-.014, .014]) box(.003, .009, .26, x, .091, -.70, metal);
+    const brake = [[.009, 0], [.031, 0], [.031, .075], [.018, .075], [.018, .08], [.009, .08], [.009, 0]].map(([r, y]) => new THREE.Vector2(r, y - .04));
+    add(new THREE.LatheGeometry(brake, 20), dark, 0, .083, -.935, Math.PI / 2);
+    for (const x of [-.031, .031]) for (const z of [-.957, -.937, -.917]) box(.003, .02, .009, x, .083, z, trim);
+    front = -.975; foreZ = -.29;
+    rail(-.17, .15, .148); optic('scope', -.045);
+    // Visible bolt-handle cue, with no moving bolt or internal mechanism.
+    box(.045, .013, .016, .053, .09, .105, dark);
+    add(new THREE.SphereGeometry(.014, 10, 6), dark, .08, .077, .105);
+    for (const x of [-.041, .041]) {
+      box(.005, .027, .09, x, .074, .018, trim);
+      box(.007, .009, .026, x, .074, .018, accent);
+    }
   } else if (id === 'cc-gatekeeper') {
     side([[-.28, .018], [.285, .018], [.30, .13], [.24, .17], [-.18, .155], [-.28, .09]], .075, furniture);
     side([[-.17, .145], [.21, .145], [.21, .253], [-.16, .253], [-.20, .21]], .038, dark, [[[ -.145, .17], [.17, .17], [.17, .224], [-.13, .224]]]);

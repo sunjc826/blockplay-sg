@@ -12,8 +12,8 @@ function meshes(root: THREE.Object3D) {
 
 describe('proxy weapon exterior studies', () => {
   it('keeps unimplemented candidates out of gameplay and all studies out of operator roles', () => {
-    expect(PROXY_WEAPONS).toHaveLength(7);
-    expect(new Set(PROXY_WEAPONS.map(study => study.id)).size).toBe(7);
+    expect(PROXY_WEAPONS).toHaveLength(8);
+    expect(new Set(PROXY_WEAPONS.map(study => study.id)).size).toBe(8);
     for (const study of PROXY_WEAPONS) {
       if (!['ff-scar-l', 'ff-scar-h', 'ff-longwatch'].includes(study.id)) { expect(itemById(study.id)).toBeUndefined(); expect(buildServiceWeapon(study.id)).toBeUndefined(); }
       expect(getArenaRole(study.id)).toBeUndefined();
@@ -22,19 +22,19 @@ describe('proxy weapon exterior studies', () => {
     for (const faction of PROXY_FACTIONS) for (const operator of faction.operators) expect(['rifle', 'marksman']).toContain(proxyCharacterLook(faction.id, operator.id).weapon);
   });
 
-  it('has seven different geometric silhouettes with bounded render cost and finite exterior surfaces', () => {
+  it('has eight different geometric silhouettes with bounded render cost and finite exterior surfaces', () => {
     const shapes = PROXY_WEAPONS.map(study => {
       const model = buildProxyWeapon(study.id), parts = meshes(model.root), bounds = new THREE.Box3().setFromObject(model.root), size = bounds.getSize(new THREE.Vector3());
       expect(parts.length).toBeLessThanOrEqual(6);
       expect(parts.reduce((total, part) => total + part.geometry.getAttribute('position').count / 3, 0)).toBeLessThan(6500);
-      expect(size.z).toBeGreaterThan(.65); expect(size.z).toBeLessThan(1.25); expect(size.x).toBeLessThan(.16);
+      expect(size.z).toBeGreaterThan(.65); expect(size.z).toBeLessThan(study.id === 'ff-intervention' ? 1.55 : 1.25); expect(size.x).toBeLessThan(study.id === 'ff-intervention' ? .27 : .16);
       expect(size.y).toBeGreaterThan(.2); expect(size.y).toBeLessThan(.55);
       for (const part of parts) expect(Array.from(part.geometry.getAttribute('position').array).every(Number.isFinite)).toBe(true);
       expect(model.sockets.muzzle.position.z).toBeLessThanOrEqual(bounds.min.z + .005);
       const shape = JSON.stringify(parts.map(part => Array.from(part.geometry.getAttribute('position').array)));
       model.dispose(); return shape;
     });
-    expect(new Set(shapes).size).toBe(7);
+    expect(new Set(shapes).size).toBe(8);
   });
 
   it('replaces the MCX study with an OICW exterior carrying two separate muzzle and feed cues', () => {
@@ -72,6 +72,21 @@ describe('proxy weapon exterior studies', () => {
     expect(Math.abs(other.min.x + other.max.x)).toBeLessThan(.015);
     expect(bounds.getSize(new THREE.Vector3()).y).toBeLessThan(other.getSize(new THREE.Vector3()).y);
     model.dispose(); western.dispose();
+  });
+
+  it('gives the Intervention a longer exposed profile, open carry handle and daylight through its stock', () => {
+    const model = buildProxyWeapon('ff-intervention'), longwatch = buildProxyWeapon('ff-longwatch');
+    const bounds = new THREE.Box3().setFromObject(model.root), other = new THREE.Box3().setFromObject(longwatch.root);
+    expect(bounds.getSize(new THREE.Vector3()).z).toBeGreaterThan(other.getSize(new THREE.Vector3()).z + .22);
+    model.root.updateMatrixWorld(true);
+    for (const [y, z] of [[-.04, -.28], [.08, .34]]) {
+      const ray = new THREE.Raycaster(new THREE.Vector3(.5, y, z), new THREE.Vector3(-1, 0, 0), 0, 1);
+      expect(ray.intersectObject(model.root, true)).toHaveLength(0);
+    }
+    const front = new THREE.Raycaster(new THREE.Vector3(.025, .083, -1.1), new THREE.Vector3(0, 0, 1), 0, 2);
+    expect(Math.abs(front.intersectObject(model.root, true)[0].point.z - model.sockets.muzzle.position.z)).toBeLessThan(.006);
+    expect(bounds.min.x).toBeLessThan(-.12); expect(bounds.max.x).toBeGreaterThan(.12);
+    model.dispose(); longwatch.dispose();
   });
 
   it('makes the SCAR-H physically wider and longer than the L, with a larger box-magazine profile', () => {

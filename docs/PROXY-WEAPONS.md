@@ -1,6 +1,6 @@
 # Proxy faction weapon studies
 
-Status: **seven exterior art candidates**, not locked loadouts. Review at
+Status: **eight exterior design candidates**, not locked loadouts. Review at
 **`/faction-designs?study=weapons`**, linked from the operator gallery. Profile,
 other-side, oblique and front presets, drag rotation and grayscale support
 silhouette review on desktop and mobile. Every study uses the same viewing
@@ -18,6 +18,7 @@ is not expanded into matching assault/heavy/sniper classes.
 | Freedom Force / Lancer option | FN SCAR-L | **Soft Power · Foreign Aid** (`ff-scar-l`) | Compact family upper, narrow curved magazine, shared folding-style stock and a low reflex hood |
 | Freedom Force / Wayfinder option | FN SCAR-H | **Hard Power · Strings Attached** (`ff-scar-h`) | Broader receiver and magazine well, wider straight magazine, prism optic; distinct from the Longwatch precision configuration |
 | Freedom Force / Wayfinder | FN Mk 20 / SCAR 20S | **Longwatch** (`ff-longwatch`) | Extended upper, precision stock, short box magazine, large scope and folded bipod give the observer a distinct long silhouette |
+| Freedom Force / Wayfinder precision option | CheyTac M200 Intervention | **M200 Intervention study** (`ff-intervention`) | Exposed long barrel, round fore-end, under-barrel carry handle, twin stock rods, bipod and rear monopod |
 | Collective Corps / Bastion | QBZ-95 family | **Strong Objection No. 496 · Final Warning No. 497** (`cc-gatekeeper`) | Bullpup magazine behind the hand, raised open carry bridge, integrated rear stock and pointed fore-end give the protected-entry specialist a different equipment language |
 | Collective Corps / Conductor | QBZ-191 family | **Consensus Builder · Unanimous Vote** (`cc-network`) | Conventional forward magazine, continuous rail and stepped adjustable-stock shape suit a modern sensor-coordination concept |
 | Collective Corps / Conductor experimental option | QTS-11 integrated combat system | **QTS-11 study** (`cc-qts11`) | Dual projecting barrels, a slimmer upper launcher shell, open stock and offset sight/sensor housing contrast with the XM29 |
@@ -47,10 +48,11 @@ Longwatch keeps the precision stock, long tube scope and folded bipod.
 
 The real-world references are the [SCAR-L](https://fnherstal.com/en/defence/portable-weapons/fn-scar-l-mk2/)
 (5.56mm) and [SCAR-H](https://fnherstal.com/en/defence/portable-weapons/fn-scar-h-mk2/)
-(7.62mm). Those labels identify the art inspirations; no ammunition, damage,
-recoil or caliber rules are added. The greater length in this particular H
+(7.62mm). Those labels identify the art inspirations; the gallery does not
+define ammunition, damage, recoil or caliber rules. The greater length in this particular H
 study is an art choice, not a claim that every H configuration is longer than
-every L configuration. Neither variant adds a specialist role or live loadout.
+every L configuration. The later playable cargo variants share these designs;
+they do not add specialist roles.
 
 The agreed two-level display names are:
 
@@ -61,7 +63,7 @@ The agreed two-level display names are:
 
 The family labels communicate the intended light/heavy art distinction; the
 signature names provide the proxy-conflict joke. These are display labels for
-art candidates, not new entries in the live weapon-family registry. Stable
+the gallery and the later playable cargo variants. Stable
 `ff-scar-l` / `ff-scar-h` IDs are unchanged. The gallery picker and preview banner separate family and signature labels;
 the description and accessible canvas label use the full name.
 
@@ -78,8 +80,8 @@ fills the owner's unspecified first number so it immediately precedes **497**;
 this is a naming choice, not an asserted historical sequence for the models.
 Final Warning No. 497 references [China's final warning](https://en.wikipedia.org/wiki/China%27s_final_warning),
 as requested. Gatekeeper and Network are superseded display names; stable IDs,
-models and the two-operator roster are unchanged. All four family/signature
-pairs remain display labels for art studies, with no live family registration.
+models and the two-operator roster are unchanged. These Collective Corps
+family/signature pairs remain gallery labels without live family registration.
 
 Other brainstormed names retained for later use: Polite Request / Final Notice,
 Small Talk / Big Talk, Budget Approval / Cost Overrun and Limited Intervention /
@@ -88,8 +90,8 @@ Extended Stay. Democracy Lite / Democracy Deluxe were superseded working titles.
 ## Paired experimental systems
 
 The owner's requested Chinese counterpart to the XM29 is represented by a
-separate **QTS-11 study** (`cc-qts11`), a Conductor experimental option. It adds
-a seventh candidate alongside the two named Collective Corps rifle families;
+separate **QTS-11 study** (`cc-qts11`), a Conductor experimental option. It sits
+alongside the two named Collective Corps rifle families;
 it does not replace them or expand the specialist roster.
 
 The agreed XM29 study name is **Peace Offering · Escalation Clause**:
@@ -119,6 +121,20 @@ and upper launcher muzzle have separate optional art sockets, as do the two
 magazine positions. This does not implement launcher firing, airburst/fuze
 settings, targeting electronics, ammunition or reload behavior. Prototype
 integration and hand fitting remain separate work.
+
+**M200 Intervention study:** an additional Freedom Force precision candidate,
+not a replacement for Longwatch. The manufacturer's side photo informed the
+long exposed barrel, round fore-end, open under-barrel carry handle, stock rods,
+cheek rest, large scope, bipod and rear monopod. Bone/sand hardware, steel-blue
+panels and an amber mark adapt it to the faction. Carry-handle and stock gaps
+are real negative space; the bipod is splayed for review. The model is visibly
+longer than Longwatch at the same scale. Portrait framing now allows the longer
+profile for every study without individually rescaling weapons.
+
+The working display name remains M200 Intervention study; no fictional name is
+selected. It is not registered in the live catalog or Freedom Force cargo pool.
+Bipod, monopod and bolt-handle cues are static art. Bolt cycling, hand fit,
+weapon-specific reload/audio, ammunition and game balance remain future work.
 
 **QTS-11 study:** a narrower slate/graphite upper launcher shell sits above a
 conventional rifle with a forward curved magazine. Two projecting muzzle
@@ -158,32 +174,35 @@ working reference name.
 
 ## Existing systems and integration boundary
 
-- `src/game/proxy-weapon-models.ts` owns the seven studies, reference links,
+- `src/game/proxy-weapon-models.ts` owns the eight studies, reference links,
   geometry builder, grip/foregrip/magazine/muzzle art sockets and disposal. The
   experimental systems also have optional launcher muzzle art sockets; only
   the XM29 has a rear-feed art socket.
   Outside surfaces merge by material, using at most six weapon mesh draws.
 - `src/components/ProxyWeaponStudies.tsx` provides the review page inside the
   existing faction-design route. The operator gallery still uses the original
-  generic rifle/marksman placeholders. The new models are not registered in
-  `buildServiceWeapon`, the armory catalog, role definitions, weapon families,
-  stores, loot or encounter spawning.
-- No hand animation, reload, sight, optic reflection, firing effect, sounds,
-  damage, recoil, ammunition pool, shield behavior or sensor logic is added.
-  The art sockets are future attachment references, not animation contracts.
+  generic rifle/marksman placeholders. SCAR-L, SCAR-H and Longwatch now also
+  have playable Freedom Force cargo variants, integrated separately in
+  `buildServiceWeapon` and the live catalog. Intervention, XM29 and Collective
+  Corps studies are not registered as playable weapons or cargo rewards.
+- This Intervention addition adds no hand animation, reload, sight behavior,
+  firing effect, sounds, damage, recoil or ammunition pool. Its art sockets
+  remain future attachment references, not animation contracts.
 - Before replacing an operator's placeholder, review shoulder/grip fit, left
   hand clearance, scope placement, shield interference and gait/stance coverage.
   The bullpup will need a distinct rear-magazine reload if it becomes playable.
   Weapon-specific sound work follows the local ElevenLabs once-only workflow;
   none is commissioned here.
 
-Tests check absence from live catalogs, seven different geometric silhouettes,
+Tests keep unimplemented candidates out of live catalogs and check eight different geometric silhouettes,
 magazine layout relative to the grip, real stock/bridge openings, finite
-geometry, render budget and idempotent cleanup. Browser review covers all seven
+geometry, render budget and idempotent cleanup. Browser review covers all eight
 models at multiple angles, grayscale, mouse/touch rotation, portrait layout and
 navigation between weapon and operator studies.
 
 ## Primary references and evidence limits
+
+- [CheyTac M200 product page](https://cheytac.com/precision-firearms/m200-intervention-sniper-rifle/): directly inspected manufacturer feature list and side-view photo for the exposed barrel, tubular fore-end, open carry handle, stock, bipod and monopod. The photo is cached locally and not shipped. The [2026 military catalog](https://cheytac.com/wp-content/uploads/2026/03/MIL-Catalog-2026.pdf), page 2, also identifies the bipod and adjustable stock/monopod; its text was read, while detailed geometry was taken from the product photo. Scope, faction finishes, proportions and bipod pose are art interpretation. No exact dimensions, internal construction or manufacturer performance claims are adopted as game rules.
 
 - [CCTV, 17 May 2018](https://news.cctv.com/2018/05/17/ARTImlq4JrQyBg9bmY4Lh44O180517.shtml): directly inspected report names QTS11 and identifies two barrels. Its photo, credited to PLA Pictorial, was downloaded and visually reviewed for broad dual-barrel/sight layout; it is cached reference evidence and is not shipped. [China Military, 9 January 2019](https://eng.chinamil.com.cn/CHINA_209163/TopStories_209189/9400035.html) describes a rifle/launcher with an aiming module and compares the concept to XM29; indexed article text was available, but direct retrieval timed out. These sources do not establish exact dimensions, service status today or performance parity.
 - [U.S. Army 2003 Weapon Systems Handbook](https://asc.army.mil/docs/wsh2/2003-wsh.pdf): the indexed OICW entry describes an integrated dual-barrel system and fire-control unit. Direct retrieval returned HTTP 403 in this pass, so its full PDF was not inspected. The [Block 3 photo attributed to U.S. Army / PM Soldier](https://commons.wikimedia.org/wiki/File:XM29_Block3.jpg) was downloaded to the local review cache and visually inspected for the outside silhouette, sight housing, barrel stack and feed positions. The photo is reference evidence, not a shipped game texture or mesh. No dimensional replica or internal mechanism is reproduced.
