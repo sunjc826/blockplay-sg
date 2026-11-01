@@ -7,14 +7,15 @@ import { advanceRecoil, createRecoil, recordRecoilShot, recoilView, takeAimPush 
 const size = (pose: { pitch: number; yaw: number; roll: number }) => Math.hypot(pose.pitch, pose.yaw, pose.roll);
 const zero = { pitch: 0, yaw: 0, roll: 0 };
 
-it('adds a tiny immediate vibration and settles completely within 160 ms', () => {
+it('adds a visible firing rattle and settles completely within 200 ms', () => {
   const shake = createFirearmCameraShake();
   expect(shake.sample()).toEqual(zero);
   shake.shot(.018);
-  expect(size(shake.sample())).toBeGreaterThan(.0005);
-  expect(THREE.MathUtils.radToDeg(size(shake.sample()))).toBeLessThan(.1);
+  expect(THREE.MathUtils.radToDeg(size(shake.sample()))).toBeGreaterThan(.3);
+  expect(THREE.MathUtils.radToDeg(size(shake.sample()))).toBeLessThan(.5);
   shake.advance(.05); const tail = shake.sample();
-  expect(size(tail)).toBeLessThan(.0005);
+  expect(size(tail)).toBeGreaterThan(.001);
+  expect(size(tail)).toBeLessThan(.003);
   shake.advance(FIREARM_SHAKE_DURATION);
   expect(shake.sample()).toEqual(zero);
 });
@@ -23,15 +24,15 @@ it('keeps the existing recoil dominant rather than adding another muzzle rise', 
   const recoil = createRecoil(), shake = createFirearmCameraShake();
   recordRecoilShot(recoil, FPS_WEAPONS[0], 0, () => .5); shake.shot(FPS_WEAPONS[0].recoil);
   advanceRecoil(recoil, .025); shake.advance(.025);
-  expect(Math.abs(shake.sample().pitch)).toBeLessThan(recoilView(recoil).pitch * .05);
-  expect(Math.abs(shake.sample().yaw)).toBeLessThan(.0004);
+  expect(Math.abs(shake.sample().pitch)).toBeLessThan(recoilView(recoil).pitch * .25);
+  expect(Math.abs(shake.sample().yaw)).toBeLessThan(.0026);
 });
 
 it('attenuates supported shots, aiming and magnified optics, and suppresses reduced motion', () => {
   const hip = createFirearmCameraShake(), supported = createFirearmCameraShake();
   hip.shot(.018); supported.shot(.018, .5);
   expect(size(supported.sample())).toBeCloseTo(size(hip.sample()) * .5);
-  expect(size(hip.sample(1))).toBeCloseTo(size(hip.sample()) * .4);
+  expect(size(hip.sample(1))).toBeCloseTo(size(hip.sample()) * .6);
   expect(size(hip.sample(1, 4))).toBeCloseTo(size(hip.sample(1)) / 4);
   expect(hip.sample(0, 1, true)).toEqual(zero);
 });
@@ -44,7 +45,7 @@ it.each(FPS_WEAPONS)('bounds a sustained burst from $name without accumulating s
       const pose = shake.sample();
       for (const angle of Object.values(pose)) {
         expect(Math.abs(angle)).toBeLessThanOrEqual(FIREARM_SHAKE_LIMIT);
-        expect(THREE.MathUtils.radToDeg(Math.abs(angle))).toBeLessThan(.1);
+        expect(THREE.MathUtils.radToDeg(Math.abs(angle))).toBeLessThan(.5);
       }
       shake.advance(1 / 240);
     }
@@ -93,16 +94,16 @@ it('does not consume randomness or alter recoil compensation and shot rays over 
   const world = new THREE.PerspectiveCamera(), view = new THREE.PerspectiveCamera();
   const random = vi.spyOn(Math, 'random').mockImplementation(() => { throw Error('Cosmetic shake must not consume shot randomness'); });
   try {
-  for (let shot = 0; shot < 30; shot++) {
-    recordRecoilShot(baseline, FPS_WEAPONS[0], 0, () => .5);
-    recordRecoilShot(cosmetic, FPS_WEAPONS[0], 0, () => .5); shake.shot(FPS_WEAPONS[0].recoil);
-    for (let frame = 0; frame < 8; frame++) {
-      advanceRecoil(baseline, .015); advanceRecoil(cosmetic, .015); shake.advance(.015);
-      expect(takeAimPush(cosmetic)).toEqual(takeAimPush(baseline));
-      const original = world.quaternion.clone();
-      shake.render(world, view, shake.sample(), () => undefined);
-      expect(world.quaternion.toArray()).toEqual(original.toArray()); expect(cosmetic).toEqual(baseline);
+    for (let shot = 0; shot < 30; shot++) {
+      recordRecoilShot(baseline, FPS_WEAPONS[0], 0, () => .5);
+      recordRecoilShot(cosmetic, FPS_WEAPONS[0], 0, () => .5); shake.shot(FPS_WEAPONS[0].recoil);
+      for (let frame = 0; frame < 8; frame++) {
+        advanceRecoil(baseline, .015); advanceRecoil(cosmetic, .015); shake.advance(.015);
+        expect(takeAimPush(cosmetic)).toEqual(takeAimPush(baseline));
+        const original = world.quaternion.clone();
+        shake.render(world, view, shake.sample(), () => undefined);
+        expect(world.quaternion.toArray()).toEqual(original.toArray()); expect(cosmetic).toEqual(baseline);
+      }
     }
-  }
   } finally { random.mockRestore(); }
 });

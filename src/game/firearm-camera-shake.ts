@@ -1,9 +1,9 @@
 import { Quaternion, type Camera } from 'three';
 
 export interface FirearmShakePose { pitch: number; yaw: number; roll: number }
-/** Less than a tenth of a degree per axis, including sustained automatic fire. */
-export const FIREARM_SHAKE_LIMIT = .0017;
-export const FIREARM_SHAKE_DURATION = .16;
+/** Less than half a degree per axis, including sustained automatic fire. */
+export const FIREARM_SHAKE_LIMIT = .0085;
+export const FIREARM_SHAKE_DURATION = .2;
 const clamp = (value: number, max = 1) => Math.max(0, Math.min(max, value));
 
 /** A short render-only vibration; existing recoil owns all aim and weapon movement. */
@@ -27,12 +27,12 @@ export function createFirearmCameraShake() {
       const ads = Number.isFinite(aim) ? clamp(aim) : 0;
       const zoom = Number.isFinite(magnification) ? Math.max(1, magnification) : 1;
       const remaining = 1 - age / FIREARM_SHAKE_DURATION;
-      const amount = strength * remaining * remaining * Math.exp(-age * 18) * (1 - ads * .6) / (1 + (zoom - 1) * ads);
+      const amount = strength * remaining * remaining * Math.exp(-age * 10) * (1 - ads * .4) / (1 + (zoom - 1) * ads);
       const direction = shot % 2 ? 1 : -1;
       return {
-        pitch: Math.sin(age * 92) * amount * .00045,
-        yaw: Math.sin(age * 113) * amount * .0004 * direction,
-        roll: Math.cos(age * 78) * amount * .0012 * direction,
+        pitch: Math.sin(age * 92) * amount * .003,
+        yaw: Math.sin(age * 113) * amount * .0026 * direction,
+        roll: Math.cos(age * 78) * amount * .006 * direction,
       };
     },
     /** Restore both cameras even if rendering fails; gameplay rays never inherit the shake. */
