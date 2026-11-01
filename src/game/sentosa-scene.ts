@@ -315,7 +315,9 @@ export function buildSentosaScene() {
   box(LANDING_X, 0.2, -158, 44, 0.4, 40, paving);
   for (const dx of [-16, 16]) for (const dz of [-14, 12]) { cylinder(LANDING_X + dx, 2.4, -158 + dz, 0.3, 4.8, steel); solid(LANDING_X + dx, -158 + dz, 0.8, 0.8); }
   box(LANDING_X, 5.2, -158, 42, 0.35, 12, cloth[0], scene, true);
-  box(165, 0.18, 75, 90, 0.35, 70, lawn);
+  // This is a turf overlay, not a raised deck. Keep its top at the same
+  // ground datum used by the range, vehicle wheels/skids and rain impacts.
+  box(165, -0.175, 75, 90, 0.35, 70, lawn);
   for (const z of [46, 104]) { palm(126, z, 12, 0.1); tree(204, z - 6, 9, wood, fern); }
   for (const z of [56, 96]) { box(206, 0.85, z, 3.4, 0.22, 1.2, wood); solid(206, z, 3.6, 1.2); }
   box(-187, 0.18, 0, 36, 0.35, 300, lawn);
