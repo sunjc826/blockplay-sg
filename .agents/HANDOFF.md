@@ -6167,3 +6167,45 @@ Logs/receipts: `.cache/pulau-ubin/`. Existing dependencies reused by symlink;
 release-only dependency auto-verification disabled. Private environment copies
 and shared deployment lock were removed. No GitHub push. AGENTS.md remains local,
 untracked and unstaged. Preserve the pre-existing handoff and .claude changes.
+
+
+## All-district z-fighting audit (2026-11-01)
+
+Owner reported flicker in Sentosa, Yishun and Changi. Local main code commit
+`90be977` gives normalized ground caps a single visible owner, clips coincident
+static polygons using their actual triangle outlines, stops kerbs at junctions
+and stair treads at landings, and corrects the Sentosa pavilion drum / Changi
+fin-stripe joins. Heights, movement support, UVs, vertex data, material semantics
+and per-building night-window instances are preserved. Exact triangle raycasts
+are rebuilt for cut dense meshes; unused instance batches leave the scene.
+No depth-bias or camera workaround. `pnpm audit:map-surfaces` and
+`docs/MAP-SURFACES.md` document the repeatable detector and its scope: exposed
+principal-axis static planes, not every conceivable artifact or animated prop.
+
+All 23 registered maps report zero exposed overlaps with the final detector.
+Full baseline/candidate JSON and 12 baseline / 50 final browser captures are in
+`.cache/map-surface-audit/`; both render reports have zero browser exceptions
+and Google requests. The Sentosa plaza before render visibly reproduces the
+striping and the matching candidate view is clean. Compact per-map evidence:
+`docs/evidence/map-surface-audit.json`. Counts are triangle-pair relationships,
+not individual bug counts. The temporary review servers and isolated Chrome
+were stopped. No paid requests.
+
+Frozen source in `.cache/map-surface-audit/release/` matches all 3,183 tracked
+files of `90be977`. Release typecheck, 72 relevant tests and its production build
+pass. Additional geometry/route tests passed 75 checks with the existing Upper
+Thomson anchor failure at 85,-14; that failure was reproduced on the unchanged
+baseline. The broad run passed 2,478 tests and reported two failures: the Marina
+batch-count regression was fixed by removing empty batches and all 23 batching
+checks now pass; the other failure is that baseline anchor. No full-suite pass
+is claimed. Final ownership/shot-cover/facade checks pass another 36 tests.
+
+Manual `pnpm deploy:cloudflare` succeeded from the frozen release: version
+`71c1e918-086b-45db-812c-36e1f70d7376`. Both blockplaysg.fun and workers.dev
+serve the exact eight release HTML/JS/CSS/service-worker/manifest files and pass
+Cloudflare routing, PWA, asset and API-origin checks. Receipts and logs are in
+`.cache/map-surface-audit/` (source-verification.json, release-typecheck.log,
+release-tests.log, deploy.log, live-verification.json/log, cloudflare-custom.log,
+cloudflare-workers.log). Temporary private env copies were removed. No GitHub
+push. Preserve pre-existing handoff/.claude changes; AGENTS.md stays local,
+unstaged and uncommitted.
