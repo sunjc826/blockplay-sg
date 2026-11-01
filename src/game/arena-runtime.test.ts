@@ -1,3 +1,4 @@
+import { MAX_WEAPON_RANGE } from './weapon-range';
 import * as THREE from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createArenaRuntime, validArenaInput, validArenaSnapshot } from './arena-runtime';
@@ -52,7 +53,7 @@ it.each([
     expect(validArenaSnapshot(airborne, environment)).toBe(true);
     if (!blocked) {
       expect(airborne.rounds?.some(r => r.limit === (family === 4 ? 400 : 300))).toBe(true);
-      expect(validArenaSnapshot({ ...airborne, rounds: airborne.rounds!.map(r => ({ ...r, limit: 401 })) }, environment)).toBe(false);
+      expect(validArenaSnapshot({ ...airborne, rounds: airborne.rounds!.map(r => ({ ...r, limit: MAX_WEAPON_RANGE + 1 })) }, environment)).toBe(false);
     }
     vi.advanceTimersByTime(1100);
     const hAfter = host.update(.02, input(h.x, h.z, true)), gAfter = guest.update(.02, input(g.x, g.z, true));

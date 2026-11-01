@@ -299,7 +299,18 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
   }
   applyStyle(current);
 
+  function eject(shot: { eject?: THREE.Object3D | null; camera: THREE.Camera; carry?: THREE.Vector3 }) {
+    if (!shot.eject) return;
+    // The viewmodel lives in camera space, so the port's world transform there
+    // becomes a world one by carrying the camera's own rotation and origin.
+    shot.eject.getWorldQuaternion(quaternion).premultiply(shot.camera.quaternion);
+    shot.eject.getWorldPosition(position); shot.camera.localToWorld(position);
+    right.set(1, 0, 0).applyQuaternion(quaternion); up.set(0, 1, 0).applyQuaternion(quaternion); back.set(0, 0, 1).applyQuaternion(quaternion);
+    ejectCasing(casings, position, right, up, back, shot.carry ?? { x: 0, y: 0, z: 0 }, Math.random, current.id);
+  }
+
   return {
+    eject,
     root, flare,
     get style() { return current; },
     /** Live counts, surfaced so a browser smoke can assert the effects ran. */
@@ -322,13 +333,7 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
      */
     fire(shot: { recoil: number; eject?: THREE.Object3D | null; camera: THREE.Camera; carry?: THREE.Vector3 }) {
       igniteMuzzle(muzzle, shot.recoil);
-      if (!shot.eject) return;
-      // The viewmodel lives in camera space, so the port's world transform there
-      // becomes a world one by carrying the camera's own rotation and origin.
-      shot.eject.getWorldQuaternion(quaternion).premultiply(shot.camera.quaternion);
-      shot.eject.getWorldPosition(position); shot.camera.localToWorld(position);
-      right.set(1, 0, 0).applyQuaternion(quaternion); up.set(0, 1, 0).applyQuaternion(quaternion); back.set(0, 0, 1).applyQuaternion(quaternion);
-      ejectCasing(casings, position, right, up, back, shot.carry ?? { x: 0, y: 0, z: 0 }, Math.random, current.id);
+      eject(shot);
     },
     /** The streak a hitscan round leaves between the muzzle and where it stopped. */
     beam(from: THREE.Vector3, to: THREE.Vector3) {

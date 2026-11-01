@@ -40,7 +40,7 @@ export function findTrait<K extends WeaponTraitKind>(traits: readonly WeaponTrai
 export type WeaponFeed = 'magazine' | 'drum' | 'belt';
 /** How the action holds its next round: closed (rifles, pistol) keeps one in the chamber; open (machine guns) does not. */
 export type WeaponBolt = 'open' | 'closed';
-export interface WeaponSpec { /** Physical spare-container positions on the worn rig. */ rigSlots?: number; bipod?: BipodKind; /** Muzzle, rail, sight and brace the variant is fitted with; see weapon-accessories. */ accessories?: WeaponAccessories; feed?: WeaponFeed; bolt?: WeaponBolt; requiresMount?: boolean; /** Unloaded arcade carry mass, in kg. */ weightKg?: number; fireMode?: 'auto' | 'semi'; caliberMm: number; id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; recoilRecovery: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
+export interface WeaponSpec { /** Manual bolt cycle occupies the firing interval. */ action?: 'bolt'; /** Physical spare-container positions on the worn rig. */ rigSlots?: number; bipod?: BipodKind; /** Muzzle, rail, sight and brace the variant is fitted with; see weapon-accessories. */ accessories?: WeaponAccessories; feed?: WeaponFeed; bolt?: WeaponBolt; requiresMount?: boolean; /** Unloaded arcade carry mass, in kg. */ weightKg?: number; fireMode?: 'auto' | 'semi'; caliberMm: number; id: string; name: string; role: string; capacity: number; reserve: number; interval: number; reload: number; recoil: number; recoilRecovery: number; sightHeight: number; damage: number; aimFov: number; mobility: number; optic?: WeaponOptic; ballistics: BallisticSpec; traits?: readonly WeaponTrait[] }
 export const FPS_WEAPONS: readonly WeaponSpec[] = [
   // The rifle holds its damage to twice the support weapon's range; the support
   // weapon trades that away for its volume of fire. Paid variants lift both bands.
@@ -72,13 +72,19 @@ export const FPS_WEAPONS: readonly WeaponSpec[] = [
     traits: [{ kind: 'falloff', near: 55, far: 140, minScale: .75 }, { kind: 'precision', multiplier: 2.2 }] },
   { caliberMm: 7.62, id: 'ff-longwatch', weightKg: 5.2, name: 'Smart Power', role: 'Freedom Force precision rifle', fireMode: 'semi', capacity: 10, reserve: 50, interval: .32, reload: 2.3, recoil: .03, recoilRecovery: 1.4, sightHeight: .350, damage: 80, aimFov: magnifiedFov(4), mobility: .9, optic: 'precision', ballistics: muzzleBallistics(900),
     traits: [{ kind: 'falloff', near: 80, far: 180, minScale: .85 }, { kind: 'precision', multiplier: 2.4 }] },
+  { caliberMm: 5.56, id: 'ff-oicw', weightKg: 6.8, name: 'Peace Offering', role: 'Freedom Force prototype rifle', capacity: 40, reserve: 160, interval: .08, reload: 2.4, recoil: .006, recoilRecovery: 1.45, sightHeight: .442, damage: 48, aimFov: magnifiedFov(4), mobility: .84, optic: 'precision', ballistics: muzzleBallistics(1240),
+    traits: [{ kind: 'falloff', near: 70, far: 180, minScale: .85 }, { kind: 'precision', multiplier: 2.4 }] },
+  { caliberMm: 10.36, id: 'ff-intervention', action: 'bolt', fireMode: 'semi', bipod: 'standard', weightKg: 12, name: 'M200 Intervention', role: 'Freedom Force bolt-action sniper', capacity: 7, reserve: 28, interval: 1.4, reload: 3.1, recoil: .065, recoilRecovery: .9, sightHeight: .36, damage: 120, aimFov: magnifiedFov(6), mobility: .72, optic: 'precision', ballistics: muzzleBallistics(980),
+    traits: [{ kind: 'falloff', near: 120, far: 320, minScale: .8 }, { kind: 'precision', multiplier: 2.5 }] },
+  // Integral mode, unlocked only while the parent rifle occupies a carry slot.
+  { caliberMm: 20, id: 'ff-oicw-launcher', weightKg: 0, fireMode: 'semi', name: 'Peace Offering · Launcher', role: 'Integral impact grenade launcher', capacity: 6, reserve: 12, interval: .9, reload: 3.3, recoil: .04, recoilRecovery: 1, sightHeight: .442, damage: 90, aimFov: magnifiedFov(4), mobility: .84, optic: 'precision', traits: [{ kind: 'falloff', near: 0, far: 220, minScale: 1 }, { kind: 'splash', radius: 4, minScale: .2 }], ballistics: { velocity: 70, drop: 9.8 } },
 ];
 
 /** Stable family indexes are shared by saves, keyboard shortcuts and LAN packets. */
 export const validWeaponIndex = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < FPS_WEAPONS.length;
 /** Each family's baseline. The enemy-issue baselines are never owned until found. */
-export const DEFAULT_VARIANTS = ['sar-issued', 'ult-issued', 'p30-issued', 'mag-issued', 'cis50-issued', 'xm8-carbine', 'g36-rifle', 'mg4-standard', 'ff-scar-l', 'ff-scar-h', 'ff-longwatch'] as const;
+export const DEFAULT_VARIANTS = ['sar-issued', 'ult-issued', 'p30-issued', 'mag-issued', 'cis50-issued', 'xm8-carbine', 'g36-rifle', 'mg4-standard', 'ff-scar-l', 'ff-scar-h', 'ff-longwatch', 'ff-oicw', 'ff-intervention', 'ff-oicw-launcher'] as const;
 
 /**
  * The ammunition in one weapon. `magazine` is every round in the gun, the

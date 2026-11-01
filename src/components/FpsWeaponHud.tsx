@@ -1,3 +1,4 @@
+import { OICW_RIFLE, OICW_LAUNCHER } from '../game/weapon-modes';
 import { useEffect, useRef, type CSSProperties } from 'react';
 import { Rotate3d } from 'lucide-react';
 import { tapProps } from './touch-tap';
@@ -13,7 +14,7 @@ import FpsUtilityBelt from './FpsUtilityBelt';
 import FpsVitals from './FpsVitals';
 import './fps-weapon-hud.css';
 
-export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickFood, onPickGrenade, onGrenadeFire, onInspect, touch = false }: { hud: FpsHud; weapon: WeaponSpec & { equipment?: { variant: string } }; canFight: boolean; onUtility?: (kind: UtilityKind) => void; onPickFood?: () => void; onPickGrenade?: () => void; onGrenadeFire?: (held: boolean) => void; onInspect?: () => void; touch?: boolean }) {
+export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickFood, onPickGrenade, onGrenadeFire, onInspect, onToggleMode, touch = false }: { hud: FpsHud; weapon: WeaponSpec & { equipment?: { variant: string } }; canFight: boolean; onUtility?: (kind: UtilityKind) => void; onPickFood?: () => void; onPickGrenade?: () => void; onGrenadeFire?: (held: boolean) => void; onInspect?: () => void; onToggleMode?: () => void; touch?: boolean }) {
   // A phone on its side has no height for the belt over the ammo under the weapon
   // slider, so the belt docks along the bottom between the two thumbs instead.
   const docked = useMediaQuery(SHORT_SCREEN) && touch;
@@ -84,6 +85,7 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickF
             {hud.rail && hud.offsetDot && ' · '}{hud.offsetDot && <>{hint('X ')}{hud.canted ? 'OFFSET DOT' : 'PRIMARY SIGHT'}</>}
           </p>}
           <p className="fps-ammo-detail fps-hud-hint">{hud.carriedKg.toFixed(1)} KG CARRIED · {Math.round(hud.movementScale * 100)}% MOVEMENT</p>
+          {canFight && onToggleMode && [OICW_RIFLE, OICW_LAUNCHER].includes(hud.weapon) && <button type="button" className="fps-mode-select" disabled={reloading} onClick={onToggleMode} aria-label="Switch rifle and grenade launcher">{!touch && 'U · '}{hud.weapon === OICW_LAUNCHER ? 'SELECT RIFLE' : 'SELECT LAUNCHER'}</button>}
           {touch && onInspect && hud.vehicle === 'on-foot' && <button type="button" className="fps-inspect-button" aria-label={hud.inspecting ? 'Stop inspecting weapon' : 'Inspect weapon'} aria-pressed={hud.inspecting}
             disabled={!canFight || hud.pilotEnabled || reloading || !!using || !!grenade || hud.aiming} title="Inspect weapon (K)"
             {...tapProps(onInspect)}><Rotate3d size={13} /><span>{hud.inspecting ? 'Inspecting' : 'Inspect'}</span></button>}

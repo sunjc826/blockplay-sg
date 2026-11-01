@@ -25,13 +25,14 @@ function fixture(loaded = true) {
 }
 
 describe('weapon-specific reload audio', () => {
-  it('gives all eight weapons their own five recorded actions and routes variants by their hardware', () => {
+  it('gives each mechanism its five recorded actions and routes variants by their hardware', () => {
     const mechanisms = FPS_WEAPONS.map(reloadMechanism);
-    expect(new Set(mechanisms).size).toBe(FPS_WEAPONS.length);
+    expect(new Set(mechanisms.slice(0, 8)).size).toBe(8);
+    expect(mechanisms.slice(11)).toEqual(['oicw', 'intervention', 'oicw-launcher']);
     for (const weapon of FPS_WEAPONS) for (const stage of stages) {
       const sample = reloadSample(weapon, stage);
       expect(sfxUrls(sample, '/')).toHaveLength(1);
-      expect(sfxUrls(sample, '/')[0]).toMatch(/^\/audio\/reload\/reload-/);
+      expect(sfxUrls(sample, '/')[0]).toMatch(/^\/audio\/(?:reload|proxy)\/reload-/);
     }
     expect(Object.keys(manifest.groups)).toHaveLength(40);
     expect(reloadMechanism({ ...FPS_WEAPONS[3], id: 'custom-mag-variant' })).toBe('belt');
@@ -79,7 +80,7 @@ describe('weapon-specific reload audio', () => {
       expect(energy).toBeGreaterThan(.1); expect(pcm.at(-1)).toBe(0);
       signatures.add(`${pcm[110]}:${pcm[500]}:${energy}`);
     }
-    expect(signatures.size).toBe(40);
+    expect(signatures.size).toBe(55);
     const f = fixture(false);
     for (let i = 0; i < 5; i++) { f.audio.play(FPS_WEAPONS[3], 'MAG IN'); f.sources.at(-1)!.onended!(); }
     expect(f.context.createBuffer).toHaveBeenCalledTimes(2);

@@ -62,23 +62,57 @@ favor penalty. Outcomes and actual rewards appear in the comms feed.
 
 ## Equipment and implementation boundaries
 
-Freedom Force crates roll one of three faction weapons with equal probability
+Freedom Force crates roll one of five faction weapons with equal probability
 when the operation spawns: **Soft Power · Foreign Aid** (SCAR-L, 5.56 mm,
 30-round magazines, reflex sight), **Hard Power · Strings Attached** (SCAR-H,
 7.62 mm, 20-round magazines, 2× optic), or **Smart Power · Targeted Assistance** (semi-automatic
-precision rifle, 7.62 mm, 10-round magazines, 4× optic). The selection remains
+precision rifle, 7.62 mm, 10-round magazines, 4× optic), **Peace Offering ·
+Escalation Clause** (40-round 5.56 mm rifle and separate 6-round 20 mm impact
+launcher, shared 4× sight), or **M200 Intervention** (7-round .408 bolt-action
+sniper, 6× sight and deployable bipod). All five are Mythic; each has a 20% chance. The selection remains
 fixed through warning, inspection and recovery; the choice panel names the
 weapon before acting. Freedom Force cargo never grants a SAR 21.
 
-Each rifle has a separate live weapon family, its faction model, detachable
+Each weapon has a separate live weapon family, its faction model, detachable
 magazine, working sight and charging handle. The two 7.62 mm rifles share box
 magazines, separately from FN MAG belts; the SCAR-L shares 5.56 mm rifle
 magazines. Keeping cargo equips the selected weapon in the normal pickup slot,
 with a loaded magazine and up to four spare magazines in available rig slots.
 It grants no permanent ownership and is removed on death, including after
 travel. The Collective Corps’ existing SAR retrofit reward remains unchanged.
-The XM29/QTS-11 launcher concepts and Collective weapon designs remain gallery
-studies; this change does not implement their launchers or operator loadouts.
+Peace Offering switches between rifle and integral launcher with **U** or the
+HUD mode button (mouse or touch). The two modes use the same carry slot and
+keep separate loaded magazines, cooldowns and reload progress. Launcher spares
+occupy real rig positions alongside rifle/pistol spares; cargo adds up to two
+rifle and two launcher magazines where room exists. To fit its launcher kit,
+a full rig exchanges excess compatible rifle spares above two for launcher
+magazines and reports that exchange in the HUD; pistol and other-calibre
+spares are preserved. Retained compatible rifle magazines keep their capacity,
+including 30-round magazines in the 40-round rifle. If other equipment fills
+the remaining positions, only the available launcher spares can be supplied.
+
+Launcher grenades follow a gravity arc at an arcade 70 m/s, burst on impact,
+and have a three-second safety fuse. Their blast is 100 damage over 4 m with
+cover and stance checks, friendly protection and self-damage from the existing
+grenade authority. They cannot be thrown as hand grenades. There is no range
+programming/airburst-setting UI. Firing/reloading is validated by the host;
+mode switching cannot grant another weapon slot, ammunition or ownership.
+
+Peace Offering's rifle alone exceeds the current XM8 variants in per-hit damage
+and precise-hit damage over range, firing cadence, recoil/recovery and muzzle
+velocity. Its Mythic build deals 72 base damage at an 80 ms cadence, with full
+damage to 70 m. Bulk costs mass, movement/aim speed and reload handling. The
+XM8 automatic rifle keeps its specialized 100-round drum capacity; these are
+not matching magazine configurations. These are game balance choices, not
+claims about real weapon performance.
+
+The M200 uses a 1.4-second manual cycle, 160 base damage, 6× scope and a distinct
+10.36 mm ammunition group. Its seven-round magazines do not share rifle/GPMG
+or pistol spares. The right hand lifts/pulls/pushes/locks the bolt within the
+firing interval; a held trigger cannot repeatedly fire it. Its bipod deploys
+in a supported prone stance. Heavy-round armor/audio treatment avoids treating
+.408 as pistol ammunition. The QTS-11 and other Collective weapon designs
+remain gallery studies; operator loadouts are unchanged.
 
 `proxy-operations.ts` owns bounded personal state, choice validation, claims and
 lifetimes. `arena-rules.ts` owns placement, actors, sight/reach checks, combat

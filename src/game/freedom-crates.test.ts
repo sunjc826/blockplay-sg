@@ -24,7 +24,7 @@ it.each(PROXY_REWARDS['freedom-force'])('%s has a live, unobstructed sight and d
   expect(ray.intersectObject(root,true)).toHaveLength(0);
   const remove=fitWeaponOptic(root,spec), sight=getWeaponSight(root)!;
   expect(sight.aimHeight).toBe(height);
-  expect(sight.magnification).toBeCloseTo(id==='ff-longwatch'?4:id==='ff-scar-h'?2:1);
+  expect(sight.magnification).toBeCloseTo(id==='ff-intervention'?6:id==='ff-oicw'||id==='ff-longwatch'?4:id==='ff-scar-h'?2:1);
   const handling=createWeaponHandling(root,family);
   expect(Number.isFinite(handling.aimHeight)).toBe(true);
   handling.dispose(); remove(); model.dispose();
@@ -35,8 +35,8 @@ it.each(PROXY_REWARDS['freedom-force'])('%s can fire, reload and retain physical
   const state=states[family]; addReserveMagazines(state,4);
   expect(fireWeapon(state,family,next.weapons)).toBe(true);
   state.cooldown=0;expect(beginReload(state,family,next.weapons)).toBe(true);advanceWeapon(state,family,spec.reload*2,next.weapons);
-  expect(state.magazine).toBe(spec.capacity+1);
+  expect(state.magazine).toBe(state.loadedCapacity!+1);
   expect(restoreMagazine(magazineOf(spec,family))?.family).toBe(family);
-  expect(magazineGroup(spec)).toBe(id==='ff-scar-l'?'5.56:magazine':'7.62:magazine');
+  expect(magazineGroup(spec)).toBe(id==='ff-intervention'?'10.36:magazine':id==='ff-scar-l'||id==='ff-oicw'?'5.56:magazine':'7.62:magazine');
   expect(magazineGroup(spec)).not.toBe('7.62:belt');
 });

@@ -42,10 +42,10 @@ describe('empty-trigger feedback', () => {
     expect(canDryFire(state, weapon, false)).toBe(false); // usable chamber round
   });
   it('routes every catalog weapon to a published receiver-specific recording', () => {
-    expect(new Set(FPS_WEAPONS.map(emptyFireSample)).size).toBe(8);
+    expect(new Set(FPS_WEAPONS.map(emptyFireSample)).size).toBe(11);
     for (const item of ARMORY_CATALOG.filter(item => item.category === 'weapon')) {
       const weapon = variantSpec(item)!;
-      expect(sfxUrls(emptyFireSample(weapon), '/')[0]).toMatch(/^\/audio\/empty-fire\/empty-fire-/);
+      expect(sfxUrls(emptyFireSample(weapon), '/')[0]).toMatch(/^\/audio\/(?:empty-fire|proxy)\/empty-fire-/);
       if (weapon.id === 'ultimax-inspired') expect(emptyFireSample(weapon)).toBe('empty-fire-drum');
     }
     expect(Object.keys(manifest.groups)).toHaveLength(8);

@@ -31,6 +31,8 @@ export interface GunshotTone {
 }
 /** The recorded group for a calibre: 9 mm is the pistol, 5.56 the rifles, 7.62 the GPMGs, 12.7 the heavy guns. */
 export function gunshotSample(calibre: number): { near: SfxGroup; far: SfxGroup } {
+  if (calibre === 10.36) return { near: 'proxy-intervention-shot', far: 'distant-heavy' };
+  if (calibre === 20) return { near: 'proxy-launcher-shot', far: 'distant-heavy' };
   if (calibre >= 12) return { near: 'hmg-127', far: 'distant-heavy' };
   if (calibre >= 8.5) return { near: 'pistol-9', far: 'distant-rifle' };
   if (calibre >= 7) return { near: 'mg-762', far: 'distant-rifle' };
@@ -52,7 +54,7 @@ export function gunshotTone(calibre: number, power: number, distance = 0, own = 
   // A can is heard as if from further off than it is, so it fades out of earshot sooner.
   const d = Math.max(0, distance) / (muzzle === 'suppressor' ? report : 1), far = Math.min(1, d / 400), punch = Math.sqrt(weight);
   const sample = gunshotSample(calibre), across = Math.min(1, Math.max(0, (d - 30) / 190));
-  const heavy = muzzle === 'suppressor' ? 0 : calibre >= 12 ? 1 : calibre >= 7 && calibre < 8.5 ? .5 : 0;
+  const heavy = muzzle === 'suppressor' ? 0 : calibre >= 12 || calibre === 10.36 ? 1 : calibre >= 7 && calibre < 8.5 ? .5 : 0;
   const tone: GunshotTone = {
     ...(acoustics ? { acoustics } : {}),
     sample: muzzle === 'suppressor' ? 'suppressed' : sample.near, distantSample: sample.far,
@@ -67,6 +69,7 @@ export function gunshotTone(calibre: number, power: number, distance = 0, own = 
     thump: .95 * punch * (1 - .3 * far) * (1 + heavy * .2), thumpFrom: 150 / weight ** .15, thumpTo: 52 / weight ** .2, thumpLength: (.1 + .045 * weight) * (1 + heavy * .15),
     tail: .2 * punch * (.6 + far) * (1 + heavy * .35), tailCutoff: 1400 - 900 * far, tailLength: .3 + .12 * weight + .7 * far + heavy * .15, tailSpread: 1 + 1.5 * far,
   };
+  if (calibre === 20) Object.assign(tone, { crack: 0, body: .25, tail: .12, tailLength: .4, sampleEcho: .08 });
   if (muzzle === 'suppressor') {
     // What a can leaves: the action cycling, a dull cough, and little for the walls to send back.
     Object.assign(tone, { crack: tone.crack * .3, body: tone.body * .55, bodyCutoff: tone.bodyCutoff * .45, bodyLength: tone.bodyLength * .7,

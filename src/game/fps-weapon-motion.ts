@@ -2,6 +2,16 @@ import { EMPTY_RELOAD, reloadLength } from './fps-rules';
 
 export const smoothStep = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };
 
+/** One manual cycle occupies the shot cooldown: lift, pull, push and lock. */
+export function boltCycleMotion(progress: number) {
+  const p = Math.max(0, Math.min(1, progress));
+  return {
+    hand: smoothStep((p - .08) / .15) * (1 - smoothStep((p - .82) / .18)),
+    lift: smoothStep((p - .16) / .12) * (1 - smoothStep((p - .76) / .1)),
+    travel: smoothStep((p - .28) / .18) * (1 - smoothStep((p - .58) / .18)),
+  };
+}
+
 export const INSPECT_DURATION = 3.6;
 type InspectKey = readonly [time: number, x: number, y: number, z: number, pitch: number, yaw: number, roll: number];
 // Lift into view, linger over each side of the receiver, then settle at ready.

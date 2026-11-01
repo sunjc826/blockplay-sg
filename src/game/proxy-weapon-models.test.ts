@@ -15,7 +15,7 @@ describe('proxy weapon exterior studies', () => {
     expect(PROXY_WEAPONS).toHaveLength(8);
     expect(new Set(PROXY_WEAPONS.map(study => study.id)).size).toBe(8);
     for (const study of PROXY_WEAPONS) {
-      if (!['ff-scar-l', 'ff-scar-h', 'ff-longwatch'].includes(study.id)) { expect(itemById(study.id)).toBeUndefined(); expect(buildServiceWeapon(study.id)).toBeUndefined(); }
+      if (!['ff-scar-l', 'ff-scar-h', 'ff-longwatch', 'ff-oicw', 'ff-intervention'].includes(study.id)) { expect(itemById(study.id)).toBeUndefined(); expect(buildServiceWeapon(study.id)).toBeUndefined(); }
       expect(getArenaRole(study.id)).toBeUndefined();
       expect(study.referenceUrl).toMatch(/^https:\/\//);
     }

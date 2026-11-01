@@ -6,10 +6,10 @@ export const proxyName = (id: ProxyId) => id === 'freedom-force' ? 'Freedom Forc
 export const proxyRival = (id: ProxyId): ProxyId => id === 'freedom-force' ? 'collective-cops' : 'freedom-force';
 export const PROXY_RULES = { firstIn: 60, cooldown: 420, warning: 18, duration: 180, pursuit: 65, withdrawal: 18, claim: 8, reach: 4, supplies: 60 } as const;
 export const PROXY_REWARDS = {
-  'freedom-force': ['ff-scar-l', 'ff-scar-h', 'ff-longwatch'],
+  'freedom-force': ['ff-scar-l', 'ff-scar-h', 'ff-longwatch', 'ff-oicw', 'ff-intervention'],
   'collective-cops': ['sar-proxy-prototype'],
 } as const;
-export const proxyWeaponName = (id: string) => ({ 'ff-scar-l': 'Soft Power · Foreign Aid', 'ff-scar-h': 'Hard Power · Strings Attached', 'ff-longwatch': 'Smart Power · Targeted Assistance', 'sar-proxy-prototype': 'SAR 21 · Unauthorised Upgrade' })[id] ?? 'Prototype';
+export const proxyWeaponName = (id: string) => ({ 'ff-scar-l': 'Soft Power · Foreign Aid', 'ff-scar-h': 'Hard Power · Strings Attached', 'ff-longwatch': 'Smart Power · Targeted Assistance', 'ff-oicw': 'Peace Offering · Escalation Clause', 'ff-intervention': 'M200 Intervention', 'sar-proxy-prototype': 'SAR 21 · Unauthorised Upgrade' })[id] ?? 'Prototype';
 export type ProxyAction = 'return' | 'rival' | 'keep' | 'carry' | 'deliver';
 export type ProxyPoint = { x: number; y: number; z: number };
 export interface ProxyCampaign {

@@ -24,6 +24,7 @@ export function stepGrenadeFlight(state: GrenadeFlight, spec: GrenadeSpec, dt: n
       const hit = trace(from, to); velocity.y -= BALLISTIC_GRAVITY * step;
       if (hit) {
         state.position = { x: hit.point.x + hit.normal.x * .025, y: hit.point.y + hit.normal.y * .025, z: hit.point.z + hit.normal.z * .025 };
+        if (spec.trigger === 'impact') return true;
         const dot = velocity.x * hit.normal.x + velocity.y * hit.normal.y + velocity.z * hit.normal.z;
         state.velocity = { x: (velocity.x - 2 * dot * hit.normal.x) * spec.bounce, y: (velocity.y - 2 * dot * hit.normal.y) * spec.bounce, z: (velocity.z - 2 * dot * hit.normal.z) * spec.bounce };
         if (spec.bounce === 0 || Math.hypot(state.velocity.x, state.velocity.y, state.velocity.z) < 1) { state.rested = true; state.velocity = { x: 0, y: 0, z: 0 }; }
@@ -31,7 +32,7 @@ export function stepGrenadeFlight(state: GrenadeFlight, spec: GrenadeSpec, dt: n
       if ((spec.trigger === 'apex' || state.launched) && velocity.y <= 0) return true;
     }
     // Fuses always remain dangerous while cooking, but rest/apex mechanisms govern flight.
-    if (!spec.trigger && state.remaining <= 1e-7) return true;
+    if ((!spec.trigger || spec.trigger === 'impact') && state.remaining <= 1e-7) return true;
     if (state.age >= 15) return true;
   }
   return false;

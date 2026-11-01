@@ -5,6 +5,7 @@ import { smoothStep } from './fps-weapon-motion';
 
 /** Authored attachment points. -Z is muzzle-forward; folded legs lie aft. */
 const BIPODS = {
+  'ff-intervention': { y: .179, z: -.40, width: .052, length: .18, radius: .007, heavy: false },
   'ultimax-inspired': { y: .151, z: -.40, width: .10, length: .30, radius: .007, heavy: false },
   'mag-inspired': { y: .174, z: -.44, width: .12, length: .33, radius: .008, heavy: false },
   'cis50-inspired': { y: .194, z: -.50, width: .20, length: .43, radius: .014, heavy: true },

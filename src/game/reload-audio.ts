@@ -3,9 +3,12 @@ import type { SfxBank, SfxGroup } from './sfx-bank';
 
 type ReloadWeapon = Pick<WeaponSpec, 'id' | 'feed' | 'caliberMm'>;
 type Stage = 'MAG OUT' | 'MAG IN' | 'SEAT MAG' | 'BOLT BACK' | 'CHAMBER';
-type Mechanism = 'pistol' | 'bullpup' | 'carbine' | 'rifle' | 'drum' | 'light-belt' | 'belt' | 'heavy-belt';
+type Mechanism = 'pistol' | 'bullpup' | 'carbine' | 'rifle' | 'drum' | 'light-belt' | 'belt' | 'heavy-belt' | 'oicw' | 'intervention' | 'oicw-launcher';
 interface Material { body: number; metal: number; decay: number; scrape: number; level: number }
 const MATERIALS: Record<Mechanism, Material> = {
+  oicw: { body: 410, metal: 2350, decay: .018, scrape: .075, level: .26 },
+  intervention: { body: 250, metal: 1950, decay: .024, scrape: .095, level: .3 },
+  'oicw-launcher': { body: 290, metal: 2100, decay: .023, scrape: .09, level: .29 },
   pistol: { body: 1150, metal: 3600, decay: .012, scrape: .045, level: .22 },
   bullpup: { body: 430, metal: 2150, decay: .018, scrape: .075, level: .26 },
   carbine: { body: 670, metal: 2800, decay: .014, scrape: .055, level: .24 },
@@ -20,6 +23,9 @@ const ACTION: Record<Stage, string> = { 'MAG OUT': 'out', 'MAG IN': 'in', 'SEAT 
 
 /** Feed hardware determines the sound, including equipped variants and future belt-fed guns. */
 export function reloadMechanism(weapon: ReloadWeapon): Mechanism {
+  if (weapon.id === 'ff-oicw') return 'oicw';
+  if (weapon.id === 'ff-oicw-launcher') return 'oicw-launcher';
+  if (weapon.id === 'ff-intervention') return 'intervention';
   if (weapon.feed === 'belt') return weapon.caliberMm >= 12 ? 'heavy-belt' : weapon.caliberMm < 7 ? 'light-belt' : 'belt';
   if (weapon.feed === 'drum') return 'drum';
   if (weapon.id === 'p30-inspired') return 'pistol';

@@ -35,7 +35,7 @@ it('uses the expedition-entry equipment after travel and repeated deaths', () =>
   expect(respawnEquipment(restored, starting).carry).toEqual(starting.carry);
 });
 
-it.each(['ff-scar-l', 'ff-scar-h', 'ff-longwatch', 'sar-proxy-prototype'])('forfeits %s on death, including after district travel', id => {
+it.each(['ff-scar-l', 'ff-scar-h', 'ff-longwatch', 'ff-oicw', 'ff-intervention', 'sar-proxy-prototype'])('forfeits %s on death, including after district travel', id => {
   const starting=createProfile(), current=structuredClone(starting);
   const family=itemById(id)!.family!;
   current.owned.push(id);current.guns[family].variant=id; current.carry.main=family;

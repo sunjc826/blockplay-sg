@@ -8,13 +8,13 @@ export interface ProxyWeaponStudy {
   familyLabel?: string; variantLabel?: string;
   reference: string; referenceUrl: string; silhouette: string; interpretation: string;
 }
-/** Design-gallery metadata. The three conventional Freedom Force rifles also have live cargo variants. */
+/** Design-gallery metadata. All five Freedom Force weapons have live cargo variants. */
 export const PROXY_WEAPONS: readonly ProxyWeaponStudy[] = [
-  { id: 'ff-oicw', faction: 'freedom-force', name: 'Peace Offering · Escalation Clause', familyLabel: 'Peace Offering', variantLabel: 'Escalation Clause', operator: 'Lancer · experimental option', reference: 'XM29 OICW · Block 3', referenceUrl: 'https://commons.wikimedia.org/wiki/File:XM29_Block3.jpg', silhouette: 'Stacked rifle and launcher muzzles, a bulky integrated upper body, a large sight housing and separate forward/rear feed silhouettes.', interpretation: 'Peace Offering is the family label; Escalation Clause is its signature variant. An original exterior interpretation of the XM29 OICW reference, in Freedom Force sand, bone and steel blue. The lower rifle, upper launcher and sight housing are static art; no launcher or airburst behavior is attached.' },
+  { id: 'ff-oicw', faction: 'freedom-force', name: 'Peace Offering · Escalation Clause', familyLabel: 'Peace Offering', variantLabel: 'Escalation Clause', operator: 'Lancer · experimental option', reference: 'XM29 OICW · Block 3', referenceUrl: 'https://commons.wikimedia.org/wiki/File:XM29_Block3.jpg', silhouette: 'Stacked rifle and launcher muzzles, a bulky integrated upper body, a large sight housing and separate forward/rear feed silhouettes.', interpretation: 'Peace Offering is the family label; Escalation Clause is its signature variant. An original exterior interpretation of the XM29 OICW reference, in Freedom Force sand, bone and steel blue. The cargo version has a Mythic rifle and a separately fed impact launcher, selected with U or the mode button. The gallery shows its exterior.' },
   { id: 'ff-scar-l', faction: 'freedom-force', name: 'Soft Power · Foreign Aid', familyLabel: 'Soft Power', variantLabel: 'Foreign Aid', operator: 'Lancer · option', reference: 'FN SCAR-L', referenceUrl: 'https://fnherstal.com/en/defence/portable-weapons/fn-scar-l-mk2/', silhouette: 'Compact SCAR-family upper, curved narrow magazine, folding-style cheek-rest stock and a small reflex sight.', interpretation: 'Soft Power is the family label; Foreign Aid is its signature variant. Sand and bone furniture, a single amber marker and an open lower stock notch identify the smaller member of the pair.' },
   { id: 'ff-scar-h', faction: 'freedom-force', name: 'Hard Power · Strings Attached', familyLabel: 'Hard Power', variantLabel: 'Strings Attached', operator: 'Wayfinder · option', reference: 'FN SCAR-H', referenceUrl: 'https://fnherstal.com/en/defence/portable-weapons/fn-scar-h-mk2/', silhouette: 'Broader and longer SCAR-family receiver, deeper magazine well, wider straight magazine and a compact prism optic.', interpretation: 'Hard Power is the family label; Strings Attached is its signature variant. Twin amber markers and the same folding-style stock connect it to Soft Power. Smart Power remains the separate precision study with its long scope and bipod.' },
   { id: 'ff-longwatch', faction: 'freedom-force', name: 'Smart Power · Targeted Assistance', familyLabel: 'Smart Power', variantLabel: 'Targeted Assistance', operator: 'Wayfinder', reference: 'FN Mk 20 / SCAR 20S', referenceUrl: 'https://fnamerica.com/press-releases/fn-announces-release-fn-scar-20s-precision-rifle/', silhouette: 'Long monolithic upper, adjustable precision stock, short box magazine, large scope and folded bipod.', interpretation: 'Smart Power is the family label; Targeted Assistance is its signature variant. A heavier, angular precision silhouette in bone and sand, with restrained blue hardware. Scope and bipod are static art.' },
-  { id: 'ff-intervention', faction: 'freedom-force', name: 'M200 Intervention study', operator: 'Wayfinder · precision option', reference: 'CheyTac M200 Intervention', referenceUrl: 'https://cheytac.com/precision-firearms/m200-intervention-sniper-rifle/', silhouette: 'Long exposed barrel, round fore-end, open under-barrel carry handle, twin stock rods, large scope, bipod and rear monopod.', interpretation: 'An original M200-inspired exterior in Freedom Force sand, bone and steel blue. The exposed barrel, tubular fore-end and open stock distinguish it from Smart Power in grayscale. Working reference name; exterior study only, with no new firing, reload or ammunition behavior.' },
+  { id: 'ff-intervention', faction: 'freedom-force', name: 'M200 Intervention', operator: 'Wayfinder · precision option', reference: 'CheyTac M200 Intervention', referenceUrl: 'https://cheytac.com/precision-firearms/m200-intervention-sniper-rifle/', silhouette: 'Long exposed barrel, round fore-end, open under-barrel carry handle, twin stock rods, large scope, bipod and rear monopod.', interpretation: 'An original M200-inspired exterior in Freedom Force sand, bone and steel blue. The exposed barrel, tubular fore-end and open stock distinguish it from Smart Power in grayscale. The Mythic cargo version uses a manual bolt cycle, a 6× scope and separate .408 magazines. The display name retains the reference name.' },
   { id: 'cc-gatekeeper', faction: 'collective-cops', name: 'Strong Objection No. 496 · Final Warning No. 497', familyLabel: 'Strong Objection No. 496', variantLabel: 'Final Warning No. 497', operator: 'Bastion', reference: 'QBZ-95 family', referenceUrl: 'https://date.army.gov.au/equipment/qbz-95', silhouette: 'Bullpup action and curved magazine behind the grip, open raised carry bridge and compact pointed fore-end.', interpretation: 'Strong Objection No. 496 is the family label; Final Warning No. 497 is its signature variant. Graphite, jade and cinnabar frame the numbered-notice joke. The open carry bridge distinguishes the silhouette from the SAR 21’s integrated scope housing.' },
   { id: 'cc-network', faction: 'collective-cops', name: 'Consensus Builder · Unanimous Vote', familyLabel: 'Consensus Builder', variantLabel: 'Unanimous Vote', operator: 'Conductor', reference: 'QBZ-191 family', referenceUrl: 'https://eng.chinamil.com.cn/CHINA_209163/WeaponryEquipment/News_209182/15962288.html', silhouette: 'Conventional forward magazine, long flat upper rail, stepped telescoping stock and angular observation optic.', interpretation: 'Consensus Builder is the family label; Unanimous Vote is its signature variant. Slate metal, graphite furniture and a jade observation-optic casing suit Conductor’s coordination role.' },
   { id: 'cc-qts11', faction: 'collective-cops', name: 'QTS-11 study', operator: 'Conductor · experimental option', reference: 'QTS-11 integrated combat system', referenceUrl: 'https://news.cctv.com/2018/05/17/ARTImlq4JrQyBg9bmY4Lh44O180517.shtml', silhouette: 'Two projecting barrels, a slim upper launcher shell, open triangular stock and an offset sensor housing beside the sight.', interpretation: 'Collective Corps’ counterpart to the XM29 study, in slate, graphite and jade with cinnabar identification. The open stock, slimmer body and offset sight equipment distinguish it in grayscale. Exterior art only; no launcher, targeting or airburst behavior is attached.' },
@@ -27,7 +27,7 @@ export interface ProxyWeaponModel {
 }
 type Point = readonly [number, number];
 
-export function buildProxyWeapon(id: ProxyWeaponId, playable = false): ProxyWeaponModel {
+export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rifle' | 'launcher' = 'rifle'): ProxyWeaponModel {
   const study = PROXY_WEAPONS.find(candidate => candidate.id === id);
   if (!study) throw new Error('Unknown proxy weapon study.');
   const root = new THREE.Group(); root.name = id; root.userData.artStudy = true; root.userData.heat = 'none';
@@ -44,6 +44,7 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false): ProxyWeap
   const materials = [metal, furniture, dark, trim, accent, glass];
   const parts = new Map<THREE.Material, THREE.BufferGeometry[]>();
   const magazineParts = new Map<THREE.Material, THREE.BufferGeometry[]>();
+  const animatingLauncher = playable && id === 'ff-oicw' && mode === 'launcher';
   let drawingMagazine = false;
   const add = (geometry: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
     if (geometry.index) { const flat = geometry.toNonIndexed(); geometry.dispose(); geometry = flat; }
@@ -81,7 +82,7 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false): ProxyWeap
     for (const x of [-.021, .021]) box(.004, .012, .024, x, .018, z + .004, dark);
   };
   const magazine = (z: number, height: number, curve: number, breadth = 1) => {
-    drawingMagazine = true;
+    drawingMagazine = !animatingLauncher;
     side([[z - .035 * breadth, .035], [z + .03 * breadth, .035], [z + .033 * breadth, -.025], [z + .022 * breadth - curve, -height], [z - .043 * breadth - curve, -height + .008], [z - .04 * breadth, -.02]], .031 * breadth, dark);
     for (const x of [-.017 * breadth, .017 * breadth]) for (let i = 0; i < 3; i++) box(.002, height * .65, .003, x, -height * .43, z + (-.022 + i * .019) * breadth - curve * .35, metal, Math.atan2(curve, height));
     drawingMagazine = false;
@@ -134,9 +135,11 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false): ProxyWeap
     side([[-.32, .015], [.095, .015], [.115, .083], [-.275, .12], [-.32, .09]], .065, metal);
     grip(.025); magazine(-.13, .17, .024); magZ = -.13;
     // The upper assembly's rear feed is a separate, broad rectangular exterior box.
+    drawingMagazine = animatingLauncher;
     box(.057, .19, .11, 0, .009, launcherMagZ, dark);
     box(.063, .014, .12, 0, -.087, launcherMagZ, metal);
     for (const x of [-.031, .031]) for (const z of [.224, .263]) box(.003, .12, .005, x, .004, z, metal);
+    drawingMagazine = false;
     box(.112, .26, .027, 0, .13, .398, dark);
     // Projecting rifle fore-end and palm ledge below the upper launcher's barrel.
     side([[-.435, .005], [-.205, .005], [-.20, .087], [-.40, .087], [-.44, .047]], .073, metal,
@@ -152,10 +155,16 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false): ProxyWeap
     add(new THREE.LatheGeometry(rim, 24), metal, 0, launcherY, launcherFront + .007, Math.PI / 2);
     // Supported, chamfered fire-control housing with distinct front/eyepiece lenses.
     box(.07, .032, .31, 0, .258, -.045, dark);
-    side([[-.27, .272], [.095, .272], [.095, .335], [.065, .355], [-.22, .355], [-.27, .325]], .103, dark);
-    box(.073, .036, .004, 0, .302, -.274, glass);
+    if (playable) {
+      // Open sight tunnel: no opaque front/rear wall across the aiming ray.
+      for (const x of [-.0465, .0465]) box(.01, .083, .365, x, .3135, -.0875, dark);
+      for (const y of [.277, .35]) box(.093, .01, .365, 0, y, -.0875, dark);
+    } else {
+      side([[-.27, .272], [.095, .272], [.095, .335], [.065, .355], [-.22, .355], [-.27, .325]], .103, dark);
+      box(.073, .036, .004, 0, .302, -.274, glass);
+    }
     box(.085, .018, .006, 0, .343, -.24, trim, -.35);
-    box(.066, .042, .005, 0, .307, .099, glass);
+    if (!playable) box(.066, .042, .005, 0, .307, .099, glass);
     // Side covers and vents stay external; all details merge by material.
     for (const x of [-.055, .055]) {
       box(.005, .06, .19, x, .164, .065, trim);
@@ -239,7 +248,7 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false): ProxyWeap
     // Rear monopod and splayed bipod are static display equipment.
     box(.017, .10, .018, 0, -.10, .435, dark);
     box(.04, .012, .035, 0, -.153, .435, metal);
-    for (const sign of [-1, 1]) {
+    for (const sign of playable ? [] : [-1, 1]) {
       box(.018, .18, .024, sign * .067, -.047, -.40, dark, 0, 0, sign * .47);
       box(.041, .018, .044, sign * .109, -.13, -.40, furniture);
       box(.02, .045, .037, sign * .026, .039, -.40, metal);
@@ -253,8 +262,10 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false): ProxyWeap
     front = -.975; foreZ = -.29;
     rail(-.17, .15, .148); optic('scope', -.045);
     // Visible bolt-handle cue, with no moving bolt or internal mechanism.
-    box(.045, .013, .016, .053, .09, .105, dark);
-    add(new THREE.SphereGeometry(.014, 10, 6), dark, .08, .077, .105);
+    if (!playable) {
+      box(.045, .013, .016, .053, .09, .105, dark);
+      add(new THREE.SphereGeometry(.014, 10, 6), dark, .08, .077, .105);
+    }
     for (const x of [-.041, .041]) {
       box(.005, .027, .09, x, .074, .018, trim);
       box(.007, .009, .026, x, .074, .018, accent);
@@ -286,6 +297,7 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false): ProxyWeap
   // Small receiver features provide depth in oblique views without simulated internals.
   box(.008, .025, .09, .039, .084, id === 'cc-gatekeeper' ? .17 : .014, dark);
   box(.025, .012, .02, .046, .06, id === 'cc-gatekeeper' ? .12 : -.025, metal);
+  if (animatingLauncher) magZ = .25;
   const geometries: THREE.BufferGeometry[] = [];
   for (const [m, list] of parts) {
     const merged = mergeGeometries(list, false); list.forEach(geometry => geometry.dispose());
@@ -300,11 +312,19 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false): ProxyWeap
       mag.add(new THREE.Mesh(merged, m)); geometries.push(merged);
     }
     root.add(mag);
-    const handle = new THREE.Mesh(new THREE.BoxGeometry(.032, .014, .025), dark);
-    handle.name = `${id}__charging-handle`; handle.position.set(.053, .09, -.035); root.add(handle); geometries.push(handle.geometry);
+    const handle = new THREE.Group(); handle.name = `${id}__charging-handle`;
+    handle.position.set(.053, animatingLauncher ? .21 : .09, id === 'ff-intervention' ? .105 : -.035);
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(id === 'ff-intervention' ? .045 : .032, .014, .025), dark);
+    handle.add(arm); geometries.push(arm.geometry);
+    if (id === 'ff-intervention') {
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(.014, 10, 6), dark);
+      knob.position.set(.027, -.013, 0); handle.add(knob); geometries.push(knob.geometry);
+    }
+    root.add(handle);
   }
   const socket = (name: string, x: number, y: number, z: number) => { const node = new THREE.Object3D(); node.name = `${id}__study_${name}`; node.position.set(x, y, z); root.add(node); return node; };
   const sockets = { grip: socket('grip', 0, 0, gripZ), foregrip: socket('foregrip', 0, .01, foreZ), magazine: socket('magazine', 0, .02, magZ), muzzle: socket('muzzle', 0, muzzleY, front - .002), ...(launcherFront === undefined ? {} : { launcherMuzzle: socket('launcher_muzzle', 0, launcherY, launcherFront - .002) }), ...(launcherMagZ === undefined ? {} : { launcherMagazine: socket('launcher_magazine', 0, .07, launcherMagZ) }) };
+  if (animatingLauncher) sockets.muzzle.position.copy(sockets.launcherMuzzle!.position);
   if (playable) {
     glass.dispose();
     const lift = .14;
@@ -313,10 +333,11 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false): ProxyWeap
     const eject = new THREE.Object3D(); eject.name = `${id}__socket_eject`; eject.position.set(.045, .224, .014); root.add(eject);
     root.userData.artStudy = false;
     root.userData.proxyHands = { right: [.027, .105, gripZ + .02], support: [-.033, .15, foreZ], magazine: [-.025, .095, magZ] };
-    const long = id === 'ff-longwatch', heavy = id === 'ff-scar-h';
-    root.userData.proxyOptic = { kind: long || heavy ? 'scope' : 'reflex', height: (long ? .22 : heavy ? .2075 : .2025) + lift,
-      lens: long ? .039 : heavy ? -.004 : -.039, radius: long ? .019 : heavy ? .024 : .022, aimDepth: -.28 };
+    const long = id === 'ff-longwatch' || id === 'ff-intervention', heavy = id === 'ff-scar-h', oicw = id === 'ff-oicw';
+    root.userData.proxyOptic = { kind: long || heavy || oicw ? 'scope' : 'reflex', height: (long ? .22 : oicw ? .302 : heavy ? .2075 : .2025) + lift,
+      lens: id === 'ff-intervention' ? .114 : long ? .039 : oicw ? .099 : heavy ? -.004 : -.039, radius: long ? .019 : heavy || oicw ? .024 : .022, aimDepth: -.28 };
   }
+  if (animatingLauncher) root.traverse(node => { node.name = node.name.replace(/^ff-oicw/, 'ff-oicw-launcher'); });
   let disposed = false;
   return { root, sockets, dispose() { if (disposed) return; disposed = true; root.removeFromParent(); geometries.forEach(geometry => geometry.dispose()); materials.filter(m => !playable || m !== glass).forEach(m => m.dispose()); } };
 }

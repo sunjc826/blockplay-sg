@@ -15,7 +15,7 @@ export function fpsControlKey(event: Pick<KeyboardEvent, 'code' | 'key' | 'altKe
 
 const ACTIONS = {
   e: 'interact', n: 'vision', j: 'palette', l: 'light', b: 'laser',
-  k: 'inspect', z: 'prone', x: 'cant', v: 'seat', control: 'crouch-hold',
+  k: 'inspect', z: 'prone', x: 'cant', v: 'seat', u: 'weapon-mode', control: 'crouch-hold',
 } as const;
 export type FpsKeyAction = typeof ACTIONS[keyof typeof ACTIONS] | 'crouch-toggle' | 'vehicle-camera';
 export function fpsKeyAction(key: string, mounted: boolean): FpsKeyAction | undefined {

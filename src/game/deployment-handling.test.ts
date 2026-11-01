@@ -8,7 +8,7 @@ it.each(FPS_WEAPONS.map((spec, i) => [spec.id, i] as const))('moves the %s charg
   magazine.name = `${id}__magazine`; handle.name = `${id}__charging-handle`; cover.name = `${id}__feed-cover`;
   handle.position.set(.05, .25, .1); model.add(magazine, handle, cover);
   const handling = createWeaponHandling(model, i);
-  const charging = model.getObjectByName(FPS_WEAPONS[i].feed === 'belt' ? 'reload-hand-right' : 'reload-hand-left')!;
+  const charging = model.getObjectByName(FPS_WEAPONS[i].feed === 'belt' || FPS_WEAPONS[i].action === 'bolt' ? 'reload-hand-right' : 'reload-hand-left')!;
   handling.update(null, false);
   const home = charging.position.clone();
   handling.update(null, false, undefined, .48);

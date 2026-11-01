@@ -10,7 +10,7 @@ export type GrenadeEffect =
   | { kind: 'bomblets'; count: number; damage: number; radius: number; spread: number; line?: boolean; seconds?: number }
   | { kind: 'mission'; count: number; delay: number; spread: number }
   | { kind: 'rally'; radius: number; sky?: boolean; effects: readonly FoodEffect[] };
-export interface GrenadeSpec { fuse: number; throwSpeed: number; bounce: number; trigger?: 'apex' | 'rest' | 'launch'; effects: readonly GrenadeEffect[] }
+export interface GrenadeSpec { fuse: number; throwSpeed: number; bounce: number; trigger?: 'apex' | 'rest' | 'launch' | 'impact'; effects: readonly GrenadeEffect[] }
 export const grenadeBlast = (damage: number, radius: number): BlastSpec => ({ damage, radius, minScale: .2, vehicleScale: .6, stance: true });
 const blast = (damage: number, radius: number, shred = 0): GrenadeEffect => ({ kind: 'blast', blast: grenadeBlast(damage, radius), shred });
 const cloud = (radius: number, seconds: number, colour = '#e4e5dd', dps = 0): GrenadeEffect => ({ kind: 'cloud', radius, seconds, colour, dps });
@@ -19,6 +19,7 @@ const item = (id: string, name: string, tier: ShopItem['tier'], requiredLevel: n
   id: `grenade-${id}`, name, category: 'consumable', supplyType: 'grenade', tier, requiredLevel, price, currency: ['Issued', 'Field'].includes(tier) ? 'credits' : 'tokens', weightKg,
   grenade: { fuse, throwSpeed, bounce: .3, effects, ...extra }, description, flavorText,
 });
+export const OICW_AMMUNITION: ShopItem = { ...item('oicw', '20 mm launcher round', 'Mythic', 1, 0, .15, 70, 3, [blast(100, 4)], 'Integral launcher ammunition. Impact burst, 4 m blast; fired from Peace Offering, not thrown by hand.', { trigger: 'impact', bounce: 0 }), source: 'enemy', specialist: true };
 export const GRENADE_CATALOG: readonly ShopItem[] = [
   item('frag', 'Frag grenade', 'Issued', 1, 110, .4, 14, 3.5, [blast(100, 6)], 'Scored steel fragments: 100 damage, 6 m blast.'),
   item('smoke', 'Smoke grenade', 'Issued', 1, 80, .45, 14, 1.5, [cloud(6, 25)], 'White smoke blocks sight within 6 m for 25 s.'),

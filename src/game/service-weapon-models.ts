@@ -5,7 +5,8 @@ import { buildEnemyWeapon } from './enemy-weapon-models';
 
 /** Authored low-poly silhouettes, not dimensional replicas. Local -Z is forward. */
 export function buildServiceWeapon(id: string): THREE.Group | undefined {
-  if (id === 'ff-scar-l' || id === 'ff-scar-h' || id === 'ff-longwatch') return buildProxyWeapon(id, true).root;
+  if (id === 'ff-oicw-launcher') return buildProxyWeapon('ff-oicw', true, 'launcher').root;
+  if (id === 'ff-scar-l' || id === 'ff-scar-h' || id === 'ff-longwatch' || id === 'ff-oicw' || id === 'ff-intervention') return buildProxyWeapon(id, true).root;
   if (id === 'mag-inspired' || id === 'cis50-inspired') return buildMachineGun(id);
   const enemy = buildEnemyWeapon(id); if (enemy) return enemy;
   if (id !== 'p30-inspired') return undefined;

@@ -7,7 +7,7 @@ import { createPooledLoadout } from './ammo-pools';
 const bounded = (value: number | undefined, fallback: number, max: number) =>
   typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(max, value)) : fallback;
 /** Arcade approximations, including cartridge and feed-link mass; not ballistic energy. */
-export const roundWeightKg = (caliber: number) => caliber >= 12 ? .115 : caliber >= 8 ? .012 : caliber >= 7 ? .024 : .012;
+export const roundWeightKg = (caliber: number) => caliber === 20 ? .15 : caliber === 10.36 ? .045 : caliber >= 12 ? .115 : caliber >= 8 ? .012 : caliber >= 7 ? .024 : .012;
 export const supplyWeightKg = (item?: ShopItem) => item?.category === 'consumable'
   ? bounded(item.weightKg, item.effect?.reserve ? 1.2 : item.supplyType === 'food' ? .4 : .5, 10) : 0;
 

@@ -131,3 +131,5 @@
   .fps-game[data-touch=on] .fps-belt:not(.is-docked) .fps-belt-slots { display:grid; grid-template-columns:repeat(3,40px); justify-content:end; }
   .fps-game[data-touch=on] .fps-belt:not(.is-docked) .fps-belt-next { max-width:200px; }
 }
+
+.fps-mode-select{display:block;position:relative;min-height:38px;margin:7px 0 0 auto;pointer-events:auto;touch-action:manipulation;padding:9px 12px;border:1px solid #d9c78c88;border-radius:4px;background:#101d24e8;color:#f1e6c3;font:11px monospace;letter-spacing:.7px;cursor:pointer}.fps-mode-select:disabled{opacity:.45;cursor:default}

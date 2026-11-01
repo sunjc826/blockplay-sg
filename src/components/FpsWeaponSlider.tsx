@@ -1,3 +1,4 @@
+import { physicalWeaponFamilies, primaryWeaponFamily } from '../game/weapon-modes';
 import { useRef } from 'react';
 import type { FpsHud } from '../game/fps-engine';
 import './fps-weapon-slider.css';
@@ -14,9 +15,9 @@ const SWIPE_PX = 24;
  */
 export default function FpsWeaponSlider({ hud, names, canSwitch, onSwitch }: { hud: FpsHud; names: readonly string[]; canSwitch: boolean; onSwitch: (family: number) => void }) {
   const swipe = useRef<{ id: number; x: number; swiped: boolean } | null>(null);
-  const carried = hud.carriedWeapons;
+  const carried = physicalWeaponFamilies(hud.carriedWeapons), active = primaryWeaponFamily(hud.weapon);
   if (carried.length < 2) return null;
-  const at = Math.max(0, carried.indexOf(hud.weapon));
+  const at = Math.max(0, carried.indexOf(active));
   const step = (by: number) => { if (canSwitch) onSwitch(carried[(at + by + carried.length) % carried.length]); };
   return <div className="fps-weapon-slider" role="group" aria-label="Weapons" data-testid="weapon-slider" style={{ '--slot': at, '--slots': carried.length } as React.CSSProperties}
     onPointerDown={event => { swipe.current = { id: event.pointerId, x: event.clientX, swiped: false }; }}
@@ -28,7 +29,7 @@ export default function FpsWeaponSlider({ hud, names, canSwitch, onSwitch }: { h
     onPointerUp={event => { if (swipe.current?.id === event.pointerId) swipe.current = null; }}
     onPointerCancel={() => { swipe.current = null; }}>
     <i className="fps-weapon-slider-thumb" aria-hidden="true" />
-    {carried.map((family, slot) => <button key={family} type="button" aria-pressed={family === hud.weapon} disabled={!canSwitch}
+    {carried.map((family, slot) => <button key={family} type="button" aria-pressed={family === active} disabled={!canSwitch}
       // A finger lifted without swiping draws this weapon. Lift, not click: a phone sends no click for a
       // second finger, and the left thumb is usually on the stick. The click is for the keyboard.
       onPointerUp={event => { const drag = swipe.current; if (drag?.id !== event.pointerId) return; swipe.current = null; if (!drag.swiped && family !== hud.weapon) onSwitch(family); }}

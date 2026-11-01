@@ -22,7 +22,7 @@ export const THREAT_NAMES: Record<ThreatClass, string> = { pistol: 'pistol round
  */
 export function threatOf(caliberMm: number | undefined): ThreatClass | undefined {
   if (caliberMm === undefined || !Number.isFinite(caliberMm) || caliberMm <= 0) return undefined;
-  if (caliberMm >= 12) return 'heavy';
+  if (caliberMm >= 12 || caliberMm === 10.36) return 'heavy';
   if (caliberMm >= 9) return 'pistol';
   return caliberMm >= 7 ? 'gpmg' : 'rifle';
 }

@@ -1,7 +1,7 @@
 import { FPS_WEAPONS, reloadLength } from './fps-rules';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { handleSide, reloadMotion, readyMotion, smoothStep } from './fps-weapon-motion';
+import { boltCycleMotion, handleSide, reloadMotion, readyMotion, smoothStep } from './fps-weapon-motion';
 import { createPouchReload, type PouchReloadSource } from './fps-pouch-reload';
 import { getWeaponSight } from './weapon-optics';
 import { createBipodMotion, type BipodMotionInput } from './weapon-bipod';
@@ -49,7 +49,8 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   if (enemy) { right.position.fromArray(enemy.hands.right); support.fromArray(enemy.hands.support); magazineGrip.fromArray(enemy.hands.magazine); }
   const proxy = model.userData.proxyHands;
   if (proxy) { right.position.fromArray(proxy.right); support.fromArray(proxy.support); magazineGrip.fromArray(proxy.magazine); }
-  const rightCharges = FPS_WEAPONS[index].feed === 'belt';
+  const manualBolt = FPS_WEAPONS[index].action === 'bolt';
+  const rightCharges = FPS_WEAPONS[index].feed === 'belt' || manualBolt;
   const rightHome = right.position.clone(), rightRotation = right.quaternion.clone();
   const chargeTarget = new THREE.Vector3(), chargeWaypoint = new THREE.Vector3();
   const chargeRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-.15, -1.4, .02));
@@ -73,11 +74,12 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   if (index >= 3 && !authoredControl) control.position.set(index === 4 ? .095 : .063, FPS_WEAPONS[index].sightHeight - .07, .04);
   const cover = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__feed-cover`) : undefined;
   const belt = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__feed-belt`) : undefined;
-  const controlZ = control.position.z;
+  const controlZ = control.position.z, controlRoll = control.rotation.z;
   const bipod = createBipodMotion(model, FPS_WEAPONS[index].id);
   const pouchReload = createPouchReload(model, left, magazine, sleeve);
   const beltReload = magazine && belt && cover ? createBeltReload(model, magazine, belt, cover, left) : undefined;
   return {
+    get boltCycle() { return manualBolt ? { travel: control.position.z - controlZ, lift: controlRoll - control.rotation.z } : null; },
     get reloadReach() { return pouchReload.debug; },
     get beltAmmo() { return beltReload?.ammo ?? null; },
     get beltReload() { return beltReload?.debug ?? null; },
@@ -85,7 +87,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
     resetBipod: bipod.reset,
     get aimHeight() { return getWeaponSight(model)?.aimHeight ?? FPS_WEAPONS[index].sightHeight; },
     get aimDepth() { return getWeaponSight(model)?.aimDepth ?? enemy?.aimDepth ?? (index === 2 ? -.52 : index === 3 ? MACHINE_GUN_LAYOUT['mag-inspired'].aimDepth : index === 4 ? MACHINE_GUN_LAYOUT['cis50-inspired'].aimDepth : -.36); },
-    update(progress: number | null, empty: boolean, bipodInput?: BipodMotionInput, ready?: number, reload?: { source?: PouchReloadSource; magazineOut: boolean; pending: boolean; capacity: number; baseCapacity?: number; saved: number }, ammunition?: { rounds: number; capacity: number }) {
+    update(progress: number | null, empty: boolean, bipodInput?: BipodMotionInput, ready?: number, reload?: { source?: PouchReloadSource; magazineOut: boolean; pending: boolean; capacity: number; baseCapacity?: number; saved: number }, ammunition?: { rounds: number; capacity: number; cycle?: number }) {
       if (ammunition) updateMagazineAmmo(model, ammunition.rounds, ammunition.capacity);
       bipod.update(bipodInput);
       const motionProgress = progress ?? (reload?.magazineOut ? reload.saved : 0);
@@ -99,10 +101,11 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       left.position.y -= motion.magazineDrop * motion.handToMagazine;
       const leftToHandle = rightCharges ? 0 : motion.handToHandle;
       left.rotation.set(-.15 + motion.handToMagazine * .3, -.2 + leftToHandle * grip.turn, .32 - motion.handToMagazine * .35 - leftToHandle * .3);
-      const stroke = motion.action * (index === 2 ? .035 : .075);
+      const cycle = manualBolt && progress === null && ready === undefined && ammunition?.cycle !== undefined ? boltCycleMotion(ammunition.cycle) : undefined;
+      const stroke = (cycle?.travel ?? motion.action) * (index === 2 ? .035 : .075);
       if (progress !== null || ready !== undefined) left.position.lerp(new THREE.Vector3(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + stroke), leftToHandle);
       right.position.copy(rightHome); right.quaternion.copy(rightRotation);
-      const rightToHandle = rightCharges && (progress !== null || ready !== undefined) ? motion.handToHandle : 0;
+      const rightToHandle = cycle?.hand ?? (rightCharges && (progress !== null || ready !== undefined) ? motion.handToHandle : 0);
       if (rightToHandle > 0) {
         chargeTarget.set(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + stroke);
         // Clear the receiver sideways before raising the hand. Reverse the
@@ -131,9 +134,10 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       for (let finger = 0; finger < 4; finger++) left.getObjectByName(`grip-finger-${finger}`)!.rotation.x = .12 + closed * .95;
       left.getObjectByName('grip-thumb')!.rotation.z = -.55 - closed * .35;
       control.position.z = controlZ + stroke;
+      control.rotation.z = controlRoll - (cycle?.lift ?? (manualBolt ? motion.action : 0)) * .9;
     },
     dispose() {
-      pouchReload.dispose(); beltReload?.dispose(); bipod.reset(); control.position.z = controlZ;
+      pouchReload.dispose(); beltReload?.dispose(); bipod.reset(); control.position.z = controlZ; control.rotation.z = controlRoll;
       additions.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
   };
 }

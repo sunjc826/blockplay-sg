@@ -93,7 +93,7 @@ describe('personal proxy tradeoffs',()=>{
     let calls=0;
     const ops=createProxyOperations(createProxyCampaign(),()=>{calls++; return roll;});
     ops.start(at,entries); const id=ops.current()!.weaponId;
-    expect(id).toBe(PROXY_REWARDS['freedom-force'][Math.floor(roll*3)]);
+    expect(id).toBe(PROXY_REWARDS['freedom-force'][Math.floor(roll*PROXY_REWARDS['freedom-force'].length)]);
     expect(itemById(id)!.family).toBeGreaterThan(7);
     ops.step(PROXY_RULES.warning, actors);
     expect(ops.snapshot().operation!.weaponId).toBe(id);

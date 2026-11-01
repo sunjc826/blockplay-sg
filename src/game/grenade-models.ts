@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GRENADE_CATALOG } from './grenade-catalog';
 /** Hand-sized physical props. No insignia or national event imagery. */
 export function buildGrenadeModel(id: string) {
-  if (!GRENADE_CATALOG.some(i => i.id === id)) return null;
+  if (!GRENADE_CATALOG.some(i => i.id === id) && id !== 'grenade-oicw') return null;
   const root = new THREE.Group(); root.name = id; root.userData.fpsEffect = true;
   const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [];
   const mat = (color: string, metalness = 0) => { const m = new THREE.MeshStandardMaterial({ color, roughness: .65, metalness }); materials.push(m); return m; };
@@ -13,7 +13,11 @@ export function buildGrenadeModel(id: string) {
   const cylinder = (r: number, h: number, m: THREE.Material, x = 0, y = 0, z = 0) => mesh(new THREE.CylinderGeometry(r, r, h, 16), m, x, y, z);
   const ring = (r: number, m: THREE.Material, x = 0, y = 0, z = 0) => mesh(new THREE.TorusGeometry(r, .003, 5, 18), m, x, y, z);
   const pin = () => { box(.025, .025, .028, steel, 0, .065); box(.013, .09, .008, steel, .035, .025).rotation.z = -.2; ring(.015, steel, -.022, .07); };
-  if (id === 'grenade-durian') {
+  if (id === 'grenade-oicw') {
+    cylinder(.018, .065, gold); cylinder(.019, .008, steel, 0, -.031);
+    const tip = mesh(new THREE.ConeGeometry(.018, .03, 12), olive, 0, .047);
+    tip.rotation.z = 0;
+  } else if (id === 'grenade-durian') {
     const husk = mat('#6c793c'); ball(.13, husk).scale.y = 1.15;
     for (let row = 0; row < 8; row++) for (let i = 0; i < 12; i++) {
       const a = i / 12 * Math.PI * 2 + row * .2, b = (row + 1) / 9 * Math.PI, n = new THREE.Vector3(Math.sin(b) * Math.cos(a), Math.cos(b), Math.sin(b) * Math.sin(a));

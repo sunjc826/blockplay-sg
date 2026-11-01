@@ -18,7 +18,7 @@ is not expanded into matching assault/heavy/sniper classes.
 | Freedom Force / Lancer option | FN SCAR-L | **Soft Power · Foreign Aid** (`ff-scar-l`) | Compact family upper, narrow curved magazine, shared folding-style stock and a low reflex hood |
 | Freedom Force / Wayfinder option | FN SCAR-H | **Hard Power · Strings Attached** (`ff-scar-h`) | Broader receiver and magazine well, wider straight magazine, prism optic; distinct from the Smart Power precision configuration |
 | Freedom Force / Wayfinder | FN Mk 20 / SCAR 20S | **Smart Power · Targeted Assistance** (`ff-longwatch`) | Extended upper, precision stock, short box magazine, large scope and folded bipod give the observer a distinct long silhouette |
-| Freedom Force / Wayfinder precision option | CheyTac M200 Intervention | **M200 Intervention study** (`ff-intervention`) | Exposed long barrel, round fore-end, under-barrel carry handle, twin stock rods, bipod and rear monopod |
+| Freedom Force / Wayfinder precision option | CheyTac M200 Intervention | **M200 Intervention** (`ff-intervention`) | Exposed long barrel, round fore-end, under-barrel carry handle, twin stock rods, bipod and rear monopod |
 | Collective Corps / Bastion | QBZ-95 family | **Strong Objection No. 496 · Final Warning No. 497** (`cc-gatekeeper`) | Bullpup magazine behind the hand, raised open carry bridge, integrated rear stock and pointed fore-end give the protected-entry specialist a different equipment language |
 | Collective Corps / Conductor | QBZ-191 family | **Consensus Builder · Unanimous Vote** (`cc-network`) | Conventional forward magazine, continuous rail and stepped adjustable-stock shape suit a modern sensor-coordination concept |
 | Collective Corps / Conductor experimental option | QTS-11 integrated combat system | **QTS-11 study** (`cc-qts11`) | Dual projecting barrels, a slimmer upper launcher shell, open stock and offset sight/sensor housing contrast with the XM29 |
@@ -120,13 +120,14 @@ shell, dark hardware, steel-blue side covers and amber marks adapt the reference
 to the faction. Both muzzle openings and the supported sight case have real
 geometry. The family/signature naming follows the agreed Freedom Force pattern.
 
-The dual muzzle/feed arrangement is exterior art only. The lower rifle muzzle
+The gallery shows the dual muzzle/feed arrangement as exterior art. The lower rifle muzzle
 and upper launcher muzzle have separate optional art sockets, as do the two
-magazine positions. This does not implement launcher firing, airburst/fuze
-settings, targeting electronics, ammunition or reload behavior. Prototype
-integration and hand fitting remain separate work.
+magazine positions. The later playable cargo version adds rifle/impact-launcher firing, separate
+magazines and reloads. See [cargo implementation](PROXY-OPERATIONS.md) for U /
+mode controls and tuning. Range programming and targeting electronics remain
+outside that implementation.
 
-**M200 Intervention study:** an additional Freedom Force precision candidate,
+**M200 Intervention:** an additional Freedom Force precision candidate,
 not a replacement for Smart Power. The manufacturer's side photo informed the
 long exposed barrel, round fore-end, open under-barrel carry handle, stock rods,
 cheek rest, large scope, bipod and rear monopod. Bone/sand hardware, steel-blue
@@ -135,10 +136,10 @@ are real negative space; the bipod is splayed for review. The model is visibly
 longer than Smart Power at the same scale. Portrait framing now allows the longer
 profile for every study without individually rescaling weapons.
 
-The working display name remains M200 Intervention study; no fictional name is
-selected. It is not registered in the live catalog or Freedom Force cargo pool.
-Bipod, monopod and bolt-handle cues are static art. Bolt cycling, hand fit,
-weapon-specific reload/audio, ammunition and game balance remain future work.
+The display name is M200 Intervention; no fictional name is selected. Its
+Mythic cargo version now has a manual bolt cycle, a live 6× sight, .408
+magazines, a deployable bipod and weapon-specific recorded action audio. The
+gallery retains its static review pose; the rear monopod remains static.
 
 **QTS-11 study:** a narrower slate/graphite upper launcher shell sits above a
 conventional rifle with a forward curved magazine. Two projecting muzzle
@@ -185,18 +186,19 @@ working reference name.
   Outside surfaces merge by material, using at most six weapon mesh draws.
 - `src/components/ProxyWeaponStudies.tsx` provides the review page inside the
   existing faction-design route. The operator gallery still uses the original
-  generic rifle/marksman placeholders. SCAR-L, SCAR-H and Smart Power now also
-  have playable Freedom Force cargo variants, integrated separately in
-  `buildServiceWeapon` and the live catalog. Intervention, XM29 and Collective
-  Corps studies are not registered as playable weapons or cargo rewards.
-- This Intervention addition adds no hand animation, reload, sight behavior,
-  firing effect, sounds, damage, recoil or ammunition pool. Its art sockets
-  remain future attachment references, not animation contracts.
+  generic rifle/marksman placeholders. All five Freedom Force designs now also have playable cargo variants,
+  integrated in `buildServiceWeapon` and the live catalog. Peace Offering has
+  an integral launcher mode with its own ammunition, not another cargo reward
+  or carry slot. Collective Corps designs remain gallery-only.
+- Gallery art sockets are distinct from the playable attachment/hand poses.
+  The two new cargo integrations, controls and separate ammunition are described
+  in [proxy operations](PROXY-OPERATIONS.md).
 - Before replacing an operator's placeholder, review shoulder/grip fit, left
   hand clearance, scope placement, shield interference and gait/stance coverage.
   The bullpup will need a distinct rear-magazine reload if it becomes playable.
-  Weapon-specific sound work follows the local ElevenLabs once-only workflow;
-  none is commissioned here.
+  Weapon-specific cargo sound work follows the local ElevenLabs once-only
+  workflow. `scripts/proxy-cargo-sfx.mjs` owns the bounded 20-clip batch;
+  published provenance lives in `src/audio/proxy/manifest.json`.
 
 Tests keep unimplemented candidates out of live catalogs and check eight different geometric silhouettes,
 magazine layout relative to the grip, real stock/bridge openings, finite

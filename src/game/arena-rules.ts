@@ -1,3 +1,4 @@
+import { OICW_RIFLE, OICW_LAUNCHER, OICW_GRENADE } from './weapon-modes';
 import { createProxyOperations, PROXY_IDS, PROXY_RULES, proxyName, type ProxyAction, type ProxyCampaign, type ProxyId, type ProxyParticipant, type ProxyPoint, type ProxySnapshot } from './proxy-operations';
 import { PARATROOPERS, dropPoints, planParatroopers } from './paratroopers';
 import { NAVAL, navalRampPoint, planNavalLanding, validReinforcementClocks, type ReinforcementClocks } from './naval-landings';
@@ -677,6 +678,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function throwGrenade(id: string, input: ThrowGrenade) {
     const entry = members.get(id);
     if (!entry || finished || !entry.actor.alive || !entry.playing || seatOf(vehicles, id) || !validThrowGrenade(input) || distance(input.origin, entry.actor) > 1.5) return false;
+    if (input.id === OICW_GRENADE) return false;
     if (arenaConditionModifiers(entry.actor.conditions).frozen && input.cooked < itemById(input.id)!.grenade!.fuse) return false;
     if (elapsed - (entry.lastGrenadeAt ?? -Infinity) < .9 || (entry.grenadeSupplies?.[input.id] ?? 0) <= 0) return false;
     if (input.id === 'grenade-red-smoke' && elapsed - (entry.lastMissionAt ?? -Infinity) < 60) return false;
@@ -830,6 +832,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (arenaConditionModifiers(entry.actor.conditions).frozen) return { ...EMPTY_SHOT };
     if (!Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return { ...EMPTY_SHOT };
     expirePlayerRentals(entry);
+    if (weapon === OICW_LAUNCHER && !entry.allowedWeapons.includes(OICW_RIFLE)) return { ...EMPTY_SHOT };
     const ammo = entry.ammo[weapon];
     if (distance(origin, entry.actor) > 1.5 || ammo.cooldown > 1e-7 || ammo.reloadRemaining > 0) return { ...EMPTY_SHOT };
     const length = Math.hypot(direction.x, direction.y, direction.z); if (length < 0.5 || length > 1.5) return { ...EMPTY_SHOT };
@@ -850,6 +853,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.shotFlash = { at: elapsed, flare: muzzleSignature(muzzle).flare };
     ammo.cooldown = 0; fireWeapon(ammo, weapon, entry.weapons); entry.actor.shots++; warm(entry.actor, muzzleSignature(muzzle).heat); entry.shieldUntil = 0;
     if (!roundReady(ammo, entry.weapons[weapon])) startReload(entry, weapon);
+    if (weapon === OICW_LAUNCHER) {
+      grenadeSystem.throwGrenade(id, { id: OICW_GRENADE, origin, direction: ray, under: false, cooked: 0 });
+      return { ...EMPTY_SHOT };
+    }
     return launch(entry, origin, ray, entry.weapons[weapon], Number.isFinite(maxDistance) ? Math.min(weaponRange(FPS_WEAPONS[weapon]), Math.max(0, maxDistance)) : 0, weapon);
   }
   const flying: ArenaRound[] = [];

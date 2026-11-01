@@ -1,0 +1,410 @@
+{
+  "version": 1,
+  "provider": "ElevenLabs",
+  "model": "eleven_text_to_sound_v3",
+  "processing": "44100 Hz mono; silence trimmed, peak <= .9, loudest 50 ms RMS <= .23; 20 ms tail fade; original speed and pitch",
+  "groups": {
+    "reload-oicw-out": [
+      {
+        "file": "reload-oicw-out-a0c56831ed.mp3",
+        "seconds": 0.2192517006802721
+      }
+    ],
+    "reload-oicw-in": [
+      {
+        "file": "reload-oicw-in-1671fe77e8.mp3",
+        "seconds": 0.17331065759637188
+      }
+    ],
+    "reload-oicw-seat": [
+      {
+        "file": "reload-oicw-seat-034f49fb30.mp3",
+        "seconds": 0.2813378684807256
+      }
+    ],
+    "reload-oicw-back": [
+      {
+        "file": "reload-oicw-back-92396ec490.mp3",
+        "seconds": 0.337687074829932
+      }
+    ],
+    "reload-oicw-release": [
+      {
+        "file": "reload-oicw-release-0e1e2ec218.mp3",
+        "seconds": 0.347687074829932
+      }
+    ],
+    "empty-fire-oicw": [
+      {
+        "file": "empty-fire-oicw-4b7272ac58.mp3",
+        "seconds": 0.2
+      }
+    ],
+    "reload-intervention-out": [
+      {
+        "file": "reload-intervention-out-4322a0c923.mp3",
+        "seconds": 0.1294331065759637
+      }
+    ],
+    "reload-intervention-in": [
+      {
+        "file": "reload-intervention-in-756723f591.mp3",
+        "seconds": 0.1627437641723356
+      }
+    ],
+    "reload-intervention-seat": [
+      {
+        "file": "reload-intervention-seat-72797a48ae.mp3",
+        "seconds": 0.1292063492063492
+      }
+    ],
+    "reload-intervention-back": [
+      {
+        "file": "reload-intervention-back-7a849e9837.mp3",
+        "seconds": 0.22405895691609978
+      }
+    ],
+    "reload-intervention-release": [
+      {
+        "file": "reload-intervention-release-8d4ea7ae61.mp3",
+        "seconds": 0.18680272108843538
+      }
+    ],
+    "empty-fire-intervention": [
+      {
+        "file": "empty-fire-intervention-2084193b46.mp3",
+        "seconds": 0.1547392290249433
+      }
+    ],
+    "reload-oicw-launcher-out": [
+      {
+        "file": "reload-oicw-launcher-out-5635194187.mp3",
+        "seconds": 0.4
+      }
+    ],
+    "reload-oicw-launcher-in": [
+      {
+        "file": "reload-oicw-launcher-in-c34434c6fe.mp3",
+        "seconds": 0.4
+      }
+    ],
+    "reload-oicw-launcher-seat": [
+      {
+        "file": "reload-oicw-launcher-seat-cadcaa79c9.mp3",
+        "seconds": 0.4
+      }
+    ],
+    "reload-oicw-launcher-back": [
+      {
+        "file": "reload-oicw-launcher-back-d631fc554b.mp3",
+        "seconds": 0.4
+      }
+    ],
+    "reload-oicw-launcher-release": [
+      {
+        "file": "reload-oicw-launcher-release-35e26d7abb.mp3",
+        "seconds": 0.4
+      }
+    ],
+    "empty-fire-oicw-launcher": [
+      {
+        "file": "empty-fire-oicw-launcher-6ec0408486.mp3",
+        "seconds": 0.2
+      }
+    ],
+    "proxy-intervention-shot": [
+      {
+        "file": "proxy-intervention-shot-4f959288a2.mp3",
+        "seconds": 1.3667120181405896
+      }
+    ],
+    "proxy-launcher-shot": [
+      {
+        "file": "proxy-launcher-shot-40f897b853.mp3",
+        "seconds": 1.1
+      }
+    ]
+  },
+  "receipts": [
+    {
+      "id": "reload-oicw-out",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM29-inspired bulky polymer and steel assault rifle, forward box rifle magazine. Magazine release clicks and the box magazine slides free; short dry latch click and scraping slide. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "64edfc98ba486358b43c7676bd85772233475132ad2be8b106db26d129d2bbf5",
+      "sha256": "a0c56831ed2115ea8cc4ed7f05d6158e0c7dfa8f41b55e8fab4d957a7eaf190c",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.19131519274376418
+    },
+    {
+      "id": "reload-oicw-in",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM29-inspired bulky polymer and steel assault rifle, forward box rifle magazine. Loaded box magazine slides into its well, short friction then a firm clack. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "a74a141417b3c196118a1d14a18403d1d2ee386e824d5894435901fcee895b6b",
+      "sha256": "1671fe77e841fa7b0dd505892dea3ac9e655da6ce34645a6d783f79c3ab0749d",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.20117913832199547
+    },
+    {
+      "id": "reload-oicw-seat",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM29-inspired bulky polymer and steel assault rifle, forward box rifle magazine. Palm taps the magazine floorplate, one blunt seating slap and locking click. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "dbe2b7fbbccc6611097c83246a40236092608a3bf983b97827237c6f30aa4f52",
+      "sha256": "034f49fb308a5a9cedba97ae498c9fbfc1ff38bfb13a99da92fcc395c0aa7ff3",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.025215419501133787
+    },
+    {
+      "id": "reload-oicw-back",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM29-inspired bulky polymer and steel assault rifle, forward box rifle magazine. Charging handle pulls back, short steel slide to a rear stop. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "81b9517b61301d1f58a8f3d259c433135f41f1e8178ba6f1cd80cc35893be943",
+      "sha256": "92396ec4907f0dd92389deb208e844d5c1fddda0b3ca4d192eaa24124cf02bf2",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.051179138321995464
+    },
+    {
+      "id": "reload-oicw-release",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM29-inspired bulky polymer and steel assault rifle, forward box rifle magazine. Action moves forward to chamber, one short mechanical steel clack. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "6a36d58862c0c9c930dc8fb90b8898801999e2dd0dedfd112e290d203ad94434",
+      "sha256": "0e1e2ec21867224fa2eaca03ddfdf021f3802cce31758c20625367391c8c7001",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.01804988662131519
+    },
+    {
+      "id": "empty-fire-oicw",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM29-inspired bulky polymer and steel assault rifle, forward box rifle magazine. One dry trigger click on an empty chamber, compact mechanical click, immediate onset then silence. No gunshot, reload, music, voice or ambience."
+      },
+      "sourceSha256": "6edae57ec3ed28b210455beb4fc798b42309c609801bbc90d3b1c2f7ac9ad915",
+      "sha256": "4b7272ac5817101ed6882a187622f26248a4b7e1d317b849293d06c5c5a34129",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.022244897959183673
+    },
+    {
+      "id": "reload-intervention-out",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "CheyTac M200-inspired heavy precision bolt-action rifle with a large steel manual bolt and detachable box magazine. Magazine release clicks and the box magazine slides free; short dry latch click and scraping slide. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "791b5e74e37e4b737f4664ba0be3ad23f1cc54efa21af0f4fc90ceb141d4dc6f",
+      "sha256": "4322a0c923343c7b9a8190a67d2907c551b4a3e0ab8e7d96e3d82883989be312",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.0809297052154195
+    },
+    {
+      "id": "reload-intervention-in",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "CheyTac M200-inspired heavy precision bolt-action rifle with a large steel manual bolt and detachable box magazine. Loaded box magazine slides into its well, short friction then a firm clack. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "d703cc963c8d77579441373ea4496e83872b643cbde34a1e18c18c2978d5a024",
+      "sha256": "756723f591aef00eab19bfc33098376c176ae4c0c261e3ab6a77f41d301c336c",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.1008843537414966
+    },
+    {
+      "id": "reload-intervention-seat",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "CheyTac M200-inspired heavy precision bolt-action rifle with a large steel manual bolt and detachable box magazine. Palm taps the magazine floorplate, one blunt seating slap and locking click. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "b8ceea0328d329ad16380241eaa2ceb9f261e210c111fa0803ff6f1daed3a5ac",
+      "sha256": "72797a48ae81e58e93604069c1ff2ed335c19a4bddf5424b4da307a0fe349ebf",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.051882086167800455
+    },
+    {
+      "id": "reload-intervention-back",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "CheyTac M200-inspired heavy precision bolt-action rifle with a large steel manual bolt and detachable box magazine. The manual bolt handle lifts to unlock then pulls back, a close steel cam click and sliding scrape. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "ff57d7098e60461e5bc747ff8e7182ab3fc33cfd4f5d914ca9c1adf6dc4e4c87",
+      "sha256": "7a849e9837eded72cf0fc87aab0f363c16afc76e0c778ce8bc23f84dd280109d",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.029047619047619048
+    },
+    {
+      "id": "reload-intervention-release",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "CheyTac M200-inspired heavy precision bolt-action rifle with a large steel manual bolt and detachable box magazine. Manual bolt pushes forward and rotates down into lock, a short sliding scrape ending in two tight steel clicks. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "d4e202fbd82cb89216c59da8d22a4438c3cc7060c2a8f76d71e3c011200b0f40",
+      "sha256": "8d4ea7ae61374d51f69029a65d7ade4f076d1ed0a1efae910cf8fe1df11b81c6",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.07478458049886622
+    },
+    {
+      "id": "empty-fire-intervention",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "CheyTac M200-inspired heavy precision bolt-action rifle with a large steel manual bolt and detachable box magazine. One dry trigger click on an empty chamber, compact mechanical click, immediate onset then silence. No gunshot, reload, music, voice or ambience."
+      },
+      "sourceSha256": "09bb8399dc8b4c6921d687876b0748e44889018ad3b0d53205db719a61a8dabe",
+      "sha256": "2084193b468892fbf109ff2926f80b53b66adfa92feda066f664abe315838cb7",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.03231292517006803
+    },
+    {
+      "id": "reload-oicw-launcher-out",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM29-inspired upper grenade launcher with a rear rectangular grenade magazine and heavy steel charging assembly. Magazine release clicks and the box magazine slides free; short dry latch click and scraping slide. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "03b9fabd0ddaf47fd82fa936791e790e47f5dd883e91f52d741deb8dcbe58be2",
+      "sha256": "56351941877eba792eaac1437c6a12f08082a52d78c1e17ea99ec101aae36eda",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.0009523809523809524
+    },
+    {
+      "id": "reload-oicw-launcher-in",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM29-inspired upper grenade launcher with a rear rectangular grenade magazine and heavy steel charging assembly. Loaded box magazine slides into its well, short friction then a firm clack. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "9dce4d20d8550eb01e20ca696c48deac1b03aa3a52b7b3782bbd94c809517222",
+      "sha256": "c34434c6fed3fb9f9a70b1c67604c7b7f0c628ef5729b5c80058ac850b22f578",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0
+    },
+    {
+      "id": "reload-oicw-launcher-seat",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM29-inspired upper grenade launcher with a rear rectangular grenade magazine and heavy steel charging assembly. Palm taps the magazine floorplate, one blunt seating slap and locking click. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "fe31c85dab687915e26601c2a8862249ddef554221c6f41d443c3d9f32c3baa7",
+      "sha256": "cadcaa79c96d7e4544b901729078366a4fc1713af0b6611293fbd5f10c8d4ad7",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0
+    },
+    {
+      "id": "reload-oicw-launcher-back",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM29-inspired upper grenade launcher with a rear rectangular grenade magazine and heavy steel charging assembly. Charging handle pulls back, short steel slide to a rear stop. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "d050e1dc567914f3e8a6d5b049b8a5c063451e6a89f931a1c5528939fb0f07a1",
+      "sha256": "d631fc554b666a07b0da1ea96b3ddf0be38d19f2e07aab094e3619618ee70201",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0
+    },
+    {
+      "id": "reload-oicw-launcher-release",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM29-inspired upper grenade launcher with a rear rectangular grenade magazine and heavy steel charging assembly. Action moves forward to chamber, one short mechanical steel clack. One dry close mechanical action, immediate onset, under 350 ms then silence. No gunshot, full reload, music, voice or ambience."
+      },
+      "sourceSha256": "62f48ac6472011f3eb89b664ec23ae6f6cc7ad7cd669da4492b8761de9542037",
+      "sha256": "35e26d7abbba7d0bd9538219c3ae5f2d1c8dda2c9a456c37745cfe286546960e",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0
+    },
+    {
+      "id": "empty-fire-oicw-launcher",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM29-inspired upper grenade launcher with a rear rectangular grenade magazine and heavy steel charging assembly. One dry trigger click on an empty chamber, compact mechanical click, immediate onset then silence. No gunshot, reload, music, voice or ambience."
+      },
+      "sourceSha256": "ab2804f3b5989a09d93495408bae0ce7dca0bda6a0304287afe1d0884ee069ee",
+      "sha256": "6ec0408486a6ee1a0710da6fb1d52546571b65f0e1919b8d98e9e31cdac34ef8",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.07419501133786847
+    },
+    {
+      "id": "proxy-intervention-shot",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 1.5,
+        "prompt_influence": 0.65,
+        "text": "One isolated powerful .408 large precision bolt-action rifle shot outdoors. Immediate sharp report and deep short low body with a natural open-air tail. No bolt cycling, reload, speech, music or second shot."
+      },
+      "sourceSha256": "5b26aea0ddbf008713a1e72aced33253f9b6e2a035aef72331ab6d5956695a45",
+      "sha256": "4f959288a2f0801a3cbdac46b96cce6172d90baced564f1e38e24b795590905a",
+      "requestId": null,
+      "credits": 15,
+      "sourceStartSeconds": 0.012380952380952381
+    },
+    {
+      "id": "proxy-launcher-shot",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 1.5,
+        "prompt_influence": 0.65,
+        "text": "One isolated 20mm shoulder-fired grenade launcher discharge. Immediate short low hollow thump with a compact mechanical clack and brief outdoor tail. No impact explosion, second shot, voice, music or reload."
+      },
+      "sourceSha256": "4c916c9ffa2fe3501e378838c18bd57f8d3f703fe2ff547e41be97e781bffb66",
+      "sha256": "40f897b8532bd5e3feb8eddba2dd24258951b12650257d9594ba3b1fb26f6fb1",
+      "requestId": null,
+      "credits": 15,
+      "sourceStartSeconds": 0
+    }
+  ]
+}
