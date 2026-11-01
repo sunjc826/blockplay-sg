@@ -1,3 +1,5 @@
+import { createProxyCampaign, PROXY_WEAPON, type ProxyAction, type ProxyCampaign } from './proxy-operations';
+import { createProxyOperationVisuals } from './proxy-operation-visuals';
 import { applyRespawnLoadout, type RespawnLoadoutSelection } from './respawn-loadout';
 import { createDropColumnCheck } from './paratrooper-route-validation';
 import { createRangeDirector, rangeTargetRise, rangeTargetHeight, validRangeDrill, RANGE_DURATION, type RangeDrillId, type RangeDrillView } from './range-drills';
@@ -161,6 +163,7 @@ export interface FpsCheckpoint { health: number; armor: number; weapon: number; 
   /** Supplies picked up on this expedition and still on the belt; they never touch the saved profile. */
   fieldSupplies?: Record<string, number> }
 export interface FpsExpeditionOptions {
+  proxyCampaign?: ProxyCampaign;
   /** Optional scale probes; normal district entry uses the 32-soldier default. */
   battlefieldSize?: BattlefieldSize;
   autoRespawn?: boolean;
@@ -242,6 +245,7 @@ export interface FpsHud {
   respawn: PlayerRespawnView | null;
   deployment: DeploymentView | null;
   deploymentIntro: { stage: 'descent' | 'ready'; fade: number; elapsed: number; reduced: boolean; time: string; weather: string } | null;
+  proxyMenu: boolean; proxyReach: boolean;
   expeditionZone: WorldZoneId | null; facility: FacilityState | null; facilityPrompt: string; lootPrompt: string;
   /** The item being looked at within reach, as its card shows it. */
   lootCard: LootCard | null; npcPrompt: string; travelPrompt: string; lootNotice: string; fieldLoot: FieldLoot[]; npcs: ExpeditionNpc[];
@@ -268,7 +272,7 @@ export interface FpsHud {
   /** The weapon in hand's laser (B) and light (L), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean; laserOn?: boolean; lightOn?: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], foodChoice: null, foodPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deployment: null, deploymentIntro: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], foodChoice: null, foodPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deployment: null, deploymentIntro: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -322,6 +326,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     (x, z) => { const y=world.bounds.groundHeight?.(x,z) ?? 0; return footMovement.canOccupy(x, y, z, 1.1, 2) && Math.abs((footMovement.supportHeight(x, z, y+.1, .4, 1.8) ?? 100)-y) < .05; }, npcs, world.bounds.groundHeight) : [];
   if (expedition && options.arena?.environment) {
     if(expedition.battlefieldSize)options.arena.environment.battlefield={size:expedition.battlefieldSize};
+    options.arena.environment.proxies = expedition.proxyCampaign ?? createProxyCampaign();
     const saved = expedition.infrastructure?.get(expedition.zone);
     options.arena.environment.savedReinforcementClocks = saved?.reinforcementClocks;
     options.arena.environment.facilities = { sites: facilitySites, saved: saved?.facilities, savedVehicles: saved?.vehicles };
@@ -341,6 +346,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     world.obstacles.push({ minX: supplyPoint!.x - .75, maxX: supplyPoint!.x + .75, minZ: supplyPoint!.z - .75, maxZ: supplyPoint!.z + .75, maxY: floor + 1.1 });
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
   }
+  const proxyVisuals = createProxyOperationVisuals(world.scene);
   const facilityVisuals = createFacilityVisuals(world.scene, facilitySites);
   const objectiveBeacons = expedition ? createObjectiveBeacons(world.scene, facilitySites) : null;
   const facilityCover = createSceneCover(world.scene);
@@ -624,6 +630,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       canvas.dataset.rangeTargets = JSON.stringify(targets.map((t, i) => ({ id: `target-${i}-${t.activation}`, x: t.root.position.x, y: t.hitZone.getWorldPosition(new THREE.Vector3()).y, z: t.root.position.z, alive: t.alive, health: t.health })));
       canvas.dataset.rangeStation = JSON.stringify(rangeStation ? { x: rangeStation.point.x, z: rangeStation.point.z, available: !!hud.rangeSupplyPrompt } : null);
     }
+    const proxy = hud.arena?.proxies?.operation;
+    hud.proxyReach = !!proxy && proxy.phase === 'contested' && proxy.cargo === 'sealed' && !proxy.decision && !vehicles.active && hud.arenaSelf?.alive === true && Math.hypot(proxy.at.x-position.x,proxy.at.z-position.z)<=4 && Math.abs(proxy.at.y-vertical)<2;
+    if (!hud.proxyReach || hud.phase !== 'playing') hud.proxyMenu=false;
     onHud({ ...hud, ...(options.tutorial ? { tutorial: { feet: vertical, grounded: grounded(), stance: stance(), sprinting: wasSprinting } } : {}), vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, spareMagazines: spareMagazines(state), magazineCapacity: magazineCapacity(state, specs[hud.weapon]), reloadCapacity: state.pendingMagazine?.capacity ?? state.magazineInventory?.slots[state.reloadSlot ?? nextMagazineSlot(state)]?.capacity ?? magazineCapacity(state, specs[hud.weapon]), reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapContactRange, mapMarkers: [
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}-${targets[index].activation}`, kind: 'target', label: `Target ${index + 1}` }] : []),
@@ -639,6 +648,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           return { id: `boat-${t.event}`, x: t.x, z: t.z, kind: 'boat', side: friendly ? 'ally' : 'enemy', label: `${friendly ? 'Friendly' : 'Hostile'} landing craft · ${coast} · ${t.state === 'inbound' ? `ETA ${Math.max(0, Math.ceil((event?.start ?? 0) + NAVAL_LANDING.approach + NAVAL_LANDING.rampSeconds - (hud.arena?.elapsed ?? 0)))}s · ` : ''}${t.passengers} aboard` };
         }),
         ...(hud.arena?.facilities?.sites ?? []).map((s): MinimapMarker => ({ id: s.id, x: s.x, z: s.z, kind: 'facility', label: `${s.name} · ${facilityStatus(s)}`, side: s.owner === PLAYER_FACTION ? 'ally' : s.owner ? 'enemy' : 'neutral', inactive: s.health === 0, active: !!s.action })),
+        ...(proxy && proxy.cargo==='sealed' && ['incoming','contested'].includes(proxy.phase) ? [{ id:proxy.id, x:proxy.at.x,z:proxy.at.z,kind:'checkpoint' as const,label:'Tracked prototype cargo',side:'neutral' as const }] : []),
         ...contactMarkers(mapContactRange),
       ],
     });
@@ -1143,6 +1153,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function commitTravel(transition: WorldTransition, physical = false, ferry = false) {
     if (!expedition || travelPending) return;
     comms.add('system', 'Travel', ferry ? `Taking the bumboat to ${getWorldZone(transition.to).name}.` : `Moving to ${getWorldZone(transition.to).name}.`);
+    if (hud.arena?.proxies?.operation?.cargo==='carried') comms.add('system','Proxy cargo','Cargo forfeited on leaving the district. Personal favor is retained.');
     stopReload();
     const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, vision: visionState.on, fieldSupplies: { ...looted }, health: hud.health, armor: hud.armor, weapon: hud.weapon, magazineInventory: loadout[equipment.carriedFamilies[0]]?.magazineInventory, ammunition: loadout.map(state => ({ ...state, magazineInventory: undefined, reserveMagazine: undefined, cooldown: 0, reloadRemaining: 0 })) };
     if (physical) checkpoint.continuation = { inputMode, keys: [...keys].filter(key => ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(key)), muted: hud.muted, stick: moveStick ? { ...moveStick } : null };
@@ -1153,6 +1164,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function jump() {
     if (arenaConditionModifiers(conditions).frozen) return; if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && stance() === 'stand') bufferJump(bodyMotion); } }
   function setInput(key: string, held: boolean) {
+    if (hud.proxyMenu && held) return;
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) return;
     if (key === 'k') { if (held) inspectWeapon(); return; }
     if (key === 'v') { if (held) switchVehicleSeat(); return; }
@@ -1164,7 +1176,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   /** A fresh press is a new pull, buffered until it fires or `TRIGGER_BUFFER` runs out. */
   function pullTrigger(held: boolean) {
     if (grenadeHeld) {
-      if (hud.phase !== 'playing' || arenaConditionModifiers(conditions).frozen) return;
+      if (hud.phase !== 'playing' || hud.proxyMenu || arenaConditionModifiers(conditions).frozen) return;
       grenadeFireHeld = held;
       if (held && grenadeHeld.ready >= .35) grenadeHeld.pinned = true;
       else if (!held && grenadeHeld.pinned) releaseGrenade();
@@ -1177,6 +1189,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** Analog movement from the left thumb stick; a null or centred stick hands control back to the keys. */
   function setMoveAxis(stick: StickVector | null) {
+    if (hud.proxyMenu && stick) return;
     if (resumeCrossing && hud.phase === 'loading') { crossingStick = stick && stick.magnitude > 0 ? { ...stick } : null; return; }
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) { moveStick = null; return; }
     moveStick = stick && stick.magnitude > 0 ? stick : null;
@@ -1284,7 +1297,31 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!expedition || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active || !hud.facilityPrompt || !hud.facility) return;
     arenaRuntime?.facilityAction(hud.facility.id);
   }
+  function openProxyMenu() {
+    if (!hud.proxyReach || hud.phase!=='playing' || grenadeHeld?.pinned) return;
+    clearInput(); wheel=null; hud.calloutWheel=null; foodPicker=null; hud.foodPicker=null;
+    hud.proxyMenu=!hud.proxyMenu; canvas.focus({preventScroll:true}); publish();
+  }
+  function chooseProxyAction(action: ProxyAction) {
+    if (!expedition || !arenaRuntime || hud.phase!=='playing' || hud.arenaSelf?.alive!==true) return false;
+    if (!arenaRuntime.proxyAction(action)) { hud.lootNotice='Unable to transfer: approach the cargo or an operational friendly facility with room for support.'; lootNoticeTime=4; publish(); return false; }
+    hud.proxyMenu=false;
+    if (action==='keep') {
+      const item=itemById(PROXY_WEAPON)!, family=item.family!;
+      const previousSpecs=specs, previousCarry=equipment.carriedFamilies;
+      const next=copyProfile(fieldProfile); next.owned=[...new Set([...next.owned,item.id])]; next.guns[family].variant=item.id;
+      const slot=pickupSlot(next,family,hud.weapon); if(slot!=='sidearm')next.carry={...next.carry,[slot]:family};
+      fieldProfile=next; equipment=resolveLoadout(next); specs=equipment.weapons;
+      loadout=replacePooledWeapon(loadout,previousSpecs,previousCarry,specs,equipment.carriedFamilies,family);
+      arenaRuntime.updateLoadout(fieldProfile);
+      undress.splice(0).forEach(dispose=>dispose()); weapons.forEach((model,index)=>undress.push(dressWeapon(model,specs[index])));
+      switchWeapon(family); expedition.onEquipment(copyProfile(fieldProfile));
+    }
+    canvas.focus({preventScroll:true}); publish(); return true;
+  }
   function interactContext() {
+    if (hud.proxyReach) { openProxyMenu(); return; }
+    if (hud.arena?.proxies?.operation?.cargo==='carried' && hud.facility && hud.facility.owner===PLAYER_FACTION && Math.hypot(hud.facility.x-position.x,hud.facility.z-position.z)<=4) { chooseProxyAction('deliver'); return; }
     if (canResupply()) { resupplyRange(); return; }
     if (!vehicles.active && hud.facilityPrompt && !focusedLoot) { interactFacility(); return; }
     const npc = !!expedition && !vehicles.active && vertical <= .35 && !!nearestNpc(npcs, position);
@@ -1310,6 +1347,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const keyboardKeys = ['y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'k', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'i', 'v', 'l', 'n', 't', 'm', 'h', 'j', 'b', 'x', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = fpsControlKey(event);
+    if (hud.proxyMenu && hud.phase==='playing') {
+      event.preventDefault();
+      if (!event.repeat && key && /^[1-4]$/.test(key)) chooseProxyAction((['return','rival','keep','carry'] as const)[Number(key)-1]);
+      else if (key==='e' || key==='escape') { hud.proxyMenu=false; publish(); }
+      return;
+    }
     if (resumeCrossing && hud.phase === 'loading') {
       if (key === 'escape') pause();
       else if (key && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(key)) crossingKeys.add(key);
@@ -1385,7 +1428,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   };
   /** `assisted` marks a thumb's drag, which the aim assist may bend; the mouse and the pilot are never helped. */
   const look = (dx: number, dy: number, assisted = false) => {
-    if (hud.phase !== 'playing' || arenaConditionModifiers(conditions).frozen) return;
+    if (hud.phase !== 'playing' || hud.proxyMenu || arenaConditionModifiers(conditions).frozen) return;
     const wasYaw = yaw, wasPitch = pitch;
     ({ yaw, pitch } = turnFpsLook(yaw, pitch, dx, dy, ads || touchAim));
     const contact = assisted ? assistContact() : null;
@@ -1402,7 +1445,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // Pointer events only report the first press and final release of a mouse chord.
   // Mouse events report each button independently, including LMB while RMB is held.
   const mousedown = (event: MouseEvent) => {
-    if (pilotEnabled || hud.phase !== 'playing' || document.pointerLockElement !== canvas) return;
+    if (pilotEnabled || hud.proxyMenu || hud.phase !== 'playing' || document.pointerLockElement !== canvas) return;
     // A click on the open wheel says the slot (left) or puts the wheel away (right); it never fires.
     if (wheel) { closeCalloutWheel(event.button === 0); return; }
     // The same on the food picker: left picks the food pointed at, right keeps the old pick.
@@ -2558,6 +2601,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     if (frame.vehicleNotice) vehicles.setNotice(frame.vehicleNotice);
     facilityVisuals.update(frame.snapshot?.facilities);
+    proxyVisuals.update(frame.snapshot?.proxies);
     hud.arena = frame.snapshot; hud.arenaSelf = frame.self; hud.arenaConnected = frame.connected; hud.arenaStarted = frame.started;
     // The host's meals, copied: it runs the timers and the healing, and spent Ah Ma's save if she stepped in.
     if (frame.self?.conditions?.deafened && !conditions.deafened) stopVoice();
@@ -2683,7 +2727,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    */
   function dropFallenKit(actors: readonly ArenaActor[], feed: readonly { killerId?: string; victimId?: string }[]) {
     for (const actor of actors) {
-      if (!actor.bot) continue;
+      if (!actor.bot || actor.proxyOperation) continue;
       const was = botsAlive.get(actor.id); botsAlive.set(actor.id, actor.alive);
       if (!expedition || !markers || was !== true || actor.alive) continue;
       const side = getArenaFaction(factionIdOf(actor))?.side ?? 'opposition';
@@ -2713,7 +2757,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function orderStatus(): FpsHud['orderStatus'] {
     const self = hud.arenaSelf;
     if (!arenaRuntime || !self) return { allies: 0, reinforce: 'none' };
-    const allies = (hud.arena?.actors ?? []).filter(a => a.bot && a.alive && !hostile({ bot: false, faction: PLAYER_FACTION }, a) && Math.hypot(a.x - position.x, a.z - position.z) <= ORDER_TUNING.range).length;
+    const allies = (hud.arena?.actors ?? []).filter(a => a.bot && a.alive && a.faction===PLAYER_FACTION && !hostile(self, a) && Math.hypot(a.x - position.x, a.z - position.z) <= ORDER_TUNING.range).length;
     return { allies, reinforce: options.arena?.environment?.reinforcements ? self.reinforceIn ?? 'ready' : 'none' };
   }
   /**
@@ -3013,6 +3057,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    */
   function triggerCombatEvent(kind: string) {
     if (!arenaRuntime || !hud.combatEventsAvailable || disposed) return;
+    if (kind==='proxy-cargo' && expedition) { if(!arenaRuntime.triggerProxyOperation())hud.message='No clear recovery approaches nearby, or an operation is already active.'; publish(); return; }
     const plugin = getCombatEvent(kind), transport = kind.startsWith('transport-'); if (!plugin) return;
     const reach = transport || plugin.targeting?.policy === 'player' ? null : ({ 'smoke-screen': 25, 'supply-drop': 30, blackout: 0 } as Record<string, number>)[kind] ?? 35;
     const ahead = reach === null ? undefined : { x: position.x - Math.sin(yaw) * reach, z: position.z - Math.cos(yaw) * reach };
@@ -3374,6 +3419,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       respawnProfile = next;
       hud.message = 'Weapon loadout queued for your next respawn.'; publish(); return true;
     },
+    openProxyMenu, chooseProxyAction, closeProxyMenu() { hud.proxyMenu=false; canvas.focus({preventScroll:true}); publish(); },
     setRangeDrill, endDrill, resupplyRange,
     chooseRespawn: (zone: string) => { const accepted = arenaRuntime?.chooseRespawn(zone) ?? false; publish(); return accepted; },
     setAutoRespawn: (automatic: boolean) => { arenaRuntime?.setAutoRespawn(automatic); publish(); },
@@ -3412,6 +3458,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       vision.dispose(); lens.dispose(); deploymentBlur.dispose(); overview.dispose();
       wetView.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
+      proxyVisuals.dispose();
       healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); impactAudio.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       rangeStation?.dispose();

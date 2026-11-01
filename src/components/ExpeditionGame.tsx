@@ -1,3 +1,5 @@
+import { createProxyCampaign } from '../game/proxy-operations';
+import ProxyOperationHud from './ProxyOperationHud';
 import RespawnLoadoutSelector from './RespawnLoadoutSelector';
 import { applyRespawnLoadout, type RespawnLoadoutSelection } from '../game/respawn-loadout';
 import { BATTLEFIELD_POPULATIONS, DEFAULT_BATTLEFIELD_SIZE } from '../game/battlefield';
@@ -59,6 +61,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
     nextProfileRef.current = next; setNextProfile(next); return true;
   };
   const autoRespawn = useRef(false);
+  const [proxyCampaign] = useState(createProxyCampaign);
   const [loot] = useState(() => createExpeditionLoot(`${Date.now()}-${Math.random()}`));
   const [infrastructure] = useState(() => new Map<WorldZoneId, Pick<ArenaSnapshot, 'facilities' | 'vehicles' | 'reinforcementClocks'>>());
   const [scene, setScene] = useState<ExpeditionScene>(() => ({ zone: initialZone, revision: 0 }));
@@ -80,7 +83,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         loadout: resolveLoadout(fieldProfileRef.current),
         expedition: {
           autoRespawn: autoRespawn.current, zone: scene.zone, spawn: scene.spawn, checkpoint: scene.checkpoint,
-          profile: fieldProfileRef.current, startingProfile: nextProfileRef.current, loot, infrastructure,
+          profile: fieldProfileRef.current, startingProfile: nextProfileRef.current, loot, infrastructure, proxyCampaign,
           onTravel: (transition, checkpoint) => {
             setHud(current => ({ ...current, phase: 'loading' }));
             setScene(current => ({ zone: transition.to, spawn: transition.spawn, checkpoint, revision: current.revision + 1 }));
@@ -153,6 +156,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
             {hud.sectorHeat && <div className="expedition-heat" aria-label="Faction heat here">{[...SQUAD_FACTIONS].reverse().map(id =>
               <div key={id} data-faction={id}><small>{getArenaFaction(id)!.short}</small><i style={{ width: `${Math.round(hud.sectorHeat![id] * 100)}%`, background: getArenaFaction(id)!.accent }} /></div>)}</div>}</div>}
           <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} facilities={hud.arena?.facilities?.sites} contactRange={hud.mapContactRange} mode="expedition" expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
+          <ProxyOperationHud hud={hud} engine={engine.current} />
         </>}
       </FpsHudLayout>
       <FpsCalloutWheel hud={hud} engine={engine.current} />
@@ -213,6 +217,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         <span className="eyebrow">SOLO EXPEDITION / {zone.risk.toUpperCase()} THREAT</span>
         <h2>{hud.phase === 'loading' ? `Entering ${zone.name}.` : hud.phase === 'error' ? 'District unavailable.' : hud.phase === 'paused' ? 'Operator menu.' : `Welcome to ${zone.name}.`}</h2>
         <p>{hud.phase === 'loading' ? 'Preparing the district, its patrols and supplies.' : hud.phase === 'error' ? hud.message : hud.phase === 'paused' ? hud.arenaStarted ? 'Your controls are paused. Patrols remain active while the menu is open.' : 'Deployment is on hold. Resume when you are ready.' : `${zone.description} Capture enemy equipment intact, destroy it, or build at ruined sites. Command posts reinforce infantry; garages and helipads replace vehicles. Approach a cabinet and use E or tap its action. Press H for enemy facility beacons, names and distances. Open M for facility control and routes.`}</p>
+        {hud.arena?.proxies && <p>Personal proxy favor · Freedom Force {hud.arena.proxies.favor['freedom-force']} · Collective Corps {hud.arena.proxies.favor['collective-cops']}. Favor lasts this expedition, including district travel. Look for tracked prototype cargo on the map.</p>}
         {!['loading', 'error'].includes(hud.phase) && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName}<br />{BATTLEFIELD_POPULATIONS[DEFAULT_BATTLEFIELD_SIZE].mercenaries} opposing troops · {BATTLEFIELD_POPULATIONS[DEFAULT_BATTLEFIELD_SIZE]['armed-forces']} allied troops · 7 capture locations · No match timer</p>}
         {hud.message && hud.phase !== 'error' && <p className="fps-capture-error" role="alert">{hud.message}</p>}
         <button type="button" className="respawn-loadout-trigger" onClick={openLoadout}>Choose next respawn loadout</button>

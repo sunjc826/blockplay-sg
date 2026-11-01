@@ -30,6 +30,18 @@ export interface ArmoryProfile { carry: CarrySlots; version: 1; xp: number; vehi
 export const STORAGE_KEY = 'blockplay.armory.v1';
 export function createProfile(): ArmoryProfile { return { carry: { main: 0, extra: null }, version: 1, xp: 0, vehicleSkins: { car: 'paint-issued', helicopter: 'paint-issued' }, credits: 1600, tokens: 300, owned: [...issuedItems], rentals: {}, guns: DEFAULT_VARIANTS.map(variant => ({ variant, skin: 'skin-issued', attachments: {} })), rig: 'rig-ilbv', plate: 'plate-none', rewarded: [], exercises: 0, consumables: {}, quickItem: '', rankSet: DEFAULT_RANK_SET, encikTone: DEFAULT_ENCIK_TONE, vision: 'vision-none' }; }
 const finiteBalance = (n: unknown, fallback: number) => typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(1000000, Math.floor(n))) : fallback;
+/** Trusted in-memory expedition equipment. Never use this to admit a save or LAN peer. */
+export function restoreFieldProfile(value: ArmoryProfile): ArmoryProfile {
+  const result=restoreProfile(JSON.stringify(value));
+  for (const id of value.owned) if (isEnemyIssue(itemById(id)) && !result.owned.includes(id)) result.owned.push(id);
+  for (const [i, gun] of value.guns.entries()) {
+    const item=itemById(gun.variant);
+    if (item && isEnemyIssue(item) && item.family===i && result.owned.includes(item.id)) result.guns[i].variant=item.id;
+  }
+  result.carry=restoreCarrySlots(value.carry,result.owned);
+  return result;
+}
+
 export function restoreProfile(raw: string | null, now = Date.now()): ArmoryProfile {
   const base = createProfile(); if (!raw) return base;
   try {

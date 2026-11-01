@@ -1,3 +1,4 @@
+import { validProxySnapshot, type ProxyAction } from './proxy-operations';
 import { applyRespawnLoadout, type RespawnLoadoutSelection } from './respawn-loadout';
 import { createParachute } from './parachute-model';
 import { validAircrewRole, aircrewPoint, helicopterCrew, rifleSeat } from './helicopter-crew';
@@ -12,7 +13,7 @@ import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import { createVerticalMovement } from './vertical-movement';
 import { createCharacterRig, type CharacterRig } from './character-rig';
 import { arenaCharacterLook, arenaRoleColor } from './character-looks';
-import { getArenaFaction, PLAYER_FACTION } from './arena-factions';
+import { getArenaFaction, isProxyFaction, PLAYER_FACTION } from './arena-factions';
 import { MARINA_BOUNDS } from './marina-collision';
 import { PRONE_EYE_HEIGHT } from './fps-stance';
 import { validVehicleControls, seatPoint } from './vehicle-seats';
@@ -22,7 +23,7 @@ import { FPS_WEAPONS, validWeaponIndex } from './fps-rules';
 import { MAX_WEAPON_RANGE, weaponRange } from './weapon-range';
 import * as THREE from 'three';
 import { createArena, MAX_ARENA_ACTORS, MAX_ARENA_BARKS, MAX_ARENA_ROUNDS, SPAWN_SHIELD_SECONDS, type ArenaActor, type ArenaBark, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaRaiderState, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
-import { createProfile, resolveLoadout, restoreProfile, type ArmoryProfile } from './armory-state';
+import { createProfile, resolveLoadout, restoreProfile, restoreFieldProfile, type ArmoryProfile } from './armory-state';
 import type { LanSession } from './lan-peer';
 import { getArenaRole } from './arena-roles';
 import { MAX_COMBAT_EVENTS, validCombatEvent, type CombatPlane } from './combat-events';
@@ -60,6 +61,7 @@ export function validArenaInput(value: unknown): value is ArenaInput {
 }
 export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironment): value is ArenaSnapshot {
   if (object(value) && value.reinforcementClocks !== undefined && !validReinforcementClocks(value.reinforcementClocks)) return false;
+  if (object(value) && value.proxies !== undefined && (!environment?.proxies || !validProxySnapshot(value.proxies))) return false;
   if (object(value) && value.facilities !== undefined && !validFacilitySnapshot(value.facilities)) return false;
   if (!object(value) || value.type !== 'arena-snapshot' || !finite(value.tick) || value.tick < 0 || !finite(value.elapsed) || value.elapsed < 0 || value.elapsed > (environment?.endless ? 1e9 : 181) ||
     typeof value.finished !== 'boolean' || typeof value.winner !== 'string' || value.winner.length > 80 || !Array.isArray(value.actors) || value.actors.length > MAX_ARENA_ACTORS || !Array.isArray(value.feed) || value.feed.length > 8) return false;
@@ -67,6 +69,9 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
   for (const actor of value.actors) {
     if (!object(actor) || typeof actor.id !== 'string' || actor.id.length > 100 || ids.has(actor.id) || typeof actor.name !== 'string' || actor.name.length > 24 ||
       !['x', 'y', 'z', 'yaw', 'pitch', 'health', 'armor', 'kills', 'deaths', 'respawnIn', 'shots', 'weapon'].every(key => finite(actor[key])) ||
+      (isProxyFaction(String(actor.faction)) && (actor.proxyOperation === undefined || actor.proxyTargets === undefined)) ||
+      (actor.proxyOperation !== undefined && (!environment?.proxies || !actor.bot || !['freedom-force','collective-cops'].includes(String(actor.faction)) || typeof actor.proxyOperation !== 'string' || actor.proxyOperation !== (value.proxies as import('./proxy-operations').ProxySnapshot)?.operation?.id)) ||
+      (actor.proxyTargets !== undefined && (actor.proxyOperation === undefined || !Array.isArray(actor.proxyTargets) || actor.proxyTargets.length > 64 || !actor.proxyTargets.every(id => typeof id === 'string' && id.length <= 100))) ||
       (actor.squad !== undefined && (typeof actor.squad !== 'string' || actor.squad.length > 100)) ||
       (actor.objective !== undefined && (typeof actor.objective !== 'string' || actor.objective.length > 100)) ||
       (actor.duty !== undefined && (!actor.bot || typeof actor.duty !== 'string' || !['attack','sentry','patrol','respond','investigate'].includes(actor.duty))) ||
@@ -86,6 +91,14 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.z as number) < (actor.transport ? -5000 : environment?.bounds.minZ ?? -500) || (actor.z as number) > (actor.transport ? 5000 : environment?.bounds.maxZ ?? 500) || (actor.y as number) < 0 || (actor.y as number) > (actor.transport ? 405 : 124) ||
       (actor.health as number) < 0 || (actor.health as number) > 300 || (actor.armor as number) < 0 || (actor.armor as number) > 150) return false;
     ids.add(actor.id);
+  }
+  if (value.proxies !== undefined) {
+    const op=(value.proxies as import('./proxy-operations').ProxySnapshot).operation;
+    if (op && environment && [op.at,...Object.values(op.entries)].some(p=>p.x<environment.bounds.minX || p.x>environment.bounds.maxX || p.z<environment.bounds.minZ || p.z>environment.bounds.maxZ)) return false;
+    for (const actor of value.actors as ArenaActor[]) if (actor.proxyOperation) {
+      const expected=op?.targets[actor.faction as import('./proxy-operations').ProxyId];
+      if (!expected || actor.proxyTargets?.length!==expected.length || actor.proxyTargets.some(id=>!expected.includes(id))) return false;
+    }
   }
   if (value.grenades !== undefined && (!Array.isArray(value.grenades) || value.grenades.length > MAX_GRENADES || !value.grenades.every(validLiveGrenade) || new Set(value.grenades.map(g => g.serial)).size !== value.grenades.length)) return false;
   if (value.grenadeEvents !== undefined && (!Array.isArray(value.grenadeEvents) || value.grenadeEvents.length > MAX_GRENADE_EVENTS || !value.grenadeEvents.every(e => validGrenadeEvent(e, value.elapsed as number)) || new Set(value.grenadeEvents.map(e => e.serial)).size !== value.grenadeEvents.length)) return false;
@@ -344,7 +357,7 @@ const wrapAngle = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle)
 /** Host owns bots, damage, spawns and score. The renderer submits only local input. */
 export function createArenaRuntime(options: ArenaRuntimeOptions) {
   const { scene, session } = options;
-  let profile = restoreProfile(JSON.stringify(options.profile ?? createProfile()));
+  let profile = options.session.role === 'solo' && options.environment?.proxies ? restoreFieldProfile(options.profile ?? createProfile()) : restoreProfile(JSON.stringify(options.profile ?? createProfile()));
   const inventory = profile;
   const peerInventories = new Map<string, ArmoryProfile>();
   let loadoutRequest = 0;
@@ -531,6 +544,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     avatar.alive = actor.alive;
     root.visible = actor.alive || (rig.down && rig.downTime < ARENA_CORPSE_SECONDS && !actor.vehicle && !actor.transport);
     const viewer = snapshot?.actors.find(a => a.id === session.id);
+    root.userData.arenaFriendly = !!viewer && !hostile(viewer,actor);
     avatar.reveal.visible = actor.alive && !!viewer && !!actor.markedBy?.some(id => { const caller = snapshot?.actors.find(a => a.id === id); return caller && (caller.id === viewer.id || !hostile(viewer, caller)); });
     avatar.health.visible = actor.alive; if (avatar.label) avatar.label.visible = actor.alive;
     if (!root.visible) { avatar.shots = actor.shots; avatar.lastHealth = actor.health; return; }
@@ -646,6 +660,14 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       publish();
     } else session.send({ type: 'arena-vehicle', action, kind });
   }
+  function triggerProxyOperation() {
+    if (disposed || session.role!=='solo' || !simulation) return false;
+    const accepted=simulation.triggerProxyOperation(); publish(); return accepted;
+  }
+  function proxyAction(action: ProxyAction) {
+    if (disposed || !started || !localAdopted || session.role !== 'solo' || !simulation) return false;
+    const accepted=simulation.proxyAction(session.id,action); publish(); return accepted;
+  }
   function facilityAction(site: string) {
     if (disposed || !started || !localAdopted || typeof site !== 'string' || site.length > 100) return;
     if (simulation) { simulation.facilityAction(session.id, site); publish(); }
@@ -706,7 +728,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   }
   function updateLoadout(nextProfile: ArmoryProfile) {
     if (disposed || session.role !== 'solo' || !simulation) return false;
-    profile = restoreProfile(JSON.stringify(nextProfile));
+    profile = options.environment?.proxies ? restoreFieldProfile(nextProfile) : restoreProfile(JSON.stringify(nextProfile));
     const loadout = resolveLoadout(profile);
     simulation.setPlayerGrenades(session.id, profile.consumables);
     simulation.setPlayerLoadout(session.id, loadout.armor, loadout.absorption, loadout.weapons, loadout.carriedFamilies, loadout.insert); publish(); return true;
@@ -761,6 +783,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       avatar.root.position.set(eye.x, eye.y - (actor.vehicle === 'car' && actor.seat === 1 ? 1.75 : 1.2), eye.z);
     }
   }
-  return { chooseRespawn, setAutoRespawn, getRespawn: () => simulation?.playerRespawn(session.id) ?? null, selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
+  return { triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getRespawn: () => simulation?.playerRespawn(session.id) ?? null, selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

@@ -1,3 +1,4 @@
+import { PROXY_FACTIONS } from './proxy-faction-catalog';
 /**
  * Who a soldier fights for, painted as a whole uniform rather than one stripe.
  * The base colours (top, trousers, vest, helmet, kit), the printed camouflage
@@ -7,8 +8,8 @@
  * against their own faction's cloth, so a band never sinks into the uniform
  * under it.
  *
- * A faction also picks a side, and factions on one side never fight each
- * other: players are the armed forces, the mercenaries are against them.
+ * Ordinary factions pick a side: players are the armed forces, the mercenaries
+ * are against them. Independent proxies use explicit encounter targets instead.
  * Either side can field the crews that work a mortar or hold a rooftop; a crew
  * wears its event's faction. Players still fight players in LAN matches. Black Kite is fictional, and the
  * forces' badges are generic rather than any real unit's insignia.
@@ -35,6 +36,8 @@ export interface ArenaFaction {
   /** For HUD meters and the scoreboard. */
   short: string;
   side: ArenaSide;
+  /** Uses explicit encounter targets, never the normal two-side relationship. */
+  independent?: true;
   palette: Readonly<ArenaFactionPalette>;
   /** Large, colour-independent equipment and identification shapes, retained at every rank. */
   uniform?: 'field' | 'contractor';
@@ -72,9 +75,16 @@ export type SquadFaction = typeof SQUAD_FACTIONS[number];
 /** An explicit faction wins; otherwise players are the forces and bots the default. */
 export const factionIdOf = (actor: { bot: boolean; faction?: string }) => actor.faction ?? (actor.bot ? DEFAULT_BOT_FACTION : PLAYER_FACTION);
 const sideOf = (actor: { bot: boolean; faction?: string }) => getArenaFaction(factionIdOf(actor))?.side ?? (actor.bot ? 'opposition' : 'forces');
-/** Whether `a` should shoot at `b`: the other side, or another player. */
-export const hostile = (a: { bot: boolean; faction?: string }, b: { bot: boolean; faction?: string }) =>
-  sideOf(a) !== sideOf(b) || (!a.bot && !b.bot);
+export interface FactionActor { id?: string; bot: boolean; faction?: string; proxyTargets?: readonly string[] }
+export const isProxyFaction = (id: string | undefined) => id === 'freedom-force' || id === 'collective-cops';
+/** Proxy hostility is symmetric, personal and bounded by the current operation. */
+export function hostile(a: FactionActor, b: FactionActor) {
+  if (isProxyFaction(a.faction) || isProxyFaction(b.faction)) {
+    if (a.faction === b.faction) return false;
+    return !!(b.id && a.proxyTargets?.includes(b.id) || a.id && b.proxyTargets?.includes(a.id));
+  }
+  return sideOf(a) !== sideOf(b) || (!a.bot && !b.bot);
+}
 
 registerArenaFaction({
   id: 'armed-forces', name: 'Armed forces', short: 'FORCES', side: 'forces',
@@ -102,4 +112,13 @@ registerArenaFaction({
   },
   caps: true,
   accent: '#e3a63f', roleAccents: { assault: '#e3a63f', tank: '#ef5d4f', sniper: '#b99cff', 'mortar-crew': '#ff9150', overwatch: '#f1d45a' },
+});
+
+for (const design of PROXY_FACTIONS) registerArenaFaction({
+  id: design.id, name: design.name, short: design.id === 'freedom-force' ? 'FREEDOM' : 'COLLECTIVE',
+  side: 'opposition', independent: true, description: design.premise,
+  palette: design.palette, camo: { pattern: design.camo, on: 'top' },
+  patches: { left: design.identification, right: design.identification, chest: design.identification },
+  // Labels need contrast against pale uniforms; equipment retains the design accent.
+  accent: design.identification.mark, roleAccents: {},
 });

@@ -112,6 +112,9 @@ export interface ShopItem {
   useVerb?: string;
 }
 export const ARMORY_CATALOG: readonly ShopItem[] = [
+  { id: 'sar-proxy-prototype', source: 'enemy', specialist: true, name: 'SAR 21 · Unauthorised Upgrade', category: 'weapon', family: 0, tier: 'Mythic', price: 0, currency: 'credits',
+    weightKg: 4.8, accent: '#e7bc68', build: [{ id:'proxy-fire-control', name:'Prototype fire-control assembly', description:'Recovered experimental parts fitted to the issued rifle.', damage:34, interval:-.025, recoil:-.006, recoilRecovery:.25, capacity:6 }],
+    description:'Contested proxy cargo. Powerful experimental SAR 21 retrofit; field use for this life only. Keeping it provokes its owner. Uses standard rifle ammunition.' },
   { id: 'slot-extra', name: 'Extra main weapon slot', category: 'loadout', tier: 'Elite', price: 400, currency: 'tokens', description: 'Permanent third carry slot for a second main weapon. All extra gear and ammunition still add weight.' },
   { id: 'paint-issued', name: 'Motor pool olive', category: 'vehicleSkin', tier: 'Issued', price: 0, currency: 'credits', description: 'Issued matte olive. Fits the Utility 01 and Falcon 01; equip each vehicle separately. Cosmetic only.' },
   { id: 'paint-jungle', name: 'Jungle patrol', category: 'vehicleSkin', tier: 'Field', requiredLevel: 2, price: 650, currency: 'credits', palette: ['#37472e', '#74805c', '#202c25', '#a2a281'], description: 'A military jungle wrap with large digital blocks. Fits both vehicles. Cosmetic only.' },

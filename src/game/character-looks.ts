@@ -1,3 +1,4 @@
+import { proxyCharacterLook } from './proxy-factions';
 import * as THREE from 'three';
 import { hashString, type CharacterGesture, type CharacterLook } from './character-rig';
 import { DEFAULT_BOT_FACTION, factionIdOf, getArenaFaction, type ArenaFaction } from './arena-factions';
@@ -32,6 +33,8 @@ export function arenaRoleColor(actor: { bot: boolean; role: string; faction?: st
  * pack and shades, and a contractor veteran in a helmet rather than a cap.
  */
 export function arenaCharacterLook(actor: { bot: boolean; role: string; id?: string; faction?: string; rank?: number }): CharacterLook {
+  if (actor.faction === 'freedom-force') return proxyCharacterLook(actor.faction, actor.role === 'sniper' ? 'wayfinder' : 'lancer', actor.id);
+  if (actor.faction === 'collective-cops') return proxyCharacterLook(actor.faction, actor.role === 'tank' ? 'bastion' : 'conductor', actor.id);
   const faction = arenaFaction(actor), { palette } = faction, seed = hashString(actor.id ?? actor.role);
   const heavy = actor.bot && (actor.role === 'tank' || actor.role === 'elite-gunner'), sniper = actor.bot && (actor.role === 'sniper' || actor.role === 'overwatch' || actor.role === 'elite-commander');
   const rank = actor.bot ? actor.rank : undefined, recruit = rank === 1, veteran = rank === 3;

@@ -33,3 +33,10 @@ it('uses the expedition-entry equipment after travel and repeated deaths', () =>
   restored.carry = { main: 1, extra: null };
   expect(respawnEquipment(restored, starting).carry).toEqual(starting.carry);
 });
+
+it('forfeits a stolen proxy prototype on death, including after district travel', () => {
+  const starting=createProfile(), current=structuredClone(starting);
+  current.owned.push('sar-proxy-prototype');current.guns[0].variant='sar-proxy-prototype';
+  const after=respawnEquipment(structuredClone(current),starting);
+  expect(after.owned).not.toContain('sar-proxy-prototype');expect(after.guns[0].variant).toBe('sar-issued');
+});

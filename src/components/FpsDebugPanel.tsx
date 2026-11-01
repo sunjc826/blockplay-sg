@@ -27,6 +27,7 @@ export default function FpsDebugPanel({ hud, engine }: { hud: FpsHud; engine: Fp
       <label><input type="checkbox" checked={hud.debug.combatEvents} onChange={event => engine?.configureDebug({ ...hud.debug, combatEvents: event.target.checked })} /> Random events</label>
       <p>Expeditions only: the director calls in events at random, paced by district risk (barrages and supply drops everywhere; raids, snipers and gas in riskier districts). Fallen enemies return through posts or reserve transports. Sentosa also has coastal landing parties.</p>
       <div className="fps-debug-options fps-debug-event-grid">
+        {hud.expeditionZone && <button onClick={() => engine?.triggerCombatEvent('proxy-cargo')}>Proxy cargo <small>Contested prototype</small></button>}
         {DEBUG_EVENTS.map(([kind, label, note]) => <button key={kind} disabled={hud.phase === 'loading'} onClick={() => engine?.triggerCombatEvent(kind)}>{label} <small>{note}</small></button>)}
       </div>
     </div>}

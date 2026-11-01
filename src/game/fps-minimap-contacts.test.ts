@@ -101,3 +101,12 @@ it('honours the current weather range boundary for visible contacts', () => {
   expect(combatMinimapMarkers(view, scene, self, [enemy], subjects, [], 30)).toHaveLength(1);
   expect(combatMinimapMarkers(view, scene, self, [enemy], subjects, [], 29)).toEqual([]);
 });
+
+it('labels unprovoked proxies neutral and switches only the targeted player to hostile', () => {
+  const proxy = { ...actor('proxy', { faction: 'freedom-force' }), proxyTargets: [] as string[] }, view = camera();
+  const subjects=[subject(proxy)];
+  const read=()=>combatMinimapMarkers(view,scene,self,[proxy],subjects);
+  expect(read()[0]).toMatchObject({kind:'npc',side:'neutral'});
+  proxy.proxyTargets=['another-player'];expect(read()[0].kind).toBe('npc');
+  proxy.proxyTargets=[self.id];expect(read()[0].kind).toBe('enemy');
+});

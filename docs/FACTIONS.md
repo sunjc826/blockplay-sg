@@ -3,7 +3,7 @@
 Every soldier fights for a faction registered in `src/game/arena-factions.ts`
 (`registerArenaFaction`). A faction carries the uniform (palette, printed
 camouflage, equipment silhouette, sewn badges), its role accents, and a `side`.
-Factions on the same side never fight each other.
+The two local factions use fixed sides. Independent proxy cells use explicit encounter targets instead.
 
 | | Armed forces (`armed-forces`) | Black Kite mercenaries (`mercenaries`) |
 |---|---|---|
@@ -27,15 +27,19 @@ insignia, and the camouflage is only in the spirit of a pixelated temperate
 pattern. The About copy's disclaimer of any Singapore Armed Forces affiliation
 still applies.
 
-## Proposed proxy factions
+## Proxy factions
 
-Freedom Force and Collective Corps are art prototypes for small elite foreign
-detachments in a possible proxy conflict. They have their own palettes,
-equipment silhouettes and two specialist models each, reviewed at
-`/faction-designs`. They are absent from the live faction and role registries;
-no alliances, spawns, heat, equipment statistics or encounter rules are assigned.
-See [proxy faction design](PROXY-FACTIONS.md) for the visual specification,
-operator studies, narrative direction and outstanding integration decisions.
+Freedom Force and Collective Corps are independent, event-only expedition cells.
+They have no permanent ally/enemy mapping to the Armed Forces or Black Kite.
+The [prototype operation](PROXY-OPERATIONS.md) gives each cell explicit targets:
+its rival recovery cell, a player who interfered, and nearby friendly defenders.
+The targets expire with the finite encounter. Personal favor tracks each proxy
+independently across district travel during this expedition. There is no
+faction-wide diplomatic escalation or ambient proxy army.
+
+The [design gallery](PROXY-FACTIONS.md) supplies their uniforms and four specialist
+silhouettes. The first slice adapts existing combat AI; shield/sensor mechanics and
+proxy weapon art remain future integrations.
 
 ## Rules
 
@@ -43,11 +47,11 @@ operator studies, narrative direction and outstanding integration decisions.
   bots their squad faction, and event crews their event's faction. Snapshots
   with an unregistered faction are rejected. `arenaFaction` dresses an actor by
   that field, falling back to its role's faction for figures without one.
-- `hostile(a, b)`: the two sides fight each other and never their own, and an
+- `hostile(a, b)`: proxy involvement first checks explicit, symmetric actor targets. Otherwise the two sides fight each other and never their own, and an
   event crew still spares its crew-mates. Players stay hostile to
   other players, so LAN matches remain a free-for-all between humans, with
   bots against every human.
-- A bot only picks hostile targets. A round that strikes someone on the
+- A bot only picks hostile targets. A player can deliberately shoot or blast a neutral proxy; a landed hit provokes that cell against the attacker. A round that strikes someone on the
   shooter's own side stops there and does no damage. Artillery and vehicle
   wrecks hurt everyone, whatever their side.
 - Faction equipment and large identification shapes persist through every role

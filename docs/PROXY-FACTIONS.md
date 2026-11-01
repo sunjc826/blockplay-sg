@@ -1,10 +1,11 @@
 # Proxy faction design studies
 
-Status: **art prototypes, not active combat factions**. Freedom Force and
-Collective Corps are small, highly elite foreign detachments intended to support
-a future proxy-conflict premise. This pass establishes color, silhouette,
-identification and four animated model studies. The names and specialist jobs
-are working designs; combat integration remains open.
+Status: **first expedition combat slice implemented**. Freedom Force and
+Collective Corps deploy as finite two-person cells during contested prototype
+operations. Personal favor and encounter-local targets are active; faction-wide
+diplomacy remains a proposal. See [proxy operations](PROXY-OPERATIONS.md).
+The existing gallery remains a visual study; specialist shield/sensor mechanics
+and the seven proxy weapon models are not yet live equipment.
 
 Review the actual procedural models at **`/faction-designs`**. Drag to rotate,
 use Front/Rear, inspect Standing/Walking/Crouched poses, and toggle Grayscale.
@@ -31,10 +32,11 @@ or enemy. The Armed Forces are not implicitly Freedom Force's client, and Black
 Kite is not implicitly Collective Corps' client. Relationships need their own
 design pass.
 
-A possible future deployment scale is a two-to-four-operator cell around a
-specific objective, with finite arrivals and a withdrawal condition. This is a
-proposal, not a spawn rule. “Elite” currently describes visual identity and the
-intended narrative role, not new health, accuracy, damage or armor values.
+The first deployment uses two operators per faction around one cargo objective,
+with finite arrivals and a withdrawal deadline. Each has 110 health and 65 armor;
+existing role AI provides rifle, marksman and support behavior. See the operation
+document for active rules rather than treating the visual studies as a combat
+specification.
 
 ## Freedom Force
 
@@ -115,31 +117,30 @@ All models use `createCharacterRig`: the existing articulated body, analytic
 limb IK, gait, stances, healing and disposal. New armor and equipment merge into
 existing bone meshes, keeping the per-figure mesh budget at 20 or below. New
 `expeditionary` and `collective` uniforms and four specialist kit names are
-visual options, not live role plugins. Palette and operator definitions live in
-`src/game/proxy-factions.ts`; `proxyCharacterLook` validates faction/operator
+visual options used by the operation adapter, not separate live role plugins. Palette and operator definitions live in
+`src/game/proxy-faction-catalog.ts`; `proxyCharacterLook` validates faction/operator
 pairings. The design gallery is `src/components/FactionDesigns.tsx`.
 
-## Integration decisions still open
+## Combat integration and remaining decisions
 
-1. **Relationships:** choose which interests can cooperate or fight, and how
-   that changes by objective. Today's `ArenaSide`/`hostile` system assumes only
-   two sides. Registering these designs into those sides now would silently
-   impose alliances and friendly-fire rules. A future multi-faction relationship
-   model must be host-authoritative and serialized/validated with snapshots.
-2. **Deployment:** decide event-only versus persistent presence, entry/exit
-   conditions, cell size, risk gating and director budgets. Do not add them to
-   `SQUAD_FACTIONS`, heat, ambient role weights or transport reinforcements as
-   part of an art pass.
-3. **Specialist play:** establish how entry, designation, interdiction and sensor
-   command create different tactical decisions. These jobs need not inherit the
-   current assault/tank/sniper roster. Keep room for retreat and counterplay.
-4. **Loadouts and rewards:** choose actual weapons, availability, finite supplies,
-   armor and loot economy after faction behavior is settled. Existing elite
-   Black Kite events and their Ultra/Legendary weapons remain their own system.
-5. **Presentation:** choose how the player learns these emblems and identifies
-   changing alliances. A uniform identifies the organization, not necessarily
-   whether its current orders make it friendly.
+The live registry now includes both independent identities. They remain absent
+from `SQUAD_FACTIONS`, ambient heat and normal transport reinforcements. The
+operation publishes explicit actor targets; the legacy palette `side` field does
+not determine their alliances. Snapshot validation admits operation state only in
+an opted-in expedition. Multiplayer does not enable these operations.
 
+The first encounter uses existing rifleman, marksman and support AI with the
+four proxy silhouettes. Their specialized shield, sensing, designation and entry
+mechanics remain future work. Finite cells arrive on foot after the cargo-drop
+warning, seek the cargo and withdraw after success or timeout. Returning cargo,
+transferring it to the rival, keeping a Mythic SAR retrofit or delivering it to a
+friendly facility produce different personal consequences. The retrofit uses the
+existing SAR model and ammunition, not the experimental launcher art studies.
+
+Still open: persistent diplomatic relationships, favor-unlocked services,
+compromised officers, infrastructure operations, bespoke specialist mechanics and
+full proxy weapon integration. Current favor lasts this expedition across travel;
+it is not a permanent profile currency.
 No new faction barks or sound effects were commissioned in this pass. Future
 voice and sound work follows the repository's ElevenLabs once-only workflow.
 

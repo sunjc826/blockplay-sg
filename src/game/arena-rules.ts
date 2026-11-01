@@ -1,3 +1,4 @@
+import { createProxyOperations, PROXY_IDS, PROXY_RULES, proxyName, type ProxyAction, type ProxyCampaign, type ProxyId, type ProxyParticipant, type ProxyPoint, type ProxySnapshot } from './proxy-operations';
 import { PARATROOPERS, dropPoints, planParatroopers } from './paratroopers';
 import { NAVAL, navalRampPoint, planNavalLanding, validReinforcementClocks, type ReinforcementClocks } from './naval-landings';
 import type { NavalLandingSite } from './naval-landing-sites';
@@ -29,7 +30,7 @@ import { DRONE, DRONE_BLAST, MORTAR, OVERWATCH, RAID, SUPPLY } from './combat-ev
 import { combatPhase, combatTimeline, getCombatEvent, orbitPose, transportPose, MAX_COMBAT_EVENTS, MAX_TROOPS, type CloudPayload, type CombatEventDescriptor, type CombatOutcome, type CombatPlane, type CratePayload, type MunitionPayload, type OrbitPayload, type TransportPayload } from './combat-events';
 import { createCombatDirector, planTransport, type CombatRisk } from './combat-director';
 import { OVERHEAD_SHELTER, resolveBlast, type BlastTarget } from './combat-blast';
-import { DEFAULT_BOT_FACTION, getArenaFaction, hostile, PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
+import { DEFAULT_BOT_FACTION, getArenaFaction, hostile, isProxyFaction, PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
 import { BARK_RANGE, BARK_TUNING, createBarkDirector, type BarkEvent } from './npc-barks';
 import { CALLOUT_COOLDOWN, getPlayerCallout } from './player-callouts';
 import { ORDER_ACKS, ORDER_TUNING, orderGoal, orderStep, standingOrder, type OrderKind, type StandingOrder } from './squad-orders';
@@ -58,6 +59,8 @@ import type { PlayerRespawnView } from './player-respawn';
 
 /** All coordinates use metres; actor y is eye height, not the feet. */
 export interface ArenaActor {
+  proxyTargets?: string[];
+  proxyOperation?: string;
   parachuting?: true;
   id: string; name: string; bot: boolean; x: number; y: number; z: number; yaw: number; pitch: number;
   health: number; armor: number; kills: number; deaths: number; alive: boolean; respawnIn: number; weapon: number;
@@ -139,6 +142,7 @@ export interface ArenaBark {
 /** Barks a snapshot carries; screens keep the ones they have not shown yet. */
 export const MAX_ARENA_BARKS = 8;
 export interface ArenaSnapshot {
+  proxies?: ProxySnapshot;
   facilities?: FacilitySnapshot;
   grenades?: LiveGrenade[]; grenadeEvents?: GrenadeEvent[];
   type: 'arena-snapshot'; tick: number; elapsed: number; actors: ArenaActor[];
@@ -169,6 +173,8 @@ export interface ArenaPoint { x: number; y: number; z: number }
 export interface ArenaShot { hitId: string | null; killed: boolean; damage: number }
 export interface ArenaVitals { health: number; armor: number }
 export interface ArenaEnvironment {
+  /** Solo expedition only; shared campaign object retains favor and pacing across travel. */
+  proxies?: ProxyCampaign;
   battlefield?: { size: BattlefieldSize };
   navigationAnchors?: readonly { x: number; z: number }[];
   /** Geographical patrol areas, independent of camp footprints and heat. */
@@ -476,6 +482,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (!site || !facilityOperational(site)) v.health = 0;
     else v.faction = site.owner!;
   }
+  let proxyAutomatic=true;
+  const proxies = environment?.proxies ? createProxyOperations(environment.proxies) : null;
   const feed: ArenaFeed[] = [];
   const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
   // What a bot is issued has its own stream, so the draw cannot move anything else the seed decides.
@@ -493,7 +501,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   /** A bot has a reason to speak; the director decides whether they do and in what words. */
   function bark(entry: InternalActor, event: BarkEvent) {
     const actor = entry.actor;
-    if (!actor.bot || !actor.alive || entry.reserve) return;
+    if (!actor.bot || !actor.alive || entry.reserve || isProxyFaction(actor.faction)) return;
     const text = barker.offer(actor.id, { faction: actor.faction, side: getArenaFaction(actor.faction)?.side, role: actor.role, rank: actor.rank }, event, elapsed);
     if (text) say(actor.id, text, event);
   }
@@ -887,6 +895,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    * A round's `calibre` is held to the victim's insert rating (armor-inserts).
    */
   function hurtActor(victim: InternalActor, damage: number, attacker?: InternalActor, cause?: string, from?: ArenaPoint, blasted = false, piercing = false, calibre?: number, shred = 0) {
+    if (attacker && damage > 0 && isProxyFaction(victim.actor.faction) && !isProxyFaction(attacker.actor.faction)) {
+      proxies?.provoke(victim.actor.faction as ProxyId, proxyParticipant(attacker)); syncProxyTargets();
+    }
     const source = from ?? attacker?.actor;
     if (source && attacker !== victim) victim.actor.hurtFrom = { x: source.x, z: source.z, serial: ++hurtSerial, ...(blasted ? { blast: true } : {}) };
     victim.lastHurt = elapsed;
@@ -1042,7 +1053,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (raider) return { ...hurtRaider(raider, damage, entry), stopped: true };
     if (hull) { const before = hull.health; damageHull(hull, damage, entry); return { hitId: `vehicle-${hull.kind}`, killed: before > 0 && hull.health === 0, damage: Math.min(before, damage), stopped: true }; }
     // A round that finds one of the shooter's own side stops there and does no harm.
-    if (victim && !hostile(entry.actor, victim.actor)) return { ...EMPTY_SHOT, stopped: true };
+    if (victim && !hostile(entry.actor, victim.actor) && !(!entry.actor.bot && isProxyFaction(victim.actor.faction))) return { ...EMPTY_SHOT, stopped: true };
     if (victim && entry.actor.bot && !victim.actor.bot && elapsed < (victim.shieldUntil ?? 0)) return { hitId: victim.actor.id, killed: false, damage: 0, stopped: true };
     return victim ? { ...wound(victim, origin, ray, nearest, damage, entry, undefined, ignore ? origin : undefined, calibre), stopped: true } : { ...EMPTY_SHOT, stopped: true };
   }
@@ -1147,7 +1158,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     for (const other of vehicles) if (other !== source && other.health > 0 && (!grenade || !attacker || !other.occupants.some(id => id && id !== attacker.actor.id && members.has(id) && !hostile(attacker.actor, members.get(id)!.actor)))) targets.push({ item: { hull: other }, point: { x: other.x, y: other.y + 1.3, z: other.z }, vehicle: true });
     for (const t of transports.values()) if (t.health > 0 && t.visible && (!grenade || !attacker || hostile(attacker.actor, { bot: true, faction: transportFaction(t) }))) targets.push({ item: { transport: t }, point: transportPoint(t, 0, 1.3, 0), vehicle: true });
     for (const member of members.values()) if (member.actor.alive && !member.reserve && !member.actor.transport && !seatOf(vehicles, member.actor.id)) {
-      if (grenade && attacker && member !== attacker && !hostile(attacker.actor, member.actor)) continue;
+      if (grenade && attacker && member !== attacker && !hostile(attacker.actor, member.actor) && !(!attacker.actor.bot && isProxyFaction(member.actor.faction))) continue;
       const { actor } = member, low = actor.y - floorAt(actor) < 1.4;
       // Wrecks have always measured to the eye; stance-aware blasts measure to the body.
       targets.push({ item: { member }, stance: actor.prone ? 'prone' : low ? 'crouch' : 'stand',
@@ -1626,6 +1637,103 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   /** Leaves the match without a word: a crew pulling out, a body cleared away. */
   function dismiss(id: string) { releaseSeat(id); members.delete(id); }
+  const proxyParticipant = (m: InternalActor): ProxyParticipant => ({ ...m.actor, playing: m.playing, feet: m.actor.y - (m.actor.prone ? PRONE_EYE_HEIGHT : 1.75) });
+  const proxyParticipants = () => [...members.values()].filter(m => !m.reserve).map(proxyParticipant);
+  function syncProxyTargets() {
+    const op = proxies?.current();
+    for (const m of members.values()) if (m.actor.proxyOperation) m.actor.proxyTargets = op ? [...op.targets[m.actor.faction as ProxyId]] : [];
+  }
+  function startProxyOperation(target?: CombatPlane) {
+    if (!proxies || !environment?.proxies || members.size + 4 > MAX_ARENA_ACTORS || proxies.current() && proxies.current()!.phase !== 'complete') return false;
+    const human = humansAlive().find(m => m.playing)?.actor;
+    if (!human) return false;
+    const candidates = target ? [target] : Array.from({ length: 24 }, (_, i) => {
+      const a = i * Math.PI / 12, r = i % 2 ? 65 : 45;
+      return { x: human.x + Math.cos(a) * r, z: human.z + Math.sin(a) * r };
+    });
+    for (const at of candidates) {
+      if (!clearSpawn(at)) continue;
+      const y = patrolGround(at.x, at.z);
+      for (let heading = 0; heading < 8; heading++) {
+        const angle = heading * Math.PI / 4;
+        const entries = Object.fromEntries(PROXY_IDS.map((f, i) => {
+          const sign = i ? -1 : 1, x = at.x + Math.cos(angle) * 28 * sign, z = at.z + Math.sin(angle) * 28 * sign;
+          return [f, { x, y: patrolGround(x,z), z }];
+        })) as Record<ProxyId, ProxyPoint>;
+        const safe = Object.values(entries).every(p => clearSpawn(p) && clearSpawn({ x: p.x + 1.5, z: p.z + 1.5 }) &&
+          humansAlive().every(h => Math.hypot(h.actor.x-p.x,h.actor.z-p.z) >= 20) &&
+          Array.from({length:15},(_,i) => ({x:at.x+(p.x-at.x)*i/14,z:at.z+(p.z-at.z)*i/14})).every(q => clearSpawn(q) && Math.abs(patrolGround(q.x,q.z)-y)<.6));
+        if (!safe) continue;
+        if (!proxies.start({ ...at, y }, entries)) return false;
+        announce(`${proxyName(proxies.current()!.owner)} prototype cargo down. Two recovery cells inbound. Cargo tracker is broadcasting.`);
+        return true;
+      }
+    }
+    environment.proxies.nextIn = 20; return false;
+  }
+  function fieldProxyCells() {
+    const op = proxies?.current(); if (!op || members.size + 4 > MAX_ARENA_ACTORS) return false;
+    if (Object.values(op.entries).some(p => humansAlive().some(m => Math.hypot(m.actor.x-p.x,m.actor.z-p.z)<12))) return false;
+    for (const faction of PROXY_IDS) for (let slot=0;slot<2;slot++) {
+      const roleId = faction === 'freedom-force' ? slot ? 'sniper' : 'assault' : slot ? 'assault' : 'tank';
+      const role = getArenaRole(roleId)!;
+      const p = op.entries[faction], at = {x:p.x+slot*1.5,z:p.z+slot*1.5};
+      if (!clearSpawn(at)) return false;
+      const entry = addMember(`${op.id}-${faction}-${slot}`, 'Proxy operator', 65, .45, FPS_WEAPONS, false, undefined, role)!;
+      entry.role = role; entry.healthMax = 110;
+      Object.assign(entry.actor, { bot:true, role:roleId, faction, proxyOperation:op.id });
+      spawn(entry, {...at,y:patrolGround(at.x,at.z),yaw:Math.atan2(at.x-op.at.x,at.z-op.at.z)});
+      entry.actor.health=110; entry.actor.armor=65; entry.actor.rank=3;
+      entry.actor.name = faction === 'freedom-force' ? slot ? 'FF Wayfinder' : 'FF Lancer' : slot ? 'CC Conductor' : 'CC Bastion';
+      entry.temporary={event:op.id,from:elapsed}; entry.shieldUntil=0;
+      entry.mission={x:op.at.x,z:op.at.z}; entry.actor.objective='Recover prototype';
+    }
+    return true;
+  }
+  function proxyAction(id: string, action: ProxyAction) {
+    const entry = members.get(id), op = proxies?.current();
+    if (!entry || !op || seatOf(vehicles,id)) return false;
+    const delivery = action === 'deliver' ? facilities?.sites.find(site => facilityOperational(site, PLAYER_FACTION) &&
+      Math.hypot(site.x-entry.actor.x,site.z-entry.actor.z)<=PROXY_RULES.reach && Math.abs(site.y-proxyParticipant(entry).feet)<2 &&
+      lineClear(entry.actor,{x:site.x,y:site.y+1,z:site.z})) : undefined;
+    if (action === 'deliver' && (!delivery || !facilities || facilities.supplies[PLAYER_FACTION] >= FACILITY_RULES.supplyCap && delivery.health === delivery.maxHealth && delivery.deployIn === 0)) return false;
+    if (action !== 'deliver' && !lineClear(entry.actor,{...op.at,y:op.at.y+.7})) return false;
+    if (!proxies!.action(id,action,proxyParticipants(),delivery)) return false;
+    if (action === 'deliver' && facilities && delivery) {
+      const added=Math.min(PROXY_RULES.supplies,FACILITY_RULES.supplyCap-facilities.supplies[PLAYER_FACTION]);
+      facilities.supplies[PLAYER_FACTION]+=added; delivery.health=delivery.maxHealth; delivery.deployIn=0;
+      op.outcome=`Delivered at ${delivery.name}: +${Math.floor(added)} Armed Forces supplies; equipment repaired and deployment ready.`;
+    }
+    syncProxyTargets(); announce(op.outcome); return true;
+  }
+  function stepProxies(dt: number) {
+    if (!proxies) return;
+    const before = proxies.current()?.phase, oldOutcome = proxies.current()?.outcome;
+    proxies.step(dt,proxyParticipants(),lineClear);
+    let op = proxies.current();
+    if (proxyAutomatic && (!op || op.phase === 'complete' && op.cargo!=='carried') && environment!.proxies!.nextIn<=0) startProxyOperation();
+    op=proxies.current(); if (!op) return;
+    if (before==='incoming' && op.phase==='contested') {
+      if (!fieldProxyCells()) { op.cargo='resolved'; proxies.withdraw('Recovery insertion aborted: approach compromised.'); }
+      else announce('Proxy cells deployed. Stay clear, or approach the prototype to choose its fate.');
+    }
+    const local = [...members.values()].filter(m => m.actor.proxyOperation===op.id);
+    for (const m of local) {
+      const faction=m.actor.faction as ProxyId;
+      if (op.phase==='complete') { dismiss(m.actor.id); continue; }
+      const hunted = [...members.values()].find(p => !p.actor.bot && p.actor.alive && op.targets[faction].includes(p.actor.id));
+      const goal = op.phase==='withdrawing' ? op.entries[faction] : hunted ? hunted.actor : op.at;
+      m.mission={x:goal.x,z:goal.z,y:op.phase==='withdrawing'?goal.y+1.75:hunted?goal.y:op.at.y+1.75}; m.actor.objective=op.phase==='withdrawing'?'Withdraw':hunted?'Recover tracked cargo':'Recover prototype';
+      if (op.phase==='withdrawing' && Math.hypot(m.actor.x-goal.x,m.actor.z-goal.z)<2) { dismiss(m.actor.id); continue; }
+      // Only soldiers who can see a nearby threatened player join this local dispute.
+      if (hunted && op.phase!=='withdrawing' && Math.hypot(m.actor.x-hunted.actor.x,m.actor.z-hunted.actor.z)<45) {
+        for (const ally of members.values()) if (ally.actor.bot && ally.actor.alive && ally.actor.faction===PLAYER_FACTION &&
+          Math.hypot(ally.actor.x-hunted.actor.x,ally.actor.z-hunted.actor.z)<18 && lineClear(ally.actor,m.actor)) proxies.target(faction,ally.actor.id);
+      }
+    }
+    syncProxyTargets();
+    if (op.outcome && op.outcome!==oldOutcome) announce(op.outcome);
+  }
   /** The live part of an event is over: a crew silenced, a raider downed, a crate taken. */
   function endEvent(event: RunningEvent, outcome: CombatOutcome) {
     if (event.descriptor.ended !== undefined) return;
@@ -1645,7 +1753,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (!aim || !Number.isFinite(aim.x) || !Number.isFinite(aim.z)) return null;
     return startEvent({ kind, seed: Math.floor(random() * 0xffffffff) >>> 0, target: aim, heading, intensity: 1 });
   }
-  function setCombatEvents(enabled: boolean) { directorEnabled = !!director && enabled; }
+  function setCombatEvents(enabled: boolean) { directorEnabled = !!director && enabled; proxyAutomatic=enabled; }
   /** At most this many rounds resolve in one tick; the rest land on the next. */
   const BLASTS_PER_TICK = 8;
   /** Clouds on the ground this tick, and the height of the ground under each. */
@@ -1706,7 +1814,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     for (const member of members.values()) {
       // A ride whose event is gone (a reset, a cap) will never arrive: wait for the next one.
       if (member.ride && !events.some(e => e.descriptor.id === member.ride!.event)) member.ride = undefined;
-      if (member.temporary && !events.some(e => e.descriptor.id === member.temporary!.event)) dismiss(member.actor.id);
+      if (member.temporary && !member.actor.proxyOperation && !events.some(e => e.descriptor.id === member.temporary!.event)) dismiss(member.actor.id);
     }
   }
   /** Gas wears through whoever stands in it, once however many clouds overlap there, and plates do not stop it. */
@@ -2635,7 +2743,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const threat: BotThreat | undefined = entry.threat;
     // A side that is surging hunts beyond its own ground.
     const leash = HOME_LEASH * (1 + (factionHeat && entry.home && isSquad(actor.faction) ? factionHeat.surgeAt(actor.faction, entry.home) : 0));
-    const enemies = [...members.values()].filter(m => m !== entry && m.actor.alive && !m.reserve && hostile(actor, m.actor) && !(entry.temporary && m.temporary?.event === entry.temporary.event) &&
+    const enemies = [...members.values()].filter(m => m !== entry && m.actor.alive && !m.reserve && hostile(actor, m.actor) && !(entry.temporary && m.temporary?.event === entry.temporary.event && m.actor.faction === actor.faction) &&
       (m.anchor?.y === undefined || m.actor.id === grudge) && (!entry.home || distance(actor, m.actor) < leash));
     const reported = threat ? members.get(threat.id) : undefined;
     const confirmed: InternalActor | undefined = reported && hostile(actor, reported.actor) && seesThreat(entry, reported, weaponRange(entry.spec ?? FPS_WEAPONS[actor.weapon]), dt) ? reported : undefined;
@@ -3002,6 +3110,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     stepRounds(dt);
     factionHeat?.step(dt);
     stepEvents(dt);
+    stepProxies(dt);
     stepGrenades(dt);
     for (const entry of members.values()) {
       entry.movementBudget = Math.min(8, entry.movementBudget + 40 * dt);
@@ -3045,7 +3154,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function snapshot(): ArenaSnapshot {
     const reinforcementClocks: ReinforcementClocks = { airborne: { mercenaries: Math.max(0, airborneAt.mercenaries - elapsed), 'armed-forces': Math.max(0, airborneAt['armed-forces'] - elapsed) }, naval: { mercenaries: Math.max(0, navalAt.mercenaries - elapsed), 'armed-forces': Math.max(0, navalAt['armed-forces'] - elapsed) }, external: { mercenaries: Math.max(0, reserveAt.mercenaries - elapsed), 'armed-forces': Math.max(0, reserveAt['armed-forces'] - elapsed) } };
-    return { type: 'arena-snapshot', tick, elapsed, ...(facilities || environment?.navalSites?.length || environment?.paratroopers ? { reinforcementClocks } : {}), ...(facilities ? { facilities: facilities.snapshot() } : {}), grenades: grenadeSystem.live.map(g => ({ ...g, position: { ...g.position }, velocity: { ...g.velocity }, landing: { ...g.landing } })), grenadeEvents: grenadeSystem.events.map(e => ({ ...e, point: { ...e.point } })), actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...(m.actor.conditions ? { conditions: structuredClone(m.actor.conditions) } : {}), ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
+    return { type: 'arena-snapshot', tick, elapsed, ...(proxies ? { proxies: proxies.snapshot() } : {}), ...(facilities || environment?.navalSites?.length || environment?.paratroopers ? { reinforcementClocks } : {}), ...(facilities ? { facilities: facilities.snapshot() } : {}), grenades: grenadeSystem.live.map(g => ({ ...g, position: { ...g.position }, velocity: { ...g.velocity }, landing: { ...g.landing } })), grenadeEvents: grenadeSystem.events.map(e => ({ ...e, point: { ...e.point } })), actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...(m.actor.proxyTargets ? { proxyTargets: [...m.actor.proxyTargets] } : {}), ...(m.actor.conditions ? { conditions: structuredClone(m.actor.conditions) } : {}), ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
       ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target }, ...(e.descriptor.origin ? { origin: { ...e.descriptor.origin } } : {}) })) } : {}),
       ...(transports.size ? { transports: [...transports.values()].map(({ event, mode, x, y, z, yaw, health, maxHealth, state, visible, driver, driverAlive, passengers, ramp }) => ({ event, mode, x, y, z, yaw, health, maxHealth, state, visible, driver, driverAlive, passengers, ...(ramp !== undefined ? { ramp } : {}) })) } : {}),
       ...(raiders.size ? { raiders: [...raiders.values()].map(({ event, kind, x, y, z, yaw, health, maxHealth, state, aim, shots, ammo }) => ({ event, kind, x, y, z, yaw, health, maxHealth, state, aim: aim ? { ...aim } : null, shots, ...(ammo !== undefined ? { ammo } : {}) })) } : {}),
@@ -3054,6 +3163,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       ...(barks.length ? { barks: barks.map(b => ({ ...b, ...(b.at ? { at: { ...b.at } } : {}) })) } : {}) };
   }
   function reset() {
+    if (proxies?.current()) { proxies.current()!.phase='complete'; proxies.current()!.cargo='resolved'; proxies.current()!.targets={'freedom-force':[],'collective-cops':[]}; }
     grenadeSystem.reset();
     facilities = environment?.facilities ? createFacilities(environment.facilities.sites) : null;
     squadObjectives.clear(); squadApproaches.clear(); sectorPatrols?.reset(); approachSerial = 0; squadThink = 0;
@@ -3107,7 +3217,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   if (facilities) for (let i = 0; i < (environment?.battlefield ? BATTLEFIELD_POPULATIONS[environment.battlefield.size][PLAYER_FACTION] : 4); i++) enlist(false, PLAYER_FACTION);
   const navigationStatus = () => [...members.values()].filter(m=>m.actor.bot && m.actor.alive && m.actor.squad).map(m=>({id:m.actor.id,objective:m.actor.objective,duty:m.actor.duty,sector:m.actor.patrolSector,pending:!!m.navigation?.pending,path:m.navigation?.path.length??0,x:m.actor.x,z:m.actor.z,goal:m.navigation?.target,via:m.assignment?.via,mission:m.mission}));
   const patrolStatus = () => sectorPatrols?.status(elapsed)??[];
-  return { patrolStatus, navigationStatus, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  return { triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

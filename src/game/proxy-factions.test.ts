@@ -10,11 +10,11 @@ const meshList = (root: THREE.Object3D) => {
 };
 
 describe('proxy faction art prototypes', () => {
-  it('keeps concepts out of live factions, squad heat, role selection and alliances', () => {
+  it('registers independent identities without adding ambient squads or specialist role selections', () => {
     expect(SQUAD_FACTIONS).toEqual(['armed-forces', 'mercenaries']);
     for (const faction of PROXY_FACTIONS) {
-      expect(getArenaFaction(faction.id)).toBeUndefined();
-      expect(listArenaFactions().some(active => active.id === faction.id)).toBe(false);
+      expect(getArenaFaction(faction.id)?.independent).toBe(true);
+      expect(listArenaFactions().some(active => active.id === faction.id)).toBe(true);
       expect('side' in faction).toBe(false);
       for (const operator of faction.operators) expect(getArenaRole(operator.id)).toBeUndefined();
     }
