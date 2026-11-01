@@ -16,8 +16,8 @@ is not expanded into matching assault/heavy/sniper classes.
 |---|---|---|---|
 | Freedom Force / Lancer experimental option | XM29 OICW · Block 3 | **Peace Offering · Escalation Clause** (`ff-oicw`) | Stacked rifle/launcher muzzles, bulky upper receiver, large sight housing and separate front/rear feed silhouettes |
 | Freedom Force / Lancer option | FN SCAR-L | **Soft Power · Foreign Aid** (`ff-scar-l`) | Compact family upper, narrow curved magazine, shared folding-style stock and a low reflex hood |
-| Freedom Force / Wayfinder option | FN SCAR-H | **Hard Power · Strings Attached** (`ff-scar-h`) | Broader receiver and magazine well, wider straight magazine, prism optic; distinct from the Longwatch precision configuration |
-| Freedom Force / Wayfinder | FN Mk 20 / SCAR 20S | **Longwatch** (`ff-longwatch`) | Extended upper, precision stock, short box magazine, large scope and folded bipod give the observer a distinct long silhouette |
+| Freedom Force / Wayfinder option | FN SCAR-H | **Hard Power · Strings Attached** (`ff-scar-h`) | Broader receiver and magazine well, wider straight magazine, prism optic; distinct from the Smart Power precision configuration |
+| Freedom Force / Wayfinder | FN Mk 20 / SCAR 20S | **Smart Power · Targeted Assistance** (`ff-longwatch`) | Extended upper, precision stock, short box magazine, large scope and folded bipod give the observer a distinct long silhouette |
 | Freedom Force / Wayfinder precision option | CheyTac M200 Intervention | **M200 Intervention study** (`ff-intervention`) | Exposed long barrel, round fore-end, under-barrel carry handle, twin stock rods, bipod and rear monopod |
 | Collective Corps / Bastion | QBZ-95 family | **Strong Objection No. 496 · Final Warning No. 497** (`cc-gatekeeper`) | Bullpup magazine behind the hand, raised open carry bridge, integrated rear stock and pointed fore-end give the protected-entry specialist a different equipment language |
 | Collective Corps / Conductor | QBZ-191 family | **Consensus Builder · Unanimous Vote** (`cc-network`) | Conventional forward magazine, continuous rail and stepped adjustable-stock shape suit a modern sensor-coordination concept |
@@ -36,15 +36,15 @@ sniper. The QBU alternative is not modeled in this pass. AK-pattern references a
 possible Eastern-bloc route, but mixing more visual families now would weaken
 the chosen slate/jade security-force identity.
 
-## SCAR-L / SCAR-H variants and agreed names
+## SCAR-family variants and agreed names
 
 Both variants are separate selectable studies, not recolors or replacements for
-Longwatch. They retain the same SCAR-family stock, cheek rest and upper rail.
+Smart Power. They retain the same SCAR-family stock, cheek rest and upper rail.
 In these chosen art configurations, the L has a shorter fore-end, narrower
 receiver, curved magazine and reflex sight; the H has a longer fore-end, broader
 receiver/well, wider straight magazine and prism optic. Single versus twin amber
 side marks reinforce the distinction without replacing the geometry cues.
-Longwatch keeps the precision stock, long tube scope and folded bipod.
+Smart Power keeps the precision stock, long tube scope and folded bipod.
 
 The real-world references are the [SCAR-L](https://fnherstal.com/en/defence/portable-weapons/fn-scar-l-mk2/)
 (5.56mm) and [SCAR-H](https://fnherstal.com/en/defence/portable-weapons/fn-scar-h-mk2/)
@@ -60,11 +60,15 @@ The agreed two-level display names are:
 |---|---|---|---|
 | SCAR-L | **Soft Power** | **Foreign Aid** | **Soft Power · Foreign Aid** |
 | SCAR-H | **Hard Power** | **Strings Attached** | **Hard Power · Strings Attached** |
+| Mk 20 / SCAR 20S | **Smart Power** | **Targeted Assistance** | **Smart Power · Targeted Assistance** |
 
 The family labels communicate the intended light/heavy art distinction; the
 signature names provide the proxy-conflict joke. These are display labels for
 the gallery and the later playable cargo variants. Stable
-`ff-scar-l` / `ff-scar-h` IDs are unchanged. The gallery picker and preview banner separate family and signature labels;
+`ff-scar-l` / `ff-scar-h` / `ff-longwatch` IDs are unchanged. The former
+Longwatch display name is superseded by Smart Power · Targeted Assistance;
+the Mk 20 study and its playable cargo variant retain their existing geometry,
+weapon-family index and behavior. The gallery picker and preview banner separate family and signature labels;
 the description and accessible canvas label use the full name.
 
 ## Collective Corps family and signature names
@@ -123,12 +127,12 @@ settings, targeting electronics, ammunition or reload behavior. Prototype
 integration and hand fitting remain separate work.
 
 **M200 Intervention study:** an additional Freedom Force precision candidate,
-not a replacement for Longwatch. The manufacturer's side photo informed the
+not a replacement for Smart Power. The manufacturer's side photo informed the
 long exposed barrel, round fore-end, open under-barrel carry handle, stock rods,
 cheek rest, large scope, bipod and rear monopod. Bone/sand hardware, steel-blue
 panels and an amber mark adapt it to the faction. Carry-handle and stock gaps
 are real negative space; the bipod is splayed for review. The model is visibly
-longer than Longwatch at the same scale. Portrait framing now allows the longer
+longer than Smart Power at the same scale. Portrait framing now allows the longer
 profile for every study without individually rescaling weapons.
 
 The working display name remains M200 Intervention study; no fictional name is
@@ -147,7 +151,7 @@ magazine socket. Stock proportions, pod shape and faction panels are stylized
 art choices, not a dimensional reproduction of a particular production variant.
 No launcher, sight electronics or targeting behavior is implemented.
 
-**Longwatch:** bone/sand furniture, long upper rail, broad precision cheek rest,
+**Smart Power · Targeted Assistance:** bone/sand furniture, long upper rail, broad precision cheek rest,
 shorter straight magazine, large tube optic and folded bipod. Its precision stock, long scope and folded bipod distinguish it from the
 SCAR-L and SCAR-H studies. The tall optic and
 stock profile must remain readable in grayscale. The fore-end uses actual
@@ -181,7 +185,7 @@ working reference name.
   Outside surfaces merge by material, using at most six weapon mesh draws.
 - `src/components/ProxyWeaponStudies.tsx` provides the review page inside the
   existing faction-design route. The operator gallery still uses the original
-  generic rifle/marksman placeholders. SCAR-L, SCAR-H and Longwatch now also
+  generic rifle/marksman placeholders. SCAR-L, SCAR-H and Smart Power now also
   have playable Freedom Force cargo variants, integrated separately in
   `buildServiceWeapon` and the live catalog. Intervention, XM29 and Collective
   Corps studies are not registered as playable weapons or cargo rewards.

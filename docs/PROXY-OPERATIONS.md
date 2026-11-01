@@ -65,7 +65,7 @@ favor penalty. Outcomes and actual rewards appear in the comms feed.
 Freedom Force crates roll one of three faction weapons with equal probability
 when the operation spawns: **Soft Power · Foreign Aid** (SCAR-L, 5.56 mm,
 30-round magazines, reflex sight), **Hard Power · Strings Attached** (SCAR-H,
-7.62 mm, 20-round magazines, 2× optic), or **Longwatch** (semi-automatic
+7.62 mm, 20-round magazines, 2× optic), or **Smart Power · Targeted Assistance** (semi-automatic
 precision rifle, 7.62 mm, 10-round magazines, 4× optic). The selection remains
 fixed through warning, inspection and recovery; the choice panel names the
 weapon before acting. Freedom Force cargo never grants a SAR 21.

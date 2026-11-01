@@ -5,7 +5,7 @@ Collective Corps deploy as finite two-person cells during contested prototype
 operations. Personal favor and encounter-local targets are active; faction-wide
 diplomacy remains a proposal. See [proxy operations](PROXY-OPERATIONS.md).
 The existing gallery remains a visual study; specialist shield/sensor mechanics
-remain proposals. SCAR-L, SCAR-H and Longwatch have playable Freedom Force
+remain proposals. SCAR-L, SCAR-H and Smart Power have playable Freedom Force
 cargo variants; the other five weapon designs remain gallery studies.
 
 Review the actual procedural models at **`/faction-designs`**. Drag to rotate,

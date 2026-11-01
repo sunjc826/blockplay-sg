@@ -70,7 +70,7 @@ export const FPS_WEAPONS: readonly WeaponSpec[] = [
     traits: [{ kind: 'falloff', near: 40, far: 110, minScale: .65 }, { kind: 'precision', multiplier: 2 }] },
   { caliberMm: 7.62, id: 'ff-scar-h', weightKg: 4.2, name: 'Hard Power', role: 'Freedom Force battle rifle', capacity: 20, reserve: 80, interval: .13, reload: 2.1, recoil: .025, recoilRecovery: 1.15, sightHeight: .350, damage: 55, aimFov: magnifiedFov(2), mobility: .96, optic: 'precision', ballistics: muzzleBallistics(850),
     traits: [{ kind: 'falloff', near: 55, far: 140, minScale: .75 }, { kind: 'precision', multiplier: 2.2 }] },
-  { caliberMm: 7.62, id: 'ff-longwatch', weightKg: 5.2, name: 'Longwatch', role: 'Freedom Force precision rifle', fireMode: 'semi', capacity: 10, reserve: 50, interval: .32, reload: 2.3, recoil: .03, recoilRecovery: 1.4, sightHeight: .350, damage: 80, aimFov: magnifiedFov(4), mobility: .9, optic: 'precision', ballistics: muzzleBallistics(900),
+  { caliberMm: 7.62, id: 'ff-longwatch', weightKg: 5.2, name: 'Smart Power', role: 'Freedom Force precision rifle', fireMode: 'semi', capacity: 10, reserve: 50, interval: .32, reload: 2.3, recoil: .03, recoilRecovery: 1.4, sightHeight: .350, damage: 80, aimFov: magnifiedFov(4), mobility: .9, optic: 'precision', ballistics: muzzleBallistics(900),
     traits: [{ kind: 'falloff', near: 80, far: 180, minScale: .85 }, { kind: 'precision', multiplier: 2.4 }] },
 ];
 

@@ -9,7 +9,7 @@ export const PROXY_REWARDS = {
   'freedom-force': ['ff-scar-l', 'ff-scar-h', 'ff-longwatch'],
   'collective-cops': ['sar-proxy-prototype'],
 } as const;
-export const proxyWeaponName = (id: string) => ({ 'ff-scar-l': 'Soft Power · Foreign Aid', 'ff-scar-h': 'Hard Power · Strings Attached', 'ff-longwatch': 'Longwatch', 'sar-proxy-prototype': 'SAR 21 · Unauthorised Upgrade' })[id] ?? 'Prototype';
+export const proxyWeaponName = (id: string) => ({ 'ff-scar-l': 'Soft Power · Foreign Aid', 'ff-scar-h': 'Hard Power · Strings Attached', 'ff-longwatch': 'Smart Power · Targeted Assistance', 'sar-proxy-prototype': 'SAR 21 · Unauthorised Upgrade' })[id] ?? 'Prototype';
 export type ProxyAction = 'return' | 'rival' | 'keep' | 'carry' | 'deliver';
 export type ProxyPoint = { x: number; y: number; z: number };
 export interface ProxyCampaign {

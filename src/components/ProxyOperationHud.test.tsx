@@ -13,7 +13,7 @@ function hud() {
 it('discloses all tradeoffs before the cargo decision, including tracker attribution and life-limited gear',()=>{
  const html=renderToStaticMarkup(<ProxyOperationHud hud={hud()} engine={null}/>);
  expect(html).toContain('Choose the prototype&#x27;s fate');expect(html).toContain('Return to Freedom Force');expect(html).toContain('Hand over to Collective Corps');
- expect(html).toMatch(/Soft Power|Hard Power|Longwatch/); expect(html).not.toContain('SAR 21');
+ expect(html).toMatch(/Soft Power|Hard Power|Smart Power/); expect(html).not.toContain('SAR 21');
  expect(html).toContain('Keep the Mythic upgrade');expect(html).toContain('Carry to the Armed Forces');expect(html).toContain('for this life');expect(html).toContain('The tracker identifies');expect(html).toContain('battle continues');
 });
 it('cannot offer a dead cell as a handover recipient',()=>{
