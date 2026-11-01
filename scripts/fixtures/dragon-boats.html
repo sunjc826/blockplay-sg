@@ -1,0 +1,28 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><title>Marina dragon boats</title><style>html,body,#world{margin:0;width:100%;height:100%;overflow:hidden}#overlay{position:absolute;inset:0;pointer-events:none}#start{position:absolute;z-index:20;right:16px;bottom:16px;padding:16px}</style></head><body><div id="world"></div><div id="overlay"></div><button id="start">Enter bay</button><script type="module">
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import '/src/styles.css';
+import {createFpsEngine} from '/src/game/fps-engine.ts';
+import FpsVehicleHud from '/src/components/FpsVehicleHud.tsx';
+import TouchControls from '/src/components/TouchControls.tsx';
+import {setEnvironmentSettings} from '/src/game/environment-settings.ts';
+setEnvironmentSettings({weather:'sunny',timeOfDay:'noon',celebration:'none',reducedEffects:true,shadows:false,occlusion:false});
+const params=new URLSearchParams(location.search);
+if(params.has('gallery')){
+  document.getElementById('start').remove();
+  const {buildMarinaScene}=await import('/src/game/marina-scene.ts');
+  const {buildVehicleModel}=await import('/src/game/vehicle-models.ts');
+  const {DRAGON_BOAT_SPAWNS}=await import('/src/game/marina-water.ts');
+  const THREE=await import('three');
+  const world=buildMarinaScene(),renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(innerWidth,innerHeight);renderer.toneMapping=THREE.ACESFilmicToneMapping;document.getElementById('world').append(renderer.domElement);
+  for(const [kind,p] of Object.entries(DRAGON_BOAT_SPAWNS)){const boat=buildVehicleModel(kind);boat.position.set(p.x,-.24,p.z);boat.rotation.y=p.yaw;world.scene.add(boat);}
+  const camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,.1,1200);
+  const views={overview:[[61,56,73],[0,0,-12]],camp:[[27,17,21],[0,.8,-12]],boat:[[-27,5,33],[-17,.6,23]]};
+  window.show=(view='overview')=>{camera.position.set(...views[view][0]);camera.lookAt(...views[view][1]);world.animate(12);renderer.render(world.scene,camera);};
+  window.show();window.ready=true;
+}else{
+  const root=createRoot(document.getElementById('overlay'));
+  window.engine=createFpsEngine(document.getElementById('world'),hud=>{window.hud=structuredClone(hud);document.body.classList.add('fps-game');document.body.dataset.touch=hud.inputMode==='touch'?'on':'off';root.render(React.createElement(React.Fragment,null,React.createElement(FpsVehicleHud,{hud}),hud.inputMode==='touch'?React.createElement(TouchControls,{hud,engine:window.engine??null,mode:'range',onMenu:()=>window.engine.pause()}):null));},{region:'marina-bay',combat:false,rangeTravel:{spawn:{x:-20.5,z:24,yaw:0,pitch:-.06},onTravel(){}}});
+  document.getElementById('start').onclick=()=>{window.engine.start();document.getElementById('start').remove();};
+}
+</script></body></html>

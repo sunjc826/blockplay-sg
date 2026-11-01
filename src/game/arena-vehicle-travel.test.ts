@@ -5,11 +5,11 @@ import { createRegionMovement } from './region-collision';
 import * as THREE from 'three';
 import { createSoloSession } from './lan-peer';
 import { createArenaRuntime, validArenaSnapshot } from './arena-runtime';
-import type { VehicleKind } from './vehicle-rules';
+import type { MotorVehicleKind } from './vehicle-rules';
 
 const bounds = { minX: -150, maxX: 150, minZ: -150, maxZ: 150 };
 const spawns = { car: { x: 0, z: 0, yaw: 0 }, helicopter: { x: 40, z: 0, yaw: 0 } };
-function setup(kind: VehicleKind, id: string, departures?: Pick<ArenaEnvironment, 'departedCrew' | 'departedVehicles'>) {
+function setup(kind: MotorVehicleKind, id: string, departures?: Pick<ArenaEnvironment, 'departedCrew' | 'departedVehicles'>) {
   const x = spawns[kind].x;
   const environment: ArenaEnvironment = { ...departures, bounds, move: createRegionMovement(bounds).move, spawns: [{ x: x + 10, z: 0 }], playerSpawn: { x: x + 3.5, z: 0 }, endless: true,
     facilities: { sites: [

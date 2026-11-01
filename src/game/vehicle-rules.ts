@@ -3,7 +3,13 @@ import { MARINA_BOUNDS, type Obstacle } from './marina-collision';
 import { type RegionBounds, createRegionMovement, overlapsObstacle, overlapsObstacleRect } from './region-collision';
 import { recordVehicleImpact } from './vehicle-impact';
 import { VEHICLE_COMBAT } from './vehicle-combat';
-export type VehicleKind = 'car' | 'helicopter';
+import { DRAGON_BOAT_SPAWNS, MARINA_CAMP_DECKS, MARINA_WATER, canPaddle, isDragonBoat, type DragonBoatKind } from './marina-water';
+export type MotorVehicleKind = 'car' | 'helicopter';
+export type VehicleKind = MotorVehicleKind | DragonBoatKind;
+export const VEHICLE_KINDS = ['car', 'helicopter', 'dragon-boat-red', 'dragon-boat-gold'] as const;
+export const isVehicleKind = (value: unknown): value is VehicleKind => typeof value === 'string' && (VEHICLE_KINDS as readonly string[]).includes(value);
+export type VehicleSpawns = Record<MotorVehicleKind, VehicleSpawn> & Partial<Record<DragonBoatKind, VehicleSpawn>>;
+export const vehicleName = (kind: VehicleKind) => kind === 'car' ? 'Utility 01' : kind === 'helicopter' ? 'Falcon 01' : kind === 'dragon-boat-red' ? 'Red Dragon' : 'Golden Dragon';
 export interface VehicleSpawn { x: number; z: number; yaw: number }
 export type VehicleWorldBounds = RegionBounds;
 export interface VehicleImpact { serial: number; speed: number; x: number; y: number; z: number }
@@ -23,11 +29,11 @@ export interface FlightObstacle extends Obstacle { minY: number; maxY: number }
 /** Impact speed is the inward velocity at contact, before the collision impulse. */
 export interface VehicleMovement { state: VehicleState; blocked: boolean; impactSpeed: number }
 export const VEHICLE_SPAWNS = { car: marinaPoint({ x: -48, z: 68, yaw: -Math.PI / 2 }), helicopter: marinaPoint({ x: -65, z: 69, yaw: 0 }) };
-export const createVehicle = (kind: VehicleKind, spawn: VehicleSpawn = VEHICLE_SPAWNS[kind]): VehicleState => ({ kind, despawned: false, ...spawn, y: .13, speed: 0, lateralSpeed: 0, yawSpeed: 0, climb: 0, health: VEHICLE_COMBAT[kind].health, ammo: VEHICLE_COMBAT[kind].ammo, weaponCooldown: 0 });
+export const createVehicle = (kind: VehicleKind, spawn: VehicleSpawn = isDragonBoat(kind) ? DRAGON_BOAT_SPAWNS[kind] : VEHICLE_SPAWNS[kind]): VehicleState => ({ kind, despawned: false, ...spawn, y: isDragonBoat(kind) ? MARINA_WATER.surface : .13, speed: 0, lateralSpeed: 0, yawSpeed: 0, climb: 0, health: VEHICLE_COMBAT[kind].health, ammo: VEHICLE_COMBAT[kind].ammo, weaponCooldown: 0 });
 const damp = (a: number, b: number, rate: number, dt: number) => b + (a - b) * Math.exp(-rate * dt);
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
 export function vehicleBounds(v: VehicleState): Obstacle {
-  const width = v.kind === 'car' ? 1.25 : 1.35, length = v.kind === 'car' ? 2.35 : 3.8;
+  const width = isDragonBoat(v.kind) ? .95 : v.kind === 'car' ? 1.25 : 1.35, length = isDragonBoat(v.kind) ? 4.5 : v.kind === 'car' ? 2.35 : 3.8;
   const x = Math.abs(Math.cos(v.yaw)) * width + Math.abs(Math.sin(v.yaw)) * length;
   const z = Math.abs(Math.sin(v.yaw)) * width + Math.abs(Math.cos(v.yaw)) * length;
   return { minX: v.x - x, maxX: v.x + x, minZ: v.z - z, maxZ: v.z + z };
@@ -155,6 +161,21 @@ export function flyVehicle(v: VehicleState, forward: number, steer: number, lift
 /** Feet height at a place infantry can stand; null means no safe support/headroom. */
 export type VehicleExitFloor = (x: number, z: number) => number | null;
 export function vehicleExit(v: VehicleState, obstacles: readonly Obstacle[], bounds: VehicleWorldBounds = MARINA_BOUNDS, floor: VehicleExitFloor = () => 0) {
+  if (isDragonBoat(v.kind)) {
+    if (vehicleSpeed(v) > .8 || v.despawned) return null;
+    const movement = createRegionMovement(bounds), hull = vehicleBounds(v), c = Math.cos(v.yaw), s = Math.sin(v.yaw);
+    const offsets = [0,-.9,.9,-1.8,1.8];
+    const candidates = MARINA_CAMP_DECKS.filter(d=>d.id!=='camp').flatMap(d => offsets.flatMap(dx=>offsets.map(dz=>({ x: clamp(v.x+dx, d.minX + .5, d.maxX - .5), z: clamp(v.z+dz, d.minZ + .5, d.maxZ - .5) }))))
+      .sort((a,b) => Math.hypot(a.x-v.x,a.z-v.z)-Math.hypot(b.x-v.x,b.z-v.z));
+    for (const p of candidates) {
+      const dx = p.x-v.x, dz = p.z-v.z, side = Math.abs(c*dx-s*dz), along = Math.abs(s*dx+c*dz);
+      // Only step across a short mooring gap, never teleport over the campsite.
+      if (side > 2.8 || along > 5.8 || Math.hypot(Math.max(0,side-.95),Math.max(0,along-4.5)) > 1.8) continue;
+      const y = floor(p.x,p.z);
+      if (y !== null && movement.canOccupy(p.x,p.z,.38,obstacles.filter(o => y < (o.maxY ?? Infinity)-1e-5)) && movement.canOccupy(p.x,p.z,.38,[hull])) return { ...p,y };
+    }
+    return null;
+  }
   if (v.kind === 'helicopter' && (vehicleSpeed(v) > 2 || v.y > (bounds.groundHeight?.(v.x,v.z)??0)+.3 || Math.abs(v.climb) > .5)) return null;
   const radius = .38, hull = vehicleBounds(v), nominal = v.kind === 'car' ? 3.2 : 4.3;
   const movement = createRegionMovement(bounds);
@@ -181,4 +202,21 @@ export function vehicleExit(v: VehicleState, obstacles: readonly Obstacle[], bou
     }
   }
   return null;
+}
+
+/** Paddle at natural cadence; extra occupied paddler seats improve acceleration. */
+export function paddleVehicle(v: VehicleState, forward: number, steer: number, brake: boolean, dt: number, paddlers = 0, otherHulls: readonly Obstacle[] = []): VehicleMovement {
+  dt = clamp(dt, 0, .05);
+  if (v.health <= 0 || v.despawned) return { state: { ...v, speed: 0 }, blocked: false, impactSpeed: 0 };
+  let speed = brake ? damp(v.speed, 0, 5, dt) : forward ? clamp(v.speed + forward * (1.2 + clamp(paddlers,0,3)*.4) * dt, -1.6, 5) : damp(v.speed, 0, .45, dt);
+  const yaw = v.yaw - steer * (.32 + Math.min(Math.abs(speed),5)*.07) * dt;
+  const heading = canPaddle(v.x,v.z,yaw,otherHulls) ? yaw : v.yaw;
+  let x = v.x, z = v.z, blocked = heading !== yaw;
+  const steps = Math.max(1,Math.ceil(Math.abs(speed)*dt/.08));
+  for (let i=0;i<steps;i++) {
+    const nx=x-Math.sin(heading)*speed*dt/steps,nz=z-Math.cos(heading)*speed*dt/steps;
+    if (!canPaddle(nx,nz,heading,otherHulls)) { speed=0; blocked=true; break; }
+    x=nx;z=nz;
+  }
+  return { state: { ...v,x,z,y:MARINA_WATER.surface,yaw:heading,speed,lateralSpeed:0,yawSpeed:0,climb:0 },blocked,impactSpeed:0 };
 }

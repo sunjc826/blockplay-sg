@@ -1,11 +1,11 @@
 import { marinaPoint } from './marina-layout';
 import { FPS_SPAWN, FPS_TARGETS } from './fps-rules';
-import { VEHICLE_SPAWNS, type VehicleSpawn, type VehicleKind } from './vehicle-rules';
+import { VEHICLE_SPAWNS, type VehicleSpawns } from './vehicle-rules';
 import type { WorldZoneId, ZonePosition, ZoneSpawn } from './world-zones';
 
 export interface FpsDistrict {
   label: string; setting: string; spawn: ZoneSpawn; targets: readonly ZonePosition[];
-  vehicles: Record<VehicleKind, VehicleSpawn>;
+  vehicles: VehicleSpawns;
   props: readonly (readonly [asset: number, x: number, z: number, width: number, depth: number])[];
 }
 const districts: Record<WorldZoneId, FpsDistrict> = {

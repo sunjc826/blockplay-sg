@@ -2,7 +2,7 @@ import type { WeaponTerm } from './weapon-rentals';
 import type { RaiderBounty } from './combat-rewards';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { discardRental, spendRentalTime, expireRentals, selectCarryWeapon, chooseEncikTone, chooseRankSet, claimReward, claimElimination, consumeItem, createProfile, equip, purchase, purchaseFromVendor, purchaseLevel, restoreProfile, STORAGE_KEY, type ArmoryProfile, type ExerciseReward } from './armory-state';
-import type { VehicleKind } from './vehicle-rules';
+import type { MotorVehicleKind } from './vehicle-rules';
 import { getRankSet } from './rank-insignia';
 import type { EncikTone } from './encik-registers';
 
@@ -50,7 +50,7 @@ export function useArmory() {
   const buyLevel = useCallback(() => { const result = purchaseLevel(current.current); const changed = result.profile !== current.current; update(result.profile); setMessage(result.message); return changed; }, [update]);
   const wearRankSet = useCallback((id: string) => { const next = chooseRankSet(current.current, id); if (next === current.current) return; update(next); setMessage(`Insignia set to ${getRankSet(id).name}.`); }, [update]);
   const setEncikTone = useCallback((tone: EncikTone) => { const next = chooseEncikTone(current.current, tone); if (next === current.current) return; update(next); setMessage(tone === 'recruit' ? 'Encik will treat you like a recruit, whatever your rank.' : 'Encik will follow your rank.'); }, [update]);
-  const equipItem = useCallback((id: string, family: number, vehicle: VehicleKind = 'car') => { const next = equip(current.current, id, family, vehicle); const changed = next !== current.current; update(next); setMessage(changed ? 'Equipped for your next exercise.' : 'Item must be owned or rented before equipping.'); return changed; }, [update]);
+  const equipItem = useCallback((id: string, family: number, vehicle: MotorVehicleKind = 'car') => { const next = equip(current.current, id, family, vehicle); const changed = next !== current.current; update(next); setMessage(changed ? 'Equipped for your next exercise.' : 'Item must be owned or rented before equipping.'); return changed; }, [update]);
   const selectCarrySlot = useCallback((slot: 'main' | 'extra', family: number | null) => { const next = selectCarryWeapon(current.current, slot, family); const changed = next !== current.current; update(next); setMessage(changed ? 'Carry slots updated.' : 'That weapon cannot go in this slot.'); return changed; }, [update]);
   const award = useCallback((reward: ExerciseReward) => update(claimReward(current.current, reward)), [update]);
   const consume = useCallback((id: string) => update(consumeItem(current.current, id)), [update]);

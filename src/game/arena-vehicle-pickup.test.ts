@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createArena, type ArenaEnvironment, type ArenaSimulation } from './arena-rules';
 import { validArenaSnapshot } from './arena-runtime';
 import { createSharedVehicle, type VehicleControls } from './vehicle-seats';
-import type { VehicleKind } from './vehicle-rules';
+import type { MotorVehicleKind } from './vehicle-rules';
 import { createRegionMovement } from './region-collision';
 import type { Obstacle } from './marina-collision';
 import type { FacilitySite } from './facilities';
@@ -12,10 +12,10 @@ const spawns = { car: { x: 0, z: 0, yaw: 0 }, helicopter: { x: 40, z: 0, yaw: 0 
 const bounds = { minX: -150, maxX: 150, minZ: -150, maxZ: 150 };
 const movement = createRegionMovement(bounds);
 const actor = (a: ArenaSimulation, id: string) => a.snapshot().actors.find(m => m.id === id)!;
-const vehicle = (a: ArenaSimulation, kind: VehicleKind = 'car') => a.snapshot().vehicles!.find(v => v.kind === kind)!;
+const vehicle = (a: ArenaSimulation, kind: MotorVehicleKind = 'car') => a.snapshot().vehicles!.find(v => v.kind === kind)!;
 const allies = (a: ArenaSimulation) => a.snapshot().actors.filter(m => m.bot && m.faction === 'armed-forces');
 const tick = (a: ArenaSimulation, seconds: number) => { for (let t = 0; t < seconds - .001; t += .05) a.step(.05); };
-function waitForGunner(a: ArenaSimulation, kind: VehicleKind = 'car') {
+function waitForGunner(a: ArenaSimulation, kind: MotorVehicleKind = 'car') {
   for (let t = 0; t < 3 && !vehicle(a, kind).occupants[1]; t += .05) a.step(.05);
   expect(vehicle(a, kind).occupants[1]).toBeTruthy();
 }
@@ -26,7 +26,7 @@ function input(a: ArenaSimulation, controls: Partial<VehicleControls>, seconds: 
   }
 }
 function setup({ kind = 'car', gather = true, walls = [] as Obstacle[], enemy = false, ammo = 240, botX, elevation = 0 }: {
-  kind?: VehicleKind; gather?: boolean; walls?: Obstacle[]; enemy?: boolean; ammo?: number; botX?: number; elevation?: number;
+  kind?: MotorVehicleKind; gather?: boolean; walls?: Obstacle[]; enemy?: boolean; ammo?: number; botX?: number; elevation?: number;
 } = {}) {
   const x = spawns[kind].x;
   const sites: FacilitySite[] = [

@@ -7,12 +7,12 @@ import { hasItemAccess, rentalTimeLeft } from '../game/weapon-rentals';
 import { armoryThumbnailFile } from '../game/armory-thumbnails';
 import { FPS_WEAPONS } from '../game/fps-rules';
 import type { ArmoryStore } from '../game/use-armory';
-import type { VehicleKind } from '../game/vehicle-rules';
+import type { MotorVehicleKind } from '../game/vehicle-rules';
 import ArmoryCarrySlots from './ArmoryCarrySlots';
 import './armory-inventory.css';
 
 export default function ArmoryInventory({ store, nav }: { store: ArmoryStore; nav: ReactNode }) {
-  const [tab, setTab] = useState<'weapon' | 'gear' | 'supply'>('weapon'), [family, setFamily] = useState(0), [vehicle, setVehicle] = useState<VehicleKind>('car');
+  const [tab, setTab] = useState<'weapon' | 'gear' | 'supply'>('weapon'), [family, setFamily] = useState(0), [vehicle, setVehicle] = useState<MotorVehicleKind>('car');
   const { profile } = store;
   const available = ARMORY_CATALOG.filter(item => item.category === 'consumable' ? (profile.consumables[item.id] ?? 0) > 0 : hasItemAccess(profile, item.id));
   const items = available.filter(item => tab === 'weapon' ? item.category === 'weapon' : tab === 'supply' ? item.category === 'consumable' : item.category !== 'weapon' && item.category !== 'consumable');
@@ -22,7 +22,7 @@ export default function ArmoryInventory({ store, nav }: { store: ArmoryStore; na
     <div className="inventory-clock"><Clock3 size={17} /><div><strong>Rental clock paused</strong><span>Only active gameplay spends rental time. Menus, pause and offline time are free. Rent for 1, 2 or 4 hours of active play.</span></div></div>
     <ArmoryCarrySlots store={store} />
     <div className="inventory-navigation" role="tablist" aria-label="Inventory categories">{([['weapon', 'Weapons'], ['gear', 'Gear'], ['supply', 'Supplies']] as const).map(([id, title]) => <button type="button" key={id} role="tab" aria-selected={tab === id} id={`inventory-tab-${id}`} aria-controls="inventory-items" onClick={() => setTab(id)}>{title}<small>{available.filter(item => id === 'weapon' ? item.category === 'weapon' : id === 'supply' ? item.category === 'consumable' : item.category !== 'weapon' && item.category !== 'consumable').length}</small></button>)}</div>
-    {tab === 'gear' && <div className="inventory-destinations"><label>Equip weapon finishes on<select value={family} onChange={event => setFamily(Number(event.target.value))}>{FPS_WEAPONS.map((weapon, index) => isShopFamily(index) && <option key={weapon.id} value={index}>{weapon.name}</option>)}</select></label><label>Equip vehicle finishes on<select value={vehicle} onChange={event => setVehicle(event.target.value as VehicleKind)}><option value="car">Utility 01</option><option value="helicopter">Falcon 01</option></select></label></div>}
+    {tab === 'gear' && <div className="inventory-destinations"><label>Equip weapon finishes on<select value={family} onChange={event => setFamily(Number(event.target.value))}>{FPS_WEAPONS.map((weapon, index) => isShopFamily(index) && <option key={weapon.id} value={index}>{weapon.name}</option>)}</select></label><label>Equip vehicle finishes on<select value={vehicle} onChange={event => setVehicle(event.target.value as MotorVehicleKind)}><option value="car">Utility 01</option><option value="helicopter">Falcon 01</option></select></label></div>}
     <div className="inventory-grid" id="inventory-items" role="tabpanel" aria-labelledby={`inventory-tab-${tab}`}>
       {items.map(item => {
         const slot = item.category === 'weapon' ? item.family! : family, equipped = isEquipped(profile, item, slot, vehicle), remaining = profile.rentals[item.id];

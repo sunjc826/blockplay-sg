@@ -128,3 +128,36 @@ minimap/checkpoint alignment, facility placement, practice target sightlines,
 landmark transforms, civic traversal, water and animated set pieces. Browser
 checks inspect the district at ground level and from above and exercise the real
 FPS engine with 32 and 64 soldiers. No paid reference or audio requests are used.
+
+
+## Dragon boats and the floating campsite
+
+Marina FPS ranges and expeditions have two unarmed four-seat dragon boats,
+Red Dragon at the south jetty and Golden Dragon at the north jetty. W/S paddles
+or reverses, A/D steers (including at rest), Space brakes, C changes view and V
+changes seats. E boards from a jetty or landing and disembarks only at a dry
+landing below 0.8 m/s. Touch uses the movement stick and brake control.
+Occupied paddler seats improve acceleration; solo steering remains possible.
+Maximum forward speed is 5 m/s. Hulls cannot cross quays, decks or each other.
+Passengers in the last two seats retain their carried firearms. Open boat
+occupants can be hit directly; boats have 300 hull health and no explosive blast.
+
+The central 24 by 20 metre floating campsite has a low shelter, bedrolls,
+separated waist-high cover and three landing arms facing north, south and east.
+It is authored gameplay scenery, not a reconstruction of a real Marina island.
+The decking stands at promenade level; surrounding water still blocks infantry.
+All four occupants can disembark to distinct dry positions. There is no central
+score objective, spawn point or unlimited resupply reward. The map shows the
+decks and parked boats. Autonomous AI water routes are not implemented; human
+players can steer and share the boats through the existing arena authority.
+
+Expedition boats recover at their own jetties after wreck cleanup or distant
+abandonment when the berth is clear and players are away. They do not consume
+motor-pool supplies or replace an occupied hull. Other districts and vehicle
+finish ownership retain their two motor-vehicle choices.
+
+`pnpm test:dragon-boats` runs the dedicated browser fixture with Vite on 5219
+and Chrome remote debugging on 9379 (override with `FPS_APP_ORIGIN` and
+`FPS_CHROME_ORIGIN`). Unit coverage uses shipped campsite collision, a fully
+crewed authority crossing and unload, exposed occupants, water confinement,
+coasting/braking, clear jetties, camera models and reset behaviour.

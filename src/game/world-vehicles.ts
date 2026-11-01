@@ -1,4 +1,5 @@
-import { canFly, createVehicle, vehicleBounds, type FlightObstacle, type VehicleKind, type VehicleSpawn, type VehicleWorldBounds } from './vehicle-rules';
+import { isDragonBoat, canPaddle } from './marina-water';
+import { canFly, createVehicle, vehicleBounds, type FlightObstacle, type VehicleSpawns, type VehicleKind, type VehicleSpawn, type VehicleWorldBounds } from './vehicle-rules';
 import type { Obstacle } from './marina-collision';
 import { overlapsObstacleRect } from './region-collision';
 
@@ -7,6 +8,7 @@ export const WORLD_VEHICLES = { despawnSeconds: 30, wreckSeconds: 45, abandonedS
 const overlaps = (a: Obstacle, b: Obstacle) => overlapsObstacleRect(b,(a.minX+a.maxX)/2,(a.minZ+a.maxZ)/2,(a.maxX-a.minX)/2,(a.maxZ-a.minZ)/2);
 
 export function clearVehicleSpawn(kind: VehicleKind, spawn: VehicleSpawn, ground: readonly Obstacle[], flight: readonly FlightObstacle[], bounds: VehicleWorldBounds, reserved: readonly Obstacle[] = []) {
+  if(isDragonBoat(kind)) return canPaddle(spawn.x,spawn.z,spawn.yaw,reserved);
   const v = createVehicle(kind, spawn), hull = vehicleBounds(v);
   const pad = kind === 'helicopter' ? { minX: v.x - 6, maxX: v.x + 6, minZ: v.z - 6, maxZ: v.z + 6 } : hull;
   return pad.minX >= bounds.minX && pad.maxX <= bounds.maxX && pad.minZ >= bounds.minZ && pad.maxZ <= bounds.maxZ &&
@@ -14,8 +16,8 @@ export function clearVehicleSpawn(kind: VehicleKind, spawn: VehicleSpawn, ground
 }
 
 /** Prefer the district's authored motor pool; relocate only when new scenery blocks it. */
-export function worldVehicleSpawns(preferred: Record<VehicleKind, VehicleSpawn>, ground: readonly Obstacle[], flight: readonly FlightObstacle[], bounds: VehicleWorldBounds, protectedPoints: readonly { x: number; z: number }[] = []) {
-  const result = {} as Record<VehicleKind, VehicleSpawn>, reserved: Obstacle[] = protectedPoints.map(p => ({ minX: p.x - 1, maxX: p.x + 1, minZ: p.z - 1, maxZ: p.z + 1 }));
+export function worldVehicleSpawns(preferred: VehicleSpawns, ground: readonly Obstacle[], flight: readonly FlightObstacle[], bounds: VehicleWorldBounds, protectedPoints: readonly { x: number; z: number }[] = []) {
+  const result = { ...preferred } as VehicleSpawns, reserved: Obstacle[] = protectedPoints.map(p => ({ minX: p.x - 1, maxX: p.x + 1, minZ: p.z - 1, maxZ: p.z + 1 }));
   for (const kind of ['helicopter', 'car'] as const) {
     const origin = preferred[kind], candidates: VehicleSpawn[] = [origin];
     for (let radius = 6; radius <= 90; radius += 6) {

@@ -1,3 +1,5 @@
+import { isDragonBoat, MARINA_WATER } from './marina-water';
+import { isVehicleKind, VEHICLE_KINDS } from './vehicle-rules';
 import { validVehicleImpact } from './vehicle-impact';
 import { validProxySnapshot, type ProxyAction } from './proxy-operations';
 import { applyRespawnLoadout, type RespawnLoadoutSelection } from './respawn-loadout';
@@ -116,10 +118,10 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     finite(r.calibre) && (r.calibre as number) >= 2 && (r.calibre as number) <= 25 && finite(r.power) && (r.power as number) >= 0 && (r.power as number) <= 300 &&
     (r.shooter === undefined || typeof r.shooter === 'string' && r.shooter.length <= 100) && (r.vehicle === undefined || r.vehicle === 'car' || r.vehicle === 'helicopter')))) return false;
   if (value.vehicles !== undefined) {
-    if (!Array.isArray(value.vehicles) || value.vehicles.length > 2) return false;
+    if (!Array.isArray(value.vehicles) || value.vehicles.length > VEHICLE_KINDS.length) return false;
     const kinds = new Set<string>(), seated = new Set<string>();
     for (const v of value.vehicles) {
-      if (!object(v) || (v.despawned !== undefined && (typeof v.despawned !== 'boolean' || v.despawned && v.health !== 0)) || (v.faction !== undefined && (typeof v.faction !== 'string' || !getArenaFaction(v.faction))) || (v.kind !== 'car' && v.kind !== 'helicopter') || kinds.has(v.kind) ||
+      if (!object(v) || (v.despawned !== undefined && (typeof v.despawned !== 'boolean' || v.despawned && v.health !== 0)) || (v.faction !== undefined && (typeof v.faction !== 'string' || !getArenaFaction(v.faction))) || !isVehicleKind(v.kind) || kinds.has(v.kind) ||
         !['x', 'y', 'z', 'yaw', 'speed', 'climb', 'health', 'ammo', 'weaponCooldown', 'gunYaw', 'gunPitch', 'shots'].every(k => finite(v[k])) ||
         !['lateralSpeed', 'yawSpeed'].every(k => v[k] === undefined || finite(v[k]) && Math.abs(v[k] as number) <= (k === 'yawSpeed' ? 1.2 : 40)) ||
         (v.impact !== undefined && !validVehicleImpact(v.impact)) ||
@@ -127,7 +129,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
         (v.shots as number) < 0 || (v.shots as number) > VEHICLE_COMBAT[v.kind].ammo ||
         (v.ammo as number) < 0 || (v.ammo as number) > VEHICLE_COMBAT[v.kind].ammo ||
         (v.health as number) < 0 || (v.health as number) > VEHICLE_COMBAT[v.kind].health ||
-        (v.y as number) < .13 || (v.y as number) > 120 || Math.abs(v.speed as number) > 31 || Math.abs(v.climb as number) > 100 ||
+        (v.y as number) < (isDragonBoat(v.kind) ? MARINA_WATER.surface : .13) || (v.y as number) > 120 || Math.abs(v.speed as number) > 31 || Math.abs(v.climb as number) > 100 ||
         (v.weaponCooldown as number) < 0 || (v.weaponCooldown as number) > 3 ||
         (v.x as number) < (environment?.bounds.minX ?? -500) || (v.x as number) > (environment?.bounds.maxX ?? 500) ||
         (v.z as number) < (environment?.bounds.minZ ?? -500) || (v.z as number) > (environment?.bounds.maxZ ?? 500) ||
@@ -462,7 +464,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         const loadout = next && resolveLoadout(next);
         const accepted = !!loadout && simulation.queuePlayerWeapons(from, loadout.weapons, loadout.carriedFamilies);
         session.send({ type: 'arena-loadout-result', request: payload.request, accepted }, from);
-      } else if (registered.has(from) && started && payload.type === 'arena-vehicle' && ['enter', 'exit', 'switch'].includes(String(payload.action)) && (payload.kind === undefined || payload.kind === 'car' || payload.kind === 'helicopter')) {
+      } else if (registered.has(from) && started && payload.type === 'arena-vehicle' && ['enter', 'exit', 'switch'].includes(String(payload.action)) && (payload.kind === undefined || isVehicleKind(payload.kind))) {
         const accepted = simulation.vehicleAction(from, payload.action as 'enter' | 'exit' | 'switch', payload.kind as VehicleKind | undefined);
         if (accepted) acknowledgements.delete(from);
         session.send({ type: 'arena-vehicle-result', accepted }, from); publish();

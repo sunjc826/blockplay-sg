@@ -95,10 +95,10 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
   if (mounted) {
     pad.push(act('seat', 'Switch seat', <Repeat2 size={17} />, { onClick: () => engine?.switchVehicleSeat(), 'data-pad-slot': 'corner-left' }));
     pad.push(act('view', 'Switch vehicle view', <Eye size={17} />, { onClick: () => engine?.toggleVehicleView(), 'data-pad-slot': 'edge-top' }));
-    if (hud.vehicleSeat !== 0) pad.push(act('aim', 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': hud.aiming }));
+    if (hud.vehicleSeat !== 0 && (hud.vehiclePersonalWeapon || hud.vehicleCanFire)) pad.push(act('aim', 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': hud.aiming }));
     if (hud.vehiclePersonalWeapon) pad.push(act('reload', 'Reload', <RefreshCw size={17} />, { onClick: () => engine?.reload(), disabled: hud.reloading > 0 }));
     if (hud.vehicleSeat === 0) {
-      pad.push(act('boost', flying ? 'Boost' : 'Sprint', <Rocket size={17} />, hold('shift')));
+      if (hud.vehicle === 'car' || flying) pad.push(act('boost', flying ? 'Boost' : 'Sprint', <Rocket size={17} />, hold('shift')));
       pad.push(act('altitude', flying ? 'Climb' : 'Brake', <ChevronsUp size={17} />, hold(' ')));
       if (flying) pad.push(act('descend', 'Descend', <ArrowDownToLine size={17} />, hold('control')));
     }
@@ -134,7 +134,7 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
     <button type="button" className="touch-chip" data-touch-action="menu" aria-label={mode === 'range' ? 'Pause' : 'Menu'} title={mode === 'range' ? 'Pause' : 'Menu'} {...tapProps(onMenu)}><Menu size={16} /></button>
     <CalloutChip hud={hud} engine={engine} />
     <div className="touch-move">
-      <TouchStick kind="move" label={mounted ? hud.vehicleSeat === 0 ? 'DRIVE' : 'RIDING' : 'MOVE'} onChange={mounted && hud.vehicleSeat !== 0 ? () => {} : move} />
+      <TouchStick kind="move" label={mounted ? hud.vehicleSeat === 0 ? hud.vehicle.startsWith('dragon-boat') ? 'PADDLE' : 'DRIVE' : 'RIDING' : 'MOVE'} onChange={mounted && hud.vehicleSeat !== 0 ? () => {} : move} />
     </div>
 
     {prompts.length > 0 && <div className="touch-prompts">

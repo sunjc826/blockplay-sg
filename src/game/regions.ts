@@ -1,3 +1,4 @@
+import { MARINA_CAMP_DECKS } from './marina-water';
 import { MARINA_LAYOUT_SCALE as MARINA_SCALE } from './marina-layout';
 import { buildLittleIndiaScene, LITTLE_INDIA_BOUNDS, LITTLE_INDIA_MAP_ROADS, LITTLE_INDIA_SPAWN } from './little-india-scene';
 import { LITTLE_INDIA_STAMPS } from '../data/region-stamps';
@@ -193,7 +194,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
       { kind: 'rect', x: -80, z: -90, width: 160, depth: 140, fill: '#7db5b3', layer: 'over', fpsFill: '#315e65', fpsLayer: 'under' },
       ...[-65, -15, 35].map((z): RegionMapShape => ({ kind: 'rect', x: 139, z: z - 15, width: 24, depth: 30, fill: '#eee7ce', layer: 'over' })),
       { kind: 'rect', x: 141, z: -107, width: 20, depth: 184, radius: 4, fill: '#819872', layer: 'over' },
-    ] as RegionMapShape[]).map(s => s.kind === 'rect' ? {...s,x:s.x*MARINA_SCALE,z:s.z*MARINA_SCALE,width:s.width*MARINA_SCALE,depth:s.depth*MARINA_SCALE} : s),
+    ] as RegionMapShape[]).map(s => s.kind === 'rect' ? {...s,x:s.x*MARINA_SCALE,z:s.z*MARINA_SCALE,width:s.width*MARINA_SCALE,depth:s.depth*MARINA_SCALE} : s).concat(MARINA_CAMP_DECKS.map(d=>({kind:'rect' as const,x:d.minX,z:d.minZ,width:d.maxX-d.minX,depth:d.maxZ-d.minZ,fill:'#bba17b',layer:'over' as const,fpsFill:'#c4ad83',fpsLayer:'over' as const}))),
     hasGuide: false, build: buildMarinaScene, move: moveInMarina, canOccupy: canOccupyMarina,
   },
   'raffles-place': {

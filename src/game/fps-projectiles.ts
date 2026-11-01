@@ -23,7 +23,7 @@ export interface InFlightRound {
   /** How far it can fly, when not the engine's default. */
   range?: number;
   /** A figure (arena actor id) or vehicle the round leaves rather than strikes: whoever fired it. */
-  skipActor?: string; skipVehicle?: 'car' | 'helicopter';
+  skipActor?: string; skipVehicle?: import('./vehicle-rules').VehicleKind;
   /** A vehicle gun's round off the arena, which damages as the vehicle's gun does. */
   vehicleDamage?: number;
   /** The effect style its strike is drawn in, when not the style of `weapon` in this player's hands. */
@@ -59,7 +59,7 @@ export function advanceRound(round: InFlightRound, dt: number, maxDistance: numb
 /** A round in flight as the arena host publishes it (arena-rules' ArenaRoundView). */
 export interface PublishedRound {
   id: number; origin: BallisticPoint; direction: BallisticPoint; velocity: number; drop: number; limit: number; time: number;
-  shooter?: string; vehicle?: 'car' | 'helicopter';
+  shooter?: string; vehicle?: import('./vehicle-rules').VehicleKind;
   /** The gun that fired it, as its strike's look is built: bore in mm and the damage the look is sized by. */
   calibre: number; power: number;
 }

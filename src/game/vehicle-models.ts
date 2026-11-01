@@ -4,6 +4,8 @@ import { itemById } from './armory-catalog';
 import type { VehicleKind } from './vehicle-rules';
 import { buildHelicopterCabin } from './helicopter-cabin';
 import { buildHumveeCabin } from './humvee-cabin';
+import { buildDragonBoatModel } from './dragon-boat-model';
+import { isDragonBoat } from './marina-water';
 
 export function vehiclePaint(id: string) {
   const item = itemById(id), canvas = document.createElement('canvas'); canvas.width = canvas.height = 256;
@@ -16,6 +18,7 @@ export function vehiclePaint(id: string) {
 }
 /** Original utility vehicle silhouettes; no copied game logos or liveries. Forward is local -Z. */
 export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
+  if (isDragonBoat(kind)) return buildDragonBoatModel(kind === 'dragon-boat-gold');
   const root = new THREE.Group(), paint = vehiclePaint(skin);
   // A running engine reads warm through thermal sights (fps-vision).
   root.userData.heat = 'engine';

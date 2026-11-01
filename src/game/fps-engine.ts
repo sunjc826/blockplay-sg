@@ -1,3 +1,5 @@
+import { isDragonBoat, DRAGON_BOAT_SPAWNS } from './marina-water';
+import { VEHICLE_KINDS, vehicleName, type VehicleSpawns } from './vehicle-rules';
 import { createWeaponShoulderMotion } from './weapon-shoulder-motion';
 import { createFirearmCameraShake } from './firearm-camera-shake';
 import { bailoutRoll, BAILOUT_ROLL_SECONDS } from './bailout-roll';
@@ -351,7 +353,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const expeditionSession = expedition ? createSoloSession('Explorer') : null;
   if (expedition && zoneWorld && expeditionSession) options = { ...options, arena: { session: expeditionSession, profile: fieldProfile, botCount: zoneWorld.zone.botCount, composition: zoneWorld.zone.composition, environment: zoneWorld.environment, initialVitals: expedition.checkpoint } };
   const npcs = expedition ? expeditionNpcs(expedition.zone, zoneSectors(expedition.zone)) : [];
-  const fleetSpawns = expedition ? worldVehicleSpawns(district.vehicles, [...world.obstacles, ...verticalVehicleObstacles({ bounds:world.bounds, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })], sceneFlightObstacles(world.scene), world.bounds, [...npcs, zoneWorld?.zone.spawn ?? district.spawn]) : district.vehicles;
+  const motorSpawns = expedition ? worldVehicleSpawns(district.vehicles, [...world.obstacles, ...verticalVehicleObstacles({ bounds:world.bounds, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })], sceneFlightObstacles(world.scene), world.bounds, [...npcs, zoneWorld?.zone.spawn ?? district.spawn]) : district.vehicles;
+  const fleetSpawns: VehicleSpawns = { ...motorSpawns, ...(region === 'marina-bay' && !options.tutorial ? DRAGON_BOAT_SPAWNS : {}) };
   const facilitySites = expedition ? districtFacilitySites(expedition.zone, fleetSpawns,
     (x, z) => { const y=world.bounds.groundHeight?.(x,z) ?? 0; return footMovement.canOccupy(x, y, z, 1.1, 2) && Math.abs((footMovement.supportHeight(x, z, y+.1, .4, 1.8) ?? 100)-y) < .05; }, npcs, world.bounds.groundHeight) : [];
   if (expedition && options.arena?.environment) {
@@ -695,7 +698,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         ...(rangeTravel ? WORLD_GATEWAYS.filter(g => g.from === region && g.border).map(g => ({ id: g.id, ...g.position, kind: 'checkpoint' as const, label: g.name })) : []),
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}-${targets[index].activation}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(rangeStation ? [{ id: 'range-resupply', x: rangeStation.point.x, z: rangeStation.point.z, kind: 'loot' as const, lootType: 'resupply' as const, label: 'Range resupply · ammo, grenades & utilities' }] : []),
-        ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && !vehicles.states[kind].despawned && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
+        ...VEHICLE_KINDS.filter(kind => kind !== vehicles.active && !vehicles.states[kind].despawned && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind: isDragonBoat(kind) ? 'boat' : kind, label: vehicleName(kind), x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
         ...(hud.arena?.events ?? []).filter(e => e.kind === 'paratroopers' && (hud.arena?.elapsed ?? 0) - e.start <= 28).map((e): MinimapMarker => ({
           id: `parachute-${e.id}`, x: e.target.x, z: e.target.z, kind: 'parachute', side: e.faction === PLAYER_FACTION ? 'ally' : 'enemy',
           label: `${e.faction === PLAYER_FACTION ? 'Friendly' : 'Hostile'} paratroopers · ${(hud.arena?.elapsed ?? 0) < e.start + 12 ? `Drop in ${Math.ceil(e.start + 12 - (hud.arena?.elapsed ?? 0))}s` : 'Landing zone'}`,
@@ -2163,7 +2166,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function applySplash(point: THREE.Vector3, weapon: number, range: number, scale: number, direct?: number) {
     const splash = findTrait(specs[weapon].traits, 'splash');
     if (!splash || scale <= 0) return;
-    for (const kind of ['car', 'helicopter'] as const) {
+    for (const kind of VEHICLE_KINDS) {
       const v = vehicles.states[kind], share = splashScale(point.distanceTo(new THREE.Vector3(v.x, v.y + 1.3, v.z)), splash.radius, splash.minScale);
       if (share > 0) vehicles.damage(kind, hitDamage(specs[weapon], range) * scale * share);
     }
@@ -2214,7 +2217,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         if (hit.item === -1) hurtPlayer(hit.damage, undefined, false, b.shred);
         else damageTarget(hit.item, hud.weapon, 0, undefined, 1 / damageDealtScale(foodEffects), hit.damage);
       }
-      for (const kind of ['car', 'helicopter'] as const) { const v = vehicles.states[kind], point = { x: v.x, y: v.y + 1, z: v.z };
+      for (const kind of VEHICLE_KINDS) { const v = vehicles.states[kind], point = { x: v.x, y: v.y + 1, z: v.z };
         for (const h of resolveBlast(b.point, b.blast, [{ item: kind, point, vehicle: true }], grenadeClear)) vehicles.damage(h.item, h.damage); }
       checkCompletion();
     }
@@ -2537,10 +2540,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let vehicleAimTimer = 0;
   function vehicleCandidates(kind: VehicleKind) {
     // Cast from the gun, not the chase camera: nearby walls still stop rounds.
-    return [...gameplayCandidates().filter(o => o !== vehicles.root && !hud.arena?.actors.some(a => a.vehicle && a.id === o.userData.arenaActorId)), vehicles.models[kind === 'car' ? 'helicopter' : 'car']];
+    return [...gameplayCandidates().filter(o => o !== vehicles.root && !hud.arena?.actors.some(a => a.vehicle && a.id === o.userData.arenaActorId)), ...VEHICLE_KINDS.filter(other=>other!==kind&&!vehicles.states[other].despawned).map(other=>vehicles.models[other])];
   }
   function aimVehicle() {
-    const kind = vehicles.active; if (!kind) return;
+    const kind = vehicles.active; if (!kind || isDragonBoat(kind)) return;
     world.scene.updateMatrixWorld(true); vehicleRay.setFromCamera(center, camera);
     vehicleRay.far = VEHICLE_COMBAT[kind].range;
     const hit = firstVisibleHit(vehicleRay, vehicleCandidates(kind));
@@ -2601,7 +2604,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
             if (vehicles.active) vehicles.damage(vehicles.active, amount); else hurtPlayer(amount);
           }
         }
-        for (const kind of ['car', 'helicopter'] as const) {
+        for (const kind of VEHICLE_KINDS) {
           if (kind === event.kind || kind === vehicles.active) continue;
           const v = vehicles.states[kind], point = new THREE.Vector3(v.x, v.y + 1.3, v.z);
           const amount = vehicleBlastDamage(event.kind, point.distanceTo(event.point));
@@ -3462,7 +3465,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (climb !== canvas.dataset.fxClimb) canvas.dataset.fxClimb = climb;
     if (effects.style.id !== canvas.dataset.fxStyle) canvas.dataset.fxStyle = effects.style.id;
     if (motor && motorGain && audio) {
-      const active = hud.phase === 'playing' && vehicles.mounted && !hud.muted;
+      const active = hud.phase === 'playing' && vehicles.mounted && !isDragonBoat(vehicles.mounted.kind) && !hud.muted;
       motorGain.gain.setTargetAtTime(active ? .035 : 0, audio.currentTime, .08);
       motor.frequency.setTargetAtTime(vehicles.active === 'helicopter' ? 54 + Math.sin(hud.elapsed * 24) * 8 : 35 + Math.abs(vehicles.mounted?.speed || 0) * 4, audio.currentTime, .05);
     }

@@ -5,6 +5,8 @@ import { muzzleBallistics, type BallisticSpec } from './fps-ballistics';
 export const VEHICLE_COMBAT = {
   car: { health: 600, ammo: 240, name: 'Roof GPMG', damage: 60, interval: .12, range: 180, blastRadius: 9, blastDamage: 240, caliberMm: 7.62, ballistics: muzzleBallistics(840) },
   helicopter: { health: 900, ammo: 400, name: 'Chin HMG', damage: 95, interval: .15, range: 240, blastRadius: 12, blastDamage: 320, caliberMm: 12.7, ballistics: muzzleBallistics(890) },
+  'dragon-boat-red': { health: 300, ammo: 0, name: 'Paddles · unarmed', damage: 0, interval: 1, range: 0, blastRadius: 0, blastDamage: 0, caliberMm: 0, ballistics: muzzleBallistics(1) },
+  'dragon-boat-gold': { health: 300, ammo: 0, name: 'Paddles · unarmed', damage: 0, interval: 1, range: 0, blastRadius: 0, blastDamage: 0, caliberMm: 0, ballistics: muzzleBallistics(1) },
 } satisfies Record<VehicleKind, { health: number; ammo: number; name: string; damage: number; interval: number; range: number; blastRadius: number; blastDamage: number; caliberMm: number; ballistics: BallisticSpec }>;
 export type VehicleDamageStage = 'intact' | 'damaged' | 'smoking' | 'critical' | 'destroyed';
 export function vehicleDamageStage(v: Pick<VehicleState, 'kind' | 'health'>): VehicleDamageStage {
@@ -25,7 +27,7 @@ export function fireVehicleWeapon(v: VehicleState) {
 }
 export function vehicleBlastDamage(kind: VehicleKind, distance: number) {
   const spec = VEHICLE_COMBAT[kind];
-  return Math.max(0, spec.blastDamage * (1 - Math.max(0, distance) / spec.blastRadius));
+  return spec.blastRadius > 0 ? Math.max(0, spec.blastDamage * (1 - Math.max(0, distance) / spec.blastRadius)) : 0;
 }
 /** Forgive bumps up to 5 m/s; harder impacts grow quadratically at a forgiving hull-damage scale. */
 export function vehicleCollisionDamage(impactSpeed: number) {

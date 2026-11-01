@@ -2,12 +2,12 @@ import { PLAYER_FACTION } from './arena-factions';
 import type { FacilitySite } from './facilities';
 import { WORLD_GATEWAYS, getWorldZone, type WorldZoneId, type ZonePosition } from './world-zones';
 import { zoneSectors } from './zone-sectors';
-import type { VehicleKind, VehicleSpawn } from './vehicle-rules';
+import type { VehicleSpawns } from './vehicle-rules';
 import { campPropBounds, createCommandCamp } from './command-camp';
 import { MARINA_COMBAT_ANCHORS, MARINA_COMBAT_POSTS, MARINA_COMBAT_FRONTS } from './marina-combat';
 
 /** Use the district's authored, reachable anchors and validated motor pools. */
-export function districtFacilitySites(zone: WorldZoneId, fleet: Record<VehicleKind, VehicleSpawn>, clear: (x: number, z: number) => boolean, reserved: readonly ZonePosition[] = [], groundHeight: (x: number, z: number) => number = () => 0): FacilitySite[] {
+export function districtFacilitySites(zone: WorldZoneId, fleet: VehicleSpawns, clear: (x: number, z: number) => boolean, reserved: readonly ZonePosition[] = [], groundHeight: (x: number, z: number) => number = () => 0): FacilitySite[] {
   const district = getWorldZone(zone), sectors = zoneSectors(zone), sites: FacilitySite[] = [];
   const protectedPoints = [...reserved, district.spawn, ...WORLD_GATEWAYS.flatMap(g => [...(g.from === zone ? [g.position] : []), ...(g.to === zone ? [g.arrival] : [])])];
   const away = (p: ZonePosition) => protectedPoints.every(r => Math.hypot(p.x - r.x, p.z - r.z) > 3) && sites.every(s => Math.hypot(p.x - s.x, p.z - s.z) > 12 &&

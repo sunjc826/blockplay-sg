@@ -7,7 +7,7 @@ import { beltWeightKg, heldSupplies } from './utility-belt';
 import { ARMORY_CATALOG, consumableLimit, isEnemyIssue, issuedItems, itemById, type AttachmentSlot, type FittedPart, type InternalPart, type ShopItem } from './armory-catalog';
 import { visionSpec, type VisionSpec } from './vision-devices';
 import { insertTraits, PLAIN_INSERT, ratedAbsorption, threatOf, type InsertTraits } from './armor-inserts';
-import type { VehicleKind } from './vehicle-rules';
+import type { MotorVehicleKind } from './vehicle-rules';
 import { progression, levelSkip, xpForLevel, ELIMINATION_XP, ELIMINATION_CREDITS, MAX_LEVEL } from './progression';
 import { DEFAULT_RANK_SET, isRankSet, rankInsignia } from './rank-insignia';
 import { DEFAULT_ENCIK_TONE, type EncikAddress, type EncikTone } from './encik-registers';
@@ -18,7 +18,7 @@ export const fittedParts = (variantId: string): Partial<Record<AttachmentSlot, F
 export const slotIsFitted = (variantId: string, slot: AttachmentSlot) => !!fittedParts(variantId)[slot];
 /** attachments is retained empty for v1 save compatibility; it never affects gameplay. */
 export interface GunEquipment { variant: string; skin: string; attachments: Partial<Record<AttachmentSlot, string>> }
-export interface ArmoryProfile { carry: CarrySlots; version: 1; xp: number; vehicleSkins: Record<VehicleKind, string>; credits: number; tokens: number; owned: string[]; rentalClock: 'playtime'; rentals: Record<string, number>; guns: GunEquipment[]; rig: string; plate: string; rewarded: string[]; exercises: number;
+export interface ArmoryProfile { carry: CarrySlots; version: 1; xp: number; vehicleSkins: Record<MotorVehicleKind, string>; credits: number; tokens: number; owned: string[]; rentalClock: 'playtime'; rentals: Record<string, number>; guns: GunEquipment[]; rig: string; plate: string; rewarded: string[]; exercises: number;
   /** Supplies held, by catalog id, and which one the quick-use key spends. */
   consumables: Record<string, number>; quickItem: string;
   /** Which set of rank titles and badges the profile wears. */
@@ -190,7 +190,7 @@ export function selectCarryWeapon(profile: ArmoryProfile, slot: 'main' | 'extra'
   if (!isMainWeapon(family) || family === (slot === 'main' ? carry.extra : carry.main) || !hasItemAccess(profile, profile.guns[family]?.variant)) return profile;
   return { ...profile, carry: { ...carry, [slot]: family } };
 }
-export function equip(profile: ArmoryProfile, id: string, family: number, vehicle: VehicleKind = 'car'): ArmoryProfile {
+export function equip(profile: ArmoryProfile, id: string, family: number, vehicle: MotorVehicleKind = 'car'): ArmoryProfile {
   const item = itemById(id);
   // Supplies are held by count rather than owned, so they select on that instead.
   if (item?.category === 'consumable') return profile.consumables[id] ? { ...profile, quickItem: id } : profile;
@@ -215,7 +215,7 @@ export function consumeItem(profile: ArmoryProfile, id: string): ArmoryProfile {
   if (held > 1) consumables[id] = held - 1; else delete consumables[id];
   return { ...profile, consumables };
 }
-export function isEquipped(profile: ArmoryProfile, item: ShopItem, family: number, vehicle: VehicleKind = 'car') {
+export function isEquipped(profile: ArmoryProfile, item: ShopItem, family: number, vehicle: MotorVehicleKind = 'car') {
   const gun = profile.guns[family];
   if (item.category === 'weapon' && !hasItemAccess(profile, item.id)) return false;
   if (item.category === 'consumable') return profile.quickItem === item.id;
@@ -282,7 +282,7 @@ export interface ResolvedLoadout { vision?: WornVision;
   /** Catalog identities used by the worn first person equipment. */
   rigId: string; plateId: string;
   /** What the inserts are rated for and what else they do (armor-inserts). */
-  insert: InsertTraits; carriedFamilies: number[]; armorWeightKg: number; suppliesWeightKg: number; weapons: EquippedWeapon[]; armor: number; absorption: number; mobility: number; rigName: string; plateName: string; vehicleSkins: Record<VehicleKind, string>;
+  insert: InsertTraits; carriedFamilies: number[]; armorWeightKg: number; suppliesWeightKg: number; weapons: EquippedWeapon[]; armor: number; absorption: number; mobility: number; rigName: string; plateName: string; vehicleSkins: Record<MotorVehicleKind, string>;
   quickItem?: ShopItem; quickCount: number;
   /** Every supply carried in, by id: the utility belt's contents at the start. */
   supplies: Record<string, number> }

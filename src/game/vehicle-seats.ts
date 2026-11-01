@@ -1,4 +1,5 @@
 import { createVehicle, type VehicleKind, type VehicleSpawn, type VehicleState } from './vehicle-rules';
+import { isDragonBoat } from './marina-water';
 
 export const VEHICLE_SEATS = ['Driver', 'Gunner', 'Passenger left', 'Passenger right'] as const;
 export interface VehicleControls { forward: number; steer: number; lift: number; brake: boolean; boost: boolean; fire: boolean; aim?: { x: number; y: number; z: number } }
@@ -11,10 +12,12 @@ export function seatOf(vehicles: readonly SharedVehicle[], id: string) {
 export function gunnerId(v: SharedVehicle) { return v.occupants[1] ?? v.occupants[0]; }
 /** Eye positions in the authored vehicle, shared by authority, avatars and the camera. */
 export function seatLocalPoint(kind: VehicleKind, seat: number) {
+  if (isDragonBoat(kind)) return { x: 0, y: 1.65, z: seat === 0 ? 2.9 : 2.1-(seat-1)*2.1 };
   if (kind === 'helicopter') return { x: seat < 2 ? (seat === 0 ? -.49 : .49) : (seat === 2 ? -.82 : .82), y: 2.08, z: seat < 2 ? -.98 : .55 };
   return seat === 1 ? { x: 0, y: 2.9, z: .12 } : { x: seat === 3 ? .5 : -.5, y: 1.77, z: seat === 0 ? -.35 : .94 };
 }
 export function seatFacing(_kind: VehicleKind, seat: number) {
+  if (isDragonBoat(_kind)) return 0;
   return seat >= 2 ? (seat === 2 ? Math.PI / 2 : -Math.PI / 2) : 0;
 }
 export function seatPoint(v: VehicleState, seat: number) {
@@ -27,7 +30,7 @@ export function vehicleRayDistance(v: VehicleState, origin: { x: number; y: numb
   const c = Math.cos(v.yaw), s = Math.sin(v.yaw), dx = origin.x - v.x, dz = origin.z - v.z;
   const starts = [c * dx - s * dz, origin.y - v.y, s * dx + c * dz];
   const rays = [c * direction.x - s * direction.z, direction.y, s * direction.x + c * direction.z];
-  const limits = v.kind === 'car' ? [[-1.1, 1.1], [.2, 2.2], [-2.3, 2.3]] : [[-1.2, 1.2], [.3, 2.9], [-2.3, 3.8]];
+  const limits = isDragonBoat(v.kind) ? [[-.9,.9],[.1,.8],[-4.5,4.5]] : v.kind === 'car' ? [[-1.1, 1.1], [.2, 2.2], [-2.3, 2.3]] : [[-1.2, 1.2], [.3, 2.9], [-2.3, 3.8]];
   let near = 0, far = Infinity;
   for (let i = 0; i < 3; i++) {
     if (Math.abs(rays[i]) < 1e-8) { if (starts[i] < limits[i][0] || starts[i] > limits[i][1]) return Infinity; }

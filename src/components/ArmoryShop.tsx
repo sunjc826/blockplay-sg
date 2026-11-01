@@ -13,7 +13,7 @@ import { utilityKind, utilitySlot } from '../game/utility-belt';
 import { ARMORY_CATALOG, byUnlock, consumableLimit, isEnemyIssue, isShopFamily, itemById, type InternalPart, type ShopItem } from '../game/armory-catalog';
 import { fittedParts, isEquipped, previewLoadout, resolveLoadout, SHOP_CATEGORIES, variantSpec } from '../game/armory-state';
 import type { ArmoryStore } from '../game/use-armory';
-import type { VehicleKind } from '../game/vehicle-rules';
+import type { MotorVehicleKind } from '../game/vehicle-rules';
 import { ELIMINATION_CREDITS, ELIMINATION_XP, levelSkip, progression, skipCostFrom, xpForLevel, XP_PER_TOKEN } from '../game/progression';
 import { rankInsignia } from '../game/rank-insignia';
 import RankBadge from './RankBadge';
@@ -86,7 +86,7 @@ export default function ArmoryShop({ store: sourceStore, nav, deployments, onEnt
   const shopRef = useRef<HTMLElement>(null);
   const exits = deployments ?? (onEnterRange ? [{ id: 'range', label: 'Deploy to', detail: rangeLabel, onDeploy: onEnterRange }] : []);
   const [term, setTerm] = useState<WeaponTerm>('1h');
-  const [vehicle, setVehicle] = useState<VehicleKind>('car');
+  const [vehicle, setVehicle] = useState<MotorVehicleKind>('car');
   const [category, setCategory] = useState<(typeof SHOP_CATEGORIES)[number]['id']>('weapon'), [family, setFamily] = useState(0), [selectedId, setSelectedId] = useState('sar-vanguard');
   const { profile } = store;
   const level = progression(profile.xp);

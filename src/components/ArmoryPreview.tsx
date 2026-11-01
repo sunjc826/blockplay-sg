@@ -6,7 +6,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildVehicleModel } from '../game/vehicle-models';
-import type { VehicleKind } from '../game/vehicle-rules';
+import type { MotorVehicleKind } from '../game/vehicle-rules';
 import type { ShopItem } from '../game/armory-catalog';
 import type { EquippedWeapon } from '../game/armory-state';
 import { armorModel, disposeModel, dressWeapon, visionModel } from '../game/armory-visuals';
@@ -18,7 +18,7 @@ import { createOpticReflectionRenderer } from '../game/weapon-reflections';
 
 const buildServiceWeaponId = (id: string) => ['p30-inspired', 'mag-inspired', 'cis50-inspired', 'xm8-inspired', 'g36-inspired', 'mg4-inspired'].includes(id);
 
-export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item: ShopItem; weapon: EquippedWeapon; vehicle?: VehicleKind }) {
+export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item: ShopItem; weapon: EquippedWeapon; vehicle?: MotorVehicleKind }) {
   const host = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState('Loading equipment…'), [retry, setRetry] = useState(0);
   const signature = JSON.stringify(weapon);

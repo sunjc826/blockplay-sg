@@ -85,7 +85,8 @@ describe('Marina Bay water', () => {
       expect(isWaterObject(world.scene.getObjectByName('marina-pond-water')!)).toBe(true);
       // A downward ray into the middle of the bay meets water first, not a floor.
       world.scene.updateMatrixWorld(true);
-      const ray = new THREE.Raycaster(new THREE.Vector3(0, 10, -20), new THREE.Vector3(0, -1, 0));
+      // Sample open water west of the new central floating campsite.
+      const ray = new THREE.Raycaster(new THREE.Vector3(-30, 10, -20), new THREE.Vector3(0, -1, 0));
       const [first] = ray.intersectObjects(world.scene.children, true);
       expect(isWaterObject(first.object)).toBe(true);
       expect(first.point.y).toBeCloseTo(MARINA_BAY.surface, 5);

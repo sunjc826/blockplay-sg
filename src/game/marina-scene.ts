@@ -6,6 +6,8 @@ import { MARINA_STAMPS } from '../data/region-stamps.ts';
 import type { Obstacle } from './marina-collision';
 import { createWaterMaterial } from './water';
 import { MARINA_GARDEN_PAVILIONS, MARINA_GARDEN_WALLS, MARINA_GARDEN_KIOSKS } from './marina-combat';
+import { buildMarinaCamp } from './marina-camp';
+import { marinaWaterObstacles, MARINA_CAMP_COVER, MARINA_CAMP_TENT } from './marina-water';
 
 export const MARINA_SPAWN = marinaPoint({ x: -44, z: 67, yaw: -0.82 });
 // Authoring scale 0.54: SkyPark 340 × 38m, elevation 200m (Arup/MBS).
@@ -158,14 +160,16 @@ export function buildMarinaScene() {
   const promenadeBand = mat('#777b79');
   for (const x of [-64, -32, 0, 32, 64]) box(x, 0.115, 66, 0.7, 0.025, 27, promenadeBand);
   for (let x = -80; x <= 80; x += 3) {
+    if(x*S>-22 && x*S<-19) continue;
     beam(new THREE.Vector3(x, 0.05, 51), new THREE.Vector3(x, 1.16, 50.5), 0.075, steel);
   }
   for (const y of [0.25, 0.45, 0.65, 0.85, 1.1]) {
-    box(0, y, 50.6, 161, 0.035, 0.035, steel);
+    box(-58.58, y, 50.6, 43.83, 0.035, 0.035, steel);
+    box(24.42, y, 50.6, 112.17, 0.035, 0.035, steel);
     box(-80.6, y, -20, 0.035, 0.035, 141, steel);
     box(80.6, y, -20, 0.035, 0.035, 141, steel);
   }
-  for (let x = -80; x <= 80; x += 3) { const post = box(x, 0.58, 50.6, 0.08, 1.16, 0.1, steel); post.rotation.x = -0.12; }
+  for (let x = -80; x <= 80; x += 3) { if(x*S>-22 && x*S<-19) continue; const post = box(x, 0.58, 50.6, 0.08, 1.16, 0.1, steel); post.rotation.x = -0.12; }
   for (let z = -90; z <= 50; z += 3) for (const x of [-80.6, 80.6]) box(x, 0.58, z, 0.1, 1.16, 0.1, steel);
   // Bent, tapered fronds with individual leaflets instead of star-shaped cones.
   const frondVertices: number[] = [];
@@ -694,6 +698,12 @@ export function buildMarinaScene() {
   for (const {group} of walkers) group.scale.divideScalar(S);
   for (const obstacle of obstacles) Object.assign(obstacle, marinaBounds(obstacle),
     obstacle.maxY === undefined ? {} : {maxY:obstacle.maxY*S});
+  // Replace the basin blocker with exact water patches around the floating decks.
+  obstacles.splice(0,1,...marinaWaterObstacles());
+  obstacles.push(...MARINA_CAMP_COVER.map(c=>({...c})));
+  const camp=buildMarinaCamp();scene.add(camp.root);
+  scene.userData.traversalObstacles=[{...MARINA_CAMP_TENT}];
+  scene.userData.marinaCamp={center:{x:0,z:-12},landings:3};
 
   // Authored combat gardens replace the southern lawns with connected courts.
   // Reuse the existing materials/instance batches; solid screens stop both
@@ -751,11 +761,6 @@ export function buildMarinaScene() {
   scene.userData.qualityDetails = qualityDetails;
   scene.userData.referenceFeatures = ['museum-shell', 'bay-skyline', 'fullerton-materials', 'fullerton-glazing', 'sands-canopy', 'sands-streetscape', 'south-waterfront', 'south-palms', 'merlion-waterfront-east', 'bayfront-gardens-east', 'south-promenade-north', 'gardens-grove-03-0', 'conservatory-road-03-90', 'barrage-approach-03-180', 'east-garden-03-180', 'flyer-road-03-270', 'float-waterfront-03-90', 'esplanade-road-03-180', 'promenade-road-03-180', 'downtown-green-03-180', 'marina-one-street-03-90'];
 
-  // Tiny low-poly bumboat on the bay.
-  // Floated at a quarter-metre draft rather than resting on the old solid bay.
-  const boatFloat = MARINA_BAY.surface + 0.35;
-  const boatGroup = new THREE.Group(); boatGroup.position.set(-35*S, boatFloat, -25*S); scene.add(boatGroup);
-  box(0, 0, 0, 8, 1.2, 3.5, trunk, boatGroup); box(0, 1.2, 0, 5, 1.8, 2.6, pale, boatGroup); box(0, 2.3, 0, 6.5, 0.25, 3, orange, boatGroup);
   const stamps = MARINA_STAMPS.map(point => {
     const group = new THREE.Group(); group.position.set(point.x, 3, point.z);
     const ring = new THREE.Mesh(geo(new THREE.TorusGeometry(1.5, 0.16, 6, 20)), orange); group.add(ring);
@@ -789,9 +794,9 @@ export function buildMarinaScene() {
   }
   return withVerticalPlaces({
     scene, obstacles, car, stamps,
-    animate(time: number) { water.userData.setTime(time); stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.5; stamp.position.y = 3 + Math.sin(time * 1.7 + i) * 0.35; }); boatGroup.position.y = boatFloat + Math.sin(time) * 0.06; boatGroup.rotation.x = Math.sin(time * 0.8 + 1) * 0.025;
+    animate(time: number) { water.userData.setTime(time); stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.5; stamp.position.y = 3 + Math.sin(time * 1.7 + i) * 0.35; });
       walkers.forEach(({ group, x, z, axis, phase }) => { const offset = Math.sin(time * 0.09 + phase) * 10; group.position.set((x + (axis === 'x' ? offset : 0))*S, Math.abs(Math.sin(time * 4 + phase))*0.04*S, (z + (axis === 'z' ? offset : 0))*S); group.rotation.y = (axis === 'x' ? Math.PI / 2 : 0) + (Math.cos(time * 0.09 + phase) > 0 ? Math.PI : 0); });
     },
-    dispose() { instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); sun.shadow.map?.dispose(); },
+    dispose() { camp.dispose(); instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); sun.shadow.map?.dispose(); },
   }, MARINA_VERTICAL_PLACES);
 }

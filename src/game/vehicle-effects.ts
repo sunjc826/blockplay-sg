@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { vehicleDamageStage, type VehicleDamageStage } from './vehicle-combat';
 import type { VehicleState } from './vehicle-rules';
+import { isDragonBoat } from './marina-water';
 
 /** Bounded, preallocated world-space particles; effects never intercept shots. */
 export function createVehicleEffects(scene: THREE.Scene) {
@@ -25,7 +26,7 @@ export function createVehicleEffects(scene: THREE.Scene) {
       if (emission >= .09) {
         emission %= .09;
         for (const v of states) {
-          if (v.despawned) continue;
+          if (v.despawned || isDragonBoat(v.kind)) continue;
           const stage = vehicleDamageStage(v);
           if (stage === 'intact' || stage === 'damaged') continue;
           const point = new THREE.Vector3(v.x + Math.sin(v.yaw), v.y + 1.5, v.z + Math.cos(v.yaw));

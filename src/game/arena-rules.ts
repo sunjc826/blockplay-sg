@@ -1,3 +1,4 @@
+import { isDragonBoat, canPaddle } from './marina-water';
 import { OICW_RIFLE, OICW_LAUNCHER, OICW_GRENADE } from './weapon-modes';
 import { createProxyOperations, PROXY_IDS, PROXY_RULES, proxyName, type ProxyAction, type ProxyCampaign, type ProxyId, type ProxyParticipant, type ProxyPoint, type ProxySnapshot } from './proxy-operations';
 import { PARATROOPERS, dropPoints, planParatroopers } from './paratroopers';
@@ -17,7 +18,7 @@ import { createVerticalMovement, MAX_STEP_HEIGHT, type VerticalWorld } from './v
 import { type RegionBounds, footprintRayInterval, overlapsObstacleRect } from './region-collision';
 import { surfaceContains } from './vertical-routes';
 import { validVehicleControls, createSharedVehicle, seatOf, seatPoint, gunnerId, vehicleGunRay, vehicleRayDistance, type SharedVehicle, type VehicleControls } from './vehicle-seats';
-import { vehicleSpeed, stopVehicle, driveVehicle, flyVehicle, vehicleBounds, vehicleExit, type VehicleKind, type VehicleSpawn, type FlightObstacle } from './vehicle-rules';
+import { VEHICLE_KINDS, paddleVehicle, vehicleName, vehicleSpeed, stopVehicle, driveVehicle, flyVehicle, vehicleBounds, vehicleExit, type VehicleSpawns, type VehicleKind, type VehicleSpawn, type FlightObstacle } from './vehicle-rules';
 import { BAILOUT_ROLL_SECONDS } from './bailout-roll';
 import { damageVehicle, fireVehicleWeapon, vehicleCollisionDamage, vehicleExitDamage, VEHICLE_COMBAT } from './vehicle-combat';
 import { applyArmorDamage } from './armory-state';
@@ -223,7 +224,7 @@ export interface ArenaEnvironment {
  */
 export type ArenaCoverDistance = (origin: ArenaPoint, direction: ArenaPoint, distance: number) => number;
 export interface ArenaVehicleOptions {
-  spawns: Record<VehicleKind, VehicleSpawn>; flightObstacles?: readonly FlightObstacle[];
+  spawns: VehicleSpawns; flightObstacles?: readonly FlightObstacle[];
   /** Persistent district fleet and autonomous car crews; training keeps its match rules. */
   openWorld?: boolean;
   /** Kept for callers that predate `createArena`'s own `coverDistance` argument. */
@@ -443,7 +444,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const regularLimit = environment?.battlefield?.size ?? 20;
   const floorAt = (point: ArenaPoint) => traversal?.supportHeight(point.x, point.z, point.y - .5, .35, .6) ?? 0;
   const move = environment?.move ?? moveInMarina;
-  const coverObstacles = [...obstacles, ...(traversalWorld?.traversalObstacles ?? [])];
+  const coverObstacles = [...obstacles.filter(o=>!o.water), ...(traversalWorld?.traversalObstacles ?? [])];
   const worldWallDistance = (origin: ArenaPoint, ray: ArenaPoint, range = 240) => {
     // Scene-backed games use rendered triangles as their sole shot/sight cover.
     // Footprints and full-height rail guards are movement approximations only.
@@ -479,7 +480,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const factionHeat = environment?.reinforcements && environment.heat ? createHeatField(environment.heat) : null;
   const isSquad = (faction: string): faction is SquadFaction => (SQUAD_FACTIONS as readonly string[]).includes(faction);
   const inside = (p: { x: number; z: number }, b: HeatSector['bounds']) => p.x >= b.minX && p.x <= b.maxX && p.z >= b.minZ && p.z <= b.maxZ;
-  let vehicles: SharedVehicle[] = environment?.facilities?.savedVehicles ? structuredClone(environment.facilities.savedVehicles) : vehicleOptions ? (['car', 'helicopter'] as const).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind])) : [];
+  let vehicles: SharedVehicle[] = environment?.facilities?.savedVehicles ? structuredClone(environment.facilities.savedVehicles) : vehicleOptions ? VEHICLE_KINDS.filter(kind=>vehicleOptions.spawns[kind]).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind]!)) : [];
   if (environment?.facilities?.savedVehicles) for (const v of vehicles) { v.occupants = [null, null, null, null]; stopVehicle(v); }
   vehicles = vehicles.filter(v => !environment?.departedVehicles?.includes(v.kind));
   const controls = new Map<string, { input: VehicleControls; expires: number }>();
@@ -492,6 +493,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   let tick = 0; let elapsed = 0; let finished = false; let winner = ''; let eventId = 0; let seed = 92371, hurtSerial = 0;
   let facilities = environment?.facilities ? createFacilities(environment.facilities.sites, environment.facilities.saved) : null;
   if (facilities && !environment?.facilities?.savedVehicles) for (const v of vehicles) {
+    if(isDragonBoat(v.kind)) continue;
     const site = facilities.sites.find(s => s.kind === (v.kind === 'car' ? 'garage' : 'helipad'));
     if (!site || !facilityOperational(site)) v.health = 0;
     else v.faction = site.owner!;
@@ -1036,7 +1038,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (distance < nearest) { nearest = distance; hull = v; }
     }
     for (const other of members.values()) {
-      if (other === entry || entry.actor.transport && entry.actor.transport === other.actor.transport || !other.actor.alive || other.reserve || seatOf(vehicles, other.actor.id)) continue;
+      if (other === entry || entry.actor.transport && entry.actor.transport === other.actor.transport || !other.actor.alive || other.reserve || (other.actor.vehicle && !isDragonBoat(other.actor.vehicle))) continue;
       const intersection = bodyDistance(origin, ray, other.actor);
       if (intersection < nearest) { victim = other; hull = undefined; nearest = intersection; }
     }
@@ -1119,13 +1121,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     if (action === 'switch' && mounted) {
       for (let n = 1; n < 4; n++) { const seat = (mounted.seat + n) % 4; if (mounted.vehicle.occupants[seat] === null && !(entry.actor.bot && mounted.vehicle.kind === 'helicopter' && seat === 0)) {
-        releaseSeat(id, true); mounted.vehicle.occupants[seat] = id; syncOccupants(); return true;
+        releaseSeat(id, true); mounted.vehicle.occupants[seat] = id; if(isDragonBoat(mounted.vehicle.kind) && seat===0) lifeOf(mounted.vehicle).unload=false; syncOccupants(); return true;
       } }
       return false;
     }
     if (action !== 'enter' || mounted) return false;
     const v = vehicles.find(v => v.kind === kind);
     if (!v || v.health <= 0 || v.y > (bounds.groundHeight?.(v.x, v.z) ?? 0) + .4 || vehicleSpeed(v) > 2 || v.kind === 'helicopter' && Math.abs(v.climb) > .5 || Math.hypot(entry.actor.x - v.x, entry.actor.z - v.z) > (v.kind === 'car' ? 4.5 : 6) || Math.abs(entry.actor.y - 1.75 - (v.y - .13)) > 1.25) return false;
+    if(isDragonBoat(v.kind)){const landing=vehicleExit(v,obstacles,bounds,exitFloor);if(!landing || Math.hypot(entry.actor.x-landing.x,entry.actor.z-landing.z)>2) return false;}
     const center = { x: v.x, y: v.y + 1.3, z: v.z }, d = distance(entry.actor, center);
     const ray = { x: (center.x - entry.actor.x) / d, y: (center.y - entry.actor.y) / d, z: (center.z - entry.actor.z) / d };
     if (d > .1 && worldWallDistance(entry.actor, ray, d) < d - .2) return false;
@@ -1170,8 +1173,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     for (const id of crew) { const member = members.get(id); if (member) hurtActor(member, member.actor.health + member.actor.armor + 1, attacker, cause); }
     // A wreck is a blast like any other, with the hull's own linear falloff and no stance relief.
     const spec = VEHICLE_COMBAT[v.kind];
-    blast(point, { radius: spec.blastRadius, damage: spec.blastDamage, minScale: 0, vehicleScale: 1, stance: false }, attacker, cause, v);
-    announce(`${v.kind === 'car' ? 'Utility 01' : 'Falcon 01'} destroyed`, attacker?.actor.id);
+    if(spec.blastRadius>0) blast(point, { radius: spec.blastRadius, damage: spec.blastDamage, minScale: 0, vehicleScale: 1, stance: false }, attacker, cause, v);
+    announce(`${vehicleName(v.kind)} destroyed`, attacker?.actor.id);
   }
   /** Whether nothing solid stands between a blast and what it reaches. */
   function clearBlast(from: ArenaPoint, to: ArenaPoint, length: number) {
@@ -2562,7 +2565,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const order = entry.order && entry.order.until > elapsed && entry.order.since <= elapsed ? entry.order : undefined;
     if (!vehicleOptions?.openWorld || order && order.kind !== 'gather' || entry.anchor || entry.temporary || entry.heal || entry.actor.y > (bounds.groundHeight?.(entry.actor.x, entry.actor.z) ?? 0) + 2 ||
       elapsed < (entry.vehicleBoardAfter ?? 0) || dangerExit(entry.actor) || entry.actor.health < entry.healthMax * .5) return false;
-    const v = vehicles.filter(v => (!v.faction || v.faction === entry.actor.faction) && v.health > VEHICLE_COMBAT[v.kind].health * .35 && v.y < (bounds.groundHeight?.(v.x, v.z) ?? 0) + .3 && vehicleSpeed(v) < WORLD_VEHICLES.pickupSpeed && Math.abs(v.climb) <= .5 &&
+    const v = vehicles.filter(v => !isDragonBoat(v.kind) && (!v.faction || v.faction === entry.actor.faction) && v.health > VEHICLE_COMBAT[v.kind].health * .35 && v.y < (bounds.groundHeight?.(v.x, v.z) ?? 0) + .3 && vehicleSpeed(v) < WORLD_VEHICLES.pickupSpeed && Math.abs(v.climb) <= .5 &&
       !lifeOf(v).unload && v.occupants.includes(null) && (v.kind === 'car' || !!v.occupants[0]) &&
       v.occupants.every(id => !id || members.get(id)?.actor.faction === entry.actor.faction) &&
       // A player changing seats keeps their crew, but does not invite an AI driver.
@@ -2609,9 +2612,17 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function stepVehicleBrains(dt: number) {
     for (const v of vehicles) {
       const life = lifeOf(v), occupied = v.occupants.some(Boolean);
+      if(isDragonBoat(v.kind)){
+        life.idle=occupied?0:life.idle+dt;
+        const spawn=vehicleOptions!.spawns[v.kind]!;
+        if(spawn && !occupied && (v.health<=0 && life.wreck>=WORLD_VEHICLES.wreckSeconds || life.idle>=WORLD_VEHICLES.abandonedSeconds && Math.hypot(v.x-spawn.x,v.z-spawn.z)>12) &&
+          ![...members.values()].some(m=>m.actor.alive && (distance(m.actor,{...spawn,y:1.75})<WORLD_VEHICLES.protectDistance || !v.despawned && distance(m.actor,v)<WORLD_VEHICLES.protectDistance)) && canPaddle(spawn.x,spawn.z,spawn.yaw,vehicles.filter(o=>o!==v&&!o.despawned).map(vehicleBounds))){Object.assign(v,createSharedVehicle(v.kind,spawn));vehicleLife.delete(v.kind);}
+        if(life.unload && vehicleSpeed(v)<=.8) unloadVehicle(v);
+        continue;
+      }
       life.idle = occupied ? 0 : life.idle + dt;
       const facility = facilities?.sites.find(s => s.kind === (v.kind === 'car' ? 'garage' : 'helipad') && facilityOperational(s));
-      const spawn = facility?.deployment ?? vehicleOptions!.spawns[v.kind];
+      const spawn = facility?.deployment ?? vehicleOptions!.spawns[v.kind]!;
       const replace = v.health <= 0 ? life.wreck >= WORLD_VEHICLES.wreckSeconds : life.idle >= WORLD_VEHICLES.abandonedSeconds && Math.hypot(v.x - spawn.x, v.z - spawn.z) > 12;
       const near = [...members.values()].some(m => m.actor.alive && (distance(m.actor, { ...spawn, y: 1.75 }) < (m.actor.bot ? 8 : WORLD_VEHICLES.protectDistance) ||
         !v.despawned && distance(m.actor, v) < (m.actor.bot ? 8 : v.health <= 0 ? WORLD_VEHICLES.protectDistance : WORLD_VEHICLES.reclaimDistance)));
@@ -2709,15 +2720,17 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const ground = [...vehicleGround, ...vehicles.filter(other => !other.despawned && other !== v && other.y < 2).map(vehicleBounds)];
       const flight = [...(vehicleOptions?.flightObstacles ?? obstacles.map(o => ({ ...o, minY: 0, maxY: o.maxY ?? 2.5 }))), ...vehicles.filter(other => !other.despawned && other !== v).map(other => ({ ...vehicleBounds(other), minY: other.y, maxY: other.y + 2.7 }))];
       if (v.health <= 0) {
+        if(isDragonBoat(v.kind)) continue;
         const support = flight.filter(o => o.maxY <= v.y && v.x >= o.minX && v.x <= o.maxX && v.z >= o.minZ && v.z <= o.maxZ).reduce((y, o) => Math.max(y, o.maxY), .13);
         v.climb -= 9.8 * dt; v.y = Math.max(support, v.y + v.climb * dt); if (v.y === support) v.climb = 0; continue;
       }
       // Substeps keep vehicle physics advancing at wall-clock speed with slow hosts.
-      const result = v.kind === 'car' ? driveVehicle(v, drive?.forward ?? 0, drive?.steer ?? 0, drive?.brake ?? !drive, dt, ground, bounds)
+      const result = isDragonBoat(v.kind) ? paddleVehicle(v,drive?.forward??0,drive?.steer??0,drive?.brake??!!lifeOf(v).unload,dt,v.occupants.slice(1).filter(Boolean).length,vehicles.filter(other=>!other.despawned&&other!==v).map(vehicleBounds)) : v.kind === 'car' ? driveVehicle(v, drive?.forward ?? 0, drive?.steer ?? 0, drive?.brake ?? !drive, dt, ground, bounds)
         : flyVehicle(v, drive?.forward ?? 0, drive?.steer ?? 0, drive?.lift ?? (vehicleOptions?.openWorld && lifeOf(v).unload && v.y > .13 ? -1 : 0), drive?.boost ?? false, dt, flight, bounds);
       Object.assign(v, result.state);
       const collisionDamage = vehicleCollisionDamage(result.impactSpeed);
       if (collisionDamage > 0) damageHull(v, collisionDamage);
+      if(isDragonBoat(v.kind)) continue;
       const gunner = gunnerId(v), gun = held(gunner);
       const ray = vehicleGunRay(v, gun?.aim);
       if (gun?.fire && gunner && fireVehicleWeapon(v)) {
@@ -3217,8 +3230,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     // Back to the starting garrison: recruits were the reinforcements' doing.
     for (const [id, entry] of members) if (entry.recruit) members.delete(id);
     enlisted = Math.max(count, ...[...members.keys()].map(id => Number(/^bot-(\d+)$/.exec(id)?.[1] ?? 0))); factionHeat?.reset(); clock = dispatchClock();
-    vehicles = vehicleOptions ? (['car', 'helicopter'] as const).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind])) : [];
-    if (facilities) for (const v of vehicles) { const site = facilities.sites.find(s => s.kind === (v.kind === 'car' ? 'garage' : 'helipad')); if (!site || !facilityOperational(site)) v.health = 0; else v.faction = site.owner!; }
+    vehicles = vehicleOptions ? VEHICLE_KINDS.filter(kind=>vehicleOptions.spawns[kind]).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind]!)) : [];
+    if (facilities) for (const v of vehicles) { if(isDragonBoat(v.kind)) continue; const site = facilities.sites.find(s => s.kind === (v.kind === 'car' ? 'garage' : 'helipad')); if (!site || !facilityOperational(site)) v.health = 0; else v.faction = site.owner!; }
     for (const entry of members.values()) { entry.actor.kills = 0; entry.actor.deaths = 0; entry.actor.shots = 0; entry.grenadeSupplies = { ...entry.initialGrenades }; entry.lastGrenadeAt = entry.lastMissionAt = undefined; spawn(entry); }
     announce('New arena match');
   }
