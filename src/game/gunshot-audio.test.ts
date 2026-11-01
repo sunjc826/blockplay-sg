@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { SPEED_OF_SOUND } from './combat-event-audio';
 import { gunshotSample, gunshotTone, playGunshot } from './gunshot-audio';
+import type { GunshotAcoustics } from './gunshot-acoustics';
 
 const rifle = (distance = 0, own = false) => gunshotTone(5.56, 36, distance, own);
 
@@ -72,4 +73,32 @@ it('keeps reflected sources alive through the last echo and cancels every schedu
   expect(nodes.every(n => n.disconnect.mock.calls.length === 1)).toBe(true);
   expect(sources.every(s => s.onended === null)).toBe(true);
   expect(onEnd).toHaveBeenCalledOnce();
+});
+
+it('reuses the room impulse across shots and releases the convolution tail on burst handoff or stop', () => {
+  const param = () => ({ value: 0, setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), cancelScheduledValues: vi.fn() });
+  const nodes: { disconnect: ReturnType<typeof vi.fn> }[] = [];
+  const node = () => {
+    const n = { gain: param(), pan: param(), frequency: param(), Q: param(), playbackRate: param(), type: '', buffer: null as AudioBuffer | null,
+      connect: vi.fn(), disconnect: vi.fn(), start: vi.fn(), stop: vi.fn(), onended: null as (() => void) | null };
+    n.connect.mockImplementation(() => n); nodes.push(n); return n;
+  };
+  const sources: ReturnType<typeof node>[] = [], reverbs: ReturnType<typeof node>[] = [];
+  const createBuffer = vi.fn((_channels: number, frames: number) => ({ getChannelData: () => new Float32Array(frames) }));
+  const context = { sampleRate: 8000, createBuffer, createGain: node, createStereoPanner: node, createBiquadFilter: node,
+    createConvolver() { const n = node(); reverbs.push(n); return n; },
+    createBufferSource() { const n = node(); sources.push(n); return n; } } as unknown as BaseAudioContext;
+  const sample = { duration: .15 } as AudioBuffer, space: GunshotAcoustics = {
+    kind: 'enclosed', reflections: [{ delay: .02, gain: .3, cutoff: 4800 }], directTail: .45, wet: .26, decay: .98, cutoff: 4800,
+  };
+  const tone = gunshotTone(5.56, 36, 0, true, undefined, space), firstEnd = vi.fn(), secondEnd = vi.fn();
+  const first = playGunshot(context, {} as AudioNode, sample, tone, 10, 0, { get: () => sample }, firstEnd)!;
+  const firstClock = sources.at(-1)!;
+  const second = playGunshot(context, {} as AudioNode, sample, tone, 10.1, 0, { get: () => sample }, secondEnd)!;
+  expect(createBuffer).toHaveBeenCalledOnce(); expect(reverbs[0].buffer).toBe(reverbs[1].buffer);
+  expect(first.end).toBeGreaterThan(11.1);
+  first.fade(10.1); expect(firstClock.stop).toHaveBeenCalledWith(10.165);
+  firstClock.onended!(); first.stop(); second.stop(); second.stop();
+  expect(firstEnd).toHaveBeenCalledOnce(); expect(secondEnd).toHaveBeenCalledOnce();
+  expect(nodes.every(n => n.disconnect.mock.calls.length === 1)).toBe(true);
 });

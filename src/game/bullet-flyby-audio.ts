@@ -30,7 +30,7 @@ export function bulletPass(from: BallisticPoint, to: BallisticPoint, ear: Ballis
 }
 
 /** One crack and a quiet, dulled slap-back per round, at the original take's speed. */
-export function createBulletFlybyAudio(getContext: () => AudioContext | null, muted: () => boolean, samples: Pick<SfxBank, 'pick'>) {
+export function createBulletFlybyAudio(getContext: () => AudioContext | null, muted: () => boolean, samples: Pick<SfxBank, 'pick'>, destination?: (context: BaseAudioContext) => AudioNode) {
   const active = new Set<() => void>();
   let heard = new WeakSet<object>(), owner: AudioContext | null = null, fallback: AudioBuffer | null = null;
   function clear() { for (const stop of [...active]) stop(); heard = new WeakSet(); }
@@ -65,7 +65,7 @@ export function createBulletFlybyAudio(getContext: () => AudioContext | null, mu
         filter.type = 'lowpass'; filter.frequency.value = echo ? Math.min(3200, pass.cutoff) : pass.cutoff; filter.Q.value = .5;
         gain.gain.value = pass.level * (echo ? .22 : 1);
         panner.pan.value = Number.isFinite(pan) ? Math.max(-1, Math.min(1, pan)) : 0;
-        source.connect(filter).connect(gain).connect(panner).connect(context.destination);
+        source.connect(filter).connect(gain).connect(panner).connect(destination?.(context) ?? context.destination);
         nodes.push(source, filter, gain, panner); sources.push(source);
         if (echo) source.onended = release;
         source.start(at + (echo ? .075 : 0));

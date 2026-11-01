@@ -3,7 +3,7 @@ import { firstVisibleHit } from './fps-raycast';
 
 /** Shared rendered cover for authority, sight, blasts and map audits. Movement
  * guard volumes deliberately do not participate: rays can pass between bars. */
-export function createSceneCover(scene: THREE.Scene) {
+export function createSceneCover(scene: THREE.Scene, ignore?: (node: THREE.Object3D) => boolean) {
   const ray = new THREE.Raycaster();
   const origin = new THREE.Vector3(), direction = new THREE.Vector3();
   const surfaces: THREE.Mesh[] = [];
@@ -18,7 +18,7 @@ export function createSceneCover(scene: THREE.Scene) {
       // Retain hidden static meshes too; visibility can change between cache
       // refreshes and is checked at query time.
       const collect = (node: THREE.Object3D) => {
-        if (node.userData.arenaActorId || node.userData.fpsEffect || node.userData.vehicleKind || node.userData.facilityId) return;
+        if (node.userData.arenaActorId || node.userData.fpsEffect || node.userData.vehicleKind || node.userData.facilityId || ignore?.(node)) return;
         if (node instanceof THREE.Mesh) surfaces.push(node);
         node.children.forEach(collect);
       };

@@ -141,6 +141,8 @@ import { createAmbientSky } from './ambient-sky-visuals';
 import { COASTAL_SEA, type AmbientKind } from './ambient-sky';
 import { gunfireReports } from './gunfire-reports';
 import { createGunshotAudio, gunshotTone } from './gunshot-audio';
+import { createSceneGunshotAcoustics, OPEN_GUNSHOT_ACOUSTICS } from './gunshot-acoustics';
+import { combatOutput, disposeCombatOutput } from './combat-output';
 import { createEmptyFireAudio, canDryFire } from './empty-fire-audio';
 import { createImpactAudio, type ImpactSurface } from './impact-audio';
 import { createBulletFlybyAudio } from './bullet-flyby-audio';
@@ -473,10 +475,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const grenadeVisuals = createGrenadeVisuals(world.scene, (at, damage) => { combatVisuals.blast(at, damage > 90 ? 1 : .5); combatAudio.boom(at.distanceTo(camera.position), damage > 90 ? 1 : .5); ambientSky.startle(at, 1); }, p => { eventRay.set(p.clone().setY(160), new THREE.Vector3(0, -1, 0)); eventRay.near = 0; eventRay.far = 180; return (firstVisibleHit(eventRay, gameplayCandidates())?.point.clone() ?? p).add(new THREE.Vector3(0, .15, 0)); });
   const combatAudio = createCombatAudio(() => audio, () => hud.muted);
   const sfx = createSfxBank();
-  const gunshots = createGunshotAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx);
+  const gunshots = createGunshotAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx, combatOutput);
+  const gunshotSpaces = createSceneGunshotAcoustics(world.scene);
   const emptyFireAudio = createEmptyFireAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx);
-  const impactAudio = createImpactAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx);
-  const bulletFlybys = createBulletFlybyAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx);
+  const impactAudio = createImpactAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx, combatOutput);
+  const bulletFlybys = createBulletFlybyAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx, combatOutput);
   const reloadAudio = createReloadAudio(() => audio, () => hud.muted || !['playing', 'deploying'].includes(hud.phase), sfx);
   // Scenery in the sky beyond the district: never a threat, never sent between peers (ambient-sky).
   // Roost sampling runs before the first render, so static world transforms must be ready.
@@ -757,7 +760,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     } catch { hud.muted = true; }
   }
   /** Our own shot, at the ear: the gun in hand, or the vehicle's when seated. */
-  function shotSound(gun: { caliberMm: number; damage: number; accessories?: WeaponSpec['accessories'] }) { gunshots.fire(gunshotTone(gun.caliberMm, gun.damage, 0, true, gun.accessories?.muzzle)); }
+  function shotSound(gun: { caliberMm: number; damage: number; accessories?: WeaponSpec['accessories'] }, at?: { x: number; y: number; z: number }) {
+    const source = at ?? (vehicles.mounted && vehicles.canUseFirearm ? seatPoint(vehicles.mounted, vehicles.seat!) : camera.position);
+    const space = !hud.muted && audio?.state === 'running' ? gunshotSpaces.at('own', source, true) : OPEN_GUNSHOT_ACOUSTICS;
+    canvas.dataset.gunshotAcoustics = space.kind;
+    gunshots.fire(gunshotTone(gun.caliberMm, gun.damage, 0, true, gun.accessories?.muzzle, space));
+  }
   /** Where a sound sits between the ears, from -1 (left) to 1 (right). */
   function panTo(at: { x: number; y: number; z: number }) {
     const toward = new THREE.Vector3(at.x, at.y, at.z).sub(camera.position), right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
@@ -767,8 +775,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function otherShot(at: { x: number; y: number; z: number }, calibre: number, power: number, after = 0, muzzle?: MuzzleDevice, emitter?: string) {
     const distance = camera.position.distanceTo(new THREE.Vector3(at.x, at.y, at.z));
     if (distance <= 80) pilotGunfireUntil = Math.max(pilotGunfireUntil, performance.now() / 1000 + Math.max(0, after) + .25);
-    gunshots.fire(gunshotTone(calibre, power, distance, false, muzzle), panTo(at), after,
-      emitter ?? `world:${Math.round(at.x)}:${Math.round(at.y)}:${Math.round(at.z)}`);
+    const key = emitter ?? `world:${Math.round(at.x)}:${Math.round(at.y)}:${Math.round(at.z)}`;
+    const tone = gunshotTone(calibre, power, distance, false, muzzle);
+    tone.acoustics = !hud.muted && audio?.state === 'running' && tone.level >= .002 ? gunshotSpaces.at(key, at) : OPEN_GUNSHOT_ACOUSTICS;
+    canvas.dataset.remoteGunshotAcoustics = tone.acoustics.kind;
+    gunshots.fire(tone, panTo(at), after, key);
   }
   function impactSound(at: THREE.Vector3, surface: ImpactSurface, energy = 1, profile?: ImpactProfile) {
     impactAudio.hit(surface, camera.position.distanceTo(at), panTo(at), energy, profile);
@@ -957,6 +968,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     effects.setStyles(weaponStyles, index); publish();
   }
   function reset() {
+    gunshotSpaces.clear();
     gunshots.clear(); emptyFireAudio.clear();
     impactAudio.clear(); bulletFlybys.clear();
     reloadAudio.clear();
@@ -2496,7 +2508,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     aimVehicle();
     const shot = vehicles.fire(); if (!shot) return;
     pullBuffer = 0;
-    hud.shots++; shotSound(VEHICLE_COMBAT[mounted.kind]);
+    hud.shots++; shotSound(VEHICLE_COMBAT[mounted.kind], shot.base);
     ambientSky.startle(shot.base, .8, shot.direction);
     // The round leaves from the turret base, so a muzzle poked through a wall still meets the wall; it flies like any other.
     if (rounds.length < MAX_ROUNDS_IN_FLIGHT) rounds.push(Object.assign(createRound(++roundSerial, hud.weapon, shot.base.clone(), shot.direction.clone(), shot.ballistics),
@@ -2714,7 +2726,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // Their rounds arrive with the snapshot's own and are drawn in flight; the shot itself is heard.
       for (const shot of vehicles.adoptShared(frame.snapshot.vehicles, options.arena.session.id)) {
         const gun = VEHICLE_COMBAT[shot.kind];
-        if (shot.kind === vehicles.active) shotSound(gun); else otherShot(shot.origin, gun.caliberMm, gun.damage, 0, undefined, `vehicle:${shot.kind}`);
+        if (shot.kind === vehicles.active) shotSound(gun, shot.origin); else otherShot(shot.origin, gun.caliberMm, gun.damage, 0, undefined, `vehicle:${shot.kind}`);
       }
       if (oldVehicle !== vehicles.active || oldSeat !== vehicles.seat) {
         if (vehicles.mounted && !restoreVehicleLook) {
@@ -3633,7 +3645,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       wetView.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
       proxyVisuals.dispose();
-      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); emptyFireAudio.dispose(); impactAudio.dispose(); bulletFlybys.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
+      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); gunshotSpaces.clear(); emptyFireAudio.dispose(); impactAudio.dispose(); bulletFlybys.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
+      disposeCombatOutput(audio);
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       rangeStation?.dispose();
       scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); grenadeHands.dispose(); grenadeVisuals.dispose(); sunShadows.dispose(); occlusion.dispose();
