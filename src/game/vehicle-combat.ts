@@ -27,9 +27,9 @@ export function vehicleBlastDamage(kind: VehicleKind, distance: number) {
   const spec = VEHICLE_COMBAT[kind];
   return Math.max(0, spec.blastDamage * (1 - Math.max(0, distance) / spec.blastRadius));
 }
-/** Forgive bumps up to 5 m/s; harder impacts grow quadratically with approach speed. */
+/** Forgive bumps up to 5 m/s; harder impacts grow quadratically at a forgiving hull-damage scale. */
 export function vehicleCollisionDamage(impactSpeed: number) {
-  return Number.isFinite(impactSpeed) ? Math.max(0, Math.abs(impactSpeed) - 5) ** 2 * 2 : 0;
+  return Number.isFinite(impactSpeed) ? Math.max(0, Math.abs(impactSpeed) - 5) ** 2 * .5 : 0;
 }
 /** Stepping off at walking pace is safe; faster bailouts injure the body, bypassing inserts. */
 export function vehicleExitDamage(v: VehicleState) {

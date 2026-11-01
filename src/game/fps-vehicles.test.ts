@@ -38,7 +38,7 @@ it('applies speed-dependent damage at contact and allows separate impacts withou
   const vehicles = createFpsVehicles(new THREE.Scene(), [wall], { car: '', helicopter: '' }, { spawns });
   try {
     expect(vehicles.interact(vehicles.states.car)?.entered).toBe(true);
-    for (const [speed, damage] of [[4, 0], [9.5, 50], [14.5, 200], [19.5, 450]]) {
+    for (const [speed, damage] of [[4, 0], [9.5, 12.5], [14.5, 50], [19.5, 112.5]]) {
       Object.assign(vehicles.states.car, spawns.car, { speed, health: 600 });
       vehicles.step(new Set(['w']), .05);
       expect(vehicles.states.car.health).toBeCloseTo(600 - damage);

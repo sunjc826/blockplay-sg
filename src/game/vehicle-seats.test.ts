@@ -21,7 +21,7 @@ function input(arena: ArenaSimulation, id: string, held: Partial<VehicleControls
 }
 describe('shared vehicle seats and authority', () => {
   it.each([false, true])('scales authoritative crash damage with approach speed (open world: %s)', openWorld => {
-    for (const [ticks, expectedDamage] of [[19, 50], [29, 200], [39, 450]]) {
+    for (const [ticks, expectedDamage] of [[19, 12.5], [29, 50], [39, 112.5]]) {
       const wall = { minX: -10, maxX: 10, minZ: -90, maxZ: -89 };
       const arena = createArena([wall], 0, 'mixed', environment, { spawns, openWorld });
       arena.addPlayer('driver', 'Driver', 0, 0, [], undefined, true);
