@@ -14,7 +14,7 @@ import { MARINA_COMBAT_ANCHORS, MARINA_COMBAT_PATROLS } from './marina-combat';
  * point is furthest from the living, so a sector's `botWeight` does not make its
  * patrols likelier so much as give them more ground to appear on — which is what
  * stops every encounter happening in the same handful of spots. Marina instead
- * uses its authored garden battle pocket to keep the limited roster together.
+ * uses routes across its compact landmark district.
  */
 export function patrolSpawns(id: WorldZoneId): readonly ZonePosition[] {
   if (id === 'marina-bay') return MARINA_COMBAT_ANCHORS;

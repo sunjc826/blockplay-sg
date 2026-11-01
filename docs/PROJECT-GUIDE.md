@@ -18,7 +18,7 @@ Select Marina Bay, Queenstown or Raffles Place to open its walk/drive world. The
 
 | Region | Approximate game extent | Collectible stamps |
 | --- | --- | --- |
-| Marina Bay | 726 × 616 units | 14 |
+| Marina Bay | 435.6 × 369.6 units | 14 |
 | Queenstown | 520 × 424 units | 8 |
 | Raffles Place | 580 × 399 units | 11 |
 

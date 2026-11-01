@@ -35,10 +35,11 @@ it('uses each district map and clips distant loot while keeping distant checkpoi
   }
 });
 
-it('renders an arena with only the player and roads when no markers are supplied', () => {
+it('renders the player, roads and nearby static landmarks without inventing combatants', () => {
   const html = renderToStaticMarkup(<FpsMinimap zone="marina-bay" player={{ x: 0, z: 0, yaw: 0 }} mode="arena" />);
   expect(html).toContain('data-minimap-player');
-  expect(html).not.toContain('data-minimap-marker');
+  expect(html).not.toMatch(/data-marker-kind="(?:ally|enemy|scent)"/);
+  expect(html).toContain('data-marker-kind="landmark"');
 });
 
 it('opens to the whole district with sector names, so distant loot is on it', () => {
@@ -100,7 +101,8 @@ it('hides combatants and scent reveals while the map is jammed', () => {
       { id: 'scent', kind: 'scent', label: 'Scent', x: 20, z: 0 },
     ]} />);
   expect(html).toContain('SIGNAL JAMMED');
-  expect(html).not.toContain('data-minimap-marker');
+  expect(html).not.toMatch(/data-marker-kind="(?:ally|enemy|scent)"/);
+  expect(html).toContain('data-marker-kind="landmark"');
 });
 
 it('shows the current conditions-based range in both combat modes and map sizes', () => {

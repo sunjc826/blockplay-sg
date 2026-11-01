@@ -1,3 +1,4 @@
+import { marinaPoint, MARINA_LAYOUT_SCALE } from './marina-layout';
 import type { VehicleKind } from './vehicle-rules';
 import { isRegionId, type RegionId } from './region-ids';
 
@@ -44,8 +45,8 @@ export interface WorldTransition {
 // Keep these defaults aligned with the authored scene spawns. Collision tests
 // build the actual scenes so later geometry changes cannot silently block travel.
 export const WORLD_ZONES: readonly WorldZone[] = [
-  { id: 'marina-bay', name: 'Marina Bay', description: 'Waterfront approaches and garden roads.', spawn: { x: -44, z: 67, yaw: -0.82, pitch: 0 },
-    risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: -70, z: 65 }, { x: -20, z: 65 }, { x: 25, z: 65 }, { x: -103, z: 10 }, { x: 103, z: 65 }, { x: 0, z: 94 }] },
+  { id: 'marina-bay', name: 'Marina Bay', description: 'Waterfront approaches and garden roads.', spawn: marinaPoint({ x: -44, z: 67, yaw: -0.82, pitch: 0 }),
+    risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{ x: -70, z: 65 }, { x: -20, z: 65 }, { x: 25, z: 65 }, { x: -103, z: 10 }, { x: 103, z: 65 }, { x: 0, z: 94 }].map(marinaPoint) },
   { id: 'raffles-place', name: 'Raffles Place', description: 'Contested CBD: heavy patrols guard the highest-tier supplies.', spawn: { x: 0, z: 52, yaw: 0, pitch: 0 },
     risk: 'high', lootTier: 3, botCount: 6, composition: 'mixed', encounterSpawns: [{ x: -75, z: 45 }, { x: 80, z: 45 }, { x: -170, z: 45 }, { x: 170, z: 45 }, { x: 0, z: -115 }, { x: 0, z: 135 }] },
   { id: 'queenstown', name: 'Queenstown', description: 'Residential courtyards, lighter patrols and starter supplies.', spawn: { x: -18, z: 83, yaw: -0.35, pitch: 0 },
@@ -111,8 +112,8 @@ export const WORLD_GATEWAYS: readonly WorldGateway[] = [
   { id: 'yishun-to-upper-thomson', from: 'yishun', to: 'upper-thomson', name: 'Upper Thomson checkpoint', position: { x: 0, z: 200 }, radius: 4, arrival: { x: 0, z: -183, yaw: Math.PI, pitch: 0 } },
   { id: 'woodlands-to-yishun', from: 'woodlands', to: 'yishun', name: 'Yishun checkpoint — good luck', position: { x: 235, z: 32 }, radius: 4, arrival: { x: -228, z: 35, yaw: -Math.PI / 2, pitch: 0 } },
   { id: 'yishun-to-woodlands', from: 'yishun', to: 'woodlands', name: 'Woodlands checkpoint', position: { x: -240, z: 35 }, radius: 4, arrival: { x: 223, z: 32, yaw: Math.PI / 2, pitch: 0 } },
-  { id: 'marina-to-raffles', from: 'marina-bay', to: 'raffles-place', name: 'Raffles Place checkpoint', position: { x: -103, z: 94 }, radius: 4, arrival: { x: 246, z: 45, yaw: Math.PI / 2, pitch: 0 } },
-  { id: 'raffles-to-marina', from: 'raffles-place', to: 'marina-bay', name: 'Marina Bay checkpoint', position: { x: 258, z: 45 }, radius: 4, arrival: { x: -91, z: 94, yaw: -Math.PI / 2, pitch: 0 } },
+  { id: 'marina-to-raffles', from: 'marina-bay', to: 'raffles-place', name: 'Raffles Place checkpoint', position: marinaPoint({ x: -103, z: 94 }), radius: 4, arrival: { x: 246, z: 45, yaw: Math.PI / 2, pitch: 0 } },
+  { id: 'raffles-to-marina', from: 'raffles-place', to: 'marina-bay', name: 'Marina Bay checkpoint', position: { x: 258, z: 45 }, radius: 4, arrival: { ...marinaPoint({ x: -103, z: 94 }), x:-103*MARINA_LAYOUT_SCALE+12, yaw: -Math.PI / 2, pitch: 0 } },
   { id: 'raffles-to-queenstown', from: 'raffles-place', to: 'queenstown', name: 'Queenstown checkpoint', position: { x: -258, z: 45 }, radius: 4, arrival: { x: 223, z: 22, yaw: Math.PI / 2, pitch: 0 } },
   { id: 'queenstown-to-raffles', from: 'queenstown', to: 'raffles-place', name: 'Raffles Place checkpoint', position: { x: 235, z: 22 }, radius: 4, arrival: { x: -246, z: 45, yaw: -Math.PI / 2, pitch: 0 } },
   { id: 'raffles-to-chinatown', from: 'raffles-place', to: 'chinatown', name: 'Chinatown checkpoint', position: { x: 0, z: 238 }, radius: 4, arrival: { x: 100, z: -168, yaw: Math.PI, pitch: 0 } },

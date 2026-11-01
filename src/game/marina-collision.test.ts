@@ -15,6 +15,6 @@ it('slides along an obstacle while preserving sideways movement', () => {
 it('keeps players inside the modeled map and permits clear roads', () => {
   expect(canOccupy(MARINA_BOUNDS.maxX, 0, 1, [])).toBe(false);
   expect(canOccupy(0, MARINA_BOUNDS.minZ, 1, [])).toBe(false);
-  expect(canOccupy(238, 0, 1.5, water)).toBe(true);
+  expect(canOccupy(238*.6, 0, 1.5, water)).toBe(true);
   expect(canOccupy(103, 0, 1.5, water)).toBe(true);
 });

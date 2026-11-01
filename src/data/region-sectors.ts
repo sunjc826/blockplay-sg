@@ -1,3 +1,4 @@
+import { marinaPoint, marinaBounds } from '../game/marina-layout.ts';
 import type { WorldZoneId } from '../game/world-zones';
 import type { ZoneSector } from '../game/zone-sectors';
 
@@ -88,21 +89,21 @@ const MARINA_BAY_SECTORS: readonly ZoneSector[] = [
   { id: 'bayfront', name: 'Bayfront podium', cover: 'open', lootWeight: 2.5, botWeight: 2,
     bounds: { minX: 20, maxX: 180, minZ: 20, maxZ: 110 },
     anchors: [{ x: 45, z: 65 }, { x: 126, z: 65 }, { x: 172, z: 101 }, { x: 172, z: 29 }, { x: 86, z: 101 }] },
-  { id: 'city-skyline', name: 'Skyline frontage', cover: 'open', lootWeight: 2, botWeight: 2,
+  { id: 'city-skyline', name: 'Skyline frontage', cover: 'broken', lootWeight: 2, botWeight: 2,
     bounds: { minX: -180, maxX: -40, minZ: -40, maxZ: 70 },
-    anchors: [{ x: -103, z: 15 }, { x: -70, z: 65 }, { x: -172, z: 61 }, { x: -172, z: -31 }, { x: -82, z: -31 }] },
-  { id: 'bay-crossing', name: 'Bay crossing', cover: 'open', lootWeight: 1, tierBias: -1, botWeight: 1,
+    anchors: [{ x: -103, z: 15 }, { x: -70, z: 65 }, { x: -172, z: 61 }, { x: -172, z: -31 }, { x: -86, z: -31 }] },
+  { id: 'bay-crossing', name: 'Bay crossing', cover: 'broken', lootWeight: 1, tierBias: -1, botWeight: 1,
     bounds: { minX: -90, maxX: 40, minZ: -160, maxZ: -70 },
-    anchors: [{ x: -20, z: -112 }, { x: -80, z: -151 }, { x: -82, z: -79 }, { x: 32, z: -151 }, { x: 32, z: -93 }] },
+    anchors: [{ x: -20, z: -112 }, { x: -80, z: -151 }, { x: -86, z: -79 }, { x: 32, z: -151 }, { x: 32, z: -93 }] },
   { id: 'artscience', name: 'ArtScience forecourt', cover: 'broken', lootWeight: 1.5, tierBias: 1, botWeight: 1,
     bounds: { minX: 50, maxX: 170, minZ: -130, maxZ: -30 },
     anchors: [{ x: 103, z: -77 }, { x: 162, z: -121 }, { x: 162, z: -39 }, { x: 58, z: -121 }, { x: 110, z: -121 }] },
   { id: 'esplanade', name: 'Esplanade gardens', cover: 'broken', lootWeight: 1.5, botWeight: 1,
     bounds: { minX: -100, maxX: 50, minZ: -240, maxZ: -150 },
-    anchors: [{ x: -25, z: -185 }, { x: -92, z: -231 }, { x: 42, z: -231 }, { x: 36, z: -159 }, { x: -88, z: -165 }] },
+    anchors: [{ x: -25, z: -185 }, { x: -92, z: -231 }, { x: 42, z: -231 }, { x: 34, z: -157 }, { x: -91, z: -167 }] },
   { id: 'gardens-bay', name: 'Gardens by the Bay', cover: 'open', lootWeight: 2.5, tierBias: 1, botWeight: 1.5,
     bounds: { minX: 240, maxX: 386, minZ: -190, maxZ: 190 },
-    anchors: [{ x: 320, z: 135 }, { x: 326, z: -130 }, { x: 248, z: 1 }, { x: 378, z: 17 }, { x: 248, z: -181 }] },
+    anchors: [{ x: 327, z: 140 }, { x: 326, z: -130 }, { x: 248, z: 1 }, { x: 378, z: 17 }, { x: 248, z: -181 }] },
   { id: 'marina-barrage', name: 'Barrage approach and roof gardens', cover: 'open', lootWeight: 1.5, botWeight: 1,
     bounds: { minX: -30, maxX: 200, minZ: 100, maxZ: 270 },
     anchors: [{ x: 25, z: 140 }, { x: 85, z: 228 }, { x: 152, z: 109 }, { x: -22, z: 261 }, { x: 152, z: 187 }] },
@@ -113,6 +114,7 @@ const MARINA_BAY_SECTORS: readonly ZoneSector[] = [
     bounds: { minX: 180, maxX: 320, minZ: -320, maxZ: -200 },
     anchors: [{ x: 246, z: -265 }, { x: 312, z: -209 }, { x: 188, z: -209 }, { x: 312, z: -311 }, { x: 188, z: -311 }] },
 ];
+const COMPACT_MARINA_SECTORS = MARINA_BAY_SECTORS.map(s => ({ ...s, bounds:marinaBounds(s.bounds), anchors:s.anchors.map(marinaPoint) }));
 
 /**
  * The CBD, and the densest sectoring in the set. The square and the two
@@ -952,7 +954,7 @@ export const PULAU_UBIN_SECTORS: readonly ZoneSector[] = [
 
 /** Every district is sectored. HarbourFront's were written by hand as the pilot. */
 export const REGION_SECTORS: Record<WorldZoneId, readonly ZoneSector[]> = {
-  'marina-bay': MARINA_BAY_SECTORS,
+  'marina-bay': COMPACT_MARINA_SECTORS,
   'raffles-place': RAFFLES_PLACE_SECTORS,
   'queenstown': QUEENSTOWN_SECTORS,
   'chinatown': CHINATOWN_SECTORS,

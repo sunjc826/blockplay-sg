@@ -1,3 +1,4 @@
+import { marinaPoint } from './marina-layout';
 import { MARINA_BOUNDS, type Obstacle } from './marina-collision';
 import { type RegionBounds, createRegionMovement, overlapsObstacle, overlapsObstacleRect } from './region-collision';
 import { recordVehicleImpact } from './vehicle-impact';
@@ -21,7 +22,7 @@ export interface VehicleState {
 export interface FlightObstacle extends Obstacle { minY: number; maxY: number }
 /** Impact speed is the inward velocity at contact, before the collision impulse. */
 export interface VehicleMovement { state: VehicleState; blocked: boolean; impactSpeed: number }
-export const VEHICLE_SPAWNS = { car: { x: -48, z: 68, yaw: -Math.PI / 2 }, helicopter: { x: -65, z: 69, yaw: 0 } };
+export const VEHICLE_SPAWNS = { car: marinaPoint({ x: -48, z: 68, yaw: -Math.PI / 2 }), helicopter: marinaPoint({ x: -65, z: 69, yaw: 0 }) };
 export const createVehicle = (kind: VehicleKind, spawn: VehicleSpawn = VEHICLE_SPAWNS[kind]): VehicleState => ({ kind, despawned: false, ...spawn, y: .13, speed: 0, lateralSpeed: 0, yawSpeed: 0, climb: 0, health: VEHICLE_COMBAT[kind].health, ammo: VEHICLE_COMBAT[kind].ammo, weaponCooldown: 0 });
 const damp = (a: number, b: number, rate: number, dt: number) => b + (a - b) * Math.exp(-rate * dt);
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));

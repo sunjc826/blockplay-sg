@@ -1,3 +1,4 @@
+import { marinaPoint, MARINA_LAYOUT_SCALE } from './marina-layout';
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { createLootGround } from './expedition-ground';
@@ -61,14 +62,15 @@ describe('dropped loot ground geometry', () => {
     const world = buildMarinaScene();
     try {
       const ground = createLootGround(world.scene), loot = createExpeditionLoot('waterfront');
-      for (const at of [{ x: -44.5, y: 0, z: 67.3 }, { x: -42.5, y: 0, z: 51.9 }, { x: -42, y: 0, z: 85 }]) {
+      for (const source of [{ x: -44.5, y: 0, z: 67.3 }, { x: -42.5, y: 0, z: 51.9 }, { x: -42, y: 0, z: 85 }]) {
+        const at = marinaPoint(source);
         const items = loot.fallen('marina-bay', { key: `${at.z}:1`, side: 'forces', rank: 3, family: 0 }, at, ground).loot;
         const weapon = items.find(item => item.kind === 'weapon')!;
-        expect(weapon.y).toBeCloseTo(at.z === 67.3 ? .1075 : at.z === 51.9 ? .16 : .28);
+        expect(weapon.y).toBeCloseTo((source.z === 67.3 ? .1075 : source.z === 51.9 ? .16 : .28)*MARINA_LAYOUT_SCALE);
         for (const item of items) expect(item.y).toBeCloseTo(ground(item.x, item.z, 0));
       }
-      const dropped = loot.drop('marina-bay', 'g36-rifle', { x: -44.5, y: 0, z: 67.3 }, ground)!;
-      expect(dropped.loot.y).toBeCloseTo(.1075);
+      const dropped = loot.drop('marina-bay', 'g36-rifle', marinaPoint({ x: -44.5, y: 0, z: 67.3 }), ground)!;
+      expect(dropped.loot.y).toBeCloseTo(.1075*MARINA_LAYOUT_SCALE);
     } finally { world.dispose(); }
   });
 });

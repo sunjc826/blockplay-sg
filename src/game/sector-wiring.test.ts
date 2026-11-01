@@ -118,7 +118,7 @@ describe('patrol spawns', () => {
   });
 });
 
-it('keeps Marina reinforcement anchors inside the authored garden battle',()=>{
+it('keeps Marina reinforcement anchors throughout the compact landmark district',()=>{
   const points=patrolSpawns('marina-bay');
   expect(points).toEqual(MARINA_COMBAT_ANCHORS);
   for(const p of points){

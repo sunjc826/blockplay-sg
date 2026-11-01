@@ -2308,9 +2308,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    */
   function dispatchReinforcements(force?: 'land' | 'air', faction: SquadFaction = 'mercenaries') {
     if ((environment?.navalSites?.length || environment?.paratroopers) && (elapsed < reserveAt[faction] || externalTransportActive(faction))) return null;
-    if (facilities) {
-      if (facilities.sites.some(s => s.kind === 'command' && facilityOperational(s, faction)) || elapsed < reserveAt[faction]) return null;
-    }
+    // Posts and transports share the regular roster. Owning a working post must
+    // not disable road/air arrivals; the external reserve clock bounds their rate.
+    if (facilities && elapsed < reserveAt[faction]) return null;
     const mine = (m: InternalActor) => m.actor.bot && !m.temporary && m.actor.faction === faction, all = [...members.values()];
     const waiting = all.filter(m => mine(m) && !m.actor.alive && m.waiting !== undefined && !m.ride).sort((a, b) => a.waiting! - b.waiting!);
     const room = Math.max(0, Math.min(population(faction) - all.filter(mine).length, regularLimit - all.filter(m => m.actor.bot && !m.temporary).length));
@@ -2327,8 +2327,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const view = { humans, bounds, clearRun, openSky };
     const needy = factionHeat?.neediest(faction, sector => all.filter(m => mine(m) && m.actor.alive && inside(m.actor, sector.bounds)).length);
     const local = needy ? validSpawns.filter(p => inside(p, needy.bounds)) : [];
-    const reserveDrops = facilities ? [...validSpawns].sort((a, b) => Math.min(a.x - bounds.minX, bounds.maxX - a.x, a.z - bounds.minZ, bounds.maxZ - a.z) - Math.min(b.x - bounds.minX, bounds.maxX - b.x, b.z - bounds.minZ, bounds.maxZ - b.z)).slice(0, 6) : validSpawns;
-    const plan = (!facilities && local.length ? planTransport({ ...view, drops: local }, random, force) : null) ?? planTransport({ ...view, drops: reserveDrops }, random, force);
+    const hasPost = facilities?.sites.some(s => s.kind === 'command' && facilityOperational(s, faction));
+    const reserveDrops = facilities && !hasPost ? [...validSpawns].sort((a, b) => Math.min(a.x - bounds.minX, bounds.maxX - a.x, a.z - bounds.minZ, bounds.maxZ - a.z) - Math.min(b.x - bounds.minX, bounds.maxX - b.x, b.z - bounds.minZ, bounds.maxZ - b.z)).slice(0, 6) : validSpawns;
+    const plan = ((!facilities || hasPost) && local.length ? planTransport({ ...view, drops: local }, random, force) : null) ?? planTransport({ ...view, drops: reserveDrops }, random, force);
     const seats = plan ? REINFORCEMENT_SEATS[plan.kind === 'transport-land' ? 'land' : 'air'] : 0;
     const troops = waiting.slice(0, seats), recruits = Math.min(room, seats - troops.length, Math.max(0, MAX_ARENA_ACTORS - members.size - 1));
     const descriptor = plan && startEvent({ ...plan, seed: Math.floor(random() * 0xffffffff) >>> 0, intensity: 1, troops: Math.max(1, troops.length + recruits), ...(faction === PLAYER_FACTION ? { faction } : {}) });
@@ -2557,7 +2558,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       distance(m.actor, v) <= WORLD_VEHICLES.crewRange && !dangerExit(m.actor))
       .sort((a, b) => distance(a.actor, v) - distance(b.actor, v));
   }
-  function tryBoardVehicle(entry: InternalActor, visible: boolean, dt: number) {
+  function tryBoardVehicle(entry: InternalActor, dt: number) {
     const order = entry.order && entry.order.until > elapsed && entry.order.since <= elapsed ? entry.order : undefined;
     if (!vehicleOptions?.openWorld || order && order.kind !== 'gather' || entry.anchor || entry.temporary || entry.heal || entry.actor.y > (bounds.groundHeight?.(entry.actor.x, entry.actor.z) ?? 0) + 2 ||
       elapsed < (entry.vehicleBoardAfter ?? 0) || dangerExit(entry.actor) || entry.actor.health < entry.healthMax * .5) return false;
@@ -2576,7 +2577,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         if (driver && !driver.actor.bot && !pickup) return false;
         // Follow the caller into their vehicle; explicit positioning orders still win.
         if (order && (!pickup || order.by !== driver?.actor.id)) return false;
-        if (!pickup && (visible || v.ammo <= 0 || vehicleEnemy(entry, v))) return false;
+        const threat = vehicleEnemy(entry, v);
+        // Distant firefights should not stop a squad assembling its patrol.
+        if (!pickup && (v.ammo <= 0 || threat && distance(threat.actor, v) < WORLD_VEHICLES.boardThreatRange)) return false;
         const recruited = driver?.actor.bot && !lifeOf(v).departed && lifeOf(v).crew.includes(entry.actor.id);
         return distance(entry.actor, v) < (recruited ? WORLD_VEHICLES.crewRange : WORLD_VEHICLES.boardRange);
       });
@@ -2624,8 +2627,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       life.think = .15; const thinkDt = elapsed - life.lastThink; life.lastThink = elapsed;
       const driver = v.occupants[0] ? members.get(v.occupants[0]) : undefined;
       const enemy = driver?.actor.bot ? vehicleEnemy(driver, v) : undefined;
-      if (driver?.actor.bot && (enemy || v.health < VEHICLE_COMBAT[v.kind].health * .3 || dangerExit(driver.actor) || life.stuck > WORLD_VEHICLES.stuckSeconds)) life.unload = true;
-      if (driver?.actor.bot && driver.mission && Math.hypot(v.x - driver.mission.x, v.z - driver.mission.z) < 15) life.unload = true;
+      const armedCrew = !!v.occupants[1] && v.ammo > 0;
+      if (driver?.actor.bot && (enemy && !armedCrew || v.health < VEHICLE_COMBAT[v.kind].health * .3 || dangerExit(driver.actor) || life.stuck > WORLD_VEHICLES.stuckSeconds)) life.unload = true;
+      if (driver?.actor.bot && !enemy && driver.mission && Math.hypot(v.x - driver.mission.x, v.z - driver.mission.z) < 15) life.unload = true;
       const neutral: VehicleControls = { forward: 0, steer: 0, lift: 0, brake: true, boost: false, fire: false };
       const hold = (id: string, input: VehicleControls) => controls.set(id, { input, expires: elapsed + .35 });
       if (life.unload) {
@@ -2672,9 +2676,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         const goal = life.goal;
         const heading = goal ? Math.atan2(v.x - goal.x, v.z - goal.z) : v.yaw;
         const error = Math.atan2(Math.sin(heading - v.yaw), Math.cos(heading - v.yaw));
-        const waiting = !goal;
+        const fighting = !!enemy && armedCrew;
+        const waiting = fighting || !goal;
         hold(driver.actor.id, { ...neutral, forward: waiting ? 0 : vehicleSpeed(v) < 7 ? 1 : 0, steer: clamp(-error * 2, -1, 1), brake: waiting || vehicleSpeed(v) > 8 });
-        if ((!waiting && vehicleSpeed(v) < .5) || !goal) life.stuck += thinkDt; else life.stuck = 0;
+        if (!fighting && ((!waiting && vehicleSpeed(v) < .5) || !goal)) life.stuck += thinkDt; else life.stuck = 0;
       }
       for (const id of v.occupants.slice(2)) {
         const passenger = id ? members.get(id) : undefined;
@@ -2812,7 +2817,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (d >= 5 && d <= 25) { const angle = Math.asin(Math.min(.95, 9.8 * d / (speed * speed))) / 2;
         throwGrenade(actor.id, { id: actor.grenade, origin: actor, direction: { x: dx / d * Math.cos(angle), y: Math.sin(angle), z: dz / d * Math.cos(angle) }, under: false, cooked: 0 }); }
     }
-    if (actor.duty!=='sentry'&&!actor.patrolSector&&tryBoardVehicle(entry, visible, dt)) { entry.aimFocus = undefined; return; }
+    if (actor.duty!=='sentry'&&!actor.patrolSector&&tryBoardVehicle(entry, dt)) { entry.aimFocus = undefined; return; }
     if (role.id === 'overwatch') { if (visible) actor.aiming = true; else delete actor.aiming; }
     if (visible) { if (elapsed - (entry.lastFight ?? -Infinity) > 6) bark(entry, 'contact'); entry.lastFight = elapsed; }
     const patrolling=actor.patrolSector&&(actor.duty==='patrol'||actor.duty==='investigate')&&!entry.order;

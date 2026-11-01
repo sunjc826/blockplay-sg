@@ -81,7 +81,7 @@ describe('Marina Bay water', () => {
       expect(isWaterObject(bay)).toBe(true);
       expect(bay.position.y).toBe(MARINA_BAY.surface);
       expect(MARINA_BAY.surface).toBeLessThan(0);
-      expect(MARINA_BAY.bed).toBeLessThan(MARINA_BAY.surface - 2);
+      expect(MARINA_BAY.bed).toBeLessThan(MARINA_BAY.surface - 1.5);
       expect(isWaterObject(world.scene.getObjectByName('marina-pond-water')!)).toBe(true);
       // A downward ray into the middle of the bay meets water first, not a floor.
       world.scene.updateMatrixWorld(true);

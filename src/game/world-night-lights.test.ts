@@ -1,3 +1,4 @@
+import { MARINA_LAYOUT_SCALE } from './marina-layout';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { REGIONS } from './regions';
@@ -148,7 +149,8 @@ describe('street lamps', () => {
         for (let i = 0; i < object.count; i++) {
           object.getMatrixAt(i, matrix); matrix.premultiply(object.matrixWorld);
           center.setFromMatrixPosition(matrix); size.setFromMatrixScale(matrix);
-          const tower = [-65, -15, 35].findIndex(z => Math.abs(center.z - z) <= 12);
+          center.divideScalar(MARINA_LAYOUT_SCALE); size.divideScalar(MARINA_LAYOUT_SCALE);
+          const tower = [-65, -15, 35].findIndex(z => Math.abs(center.z - z) <= 12.0001);
           expect(tower).toBeGreaterThanOrEqual(0);
           const rear = center.x > 151, splay = (1 - center.y / 108) ** 2 * 8;
           // Panes sit outside the glass mass and behind the projecting frames.
@@ -157,8 +159,8 @@ describe('street lamps', () => {
           expect(center.y + size.y / 2).toBeLessThan(108);
           expect(size.z).toBeLessThan(3 - .13);
           expect(size.y).toBeLessThan(2 - .12);
-          expect(span.getX(i)).toBeLessThan(center.y - size.y / 2);
-          expect(span.getY(i)).toBeGreaterThan(center.y + size.y / 2);
+          expect(span.getX(i)/MARINA_LAYOUT_SCALE).toBeLessThan(center.y - size.y / 2);
+          expect(span.getY(i)/MARINA_LAYOUT_SCALE).toBeGreaterThan(center.y + size.y / 2);
           counts[tower * 2 + Number(rear)]++;
         }
       });

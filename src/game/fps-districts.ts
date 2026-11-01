@@ -1,3 +1,4 @@
+import { marinaPoint } from './marina-layout';
 import { FPS_SPAWN, FPS_TARGETS } from './fps-rules';
 import { VEHICLE_SPAWNS, type VehicleSpawn, type VehicleKind } from './vehicle-rules';
 import type { WorldZoneId, ZonePosition, ZoneSpawn } from './world-zones';
@@ -33,8 +34,10 @@ const districts: Record<WorldZoneId, FpsDistrict> = {
     props: [[3, 188, 121, .77, .52], [4, 194, 118, 1.87, .41], [5, 189, 122, .37, .37], [5, 191, 122, .37, .37]],
   },
   'marina-bay': {
-    label: 'Marina FPS', setting: 'promenade', spawn: FPS_SPAWN, targets: FPS_TARGETS, vehicles: VEHICLE_SPAWNS,
-    props: [[3, -48, 71, .77, .52], [4, -40, 63, 1.87, .41], [4, -52, 64, 1.87, .41], [5, -45, 72, .37, .37], [5, -43, 72, .37, .37]],
+    label: 'Marina FPS', setting: 'promenade', spawn: marinaPoint(FPS_SPAWN), targets: FPS_TARGETS.map(marinaPoint),
+    // The enemy motor pool sits on the Flyer approach, within reach of its crews.
+    vehicles: { ...VEHICLE_SPAWNS, car: marinaPoint({ x: 214, z: -145, yaw: Math.PI }) },
+    props: ([[3, -48, 71, .77, .52], [4, -40, 63, 1.87, .41], [4, -52, 64, 1.87, .41], [5, -45, 72, .37, .37], [5, -43, 72, .37, .37]] as const).map(([asset,x,z,w,d])=>{const p=marinaPoint({x,z});return [asset,p.x,p.z,w,d] as const;}),
   },
   'raffles-place': {
     label: 'Raffles FPS', setting: 'city square', spawn: { x: 0, z: 52, yaw: 0, pitch: -.03 },

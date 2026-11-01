@@ -1,3 +1,4 @@
+import { marinaPoint } from '../game/marina-layout.ts';
 // Shared trusted collectible catalog: renderer and companion server use the same data.
 export const MARINA_STAMPS = [
   { name: 'Waterfront', x: 45, z: 65 },
@@ -9,12 +10,12 @@ export const MARINA_STAMPS = [
   { name: 'Esplanade gardens', x: -25, z: -185 },
   { name: 'Bayfront greenway', x: 214, z: 17 },
   { name: 'Southern gardens', x: 25, z: 140 },
-  { name: 'Garden canopy walk', x: 320, z: 135 },
+  { name: 'Garden canopy walk', x: 327, z: 140 },
   { name: 'Conservatory avenue', x: 326, z: -130 },
   { name: 'Observation wheel', x: 246, z: -265 },
   { name: 'Harbour promenade', x: 85, z: 228 },
   { name: 'Civic arcade', x: -280, z: 130 },
-];
+].map(marinaPoint);
 
 export const QUEENSTOWN_STAMPS = [
   { name: 'Queenstown station', x: 0, z: 41 },

@@ -1,3 +1,4 @@
+import { MARINA_LAYOUT_SCALE as S, marinaPoint, marinaBounds } from './marina-layout';
 import * as THREE from 'three';
 import { type VerticalRoute } from './vertical-routes';
 import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
@@ -6,18 +7,18 @@ import type { Obstacle } from './marina-collision';
 import { createWaterMaterial } from './water';
 import { MARINA_GARDEN_PAVILIONS, MARINA_GARDEN_WALLS, MARINA_GARDEN_KIOSKS } from './marina-combat';
 
-export const MARINA_SPAWN = { x: -44, z: 67, yaw: -0.82 };
-// Landmark scale 0.54: SkyPark 340 × 38m, elevation 200m (Arup/MBS).
-// Ground layout is still compressed independently for gameplay.
-export const MARINA_LANDMARKS = { towerHeight: 108, skyParkLength: 183.6, skyParkWidth: 20.52, museumHeight: 32.4 };
+export const MARINA_SPAWN = marinaPoint({ x: -44, z: 67, yaw: -0.82 });
+// Authoring scale 0.54: SkyPark 340 × 38m, elevation 200m (Arup/MBS).
+// The compact district applies a further uniform scale to the authored scene.
+const AUTHORED_LANDMARKS = { towerHeight: 108, skyParkLength: 183.6, skyParkWidth: 20.52, museumHeight: 32.4 };
 /**
  * The bay is a basin, not a painted floor: quay walls drop from the promenade
  * to a bed three metres down, and the water stands a little below the quay
  * edge, as it does at a real seawall. The surface is what shots and the eye
  * meet; the bed is what you see through it when looking down.
  */
-export const MARINA_BAY = { minX: -80, maxX: 80, minZ: -90, maxZ: 50, surface: -0.4, bed: -3 };
-export const MARINA_MAP_ROADS = [
+const AUTHORED_BAY = { minX: -80, maxX: 80, minZ: -90, maxZ: 50, surface: -0.4, bed: -3 };
+const AUTHORED_ROADS = [
   { points: [{ x: -103, z: 94 }, { x: 103, z: 94 }, { x: 103, z: -112 }, { x: -103, z: -112 }, { x: -103, z: 94 }] },
   { points: [{ x: -223, z: 164 }, { x: 238, z: 164 }, { x: 238, z: -218 }, { x: -223, z: -218 }, { x: -223, z: 164 }] },
   { points: [{ x: -103, z: 94 }, { x: -103, z: 164 }] },
@@ -29,11 +30,14 @@ export const MARINA_MAP_ROADS = [
   { points: [{ x: 103, z: -218 }, { x: 103, z: -295 }] },
   { points: [{ x: 0, z: 164 }, { x: 0, z: 252 }] },
 ];
+export const MARINA_LANDMARKS = { towerHeight:108*S, skyParkLength:183.6*S, skyParkWidth:20.52*S, museumHeight:32.4*S };
+export const MARINA_BAY = { ...marinaBounds(AUTHORED_BAY), surface:AUTHORED_BAY.surface*S, bed:AUTHORED_BAY.bed*S };
+export const MARINA_MAP_ROADS = AUTHORED_ROADS.map(r => ({ points:r.points.map(marinaPoint) }));
 export { MARINA_STAMPS } from '../data/region-stamps.ts';
 
 /** Authored, compressed game map. Photos inform the promenade; geometry is not surveyed. */
 export const MARINA_VERTICAL_ROUTES: VerticalRoute[] = [];
-export const MARINA_VERTICAL_PLACES: VerticalPlace[] = [{
+const AUTHORED_PLACES: VerticalPlace[] = [{
   id:'southern-civic-roofscape',name:'Southern civic galleries and roof gardens',
   note:'The existing southern arcade buildings become occupied ground rooms, first-floor galleries and linked roof gardens. Inspired by the district’s civic landscape, not a surveyed Marina Barrage reconstruction.',
   floors:[
@@ -61,6 +65,14 @@ export const MARINA_VERTICAL_PLACES: VerticalPlace[] = [{
     ]),
   ],
 }];
+
+// Keep the connecting galleries wide enough for full-size pedestrians and
+// corner columns after compaction, including space to approach the stairs.
+export const MARINA_VERTICAL_PLACES: VerticalPlace[] = AUTHORED_PLACES.map(p => ({ ...p,
+  floors:p.floors.map(f => ({ ...marinaPoint(f), y:f.y*S, width:f.width*S, depth:f.id.startsWith('lower-court-link') ? 7.2 : f.id.startsWith('roof-court-link') ? 6 : f.depth*S })),
+  connections:p.connections.map(c => ({ ...c, from:{...marinaPoint(c.from),y:c.from.y*S,z:c.from.z*S+(c.id.startsWith('garden-stair')?.6:0)}, to:{...marinaPoint(c.to),y:c.to.y*S,z:c.to.z*S+(c.id.startsWith('garden-stair')?.6:0)}, width:c.width*S })),
+  fixtures:p.fixtures?.map(f => ({ ...marinaPoint(f), y:f.y*S, width:f.width*S, height:f.height*S, depth:f.depth*S })),
+}));
 
 export function buildMarinaScene() {
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#a8cde8');
@@ -97,7 +109,7 @@ export function buildMarinaScene() {
   }
   // Ground and the sand apron are laid round the basin rather than across it,
   // so looking down into the bay shows its bed and walls, not a lawn.
-  const bay = MARINA_BAY, bayW = bay.maxX - bay.minX, bayD = bay.maxZ - bay.minZ, bayX = (bay.minX + bay.maxX) / 2, bayZ = (bay.minZ + bay.maxZ) / 2;
+  const bay = AUTHORED_BAY, bayW = bay.maxX - bay.minX, bayD = bay.maxZ - bay.minZ, bayX = (bay.minX + bay.maxX) / 2, bayZ = (bay.minZ + bay.maxZ) / 2;
   const grass = mat('#687d4e');
   box(25, -0.6, 180, 770, 1, 260, grass); box(25, -0.6, -220, 770, 1, 260, grass);
   box(-220, -0.6, -20, 280, 1, 140, grass); box(245, -0.6, -20, 330, 1, 140, grass);
@@ -199,6 +211,7 @@ export function buildMarinaScene() {
   const shrubGeo = geo(new THREE.IcosahedronGeometry(1, 0));
   for (let x = -84; x <= 84; x += 7) {
     const shrub = new THREE.Mesh(shrubGeo, x % 2 ? redLeaf : limeLeaf);
+    box(x,.2,82.5,5.6,.4,1.5,cream); collider(x,82.5,5.6,1.5,1.25);
     shrub.position.set(x, 0.55, 82.5); shrub.scale.set(2.8, 0.7, 0.75); scene.add(shrub);
   }
   for (const x of [-77, -7, 63]) {
@@ -247,7 +260,7 @@ export function buildMarinaScene() {
 
   // Three slender blue-glass towers. Curved/splayed lower legs are approximated
   // by offset floor bands; dimensions share the same 0.54 landmark scale.
-  const h = MARINA_LANDMARKS.towerHeight;
+  const h = AUTHORED_LANDMARKS.towerHeight;
   // Each floor band is too short for automatic building windows. Author the
   // room panes between its mullions so occupancy lighting follows the splay.
   const sandsGlass = glass.clone(); sandsGlass.userData.nightWindow = true; materials.push(sandsGlass);
@@ -276,11 +289,11 @@ export function buildMarinaScene() {
     box(151, 2, z, 27, 4, 33, pale);
   }
   const boat = new THREE.Shape();
-  const halfWidth = MARINA_LANDMARKS.skyParkWidth / 2, halfLength = MARINA_LANDMARKS.skyParkLength / 2;
+  const halfWidth = AUTHORED_LANDMARKS.skyParkWidth / 2, halfLength = AUTHORED_LANDMARKS.skyParkLength / 2;
   boat.moveTo(-halfWidth, -halfLength + 8); boat.quadraticCurveTo(-halfWidth, -halfLength, 0, -halfLength); boat.quadraticCurveTo(halfWidth, -halfLength, halfWidth, -halfLength + 8);
   boat.lineTo(halfWidth, halfLength - 22); boat.quadraticCurveTo(halfWidth, halfLength - 4, 0, halfLength); boat.quadraticCurveTo(-halfWidth, halfLength - 4, -halfWidth, halfLength - 22); boat.closePath();
   const deckGeo = geo(new THREE.ExtrudeGeometry(boat, { depth: 2.6, bevelEnabled: false, steps: 1, curveSegments: 12 }));
-  const deck = new THREE.Mesh(deckGeo, cream); deck.rotation.x = -Math.PI / 2; deck.position.set(151, h, -15); deck.castShadow = true; scene.add(deck);
+  const deck = new THREE.Mesh(deckGeo, cream); deck.name = 'marina-skypark'; deck.rotation.x = -Math.PI / 2; deck.position.set(151, h, -15); deck.castShadow = true; scene.add(deck);
   box(146, h + 2.7, -15, 4, 0.2, 81, mat('#368ca4'));
   box(154, h + 2.65, -15, 6, 0.2, 130, leaf);
   for (const x of [141, 161]) box(x, h + 3, -15, 0.12, 0.7, 146, steel);
@@ -300,7 +313,7 @@ export function buildMarinaScene() {
   for (let i = 0; i < 10; i++) {
     const angle = i / 10 * Math.PI * 2;
     const vertices: number[] = [], indices: number[] = [];
-    const tip = MARINA_LANDMARKS.museumHeight - (i % 4) * 3;
+    const tip = AUTHORED_LANDMARKS.museumHeight - (i % 4) * 3;
     for (let j = 0; j < 5; j++) {
       const t = j / 4, radius = 5 + t * 15, y = 10 + (tip - 10) * t * t, width = [2.4, 4.2, 5.1, 4.6, 3.5][j];
       vertices.push(radius, y, -width, radius, y, width, radius, y - 2.2, -width, radius, y - 2.2, width);
@@ -352,7 +365,7 @@ export function buildMarinaScene() {
   // New connected district circuit: original bay retained, with a longer route
   // behind the skyline and Sands. Distances remain compressed for game pacing.
   const asphaltEdge = mat('#70726e'), gardenSoil = mat('#746957');
-  for (const route of MARINA_MAP_ROADS.slice(1)) for (let i = 1; i < route.points.length; i++) {
+  for (const route of AUTHORED_ROADS.slice(1)) for (let i = 1; i < route.points.length; i++) {
     const a = route.points[i - 1], b = route.points[i], horizontal = a.z === b.z;
     const length = Math.abs(horizontal ? b.x - a.x : b.z - a.z);
     const x = (a.x + b.x) / 2, z = (a.z + b.z) / 2;
@@ -671,13 +684,24 @@ export function buildMarinaScene() {
     box(-120.2, 3, z - 2.3, 0.6, 6, 0.5, pale);
     box(-117, 0.35, z, 1.5, 0.7, 4.5, cream); box(-117, 1, z, 1.2, 0.9, 4.2, hedge); collider(-117, z, 1.5, 4.5, 1.5);
   }
+  // Compact the authored district before adding human-scale tactical cover and
+  // dynamic actors. Scaling all three axes preserves the landmark silhouettes.
+  // No parent transform is left on the scene: subsequently spawned actors, cars,
+  // bullets and movement retain their normal physical dimensions and speed.
+  for (const child of scene.children) if (!(child instanceof THREE.Light)) {
+    child.position.multiplyScalar(S); child.scale.multiplyScalar(S);
+  }
+  for (const {group} of walkers) group.scale.divideScalar(S);
+  for (const obstacle of obstacles) Object.assign(obstacle, marinaBounds(obstacle),
+    obstacle.maxY === undefined ? {} : {maxY:obstacle.maxY*S});
+
   // Authored combat gardens replace the southern lawns with connected courts.
   // Reuse the existing materials/instance batches; solid screens stop both
   // sight and shots, while low planters allow standing fire over their tops.
   for (const [x,z,w,d] of [[0,129,184,50],[147,126,70,54],[-27,180,132,12],[119,180,128,12]]) {
-    box(x, .025, z, w, .09, d, sand);
-    for (let offset=-w/2+4;offset<w/2;offset+=8) box(x+offset,.078,z,.07,.012,d,dark);
-    for (let offset=-d/2+4;offset<d/2;offset+=8) box(x,.078,z+offset,w,.012,.07,dark);
+    box(x*S, .025, z*S, w*S, .09, d*S, sand);
+    for (let offset=-w/2+4;offset<w/2;offset+=8) box((x+offset)*S,.078,z*S,.07,.012,d*S,dark);
+    for (let offset=-d/2+4;offset<d/2;offset+=8) box(x*S,.078,(z+offset)*S,w*S,.012,.07,dark);
   }
   for (const wall of MARINA_GARDEN_WALLS) {
     const {x,z,width,depth,height}=wall;
@@ -699,17 +723,17 @@ export function buildMarinaScene() {
   for (const {x,z} of MARINA_GARDEN_PAVILIONS) {
     // Open-sided garden kiosks: substantial end walls break east/west fire,
     // two generous openings let infantry pass through instead of dead-ending.
-    box(x,3.35,z,15,.35,9,wood,scene,true);
-    box(x,3.58,z,15.6,.12,9.6,pale);
-    for (const dx of [-6,6]) {
-      box(x+dx,1.55,z,.8,3.1,7,cream,scene,true);collider(x+dx,z,.8,7,3.1);
-      for(const dz of [-3.7,3.7])box(x+dx,1.65,z+dz,1.1,3.3,.15,wood);
+    box(x,3.35,z,9,.35,5.4,wood,scene,true);
+    box(x,3.58,z,9.6,.12,6,pale);
+    for (const dx of [-3.6,3.6]) {
+      box(x+dx,1.55,z,.6,3.1,4.2,cream,scene,true);collider(x+dx,z,.6,4.2,3.1);
+      for(const dz of [-2.3,2.3])box(x+dx,1.65,z+dz,.8,3.3,.15,wood);
     }
-    box(x,.6,z+2.2,6,1.2,1,cream);collider(x,z+2.2,6,1,1.2);
-    box(x,1.25,z+2.2,6.3,.1,1.25,wood);
-    for(const dx of [-3,0,3])box(x+dx,3.12,z,1.4,.08,.8,pale);
+    box(x,.6,z+1.3,3,1.2,.6,cream);collider(x,z+1.3,3,.6,1.2);
+    box(x,1.25,z+1.3,3.3,.1,.85,wood);
+    for(const dx of [-2,0,2])box(x+dx,3.12,z,1.4,.08,.8,pale);
     // A short path joins the front opening to the garden loop.
-    box(x,.04,z-5.5,5,.08,4,sand);
+    box(x,.04,z-3.5,3,.08,3,sand);
   }
   for(const {x,z} of MARINA_GARDEN_KIOSKS){
     box(x,1.8,z,10,3.6,8,cream,scene,true);collider(x,z,10,8,3.6);
@@ -720,7 +744,7 @@ export function buildMarinaScene() {
     for(const dx of [-4.7,4.7])for(let y=.35;y<3.5;y+=.35)box(x+dx,y,z+4.1,.5,.14,.12,wood);
     box(x,3.1,z+4.12,4,.35,.15,mint);
   }
-  scene.userData.marinaCombat = { name:'Waterfront garden front', authored:true,
+  scene.userData.marinaCombat = { name:'Compact landmark circuit', authored:true, layoutScale:S,
     walls:MARINA_GARDEN_WALLS.length,pavilions:MARINA_GARDEN_PAVILIONS.length,kiosks:MARINA_GARDEN_KIOSKS.length };
 
   // Record which reviewed images informed authored features (not photogrammetry).
@@ -729,8 +753,8 @@ export function buildMarinaScene() {
 
   // Tiny low-poly bumboat on the bay.
   // Floated at a quarter-metre draft rather than resting on the old solid bay.
-  const boatFloat = bay.surface + 0.35;
-  const boatGroup = new THREE.Group(); boatGroup.position.set(-35, boatFloat, -25); scene.add(boatGroup);
+  const boatFloat = MARINA_BAY.surface + 0.35;
+  const boatGroup = new THREE.Group(); boatGroup.position.set(-35*S, boatFloat, -25*S); scene.add(boatGroup);
   box(0, 0, 0, 8, 1.2, 3.5, trunk, boatGroup); box(0, 1.2, 0, 5, 1.8, 2.6, pale, boatGroup); box(0, 2.3, 0, 6.5, 0.25, 3, orange, boatGroup);
   const stamps = MARINA_STAMPS.map(point => {
     const group = new THREE.Group(); group.position.set(point.x, 3, point.z);
@@ -766,7 +790,7 @@ export function buildMarinaScene() {
   return withVerticalPlaces({
     scene, obstacles, car, stamps,
     animate(time: number) { water.userData.setTime(time); stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.5; stamp.position.y = 3 + Math.sin(time * 1.7 + i) * 0.35; }); boatGroup.position.y = boatFloat + Math.sin(time) * 0.06; boatGroup.rotation.x = Math.sin(time * 0.8 + 1) * 0.025;
-      walkers.forEach(({ group, x, z, axis, phase }) => { const offset = Math.sin(time * 0.09 + phase) * 10; group.position.set(x + (axis === 'x' ? offset : 0), Math.abs(Math.sin(time * 4 + phase)) * 0.04, z + (axis === 'z' ? offset : 0)); group.rotation.y = (axis === 'x' ? Math.PI / 2 : 0) + (Math.cos(time * 0.09 + phase) > 0 ? Math.PI : 0); });
+      walkers.forEach(({ group, x, z, axis, phase }) => { const offset = Math.sin(time * 0.09 + phase) * 10; group.position.set((x + (axis === 'x' ? offset : 0))*S, Math.abs(Math.sin(time * 4 + phase))*0.04*S, (z + (axis === 'z' ? offset : 0))*S); group.rotation.y = (axis === 'x' ? Math.PI / 2 : 0) + (Math.cos(time * 0.09 + phase) > 0 ? Math.PI : 0); });
     },
     dispose() { instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); sun.shadow.map?.dispose(); },
   }, MARINA_VERTICAL_PLACES);

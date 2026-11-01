@@ -92,3 +92,23 @@ it('lets a squad approach and capture a facility autonomously', () => {
   tick(a, 35);
   expect(a.snapshot().facilities!.sites.find(s => s.id === 'garage')!.owner).toBe('armed-forces');
 });
+
+it.each(['transport-land', 'transport-air'])('allows %s to carry casualties while their command post remains operational', kind => {
+  const post: FacilitySite = { ...garage, id: 'post', name: 'Post', kind: 'command', x: 45, z: 0, deployment: { x: 45, z: 0, yaw: 0 } };
+  const env = { ...open([post]),
+    savedReinforcementClocks: { external: { mercenaries: 0, 'armed-forces': 0 }, naval: { mercenaries: 0, 'armed-forces': 0 } } };
+  const a = createArena([], 1, 'mixed', env); player(a);
+  const target = a.snapshot().actors.find(p => p.bot && p.faction === 'mercenaries')!;
+  const from = soldier(a), dx = target.x - from.x, dy = target.y - .25 - from.y, dz = target.z - from.z, d = Math.hypot(dx, dy, dz);
+  expect(shootAndLand(a, 'p', from, { x: dx / d, y: dy / d, z: dz / d }, 0).killed).toBe(true);
+  tick(a, 3.2);
+  const event = a.triggerEvent(kind);
+  expect(event?.kind).toBe(kind);
+  expect(a.snapshot().transports?.find(t => t.event === event?.id)?.passengers).toBe(1);
+  expect(a.snapshot().facilities!.sites[0]).toMatchObject({ owner: 'mercenaries', suppressed: false, health: 450 });
+  expect(a.triggerEvent(kind)).toBeNull(); // External cooldown still applies.
+  tick(a, 40);
+  expect(a.snapshot().actors.find(p => p.id === target.id)?.alive).toBe(true);
+  expect(a.snapshot().actors.filter(p => p.bot && p.squad && p.faction === 'mercenaries')).toHaveLength(1);
+  expect(validArenaSnapshot(a.snapshot(), env)).toBe(true);
+});

@@ -1,22 +1,23 @@
+import { marinaPoint, MARINA_LAYOUT_SCALE } from './marina-layout';
 import { expect, it } from 'vitest';
-import { InstancedMesh } from 'three';
+import { InstancedMesh, Box3, Vector3 } from 'three';
 import { buildMarinaScene, MARINA_LANDMARKS, MARINA_MAP_ROADS, MARINA_SPAWN, MARINA_STAMPS } from './marina-scene';
 import { canOccupy, MARINA_BOUNDS, moveInMarina } from './marina-collision';
 
 it('keeps spawn, collectibles and the full road loop clear for the car', () => {
   const world = buildMarinaScene();
   try {
-    for (const point of [MARINA_SPAWN, ...MARINA_STAMPS]) expect(canOccupy(point.x, point.z, 1.35, world.obstacles)).toBe(true);
-    let position = { x: -103, z: 94 };
-    for (const next of [{ x: 103, z: 94 }, { x: 103, z: -112 }, { x: -103, z: -112 }, { x: -103, z: 94 }]) {
+    for (const point of [MARINA_SPAWN, ...MARINA_STAMPS]) expect(canOccupy(point.x, point.z, 1.35, world.obstacles), JSON.stringify(point)).toBe(true);
+    let position = marinaPoint({ x: -103, z: 94 });
+    for (const next of [{ x: 103, z: 94 }, { x: 103, z: -112 }, { x: -103, z: -112 }, { x: -103, z: 94 }].map(marinaPoint)) {
       position = moveInMarina(position, next.x - position.x, next.z - position.z, 1.35, world.obstacles);
       expect(position.x).toBeCloseTo(next.x); expect(position.z).toBeCloseTo(next.z);
     }
   } finally { world.dispose(); }
 });
 
-it('adds over 70 percent more area and keeps all three road circuits and connectors clear', () => {
-  expect((MARINA_BOUNDS.maxX - MARINA_BOUNDS.minX) * (MARINA_BOUNDS.maxZ - MARINA_BOUNDS.minZ)).toBeGreaterThan(556 * 466 * 1.7);
+it('removes 64 percent of the ground area and keeps road circuits and connectors driveable', () => {
+  expect((MARINA_BOUNDS.maxX - MARINA_BOUNDS.minX) * (MARINA_BOUNDS.maxZ - MARINA_BOUNDS.minZ)).toBeCloseTo(726 * 616 * .36);
   expect(MARINA_STAMPS).toHaveLength(14);
   const world = buildMarinaScene();
   try {
@@ -64,12 +65,32 @@ it('uses published SkyPark proportions and batches static details', () => {
 it('models the reviewed facade and landmark details without expanding the play footprint', () => {
   const world = buildMarinaScene();
   try {
-    expect(MARINA_BOUNDS).toEqual({ minX: -338, maxX: 388, minZ: -328, maxZ: 288 });
+    expect(MARINA_BOUNDS.maxX-MARINA_BOUNDS.minX).toBeCloseTo(726*MARINA_LAYOUT_SCALE);
+    expect(MARINA_BOUNDS.maxZ-MARINA_BOUNDS.minZ).toBeCloseTo(616*MARINA_LAYOUT_SCALE);
     expect(MARINA_STAMPS).toHaveLength(14);
     expect(world.scene.userData.qualityDetails).toEqual({ esplanadeSunshades: 472, wheelCapsules: 16, conservatoryGlazingSegments: 224, sandsMullions: 3240 });
     const instances = world.scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
     expect(instances.reduce((sum, mesh) => sum + mesh.count, 0)).toBeGreaterThan(14000);
     expect(instances.length).toBeLessThan(60);
     expect(world.scene.children.length).toBeLessThan(240);
+  } finally { world.dispose(); }
+});
+
+
+it('keeps landmark meshes aligned with the compact world', () => {
+  const world = buildMarinaScene();
+  try {
+    world.scene.updateMatrixWorld(true);
+    const skypark = world.scene.getObjectByName('marina-skypark')!;
+    expect(skypark).toBeDefined();
+    const deck = new Box3().setFromObject(skypark);
+    expect(deck.min.y).toBeCloseTo(MARINA_LANDMARKS.towerHeight);
+    expect(deck.max.z-deck.min.z).toBeCloseTo(MARINA_LANDMARKS.skyParkLength);
+    const flyer = world.scene.getObjectByName('marina-flyer-wheel')!;
+    const at = flyer.getWorldPosition(new Vector3());
+    const stamp = MARINA_STAMPS.find(s=>s.name==='Observation wheel')!;
+    expect(Math.hypot(at.x-stamp.x,at.z-stamp.z)).toBeLessThan(10);
+    for(const p of [{x:300,z:0},{x:-300,z:0},{x:0,z:250},{x:0,z:-300}])
+      expect(canOccupy(p.x,p.z,.4,world.obstacles)).toBe(false);
   } finally { world.dispose(); }
 });

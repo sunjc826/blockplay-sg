@@ -1,3 +1,4 @@
+import { marinaPoint } from './marina-layout';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { buildMarinaScene } from './marina-scene';
 import { canOccupy, moveInMarina } from './marina-collision';
@@ -26,18 +27,18 @@ it('uses actual solid screens to interrupt standing sight and bullets, and low c
 it('keeps both pavilion entrances open and short north/south infantry routes connected',()=>{
   for(const {x,z} of MARINA_GARDEN_PAVILIONS){
     // The counter occupies the middle; pass either side through both openings.
-    const start={x:x+4.5,z:z-5},end=moveInMarina(start,0,10,.4,world.obstacles);
-    expect(end.x).toBeCloseTo(start.x);expect(end.z).toBeCloseTo(z+5);
+    const start={x:x+2.5,z:z-3},end=moveInMarina(start,0,6,.4,world.obstacles);
+    expect(end.x).toBeCloseTo(start.x);expect(end.z).toBeCloseTo(z+3);
   }
   for(const x of [-90,-42,33,95,160]){
-    const p=moveInMarina({x,z:104},0,49,.4,world.obstacles);
-    expect(p.z).toBeCloseTo(153);
+    const p=moveInMarina(marinaPoint({x,z:104}),0,49*.6,.4,world.obstacles);
+    expect(p.z).toBeCloseTo(153*.6);
   }
 });
-it('keeps Marina deployments and patrols near the garden battle',()=>{
+it('uses the compact district for deployments and patrols on three landmark approaches',()=>{
   const district=buildDistrictWorld('marina-bay');
   try{
-    expect(district.environment.patrolSectors).toHaveLength(1);
+    expect(district.environment.patrolSectors).toHaveLength(3);
     const points=districtDeploymentPoints('marina-bay',(x,z)=>canOccupy(x,z,.5,world.obstacles));
     expect(points.length).toBeGreaterThanOrEqual(3);
     for(const p of points){expect(p.x).toBeGreaterThanOrEqual(MARINA_COMBAT_BOUNDS.minX);expect(p.x).toBeLessThanOrEqual(MARINA_COMBAT_BOUNDS.maxX);expect(p.z).toBeGreaterThanOrEqual(MARINA_COMBAT_BOUNDS.minZ);expect(p.z).toBeLessThanOrEqual(MARINA_COMBAT_BOUNDS.maxZ);}

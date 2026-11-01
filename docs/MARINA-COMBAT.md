@@ -1,79 +1,130 @@
-# Marina Bay garden combat pilot
+# Marina Bay compact ground battlefield
 
-Marina's southern promenade, garden court and civic approach form a concentrated
-infantry battle inside the larger explorable landmark district. The pilot keeps
-the bay, SkyPark, ArtScience Museum, Flyer, gardens, three road circuits, border
-connections and fourteen collectibles in place.
+Marina Bay's playable footprint is now **435.6 × 369.6 game metres**, down from
+726 × 616: 40% shorter on each axis and **64% less ground area**. This supersedes
+the first garden-only concentration pilot. The entire compact district remains
+playable, including the bases of the landmark structures. There is no separate
+large, empty exploration map outside the battle pocket.
 
-The combat area is 290 × 132 game metres (`x=-115…175`, `z=54…186`). Two staging
-posts face three nearby forward objectives: Garden court, Civic approach and
-Bayfront supply court. The deployment shortlist, regular reinforcement anchors,
-patrol area and reinforcement heat sector use this pocket. Loot and landmark
-exploration retain the district's geographical sectors; the rest of the map is
-still accessible. The default population remains 32, with 48 and 64 available.
+## Layout and combat
 
-Broad southern lawns become paved garden courts with four open pavilions, two
-service kiosks, tall planted masonry screens and low firing cover. Screens block
-rendered sight and bullets; low walls protect a crouching soldier while allowing
-standing fire. Pavilion passages, five north/south approaches and vehicle roads
-remain open. The additions are authored gameplay landscaping, with no claim of
-new photographic reference provenance.
+Three equal-priority forward objectives use different routes around the bay:
+Esplanade crossing to the north, Waterfront garden court to the south, and
+Sands garden approach to the east. Civic and Flyer-approach command posts face
+across this network. Spawns, reinforcements and deployment choices now use the
+whole compact district; three patrol areas replace the single garden area.
+The default population remains 32, with 48 and 64 available. Faction numbers,
+weapons, movement speed and vehicle dimensions are unchanged.
 
-`marina-combat.ts` holds the layout and battle anchors. `district-world.ts`,
-`facility-sites.ts` and `expedition-deployment.ts` consume them. Facilities opt
-into `combatFocus: primary | secondary`; unmarked districts retain their existing
-allocation. Marked courts allow multiple squads to converge, with at most one
-patrol/guard squad and a 20% living-force budget while fronts remain. Once one
-side holds the courts, its attack squads hold those forward positions rather
-than switching to the opposing staging camp. This preserves a place for the
-other side to regroup. Camps remain ordinary damageable/capturable facilities;
-this is AI assignment policy, not an invulnerability rule.
+The bay, SkyPark, ArtScience Museum, Flyer, Supertrees, conservatories, civic
+arcades, road circuits, district checkpoint and fourteen collectibles remain.
+The authored scenery is uniformly reduced to 60% in all axes to preserve
+landmark proportions. For example, the SkyPark deck is now about 110 × 12 m,
+at a tower height of 64.8 m. This is an authored gameplay layout, not a new
+geographical reconstruction. Landmark interiors, rooftop objectives, lifts,
+Flyer firing positions and rooftop helicopter deployment are future work.
 
-## Exploratory simulation
+Ground-level cover remains sized for normal players: 2.6 m sight-blocking
+screens and 1.05 m low walls. The southern pavilions retain standing clearance,
+and their narrower footprints have two tested passages around each counter.
+Twelve additional screens break up northern, western and eastern approaches.
+There are 23 tactical walls in total, four pavilions and two service kiosks.
+Existing road centre lines remain driveable, and all collectibles and sector
+anchors are reachable. A few anchors were moved away from narrowed margins.
 
-The task-local experiment is in `.cache/marina-combat/`. It is deliberately not
-a permanent telemetry API or a shipped analytics dependency. `simulate.mjs`
-uses a Vite server-side module transform to observe accepted AI shots and bullet
-hits without adding hooks to production code. `scripts/lib/battlefield-scenario.ts`
-supplies the actual scene, rendered sight/shot cover, movement, facilities and AI.
+`marina-layout.ts` is the shared coordinate conversion for scene bounds,
+collectibles, sectors, checkpoints, practice positions and minimap geometry.
+Static scene geometry and collision are compacted before human-scale cover,
+stamps, the car and gameplay actors are added. Elevated civic floors and stairs
+use matching coordinates; their rails are generated at normal height. Ambient
+walkers keep their original body size. Flyer lighting inherits its wheel's
+transform, and the other bay-show effects use the same scenery scale.
 
-The final comparison freezes committed main plus the Marina changes, so both
-layouts share the same weapons and runtime even while unrelated workspace work
-continues. Seven saved original layout/allocation modules restore the baseline.
-`experiment-source.json` records source hashes. Three seeds (92371, 18041, 75013)
-run for 180 simulated seconds each at 32 and 64 bots, using 0.05-second steps and
-one-second population samples.
+Facilities retain the opt-in `combatFocus` allocation policy: multiple squads
+can contest a front, and captured fronts are held instead of automatically
+swarming the opposing staging camp. Other districts retain their existing
+layout and allocation. Camps are still ordinary damageable/capturable sites.
 
-Measurements distinguish:
+## Vehicle participation
 
-- Average living dismounted regular infantry in each 25 × 25 m cell and named
-  region, separately for both factions. Cell area includes any water/buildings.
-- Actual firing positions and intended target positions, separately. A target
-  position is not a confirmed hit.
-- Shot-weighted engagement distance, bullet-hit distance from the original
-  firing position, and actor-pair episode-weighted distances.
-- First contact, local contact within 75 m of entry, quiet intervals, infantry
-  survival and sampled positions over time.
-- An actor-pair episode split after five seconds without targeted fire; reciprocal
-  episodes require both sides to shoot. Many such pairs can belong to one battle.
+Operational command posts no longer veto road/air reinforcement transports.
+These still share each faction's existing regular roster, require casualties or
+recruitment room, obey the 80-second external reserve clock and avoid overlapping
+rides. An operational post permits drops toward the sector needing troops;
+without one, the existing edge-entry preference remains. Road/air choice still
+requires a clear driving corridor/open descent column. This correction applies
+to command-and-control districts generally.
 
-These are idle-observer simulations, not active-player playtests. Vehicle
-weapons, hazards and temporary event crews are excluded from infantry-fire
-statistics. The live six-millisecond navigation budget is retained, so the
-seeds do not guarantee identical runs under different CPU load. Three-minute
-samples can reveal pacing problems but cannot certify sustained match balance.
+The one drivable Humvee recruits existing eligible soldiers, instead of adding
+bots. Marina’s motor pool is now on the Flyer approach beside its owning
+command post, where those soldiers can reach it. Distant visible enemies no longer prevent boarding: threats within 35 m
+still do. A healthy driver with a gunner and ammunition stops to engage visible
+enemies within 90 m, without counting that combat stop as being stuck. A lone
+crew, a damaged hull, immediate hazards and genuinely stuck movement still cause
+unloading. Ammunition remains finite. Explicit orders and player pickups retain
+priority. The drivable helicopter still requires a human pilot; autonomous air
+transport and raid crews belong to the separate scripted event system. This
+change does not implement autonomous helipad sorties or multiple Humvees.
 
-`report.py` produces density/firing maps, distance/survival plots, comparison
-CSV/JSON and a local timeline explorer (`report.html`). Experimental iterations
-are retained separately, including the version that exposed late lulls after
-one side overwhelmed the opposing command post.
+## Exploratory measurements
+
+The original experiment remains in `.cache/marina-combat/`. The compact-layout
+comparison is in `.cache/marina-compact/`, with frozen before/after sources and
+raw trial data. These are local experiments, not production telemetry APIs or
+shipped analytics dependencies.
+
+The probe uses the actual battlefield scene, collision, AI, navigation,
+facilities and reinforcement systems. Three seeds run for 180 simulated seconds
+at each of 32 and 64 bots, with 0.05-second simulation steps and one-second
+population samples. It records living dismounted infantry, positions, accepted
+shots and intended targets, original bullet-origin hit distances, quiet periods
+and actor-pair episodes split after five seconds without targeted fire. Final
+trials additionally sample hull occupancy, ammunition, transports and raiders.
+
+The observer is idle. No active-player tactics or proxy campaign are simulated.
+Vehicle weapons, hazards and temporary event crews are excluded from infantry
+fire metrics. The live navigation CPU budget means seeded runs are not exactly
+reproducible under different machine load. Spatial proximity does not imply
+line of sight, a clear walking route or an ongoing fight. Three-minute runs can
+expose pacing and distribution problems but cannot establish long-match balance.
+
+### Results of the compact-layout trial
+
+Three seeds per size, compared with local commit `a715c79` (the earlier
+large-map/garden-concentration layout), using the final map and motor pool:
+
+| Mean across trials | Previous 32 | Compact 32 | Previous 64 | Compact 64 |
+| --- | ---: | ---: | ---: | ---: |
+| Walkable ground samples within 60 m of living regular infantry | 11% | 37% | 13% | 54% |
+| First targeted infantry shot | 16.2 s | 22.8 s | 1.3 s | 2.7 s |
+| Longest infantry firing gap, including opening | 16.2 s | 22.8 s | 15.3 s | 3.9 s |
+| Mean intended-target firing distance | 97 m | 97 m | 100 m | 122 m |
+| Mean living allied dismounted infantry | 4.9 | 10.8 | 8.6 | 13.7 |
+
+At 32 bots, nearest-front attribution of shot origins is approximately
+42% north, 19% south and 38% east: several active approaches rather than one
+central choke. At 64, the distribution is less even (52% north, 35% south,
+13% east). Attribution is geometric proximity, not a claim about objective
+capture or line of sight. The comparison image is `distribution.png` in the
+local experiment directory; raw samples retain faction and coordinates.
+
+Every final trial produced both road and air reinforcement transports, with
+2–3 arrivals in 180 seconds. The Humvee had a driver and gunner for 66–101
+sampled seconds per trial; five of six trials recorded mounted gunfire. This
+is evidence of participation, not a guarantee of constant vehicle combat.
+The final simulations ran about 3.4–6.3 times real time on this machine.
+
+The smaller map uses substantially more of its playable ground, but the
+32-bot opening is slower, and 64-bot engagements are longer-ranged than the
+concentrated pilot. Further sightline tuning and active-player playtesting are
+still warranted. This pass does not establish perfect pacing or long-term
+faction balance.
 
 ## Validation
 
-The focused tests verify actual solid sight/shot blockers, firing over low
-cover, pavilion passages, north/south routes, deployment locality, converging
-squad assignments and staging-camp preservation. Existing suites cover road
-circuits, all collectible reachability, sector anchors, objective camp placement,
-render batching, range sightlines and checkpoints. Browser checks exercise the
-real FPS engine at 32 and 64 troops and inspect the garden at ground level and
-from above. No new paid reference or audio requests are required by this pass.
+Tests cover actual bullet/sight obstruction, low-cover firing, pavilion passages,
+road circuits, collectible reachability, sector anchors and measured cover bands,
+minimap/checkpoint alignment, facility placement, practice target sightlines,
+landmark transforms, civic traversal, water and animated set pieces. Browser
+checks inspect the district at ground level and from above and exercise the real
+FPS engine with 32 and 64 soldiers. No paid reference or audio requests are used.

@@ -1,5 +1,10 @@
 # Marina Bay expansion — 13 September 2026
 
+> Historical expansion record. The November 2026 ground-combat pass reduced the
+> playable footprint to 435.6 × 369.6 game metres while retaining the landmarks
+> and fourteen stamps. See [Marina combat layout](MARINA-COMBAT.md) for current behavior.
+
+
 ## Static reference quality pass (latest)
 
 The approved `reconstruction/marina-static-quality-plan.json` batch adds 25 cached 640 × 640 Static API images using existing panorama metadata (zero additional metadata requests). All 25 were visually reviewed: **19 accepted, six limited, zero rejected/pending**. Full source-to-model notes are in `reconstruction/marina-bay/references/static-quality-review.md`. Cropped or obstructed frames were retained with honest limitations, not re-queried.

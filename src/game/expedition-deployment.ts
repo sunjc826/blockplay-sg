@@ -23,8 +23,8 @@ export function districtDeploymentPoints(zone: WorldZoneId, clear: (x: number, z
     const center = { x: (sector.bounds.minX + sector.bounds.maxX) / 2, z: (sector.bounds.minZ + sector.bounds.maxZ) / 2 };
     return [{ ...point, id: `sector-${sector.id}`, name: sector.name, yaw: Math.atan2(point.x - center.x, point.z - center.z), pitch: 0 }];
   });
-  candidates.push(...(zone === 'marina-bay' ? MARINA_COMBAT_ANCHORS : district.encounterSpawns).filter(p => clear(p.x, p.z)).map((p, i) => ({ ...p, id: `approach-${i}`, name: `${zone === 'marina-bay' ? 'Garden approach' : 'Outer approach'} ${i + 1}`, yaw: district.spawn.yaw, pitch: 0 })));
-  // Spread the shortlist across the eligible area (the garden front in Marina).
+  candidates.push(...(zone === 'marina-bay' ? MARINA_COMBAT_ANCHORS : district.encounterSpawns).filter(p => clear(p.x, p.z)).map((p, i) => ({ ...p, id: `approach-${i}`, name: `${zone === 'marina-bay' ? 'Landmark approach' : 'Outer approach'} ${i + 1}`, yaw: district.spawn.yaw, pitch: 0 })));
+  // Spread the shortlist across the eligible district.
   while (points.length < 6 && candidates.length) {
     const distance = (p: DeploymentPoint) => points.length ? Math.min(...points.map(q => Math.hypot(p.x - q.x, p.z - q.z))) : Math.hypot(p.x - district.spawn.x, p.z - district.spawn.z);
     candidates.sort((a, b) => distance(b) - distance(a));

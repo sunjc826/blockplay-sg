@@ -36,7 +36,7 @@ export function districtFacilitySites(zone: WorldZoneId, fleet: Record<VehicleKi
     sites.push({ ...p, y: groundHeight(p.x,p.z), id: `${zone}-${kind === 'car' ? 'garage' : 'helipad'}`, name: kind === 'car' ? 'Motor pool garage' : 'Air transport helipad',
       kind: kind === 'car' ? 'garage' : 'helipad', initialOwner: kind === 'car' ? 'mercenaries' : null, deployment: { ...spawn } });
   }
-  // Marina uses nearby authored courts; other districts use farthest-point
+  // Marina uses three authored landmark approaches; other districts use farthest-point
   // placement to give their fronts different parts of the district,
   // using the same authored, reachable anchors as patrols and exploration.
   for (const [index, kind] of (['command', 'command', 'supply'] as const).entries()) {

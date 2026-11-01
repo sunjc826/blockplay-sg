@@ -135,6 +135,28 @@ it('a lone AI driver stops, dismounts and fights visible enemies without immedia
   tick(arena, 1); expect(actor(arena, bot.id).vehicle).toBeUndefined();
 });
 
+it('keeps a healthy AI crew mounted and firing instead of treating a combat stop as stuck', () => {
+  const arena = createArena([], 2, 'mixed', { ...environment, playerSpawn: { x: 55, z: 0 } }, options);
+  tick(arena, .1);
+  const crew = car(arena).occupants.slice(0, 2), ammo = car(arena).ammo;
+  expect(crew.every(Boolean)).toBe(true);
+  player(arena, 'enemy');
+  // Keep the target alive through several stuck timers so this checks sustained combat.
+  for (let t = 0; t < WORLD_VEHICLES.stuckSeconds + 2; t += .05) {
+    arena.setPlayerVitals('enemy', { health: 100, armor: 100 }); arena.step(.05);
+  }
+  expect(car(arena).occupants.slice(0, 2)).toEqual(crew);
+  expect(car(arena).ammo).toBeLessThan(ammo);
+  expect(Math.hypot(car(arena).x, car(arena).z)).toBeLessThan(1);
+  expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
+});
+
+it('assembles a vehicle crew despite a distant visible enemy', () => {
+  const arena = createArena([], 2, 'mixed', { ...environment, playerSpawn: { x: 75, z: 0 } }, options);
+  player(arena, 'enemy'); tick(arena, .1);
+  expect(car(arena).occupants.slice(0, 2).every(Boolean)).toBe(true);
+});
+
 it('refuses boarding a hostile crew while allowing the driver’s allies', () => {
   const arena = createArena([], 1, 'mixed', environment, options);
   const bot = arena.snapshot().actors.find(a => a.bot)!;

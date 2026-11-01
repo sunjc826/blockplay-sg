@@ -1,3 +1,4 @@
+import { MARINA_LAYOUT_SCALE } from './marina-layout';
 import * as THREE from 'three';
 import type { RegionId } from './region-ids';
 import type { RegionWorld } from './regions';
@@ -310,11 +311,12 @@ function marina(kit: Kit, scene: THREE.Scene): SetPiece {
   const rim = kit.own(createLightString(rimSpots)); flyer?.add(rim.points);
 
   // The Supertrees' frames lit along their ribs, branches and rims.
-  const treeSpots = supertreeLights(SUPERTREES), trees = kit.own(createLightString(treeSpots)); kit.group().add(trees.points);
+  const treeSpots = supertreeLights(SUPERTREES), trees = kit.own(createLightString(treeSpots)); kit.group().add(trees.points).scale.setScalar(MARINA_LAYOUT_SCALE);
 
   // The bay show: a line of fountains across the water, and lasers fired west over the bay from the SkyPark.
-  const fountains = kit.own(createFountainJets(FOUNTAINS)); kit.group().add(fountains.mesh);
+  const fountains = kit.own(createFountainJets(FOUNTAINS)); kit.group().add(fountains.mesh).scale.setScalar(MARINA_LAYOUT_SCALE);
   const lasers = kit.own(createLaserBeams()), laserGroup = kit.group();
+  laserGroup.scale.setScalar(MARINA_LAYOUT_SCALE);
   const beams = SKYPARK_LASERS.flatMap(([x, z], emitter) => Array.from({ length: 4 }, (_, k) => {
     const mesh = lasers.beam(); mesh.position.set(x, SKYPARK_TOP, z); laserGroup.add(mesh); return { mesh, emitter, k };
   }));
