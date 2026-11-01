@@ -33,6 +33,7 @@ export function useArmory() {
   }, [update]);
   useEffect(() => {
     const saveOnExit = () => {
+      if (pendingRentalMs.current < 1) return;
       advanceRentalTime(0);
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(current.current)); } catch { /* Existing save error UI handles unavailable storage. */ }
     };
