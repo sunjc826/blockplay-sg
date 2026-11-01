@@ -1,3 +1,4 @@
+import { createWeaponShoulderMotion } from './weapon-shoulder-motion';
 import { createFirearmCameraShake } from './firearm-camera-shake';
 import { applyVehicleImpactCamera } from './vehicle-impact';
 import { createProxyCampaign, PROXY_WEAPON, type ProxyAction, type ProxyCampaign } from './proxy-operations';
@@ -553,7 +554,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // scale the old scalar did, so a burst costs the aim it always did.
   const kick = createRecoil();
   const firearmShake = createFirearmCameraShake();
-  function resetWeaponRecoil() { resetRecoil(kick); firearmShake.reset(); }
+  const shoulderMotion = createWeaponShoulderMotion();
+  function resetWeaponRecoil() { resetRecoil(kick); firearmShake.reset(); shoulderMotion.reset(); }
   // The shooter's own ground speed, so walking fire throws brass along with them.
   const carry = new THREE.Vector3();
   // Rounds still in the air. Instant weapons never enter this list, so a hitscan
@@ -708,7 +710,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     for (const e of activeGrenadeEvents()) for (const p of grenadePayloads(e)) if (p.type === 'cloud' && time - e.start <= p.until && itemById(e.id)?.grenade?.effects.some(effect => effect.kind === 'cloud' && effect.blocksSight !== false)) clouds.push({ x: e.point.x, z: e.point.z, radius: p.radius, ground: e.point.y });
     return combatMinimapMarkers(camera, world.scene, hud.arenaSelf, hud.arena?.actors ?? [], combatSubjects(true), clouds, range);
   };
-  const clearInput = () => { firearmShake.reset(); stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; ads = false; touchAim = false; drag = null; moveStick = null; foodKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
+  const clearInput = () => { firearmShake.reset(); shoulderMotion.reset(); stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; ads = false; touchAim = false; drag = null; moveStick = null; foodKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -2573,6 +2575,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const recoilMultiplier = stanceRecoilMultiplier(stance(), grounded(), bodyMotion.eye) * supportMultiplier * recoilScale(foodEffects) * arenaConditionModifiers(conditions).recoil;
     recordRecoilShot(kick, specs[hud.weapon], hud.weapon, Math.random, recoilMultiplier);
     firearmShake.shot(specs[hud.weapon].recoil, recoilMultiplier);
+    shoulderMotion.shot(specs[hud.weapon], recoilMultiplier);
     canvas.dataset.recoilMultiplier = recoilMultiplier.toFixed(3);
     effects.fire({ recoil: specs[hud.weapon].recoil, eject: weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_eject`), camera, carry });
     // Every carried gun's round flies. In the arena the host flies the real one
@@ -3289,7 +3292,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // cooldowns already do: on a renderer slow enough that `dt` is clamped,
       // rounds still leave at their real rate, so anything the shot throws off
       // has to settle at its real rate too or it piles up.
-      firearmShake.advance(realDt);
+      firearmShake.advance(realDt); shoulderMotion.advance(realDt);
       advanceRecoil(kick, realDt); applyAimPush();
       updateCameras(dt, moving, sprinting);
       refreshAimAssist(realDt);
@@ -3380,7 +3383,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const sightMagnification = cant > .5 || !weapons[hud.weapon] ? 1 : getWeaponSight(weapons[hud.weapon])?.magnification ?? 1;
     const firingVibration = firearmShake.sample(aimProgress, sightMagnification, !!motionPreference?.matches || hud.phase !== 'playing');
     canvas.dataset.firearmShake = JSON.stringify(firingVibration);
-    firearmShake.render(camera, viewCamera, firingVibration, () => {
+    const shoulderPose = shoulderMotion.sample(aimProgress, sightMagnification, handling[hud.weapon]?.bipodDeployment ?? 0,
+      !!motionPreference?.matches || hud.phase !== 'playing' || !rig.visible || loadout[hud.weapon].reloadRemaining > 0 || inspectElapsed !== null);
+    canvas.dataset.shoulderMotion = JSON.stringify(shoulderPose);
+    shoulderMotion.render(rig, shoulderPose, () => firearmShake.render(camera, viewCamera, firingVibration, () => {
       // Before anything draws the world: the tube's gain goes into exposure, or the scene turns to temperature.
       const visionSpec = equipment.vision?.spec;
       advanceVision(visionState, visionSpec, realDt, !!motionPreference?.matches);
@@ -3418,7 +3424,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (visionMotion !== canvas.dataset.visionMotion) canvas.dataset.visionMotion = visionMotion;
       const visionTag = visionState.on && visionSpec ? `${visionSpec.kind}:${visionSpec.generation}:${activePalette(visionState, visionSpec) || 'tube'}:${vision.swapped}` : '';
       if (visionTag !== (canvas.dataset.vision ?? '')) canvas.dataset.vision = visionTag;
-    });
+    }));
     if (aerialFog) { aerialFog.near = fogNear; aerialFog.far = fogFar; }
     if (now - lastReport > 100) { publish(); lastReport = now; }
     frame = requestAnimationFrame(animate);

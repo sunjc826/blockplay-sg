@@ -179,6 +179,15 @@ reduce it; reduced motion disables it. It is applied only while drawing the worl
 actual aim, recoil/recovery ratings, shot direction and spread stay unchanged.
 Dry-fire clicks and other soldiers' shots do not trigger it.
 
+A separate visual shoulder spring gives the gun and attached hands a sharp
+backward punch, a small forward return overshoot and a faster receiver shudder.
+Weapon weight changes the recovery feel. Stance support scales the impulse;
+aiming and deployed bipods further restrain the visible travel, and magnified
+sights reduce angular movement. The extra motion is suppressed by reduced
+motion and during reload/inspection. It only transforms the foreground rig
+while drawing, then restores it; actual aim, recoil, shot origins and accuracy
+are unchanged.
+
 **Tuned in degrees, against the genre.** Recoil was tuned by feel twice and came
 out at roughly half of what a shooter does, which is how "barely anything"
 survived a change that tripled it. Kick units and ratings are internal, so the
