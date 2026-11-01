@@ -68,7 +68,7 @@ try {
   await blockLoading(); await key('w');
   await wait(`document.querySelector('.fps-game').dataset.zone==='sentosa' && boardwalkHud.phase==='loading'`);
   await key('w', false); // Release while actual GLB responses are held back.
-  assert(await evaluate(`!!document.querySelector('.expedition-crossing') && !document.querySelector('.fps-start-card')`));
+  assert(await evaluate(`!!document.querySelector('.fps-district-crossing') && !document.querySelector('.fps-start-card')`));
   assert(await evaluate(`document.pointerLockElement===originalCanvas && document.querySelector('canvas')===originalCanvas`));
   await screenshot('crossing-loading'); await releaseLoading();
   await wait(`boardwalkHud.phase==='playing' && boardwalkHud.expeditionZone==='sentosa'`);

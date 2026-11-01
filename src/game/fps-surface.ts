@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-/** The expedition owns this surface across scene changes, preserving pointer lock. */
+/** The game view owns this surface across district changes, preserving pointer lock. */
 export function createFpsSurface(host: HTMLDivElement) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));

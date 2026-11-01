@@ -10,6 +10,7 @@ import FpsFacilityHud from './FpsFacilityHud';
 import ExpeditionDeployment from './ExpeditionDeployment';
 import type { ArenaSnapshot } from '../game/arena-rules';
 import FpsVehicleHud from './FpsVehicleHud';
+import FpsDistrictCrossing from './FpsDistrictCrossing';
 import { hasLaser, hasLight } from '../game/weapon-accessories';
 import EnvironmentControls from './EnvironmentControls';
 import FpsVisionChip from './FpsVisionChip';
@@ -209,9 +210,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         <button className="deployment-leave" onClick={onExit}>Leave</button>
         {hud.message && <p className="fps-capture-error" role="alert">{hud.message}</p>}
       </ExpeditionDeployment>}
-      {physicalCrossing && (hud.phase === 'loading' || playing) && <div key={scene.revision} className={`expedition-crossing${playing ? ' has-arrived' : ''}`} role="status" aria-live="polite">
-        <span>SENTOSA BOARDWALK</span><strong>{hud.phase === 'loading' ? `Crossing to ${zone.name}…` : zone.name}</strong>
-      </div>}
+      {physicalCrossing && <FpsDistrictCrossing key={scene.revision} name={zone.name} phase={hud.phase} />}
       {!playing && !deploying && !planning && !(physicalCrossing && hud.phase === 'loading') && <div className="fps-overlay"><div className="fps-start-card">
         {nav}
         <span className="eyebrow">SOLO EXPEDITION / {zone.risk.toUpperCase()} THREAT</span>

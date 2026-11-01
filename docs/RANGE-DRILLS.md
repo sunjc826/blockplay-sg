@@ -27,6 +27,32 @@ Grenade-only clears are valid. Reward IDs remain unique and persisted through
 the existing profile ledger. The tutorial and multiplayer/expedition rules are
 unchanged. Waves and moving targets are future extensions.
 
+## Walking between training districts
+
+The HarbourFront–Sentosa boardwalk supports the same physical crossing as Open
+world. While playing on foot, walk through the covered wind shelter at the map
+edge; no T press is needed. A loading fade covers the district change and play
+resumes automatically, retaining the canvas, mouse capture, viewing direction,
+held movement and touch stick. Escape or losing focus during loading cancels
+automatic resume. Release events during loading prevent stuck movement.
+
+Arrival starts a fresh exercise using the same drill and Practice/Counter-fire
+setting. Leaving does not claim a completion bonus; already-earned elimination
+rewards remain. Health, armor, ammunition and remaining training supplies carry
+over without refilling. Practice still uses session-only supplies: it does not
+spend saved Armory inventory or carry its free resupplies into Open world.
+The equipment box stays at the destination's normal range start. The district
+selector follows the crossing; choosing a district manually starts a new session.
+This is the pedestrian HarbourFront–Sentosa pilot only; other range borders,
+vehicles, multiplayer and the tutorial are unchanged.
+
+`node scripts/training-crossing-smoke.mjs` checks the actual GameMenu and FpsGame
+with declared entry poses and observation-only HUD/engine exposure. Use Vite on
+5197 and isolated Chrome CDP on 9357. It covers desktop return travel, parent
+lifetime/picker sync, spent training stock, preserved settings and equipment,
+loading interruption, explicit district selection, held/released mobile input
+and cleanup without changing the engine or simulation for the test.
+
 ## Equipment box
 
 A labelled green equipment box is placed near the range start and marked on the

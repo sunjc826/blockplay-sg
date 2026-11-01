@@ -95,7 +95,7 @@ import { buildDistrictWorld } from './district-world';
 import { getFpsDistrict } from './fps-districts';
 import { createExpeditionMarkers } from './expedition-visuals';
 import { createLootGround } from './expedition-ground';
-import { worldGatewayAction, findWorldGateway, resolveWorldTransition, resolveWorldBorderCrossing, getWorldZone, type WorldZoneId, type WorldTransition, type ZoneSpawn } from './world-zones';
+import { worldGatewayAction, findWorldGateway, resolveWorldTransition, resolveWorldBorderCrossing, getWorldZone, WORLD_GATEWAYS, type WorldZoneId, type WorldTransition, type ZoneSpawn } from './world-zones';
 import { createFpsSurface, type FpsSurface } from './fps-surface';
 import type { ExpeditionLoot, FieldLoot } from './expedition-loot';
 import { expeditionNpcs, nearestNpc, npcInteractionPrompt, type ExpeditionNpc } from './expedition-npcs';
@@ -155,6 +155,8 @@ export interface FpsArenaOptions { session: LanSession; botCount: number; compos
 export interface FpsCheckpoint { health: number; armor: number; weapon: number; ammunition: WeaponState[]; pilot?: boolean; pilotStrategy?: 'local' | 'llm'; encikVoice?: boolean; comms?: readonly CommsEntry[];
   /** Only physical crossings resume automatically on the retained surface. */
   continuation?: { inputMode: 'mouse' | 'touch'; keys: string[]; muted: boolean; stick?: StickVector | null };
+  /** Remaining training stock, including free resupplies, without refilling on travel. */
+  rangeSupplies?: Record<string, number>;
   /** Legacy calibre pools, read only when migrating an older checkpoint. */
   ammoPools?: AmmoPools;
   magazineInventory?: MagazineInventory;
@@ -162,6 +164,12 @@ export interface FpsCheckpoint { health: number; armor: number; weapon: number; 
   vision?: boolean;
   /** Supplies picked up on this expedition and still on the belt; they never touch the saved profile. */
   fieldSupplies?: Record<string, number> }
+/** Training crosses physical borders without adopting expedition combat rules. */
+export interface FpsRangeTravelOptions {
+  spawn?: ZoneSpawn;
+  checkpoint?: FpsCheckpoint;
+  onTravel: (transition: WorldTransition, checkpoint: FpsCheckpoint) => void;
+}
 export interface FpsExpeditionOptions {
   proxyCampaign?: ProxyCampaign;
   /** Optional scale probes; normal district entry uses the 32-soldier default. */
@@ -288,12 +296,14 @@ function disposeAssets(roots: THREE.Object3D[]) {
   textures.forEach(t => { t.dispose(); if (typeof ImageBitmap !== 'undefined' && t.source.data instanceof ImageBitmap) t.source.data.close(); });
 }
 
-export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { surface?: FpsSurface; rangeDrill?: RangeDrillId; tutorial?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; onLoadout?: (equipment: ResolvedLoadout) => void; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; onConsume?: (id: string) => void; onFullscreen?: () => void;
+export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { surface?: FpsSurface; rangeTravel?: FpsRangeTravelOptions; rangeDrill?: RangeDrillId; tutorial?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; onLoadout?: (equipment: ResolvedLoadout) => void; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; onConsume?: (id: string) => void; onFullscreen?: () => void;
   /** Read per callout, so a level-up mid-exercise is heard immediately. */
   encik?: () => EncikAddress } = {}) {
   const expedition = options.expedition;
+  const rangeTravel = !expedition && !options.arena && !options.tutorial ? options.rangeTravel : undefined;
+  const checkpoint = expedition?.checkpoint ?? rangeTravel?.checkpoint;
   const region = expedition?.zone ?? options.region ?? 'marina-bay';
-  const district = options.tutorial ? TUTORIAL_DISTRICT : getFpsDistrict(region), spawn = district.spawn, targetPositions = district.targets;
+  const district = options.tutorial ? TUTORIAL_DISTRICT : getFpsDistrict(region), spawn = rangeTravel?.spawn ?? district.spawn, targetPositions = district.targets;
   const practiceRange = !expedition && !options.arena && !options.tutorial;
   let drillMode: RangeDrillId = practiceRange && validRangeDrill(options.rangeDrill) ? options.rangeDrill : 'classic';
   let rangeDirector = !expedition && !options.arena ? createRangeDirector(drillMode, targetPositions.length, Math.floor(Math.random() * 0xffffffff)) : null;
@@ -336,7 +346,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
   }
   const rangeStock = rangeEquipmentStock(equipment.supplies);
-  const supplyPoint = practiceRange ? rangeResupplyPoint(spawn, world.bounds, [...world.obstacles,
+  const supplyPoint = practiceRange ? rangeResupplyPoint(district.spawn, world.bounds, [...world.obstacles,
     ...district.props.map(([, x, z, w, d]) => ({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 })),
     ...targetPositions.map(p => ({ minX: p.x - .5, maxX: p.x + .5, minZ: p.z - .5, maxZ: p.z + .5 }))], Object.values(fleetSpawns)) : null;
   const rangeStation = supplyPoint ? createRangeResupply(world.scene, supplyPoint) : null;
@@ -379,7 +389,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // Night vision and thermal (N, J for the palette): it draws over every pass below.
   const wetView = createWetSurfaces(viewScene, true);
   const vision = createVisionSystem(renderer, { world: world.scene, view: viewScene });
-  const visionState = createVisionState(!!expedition?.checkpoint?.vision && !!equipment.vision);
+  const visionState = createVisionState(!!checkpoint?.vision && !!equipment.vision);
   // Sun flare, haze dust and rain on the lens, over the world and weapon and under any vision device.
   const lens = createLensEffects(renderer);
   const deploymentBlur = createDeploymentBlur(renderer);
@@ -479,10 +489,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const markers = expedition ? createExpeditionMarkers(world.scene, expedition.zone, hud.fieldLoot, npcs) : null;
   const lootGround = expedition ? createLootGround(world.scene) : undefined;
   let checkpointPending = expedition?.checkpoint;
-  let resumeCrossing = !!expedition?.checkpoint?.continuation;
-  let resumePilot = !!expedition?.checkpoint?.pilot;
-  const crossingKeys = new Set(expedition?.checkpoint?.continuation?.keys ?? []);
-  let crossingStick = expedition?.checkpoint?.continuation?.stick ?? null;
+  let resumeCrossing = !!checkpoint?.continuation;
+  let resumePilot = !!checkpoint?.pilot;
+  const crossingKeys = new Set(checkpoint?.continuation?.keys ?? []);
+  let crossingStick = checkpoint?.continuation?.stick ?? null;
   // Which bots were last seen alive, so a death is noticed once.
   const botsAlive = new Map<string, boolean>();
   let travelPending = false, lootNoticeTime = 0;
@@ -490,8 +500,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   /** The escalation step each side last reached across the district, so the radio speaks only when it changes. */
   const heatTiers: Record<SquadFaction, number> = { mercenaries: 0, 'armed-forces': 0 };
   let heatDistrict = '';
-  const encik = createEncikRadio(Math.random, () => options.encik?.() ?? encikAddress(fieldProfile)), comms = createFpsComms(expedition?.checkpoint?.comms);
-  hud.encikVoice = expedition?.checkpoint?.encikVoice ?? true;
+  const encik = createEncikRadio(Math.random, () => options.encik?.() ?? encikAddress(fieldProfile)), comms = createFpsComms(checkpoint?.comms);
+  hud.encikVoice = checkpoint?.encikVoice ?? true;
   let killChain: KillChain = { count: 0, lastAt: -Infinity }, calloutTime = 0;
   let roundId = randomRoundId(), attackTimer = 3, hurtTime = 0;
   // Arcs around the crosshair towards whatever hit you; `hurtSerial` is the last arena hit seen.
@@ -508,7 +518,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const floorRay = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 0, 8);
   let brassFloor = 0, floorCheck = 0;
   const healthGeometry = new THREE.PlaneGeometry(.54, .055), healthMaterial = new THREE.MeshBasicMaterial({ color: "#e1a74e", side: THREE.DoubleSide });
-  let disposed = false, loadout = createPooledLoadout(specs, equipment.carriedFamilies), position = { x: spawn.x, z: spawn.z };
+  let disposed = false, loadout = createPooledLoadout(specs, equipment.carriedFamilies, rangeTravel?.checkpoint), position = { x: spawn.x, z: spawn.z };
+  if (rangeTravel?.checkpoint) {
+    hud.health = Math.max(0, Math.min(hud.maxHealth, rangeTravel.checkpoint.health));
+    hud.armor = Math.max(0, Math.min(equipment.armor, rangeTravel.checkpoint.armor));
+    if (equipment.carriedFamilies.includes(rangeTravel.checkpoint.weapon)) hud.weapon = rangeTravel.checkpoint.weapon;
+  }
   let yaw: number = spawn.yaw, pitch: number = spawn.pitch, vertical = 0, velocityY = 0;
   let triggerSpent = false;
   let lastLookYaw = yaw, lastLookPitch = pitch, lookLagX = 0, lookLagY = 0;
@@ -533,7 +548,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     for (const [id, count] of Object.entries(looted)) belt[id] = (belt[id] ?? 0) + count;
     return belt;
   };
-  let supplies = withLooted(equipment.supplies);
+  let supplies = rangeTravel?.checkpoint?.rangeSupplies ? heldSupplies(rangeTravel.checkpoint.rangeSupplies) : withLooted(equipment.supplies);
   let beltSelected: UtilityKind = utilityKind(equipment.quickItem)
     ?? UTILITY_SLOTS.find(slot => pickUtility(slot.kind, supplies))?.kind ?? 'bandage';
   // The food slot's pick (null is Auto, which heals to need; a food chosen as
@@ -575,7 +590,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let lastPilotObservation: PilotObservation | null = null;
   let pilotGunfireUntil = 0;
   let capturePending = false, capturePromisePending = false;
-  let inputMode: 'mouse' | 'touch' = expedition?.checkpoint?.continuation?.inputMode ?? 'mouse';
+  let inputMode: 'mouse' | 'touch' = checkpoint?.continuation?.inputMode ?? 'mouse';
   let lastPointerType: string = inputMode;
   let lastTime = performance.now(), frame = 0, lastReport = 0, wasLocked = false;
   let drag: { id: number; x: number; y: number } | null = null;
@@ -624,6 +639,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.facilityPrompt = canWork && nearby ? `E · ${facilityPrompt(nearby)}` : '';
     hud.rangeDrill = practiceRange ? rangeDirector!.view(hud.elapsed, rangeEndedEarly) : null;
     hud.rangeSupplyPrompt = canResupply() ? 'E · Resupply ammo, grenades & utilities' : '';
+    if (rangeTravel) {
+      const gateway = !vehicles.active && hud.health > 0 ? findWorldGateway(region, position) : null;
+      hud.travelPrompt = gateway?.border ? worldGatewayAction(gateway) : '';
+    }
     if (practiceRange) {
       canvas.dataset.rangeDrill = drillMode; canvas.dataset.rangeActive = String(hud.rangeDrill?.active ?? 0);
       canvas.dataset.rangeSpawned = String(hud.rangeDrill?.spawned ?? 0);
@@ -635,6 +654,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!hud.proxyReach || hud.phase !== 'playing') hud.proxyMenu=false;
     onHud({ ...hud, ...(options.tutorial ? { tutorial: { feet: vertical, grounded: grounded(), stance: stance(), sprinting: wasSprinting } } : {}), vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: equipment.carriedFamilies, carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, spareMagazines: spareMagazines(state), magazineCapacity: magazineCapacity(state, specs[hud.weapon]), reloadCapacity: state.pendingMagazine?.capacity ?? state.magazineInventory?.slots[state.reloadSlot ?? nextMagazineSlot(state)]?.capacity ?? magazineCapacity(state, specs[hud.weapon]), reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapContactRange, mapMarkers: [
+        ...(rangeTravel ? WORLD_GATEWAYS.filter(g => g.from === region && g.border).map(g => ({ id: g.id, ...g.position, kind: 'checkpoint' as const, label: g.name })) : []),
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}-${targets[index].activation}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(rangeStation ? [{ id: 'range-resupply', x: rangeStation.point.x, z: rangeStation.point.z, kind: 'loot' as const, label: 'Range resupply · ammo, grenades & utilities' }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
@@ -844,7 +864,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       deploymentRoof = firstVisibleHit(roofRay, gameplayCandidates())?.point.y ?? null;
     }
     hud.phase = deploymentIntro.active ? 'deploying' : 'playing';
-    if (hud.phase === 'playing' && !expedition?.checkpoint?.continuation) radioCall('start');
+    if (hud.phase === 'playing' && !checkpoint?.continuation) radioCall('start');
     updateCameras(0, false, false); publish();
   }
   function finishDeployment() {
@@ -1151,15 +1171,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     commitTravel(transition, false, gateway.kind === 'ferry');
   }
   function commitTravel(transition: WorldTransition, physical = false, ferry = false) {
-    if (!expedition || travelPending) return;
+    const travel = expedition ?? rangeTravel;
+    if (!travel || travelPending || hud.phase !== 'playing' || hud.health <= 0) return;
     comms.add('system', 'Travel', ferry ? `Taking the bumboat to ${getWorldZone(transition.to).name}.` : `Moving to ${getWorldZone(transition.to).name}.`);
     if (hud.arena?.proxies?.operation?.cargo==='carried') comms.add('system','Proxy cargo','Cargo forfeited on leaving the district. Personal favor is retained.');
     stopReload();
     const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, vision: visionState.on, fieldSupplies: { ...looted }, health: hud.health, armor: hud.armor, weapon: hud.weapon, magazineInventory: loadout[equipment.carriedFamilies[0]]?.magazineInventory, ammunition: loadout.map(state => ({ ...state, magazineInventory: undefined, reserveMagazine: undefined, cooldown: 0, reloadRemaining: 0 })) };
+    if (rangeTravel) checkpoint.rangeSupplies = { ...supplies };
     if (physical) checkpoint.continuation = { inputMode, keys: [...keys].filter(key => ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(key)), muted: hud.muted, stick: moveStick ? { ...moveStick } : null };
     travelPending = true;
     if (!physical) pause();
-    expedition.onTravel(transition, checkpoint);
+    travel.onTravel(transition, checkpoint);
   }
   function jump() {
     if (arenaConditionModifiers(conditions).frozen) return; if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && stance() === 'stand') bufferJump(bodyMotion); } }
@@ -3163,8 +3185,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const previousPosition = position;
       position = next;
       vertical = next.y; velocityY = next.velocityY;
-      if (expedition && !vehicles.active && vertical <= .35 && velocityY <= 0) {
-        const crossing = resolveWorldBorderCrossing(expedition.zone, previousPosition, position, { yaw, pitch });
+      if ((expedition || rangeTravel) && !vehicles.active && vertical <= .35 && velocityY <= 0) {
+        const crossing = resolveWorldBorderCrossing(region, previousPosition, position, { yaw, pitch });
         if (crossing) { commitTravel(crossing, true); return; }
       }
       }
@@ -3379,7 +3401,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.phase = 'ready'; updateCameras(0, false, false); publish();
     if (resumeCrossing) {
       resumeCrossing = false;
-      hud.muted = expedition?.checkpoint?.continuation?.muted ?? hud.muted;
+      hud.muted = checkpoint?.continuation?.muted ?? hud.muted;
       if (!document.hidden && (inputMode === 'touch' || document.pointerLockElement === canvas)) {
         // Apply the authoritative initial position/ammunition before restoring held movement.
         updateArena(0); enterPlay();

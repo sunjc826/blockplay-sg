@@ -6,7 +6,7 @@ The design borrows the connected-area structure of survival shooters. Singapore 
 
 ## Physical crossing pilot: HarbourFront ↔ Sentosa
 
-In Open world, follow the Sentosa Boardwalk from the HarbourFront quay to its
+In Open world or Training, follow the Sentosa Boardwalk from the HarbourFront quay to its
 southern playable edge, or follow the boardwalk north from Sentosa. Walk through
 the covered wind shelter to cross automatically. This pair has no glowing ring
 or T interaction. The map draws the boardwalk as a pedestrian path to the edge,
@@ -29,6 +29,14 @@ This prototype supports infantry on the pedestrian boardwalk. Vehicles and
 following squads do not transfer. Other district links retain their explicit
 checkpoint interactions; ferry behavior remains unchanged. Public transport as
 a general fast-travel system is undecided and is not introduced by this pilot.
+
+Training keeps its selected drill and Practice/Counter-fire setting and starts
+fresh targets, score and timer on arrival. Walking away does not award an
+exercise-completion bonus. Health, armor, ammunition and remaining session
+supplies carry across; using training stock never debits the saved Armory.
+The district selector follows physical travel without restarting the game view.
+Explicitly choosing a district still starts a new training session. Tutorial and
+multiplayer do not gain district travel. See [range drills](RANGE-DRILLS.md).
 
 `world-border.test.ts` checks directional crossings, mapped offsets, return
 behavior, invalid input and real collision across the crossing width.

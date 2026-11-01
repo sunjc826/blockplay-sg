@@ -4,15 +4,17 @@ import { RANGE_DRILLS, RANGE_DURATION, type RangeDrillId } from '../game/range-d
 import './range-drills.css';
 import type { RaiderBounty } from '../game/combat-rewards';
 import FpsVehicleHud from './FpsVehicleHud';
+import FpsDistrictCrossing from './FpsDistrictCrossing';
 import { hasLaser, hasLight } from '../game/weapon-accessories';
 import EnvironmentControls from './EnvironmentControls';
 import FpsVisionChip from './FpsVisionChip';
 import { cloudOpacity, visionKeyLabel } from '../game/vision-devices';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Maximize, Menu, Minimize, Pause, Play, RotateCcw, Users, Volume2, VolumeX } from 'lucide-react';
-import { createFpsEngine, initialFpsHud, type FpsEngine } from '../game/fps-engine';
+import { createFpsEngine, initialFpsHud, type FpsEngine, type FpsCheckpoint } from '../game/fps-engine';
+import { createFpsSurface, type FpsSurface } from '../game/fps-surface';
 import { getFpsDistrict } from '../game/fps-districts';
-import { getWorldZone, type WorldZoneId } from '../game/world-zones';
+import { getWorldZone, type WorldZoneId, type ZoneSpawn } from '../game/world-zones';
 import { useFpsFullscreen } from '../game/use-fps-fullscreen';
 import { ELIMINATION_CREDITS, progression } from '../game/progression';
 import { rankInsignia } from '../game/rank-insignia';
@@ -42,12 +44,18 @@ import './arena-player.css';
 import './fps-hit-direction.css';
 
 type ArenaOptions = { session: LanSession; botCount: number; composition: string };
+interface RangeScene { region: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: FpsCheckpoint }
 function Scoreboard({ snapshot, selfId }: { snapshot: ArenaSnapshot; selfId: string }) {
   const actors = [...snapshot.actors].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths || a.name.localeCompare(b.name));
   return <div className="arena-scoreboard"><table><caption>MATCH STANDINGS <span>{listArenaFactions().map(faction => [faction, actors.filter(actor => factionIdOf(actor) === faction.id).length] as const).filter(([, n]) => n).map(([faction, n]) => `${n} ${faction.short}`).join(' · ')}</span></caption><thead><tr><th scope="col">OPERATOR</th><th scope="col">ROLE</th><th scope="col">K</th><th scope="col">D</th></tr></thead><tbody>{actors.map((actor, index) => <tr key={actor.id} className={actor.id === selfId ? 'is-self' : ''}><td><span className="arena-place">{index + 1}</span>{actor.name}{actor.id === selfId && <small>YOU</small>}{actor.bot && <small>BOT</small>}</td><td>{actor.role === 'player' ? 'Operator' : actor.role}</td><td>{actor.kills}</td><td>{actor.deaths}</td></tr>)}</tbody></table></div>;
 }
 
-export default function FpsGame({ region = 'marina-bay', suspended = false, profile, nav, onReward, onElimination, onConsume, onOpenShop, arena, onLeaveArena, onLoaded }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; onReward: (result: ExerciseReward) => void; onElimination: (id: string, bounty?: RaiderBounty) => void; onConsume: (id: string) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
+export default function FpsGame({ region: initialRegion = 'marina-bay', suspended = false, profile, nav, onReward, onElimination, onConsume, onOpenShop, arena, onLeaveArena, onLoaded, onRegionChange }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; onRegionChange?: (region: WorldZoneId) => void; onReward: (result: ExerciseReward) => void; onElimination: (id: string, bounty?: RaiderBounty) => void; onConsume: (id: string) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
+  const [scene, setScene] = useState<RangeScene>(() => ({ region: initialRegion }));
+  const region = scene.region;
+  const regionChanged = useRef(onRegionChange); regionChanged.current = onRegionChange;
+  useEffect(() => { setScene(current => current.region === initialRegion ? current : { region: initialRegion }); }, [initialRegion]);
+  useEffect(() => { regionChanged.current?.(region); }, [region]);
   const district = getFpsDistrict(region), zone = getWorldZone(region);
   const rank = progression(profile.xp);
   const insignia = rankInsignia(rank.level, profile.rankSet);
@@ -66,16 +74,30 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
   const [drill, setDrill] = useState<RangeDrillId>('classic');
   const rewardCallback = useRef(onReward); rewardCallback.current = onReward;
   const host = useRef<HTMLDivElement>(null), stage = useRef<HTMLDivElement>(null), engine = useRef<FpsEngine | null>(null);
+  const surface = useRef<FpsSurface | null>(null);
   const fullscreen = useFpsFullscreen(stage, () => engine.current?.pause());
   const fullscreenAction = useRef(fullscreen.toggle); fullscreenAction.current = fullscreen.toggle;
   const [hud, setHud] = useState(initialFpsHud), [epoch, setEpoch] = useState(0);
   const debug = useDebugMode();
   useEffect(() => {
-    setHud({ ...initialFpsHud });
-    try { engine.current = createFpsEngine(host.current!, setHud, { region, rangeDrill: drill, loadout: expireLoadoutRentals(startingEquipment), onLoadout: setLiveEquipment, combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onElimination: (id, bounty) => eliminationCallback.current(id, bounty), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); }, encik: () => speaking.current }); }
-    catch { setHud(h => ({ ...h, phase: 'error', message: '3D graphics could not start. Check that WebGL is enabled, then retry.' })); }
+    setHud({ ...initialFpsHud, inputMode: scene.checkpoint?.continuation?.inputMode ?? 'mouse' });
+    try {
+      if (!arenaOptions) surface.current ??= createFpsSurface(host.current!);
+      engine.current = createFpsEngine(host.current!, setHud, { surface: surface.current ?? undefined, region, rangeDrill: drill,
+        rangeTravel: arenaOptions ? undefined : { spawn: scene.spawn, checkpoint: scene.checkpoint, onTravel: (transition, checkpoint) => {
+          startingLevel.current = rank.level;
+          setHud(current => ({ ...current, phase: 'loading' }));
+          setScene({ region: transition.to, spawn: transition.spawn, checkpoint });
+        } },
+        loadout: expireLoadoutRentals(startingEquipment), onLoadout: setLiveEquipment, combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onElimination: (id, bounty) => eliminationCallback.current(id, bounty), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); }, encik: () => speaking.current });
+    }
+    catch {
+      if (document.pointerLockElement === surface.current?.renderer.domElement) document.exitPointerLock();
+      setHud(h => ({ ...h, phase: 'error', message: '3D graphics could not start. Check that WebGL is enabled, then retry.' }));
+    }
     return () => { engine.current?.dispose(); engine.current = null; };
-  }, [epoch, combat, startingEquipment, arenaOptions, region]);
+  }, [epoch, combat, startingEquipment, arenaOptions, scene]);
+  useEffect(() => () => { surface.current?.dispose(); surface.current = null; }, []);
   useEffect(() => { if (suspended) engine.current?.pause(); }, [suspended]);
   const loaded = hud.phase !== 'loading';
   useEffect(() => { if (loaded) onLoaded?.(); }, [loaded, onLoaded]);
@@ -90,6 +112,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
   const isArena = !!arenaOptions, guest = arenaOptions?.session.role === 'guest';
   const mounted = hud.vehicle !== 'on-foot';
   const playing = hud.phase === 'playing', weapon = equipment.weapons[hud.weapon];
+  const physicalCrossing = !isArena && !!scene.checkpoint?.continuation;
   const canFight = playing && (!isArena || (hud.arenaSelf?.alive === true && hud.arenaConnected));
   const disconnected = isArena && (guest || arenaOptions.session.transport === 'public') && hud.phase !== 'loading' && !hud.arenaConnected;
   useEffect(() => { if (disconnected) engine.current?.pause(); }, [disconnected]);
@@ -141,11 +164,12 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         <div className={`fps-objective${mounted ? ' fps-hud-hint' : ''}`}>{mounted && hud.vehicleSeat !== 0 ? 'Ride together · V switch seat · E exit when stopped' : isArena && !mounted ? `FREE FOR ALL · First to ${ARENA_KILL_LIMIT} eliminations` : mounted ? hud.vehicle === 'car' ? 'W / S throttle · A / D steer · Space brake' : 'W / S cruise · A / D yaw · Space climb · Ctrl descend' : rangeObjective}<small>{hud.locked ? isArena ? 'ESC opens menu · Match keeps running' : 'ESC pauses and releases the mouse' : touch ? 'Left stick moves · Drag the scene to look · Hold FIRE and slide to aim' : 'Drag to look · On-screen controls available'}</small></div>
         {!isArena && <div className="fps-vehicle-locator">CAR {Math.round(hud.carDistance)}m <span>·</span> HELI {Math.round(hud.helicopterDistance)}m</div>}
         {hud.rangeSupplyPrompt && <div className="fps-interact-prompt">{showHints ? hud.rangeSupplyPrompt : 'Resupply ammo, grenades & utilities'}</div>}
-        {!hud.rangeSupplyPrompt && hud.interact && <div className="fps-interact-prompt">{showHints ? hud.interact : hud.interact.replace(/^E · /, '')}</div>}
+        {!hud.rangeSupplyPrompt && (hud.interact || hud.travelPrompt) && <div className="fps-interact-prompt">{hud.travelPrompt || (showHints ? hud.interact : hud.interact.replace(/^E · /, ''))}</div>}
         {hud.vehicleNotice && <div className="fps-vehicle-notice" role="status">{hud.vehicleNotice}</div>}
-        {touch && !hud.pilotEnabled && <TouchControls hud={hud} engine={engine.current} mode={isArena ? 'arena' : 'range'} onMenu={() => engine.current?.pause()} />}
         <FpsVehicleHud hud={hud} />
       </>}
+      {touch && !hud.pilotEnabled && (playing || physicalCrossing && hud.phase === 'loading') && <TouchControls hud={hud} engine={engine.current} mode={isArena ? 'arena' : 'range'} crossing={physicalCrossing && hud.phase === 'loading'} onMenu={() => engine.current?.pause()} />}
+      {physicalCrossing && <FpsDistrictCrossing key={region} name={zone.name} phase={hud.phase} />}
       {isArena && (!playing || disconnected) && <div className="fps-overlay arena-overlay"><div className="fps-start-card arena-start-card">
         <span className="eyebrow">{disconnected ? 'CONNECTION LOST' : hud.phase === 'complete' ? 'MATCH COMPLETE' : hud.phase === 'paused' ? 'MATCH MENU' : `${zone.name.toUpperCase()} / FREE FOR ALL`}</span>
         <h2>{disconnected ? guest ? 'Host disconnected.' : 'Room connection lost.' : hud.phase === 'loading' ? 'Preparing the arena.' : hud.phase === 'error' ? 'Arena unavailable.' : hud.phase === 'complete' ? `${hud.arena?.winner || 'Match'} wins.` : hud.phase === 'paused' ? 'Stay in the fight.' : 'Ready when you are.'}</h2>
@@ -170,7 +194,7 @@ export default function FpsGame({ region = 'marina-bay', suspended = false, prof
         {!['complete', 'loading', 'error'].includes(hud.phase) && !disconnected && !touch && <FpsControlGuide debug={debug}><span><kbd>WASD</kbd> Move</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>K</kbd> Inspect weapon</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>Ctrl / C</kbd> Hold / toggle crouch</span><span><kbd>Z</kbd> Prone / mount</span><span><kbd>Space</kbd> Jump</span><span><kbd>1–3</kbd> Switch</span><span><kbd>4–9 / G</kbd> Use supplies</span><span><kbd>M</kbd> Map</span><span><kbd>Y</kbd> Callouts</span>{equipment.vision && <span><kbd>N</kbd> {visionKeyLabel(equipment.vision.spec)}</span>}{equipment.weapons.some(weapon => hasLaser(weapon.accessories)) && <span><kbd>B</kbd> Laser</span>}{equipment.weapons.some(weapon => hasLight(weapon.accessories)) && <span><kbd>L</kbd> Weapon light</span>}{equipment.weapons.some(weapon => weapon.accessories?.offsetDot) && <span><kbd>X</kbd> Offset dot</span>}<span><kbd>ESC</kbd> Menu</span></FpsControlGuide>}
 
       </div></div>}
-      {!playing && !isArena && <div className="fps-overlay"><div className="fps-start-card">
+      {!playing && !isArena && !(physicalCrossing && hud.phase === 'loading') && <div className="fps-overlay"><div className="fps-start-card">
         {nav}
         <span className="eyebrow">{hud.phase === 'defeated' ? 'EXERCISE ENDED' : hud.phase === 'complete' ? drill === 'classic' ? 'RANGE CLEAR' : 'DRILL SUMMARY' : hud.phase === 'paused' ? 'TAKE A BREATHER' : 'SINGAPORE / FIELD EXERCISE 01'}</span>
         <h2>{hud.phase === 'loading' ? 'Preparing the range.' : hud.phase === 'error' ? 'Range unavailable.' : hud.phase === 'defeated' ? 'Regroup. Re-equip.' : hud.phase === 'complete' ? drill === 'classic' ? 'Eight for eight.' : `${hud.hits} targets cleared.` : hud.phase === 'paused' ? 'Exercise paused.' : 'Fall in. Take aim.'}</h2>

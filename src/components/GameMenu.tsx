@@ -78,6 +78,8 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   const [storeTour, setStoreTour] = useState(false);
   const install = usePwa();
   const [training, setTraining] = useDistrict('blockplay.menu.training', TRAINING_DISTRICTS.map(place => place.id));
+  const [trainingZone, setTrainingZone] = useState<WorldZoneId>(training);
+  const [trainingRun, setTrainingRun] = useState(0);
   const [worldStart, setWorldStart] = useDistrict('blockplay.menu.world', locations.map(place => place.id));
   const [worldZone, setWorldZone] = useState<WorldZoneId>(worldStart);
   // Picking a district restarts the expedition there, even the one it began in.
@@ -97,16 +99,16 @@ export default function GameMenu({ screen }: { screen: Screen }) {
 
   if (screen === 'training' || screen === 'world') {
     const nav = screen === 'training'
-      ? <PlayNav value={training} onChange={setTraining} options={TRAINING_DISTRICTS} />
+      ? <PlayNav value={trainingZone} onChange={id => { setTraining(id); setTrainingZone(id); setTrainingRun(n => n + 1); }} options={TRAINING_DISTRICTS} />
       : <PlayNav value={worldZone} onChange={id => { setWorldStart(id); setWorldZone(id); setWorldRun(n => n + 1); }} options={locations} />;
-    // Keyed with the game, so a new district gets a fresh loading screen too.
-    const loadKey = screen === 'training' ? `training-${training}` : `world-${worldStart}-${worldRun}`;
+    // Manual district choices restart the view; physical crossings keep it alive.
+    const loadKey = screen === 'training' ? `training-${training}-${trainingRun}` : `world-${worldStart}-${worldRun}`;
     const districtName = locationName(screen === 'training' ? training : worldStart);
     return <div className={`game-screen game-screen-play game-screen-${screen}`}>
       <main className="game-screen-body"><DebugMode.Provider value={false}>
         <PlayLoading key={loadKey} mode={screen} district={districtName} back={<a className="play-nav-back" {...link('menu', 'Menu')}><ArrowLeft size={16} /><span>Menu</span></a>}>
           {onLoaded => screen === 'training'
-            ? <FpsGame suspended={install.updateReady} region={training} profile={armory.profile} nav={nav} onLoaded={onLoaded} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={() => transitionTo('store', 'Store')} />
+            ? <FpsGame suspended={install.updateReady} region={training} onRegionChange={setTrainingZone} profile={armory.profile} nav={nav} onLoaded={onLoaded} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={() => transitionTo('store', 'Store')} />
             : <ExpeditionGame suspended={install.updateReady} initialZone={worldStart} onZoneChange={setWorldZone} nav={nav} onLoaded={onLoaded} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onElimination={armory.awardElimination} onExit={() => transitionTo('menu', 'Menu')} />}
         </PlayLoading>
       </DebugMode.Provider></main>
