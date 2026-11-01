@@ -55,6 +55,7 @@ export function createSunShadows(renderer: THREE.WebGLRenderer, scene: THREE.Sce
     scene.traverse(object => {
       if (flagged.has(object)) return;
       flagged.add(object);
+      if (object.userData.noShadowCast) { object.castShadow = false; return; }
       if (!shadowed(object)) return;
       object.castShadow = true; object.receiveShadow = true; casters++;
       if (object instanceof THREE.InstancedMesh && !object.customDepthMaterial) object.customDepthMaterial = instancedDepth[object.instanceColor ? 1 : 0];

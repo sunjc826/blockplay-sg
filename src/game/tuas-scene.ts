@@ -39,6 +39,7 @@ export function buildTuasScene() {
 
   const asphalt = mat('#4f5558'), white = mat('#e6e4d6'), paving = mat('#b0aca0'), kerb = mat('#c4bfb2');
   const sea = mat('#3d7b90', 0.42), shallow = mat('#549aad', 0.38), gravel = mat('#9a958a');
+  gravel.userData.soil = true;
   // Shots into these splash rather than spark; see water.ts.
   markWater(sea, shallow);
   const concrete = mat('#a8a79e'), pale = mat('#dcd6c8'), stone = mat('#b0afa6'), dark = mat('#333e44');
@@ -308,6 +309,10 @@ export function buildTuasScene() {
   for (const z of [114, 166]) { box(64, 1.4, z, 4.4, 2.8, 9, safety); solid(64, z, 4.6, 9.2); }
 
   // Coast road strip, truck park and perimeter planting.
+  // Soil verges beneath the existing perimeter trees, clear of hardstanding.
+  const verge = mat('#829767');
+  box(EDGE_X + 16, -.175, 0, 8, .35, 360, verge);
+  box(80, -.175, -EDGE_Z - 16, 250, .35, 8, verge);
   for (let z = -200; z <= 200; z += 40) { box(-224, 1.6, z, 9, 3.2, 3.4, boxes[Math.abs(Math.round(z / 40)) % boxes.length]); solid(-224, z, 9.2, 3.6); }
   box(0, 0.18, -148, 240, 0.35, 34, asphalt);
   for (let x = -100; x <= 100; x += 25) {

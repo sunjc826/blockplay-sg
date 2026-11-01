@@ -16,6 +16,7 @@ import { createVehicleRain } from './vehicle-rain';
  */
 export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x: number; z: number }[], obstacles: readonly Obstacle[], multiplayer = false, renderer?: THREE.WebGLRenderer, tutorialDaylight = false, groundHeight?: (x: number, z: number) => number) {
   const originalBackground = scene.background, originalFog = scene.fog;
+  const coarsePointer = typeof matchMedia !== 'undefined' ? matchMedia('(pointer: coarse)') : null;
   const background = originalBackground instanceof THREE.Color ? originalBackground.clone() : new THREE.Color('#b9dcea');
   const fog = new THREE.Fog(background, 150, 700);
   scene.background = background; scene.fog = fog;
@@ -46,7 +47,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   /** The air round the camera, eased like the light, for what lands on or glints in front of the lens (fps-lens). */
   const air = { rain: 0, haze: 0, sunlight: 1, wind: 0, sheltered: false };
   const root = new THREE.Group(); root.name = 'world-atmosphere'; root.userData.fpsEffect = true; scene.add(root);
-  const rainSurface = createRainSurface(obstacles, groundHeight);
+  const rainSurface = createRainSurface(obstacles, scene.userData.rainGroundHeight ?? groundHeight);
   const vehicleRain = createVehicleRain(scene, groundHeight ?? (() => 0));
   const rainEffects = createRainEffects(root, rainSurface, vehicleRain.sample);
   const shelterHit = { height: 0, normal: new THREE.Vector3(0, 1, 0), object: undefined as THREE.Object3D | undefined };
@@ -126,6 +127,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       wetness += (preset.rain - wetness) * blend; wind += (preset.wind - wind) * blend;
       haze += ((active.weather === 'haze' ? 1 : 0) - haze) * blend; sunlight += (preset.sun - sunlight) * blend;
       const time = (now % 3600_000) / 1000;
+      scene.userData.groundCover?.grass.update(camera, time, reduced, coarsePointer?.matches ?? false);
       // A gentle cloud glow, never a full-screen white strobe. Disabled with reduced motion.
       const lightning = !reduced && active.weather === 'thunderstorm' ? Math.max(0, 1 - Math.abs(time % 23 - 1) / .4) * .16 : 0;
       keyDirection.set(lighting.key.x, lighting.key.y, lighting.key.z);

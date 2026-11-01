@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { defaultDriveLook, dragDriveLook, driveCameraOffset, settleDriveLook } from '../game/drive-camera';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CarFront, Footprints, RotateCcw, Flag } from 'lucide-react';
 import { buildMarinaScene, MARINA_MAP_ROADS, MARINA_SPAWN, MARINA_STAMPS } from '../game/marina-scene';
+import { withGroundCover } from '../game/ground-cover';
 import { MARINA_BOUNDS, moveInMarina } from '../game/marina-collision';
 import { minimapProjection } from '../game/minimap';
 import { lookDelta, REGION_LOOK_SCALE, resolveMovement, type StickVector } from '../game/touch-controls';
@@ -42,7 +43,7 @@ export default function MarinaGame() {
     let renderer: THREE.WebGLRenderer;
     try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
     catch { setError('WebGL could not start. Try a browser with hardware acceleration enabled.'); return; }
-    const world = buildMarinaScene();
+    const world = withGroundCover(buildMarinaScene(), MARINA_BOUNDS);
     const atmosphere = createWorldAtmosphere(world.scene, MARINA_STAMPS, world.obstacles, false, renderer);
     const walking = createVerticalMovement({ bounds: MARINA_BOUNDS, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
     const drivingObstacles = [...world.obstacles, ...verticalVehicleObstacles({ surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })];
