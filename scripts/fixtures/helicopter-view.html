@@ -7,6 +7,7 @@ import { TUTORIAL_DISTRICT } from '/src/game/tutorial-course.ts';
 import FpsVehicleHud from '/src/components/FpsVehicleHud.tsx';
 const root=createRoot(document.getElementById('overlay'));
 TUTORIAL_DISTRICT.spawn={x:20,z:17,yaw:0,pitch:-.06};
+TUTORIAL_DISTRICT.vehicles.helicopter={x:20,z:14,yaw:0};
 window.engine=createFpsEngine(document.getElementById('world'),hud=>{window.hud=structuredClone(hud);root.render(React.createElement(FpsVehicleHud,{hud}));},{tutorial:true,combat:false});
 document.getElementById('start').onclick=()=>{window.engine.start();document.getElementById('start').remove();};
 </script></body></html>

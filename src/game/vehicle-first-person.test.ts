@@ -48,7 +48,7 @@ it('keeps pilot and gunner eyes in their seats regardless of who controls the ch
 
 it('follows the rendered hull pitch and rotation without sliding through the cabin', () => {
   const v = createVehicle('helicopter', { x: 10, z: -8, yaw: 1.1 }); v.y = 20;
-  const model = new THREE.Group(); model.position.set(v.x, v.y, v.z); model.rotation.set(-.22, v.yaw, 0);
+  const model = new THREE.Group(); model.position.set(v.x, v.y, v.z); model.rotation.set(-.22, v.yaw, 0, 'YXZ');
   const camera = new THREE.PerspectiveCamera();
   for (const seat of [0, 1, 2, 3]) {
     const facing = seatFacing(v.kind, seat), local = seatLocalPoint(v.kind, seat);
@@ -58,6 +58,24 @@ it('follows the rendered hull pitch and rotation without sliding through the cab
     const look = camera.getWorldDirection(new THREE.Vector3());
     const expected = new THREE.Vector3(-Math.sin(facing), 0, -Math.cos(facing)).transformDirection(model.matrixWorld);
     expect(look.dot(expected)).toBeCloseTo(1);
+  }
+});
+
+it.each([-.9, .9])('keeps pilot forward tilt free of bank after a %s radian side look', look => {
+  const v = createVehicle('helicopter', { x: 10, z: -8, yaw: 0 });
+  const model = new THREE.Group(), camera = new THREE.PerspectiveCamera();
+  for (const heading of [0, .7, -1.2, Math.PI, 7]) {
+    v.yaw = heading;
+    model.position.set(v.x, v.y, v.z);
+    for (const tilt of [0, -.07, -.14, -.21, .1, 0]) {
+      model.rotation.set(tilt, heading, 0, 'YXZ');
+      placeVehicleFirstPersonCamera(camera, model, v, 0, heading + look, -.06);
+      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+      expect(right.y).toBeCloseTo(0, 10);
+      expect(camera.getWorldDirection(new THREE.Vector3()).y).toBeCloseTo(Math.sin(tilt - .06), 10);
+      const local = seatLocalPoint('helicopter', 0);
+      expect(model.worldToLocal(camera.position.clone()).distanceTo(new THREE.Vector3(local.x, local.y, local.z))).toBeLessThan(1e-8);
+    }
   }
 });
 
