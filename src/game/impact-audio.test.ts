@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createImpactAudio, impactTone, IMPACT_SOUND_RANGE, MAX_IMPACT_VOICES } from './impact-audio';
+import { createImpactAudio, impactSoundWeight, impactTone, IMPACT_SOUND_RANGE, MAX_IMPACT_VOICES } from './impact-audio';
 import { SURFACE_KINDS } from './fps-surfaces';
 import { sfxUrls } from './sfx-bank';
 import { gunshotTone } from './gunshot-audio';
+import { impactProfile } from './fps-impact-profile';
 
 function makeNode() {
   const n = { buffer: null as unknown, gain: { value: 0 }, pan: { value: 0 }, frequency: { value: 0 }, Q: { value: 0 }, playbackRate: { value: 1 }, type: '',
@@ -63,6 +64,23 @@ describe('surface impact audio', () => {
     expect(gain.gain.value).toBeCloseTo(impactTone('glass', 34.3).level);
     expect(panner.pan.value).toBe(-.7);
     source.onended!(); expect(f.nodes.every(n => n.disconnect.mock.calls.length === 1)).toBe(true);
+  });
+  it('uses the decal profile to scale calibre and power independently, retaining material and spent energy', () => {
+    const rifle = impactProfile(), wider = impactProfile(7.62, 36), stronger = impactProfile(5.56, 60), heavy = impactProfile(12.7, 145);
+    expect(impactSoundWeight(rifle)).toBe(1);
+    for (const profile of [wider, stronger, heavy]) expect(impactTone('concrete', 50, 1, profile).level).toBeGreaterThan(impactTone('concrete', 50, 1, rifle).level);
+    expect(impactTone('concrete', 50, 1, heavy).level).toBeGreaterThan(impactTone('concrete', 50, 1, rifle).level * 1.7);
+    expect(impactTone('concrete', 50, .2, heavy).level).toBeLessThan(impactTone('concrete', 50, 1, heavy).level);
+    expect(impactTone('foliage', 50, 1, heavy).level).toBeLessThan(impactTone('metal', 50, 1, heavy).level);
+    expect(impactTone('metal', 0, 2, heavy).level).toBeLessThanOrEqual(.82);
+    const malformed = { ...heavy, holeRadius: Infinity, holeDepth: NaN };
+    expect(Number.isFinite(impactSoundWeight(malformed))).toBe(true);
+    expect(impactTone('concrete', IMPACT_SOUND_RANGE, 1, heavy).level).toBe(0);
+  });
+  it('passes a resolved weapon profile to recorded playback', () => {
+    const f = fixture(), profile = impactProfile(12.7, 145);
+    f.audio.hit('metal', 50, 0, .5, profile);
+    expect(f.nodes[2].gain.value).toBeCloseTo(impactTone('metal', 50, .5, profile).level);
   });
   it('falls back while unloaded and stops pending sounds on mute, pause or disposal', () => {
     const f = fixture(false); f.audio.hit('dirt', 90);

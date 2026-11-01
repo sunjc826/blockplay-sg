@@ -1,6 +1,7 @@
 import { soundDelay } from './combat-event-audio';
 import type { SurfaceKind } from './fps-surfaces';
 import type { SfxBank, SfxGroup } from './sfx-bank';
+import { DEFAULT_IMPACT_PROFILE, sanitizeImpactProfile, type ImpactProfile } from './fps-impact-profile';
 
 export type ImpactSurface = SurfaceKind | 'water';
 export const MAX_IMPACT_VOICES = 24;
@@ -16,8 +17,18 @@ const MATERIALS: Record<ImpactSurface, { level: number; pitch: number; ring: num
   water: { level: .8, pitch: 850, ring: .2, decay: .06 },
 };
 
+/** The same resolved bore/power (including variant overrides) that sizes decals.
+ * Compress the visual range into a useful mix range: a .50 stays weightier
+ * without multiplying audio gain by its much larger crater volume.
+ */
+export function impactSoundWeight(profile: ImpactProfile = DEFAULT_IMPACT_PROFILE) {
+  const safe = sanitizeImpactProfile(profile);
+  return Math.min(1.8, Math.max(.65, (safe.holeRadius / DEFAULT_IMPACT_PROFILE.holeRadius) ** .12
+    * (safe.holeDepth / DEFAULT_IMPACT_PROFILE.holeDepth) ** .22));
+}
+
 /** A shorter-range sound than a muzzle report, heard from the struck point. */
-export function impactTone(surface: ImpactSurface, distance = 0, energy = 1) {
+export function impactTone(surface: ImpactSurface, distance = 0, energy = 1, profile?: ImpactProfile) {
   const d = Number.isFinite(distance) ? Math.max(0, distance) : IMPACT_SOUND_RANGE;
   const strength = Number.isFinite(energy) ? Math.min(2, Math.max(0, energy)) : 1;
   return {
@@ -26,7 +37,8 @@ export function impactTone(surface: ImpactSurface, distance = 0, energy = 1) {
     // The previous 24 m inverse-distance rolloff and heavy lowpass still hid
     // combat-range hits. Keep the close boost modest, carry the attack further,
     // then taper continuously to silence without a distant loudness floor.
-    level: .7 * MATERIALS[surface].level * Math.sqrt(strength) * Math.min(1, 60 / Math.max(60, d)) ** .7 * Math.max(0, 1 - d / IMPACT_SOUND_RANGE),
+    level: Math.min(.82, .7 * MATERIALS[surface].level * impactSoundWeight(profile) * Math.sqrt(strength)
+      * Math.min(1, 60 / Math.max(60, d)) ** .7 * Math.max(0, 1 - d / IMPACT_SOUND_RANGE)),
     delay: soundDelay(d), cutoff: 15000 * .4 ** Math.min(1, d / IMPACT_SOUND_RANGE),
     rate: 1.08 - .08 * Math.sqrt(strength),
   };
@@ -54,11 +66,11 @@ export function createImpactAudio(getContext: () => AudioContext | null, muted: 
   let owner: AudioContext | null = null;
   function clear() { for (const stop of [...active]) stop(); }
   return {
-    hit(surface: ImpactSurface, distance: number, pan = 0, energy = 1) {
+    hit(surface: ImpactSurface, distance: number, pan = 0, energy = 1, profile?: ImpactProfile) {
       const context = getContext();
       if (!context || context.state !== 'running' || muted()) return;
       if (owner !== context) { clear(); fallback.clear(); owner = context; }
-      const tone = impactTone(surface, distance, energy);
+      const tone = impactTone(surface, distance, energy, profile);
       if (tone.level < .002 || active.size >= MAX_IMPACT_VOICES) return;
       let buffer = samples.pick(tone.sample);
       if (!buffer) {

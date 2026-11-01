@@ -765,8 +765,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     gunshots.fire(gunshotTone(calibre, power, distance, false, muzzle), panTo(at), after,
       emitter ?? `world:${Math.round(at.x)}:${Math.round(at.y)}:${Math.round(at.z)}`);
   }
-  function impactSound(at: THREE.Vector3, surface: ImpactSurface, energy = 1) {
-    impactAudio.hit(surface, camera.position.distanceTo(at), panTo(at), energy);
+  function impactSound(at: THREE.Vector3, surface: ImpactSurface, energy = 1, profile?: ImpactProfile) {
+    impactAudio.hit(surface, camera.position.distanceTo(at), panTo(at), energy, profile);
   }
   /** A rustle, a tear or a clack as a supply's effect lands. */
   function supplySound(style: SupplyStyle) {
@@ -1971,7 +1971,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // Only the host's confirmed wound events may produce arena blood.
     if (arenaRuntime && material === 'flesh') return;
     effects.impact(hit.point, normal, kind, energy, style, material);
-    impactSound(hit.point, material ?? 'metal', energy);
+    const profile = (style ? publishedStyles.get(style)?.impact ?? weaponStyles.find(look => look.id === style)?.impact : undefined) ?? effects.style.impact;
+    impactSound(hit.point, material ?? 'metal', energy, profile);
     if (material === 'flesh') bloodSpatter(hit.point, direction, energy);
   }
   function bloodSpatter(point: THREE.Vector3, direction: THREE.Vector3, energy: number) {
@@ -2002,7 +2003,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const normal = surfaceNormal(hit, direction);
     const skip = waterRicochet(direction, normal), profile = look ?? (weapon === undefined ? undefined : weaponStyles[weapon]?.impact);
     effects.splash(hit.point, direction, skip ? energy * .6 : energy, profile);
-    impactSound(hit.point, 'water', skip ? energy * .6 : energy);
+    impactSound(hit.point, 'water', skip ? energy * .6 : energy, profile);
     // A heavier round rocks the surface harder as well as throwing more spray.
     rippleWater(hit.object, hit.point.x, hit.point.z, (skip ? energy * .6 : energy) * splashWeight(profile).size);
     return skip;
@@ -2482,11 +2483,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** What a vehicle gun's round does where it lands, off the arena. */
   function vehicleImpact(hit: THREE.Intersection, direction: THREE.Vector3, kind: VehicleKind, damage: number) {
+    const style = publishedStyle({ calibre: VEHICLE_COMBAT[kind].caliberMm, power: damage });
     const struck = vehicles.hitKind(hit.object);
     if (struck) vehicles.damage(struck, damage);
     if (typeof hit.object.userData.fpsTarget === 'number') damageTarget(hit.object.userData.fpsTarget, hud.weapon, hit.distance, undefined, 1, damage);
-    if (isWaterHit(hit)) effects.splash(hit.point, direction, 1);
-    else strike(hit, direction, kind === 'car' ? 1 : 1.6);
+    if (isWaterHit(hit)) meetWater(hit, direction, 1, undefined, publishedStyles.get(style)?.impact);
+    else strike(hit, direction, kind === 'car' ? 1 : 1.6, style);
   }
   function resolveVehicleDestruction() {
     let events = vehicles.takeDestructions();
@@ -2793,7 +2795,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const direction = new THREE.Vector3(impact.direction.x, impact.direction.y, impact.direction.z);
       const style = publishedStyle({ calibre: impact.calibre, power: impact.power });
       effects.impact(point, direction.clone().negate(), 'surface', 1, style, 'flesh');
-      impactSound(point, 'flesh');
+      impactSound(point, 'flesh', 1, publishedStyles.get(style)?.impact);
       bloodSpatter(point, direction, 1);
     }
     if (frame.hit?.hitId && frame.hit.damage > 0) { hud.landed++; hud.lastDamage = frame.hit.damage; hitTime = .2; hud.hitKind = frame.hit.killed ? 'kill' : 'hit'; }
