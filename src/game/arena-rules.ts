@@ -1,4 +1,5 @@
 import { isDragonBoat, canPaddle } from './marina-water';
+import { HELICOPTER_AI, chooseAirMission, createHelicopterMission, helicopterMissionControls, planAirRoute, returnHelicopter, updateBoardingReservations, type HelicopterMission } from './helicopter-autopilot';
 import { OICW_RIFLE, OICW_LAUNCHER, OICW_GRENADE } from './weapon-modes';
 import { createProxyOperations, PROXY_IDS, PROXY_RULES, proxyName, type ProxyAction, type ProxyCampaign, type ProxyId, type ProxyParticipant, type ProxyPoint, type ProxySnapshot } from './proxy-operations';
 import { PARATROOPERS, dropPoints, planParatroopers } from './paratroopers';
@@ -484,6 +485,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   if (environment?.facilities?.savedVehicles) for (const v of vehicles) { v.occupants = [null, null, null, null]; stopVehicle(v); }
   vehicles = vehicles.filter(v => !environment?.departedVehicles?.includes(v.kind));
   const controls = new Map<string, { input: VehicleControls; expires: number }>();
+  let airSortie: { pilot: string; mission: HelicopterMission; created: number; boarded: boolean } | undefined;
+  const airDecisionAt = new Map<string, number>();
+  let aviationSeed = 173821;
+  const aviationRandom = () => { aviationSeed = (Math.imul(aviationSeed, 1664525) + 1013904223) >>> 0; return aviationSeed / 4294967296; };
   const vehicleLife = new Map<VehicleKind, { idle: number; wreck: number; stuck: number; wait: number; unload: boolean; think: number; lastThink: number; crew: string[]; assembleUntil: number; departed: boolean; pickupDriver?: string; pickupStopped: number; goal?: VehicleSpawn }>();
   const lifeOf = (v: SharedVehicle) => {
     let life = vehicleLife.get(v.kind);
@@ -536,6 +541,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     p.x - 0.5 >= bounds.minX && p.x + 0.5 <= bounds.maxX && p.z - 0.5 >= bounds.minZ && p.z + 0.5 <= bounds.maxZ &&
     !vehicles.some(v => { if (v.despawned) return false; const b = vehicleBounds(v); return v.y < 2 && p.x + .5 > b.minX && p.x - .5 < b.maxX && p.z + .5 > b.minZ && p.z - .5 < b.maxZ; }) &&
     !groundObstacles.some(o => (o.minY??0)<floor+1.8 && (o.maxY??Infinity)>floor && p.x + 0.5 > o.minX && p.x - 0.5 < o.maxX && p.z + 0.5 > o.minZ && p.z - 0.5 < o.maxZ);
+  };
+  const clearSitePoint = (p: {x:number;z:number}, site: FacilitySite) => {
+    const ground=bounds.groundHeight?.(site.x,site.z)??0;
+    if (Math.abs(site.y-ground)<.35) return clearSpawn(p);
+    return !!traversal && traversal.canOccupy(p.x,site.y,p.z,.5,1.8) &&
+      Math.abs((traversal.supportHeight(p.x,p.z,site.y+.1,.5,1.8)??-100)-site.y)<.1;
   };
   const validSpawns = (environment?.spawns ?? SPAWNS).filter(clearSpawn);
   if (!validSpawns.length) {
@@ -1134,7 +1145,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (d > .1 && worldWallDistance(entry.actor, ray, d) < d - .2) return false;
     // Nobody boards the opposing side's hull, or one whose crew is unloading.
     if (vehicleOptions?.openWorld && (lifeOf(v).unload || v.occupants.some(occupant => occupant && getArenaFaction(entry.actor.faction)?.side !== getArenaFaction(members.get(occupant)!.actor.faction)?.side))) return false;
-    const seat = v.occupants.indexOf(null); if (seat < 0 || entry.actor.bot && v.kind === 'helicopter' && seat === 0) return false;
+    const seat = v.occupants.indexOf(null); if (seat < 0) return false;
     v.occupants[seat] = id; stopReload(entry, entry.actor.weapon);
     entry.heal = undefined; delete entry.actor.healing; entry.navigation = undefined;
     if (seat === 0) {
@@ -1146,10 +1157,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   const exitFloor = (x: number, z: number) => traversal ? traversal.supportHeight(x, z, (bounds.groundHeight?.(x,z)??0)+MAX_STEP_HEIGHT, .38, 1.8) : 0;
   /** Plan every exit before freeing a seat: never stack a squad or put it inside cover. */
-  function unloadVehicle(v: SharedVehicle) {
+  function unloadVehicle(v: SharedVehicle, keepPilot = false) {
     if (vehicleSpeed(v) > 2) return false;
     const solids = [...obstacles, ...vehicles.filter(other => !other.despawned && other !== v && other.y < 2).map(vehicleBounds)];
-    const crew = v.occupants.filter((id): id is string => !!id);
+    const crew = v.occupants.slice(keepPilot ? 1 : 0).filter((id): id is string => !!id);
     for (const member of members.values()) if (member.actor.alive && !crew.includes(member.actor.id) && member.actor.y < 3) {
       solids.push({ minX: member.actor.x - .4, maxX: member.actor.x + .4, minZ: member.actor.z - .4, maxZ: member.actor.z + .4 });
     }
@@ -2263,7 +2274,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       let approach = squadApproaches.get(id);
       if (!approach || approach.site !== site.id) {
         const center = { x: group.reduce((n,m)=>n+m.actor.x,0)/group.length, z: group.reduce((n,m)=>n+m.actor.z,0)/group.length };
-        const point = working ? objectiveApproach(center, site, navigationAnchors, (approachSerial++ % 3) - 1, clearSpawn,
+        const point = working && Math.abs(site.y-(bounds.groundHeight?.(site.x,site.z)??0))<.35 ? objectiveApproach(center, site, navigationAnchors, (approachSerial++ % 3) - 1, clearSpawn,
           [...squadApproaches.values()].flatMap(a=>a.via && a.until>elapsed?[a.via]:[])) : undefined;
         approach = { site: site.id, via: point ? {...point,y:patrolGround(point.x,point.z)+1.75} : undefined,
           until: elapsed + (point ? Math.hypot(center.x-point.x,center.z-point.z) / 2 + 20 : 0) };
@@ -2291,9 +2302,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         const angle=i*Math.PI/2 + (covering ? 0 : Math.floor(elapsed/22)*Math.PI/2);
         const point={x:site.x+Math.sin(angle)*radius,z:site.z+Math.cos(angle)*radius};
         // Capture slots must be reachable at the objective's actual terrain height.
-        const fallback=[radius,2.6].flatMap(r=>Array.from({length:12},(_,j)=>({x:site.x+Math.sin(angle+j*Math.PI/6)*r,z:site.z+Math.cos(angle+j*Math.PI/6)*r}))).find(clearSpawn);
-        const slot=clearSpawn(point)?point:fallback;
-        entry.mission=slot?{...slot,y:patrolGround(slot.x,slot.z)+1.75}:undefined;
+        const fallback=[radius,2.6].flatMap(r=>Array.from({length:12},(_,j)=>({x:site.x+Math.sin(angle+j*Math.PI/6)*r,z:site.z+Math.cos(angle+j*Math.PI/6)*r}))).find(p=>clearSitePoint(p,site));
+        const slot=clearSitePoint(point,site)?point:fallback;
+        entry.mission=slot?{...slot,y:(Math.abs(site.y-groundHeight(site.x,site.z))<.35?patrolGround(slot.x,slot.z):site.y)+1.75}:undefined;
       });
       if (!leader.order || leader.order.until<=elapsed) facilities?.request(site.id,leader.actor.id);
     }
@@ -2561,12 +2572,104 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       distance(m.actor, v) <= WORLD_VEHICLES.crewRange && !dangerExit(m.actor))
       .sort((a, b) => distance(a.actor, v) - distance(b.actor, v));
   }
+  const airObstacles = () => [...(vehicleOptions?.flightObstacles ?? obstacles.map(o=>({...o,minY:o.minY??0,maxY:o.maxY??2.5}))),
+    ...vehicles.filter(v=>v.kind!=='helicopter'&&!v.despawned).map(v=>({...vehicleBounds(v),minY:v.y,maxY:v.y+2.7}))];
+  function eligibleAircrew(m: InternalActor, pilot: InternalActor, v: SharedVehicle) {
+    return m.actor.bot && m.actor.alive && !m.reserve && !m.temporary && !m.anchor && !m.heal &&
+      m.actor.faction===pilot.actor.faction && m.actor.squad===pilot.actor.squad &&
+      m.actor.duty!=='sentry' && !m.actor.patrolSector && !(m.order&&m.order.until>elapsed) &&
+      m.actor.health>=m.healthMax*.5 && !dangerExit(m.actor) && elapsed>=(m.vehicleBoardAfter??0) &&
+      (m.actor.vehicle===v.kind || !m.actor.vehicle && distance(m.actor,v)<WORLD_VEHICLES.crewRange);
+  }
+  function wantsHelicopter(entry: InternalActor, v: SharedVehicle) {
+    if (airSortie) return airSortie.mission.phase==='boarding' &&
+      (entry.actor.id===airSortie.pilot || !!v.occupants[0] && airSortie.mission.reservations.some(r=>r.id===entry.actor.id));
+    if (v.occupants[0] || !eligibleAircrew(entry,entry,v) || distance(entry.actor,v)>WORLD_VEHICLES.boardRange) return false;
+    const key=entry.actor.squad??entry.actor.id;
+    if (elapsed<(airDecisionAt.get(key)??0)) return false;
+    const group=[entry,...crewCandidates(entry,v).filter(m=>eligibleAircrew(m,entry,v))].slice(0,4);
+    if (group.some(m=>m.actor.id.localeCompare(entry.actor.id)<0)) return false;
+    airDecisionAt.set(key,elapsed+HELICOPTER_AI.decisionSeconds);
+    const objective=facilities?.sites.find(s=>s.id===entry.actor.objective) ?? entry.mission;
+    if (!objective) return false;
+    const nearby=[...members.values()].filter(m=>m.actor.alive&&!m.reserve&&distance(m.actor,{...objective,y:('y' in objective?objective.y:0)??0})<90);
+    const enemies=nearby.filter(m=>hostile(entry.actor,m.actor));
+    const ground=nearby.filter(m=>m.actor.faction===entry.actor.faction&&!m.actor.vehicle&&!m.actor.transport&&!group.includes(m)).length;
+    const solids=airObstacles();
+    const home={x:v.x,y:v.y,z:v.z};
+    const landing=validSpawns.filter(p=>Math.hypot(p.x-objective.x,p.z-objective.z)<65 && Math.hypot(p.x-v.x,p.z-v.z)>=55 &&
+      enemies.every(m=>Math.hypot(m.actor.x-p.x,m.actor.z-p.z)>30) &&
+      clearVehicleSpawn('helicopter',{...p,yaw:0},vehicleGround,solids,bounds) &&
+      [[0,0],[5,0],[-5,0],[0,5],[0,-5]].every(([dx,dz])=>clearSpawn({x:p.x+dx,z:p.z+dz})))
+      .sort((a,b)=>Math.hypot(a.x-objective.x,a.z-objective.z)-Math.hypot(b.x-objective.x,b.z-objective.z))
+      .map(p=>planAirRoute(home,{...p,y:groundHeight(p.x,p.z)+.13},solids,bounds)).find(Boolean);
+    let support: ReturnType<typeof planAirRoute> = null;
+    if (enemies.length && v.ammo>0) for (const height of [22,36,54]) {
+      const stations=Array.from({length:8},(_,n)=>{const angle=n*Math.PI/4;return {x:objective.x+Math.sin(angle)*55,z:objective.z+Math.cos(angle)*55,y:Math.max(0,('y' in objective?objective.y:0)??0)+height};})
+        .sort((a,b)=>distance(a,home)-distance(b,home));
+      for (const p of stations) {
+        if (!enemies.some(m=>distance(p,m.actor)<WORLD_VEHICLES.combatRange && lineClear(p,chestOf(m.actor)))) continue;
+        support=planAirRoute(home,p,solids,bounds); if(support)break;
+      }
+      if(support)break;
+    }
+    const airCoverage=[...raiders.values()].filter(r=>r.kind==='gunship'&&r.health>0&&distance(r,{...objective,y:0})<160&&events.some(e=>e.descriptor.id===r.event&&(e.descriptor.faction??DEFAULT_BOT_FACTION)===entry.actor.faction)).length;
+    const role=chooseAirMission({ground,groundNeeded:Math.max(4,enemies.length*.7),pressure:Math.min(1,enemies.length/6),airCoverage,
+      distance:Math.hypot(objective.x-v.x,objective.z-v.z),passengers:group.length-1,transportClear:!!landing,supportClear:!!support},aviationRandom());
+    const route=role==='transport'?landing:role==='support'?support:null;
+    if (!route || role==='infantry') return false;
+    const mission=createHelicopterMission(role,'id' in objective?String(objective.id):'squad-objective',route,elapsed,
+      group.slice(1).map(m=>({id:m.actor.id,distance:distance(m.actor,v),progressAt:elapsed})));
+    airSortie={pilot:entry.actor.id,mission,created:elapsed,boarded:false};
+    announce(`${entry.actor.faction===PLAYER_FACTION?'Allied':'Enemy'} helicopter crew assembling for ${role==='support'?'air support':'squad transport'}.`);
+    return true;
+  }
+  /** Bounded drivable sorties never alter scripted raids or transport events. */
+  function stepHelicopterPilot(v: SharedVehicle, driver: InternalActor, hold: (id:string,input:VehicleControls)=>void) {
+    if (!airSortie || airSortie.pilot!==driver.actor.id) {
+      // Explicit seat changes do not invent a sortie. Land and release the crew.
+      hold(driver.actor.id,{forward:0,steer:0,lift:-1,brake:true,boost:false,fire:false});
+      unloadVehicle(v);return;
+    }
+    const m=airSortie.mission, solids=airObstacles();
+    const returnToSafety=()=>returnHelicopter(m,v,elapsed,solids,bounds,validSpawns.filter(clearSpawn)
+      .sort((a,b)=>Math.hypot(a.x-m.home.x,a.z-m.home.z)-Math.hypot(b.x-m.home.x,b.z-m.home.z)).slice(0,8)
+      .map(p=>({...p,y:groundHeight(p.x,p.z)+.13})));
+    if (!airSortie.boarded) {airSortie.boarded=true;m.started=m.phaseAt=elapsed;}
+    m.reservations=updateBoardingReservations(m.reservations,elapsed,id=>{
+      const member=members.get(id);return member?{eligible:eligibleAircrew(member,driver,v),aboard:v.occupants.includes(id),distance:distance(member.actor,v)}:undefined;
+    });
+    const passengers=v.occupants.slice(1).some(Boolean);
+    const cancelled=!!(driver.order&&driver.order.until>elapsed) || m.role==='support'&&facilities?.sites.some(s=>s.id===m.objective&&s.owner===driver.actor.faction&&!s.contested);
+    if (m.phase==='boarding' && (cancelled || !passengers&&m.role==='transport'&&(!m.reservations.length||elapsed-m.started>=HELICOPTER_AI.boardingLimit))) {
+      unloadVehicle(v); airDecisionAt.set(driver.actor.squad??driver.actor.id,elapsed+HELICOPTER_AI.retrySeconds);airSortie=undefined;return;
+    }
+    if (!m.returning && m.phase!=='boarding' && (cancelled||v.health<VEHICLE_COMBAT.helicopter.health*.35||elapsed-m.started>HELICOPTER_AI.missionSeconds||m.role==='support'&&v.ammo===0||m.phase==='support'&&elapsed-m.phaseAt>=HELICOPTER_AI.supportSeconds))
+      returnToSafety();
+    if (m.phase==='unloading') {
+      if (unloadVehicle(v,true) || elapsed-m.phaseAt>6) returnToSafety();
+    }
+    // A vehicle can park on the home pad after departure. Revalidate a stalled
+    // descent and choose a nearby clear recovery point rather than hover forever.
+    if (m.phase==='landing'&&elapsed-m.phaseAt>30) returnToSafety();
+    const input=helicopterMissionControls(m,v,elapsed);
+    if (m.phase==='done') {
+      if(unloadVehicle(v)){airDecisionAt.set(driver.actor.squad??driver.actor.id,elapsed+HELICOPTER_AI.retrySeconds);driver.vehicleBoardAfter=elapsed+HELICOPTER_AI.retrySeconds;airSortie=undefined;}
+      return;
+    }
+    hold(driver.actor.id,input);
+    const gunner=gunnerId(v),gun=gunner?members.get(gunner):undefined;
+    if(gun?.actor.bot) {
+      const target=m.phase==='support'?vehicleEnemy(gun,v):undefined;
+      hold(gun.actor.id,{...(gun===driver?input:{forward:0,steer:0,lift:0,brake:true,boost:false,fire:false}),fire:!!target,...(target?{aim:chestOf(target.actor)}:{})});
+    }
+  }
   function tryBoardVehicle(entry: InternalActor, dt: number) {
     const order = entry.order && entry.order.until > elapsed && entry.order.since <= elapsed ? entry.order : undefined;
     if (!vehicleOptions?.openWorld || order && order.kind !== 'gather' || entry.anchor || entry.temporary || entry.heal || entry.actor.y > (bounds.groundHeight?.(entry.actor.x, entry.actor.z) ?? 0) + 2 ||
       elapsed < (entry.vehicleBoardAfter ?? 0) || dangerExit(entry.actor) || entry.actor.health < entry.healthMax * .5) return false;
     const v = vehicles.filter(v => !isDragonBoat(v.kind) && (!v.faction || v.faction === entry.actor.faction) && v.health > VEHICLE_COMBAT[v.kind].health * .35 && v.y < (bounds.groundHeight?.(v.x, v.z) ?? 0) + .3 && vehicleSpeed(v) < WORLD_VEHICLES.pickupSpeed && Math.abs(v.climb) <= .5 &&
-      !lifeOf(v).unload && v.occupants.includes(null) && (v.kind === 'car' || !!v.occupants[0]) &&
+      !lifeOf(v).unload && v.occupants.includes(null) &&
       v.occupants.every(id => !id || members.get(id)?.actor.faction === entry.actor.faction) &&
       // A player changing seats keeps their crew, but does not invite an AI driver.
       (v.occupants[0] || !v.occupants.some(id => id && !members.get(id)?.actor.bot)) &&
@@ -2583,7 +2686,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         const threat = vehicleEnemy(entry, v);
         // Distant firefights should not stop a squad assembling its patrol.
         if (!pickup && (v.ammo <= 0 || threat && distance(threat.actor, v) < WORLD_VEHICLES.boardThreatRange)) return false;
-        const recruited = driver?.actor.bot && !lifeOf(v).departed && lifeOf(v).crew.includes(entry.actor.id);
+        if (v.kind === 'helicopter' && (!driver || driver.actor.bot) && !wantsHelicopter(entry, v)) return false;
+        const recruited = driver?.actor.bot && (v.kind === 'helicopter' ? airSortie?.mission.reservations.some(r=>r.id===entry.actor.id) : !lifeOf(v).departed && lifeOf(v).crew.includes(entry.actor.id));
         return distance(entry.actor, v) < (recruited ? WORLD_VEHICLES.crewRange : WORLD_VEHICLES.boardRange);
       });
     if (!v) return false;
@@ -2610,6 +2714,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
   }
   function stepVehicleBrains(dt: number) {
+    if (airSortie) {
+      const pilot=members.get(airSortie.pilot),v=vehicles.find(v=>v.kind==='helicopter');
+      if (airSortie.boarded && v && !v.occupants[0]) lifeOf(v).unload=true;
+      if (!pilot?.actor.alive || !v || v.health<=0 || airSortie.boarded&&v.occupants[0]!==pilot.actor.id || !airSortie.boarded&&(elapsed-airSortie.created>HELICOPTER_AI.boardingLimit || !eligibleAircrew(pilot,pilot,v))) airSortie=undefined;
+    }
     for (const v of vehicles) {
       const life = lifeOf(v), occupied = v.occupants.some(Boolean);
       if(isDragonBoat(v.kind)){
@@ -2637,6 +2746,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       life.think -= dt; if (life.think > 0) continue;
       life.think = .15; const thinkDt = elapsed - life.lastThink; life.lastThink = elapsed;
       const driver = v.occupants[0] ? members.get(v.occupants[0]) : undefined;
+      if(v.kind==='helicopter'&&driver?.actor.bot) {
+        stepHelicopterPilot(v,driver,(id,input)=>controls.set(id,{input,expires:elapsed+.35}));continue;
+      }
       const enemy = driver?.actor.bot ? vehicleEnemy(driver, v) : undefined;
       const armedCrew = !!v.occupants[1] && v.ammo > 0;
       if (driver?.actor.bot && (enemy && !armedCrew || v.health < VEHICLE_COMBAT[v.kind].health * .3 || dangerExit(driver.actor) || life.stuck > WORLD_VEHICLES.stuckSeconds)) life.unload = true;
@@ -3224,7 +3336,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     facilities = environment?.facilities ? createFacilities(environment.facilities.sites) : null;
     squadObjectives.clear(); squadApproaches.clear(); sectorPatrols?.reset(); approachSerial = 0; squadThink = 0;
     for (const f of SQUAD_FACTIONS) { reserveAt[f] = FACILITY_RULES.reserveSeconds; navalAt[f] = NAVAL.interval; airborneAt[f] = PARATROOPERS.interval; }
-    tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; barks.length = 0; replies.length = 0; barker.reset(); idleIn = BARK_TUNING.idleEvery[0]; controls.clear(); vehicleLife.clear(); events.length = 0; raiders.clear(); transports.clear(); airborneMissions.clear(); liveClouds = []; heat.clear(); interests.length = 0; director?.reset();
+    tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; barks.length = 0; replies.length = 0; barker.reset(); idleIn = BARK_TUNING.idleEvery[0]; controls.clear(); vehicleLife.clear(); airSortie=undefined;airDecisionAt.clear();aviationSeed=173821; events.length = 0; raiders.clear(); transports.clear(); airborneMissions.clear(); liveClouds = []; heat.clear(); interests.length = 0; director?.reset();
     flying.length = 0; landed.clear(); impacts.length = 0;
     for (const [id, entry] of members) if (entry.temporary) dismiss(id);
     // Back to the starting garrison: recruits were the reinforcements' doing.

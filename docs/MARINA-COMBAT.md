@@ -161,3 +161,49 @@ and Chrome remote debugging on 9379 (override with `FPS_APP_ORIGIN` and
 `FPS_CHROME_ORIGIN`). Unit coverage uses shipped campsite collision, a fully
 crewed authority crossing and unload, exposed occupants, water confinement,
 coasting/braking, clear jetties, camera models and reset behaviour.
+
+## Playable landmarks and AI drivable helicopters
+
+MBS now has two separate service stair towers leading to a covered SkyPark
+fighting deck at 66.4 m. The Flyer has service stairs and fixed overlooks at
+18 m and 33 m. Gardens by the Bay has two stair approaches to a connected
+7.2 m canopy walk and terraces. Each landmark has a capturable supply site,
+bringing Marina to ten facilities while retaining the three ground fronts.
+These access structures are authored gameplay additions, not architectural
+reconstructions. Flyer capsules are not rideable. Rooftop helicopter spawning
+and landing/dismount support are not part of this pass.
+
+`marina-landmarks.ts` holds these walk surfaces, cover and objectives. Infantry
+navigation targets the actual elevated floor; supply sites do not create
+unsupported rooftop reinforcement spawns. Both SkyPark entrances, both garden
+entrances and the Flyer access are tested through the normal movement kernel.
+
+`helicopter-autopilot.ts` provides drivable mission selection and normal pilot
+controls. Existing squads can choose to stay infantry, transport passengers,
+or provide short air support. The normalized weights consider ground soldiers
+remaining after the proposed crew leaves, objective pressure, useful gun range
+and sight, transport distance, and nearby friendly scripted gunship coverage.
+Routes and landing clearance are hard gates. Each squad draws once per
+opportunity, with a 30-second decision cooldown and an independent RNG stream.
+
+Only eligible members of that squad receive boarding reservations (within
+45 m). The pilot waits at least 3 seconds, departs when reservations resolve,
+and waits at most 18 seconds. Dead, reordered, healing, unavailable or stalled
+passengers lose their reservation; five seconds without approach progress
+counts as stalled. A transport without passengers cancels rather than flying
+empty. A support mission may fly with only its pilot. Human pickup behavior
+continues to work.
+
+Flights climb above a collision-checked corridor, fly to a validated ground
+landing or firing station, then return. Support lasts up to 30 seconds on
+station; low hull health, exhausted gun ammunition, a resolved objective,
+new orders or the 150-second outbound mission limit trigger return. A blocked
+home landing column uses a validated nearby recovery point. Weapons
+retain their actual ammunition, line-of-sight and damage rules. No extra bots
+are spawned. Scripted gunships, raids and deployment transports retain their
+existing controllers. Marina starts with an allied operational helicopter
+near the allied staging area so squads can actually use this behavior.
+
+Regression coverage includes full arena transport boarding/delivery/return,
+a support sortie firing its gun and returning, pilot loss, weighted choices,
+reservation expiry, and flight over solid obstacles using real vehicle physics.

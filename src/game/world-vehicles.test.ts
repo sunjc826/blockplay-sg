@@ -87,7 +87,7 @@ it('keeps a blocked crew seated and does not teleport anyone through walls', () 
   expect(car(arena).occupants).toEqual(['p0', 'p1', 'p2', 'p3']);
 });
 
-it('AI boards and drives a car, but never takes an unattended helicopter pilot seat', () => {
+it('AI drives a car and leaves an unattended helicopter alone without a useful mission', () => {
   const arena = createArena([], 2, 'mixed', environment, options);
   tick(arena, .1);
   expect(car(arena).occupants.filter(Boolean)).toHaveLength(2);

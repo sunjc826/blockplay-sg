@@ -36,7 +36,7 @@ const districts: Record<WorldZoneId, FpsDistrict> = {
   'marina-bay': {
     label: 'Marina FPS', setting: 'promenade', spawn: marinaPoint(FPS_SPAWN), targets: FPS_TARGETS.map(marinaPoint),
     // The enemy motor pool sits on the Flyer approach, within reach of its crews.
-    vehicles: { ...VEHICLE_SPAWNS, car: marinaPoint({ x: 214, z: -145, yaw: Math.PI }) },
+    vehicles: { ...VEHICLE_SPAWNS, helicopter:{x:-95,z:75,yaw:0}, car: marinaPoint({ x: 214, z: -145, yaw: Math.PI }) },
     props: ([[3, -48, 71, .77, .52], [4, -40, 63, 1.87, .41], [4, -52, 64, 1.87, .41], [5, -45, 72, .37, .37], [5, -43, 72, .37, .37]] as const).map(([asset,x,z,w,d])=>{const p=marinaPoint({x,z});return [asset,p.x,p.z,w,d] as const;}),
   },
   'raffles-place': {

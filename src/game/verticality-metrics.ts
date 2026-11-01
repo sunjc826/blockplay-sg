@@ -77,7 +77,10 @@ export function measureVerticality(input: VerticalityInput) {
     const x = input.bounds.minX + i * spacing, z = input.bounds.minZ + j * spacing;
     const candidates = new Map<number, string[]>([[input.bounds.groundHeight?.(x,z) ?? 0, []]]);
     for (const s of input.surfaces) {
-      if (!surfaceContains(s,x,z)) continue;
+      // Flat landings support a capsule slightly beyond their centre footprint,
+      // exactly as supportHeight does. Otherwise a lattice row just before a
+      // stair head falls into a false gap between the ramp and landing samples.
+      if (!surfaceContains(s,x,z,s.startHeight===s.endHeight?radius:0)) continue;
       const y = surfaceHeight(s, x, z);
       candidates.set(y, [...(candidates.get(y) ?? []), s.id]);
     }

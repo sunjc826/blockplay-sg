@@ -1,3 +1,4 @@
+import { MARINA_LANDMARK_PLACES } from './marina-landmarks';
 import { MARINA_LAYOUT_SCALE as S, marinaPoint, marinaBounds } from './marina-layout';
 import * as THREE from 'three';
 import { type VerticalRoute } from './vertical-routes';
@@ -269,7 +270,7 @@ export function buildMarinaScene() {
   // room panes between its mullions so occupancy lighting follows the splay.
   const sandsGlass = glass.clone(); sandsGlass.userData.nightWindow = true; materials.push(sandsGlass);
   for (const z of [-65, -15, 35]) {
-    collider(151, z, 24, 32, 114);
+    collider(151, z, 24, 32, 108);
     for (let floor = 0; floor < 54; floor++) {
       const y = floor * 2 + 1, splay = Math.pow(1 - y / h, 2) * 8;
       box(147 - splay * 0.2, y, z, 9, 1.94, 30, glass, scene, true);
@@ -298,11 +299,7 @@ export function buildMarinaScene() {
   boat.lineTo(halfWidth, halfLength - 22); boat.quadraticCurveTo(halfWidth, halfLength - 4, 0, halfLength); boat.quadraticCurveTo(-halfWidth, halfLength - 4, -halfWidth, halfLength - 22); boat.closePath();
   const deckGeo = geo(new THREE.ExtrudeGeometry(boat, { depth: 2.6, bevelEnabled: false, steps: 1, curveSegments: 12 }));
   const deck = new THREE.Mesh(deckGeo, cream); deck.name = 'marina-skypark'; deck.rotation.x = -Math.PI / 2; deck.position.set(151, h, -15); deck.castShadow = true; scene.add(deck);
-  box(146, h + 2.7, -15, 4, 0.2, 81, mat('#368ca4'));
-  box(154, h + 2.65, -15, 6, 0.2, 130, leaf);
-  for (const x of [141, 161]) box(x, h + 3, -15, 0.12, 0.7, 146, steel);
-  const crownGeo = geo(new THREE.IcosahedronGeometry(2.6, 0));
-  for (let z = -74; z < 65; z += 13) { const crown = new THREE.Mesh(crownGeo, leaf); crown.position.set(154, h + 4, z); crown.scale.setScalar(0.65); scene.add(crown); }
+  // Human-scale rooftop cover and walking surfaces are added after compaction.
   // Lotus-like ArtScience Museum, fully modeled petals.
   const baseGeo = geo(new THREE.CylinderGeometry(8, 5, 7, 10));
   const museumBase = new THREE.Mesh(baseGeo, pale); museumBase.position.set(135, 9, -110); scene.add(museumBase); collider(135, -110, 44, 44, 34);
@@ -798,5 +795,5 @@ export function buildMarinaScene() {
       walkers.forEach(({ group, x, z, axis, phase }) => { const offset = Math.sin(time * 0.09 + phase) * 10; group.position.set((x + (axis === 'x' ? offset : 0))*S, Math.abs(Math.sin(time * 4 + phase))*0.04*S, (z + (axis === 'z' ? offset : 0))*S); group.rotation.y = (axis === 'x' ? Math.PI / 2 : 0) + (Math.cos(time * 0.09 + phase) > 0 ? Math.PI : 0); });
     },
     dispose() { camp.dispose(); instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); sun.shadow.map?.dispose(); },
-  }, MARINA_VERTICAL_PLACES);
+  }, [...MARINA_VERTICAL_PLACES,...MARINA_LANDMARK_PLACES]);
 }

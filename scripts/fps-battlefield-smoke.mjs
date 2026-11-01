@@ -13,10 +13,10 @@ try{
  await send('Runtime.enable');await send('Network.enable');await send('Page.enable');await send('Emulation.setFocusEmulationEnabled',{enabled:true});await send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});await wait('window.ready===true');
  const trials=process.env.BATTLEFIELD_BROWSER_TRIALS?.split(',').map(s=>{const [id,size]=s.split(':');return [id,Number(size)];})||['queenstown','marina-bay','raffles-place'].flatMap(id=>[32,48,64].map(size=>[id,size]));
  for(const [id,size] of trials){
-  const initial=await evaluate(`loadTrial(${JSON.stringify(id)},${size})`);assert.equal(initial.bots,size);assert.equal(initial.sites.length,7);
+  const initial=await evaluate(`loadTrial(${JSON.stringify(id)},${size})`);assert.equal(initial.bots,size);assert.equal(initial.sites.length,id==='marina-bay'?10:7);
   const point=await evaluate(`(()=>{const r=document.querySelector('#start').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
   await send('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});await wait(`window.hud?.phase==='playing'`);
-  const result=await evaluate(`measureTrial(${Number(process.env.BATTLEFIELD_BROWSER_SECONDS||10)})`);assert.equal(result.phase,'playing');assert.equal(result.sites,7);assert(result.objectives.length>=3);
+  const result=await evaluate(`measureTrial(${Number(process.env.BATTLEFIELD_BROWSER_SECONDS||10)})`);assert.equal(result.phase,'playing');assert.equal(result.sites,id==='marina-bay'?10:7);assert(result.objectives.length>=3);
   const shot=await send('Page.captureScreenshot',{format:'png'});await fs.writeFile(new URL(`${id}-${size}.png`,output),Buffer.from(shot.data,'base64'));
   results.push({id,size,initial,...result});console.log(JSON.stringify({id,size,...result}));await evaluate('engine.pause()');
  }

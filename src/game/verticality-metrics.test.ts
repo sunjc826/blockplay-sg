@@ -37,6 +37,11 @@ describe('verticality diagnostics', () => {
     expect(result.heightM.max).toBe(y);
     expect(result.elevatedAreaM2).toBeGreaterThan(0);
   });
+  it('keeps a stair head connected when the lattice row overlaps a landing edge', () => {
+    const input=world([{...ramp,maxX:-3.8},{...deck,minX:-3.8}]);
+    input.traversalObstacles=[{minX:-3.8,maxX:8,minZ:-2,maxZ:2,minY:2.74,maxY:3}];
+    expect(measureVerticality(input).isReachable({x:2,y:3,z:0})).toBe(true);
+  });
   it('does not count a suspended deck without access', () => {
     const result = measureVerticality(world([deck]));
     expect(result.district.elevatedAreaM2).toBe(0);

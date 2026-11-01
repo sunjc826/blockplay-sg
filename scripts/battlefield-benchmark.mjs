@@ -17,7 +17,7 @@ try {
     const scenario=createBattlefieldScenario(id,size),{arena,environment}=scenario;
     try {
       const start=arena.snapshot(),initial=start.actors.filter(a=>a.bot&&a.squad),samples=[],timings=[];
-      assert.equal(initial.length,size);assert.equal(scenario.sites.length,7);
+      assert.equal(initial.length,size);assert.equal(scenario.sites.length,id==='marina-bay'?10:7);
       const sample=()=>{
         const snapshot=arena.snapshot(),regular=snapshot.actors.filter(a=>a.bot&&a.squad);
         assert(validArenaSnapshot(snapshot,environment),`${id}/${size}: valid snapshot`);

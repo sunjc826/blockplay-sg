@@ -1,3 +1,4 @@
+import { MARINA_LANDMARK_OBJECTIVES } from './marina-landmarks';
 import { PLAYER_FACTION } from './arena-factions';
 import type { FacilitySite } from './facilities';
 import { WORLD_GATEWAYS, getWorldZone, type WorldZoneId, type ZonePosition } from './world-zones';
@@ -34,7 +35,7 @@ export function districtFacilitySites(zone: WorldZoneId, fleet: VehicleSpawns, c
     const p = candidates.find(p => clear(p.x, p.z) && away(p));
     if (!p) continue;
     sites.push({ ...p, y: groundHeight(p.x,p.z), id: `${zone}-${kind === 'car' ? 'garage' : 'helipad'}`, name: kind === 'car' ? 'Motor pool garage' : 'Air transport helipad',
-      kind: kind === 'car' ? 'garage' : 'helipad', initialOwner: kind === 'car' ? 'mercenaries' : null, deployment: { ...spawn } });
+      kind: kind === 'car' ? 'garage' : 'helipad', initialOwner: kind === 'car' ? 'mercenaries' : zone === 'marina-bay' ? PLAYER_FACTION : null, deployment: { ...spawn } });
   }
   // Marina uses three authored landmark approaches; other districts use farthest-point
   // placement to give their fronts different parts of the district,
@@ -52,5 +53,6 @@ export function districtFacilitySites(zone: WorldZoneId, fleet: VehicleSpawns, c
       ...(authored ? {combatFocus:authored.focus} : {}),
       kind, initialOwner:null, initiallyBuilt:true, deployment:{...p,yaw:0}, ...(kind==='command'?{camp:campAt(p)}:{}) });
   }
+  if(zone==='marina-bay') sites.push(...MARINA_LANDMARK_OBJECTIVES.map(s=>structuredClone(s)));
   return sites;
 }

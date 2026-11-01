@@ -569,6 +569,8 @@ To serve companions and LAN from one origin, route `/api/adventure/*` to the com
 - `src/game/proxy-weapon-models.ts`: six art-only weapon studies for the proxy factions. `/faction-designs?study=weapons` reviews their external geometry, references and finishes without changing live loadouts. See [proxy weapons](PROXY-WEAPONS.md).
 - `src/game/proxy-factions.ts`: art-only Freedom Force and Collective Corps designs and four specialist models. `/faction-designs` is the interactive review gallery, with grayscale, rear views and comparison against current factions. These designs are not registered for combat. See [proxy faction design](PROXY-FACTIONS.md).
 - `src/game/npc-barks.ts`: what bots say, by faction, rank and role, and the director that rations it; `player-callouts.ts`: the callout wheel catalog; `squad-orders.ts`: what an order makes allies do. The host says both into `ArenaSnapshot.barks`. See [callouts and barks](CALLOUTS.md).
+- `src/game/helicopter-autopilot.ts`: weighted drivable AI mission choices, passenger reservation deadlines and collision-checked pilot controls; scripted air events remain separate.
+- `src/game/marina-landmarks.ts`: walkable SkyPark, Flyer overlooks and Gardens canopy routes, with three elevated supply objectives. See [Marina combat](MARINA-COMBAT.md).
 - `src/game/world-zones.ts`: district/checkpoint graph.
 - `src/components/AdventureCompanion.tsx`, `RegionGuide.tsx`: companion panels.
 - `src/game/adventure.ts`, `learning-guide.ts`: objective and read-only guide adapters.
