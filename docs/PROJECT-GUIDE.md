@@ -557,6 +557,9 @@ To serve companions and LAN from one origin, route `/api/adventure/*` to the com
   schematic Singapore map divided into 23 selectable game regions. Preview a
   district, then confirm to build the game. Each mode remembers its last
   confirmed start; the pause card's district button returns to this picker.
+  The map fits the viewport with a fixed deployment dock on phones; compact
+  maps use numbered regions with previous/next district buttons. Hover,
+  selection and deployment reuse the published ElevenLabs glass menu cues.
 - `src/components/*Game.tsx`: game views and HUDs; `SingaporeMap.tsx`: island locator.
 - `src/game/*-scene.ts` and `*-collision.ts`: authored worlds and deterministic collisions.
 - `src/game/fps-engine.ts`: shared FPS rendering/input; `arena-*.ts`: bots and match rules.

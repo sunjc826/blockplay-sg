@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Crosshair, MapPin, MoveHorizontal } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Crosshair, MapPin } from 'lucide-react';
 import { locations, type Location } from '../data/locations';
 import { getWorldZone, type WorldZoneId } from '../game/world-zones';
+import { playMenuSound, prepareMenuAudio, stopMenuHover } from '../lib/menu-audio';
 import './starting-point-picker.css';
 
 // A schematic island: downtown is expanded so its districts have useful hit
@@ -68,28 +69,39 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
   const place = options.find(option => option.id === selected) ?? options[0];
   const zone = getWorldZone(place.id);
   const training = mode === 'training';
+  const index = options.findIndex(option => option.id === place.id);
+  const step = (direction: number) => setSelected(options[(index + direction + options.length) % options.length].id);
 
   useEffect(() => {
-    // Bring the remembered district into view on phones, without scrolling the
-    // page or taking keyboard focus away from the region the player chose.
-    const view = viewport.current;
-    const region = view?.querySelector<SVGGElement>(`[data-start-region="${selected}"] .starting-region-label`);
-    if (!view || !region) return;
-    const box = region.getBoundingClientRect(), frame = view.getBoundingClientRect();
-    view.scrollTo({ left: view.scrollLeft + box.x + box.width / 2 - frame.x - frame.width / 2 });
-  }, [selected]);
+    prepareMenuAudio();
+    document.addEventListener('visibilitychange', stopMenuHover);
+    return () => { stopMenuHover(); document.removeEventListener('visibilitychange', stopMenuHover); };
+  }, []);
+
+  // Delegate feedback so labels and icons do not each trigger another sound.
+  const hover = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'mouse') return;
+    const control = (event.target as Element).closest('[data-start-region],button,a');
+    if (control && !(event.relatedTarget instanceof Node && control.contains(event.relatedTarget))) playMenuSound('hover');
+  };
+  const focus = (event: React.FocusEvent<HTMLDivElement>) => {
+    if (event.target.matches(':focus-visible') && event.target.closest('[data-start-region],button,a')) playMenuSound('hover');
+  };
+  const click = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && (event.target as Element).closest('[data-start-region],button,a')) playMenuSound('click');
+  };
 
   const keyboard = (event: React.KeyboardEvent<SVGGElement>, id: WorldZoneId) => {
-    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelected(id); return; }
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); if (!event.repeat) { playMenuSound('click'); setSelected(id); } return; }
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
     const index = options.findIndex(option => option.id === id);
     const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1
       : (index + (event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 1) + options.length) % options.length;
-    viewport.current?.querySelector<SVGGElement>(`[data-start-region="${options[next].id}"]`)?.focus();
+    viewport.current?.querySelector<SVGGElement>(`[data-start-region="${options[next].id}"]`)?.focus({ preventScroll: true });
   };
 
-  return <div className="game-screen starting-picker" data-mode={mode}>
+  return <div className="game-screen starting-picker" data-mode={mode} onPointerOver={hover} onFocus={focus} onClickCapture={click}>
     <header className="starting-header">{back}<span>{training ? 'TRAINING' : 'OPEN WORLD'} <i>/</i> SELECT DISTRICT</span><span className="starting-step">01 — STARTING POINT</span></header>
     <main className="starting-main">
       <div className="starting-title"><span className="starting-eyebrow">THE ISLAND IS YOURS</span><h1>Where do we start?</h1><p>Pick a region on the map. {training ? 'Set up your range in a familiar neighbourhood.' : 'Choose where your open world journey begins.'}</p></div>
@@ -97,12 +109,12 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
         <section className="starting-map" aria-label="Starting district map">
           <div className="starting-map-heading"><span>SINGAPORE <b>/ {options.length} DISTRICTS</b></span><span>↑ N</span></div>
           <div className="starting-map-viewport" ref={viewport}>
-            <svg viewBox="0 0 1000 620" role="group" aria-label="Singapore regions. Choose a district with Enter or Space; use arrow keys to browse.">
+            <svg viewBox="45 65 940 540" role="group" aria-label="Singapore regions. Choose a district with Enter or Space; use arrow keys to browse.">
               <defs><clipPath id={clip}><path d={COAST} /></clipPath><pattern id={`${clip}-grid`} width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="currentColor" strokeWidth=".5" /></pattern></defs>
               <rect width="1000" height="620" fill={`url(#${clip}-grid)`} className="starting-grid" />
               <text x="110" y="180" className="starting-water">JOHOR STRAIT</text><text x="740" y="585" className="starting-water">SINGAPORE STRAIT</text>
               <path d="M416 518L430 550 M908 223L885 140" className="starting-crossings" />
-              {options.map(option => {
+              {options.map((option, number) => {
                 const active = option.id === place.id;
                 const [x, y] = CENTRES[option.id];
                 const lines = LABELS[option.id] ?? [option.name];
@@ -115,16 +127,17 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
                     <circle cy={-18 - (lines.length - 1) * 7} r={active ? 5 : 3} />
                     {lines.map((line, i) => <text key={line} textAnchor="middle" y={i * 17 - (lines.length - 1) * 7}>{line}</text>)}
                   </g>
+                  <text className="starting-region-number" x={x} y={y} textAnchor="middle">{number + 1}</text>
                 </g>;
               })}
               <path d={COAST} className="starting-coast" />
             </svg>
           </div>
-          <div className="starting-map-footer"><span><i /> Selected region</span><span className="starting-pan"><MoveHorizontal size={14} /> Swipe to explore</span><span>SCHEMATIC GAME REGIONS</span></div>
+          <div className="starting-map-footer"><span><i /> Selected region</span><span>SCHEMATIC GAME REGIONS</span></div>
         </section>
         <aside className="starting-details" aria-label="Selected starting point">
-          <div className="starting-detail-top"><MapPin size={18} /><span>YOUR STARTING POINT</span></div>
-          <span className="starting-eyebrow">{place.district}</span><h2>{place.name}</h2><p className="starting-subtitle">{place.subtitle}</p>
+          <div className="starting-detail-top"><span className="starting-detail-label"><MapPin size={16} />STARTING POINT</span><nav className="starting-browse" aria-label="Browse starting districts"><button aria-label="Previous district" onClick={() => step(-1)}><ChevronLeft size={18} /></button><span>{String(index + 1).padStart(2, '0')} / {options.length}</span><button aria-label="Next district" onClick={() => step(1)}><ChevronRight size={18} /></button></nav></div>
+          <div className="starting-place" aria-live="polite" aria-atomic="true"><span className="starting-eyebrow">{place.district}</span><h2>{place.name}</h2><p className="starting-subtitle">{place.subtitle}</p></div>
           <div className="starting-tags">{place.tags.map(tag => <span key={tag}>{tag}</span>)}</div>
           <div className="starting-brief"><span>{training ? <Crosshair size={16} /> : <MapPin size={16} />}{training ? 'LIVE-FIRE RANGE' : `${zone.risk.toUpperCase()} THREAT`}</span><p>{training ? 'Practice with your equipped loadout. Targets, drills and vehicles will be ready when you arrive.' : zone.description}</p></div>
           <div className="starting-launch"><p>{training ? 'Your loadout comes with you.' : 'You can travel between districts after deploying.'}</p><button className="starting-deploy" onClick={() => onDeploy(place.id)}>{training ? 'Start training' : 'Deploy here'}<ArrowRight size={18} /></button></div>
