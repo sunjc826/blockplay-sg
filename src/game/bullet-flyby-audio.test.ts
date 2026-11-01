@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { bulletPass, BULLET_PASS_RANGE, createBulletFlybyAudio, MAX_BULLET_PASS_VOICES } from './bullet-flyby-audio';
 import { muzzleBallistics } from './fps-ballistics';
 import { sfxUrls } from './sfx-bank';
+import { impactProfile } from './fps-impact-profile';
 
 const ear = { x: 0, y: 1.75, z: 0 };
 const start = (x = 1) => ({ x, y: 1.75, z: -10 });
@@ -49,6 +50,20 @@ describe('bullet pass proximity', () => {
     expect(bulletPass(start(), end(), ear, NaN)).toBeNull();
     expect(bulletPass(start(), end(), { ...ear, x: Infinity }, 495)).toBeNull();
   });
+  it('scales bore and power independently through the same profile as impacts, preserving proximity and headroom', () => {
+    const level = (profile = impactProfile(), distance = 3) => bulletPass(start(distance), end(distance), ear, 495, profile)!.level;
+    expect(level()).toBe(bulletPass(start(3), end(3), ear, 495)!.level);
+    expect(level(impactProfile(7.62, 36))).toBeGreaterThan(level());
+    expect(level(impactProfile(5.56, 65))).toBeGreaterThan(level());
+    const heavy = impactProfile(12.7, 145);
+    expect(level(heavy)).toBeGreaterThan(level() * 1.7);
+    expect(level(heavy, 8)).toBeLessThan(level(undefined, 1));
+    expect(level(heavy, 0)).toBeLessThanOrEqual(.8);
+    expect(bulletPass(start(18), end(18), ear, 495, heavy)).toBeNull();
+    expect(bulletPass(start(), end(), ear, muzzleBallistics(300).velocity, heavy)).toBeNull();
+    const malformed = { ...heavy, holeRadius: NaN, holeDepth: Infinity };
+    expect(Number.isFinite(level(malformed))).toBe(true);
+  });
 });
 
 describe('recorded bullet crack and echo', () => {
@@ -71,6 +86,17 @@ describe('recorded bullet crack and echo', () => {
     f.pass(round, start(), { ...end(), z: -1 }); expect(f.pick).not.toHaveBeenCalled();
     f.pass(round); f.pass(round); expect(f.pick).toHaveBeenCalledOnce();
     f.pass({}); expect(f.pick).toHaveBeenCalledTimes(2);
+  });
+  it('scales the recorded crack and echo together at natural speed with the supplied shot profile', () => {
+    const reference = fixture(), heavy = fixture(), profile = impactProfile(12.7, 145);
+    reference.audio.pass({}, start(3), end(3), ear, 495, () => .5);
+    heavy.audio.pass({}, start(3), end(3), ear, 495, () => .5, 0, profile);
+    const ratio = heavy.nodes[2].gain.value / reference.nodes[2].gain.value;
+    expect(ratio).toBeGreaterThan(1.7);
+    expect(heavy.nodes[6].gain.value / reference.nodes[6].gain.value).toBeCloseTo(ratio);
+    expect(heavy.nodes[0].playbackRate.value).toBe(1);
+    expect(heavy.nodes[4].playbackRate.value).toBe(1);
+    expect(heavy.nodes[0].start.mock.calls).toEqual(reference.nodes[0].start.mock.calls);
   });
   it('bounds dense bursts, skips subsonic/distant passes and cancels cracks and echoes on pause/mute', () => {
     const f = fixture(); f.pass({}, start(25), end(25)); f.pass({}, start(), end(), 100);

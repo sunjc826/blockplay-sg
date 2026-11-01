@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const origin = process.env.FPS_APP_ORIGIN || 'http://127.0.0.1:5194';
 const chrome = process.env.FPS_CHROME_ORIGIN || 'http://127.0.0.1:9254';
-const output = new URL('../.cache/gunshot-bursts/', import.meta.url);
+const output = new URL('../.cache/heavy-gun-audio/', import.meta.url);
 await fs.mkdir(output, { recursive: true });
 const tab = await (await fetch(`${chrome}/json/new?about:blank`, { method: 'PUT' })).json();
 const ws = new WebSocket(tab.webSocketDebuggerUrl);
@@ -59,11 +59,11 @@ try {
     const groups=['rifle-556','pistol-9','mg-762','hmg-127','suppressed','distant-rifle','distant-heavy'];
     const until=performance.now()+20000;
     while(!groups.every(g=>bank.get(g))){if(performance.now()>until)throw Error('Samples did not decode');await new Promise(r=>setTimeout(r,50));}
-    const cases=[['rifle',5.56,36,.12,0],['ultimax',5.56,30,.085,0],['mg4',5.56,31,.075,0],['pistol',9,28,.22,0],['gpmg',7.62,60,.12,0],['hmg',12.7,160,.14,0],['suppressed',5.56,36,.1,0,'suppressor'],['distant',5.56,36,.1,160]];
+    const cases=[['rifle',5.56,36,.12,0],['ultimax',5.56,30,.085,0],['mg4',5.56,31,.075,0],['pistol',9,28,.22,0],['gpmg',7.62,60,.12,0],['hmg',12.7,160,.14,0],['suppressed',5.56,36,.1,0,'suppressor'],['distant',5.56,36,.1,160],['distant-hmg',12.7,160,.14,160]];
     const all=[];window.renderedAudio={};
     for(const [version,module] of [['before',baseline],['after',current]]){if(!module)continue;
       for(const [name,calibre,power,interval,distance,muzzle] of cases){
-        const rate=44100,count=12,length=4,offline=new OfflineAudioContext(2,length*rate,rate);
+        const rate=44100,count=12,length=6,offline=new OfflineAudioContext(2,length*rate,rate);
         Object.defineProperty(offline,'state',{get:()=> 'running'});
         const audio=module.createGunshotAudio(()=>offline,()=>false,bank),tone=module.gunshotTone(calibre,power,distance,distance===0,muzzle);
         const recorded=window.played.length,random=Math.random;let seed=4521;
@@ -74,8 +74,11 @@ try {
         const attacks=Array.from({length:count},(_,i)=>energy(.15+tone.delay+i*interval,.15+tone.delay+i*interval+.035));
         const db=attacks.map(e=>10*Math.log10(e));let peak=0;for(const v of left)peak=Math.max(peak,Math.abs(v));
         const last=.15+tone.delay+(count-1)*interval;
-        all.push({version,name,peak,attackSpreadDb:Math.max(...db)-Math.min(...db),takes:[...new Set(takes.map(t=>t.url))],tailEnergy:energy(last+.1,last+.5),lateEnergy:energy(3.5,4)});
-        if(name==='rifle'||name==='mg4'){
+        const lowContext=new OfflineAudioContext(1,left.length,rate),lowSource=lowContext.createBufferSource(),lowpass=lowContext.createBiquadFilter();
+        lowSource.buffer=buffer;lowpass.type='lowpass';lowpass.frequency.value=180;lowpass.Q.value=.707;lowSource.connect(lowpass).connect(lowContext.destination);lowSource.start();
+        const low=(await lowContext.startRendering()).getChannelData(0);let lowEnergy=0;for(let i=Math.floor(.15*rate);i<Math.floor((last+.5)*rate);i++)lowEnergy+=low[i]**2;lowEnergy/=Math.floor((last+.35)*rate);
+        all.push({version,name,peak,lowEnergy,attackSpreadDb:Math.max(...db)-Math.min(...db),takes:[...new Set(takes.map(t=>t.url))],tailEnergy:energy(last+.1,last+.5),lateEnergy:energy(5.5,6)});
+        if(name==='rifle'||name==='mg4'||name==='gpmg'||name==='hmg'){
           const bytes=new Uint8Array(buffer.length*4),view=new DataView(bytes.buffer);
           for(let i=0;i<buffer.length;i++)for(let c=0;c<2;c++)view.setInt16(i*4+c*2,Math.round(Math.max(-1,Math.min(1,(c?right:left)[i]))*32767),true);
           let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
@@ -86,11 +89,17 @@ try {
     }
     bank.dispose();await context.close();return all;
   })()`);
+  await fs.writeFile(new URL('measurements.json', output),JSON.stringify(measurements,null,2));
   for (const m of measurements.filter(m => m.version === 'after')) {
     assert(m.peak > .01 && m.peak < .98, m.name + ' audible without clipping');
     assert(m.attackSpreadDb < 2.5, m.name + ' stable consecutive attack levels');
     assert(m.lateEnergy < 1e-10, m.name + ' voices expire');
-    assert(m.takes.length <= (m.name === 'distant' ? 2 : 1), m.name + ' consistent timbre');
+    assert(m.takes.length <= (m.name.startsWith('distant') ? 2 : 1), m.name + ' consistent timbre');
+  }
+  if(baseline)for(const name of ['gpmg','hmg']){
+    const before=measurements.find(m=>m.version==='before'&&m.name===name),after=measurements.find(m=>m.version==='after'&&m.name===name);
+    assert(after.lowEnergy>before.lowEnergy*1.15,name+' has measurably more low-end weight');
+    assert(after.tailEnergy>before.tailEnergy*1.05,name+' has a stronger echo tail');
   }
   for (const name of await evaluate('Object.keys(window.renderedAudio)')) {
     const pcm = Buffer.from(await evaluate(`window.renderedAudio[${JSON.stringify(name)}]`), 'base64');
@@ -99,5 +108,5 @@ try {
   }
   assert.equal(paidRequests, 0); assert.deepEqual(errors, []);
   await fs.writeFile(new URL('results.json', output), JSON.stringify({ live, measurements, paidRequests, errors }, null, 2));
-  console.log('PASS live automatic-fire consistency and mute; eight rendered weapon/distance cases with stable attacks, clean tails and no clipping or paid API requests.');
+  console.log('PASS live automatic-fire consistency and mute; nine rendered weapon/distance cases, measured heavy-gun bass and echo gains with stable attacks, clean tails and no clipping or paid API requests.');
 } finally { ws.close(); await fetch(`${chrome}/json/close/${tab.id}`); }

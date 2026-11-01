@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const origin = process.env.FPS_APP_ORIGIN || 'http://127.0.0.1:5193';
 const chrome = process.env.FPS_CHROME_ORIGIN || 'http://127.0.0.1:9253';
-const output = new URL('../.cache/impact-audio-boost/', import.meta.url);
+const output = new URL('../.cache/flyby-weight/', import.meta.url);
 await fs.mkdir(output, { recursive: true });
 const tab = await (await fetch(`${chrome}/json/new?about:blank`, { method: 'PUT' })).json();
 const ws = new WebSocket(tab.webSocketDebuggerUrl);
@@ -35,7 +35,8 @@ try {
   await send('Emulation.setFocusEmulationEnabled', { enabled: true });
   await send('Page.bringToFront');
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `
-    window.playedSfx=[]; window.sfxLabels=new WeakMap();
+    window.playedSfx=[]; window.sfxLabels=new WeakMap();window.sfxLinks=new WeakMap();
+    const connect=AudioNode.prototype.connect;AudioNode.prototype.connect=function(to,...args){const links=window.sfxLinks.get(this)||[];links.push(to);window.sfxLinks.set(this,links);return connect.call(this,to,...args);};
     const fetchOriginal=window.fetch; window.fetch=async (...args)=>{
       const response=await fetchOriginal(...args), url=String(args[0]);
       if(url.includes('/audio/sfx/')){const original=response.arrayBuffer.bind(response);response.arrayBuffer=async()=>{const data=await original();window.sfxLabels.set(data,url);return data;};}return response;
@@ -43,7 +44,7 @@ try {
     const decode=BaseAudioContext.prototype.decodeAudioData;
     BaseAudioContext.prototype.decodeAudioData=async function(data){const buffer=await decode.call(this,data);const url=window.sfxLabels.get(data);if(url)window.sfxLabels.set(buffer,url);return buffer;};
     const start=AudioBufferSourceNode.prototype.start;
-    AudioBufferSourceNode.prototype.start=function(...args){const url=window.sfxLabels.get(this.buffer);if(url)window.playedSfx.push({url,at:args[0]||this.context.currentTime});return start.apply(this,args);};
+    AudioBufferSourceNode.prototype.start=function(...args){const url=window.sfxLabels.get(this.buffer);if(url){const filter=window.sfxLinks.get(this)?.[0],gain=window.sfxLinks.get(filter)?.[0];window.playedSfx.push({url,at:args[0]||this.context.currentTime,level:gain?.gain?.value,rate:this.playbackRate.value});}return start.apply(this,args);};
   ` });
   await send('Page.navigate',{url:origin+'/connection-check.html'});
   await evaluate(`(async()=>{
@@ -80,9 +81,19 @@ try {
   await evaluate("window.cover.visible=true;window.push([window.round(6,{origin:{x:window.hud.arenaSelf.x+2,y:window.hud.arenaSelf.y,z:window.hud.arenaSelf.z-10},time:.04})])");
   await new Promise(r=>setTimeout(r,300));
   assert.equal(await evaluate("window.playedSfx.filter(s=>s.url.includes('/bullet-pass-')).length"),4,'Cover before the listener stops the pass');
+  await evaluate('window.cover.visible=false');
+  for(const [id,calibre,power] of [[7,7.62,36],[8,5.56,65],[9,12.7,145]]){
+    const count=await evaluate("window.playedSfx.filter(s=>s.url.includes('/bullet-pass-')).length");
+    await evaluate(`window.push([window.round(${id},{calibre:${calibre},power:${power},time:.04})])`);
+    await wait(`window.playedSfx.filter(s=>s.url.includes('/bullet-pass-')).length===${count+2}`,15000);
+    const levels=await evaluate("window.playedSfx.filter(s=>s.url.includes('/bullet-pass-'))");
+    assert(levels.at(-2).level>levels[0].level,'Published source bore/power makes the crack stronger');
+    assert(levels.at(-1).level>levels[1].level,'Published source bore/power makes the echo stronger');
+    assert.equal(levels.at(-2).rate,1,'Recorded speed remains natural');
+  }
   const passes=await evaluate("window.playedSfx.filter(s=>s.url.includes('/bullet-pass-'))");
   await evaluate('window.engine.dispose()');
   assert.deepEqual(errors,[]);assert.equal(paidRequests,0);
   await fs.writeFile(new URL('remote-browser-results.json',output),JSON.stringify({passes,errors,paidRequests},null,2));
-  console.log('PASS actual guest FPS engine foreign flight, caught-up snapshot, duplicate suppression, own/subsonic/distant exclusions, cover and disposal.');
+  console.log('PASS actual guest FPS engine foreign flight, caught-up snapshot, duplicate suppression, own/subsonic/distant exclusions, cover, source calibre/power scaling at playback and disposal.');
 } finally { ws.close(); await fetch(`${chrome}/json/close/${tab.id}`); }

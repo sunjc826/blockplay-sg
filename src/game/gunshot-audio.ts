@@ -24,6 +24,8 @@ export interface GunshotTone {
   tailSpread: number;
   /** The recorded takes for this gun up close and from afar, how much of the close one is heard, and the cutoff distance leaves. */
   sample: SfxGroup; distantSample: SfxGroup; nearMix: number; sampleCutoff: number; sampleGain: number;
+  /** Low-shelf weight and reflected copies of the actual heavy-gun recording. */
+  sampleBassDb: number; sampleEcho: number;
 }
 /** The recorded group for a calibre: 9 mm is the pistol, 5.56 the rifles, 7.62 the GPMGs, 12.7 the heavy guns. */
 export function gunshotSample(calibre: number): { near: SfxGroup; far: SfxGroup } {
@@ -48,17 +50,19 @@ export function gunshotTone(calibre: number, power: number, distance = 0, own = 
   // A can is heard as if from further off than it is, so it fades out of earshot sooner.
   const d = Math.max(0, distance) / (muzzle === 'suppressor' ? report : 1), far = Math.min(1, d / 400), punch = Math.sqrt(weight);
   const sample = gunshotSample(calibre), across = Math.min(1, Math.max(0, (d - 30) / 190));
+  const heavy = muzzle === 'suppressor' ? 0 : calibre >= 12 ? 1 : calibre >= 7 && calibre < 8.5 ? .5 : 0;
   const tone: GunshotTone = {
     sample: muzzle === 'suppressor' ? 'suppressed' : sample.near, distantSample: sample.far,
     nearMix: 1 - across * across * (3 - 2 * across), sampleCutoff: 16000 * .12 ** far,
     // Takes are loudness-matched, so a heavier gun's weight is put back here; a can keeps a suppressed shot well below an open one.
     sampleGain: SAMPLE_GAIN * punch ** .6 * (muzzle === 'suppressor' ? .35 : 1),
+    sampleBassDb: heavy * (6 - 2 * far), sampleEcho: heavy * .3 * (muzzle === 'compensator' ? 1.2 : 1),
     level: (own ? OWN_LEVEL : OTHER_LEVEL * distanceGain(d)) * (.75 + .25 * punch) * Math.min(1.15, report),
     delay: own ? 0 : soundDelay(d),
     crack: .55 * (1 - far) ** 2, crackCutoff: 2600 - 900 * far,
     body: .65 * punch * (1 - .5 * far), bodyCutoff: Math.max(280, 3200 / Math.sqrt(bore) * (1 - .85 * far)), bodyLength: .06 + .035 * weight + .12 * far,
-    thump: .95 * punch * (1 - .3 * far), thumpFrom: 150 / weight ** .15, thumpTo: 52 / weight ** .2, thumpLength: .1 + .045 * weight,
-    tail: .2 * punch * (.6 + far), tailCutoff: 1400 - 900 * far, tailLength: .3 + .12 * weight + .7 * far, tailSpread: 1 + 1.5 * far,
+    thump: .95 * punch * (1 - .3 * far) * (1 + heavy * .2), thumpFrom: 150 / weight ** .15, thumpTo: 52 / weight ** .2, thumpLength: (.1 + .045 * weight) * (1 + heavy * .15),
+    tail: .2 * punch * (.6 + far) * (1 + heavy * .35), tailCutoff: 1400 - 900 * far, tailLength: .3 + .12 * weight + .7 * far + heavy * .15, tailSpread: 1 + 1.5 * far,
   };
   if (muzzle === 'suppressor') {
     // What a can leaves: the action cycling, a dull cough, and little for the walls to send back.
@@ -120,9 +124,29 @@ export function playGunshot(context: BaseAudioContext, bus: AudioNode, noise: Au
     const ends = takes.filter(([, mix]) => mix > .02).map(([buffer, mix]) => {
       const source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain();
       source.buffer = buffer; source.playbackRate.value = rate; filter.type = 'lowpass'; filter.frequency.value = tone.sampleCutoff; filter.Q.value = .5;
-      gain.gain.value = mix * tone.sampleGain; source.connect(filter).connect(gain).connect(out); nodes.push(source, filter, gain); sources.push(source);
+      gain.gain.value = mix * tone.sampleGain; source.connect(filter); gain.connect(out); nodes.push(source, filter, gain); sources.push(source);
+      if (tone.sampleBassDb > 0) {
+        // Put weight below the crack, before the existing saturator/compressor.
+        const bass = context.createBiquadFilter(); bass.type = 'lowshelf'; bass.frequency.value = 180; bass.gain.value = tone.sampleBassDb;
+        filter.connect(bass).connect(gain); nodes.push(bass);
+      } else filter.connect(gain);
       source.start(t); return [source, buffer.duration / rate] as const;
     });
+    if (tone.sampleEcho * tone.nearMix > .01) {
+      // Dull reflections rather than extra muzzle cracks. Only the close take
+      // is reflected: the far take already contains its own outdoor echo.
+      for (const [after, amount, cutoff] of [[.085, .8, 850], [.19, .5, 650], [.32, .3, 420]]) {
+        const source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain();
+        const start = t + after * tone.tailSpread, length = Math.min(.3, near.duration / rate);
+        source.buffer = near; source.playbackRate.value = rate;
+        filter.type = 'lowpass'; filter.frequency.value = Math.min(cutoff, tone.sampleCutoff); filter.Q.value = .5;
+        const level = tone.sampleGain * tone.sampleEcho * tone.nearMix * amount;
+        gain.gain.setValueAtTime(0, start); gain.gain.linearRampToValueAtTime(level, start + .003);
+        gain.gain.setValueAtTime(level, start + Math.max(.003, length - .02)); gain.gain.linearRampToValueAtTime(0, start + length);
+        source.connect(filter).connect(gain).connect(out); nodes.push(source, filter, gain); sources.push(source);
+        source.start(start); source.stop(start + length); ends.push([source, start - t + length]);
+      }
+    }
     if (!ends.length) { nodes.forEach(n => n.disconnect()); return; }
     const longest = ends.reduce((a, b) => b[1] > a[1] ? b : a);
     longest[0].onended = release;

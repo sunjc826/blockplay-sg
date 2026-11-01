@@ -2378,7 +2378,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const passRay = new THREE.Raycaster(), passFrom = new THREE.Vector3(), passDirection = new THREE.Vector3();
   function hearRoundPass(round: InFlightRound, from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }) {
     if (!round.audiblePass || (round.skipVehicle && round.skipVehicle === vehicles.active)) return;
-    bulletFlybys.pass(round, from, to, camera.position, round.ballistics.velocity, panTo);
+    const profile = round.style ? publishedStyles.get(round.style)?.impact : undefined;
+    bulletFlybys.pass(round, from, to, camera.position, round.ballistics.velocity, panTo, 0, profile);
   }
   function hearCaughtUpRound(round: InFlightRound) {
     if (!round.audiblePass || round.time <= 0) return;

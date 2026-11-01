@@ -1,6 +1,8 @@
 import { BALLISTIC_SCALE, type BallisticPoint } from './fps-ballistics';
 import { SPEED_OF_SOUND, soundDelay } from './combat-event-audio';
 import type { SfxBank } from './sfx-bank';
+import type { ImpactProfile } from './fps-impact-profile';
+import { impactSoundWeight } from './impact-audio';
 
 export const BULLET_PASS_RANGE = 18;
 export const MAX_BULLET_PASS_VOICES = 12;
@@ -10,7 +12,7 @@ export const MAX_BULLET_PASS_VOICES = 12;
  * clamped on an approaching segment would announce the same pass too early.
  * Arcade velocities are scaled; the crack depends on the real muzzle speed.
  */
-export function bulletPass(from: BallisticPoint, to: BallisticPoint, ear: BallisticPoint, velocity: number) {
+export function bulletPass(from: BallisticPoint, to: BallisticPoint, ear: BallisticPoint, velocity: number, profile?: ImpactProfile) {
   if (![from.x, from.y, from.z, to.x, to.y, to.z, ear.x, ear.y, ear.z, velocity].every(Number.isFinite)
     || velocity / BALLISTIC_SCALE <= SPEED_OF_SOUND) return null;
   const dx = to.x - from.x, dy = to.y - from.y, dz = to.z - from.z, length2 = dx * dx + dy * dy + dz * dz;
@@ -21,7 +23,9 @@ export function bulletPass(from: BallisticPoint, to: BallisticPoint, ear: Ballis
   const distance = Math.hypot(point.x - ear.x, point.y - ear.y, point.z - ear.z);
   if (distance >= BULLET_PASS_RANGE) return null;
   const proximity = 1 - distance / BULLET_PASS_RANGE;
-  return { point, distance, fraction, level: .65 * proximity ** 2 / Math.sqrt(Math.max(1, distance / 2)),
+  // Share impact/decal calibre and power weighting. Keep the rifle reference
+  // unchanged and bound point-blank heavy cracks without changing sample speed.
+  return { point, distance, fraction, level: Math.min(.8, .65 * impactSoundWeight(profile) * proximity ** 2 / Math.sqrt(Math.max(1, distance / 2))),
     cutoff: 16000 * .25 ** (distance / BULLET_PASS_RANGE), delay: soundDelay(distance) };
 }
 
@@ -32,12 +36,12 @@ export function createBulletFlybyAudio(getContext: () => AudioContext | null, mu
   function clear() { for (const stop of [...active]) stop(); heard = new WeakSet(); }
   return {
     pass(round: object, from: BallisticPoint, to: BallisticPoint, ear: BallisticPoint, velocity: number,
-      panAt: (point: BallisticPoint) => number, after = 0) {
+      panAt: (point: BallisticPoint) => number, after = 0, profile?: ImpactProfile) {
       const context = getContext();
       if (!context || context.state !== 'running' || muted()) return;
       if (owner !== context) { clear(); fallback = null; owner = context; }
       if (heard.has(round)) return;
-      const pass = bulletPass(from, to, ear, velocity);
+      const pass = bulletPass(from, to, ear, velocity, profile);
       if (!pass || pass.level < .002) return;
       heard.add(round);
       if (active.size >= MAX_BULLET_PASS_VOICES) return;
