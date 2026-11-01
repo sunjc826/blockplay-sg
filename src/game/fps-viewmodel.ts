@@ -47,6 +47,10 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   if (index === 4) { right.position.set(.115, .1, .23); support.set(-.115, .1, .23); magazineGrip.set(-.15, .12, -.03); }
   const id = FPS_WEAPONS[index].id, enemy = isEnemyWeaponId(id) ? ENEMY_WEAPON_LAYOUT[id] : undefined;
   if (enemy) { right.position.fromArray(enemy.hands.right); support.fromArray(enemy.hands.support); magazineGrip.fromArray(enemy.hands.magazine); }
+  const rightCharges = FPS_WEAPONS[index].feed === 'belt';
+  const rightHome = right.position.clone(), rightRotation = right.quaternion.clone();
+  const chargeTarget = new THREE.Vector3(), chargeWaypoint = new THREE.Vector3();
+  const chargeRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-.15, -1.4, .02));
   const magazineScale = magazine?.scale.clone();
   const magazineHome = magazine?.position.clone() ?? new THREE.Vector3();
   const magazineRotation = magazine?.rotation.clone() ?? new THREE.Euler();
@@ -61,8 +65,8 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
     control.scale.set(.6, 1.55, .9); control.position.set(0, .277, -.085);
     box(additions, .007, .002, .105, 0, .2655, -.045, pad);
   }
-  // Where the support hand takes the handle: from the left under the optic for
-  // a top lever, otherwise from outside the right side; palm to the receiver.
+  // Belt-fed guns use the right hand on their right-side handle. Other guns
+  // retain their support-hand pose, including the SAR's top lever.
   const grip = side === 'top' ? { x: -.052, y: .004, turn: 1.77 } : { x: .035, y: .01, turn: -1.2 };
   if (index >= 3 && !authoredControl) control.position.set(index === 4 ? .095 : .063, FPS_WEAPONS[index].sightHeight - .07, .04);
   const cover = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__feed-cover`) : undefined;
@@ -91,10 +95,23 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       }
       left.position.copy(support).lerp(magazineGrip, motion.handToMagazine);
       left.position.y -= motion.magazineDrop * motion.handToMagazine;
-      left.rotation.set(-.15 + motion.handToMagazine * .3, -.2 + motion.handToHandle * grip.turn, .32 - motion.handToMagazine * .35 - motion.handToHandle * .3);
-      // From empty the support hand takes the handle and draws it the full stroke.
+      const leftToHandle = rightCharges ? 0 : motion.handToHandle;
+      left.rotation.set(-.15 + motion.handToMagazine * .3, -.2 + leftToHandle * grip.turn, .32 - motion.handToMagazine * .35 - leftToHandle * .3);
       const stroke = motion.action * (index === 2 ? .035 : .075);
-      if (progress !== null || ready !== undefined) left.position.lerp(new THREE.Vector3(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + stroke), motion.handToHandle);
+      if (progress !== null || ready !== undefined) left.position.lerp(new THREE.Vector3(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + stroke), leftToHandle);
+      right.position.copy(rightHome); right.quaternion.copy(rightRotation);
+      const rightToHandle = rightCharges && (progress !== null || ready !== undefined) ? motion.handToHandle : 0;
+      if (rightToHandle > 0) {
+        chargeTarget.set(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + stroke);
+        // Clear the receiver sideways before raising the hand. Reverse the
+        // same outside path on the way back to the firing grip.
+        chargeWaypoint.set(chargeTarget.x + .06, rightHome.y, rightHome.z);
+        if (rightToHandle < .4) right.position.lerp(chargeWaypoint, smoothStep(rightToHandle / .4));
+        else right.position.copy(chargeWaypoint).lerp(chargeTarget, smoothStep((rightToHandle - .4) / .6));
+        right.quaternion.slerp(chargeRotation, rightToHandle);
+      }
+      for (let finger = 0; finger < 4; finger++) right.getObjectByName(`grip-finger-${finger}`)!.rotation.x = rightToHandle * 1.07;
+      right.getObjectByName('grip-thumb')!.rotation.z = .55 + rightToHandle * .35;
       if (magazine) {
         magazine.userData.loadedCapacity = reload?.capacity ?? FPS_WEAPONS[index].capacity;
         if (reload && magazineScale) magazine.scale.y = magazineScale.y * Math.max(.75, Math.min(1.4, reload.capacity / (reload.baseCapacity ?? FPS_WEAPONS[index].capacity)));
