@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { bailoutRoll } from './bailout-roll';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { CamoPattern, PatchLook } from './arena-factions';
 
@@ -40,6 +41,8 @@ export interface CharacterLook {
 }
 
 export interface CharacterDrive {
+  /** Seconds since a high-speed bailout, absent outside its short recovery. */
+  bailoutAge?: number;
   /** Body-local velocity in m/s; -z is forward. */
   velocity?: { x: number; z: number };
   /** Yaw rate in rad/s, so turning on the spot shuffles the feet. */
@@ -737,6 +740,20 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
         weapon.getWorldQuaternion(tmpQuat).multiply(footLevel.setFromEuler(footEuler.set(side > 0 ? -1.75 : -1.35, 0, side > 0 ? .1 : -.5)));
         hand.quaternion.copy(tmpQuat2.multiply(tmpQuat));
       } else hand.rotation.set(gesture === 'wave' && side > 0 ? .2 * gestureBlend : -.05, 0, side * -.08);
+    }
+    const roll = bailoutRoll(drive.bailoutAge);
+    if (roll.active && !down && !drive.seated) {
+      // Rotate a tucked figure about the hips, lowering that pivot toward the ground.
+      body.rotation.set(roll.angle, 0, Math.sin(roll.angle) * .18);
+      body.position.set(0, D.standingHips * (1 - Math.cos(roll.angle)) - roll.tuck * .3, -D.standingHips * Math.sin(roll.angle));
+      spine.rotation.x += roll.tuck * .9;
+      chest.rotation.x += roll.tuck * .4;
+      for (const side of ['L', 'R'] as const) {
+        joints[`thigh${side}`].rotation.x = -roll.tuck * 1.9;
+        joints[`shin${side}`].rotation.x = roll.tuck * 2.3;
+        joints[`upperArm${side}`].rotation.x = -roll.tuck * .8;
+        joints[`forearm${side}`].rotation.x = -roll.tuck * 1.8;
+      }
     }
   }
 

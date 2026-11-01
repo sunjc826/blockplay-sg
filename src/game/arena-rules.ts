@@ -17,7 +17,8 @@ import { type RegionBounds, footprintRayInterval, overlapsObstacleRect } from '.
 import { surfaceContains } from './vertical-routes';
 import { validVehicleControls, createSharedVehicle, seatOf, seatPoint, gunnerId, vehicleGunRay, vehicleRayDistance, type SharedVehicle, type VehicleControls } from './vehicle-seats';
 import { vehicleSpeed, stopVehicle, driveVehicle, flyVehicle, vehicleBounds, vehicleExit, type VehicleKind, type VehicleSpawn, type FlightObstacle } from './vehicle-rules';
-import { damageVehicle, fireVehicleWeapon, vehicleCollisionDamage, VEHICLE_COMBAT } from './vehicle-combat';
+import { BAILOUT_ROLL_SECONDS } from './bailout-roll';
+import { damageVehicle, fireVehicleWeapon, vehicleCollisionDamage, vehicleExitDamage, VEHICLE_COMBAT } from './vehicle-combat';
 import { applyArmorDamage } from './armory-state';
 import { insertTraits, sightRangeAgainst, smokeHides, type InsertTraits } from './armor-inserts';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage } from './fps-stance';
@@ -59,6 +60,8 @@ import type { PlayerRespawnView } from './player-respawn';
 
 /** All coordinates use metres; actor y is eye height, not the feet. */
 export interface ArenaActor {
+  /** Match time of a surviving moving bailout, for a synchronized landing roll. */
+  bailoutAt?: number;
   proxyTargets?: string[];
   proxyOperation?: string;
   parachuting?: true;
@@ -567,6 +570,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       entry.armorMax = isEliteRole(entry.role.id) ? entry.role.armor : clamp(entry.role.armor * entry.rank.armor * (strength === undefined ? 1 : .75 + .5 * strength), 0, 150);
       if (entry.callsign) entry.actor.name = `${entry.rank.title[getArenaFaction(entry.actor.faction)?.side ?? 'opposition']} ${entry.callsign}`;
     }
+    delete entry.actor.bailoutAt;
     Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75 + (destination?.y ?? bounds.groundHeight?.(p.x,p.z) ?? 0), health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
       yaw: destination?.yaw ?? (Number.isFinite(preferred?.yaw) ? preferred!.yaw! : 0), pitch: Number.isFinite(preferred?.pitch) ? clamp(preferred!.pitch!, -1.5, 1.5) : 0 });
     if (entry.role && entry.actor.faction === PLAYER_FACTION) {
@@ -926,6 +930,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     const killed = victim.actor.health <= 0;
     if (killed && victim.actor.alive) {
+      delete victim.actor.bailoutAt;
       victim.parachute = undefined; delete victim.actor.parachuting; victim.actor.alive = false; victim.actor.deaths++; victim.actor.respawnIn = ARENA_RESPAWN_SECONDS; releaseSeat(victim.actor.id);
       victim.heal = undefined; delete victim.actor.conditions; delete victim.actor.markedBy; delete victim.actor.healing; victim.meals = undefined; delete victim.actor.food;
       if (attacker && attacker !== victim) attacker.actor.kills++;
@@ -1084,16 +1089,26 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const entry = members.get(id);
       if (!entry?.actor.alive) { releaseSeat(id); return; }
       Object.assign(entry.actor, seatPoint(v, seat), { vehicle: v.kind, seat, prone: false });
+      delete entry.actor.bailoutAt;
     });
   }
   function vehicleAction(id: string, action: 'enter' | 'exit' | 'switch', kind?: VehicleKind) {
     const entry = members.get(id); if (!entry?.actor.alive || !entry.playing || finished || entry.actor.bot && !vehicleOptions?.openWorld) return false;
     const mounted = seatOf(vehicles, id);
     if (action === 'exit' && mounted) {
-      if (vehicleOptions?.openWorld && mounted.seat === 0) return unloadVehicle(mounted.vehicle);
+      // A moving bailout releases only the caller; the remaining crew brakes and unloads safely.
+      if (entry.actor.bot && vehicleSpeed(mounted.vehicle) > 2) return false;
+      if (vehicleOptions?.openWorld && mounted.seat === 0 && vehicleSpeed(mounted.vehicle) <= 2) return unloadVehicle(mounted.vehicle);
       const others = vehicles.filter(v => !v.despawned && v !== mounted.vehicle && v.y < 2).map(vehicleBounds);
       const exit = vehicleExit(mounted.vehicle, [...obstacles, ...others], bounds, exitFloor); if (!exit) return false;
-      releaseSeat(id); Object.assign(entry.actor, exit, { y: exit.y + 1.75 }); entry.movementBudget = 0; entry.vehicleBoardAfter = elapsed + WORLD_VEHICLES.boardCooldown; return true;
+      const damage = vehicleExitDamage(mounted.vehicle);
+      releaseSeat(id); Object.assign(entry.actor, exit, { y: exit.y + 1.75 }); entry.movementBudget = 0; entry.vehicleBoardAfter = elapsed + WORLD_VEHICLES.boardCooldown;
+      entry.navigation = undefined; entry.velocityY = 0;
+      if (damage > 0) {
+        hurtActor(entry, damage, undefined, 'High-speed bailout', mounted.vehicle, false, true);
+        if (entry.actor.alive) entry.actor.bailoutAt = elapsed;
+      }
+      return true;
     }
     if (action === 'switch' && mounted) {
       for (let n = 1; n < 4; n++) { const seat = (mounted.seat + n) % 4; if (mounted.vehicle.occupants[seat] === null && !(entry.actor.bot && mounted.vehicle.kind === 'helicopter' && seat === 0)) {
@@ -1122,6 +1137,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const exitFloor = (x: number, z: number) => traversal ? traversal.supportHeight(x, z, (bounds.groundHeight?.(x,z)??0)+MAX_STEP_HEIGHT, .38, 1.8) : 0;
   /** Plan every exit before freeing a seat: never stack a squad or put it inside cover. */
   function unloadVehicle(v: SharedVehicle) {
+    if (vehicleSpeed(v) > 2) return false;
     const solids = [...obstacles, ...vehicles.filter(other => !other.despawned && other !== v && other.y < 2).map(vehicleBounds)];
     const crew = v.occupants.filter((id): id is string => !!id);
     for (const member of members.values()) if (member.actor.alive && !crew.includes(member.actor.id) && member.actor.y < 3) {
@@ -3128,6 +3144,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     stepGrenades(dt);
     for (const entry of members.values()) {
       entry.movementBudget = Math.min(8, entry.movementBudget + 40 * dt);
+      if (entry.actor.bailoutAt !== undefined && (!entry.actor.alive || entry.actor.vehicle || elapsed - entry.actor.bailoutAt >= BAILOUT_ROLL_SECONDS)) delete entry.actor.bailoutAt;
       if (!entry.actor.alive) {
         entry.actor.respawnIn = Math.max(0, entry.actor.respawnIn - dt);
         // An event's crew does not come back: the body is cleared away once it has been seen to fall.

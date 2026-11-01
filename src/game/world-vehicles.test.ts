@@ -251,3 +251,19 @@ for (const { id } of WORLD_ZONES) it(`${id}: open-world motor pool has clear hul
     }
   } finally { world.dispose(); }
 });
+
+it('lets a moving driver bail out alone while the remaining crew stops and unloads without injury', () => {
+  const arena = createArena([], 0, 'mixed', environment, options);
+  for (const id of ['p0', 'p1']) { player(arena, id); arena.vehicleAction(id, 'enter', 'car'); }
+  drive(arena, 1);
+  expect(car(arena).speed).toBe(10);
+  expect(arena.vehicleAction('p0', 'exit')).toBe(true);
+  expect(actor(arena, 'p0').health).toBe(75.5);
+  expect(car(arena).occupants).toEqual([null, 'p1', null, null]);
+  expect(car(arena).speed).toBe(10);
+  tick(arena, 1);
+  expect(actor(arena, 'p1')).toMatchObject({ alive: true, health: 100 });
+  expect(actor(arena, 'p1').vehicle).toBeUndefined();
+  expect(car(arena).occupants.every(id => id === null)).toBe(true);
+  expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
+});

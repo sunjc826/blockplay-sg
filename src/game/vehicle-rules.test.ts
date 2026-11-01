@@ -37,8 +37,9 @@ describe('vehicle movement and transitions', () => {
     expect(v.y).toBe(.13); expect(v.climb).toBe(0);
     v = flyVehicle({ ...v, y: 120, climb: 5 }, 0, 0, 1, false, .05, []).state; expect(v.y).toBe(120);
   });
-  it('rejects moving/airborne exits and chooses ground clear of the vehicle', () => {
-    const v = createVehicle('car'); expect(vehicleExit({ ...v, speed: 10 }, [])).toBeNull();
+  it('allows moving Humvee exits, rejects moving/airborne helicopter exits, and requires clear ground', () => {
+    const v = createVehicle('car'); expect(vehicleExit({ ...v, speed: 10 }, [])).not.toBeNull();
+    expect(vehicleExit({ ...createVehicle('helicopter'), speed: 10 }, [])).toBeNull();
     expect(vehicleExit({ ...createVehicle('helicopter'), y: 10 }, [])).toBeNull();
     const exit = vehicleExit(v, [])!; expect(canOccupy(exit.x, exit.z, .38, [vehicleBounds(v)])).toBe(true);
     expect(vehicleExit(v, [{ minX: -100, maxX: 100, minZ: -100, maxZ: 100 }])).toBeNull();
@@ -173,9 +174,9 @@ describe('vehicle collision momentum', () => {
     expect(worldVelocity(next).z).toBeCloseTo(-20);
   });
 
-  it('brakes a sideways skid, blocks moving exits, and clears every motion component when stopped', () => {
+  it('brakes a sideways skid, allows bailout, and clears every motion component when stopped', () => {
     const v = { ...createVehicle('car'), speed: 0, lateralSpeed: 8, yawSpeed: 1 };
-    expect(vehicleExit(v, [])).toBeNull();
+    expect(vehicleExit(v, [])).not.toBeNull();
     let next = v;
     for (let i = 0; i < 10; i++) next = driveVehicle(next, 0, 0, true, .05, []).state as typeof v;
     expect(vehicleSpeed(next)).toBeLessThan(.1);

@@ -154,7 +154,7 @@ export function flyVehicle(v: VehicleState, forward: number, steer: number, lift
 /** Feet height at a place infantry can stand; null means no safe support/headroom. */
 export type VehicleExitFloor = (x: number, z: number) => number | null;
 export function vehicleExit(v: VehicleState, obstacles: readonly Obstacle[], bounds: VehicleWorldBounds = MARINA_BOUNDS, floor: VehicleExitFloor = () => 0) {
-  if (vehicleSpeed(v) > 2 || (v.kind === 'helicopter' && (v.y > (bounds.groundHeight?.(v.x,v.z)??0)+.3 || Math.abs(v.climb) > .5))) return null;
+  if (v.kind === 'helicopter' && (vehicleSpeed(v) > 2 || v.y > (bounds.groundHeight?.(v.x,v.z)??0)+.3 || Math.abs(v.climb) > .5)) return null;
   const radius = .38, hull = vehicleBounds(v), nominal = v.kind === 'car' ? 3.2 : 4.3;
   const movement = createRegionMovement(bounds);
   const clear = (x: number, y: number, z: number) => movement.canOccupy(x, z, radius, obstacles.filter(o => y < (o.maxY ?? Infinity) - 1e-5));

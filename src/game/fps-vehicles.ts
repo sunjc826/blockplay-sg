@@ -6,7 +6,7 @@ import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import { VEHICLE_SEATS, seatOf, gunnerId, vehicleGunRay, type SharedVehicle } from './vehicle-seats';
 import * as THREE from 'three';
-import { damageVehicle, fireVehicleWeapon, VEHICLE_COMBAT, vehicleCollisionDamage, vehicleDamageStage } from './vehicle-combat';
+import { damageVehicle, fireVehicleWeapon, VEHICLE_COMBAT, vehicleCollisionDamage, vehicleDamageStage, vehicleExitDamage } from './vehicle-combat';
 import { createVehicleEffects, vehicleDamageVisual } from './vehicle-effects';
 import { disposeModel } from './armory-visuals';
 import { buildVehicleModel } from './vehicle-models';
@@ -113,12 +113,14 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   function interact(player: { x: number; z: number }) {
     if (active) {
       const point = vehicleExit(states[active], footObstacles(active), bounds, options.exitFloor);
-      if (!point) { notice = active === 'helicopter' ? 'Land on clear ground and slow down to exit.' : 'Brake to a stop and leave space beside the car.'; noticeTime = 3; return null; }
-      stopVehicle(states[active]); active = null; notice = ''; return { ...point, entered: false, yaw: 0 };
+      if (!point) { notice = active === 'helicopter' ? 'Land on clear ground and slow down to exit.' : 'Leave clear ground beside the car to exit.'; noticeTime = 3; return null; }
+      const exitDamage = vehicleExitDamage(states[active]);
+      if (active === 'helicopter') stopVehicle(states[active]);
+      active = null; notice = ''; return { ...point, entered: false, yaw: 0, exitDamage };
     }
     const kind = nearest(player);
     if (!kind) { notice = 'Approach a parked car or helicopter to enter.'; noticeTime = 3; return null; }
-    active = kind; localSeat = 0; notice = ''; return { x: states[kind].x, y: states[kind].y-.13, z: states[kind].z, entered: true, yaw: states[kind].yaw };
+    active = kind; localSeat = 0; notice = ''; return { x: states[kind].x, y: states[kind].y-.13, z: states[kind].z, entered: true, yaw: states[kind].yaw, exitDamage: 0 };
   }
   function sync(dt: number) {
     for (const kind of ['car', 'helicopter'] as const) {
@@ -169,6 +171,13 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
     }
     advanceWrecks(dt);
     effects.step(dt, Object.values(states));
+    // An abandoned Humvee brakes over time instead of freezing at the exit point.
+    if ((active !== 'car' || localSeat !== 0) && !states.car.despawned && vehicleSpeed(states.car) > .001) {
+      const result = driveVehicle(states.car, 0, 0, true, dt, [...footObstacles('car'), ...drivingObstacles], bounds);
+      states.car = result.state;
+      const collisionDamage = vehicleCollisionDamage(result.impactSpeed);
+      if (collisionDamage > 0) damage('car', collisionDamage);
+    }
     if (!active || localSeat !== 0) { sync(dt); return 0; }
     const forward = Number(keys.has('w') || keys.has('arrowup')) - Number(keys.has('s') || keys.has('arrowdown'));
     const steer = Number(keys.has('d') || keys.has('arrowright')) - Number(keys.has('a') || keys.has('arrowleft'));

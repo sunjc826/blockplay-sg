@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { createVehicle, driveVehicle, flyVehicle } from './vehicle-rules';
-import { damageVehicle, fireVehicleWeapon, VEHICLE_COMBAT, vehicleBlastDamage, vehicleCollisionDamage, vehicleDamageStage } from './vehicle-combat';
+import { damageVehicle, fireVehicleWeapon, VEHICLE_COMBAT, vehicleBlastDamage, vehicleCollisionDamage, vehicleDamageStage, vehicleExitDamage } from './vehicle-combat';
 
 it.each(['car', 'helicopter'] as const)('%s has finite ammunition, cooldown, and no firing after destruction', kind => {
   const v = createVehicle(kind), spec = VEHICLE_COMBAT[kind];
@@ -37,4 +37,15 @@ it('scales collision damage quadratically above the bump tolerance in either dir
   expect(vehicleCollisionDamage(15)).toBe(200);
   expect(vehicleCollisionDamage(20)).toBe(450);
   expect(vehicleCollisionDamage(-10)).toBe(50);
+});
+
+it('prices bailouts from total speed with a walking tolerance, including reverse and sideways skids', () => {
+  const v = createVehicle('car');
+  for (const speed of [0, 2, 3, -3]) expect(vehicleExitDamage({ ...v, speed })).toBe(0);
+  expect(vehicleExitDamage({ ...v, speed: 10 })).toBe(24.5);
+  expect(vehicleExitDamage({ ...v, speed: -10 })).toBe(24.5);
+  expect(vehicleExitDamage({ ...v, speed: 6, lateralSpeed: 8 })).toBe(24.5);
+  expect(vehicleExitDamage({ ...v, speed: 0, lateralSpeed: 10 })).toBe(24.5);
+  expect(vehicleExitDamage({ ...v, speed: 20 })).toBeGreaterThan(100);
+  expect(vehicleExitDamage({ ...createVehicle('helicopter'), speed: 20 })).toBe(0);
 });

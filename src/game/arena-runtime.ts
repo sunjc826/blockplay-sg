@@ -2,6 +2,7 @@ import { validVehicleImpact } from './vehicle-impact';
 import { validProxySnapshot, type ProxyAction } from './proxy-operations';
 import { applyRespawnLoadout, type RespawnLoadoutSelection } from './respawn-loadout';
 import { createParachute } from './parachute-model';
+import { BAILOUT_ROLL_SECONDS } from './bailout-roll';
 import { validAircrewRole, aircrewPoint, helicopterCrew, rifleSeat } from './helicopter-crew';
 import { validReinforcementClocks } from './naval-landings';
 import { validTransport } from './combat-transports';
@@ -82,6 +83,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.transport !== undefined && (typeof actor.transport !== 'string' || actor.transport.length > 100)) ||
       (actor.parachuting !== undefined && (actor.parachuting !== true || !actor.bot || !actor.alive || actor.transport !== undefined || actor.vehicle !== undefined)) ||
       (actor.prone !== undefined && typeof actor.prone !== 'boolean') || (actor.aiming !== undefined && actor.aiming !== true) || (actor.scent !== undefined && actor.scent !== true) ||
+      (actor.bailoutAt !== undefined && !(finite(actor.bailoutAt) && actor.bailoutAt >= 0 && actor.bailoutAt <= value.elapsed && actor.alive && !actor.vehicle)) ||
       (actor.ground !== undefined && !(finite(actor.ground) && actor.ground >= -50 && actor.ground <= (actor.transport ? 405 : 124))) ||
       (actor.healing !== undefined && !(finite(actor.healing) && actor.healing >= 0 && actor.healing <= 1)) ||
       (actor.conditions !== undefined && !validGrenadeConditions(actor.conditions)) || (actor.grenade !== undefined && !['grenade-frag', 'grenade-smoke'].includes(String(actor.grenade))) || (actor.markedBy !== undefined && (!Array.isArray(actor.markedBy) || actor.markedBy.length > 8 || !actor.markedBy.every(id => typeof id === 'string' && id.length <= 100))) || (actor.food !== undefined && !validMeals(actor.food)) || (actor.ahMaSaves !== undefined && !(Number.isInteger(actor.ahMaSaves) && (actor.ahMaSaves as number) >= 0)) ||
@@ -389,6 +391,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   let grenadeRequest = 0;
   const grenadeRequests = new Map<number, ((accepted: boolean) => void) | undefined>();
   let snapshot: ArenaSnapshot | null = null, started = false, disposed = false, inputTime = 0, helloTime = 3;
+  let snapshotAt = performance.now();
   let pendingHit: ArenaShot | null = null, pendingFeed: ArenaFeed[] = [], pendingBarks: ArenaBark[] = [], spawnPending = false, localAdopted = false;
   let lastInput: ArenaInput | null = null, vehicleNotice = '';
   let previousSelf: ArenaActor | null = null, lastTick = -1;
@@ -402,7 +405,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   if (simulation) { simulation.addPlayer(session.id, session.name, initial.armor, initial.absorption, initial.weapons, options.initialVitals, session.role === 'solo', initial.carriedFamilies, initial.insert); simulation.setPlayerGrenades(session.id, profile.consumables); registered.add(session.id); }
   function accept(next: ArenaSnapshot) {
     if (next.tick < lastTick) { seenFeed.clear(); seenBarks.clear(); localAdopted = false; }
-    lastTick = next.tick; snapshot = next;
+    lastTick = next.tick; snapshot = next; snapshotAt = performance.now();
     const self = next.actors.find(actor => actor.id === session.id) ?? null;
     if (self && (!previousSelf || (!previousSelf.alive && self.alive) || (previousSelf.deaths !== self.deaths && self.alive) || !localAdopted)) spawnPending = true;
     if (spawnPending || self?.alive !== previousSelf?.alive || self?.vehicle !== previousSelf?.vehicle || self?.seat !== previousSelf?.seat) reconciliation.reset();
@@ -492,7 +495,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       }
     } else if (from === hostId) {
       if (payload.type === 'grenade-result' && Number.isSafeInteger(payload.request) && typeof payload.accepted === 'boolean' && grenadeRequests.has(payload.request as number)) { const callback = grenadeRequests.get(payload.request as number); grenadeRequests.delete(payload.request as number); callback?.(payload.accepted); }
-      if (payload.type === 'arena-vehicle-result' && payload.accepted === false) vehicleNotice = 'Seat unavailable. Approach a stopped vehicle; land and slow down to exit.';
+      if (payload.type === 'arena-vehicle-result' && payload.accepted === false) vehicleNotice = 'Seat unavailable. Board stopped vehicles; exits need clear ground. Land helicopters first.';
       if (payload.type === 'arena-loadout-result' && Number.isSafeInteger(payload.request) && typeof payload.accepted === 'boolean') {
         const done = loadoutRequests.get(payload.request as number);
         loadoutRequests.delete(payload.request as number); done?.(payload.accepted);
@@ -595,6 +598,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       crouch, prone: !!actor.prone, seated, driving: seated && (actor.seat === 0 || !!actor.transport && !rifleSeat(actor.aircrew)), airborne,
       aim: actor.healing !== undefined ? 0 : avatar.fireTimer > 0 || speed < 1.2 || actor.prone ? 1 : .15,
       ...(actor.healing !== undefined ? { healing: actor.healing } : {}),
+      bailoutAge: actor.bailoutAt === undefined ? undefined : Math.min(BAILOUT_ROLL_SECONDS, (snapshot?.elapsed ?? 0) - actor.bailoutAt + (performance.now() - snapshotAt) / 1000),
     });
     if (rig.weapon) rig.weapon.visible = actor.aircrew !== 'pilot';
     avatar.health.scale.x = Math.max(0.01, 0.75 * actor.health / avatar.maxHealth);
@@ -660,7 +664,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   function vehicleAction(action: 'enter' | 'exit' | 'switch', kind?: VehicleKind) {
     if (disposed || !started || !localAdopted) return;
     if (simulation) {
-      if (!simulation.vehicleAction(session.id, action, kind)) vehicleNotice = 'Seat unavailable. Approach a stopped vehicle; land and slow down to exit.';
+      if (!simulation.vehicleAction(session.id, action, kind)) vehicleNotice = 'Seat unavailable. Board stopped vehicles; exits need clear ground. Land helicopters first.';
       publish();
     } else session.send({ type: 'arena-vehicle', action, kind });
   }

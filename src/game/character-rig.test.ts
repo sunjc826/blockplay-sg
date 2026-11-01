@@ -13,6 +13,21 @@ import { zoneSectors } from './zone-sectors';
 
 const soldier = () => createCharacterRig(arenaCharacterLook({ bot: true, role: 'rifle', id: 'bot-1' }), 'test-soldier');
 const worldOf = (object: THREE.Object3D) => object.getWorldPosition(new THREE.Vector3());
+it('tucks limbs, completes a bailout roll and restores the standing body', () => {
+  const rig = soldier();
+  try {
+    rig.update(0, { bailoutAge: .4 });
+    expect(rig.body.rotation.x).toBeLessThan(-2);
+    expect(rig.joints.thighL.rotation.x).toBeLessThan(-1.5);
+    expect(rig.joints.shinL.rotation.x).toBeGreaterThan(2);
+    rig.update(0, {});
+    expect(rig.body.rotation.x).toBe(0);
+    expect(rig.body.position.length()).toBe(0);
+    expect(worldOf(rig.joints.head).y).toBeGreaterThan(1.5);
+    rig.setDown(true); rig.update(.1, { bailoutAge: .4 });
+    expect(rig.body.rotation.x).toBeGreaterThanOrEqual(0);
+  } finally { rig.dispose(); }
+});
 function run(rig: CharacterRig, drive: CharacterDrive, seconds: number, each?: () => void) {
   for (let t = 0; t < seconds; t += 1 / 60) { rig.update(1 / 60, drive); rig.root.updateMatrixWorld(true); each?.(); }
 }

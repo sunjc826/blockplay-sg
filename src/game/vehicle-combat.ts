@@ -31,3 +31,7 @@ export function vehicleBlastDamage(kind: VehicleKind, distance: number) {
 export function vehicleCollisionDamage(impactSpeed: number) {
   return Number.isFinite(impactSpeed) ? Math.max(0, Math.abs(impactSpeed) - 5) ** 2 * 2 : 0;
 }
+/** Stepping off at walking pace is safe; faster bailouts injure the body, bypassing inserts. */
+export function vehicleExitDamage(v: VehicleState) {
+  return v.kind === 'car' ? Math.max(0, Math.hypot(v.speed, v.lateralSpeed ?? 0) - 3) ** 2 * .5 : 0;
+}

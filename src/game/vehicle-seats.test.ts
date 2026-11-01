@@ -79,10 +79,9 @@ describe('shared vehicle seats and authority', () => {
     expect(car(arena).ammo).toBe(239);
     arena.reset(); expect(car(arena).occupants.every(id => id === null)).toBe(true); expect(car(arena).ammo).toBe(240);
   });
-  it('expires stale driving/fire inputs, rejects moving exits and keeps ammo finite', () => {
+  it('expires stale driving/fire inputs and keeps ammo finite', () => {
     const arena = arenaWithPlayers(1); arena.vehicleAction('p0', 'enter', 'car');
     for (let i = 0; i < 10; i++) { input(arena, 'p0', { forward: 1 }); arena.step(.05); }
-    expect(arena.vehicleAction('p0', 'exit')).toBe(false);
     for (let i = 0; i < 20; i++) arena.step(.05);
     expect(car(arena).speed).toBeLessThan(.1);
     for (let i = 0; i < 900; i++) { input(arena, 'p0', { fire: true }); arena.step(.05); }
@@ -186,4 +185,32 @@ it('validates authority collision receipts while allowing legacy snapshots', () 
   }
   delete snapshot.vehicles![0].impact;
   expect(validArenaSnapshot(snapshot, environment)).toBe(true);
+});
+
+it.each([false, true])('applies authoritative bailout injury once, bypassing armor (open world: %s)', openWorld => {
+  const arena = createArena([], 0, 'mixed', environment, { spawns, openWorld });
+  for (const id of ['p0', 'p1']) { arena.addPlayer(id, id, 100, .9, [], undefined, true); arena.vehicleAction(id, 'enter', 'car'); }
+  for (let i = 0; i < 20; i++) { input(arena, 'p0', { forward: 1 }); arena.step(.05); }
+  expect(car(arena).speed).toBe(10);
+  expect(arena.vehicleAction('p1', 'exit')).toBe(true);
+  expect(actor(arena, 'p1')).toMatchObject({ alive: true, health: 75.5, armor: 100, bailoutAt: arena.snapshot().elapsed });
+  expect(actor(arena, 'p1').vehicle).toBeUndefined();
+  expect(actor(arena, 'p0').vehicle).toBe('car');
+  expect(car(arena).speed).toBe(10);
+  expect(arena.vehicleAction('p1', 'exit')).toBe(false);
+  expect(actor(arena, 'p1').health).toBe(75.5);
+  expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
+  for (let i = 0; i < 20; i++) arena.step(.05);
+  expect(actor(arena, 'p1').bailoutAt).toBeUndefined();
+});
+
+it('resolves a lethal full-speed bailout as one environmental death without kill credit', () => {
+  const arena = arenaWithPlayers(1); arena.vehicleAction('p0', 'enter', 'car');
+  for (let i = 0; i < 40; i++) { input(arena, 'p0', { forward: 1 }); arena.step(.05); }
+  expect(arena.vehicleAction('p0', 'exit')).toBe(true);
+  expect(actor(arena, 'p0')).toMatchObject({ health: 0, alive: false, kills: 0, deaths: 1 });
+  expect(actor(arena, 'p0').bailoutAt).toBeUndefined();
+  expect(arena.vehicleAction('p0', 'exit')).toBe(false);
+  expect(arena.snapshot().feed.at(-1)?.text).toContain('High-speed bailout');
+  expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
 });

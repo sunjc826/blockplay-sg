@@ -1,5 +1,6 @@
 import { createWeaponShoulderMotion } from './weapon-shoulder-motion';
 import { createFirearmCameraShake } from './firearm-camera-shake';
+import { bailoutRoll, BAILOUT_ROLL_SECONDS } from './bailout-roll';
 import { applyVehicleImpactCamera } from './vehicle-impact';
 import { createProxyCampaign, PROXY_WEAPON, type ProxyAction, type ProxyCampaign } from './proxy-operations';
 import { createProxyOperationVisuals } from './proxy-operation-visuals';
@@ -552,6 +553,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let lastLookYaw = yaw, lastLookPitch = pitch, lookLagX = 0, lookLagY = 0;
   let trigger = false, pullBuffer = 0, ads = false, touchAim = false, actualAim = false, hitTime = 0;
   const bodyMotion = createMovementMotion();
+  let bailoutAge: number | undefined;
   // Two-stage recoil: see fps-recoil. The view still couples through the same
   // scale the old scalar did, so a burst costs the aim it always did.
   const kick = createRecoil();
@@ -712,7 +714,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     for (const e of activeGrenadeEvents()) for (const p of grenadePayloads(e)) if (p.type === 'cloud' && time - e.start <= p.until && itemById(e.id)?.grenade?.effects.some(effect => effect.kind === 'cloud' && effect.blocksSight !== false)) clouds.push({ x: e.point.x, z: e.point.z, radius: p.radius, ground: e.point.y });
     return combatMinimapMarkers(camera, world.scene, hud.arenaSelf, hud.arena?.actors ?? [], combatSubjects(true), clouds, range);
   };
-  const clearInput = () => { firearmShake.reset(); shoulderMotion.reset(); stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; ads = false; touchAim = false; drag = null; moveStick = null; foodKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
+  const clearInput = () => { bailoutAge = undefined; firearmShake.reset(); shoulderMotion.reset(); stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; ads = false; touchAim = false; drag = null; moveStick = null; foodKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -993,7 +995,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       clearInput(); actualAim = false; stopReload();
       position = { x: change.x, z: change.z }; vertical = change.y; velocityY = 0; resetMovementMotion(bodyMotion, eyeHeight()); resetWeaponRecoil(); carry.set(0, 0, 0);
       if (change.entered) { yaw = change.yaw; pitch = -.06; }
-      else pitch = -.03;
+      else {
+        pitch = -.03;
+        if (change.exitDamage > 0) {
+          hud.message = 'Bailed out at speed · impact injury';
+          hurtPlayer(change.exitDamage, undefined, true);
+          if (hud.health > 0) bailoutAge = 0;
+        }
+      }
       updateCameras(0, false, false);
     }
     canvas.focus({ preventScroll: true }); publish();
@@ -1760,6 +1769,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.vehicleCamera = JSON.stringify({ x: camera.position.x, y: camera.position.y, z: camera.position.z, pitch: camera.rotation.x, yaw: camera.rotation.y, roll: camera.rotation.z });
   }
   function updateCameras(dt: number, moving: boolean, sprinting: boolean) {
+    if (bailoutAge !== undefined) {
+      if (vehicles.active || hud.health <= 0 || hud.phase !== 'playing' || bailoutAge + dt >= BAILOUT_ROLL_SECONDS) bailoutAge = undefined;
+      else bailoutAge += dt;
+    }
+    const landingRoll = bailoutRoll(bailoutAge, !!motionPreference?.matches);
+    canvas.dataset.bailoutRoll = JSON.stringify({ age: bailoutAge ?? null, ...landingRoll });
     // Combat and movement always take priority over this local cosmetic action.
     if (inspectElapsed !== null) {
       if (hud.phase !== 'playing' || hud.health <= 0 || hud.arenaSelf?.alive === false || vehicles.active || supplyUse || grenadeHeld || loadout[hud.weapon].reloadRemaining > 0 || ads || touchAim || trigger || sprinting) stopInspect();
@@ -1807,7 +1822,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       x: position.x, y: vertical, z: position.z, yaw, activeFamily: hud.weapon,
       velocity: { x: sideSpeed, z: -forwardSpeed }, turn: dt > 0 ? yawDelta / dt : 0,
       crouch: poseStance === 'crouch' ? 1 : 0, prone: poseStance === 'prone', airborne: !onGround,
-      visible: rig.visible && hud.health > 0 && !vehicles.active,
+      bailoutAge,
+      visible: rig.visible && hud.health > 0 && !vehicles.active && !landingRoll.active,
     });
     canvas.dataset.body = JSON.stringify({ visible: playerBody.root.visible, rig: equipment.rigId, plate: equipment.plateId,
       slots: playerBody.root.userData.magazineSlots, magazines: playerBody.root.userData.magazines });
@@ -1818,9 +1834,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const headBob = Math.sin(gait * 2) * (poseStance === 'prone' ? .008 : .012) * gaitWeight * (1 - aim * .85);
     let visualEye = bodyMotion.eye + (bodyMotion.compression + headBob) * motionScale;
     if (!footMovement.canOccupy(position.x, vertical, position.z, .38, visualEye + .05)) visualEye = Math.min(visualEye, eyeHeight());
-    camera.position.set(position.x, vertical + visualEye, position.z);
+    camera.position.set(position.x, vertical + Math.max(.4, visualEye - landingRoll.eyeDrop), position.z);
     const view = recoilView(kick), pose = recoilPose(kick);
-    camera.rotation.set(pitch + view.pitch + (conditions.dazed ? Math.sin(hud.elapsed * 8) * .018 : 0), yaw + view.yaw, bodyMotion.lean * motionScale * (1 - aim * .9), 'YXZ');
+    camera.rotation.set(pitch + view.pitch + landingRoll.pitch + (conditions.dazed ? Math.sin(hud.elapsed * 8) * .018 : 0), yaw + view.yaw, landingRoll.bank + bodyMotion.lean * motionScale * (1 - aim * .9), 'YXZ');
     camera.fov = 65 + bodyMotion.sprint * 6 * (1 - aim) * motionScale;
     if (vehicles.mounted) updateVehicleCamera(dt);
     camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
@@ -1878,6 +1894,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const inspectScale = motionPreference?.matches ? .25 : 1;
     rig.position.x += inspection.x * inspectScale; rig.position.y += inspection.y * inspectScale; rig.position.z += inspection.z * inspectScale;
     rig.rotation.x += inspection.pitch * inspectScale; rig.rotation.y += inspection.yaw * inspectScale; rig.rotation.z += inspection.roll * inspectScale;
+    rig.position.y -= landingRoll.weaponDrop;
+    rig.rotation.x -= landingRoll.tuck * .35;
     if (state.reloadSlot !== undefined && state.reloadSlot >= 0) {
       const pocketPose = pouchWeaponOffset(specs[hud.weapon].feed === 'belt' ? beltProgress : progress, emptyReload[hud.weapon]);
       rig.position.x += pocketPose.x; rig.position.y += pocketPose.y; rig.position.z += pocketPose.z;
@@ -2713,6 +2731,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     facilityVisuals.update(frame.snapshot?.facilities);
     proxyVisuals.update(frame.snapshot?.proxies);
     hud.arena = frame.snapshot; hud.arenaSelf = frame.self; hud.arenaConnected = frame.connected; hud.arenaStarted = frame.started;
+    if (frame.self?.alive && frame.self.bailoutAt !== undefined && frame.self.bailoutAt !== previousSelf?.bailoutAt) {
+      bailoutAge = Math.max(0, (frame.snapshot?.elapsed ?? frame.self.bailoutAt) - frame.self.bailoutAt);
+      hud.message = 'Bailed out at speed · landing roll';
+    }
     // The host's meals, copied: it runs the timers and the healing, and spent Ah Ma's save if she stepped in.
     if (frame.self?.conditions?.deafened && !conditions.deafened) stopVoice();
     conditions = structuredClone(frame.self?.conditions ?? {});

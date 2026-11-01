@@ -276,3 +276,38 @@ it('shows shared collisions once at rendered contact for passengers, skipping in
     expect(vehicles.impactView.body.pitch).toBe(0);
   } finally { vehicles.dispose(); }
 });
+
+it('lets a moving Humvee occupant bail out, reports injury once and brakes the empty hull over time', () => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  const vehicles = createFpsVehicles(new THREE.Scene(), [], { car: '', helicopter: '' });
+  try {
+    vehicles.interact(vehicles.states.car);
+    vehicles.states.car.speed = 10;
+    const exit = vehicles.interact(vehicles.states.car)!;
+    expect(exit).toMatchObject({ entered: false, exitDamage: 24.5 });
+    expect(vehicles.active).toBeNull();
+    expect(vehicles.states.car.speed).toBe(10);
+    expect(vehicles.interact(exit)).toBeNull();
+    const before = { ...vehicles.states.car };
+    vehicles.step(new Set(['w']), .05);
+    expect(Math.hypot(vehicles.states.car.x - before.x, vehicles.states.car.z - before.z)).toBeGreaterThan(0);
+    expect(vehicles.states.car.speed).toBeGreaterThan(0);
+    expect(vehicles.states.car.speed).toBeLessThan(10);
+    for (let i = 0; i < 20; i++) vehicles.step(new Set(), .05);
+    expect(vehicles.states.car.speed).toBeLessThan(.01);
+  } finally { vehicles.dispose(); }
+});
+
+it('keeps a moving Humvee occupant seated when every exit is blocked', () => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  const obstacles: { minX: number; maxX: number; minZ: number; maxZ: number }[] = [];
+  const vehicles = createFpsVehicles(new THREE.Scene(), obstacles, { car: '', helicopter: '' });
+  try {
+    vehicles.interact(vehicles.states.car);
+    vehicles.states.car.speed = 10;
+    obstacles.push({ minX: -100, maxX: 100, minZ: -100, maxZ: 100 });
+    expect(vehicles.interact(vehicles.states.car)).toBeNull();
+    expect(vehicles.active).toBe('car');
+    expect(vehicles.states.car.speed).toBe(10);
+  } finally { vehicles.dispose(); }
+});
