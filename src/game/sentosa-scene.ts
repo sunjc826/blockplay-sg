@@ -120,7 +120,9 @@ export function buildSentosaScene() {
     for (const [dx, dz, r] of [[-26, -22, 11], [26, -22, 11]] as const) {
       cylinder(x + dx, 22.4, z + dz, r, 2.4, pale);
       for (const offset of [-8, 8]) cylinder(x + dx + offset, 18.6, z + dz, .25, 5.2, pale);
-      for (let ring = 0; ring < 5; ring++) cylinder(x + dx, 24 + ring * 1.9, z + dz, r * Math.cos(ring / 5 * Math.PI / 2.2), 2, ring % 2 ? terra : gold);
+      // The first dome course begins on the pavilion drum's 23.6 m cap;
+      // overlapping equal-radius courses used to fight along the whole rim.
+      for (let ring = 0; ring < 5; ring++) cylinder(x + dx, 24.6 + ring * 1.9, z + dz, r * Math.cos(ring / 5 * Math.PI / 2.2), 2, ring % 2 ? terra : gold);
       const finial = new THREE.Mesh(geo(new THREE.ConeGeometry(1.5, 4.4, 8)), gold);
       finial.position.set(x + dx, 34.6, z + dz); scene.add(finial);
     }

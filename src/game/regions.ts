@@ -6,6 +6,7 @@ import { buildPulauUbinScene, PULAU_UBIN_BOUNDS, PULAU_UBIN_MAP_ROADS, PULAU_UBI
 import { PULAU_UBIN_STAMPS } from '../data/region-stamps';
 import { withSetPieces, type SetPieceCue } from './district-set-pieces';
 import { withGroundCover } from './ground-cover';
+import { withSurfaceOwnership } from './surface-ownership';
 import type * as THREE from 'three';
 import { REGION_IDS, isRegionId, type RegionId } from './region-ids';
 import { createRegionMovement, type Obstacle, type Position2D, type RegionBounds } from './region-collision';
@@ -520,7 +521,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
 // Every district is built with its set pieces, whatever mode builds it.
 for (const id of REGION_IDS) {
   const { build, bounds } = definitions[id];
-  definitions[id] = { ...definitions[id], build: () => withSetPieces(id, withGroundCover(build(), bounds)) };
+  definitions[id] = { ...definitions[id], build: () => withSetPieces(id, withSurfaceOwnership(withGroundCover(build(), bounds))) };
 }
 
 export const REGIONS: readonly RegionDefinition[] = REGION_IDS.map(id => definitions[id]);

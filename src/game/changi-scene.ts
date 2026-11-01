@@ -167,7 +167,9 @@ export function buildChangiScene() {
     const nose = new THREE.Mesh(geo(new THREE.ConeGeometry(3.5, 9, 10)), livery);
     nose.position.set(x + facing * 34, 5.4, z); nose.rotation.z = -facing * Math.PI / 2; scene.add(nose);
     for (let n = 0; n < 16; n++) box(x - 26 + n * 3.6, 6.6, z - 3.7, 1.4, 1, 0.3, glass);
-    box(x, 6.4, z, 60, 0.5, 1.4, accent);
+    // The livery strip stays inside the tail's 1.4 m thickness instead of
+    // sharing its side plane where the swept fin meets the fuselage.
+    box(x, 6.4, z, 60, 0.5, 1.2, accent);
     for (const side of [-1, 1]) {
       const wing = box(x - facing * 4, 4.4, z + side * 20, 20, 0.9, 40, livery, scene, true);
       wing.rotation.y = -facing * side * 0.34; solid(x - facing * 4, z + side * 20, 24, 36);

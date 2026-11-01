@@ -4,6 +4,7 @@ import type { RegionWorld } from './regions';
 import { getWalkSurfaces, surfaceContains, surfaceHeight } from './vertical-routes';
 import { isWaterObject } from './water';
 import { accelerateMeshRaycast } from './mesh-raycast';
+import { partitionGroundCaps, type GroundCap } from './ground-surface-ownership';
 
 interface Patch { minX: number; maxX: number; minZ: number; maxZ: number; y: number; grass: boolean; mesh?: THREE.Mesh }
 const green = (material: THREE.Material) => {
@@ -62,6 +63,7 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
   const ground = bounds.groundHeight ?? (() => 0), surfaces = getWalkSurfaces(world.scene);
   const patches: Patch[] = [], materials = new Map<THREE.Material, THREE.Material>(), geometries: THREE.BufferGeometry[] = [];
   const raycastDisposers: (() => void)[] = [];
+  const caps: GroundCap[] = [];
   const box = new THREE.Box3(), instance = new THREE.Matrix4(), transform = new THREE.Matrix4();
   const point = new THREE.Vector3();
   let corrected = 0;
@@ -123,6 +125,9 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
         corrected++;
       }
       const patch: Patch = { minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z, y: box.max.y + shift, grass };
+      if (object.geometry.type === 'BoxGeometry' && Math.abs(transform.elements[2]) < 1e-5 && Math.abs(transform.elements[8]) < 1e-5 && transform.elements[0] > 0 && transform.elements[5] > 0 && transform.elements[10] > 0) {
+        caps.push({ ...patch, mesh: object, instance: object instanceof THREE.InstancedMesh ? i : undefined, authoredTop: box.max.y });
+      }
       // Nonrectangular island shores retain their exact outline for grass masks.
       if (object.geometry.type === 'ShapeGeometry' || object.geometry.type === 'PlaneGeometry') patch.mesh = object;
       patches.push(patch); groundParts++; if (grass) grassParts++;
@@ -135,6 +140,8 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
     }
     if (grassParts || groundParts && material.userData.soil) object.material = detail(material);
   }
+  world.scene.updateMatrixWorld(true);
+  const ownership = partitionGroundCaps(caps);
   world.scene.updateMatrixWorld(true);
   const patchesAt = index(patches), surfacesAt = index([...surfaces]), obstaclesAt = index<Obstacle>(world.obstacles);
   const ray = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 0, 3);
@@ -163,10 +170,10 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
     if (!p.grass || obstaclesAt(x, z).some(o => x > o.minX - .25 && x < o.maxX + .25 && z > o.minZ - .25 && z < o.maxZ + .25)) return null;
     return p.y;
   });
-  world.scene.userData.groundCover = { corrected, patches: patches.length, grass, sample };
+  world.scene.userData.groundCover = { corrected, patches: patches.length, ownership, grass, sample };
   world.scene.userData.rainGroundHeight = (x: number, z: number) => sample(x, z).y;
   const dispose = world.dispose;
-  world.dispose = () => { grass.dispose(); raycastDisposers.forEach(remove => remove()); materials.forEach(m => m.dispose()); geometries.forEach(g => g.dispose()); dispose(); };
+  world.dispose = () => { grass.dispose(); ownership.dispose(); raycastDisposers.forEach(remove => remove()); materials.forEach(m => m.dispose()); geometries.forEach(g => g.dispose()); dispose(); };
   return world;
 }
 

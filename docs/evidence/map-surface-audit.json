@@ -1,0 +1,128 @@
+{
+  "date": "2026-11-01",
+  "scope": "Exposed positive-area overlaps between different materials on principal-axis static planes. Counts are triangle pair relationships, not unique bug locations.",
+  "baseline": "96cfd83",
+  "districts": [
+    {
+      "district": "marina-bay",
+      "before": 19379,
+      "after": 0
+    },
+    {
+      "district": "raffles-place",
+      "before": 612,
+      "after": 0
+    },
+    {
+      "district": "queenstown",
+      "before": 18239,
+      "after": 0
+    },
+    {
+      "district": "chinatown",
+      "before": 807,
+      "after": 0
+    },
+    {
+      "district": "kampong-glam",
+      "before": 714,
+      "after": 0
+    },
+    {
+      "district": "jurong-lake",
+      "before": 819,
+      "after": 0
+    },
+    {
+      "district": "changi",
+      "before": 293,
+      "after": 0
+    },
+    {
+      "district": "upper-thomson",
+      "before": 619,
+      "after": 0
+    },
+    {
+      "district": "punggol",
+      "before": 781,
+      "after": 0
+    },
+    {
+      "district": "harbourfront",
+      "before": 540,
+      "after": 0
+    },
+    {
+      "district": "sentosa",
+      "before": 468,
+      "after": 0
+    },
+    {
+      "district": "geylang",
+      "before": 742,
+      "after": 0
+    },
+    {
+      "district": "tuas",
+      "before": 233,
+      "after": 0
+    },
+    {
+      "district": "woodlands",
+      "before": 318,
+      "after": 0
+    },
+    {
+      "district": "tampines",
+      "before": 3415,
+      "after": 0
+    },
+    {
+      "district": "toa-payoh",
+      "before": 1330,
+      "after": 0
+    },
+    {
+      "district": "bukit-timah",
+      "before": 716,
+      "after": 0
+    },
+    {
+      "district": "bishan",
+      "before": 1866,
+      "after": 0
+    },
+    {
+      "district": "orchard",
+      "before": 834,
+      "after": 0
+    },
+    {
+      "district": "yishun",
+      "before": 224,
+      "after": 0
+    },
+    {
+      "district": "little-india",
+      "before": 454,
+      "after": 0
+    },
+    {
+      "district": "katong-joo-chiat",
+      "before": 715,
+      "after": 0
+    },
+    {
+      "district": "pulau-ubin",
+      "before": 28,
+      "after": 0
+    }
+  ],
+  "browser": {
+    "baselineViews": 12,
+    "finalViews": 50,
+    "errors": 0,
+    "googleRequests": 0
+  }
+}

@@ -129,8 +129,11 @@ export function withVerticalPlaces<T extends RegionWorld>(world: T, places: read
       } else if(c.stairs && a.y!==b.y && c.foundation!=='solid') {
         const count=Math.ceil(Math.abs(b.y-a.y)/.15),run=len/count;
         for(let n=0;n<count;n++) {
-          const t=(n+.5)/count,top=a.y+(b.y-a.y)*(b.y>a.y?(n+1)/count:n/count);
-          box(a.x+dx*t,top-.13,a.z+dz*t,axis==='x'?run+.012:c.width,.26,axis==='z'?run+.012:c.width,color,false);
+          const start=Math.max(0,n*run-.006),end=Math.min(len,(n+1)*run+.006);
+          const t=(start+end)/(2*len),top=a.y+(b.y-a.y)*(b.y>a.y?(n+1)/count:n/count);
+          // End exactly at the landing: the old 6 mm overhang put the final
+          // tread on the same plane as the floor in every stair connection.
+          box(a.x+dx*t,top-.13,a.z+dz*t,axis==='x'?end-start:c.width,.26,axis==='z'?end-start:c.width,color,false);
         }
       } else {
         const top=axis==='x'?[[low.x,low.y,a.z-c.width/2],[high.x,high.y,a.z-c.width/2],[high.x,high.y,a.z+c.width/2],[low.x,low.y,a.z+c.width/2]]:[[a.x-c.width/2,low.y,low.z],[a.x+c.width/2,low.y,low.z],[a.x+c.width/2,high.y,high.z],[a.x-c.width/2,high.y,high.z]];

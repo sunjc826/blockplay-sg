@@ -43,8 +43,13 @@ describe('shared soil and grass',()=>{
     const {world,lawn}=fixture();
     world.scene.userData.walkSurfaces=[{id:'deck',routeId:'deck',axis:'x',minX:70,maxX:80,minZ:-10,maxZ:10,startHeight:4,endHeight:4}];
     withGroundCover(world,bounds);
-    const matrix=new THREE.Matrix4();lawn.getMatrixAt(0,matrix);expect(matrix.elements[13]+.175).toBeCloseTo(0);
-    lawn.getMatrixAt(1,matrix);expect(matrix.elements[13]).toBe(10);
+    // Low caps now have real cut geometry; the unmodified roof garden remains
+    // in the original instance batch at the same transform.
+    const matrix=new THREE.Matrix4();expect(lawn.count).toBe(1);
+    lawn.getMatrixAt(0,matrix);expect(matrix.elements[13]).toBe(10);
+    const ray=new THREE.Raycaster(new THREE.Vector3(0,1,0),new THREE.Vector3(0,-1,0),0,2);
+    world.scene.updateMatrixWorld(true);
+    expect(ray.intersectObject(world.scene,true)[0].point.y).toBeCloseTo(0);
     const cover=world.scene.userData.groundCover;
     expect(cover.sample(0,0)).toEqual({y:0,grass:true});
     expect(cover.sample(75,0)).toEqual({y:4,grass:false});

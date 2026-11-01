@@ -113,15 +113,25 @@ export function createSceneKit(options: SceneKitOptions) {
   }) {
     const { ew, ns, edgeX, edgeZ, asphalt, line, kerb, loop = true } = options;
     const width = options.width ?? 16, half = width / 2 + 2.5;
+    const runs = (edge: number, crossings: readonly number[]) => {
+      let spans: [number,number][] = [[-edge,edge]];
+      for (const cross of crossings) spans = spans.flatMap(([a,b]) => {
+        const lo=Math.max(a,cross-width/2),hi=Math.min(b,cross+width/2);
+        return hi<=lo?[[a,b] as [number,number]]:[[a,lo],[hi,b]].filter(([from,to])=>to-from>1e-5) as [number,number][];
+      });
+      return spans;
+    };
+    const horizontal = runs(edgeX, [...ns, ...(loop?[-edgeX,edgeX]:[])]);
+    const vertical = runs(edgeZ, [...ew, ...(loop?[-edgeZ,edgeZ]:[])]);
     for (const z of ew) {
       box(0, 0, z, edgeX * 2, 0.12, width, asphalt);
       for (let x = -edgeX + 6; x < edgeX; x += 12) box(x, 0.09, z, 5, 0.025, 0.16, line);
-      if (kerb) for (const side of [-half, half]) box(0, 0.12, z + side, edgeX * 2, 0.22, 3, kerb);
+      if (kerb) for (const side of [-half, half]) for (const [a,b] of horizontal) box((a+b)/2, 0.12, z + side, b-a, 0.22, 3, kerb);
     }
     for (const x of ns) {
       box(x, 0, 0, width, 0.12, edgeZ * 2, asphalt);
       for (let z = -edgeZ + 6; z < edgeZ; z += 12) box(x, 0.09, z, 0.16, 0.025, 5, line);
-      if (kerb) for (const side of [-half, half]) box(x + side, 0.12, 0, 3, 0.22, edgeZ * 2, kerb);
+      if (kerb) for (const side of [-half, half]) for (const [a,b] of vertical) box(x + side, 0.12, (a+b)/2, 3, 0.22, b-a, kerb);
     }
     if (!loop) return;
     for (const z of [-edgeZ, edgeZ]) {
