@@ -59,7 +59,7 @@ try {
  assert.equal(await evaluate(`${wallet}.rentals['sar-vanguard']`),2*3600000);assert.equal(await evaluate(`${wallet}.tokens`),2956);
  await click(term('4h'));await click(`document.querySelector('[data-testid="shop-renew"]')`);await wait(`${wallet}.tokens===2879`);
  assert.equal(await evaluate(`${wallet}.rentals['sar-vanguard']`),6*3600000);
- await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});await delay(300);await screenshot('bulk-hour-rentals');
+ await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});await evaluate(`document.querySelector('.armory-purchase').scrollIntoView({block:'center'})`);await delay(500);await screenshot('bulk-hour-rentals');
  const discard=`document.querySelector('[data-discard-rental]')`,confirm=`document.querySelector('[data-discard-confirm]')`;
  await click(discard);assert.equal(await evaluate(`${wallet}.rentals['sar-vanguard']`),6*3600000);
  await click(`[...document.querySelectorAll('.rental-discard button')].find(e=>e.textContent==='Cancel')`);
@@ -70,7 +70,7 @@ try {
  await click(`document.querySelector('.store-nav a[href="/inventory"]')`);await wait(`!!document.querySelector('[data-inventory-item="sar-vanguard"]')`);
  const card=`document.querySelector('[data-inventory-item="sar-vanguard"]')`;
  await click(`${card}.querySelector('[data-discard-rental]')`);
- await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await delay(300);await screenshot('discard-rental-mobile');
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await evaluate(`document.querySelector('[data-inventory-item="sar-vanguard"] .rental-discard').scrollIntoView({block:'center'})`);await delay(500);await screenshot('discard-rental-mobile');
  await click(`${card}.querySelector('[data-discard-confirm]')`);await wait(`!${wallet}.rentals['sar-vanguard']`);
  assert.equal(await evaluate(`${wallet}.tokens`),2855);assert.equal(await evaluate(`${wallet}.guns[0].variant`),'sar-issued');
  assert.equal(await evaluate(`!!document.querySelector('[data-inventory-item="sar-issued"] [data-discard-rental]')`),false);
