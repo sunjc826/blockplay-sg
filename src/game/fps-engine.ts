@@ -3250,6 +3250,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (disposed || travelPending) return;
     const previousHull = vehicles.mounted ? { ...vehicles.mounted } : null;
     const previousVehicle = vehicles.active, previousHeading = vehicles.viewMounted?.yaw;
+    if (expedition && markers) {
+      const { expired, fading } = expedition.loot.step(realDt);
+      expired.forEach(id => markers.remove(id));
+      fading.forEach(({ id, opacity }) => markers.fade(id, opacity));
+      if (expired.length) hud.fieldLoot = expedition.loot.remaining(expedition.zone);
+    }
     updateArena(realDt);
     if (arenaRuntime) {
       vehicles.sharedStep(realDt);

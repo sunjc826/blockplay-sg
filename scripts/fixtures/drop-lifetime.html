@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Dropped loot lifetime</title><link rel="icon" href="data:,">
+<style>body{margin:0;background:#17231e;color:white;font:16px system-ui}#status{position:absolute;top:12px;left:16px}canvas{display:block}</style>
+</head><body><div id="status">Dropped loot: full visibility</div><script type="module">
+import * as THREE from 'three';
+import {createExpeditionLoot} from '/src/game/expedition-loot.ts';
+import {createExpeditionMarkers} from '/src/game/expedition-visuals.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1200,760);document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#718178');scene.add(new THREE.HemisphereLight(0xffffff,0x526144,3));
+const sun=new THREE.DirectionalLight(0xffffff,2);sun.position.set(3,7,2);scene.add(sun);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(20,20),new THREE.MeshStandardMaterial({color:'#607057'}));floor.rotation.x=-Math.PI/2;floor.position.y=-.005;scene.add(floor);
+const camera=new THREE.PerspectiveCamera(38,1200/760,.01,100);camera.position.set(0,6,6);camera.lookAt(0,0,0);
+const loot=createExpeditionLoot('fade-browser');
+const gun=loot.drop('queenstown','g36-rifle',{x:-1.9,z:0}).loot;
+const other=loot.drop('queenstown','g36-rifle',{x:1.9,z:0}).loot;
+const kit=loot.fallen('queenstown',{key:'veteran',side:'forces',rank:3,family:0},{x:0,z:0}).loot.filter(item=>item.kind!=='weapon');
+const crate={id:'placed',zoneId:'queenstown',kind:'ammo',name:'Placed ammunition',tier:'Issued',x:0,z:2,amount:30};
+const markers=createExpeditionMarkers(scene,'queenstown',[gun,other,...kit,crate]);
+const root=scene.getObjectByName('expedition-markers');
+// Remove gateway decoration from the inspection camera without changing loot rendering.
+for(const group of root.children)if(!group.name.startsWith('drop-')&&group.position.z!==2)group.visible=false;
+markers.focus(gun.id);
+const sample=()=>{markers.update(.1,camera.position);renderer.render(scene,camera);return{remaining:loot.remaining('queenstown').map(item=>item.id),groups:root.children.filter(g=>g.name.startsWith('drop-')).map(g=>g.name),focus:root.getObjectByName('loot-focus').visible,programs:renderer.info.programs.length};};
+window.advance=seconds=>{const changes=loot.step(seconds);changes.expired.forEach(id=>markers.remove(id));changes.fading.forEach(({id,opacity})=>markers.fade(id,opacity));document.querySelector('#status').textContent=changes.expired.length?'Dropped loot: expired (placed crate remains)':`Dropped loot: ${changes.fading[0]?.opacity.toFixed(3)??'1.000'} visibility`;return {...sample(),...changes};};
+window.isolateFade=()=>{markers.fade(gun.id,.5);return sample();};
+window.restore=()=>{markers.fade(gun.id,1);return sample();};
+window.inspect=()=>{const group=root.getObjectByName('drop-'+gun.id), untouched=root.getObjectByName('drop-'+other.id), shader={uniforms:{},vertexShader:'#include <uv_vertex>',fragmentShader:'#include <opaque_fragment>'};let material;group.traverse(n=>{if(n.isMesh&&!material)material=n.material;});material.onBeforeCompile(shader,renderer);let otherTransparent=false;untouched.traverse(n=>{if(n.isMesh&&!n.material.transparent)otherTransparent=true;});return{uniform:shader.uniforms.lootDropFade?.value,patched:shader.fragmentShader.includes('diffuseColor.a *= lootDropFade;'),otherHasOpaque:otherTransparent,focusOpacity:root.getObjectByName('loot-focus').children[0].material.opacity};};
+window.collect=()=>{const item=kit.find(item=>item.kind==='ammo');const taken=loot.collect('queenstown',item.id,item);if(taken)markers.remove(taken.id);return !!taken;};
+window.cleanup=()=>{markers.dispose();renderer.render(scene,camera);renderer.dispose();};
+window.ready=true;sample();
+</script></body></html>

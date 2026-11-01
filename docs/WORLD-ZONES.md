@@ -62,6 +62,8 @@ The selected destination displays threat, loot tier, patrol count, the route and
 
 While playing, the upper-left minimap follows the operator in the current district using its authored roads and collision bounds. The arrow points in the view direction; the map keeps north up. Nearby remaining loot appears as green squares. Gold diamonds show checkpoints; outlined diamonds on the map edge indicate distant exits. The planned route's next checkpoint is highlighted. Loot markers disappear on collection and update from the cached remaining supplies when returning to a district. Each zone uses the same SVG component with different map data; no additional renderer or Google request is created.
 
+Dropped weapons and supplies remain for five minutes, fading smoothly during the final fifteen seconds while still allowing pickup. Each district retains up to 48 weapons and 144 other fallen items outside that fade window; excess older drops fade for fifteen seconds before removal. Placed loot crates and their ammunition do not expire. The expedition clock also ages dropped loot in previously visited districts.
+
 ## Sectors
 
 Every district is divided into named sub-areas — nine to eleven each, 233 in

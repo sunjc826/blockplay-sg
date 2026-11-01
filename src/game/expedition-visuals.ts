@@ -39,7 +39,7 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
   // A fallen enemy's weapon is drawn as itself, lying on its side where it fell,
   // with a tier ring so it reads from a distance. Each owns its resources, so
   // the oldest can be thrown away when a new one drops.
-  const drops = new Map<string, { group: THREE.Group; resources: { dispose(): void }[] }>();
+  const drops = new Map<string, { group: THREE.Group; resources: { dispose(): void }[]; opacity?: number; fadeUniform?: { value: number } }>();
   function addDrop(item: FieldLoot) {
     if (item.kind !== 'weapon') { addKit(item); return; }
     const variant = itemById(item.catalogId ?? ''), spec = variant?.family === undefined ? undefined : FPS_WEAPONS[variant.family];
@@ -200,7 +200,8 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
       if (focusRing.visible) {
         // Opens out from the item, then breathes while it stays looked at.
         focusAge += dt; const open = 1 - Math.pow(1 - Math.min(1, focusAge / .18), 3), breathe = 1 + Math.sin(clock * 4) * .035;
-        ringMesh.scale.setScalar((.7 + .3 * open) * breathe); ringMaterial.opacity = .9 * open; glowMaterial.uniforms.strength.value = .16 * open;
+        const opacity = focusedId ? drops.get(focusedId)?.opacity ?? 1 : 1;
+        ringMesh.scale.setScalar((.7 + .3 * open) * breathe); ringMaterial.opacity = .9 * open * opacity; glowMaterial.uniforms.strength.value = .16 * open * opacity;
       }
       for (const local of locals) {
         const { npc, rig } = local, dx = viewer.x - npc.x, dz = viewer.z - npc.z, distance = Math.hypot(dx, dz);
@@ -222,6 +223,33 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
       local.gesture = gesture; local.react = seconds; local.greeted = true;
     },
     addDrop,
+    /** Fade the model and its tier ring together, preserving glass/ring base opacity. */
+    fade(id: string, opacity: number) {
+      const drop = drops.get(id); if (!drop || !Number.isFinite(opacity)) return;
+      drop.opacity = Math.max(0, Math.min(1, opacity));
+      if (!drop.fadeUniform) {
+        const uniform = { value: drop.opacity }, materials = new Set<THREE.Material>();
+        drop.fadeUniform = uniform;
+        drop.group.traverse(node => {
+          if (!(node instanceof THREE.Mesh)) return;
+          for (const material of (Array.isArray(node.material) ? node.material : [node.material]) as THREE.Material[]) {
+            if (materials.has(material)) continue;
+            materials.add(material);
+            // Glass computes its own alpha. Apply the fade after its shader patch too.
+            const compile = material.onBeforeCompile, cacheKey = material.customProgramCacheKey.bind(material);
+            material.onBeforeCompile = (shader, renderer) => {
+              compile.call(material, shader, renderer);
+              shader.uniforms.lootDropFade = uniform;
+              shader.fragmentShader = 'uniform float lootDropFade;\n' + shader.fragmentShader.replace(
+                '#include <opaque_fragment>', 'diffuseColor.a *= lootDropFade;\n#include <opaque_fragment>');
+            };
+            material.customProgramCacheKey = () => `${cacheKey()}|loot-fade-v1`;
+            material.transparent = true; material.depthWrite = false; material.needsUpdate = true;
+          }
+        });
+      }
+      drop.fadeUniform.value = drop.opacity;
+    },
     /** Marks the item being looked at, or nothing. */
     focus(id: string | null) {
       const at = id ? spots.get(id) : undefined;

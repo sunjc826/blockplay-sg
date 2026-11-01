@@ -11,7 +11,7 @@ import { buildServiceWeapon } from './service-weapon-models';
 import { armamentFamilies, chooseArmament, listArenaRoles } from './arena-roles';
 import { createArena } from './arena-rules';
 import { validArenaSnapshot } from './arena-runtime';
-import { createExpeditionLoot, equipFieldLoot, createFieldEquipment, MAX_FIELD_DROPS, rollZoneWeapon } from './expedition-loot';
+import { createExpeditionLoot, equipFieldLoot, createFieldEquipment, FIELD_DROP_FADE_SECONDS, MAX_FIELD_DROPS, rollZoneWeapon } from './expedition-loot';
 
 const enemy = ARMORY_CATALOG.filter(item => item.category === 'weapon' && isEnemyIssue(item));
 const family = (id: string) => FPS_WEAPONS.findIndex(weapon => weapon.id === id);
@@ -162,7 +162,9 @@ describe('dropped enemy weapons', () => {
     expect(loot.nearest('marina-bay', { x: 3.5, z: 4, y: 0 })?.id).toBe(first.loot.id);
     const evicted: string[] = [];
     for (let i = 0; i < MAX_FIELD_DROPS; i++) evicted.push(...loot.drop('marina-bay', 'mg4-standard', { x: 20 + i * 3, z: 0 })!.evicted);
-    expect(evicted).toEqual([first.loot.id]);
+    expect(evicted).toEqual([]);
+    expect(loot.remaining('marina-bay').filter(item => item.dropped)).toHaveLength(MAX_FIELD_DROPS + 1);
+    expect(loot.step(FIELD_DROP_FADE_SECONDS).expired).toEqual([first.loot.id]);
     expect(loot.remaining('marina-bay').filter(item => item.dropped)).toHaveLength(MAX_FIELD_DROPS);
     // Taking one makes it field equipment like any crate weapon, and it is gone from the ground.
     const taken = loot.collect('marina-bay', loot.nearest('marina-bay', { x: 20, z: 0 })!.id, { x: 20, z: 0 })!;

@@ -3,7 +3,7 @@ import { itemById } from './armory-catalog';
 import { createProfile, variantSpec } from './armory-state';
 import {
   createExpeditionLoot, createFieldEquipment, equipFieldLoot, resolveExpeditionLoadout, rollZoneWeapon,
-  calibreOf, FALLEN_KIT, MAX_FIELD_DROPS, MAX_FIELD_KITS, WEAPON_AMMO, ZONE_LOOT_RULES, type FieldLoot, type LootZoneGeometry,
+  calibreOf, FALLEN_KIT, FIELD_DROP_LIFETIME, FIELD_DROP_FADE_SECONDS, MAX_FIELD_DROPS, MAX_FIELD_KITS, WEAPON_AMMO, ZONE_LOOT_RULES, type FieldLoot, type LootZoneGeometry,
 } from './expedition-loot';
 import { FPS_WEAPONS } from './fps-rules';
 import type { WorldZoneId } from './world-zones';
@@ -224,11 +224,62 @@ describe('kit left by fallen soldiers', () => {
   });
   it('caps weapons and kit apart, so dressings never push out a gun', () => {
     const loot = createExpeditionLoot('caps'), evicted: string[] = [];
-    for (let i = 0; i < 40; i++) evicted.push(...loot.fallen('marina-bay', { key: `vet-${i}:1`, side: 'forces', rank: 3, family: 0 }, { x: i * 4, z: 0 }).evicted);
+    for (let i = 0; i < MAX_FIELD_KITS * 2; i++) evicted.push(...loot.fallen('marina-bay', { key: `vet-${i}:1`, side: 'forces', rank: 3, family: 0 }, { x: i * 4, z: 0 }).evicted);
+    // Overflow fades while the newest weapons and kits keep their full lifetime.
+    expect(evicted).toEqual([]);
+    evicted.push(...loot.step(FIELD_DROP_FADE_SECONDS).expired);
     const left = loot.remaining('marina-bay').filter(item => item.dropped);
     expect(left.filter(item => item.kind === 'weapon')).toHaveLength(MAX_FIELD_DROPS);
     expect(left.filter(item => item.kind !== 'weapon')).toHaveLength(MAX_FIELD_KITS);
     expect(evicted.some(id => left.some(item => item.id === id))).toBe(false);
+  });
+});
+
+describe('dropped item lifetime', () => {
+  it('keeps a distant weapon for five minutes and fades only in the final fifteen seconds', () => {
+    const loot = createExpeditionLoot('lifetime');
+    const { loot: gun } = loot.drop('marina-bay', 'g36-rifle', { x: 90, z: 0 })!;
+    expect(FIELD_DROP_LIFETIME).toBe(300);
+    expect(loot.step(FIELD_DROP_LIFETIME - FIELD_DROP_FADE_SECONDS)).toEqual({ expired: [], fading: [] });
+    expect(loot.remaining('marina-bay')).toContainEqual(gun);
+    expect(loot.step(FIELD_DROP_FADE_SECONDS / 2).fading).toEqual([{ id: gun.id, opacity: .5 }]);
+    expect(loot.nearest('marina-bay', gun)?.id).toBe(gun.id);
+    expect(loot.step(FIELD_DROP_FADE_SECONDS / 2).expired).toEqual([gun.id]);
+    expect(loot.collect('marina-bay', gun.id, gun)).toBeNull();
+    expect(loot.nearest('marina-bay', gun)).toBeNull();
+  });
+  it('allows pickup during a fade and never expires placed crates or their ammunition', () => {
+    const loot = createExpeditionLoot('pickup-fade'), crates = loot.enterZone(zone());
+    const { loot: gun } = loot.drop('marina-bay', 'g36-rifle', { x: 0, z: 0 })!;
+    loot.step(FIELD_DROP_LIFETIME - 1);
+    expect(loot.collect('marina-bay', gun.id, gun)).toEqual(gun);
+    expect(loot.collect('marina-bay', gun.id, gun)).toBeNull();
+    expect(loot.step(1000)).toEqual({ expired: [], fading: [] });
+    expect(loot.remaining('marina-bay')).toEqual(crates);
+  });
+  it('ages cached districts and fallen kit together, with separate clocks for newer supply contents', () => {
+    const loot = createExpeditionLoot('zone-clocks');
+    const old = loot.fallen('marina-bay', { key: 'vet', side: 'forces', rank: 3, family: 0 }, { x: 0, z: 0 }).loot;
+    expect(old.some(item => item.kind === 'ammo')).toBe(true);
+    loot.enterZone(zone('queenstown'));
+    loot.step(100);
+    const supplies = loot.supply('queenstown', 'crate', { x: 0, z: 0 });
+    expect(loot.step(FIELD_DROP_LIFETIME - 100).expired.sort()).toEqual(old.map(item => item.id).sort());
+    expect(loot.remaining('marina-bay')).toEqual([]);
+    expect(loot.remaining('queenstown').filter(item => item.dropped)).toEqual(supplies);
+    expect(loot.step(100).expired.sort()).toEqual(supplies.map(item => item.id).sort());
+  });
+  it('ignores invalid time and does not restart overflow fades when more drops arrive', () => {
+    const loot = createExpeditionLoot('overflow');
+    const first = loot.drop('marina-bay', 'g36-rifle', { x: 0, z: 0 })!.loot;
+    for (let i = 0; i < MAX_FIELD_DROPS; i++) loot.drop('marina-bay', 'g36-rifle', { x: i + 5, z: 0 });
+    expect(loot.step(NaN).expired).toEqual([]);
+    loot.step(-100); loot.step(Infinity);
+    expect(loot.step(FIELD_DROP_FADE_SECONDS / 2).fading).toContainEqual({ id: first.id, opacity: .5 });
+    loot.drop('marina-bay', 'g36-rifle', { x: 0, z: 0 });
+    expect(loot.step(FIELD_DROP_FADE_SECONDS / 2).expired).toEqual([first.id]);
+    expect(loot.step(FIELD_DROP_FADE_SECONDS / 2).expired).toHaveLength(1);
+    expect(loot.remaining('marina-bay')).toHaveLength(MAX_FIELD_DROPS);
   });
 });
 

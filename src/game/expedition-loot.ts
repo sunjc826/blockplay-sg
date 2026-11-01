@@ -47,10 +47,13 @@ export const weaponCalibre = (item: ShopItem | undefined) =>
   item?.category === 'weapon' && validWeaponIndex(item.family) ? calibreOf(FPS_WEAPONS[item.family].caliberMm) : undefined;
 /** The share of a weapon's issued reserve left beside it: a crate is a stash, a body only what was in the pouches. */
 export const WEAPON_AMMO = { crate: 1, fallen: .5 };
-/** Dropped weapons kept per district; the oldest goes when another falls. */
-export const MAX_FIELD_DROPS = 6;
+/** Five minutes to reach fallen kit across a district; fade during the last fifteen seconds. */
+export const FIELD_DROP_LIFETIME = 300;
+export const FIELD_DROP_FADE_SECONDS = 15;
+/** Non-fading dropped weapons kept per district; overflow gets a full fade before removal. */
+export const MAX_FIELD_DROPS = 48;
 /** Dropped dressings, plates and pouches kept per district, apart from the weapons. */
-export const MAX_FIELD_KITS = 12;
+export const MAX_FIELD_KITS = 144;
 
 /** A soldier who has just fallen, as far as their kit is concerned. */
 export interface FallenSoldier {
@@ -177,6 +180,28 @@ export function createExpeditionLoot(seed: string | number) {
   const drops = new Map<WorldZoneId, FieldLoot[]>(), kits = new Map<WorldZoneId, FieldLoot[]>(); let dropSerial = 0;
   // Supply-drop contents likewise: won in play, not rolled from the seed, and not kept by a checkpoint.
   const supplies = new Map<WorldZoneId, FieldLoot[]>();
+  let elapsed = 0;
+  const expires = new Map<string, number>();
+  /** Advance the expedition clock, including cached districts, and report visual changes. */
+  function step(dt: number) {
+    if (Number.isFinite(dt) && dt > 0) elapsed += dt;
+    const expired: string[] = [], fading: { id: string; opacity: number }[] = [];
+    for (const store of [drops, kits, supplies]) for (const [zone, items] of store) {
+      const keep = items.filter(item => {
+        const left = (expires.get(item.id) ?? Infinity) - elapsed;
+        if (collected.has(item.id) || left <= 0) {
+          expired.push(item.id); expires.delete(item.id); collected.delete(item.id); return false;
+        }
+        if (left < FIELD_DROP_FADE_SECONDS) {
+          const t = left / FIELD_DROP_FADE_SECONDS;
+          fading.push({ id: item.id, opacity: t * t * (3 - 2 * t) });
+        }
+        return true;
+      });
+      store.set(zone, keep);
+    }
+    return { expired, fading };
+  }
   function enterZone(geometry: LootZoneGeometry): FieldLoot[] {
     if (zones.has(geometry.id)) return remaining(geometry.id);
     if (!ZONE_LOOT_RULES[geometry.id] || !finitePosition(geometry.spawn) || ![geometry.bounds.minX,geometry.bounds.maxX,geometry.bounds.minZ,geometry.bounds.maxZ].every(Number.isFinite) ||
@@ -329,21 +354,24 @@ export function createExpeditionLoot(seed: string | number) {
     const items: FieldLoot[] = [gun, ...(rounds ? [{ ...rounds, id: `supply-${zoneId}-${++dropSerial}`, ...around(1), dropped: true }] : []),
       { id: `supply-${zoneId}-${++dropSerial}`, zoneId, kind: 'medical', catalogId: medical.id, name: medical.name, tier: medical.tier, ...around(2), amount: rules.medicalAmount, placement: 'field', dropped: true }];
     supplies.set(zoneId, [...(supplies.get(zoneId) ?? []).filter(item => !collected.has(item.id)), ...items]);
+    items.forEach(item => expires.set(item.id, elapsed + FIELD_DROP_LIFETIME));
     return items.map(item => ({ ...item }));
   }
-  /** Adds to a district's drops of one kind, keeping the newest `cap`; returns the ids that made room. */
+  /** Keep the newest `cap` out of the fade window. Overflow remains collectible until its fade ends. */
   function lay(store: Map<WorldZoneId, FieldLoot[]>, zoneId: WorldZoneId, items: readonly FieldLoot[], cap: number) {
     const list = [...(store.get(zoneId) ?? []).filter(entry => !collected.has(entry.id)), ...items];
-    const evicted = list.splice(0, Math.max(0, list.length - cap)).map(entry => entry.id);
-    store.set(zoneId, list); return evicted;
+    items.forEach(item => expires.set(item.id, elapsed + FIELD_DROP_LIFETIME));
+    const fresh = list.filter(item => (expires.get(item.id) ?? Infinity) > elapsed + FIELD_DROP_FADE_SECONDS);
+    fresh.slice(0, Math.max(0, fresh.length - cap)).forEach(item => expires.set(item.id, elapsed + FIELD_DROP_FADE_SECONDS));
+    store.set(zoneId, list); return [] as string[];
   }
   const dropped = (zoneId: WorldZoneId, kind: FieldLootKind, item: ShopItem, at: ZonePosition & { y?: number }, amount = 1): FieldLoot => ({
     id: `drop-${zoneId}-${++dropSerial}`, zoneId, kind, catalogId: item.id, name: item.name, tier: item.tier,
     x: at.x, z: at.z, y: at.y ?? 0, amount, placement: 'field', dropped: true });
   /**
    * A fallen enemy's weapon, left where they fell. Only enemy issue drops, and
-   * a district keeps the newest `MAX_FIELD_DROPS`; `evicted` names the ones
-   * that made room so the world can stop drawing them.
+   * a district keeps the newest `MAX_FIELD_DROPS` plus fading overflow.
+   * `step` reports removals once their fade has finished.
    */
   function drop(zoneId: WorldZoneId, catalogId: string, at: ZonePosition & { y?: number }, ground?: LootGround): { loot: FieldLoot; evicted: string[] } | null {
     const item = itemById(catalogId);
@@ -394,12 +422,19 @@ export function createExpeditionLoot(seed: string | number) {
     if (!finitePosition(player) || !Number.isFinite(player.y ?? 0)) return null;
     const item = allLoot(zoneId).find(candidate => candidate.id === lootId);
     if (!item || collected.has(item.id) || Math.abs((item.y ?? 0) - (player.y ?? 0)) > 1.2 || Math.hypot(item.x - player.x, (item.y ?? 0) - (player.y ?? 0), item.z - player.z) > 2.8) return null;
-    collected.add(item.id); return { ...item };
+    if (item.dropped) {
+      for (const store of [drops, kits, supplies]) {
+        const entries = store.get(zoneId);
+        if (entries) store.set(zoneId, entries.filter(entry => entry.id !== item.id));
+      }
+      expires.delete(item.id);
+    } else collected.add(item.id);
+    return { ...item };
   }
   function snapshot() {
     return { seed: seedText, zones: [...zones.entries()].map(([id, loot]) => ({ id, loot: loot.map(item => ({ ...item })) })), collected: [...collected].filter(id => !id.startsWith('drop-') && !id.startsWith('supply-')) };
   }
-  return { enterZone, remaining, nearest, collect, drop, fallen, supply, snapshot };
+  return { enterZone, remaining, nearest, collect, drop, fallen, supply, snapshot, step };
 }
 export type ExpeditionLoot = ReturnType<typeof createExpeditionLoot>;
 
