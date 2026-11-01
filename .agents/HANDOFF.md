@@ -6253,3 +6253,32 @@ production verification logs and screenshots). Lock released in finally;
 private env/release copies removed and task Vite/Chrome stopped. No paid
 requests or GitHub push. Preserve pre-existing local handoff changes, AGENTS.md
 and .claude/; only this handoff addition is staged from the tracked baseline.
+
+
+## Smart Power / Targeted Assistance naming
+
+Owner accepted renaming Longwatch to Smart Power · Targeted Assistance, matching
+Soft Power / Foreign Aid and Hard Power / Strings Attached in the SCAR family.
+Local main code commit fb4d204 updates gallery metadata, family/signature labels,
+interpretations, footer, the FPS family name (Smart Power), catalog variant and
+cargo/communications helper (full name), existing HUD expectation and relevant
+faction/weapon/operation docs. Stable ff-longwatch IDs, match-barrel IDs, family
+index 10, saved loadouts, model, stats and cargo selection remain unchanged.
+Only the old display name is retired; docs retain one explicit history note.
+
+Typecheck and 58 existing tests across six relevant files pass in workspace and
+frozen release, including cargo equipment/reload and operation HUD behavior.
+No new tests for a display-only rename. Live gallery smoke passes 48 views,
+eight models, four angles, grayscale, mouse/touch rotation, preset reset,
+portrait layout and navigation; no browser exceptions. Mobile labels visually
+reviewed and fit. Manual pnpm deploy:cloudflare succeeded under the shared
+lock from latest main fb4d204, with all 3,221 tracked source files verified.
+Version: 1197415d-1fd2-43a0-b428-2e824327494a. Both production domains serve
+matching entry HTML and all six exact release JS/CSS/service-worker files,
+and pass Cloudflare routing/assets/PWA/model/audio/API-origin checks.
+Evidence: .cache/smart-power-names/ (source-verification, release-result,
+typecheck/tests/deploy logs, live-verification, live-browser-results and
+screenshots). Lock released in finally; temporary private/release copies
+removed; task Chrome stopped. No paid requests or GitHub push. Preserve
+pre-existing handoff changes and local AGENTS.md/.claude/; only this new note
+is staged from the tracked handoff baseline.
