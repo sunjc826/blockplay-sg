@@ -6282,3 +6282,49 @@ screenshots). Lock released in finally; temporary private/release copies
 removed; task Chrome stopped. No paid requests or GitHub push. Preserve
 pre-existing handoff changes and local AGENTS.md/.claude/; only this new note
 is staged from the tracked handoff baseline.
+
+
+## 2026-11-01 — Peace Offering / M200 playable Freedom Force cargo
+
+Landed in 841ec26 on main; no GitHub push. All five FF designs are Mythic cargo
+rewards at equal 20% probability. Appended FPS families 11 (XM29 rifle), 12
+(M200) and 13 (internal launcher mode); old indexes and stable catalog IDs stay.
+Peace Offering / Escalation Clause includes the upper 20 mm impact launcher
+now, per explicit owner answer. U or the touch/mouse mode button switches;
+separate 5.56/20 mm physical magazines, shared one-slot weapon, correct rear
+launcher reload, upper muzzle, projectile arc, impact splash and safety fuse.
+Launcher ammunition cannot be spoofed as a hand grenade or carried standalone.
+Rig refill exchanges only excess compatible rifle spares above two for launcher
+magazines, preserves retained mag capacities, and reports exchanged spares.
+
+Owner requested a Mythic rifle superior to XM8 even without the launcher.
+Rifle: 72 damage, 40-round (+1 chamber), .08 s cadence, improved recoil/recovery,
+velocity, range and precision, 4x sight; mass/movement/reload pay for bulk.
+All six XM8s lose the tested rifle damage/precision/cadence/recoil comparison;
+XM8 automatic deliberately retains its specialized 100-round drum niche.
+M200: 160 damage, 7-round (+1), 6x, .408 (10.36 mm) magazines, 1.4 s manual
+bolt cycle, right-hand bolt animation and delayed case ejection, prone bipod.
+Both playable sight tunnels are clear. Updated gallery and three design docs.
+
+20 new natural-speed, weapon-specific ElevenLabs action/shot recordings are in
+public/audio/proxy with receipts in src/audio/proxy/manifest.json. Used the
+once-only cache helper, no ambiguous-request retries. Receipts total 120
+included credits; verified subscription usage 1330 -> 1450 / 40000, 38550 left.
+
+Validation: typecheck; 239 focused tests / 17 files; actual-engine browser
+fixture (cargo recovery, both mode controls, distinct magazines, impact event,
+ADS, rear reload, manual bolt and portrait HUD); gallery 48-view desktop/mobile
+smoke. Frozen release additionally passes 113 map tests. Earlier full suite
+was not wholly green; the Upper Thomson ground-anchor route failure reproduces
+on baseline 4969518. Do not claim the whole suite passes.
+
+Acquired shared deployment lock, froze latest main cfb9573 (includes concurrent
+Marina work), verified all 3249 source blobs and manually deployed successfully:
+Cloudflare 1f699ecb-750b-4780-8ba7-9d8d287c9189. Initial post-deploy audio MIME,
+routing timeouts and direct browser networking failed; subsequent verification
+passes both domains' routing checks, exact JS/CSS/sw hashes, all 20 exact audio
+hashes, plus 48 production gallery views without exceptions using Chrome's
+explicit environment proxy. This supersedes the earlier pending/false release
+verification note. Evidence: .cache/freedom-cargo-v2 (release-result.json true).
+Temporary frozen source/private env copies removed; deployment lock released.
+Preserved pre-existing local handoff edits, AGENTS.md and .claude/ unstaged.
