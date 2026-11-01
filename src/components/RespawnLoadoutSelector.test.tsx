@@ -14,7 +14,7 @@ it('offers the locker on a dedicated screen and distinguishes next life from cur
 
 it('shows active rentals and a purchased extra slot while keeping unavailable weapons out', () => {
   let p = { ...createProfile(), xp: 100000, tokens: 10000 };
-  p = purchase(p, 'slot-extra').profile; p = purchase(p, 'sar-vanguard', '1d').profile;
+  p = purchase(p, 'slot-extra').profile; p = purchase(p, 'sar-vanguard', '1h').profile;
   const html = renderToStaticMarkup(<RespawnLoadoutSelector inventory={p} selected={p} onSave={async () => true} onClose={() => {}} />);
   expect(html).toContain('Extra main platform'); expect(html).toContain('data-loadout-variant="sar-vanguard"');
   expect(html).toContain('left'); expect(html).not.toContain('data-loadout-variant="sar-marksman"');

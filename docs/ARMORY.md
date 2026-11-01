@@ -41,16 +41,18 @@ See [service-inspired classes](SERVICE-WEAPONS.md) for source references, contro
 
 ## Weapon rentals
 
-Paid shop weapons default to a **1-day** rental. Choose **1 day**, **7 days**,
-**30 days** before purchasing. Prices are 10%, 30% and 60% of the catalog's base price, rounded up in the same currency. For
-example, Steady Lah costs 90 / 270 / 540 CR; Garang costs
-24 / 72 / 144 TK. Level requirements apply to every term.
+Paid shop weapons default to a **1-hour** rental. Choose **1 hour**, **2 hours** or
+**4 hours** of active play. One hour costs 10% of the catalog base price, rounded
+up. Two hours receive a 10% bulk discount and four hours a 20% bulk discount
+against buying that many single hours, with final prices rounded up. The Store
+shows exact currency savings. Steady Lah costs 90 / 162 / 288 CR; Garang costs
+24 / 44 / 77 TK. Level requirements apply to every term.
 
 Rental time is a remaining active-play balance. It decreases only while playing
 a range or a live match; menus, pause, loading, death screens and offline time do
 not count. All rented weapons spend the same active play time, whether carried
-or in the locker. A rental day is 24 hours of active play. The Inventory, shop and
-carry slots show remaining time. Buying a rental grants access, then **Equip**
+or in the locker. Existing longer rental balances are preserved; the new terms
+apply to new purchases. The Inventory, shop and carry slots show remaining time. Buying a rental grants access, then **Equip**
 puts it in the loadout. **Extend** adds the selected duration to remaining time;
 an expired rental starts from the new purchase time. There are no automatic
 renewals or charges. Paid weapons cannot be purchased permanently.
@@ -79,7 +81,10 @@ hours and equip state. Gear lists owned armour, vision devices, finishes and
 slot upgrades. Supplies shows quantities actually held. Equip directly from
 these cards and review carried slots above them. Weapons absent from this
 locker remain available to rent in the Store. The rental clock is paused while
-viewing Inventory, including across reloads and offline time.
+viewing Inventory, including across reloads and offline time. Use **Discard rental**
+on an active rental in Inventory or the Store to remove its remaining time without a refund. Confirming returns an
+equipped rented variant to its issued counterpart; issued weapons and other
+items cannot be discarded this way.
 
 ## Choosing the next respawn loadout
 

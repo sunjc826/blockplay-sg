@@ -22,19 +22,21 @@ describe('store feedback', () => {
   it('plays one outcome after the mutation, preserving its arguments and result', async () => {
     const { storeWithAudio } = await import('./store-audio');
     const play = vi.fn();
-    const source = { buy: vi.fn().mockReturnValueOnce(true).mockReturnValueOnce(false), buyLevel: vi.fn(() => true),
+    const source = { discardWeaponRental: vi.fn(() => true), buy: vi.fn().mockReturnValueOnce(true).mockReturnValueOnce(false), buyLevel: vi.fn(() => true),
       equipItem: vi.fn(() => true), selectCarrySlot: vi.fn(() => false), demoCreditTopUp: vi.fn(() => true), demoTopUp: vi.fn(() => true) };
     const store = storeWithAudio(source as unknown as ArmoryStore, play);
     expect(play).not.toHaveBeenCalled();
-    expect(store.buy('sar-ranger', '7d')).toBe(true);
-    expect(source.buy).toHaveBeenCalledWith('sar-ranger', '7d');
+    expect(store.buy('sar-ranger', '2h')).toBe(true);
+    expect(source.buy).toHaveBeenCalledWith('sar-ranger', '2h');
     expect(store.buy('kit-bandage')).toBe(false);
     expect(store.equipItem('paint-issued', 0, 'helicopter')).toBe(true);
     expect(source.equipItem).toHaveBeenCalledWith('paint-issued', 0, 'helicopter');
     expect(store.selectCarrySlot('extra', null)).toBe(false);
     expect(source.selectCarrySlot).toHaveBeenCalledWith('extra', null);
     store.buyLevel(); store.demoTopUp();
-    expect(play.mock.calls.map(([sound]) => sound)).toEqual(['purchase', 'blocked', 'equip', 'blocked', 'purchase', 'purchase']);
+    expect(store.discardWeaponRental('sar-ranger')).toBe(true);
+    expect(source.discardWeaponRental).toHaveBeenCalledWith('sar-ranger');
+    expect(play.mock.calls.map(([sound]) => sound)).toEqual(['purchase', 'blocked', 'equip', 'blocked', 'purchase', 'purchase', 'select']);
   });
 
   it('preloads once and reuses the approved menu pair for browsing', async () => {

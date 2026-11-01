@@ -10,7 +10,7 @@ const result: ExerciseReward = { id: 'round-1', hits: 8, shots: 30, landed: 28, 
 describe('persistent armory economy', () => {
   it('charges the rental wallet on purchase and extension while keeping input immutable', () => {
     const base = veteran(), first = purchase(base, 'sar-vanguard').profile, twice = purchase(first, 'sar-vanguard').profile;
-    expect(first.tokens).toBe(976); expect(first.credits).toBe(base.credits); expect(base.owned).not.toContain('sar-vanguard'); expect(twice.tokens).toBe(952); expect(twice.rentals['sar-vanguard']).toBe(first.rentals['sar-vanguard'] + 86400000);
+    expect(first.tokens).toBe(976); expect(first.credits).toBe(base.credits); expect(base.owned).not.toContain('sar-vanguard'); expect(twice.tokens).toBe(952); expect(twice.rentals['sar-vanguard']).toBe(first.rentals['sar-vanguard'] + 3600000);
   });
   it('enforces level locks even when the wallet has enough tokens', () => {
     const base = createProfile(); expect(purchase(base, 'sar-vanguard').profile).toBe(base);
@@ -64,7 +64,7 @@ describe('tokens buy levels', () => {
     const climbed = purchaseLevel(purchaseLevel(base).profile).profile;
     expect(progression(climbed.xp).level).toBe(3); expect(climbed.tokens).toBe(368);
     const bought = purchase(climbed, 'sar-vanguard').profile;
-    expect(bought.owned).not.toContain('sar-vanguard'); expect(bought.rentals['sar-vanguard']).toBe(86400000); expect(bought.tokens).toBe(344);
+    expect(bought.owned).not.toContain('sar-vanguard'); expect(bought.rentals['sar-vanguard']).toBe(3600000); expect(bought.tokens).toBe(344);
   });
   it('persists a bought level through a save and reload', () => {
     const climbed = purchaseLevel(createProfile()).profile;

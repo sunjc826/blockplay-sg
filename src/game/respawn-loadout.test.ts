@@ -33,11 +33,11 @@ describe('respawn loadout selection', () => {
 
   it('allows a live rental and rejects it once expired at confirmation', () => {
     const clock = vi.spyOn(Date, 'now').mockReturnValue(100000);
-    const profile = purchase(buyer(), 'sar-vanguard', '1d').profile, selection = selectedRespawnLoadout(profile);
+    const profile = purchase(buyer(), 'sar-vanguard', '1h').profile, selection = selectedRespawnLoadout(profile);
     selection.variants[0] = 'sar-vanguard';
     expect(applyRespawnLoadout(profile, selection)?.guns[0].variant).toBe('sar-vanguard');
     clock.mockReturnValue(9999999999999);
-    expect(applyRespawnLoadout(spendRentalTime(profile, 86400000), selection)).toBeNull();
+    expect(applyRespawnLoadout(spendRentalTime(profile, 3600000), selection)).toBeNull();
   });
 
   it('changes the authority only on respawn, including a new main and sidearm', () => {
@@ -68,7 +68,7 @@ describe('respawn loadout selection', () => {
 
   it('falls back to issued damage when a queued rental expires before spawn', () => {
     const clock = vi.spyOn(Date, 'now').mockReturnValue(100000);
-    const p = equip(purchase(buyer(), 'sar-vanguard', '1d').profile, 'sar-vanguard', 0);
+    const p = equip(purchase(buyer(), 'sar-vanguard', '1h').profile, 'sar-vanguard', 0);
     const loadout = resolveLoadout(p), a = createArena([], 0);
     a.addPlayer('p', 'Player'); a.addPlayer('target', 'Target');
     a.queuePlayerWeapons('p', loadout.weapons, loadout.carriedFamilies);
@@ -85,10 +85,10 @@ describe('respawn loadout selection', () => {
 
 it('does not let ownership from a fallen life keep an expired rented variant on respawn', () => {
   const clock = vi.spyOn(Date, 'now').mockReturnValue(100000);
-  const selected = equip(purchase(buyer(), 'sar-vanguard', '1d').profile, 'sar-vanguard', 0);
+  const selected = equip(purchase(buyer(), 'sar-vanguard', '1h').profile, 'sar-vanguard', 0);
   const field = { ...selected, owned: [...selected.owned, 'sar-vanguard', 'xm8-carbine'] };
   clock.mockReturnValue(9999999999999);
-  const respawned = respawnEquipment(field, spendRentalTime(selected, 86400000));
+  const respawned = respawnEquipment(field, spendRentalTime(selected, 3600000));
   expect(respawned.owned).not.toContain('sar-vanguard');
   expect(respawned.owned).not.toContain('xm8-carbine');
   expect(respawned.guns[0].variant).toBe('sar-issued');

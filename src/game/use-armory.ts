@@ -1,7 +1,7 @@
 import type { WeaponTerm } from './weapon-rentals';
 import type { RaiderBounty } from './combat-rewards';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { spendRentalTime, expireRentals, selectCarryWeapon, chooseEncikTone, chooseRankSet, claimReward, claimElimination, consumeItem, createProfile, equip, purchase, purchaseFromVendor, purchaseLevel, restoreProfile, STORAGE_KEY, type ArmoryProfile, type ExerciseReward } from './armory-state';
+import { discardRental, spendRentalTime, expireRentals, selectCarryWeapon, chooseEncikTone, chooseRankSet, claimReward, claimElimination, consumeItem, createProfile, equip, purchase, purchaseFromVendor, purchaseLevel, restoreProfile, STORAGE_KEY, type ArmoryProfile, type ExerciseReward } from './armory-state';
 import type { VehicleKind } from './vehicle-rules';
 import { getRankSet } from './rank-insignia';
 import type { EncikTone } from './encik-registers';
@@ -40,6 +40,11 @@ export function useArmory() {
     window.addEventListener('pagehide', saveOnExit);
     return () => { saveOnExit(); window.removeEventListener('pagehide', saveOnExit); };
   }, [advanceRentalTime]);
+  const discardWeaponRental = useCallback((id: string) => {
+    const next = discardRental(current.current, id), changed = next !== current.current;
+    update(next); setMessage(changed ? 'Rental discarded. Its remaining play time was removed; no currency refunded. Issued gear is ready.' : 'No active rental to discard.');
+    return changed;
+  }, [update]);
   const buy = useCallback((id: string, term?: WeaponTerm) => { const result = purchase(current.current, id, term); const changed = result.profile !== current.current; update(result.profile); setMessage(result.message); return changed; }, [update]);
   const buyFromVendor = useCallback((id: string, price?: number) => { const result = purchaseFromVendor(current.current, id, price); update(result.profile); setMessage(result.message); return result; }, [update]);
   const buyLevel = useCallback(() => { const result = purchaseLevel(current.current); const changed = result.profile !== current.current; update(result.profile); setMessage(result.message); return changed; }, [update]);
@@ -56,6 +61,6 @@ export function useArmory() {
     if (!added) { setMessage('Demo credits are already at the 1,000,000 CR cap.'); return false; }
     update({ ...current.current, credits }); setMessage(`${added.toLocaleString()} demo credits added. No payment was made.`); return true;
   }, [update]);
-  return { profile, advanceRentalTime, selectCarrySlot, buy, buyFromVendor, buyLevel, wearRankSet, setEncikTone, equipItem, award, awardElimination, consume, demoTopUp, demoCreditTopUp, message, saveError };
+  return { profile, discardWeaponRental, advanceRentalTime, selectCarrySlot, buy, buyFromVendor, buyLevel, wearRankSet, setEncikTone, equipItem, award, awardElimination, consume, demoTopUp, demoCreditTopUp, message, saveError };
 }
 export type ArmoryStore = ReturnType<typeof useArmory>;

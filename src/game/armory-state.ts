@@ -1,4 +1,4 @@
-import { canRentWeapon, hasItemAccess, isWeaponTerm, RENTAL_DAY_MS, WEAPON_TERMS, weaponTermPrice, type WeaponTerm } from './weapon-rentals';
+import { canRentWeapon, hasItemAccess, isWeaponTerm, RENTAL_HOUR_MS, WEAPON_TERMS, weaponTermPrice, type WeaponTerm } from './weapon-rentals';
 import { RANGE_DURATION, validRangeDrill, type RangeDrillId } from './range-drills';
 import { RAIDER_BOUNTIES, validRaiderBounty, type RaiderBounty } from './combat-rewards';
 import { carriedFamilies, restoreCarrySlots, isMainWeapon, EXTRA_SLOT_ID, SIDEARM_FAMILY, type CarrySlots } from './armory-slots';
@@ -89,7 +89,7 @@ export function purchase(profile: ArmoryProfile, id: string, term?: WeaponTerm) 
   if (term !== undefined && (!isWeaponTerm(term) || !canRentWeapon(item))) return { profile, message: 'Rental term unavailable for this item.' };
   if (isEnemyIssue(item)) return { profile, message: 'Not sold. Take one from the enemy on an expedition.' };
   const supply = item.category === 'consumable';
-  const rentable = canRentWeapon(item), rentalTerm = term ?? '1d';
+  const rentable = canRentWeapon(item), rentalTerm = term ?? '1h';
   if (!supply && !rentable && profile.owned.includes(id)) return { profile, message: 'Already owned. Equip it below.' };
   if (progression(profile.xp).level < (item.requiredLevel || 1)) return { profile, message: `Unlocks at level ${item.requiredLevel}. Earn XP in the range.` };
   const price = rentable ? weaponTermPrice(item, rentalTerm) : item.price;
@@ -103,11 +103,11 @@ export function purchase(profile: ArmoryProfile, id: string, term?: WeaponTerm) 
   }
   const rentals = { ...profile.rentals };
   if (rentable) {
-    const days = WEAPON_TERMS.find(option => option.id === rentalTerm)!.days;
-    const remaining = Math.max(0, rentals[id] ?? 0) + days * RENTAL_DAY_MS;
+    const hours = WEAPON_TERMS.find(option => option.id === rentalTerm)!.hours;
+    const remaining = Math.max(0, rentals[id] ?? 0) + hours * RENTAL_HOUR_MS;
     if (!Number.isSafeInteger(remaining)) return { profile, message: 'Rental duration limit reached.' };
     rentals[id] = remaining;
-    return { profile: { ...profile, [item.currency]: profile[item.currency] - price, rentals, owned: profile.owned.filter(ownedId => ownedId !== id) }, message: `${item.name} ${hasItemAccess(profile, id) ? 'extended by' : 'rented for'} ${days} ${days === 1 ? 'day' : 'days'}. Equip it in your loadout.` };
+    return { profile: { ...profile, [item.currency]: profile[item.currency] - price, rentals, owned: profile.owned.filter(ownedId => ownedId !== id) }, message: `${item.name} ${hasItemAccess(profile, id) ? 'extended by' : 'rented for'} ${hours} ${hours === 1 ? 'hour' : 'hours'}. Equip it in your loadout.` };
   }
   delete rentals[id];
   return { profile: { ...profile, [item.currency]: profile[item.currency] - price, rentals, owned: [...profile.owned, id] }, message: `${item.name} unlocked permanently.` };
@@ -121,6 +121,13 @@ export function expireRentals(profile: ArmoryProfile): ArmoryProfile {
   const rentals = { ...profile.rentals };
   for (const id of expired) delete rentals[id];
   return { ...profile, rentals, guns };
+}
+
+/** Voluntarily end one paid lease. Wallets and unrelated equipment are untouched. */
+export function discardRental(profile: ArmoryProfile, id: string): ArmoryProfile {
+  const item = itemById(id);
+  if (!item || !canRentWeapon(item) || !(profile.rentals[id] > 0)) return profile;
+  return expireRentals({ ...profile, rentals: { ...profile.rentals, [id]: 0 } });
 }
 
 /** Spend only gameplay time reported by a running engine. Menus and offline saves never tick. */

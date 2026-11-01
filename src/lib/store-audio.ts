@@ -54,6 +54,7 @@ export function storeWithAudio(store: ArmoryStore, play: (sound: StoreSound) => 
     return changed;
   };
   return { ...store,
+    discardWeaponRental: outcome(store.discardWeaponRental, 'select'),
     buy: outcome(store.buy, 'purchase'), buyLevel: outcome(store.buyLevel, 'purchase'),
     equipItem: outcome(store.equipItem, id => storeEquipSound(id)),
     selectCarrySlot: outcome(store.selectCarrySlot, (_slot, family) =>

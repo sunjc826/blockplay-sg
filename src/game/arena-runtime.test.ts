@@ -270,7 +270,7 @@ it('reports a lost public relay even for the authoritative host', () => {
 it('acknowledges guest respawn loadouts and rejects weapons outside the admitted locker', async () => {
   vi.useFakeTimers();
   const [hostSession, guestSession] = localPair();
-  const profile = purchase({ ...createProfile(), xp: 100000, tokens: 10000 }, 'sar-vanguard', '1d').profile;
+  const profile = purchase({ ...createProfile(), xp: 100000, tokens: 10000 }, 'sar-vanguard', '1h').profile;
   const host = createArenaRuntime({ scene: new THREE.Scene(), obstacles: [], botCount: 0, session: hostSession });
   const guest = createArenaRuntime({ scene: new THREE.Scene(), obstacles: [], botCount: 0, session: guestSession, profile });
   try {

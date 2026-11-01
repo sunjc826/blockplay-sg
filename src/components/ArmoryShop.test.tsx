@@ -9,14 +9,14 @@ import type { ArmoryStore } from '../game/use-armory';
 
 it('shows maximum-level copy instead of asking level 50 players to keep climbing', () => {
   const profile = createProfile(); profile.xp = xpForLevel(50);
-  const store: ArmoryStore = { profile, selectCarrySlot: vi.fn(), buy: vi.fn(), buyFromVendor: vi.fn(), buyLevel: vi.fn(), wearRankSet: vi.fn(), setEncikTone: vi.fn(), equipItem: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), advanceRentalTime: vi.fn(), demoCreditTopUp: vi.fn(), message: '', saveError: false };
+  const store: ArmoryStore = { profile, selectCarrySlot: vi.fn(), buy: vi.fn(), buyFromVendor: vi.fn(), buyLevel: vi.fn(), wearRankSet: vi.fn(), setEncikTone: vi.fn(), equipItem: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), discardWeaponRental: vi.fn(), advanceRentalTime: vi.fn(), demoCreditTopUp: vi.fn(), message: '', saveError: false };
   const html = renderToStaticMarkup(<ArmoryShop store={store} onEnterRange={() => {}} />);
   expect(html).toContain('Maximum level reached');
   expect(html).not.toContain('Keep climbing to level 50');
 });
 
 const storeFor = (profile: ReturnType<typeof createProfile>): ArmoryStore =>
-  ({ profile, selectCarrySlot: vi.fn(), buy: vi.fn(), buyFromVendor: vi.fn(), buyLevel: vi.fn(), wearRankSet: vi.fn(), setEncikTone: vi.fn(), equipItem: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), advanceRentalTime: vi.fn(), demoCreditTopUp: vi.fn(), message: '', saveError: false });
+  ({ profile, selectCarrySlot: vi.fn(), buy: vi.fn(), buyFromVendor: vi.fn(), buyLevel: vi.fn(), wearRankSet: vi.fn(), setEncikTone: vi.fn(), equipItem: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), discardWeaponRental: vi.fn(), advanceRentalTime: vi.fn(), demoCreditTopUp: vi.fn(), message: '', saveError: false });
 
 it('lists a premium weapon’s fitted hardware and marks those slots fixed', () => {
   const base = createProfile();
@@ -140,17 +140,19 @@ it('keeps profile settings out of the store', () => {
 it('offers only play-time weapon rentals and no permanent weapon purchase', () => {
   const profile = { ...createProfile(), xp: xpForLevel(8) };
   const html = renderToStaticMarkup(<ArmoryShop store={storeFor(profile)} />);
-  for (const term of ['1d', '7d', '30d']) expect(html).toContain(`data-rental-term="${term}"`);
+  for (const term of ['1h', '2h', '4h']) expect(html).toContain(`data-rental-term="${term}"`);
   expect(html).not.toContain('data-rental-term="permanent"');
   expect(html).toContain('TIMED RENTAL'); expect(html).toContain('24 TK');
+  expect(html).toContain('44 TK'); expect(html).toContain('77 TK');
+  expect(html).toContain('Save 4 TK'); expect(html).toContain('Save 19 TK');
   expect(html).toContain('only during active play'); expect(html).toContain('No automatic charges');
 });
 
 it('shows rental expiry and renewal alongside equipping, without calling a rental permanent', () => {
-  const profile = { ...createProfile(), xp: xpForLevel(8), rentals: { 'sar-vanguard': 86400000 } };
+  const profile = { ...createProfile(), xp: xpForLevel(8), rentals: { 'sar-vanguard': 3600000 } };
   const html = renderToStaticMarkup(<ArmoryShop store={storeFor(profile)} />);
   expect(html).toContain('RENTAL ACTIVE');
-  expect(html).toContain('shop-renew');
+  expect(html).toContain('shop-renew'); expect(html).toContain('data-discard-rental');
   expect(html).toContain('Equip on SAR');
   expect(html).toContain('Remaining play time');
   expect(html).not.toContain('PERMANENT UNLOCK');

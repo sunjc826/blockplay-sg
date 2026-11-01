@@ -1,0 +1,3 @@
+.rental-discard{margin-top:10px;font-size:11px}.rental-discard>button,.rental-discard>div>button{border:1px solid #b49b7855;border-radius:3px;padding:8px 10px;background:transparent;color:#cbb89e;font:inherit;font-size:11px;cursor:pointer}.rental-discard>button{width:100%}.rental-discard p{font-size:11px;line-height:1.6;color:#e1bc9b;margin:0 0 8px}.rental-discard>div{display:flex;gap:8px}.rental-discard>div>button{flex:1}.rental-discard>div>button:first-child{background:#5b392c;color:#f5ddc8;border-color:#c88f6e80}.rental-discard button:focus-visible{outline:2px solid #eed198;outline-offset:3px}.armory-rental-terms small{font-size:8px;color:#dfcd9d}
+
+.armory-purchase>.rental-discard{display:block;margin-bottom:0}
