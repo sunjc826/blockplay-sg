@@ -1,0 +1,42 @@
+import * as THREE from 'three';
+import { expect, it } from 'vitest';
+import { PROXY_REWARDS } from './proxy-operations';
+import { recoverProxyWeapon } from './proxy-equipment';
+import { createProfile, resolveLoadout } from './armory-state';
+import { itemById } from './armory-catalog';
+import { buildProxyWeapon } from './proxy-weapon-models';
+import { fitWeaponOptic, getWeaponSight } from './weapon-optics';
+import { createWeaponHandling } from './fps-viewmodel';
+import { magazineGroup, magazineOf, restoreMagazine } from './magazine-inventory';
+import { createPooledLoadout, replacePooledWeapon } from './ammo-pools';
+import { addReserveMagazines } from './magazine-inventory';
+import { fireWeapon, beginReload, advanceWeapon } from './fps-rules';
+
+it.each(PROXY_REWARDS['freedom-force'])('%s has a live, unobstructed sight and detachable magazine', id => {
+  const family=itemById(id)!.family!, spec=resolveLoadout(recoverProxyWeapon(createProfile(),id,0)).weapons[family];
+  const model=buildProxyWeapon(id,true), root=model.root;
+  expect(root.userData.artStudy).toBe(false);
+  expect(root.getObjectByName(`${id}__magazine`)!.children.length).toBeGreaterThan(0);
+  expect(root.getObjectByName(`${id}__socket_muzzle`)).toBe(model.sockets.muzzle);
+  const {height}=root.userData.proxyOptic;
+  root.updateMatrixWorld(true);
+  const ray=new THREE.Raycaster(new THREE.Vector3(0,height,.8),new THREE.Vector3(0,0,-1),0,2);
+  expect(ray.intersectObject(root,true)).toHaveLength(0);
+  const remove=fitWeaponOptic(root,spec), sight=getWeaponSight(root)!;
+  expect(sight.aimHeight).toBe(height);
+  expect(sight.magnification).toBeCloseTo(id==='ff-longwatch'?4:id==='ff-scar-h'?2:1);
+  const handling=createWeaponHandling(root,family);
+  expect(Number.isFinite(handling.aimHeight)).toBe(true);
+  handling.dispose(); remove(); model.dispose();
+});
+it.each(PROXY_REWARDS['freedom-force'])('%s can fire, reload and retain physical magazines across travel',id=>{
+  const previous=resolveLoadout(createProfile()), next=resolveLoadout(recoverProxyWeapon(createProfile(),id,0)), family=itemById(id)!.family!, spec=next.weapons[family];
+  const states=replacePooledWeapon(createPooledLoadout(previous.weapons,previous.carriedFamilies),previous.weapons,previous.carriedFamilies,next.weapons,next.carriedFamilies,family);
+  const state=states[family]; addReserveMagazines(state,4);
+  expect(fireWeapon(state,family,next.weapons)).toBe(true);
+  state.cooldown=0;expect(beginReload(state,family,next.weapons)).toBe(true);advanceWeapon(state,family,spec.reload*2,next.weapons);
+  expect(state.magazine).toBe(spec.capacity+1);
+  expect(restoreMagazine(magazineOf(spec,family))?.family).toBe(family);
+  expect(magazineGroup(spec)).toBe(id==='ff-scar-l'?'5.56:magazine':'7.62:magazine');
+  expect(magazineGroup(spec)).not.toBe('7.62:belt');
+});

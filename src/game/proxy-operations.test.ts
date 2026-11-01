@@ -1,5 +1,6 @@
+import { recoverProxyWeapon } from './proxy-equipment';
 import { describe, expect, it } from 'vitest';
-import { createProxyCampaign, createProxyOperations, PROXY_RULES, PROXY_WEAPON, validProxySnapshot, type ProxyParticipant } from './proxy-operations';
+import { createProxyCampaign, createProxyOperations, PROXY_RULES, PROXY_REWARDS, validProxySnapshot, type ProxyParticipant } from './proxy-operations';
 import { hostile } from './arena-factions';
 import { createProfile, resolveLoadout, restoreFieldProfile, restoreProfile } from './armory-state';
 import { itemById } from './armory-catalog';
@@ -80,11 +81,38 @@ describe('personal proxy tradeoffs',()=>{
       const bad=ops.snapshot();mutation(bad);expect(validProxySnapshot(bad)).toBe(false);
     }
   });
-  it('resolves the Mythic field retrofit on the host but never restores it from a persistent save',()=>{
-    const profile=createProfile(), item=itemById(PROXY_WEAPON)!; profile.owned.push(item.id); profile.guns[0].variant=item.id;
-    const field=restoreFieldProfile(profile); expect(resolveLoadout(field).weapons[0].damage).toBeGreaterThan(resolveLoadout(createProfile()).weapons[0].damage*1.5);
-    expect(resolveLoadout(field).weapons[0].name).toContain('Unauthorised');
-    expect(restoreProfile(JSON.stringify(field)).owned).not.toContain(PROXY_WEAPON);
-    expect(createProfile().guns[0].variant).not.toBe(PROXY_WEAPON);
+  it.each(PROXY_REWARDS['freedom-force'])('keeps %s usable in the field but out of persistent ownership', id=>{
+    const item=itemById(id)!, profile=recoverProxyWeapon(createProfile(), id, 0);
+    const field=restoreFieldProfile(profile), spec=resolveLoadout(field).weapons[item.family!];
+    expect(spec.id).toBe(id); expect(spec.name).toBe(item.name);
+    expect(resolveLoadout(field).carriedFamilies).toContain(item.family);
+    expect(restoreProfile(JSON.stringify(field)).owned).not.toContain(id);
+    expect(createProfile().owned).not.toContain(id);
+  });
+  it.each([0, .34, .99])('selects a Freedom Force weapon once at spawn (roll %s)', roll=>{
+    let calls=0;
+    const ops=createProxyOperations(createProxyCampaign(),()=>{calls++; return roll;});
+    ops.start(at,entries); const id=ops.current()!.weaponId;
+    expect(id).toBe(PROXY_REWARDS['freedom-force'][Math.floor(roll*3)]);
+    expect(itemById(id)!.family).toBeGreaterThan(7);
+    ops.step(PROXY_RULES.warning, actors);
+    expect(ops.snapshot().operation!.weaponId).toBe(id);
+    expect(validProxySnapshot(ops.snapshot())).toBe(true);
+    expect(ops.action('p','keep',actors)).toBe(true);
+    expect(ops.current()!.weaponId).toBe(id); expect(calls).toBe(1);
+    expect(ops.current()!.outcome).toContain(itemById(id)!.name);
+    expect(ops.current()!.outcome).not.toContain('SAR 21');
+    const forged=ops.snapshot(); forged.operation!.weaponId='sar-issued';
+    expect(validProxySnapshot(forged)).toBe(false);
+    forged.operation!.weaponId='sar-proxy-prototype'; expect(validProxySnapshot(forged)).toBe(false);
+  });
+  it('keeps the selected reward independent of the receiving faction and other carry slots',()=>{
+    const profile=createProfile(); profile.owned.push('slot-extra'); profile.carry={main:1,extra:0};
+    const next=recoverProxyWeapon(profile,'ff-scar-h',0);
+    expect(next.carry).toEqual({main:1,extra:9}); expect(profile.carry).toEqual({main:1,extra:0});
+    expect(next.guns[0].variant).toBe('sar-issued');
+    expect(recoverProxyWeapon(profile,'sar-twoeyes',0)).toBe(profile);
+    const {ops}=fixture(); ops.action('p','rival',actors);
+    expect(ops.current()!.weaponId).toMatch(/^ff-/);
   });
 });

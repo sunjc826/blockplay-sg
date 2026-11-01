@@ -65,13 +65,20 @@ export const FPS_WEAPONS: readonly WeaponSpec[] = [
     traits: [{ kind: 'falloff', near: 32, far: 95, minScale: .55 }, { kind: 'precision', multiplier: 1.6 }] },
   { caliberMm: 5.56, id: 'mg4-inspired', feed: 'belt', bolt: 'open', bipod: 'standard', weightKg: 8.2, name: 'MG4', role: 'Light machine gun', capacity: 100, reserve: 200, interval: .075, reload: 3.8, recoil: .024, recoilRecovery: .85, sightHeight: ENEMY_WEAPON_LAYOUT['mg4-inspired'].sightHeight, damage: 31, aimFov: HIP_FOV, mobility: .9, optic: 'iron', ballistics: muzzleBallistics(925),
     traits: [{ kind: 'falloff', near: 22, far: 65, minScale: .45 }, { kind: 'precision', multiplier: 1.5 }] },
+  // Freedom Force cargo rewards. Append families to preserve save/network indexes.
+  { caliberMm: 5.56, id: 'ff-scar-l', weightKg: 3.6, name: 'Soft Power', role: 'Freedom Force assault rifle', capacity: 30, reserve: 120, interval: .095, reload: 1.8, recoil: .012, recoilRecovery: 1.25, sightHeight: .350, damage: 36, aimFov: HIP_FOV, mobility: 1.02, optic: 'reflex', ballistics: muzzleBallistics(970),
+    traits: [{ kind: 'falloff', near: 40, far: 110, minScale: .65 }, { kind: 'precision', multiplier: 2 }] },
+  { caliberMm: 7.62, id: 'ff-scar-h', weightKg: 4.2, name: 'Hard Power', role: 'Freedom Force battle rifle', capacity: 20, reserve: 80, interval: .13, reload: 2.1, recoil: .025, recoilRecovery: 1.15, sightHeight: .350, damage: 55, aimFov: magnifiedFov(2), mobility: .96, optic: 'precision', ballistics: muzzleBallistics(850),
+    traits: [{ kind: 'falloff', near: 55, far: 140, minScale: .75 }, { kind: 'precision', multiplier: 2.2 }] },
+  { caliberMm: 7.62, id: 'ff-longwatch', weightKg: 5.2, name: 'Longwatch', role: 'Freedom Force precision rifle', fireMode: 'semi', capacity: 10, reserve: 50, interval: .32, reload: 2.3, recoil: .03, recoilRecovery: 1.4, sightHeight: .350, damage: 80, aimFov: magnifiedFov(4), mobility: .9, optic: 'precision', ballistics: muzzleBallistics(900),
+    traits: [{ kind: 'falloff', near: 80, far: 180, minScale: .85 }, { kind: 'precision', multiplier: 2.4 }] },
 ];
 
 /** Stable family indexes are shared by saves, keyboard shortcuts and LAN packets. */
 export const validWeaponIndex = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < FPS_WEAPONS.length;
 /** Each family's baseline. The enemy-issue baselines are never owned until found. */
-export const DEFAULT_VARIANTS = ['sar-issued', 'ult-issued', 'p30-issued', 'mag-issued', 'cis50-issued', 'xm8-carbine', 'g36-rifle', 'mg4-standard'] as const;
+export const DEFAULT_VARIANTS = ['sar-issued', 'ult-issued', 'p30-issued', 'mag-issued', 'cis50-issued', 'xm8-carbine', 'g36-rifle', 'mg4-standard', 'ff-scar-l', 'ff-scar-h', 'ff-longwatch'] as const;
 
 /**
  * The ammunition in one weapon. `magazine` is every round in the gun, the

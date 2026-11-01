@@ -65,7 +65,8 @@ export interface ShopItem {
   flavorText?: string;
   /**
    * `enemy`: carried by opposing forces and only ever taken from them. Never
-   * sold, never issued, never in a supply crate, and it lasts the expedition.
+   * sold or issued. Excluded from ordinary supply crates; proxy cargo has its
+   * own reward pool. Field ownership lasts the current life.
    */
   source?: 'enemy';
   /** Weapons only: which of the platform model's fixed configurations this variant is. */
@@ -112,6 +113,9 @@ export interface ShopItem {
   useVerb?: string;
 }
 export const ARMORY_CATALOG: readonly ShopItem[] = [
+  { id: 'ff-scar-l', source: 'enemy', specialist: true, name: 'Soft Power · Foreign Aid', category: 'weapon', family: 8, build: [{ id: 'ff-scar-l-match-barrel', name: 'Prototype match barrel', description: 'Freedom Force experimental barrel and chamber.', damage: 28 }], tier: 'Mythic', price: 0, currency: 'credits', description: 'Freedom Force SCAR-L cargo reward. A fast 5.56 mm assault rifle with a reflex sight. Field use for this life only; keeping it provokes Freedom Force.' },
+  { id: 'ff-scar-h', source: 'enemy', specialist: true, name: 'Hard Power · Strings Attached', category: 'weapon', family: 9, build: [{ id: 'ff-scar-h-match-barrel', name: 'Prototype match barrel', description: 'Freedom Force experimental barrel and chamber.', damage: 27 }], tier: 'Mythic', price: 0, currency: 'credits', description: 'Freedom Force SCAR-H cargo reward. A harder-hitting 7.62 mm battle rifle with a 2× optic and twenty-round magazine. Field use for this life only; keeping it provokes Freedom Force.' },
+  { id: 'ff-longwatch', source: 'enemy', specialist: true, name: 'Longwatch', category: 'weapon', family: 10, build: [{ id: 'ff-longwatch-match-barrel', name: 'Prototype match barrel', description: 'Freedom Force experimental barrel and chamber.', damage: 25 }], tier: 'Mythic', price: 0, currency: 'credits', description: 'Freedom Force precision rifle cargo reward. Semi-automatic 7.62 mm fire, a 4× optic and ten-round magazine. Field use for this life only; keeping it provokes Freedom Force.' },
   { id: 'sar-proxy-prototype', source: 'enemy', specialist: true, name: 'SAR 21 · Unauthorised Upgrade', category: 'weapon', family: 0, tier: 'Mythic', price: 0, currency: 'credits',
     weightKg: 4.8, accent: '#e7bc68', build: [{ id:'proxy-fire-control', name:'Prototype fire-control assembly', description:'Recovered experimental parts fitted to the issued rifle.', damage:34, interval:-.025, recoil:-.006, recoilRecovery:.25, capacity:6 }],
     description:'Contested proxy cargo. Powerful experimental SAR 21 retrofit; field use for this life only. Keeping it provokes its owner. Uses standard rifle ammunition.' },

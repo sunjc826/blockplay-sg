@@ -1,3 +1,4 @@
+import { itemById } from './armory-catalog';
 import { expect, it } from 'vitest';
 import { createProfile, resolveLoadout } from './armory-state';
 import { respawnEquipment } from './respawn-equipment';
@@ -34,9 +35,10 @@ it('uses the expedition-entry equipment after travel and repeated deaths', () =>
   expect(respawnEquipment(restored, starting).carry).toEqual(starting.carry);
 });
 
-it('forfeits a stolen proxy prototype on death, including after district travel', () => {
+it.each(['ff-scar-l', 'ff-scar-h', 'ff-longwatch', 'sar-proxy-prototype'])('forfeits %s on death, including after district travel', id => {
   const starting=createProfile(), current=structuredClone(starting);
-  current.owned.push('sar-proxy-prototype');current.guns[0].variant='sar-proxy-prototype';
+  const family=itemById(id)!.family!;
+  current.owned.push(id);current.guns[family].variant=id; current.carry.main=family;
   const after=respawnEquipment(structuredClone(current),starting);
-  expect(after.owned).not.toContain('sar-proxy-prototype');expect(after.guns[0].variant).toBe('sar-issued');
+  expect(after.owned).not.toContain(id);expect(after.carry).toEqual(starting.carry);expect(after.guns).toEqual(starting.guns);
 });

@@ -4,6 +4,7 @@ import { opticMagnification } from './fps-rules';
 import { buildReflexHousing } from './weapon-reflex';
 import { buildSightHousing, roundedRect, type SightWindow } from './weapon-sight-housings';
 import { createOpticGlass, type OpticGlass } from './weapon-glass';
+import type { EnemyOptic } from './enemy-weapon-layout';
 import { enemyOptic } from './enemy-weapon-layout';
 import { scopeReticleFor, scopeReticleGlsl, type ScopeReticle } from './scope-reticles';
 
@@ -209,7 +210,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   // Enemy-issue platforms carry their sight in the model itself; the config
   // `applyEnemyWeaponConfig` chose decides which one, and only its glass and
   // reticle are fitted here.
-  const built = enemyOptic(weapon.id, root.userData.enemyConfig);
+  const built: EnemyOptic | undefined = enemyOptic(weapon.id, root.userData.enemyConfig) ?? root.userData.proxyOptic;
   // A variant's own sight (weapon-accessories) brings its housing with it.
   const fitted = built ? undefined : weapon.accessories?.sight;
   if (weapon.optic === 'iron' && !built && !fitted) return () => {};

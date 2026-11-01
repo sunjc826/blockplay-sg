@@ -11,11 +11,12 @@ function meshes(root: THREE.Object3D) {
 }
 
 describe('proxy weapon exterior studies', () => {
-  it('keeps candidates out of game weapon families, stores, roles and operator hand poses', () => {
+  it('keeps unimplemented candidates out of gameplay and all studies out of operator roles', () => {
     expect(PROXY_WEAPONS).toHaveLength(7);
     expect(new Set(PROXY_WEAPONS.map(study => study.id)).size).toBe(7);
     for (const study of PROXY_WEAPONS) {
-      expect(itemById(study.id)).toBeUndefined(); expect(getArenaRole(study.id)).toBeUndefined(); expect(buildServiceWeapon(study.id)).toBeUndefined();
+      if (!['ff-scar-l', 'ff-scar-h', 'ff-longwatch'].includes(study.id)) { expect(itemById(study.id)).toBeUndefined(); expect(buildServiceWeapon(study.id)).toBeUndefined(); }
+      expect(getArenaRole(study.id)).toBeUndefined();
       expect(study.referenceUrl).toMatch(/^https:\/\//);
     }
     for (const faction of PROXY_FACTIONS) for (const operator of faction.operators) expect(['rifle', 'marksman']).toContain(proxyCharacterLook(faction.id, operator.id).weapon);

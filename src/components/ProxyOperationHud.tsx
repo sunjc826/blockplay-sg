@@ -1,5 +1,5 @@
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
-import { proxyName, proxyRival, type ProxyAction } from '../game/proxy-operations';
+import { proxyName, proxyRival, proxyWeaponName, type ProxyAction } from '../game/proxy-operations';
 import { facilityOperational } from '../game/facilities';
 import './proxy-operations.css';
 
@@ -14,7 +14,7 @@ export default function ProxyOperationHud({ hud, engine }: { hud: FpsHud; engine
   const choices: {action:ProxyAction;title:string;detail:string;disabled?:boolean}[] = [
     {action:'return',title:`Return to ${owner}`,detail:`${owner} favor +15. Give up the upgrade.`,disabled:!hud.arena?.actors.some(a=>a.bot&&a.alive&&a.faction===op.owner)},
     {action:'rival',title:`Hand over to ${rival}`,detail:`${rival} +12; ${owner} −20. Owner pursues you.`,disabled:!hud.arena?.actors.some(a=>a.bot&&a.alive&&a.faction===proxyRival(op.owner))},
-    {action:'keep',title:'Keep the Mythic upgrade',detail:`Fit a powerful SAR 21 for this life. ${owner} −20; owner pursues you.`},
+    {action:'keep',title:'Keep the Mythic upgrade',detail:`Take ${proxyWeaponName(op.weaponId)} for this life. ${owner} −20; owner pursues you.`},
     {action:'carry',title:'Carry to the Armed Forces',detail:`Deliver at a friendly facility: up to 60 supplies, repairs and ready deployment. ${owner} −20; owner pursues you.`},
   ];
   return <>
@@ -29,7 +29,7 @@ export default function ProxyOperationHud({ hud, engine }: { hud: FpsHud; engine
     </aside>
     {hud.proxyMenu && <div className="proxy-choice-overlay" role="dialog" aria-modal="true" aria-label="Choose the prototype's fate" onPointerDown={e=>e.stopPropagation()}>
       <div className="proxy-choice-card">
-        <div className="proxy-choice-heading"><div><small>EXPERIMENTAL FIRE-CONTROL ASSEMBLY</small><h2>Who gets the prototype?</h2></div><button aria-label="Close cargo choices" onClick={()=>engine?.closeProxyMenu()}>×</button></div>
+        <div className="proxy-choice-heading"><div><small>{proxyWeaponName(op.weaponId)}</small><h2>Who gets the prototype?</h2></div><button aria-label="Close cargo choices" onClick={()=>engine?.closeProxyMenu()}>×</button></div>
         <p>The tracker identifies anyone taking this cargo. Favor is personal; nearby friendly soldiers may defend you. The battle continues while you choose.</p>
         <div className="proxy-choice-list">{choices.map((choice,i)=><button key={choice.action} disabled={choice.disabled} onClick={()=>engine?.chooseProxyAction(choice.action)}>
           <kbd>{i+1}</kbd><span><strong>{choice.title}</strong><small>{choice.disabled?'Recovery cell eliminated; handover unavailable.':choice.detail}</small></span>

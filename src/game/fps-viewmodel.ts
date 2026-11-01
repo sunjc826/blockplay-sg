@@ -47,6 +47,8 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   if (index === 4) { right.position.set(.115, .1, .23); support.set(-.115, .1, .23); magazineGrip.set(-.15, .12, -.03); }
   const id = FPS_WEAPONS[index].id, enemy = isEnemyWeaponId(id) ? ENEMY_WEAPON_LAYOUT[id] : undefined;
   if (enemy) { right.position.fromArray(enemy.hands.right); support.fromArray(enemy.hands.support); magazineGrip.fromArray(enemy.hands.magazine); }
+  const proxy = model.userData.proxyHands;
+  if (proxy) { right.position.fromArray(proxy.right); support.fromArray(proxy.support); magazineGrip.fromArray(proxy.magazine); }
   const rightCharges = FPS_WEAPONS[index].feed === 'belt';
   const rightHome = right.position.clone(), rightRotation = right.quaternion.clone();
   const chargeTarget = new THREE.Vector3(), chargeWaypoint = new THREE.Vector3();

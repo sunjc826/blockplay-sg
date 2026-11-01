@@ -5,7 +5,11 @@ export type ProxyId = typeof PROXY_IDS[number];
 export const proxyName = (id: ProxyId) => id === 'freedom-force' ? 'Freedom Force' : 'Collective Corps';
 export const proxyRival = (id: ProxyId): ProxyId => id === 'freedom-force' ? 'collective-cops' : 'freedom-force';
 export const PROXY_RULES = { firstIn: 60, cooldown: 420, warning: 18, duration: 180, pursuit: 65, withdrawal: 18, claim: 8, reach: 4, supplies: 60 } as const;
-export const PROXY_WEAPON = 'sar-proxy-prototype';
+export const PROXY_REWARDS = {
+  'freedom-force': ['ff-scar-l', 'ff-scar-h', 'ff-longwatch'],
+  'collective-cops': ['sar-proxy-prototype'],
+} as const;
+export const proxyWeaponName = (id: string) => ({ 'ff-scar-l': 'Soft Power · Foreign Aid', 'ff-scar-h': 'Hard Power · Strings Attached', 'ff-longwatch': 'Longwatch', 'sar-proxy-prototype': 'SAR 21 · Unauthorised Upgrade' })[id] ?? 'Prototype';
 export type ProxyAction = 'return' | 'rival' | 'keep' | 'carry' | 'deliver';
 export type ProxyPoint = { x: number; y: number; z: number };
 export interface ProxyCampaign {
@@ -15,7 +19,7 @@ export interface ProxyCampaign {
 }
 export const createProxyCampaign = (): ProxyCampaign => ({ favor: { 'freedom-force': 0, 'collective-cops': 0 }, nextIn: PROXY_RULES.firstIn, serial: 0 });
 export interface ProxyOperation {
-  id: string; owner: ProxyId; phase: 'incoming' | 'contested' | 'recovery' | 'withdrawing' | 'complete';
+  id: string; owner: ProxyId; weaponId: string; phase: 'incoming' | 'contested' | 'recovery' | 'withdrawing' | 'complete';
   at: ProxyPoint; entries: Record<ProxyId, ProxyPoint>; remaining: number;
   cargo: 'sealed' | 'carried' | 'resolved'; carrier?: string; decision?: ProxyAction;
   claim: Record<ProxyId, number>; targets: Record<ProxyId, string[]>;
@@ -29,7 +33,7 @@ const near = (a: ProxyPoint, b: ProxyPoint, radius: number) => Math.hypot(a.x - 
 const bounded = (n: number) => Math.max(-100, Math.min(100, n));
 export const validProxyAction = (value: unknown): value is ProxyAction => typeof value === 'string' && ['return', 'rival', 'keep', 'carry', 'deliver'].includes(value);
 
-export function createProxyOperations(campaign: ProxyCampaign) {
+export function createProxyOperations(campaign: ProxyCampaign, random: () => number = Math.random) {
   let operation: ProxyOperation | null = null;
   function adjust(faction: ProxyId, amount: number) { campaign.favor[faction] = bounded(campaign.favor[faction] + amount); }
   function target(faction: ProxyId, id: string) {
@@ -41,7 +45,9 @@ export function createProxyOperations(campaign: ProxyCampaign) {
   }
   function start(at: ProxyPoint, entries: Record<ProxyId, ProxyPoint>) {
     if (operation && (operation.phase !== 'complete' || operation.cargo==='carried')) return false;
-    operation = { id: `proxy-${++campaign.serial}`, owner: campaign.serial % 2 ? 'freedom-force' : 'collective-cops',
+    const owner = ++campaign.serial % 2 ? 'freedom-force' : 'collective-cops';
+    const rewards = PROXY_REWARDS[owner];
+    operation = { id: `proxy-${campaign.serial}`, owner, weaponId: rewards[Math.floor(random() * rewards.length)],
       phase: 'incoming', at: { ...at }, entries: structuredClone(entries), remaining: PROXY_RULES.warning,
       cargo: 'sealed', claim: { 'freedom-force': 0, 'collective-cops': 0 }, targets: { 'freedom-force': [], 'collective-cops': [] }, outcome: '' };
     campaign.nextIn = PROXY_RULES.cooldown; return true;
@@ -73,7 +79,7 @@ export function createProxyOperations(campaign: ProxyCampaign) {
     } else {
       adjust(op.owner, -20); target(op.owner, id);
       if (choice === 'rival') { adjust(recipient, 12); op.cargo = 'resolved'; op.outcome = `${proxyName(recipient)} favor +12; ${proxyName(op.owner)} favor −20.`; }
-      if (choice === 'keep') { op.cargo = 'resolved'; op.outcome = 'Prototype fitted to your SAR 21 for this life. Owner favor −20.'; }
+      if (choice === 'keep') { op.cargo = 'resolved'; op.outcome = `${proxyWeaponName(op.weaponId)} recovered for this life. Owner favor −20.`; }
       if (choice === 'carry') { op.cargo = 'carried'; op.carrier = id; op.outcome = 'Tracked cargo: deliver at an operational friendly facility. Owner favor −20.'; }
       op.phase = 'recovery'; op.remaining = PROXY_RULES.pursuit;
     }
@@ -110,7 +116,7 @@ export function validProxySnapshot(value: unknown): value is ProxySnapshot {
   if (!s.favor || !PROXY_IDS.every(f => Number.isFinite(s.favor[f]) && Math.abs(s.favor[f]) <= 100)) return false;
   if (op === null) return true;
   const point = (p: ProxyPoint) => !!p && [p.x,p.y,p.z].every(Number.isFinite) && Math.abs(p.x) <= 5000 && Math.abs(p.z) <= 5000 && p.y >= -50 && p.y <= 124;
-  return !!op && typeof op.id === 'string' && /^proxy-\d+$/.test(op.id) && op.id.length < 30 && PROXY_IDS.includes(op.owner) &&
+  return !!op && typeof op.id === 'string' && /^proxy-\d+$/.test(op.id) && op.id.length < 30 && PROXY_IDS.includes(op.owner) && (PROXY_REWARDS[op.owner] as readonly string[]).includes(op.weaponId) &&
     ['incoming','contested','recovery','withdrawing','complete'].includes(op.phase) && ['sealed','carried','resolved'].includes(op.cargo) &&
     point(op.at) && !!op.entries && PROXY_IDS.every(f => point(op.entries[f])) && Number.isFinite(op.remaining) && op.remaining >= 0 && op.remaining <= PROXY_RULES.duration &&
     typeof op.outcome === 'string' && op.outcome.length <= 200 && (op.carrier === undefined || typeof op.carrier === 'string' && op.carrier.length <= 100) &&

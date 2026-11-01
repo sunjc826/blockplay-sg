@@ -2,7 +2,8 @@ import { createWeaponShoulderMotion } from './weapon-shoulder-motion';
 import { createFirearmCameraShake } from './firearm-camera-shake';
 import { bailoutRoll, BAILOUT_ROLL_SECONDS } from './bailout-roll';
 import { applyVehicleImpactCamera } from './vehicle-impact';
-import { createProxyCampaign, PROXY_WEAPON, type ProxyAction, type ProxyCampaign } from './proxy-operations';
+import { recoverProxyWeapon } from './proxy-equipment';
+import { createProxyCampaign, type ProxyAction, type ProxyCampaign } from './proxy-operations';
 import { createProxyOperationVisuals } from './proxy-operation-visuals';
 import { applyRespawnLoadout, type RespawnLoadoutSelection } from './respawn-loadout';
 import { createDropColumnCheck } from './paratrooper-route-validation';
@@ -1387,17 +1388,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function chooseProxyAction(action: ProxyAction) {
     if (!expedition || !arenaRuntime || hud.phase!=='playing' || hud.arenaSelf?.alive!==true) return false;
+    const rewardId = hud.arena?.proxies?.operation?.weaponId;
     if (!arenaRuntime.proxyAction(action)) { hud.lootNotice='Unable to transfer: approach the cargo or an operational friendly facility with room for support.'; lootNoticeTime=4; publish(); return false; }
     hud.proxyMenu=false;
     if (action==='keep') {
-      const item=itemById(PROXY_WEAPON)!, family=item.family!;
+      const item=itemById(rewardId!)!, family=item.family!;
       const previousSpecs=specs, previousCarry=equipment.carriedFamilies;
-      const next=copyProfile(fieldProfile); next.owned=[...new Set([...next.owned,item.id])]; next.guns[family].variant=item.id;
-      const slot=pickupSlot(next,family,hud.weapon); if(slot!=='sidearm')next.carry={...next.carry,[slot]:family};
+      const next=recoverProxyWeapon(fieldProfile,item.id,hud.weapon);
       fieldProfile=next; equipment=resolveLoadout(next); specs=equipment.weapons;
       loadout=replacePooledWeapon(loadout,previousSpecs,previousCarry,specs,equipment.carriedFamilies,family);
+      if (item.id.startsWith('ff-')) addReserveMagazines(loadout[family], 4);
       arenaRuntime.updateLoadout(fieldProfile);
       undress.splice(0).forEach(dispose=>dispose()); weapons.forEach((model,index)=>undress.push(dressWeapon(model,specs[index])));
+      weaponStyles[family] = effectStyleForWeapon(specs[family]);
       switchWeapon(family); expedition.onEquipment(copyProfile(fieldProfile));
     }
     canvas.focus({preventScroll:true}); publish(); return true;

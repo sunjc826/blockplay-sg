@@ -4,11 +4,11 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 export type ProxyWeaponId = 'ff-oicw' | 'ff-scar-l' | 'ff-scar-h' | 'ff-longwatch' | 'cc-gatekeeper' | 'cc-network' | 'cc-qts11';
 export interface ProxyWeaponStudy {
   id: ProxyWeaponId; faction: 'freedom-force' | 'collective-cops'; name: string; operator: string;
-  /** Display labels for art studies, not entries in the live weapon-family registry. */
+  /** Family and signature labels shared by the gallery and cargo rewards. */
   familyLabel?: string; variantLabel?: string;
   reference: string; referenceUrl: string; silhouette: string; interpretation: string;
 }
-/** Exterior art studies only: no shop IDs, ballistics, ammunition or live role registration. */
+/** Design-gallery metadata. The three conventional Freedom Force rifles also have live cargo variants. */
 export const PROXY_WEAPONS: readonly ProxyWeaponStudy[] = [
   { id: 'ff-oicw', faction: 'freedom-force', name: 'Peace Offering · Escalation Clause', familyLabel: 'Peace Offering', variantLabel: 'Escalation Clause', operator: 'Lancer · experimental option', reference: 'XM29 OICW · Block 3', referenceUrl: 'https://commons.wikimedia.org/wiki/File:XM29_Block3.jpg', silhouette: 'Stacked rifle and launcher muzzles, a bulky integrated upper body, a large sight housing and separate forward/rear feed silhouettes.', interpretation: 'Peace Offering is the family label; Escalation Clause is its signature variant. An original exterior interpretation of the XM29 OICW reference, in Freedom Force sand, bone and steel blue. The lower rifle, upper launcher and sight housing are static art; no launcher or airburst behavior is attached.' },
   { id: 'ff-scar-l', faction: 'freedom-force', name: 'Soft Power · Foreign Aid', familyLabel: 'Soft Power', variantLabel: 'Foreign Aid', operator: 'Lancer · option', reference: 'FN SCAR-L', referenceUrl: 'https://fnherstal.com/en/defence/portable-weapons/fn-scar-l-mk2/', silhouette: 'Compact SCAR-family upper, curved narrow magazine, folding-style cheek-rest stock and a small reflex sight.', interpretation: 'Soft Power is the family label; Foreign Aid is its signature variant. Sand and bone furniture, a single amber marker and an open lower stock notch identify the smaller member of the pair.' },
@@ -26,7 +26,7 @@ export interface ProxyWeaponModel {
 }
 type Point = readonly [number, number];
 
-export function buildProxyWeapon(id: ProxyWeaponId): ProxyWeaponModel {
+export function buildProxyWeapon(id: ProxyWeaponId, playable = false): ProxyWeaponModel {
   const study = PROXY_WEAPONS.find(candidate => candidate.id === id);
   if (!study) throw new Error('Unknown proxy weapon study.');
   const root = new THREE.Group(); root.name = id; root.userData.artStudy = true; root.userData.heat = 'none';
@@ -42,10 +42,13 @@ export function buildProxyWeapon(id: ProxyWeaponId): ProxyWeaponModel {
   const glass = material('Study opaque lens', '#1c414d', .14, .45);
   const materials = [metal, furniture, dark, trim, accent, glass];
   const parts = new Map<THREE.Material, THREE.BufferGeometry[]>();
+  const magazineParts = new Map<THREE.Material, THREE.BufferGeometry[]>();
+  let drawingMagazine = false;
   const add = (geometry: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
     if (geometry.index) { const flat = geometry.toNonIndexed(); geometry.dispose(); geometry = flat; }
     geometry.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new THREE.Vector3(1, 1, 1)));
-    const list = parts.get(m) ?? []; list.push(geometry); parts.set(m, list);
+    const target = playable && drawingMagazine ? magazineParts : parts;
+    const list = target.get(m) ?? []; list.push(geometry); target.set(m, list);
   };
   const box = (w: number, h: number, d: number, x: number, y: number, z: number, m = metal, rx = 0, ry = 0, rz = 0) => add(new THREE.BoxGeometry(w, h, d), m, x, y, z, rx, ry, rz);
   const cylinder = (r: number, length: number, x: number, y: number, z: number, m = dark) => add(new THREE.CylinderGeometry(r, r, length, 16), m, x, y, z, Math.PI / 2);
@@ -77,8 +80,10 @@ export function buildProxyWeapon(id: ProxyWeaponId): ProxyWeaponModel {
     for (const x of [-.021, .021]) box(.004, .012, .024, x, .018, z + .004, dark);
   };
   const magazine = (z: number, height: number, curve: number, breadth = 1) => {
+    drawingMagazine = true;
     side([[z - .035 * breadth, .035], [z + .03 * breadth, .035], [z + .033 * breadth, -.025], [z + .022 * breadth - curve, -height], [z - .043 * breadth - curve, -height + .008], [z - .04 * breadth, -.02]], .031 * breadth, dark);
     for (const x of [-.017 * breadth, .017 * breadth]) for (let i = 0; i < 3; i++) box(.002, height * .65, .003, x, -height * .43, z + (-.022 + i * .019) * breadth - curve * .35, metal, Math.atan2(curve, height));
+    drawingMagazine = false;
   };
   const muzzle = (front: number, start: number, y: number, shroud = false) => {
     cylinder(.012, start - front, 0, y, (front + start) / 2);
@@ -91,16 +96,29 @@ export function buildProxyWeapon(id: ProxyWeaponId): ProxyWeaponModel {
   const optic = (kind: 'reflex' | 'scope' | 'prism', z: number) => {
     box(.038, .035, .105, 0, .152, z, dark);
     if (kind === 'scope') {
-      cylinder(.024, .26, 0, .22, z, dark); cylinder(.039, .07, 0, .22, z - .135, furniture); cylinder(.03, .035, 0, .22, z + .14, dark);
-      cylinder(.033, .003, 0, .22, z - .172, glass); cylinder(.024, .003, 0, .22, z + .159, glass);
-      for (const offset of [-.075, .07]) box(.06, .065, .018, 0, .188, z + offset, metal);
+      if (playable) {
+        for (const [radius, length, at, m] of [[.024, .26, z, dark], [.039, .07, z - .135, furniture], [.03, .035, z + .14, dark]] as const) {
+          const wall = [new THREE.Vector2(radius - .005, -length / 2), new THREE.Vector2(radius, -length / 2), new THREE.Vector2(radius, length / 2), new THREE.Vector2(radius - .005, length / 2)];
+          add(new THREE.LatheGeometry(wall, 20), m, 0, .22, at, Math.PI / 2);
+        }
+      } else {
+        cylinder(.024, .26, 0, .22, z, dark); cylinder(.039, .07, 0, .22, z - .135, furniture); cylinder(.03, .035, 0, .22, z + .14, dark);
+        cylinder(.033, .003, 0, .22, z - .172, glass); cylinder(.024, .003, 0, .22, z + .159, glass);
+      }
+      for (const offset of [-.075, .07]) {
+        if (playable) {
+          const ring = [new THREE.Vector2(.024, -.009), new THREE.Vector2(.03, -.009), new THREE.Vector2(.03, .009), new THREE.Vector2(.024, .009)];
+          add(new THREE.LatheGeometry(ring, 20), metal, 0, .22, z + offset, Math.PI / 2);
+          box(.04, .03, .018, 0, .168, z + offset, metal);
+        } else box(.06, .065, .018, 0, .188, z + offset, metal);
+      }
       box(.024, .025, .029, 0, .254, z, dark); box(.022, .023, .025, .03, .22, z, trim);
     } else {
       const w = kind === 'prism' ? .075 : .065, h = kind === 'prism' ? .075 : .065, depth = kind === 'prism' ? .12 : .05;
       const outline = opening(-w / 2, w / 2, .17, .17 + h), hole = opening(-w / 2 + .009, w / 2 - .009, .181, .16 + h);
       const geometry = new THREE.ExtrudeGeometry(profile(outline, [hole]), { depth, bevelEnabled: false, steps: 1 });
       add(geometry, kind === 'prism' ? trim : dark, 0, 0, z - depth / 2);
-      box(w - .021, h - .024, .003, 0, .17 + h / 2, z - depth / 2 - .002, glass);
+      if (!playable) box(w - .021, h - .024, .003, 0, .17 + h / 2, z - depth / 2 - .002, glass);
       box(.017, .025, .045, w / 2 + .006, .19, z, metal);
     }
   };
@@ -232,8 +250,31 @@ export function buildProxyWeapon(id: ProxyWeaponId): ProxyWeaponModel {
     if (!merged) throw new Error('Unable to merge proxy weapon geometry.');
     const mesh = new THREE.Mesh(merged, m); mesh.name = `${id}__${m.name}`; root.add(mesh); geometries.push(merged);
   }
+  if (playable) {
+    const mag = new THREE.Group(); mag.name = `${id}__magazine`; mag.position.set(0, -.045, magZ);
+    for (const [m, list] of magazineParts) {
+      const merged = mergeGeometries(list, false)!; list.forEach(geometry => geometry.dispose());
+      merged.translate(0, .045, -magZ);
+      mag.add(new THREE.Mesh(merged, m)); geometries.push(merged);
+    }
+    root.add(mag);
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(.032, .014, .025), dark);
+    handle.name = `${id}__charging-handle`; handle.position.set(.053, .09, -.035); root.add(handle); geometries.push(handle.geometry);
+  }
   const socket = (name: string, x: number, y: number, z: number) => { const node = new THREE.Object3D(); node.name = `${id}__study_${name}`; node.position.set(x, y, z); root.add(node); return node; };
   const sockets = { grip: socket('grip', 0, 0, gripZ), foregrip: socket('foregrip', 0, .01, foreZ), magazine: socket('magazine', 0, .02, magZ), muzzle: socket('muzzle', 0, muzzleY, front - .002), ...(launcherFront === undefined ? {} : { launcherMuzzle: socket('launcher_muzzle', 0, launcherY, launcherFront - .002) }), ...(launcherMagZ === undefined ? {} : { launcherMagazine: socket('launcher_magazine', 0, .07, launcherMagZ) }) };
+  if (playable) {
+    glass.dispose();
+    const lift = .14;
+    for (const child of root.children) child.position.y += lift;
+    for (const [key, socket] of Object.entries(sockets)) socket.name = `${id}__socket_${key}`;
+    const eject = new THREE.Object3D(); eject.name = `${id}__socket_eject`; eject.position.set(.045, .224, .014); root.add(eject);
+    root.userData.artStudy = false;
+    root.userData.proxyHands = { right: [.027, .105, gripZ + .02], support: [-.033, .15, foreZ], magazine: [-.025, .095, magZ] };
+    const long = id === 'ff-longwatch', heavy = id === 'ff-scar-h';
+    root.userData.proxyOptic = { kind: long || heavy ? 'scope' : 'reflex', height: (long ? .22 : heavy ? .2075 : .2025) + lift,
+      lens: long ? .039 : heavy ? -.004 : -.039, radius: long ? .019 : heavy ? .024 : .022, aimDepth: -.28 };
+  }
   let disposed = false;
-  return { root, sockets, dispose() { if (disposed) return; disposed = true; root.removeFromParent(); geometries.forEach(geometry => geometry.dispose()); materials.forEach(m => m.dispose()); } };
+  return { root, sockets, dispose() { if (disposed) return; disposed = true; root.removeFromParent(); geometries.forEach(geometry => geometry.dispose()); materials.filter(m => !playable || m !== glass).forEach(m => m.dispose()); } };
 }

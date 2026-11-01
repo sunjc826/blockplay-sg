@@ -21,7 +21,7 @@ uses buttons. Movement/fire stop while choosing, but the world continues.
 | --- | --- | --- |
 | Return to owner | Owner +15; rival unchanged | Relinquish the prototype; surviving owner cell withdraws |
 | Hand over to rival | Rival +12; owner −20 | Owner pursues the player; requires a surviving recipient |
-| Keep upgrade | Owner −20; rival unchanged | Mythic **SAR 21 · Unauthorised Upgrade**, a powerful retrofit for the current life |
+| Keep upgrade | Owner −20; rival unchanged | The crate’s selected Mythic weapon, for the current life |
 | Carry to Armed Forces | Owner −20; rival unchanged | Deliver within 4 m of an operational friendly facility for up to 60 district supplies, full equipment repair and immediate deployment readiness |
 
 Delivery requires a real beneficiary: damaged equipment, a deployment cooldown,
@@ -62,12 +62,23 @@ favor penalty. Outcomes and actual rewards appear in the comms feed.
 
 ## Equipment and implementation boundaries
 
-The prototype is experimental fire-control hardware fitted to the existing SAR
-platform: +34 damage, +6 magazine capacity, a faster cycle and reduced recoil.
-It uses ordinary compatible rifle ammunition and the existing model/reload/audio.
-It replaces a carried main weapon according to normal pickup-slot rules, grants
-no permanent ownership and is removed on death. The XM29/QTS-11 and other proxy
-weapon art studies remain separate; this does not implement their launchers.
+Freedom Force crates roll one of three faction weapons with equal probability
+when the operation spawns: **Soft Power · Foreign Aid** (SCAR-L, 5.56 mm,
+30-round magazines, reflex sight), **Hard Power · Strings Attached** (SCAR-H,
+7.62 mm, 20-round magazines, 2× optic), or **Longwatch** (semi-automatic
+precision rifle, 7.62 mm, 10-round magazines, 4× optic). The selection remains
+fixed through warning, inspection and recovery; the choice panel names the
+weapon before acting. Freedom Force cargo never grants a SAR 21.
+
+Each rifle has a separate live weapon family, its faction model, detachable
+magazine, working sight and charging handle. The two 7.62 mm rifles share box
+magazines, separately from FN MAG belts; the SCAR-L shares 5.56 mm rifle
+magazines. Keeping cargo equips the selected weapon in the normal pickup slot,
+with a loaded magazine and up to four spare magazines in available rig slots.
+It grants no permanent ownership and is removed on death, including after
+travel. The Collective Corps’ existing SAR retrofit reward remains unchanged.
+The XM29/QTS-11 launcher concepts and Collective weapon designs remain gallery
+studies; this change does not implement their launchers or operator loadouts.
 
 `proxy-operations.ts` owns bounded personal state, choice validation, claims and
 lifetimes. `arena-rules.ts` owns placement, actors, sight/reach checks, combat

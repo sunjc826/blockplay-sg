@@ -1,3 +1,4 @@
+import { validWeaponIndex } from './fps-rules';
 import type { WeaponSpec, WeaponState, WeaponFeed } from './fps-rules';
 
 export interface RigMagazine {
@@ -48,7 +49,7 @@ export function addReserveMagazines(state: WeaponState, count: number, magazine 
 export function restoreMagazine(value: unknown): RigMagazine | null {
   if (!value || typeof value !== 'object') return null;
   const mag = value as RigMagazine;
-  if (!Number.isInteger(mag.capacity) || mag.capacity < 1 || mag.capacity > 200 || !Number.isInteger(mag.family) || mag.family < 0 || mag.family > 7 ||
+  if (!Number.isInteger(mag.capacity) || mag.capacity < 1 || mag.capacity > 200 || !validWeaponIndex(mag.family) ||
     ![5.56, 7.62, 9, 12.7].includes(mag.caliberMm) || !['magazine', 'drum', 'belt'].includes(mag.feed) || mag.group !== magazineGroup(mag)) return null;
   return { group: mag.group, capacity: mag.capacity, family: mag.family, caliberMm: mag.caliberMm, feed: mag.feed };
 }
