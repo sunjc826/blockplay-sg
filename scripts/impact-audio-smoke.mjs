@@ -93,9 +93,10 @@ try {
       assert(take.firstMs > 7 && take.firstMs < 25, `${take.surface}: onset follows only the 3 m sound delay`);
     }
     if (take.distance === 50) {
-      assert(take.attackPeak > .018, `${take.surface} take ${take.take}: combat-range transient has useful output level`);
-      assert(take.attackRelativeDb > -20, `${take.surface} take ${take.take}: transient stays within 20 dB of overlapping automatic fire`);
+      assert(take.attackPeak > .055, `${take.surface} take ${take.take}: combat-range transient has useful output level`);
     }
+    const floor = { 25: -11, 50: -10, 80: -15 }[take.distance];
+    if (floor !== undefined) assert(take.attackRelativeDb > floor, `${take.surface} take ${take.take} at ${take.distance} m: transient clears ${floor} dB against overlapping automatic fire`);
   }
   assert.equal(paidRequests, 0); assert.deepEqual(errors, []);
   await fs.writeFile(new URL('results.json', output), JSON.stringify({ engineHits, rendered, paidRequests, errors }, null, 2));

@@ -77,6 +77,7 @@ describe('rounds the arena host publishes', () => {
   it('skips our own rifle\'s rounds, which already fly here, but draws our vehicle gun\'s and a raider\'s', () => {
     const adopted = adoptPublishedRounds([view(1, { shooter: 'you' }), view(2, { shooter: 'you', vehicle: 'car' }), view(3, { shooter: undefined })], new Set(), options());
     expect(adopted.map(r => [r.skipActor, r.skipVehicle])).toEqual([['you', 'car'], [undefined, undefined]]);
+    expect(adopted.map(r => r.audiblePass)).toEqual([false, true]);
   });
   it('strike in the look of the gun that fired them', () => {
     const [round] = adoptPublishedRounds([view(1, { calibre: 12.7, power: 95 })], new Set(), { ...options(), styleFor: v => `round:${v.calibre}:${v.power}` });

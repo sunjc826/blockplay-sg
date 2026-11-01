@@ -18,6 +18,8 @@ export interface InFlightRound {
   skips: number;
   /** Drawn and struck for show only: the arena host flies the real round and decides what it did. */
   cosmetic?: boolean;
+  /** A foreign published round can produce a pass-by sound, once along its path. */
+  audiblePass?: boolean;
   /** How far it can fly, when not the engine's default. */
   range?: number;
   /** A figure (arena actor id) or vehicle the round leaves rather than strikes: whoever fired it. */
@@ -77,6 +79,7 @@ export function adoptPublishedRounds(views: readonly PublishedRound[], seen: Set
     if (view.shooter === options.self && !view.vehicle) continue;
     if (adopted.length >= options.room || Math.hypot(view.origin.x - options.viewer.x, view.origin.y - options.viewer.y, view.origin.z - options.viewer.z) > options.range) continue;
     const round = createRound(options.nextId(), 0, { ...view.origin }, { ...view.direction }, { velocity: view.velocity, drop: view.drop }, 0, true);
+    round.audiblePass = view.shooter !== options.self;
     round.range = view.limit;
     if (view.shooter) round.skipActor = view.shooter;
     if (view.vehicle) round.skipVehicle = view.vehicle;

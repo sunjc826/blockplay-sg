@@ -30,7 +30,7 @@ describe('surface impact audio', () => {
   });
   it('arrives from the impact after sound travel and falls quiet with distance or spent energy', () => {
     const near = impactTone('metal', 3), far = impactTone('metal', 80);
-    expect(far.level).toBeLessThan(near.level / 6);
+    expect(far.level).toBeLessThan(near.level / 2);
     expect(far.cutoff).toBeLessThan(near.cutoff);
     expect(far.delay).toBeCloseTo(80 / 343);
     expect(impactTone('metal', IMPACT_SOUND_RANGE).level).toBe(0);
@@ -40,15 +40,16 @@ describe('surface impact audio', () => {
   });
   it('keeps combat-range hit transients in the mix beside the player muzzle report', () => {
     const muzzle = gunshotTone(5.56, 36, 0, true).level;
-    expect(impactTone('concrete', 25).level).toBeGreaterThan(muzzle * .9);
-    expect(impactTone('concrete', 50).level).toBeGreaterThan(muzzle * .35);
-    expect(impactTone('flesh', 50).level).toBeGreaterThan(muzzle * .25);
-    expect(impactTone('concrete', 80).level).toBeGreaterThan(muzzle * .15);
+    expect(impactTone('concrete', 25).level).toBeGreaterThan(muzzle * 1.8);
+    expect(impactTone('concrete', 50).level).toBeGreaterThan(muzzle * 1.4);
+    expect(impactTone('flesh', 50).level).toBeGreaterThan(muzzle);
+    expect(impactTone('concrete', 80).level).toBeGreaterThan(muzzle * .8);
+    expect(impactTone('concrete', 80).cutoff).toBeGreaterThan(8500);
     // No distant loudness floor: nearby strikes stay stronger and the range
     // boundary, including invalid distances, remains silent.
     for (const surface of [...SURFACE_KINDS, 'water'] as const) {
       const levels = [0, 25, 50, 80, 120, 140].map(d => impactTone(surface, d).level);
-      expect(levels[0]).toBeLessThan(.5);
+      expect(levels[0]).toBeLessThan(.85);
       expect(levels.every((level, i) => i === 0 || level < levels[i - 1])).toBe(true);
       expect(impactTone(surface, NaN).level).toBe(0);
     }

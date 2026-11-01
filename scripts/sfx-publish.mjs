@@ -38,6 +38,7 @@ export const PICKS = {
   'mag-seat': ['mag-seat-1', 'mag-seat-2'],
   'bolt-back': ['bolt-back-1', 'bolt-back-2'],
   'bolt-release': ['bolt-release-1', 'bolt-release-2'],
+  'bullet-pass': ['bullet-pass-1', 'bullet-pass-2'],
   ...Object.fromEntries(['concrete', 'metal', 'wood', 'glass', 'foliage', 'dirt', 'flesh', 'water']
     .map(surface => [`impact-${surface}`, [`impact-${surface}-1`, `impact-${surface}-2`]])),
 };
@@ -120,7 +121,7 @@ if (process.argv.includes('--analyse')) {
     for (const id of ids) {
       const take = takes.find(t => t.id === id); if (!take) throw Error(`${group}: unknown take ${id}`);
       const source = await decode(path.join(cacheDirectory, id + '.mp3'));
-      for (const clip of STEPS.has(group) ? footfalls(source) : [shape(source, group.startsWith('impact-'))]) {
+      for (const clip of STEPS.has(group) ? footfalls(source) : [shape(source, group.startsWith('impact-') || group === 'bullet-pass')]) {
         const n = groups[group].length + 1, digest = createHash('sha256').update(Buffer.from(clip.buffer)).digest('hex').slice(0, 10);
         const file = `${group}-${n}-${digest}.mp3`;
         await encode(clip, path.join(publicDirectory, file));

@@ -14,5 +14,5 @@ window.mount=(mode='continuous',combat=false)=>{window.engine?.dispose();window.
  return {goal:'engage',status:'Deterministic drill test',action:{lookX:-ex/.0023*.8,lookY:-ey/.0023*.8,aim:true,fire:Math.abs(ex)<.008&&Math.abs(ey)<.008,reload:!o.magazine&&o.reserve>0}};}
  return {goal:'engage',status:'Waiting for next appearance',action:{}};
  }return {goal:'engage',status:'Test controls',action:{...window.action,...(window.level?{lookY:o.pitch/.0023*.5}:{})}};}},onComplete:r=>{window.records.completions.push(r);window.profile=claimReward(window.profile,r);},onElimination:id=>{window.records.eliminations.push(id);window.profile=claimElimination(window.profile,id);},onConsume:id=>{window.records.consumed.push(id);window.profile=consumeItem(window.profile,id);}});
-};window.mount(new URL(location.href).searchParams.get('mode')||'continuous');
+};window.mount(new URL(location.href).searchParams.get('mode')||'continuous',new URL(location.href).searchParams.has('combat'));
 </script></body></html>

@@ -141,6 +141,7 @@ import { gunfireReports } from './gunfire-reports';
 import { createGunshotAudio, gunshotTone } from './gunshot-audio';
 import { createEmptyFireAudio, canDryFire } from './empty-fire-audio';
 import { createImpactAudio, type ImpactSurface } from './impact-audio';
+import { createBulletFlybyAudio } from './bullet-flyby-audio';
 import { createReloadAudio } from './reload-audio';
 import { createSfxBank, type SfxGroup } from './sfx-bank';
 import { getEnvironmentSettings } from './environment-settings';
@@ -471,6 +472,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const gunshots = createGunshotAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx);
   const emptyFireAudio = createEmptyFireAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx);
   const impactAudio = createImpactAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx);
+  const bulletFlybys = createBulletFlybyAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx);
   const reloadAudio = createReloadAudio(() => audio, () => hud.muted || !['playing', 'deploying'].includes(hud.phase), sfx);
   // Scenery in the sky beyond the district: never a threat, never sent between peers (ambient-sky).
   // Roost sampling runs before the first render, so static world transforms must be ready.
@@ -724,7 +726,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (document.pointerLockElement === canvas) document.exitPointerLock();
     }
     gunshots.clear(); emptyFireAudio.clear();
-    impactAudio.clear();
+    impactAudio.clear(); bulletFlybys.clear();
     reloadAudio.clear();
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); hud.pilotStatus = 'Player controls'; hud.pilotGoal = null; hud.pilotContacts = 0;
     capturePending = false;
@@ -949,7 +951,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function reset() {
     gunshots.clear(); emptyFireAudio.clear();
-    impactAudio.clear();
+    impactAudio.clear(); bulletFlybys.clear();
     reloadAudio.clear();
     if (hud.phase === 'loading' || hud.phase === 'error') return;
     if (options.arena?.session.role === 'guest') return;
@@ -2348,6 +2350,28 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     return id;
   }
+  // Both ordinary flight and initial snapshot catch-up use cover-clipped paths.
+  const passRay = new THREE.Raycaster(), passFrom = new THREE.Vector3(), passDirection = new THREE.Vector3();
+  function hearRoundPass(round: InFlightRound, from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }) {
+    if (!round.audiblePass || (round.skipVehicle && round.skipVehicle === vehicles.active)) return;
+    bulletFlybys.pass(round, from, to, camera.position, round.ballistics.velocity, panTo);
+  }
+  function hearCaughtUpRound(round: InFlightRound) {
+    if (!round.audiblePass || round.time <= 0) return;
+    const candidates = round.skipVehicle ? vehicleCandidates(round.skipVehicle) : gameplayCandidates().filter(o => o.userData.arenaActorId !== round.skipActor);
+    const replay = createRound(0, round.weapon, round.origin, round.direction, round.ballistics);
+    const count = Math.min(32, Math.max(1, Math.ceil(round.time / .02)));
+    for (let i = 0; i < count; i++) {
+      const step = advanceRound(replay, round.time / count, round.travelled);
+      if (step.distance < 1e-6) break;
+      passFrom.set(step.from.x, step.from.y, step.from.z);
+      passDirection.set(step.to.x, step.to.y, step.to.z).sub(passFrom).normalize();
+      passRay.set(passFrom, passDirection); passRay.near = 0; passRay.far = step.distance;
+      const stop = firstVisibleHit(passRay, candidates);
+      hearRoundPass(round, step.from, stop?.point ?? step.to);
+      if (stop) break;
+    }
+  }
   /** Steps every round still in the air and resolves whatever it reaches first. */
   function advanceRounds(dt: number) {
     if (!rounds.length) return;
@@ -2364,6 +2388,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         const from = round.skipVehicle ? vehicleCandidates(round.skipVehicle) : round.skipActor ? candidates.filter(o => o.userData.arenaActorId !== round.skipActor) : candidates;
         if (round.vehicleDamage !== undefined) {
           const hit = firstVisibleHit(roundRay, from);
+          hearRoundPass(round, step.from, hit?.point ?? step.to);
           effects.smokeTrail(step.from, hit?.point ?? step.to, round.travelled - step.distance + (hit?.distance ?? step.distance));
           if (hit) { vehicleImpact(hit, roundDirection, round.skipVehicle ?? 'car', round.vehicleDamage); rounds.splice(i, 1); struck = true; continue; }
           if (step.expired) rounds.splice(i, 1);
@@ -2373,6 +2398,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         const lastHit = segmentHits[segmentHits.length - 1];
         const stopped = segmentHits.length > round.pierced || isWaterHit(lastHit);
         const stop = round.cosmetic ? segmentHits[0] : stopped ? lastHit : undefined;
+        hearRoundPass(round, step.from, stop?.point ?? step.to);
         effects.smokeTrail(step.from, stop?.point ?? step.to, round.travelled - step.distance + (stop?.distance ?? step.distance));
         if (segmentHits.length && round.cosmetic) {
           // The arena host has the real round: this one only shows where it went.
@@ -2604,7 +2630,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         const attack = pendingAttack; pendingAttack = null; hud.incoming = false;
         // The target fires whenever it still sees you, and is heard whether or not it finds you.
         const sees = targets[attack.target]?.activation === attack.activation && hasLineOfSight(attack.target);
-        if (sees) otherShot(attackOrigin, 5.56, 36, 0, undefined, `target:${attack.target}`);
+        if (sees) {
+          otherShot(attackOrigin, 5.56, 36, 0, undefined, `target:${attack.target}`);
+          // Counter-fire aims at the stored point; dodging makes a real near miss.
+          const direction = attack.aim.clone().sub(attackOrigin).normalize();
+          passRay.set(attackOrigin, direction); passRay.near = .07; passRay.far = 100;
+          const stop = firstVisibleHit(passRay, gameplayCandidates().filter(o => o !== targets[attack.target].root));
+          const end = stop?.point ?? passRay.ray.at(100, new THREE.Vector3());
+          const closest = Math.max(0, playerPoint().sub(attackOrigin).dot(direction));
+          bulletFlybys.pass(attack, attackOrigin, end, camera.position, 495, panTo, closest / 495);
+        }
         if (sees && playerPoint().distanceTo(attack.aim) < .75) {
           if (vehicles.active) vehicles.damage(vehicles.active, 36);
           else { hurtPlayer(18, 5.56); hitDirections.add(viewer(), attackOrigin, hitStrength(18, hud.maxHealth)); }
@@ -2677,8 +2712,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const ahMaSaves = frame.self?.ahMaSaves ?? 0;
     if (ahMaSaves > ahMaSavesSeen) { hud.message = ahMaLine(frame.self!.health); comms.add('system', 'Ah Ma', hud.message); }
     ahMaSavesSeen = ahMaSaves;
-    if (options.arena) rounds.push(...adoptPublishedRounds(frame.snapshot?.rounds ?? [], seenRounds,
-      { self: options.arena.session.id, viewer: camera.position, range: REMOTE_TRACER_RANGE, room: MAX_ROUNDS_IN_FLIGHT - rounds.length, nextId: () => ++roundSerial, styleFor: publishedStyle }));
+    if (options.arena) {
+      const adopted = adoptPublishedRounds(frame.snapshot?.rounds ?? [], seenRounds,
+        { self: options.arena.session.id, viewer: camera.position, range: REMOTE_TRACER_RANGE, room: MAX_ROUNDS_IN_FLIGHT - rounds.length, nextId: () => ++roundSerial, styleFor: publishedStyle });
+      adopted.forEach(hearCaughtUpRound); rounds.push(...adopted);
+    }
     if (options.arena && frame.snapshot) for (const shot of gunfireReports(frame.snapshot.actors, heardShots, options.arena.session.id, camera.position)) otherShot(shot.from, shot.calibre, shot.power, shot.after, shot.muzzle, shot.emitter);
     if (frame.snapshot) hud.elapsed = frame.snapshot.elapsed;
     if (frame.snapshot) dropFallenKit(frame.snapshot.actors, frame.feed);
@@ -3292,7 +3330,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     // A hair proud of the deck, so a case lies on it rather than in it.
     effects.update(realDt, camera, brassFloor + .004);
-    impactAudio.update();
+    impactAudio.update(); bulletFlybys.update();
     gunshots.update(); emptyFireAudio.update();
     reloadAudio.update();
     // One string, written only when it changes, so a browser smoke can watch
@@ -3524,7 +3562,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     chooseFood, closeFoodPicker: () => closeFoodPicker(),
     toggleVision: () => useVision('toggle'), cycleVisionPalette: () => useVision('palette'), pressVision: () => useVision('button'),
     toggleEncikVoice() { hud.encikVoice = !hud.encikVoice; if (!hud.encikVoice) stopVoice(); publish(); },
-    toggleSound() { hud.muted = !hud.muted; if (hud.muted) { stopVoice(); impactAudio.clear(); gunshots.clear(); emptyFireAudio.clear(); reloadAudio.clear(); } if (hud.phase === 'playing') { canvas.focus({ preventScroll: true }); if (!hud.muted) initAudio(); } publish(); },
+    toggleSound() { hud.muted = !hud.muted; if (hud.muted) { stopVoice(); impactAudio.clear(); bulletFlybys.clear(); gunshots.clear(); emptyFireAudio.clear(); reloadAudio.clear(); } if (hud.phase === 'playing') { canvas.focus({ preventScroll: true }); if (!hud.muted) initAudio(); } publish(); },
     dispose() {
       const infrastructure = arenaRuntime?.getWorldState();
       if (expedition && infrastructure) expedition.infrastructure?.set(expedition.zone, infrastructure);
@@ -3545,7 +3583,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       wetView.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
       proxyVisuals.dispose();
-      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); emptyFireAudio.dispose(); impactAudio.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
+      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); emptyFireAudio.dispose(); impactAudio.dispose(); bulletFlybys.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       rangeStation?.dispose();
       scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); grenadeHands.dispose(); grenadeVisuals.dispose(); sunShadows.dispose(); occlusion.dispose();

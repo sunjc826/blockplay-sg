@@ -22,11 +22,12 @@ export function impactTone(surface: ImpactSurface, distance = 0, energy = 1) {
   const strength = Number.isFinite(energy) ? Math.min(2, Math.max(0, energy)) : 1;
   return {
     sample: `impact-${surface}` as SfxGroup,
-    // The old 8 m reference plus range fade buried even 25–50 m hits under
-    // the muzzle report. Keep the recorded transient clear at fighting range;
-    // softer materials, spent rounds and distant hits still stay quieter.
-    level: .42 * MATERIALS[surface].level * Math.sqrt(strength) * Math.min(1, 24 / Math.max(24, d)) * Math.max(0, 1 - d / IMPACT_SOUND_RANGE),
-    delay: soundDelay(d), cutoff: 15000 * .15 ** Math.min(1, d / IMPACT_SOUND_RANGE),
+    // Give the material transient room beside automatic fire through 60 m.
+    // The previous 24 m inverse-distance rolloff and heavy lowpass still hid
+    // combat-range hits. Keep the close boost modest, carry the attack further,
+    // then taper continuously to silence without a distant loudness floor.
+    level: .7 * MATERIALS[surface].level * Math.sqrt(strength) * Math.min(1, 60 / Math.max(60, d)) ** .7 * Math.max(0, 1 - d / IMPACT_SOUND_RANGE),
+    delay: soundDelay(d), cutoff: 15000 * .4 ** Math.min(1, d / IMPACT_SOUND_RANGE),
     rate: 1.08 - .08 * Math.sqrt(strength),
   };
 }
