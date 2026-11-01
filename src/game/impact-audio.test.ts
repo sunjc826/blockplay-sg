@@ -36,15 +36,22 @@ describe('surface impact audio', () => {
     expect(far.delay).toBeCloseTo(80 / 343);
     expect(impactTone('metal', IMPACT_SOUND_RANGE).level).toBe(0);
     expect(impactTone('metal', 3, 0).level).toBe(0);
-    expect(impactTone('metal', 3, .3).level).toBeLessThan(near.level);
-    expect(impactTone('foliage').level).toBeLessThan(impactTone('concrete').level);
+    expect(impactTone('metal', 20, .3).level).toBeLessThan(impactTone('metal', 20).level);
+    expect(impactTone('foliage', 20).level).toBeLessThan(impactTone('concrete', 20).level);
   });
-  it('keeps combat-range hit transients in the mix beside the player muzzle report', () => {
+  it('uses inverse-distance amplitude after the near-field cap, with stronger close hits and quiet distant hits', () => {
     const muzzle = gunshotTone(5.56, 36, 0, true).level;
-    expect(impactTone('concrete', 25).level).toBeGreaterThan(muzzle * 1.8);
-    expect(impactTone('concrete', 50).level).toBeGreaterThan(muzzle * 1.4);
-    expect(impactTone('flesh', 50).level).toBeGreaterThan(muzzle);
-    expect(impactTone('concrete', 80).level).toBeGreaterThan(muzzle * .8);
+    expect(impactTone('concrete', 10).level).toBeCloseTo(.8);
+    expect(impactTone('concrete', 20).level).toBeCloseTo(.4);
+    expect(impactTone('concrete', 40).level).toBeCloseTo(.2);
+    expect(impactTone('concrete', 80).level).toBeCloseTo(.1);
+    for (const surface of [...SURFACE_KINDS, 'water'] as const) {
+      const near = impactTone(surface, 20).level, far = impactTone(surface, 40).level;
+      expect(far / near).toBeCloseTo(.5);
+      expect((far / near) ** 2).toBeCloseTo(.25);
+    }
+    expect(impactTone('concrete', 25).level).toBeGreaterThan(muzzle);
+    expect(impactTone('concrete', 80).level).toBeLessThan(muzzle * .35);
     expect(impactTone('concrete', 80).cutoff).toBeGreaterThan(8500);
     // No distant loudness floor: nearby strikes stay stronger and the range
     // boundary, including invalid distances, remains silent.
@@ -53,6 +60,15 @@ describe('surface impact audio', () => {
       expect(levels[0]).toBeLessThan(.85);
       expect(levels.every((level, i) => i === 0 || level < levels[i - 1])).toBe(true);
       expect(impactTone(surface, NaN).level).toBe(0);
+    }
+  });
+  it('smoothly fades only near the range boundary and caps all near-field weapon/material combinations', () => {
+    expect(impactTone('concrete', 100).level).toBeCloseTo(.08);
+    expect(impactTone('concrete', 120).level).toBeCloseTo(8 / 120 * .5);
+    expect(impactTone('concrete', 139.9).level).toBeGreaterThan(0);
+    expect(impactTone('concrete', 140).level).toBe(0);
+    for (const distance of [0, -10, .01, 1, 3]) {
+      expect(impactTone('metal', distance, 2, impactProfile(25, 256)).level).toBe(.82);
     }
   });
   it('plays the recorded material from the struck direction, through a distance lowpass', () => {

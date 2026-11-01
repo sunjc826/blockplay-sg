@@ -6,6 +6,7 @@ import { DEFAULT_IMPACT_PROFILE, sanitizeImpactProfile, type ImpactProfile } fro
 export type ImpactSurface = SurfaceKind | 'water';
 export const MAX_IMPACT_VOICES = 24;
 export const IMPACT_SOUND_RANGE = 140;
+export const IMPACT_FADE_START = 100;
 const MATERIALS: Record<ImpactSurface, { level: number; pitch: number; ring: number; decay: number }> = {
   concrete: { level: 1, pitch: 1300, ring: 0, decay: .035 },
   metal: { level: 1.15, pitch: 3100, ring: .6, decay: .11 },
@@ -31,14 +32,14 @@ export function impactSoundWeight(profile: ImpactProfile = DEFAULT_IMPACT_PROFIL
 export function impactTone(surface: ImpactSurface, distance = 0, energy = 1, profile?: ImpactProfile) {
   const d = Number.isFinite(distance) ? Math.max(0, distance) : IMPACT_SOUND_RANGE;
   const strength = Number.isFinite(energy) ? Math.min(2, Math.max(0, energy)) : 1;
+  const edge = Math.min(1, Math.max(0, (d - IMPACT_FADE_START) / (IMPACT_SOUND_RANGE - IMPACT_FADE_START)));
+  const fade = 1 - edge * edge * (3 - 2 * edge);
   return {
     sample: `impact-${surface}` as SfxGroup,
-    // Give the material transient room beside automatic fire through 60 m.
-    // The previous 24 m inverse-distance rolloff and heavy lowpass still hid
-    // combat-range hits. Keep the close boost modest, carry the attack further,
-    // then taper continuously to silence without a distant loudness floor.
-    level: Math.min(.82, .7 * MATERIALS[surface].level * impactSoundWeight(profile) * Math.sqrt(strength)
-      * Math.min(1, 60 / Math.max(60, d)) ** .7 * Math.max(0, 1 - d / IMPACT_SOUND_RANGE)),
+    // Pressure amplitude is inverse distance: doubling range halves gain
+    // (and quarters intensity). A stronger source keeps close hits readable;
+    // the cap follows all material/power factors. Fade only at the far edge.
+    level: Math.min(.82, 8 * MATERIALS[surface].level * impactSoundWeight(profile) * Math.sqrt(strength) / Math.max(1, d) * fade),
     delay: soundDelay(d), cutoff: 15000 * .4 ** Math.min(1, d / IMPACT_SOUND_RANGE),
     rate: 1.08 - .08 * Math.sqrt(strength),
   };
