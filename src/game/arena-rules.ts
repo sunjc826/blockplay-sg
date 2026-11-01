@@ -184,6 +184,8 @@ export interface ArenaEnvironment {
   dropColumnClear?: (p: CombatPlane, floor: number) => boolean;
   navalSites?: readonly NavalLandingSite[];
   savedReinforcementClocks?: ReinforcementClocks;
+  departedCrew?: readonly string[];
+  departedVehicles?: readonly VehicleKind[];
   deployments?: readonly DeploymentPoint[];
   facilities?: { sites: readonly FacilitySite[]; saved?: FacilitySnapshot; savedVehicles?: SharedVehicle[] };
   bounds: RegionBounds;
@@ -283,6 +285,13 @@ const SPAWNS = [
   { x: -44, z: 68 }, { x: -65, z: 72 }, { x: -20, z: 73 }, { x: -52, z: 55 },
   { x: -8, z: 64 }, { x: -73, z: 60 }, { x: -34, z: 58 }, { x: 4, z: 74 },
 ];
+export interface VehicleCrewTransfer {
+  vehicle: SharedVehicle;
+  playerId: string;
+  sourceCrewIds: string[];
+  elapsed: number;
+  crew: Omit<InternalActor, 'role' | 'navigation' | 'spotting'>[];
+}
 interface InternalActor {
   vehicleBoardAfter?: number;
   evacuating?: { x: number; z: number; until: number };
@@ -468,6 +477,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const inside = (p: { x: number; z: number }, b: HeatSector['bounds']) => p.x >= b.minX && p.x <= b.maxX && p.z >= b.minZ && p.z <= b.maxZ;
   let vehicles: SharedVehicle[] = environment?.facilities?.savedVehicles ? structuredClone(environment.facilities.savedVehicles) : vehicleOptions ? (['car', 'helicopter'] as const).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind])) : [];
   if (environment?.facilities?.savedVehicles) for (const v of vehicles) { v.occupants = [null, null, null, null]; stopVehicle(v); }
+  vehicles = vehicles.filter(v => !environment?.departedVehicles?.includes(v.kind));
   const controls = new Map<string, { input: VehicleControls; expires: number }>();
   const vehicleLife = new Map<VehicleKind, { idle: number; wreck: number; stuck: number; wait: number; unload: boolean; think: number; lastThink: number; crew: string[]; assembleUntil: number; departed: boolean; pickupDriver?: string; pickupStopped: number; goal?: VehicleSpawn }>();
   const lifeOf = (v: SharedVehicle) => {
@@ -3215,9 +3225,64 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   for (let i = 0; i < count; i++) enlist();
   if (facilities) for (let i = 0; i < (environment?.battlefield ? BATTLEFIELD_POPULATIONS[environment.battlefield.size][PLAYER_FACTION] : 4); i++) enlist(false, PLAYER_FACTION);
+  for (const id of environment?.departedCrew ?? []) members.delete(id);
+  /** Snapshot only a living player's occupied hull and its living bot crew. */
+  function vehicleTravel(id: string, district: string): VehicleCrewTransfer | null {
+    const mounted = seatOf(vehicles, id);
+    if (!mounted || !members.get(id)?.actor.alive || mounted.vehicle.health <= 0) return null;
+    const sourceCrewIds = mounted.vehicle.occupants.filter((key): key is string => !!key && key !== id);
+    if (sourceCrewIds.some(key => !members.get(key)?.actor.bot || !members.get(key)?.actor.alive)) return null;
+    const names = new Map(sourceCrewIds.map(key => [key, key.includes(':') ? key : `${district}:${key}`]));
+    const vehicle = structuredClone(mounted.vehicle);
+    vehicle.occupants = vehicle.occupants.map(key => key ? names.get(key) ?? key : null);
+    const crew = sourceCrewIds.map(key => {
+      const { role: _role, navigation: _navigation, spotting: _spotting, ...data } = members.get(key)!;
+      const copy = structuredClone(data); copy.actor.id = names.get(key)!;
+      return copy;
+    });
+    return { vehicle, playerId: id, sourceCrewIds, elapsed, crew };
+  }
+  function detachVehicle(id: string) {
+    const mounted = seatOf(vehicles, id); if (!mounted) return;
+    for (const key of mounted.vehicle.occupants) if (key) {
+      controls.delete(key);
+      if (key !== id) members.delete(key);
+      else { const actor = members.get(key)?.actor; if (actor) { delete actor.vehicle; delete actor.seat; } }
+    }
+    vehicles = vehicles.filter(v => v !== mounted.vehicle); vehicleLife.delete(mounted.vehicle.kind);
+  }
+  function restoreVehicleTravel(transfer: VehicleCrewTransfer, id: string) {
+    if (!members.get(id)?.actor.alive || seatOf(vehicles, id) || !vehicleOptions || transfer.vehicle.health <= 0) return false;
+    const resident = vehicles.find(v => v.kind === transfer.vehicle.kind);
+    // Called during district construction, before any resident can board.
+    if (resident?.occupants.some(Boolean)) return false;
+    const v = structuredClone(transfer.vehicle);
+    v.occupants = v.occupants.map(key => key === transfer.playerId ? id : key);
+    if (transfer.crew.some(m => members.has(m.actor.id)) || members.size + transfer.crew.length > MAX_ARENA_ACTORS) return false;
+    for (const data of transfer.crew) {
+      const m: InternalActor = { ...structuredClone(data), role: getArenaRole(data.actor.role) };
+      // Local goals and enemy references belong to the previous district.
+      m.navigation = undefined; m.target = ''; m.sight = undefined; m.threat = undefined; m.grudge = undefined;
+      m.mission = m.assignment = m.anchor = m.guardPatrol = m.investigation = undefined;
+      m.focus = undefined; m.home = undefined; m.actor.objective = undefined;
+      if (m.order?.kind === 'gather') { m.order.by = m.order.by === transfer.playerId ? id : m.order.by; m.order.until += elapsed - transfer.elapsed; m.order.since += elapsed - transfer.elapsed; }
+      else m.order = undefined;
+      if (m.reportTo === transfer.playerId) m.reportTo = id;
+      m.actor.squad = `${v.faction ?? m.actor.faction}-travelling-crew`;
+      m.patrol = { x: v.x, z: v.z }; m.patrolTime = 0; m.lastAt = undefined;
+      m.lastHurt += elapsed - transfer.elapsed;
+      if (m.heal) m.heal.started += elapsed - transfer.elapsed;
+      m.vehicleBoardAfter = elapsed + WORLD_VEHICLES.boardCooldown;
+      members.set(m.actor.id, m);
+    }
+    vehicles = vehicles.filter(other => other.kind !== v.kind); vehicles.push(v);
+    const life = lifeOf(v); life.departed = true; life.crew = transfer.crew.map(m => m.actor.id);
+    life.assembleUntil = elapsed; life.wait = elapsed;
+    syncOccupants(); return true;
+  }
   const navigationStatus = () => [...members.values()].filter(m=>m.actor.bot && m.actor.alive && m.actor.squad).map(m=>({id:m.actor.id,objective:m.actor.objective,duty:m.actor.duty,sector:m.actor.patrolSector,pending:!!m.navigation?.pending,path:m.navigation?.path.length??0,x:m.actor.x,z:m.actor.z,goal:m.navigation?.target,via:m.assignment?.via,mission:m.mission}));
   const patrolStatus = () => sectorPatrols?.status(elapsed)??[];
-  return { triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  return { vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

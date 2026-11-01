@@ -78,6 +78,9 @@ import { registerElimination, ELIMINATION_XP, ELIMINATION_CREDITS, type KillChai
 import { worldVehicleSpawns } from './world-vehicles';
 import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
 import { sceneFlightObstacles } from './flight-obstacles';
+import { resolveVehicleCrossing, vehicleArrivalClear } from './vehicle-crossing';
+import type { VehicleCrewTransfer } from './arena-rules';
+import type { VehicleState } from './vehicle-rules';
 import { createFpsVehicles } from './fps-vehicles';
 import { minimapContactRange, MINIMAP_CONTACT_RANGE, type MinimapMarker } from './minimap';
 import { combatMinimapMarkers, type MinimapCloud } from './fps-minimap-contacts';
@@ -154,6 +157,9 @@ import { activePalette, advanceVision, nvgAimingActive, createVisionState, cycle
 
 export interface FpsArenaOptions { session: LanSession; botCount: number; composition?: string; profile: ArmoryProfile; environment?: ArenaEnvironment; initialVitals?: Partial<ArenaVitals> }
 export interface FpsCheckpoint { health: number; armor: number; weapon: number; ammunition: WeaponState[]; pilot?: boolean; pilotStrategy?: 'local' | 'llm'; encikVoice?: boolean; comms?: readonly CommsEntry[];
+  vehicleTravel?: { state: VehicleState; seat: number; view?: 'first-person' | 'third-person'; crew?: VehicleCrewTransfer };
+  /** Departures remain absent on revisits, including after an on-foot journey. */
+  vehicleDepartures?: Partial<Record<WorldZoneId, { kinds: VehicleKind[]; crew: string[] }>>;
   /** Only physical crossings resume automatically on the retained surface. */
   continuation?: { inputMode: 'mouse' | 'touch'; keys: string[]; muted: boolean; stick?: StickVector | null };
   /** Remaining training stock, including free resupplies, without refilling on travel. */
@@ -341,6 +347,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if(expedition.battlefieldSize)options.arena.environment.battlefield={size:expedition.battlefieldSize};
     options.arena.environment.proxies = expedition.proxyCampaign ?? createProxyCampaign();
     const saved = expedition.infrastructure?.get(expedition.zone);
+    options.arena.environment.departedCrew = checkpoint?.vehicleDepartures?.[region]?.crew;
+    options.arena.environment.departedVehicles = checkpoint?.vehicleDepartures?.[region]?.kinds;
     options.arena.environment.savedReinforcementClocks = saved?.reinforcementClocks;
     options.arena.environment.facilities = { sites: facilitySites, saved: saved?.facilities, savedVehicles: saved?.vehicles };
     world.obstacles.push(...facilitySites.flatMap(facilityObstacles));
@@ -382,9 +390,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const overviewView = () => overviewFrame(world.bounds, canvas.clientWidth, canvas.clientHeight, overviewHighest, overviewZoom, overviewPan);
   let deploymentChoice = 'random', deploymentResolved = false, resolvedDeployment: string | null = null;
   if (options.arena?.environment && deploymentPoints.length) options.arena.environment.deployments = deploymentPoints;
+  vehicles.omit(checkpoint?.vehicleDepartures?.[region]?.kinds ?? []);
+  if (!expedition && checkpoint?.vehicleTravel) vehicles.restoreTravel(checkpoint.vehicleTravel.state, checkpoint.vehicleTravel.seat);
   let arenaRuntime: ReturnType<typeof createArenaRuntime> | null = null;
   const chaseRay = new THREE.Raycaster();
-  let vehicleView: 'first-person' | 'third-person' = 'third-person';
+  let vehicleView: 'first-person' | 'third-person' = checkpoint?.vehicleTravel?.view ?? 'third-person';
+  let restoreVehicleLook = !!checkpoint?.vehicleTravel?.crew;
   const firstPersonVehicle = () => vehicleView === 'first-person' || ads || touchAim;
   const camera = new THREE.PerspectiveCamera(65, 1, 0.08, 800); camera.rotation.order = 'YXZ';
   const occlusion = createWorldOcclusion(renderer, world.scene, camera);
@@ -661,7 +672,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         ...(rangeTravel ? WORLD_GATEWAYS.filter(g => g.from === region && g.border).map(g => ({ id: g.id, ...g.position, kind: 'checkpoint' as const, label: g.name })) : []),
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}-${targets[index].activation}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(rangeStation ? [{ id: 'range-resupply', x: rangeStation.point.x, z: rangeStation.point.z, kind: 'loot' as const, label: 'Range resupply · ammo, grenades & utilities' }] : []),
-        ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
+        ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && !vehicles.states[kind].despawned && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
         ...(hud.arena?.events ?? []).filter(e => e.kind === 'paratroopers' && (hud.arena?.elapsed ?? 0) - e.start <= 28).map((e): MinimapMarker => ({
           id: `parachute-${e.id}`, x: e.target.x, z: e.target.z, kind: 'parachute', side: e.faction === PLAYER_FACTION ? 'ally' : 'enemy',
           label: `${e.faction === PLAYER_FACTION ? 'Friendly' : 'Hostile'} paratroopers · ${(hud.arena?.elapsed ?? 0) < e.start + 12 ? `Drop in ${Math.ceil(e.start + 12 - (hud.arena?.elapsed ?? 0))}s` : 'Landing zone'}`,
@@ -1181,8 +1192,22 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.arena?.proxies?.operation?.cargo==='carried') comms.add('system','Proxy cargo','Cargo forfeited on leaving the district. Personal favor is retained.');
     stopReload();
     const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, vision: visionState.on, fieldSupplies: { ...looted }, health: hud.health, armor: hud.armor, weapon: hud.weapon, magazineInventory: loadout[equipment.carriedFamilies[0]]?.magazineInventory, ammunition: loadout.map(state => ({ ...state, magazineInventory: undefined, reserveMagazine: undefined, cooldown: 0, reloadRemaining: 0 })) };
+    checkpoint.vehicleDepartures = structuredClone((expedition?.checkpoint ?? rangeTravel?.checkpoint)?.vehicleDepartures ?? {});
+    if (physical && vehicles.mounted) {
+      const source = { ...vehicles.mounted };
+      const state = { ...source, x: transition.spawn.x, z: transition.spawn.z };
+      const crew = arenaRuntime?.vehicleTravel(region);
+      if (arenaRuntime && !crew) { vehicles.setNotice('The whole crew must be ready to cross.'); return; }
+      if (crew) { crew.vehicle.x = state.x; crew.vehicle.z = state.z; }
+      checkpoint.vehicleTravel = { state, seat: vehicles.seat ?? 0, view: vehicleView, ...(crew ? { crew } : {}) };
+      const departed = checkpoint.vehicleDepartures[region] ?? { kinds: [], crew: [] };
+      checkpoint.vehicleDepartures[region] = { kinds: [...new Set([...departed.kinds, state.kind])], crew: [...new Set([...departed.crew, ...(crew?.sourceCrewIds ?? [])])] };
+      const arrival = checkpoint.vehicleDepartures[transition.to];
+      if (arrival) arrival.kinds = arrival.kinds.filter(kind => kind !== state.kind);
+      arenaRuntime?.detachVehicle();
+    }
     if (rangeTravel) checkpoint.rangeSupplies = { ...supplies };
-    if (physical) checkpoint.continuation = { inputMode, keys: [...keys].filter(key => ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(key)), muted: hud.muted, stick: moveStick ? { ...moveStick } : null };
+    if (physical) checkpoint.continuation = { inputMode, keys: [...keys].filter(key => ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', ' ', 'c', 'control'].includes(key)), muted: hud.muted, stick: moveStick ? { ...moveStick } : null };
     travelPending = true;
     if (!physical) pause();
     travel.onTravel(transition, checkpoint);
@@ -1381,7 +1406,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     if (resumeCrossing && hud.phase === 'loading') {
       if (key === 'escape') pause();
-      else if (key && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(key)) crossingKeys.add(key);
+      else if (key && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', ' ', 'c', 'control'].includes(key)) crossingKeys.add(key);
       return;
     }
     if (hud.phase === 'deploying' && (key === 'escape' || key === ' ')) {
@@ -2622,9 +2647,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         if (shot.kind === vehicles.active) shotSound(gun); else otherShot(shot.origin, gun.caliberMm, gun.damage, 0, undefined, `vehicle:${shot.kind}`);
       }
       if (oldVehicle !== vehicles.active || oldSeat !== vehicles.seat) {
-        if (vehicles.mounted) {
+        if (vehicles.mounted && !restoreVehicleLook) {
           yaw = vehicles.mounted.yaw + seatFacing(vehicles.mounted.kind, vehicles.seat ?? 0); pitch = -.06;
         }
+        restoreVehicleLook = false;
         velocityY = 0;
         vertical = !vehicles.active && frame.self ? Math.max(0, frame.self.y - 1.75) : 0;
         if (frame.self) position = { x: frame.self.x, z: frame.self.z };
@@ -3137,6 +3163,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     if (pilotEnabled && hud.phase === 'playing' && now >= nextPilotAt) { nextPilotAt = now + PILOT_INTERVAL * 1000; updatePilot(now / 1000); }
     if (disposed || travelPending) return;
+    const previousHull = vehicles.mounted ? { ...vehicles.mounted } : null;
     const previousVehicle = vehicles.active, previousHeading = vehicles.viewMounted?.yaw;
     updateArena(realDt);
     if (arenaRuntime) {
@@ -3160,6 +3187,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         if (!arenaRuntime) yaw += vehicles.step(drivingKeys(), dt);
         if (vehicles.mounted) position = { x: vehicles.mounted.x, z: vehicles.mounted.z };
         carry.set(0, 0, 0);
+        if ((expedition || rangeTravel) && previousHull && vehicles.mounted) {
+          const crossing = resolveVehicleCrossing(region, previousHull, vehicles.mounted, { yaw, pitch });
+          if (crossing) {
+            const destination = buildDistrictWorld(crossing.transition.to);
+            try {
+              const flight = [...sceneFlightObstacles(destination.scene), ...getTraversalObstacles(destination.scene)].map(o => ({ ...o, minY: o.minY ?? 0, maxY: o.maxY ?? Infinity }));
+              if (vehicleArrivalClear(crossing.state, destination.obstacles, flight, destination.bounds)) { commitTravel(crossing.transition, true); return; }
+              vehicles.setNotice('Crossing blocked: reverse and realign with the vehicle lane.');
+            } finally { destination.dispose(); }
+          }
+        }
       } else {
       if (!arenaRuntime) vehicles.step(keys, dt);
       const move = resolveMovement(keys, moveStick, stickRunning);
@@ -3397,6 +3435,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
     if (options.arena) {
       arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, vehicles: { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition } });
+      if (checkpoint?.vehicleTravel?.crew && !arenaRuntime.restoreVehicleTravel(checkpoint.vehicleTravel.crew)) throw new Error('Vehicle crew could not enter the destination district');
       if (expedition) arenaRuntime.setAutoRespawn(expedition.autoRespawn === true);
       hud.combatEventsAvailable = options.arena.session.role === 'solo';
       if (debugAvailable) {

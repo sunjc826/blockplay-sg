@@ -26,21 +26,21 @@ export function buildBoardwalkConnection(kit: ReturnType<typeof createSceneKit>,
     if ((seam + dz - railFrom) * direction < 0 || (seam + dz - to) * direction > 0) continue;
     for (const dx of [-5.3, 5.3]) {
       box(x + dx, 2.3, seam + dz, .25, 4.6, .25, steel);
-      solid(x + dx, seam + dz, .3, .3);
+      kit.obstacles.push({ minX: x + dx - .15, maxX: x + dx + .15, minZ: seam + dz - .15, maxZ: seam + dz + .15, maxY: 4.6 });
     }
     box(x, 4.65, seam + dz, 11, .18, .35, steel);
   }
   box(x, 4.8, railMid, 11, .12, railLength, roof);
-  // A short wind shelter breaks the sightline through the loading seam. Its
-  // staggered openings are wide enough for a squad; both scenes share it exactly.
+  // A shared wind shelter masks the loading seam. Its straight central lane
+  // admits utility vehicles; helicopters cross above the canopy.
   const screen = mat('#a8bcb6');
   for (const dx of [-5.3, 5.3]) {
     box(x + dx, 2.2, seam, .18, 4.4, 26, screen);
     kit.obstacles.push({ minX: x + dx - .12, maxX: x + dx + .12, minZ: seam - 13, maxZ: seam + 13, maxY: 4.4 });
   }
-  for (const [dz, dx] of [[-10, 2.3], [10, -2.3]]) {
-    box(x + dx, 2.2, seam + dz, 5.6, 4.4, .25, screen);
-    solid(x + dx, seam + dz, 5.6, .3);
+  for (const dz of [-10, 10]) for (const dx of [-4.75, 4.75]) {
+    box(x + dx, 2.2, seam + dz, .8, 4.4, .25, screen);
+    kit.obstacles.push({ minX: x + dx - .4, maxX: x + dx + .4, minZ: seam + dz - .15, maxZ: seam + dz + .15, maxY: 4.4 });
   }
   // Canopy participates in overhead clearance without making its footprint a wall.
   scene.userData.traversalObstacles = [...(scene.userData.traversalObstacles ?? []),

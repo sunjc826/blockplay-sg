@@ -98,3 +98,5 @@ consumption, target recycling, classic/timed completion and early termination;
 controls. They write screenshots and results to `.cache/range-drills/`. Start Vite and an
 isolated Chrome with remote debugging; `FPS_APP_ORIGIN` and `FPS_CHROME_ORIGIN`
 override their usual smoke-test addresses.
+
+Training also supports occupied vehicles on this link: drive the car through the central boardwalk lane, or fly the helicopter over its canopy. Cross automatically in either direction with hull health, mounted ammunition, motion and your seat retained. Other gateways remain on foot.

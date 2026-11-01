@@ -1,3 +1,4 @@
+import type { VehicleKind } from './vehicle-rules';
 import { isRegionId, type RegionId } from './region-ids';
 
 /** Connected authored districts. Coordinates are local game metres, not GPS. */
@@ -28,7 +29,9 @@ export interface WorldGateway {
   readonly kind?: 'ferry';
   /** Orient marker posts across the landing rather than along its approach. */
   readonly markerYaw?: number;
-  /** A physical boundary, crossed by walking out through its width. */
+  /** Opt-in only: unsupported links remain pedestrian crossings. */
+  readonly vehicles?: readonly VehicleKind[];
+  /** A physical boundary, crossed by outward movement through its width. */
   readonly border?: { readonly axis: 'x' | 'z'; readonly direction: 1 | -1; readonly halfWidth: number };
 }
 export interface WorldTransition {
@@ -129,8 +132,8 @@ export const WORLD_GATEWAYS: readonly WorldGateway[] = [
   { id: 'changi-to-punggol', from: 'changi', to: 'punggol', name: 'Punggol checkpoint', position: { x: 80, z: 210 }, radius: 4, arrival: { x: 233, z: 20, yaw: Math.PI / 2, pitch: 0 } },
   { id: 'queenstown-to-harbourfront', from: 'queenstown', to: 'harbourfront', name: 'HarbourFront checkpoint', position: { x: -15, z: 185 }, radius: 4, arrival: { x: -218, z: -20, yaw: -Math.PI / 2, pitch: 0 } },
   { id: 'harbourfront-to-queenstown', from: 'harbourfront', to: 'queenstown', name: 'Queenstown checkpoint', position: { x: -230, z: -20 }, radius: 4, arrival: { x: -15, z: 173, yaw: 0, pitch: 0 } },
-  { id: 'harbourfront-to-sentosa', from: 'harbourfront', to: 'sentosa', name: 'Sentosa Boardwalk', position: { x: 109, z: 210 }, radius: 4, arrival: { x: 108, z: -204.85, yaw: Math.PI, pitch: 0 }, border: { axis: 'z', direction: 1, halfWidth: 4.5 } },
-  { id: 'sentosa-to-harbourfront', from: 'sentosa', to: 'harbourfront', name: 'HarbourFront Boardwalk', position: { x: 108, z: -205 }, radius: 4, arrival: { x: 109, z: 209.85, yaw: 0, pitch: 0 }, border: { axis: 'z', direction: -1, halfWidth: 4.5 } },
+  { id: 'harbourfront-to-sentosa', from: 'harbourfront', to: 'sentosa', name: 'Sentosa Boardwalk', position: { x: 109, z: 210 }, radius: 4, arrival: { x: 108, z: -204.85, yaw: Math.PI, pitch: 0 }, vehicles: ['car', 'helicopter'], border: { axis: 'z', direction: 1, halfWidth: 4.5 } },
+  { id: 'sentosa-to-harbourfront', from: 'sentosa', to: 'harbourfront', name: 'HarbourFront Boardwalk', position: { x: 108, z: -205 }, radius: 4, arrival: { x: 109, z: 209.85, yaw: 0, pitch: 0 }, vehicles: ['car', 'helicopter'], border: { axis: 'z', direction: -1, halfWidth: 4.5 } },
   { id: 'kampong-glam-to-geylang', from: 'kampong-glam', to: 'geylang', name: 'Geylang checkpoint', position: { x: 205, z: -30 }, radius: 4, arrival: { x: -218, z: 0, yaw: -Math.PI / 2, pitch: 0 } },
   { id: 'geylang-to-kampong-glam', from: 'geylang', to: 'kampong-glam', name: 'Kampong Glam checkpoint', position: { x: -230, z: 0 }, radius: 4, arrival: { x: 193, z: -30, yaw: Math.PI / 2, pitch: 0 } },
   { id: 'geylang-to-changi', from: 'geylang', to: 'changi', name: 'Changi checkpoint', position: { x: 230, z: 0 }, radius: 4, arrival: { x: 80, z: -198, yaw: Math.PI, pitch: 0 } },

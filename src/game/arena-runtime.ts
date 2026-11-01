@@ -112,7 +112,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     finite(r.calibre) && (r.calibre as number) >= 2 && (r.calibre as number) <= 25 && finite(r.power) && (r.power as number) >= 0 && (r.power as number) <= 300 &&
     (r.shooter === undefined || typeof r.shooter === 'string' && r.shooter.length <= 100) && (r.vehicle === undefined || r.vehicle === 'car' || r.vehicle === 'helicopter')))) return false;
   if (value.vehicles !== undefined) {
-    if (!Array.isArray(value.vehicles) || value.vehicles.length !== 2) return false;
+    if (!Array.isArray(value.vehicles) || value.vehicles.length > 2) return false;
     const kinds = new Set<string>(), seated = new Set<string>();
     for (const v of value.vehicles) {
       if (!object(v) || (v.despawned !== undefined && (typeof v.despawned !== 'boolean' || v.despawned && v.health !== 0)) || (v.faction !== undefined && (typeof v.faction !== 'string' || !getArenaFaction(v.faction))) || (v.kind !== 'car' && v.kind !== 'helicopter') || kinds.has(v.kind) ||
@@ -784,6 +784,14 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       avatar.root.position.set(eye.x, eye.y - (actor.vehicle === 'car' && actor.seat === 1 ? 1.75 : 1.2), eye.z);
     }
   }
-  return { triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getRespawn: () => simulation?.playerRespawn(session.id) ?? null, selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
+  return {
+    vehicleTravel: (district: string) => session.role === 'solo' ? simulation?.vehicleTravel(session.id, district) ?? null : null,
+    detachVehicle: () => { if (session.role === 'solo') simulation?.detachVehicle(session.id); },
+    restoreVehicleTravel(transfer: import('./arena-rules').VehicleCrewTransfer) {
+      const accepted = session.role === 'solo' && simulation?.restoreVehicleTravel(transfer, session.id);
+      if (accepted) refresh(); // Adopt seats before the renderer restores held crossing controls.
+      return accepted;
+    },
+    triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getRespawn: () => simulation?.playerRespawn(session.id) ?? null, selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;
