@@ -27,7 +27,7 @@ Grenade-only clears are valid. Reward IDs remain unique and persisted through
 the existing profile ledger. The tutorial and multiplayer/expedition rules are
 unchanged. Waves and moving targets are future extensions.
 
-## Walking between training districts
+## Crossing between training districts
 
 The HarbourFront–Sentosa boardwalk supports the same physical crossing as Open
 world. While playing on foot, walk through the covered wind shelter at the map
@@ -36,6 +36,8 @@ resumes automatically, retaining the canvas, mouse capture, viewing direction,
 held movement and touch stick. Escape or losing focus during loading cancels
 automatic resume. Release events during loading prevent stuck movement.
 
+Training also supports occupied vehicles on this link: drive the car through the central boardwalk lane, or fly the helicopter over its canopy. Cross automatically in either direction with hull health, mounted ammunition, motion and your seat retained. Other gateways remain on foot.
+
 Arrival starts a fresh exercise using the same drill and Practice/Counter-fire
 setting. Leaving does not claim a completion bonus; already-earned elimination
 rewards remain. Health, armor, ammunition and remaining training supplies carry
@@ -43,8 +45,8 @@ over without refilling. Practice still uses session-only supplies: it does not
 spend saved Armory inventory or carry its free resupplies into Open world.
 The equipment box stays at the destination's normal range start. The district
 selector follows the crossing; choosing a district manually starts a new session.
-This is the pedestrian HarbourFront–Sentosa pilot only; other range borders,
-vehicles, multiplayer and the tutorial are unchanged.
+This crossing is available between HarbourFront and Sentosa; other range
+borders, multiplayer and the tutorial are unchanged.
 
 `node scripts/training-crossing-smoke.mjs` checks the actual GameMenu and FpsGame
 with declared entry poses and observation-only HUD/engine exposure. Use Vite on
@@ -99,4 +101,3 @@ controls. They write screenshots and results to `.cache/range-drills/`. Start Vi
 isolated Chrome with remote debugging; `FPS_APP_ORIGIN` and `FPS_CHROME_ORIGIN`
 override their usual smoke-test addresses.
 
-Training also supports occupied vehicles on this link: drive the car through the central boardwalk lane, or fly the helicopter over its canopy. Cross automatically in either direction with hull health, mounted ammunition, motion and your seat retained. Other gateways remain on foot.
