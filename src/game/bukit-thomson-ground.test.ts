@@ -7,6 +7,9 @@ import { createVerticalMovement } from './vertical-movement';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import { sceneFlightObstacles } from './flight-obstacles';
 import { canFly } from './vehicle-rules';
+import { getWorldZone } from './world-zones';
+import { zoneSectors } from './zone-sectors';
+import { UPPER_THOMSON_STAMPS } from '../data/region-stamps';
 
 const thomson = buildUpperThomsonScene(), timah = buildBukitTimahScene();
 const movement = (world: typeof thomson, bounds: typeof BUKIT_TIMAH_BOUNDS) => createVerticalMovement({
@@ -71,6 +74,18 @@ it('reaches the same sheltered Plaza landing by direct steps and the longer side
     const ray=new THREE.Raycaster(new THREE.Vector3(x,.9,z),new THREE.Vector3(0,-1,0),0,.4);
     const floor=ray.intersectObject(thomson.scene,true).filter(hit=>hit.face!.normal.y>.99);
     expect(floor).toHaveLength(1); expect(floor[0].point.y).toBeCloseTo(.6);
+  }
+});
+
+it('keeps Plaza loot, encounters and the exploration stop on clear ground beside the landing', () => {
+  const sector = zoneSectors('upper-thomson').find(s => s.id === 'thomson-plaza')!;
+  const inForecourt = (p: {x:number;z:number}) => p.x >= sector.bounds.minX && p.x <= sector.bounds.maxX &&
+    p.z >= sector.bounds.minZ && p.z <= sector.bounds.maxZ;
+  const points = [...sector.anchors, ...getWorldZone('upper-thomson').encounterSpawns.filter(inForecourt),
+    UPPER_THOMSON_STAMPS.find(s => s.name === 'Thomson Plaza forecourt')!];
+  for (const p of points) for (const radius of [.38,.65]) {
+    expect(tm.canOccupy(p.x,0,p.z,radius,1.8), JSON.stringify(p)).toBe(true);
+    expect(tm.supportHeight(p.x,p.z,0,radius,1.8), JSON.stringify(p)).toBe(0);
   }
 });
 

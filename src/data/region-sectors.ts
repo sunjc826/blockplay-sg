@@ -356,7 +356,8 @@ const UPPER_THOMSON_SECTORS: readonly ZoneSector[] = [
     anchors: [{ x: -92, z: -46 }, { x: -132, z: -76 }, { x: -58, z: -76 }, { x: -132, z: -26 }, { x: -58, z: -42 }] },
   { id: 'thomson-plaza', name: 'Thomson Plaza forecourt', cover: 'open', lootWeight: 2, botWeight: 1.5,
     bounds: { minX: 35, maxX: 135, minZ: -55, maxZ: 30 },
-    anchors: [{ x: 85, z: -14 }, { x: 44, z: 22 }, { x: 126, z: 22 }, { x: 44, z: -20 }, { x: 126, z: -20 }] },
+    // Ground-level forecourt beside the raised entrance landing, not inside it.
+    anchors: [{ x: 104, z: -14 }, { x: 44, z: 22 }, { x: 126, z: 22 }, { x: 44, z: -20 }, { x: 126, z: -20 }] },
   { id: 'reservoir-causeway', name: 'Reservoir causeway', cover: 'open', lootWeight: 0.5, tierBias: 1, botWeight: 0.5,
     bounds: { minX: -240, maxX: -150, minZ: -30, maxZ: 45 },
     anchors: [{ x: -190, z: 5 }, { x: -232, z: 36 }, { x: -232, z: -22 }, { x: -158, z: 34 }, { x: -158, z: -22 }] },

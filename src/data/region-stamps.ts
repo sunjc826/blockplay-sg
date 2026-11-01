@@ -85,7 +85,7 @@ export const JURONG_LAKE_STAMPS = [
 export const UPPER_THOMSON_STAMPS = [
   { name: 'Thomson shop row', x: -50, z: -14 },
   { name: 'Coffee shop corner', x: -92, z: -46 },
-  { name: 'Thomson Plaza forecourt', x: 85, z: -14 },
+  { name: 'Thomson Plaza forecourt', x: 104, z: -14 },
   { name: 'Reservoir causeway', x: -190, z: 5 },
   { name: 'Boardwalk jetty', x: -162, z: -64 },
   { name: 'Nature trail junction', x: -146, z: -40 },
