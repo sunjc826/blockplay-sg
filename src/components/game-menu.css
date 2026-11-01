@@ -122,13 +122,12 @@
 .game-screen-play .game-screen-body > .fps-game:not(.is-immersive) > .fps-viewport { min-height:0; border-radius:0; }
 .game-screen-play .fps-leave-screen { display:none; }
 .play-nav { display:flex; align-items:center; gap:8px; margin:-4px 0 16px; padding-bottom:14px; border-bottom:1px solid #adbb9230; }
-.play-nav-back, .play-nav-district select { min-height:38px; border:1px solid #adbb9255; border-radius:6px; background:#ffffff0a; color:#f0eedf; }
+.play-nav-back, .play-nav-district { min-height:38px; border:1px solid #adbb9255; border-radius:6px; background:#ffffff0a; color:#f0eedf; }
 .play-nav-back { display:inline-flex; align-items:center; gap:6px; padding:0 12px; text-decoration:none; font:600 12px 'Manrope',sans-serif; flex-shrink:0; }
-.play-nav-back:hover, .play-nav-district select:hover { background:#ffffff16; }
-.play-nav-district { position:relative; flex:0 1 240px; min-width:0; margin-left:auto; display:flex; align-items:center; }
-.play-nav-district svg { position:absolute; left:10px; color:var(--menu-gold); pointer-events:none; }
-.play-nav-district select { width:100%; min-width:0; padding:0 10px 0 30px; font:600 13px 'Manrope',sans-serif; }
-.play-nav-district select option { color:#23362d; }
+.play-nav-back:hover, .play-nav-district:hover { background:#ffffff16; }
+.play-nav-district { flex:0 1 auto; min-width:0; margin-left:auto; display:flex; align-items:center; gap:8px; padding:0 10px; font:600 12px 'Manrope',sans-serif; cursor:pointer; }
+.play-nav-district svg { flex-shrink:0; color:var(--menu-gold); }
+.play-nav-district span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 /* Loading screen over a play screen (PlayLoading): the menu's own sky and
    skyline, so leaving the menu reads as one move. The bar slides by transform

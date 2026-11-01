@@ -8,6 +8,7 @@ import ArmoryShop from './ArmoryShop';
 import ArmorySettings from './ArmorySettings';
 import RankBadge from './RankBadge';
 import PlayLoading, { Skyline } from './PlayLoading';
+import StartingPointPicker from './StartingPointPicker';
 import { useArmory } from '../game/use-armory';
 import { hasRegionGame } from '../game/region-selection';
 import { progression } from '../game/progression';
@@ -62,15 +63,29 @@ function link(route: Route, label?: string) {
  * The way out and the district choice for a play screen. It sits at the top of
  * the game's own start and pause card, so the game can have the whole screen.
  */
-function PlayNav({ value, options, onChange }: { value: WorldZoneId; options: readonly { id: WorldZoneId; name: string }[]; onChange: (id: WorldZoneId) => void }) {
+function PlayNav({ value, onChoose }: { value: WorldZoneId; onChoose: () => void }) {
   return <nav className="play-nav" aria-label="Game">
     <a className="play-nav-back" {...link('menu', 'Menu')}><ArrowLeft size={16} /><span>Menu</span></a>
-    <label className="play-nav-district"><MapPin size={14} aria-hidden="true" />
-      <select aria-label="District" value={value} onChange={event => onChange(event.target.value as WorldZoneId)}>
-        {options.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
-      </select>
-    </label>
+    <button className="play-nav-district" onClick={onChoose} aria-label="Change starting district"><MapPin size={14} aria-hidden="true" /><span>{locationName(value)}</span><MapIcon size={14} aria-hidden="true" /></button>
   </nav>;
+}
+
+/** A fresh route visit always starts at the map, including direct URLs and Store. */
+function PlaySession({ mode, initial, armory, suspended, onChoose }: { mode: 'training' | 'world'; initial: WorldZoneId; armory: ReturnType<typeof useArmory>; suspended: boolean; onChoose: (id: WorldZoneId) => void }) {
+  const [start, setStart] = useState<WorldZoneId | null>(null);
+  const [zone, setZone] = useState(initial);
+  const back = <a className="play-nav-back" {...link('menu', 'Menu')}><ArrowLeft size={16} /><span>Menu</span></a>;
+  if (!start) return <StartingPointPicker mode={mode} initial={zone} options={mode === 'training' ? TRAINING_DISTRICTS : locations} back={back} onDeploy={id => { onChoose(id); setZone(id); setStart(id); }} />;
+  const nav = <PlayNav value={zone} onChoose={() => setStart(null)} />;
+  return <div className={`game-screen game-screen-play game-screen-${mode}`}>
+    <main className="game-screen-body"><DebugMode.Provider value={false}>
+      <PlayLoading mode={mode} district={locationName(start)} back={back}>
+        {onLoaded => mode === 'training'
+          ? <FpsGame suspended={suspended} region={start} onRegionChange={setZone} profile={armory.profile} nav={nav} onLoaded={onLoaded} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={() => transitionTo('store', 'Store')} />
+          : <ExpeditionGame suspended={suspended} initialZone={start} onZoneChange={setZone} nav={nav} onLoaded={onLoaded} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onElimination={armory.awardElimination} onExit={() => transitionTo('menu', 'Menu')} />}
+      </PlayLoading>
+    </DebugMode.Provider></main>
+  </div>;
 }
 
 export default function GameMenu({ screen }: { screen: Screen }) {
@@ -78,12 +93,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   const [storeTour, setStoreTour] = useState(false);
   const install = usePwa();
   const [training, setTraining] = useDistrict('blockplay.menu.training', TRAINING_DISTRICTS.map(place => place.id));
-  const [trainingZone, setTrainingZone] = useState<WorldZoneId>(training);
-  const [trainingRun, setTrainingRun] = useState(0);
   const [worldStart, setWorldStart] = useDistrict('blockplay.menu.world', locations.map(place => place.id));
-  const [worldZone, setWorldZone] = useState<WorldZoneId>(worldStart);
-  // Picking a district restarts the expedition there, even the one it began in.
-  const [worldRun, setWorldRun] = useState(0);
   const level = progression(armory.profile.xp), insignia = rankInsignia(level.level, armory.profile.rankSet);
 
   const profile = <div className="game-profile" aria-label="Your profile">
@@ -98,21 +108,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   if (screen === 'multiplayer') return <MultiplayerGame armory={armory} suspended={install.updateReady} />;
 
   if (screen === 'training' || screen === 'world') {
-    const nav = screen === 'training'
-      ? <PlayNav value={trainingZone} onChange={id => { setTraining(id); setTrainingZone(id); setTrainingRun(n => n + 1); }} options={TRAINING_DISTRICTS} />
-      : <PlayNav value={worldZone} onChange={id => { setWorldStart(id); setWorldZone(id); setWorldRun(n => n + 1); }} options={locations} />;
-    // Manual district choices restart the view; physical crossings keep it alive.
-    const loadKey = screen === 'training' ? `training-${training}-${trainingRun}` : `world-${worldStart}-${worldRun}`;
-    const districtName = locationName(screen === 'training' ? training : worldStart);
-    return <div className={`game-screen game-screen-play game-screen-${screen}`}>
-      <main className="game-screen-body"><DebugMode.Provider value={false}>
-        <PlayLoading key={loadKey} mode={screen} district={districtName} back={<a className="play-nav-back" {...link('menu', 'Menu')}><ArrowLeft size={16} /><span>Menu</span></a>}>
-          {onLoaded => screen === 'training'
-            ? <FpsGame suspended={install.updateReady} region={training} onRegionChange={setTrainingZone} profile={armory.profile} nav={nav} onLoaded={onLoaded} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={() => transitionTo('store', 'Store')} />
-            : <ExpeditionGame suspended={install.updateReady} initialZone={worldStart} onZoneChange={setWorldZone} nav={nav} onLoaded={onLoaded} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onElimination={armory.awardElimination} onExit={() => transitionTo('menu', 'Menu')} />}
-        </PlayLoading>
-      </DebugMode.Provider></main>
-    </div>;
+    return <PlaySession key={screen} mode={screen} initial={screen === 'training' ? training : worldStart} armory={armory} suspended={install.updateReady} onChoose={screen === 'training' ? setTraining : setWorldStart} />;
   }
 
   if (screen === 'store') {
@@ -125,8 +121,8 @@ export default function GameMenu({ screen }: { screen: Screen }) {
           <button className="store-tour-trigger" aria-pressed={storeTour} onClick={() => setStoreTour(true)}>Tour store</button>
           <a className="game-back store-settings" {...link('settings', 'Settings')} aria-label="Settings" title="Settings"><Settings size={15} /></a>
         </nav>} deployments={[
-          { id: 'training', label: 'Training', detail: locationName(training), onDeploy: () => transitionTo('training', locationName(training), 'TRAINING') },
-          { id: 'world', label: 'Open World', detail: locationName(worldStart), onDeploy: () => transitionTo('world', locationName(worldStart), 'OPEN WORLD') },
+          { id: 'training', label: 'Training', detail: 'Choose starting point', onDeploy: () => transitionTo('training', 'Choose starting point', 'TRAINING') },
+          { id: 'world', label: 'Open World', detail: 'Choose starting point', onDeploy: () => transitionTo('world', 'Choose starting point', 'OPEN WORLD') },
         ]} />
       </DebugMode.Provider></main>
     </div>;
@@ -143,10 +139,10 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     </div>;
   }
 
-  return <MainMenu profile={profile} install={install.canInstall} districts={{ training: locationName(training), world: locationName(worldStart) }} />;
+  return <MainMenu profile={profile} install={install.canInstall} />;
 }
 
-function MainMenu({ profile, install, districts }: { profile: React.ReactNode; install: boolean; districts: Partial<Record<Route, string>> }) {
+function MainMenu({ profile, install }: { profile: React.ReactNode; install: boolean }) {
   const items = useRef<(HTMLAnchorElement | null)[]>([]);
   const [chosen, setChosen] = useState<number | null>(null);
   // Back from another screen, the wipe is still clearing: hold the entrance for it.
@@ -187,7 +183,7 @@ function MainMenu({ profile, install, districts }: { profile: React.ReactNode; i
     if (event.metaKey || event.ctrlKey || event.shiftKey) return;
     event.preventDefault();
     const entry = ENTRIES[index];
-    if (!transitionTo(entry.route, entry.title, districts[entry.route]?.toUpperCase())) return;
+    if (!transitionTo(entry.route, entry.title, entry.route === 'training' || entry.route === 'world' ? 'CHOOSE STARTING POINT' : undefined)) return;
     playMenuSound('click');
     setChosen(index);
     try { navigator.vibrate?.(12); } catch { /* not allowed here */ }
