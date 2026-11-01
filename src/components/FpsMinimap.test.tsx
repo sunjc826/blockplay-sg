@@ -2,6 +2,8 @@ import { expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import FpsMinimap from './FpsMinimap';
 import { WORLD_ZONES } from '../game/world-zones';
+import { REGIONS } from '../game/regions';
+import { sectorAt, zoneSectors } from '../game/zone-sectors';
 
 it('keeps announced offshore landing craft visible at the map edge, with their faction and sector', () => {
   for (const expanded of [false, true]) {
@@ -42,8 +44,9 @@ it('renders an arena with only the player and roads when no markers are supplied
 it('opens to the whole district with sector names, so distant loot is on it', () => {
   for (const zone of WORLD_ZONES) {
     const player = zone.spawn;
+    const bounds = REGIONS.find(region => region.id === zone.id)!.bounds;
     const html = renderToStaticMarkup(<FpsMinimap zone={zone.id} player={player} mode="expedition" expanded markers={[
-      { id: 'distant-loot', kind: 'loot', label: 'Distant loot', x: player.x + 150, z: player.z },
+      { id: 'distant-loot', kind: 'loot', label: 'Distant loot', x: bounds.maxX - 20, z: bounds.minZ + 20 },
       { id: 'exit', kind: 'checkpoint', label: 'Next district · checkpoint', x: player.x, z: player.z + 20 },
     ]} />);
     expect(html).toContain('data-map-expanded="true"');
@@ -52,6 +55,16 @@ it('opens to the whole district with sector names, so distant loot is on it', ()
     expect(html).toContain('class="fps-map-sector"');
     expect(html).toContain('>Next district</text>');
   }
+});
+
+it('keeps supplies at the district boundary visible without showing supplies outside it', () => {
+  const bounds = REGIONS[0].bounds;
+  const html = renderToStaticMarkup(<FpsMinimap zone="marina-bay" player={{ x: 0, z: 0, yaw: 0 }} mode="expedition" expanded markers={[
+    { id: 'corner', x: bounds.minX, z: bounds.minZ, kind: 'loot', label: 'Corner supplies' },
+    { id: 'outside', x: bounds.minX - 1, z: bounds.minZ, kind: 'loot', label: 'Outside supplies' },
+  ]} />);
+  expect(html).toContain('data-minimap-marker="corner"');
+  expect(html).not.toContain('data-minimap-marker="outside"');
 });
 
 it('keeps scent reveals alongside visible combatants', () => {
@@ -131,4 +144,45 @@ it('shows faction-colored parachute directions and ETA at either map size, respe
     expect(html).toContain('data-marker-kind="parachute"'); expect(html).toContain('Drop in 12s'); expect(html).toContain('fill="#70cfff"');
     expect(renderToStaticMarkup(<FpsMinimap {...props} jammed />)).not.toContain('data-marker-kind="parachute"');
   }
+});
+
+it('includes every authored schematic shape and static landmark in every expanded district', () => {
+  for (const region of REGIONS) {
+    const html = renderToStaticMarkup(<FpsMinimap zone={region.id} player={region.spawn} mode="practice" expanded />);
+    expect((html.match(/data-map-decor=/g) ?? []).length, region.id).toBe(region.decor.length);
+    expect(html, region.id).toContain('data-marker-kind="landmark"');
+  }
+});
+
+it('outlines all sectors independently of tactical control, including compact training and jamming', () => {
+  for (const region of REGIONS) for (const mode of ['practice', 'arena', 'expedition'] as const) for (const expanded of [false, true]) {
+    const sector = zoneSectors(region.id)[0];
+    const player = { x: (sector.bounds.minX + sector.bounds.maxX) / 2, z: (sector.bounds.minZ + sector.bounds.maxZ) / 2, yaw: 0 };
+    const html = renderToStaticMarkup(<FpsMinimap zone={region.id} player={player} mode={mode} expanded={expanded} jammed />);
+    expect((html.match(/data-sector-boundary=/g) ?? []).length).toBe(zoneSectors(region.id).length);
+    expect(html).toContain(`data-sector-boundary="${sectorAt(region.id, player.x, player.z)!.id}" data-current="true"`);
+    expect(html).not.toContain('data-sector-control');
+  }
+});
+
+it('shows full status and distance for the priority marker without requiring a tooltip', () => {
+  const html = renderToStaticMarkup(<FpsMinimap zone="marina-bay" player={{ x: 0, z: 0, yaw: 0 }} mode="expedition" expanded markers={[
+    { id: 'post', x: 30, z: 40, kind: 'facility', facilityType: 'command', side: 'ally', active: true, label: 'Forward camp · Capturing 42%' },
+  ]} />);
+  expect(html).toContain('data-facility-type="command"');
+  expect(html).toContain('Command post · 50m');
+  expect(html).toContain('<strong>Forward camp</strong>');
+  expect(html).toContain('<p>Allied · Capturing 42%</p>');
+  expect(html).toContain('aria-label="Previous map marker"');
+});
+
+it('keeps static geography but excludes all tactical details and hazards while jammed', () => {
+  const html = renderToStaticMarkup(<FpsMinimap zone="marina-bay" player={{ x: 0, z: 0, yaw: 0 }} mode="expedition" expanded jammed
+    markers={[{ id: 'secret', x: 0, z: 0, kind: 'facility', label: 'Secret camp · Capturing 42%', active: true }]}
+    dangers={[{ id: 'strike', x: 0, z: 0, radius: 20, kind: 'ring' }]} />);
+  expect(html).toContain('data-marker-kind="landmark"');
+  expect(html).toContain('data-sector-boundary');
+  expect(html).not.toContain('Secret camp');
+  expect(html).not.toContain('Capturing 42%');
+  expect(html).not.toContain('data-map-danger');
 });

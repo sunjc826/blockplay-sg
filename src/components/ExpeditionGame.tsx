@@ -121,7 +121,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
   const nextCheckpoint = plannedRoute[0];
   const mapMarkers: MinimapMarker[] = [
     ...hud.mapMarkers,
-    ...(hud.fieldLoot ?? []).map(item => ({ id: item.id, x: item.x, z: item.z, kind: 'loot' as const, label: `${item.name} (${item.tier})${(item.y ?? 0) > 0 ? ` · upper level +${Math.round(item.y!)}m` : ''}` })),
+    ...(hud.fieldLoot ?? []).map(item => ({ id: item.id, x: item.x, z: item.z, kind: 'loot' as const, lootType: item.catalogId && itemById(item.catalogId)?.supplyType === 'food' ? 'food' as const : item.kind, label: `${item.name} (${item.tier})${(item.y ?? 0) > 0 ? ` · upper level +${Math.round(item.y!)}m` : ''}` })),
     ...(hud.npcs ?? []).map(npc => ({ id: npc.id, x: npc.x, z: npc.z, kind: 'npc' as const, label: `${npc.name} · ${npc.role}` })),
     ...gateways.map(gateway => ({ id: gateway.id, ...gateway.position, kind: 'checkpoint' as const, label: gateway.name, active: gateway.id === nextCheckpoint?.id })),
   ];
@@ -157,7 +157,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
           {(hud.sector || hud.sectorHeat) && <div className="expedition-sector" role="status"><span>LOCATION</span><strong>{hud.sector || zone.name}</strong>
             {hud.sectorHeat && <div className="expedition-heat" aria-label="Faction heat here">{[...SQUAD_FACTIONS].reverse().map(id =>
               <div key={id} data-faction={id}><small>{getArenaFaction(id)!.short}</small><i style={{ width: `${Math.round(hud.sectorHeat![id] * 100)}%`, background: getArenaFaction(id)!.accent }} /></div>)}</div>}</div>}
-          <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} facilities={hud.arena?.facilities?.sites} contactRange={hud.mapContactRange} mode="expedition" expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={touch ? () => engine.current?.toggleMap() : undefined} />
+          <FpsMinimap zone={scene.zone} player={hud} markers={mapMarkers} facilities={hud.arena?.facilities?.sites} contactRange={hud.mapContactRange} mode="expedition" expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={() => engine.current?.toggleMap()} />
           <ProxyOperationHud hud={hud} engine={engine.current} />
         </>}
       </FpsHudLayout>

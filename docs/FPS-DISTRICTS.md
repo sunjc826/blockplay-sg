@@ -4,6 +4,25 @@ Select any district, then choose its FPS range — Marina, Raffles, Queenstown, 
 
 Changing regions while in a practice FPS session starts a fresh range on the newly selected map. Permanent equipment and progression remain in the shared armory. Opening the shop and deploying returns to the selected region. Selecting the current region again does not restart the session. Open-world checkpoint travel retains its existing session behavior. LAN/solo arena matchmaking still uses Marina; district practice does not change the multiplayer map protocol.
 
+## Map details and inspection
+
+The local minimap and expanded district map draw the authored schematic roads,
+buildings, water and landmark positions. All modes show sector boundaries, with
+a bright outline around your current named sector. Sector areas may overlap or
+leave gaps. Expedition ownership tint is a separate layer based on surviving
+facilities, rather than troop presence. Static geography remains available when
+the signal is jammed; tactical markers, hazards and ownership information vanish.
+
+Press **M** or tap the minimap to open the district map. Select a marker to read
+its type, distance and available status, capture progress or transport ETA.
+**[** / **]** and the previous/next buttons browse markers. The map key explains
+the distinct facility and equipment symbols. Desktop inspection releases mouse
+capture and stops held movement/fire inputs while keeping your stance; **M**,
+**Escape** or **Close** returns to play and requests capture again. A denied
+capture leaves the regular Resume control available. The battlefield keeps
+running while you inspect the map. Roads and landmarks are schematic positions,
+not walking routes; vertical routes and floor overlays are not included.
+
 ## Shared implementation
 
 - `fps-districts.ts` supplies map labels, spawn/orientation, target positions, vehicle parking and range props. Marina retains its original range layout.

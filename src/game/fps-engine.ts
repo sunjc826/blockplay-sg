@@ -636,8 +636,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const ray = new THREE.Raycaster(); ray.far = 250;
   const center = new THREE.Vector2(), muzzlePoint = new THREE.Vector3();
   let prone = false;
+  let mapReturnStance: { prone: boolean; crouch: boolean } | null = null;
   const keyboardCrouch = createKeyboardCrouch();
   const crouchRequested = () => keyboardCrouch.active || keys.has('c');
+  const restoreMapStance = (stance: { prone: boolean; crouch: boolean }) => {
+    prone = stance.prone;
+    if (stance.crouch && !keyboardCrouch.active) keyboardCrouch.toggle();
+  };
   const grounded = () => velocityY <= 0 && Math.abs(vertical - (footMovement.supportHeight(position.x, position.z, vertical + .02, .38, .6) ?? -100)) < .025;
   const eyeHeight = () => {
     const requested = prone ? PRONE_EYE_HEIGHT : crouchRequested() ? 1.15 : 1.75;
@@ -687,7 +692,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       mapContactRange, mapMarkers: [
         ...(rangeTravel ? WORLD_GATEWAYS.filter(g => g.from === region && g.border).map(g => ({ id: g.id, ...g.position, kind: 'checkpoint' as const, label: g.name })) : []),
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}-${targets[index].activation}`, kind: 'target', label: `Target ${index + 1}` }] : []),
-        ...(rangeStation ? [{ id: 'range-resupply', x: rangeStation.point.x, z: rangeStation.point.z, kind: 'loot' as const, label: 'Range resupply · ammo, grenades & utilities' }] : []),
+        ...(rangeStation ? [{ id: 'range-resupply', x: rangeStation.point.x, z: rangeStation.point.z, kind: 'loot' as const, lootType: 'resupply' as const, label: 'Range resupply · ammo, grenades & utilities' }] : []),
         ...(['car', 'helicopter'] as const).filter(kind => kind !== vehicles.active && !vehicles.states[kind].despawned && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind, label: kind === 'car' ? 'Utility 01' : 'Falcon 01', x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
         ...(hud.arena?.events ?? []).filter(e => e.kind === 'paratroopers' && (hud.arena?.elapsed ?? 0) - e.start <= 28).map((e): MinimapMarker => ({
           id: `parachute-${e.id}`, x: e.target.x, z: e.target.z, kind: 'parachute', side: e.faction === PLAYER_FACTION ? 'ally' : 'enemy',
@@ -698,7 +703,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           const coast = SENTOSA_LANDING_SITES.find(s => s.id === event?.landing)?.name ?? 'Coast';
           return { id: `boat-${t.event}`, x: t.x, z: t.z, kind: 'boat', side: friendly ? 'ally' : 'enemy', label: `${friendly ? 'Friendly' : 'Hostile'} landing craft · ${coast} · ${t.state === 'inbound' ? `ETA ${Math.max(0, Math.ceil((event?.start ?? 0) + NAVAL_LANDING.approach + NAVAL_LANDING.rampSeconds - (hud.arena?.elapsed ?? 0)))}s · ` : ''}${t.passengers} aboard` };
         }),
-        ...(hud.arena?.facilities?.sites ?? []).map((s): MinimapMarker => ({ id: s.id, x: s.x, z: s.z, kind: 'facility', label: `${s.name} · ${facilityStatus(s)}`, side: s.owner === PLAYER_FACTION ? 'ally' : s.owner ? 'enemy' : 'neutral', inactive: s.health === 0, active: !!s.action })),
+        ...(hud.arena?.facilities?.sites ?? []).map((s): MinimapMarker => ({ id: s.id, x: s.x, z: s.z, kind: 'facility', facilityType: s.kind, label: `${s.name} · ${facilityStatus(s)}`, side: s.owner === PLAYER_FACTION ? 'ally' : s.owner ? 'enemy' : 'neutral', inactive: s.health === 0, active: !!s.action })),
         ...(proxy && proxy.cargo==='sealed' && ['incoming','contested'].includes(proxy.phase) ? [{ id:proxy.id, x:proxy.at.x,z:proxy.at.z,kind:'checkpoint' as const,label:'Tracked prototype cargo',side:'neutral' as const }] : []),
         ...contactMarkers(mapContactRange),
       ],
@@ -742,7 +747,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); hud.pilotStatus = 'Player controls'; hud.pilotGoal = null; hud.pilotContacts = 0;
     capturePending = false;
     if (!['playing', 'deploying'].includes(hud.phase)) return;
-    hud.phase = 'paused'; clearInput(); stopVoice(); encik.clear(); hud.encikCallout = null; wheel = null; hud.calloutWheel = null; foodPicker = null; hud.foodPicker = null;
+    hud.phase = 'paused'; hud.mapExpanded = false; clearInput(); stopVoice(); encik.clear(); hud.encikCallout = null; wheel = null; hud.calloutWheel = null; foodPicker = null; hud.foodPicker = null;
     if (document.pointerLockElement === canvas) document.exitPointerLock();
     publish();
   }
@@ -891,7 +896,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (disposed || !['ready', 'paused'].includes(hud.phase)) return;
     if (!pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) { captureFailed(); return; }
     if (!deployInitially()) return;
-    capturePending = false; hud.message = ''; lastTime = performance.now(); clearInput(); canvas.focus(); initAudio();
+    capturePending = false; hud.message = ''; lastTime = performance.now(); clearInput();
+    if (mapReturnStance) { restoreMapStance(mapReturnStance); mapReturnStance = null; }
+    canvas.focus(); initAudio();
     if (introEligible && !deploymentIntro.begun) {
       deploymentIntro.begin(!!motionPreference?.matches, {
         height: camera.position.y - (vertical + eyeHeight()), x: camera.position.x - position.x, z: camera.position.z - position.z,
@@ -969,6 +976,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     effects.setStyles(weaponStyles, index); publish();
   }
   function reset() {
+    mapReturnStance = null;
     gunshotSpaces.clear();
     gunshots.clear(); emptyFireAudio.clear();
     impactAudio.clear(); bulletFlybys.clear();
@@ -1246,9 +1254,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     travel.onTravel(transition, checkpoint);
   }
   function jump() {
+    if (hud.mapExpanded) return;
     if (arenaConditionModifiers(conditions).frozen) return; if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && stance() === 'stand') bufferJump(bodyMotion); } }
   function setInput(key: string, held: boolean) {
-    if (hud.proxyMenu && held) return;
+    if ((hud.proxyMenu || hud.mapExpanded) && held) return;
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) return;
     if (key === 'k') { if (held) inspectWeapon(); return; }
     if (key === 'v') { if (held) switchVehicleSeat(); return; }
@@ -1259,6 +1268,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** A fresh press is a new pull, buffered until it fires or `TRIGGER_BUFFER` runs out. */
   function pullTrigger(held: boolean) {
+    if (hud.mapExpanded && held) return;
     if (grenadeHeld) {
       if (hud.phase !== 'playing' || hud.proxyMenu || arenaConditionModifiers(conditions).frozen) return;
       grenadeFireHeld = held;
@@ -1273,7 +1283,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** Analog movement from the left thumb stick; a null or centred stick hands control back to the keys. */
   function setMoveAxis(stick: StickVector | null) {
-    if (hud.proxyMenu && stick) return;
+    if ((hud.proxyMenu || hud.mapExpanded) && stick) return;
     if (resumeCrossing && hud.phase === 'loading') { crossingStick = stick && stick.magnitude > 0 ? { ...stick } : null; return; }
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) { moveStick = null; return; }
     moveStick = stick && stick.magnitude > 0 ? stick : null;
@@ -1306,7 +1316,20 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!expedition || hud.phase !== 'playing' || hud.arenaSelf?.alive === false) return;
     hud.objectiveHints = !hud.objectiveHints; canvas.focus({ preventScroll: true }); publish();
   }
-  function toggleMap() { hud.mapExpanded = !hud.mapExpanded; publish(); }
+  function toggleMap() {
+    if (hud.phase !== 'playing') return;
+    hud.mapExpanded = !hud.mapExpanded;
+    const posture = { prone, crouch: crouchRequested() };
+    clearInput(); restoreMapStance(posture); wheel = null; hud.calloutWheel = null; hud.proxyMenu = false;
+    if (hud.mapExpanded) {
+      if (document.pointerLockElement === canvas) document.exitPointerLock();
+    } else if (!pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) {
+      // Reuse the normal guarded capture flow; denial leaves a working Resume button.
+      mapReturnStance = posture;
+      pause(); start(); return;
+    } else canvas.focus({ preventScroll: true });
+    publish();
+  }
   /**
    * The laser's beam and dot and the torch, from the emitters on the weapon in
    * hand. The viewmodel is drawn in camera space, so an emitter's place there
@@ -1433,6 +1456,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const keyboardKeys = ['y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'k', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'i', 'v', 'l', 'n', 't', 'm', 'h', 'j', 'b', 'x', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = fpsControlKey(event);
+    if (hud.mapExpanded) return;
     if (hud.proxyMenu && hud.phase==='playing') {
       event.preventDefault();
       if (!event.repeat && key && /^[1-4]$/.test(key)) chooseProxyAction((['return','rival','keep','carry'] as const)[Number(key)-1]);
@@ -1507,14 +1531,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const scrollWheel = (event: WheelEvent) => { if (overviewActive()) { event.preventDefault(); zoomDeployment(Math.exp(-event.deltaY * .0015)); return; } if (!wheel) return; event.preventDefault(); if (Math.abs(event.deltaY) > 4) setCalloutPage(wheel.page + Math.sign(event.deltaY)); };
   const pointerSource = (event: PointerEvent) => {
     lastPointerType = event.pointerType;
-    if (hud.phase === 'playing' && inputMode === 'touch' && requiresFpsPointerLock(event.pointerType)) {
+    if (hud.phase === 'playing' && !hud.mapExpanded && inputMode === 'touch' && requiresFpsPointerLock(event.pointerType)) {
       inputMode = 'mouse'; pause();
       hud.message = 'Mouse detected. Click Resume to capture it; Escape opens the menu.'; publish();
     }
   };
   /** `assisted` marks a thumb's drag, which the aim assist may bend; the mouse and the pilot are never helped. */
   const look = (dx: number, dy: number, assisted = false) => {
-    if (hud.phase !== 'playing' || hud.proxyMenu || arenaConditionModifiers(conditions).frozen) return;
+    if (hud.phase !== 'playing' || hud.proxyMenu || hud.mapExpanded || arenaConditionModifiers(conditions).frozen) return;
     const wasYaw = yaw, wasPitch = pitch;
     ({ yaw, pitch } = turnFpsLook(yaw, pitch, dx, dy, ads || touchAim));
     const contact = assisted ? assistContact() : null;
@@ -1550,7 +1574,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       event.preventDefault(); canvas.setPointerCapture(event.pointerId); overviewDrag = { id: event.pointerId, x: event.clientX, y: event.clientY }; return;
     }
     if (pilotEnabled) return;
-    if (hud.phase !== 'playing') return;
+    if (hud.phase !== 'playing' || hud.mapExpanded) return;
     canvas.focus();
     if (document.pointerLockElement === canvas) return;
     if (inputMode === 'touch' && !requiresFpsPointerLock(event.pointerType)) {
@@ -1587,12 +1611,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const locked = document.pointerLockElement === canvas;
     if (locked && capturePending) enterPlay();
     else if (locked && !['playing', 'deploying'].includes(hud.phase)) document.exitPointerLock();
-    if (!locked && !pilotEnabled && (!expedition || hud.arenaSelf?.alive !== false) && ['playing', 'deploying'].includes(hud.phase) && (wasLocked || inputMode === 'mouse')) pause(); wasLocked = locked; publish();
+    if (!locked && !hud.mapExpanded && !pilotEnabled && (!expedition || hud.arenaSelf?.alive !== false) && ['playing', 'deploying'].includes(hud.phase) && (wasLocked || inputMode === 'mouse')) pause(); wasLocked = locked; publish();
+  };
+  const mapKeydown = (event: KeyboardEvent) => {
+    if (!hud.mapExpanded || hud.phase !== 'playing') return;
+    if (event.key.toLowerCase() === 'm' || event.key === 'Escape') {
+      event.preventDefault(); event.stopPropagation(); if (!event.repeat) toggleMap();
+    }
   };
   const lockerror = () => { if (!capturePromisePending) captureFailed(); };
   const contextmenu = (event: Event) => event.preventDefault();
   const visibility = () => { if (document.hidden) pause(); };
   window.addEventListener('keydown', pilotEscape, true);
+  window.addEventListener('keydown', mapKeydown, true);
   canvas.addEventListener('keydown', keydown); window.addEventListener('keyup', keyup);
   window.addEventListener('pointerdown', pointerSource, true); window.addEventListener('pointermove', pointerSource, true);
   canvas.addEventListener('pointerdown', pointerdown); canvas.addEventListener('pointermove', pointermove);
@@ -3254,7 +3285,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       comms.add('system', 'Armory', hud.message); publish();
     }
     // Stop controls even if a browser/VM delays or drops pointerlockchange.
-    if (['playing', 'deploying'].includes(hud.phase) && (!expedition || hud.arenaSelf?.alive !== false) && !pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) pause();
+    if (['playing', 'deploying'].includes(hud.phase) && !hud.mapExpanded && (!expedition || hud.arenaSelf?.alive !== false) && !pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) pause();
 
     if (pilotEnabled && ['complete', 'defeated', 'error'].includes(hud.phase)) { pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); }
     if (hud.phase === 'deploying') {
@@ -3642,6 +3673,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       canvas.removeEventListener('contextmenu', contextmenu); document.removeEventListener('mousemove', mousemove);
       canvas.removeEventListener('mousedown', mousedown); window.removeEventListener('mouseup', mouseup); canvas.removeEventListener('wheel', scrollWheel);
       document.removeEventListener('pointerlockchange', lockchange); document.removeEventListener('pointerlockerror', lockerror);
+      window.removeEventListener('keydown', mapKeydown, true);
       window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility);
       // First, so every mesh has its own material back before anything else restores or disposes them.
       vision.dispose(); lens.dispose(); deploymentBlur.dispose(); overview.dispose();
