@@ -32,7 +32,7 @@
 /* One round, one tick. The digits are keyed on the shot count, so each shot
    remounts them and replays this; a reload changes the number without a
    remount, and the count simply climbs. */
-.fps-weapon-hud .fps-ammo strong{animation:fps-ammo-tick .13s ease-out}
+.fps-weapon-hud .fps-ammo strong{transform-origin:right center;animation:fps-ammo-tick .13s ease-out}
 @keyframes fps-ammo-tick{from{transform:translateY(-3px);opacity:.6}}
 .fps-reload-cue{position:absolute;left:50%;top:calc(50% + 62px);transform:translateX(-50%);width:112px;text-align:center;font:8px monospace;letter-spacing:2px;color:var(--hud-gold-soft);text-shadow:0 1px 4px #000}
 .fps-reload-cue>div{height:2px;margin-top:8px;background:#ffffff30}

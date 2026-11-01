@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 import { Rotate3d } from 'lucide-react';
 import { tapProps } from './touch-tap';
 import type { FpsHud } from '../game/fps-engine';
@@ -27,7 +27,23 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickF
   // The digits are the magazine; a chambered round shows beside them as +1.
   const capacity = hud.magazineCapacity ?? weapon.capacity, reloadCapacity = hud.reloadCapacity ?? capacity;
   const inMagazine = Math.max(0, hud.magazine - (hud.chambered ? 1 : 0));
-  const rounds = useReducedMotion() ? inMagazine : magazineDisplay(inMagazine, reloadCapacity, reloadCapacity, hud.reloading, reloadShare(MAG_IN_START, hud.reloadEmpty), reloadShare(RELOAD_POINTS.seat, hud.reloadEmpty));
+  const reducedMotion = useReducedMotion();
+  const rounds = reducedMotion ? inMagazine : magazineDisplay(inMagazine, reloadCapacity, reloadCapacity, hud.reloading, reloadShare(MAG_IN_START, hud.reloadEmpty), reloadShare(RELOAD_POINTS.seat, hud.reloadEmpty));
+  const ammoDigits = useRef<HTMLElement>(null), lastEmptyFire = useRef(hud.emptyFires);
+  useEffect(() => {
+    const fresh = hud.emptyFires > lastEmptyFire.current;
+    lastEmptyFire.current = hud.emptyFires;
+    if (!fresh || !canFight || reloading || hud.grenadeHeld || reducedMotion) return;
+    const animation = ammoDigits.current?.animate([
+      { transform: 'translateX(0) scale(1)' },
+      { transform: 'translateX(-3px) scale(1.09)', offset: .18 },
+      { transform: 'translateX(3px) scale(1.07)', offset: .36 },
+      { transform: 'translateX(-2px) scale(1.04)', offset: .55 },
+      { transform: 'translateX(1px) scale(1.02)', offset: .74 },
+      { transform: 'translateX(0) scale(1)' },
+    ], { duration: 260, easing: 'ease-out' });
+    return () => animation?.cancel();
+  }, [hud.emptyFires, hud.weapon, canFight, reloading, !!hud.grenadeHeld, reducedMotion]);
   // An interrupted reload keeps its progress for the next one (see fps-rules).
   const resume = !reloading && hud.reloadSaved > 0 ? Math.round(hud.reloadSaved * 100) : 0;
   const using = hud.supplyUse;
@@ -59,7 +75,7 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickF
         <FpsVitals hud={hud} />
         <div className={`fps-ammo ${!hud.roundReady && !reloading ? 'is-empty' : ''}`}>
           <span>{rare && <em className="fps-tier" data-tier={rare.toLowerCase()}>{rare}</em>}{grenade?.name ?? weapon.name} <small>{hud.aiming ? 'ADS' : weapon.fireMode === 'semi' ? 'SEMI' : 'AUTO'}</small></span>
-          {grenade ? <strong>{grenade.pinned ? Math.max(0, grenade.fuse - grenade.cooked).toFixed(1) : 'READY'}<small>{grenade.pinned ? ' s' : grenade.under ? ' LOB' : ' THROW'}</small></strong> : <strong key={hud.shots}>{rounds.toString().padStart(2, '0')}{hud.chambered && <em className="fps-chamber" aria-label="one in the chamber">+1</em>}<small title={`${weapon.caliberMm} mm compatible spare magazines`}> · {hud.spareMagazines ?? 0} MAGS</small></strong>}
+          {grenade ? <strong>{grenade.pinned ? Math.max(0, grenade.fuse - grenade.cooked).toFixed(1) : 'READY'}<small>{grenade.pinned ? ' s' : grenade.under ? ' LOB' : ' THROW'}</small></strong> : <strong ref={ammoDigits} key={`${hud.weapon}-${hud.shots}`}>{rounds.toString().padStart(2, '0')}{hud.chambered && <em className="fps-chamber" aria-label="one in the chamber">+1</em>}<small title={`${weapon.caliberMm} mm compatible spare magazines`}> · {hud.spareMagazines ?? 0} MAGS</small></strong>}
           {prompt ? <p>{prompt}</p> : <p className="fps-ammo-detail fps-hud-hint">R RELOAD · DISCARDS UNUSED ROUNDS · Q / RMB AIM{onInspect && hud.vehicle === 'on-foot' && !touch && ' · K INSPECT'}</p>}
           {(hud.rail || hud.offsetDot) && <p className="fps-ammo-detail" data-accessories>
             {hud.rail && hud.rail.kind !== 'light' && <>{hint('B ')}LASER {(hud.rail.laserOn ?? hud.rail.on) ? 'ON' : 'OFF'}</>}

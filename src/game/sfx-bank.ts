@@ -1,17 +1,18 @@
 import manifest from '../audio/sfx/manifest.json';
 import reloadManifest from '../audio/reload/manifest.json';
+import emptyFireManifest from '../audio/empty-fire/manifest.json';
 
 /**
  * Recorded sound effects (ElevenLabs takes, see scripts/sfx-batch.mjs), decoded once per AudioContext.
  * Each group holds several takes; `pick` rotates through them so no take plays twice running.
  * Until a group has loaded, or if it never does, `pick` returns null and callers fall back to synthesis.
  */
-const groups = { ...manifest.groups, ...reloadManifest.groups };
+const groups = { ...manifest.groups, ...reloadManifest.groups, ...emptyFireManifest.groups };
 export type SfxGroup = keyof typeof groups;
 export const SFX_GROUPS = Object.keys(groups) as SfxGroup[];
 
 export function sfxUrls(group: SfxGroup, base = import.meta.env.BASE_URL) {
-  return groups[group].map(clip => `${base}audio/${group.startsWith('reload-') ? 'reload' : 'sfx'}/${clip.file}`);
+  return groups[group].map(clip => `${base}audio/${group.startsWith('empty-fire-') ? 'empty-fire' : group.startsWith('reload-') ? 'reload' : 'sfx'}/${clip.file}`);
 }
 
 export function createSfxBank(fetcher: typeof fetch = fetch, random = Math.random) {

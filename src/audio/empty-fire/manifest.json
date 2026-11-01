@@ -1,0 +1,170 @@
+{
+  "version": 1,
+  "provider": "ElevenLabs",
+  "model": "eleven_text_to_sound_v3",
+  "processing": "44100 Hz mono; silence trimmed; fixed per-mechanism maximum length; 20 ms fade; peak <= .9 and loudest 50 ms RMS <= .23; original pitch and speed",
+  "groups": {
+    "empty-fire-pistol": [
+      {
+        "file": "empty-fire-pistol-98cc81f10f.mp3",
+        "seconds": 0.15351473922902495
+      }
+    ],
+    "empty-fire-bullpup": [
+      {
+        "file": "empty-fire-bullpup-eecadbc3ed.mp3",
+        "seconds": 0.1493424036281179
+      }
+    ],
+    "empty-fire-carbine": [
+      {
+        "file": "empty-fire-carbine-5627ed67f9.mp3",
+        "seconds": 0.2
+      }
+    ],
+    "empty-fire-rifle": [
+      {
+        "file": "empty-fire-rifle-7bd787eb55.mp3",
+        "seconds": 0.2
+      }
+    ],
+    "empty-fire-drum": [
+      {
+        "file": "empty-fire-drum-41c187a084.mp3",
+        "seconds": 0.2
+      }
+    ],
+    "empty-fire-light-belt": [
+      {
+        "file": "empty-fire-light-belt-c22e74cb6d.mp3",
+        "seconds": 0.2
+      }
+    ],
+    "empty-fire-belt": [
+      {
+        "file": "empty-fire-belt-38aa6b0b76.mp3",
+        "seconds": 0.2
+      }
+    ],
+    "empty-fire-heavy-belt": [
+      {
+        "file": "empty-fire-heavy-belt-c2d6ee77fc.mp3",
+        "seconds": 0.2
+      }
+    ]
+  },
+  "receipts": [
+    {
+      "id": "empty-fire-pistol",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "HK P30 compact 9mm pistol with a small polymer grip and light steel slide. One failed trigger pull on an empty weapon: a tight dry mechanical sear click with a short receiver resonance. Immediate crisp onset, one compact click under 180 ms then silence. No gunshot, ammunition, bolt cycling, reload, repeated clicks, music, voice or ambience."
+      },
+      "sourceSha256": "641ef08faf9ba17234ea471c97d6d254aa666afc65b228a439977f00f3f2d05c",
+      "sha256": "98cc81f10f148356d66ec97a5671b59ef5d35b853fcaf4e100cc6339453fb282",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.03929705215419501
+    },
+    {
+      "id": "empty-fire-bullpup",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "SAR 21 bullpup rifle with a hollow polymer stock and rear magazine well. One failed trigger pull on an empty weapon: a tight dry mechanical sear click with a short receiver resonance. Immediate crisp onset, one compact click under 180 ms then silence. No gunshot, ammunition, bolt cycling, reload, repeated clicks, music, voice or ambience."
+      },
+      "sourceSha256": "59a18dbe4685c1a9eddba07b8e9388a2d132f75526d4e28f0e8f18ded3861eb1",
+      "sha256": "eecadbc3edaa15f26db8f804455b9529dab0d329a62b6beafc43bf1827138ce7",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.2513832199546485
+    },
+    {
+      "id": "empty-fire-carbine",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "XM8 lightweight polymer carbine with a compact plastic receiver. One failed trigger pull on an empty weapon: a tight dry mechanical sear click with a short receiver resonance. Immediate crisp onset, one compact click under 180 ms then silence. No gunshot, ammunition, bolt cycling, reload, repeated clicks, music, voice or ambience."
+      },
+      "sourceSha256": "1687c4b66c72b0bd24564c6458a53cfa3b5d14ac22403eb74e5267bd6a2cbe66",
+      "sha256": "5627ed67f988df17df29851fdac1f0138eefeda2e07d60ee0640e33b1a6dd3c1",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.11594104308390023
+    },
+    {
+      "id": "empty-fire-rifle",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "G36 polymer assault rifle with a longer receiver and steel bolt carrier. One failed trigger pull on an empty weapon: a tight dry mechanical sear click with a short receiver resonance. Immediate crisp onset, one compact click under 180 ms then silence. No gunshot, ammunition, bolt cycling, reload, repeated clicks, music, voice or ambience."
+      },
+      "sourceSha256": "3271943fe63a6e0c8a921d977b268cf5fea28152462aeee42e508a5128486783",
+      "sha256": "7bd787eb558c0db3d305f48e6f2c1e2878c0973f6136baeab89d38dbd4f11ef3",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.032834467120181406
+    },
+    {
+      "id": "empty-fire-drum",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "Ultimax light machine gun with a large hollow metal ammunition drum. One failed trigger pull on an empty weapon: a tight dry mechanical sear click with a short receiver resonance. Immediate crisp onset, one compact click under 180 ms then silence. No gunshot, ammunition, bolt cycling, reload, repeated clicks, music, voice or ambience."
+      },
+      "sourceSha256": "2bdd619c64aa4e9eecb1f8bd3604c03515094c17f0cd37228ff23b7c2cda3d9e",
+      "sha256": "41c187a084836da1a9e4eef8f7d85f3ded90b94ad5070b4c3c1eaf1bfaf06244",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.031224489795918367
+    },
+    {
+      "id": "empty-fire-light-belt",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "MG4 belt-fed 5.56mm light machine gun with a light steel top feed cover. One failed trigger pull on an empty weapon: a tight dry mechanical sear click with a short receiver resonance. Immediate crisp onset, one compact click under 180 ms then silence. No gunshot, ammunition, bolt cycling, reload, repeated clicks, music, voice or ambience."
+      },
+      "sourceSha256": "ae8fcec4661dca75bf1c01622b7b9eac1c12f4e3b5b7ebf8e82e16e498a3b7b0",
+      "sha256": "c22e74cb6d371cefe022b403026b4b95dae39dcb2a7072f2f668636b93f00171",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0.016213151927437643
+    },
+    {
+      "id": "empty-fire-belt",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "FN MAG belt-fed 7.62mm machine gun with a substantial steel receiver and hinged top feed cover. One failed trigger pull on an empty weapon: a tight dry mechanical sear click with a short receiver resonance. Immediate crisp onset, one compact click under 180 ms then silence. No gunshot, ammunition, bolt cycling, reload, repeated clicks, music, voice or ambience."
+      },
+      "sourceSha256": "29a1297e9924467f22b9f50777216c58a2694d26ec417192983a69edd8bbecf1",
+      "sha256": "38aa6b0b76d7ecc7188ed0e730d8315668ee8aaca5a86a2d71f49c9449a4feb4",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0
+    },
+    {
+      "id": "empty-fire-heavy-belt",
+      "request": {
+        "model_id": "eleven_text_to_sound_v3",
+        "duration_seconds": 0.5,
+        "prompt_influence": 0.65,
+        "text": "CIS 50MG belt-fed .50 calibre heavy machine gun with a massive heavy steel receiver and top feed cover. One failed trigger pull on an empty weapon: a tight dry mechanical sear click with a short receiver resonance. Immediate crisp onset, one compact click under 180 ms then silence. No gunshot, ammunition, bolt cycling, reload, repeated clicks, music, voice or ambience."
+      },
+      "sourceSha256": "bb9f75571db37c11559d0b03d686e3d518af7b75403f9e5acf067e17ad3438b3",
+      "sha256": "c2d6ee77fc192f3e116e61af6966688ded58baef7024919c3462ad161d1cc795",
+      "requestId": null,
+      "credits": 5,
+      "sourceStartSeconds": 0
+    }
+  ]
+}
