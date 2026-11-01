@@ -1,3 +1,4 @@
+import { createFirearmCameraShake } from './firearm-camera-shake';
 import { applyVehicleImpactCamera } from './vehicle-impact';
 import { createProxyCampaign, PROXY_WEAPON, type ProxyAction, type ProxyCampaign } from './proxy-operations';
 import { createProxyOperationVisuals } from './proxy-operation-visuals';
@@ -549,6 +550,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // Two-stage recoil: see fps-recoil. The view still couples through the same
   // scale the old scalar did, so a burst costs the aim it always did.
   const kick = createRecoil();
+  const firearmShake = createFirearmCameraShake();
+  function resetWeaponRecoil() { resetRecoil(kick); firearmShake.reset(); }
   // The shooter's own ground speed, so walking fire throws brass along with them.
   const carry = new THREE.Vector3();
   // Rounds still in the air. Instant weapons never enter this list, so a hitscan
@@ -703,7 +706,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     for (const e of activeGrenadeEvents()) for (const p of grenadePayloads(e)) if (p.type === 'cloud' && time - e.start <= p.until && itemById(e.id)?.grenade?.effects.some(effect => effect.kind === 'cloud' && effect.blocksSight !== false)) clouds.push({ x: e.point.x, z: e.point.z, radius: p.radius, ground: e.point.y });
     return combatMinimapMarkers(camera, world.scene, hud.arenaSelf, hud.arena?.actors ?? [], combatSubjects(true), clouds, range);
   };
-  const clearInput = () => { stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; ads = false; touchAim = false; drag = null; moveStick = null; foodKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
+  const clearInput = () => { firearmShake.reset(); stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; ads = false; touchAim = false; drag = null; moveStick = null; foodKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -938,7 +941,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (grenadeHeld) { grenadeHeld = null; publish(); }
     if (hud.phase === 'deploying' || deploymentIntro.active || hud.phase === 'loading' || hud.phase === 'error' || index === hud.weapon || !validWeaponIndex(index) || !equipment.carriedFamilies.includes(index)) return;
     stopInspect(); stopReload(); endSupply();
-    trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; emptyFireAudio.clear(); ads = false; touchAim = false; resetRecoil(kick); cantWanted = false; cant = 0;
+    trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; emptyFireAudio.clear(); ads = false; touchAim = false; resetWeaponRecoil(); cantWanted = false; cant = 0;
     hud.weapon = index; weapons.forEach((w, i) => w.visible = i === index);
     if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
     effects.attachMuzzle(muzzleSocket(weapons[index], FPS_WEAPONS[index].id));
@@ -964,7 +967,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     roundId = randomRoundId(); attackTimer = 3; pendingAttack = null; hurtTime = 0; hitDirections.clear(); supplyUse = null; foodEffects = {}; foodPicker = null; hud.foodPicker = null;
     if (document.pointerLockElement === canvas) document.exitPointerLock();
     vehicles.reset(); loadout = createPooledLoadout(specs, equipment.carriedFamilies); position = { x: spawn.x, z: spawn.z }; yaw = spawn.yaw; pitch = spawn.pitch;
-    vertical = velocityY = hitTime = 0; resetRecoil(kick); carry.set(0, 0, 0); clearInput();
+    vertical = velocityY = hitTime = 0; resetWeaponRecoil(); carry.set(0, 0, 0); clearInput();
     rounds.length = 0; effects.reset();
     aimProgress = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; });
     targets.forEach(t => { t.health = t.maxHealth; t.bar.scale.x = 1; t.activation = 0; });
@@ -981,7 +984,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const change = vehicles.interact(position);
     if (change) {
       clearInput(); actualAim = false; stopReload();
-      position = { x: change.x, z: change.z }; vertical = change.y; velocityY = 0; resetMovementMotion(bodyMotion, eyeHeight()); resetRecoil(kick); carry.set(0, 0, 0);
+      position = { x: change.x, z: change.z }; vertical = change.y; velocityY = 0; resetMovementMotion(bodyMotion, eyeHeight()); resetWeaponRecoil(); carry.set(0, 0, 0);
       if (change.entered) { yaw = change.yaw; pitch = -.06; }
       else pitch = -.03;
       updateCameras(0, false, false);
@@ -2543,6 +2546,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const supportMultiplier = bipodRecoilMultiplier(specs[hud.weapon].bipod, handling[hud.weapon]?.bipodDeployment ?? 0, prone, grounded(), carry.length());
     const recoilMultiplier = stanceRecoilMultiplier(stance(), grounded(), bodyMotion.eye) * supportMultiplier * recoilScale(foodEffects) * arenaConditionModifiers(conditions).recoil;
     recordRecoilShot(kick, specs[hud.weapon], hud.weapon, Math.random, recoilMultiplier);
+    firearmShake.shot(specs[hud.weapon].recoil, recoilMultiplier);
     canvas.dataset.recoilMultiplier = recoilMultiplier.toFixed(3);
     effects.fire({ recoil: specs[hud.weapon].recoil, eject: weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_eject`), camera, carry });
     // Every carried gun's round flies. In the arena the host flies the real one
@@ -2731,7 +2735,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id));
           effects.setStyles(weaponStyles, hud.weapon);
         }
-        resetRecoil(kick); effects.reset(); hitTime = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; }); updateCameras(0, false, false);
+        resetWeaponRecoil(); effects.reset(); hitTime = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; }); updateCameras(0, false, false);
       } else if (frame.correction && !vehicles.active) {
         position = { x: frame.correction.x, z: frame.correction.z };
         vertical = Math.max(0, frame.correction.y - eyeHeight());
@@ -3247,6 +3251,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // cooldowns already do: on a renderer slow enough that `dt` is clamped,
       // rounds still leave at their real rate, so anything the shot throws off
       // has to settle at its real rate too or it piles up.
+      firearmShake.advance(realDt);
       advanceRecoil(kick, realDt); applyAimPush();
       updateCameras(dt, moving, sprinting);
       refreshAimAssist(realDt);
@@ -3334,43 +3339,48 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       camera.rotation.x += (Math.random() - .5) * amount; camera.rotation.y += (Math.random() - .5) * amount; camera.updateMatrixWorld(true);
       shake *= Math.exp(-realDt * 5);
     }
-    // Before anything draws the world: the tube's gain goes into exposure, or the scene turns to temperature.
-    const visionSpec = equipment.vision?.spec;
-    advanceVision(visionState, visionSpec, realDt, !!motionPreference?.matches);
-    renderer.toneMappingExposure = vision.begin(visionSpec, visionState, { dt: realDt, lighting: atmosphere.light.lighting, blackout, exposure: renderer.toneMappingExposure });
-    const opticActive = rig.visible && (!vehicles.active || vehicles.canUseFirearm) && hud.phase === 'playing';
-    const nvgAiming = nvgAimingActive(visionSpec, visionState);
-    updateRail(opticActive, nvgAiming);
-    // Canted past halfway, the offset dot is the sight in use and the scope beside it goes dark.
-    const mountedSight = weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon]) : undefined;
-    setSightNightVision(mountedSight, nvgAiming);
-    const sight = mountedSight?.offset && cant > .5 ? mountedSight.offset : mountedSight;
-    if (mountedSight?.offset) (sight === mountedSight ? mountedSight.offset : mountedSight).lens.visible = false;
-    canvas.dataset.cant = cant.toFixed(2);
-    const scopeActive = scopeRenderer.render(world.scene, camera, viewCamera, sight, opticActive, aimProgress);
-    const reflectionCaptured = opticReflections.render(world.scene, camera, viewCamera, sight?.reflection, opticActive, now / 1000);
-    canvas.dataset.scopeActive = String(scopeActive);
-    canvas.dataset.reflexPowered = String(!!sight && sight.magnification <= 1.01 && sight.lens.visible);
-    canvas.dataset.opticReflection = String(!!sight?.reflection?.uniforms.reflectionReady.value && opticActive);
-    canvas.dataset.reflexReflection = String(sight?.magnification === 1 && canvas.dataset.opticReflection === 'true');
-    if (reflectionCaptured) canvas.dataset.reflexCaptures = String(Number(canvas.dataset.reflexCaptures || 0) + 1);
-    canvas.dataset.occlusion = String(occlusion.render(!overviewActive() && atmosphere.light.occlusion && !vision.thermal));
-    const descent = hud.phase === 'deploying' ? deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof) : null;
-    const blurAmount = descent && !motionPreference?.matches && !getEnvironmentSettings().reducedEffects ? descent.blur : 0;
-    deploymentBlur.present(blurAmount); canvas.dataset.deploymentBlur = blurAmount.toFixed(4);
-    renderer.clearDepth(); renderer.render(viewScene, viewCamera);
-    const { lighting } = atmosphere.light, air = atmosphere.air;
-    lens.present({ camera, dt: realDt, time: now / 1000, sun: lighting.key, elevation: lighting.elevation, sunColor: lighting.keyColor, dusk: lighting.shift,
-      sunlight: air.sunlight, haze: air.haze, rain: air.rain, wind: air.wind, sheltered: air.sheltered,
-      sky: world.scene.background instanceof THREE.Color ? world.scene.background : null, thermal: vision.thermal,
-      reduced: getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
-    const lensTag = `${lens.status.flare.toFixed(2)}:${lens.status.dust.toFixed(2)}:${lens.status.drops}`;
-    if (lensTag !== canvas.dataset.lens) canvas.dataset.lens = lensTag;
-    vision.end(visionSpec, visionState, now / 1000);
-    const visionMotion = `${visionState.mount.toFixed(2)}:${visionState.fading.toFixed(2)}`;
-    if (visionMotion !== canvas.dataset.visionMotion) canvas.dataset.visionMotion = visionMotion;
-    const visionTag = visionState.on && visionSpec ? `${visionSpec.kind}:${visionSpec.generation}:${activePalette(visionState, visionSpec) || 'tube'}:${vision.swapped}` : '';
-    if (visionTag !== (canvas.dataset.vision ?? '')) canvas.dataset.vision = visionTag;
+    const sightMagnification = cant > .5 || !weapons[hud.weapon] ? 1 : getWeaponSight(weapons[hud.weapon])?.magnification ?? 1;
+    const firingVibration = firearmShake.sample(aimProgress, sightMagnification, !!motionPreference?.matches || hud.phase !== 'playing');
+    canvas.dataset.firearmShake = JSON.stringify(firingVibration);
+    firearmShake.render(camera, viewCamera, firingVibration, () => {
+      // Before anything draws the world: the tube's gain goes into exposure, or the scene turns to temperature.
+      const visionSpec = equipment.vision?.spec;
+      advanceVision(visionState, visionSpec, realDt, !!motionPreference?.matches);
+      renderer.toneMappingExposure = vision.begin(visionSpec, visionState, { dt: realDt, lighting: atmosphere.light.lighting, blackout, exposure: renderer.toneMappingExposure });
+      const opticActive = rig.visible && (!vehicles.active || vehicles.canUseFirearm) && hud.phase === 'playing';
+      const nvgAiming = nvgAimingActive(visionSpec, visionState);
+      updateRail(opticActive, nvgAiming);
+      // Canted past halfway, the offset dot is the sight in use and the scope beside it goes dark.
+      const mountedSight = weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon]) : undefined;
+      setSightNightVision(mountedSight, nvgAiming);
+      const sight = mountedSight?.offset && cant > .5 ? mountedSight.offset : mountedSight;
+      if (mountedSight?.offset) (sight === mountedSight ? mountedSight.offset : mountedSight).lens.visible = false;
+      canvas.dataset.cant = cant.toFixed(2);
+      const scopeActive = scopeRenderer.render(world.scene, camera, viewCamera, sight, opticActive, aimProgress);
+      const reflectionCaptured = opticReflections.render(world.scene, camera, viewCamera, sight?.reflection, opticActive, now / 1000);
+      canvas.dataset.scopeActive = String(scopeActive);
+      canvas.dataset.reflexPowered = String(!!sight && sight.magnification <= 1.01 && sight.lens.visible);
+      canvas.dataset.opticReflection = String(!!sight?.reflection?.uniforms.reflectionReady.value && opticActive);
+      canvas.dataset.reflexReflection = String(sight?.magnification === 1 && canvas.dataset.opticReflection === 'true');
+      if (reflectionCaptured) canvas.dataset.reflexCaptures = String(Number(canvas.dataset.reflexCaptures || 0) + 1);
+      canvas.dataset.occlusion = String(occlusion.render(!overviewActive() && atmosphere.light.occlusion && !vision.thermal));
+      const descent = hud.phase === 'deploying' ? deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof) : null;
+      const blurAmount = descent && !motionPreference?.matches && !getEnvironmentSettings().reducedEffects ? descent.blur : 0;
+      deploymentBlur.present(blurAmount); canvas.dataset.deploymentBlur = blurAmount.toFixed(4);
+      renderer.clearDepth(); renderer.render(viewScene, viewCamera);
+      const { lighting } = atmosphere.light, air = atmosphere.air;
+      lens.present({ camera, dt: realDt, time: now / 1000, sun: lighting.key, elevation: lighting.elevation, sunColor: lighting.keyColor, dusk: lighting.shift,
+        sunlight: air.sunlight, haze: air.haze, rain: air.rain, wind: air.wind, sheltered: air.sheltered,
+        sky: world.scene.background instanceof THREE.Color ? world.scene.background : null, thermal: vision.thermal,
+        reduced: getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
+      const lensTag = `${lens.status.flare.toFixed(2)}:${lens.status.dust.toFixed(2)}:${lens.status.drops}`;
+      if (lensTag !== canvas.dataset.lens) canvas.dataset.lens = lensTag;
+      vision.end(visionSpec, visionState, now / 1000);
+      const visionMotion = `${visionState.mount.toFixed(2)}:${visionState.fading.toFixed(2)}`;
+      if (visionMotion !== canvas.dataset.visionMotion) canvas.dataset.visionMotion = visionMotion;
+      const visionTag = visionState.on && visionSpec ? `${visionSpec.kind}:${visionSpec.generation}:${activePalette(visionState, visionSpec) || 'tube'}:${vision.swapped}` : '';
+      if (visionTag !== (canvas.dataset.vision ?? '')) canvas.dataset.vision = visionTag;
+    });
     if (aerialFog) { aerialFog.near = fogNear; aerialFog.far = fogFar; }
     if (now - lastReport > 100) { publish(); lastReport = now; }
     frame = requestAnimationFrame(animate);
@@ -3482,7 +3492,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (!reposition) return;
       clearInput(); stopReload(); endSupply();
       position = tutorialCheckpoint(step); vertical = velocityY = 0; yaw = 0; pitch = -.03;
-      carry.set(0, 0, 0); resetMovementMotion(bodyMotion); resetRecoil(kick);
+      carry.set(0, 0, 0); resetMovementMotion(bodyMotion); resetWeaponRecoil();
       // A skipped firing lesson must still leave a reloadable practice magazine.
       if (COURSE_STEPS[step]?.id === 'reload') loadout[hud.weapon].magazine = Math.max(0, loadout[hud.weapon].magazine - 1);
       updateCameras(0, false, false); publish();

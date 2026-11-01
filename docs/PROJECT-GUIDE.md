@@ -171,7 +171,13 @@ time and can be learned and held against; the pattern restarts after a third of
 a second off the trigger. The camera takes the vertical and horizontal climb;
 the weapon additionally bucks back towards the shoulder and rolls away from the
 side it is being pushed towards. Shot spread is still owned separately by the
-accuracy model — recoil never widens a cone.
+accuracy model — recoil never widens a cone. Successful handheld shots also add
+a tiny, 160 ms camera vibration, capped below a tenth of a degree per axis.
+It refreshes rather than stacking during automatic fire, scales down with
+supported stance and aiming/optic magnification, and is disabled by reduced
+motion. It is applied only while drawing the world and weapon, then restored;
+actual aim, recoil/recovery ratings, shot direction and spread stay unchanged.
+Dry-fire clicks and other soldiers' shots do not trigger it.
 
 **Tuned in degrees, against the genre.** Recoil was tuned by feel twice and came
 out at roughly half of what a shooter does, which is how "barely anything"
