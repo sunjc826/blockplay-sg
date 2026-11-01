@@ -38,7 +38,8 @@ export const PICKS = {
   'mag-seat': ['mag-seat-1', 'mag-seat-2'],
   'bolt-back': ['bolt-back-1', 'bolt-back-2'],
   'bolt-release': ['bolt-release-1', 'bolt-release-2'],
-  'bullet-pass': ['bullet-pass-1', 'bullet-pass-2'],
+  'bullet-pass': ['bullet-crack-1', 'bullet-crack-2'],
+  'bullet-air': ['bullet-air-1'],
   ...Object.fromEntries(['concrete', 'metal', 'wood', 'glass', 'foliage', 'dirt', 'flesh', 'water']
     .map(surface => [`impact-${surface}`, [`impact-${surface}-1`, `impact-${surface}-2`]])),
 };
@@ -65,15 +66,18 @@ function envelope(s, window = Math.round(RATE * .005)) {
  * Starts 1 ms before the main transient (the first sample at 30% of peak), so a quiet lead-in never makes a shot
  * or a reload stage land late; ends once it has died 50 dB below its peak, fades the last 15 ms, and is set to LOUDNESS.
  */
-function shape(s, impact = false) {
+function shape(s, impact = false, maximumSeconds = Infinity, fadeSeconds = .015, pressureSnap = false) {
   const peak = peakOf(s) || 1, { out, window } = envelope(s);
   const loudest = out.reduce((m, v) => Math.max(m, v), 0);
   // Generated impacts can contain a soft preliminary tap before the main strike.
   // Start on the strong strike so alternating takes don't feel out of sync.
   let start = s.findIndex(v => Math.abs(v) >= peak * (impact ? .9 : .3)); start = Math.max(0, start - Math.round(RATE * .001));
   let end = out.length - 1; while (end > 0 && out[end] < loudest * .003) end--;
-  const clip = s.slice(start, Math.min(s.length, (end + 1) * window));
-  const fade = Math.min(clip.length, Math.round(RATE * .015));
+  const clip = s.slice(start, Math.min(s.length, (end + 1) * window, start + Math.round(RATE * maximumSeconds)));
+  // A ballistic pressure snap has no sustained musical body. Keep its first
+  // millisecond, then decay sharply; the separate air take supplies the rush.
+  if (pressureSnap) for (let i = 0; i < clip.length; i++) clip[i] *= Math.exp(-Math.max(0, i / RATE - .001) / .004);
+  const fade = Math.min(clip.length, Math.round(RATE * fadeSeconds));
   for (let i = 0; i < fade; i++) clip[clip.length - 1 - i] *= i / fade;
   const loudest50 = envelope(clip, Math.round(RATE * .05)).out.reduce((m, v) => Math.max(m, v), 0) || 1;
   const gain = Math.min(LOUDNESS / loudest50, PEAK / (peakOf(clip) || 1)); for (let i = 0; i < clip.length; i++) clip[i] *= gain;
@@ -121,7 +125,8 @@ if (process.argv.includes('--analyse')) {
     for (const id of ids) {
       const take = takes.find(t => t.id === id); if (!take) throw Error(`${group}: unknown take ${id}`);
       const source = await decode(path.join(cacheDirectory, id + '.mp3'));
-      for (const clip of STEPS.has(group) ? footfalls(source) : [shape(source, group.startsWith('impact-') || group === 'bullet-pass')]) {
+      for (const clip of STEPS.has(group) ? footfalls(source) : [shape(source, group.startsWith('impact-') || group === 'bullet-pass',
+        group === 'bullet-pass' ? .035 : group === 'bullet-air' ? .09 : Infinity, group === 'bullet-pass' ? .003 : .015, group === 'bullet-pass')]) {
         const n = groups[group].length + 1, digest = createHash('sha256').update(Buffer.from(clip.buffer)).digest('hex').slice(0, 10);
         const file = `${group}-${n}-${digest}.mp3`;
         await encode(clip, path.join(publicDirectory, file));

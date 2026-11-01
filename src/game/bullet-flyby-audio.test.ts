@@ -3,6 +3,7 @@ import { bulletPass, BULLET_PASS_RANGE, createBulletFlybyAudio, MAX_BULLET_PASS_
 import { muzzleBallistics } from './fps-ballistics';
 import { sfxUrls } from './sfx-bank';
 import { impactProfile } from './fps-impact-profile';
+import manifest from '../audio/sfx/manifest.json';
 
 const ear = { x: 0, y: 1.75, z: 0 };
 const start = (x = 1) => ({ x, y: 1.75, z: -10 });
@@ -75,7 +76,7 @@ describe('recorded bullet crack and echo', () => {
     const [source, filter, gain, panner, echo, echoFilter, echoGain] = f.nodes;
     expect(source.buffer).toBe(f.take); expect(source.playbackRate.value).toBe(1);
     expect(source.start).toHaveBeenCalledWith(10.1 + pass.delay);
-    expect(echo.start).toHaveBeenCalledWith(10.1 + pass.delay + .075);
+    expect(echo.start).toHaveBeenCalledWith(10.1 + pass.delay + .035);
     expect(panner.pan.value).toBe(-.75);
     expect(echoGain.gain.value).toBeLessThan(gain.gain.value / 4);
     expect(echoFilter.frequency.value).toBeLessThan(filter.frequency.value);
@@ -84,8 +85,8 @@ describe('recorded bullet crack and echo', () => {
   it('announces each round once across adjacent flight segments and repeated snapshots', () => {
     const f = fixture(), round = {};
     f.pass(round, start(), { ...end(), z: -1 }); expect(f.pick).not.toHaveBeenCalled();
-    f.pass(round); f.pass(round); expect(f.pick).toHaveBeenCalledOnce();
-    f.pass({}); expect(f.pick).toHaveBeenCalledTimes(2);
+    f.pass(round); f.pass(round); expect(f.pick).toHaveBeenCalledTimes(2);
+    f.pass({}); expect(f.pick).toHaveBeenCalledTimes(4);
   });
   it('scales the recorded crack and echo together at natural speed with the supplied shot profile', () => {
     const reference = fixture(), heavy = fixture(), profile = impactProfile(12.7, 145);
@@ -102,10 +103,10 @@ describe('recorded bullet crack and echo', () => {
     const f = fixture(); f.pass({}, start(25), end(25)); f.pass({}, start(), end(), 100);
     expect(f.pick).not.toHaveBeenCalled();
     for (let i = 0; i < MAX_BULLET_PASS_VOICES + 4; i++) f.pass();
-    expect(f.pick).toHaveBeenCalledTimes(MAX_BULLET_PASS_VOICES);
+    expect(f.pick).toHaveBeenCalledTimes(MAX_BULLET_PASS_VOICES * 2);
     f.mute(); f.audio.update();
     expect(f.nodes.filter(n => n.buffer).every(n => n.stop.mock.calls.length === 1)).toBe(true);
-    f.pass(); expect(f.pick).toHaveBeenCalledTimes(MAX_BULLET_PASS_VOICES);
+    f.pass(); expect(f.pick).toHaveBeenCalledTimes(MAX_BULLET_PASS_VOICES * 2);
     f.audio.dispose(); expect(f.nodes.every(n => n.disconnect.mock.calls.length === 1)).toBe(true);
     const paused = fixture(); paused.pass(); paused.context.state = 'suspended'; paused.audio.update();
     expect(paused.nodes[0].stop).toHaveBeenCalledOnce();
@@ -114,5 +115,18 @@ describe('recorded bullet crack and echo', () => {
     const f = fixture(false); f.pass(); f.pass();
     expect(f.context.createBuffer).toHaveBeenCalledOnce();
     f.audio.clear(); expect(f.nodes[0].stop).toHaveBeenCalledOnce();
+  });
+  it('uses compact broadband crack takes and keeps the separate air rush much quieter at natural speed', () => {
+    expect(manifest.groups['bullet-pass'].every(clip => clip.take.startsWith('bullet-crack-') && clip.seconds <= .035)).toBe(true);
+    expect(manifest.groups['bullet-air'].every(clip => clip.seconds <= .09)).toBe(true);
+    const f = fixture();
+    f.pick.mockReturnValueOnce({ duration: .035 } as AudioBuffer).mockReturnValueOnce({ duration: .09 } as AudioBuffer);
+    f.pass(); const [crack, , crackGain, , echo, , echoGain, , air, , , airGain] = f.nodes;
+    expect(f.pick.mock.calls).toEqual([['bullet-pass'], ['bullet-air']]);
+    expect(echoGain.gain.value).toBeCloseTo(crackGain.gain.value * .08);
+    expect(airGain.gain.value).toBeCloseTo(crackGain.gain.value * .1);
+    expect(crack.playbackRate.value).toBe(1); expect(air.playbackRate.value).toBe(1);
+    expect(crack.onended).toBeNull(); expect(echo.onended).toBeNull();
+    air.onended!(); expect(f.nodes.every(n => n.disconnect.mock.calls.length === 1)).toBe(true);
   });
 });

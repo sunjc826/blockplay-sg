@@ -50,6 +50,12 @@ SOUNDS.push(...Object.entries(IMPACTS).map(([surface, description]) => ({
 SOUNDS.push({ id: 'bullet-pass', takes: 2, seconds: .5, model: 'eleven_text_to_sound_v3',
   prompt: `One supersonic rifle bullet passing very close beside the listener's head: an immediate razor sharp ballistic snap followed by a very short ripping air whiz. Only the projectile pass, dry close recording, under 200 ms then silence. No muzzle blast, gunshot from the weapon, impact, ricochet, repeated shots, echo, voices, music or background ambience.`,
 });
+SOUNDS.push({ id: 'bullet-crack', takes: 2, seconds: .5, model: 'eleven_text_to_sound_v3',
+  prompt: `One isolated close ballistic shock-wave crack from a supersonic rifle bullet crossing a microphone. An explosive dry SNAP like a tiny whip crack: extremely short broadband pressure pop, abrupt attack, immediate decay under 35 milliseconds, then silence. No musical pitch, descending chirp, whistle, ringing, laser, sci-fi, ricochet, air whiz, muzzle blast or echo.`,
+});
+SOUNDS.push({ id: 'bullet-air', takes: 1, seconds: .5, model: 'eleven_text_to_sound_v3',
+  prompt: `One very short soft broadband air rush as a fast small object passes the microphone. An airy unpitched rip, under 90 milliseconds then silence. Dry close recording. Only turbulent air noise: no crack, impact, musical pitch, whistle, descending chirp, laser, sci-fi, ricochet, gunshot, voices or echo.`,
+});
 export const settings = { model_id: 'eleven_text_to_sound_v2', prompt_influence: 0.5 };
 export const takes = SOUNDS.flatMap(sound => Array.from({ length: sound.takes }, (_, i) => ({ id: `${sound.id}-${i + 1}`, sound: sound.id, request: { ...settings, ...sound.model && { model_id: sound.model }, text: sound.prompt, duration_seconds: sound.seconds } })));
 const writeJson = (file, data) => fs.writeFile(file, JSON.stringify(data, null, 2) + '\n');

@@ -388,14 +388,21 @@
     ],
     "bullet-pass": [
       {
-        "file": "bullet-pass-1-a51d9a3b21.mp3",
-        "take": "bullet-pass-1",
-        "seconds": 0.23
+        "file": "bullet-pass-1-8656a830f0.mp3",
+        "take": "bullet-crack-1",
+        "seconds": 0.035
       },
       {
-        "file": "bullet-pass-2-bdaa3b9143.mp3",
-        "take": "bullet-pass-2",
-        "seconds": 0.091
+        "file": "bullet-pass-2-7174dbb0fa.mp3",
+        "take": "bullet-crack-2",
+        "seconds": 0.035
+      }
+    ],
+    "bullet-air": [
+      {
+        "file": "bullet-air-1-78e0147521.mp3",
+        "take": "bullet-air-1",
+        "seconds": 0.09
       }
     ]
   }

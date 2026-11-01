@@ -62,13 +62,13 @@ try {
     const {createGunshotAudio,gunshotTone}=await import('/src/game/gunshot-audio.ts');
     const context=new AudioContext(),bank=createSfxBank();bank.load(context);
     const until=performance.now()+20000;
-    while(!bank.get('bullet-pass',1)||!bank.get('rifle-556',2)){if(performance.now()>until)throw Error('Pass samples did not decode');await new Promise(r=>setTimeout(r,40));}
+    while(!bank.get('bullet-pass',1)||!bank.get('bullet-air')||!bank.get('rifle-556',2)){if(performance.now()>until)throw Error('Pass samples did not decode');await new Promise(r=>setTimeout(r,40));}
     const burstContext=new OfflineAudioContext(2,44100,44100);
     Object.defineProperty(burstContext,'state',{get:()=> 'running'});
     const gunshots=createGunshotAudio(()=>burstContext,()=>false,bank);
     for(const after of [0,.1,.2,.3])gunshots.fire(gunshotTone(5.56,36,0,true),0,after);
     const burst=(await burstContext.startRendering()).getChannelData(0);gunshots.dispose();
-    const results=[];
+    const results=[];window.crackPreviews=[];
     for(const [weapon,calibre,power] of [['pistol',9,24],['rifle',5.56,36],['gpmg',7.62,65],['heavy',12.7,145]])
     for(let take=0;take<2;take++)for(const distance of [.5,3,8,15,18]){
       const offline=new OfflineAudioContext(2,44100,44100);
@@ -80,6 +80,7 @@ try {
       const rendered=await offline.startRendering();let peak=0,mixedPeak=0,leftEnergy=0,rightEnergy=0,first=-1;
       const left=rendered.getChannelData(0),right=rendered.getChannelData(1);
       for(let i=0;i<left.length;i++){peak=Math.max(peak,Math.abs(left[i]),Math.abs(right[i]));mixedPeak=Math.max(mixedPeak,Math.abs(left[i]+burst[i]),Math.abs(right[i]+burst[i]));leftEnergy+=left[i]**2;rightEnergy+=right[i]**2;if(first<0&&Math.abs(left[i])>.001)first=i;}
+      if(weapon==='rifle'&&distance===.5){const frames=Math.round(44100*.35),bytes=new Uint8Array(frames*4),view=new DataView(bytes.buffer);for(let i=0;i<frames;i++)for(let c=0;c<2;c++){const j=i-Math.round(44100*.1),v=j>=0?(c?right[j]:left[j]):0;view.setInt16(i*4+c*2,Math.round(Math.max(-1,Math.min(1,v||0))*32767),true);}let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));window.crackPreviews.push(btoa(binary));}
       results.push({weapon,take,distance,peak,mixedPeak,leftEnergy,rightEnergy,firstMs:first/44.1});audio.dispose();
     }
     bank.dispose();await context.close();return results;
@@ -102,6 +103,7 @@ try {
     assert(peak('gpmg')>peak('rifle'),'GPMG crack scales up');
     assert(peak('pistol')<peak('rifle'),'Pistol crack scales down');
   }
+  const previews=await evaluate('window.crackPreviews');const pcm=Buffer.concat(previews.map(p=>Buffer.from(p,'base64'))),header=Buffer.alloc(44);header.write('RIFF');header.writeUInt32LE(36+pcm.length,4);header.write('WAVEfmt ',8);header.writeUInt32LE(16,16);header.writeUInt16LE(1,20);header.writeUInt16LE(2,22);header.writeUInt32LE(44100,24);header.writeUInt32LE(176400,28);header.writeUInt16LE(4,32);header.writeUInt16LE(16,34);header.write('data',36);header.writeUInt32LE(pcm.length,40);await fs.writeFile(new URL('pass-by-replacement.wav',output),Buffer.concat([header,pcm]));
   assert.deepEqual(errors,[]);assert.equal(paidRequests,0);
   await fs.writeFile(new URL('flyby-browser-results.json',output),JSON.stringify({enginePasses,rendered,errors,paidRequests},null,2));
   console.log('PASS actual-engine counter-fire crack/echo, pause, both recorded takes and four weapon profiles at .5/3/8/15/18 m, calibre/power scaling and gunfire headroom, proximity attenuation, sharp attack, spatial panning, no clipping, errors or paid playback requests.');

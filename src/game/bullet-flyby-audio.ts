@@ -29,7 +29,8 @@ export function bulletPass(from: BallisticPoint, to: BallisticPoint, ear: Ballis
     cutoff: 16000 * .25 ** (distance / BULLET_PASS_RANGE), delay: soundDelay(distance) };
 }
 
-/** One crack and a quiet, dulled slap-back per round, at the original take's speed. */
+/** A short pressure snap, a faint slap-back and a separate unpitched air rush.
+ * No pitch sweep or long tonal "whiz"; all takes play at their natural speed. */
 export function createBulletFlybyAudio(getContext: () => AudioContext | null, muted: () => boolean, samples: Pick<SfxBank, 'pick'>, destination?: (context: BaseAudioContext) => AudioNode) {
   const active = new Set<() => void>();
   let heard = new WeakSet<object>(), owner: AudioContext | null = null, fallback: AudioBuffer | null = null;
@@ -55,6 +56,7 @@ export function createBulletFlybyAudio(getContext: () => AudioContext | null, mu
         buffer = fallback;
       }
       const nodes: AudioNode[] = [], sources: AudioBufferSourceNode[] = [];
+      const ends: { source: AudioBufferSourceNode; after: number }[] = [];
       const pan = panAt(pass.point), at = context.currentTime + Math.max(0, after) + pass.delay;
       let released = false;
       const release = () => { if (released) return; released = true; active.delete(stop); sources.forEach(s => { s.onended = null; }); nodes.forEach(n => n.disconnect()); };
@@ -62,14 +64,25 @@ export function createBulletFlybyAudio(getContext: () => AudioContext | null, mu
       for (const echo of [false, true]) {
         const source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain(), panner = context.createStereoPanner();
         source.buffer = buffer; // Natural speed; no stretched gunshot or ricochet.
-        filter.type = 'lowpass'; filter.frequency.value = echo ? Math.min(3200, pass.cutoff) : pass.cutoff; filter.Q.value = .5;
-        gain.gain.value = pass.level * (echo ? .22 : 1);
+        filter.type = 'lowpass'; filter.frequency.value = echo ? Math.min(2000, pass.cutoff) : pass.cutoff; filter.Q.value = .5;
+        gain.gain.value = pass.level * (echo ? .08 : 1);
         panner.pan.value = Number.isFinite(pan) ? Math.max(-1, Math.min(1, pan)) : 0;
         source.connect(filter).connect(gain).connect(panner).connect(destination?.(context) ?? context.destination);
         nodes.push(source, filter, gain, panner); sources.push(source);
-        if (echo) source.onended = release;
-        source.start(at + (echo ? .075 : 0));
+        const after = echo ? .035 : 0;
+        source.start(at + after); ends.push({ source, after: after + buffer.duration });
       }
+      const air = samples.pick('bullet-air');
+      if (air) {
+        const source = context.createBufferSource(), highpass = context.createBiquadFilter(), lowpass = context.createBiquadFilter(), gain = context.createGain(), panner = context.createStereoPanner();
+        source.buffer = air; highpass.type = 'highpass'; highpass.frequency.value = 1200; highpass.Q.value = .5;
+        lowpass.type = 'lowpass'; lowpass.frequency.value = pass.cutoff; lowpass.Q.value = .5;
+        gain.gain.value = pass.level * .1; panner.pan.value = Number.isFinite(pan) ? Math.max(-1, Math.min(1, pan)) : 0;
+        source.connect(highpass).connect(lowpass).connect(gain).connect(panner).connect(destination?.(context) ?? context.destination);
+        nodes.push(source, highpass, lowpass, gain, panner); sources.push(source);
+        source.start(at + .003); ends.push({ source, after: .003 + air.duration });
+      }
+      ends.reduce((longest, end) => end.after > longest.after ? end : longest).source.onended = release;
       active.add(stop);
     },
     clear,
