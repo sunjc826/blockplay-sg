@@ -1,6 +1,7 @@
+import ArmoryInventory from './ArmoryInventory';
 import TutorialGame from './TutorialGame';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, GraduationCap, Map as MapIcon, MapPin, Settings, ShoppingBag, Users, Wrench } from 'lucide-react';
+import { Backpack, ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, GraduationCap, Map as MapIcon, MapPin, Settings, ShoppingBag, Users, Wrench } from 'lucide-react';
 import MultiplayerGame from './MultiplayerGame';
 import FpsGame from './FpsGame';
 import ExpeditionGame from './ExpeditionGame';
@@ -34,6 +35,7 @@ const ENTRIES = [
   { route: 'world', icon: MapIcon, title: 'Open World', detail: `${REGIONS.length} districts, patrols and supplies.`, mode: true },
   { route: 'multiplayer', icon: Users, title: 'Multiplayer', detail: 'Public rooms, or invite your friends.', mode: true },
   { route: 'tutorial', icon: GraduationCap, title: 'Tutorial', detail: 'New here?', mode: false },
+  { route: 'inventory', icon: Backpack, title: 'Inventory', detail: 'Your equipment and rental time', mode: false },
   { route: 'store', icon: ShoppingBag, title: 'Store', detail: 'Gear and supplies', mode: false },
   { route: 'settings', icon: Settings, title: 'Settings', detail: 'Difficulty, display and profile', mode: false },
 ] as const;
@@ -81,8 +83,8 @@ function PlaySession({ mode, initial, armory, suspended, onChoose }: { mode: 'tr
     <main className="game-screen-body"><DebugMode.Provider value={false}>
       <PlayLoading mode={mode} district={locationName(start)} back={back}>
         {onLoaded => mode === 'training'
-          ? <FpsGame suspended={suspended} region={start} onRegionChange={setZone} profile={armory.profile} nav={nav} onLoaded={onLoaded} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onOpenShop={() => transitionTo('store', 'Store')} />
-          : <ExpeditionGame suspended={suspended} initialZone={start} onZoneChange={setZone} nav={nav} onLoaded={onLoaded} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onElimination={armory.awardElimination} onExit={() => transitionTo('menu', 'Menu')} />}
+          ? <FpsGame suspended={suspended} region={start} onRegionChange={setZone} profile={armory.profile} nav={nav} onLoaded={onLoaded} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onOpenShop={() => transitionTo('store', 'Store')} />
+          : <ExpeditionGame suspended={suspended} initialZone={start} onZoneChange={setZone} nav={nav} onLoaded={onLoaded} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onElimination={armory.awardElimination} onExit={() => transitionTo('menu', 'Menu')} />}
       </PlayLoading>
     </DebugMode.Provider></main>
   </div>;
@@ -118,6 +120,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
         <ArmoryShop store={armory} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined} nav={<nav className="store-nav" aria-label="Store">
           <a className="game-back" {...link('menu', 'Menu')} aria-label="Menu"><ArrowLeft size={16} /><span>Menu</span></a>
           <h1>Store</h1>
+          <a className="game-back" {...link('inventory', 'Inventory')}>Inventory</a>
           <button className="store-tour-trigger" aria-pressed={storeTour} onClick={() => setStoreTour(true)}>Tour store</button>
           <a className="game-back store-settings" {...link('settings', 'Settings')} aria-label="Settings" title="Settings"><Settings size={15} /></a>
         </nav>} deployments={[
@@ -127,6 +130,8 @@ export default function GameMenu({ screen }: { screen: Screen }) {
       </DebugMode.Provider></main>
     </div>;
   }
+
+  if (screen === 'inventory') return <div className="game-screen game-screen-inventory"><main className="game-screen-body"><ArmoryInventory store={armory} nav={<nav className="store-nav" aria-label="Inventory"><a className="game-back" {...link('menu', 'Menu')}><ArrowLeft size={16} /> Menu</a><h1>Inventory</h1><a className="game-back" {...link('store', 'Store')}><ShoppingBag size={16} /> Store</a></nav>} /></main></div>;
 
   if (screen === 'settings') {
     return <div className="game-screen game-screen-settings">

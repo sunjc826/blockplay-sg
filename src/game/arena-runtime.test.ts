@@ -286,3 +286,24 @@ it('acknowledges guest respawn loadouts and rejects weapons outside the admitted
     unsubscribe();
   } finally { guest.dispose(); host.dispose(); }
 });
+
+it('does not let a guest reset an exhausted play-time rental by selecting it again', async () => {
+  vi.useFakeTimers();
+  const [hostSession, guestSession] = localPair();
+  const profile = { ...createProfile(), rentals: { 'sar-vanguard': 500 } };
+  const host = createArenaRuntime({ scene: new THREE.Scene(), obstacles: [], botCount: 0, session: hostSession });
+  const guest = createArenaRuntime({ scene: new THREE.Scene(), obstacles: [], botCount: 0, session: guestSession, profile });
+  try {
+    for (let step = 0; step < 40; step++) {
+      host.update(.05, input(-44, 68, true)); const frame = guest.update(.05, input(-44, 68, true));
+      if (frame.self) guest.update(.05, { ...frame.self, playing: true });
+      vi.advanceTimersByTime(50);
+    }
+    const selection = selectedRespawnLoadout(profile); selection.variants[0] = 'sar-vanguard';
+    expect(guest.update(.01, input()).self!.rentalTimeMs).toBeGreaterThan(500);
+    expect(await guest.queueRespawnLoadout(selection)).toBe(false);
+    let reply: unknown; const unsubscribe = guestSession.subscribe((_from, payload) => { if ((payload as { type: string }).type === 'arena-loadout-result') reply = payload; });
+    guestSession.send({ type: 'arena-loadout', request: 998, selection });
+    expect(reply).toEqual({ type: 'arena-loadout-result', request: 998, accepted: false }); unsubscribe();
+  } finally { guest.dispose(); host.dispose(); }
+});

@@ -8,13 +8,13 @@ const veteran = () => ({ ...createProfile(), xp: 5000, credits: 10000, tokens: 1
 const unlock = (id: string) => purchase(veteran(), id).profile;
 const result: ExerciseReward = { id: 'round-1', hits: 8, shots: 30, landed: 28, elapsed: 20, combat: false };
 describe('persistent armory economy', () => {
-  it('charges the correct wallet once and keeps the input immutable', () => {
+  it('charges the rental wallet on purchase and extension while keeping input immutable', () => {
     const base = veteran(), first = purchase(base, 'sar-vanguard').profile, twice = purchase(first, 'sar-vanguard').profile;
-    expect(first.tokens).toBe(760); expect(first.credits).toBe(base.credits); expect(base.owned).not.toContain('sar-vanguard'); expect(twice).toBe(first);
+    expect(first.tokens).toBe(976); expect(first.credits).toBe(base.credits); expect(base.owned).not.toContain('sar-vanguard'); expect(twice.tokens).toBe(952); expect(twice.rentals['sar-vanguard']).toBe(first.rentals['sar-vanguard'] + 86400000);
   });
   it('enforces level locks even when the wallet has enough tokens', () => {
     const base = createProfile(); expect(purchase(base, 'sar-vanguard').profile).toBe(base);
-    expect(purchase({ ...base, xp: xpForLevel(3) }, 'sar-vanguard').profile.tokens).toBe(60);
+    expect(purchase({ ...base, xp: xpForLevel(3) }, 'sar-vanguard').profile.tokens).toBe(276);
   });
   it('rejects insufficient funds, unknown IDs, unowned equipment and wrong weapon families', () => {
     const poor = { ...veteran(), credits: 0 }; expect(purchase(poor, 'sar-ranger').profile).toBe(poor); expect(purchase(poor, 'missing').profile).toBe(poor);
@@ -23,7 +23,7 @@ describe('persistent armory economy', () => {
   it('recovers old, malformed or tampered save fields without equipping unowned items', () => {
     expect(restoreProfile('{')).toEqual(createProfile());
     const restored = restoreProfile(JSON.stringify({ version: 1, credits: -9, tokens: 'Infinity', owned: ['missing', 'sar-vanguard', 'sar-vanguard'], guns: [{ variant: 'ult-issued', skin: 'skin-gold', attachments: { optic: 'mag-quick' } }], plate: 'plate-elite', xp: 'oops' }));
-    expect(restored.credits).toBe(0); expect(restored.tokens).toBe(300); expect(restored.xp).toBe(0); expect(restored.guns[0].variant).toBe('sar-issued'); expect(restored.guns[0].skin).toBe('skin-issued'); expect(restored.guns[0].attachments).toEqual({}); expect(restored.plate).toBe('plate-none'); expect(restored.owned.filter(id => id === 'sar-vanguard')).toHaveLength(1);
+    expect(restored.credits).toBe(0); expect(restored.tokens).toBe(300); expect(restored.xp).toBe(0); expect(restored.guns[0].variant).toBe('sar-issued'); expect(restored.guns[0].skin).toBe('skin-issued'); expect(restored.guns[0].attachments).toEqual({}); expect(restored.plate).toBe('plate-none'); expect(restored.owned.filter(id => id === 'sar-vanguard')).toHaveLength(0);
   });
   it('persists a complete equipped loadout', () => { const profile = equip(unlock('sar-vanguard'), 'sar-vanguard', 0); expect(restoreProfile(JSON.stringify(profile))).toEqual(profile); });
   it('awards kills and completion only once and rejects incomplete or malformed rewards', () => {
@@ -64,7 +64,7 @@ describe('tokens buy levels', () => {
     const climbed = purchaseLevel(purchaseLevel(base).profile).profile;
     expect(progression(climbed.xp).level).toBe(3); expect(climbed.tokens).toBe(368);
     const bought = purchase(climbed, 'sar-vanguard').profile;
-    expect(bought.owned).toContain('sar-vanguard'); expect(bought.tokens).toBe(128);
+    expect(bought.owned).not.toContain('sar-vanguard'); expect(bought.rentals['sar-vanguard']).toBe(86400000); expect(bought.tokens).toBe(344);
   });
   it('persists a bought level through a save and reload', () => {
     const climbed = purchaseLevel(createProfile()).profile;

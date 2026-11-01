@@ -1,126 +1,78 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ARMORY_CATALOG, itemById } from './armory-catalog';
-import { createProfile, equip, expireLoadoutRentals, expireRentals, isEquipped, purchase, resolveLoadout, restoreProfile, selectCarryWeapon } from './armory-state';
-import { DEFAULT_VARIANTS, FPS_WEAPONS } from './fps-rules';
-import { canRentWeapon, hasItemAccess, RENTAL_DAY_MS, rentalTimeLeft, weaponTermPrice, type WeaponTerm } from './weapon-rentals';
-
-const NOW = Date.UTC(2026, 10, 1);
+import { afterEach, expect, it, vi } from 'vitest';
+import { ARMORY_CATALOG } from './armory-catalog';
+import { createProfile, equip, expireLoadoutRentals, expireRentals, purchase, resolveLoadout, restoreFieldProfile, restoreProfile, spendRentalTime } from './armory-state';
+import { canRentWeapon, hasItemAccess, RENTAL_DAY_MS, rentalTimeLeft, WEAPON_TERMS, weaponTermPrice, type WeaponTerm } from './weapon-rentals';
 const buyer = () => ({ ...createProfile(), xp: 100000, credits: 100000, tokens: 10000 });
 const id = 'sar-vanguard';
-beforeEach(() => { vi.spyOn(Date, 'now').mockReturnValue(NOW); });
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => vi.restoreAllMocks());
 
-describe('weapon rentals', () => {
-  it('offers cheaper short terms for every sold weapon, with issued and enemy gear excluded', () => {
-    for (const item of ARMORY_CATALOG.filter(canRentWeapon)) {
-      expect(weaponTermPrice(item, '1d')).toBeLessThan(weaponTermPrice(item, '7d'));
-      expect(weaponTermPrice(item, '7d')).toBeLessThan(weaponTermPrice(item, '30d'));
-      expect(weaponTermPrice(item, '30d')).toBeLessThan(item.price);
-      expect(weaponTermPrice(item, 'permanent')).toBe(item.price);
-    }
-    expect(canRentWeapon(itemById('sar-issued')!)).toBe(false);
-    expect(canRentWeapon(itemById('kit-ammo')!)).toBe(false);
-  });
-
-  it('charges the chosen term once, grants access without ownership, and saves the equipped rental', () => {
-    const base = buyer(), rented = purchase(base, id, '7d').profile;
-    expect(rented.tokens).toBe(base.tokens - weaponTermPrice(itemById(id)!, '7d'));
-    expect(rented.credits).toBe(base.credits);
-    expect(rented.owned).not.toContain(id);
-    expect(base.rentals).toEqual({});
-    expect(rented.rentals[id]).toBe(NOW + 7 * RENTAL_DAY_MS);
-    const worn = equip(rented, id, 0);
-    expect(isEquipped(worn, itemById(id)!, 0)).toBe(true);
-    expect(restoreProfile(JSON.stringify(worn))).toEqual(worn);
-    expect(resolveLoadout(worn).weapons[0].rentalExpiresAt).toBe(rented.rentals[id]);
-  });
-
-  it('extends from the active expiry, starts expired rentals from now, and never auto-charges', () => {
-    const rented = purchase(buyer(), id, '1d').profile;
-    const renewed = purchase(rented, id, '7d', NOW + 1000).profile;
-    expect(renewed.rentals[id]).toBe(NOW + 8 * RENTAL_DAY_MS);
-    const later = NOW + 10 * RENTAL_DAY_MS;
-    const expired = expireRentals(renewed, later);
-    expect(expired.tokens).toBe(renewed.tokens);
-    expect(purchase(expired, id, '1d', later).profile.rentals[id]).toBe(later + RENTAL_DAY_MS);
-  });
-
-  it('keeps permanent purchases and upgrades rentals at the full permanent price', () => {
-    const rented = purchase(buyer(), id, '1d').profile;
-    const permanent = purchase(rented, id).profile;
-    expect(permanent.tokens).toBe(rented.tokens - itemById(id)!.price);
-    expect(permanent.owned).toContain(id);
-    expect(permanent.rentals[id]).toBeUndefined();
-    expect(purchase(permanent, id, '1d').profile).toBe(permanent);
-    const { rentals: _oldField, ...oldSave } = permanent;
-    expect(restoreProfile(JSON.stringify(oldSave)).owned).toContain(id);
-    expect(restoreProfile(JSON.stringify(oldSave)).rentals).toEqual({});
-  });
-
-  it('expires exactly at the deadline, resets equipped variants and retains skins, slots and wallet', () => {
-    let worn = equip(purchase(buyer(), id, '1d').profile, id, 0);
-    worn = equip(purchase(worn, 'skin-gold').profile, 'skin-gold', 0);
-    const deadline = worn.rentals[id];
-    expect(expireRentals(worn, deadline - 1)).toBe(worn);
-    vi.mocked(Date.now).mockReturnValue(deadline);
-    const expired = expireRentals(worn);
-    expect(hasItemAccess(worn, id)).toBe(false);
-    expect(isEquipped(worn, itemById(id)!, 0)).toBe(false);
-    expect(equip(expired, id, 0)).toBe(expired);
-    expect(expired.guns[0]).toMatchObject({ variant: DEFAULT_VARIANTS[0], skin: 'skin-gold' });
-    expect(expired.carry).toEqual(worn.carry);
-    expect(expired.tokens).toBe(worn.tokens);
-    expect(expired.rentals).toEqual({});
-    expect(resolveLoadout(worn).weapons[0].damage).toBe(FPS_WEAPONS[0].damage);
-    expect(restoreProfile(JSON.stringify(worn)).guns[0].variant).toBe(DEFAULT_VARIANTS[0]);
-  });
-
-  it('supports rented main platforms in the carry selector and expires both extra and sidearm variants', () => {
-    let p = purchase(buyer(), 'slot-extra').profile;
-    for (const family of [1, 2]) {
-      const item = ARMORY_CATALOG.find(i => i.family === family && canRentWeapon(i))!;
-      p = equip(purchase(p, item.id, '1d').profile, item.id, family);
-    }
-    expect(selectCarryWeapon(p, 'extra', 0).carry.extra).toBe(0);
-    const active = resolveLoadout(p), expired = expireLoadoutRentals(active, NOW + RENTAL_DAY_MS);
-    expect(expired.weapons[1].equipment.variant).toBe(DEFAULT_VARIANTS[1]);
-    expect(expired.weapons[2].equipment.variant).toBe(DEFAULT_VARIANTS[2]);
-    expect(expired.carriedFamilies).toEqual(active.carriedFamilies);
-    expect(expireLoadoutRentals(expired, NOW + 2 * RENTAL_DAY_MS)).toBe(expired);
-  });
-
-  it('preserves the rest of a running loadout and does not resurrect expired stats on reset', () => {
-    const p = equip(purchase(buyer(), id, '1d').profile, id, 0);
-    const active = resolveLoadout(p), expired = expireLoadoutRentals(active, NOW + RENTAL_DAY_MS);
-    expect(expired).toMatchObject({ armor: active.armor, supplies: active.supplies, rigId: active.rigId, carriedFamilies: active.carriedFamilies });
-    expect(expired.weapons[0].damage).toBe(FPS_WEAPONS[0].damage);
-    expect(expired.weapons[0].rentalExpiresAt).toBeUndefined();
-    expect(expired.weapons[2]).toBe(active.weapons[2]);
-    expect(active.weapons[0].equipment.variant).toBe(id);
-  });
-
-  it('rejects locked, unaffordable, unsupported and invalid rental requests without a debit', () => {
-    const recruit = createProfile(), poor = { ...buyer(), tokens: 0 };
-    expect(purchase(recruit, id, '1d').profile).toBe(recruit);
-    expect(purchase(poor, id, '1d').profile).toBe(poor);
-    const base = buyer();
-    for (const item of ARMORY_CATALOG.filter(item => !canRentWeapon(item))) expect(purchase(base, item.id, '1d').profile).toBe(base);
-    expect(purchase(base, id, 'forever' as WeaponTerm).profile).toBe(base);
-  });
-
-  it('discards invalid save entries without converting rentals into ownership', () => {
-    const base = buyer();
-    const raw = { ...base, rentals: { [id]: NOW + RENTAL_DAY_MS, 'kit-ammo': NOW + RENTAL_DAY_MS, 'sar-issued': NOW + RENTAL_DAY_MS, bogus: NOW + RENTAL_DAY_MS, 'sar-marksman': NOW - 1, 'sar-patrol': 'tomorrow', 'ult-vanguard': null } };
-    const restored = restoreProfile(JSON.stringify(raw));
-    expect(restored.rentals).toEqual({ [id]: NOW + RENTAL_DAY_MS });
-    expect(restored.owned).not.toContain(id);
-    expect(restoreProfile(JSON.stringify({ ...base, rentals: { [id]: 1e20 } })).rentals).toEqual({});
-  });
-
-  it('shows remaining wall time with a clear expired boundary', () => {
-    expect(rentalTimeLeft(NOW + RENTAL_DAY_MS)).toBe('1d 0h left');
-    expect(rentalTimeLeft(NOW + 90 * 60 * 1000)).toBe('1h 30m left');
-    expect(rentalTimeLeft(NOW + 1000)).toBe('1s left');
-    expect(rentalTimeLeft(NOW)).toBe('Expired');
-  });
+it('only offers bounded rental terms for paid weapons', () => {
+  expect(WEAPON_TERMS.map(term => term.id)).toEqual(['1d', '7d', '30d']);
+  for (const item of ARMORY_CATALOG.filter(canRentWeapon)) {
+    expect(weaponTermPrice(item, '1d')).toBeLessThan(weaponTermPrice(item, '7d'));
+    expect(weaponTermPrice(item, '7d')).toBeLessThan(weaponTermPrice(item, '30d'));
+    expect(weaponTermPrice(item, '30d')).toBeLessThan(item.price);
+  }
+  const base = buyer();
+  expect(purchase(base, id, 'permanent' as WeaponTerm).profile).toBe(base);
+  expect(purchase(base, 'kit-ammo', '1d').profile).toBe(base);
+});
+it('defaults to one day of play and charges once without granting permanent ownership', () => {
+  const base = buyer(), next = purchase(base, id).profile;
+  expect(next.tokens).toBe(base.tokens - 24); expect(next.rentals[id]).toBe(RENTAL_DAY_MS);
+  expect(next.owned).not.toContain(id); expect(base.rentals).toEqual({});
+  expect(restoreProfile(JSON.stringify(equip(next, id, 0)))).toEqual(equip(next, id, 0));
+});
+it('adds purchased play time to the balance, including after partial use', () => {
+  const rented = purchase(buyer(), id, '7d').profile;
+  const played = spendRentalTime(rented, 12345), extended = purchase(played, id, '1d').profile;
+  expect(extended.rentals[id]).toBe(8 * RENTAL_DAY_MS - 12345);
+  expect(extended.tokens).toBe(rented.tokens - 24);
+});
+it('wall time, pause, offline reloads and zero or invalid deltas never spend a lease', () => {
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(100000), rented = purchase(buyer(), id).profile;
+  clock.mockReturnValue(9999999999999);
+  expect(restoreProfile(JSON.stringify(rented)).rentals).toEqual(rented.rentals);
+  for (const delta of [0, -1, NaN, Infinity]) expect(spendRentalTime(rented, delta)).toBe(rented);
+  expect(expireRentals(rented)).toBe(rented);
+});
+it('expires exactly on exhausting play time and resets an equipped rental without charging', () => {
+  const rented = equip(purchase(buyer(), id).profile, id, 0);
+  const last = spendRentalTime(rented, RENTAL_DAY_MS - 1);
+  expect(hasItemAccess(last, id)).toBe(true);
+  const expired = spendRentalTime(last, 1);
+  expect(hasItemAccess(expired, id)).toBe(false); expect(expired.guns[0].variant).toBe('sar-issued');
+  expect(expired.rentals[id]).toBeUndefined(); expect(expired.tokens).toBe(rented.tokens);
+});
+it('clears old permanent weapon IDs and their equipped selection while preserving other purchases', () => {
+  const base = buyer(), saved = { ...base, owned: [...base.owned, id, 'skin-gold', 'plate-ceramic', 'slot-extra'], guns: base.guns.map((gun, family) => family === 0 ? { ...gun, variant: id, skin: 'skin-gold' } : gun), plate: 'plate-ceramic', carry: { main: 0, extra: 1 } };
+  const restored = restoreProfile(JSON.stringify(saved));
+  expect(restored.owned).not.toContain(id); expect(restored.guns[0]).toMatchObject({ variant: 'sar-issued', skin: 'skin-gold' });
+  expect(restored).toMatchObject({ credits: saved.credits, tokens: saved.tokens, xp: saved.xp, plate: saved.plate, carry: saved.carry });
+  for (const nonWeapon of ['skin-gold', 'plate-ceramic', 'slot-extra']) expect(restored.owned).toContain(nonWeapon);
+});
+it('migrates existing absolute expiry dates once and preserves any valid active lease', () => {
+  const now = 1000000, { rentalClock: _clock, ...legacy } = buyer();
+  const old = { ...legacy, owned: [...legacy.owned, id], rentals: { [id]: now + 5000, 'sar-ranger': now - 1 } };
+  const migrated = restoreProfile(JSON.stringify(old), now);
+  expect(migrated.rentalClock).toBe('playtime'); expect(migrated.rentals).toEqual({ [id]: 5000 });
+  expect(migrated.owned).not.toContain(id);
+  expect(restoreProfile(JSON.stringify(migrated), now + 999999999).rentals[id]).toBe(5000);
+});
+it('trusted field pickups stay usable but cannot create permanent saved weapons', () => {
+  const field = buyer(); field.owned.push(id); field.guns[0].variant = id;
+  expect(restoreFieldProfile(field).guns[0].variant).toBe(id);
+  expect(restoreProfile(JSON.stringify(field)).guns[0].variant).toBe('sar-issued');
+});
+it('rejects malformed balances and non-weapon rentals', () => {
+  const restored = restoreProfile(JSON.stringify({ ...buyer(), rentals: { [id]: 5000, 'kit-ammo': 2000, 'sar-ranger': -5, 'sar-marksman': 'tomorrow', unknown: 1000 } }));
+  expect(restored.rentals).toEqual({ [id]: 5000 });
+});
+it('resolves remaining play time and replaces exhausted engine weapons', () => {
+  const profile = equip(purchase(buyer(), id).profile, id, 0), equipment = resolveLoadout(profile);
+  expect(equipment.weapons[0].rentalRemainingMs).toBe(RENTAL_DAY_MS);
+  equipment.weapons[0].rentalRemainingMs = 0;
+  const expired = expireLoadoutRentals(equipment);
+  expect(expired.weapons[0].equipment.variant).toBe('sar-issued'); expect(expired.weapons[2]).toBe(equipment.weapons[2]);
+  expect(rentalTimeLeft(1000)).toBe('1s left'); expect(rentalTimeLeft(RENTAL_DAY_MS)).toBe('1d 0h left'); expect(rentalTimeLeft(0)).toBe('Expired');
 });

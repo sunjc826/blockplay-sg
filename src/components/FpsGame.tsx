@@ -50,7 +50,7 @@ function Scoreboard({ snapshot, selfId }: { snapshot: ArenaSnapshot; selfId: str
   return <div className="arena-scoreboard"><table><caption>MATCH STANDINGS <span>{listArenaFactions().map(faction => [faction, actors.filter(actor => factionIdOf(actor) === faction.id).length] as const).filter(([, n]) => n).map(([faction, n]) => `${n} ${faction.short}`).join(' · ')}</span></caption><thead><tr><th scope="col">OPERATOR</th><th scope="col">ROLE</th><th scope="col">K</th><th scope="col">D</th></tr></thead><tbody>{actors.map((actor, index) => <tr key={actor.id} className={actor.id === selfId ? 'is-self' : ''}><td><span className="arena-place">{index + 1}</span>{actor.name}{actor.id === selfId && <small>YOU</small>}{actor.bot && <small>BOT</small>}</td><td>{actor.role === 'player' ? 'Operator' : actor.role}</td><td>{actor.kills}</td><td>{actor.deaths}</td></tr>)}</tbody></table></div>;
 }
 
-export default function FpsGame({ region: initialRegion = 'marina-bay', suspended = false, profile, nav, onReward, onElimination, onConsume, onOpenShop, arena, onLeaveArena, onLoaded, onRegionChange }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; onRegionChange?: (region: WorldZoneId) => void; onReward: (result: ExerciseReward) => void; onElimination: (id: string, bounty?: RaiderBounty) => void; onConsume: (id: string) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
+export default function FpsGame({ region: initialRegion = 'marina-bay', suspended = false, profile, nav, onReward, onElimination, onRentalTime, onConsume, onOpenShop, arena, onLeaveArena, onLoaded, onRegionChange }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; onRegionChange?: (region: WorldZoneId) => void; onReward: (result: ExerciseReward) => void; onElimination: (id: string, bounty?: RaiderBounty) => void; onConsume: (id: string) => void; onRentalTime?: (elapsedMs: number) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
   const [scene, setScene] = useState<RangeScene>(() => ({ region: initialRegion }));
   const region = scene.region;
   const regionChanged = useRef(onRegionChange); regionChanged.current = onRegionChange;
@@ -63,9 +63,11 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
   // so a level bought or earned mid-exercise changes his tone straight away.
   const speaking = useRef(encikAddress(profile)); speaking.current = encikAddress(profile);
   const startingLevel = useRef(rank.level);
+  const rentalCallback = useRef(onRentalTime); rentalCallback.current = onRentalTime;
   const eliminationCallback = useRef(onElimination); eliminationCallback.current = onElimination;
   const consumeCallback = useRef(onConsume); consumeCallback.current = onConsume;
   const [startingEquipment] = useState(() => resolveLoadout(profile));
+  const loadoutRef = useRef(startingEquipment);
   const [liveEquipment, setLiveEquipment] = useState(startingEquipment);
   const equipment = expireLoadoutRentals(liveEquipment);
   const [nextProfile, setNextProfile] = useState(profile), [loadoutOpen, setLoadoutOpen] = useState(false);
@@ -89,13 +91,13 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
           setHud(current => ({ ...current, phase: 'loading' }));
           setScene({ region: transition.to, spawn: transition.spawn, checkpoint });
         } },
-        loadout: expireLoadoutRentals(startingEquipment), onLoadout: setLiveEquipment, combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onElimination: (id, bounty) => eliminationCallback.current(id, bounty), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); }, encik: () => speaking.current });
+        loadout: expireLoadoutRentals(loadoutRef.current), onLoadout: setLiveEquipment, combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onRentalTime: elapsed => rentalCallback.current?.(elapsed), onElimination: (id, bounty) => eliminationCallback.current(id, bounty), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); }, encik: () => speaking.current });
     }
     catch {
       if (document.pointerLockElement === surface.current?.renderer.domElement) document.exitPointerLock();
       setHud(h => ({ ...h, phase: 'error', message: '3D graphics could not start. Check that WebGL is enabled, then retry.' }));
     }
-    return () => { engine.current?.dispose(); engine.current = null; };
+    return () => { if (engine.current) loadoutRef.current = engine.current.getLoadout(); engine.current?.dispose(); engine.current = null; };
   }, [epoch, combat, startingEquipment, arenaOptions, scene]);
   useEffect(() => () => { surface.current?.dispose(); surface.current = null; }, []);
   useEffect(() => { if (suspended) engine.current?.pause(); }, [suspended]);

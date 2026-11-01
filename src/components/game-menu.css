@@ -37,7 +37,7 @@
 .game-menu-title em { font-style:normal; color:var(--menu-accent); }
 .game-menu-list { display:flex; flex-direction:column; gap:clamp(8px,1.4vh,12px); }
 .game-menu-modes { display:flex; flex-direction:column; gap:clamp(6px,1.2vh,10px); }
-.game-menu-more { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:clamp(6px,1.2vh,10px); }
+.game-menu-more { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:clamp(6px,1.2vh,10px); }
 .game-menu-item { position:relative; overflow:hidden; display:flex; align-items:center; gap:18px; padding:clamp(10px,2vh,18px) 22px; border:1px solid var(--menu-line); border-radius:10px; background:#0d1813b3; backdrop-filter:blur(6px); text-decoration:none; color:var(--menu-ink);
   -webkit-tap-highlight-color:transparent; -webkit-touch-callout:none; user-select:none; touch-action:manipulation;
   transition:background .16s,border-color .16s,transform .2s cubic-bezier(.2,.8,.2,1);

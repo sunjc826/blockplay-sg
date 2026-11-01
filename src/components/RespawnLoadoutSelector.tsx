@@ -13,10 +13,10 @@ export default function RespawnLoadoutSelector({ inventory, selected, onSave, on
   onSave: (selection: RespawnLoadoutSelection) => Promise<boolean>; onClose: () => void;
 }) {
   const [draft, setDraft] = useState(() => selectedRespawnLoadout(selected));
-  const [now, setNow] = useState(Date.now), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const root = useRef<HTMLDivElement>(null), heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { heading.current?.focus(); const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
-  const ready = expireRentals(inventory, now), valid = !!applyRespawnLoadout(ready, draft);
+  useEffect(() => { heading.current?.focus(); }, []);
+  const ready = expireRentals(inventory), valid = !!applyRespawnLoadout(ready, draft);
   const platforms = FPS_WEAPONS.flatMap((weapon, family) => isMainWeapon(family) && isShopFamily(family) ? [{ family, name: weapon.name }] : []);
   const chooseFamily = (slot: 'main' | 'extra', raw: string) => {
     const family = raw === '' ? null : Number(raw);
@@ -24,7 +24,7 @@ export default function RespawnLoadoutSelector({ inventory, selected, onSave, on
       const carry = { ...current.carry, [slot]: family };
       if (slot === 'main' && family === carry.extra) carry.extra = null;
       const variants = [...current.variants];
-      if (family !== null && !hasItemAccess(ready, variants[family], now)) variants[family] = DEFAULT_VARIANTS[family];
+      if (family !== null && !hasItemAccess(ready, variants[family])) variants[family] = DEFAULT_VARIANTS[family];
       return { carry, variants };
     }); setError('');
   };
@@ -34,15 +34,15 @@ export default function RespawnLoadoutSelector({ inventory, selected, onSave, on
       {kind === 'extra' && <option value="">Empty · travel lighter</option>}
       {platforms.map(platform => <option key={platform.family} value={platform.family} disabled={kind === 'extra' && platform.family === draft.carry.main}>{platform.name}</option>)}
     </select></label>}
-    {family !== null && <div className="loadout-variants" role="group" aria-label={`${title} variant`}>{ARMORY_CATALOG.filter(item => item.category === 'weapon' && item.family === family && hasItemAccess(ready, item.id, now)).map(item => {
+    {family !== null && <div className="loadout-variants" role="group" aria-label={`${title} variant`}>{ARMORY_CATALOG.filter(item => item.category === 'weapon' && item.family === family && hasItemAccess(ready, item.id)).map(item => {
       const spec = fittedVariantSpec(item)!;
       return <button type="button" disabled={busy} key={item.id} data-loadout-variant={item.id} aria-pressed={draft.variants[family] === item.id} onClick={() => { setDraft(current => { const variants = [...current.variants]; variants[family] = item.id; return { ...current, variants }; }); setError(''); }}>
         <img src={`${import.meta.env.BASE_URL}images/armory/${armoryThumbnailFile(item, family)}`} alt="" width={480} height={240} />
         <strong>{item.name}</strong><span>{spec.damage} DMG · {spec.capacity} rounds</span>
-        <small>{ready.owned.includes(item.id) ? 'Permanent' : rentalTimeLeft(ready.rentals[item.id], now)}</small>
+        <small>{ready.owned.includes(item.id) ? 'Issued' : rentalTimeLeft(ready.rentals[item.id])}</small>
       </button>;
     })}</div>}
-    {family !== null && !hasItemAccess(ready, draft.variants[family], now) && <p role="alert">Rental expired. Choose an available weapon.</p>}
+    {family !== null && !hasItemAccess(ready, draft.variants[family]) && <p role="alert">Rental expired. Choose an available weapon.</p>}
   </section>;
   return <div ref={root} className="respawn-loadout-screen" role="dialog" aria-modal="true" aria-labelledby="loadout-screen-title" onKeyDown={event => {
     if (event.key === 'Escape') { event.stopPropagation(); onClose(); }
@@ -60,7 +60,7 @@ export default function RespawnLoadoutSelector({ inventory, selected, onSave, on
         {ready.owned.includes(EXTRA_SLOT_ID) ? slot('Extra main', draft.carry.extra, 'extra') : <section className="loadout-choice loadout-slot-locked"><h3>Extra main</h3><p>Unlock the extra main slot in the Store to carry a second main weapon.</p></section>}
         {slot('Sidearm', SIDEARM_FAMILY)}
       </div>
-      <footer><div><p>{error || (!valid ? 'Select available weapons in each carried slot.' : 'Only permanent weapons and active rentals from your locker are shown.')}</p><small>Your Store loadout stays saved. These choices last for this session.</small></div>
+      <footer><div><p>{error || (!valid ? 'Select available weapons in each carried slot.' : 'Only issued weapons and active rentals from your locker are shown.')}</p><small>Your Store loadout stays saved. These choices last for this session.</small></div>
         <button type="button" onClick={onClose}>Cancel</button><button type="button" data-testid="queue-loadout" disabled={busy || !valid} onClick={async () => {
           setBusy(true); setError('');
           try { if (await onSave(draft)) onClose(); else setError('Loadout could not be queued. Check your connection and rental time, then try again.'); }

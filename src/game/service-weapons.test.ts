@@ -13,13 +13,13 @@ import { equipmentMovement } from './fps-encumbrance';
 import { validArenaInput } from './arena-runtime';
 import { shootAndLand } from './arena-test-shots';
 
-it('upgrades a two-platform v1 save without spending currency or losing equipment', () => {
+it('upgrades a two-platform v1 save without spending currency while removing permanent paid weapons', () => {
   const legacy = { ...createProfile(), credits: 77, tokens: 22, owned: ['sar-issued', 'ult-issued', 'sar-vanguard'], guns: [
     { variant: 'sar-vanguard', skin: 'skin-issued', attachments: {} },
     { variant: 'ult-issued', skin: 'skin-issued', attachments: {} },
   ] };
   const restored = restoreProfile(JSON.stringify(legacy));
-  expect(restored.guns.map(gun => gun.variant)).toEqual(['sar-vanguard', ...DEFAULT_VARIANTS.slice(1)]);
+  expect(restored.guns.map(gun => gun.variant)).toEqual(DEFAULT_VARIANTS);
   expect(restored.credits).toBe(77); expect(restored.tokens).toBe(22);
   expect(restoreProfile(JSON.stringify(restored))).toEqual(restored);
 });
@@ -32,7 +32,7 @@ for (const family of [2, 3, 4]) describe(FPS_WEAPONS[family].name, () => {
     expect(purchase(base, id).profile).toBe(base);
     const buyer = { ...base, xp: xpForLevel(itemById(id)!.requiredLevel!), credits: 10000 };
     const bought = purchase(buyer, id).profile;
-    expect(bought.credits).toBe(10000 - itemById(id)!.price);
+    expect(bought.credits).toBe(10000 - Math.ceil(itemById(id)!.price * .1));
     expect(equip(bought, id, 0)).toBe(bought);
     const saved = restoreProfile(JSON.stringify(equip(bought, id, family)));
     expect(saved.guns[family].variant).toBe(id);

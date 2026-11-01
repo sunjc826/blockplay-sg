@@ -25,7 +25,7 @@ function reducedMotion() {
 }
 
 const LABELS: Record<Route, string> = {
-  menu: 'Menu', tutorial: 'Tutorial', training: 'Training', world: 'Open World', multiplayer: 'Multiplayer', store: 'Store', settings: 'Settings', debug: 'Debug',
+  menu: 'Menu', tutorial: 'Tutorial', training: 'Training', world: 'Open World', multiplayer: 'Multiplayer', store: 'Store', inventory: 'Inventory', settings: 'Settings', debug: 'Debug',
   'faction-designs': 'Faction studies',
 };
 

@@ -7,11 +7,11 @@ import { createArena } from './arena-rules';
 import { shootAndLand } from './arena-test-shots';
 
 describe('main, sidearm and premium extra carry slots', () => {
-  it('migrates existing saves to a rifle and pistol without losing owned variants or balances', () => {
+  it('migrates existing saves to a rifle and pistol while clearing permanent weapon unlocks and preserving balances', () => {
     const { carry: _, ...old } = createProfile();
     const saved = restoreProfile(JSON.stringify({ ...old, owned: [...old.owned, 'cis50-merlion'], credits: 12, tokens: 28 }));
     expect(saved.carry).toEqual({ main: 0, extra: null }); expect(carriedFamilies(saved)).toEqual([0, 2]);
-    expect(saved.owned).toContain('cis50-merlion'); expect(saved.credits).toBe(12); expect(saved.tokens).toBe(28);
+    expect(saved.owned).not.toContain('cis50-merlion'); expect(saved.credits).toBe(12); expect(saved.tokens).toBe(28);
   });
   it('requires a one-time token purchase, then permits an optional second main', () => {
     const base = createProfile();

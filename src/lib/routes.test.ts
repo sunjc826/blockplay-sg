@@ -9,6 +9,7 @@ describe('routes', () => {
     expect(routeFromPath('/world/')).toBe('world');
     expect(routeFromPath('/multiplayer/')).toBe('multiplayer');
     expect(routeFromPath('/store')).toBe('store');
+    expect(routeFromPath('/inventory/')).toBe('inventory');
     expect(routeFromPath('/settings')).toBe('settings');
     expect(routeFromPath('/debug/')).toBe('debug');
     expect(routeFromPath('/faction-designs/')).toBe('faction-designs');

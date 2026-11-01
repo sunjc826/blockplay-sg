@@ -358,14 +358,14 @@ it('mirrors an interchangeable extended magazine without rejecting its extra sho
   expect(actor(arena, 'one').shots - before).toBe(37);
 });
 
-it('uses issued damage after a guest rental expires, even without a new client loadout', () => {
-  const clock = vi.spyOn(Date, 'now').mockReturnValue(100000);
-  try {
-    const arena = pair();
-    arena.setPlayerLoadout('one', 0, 0, [{ ...weapon, damage: 80, rentalExpiresAt: 101000 }]);
-    // Expire on the authority before the client's next message. No simulation step is required.
-    clock.mockReturnValue(101000);
-    expect(fireAt(arena).damage).toBe(FPS_WEAPONS[0].damage);
-    expect(actor(arena, 'two').health).toBe(100 - FPS_WEAPONS[0].damage);
-  } finally { clock.mockRestore(); }
+it('spends rental time only during active play before applying issued damage', () => {
+  const arena = pair();
+  arena.setPlayerLoadout('one', 0, 0, [{ ...weapon, damage: 80, rentalRemainingMs: 100 }]);
+  const shooter = actor(arena, 'one');
+  arena.setInput('one', { ...shooter, playing: false });
+  advance(arena, 5);
+  expect(actor(arena, 'one').rentalTimeMs ?? 0).toBe(0);
+  arena.setInput('one', { ...actor(arena, 'one'), playing: true });
+  arena.step(.1);
+  expect(fireAt(arena).damage).toBe(FPS_WEAPONS[0].damage);
 });

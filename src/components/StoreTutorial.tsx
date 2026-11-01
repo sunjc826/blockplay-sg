@@ -25,7 +25,7 @@ export default function StoreTutorial({ category, rootRef, onComplete, onExit }:
   callbacks.current = { onExit };
   const stop = STOPS[step], ready = !('category' in stop) || category === stop.category;
   const canContinue = ready && (stop.id !== 'compare' || inspected);
-  const hint = !ready && 'tab' in stop ? `Click or tap the ${stop.tab} tab.` : stop.id === 'categories' ? 'Armor shelf opened. Continue when ready.' : stop.id === 'supplies' ? 'Utilities shelf opened. No purchase needed.' : stop.id === 'compare' && inspected ? 'Choose a rental duration or permanent ownership. Equip adds available gear to your loadout. No purchase needed.' : stop.hint;
+  const hint = !ready && 'tab' in stop ? `Click or tap the ${stop.tab} tab.` : stop.id === 'categories' ? 'Armor shelf opened. Continue when ready.' : stop.id === 'supplies' ? 'Utilities shelf opened. No purchase needed.' : stop.id === 'compare' && inspected ? 'Choose a weapon rental duration. Equip adds available gear to your loadout. No purchase needed.' : stop.hint;
 
   useLayoutEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;

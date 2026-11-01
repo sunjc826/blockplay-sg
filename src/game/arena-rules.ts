@@ -63,7 +63,7 @@ export interface ArenaActor {
   proxyOperation?: string;
   parachuting?: true;
   id: string; name: string; bot: boolean; x: number; y: number; z: number; yaw: number; pitch: number;
-  health: number; armor: number; kills: number; deaths: number; alive: boolean; respawnIn: number; weapon: number;
+  health: number; armor: number; kills: number; deaths: number; alive: boolean; rentalTimeMs?: number; respawnIn: number; weapon: number;
   shots: number; role: string; prone?: boolean; vehicle?: VehicleKind; seat?: number;
   /** Who they fight for (arena-factions): players and friendly squads the armed forces, enemy squads the mercenaries, event crews their event's side. */
   faction: string;
@@ -168,7 +168,7 @@ export interface ArenaInput {
   /** How far through using a supply the player is (0..1), so everyone else sees them patching up or eating. */
   supply?: number;
 }
-export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount' | 'bolt'> & Partial<Pick<WeaponSpec, 'ballistics'>> & { accessories?: { muzzle?: MuzzleDevice }; rentalExpiresAt?: number };
+export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount' | 'bolt'> & Partial<Pick<WeaponSpec, 'ballistics'>> & { accessories?: { muzzle?: MuzzleDevice }; rentalRemainingMs?: number };
 export interface ArenaPoint { x: number; y: number; z: number }
 export interface ArenaShot { hitId: string | null; killed: boolean; damage: number }
 export interface ArenaVitals { health: number; armor: number }
@@ -599,7 +599,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   };
   function sanitizeWeapons(weapons: readonly ArenaWeapon[]) {
     return (weapons.length ? weapons : FPS_WEAPONS).slice(0, FPS_WEAPONS.length).map((w: ArenaWeapon, index): ArenaWeapon => ({
-      ...(Number.isSafeInteger(w.rentalExpiresAt) ? { rentalExpiresAt: w.rentalExpiresAt } : {}),
+      ...(Number.isFinite(w.rentalRemainingMs) && w.rentalRemainingMs! >= 0 ? { rentalRemainingMs: w.rentalRemainingMs } : {}),
       requiresMount: w.requiresMount === true, bolt: w.bolt === 'open' ? 'open' : 'closed',
       damage: Number.isFinite(w.damage) ? clamp(w.damage, 1, 200) : 36,
       interval: Number.isFinite(w.interval) ? clamp(w.interval, 0.06, 3) : 0.12,
@@ -744,10 +744,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return true;
   }
   /** The authority uses wall time, including when a guest keeps an old loadout open. */
-  function expirePlayerRentals(entry: InternalActor, now = Date.now()) {
+  function expirePlayerRentals(entry: InternalActor) {
     if (entry.actor.bot) return;
     entry.weapons.forEach((weapon, family) => {
-      if (weapon.rentalExpiresAt === undefined || weapon.rentalExpiresAt > now) return;
+      if (weapon.rentalRemainingMs === undefined || weapon.rentalRemainingMs > 0) return;
       entry.weapons[family] = sanitizeWeapons(FPS_WEAPONS)[family];
       entry.ammo[family] = hostAmmo(entry.weapons[family]);
       entry.wasReloading = false;
@@ -3102,11 +3102,15 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function step(dt: number) {
     if (finished || !Number.isFinite(dt) || dt <= 0) return;
-    const wallTime = Date.now();
-    for (const entry of members.values()) expirePlayerRentals(entry, wallTime);
     navigationDeadline = performance.now() + NAVIGATION_BUDGET;
     threatCoverQueries = 0;
-    dt = Math.min(dt, 0.25); elapsed = environment?.endless ? elapsed + dt : Math.min(ARENA_DURATION, elapsed + dt); tick++;
+    dt = Math.min(dt, 0.25);
+    for (const entry of members.values()) if (!entry.actor.bot && entry.actor.alive && entry.playing) {
+      entry.actor.rentalTimeMs = (entry.actor.rentalTimeMs ?? 0) + dt * 1000;
+      for (const weapon of [...entry.weapons, ...(entry.nextWeapons?.weapons ?? [])]) if (weapon.rentalRemainingMs !== undefined) weapon.rentalRemainingMs = Math.max(0, weapon.rentalRemainingMs - dt * 1000);
+      expirePlayerRentals(entry);
+    }
+     elapsed = environment?.endless ? elapsed + dt : Math.min(ARENA_DURATION, elapsed + dt); tick++;
     stepFacilities(dt); stepSquads(dt);
     // Wreck cleanup is independent of nearby players, facility supply and replacement safety.
     for (const v of vehicles) {

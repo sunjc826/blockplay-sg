@@ -49,7 +49,7 @@ import { getArenaFaction, PLAYER_FACTION, SQUAD_FACTIONS } from '../game/arena-f
 
 interface ExpeditionScene { zone: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: FpsCheckpoint; revision: number }
 
-export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase, onConsume, onElimination, suspended = false, initialZone = 'marina-bay', destination, onZoneChange, onLoaded }: { profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; onExit: () => void; onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult; onConsume: (catalogId: string) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; suspended?: boolean; initialZone?: WorldZoneId; destination?: WorldZoneId; onZoneChange?: (zone: WorldZoneId) => void }) {
+export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase, onConsume, onElimination, onRentalTime, suspended = false, initialZone = 'marina-bay', destination, onZoneChange, onLoaded }: { profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; onExit: () => void; onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult; onConsume: (catalogId: string) => void; onRentalTime?: (elapsedMs: number) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; suspended?: boolean; initialZone?: WorldZoneId; destination?: WorldZoneId; onZoneChange?: (zone: WorldZoneId) => void }) {
   const [fieldProfile, setFieldProfile] = useState<ArmoryProfile>(() => structuredClone(profile));
   const fieldProfileRef = useRef(fieldProfile);
   const [startingProfile] = useState(() => structuredClone(fieldProfile));
@@ -69,6 +69,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
   const zoneChanged = useRef(onZoneChange); zoneChanged.current = onZoneChange;
   useEffect(() => { zoneChanged.current?.(scene.zone); }, [scene.zone]);
   const [hud, setHud] = useState(initialFpsHud);
+  const rentalCallback = useRef(onRentalTime); rentalCallback.current = onRentalTime;
   const eliminationCallback = useRef(onElimination); eliminationCallback.current = onElimination;
   const debug = useDebugMode();
   const host = useRef<HTMLDivElement>(null), stage = useRef<HTMLDivElement>(null), engine = useRef<FpsEngine | null>(null);
@@ -93,7 +94,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
           onVendorPurchase,
         },
         onConsume,
-        onElimination: (id, bounty) => eliminationCallback.current?.(id, bounty),
+        onRentalTime: elapsed => rentalCallback.current?.(elapsed), onElimination: (id, bounty) => eliminationCallback.current?.(id, bounty),
         onFullscreen: () => { void fullscreenAction.current(); },
       });
     } catch {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { applyRespawnLoadout, selectedRespawnLoadout } from './respawn-loadout';
-import { createProfile, equip, purchase, resolveLoadout } from './armory-state';
+import { spendRentalTime, createProfile, equip, purchase, resolveLoadout } from './armory-state';
 import { ARMORY_CATALOG } from './armory-catalog';
 import { createArena, type ArenaSimulation } from './arena-rules';
 import { respawnEquipment } from './respawn-equipment';
@@ -36,8 +36,8 @@ describe('respawn loadout selection', () => {
     const profile = purchase(buyer(), 'sar-vanguard', '1d').profile, selection = selectedRespawnLoadout(profile);
     selection.variants[0] = 'sar-vanguard';
     expect(applyRespawnLoadout(profile, selection)?.guns[0].variant).toBe('sar-vanguard');
-    clock.mockReturnValue(profile.rentals['sar-vanguard']);
-    expect(applyRespawnLoadout(profile, selection)).toBeNull();
+    clock.mockReturnValue(9999999999999);
+    expect(applyRespawnLoadout(spendRentalTime(profile, 86400000), selection)).toBeNull();
   });
 
   it('changes the authority only on respawn, including a new main and sidearm', () => {
@@ -72,7 +72,11 @@ describe('respawn loadout selection', () => {
     const loadout = resolveLoadout(p), a = createArena([], 0);
     a.addPlayer('p', 'Player'); a.addPlayer('target', 'Target');
     a.queuePlayerWeapons('p', loadout.weapons, loadout.carriedFamilies);
-    a.setPlayerVitals('p', { health: 0 }); clock.mockReturnValue(p.rentals['sar-vanguard']); advance(a, 3.2);
+    a.setInput('p', { ...self(a), playing: true });
+    // The queued lease spends the same active time as the current life.
+    for (const weapon of loadout.weapons) if (weapon.rentalRemainingMs !== undefined) weapon.rentalRemainingMs = 100;
+    a.queuePlayerWeapons('p', loadout.weapons, loadout.carriedFamilies); a.step(.2);
+    a.setPlayerVitals('p', { health: 0 }); clock.mockReturnValue(9999999999999); advance(a, 3.2);
     const shooter = self(a), target = a.snapshot().actors.find(actor => actor.id === 'target')!;
     const dx = target.x - shooter.x, dy = target.y - .6 - shooter.y, dz = target.z - shooter.z, distance = Math.hypot(dx, dy, dz);
     expect(shootAndLand(a, 'p', shooter, { x: dx / distance, y: dy / distance, z: dz / distance }, 0).damage).toBe(FPS_WEAPONS[0].damage);
@@ -83,8 +87,8 @@ it('does not let ownership from a fallen life keep an expired rented variant on 
   const clock = vi.spyOn(Date, 'now').mockReturnValue(100000);
   const selected = equip(purchase(buyer(), 'sar-vanguard', '1d').profile, 'sar-vanguard', 0);
   const field = { ...selected, owned: [...selected.owned, 'sar-vanguard', 'xm8-carbine'] };
-  clock.mockReturnValue(selected.rentals['sar-vanguard']);
-  const respawned = respawnEquipment(field, selected);
+  clock.mockReturnValue(9999999999999);
+  const respawned = respawnEquipment(field, spendRentalTime(selected, 86400000));
   expect(respawned.owned).not.toContain('sar-vanguard');
   expect(respawned.owned).not.toContain('xm8-carbine');
   expect(respawned.guns[0].variant).toBe('sar-issued');

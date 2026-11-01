@@ -5,20 +5,19 @@ export const WEAPON_TERMS = [
   { id: '1d', label: '1 day', days: 1, rate: .10 },
   { id: '7d', label: '7 days', days: 7, rate: .30 },
   { id: '30d', label: '30 days', days: 30, rate: .60 },
-  { id: 'permanent', label: 'Permanent', days: 0, rate: 1 },
 ] as const;
 export type WeaponTerm = typeof WEAPON_TERMS[number]['id'];
 export const isWeaponTerm = (term: unknown): term is WeaponTerm => WEAPON_TERMS.some(option => option.id === term);
 export const canRentWeapon = (item: ShopItem) => item.category === 'weapon' && item.price > 0 && !isEnemyIssue(item);
 export const weaponTermPrice = (item: ShopItem, term: WeaponTerm) => Math.max(1, Math.ceil(item.price * WEAPON_TERMS.find(option => option.id === term)!.rate));
 
-/** Rentals never enter permanent ownership. All times are absolute UTC milliseconds. */
-export function hasItemAccess(profile: { owned: readonly string[]; rentals?: Record<string, number> }, id: string, now = Date.now()) {
-  return profile.owned.includes(id) || (profile.rentals?.[id] ?? 0) > now;
+/** Rental balances are remaining active-play milliseconds, independent of wall time. */
+export function hasItemAccess(profile: { owned: readonly string[]; rentals?: Record<string, number> }, id: string) {
+  return profile.owned.includes(id) || (profile.rentals?.[id] ?? 0) > 0;
 }
 
-export function rentalTimeLeft(expiresAt: number, now = Date.now()) {
-  const seconds = Math.ceil((expiresAt - now) / 1000);
+export function rentalTimeLeft(remainingMs: number) {
+  const seconds = Math.ceil(remainingMs / 1000);
   if (seconds <= 0) return 'Expired';
   if (seconds < 60) return `${seconds}s left`;
   const minutes = Math.ceil(seconds / 60);

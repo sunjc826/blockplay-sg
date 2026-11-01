@@ -76,7 +76,7 @@ import { getAimAssist } from './aim-assist-setting';
 import { advanceRecoil, compensateRecoil, createRecoil, recoilPose, recoilView, recordRecoilShot, resetRecoil, takeAimPush } from './fps-recoil';
 import { effectStyleForWeapon, resolveEffectStyle, type EffectStyle } from './fps-effect-styles';
 import type { ImpactProfile } from './fps-impact-profile';
-import { expireLoadoutRentals, expireRentals, applyArmorDamage, claimElimination, consumeItem, createProfile, encikAddress, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile, type VendorPurchaseResult } from './armory-state';
+import { spendRentalTime, expireLoadoutRentals, expireRentals, applyArmorDamage, claimElimination, consumeItem, createProfile, encikAddress, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile, type VendorPurchaseResult } from './armory-state';
 import { registerElimination, ELIMINATION_XP, ELIMINATION_CREDITS, type KillChain } from './progression';
 import { worldVehicleSpawns } from './world-vehicles';
 import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
@@ -309,7 +309,7 @@ function disposeAssets(roots: THREE.Object3D[]) {
   textures.forEach(t => { t.dispose(); if (typeof ImageBitmap !== 'undefined' && t.source.data instanceof ImageBitmap) t.source.data.close(); });
 }
 
-export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { surface?: FpsSurface; rangeTravel?: FpsRangeTravelOptions; rangeDrill?: RangeDrillId; tutorial?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; onLoadout?: (equipment: ResolvedLoadout) => void; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; onConsume?: (id: string) => void; onFullscreen?: () => void;
+export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { surface?: FpsSurface; rangeTravel?: FpsRangeTravelOptions; rangeDrill?: RangeDrillId; tutorial?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; onLoadout?: (equipment: ResolvedLoadout) => void; onRentalTime?: (elapsedMs: number) => void; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; onConsume?: (id: string) => void; onFullscreen?: () => void;
   /** Read per callout, so a level-up mid-exercise is heard immediately. */
   encik?: () => EncikAddress } = {}) {
   const expedition = options.expedition;
@@ -324,7 +324,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const copyProfile = (profile: ArmoryProfile): ArmoryProfile => JSON.parse(JSON.stringify(profile));
   let fieldProfile = copyProfile(expedition?.profile ?? options.arena?.profile ?? createProfile());
   const startingProfile = copyProfile(expedition?.startingProfile ?? fieldProfile);
-  let respawnProfile = startingProfile;
+  // District travel keeps weapon choices, but never reissues the entry-time rental balance.
+  startingProfile.rentals = { ...fieldProfile.rentals };
+  let respawnProfile = startingProfile, rentalTimeSpent = 0;
   let equipment = expedition ? resolveLoadout(fieldProfile) : options.loadout || resolveLoadout(createProfile()), specs = equipment.weapons;
   const undress: (() => void)[] = [];
   const fpsSurface = options.surface ?? createFpsSurface(host), { renderer } = fpsSurface;
@@ -723,6 +725,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.health = hud.maxHealth; arenaRuntime?.setVitals({ health: hud.health }); recoveryDelay = 0; publish();
   }
   function pause() {
+    options.onRentalTime?.(0);
     if (resumeCrossing) {
       resumeCrossing = false; resumePilot = false; crossingKeys.clear(); crossingStick = null;
       if (document.pointerLockElement === canvas) document.exitPointerLock();
@@ -3187,26 +3190,34 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const observer = new ResizeObserver(resize); observer.observe(host); resize();
   const animate = (now: number) => {
     if (disposed) return;
-    const wallTime = Date.now();
-    if (specs.some(weapon => weapon.rentalExpiresAt !== undefined && weapon.rentalExpiresAt <= wallTime)) {
+    const realDt = Math.max((now - lastTime) / 1000, 0), dt = Math.min(realDt, 0.05); lastTime = now;
+    if (hud.phase === 'playing' && hud.arenaSelf?.alive !== false && !document.hidden) {
+      const spent = Math.min(realDt, .25) * 1000;
+      rentalTimeSpent += spent;
+      fieldProfile = spendRentalTime(fieldProfile, spent); respawnProfile = spendRentalTime(respawnProfile, spent);
+      // These are session-owned specs; the UI is notified when a variant expires.
+      specs = specs.map(weapon => weapon.rentalRemainingMs === undefined ? weapon : { ...weapon, rentalRemainingMs: Math.max(0, weapon.rentalRemainingMs - spent) });
+      equipment = { ...equipment, weapons: specs }; options.onRentalTime?.(spent);
+    }
+    if (specs.some(weapon => weapon.rentalRemainingMs !== undefined && weapon.rentalRemainingMs <= 0)) {
       const previous = specs;
-      const expired = specs.flatMap((weapon, family) => weapon.rentalExpiresAt !== undefined && weapon.rentalExpiresAt <= wallTime ? [family] : []);
+      const expired = specs.flatMap((weapon, family) => weapon.rentalRemainingMs !== undefined && weapon.rentalRemainingMs <= 0 ? [family] : []);
       if (expired.includes(hud.weapon)) { clearInput(); stopReload(); reloadAudio.clear(); cantWanted = false; cant = 0; }
-      equipment = expireLoadoutRentals({ ...equipment, weapons: specs }, wallTime); specs = equipment.weapons;
+      equipment = expireLoadoutRentals({ ...equipment, weapons: specs }); specs = equipment.weapons;
       for (const family of expired) {
         loadout = replacePooledWeapon(loadout, previous, equipment.carriedFamilies, specs, equipment.carriedFamilies, family);
         weaponStyles[family] = effectStyleForWeapon(specs[family]);
       }
       effects.setStyles(weaponStyles, hud.weapon);
       undress.splice(0).forEach(dispose => dispose()); weapons.forEach((model, family) => undress.push(dressWeapon(model, specs[family])));
-      fieldProfile = expireRentals(fieldProfile, wallTime);
-      expedition?.onEquipment(copyProfile(fieldProfile));
+      fieldProfile = expireRentals(fieldProfile);
+      expedition?.onEquipment(copyProfile(fieldProfile)); options.onLoadout?.(equipment);
       hud.message = 'Weapon rental expired. Switched to issued gear. Renew in the armory.';
       comms.add('system', 'Armory', hud.message); publish();
     }
     // Stop controls even if a browser/VM delays or drops pointerlockchange.
     if (['playing', 'deploying'].includes(hud.phase) && (!expedition || hud.arenaSelf?.alive !== false) && !pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) pause();
-    const realDt = Math.max((now - lastTime) / 1000, 0), dt = Math.min(realDt, 0.05); lastTime = now;
+
     if (pilotEnabled && ['complete', 'defeated', 'error'].includes(hud.phase)) { pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); }
     if (hud.phase === 'deploying') {
       deploymentIntro.advance(realDt);
@@ -3543,8 +3554,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (COURSE_STEPS[step]?.id === 'reload') loadout[hud.weapon].magazine = Math.max(0, loadout[hud.weapon].magazine - 1);
       updateCameras(0, false, false); publish();
     },
+    getLoadout: () => equipment,
     async queueRespawnLoadout(selection: RespawnLoadoutSelection) {
-      const next = applyRespawnLoadout(startingProfile, selection);
+      const next = applyRespawnLoadout(spendRentalTime(startingProfile, rentalTimeSpent), selection);
       if (!next || !arenaRuntime || disposed) return false;
       const accepted = await arenaRuntime.queueRespawnLoadout(selection);
       if (!accepted || disposed) return false;
@@ -3572,6 +3584,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     toggleEncikVoice() { hud.encikVoice = !hud.encikVoice; if (!hud.encikVoice) stopVoice(); publish(); },
     toggleSound() { hud.muted = !hud.muted; if (hud.muted) { stopVoice(); impactAudio.clear(); bulletFlybys.clear(); gunshots.clear(); emptyFireAudio.clear(); reloadAudio.clear(); } if (hud.phase === 'playing') { canvas.focus({ preventScroll: true }); if (!hud.muted) initAudio(); } publish(); },
     dispose() {
+      options.onRentalTime?.(0);
       const infrastructure = arenaRuntime?.getWorldState();
       if (expedition && infrastructure) expedition.infrastructure?.set(expedition.zone, infrastructure);
       facilityVisuals.dispose(); objectiveBeacons?.dispose();

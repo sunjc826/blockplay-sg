@@ -11,7 +11,7 @@ describe('fixed weapon optics', () => {
     const base = { ...createProfile(), xp: 5000, tokens: 1000 };
     expect(opticMagnification(resolveLoadout(base).weapons[0])).toBeCloseTo(1.5);
     const bought = purchase(base, 'sar-marksman').profile;
-    expect(bought.tokens).toBe(680);
+    expect(bought.tokens).toBe(968);
     const profile = restoreProfile(JSON.stringify(equip(bought, 'sar-marksman', 0)));
     const match = resolveLoadout(profile).weapons[0];
     expect(match.optic).toBe('precision'); expect(match.aimFov).toBe(40);

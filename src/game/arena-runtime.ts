@@ -24,7 +24,7 @@ import { FPS_WEAPONS, validWeaponIndex } from './fps-rules';
 import { MAX_WEAPON_RANGE, weaponRange } from './weapon-range';
 import * as THREE from 'three';
 import { createArena, MAX_ARENA_ACTORS, MAX_ARENA_BARKS, MAX_ARENA_ROUNDS, SPAWN_SHIELD_SECONDS, type ArenaActor, type ArenaBark, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaRaiderState, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
-import { createProfile, resolveLoadout, restoreProfile, restoreFieldProfile, type ArmoryProfile } from './armory-state';
+import { spendRentalTime, createProfile, resolveLoadout, restoreProfile, restoreFieldProfile, type ArmoryProfile } from './armory-state';
 import type { LanSession } from './lan-peer';
 import { getArenaRole } from './arena-roles';
 import { MAX_COMBAT_EVENTS, validCombatEvent, type CombatPlane } from './combat-events';
@@ -73,6 +73,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (isProxyFaction(String(actor.faction)) && (actor.proxyOperation === undefined || actor.proxyTargets === undefined)) ||
       (actor.proxyOperation !== undefined && (!environment?.proxies || !actor.bot || !['freedom-force','collective-cops'].includes(String(actor.faction)) || typeof actor.proxyOperation !== 'string' || actor.proxyOperation !== (value.proxies as import('./proxy-operations').ProxySnapshot)?.operation?.id)) ||
       (actor.proxyTargets !== undefined && (actor.proxyOperation === undefined || !Array.isArray(actor.proxyTargets) || actor.proxyTargets.length > 64 || !actor.proxyTargets.every(id => typeof id === 'string' && id.length <= 100))) ||
+      (actor.rentalTimeMs !== undefined && (!finite(actor.rentalTimeMs) || actor.rentalTimeMs < 0)) ||
       (actor.squad !== undefined && (typeof actor.squad !== 'string' || actor.squad.length > 100)) ||
       (actor.objective !== undefined && (typeof actor.objective !== 'string' || actor.objective.length > 100)) ||
       (actor.duty !== undefined && (!actor.bot || typeof actor.duty !== 'string' || !['attack','sentry','patrol','respond','investigate'].includes(actor.duty))) ||
@@ -454,7 +455,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         // The host spends a guest's supplies from what they brought, as it already trusts the kit they brought.
         simulation.setPlayerSupplies(from, guest.consumables); registered.add(from); publish();
       } else if (registered.has(from) && payload.type === 'arena-loadout' && Number.isSafeInteger(payload.request)) {
-        const admitted = peerInventories.get(from), next = admitted && applyRespawnLoadout(admitted, payload.selection);
+        const admitted = peerInventories.get(from), next = admitted && applyRespawnLoadout(spendRentalTime(admitted, snapshot?.actors.find(actor => actor.id === from)?.rentalTimeMs ?? 0), payload.selection);
         const loadout = next && resolveLoadout(next);
         const accepted = !!loadout && simulation.queuePlayerWeapons(from, loadout.weapons, loadout.carriedFamilies);
         session.send({ type: 'arena-loadout-result', request: payload.request, accepted }, from);
@@ -722,7 +723,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   }
   function reset() { if (!simulation || disposed) return; simulation.reset(); matchId = newMatchId(); acknowledgements.clear(); reconciliation.reset(); broadcastTime = 0; started = false; localAdopted = false; previousSelf = null; seenFeed.clear(); seenBarks.clear(); publish(); }
   function queueRespawnLoadout(selection: RespawnLoadoutSelection): Promise<boolean> {
-    const next = applyRespawnLoadout(inventory, selection);
+    const next = applyRespawnLoadout(spendRentalTime(inventory, snapshot?.actors.find(actor => actor.id === session.id)?.rentalTimeMs ?? 0), selection);
     if (disposed || !next) return Promise.resolve(false);
     const loadout = resolveLoadout(next);
     if (simulation) return Promise.resolve(simulation.queuePlayerWeapons(session.id, loadout.weapons, loadout.carriedFamilies));
