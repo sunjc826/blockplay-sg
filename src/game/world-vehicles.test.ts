@@ -289,3 +289,40 @@ it('lets a moving driver bail out alone while the remaining crew stops and unloa
   expect(car(arena).occupants.every(id => id === null)).toBe(true);
   expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true);
 });
+
+
+it.each([1,6])('shares vehicle floor probes across %i infantry and refreshes them each tick',count=>{
+  const floorProbes:{x:number;z:number}[]=[];
+  const cover=(from:{x:number;y:number;z:number},ray:{x:number;y:number;z:number},range:number)=>{
+    if(from.y===160&&ray.y===-1&&range===170){floorProbes.push({x:from.x,z:from.z});return 160;}
+    return range;
+  };
+  const fleet={car:{x:100,z:100,yaw:0},helicopter:{x:125,z:100,yaw:0}};
+  const arena=createArena([],count,'mixed',{...environment,spawns:[{x:0,z:0}],playerSpawn:{x:0,z:-40}},
+    {spawns:fleet,openWorld:true},undefined,cover);
+  player(arena,'observer');
+  for(let i=0;i<3;i++){
+    floorProbes.length=0;arena.step(.05);
+    expect(floorProbes).toEqual([{x:100,z:100},{x:125,z:100}]);
+  }
+  arena.reset();floorProbes.length=0;arena.step(.05);
+  expect(floorProbes).toEqual([{x:100,z:100},{x:125,z:100}]);
+});
+
+it('refreshes the shared infantry hulls after a vehicle moves in the same tick',()=>{
+  const probes:{x:number;z:number}[]=[];
+  const cover=(from:{x:number;y:number;z:number},ray:{x:number;y:number;z:number},range:number)=>{
+    if(from.y===160&&ray.y===-1&&range===170){probes.push({x:from.x,z:from.z});return 160;}
+    return range;
+  };
+  const fleet={car:{x:100,z:100,yaw:0},helicopter:{x:125,z:100,yaw:0}};
+  const arena=createArena([],6,'mixed',{...environment,spawns:[{x:0,z:0}],playerSpawn:{x:103.5,z:100}},
+    {spawns:fleet,openWorld:true},undefined,cover);
+  player(arena,'p0');expect(arena.vehicleAction('p0','enter','car')).toBe(true);
+  for(let i=0;i<20;i++){
+    arena.setInput('p0',{...actor(arena,'p0'),playing:true,vehicleControls:{forward:1,steer:0,lift:0,brake:false,boost:false,fire:false}});
+    probes.length=0;arena.step(.05);const hull=car(arena);
+    expect(probes.filter(p=>p.x===hull.x&&p.z===hull.z)).toHaveLength(1);
+  }
+  expect(car(arena).z).toBeLessThan(99);
+});

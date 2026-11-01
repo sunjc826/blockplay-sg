@@ -207,3 +207,44 @@ near the allied staging area so squads can actually use this behavior.
 Regression coverage includes full arena transport boarding/delivery/return,
 a support sortie firing its gun and returning, pilot loss, weighted choices,
 reservation expiry, and flight over solid obstacles using real vehicle physics.
+
+## November 2026 CPU profile
+
+A report of sub-20 FPS at 32 bots on Edge prompted profiling. The reported
+laptop has an i9-14900HX and RTX 4060; the user confirmed hardware-accelerated
+WebGL and an ANGLE RTX 4060 renderer. These are device details, not an on-device
+trace. The measurements below were taken locally in Chrome with native Metal
+rendering, using the real FPS scene, AI, collision and navigation.
+
+Infantry movement and navigation repeatedly raycast beneath every vehicle to
+decide which hulls block walking. With four Marina vehicles, every moving bot
+repeated identical expensive scene-mesh queries each tick. Against `d34e22c`,
+ground-height queries accounted for approximately 86% of simulation CPU time
+in the 32-bot sample. Infantry now shares a lazy hull snapshot per tick, built
+after vehicle motion. It refreshes next tick and on reset, preserving ground,
+roof and airborne classification, hull dimensions and navigation height bounds.
+
+| 32 bots, same entry and viewport | Before | Shared hull snapshot |
+| --- | ---: | ---: |
+| Mean simulation CPU per tick | 19.58 ms | 3.74 ms |
+| Ground-height queries per tick | 112.8 | 4.7 |
+| Native average FPS | 59.5 | 60.0 |
+| Average FPS with artificial 4× CPU throttling | 6.3 | 17.0 |
+
+Each trial warms up for 20 seconds, then records 15 seconds of frame timings;
+function timers and the CPU sampling profiler cover approximately 17 seconds
+including measurement setup. The observer is kept alive. Native trials use
+1280 × 800 at device pixel ratio 1. Both native 32-bot runs reach the display
+cap, so the approximately 81% CPU reduction represents headroom rather than
+an equivalent FPS multiplier. The artificial throttle exposes CPU sensitivity;
+it does not model or predict the user's laptop. Live navigation scheduling
+and battle evolution introduce variation between runs.
+
+A fixed 64-bot trial at `approach-28` averaged 60.0 FPS and 7.45 ms per
+simulation tick. It has no matched baseline in this experiment and is only
+one camera view. These short stationary trials do not establish long-session
+performance, all-view rendering cost, or the complete cause of the laptop's
+slowdown. Raw traces, function timing receipts, screenshots and the temporary
+instrumentation harness are in `.cache/marina-profile/`; instrumentation is
+not shipped. Tests cover constant query count across different infantry counts,
+reset, and rebuilding at the vehicle's newly moved position within the tick.

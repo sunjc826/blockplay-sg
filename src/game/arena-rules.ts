@@ -2881,6 +2881,18 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (!list) { const sector = environment?.heat?.sectors.find(s => s.id === id); list = sector ? validSpawns.filter(p => inside(p, sector.bounds)) : []; homes.set(id, list); }
     return list;
   }
+  // Vehicles finish moving before infantry is stepped. Every bot observes the
+  // same hulls for this tick; casting down through the district per bot repeats
+  // identical terrain/roof queries thousands of times a second at larger rosters.
+  let botVehicleGeometry: { movement: Obstacle[]; navigation: Obstacle[] } | undefined;
+  function botVehicleObstacles() {
+    if (!botVehicleGeometry) {
+      const grounded=vehicles.filter(v=>!v.despawned && v.y-groundHeight(v.x,v.z)<2);
+      botVehicleGeometry={movement:grounded.map(vehicleBounds),
+        navigation:grounded.map(v=>({...vehicleBounds(v),minY:v.y,maxY:v.y+3}))};
+    }
+    return botVehicleGeometry;
+  }
   function stepBot(entry: InternalActor, dt: number) {
     const actor = entry.actor;
     const conditions = arenaConditionModifiers(actor.conditions);
@@ -3001,7 +3013,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if(navigator && (!entry.navigation || !entry.navigation.pending && entry.navigation.retry<=0 && (!entry.navigation.path.length && distance(feet,goal)>.7 || distance(entry.navigation.target,goal)>4))) {
         const traffic=[...members.values()].filter(m=>m!==entry && m.actor.alive && m.actor.faction===actor.faction && m.actor.squad!==actor.squad)
           .flatMap(m=>m.navigation?.path.filter((_,i)=>i%3===0) ?? []);
-        const blockers=vehicles.filter(v=>!v.despawned && v.y-groundHeight(v.x,v.z)<2).map(v=>({...vehicleBounds(v),minY:v.y,maxY:v.y+3}));
+        const blockers=botVehicleObstacles().navigation;
         entry.navigation={path:[],target:goal,retry:1.5,pending:navigator.plan(feet,goal,p=>traffic.some(q=>Math.hypot(p.x-q.x,p.z-q.z)<8)?12:0,blockers)};
       }
       if (entry.navigation?.pending) { dxStep=0; dzStep=0; }
@@ -3036,7 +3048,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (exit) { dxStep = exit.x * role.speed * 1.3 * dt; dzStep = exit.z * role.speed * 1.3 * dt; }
     if (exit && !entry.barkFleeing) bark(entry, 'incoming');
     entry.barkFleeing = !!exit;
-    const vehicleSolids = vehicles.filter(v => !v.despawned && v.y-groundHeight(v.x,v.z) < 2).map(vehicleBounds);
+    const vehicleSolids = botVehicleObstacles().movement;
     const beforeMove={x:actor.x,z:actor.z};
     if (entry.anchor) Object.assign(actor, { x: entry.anchor.x, z: entry.anchor.z });
     else if (traversal) {
@@ -3279,6 +3291,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     stepEvents(dt);
     stepProxies(dt);
     stepGrenades(dt);
+    botVehicleGeometry=undefined;
     for (const entry of members.values()) {
       entry.movementBudget = Math.min(8, entry.movementBudget + 40 * dt);
       if (entry.actor.bailoutAt !== undefined && (!entry.actor.alive || entry.actor.vehicle || elapsed - entry.actor.bailoutAt >= BAILOUT_ROLL_SECONDS)) delete entry.actor.bailoutAt;
@@ -3334,6 +3347,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (proxies?.current()) { proxies.current()!.phase='complete'; proxies.current()!.cargo='resolved'; proxies.current()!.targets={'freedom-force':[],'collective-cops':[]}; }
     grenadeSystem.reset();
     facilities = environment?.facilities ? createFacilities(environment.facilities.sites) : null;
+    botVehicleGeometry=undefined;
     squadObjectives.clear(); squadApproaches.clear(); sectorPatrols?.reset(); approachSerial = 0; squadThink = 0;
     for (const f of SQUAD_FACTIONS) { reserveAt[f] = FACILITY_RULES.reserveSeconds; navalAt[f] = NAVAL.interval; airborneAt[f] = PARATROOPERS.interval; }
     tick = 0; elapsed = 0; finished = false; winner = ''; feed.length = 0; barks.length = 0; replies.length = 0; barker.reset(); idleIn = BARK_TUNING.idleEvery[0]; controls.clear(); vehicleLife.clear(); airSortie=undefined;airDecisionAt.clear();aviationSeed=173821; events.length = 0; raiders.clear(); transports.clear(); airborneMissions.clear(); liveClouds = []; heat.clear(); interests.length = 0; director?.reset();
