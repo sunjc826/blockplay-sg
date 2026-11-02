@@ -71,6 +71,21 @@ the Mk 20 study and its playable cargo variant retain their existing geometry,
 weapon-family index and behavior. The gallery picker and preview banner separate family and signature labels;
 the description and accessible canvas label use the full name.
 
+## Smart Power cargo handling
+
+Smart Power carries a 20-round 7.62 mm magazine and fires one round per press,
+with a 0.24 s minimum follow-up interval. Its cargo build deals 105 damage before
+falloff and armor, with a 2.4× head multiplier. Reduced recoil and faster recovery
+support deliberate follow-ups; aimed spread is 60% tighter than the ordinary
+rifle cone, and its smaller bloom recovers between shots at that cadence.
+
+The live scope offers **2× and 4×**, starting at 4×. Use `[` / `]`, scroll while
+aiming, or the HUD's minus/plus controls. Zoom selection is remembered across
+weapon switches and does not change damage or accuracy. The folded bipod remains
+visual only. The rifle still takes two body hits against a fresh Freedom Force
+operator (110 HP, 65 armor), so its magazine and handling improvements matter in
+the encounter that awards it.
+
 ## Collective Corps family and signature names
 
 | Reference / specialist | Family label | Signature variant | Stable study ID |

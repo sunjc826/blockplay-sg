@@ -14,6 +14,7 @@ import { validArenaSnapshot } from './arena-runtime';
 import { respawnEquipment } from './respawn-equipment';
 import { restoreMagazine, magazineOf } from './magazine-inventory';
 import { gunshotSample } from './gunshot-audio';
+import { shotsToKillOpponent, timeToKill } from './armory-balance';
 import { threatOf } from './armor-inserts';
 
 const equipped = (id: string) => resolveLoadout(recoverProxyWeapon(createProfile(), id, 0));
@@ -94,4 +95,22 @@ it('refits excess rifle spares for the cargo launcher kit without converting ret
  expect(slots.filter(m=>m?.caliberMm===5.56)).toHaveLength(2);
  expect(slots.filter(m=>m?.caliberMm===5.56).every(m=>m?.capacity===30)).toBe(true);
  expect(slots.filter(m=>m?.caliberMm===9)).toHaveLength(2);
+});
+
+it('gives Smart Power enough ammunition and faster follow-ups for the actual proxy recovery cell', () => {
+  const e = equipped('ff-longwatch'), rifle = e.weapons[10];
+  const operator = { id: 'proxy', name: 'FF operator', health: 110, armor: 65, absorption: .45 };
+  const hits = shotsToKillOpponent(operator, hitDamage(rifle, 60), rifle.caliberMm);
+  expect(hits).toBe(2);
+  expect(timeToKill(hits, rifle.interval)).toBeLessThanOrEqual(.24);
+  // At 50% body-hit accuracy, the two-person cell leaves over half a magazine.
+  expect(rifle.capacity - hits * 2 * 2).toBeGreaterThanOrEqual(12);
+  expect(shotsToKillOpponent(operator, hitDamage(rifle, 60, 'head'), rifle.caliberMm)).toBe(1);
+  const states = createPooledLoadout(e.weapons, e.carriedFamilies);
+  expect(magazineOf(rifle, 10).capacity).toBe(20);
+  expect(fireWeapon(states[10], 10, e.weapons)).toBe(true);
+  advanceWeapon(states[10], 10, .23, e.weapons);
+  expect(fireWeapon(states[10], 10, e.weapons)).toBe(false);
+  advanceWeapon(states[10], 10, .011, e.weapons);
+  expect(fireWeapon(states[10], 10, e.weapons)).toBe(true);
 });

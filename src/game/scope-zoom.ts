@@ -24,7 +24,7 @@ export function createScopeZoom() {
   };
 }
 
-/** Keep the original 6× feel while making finer movements at higher power. */
+/** Keep each scope's default-power feel while making finer movements at higher power. */
 export function scopeZoomLookScale(weapon: WeaponSpec, magnification: number, aiming: boolean) {
   return aiming && weapon.zoomSteps && Number.isFinite(magnification) && magnification > 0 ? opticMagnification(weapon) / magnification : 1;
 }

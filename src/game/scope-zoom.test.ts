@@ -15,7 +15,7 @@ it('starts the Mythic scope at 6×, steps both ways and stops at 3×/12× withou
 });
 it('remembers the choice across weapon switches and model/spec rebuilds without changing fixed sights', () => {
   const zoom = createScopeZoom(); zoom.step(sniper, 1);
-  for (const weapon of FPS_WEAPONS.filter(weapon => weapon !== sniper)) {
+  for (const weapon of FPS_WEAPONS.filter(weapon => !weapon.zoomSteps)) {
     expect(zoom.read(weapon)).toBeNull(); expect(zoom.step(weapon, 1)).toBe(false);
   }
   expect(zoom.read({ ...sniper })?.value).toBe(9);
@@ -46,4 +46,20 @@ it('drops stale and reversed trackpad motion instead of carrying it into another
   expect(wheel(30, 0, 450)).toBe(0);
   expect(wheel(10, 0, 460)).toBe(-1);
   expect(wheel(NaN, 0, 470)).toBe(0);
+});
+
+it('gives Smart Power two zoom levels, independent memory and sensitivity around its 4× default', () => {
+  const rifle = FPS_WEAPONS.find(weapon => weapon.id === 'ff-longwatch')!, zoom = createScopeZoom();
+  expect(zoom.read(rifle)).toEqual({ value: 4, min: 2, max: 4 });
+  expect(zoom.step(rifle, 1)).toBe(false);
+  expect(zoom.step(rifle, -1)).toBe(true);
+  expect(zoom.read(rifle)?.value).toBe(2);
+  expect(zoom.step(rifle, -1)).toBe(false);
+  zoom.step(sniper, 1);
+  expect(zoom.read({ ...rifle })?.value).toBe(2);
+  expect(zoom.read(sniper)?.value).toBe(9);
+  expect(scopeZoomLookScale(rifle, 2, true)).toBeCloseTo(2);
+  expect(scopeZoomLookScale(rifle, 4, true)).toBeCloseTo(1);
+  expect(zoom.step(rifle, 1)).toBe(true);
+  expect(zoom.read(rifle)?.value).toBe(4);
 });

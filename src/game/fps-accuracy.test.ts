@@ -26,3 +26,17 @@ it('samples shot directions inside the cone used by the crosshair', () => {
     expect(Math.hypot(offset.x, offset.y)).toBeLessThanOrEqual(Math.tan(angle) + 1e-12);
   }
 });
+
+it('keeps Smart Power aimed follow-ups tight at its firing cadence without tightening the initial hip cone', () => {
+  const state = createWeaponBloom(), rifle = 10, baseline = createWeaponBloom();
+  const aimed = weaponSpread(state, rifle, 1, false, false);
+  expect(aimed).toBeCloseTo(weaponSpread(baseline, 0, 1, false, false) * .4, 8);
+  expect(weaponSpread(state, rifle, 0, false, false)).toBe(weaponSpread(baseline, 0, 0, false, false));
+  for (let shot = 0; shot < 20; shot++) {
+    recordBloomShot(state, rifle);
+    for (let frame = 0; frame < 24; frame++) advanceBloom(state, .01);
+    expect(weaponSpread(state, rifle, 1, false, false)).toBeCloseTo(aimed, 8);
+  }
+  expect(weaponSpread(state, rifle, 1, false, true)).toBeGreaterThan(aimed);
+  expect(weaponSpread(state, rifle, 1, true, false)).toBeLessThan(aimed);
+});

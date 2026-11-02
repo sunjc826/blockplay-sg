@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Intervention variable scope</title><style>html,body,#stage{margin:0;height:100%;overflow:hidden}#world,#overlay{position:absolute;inset:0}#world{height:100%!important}#overlay{pointer-events:none;z-index:2}#start{position:absolute;z-index:20;left:16px;top:16px;padding:16px}</style></head><body><div id="stage" class="fps-game"><div id="world" class="fps-viewport"><div id="overlay"></div></div><button id="start">Enter scope test</button></div><script type="module">
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Variable scope test</title><style>html,body,#stage{margin:0;height:100%;overflow:hidden}#world,#overlay{position:absolute;inset:0}#world{height:100%!important}#overlay{pointer-events:none;z-index:2}#start{position:absolute;z-index:20;left:16px;top:16px;padding:16px}</style></head><body><div id="stage" class="fps-game"><div id="world" class="fps-viewport"><div id="overlay"></div></div><button id="start">Enter scope test</button></div><script type="module">
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import '/src/styles.css';
@@ -8,7 +8,8 @@ import { recoverProxyWeapon } from '/src/game/proxy-equipment.ts';
 import FpsWeaponHud from '/src/components/FpsWeaponHud.tsx';
 import TouchControls from '/src/components/TouchControls.tsx';
 const root=createRoot(document.getElementById('overlay'));
-const equipment=resolveLoadout(recoverProxyWeapon(createProfile(),'ff-intervention',0));
+const reward=new URLSearchParams(location.search).get('weapon')==='ff-longwatch'?'ff-longwatch':'ff-intervention';
+const equipment=resolveLoadout(recoverProxyWeapon(createProfile(),reward,0));
 window.engine=createFpsEngine(document.getElementById('world'),hud=>{
   window.hud=structuredClone(hud);
   const touch=hud.inputMode==='touch';document.getElementById('stage').dataset.touch=touch?'on':'off';
