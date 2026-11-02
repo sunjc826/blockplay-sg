@@ -9,7 +9,7 @@ import { firstVisibleHit } from './fps-raycast';
 import { getTraversalObstacles } from './vertical-routes';
 import { createVerticalMovement } from './vertical-movement';
 const lift:BuildingLift={id:'glass',x:0,z:0,width:4.4,depth:4.6,bottom:0,top:66.4,dwell:7,travel:12,offset:0};
-const makeWorld=()=>withBuildingLifts({scene:new THREE.Scene(),car:new THREE.Group(),stamps:[],obstacles:[],animate:()=>{},dispose:()=>{}},[lift]);
+const makeWorld=()=>withBuildingLifts({scene:new THREE.Scene(),car:new THREE.Group(),stamps:[],obstacles:[],animate:(_time:number)=>{},dispose:()=>{}},[lift]);
 it('shows an approaching car only at its destination, including the offset service',()=>{
  expect(liftLandingStatus(lift,16,66.4)).toMatchObject({arriving:true,open:false,label:'ARRIVING · 3s'});
  expect(liftLandingStatus(lift,16,0).arriving).toBe(false);
@@ -46,7 +46,7 @@ it('moves solid cabin cover with the car between cached ray queries',()=>{
 });
 it('lets a riding bot track and fire through the glass while keeping its position in the moving car',()=>{
  const bounds={minX:-30,maxX:30,minZ:-30,maxZ:30},slow={...lift,top:10,offset:7,travel:100};
- const world=withBuildingLifts({scene:new THREE.Scene(),car:new THREE.Group(),stamps:[],obstacles:[],animate:()=>{},dispose:()=>{}},[slow]);
+ const world=withBuildingLifts({scene:new THREE.Scene(),car:new THREE.Group(),stamps:[],obstacles:[],animate:(_time:number)=>{},dispose:()=>{}},[slow]);
  const cover=createSceneCover(world.scene);
  const arena=createArena([],1,'mixed',{bounds,spawns:[{x:.8,z:0}],playerSpawn:{x:.8,z:-6,yaw:0},move:p=>p,endless:true,departedCrew:['bot-2','bot-3','bot-4','bot-5']},undefined,{bounds,obstacles:[],surfaces:[],traversalObstacles:getTraversalObstacles(world.scene),lifts:[slow]},cover.distance,undefined,cover.sightDistance);
  arena.addPlayer('human','Human');const human=arena.snapshot().actors.find(a=>a.id==='human')!;
