@@ -33,6 +33,7 @@ it.each(PROXY_REWARDS['freedom-force'])('%s has a live, unobstructed sight and d
   } else expect(hits).toHaveLength(0);
   const remove=fitWeaponOptic(root,spec), sight=getWeaponSight(root)!;
   expect(sight.aimHeight).toBe(height);
+  if(id==='ff-longwatch') expect(sight.reticle).toBe('tmr');
   expect(sight.magnification).toBeCloseTo(id==='ff-intervention'?6:id==='ff-oicw'||id==='ff-longwatch'?4:id==='ff-scar-h'?2:1);
   const handling=createWeaponHandling(root,family);
   expect(Number.isFinite(handling.aimHeight)).toBe(true);

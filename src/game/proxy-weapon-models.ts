@@ -354,7 +354,7 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
     root.userData.artStudy = false;
     root.userData.proxyHands = { right: [.027, .105, gripZ + .02], support: [-.033, .15, foreZ], magazine: [-.025, .095, magZ] };
     const long = id === 'ff-longwatch' || id === 'ff-intervention', heavy = id === 'ff-scar-h', oicw = id === 'ff-oicw';
-    root.userData.proxyOptic = { kind: long || heavy || oicw ? 'scope' : 'reflex', height: (long ? .22 : oicw ? .302 : heavy ? .2075 : .2025) + lift,
+    root.userData.proxyOptic = { ...(id === 'ff-longwatch' ? { reticle: 'tmr' } : {}), kind: long || heavy || oicw ? 'scope' : 'reflex', height: (long ? .22 : oicw ? .302 : heavy ? .2075 : .2025) + lift,
       lens: id === 'ff-intervention' ? .114 : long ? .039 : oicw ? .099 : heavy ? -.004 : -.039, radius: long ? .019 : heavy || oicw ? .024 : .022, aimDepth: -.28 };
   }
   if (animatingLauncher) root.traverse(node => { node.name = node.name.replace(/^ff-oicw/, 'ff-oicw-launcher'); });

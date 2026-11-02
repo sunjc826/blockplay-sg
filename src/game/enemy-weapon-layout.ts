@@ -32,7 +32,7 @@ const ISM: EnemyOptic = { kind: 'reflex', height: .309, lens: -.088, radius: .02
  * rail along the carry handle, its axis on the ISM's line so the hands and
  * the cheek weld stay where they were.
  */
-const XM8_SCOPE: EnemyOptic = { kind: 'scope', height: .309, lens: .062, radius: .018, aimDepth: -.235, reticle: 'xm8-mil' };
+const XM8_SCOPE: EnemyOptic = { kind: 'scope', height: .309, lens: .062, radius: .018, aimDepth: -.235, reticle: 'mil-dot' };
 /** The G36's carry handle is its optic: a 3x scope behind a rubber eyecup, with a 1x reflex on top. */
 const DUAL_OPTIC: EnemyOptic = { kind: 'scope', height: .32, lens: .128, radius: .019, aimDepth: -.30 };
 /** The G36C's short rail handle carries a tube red dot instead. */

@@ -125,7 +125,7 @@ describe('enemy weapon models', () => {
     const sharpshooter = fitted('xm8-sharpshooter');
     expect(sharpshooter.optic.kind).toBe('scope'); expect(sharpshooter.weapon.optic).toBe('integrated');
     expect(sharpshooter.sight.magnification).toBeCloseTo(3.5);
-    expect(sharpshooter.sight.reticle).toBe('xm8-mil');
+    expect(sharpshooter.sight.reticle).toBe('mil-dot');
     expect(sharpshooter.sight.aimHeight).toBe(sharpshooter.optic.height); expect(sharpshooter.sight.lens.position.z).toBe(sharpshooter.optic.lens);
     // The MG4 keeps its irons: no lens is fitted.
     const mg4 = buildServiceWeapon('mg4-inspired')!; dressWeapon(mg4, resolved('mg4-standard'));

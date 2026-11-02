@@ -15,16 +15,20 @@ import type { EnemyOptic } from './enemy-weapon-layout';
  *   to the field stop, broken by a small heavy ring whose clear centre holds
  *   a pinpoint dot.
  * - `match-duplex`: the marksman variant's fictional match scope, a duplex.
- * - `xm8-mil`: the XM8 sharpshooter's 3.5x telescope. No reference image was
- *   reviewed, so this is a generic pattern rather than the prototype's: a fine
- *   crosshair with heavy outer posts and an open centre, mil ticks along both
- *   hairs, and three holdover bars under the centre for longer shots.
+ * - `mil-dot`: classic round-dot telescope crosshair for the XM8 Sharpshooter,
+ *   based on Leupold's Mil Dot description and 2025 catalog (reticles p. 71).
+ * - `tmr`: SCAR 20S telescope, visually adapted from Leupold's TMR: alternating
+ *   whole/half divisions, fine outer divisions, heavy posts and an open centre.
+ *   Sources: https://www.leupold.com/media/EN_2025_Leupold_Catalog.pdf
+ *   and https://www.leupold.com/reticle/tmr . These are display adaptations:
+ *   spacing/line weight suit the game's small fixed-power lens, not calibrated
+ *   angular ranging or a claim about either platform's original factory sight.
  * - `prism-chevron`: the fictional 4x prism sight on the Two Eyes Open SAR 21,
  *   in the manner of fixed-power combat prisms generally rather than any one
  *   model: an open chevron whose apex is the aim, a post under it with
  *   narrowing holdover bars, and short hairlines out to the field stop.
  */
-export type ScopeReticle = 'g36-zf' | 'sar21-ring' | 'match-duplex' | 'xm8-mil' | 'prism-chevron';
+export type ScopeReticle = 'g36-zf' | 'sar21-ring' | 'match-duplex' | 'mil-dot' | 'tmr' | 'prism-chevron';
 
 export function scopeReticleFor(weapon: WeaponSpec, built: EnemyOptic | undefined): ScopeReticle {
   if (built) return built.reticle ?? 'g36-zf';
@@ -109,32 +113,44 @@ float scopeReticle(vec2 p, float aa) {
   return max(ink, reticleStroke(reticleSegment(p, vec2(0.0, -0.6), vec2(0.0, -0.2)), 0.0095, aa));
 }
 `,
-  'xm8-mil': `
+  'mil-dot': `
 float scopeReticle(vec2 p, float aa) {
-  const float hair = 0.0028;
-  // A gap at the centre leaves the target clear; a pinpoint marks the aim.
-  float ink = reticleStroke(min(abs(p.x), abs(p.y)), hair, aa) * step(0.012, length(p)) * (1.0 - step(0.3, max(abs(p.x), abs(p.y))));
-  ink = max(ink, reticleStroke(length(p), 0.0022, aa));
-  for (int i = 0; i < 4; i++) {
-    vec2 a = vec2(i == 0 ? 0.3 : i == 1 ? -0.6 : 0.0, i == 2 ? 0.3 : i == 3 ? -0.6 : 0.0);
-    vec2 b = a + (i < 2 ? vec2(0.3, 0.0) : vec2(0.0, 0.3));
-    ink = max(ink, reticleStroke(reticleSegment(p, a, b), 0.011, aa));
+  const float division = 0.065;
+  float axis = min(abs(p.x), abs(p.y));
+  float reach = max(abs(p.x), abs(p.y));
+  float ink = reticleStroke(axis, 0.0018, aa);
+  // Four round dots on each arm, with the heavy posts at the fifth division.
+  for (int i = 1; i <= 4; i++) {
+    float at = float(i) * division;
+    vec2 q = abs(p);
+    float dotDistance = min(length(q - vec2(at, 0.0)), length(q - vec2(0.0, at)));
+    ink = max(ink, reticleStroke(dotDistance, division * 0.10, aa));
   }
-  // Mil ticks: every 0.05 along each hair, the fifth one longer.
-  for (int i = 1; i <= 5; i++) {
-    float at = float(i) * 0.05, tick = i == 5 ? 0.012 : 0.006;
-    for (int s = 0; s < 2; s++) {
-      float d = s == 0 ? at : -at;
-      ink = max(ink, reticleStroke(reticleSegment(p, vec2(d, -tick), vec2(d, tick)), hair, aa));
-      if (d > 0.0) ink = max(ink, reticleStroke(reticleSegment(p, vec2(-tick, d), vec2(tick, d)), hair, aa));
-    }
+  return max(ink, reticleStroke(axis, 0.009, aa) * smoothstep(0.318, 0.332, reach));
+}
+`,
+  'tmr': `
+float scopeReticle(vec2 p, float aa) {
+  const float division = 0.065;
+  vec2 q = abs(p);
+  float axis = min(q.x, q.y), reach = max(q.x, q.y);
+  // The tiny open intersection leaves a distant target visible at the aim point.
+  float ink = reticleStroke(axis, 0.0028, aa) * smoothstep(0.002, 0.005, reach);
+  for (int i = 1; i <= 8; i++) {
+    float at = float(i) * division * 0.5;
+    float halfLength = i % 2 == 0 ? 0.014 : 0.008;
+    float hash = min(reticleSegment(q, vec2(at, 0.0), vec2(at, halfLength)),
+                     reticleSegment(q, vec2(0.0, at), vec2(halfLength, at)));
+    ink = max(ink, reticleStroke(hash, 0.0028, aa));
   }
-  // Holdover bars below the centre, narrowing with range.
-  for (int i = 0; i < 3; i++) {
-    float y = -0.075 - float(i) * 0.06, w = 0.03 - float(i) * 0.007;
-    ink = max(ink, reticleStroke(reticleSegment(p, vec2(-w, y), vec2(w, y)), 0.0034, aa));
+  // Finer divisions at the outer ends of the scale, before the heavy posts.
+  for (int i = 1; i <= 4; i++) {
+    float at = (4.0 + float(i) * 0.2) * division;
+    float hash = min(reticleSegment(q, vec2(at, 0.0), vec2(at, 0.006)),
+                     reticleSegment(q, vec2(0.0, at), vec2(0.006, at)));
+    ink = max(ink, reticleStroke(hash, 0.0023, aa));
   }
-  return ink;
+  return max(ink, reticleStroke(axis, 0.009, aa) * smoothstep(0.318, 0.332, reach));
 }
 `,
   'prism-chevron': `

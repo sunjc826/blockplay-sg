@@ -809,8 +809,13 @@ squared body on the carry handle with a round window, rubber eyepiece, front
 shade, laser pod and battery cap, aimed as a 1× red dot. The XM8 Sharpshooter
 swaps the ISM for a 3.5× telescope (the prototype's sharpshooter sight was
 3.5×): a rail along the handle, two rings, turrets, bells and a rubber eyecup,
-fitted as a fixed `optic` and etched with the generic `xm8-mil` reticle, since
-no reference for the original's was reviewed. The G36, G36K and MG36
+fitted as a fixed `optic` with a classic round `mil-dot` telescope reticle.
+The SCAR 20S (`ff-longwatch`) uses a `tmr` hash crosshair instead of the G36
+rangefinder fallback. Both are visual adaptations of Leupold's published
+[Mil Dot](https://www.leupold.com/media/EN_2025_Leupold_Catalog.pdf) and
+[TMR](https://www.leupold.com/reticle/tmr) designs: spacing and line weights
+are tuned for small game lenses, not calibrated angular ranging. Neither is
+a claim about these platforms' original factory reticles. The G36, G36K and MG36
 carry the German dual optic: the carry handle is a 3× scope, objective in the
 front leg and eyecup behind the rear block, with a small hooded reflex on top
 (modelled, not aimed through). The G36C swaps it for a short rail handle with
