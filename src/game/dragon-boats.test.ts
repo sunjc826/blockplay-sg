@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DRAGON_BOAT_SPAWNS, MARINA_CAMP_DECKS, MARINA_WATER, canPaddle, isDragonBoat } from './marina-water';
 import { buildMarinaScene } from './marina-scene';
 import { MARINA_BOUNDS, moveInMarina } from './marina-collision';
@@ -12,6 +12,8 @@ import { fireVehicleWeapon, vehicleBlastDamage } from './vehicle-combat';
 import { buildDragonBoatModel, animateDragonBoat } from './dragon-boat-model';
 import { disposeModel } from './armory-visuals';
 import { shootAndLand } from './arena-test-shots';
+
+afterEach(()=>vi.unstubAllGlobals());
 
 function worldSetup() {
   const world=buildMarinaScene();
@@ -90,7 +92,7 @@ describe('Marina campsite and dragon boats',()=>{
     }finally{world.dispose();}
   });
   it('presents both boats, safe prompts, unarmed steering and independent reset',()=>{
-    vi.stubGlobal('document',{createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})});
+    vi.stubGlobal('document',{createElement:()=>({getContext:()=>({fillRect(){},strokeRect(){},fillText(){}})})});
     const {world,floor}=worldSetup();const fleet=createFpsVehicles(world.scene,world.obstacles,{car:'',helicopter:''},{spawns,bounds:MARINA_BOUNDS,exitFloor:floor});
     try{
       expect(fleet.nearest({x:-20.5,z:24})).toBe('dragon-boat-red');expect(fleet.interact({x:-20.5,z:24})?.entered).toBe(true);
