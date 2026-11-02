@@ -1,3 +1,4 @@
+import { SWIMMING } from './swimming';
 import { isDragonBoat, MARINA_WATER } from './marina-water';
 import { isVehicleKind, VEHICLE_KINDS } from './vehicle-rules';
 import { validVehicleImpact } from './vehicle-impact';
@@ -84,6 +85,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.aircrew !== undefined && (!validAircrewRole(actor.aircrew) || typeof actor.transport !== 'string' || !actor.bot)) ||
       (actor.transport !== undefined && (typeof actor.transport !== 'string' || actor.transport.length > 100)) ||
       (actor.parachuting !== undefined && (actor.parachuting !== true || !actor.bot || !actor.alive || actor.transport !== undefined || actor.vehicle !== undefined)) ||
+      (actor.swimming !== undefined && (actor.swimming!==true || actor.vehicle!==undefined || actor.transport!==undefined || actor.prone===true || (actor.y as number)>SWIMMING.eyeHeight+.01)) ||
       (actor.prone !== undefined && typeof actor.prone !== 'boolean') || (actor.aiming !== undefined && actor.aiming !== true) || (actor.scent !== undefined && actor.scent !== true) ||
       (actor.bailoutAt !== undefined && !(finite(actor.bailoutAt) && actor.bailoutAt >= 0 && actor.bailoutAt <= value.elapsed && actor.alive && !actor.vehicle)) ||
       (actor.ground !== undefined && !(finite(actor.ground) && actor.ground >= -50 && actor.ground <= (actor.transport ? 405 : 124))) ||
@@ -562,9 +564,9 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     else if (avatar.groundTimer <= 0) { avatar.groundTimer = .12; avatar.ground = groundBelow(actor.x, actor.z, actor.y); }
     const gunner = actor.vehicle === 'car' && actor.seat === 1, seated = !!actor.transport || !!actor.vehicle && !gunner;
     const eyeAbove = actor.y - avatar.ground;
-    const crouch = actor.transport || actor.vehicle || actor.prone ? 0 : Math.max(0, Math.min(1, (1.75 - eyeAbove) / (1.75 - 1.15)));
+    const crouch = actor.swimming || actor.transport || actor.vehicle || actor.prone ? 0 : Math.max(0, Math.min(1, (1.75 - eyeAbove) / (1.75 - 1.15)));
     const airborne = !actor.transport && !actor.vehicle && !actor.prone && eyeAbove > 1.95;
-    const feet = seated ? actor.y - 1.2 : actor.vehicle ? actor.y - 1.75 : actor.prone ? actor.y - PRONE_EYE_HEIGHT : crouch > .02 ? avatar.ground : Math.max(0, actor.y - 1.75);
+    const feet = actor.swimming ? actor.y-1.75 : seated ? actor.y - 1.2 : actor.vehicle ? actor.y - 1.75 : actor.prone ? actor.y - PRONE_EYE_HEIGHT : crouch > .02 ? avatar.ground : Math.max(0, actor.y - 1.75);
     destination.set(actor.x, feet, actor.z);
     avatar.previous.copy(root.position);
     if (actor.alive) {
@@ -595,14 +597,15 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         material.uniforms.opacity.value = Math.min(1, shield / HALO_FADE) * (.8 + .2 * Math.sin(avatar.halo.time * 6));
       } else avatar.halo.time = 0;
     }
+    if (rig.weapon) rig.weapon.visible = actor.aircrew !== 'pilot' && (!actor.swimming || actor.weapon===2 && speed<.12);
     rig.update(dt, {
       velocity: actor.transport || actor.vehicle ? { x: 0, z: 0 } : local, turn: actor.transport || actor.vehicle ? 0 : turnStep / Math.max(dt, 1e-3), pitch: actor.pitch,
+      swimming:actor.swimming && !(actor.weapon===2 && speed<.12),
       crouch, prone: !!actor.prone, seated, driving: seated && (actor.seat === 0 || !!actor.transport && !rifleSeat(actor.aircrew)), airborne,
       aim: actor.healing !== undefined ? 0 : avatar.fireTimer > 0 || speed < 1.2 || actor.prone ? 1 : .15,
       ...(actor.healing !== undefined ? { healing: actor.healing } : {}),
       bailoutAge: actor.bailoutAt === undefined ? undefined : Math.min(BAILOUT_ROLL_SECONDS, (snapshot?.elapsed ?? 0) - actor.bailoutAt + (performance.now() - snapshotAt) / 1000),
     });
-    if (rig.weapon) rig.weapon.visible = actor.aircrew !== 'pilot';
     avatar.health.scale.x = Math.max(0.01, 0.75 * actor.health / avatar.maxHealth);
     if (avatar.muzzle) avatar.muzzle.visible = avatar.flash > 0 && actor.alive && !!rig.weapon?.visible;
     if (avatar.glint) {

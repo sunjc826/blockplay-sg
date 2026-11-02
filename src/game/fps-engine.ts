@@ -1,4 +1,5 @@
-import { isDragonBoat, DRAGON_BOAT_SPAWNS } from './marina-water';
+import { createSwimmingMovement, SWIMMING, swimmingCanFire } from './swimming';
+import { isDragonBoat, DRAGON_BOAT_SPAWNS, MARINA_SWIM_EXITS } from './marina-water';
 import { VEHICLE_KINDS, vehicleName, type VehicleSpawns } from './vehicle-rules';
 import { createWeaponShoulderMotion } from './weapon-shoulder-motion';
 import { createFirearmCameraShake } from './firearm-camera-shake';
@@ -262,6 +263,7 @@ export interface FpsHud {
   vehicleAimX: number; vehicleAimY: number; vehicleAimVisible: boolean;
   vehicleHealth: number; vehicleMaxHealth: number; vehicleAmmo: number; vehicleAmmoMax: number; vehicleWeapon: string; vehicleDamage: VehicleDamageStage;
   vehicleHeading: number; vehicleClimb: number; vehiclePitch: number;
+  swimming?: boolean; swimCanFire?: boolean;
   vehicle: VehicleKind | 'on-foot'; vehicleSpeed: number; altitude: number; interact: string; vehicleNotice: string; carDistance: number; helicopterDistance: number;
   locked: boolean; message: string; muted: boolean; x: number; z: number; yaw: number;
   /** Look pitch. Recoil moves this as well as the mouse, so nothing outside the
@@ -349,6 +351,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // Streetlamps, their pools and lit windows, for dusk and night.
   const nightLights = createNightLights(world.scene, { roads: getRegion(region).mapRoads, roadWidth: getRegion(region).roadWidth, bounds: world.bounds, obstacles: world.obstacles });
   const sunShadows = createSunShadows(renderer, world.scene);
+  let playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
   let footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
   const expeditionSession = expedition ? createSoloSession('Explorer') : null;
   if (expedition && zoneWorld && expeditionSession) options = { ...options, arena: { session: expeditionSession, profile: fieldProfile, botCount: zoneWorld.zone.botCount, composition: zoneWorld.zone.composition, environment: zoneWorld.environment, initialVitals: expedition.checkpoint } };
@@ -369,6 +372,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     world.scene.userData.traversalObstacles=[...getTraversalObstacles(world.scene),...facilitySites.flatMap(facilityCeilings)];
     options.arena.environment.navigationAnchors=[...(options.arena.environment.navigationAnchors??[]),...facilitySites.flatMap(facilityNavigationAnchors)];
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
+    playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
   }
   const rangeStock = rangeEquipmentStock(equipment.supplies);
   const supplyPoint = practiceRange ? rangeResupplyPoint(district.spawn, world.bounds, [...world.obstacles,
@@ -380,6 +384,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     rangeStation.root.position.y = floor;
     world.obstacles.push({ minX: supplyPoint!.x - .75, maxX: supplyPoint!.x + .75, minZ: supplyPoint!.z - .75, maxZ: supplyPoint!.z + .75, maxY: floor + 1.1 });
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
+    playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
   }
   const proxyVisuals = createProxyOperationVisuals(world.scene);
   const facilityVisuals = createFacilityVisuals(world.scene, facilitySites);
@@ -648,15 +653,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     prone = stance.prone;
     if (stance.crouch && !keyboardCrouch.active) keyboardCrouch.toggle();
   };
-  const grounded = () => velocityY <= 0 && Math.abs(vertical - (footMovement.supportHeight(position.x, position.z, vertical + .02, .38, .6) ?? -100)) < .025;
+  const swimming = () => !vehicles.active && vertical<=.35 && playerMovement.isWater(position.x,position.z);
+  const grounded = () => !swimming() && velocityY <= 0 && Math.abs(vertical - (footMovement.supportHeight(position.x, position.z, vertical + .02, .38, .6) ?? -100)) < .025;
   const eyeHeight = () => {
+    if(swimming()) return SWIMMING.eyeHeight;
     const requested = prone ? PRONE_EYE_HEIGHT : crouchRequested() ? 1.15 : 1.75;
     for (const height of [requested, 1.15, PRONE_EYE_HEIGHT]) {
       if (height <= requested && footMovement.canOccupy(position.x, vertical, position.z, .38, height + .05)) return height;
     }
     return PRONE_EYE_HEIGHT;
   };
-  const stance = () => eyeHeight() < .8 ? 'prone' as const : eyeHeight() < 1.4 ? 'crouch' as const : 'stand' as const;
+  const stance = () => swimming() ? 'stand' as const : eyeHeight() < .8 ? 'prone' as const : eyeHeight() < 1.4 ? 'crouch' as const : 'stand' as const;
   const braced = () => !vehicles.active && weaponBraced(specs[hud.weapon], prone, grounded());
   const movement = () => equipmentMovement(equipment, hud.weapon, loadout, supplies, loadRelief(foodEffects));
   const publish = () => {
@@ -693,11 +700,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const proxy = hud.arena?.proxies?.operation;
     hud.proxyReach = !!proxy && proxy.phase === 'contested' && proxy.cargo === 'sealed' && !proxy.decision && !vehicles.active && hud.arenaSelf?.alive === true && Math.hypot(proxy.at.x-position.x,proxy.at.z-position.z)<=4 && Math.abs(proxy.at.y-vertical)<2;
     if (!hud.proxyReach || hud.phase !== 'playing') hud.proxyMenu=false;
-    onHud({ ...hud, ...(options.tutorial ? { tutorial: { feet: vertical, grounded: grounded(), stance: stance(), sprinting: wasSprinting } } : {}), vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: physicalWeaponFamilies(equipment.carriedFamilies), carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, spareMagazines: spareMagazines(state), magazineCapacity: magazineCapacity(state, specs[hud.weapon]), reloadCapacity: state.pendingMagazine?.capacity ?? state.magazineInventory?.slots[state.reloadSlot ?? nextMagazineSlot(state)]?.capacity ?? magazineCapacity(state, specs[hud.weapon]), reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
+    onHud({ ...hud, swimming:swimming(),swimCanFire:!swimming()||swimmingCanFire(hud.weapon,carry.length()), ...(options.tutorial ? { tutorial: { feet: vertical, grounded: grounded(), stance: stance(), sprinting: wasSprinting } } : {}), vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: physicalWeaponFamilies(equipment.carriedFamilies), carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, spareMagazines: spareMagazines(state), magazineCapacity: magazineCapacity(state, specs[hud.weapon]), reloadCapacity: state.pendingMagazine?.capacity ?? state.magazineInventory?.slots[state.reloadSlot ?? nextMagazineSlot(state)]?.capacity ?? magazineCapacity(state, specs[hud.weapon]), reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapContactRange, mapMarkers: [
         ...(rangeTravel ? WORLD_GATEWAYS.filter(g => g.from === region && g.border).map(g => ({ id: g.id, ...g.position, kind: 'checkpoint' as const, label: g.name })) : []),
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}-${targets[index].activation}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(rangeStation ? [{ id: 'range-resupply', x: rangeStation.point.x, z: rangeStation.point.z, kind: 'loot' as const, lootType: 'resupply' as const, label: 'Range resupply · ammo, grenades & utilities' }] : []),
+        ...(region==='marina-bay'?[{id:'merlion-islet',kind:'landmark' as const,label:'Merlion islet',x:0,z:-12},...MARINA_SWIM_EXITS.map((p,i)=>({id:`swim-exit-${i}`,kind:'checkpoint' as const,label:'Swim ladder',x:p.x,z:p.z}))]:[]),
         ...VEHICLE_KINDS.filter(kind => kind !== vehicles.active && !vehicles.states[kind].despawned && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind: isDragonBoat(kind) ? 'boat' : kind, label: vehicleName(kind), x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
         ...(hud.arena?.events ?? []).filter(e => e.kind === 'paratroopers' && (hud.arena?.elapsed ?? 0) - e.start <= 28).map((e): MinimapMarker => ({
           id: `parachute-${e.id}`, x: e.target.x, z: e.target.z, kind: 'parachute', side: e.faction === PLAYER_FACTION ? 'ally' : 'enemy',
@@ -1263,7 +1271,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     travel.onTravel(transition, checkpoint);
   }
   function jump() {
-    if (hud.mapExpanded) return;
+    if (hud.mapExpanded || swimming()) return;
     if (arenaConditionModifiers(conditions).frozen) return; if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && stance() === 'stand') bufferJump(bodyMotion); } }
   function setInput(key: string, held: boolean) {
     if ((hud.proxyMenu || hud.mapExpanded) && held) return;
@@ -1454,6 +1462,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     cantWanted = !cantWanted; publish();
   }
   function toggleAim() {
+    if(swimming()) return;
     if (pilotEnabled || hud.phase !== 'playing' || hud.arenaSelf?.alive === false || loadout[hud.weapon].reloadRemaining > 0) return;
     stopInspect(); touchAim = !touchAim; canvas.focus({ preventScroll: true }); publish();
   }
@@ -1864,12 +1873,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       actualAim = ads || touchAim; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0);
       updateVehicleCamera(dt); return;
     }
-    const aiming = !grenadeHeld && arenaConditionModifiers(conditions).aim > 0 && (ads || touchAim) && !sprinting && loadout[hud.weapon].reloadRemaining === 0 && !supplyUse;
+    const aiming = !swimming() && !grenadeHeld && arenaConditionModifiers(conditions).aim > 0 && (ads || touchAim) && !sprinting && loadout[hud.weapon].reloadRemaining === 0 && !supplyUse;
     actualAim = aiming;
     // Heavier carry costs time to settle the sights as well as ground speed.
     aimProgress = THREE.MathUtils.damp(aimProgress, aiming ? 1 : 0, 15 * (aiming ? movement().aimSpeed * aimSpeedScale(foodEffects) * arenaConditionModifiers(conditions).aim : 1), dt);
     const aim = smoothStep(aimProgress);
-    rig.visible = (!options.arena || hud.arenaSelf?.alive !== false) && (!vehicles.active || firstPersonVehicle());
+    rig.visible = (!options.arena || hud.arenaSelf?.alive !== false) && (!vehicles.active || firstPersonVehicle()) && (!swimming() || swimmingCanFire(hud.weapon,carry.length()));
     const poseStance = stance(), crouching = poseStance !== 'stand';
     const speed = carry.length(), onGround = grounded();
     const sideSpeed = carry.x * Math.cos(yaw) - carry.z * Math.sin(yaw);
@@ -1879,7 +1888,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       velocity: { x: sideSpeed, z: -forwardSpeed }, turn: dt > 0 ? yawDelta / dt : 0,
       crouch: poseStance === 'crouch' ? 1 : 0, prone: poseStance === 'prone', airborne: !onGround,
       bailoutAge,
-      visible: rig.visible && hud.health > 0 && !vehicles.active && !landingRoll.active,
+      visible: rig.visible && hud.health > 0 && !vehicles.active && !landingRoll.active && !swimming(),
     });
     canvas.dataset.body = JSON.stringify({ visible: playerBody.root.visible, rig: equipment.rigId, plate: equipment.plateId,
       slots: playerBody.root.userData.magazineSlots, magazines: playerBody.root.userData.magazines });
@@ -1888,9 +1897,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const motionScale = motionPreference?.matches ? 0 : 1;
     const gait = bodyMotion.gait, gaitWeight = bodyMotion.gaitWeight * motionScale;
     const headBob = Math.sin(gait * 2) * (poseStance === 'prone' ? .008 : .012) * gaitWeight * (1 - aim * .85);
-    let visualEye = bodyMotion.eye + (bodyMotion.compression + headBob) * motionScale;
+    let visualEye = swimming() ? SWIMMING.eyeHeight + (motionPreference?.matches?0:Math.sin(hud.elapsed*2)*.018) : bodyMotion.eye + (bodyMotion.compression + headBob) * motionScale;
     if (!footMovement.canOccupy(position.x, vertical, position.z, .38, visualEye + .05)) visualEye = Math.min(visualEye, eyeHeight());
-    camera.position.set(position.x, vertical + Math.max(.4, visualEye - landingRoll.eyeDrop), position.z);
+    camera.position.set(position.x, vertical + Math.max(swimming()?SWIMMING.eyeHeight-.02:.4, visualEye - landingRoll.eyeDrop), position.z);
     const view = recoilView(kick), pose = recoilPose(kick);
     camera.rotation.set(pitch + view.pitch + landingRoll.pitch + (conditions.dazed ? Math.sin(hud.elapsed * 8) * .018 : 0), yaw + view.yaw, landingRoll.bank + bodyMotion.lean * motionScale * (1 - aim * .9), 'YXZ');
     camera.fov = 65 + bodyMotion.sprint * 6 * (1 - aim) * motionScale;
@@ -1902,6 +1911,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // A laser that is switched off still weighs the gun down, but it no longer shows where the round goes.
     const fitted = specs[hud.weapon].accessories;
     spreadAngle = weaponSpread(bloom[hud.weapon], hud.weapon, aim, crouching, moving) * accessorySpreadScale(fittedWeaponDevices(weaponDevices, fitted).laser ? fitted : { ...fitted, rail: undefined }, aim);
+    if(swimming()) spreadAngle=Math.max(spreadAngle,SWIMMING.spread);
     const spreadPixels = Math.tan(spreadAngle) * canvas.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     hud.crosshairSpread = THREE.MathUtils.damp(hud.crosshairSpread, Math.max(3, spreadPixels), 20, dt);
     const state = loadout[hud.weapon], remaining = state.reloadRemaining / reloadDuration(specs[hud.weapon], emptyReload[hud.weapon]);
@@ -2179,7 +2189,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** Raises a supply: the weapon goes down and `apply` runs at the commit point, unless the use is stopped first. */
   function beginSupply(name: string, id: string, profile: SupplyProfile, apply: () => boolean, fromBelt = false) {
-    if (grenadeHeld || arenaConditionModifiers(conditions).frozen || supplyUse || hud.phase !== 'playing' || vehicles.active || hud.health <= 0 || hud.arenaSelf?.alive === false) return false;
+    if (swimming() || grenadeHeld || arenaConditionModifiers(conditions).frozen || supplyUse || hud.phase !== 'playing' || vehicles.active || hud.health <= 0 || hud.arenaSelf?.alive === false) return false;
     stopInspect(); stopReload(); ads = false; touchAim = false; actualAim = false;
     supplyUse = { ...startSupplyUse(profile), name, id, fromBelt, apply };
     supplyGate = armReloadGate(trigger, sprintIntent); pullBuffer = 0;
@@ -2234,7 +2244,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     return !firstVisibleHit(grenadeRay, gameplayCandidates().filter(o => o !== vehicles.root && !targets.some(t => t.root === o) && !o.userData.arenaActorId));
   }
   function readyGrenade() {
-    if (grenadeHeld || vehicles.active || hud.arenaSelf?.alive === false || performance.now() / 1000 - grenadeLastAt < .9) return;
+    if (swimming() || grenadeHeld || vehicles.active || hud.arenaSelf?.alive === false || performance.now() / 1000 - grenadeLastAt < .9) return;
     const item = pickUtility('grenade', supplies, undefined, null, grenadeChoice);
     if (!item?.grenade) { hud.message = 'No grenades on the belt.'; publish(); return; }
     if (item.id === 'grenade-red-smoke' && performance.now() / 1000 - missionLastAt < 60) { hud.message = 'Fire control: one mission every 60 s.'; publish(); return; }
@@ -2621,6 +2631,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hadDestruction) { checkCompletion(); publish(); }
   }
   function shoot() {
+    if(swimming() && !swimmingCanFire(hud.weapon,carry.length())) return;
     if (vehicles.active && !vehicles.canUseFirearm || (options.arena && !hud.arenaSelf?.alive)) return;
     const state = loadout[hud.weapon], weapon = specs[hud.weapon];
     if (canDryFire(state, weapon, dryFireSpent)) {
@@ -3367,7 +3378,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       stickRunning = !!moveStick && move.sprint;
       const forward = move.forward, side = move.side;
       const onGround = grounded(), poseStance = stance(), burden = movement();
-      const wantsSprint = move.sprint && forward > .5 && poseStance === 'stand', pulled = trigger || pullBuffer > 0;
+      const wantsSprint = !swimming() && move.sprint && forward > .5 && poseStance === 'stand', pulled = trigger || pullBuffer > 0;
       sprintIntent = wantsSprint && keys.has('shift');
       // Fire beats sprint: a held trigger drops the run to a jog, and it picks back up on its own.
       ({ sprint: sprinting, fire: fireReady } = advanceSprintBreak(sprintBreak, wantsSprint, pulled, wasSprinting, realDt));
@@ -3379,14 +3390,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       }
       // A fresh trigger pull or sprint key puts a supply away; one already held walks.
       if (supplyUse) { if (reloadInterrupt(supplyGate, pulled, sprintIntent, true)) endSupply(); else sprinting = false; }
-      const speed = (poseStance === 'prone' ? .85 : poseStance === 'crouch' ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2) * (supplyUse ? SUPPLY_MOVE_SCALE : 1) * footSpeedScale(foodEffects);
+      const speed = swimming()?SWIMMING.speed : (poseStance === 'prone' ? .85 : poseStance === 'crouch' ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2) * (supplyUse ? SUPPLY_MOVE_SCALE : 1) * footSpeedScale(foodEffects);
       const target = movementInput(forward, side, yaw, speed * burden.movement, 1);
       if (consumeJump(bodyMotion, onGround, poseStance === 'stand' && bodyMotion.eye > 1.6, dt)) velocityY = 5.6 * burden.jumpVelocity;
-      const delta = advanceGroundMotion(bodyMotion, target.x, target.z, onGround && velocityY <= 0, burden.movement, poseStance, braced(), dt);
+      const delta = advanceGroundMotion(bodyMotion, target.x, target.z, (onGround || swimming()) && velocityY <= 0, burden.movement, poseStance, braced(), dt);
       // Keep enough clearance for the head while lowering into a crawl.
       const clearance = Math.max(eyeHeight(), bodyMotion.eye) + .05;
       const height = footMovement.canOccupy(position.x, vertical, position.z, .38, clearance) ? clearance : eyeHeight() + .05;
-      const next = footMovement.move({ ...position, y: vertical, velocityY }, delta.x, delta.z, dt, .38, height,
+      const next = playerMovement.move({ ...position, y: vertical, velocityY }, delta.x, delta.z, dt, .38, height,
         vehicles.footObstacles().slice(world.obstacles.length), INFANTRY_GRAVITY);
       moving = Math.hypot(next.x - position.x, next.z - position.z) > .0001;
       carry.set((next.x - position.x) / Math.max(dt, 1e-4), 0, (next.z - position.z) / Math.max(dt, 1e-4));
@@ -3397,6 +3408,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const previousPosition = position;
       position = next;
       vertical = next.y; velocityY = next.velocityY;
+      if(swimming()){prone=false;keyboardCrouch.clear();ads=touchAim=actualAim=false;if(supplyUse)endSupply();if(grenadeHeld){grenadeHeld=null;grenadeFireHeld=false;grenadePicker=null;}}
       if ((expedition || rangeTravel) && !vehicles.active && vertical <= .35 && velocityY <= 0) {
         const crossing = resolveWorldBorderCrossing(region, previousPosition, position, { yaw, pitch });
         if (crossing) { commitTravel(crossing, true); return; }
@@ -3605,6 +3617,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     // Range props are appended after asynchronous model loading; refresh the static broadphase.
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
+    playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
     if (options.arena) {
       arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, vehicles: { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition } });
       if (checkpoint?.vehicleTravel?.crew && !arenaRuntime.restoreVehicleTravel(checkpoint.vehicleTravel.crew)) throw new Error('Vehicle crew could not enter the destination district');

@@ -104,11 +104,11 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
     }
     if (hud.interact) prompts.push(act('vehicle', promptLabel(hud.interact), <Footprints size={16} />, { onClick: () => engine?.interactVehicle() }));
   } else {
-    pad.push(act('crouch', 'Crouch', <ChevronsDown size={17} />, { onClick: toggleCrouch, 'aria-pressed': crouched, 'data-on': crouched || undefined }));
-    pad.push(act('prone', hud.prone ? 'Stand' : 'Prone', <ArrowDownToLine size={17} />, { onClick: () => { setCrouched(false); engine?.setInput('z', true); }, 'aria-pressed': hud.prone, 'data-on': hud.prone || undefined }));
-    pad.push(act('aim', hud.grenadeHeld ? 'Underarm lob' : 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': aimPressed, 'data-on': aimPressed || undefined }));
+    if(!hud.swimming) pad.push(act('crouch', 'Crouch', <ChevronsDown size={17} />, { onClick: toggleCrouch, 'aria-pressed': crouched, 'data-on': crouched || undefined }));
+    if(!hud.swimming) pad.push(act('prone', hud.prone ? 'Stand' : 'Prone', <ArrowDownToLine size={17} />, { onClick: () => { setCrouched(false); engine?.setInput('z', true); }, 'aria-pressed': hud.prone, 'data-on': hud.prone || undefined }));
+    if(!hud.swimming) pad.push(act('aim', hud.grenadeHeld ? 'Underarm lob' : 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': aimPressed, 'data-on': aimPressed || undefined }));
     pad.push(act('reload', 'Reload', <RefreshCw size={17} />, { onClick: () => engine?.reload(), disabled: hud.reloading > 0 }));
-    pad.push(act('jump', 'Jump', <ChevronsUp size={17} />, { onClick: () => engine?.jump() }));
+    if(!hud.swimming) pad.push(act('jump', 'Jump', <ChevronsUp size={17} />, { onClick: () => engine?.jump() }));
     // Only a weapon that carries them shows these, each in a slot of its own.
     if (hud.offsetDot) pad.push(act('cant', hud.canted ? 'Back to scope' : 'Offset dot', <RotateCcw size={17} />, { onClick: () => engine?.toggleCant(), 'aria-pressed': hud.canted, 'data-on': hud.canted || undefined }));
     if (hud.rail) pad.push(act('rail', `${hud.rail.kind === 'light' ? 'Weapon light' : hud.rail.kind === 'laser' ? 'Laser' : 'Laser-light'} ${hud.rail.on ? 'on' : 'off'}`, <Flashlight size={17} />, { onClick: () => engine?.toggleRail(), 'aria-pressed': hud.rail.on, 'data-on': hud.rail.on || undefined }));
@@ -134,7 +134,7 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
     <button type="button" className="touch-chip" data-touch-action="menu" aria-label={mode === 'range' ? 'Pause' : 'Menu'} title={mode === 'range' ? 'Pause' : 'Menu'} {...tapProps(onMenu)}><Menu size={16} /></button>
     <CalloutChip hud={hud} engine={engine} />
     <div className="touch-move">
-      <TouchStick kind="move" label={mounted ? hud.vehicleSeat === 0 ? hud.vehicle.startsWith('dragon-boat') ? 'PADDLE' : 'DRIVE' : 'RIDING' : 'MOVE'} onChange={mounted && hud.vehicleSeat !== 0 ? () => {} : move} />
+      <TouchStick kind="move" label={mounted ? hud.vehicleSeat === 0 ? hud.vehicle.startsWith('dragon-boat') ? 'PADDLE' : 'DRIVE' : 'RIDING' : hud.swimming ? 'SWIM' : 'MOVE'} onChange={mounted && hud.vehicleSeat !== 0 ? () => {} : move} />
     </div>
 
     {prompts.length > 0 && <div className="touch-prompts">
@@ -152,7 +152,7 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
         title={item.label}
         {...item.props}
       >{item.icon}</button>)}
-      <button type="button" className="touch-fire" data-touch-action="fire" aria-label="Fire" disabled={mounted && !hud.vehiclePersonalWeapon && (!hud.vehicleCanFire || hud.vehicleAmmo === 0)} {...fire}>FIRE</button>
+      <button type="button" className="touch-fire" data-touch-action="fire" aria-label="Fire" disabled={hud.swimming && !hud.swimCanFire || mounted && !hud.vehiclePersonalWeapon && (!hud.vehicleCanFire || hud.vehicleAmmo === 0)} {...fire}>FIRE</button>
     </div>
   </div>;
 }

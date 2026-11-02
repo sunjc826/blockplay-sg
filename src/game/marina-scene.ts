@@ -8,7 +8,7 @@ import type { Obstacle } from './marina-collision';
 import { createWaterMaterial } from './water';
 import { MARINA_GARDEN_PAVILIONS, MARINA_GARDEN_WALLS, MARINA_GARDEN_KIOSKS } from './marina-combat';
 import { buildMarinaCamp } from './marina-camp';
-import { marinaWaterObstacles, MARINA_CAMP_COVER, MARINA_CAMP_TENT } from './marina-water';
+import { marinaWaterObstacles, MARINA_CAMP_COVER, MARINA_ISLET } from './marina-water';
 
 export const MARINA_SPAWN = marinaPoint({ x: -44, z: 67, yaw: -0.82 });
 // Authoring scale 0.54: SkyPark 340 × 38m, elevation 200m (Arup/MBS).
@@ -417,7 +417,7 @@ export function buildMarinaScene() {
   // Merlion-side reference: blue tiled base, cream sculptural silhouette and
   // a curved hedge planter. This is an intentionally simplified game statue.
   const tileBlue = mat('#386a9a');
-  const statue = new THREE.Group(); statue.position.set(-87, 0, -40); scene.add(statue); collider(-87, -40, 4, 4);
+  const statue = new THREE.Group(); statue.position.set(0, 0, -20); scene.add(statue);
   const pedestal = new THREE.Mesh(geo(new THREE.CylinderGeometry(2.2, 2.8, 0.9, 12)), tileBlue); pedestal.position.y = 0.45; statue.add(pedestal);
   for (let i = 0; i < 12; i++) {
     const angle = i / 12 * Math.PI * 2;
@@ -433,8 +433,8 @@ export function buildMarinaScene() {
     const a = i / 9 * Math.PI * 2 + row % 2 * 0.3, r = 1.44 - row * 0.067;
     const scale = box(Math.cos(a) * r, 1.2 + row * 0.48, Math.sin(a) * r, 0.52, 0.12, 0.35, cream, statue); scale.rotation.y = -a;
   }
-  const jet = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-85.5, 5.8, -40), new THREE.Vector3(-78, 7, -40), new THREE.Vector3(-75, 0.12, -40));
-  scene.add(new THREE.Mesh(geo(new THREE.TubeGeometry(jet, 24, 0.1, 5, false)), mat('#c6e1df', { transparent: true, opacity: 0.75 })));
+  const jet = new THREE.QuadraticBezierCurve3(new THREE.Vector3(1.5, 5.8, 0), new THREE.Vector3(9, 7, 0), new THREE.Vector3(18, -.4, 0));
+  statue.add(new THREE.Mesh(geo(new THREE.TubeGeometry(jet, 24, 0.1, 5, false)), mat('#c6e1df', { transparent: true, opacity: 0.75 })));
 
   // Park pavilions extend the northern district beyond the original skyline.
   // Their radial roof fins are a stylized architectural motif, not a measured
@@ -699,8 +699,8 @@ export function buildMarinaScene() {
   obstacles.splice(0,1,...marinaWaterObstacles());
   obstacles.push(...MARINA_CAMP_COVER.map(c=>({...c})));
   const camp=buildMarinaCamp();scene.add(camp.root);
-  scene.userData.traversalObstacles=[{...MARINA_CAMP_TENT}];
-  scene.userData.marinaCamp={center:{x:0,z:-12},landings:3};
+
+  scene.userData.marinaCamp={center:{x:0,z:-12},radius:MARINA_ISLET.radius,landings:3,landmark:'Merlion',authoredGameplayLocation:true};
 
   // Authored combat gardens replace the southern lawns with connected courts.
   // Reuse the existing materials/instance batches; solid screens stop both

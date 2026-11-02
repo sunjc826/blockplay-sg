@@ -218,3 +218,7 @@ describe('arena avatars', () => {
     } finally { runtime.dispose(); }
   });
 });
+
+it('cycles surface swimming arms and restores weapon grips after climbing out',()=>{
+ const rig=soldier();try{rig.update(.1,{swimming:true,velocity:{x:0,z:-1}});const first=rig.joints.upperArmL.rotation.x;rig.update(.1,{swimming:true,velocity:{x:0,z:-1}});expect(rig.joints.upperArmL.rotation.x).not.toBe(first);rig.update(0,{aim:1});expect(rig.joints.upperArmL.rotation.x).not.toBe(first);expect(rig.body.rotation.x).toBe(0);}finally{rig.dispose();}
+});

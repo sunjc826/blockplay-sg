@@ -39,12 +39,12 @@ function sailTo(a:ArenaSimulation,x:number,z:number){
 describe('Marina campsite and dragon boats',()=>{
   it('has continuous dry decks and three accessible landings surrounded by blocked water',()=>{
     const {world,movement}=worldSetup();try{
-      for(const d of MARINA_CAMP_DECKS){const x=(d.minX+d.maxX)/2,z=(d.minZ+d.maxZ)/2;expect(movement.supportHeight(x,z,.1)).toBe(0);}
-      for(const [x,z] of [[0,3],[0,-27],[17,-12],[-20.5,30.8],[20.5,-54.8]])expect(movement.canOccupy(x,0,z,.38,1.8)).toBe(true);
+      for(const d of MARINA_CAMP_DECKS){const x=d.id==='camp'?3:(d.minX+d.maxX)/2,z=(d.minZ+d.maxZ)/2;expect(movement.supportHeight(x,z,.1)).toBe(0);}
+      for(const [x,z] of [[0,-4],[0,-20],[8,-12],[-20.5,30.8],[20.5,-54.8]])expect(movement.canOccupy(x,0,z,.38,1.8)).toBe(true);
       for(const [x,z] of [[-30,-12],[0,12],[30,-30]])expect(movement.supportHeight(x,z,.35)).toBeNull();
-      expect(world.scene.getObjectByName('Camp shelter roof')).toBeTruthy();
+      expect(world.scene.userData.marinaCamp).toMatchObject({landmark:'Merlion',radius:6});
       // Each landing has a continuous route through the camp, away from the cover.
-      for(const [start,dx,dz] of [[{x:0,y:0,z:3,velocityY:0},0,-12],[{x:0,y:0,z:-27,velocityY:0},0,10],[{x:17,y:0,z:-12,velocityY:0},-16,0]] as const){
+      for(const [start,dx,dz] of [[{x:0,y:0,z:-4,velocityY:0},0,-5],[{x:0,y:0,z:-20,velocityY:0},0,5],[{x:8,y:0,z:-12,velocityY:0},-5,0]] as const){
         const end=movement.move(start,dx,dz,1);expect(end.x).toBeCloseTo(start.x+dx);expect(end.z).toBeCloseTo(start.z+dz);
       }
     }finally{world.dispose();}
@@ -53,7 +53,7 @@ describe('Marina campsite and dragon boats',()=>{
     const {world,floor,movement}=worldSetup();try{
       for(const kind of ['dragon-boat-red','dragon-boat-gold'] as const){const v=createVehicle(kind);expect(canPaddle(v.x,v.z,v.yaw)).toBe(true);const exit=vehicleExit(v,world.obstacles,MARINA_BOUNDS,floor)!;expect(exit).not.toBeNull();expect(movement.canOccupy(exit.x,exit.y,exit.z)).toBe(true);expect(vehicleExit({...v,speed:1},world.obstacles,MARINA_BOUNDS,floor)).toBeNull();}
       expect(vehicleExit({...createVehicle('dragon-boat-red'),x:-30,z:-12},world.obstacles,MARINA_BOUNDS,floor)).toBeNull();
-      for(const p of [{x:0,z:9,yaw:0},{x:0,z:-33,yaw:Math.PI},{x:23,z:-12,yaw:Math.PI/2}])expect(vehicleExit({...createVehicle('dragon-boat-red'),...p},world.obstacles,MARINA_BOUNDS,floor)).not.toBeNull();
+      for(const p of [{x:0,z:2,yaw:0},{x:0,z:-26,yaw:Math.PI},{x:14,z:-12,yaw:Math.PI/2}])expect(vehicleExit({...createVehicle('dragon-boat-red'),...p},world.obstacles,MARINA_BOUNDS,floor)).not.toBeNull();
     }finally{world.dispose();}
   });
   it('paddles, turns at rest, coasts and brakes without crossing quays, decks or another boat',()=>{
@@ -80,9 +80,9 @@ describe('Marina campsite and dragon boats',()=>{
       input(a,1,0,3);expect(boat(a).z).toBeLessThan(22);expect(validArenaSnapshot(a.snapshot(),environment)).toBe(true);
       expect(a.vehicleAction('p','exit')).toBe(false);
       // The passage goes east of the south landing, then turns west toward its berth.
-      sailTo(a,-17,10);sailTo(a,0,10);sailTo(a,0,8);
+      sailTo(a,-17,10);sailTo(a,0,10);sailTo(a,0,1.5);
       expect(a.vehicleAction('p','exit')).toBe(true);expect(a.snapshot().actors.find(m=>m.id==='p')!.vehicle).toBeUndefined();
-      expect(a.snapshot().actors.find(m=>m.id==='p')!.z).toBeLessThan(4);
+      expect(a.snapshot().actors.find(m=>m.id==='p')!.z).toBeLessThan(-3);
       const crew=a.snapshot().actors.filter(m=>!m.bot);expect(crew.every(m=>m.vehicle===undefined)).toBe(true);
       for(let i=0;i<crew.length;i++)for(let j=i+1;j<crew.length;j++)expect(Math.hypot(crew[i].x-crew[j].x,crew[i].z-crew[j].z)).toBeGreaterThan(.8);
       expect(boat(a).y).toBe(MARINA_WATER.surface);

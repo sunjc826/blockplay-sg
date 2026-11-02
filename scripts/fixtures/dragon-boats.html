@@ -22,7 +22,15 @@ if(params.has('gallery')){
   window.show();window.ready=true;
 }else{
   const root=createRoot(document.getElementById('overlay'));
-  window.engine=createFpsEngine(document.getElementById('world'),hud=>{window.hud=structuredClone(hud);document.body.classList.add('fps-game');document.body.dataset.touch=hud.inputMode==='touch'?'on':'off';root.render(React.createElement(React.Fragment,null,React.createElement(FpsVehicleHud,{hud}),hud.inputMode==='touch'?React.createElement(TouchControls,{hud,engine:window.engine??null,mode:'range',onMenu:()=>window.engine.pause()}):null));},{region:'marina-bay',combat:false,rangeTravel:{spawn:{x:-20.5,z:24,yaw:0,pitch:-.06},onTravel(){}}});
+  const options={region:'marina-bay',combat:false,rangeTravel:{spawn:params.has('swim')?{x:-20.5,z:24,yaw:Math.PI/2,pitch:-.06}:{x:-20.5,z:24,yaw:0,pitch:-.06},onTravel(){}}};
+  if(params.has('shared')){
+    const {createSoloSession}=await import('/src/game/lan-peer.ts');const {createProfile}=await import('/src/game/armory-state.ts');
+    const {MARINA_BOUNDS,moveInMarina}=await import('/src/game/marina-collision.ts');
+    delete options.rangeTravel;
+    options.arena={session:createSoloSession('Swimmer'),profile:createProfile(),botCount:0,composition:'assault',environment:{bounds:MARINA_BOUNDS,move:moveInMarina,spawns:[{x:-30,z:50}],playerSpawn:{x:-20.5,z:24,yaw:Math.PI/2,pitch:-.06},endless:true}};
+  }
+
+  window.engine=createFpsEngine(document.getElementById('world'),hud=>{window.hud=structuredClone(hud);document.body.classList.add('fps-game');document.body.dataset.touch=hud.inputMode==='touch'?'on':'off';root.render(React.createElement(React.Fragment,null,React.createElement(FpsVehicleHud,{hud}),hud.swimming?React.createElement('div',{className:'fps-swim-status',role:'status'},'SWIMMING · '+(hud.swimCanFire?'SIDEARM HIP FIRE · LOW ACCURACY':'STOP TO USE SIDEARM')+' · CLIMB OUT AT GOLD LADDERS'):null,hud.inputMode==='touch'?React.createElement(TouchControls,{hud,engine:window.engine??null,mode:'range',onMenu:()=>window.engine.pause()}):null));},options);
   document.getElementById('start').onclick=()=>{window.engine.start();document.getElementById('start').remove();};
 }
 </script></body></html>

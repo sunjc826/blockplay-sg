@@ -156,14 +156,29 @@ Maximum forward speed is 5 m/s. Hulls cannot cross quays, decks or each other.
 Passengers in the last two seats retain their carried firearms. Open boat
 occupants can be hit directly; boats have 300 hull health and no explosive blast.
 
-The central 24 by 20 metre floating campsite has a low shelter, bedrolls,
-separated waist-high cover and three landing arms facing north, south and east.
-It is authored gameplay scenery, not a reconstruction of a real Marina island.
-The decking stands at promenade level; surrounding water still blocks infantry.
-All four occupants can disembark to distinct dry positions. There is no central
-score objective, spawn point or unlimited resupply reward. The map shows the
-decks and parked boats. Autonomous AI water routes are not implemented; human
-players can steer and share the boats through the existing arena authority.
+The centre is now a compact octagonal Merlion islet, about six metres in
+radius, replacing the old 24 by 20 metre campsite. Its main dry area is roughly
+75% smaller. The existing Merlion model and fountain have moved from the west
+promenade onto the islet; its pedestal provides cover, with two low peripheral
+barriers. Three landing arms face north, south and east. This is an authored
+combat layout, not the Merlion's real-world location or a surveyed Marina island.
+All four boat occupants can still disembark to distinct dry positions.
+
+Players can swim in Marina's central bay at up to 1.25 m/s (carry burden can
+make them slower), compared with a boat's 5 m/s. There is no swim sprint or
+jump, no ADS, no rifle or grenade fire, and no firing while moving. A stationary
+player can hip-fire their P30 sidearm with a large accuracy penalty; landed
+bullet damage is unchanged. Supplies cannot be used while swimming. Movement
+speed, stationary-only sidearm fire and extra shot dispersion are enforced by
+the authority as well as the local player. Remote swimmers appear partly
+submerged and animate surface strokes. There is no breath or drowning timer.
+
+Gold ladders mark automatic climb-out points at the three islet landings and
+both shore jetties. Ordinary quay edges cannot be climbed. Ladder positions and
+the Merlion appear on the FPS map. Infantry water blockers remain in place for
+cars and dry AI navigation; swimming is player traversal only. There is no
+central score objective, extra spawn, bridge, channel or resupply reward. AI
+water routes and boat piloting remain unimplemented.
 
 Expedition boats recover at their own jetties after wreck cleanup or distant
 abandonment when the berth is clear and players are away. They do not consume
@@ -172,7 +187,7 @@ finish ownership retain their two motor-vehicle choices.
 
 `pnpm test:dragon-boats` runs the dedicated browser fixture with Vite on 5219
 and Chrome remote debugging on 9379 (override with `FPS_APP_ORIGIN` and
-`FPS_CHROME_ORIGIN`). Unit coverage uses shipped campsite collision, a fully
+`FPS_CHROME_ORIGIN`). `pnpm test:swimming` uses the same server/browser ports for swim controls and Merlion views. Unit coverage uses shipped islet collision, a fully
 crewed authority crossing and unload, exposed occupants, water confinement,
 coasting/braking, clear jetties, camera models and reset behaviour.
 

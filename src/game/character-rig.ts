@@ -50,6 +50,8 @@ export interface CharacterDrive {
   /** Aim pitch, positive up. */
   pitch?: number;
   crouch?: number; prone?: boolean; seated?: boolean; airborne?: boolean;
+  /** Unarmed surface stroke; the caller positions the body below the waterline. */
+  swimming?: boolean;
   /** Seated with hands on the controls rather than the weapon. */
   driving?: boolean;
   /** 0 lowered, 1 shouldered. */
@@ -740,6 +742,15 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
         weapon.getWorldQuaternion(tmpQuat).multiply(footLevel.setFromEuler(footEuler.set(side > 0 ? -1.75 : -1.35, 0, side > 0 ? .1 : -.5)));
         hand.quaternion.copy(tmpQuat2.multiply(tmpQuat));
       } else hand.rotation.set(gesture === 'wave' && side > 0 ? .2 * gestureBlend : -.05, 0, side * -.08);
+    }
+    if(drive.swimming && !down){
+      const stroke=time*3.5;
+      for(const [side,sign] of [['L',-1],['R',1]] as const){
+        const phase=stroke+(side==='L'?0:Math.PI);
+        joints[`upperArm${side}`].rotation.set(-1.1+Math.sin(phase)*.55,0,sign*(.5+Math.cos(phase)*.18));
+        joints[`forearm${side}`].rotation.set(-.65+Math.cos(phase)*.25,0,0);
+        joints[`thigh${side}`].rotation.x=Math.sin(phase)*.18;
+      }
     }
     const roll = bailoutRoll(drive.bailoutAge);
     if (roll.active && !down && !drive.seated) {

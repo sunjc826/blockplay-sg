@@ -87,7 +87,8 @@
     "analyse:verticality": "node --experimental-strip-types scripts/verticality-report.mjs",
     "test:rooms": "node scripts/public-rooms-check.mjs",
     "test:rooms:browser": "node scripts/public-rooms-browser-smoke.mjs",
-    "test:dragon-boats": "node scripts/dragon-boats-smoke.mjs"
+    "test:dragon-boats": "node scripts/dragon-boats-smoke.mjs",
+    "test:swimming": "node scripts/swimming-smoke.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

@@ -1,3 +1,4 @@
+import { createSwimmingMovement, SWIMMING, swimmingCanFire, swimmingShotDirection } from './swimming';
 import { isDragonBoat, canPaddle } from './marina-water';
 import { HELICOPTER_AI, chooseAirMission, createHelicopterMission, helicopterMissionControls, planAirRoute, returnHelicopter, updateBoardingReservations, type HelicopterMission } from './helicopter-autopilot';
 import { OICW_RIFLE, OICW_LAUNCHER, OICW_GRENADE } from './weapon-modes';
@@ -70,6 +71,7 @@ export interface ArenaActor {
   parachuting?: true;
   id: string; name: string; bot: boolean; x: number; y: number; z: number; yaw: number; pitch: number;
   health: number; armor: number; kills: number; deaths: number; alive: boolean; rentalTimeMs?: number; respawnIn: number; weapon: number;
+  swimming?: boolean;
   shots: number; role: string; prone?: boolean; vehicle?: VehicleKind; seat?: number;
   /** Who they fight for (arena-factions): players and friendly squads the armed forces, enemy squads the mercenaries, event crews their event's side. */
   faction: string;
@@ -299,6 +301,7 @@ export interface VehicleCrewTransfer {
   crew: Omit<InternalActor, 'role' | 'navigation' | 'spotting'>[];
 }
 interface InternalActor {
+  swimBudget?:number; lastSwimInput?:number; swimmingUntil?:number;
   vehicleBoardAfter?: number;
   evacuating?: { x: number; z: number; until: number };
   velocityY?: number;
@@ -438,6 +441,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   // Rendered cover stops every round, with or without vehicles in the match.
   const cover = coverDistance ?? vehicleOptions?.coverDistance;
   const bounds: RegionBounds = environment?.bounds ?? MARINA_BOUNDS;
+  const swimmer = traversalWorld?.obstacles.some(o=>o.water) ? createSwimmingMovement(traversalWorld) : null;
   const traversal = traversalWorld ? createVerticalMovement(traversalWorld) : null;
   const vehicleGround = [...obstacles, ...(traversalWorld ? verticalVehicleObstacles({...traversalWorld,bounds}) : [])];
   const navigationAnchors=[...(environment?.navigationAnchors??[]),...(environment?.battlefield && vehicleOptions ? Object.values(vehicleOptions.spawns).flatMap(p=>[-6,6].flatMap(dx=>[-6,6].map(dz=>({x:p.x+dx,z:p.z+dz})))) : [])];
@@ -616,6 +620,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.velocity = undefined; entry.speed = 0; entry.lastAt = undefined; entry.aimFocus = undefined; entry.turn = undefined;
     entry.spotting = undefined; entry.shotFlash = undefined;
     entry.parachute = undefined; delete entry.actor.parachuting; entry.navigation = undefined; entry.assignment = undefined; entry.guardPatrol = undefined; entry.investigation = undefined; sectorPatrols?.release(entry.actor.id); entry.mission = undefined; delete entry.actor.objective; delete entry.actor.duty; delete entry.actor.patrolSector; entry.navalTransit = undefined; delete entry.actor.ground; entry.evacuating = undefined; entry.vehicleBoardAfter = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
+    delete entry.actor.swimming;entry.swimBudget=.08;entry.lastSwimInput=undefined;entry.swimmingUntil=undefined;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false; entry.threat = undefined; entry.grudge = undefined;
   };
   function sanitizeWeapons(weapons: readonly ArenaWeapon[]) {
@@ -693,7 +698,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function throwGrenade(id: string, input: ThrowGrenade) {
     const entry = members.get(id);
-    if (!entry || finished || !entry.actor.alive || !entry.playing || seatOf(vehicles, id) || !validThrowGrenade(input) || distance(input.origin, entry.actor) > 1.5) return false;
+    if (!entry || entry.actor.swimming || finished || !entry.actor.alive || !entry.playing || seatOf(vehicles, id) || !validThrowGrenade(input) || distance(input.origin, entry.actor) > 1.5) return false;
     if (input.id === OICW_GRENADE) return false;
     if (arenaConditionModifiers(entry.actor.conditions).frozen && input.cooked < itemById(input.id)!.grenade!.fuse) return false;
     if (elapsed - (entry.lastGrenadeAt ?? -Infinity) < .9 || (entry.grenadeSupplies?.[input.id] ?? 0) <= 0) return false;
@@ -712,7 +717,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    */
   function useSupply(id: string, itemId: string) {
     const entry = members.get(id), item = typeof itemId === 'string' ? itemById(itemId) : undefined;
-    if (!entry || entry.actor.bot || finished || !entry.actor.alive || item?.category !== 'consumable' || !item.effect) return false;
+    if (!entry || entry.actor.swimming || entry.actor.bot || finished || !entry.actor.alive || item?.category !== 'consumable' || !item.effect) return false;
     if (entry.supplies && !((entry.supplies[item.id] ?? 0) > 0)) return false;
     const hands = supplyProfile(item);
     if (entry.lastSupplyAt !== undefined && elapsed - entry.lastSupplyAt < hands.seconds * hands.commit * .5) return false;
@@ -802,6 +807,17 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (validVehicleControls(input.vehicleControls) && input.playing) controls.set(id, { input: input.vehicleControls, expires: elapsed + .35 }); else controls.delete(id);
       return;
     }
+    if(swimmer && (swimmer.touchesWater(actor.x,actor.z)||swimmer.touchesWater(input.x,input.z)) && (actor.swimming || actor.y<2 && input.y<2)){
+      const dt=Math.max(0,Math.min(.25,elapsed-(entry.lastSwimInput??elapsed-.05)));entry.lastSwimInput=elapsed;
+      const dx=input.x-actor.x,dz=input.z-actor.z,d=Math.hypot(dx,dz),budget=entry.swimBudget??.08,scale=d>0?Math.min(1,budget/d):1;
+      const next=swimmer.move({x:actor.x,y:0,z:actor.z,velocityY:0},dx*scale,dz*scale,dt,.35,1.8,vehicles.filter(v=>!v.despawned&&v.y<2).map(vehicleBounds));
+      const moved=Math.hypot(next.x-actor.x,next.z-actor.z);entry.swimBudget=Math.max(0,budget-moved);
+      if(moved>SWIMMING.stillSpeed*dt)entry.swimmingUntil=elapsed+SWIMMING.settleSeconds;
+      Object.assign(actor,{x:next.x,z:next.z,y:next.y+(next.swimming?SWIMMING.eyeHeight:actor.swimming?1.75:clamp(input.y,PRONE_EYE_HEIGHT,1.75)),yaw:input.yaw%(Math.PI*2),pitch:clamp(input.pitch,-1.5,1.5),prone:!next.swimming && input.prone===true && input.y<=PRONE_EYE_HEIGHT+.02});
+      if(next.swimming)actor.swimming=true;else delete actor.swimming;
+      return;
+    }
+    delete actor.swimming;entry.lastSwimInput=undefined;
     const target = { x: clamp(input.x, bounds.minX + 0.5, bounds.maxX - 0.5), y: clamp(input.y, input.prone === true ? PRONE_EYE_HEIGHT : 1, 90), z: clamp(input.z, bounds.minZ + 0.5, bounds.maxZ - 0.5) };
     const wasProne = actor.prone;
     const floor = floorAt(target);
@@ -844,6 +860,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function shoot(id: string, origin: ArenaPoint, direction: ArenaPoint, weapon: number, maxDistance = weaponRange(FPS_WEAPONS[weapon])): ArenaShot {
     const entry = members.get(id);
+    if (entry?.actor.swimming && !swimmingCanFire(weapon,elapsed<(entry.swimmingUntil??0)?1:0)) return {...EMPTY_SHOT};
     if (!entry || entry.actor.transport && !rifleSeat(entry.actor.aircrew) || (seatOf(vehicles, id)?.seat ?? 2) < 2 || finished || !entry.actor.alive || !entry.playing || !finitePoint(origin) || !finitePoint(direction)) return { ...EMPTY_SHOT };
     if (arenaConditionModifiers(entry.actor.conditions).frozen) return { ...EMPTY_SHOT };
     if (!Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return { ...EMPTY_SHOT };
@@ -852,7 +869,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const ammo = entry.ammo[weapon];
     if (distance(origin, entry.actor) > 1.5 || ammo.cooldown > 1e-7 || ammo.reloadRemaining > 0) return { ...EMPTY_SHOT };
     const length = Math.hypot(direction.x, direction.y, direction.z); if (length < 0.5 || length > 1.5) return { ...EMPTY_SHOT };
-    const ray = { x: direction.x / length, y: direction.y / length, z: direction.z / length };
+    let ray = { x: direction.x / length, y: direction.y / length, z: direction.z / length };
+    if(entry.actor.swimming) ray=swimmingShotDirection(ray,random);
     if (!roundReady(ammo, entry.weapons[weapon])) { startReload(entry, weapon); return { ...EMPTY_SHOT }; }
     const recoilDamage = unsupportedRecoilDamage(entry.weapons[weapon], entry.actor.prone === true, entry.actor.y <= floorAt(entry.actor) + 1.17, !entry.actor.prone && entry.actor.y <= floorAt(entry.actor) + 1.17);
     if (recoilDamage) {
@@ -1111,6 +1129,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (!id) return;
       const entry = members.get(id);
       if (!entry?.actor.alive) { releaseSeat(id); return; }
+      delete entry.actor.swimming;
       Object.assign(entry.actor, seatPoint(v, seat), { vehicle: v.kind, seat, prone: false });
       delete entry.actor.bailoutAt;
     });
@@ -3344,6 +3363,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     botVehicleGeometry=undefined;
     for (const entry of members.values()) {
       entry.movementBudget = Math.min(8, entry.movementBudget + 40 * dt);
+      entry.swimBudget=Math.min(.25,(entry.swimBudget??.08)+SWIMMING.speed*dt);
       if (entry.actor.bailoutAt !== undefined && (!entry.actor.alive || entry.actor.vehicle || elapsed - entry.actor.bailoutAt >= BAILOUT_ROLL_SECONDS)) delete entry.actor.bailoutAt;
       if (!entry.actor.alive) {
         entry.actor.respawnIn = Math.max(0, entry.actor.respawnIn - dt);
