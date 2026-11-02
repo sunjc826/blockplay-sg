@@ -1,7 +1,7 @@
-import { FPS_WEAPONS, reloadLength } from './fps-rules';
+import { EMPTY_RELOAD, FPS_WEAPONS, reloadLength } from './fps-rules';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { boltCycleMotion, handleSide, reloadMotion, readyMotion, smoothStep } from './fps-weapon-motion';
+import { boltCycleMotion, cockingHandRelease, handleSide, reloadMotion, readyMotion, smoothStep } from './fps-weapon-motion';
 import { createPouchReload, type PouchReloadSource } from './fps-pouch-reload';
 import { getWeaponSight } from './weapon-optics';
 import { createBipodMotion, type BipodMotionInput } from './weapon-bipod';
@@ -51,6 +51,10 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   if (proxy) { right.position.fromArray(proxy.right); support.fromArray(proxy.support); magazineGrip.fromArray(proxy.magazine); }
   const manualBolt = FPS_WEAPONS[index].action === 'bolt';
   const rightCharges = FPS_WEAPONS[index].feed === 'belt' || manualBolt;
+  const releaseFlick = FPS_WEAPONS[index].feed !== 'belt' && FPS_WEAPONS[index].feed !== 'drum';
+  const flickStart = new THREE.Vector3(), flickOut = new THREE.Vector3(), flickArc = new THREE.Vector3();
+  const flickRotation = new THREE.Quaternion(), flickTurn = new THREE.Quaternion();
+  const supportRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-.15, -.2, .32));
   const rightHome = right.position.clone(), rightRotation = right.quaternion.clone();
   const chargeTarget = new THREE.Vector3(), chargeWaypoint = new THREE.Vector3();
   const chargeRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-.15, -1.4, .02));
@@ -60,6 +64,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   // Animated control is decorative; gameplay ammunition remains owned by weapon rules.
   const authoredControl = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__charging-handle`) : undefined;
   const control = authoredControl ?? box(additions, .023, .014, .025, .049, index ? .211 : .257, index ? .05 : .10, steel);
+  if (!authoredControl) control.name = `${id}__charging-handle`;
   if (index === 2) { control.scale.setScalar(.4); control.position.set(.026, .171, .05); }
   // The SAR 21 cocks like a FAMAS: a lever on the receiver top, under the optic
   // bridge between its legs, run back along a slot towards the rear leg.
@@ -104,6 +109,9 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       const cycle = manualBolt && progress === null && ready === undefined && ammunition?.cycle !== undefined ? boltCycleMotion(ammunition.cycle) : undefined;
       const strokeLength = index === 2 ? .035 : .075;
       const stroke = (cycle?.travel ?? motion.action) * strokeLength;
+      const cockTime = ready === undefined ? (empty && progress !== null ? motionProgress * reloadLength(empty) : 0)
+        : .80 + (EMPTY_RELOAD.length - .80) * ready;
+      const flick = cockingHandRelease(releaseFlick ? cockTime : 0);
       const releaseGrip = ready === undefined && empty && progress !== null ? smoothStep((motionProgress * reloadLength(empty) - 1.15) / .03) : 0;
       // Let the action fly forward independently of the hand that released it.
       const handStroke = releaseGrip > 0 && !cycle ? Math.max(stroke, strokeLength * releaseGrip) : stroke;
@@ -119,8 +127,30 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
         else right.position.copy(chargeWaypoint).lerp(chargeTarget, smoothStep((rightToHandle - .4) / .6));
         right.quaternion.slerp(chargeRotation, rightToHandle);
       }
-      for (let finger = 0; finger < 4; finger++) right.getObjectByName(`grip-finger-${finger}`)!.rotation.x = rightToHandle * (1 - releaseGrip) * 1.07;
-      right.getObjectByName('grip-thumb')!.rotation.z = .55 + rightToHandle * .35;
+      if (flick.active) {
+        const hand = rightCharges ? right : left, home = rightCharges ? rightHome : support;
+        const homeRotation = rightCharges ? rightRotation : supportRotation;
+        const outward = side === 'top' ? -1 : 1;
+        flickStart.set(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + strokeLength);
+        // Stay behind the rear stop as the fingers open; no forward escort of
+        // the handle. The lateral/upward clearance makes the release readable.
+        flickOut.copy(flickStart).add(new THREE.Vector3(outward * .105, .045, .045));
+        if (flick.returnToGrip === 0) hand.position.copy(flickStart).lerp(flickOut, flick.clear);
+        else {
+          // Keep the wrist outside the receiver while moving toward its grip.
+          flickArc.set(flickOut.x + outward * .035, home.y + .075, home.z);
+          const t = flick.returnToGrip;
+          hand.position.copy(flickOut).multiplyScalar((1 - t) ** 2)
+            .addScaledVector(flickArc, 2 * (1 - t) * t).addScaledVector(home, t * t);
+        }
+        if (rightCharges) flickRotation.copy(chargeRotation);
+        else flickRotation.setFromEuler(new THREE.Euler(-.15, -.2 + grip.turn, .02));
+        flickTurn.setFromEuler(new THREE.Euler(-.25, outward * .35, outward * .7));
+        flickTurn.premultiply(flickRotation);
+        hand.quaternion.copy(flickRotation).slerp(flickTurn, flick.clear).slerp(homeRotation, flick.returnToGrip);
+      }
+      for (let finger = 0; finger < 4; finger++) right.getObjectByName(`grip-finger-${finger}`)!.rotation.x = rightToHandle * (1 - Math.max(releaseGrip, rightCharges ? flick.open : 0)) * 1.07;
+      right.getObjectByName('grip-thumb')!.rotation.z = .55 + rightToHandle * .35 - (rightCharges ? flick.open * .35 : 0);
       if (magazine) {
         magazine.userData.loadedCapacity = reload?.capacity ?? FPS_WEAPONS[index].capacity;
         if (reload && magazineScale) magazine.scale.y = magazineScale.y * Math.max(.75, Math.min(1.4, reload.capacity / (reload.baseCapacity ?? FPS_WEAPONS[index].capacity)));
@@ -137,6 +167,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       let closed = beltReload && beltActive ? beltReload.grip : reaching ? smoothStep((time - .425) / .045) * (1 - smoothStep((time - .76) / .08)) : .35;
       if (leftToHandle > 0 && !reaching) closed = THREE.MathUtils.lerp(closed, .95 * (1 - releaseGrip), leftToHandle);
       if (reaching && !beltReload && time >= .70) closed *= 1 - smoothStep((time - .70) / .02) * (1 - smoothStep((time - .78) / .06));
+      if (!rightCharges) closed *= 1 - flick.open;
       for (let finger = 0; finger < 4; finger++) left.getObjectByName(`grip-finger-${finger}`)!.rotation.x = .12 + closed * .95;
       left.getObjectByName('grip-thumb')!.rotation.z = -.55 - closed * .35;
       control.position.z = controlZ + stroke;

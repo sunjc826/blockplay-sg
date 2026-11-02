@@ -12,6 +12,14 @@ export function boltCycleMotion(progress: number) {
   };
 }
 
+/** Open the hand at the rear stop, flick clear, then return on a separate arc.
+ * The action has already snapped home before the hand starts moving forward. */
+export function cockingHandRelease(time: number) {
+  const clear = smoothStep((time - 1.15) / .04);
+  const returnToGrip = smoothStep((time - 1.24) / .18);
+  return { active: time > 1.15 && time < 1.42, clear, returnToGrip, open: clear * (1 - returnToGrip) };
+}
+
 export const INSPECT_DURATION = 3.6;
 type InspectKey = readonly [time: number, x: number, y: number, z: number, pitch: number, yaw: number, roll: number];
 // Lift into view, linger over each side of the receiver, then settle at ready.
