@@ -62,3 +62,15 @@ it('separates foliage sight obstruction from bullet/blast obstruction, including
   expect(cover.sightDistance({x:.3,y:.55,z:0},direction,10)).toBe(10);
   geometry.dispose(); leaves.dispose(); hedge.dispose();
 });
+
+
+it('keeps ordinary transparent scenery solid unless explicitly authored as bullet-permeable glazing',()=>{
+ const geometry=new THREE.PlaneGeometry(4,4),material=new THREE.MeshBasicMaterial({transparent:true,opacity:.2,side:THREE.DoubleSide});
+ const pane=new THREE.Mesh(geometry,material);pane.position.z=-2;pane.updateMatrixWorld(true);
+ const ray=new THREE.Raycaster(new THREE.Vector3(.3,.4,0),new THREE.Vector3(0,0,-1));
+ expect(firstVisibleHit(ray,[pane])?.object).toBe(pane);
+ material.userData.bulletGlass=true;
+ expect(firstVisibleHit(ray,[pane])).toBeUndefined();expect(firstVisibleHit(ray,[pane],true)).toBeUndefined();
+ expect(firstVisibleHit(ray,[pane],false,true)?.object).toBe(pane);
+ geometry.dispose();material.dispose();
+});

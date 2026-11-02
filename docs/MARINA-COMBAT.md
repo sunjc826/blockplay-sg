@@ -410,3 +410,20 @@ avoid hundreds of unique meshes from coplanar-face partitioning; the final Marin
 scene stays within its existing scene-child budget. Verticality diagnostics now
 include explicitly authored lift service and collision-checked intermediate
 points at curved landings, without counting those points as additional floor area.
+
+### Glass lift exposure and arrival signals
+
+MBS lift cabins, landing doors and shaft glazing now use lightly tinted glass
+with solid steel frames. Explicitly marked thin panes pass sight and bullets in
+both directions without damage attenuation; there is no persistent shatter state.
+Opaque hotel structure, frames, floors and roofs still block shots. Ordinary
+transparent materials elsewhere retain their previous ballistic behavior.
+Movement guards still contain passengers and close absent-car landings; physical
+grenade traces collide with the glazing. Bots can track and fire while riding,
+with translation held by the car and grenade throws/healing deferred until stopped.
+
+Both landings show car direction/location, a three-second arrival countdown with
+an amber flashing lamp, and green boarding/departure countdowns. Signals describe
+the car only, not whether passengers are inside. These are visual cues; no new
+audio was generated. Cabin matrices update with animation so authoritative cover
+queries follow moving floors/frames between scene-cover cache refreshes.

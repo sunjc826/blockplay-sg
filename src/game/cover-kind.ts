@@ -9,3 +9,11 @@ export function isVisualCover(object: THREE.Object3D) {
   const materials = Array.isArray(object.material) ? object.material : [object.material];
   return materials.length > 0 && materials.every(material => material.userData.visualCover === true);
 }
+
+/** Explicit thin glazing: see/fire through it, but retain physical collision.
+ * Transparency alone never changes ballistic behavior elsewhere in the world. */
+export function isBulletGlass(object: THREE.Object3D) {
+  if (!(object instanceof THREE.Mesh)) return false;
+  const materials = Array.isArray(object.material) ? object.material : [object.material];
+  return materials.length > 0 && materials.every(material => material.userData.bulletGlass === true);
+}

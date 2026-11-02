@@ -3159,7 +3159,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function stepBot(entry: InternalActor, dt: number) {
     const actor = entry.actor;
-    if(actor.lift && traversalWorld?.lifts?.some(l=>l.id===actor.lift && liftSample(l,elapsed).moving))return;
+    const riding=!!actor.lift && !!traversalWorld?.lifts?.some(l=>l.id===actor.lift && liftSample(l,elapsed).moving);
+    if(riding && entry.heal){entry.heal=undefined;delete actor.healing;}
     const conditions = arenaConditionModifiers(actor.conditions);
     if (conditions.frozen) { entry.target = ''; entry.burst = 0; entry.aimFocus = undefined; return; }
     const role = entry.role!;
@@ -3217,12 +3218,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (visible && !aircraft && threat && enemy?.actor.id === threat.id) { threat.point = { x: target.x, y: target.y, z: target.z }; threat.until = elapsed + BOT_THREAT.memory; }
     if (visible) entry.lastContact = { x: target.x, y: target.y, z: target.z, time: elapsed };
     const contact = entry.lastContact;
-    if (!visible && contact && elapsed - contact.time < 6 && horizontal <= 25 && actor.grenade && grenadeSystem.live.filter(g => members.get(g.caller)?.actor.bot).length < 3 && elapsed - (entry.lastGrenadeAt ?? -Infinity) >= 20) {
+    if (!riding && !visible && contact && elapsed - contact.time < 6 && horizontal <= 25 && actor.grenade && grenadeSystem.live.filter(g => members.get(g.caller)?.actor.bot).length < 3 && elapsed - (entry.lastGrenadeAt ?? -Infinity) >= 20) {
       const dx = contact.x - actor.x, dz = contact.z - actor.z, d = Math.hypot(dx, dz), speed = itemById(actor.grenade)!.grenade!.throwSpeed;
       if (d >= 5 && d <= 25) { const angle = Math.asin(Math.min(.95, 9.8 * d / (speed * speed))) / 2;
         throwGrenade(actor.id, { id: actor.grenade, origin: actor, direction: { x: dx / d * Math.cos(angle), y: Math.sin(angle), z: dz / d * Math.cos(angle) }, under: false, cooked: 0 }); }
     }
-    if (!aircraft && actor.duty!=='sentry'&&!actor.patrolSector&&tryBoardVehicle(entry, dt)) { entry.aimFocus = undefined; return; }
+    if (!riding && !aircraft && actor.duty!=='sentry'&&!actor.patrolSector&&tryBoardVehicle(entry, dt)) { entry.aimFocus = undefined; return; }
     if (role.id === 'overwatch') { if (visible) actor.aiming = true; else delete actor.aiming; }
     if (visible) { if (elapsed - (entry.lastFight ?? -Infinity) > 6) bark(entry, 'contact'); entry.lastFight = elapsed; }
     const patrolling=actor.patrolSector&&(actor.duty==='patrol'||actor.duty==='investigate')&&!entry.order;
@@ -3236,7 +3237,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const intent = role.think({ distance: horizontal, visible, healthFraction: actor.health / entry.healthMax, strafeDirection: entry.strafe });
     let approach = Number.isFinite(intent.approach) ? clamp(intent.approach, -1, 1) : 0;
     const wounded = botWantsHeal({ health: actor.health, healthMax: entry.healthMax, medkits: entry.medkits, sinceHurt: elapsed - entry.lastHurt, visible, danger: !!dangerExit(actor) });
-    if (wounded === 'heal') {
+    if (!riding && wounded === 'heal') {
       const feet = Math.max(0, actor.y - 1.75);
       entry.aimFocus = undefined;
       entry.heal = { time: 0, feet, started: elapsed }; actor.healing = 0; actor.y = feet + BOT_HEAL.kneelEye; entry.burst = 0; entry.target = '';
@@ -3277,7 +3278,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (aircraft && !mission && !evading?.cover) entry.navigation = undefined;
     const routeNeeded = !!mission || !visible && !!searching || !!evading?.cover || !aircraft && Math.abs(target.y - actor.y) > .6 || !!entry.navigation?.pending || !!entry.navigation?.path.length;
     if (!routeNeeded) entry.navigation = undefined;
-    if(!entry.anchor && (!evading || !!evading.cover) && ((navigator && routeNeeded) || entry.navigation?.path.length)) {
+    if(!riding && !entry.anchor && (!evading || !!evading.cover) && ((navigator && routeNeeded) || entry.navigation?.path.length)) {
       const feet={x:actor.x,y:Math.max(0,actor.y-1.75),z:actor.z};
       const goal={x:destination.x,y:floorAt(destination),z:destination.z};
       if(entry.navigation) entry.navigation.retry-=dt;
@@ -3321,7 +3322,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.barkFleeing = !!exit;
     const vehicleSolids = [...botVehicleObstacles().movement,...liftGates(traversalWorld?.lifts??[],elapsed)];
     const beforeMove={x:actor.x,z:actor.z};
-    if (entry.anchor) Object.assign(actor, { x: entry.anchor.x, z: entry.anchor.z });
+    if (riding) { dxStep=0; dzStep=0; }
+    else if (entry.anchor) Object.assign(actor, { x: entry.anchor.x, z: entry.anchor.z });
     else if (traversal) {
       const step = traversal.move({ x: actor.x, y: Math.max(0, actor.y - 1.75), z: actor.z, velocityY: entry.velocityY ?? 0 }, dxStep, dzStep, dt, .4, 1.8, vehicleSolids);
       Object.assign(actor, { x: step.x, z: step.z, y: step.y + 1.75 }); entry.velocityY = step.velocityY;

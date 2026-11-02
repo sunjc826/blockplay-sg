@@ -8,7 +8,8 @@ export function createSceneCover(scene: THREE.Scene, ignore?: (node: THREE.Objec
   const origin = new THREE.Vector3(), direction = new THREE.Vector3();
   const surfaces: THREE.Mesh[] = [];
   let refreshedAt = -Infinity;
-  function trace(from: { x: number; y: number; z: number }, heading: { x: number; y: number; z: number }, range: number, includeFoliage = false) {
+  /** Physical trace includes glazing; bullet and sight distances below omit it. */
+  function trace(from: { x: number; y: number; z: number }, heading: { x: number; y: number; z: number }, range: number, includeFoliage = false, includeGlass = true) {
     direction.set(heading.x, heading.y, heading.z);
     if (!Number.isFinite(range) || range < 0 || ![from.x, from.y, from.z, ...direction].every(Number.isFinite) || direction.lengthSq() < 1e-8) return undefined;
     const now = performance.now();
@@ -32,10 +33,10 @@ export function createSceneCover(scene: THREE.Scene, ignore?: (node: THREE.Objec
         if (node === scene) return true;
       }
       return false;
-    }), includeFoliage);
+    }), includeFoliage, includeGlass);
   }
   return { trace,
-    distance: (from: { x: number; y: number; z: number }, heading: { x: number; y: number; z: number }, range: number) => trace(from, heading, range)?.distance ?? range,
-    sightDistance: (from: { x: number; y: number; z: number }, heading: { x: number; y: number; z: number }, range: number) => trace(from, heading, range, true)?.distance ?? range,
+    distance: (from: { x: number; y: number; z: number }, heading: { x: number; y: number; z: number }, range: number) => trace(from, heading, range, false, false)?.distance ?? range,
+    sightDistance: (from: { x: number; y: number; z: number }, heading: { x: number; y: number; z: number }, range: number) => trace(from, heading, range, true, false)?.distance ?? range,
   };
 }

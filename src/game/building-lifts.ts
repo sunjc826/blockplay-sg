@@ -21,3 +21,12 @@ export function liftPassenger(lifts:readonly BuildingLift[],p:{x:number;y:number
 export function liftGates(lifts:readonly BuildingLift[],time:number):Obstacle[] {
   return lifts.flatMap(l=>[l.bottom,l.top].filter(y=>{const s=liftSample(l,time);return !s.open||Math.abs(s.y-y)>.1;}).map(y=>({minX:l.x-l.width/2-.1,maxX:l.x+l.width/2+.1,minZ:l.z-l.depth/2-.16,maxZ:l.z-l.depth/2+.16,minY:y,maxY:y+2.6})));
 }
+
+/** Public signals describe the car, never its occupants. */
+export function liftLandingStatus(lift:BuildingLift,time:number,landing:number) {
+  const s=liftSample(lift,time),at=Math.abs(s.y-landing)<.1;
+  const approaching=s.moving && (s.up ? landing===lift.top : landing===lift.bottom);
+  const arriving=approaching && s.remaining<=3;
+  return {open:s.open&&at,arriving,
+    label:s.open&&at?`OPEN · DEPARTS ${Math.ceil(s.remaining)}s`:arriving?`ARRIVING · ${Math.ceil(s.remaining)}s`:s.moving?`${s.up?'↑ ASCENDING':'↓ DESCENDING'}`:`AT ${s.y===lift.bottom?'LOBBY':'SKYPARK'}`};
+}

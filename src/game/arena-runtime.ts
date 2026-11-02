@@ -384,8 +384,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   const simulation = authority ? createArena(options.obstacles, options.botCount, options.composition, options.environment, options.vehicles, { bounds: options.environment?.bounds ?? MARINA_BOUNDS, obstacles: options.obstacles, surfaces: getWalkSurfaces(scene), traversalObstacles: getTraversalObstacles(scene), lifts:getBuildingLifts(scene) },
     (origin, direction, distance) => coverLimit(origin, direction, distance), (from, to) => {
       const distance = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z); if (distance < 1e-8) return null;
-      const d = coverLimit(from, { x: (to.x - from.x) / distance, y: (to.y - from.y) / distance, z: (to.z - from.z) / distance }, distance);
-      if (d >= distance) return null;
       const hit = sceneCover.trace(from, { x: (to.x - from.x) / distance, y: (to.y - from.y) / distance, z: (to.z - from.z) / distance }, distance);
       return hit?.face ? { point: hit.point, normal: hit.face.normal.clone().transformDirection(hit.object.matrixWorld) } : null;
     }, (origin, direction, distance) => sceneCover.sightDistance(origin, direction, distance), session.role === 'solo' ? getBotDifficulty : () => 'normal') : null;

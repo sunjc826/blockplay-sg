@@ -1851,7 +1851,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const offset = wanted.clone().sub(target); chaseRay.set(target, offset.clone().normalize()); chaseRay.near = .2; chaseRay.far = offset.length();
       // Riders and other figures are not camera obstacles: a nearby head used
       // to pull the chase camera into the cab on alternating frames.
-      const obstruction = firstVisibleHit(chaseRay, world.scene.children.filter(o => o !== vehicles.root && !o.userData.fpsEffect && !o.userData.arenaActorId));
+      const obstruction = firstVisibleHit(chaseRay, world.scene.children.filter(o => o !== vehicles.root && !o.userData.fpsEffect && !o.userData.arenaActorId), false, true);
       camera.position.copy(obstruction ? target.clone().addScaledVector(offset.normalize(), Math.max(.5, obstruction.distance - .4)) : wanted);
       camera.lookAt(target);
     }
@@ -2250,7 +2250,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const origin = new THREE.Vector3(from.x, from.y, from.z), delta = new THREE.Vector3(to.x - from.x, to.y - from.y, to.z - from.z), distance = delta.length();
     if (distance < 1e-8) return null;
     grenadeRay.set(origin, delta.normalize()); grenadeRay.near = 0; grenadeRay.far = distance;
-    const hit = firstVisibleHit(grenadeRay, gameplayCandidates().filter(o => !o.userData.arenaActorId));
+    const hit = firstVisibleHit(grenadeRay, gameplayCandidates().filter(o => !o.userData.arenaActorId), false, true);
     if (hit) return { point: hit.point, normal: hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : delta.clone().negate() };
     if (to.y < .08) { const t = (from.y - .08) / Math.max(1e-8, from.y - to.y); return { point: { x: from.x + (to.x - from.x) * t, y: .08, z: from.z + (to.z - from.z) * t }, normal: { x: 0, y: 1, z: 0 } }; }
     return null;
