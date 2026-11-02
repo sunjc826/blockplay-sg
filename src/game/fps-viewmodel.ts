@@ -49,6 +49,14 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   if (enemy) { right.position.fromArray(enemy.hands.right); support.fromArray(enemy.hands.support); magazineGrip.fromArray(enemy.hands.magazine); }
   const proxy = model.userData.proxyHands;
   if (proxy) { right.position.fromArray(proxy.right); support.fromArray(proxy.support); magazineGrip.fromArray(proxy.magazine); }
+  const pistol = id === 'p30-inspired';
+  // Palm spans the slide: finger rows run along its length and curl down its
+  // right side; the thumb closes on the left. Local -Z is the palm underside.
+  const pistolGripRotation = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(
+    new THREE.Vector3(0, 0, 1), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0)));
+  const pistolThumbHome = left.getObjectByName('grip-thumb')!.position.clone();
+  const pistolSlide = pistol ? model.children.filter(part => ['slide', 'slide-serration', 'front-sight', 'rear-sight'].some(name => part.name === `${id}__${name}`))
+    .map(part => ({ part, z: part.position.z })) : [];
   const manualBolt = FPS_WEAPONS[index].action === 'bolt';
   const rightCharges = FPS_WEAPONS[index].feed === 'belt' || manualBolt;
   const releaseFlick = FPS_WEAPONS[index].feed !== 'belt' && FPS_WEAPONS[index].feed !== 'drum';
@@ -65,7 +73,10 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   const authoredControl = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__charging-handle`) : undefined;
   const control = authoredControl ?? box(additions, .023, .014, .025, .049, index ? .211 : .257, index ? .05 : .10, steel);
   if (!authoredControl) control.name = `${id}__charging-handle`;
-  if (index === 2) { control.scale.setScalar(.4); control.position.set(.026, .171, .05); }
+  if (pistol) {
+    // A hidden slide-top anchor replaces the decorative rifle-style side lever.
+    control.position.set(0, .2245, .015); control.visible = false;
+  }
   // The SAR 21 cocks like a FAMAS: a lever on the receiver top, under the optic
   // bridge between its legs, run back along a slot towards the rear leg.
   const side = handleSide(FPS_WEAPONS[index].id);
@@ -75,7 +86,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   }
   // Belt-fed guns use the right hand on their right-side handle. Other guns
   // retain their support-hand pose, including the SAR's top lever.
-  const grip = side === 'top' ? { x: -.052, y: .004, turn: 1.77 } : { x: .035, y: .01, turn: -1.2 };
+  const grip = pistol ? { x: .011, y: .022, turn: 0 } : side === 'top' ? { x: -.052, y: .004, turn: 1.77 } : { x: .035, y: .01, turn: -1.2 };
   if (index >= 3 && !authoredControl) control.position.set(index === 4 ? .095 : .063, FPS_WEAPONS[index].sightHeight - .07, .04);
   const cover = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__feed-cover`) : undefined;
   const belt = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__feed-belt`) : undefined;
@@ -115,7 +126,20 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       const releaseGrip = ready === undefined && empty && progress !== null ? smoothStep((motionProgress * reloadLength(empty) - 1.15) / .03) : 0;
       // Let the action fly forward independently of the hand that released it.
       const handStroke = releaseGrip > 0 && !cycle ? Math.max(stroke, strokeLength * releaseGrip) : stroke;
-      if (progress !== null || ready !== undefined) left.position.lerp(new THREE.Vector3(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + handStroke), leftToHandle);
+      if (progress !== null || ready !== undefined) {
+        chargeTarget.set(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + handStroke);
+        if (pistol && leftToHandle > 0) {
+          // Move clear of the frame first, rise outside the slide, then lower
+          // a flat palm onto its top. A diagonal reach would cut through it.
+          chargeWaypoint.set(-.105, chargeTarget.y + .065, chargeTarget.z);
+          if (leftToHandle < .28) left.position.x = THREE.MathUtils.lerp(left.position.x, chargeWaypoint.x, smoothStep(leftToHandle / .28));
+          else if (leftToHandle < .68) {
+            left.position.x = chargeWaypoint.x;
+            left.position.lerp(chargeWaypoint, smoothStep((leftToHandle - .28) / .40));
+          } else left.position.copy(chargeWaypoint).lerp(chargeTarget, smoothStep((leftToHandle - .68) / .32));
+          left.quaternion.slerp(pistolGripRotation, smoothStep((leftToHandle - .28) / .40));
+        } else left.position.lerp(chargeTarget, leftToHandle);
+      }
       right.position.copy(rightHome); right.quaternion.copy(rightRotation);
       const rightToHandle = cycle?.hand ?? (rightCharges && (progress !== null || ready !== undefined) ? motion.handToHandle : 0);
       if (rightToHandle > 0) {
@@ -130,11 +154,11 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       if (flick.active) {
         const hand = rightCharges ? right : left, home = rightCharges ? rightHome : support;
         const homeRotation = rightCharges ? rightRotation : supportRotation;
-        const outward = side === 'top' ? -1 : 1;
+        const outward = pistol || side === 'top' ? -1 : 1;
         flickStart.set(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + strokeLength);
         // Stay behind the rear stop as the fingers open; no forward escort of
         // the handle. The lateral/upward clearance makes the release readable.
-        flickOut.copy(flickStart).add(new THREE.Vector3(outward * .105, .045, .045));
+        flickOut.copy(flickStart).add(new THREE.Vector3(outward * (pistol ? .15 : .105), .045, .045));
         if (flick.returnToGrip === 0) hand.position.copy(flickStart).lerp(flickOut, flick.clear);
         else {
           // Keep the wrist outside the receiver while moving toward its grip.
@@ -143,7 +167,8 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
           hand.position.copy(flickOut).multiplyScalar((1 - t) ** 2)
             .addScaledVector(flickArc, 2 * (1 - t) * t).addScaledVector(home, t * t);
         }
-        if (rightCharges) flickRotation.copy(chargeRotation);
+        if (pistol) flickRotation.copy(pistolGripRotation);
+        else if (rightCharges) flickRotation.copy(chargeRotation);
         else flickRotation.setFromEuler(new THREE.Euler(-.15, -.2 + grip.turn, .02));
         flickTurn.setFromEuler(new THREE.Euler(-.25, outward * .35, outward * .7));
         flickTurn.premultiply(flickRotation);
@@ -169,11 +194,23 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       if (reaching && !beltReload && time >= .70) closed *= 1 - smoothStep((time - .70) / .02) * (1 - smoothStep((time - .78) / .06));
       if (!rightCharges) closed *= 1 - flick.open;
       for (let finger = 0; finger < 4; finger++) left.getObjectByName(`grip-finger-${finger}`)!.rotation.x = .12 + closed * .95;
-      left.getObjectByName('grip-thumb')!.rotation.z = -.55 - closed * .35;
+      const thumb = left.getObjectByName('grip-thumb')!;
+      thumb.rotation.z = -.55 - closed * .35;
+      if (pistol) {
+        const clasp = leftToHandle * (1 - flick.clear);
+        for (let finger = 0; finger < 4; finger++) {
+          const joint = left.getObjectByName(`grip-finger-${finger}`)!;
+          joint.rotation.x = THREE.MathUtils.lerp(joint.rotation.x, -1.1, clasp);
+        }
+        thumb.position.copy(pistolThumbHome).lerp(new THREE.Vector3(.02, -.058, -.025), clasp);
+        thumb.rotation.z *= 1 - clasp;
+        pistolSlide.forEach(({ part, z }) => { part.position.z = z + stroke; });
+      }
       control.position.z = controlZ + stroke;
       control.rotation.z = controlRoll - (cycle?.lift ?? (manualBolt ? motion.action : 0)) * .9;
     },
     dispose() {
+      pistolSlide.forEach(({ part, z }) => { part.position.z = z; });
       pouchReload.dispose(); beltReload?.dispose(); bipod.reset(); control.position.z = controlZ; control.rotation.z = controlRoll;
       additions.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
   };
