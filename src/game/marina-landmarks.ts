@@ -16,23 +16,10 @@ function stairTower(id: string, x: number, a: number, b: number, height: number,
     fixtures:[-1,1].flatMap(side=>[a,b].map(z=>({x:x+side*5.8,z,y:height/2,width:.25,depth:.25,height,color:'#70858c'})))};
 }
 export const MARINA_LIFTS: readonly BuildingLift[] = [-39,21].map((z,i)=>({id:`sands-express-${i}`,x:90.6,z:z+3,width:4.4,depth:4.6,bottom:0,top:SKYPARK_FLOOR,dwell:7,travel:12,offset:i*19}));
-const lobby=(z:number,i:number):VerticalPlace=>({id:`sands-lobby-${i}`,name:`MBS Tower ${i+1} lobby`,note:'Walk-in stone lobby with reception, seating and an enclosed SkyPark lift core.',
-  floors:[{id:'lobby',x:91.2,z,y:0,width:18,depth:19.8,rails:false}],connections:[],
-  fixtures:[
-    ...(i===1?[[91.2,z,18,19.8]]:[[91.2,z-4.6,18,10.6],[91.2,z+7.6,18,4.6],[85.3,z+3,6.2,4.6],[96.5,z+3,7.4,4.6]]).map(([x,z,width,depth])=>({x,z,y:4.5,width,depth,height:.3,color:'#e1d8c2'})),
-    // Glazed perimeter has a generous bay-facing entrance and a north entry.
-    ...[-8,4.8].map(dz=>({x:82.2,y:2.2,z:z+dz,width:.28,height:4.4,depth:dz<0?3.8:10.2,color:'#637f86'})),
-    {x:100.2,y:2.2,z,width:.28,height:4.4,depth:19.8,color:'#637f86'},
-    ...[-1,1].map(side=>({x:90.6+side*6.1,y:2.2,z:z-9.9,width:6.7,height:4.4,depth:.28,color:'#637f86'})),
-    {x:91.2,y:2.2,z:z+9.9,width:18,height:4.4,depth:.28,color:'#637f86'},
-    ...[83,99.4].flatMap(x=>[-8.8,8.8].map(dz=>({x,y:2.3,z:z+dz,width:.7,height:4.6,depth:.7,color:'#ddd4bd'}))),
-    {x:96.7,y:1.5,z:z+.3,width:3.8,height:3,depth:.16,color:'#70543e'},
-    {x:96.7,y:.6,z:z-2,width:3,height:1.2,depth:1.1,color:'#77614c'},
-    {x:96.7,y:1.23,z:z-2,width:3.2,height:.12,depth:1.3,color:'#e1d8c2'},
-    ...[1,6].map(dz=>({x:84,y:.38,z:z+dz,width:1.1,height:.76,depth:2.4,color:'#426360'})),
-    {x:87,y:.65,z:z+7.8,width:1.4,height:1.3,depth:1.4,color:'#5e7653'},
-    {x:81.5,y:3.9,z:z-3.8,width:3,height:.22,depth:5.2,color:'#d5c5a4'},
-  ].map(f=>({...f,render:f.y>=4.5||f.width===.7,supportsTop:f.y<1.5}))});
+// The hotel ground floor is one connected atrium; bespoke geometry is in marina-atrium.
+const atrium:VerticalPlace={id:'sands-atrium',name:'MBS hotel atrium',
+  note:'Reference-informed connected lobby, with lounge islands and two express lift approaches.',
+  floors:[{id:'concourse',x:92.2,z:-9,y:0,width:20,depth:80,rails:false}],connections:[]};
 function spiral(x:number,z:number,id:string):VerticalPlace {
   const radius=4.6,segments=32,points=Array.from({length:segments+1},(_,i)=>{const angle=i/segments*Math.PI*2;return{x:x+radius*Math.cos(angle),z:z+radius*Math.sin(angle),y:i/segments*7.2};});
   return {id,name:'Supertree spiral stair',note:'A planted trunk wrapped by a continuous stair and golden handrail.',
@@ -43,7 +30,7 @@ function spiral(x:number,z:number,id:string):VerticalPlace {
 }
 const treeStairs=[spiral(174.6,9,'supertree-north-spiral'),spiral(173.4,69.6,'supertree-south-spiral')];
 export const MARINA_LANDMARK_PLACES: readonly VerticalPlace[] = [
-  ...[-39,-9,21].map(lobby),
+  atrium,
   {id:'sands-skypark',name:'MBS SkyPark combat deck',note:'Two express lift lobbies open directly onto the landscaped rooftop.',
     floors:[],connections:[],
     fixtures:[...[-40,-24,-8,8,31].map(z=>({x:94,z,y:SKYPARK_FLOOR+.3,width:1.3,depth:3,height:.6,color:'#667a52',supportsTop:true,render:false})),

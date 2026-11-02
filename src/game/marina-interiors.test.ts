@@ -71,3 +71,36 @@ it('keeps the roof under a player brushing a closing landing door and resolves a
   }
  }
 });
+
+it('has continuous full-height routes through the atrium, side entrances and both lift approaches',()=>{
+ const routes=[
+  [{x:86.7,z:-46},{x:86.7,z:28}],
+  ...[-43,-13,17].map(z=>[{x:81,z},{x:86.7,z}]),
+  ...MARINA_LIFTS.map(l=>[{x:86.7,z:l.z-7},{x:l.x,z:l.z-7},{x:l.x,z:l.z}]),
+  [{x:86.7,z:-18},{x:93.7,z:-18},{x:93.7,z:-13.5}],
+ ];
+ for(const route of routes){
+  let p={...route[0],y:0,velocityY:0};
+  for(const to of route.slice(1)){
+   const count=Math.ceil(Math.hypot(to.x-p.x,to.z-p.z)/.1),dx=(to.x-p.x)/count,dz=(to.z-p.z)/count;
+   for(let n=0;n<count;n++)p=movement.move(p,dx,dz,.025,.38,1.8,liftBodies(MARINA_LIFTS,to.z>0?19:0));
+   expect(p.x,JSON.stringify(to)).toBeCloseTo(to.x,1);expect(p.z,JSON.stringify(to)).toBeCloseTo(to.z,1);expect(p.y).toBeCloseTo(0);
+  }
+ }
+});
+it('opens the former low ceiling into the atrium and keeps overhead structure physically solid',()=>{
+ expect(movement.canOccupy(87.6,0,-17,.38,12)).toBe(true);
+ // A player falling onto a scenic bridge or gallery still lands on the visible slab.
+ for(const point of [{x:91.4,z:6,top:10.16},{x:85.2,z:-10,top:5.54}]){
+  let p={x:point.x,z:point.z,y:point.top+1.5,velocityY:0};for(let i=0;i<120;i++)p=movement.move(p,0,0,.02,.38,1.8);
+  expect(p.y).toBeCloseTo(point.top);
+ }
+});
+
+it.each(MARINA_LIFTS)('$id keeps standing passengers clear of the new stone portals throughout travel',l=>{
+ for(let time=0;time<38;time+=.05){
+  const sample=liftSample(l,time),bodies=liftBodies([l],time);
+  for(const dx of [-1.5,0,1.5])for(const dz of [-1.74,0,1.5])
+   expect(movement.canOccupy(l.x+dx,sample.y,l.z+dz,.38,1.8,bodies),`${time}: ${dx},${dz}`).toBe(true);
+ }
+});

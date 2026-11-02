@@ -273,11 +273,12 @@ export function buildMarinaScene() {
   // room panes between its mullions so occupancy lighting follows the splay.
   const sandsGlass = glass.clone(); sandsGlass.userData.nightWindow = true; materials.push(sandsGlass);
   for (const z of [-65, -15, 35]) {
-    // Upper hotel volumes leave a real ground lobby and a clear lift shaft.
+    // A 24m-high compressed atrium replaces the old 4.8m lobby boxes.
+    // Upper hotel volumes retain clear express shafts.
     const shaftZ=z+5;
-    for(const [x,w] of [[143.1,8.2],[159.1,8.2]])obstacles.push({minX:x-w/2,maxX:x+w/2,minZ:z-16,maxZ:z+16,minY:8,maxY:108});
-    for(const [lo,hi] of [[z-16,shaftZ-3.84],[shaftZ+3.84,z+16]])obstacles.push({minX:147.2,maxX:154.8,minZ:lo,maxZ:hi,minY:8,maxY:108});
-    for (let floor = 4; floor < 54; floor++) {
+    for(const [x,w] of [[143.1,8.2],[159.1,8.2]])obstacles.push({minX:x-w/2,maxX:x+w/2,minZ:z-16,maxZ:z+16,minY:40,maxY:108});
+    for(const [lo,hi] of [[z-16,shaftZ-3.84],[shaftZ+3.84,z+16]])obstacles.push({minX:147.2,maxX:154.8,minZ:lo,maxZ:hi,minY:40,maxY:108});
+    for (let floor = 20; floor < 54; floor++) {
       const y = floor * 2 + 1, splay = Math.pow(1 - y / h, 2) * 8;
       box(142.64 - splay * 0.2, y, z, .28, 1.94, 30, glass, scene, true);
       box(159.36 + splay, y, z, .28, 1.94, 30, glass, scene, true);

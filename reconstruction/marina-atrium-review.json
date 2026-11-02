@@ -1,0 +1,57 @@
+{
+  "sourceType": "published-architectural-photographs",
+  "references": [
+    {
+      "id": "mbs-hotel-atrium-hursley",
+      "file": "hursley-atrium.jpg",
+      "url": "https://pda.designsingapore.org/wp-content/uploads/2024/04/5-68.jpg",
+      "page": "https://pda.designsingapore.org/award-recipients/2011/marina-bay-sands-integrated-resort-singapore/",
+      "credit": "Timothy Hursley / President\u2019s Design Award, 2011 project",
+      "features": [
+        "tall atrium",
+        "repeated ivory balcony edges",
+        "inclined glazing and structural ribs",
+        "connecting bridge",
+        "suspended wire artwork"
+      ],
+      "sha256": "63c1be0cfbd980ba3f10eb7e85c16fa8df507ff7a4d5d5f89fee021171abe1bf",
+      "visualReview": {
+        "status": "accepted",
+        "scope": [
+          "tall atrium",
+          "repeated ivory balcony edges",
+          "inclined glazing and structural ribs",
+          "connecting bridge",
+          "suspended wire artwork"
+        ],
+        "reviewed": "2026-11-02",
+        "limits": "Published original-design photography; not verification of current 2026 finishes, dimensions or exact lift placement. Photographs are local research references, not shipped textures."
+      }
+    },
+    {
+      "id": "mbs-atrium-lounge-cl3",
+      "file": "cl3-atrium.jpg",
+      "url": "https://images.squarespace-cdn.com/content/v1/5a27b03bbe42d60fdd540619/1519127501274-RJIMTHIPMDGJQUOO54W1/Image-01.jpg?format=1000w",
+      "page": "https://www.cl3.com/marina-bay-sands",
+      "credit": "CL3 Architects project portfolio, completed April 2010",
+      "features": [
+        "curved lounge islands",
+        "warm recessed lighting",
+        "large tapered tree planters",
+        "open circulation beside lounge seating"
+      ],
+      "sha256": "41c29002167918afc3059bcdb00f6f5b23cc08660bdf033a1545b5eceef285e9",
+      "visualReview": {
+        "status": "accepted",
+        "scope": [
+          "curved lounge islands",
+          "warm recessed lighting",
+          "large tapered tree planters",
+          "open circulation beside lounge seating"
+        ],
+        "reviewed": "2026-11-02",
+        "limits": "Published original-design photography; not verification of current 2026 finishes, dimensions or exact lift placement. Photographs are local research references, not shipped textures."
+      }
+    }
+  ]
+}

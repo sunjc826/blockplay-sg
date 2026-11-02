@@ -457,3 +457,18 @@ surfaces without additional shadow-casting point lights. No emergency stairs add
 jumping during ascent, both roof ends, planter landing/step-off, and descent in
 the second lift. Unit checks sweep two full cycles against cabin walls, sample the
 full roof, test closing thresholds and verify shared passengers and AI navigation.
+
+
+### Reference-informed hotel atrium
+
+The generic three low-ceilinged lobbies are superseded by a connected tall atrium,
+with repeated ivory galleries, inclined glazing, a glazed roof, hotel wing walls,
+substantial piers and overhead bridges. The upper hotel shell begins above this
+space. A curved lounge/bar island, tree pots and side reception desks create
+interior landmarks while keeping a continuous ground route to both express lifts.
+See [reference scope and visual review](evidence/2026-11-02-mbs-atrium.md). This is
+a compressed interpretation of published original-design photographs, not an
+exact floor plan or verified 2026 refurbishment. No emergency stairs were added.
+
+`pnpm test:marina:atrium` walks the concourse, side entrance and lounge approach,
+then exercises cabin movement, the full roof/planter route and return lift.

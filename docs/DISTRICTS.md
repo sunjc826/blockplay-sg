@@ -6,7 +6,7 @@ navigation tool. Real place names label stylised counterparts.
 
 | District | Area | Stamps | Provenance |
 | --- | --- | ---: | --- |
-| Marina Bay | Downtown | 14 | Street View references, reviewed |
+| Marina Bay | Downtown | 14 | Reviewed Street View and hotel-atrium architectural photographs |
 | Raffles Place | City core | 11 | Street View references, reviewed |
 | Queenstown | Southwest | 8 | Street View references, reviewed |
 | Chinatown | Central | 11 | Reviewed details; schematic layout |

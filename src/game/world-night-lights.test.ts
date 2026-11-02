@@ -164,7 +164,7 @@ describe('street lamps', () => {
           counts[tower * 2 + Number(rear)]++;
         }
       });
-      expect(counts).toEqual(Array(6).fill(50 * 9));
+      expect(counts).toEqual(Array(6).fill(34 * 9));
     } finally { night.dispose(); world.dispose(); }
   });
   it('size windows for buildings, not kerbs or poles', () => {
