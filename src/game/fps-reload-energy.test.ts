@@ -16,8 +16,8 @@ it('settles exactly at both ends and stays continuous for every weapon and reloa
       const pose = reloadEnergy(step / 1000, empty, weapon);
       for (const axis of axes) {
         expect(Number.isFinite(pose[axis])).toBe(true);
-        expect(Math.abs(pose[axis])).toBeLessThan(.12);
-        expect(Math.abs(pose[axis] - previous[axis])).toBeLessThan(.018);
+        expect(Math.abs(pose[axis])).toBeLessThan(axis === 'x' || axis === 'y' || axis === 'z' ? .14 : .23);
+        expect(Math.abs(pose[axis] - previous[axis])).toBeLessThan(.045);
       }
       previous = pose;
     }

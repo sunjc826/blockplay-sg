@@ -79,3 +79,13 @@ it('holds belt-fed weapons steady around the tray and joins the existing empty c
       expect(Math.abs(current[axis] - previous[axis])).toBeLessThan(.03);
   }
 });
+
+it('takes up tension before ripping the magazine free and hitting the charging stop', () => {
+  expect(reloadMotion(.20).magazineDrop).toBeLessThan(.02);
+  expect(reloadMotion(.275).magazineDrop).toBeGreaterThan(.32);
+  const action = (t: number) => reloadMotion(reloadShare(t, true), true).action;
+  expect(action(.97)).toBeCloseTo(.08);
+  expect(action(1.015)).toBeCloseTo(1);
+  expect(action(1.17)).toBeLessThan(.31);
+  expect(action(1.19)).toBe(0);
+});

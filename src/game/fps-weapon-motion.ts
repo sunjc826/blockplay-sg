@@ -40,7 +40,7 @@ const magazineChange: readonly Key[] = [
   [.34, -.06, .17, -.06, -.14, .24, -.43, .30],
   [.48, -.05, .16, -.06, -.11, .22, -.40, .36],
   [.68, -.04, .16, -.03, -.08, .17, -.34, 0],
-  [.74, -.035, .17, -.05, -.03, .14, -.29, -.012],
+  [.74, -.035, .17, -.05, -.03, .14, -.29, 0],
 ];
 const tacticalKeys: readonly Key[] = [...magazineChange,
   [.84, -.02, .12, -.03, -.06, -.10, -.14, 0],
@@ -78,17 +78,20 @@ const topKeys: readonly Key[] = [...magazineChange,
 /** How far the charging handle is drawn back, 0..1: racked, held, then let fly. */
 function handleTravel(t: number) {
   if (t <= CHARGE.reach || t >= CHARGE.home) return 0;
-  if (t < CHARGE.back) return smoothStep((t - CHARGE.reach) / (CHARGE.back - CHARGE.reach));
+  // Take up tension, then drive the handle against its rear stop.
+  if (t < .97) return .08 * smoothStep((t - CHARGE.reach) / .03);
+  if (t < 1.015) return .08 + .92 * smoothStep((t - .97) / .045);
   if (t < CHARGE.release) return 1;
   const run = (t - CHARGE.release) / (CHARGE.home - CHARGE.release);
-  return 1 - run * run;
+  return (1 - run) ** 3;
 }
 export function reloadMotion(progress: number, empty = false, side: HandleSide = 'right') {
   const p = Math.max(0, Math.min(1, progress)), t = p * reloadLength(empty), keys = !empty ? tacticalKeys : side === 'top' ? topKeys : rightKeys;
   const index = Math.min(keys.length - 2, Math.max(0, keys.findIndex((_, i) => i < keys.length - 1 && t <= keys[i + 1][0])));
   const a = keys[index], b = keys[index + 1], s = smoothStep((t - a[0]) / (b[0] - a[0]));
   const v = a.slice(1).map((value, i) => value + (b[i + 1] - value) * s);
-  return { x: v[0], y: v[1], z: v[2], pitch: v[3], yaw: v[4], roll: v[5], magazineDrop: v[6],
+  return { x: v[0], y: v[1], z: v[2], pitch: v[3], yaw: v[4], roll: v[5], magazineDrop: t >= .16 && t <= .34
+      ? (t < .205 ? .015 * smoothStep((t - .16) / .045) : t < .275 ? .015 + .315 * smoothStep((t - .205) / .07) : .33 - .03 * smoothStep((t - .275) / .065)) : v[6],
     magazineVisible: t < .38 || t > MAG_IN_START,
     handToMagazine: smoothStep(t / .16) * (1 - smoothStep((t - .74) / (empty ? .12 : .20))),
     handToHandle: empty ? smoothStep((t - .80) / .14) * (1 - smoothStep((t - CHARGE.home) / .12)) : 0,

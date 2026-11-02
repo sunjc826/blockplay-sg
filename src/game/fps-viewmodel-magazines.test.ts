@@ -87,3 +87,23 @@ for (const [name, offset, projection] of [
   f.model.traverse(node => expect(node.matrixWorld.elements.every(Number.isFinite)).toBe(true));
   f.handling.dispose();
 });
+
+it('winds an open palm below the seated magazine and strikes its base at the seat event', () => {
+  const f = fixture(), hand = f.model.getObjectByName('reload-hand-left')!;
+  const at = (time: number) => {
+    f.handling.update(time, false, undefined, undefined, { ...f.reload, pending: time < .74, magazineOut: time < .74 });
+    f.model.updateWorldMatrix(true, true);
+    return f.model.worldToLocal(hand.getWorldPosition(new THREE.Vector3()));
+  };
+  const wind = at(.72), impact = at(.74);
+  expect(impact.y - wind.y).toBeCloseTo(.085, 5);
+  // Authored magazine spans y=-.14..+.04; the palm's front face lands at its base.
+  const contact = new THREE.Vector3(0, 0, .022).applyMatrix4(hand.matrixWorld);
+  expect(f.model.worldToLocal(contact).y).toBeCloseTo(-.14, 5);
+  expect(hand.getObjectByName('grip-finger-0')!.rotation.x).toBeCloseTo(.12);
+  expect(f.magazine.visible).toBe(true);
+  expect(f.model.getObjectByName('reload-carried-magazine')!.visible).toBe(false);
+  const before = at(.83999), after = at(.84);
+  expect(before.distanceTo(after)).toBeLessThan(.001);
+  f.handling.dispose();
+});

@@ -130,7 +130,11 @@ for (const family of [3, 4, 7]) {
     for (const time of [.94, .99, 1.04, 1.10, 1.16, 1.18]) {
       f.render(time, true);
       expect(right.position.x).toBeGreaterThan(handle.position.x + .03);
-      expect(right.position.z - handle.position.z).toBeCloseTo(.01, 10);
+      if (time <= 1.16) expect(right.position.z - handle.position.z).toBeCloseTo(.01, 10);
+      else {
+        expect(right.position.z - handle.position.z).toBeGreaterThan(.075);
+        expect(right.getObjectByName('grip-finger-0')!.rotation.x).toBeLessThan(.01);
+      }
       expect(right.position.y - handle.position.y).toBeCloseTo(.01, 10);
       expect(left.position.distanceTo(support)).toBeLessThan(1e-9);
       expect(left.quaternion.angleTo(leftRotation)).toBeLessThan(1e-7);

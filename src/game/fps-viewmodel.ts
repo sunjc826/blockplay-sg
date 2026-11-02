@@ -102,12 +102,16 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       const leftToHandle = rightCharges ? 0 : motion.handToHandle;
       left.rotation.set(-.15 + motion.handToMagazine * .3, -.2 + leftToHandle * grip.turn, .32 - motion.handToMagazine * .35 - leftToHandle * .3);
       const cycle = manualBolt && progress === null && ready === undefined && ammunition?.cycle !== undefined ? boltCycleMotion(ammunition.cycle) : undefined;
-      const stroke = (cycle?.travel ?? motion.action) * (index === 2 ? .035 : .075);
-      if (progress !== null || ready !== undefined) left.position.lerp(new THREE.Vector3(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + stroke), leftToHandle);
+      const strokeLength = index === 2 ? .035 : .075;
+      const stroke = (cycle?.travel ?? motion.action) * strokeLength;
+      const releaseGrip = ready === undefined && empty && progress !== null ? smoothStep((motionProgress * reloadLength(empty) - 1.15) / .03) : 0;
+      // Let the action fly forward independently of the hand that released it.
+      const handStroke = releaseGrip > 0 && !cycle ? Math.max(stroke, strokeLength * releaseGrip) : stroke;
+      if (progress !== null || ready !== undefined) left.position.lerp(new THREE.Vector3(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + handStroke), leftToHandle);
       right.position.copy(rightHome); right.quaternion.copy(rightRotation);
       const rightToHandle = cycle?.hand ?? (rightCharges && (progress !== null || ready !== undefined) ? motion.handToHandle : 0);
       if (rightToHandle > 0) {
-        chargeTarget.set(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + stroke);
+        chargeTarget.set(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + handStroke);
         // Clear the receiver sideways before raising the hand. Reverse the
         // same outside path on the way back to the firing grip.
         chargeWaypoint.set(chargeTarget.x + .06, rightHome.y, rightHome.z);
@@ -115,7 +119,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
         else right.position.copy(chargeWaypoint).lerp(chargeTarget, smoothStep((rightToHandle - .4) / .6));
         right.quaternion.slerp(chargeRotation, rightToHandle);
       }
-      for (let finger = 0; finger < 4; finger++) right.getObjectByName(`grip-finger-${finger}`)!.rotation.x = rightToHandle * 1.07;
+      for (let finger = 0; finger < 4; finger++) right.getObjectByName(`grip-finger-${finger}`)!.rotation.x = rightToHandle * (1 - releaseGrip) * 1.07;
       right.getObjectByName('grip-thumb')!.rotation.z = .55 + rightToHandle * .35;
       if (magazine) {
         magazine.userData.loadedCapacity = reload?.capacity ?? FPS_WEAPONS[index].capacity;
@@ -130,7 +134,9 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       beltReload?.update(pouchReload);
       const connected = beltReload && beltActive ? pouchReload.updateArm(reload?.source, true) : reaching;
       const stub = left.getObjectByName('hand-forearm-stub'); if (stub) stub.visible = !connected;
-      const closed = beltReload && beltActive ? beltReload.grip : reaching ? smoothStep((time - .425) / .045) * (1 - smoothStep((time - .76) / .08)) : .35;
+      let closed = beltReload && beltActive ? beltReload.grip : reaching ? smoothStep((time - .425) / .045) * (1 - smoothStep((time - .76) / .08)) : .35;
+      if (leftToHandle > 0 && !reaching) closed = THREE.MathUtils.lerp(closed, .95 * (1 - releaseGrip), leftToHandle);
+      if (reaching && !beltReload && time >= .70) closed *= 1 - smoothStep((time - .70) / .02) * (1 - smoothStep((time - .78) / .06));
       for (let finger = 0; finger < 4; finger++) left.getObjectByName(`grip-finger-${finger}`)!.rotation.x = .12 + closed * .95;
       left.getObjectByName('grip-thumb')!.rotation.z = -.55 - closed * .35;
       control.position.z = controlZ + stroke;

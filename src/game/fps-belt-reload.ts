@@ -99,7 +99,7 @@ export function createBeltReload(model: THREE.Group, magazine: THREE.Object3D, b
       base.copy(mouth).applyMatrix4(mountMatrix);
       magazine.position.copy(homePosition).add(seatedMouth).sub(base); magazine.quaternion.copy(homeRotation);
       mountMatrix.compose(magazine.position, homeRotation, magazine.scale);
-      const drop = active ? .26 * ease(time, .30, .38) : 0;
+      const drop = active ? .26 * ease(time, .315, .355) : 0;
       if (active && time < .38) { magazine.position.y -= drop; magazine.rotateZ(-drop * .35); }
       if (active && pending && time < .64) {
         // Fallback for previews without a body pouch. The real carry pose below

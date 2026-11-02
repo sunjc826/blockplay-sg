@@ -129,7 +129,7 @@ export function createPouchReload(model: THREE.Object3D, hand: THREE.Object3D, m
       const gunUp = Y.clone().transformDirection(model.matrixWorld);
       lead.copy(to).addScaledVector(gunUp, -.09);
       control.copy(lift).lerp(lead, .5); control.x -= .09; control.z -= .10;
-      const extract = reloadDrive((time - RELOAD_POINTS.take) / (.56 - RELOAD_POINTS.take)), travel = ease(time, .56, .67), insert = reloadDrive((time - .67) / (RELOAD_POINTS.seat - .67));
+      const extract = reloadDrive((time - RELOAD_POINTS.take) / (.56 - RELOAD_POINTS.take)), travel = ease(time, .56, .67), insert = reloadDrive((time - .67) / ((options?.mountMatrix ? RELOAD_POINTS.seat : .70) - .67));
       if (time < .56) centre.copy(from).lerp(lift, extract);
       else if (time < .67) centre.copy(lift).multiplyScalar((1 - travel) ** 2).addScaledVector(control, 2 * (1 - travel) * travel).addScaledVector(lead, travel ** 2);
       else centre.copy(lead).lerp(to, insert);
@@ -149,6 +149,21 @@ export function createPouchReload(model: THREE.Object3D, hand: THREE.Object3D, m
       hand.position.lerp(originalHand, time >= RELOAD_POINTS.seat ? returning : 1 - reach);
       hand.quaternion.copy(model.getWorldQuaternion(new THREE.Quaternion()).invert()).multiply(rotation).multiply(pose);
       hand.quaternion.slerp(originalRotation, time >= RELOAD_POINTS.seat ? returning : 1 - reach);
+      // The magazine is guided home first. Open the palm, pull below its base,
+      // then strike it at the .74 seat event. Keep the physical container still:
+      // the hand, not the magazine, winds up for the slap. Belt boxes instead use
+      // their existing box/tray/cover choreography.
+      if (!options?.mountMatrix && time >= .70) {
+        const tapUp = Y.clone().applyQuaternion(targetRotation);
+        const palm = to.clone().addScaledVector(tapUp, -targetSize.y * .5 - .022);
+        const wind = ease(time, .70, .72), strike = reloadDrive((time - .72) / .02);
+        const recovery = ease(time, .76, .84);
+        const tap = grip.clone().lerp(palm.clone().addScaledVector(tapUp, -.085 * (1 - strike)), wind);
+        hand.position.copy(tap).applyMatrix4(inverse).lerp(originalHand, recovery);
+        const palmRotation = model.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(targetRotation)
+          .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, -.2)));
+        hand.quaternion.slerp(palmRotation, wind).slerp(originalRotation, recovery);
+      }
       root.visible = true; carried!.visible = pending && time >= RELOAD_POINTS.take && time < RELOAD_POINTS.seat;
       if (carried!.visible) {
         // Put the exact pouch visual in the same projected pose at pickup, then
