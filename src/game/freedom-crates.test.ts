@@ -18,10 +18,19 @@ it.each(PROXY_REWARDS['freedom-force'])('%s has a live, unobstructed sight and d
   expect(root.userData.artStudy).toBe(false);
   expect(root.getObjectByName(`${id}__magazine`)!.children.length).toBeGreaterThan(0);
   expect(root.getObjectByName(`${id}__socket_muzzle`)).toBe(model.sockets.muzzle);
-  const {height}=root.userData.proxyOptic;
+  const {height,lens}=root.userData.proxyOptic;
   root.updateMatrixWorld(true);
   const ray=new THREE.Raycaster(new THREE.Vector3(0,height,.8),new THREE.Vector3(0,0,-1),0,2);
-  expect(ray.intersectObject(root,true)).toHaveLength(0);
+  const hits=ray.intersectObject(root,true);
+  if(id==='ff-longwatch') {
+    // The objective seals the front of the telescope, behind its live image.
+    // Housing or mount geometry must never cover the rear aiming plane.
+    expect(hits.length).toBeGreaterThan(0);
+    for(const hit of hits) {
+      expect(hit.point.z).toBeLessThan(lens);
+      expect(hit.object.name).toBe(`${id}__Study opaque lens`);
+    }
+  } else expect(hits).toHaveLength(0);
   const remove=fitWeaponOptic(root,spec), sight=getWeaponSight(root)!;
   expect(sight.aimHeight).toBe(height);
   expect(sight.magnification).toBeCloseTo(id==='ff-intervention'?6:id==='ff-oicw'||id==='ff-longwatch'?4:id==='ff-scar-h'?2:1);
