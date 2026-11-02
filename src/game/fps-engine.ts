@@ -128,7 +128,7 @@ import { createRailEffects } from './weapon-rail-effects';
 import { accelerateInstancedRaycasts } from './instanced-raycast';
 import { separateInstancedMaterials } from './instanced-materials';
 import { createOpticReflectionRenderer } from './weapon-reflections';
-import { beltWeaponMotion, handleSide, INSPECT_DURATION, inspectMotion, reloadMotion, readyMotion, reloadStage, smoothStep } from './fps-weapon-motion';
+import { weaponReloadMotion, handleSide, INSPECT_DURATION, inspectMotion, readyMotion, reloadStage, smoothStep } from './fps-weapon-motion';
 import { armReloadGate, reloadInterrupt } from './fps-reload';
 import { advanceSprintBreak, createSprintBreak } from './fps-sprint';
 import { createFpsComms, type CommsEntry } from './fps-comms';
@@ -1968,8 +1968,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.deploymentCamera = JSON.stringify({ x: camera.position.x, y: camera.position.y, z: camera.position.z, pitch: camera.rotation.x, yaw: camera.rotation.y, fov: camera.fov, ready: readyProgress ?? null, speed: intro?.speed ?? 0, blur: intro?.blur ?? 0 });
     const progress = remaining > 0 ? 1 - remaining : null;
     const beltProgress = progress ?? (specs[hud.weapon].feed === 'belt' ? state.reloadSaved ?? 0 : 0);
-    const motion = readyProgress === undefined ? specs[hud.weapon].feed === 'belt'
-      ? beltWeaponMotion(beltProgress, emptyReload[hud.weapon]) : reloadMotion(progress ?? 0, emptyReload[hud.weapon], handleSide(specs[hud.weapon].id))
+    const motion = readyProgress === undefined
+      ? weaponReloadMotion(specs[hud.weapon].feed === 'belt' ? beltProgress : progress ?? 0, emptyReload[hud.weapon], specs[hud.weapon])
       : readyMotion(readyProgress, handleSide(specs[hud.weapon].id));
     if (readyProgress === undefined) {
       const energy = reloadEnergy(specs[hud.weapon].feed === 'belt' ? beltProgress : progress ?? 0, emptyReload[hud.weapon], specs[hud.weapon]);

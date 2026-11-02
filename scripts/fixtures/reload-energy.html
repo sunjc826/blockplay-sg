@@ -6,7 +6,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { buildServiceWeapon } from '/src/game/service-weapon-models.ts';
 import { createWeaponHandling } from '/src/game/fps-viewmodel.ts';
 import { FPS_WEAPONS, reloadLength } from '/src/game/fps-rules.ts';
-import { beltWeaponMotion, reloadMotion, handleSide } from '/src/game/fps-weapon-motion.ts';
+import { weaponReloadMotion } from '/src/game/fps-weapon-motion.ts';
 import { reloadEnergy } from '/src/game/fps-reload-energy.ts';
 import { pouchWeaponOffset } from '/src/game/fps-pouch-reload.ts';
 const $=id=>document.getElementById(id);
@@ -26,7 +26,7 @@ FPS_WEAPONS.forEach((spec,i)=>$('family').add(new Option(spec.name,String(i))));
 function select(index){handling?.dispose();model?.removeFromParent();family=index;model=models[index];parent.add(model);handling=createWeaponHandling(model,index);$('family').value=String(index);box.scale.setScalar(1);if(FPS_WEAPONS[index].feed==='belt')box.scale.set(1.5,.8,1.5);}
 function draw(time=clock){
   clock=time;const spec=FPS_WEAPONS[family],empty=$('empty').checked,progress=time/reloadLength(empty);
-  const base=spec.feed==='belt'?beltWeaponMotion(progress,empty):reloadMotion(progress,empty,handleSide(spec.id));
+  const base=weaponReloadMotion(progress,empty,spec);
   const energy=reloadEnergy(progress,empty,spec),scale=$('energy').checked?($('reduced').checked?.25:1):0;
   const pocket=pouchWeaponOffset(progress,empty);
   parent.position.set(.20+base.x+energy.x*scale+pocket.x,-.32+base.y+energy.y*scale+pocket.y,-.78+base.z+energy.z*scale+pocket.z);

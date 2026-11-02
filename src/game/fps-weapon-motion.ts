@@ -1,4 +1,4 @@
-import { EMPTY_RELOAD, reloadLength } from './fps-rules';
+import { EMPTY_RELOAD, reloadLength, type WeaponSpec } from './fps-rules';
 
 export const smoothStep = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };
 
@@ -120,6 +120,18 @@ export function beltWeaponMotion(progress: number, empty = false) {
     pitch: .06 * hold * (1 - charge) + motion.pitch * charge,
     yaw: .12 * hold * (1 - charge) + motion.yaw * charge,
     roll: -.14 * hold * (1 - charge) + motion.roll * charge };
+}
+/** Rifle reloads keep the butt low at the shoulder while the muzzle tilts up.
+ * The receiver still rolls to expose the magazine/action; mechanical timing and
+ * the additive contact impulses remain independent of this presentation pose. */
+export function weaponReloadMotion(progress: number, empty: boolean, weapon: Pick<WeaponSpec, 'id' | 'feed'>) {
+  if (weapon.feed === 'belt') return beltWeaponMotion(progress, empty);
+  const motion = reloadMotion(progress, empty, handleSide(weapon.id));
+  if (weapon.id === 'p30-inspired' || weapon.feed === 'drum') return motion;
+  const time = Math.max(0, Math.min(1, progress)) * reloadLength(empty);
+  const shoulder = smoothStep(time / .16) * (1 - smoothStep((time - (empty ? 1.24 : .80)) / (empty ? .26 : .20)));
+  return { ...motion, x: motion.x * .6, y: motion.y * .22,
+    pitch: .38 * shoulder + motion.pitch * .3, yaw: motion.yaw * .55, roll: motion.roll * .8 };
 }
 /** Raise, rack and shoulder the loaded weapon, without a magazine change. */
 export function readyMotion(progress: number, side: HandleSide = 'right') {
