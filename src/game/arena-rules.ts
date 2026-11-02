@@ -1,3 +1,4 @@
+import { BOAT_AI, BOAT_BERTHS, BOAT_FOOT_ANCHORS, boatAutopilot, planBoatRoute, type BoatRoute, type BoatPoint } from './dragon-boat-autopilot';
 import { createMerlionController, mistBetween, nearMerlion, merlionMouth, MERLION, type MerlionState, type MerlionAction } from './merlion-gameplay';
 import { createSwimmingMovement, SWIMMING, swimmingCanFire, swimmingShotDirection } from './swimming';
 import { isDragonBoat, canPaddle } from './marina-water';
@@ -308,6 +309,7 @@ export interface VehicleCrewTransfer {
 interface InternalActor {
   swimBudget?:number; lastSwimInput?:number; swimmingUntil?:number;
   vehicleBoardAfter?: number;
+  boatIslandUntil?: number; boatGuard?: number;
   evacuating?: { x: number; z: number; until: number };
   velocityY?: number;
   navigation?: { path: NavigationPoint[]; target: NavigationPoint; retry: number; stuck?: number; pending?: Generator<undefined, NavigationPoint[]> };
@@ -449,7 +451,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const swimmer = traversalWorld?.obstacles.some(o=>o.water) ? createSwimmingMovement(traversalWorld) : null;
   const traversal = traversalWorld ? createVerticalMovement(traversalWorld) : null;
   const vehicleGround = [...obstacles, ...(traversalWorld ? verticalVehicleObstacles({...traversalWorld,bounds}) : [])];
-  const navigationAnchors=[...(obstacles.some(o=>o.water)?[-2.6,2.6].flatMap(x=>[-15,-9].map(z=>({x,z}))):[]),...(environment?.navigationAnchors??[]),...(environment?.battlefield && vehicleOptions ? Object.values(vehicleOptions.spawns).flatMap(p=>[-6,6].flatMap(dx=>[-6,6].map(dz=>({x:p.x+dx,z:p.z+dz})))) : [])];
+  const navigationAnchors=[...(obstacles.some(o=>o.water)?[...BOAT_FOOT_ANCHORS,...[-2.6,2.6].flatMap(x=>[-15,-9].map(z=>({x,z})))]:[]),...(environment?.navigationAnchors??[]),...(environment?.battlefield && vehicleOptions ? Object.values(vehicleOptions.spawns).flatMap(p=>[-6,6].flatMap(dx=>[-6,6].map(dz=>({x:p.x+dx,z:p.z+dz})))) : [])];
   const navigator = traversalWorld && (traversalWorld.surfaces.length || navigationAnchors.length) ? createVerticalNavigator(traversalWorld, navigationAnchors) : null;
   const regularLimit = environment?.battlefield?.size ?? 20;
   const floorAt = (point: ArenaPoint) => traversal?.supportHeight(point.x, point.z, point.y - .5, .35, .6) ?? 0;
@@ -503,6 +505,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const controls = new Map<string, { input: VehicleControls; expires: number }>();
   let airSortie: { pilot: string; mission: HelicopterMission; created: number; boarded: boolean } | undefined;
   const airDecisionAt = new Map<string, number>();
+  interface BoatSortie { pilot:string; route:BoatRoute|null; index:number; boarded:boolean; returning:boolean; started:number; phaseAt:number; phase:'boarding'|'sailing'|'unloading'; progressAt:number; last:{x:number;z:number;yaw:number}; retryAt:number; crew:string[] }
+  const boatSorties=new Map<VehicleKind,BoatSortie>(),boatDecisionAt=new Map<VehicleKind,number>();
   let aviationSeed = 173821;
   const aviationRandom = () => { aviationSeed = (Math.imul(aviationSeed, 1664525) + 1013904223) >>> 0; return aviationSeed / 4294967296; };
   const vehicleLife = new Map<VehicleKind, { idle: number; wreck: number; stuck: number; wait: number; unload: boolean; think: number; lastThink: number; crew: string[]; assembleUntil: number; departed: boolean; pickupDriver?: string; pickupStopped: number; goal?: VehicleSpawn }>();
@@ -631,7 +635,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (entry.actor.bot && entry.actor.faction === 'mercenaries' && ['assault', 'tank'].includes(entry.role?.id ?? '')) { entry.actor.grenade = entry.role?.id === 'tank' ? 'grenade-smoke' : 'grenade-frag'; entry.grenadeSupplies[entry.actor.grenade] = 1; } else delete entry.actor.grenade;
     entry.velocity = undefined; entry.speed = 0; entry.lastAt = undefined; entry.aimFocus = undefined; entry.turn = undefined;
     entry.spotting = undefined; entry.shotFlash = undefined;
-    entry.parachute = undefined; delete entry.actor.parachuting; entry.navigation = undefined; entry.assignment = undefined; entry.guardPatrol = undefined; entry.investigation = undefined; sectorPatrols?.release(entry.actor.id); entry.mission = undefined; delete entry.actor.objective; delete entry.actor.duty; delete entry.actor.patrolSector; entry.navalTransit = undefined; delete entry.actor.ground; entry.evacuating = undefined; entry.vehicleBoardAfter = undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
+    entry.parachute = undefined; delete entry.actor.parachuting; entry.navigation = undefined; entry.assignment = undefined; entry.guardPatrol = undefined; entry.investigation = undefined; sectorPatrols?.release(entry.actor.id); entry.mission = undefined; delete entry.actor.objective; delete entry.actor.duty; delete entry.actor.patrolSector; entry.navalTransit = undefined; delete entry.actor.ground; entry.evacuating = undefined; entry.vehicleBoardAfter = undefined; entry.boatIslandUntil=undefined; entry.boatGuard=undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
     delete entry.actor.swimming;entry.swimBudget=.08;entry.lastSwimInput=undefined;entry.swimmingUntil=undefined;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false; entry.threat = undefined; entry.grudge = undefined;
   };
@@ -1161,7 +1165,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     });
   }
   function vehicleAction(id: string, action: 'enter' | 'exit' | 'switch', kind?: VehicleKind) {
-    const entry = members.get(id); if (!entry?.actor.alive || merlion?.state.operator===id || !entry.playing || finished || entry.actor.bot && !vehicleOptions?.openWorld) return false;
+    const entry = members.get(id); if (!entry?.actor.alive || merlion?.state.operator===id || !entry.playing || finished || entry.actor.bot && !vehicleOptions?.openWorld && !isDragonBoat(kind??entry.actor.vehicle??'')) return false;
     const mounted = seatOf(vehicles, id);
     if (action === 'exit' && mounted) {
       // A moving bailout releases only the caller; the remaining crew brakes and unloads safely.
@@ -2714,6 +2718,128 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       hold(gun.actor.id,{...(gun===driver?input:{forward:0,steer:0,lift:0,brake:true,boost:false,fire:false}),fire:!!target,...(target?{aim:chestOf(target.actor)}:{})});
     }
   }
+  function walkBoatInfantry(entry:InternalActor,goal:BoatPoint,dt:number) {
+    const a=entry.actor,target={...goal,y:0};
+    if(entry.navigation)entry.navigation.retry-=dt;
+    if(navigator&&(!entry.navigation||Math.hypot(entry.navigation.target.x-goal.x,entry.navigation.target.z-goal.z)>.6||!entry.navigation.pending&&!entry.navigation.path.length&&entry.navigation.retry<=0))
+      entry.navigation={path:[],target,retry:1.5,pending:navigator.plan({x:a.x,y:Math.max(0,a.y-1.75),z:a.z},target)};
+    while(entry.navigation?.path.length&&Math.hypot(entry.navigation.path[0].x-a.x,entry.navigation.path[0].z-a.z)<.3)entry.navigation.path.shift();
+    const next=entry.navigation?.path[0]??goal,dx=next.x-a.x,dz=next.z-a.z,d=Math.hypot(dx,dz),stride=Math.min(d,entry.role!.speed*dt);
+    if(d<.01)return;
+    const solids=vehicles.filter(v=>!v.despawned&&v.y<2).map(vehicleBounds);
+    if(traversal){const p=traversal.move({x:a.x,y:Math.max(0,a.y-1.75),z:a.z,velocityY:entry.velocityY??0},dx/d*stride,dz/d*stride,dt,.4,1.8,solids);Object.assign(a,{x:p.x,y:p.y+1.75,z:p.z});entry.velocityY=p.velocityY;}
+    else Object.assign(a,move(a,dx/d*stride,dz/d*stride,.4,[...groundObstacles,...solids]));
+    a.yaw=Math.atan2(-dx,-dz);a.prone=false;
+  }
+  function boatInfantryEligible(m:InternalActor) {
+    const a=m.actor;
+    return a.bot&&a.alive&&!m.reserve&&!a.vehicle&&!a.transport&&!a.parachuting&&!a.swimming&&!m.anchor&&!m.temporary&&!m.heal&&
+      !(m.order&&m.order.until>elapsed)&&elapsed>=(m.vehicleBoardAfter??0)&&elapsed>=(m.boatIslandUntil??0)&&
+      a.health>=m.healthMax*.5&&!arenaConditionModifiers(a.conditions).dazed&&!arenaConditionModifiers(a.conditions).frozen;
+  }
+  function boatSolids(v:SharedVehicle){return vehicles.filter(o=>o!==v&&!o.despawned).map(vehicleBounds);}
+  const onMerlionIsland=(p:BoatPoint)=>Math.hypot(p.x,p.z-MERLION.z)<22;
+  function boatGoals(island:boolean){return BOAT_BERTHS.filter(b=>b.island===island);}
+  function newBoatSortie(v:SharedVehicle,pilot:InternalActor,route:BoatRoute,crew:string[]):BoatSortie {
+    return{pilot:pilot.actor.id,route,index:0,boarded:false,returning:!route.berth.island,started:elapsed,phaseAt:elapsed,phase:'boarding',progressAt:elapsed,last:{x:v.x,z:v.z,yaw:v.yaw},retryAt:elapsed,crew};
+  }
+  /** Approach a real dry exit, never the hull's centre across water. Reservations expire without inventing crew. */
+  function tryBoardDragonBoat(entry:InternalActor,dt:number) {
+    if(!merlion||entry.actor.vehicle||entry.actor.transport||entry.actor.swimming||entry.actor.parachuting||merlion.state.operator===entry.actor.id)return false;
+    const boats=vehicles.filter(v=>isDragonBoat(v.kind)&&!v.despawned&&v.health>VEHICLE_COMBAT[v.kind].health*.35&&vehicleSpeed(v)<1&&v.occupants.includes(null))
+      .sort((a,b)=>distance(entry.actor,a)-distance(entry.actor,b));
+    for(const v of boats){
+      const landing=vehicleExit(v,obstacles,bounds,exitFloor);if(!landing||Math.hypot(entry.actor.x-landing.x,entry.actor.z-landing.z)>BOAT_AI.boardRange)continue;
+      const driver=v.occupants[0]?members.get(v.occupants[0]):undefined,life=lifeOf(v);
+      if(v.occupants.some(id=>id&&members.get(id)?.actor.faction!==entry.actor.faction)||life.unload)continue;
+      if(driver&&!driver.actor.bot){
+        const order=entry.order&&entry.order.until>elapsed?entry.order:undefined;
+        if(!driver.actor.alive||!driver.playing||life.pickupDriver!==driver.actor.id||life.pickupStopped<WORLD_VEHICLES.pickupSeconds||order&&(order.kind!=='gather'||order.by!==driver.actor.id)||entry.anchor||entry.temporary||entry.heal||elapsed<(entry.vehicleBoardAfter??0))continue;
+      }else{
+        if(!boatInfantryEligible(entry))continue;
+        let sortie=boatSorties.get(v.kind);
+        if(sortie&&(sortie.phase!=='boarding'||sortie.pilot!==entry.actor.id&&!sortie.crew.includes(entry.actor.id)))continue;
+        if(!sortie){
+          if(driver||elapsed<(boatDecisionAt.get(v.kind)??0)||[...members.values()].some(m=>!m.actor.bot&&m.actor.alive&&distance(m.actor,v)<12))continue;
+          const candidates=[...members.values()].filter(m=>boatInfantryEligible(m)&&m.actor.faction===entry.actor.faction&&Math.hypot(m.actor.x-landing.x,m.actor.z-landing.z)<BOAT_AI.boardRange)
+            .sort((a,b)=>Math.hypot(a.actor.x-landing.x,a.actor.z-landing.z)-Math.hypot(b.actor.x-landing.x,b.actor.z-landing.z)||a.actor.id.localeCompare(b.actor.id));
+          if(candidates[0]!==entry)continue;
+          boatDecisionAt.set(v.kind,elapsed+BOAT_AI.retrySeconds);
+          const route=planBoatRoute(v,boatGoals(!onMerlionIsland(v)),boatSolids(v));if(!route)continue;
+          sortie=newBoatSortie(v,entry,route,candidates.slice(1,4).map(m=>m.actor.id));boatSorties.set(v.kind,sortie);
+        }
+        if(!driver&&sortie.pilot!==entry.actor.id){walkBoatInfantry(entry,landing,dt);return true;}
+      }
+      if(vehicleAction(entry.actor.id,'enter',v.kind)){entry.aimFocus=undefined;return true;}
+      walkBoatInfantry(entry,landing,dt);entry.aimFocus=undefined;return true;
+    }
+    return false;
+  }
+  function assignBoatLanding(ids:readonly string[],island:boolean){
+    ids.forEach((id,n)=>{const m=members.get(id);if(!m?.actor.bot)return;
+      m.navigation=undefined;if(island){m.boatIslandUntil=elapsed+BOAT_AI.islandSeconds;m.boatGuard=n;m.actor.objective='Merlion';m.actor.duty='attack';}
+    });
+  }
+  /** Existing boats carry existing soldiers. A surviving bot may replace a lost pilot only when no player remains aboard. */
+  function stepDragonBoatBrains(){
+    const neutral:VehicleControls={forward:0,steer:0,lift:0,brake:true,boost:false,fire:false};
+    for(const v of vehicles){
+      if(!isDragonBoat(v.kind))continue;
+      let sortie=boatSorties.get(v.kind),driver=v.occupants[0]?members.get(v.occupants[0]):undefined;
+      const life=lifeOf(v),hold=(input:VehicleControls)=>{if(driver)controls.set(driver.actor.id,{input,expires:elapsed+.35});};
+      if(v.despawned||v.health<=0){boatSorties.delete(v.kind);continue;}
+      if(driver&&!driver.actor.bot){boatSorties.delete(v.kind);if(life.unload)unloadVehicle(v);continue;}
+      if(!driver&&v.occupants.some(Boolean)){
+        if(v.occupants.some(id=>id&&!members.get(id)?.actor.bot))continue;
+        if(life.unload&&vehicleSpeed(v)<=.8&&unloadVehicle(v)){boatSorties.delete(v.kind);continue;}
+        const survivor=v.occupants.slice(1).map(id=>id?members.get(id):undefined).find(m=>m?.actor.alive);
+        if(survivor){releaseSeat(survivor.actor.id,true);v.occupants[0]=survivor.actor.id;life.unload=false;driver=survivor;if(sortie)sortie.pilot=driver.actor.id;syncOccupants();}
+      }
+      if(!driver){
+        if(sortie){const pilot=members.get(sortie.pilot);if(!pilot||!boatInfantryEligible(pilot)||elapsed-sortie.started>40){boatSorties.delete(v.kind);boatDecisionAt.set(v.kind,elapsed+BOAT_AI.retrySeconds);}}
+        continue;
+      }
+      if(!sortie){
+        const route=planBoatRoute(v,boatGoals(!onMerlionIsland(v)),boatSolids(v));
+        if(!route){hold(neutral);continue;}
+        sortie=newBoatSortie(v,driver,route,[]);boatSorties.set(v.kind,sortie);
+      }
+      if(!sortie.boarded){sortie.boarded=true;sortie.started=sortie.phaseAt=sortie.progressAt=elapsed;}
+      if(sortie.phase==='boarding'){
+        hold(neutral);
+        const waiting=sortie.crew.some(id=>{const m=members.get(id);return m&&boatInfantryEligible(m)&&!v.occupants.includes(id);});
+        if(elapsed-sortie.phaseAt<BOAT_AI.minWait||waiting&&elapsed-sortie.phaseAt<BOAT_AI.waitSeconds)continue;
+        sortie.phase='sailing';sortie.phaseAt=sortie.progressAt=elapsed;
+      }
+      if(sortie.phase==='unloading'){
+        hold(neutral);const island=sortie.route?.berth.island??false,keepPilot=island&&v.occupants.slice(1).some(Boolean);
+        const dropped=v.occupants.slice(keepPilot?1:0).filter((id):id is string=>!!id);
+        if(unloadVehicle(v,keepPilot)){
+          assignBoatLanding(dropped,island);
+          if(!keepPilot){boatSorties.delete(v.kind);continue;}
+          sortie.returning=true;sortie.started=elapsed;sortie.route=null;sortie.index=0;sortie.phase='sailing';sortie.retryAt=elapsed;
+        }else if(elapsed-sortie.phaseAt>6&&elapsed>=sortie.retryAt){
+          const route=planBoatRoute(v,boatGoals(island).filter(b=>b.id!==sortie!.route?.berth.id),boatSolids(v));sortie.retryAt=elapsed+BOAT_AI.retrySeconds;
+          if(route){sortie.route=route;sortie.index=0;sortie.phase='sailing';sortie.progressAt=elapsed;}
+        }
+        continue;
+      }
+      if(driver.order&&driver.order.until>elapsed||elapsed-sortie.started>BOAT_AI.missionSeconds){
+        if(!sortie.returning){sortie.returning=true;sortie.route=null;sortie.index=0;sortie.retryAt=elapsed;}
+      }
+      const moved=Math.hypot(v.x-sortie.last.x,v.z-sortie.last.z),turned=Math.abs(Math.atan2(Math.sin(v.yaw-sortie.last.yaw),Math.cos(v.yaw-sortie.last.yaw)));
+      if(moved>.025||turned>.008){sortie.last={x:v.x,z:v.z,yaw:v.yaw};sortie.progressAt=elapsed;}
+      if(elapsed-sortie.progressAt>BOAT_AI.retrySeconds&&elapsed>=sortie.retryAt){sortie.route=null;sortie.index=0;}
+      if(!sortie.route){
+        hold(neutral);if(elapsed<sortie.retryAt)continue;
+        sortie.route=planBoatRoute(v,boatGoals(!sortie.returning),boatSolids(v));sortie.index=0;sortie.retryAt=elapsed+BOAT_AI.retrySeconds;sortie.progressAt=elapsed;
+        if(!sortie.route)continue;
+      }
+      const point=sortie.route.points[sortie.index],next=boatAutopilot(v,point);
+      hold(next.input);
+      if(next.arrived){sortie.index++;sortie.progressAt=elapsed;if(sortie.index===sortie.route.points.length){sortie.phase='unloading';sortie.phaseAt=elapsed;hold(neutral);}}
+    }
+  }
   function tryBoardVehicle(entry: InternalActor, dt: number) {
     const order = entry.order && entry.order.until > elapsed && entry.order.since <= elapsed ? entry.order : undefined;
     if (!vehicleOptions?.openWorld || order && order.kind !== 'gather' || entry.anchor || entry.temporary || entry.heal || entry.actor.y > (bounds.groundHeight?.(entry.actor.x, entry.actor.z) ?? 0) + 2 ||
@@ -2776,7 +2902,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         const spawn=vehicleOptions!.spawns[v.kind]!;
         if(spawn && !occupied && (v.health<=0 && life.wreck>=WORLD_VEHICLES.wreckSeconds || life.idle>=WORLD_VEHICLES.abandonedSeconds && Math.hypot(v.x-spawn.x,v.z-spawn.z)>12) &&
           ![...members.values()].some(m=>m.actor.alive && (distance(m.actor,{...spawn,y:1.75})<WORLD_VEHICLES.protectDistance || !v.despawned && distance(m.actor,v)<WORLD_VEHICLES.protectDistance)) && canPaddle(spawn.x,spawn.z,spawn.yaw,vehicles.filter(o=>o!==v&&!o.despawned).map(vehicleBounds))){Object.assign(v,createSharedVehicle(v.kind,spawn));vehicleLife.delete(v.kind);}
-        if(life.unload && vehicleSpeed(v)<=.8) unloadVehicle(v);
+        if(life.unload && !boatSorties.has(v.kind) && vehicleSpeed(v)<=.8 && !v.occupants[0]) unloadVehicle(v);
         continue;
       }
       life.idle = occupied ? 0 : life.idle + dt;
@@ -2994,7 +3120,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       return merlionTrace(origin,ray,length)>=length-.1;
     })
       .sort((x,y)=>distance(a,x.actor)-distance(a,y.actor))[0]?.actor;
-    if(!target){if(s.operator===a.id)merlionAction(a.id,'leave');return false;}
+    if(!target){
+      if(s.operator===a.id)merlionAction(a.id,'leave');
+      if((entry.boatIslandUntil??0)>elapsed){const posts=[{x:2.6,z:-9},{x:-2.6,z:-9},{x:2.6,z:-15},{x:-2.6,z:-15}],post=posts[(entry.boatGuard??0)%posts.length];
+        if(a.health<entry.healthMax*.75&&nearMerlion(a,'cache'))merlionAction(a.id,'supply');
+        if(Math.hypot(a.x-post.x,a.z-post.z)>.6)walkBoatInfantry(entry,post,dt);return true;
+      }
+      return false;
+    }
     if(!nearMerlion(a,'console')){
       const goal={...MERLION.console,y:0};
       if(entry.navigation)entry.navigation.retry-=dt;
@@ -3417,8 +3550,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (v.health <= 0 && !v.occupants.some(Boolean) && life.wreck >= WORLD_VEHICLES.despawnSeconds) v.despawned = true;
     }
     if (vehicleOptions?.openWorld) stepVehicleBrains(dt);
+    if(merlion&&vehicleOptions)stepDragonBoatBrains();
     for (let remaining = dt; remaining > 1e-6; remaining -= Math.min(.05, remaining)) stepVehicles(Math.min(.05, remaining));
-    if (vehicleOptions?.openWorld) stepVehiclePickups(dt);
+    if (vehicleOptions?.openWorld||merlion&&vehicleOptions) stepVehiclePickups(dt);
     stepRounds(dt);
     factionHeat?.step(dt);
     stepEvents(dt);
@@ -3458,7 +3592,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const food = entry.meals ? arenaFoodModifiers(entry.meals) : NO_FOOD;
       entry.ammo.forEach((state, index) => advanceWeapon(state, index, dt, entry.weapons, { reload: food.reloadRate * arenaConditionModifiers(entry.actor.conditions).reload, cycle: food.cycleRate }));
       if (entry.actor.bot && !entry.actor.transport && !seatOf(vehicles, entry.actor.id)) {
-        if(!stepMerlionBot(entry,dt))stepBot(entry, dt);
+        if(!tryBoardDragonBoat(entry,dt)&&!stepMerlionBot(entry,dt))stepBot(entry, dt);
         const reloading = (entry.ammo[entry.actor.weapon]?.reloadRemaining ?? 0) > 0;
         if (reloading && !entry.barkReload) bark(entry, 'reloading');
         entry.barkReload = reloading;
@@ -3485,7 +3619,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       ...(barks.length ? { barks: barks.map(b => ({ ...b, ...(b.at ? { at: { ...b.at } } : {}) })) } : {}) };
   }
   function reset() {
-    merlion?.reset();
+    merlion?.reset();boatSorties.clear();boatDecisionAt.clear();
     if (proxies?.current()) { proxies.current()!.phase='complete'; proxies.current()!.cargo='resolved'; proxies.current()!.targets={'freedom-force':[],'collective-cops':[]}; }
     grenadeSystem.reset();
     facilities = environment?.facilities ? createFacilities(environment.facilities.sites) : null;
@@ -3596,7 +3730,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   const navigationStatus = () => [...members.values()].filter(m=>m.actor.bot && m.actor.alive && m.actor.squad).map(m=>({id:m.actor.id,objective:m.actor.objective,duty:m.actor.duty,sector:m.actor.patrolSector,pending:!!m.navigation?.pending,path:m.navigation?.path.length??0,x:m.actor.x,z:m.actor.z,goal:m.navigation?.target,via:m.assignment?.via,mission:m.mission}));
   const patrolStatus = () => sectorPatrols?.status(elapsed)??[];
-  return { merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  const boatStatus=()=>[...boatSorties].map(([kind,s])=>({kind,pilot:s.pilot,phase:s.phase,returning:s.returning,berth:s.route?.berth.id,index:s.index,points:s.route?.points,crew:[...s.crew]}));
+  return { boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

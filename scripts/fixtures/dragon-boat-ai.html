@@ -1,0 +1,21 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dragon boat crew verification</title><style>html,body,#stage{margin:0;height:100%;overflow:hidden}#world,#overlay{position:absolute;inset:0}#overlay{pointer-events:none}#overlay button{pointer-events:auto}#start{position:absolute;right:16px;top:16px;z-index:20;padding:12px}#state{position:absolute;left:16px;top:12px;z-index:10;color:white;background:#10252cdd;padding:8px;font:12px monospace;max-width:440px}</style></head><body><div id="stage" class="fps-game"><div id="world"></div><div id="overlay"></div><button id="start">Watch the boat crew</button><output id="state"></output></div><script type="module">
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import '/src/styles.css';
+import {createFpsEngine} from '/src/game/fps-engine.ts';
+import {createSoloSession} from '/src/game/lan-peer.ts';
+import {createProfile,resolveLoadout} from '/src/game/armory-state.ts';
+import {MARINA_BOUNDS,moveInMarina} from '/src/game/marina-collision.ts';
+import {TOUCH_LOOK_GAIN_X,TOUCH_LOOK_GAIN_Y} from '/src/game/touch-controls.ts';
+import MerlionHud from '/src/components/MerlionHud.tsx';
+import FpsWeaponHud from '/src/components/FpsWeaponHud.tsx';
+const root=createRoot(document.getElementById('overlay')),profile=createProfile(),equipment=resolveLoadout(profile);
+window.engine=createFpsEngine(document.getElementById('world'),hud=>{
+ window.hud=hud;
+ const v=hud.arena?.vehicles?.find(v=>v.kind==='dragon-boat-red'),bots=hud.arena?.actors.filter(a=>a.bot)??[];
+ document.getElementById('state').textContent=`Crew ${v?.occupants.filter(Boolean).length??0} / island ${bots.filter(a=>!a.vehicle&&Math.hypot(a.x,a.z+12)<10).length} · Merlion ${hud.arena?.merlion?.operator??'vacant'}`;
+ root.render(React.createElement(React.Fragment,null,React.createElement(FpsWeaponHud,{hud,weapon:equipment.weapons[hud.weapon],canFight:hud.phase==='playing'&&hud.arenaSelf?.alive}),React.createElement(MerlionHud,{hud,engine:window.engine??null})));
+},{region:'marina-bay',arena:{session:createSoloSession('Island observer'),profile,botCount:3,composition:'assault',initialVitals:{health:50},environment:{bounds:MARINA_BOUNDS,move:moveInMarina,spawns:[{x:-20.5,z:24}],playerSpawn:{x:8.2,z:-12,yaw:Math.PI/2},endless:true}}});
+window.watchBoat=()=>{const h=window.hud,v=h?.arena?.vehicles?.find(v=>v.kind==='dragon-boat-red');if(!v||!h.arenaSelf?.alive)return;const yaw=Math.atan2(h.x-v.x,h.z-v.z),pitch=Math.atan2(v.y+1-h.arenaSelf.y,Math.hypot(h.x-v.x,h.z-v.z)),delta=Math.atan2(Math.sin(yaw-h.yaw),Math.cos(yaw-h.yaw));window.engine.lookBy(-delta/.0023/TOUCH_LOOK_GAIN_X,-(pitch-h.pitch)/.0023/TOUCH_LOOK_GAIN_Y);};
+document.getElementById('start').onclick=()=>{window.engine.configureDebug({healthMultiplier:5,combatEvents:false});window.engine.start();document.getElementById('start').hidden=true;};
+</script></body></html>

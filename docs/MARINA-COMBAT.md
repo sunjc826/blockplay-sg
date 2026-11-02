@@ -330,11 +330,45 @@ expedition district travel. A new arena match resets the station.
 
 Bots already on the island can navigate to the wheel, claim it when free, rotate
 and fire at visible enemies, use mist against nearby threats, and release a post
-with no target. This does not grant infantry new water routes or boat-piloting
-capability. Host authority owns occupancy, aiming rate, pressure, supplies and
-water contact in solo and shared combat sessions; clients submit intent only.
+with no target. Boat missions now bring nearby squads to the island (see below);
+infantry still uses dry walking routes to board and disembark. Host authority
+owns occupancy, aiming rate, pressure, supplies and water contact in solo and shared combat sessions; clients submit intent only.
 
 Verification: `pnpm test:merlion:gameplay` uses Vite5219/Chrome9379 and the real FPS
 engine for desktop/touch operation, mist, finite supplies and a bot-operated
 cannon blinding/releasing the player. Unit and arena tests cover cover clipping,
 stock/cooldown bounds, timed recovery, bot aiming and network validation.
+
+
+## Bot dragon boat missions
+
+Nearby infantry can reserve an available dragon boat, walk to its actual dry
+boarding point, gather up to three existing squadmates and paddle to the Merlion
+island. This works in expedition and shared Marina combat. Recruitment is local
+(within 45m), respects explicit orders, and does not add soldiers to the match.
+A player approaching an empty boat gets priority; friendly bots join a player's
+boat only after a sustained stop, including gather followers. They cannot take
+the empty driver seat while a player remains aboard.
+
+Pilots follow water routes for the entire oriented 9m hull, first clearing narrow
+jetties before turning. They brake for turns and docks, reverse into shore berths,
+choose another landing when blocked, and replan a stalled route at a bounded rate.
+Boarding waits are bounded (3s minimum/8s maximum for reserved crew); no gunner or
+ammunition is required. Dragon boats remain unarmed transports.
+
+At a valid island landing the crew disembarks to separate dry points and spends
+90s contesting/guarding the Merlion. They can operate its existing cannon/mist
+controls. With passengers, the pilot stays aboard and returns the boat to a
+clear shore berth for reuse; a lone pilot can land and contest directly. Expired
+island duties permit return trips. Loss of a pilot at sea permits a surviving
+bot to take over only when no player remains aboard. Failed landings retain the
+crew aboard and try another berth; bots never jump into open water or teleport
+to the campsite. Normal faction, health, cooldown, boat collision and vehicle
+snapshot rules apply.
+
+Verification: 10 new route/authority tests cover both boats' round trips, blocked
+berths, dry walking approaches, squad delivery in open/shared modes, actual
+pilot casualties and player control priority. `pnpm test:dragon-boats:ai`
+(Vite5219/Chrome9379) runs the real FPS engine through boarding, crossing,
+disembarkation, an island bot operating the Merlion, and the pilot returning to
+shore, with screenshots and actor counts.
