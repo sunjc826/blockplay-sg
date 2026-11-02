@@ -3320,14 +3320,18 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     blackout += ((jammed ? 1 : 0) - blackout) * Math.min(1, dt * 1.5);
     combatAudio.transport(engine.mode, engine.distance, engine.effort);
     combatAudio.loop('jet', Math.min(jet, ambientJet)); combatAudio.loop('raid', raid); combatAudio.loop('drone', drone); combatAudio.loop('siren', siren ? 0 : Infinity);
-    const happened = combatVisuals.update(dt, events, eventClock, camera, raiders, snapshot?.transports ?? []);
+  }
+  /** Local grenades need their particles stepped even when there is no arena snapshot. */
+  function updateCombatVisuals(dt: number) {
+    const snapshot = hud.arena, events = snapshot?.events ?? [], listener = camera.position;
+    const happened = combatVisuals.update(dt, events, eventClock, camera, snapshot?.raiders ?? [], snapshot?.transports ?? []);
     // The raid helicopter's pilot-controlled chin mount; rifle passengers use regular actor shots.
     happened.shots.slice(0, 2).forEach(at => otherShot(at, 7.62, 60));
     for (const { at, size } of happened.blasts) {
       const distance = at.distanceTo(listener); combatAudio.boom(distance, size);
       shake = Math.min(1, shake + Math.max(0, 1 - distance / (60 * size)) * .8);
     }
-    const live = combatVisuals.counts, census = `${events.length}/${live.fire}/${live.smoke}/${live.craters}/${live.transports}/${live.flyers}/${live.raiders}/${live.pits}/${live.crates}/${live.puffs}`;
+    const live = combatVisuals.counts, census = `${events.length}/${live.fire}/${live.smoke}/${live.craters}/${live.transports}/${live.flyers}/${live.raiders}/${live.pits}/${live.crates}/${live.puffs}/${live.debris}/${live.sparks}`;
     if (census !== canvas.dataset.combatEvents) canvas.dataset.combatEvents = census;
   }
   /** A supply crate this player reached first: field loot round it on an expedition, a top-up anywhere else. */
@@ -3536,6 +3540,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     updateAmbientSky(realDt);
     updateCombatEvents(realDt);
     stepGrenadePlayer(realDt);
+    updateCombatVisuals(realDt);
     if (debugAvailable && hud.phase === 'playing' && hud.health > 0) {
       recoveryDelay = Math.max(0, recoveryDelay - dt);
       if (debug.regeneration && recoveryDelay === 0 && hud.health < hud.maxHealth) {

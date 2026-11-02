@@ -1,0 +1,41 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Grenade explosion regression</title><style>html,body{margin:0;height:100%;overflow:hidden;background:#151a20;font:14px system-ui}canvas{display:block}#world{height:100%}#start{position:absolute;top:12px;left:12px;padding:16px}#caption{position:absolute;top:20px;left:24px;color:white;text-shadow:0 1px 3px #000}</style></head><body><div id="world"></div><button id="start" hidden>Enter grenade test</button><div id="caption"></div><script type="module">
+import * as THREE from 'three';
+import { createCombatEventVisuals } from '/src/game/combat-event-visuals.ts';
+import { createGrenadeVisuals } from '/src/game/grenade-visuals.ts';
+if(new URLSearchParams(location.search).has('engine')) {
+  const {createFpsEngine}=await import('/src/game/fps-engine.ts');
+  const {createProfile,resolveLoadout}=await import('/src/game/armory-state.ts');
+  const profile=createProfile();profile.consumables={'grenade-frag':4};
+  window.engine=createFpsEngine(document.getElementById('world'),hud=>window.hud=structuredClone(hud),{loadout:resolveLoadout(profile),tutorial:true,combat:false});
+  const start=document.getElementById('start');start.hidden=false;
+  start.onclick=()=>{window.engine.start();start.hidden=true;};
+} else {
+  const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1200,800);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;document.getElementById('world').append(renderer.domElement);
+  const scene=new THREE.Scene();scene.background=new THREE.Color('#b4cbd3');
+  const ambient=new THREE.HemisphereLight('#edf4ff','#726855',2);scene.add(ambient);
+  const sun=new THREE.DirectionalLight('#fff0da',2.5);sun.position.set(10,20,10);scene.add(sun);
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(150,150),new THREE.MeshStandardMaterial({color:'#888779',roughness:1}));ground.rotation.x=-Math.PI/2;scene.add(ground);
+  const grid=new THREE.GridHelper(150,75,'#77776f','#96958a');grid.position.y=.005;scene.add(grid);
+  for(const [x,z,w,h,d] of [[-9,-6,9,8,8],[10,-10,10,12,9],[-8,12,3,1,5]]) {
+    const block=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color:'#bcb6a5'}));block.position.set(x,h/2,z);scene.add(block);
+  }
+  const camera=new THREE.PerspectiveCamera(58,1.5,.1,200);camera.position.set(9,3.2,16);camera.lookAt(0,1,0);camera.updateMatrixWorld();
+  let reduced=false;
+  const visuals=createCombatEventVisuals(scene,origin=>new THREE.Vector3(origin.x,0,origin.z),{reduced:()=>reduced});
+  const grenades=createGrenadeVisuals(scene,(at,damage)=>visuals.blast(at,damage>90?1:.5));
+  window.show=(seconds=.15,night=false,low=false,air=false)=>{
+    visuals.reset();grenades.reset();reduced=low;
+    scene.background.set(night?'#151e30':'#b4cbd3');ambient.intensity=night?.25:2;sun.intensity=night?.15:2.5;
+    let seed=1986;const original=Math.random;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+    try {
+      const event={serial:1,id:'grenade-frag',caller:'test',point:{x:0,y:air?5:.15,z:0},heading:0,start:0,seed:1};
+      grenades.update([],[event],0);
+      for(let t=0;t<seconds;t+=1/120)visuals.update(Math.min(1/120,seconds-t),[],t,camera);
+      renderer.render(scene,camera);
+    } finally {Math.random=original;}
+    document.getElementById('caption').textContent=`FRAG · ${seconds.toFixed(2)}s · ${night?'night':'day'}${low?' · reduced effects':''}${air?' · airburst':''}`;
+    return {counts:visuals.counts,draws:renderer.info.render.calls,glError:renderer.getContext().getError()};
+  };
+  window.show();
+}
+</script></body></html>

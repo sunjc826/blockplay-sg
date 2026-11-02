@@ -6,6 +6,7 @@ import { combatPhase, combatRandom, combatTimeline, cratePose, flyerPose, orbitP
 import type { ArenaRaider } from './arena-rules';
 import { buildVehicleModel } from './vehicle-models';
 import { withInstanceOpacity } from './fps-impact-material';
+import { createExplosionTexture } from './explosion-textures';
 
 /**
  * Draws combat events from their descriptors: shells and bombs in their last
@@ -16,7 +17,7 @@ import { withInstanceOpacity } from './fps-impact-material';
  * resolves hits on live raiders, transport hulls and seated drivers separately.
  */
 
-const FIRE = 96, SMOKE = 256, DEBRIS = 96, SHELLS = 24, CRATERS = 40, MARKERS = 18, TRANSPORTS = 3, ROPERS = 6;
+const FIRE = 96, SMOKE = 256, DEBRIS = 96, SPARKS = 128, SHELLS = 24, CRATERS = 40, MARKERS = 18, TRANSPORTS = 3, ROPERS = 6;
 const BOMBS = 16, FLYERS = 4, RAIDERS = 2, PITS = 2, CRATES = 2, PUFFS = 192;
 /** Shells are drawn at an arcade speed so their last half-second is visible at all. */
 const SHELL_SPEED = 120;
@@ -188,8 +189,8 @@ export interface RaiderHappenings { shots: THREE.Vector3[]; blasts: { at: THREE.
 
 export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, options: { reduced: () => boolean }) {
   const root = new THREE.Group(); root.name = 'combat-events'; root.userData.fpsEffect = true; scene.add(root);
-  const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [], textures: THREE.Texture[] = [radial(64, 1.4), radial(64, .7)];
-  const [soft, blot] = textures;
+  const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [], textures: THREE.Texture[] = [radial(64, 1.4), radial(64, .7), createExplosionTexture(true), createExplosionTexture(false)];
+  const [soft, blot, flame, billow] = textures;
   const keep = <T extends THREE.BufferGeometry>(g: T) => { geometries.push(g); return g; };
   const hold = <T extends THREE.Material>(m: T) => { materials.push(m); return m; };
   const pool = (geometry: THREE.BufferGeometry, material: THREE.Material, count: number, name: string) => {
@@ -200,10 +201,15 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     const geometry = keep(new THREE.PlaneGeometry(1, 1)), opacity = new THREE.InstancedBufferAttribute(new Float32Array(count), 1).setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute('effectOpacity', opacity); return { geometry, opacity };
   };
-  const fireMesh = pool(keep(new THREE.PlaneGeometry(1, 1)), hold(new THREE.MeshBasicMaterial({ map: soft, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })), FIRE, 'combat-fire');
+  const fireQuad = opacityPool(FIRE);
+  const fireMesh = pool(fireQuad.geometry, hold(withInstanceOpacity(new THREE.MeshBasicMaterial({ map: flame, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }))), FIRE, 'combat-fire');
   const smokeQuad = opacityPool(SMOKE);
-  const smokeMesh = pool(smokeQuad.geometry, hold(withInstanceOpacity(new THREE.MeshBasicMaterial({ map: soft, transparent: true, depthWrite: false }))), SMOKE, 'combat-smoke');
+  const smokeMesh = pool(smokeQuad.geometry, hold(withInstanceOpacity(new THREE.MeshBasicMaterial({ map: billow, transparent: true, depthWrite: false }))), SMOKE, 'combat-smoke');
   const debrisMesh = pool(keep(new THREE.BoxGeometry(1, 1, 1)), hold(new THREE.MeshBasicMaterial({ color: '#ffffff' })), DEBRIS, 'combat-debris');
+  const sparkGeometry = keep(new THREE.BoxGeometry(1, 1, 1));
+  const sparkOpacity = new THREE.InstancedBufferAttribute(new Float32Array(SPARKS), 1).setUsage(THREE.DynamicDrawUsage);
+  sparkGeometry.setAttribute('effectOpacity', sparkOpacity);
+  const sparkMesh = pool(sparkGeometry, hold(withInstanceOpacity(new THREE.MeshBasicMaterial({ color: '#ffcc78', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }))), SPARKS, 'combat-sparks');
   const shellMesh = pool(keep(new THREE.BoxGeometry(.18, .18, 1)), hold(new THREE.MeshBasicMaterial({ color: '#ffd59a', transparent: true, opacity: .9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })), SHELLS, 'combat-shells');
   const craterQuad = opacityPool(CRATERS);
   const craterMesh = pool(craterQuad.geometry, hold(withInstanceOpacity(new THREE.MeshBasicMaterial({ color: '#1b1612', map: blot, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }))), CRATERS, 'combat-craters');
@@ -262,7 +268,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     return slot;
   }
 
-  const fire: Particle[] = [], smoke: Particle[] = [], debris: Particle[] = [];
+  const fire: Particle[] = [], smoke: Particle[] = [], debris: Particle[] = [], sparks: Particle[] = [];
   const craters: { x: number; y: number; z: number; size: number; age: number }[] = [];
   const emitters: { x: number; y: number; z: number; colour: THREE.Color; until: number; next: number; rate: number }[] = [];
   let clock = 0;
@@ -299,15 +305,30 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
   /** A shell landing: fireball, smoke, thrown dirt, a crater and a flash. `size` 1 is an artillery round. */
   function blast(at: THREE.Vector3, size = 1) {
     const scale = options.reduced() ? .45 : 1;
-    for (let i = 0; i < Math.round(14 * scale); i++) add(fire, FIRE, particle(at, 7 * size, 6 * size, .55, 1.6 * size, 5 * size, new THREE.Color('#ffd28a')));
-    for (let i = 0; i < Math.round(18 * scale); i++) {
-      const cloud = particle(at, 4 * size, 3.5 * size, 4.5, 2.4 * size, 2.2 * size, (i % 3 ? dust : soot).clone());
-      cloud.lift = .4; add(smoke, SMOKE, cloud);
+    const surface = cast(at.clone().add(new THREE.Vector3(0, .1, 0)), down, 60);
+    const floor = surface?.y ?? at.y - 60, groundedBlast = !!surface && at.y - floor < .8;
+    for (let i = 0; i < Math.round(12 * scale); i++) add(fire, FIRE, particle(at, 5 * size, 4 * size, .42, 1.1 * size, 3.5 * size, fireHot));
+    for (let i = 0; i < Math.round(14 * scale); i++) {
+      const cloud = particle(at, 3.4 * size, 2.8 * size, 3.6, 1.1 * size, 1.35 * size, (i % 3 ? dust : soot).clone());
+      cloud.y += .15; cloud.lift = .65; cloud.opacity = .72; add(smoke, SMOKE, cloud);
+    }
+    // Low radial dust reads as an outward pressure burst, then rolls away.
+    if (groundedBlast) for (let i = 0, count = Math.round(12 * scale); i < count; i++) {
+      const angle = i / count * Math.PI * 2;
+      const cloud = particle(at, 0, .5, 1.7, .6 * size, 1.15 * size, dust);
+      cloud.y = floor + .22; cloud.vx = Math.cos(angle) * 9 * size; cloud.vz = Math.sin(angle) * 9 * size;
+      cloud.lift = -.1; cloud.opacity = .48; add(smoke, SMOKE, cloud);
+    }
+    for (let i = 0; i < Math.round(22 * scale); i++) {
+      const p = particle(at, 14 * size, 9 * size, .65, (.025 + Math.random() * .025) * size, .45 * size, fireHot);
+      p.floor = floor; p.vy *= i % 3 ? 1 : -.4; p.y += .15; add(sparks, SPARKS, p);
     }
     for (let i = 0; i < Math.round(14 * scale); i++) {
-      const p = particle(at, 9 * size, 11 * size, 2.2, .18 + Math.random() * .22, 0, chunk); p.y += .2; add(debris, DEBRIS, p);
+      const p = particle(at, 9 * size, 11 * size, 2.2, (.07 + Math.random() * .12) * size, 0, chunk); p.y += .2; p.floor = floor; add(debris, DEBRIS, p);
     }
-    craters.push({ x: at.x, y: at.y, z: at.z, size: 3.2 * size * (.85 + Math.random() * .3), age: 0 }); if (craters.length > CRATERS) craters.shift();
+    if (groundedBlast) {
+      craters.push({ x: at.x, y: floor, z: at.z, size: 3.2 * size * (.85 + Math.random() * .3), age: 0 }); if (craters.length > CRATERS) craters.shift();
+    }
     flash.position.set(at.x, at.y + 2, at.z); flash.intensity = 60 * size;
   }
   /** A spotting round: no damage, a column of coloured smoke that lingers. */
@@ -319,6 +340,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
 
   const matrix = new THREE.Matrix4(), quaternion = new THREE.Quaternion(), position = new THREE.Vector3(), scale = new THREE.Vector3(), colour = new THREE.Color();
   const flat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2), roll = new THREE.Quaternion(), zAxis = new THREE.Vector3(0, 0, 1);
+  const sparkDirection = new THREE.Vector3(), upAxis = new THREE.Vector3(0, 1, 0);
   const fireHot = new THREE.Color('#fff1c4'), fireMid = new THREE.Color('#ff8a2a'), fireCool = new THREE.Color('#3a0e00');
   const ropeTop = new THREE.Vector3();
 
@@ -503,18 +525,21 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     roperMesh.count = ropers; roperMesh.instanceMatrix.needsUpdate = true;
     ropeGeometry.setDrawRange(0, ropeLines * 2); ropeArray.needsUpdate = true; ropes.visible = ropeLines > 0;
 
-    step(fire, dt, -1.5, 2.5); step(smoke, dt, 0, 1.1); step(debris, dt, 18, .2);
+    step(fire, dt, -1.5, 2.5); step(smoke, dt, 0, 1.1); step(debris, dt, 18, .2); step(sparks, dt, 18, .3);
     fire.forEach((p, i) => {
       const t = p.age / p.life;
-      colour.copy(t < .3 ? fireHot.clone().lerp(fireMid, t / .3) : fireMid.clone().lerp(fireCool, (t - .3) / .7)).multiplyScalar(1 - t * .6);
+      colour.copy(t < .3 ? fireHot : fireMid).lerp(t < .3 ? fireMid : fireCool, t < .3 ? t / .3 : (t - .3) / .7);
       fireMesh.setColorAt(i, colour);
-      fireMesh.setMatrixAt(i, matrix.compose(position.set(p.x, p.y, p.z), quaternion, scale.setScalar(p.size + p.grow * t)));
+      fireQuad.opacity.setX(i, (1 - t) * .9);
+      roll.setFromAxisAngle(zAxis, p.spin).premultiply(quaternion);
+      fireMesh.setMatrixAt(i, matrix.compose(position.set(p.x, p.y, p.z), roll, scale.setScalar(p.size + p.grow * t)));
     });
-    fireMesh.count = fire.length; fireMesh.instanceMatrix.needsUpdate = true; if (fireMesh.instanceColor) fireMesh.instanceColor.needsUpdate = true;
+    fireMesh.count = fire.length; fireMesh.instanceMatrix.needsUpdate = true; fireQuad.opacity.needsUpdate = true; if (fireMesh.instanceColor) fireMesh.instanceColor.needsUpdate = true;
     smoke.forEach((p, i) => {
       const t = p.age / p.life;
       smokeMesh.setColorAt(i, p.colour); smokeQuad.opacity.setX(i, Math.min(1, t * 8) * (1 - t) * p.opacity);
-      smokeMesh.setMatrixAt(i, matrix.compose(position.set(p.x, p.y, p.z), quaternion, scale.setScalar(p.size + p.grow * t * 3)));
+      roll.setFromAxisAngle(zAxis, p.spin * .12).premultiply(quaternion);
+      smokeMesh.setMatrixAt(i, matrix.compose(position.set(p.x, p.y, p.z), roll, scale.setScalar(p.size + p.grow * t * 3)));
     });
     smokeMesh.count = smoke.length; smokeMesh.instanceMatrix.needsUpdate = true; smokeQuad.opacity.needsUpdate = true; if (smokeMesh.instanceColor) smokeMesh.instanceColor.needsUpdate = true;
     debris.forEach((p, i) => {
@@ -523,6 +548,13 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
       debrisMesh.setMatrixAt(i, matrix.compose(position.set(p.x, p.y, p.z), roll, scale.setScalar(p.size)));
     });
     debrisMesh.count = debris.length; debrisMesh.instanceMatrix.needsUpdate = true; if (debrisMesh.instanceColor) debrisMesh.instanceColor.needsUpdate = true;
+    sparks.forEach((p, i) => {
+      const t = p.age / p.life;
+      sparkOpacity.setX(i, 1 - t);
+      roll.setFromUnitVectors(upAxis, sparkDirection.set(p.vx, p.vy, p.vz).normalize());
+      sparkMesh.setMatrixAt(i, matrix.compose(position.set(p.x, p.y, p.z), roll, scale.set(p.size, p.grow * (1 - t) + .04, p.size)));
+    });
+    sparkMesh.count = sparks.length; sparkMesh.instanceMatrix.needsUpdate = true; sparkOpacity.needsUpdate = true;
     for (let i = craters.length - 1; i >= 0; i--) if ((craters[i].age += dt) > CRATER_LIFE) craters.splice(i, 1);
     craters.forEach((c, i) => {
       craterQuad.opacity.setX(i, Math.min(1, (CRATER_LIFE - c.age) / 10) * .85);
@@ -581,7 +613,8 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     for (const mode of ['land', 'air', 'sea'] as const) vehicle(mode, '');
   }
   function reset() {
-    fire.length = smoke.length = debris.length = craters.length = emitters.length = 0; landings.clear(); seenRaiders.clear(); seenTransports.clear(); flash.intensity = 0;
+    fire.length = smoke.length = debris.length = sparks.length = craters.length = emitters.length = 0; landings.clear(); seenRaiders.clear(); seenTransports.clear(); flash.intensity = 0;
+    for (const mesh of [fireMesh, smokeMesh, debrisMesh, sparkMesh, craterMesh]) mesh.count = 0;
     for (const mode of ['land', 'air', 'sea'] as const) for (const v of fleet[mode]) { v.owner = ''; v.model.visible = false; }
     for (const list of Object.values(props)) for (const p of list) { p.owner = ''; p.model.visible = false; p.extra = undefined; }
   }
@@ -590,12 +623,12 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     /** Live pool sizes, for smokes and tests. */
     get counts() {
       const shown = (kind: keyof typeof props) => props[kind].filter(p => p.owner).length;
-      return { fire: fire.length, smoke: smoke.length, debris: debris.length, craters: craters.length, transports: fleet.land.filter(v => v.owner).length + fleet.air.filter(v => v.owner).length + fleet.sea.filter(v => v.owner).length,
+      return { fire: fire.length, smoke: smoke.length, debris: debris.length, sparks: sparks.length, craters: craters.length, transports: fleet.land.filter(v => v.owner).length + fleet.air.filter(v => v.owner).length + fleet.sea.filter(v => v.owner).length,
         flyers: shown('jet') + shown('cargo'), raiders: shown('gunship') + shown('drone'), pits: shown('mortar'), crates: shown('crate'), puffs: puffMesh.count };
     },
     dispose() {
       root.removeFromParent();
-      [fireMesh, smokeMesh, debrisMesh, shellMesh, craterMesh, roperMesh, bombMesh, puffMesh].forEach(mesh => mesh.dispose());
+      [fireMesh, smokeMesh, debrisMesh, sparkMesh, shellMesh, craterMesh, roperMesh, bombMesh, puffMesh].forEach(mesh => mesh.dispose());
       new Set(geometries).forEach(g => g.dispose()); new Set(materials).forEach(m => m.dispose()); new Set(textures).forEach(t => t.dispose());
     },
   };
