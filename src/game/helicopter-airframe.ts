@@ -59,5 +59,7 @@ export function helicopterNose(paint: THREE.Material) {
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex(indices); geometry.computeVertexNormals();
-  const mesh = new THREE.Mesh(geometry, paint); mesh.name = 'nose-fairing'; return mesh;
+  // This is a hollow skin: its inside must remain visible below the dashboard.
+  const skin = paint.clone(); skin.side = THREE.DoubleSide;
+  const mesh = new THREE.Mesh(geometry, skin); mesh.name = 'nose-fairing'; return mesh;
 }

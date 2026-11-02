@@ -16,6 +16,8 @@ it('keeps the curved nose and tapered tail closed to exterior rays and ready for
       expect(hits[0].point.z).toBeLessThan(-2);
       expect(hits[0].face!.normal.z).toBeLessThan(0);
     }
+    const inside = new THREE.Raycaster(new THREE.Vector3(0, 1.3, -1.8), new THREE.Vector3(0, -.3, -1).normalize()).intersectObject(nose);
+    expect(inside.length).toBeGreaterThan(0);
     const tail = model.getObjectByName('tail-boom') as THREE.Mesh;
     const radiusAt = (z: number, y: number) => new THREE.Raycaster(new THREE.Vector3(2, y, z), new THREE.Vector3(-1, 0, 0)).intersectObject(tail)[0].point.x;
     expect(radiusAt(2.2, 1.75)).toBeGreaterThan(radiusAt(5.3, 2.04) * 2);
