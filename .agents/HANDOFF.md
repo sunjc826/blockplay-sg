@@ -25,8 +25,16 @@ draw and stance changes, with no browser errors. Fixtures/scripts are committed;
 captures and JSON evidence are in `.cache/weapon-carry/`. The broad workspace
 suite has unrelated map/sector/boat failures and is not a clean-suite claim.
 Concurrent Ammo Refill work is excluded from this release snapshot and commit.
-Manual deployment receipt will be appended after verification. No GitHub push;
-AGENTS.md remains local, unstaged and uncommitted.
+Manual `pnpm deploy:cloudflare` succeeded from the frozen local release:
+version `487b4366-b8f1-4c99-b200-ad5fd4c46f5c`. Both blockplaysg.fun and
+workers.dev serve the exact built entry JS/CSS and service worker bytes;
+production Cloudflare routing/assets/PWA/API-origin checks pass. Source checks
+match all 3,326 non-handoff tracked files of code commit `9d1d3b3`. Logs,
+receipts and hashes: `.cache/weapon-carry-{source-verification,live-verification}.json`,
+`.cache/weapon-carry-{deploy,release-tests,cloudflare-check}.log`. The broad run
+was stopped after unrelated slow map/sector/boat failures; no full-suite pass is
+claimed. Task-owned Vite/Chrome processes stopped. No GitHub push; AGENTS.md
+remains local, unstaged and uncommitted.
 
 ## Empty pouches fold flat (2026-10-31)
 
