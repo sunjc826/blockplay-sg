@@ -4,7 +4,7 @@ export interface GrenadeFlight { position: Point; velocity: Point; age: number; 
 export interface GrenadeCollision { point: Point; normal: Point }
 export type GrenadeTrace = (from: Point, to: Point) => GrenadeCollision | null;
 export function launchGrenade(origin: Point, direction: Point, spec: GrenadeSpec, under = false, cooked = 0): GrenadeFlight {
-  const length = Math.hypot(direction.x, direction.y, direction.z) || 1, speed = spec.throwSpeed * (under ? .5 : 1);
+  const length = Math.hypot(direction.x, direction.y, direction.z) || 1, speed = under ? spec.lobSpeed ?? spec.throwSpeed * .5 : spec.throwSpeed;
   return { position: { ...origin }, velocity: { x: direction.x / length * speed, y: direction.y / length * speed, z: direction.z / length * speed },
     age: 0, remaining: Math.max(0, spec.fuse - cooked), rested: false, restTime: 0, launched: false };
 }

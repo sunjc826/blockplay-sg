@@ -57,13 +57,35 @@ describe('grenade catalogue and belt', () => {
   });
 });
 describe('grenade flight', () => {
+  it('reaches across a street with a normal frag throw while keeping lobs nearby', () => {
+    const input = throwInput();
+    const firstImpact = (under: boolean) => {
+      const flight = launchGrenade(input.origin, input.direction, spec(), under);
+      let distance: number | undefined;
+      const trace: GrenadeTrace = (a, b) => {
+        const hit = ground(a, b);
+        if (hit && distance === undefined) distance = Math.hypot(hit.point.x, hit.point.z);
+        return hit;
+      };
+      for (let i = 0; i < 350 && distance === undefined; i++) {
+        if (stepGrenadeFlight(flight, spec(), .01, trace)) break;
+      }
+      return distance;
+    };
+    expect(firstImpact(false)).toBeGreaterThan(34);
+    expect(firstImpact(false)).toBeLessThan(36);
+    expect(firstImpact(true)).toBeGreaterThan(6);
+    expect(firstImpact(true)).toBeLessThan(7);
+    const launcher = launchGrenade(input.origin, input.direction, spec('oicw'));
+    expect(Math.hypot(launcher.velocity.x, launcher.velocity.y, launcher.velocity.z)).toBeCloseTo(70);
+  });
   it('integrates gravity consistently across frame sizes', () => {
     const a = launchGrenade({ x: 0, y: 20, z: 0 }, { x: 1, y: 0, z: 0 }, spec()), b = structuredClone(a);
     for (let i = 0; i < 10; i++) stepGrenadeFlight(a, spec(), .1, () => null);
     for (let i = 0; i < 100; i++) stepGrenadeFlight(b, spec(), .01, () => null);
-    expect(a.position.x).toBeCloseTo(14); expect(a.position.y).toBeCloseTo(15.1); expect(a.position).toEqual(b.position);
+    expect(a.position.x).toBeCloseTo(18.2); expect(a.position.y).toBeCloseTo(15.1); expect(a.position).toEqual(b.position);
   });
-  it('lobs at half speed, and reduces the fuse by the cook time', () => {
+  it('retains the short lob speed, and reduces the fuse by the cook time', () => {
     const a = launchGrenade({ x: 0, y: 2, z: 0 }, { x: 1, y: 0, z: 0 }, spec(), true, 3);
     expect(a.velocity.x).toBe(7); expect(a.remaining).toBe(.5);
     expect(stepGrenadeFlight(a, spec(), .5, ground)).toBe(true);
@@ -71,7 +93,7 @@ describe('grenade flight', () => {
   it('bounces off walls with the catalogue restitution', () => {
     const a = launchGrenade({ x: 0, y: 2, z: 0 }, { x: 1, y: 0, z: 0 }, spec());
     stepGrenadeFlight(a, spec(), .1, (_a, b) => b.x >= 1 ? { point: { ...b, x: 1 }, normal: { x: -1, y: 0, z: 0 } } : null);
-    expect(a.velocity.x).toBeCloseTo(-4.2); expect(a.position.x).toBeLessThan(1);
+    expect(a.velocity.x).toBeCloseTo(-5.46); expect(a.position.x).toBeLessThan(1);
   });
   it('lands chope flat without bouncing', () => {
     const a = launchGrenade({ x: 0, y: .1, z: 0 }, { x: 1, y: 0, z: 0 }, spec('chope'));
@@ -79,7 +101,7 @@ describe('grenade flight', () => {
   });
   it('splits oranges at the apex and launches the finale only after resting for 2 s', () => {
     const orange = launchGrenade({ x: 0, y: 1, z: 0 }, { x: 0, y: .6, z: -.8 }, spec('oranges'));
-    expect(stepGrenadeFlight(orange, spec('oranges'), .5, ground)).toBe(false); expect(stepGrenadeFlight(orange, spec('oranges'), .5, ground)).toBe(true);
+    expect(stepGrenadeFlight(orange, spec('oranges'), 1, ground)).toBe(false); expect(stepGrenadeFlight(orange, spec('oranges'), .2, ground)).toBe(true);
     const finale = launchGrenade({ x: 0, y: .1, z: 0 }, { x: 1, y: 0, z: 0 }, spec('finale'));
     for (let i = 0; i < 20; i++) stepGrenadeFlight(finale, spec('finale'), .1, ground);
     expect(finale.launched).toBe(false);

@@ -10,7 +10,7 @@ export type GrenadeEffect =
   | { kind: 'bomblets'; count: number; damage: number; radius: number; spread: number; line?: boolean; seconds?: number }
   | { kind: 'mission'; count: number; delay: number; spread: number }
   | { kind: 'rally'; radius: number; sky?: boolean; effects: readonly FoodEffect[] };
-export interface GrenadeSpec { fuse: number; throwSpeed: number; bounce: number; trigger?: 'apex' | 'rest' | 'launch' | 'impact'; effects: readonly GrenadeEffect[] }
+export interface GrenadeSpec { fuse: number; throwSpeed: number; lobSpeed?: number; bounce: number; trigger?: 'apex' | 'rest' | 'launch' | 'impact'; effects: readonly GrenadeEffect[] }
 export const grenadeBlast = (damage: number, radius: number): BlastSpec => ({ damage, radius, minScale: .2, vehicleScale: .6, stance: true });
 const blast = (damage: number, radius: number, shred = 0): GrenadeEffect => ({ kind: 'blast', blast: grenadeBlast(damage, radius), shred });
 const cloud = (radius: number, seconds: number, colour = '#e4e5dd', dps = 0): GrenadeEffect => ({ kind: 'cloud', radius, seconds, colour, dps });
@@ -34,7 +34,12 @@ export const GRENADE_CATALOG: readonly ShopItem[] = [
   item('whistle', "Encik's whistle", 'Legendary', 15, 220, .3, 14, 2, [condition('at-attention', 14, 3.5), condition('deafened', 14, 6), { kind: 'rally', radius: 14, effects: [{ kind: 'steady', strength: .2, seconds: 60 }] }], 'Thunderflash and parade whistle: enemies stand at attention; allies gain steady aim. Players stand for half time.'),
   item('firecrackers', "Ah Gong's firecracker string", 'Legendary', 18, 260, .9, 12, 1, [{ kind: 'bomblets', count: 16, damage: 55, radius: 3.5, spread: 12, line: true, seconds: 4 }, condition('dazed', 4, 3.5), condition('deafened', 14, 8), { kind: 'repel', radius: 20, seconds: 60 }], 'A line of sixteen pops over 4 s. Dazes, deafens and drives bots from 20 m.', {}, 'Ah Gong kept one box back in 1972. It is time.'),
   item('finale', 'Countdown finale shell', 'Mythic', 24, 380, 2.2, 9, 2, [{ kind: 'cloud', radius: 25, seconds: 6, colour: '#edbc5d', dps: 6, overhead: true, blocksSight: false }, condition('dazed', 30, 3.5), { kind: 'rally', radius: 30, sky: true, effects: [{ kind: 'fired-up', strength: .15, seconds: 120 }, { kind: 'energised', strength: .15, seconds: 120 }] }], 'Lands upright, waits 2 s, then launches 60 m. Golden embers fall for 6 s; roofs leave 20%. Allies under open sky rally.', { trigger: 'launch' }, 'The whole island counts down with you.'),
-];
+].map(item => ({
+  ...item,
+  // Give hand throws more reach while retaining the original close-range lob.
+  // Keep the published speed shared by flight, bot aiming and item stats.
+  grenade: { ...item.grenade!, throwSpeed: Math.round(item.grenade!.throwSpeed * 13) / 10, lobSpeed: item.grenade!.throwSpeed * .5 },
+}));
 export const grenadeEffectLines = (spec?: GrenadeSpec): string[] => spec?.effects.map(e => {
   switch (e.kind) {
     case 'blast': return `Blast · ${e.blast.damage} damage · ${e.blast.radius} m${e.shred ? ` · ${e.shred * 100}% shred` : ''}`;
