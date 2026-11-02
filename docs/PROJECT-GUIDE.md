@@ -109,6 +109,11 @@ with remote debugging, as the other browser smokes do.
 
 ### Regional FPS and armory
 
+Jump while moving to mount range crates, sandbag walls and the resupply box, or
+open-world camp stores and barricades. Standing jumps rise about 1.3–1.6 m,
+depending on carried equipment. Release movement to stay on the cover; walking
+off drops you back down. Solid overhead cover still limits headroom.
+
 [Map setup and validation](FPS-DISTRICTS.md).
 
 Use the game's **Fullscreen** button for Ctrl+W crouch movement: supported

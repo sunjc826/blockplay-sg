@@ -16,7 +16,7 @@ import { createDropColumnCheck } from './paratrooper-route-validation';
 import { createRangeDirector, rangeTargetRise, rangeTargetHeight, validRangeDrill, RANGE_DURATION, type RangeDrillId, type RangeDrillView } from './range-drills';
 import { resupplyEquipment, rangeEquipmentStock } from './equipment-resupply';
 import { respawnEquipment } from './respawn-equipment';
-import { createRangeResupply, rangeResupplyPoint } from './range-resupply';
+import { createRangeResupply, rangeResupplyPoint, rangeResupplyObstacle } from './range-resupply';
 import { combatFeedReward, type RaiderBounty } from './combat-rewards';
 import { WEATHER } from './world-events';
 import { createDeploymentBlur } from './deployment-blur';
@@ -53,7 +53,7 @@ import { createWorldAtmosphere } from './world-atmosphere';
 import { createWetSurfaces } from './wet-surfaces';
 import { createNightLights, nightLevel } from './world-night-lights';
 import { getRegion } from './regions';
-import { createMovementMotion, resetMovementMotion, advanceGroundMotion, advanceBodyMotion, bufferJump, consumeJump, landMovement, INFANTRY_GRAVITY } from './fps-movement';
+import { createMovementMotion, resetMovementMotion, advanceGroundMotion, advanceBodyMotion, bufferJump, consumeJump, landMovement, INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED } from './fps-movement';
 import { createVerticalMovement, MAX_STEP_HEIGHT } from './vertical-movement';
 import { elevatedLootAnchors } from './vertical-navigation';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
@@ -387,7 +387,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   if (rangeStation) {
     const floor = footMovement.supportHeight(supplyPoint!.x, supplyPoint!.z, MAX_STEP_HEIGHT, .4, 1.8) ?? 0;
     rangeStation.root.position.y = floor;
-    world.obstacles.push({ minX: supplyPoint!.x - .75, maxX: supplyPoint!.x + .75, minZ: supplyPoint!.z - .75, maxZ: supplyPoint!.z + .75, maxY: floor + 1.1 });
+    world.obstacles.push(rangeResupplyObstacle(supplyPoint!, floor));
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
     playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
   }
@@ -3466,7 +3466,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (supplyUse) { if (reloadInterrupt(supplyGate, pulled, sprintIntent, true)) endSupply(); else sprinting = false; }
       const speed = swimming()?SWIMMING.speed : (poseStance === 'prone' ? .85 : poseStance === 'crouch' ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2) * (supplyUse ? SUPPLY_MOVE_SCALE : 1) * footSpeedScale(foodEffects);
       const target = movementInput(forward, side, yaw, speed * burden.movement, 1);
-      if (consumeJump(bodyMotion, onGround, poseStance === 'stand' && bodyMotion.eye > 1.6, dt)) velocityY = 5.6 * burden.jumpVelocity;
+      if (consumeJump(bodyMotion, onGround, poseStance === 'stand' && bodyMotion.eye > 1.6, dt)) velocityY = INFANTRY_JUMP_SPEED * burden.jumpVelocity;
       const delta = advanceGroundMotion(bodyMotion, target.x, target.z, (onGround || swimming()) && velocityY <= 0, burden.movement, poseStance, braced(), dt);
       // Keep enough clearance for the head while lowering into a crawl.
       const clearance = Math.max(eyeHeight(), bodyMotion.eye) + .05;
@@ -3686,8 +3686,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     });
     updateRangeTargets();
     if (!expedition) for (const [asset, x, z, width, depth] of district.props) {
-      const prop = loaded[asset].clone(true); prop.position.set(x, 0.14, z); decorations.add(prop);
-      world.obstacles.push({ minX: x - width / 2, maxX: x + width / 2, minZ: z - depth / 2, maxZ: z + depth / 2, maxY: asset === 3 ? 0.8 : asset === 4 ? 0.9 : 0.7 });
+      const floor = world.bounds.groundHeight?.(x,z) ?? 0;
+      const prop = loaded[asset].clone(true); prop.position.set(x, floor + .14, z); decorations.add(prop);
+      const top = new THREE.Box3().setFromObject(prop).max.y;
+      world.obstacles.push({ minX: x - width / 2, maxX: x + width / 2, minZ: z - depth / 2, maxZ: z + depth / 2,
+        minY: floor, maxY: top, supportsTop: asset === 3 || asset === 4 });
     }
     // Range props are appended after asynchronous model loading; refresh the static broadphase.
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });

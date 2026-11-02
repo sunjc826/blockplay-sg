@@ -1,5 +1,5 @@
 /** Shared axis-aligned collision core. Every region supplies only its bounds. */
-export interface Obstacle { minX: number; maxX: number; minZ: number; maxZ: number; maxY?: number; minY?: number; footprint?: readonly Position2D[]; water?: boolean }
+export interface Obstacle { minX: number; maxX: number; minZ: number; maxZ: number; maxY?: number; minY?: number; footprint?: readonly Position2D[]; water?: boolean; /** Explicit solid prop top; decorative roofs and water never supply footing. */ supportsTop?: boolean }
 export interface Position2D { x: number; z: number }
 export interface RegionBounds { minX: number; maxX: number; minZ: number; maxZ: number; groundHeight?: (x: number, z: number) => number }
 

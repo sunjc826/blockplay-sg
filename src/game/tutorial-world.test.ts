@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildTutorialWorld } from './tutorial-world';
 import { createVerticalMovement, type VerticalState } from './vertical-movement';
 import { getTraversalObstacles, getWalkSurfaces } from './vertical-routes';
-import { INFANTRY_GRAVITY } from './fps-movement';
+import { INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED } from './fps-movement';
 import { createProfile, resolveLoadout } from './armory-state';
 import { equipmentMovement } from './fps-encumbrance';
 import { COURSE_LAYOUT as L, COURSE_STEPS, TUTORIAL_DISTRICT } from './tutorial-course';
@@ -28,7 +28,7 @@ describe('field school obstacle course', () => {
   it('blocks walking over the hurdle but allows a real loaded jump', () => withWorld(motion => {
     expect(motion.canOccupy(L.laneX, 0, L.hurdleZ)).toBe(false);
     const gear = resolveLoadout(createProfile()), burden = equipmentMovement(gear, 0);
-    let body: VerticalState = { x: L.laneX, y: 0, z: L.hurdleZ + 1.8, velocityY: 5.6 * burden.jumpVelocity };
+    let body: VerticalState = { x: L.laneX, y: 0, z: L.hurdleZ + 1.8, velocityY: INFANTRY_JUMP_SPEED * burden.jumpVelocity };
     for (let i = 0; i < 100; i++) body = motion.move(body, 0, -4.2 * burden.movement / 120, 1 / 120, .38, 1.8, [], INFANTRY_GRAVITY);
     expect(body.z).toBeLessThan(L.hurdleZ - 1);
     expect(body.y).toBe(0);

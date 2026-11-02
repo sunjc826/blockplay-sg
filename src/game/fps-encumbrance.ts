@@ -43,5 +43,6 @@ export function equipmentMovement(equipment: ResolvedLoadout, active: number,
   const inHand = Math.max(.25, bounded(equipment.weapons[equipment.carriedFamilies.includes(active) ? active : equipment.carriedFamilies[0]]?.mobility, 1, 1.15));
   const movement = Math.max(.2, Math.min(1, carried * inHand));
   return { totalKg, weaponsKg, ammoKg, suppliesKg, carried, inHand, movement,
-    jumpVelocity: .5 + .5 * movement, aimSpeed: Math.max(.25, (.35 + .65 * carried) * inHand) };
+    // Keep low cover reachable even with heavy equipment; weight still taxes the arc.
+    jumpVelocity: .9 + .1 * movement, aimSpeed: Math.max(.25, (.35 + .65 * carried) * inHand) };
 }

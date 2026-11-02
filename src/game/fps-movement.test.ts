@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceBodyMotion, advanceGroundMotion, bufferJump, consumeJump, createMovementMotion, INFANTRY_GRAVITY, landMovement, resetMovementMotion } from './fps-movement';
+import { advanceBodyMotion, advanceGroundMotion, bufferJump, consumeJump, createMovementMotion, INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED, landMovement, resetMovementMotion } from './fps-movement';
 import { createVerticalMovement } from './vertical-movement';
 
 const flat = () => createVerticalMovement({ bounds: { minX: -50, maxX: 50, minZ: -50, maxZ: 50 }, obstacles: [], surfaces: [], traversalObstacles: [] });
@@ -69,13 +69,13 @@ describe('weighted infantry movement', () => {
     expect(state.x).toBe(0); expect(state.eye).toBe(.55); expect(state.jumpBuffer).toBe(0);
   });
   it('clears low obstacles with a bounded arc and falls faster than it rises', () => {
-    const movement = flat(); let state = { x: 0, y: 0, z: 0, velocityY: 5.6 };
+    const movement = flat(); let state = { x: 0, y: 0, z: 0, velocityY: INFANTRY_JUMP_SPEED };
     let peak = 0, rise = 0, fall = 0;
     for (let i = 0; i < 180; i++) {
       const next = movement.move(state, 0, 0, 1 / 120, .38, 1.8, [], INFANTRY_GRAVITY);
       if (next.velocityY > 0) rise++; else fall++;
       peak = Math.max(peak, next.y); state = next; if (next.grounded) break;
     }
-    expect(peak).toBeGreaterThan(.8); expect(peak).toBeLessThan(.9); expect(fall).toBeLessThan(rise);
+    expect(peak).toBeGreaterThan(1.5); expect(peak).toBeLessThan(1.65); expect(fall).toBeLessThan(rise);
   });
 });

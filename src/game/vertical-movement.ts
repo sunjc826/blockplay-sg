@@ -7,7 +7,7 @@ const EPS = 1e-5;
 export interface VerticalState { x: number; y: number; z: number; velocityY: number }
 export interface VerticalWorld { bounds: RegionBounds; obstacles: readonly Obstacle[]; surfaces: readonly WalkSurface[]; traversalObstacles: readonly TraversalObstacle[]; lifts?: readonly BuildingLift[] }
 
-/** Authored walk surfaces only: decorative roofs never silently become floors. */
+/** Authored walk surfaces and solid prop tops; decorative roofs never become floors. */
 export function createVerticalMovement(world: VerticalWorld) {
   // Static broadphase shared by gameplay and the offline evaluator. The padded
   // bins cover all supported infantry radii; larger callers use the full list.
@@ -20,6 +20,7 @@ export function createVerticalMovement(world: VerticalWorld) {
     return (x: number, z: number, radius: number): readonly T[] => radius <= .75 ? bins.get(`${Math.floor(x / 16)},${Math.floor(z / 16)}`) ?? [] : items;
   };
   const baseAt = bucket(world.obstacles), traversalAt = bucket(world.traversalObstacles), surfacesAt = bucket(world.surfaces);
+  const topsAt = bucket([...world.obstacles, ...world.traversalObstacles].filter(o => o.supportsTop && !o.water && Number.isFinite(o.maxY)));
   const overlap = (o: Obstacle, x: number, z: number, r: number) => overlapsObstacle(o, x, z, r, EPS);
   const contains = surfaceContains;
   const canOccupy = (x: number, y: number, z: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = []) => {
@@ -36,6 +37,13 @@ export function createVerticalMovement(world: VerticalWorld) {
       const margin = Math.abs(s.startHeight - s.endHeight) < EPS ? radius : 0;
       if (!surfaceContains(s, x, z, margin)) continue;
       const y = surfaceHeight(s, x, z);
+      if (y <= maxY + EPS && (best === null || y > best) && canOccupy(x, y, z, radius, height, extra)) best = y;
+    }
+    for (const o of [...topsAt(x, z, radius), ...extra]) {
+      const y = o.maxY;
+      // Retain support while the body overlaps the real footprint. Dropping as
+      // soon as its centre leaves would trap the body inside the prop's side.
+      if (!o.supportsTop || o.water || y === undefined || !Number.isFinite(y) || !overlap(o, x, z, radius)) continue;
       if (y <= maxY + EPS && (best === null || y > best) && canOccupy(x, y, z, radius, height, extra)) best = y;
     }
     return best;
@@ -69,7 +77,10 @@ export function createVerticalMovement(world: VerticalWorld) {
       velocityY -= (velocityY > 0 ? gravity.rise : gravity.fall) * tick;
       let nextY = y + velocityY * tick;
       if (velocityY > 0) {
-        for (const o of traversalAt(x, z, radius)) if (overlap(o, x, z, radius) && o.minY >= y + height - EPS && o.minY < nextY + height) { nextY = o.minY - height; velocityY = 0; }
+        for (const o of [...baseAt(x, z, radius), ...traversalAt(x, z, radius), ...extra]) {
+          const underside = o.minY ?? 0;
+          if (overlap(o, x, z, radius) && underside >= y + height - EPS && underside < nextY + height) { nextY = underside - height; velocityY = 0; }
+        }
         for (const s of surfacesAt(x, z, radius)) if (contains(s, x, z)) { const roof = surfaceHeight(s, x, z); if (roof >= y + height - EPS && roof < nextY + height) { nextY = roof - height; velocityY = 0; } }
       }
       const landing = supportHeight(x, z, y + EPS, radius, height, extra);

@@ -2,6 +2,16 @@ import * as THREE from 'three';
 import type { Obstacle } from './marina-collision';
 import type { MapBounds } from './minimap';
 
+/** Match the rotated lid, rather than granting footing on the surrounding square. */
+export function rangeResupplyObstacle(point: { x: number; z: number; yaw: number }, floor: number): Obstacle {
+  const c = Math.cos(point.yaw), s = Math.sin(point.yaw);
+  const footprint = [[-.75,-.45],[.75,-.45],[.75,.45],[-.75,.45]].map(([x,z]) =>
+    ({ x:point.x+x*c+z*s, z:point.z-x*s+z*c }));
+  return { minX:Math.min(...footprint.map(p=>p.x)), maxX:Math.max(...footprint.map(p=>p.x)),
+    minZ:Math.min(...footprint.map(p=>p.z)), maxZ:Math.max(...footprint.map(p=>p.z)),
+    minY:floor, maxY:floor+.86, footprint, supportsTop:true };
+}
+
 export function rangeResupplyPoint(spawn: { x: number; z: number; yaw: number }, bounds: MapBounds, obstacles: readonly Obstacle[], vehicles: readonly { x: number; z: number }[]) {
   for (const radius of [2.4, 3.5, 5, 7]) for (const turn of [Math.PI / 2, -Math.PI / 2, Math.PI * .75, -Math.PI * .75, Math.PI, .4, -.4]) {
     const angle = spawn.yaw + turn, x = spawn.x - Math.sin(angle) * radius, z = spawn.z - Math.cos(angle) * radius, pad = .9;

@@ -14,7 +14,8 @@ const horizontal = (a: { x: number; z: number }, b: { x: number; z: number }) =>
 export function campPropBounds(prop: CampProp): Obstacle {
   const size=CAMP_PROP_SIZE[prop.kind], turned=Math.abs(Math.sin(prop.yaw))>.5;
   const w=turned?size.d:size.w,d=turned?size.w:size.d;
-  return {minX:prop.x-w/2,maxX:prop.x+w/2,minZ:prop.z-d/2,maxZ:prop.z+d/2,minY:prop.y,maxY:prop.y+size.h};
+  return {minX:prop.x-w/2,maxX:prop.x+w/2,minZ:prop.z-d/2,maxZ:prop.z+d/2,minY:prop.y,maxY:prop.y+size.h,
+    supportsTop:prop.kind==='stores'||prop.kind==='barricade'};
 }
 
 /** Each component is checked independently; narrow streets keep a smaller camp.

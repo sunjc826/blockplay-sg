@@ -1,6 +1,8 @@
 /** Infantry feel. World collision and authoritative stance remain owned by the engine. */
 export type MovementStance = 'stand' | 'crouch' | 'prone';
 export const INFANTRY_GRAVITY = { rise: 18, fall: 24 };
+/** About 1.6 m unladen: enough to mount low cover, with a quick landing. */
+export const INFANTRY_JUMP_SPEED = 7.6;
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 const damp = (a: number, b: number, rate: number, dt: number) => b + (a - b) * Math.exp(-rate * dt);
 export function createMovementMotion() {
