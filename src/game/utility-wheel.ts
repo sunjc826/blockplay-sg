@@ -17,7 +17,8 @@ export function utilityOption(id: string | null, held: Readonly<Record<string, n
     seconds: item.grenade ? .35 : supplyProfile(item).seconds,
     effects: item.grenade ? grenadeEffectLines(item.grenade) : [
       ...(item.effect?.health ? [`+${item.effect.health} HP`] : []),
-      ...(item.effect?.armor ? [`+${item.effect.armor} armor`] : []), ...foodEffectLines(item.foodEffects),
+      ...(item.effect?.armor ? [`+${item.effect.armor} armor`] : []),
+      ...(item.effect?.ammoRefill ? ['Full weapon + all empty rig pouches'] : []), ...foodEffectLines(item.foodEffects),
     ] };
 }
 /** Catalogue order is stable; each carried item has one image and a quantity badge. */

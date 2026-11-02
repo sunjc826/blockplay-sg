@@ -1,3 +1,4 @@
+import { needsAmmoRefill, refillAmmo } from './ammo-refill';
 import { createScopeZoom, createScopeZoomWheel, scopeZoomLookScale, type ScopeZoom } from './scope-zoom';
 import { getBuildingLifts, liftGates, liftPassenger, liftSample } from './building-lifts';
 import { createMerlionVisuals } from './merlion-visuals';
@@ -2478,16 +2479,18 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     beltSelected = kind;
     const supply = selectedId ? itemById(selectedId) : pickUtility(kind, supplies, { health: hud.health, maxHealth: hud.maxHealth }, recoveryChoice);
     if (!supply?.effect) { hud.message = `No ${utilitySlot(kind)!.label.toLowerCase()} on the belt.`; publish(); return; }
-    const { armor = 0, reserve = 0 } = supply.effect;
+    const { armor = 0, reserve = 0, ammoRefill } = supply.effect;
     // A meal with effects is worth eating at full health: the effects are why it was picked.
-    const full = hud.health >= hud.maxHealth && (!armor || hud.armor >= equipment.armor) && (!reserve || !reserveRoom(loadout[hud.weapon])) && !(recoveryChoice && supply.foodEffects?.length);
+    const full = !ammoRefill && hud.health >= hud.maxHealth && (!armor || hud.armor >= equipment.armor) && (!reserve || !reserveRoom(loadout[hud.weapon])) && !(recoveryChoice && supply.foodEffects?.length);
+    if (ammoRefill && !needsAmmoRefill(loadout[hud.weapon], specs[hud.weapon])) { hud.message = 'Weapon and rig ammunition already full.'; publish(); return; }
     if (reserve && !reserveRoom(loadout[hud.weapon])) { hud.message = 'Rig pouches full.'; publish(); return; }
     if (full) { hud.message = kind === 'food' ? 'Nothing to restore. Hold F to choose another recovery item.' : 'Nothing to restore right now.'; publish(); return; }
     if (!beginSupply(supply.name, supply.id, supplyProfile(supply), () => applyQuickItem(supply), true)) publish();
   }
   function applyQuickItem(supply: NonNullable<ResolvedLoadout['quickItem']>) {
     if (!supplies[supply.id] || !supply.effect || supply.effect.reserve && !reserveRoom(loadout[hud.weapon])) return false;
-    const { health = 0, armor = 0, reserve = 0 } = supply.effect;
+    const { health = 0, armor = 0, reserve = 0, ammoRefill } = supply.effect;
+    if (ammoRefill && !needsAmmoRefill(loadout[hud.weapon], specs[hud.weapon])) return false;
     // In an arena the host heals, refills the inserts and starts the meal (it
     // owns health, and a guest's supplies); the reserve is this engine's own.
     if (arenaRuntime) arenaRuntime.useSupply(supply.id);
@@ -2498,6 +2501,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     if (health) recoveryDelay = 0;
     if (reserve) addReserveMagazines(loadout[hud.weapon], 2);
+    if (ammoRefill) refillAmmo(loadout[hud.weapon], specs[hud.weapon]);
     if (supplies[supply.id] > 1) supplies[supply.id]--; else delete supplies[supply.id];
     hud.message = supply.foodEffects?.length ? `${supply.name} eaten · ${supply.foodEffects.map(effect => FOOD_EFFECTS[effect.kind].label).join(', ')}.` : `${supply.name} used.`;
     if (recoveryChoice === supply.id && !supplies[supply.id]) hud.message += ' Depleted · hold F to choose another.';

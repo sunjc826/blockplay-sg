@@ -109,7 +109,8 @@ try {
    await evaluate(`window.engine.setInput('fire',true)`);await wait('window.hud.magazine===0',10000);await evaluate(`window.engine.setInput('fire',false)`);
    await key('r','KeyR');await wait('window.hud.magazine>0&&!window.hud.reloading',10000);
  }
- assert.equal(await evaluate(`window.hud.belt.find(s=>s.kind==='ammo').count`),1);
+ assert.equal(await evaluate(`window.hud.belt.find(s=>s.kind==='ammo').count`),3);
+ assert.equal(await evaluate(`window.consumed.filter(id=>id==='kit-ammo-refill').length`),0);
  assert.equal(await evaluate(`window.consumed.filter(id=>id==='kit-ammo').length`),1);
  assert(!await evaluate('window.hud.supplyUse'));assert.equal(await evaluate('window.hud.spareMagazines'),1);
  console.log('PASS automatic ammo: exhausting four spare magazines then pressing R consumes one pouch, supplies two magazines, and completes the reload');

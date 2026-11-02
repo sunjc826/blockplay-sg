@@ -17,7 +17,7 @@ export interface SupplyProfile {
   /** HUD verb: what the player is doing. */
   verb: string;
 }
-interface SupplyLike { id?: string; supplyType?: string; medical?: 'dressing' | 'kit'; effect?: { health?: number; armor?: number; reserve?: number }; eatSeconds?: number; useVerb?: string }
+interface SupplyLike { id?: string; supplyType?: string; medical?: 'dressing' | 'kit'; effect?: { health?: number; armor?: number; reserve?: number; ammoRefill?: true }; eatSeconds?: number; useVerb?: string }
 
 /** How a supply is used, from what it is and how much it does. Bigger meals take longer to eat. */
 export function supplyProfile(item: SupplyLike): SupplyProfile {
@@ -27,7 +27,7 @@ export function supplyProfile(item: SupplyLike): SupplyProfile {
   // A short roll is wound on quicker than a full field dressing.
   if (health) return { style: 'bandage', seconds: 2.4 + Math.min(60, health) * .0133, commit: .84, verb: 'DRESSING WOUND' };
   if (armor) return { style: 'plates', seconds: 2.6, commit: .76, verb: 'SWAPPING PLATES' };
-  if (reserve) return { style: 'ammo', seconds: 1.8, commit: .72, verb: 'RESTOCKING' };
+  if (reserve || item.effect?.ammoRefill) return { style: 'ammo', seconds: 1.8, commit: .72, verb: 'RESTOCKING' };
   return { style: 'bandage', seconds: 3, commit: .84, verb: 'USING' };
 }
 

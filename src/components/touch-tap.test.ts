@@ -16,6 +16,15 @@ describe('tapProps', () => {
     props.onClick(click(button));
     expect(action).toHaveBeenCalledTimes(1);
   });
+  it('ignores a touch click retargeted to a control underneath a dismissed picker', () => {
+    const choose = vi.fn(), use = vi.fn(), option = target(), belt = target();
+    tapProps(choose).onPointerDown(down(option, 'touch'));
+    const props = tapProps(use);
+    props.onClick({ currentTarget: belt, nativeEvent: { pointerType: 'touch' } } as unknown as React.MouseEvent<HTMLElement>);
+    expect(choose).toHaveBeenCalledOnce(); expect(use).not.toHaveBeenCalled();
+    props.onPointerDown(down(belt, 'touch'));
+    expect(use).toHaveBeenCalledOnce();
+  });
   it('leaves the mouse and the keyboard to the click', () => {
     const action = vi.fn(), button = target(), props = tapProps(action);
     props.onPointerDown(down(button, 'mouse'));

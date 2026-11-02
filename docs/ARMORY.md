@@ -895,8 +895,13 @@ carry and insertion in the training world. Set `POUCH_RELOAD_FAMILY=0..7` and
 pouch layout, using the same Vite/Chrome environment variables as the ammo smoke.
 
 Calibre pickups provide whole containers for the matching held weapon (or a
-matching carried weapon), capped by free pouches. Ammo kits fill at most two
-pouches. Range stations refill missing starting positions without changing loaded
+matching carried weapon), capped by free pouches. Issued ammo pouches fill at most two
+pouches. **Ammo Refill** costs 50 TK per use in Store → Utilities. Pack it, hold
+F to select it, then tap F: its 1.8 s action fills the weapon in your hands
+and every empty rig pouch with compatible magazines. Existing spares and donor
+magazine capacities stay intact. It restores interrupted reloads to a ready gun;
+cancelling before the effect or using it with full ammunition spends nothing.
+Range stations refill missing starting positions without changing loaded
 or held magazines. Found weapons bring only their loaded magazine; compatible
 spares retain their size and position, while spares no longer usable by a carried
 weapon leave with the replaced gun. District travel saves exact pouch positions,

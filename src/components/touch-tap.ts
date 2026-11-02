@@ -23,6 +23,9 @@ export function tapProps(action: () => void) {
       action();
     },
     onClick: (event: React.MouseEvent<HTMLElement>) => {
+      // A disappearing picker can retarget its generated click to a different
+      // control. Touch actions already ran through pointer events.
+      if ((event.nativeEvent as PointerEvent | undefined)?.pointerType === 'touch') return;
       const at = touchedAt.get(event.currentTarget);
       if (at !== undefined && performance.now() - at < FOLLOW_UP_MS) return;
       action();

@@ -1,3 +1,4 @@
+import { refillAmmo } from './ammo-refill';
 import { insideLift, liftGates, liftSample } from './building-lifts';
 import { BOAT_AI, BOAT_BERTHS, BOAT_FOOT_ANCHORS, boatAutopilot, planBoatRoute, type BoatRoute, type BoatPoint } from './dragon-boat-autopilot';
 import { createMerlionController, mistBetween, nearMerlion, merlionMouth, MERLION, type MerlionState, type MerlionAction } from './merlion-gameplay';
@@ -752,6 +753,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (entry.lastSupplyAt !== undefined && elapsed - entry.lastSupplyAt < hands.seconds * hands.commit * .5) return false;
     if (entry.supplies) { if (entry.supplies[item.id] > 1) entry.supplies[item.id]--; else delete entry.supplies[item.id]; }
     entry.lastSupplyAt = elapsed;
+    if (item.effect.ammoRefill) refillAmmo(entry.ammo[entry.actor.weapon], entry.weapons[entry.actor.weapon]);
     const { health = 0, armor = 0 } = item.effect;
     if (health) entry.actor.health = Math.min(entry.healthMax, entry.actor.health + health);
     if (armor) entry.actor.armor = Math.min(entry.armorMax, entry.actor.armor + armor);

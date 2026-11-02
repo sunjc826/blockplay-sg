@@ -22,7 +22,12 @@ export default function FpsUtilityPicker({ hud, engine }: { hud: FpsHud; engine:
           data-selected={picker.slot === index || undefined} aria-pressed={current} aria-label={`${option.name}, ${option.count} carried. ${option.effects.join('. ')}`}
           style={{ left: `calc(50% + ${Math.sin(angle).toFixed(4)} * var(--utility-radius))`, top: `calc(50% - ${Math.cos(angle).toFixed(4)} * var(--utility-radius))` }}
           onPointerEnter={() => { if (!hud.locked) engine?.pointUtilityOption(group, index); }} onFocus={() => engine?.pointUtilityOption(group, index)}
-          {...press} onClick={event => { if ((event.nativeEvent as PointerEvent).pointerType !== 'touch') press.onClick(event); }}>
+          {...press}
+          // Keep the option under the finger until release, so removing the wheel
+          // cannot send the same touch-up to a belt button underneath it.
+          onPointerDown={event => { if (event.pointerType === 'touch') { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); } else press.onPointerDown(event); }}
+          onPointerUp={event => { if (event.pointerType === 'touch') { event.preventDefault(); event.stopPropagation(); press.onPointerDown(event); } }}
+          onClick={event => { if ((event.nativeEvent as PointerEvent).pointerType !== 'touch') press.onClick(event); }}>
           <img src={`${import.meta.env.BASE_URL}images/armory/${armoryThumbnailFile(itemById(option.id)!)}`} alt="" draggable={false} />
           <b>×{option.count}</b>
         </button>;

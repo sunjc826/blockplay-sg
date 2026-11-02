@@ -6,7 +6,7 @@ import { createModelKit } from './supply-model-kit';
  * real size in metres, resting on y = 0 and centred over the origin: what the
  * store shows. Built from the same kit as `food-models`.
  */
-export const UTILITY_MODEL_IDS = ['kit-ammo', 'kit-bandage', 'kit-dressing', 'kit-plates', 'kit-first-aid', 'kit-trauma'] as const;
+export const UTILITY_MODEL_IDS = ['kit-ammo', 'kit-ammo-refill', 'kit-bandage', 'kit-dressing', 'kit-plates', 'kit-first-aid', 'kit-trauma'] as const;
 export type UtilityModelId = typeof UTILITY_MODEL_IDS[number];
 
 export const isUtilityModelId = (id: string): id is UtilityModelId => (UTILITY_MODEL_IDS as readonly string[]).includes(id);
@@ -35,11 +35,13 @@ export function buildUtilityModel(id: string) {
   };
 
   switch (id) {
+    case 'kit-ammo-refill':
     case 'kit-ammo': {
       // An olive magazine pouch with its flap and buckle, webbing loops on the back.
       const pouch = new THREE.Group(); pouch.rotation.y = -.35; body.add(pouch);
-      box(pouch, .085, .13, .055, olive, 0, .065, 0, .15);
-      const flap = box(pouch, .09, .045, .062, olive, 0, .125, .002, .2); flap.rotation.x = -.08;
+      const finish = id === 'kit-ammo-refill' ? material('#b18b42', .45, .4) : olive;
+      box(pouch, .085, .13, .055, finish, 0, .065, 0, .15);
+      const flap = box(pouch, .09, .045, .062, finish, 0, .125, .002, .2); flap.rotation.x = -.08;
       box(pouch, .03, .02, .01, black, 0, .1, .033, .2);
       box(pouch, .022, .03, .004, webbing, 0, .118, .031, .2);
       for (let i = 0; i < 3; i++) box(pouch, .089, .012, .006, webbing, 0, .03 + i * .032, -.029, .2);
