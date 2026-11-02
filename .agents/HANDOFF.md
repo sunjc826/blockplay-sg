@@ -1,5 +1,33 @@
 # Blockplay: portable agent handoff
 
+## Body-mounted weapons and physical switching (2026-11-02)
+
+The first-person body now displays the carried, inactive weapon silhouettes
+with their equipped variants/skins: right-hip P30 holster, side rifle sling,
+lower support sling and diagonal muzzle-up precision back sling. Carry anchors
+follow the existing hips/chest stance rig. Only physical carry slots appear;
+OICW rifle/launcher modes share one carried platform. Snapshot meshes exclude
+viewmodel hands, own their render resources, preserve instanced ammunition and
+leave source-owned image pixels intact on cleanup. Empty magazine wells follow
+interrupted reload state; holsters/slings remain worn while the gun is held.
+
+Switching stows the outgoing gun at its actual mount before drawing the next
+from its own mount. Foreground/body camera projections match at handoff; hands
+stay on the moving gun, back draws clear the shoulder, and shoulder recoil is
+suppressed during transfer. Fire/reload/inspection/supply/grenade actions wait
+for the draw. Pauses freeze the sequence; death, respawn, reset, vehicles and
+swimming clear it. Changing OICW firing mode does not holster the weapon.
+
+Validation: isolated release typecheck and 60 focused tests / nine files pass.
+Real Chrome/Metal smokes pass support, heavy support and precision secondary
+loadouts, held-trigger gating, reload gating, handoff visibility, firing after
+draw and stance changes, with no browser errors. Fixtures/scripts are committed;
+captures and JSON evidence are in `.cache/weapon-carry/`. The broad workspace
+suite has unrelated map/sector/boat failures and is not a clean-suite claim.
+Concurrent Ammo Refill work is excluded from this release snapshot and commit.
+Manual deployment receipt will be appended after verification. No GitHub push;
+AGENTS.md remains local, unstaged and uncommitted.
+
 ## Empty pouches fold flat (2026-10-31)
 
 Owner requested collapsed empty magazine pouches. Local code commit `4e20870`

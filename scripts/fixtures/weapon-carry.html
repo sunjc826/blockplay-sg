@@ -1,0 +1,14 @@
+<!doctype html><meta charset="utf-8"><title>Body weapon carry and switching</title>
+<style>body{margin:0;background:#17231e;color:white;font:16px sans-serif}#world{height:720px;width:1200px}button{padding:12px}</style>
+<button id="enter">Enter range</button><div id="world"></div>
+<script type="module">
+import {createFpsEngine} from '/src/game/fps-engine.ts';
+import {createProfile,resolveLoadout} from '/src/game/armory-state.ts';
+const profile=createProfile();profile.carry={main:0,extra:Number(new URLSearchParams(location.search).get('extra')??1)};
+const equipment=resolveLoadout(profile);equipment.carriedFamilies=[0,2,profile.carry.extra];
+window.engine=createFpsEngine(document.querySelector('#world'),hud=>window.hud=hud,{tutorial:true,loadout:equipment});
+engine.configureDebug({regeneration:false,combatEvents:false});
+document.querySelector('#enter').onclick=()=>engine.start();
+window.samples=[];
+(function sample(){const canvas=document.querySelector('canvas');if(canvas?.dataset.weaponSwitch) samples.push({at:performance.now(),switch:JSON.parse(canvas.dataset.weaponSwitch),carried:JSON.parse(canvas.dataset.carriedWeapons),shots:hud.shots});requestAnimationFrame(sample)})();
+</script>

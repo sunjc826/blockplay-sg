@@ -64,6 +64,7 @@ import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage, stanceRecoilMu
 import { pickupSlot, restoreCarrySlots } from './armory-slots';
 import { equipmentMovement } from './fps-encumbrance';
 import { createFpsBody } from './fps-body';
+import { beginWeaponSwitch, weaponSwitchFrame, carryViewPose, weaponCarryClass, type WeaponSwitch } from './fps-weapon-carry';
 import { buildServiceWeapon } from './service-weapon-models';
 import { impactSurfaceNormal } from './fps-impact-normal';
 import { hitSurface } from './fps-surfaces';
@@ -456,6 +457,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let aimProgress = 0, lastReloadStage = '';
   let lastBoltShot = -1, lastBoltCase = -1, boltSoundStage = 0;
   let inspectElapsed: number | null = null;
+  let weaponSwitch: WeaponSwitch | null = null;
+  const switchStart = new THREE.Object3D();
+  const switchReady = new THREE.Object3D();
   // Inputs held when a reload began, which do not interrupt it (see fps-reload).
   // Only a held sprint key counts as sprint intent there: a stick pushed to the rim never stops a reload.
   let reloadGate = armReloadGate(false, false), sprintIntent = false;
@@ -971,13 +975,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function stopInspect() { inspectElapsed = null; hud.inspecting = false; }
   /** K: a cosmetic look over both sides, available whenever the infantry weapon is idle. */
   function inspectWeapon() {
-    if (pilotEnabled || hud.phase !== 'playing' || hud.health <= 0 || hud.arenaSelf?.alive === false || vehicles.active || supplyUse || grenadeHeld || loadout[hud.weapon].reloadRemaining > 0 || ads || touchAim || trigger || pullBuffer > 0 || wasSprinting) return;
+    if (weaponSwitch || pilotEnabled || hud.phase !== 'playing' || hud.health <= 0 || hud.arenaSelf?.alive === false || vehicles.active || supplyUse || grenadeHeld || loadout[hud.weapon].reloadRemaining > 0 || ads || touchAim || trigger || pullBuffer > 0 || wasSprinting) return;
     if (hud.inspecting) stopInspect();
     else { inspectElapsed = 0; hud.inspecting = true; cantWanted = false; }
     canvas.focus({ preventScroll: true }); publish();
   }
   function reload() {
-    if(merlionOperating())return;
+    if(merlionOperating() || weaponSwitch)return;
     if (grenadeHeld || recoveryPicker || grenadePicker || arenaConditionModifiers(conditions).frozen) return;
     stopInspect();
     if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
@@ -1001,12 +1005,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     lastReloadStage = ''; publish();
   }
   function switchWeapon(index: number) {
+    if (weaponSwitch) return;
     if (grenadeHeld?.pinned) return;
     if (grenadeHeld) { grenadeHeld = null; publish(); }
     if (hud.phase === 'deploying' || deploymentIntro.active || hud.phase === 'loading' || hud.phase === 'error' || index === hud.weapon || !validWeaponIndex(index) || !equipment.carriedFamilies.includes(index)) return;
     stopInspect(); stopReload(); endSupply();
     trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; emptyFireAudio.clear(); ads = false; touchAim = false; resetWeaponRecoil(); cantWanted = false; cant = 0;
-    hud.weapon = index; weapons.forEach((w, i) => w.visible = i === index);
+    const previous = hud.weapon;
+    weaponSwitch = hud.phase === 'playing' && !vehicles.active && !swimming() && weapons[previous] && equipment.carriedFamilies.includes(previous)
+      ? beginWeaponSwitch(previous, index, specs) : null;
+    switchStart.position.copy(rig.position); switchStart.quaternion.copy(rig.quaternion); switchStart.scale.copy(rig.scale);
+    hud.weapon = index; weapons.forEach((w, i) => w.visible = i === (weaponSwitch ? previous : index));
     if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
     effects.attachMuzzle(muzzleSocket(weapons[index], FPS_WEAPONS[index].id));
     effects.setStyles(weaponStyles, index); publish();
@@ -1016,6 +1025,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     switchWeapon(hud.weapon === OICW_RIFLE ? OICW_LAUNCHER : OICW_RIFLE);
   }
   function reset() {
+    weaponSwitch = null; rig.scale.set(1, 1, 1);
     mapReturnStance = null;
     gunshotSpaces.clear();
     gunshots.clear(); emptyFireAudio.clear();
@@ -1893,6 +1903,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.vehicleCamera = JSON.stringify({ x: camera.position.x, y: camera.position.y, z: camera.position.z, pitch: camera.rotation.x, yaw: camera.rotation.y, roll: camera.rotation.z });
   }
   function updateCameras(dt: number, moving: boolean, sprinting: boolean) {
+    if (weaponSwitch && (hud.health <= 0 || hud.arenaSelf?.alive === false || vehicles.active || swimming() || hud.phase !== 'playing' && hud.phase !== 'paused')) weaponSwitch = null;
+    if (weaponSwitch && hud.phase === 'playing') {
+      weaponSwitch.elapsed += Math.max(0, dt);
+      if (weaponSwitchFrame(weaponSwitch).done) weaponSwitch = null;
+    }
+    const switching = weaponSwitch ? weaponSwitchFrame(weaponSwitch) : null;
+    const heldFamily = switching?.family ?? hud.weapon;
+    weapons.forEach((weapon, family) => { weapon.visible = family === heldFamily; });
+    rig.scale.set(1, 1, 1);
+    canvas.dataset.weaponSwitch = switching ? JSON.stringify({ ...switching, from: weaponSwitch!.from, to: weaponSwitch!.to }) : '';
     if (bailoutAge !== undefined) {
       if (vehicles.active || hud.health <= 0 || hud.phase !== 'playing' || bailoutAge + dt >= BAILOUT_ROLL_SECONDS) bailoutAge = undefined;
       else bailoutAge += dt;
@@ -1939,7 +1959,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       actualAim = ads || touchAim; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0);
       updateVehicleCamera(dt); return;
     }
-    const aiming = !swimming() && !grenadeHeld && arenaConditionModifiers(conditions).aim > 0 && (ads || touchAim) && !sprinting && loadout[hud.weapon].reloadRemaining === 0 && !supplyUse;
+    const aiming = !weaponSwitch && !swimming() && !grenadeHeld && arenaConditionModifiers(conditions).aim > 0 && (ads || touchAim) && !sprinting && loadout[hud.weapon].reloadRemaining === 0 && !supplyUse;
     actualAim = aiming;
     // Heavier carry costs time to settle the sights as well as ground speed.
     aimProgress = THREE.MathUtils.damp(aimProgress, aiming ? 1 : 0, 15 * (aiming ? movement().aimSpeed * aimSpeedScale(foodEffects) * arenaConditionModifiers(conditions).aim : 1), dt);
@@ -1950,7 +1970,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const sideSpeed = carry.x * Math.cos(yaw) - carry.z * Math.sin(yaw);
     const forwardSpeed = -carry.x * Math.sin(yaw) - carry.z * Math.cos(yaw);
     playerBody.update(dt, equipment, loadout, {
-      x: position.x, y: vertical, z: position.z, yaw, activeFamily: hud.weapon,
+      x: position.x, y: vertical, z: position.z, yaw, activeFamily: heldFamily,
       velocity: { x: sideSpeed, z: -forwardSpeed }, turn: dt > 0 ? yawDelta / dt : 0,
       crouch: poseStance === 'crouch' ? 1 : 0, prone: poseStance === 'prone', airborne: !onGround,
       bailoutAge,
@@ -1958,6 +1978,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     });
     canvas.dataset.body = JSON.stringify({ visible: playerBody.root.visible, rig: equipment.rigId, plate: equipment.plateId,
       slots: playerBody.root.userData.magazineSlots, magazines: playerBody.root.userData.magazines });
+    canvas.dataset.carriedWeapons = JSON.stringify(physicalWeaponFamilies(equipment.carriedFamilies).flatMap(family => {
+      const mount = playerBody.weaponMount(family);
+      return mount ? [{ family, kind: mount.userData.carryClass, visible: mount.children[0].visible }] : [];
+    }));
     const step = advanceBodyMotion(bodyMotion, eyeHeight(), poseStance, speed, onGround, sprinting && speed > .2, sideSpeed, forwardSpeed, dt);
     if (step && hud.phase === 'playing' && !conditions.deafened) movementSound(poseStance === 'prone' ? .18 : poseStance === 'crouch' ? .25 : sprinting ? .65 : .4);
     const motionScale = motionPreference?.matches ? 0 : 1;
@@ -2063,6 +2087,25 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (grenadeHeld) rig.visible = false;
     const weaponDown = supplyHands.update(rig.visible && supplyUse ? supplyUse.profile.style : null, supplyUse ? supplyProgress(supplyUse) : 0, supplyUse?.id);
     if (weaponDown > 0) { rig.position.x += weaponDown * .12; rig.position.y -= weaponDown * .62; rig.rotation.x -= weaponDown * .9; rig.rotation.z -= weaponDown * .35; }
+    if (switching) {
+      const mount = playerBody.weaponMount(heldFamily);
+      if (mount) {
+        // The hands remain gripping the real held weapon as it travels to/from
+        // its body mount. A shoulder waypoint clears the head for back slings.
+        viewCamera.fov = camera.fov; viewCamera.updateProjectionMatrix();
+        const bodyPose = carryViewPose(mount, camera, viewCamera);
+        switchReady.position.copy(rig.position); switchReady.quaternion.copy(rig.quaternion); switchReady.scale.copy(rig.scale);
+        const ready = switching.phase === 'stow' ? switchStart : switchReady;
+        rig.position.copy(ready.position).lerp(bodyPose.position, switching.bodyWeight);
+        rig.quaternion.copy(ready.quaternion).slerp(bodyPose.quaternion, switching.bodyWeight);
+        rig.scale.copy(ready.scale).lerp(bodyPose.scale, switching.bodyWeight);
+        const arc = Math.sin(Math.PI * switching.progress);
+        const back = weaponCarryClass(specs[heldFamily]) === 'back-sling';
+        rig.position.y += arc * (back ? .42 : .12);
+        rig.position.x += arc * (back ? .20 : -.06);
+        rig.position.z -= arc * .15;
+      }
+    }
     const visionDown = motionPreference?.matches ? 0 : visionMountPose(visionState.mount).weaponDown;
     rig.position.y -= visionDown * .48; rig.rotation.x -= visionDown * .24;
     canvas.dataset.supplyUse = supplyUse ? `${supplyUse.profile.style}:${supplyProgress(supplyUse).toFixed(2)}` : '';
@@ -2260,7 +2303,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** Raises a supply: the weapon goes down and `apply` runs at the commit point, unless the use is stopped first. */
   function beginSupply(name: string, id: string, profile: SupplyProfile, apply: () => boolean, fromBelt = false) {
-    if (swimming() || grenadeHeld || arenaConditionModifiers(conditions).frozen || supplyUse || hud.phase !== 'playing' || vehicles.active || hud.health <= 0 || hud.arenaSelf?.alive === false) return false;
+    if (weaponSwitch || swimming() || grenadeHeld || arenaConditionModifiers(conditions).frozen || supplyUse || hud.phase !== 'playing' || vehicles.active || hud.health <= 0 || hud.arenaSelf?.alive === false) return false;
     stopInspect(); stopReload(); ads = false; touchAim = false; actualAim = false;
     supplyUse = { ...startSupplyUse(profile), name, id, fromBelt, apply };
     supplyGate = armReloadGate(trigger, sprintIntent); pullBuffer = 0;
@@ -2315,7 +2358,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     return !firstVisibleHit(grenadeRay, gameplayCandidates().filter(o => o !== vehicles.root && !targets.some(t => t.root === o) && !o.userData.arenaActorId));
   }
   function readyGrenade() {
-    if (swimming() || grenadeHeld || vehicles.active || hud.arenaSelf?.alive === false || performance.now() / 1000 - grenadeLastAt < .9) return;
+    if (weaponSwitch || swimming() || grenadeHeld || vehicles.active || hud.arenaSelf?.alive === false || performance.now() / 1000 - grenadeLastAt < .9) return;
     const item = grenadeChoice && supplies[grenadeChoice] > 0 ? itemById(grenadeChoice) : undefined;
     if (!item?.grenade) { hud.message = 'Selected throwable depleted. Hold G to choose another.'; publish(); return; }
     if (item.id === 'grenade-red-smoke' && performance.now() / 1000 - missionLastAt < 60) { hud.message = 'Fire control: one mission every 60 s.'; publish(); return; }
@@ -2711,7 +2754,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hadDestruction) { checkCompletion(); publish(); }
   }
   function shoot() {
-    if(merlionOperating())return;
+    if(merlionOperating() || weaponSwitch)return;
     if(swimming() && !swimmingCanFire(hud.weapon,carry.length())) return;
     if (vehicles.active && !vehicles.canUseFirearm || (options.arena && !hud.arenaSelf?.alive)) return;
     const state = loadout[hud.weapon], weapon = specs[hud.weapon];
@@ -2956,7 +2999,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
           looted = {}; supplies = { ...equipment.supplies };
           arenaRuntime.updateLoadout(fieldProfile);
-          reloadAudio.clear(); stopInspect(); grenadeHeld = null; grenadePicker = null;
+          weaponSwitch = null; reloadAudio.clear(); stopInspect(); grenadeHeld = null; grenadePicker = null;
           hud.weapon = equipment.carriedFamilies[0];
           loadout = createPooledLoadout(specs, equipment.carriedFamilies);
           undress.splice(0).forEach(dispose => dispose());
@@ -2967,6 +3010,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         }
       }
       if (frame.spawn) {
+        weaponSwitch = null;
         if (previousSelf && (!previousSelf.alive || frame.self.deaths > previousSelf.deaths) && !checkpointPending) {
           fieldProfile = respawnEquipment(fieldProfile, respawnProfile);
           equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
@@ -3629,7 +3673,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const firingVibration = firearmShake.sample(aimProgress, sightMagnification, !!motionPreference?.matches || hud.phase !== 'playing');
     canvas.dataset.firearmShake = JSON.stringify(firingVibration);
     const shoulderPose = shoulderMotion.sample(aimProgress, sightMagnification, handling[hud.weapon]?.bipodDeployment ?? 0,
-      !!motionPreference?.matches || hud.phase !== 'playing' || !rig.visible || loadout[hud.weapon].reloadRemaining > 0 || inspectElapsed !== null);
+      !!motionPreference?.matches || hud.phase !== 'playing' || !rig.visible || loadout[hud.weapon].reloadRemaining > 0 || inspectElapsed !== null || weaponSwitch !== null);
     canvas.dataset.shoulderMotion = JSON.stringify(shoulderPose);
     shoulderMotion.render(rig, shoulderPose, () => firearmShake.render(camera, viewCamera, firingVibration, () => {
       // Before anything draws the world: the tube's gain goes into exposure, or the scene turns to temperature.
@@ -3709,6 +3753,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     weapons.push(loaded[0], loaded[1], ...FPS_WEAPONS.slice(2).map(spec => {
       const model = buildServiceWeapon(spec.id)!; templates.push(model); return model;
     })); weapons.forEach((w, i) => { undress.push(dressWeapon(w, specs[i])); handling.push(createWeaponHandling(w, i)); rig.add(w); w.visible = i === hud.weapon; });
+    playerBody.setWeaponModels(weapons);
     effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id));
     effects.setStyles(weaponStyles, hud.weapon);
     if (!options.arena) targetPositions.forEach((p, i) => {

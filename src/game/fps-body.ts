@@ -8,6 +8,8 @@ import { startingMagazineInventory } from './ammo-pools';
 import { arenaCharacterLook } from './character-looks';
 import { createCharacterRig, type CharacterDrive } from './character-rig';
 import { disposeModel } from './armory-visuals';
+import { weaponCarryPose } from './fps-weapon-carry';
+import { physicalWeaponFamilies, primaryWeaponFamily } from './weapon-modes';
 
 /** Extra carry belongs to the rig, independently of the protective inserts. */
 export function bodyMagazineSlots(rigId: string) {
@@ -51,6 +53,86 @@ export function createFpsBody(scene: THREE.Scene) {
   let magazines: ReserveSlot[] = [];
   let buildContainer: (kind: ReserveContainer) => THREE.Group;
   character.joints.chest.add(gear);
+
+  const mounts = new Map<number, THREE.Group>();
+  let weaponModels: readonly THREE.Group[] = [], weaponIdentity = '';
+  function clearWeapons() {
+    for (const mount of mounts.values()) {
+      // Texture snapshots share image pixels with their source. Release GPU
+      // resources without closing source-owned ImageBitmaps.
+      const resources = new Set<{ dispose(): void }>();
+      mount.traverse(node => {
+        if (!(node instanceof THREE.Mesh)) return;
+        resources.add(node.geometry);
+        for (const material of Array.isArray(node.material) ? node.material : [node.material]) {
+          resources.add(material);
+          for (const value of Object.values(material)) if (value instanceof THREE.Texture) resources.add(value);
+        }
+      });
+      resources.forEach(resource => resource.dispose()); mount.removeFromParent();
+    }
+    mounts.clear();
+  }
+  function rebuildWeapons(equipment: ResolvedLoadout, key: string) {
+    clearWeapons();
+    const geometry = new Map<THREE.BufferGeometry, THREE.BufferGeometry>();
+    const materials = new Map<THREE.Material, THREE.Material>();
+    const textures = new Map<THREE.Texture, THREE.Texture>();
+    const copyMaterial = (source: THREE.Material) => {
+      if (materials.has(source)) return materials.get(source)!;
+      const copy = source.clone(); materials.set(source, copy);
+      for (const [name, value] of Object.entries(copy)) if (value instanceof THREE.Texture) {
+        if (!textures.has(value)) textures.set(value, value.clone());
+        (copy as unknown as Record<string, unknown>)[name] = textures.get(value);
+      }
+      return copy;
+    };
+    // Snapshot the dressed silhouette without viewmodel hands or circular
+    // optic metadata. Every mesh resource is owned by the body snapshot.
+    const copyModel = (source: THREE.Object3D): THREE.Object3D => {
+      let copy: THREE.Object3D;
+      if (source instanceof THREE.Mesh) {
+        if (!geometry.has(source.geometry)) geometry.set(source.geometry, source.geometry.clone());
+        const shape = geometry.get(source.geometry)!;
+        const material = Array.isArray(source.material) ? source.material.map(copyMaterial) : copyMaterial(source.material);
+        if (source instanceof THREE.InstancedMesh) {
+          const instances = new THREE.InstancedMesh(shape, material, source.count);
+          instances.instanceMatrix.copy(source.instanceMatrix);
+          if (source.instanceColor) instances.instanceColor = source.instanceColor.clone() as THREE.InstancedBufferAttribute;
+          copy = instances;
+        } else copy = new THREE.Mesh(shape, material);
+      } else copy = new THREE.Group();
+      copy.name = source.name; copy.position.copy(source.position); copy.quaternion.copy(source.quaternion); copy.scale.copy(source.scale); copy.visible = source.visible;
+      for (const child of source.children) if (child.name !== 'fps-handling') copy.add(copyModel(child));
+      return copy;
+    };
+    let longGun = 0;
+    for (const family of physicalWeaponFamilies(equipment.carriedFamilies)) {
+      const source = weaponModels[family]; if (!source) continue;
+      const spec = equipment.weapons[family], pose = weaponCarryPose(spec, spec.id === 'p30-inspired' ? 0 : longGun++);
+      const mount = new THREE.Group(); mount.name = `carried-weapon-${family}`;
+      mount.userData.family = family; mount.userData.carryClass = pose.kind;
+      mount.position.fromArray(pose.position); mount.rotation.set(pose.rotation[0], pose.rotation[1], pose.rotation[2]);
+      character.joints[pose.joint].add(mount);
+      geometry.clear(); materials.clear(); textures.clear();
+      const model = copyModel(source); model.position.set(0, 0, 0); model.quaternion.identity(); model.scale.set(1, 1, 1); model.visible = true; mount.add(model);
+      const cloth = new THREE.MeshStandardMaterial({ color: '#30382c', roughness: .93 });
+      const strap = (name: string, size: number[], at: number[]) => {
+        const part = new THREE.Mesh(new RoundedBoxGeometry(size[0], size[1], size[2], 1, .004), cloth);
+        part.name = name; part.position.fromArray(at); mount.add(part);
+      };
+      // Open holster retains the frame, leaving the slide and grip readable.
+      if (pose.kind === 'holster') {
+        strap('holster-shell', [.067, .065, .11], [0, .158, -.018]);
+        strap('holster-belt-loop', [.035, .12, .025], [-.035, .10, .09]);
+      } else {
+        strap('weapon-sling', [.026, .018, .48], [.065, .13, .04]);
+        strap('sling-retainer', [.11, .022, .04], [0, .12, .20]);
+      }
+      mounts.set(family, mount);
+    }
+    weaponIdentity = key;
+  }
 
   function rebuild(equipment: ResolvedLoadout) {
     disposeModel(gear); gear.removeFromParent();
@@ -129,6 +211,8 @@ export function createFpsBody(scene: THREE.Scene) {
   }
   return {
     root,
+    setWeaponModels(models: readonly THREE.Group[]) { weaponModels = models; weaponIdentity = ''; },
+    weaponMount(family: number) { return mounts.get(primaryWeaponFamily(family)); },
     magazinePosition(slot: number, target = new THREE.Vector3()) {
       const pouch = magazines[slot]?.root;
       if (!pouch) return null;
@@ -144,6 +228,15 @@ export function createFpsBody(scene: THREE.Scene) {
     },
     update(dt: number, equipment: ResolvedLoadout, states: readonly WeaponState[], pose: CharacterDrive & { x: number; y: number; z: number; yaw: number; visible: boolean; activeFamily?: number }) {
       if (identity !== `${equipment.rigId}|${equipment.plateId}`) rebuild(equipment);
+      const key = physicalWeaponFamilies(equipment.carriedFamilies).map(f => `${f}:${equipment.weapons[f].equipment.variant}:${equipment.weapons[f].equipment.skin}`).join('|');
+      if (weaponModels.length && key !== weaponIdentity) rebuildWeapons(equipment, key);
+      mounts.forEach((mount, family) => {
+        // Hardware stays on the body while its weapon is in the hands.
+        mount.visible = true;
+        mount.children[0].visible = family !== primaryWeaponFamily(pose.activeFamily ?? equipment.carriedFamilies[0]);
+        const magazine = mount.children[0].getObjectByName(`${equipment.weapons[family].id}__magazine`);
+        if (magazine) magazine.visible = !states[family]?.magazineOut;
+      });
       root.visible = pose.visible;
       root.position.set(pose.x + Math.sin(pose.yaw) * .06, pose.y, pose.z + Math.cos(pose.yaw) * .06);
       root.rotation.y = pose.yaw;
@@ -189,6 +282,6 @@ export function createFpsBody(scene: THREE.Scene) {
       root.userData.magazines = carried.filter(family => family !== undefined).length;
       root.userData.magazineLayout = inventory.slots.map(mag => mag ? { group: mag.group, capacity: mag.capacity } : null);
     },
-    dispose() { disposeModel(gear); character.dispose(); },
+    dispose() { clearWeapons(); disposeModel(gear); character.dispose(); },
   };
 }
