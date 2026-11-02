@@ -11,6 +11,15 @@ function setup(reduced = false) {
 }
 
 describe('explosion particles without arena events', () => {
+  it('shows a newly arrived burst even after a long frame', () => {
+    const { scene, visuals, step, mesh } = setup();
+    visuals.blast(new THREE.Vector3(0, .15, 0));
+    visuals.update(1, [], 1, new THREE.PerspectiveCamera());
+    for (const layer of ['fire', 'smoke', 'debris', 'sparks']) expect(mesh(`combat-${layer}`).count, layer).toBeGreaterThan(0);
+    expect((scene.getObjectByProperty('type', 'PointLight') as THREE.PointLight).intensity).toBeGreaterThan(0);
+    step(1); expect(visuals.counts.fire).toBe(0); expect(visuals.counts.sparks).toBe(0);
+    visuals.dispose();
+  });
   it.each([false, true])('draws every blast layer and lets it expire (reduced=%s)', reduced => {
     const { visuals, step, mesh } = setup(reduced);
     visuals.blast(new THREE.Vector3(0, .15, 0)); step(.05);

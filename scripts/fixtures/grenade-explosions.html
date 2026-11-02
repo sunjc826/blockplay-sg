@@ -5,7 +5,7 @@ import { createGrenadeVisuals } from '/src/game/grenade-visuals.ts';
 if(new URLSearchParams(location.search).has('engine')) {
   const {createFpsEngine}=await import('/src/game/fps-engine.ts');
   const {createProfile,resolveLoadout}=await import('/src/game/armory-state.ts');
-  const profile=createProfile();profile.consumables={'grenade-frag':4};
+  const profile=createProfile();profile.consumables={[new URLSearchParams(location.search).get('item')||'grenade-frag']:4};
   window.engine=createFpsEngine(document.getElementById('world'),hud=>window.hud=structuredClone(hud),{loadout:resolveLoadout(profile),tutorial:true,combat:false});
   const start=document.getElementById('start');start.hidden=false;
   start.onclick=()=>{window.engine.start();start.hidden=true;};
@@ -23,17 +23,18 @@ if(new URLSearchParams(location.search).has('engine')) {
   let reduced=false;
   const visuals=createCombatEventVisuals(scene,origin=>new THREE.Vector3(origin.x,0,origin.z),{reduced:()=>reduced});
   const grenades=createGrenadeVisuals(scene,(at,damage)=>visuals.blast(at,damage>90?1:.5));
-  window.show=(seconds=.15,night=false,low=false,air=false)=>{
+  window.show=(seconds=.15,night=false,low=false,air=false,id='grenade-frag')=>{
     visuals.reset();grenades.reset();reduced=low;
     scene.background.set(night?'#151e30':'#b4cbd3');ambient.intensity=night?.25:2;sun.intensity=night?.15:2.5;
+    camera.position.set(...(id==='grenade-finale'?[45,28,55]:[9,3.2,16]));camera.lookAt(0,id==='grenade-finale'?25:1,0);camera.updateMatrixWorld();
     let seed=1986;const original=Math.random;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
     try {
-      const event={serial:1,id:'grenade-frag',caller:'test',point:{x:0,y:air?5:.15,z:0},heading:0,start:0,seed:1};
+      const event={serial:1,id,caller:'test',point:{x:0,y:air?5:.15,z:0},heading:0,start:0,seed:1};
       grenades.update([],[event],0);
-      for(let t=0;t<seconds;t+=1/120)visuals.update(Math.min(1/120,seconds-t),[],t,camera);
+      for(let t=0;t<seconds;t+=1/120){grenades.update([],[event],t);visuals.update(Math.min(1/120,seconds-t),[],t,camera);}
       renderer.render(scene,camera);
     } finally {Math.random=original;}
-    document.getElementById('caption').textContent=`FRAG · ${seconds.toFixed(2)}s · ${night?'night':'day'}${low?' · reduced effects':''}${air?' · airburst':''}`;
+    document.getElementById('caption').textContent=`${id.replace('grenade-','').toUpperCase()} · ${seconds.toFixed(2)}s · ${night?'night':'day'}${low?' · reduced effects':''}${air?' · airburst':''}`;
     return {counts:visuals.counts,draws:renderer.info.render.calls,glError:renderer.getContext().getError()};
   };
   window.show();

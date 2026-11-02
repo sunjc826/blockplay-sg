@@ -214,6 +214,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
   const craterQuad = opacityPool(CRATERS);
   const craterMesh = pool(craterQuad.geometry, hold(withInstanceOpacity(new THREE.MeshBasicMaterial({ color: '#1b1612', map: blot, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }))), CRATERS, 'combat-craters');
   const flash = new THREE.PointLight('#ffb35c', 0, 60, 1.6); root.add(flash);
+  let freshFlash = false;
 
   const ringGeometry = keep(new THREE.RingGeometry(.94, 1, 72));
   const markers = Array.from({ length: MARKERS }, () => {
@@ -329,7 +330,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     if (groundedBlast) {
       craters.push({ x: at.x, y: floor, z: at.z, size: 3.2 * size * (.85 + Math.random() * .3), age: 0 }); if (craters.length > CRATERS) craters.shift();
     }
-    flash.position.set(at.x, at.y + 2, at.z); flash.intensity = 60 * size;
+    flash.position.set(at.x, at.y + 2, at.z); flash.intensity = 60 * size; freshFlash = true;
   }
   /** A spotting round: no damage, a column of coloured smoke that lingers. */
   function spot(at: THREE.Vector3, colour: string) {
@@ -346,13 +347,17 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
 
   function step(list: Particle[], dt: number, gravity: number, drag: number) {
     for (let i = list.length - 1; i >= 0; i--) {
-      const p = list[i]; p.age += dt;
+      const p = list[i];
+      // A burst discovered this frame was not alive during the preceding stall.
+      // Give fresh particles a visible first frame; older particles still catch up.
+      const elapsed = p.age === 0 ? Math.min(dt, 1 / 60) : dt;
+      p.age += elapsed;
       if (p.age >= p.life) { list.splice(i, 1); continue; }
-      const damp = Math.exp(-drag * dt);
-      p.vx *= damp; p.vz *= damp; p.vy = p.vy * damp + (p.lift - gravity) * dt;
-      p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+      const damp = Math.exp(-drag * elapsed);
+      p.vx *= damp; p.vz *= damp; p.vy = p.vy * damp + (p.lift - gravity) * elapsed;
+      p.x += p.vx * elapsed; p.y += p.vy * elapsed; p.z += p.vz * elapsed;
       if (gravity > 0 && p.y < p.floor) { p.y = p.floor; p.vy *= -.25; p.vx *= .5; p.vz *= .5; }
-      p.spin += dt * 4;
+      p.spin += elapsed * 4;
     }
   }
 
@@ -561,7 +566,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
       craterMesh.setMatrixAt(i, matrix.compose(position.set(c.x, c.y + .03, c.z), flat, scale.set(c.size, c.size, 1)));
     });
     craterMesh.count = craters.length; craterMesh.instanceMatrix.needsUpdate = true; craterQuad.opacity.needsUpdate = true;
-    flash.intensity *= Math.exp(-dt * 14); if (flash.intensity < .05) flash.intensity = 0;
+    flash.intensity *= Math.exp(-(freshFlash ? Math.min(dt, 1 / 60) : dt) * 14); freshFlash = false; if (flash.intensity < .05) flash.intensity = 0;
     for (const t of transports) {
       const before = seenTransports.get(t.event);
       if (before !== undefined && before > 0 && t.health === 0) {
@@ -613,7 +618,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     for (const mode of ['land', 'air', 'sea'] as const) vehicle(mode, '');
   }
   function reset() {
-    fire.length = smoke.length = debris.length = sparks.length = craters.length = emitters.length = 0; landings.clear(); seenRaiders.clear(); seenTransports.clear(); flash.intensity = 0;
+    fire.length = smoke.length = debris.length = sparks.length = craters.length = emitters.length = 0; landings.clear(); seenRaiders.clear(); seenTransports.clear(); flash.intensity = 0; freshFlash = false;
     for (const mesh of [fireMesh, smokeMesh, debrisMesh, sparkMesh, craterMesh]) mesh.count = 0;
     for (const mode of ['land', 'air', 'sea'] as const) for (const v of fleet[mode]) { v.owner = ''; v.model.visible = false; }
     for (const list of Object.values(props)) for (const p of list) { p.owner = ''; p.model.visible = false; p.extra = undefined; }

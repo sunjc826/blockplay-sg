@@ -36,7 +36,7 @@ export function createGrenadeVisuals(scene: THREE.Scene, boom: (point: THREE.Vec
           }
           group.children.forEach((mesh, i) => {
             if (event.id === 'grenade-oranges') {
-              const p = pops[i], t = Math.min(1, age / p.time);
+              const p = pops[i], t = p.time > 0 ? Math.min(1, age / p.time) : 1;
               mesh.visible = age < p.time && (age >= .12 || i < 2);
               mesh.position.set(event.point.x + (p.point.x - event.point.x) * t, event.point.y + (.15 - event.point.y) * t * t, event.point.z + (p.point.z - event.point.z) * t);
               mesh.scale.setScalar(.7);
