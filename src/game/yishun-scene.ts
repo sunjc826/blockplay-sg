@@ -1,3 +1,5 @@
+import { RAIL_ROUTES, railState } from './rail-routes';
+import { addRailTerminals } from './rail-stations';
 import * as THREE from 'three';
 import { YISHUN_STAMPS } from '../data/region-stamps';
 import { createSceneKit } from './scene-kit';
@@ -54,12 +56,15 @@ export function buildYishunScene() {
 
   // NS13: north-south elevated railway with a barrel-like segmented canopy.
   // Piers are beside the road, leaving all lanes and the station forecourt clear.
-  box(23, 10, 0, 12, 1.4, 390, concrete);
-  for (const x of [20, 26]) box(x, 10.85, 0, .22, .18, 390, steel);
+  const railRoute = RAIL_ROUTES.yishun;
+  scene.userData.railRoute = railRoute;
+  box(railRoute.cross, 10, 0, 12, 1.4, railRoute.max - railRoute.min, concrete);
+  for (const x of [20, 26]) box(x, 10.85, 0, .22, .18, railRoute.max - railRoute.min, steel);
   for (let z = -185; z <= 185; z += 50) {
     box(23, 4.6, z, 2.8, 9.2, 2.8, concrete); solid(23, z, 2.8, 2.8);
   }
-  box(23, 11.2, -145, 30, 1.2, 72, pale);
+  for (const x of [13, 33]) box(x, 11.2, -145, 10, 1.2, 72, pale);
+  addRailTerminals({ box, sign }, railRoute, { platform: pale, roof: white, warning: ochre, dark }, [null, 'SOUTH TERMINAL']);
   for (const side of [-1, 1]) {
     const roof = box(23 + side * 7, 17.4, -145, 18, .6, 77, white, scene, true); roof.rotation.z = side * .18;
     box(23 + side * 14, 14, -145, .5, 4.8, 70, glass);
@@ -76,6 +81,8 @@ export function buildYishunScene() {
       for (let dz = -5; dz <= 5; dz += 3.3) box(23 + side * 2.57, 13.4, z + dz, .08, .65, 2.3, glass, train);
     }
   }
+
+  train.position.z = railState(railRoute, 0).position;
 
   // Chong Pang-inspired market: two banks of stalls, a clear centre aisle and
   // a pitched roof held above head height. No invisible solid market box.
@@ -136,10 +143,8 @@ export function buildYishunScene() {
   scene.userData.districtFeatures = ['northpoint-twin-retail-wings', 'walkable-retail-terrace', 'north-south-elevated-mrt', 'chong-pang-market-aisle', 'open-void-deck-housing', 'pond-park-loop', 'fictional-high-threat'];
   scene.userData.referenceFeatures = [];
   return withVerticalPlaces(kit.finish({ car, stamps, animate(time) {
-    // A stop at the station, followed by a northbound departure and return.
-    const phase = ((time % 100) + 100) % 100;
-    train.position.z = phase < 20 ? -145 : phase < 55 ? -145 + (phase - 20) * 12 : 275 - (phase - 55) * 12;
-    train.visible = Math.abs(train.position.z) < 240;
+    train.position.z = railState(railRoute, time).position;
+    train.visible = true;
   } }), [{
     id: 'yishun-retail-terrace', name: 'Northpoint-inspired public terrace',
     note: 'Authored outdoor retail floor with two stair approaches; not a surveyed mall access plan.',

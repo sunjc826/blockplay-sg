@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Rail route review</title><style>html,body{margin:0;overflow:hidden}canvas{display:block}</style></head><body><script type="module">
+import * as THREE from 'three';
+import {getRegion} from '/src/game/regions.ts';
+import {RAIL_ROUTES,railTimetable} from '/src/game/rail-routes.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(1);renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,.1,1600);let world;
+window.show=(id,stop=0,view='station')=>{
+ world?.dispose();world=getRegion(id).build();const route=RAIL_ROUTES[id],{legs}=railTimetable(route),s=legs[stop].stop;
+ world.animate(legs[stop].arrive+3);
+ const x=route.axis==='x'?s:route.cross,z=route.axis==='z'?s:route.cross,y=route.railY;
+ if(view==='corridor'){camera.position.set(x+(route.axis==='x'?0:105),y+80,z+(route.axis==='x'?150:70));}
+ else camera.position.set(x+(route.axis==='x'?45:65),y+22,z+(route.axis==='x'?65:45));
+ camera.lookAt(x,y+2,z);renderer.render(world.scene,camera);
+ const train=world.scene.getObjectByName(id+'-train'),bounds=new THREE.Box3().setFromObject(train);
+ return {stop:s,train:train.position.toArray(),bounds:{min:bounds.min.toArray(),max:bounds.max.toArray()},calls:renderer.info.render.calls};
+};window.ready=true;
+</script></body></html>

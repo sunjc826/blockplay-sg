@@ -1,3 +1,5 @@
+import { RAIL_ROUTES } from './rail-routes';
+import { addRailTerminals } from './rail-stations';
 import * as THREE from 'three';
 import { PUNGGOL_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
@@ -213,7 +215,8 @@ export function buildPunggolScene() {
     for (let z = fromZ; z < toZ; z += 5) box(x, 13.8, z, 4.4, 0.3, 3.4, dark);
   }
   function lrtStation(x: number, z: number) {
-    box(x, 16, z, 26, 10, 44, pale, scene, true); solid(x, z, 24, 44);
+    for (const side of [-1, 1]) box(x + side * 8, 14.3, z, 6, 1, 44, pale, scene, true);
+    for (const side of [-1, 1]) { box(x + side * 11, 6.5, z, 2, 13, 4, concrete); solid(x + side * 11, z, 2, 4); }
     for (let dz = -18; dz < 20; dz += 6) for (const side of [-1, 1]) box(x + side * 13.4, 16, z + dz, 0.5, 6.4, 4.4, glass);
     for (const side of [-1, 1]) { const roof = box(x, 21.6, z + side * 12, 30, 0.6, 26, steel, scene, true); roof.rotation.x = side * 0.16; }
     box(x - 11, 7.5, z - 26, 7, 15, 6, concrete); solid(x - 11, z - 26, 7, 6);
@@ -252,7 +255,10 @@ export function buildPunggolScene() {
   precinctCourt(-100, 30);
   waterwayMall(20, 90);
   hdbTower(135, 66, 40); hdbTower(135, 118, 46);
-  lrtViaduct(215, -150, 120); lrtStation(215, 108);
+  const railRoute = RAIL_ROUTES.punggol;
+  scene.userData.railRoute = railRoute;
+  lrtViaduct(railRoute.cross, railRoute.min, railRoute.max); lrtStation(railRoute.cross, railRoute.stops[0]);
+  addRailTerminals({ box, sign }, railRoute, { platform: pale, roof: steel, warning: wood, dark }, ['NORTH TERMINAL', null]);
   busApron(20, -30);
 
   // South bank: a linear park, a community club and the older precinct.

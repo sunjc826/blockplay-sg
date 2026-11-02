@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { changiFlight, craneState, macaqueState, nightOf, punggolTrain, queenstownTrain, trackRun, travel, woodlandsShuttle, CHANGI_FLIGHTS, FLYER_TURN, MACAQUE, PUNGGOL_LRT, QUEENSTOWN_MRT, SET_PIECE_DISTRICTS, WOODLANDS_SHUTTLE } from './district-set-pieces';
 import { getRegion } from './regions';
 import { CHANGI_BOUNDS } from './changi-scene';
+import { railTimetable, RAIL_ROUTES } from './rail-routes';
 
 describe('timetables', () => {
   it('brings a train in, holds it at the stop, and takes it out without a jump', () => {
@@ -18,11 +19,11 @@ describe('timetables', () => {
     expect(travel(0, 246, 12, 1).s).toBe(0); expect(travel(total, 246, 12, 1).s).toBeCloseTo(246); expect(travel(total + 5, 246, 12, 1).s).toBeCloseTo(246);
     expect(travel(travel(0, 10, 12, 1).total / 2, 10, 12, 1).s).toBeCloseTo(5);
   });
-  it('stops Queenstown trains at EW19, alternating direction', () => {
-    const run = trackRun(0, { ...QUEENSTOWN_MRT, through: true });
-    expect(queenstownTrain(run.arrive + 5).x).toBe(0);
-    expect(Math.sign(queenstownTrain(2).x)).toBe(-Math.sign(queenstownTrain(QUEENSTOWN_MRT.period + 2).x));
-    expect(queenstownTrain(run.leave + 1).visible).toBe(false);
+  it('stops Queenstown trains at EW19 and reverses at both terminals', () => {
+    const route = RAIL_ROUTES.queenstown, { legs } = railTimetable(route);
+    expect(queenstownTrain(5).x).toBe(0);
+    expect(queenstownTrain(legs[1].arrive + 5).x).toBe(145);
+    expect(queenstownTrain(legs[3].arrive + 5).x).toBe(-145);
   });
   it('keeps the LRT on its viaduct between the station and the end', () => {
     const { period } = punggolTrain(0);
@@ -31,10 +32,8 @@ describe('timetables', () => {
   });
   it('keeps the Woodlands shuttle on the Causeway rail, never past the end of the line', () => {
     for (let t = 0; t < WOODLANDS_SHUTTLE.period; t += .5) expect(woodlandsShuttle(t).z).toBeLessThanOrEqual(WOODLANDS_SHUTTLE.stop + 1e-6);
-    const run = trackRun(0, { ...WOODLANDS_SHUTTLE, through: false });
-    expect(woodlandsShuttle(run.arrive + 10).z).toBe(WOODLANDS_SHUTTLE.stop);
-    // Four 18.5 m cars stopped there end at the rail's southern end (-130).
-    expect(WOODLANDS_SHUTTLE.stop + 2 * 18.5).toBeLessThanOrEqual(-130 + .1);
+    expect(woodlandsShuttle(10).z).toBe(WOODLANDS_SHUTTLE.stop);
+    expect(WOODLANDS_SHUTTLE.stop + WOODLANDS_SHUTTLE.halfLength).toBeLessThanOrEqual(WOODLANDS_SHUTTLE.max);
   });
   it('flies Changi traffic off the coast, arrivals and departures in turn', () => {
     for (let t = 0; t < CHANGI_FLIGHTS.period * 2; t += 1) { const f = changiFlight(t); expect(f.x).toBeGreaterThan(CHANGI_BOUNDS.maxX + 100); if (f.visible) expect(f.y).toBeGreaterThan(0); }
@@ -66,9 +65,9 @@ describe('in the built districts', () => {
   it('drives the Queenstown train and chimes its doors twice a stop', () => {
     const world = getRegion('queenstown').build();
     try {
-      const train = world.scene.getObjectByName('queenstown-train')!, run = trackRun(0, { ...QUEENSTOWN_MRT, through: true });
-      world.animate(run.arrive + 4); expect(train.position.x).toBe(0); expect(train.visible).toBe(true);
-      expect(world.cues!(0, QUEENSTOWN_MRT.period).filter(c => c.kind === 'chime')).toHaveLength(2);
+      const train = world.scene.getObjectByName('queenstown-train')!;
+      world.animate(4); expect(train.position.x).toBe(0); expect(train.visible).toBe(true);
+      expect(world.cues!(0, QUEENSTOWN_MRT.period).filter(c => c.kind === 'chime')).toHaveLength(8);
     } finally { world.dispose(); }
   });
   it('turns the Flyer and keeps its capsules level', () => {

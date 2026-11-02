@@ -171,7 +171,7 @@ export const WOODLANDS_STAMPS = [
   { name: 'Causeway checkpoint', x: 0, z: -90 },
   { name: 'Waterfront promenade', x: -70, z: -112 },
   { name: 'Woodlands jetty', x: 120, z: -170 },
-  { name: 'Rail embankment', x: -24, z: -140 },
+  { name: 'Rail embankment', x: -35, z: -140 },
   { name: 'Causeway Point forecourt', x: -45, z: 32 },
   { name: 'Civic square', x: -25, z: 52 },
   { name: 'Marsiling precinct', x: -182, z: 12 },

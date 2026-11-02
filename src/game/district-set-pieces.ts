@@ -1,3 +1,5 @@
+import { RAIL_ROUTES, railState, railTimetable } from './rail-routes';
+export { travel } from './rail-routes';
 import { MARINA_LAYOUT_SCALE } from './marina-layout';
 import * as THREE from 'three';
 import type { RegionId } from './region-ids';
@@ -58,18 +60,6 @@ export function trackRun(u: number, o: { reach: number; speed: number; accel: nu
   return { s: o.through || u < depart ? s : -s, arrive, depart, leave, visible: u >= 0 && u <= leave };
 }
 
-/** Distance covered `u` seconds into a move of `distance` from rest to rest: speed up, cruise, slow down. */
-export function travel(u: number, distance: number, speed: number, accel: number) {
-  const rampDistance = speed * speed / (2 * accel), ramp = speed / accel;
-  if (distance < 2 * rampDistance) {
-    const half = Math.sqrt(distance / accel), total = 2 * half, t = clamp01(u / total) * total;
-    return { s: t < half ? accel * t * t / 2 : distance - accel * (total - t) * (total - t) / 2, total };
-  }
-  const cruise = (distance - 2 * rampDistance) / speed, total = 2 * ramp + cruise, t = Math.max(0, Math.min(total, u));
-  const s = t < ramp ? accel * t * t / 2 : t < ramp + cruise ? rampDistance + (t - ramp) * speed : distance - accel * (total - t) * (total - t) / 2;
-  return { s, total };
-}
-
 function createKit(scene: THREE.Scene, root: THREE.Group) {
   const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [];
   const keep = <T extends THREE.BufferGeometry>(g: T) => { geometries.push(g); return g; };
@@ -100,35 +90,35 @@ function createKit(scene: THREE.Scene, root: THREE.Group) {
 
 // ---------------------------------------------------------------- Queenstown
 
-/** EW19: in from the west or the east on alternate runs, a stop at the platform with the door chimes, then on. */
-export const QUEENSTOWN_MRT = { period: 120, reach: 250, speed: 16, accel: 1.2, dwell: 28 } as const;
+/** Bounded service with a dwell at EW19 and both authored terminals. */
+export const QUEENSTOWN_MRT = { ...RAIL_ROUTES.queenstown, period: railTimetable(RAIL_ROUTES.queenstown).period };
 export function queenstownTrain(time: number) {
-  const k = Math.floor(time / QUEENSTOWN_MRT.period), u = time - k * QUEENSTOWN_MRT.period, dir = k % 2 ? -1 : 1;
-  const run = trackRun(u, { ...QUEENSTOWN_MRT, through: true });
-  return { x: run.s * dir, visible: run.visible, run };
+  const state = railState(RAIL_ROUTES.queenstown, time);
+  return { x: state.position, visible: true };
+}
+function railChimes(route: typeof RAIL_ROUTES.queenstown | typeof RAIL_ROUTES.punggol, from: number, to: number): SetPieceCue[] {
+  const { legs, period } = railTimetable(route);
+  return legs.flatMap(leg => [leg.arrive + 1.5, leg.depart - 3].filter(mark => crosses(from, to, mark, period)).map(() => ({
+    kind: 'chime' as const, at: { x: route.axis === 'x' ? leg.stop : route.cross, y: route.railY + 2, z: route.axis === 'z' ? leg.stop : route.cross },
+  })));
 }
 function queenstown(scene: THREE.Scene): SetPiece | null {
   const train = scene.getObjectByName('queenstown-train'); if (!train) return null;
-  const run = trackRun(0, { ...QUEENSTOWN_MRT, through: true }), at = { x: 0, y: 10.5, z: 22 };
   return {
-    animate(time) { const t = queenstownTrain(time); train.visible = t.visible; train.position.x = t.x; },
-    cues: (from, to) => [run.arrive + 1.5, run.depart - 3].filter(mark => crosses(from, to, mark, QUEENSTOWN_MRT.period)).map(() => ({ kind: 'chime' as const, at })),
+    animate(time) { train.position.x = queenstownTrain(time).x; train.visible = true; },
+    cues: (from, to) => railChimes(RAIL_ROUTES.queenstown, from, to),
   };
 }
 
 // ---------------------------------------------------------------- Punggol
-
-/** The LRT shuttles between its station and the far end of the viaduct, waiting at each. */
-export const PUNGGOL_LRT = { x: 215, station: 108, end: -138, deck: 14, speed: 12, accel: 1, dwell: 20, wait: 10 } as const;
+export const PUNGGOL_LRT = { ...RAIL_ROUTES.punggol, x: RAIL_ROUTES.punggol.cross, station: 108, end: -130, deck: 14 };
 export function punggolTrain(time: number) {
-  const { station, end, speed, accel, dwell, wait } = PUNGGOL_LRT, distance = station - end, leg = travel(0, distance, speed, accel).total;
-  const period = dwell + leg + wait + leg, u = ((time % period) + period) % period;
-  const z = u < dwell ? station : u < dwell + leg ? station - travel(u - dwell, distance, speed, accel).s
-    : u < dwell + leg + wait ? end : end + travel(u - dwell - leg - wait, distance, speed, accel).s;
-  return { z, period };
+  const state = railState(RAIL_ROUTES.punggol, time);
+  return { z: state.position, period: state.period };
 }
 function punggol(kit: Kit): SetPiece {
   const train = kit.group(), white = kit.lit('#eef1ee'), band = kit.lit('#2f8a62'), glass = kit.lit('#2b3d45', { roughness: .2, metalness: .3 }), dark = kit.lit('#2a2d2f');
+  train.name = 'punggol-train';
   for (const dz of [-6, 6]) {
     kit.box(train, 0, 1.45, dz, 2.6, 2.6, 11.4, white);
     kit.box(train, 0, .55, dz, 2.66, .4, 11.4, band);
@@ -137,10 +127,9 @@ function punggol(kit: Kit): SetPiece {
   }
   for (const end of [-1, 1]) kit.box(train, 0, 1.75, end * 11.75, 2.2, 1.1, .1, glass);
   train.position.set(PUNGGOL_LRT.x, PUNGGOL_LRT.deck, PUNGGOL_LRT.station);
-  const period = punggolTrain(0).period;
   return {
     animate(time) { train.position.z = punggolTrain(time).z; },
-    cues: (from, to) => crosses(from, to, PUNGGOL_LRT.dwell - 3, period) ? [{ kind: 'chime', at: { x: PUNGGOL_LRT.x, y: 16, z: PUNGGOL_LRT.station } }] : [],
+    cues: (from, to) => railChimes(RAIL_ROUTES.punggol, from, to),
   };
 }
 
@@ -266,12 +255,9 @@ function changi(kit: Kit): SetPiece {
 // ---------------------------------------------------------------- Woodlands
 
 /** The cross-border shuttle comes in over the Causeway, waits at the checkpoint end of the line and goes back. */
-export const WOODLANDS_SHUTTLE = { period: 180, x: -24, stop: -167, reach: 290, speed: 14, accel: .8, dwell: 40, rail: 1.1 } as const;
+export const WOODLANDS_SHUTTLE = { ...RAIL_ROUTES.woodlands, period: railTimetable(RAIL_ROUTES.woodlands).period, x: -24, stop: RAIL_ROUTES.woodlands.stops[0], rail: 1.1 };
 export function woodlandsShuttle(time: number) {
-  const u = ((time % WOODLANDS_SHUTTLE.period) + WOODLANDS_SHUTTLE.period) % WOODLANDS_SHUTTLE.period;
-  const run = trackRun(u, { ...WOODLANDS_SHUTTLE, through: false });
-  // In from the north (-z), back out north.
-  return { z: WOODLANDS_SHUTTLE.stop + run.s, visible: run.visible, run };
+  return { z: railState(RAIL_ROUTES.woodlands, time).position, visible: true };
 }
 function woodlands(kit: Kit): SetPiece {
   const train = kit.group(), blue = kit.lit('#1f4f8f'), white = kit.lit('#e9ecec'), glass = kit.lit('#26343c', { roughness: .2, metalness: .3 }), dark = kit.lit('#2b2d2e');
@@ -281,14 +267,12 @@ function woodlands(kit: Kit): SetPiece {
     for (const side of [-1, 1]) kit.box(train, side * 1.52, 2.7, z, .06, 1, 15, glass);
     kit.box(train, 0, .35, z, 2, .5, 15, dark);
   }
+  train.name = 'woodlands-train';
   train.position.set(WOODLANDS_SHUTTLE.x, WOODLANDS_SHUTTLE.rail, WOODLANDS_SHUTTLE.stop);
-  const run = trackRun(0, { ...WOODLANDS_SHUTTLE, through: false }), at = (z: number) => ({ x: WOODLANDS_SHUTTLE.x, y: 4, z });
+  const { legs, period } = railTimetable(RAIL_ROUTES.woodlands);
   return {
-    animate(time) { const s = woodlandsShuttle(time); train.visible = s.visible; train.position.z = s.z; },
-    cues: (from, to) => [
-      ...(crosses(from, to, run.arrive - 14, WOODLANDS_SHUTTLE.period) ? [{ kind: 'train-horn' as const, at: at(WOODLANDS_SHUTTLE.stop - 120) }] : []),
-      ...(crosses(from, to, run.depart - 1, WOODLANDS_SHUTTLE.period) ? [{ kind: 'train-horn' as const, at: at(WOODLANDS_SHUTTLE.stop) }] : []),
-    ],
+    animate(time) { train.position.z = woodlandsShuttle(time).z; train.visible = true; },
+    cues: (from, to) => legs.filter(leg => crosses(from, to, leg.depart - 1, period)).map(leg => ({ kind: 'train-horn' as const, at: { x: WOODLANDS_SHUTTLE.x, y: 4, z: leg.stop } })),
   };
 }
 

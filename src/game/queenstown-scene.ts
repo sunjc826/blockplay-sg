@@ -1,3 +1,5 @@
+import { RAIL_ROUTES } from './rail-routes';
+import { addRailTerminals } from './rail-stations';
 import { onQueenstownDeck } from './queenstown-housing-layout';
 import * as THREE from 'three';
 import { buildQueenstownTerrain, QUEENSTOWN_TERRACES, QUEENSTOWN_TERRAIN_X, QUEENSTOWN_TERRAIN_Z } from './queenstown-terrain';
@@ -229,9 +231,11 @@ export function buildQueenstownScene() {
   }
   shelter(-76, -20, 92); shelter(62, 52, 100);
   // Elevated railway: clear underside, piers in the center median, station above.
-  box(0, 7.8, 22, 360, 1.4, 9, concrete, scene, true);
-  for (const z of [18, 26]) box(0, 8.7, z, 360, 0.6, 0.35, concrete);
-  for (const z of [20.2, 23.8]) box(0, 8.55, z, 360, 0.1, 0.12, dark);
+  const railRoute = RAIL_ROUTES.queenstown;
+  scene.userData.railRoute = railRoute;
+  box(0, 7.8, railRoute.cross, railRoute.max - railRoute.min, 1.4, 9, concrete, scene, true);
+  for (const z of [18, 26]) box(0, 8.7, z, railRoute.max - railRoute.min, 0.6, 0.35, concrete);
+  for (const z of [20.2, 23.8]) box(0, 8.55, z, railRoute.max - railRoute.min, 0.1, 0.12, dark);
   for (let x = -175; x < 175; x += 2) box(x, 8.4, 22, 0.4, 0.1, 5.5, dark);
   const pierGeo=geo(new THREE.CylinderGeometry(1,1,1,12));
   for (let x = -164; x <= 170; x += 28) {
@@ -239,7 +243,8 @@ export function buildQueenstownScene() {
     box(x,7.15,22,3.2,0.65,5.5,concrete,scene,true);
   }
   for(let x=-174;x<178;x+=7) for(const z of [17.45,26.55]) box(x,7.8,z,0.035,1.35,0.04,dark);
-  box(0, 9.2, 22, 74, 0.8, 19, cream, scene, true);
+  for (const z of [15.2, 28.8]) box(0, 9.2, z, 74, .8, 4.5, cream, scene, true);
+  addRailTerminals({ box, sign }, railRoute, { platform: cream, roof: teal, warning: yellow, dark }, ['WEST TERMINAL', 'EAST TERMINAL']);
   for (const z of [14, 30]) for (let x = -32; x <= 32; x += 8) box(x, 11.2, z, 0.35, 4, 0.35, cream);
   for (const z of [14, 30]) {
     box(0, 9.75, z, 71, 0.15, 0.3, yellow);
@@ -284,8 +289,11 @@ export function buildQueenstownScene() {
   const train = new THREE.Group(); train.name = 'queenstown-train'; scene.add(train);
   for (let n = 0; n < 3; n++) {
     const x = n * 13 - 13;
-    box(x, 10, 22, 12, 2.8, 3.2, cream, train); box(x, 9.3, 23.65, 12, 0.35, 0.06, red, train);
-    for (let dx = -4; dx <= 4; dx += 2) box(x + dx, 10.25, 23.65, 1.3, 1, 0.06, glass, train);
+    box(x, 10, 22, 12, 2.8, 3.2, cream, train);
+    for (const side of [-1, 1]) {
+      box(x, 9.3, 22 + side * 1.65, 12, .35, .06, red, train);
+      for (let dx = -4; dx <= 4; dx += 2) box(x + dx, 10.25, 22 + side * 1.65, 1.3, 1, .06, glass, train);
+    }
   }
   // Low-rise neighbourhood shops and market canopy, not tourist landmarks.
   box(73, 3, -13, 65, 6, 13, cream, scene, true); solid(73, -13, 65, 13);

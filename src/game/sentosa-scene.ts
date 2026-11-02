@@ -1,3 +1,5 @@
+import { RAIL_ROUTES, railState } from './rail-routes';
+import { addRailTerminals } from './rail-stations';
 import * as THREE from 'three';
 import { SENTOSA_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
@@ -205,13 +207,15 @@ export function buildSentosaScene() {
     }
     box((fromX + toX) / 2, 13.6, z, toX - fromX, 1.6, 4.4, concrete);
     box((fromX + toX) / 2, 14.8, z, toX - fromX, 0.8, 1.6, pale);
-    const train = new THREE.Group();
+    const train = new THREE.Group(); train.name = 'sentosa-train';
     for (let car = 0; car < 3; car++) {
-      box(car * 13, 17.4, 0, 12, 4.4, 5, car % 2 ? pale : cloth[2], train, true);
-      box(car * 13, 18.2, 0, 12.2, 2, 5.2, glass, train);
-      box(car * 13, 15.2, 0, 9, 1.6, 3, dark, train);
+      box((car - 1) * 13, 17.4, 0, 12, 4.4, 5, car % 2 ? pale : cloth[2], train, true);
+      box((car - 1) * 13, 18.2, 0, 12.2, 2, 5.2, glass, train);
+      box((car - 1) * 13, 15.2, 0, 9, 1.6, 3, dark, train);
     }
-    train.position.set(fromX, 0, z); scene.add(train);
+    train.position.set(railState(RAIL_ROUTES.sentosa, 0).position, 0, z); scene.add(train);
+    scene.userData.railRoute = RAIL_ROUTES.sentosa;
+    addRailTerminals({ box, sign }, RAIL_ROUTES.sentosa, { platform: pale, roof: steel, warning: cloth[2], dark }, ['WEST TERMINAL', 'EAST TERMINAL']);
     box(0, 15, z + 14, 44, 10, 20, pale, scene, true); solid(0, z + 14, 44, 20);
     for (const side of [-1, 1]) { const roof = box(0, 20.6, z + 14 + side * 6, 48, 0.6, 14, steel, scene, true); roof.rotation.x = side * 0.16; }
     for (let dx = -18; dx < 20; dx += 6) box(dx, 15, z + 23.4, 4.6, 6.4, 0.5, glass);
@@ -311,7 +315,7 @@ export function buildSentosaScene() {
   lagoon();
   beachClub(30, 75);
   skywalk(-187, -60);
-  const train = monorail(-145, -200, 200);
+  const train = monorail(RAIL_ROUTES.sentosa.cross, RAIL_ROUTES.sentosa.min, RAIL_ROUTES.sentosa.max);
 
   // Landing plaza, island spine planting and the east lawn that holds the range.
   box(LANDING_X, 0.2, -158, 44, 0.4, 40, paving);
@@ -340,8 +344,7 @@ export function buildSentosaScene() {
     car, stamps,
     animate(time: number) {
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.36 + index) * 1.8; });
-      const run = (time * 16) % 800;
-      train.position.x = -200 + (run < 400 ? run : 800 - run);
+      train.position.x = railState(RAIL_ROUTES.sentosa, time).position;
       pedestrians.forEach((person, index) => {
         if (index % 2) { person.position.x = -60 + ((time * 1.2 + index * 21) % 140); person.rotation.y = -Math.PI / 2; }
         else { person.position.z = -180 + ((time * 1.1 + index * 9) % 26); person.rotation.y = Math.PI; }

@@ -1,3 +1,5 @@
+import { RAIL_ROUTES } from './rail-routes';
+import { addRailTerminals } from './rail-stations';
 import * as THREE from 'three';
 import { WOODLANDS_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
@@ -65,9 +67,14 @@ export function buildWoodlandsScene() {
       for (let z = CAUSEWAY.fromZ; z >= CAUSEWAY.toZ; z -= 10) cylinder(CAUSEWAY.x + side * 16, 1.4, z, 0.2, 1.6, stone);
     }
     // Rail alongside the road, on the embankment's western shoulder.
-    box(CAUSEWAY.x - 24, 0.4, mid, 11, 0.5, run, ballast);
-    for (let z = CAUSEWAY.fromZ; z >= CAUSEWAY.toZ; z -= 4) box(CAUSEWAY.x - 24, 0.75, z, 9, 0.24, 1.4, wood);
-    for (const dx of [-27, -21]) box(CAUSEWAY.x + dx, 0.95, mid, 0.5, 0.3, run, steel);
+    const railRoute = RAIL_ROUTES.woodlands, railMid = (railRoute.min + railRoute.max) / 2, railLength = railRoute.max - railRoute.min;
+    scene.userData.railRoute = railRoute;
+    // A continuous raised railway shoulder connects both authored shuttle stops.
+    box(railRoute.cross, -.1, railMid, 11, .5, railLength, stone);
+    box(railRoute.cross, .4, railMid, 11, .5, railLength, ballast);
+    for (let z = railRoute.min; z <= railRoute.max; z += 4) box(railRoute.cross, .75, z, 9, .24, 1.4, wood);
+    for (const dx of [-3, 3]) box(railRoute.cross + dx, .95, railMid, .5, .3, railLength, steel);
+    addRailTerminals({ box, sign }, railRoute, { platform: pale, roof: steel, warning: white, dark }, ['FAR SHORE', 'CHECKPOINT']);
     for (let z = CAUSEWAY.fromZ - 14; z >= CAUSEWAY.toZ; z -= 26) { cylinder(CAUSEWAY.x + 18, 5, z, 0.18, 10, dark); box(CAUSEWAY.x + 15.4, 9.6, z, 5.4, 0.3, 0.8, pale); solid(CAUSEWAY.x + 18, z, 0.5, 0.5); }
   }
 
@@ -84,8 +91,16 @@ export function buildWoodlandsScene() {
       ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
     }
   }
-  // The far shore, past the water: read across, never reached.
+  // Continue the far shore beneath the remote terminus, beyond infantry bounds.
+  box(0, -.6, -310, 620, 1, 180, grass);
+  box(18, .1, -325, 60, .4, 100, paving);
+  box(18, 3, -350, 28, 6, 18, pale, scene, true);
+  box(18, 6.3, -350, 31, .6, 21, teal);
+  box(18, 3.5, -340.8, 22, 2, .2, glass);
+  sign('SHUTTLE TERMINAL', 18, 5.2, -340.6, 22, 1.1);
+  // Keep the background skyline clear of the actual railway corridor.
   for (let x = -210; x <= 210; x += 26) {
+    if (Math.abs(x - RAIL_ROUTES.woodlands.cross) < 17) continue;
     const h = 14 + (Math.abs(Math.round(x)) % 5) * 6;
     box(x, h / 2, -214, 18, h, 20, panels[Math.abs(Math.round(x / 26)) % panels.length], scene, true);
     for (let y = 5; y < h; y += 4) box(x, y, -203.6, 15, 2.4, 0.5, glass);
