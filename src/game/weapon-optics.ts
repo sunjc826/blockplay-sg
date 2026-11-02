@@ -3,7 +3,7 @@ import type { WeaponSpec } from './fps-rules';
 import { opticMagnification } from './fps-rules';
 import { buildReflexHousing } from './weapon-reflex';
 import { buildSightHousing, roundedRect, type SightWindow } from './weapon-sight-housings';
-import { createOpticGlass, type OpticGlass } from './weapon-glass';
+import { createOpticGlass, createScopeBacking, type OpticGlass } from './weapon-glass';
 import type { EnemyOptic } from './enemy-weapon-layout';
 import { enemyOptic } from './enemy-weapon-layout';
 import { scopeReticleFor, scopeReticleGlsl, type ScopeReticle } from './scope-reticles';
@@ -260,6 +260,13 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   }
   const main = createLens(magnification, radius, reticle, fitted === 'holo', mount?.main.window);
   main.lens.position.set(0, aimHeight, mount?.main.lensZ ?? built?.lens ?? (integrated ? rearZ + .001 : rearZ - .044)); group.add(main.lens);
+  // These telescopes have open modelled eyepieces. Keep actual glass behind
+  // the PiP plane, including in the shop and during hip/inspection animations.
+  const backing = magnified && (weapon.id === 'xm8-inspired' || weapon.id === 'ff-longwatch') ? createScopeBacking(radius) : undefined;
+  if (backing) {
+    backing.surface.position.copy(main.lens.position); backing.surface.position.z -= .003;
+    group.add(backing.surface);
+  }
   const sight: WeaponSight = { reticle, aimHeight, aimDepth: mount?.main.aimDepth ?? built?.aimDepth ?? (integrated ? -.36 : -.47), radius, magnification, lens: main.lens, visibility: main.visibility, nightVision: main.nightVision,
     reflection: scopeGlass?.reflection ?? housing?.reflection, aimX: 0, roll: 0 };
   // The offset dot is a second sight in its own right: its own lens, glass and
@@ -278,7 +285,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   return () => {
     if (original) original.visible = wasVisible;
     folded.forEach(node => { node.visible = true; });
-    sights.delete(root); group.removeFromParent(); housing?.dispose(); scopeGlass?.dispose(); main.dispose(); dot?.dispose(); dotGlass?.dispose(); mount?.dispose();
+    sights.delete(root); group.removeFromParent(); housing?.dispose(); scopeGlass?.dispose(); backing?.dispose(); main.dispose(); dot?.dispose(); dotGlass?.dispose(); mount?.dispose();
   };
 }
 

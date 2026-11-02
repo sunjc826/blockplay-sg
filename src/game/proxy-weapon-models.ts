@@ -98,7 +98,27 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
   const optic = (kind: 'reflex' | 'scope' | 'prism', z: number) => {
     box(.038, .035, .105, 0, .152, z, dark);
     if (kind === 'scope') {
-      if (playable) {
+      if (id === 'ff-longwatch') {
+        // Continuous outer AND inner walls: the old disconnected open rings
+        // exposed the scenery through the objective and eyepiece shoulders.
+        const outside = [[.039, -.17], [.039, -.135], [.024, -.10], [.024, .10], [.030, .125], [.030, .166]];
+        const inside = [[.0195, .166], [.0195, .125], [.019, .10], [.019, -.10], [.034, -.135], [.034, -.17], [.039, -.17]];
+        add(new THREE.LatheGeometry([...outside, ...inside].map(([r, v]) => new THREE.Vector2(r, v)), 40), dark, 0, .22, z, Math.PI / 2);
+        const collar = (outer: number, inner: number, length: number, at: number, m = dark) => {
+          const h = length / 2;
+          add(new THREE.LatheGeometry([[inner, -h], [outer, -h], [outer, h], [inner, h], [inner, -h]].map(([r, v]) => new THREE.Vector2(r, v)), 40), m, 0, .22, z + at, Math.PI / 2);
+        };
+        collar(.041, .039, .014, -.158, furniture);
+        collar(.032, .030, .022, .133);
+        collar(.032, .0195, .006, .165);
+        for (let i = 0; i < 24; i++) {
+          const angle = i * Math.PI / 12;
+          box(.0025, .0025, .019, Math.sin(angle) * .032, .22 + Math.cos(angle) * .032, z + .133, dark, 0, 0, -angle);
+        }
+        // Recess the objective inside its rim; the live image is at the rear.
+        cylinder(.034, .003, 0, .22, z - .161, glass);
+        if (!playable) cylinder(.019, .003, 0, .22, z + .156, glass);
+      } else if (playable) {
         for (const [radius, length, at, m] of [[.024, .26, z, dark], [.039, .07, z - .135, furniture], [.03, .035, z + .14, dark]] as const) {
           const wall = [new THREE.Vector2(radius - .005, -length / 2), new THREE.Vector2(radius, -length / 2), new THREE.Vector2(radius, length / 2), new THREE.Vector2(radius - .005, length / 2)];
           add(new THREE.LatheGeometry(wall, 20), m, 0, .22, at, Math.PI / 2);
@@ -109,7 +129,7 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
       }
       for (const offset of [-.075, .07]) {
         if (playable) {
-          const ring = [new THREE.Vector2(.024, -.009), new THREE.Vector2(.03, -.009), new THREE.Vector2(.03, .009), new THREE.Vector2(.024, .009)];
+          const ring = [new THREE.Vector2(.024, -.009), new THREE.Vector2(.03, -.009), new THREE.Vector2(.03, .009), new THREE.Vector2(.024, .009), new THREE.Vector2(.024, -.009)];
           add(new THREE.LatheGeometry(ring, 20), metal, 0, .22, z + offset, Math.PI / 2);
           box(.04, .03, .018, 0, .168, z + offset, metal);
         } else box(.06, .065, .018, 0, .188, z + offset, metal);
@@ -326,7 +346,7 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
   const sockets = { grip: socket('grip', 0, 0, gripZ), foregrip: socket('foregrip', 0, .01, foreZ), magazine: socket('magazine', 0, .02, magZ), muzzle: socket('muzzle', 0, muzzleY, front - .002), ...(launcherFront === undefined ? {} : { launcherMuzzle: socket('launcher_muzzle', 0, launcherY, launcherFront - .002) }), ...(launcherMagZ === undefined ? {} : { launcherMagazine: socket('launcher_magazine', 0, .07, launcherMagZ) }) };
   if (animatingLauncher) sockets.muzzle.position.copy(sockets.launcherMuzzle!.position);
   if (playable) {
-    glass.dispose();
+    if (!parts.has(glass)) glass.dispose();
     const lift = .14;
     for (const child of root.children) child.position.y += lift;
     for (const [key, socket] of Object.entries(sockets)) socket.name = `${id}__socket_${key}`;
@@ -339,5 +359,5 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
   }
   if (animatingLauncher) root.traverse(node => { node.name = node.name.replace(/^ff-oicw/, 'ff-oicw-launcher'); });
   let disposed = false;
-  return { root, sockets, dispose() { if (disposed) return; disposed = true; root.removeFromParent(); geometries.forEach(geometry => geometry.dispose()); materials.filter(m => !playable || m !== glass).forEach(m => m.dispose()); } };
+  return { root, sockets, dispose() { if (disposed) return; disposed = true; root.removeFromParent(); geometries.forEach(geometry => geometry.dispose()); materials.filter(m => !playable || m !== glass || parts.has(glass)).forEach(m => m.dispose()); } };
 }

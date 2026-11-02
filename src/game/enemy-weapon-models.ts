@@ -215,7 +215,12 @@ function sharpshooterScope(k: Kit, parent: THREE.Object3D) {
   }
   k.tube('scope-tube', .0135, .012, .17, y, -.065, k.dark, parent, 28);
   // Objective bell: a cone up to the front glass, then a short sunshade.
-  k.mesh('scope-objective-bell', new THREE.CylinderGeometry(.0225, .0135, .04, 28, 1, true), k.dark, 0, y, objective + .045, parent).rotation.x = -Math.PI / 2;
+  const bell = (name: string, frontRadius: number, rearRadius: number, length: number, z: number) => {
+    const h = length / 2, wall = .002;
+    const profile = [[frontRadius - wall, -h], [frontRadius, -h], [rearRadius, h], [rearRadius - wall, h], [frontRadius - wall, -h]];
+    k.mesh(name, new THREE.LatheGeometry(profile.map(([r, v]) => new THREE.Vector2(r, v)), 32), k.dark, 0, y, z, parent).rotation.x = Math.PI / 2;
+  };
+  bell('scope-objective-bell', .0225, .0135, .04, objective + .045);
   k.tube('scope-sunshade', .0235, .0205, .025, y, objective + .0125, k.dark, parent, 28);
   k.cylinder('scope-objective', .0205, .003, 0, y, objective + .022, k.lens, parent, 28);
   // Turrets: elevation on top, windage on the right, parallax on the left.
@@ -225,7 +230,7 @@ function sharpshooterScope(k: Kit, parent: THREE.Object3D) {
   k.crosswise('scope-windage', .0095, .014, .022, y, -.06, k.dark, parent);
   k.crosswise('scope-parallax', .0095, .012, -.021, y, -.06, k.dark, parent);
   // Eyepiece bell and the power ring, then the rubber eyecup the lens sits in.
-  k.mesh('scope-eyepiece-bell', new THREE.CylinderGeometry(.0135, radius + .0035, .025, 28, 1, true), k.dark, 0, y, .0325, parent).rotation.x = -Math.PI / 2;
+  bell('scope-eyepiece-bell', .0135, radius + .0035, .025, .0325);
   k.tube('scope-power-ring', radius + .0045, radius + .0005, .014, y, .045, k.rubber, parent, 28);
   k.tube('scope-eyecup', radius + .006, radius + .0005, .022, y, lens + .001, k.rubber, parent, 28);
 }

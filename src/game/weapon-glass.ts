@@ -12,6 +12,21 @@ export interface OpticGlass {
   };
 }
 
+/** A telescope stays a dark optical surface when its live aiming image fades out. */
+export function createScopeBacking(radius: number) {
+  const geometry = new THREE.RingGeometry(0, radius, 48, 8);
+  const vertices = geometry.attributes.position;
+  for (let i = 0; i < vertices.count; i++) {
+    const r2 = (vertices.getX(i) ** 2 + vertices.getY(i) ** 2) / radius ** 2;
+    vertices.setZ(i, -.0012 * (1 - Math.min(1, r2)));
+  }
+  geometry.computeVertexNormals();
+  const material = new THREE.MeshPhysicalMaterial({ color: '#18343e', roughness: .16, metalness: .28,
+    clearcoat: 1, clearcoatRoughness: .08, side: THREE.DoubleSide });
+  const surface = new THREE.Mesh(geometry, material); surface.name = 'scope-recessed-glass';
+  return { surface, dispose() { geometry.dispose(); material.dispose(); } };
+}
+
 /** Curved coated glass shared by reflex and magnified optics. */
 /** A scope's `reticle` is the etching the coating thins over; a magnified sight without one shows none. */
 /** A `window` cuts the glass to that rounded rectangle instead of a disc of `radius`. */
