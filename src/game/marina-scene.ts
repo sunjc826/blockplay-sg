@@ -1,3 +1,4 @@
+import { buildMerlionModel } from './merlion-model';
 import { MARINA_LANDMARK_PLACES } from './marina-landmarks';
 import { MARINA_LAYOUT_SCALE as S, marinaPoint, marinaBounds } from './marina-layout';
 import * as THREE from 'three';
@@ -414,27 +415,8 @@ export function buildMarinaScene() {
   box(-188, 0.01, 93, 38, 0.12, 52, sand);
   // The former solid seating plinths become the civic-terrace walkable deck.
   for (const x of [-207, -169]) for (const z of [73, 123]) palm(x, z, 10);
-  // Merlion-side reference: blue tiled base, cream sculptural silhouette and
-  // a curved hedge planter. This is an intentionally simplified game statue.
-  const tileBlue = mat('#386a9a');
-  const statue = new THREE.Group(); statue.position.set(0, 0, -20); scene.add(statue);
-  const pedestal = new THREE.Mesh(geo(new THREE.CylinderGeometry(2.2, 2.8, 0.9, 12)), tileBlue); pedestal.position.y = 0.45; statue.add(pedestal);
-  for (let i = 0; i < 12; i++) {
-    const angle = i / 12 * Math.PI * 2;
-    const waveTile = box(Math.cos(angle) * 2, 0.7, Math.sin(angle) * 2, 0.65, 1.05, 1.2, i % 2 ? tileBlue : steel, statue);
-    waveTile.rotation.y = Math.PI / 2 - angle;
-    for (const y of [0.35, 0.65, 0.95]) { const grout = box(Math.cos(angle) * 2.02, y, Math.sin(angle) * 2.02, 0.67, 0.025, 1.22, cream, statue); grout.rotation.y = Math.PI / 2 - angle; }
-  }
-  const fish = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.85, 1.5, 4.5, 9)), pale); fish.position.y = 3; statue.add(fish);
-  const lion = new THREE.Mesh(geo(new THREE.IcosahedronGeometry(1.25, 1)), cream); lion.position.set(0, 6.1, 0); statue.add(lion);
-  box(0.95, 5.85, 0, 1.1, 0.6, 0.95, pale, statue);
-  for (const z of [-0.48, 0.48]) box(0.83, 6.35, z, 0.12, 0.14, 0.1, dark, statue);
-  for (let row = 0; row < 8; row++) for (let i = 0; i < 9; i++) {
-    const a = i / 9 * Math.PI * 2 + row % 2 * 0.3, r = 1.44 - row * 0.067;
-    const scale = box(Math.cos(a) * r, 1.2 + row * 0.48, Math.sin(a) * r, 0.52, 0.12, 0.35, cream, statue); scale.rotation.y = -a;
-  }
-  const jet = new THREE.QuadraticBezierCurve3(new THREE.Vector3(1.5, 5.8, 0), new THREE.Vector3(9, 7, 0), new THREE.Vector3(18, -.4, 0));
-  statue.add(new THREE.Mesh(geo(new THREE.TubeGeometry(jet, 24, 0.1, 5, false)), mat('#c6e1df', { transparent: true, opacity: 0.75 })));
+  // Original sculpted model: cached references support the scale relief and tiled base.
+  const merlion=buildMerlionModel();merlion.root.position.set(0,0,-20);scene.add(merlion.root);
 
   // Park pavilions extend the northern district beyond the original skyline.
   // Their radial roof fins are a stylized architectural motif, not a measured
@@ -770,11 +752,6 @@ export function buildMarinaScene() {
   for (const x of [-1.15, 1.15]) for (const z of [-1.35, 1.35]) { const wheel = new THREE.Mesh(wheelGeo, dark); wheel.rotation.z = Math.PI / 2; wheel.position.set(x, 0.5, z); car.add(wheel); }
   // Repeated façade/paving/railing and palm details share batched draw calls.
   // Leave unique landmark geometry, the water surfaces and car/boat children alone.
-  // The Merlion is static: preserve its world transforms while flattening it
-  // so every scale/tile/grout strip joins the existing instance batches.
-  statue.updateMatrixWorld(true);
-  for (const child of [...statue.children]) scene.attach(child);
-  scene.remove(statue);
   const batches = new Map<string, THREE.Mesh[]>();
   for (const child of [...scene.children]) {
     if (!(child instanceof THREE.Mesh) || child instanceof THREE.InstancedMesh || Array.isArray(child.material)) continue;
@@ -794,6 +771,6 @@ export function buildMarinaScene() {
     animate(time: number) { water.userData.setTime(time); stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.5; stamp.position.y = 3 + Math.sin(time * 1.7 + i) * 0.35; });
       walkers.forEach(({ group, x, z, axis, phase }) => { const offset = Math.sin(time * 0.09 + phase) * 10; group.position.set((x + (axis === 'x' ? offset : 0))*S, Math.abs(Math.sin(time * 4 + phase))*0.04*S, (z + (axis === 'z' ? offset : 0))*S); group.rotation.y = (axis === 'x' ? Math.PI / 2 : 0) + (Math.cos(time * 0.09 + phase) > 0 ? Math.PI : 0); });
     },
-    dispose() { camp.dispose(); instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); sun.shadow.map?.dispose(); },
+    dispose() { merlion.dispose(); camp.dispose(); instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); sun.shadow.map?.dispose(); },
   }, [...MARINA_VERTICAL_PLACES,...MARINA_LANDMARK_PLACES]);
 }

@@ -277,3 +277,21 @@ slowdown. Raw traces, function timing receipts, screenshots and the temporary
 instrumentation harness are in `.cache/marina-profile/`; instrumentation is
 not shipped. Tests cover constant query count across different infantry counts,
 reset, and rebuilding at the vehicle's newly moved position within the tick.
+
+
+### Merlion sculpture
+
+The central Merlion uses a dedicated procedural sculpture: a carved lion face
+with almond-shaped eye recesses, muzzle and mouth, layered mane on all sides,
+shallow scalloped fish scales, curled tail fins and blue tiled wave arches.
+The fountain starts at the mouth and tapers down to the bay surface. Water in
+the decorative jet does not block shots. The existing cover envelope, island,
+boat landings and swimming exits are unchanged.
+
+The cached September reference images support the fish scales and plinth;
+their cropped head does not establish a detailed facial likeness. The new head
+and mane are an authored stylization. No new reference capture was made.
+Carvings are merged by material, keeping the whole sculpture to seven meshes
+and fewer than 30,000 triangles. `pnpm test:merlion` captures front, side, rear,
+three-quarter, islet and swimmer views with the same local ports as the swimming
+fixture; output is in `.cache/merlion/`.

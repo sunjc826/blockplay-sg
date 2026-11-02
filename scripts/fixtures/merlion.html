@@ -1,0 +1,10 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Merlion sculpture review</title><style>html,body{margin:0;overflow:hidden;background:#a8cde8}canvas{display:block}</style></head><body><script type="module">
+import * as THREE from 'three';
+import {buildMarinaScene} from '/src/game/marina-scene.ts';
+const world=buildMarinaScene(),renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(1);renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.05,1200);
+const views={front:[[7.2,2.8,-12],[.2,2.2,-12]],quarter:[[7,3.3,-6],[0,2.2,-12]],side:[[0,2.8,-4],[0,2.2,-12]],rear:[[-7,3,-9],[0,2.2,-12]],islet:[[16,10,7],[0,1,-12]],swimmer:[[8,.4,-7],[0,2.2,-12]]};
+window.show=(view='quarter')=>{camera.position.set(...views[view][0]);camera.lookAt(...views[view][1]);world.animate(12);renderer.render(world.scene,camera);const model={meshes:0,triangles:0};world.scene.getObjectByName('merlion-statue')?.traverse(o=>{if(o instanceof THREE.Mesh){model.meshes++;model.triangles+=(o.geometry.index?.count??o.geometry.getAttribute('position').count)/3;}});return{model,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,renderer:renderer.getContext().getParameter(renderer.getContext().RENDERER)};};
+window.show();window.ready=true;
+</script></body></html>
