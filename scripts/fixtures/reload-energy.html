@@ -1,0 +1,45 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Reload motion review</title><style>
+body{margin:0;background:#18222a;color:#e4ebed;font:14px system-ui}canvas{display:block}header{position:absolute;inset:12px 16px auto;display:flex;gap:12px;align-items:center;background:#18222ae8;padding:12px;border-radius:8px}button,select,input{font:inherit}input[type=range]{width:240px}#state{position:absolute;bottom:20px;left:24px;white-space:pre}
+</style></head><body><header><select id="family"></select><button id="play">Play</button><input id="time" type="range" min="0" max="1.5" step=".001" value="0"><label><input id="empty" type="checkbox">Empty</label><label><input id="energy" type="checkbox" checked>Energy</label><label><input id="reduced" type="checkbox">Reduced motion</label><select id="speed"><option value="1">Full speed</option><option value=".35">Slow motion</option></select></header><div id="state"></div><script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { buildServiceWeapon } from '/src/game/service-weapon-models.ts';
+import { createWeaponHandling } from '/src/game/fps-viewmodel.ts';
+import { FPS_WEAPONS, reloadLength } from '/src/game/fps-rules.ts';
+import { beltWeaponMotion, reloadMotion, handleSide } from '/src/game/fps-weapon-motion.ts';
+import { reloadEnergy } from '/src/game/fps-reload-energy.ts';
+import { pouchWeaponOffset } from '/src/game/fps-pouch-reload.ts';
+const $=id=>document.getElementById(id);
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(1);renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#18222a');scene.add(new THREE.HemisphereLight('#e8efff','#535f49',2.8));
+const light=new THREE.DirectionalLight('#ffefd6',3);light.position.set(-1,2,2);scene.add(light);
+const parent=new THREE.Group();scene.add(parent);
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.01,20);
+const source=new THREE.Group();source.position.set(-.23,-.44,-.59);source.rotation.set(.12,0,-.15);scene.add(source);
+const material=new THREE.MeshStandardMaterial({color:'#424b4d',metalness:.6,roughness:.4});
+const box=new THREE.Mesh(new THREE.BoxGeometry(.065,.15,.06),material);source.add(box);
+const input={model:source,worldToView:new THREE.Matrix4(),shoulder:new THREE.Vector3(-.19,-.18,-.06)};
+const loader=new GLTFLoader();
+const models=await Promise.all(FPS_WEAPONS.map(async(spec,i)=>i<2?(await loader.loadAsync(`/models/field-kit/${spec.id}.glb`)).scene:buildServiceWeapon(spec.id)));
+let family=0,model,handling,clock=0,playing=false,last=performance.now();
+FPS_WEAPONS.forEach((spec,i)=>$('family').add(new Option(spec.name,String(i))));
+function select(index){handling?.dispose();model?.removeFromParent();family=index;model=models[index];parent.add(model);handling=createWeaponHandling(model,index);$('family').value=String(index);box.scale.setScalar(1);if(FPS_WEAPONS[index].feed==='belt')box.scale.set(1.5,.8,1.5);}
+function draw(time=clock){
+  clock=time;const spec=FPS_WEAPONS[family],empty=$('empty').checked,progress=time/reloadLength(empty);
+  const base=spec.feed==='belt'?beltWeaponMotion(progress,empty):reloadMotion(progress,empty,handleSide(spec.id));
+  const energy=reloadEnergy(progress,empty,spec),scale=$('energy').checked?($('reduced').checked?.25:1):0;
+  const pocket=pouchWeaponOffset(progress,empty);
+  parent.position.set(.20+base.x+energy.x*scale+pocket.x,-.32+base.y+energy.y*scale+pocket.y,-.78+base.z+energy.z*scale+pocket.z);
+  parent.rotation.set(base.pitch+energy.pitch*scale,base.yaw+energy.yaw*scale+pocket.yaw,base.roll+energy.roll*scale+pocket.roll);
+  source.visible=time<.47;const pending=time>=.47&&time<.74;
+  handling.update(progress,empty,undefined,undefined,{source:input,magazineOut:time>=.38&&time<.74,pending,capacity:spec.capacity,baseCapacity:spec.capacity,saved:progress},{rounds:time<.38?(empty?0:spec.capacity-1):time<.74?0:spec.capacity,capacity:spec.capacity});
+  scene.updateMatrixWorld(true);renderer.render(scene,camera);$('time').value=String(time);
+  $('state').textContent=`${spec.name} · ${time.toFixed(3)} · ${handling.beltReload?.phase??handling.reloadReach?.phase??'handling'}\n${empty?'Empty':'Tactical'} · ${(spec.reload*reloadLength(empty)).toFixed(2)}s`;
+  return {belt:handling.beltReload,reach:handling.reloadReach,pose:[...parent.position.toArray(),parent.rotation.x,parent.rotation.y,parent.rotation.z]};
+}
+$('family').onchange=e=>{select(Number(e.target.value));draw();};$('time').oninput=e=>{playing=false;draw(Number(e.target.value));};
+for(const id of ['empty','energy','reduced'])$(id).onchange=()=>{clock=Math.min(clock,reloadLength($('empty').checked));draw();};
+$('play').onclick=()=>{playing=!playing;if(playing)clock=0;};select(0);
+window.fixture={setTime:time=>{playing=false;return draw(time);},select:index=>{select(index);return draw(0);},get handling(){return handling;}};
+function tick(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(playing){clock+=dt/FPS_WEAPONS[family].reload*Number($('speed').value);if(clock>reloadLength($('empty').checked)){clock=reloadLength($('empty').checked);playing=false;}draw();}requestAnimationFrame(tick);}draw();requestAnimationFrame(tick);window.ready=true;
+</script></body></html>

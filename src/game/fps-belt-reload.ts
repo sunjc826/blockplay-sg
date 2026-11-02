@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { smoothStep } from './fps-weapon-motion';
+import { reloadDrive } from './fps-reload-energy';
 import type { createPouchReload, PouchReloadSource } from './fps-pouch-reload';
 
 const ease = (t: number, a: number, b: number) => smoothStep((t - a) / (b - a));
@@ -108,7 +109,7 @@ export function createBeltReload(model: THREE.Group, magazine: THREE.Object3D, b
       }
       magazine.visible = !out || pending && time >= .47;
       cover.quaternion.copy(coverRotation);
-      if (active) cover.rotateX(-1.25 * ease(time, .06, .18) * (1 - ease(time, .72, .74)));
+      if (active) cover.rotateX(-1.25 * ease(time, .06, .18) * (1 - reloadDrive((time - .72) / .02)));
     },
     update(pouch: Pouch) {
       model.updateWorldMatrix(true, true); inverse.copy(model.matrixWorld).invert();

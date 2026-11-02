@@ -117,6 +117,7 @@ import { expeditionNpcs, nearestNpc, npcInteractionPrompt, type ExpeditionNpc } 
 import { itemById } from './armory-catalog';
 import { DEFAULT_FPS_DEBUG, FPS_REGEN_DELAY, normalizeFpsDebug, readFpsDebug, regenerateHealth, saveFpsDebug, type FpsDebugSettings } from './fps-debug';
 import { pouchWeaponOffset } from './fps-pouch-reload';
+import { reloadEnergy } from './fps-reload-energy';
 import { createWeaponHandling } from './fps-viewmodel';
 import { magazineAmmoState } from './magazine-ammo';
 import { createScopeRenderer, getWeaponSight, setSightNightVision } from './weapon-optics';
@@ -1970,6 +1971,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const motion = readyProgress === undefined ? specs[hud.weapon].feed === 'belt'
       ? beltWeaponMotion(beltProgress, emptyReload[hud.weapon]) : reloadMotion(progress ?? 0, emptyReload[hud.weapon], handleSide(specs[hud.weapon].id))
       : readyMotion(readyProgress, handleSide(specs[hud.weapon].id));
+    if (readyProgress === undefined) {
+      const energy = reloadEnergy(specs[hud.weapon].feed === 'belt' ? beltProgress : progress ?? 0, emptyReload[hud.weapon], specs[hud.weapon]);
+      const energyScale = motionPreference?.matches ? .25 : 1;
+      for (const axis of ['x', 'y', 'z', 'pitch', 'yaw', 'roll'] as const) motion[axis] += energy[axis] * energyScale;
+    }
     canvas.dataset.readyAction = readyProgress === undefined ? '' : motion.action.toFixed(3);
     // A supported gun stays low for reloads; hands, magazine and feed cover
     // still perform their complete handling animation around the planted legs.

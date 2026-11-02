@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RELOAD_POINTS, reloadLength } from './fps-rules';
 import { smoothStep } from './fps-weapon-motion';
+import { reloadDrive } from './fps-reload-energy';
 
 export interface PouchReloadSource {
   model: THREE.Object3D;
@@ -128,7 +129,7 @@ export function createPouchReload(model: THREE.Object3D, hand: THREE.Object3D, m
       const gunUp = Y.clone().transformDirection(model.matrixWorld);
       lead.copy(to).addScaledVector(gunUp, -.09);
       control.copy(lift).lerp(lead, .5); control.x -= .09; control.z -= .10;
-      const extract = ease(time, RELOAD_POINTS.take, .56), travel = ease(time, .56, .67), insert = ease(time, .67, RELOAD_POINTS.seat);
+      const extract = reloadDrive((time - RELOAD_POINTS.take) / (.56 - RELOAD_POINTS.take)), travel = ease(time, .56, .67), insert = reloadDrive((time - .67) / (RELOAD_POINTS.seat - .67));
       if (time < .56) centre.copy(from).lerp(lift, extract);
       else if (time < .67) centre.copy(lift).multiplyScalar((1 - travel) ** 2).addScaledVector(control, 2 * (1 - travel) * travel).addScaledVector(lead, travel ** 2);
       else centre.copy(lead).lerp(to, insert);
