@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { itemById } from './armory-catalog';
 import type { VehicleKind } from './vehicle-rules';
+import { airframeLoft } from './helicopter-airframe';
 import { buildHelicopterCabin } from './helicopter-cabin';
 import { buildHumveeCabin } from './humvee-cabin';
 import { buildDragonBoatModel } from './dragon-boat-model';
@@ -55,18 +56,55 @@ export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
     box(1.3, .35, .7, 0, 2.28, 1.15, dark);
   } else {
     root.add(buildHelicopterCabin(paint));
-    box(1.34, .30, 1.85, 0, 2.8, .3); box(.68, .20, .95, 0, 2.95, .49, dark);
-    const tail = new THREE.Mesh(new THREE.CylinderGeometry(.13, .38, 4.7, 14), paint); tail.position.set(0, 1.67, 3.3); tail.rotation.x = Math.PI / 2; tail.userData.rainReceiver = tail.userData.wetSurface = true; root.add(tail);
+    root.add(airframeLoft('transmission-fairing', [
+      { z: -.95, width: .12, bottom: 2.69, top: 2.83 },
+      { z: -.58, width: .5, bottom: 2.66, top: 3.01 },
+      { z: .35, width: .57, bottom: 2.69, top: 3.08 },
+      { z: 1.08, width: .41, bottom: 2.63, top: 2.99 },
+      { z: 1.43, width: .2, bottom: 2.57, top: 2.78 },
+    ], paint));
+    for (const side of [-1, 1]) {
+      const pod = airframeLoft('engine-cowling', [
+        { z: -.45, width: .21, bottom: 2.72, top: 3.03 },
+        { z: -.2, width: .29, bottom: 2.66, top: 3.13 },
+        { z: .85, width: .27, bottom: 2.66, top: 3.1 },
+        { z: 1.35, width: .19, bottom: 2.64, top: 2.96 },
+      ], paint); pod.position.x = side * .55; root.add(pod);
+      const intake = new THREE.Mesh(new THREE.CircleGeometry(.17, 16), dark);
+      intake.name = 'engine-intake'; intake.position.set(side * .55, 2.86, -.456); intake.rotation.y = Math.PI; root.add(intake);
+      for (let i = -1; i <= 1; i++) rod([side * .55 - .13, 2.86 + i * .075, -.46], [side * .55 + .13, 2.86 + i * .075, -.46], .012, metal);
+      const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(.16, .19, .4, 16, 1, true), metal);
+      exhaust.name = 'engine-exhaust'; exhaust.rotation.x = Math.PI / 2; exhaust.position.set(side * .55, 2.8, 1.42); root.add(exhaust);
+      const opening = new THREE.Mesh(new THREE.CircleGeometry(.155, 16), dark); opening.position.set(side * .55, 2.8, 1.6); root.add(opening);
+    }
+    root.add(airframeLoft('tail-boom', [
+      { z: 2.05, width: .43, bottom: 1.3, top: 2.15 },
+      { z: 2.7, width: .32, bottom: 1.45, top: 2.1 },
+      { z: 4.4, width: .18, bottom: 1.75, top: 2.12 },
+      { z: 5.6, width: .11, bottom: 1.93, top: 2.16 },
+    ], paint));
     const finShape = new THREE.Shape(); finShape.moveTo(0, 0); finShape.lineTo(.7, 0); finShape.lineTo(.95, 1.65); finShape.lineTo(.3, 1.4); finShape.closePath();
     const fin = new THREE.Mesh(new THREE.ExtrudeGeometry(finShape, { depth: .09, bevelEnabled: true, bevelSize: .035, bevelThickness: .02, bevelSegments: 2, steps: 1 }), paint); fin.rotation.y = Math.PI / 2; fin.position.set(-.045, 1.5, 5.6); fin.userData.rainReceiver = fin.userData.wetSurface = true; root.add(fin);
     box(2.2, .09, .55, 0, 1.72, 4.7);
     const rotor = new THREE.Group(); rotor.name = 'main-rotor'; rotor.position.set(0, 3.22, .15); root.add(rotor);
     rod([0, 2.8, .15], [0, 3.32, .15], .11, metal);
+    const hub = new THREE.Mesh(new THREE.SphereGeometry(.21, 16, 8), metal);
+    hub.scale.y = .5; rotor.add(hub);
+    for (const x of [-.18, .18]) rod([x, 2.97, .15], [x * 1.5, 3.22, .15], .026, metal);
     for (let i = 0; i < 4; i++) { const blade = new THREE.Group(); blade.rotation.y = i * Math.PI / 2; rotor.add(blade); box(.22, .055, 5.2, 0, 0, -2.62, dark, blade, .015); box(.23, .06, .4, 0, 0, -4.99, lamp, blade, .01); }
     const tailRotor = new THREE.Group(); tailRotor.name = 'tail-rotor'; tailRotor.position.set(.24, 2.11, 5.29); root.add(tailRotor);
     box(.07, 1.5, .11, 0, 0, 0, dark, tailRotor); box(.07, .11, 1.5, 0, 0, 0, dark, tailRotor);
     for (const x of [-1.20, 1.20]) {
-      rod([x, .17, -1.75], [x, .17, 1.6], .095, dark); rod([x, .17, -1.75], [x, .38, -2.1], .095, dark);
+      const curve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(x, .42, -2.16), new THREE.Vector3(x, .2, -1.83),
+        new THREE.Vector3(x, .17, -1.45), new THREE.Vector3(x, .17, 1.35), new THREE.Vector3(x, .23, 1.7),
+      ]);
+      const skid = new THREE.Mesh(new THREE.TubeGeometry(curve, 32, .085, 10, false), dark);
+      skid.name = 'landing-skid'; skid.userData.rainReceiver = skid.userData.wetSurface = true; root.add(skid);
+      for (const end of [0, 1]) {
+        const cap = new THREE.Mesh(new THREE.SphereGeometry(.085, 10, 8), dark);
+        cap.position.copy(curve.getPoint(end)); root.add(cap);
+      }
       for (const z of [-.8, .85]) rod([x, .17, z], [x * .62, .93, z], .075, metal);
     }
     box(.16, .12, .16, -1.2, 2.6, 1.25, red); box(.16, .12, .16, 1.2, 2.6, 1.25, lamp);
