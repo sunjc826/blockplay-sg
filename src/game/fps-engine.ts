@@ -1,6 +1,6 @@
 import { needsAmmoRefill, refillAmmo } from './ammo-refill';
 import { createScopeZoom, createScopeZoomWheel, scopeZoomLookScale, type ScopeZoom } from './scope-zoom';
-import { getBuildingLifts, liftGates, liftPassenger, liftSample } from './building-lifts';
+import { getBuildingLifts, liftBodies, insideLift, liftDeparture, liftPassenger, liftSample } from './building-lifts';
 import { createMerlionVisuals } from './merlion-visuals';
 import { nearMerlion, merlionMouth, merlionDirection, MERLION, type MerlionAction } from './merlion-gameplay';
 import { createSwimmingMovement, SWIMMING, swimmingCanFire } from './swimming';
@@ -58,7 +58,7 @@ import { getRegion } from './regions';
 import { createMovementMotion, resetMovementMotion, advanceGroundMotion, advanceBodyMotion, bufferJump, consumeJump, landMovement, INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED } from './fps-movement';
 import { createVerticalMovement, MAX_STEP_HEIGHT } from './vertical-movement';
 import { elevatedLootAnchors } from './vertical-navigation';
-import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
+import { getWalkSurfaces, getPhysicalWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import { seatPoint, seatFacing, type VehicleControls } from './vehicle-seats';
 import { placeVehicleFirstPersonCamera } from './vehicle-first-person';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage, stanceRecoilMultiplier } from './fps-stance';
@@ -358,12 +358,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // Streetlamps, their pools and lit windows, for dusk and night.
   const nightLights = createNightLights(world.scene, { roads: getRegion(region).mapRoads, roadWidth: getRegion(region).roadWidth, bounds: world.bounds, obstacles: world.obstacles });
   const sunShadows = createSunShadows(renderer, world.scene);
-  let playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
-  let footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
+  let playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getPhysicalWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
+  let footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getPhysicalWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
   const expeditionSession = expedition ? createSoloSession('Explorer') : null;
   if (expedition && zoneWorld && expeditionSession) options = { ...options, arena: { session: expeditionSession, profile: fieldProfile, botCount: zoneWorld.zone.botCount, composition: zoneWorld.zone.composition, environment: zoneWorld.environment, initialVitals: expedition.checkpoint } };
   const npcs = expedition ? expeditionNpcs(expedition.zone, zoneSectors(expedition.zone)) : [];
-  const motorSpawns = expedition ? worldVehicleSpawns(district.vehicles, [...world.obstacles, ...verticalVehicleObstacles({ bounds:world.bounds, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })], sceneFlightObstacles(world.scene), world.bounds, [...npcs, zoneWorld?.zone.spawn ?? district.spawn]) : district.vehicles;
+  const motorSpawns = expedition ? worldVehicleSpawns(district.vehicles, [...world.obstacles, ...verticalVehicleObstacles({ bounds:world.bounds, surfaces: getPhysicalWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })], sceneFlightObstacles(world.scene), world.bounds, [...npcs, zoneWorld?.zone.spawn ?? district.spawn]) : district.vehicles;
   const fleetSpawns: VehicleSpawns = { ...motorSpawns, ...(region === 'marina-bay' && !options.tutorial ? DRAGON_BOAT_SPAWNS : {}) };
   const facilitySites = expedition ? districtFacilitySites(expedition.zone, fleetSpawns,
     (x, z) => { const y=world.bounds.groundHeight?.(x,z) ?? 0; return footMovement.canOccupy(x, y, z, 1.1, 2) && Math.abs((footMovement.supportHeight(x, z, y+.1, .4, 1.8) ?? 100)-y) < .05; }, npcs, world.bounds.groundHeight) : [];
@@ -379,8 +379,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     world.obstacles.push(...facilitySites.flatMap(facilityObstacles));
     world.scene.userData.traversalObstacles=[...getTraversalObstacles(world.scene),...facilitySites.flatMap(facilityCeilings)];
     options.arena.environment.navigationAnchors=[...(options.arena.environment.navigationAnchors??[]),...facilitySites.flatMap(facilityNavigationAnchors)];
-    footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
-    playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
+    footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getPhysicalWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
+    playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getPhysicalWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
   }
   const rangeStock = rangeEquipmentStock(equipment.supplies, equipment.stowedSupplies);
   const supplyPoint = practiceRange ? rangeResupplyPoint(district.spawn, world.bounds, [...world.obstacles,
@@ -391,8 +391,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const floor = footMovement.supportHeight(supplyPoint!.x, supplyPoint!.z, MAX_STEP_HEIGHT, .4, 1.8) ?? 0;
     rangeStation.root.position.y = floor;
     world.obstacles.push(rangeResupplyObstacle(supplyPoint!, floor));
-    footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
-    playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
+    footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getPhysicalWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
+    playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getPhysicalWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
   }
   const proxyVisuals = createProxyOperationVisuals(world.scene);
   const facilityVisuals = createFacilityVisuals(world.scene, facilitySites);
@@ -669,12 +669,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (stance.crouch && !keyboardCrouch.active) keyboardCrouch.toggle();
   };
   const swimming = () => !vehicles.active && vertical<=.35 && playerMovement.isWater(position.x,position.z);
-  const grounded = () => !swimming() && velocityY <= 0 && Math.abs(vertical - (footMovement.supportHeight(position.x, position.z, vertical + .02, .38, .6) ?? -100)) < .025;
+  let liftGeometryAt=-Infinity,liftGeometry:ReturnType<typeof liftBodies>=[];
+  const liftCollision = () => {if(liftGeometryAt!==hud.elapsed){liftGeometryAt=hud.elapsed;liftGeometry=liftBodies(getBuildingLifts(world.scene),hud.elapsed);}return liftGeometry;};
+  const grounded = () => !swimming() && velocityY <= 0 && Math.abs(vertical - (footMovement.supportHeight(position.x, position.z, vertical + .02, .38, .6,liftCollision()) ?? -100)) < .025;
   const eyeHeight = () => {
     if(swimming()) return SWIMMING.eyeHeight;
     const requested = prone ? PRONE_EYE_HEIGHT : crouchRequested() ? 1.15 : 1.75;
     for (const height of [requested, 1.15, PRONE_EYE_HEIGHT]) {
-      if (height <= requested && footMovement.canOccupy(position.x, vertical, position.z, .38, height + .05)) return height;
+      if (height <= requested && footMovement.canOccupy(position.x, vertical, position.z, .38, height + .05,liftCollision())) return height;
     }
     return PRONE_EYE_HEIGHT;
   };
@@ -2908,17 +2910,24 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function updateArena(dt: number) {
     if (!arenaRuntime) return;
+    const oldLiftTime=hud.elapsed;
+    let localLift=liftPassenger(getBuildingLifts(world.scene),{...position,y:vertical},oldLiftTime);
+    const relativeFeet=localLift?vertical-liftSample(localLift,oldLiftTime).y:0;
     const frame = arenaRuntime.update(dt, {
       x: position.x, y: eyeHeight() + vertical, z: position.z, yaw, pitch,
+      ...(localLift?{liftOffset:Math.max(.55,Math.min(2.65,relativeFeet+eyeHeight()))}:{}),
       waterFire: merlionOperating() && trigger && hud.phase==='playing',
       ...(vehicles.active ? { vehicleControls: sharedVehicleControls() } : {}),
       prone, weapon: hud.weapon, playing: hud.phase === 'playing', reloading: loadout[hud.weapon].reloadRemaining > 0,
       ...(supplyUse ? { supply: supplyProgress(supplyUse) } : {}),
     });
     const previousSelf = hud.arenaSelf;
-    if(frame.self?.alive && (frame.self.lift || previousSelf?.lift)) {
-      if(frame.self.lift&&!previousSelf?.lift){prone=false;keyboardCrouch.clear();resetMovementMotion(bodyMotion,1.75);}
-      position={x:frame.self.x,z:frame.self.z};vertical=Math.max(0,frame.self.y-1.75);velocityY=0;
+    if(frame.self?.alive && frame.snapshot)for(const l of getBuildingLifts(world.scene)){
+      const threshold=liftDeparture(l,oldLiftTime,frame.snapshot.elapsed,{...position,y:vertical});
+      if(threshold){position={x:threshold.x,z:threshold.z};if(threshold.board)localLift=l;}
+    }
+    if(frame.self?.alive && localLift && frame.snapshot) {
+      vertical+=liftSample(localLift,frame.snapshot.elapsed).y-liftSample(localLift,oldLiftTime).y;
     }
     const wasOperating=merlionOperating();
     const nowOperating=!!frame.self?.alive && frame.snapshot?.merlion?.operator===frame.self?.id;
@@ -3042,7 +3051,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         resetWeaponRecoil(); effects.reset(); hitTime = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; }); updateCameras(0, false, false);
       } else if (frame.correction && !vehicles.active) {
         position = { x: frame.correction.x, z: frame.correction.z };
-        vertical = Math.max(0, frame.correction.y - eyeHeight());
+        if(!localLift || !insideLift(localLift,position))vertical = Math.max(0, frame.correction.y - eyeHeight());
         if (frame.hardCorrection) { velocityY = 0; resetMovementMotion(bodyMotion, eyeHeight()); carry.set(0, 0, 0); }
         updateCameras(0, false, false);
       }
@@ -3511,13 +3520,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const liftBefore=hud.elapsed;
       if (!options.arena) hud.elapsed += realDt;
       const buildingLifts=getBuildingLifts(world.scene);
+      if(!arenaRuntime)for(const l of buildingLifts){const threshold=liftDeparture(l,liftBefore,hud.elapsed,{...position,y:vertical});if(threshold)position={x:threshold.x,z:threshold.z};}
       const passenger=arenaRuntime?buildingLifts.find(l=>l.id===hud.arenaSelf?.lift):liftPassenger(buildingLifts,{...position,y:vertical},liftBefore);
-      if(passenger && !arenaRuntime)vertical=liftSample(passenger,hud.elapsed).y;
+      if(passenger && !arenaRuntime)vertical+=liftSample(passenger,hud.elapsed).y-liftSample(passenger,liftBefore).y;
       updateRangeTargets(); checkCompletion();
       if (!options.arena) loadout.forEach((state, i) => advanceWeapon(state, i, realDt, specs, gunRates()));
-      if(passenger && liftSample(passenger,hud.elapsed).moving) {
-        carry.set(0,0,0);velocityY=0;bodyMotion.x=bodyMotion.z=0;
-      } else if(merlionOperating()) {
+      if(merlionOperating()) {
         carry.set(0,0,0);velocityY=0;bodyMotion.x=bodyMotion.z=0;
         if(hud.arenaSelf)position={x:hud.arenaSelf.x,z:hud.arenaSelf.z};
       } else if (vehicles.mounted) {
@@ -3559,9 +3567,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const delta = advanceGroundMotion(bodyMotion, target.x, target.z, (onGround || swimming()) && velocityY <= 0, burden.movement, poseStance, braced(), dt);
       // Keep enough clearance for the head while lowering into a crawl.
       const clearance = Math.max(eyeHeight(), bodyMotion.eye) + .05;
-      const height = footMovement.canOccupy(position.x, vertical, position.z, .38, clearance) ? clearance : eyeHeight() + .05;
+      const height = footMovement.canOccupy(position.x, vertical, position.z, .38, clearance,liftCollision()) ? clearance : eyeHeight() + .05;
       const next = playerMovement.move({ ...position, y: vertical, velocityY }, delta.x, delta.z, dt, .38, height,
-        [...vehicles.footObstacles().slice(world.obstacles.length),...liftGates(buildingLifts,hud.elapsed)], INFANTRY_GRAVITY);
+        [...vehicles.footObstacles().slice(world.obstacles.length),...liftCollision()], INFANTRY_GRAVITY);
       moving = Math.hypot(next.x - position.x, next.z - position.z) > .0001;
       carry.set((next.x - position.x) / Math.max(dt, 1e-4), 0, (next.z - position.z) / Math.max(dt, 1e-4));
       // A blocked axis loses momentum instead of storing a burst against the wall.
@@ -3791,8 +3799,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         minY: floor, maxY: top, supportsTop: asset === 3 || asset === 4 });
     }
     // Range props are appended after asynchronous model loading; refresh the static broadphase.
-    footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
-    playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
+    footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getPhysicalWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
+    playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getPhysicalWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
     if (options.arena) {
       arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, vehicles: { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition } });
       if (checkpoint?.vehicleTravel?.crew && !arenaRuntime.restoreVehicleTravel(checkpoint.vehicleTravel.crew)) throw new Error('Vehicle crew could not enter the destination district');

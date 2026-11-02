@@ -2,7 +2,7 @@ import {expect,it} from 'vitest';
 import {createArena} from './arena-rules';
 import {createRegionMovement} from './region-collision';
 import {liftGates,liftPassenger,liftSample,type BuildingLift} from './building-lifts';
-import {validArenaSnapshot} from './arena-runtime';
+import {validArenaInput,validArenaSnapshot} from './arena-runtime';
 import {createVerticalMovement} from './vertical-movement';
 import {measureVerticality} from './verticality-metrics';
 const lift:BuildingLift={id:'express',x:0,z:0,width:4.4,depth:4.6,bottom:0,top:66.4,dwell:7,travel:12,offset:0};
@@ -21,14 +21,14 @@ it('keeps doors closed at the absent car and opens only at a stopped car',()=>{
  expect(movement.move(start,0,4,0,.38,1.8,liftGates([lift],13)).z).toBeLessThan(-2.3);
  expect(movement.move(start,0,4,0,.38,1.8,liftGates([lift],0)).z).toBeCloseTo(0);
 });
-it('carries multiple host-owned passengers up and down, rejecting movement during travel',()=>{
+it('carries multiple host-owned passengers up and down, allowing cabin movement but rejecting escape during travel',()=>{
  const arena=createArena([],0,'mixed',env,undefined,config);
  for(const id of ['a','b'])arena.addPlayer(id,id,0,0,[],undefined,true);
  step(arena,13);
  for(const id of ['a','b']){
   expect(actor(arena,id)).toMatchObject({lift:'express'});expect(actor(arena,id).y).toBeCloseTo(34.95);
   arena.setInput(id,{x:25,y:1.75,z:25,yaw:1,pitch:.2,weapon:0,playing:true});
-  expect(actor(arena,id).x).toBe(0);expect(actor(arena,id).y).toBeCloseTo(34.95);
+  expect(actor(arena,id).x).toBeGreaterThan(1);expect(actor(arena,id).x).toBeLessThan(2);expect(actor(arena,id).y).toBeCloseTo(34.95);
  }
  step(arena,7);expect(actor(arena,'a').y).toBeCloseTo(68.15);
  // Step out at the upper landing; remaining passenger returns with the car.
@@ -48,10 +48,10 @@ it('includes explicit lift service in reachability without inventing access to u
  expect(measureVerticality(input).isReachable({x:0,y:66.4,z:-5})).toBe(true);
 });
 
-it('boards a crouched player at an open stop and restores standing height for the cabin',()=>{
+it('boards a crouched player at an open stop and preserves crouched eye height through travel',()=>{
  const arena=createArena([],0,'mixed',env,undefined,config);arena.addPlayer('a','a',0,0,[],undefined,true);
  arena.setInput('a',{x:0,y:1.2,z:0,yaw:0,pitch:0,weapon:0,playing:true});step(arena,.05);
- expect(actor(arena,'a')).toMatchObject({lift:'express',prone:false});expect(actor(arena,'a').y).toBe(1.75);
+ expect(actor(arena,'a')).toMatchObject({lift:'express',prone:false});expect(actor(arena,'a').y).toBe(1.2);step(arena,13);expect(actor(arena,'a').y).toBeCloseTo(liftSample(lift,13.05).y+1.2);
 });
 
 it('lets an objective-seeking bot approach, board, ride and leave the lift through navigation',()=>{
@@ -64,4 +64,15 @@ it('lets an objective-seeking bot approach, board, ride and leave the lift throu
   if(rode&&bot.y>68&&bot.z<-4){arrived=true;break;}
  }
  expect({rode,arrived},JSON.stringify(arena.snapshot().actors)).toEqual({rode:true,arrived:true});
+});
+
+
+it('uses a bounded cabin-relative eye position despite stale client world height',()=>{
+ const arena=createArena([],0,'mixed',env,undefined,config);arena.addPlayer('a','a',0,0,[],undefined,true);
+ step(arena,13);
+ const input={x:.6,y:1.75,z:.3,yaw:0,pitch:0,weapon:0,playing:true,liftOffset:1.2};
+ expect(validArenaInput(input)).toBe(true);arena.setInput('a',input);
+ expect(actor(arena,'a').x).toBeCloseTo(.6);expect(actor(arena,'a').y).toBeCloseTo(34.4);
+ step(arena,.1);expect(actor(arena,'a').y).toBeCloseTo(liftSample(lift,13.1).y+1.2);
+ for(const liftOffset of [NaN,Infinity,-1,3])expect(validArenaInput({...input,liftOffset})).toBe(false);
 });

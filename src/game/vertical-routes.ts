@@ -3,6 +3,9 @@ import type { RegionWorld } from './regions';
 import { insideFootprint, type Obstacle, type Position2D } from './region-collision';
 
 export interface WalkSurface {
+  /** Service endpoint used by navigation; live movement uses the moving car slab. */
+  lift?: string;
+  holes?: readonly (readonly Position2D[])[];
   id: string;
   routeId: string;
   minX: number; maxX: number; minZ: number; maxZ: number;
@@ -30,11 +33,12 @@ export interface VerticalRoute {
 }
 
 export const getWalkSurfaces = (scene: THREE.Object3D): readonly WalkSurface[] => scene.userData.walkSurfaces ?? [];
+export const getPhysicalWalkSurfaces = (scene: THREE.Object3D) => getWalkSurfaces(scene).filter(s=>!s.lift);
 export const getTraversalObstacles = (scene: THREE.Object3D): readonly TraversalObstacle[] => scene.userData.traversalObstacles ?? [];
 export const getVerticalRoutes = (scene: THREE.Object3D): readonly VerticalRoute[] => scene.userData.verticalRoutes ?? [];
 export function surfaceContains(s: WalkSurface, x: number, z: number, margin = 0) {
   return x >= s.minX-margin-1e-5 && x <= s.maxX+margin+1e-5 && z >= s.minZ-margin-1e-5 && z <= s.maxZ+margin+1e-5 &&
-    (!s.footprint || insideFootprint(s.footprint, x, z));
+    (!s.footprint || insideFootprint(s.footprint, x, z)) && !s.holes?.some(hole=>insideFootprint(hole,x,z));
 }
 export function surfaceHeight(surface: WalkSurface, x: number, z: number) {
   if(surface.arc){

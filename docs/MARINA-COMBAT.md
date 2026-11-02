@@ -386,11 +386,11 @@ intact, with openings through the lobby and actual holes through the roof deck.
 The lifts run opposite phases of the same automatic shuttle cycle: seven seconds
 of boarding at each stop and twelve seconds of travel. Signs and a nearby status
 prompt explain boarding; walk inside when the doors open. Multiple players and
-bots ride the same car. The host carries passengers, refuses movement out of a
-moving cabin, and releases them at a stopped car. Closed landing doors block
+bots ride the same car. The host carries passengers vertically while ordinary collision permits walking,
+crouching and jumping within the moving car. Landing doors release them at a stop. Closed landing doors block
 entry when the car is elsewhere. AI navigation includes explicit lift edges and
 walks the real approach and exit; it does not invent stairs or teleport to roofs.
-Crouched passengers stand when boarding. Death, respawn and reset clear carriage.
+Boarding preserves stance and jump offset. Death, respawn and reset clear carriage.
 
 Two Gardens staircases now spiral around the north and south Supertree trunks,
 with purple radial brackets, gold handrails, tangential landings and bridges into
@@ -420,10 +420,40 @@ Opaque hotel structure, frames, floors and roofs still block shots. Ordinary
 transparent materials elsewhere retain their previous ballistic behavior.
 Movement guards still contain passengers and close absent-car landings; physical
 grenade traces collide with the glazing. Bots can track and fire while riding,
-with translation held by the car and grenade throws/healing deferred until stopped.
+with bot navigation held during travel and grenade throws/healing deferred until stopped.
 
 Both landings show car direction/location, a three-second arrival countdown with
 an amber flashing lamp, and green boarding/departure countdowns. Signals describe
 the car only, not whether passengers are inside. These are visual cues; no new
 audio was generated. Cabin matrices update with animation so authoritative cover
 queries follow moving floors/frames between scene-cover cache refreshes.
+
+
+### Lift movement, roof support and interior finish
+
+Lift support now comes from the actual moving cabin floor/ceiling and wall bodies.
+Station endpoint surfaces remain navigation hints only; they do not become ghost
+floors when the car is absent. Human inputs include a bounded eye offset relative
+to the car, separating walking/stance changes from the lift's own travel. Local
+prediction carries feet by the car's vertical delta without overwriting horizontal
+movement each frame. Collision data is cached per simulation/render clock.
+
+At departure, a capsule straddling the doorway is moved clear: one already inside
+boards, while one outside stays on the landing. Gate depth matches the fixed
+panels, so closing a door cannot invalidate support underneath a nearby player.
+The SkyPark has one continuous walk surface matching the rendered boat outline,
+with true shaft cutouts. Both rounded ends are supported, and planter/bench tops
+provide explicit footing when jumped onto. Perimeter glazing follows that outline.
+
+The three lobbies use jointed stone floors, bronze inlays, framed glazing, ceiling
+coffers with warm diffusers, fluted reception desks/backdrops, upholstered seating
+and planted pots. Lift portals have stone surrounds, bronze trim, recessed sliding
+doors and compact arrival displays; cabins add floor inlays, round handrails,
+control panels and ceiling light strips. Roof planting now sits in stone basins
+alongside slatted benches. Repeated geometry is instanced; lights are emissive
+surfaces without additional shadow-casting point lights. No emergency stairs added.
+
+`node scripts/marina-lift-repair-smoke.mjs` exercises real FPS walking/crouching/
+jumping during ascent, both roof ends, planter landing/step-off, and descent in
+the second lift. Unit checks sweep two full cycles against cabin walls, sample the
+full roof, test closing thresholds and verify shared passengers and AI navigation.

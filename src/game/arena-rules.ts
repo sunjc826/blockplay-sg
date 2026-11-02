@@ -1,5 +1,5 @@
 import { refillAmmo } from './ammo-refill';
-import { insideLift, liftGates, liftSample } from './building-lifts';
+import { insideLift, liftBodies, liftDeparture, liftSample } from './building-lifts';
 import { BOAT_AI, BOAT_BERTHS, BOAT_FOOT_ANCHORS, boatAutopilot, planBoatRoute, type BoatRoute, type BoatPoint } from './dragon-boat-autopilot';
 import { createMerlionController, mistBetween, nearMerlion, merlionMouth, MERLION, type MerlionState, type MerlionAction } from './merlion-gameplay';
 import { createSwimmingMovement, SWIMMING, swimmingCanFire, swimmingShotDirection } from './swimming';
@@ -184,6 +184,8 @@ export interface ArenaInput {
   /** How far through using a supply the player is (0..1), so everyone else sees them patching up or eating. */
   supply?: number;
   waterFire?: boolean;
+  /** Eye position relative to the shared car floor; avoids consuming walking budget on lift travel. */
+  liftOffset?: number;
 }
 export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount' | 'bolt'> & Partial<Pick<WeaponSpec, 'ballistics'>> & { accessories?: { muzzle?: MuzzleDevice }; rentalRemainingMs?: number };
 export interface ArenaPoint { x: number; y: number; z: number }
@@ -453,12 +455,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const cover = coverDistance ?? vehicleOptions?.coverDistance;
   const bounds: RegionBounds = environment?.bounds ?? MARINA_BOUNDS;
   const swimmer = traversalWorld?.obstacles.some(o=>o.water) ? createSwimmingMovement(traversalWorld) : null;
-  const traversal = traversalWorld ? createVerticalMovement(traversalWorld) : null;
+  const traversal = traversalWorld ? createVerticalMovement({...traversalWorld,surfaces:traversalWorld.surfaces.filter(s=>!s.lift)}) : null;
   const vehicleGround = [...obstacles, ...(traversalWorld ? verticalVehicleObstacles({...traversalWorld,bounds}) : [])];
   const navigationAnchors=[...(obstacles.some(o=>o.water)?[...BOAT_FOOT_ANCHORS,...[-2.6,2.6].flatMap(x=>[-15,-9].map(z=>({x,z})))]:[]),...(environment?.navigationAnchors??[]),...(environment?.battlefield && vehicleOptions ? Object.values(vehicleOptions.spawns).flatMap(p=>[-6,6].flatMap(dx=>[-6,6].map(dz=>({x:p.x+dx,z:p.z+dz})))) : [])];
   const navigator = traversalWorld && (traversalWorld.surfaces.length || navigationAnchors.length) ? createVerticalNavigator(traversalWorld, navigationAnchors) : null;
   const regularLimit = environment?.battlefield?.size ?? 20;
-  const floorAt = (point: ArenaPoint) => traversal?.supportHeight(point.x, point.z, point.y - .5, .35, .6) ?? 0;
+  let liftGeometryAt=-Infinity,liftGeometry:ReturnType<typeof liftBodies>=[];
+  const liveLiftBodies=()=>{if(liftGeometryAt!==elapsed){liftGeometryAt=elapsed;liftGeometry=liftBodies(traversalWorld?.lifts??[],elapsed);}return liftGeometry;};
+  const floorAt = (point: ArenaPoint) => traversal?.supportHeight(point.x, point.z, point.y - .5, .35, .6,traversalWorld?.lifts?.some(l=>insideLift(l,point,-.5))?liveLiftBodies():[]) ?? 0;
   const move = environment?.move ?? moveInMarina;
   const coverObstacles = [...obstacles.filter(o=>!o.water), ...(traversalWorld?.traversalObstacles ?? [])];
   const worldWallDistance = (origin: ArenaPoint, ray: ArenaPoint, range = 240) => {
@@ -852,14 +856,16 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if(next.swimming)actor.swimming=true;else delete actor.swimming;
       return;
     }
-    if(actor.lift) {
-      const lift=traversalWorld?.lifts?.find(l=>l.id===actor.lift);
-      if(lift && liftSample(lift,elapsed).moving){actor.yaw=input.yaw;actor.pitch=clamp(input.pitch,-1.5,1.5);actor.prone=false;return;}
-    }
+    const riding=traversalWorld?.lifts?.find(l=>l.id===actor.lift && insideLift(l,actor));
     delete actor.swimming;entry.lastSwimInput=undefined;
     const target = { x: clamp(input.x, bounds.minX + 0.5, bounds.maxX - 0.5), y: clamp(input.y, input.prone === true ? PRONE_EYE_HEIGHT : 1, 90), z: clamp(input.z, bounds.minZ + 0.5, bounds.maxZ - 0.5) };
+    if(riding){
+      const car=liftSample(riding,elapsed);
+      target.y=car.y+clamp(Number.isFinite(input.liftOffset)?input.liftOffset!:actor.y-car.y,.55,2.65);
+      if(car.moving){target.x=clamp(target.x,riding.x-riding.width/2+.55,riding.x+riding.width/2-.55);target.z=clamp(target.z,riding.z-riding.depth/2+.55,riding.z+riding.depth/2-.55);}
+    }
     const wasProne = actor.prone;
-    const floor = floorAt(target);
+    const floor = riding?liftSample(riding,elapsed).y:floorAt(target);
     actor.prone = input.prone === true && target.y <= floor + PRONE_EYE_HEIGHT + .02;
     if (weaponBraced(entry.weapons[actor.weapon], actor.prone, target.y <= floor + PRONE_EYE_HEIGHT + .02)) { target.x = actor.x; target.z = actor.z; }
     // Eye-height changes are stance changes, not travel that consumes the movement budget.
@@ -869,10 +875,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const bodyHeight = actor.prone ? .6 : target.y - floor < 1.4 ? 1.2 : 1.8;
     const feet = y - (bodyHeight - .05);
     const solids = [...obstacles, ...vehicles.filter(v => !v.despawned && v.y < 2).map(vehicleBounds)].filter(o => (o.maxY ?? 200) > feet + 1e-5 && (o.minY??0)<y+.05);
-    solids.push(...liftGates(traversalWorld?.lifts??[],elapsed).filter(o=>(o.minY??0)<y+.05&&(o.maxY??0)>feet));
+    solids.push(...liveLiftBodies().filter(o=>(o.minY??0)<y+.05&&(o.maxY??0)>feet));
     if (traversalWorld) solids.push(...traversalWorld.traversalObstacles.filter(o => o.maxY > feet + 1e-5 && o.minY < y + .05));
     let position = move(actor, (target.x - actor.x) * scale, (target.z - actor.z) * scale, 0.35, solids);
-    if (traversal && !traversal.canOccupy(position.x, Math.max(0, feet), position.z, .35, bodyHeight)) position = { x: actor.x, z: actor.z };
+    if (traversal && !traversal.canOccupy(position.x, Math.max(0, feet), position.z, .35, bodyHeight,liveLiftBodies())) position = { x: actor.x, z: actor.z };
     entry.movementBudget = Math.max(0, entry.movementBudget - Math.hypot(position.x - actor.x, y - actor.y, position.z - actor.z));
     Object.assign(actor, position, { y, yaw: input.yaw % (Math.PI * 2), pitch: clamp(input.pitch, -1.5, 1.5) });
   }
@@ -3322,7 +3328,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (exit) { dxStep = exit.x * role.speed * 1.3 * dt; dzStep = exit.z * role.speed * 1.3 * dt; }
     if (exit && !entry.barkFleeing) bark(entry, 'incoming');
     entry.barkFleeing = !!exit;
-    const vehicleSolids = [...botVehicleObstacles().movement,...liftGates(traversalWorld?.lifts??[],elapsed)];
+    const vehicleSolids = [...botVehicleObstacles().movement,...liveLiftBodies()];
     const beforeMove={x:actor.x,z:actor.z};
     if (riding) { dxStep=0; dzStep=0; }
     else if (entry.anchor) Object.assign(actor, { x: entry.anchor.x, z: entry.anchor.z });
@@ -3581,8 +3587,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     botVehicleGeometry=undefined;
     for(const entry of members.values()) {
       const a=entry.actor;
-      const lift=a.alive&&!a.vehicle&&!a.parachuting?(traversalWorld?.lifts??[]).find(l=>{const eye=a.y-liftSample(l,elapsed-dt).y;return insideLift(l,a)&&eye>=.5&&eye<=1.85;}):undefined;
-      if(lift){a.y=liftSample(lift,elapsed).y+1.75;a.lift=lift.id;a.prone=false;entry.velocityY=0;}
+      if(a.alive&&!a.vehicle&&!a.parachuting)for(const l of traversalWorld?.lifts??[]){
+        const before=liftSample(l,elapsed-dt),eye=a.y-before.y;
+        if(eye<.5||eye>2.8)continue;
+        const threshold=liftDeparture(l,elapsed-dt,elapsed,{x:a.x,z:a.z,y:before.y});
+        if(threshold){a.x=threshold.x;a.z=threshold.z;if(threshold.board)a.lift=l.id;}
+      }
+      const lift=a.alive&&!a.vehicle&&!a.parachuting?(traversalWorld?.lifts??[]).find(l=>{const eye=a.y-liftSample(l,elapsed-dt).y;return insideLift(l,a)&&eye>=.5&&eye<=2.8;}):undefined;
+      if(lift){a.y+=liftSample(lift,elapsed).y-liftSample(lift,elapsed-dt).y;a.lift=lift.id;}
       else delete a.lift;
     }
     for (const entry of members.values()) {

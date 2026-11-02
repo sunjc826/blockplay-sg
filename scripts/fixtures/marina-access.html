@@ -11,7 +11,7 @@ if(params.has('render')){
  document.querySelector('#start').remove();document.querySelector('#status').remove();
  const world=buildMarinaScene(),renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(1);renderer.toneMapping=THREE.ACESFilmicToneMapping;document.querySelector('#world').append(renderer.domElement);
  const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.05,1200);
- const views={mbs:[[53,29,-70],[90,29,-16]],lobby:[[80,1.8,-44],[91,1.8,-36]],interior:[[87,1.8,-44],[91,1.8,-36]],roof:[[81,73,-48],[91,67,-34]],gardens:[[158,14,-3],[177,7,14]],spiral:[[182,3,1],[174.6,5,9]],canopy:[[177,11,24],[185,8,58]]};
+ const views={lounge:[[92.5,2.1,-47],[96,1.8,-37]],cabin:[[90.6,1.8,-35],[90.6,1.7,-40]],mbs:[[53,29,-70],[90,29,-16]],lobby:[[80,1.8,-44],[91,1.8,-36]],interior:[[87,1.8,-44],[91,1.8,-36]],roof:[[81,73,-48],[91,67,-34]],gardens:[[158,14,-3],[177,7,14]],spiral:[[182,3,1],[174.6,5,9]],canopy:[[177,11,24],[185,8,58]]};
  window.show=(view='mbs',time=0)=>{camera.position.set(...views[view][0]);camera.lookAt(...views[view][1]);world.animate(time);renderer.render(world.scene,camera);return{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles};};window.show();window.ready=true;
 }else{
  const session=createSoloSession('Lift tester'),profile=createProfile();

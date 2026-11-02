@@ -17,7 +17,7 @@ export interface PlaceConnection {
 }
 export interface PlaceFixture {
   x: number; y: number; z: number; width: number; height: number; depth: number;
-  color?: string; solid?: boolean;
+  color?: string; solid?: boolean; supportsTop?: boolean; render?: boolean;
   yaw?: number;
 }
 /** A place is inhabited floor area and its connections, rather than an isolated scenic crossing. */
@@ -186,7 +186,9 @@ export function withVerticalPlaces<T extends RegionWorld>(world: T, places: read
     }
     for(const f of place.fixtures??[]) {
       if(![f.x,f.y,f.z,f.width,f.height,f.depth,f.yaw??0].every(Number.isFinite)||f.width<=0||f.height<=0||f.depth<=0)throw new Error(`Invalid fixture in ${place.id}`);
-      box(f.x,f.y,f.z,f.width,f.height,f.depth,f.color??'#a8a49a',f.solid!==false,f.yaw);
+      const mesh=box(f.x,f.y,f.z,f.width,f.height,f.depth,f.color??'#a8a49a',f.solid!==false,f.yaw);
+      if(f.solid!==false && f.supportsTop)obstacles[obstacles.length-1].supportsTop=true;
+      if(f.render===false)mesh?.removeFromParent();
     }
   }
   // Repeat rails, stair treads and room fixtures share one box geometry. Batch

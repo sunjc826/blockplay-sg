@@ -26,12 +26,13 @@ const lobby=(z:number,i:number):VerticalPlace=>({id:`sands-lobby-${i}`,name:`MBS
     ...[-1,1].map(side=>({x:90.6+side*6.1,y:2.2,z:z-9.9,width:6.7,height:4.4,depth:.28,color:'#637f86'})),
     {x:91.2,y:2.2,z:z+9.9,width:18,height:4.4,depth:.28,color:'#637f86'},
     ...[83,99.4].flatMap(x=>[-8.8,8.8].map(dz=>({x,y:2.3,z:z+dz,width:.7,height:4.6,depth:.7,color:'#ddd4bd'}))),
+    {x:96.7,y:1.5,z:z+.3,width:3.8,height:3,depth:.16,color:'#70543e'},
     {x:96.7,y:.6,z:z-2,width:3,height:1.2,depth:1.1,color:'#77614c'},
     {x:96.7,y:1.23,z:z-2,width:3.2,height:.12,depth:1.3,color:'#e1d8c2'},
     ...[1,6].map(dz=>({x:84,y:.38,z:z+dz,width:1.1,height:.76,depth:2.4,color:'#426360'})),
     {x:87,y:.65,z:z+7.8,width:1.4,height:1.3,depth:1.4,color:'#5e7653'},
     {x:81.5,y:3.9,z:z-3.8,width:3,height:.22,depth:5.2,color:'#d5c5a4'},
-  ]});
+  ].map(f=>({...f,render:f.y>=4.5||f.width===.7,supportsTop:f.y<1.5}))});
 function spiral(x:number,z:number,id:string):VerticalPlace {
   const radius=4.6,segments=32,points=Array.from({length:segments+1},(_,i)=>{const angle=i/segments*Math.PI*2;return{x:x+radius*Math.cos(angle),z:z+radius*Math.sin(angle),y:i/segments*7.2};});
   return {id,name:'Supertree spiral stair',note:'A planted trunk wrapped by a continuous stair and golden handrail.',
@@ -44,13 +45,9 @@ const treeStairs=[spiral(174.6,9,'supertree-north-spiral'),spiral(173.4,69.6,'su
 export const MARINA_LANDMARK_PLACES: readonly VerticalPlace[] = [
   ...[-39,-9,21].map(lobby),
   {id:'sands-skypark',name:'MBS SkyPark combat deck',note:'Two express lift lobbies open directly onto the landscaped rooftop.',
-    floors:[
-      // Split around both lift shafts, keeping the moving car's opening real.
-      ...[[-58,-38.3],[-33.7,21.7],[26.3,40]].map(([a,b],i)=>({id:`roof-${i}`,x:90.6,z:(a+b)/2,y:SKYPARK_FLOOR,width:10.5,depth:b-a,color:'#c6c9b0',supports:false,rails:false})),
-      ...[-36,24].flatMap((z,i)=>[-1,1].map(side=>({id:`shaft-side-${i}-${side}`,x:90.6+side*3.725,z,y:SKYPARK_FLOOR,width:3.05,depth:4.6,supports:false,rails:false,color:'#c6c9b0'})))],connections:[],
-    fixtures:[...[-40,-24,-8,8,31].map(z=>({x:94,z,y:SKYPARK_FLOOR+.65,width:1.3,depth:3,height:1.3,color:'#667a52'})),
-      ...[-30,0,16].map(z=>({x:87.2,z,y:SKYPARK_FLOOR+.55,width:1.6,depth:2.4,height:1.1,color:'#c1bda6'})),
-      ...[-1,1].map(side=>({x:90.6+side*5.2,z:-9,y:SKYPARK_FLOOR+.6,width:.12,depth:98,height:1.2,color:'#667b7c'}))]},
+    floors:[],connections:[],
+    fixtures:[...[-40,-24,-8,8,31].map(z=>({x:94,z,y:SKYPARK_FLOOR+.3,width:1.3,depth:3,height:.6,color:'#667a52',supportsTop:true,render:false})),
+      ...[-30,0,16].flatMap(z=>[{x:87.2,z,y:SKYPARK_FLOOR+.5,width:1.6,depth:2.4,height:.18},{x:86.5,z,y:SKYPARK_FLOOR+.8,width:.2,depth:2.4,height:.6},...[-.9,.9].map(dz=>({x:87.2,z:z+dz,y:SKYPARK_FLOOR+.2,width:1.2,depth:.15,height:.4}))].map(f=>({...f,color:'#c1bda6',supportsTop:true,render:false})))]},
   stairTower('flyer-service-stairs',180,-171,-157,33,11),
   {id:'flyer-overlooks',name:'Singapore Flyer maintenance overlooks',note:'Fixed access gantries remain clear of the rotating rim and passenger capsules.',
     floors:[{id:'hub-walk',x:164,z:-171,y:18,width:28,depth:4.5,color:'#a3b3b6',supports:false},

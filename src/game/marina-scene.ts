@@ -1,3 +1,4 @@
+import { withMarinaInteriors } from './marina-interiors';
 import { buildMerlionModel } from './merlion-model';
 import { withBuildingLifts } from './building-lift-scene';
 import { MARINA_LANDMARK_PLACES, MARINA_LIFTS } from './marina-landmarks';
@@ -773,11 +774,11 @@ export function buildMarinaScene() {
     batch.forEach((item, i) => { item.updateMatrix(); mesh.setMatrixAt(i, item.matrix); scene.remove(item); });
     mesh.computeBoundingSphere(); scene.add(mesh); instances.push(mesh);
   }
-  return withBuildingLifts(withVerticalPlaces({
+  return withMarinaInteriors(withBuildingLifts(withVerticalPlaces({
     scene, obstacles, car, stamps,
     animate(time: number) { water.userData.setTime(time); stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.5; stamp.position.y = 3 + Math.sin(time * 1.7 + i) * 0.35; });
       walkers.forEach(({ group, x, z, axis, phase }) => { const offset = Math.sin(time * 0.09 + phase) * 10; group.position.set((x + (axis === 'x' ? offset : 0))*S, Math.abs(Math.sin(time * 4 + phase))*0.04*S, (z + (axis === 'z' ? offset : 0))*S); group.rotation.y = (axis === 'x' ? Math.PI / 2 : 0) + (Math.cos(time * 0.09 + phase) > 0 ? Math.PI : 0); });
     },
     dispose() { merlion.dispose(); camp.dispose(); instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); sun.shadow.map?.dispose(); },
-  }, [...MARINA_VERTICAL_PLACES,...MARINA_LANDMARK_PLACES]),MARINA_LIFTS);
+  }, [...MARINA_VERTICAL_PLACES,...MARINA_LANDMARK_PLACES]),MARINA_LIFTS));
 }

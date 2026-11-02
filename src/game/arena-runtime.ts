@@ -62,6 +62,7 @@ export function validArenaInput(value: unknown): value is ArenaInput {
   return object(value) && ['x', 'y', 'z', 'yaw', 'pitch'].every(key => finite(value[key])) &&
     validWeaponIndex(value.weapon) && typeof value.playing === 'boolean' &&
     (value.reloading === undefined || typeof value.reloading === 'boolean') &&
+    (value.liftOffset === undefined || finite(value.liftOffset) && value.liftOffset>=.5 && value.liftOffset<=2.75) &&
     (value.waterFire === undefined || typeof value.waterFire==='boolean') &&
     (value.prone === undefined || typeof value.prone === 'boolean') &&
     (value.supply === undefined || finite(value.supply) && value.supply >= 0 && value.supply <= 1) &&
