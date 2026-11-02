@@ -42,7 +42,9 @@ describe('body carried weapons and physical switching', () => {
     const states = createPooledLoadout(kit.weapons, kit.carriedFamilies);
     const models = FPS_WEAPONS.map(spec => buildServiceWeapon(spec.id) ?? new THREE.Group());
     const body = createFpsBody(new THREE.Scene()); body.setWeaponModels(models);
+    states[2].magazineOut = true;
     body.update(0, kit, states, { ...pose, activeFamily: 5 });
+    expect(body.weaponMount(2)!.getObjectByName('p30-inspired__magazine')!.visible).toBe(false);
     expect(body.weaponMount(0)).toBeUndefined();
     expect(body.weaponMount(2)!.children[0].visible).toBe(true);
     expect(body.weaponMount(5)!.children[0].visible).toBe(false);

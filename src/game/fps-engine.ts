@@ -2076,6 +2076,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       { rounds: magazineRounds(loadout[i], specs[i]), capacity: magazineCapacity(loadout[i], specs[i]),
         ...(i === hud.weapon && specs[i].action === 'bolt' && loadout[i].cooldown > 0 && !loadout[i].reloadRemaining && !loadout[i].magazineOut
           ? { cycle: 1 - loadout[i].cooldown / specs[i].interval } : {}) }));
+    if (switching?.phase === 'stow' && loadout[heldFamily].magazineOut) {
+      const magazine = weapons[heldFamily].getObjectByName(`${FPS_WEAPONS[heldFamily].id}__magazine`);
+      if (magazine) magazine.visible = false;
+    }
     canvas.dataset.magazineAmmo = JSON.stringify(weapons[hud.weapon] ? magazineAmmoState(weapons[hud.weapon]) : []);
     canvas.dataset.beltAmmo = JSON.stringify(handling[hud.weapon]?.beltAmmo ?? null);
     canvas.dataset.boltCycle = JSON.stringify(handling[hud.weapon]?.boltCycle ?? null);
