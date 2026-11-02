@@ -1,3 +1,4 @@
+import { insideLift, type BuildingLift } from './building-lifts';
 import type { Obstacle, RegionBounds } from './region-collision';
 import { createVerticalMovement } from './vertical-movement';
 import { surfaceHeight, surfaceContains, type WalkSurface } from './vertical-routes';
@@ -13,6 +14,7 @@ export interface VerticalityInput {
   obstacles: readonly Obstacle[];
   surfaces: readonly WalkSurface[];
   traversalObstacles: Parameters<typeof createVerticalMovement>[0]['traversalObstacles'];
+  lifts?: readonly BuildingLift[];
   spacing?: number;
   elevatedHeight?: number;
 }
@@ -64,6 +66,7 @@ class Queue {
  * from an arbitrary point inside it.
  */
 export function measureVerticality(input: VerticalityInput) {
+  const curved=input.surfaces.some(s=>s.arc);
   const spacing = input.spacing ?? VERTICALITY_DEFAULTS.spacing;
   const elevatedHeight = input.elevatedHeight ?? VERTICALITY_DEFAULTS.elevatedHeight;
   if (!Number.isFinite(spacing) || spacing <= 0 || !Number.isFinite(elevatedHeight) || elevatedHeight <= 0) throw new Error('Verticality sampling values must be finite and positive');
@@ -100,13 +103,31 @@ export function measureVerticality(input: VerticalityInput) {
   };
   for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
     for (const a of columns.get(at(i, j)) ?? []) {
-      for (const key of [at(i + 1, j), at(i, j + 1)]) for (const b of columns.get(key) ?? []) {
+      for (const key of [at(i + 1, j), at(i, j + 1),...(curved?[at(i+1,j+1),at(i+1,j-1)]:[])]) for (const b of columns.get(key) ?? []) {
         const p = samples[a], q = samples[b];
         const distance = Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z);
         if (reaches(p, q)) p.edges.push({ to: b, distance });
         if (reaches(q, p)) q.edges.push({ to: a, distance });
       }
     }
+  }
+  if(curved)for(const surface of input.surfaces) {
+    // A 2 m lattice can miss a narrow landing at a bend. Connect neighbouring
+    // samples through an authored centre point only when BOTH walking legs
+    // pass the collision kernel; this adds no area or guessed roof access.
+    const x=(surface.minX+surface.maxX)/2,z=(surface.minZ+surface.maxZ)/2;
+    const points=surface.slope?[surface.slope.from,surface.slope.to,{x,y:surfaceHeight(surface,x,z),z}]:[{x,y:surface.startHeight,z}];
+    for(const point of points){
+      if(!movement.canOccupy(point.x,point.y,point.z,radius,bodyHeight))continue;
+      const nearby=samples.flatMap((p,id)=>Math.hypot(p.x-point.x,p.z-point.z)<=spacing*Math.SQRT2+.01&&Math.abs(p.y-point.y)<1&&reaches(p,point)&&reaches(point,p)?[id]:[]);
+      for(const a of nearby)for(const b of nearby)if(a!==b&&!samples[a].edges.some(e=>e.to===b))samples[a].edges.push({to:b,distance:Math.hypot(samples[a].x-point.x,samples[a].y-point.y,samples[a].z-point.z)+Math.hypot(samples[b].x-point.x,samples[b].y-point.y,samples[b].z-point.z)});
+    }
+  }
+  // Explicit lift service connects supported car-floor samples at its two
+  // landings. No arbitrary vertical shortcut is inferred from nearby floors.
+  for(const lift of input.lifts??[]) {
+    const stops=[lift.bottom,lift.top].map(y=>samples.flatMap((p,id)=>Math.abs(p.y-y)<.02&&insideLift(lift,p)&&reaches({x:lift.x,y,z:lift.z},p)?[id]:[]));
+    for(const a of stops[0])for(const b of stops[1]){const distance=lift.top-lift.bottom;samples[a].edges.push({to:b,distance});samples[b].edges.push({to:a,distance});}
   }
   const spawn = { ...input.spawn, y: input.spawn.y ?? input.bounds.groundHeight?.(input.spawn.x,input.spawn.z) ?? 0 };
   const reachable = new Set<number>(), pending: number[] = [];

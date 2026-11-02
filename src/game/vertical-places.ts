@@ -13,6 +13,7 @@ export interface PlaceFloor {
 export interface PlaceConnection {
   id: string; from: RoutePoint; to: RoutePoint; width: number; stairs?: boolean; color?: string; foundation?: 'solid' | 'open';
   outline?: readonly Position2D[]; rails?: boolean;
+  arc?: { x:number; z:number; start:number; end:number };
 }
 export interface PlaceFixture {
   x: number; y: number; z: number; width: number; height: number; depth: number;
@@ -118,7 +119,33 @@ export function withVerticalPlaces<T extends RegionWorld>(world: T, places: read
     }
     for(const c of place.connections) {
       const key=id(c.id), a=c.from,b=c.to,dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);
-      if(![a.x,a.y,a.z,b.x,b.y,b.z,c.width].every(Number.isFinite)||!len||(dx!==0&&dz!==0)||c.width<2.4||Math.abs(b.y-a.y)/len>.5+1e-7||a.y<0||b.y<0)throw new Error(`Invalid connection ${key}`);
+      if(![a.x,a.y,a.z,b.x,b.y,b.z,c.width].every(Number.isFinite)||!len||c.width<2.4||Math.abs(b.y-a.y)/len>.5+1e-7||a.y<0||b.y<0)throw new Error(`Invalid connection ${key}`);
+      if(dx!==0 && dz!==0) {
+        if(c.outline || c.foundation==='solid')throw new Error(`Unsupported diagonal terrain ${key}`);
+        const nx=-dz/len,nz=dx/len,yaw=Math.atan2(dx,dz),pad=.06;
+        const radius=c.arc?Math.hypot(a.x-c.arc.x,a.z-c.arc.z):0;
+        const footprint=c.arc?[[c.arc.start,-1],[c.arc.end,-1],[c.arc.end,1],[c.arc.start,1]].map(([angle,side])=>({x:c.arc!.x+Math.cos(angle)*(radius+side*c.width/2),z:c.arc!.z+Math.sin(angle)*(radius+side*c.width/2)})):[[-pad,-1],[len+pad,-1],[len+pad,1],[-pad,1]].map(([along,side])=>({x:a.x+dx/len*along+nx*side*c.width/2,z:a.z+dz/len*along+nz*side*c.width/2}));
+        surfaces.push({id:key,routeId:place.id,axis:'x',minX:Math.min(...footprint.map(p=>p.x)),maxX:Math.max(...footprint.map(p=>p.x)),minZ:Math.min(...footprint.map(p=>p.z)),maxZ:Math.max(...footprint.map(p=>p.z)),startHeight:a.y,endHeight:b.y,footprint,slope:{from:a,to:b},arc:c.arc});
+        const count=Math.max(1,Math.ceil(Math.abs(b.y-a.y)/.12));
+        for(let n=0;n<count;n++) {
+          const t=(n+.5)/count,top=a.y+(b.y-a.y)*(b.y>a.y?(n+1)/count:n/count);
+          box(a.x+dx*t,top-.12,a.z+dz*t,c.width,.24,len/count+.12,c.color??'#bcb6a8',false,yaw);
+        }
+        if(c.rails!==false)for(const side of [-1,1]) {
+          const landing=allConnections.some(other=>other!==c && other.from.y===other.to.y && [a,b].some(end=>Math.abs(end.y-other.from.y)<.5 && [other.from,other.to].some(p=>Math.hypot(end.x-p.x,end.z-p.z)<other.width/2+.3)));
+          if(landing)continue;
+          const p=new THREE.Vector3(a.x+nx*side*(c.width/2+.35),a.y+1.05,a.z+nz*side*(c.width/2+.35));
+          const q=new THREE.Vector3(b.x+nx*side*(c.width/2+.35),b.y+1.05,b.z+nz*side*(c.width/2+.35));
+          const rail=box((p.x+q.x)/2,(p.y+q.y)/2,(p.z+q.z)/2,.08,.08,p.distanceTo(q),'#a38b54',false)!;
+          rail.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),q.clone().sub(p).normalize());
+          box(p.x,a.y+.525,p.z,.08,1.05,.08,'#703b5d',false);
+          // Short guards follow the sloping tread instead of filling the entire
+          // bounding box of a diagonal stair.
+          const guard=[[-.05,-1],[len+.05,-1],[len+.05,1],[-.05,1]].map(([along,s])=>({x:p.x+dx/len*along+nx*s*.06,z:p.z+dz/len*along+nz*s*.06}));
+          obstacles.push({minX:Math.min(...guard.map(v=>v.x)),maxX:Math.max(...guard.map(v=>v.x)),minZ:Math.min(...guard.map(v=>v.z)),maxZ:Math.max(...guard.map(v=>v.z)),minY:Math.min(a.y,b.y),maxY:Math.max(a.y,b.y)+1.1,footprint:guard});
+        }
+        continue;
+      }
       const axis=dx!==0?'x':'z', low=(axis==='x'?a.x<b.x:a.z<b.z)?a:b,high=low===a?b:a;
       const envelope=c.outline?{minX:Math.min(...c.outline.map(p=>p.x)),maxX:Math.max(...c.outline.map(p=>p.x)),minZ:Math.min(...c.outline.map(p=>p.z)),maxZ:Math.max(...c.outline.map(p=>p.z))}:{};
       surfaces.push({id:key,routeId:place.id,axis,minX:axis==='x'?low.x:a.x-c.width/2,maxX:axis==='x'?high.x:a.x+c.width/2,minZ:axis==='z'?low.z:a.z-c.width/2,maxZ:axis==='z'?high.z:a.z+c.width/2,...envelope,startHeight:low.y,endHeight:high.y,solidBelow:c.foundation==='solid',footprint:c.outline});

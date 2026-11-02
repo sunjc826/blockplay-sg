@@ -4,6 +4,7 @@ register('./ts-extension-hook.mjs', import.meta.url);
 const { REGIONS, isRegionId } = await import('../src/game/regions.ts');
 const { getWalkSurfaces, getTraversalObstacles } = await import('../src/game/vertical-routes.ts');
 const { measureVerticality } = await import('../src/game/verticality-metrics.ts');
+const { getBuildingLifts } = await import('../src/game/building-lifts.ts');
 const { getVerticalPlaces } = await import('../src/game/vertical-places.ts');
 const { inspectVerticalPlaces } = await import('../src/game/vertical-place-diagnostics.ts');
 const { zoneSectors } = await import('../src/game/zone-sectors.ts');
@@ -24,10 +25,10 @@ for (const region of REGIONS.filter(region => !only || region.id === only)) {
   const world = region.build();
   try {
     const surfaces = getWalkSurfaces(world.scene);
-    const input = { bounds: region.bounds, spawn: region.spawn, obstacles: world.obstacles, surfaces, traversalObstacles: getTraversalObstacles(world.scene) };
+    const input = { bounds: region.bounds, spawn: region.spawn, obstacles: world.obstacles, surfaces, traversalObstacles: getTraversalObstacles(world.scene), lifts:getBuildingLifts(world.scene) };
     const after = measureVerticality(input);
     // Counterfactual in the current scene, not a historical pre-change snapshot.
-    const before = measureVerticality({ ...input, surfaces: [] });
+    const before = measureVerticality({ ...input, surfaces: [], lifts: [] });
     report.push({
       id: region.id, parameters: after.parameters,
       baselineDescription: 'Current scene with authored walk surfaces disabled; not a historical snapshot.',
@@ -42,7 +43,7 @@ for (const region of REGIONS.filter(region => !only || region.id === only)) {
 if (json) console.log(JSON.stringify(report, null, 2));
 else {
   console.log('Verticality diagnostics: 2 m lattice; elevated = feet >= 2 m above street. No score or pass/fail.');
-  console.log('Only spawn-connected standing walking paths count. No jumps, falls, flying, or decorative roofs.');
+  console.log('Only spawn-connected walking paths and authored lift service count. No jumps, falls, flying, or decorative roofs.');
   console.log('Distances follow sampled walking paths; null/none means no sampled route to elevated space.');
   console.log('Baseline disables authored walk surfaces in the current scene; it is not historical.\n');
   const m = value => value === null ? 'none' : value.toFixed(1);

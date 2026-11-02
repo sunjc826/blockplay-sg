@@ -1,3 +1,4 @@
+import { getBuildingLifts } from './building-lifts';
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { REGIONS } from './regions';
@@ -38,6 +39,8 @@ for (const region of REGIONS) describe(`${region.id} authored elevation`, () => 
       world.scene.updateMatrixWorld(true);
       const group = world.scene;
       for (const s of getWalkSurfaces(world.scene)) {
+        const lift=getBuildingLifts(world.scene).find(l=>l.id===s.routeId);
+        if(lift){world.animate((s.startHeight===lift.bottom?0:lift.dwell+lift.travel)-lift.offset+2*(lift.dwell+lift.travel));world.scene.updateMatrixWorld(true);}
         const x=(s.minX+s.maxX)/2,z=(s.minZ+s.maxZ)/2,y=(s.startHeight+s.endHeight)/2;
         const ray = new THREE.Raycaster(new THREE.Vector3(x,y+.2,z),new THREE.Vector3(0,-1,0),0,.4);
         const hit = ray.intersectObject(group,true)[0];

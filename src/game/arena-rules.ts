@@ -1,3 +1,4 @@
+import { insideLift, liftGates, liftSample } from './building-lifts';
 import { BOAT_AI, BOAT_BERTHS, BOAT_FOOT_ANCHORS, boatAutopilot, planBoatRoute, type BoatRoute, type BoatPoint } from './dragon-boat-autopilot';
 import { createMerlionController, mistBetween, nearMerlion, merlionMouth, MERLION, type MerlionState, type MerlionAction } from './merlion-gameplay';
 import { createSwimmingMovement, SWIMMING, swimmingCanFire, swimmingShotDirection } from './swimming';
@@ -66,6 +67,8 @@ import type { PlayerRespawnView } from './player-respawn';
 
 /** All coordinates use metres; actor y is eye height, not the feet. */
 export interface ArenaActor {
+  /** Host-carried passenger in an authored building lift. */
+  lift?: string;
   /** Match time of a surviving moving bailout, for a synchronized landing roll. */
   bailoutAt?: number;
   proxyTargets?: string[];
@@ -635,7 +638,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (entry.actor.bot && entry.actor.faction === 'mercenaries' && ['assault', 'tank'].includes(entry.role?.id ?? '')) { entry.actor.grenade = entry.role?.id === 'tank' ? 'grenade-smoke' : 'grenade-frag'; entry.grenadeSupplies[entry.actor.grenade] = 1; } else delete entry.actor.grenade;
     entry.velocity = undefined; entry.speed = 0; entry.lastAt = undefined; entry.aimFocus = undefined; entry.turn = undefined;
     entry.spotting = undefined; entry.shotFlash = undefined;
-    entry.parachute = undefined; delete entry.actor.parachuting; entry.navigation = undefined; entry.assignment = undefined; entry.guardPatrol = undefined; entry.investigation = undefined; sectorPatrols?.release(entry.actor.id); entry.mission = undefined; delete entry.actor.objective; delete entry.actor.duty; delete entry.actor.patrolSector; entry.navalTransit = undefined; delete entry.actor.ground; entry.evacuating = undefined; entry.vehicleBoardAfter = undefined; entry.boatIslandUntil=undefined; entry.boatGuard=undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
+    entry.parachute = undefined; delete entry.actor.parachuting; delete entry.actor.lift; entry.navigation = undefined; entry.assignment = undefined; entry.guardPatrol = undefined; entry.investigation = undefined; sectorPatrols?.release(entry.actor.id); entry.mission = undefined; delete entry.actor.objective; delete entry.actor.duty; delete entry.actor.patrolSector; entry.navalTransit = undefined; delete entry.actor.ground; entry.evacuating = undefined; entry.vehicleBoardAfter = undefined; entry.boatIslandUntil=undefined; entry.boatGuard=undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
     delete entry.actor.swimming;entry.swimBudget=.08;entry.lastSwimInput=undefined;entry.swimmingUntil=undefined;
     entry.movementBudget = 2; entry.reaction = 1; entry.target = ''; entry.wasReloading = false; entry.threat = undefined; entry.grudge = undefined;
   };
@@ -847,6 +850,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if(next.swimming)actor.swimming=true;else delete actor.swimming;
       return;
     }
+    if(actor.lift) {
+      const lift=traversalWorld?.lifts?.find(l=>l.id===actor.lift);
+      if(lift && liftSample(lift,elapsed).moving){actor.yaw=input.yaw;actor.pitch=clamp(input.pitch,-1.5,1.5);actor.prone=false;return;}
+    }
     delete actor.swimming;entry.lastSwimInput=undefined;
     const target = { x: clamp(input.x, bounds.minX + 0.5, bounds.maxX - 0.5), y: clamp(input.y, input.prone === true ? PRONE_EYE_HEIGHT : 1, 90), z: clamp(input.z, bounds.minZ + 0.5, bounds.maxZ - 0.5) };
     const wasProne = actor.prone;
@@ -859,7 +866,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const y = actor.y + (target.y - actor.y) * scale;
     const bodyHeight = actor.prone ? .6 : target.y - floor < 1.4 ? 1.2 : 1.8;
     const feet = y - (bodyHeight - .05);
-    const solids = [...obstacles, ...vehicles.filter(v => !v.despawned && v.y < 2).map(vehicleBounds)].filter(o => (o.maxY ?? 200) > feet + 1e-5);
+    const solids = [...obstacles, ...vehicles.filter(v => !v.despawned && v.y < 2).map(vehicleBounds)].filter(o => (o.maxY ?? 200) > feet + 1e-5 && (o.minY??0)<y+.05);
+    solids.push(...liftGates(traversalWorld?.lifts??[],elapsed).filter(o=>(o.minY??0)<y+.05&&(o.maxY??0)>feet));
     if (traversalWorld) solids.push(...traversalWorld.traversalObstacles.filter(o => o.maxY > feet + 1e-5 && o.minY < y + .05));
     let position = move(actor, (target.x - actor.x) * scale, (target.z - actor.z) * scale, 0.35, solids);
     if (traversal && !traversal.canOccupy(position.x, Math.max(0, feet), position.z, .35, bodyHeight)) position = { x: actor.x, z: actor.z };
@@ -2357,7 +2365,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         // Capture slots must be reachable at the objective's actual terrain height.
         const fallback=[radius,2.6].flatMap(r=>Array.from({length:12},(_,j)=>({x:site.x+Math.sin(angle+j*Math.PI/6)*r,z:site.z+Math.cos(angle+j*Math.PI/6)*r}))).find(p=>clearSitePoint(p,site));
         const slot=clearSitePoint(point,site)?point:fallback;
-        entry.mission=slot?{...slot,y:(Math.abs(site.y-groundHeight(site.x,site.z))<.35?patrolGround(slot.x,slot.z):site.y)+1.75}:undefined;
+        entry.mission=slot?{...slot,y:(Math.abs(site.y-(bounds.groundHeight?.(site.x,site.z)??0))<.35?patrolGround(slot.x,slot.z):site.y)+1.75}:undefined;
       });
       if (!leader.order || leader.order.until<=elapsed) facilities?.request(site.id,leader.actor.id);
     }
@@ -3151,6 +3159,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function stepBot(entry: InternalActor, dt: number) {
     const actor = entry.actor;
+    if(actor.lift && traversalWorld?.lifts?.some(l=>l.id===actor.lift && liftSample(l,elapsed).moving))return;
     const conditions = arenaConditionModifiers(actor.conditions);
     if (conditions.frozen) { entry.target = ''; entry.burst = 0; entry.aimFocus = undefined; return; }
     const role = entry.role!;
@@ -3310,7 +3319,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (exit) { dxStep = exit.x * role.speed * 1.3 * dt; dzStep = exit.z * role.speed * 1.3 * dt; }
     if (exit && !entry.barkFleeing) bark(entry, 'incoming');
     entry.barkFleeing = !!exit;
-    const vehicleSolids = botVehicleObstacles().movement;
+    const vehicleSolids = [...botVehicleObstacles().movement,...liftGates(traversalWorld?.lifts??[],elapsed)];
     const beforeMove={x:actor.x,z:actor.z};
     if (entry.anchor) Object.assign(actor, { x: entry.anchor.x, z: entry.anchor.z });
     else if (traversal) {
@@ -3566,6 +3575,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if(strength>.8){entry.target='';entry.burst=0;entry.aimFocus=undefined;}
     });
     botVehicleGeometry=undefined;
+    for(const entry of members.values()) {
+      const a=entry.actor;
+      const lift=a.alive&&!a.vehicle&&!a.parachuting?(traversalWorld?.lifts??[]).find(l=>{const eye=a.y-liftSample(l,elapsed-dt).y;return insideLift(l,a)&&eye>=.5&&eye<=1.85;}):undefined;
+      if(lift){a.y=liftSample(lift,elapsed).y+1.75;a.lift=lift.id;a.prone=false;entry.velocityY=0;}
+      else delete a.lift;
+    }
     for (const entry of members.values()) {
       entry.movementBudget = Math.min(8, entry.movementBudget + 40 * dt);
       entry.swimBudget=Math.min(.25,(entry.swimBudget??.08)+SWIMMING.speed*dt);

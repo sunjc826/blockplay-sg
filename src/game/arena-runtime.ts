@@ -1,3 +1,4 @@
+import { getBuildingLifts } from './building-lifts';
 import { validMerlionState, validMerlionAction, type MerlionAction } from './merlion-gameplay';
 import { SWIMMING } from './swimming';
 import { isDragonBoat, MARINA_WATER } from './marina-water';
@@ -81,6 +82,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.proxyOperation !== undefined && (!environment?.proxies || !actor.bot || !['freedom-force','collective-cops'].includes(String(actor.faction)) || typeof actor.proxyOperation !== 'string' || actor.proxyOperation !== (value.proxies as import('./proxy-operations').ProxySnapshot)?.operation?.id)) ||
       (actor.proxyTargets !== undefined && (actor.proxyOperation === undefined || !Array.isArray(actor.proxyTargets) || actor.proxyTargets.length > 64 || !actor.proxyTargets.every(id => typeof id === 'string' && id.length <= 100))) ||
       (actor.rentalTimeMs !== undefined && (!finite(actor.rentalTimeMs) || actor.rentalTimeMs < 0)) ||
+      (actor.lift !== undefined && (typeof actor.lift !== 'string' || actor.lift.length>80)) ||
       (actor.squad !== undefined && (typeof actor.squad !== 'string' || actor.squad.length > 100)) ||
       (actor.objective !== undefined && (typeof actor.objective !== 'string' || actor.objective.length > 100)) ||
       (actor.duty !== undefined && (!actor.bot || typeof actor.duty !== 'string' || !['attack','sentry','patrol','respond','investigate'].includes(actor.duty))) ||
@@ -379,7 +381,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   const authority = session.role !== 'guest';
   // Every shot and every bot's line of sight is checked against the rendered
   // scene, not only the box footprints: mesh-only walls must stop bot fire.
-  const simulation = authority ? createArena(options.obstacles, options.botCount, options.composition, options.environment, options.vehicles, { bounds: options.environment?.bounds ?? MARINA_BOUNDS, obstacles: options.obstacles, surfaces: getWalkSurfaces(scene), traversalObstacles: getTraversalObstacles(scene) },
+  const simulation = authority ? createArena(options.obstacles, options.botCount, options.composition, options.environment, options.vehicles, { bounds: options.environment?.bounds ?? MARINA_BOUNDS, obstacles: options.obstacles, surfaces: getWalkSurfaces(scene), traversalObstacles: getTraversalObstacles(scene), lifts:getBuildingLifts(scene) },
     (origin, direction, distance) => coverLimit(origin, direction, distance), (from, to) => {
       const distance = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z); if (distance < 1e-8) return null;
       const d = coverLimit(from, { x: (to.x - from.x) / distance, y: (to.y - from.y) / distance, z: (to.z - from.z) / distance }, distance);

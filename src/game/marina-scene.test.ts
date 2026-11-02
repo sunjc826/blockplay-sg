@@ -68,7 +68,7 @@ it('models the reviewed facade and landmark details without expanding the play f
     expect(MARINA_BOUNDS.maxX-MARINA_BOUNDS.minX).toBeCloseTo(726*MARINA_LAYOUT_SCALE);
     expect(MARINA_BOUNDS.maxZ-MARINA_BOUNDS.minZ).toBeCloseTo(616*MARINA_LAYOUT_SCALE);
     expect(MARINA_STAMPS).toHaveLength(14);
-    expect(world.scene.userData.qualityDetails).toEqual({ esplanadeSunshades: 472, wheelCapsules: 16, conservatoryGlazingSegments: 224, sandsMullions: 3240 });
+    expect(world.scene.userData.qualityDetails).toEqual({ esplanadeSunshades: 472, wheelCapsules: 16, conservatoryGlazingSegments: 224, sandsMullions: 3000 });
     const instances = world.scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
     expect(instances.reduce((sum, mesh) => sum + mesh.count, 0)).toBeGreaterThan(14000);
     expect(instances.length).toBeLessThan(60);

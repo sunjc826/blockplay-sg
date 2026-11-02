@@ -91,6 +91,7 @@
     "test:swimming": "node scripts/swimming-smoke.mjs",
     "test:dragon-boats:ai": "node scripts/dragon-boat-ai-smoke.mjs",
     "test:merlion:gameplay": "node scripts/merlion-gameplay-smoke.mjs",
+    "test:marina:access": "node scripts/marina-access-smoke.mjs",
     "test:merlion": "node scripts/merlion-smoke.mjs"
   },
   "dependencies": {

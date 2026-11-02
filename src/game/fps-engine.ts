@@ -1,3 +1,4 @@
+import { getBuildingLifts, liftGates, liftPassenger, liftSample } from './building-lifts';
 import { createMerlionVisuals } from './merlion-visuals';
 import { nearMerlion, merlionMouth, merlionDirection, MERLION, type MerlionAction } from './merlion-gameplay';
 import { createSwimmingMovement, SWIMMING, swimmingCanFire } from './swimming';
@@ -670,6 +671,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const stance = () => swimming() ? 'stand' as const : eyeHeight() < .8 ? 'prone' as const : eyeHeight() < 1.4 ? 'crouch' as const : 'stand' as const;
   const braced = () => !vehicles.active && weaponBraced(specs[hud.weapon], prone, grounded());
   const movement = () => equipmentMovement(equipment, hud.weapon, loadout, supplies, loadRelief(foodEffects));
+  function liftNotice() {
+    if(vehicles.active||hud.phase!=='playing')return '';
+    const lift=getBuildingLifts(world.scene).find(l=>Math.hypot(position.x-l.x,position.z-l.z)<8 && (Math.min(Math.abs(vertical-l.bottom),Math.abs(vertical-l.top))<2 || hud.arenaSelf?.lift===l.id));
+    if(!lift)return '';
+    const sample=liftSample(lift,hud.elapsed);
+    return hud.arenaSelf?.lift===lift.id&&sample.moving?`SkyPark express · ${sample.up?'Ascending':'Descending'} · ${Math.ceil(sample.remaining)}s`:sample.open&&Math.abs(vertical-sample.y)<.5?`Lift open · step inside · departs in ${Math.ceil(sample.remaining)}s`:'SkyPark express · wait behind the doors';
+  }
   const publish = () => {
     if (disposed) return;
     const state = loadout[hud.weapon];
@@ -704,7 +712,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const proxy = hud.arena?.proxies?.operation;
     hud.proxyReach = !!proxy && proxy.phase === 'contested' && proxy.cargo === 'sealed' && !proxy.decision && !vehicles.active && hud.arenaSelf?.alive === true && Math.hypot(proxy.at.x-position.x,proxy.at.z-position.z)<=4 && Math.abs(proxy.at.y-vertical)<2;
     if (!hud.proxyReach || hud.phase !== 'playing') hud.proxyMenu=false;
-    onHud({ ...hud, swimming:swimming(),swimCanFire:!swimming()||swimmingCanFire(hud.weapon,carry.length()), ...(options.tutorial ? { tutorial: { feet: vertical, grounded: grounded(), stance: stance(), sprinting: wasSprinting } } : {}), vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: physicalWeaponFamilies(equipment.carriedFamilies), carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, spareMagazines: spareMagazines(state), magazineCapacity: magazineCapacity(state, specs[hud.weapon]), reloadCapacity: state.pendingMagazine?.capacity ?? state.magazineInventory?.slots[state.reloadSlot ?? nextMagazineSlot(state)]?.capacity ?? magazineCapacity(state, specs[hud.weapon]), reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
+    onHud({ ...hud, swimming:swimming(),swimCanFire:!swimming()||swimmingCanFire(hud.weapon,carry.length()), ...(options.tutorial ? { tutorial: { feet: vertical, grounded: grounded(), stance: stance(), sprinting: wasSprinting } } : {}), vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: physicalWeaponFamilies(equipment.carriedFamilies), carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(liftNotice()?{vehicleNotice:liftNotice()}:{}), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, spareMagazines: spareMagazines(state), magazineCapacity: magazineCapacity(state, specs[hud.weapon]), reloadCapacity: state.pendingMagazine?.capacity ?? state.magazineInventory?.slots[state.reloadSlot ?? nextMagazineSlot(state)]?.capacity ?? magazineCapacity(state, specs[hud.weapon]), reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapContactRange, mapMarkers: [
         ...(rangeTravel ? WORLD_GATEWAYS.filter(g => g.from === region && g.border).map(g => ({ id: g.id, ...g.position, kind: 'checkpoint' as const, label: g.name })) : []),
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}-${targets[index].activation}`, kind: 'target', label: `Target ${index + 1}` }] : []),
@@ -2816,6 +2824,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       ...(supplyUse ? { supply: supplyProgress(supplyUse) } : {}),
     });
     const previousSelf = hud.arenaSelf;
+    if(frame.self?.alive && (frame.self.lift || previousSelf?.lift)) {
+      if(frame.self.lift&&!previousSelf?.lift){prone=false;keyboardCrouch.clear();resetMovementMotion(bodyMotion,1.75);}
+      position={x:frame.self.x,z:frame.self.z};vertical=Math.max(0,frame.self.y-1.75);velocityY=0;
+    }
     const wasOperating=merlionOperating();
     const nowOperating=!!frame.self?.alive && frame.snapshot?.merlion?.operator===frame.self?.id;
     if(wasOperating!==nowOperating){
@@ -3401,10 +3413,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (arenaConditionModifiers(conditions).frozen) { keys.clear(); moveStick = null; trigger = false; pullBuffer = 0; bodyMotion.x = bodyMotion.z = 0; }
       bloom.forEach(state => advanceBloom(state, dt));
       calloutTime = Math.max(0, calloutTime - realDt); if (!calloutTime) hud.callout = '';
+      const liftBefore=hud.elapsed;
       if (!options.arena) hud.elapsed += realDt;
+      const buildingLifts=getBuildingLifts(world.scene);
+      const passenger=arenaRuntime?buildingLifts.find(l=>l.id===hud.arenaSelf?.lift):liftPassenger(buildingLifts,{...position,y:vertical},liftBefore);
+      if(passenger && !arenaRuntime)vertical=liftSample(passenger,hud.elapsed).y;
       updateRangeTargets(); checkCompletion();
       if (!options.arena) loadout.forEach((state, i) => advanceWeapon(state, i, realDt, specs, gunRates()));
-      if(merlionOperating()) {
+      if(passenger && liftSample(passenger,hud.elapsed).moving) {
+        carry.set(0,0,0);velocityY=0;bodyMotion.x=bodyMotion.z=0;
+      } else if(merlionOperating()) {
         carry.set(0,0,0);velocityY=0;bodyMotion.x=bodyMotion.z=0;
         if(hud.arenaSelf)position={x:hud.arenaSelf.x,z:hud.arenaSelf.z};
       } else if (vehicles.mounted) {
@@ -3448,7 +3466,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const clearance = Math.max(eyeHeight(), bodyMotion.eye) + .05;
       const height = footMovement.canOccupy(position.x, vertical, position.z, .38, clearance) ? clearance : eyeHeight() + .05;
       const next = playerMovement.move({ ...position, y: vertical, velocityY }, delta.x, delta.z, dt, .38, height,
-        vehicles.footObstacles().slice(world.obstacles.length), INFANTRY_GRAVITY);
+        [...vehicles.footObstacles().slice(world.obstacles.length),...liftGates(buildingLifts,hud.elapsed)], INFANTRY_GRAVITY);
       moving = Math.hypot(next.x - position.x, next.z - position.z) > .0001;
       carry.set((next.x - position.x) / Math.max(dt, 1e-4), 0, (next.z - position.z) / Math.max(dt, 1e-4));
       // A blocked axis loses momentum instead of storing a burst against the wall.

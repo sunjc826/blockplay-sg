@@ -372,3 +372,41 @@ pilot casualties and player control priority. `pnpm test:dragon-boats:ai`
 (Vite5219/Chrome9379) runs the real FPS engine through boarding, crossing,
 disembarkation, an island bot operating the Merlion, and the pilot returning to
 shore, with screenshots and actor counts.
+
+
+## Integrated landmark access
+
+The freestanding MBS switchback towers are replaced by three enterable tower
+lobbies with bay-facing/north entrances, reception desks, seating and ceilings.
+Two enclosed express lift cores in the outer towers connect directly to the
+SkyPark. The playable interiors are these lobbies and the roof access rooms;
+intermediate hotel rooms are not modeled. The exterior tower silhouette stays
+intact, with openings through the lobby and actual holes through the roof deck.
+
+The lifts run opposite phases of the same automatic shuttle cycle: seven seconds
+of boarding at each stop and twelve seconds of travel. Signs and a nearby status
+prompt explain boarding; walk inside when the doors open. Multiple players and
+bots ride the same car. The host carries passengers, refuses movement out of a
+moving cabin, and releases them at a stopped car. Closed landing doors block
+entry when the car is elsewhere. AI navigation includes explicit lift edges and
+walks the real approach and exit; it does not invent stairs or teleport to roofs.
+Crouched passengers stand when boarding. Death, respawn and reset clear carriage.
+
+Two Gardens staircases now spiral around the north and south Supertree trunks,
+with purple radial brackets, gold handrails, tangential landings and bridges into
+the existing canopy circuit. Angular walk surfaces follow the curved treads;
+player and bot movement use the same collision. The Flyer access is unchanged.
+All of these are authored gameplay adaptations, not surveyed building interiors.
+
+Validation includes full-width stair/landing clearance, ground-to-objective
+navigation, actual rendered support faces, shared lift boarding/return/reset,
+AI objective approach/ride/exit, and real FPS-engine player ascent/descent and
+spiral traversal. `pnpm test:marina:access` uses Vite on 5224 and Chrome remote
+debugging on 9384 (override `FPS_APP_ORIGIN` / `FPS_CHROME_ORIGIN`). The fixture
+also has a `?render` review mode. Local receipts are in `.cache/marina-access/`.
+
+Lift structure and stair details use instancing. Small façade seam adjustments
+avoid hundreds of unique meshes from coplanar-face partitioning; the final Marina
+scene stays within its existing scene-child budget. Verticality diagnostics now
+include explicitly authored lift service and collision-checked intermediate
+points at curved landings, without counting those points as additional floor area.

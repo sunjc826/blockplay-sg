@@ -29,13 +29,14 @@ export function createVerticalNavigator(world: VerticalWorld, groundAnchors: rea
     if (movement.canOccupy(p.x,p.y,p.z,.4,1.8) && Math.abs((movement.supportHeight(p.x,p.z,p.y+.01,.4,1.8)??-100)-p.y)<.02 && !nodes.some(n => distance(n,p)<.3)) nodes.push(p);
   };
   const groundAt = (p: { x: number; z: number }) => world.bounds.groundHeight?.(p.x, p.z) ?? 0;
+  for(const lift of world.lifts??[])for(const y of [lift.bottom,lift.top])add({x:lift.x,y,z:lift.z});
   for (const p of groundAnchors) add({ ...p, y: groundAt(p) });
   for (const s of world.surfaces) {
     const cx=(s.minX+s.maxX)/2, cz=(s.minZ+s.maxZ)/2;
     if (s.startHeight !== s.endHeight) {
       for (const x of [s.minX-.65,s.maxX+.65]) for (const z of [s.minZ-.65,s.maxZ+.65]) add({x,y:groundAt({x,z}),z});
       for (const t of [0,.5,1]) {
-        const x=s.axis==='x'?s.minX+(s.maxX-s.minX)*t:cx, z=s.axis==='z'?s.minZ+(s.maxZ-s.minZ)*t:cz;
+        const x=s.slope?s.slope.from.x+(s.slope.to.x-s.slope.from.x)*t:s.axis==='x'?s.minX+(s.maxX-s.minX)*t:cx, z=s.slope?s.slope.from.z+(s.slope.to.z-s.slope.from.z)*t:s.axis==='z'?s.minZ+(s.maxZ-s.minZ)*t:cz;
         add({x,y:surfaceHeight(s,x,z),z});
       }
     } else {
@@ -97,6 +98,14 @@ export function createVerticalNavigator(world: VerticalWorld, groundAnchors: rea
   function* buildOutgoing(i:number): Generator<undefined, {to:number;cost:number}[]> {
     let result=edges.get(i); if(result) return result;
     result=[];
+    // These explicit edges are ridden by the shared shuttle. The walking
+    // validator still checks every approach and exit through the real doors.
+    for(const lift of world.lifts??[]) {
+      const a=nodes[i];
+      if(Math.hypot(a.x-lift.x,a.z-lift.z)>.05 || Math.min(Math.abs(a.y-lift.bottom),Math.abs(a.y-lift.top))>.05)continue;
+      const j=nodes.findIndex(b=>Math.hypot(b.x-lift.x,b.z-lift.z)<.05&&Math.abs(b.y-(Math.abs(a.y-lift.bottom)<.05?lift.top:lift.bottom))<.05);
+      if(j>=0)result.push({to:j,cost:Math.abs(lift.top-lift.bottom)+lift.dwell*3});
+    }
     for(const j of neighbours[i]) {
       yield;
       const a=nodes[i], b=nodes[j];

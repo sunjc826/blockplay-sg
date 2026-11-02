@@ -1,3 +1,4 @@
+import { getBuildingLifts } from './building-lifts';
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { inspectVerticalPlaces, type DiagnosticPlace } from './vertical-place-diagnostics';
@@ -52,13 +53,19 @@ for (const region of REGIONS) it(`${region.id}: inhabited floors are reached thr
   const built = region.build();
   try {
     const places = getVerticalPlaces(built.scene);
-    const input = { bounds: region.bounds, spawn: region.spawn, obstacles: built.obstacles, surfaces: getWalkSurfaces(built.scene), traversalObstacles: getTraversalObstacles(built.scene) };
+    const input = { bounds: region.bounds, spawn: region.spawn, obstacles: built.obstacles, surfaces: getWalkSurfaces(built.scene), traversalObstacles: getTraversalObstacles(built.scene), lifts:getBuildingLifts(built.scene) };
     const movement = createVerticalMovement(input);
     for (const place of places) for (const connection of place.connections) {
       const length = Math.hypot(connection.to.x-connection.from.x, connection.to.z-connection.from.z);
       const offset = Math.max(0, connection.width/2-.9);
       for (const lateral of [-offset,0,offset]) {
-        const shift = (p: typeof connection.from) => ({ x: p.x-(connection.to.z-connection.from.z)/length*lateral, y: p.y, z: p.z+(connection.to.x-connection.from.x)/length*lateral });
+        const shift = (p: typeof connection.from) => {
+          const point={x:p.x-(connection.to.z-connection.from.z)/length*lateral,y:p.y,z:p.z+(connection.to.x-connection.from.x)/length*lateral};
+          // A spiral's level tread edge is radial, not perpendicular to its
+          // chord. Sample the actual supported height of the wider lane.
+          if(connection.arc)point.y=movement.supportHeight(point.x,point.z,p.y+.3,.65,1.8)??p.y;
+          return point;
+        };
         for (const [a,b] of [[shift(connection.from),shift(connection.to)],[shift(connection.to),shift(connection.from)]]) {
           const moved = movement.move({ ...a, velocityY: 0 }, b.x-a.x,b.z-a.z,0,.65,1.8);
           const label = `${place.id}/${connection.id}, wider walker, lateral ${lateral}`;

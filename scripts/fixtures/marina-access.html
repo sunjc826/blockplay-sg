@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Marina landmark access review</title><style>html,body,#world{margin:0;width:100%;height:100%;overflow:hidden}canvas{display:block}#start,#status{position:absolute;top:16px;padding:12px;background:#182a36;color:#fff;font:14px sans-serif}#start{right:16px}#status{left:16px}</style></head><body><div id="world"></div><button id="start">Enter lobby</button><div id="status"></div><script type="module">
+import * as THREE from 'three';
+import {buildMarinaScene} from '/src/game/marina-scene.ts';
+import {createFpsEngine} from '/src/game/fps-engine.ts';
+import {createSoloSession} from '/src/game/lan-peer.ts';
+import {createProfile} from '/src/game/armory-state.ts';
+import {MARINA_LANDMARK_PLACES} from '/src/game/marina-landmarks.ts';
+import {MARINA_BOUNDS,moveInMarina} from '/src/game/marina-collision.ts';
+const params=new URLSearchParams(location.search);
+if(params.has('render')){
+ document.querySelector('#start').remove();document.querySelector('#status').remove();
+ const world=buildMarinaScene(),renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(1);renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
+ const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.05,1200);
+ const views={mbs:[[53,29,-70],[90,29,-16]],lobby:[[80,1.8,-44],[91,1.8,-36]],interior:[[87,1.8,-44],[91,1.8,-36]],roof:[[81,73,-48],[91,67,-34]],gardens:[[158,14,-3],[177,7,14]],spiral:[[182,3,1],[174.6,5,9]],canopy:[[177,11,24],[185,8,58]]};
+ window.show=(view='mbs',time=0)=>{camera.position.set(...views[view][0]);camera.lookAt(...views[view][1]);world.animate(time);renderer.render(world.scene,camera);return{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles};};window.show();window.ready=true;
+}else{
+ const session=createSoloSession('Lift tester'),profile=createProfile();
+ const spawn=params.has('spiral')?{x:179.2,z:5,yaw:Math.PI}: {x:90.6,z:-43,yaw:Math.PI};
+ window.engine=createFpsEngine(document.querySelector('#world'),hud=>{window.hud=hud;document.querySelector('#status').textContent=`${hud.phase} · y ${hud.arenaSelf?.y.toFixed(2)} · ${hud.vehicleNotice}`;},{region:'marina-bay',arena:{session,profile,botCount:0,composition:'assault',environment:{bounds:MARINA_BOUNDS,move:moveInMarina,spawns:[{x:-26,z:40}],playerSpawn:spawn,endless:true}}});
+ window.spiralRoute=MARINA_LANDMARK_PLACES.find(p=>p.id==='supertree-north-spiral').connections.filter(c=>c.id.startsWith('turn-')).flatMap((c,i)=>i?[c.to]:[c.from,c.to]);
+ window.walkTo=(x,z)=>new Promise((resolve,reject)=>{const start=performance.now();const timer=setInterval(()=>{const dx=x-hud.x,dz=z-hud.z,d=Math.hypot(dx,dz);if(d<.14){engine.setMoveAxis(null);clearInterval(timer);resolve({x:hud.x,z:hud.z,y:hud.arenaSelf.y});return;}if(performance.now()-start>50000){engine.setMoveAxis(null);clearInterval(timer);reject(Error('Walk stalled '+JSON.stringify({x:hud.x,z:hud.z,y:hud.arenaSelf.y,target:{x,z}})));return;}const speed=Math.min(.6,Math.max(.18,d*.8)),yaw=hud.yaw;engine.setMoveAxis({x:(Math.cos(yaw)*dx-Math.sin(yaw)*dz)/d*speed,y:(-Math.sin(yaw)*dx-Math.cos(yaw)*dz)/d*speed,magnitude:speed});},30);});
+ document.querySelector('#start').onclick=()=>{engine.configureDebug({combatEvents:false});engine.start();document.querySelector('#start').hidden=true;};
+}
+</script></body></html>

@@ -1,5 +1,6 @@
 import { buildMerlionModel } from './merlion-model';
-import { MARINA_LANDMARK_PLACES } from './marina-landmarks';
+import { withBuildingLifts } from './building-lift-scene';
+import { MARINA_LANDMARK_PLACES, MARINA_LIFTS } from './marina-landmarks';
 import { MARINA_LAYOUT_SCALE as S, marinaPoint, marinaBounds } from './marina-layout';
 import * as THREE from 'three';
 import { type VerticalRoute } from './vertical-routes';
@@ -271,14 +272,17 @@ export function buildMarinaScene() {
   // room panes between its mullions so occupancy lighting follows the splay.
   const sandsGlass = glass.clone(); sandsGlass.userData.nightWindow = true; materials.push(sandsGlass);
   for (const z of [-65, -15, 35]) {
-    collider(151, z, 24, 32, 108);
-    for (let floor = 0; floor < 54; floor++) {
+    // Upper hotel volumes leave a real ground lobby and a clear lift shaft.
+    const shaftZ=z+5;
+    for(const [x,w] of [[143.1,8.2],[159.1,8.2]])obstacles.push({minX:x-w/2,maxX:x+w/2,minZ:z-16,maxZ:z+16,minY:8,maxY:108});
+    for(const [lo,hi] of [[z-16,shaftZ-3.84],[shaftZ+3.84,z+16]])obstacles.push({minX:147.2,maxX:154.8,minZ:lo,maxZ:hi,minY:8,maxY:108});
+    for (let floor = 4; floor < 54; floor++) {
       const y = floor * 2 + 1, splay = Math.pow(1 - y / h, 2) * 8;
-      box(147 - splay * 0.2, y, z, 9, 1.94, 30, glass, scene, true);
-      box(156 + splay, y, z, 7, 1.94, 30, glass, scene, true);
+      box(142.64 - splay * 0.2, y, z, .28, 1.94, 30, glass, scene, true);
+      box(159.36 + splay, y, z, .28, 1.94, 30, glass, scene, true);
       box(142.35 - splay * 0.2, y - 0.95, z, 0.16, 0.09, 30, steel);
-      box(151, y, z - 15.2, 18 + splay, 1.94, 0.6, cream);
-      box(151, y, z + 15.2, 18 + splay, 1.94, 0.6, cream);
+      box(151, y, z - 15.2, 18 + splay, 2, 0.6, cream);
+      box(151, y, z + 15.2, 18 + splay, 2, 0.6, cream);
       // Follow both splayed faces rather than floating a straight grille in
       // front of the curved lower legs. Rear frames read pale against glass.
       box(159.65 + splay, y - 0.93, z, 0.13, 0.12, 30, pale);
@@ -292,12 +296,15 @@ export function buildMarinaScene() {
         box(159.55 + splay, y, z + dz, 0.04, 1.68, 2.8, sandsGlass);
       }
     }
-    box(151, 2, z, 27, 4, 33, pale);
   }
   const boat = new THREE.Shape();
   const halfWidth = AUTHORED_LANDMARKS.skyParkWidth / 2, halfLength = AUTHORED_LANDMARKS.skyParkLength / 2;
   boat.moveTo(-halfWidth, -halfLength + 8); boat.quadraticCurveTo(-halfWidth, -halfLength, 0, -halfLength); boat.quadraticCurveTo(halfWidth, -halfLength, halfWidth, -halfLength + 8);
   boat.lineTo(halfWidth, halfLength - 22); boat.quadraticCurveTo(halfWidth, halfLength - 4, 0, halfLength); boat.quadraticCurveTo(-halfWidth, halfLength - 4, -halfWidth, halfLength - 22); boat.closePath();
+  for(const lift of MARINA_LIFTS){
+    const hole=new THREE.Path(),x=lift.x/S-151,z=-(lift.z/S+15),w=lift.width/S/2,d=lift.depth/S/2;
+    hole.moveTo(x-w,z-d);hole.lineTo(x+w,z-d);hole.lineTo(x+w,z+d);hole.lineTo(x-w,z+d);hole.closePath();boat.holes.push(hole);
+  }
   const deckGeo = geo(new THREE.ExtrudeGeometry(boat, { depth: 2.6, bevelEnabled: false, steps: 1, curveSegments: 12 }));
   const deck = new THREE.Mesh(deckGeo, cream); deck.name = 'marina-skypark'; deck.rotation.x = -Math.PI / 2; deck.position.set(151, h, -15); deck.castShadow = true; scene.add(deck);
   // Human-scale rooftop cover and walking surfaces are added after compaction.
@@ -676,7 +683,7 @@ export function buildMarinaScene() {
   }
   for (const {group} of walkers) group.scale.divideScalar(S);
   for (const obstacle of obstacles) Object.assign(obstacle, marinaBounds(obstacle),
-    obstacle.maxY === undefined ? {} : {maxY:obstacle.maxY*S});
+    obstacle.maxY === undefined ? {} : {maxY:obstacle.maxY*S},obstacle.minY===undefined?{}:{minY:obstacle.minY*S});
   // Replace the basin blocker with exact water patches around the floating decks.
   obstacles.splice(0,1,...marinaWaterObstacles());
   obstacles.push(...MARINA_CAMP_COVER.map(c=>({...c})));
@@ -766,11 +773,11 @@ export function buildMarinaScene() {
     batch.forEach((item, i) => { item.updateMatrix(); mesh.setMatrixAt(i, item.matrix); scene.remove(item); });
     mesh.computeBoundingSphere(); scene.add(mesh); instances.push(mesh);
   }
-  return withVerticalPlaces({
+  return withBuildingLifts(withVerticalPlaces({
     scene, obstacles, car, stamps,
     animate(time: number) { water.userData.setTime(time); stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.5; stamp.position.y = 3 + Math.sin(time * 1.7 + i) * 0.35; });
       walkers.forEach(({ group, x, z, axis, phase }) => { const offset = Math.sin(time * 0.09 + phase) * 10; group.position.set((x + (axis === 'x' ? offset : 0))*S, Math.abs(Math.sin(time * 4 + phase))*0.04*S, (z + (axis === 'z' ? offset : 0))*S); group.rotation.y = (axis === 'x' ? Math.PI / 2 : 0) + (Math.cos(time * 0.09 + phase) > 0 ? Math.PI : 0); });
     },
     dispose() { merlion.dispose(); camp.dispose(); instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); sun.shadow.map?.dispose(); },
-  }, [...MARINA_VERTICAL_PLACES,...MARINA_LANDMARK_PLACES]);
+  }, [...MARINA_VERTICAL_PLACES,...MARINA_LANDMARK_PLACES]),MARINA_LIFTS);
 }

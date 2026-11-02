@@ -10,6 +10,9 @@ export interface WalkSurface {
   startHeight: number; endHeight: number;
   solidBelow?: boolean;
   footprint?: readonly Position2D[];
+  /** Centre line for stairs that turn around a building or trunk. */
+  slope?: { from: RoutePoint; to: RoutePoint };
+  arc?: { x:number; z:number; start:number; end:number };
 }
 export interface TraversalObstacle extends Obstacle { minY: number; maxY: number }
 export interface RoutePoint { x: number; z: number; y: number }
@@ -34,6 +37,17 @@ export function surfaceContains(s: WalkSurface, x: number, z: number, margin = 0
     (!s.footprint || insideFootprint(s.footprint, x, z));
 }
 export function surfaceHeight(surface: WalkSurface, x: number, z: number) {
+  if(surface.arc){
+    const a=surface.arc;let angle=Math.atan2(z-a.z,x-a.x);
+    while(angle<a.start-Math.PI)angle+=Math.PI*2;
+    while(angle>a.start+Math.PI)angle-=Math.PI*2;
+    return surface.startHeight+(surface.endHeight-surface.startHeight)*Math.max(0,Math.min(1,(angle-a.start)/(a.end-a.start)));
+  }
+  if (surface.slope) {
+    const {from:a,to:b}=surface.slope, dx=b.x-a.x,dz=b.z-a.z;
+    const t=Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz)));
+    return a.y+(b.y-a.y)*t;
+  }
   const low = surface.axis === 'x' ? surface.minX : surface.minZ;
   const high = surface.axis === 'x' ? surface.maxX : surface.maxZ;
   const t = Math.max(0, Math.min(1, ((surface.axis === 'x' ? x : z) - low) / (high - low)));

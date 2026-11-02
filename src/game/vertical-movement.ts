@@ -1,10 +1,11 @@
 import { withinBounds, overlapsObstacle, type Obstacle, type RegionBounds } from './region-collision';
 import { surfaceHeight, surfaceContains, type TraversalObstacle, type WalkSurface } from './vertical-routes';
+import type { BuildingLift } from './building-lifts';
 
 export const MAX_STEP_HEIGHT = .35;
 const EPS = 1e-5;
 export interface VerticalState { x: number; y: number; z: number; velocityY: number }
-export interface VerticalWorld { bounds: RegionBounds; obstacles: readonly Obstacle[]; surfaces: readonly WalkSurface[]; traversalObstacles: readonly TraversalObstacle[] }
+export interface VerticalWorld { bounds: RegionBounds; obstacles: readonly Obstacle[]; surfaces: readonly WalkSurface[]; traversalObstacles: readonly TraversalObstacle[]; lifts?: readonly BuildingLift[] }
 
 /** Authored walk surfaces only: decorative roofs never silently become floors. */
 export function createVerticalMovement(world: VerticalWorld) {
