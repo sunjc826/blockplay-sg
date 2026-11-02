@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { accelerateMeshRaycast } from './mesh-raycast';
 import { QUEENSTOWN_HDB_BLOCKS } from './queenstown-housing-layout';
 import { queenstownTerrainHeight } from './queenstown-terrain';
 import type { Obstacle } from './region-collision';
@@ -87,6 +88,7 @@ export function addQueenstownVoidDeckFurniture(scene: THREE.Scene) {
   const batches = new Map<THREE.Material, THREE.BufferGeometry[]>();
   const partBounds = new Map<THREE.Material, THREE.Box3[]>();
   const rendered: THREE.BufferGeometry[] = [];
+  const raycastDisposers: (() => void)[] = [];
   const material = (finish: Finish, board: Board = 'plain', top = false) => {
     const key = `${finish}/${board}/${top}`;
     let m = materials.get(key);
@@ -185,6 +187,9 @@ export function addQueenstownVoidDeckFurniture(scene: THREE.Scene) {
     // The draw batch spans six blocks. Flight uses the original piece volumes,
     // so batching cannot turn the gaps between blocks into invisible walls.
     mesh.userData.flightBounds = partBounds.get(m);
+    // A finish batch spans six blocks: its bounding sphere admits street rays
+    // nowhere near a table. Test only nearby triangles, retaining exact hits.
+    raycastDisposers.push(accelerateMeshRaycast(mesh));
     root.add(mesh);
   }
   scene.add(root);
@@ -192,5 +197,5 @@ export function addQueenstownVoidDeckFurniture(scene: THREE.Scene) {
   scene.userData.voidDeckFurniture = { tables: QUEENSTOWN_DECK_TABLES.length, boards: QUEENSTOWN_DECK_TABLES.filter(t => t.board !== 'plain').length,
     standaloneBenches: QUEENSTOWN_DECK_BENCHES.length, sources: ['https://thelionraw.wordpress.com/2013/06/20/communal-chinese-chess-tables/',
       'https://www.frankie.com.au/gallery/symmetrical-snaps-from-singapores-public-housing-blocks-565513'], surveyedLocations: false };
-  return { obstacles, dispose() { root.removeFromParent(); rendered.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose()); } };
+  return { obstacles, dispose() { root.removeFromParent(); raycastDisposers.forEach(dispose => dispose()); rendered.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose()); } };
 }
