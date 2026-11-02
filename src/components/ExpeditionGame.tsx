@@ -186,7 +186,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
           onLoadout={openLoadout} onMenu={() => engine.current?.pause()} onChoose={id => engine.current?.chooseRespawn(id)}
           onAutomatic={checked => { autoRespawn.current = checked; engine.current?.setAutoRespawn(checked); }} />}
         {!merlionOperating && (!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />}
-        {!merlionOperating && (!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} onPickFood={() => engine.current?.toggleFoodPicker()} onPickGrenade={() => engine.current?.toggleGrenadePicker()} onGrenadeFire={held => engine.current?.setInput('fire', held)} onInspect={() => engine.current?.inspectWeapon()} touch={touch} />}
+        {!merlionOperating && (!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} onPickFood={() => engine.current?.toggleFoodPicker()} onPickGrenade={() => engine.current?.toggleGrenadePicker()} onGrenadeFire={held => engine.current?.setInput('fire', held)} onInspect={() => engine.current?.inspectWeapon()} onScopeZoom={direction => engine.current?.adjustScopeZoom(direction)} touch={touch} />}
         <FpsVehicleHud hud={hud} />
         <FpsFacilityHud hud={hud} engine={engine.current} touch={touch} />
         {hud.interact && <div className="fps-interact-prompt">{showHints ? hud.interact : hud.interact.replace(/^E · /, '')}</div>}

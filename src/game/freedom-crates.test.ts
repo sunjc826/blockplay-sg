@@ -22,7 +22,7 @@ it.each(PROXY_REWARDS['freedom-force'])('%s has a live, unobstructed sight and d
   root.updateMatrixWorld(true);
   const ray=new THREE.Raycaster(new THREE.Vector3(0,height,.8),new THREE.Vector3(0,0,-1),0,2);
   const hits=ray.intersectObject(root,true);
-  if(id==='ff-longwatch') {
+  if(id==='ff-longwatch'||id==='ff-intervention') {
     // The objective seals the front of the telescope, behind its live image.
     // Housing or mount geometry must never cover the rear aiming plane.
     expect(hits.length).toBeGreaterThan(0);
@@ -34,6 +34,7 @@ it.each(PROXY_REWARDS['freedom-force'])('%s has a live, unobstructed sight and d
   const remove=fitWeaponOptic(root,spec), sight=getWeaponSight(root)!;
   expect(sight.aimHeight).toBe(height);
   if(id==='ff-longwatch') expect(sight.reticle).toBe('tmr');
+  if(id==='ff-intervention') expect(sight.reticle).toBe('mil-dot');
   expect(sight.magnification).toBeCloseTo(id==='ff-intervention'?6:id==='ff-oicw'||id==='ff-longwatch'?4:id==='ff-scar-h'?2:1);
   const handling=createWeaponHandling(root,family);
   expect(Number.isFinite(handling.aimHeight)).toBe(true);

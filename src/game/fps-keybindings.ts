@@ -7,6 +7,8 @@ export function fpsControlKey(event: Pick<KeyboardEvent, 'code' | 'key' | 'altKe
   if (/^Numpad[0-9]$/.test(code) && event.key === code.slice(6)) return event.key;
   if (/^Control(Left|Right)$/.test(code)) return 'control';
   if (/^Shift(Left|Right)$/.test(code)) return 'shift';
+  if (code === 'BracketLeft') return '[';
+  if (code === 'BracketRight') return ']';
   if (code === 'Space') return ' ';
   if (['Escape', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code)) return code.toLowerCase();
   // Older synthetic inputs and accessibility tools may supply only a key.
@@ -14,7 +16,7 @@ export function fpsControlKey(event: Pick<KeyboardEvent, 'code' | 'key' | 'altKe
 }
 
 const ACTIONS = {
-  e: 'interact', n: 'vision', j: 'palette', l: 'light', b: 'laser',
+  '[': 'scope-out', ']': 'scope-in', e: 'interact', n: 'vision', j: 'palette', l: 'light', b: 'laser',
   k: 'inspect', z: 'prone', x: 'cant', v: 'seat', u: 'weapon-mode', control: 'crouch-hold',
 } as const;
 export type FpsKeyAction = typeof ACTIONS[keyof typeof ACTIONS] | 'crouch-toggle' | 'vehicle-camera';

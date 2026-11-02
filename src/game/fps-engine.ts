@@ -1,3 +1,4 @@
+import { createScopeZoom, createScopeZoomWheel, scopeZoomLookScale, type ScopeZoom } from './scope-zoom';
 import { getBuildingLifts, liftGates, liftPassenger, liftSample } from './building-lifts';
 import { createMerlionVisuals } from './merlion-visuals';
 import { nearMerlion, merlionMouth, merlionDirection, MERLION, type MerlionAction } from './merlion-gameplay';
@@ -303,10 +304,12 @@ export interface FpsHud {
   objectiveHints: boolean; objectiveMarkers: ObjectiveHint[];
   /** The worn night-vision or thermal device, if any, and what it is doing. */
   vision: { name: string; kind: VisionKind; generation: number; on: boolean; palette: ThermalPalette | ''; palettes: number; warm: number; calibrating: boolean } | null;
+  /** Selected variable-scope power; fixed optics have no adjustment controls. */
+  scopeZoom: ScopeZoom | null;
   /** The weapon in hand's laser (B) and light (L), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean; laserOn?: boolean; lightOn?: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], foodChoice: null, foodPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, emptyFires: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deployment: null, deploymentIntro: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { scopeZoom: null, proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], foodChoice: null, foodPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, emptyFires: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deployment: null, deploymentIntro: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -482,6 +485,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const laserRay = new THREE.Raycaster(), railFrom = new THREE.Vector3(), railTo = new THREE.Vector3(), railLight = new THREE.Vector3(), railForward = new THREE.Vector3();
   /** B/L: independent laser/light switches, shared across weapons. X: canted onto the offset dot, and how far over the weapon is. */
   const weaponDevices = createWeaponDevices();
+  const scopeZoom = createScopeZoom(), scopeWheel = createScopeZoomWheel();
   let cantWanted = false, cant = 0;
   // Combat events are drawn from the descriptors the authority publishes.
   const eventRay = new THREE.Raycaster();
@@ -1395,10 +1399,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     railEffects.update({ camera, laser, light, nightVision, dark: atmosphere.light.lighting.shift });
   }
-  function railHud(): Pick<FpsHud, 'rail' | 'offsetDot' | 'canted'> {
+  function railHud(): Pick<FpsHud, 'rail' | 'offsetDot' | 'canted' | 'scopeZoom'> {
     const accessories = specs[hud.weapon]?.accessories;
     const devices = fittedWeaponDevices(weaponDevices, accessories);
-    return { rail: accessories?.rail ? { kind: accessories.rail, on: devices.laser || devices.light, laserOn: devices.laser, lightOn: devices.light } : null, offsetDot: !!accessories?.offsetDot, canted: cantWanted };
+    return { scopeZoom: scopeZoom.read(specs[hud.weapon]), rail: accessories?.rail ? { kind: accessories.rail, on: devices.laser || devices.light, laserOn: devices.laser, lightOn: devices.light } : null, offsetDot: !!accessories?.offsetDot, canted: cantWanted };
   }
   function visionHud(): FpsHud['vision'] {
     const worn = equipment.vision; if (!worn) return null;
@@ -1416,6 +1420,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     publish();
   }
   /** The touch control switches fitted devices together; PC B/L switches each emitter. */
+  function canAdjustScopeZoom() {
+    return hud.phase === 'playing' && hud.health > 0 && hud.arenaSelf?.alive !== false && !pilotEnabled
+      && !hud.mapExpanded && !hud.proxyMenu && !wheel && !foodPicker && !grenadePicker && !grenadeHeld
+      && !supplyUse && inspectElapsed === null && !swimming() && (!vehicles.active || vehicles.canUseFirearm)
+      && loadout[hud.weapon].reloadRemaining <= 0 && !!scopeZoom.read(specs[hud.weapon]);
+  }
+  function adjustScopeZoom(direction: number) {
+    if (!canAdjustScopeZoom() || !scopeZoom.step(specs[hud.weapon], direction)) return;
+    canvas.focus({ preventScroll: true }); publish();
+  }
   function toggleRail() {
     if (hud.phase !== 'playing' || !toggleWeaponRail(weaponDevices, specs[hud.weapon].accessories)) return;
     publish();
@@ -1500,7 +1514,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     vehicleView = firstPersonVehicle() ? 'third-person' : 'first-person';
     ads = touchAim = false; updateCameras(0, false, false); publish();
   }
-  const keyboardKeys = ['y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'k', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'i', 'v', 'l', 'n', 't', 'm', 'h', 'j', 'u', 'b', 'x', 'control', 'escape'];
+  const keyboardKeys = ['[', ']', 'y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'k', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'i', 'v', 'l', 'n', 't', 'm', 'h', 'j', 'u', 'b', 'x', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = fpsControlKey(event);
     if (hud.mapExpanded) return;
@@ -1543,6 +1557,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           case 'light': toggleDevice('light'); break;
           case 'laser': toggleDevice('laser'); break;
           case 'cant': toggleCant(); break;
+          case 'scope-out': adjustScopeZoom(-1); break;
+          case 'scope-in': adjustScopeZoom(1); break;
           case 'seat': switchVehicleSeat(); break;
           case 'vehicle-camera': toggleVehicleView(); break;
           case 'crouch-toggle': toggleKeyboardCrouch(); break;
@@ -1576,8 +1592,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (key === 'y') closeCalloutWheel(true);
     if (utilitySlotForKey(key)?.kind === 'food') releaseFoodKey();
   };
-  /** With the wheel open, the scroll wheel turns its page. */
-  const scrollWheel = (event: WheelEvent) => { if (overviewActive()) { event.preventDefault(); zoomDeployment(Math.exp(-event.deltaY * .0015)); return; } if (!wheel) return; event.preventDefault(); if (Math.abs(event.deltaY) > 4) setCalloutPage(wheel.page + Math.sign(event.deltaY)); };
+  /** Map and callout scrolling keep priority over the scope's zoom ring. */
+  const scrollWheel = (event: WheelEvent) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (overviewActive()) { event.preventDefault(); zoomDeployment(Math.exp(-event.deltaY * .0015)); return; }
+    if (wheel) { event.preventDefault(); if (Math.abs(event.deltaY) > 4) setCalloutPage(wheel.page + Math.sign(event.deltaY)); return; }
+    if (!actualAim || !canAdjustScopeZoom() || document.pointerLockElement !== canvas) return;
+    event.preventDefault();
+    const direction = scopeWheel(event.deltaY, event.deltaMode, performance.now());
+    if (direction) adjustScopeZoom(direction);
+  };
   const pointerSource = (event: PointerEvent) => {
     lastPointerType = event.pointerType;
     if (hud.phase === 'playing' && !hud.mapExpanded && inputMode === 'touch' && requiresFpsPointerLock(event.pointerType)) {
@@ -1589,6 +1613,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const look = (dx: number, dy: number, assisted = false) => {
     if (hud.phase !== 'playing' || hud.proxyMenu || hud.mapExpanded || arenaConditionModifiers(conditions).frozen) return;
     const wasYaw = yaw, wasPitch = pitch;
+    const aimingScale = scopeZoomLookScale(specs[hud.weapon], weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon])?.magnification ?? 6 : 6, actualAim);
+    dx *= aimingScale; dy *= aimingScale;
     ({ yaw, pitch } = turnFpsLook(yaw, pitch, dx, dy, ads || touchAim));
     if(merlionOperating())pitch=THREE.MathUtils.clamp(pitch,MERLION.minPitch,MERLION.maxPitch);
     const contact = assisted && !merlionOperating() ? assistContact() : null;
@@ -3580,6 +3606,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       camera.rotation.x += (Math.random() - .5) * amount; camera.rotation.y += (Math.random() - .5) * amount; camera.updateMatrixWorld(true);
       shake *= Math.exp(-realDt * 5);
     }
+    const primarySight = weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon]) : undefined;
+    const selectedZoom = scopeZoom.read(specs[hud.weapon]);
+    if (primarySight && selectedZoom) {
+      primarySight.magnification = THREE.MathUtils.damp(primarySight.magnification, selectedZoom.value, 14, realDt);
+      if (Math.abs(primarySight.magnification - selectedZoom.value) < .005) primarySight.magnification = selectedZoom.value;
+    }
+    canvas.dataset.scopeMagnification = String(primarySight?.magnification ?? 1);
     const sightMagnification = cant > .5 || !weapons[hud.weapon] ? 1 : getWeaponSight(weapons[hud.weapon])?.magnification ?? 1;
     const firingVibration = firearmShake.sample(aimProgress, sightMagnification, !!motionPreference?.matches || hud.phase !== 'playing');
     canvas.dataset.firearmShake = JSON.stringify(firingVibration);
@@ -3758,7 +3791,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     setRangeDrill, endDrill, resupplyRange,
     chooseRespawn: (zone: string) => { const accepted = arenaRuntime?.chooseRespawn(zone) ?? false; publish(); return accepted; },
     setAutoRespawn: (automatic: boolean) => { arenaRuntime?.setAutoRespawn(automatic); publish(); },
-    merlionAction, chooseDeployment, zoomDeployment, resetDeploymentView, skipDeployment: finishDeployment, start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, interactFacility, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
+    adjustScopeZoom, merlionAction, chooseDeployment, zoomDeployment, resetDeploymentView, skipDeployment: finishDeployment, start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, interactFacility, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
     toggleVehicleView, toggleAim, toggleMap, toggleObjectiveHints, toggleRail, toggleCant, toggleWeaponMode,

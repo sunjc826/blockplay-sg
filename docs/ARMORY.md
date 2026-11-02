@@ -1233,3 +1233,14 @@ Freedom Force and Collective Corps have six [weapon exterior studies](PROXY-WEAP
 at `/faction-designs?study=weapons`. These are not armory entries, purchasable
 weapons, loot, extra weapon families or balance changes. Existing elite Black
 Kite weapons remain separate.
+
+
+### Intervention variable scope
+
+The Mythic M200 Intervention has 3×, 6×, 9× and 12× optical zoom, starting at
+6×. Scroll while aiming or press `[` / `]` to change one setting; the scope
+readout has −/+ buttons for touch. It remembers the setting across weapon
+switches during the session. The picture transitions smoothly, and aiming
+sensitivity scales down at higher power. Other weapons keep their fixed optics.
+The mil-dot pattern is the same game-scaled visual adaptation described above;
+zoom does not change ballistics, damage or calibrate the marks for ranging.

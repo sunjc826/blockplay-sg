@@ -262,7 +262,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   main.lens.position.set(0, aimHeight, mount?.main.lensZ ?? built?.lens ?? (integrated ? rearZ + .001 : rearZ - .044)); group.add(main.lens);
   // These telescopes have open modelled eyepieces. Keep actual glass behind
   // the PiP plane, including in the shop and during hip/inspection animations.
-  const backing = magnified && (weapon.id === 'xm8-inspired' || weapon.id === 'ff-longwatch') ? createScopeBacking(radius) : undefined;
+  const backing = magnified && (weapon.id === 'xm8-inspired' || weapon.id === 'ff-longwatch' || weapon.id === 'ff-intervention') ? createScopeBacking(radius) : undefined;
   if (backing) {
     backing.surface.position.copy(main.lens.position); backing.surface.position.z -= .003;
     group.add(backing.surface);

@@ -67,3 +67,10 @@ it('gives contextual interaction one target and never purchases through a blocke
   expect(fpsInteractionTarget(false, false, true)).toBe('npc');
   expect(fpsInteractionTarget(false, false, false)).toBe('vehicle');
 });
+
+it('maps physical bracket keys to scope adjustment, including shifted layouts', () => {
+  expect(fpsControlKey(event('BracketLeft', '{'))).toBe('[');
+  expect(fpsControlKey(event('BracketRight', '}'))).toBe(']');
+  expect(fpsKeyAction('[', false)).toBe('scope-out');
+  expect(fpsKeyAction(']', false)).toBe('scope-in');
+});

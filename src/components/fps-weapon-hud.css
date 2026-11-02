@@ -133,3 +133,12 @@
 }
 
 .fps-mode-select{display:block;position:relative;min-height:38px;margin:7px 0 0 auto;pointer-events:auto;touch-action:manipulation;padding:9px 12px;border:1px solid #d9c78c88;border-radius:4px;background:#101d24e8;color:#f1e6c3;font:11px monospace;letter-spacing:.7px;cursor:pointer}.fps-mode-select:disabled{opacity:.45;cursor:default}
+
+.fps-scope-zoom{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:8px;pointer-events:auto}
+.fps-scope-zoom>span{display:grid;gap:2px;text-align:center;min-width:44px;flex:1}
+.fps-scope-zoom b{font:600 16px monospace;color:var(--hud-gold-soft);font-variant-numeric:tabular-nums}
+.fps-scope-zoom small{font:7px monospace;letter-spacing:.5px;color:var(--hud-dim)}
+.fps-scope-zoom button{width:36px;height:36px;padding:0;border:1px solid #e8c98266;border-radius:4px;background:#0c151bd9;color:var(--hud-gold-soft);font:22px monospace;cursor:pointer;touch-action:manipulation}
+.fps-scope-zoom button:disabled{opacity:.35;cursor:default}
+.fps-scope-zoom button:focus-visible{outline:2px solid var(--hud-gold);outline-offset:2px}
+.fps-game[data-touch=on] .fps-scope-zoom button,.expedition-game[data-touch=on] .fps-scope-zoom button{min-width:44px;min-height:44px}

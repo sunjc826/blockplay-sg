@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Intervention variable scope</title><style>html,body,#stage{margin:0;height:100%;overflow:hidden}#world,#overlay{position:absolute;inset:0}#world{height:100%!important}#overlay{pointer-events:none;z-index:2}#start{position:absolute;z-index:20;left:16px;top:16px;padding:16px}</style></head><body><div id="stage" class="fps-game"><div id="world" class="fps-viewport"><div id="overlay"></div></div><button id="start">Enter scope test</button></div><script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import '/src/styles.css';
+import { createFpsEngine } from '/src/game/fps-engine.ts';
+import { createProfile, resolveLoadout } from '/src/game/armory-state.ts';
+import { recoverProxyWeapon } from '/src/game/proxy-equipment.ts';
+import FpsWeaponHud from '/src/components/FpsWeaponHud.tsx';
+import TouchControls from '/src/components/TouchControls.tsx';
+const root=createRoot(document.getElementById('overlay'));
+const equipment=resolveLoadout(recoverProxyWeapon(createProfile(),'ff-intervention',0));
+window.engine=createFpsEngine(document.getElementById('world'),hud=>{
+  window.hud=structuredClone(hud);
+  const touch=hud.inputMode==='touch';document.getElementById('stage').dataset.touch=touch?'on':'off';
+  root.render(React.createElement(React.Fragment,null,
+    React.createElement(FpsWeaponHud,{hud,weapon:equipment.weapons[hud.weapon],canFight:hud.phase==='playing',touch,onScopeZoom:direction=>window.engine.adjustScopeZoom(direction)}),
+    touch?React.createElement(TouchControls,{hud,engine:window.engine??null,mode:'range',onMenu:()=>window.engine.pause()}):null));
+},{loadout:equipment,tutorial:true,combat:false});
+document.getElementById('start').onclick=()=>{window.engine.start();document.getElementById('start').style.display='none';};
+</script></body></html>

@@ -14,7 +14,7 @@ import FpsUtilityBelt from './FpsUtilityBelt';
 import FpsVitals from './FpsVitals';
 import './fps-weapon-hud.css';
 
-export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickFood, onPickGrenade, onGrenadeFire, onInspect, onToggleMode, touch = false }: { hud: FpsHud; weapon: WeaponSpec & { equipment?: { variant: string } }; canFight: boolean; onUtility?: (kind: UtilityKind) => void; onPickFood?: () => void; onPickGrenade?: () => void; onGrenadeFire?: (held: boolean) => void; onInspect?: () => void; onToggleMode?: () => void; touch?: boolean }) {
+export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickFood, onPickGrenade, onGrenadeFire, onInspect, onToggleMode, onScopeZoom, touch = false }: { hud: FpsHud; weapon: WeaponSpec & { equipment?: { variant: string } }; canFight: boolean; onUtility?: (kind: UtilityKind) => void; onPickFood?: () => void; onPickGrenade?: () => void; onGrenadeFire?: (held: boolean) => void; onInspect?: () => void; onToggleMode?: () => void; onScopeZoom?: (direction: number) => void; touch?: boolean }) {
   // A phone on its side has no height for the belt over the ammo under the weapon
   // slider, so the belt docks along the bottom between the two thumbs instead.
   const docked = useMediaQuery(SHORT_SCREEN) && touch;
@@ -48,6 +48,8 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickF
   // An interrupted reload keeps its progress for the next one (see fps-rules).
   const resume = !reloading && hud.reloadSaved > 0 ? Math.round(hud.reloadSaved * 100) : 0;
   const using = hud.supplyUse;
+  const zoom = hud.scopeZoom;
+  const zoomDisabled = !canFight || hud.pilotEnabled || reloading || !!using || !!hud.grenadeHeld || hud.inspecting || !!hud.swimming;
   const grenade = hud.grenadeHeld;
   const hint = (text: string) => <span className="fps-hud-hint">{text}</span>;
   const prompt = grenade ? <>{grenade.pinned ? 'GRENADE PINNED' : 'GRENADE READY'}{hint(grenade.pinned ? ' · RELEASE FIRE TO THROW · HOLD AIM TO LOB' : ' · HOLD FIRE TO COOK · RELEASE TO THROW')}</>
@@ -89,6 +91,11 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickF
           {touch && onInspect && hud.vehicle === 'on-foot' && <button type="button" className="fps-inspect-button" aria-label={hud.inspecting ? 'Stop inspecting weapon' : 'Inspect weapon'} aria-pressed={hud.inspecting}
             disabled={!canFight || hud.pilotEnabled || reloading || !!using || !!grenade || hud.aiming} title="Inspect weapon (K)"
             {...tapProps(onInspect)}><Rotate3d size={13} /><span>{hud.inspecting ? 'Inspecting' : 'Inspect'}</span></button>}
+          {zoom && onScopeZoom && <div className="fps-scope-zoom" role="group" aria-label="Scope magnification" data-scope-zoom={zoom.value}>
+            <button type="button" aria-label="Decrease scope magnification" disabled={zoomDisabled || zoom.value <= zoom.min} {...tapProps(() => onScopeZoom(-1))}>−</button>
+            <span><b aria-live="polite">{zoom.value}×</b><small>{touch ? 'SCOPE' : '[ / ] · AIM + SCROLL'}</small></span>
+            <button type="button" aria-label="Increase scope magnification" disabled={zoomDisabled || zoom.value >= zoom.max} {...tapProps(() => onScopeZoom(1))}>+</button>
+          </div>}
           {weapon.requiresMount && <p>{hud.braced ? <>PRONE MOUNT DEPLOYED{hint(' · Z / STAND TO MOVE')}</> : <>{hint('Z / PRONE: SAFE · ')}STAND 20 / CROUCH 10 BEFORE ARMOR</>}</p>}
           {reloading
             ? <div className="fps-reload-track" role="progressbar" aria-label="Reload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((1 - hud.reloading) * 100)}><i style={{ width: `${(1 - hud.reloading) * 100}%` }} /></div>
