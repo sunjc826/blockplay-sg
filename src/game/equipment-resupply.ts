@@ -7,9 +7,10 @@ export interface EquipmentStock { ammunition: boolean; supplies: Readonly<Record
 export const RANGE_EQUIPMENT_STOCK: EquipmentStock = { ammunition: true, supplies: {
   'grenade-frag': 2, 'grenade-smoke': 2, 'kit-bandage': 3, 'kit-first-aid': 1, 'kit-plates': 2, 'kit-ammo': 2,
 } };
-export function rangeEquipmentStock(held: Readonly<Record<string, number>>): EquipmentStock {
+export function rangeEquipmentStock(held: Readonly<Record<string, number>>, stowed: readonly string[] = []): EquipmentStock {
   const supplies = { ...RANGE_EQUIPMENT_STOCK.supplies };
   for (const [id, count] of Object.entries(held)) if (Number.isFinite(count)) supplies[id] = Math.max(supplies[id] ?? 0, count);
+  for (const id of stowed) delete supplies[id];
   return { ammunition: true, supplies };
 }
 /** Refill physical pouches, preserving loaded magazines, chambers and reload progress. */

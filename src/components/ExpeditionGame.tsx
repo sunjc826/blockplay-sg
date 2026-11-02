@@ -36,7 +36,7 @@ import FpsCommsLog from './FpsCommsLog';
 import { FpsRadioVoice } from './FpsRadio';
 import FpsHudLayout from './FpsHudLayout';
 import FpsCalloutWheel from './FpsCalloutWheel';
-import FpsFoodPicker from './FpsFoodPicker';
+import FpsUtilityPicker from './FpsUtilityPicker';
 import TouchControls from './TouchControls';
 import { FpsControlGuide, FpsPlayerTools } from './FpsPlayerTools';
 import { useDebugMode } from '../lib/debug-mode';
@@ -164,8 +164,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         </>}
       </FpsHudLayout>
       <FpsCalloutWheel hud={hud} engine={engine.current} />
-      <FpsFoodPicker hud={hud} engine={engine.current} />
-      <FpsFoodPicker hud={hud} engine={engine.current} kind="grenade" />
+      <FpsUtilityPicker hud={hud} engine={engine.current} />
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus}<span className="fps-hud-hint"> · ESC TO STOP</span></div>}
       {playing && <>
         {alive && <button type="button" className="expedition-objective-toggle" aria-pressed={hud.objectiveHints} onClick={() => engine.current?.toggleObjectiveHints()}>{!touch && <kbd>H</kbd>} {hud.objectiveHints ? 'Hide objectives' : 'Show objectives'}</button>}
@@ -186,7 +185,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
           onLoadout={openLoadout} onMenu={() => engine.current?.pause()} onChoose={id => engine.current?.chooseRespawn(id)}
           onAutomatic={checked => { autoRespawn.current = checked; engine.current?.setAutoRespawn(checked); }} />}
         {!merlionOperating && (!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />}
-        {!merlionOperating && (!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} onPickFood={() => engine.current?.toggleFoodPicker()} onPickGrenade={() => engine.current?.toggleGrenadePicker()} onGrenadeFire={held => engine.current?.setInput('fire', held)} onInspect={() => engine.current?.inspectWeapon()} onScopeZoom={direction => engine.current?.adjustScopeZoom(direction)} touch={touch} />}
+        {!merlionOperating && (!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useSelectedUtility(kind)} onPickRecovery={() => engine.current?.toggleRecoveryPicker()} onPickGrenade={() => engine.current?.toggleGrenadePicker()} onInspect={() => engine.current?.inspectWeapon()} onScopeZoom={direction => engine.current?.adjustScopeZoom(direction)} touch={touch} />}
         <FpsVehicleHud hud={hud} />
         <FpsFacilityHud hud={hud} engine={engine.current} touch={touch} />
         {hud.interact && <div className="fps-interact-prompt">{showHints ? hud.interact : hud.interact.replace(/^E · /, '')}</div>}
@@ -232,7 +231,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} touch={touch} onFullscreen={() => { void fullscreen.toggle(); }} />}
         <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') { setScene(current => ({ ...current, revision: current.revision + 1 })); return; } if (touch) fullscreen.enter(); engine.current?.start(); }}><Play size={16} />{hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry district' : hud.phase === 'paused' ? 'Resume expedition' : 'Enter district'}<ArrowRight size={17} /></button>
         {!nav && <button className="fps-shop-link" onClick={onExit}>{debug ? 'Leave expedition →' : 'Leave to menu →'}</button>}
-        <FpsControlGuide debug={debug}><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>Ctrl / C</kbd> Hold / toggle crouch</span><span><kbd>Z</kbd> Prone / mount</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>K</kbd> Inspect weapon</span><span><kbd>E</kbd> Collect / talk / enter / exit vehicle</span><span><kbd>I</kbd> Swap armor inserts</span><span><kbd>V</kbd> Switch seat</span><span><kbd>C</kbd> Vehicle view</span><span><kbd>Space / Ctrl</kbd> Fly up / down</span><span><kbd>4–9</kbd> Use belt slot</span><span><kbd>G</kbd> Use last slot</span><span><kbd>H</kbd> Objective hints</span><span><kbd>M</kbd> Control map</span><span><kbd>Y</kbd> Callouts</span>{equipment.vision && <span><kbd>N</kbd> {visionKeyLabel(equipment.vision.spec)}</span>}{equipment.weapons.some(weapon => hasLaser(weapon.accessories)) && <span><kbd>B</kbd> Laser</span>}{equipment.weapons.some(weapon => hasLight(weapon.accessories)) && <span><kbd>L</kbd> Weapon light</span>}{equipment.weapons.some(weapon => weapon.accessories?.offsetDot) && <span><kbd>X</kbd> Offset dot</span>}<span><kbd>T</kbd> Travel</span></FpsControlGuide>
+        <FpsControlGuide debug={debug}><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>Ctrl / C</kbd> Hold / toggle crouch</span><span><kbd>Z</kbd> Prone / mount</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>K</kbd> Inspect weapon</span><span><kbd>E</kbd> Collect / talk / enter / exit vehicle</span><span><kbd>I</kbd> Swap armor inserts</span><span><kbd>V</kbd> Switch seat</span><span><kbd>C</kbd> Vehicle view</span><span><kbd>Space / Ctrl</kbd> Fly up / down</span><span><kbd>F / G</kbd> Recovery / combat · tap to use, hold to choose</span><span><kbd>H</kbd> Objective hints</span><span><kbd>M</kbd> Control map</span><span><kbd>Y</kbd> Callouts</span>{equipment.vision && <span><kbd>N</kbd> {visionKeyLabel(equipment.vision.spec)}</span>}{equipment.weapons.some(weapon => hasLaser(weapon.accessories)) && <span><kbd>B</kbd> Laser</span>}{equipment.weapons.some(weapon => hasLight(weapon.accessories)) && <span><kbd>L</kbd> Weapon light</span>}{equipment.weapons.some(weapon => weapon.accessories?.offsetDot) && <span><kbd>X</kbd> Offset dot</span>}<span><kbd>T</kbd> Travel</span></FpsControlGuide>
         {debug && <small className="fps-touch-note">{touch ? 'Thumb controls appear once you enter the district. ' : ''}Field equipment lasts for this expedition. Your permanent Armory stays saved.</small>}
       </div></div>}
     </div>

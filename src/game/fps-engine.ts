@@ -46,7 +46,7 @@ import { createGrenadeSystem, grenadePayloads, grenadeSmokeBetween, type Grenade
 import { createGrenadeViewmodel } from './grenade-models';
 import { createGrenadeVisuals } from './grenade-visuals';
 import { grenadeDangerRadius, grenadeWhistleLine } from './grenade-catalog';
-import { grenadeOptions } from './utility-belt';
+import { initialUtilityChoice, utilityGroup, utilityOption, utilityOptions, UTILITY_HOLD_MS, type UtilityGroup, type UtilityOption } from './utility-wheel';
 import { applyGrenadeConditions, advanceGrenadeConditions, arenaConditionModifiers, grenadeConditionViews, type ActiveGrenadeConditions, type GrenadeConditionView } from './grenade-effects';
 import { resolveBlast } from './combat-blast';
 import { bipodRecoilMultiplier } from './weapon-support';
@@ -162,7 +162,7 @@ import { getEnvironmentSettings } from './environment-settings';
 import { createHitDirectionOverlay, createHitDirections, hitStrength } from './fps-hit-direction';
 import { advanceSupplyUse, startSupplyUse, supplyProfile, supplyProgress, SUPPLY_MOVE_SCALE, type SupplyProfile, type SupplyStyle, type SupplyUse } from './fps-healing';
 import { createSupplyViewmodel } from './fps-supply-viewmodel';
-import { foodOptions, heldSupplies, pickUtility, utilityBelt, utilityKind, utilitySlot, utilitySlotForKey, UTILITY_SLOTS, type FoodOption, type UtilityKind, type UtilitySlotView } from './utility-belt';
+import { heldSupplies, pickUtility, utilityBelt, utilityKind, utilitySlot, UTILITY_SLOTS, type UtilityKind, type UtilitySlotView } from './utility-belt';
 import { advanceFoodEffects, aimSpeedScale, applyFoodEffects, cycleRate, damageDealtScale, damageTakenScale, FOOD_EFFECTS, foodEffectViews, footSpeedScale, loadRelief, recoilScale, reloadRate, survivesWithAhMa, type ActiveFoodEffects, type FoodEffectView } from './food-effects';
 import { ammoBlocked, ammoTarget, beltRoom, focusLoot, lootCard, withinReach, type CarriedGun, type LootCard } from './loot-focus';
 import { armorPickup, type ArmorPickupAction } from './armor-pickup';
@@ -221,8 +221,6 @@ const randomRoundId = () => globalThis.crypto?.randomUUID?.() ?? `round-${Date.n
 export interface ChatterLine { id: number; source: string; text: string; tone: 'self' | 'friend' | 'enemy' | 'player' | 'order'; until: number }
 /** Seconds a chatter line stays on the HUD, and how many show at once. */
 const CHATTER_SECONDS = 6, CHATTER_LINES = 4;
-/** How long the food key is held before it opens the food picker rather than eating on release. */
-const FOOD_PICKER_HOLD_MS = 280;
 const ahMaLine = (health: number) => `Ah Ma: "Not yet! You haven't finished eating." Back up on ${Math.round(health)} HP.`;
 export interface FpsHud {
   /** Live movement telemetry for the guided recruit course. */
@@ -254,9 +252,9 @@ export interface FpsHud {
   belt: UtilitySlotView[]; beltSelected: UtilityKind;
   /** Meals still working (food-effects); the food slot's pick, null for Auto; the food picker while it is open. */
   grenadeHeld: { id: string; name: string; ready: number; cooked: number; fuse: number; pinned: boolean; under: boolean } | null;
-  grenadeChoice: string | null; grenadePicker: { options: FoodOption[]; slot: number | null } | null;
+  grenadeChoice: string | null; grenadePicker: { options: UtilityOption[]; slot: number | null } | null;
   conditions: GrenadeConditionView[]; grenadeWarnings: { serial: number; angle: number; remaining: number }[];
-  foodEffects: FoodEffectView[]; foodChoice: string | null; foodPicker: { options: FoodOption[]; slot: number | null } | null;
+  foodEffects: FoodEffectView[]; recoveryChoice: string | null; recoveryItem: UtilityOption | null; combatItem: UtilityOption | null; recoveryPicker: { options: UtilityOption[]; slot: number | null } | null;
   crosshairSpread: number; hitKind: 'hit' | 'kill'; quickItem: string; quickType: 'FOOD' | 'UTILITY' | ''; quickCount: number;
   phase: 'loading' | 'ready' | 'deploying' | 'playing' | 'paused' | 'complete' | 'defeated' | 'error';
   carriedWeapons: number[]; carriedKg: number; movementScale: number;
@@ -309,7 +307,7 @@ export interface FpsHud {
   /** The weapon in hand's laser (B) and light (L), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean; laserOn?: boolean; lightOn?: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { scopeZoom: null, proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], foodChoice: null, foodPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, emptyFires: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deployment: null, deploymentIntro: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { scopeZoom: null, proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], recoveryChoice: null, recoveryItem: null, combatItem: null, recoveryPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, emptyFires: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deployment: null, deploymentIntro: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -382,7 +380,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
     playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
   }
-  const rangeStock = rangeEquipmentStock(equipment.supplies);
+  const rangeStock = rangeEquipmentStock(equipment.supplies, equipment.stowedSupplies);
   const supplyPoint = practiceRange ? rangeResupplyPoint(district.spawn, world.bounds, [...world.obstacles,
     ...district.props.map(([, x, z, w, d]) => ({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 })),
     ...targetPositions.map(p => ({ minX: p.x - .5, maxX: p.x + .5, minZ: p.z - .5, maxZ: p.z + .5 }))], Object.values(fleetSpawns)) : null;
@@ -602,29 +600,31 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let supplies = rangeTravel?.checkpoint?.rangeSupplies ? heldSupplies(rangeTravel.checkpoint.rangeSupplies) : withLooted(equipment.supplies);
   let beltSelected: UtilityKind = utilityKind(equipment.quickItem)
     ?? UTILITY_SLOTS.find(slot => pickUtility(slot.kind, supplies))?.kind ?? 'bandage';
-  // The food slot's pick (null is Auto, which heals to need; a food chosen as
-  // the armory's quick item starts as the pick) and the meals still working.
-  let foodChoice: string | null = utilityKind(equipment.quickItem) === 'food' ? equipment.quickItem!.id : null;
+  // Independent exact-item selections; keep depleted choices until the player changes them.
+  let recoveryChoice = initialUtilityChoice('recovery', supplies, equipment.quickItem?.id);
   // Offline, the meals run here. In any arena (every expedition is a solo one)
   // the host runs them, and `foodEffects` is a copy of what it last published:
   // the gun, damage and healing are the host's, and the copy drives only what
   // the host never sees, the stride, the load and the sights.
-  let grenadeChoice: string | null = utilityKind(equipment.quickItem) === 'grenade' ? equipment.quickItem!.id : null;
+  let grenadeChoice = initialUtilityChoice('combat', supplies, equipment.quickItem?.id);
   let grenadeHeld: { id: string; ready: number; cooked: number; pinned: boolean } | null = null;
   let conditions: ActiveGrenadeConditions = {};
-  let grenadeKeyAt: number | null = null, grenadePicker: { x: number; y: number; slot: number | null; options: FoodOption[] } | null = null;
+  let grenadeKeyAt: number | null = null, grenadePicker: { x: number; y: number; slot: number | null; options: UtilityOption[] } | null = null;
   let grenadeFireHeld = false;
   let grenadeLastAt = -Infinity, missionLastAt = -Infinity;
   let foodEffects: ActiveFoodEffects = {}, ahMaSavesSeen = 0;
   const gunRates = () => ({ reload: reloadRate(foodEffects) * arenaConditionModifiers(conditions).reload, cycle: cycleRate(foodEffects) });
-  /** When 4 went down, until it is let go: held long enough, it opens the food picker. */
-  let foodKeyAt: number | null = null, foodPicker: { x: number; y: number; slot: number | null; options: FoodOption[] } | null = null;
+  /** F taps use recovery; a hold opens the recovery wheel instead. */
+  let recoveryKeyAt: number | null = null, recoveryPicker: { x: number; y: number; slot: number | null; options: UtilityOption[] } | null = null;
   /** The belt as the HUD shows it, and the selected slot as the older quick-item fields. */
   function syncBelt() {
-    hud.belt = utilityBelt(supplies, { health: hud.health, maxHealth: hud.maxHealth }, foodChoice, grenadeChoice); hud.beltSelected = beltSelected;
+    if (recoveryChoice === null) recoveryChoice = initialUtilityChoice('recovery', supplies);
+    if (grenadeChoice === null) grenadeChoice = initialUtilityChoice('combat', supplies);
+    hud.belt = utilityBelt(supplies, { health: hud.health, maxHealth: hud.maxHealth }, recoveryChoice, grenadeChoice); hud.beltSelected = beltSelected;
     hud.grenadeChoice = grenadeChoice; hud.grenadePicker = grenadePicker ? { options: grenadePicker.options, slot: grenadePicker.slot } : null;
     hud.conditions = grenadeConditionViews(conditions); hud.grenadeHeld = grenadeHeld ? { ...grenadeHeld, name: itemById(grenadeHeld.id)!.name, fuse: itemById(grenadeHeld.id)!.grenade!.fuse, under: ads || touchAim } : null;
-    hud.foodChoice = foodChoice; hud.foodEffects = foodEffectViews(foodEffects);
+    hud.recoveryItem = utilityOption(recoveryChoice, supplies); hud.combatItem = utilityOption(grenadeChoice, supplies);
+    hud.recoveryChoice = recoveryChoice; hud.foodEffects = foodEffectViews(foodEffects);
     const slot = hud.belt.find(entry => entry.kind === beltSelected)!;
     hud.quickItem = slot.next?.name ?? ''; hud.quickCount = slot.count;
     hud.quickType = !slot.next ? '' : slot.kind === 'food' ? 'FOOD' : 'UTILITY';
@@ -753,7 +753,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     for (const e of activeGrenadeEvents()) for (const p of grenadePayloads(e)) if (p.type === 'cloud' && time - e.start <= p.until && itemById(e.id)?.grenade?.effects.some(effect => effect.kind === 'cloud' && effect.blocksSight !== false)) clouds.push({ x: e.point.x, z: e.point.z, radius: p.radius, ground: e.point.y });
     return combatMinimapMarkers(camera, world.scene, hud.arenaSelf, hud.arena?.actors ?? [], combatSubjects(true), clouds, range);
   };
-  const clearInput = () => { bailoutAge = undefined; firearmShake.reset(); shoulderMotion.reset(); stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; ads = false; touchAim = false; drag = null; moveStick = null; foodKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
+  const clearInput = () => { bailoutAge = undefined; firearmShake.reset(); shoulderMotion.reset(); stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; ads = false; touchAim = false; drag = null; moveStick = null; recoveryKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; recoveryPicker = null; hud.recoveryPicker = null; hud.grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -777,7 +777,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); hud.pilotStatus = 'Player controls'; hud.pilotGoal = null; hud.pilotContacts = 0;
     capturePending = false;
     if (!['playing', 'deploying'].includes(hud.phase)) return;
-    hud.phase = 'paused'; hud.mapExpanded = false; clearInput(); stopVoice(); encik.clear(); hud.encikCallout = null; wheel = null; hud.calloutWheel = null; foodPicker = null; hud.foodPicker = null;
+    hud.phase = 'paused'; hud.mapExpanded = false; clearInput(); stopVoice(); encik.clear(); hud.encikCallout = null; wheel = null; hud.calloutWheel = null; recoveryPicker = null; hud.recoveryPicker = null;
     if (document.pointerLockElement === canvas) document.exitPointerLock();
     publish();
   }
@@ -978,10 +978,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function reload() {
     if(merlionOperating())return;
-    if (grenadeHeld || arenaConditionModifiers(conditions).frozen) return;
+    if (grenadeHeld || recoveryPicker || grenadePicker || arenaConditionModifiers(conditions).frozen) return;
     stopInspect();
     if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
     if (hud.phase === 'playing' && supplyUse) endSupply();
+    // Existing ammo pouches are automatic reserves, never a wheel item or a second use key.
+    if (hud.phase === 'playing' && hud.health > 0 && (!vehicles.active || vehicles.canUseFirearm) && !loadout[hud.weapon].reloadRemaining && !spareMagazines(loadout[hud.weapon]) && !loadout[hud.weapon].pendingMagazine && loadout[hud.weapon].magazine < magazineCapacity(loadout[hud.weapon], specs[hud.weapon]) && supplies['kit-ammo'] > 0) {
+      const ammo = itemById('kit-ammo')!;
+      if (reserveRoom(loadout[hud.weapon])) applyQuickItem(ammo);
+    }
     if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive) && (!vehicles.active || vehicles.canUseFirearm) && beginReload(loadout[hud.weapon], hud.weapon, specs)) {
       emptyReload[hud.weapon] = loadout[hud.weapon].reloadEmpty === true;
       reloadGate = armReloadGate(trigger, sprintIntent); pullBuffer = 0;
@@ -1029,7 +1034,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     killChain = { count: 0, lastAt: -Infinity }; calloutTime = 0; stopVoice(); encik.reset(); comms.clear(); hud.encikCallout = null;
     rangeDirector?.reset(Math.floor(Math.random() * 0xffffffff)); rangeEndedEarly = false;
     if (practiceRange) { looted = {}; supplies = { ...equipment.supplies }; }
-    roundId = randomRoundId(); attackTimer = 3; pendingAttack = null; hurtTime = 0; hitDirections.clear(); supplyUse = null; foodEffects = {}; foodPicker = null; hud.foodPicker = null;
+    roundId = randomRoundId(); attackTimer = 3; pendingAttack = null; hurtTime = 0; hitDirections.clear(); supplyUse = null; foodEffects = {}; recoveryPicker = null; hud.recoveryPicker = null;
     if (document.pointerLockElement === canvas) document.exitPointerLock();
     vehicles.reset(); loadout = createPooledLoadout(specs, equipment.carriedFamilies); position = { x: spawn.x, z: spawn.z }; yaw = spawn.yaw; pitch = spawn.pitch;
     vertical = velocityY = hitTime = 0; resetWeaponRecoil(); carry.set(0, 0, 0); clearInput();
@@ -1190,7 +1195,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const taken = expedition.loot.collect(expedition.zone, target.id, { ...position, y: vertical }); if (!taken) return;
       supplies[item.id] = (supplies[item.id] ?? 0) + 1; if (item.grenade) arenaRuntime?.setGrenadeSupplies(supplies); looted[item.id] = (looted[item.id] ?? 0) + 1;
       if (slot && !pickUtility(beltSelected, supplies)) beltSelected = slot.kind;
-      hud.lootNotice = `+1 ${item.name} · belt ${slot?.key ?? ''} ${slot?.label ?? ''} (${supplies[item.id]})`;
+      hud.lootNotice = `+1 ${item.name} · ${item.grenade ? 'G combat' : item.effect?.reserve ? 'Automatic ammo reserve' : 'F recovery'} (${supplies[item.id]})`;
       comms.add('system', 'Supplies', hud.lootNotice); radioCall('pickup');
       markers?.remove(taken.id); hud.fieldLoot = expedition.loot.remaining(expedition.zone); lootNoticeTime = 3;
       updateExpeditionPrompts(); canvas.focus({ preventScroll: true }); publish();
@@ -1304,7 +1309,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** A fresh press is a new pull, buffered until it fires or `TRIGGER_BUFFER` runs out. */
   function pullTrigger(held: boolean) {
-    if (hud.mapExpanded && held) return;
+    if ((hud.mapExpanded || wheel || recoveryPicker || grenadePicker) && held) return;
     if (grenadeHeld) {
       if (hud.phase !== 'playing' || hud.proxyMenu || arenaConditionModifiers(conditions).frozen) return;
       grenadeFireHeld = held;
@@ -1422,7 +1427,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   /** The touch control switches fitted devices together; PC B/L switches each emitter. */
   function canAdjustScopeZoom() {
     return hud.phase === 'playing' && hud.health > 0 && hud.arenaSelf?.alive !== false && !pilotEnabled
-      && !hud.mapExpanded && !hud.proxyMenu && !wheel && !foodPicker && !grenadePicker && !grenadeHeld
+      && !hud.mapExpanded && !hud.proxyMenu && !wheel && !recoveryPicker && !grenadePicker && !grenadeHeld
       && !supplyUse && inspectElapsed === null && !swimming() && (!vehicles.active || vehicles.canUseFirearm)
       && loadout[hud.weapon].reloadRemaining <= 0 && !!scopeZoom.read(specs[hud.weapon]);
   }
@@ -1452,7 +1457,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function openProxyMenu() {
     if (!hud.proxyReach || hud.phase!=='playing' || grenadeHeld?.pinned) return;
-    clearInput(); wheel=null; hud.calloutWheel=null; foodPicker=null; hud.foodPicker=null;
+    clearInput(); wheel=null; hud.calloutWheel=null; recoveryPicker=null; hud.recoveryPicker=null;
     hud.proxyMenu=!hud.proxyMenu; canvas.focus({preventScroll:true}); publish();
   }
   function chooseProxyAction(action: ProxyAction) {
@@ -1514,7 +1519,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     vehicleView = firstPersonVehicle() ? 'third-person' : 'first-person';
     ads = touchAim = false; updateCameras(0, false, false); publish();
   }
-  const keyboardKeys = ['[', ']', 'y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'k', 'q', 'g', '1', '2', '3', ...UTILITY_SLOTS.map(slot => slot.key), 'e', 'i', 'v', 'l', 'n', 't', 'm', 'h', 'j', 'u', 'b', 'x', 'control', 'escape'];
+  const keyboardKeys = ['[', ']', 'y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'k', 'q', 'f', 'g', '1', '2', '3', '4', '5', '6', '7', '8', 'e', 'i', 'v', 'l', 'n', 't', 'm', 'h', 'j', 'u', 'b', 'x', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = fpsControlKey(event);
     if (hud.mapExpanded) return;
@@ -1571,11 +1576,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     else if (key === 'i') { if (!event.repeat && focusedLoot?.kind === 'armor') interactLoot('swap'); }
     else if (key === 't') { if (!event.repeat) travelZone(); }
     else if (key === 'r') reload();
-    else if (key === 'g') { if (!event.repeat) useQuickItem(); }
-    // The food key eats on release, so holding it can open the picker instead.
-    else if (utilitySlotForKey(key)?.kind === 'grenade') { if (!event.repeat) grenadeKeyAt = performance.now(); }
-    else if (utilitySlotForKey(key)?.kind === 'food') { if (!event.repeat) foodKeyAt = performance.now(); }
-    else if (utilitySlotForKey(key)) { if (!event.repeat) useUtility(utilitySlotForKey(key)!.kind); }
+    else if (key === 'f') { if (!event.repeat && !wheel && !grenadePicker && !recoveryPicker) recoveryKeyAt = performance.now(); }
+    else if (key === 'g') { if (!event.repeat && !wheel && !grenadePicker && !recoveryPicker) grenadeKeyAt = performance.now(); }
     else if (/^[1-3]$/.test(key)) switchWeapon(physicalWeaponFamilies(equipment.carriedFamilies)[Number(key) - 1]);
     else if (key === ' ') { if (vehicles.active) keys.add(' '); else if (!event.repeat) jump(); }
     else keys.add(key);
@@ -1588,9 +1590,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       keyboardCrouch.hold(event.code || key, false);
       if (!keyboardCrouch.holding) keys.delete(key);
     } else keys.delete(key);
-    if (key === '9') releaseGrenadeKey();
+    if (key === 'g') releaseGrenadeKey();
     if (key === 'y') closeCalloutWheel(true);
-    if (utilitySlotForKey(key)?.kind === 'food') releaseFoodKey();
+    if (key === 'f') releaseRecoveryKey();
   };
   /** Map and callout scrolling keep priority over the scope's zoom ring. */
   const scrollWheel = (event: WheelEvent) => {
@@ -1627,16 +1629,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     compensateRecoil(kick, pitch - wasPitch, yaw - wasYaw);
   };
   // With the callout wheel open the mouse points at a slot instead of turning the view.
-  const mousemove = (event: MouseEvent) => { if (!pilotEnabled && document.pointerLockElement === canvas) { if (wheel) pointCalloutWheel(event.movementX, event.movementY); else if (grenadePicker) pointGrenadePicker(event.movementX, event.movementY); else if (foodPicker) pointFoodPicker(event.movementX, event.movementY); else look(event.movementX, event.movementY); } };
+  const mousemove = (event: MouseEvent) => { if (!pilotEnabled && document.pointerLockElement === canvas) { if (wheel) pointCalloutWheel(event.movementX, event.movementY); else if (grenadePicker) pointGrenadePicker(event.movementX, event.movementY); else if (recoveryPicker) pointRecoveryPicker(event.movementX, event.movementY); else look(event.movementX, event.movementY); } };
   // Pointer events only report the first press and final release of a mouse chord.
   // Mouse events report each button independently, including LMB while RMB is held.
   const mousedown = (event: MouseEvent) => {
     if (pilotEnabled || hud.proxyMenu || hud.phase !== 'playing' || document.pointerLockElement !== canvas) return;
     // A click on the open wheel says the slot (left) or puts the wheel away (right); it never fires.
     if (wheel) { closeCalloutWheel(event.button === 0); return; }
-    // The same on the food picker: left picks the food pointed at, right keeps the old pick.
+    // Choosing or cancelling a utility consumes the click, never a shot.
     if (grenadePicker) { closeGrenadePicker(event.button === 0); grenadeKeyAt = null; return; }
-    if (foodPicker) { closeFoodPicker(event.button === 0); foodKeyAt = null; return; }
+    if (recoveryPicker) { closeRecoveryPicker(event.button === 0); recoveryKeyAt = null; return; }
     if (event.button === 0) pullTrigger(true);
     if (event.button === 2) { stopInspect(); ads = true; }
   };
@@ -1774,7 +1776,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       position: { x: position.x, z: position.z }, yaw, pitch,
       contacts: visiblePilotContacts(camera, world.scene, subjects, screenBlocked), waypoints, ballistics: specs[hud.weapon].ballistics,
       supplies: PILOT_HEALING_KINDS.flatMap(kind => {
-        const item = pickUtility(kind, supplies, { health: hud.health, maxHealth: hud.maxHealth }, foodChoice);
+        const item = pickUtility(kind, supplies, { health: hud.health, maxHealth: hud.maxHealth }, recoveryChoice);
         return item?.effect?.health ? [{ kind, health: item.effect.health, seconds: supplyProfile(item).seconds }] : [];
       }), grenades: activeGrenades().filter(g => !conditions.deafened && Math.hypot(g.position.x - position.x, g.position.z - position.z) <= grenadeDangerRadius(itemById(g.id)!.grenade!) + 2).map(g => ({ x: g.landing.x, z: g.landing.z, radius: grenadeDangerRadius(itemById(g.id)!.grenade!) + 2, remaining: g.remaining })), usingSupply: !!supplyUse,
       underThreat: hud.incoming || hurtTime > 0 || time < pilotGunfireUntil || hud.cloudCover?.kind === 'gas' || hud.mapDangers.some(d => d.kind !== 'crate' && Math.hypot(d.x - position.x, d.z - position.z) <= d.radius + 8),
@@ -2314,8 +2316,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function readyGrenade() {
     if (swimming() || grenadeHeld || vehicles.active || hud.arenaSelf?.alive === false || performance.now() / 1000 - grenadeLastAt < .9) return;
-    const item = pickUtility('grenade', supplies, undefined, null, grenadeChoice);
-    if (!item?.grenade) { hud.message = 'No grenades on the belt.'; publish(); return; }
+    const item = grenadeChoice && supplies[grenadeChoice] > 0 ? itemById(grenadeChoice) : undefined;
+    if (!item?.grenade) { hud.message = 'Selected throwable depleted. Hold G to choose another.'; publish(); return; }
     if (item.id === 'grenade-red-smoke' && performance.now() / 1000 - missionLastAt < 60) { hud.message = 'Fire control: one mission every 60 s.'; publish(); return; }
     stopInspect(); stopReload(); endSupply(); trigger = false; pullBuffer = 0; ads = touchAim = false; beltSelected = 'grenade';
     grenadeHeld = { id: item.id, ready: 0, cooked: 0, pinned: false }; canvas.focus({ preventScroll: true }); publish();
@@ -2332,7 +2334,6 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const settled = (accepted: boolean) => {
       if (!accepted) { grenadeLastAt = previousThrow; missionLastAt = previousMission; hud.message = 'Grenade throw refused; item kept.'; publish(); return; }
       if (supplies[held.id] > 1) supplies[held.id]--; else delete supplies[held.id];
-      if (grenadeChoice === held.id && !supplies[held.id]) grenadeChoice = null;
       if (looted[held.id]) { if (looted[held.id] > 1) looted[held.id]--; else delete looted[held.id]; }
       else if (!practiceRange) { if (expedition) { fieldProfile = consumeItem(fieldProfile, held.id); equipment = resolveLoadout(fieldProfile); expedition.onEquipment(copyProfile(fieldProfile)); } options.onConsume?.(held.id); }
       hud.message = `${itemById(held.id)!.name} thrown.`; publish();
@@ -2341,12 +2342,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
 
   function chooseGrenade(id: string | null) {
-    if (id && (!itemById(id)?.grenade || !supplies[id])) return;
+    if (!id || !itemById(id)?.grenade || !supplies[id]) return;
+    if (hud.phase !== 'playing' || grenadeHeld?.pinned) return;
+    grenadeHeld = null; grenadeFireHeld = false;
     grenadeChoice = id; beltSelected = 'grenade'; grenadePicker = null; grenadeKeyAt = null; canvas.focus({ preventScroll: true }); publish();
   }
   function openGrenadePicker() {
-    if (hud.phase !== 'playing' || pilotEnabled || wheel || foodPicker || grenadeHeld?.pinned) return;
-    const options = grenadeOptions(supplies); if (options.length < 2) { grenadeKeyAt = null; return; }
+    if (hud.phase !== 'playing' || hud.health <= 0 || hud.mapExpanded || hud.proxyMenu || pilotEnabled || wheel || recoveryPicker || grenadePicker || supplyUse || grenadeHeld?.pinned) return;
+    const options = utilityOptions('combat', supplies); if (!options.length) { grenadeKeyAt = null; hud.message = 'No combat items carried.'; publish(); return; }
+    recoveryKeyAt = null; grenadeKeyAt = null;
     grenadePicker = { x: 0, y: 0, slot: null, options }; trigger = false; pullBuffer = 0; publish();
   }
   function closeGrenadePicker(pick = false) {
@@ -2360,13 +2364,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     grenadePicker.slot = wheelSlot(grenadePicker.x, grenadePicker.y, grenadePicker.options.length); publish();
   }
   function releaseGrenadeKey() {
-    const tapped = grenadeKeyAt !== null; grenadeKeyAt = null;
-    if (grenadePicker) closeGrenadePicker(true); else if (tapped) useUtility('grenade');
+    const tapped = grenadeKeyAt !== null && performance.now() - grenadeKeyAt < UTILITY_HOLD_MS; grenadeKeyAt = null;
+    if (grenadePicker) closeGrenadePicker(true); else if (tapped) useSelectedUtility('combat');
   }
   function activeGrenades(): readonly LiveGrenade[] { return arenaRuntime ? hud.arena?.grenades ?? [] : localGrenades.live; }
   function activeGrenadeEvents(): readonly GrenadeEvent[] { return arenaRuntime ? hud.arena?.grenadeEvents ?? [] : localGrenades.events; }
   function stepGrenadePlayer(dt: number) {
-    if (grenadeKeyAt !== null && !grenadePicker && performance.now() - grenadeKeyAt >= FOOD_PICKER_HOLD_MS) openGrenadePicker();
+    if (grenadeKeyAt !== null && performance.now() - grenadeKeyAt >= UTILITY_HOLD_MS) { grenadeKeyAt = null; openGrenadePicker(); }
     if (!arenaRuntime && hud.phase === 'playing') { advanceGrenadeConditions(conditions, dt); localGrenades.step(dt); }
     if (grenadeHeld && hud.phase === 'playing') { grenadeHeld.ready += dt; if (grenadeFireHeld && grenadeHeld.ready >= .35 && !arenaConditionModifiers(conditions).frozen) grenadeHeld.pinned = true; if (grenadeHeld.pinned) { grenadeHeld.cooked += dt; if (grenadeHeld.cooked >= itemById(grenadeHeld.id)!.grenade!.fuse) releaseGrenade(); } }
     const snapshotTime = hud.arena?.elapsed ?? 0, now = arenaRuntime ? Math.max(snapshotTime, eventClock) : localGrenades.clock;
@@ -2409,23 +2413,29 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.grenade = grenadeHeld ? `${grenadeHeld.id}:${grenadeHeld.pinned ? 'cooking' : 'ready'}:${grenadeHeld.cooked.toFixed(2)}` : '';
     canvas.dataset.grenades = String(activeGrenades().length); canvas.dataset.grenadeEvents = String(activeGrenadeEvents().length);
   }
-  /** G: the belt slot used last (or chosen in the armory) again. */
-  function useQuickItem() {
-    if(merlionOperating())return; useUtility(beltSelected); }
-  /** Takes the right item for the moment out of a belt slot and starts using it; the slot becomes G's. */
-  function useUtility(kind: UtilityKind) {
+  /** Programmatic quick recovery entry point; combat has its own selection. */
+  function useQuickItem() { useSelectedUtility('recovery'); }
+  function useSelectedUtility(group: UtilityGroup) {
+    if (hud.phase !== 'playing' || pilotEnabled || hud.health <= 0 || wheel || recoveryPicker || grenadePicker || hud.mapExpanded || hud.proxyMenu) return;
+    const id = group === 'recovery' ? recoveryChoice : grenadeChoice;
+    const item = id ? itemById(id) : undefined;
+    if (!item || !supplies[item.id]) { hud.message = `Selected ${group === 'recovery' ? 'recovery item' : 'throwable'} depleted. Hold ${group === 'recovery' ? 'F' : 'G'} to choose another.`; publish(); return; }
+    if (group === 'recovery' && grenadeHeld && !grenadeHeld.pinned) { grenadeHeld = null; grenadeFireHeld = false; }
+    useUtility(utilityKind(item)!, item.id);
+  }
+  function useUtility(kind: UtilityKind, selectedId?: string) {
     if(merlionOperating())return;
     if (hud.phase !== 'playing' || supplyUse || hud.health <= 0 || arenaConditionModifiers(conditions).frozen) return;
     if (kind === 'grenade') { readyGrenade(); return; }
     if (grenadeHeld) return;
     beltSelected = kind;
-    const supply = pickUtility(kind, supplies, { health: hud.health, maxHealth: hud.maxHealth }, foodChoice);
+    const supply = selectedId ? itemById(selectedId) : pickUtility(kind, supplies, { health: hud.health, maxHealth: hud.maxHealth }, recoveryChoice);
     if (!supply?.effect) { hud.message = `No ${utilitySlot(kind)!.label.toLowerCase()} on the belt.`; publish(); return; }
     const { armor = 0, reserve = 0 } = supply.effect;
     // A meal with effects is worth eating at full health: the effects are why it was picked.
-    const full = hud.health >= hud.maxHealth && (!armor || hud.armor >= equipment.armor) && (!reserve || !reserveRoom(loadout[hud.weapon])) && !(foodChoice && supply.foodEffects?.length);
+    const full = hud.health >= hud.maxHealth && (!armor || hud.armor >= equipment.armor) && (!reserve || !reserveRoom(loadout[hud.weapon])) && !(recoveryChoice && supply.foodEffects?.length);
     if (reserve && !reserveRoom(loadout[hud.weapon])) { hud.message = 'Rig pouches full.'; publish(); return; }
-    if (full) { hud.message = kind === 'food' ? 'Nothing to restore. Hold 4 to pick a food for its effects.' : 'Nothing to restore right now.'; publish(); return; }
+    if (full) { hud.message = kind === 'food' ? 'Nothing to restore. Hold F to choose another recovery item.' : 'Nothing to restore right now.'; publish(); return; }
     if (!beginSupply(supply.name, supply.id, supplyProfile(supply), () => applyQuickItem(supply), true)) publish();
   }
   function applyQuickItem(supply: NonNullable<ResolvedLoadout['quickItem']>) {
@@ -2443,8 +2453,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (reserve) addReserveMagazines(loadout[hud.weapon], 2);
     if (supplies[supply.id] > 1) supplies[supply.id]--; else delete supplies[supply.id];
     hud.message = supply.foodEffects?.length ? `${supply.name} eaten · ${supply.foodEffects.map(effect => FOOD_EFFECTS[effect.kind].label).join(', ')}.` : `${supply.name} used.`;
-    // The last of a picked food hands the slot back to Auto.
-    if (foodChoice === supply.id && !supplies[supply.id]) { foodChoice = null; hud.message += ' Food slot back on Auto.'; }
+    if (recoveryChoice === supply.id && !supplies[supply.id]) hud.message += ' Depleted · hold F to choose another.';
     if (looted[supply.id]) { if (looted[supply.id] > 1) looted[supply.id]--; else delete looted[supply.id]; publish(); return true; }
     if (expedition) {
       fieldProfile = consumeItem(fieldProfile, supply.id); equipment = resolveLoadout(fieldProfile);
@@ -3070,53 +3079,50 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const allies = (hud.arena?.actors ?? []).filter(a => a.bot && a.alive && a.faction===PLAYER_FACTION && !hostile(self, a) && Math.hypot(a.x - position.x, a.z - position.z) <= ORDER_TUNING.range).length;
     return { allies, reinforce: options.arena?.environment?.reinforcements ? self.reinforceIn ?? 'ready' : 'none' };
   }
-  /**
-   * The food picker. Tapping 4 eats from the food slot; holding it opens the
-   * picker over the crosshair, the mouse points at a food the way it points at
-   * a callout, and letting go makes that food the slot's pick (Auto, at the
-   * top, goes back to healing to need). Nothing pauses and moving keeps
-   * working: eating is what takes the time, not choosing.
-   */
-  function openFoodPicker() {
-    if (hud.phase !== 'playing' || pilotEnabled || wheel || foodPicker || grenadeHeld?.pinned) return;
-    const options = foodOptions(supplies, { health: hud.health, maxHealth: hud.maxHealth });
-    if (options.length < 2) { foodKeyAt = null; hud.message = 'No food on the belt.'; publish(); return; }
-    foodPicker = { x: 0, y: 0, slot: null, options }; trigger = false; pullBuffer = 0; syncFoodPicker();
+  /** F opens every carried recovery item; selecting never consumes it. */
+  function openRecoveryPicker() {
+    if (hud.phase !== 'playing' || hud.health <= 0 || hud.mapExpanded || hud.proxyMenu || pilotEnabled || wheel || recoveryPicker || grenadePicker || supplyUse || grenadeHeld?.pinned) return;
+    const options = utilityOptions('recovery', supplies);
+    if (!options.length) { recoveryKeyAt = null; hud.message = 'No recovery items carried.'; publish(); return; }
+    recoveryKeyAt = null; grenadeKeyAt = null;
+    recoveryPicker = { x: 0, y: 0, slot: null, options }; trigger = false; pullBuffer = 0; syncRecoveryPicker();
   }
-  function syncFoodPicker() { hud.foodPicker = foodPicker ? { options: foodPicker.options, slot: foodPicker.slot } : null; publish(); }
-  function pointFoodPicker(dx: number, dy: number) {
-    if (!foodPicker) return;
-    foodPicker.x += dx; foodPicker.y += dy;
-    const reach = Math.hypot(foodPicker.x, foodPicker.y);
-    if (reach > 140) { foodPicker.x *= 140 / reach; foodPicker.y *= 140 / reach; }
-    const slot = wheelSlot(foodPicker.x, foodPicker.y, foodPicker.options.length);
-    if (slot !== foodPicker.slot) { foodPicker.slot = slot; syncFoodPicker(); }
+  function syncRecoveryPicker() { hud.recoveryPicker = recoveryPicker ? { options: recoveryPicker.options, slot: recoveryPicker.slot } : null; publish(); }
+  function pointRecoveryPicker(dx: number, dy: number) {
+    if (!recoveryPicker) return;
+    recoveryPicker.x += dx; recoveryPicker.y += dy;
+    const reach = Math.hypot(recoveryPicker.x, recoveryPicker.y);
+    if (reach > 140) { recoveryPicker.x *= 140 / reach; recoveryPicker.y *= 140 / reach; }
+    const slot = wheelSlot(recoveryPicker.x, recoveryPicker.y, recoveryPicker.options.length);
+    if (slot !== recoveryPicker.slot) { recoveryPicker.slot = slot; syncRecoveryPicker(); }
   }
   /** Puts the picker away; with `pick`, the food it points at becomes the slot's. */
-  function closeFoodPicker(pick = false) {
-    if (!foodPicker) return;
-    const option = foodPicker.slot === null ? undefined : foodPicker.options[foodPicker.slot];
-    foodPicker = null; hud.foodPicker = null;
-    if (pick && option) chooseFood(option.id); else publish();
+  function closeRecoveryPicker(pick = false) {
+    if (!recoveryPicker) return;
+    const option = recoveryPicker.slot === null ? undefined : recoveryPicker.options[recoveryPicker.slot];
+    recoveryPicker = null; hud.recoveryPicker = null;
+    if (pick && option) chooseRecovery(option.id); else publish();
   }
-  /** Makes a carried food the food slot's pick, or Auto with null. Picking it does not eat it. */
-  function chooseFood(id: string | null) {
+  /** Select exactly one recovery item without using it. */
+  function chooseRecovery(id: string | null) {
+    if (hud.phase !== 'playing' || grenadeHeld?.pinned) return;
     const item = id ? itemById(id) : undefined;
-    if (id && (utilityKind(item) !== 'food' || !supplies[id])) return;
-    foodChoice = id; beltSelected = 'food'; foodPicker = null; hud.foodPicker = null;
-    hud.message = item ? `Food slot: ${item.name}. Tap 4 to eat.` : 'Food slot: Auto, heals to need.';
+    if (!id || utilityGroup(item) !== 'recovery' || !supplies[id]) return;
+    grenadeHeld = null; grenadeFireHeld = false;
+    recoveryChoice = id; beltSelected = utilityKind(item)!; recoveryPicker = null; recoveryKeyAt = null; hud.recoveryPicker = null;
+    hud.message = `${item!.name} selected. Tap F to use.`;
     if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
     publish();
   }
-  /** 4 let go: a tap eats, a hold picks from the picker it opened. */
-  function releaseFoodKey() {
-    const tapped = foodKeyAt !== null; foodKeyAt = null;
-    if (foodPicker) closeFoodPicker(true);
-    else if (tapped && hud.phase === 'playing') useUtility('food');
+  /** Release F: a tap activates, a hold only selects. */
+  function releaseRecoveryKey() {
+    const tapped = recoveryKeyAt !== null && performance.now() - recoveryKeyAt < UTILITY_HOLD_MS; recoveryKeyAt = null;
+    if (recoveryPicker) closeRecoveryPicker(true);
+    else if (tapped && hud.phase === 'playing') useSelectedUtility('recovery');
   }
   /** Meals at work: the picker's hold, healing over time and timers running out. */
   function stepFood(dt: number) {
-    if (foodKeyAt !== null && !foodPicker && performance.now() - foodKeyAt >= FOOD_PICKER_HOLD_MS) openFoodPicker();
+    if (recoveryKeyAt !== null && performance.now() - recoveryKeyAt >= UTILITY_HOLD_MS) { recoveryKeyAt = null; openRecoveryPicker(); }
     // In an arena the host steps the meals and the copy arrives with each frame.
     if (hud.health <= 0 || arenaRuntime) return;
     const fed = advanceFoodEffects(foodEffects, dt);
@@ -3124,7 +3130,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (fed.expired.includes('ah-ma')) comms.add('system', 'Ah Ma', 'Ah Ma has gone home. Eat properly, ok?');
   }
   function openCalloutWheel() {
-    if (hud.phase !== 'playing' || pilotEnabled || wheel || foodPicker || grenadeHeld?.pinned) return;
+    if (hud.phase !== 'playing' || hud.health <= 0 || hud.mapExpanded || hud.proxyMenu || pilotEnabled || wheel || recoveryPicker || grenadePicker || supplyUse || grenadeHeld?.pinned) return;
+    recoveryKeyAt = grenadeKeyAt = null;
     wheel = { page: wheelPage, x: 0, y: 0, slot: null }; trigger = false; pullBuffer = 0; syncWheel();
   }
   /** Puts the wheel away; with `say`, says the slot it points at, if any. */
@@ -3804,11 +3811,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     openCalloutWheel, closeCalloutWheel, setCalloutPage, sendCallout,
     /** Touch: the wheel's button opens it and, open, puts it away. */
     toggleCalloutWheel() { if (wheel) closeCalloutWheel(); else openCalloutWheel(); },
-    /** Touch: the food slot's chooser button opens the picker and, open, puts it away. */
+    /** Touch uses the same selectors with explicit chooser buttons. */
     toggleGrenadePicker() { if (grenadePicker) closeGrenadePicker(); else openGrenadePicker(); },
+    pointUtilityOption(group: UtilityGroup, slot: number) { const picker = group === 'recovery' ? recoveryPicker : grenadePicker; if (picker && picker.options[slot]) { picker.slot = slot; if (group === 'recovery') syncRecoveryPicker(); else publish(); } },
     chooseGrenade, closeGrenadePicker: () => closeGrenadePicker(),
-    toggleFoodPicker() { if (foodPicker) closeFoodPicker(); else openFoodPicker(); },
-    chooseFood, closeFoodPicker: () => closeFoodPicker(),
+    useSelectedUtility,
+    toggleRecoveryPicker() { if (recoveryPicker) closeRecoveryPicker(); else openRecoveryPicker(); },
+    chooseRecovery, closeRecoveryPicker: () => closeRecoveryPicker(),
     toggleVision: () => useVision('toggle'), cycleVisionPalette: () => useVision('palette'), pressVision: () => useVision('button'),
     toggleEncikVoice() { hud.encikVoice = !hud.encikVoice; if (!hud.encikVoice) stopVoice(); publish(); },
     toggleSound() { hud.muted = !hud.muted; if (hud.muted) { stopVoice(); impactAudio.clear(); bulletFlybys.clear(); gunshots.clear(); emptyFireAudio.clear(); reloadAudio.clear(); } if (hud.phase === 'playing') { canvas.focus({ preventScroll: true }); if (!hud.muted) initAudio(); } publish(); },

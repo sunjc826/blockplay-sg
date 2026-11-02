@@ -1,45 +1,44 @@
-import type { ReactNode } from 'react';
-import { Bomb, Bandage, BriefcaseMedical, ChevronUp, Package, Sandwich, ShieldPlus } from 'lucide-react';
+import { useEffect, useRef, type PointerEvent } from 'react';
+import { ChevronUp } from 'lucide-react';
 import type { FpsHud } from '../game/fps-engine';
-import { KIND_OF_STYLE, type UtilityKind } from '../game/utility-belt';
-import { healthBand } from '../game/vitals';
+import { itemById } from '../game/armory-catalog';
+import { armoryThumbnailFile } from '../game/armory-thumbnails';
+import { UTILITY_HOLD_MS, type UtilityGroup, type UtilityOption } from '../game/utility-wheel';
 import { tapProps } from './touch-tap';
 
-const ICONS: Record<UtilityKind, ReactNode> = {
-  grenade: <Bomb size={15} />, food: <Sandwich size={15} />, bandage: <Bandage size={15} />, 'first-aid': <BriefcaseMedical size={15} />,
-  plates: <ShieldPlus size={15} />, ammo: <Package size={15} />,
-};
-const HEALING: readonly UtilityKind[] = ['food', 'bandage', 'first-aid'];
+function QuickUtility({ group, item, canUse, onUse, onPick, progress }: { group: UtilityGroup; item: UtilityOption | null; canUse: boolean; onUse?: () => void; onPick?: () => void; progress?: number }) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null), held = useRef(false);
+  const cancel = () => { if (timer.current !== null) clearTimeout(timer.current); timer.current = null; };
+  useEffect(() => cancel, []);
+  useEffect(() => { if (!canUse) { cancel(); held.current = true; } }, [canUse]);
+  const key = group === 'recovery' ? 'F' : 'G', label = group === 'recovery' ? 'Recovery' : 'Combat';
+  const down = (event: PointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); cancel(); held.current = false;
+    timer.current = setTimeout(() => { timer.current = null; held.current = true; onPick?.(); }, UTILITY_HOLD_MS);
+  };
+  return <div className="fps-quick-utility">
+    <button className="fps-belt-slot fps-quick-slot" type="button" data-group={group} data-item={item?.id} data-count={item?.count ?? 0}
+      data-depleted={!item?.count || undefined} data-using={progress !== undefined || undefined} disabled={!canUse}
+      aria-label={`${label}: ${item?.name ?? 'none selected'}, ${item?.count ?? 0} carried. Tap ${key} to use, hold to choose.`}
+      onPointerDown={down} onPointerUp={event => { event.preventDefault(); cancel(); if (!held.current) onUse?.(); }}
+      onPointerCancel={() => { cancel(); held.current = true; }} onClick={event => { if (event.detail === 0 && !(event.nativeEvent as globalThis.PointerEvent).pointerType) onUse?.(); }}>
+      <kbd>{key}</kbd>{item && <img src={`${import.meta.env.BASE_URL}images/armory/${armoryThumbnailFile(itemById(item.id)!)}`} alt="" draggable={false} />}
+      <b>{item?.count ?? 0}</b><small>{!item?.count ? 'Choose item' : label}</small>
+      {progress !== undefined && <i className="fps-belt-progress" style={{ transform: `scaleX(${progress})` }} />}
+    </button>
+    <button type="button" className="fps-quick-choose" disabled={!canUse} aria-label={`Choose ${group} item`} {...tapProps(() => onPick?.())}><ChevronUp size={13} /><span>Choose</span></button>
+  </div>;
+}
 
-/**
- * The utility belt: every slot, always in the same place, with what it holds.
- * Empty slots stay drawn so a player learns where the bandages go before they
- * have any. The selected slot is G's; a slot in use fills as the hands work,
- * and while health is low the slots that could fix it are marked.
- */
-export default function FpsUtilityBelt({ hud, canUse, onUse, onPickFood, onPickGrenade, onGrenadeFire, docked = false }: { hud: FpsHud; canUse: boolean; onUse?: (kind: UtilityKind) => void; onPickFood?: () => void; onPickGrenade?: () => void; onGrenadeFire?: (held: boolean) => void; docked?: boolean }) {
-  if (!hud.belt.length) return null;
-  const using = hud.grenadeHeld ? 'grenade' : hud.supplyUse?.fromBelt ? KIND_OF_STYLE[hud.supplyUse.style] : null;
-  const hurt = healthBand(hud.health, hud.maxHealth) !== 'steady';
-  const selected = hud.belt.find(slot => slot.kind === hud.beltSelected);
-  const food = hud.belt.find(slot => slot.kind === 'food');
-  const grenade = hud.belt.find(slot => slot.kind === 'grenade');
+export default function FpsUtilityBelt({ hud, canUse, onUse, onPickRecovery, onPickGrenade, docked = false }: { hud: FpsHud; canUse: boolean; onUse?: (group: UtilityGroup) => void; onPickRecovery?: () => void; onPickGrenade?: () => void; docked?: boolean }) {
   return <div className={`fps-belt${docked ? ' is-docked' : ''}`} role="group" aria-label="Utility belt" data-testid="utility-belt">
     {hud.conditions.length > 0 && <ul className="fps-food-effects fps-grenade-conditions" aria-label="Grenade conditions">{hud.conditions.map(c => <li key={c.kind}><span>{c.label}</span><b>{c.remaining}s</b><i style={{ transform: `scaleX(${c.share})` }} /></li>)}</ul>}
-    {hud.foodEffects.length > 0 && <ul className="fps-food-effects" aria-label="Food effects">{hud.foodEffects.map(effect =>
-      <li key={effect.kind} data-kind={effect.kind} title={effect.summary}><span>{effect.label}</span><b>{effect.remaining}s</b>
-        <i style={{ transform: `scaleX(${effect.share})` }} /></li>)}</ul>}
-    <div className="fps-belt-slots">{hud.belt.map(slot => <button key={slot.kind} type="button" className="fps-belt-slot" data-kind={slot.kind} data-count={slot.count}
-      data-empty={!slot.count || undefined} data-using={using === slot.kind || undefined} data-chosen={slot.chosen || undefined} data-wanted={(hurt && slot.count > 0 && HEALING.includes(slot.kind)) || undefined}
-      aria-pressed={slot.kind === hud.beltSelected} disabled={!canUse || !slot.count || !onUse}
-      aria-label={`${slot.label}: ${slot.count ? `${slot.count} carried, next ${slot.next?.name}` : 'none carried'}. Key ${slot.key}.`}
-      title={slot.next ? `${slot.next.name} · ${slot.next.effect}` : `No ${slot.label.toLowerCase()} carried`} {...(slot.kind === 'grenade' && hud.grenadeHeld && onGrenadeFire ? { onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); onGrenadeFire(true); }, onPointerUp: () => onGrenadeFire(false), onPointerCancel: () => onGrenadeFire(false) } : tapProps(() => onUse?.(slot.kind)))}>
-      <kbd>{slot.key}</kbd>{ICONS[slot.kind]}<b>{slot.count}</b><small>{slot.label}</small>
-      {using === slot.kind && <i className="fps-belt-progress" style={{ transform: `scaleX(${hud.grenadeHeld ? hud.grenadeHeld.cooked / hud.grenadeHeld.fuse : hud.supplyUse!.progress})` }} />}
-    </button>)}</div>
-    {selected?.next && <p className="fps-belt-next"><kbd>G</kbd> {selected.next.name} <span>{selected.next.effect}</span></p>}
-    {grenade && grenade.count > 0 && onPickGrenade && <button type="button" className="fps-food-choose" disabled={!canUse || hud.grenadeHeld?.pinned} aria-label="Choose grenade" {...tapProps(onPickGrenade)}><ChevronUp size={11} />{grenade.chosen ? grenade.next?.name : 'Auto grenade'}<kbd>hold 9</kbd></button>}
-    {food && food.count > 0 && onPickFood && <button type="button" className="fps-food-choose" disabled={!canUse} aria-label={`Choose food: ${food.chosen ? food.next?.name : 'Auto'}`}
-      {...tapProps(onPickFood)}><ChevronUp size={11} />{food.chosen ? food.next?.name : 'Auto food'}<kbd>hold 4</kbd></button>}
+    {hud.foodEffects.length > 0 && <ul className="fps-food-effects" aria-label="Food effects">{hud.foodEffects.map(effect => <li key={effect.kind} data-kind={effect.kind} title={effect.summary}><span>{effect.label}</span><b>{effect.remaining}s</b><i style={{ transform: `scaleX(${effect.share})` }} /></li>)}</ul>}
+    <div className="fps-belt-slots">
+      <QuickUtility group="recovery" item={hud.recoveryItem} canUse={canUse && !hud.grenadeHeld?.pinned} onUse={() => onUse?.('recovery')} onPick={onPickRecovery} progress={hud.supplyUse?.fromBelt ? hud.supplyUse.progress : undefined} />
+      <QuickUtility group="combat" item={hud.combatItem} canUse={canUse && !hud.grenadeHeld?.pinned} onUse={() => onUse?.('combat')} onPick={onPickGrenade} progress={hud.grenadeHeld ? hud.grenadeHeld.cooked / hud.grenadeHeld.fuse : undefined} />
+    </div>
+    {hud.inputMode !== 'touch' && <p className="fps-belt-next">Tap to use · hold to choose</p>}
   </div>;
 }

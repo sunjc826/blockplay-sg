@@ -9,16 +9,16 @@ import { MAG_IN_START, reloadStage } from '../game/fps-weapon-motion';
 import { fillFraction, magazineDisplay } from '../game/hud-motion';
 import { useReducedMotion } from '../game/use-reduced-motion';
 import { SHORT_SCREEN, useMediaQuery } from '../game/use-media-query';
-import type { UtilityKind } from '../game/utility-belt';
+import type { UtilityGroup } from '../game/utility-wheel';
 import FpsUtilityBelt from './FpsUtilityBelt';
 import FpsVitals from './FpsVitals';
 import './fps-weapon-hud.css';
 
-export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickFood, onPickGrenade, onGrenadeFire, onInspect, onToggleMode, onScopeZoom, touch = false }: { hud: FpsHud; weapon: WeaponSpec & { equipment?: { variant: string } }; canFight: boolean; onUtility?: (kind: UtilityKind) => void; onPickFood?: () => void; onPickGrenade?: () => void; onGrenadeFire?: (held: boolean) => void; onInspect?: () => void; onToggleMode?: () => void; onScopeZoom?: (direction: number) => void; touch?: boolean }) {
+export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickRecovery, onPickGrenade, onInspect, onToggleMode, onScopeZoom, touch = false }: { hud: FpsHud; weapon: WeaponSpec & { equipment?: { variant: string } }; canFight: boolean; onUtility?: (kind: UtilityGroup) => void; onPickRecovery?: () => void; onPickGrenade?: () => void; onInspect?: () => void; onToggleMode?: () => void; onScopeZoom?: (direction: number) => void; touch?: boolean }) {
   // A phone on its side has no height for the belt over the ammo under the weapon
   // slider, so the belt docks along the bottom between the two thumbs instead.
   const docked = useMediaQuery(SHORT_SCREEN) && touch;
-  const belt = <FpsUtilityBelt hud={hud} canUse={canFight && !hud.supplyUse} onUse={onUtility} onPickFood={onPickFood} onPickGrenade={onPickGrenade} onGrenadeFire={onGrenadeFire} docked={docked} />;
+  const belt = <FpsUtilityBelt hud={hud} canUse={canFight && !hud.supplyUse} onUse={onUtility} onPickRecovery={onPickRecovery} onPickGrenade={onPickGrenade} docked={docked} />;
   // Canted onto an offset dot, the sight in use is a 1x one whatever sits on top.
   // Elite and up wear their rarity beside the name, so a Mythic reads as one mid-fight too.
   const tier = itemById(weapon.equipment?.variant ?? '')?.tier, rare = tier && tierRank(tier) >= tierRank('Elite') ? tier : null;

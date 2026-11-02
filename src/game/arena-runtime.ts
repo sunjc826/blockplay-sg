@@ -410,7 +410,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (!point(origin) || !point(direction)) return 0;
     return sceneCover.distance(origin, direction, finite(supplied) ? Math.max(0, Math.min(MAX_WEAPON_RANGE, supplied)) : MAX_WEAPON_RANGE);
   }
-  if (simulation) { simulation.addPlayer(session.id, session.name, initial.armor, initial.absorption, initial.weapons, options.initialVitals, session.role === 'solo', initial.carriedFamilies, initial.insert); simulation.setPlayerGrenades(session.id, profile.consumables); registered.add(session.id); }
+  if (simulation) { simulation.addPlayer(session.id, session.name, initial.armor, initial.absorption, initial.weapons, options.initialVitals, session.role === 'solo', initial.carriedFamilies, initial.insert); simulation.setPlayerGrenades(session.id, initial.supplies); registered.add(session.id); }
   function accept(next: ArenaSnapshot) {
     if (next.tick < lastTick) { seenFeed.clear(); seenBarks.clear(); localAdopted = false; }
     lastTick = next.tick; snapshot = next; snapshotAt = performance.now();
@@ -464,7 +464,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         peerInventories.set(from, guest);
         simulation.addPlayer(from, peer.name, loadout.armor, loadout.absorption, loadout.weapons, undefined, false, loadout.carriedFamilies, loadout.insert);
         // The host spends a guest's supplies from what they brought, as it already trusts the kit they brought.
-        simulation.setPlayerSupplies(from, guest.consumables); registered.add(from); publish();
+        simulation.setPlayerSupplies(from, loadout.supplies); registered.add(from); publish();
       } else if (registered.has(from) && payload.type === 'arena-loadout' && Number.isSafeInteger(payload.request)) {
         const admitted = peerInventories.get(from), next = admitted && applyRespawnLoadout(spendRentalTime(admitted, snapshot?.actors.find(actor => actor.id === from)?.rentalTimeMs ?? 0), payload.selection);
         const loadout = next && resolveLoadout(next);
@@ -753,7 +753,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (disposed || session.role !== 'solo' || !simulation) return false;
     profile = options.environment?.proxies ? restoreFieldProfile(nextProfile) : restoreProfile(JSON.stringify(nextProfile));
     const loadout = resolveLoadout(profile);
-    simulation.setPlayerGrenades(session.id, profile.consumables);
+    simulation.setPlayerGrenades(session.id, loadout.supplies);
     simulation.setPlayerLoadout(session.id, loadout.armor, loadout.absorption, loadout.weapons, loadout.carriedFamilies, loadout.insert); publish(); return true;
   }
   function setVitals(vitals: Partial<ArenaVitals>) {

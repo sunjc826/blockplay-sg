@@ -185,6 +185,6 @@ export function lootCard(loot: FieldLoot, context: LootCardContext): LootCard {
   ];
   const type = item?.grenade ? 'Grenade' : item?.supplyType === 'food' ? 'Food' : 'Medical';
   return { ...base, type, stats, action: 'Pick up',
-    detail: slot ? `To belt slot ${slot.key} · ${slot.label}` : 'To your belt',
+    detail: slot ? `${item?.effect?.reserve ? 'Automatic ammo reserve' : item?.grenade ? 'G · Combat wheel' : 'F · Recovery wheel'} · ${slot.label}` : 'To your belt',
     ...(item && slot && !room ? { blocked: `${slot.label} slot full` } : {}) };
 }

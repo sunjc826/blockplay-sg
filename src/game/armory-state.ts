@@ -21,6 +21,8 @@ export interface GunEquipment { variant: string; skin: string; attachments: Part
 export interface ArmoryProfile { carry: CarrySlots; version: 1; xp: number; vehicleSkins: Record<MotorVehicleKind, string>; credits: number; tokens: number; owned: string[]; rentalClock: 'playtime'; rentals: Record<string, number>; guns: GunEquipment[]; rig: string; plate: string; rewarded: string[]; exercises: number;
   /** Supplies held, by catalog id, and which one the quick-use key spends. */
   consumables: Record<string, number>; quickItem: string;
+  /** Owned supply types left in the locker, excluded from deployment and carried weight. */
+  stowedSupplies?: string[];
   /** Which set of rank titles and badges the profile wears. */
   rankSet: string;
   /** Whether the Encik's tone follows your rank, or stays the way he greets a recruit. */
@@ -28,7 +30,7 @@ export interface ArmoryProfile { carry: CarrySlots; version: 1; xp: number; vehi
   /** The head-mounted night-vision or thermal device worn, by catalog id. */
   vision: string }
 export const STORAGE_KEY = 'blockplay.armory.v1';
-export function createProfile(): ArmoryProfile { return { carry: { main: 0, extra: null }, version: 1, xp: 0, vehicleSkins: { car: 'paint-issued', helicopter: 'paint-issued' }, credits: 1600, tokens: 300, owned: [...issuedItems], rentalClock: 'playtime', rentals: {}, guns: DEFAULT_VARIANTS.map(variant => ({ variant, skin: 'skin-issued', attachments: {} })), rig: 'rig-ilbv', plate: 'plate-none', rewarded: [], exercises: 0, consumables: {}, quickItem: '', rankSet: DEFAULT_RANK_SET, encikTone: DEFAULT_ENCIK_TONE, vision: 'vision-none' }; }
+export function createProfile(): ArmoryProfile { return { carry: { main: 0, extra: null }, version: 1, xp: 0, vehicleSkins: { car: 'paint-issued', helicopter: 'paint-issued' }, credits: 1600, tokens: 300, owned: [...issuedItems], rentalClock: 'playtime', rentals: {}, guns: DEFAULT_VARIANTS.map(variant => ({ variant, skin: 'skin-issued', attachments: {} })), rig: 'rig-ilbv', plate: 'plate-none', rewarded: [], exercises: 0, consumables: {}, stowedSupplies: [], quickItem: '', rankSet: DEFAULT_RANK_SET, encikTone: DEFAULT_ENCIK_TONE, vision: 'vision-none' }; }
 const finiteBalance = (n: unknown, fallback: number) => typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(1000000, Math.floor(n))) : fallback;
 /** Trusted in-memory expedition equipment. Never use this to admit a save or LAN peer. */
 export function restoreFieldProfile(value: ArmoryProfile): ArmoryProfile {
@@ -76,6 +78,7 @@ export function restoreProfile(raw: string | null, now = Date.now()): ArmoryProf
       const count = typeof held === 'number' && Number.isFinite(held) ? Math.max(0, Math.min(consumableLimit(itemById(id)), Math.floor(held))) : 0;
       if (count) base.consumables[id] = count;
     }
+    base.stowedSupplies = Array.isArray(value.stowedSupplies) ? [...new Set<string>(value.stowedSupplies.filter((id: unknown) => typeof id === 'string' && itemById(id)?.category === 'consumable'))] : [];
     if (typeof value.quickItem === 'string' && itemById(value.quickItem)?.category === 'consumable') base.quickItem = value.quickItem;
     // A set registered by code that is no longer loaded falls back to the default.
     if (isRankSet(value.rankSet)) base.rankSet = value.rankSet;
@@ -190,10 +193,20 @@ export function selectCarryWeapon(profile: ArmoryProfile, slot: 'main' | 'extra'
   if (!isMainWeapon(family) || family === (slot === 'main' ? carry.extra : carry.main) || !hasItemAccess(profile, profile.guns[family]?.variant)) return profile;
   return { ...profile, carry: { ...carry, [slot]: family } };
 }
+/** Stock stays owned when a supply type is left in the locker. */
+export function isSupplyCarried(profile: ArmoryProfile, id: string) {
+  return (profile.consumables[id] ?? 0) > 0 && !(profile.stowedSupplies ?? []).includes(id);
+}
+export function setSupplyCarried(profile: ArmoryProfile, id: string, carried: boolean): ArmoryProfile {
+  if (itemById(id)?.category !== 'consumable' || !(profile.consumables[id] > 0)) return profile;
+  const stowed = new Set(profile.stowedSupplies ?? []);
+  if (carried) stowed.delete(id); else stowed.add(id);
+  return { ...profile, stowedSupplies: [...stowed] };
+}
 export function equip(profile: ArmoryProfile, id: string, family: number, vehicle: MotorVehicleKind = 'car'): ArmoryProfile {
   const item = itemById(id);
   // Supplies are held by count rather than owned, so they select on that instead.
-  if (item?.category === 'consumable') return profile.consumables[id] ? { ...profile, quickItem: id } : profile;
+  if (item?.category === 'consumable') return profile.consumables[id] ? { ...setSupplyCarried(profile, id, true), quickItem: id } : profile;
   if (!item || !hasItemAccess(profile, id) || !validWeaponIndex(family)) return profile;
   if (item.category === 'vehicleSkin') return { ...profile, vehicleSkins: { ...profile.vehicleSkins, [vehicle]: id } };
   if (item.category === 'rig' || item.category === 'plate' || item.category === 'vision') return { ...profile, [item.category]: id };
@@ -285,7 +298,7 @@ export interface ResolvedLoadout { vision?: WornVision;
   insert: InsertTraits; carriedFamilies: number[]; armorWeightKg: number; suppliesWeightKg: number; weapons: EquippedWeapon[]; armor: number; absorption: number; mobility: number; rigName: string; plateName: string; vehicleSkins: Record<MotorVehicleKind, string>;
   quickItem?: ShopItem; quickCount: number;
   /** Every supply carried in, by id: the utility belt's contents at the start. */
-  supplies: Record<string, number> }
+  supplies: Record<string, number>; stowedSupplies?: readonly string[] }
 export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
   profile = expireRentals(profile);
   const rig = itemById(profile.rig)!, plate = itemById(profile.plate)!;
@@ -303,8 +316,9 @@ export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
       traits: collectTraits(built.traits, ...fittings.map(part => part.traits)) };
     return applyFixedFittings(spec, fittings);
   });
-  const quickItem = itemById(profile.quickItem);
-  return { rigId: rig.id, plateId: plate.id, vision, weapons, carriedFamilies: carriedFamilies(profile), armorWeightKg: (rig.weightKg ?? 0) + (plate.weightKg ?? 0) + (visionItem?.weightKg ?? 0), suppliesWeightKg: beltWeightKg(profile.consumables, supplyWeightKg), supplies: heldSupplies(profile.consumables), vehicleSkins: { ...profile.vehicleSkins }, quickItem, quickCount: profile.consumables[profile.quickItem] || 0, armor: plate.protection || 0, absorption: plate.absorption || 0, insert: insertTraits(plate), mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };
+  const supplies = heldSupplies(Object.fromEntries(Object.entries(profile.consumables).filter(([id]) => isSupplyCarried(profile, id))));
+  const quickItem = supplies[profile.quickItem] ? itemById(profile.quickItem) : undefined;
+  return { rigId: rig.id, plateId: plate.id, vision, weapons, carriedFamilies: carriedFamilies(profile), armorWeightKg: (rig.weightKg ?? 0) + (plate.weightKg ?? 0) + (visionItem?.weightKg ?? 0), suppliesWeightKg: beltWeightKg(supplies, supplyWeightKg), supplies, stowedSupplies: [...(profile.stowedSupplies ?? [])], vehicleSkins: { ...profile.vehicleSkins }, quickItem, quickCount: supplies[profile.quickItem] || 0, armor: plate.protection || 0, absorption: plate.absorption || 0, insert: insertTraits(plate), mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };
 }
 /** Replaces elapsed rentals in a running session, preserving armour, supplies and carry slots. */
 export function expireLoadoutRentals(equipment: ResolvedLoadout): ResolvedLoadout {

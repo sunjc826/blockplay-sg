@@ -95,9 +95,9 @@ describe('the loot card', () => {
   });
   it('sends supplies to their belt slot, and says when the slot is full', () => {
     const bandage = loot('bandage', 0, 0);
-    expect(lootCard(bandage, context())).toMatchObject({ action: 'Pick up', detail: 'To belt slot 5 · Bandage', type: 'Medical' });
+    expect(lootCard(bandage, context())).toMatchObject({ action: 'Pick up', detail: 'F · Recovery wheel · Bandage', type: 'Medical' });
     expect(lootCard(bandage, context({ belt: { 'kit-bandage': CONSUMABLE_LIMIT } })).blocked).toBe('Bandage slot full');
-    expect(lootCard(loot('food', 0, 0, { catalogId: 'food-curry-puff', name: 'Curry puff' }), context()).detail).toBe('To belt slot 4 · Food');
+    expect(lootCard(loot('food', 0, 0, { catalogId: 'food-curry-puff', name: 'Curry puff' }), context()).detail).toBe('F · Recovery wheel · Food');
   });
   it('sends loose rounds to a carried gun of their calibre, and refuses the rest', () => {
     const rifle = loot('ammo', 0, 0, { kind: 'ammo', catalogId: undefined, name: '5.56 mm rounds', caliberMm: 5.56, amount: 60 });

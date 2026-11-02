@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ArmoryInventory from './ArmoryInventory';
 import { createProfile, equip, purchase, spendRentalTime } from '../game/armory-state';
 import type { ArmoryStore } from '../game/use-armory';
-const store = (profile: ReturnType<typeof createProfile>) => ({ profile, equipItem: vi.fn(), selectCarrySlot: vi.fn(), buy: vi.fn(), saveError: false, message: '' }) as unknown as ArmoryStore;
+const store = (profile: ReturnType<typeof createProfile>) => ({ profile, bringSupply: vi.fn(), equipItem: vi.fn(), selectCarrySlot: vi.fn(), buy: vi.fn(), saveError: false, message: '' }) as unknown as ArmoryStore;
 it('lists issued and rented weapons with play time, without showing locked shop stock', () => {
   const profile = equip(purchase({ ...createProfile(), xp: 50000 }, 'sar-vanguard').profile, 'sar-vanguard', 0);
   const html = renderToStaticMarkup(<ArmoryInventory store={store(profile)} nav={<span>Inventory</span>} />);

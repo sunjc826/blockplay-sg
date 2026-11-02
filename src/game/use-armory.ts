@@ -1,7 +1,7 @@
 import type { WeaponTerm } from './weapon-rentals';
 import type { RaiderBounty } from './combat-rewards';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { discardRental, spendRentalTime, expireRentals, selectCarryWeapon, chooseEncikTone, chooseRankSet, claimReward, claimElimination, consumeItem, createProfile, equip, purchase, purchaseFromVendor, purchaseLevel, restoreProfile, STORAGE_KEY, type ArmoryProfile, type ExerciseReward } from './armory-state';
+import { setSupplyCarried, discardRental, spendRentalTime, expireRentals, selectCarryWeapon, chooseEncikTone, chooseRankSet, claimReward, claimElimination, consumeItem, createProfile, equip, purchase, purchaseFromVendor, purchaseLevel, restoreProfile, STORAGE_KEY, type ArmoryProfile, type ExerciseReward } from './armory-state';
 import type { MotorVehicleKind } from './vehicle-rules';
 import { getRankSet } from './rank-insignia';
 import type { EncikTone } from './encik-registers';
@@ -51,6 +51,11 @@ export function useArmory() {
   const wearRankSet = useCallback((id: string) => { const next = chooseRankSet(current.current, id); if (next === current.current) return; update(next); setMessage(`Insignia set to ${getRankSet(id).name}.`); }, [update]);
   const setEncikTone = useCallback((tone: EncikTone) => { const next = chooseEncikTone(current.current, tone); if (next === current.current) return; update(next); setMessage(tone === 'recruit' ? 'Encik will treat you like a recruit, whatever your rank.' : 'Encik will follow your rank.'); }, [update]);
   const equipItem = useCallback((id: string, family: number, vehicle: MotorVehicleKind = 'car') => { const next = equip(current.current, id, family, vehicle); const changed = next !== current.current; update(next); setMessage(changed ? 'Equipped for your next exercise.' : 'Item must be owned or rented before equipping.'); return changed; }, [update]);
+  const bringSupply = useCallback((id: string, carried: boolean) => {
+    const next = setSupplyCarried(current.current, id, carried);
+    if (next === current.current) return false;
+    update(next); setMessage(carried ? 'Packed for your next deployment.' : 'Left in your locker. Stock is kept; it will not appear on your field wheels.'); return true;
+  }, [update]);
   const selectCarrySlot = useCallback((slot: 'main' | 'extra', family: number | null) => { const next = selectCarryWeapon(current.current, slot, family); const changed = next !== current.current; update(next); setMessage(changed ? 'Carry slots updated.' : 'That weapon cannot go in this slot.'); return changed; }, [update]);
   const award = useCallback((reward: ExerciseReward) => update(claimReward(current.current, reward)), [update]);
   const consume = useCallback((id: string) => update(consumeItem(current.current, id)), [update]);
@@ -61,6 +66,6 @@ export function useArmory() {
     if (!added) { setMessage('Demo credits are already at the 1,000,000 CR cap.'); return false; }
     update({ ...current.current, credits }); setMessage(`${added.toLocaleString()} demo credits added. No payment was made.`); return true;
   }, [update]);
-  return { profile, discardWeaponRental, advanceRentalTime, selectCarrySlot, buy, buyFromVendor, buyLevel, wearRankSet, setEncikTone, equipItem, award, awardElimination, consume, demoTopUp, demoCreditTopUp, message, saveError };
+  return { profile, bringSupply, discardWeaponRental, advanceRentalTime, selectCarrySlot, buy, buyFromVendor, buyLevel, wearRankSet, setEncikTone, equipItem, award, awardElimination, consume, demoTopUp, demoCreditTopUp, message, saveError };
 }
 export type ArmoryStore = ReturnType<typeof useArmory>;

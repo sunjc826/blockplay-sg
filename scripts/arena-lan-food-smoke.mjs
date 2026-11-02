@@ -57,7 +57,7 @@ try{
   await guest.click(button('Enter match'));await guest.wait(phase('playing'));
   await host.wait(`window.lastArenaSnapshot?.actors.length===2`);
   const bravo=`window.lastArenaSnapshot.actors.find(a=>a.name==='Bravo')`;
-  assert(await guest.evaluate(`document.querySelector('.fps-belt-slot[data-kind="food"]')?.hasAttribute('data-chosen')`),'the armory pin reaches the food slot');
+  assert(await guest.evaluate(`document.querySelector('.fps-quick-slot[data-group="recovery"]')?.dataset.item==='food-smoking-corner'`),'the armory pin reaches the food slot');
   // One shot from the host, so the guest has something to patch up.
   await guest.key('Escape','Escape');await guest.wait(phase('paused'));await guest.wait('!document.pointerLockElement');
   await host.key('Escape','Escape');await host.wait(phase('paused'));await host.wait('!document.pointerLockElement');
@@ -74,14 +74,22 @@ try{
   await guest.click(button('Resume match'));await guest.wait(phase('playing'));
   // A bandage: the host heals the guest, and shows them patching up meanwhile.
   await host.evaluate(`window.sawBravoBusy=false;window.busyWatch=setInterval(()=>{const a=window.lastArenaSnapshot?.actors.find(a=>a.name==='Bravo');if(a?.healing!==undefined)window.sawBravoBusy=true;},30)`);
-  await guest.key('5','Digit5');
+  const chooseRecovery = async id => {
+    await guest.send('Input.dispatchKeyEvent',{type:'keyDown',key:'f',code:'KeyF'});
+    await guest.wait(`!!document.querySelector('.fps-utility-picker[data-group="recovery"]')`);
+    await guest.evaluate(`(()=>{const options=[...document.querySelectorAll('.fps-utility-option')];const i=options.findIndex(e=>e.dataset.item===${JSON.stringify(id)});if(i<0)throw Error('Missing recovery item');const a=i/options.length*Math.PI*2;document.dispatchEvent(new MouseEvent('mousemove',{movementX:Math.sin(a)*110,movementY:-Math.cos(a)*110}));})()`);
+    await guest.send('Input.dispatchKeyEvent',{type:'keyUp',key:'f',code:'KeyF'});
+  };
+  await chooseRecovery('kit-bandage');
+  await guest.key('f','KeyF');
   await host.wait(`${bravo}.health>=${Math.min(100,hurt+25)-.5}`,8000);
   await guest.wait(`Number(${game}.dataset.health)>=${Math.min(100,hurt+25)-.5}`,4000);
   assert(await host.evaluate('window.sawBravoBusy'),'the host saw the guest patching up');
   console.log('PASS: a guest bandage heals on the host and the guest is seen patching up.');
   // The Mythic set, eaten at full health from the pinned slot.
   await guest.wait(`!document.querySelector('.fps-game canvas')?.dataset.supplyUse`,4000);
-  await guest.key('4','Digit4');
+  await chooseRecovery('food-smoking-corner');
+  await guest.key('f','KeyF');
   await host.wait(`Object.keys(${bravo}.food??{}).length===4`,12000);
   assert.deepEqual(await host.evaluate(`Object.keys(${bravo}.food).sort()`),['energised','steady','well-fed','wired']);
   await guest.wait(`document.querySelectorAll('.fps-food-effects li').length===4`,4000);
@@ -90,7 +98,7 @@ try{
   assert(remaining>200 && remaining<=240,`the guest's timer is the host's (${remaining}s)`);
   console.log('PASS: the host runs the guest\'s Mythic meal and the guest sees its four timers.');
   // Nothing more was brought, so nothing more is served.
-  await guest.key('4','Digit4');await delay(800);
+  await guest.key('f','KeyF');await delay(800);
   assert((await guest.evaluate(`document.querySelector('.fps-message')?.textContent??''`)).length>0);
   assert.equal(await host.evaluate(`${bravo}.food.energised.remaining<=240`),true);
   for(const p of pages)assert.deepEqual(p.errors,[],'No browser errors');

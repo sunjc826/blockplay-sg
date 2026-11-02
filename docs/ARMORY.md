@@ -616,26 +616,34 @@ arena host still resolves only the nearest surface.
 
 ## Supplies
 
-Supplies are the shop's repeatable purchase. They are held by count rather than
-unlocked once, so buying the same one again stacks it up to a carry limit of
-nine, and spending one debits the saved profile. Everything carried rides on a
-utility belt drawn above the ammo block, one slot per job (`utility-belt.ts`):
+Supplies are repeatable purchases, held by count and spent when used. In the
+Store or Inventory, **Bringing along · Unequip** leaves a supply type in the
+locker without removing owned stock. **In locker · Bring along** packs it again.
+Only packed supplies contribute field weight or enter the wheels. Existing
+saves default to bringing their supplies; repeat purchases respect the saved
+locker choice. Supplies deliberately picked up in the field are also carried.
 
-| Slot | Key | Holds |
+| Control | Tap | Hold |
 | --- | --- | --- |
-| Food | `4` | kaya toast, curry puff, chicken rice, bak kut teh, field ration, mala da la, Ah Ma's tingkat, smoking corner set (see below) |
-| Bandage | `5` | elastic bandage (25 health, 150 CR), field dressing (45 health, 300 CR) |
-| First aid | `6` | first aid kit (75 health, 560 CR), combat medic pack (full health and 60 armor, 90 TK) |
-| Plates | `7` | spare inserts (45 armor points, 380 CR) |
-| Ammo | `8` | ammunition pouch (two compatible magazines, 260 CR) |
+| `F` — Recovery | Use the selected food, dressing, medkit or plates | Choose a carried recovery item |
+| `G` — Combat | Ready the selected grenade or other throwable | Choose a carried combat item |
 
-A slot's key (or a tap on touch) uses it; `G` uses the last slot again, and the
-armory's quick slot only picks which slot `G` starts on. A slot with several
-items hands out the smallest heal that covers the wound, or the biggest when
-none does, and the line under the belt names it. Empty slots stay drawn, dimmed,
-and while health is low the slots that heal are marked green. The catalog's
-`medical` field ('dressing' or 'kit') files a medical item and chooses its hands:
-a kit is opened and worked through (4.4 s), a dressing wound on (2.7–3 s).
+Each wheel shows the store's item photographs with quantity badges. The hub
+shows the highlighted item's name, effects and use time. Point and release to
+select; selection never consumes an item. Both selections are independent. A
+depleted selection stays depleted until the player chooses another item; smoke
+never silently becomes a frag. Touch has the same quick buttons, hold gestures,
+and explicit **Choose** buttons. Each wheel contains individual carried items,
+without category submenus or Auto entries (`utility-wheel.ts`).
+
+A carried ammo pouch is an automatic reserve, outside both wheels. When `R`
+needs a spare and none remains, it spends one pouch to put up to two compatible
+magazines into empty rig pouches, then reloads normally. Pouches left in the
+locker are not available. Existing purchases retain their stock and price.
+
+The catalog's `medical` field ('dressing' or 'kit') still chooses the use
+animation: a kit is opened and worked through (4.4 s), a dressing wound on
+(2.7–3 s). Grenades still use fire to cook/release to throw and aim for a lob.
 
 ### Food effects
 
@@ -661,13 +669,9 @@ An effect already running is refreshed, never stacked: the stronger strength and
 the longer time win. The effects show as timed chips over the belt and end when
 the player goes down or the exercise resets.
 
-Tapping `4` eats from the food slot. Holding it opens the food picker over the
-crosshair: Auto first, then every food carried. Point with the mouse and let go
-of `4` to pin a food to the slot (on touch, the chooser under the belt opens it
-and a tap picks). Picking does not eat. Auto heals to need as the other healing
-slots do; a pinned food is handed out while any is held, can be eaten at full
-health, and the slot returns to Auto when the last one is gone. A food chosen as
-the armory's quick item starts as the pin.
+Hold `F` to choose a specific food, then tap `F` to eat it. A selected food
+with buffs can be eaten at full health. Eating the last one leaves that choice
+marked depleted; it never automatically chooses a different meal.
 
 In any arena (a shared LAN match, Solo vs bots, every expedition) the host owns
 supplies. At the commit point the engine sends the item's id (`useSupply`,
