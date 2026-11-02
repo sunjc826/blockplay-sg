@@ -2749,7 +2749,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const boats=vehicles.filter(v=>isDragonBoat(v.kind)&&!v.despawned&&v.health>VEHICLE_COMBAT[v.kind].health*.35&&vehicleSpeed(v)<1&&v.occupants.includes(null))
       .sort((a,b)=>distance(entry.actor,a)-distance(entry.actor,b));
     for(const v of boats){
-      const landing=vehicleExit(v,obstacles,bounds,exitFloor);if(!landing||Math.hypot(entry.actor.x-landing.x,entry.actor.z-landing.z)>BOAT_AI.boardRange)continue;
+      const landing=vehicleExit(v,obstacles,bounds,exitFloor);if(!landing||onMerlionIsland(entry.actor)!==onMerlionIsland(landing)||Math.hypot(entry.actor.x-landing.x,entry.actor.z-landing.z)>BOAT_AI.boardRange)continue;
       const driver=v.occupants[0]?members.get(v.occupants[0]):undefined,life=lifeOf(v);
       if(v.occupants.some(id=>id&&members.get(id)?.actor.faction!==entry.actor.faction)||life.unload)continue;
       if(driver&&!driver.actor.bot){

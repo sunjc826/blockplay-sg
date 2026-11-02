@@ -23,6 +23,16 @@ const bot=(a:ArenaSimulation,id:string)=>a.snapshot().actors.find(m=>m.id===id)!
 const advance=(a:ArenaSimulation,s:number)=>{for(let t=0;t<s-.001;t+=.05)a.step(.05);};
 
 describe('host-owned dragon boat crews',()=>{
+  it('keeps island infantry at the Merlion instead of reserving an unreachable mainland boat',()=>{
+    const {world,arena:a}=setup(true,1,{x:0,z:-8.5});
+    try{
+      a.addPlayer('p','Island target',0,0,undefined,undefined,true);a.setInput('p',{...bot(a,'p'),playing:true});
+      for(let n=0;n<80;n++)a.step(.05);
+      expect(a.boatStatus()).toEqual([]);
+      expect(a.snapshot().merlion?.operator).toBe('bot-1');
+      expect(red(a).occupants).toEqual([null,null,null,null]);
+    }finally{world.dispose();}
+  });
   it.each([true,false])('boards existing infantry, lands a squad and returns the pilot to shore (openWorld=%s)',(openWorld)=>{
     const {world,arena:a,env}=setup(openWorld);let boarded=false,landed=false,returned=false;
     try{
