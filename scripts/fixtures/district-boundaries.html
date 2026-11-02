@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>District edge review</title><style>html,body{margin:0;overflow:hidden}canvas{display:block}</style></head><body><script type="module">
+import * as THREE from 'three';
+import {getRegion} from '/src/game/regions.ts';
+import {RAIL_ROUTES,railTimetable} from '/src/game/rail-routes.ts';
+import {boundaryFrame,BOUNDARY_PROFILES} from '/src/game/district-boundaries.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(1);renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,1800);let world;
+window.show=(id,side='east',elevated=false,before=false,sample)=>{
+ world?.dispose();const region=getRegion(id);world=region.build();world.animate(8);const frame=boundaryFrame(region.bounds,side),middle=sample??(frame.min+frame.max)/2;
+ const x=frame.axis==='x'?frame.fixed:middle,z=frame.axis==='z'?frame.fixed:middle,ground=region.bounds.groundHeight?.(x,z)??0;
+ camera.position.set(x-(frame.axis==='x'?frame.direction*(elevated?80:55):0),ground+(elevated?100:1.75),z-(frame.axis==='z'?frame.direction*(elevated?80:55):0));
+ camera.lookAt(x+(frame.axis==='x'?frame.direction*90:0),ground+(elevated?18:1.75),z+(frame.axis==='z'?frame.direction*90:0));
+ const boundary=world.scene.getObjectByName('district-boundaries');boundary.visible=!before;renderer.render(world.scene,camera);
+ return {style:BOUNDARY_PROFILES[id].style,open:BOUNDARY_PROFILES[id].open??[],calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,segments:boundary.userData.segments.length};
+};
+window.showRail=(id)=>{
+ world?.dispose();world=getRegion(id).build();const route=RAIL_ROUTES[id],{legs}=railTimetable(route),stop=legs.find(leg=>leg.stop===(id==='woodlands'||id==='punggol'?Math.min(...route.stops):Math.max(...route.stops)));world.animate(stop.arrive+3);
+ const x=route.axis==='x'?stop.stop:route.cross,z=route.axis==='z'?stop.stop:route.cross,y=route.railY;
+ camera.position.set(x+(route.axis==='x'?45:65),y+22,z+(route.axis==='x'?65:45));camera.lookAt(x,y+2,z);renderer.render(world.scene,camera);
+ return {calls:renderer.info.render.calls,triangles:renderer.info.render.triangles};
+};window.ready=true;
+</script></body></html>

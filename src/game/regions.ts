@@ -7,6 +7,7 @@ import { KATONG_JOO_CHIAT_STAMPS } from '../data/region-stamps';
 import { buildPulauUbinScene, PULAU_UBIN_BOUNDS, PULAU_UBIN_MAP_ROADS, PULAU_UBIN_SPAWN } from './pulau-ubin-scene';
 import { PULAU_UBIN_STAMPS } from '../data/region-stamps';
 import { withSetPieces, type SetPieceCue } from './district-set-pieces';
+import { withDistrictBoundaries } from './district-boundaries';
 import { withGroundCover } from './ground-cover';
 import { withSurfaceOwnership } from './surface-ownership';
 import type * as THREE from 'three';
@@ -523,7 +524,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
 // Every district is built with its set pieces, whatever mode builds it.
 for (const id of REGION_IDS) {
   const { build, bounds } = definitions[id];
-  definitions[id] = { ...definitions[id], build: () => withSetPieces(id, withSurfaceOwnership(withGroundCover(build(), bounds))) };
+  definitions[id] = { ...definitions[id], build: () => withDistrictBoundaries(id, withSetPieces(id, withSurfaceOwnership(withGroundCover(build(), bounds))), bounds) };
 }
 
 export const REGIONS: readonly RegionDefinition[] = REGION_IDS.map(id => definitions[id]);

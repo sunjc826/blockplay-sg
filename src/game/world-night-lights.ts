@@ -183,8 +183,8 @@ const uprightAxis = new THREE.Vector3();
 export function upright(matrix: THREE.Matrix4) {
   return [0, 1, 2].some(column => Math.abs(uprightAxis.setFromMatrixColumn(matrix, column).normalize().y) > .995);
 }
-/** Groups whose contents are terrain or decks, never facades. */
-const NO_WINDOWS = new Set(['Connected elevated places', 'Walkable elevated routes']);
+/** Groups whose contents are terrain, decks or windowless boundary scenery. */
+const NO_WINDOWS = new Set(['Connected elevated places', 'Walkable elevated routes', 'district-boundaries']);
 
 /**
  * Adds colour, and covers the sky behind it by its own brightness: the world
