@@ -1,3 +1,4 @@
+import { validMerlionState, validMerlionAction, type MerlionAction } from './merlion-gameplay';
 import { SWIMMING } from './swimming';
 import { isDragonBoat, MARINA_WATER } from './marina-water';
 import { isVehicleKind, VEHICLE_KINDS } from './vehicle-rules';
@@ -60,6 +61,7 @@ export function validArenaInput(value: unknown): value is ArenaInput {
   return object(value) && ['x', 'y', 'z', 'yaw', 'pitch'].every(key => finite(value[key])) &&
     validWeaponIndex(value.weapon) && typeof value.playing === 'boolean' &&
     (value.reloading === undefined || typeof value.reloading === 'boolean') &&
+    (value.waterFire === undefined || typeof value.waterFire==='boolean') &&
     (value.prone === undefined || typeof value.prone === 'boolean') &&
     (value.supply === undefined || finite(value.supply) && value.supply >= 0 && value.supply <= 1) &&
     (value.vehicleControls === undefined || validVehicleControls(value.vehicleControls));
@@ -67,6 +69,7 @@ export function validArenaInput(value: unknown): value is ArenaInput {
 export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironment): value is ArenaSnapshot {
   if (object(value) && value.reinforcementClocks !== undefined && !validReinforcementClocks(value.reinforcementClocks)) return false;
   if (object(value) && value.proxies !== undefined && (!environment?.proxies || !validProxySnapshot(value.proxies))) return false;
+  if (object(value) && value.merlion !== undefined && !validMerlionState(value.merlion)) return false;
   if (object(value) && value.facilities !== undefined && !validFacilitySnapshot(value.facilities)) return false;
   if (!object(value) || value.type !== 'arena-snapshot' || !finite(value.tick) || value.tick < 0 || !finite(value.elapsed) || value.elapsed < 0 || value.elapsed > (environment?.endless ? 1e9 : 181) ||
     typeof value.finished !== 'boolean' || typeof value.winner !== 'string' || value.winner.length > 80 || !Array.isArray(value.actors) || value.actors.length > MAX_ARENA_ACTORS || !Array.isArray(value.feed) || value.feed.length > 8) return false;
@@ -85,6 +88,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.aircrew !== undefined && (!validAircrewRole(actor.aircrew) || typeof actor.transport !== 'string' || !actor.bot)) ||
       (actor.transport !== undefined && (typeof actor.transport !== 'string' || actor.transport.length > 100)) ||
       (actor.parachuting !== undefined && (actor.parachuting !== true || !actor.bot || !actor.alive || actor.transport !== undefined || actor.vehicle !== undefined)) ||
+      (actor.merlionSupply!==undefined && !(object(actor.merlionSupply)&&Number.isInteger(actor.merlionSupply.serial)&&(actor.merlionSupply.serial as number)>0&&(actor.merlionSupply.serial as number)<1e7&&validWeaponIndex(actor.merlionSupply.family))) ||
       (actor.swimming !== undefined && (actor.swimming!==true || actor.vehicle!==undefined || actor.transport!==undefined || actor.prone===true || (actor.y as number)>SWIMMING.eyeHeight+.01)) ||
       (actor.prone !== undefined && typeof actor.prone !== 'boolean') || (actor.aiming !== undefined && actor.aiming !== true) || (actor.scent !== undefined && actor.scent !== true) ||
       (actor.bailoutAt !== undefined && !(finite(actor.bailoutAt) && actor.bailoutAt >= 0 && actor.bailoutAt <= value.elapsed && actor.alive && !actor.vehicle)) ||
@@ -487,6 +491,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         if (accepted) publish();
       }
       else if (registered.has(from) && started && payload.type === 'arena-supply' && typeof payload.item === 'string' && payload.item.length <= 64) { if (simulation.useSupply(from, payload.item)) publish(); }
+      else if (registered.has(from) && started && payload.type === 'merlion-action' && validMerlionAction(payload.action)) { if(simulation.merlionAction(from,payload.action))publish(); }
       else if (registered.has(from) && started && payload.type === 'facility-action' && typeof payload.site === 'string' && payload.site.length <= 100) { if (simulation.facilityAction(from, payload.site)) publish(); }
       else if (registered.has(from) && started && payload.type === 'arena-callout' && getPlayerCallout(payload.callout) && (payload.at === undefined || point(payload.at))) {
         if (simulation.callout(from, payload.callout as string, payload.at as ArenaPoint | undefined)) publish();
@@ -681,6 +686,11 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (disposed || !started || !localAdopted || session.role !== 'solo' || !simulation) return false;
     const accepted=simulation.proxyAction(session.id,action); publish(); return accepted;
   }
+  function merlionAction(action: MerlionAction) {
+    if(disposed||!started||!localAdopted||!validMerlionAction(action))return;
+    if(simulation){simulation.merlionAction(session.id,action);publish();}
+    else session.send({type:'merlion-action',action});
+  }
   function facilityAction(site: string) {
     if (disposed || !started || !localAdopted || typeof site !== 'string' || site.length > 100) return;
     if (simulation) { simulation.facilityAction(session.id, site); publish(); }
@@ -804,6 +814,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       if (accepted) refresh(); // Adopt seats before the renderer restores held crossing controls.
       return accepted;
     },
-    triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getRespawn: () => simulation?.playerRespawn(session.id) ?? null, selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
+    merlionAction, triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getRespawn: () => simulation?.playerRespawn(session.id) ?? null, selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { merlion: s.merlion, facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

@@ -295,3 +295,46 @@ Carvings are merged by material, keeping the whole sculpture to seven meshes
 and fewer than 30,000 triangles. `pnpm test:merlion` captures front, side, rear,
 three-quarter, islet and swimmer views with the same local ports as the swimming
 fixture; output is in `.cache/merlion/`.
+
+
+## Merlion pressure station
+
+In Marina combat sessions the central Merlion is a shared suppression station.
+Approach the brass wheel on the south side of its plinth and press **E** to
+operate it. Mouse or touch look rotates the statue (maximum 1.6 radians/second);
+hold **Fire** for the aimed water cannon, **Q** for a mist burst, and **E** to
+leave. Touch controls also provide mist and exit buttons. The operator's body
+stays exposed at the wheel; the camera looks from above the mouth. The statue's
+existing central movement-cover envelope stays fixed while its sculpture turns.
+
+The cannon reaches up to 65m, stops at rendered scenery, vehicle/transport hulls
+and the bay surface, and affects actors intersecting its roughly 1.9m-wide jet.
+A direct hit produces an almost opaque water-sheet overlay on players and blocks
+bot sight/target acquisition while contact continues. Both recover within 0.24s
+of leaving the stream. It deals no health damage and can obscure allies. It has
+seven seconds of full-pressure firing, replenishes over 18 seconds while idle,
+and needs three seconds of pump recovery after exhaustion. Released, dead,
+disconnected or paused operators cannot leave a permanently firing cannon.
+
+Mist consumes 40% of the same pressure reserve, lasts 4.5 seconds in a 10m radius,
+and has a shared 22-second cooldown. The visible cloud and screen haze obscure
+both factions, including its operator; authority sight checks account for rays
+passing through the cloud. Mist does not block bullets.
+
+The marked cache beside the east side of the plinth has **three shared packs**.
+Each pickup applies a 25-health field dressing and adds one current-weapon spare
+magazine if a rig pouch is free. It cannot exceed maximum health or rig capacity.
+There is an eight-second pickup interval per actor; one pack replenishes every
+45 active simulation seconds. Spent stock, recharge and cooldowns persist across
+expedition district travel. A new arena match resets the station.
+
+Bots already on the island can navigate to the wheel, claim it when free, rotate
+and fire at visible enemies, use mist against nearby threats, and release a post
+with no target. This does not grant infantry new water routes or boat-piloting
+capability. Host authority owns occupancy, aiming rate, pressure, supplies and
+water contact in solo and shared combat sessions; clients submit intent only.
+
+Verification: `pnpm test:merlion:gameplay` uses Vite5219/Chrome9379 and the real FPS
+engine for desktop/touch operation, mist, finite supplies and a bot-operated
+cannon blinding/releasing the player. Unit and arena tests cover cover clipping,
+stock/cooldown bounds, timed recovery, bot aiming and network validation.

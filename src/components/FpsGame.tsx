@@ -1,3 +1,4 @@
+import MerlionHud from './MerlionHud';
 import { physicalWeaponFamilies, primaryWeaponFamily } from '../game/weapon-modes';
 import RespawnLoadoutSelector from './RespawnLoadoutSelector';
 import { applyRespawnLoadout, type RespawnLoadoutSelection } from '../game/respawn-loadout';
@@ -114,6 +115,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
   const chooseDrill = (next: boolean) => { if (combat !== next) { startingLevel.current = rank.level; setCombat(next); } };
   const isArena = !!arenaOptions, guest = arenaOptions?.session.role === 'guest';
   const mounted = hud.vehicle !== 'on-foot';
+  const merlionOperating=!!hud.arenaSelf?.alive&&hud.arena?.merlion?.operator===hud.arenaSelf?.id;
   const playing = hud.phase === 'playing', weapon = equipment.weapons[hud.weapon];
   const physicalCrossing = !isArena && !!scene.checkpoint?.continuation;
   const canFight = playing && (!isArena || (hud.arenaSelf?.alive === true && hud.arenaConnected));
@@ -155,6 +157,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
         <FpsVisionChip hud={hud} touch={touch} />
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}
         <FpsShield hud={hud} />
+        <MerlionHud hud={hud} engine={engine.current} />
         {hud.cloudCover && <div className={`fps-cloud-overlay ${hud.cloudCover.kind}`} style={{ opacity: cloudOpacity(hud.cloudCover.amount, hud.vision?.on === true && hud.vision.kind === 'thermal') }} aria-hidden="true" />}
         {hud.incoming && <div className="fps-incoming">INCOMING · MOVE OR TAKE COVER</div>}
         {hud.combatBanner && <div className={`fps-combat-banner ${hud.combatBanner.tone}`} role="status">{hud.combatBanner.text}</div>}
@@ -163,8 +166,8 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
         <div className="fps-compass">SG <span>· · ·</span> {district.setting.toUpperCase()} <span>· · ·</span> 01</div>
         {hud.swimming && <div className="fps-swim-status" role="status">SWIMMING · {hud.swimCanFire ? 'SIDEARM HIP FIRE · LOW ACCURACY' : 'STOP TO USE SIDEARM'} · CLIMB OUT AT GOLD LADDERS</div>}
         {mounted && hud.vehicleCanFire && hud.vehicleAimVisible && <div className="fps-vehicle-reticle" aria-label="Vehicle gun impact point" style={{ left: `${hud.vehicleAimX}%`, top: `${hud.vehicleAimY}%` }}>⊕</div>}
-        {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />}
-        {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} onPickFood={() => engine.current?.toggleFoodPicker()} onPickGrenade={() => engine.current?.toggleGrenadePicker()} onGrenadeFire={held => engine.current?.setInput('fire', held)} onInspect={() => engine.current?.inspectWeapon()} onToggleMode={() => engine.current?.toggleWeaponMode()} touch={touch} />}
+        {!merlionOperating && (!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />}
+        {!merlionOperating && (!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} onPickFood={() => engine.current?.toggleFoodPicker()} onPickGrenade={() => engine.current?.toggleGrenadePicker()} onGrenadeFire={held => engine.current?.setInput('fire', held)} onInspect={() => engine.current?.inspectWeapon()} onToggleMode={() => engine.current?.toggleWeaponMode()} touch={touch} />}
         <div className={`fps-objective${mounted ? ' fps-hud-hint' : ''}`}>{mounted && hud.vehicleSeat !== 0 ? hud.vehicle === 'car' ? 'V switch seat · E bail out · Speed risks injury' : 'Ride together · V switch seat · E exit when landed' : isArena && !mounted ? `FREE FOR ALL · First to ${ARENA_KILL_LIMIT} eliminations` : mounted ? hud.vehicle === 'car' ? 'W / S throttle · A / D steer · Space brake' : 'W / S cruise · A / D yaw · Space climb · Ctrl descend' : rangeObjective}<small>{hud.locked ? isArena ? 'ESC opens menu · Match keeps running' : 'ESC pauses and releases the mouse' : touch ? 'Left stick moves · Drag the scene to look · Hold FIRE and slide to aim' : 'Drag to look · On-screen controls available'}</small></div>
         {!isArena && <div className="fps-vehicle-locator">CAR {Math.round(hud.carDistance)}m <span>·</span> HELI {Math.round(hud.helicopterDistance)}m</div>}
         {hud.rangeSupplyPrompt && <div className="fps-interact-prompt">{showHints ? hud.rangeSupplyPrompt : 'Resupply ammo, grenades & utilities'}</div>}

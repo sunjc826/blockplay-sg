@@ -43,6 +43,7 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
   const alive = mode !== 'arena' || hud.arenaSelf?.alive !== false;
   const playing = (hud.phase === 'playing' || crossing) && alive;
   const mounted = hud.vehicle !== 'on-foot';
+  const merlion=!!hud.arenaSelf?.alive&&hud.arena?.merlion?.operator===hud.arenaSelf?.id;
   const flying = hud.vehicle === 'helicopter';
   const aimPressed = hud.grenadeHeld ? hud.grenadeHeld.under : hud.aiming;
 
@@ -92,7 +93,10 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
   // that comes or goes never moves its neighbours under the thumb.
   const pad: Action[] = [];
   const prompts: Action[] = [];
-  if (mounted) {
+  if(merlion){
+    pad.push(act('aim','Mist burst',<Crosshair size={17}/>,{onClick:()=>engine?.merlionAction('mist'),disabled:!!hud.arena?.merlion?.cooldown || (hud.arena?.merlion?.pressure??0)<.4}));
+    prompts.push(act('vehicle','Leave Merlion',<Footprints size={16}/>,{onClick:()=>engine?.merlionAction('leave')}));
+  } else if (mounted) {
     pad.push(act('seat', 'Switch seat', <Repeat2 size={17} />, { onClick: () => engine?.switchVehicleSeat(), 'data-pad-slot': 'corner-left' }));
     pad.push(act('view', 'Switch vehicle view', <Eye size={17} />, { onClick: () => engine?.toggleVehicleView(), 'data-pad-slot': 'edge-top' }));
     if (hud.vehicleSeat !== 0 && (hud.vehiclePersonalWeapon || hud.vehicleCanFire)) pad.push(act('aim', 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': hud.aiming }));
@@ -134,7 +138,7 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
     <button type="button" className="touch-chip" data-touch-action="menu" aria-label={mode === 'range' ? 'Pause' : 'Menu'} title={mode === 'range' ? 'Pause' : 'Menu'} {...tapProps(onMenu)}><Menu size={16} /></button>
     <CalloutChip hud={hud} engine={engine} />
     <div className="touch-move">
-      <TouchStick kind="move" label={mounted ? hud.vehicleSeat === 0 ? hud.vehicle.startsWith('dragon-boat') ? 'PADDLE' : 'DRIVE' : 'RIDING' : hud.swimming ? 'SWIM' : 'MOVE'} onChange={mounted && hud.vehicleSeat !== 0 ? () => {} : move} />
+      <TouchStick kind="move" label={merlion ? 'STATION' : mounted ? hud.vehicleSeat === 0 ? hud.vehicle.startsWith('dragon-boat') ? 'PADDLE' : 'DRIVE' : 'RIDING' : hud.swimming ? 'SWIM' : 'MOVE'} onChange={merlion || mounted && hud.vehicleSeat !== 0 ? () => {} : move} />
     </div>
 
     {prompts.length > 0 && <div className="touch-prompts">

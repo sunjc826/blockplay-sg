@@ -1,3 +1,4 @@
+import MerlionHud from './MerlionHud';
 import { createProxyCampaign } from '../game/proxy-operations';
 import ProxyOperationHud from './ProxyOperationHud';
 import RespawnLoadoutSelector from './RespawnLoadoutSelector';
@@ -64,7 +65,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
   const autoRespawn = useRef(false);
   const [proxyCampaign] = useState(createProxyCampaign);
   const [loot] = useState(() => createExpeditionLoot(`${Date.now()}-${Math.random()}`));
-  const [infrastructure] = useState(() => new Map<WorldZoneId, Pick<ArenaSnapshot, 'facilities' | 'vehicles' | 'reinforcementClocks'>>());
+  const [infrastructure] = useState(() => new Map<WorldZoneId, Pick<ArenaSnapshot, 'facilities' | 'vehicles' | 'reinforcementClocks' | 'merlion'>>());
   const [scene, setScene] = useState<ExpeditionScene>(() => ({ zone: initialZone, revision: 0 }));
   const zoneChanged = useRef(onZoneChange); zoneChanged.current = onZoneChange;
   useEffect(() => { zoneChanged.current?.(scene.zone); }, [scene.zone]);
@@ -111,6 +112,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
 
   const zone = getWorldZone(scene.zone), equipment = resolveLoadout(fieldProfile);
   const mounted = hud.vehicle !== 'on-foot';
+  const merlionOperating=!!hud.arenaSelf?.alive&&hud.arena?.merlion?.operator===hud.arenaSelf?.id;
   const planning = hud.deployment?.canChoose === true;
   const deploying = hud.phase === 'deploying';
   const playing = hud.phase === 'playing', alive = hud.arenaSelf?.alive !== false, canFight = playing && alive;
@@ -174,6 +176,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         <FpsVisionChip hud={hud} touch={touch} />
         {hud.hurt && <div className="fps-damage-overlay" aria-hidden="true" />}
         <FpsShield hud={hud} />
+        <MerlionHud hud={hud} engine={engine.current} />
         {hud.cloudCover && <div className={`fps-cloud-overlay ${hud.cloudCover.kind}`} style={{ opacity: cloudOpacity(hud.cloudCover.amount, hud.vision?.on === true && hud.vision.kind === 'thermal') }} aria-hidden="true" />}
         {hud.incoming && <div className="fps-incoming">INCOMING · FIND COVER</div>}
         {hud.combatBanner && <div className={`fps-combat-banner ${hud.combatBanner.tone}`} role="status">{hud.combatBanner.text}</div>}
@@ -182,8 +185,8 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         {!alive && hud.respawn && <ExpeditionRespawn view={hud.respawn} seconds={hud.arenaSelf?.respawnIn ?? 0}
           onLoadout={openLoadout} onMenu={() => engine.current?.pause()} onChoose={id => engine.current?.chooseRespawn(id)}
           onAutomatic={checked => { autoRespawn.current = checked; engine.current?.setAutoRespawn(checked); }} />}
-        {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />}
-        {(!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} onPickFood={() => engine.current?.toggleFoodPicker()} onPickGrenade={() => engine.current?.toggleGrenadePicker()} onGrenadeFire={held => engine.current?.setInput('fire', held)} onInspect={() => engine.current?.inspectWeapon()} touch={touch} />}
+        {!merlionOperating && (!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />}
+        {!merlionOperating && (!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useUtility(kind)} onPickFood={() => engine.current?.toggleFoodPicker()} onPickGrenade={() => engine.current?.toggleGrenadePicker()} onGrenadeFire={held => engine.current?.setInput('fire', held)} onInspect={() => engine.current?.inspectWeapon()} touch={touch} />}
         <FpsVehicleHud hud={hud} />
         <FpsFacilityHud hud={hud} engine={engine.current} touch={touch} />
         {hud.interact && <div className="fps-interact-prompt">{showHints ? hud.interact : hud.interact.replace(/^E · /, '')}</div>}

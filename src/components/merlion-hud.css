@@ -1,0 +1,11 @@
+.merlion-hud{position:absolute;left:50%;bottom:145px;transform:translateX(-50%);display:grid;gap:7px;max-width:340px;width:calc(100% - 32px);padding:12px 16px;border:1px solid #9edbe0;border-radius:9px;background:#092b35eb;color:#e5fbff;font-size:12px;z-index:8;pointer-events:auto;box-shadow:0 4px 22px #001b2660}
+.merlion-hud strong{letter-spacing:.12em;color:#e9cc85}.merlion-hud button{padding:8px;border:1px solid #8ac2cb;border-radius:5px;background:#174752;color:#f2fdff}.merlion-hud button:disabled{opacity:.5}.merlion-hud meter{width:100%;height:15px;accent-color:#70d5e4}
+.merlion-water-screen{position:absolute;inset:0;z-index:5;pointer-events:none;overflow:hidden;background:radial-gradient(ellipse at 45% 45%,#e6fcfff5 0%,#d6f7fff0 30%,#b4e8f5dc 70%,#7cc3e4de);backdrop-filter:blur(15px) saturate(.45)}
+.merlion-water-screen.mist{background:#c6f0f380;backdrop-filter:blur(5px) saturate(.65)}
+.merlion-water-sheets{position:absolute;inset:-20%;background:repeating-linear-gradient(100deg,transparent 0 8%,#ffffff80 9%,#b1e4f5a0 11%,transparent 13% 18%);filter:blur(8px);animation:merlion-sheet .65s linear infinite}
+.merlion-water-screen i{position:absolute;width:3vw;height:15vh;border-radius:40% 55% 60% 35%;background:linear-gradient(#f2ffffba,#a5d8e670);border-left:2px solid #ffffffb0;filter:blur(1px);animation:merlion-drop 1.2s linear infinite}
+@keyframes merlion-sheet{to{transform:translate(5%,10%)}}@keyframes merlion-drop{from{transform:translateY(-50vh)}to{transform:translateY(60vh)}}
+@media(prefers-reduced-motion:reduce){.merlion-water-sheets,.merlion-water-screen i{animation:none}}
+@media(pointer:coarse){.merlion-hud{bottom:auto;top:90px;width:260px;left:16px;transform:none;font-size:11px;padding:9px}.merlion-hud button{padding:7px}}
+
+.merlion-reticle{position:absolute;left:50%;top:50%;width:12px;height:12px;transform:translate(-50%,-50%);border:1px solid #d2fcff;border-radius:50%;box-shadow:0 0 3px #092b35;pointer-events:none;z-index:3}.merlion-reticle:after{content:"";position:absolute;left:4px;top:4px;width:2px;height:2px;background:#fff;border-radius:50%}

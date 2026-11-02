@@ -1,6 +1,6 @@
 /** Short lived grenade conditions. Refreshes keep the strongest and longest. */
 export const GRENADE_CONDITIONS = {
-  dazed: 'Dazed', deafened: 'Deafened', retching: 'Retching', 'streaming-eyes': 'Streaming eyes', 'at-attention': 'At attention',
+  'water-eyes': 'Water in eyes', dazed: 'Dazed', deafened: 'Deafened', retching: 'Retching', 'streaming-eyes': 'Streaming eyes', 'at-attention': 'At attention',
 } as const;
 export type GrenadeConditionKind = keyof typeof GRENADE_CONDITIONS;
 export interface GrenadeCondition { kind: GrenadeConditionKind; strength: number; seconds: number }
@@ -21,9 +21,9 @@ export function advanceGrenadeConditions(active: ActiveGrenadeConditions, dt: nu
   }
 }
 export const arenaConditionModifiers = (active: ActiveGrenadeConditions = {}) => ({
-  aim: active.dazed || active['at-attention'] ? 0 : 1 / (1 + (active['streaming-eyes']?.strength ?? 0)),
+  aim: active.dazed || (active['water-eyes']?.strength??0)>.8 || active['at-attention'] ? 0 : 1 / (1 + (active['streaming-eyes']?.strength ?? 0)),
   recoil: 1 + (active['streaming-eyes']?.strength ?? 0), reload: 1 / (1 + (active.retching?.strength ?? 0)),
-  frozen: !!active['at-attention'], deafened: !!active.deafened, dazed: !!active.dazed,
+  frozen: !!active['at-attention'], deafened: !!active.deafened, dazed: !!active.dazed || (active['water-eyes']?.strength??0)>.8,
 });
 export const grenadeConditionViews = (active: ActiveGrenadeConditions) => (Object.keys(GRENADE_CONDITIONS) as GrenadeConditionKind[]).flatMap(kind => {
   const effect = active[kind]; return effect ? [{ kind, label: GRENADE_CONDITIONS[kind], remaining: Math.ceil(effect.remaining), share: Math.min(1, effect.remaining / effect.seconds) }] : [];
@@ -31,6 +31,6 @@ export const grenadeConditionViews = (active: ActiveGrenadeConditions) => (Objec
 export type GrenadeConditionView = ReturnType<typeof grenadeConditionViews>[number];
 export function validGrenadeConditions(value: unknown): value is ActiveGrenadeConditions {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  return Object.entries(value).length <= 5 && Object.entries(value).every(([kind, e]) => Object.prototype.hasOwnProperty.call(GRENADE_CONDITIONS, kind) && e && typeof e === 'object' &&
+  return Object.entries(value).length <= 6 && Object.entries(value).every(([kind, e]) => Object.prototype.hasOwnProperty.call(GRENADE_CONDITIONS, kind) && e && typeof e === 'object' &&
     [e.strength, e.remaining, e.seconds].every(n => typeof n === 'number' && Number.isFinite(n) && n > 0) && e.strength <= 1 && e.remaining <= e.seconds && e.seconds <= 10);
 }

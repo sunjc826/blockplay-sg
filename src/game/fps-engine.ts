@@ -1,3 +1,5 @@
+import { createMerlionVisuals } from './merlion-visuals';
+import { nearMerlion, merlionMouth, merlionDirection, MERLION, type MerlionAction } from './merlion-gameplay';
 import { createSwimmingMovement, SWIMMING, swimmingCanFire } from './swimming';
 import { isDragonBoat, DRAGON_BOAT_SPAWNS, MARINA_SWIM_EXITS } from './marina-water';
 import { VEHICLE_KINDS, vehicleName, type VehicleSpawns } from './vehicle-rules';
@@ -196,7 +198,7 @@ export interface FpsExpeditionOptions {
   autoRespawn?: boolean;
   /** Chosen before expedition entry; survives district travel and field pickups. */
   startingProfile?: ArmoryProfile;
-  infrastructure?: Map<WorldZoneId, Pick<ArenaSnapshot, 'facilities' | 'vehicles' | 'reinforcementClocks'>>;
+  infrastructure?: Map<WorldZoneId, Pick<ArenaSnapshot, 'facilities' | 'vehicles' | 'reinforcementClocks' | 'merlion'>>;
   zone: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: FpsCheckpoint; profile: ArmoryProfile; loot: ExpeditionLoot;
   onTravel: (transition: WorldTransition, checkpoint: FpsCheckpoint) => void; onEquipment: (profile: ArmoryProfile) => void;
   onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult;
@@ -367,6 +369,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     options.arena.environment.departedCrew = checkpoint?.vehicleDepartures?.[region]?.crew;
     options.arena.environment.departedVehicles = checkpoint?.vehicleDepartures?.[region]?.kinds;
     options.arena.environment.savedReinforcementClocks = saved?.reinforcementClocks;
+    options.arena.environment.savedMerlion = saved?.merlion;
     options.arena.environment.facilities = { sites: facilitySites, saved: saved?.facilities, savedVehicles: saved?.vehicles };
     world.obstacles.push(...facilitySites.flatMap(facilityObstacles));
     world.scene.userData.traversalObstacles=[...getTraversalObstacles(world.scene),...facilitySites.flatMap(facilityCeilings)];
@@ -441,6 +444,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const playerBody = createFpsBody(world.scene);
   // Hands and the supply in them; `apply` lands its effect at the commit point and says whether it could.
   const supplyHands = createSupplyViewmodel(viewScene);
+  const merlionVisuals = createMerlionVisuals(world.scene);
   const grenadeHands = createGrenadeViewmodel(viewScene);
   let supplyUse: (SupplyUse & { name: string; id: string; fromBelt: boolean; apply: () => boolean }) | null = null;
   let supplyGate = armReloadGate(false, false);
@@ -960,6 +964,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.focus({ preventScroll: true }); publish();
   }
   function reload() {
+    if(merlionOperating())return;
     if (grenadeHeld || arenaConditionModifiers(conditions).frozen) return;
     stopInspect();
     if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
@@ -1271,6 +1276,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     travel.onTravel(transition, checkpoint);
   }
   function jump() {
+    if(merlionOperating())return;
     if (hud.mapExpanded || swimming()) return;
     if (arenaConditionModifiers(conditions).frozen) return; if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && stance() === 'stand') bufferJump(bodyMotion); } }
   function setInput(key: string, held: boolean) {
@@ -1445,7 +1451,20 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     canvas.focus({preventScroll:true}); publish(); return true;
   }
+  function merlionOperating() { return !!hud.arenaSelf?.alive && hud.arena?.merlion?.operator===hud.arenaSelf?.id; }
+  function merlionAction(action: MerlionAction) {
+    if(hud.phase!=='playing'||!hud.arenaSelf?.alive||vehicles.active||grenadeHeld?.pinned)return;
+    if(action==='operate'){endSupply();grenadeHeld=null;ads=touchAim=actualAim=false;aimProgress=0;stopReload();clearInput();}
+    arenaRuntime?.merlionAction(action);
+    if(action==='leave')clearInput();
+    canvas.focus({preventScroll:true});
+  }
   function interactContext() {
+    if(merlionOperating()){merlionAction('leave');return;}
+    if(hud.arena?.merlion&&hud.arenaSelf&&!vehicles.active){
+      if(nearMerlion(hud.arenaSelf,'console')){merlionAction('operate');return;}
+      if(nearMerlion(hud.arenaSelf,'cache')){merlionAction('supply');return;}
+    }
     if (hud.proxyReach) { openProxyMenu(); return; }
     if (hud.arena?.proxies?.operation?.cargo==='carried' && hud.facility && hud.facility.owner===PLAYER_FACTION && Math.hypot(hud.facility.x-position.x,hud.facility.z-position.z)<=4) { chooseProxyAction('deliver'); return; }
     if (canResupply()) { resupplyRange(); return; }
@@ -1462,6 +1481,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     cantWanted = !cantWanted; publish();
   }
   function toggleAim() {
+    if(merlionOperating())return;
     if(swimming()) return;
     if (pilotEnabled || hud.phase !== 'playing' || hud.arenaSelf?.alive === false || loadout[hud.weapon].reloadRemaining > 0) return;
     stopInspect(); touchAim = !touchAim; canvas.focus({ preventScroll: true }); publish();
@@ -1496,11 +1516,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (wheel && key === 'tab') { setCalloutPage(wheel.page + (event.shiftKey ? -1 : 1)); return; }
     if (wheel && /^[1-8]$/.test(key)) { const callout = CALLOUT_PAGES[wheel.page].callouts[Number(key) - 1]; if (callout && !event.repeat) sendCallout(callout.id); return; }
     if (key === 'tab') return;
-    if (key === 'q') { if (!event.repeat) toggleAim(); return; }
+    if (key === 'q') { if (!event.repeat) {if(merlionOperating())merlionAction('mist');else toggleAim();} return; }
     if (key === 'm') { if (!event.repeat) toggleMap(); return; }
     if (key === 'h') { if (!event.repeat) toggleObjectiveHints(); return; }
     if (key === 'escape') pause();
     else if (pilotEnabled) { pause(); hud.message = 'AI stopped. Click Resume to take control.'; publish(); }
+    else if(merlionOperating()){if(key==='e'&&!event.repeat)merlionAction('leave');return;}
     else if (fpsKeyAction(key, !!vehicles.active)) {
       const action = fpsKeyAction(key, !!vehicles.active)!;
       if (action === 'crouch-hold') {
@@ -1560,7 +1581,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.phase !== 'playing' || hud.proxyMenu || hud.mapExpanded || arenaConditionModifiers(conditions).frozen) return;
     const wasYaw = yaw, wasPitch = pitch;
     ({ yaw, pitch } = turnFpsLook(yaw, pitch, dx, dy, ads || touchAim));
-    const contact = assisted ? assistContact() : null;
+    if(merlionOperating())pitch=THREE.MathUtils.clamp(pitch,MERLION.minPitch,MERLION.maxPitch);
+    const contact = assisted && !merlionOperating() ? assistContact() : null;
     if (contact) {
       const bent = assistLook(yaw - wasYaw, pitch - wasPitch, wasPitch, contact, trigger);
       yaw = wasYaw + bent.yaw; pitch = clampFpsPitch(wasPitch + bent.pitch);
@@ -1773,7 +1795,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function refreshAimAssist(dt: number) {
     assistTimer -= dt; if (assistTimer > 0) return;
     assistTimer = .1; assistLock = null; canvas.dataset.aimAssist = '';
-    if (inputMode !== 'touch' || pilotEnabled || vehicles.mounted || !getAimAssist()) return;
+    if (inputMode !== 'touch' || pilotEnabled || vehicles.mounted || merlionOperating() || !getAimAssist()) return;
     // One subject per aim point, so the lock lands on the point that can be seen
     // (a head over a wall, not the chest behind it). Only points already near
     // the sights are raycast at all.
@@ -1867,6 +1889,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     lookLagX = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagX + yawDelta * .025, -.003, .003), 0, 12, dt);
     lookLagY = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagY - (pitch - lastLookPitch) * .025, -.003, .003), 0, 12, dt);
     lastLookYaw = yaw; lastLookPitch = pitch;
+    if(merlionOperating()&&hud.arena?.merlion){
+      const s=hud.arena.merlion,at=merlionMouth(s.yaw),dir=merlionDirection(s.yaw,s.pitch);
+      actualAim=false;aimProgress=0;rig.visible=false;playerBody.root.visible=false;supplyHands.update(null,0);
+      camera.position.set(at.x+dir.x*.65,at.y+.45+dir.y*.65,at.z+dir.z*.65);
+      camera.lookAt(s.end.x,s.end.y,s.end.z);camera.fov=65;camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
+      return;
+    }
     if (vehicles.mounted && !vehicles.canUseFirearm) {
       canvas.dataset.body = JSON.stringify({ visible: false, rig: equipment.rigId, plate: equipment.plateId,
         slots: playerBody.root.userData.magazineSlots, magazines: playerBody.root.userData.magazines });
@@ -2341,9 +2370,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.grenades = String(activeGrenades().length); canvas.dataset.grenadeEvents = String(activeGrenadeEvents().length);
   }
   /** G: the belt slot used last (or chosen in the armory) again. */
-  function useQuickItem() { useUtility(beltSelected); }
+  function useQuickItem() {
+    if(merlionOperating())return; useUtility(beltSelected); }
   /** Takes the right item for the moment out of a belt slot and starts using it; the slot becomes G's. */
   function useUtility(kind: UtilityKind) {
+    if(merlionOperating())return;
     if (hud.phase !== 'playing' || supplyUse || hud.health <= 0 || arenaConditionModifiers(conditions).frozen) return;
     if (kind === 'grenade') { readyGrenade(); return; }
     if (grenadeHeld) return;
@@ -2631,6 +2662,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hadDestruction) { checkCompletion(); publish(); }
   }
   function shoot() {
+    if(merlionOperating())return;
     if(swimming() && !swimmingCanFire(hud.weapon,carry.length())) return;
     if (vehicles.active && !vehicles.canUseFirearm || (options.arena && !hud.arenaSelf?.alive)) return;
     const state = loadout[hud.weapon], weapon = specs[hud.weapon];
@@ -2778,11 +2810,26 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!arenaRuntime) return;
     const frame = arenaRuntime.update(dt, {
       x: position.x, y: eyeHeight() + vertical, z: position.z, yaw, pitch,
+      waterFire: merlionOperating() && trigger && hud.phase==='playing',
       ...(vehicles.active ? { vehicleControls: sharedVehicleControls() } : {}),
       prone, weapon: hud.weapon, playing: hud.phase === 'playing', reloading: loadout[hud.weapon].reloadRemaining > 0,
       ...(supplyUse ? { supply: supplyProgress(supplyUse) } : {}),
     });
     const previousSelf = hud.arenaSelf;
+    const wasOperating=merlionOperating();
+    const nowOperating=!!frame.self?.alive && frame.snapshot?.merlion?.operator===frame.self?.id;
+    if(wasOperating!==nowOperating){
+      clearInput();velocityY=0;prone=false;keyboardCrouch.clear();
+      if(frame.self){position={x:frame.self.x,z:frame.self.z};vertical=Math.max(0,frame.self.y-1.75);}
+      if(nowOperating&&frame.snapshot?.merlion){yaw=frame.snapshot.merlion.yaw;pitch=frame.snapshot.merlion.pitch;}
+    }
+    const receipt=frame.self?.merlionSupply;
+    if(receipt && receipt.serial>(previousSelf?.merlionSupply?.serial??0)){
+      const gun=specs[receipt.family],ammo=loadout[receipt.family];
+      if(gun&&ammo)addReserveMagazines(ammo,1);
+      hud.message='Merlion cache · field dressing applied (+25 health) · one spare magazine if a pouch is free.';
+    }
+    merlionVisuals.update(frame.snapshot?.merlion,dt);
     const previousMatch = hud.arena;
     // Hosts already reset synchronously in reset(); only guests adopt a remote rematch.
     const newRound = options.arena?.session.role === 'guest' && previousMatch && frame.snapshot && (frame.snapshot.tick < previousMatch.tick || (previousMatch.finished && !frame.snapshot.finished));
@@ -3357,7 +3404,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (!options.arena) hud.elapsed += realDt;
       updateRangeTargets(); checkCompletion();
       if (!options.arena) loadout.forEach((state, i) => advanceWeapon(state, i, realDt, specs, gunRates()));
-      if (vehicles.mounted) {
+      if(merlionOperating()) {
+        carry.set(0,0,0);velocityY=0;bodyMotion.x=bodyMotion.z=0;
+        if(hud.arenaSelf)position={x:hud.arenaSelf.x,z:hud.arenaSelf.z};
+      } else if (vehicles.mounted) {
         if (!arenaRuntime) yaw += vehicles.step(drivingKeys(), dt);
         if (vehicles.mounted) position = { x: vehicles.mounted.x, z: vehicles.mounted.z };
         carry.set(0, 0, 0);
@@ -3681,7 +3731,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     setRangeDrill, endDrill, resupplyRange,
     chooseRespawn: (zone: string) => { const accepted = arenaRuntime?.chooseRespawn(zone) ?? false; publish(); return accepted; },
     setAutoRespawn: (automatic: boolean) => { arenaRuntime?.setAutoRespawn(automatic); publish(); },
-    chooseDeployment, zoomDeployment, resetDeploymentView, skipDeployment: finishDeployment, start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, interactFacility, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
+    merlionAction, chooseDeployment, zoomDeployment, resetDeploymentView, skipDeployment: finishDeployment, start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, interactFacility, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
     toggleVehicleView, toggleAim, toggleMap, toggleObjectiveHints, toggleRail, toggleCant, toggleWeaponMode,
@@ -3716,7 +3766,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility);
       // First, so every mesh has its own material back before anything else restores or disposes them.
       vision.dispose(); lens.dispose(); deploymentBlur.dispose(); overview.dispose();
-      wetView.dispose();
+      wetView.dispose();merlionVisuals.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
       proxyVisuals.dispose();
       healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); gunshotSpaces.clear(); emptyFireAudio.dispose(); impactAudio.dispose(); bulletFlybys.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
