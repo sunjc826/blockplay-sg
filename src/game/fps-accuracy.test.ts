@@ -40,3 +40,20 @@ it('keeps Smart Power aimed follow-ups tight at its firing cadence without tight
   expect(weaponSpread(state, rifle, 1, false, true)).toBeGreaterThan(aimed);
   expect(weaponSpread(state, rifle, 1, true, false)).toBeLessThan(aimed);
 });
+
+it('keeps a settled Intervention shot inside a head-sized target at 500 m while retaining movement and hip penalties', () => {
+  const state = createWeaponBloom(), sniper = 12;
+  const aimed = weaponSpread(state, sniper, 1, false, false);
+  expect(aimed).toBeCloseTo(.0002, 8);
+  for (let sample = 0; sample <= 100; sample++) {
+    const spread = sampleShotSpread(aimed, () => sample / 100);
+    // Isolate dispersion from aiming error, recoil, target movement and drop.
+    expect(Math.hypot(spread.x, spread.y) * 500).toBeLessThan(.15);
+  }
+  expect(weaponSpread(state, sniper, 0, false, false)).toBe(weaponSpread(state, 0, 0, false, false));
+  const movementPenalty = (family: number) => weaponSpread(state, family, 1, false, true) - weaponSpread(state, family, 1, false, false);
+  expect(movementPenalty(sniper)).toBeCloseTo(movementPenalty(0), 8);
+  recordBloomShot(state, sniper);
+  for (let frame = 0; frame < 120; frame++) advanceBloom(state, .01);
+  expect(weaponSpread(state, sniper, 1, false, false)).toBeCloseTo(aimed, 8);
+});

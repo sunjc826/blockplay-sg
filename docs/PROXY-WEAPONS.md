@@ -93,6 +93,18 @@ shows more surrounding detail at the existing zoom power; magnification, damage
 and spread are unchanged. The modelled housings, glass and live scope image share
 the same enlarged aperture.
 
+The precision cargo rifles use faster arcade ballistics: Smart Power flies at
+715 world units/s and the Intervention at 825, after the common 0.55 velocity
+scale. At 300 m this means about 0.42 s / 0.36 s flight and 0.86 m / 0.65 m
+uncompensated drop. Gravity and damage falloff remain unchanged.
+
+The Intervention cycles its bolt in 1.2 s and uses a 1.3 recoil recovery rating.
+Its settled standing ADS cone is 0.0002 radians (a 10 cm dispersion radius at
+500 m), independent of magnification. The ordinary rifle's additive movement
+penalty and initial hip cone remain; the seven-round magazine and 160-damage
+cargo build preserve its deliberate one-shot role. Bolt animation and action
+sound onsets follow cycle progress; existing audio plays at its natural speed.
+
 ## Collective Corps family and signature names
 
 | Reference / specialist | Family label | Signature variant | Stable study ID |

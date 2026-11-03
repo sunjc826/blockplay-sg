@@ -14,6 +14,7 @@ import { validArenaSnapshot } from './arena-runtime';
 import { respawnEquipment } from './respawn-equipment';
 import { restoreMagazine, magazineOf } from './magazine-inventory';
 import { gunshotSample } from './gunshot-audio';
+import { ballisticSegments, flightTime } from './fps-ballistics';
 import { shotsToKillOpponent, timeToKill } from './armory-balance';
 import { threatOf } from './armor-inserts';
 
@@ -44,10 +45,10 @@ it('provides a distinct sniper calibre, enforces its bolt cadence and gives the 
   expect(restoreMagazine(magazineOf(e.weapons[family],family))).toMatchObject({caliberMm:10.36,capacity:7});
   expect(threatOf(10.36)).toBe('heavy'); expect(gunshotSample(10.36).near).toBe('proxy-intervention-shot');
   expect(fireWeapon(states[family],family,e.weapons)).toBe(true);
-  advanceWeapon(states[family],family,.7,e.weapons); expect(fireWeapon(states[family],family,e.weapons)).toBe(false);
+  advanceWeapon(states[family],family,1.19,e.weapons); expect(fireWeapon(states[family],family,e.weapons)).toBe(false);
   expect(boltCycleMotion(.45).travel).toBeGreaterThan(.9); expect(boltCycleMotion(.45).hand).toBe(1);
   expect(boltCycleMotion(1)).toEqual({hand:0,lift:0,travel:0});
-  advanceWeapon(states[family],family,.71,e.weapons); expect(fireWeapon(states[family],family,e.weapons)).toBe(true);
+  advanceWeapon(states[family],family,.011,e.weapons); expect(fireWeapon(states[family],family,e.weapons)).toBe(true);
 });
 it('lets the rifle alone outperform every XM8 in damage, cycle, reach, recoil and ballistics', () => {
   const rifle=equipped('ff-oicw').weapons[OICW_RIFLE];
@@ -113,4 +114,22 @@ it('gives Smart Power enough ammunition and faster follow-ups for the actual pro
   expect(fireWeapon(states[10], 10, e.weapons)).toBe(false);
   advanceWeapon(states[10], 10, .011, e.weapons);
   expect(fireWeapon(states[10], 10, e.weapons)).toBe(true);
+});
+
+it.each(['ff-longwatch', 'ff-intervention'])('%s sends its faster, flatter round through arena authority', id => {
+  const e = equipped(id), family = itemById(id)!.family!, weapon = e.weapons[family];
+  const rifle = equipped('ff-oicw').weapons[OICW_RIFLE];
+  expect(weapon.ballistics.velocity).toBeGreaterThan(rifle.ballistics.velocity);
+  expect(flightTime(300, weapon.ballistics)).toBeLessThan(id === 'ff-longwatch' ? .43 : .37);
+  const arc = ballisticSegments({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: -1 }, weapon.ballistics, 300);
+  expect(-arc.at(-1)!.to.y).toBeLessThan(id === 'ff-longwatch' ? .9 : .7);
+  expect(weapon.ballistics.drop).toBe(9.8);
+  const env: ArenaEnvironment = { bounds: { minX: -600, maxX: 600, minZ: -600, maxZ: 600 }, spawns: [{ x: 0, z: 0 }], playerSpawn: { x: 0, z: 0 }, move: (p, dx, dz) => ({ x: p.x + dx, z: p.z + dz }), endless: true };
+  const sim = createArena([], 0, 'mixed', env);
+  sim.addPlayer('p', 'Player', 0, 0, e.weapons, undefined, true, e.carriedFamilies);
+  const actor = sim.snapshot().actors.find(a => a.id === 'p')!;
+  sim.setInput('p', { ...actor, weapon: family, playing: true });sim.step(.01);
+  sim.shoot('p', actor, { x: 0, y: 0, z: -1 }, family);sim.step(.01);
+  expect(sim.snapshot().rounds?.[0]).toMatchObject({ shooter: 'p', velocity: weapon.ballistics.velocity, drop: 9.8, power: id === 'ff-longwatch' ? 105 : 160 });
+  expect(validArenaSnapshot(sim.snapshot())).toBe(true);
 });

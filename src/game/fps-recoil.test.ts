@@ -398,3 +398,11 @@ describe('stance recoil impulses', () => {
     }
   });
 });
+
+it('returns over 90% of the Intervention aim climb before its next bolt shot', () => {
+  const sniper = FPS_WEAPONS.find(w => w.id === 'ff-intervention')!, state = createRecoil();
+  recordRecoilShot(state, sniper, 12, () => .5);
+  const initial = state.climb;
+  step(state, sniper.interval, 1 / 240);
+  expect(state.climb).toBeLessThan(initial * .1);
+});
