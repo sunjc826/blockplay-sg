@@ -808,6 +808,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     }
   }
   return {
+    navigationGraphStatus: () => simulation?.navigationGraphStatus() ?? null,
     vehicleTravel: (district: string) => session.role === 'solo' ? simulation?.vehicleTravel(session.id, district) ?? null : null,
     detachVehicle: () => { if (session.role === 'solo') simulation?.detachVehicle(session.id); },
     restoreVehicleTravel(transfer: import('./arena-rules').VehicleCrewTransfer) {

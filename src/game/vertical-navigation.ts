@@ -1,6 +1,7 @@
 import { createVerticalMovement, type VerticalWorld } from './vertical-movement';
 import { surfaceHeight, surfaceContains, type WalkSurface } from './vertical-routes';
 import type { Obstacle } from './region-collision';
+import { navigationWorldKey, validNavigationBake, type NavigationBake } from './navigation-bake';
 
 export interface NavigationPoint { x: number; y: number; z: number }
 type Movement = ReturnType<typeof createVerticalMovement>;
@@ -22,43 +23,49 @@ export function elevatedLootAnchors(surfaces: readonly WalkSurface[], movement: 
  * Every edge is walked through the same collision/step kernel as infantry.
  * It deliberately does not infer access to decorative roofs or teleport bots.
  */
-export function createVerticalNavigator(world: VerticalWorld, groundAnchors: readonly { x: number; z: number }[] = []) {
+export function createVerticalNavigator(world: VerticalWorld, groundAnchors: readonly { x: number; z: number }[] = [], baked?: NavigationBake) {
   const movement = createVerticalMovement(world);
+  const loaded = baked && validNavigationBake(baked) && baked.key === navigationWorldKey(world, groundAnchors) ? baked : undefined;
   const nodes: NavigationPoint[] = [];
-  const add = (p: NavigationPoint) => {
-    if (movement.canOccupy(p.x,p.y,p.z,.4,1.8) && Math.abs((movement.supportHeight(p.x,p.z,p.y+.01,.4,1.8)??-100)-p.y)<.02 && !nodes.some(n => distance(n,p)<.3)) nodes.push(p);
-  };
   const groundAt = (p: { x: number; z: number }) => world.bounds.groundHeight?.(p.x, p.z) ?? 0;
-  for(const lift of world.lifts??[])for(const y of [lift.bottom,lift.top])add({x:lift.x,y,z:lift.z});
-  for (const p of groundAnchors) add({ ...p, y: groundAt(p) });
-  for (const s of world.surfaces) {
-    const cx=(s.minX+s.maxX)/2, cz=(s.minZ+s.maxZ)/2;
-    if (s.startHeight !== s.endHeight) {
-      for (const x of [s.minX-.65,s.maxX+.65]) for (const z of [s.minZ-.65,s.maxZ+.65]) add({x,y:groundAt({x,z}),z});
-      for (const t of [0,.5,1]) {
-        const x=s.slope?s.slope.from.x+(s.slope.to.x-s.slope.from.x)*t:s.axis==='x'?s.minX+(s.maxX-s.minX)*t:cx, z=s.slope?s.slope.from.z+(s.slope.to.z-s.slope.from.z)*t:s.axis==='z'?s.minZ+(s.maxZ-s.minZ)*t:cz;
-        add({x,y:surfaceHeight(s,x,z),z});
+  if (loaded) {
+    for (let i = 0; i < loaded.positions.length; i += 3) nodes.push({ x: loaded.positions[i], y: loaded.positions[i + 1], z: loaded.positions[i + 2] });
+  } else {
+    const add = (p: NavigationPoint) => {
+      if (movement.canOccupy(p.x,p.y,p.z,.4,1.8) && Math.abs((movement.supportHeight(p.x,p.z,p.y+.01,.4,1.8)??-100)-p.y)<.02 && !nodes.some(n => distance(n,p)<.3)) nodes.push(p);
+    };
+    for(const lift of world.lifts??[])for(const y of [lift.bottom,lift.top])add({x:lift.x,y,z:lift.z});
+    for (const p of groundAnchors) add({ ...p, y: groundAt(p) });
+    for (const s of world.surfaces) {
+      const cx=(s.minX+s.maxX)/2, cz=(s.minZ+s.maxZ)/2;
+      if (s.startHeight !== s.endHeight) {
+        for (const x of [s.minX-.65,s.maxX+.65]) for (const z of [s.minZ-.65,s.maxZ+.65]) add({x,y:groundAt({x,z}),z});
+        for (const t of [0,.5,1]) {
+          const x=s.slope?s.slope.from.x+(s.slope.to.x-s.slope.from.x)*t:s.axis==='x'?s.minX+(s.maxX-s.minX)*t:cx, z=s.slope?s.slope.from.z+(s.slope.to.z-s.slope.from.z)*t:s.axis==='z'?s.minZ+(s.maxZ-s.minZ)*t:cz;
+          add({x,y:surfaceHeight(s,x,z),z});
+        }
+      } else {
+        for (const tx of [.1,.5,.9]) for (const tz of [.1,.5,.9]) add({x:s.minX+(s.maxX-s.minX)*tx,y:s.startHeight,z:s.minZ+(s.maxZ-s.minZ)*tz});
       }
-    } else {
-      for (const tx of [.1,.5,.9]) for (const tz of [.1,.5,.9]) add({x:s.minX+(s.maxX-s.minX)*tx,y:s.startHeight,z:s.minZ+(s.maxZ-s.minZ)*tz});
+    }
+    // Ground corners near authored access let bots go around the building they
+    // need to enter; the rest of their ground combat movement stays unchanged.
+    const access=nodes.filter(n=>Math.abs(n.y-groundAt(n))<.35);
+    for(const o of world.obstacles) for(const x of [o.minX-.65,o.maxX+.65]) for(const z of [o.minZ-.65,o.maxZ+.65])
+      if(access.some(n=>Math.hypot(n.x-x,n.z-z)<35)) add({x,y:groundAt({x,z}),z});
+    // Interior doors and shelves can fall between the floor's nine samples.
+    // Their corners supply approach/turn points on the floor they actually touch.
+    // Keep this to tall walls/shelves; sampling low props, posts and every thin
+    // guard would swamp this small graph. Existing floor samples cover open space.
+    for (const o of world.traversalObstacles) {
+      if (o.maxY-o.minY < 1.5 || Math.max(o.maxX-o.minX,o.maxZ-o.minZ) < 2 || Math.min(o.maxX-o.minX,o.maxZ-o.minZ) < .25) continue;
+      for (const x of [o.minX-.55,o.maxX+.55]) for (const z of [o.minZ-.55,o.maxZ+.55]) {
+        const y=movement.supportHeight(x,z,o.minY+.35,.4,1.8);
+        if (y !== null && Math.abs(y-o.minY)<.36) add({x,y,z});
+      }
     }
   }
-  // Ground corners near authored access let bots go around the building they
-  // need to enter; the rest of their ground combat movement stays unchanged.
-  const access=nodes.filter(n=>Math.abs(n.y-groundAt(n))<.35);
-  for(const o of world.obstacles) for(const x of [o.minX-.65,o.maxX+.65]) for(const z of [o.minZ-.65,o.maxZ+.65])
-    if(access.some(n=>Math.hypot(n.x-x,n.z-z)<35)) add({x,y:groundAt({x,z}),z});
-  // Interior doors and shelves can fall between the floor's nine samples.
-  // Their corners supply approach/turn points on the floor they actually touch.
-  // Keep this to tall walls/shelves; sampling low props, posts and every thin
-  // guard would swamp this small graph. Existing floor samples cover open space.
-  for (const o of world.traversalObstacles) {
-    if (o.maxY-o.minY < 1.5 || Math.max(o.maxX-o.minX,o.maxZ-o.minZ) < 2 || Math.min(o.maxX-o.minX,o.maxZ-o.minZ) < .25) continue;
-    for (const x of [o.minX-.55,o.maxX+.55]) for (const z of [o.minZ-.55,o.maxZ+.55]) {
-      const y=movement.supportHeight(x,z,o.minY+.35,.4,1.8);
-      if (y !== null && Math.abs(y-o.minY)<.36) add({x,y,z});
-    }
-  }
+  let validatedConnections = 0;
   function* canWalk(a:NavigationPoint,b:NavigationPoint, extra: readonly Obstacle[] = []): Generator<undefined, boolean> {
     const length=Math.hypot(a.x-b.x,a.z-b.z);
     if(length<.01) return Math.abs(a.y-b.y)<.05;
@@ -78,6 +85,11 @@ export function createVerticalNavigator(world: VerticalWorld, groundAnchors: rea
   // Evaluate nearby edges lazily; districts that never need stairs pay no
   // all-pairs kernel cost at load time.
   const edges=new Map<number, {to:number;cost:number}[]>();
+  if (loaded) for (let i = 0; i < nodes.length; i++) {
+    const row = [];
+    for (let j = loaded.offsets[i]; j < loaded.offsets[i + 1]; j++) row.push({ to: loaded.targets[j], cost: loaded.costs[j] });
+    edges.set(i, row);
+  }
   const ramps = world.surfaces.filter(s => s.startHeight !== s.endHeight);
   const sharesRamp = (a: NavigationPoint, b: NavigationPoint) => ramps.some(s => [a,b].every(p =>
     surfaceContains(s,p.x,p.z) &&
@@ -85,8 +97,8 @@ export function createVerticalNavigator(world: VerticalWorld, groundAnchors: rea
   const compatible = (a: NavigationPoint, b: NavigationPoint) => Math.abs(a.y-b.y)<.36 ||
     Math.abs(a.y-groundAt(a))<.05 && Math.abs(b.y-groundAt(b))<.05 || sharesRamp(a,b);
   const bins=new Map<string,number[]>();
-  nodes.forEach((p,i)=>{const key=`${Math.floor(p.x/45)},${Math.floor(p.z/45)}`;const list=bins.get(key)??[];list.push(i);bins.set(key,list);});
-  const neighbours=nodes.map((a,i)=>{
+  if (!loaded) nodes.forEach((p,i)=>{const key=`${Math.floor(p.x/45)},${Math.floor(p.z/45)}`;const list=bins.get(key)??[];list.push(i);bins.set(key,list);});
+  const neighbours=loaded ? [] : nodes.map((a,i)=>{
     const nearby:number[]=[];
     for(let x=Math.floor(a.x/45)-1;x<=Math.floor(a.x/45)+1;x++)for(let z=Math.floor(a.z/45)-1;z<=Math.floor(a.z/45)+1;z++)
       nearby.push(...(bins.get(`${x},${z}`)??[]));
@@ -113,6 +125,7 @@ export function createVerticalNavigator(world: VerticalWorld, groundAnchors: rea
       // Changes of height must follow an authored slope. Level visibility
       // edges connect floor interiors and landings, including across places.
       if(!compatible(a,b)) continue;
+      validatedConnections++;
       if(yield* canWalk(a,b)) result.push({to:j,cost:distance(a,b)});
     }
     edges.set(i,result); return result;
@@ -165,5 +178,16 @@ export function createVerticalNavigator(world: VerticalWorld, groundAnchors: rea
   function route(from:NavigationPoint,to:NavigationPoint) {
     const search=plan(from,to);let step=search.next();while(!step.done)step=search.next();return step.value;
   }
-  return {route,plan};
+  function bake(): NavigationBake {
+    for (let i = 0; i < nodes.length; i++) { const job = outgoing(i); while (!job.next().done) { /* build-time only */ } }
+    const offsets = [0], targets: number[] = [], costs: number[] = [];
+    for (let i = 0; i < nodes.length; i++) {
+      for (const edge of edges.get(i)!) { targets.push(edge.to); costs.push(edge.cost); }
+      offsets.push(targets.length);
+    }
+    return { version: 1, key: navigationWorldKey(world, groundAnchors), positions: nodes.flatMap(p => [p.x, p.y, p.z]), offsets, targets, costs };
+  }
+  const status = () => ({ source: loaded ? 'baked' as const : 'lazy' as const, nodes: nodes.length,
+    cachedNodes: edges.size, validatedConnections, rejectedBake: !!baked && !loaded });
+  return {route,plan,bake,status};
 }

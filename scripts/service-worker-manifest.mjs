@@ -19,7 +19,7 @@ const IGNORED = /\.(map|txt)$/i;
  */
 export function shellPaths(bundleFiles, publicFiles = []) {
   const paths = [...bundleFiles, ...publicFiles]
-    .filter(file => !IGNORED.test(file))
+    .filter(file => !IGNORED.test(file) && !/(?:^|\/)navigation-[^/]+\.json$/.test(file))
     .map(file => (file.startsWith('/') ? file : `/${file}`))
     .map(path => (path === '/index.html' ? '/' : path));
   return [...new Set(paths)].sort();

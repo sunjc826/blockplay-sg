@@ -31,7 +31,6 @@ import { createSceneCover } from './scene-cover';
 import { NAVAL as NAVAL_LANDING } from './naval-landings';
 import { validatedNavalSites } from './naval-route-validation';
 import { SENTOSA_LANDING_SITES } from './naval-landing-sites';
-import { districtFacilitySites } from './facility-sites';
 import { createObjectiveBeacons, objectiveHint, type ObjectiveHint } from './objective-beacons';
 import { captureObjectives } from './expedition-objectives';
 import { createFacilityVisuals } from './facility-visuals';
@@ -90,8 +89,6 @@ import { effectStyleForWeapon, resolveEffectStyle, type EffectStyle } from './fp
 import type { ImpactProfile } from './fps-impact-profile';
 import { spendRentalTime, expireLoadoutRentals, expireRentals, applyArmorDamage, claimElimination, consumeItem, createProfile, encikAddress, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile, type VendorPurchaseResult } from './armory-state';
 import { registerElimination, ELIMINATION_XP, ELIMINATION_CREDITS, type KillChain } from './progression';
-import { worldVehicleSpawns } from './world-vehicles';
-import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
 import { sceneFlightObstacles } from './flight-obstacles';
 import { resolveVehicleCrossing, vehicleArrivalClear } from './vehicle-crossing';
 import type { VehicleCrewTransfer } from './arena-rules';
@@ -110,6 +107,8 @@ import { ORDER_TUNING } from './squad-orders';
 import type { BattlefieldSize } from './battlefield';
 import { createSoloSession, type LanSession } from './lan-peer';
 import { buildDistrictWorld } from './district-world';
+import { districtInfrastructure } from './district-infrastructure';
+import { loadNavigationBake } from './navigation-bake-loader';
 import { getFpsDistrict } from './fps-districts';
 import { createExpeditionMarkers } from './expedition-visuals';
 import { createLootGround } from './expedition-ground';
@@ -363,10 +362,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const expeditionSession = expedition ? createSoloSession('Explorer') : null;
   if (expedition && zoneWorld && expeditionSession) options = { ...options, arena: { session: expeditionSession, profile: fieldProfile, botCount: zoneWorld.zone.botCount, composition: zoneWorld.zone.composition, environment: zoneWorld.environment, initialVitals: expedition.checkpoint } };
   const npcs = expedition ? expeditionNpcs(expedition.zone, zoneSectors(expedition.zone)) : [];
-  const motorSpawns = expedition ? worldVehicleSpawns(district.vehicles, [...world.obstacles, ...verticalVehicleObstacles({ bounds:world.bounds, surfaces: getPhysicalWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })], sceneFlightObstacles(world.scene), world.bounds, [...npcs, zoneWorld?.zone.spawn ?? district.spawn]) : district.vehicles;
-  const fleetSpawns: VehicleSpawns = { ...motorSpawns, ...(region === 'marina-bay' && !options.tutorial ? DRAGON_BOAT_SPAWNS : {}) };
-  const facilitySites = expedition ? districtFacilitySites(expedition.zone, fleetSpawns,
-    (x, z) => { const y=world.bounds.groundHeight?.(x,z) ?? 0; return footMovement.canOccupy(x, y, z, 1.1, 2) && Math.abs((footMovement.supportHeight(x, z, y+.1, .4, 1.8) ?? 100)-y) < .05; }, npcs, world.bounds.groundHeight) : [];
+  const infrastructure = expedition ? districtInfrastructure(world, npcs) : undefined;
+  const fleetSpawns: VehicleSpawns = infrastructure?.fleetSpawns ?? { ...district.vehicles, ...(region === 'marina-bay' && !options.tutorial ? DRAGON_BOAT_SPAWNS : {}) };
+  const facilitySites = infrastructure?.facilitySites ?? [];
+  const navigationBake = expedition ? loadNavigationBake(region) : Promise.resolve(undefined);
   if (expedition && options.arena?.environment) {
     if(expedition.battlefieldSize)options.arena.environment.battlefield={size:expedition.battlefieldSize};
     options.arena.environment.proxies = expedition.proxyCampaign ?? createProxyCampaign();
@@ -3801,8 +3800,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // Range props are appended after asynchronous model loading; refresh the static broadphase.
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getPhysicalWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
     playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getPhysicalWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
+    const bakedNavigation = await navigationBake;
+    if (disposed) return;
     if (options.arena) {
+      if (options.arena.environment) options.arena.environment.bakedNavigation = bakedNavigation;
       arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, vehicles: { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition } });
+      canvas.dataset.navigationGraph = JSON.stringify(arenaRuntime.navigationGraphStatus());
       if (checkpoint?.vehicleTravel?.crew && !arenaRuntime.restoreVehicleTravel(checkpoint.vehicleTravel.crew)) throw new Error('Vehicle crew could not enter the destination district');
       if (expedition) arenaRuntime.setAutoRespawn(expedition.autoRespawn === true);
       hud.combatEventsAvailable = options.arena.session.role === 'solo';

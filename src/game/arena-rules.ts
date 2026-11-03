@@ -195,6 +195,7 @@ export interface ArenaEnvironment {
   /** Solo expedition only; shared campaign object retains favor and pacing across travel. */
   proxies?: ProxyCampaign;
   battlefield?: { size: BattlefieldSize };
+  bakedNavigation?: import('./navigation-bake').NavigationBake;
   navigationAnchors?: readonly { x: number; z: number }[];
   /** Geographical patrol areas, independent of camp footprints and heat. */
   patrolSectors?: readonly PatrolSector[];
@@ -449,6 +450,10 @@ function bodyDistance(origin: ArenaPoint, direction: ArenaPoint, actor: ArenaAct
     sphereDistance(origin, direction, { x: actor.x, y: actor.y - offset, z: actor.z }, radius)));
 }
 
+export function arenaNavigationAnchors(obstacles: readonly Obstacle[], environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions) {
+  return [...(obstacles.some(o=>o.water)?[...BOAT_FOOT_ANCHORS,...[-2.6,2.6].flatMap(x=>[-15,-9].map(z=>({x,z})))]:[]),...(environment?.navigationAnchors??[]),...(environment?.battlefield && vehicleOptions ? Object.values(vehicleOptions.spawns).flatMap(p=>[-6,6].flatMap(dx=>[-6,6].map(dz=>({x:p.x+dx,z:p.z+dz})))) : [])];
+}
+
 /** Host-owned match. Clients may submit movement and aim, never damage or scores. */
 export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions, traversalWorld?: VerticalWorld, coverDistance?: ArenaCoverDistance, grenadeCoverTrace?: import('./grenade-flight').GrenadeTrace, sightDistance?: ArenaCoverDistance, difficulty: () => BotDifficulty = () => environment?.botDifficulty?.() ?? 'normal') {
   // Rendered cover stops every round, with or without vehicles in the match.
@@ -457,8 +462,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const swimmer = traversalWorld?.obstacles.some(o=>o.water) ? createSwimmingMovement(traversalWorld) : null;
   const traversal = traversalWorld ? createVerticalMovement({...traversalWorld,surfaces:traversalWorld.surfaces.filter(s=>!s.lift)}) : null;
   const vehicleGround = [...obstacles, ...(traversalWorld ? verticalVehicleObstacles({...traversalWorld,bounds}) : [])];
-  const navigationAnchors=[...(obstacles.some(o=>o.water)?[...BOAT_FOOT_ANCHORS,...[-2.6,2.6].flatMap(x=>[-15,-9].map(z=>({x,z})))]:[]),...(environment?.navigationAnchors??[]),...(environment?.battlefield && vehicleOptions ? Object.values(vehicleOptions.spawns).flatMap(p=>[-6,6].flatMap(dx=>[-6,6].map(dz=>({x:p.x+dx,z:p.z+dz})))) : [])];
-  const navigator = traversalWorld && (traversalWorld.surfaces.length || navigationAnchors.length) ? createVerticalNavigator(traversalWorld, navigationAnchors) : null;
+  const navigationAnchors = arenaNavigationAnchors(obstacles, environment, vehicleOptions);
+  const navigator = traversalWorld && (traversalWorld.surfaces.length || navigationAnchors.length) ? createVerticalNavigator(traversalWorld, navigationAnchors, environment?.bakedNavigation) : null;
   const regularLimit = environment?.battlefield?.size ?? 20;
   let liftGeometryAt=-Infinity,liftGeometry:ReturnType<typeof liftBodies>=[];
   const liveLiftBodies=()=>{if(liftGeometryAt!==elapsed){liftGeometryAt=elapsed;liftGeometry=liftBodies(traversalWorld?.lifts??[],elapsed);}return liftGeometry;};
@@ -3769,7 +3774,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const navigationStatus = () => [...members.values()].filter(m=>m.actor.bot && m.actor.alive && m.actor.squad).map(m=>({id:m.actor.id,objective:m.actor.objective,duty:m.actor.duty,sector:m.actor.patrolSector,pending:!!m.navigation?.pending,path:m.navigation?.path.length??0,x:m.actor.x,z:m.actor.z,goal:m.navigation?.target,via:m.assignment?.via,mission:m.mission}));
   const patrolStatus = () => sectorPatrols?.status(elapsed)??[];
   const boatStatus=()=>[...boatSorties].map(([kind,s])=>({kind,pilot:s.pilot,phase:s.phase,returning:s.returning,berth:s.route?.berth.id,index:s.index,points:s.route?.points,crew:[...s.crew]}));
-  return { boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  return { navigationGraphStatus: () => navigator?.status() ?? null, boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

@@ -5,6 +5,10 @@
   "type": "module",
   "packageManager": "pnpm@11.22.0",
   "scripts": {
+    "bake:navigation": "node scripts/bake-navigation.mjs",
+    "check:navigation": "node scripts/check-navigation-bake.mjs",
+    "profile:navigation": "node scripts/profile-navigation.mjs",
+    "test:navigation:browser": "node scripts/navigation-bake-smoke.mjs",
     "analyse:battlefield": "node scripts/battlefield-benchmark.mjs",
     "test:fps:battlefield": "node scripts/fps-battlefield-smoke.mjs",
     "test:fps:districts": "node scripts/fps-district-smoke.mjs",

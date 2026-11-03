@@ -4,10 +4,10 @@
 // This one serves `dist` itself rather than using `pnpm preview`, because the
 // only honest way to test offline play is to stop the server and reload. Run
 // `pnpm build` first and start an isolated Chrome with --remote-debugging-port=9226.
-// It makes no map, model or companion requests.
+// It exercises local cached models/navigation, without map or companion API requests.
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, stat, readdir } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -131,6 +131,12 @@ try {
   await evaluate(`fetch('/models/field-kit/sar21-inspired.glb').then(r=>r.arrayBuffer())`);
   await wait(`caches.open('blockplay-media').then(c=>c.match('/models/field-kit/sar21-inspired.glb')).then(Boolean)`);
 
+  assert(!shell.some(path => /navigation-.*\.json$/.test(path)), 'district graphs are not installed with the whole shell');
+  const navigationPath = '/assets/' + (await readdir(`${dist}assets`)).find(name => /^navigation-queenstown-.*\.json$/.test(name));
+  assert(!navigationPath.endsWith('undefined'), 'the build includes Queenstown navigation');
+  assert.equal(await evaluate(`fetch(${JSON.stringify(navigationPath)}).then(r=>r.json()).then(g=>g.version)`), 1);
+  await wait(`caches.open('blockplay-media').then(c=>c.match(${JSON.stringify(navigationPath)})).then(Boolean)`);
+
   const before = served;
   await stopServer();
   assert.equal((await evaluate(`fetch('/api/health').then(()=>'reached',()=>'offline')`)), 'offline', 'the server is really gone');
@@ -138,12 +144,11 @@ try {
   errors.length = 0;
   await reload();
   await wait(`document.querySelector('.brand')?.textContent.includes('blockplaySG')`);
-  await wait(`document.querySelectorAll('.mode-card').length>0`);
-  assert(await evaluate(`document.querySelectorAll('.location-card').length>=19`), 'every district listed offline');
-  // The renderer reached the point of asking for a context, so the 700 kB
-  // Three.js chunk was served from the cache. A machine with no WebGL at all
-  // shows the same message it would online.
-  await wait(`!!document.querySelector('.viewport canvas, .viewport .viewer-message')`);
+  await wait(`document.querySelectorAll('.game-menu-item').length>0`);
+  await send('Page.navigate', { url: `${origin}/world` });
+  await wait(`!!document.querySelector('.starting-picker')`);
+  assert.equal(await evaluate(`document.querySelectorAll('[data-start-region]').length`), 23, 'every district listed offline');
+  // The app's Three.js module is part of the shell even before entering a district.
   const loaded = await evaluate(`performance.getEntriesByType('resource').map(entry=>new URL(entry.name).pathname)`);
   assert(loaded.some(path => /^\/assets\/three-.*\.js$/.test(path)), 'the Three.js chunk loaded offline');
 
@@ -152,11 +157,12 @@ try {
   await send('Page.navigate', { url: `${origin}/play/queenstown` });
   await wait(`document.querySelector('.brand')?.textContent.includes('blockplaySG')`);
   assert.equal(await evaluate(`fetch('/models/field-kit/sar21-inspired.glb').then(r=>r.ok?'cached':'error',()=>'error')`), 'cached');
+  assert.equal(await evaluate(`fetch(${JSON.stringify(navigationPath)}).then(r=>r.json()).then(g=>g.version)`), 1, 'the visited district graph loads offline');
   assert.equal(await evaluate(`fetch('/api/health').then(()=>'reached',()=>'offline')`), 'offline', 'the companion API is never answered from cache');
   assert.deepEqual(errors, [], 'no uncaught errors offline');
   assert.equal(served, before, 'nothing was requested from the server after it stopped');
 
-  console.log('PASS PWA: manifest and icons install-ready, build precached, repeat loads served by the worker, media cached on use, and the game runs with the server stopped. No map or companion requests.');
+  console.log('PASS PWA: manifest and icons install-ready, build precached, repeat loads served by the worker, media cached on use, and offline menu/district selection plus visited navigation data work with the server stopped. No map or companion requests.');
 } finally {
   ws.close();
   await fetch(`${chrome}/json/close/${tab.id}`).catch(() => {});

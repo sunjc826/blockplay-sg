@@ -27,3 +27,7 @@ it('changes the version when the build output changes', () => {
   const rebuilt = BUNDLE.map(file => file.replace('index-9f3c2a1b', 'index-0000ffff'));
   expect(versionOf(shellPaths(rebuilt, PUBLIC))).not.toEqual(versionOf(shellPaths(BUNDLE, PUBLIC)));
 });
+
+it('loads navigation graphs on demand instead of precaching every district', () => {
+  expect(shellPaths([...BUNDLE, 'assets/navigation-queenstown-abc123.json'], PUBLIC)).toEqual(shellPaths(BUNDLE, PUBLIC));
+});
