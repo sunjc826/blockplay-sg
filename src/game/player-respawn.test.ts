@@ -160,3 +160,11 @@ it('finds a nearby clear point within the default zone when its centre is occupi
   expect(a.choosePlayerRespawn('p',DEFAULT_RESPAWN_ZONE)).toBe(true);tick(a,3.1);
   expect(self(a).alive).toBe(true);expect(Math.hypot(self(a).x,self(a).z-100)).toBeCloseTo(3.6);
 });
+
+it('holds players down for the delay the game asks for, without slowing bots', () => {
+  const a = createArena([], 1, 'mixed'); a.addPlayer('p', 'Operator', 80, .5);
+  a.setPlayerRespawnSeconds(6); a.setPlayerVitals('p', { health: 0 });
+  expect(self(a).respawnIn).toBe(6);
+  tick(a, 5.5); expect(self(a).alive).toBe(false);
+  tick(a, .6); expect(self(a).alive).toBe(true);
+});

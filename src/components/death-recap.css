@@ -1,0 +1,74 @@
+/* Stays clear of the middle of the frame, where the camera puts the body and the killer. */
+.death-recap{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;justify-content:space-between;gap:12px;padding:clamp(16px,4vh,36px) 22px 20px;box-sizing:border-box;color:#f4ead6;pointer-events:none;overflow:hidden;
+  background:radial-gradient(ellipse at center,transparent 44%,#16090875 78%,#100504c9 100%);
+  -webkit-backdrop-filter:saturate(.42) contrast(1.06);backdrop-filter:saturate(.42) contrast(1.06);
+  animation:death-recap-enter .55s ease-out both}
+.death-recap button{pointer-events:auto}
+/* An arena match keeps its HUD up while dead; nothing on it means anything now. */
+.fps-viewport:has(>.death-recap)>:not(.world,.death-recap,.fps-top,.arena-menu-button,.respawn-loadout-screen){visibility:hidden}
+.death-recap-flash{position:absolute;inset:0;background:#7c1410;opacity:0;animation:death-recap-flash .8s ease-out both;pointer-events:none}
+
+.death-recap-head{position:relative;text-align:center;text-shadow:0 2px 16px #000d;animation:death-recap-drop .6s .35s cubic-bezier(.2,.7,.2,1) both}
+.death-recap-head>span{display:block;font:11px monospace;letter-spacing:5px;text-transform:uppercase;color:#f0a58e}
+.death-recap-head h2{margin:7px 0 3px;font-size:clamp(25px,4.6vh,38px);font-weight:700;letter-spacing:-.5px;line-height:1.1;overflow-wrap:anywhere}
+.death-recap-head p{display:flex;gap:9px;justify-content:center;margin:0;font-size:12px;color:#e0d5bf}
+.death-recap-head p b{font-weight:600;color:#f3d796}.death-recap-head p i{font-style:normal}
+
+.death-recap-tag{position:absolute;left:50%;top:40%;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:1px;padding-bottom:12px;text-shadow:0 1px 6px #000;white-space:nowrap}
+.death-recap-tag::after{content:'';position:absolute;left:50%;bottom:0;width:8px;height:8px;margin-left:-4px;border-right:2px solid #ef7f63;border-bottom:2px solid #ef7f63;transform:rotate(45deg)}
+.death-recap-tag b{font-size:12px;color:#ffc6b3}.death-recap-tag small{font:10px monospace;color:#f4ead6}
+
+.death-recap-cards{position:relative;margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;gap:14px;animation:death-recap-rise .5s .75s ease-out both}
+.death-recap-card{width:min(330px,calc(50% - 7px));padding:13px 15px;box-sizing:border-box;background:#120c0ad1;border:1px solid #f0d9b42b;border-radius:4px}
+.death-recap-card h3{margin:0 0 7px;font:9px monospace;letter-spacing:2.5px;text-transform:uppercase;color:#d8a58f}
+.death-recap-card *+h3{margin-top:12px}
+.death-recap-facts{display:grid;gap:4px;margin:0}
+.death-recap-facts>div{display:flex;justify-content:space-between;gap:12px;font-size:12px}
+.death-recap-facts dt{color:#c6baa4}.death-recap-facts dd{margin:0;font-weight:600;text-align:right;overflow-wrap:anywhere}
+.death-recap-cause{margin:0;font-size:12px;color:#e0d5bf}
+.death-recap-attackers{display:grid;gap:7px;margin:0;padding:0;list-style:none}
+.death-recap-attackers li{position:relative;display:flex;justify-content:space-between;gap:12px;padding-bottom:5px;font-size:11px}
+.death-recap-attackers li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.death-recap-attackers li b{font-family:monospace;font-weight:600}
+.death-recap-attackers li i{position:absolute;left:0;right:0;bottom:0;height:2px;background:#c9b48e;transform-origin:left}
+.death-recap-attackers li[data-killer=true] span{color:#ffc6b3}.death-recap-attackers li[data-killer=true] i{background:#e3674a}
+
+.death-recap-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:9px 8px}
+.death-recap-tiles b{display:block;font-size:17px;font-weight:700;letter-spacing:-.3px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.death-recap-tiles small{display:block;margin-top:1px;font-size:10px;color:#c6baa4}
+.death-recap-session{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;margin:11px 0 0;padding-top:8px;border-top:1px solid #f0d9b41f;font-size:11px;color:#c6baa4}
+.death-recap-session b{color:#f4ead6;font-weight:600;font-variant-numeric:tabular-nums}
+
+.death-recap-notes{position:relative;order:0;display:flex;flex-wrap:wrap;justify-content:center;gap:5px 16px;margin:0;padding:0;list-style:none;font-size:12px;color:#f3d796;text-align:center;text-shadow:0 1px 8px #000;animation:death-recap-rise .5s 1.1s ease-out both}
+
+.death-recap-foot{position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:34px}
+.death-recap-foot strong{font-size:18px;letter-spacing:-.2px;text-shadow:0 1px 8px #000}
+.death-recap-progress{flex:1;height:2px;background:#ffffff26;overflow:hidden}
+.death-recap-progress i{display:block;height:100%;background:#f0a58e;transform-origin:left;transition:transform .12s linear}
+.death-recap-actions{display:flex;align-items:center;gap:8px}
+.death-recap-skip{display:flex;align-items:center;gap:7px;min-height:34px;padding:6px 12px;background:#f0d9b4;border:0;border-radius:3px;color:#1d1410;font-size:12px;font-weight:600;cursor:pointer}
+.death-recap-skip:hover{background:#fff0d2}.death-recap-skip:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.death-recap-skip kbd{padding:1px 5px;border:1px solid #1d141066;border-radius:2px;font:9px monospace}
+
+@keyframes death-recap-enter{from{-webkit-backdrop-filter:saturate(1);backdrop-filter:saturate(1);opacity:.4}}
+@keyframes death-recap-flash{0%{opacity:.62}100%{opacity:0}}
+@keyframes death-recap-drop{from{opacity:0;transform:translateY(-10px)}}
+@keyframes death-recap-rise{from{opacity:0;transform:translateY(10px)}}
+@media(prefers-reduced-motion:reduce){.death-recap,.death-recap-head,.death-recap-cards,.death-recap-notes{animation-duration:.01s;animation-delay:0s}.death-recap-flash{animation:none}}
+
+@media(max-width:700px){
+  .death-recap{padding:calc(14px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom));gap:8px}
+  .death-recap-cards{flex-direction:column;align-items:stretch;gap:8px}
+  .death-recap-card{width:100%;padding:10px 12px}
+  .death-recap-attackers li:nth-child(n+3){display:none}
+  .death-recap-tiles b{font-size:15px}
+}
+/* A phone on its side has no height to spare: the name, the numbers, and out. */
+@media(max-height:480px){
+  .death-recap{padding:10px 16px;gap:6px}
+  .death-recap-head>span{font-size:9px;letter-spacing:3px}.death-recap-head h2{margin:2px 0 0;font-size:20px}.death-recap-head p,.death-recap-notes{display:none}
+  .death-recap-cards{flex-direction:row;align-items:flex-end}
+  .death-recap-card{width:min(300px,calc(50% - 7px));padding:8px 10px}
+  .death-recap-card *+h3,.death-recap-attackers{display:none}
+  .death-recap-tiles{gap:5px 8px}.death-recap-tiles b{font-size:13px}.death-recap-session{margin-top:6px;padding-top:5px}
+}

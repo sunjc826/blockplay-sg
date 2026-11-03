@@ -134,7 +134,7 @@ it('discards input from a previous life rather than overwriting the respawn', ()
     }
     expect(network.guest.update(.01, input()).self!.alive).toBe(false);
     const old = network.outbound.find(({ packet }) => packet.type === 'arena-input')!.packet;
-    vi.advanceTimersByTime(3200);
+    vi.advanceTimersByTime(6200);
     const respawn = network.guest.update(.01, input());
     expect(respawn.spawn).toBe(true); expect(respawn.self!.deaths).toBe(1);
     network.deliver(0, { ...old, sequence: 10000, input: input(200, 50) });

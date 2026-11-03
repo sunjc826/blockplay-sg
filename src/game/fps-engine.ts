@@ -26,6 +26,7 @@ import { aerialNearPlane, createDeploymentOverview, deploymentMarkers, overviewF
 import { createDeploymentIntro } from './deployment-intro';
 import { visionMountPose } from './fps-vision-mount';
 import type { PlayerRespawnView } from './player-respawn';
+import { DEATH_CAM_LEAVES_BODY, DEATH_WINDOW_SECONDS, createDeathCam, createDeathRecapTracker, type DeathRecap, type DeathRecapView } from './death-recap';
 import { districtDeploymentPoints, deploymentOrder, type DeploymentView } from './expedition-deployment';
 import { createSceneCover } from './scene-cover';
 import { NAVAL as NAVAL_LANDING } from './naval-landings';
@@ -279,6 +280,8 @@ export interface FpsHud {
   inputMode: 'mouse' | 'touch';
   arena: ArenaSnapshot | null; arenaSelf: ArenaActor | null; arenaConnected: boolean; arenaStarted: boolean;
   respawn: PlayerRespawnView | null;
+  /** The scene of death, shown before the respawn map or the respawn. */
+  deathRecap: DeathRecapView | null;
   deployment: DeploymentView | null;
   deploymentIntro: { stage: 'descent' | 'ready'; fade: number; elapsed: number; reduced: boolean; time: string; weather: string } | null;
   proxyMenu: boolean; proxyReach: boolean;
@@ -310,7 +313,7 @@ export interface FpsHud {
   /** The weapon in hand's laser (B) and light (L), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean; laserOn?: boolean; lightOn?: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { scopeZoom: null, proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], recoveryChoice: null, recoveryItem: null, combatItem: null, recoveryPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, emptyFires: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, maxArmor: 0, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deployment: null, deploymentIntro: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { scopeZoom: null, proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], recoveryChoice: null, recoveryItem: null, combatItem: null, recoveryPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, emptyFires: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, maxArmor: 0, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deathRecap: null, deployment: null, deploymentIntro: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -417,13 +420,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const overviewHighest = world.obstacles.reduce((height, o) => Math.max(height, o.maxY ?? 12), 80);
   let overviewZoom = 1, overviewPan = { x: 0, z: 0 }, overviewDrag: { id: number; x: number; y: number } | null = null;
   const initialOverviewActive = () => introEligible && ['loading', 'ready'].includes(hud.phase) && !deploymentIntro.begun;
-  const respawnOverviewActive = () => !!expedition && hud.phase === 'playing' && hud.arenaSelf?.alive === false && !!hud.respawn;
+  const respawnOverviewActive = () => !!expedition && hud.phase === 'playing' && hud.arenaSelf?.alive === false && !!hud.respawn && !deathScene;
   const overviewActive = () => initialOverviewActive() || respawnOverviewActive();
   const respawnPoints = () => (hud.respawn?.zones ?? []).map(p => ({ ...p, yaw: 0, pitch: 0 }));
   const overviewPoints = () => respawnOverviewActive() ? respawnPoints() : hud.deployment?.points ?? deploymentPoints;
   const overviewLook = { x: 0, y: 0 }, overviewCursor = { x: 0, y: 0 };
   let overviewHovered: string | null = null;
   const overviewSurface = host.parentElement ?? host;
+  const deathTracker = createDeathRecapTracker();
+  let deathScene: { cam: ReturnType<typeof createDeathCam>; recap: DeathRecap; age: number; feet: number; body: { x: number; z: number }; look: THREE.Vector3 | null; killerAt: { x: number; y: number; z: number } | null } | null = null;
   const leaveOverview = () => { overviewCursor.x = overviewCursor.y = 0; overviewHovered = null; };
   const pickOverview = (event: PointerEvent) => {
     const rect = canvas.getBoundingClientRect();
@@ -435,7 +440,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   vehicles.omit(checkpoint?.vehicleDepartures?.[region]?.kinds ?? []);
   if (!expedition && checkpoint?.vehicleTravel) vehicles.restoreTravel(checkpoint.vehicleTravel.state, checkpoint.vehicleTravel.seat);
   let arenaRuntime: ReturnType<typeof createArenaRuntime> | null = null;
-  const chaseRay = new THREE.Raycaster();
+  const chaseRay = new THREE.Raycaster(), chaseTarget = new THREE.Vector3(), chaseOffset = new THREE.Vector3();
   let vehicleView: 'first-person' | 'third-person' = checkpoint?.vehicleTravel?.view ?? 'third-person';
   let restoreVehicleLook = !!checkpoint?.vehicleTravel?.crew;
   const firstPersonVehicle = () => vehicleView === 'first-person' || ads || touchAim;
@@ -717,6 +722,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const introFrame = deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof);
     hud.deploymentIntro = hud.phase === 'deploying' ? { stage: introFrame.stage, fade: introFrame.fade, elapsed: introFrame.elapsed, reduced: introFrame.reduced, ...deploymentConditions } : null;
     hud.respawn = arenaRuntime?.getRespawn() ?? null;
+    hud.deathRecap = deathScene ? { ...deathScene.recap, windowLeft: expedition ? Math.max(0, DEATH_WINDOW_SECONDS - deathScene.age) : null } : null;
     if (hud.respawn) hud.respawn = { ...hud.respawn, markers: respawnOverviewActive() ? deploymentMarkers(respawnPoints(), camera) : [], zoom: overviewZoom };
     hud.objectiveMarkers = expedition && hud.objectiveHints && hud.phase === 'playing' && hud.arenaSelf?.alive !== false ? captureObjectives(hud.arena?.facilities?.sites ?? [], position).map(site => objectiveHint(site, camera, position)) : [];
     const initialPoints = initialOverviewActive() ? arenaRuntime?.getDeployments() ?? deploymentPoints.map(p => ({ ...p, available: false })) : hud.deployment?.points ?? [];
@@ -1980,6 +1986,49 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // never got, dragging the sights below where the shooter left them.
     if (pitch !== wanted) compensateRecoil(kick, pitch - wanted, 0);
   }
+  /** The scene of death: see createDeathCam for the shot, and the DeathRecap panel that floats over it. */
+  function placeDeathCamera(dt: number) {
+    const scene = deathScene!, id = scene.recap.killer?.id, killer = id ? hud.arena?.actors.find(actor => actor.id === id) : undefined;
+    // Once they fall or leave, hold on the last place they were seen.
+    if (killer?.alive) scene.killerAt = { x: killer.x, y: killer.y, z: killer.z };
+    const shot = scene.cam.shot(scene.age, scene.killerAt);
+    actualAim = false; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0); grenadeHands.update(null);
+    arenaRuntime?.showOwnCorpse(!!motionPreference?.matches || scene.age >= DEATH_CAM_LEAVES_BODY);
+    camera.position.set(shot.x, shot.y, shot.z);
+    if (shot.clear) {
+      // Lifting off the body must not pass through the wall behind it.
+      const target = chaseTarget.set(scene.body.x, scene.feet + .9, scene.body.z), offset = chaseOffset.subVectors(camera.position, target), reach = offset.length();
+      chaseRay.set(target, offset.normalize()); chaseRay.near = .2; chaseRay.far = reach;
+      const obstruction = firstVisibleHit(chaseRay, world.scene.children.filter(o => !o.userData.fpsEffect && !o.userData.arenaActorId), false, true);
+      if (obstruction) camera.position.copy(target).addScaledVector(offset, Math.max(.4, obstruction.distance - .35));
+    }
+    // Damped, so the look does not twitch with each snapshot of a moving killer.
+    if (!scene.look) scene.look = new THREE.Vector3(shot.look.x, shot.look.y, shot.look.z);
+    else if (motionPreference?.matches) scene.look.set(shot.look.x, shot.look.y, shot.look.z);
+    else { scene.look.x = THREE.MathUtils.damp(scene.look.x, shot.look.x, 9, dt); scene.look.y = THREE.MathUtils.damp(scene.look.y, shot.look.y, 9, dt); scene.look.z = THREE.MathUtils.damp(scene.look.z, shot.look.z, 9, dt); }
+    camera.lookAt(scene.look); camera.rotateZ(shot.roll);
+    camera.fov = shot.fov; camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
+    canvas.dataset.weaponVisible = 'false';
+    canvas.dataset.deathCam = JSON.stringify({ age: scene.age, x: camera.position.x, y: camera.position.y, z: camera.position.z, look: scene.look, roll: shot.roll, fov: shot.fov });
+    // The tag follows the killer every frame, between the slower React snapshots.
+    const tag = overviewSurface.querySelector<HTMLElement>('[data-death-killer]');
+    if (tag) {
+      const at = scene.killerAt ? chaseTarget.set(scene.killerAt.x, scene.killerAt.y + .55, scene.killerAt.z).project(camera) : null;
+      const shown = !!at && scene.age > DEATH_CAM_LEAVES_BODY && at.z < 1 && Math.abs(at.x) < 1 && Math.abs(at.y) < 1;
+      tag.style.visibility = shown ? 'visible' : 'hidden';
+      if (at && shown) { tag.style.left = `${(at.x + 1) * 50}%`; tag.style.top = `${(1 - at.y) * 50}%`; }
+    }
+  }
+  function endDeathScene() {
+    if (!deathScene) return;
+    deathScene = null; hud.deathRecap = null; canvas.dataset.deathCam = '';
+    resetDeploymentView();
+  }
+  /** From the panel's button or key: straight on to the respawn map. */
+  function skipDeathScene() {
+    if (!expedition || !deathScene) return;
+    endDeathScene(); updateCameras(0, false, false); publish();
+  }
   function updateVehicleCamera(dt: number) {
     const v = vehicles.viewMounted; if (!v) return;
     if (firstPersonVehicle()) {
@@ -2058,6 +2107,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       return;
     }
     canvas.dataset.deploymentOverview = 'false';
+    if (deathScene) { placeDeathCamera(dt); return; }
+    canvas.dataset.deathCam = '';
     // Bounded camera-relative inertia, driven by angle deltas (not frame rate).
     const yawDelta = Math.atan2(Math.sin(yaw - lastLookYaw), Math.cos(yaw - lastLookYaw));
     lookLagX = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagX + yawDelta * .025, -.003, .003), 0, 12, dt);
@@ -3140,6 +3191,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (options.arena && frame.snapshot) for (const shot of gunfireReports(frame.snapshot.actors, heardShots, options.arena.session.id, camera.position)) otherShot(shot.from, shot.calibre, shot.power, shot.after, shot.muzzle, shot.emitter);
     if (frame.snapshot) hud.elapsed = frame.snapshot.elapsed;
     if (frame.snapshot) dropFallenKit(frame.snapshot.actors, frame.feed);
+    const deathFrame = { elapsed: frame.snapshot?.elapsed ?? hud.elapsed, earned: hud.earned, actors: frame.snapshot?.actors ?? [], hit: frame.hit, feed: frame.feed };
+    if (frame.self) deathTracker.observe(frame.self, previousSelf, deathFrame);
     if (frame.self) {
       if (vehicles.active) hud.shots = frame.self.shots;
       hud.hits = frame.self.kills; hud.health = frame.self.health; hud.armor = frame.self.armor;
@@ -3153,10 +3206,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         hurtSerial = struck.serial;
       } else if (!struck) hurtSerial = 0;
       if (expedition && !frame.self.alive && document.pointerLockElement === canvas) document.exitPointerLock();
+      if (frame.self.alive && deathScene) endDeathScene();
       if (!frame.self.alive && previousSelf?.alive) {
         supplyUse = null; radioCall('death'); clearInput(); killChain = { count: 0, lastAt: -Infinity }; hud.chain = 0; hud.callout = ''; calloutTime = 0;
+        ads = touchAim = false;
+        const recap = deathTracker.die(frame.self, deathFrame), body = { x: frame.self.x, z: frame.self.z }, feet = arenaRuntime.ownCorpseFeet() ?? Math.max(0, frame.self.y - 1.75);
+        const killer = recap.killer && frame.snapshot?.actors.find(actor => actor.id === recap.killer!.id);
+        const killerAt = killer ? { x: killer.x, y: killer.y, z: killer.z } : null;
+        deathScene = { recap, age: 0, feet, body, look: null, killerAt,
+          cam: createDeathCam({ eye: camera.position.clone(), yaw, pitch, feet, body, source: killerAt ?? deathTracker.lastSource(), reduced: !!motionPreference?.matches }) };
         if (expedition) {
-          resetDeploymentView();
           // Fallen-kit drops above still see this life's pickups. Prepare the
           // authority now so either manual or automatic respawn uses issued armor.
           fieldProfile = respawnEquipment(fieldProfile, respawnProfile);
@@ -3755,6 +3814,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!arenaRuntime && (hud.phase === 'defeated' || hud.phase === 'complete')) vehicles.animateEffects(dt);
     if (expedition) { updateExpeditionPrompts(); lootNoticeTime = Math.max(0, lootNoticeTime - realDt); if (!lootNoticeTime) hud.lootNotice = ''; }
     hurtTime = Math.max(0, hurtTime - dt); hud.hurt = hurtTime > 0;
+    if (deathScene) { deathScene.age += realDt; if (expedition && deathScene.age >= DEATH_WINDOW_SECONDS) endDeathScene(); }
     hitDirections.advance(realDt);
     hitOverlay.render(viewer(), hitDirections.list, hud.phase === 'playing' && hud.health > 0 && hud.arenaSelf?.alive !== false);
     hitTime = Math.max(0, hitTime - dt);
@@ -4004,6 +4064,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     },
     openProxyMenu, chooseProxyAction, closeProxyMenu,
     setRangeDrill, endDrill, resupplyRange,
+    skipDeathScene,
     chooseRespawn: (zone: string) => { const accepted = arenaRuntime?.chooseRespawn(zone) ?? false; publish(); return accepted; },
     setAutoRespawn: (automatic: boolean) => { arenaRuntime?.setAutoRespawn(automatic); publish(); },
     adjustScopeZoom, merlionAction, chooseDeployment, zoomDeployment, resetDeploymentView, skipDeployment: finishDeployment, start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, interactFacility, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,

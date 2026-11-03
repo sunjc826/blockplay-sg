@@ -88,7 +88,7 @@ export interface ArenaActor {
   /** Share of a dressing applied while a bot patches up, or of a supply a player is using, so others see them busy. */
   healing?: number;
   /** Where the last thing that hurt this actor came from; `serial` changes with every hit. */
-  hurtFrom?: { x: number; z: number; serial: number; blast?: boolean };
+  hurtFrom?: { x: number; z: number; serial: number; blast?: boolean; /** Players only: who and what did it, for the death recap. */ by?: string; cause?: string };
   /** Players: how many times Ah Ma's tingkat has kept them up (food-effects), so their engine can say so. */
   ahMaSaves?: number;
   /** Players: the meals still working on them, as the host runs them (food-effects). */
@@ -139,7 +139,7 @@ export interface ArenaRaider {
   /** Finite mounted-gun stock; absent on drones. */
   ammo?: number;
 }
-export interface ArenaFeed { id: string; text: string; killerId?: string; victimId?: string; bounty?: RaiderBounty }
+export interface ArenaFeed { id: string; text: string; killerId?: string; victimId?: string; bounty?: RaiderBounty; /** What did it, where that is more than the killer's gun. */ cause?: string }
 /**
  * Something said aloud: a bot's bark (npc-barks) or a player's callout from the
  * wheel (player-callouts). Screens decide who is near enough to hear it.
@@ -281,6 +281,8 @@ export const ARENA_SIGHT_RECHECK = .2;
 export const ARENA_DURATION = 180;
 export const ARENA_KILL_LIMIT = 15;
 export const ARENA_RESPAWN_SECONDS = 3;
+/** The played game keeps players down longer than bots, so the scene of death can play out (death-recap); see setPlayerRespawnSeconds. */
+export const ARENA_PLAYER_RESPAWN_SECONDS = 6;
 /** Seconds after spawning that bots' rounds do a player no harm; the player's own first shot ends it. */
 export const SPAWN_SHIELD_SECONDS = 3;
 const EMPTY_SHOT: ArenaShot = { hitId: null, killed: false, damage: 0 };
@@ -565,8 +567,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const text = barker.offer(actor.id, { faction: actor.faction, side: getArenaFaction(actor.faction)?.side, role: actor.role, rank: actor.rank }, event, elapsed);
     if (text) say(actor.id, text, event);
   }
-  const announce = (text: string, killerId?: string, victimId?: string, bounty?: RaiderBounty) => {
-    feed.push({ ...(validRaiderBounty(bounty) ? { bounty } : {}), id: String(++eventId), text, ...(killerId ? { killerId } : {}), ...(victimId ? { victimId } : {}) });
+  const announce = (text: string, killerId?: string, victimId?: string, bounty?: RaiderBounty, cause?: string) => {
+    feed.push({ ...(validRaiderBounty(bounty) ? { bounty } : {}), id: String(++eventId), text, ...(killerId ? { killerId } : {}), ...(victimId ? { victimId } : {}), ...(cause ? { cause } : {}) });
     if (feed.length > 8) feed.shift();
   };
   const groundObstacles = obstacles.filter(o => (o.maxY ?? 200) > 0.15);
@@ -603,6 +605,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return clearSpawn(p) && (!traversal || traversal.canOccupy(p.x,y,p.z,.4,1.8) && Math.abs((traversal.supportHeight(p.x,p.z,y+.1,.4,1.8)??100)-y)<.1);
   },patrolGround) : undefined;
   const respawnChoices = new Map<string, { selected: string | null; automatic: boolean }>();
+  let playerRespawnSeconds = ARENA_RESPAWN_SECONDS;
   const spawn = (entry: InternalActor, destination?: { x: number; z: number; y: number; yaw: number }) => {
     releaseSeat(entry.actor.id);
     const others = [...members.values()].filter(m => m !== entry && m.actor.alive && !m.reserve && !m.actor.transport);
@@ -711,7 +714,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (Number.isFinite(vitals.health)) {
       entry.actor.health = clamp(vitals.health!, 0, entry.healthMax);
       entry.actor.alive = entry.actor.health > 0; if (!entry.actor.alive) releaseSeat(id);
-      entry.actor.respawnIn = entry.actor.alive ? 0 : ARENA_RESPAWN_SECONDS;
+      entry.actor.respawnIn = entry.actor.alive ? 0 : playerRespawnSeconds;
     }
     if (Number.isFinite(vitals.armor)) entry.actor.armor = clamp(vitals.armor!, 0, entry.armorMax);
   }
@@ -951,8 +954,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const damage = applyArmorDamage(entry.actor.health, entry.actor.armor, recoilDamage, entry.absorption);
       entry.actor.health = damage.health; entry.actor.armor = damage.armor;
       if (!entry.actor.health) {
-        entry.actor.alive = false; entry.actor.deaths++; entry.actor.respawnIn = ARENA_RESPAWN_SECONDS;
-        announce(`${entry.actor.name} was defeated by unsupported .50 recoil`, undefined, id);
+        entry.actor.alive = false; entry.actor.deaths++; entry.actor.respawnIn = playerRespawnSeconds;
+        announce(`${entry.actor.name} was defeated by unsupported .50 recoil`, undefined, id, undefined, 'Unsupported .50 recoil');
       }
     }
     // A can draws the fighting far less than a bare muzzle, and every listener hears it quieter.
@@ -1028,7 +1031,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       proxies?.provoke(victim.actor.faction as ProxyId, proxyParticipant(attacker)); syncProxyTargets();
     }
     const source = from ?? attacker?.actor;
-    if (source && attacker !== victim) victim.actor.hurtFrom = { x: source.x, z: source.z, serial: ++hurtSerial, ...(blasted ? { blast: true } : {}) };
+    if (source && attacker !== victim) victim.actor.hurtFrom = { x: source.x, z: source.z, serial: ++hurtSerial, ...(blasted ? { blast: true } : {}), ...(victim.actor.bot ? {} : { ...(attacker ? { by: attacker.actor.id } : {}), ...(cause ? { cause } : {}) }) };
     victim.lastHurt = elapsed;
     if (attacker && attacker !== victim) victim.grudge = { id: attacker.actor.id, until: elapsed + GRUDGE_SECONDS };
     // A numbing meal takes the edge off what lands (food-effects).
@@ -1046,11 +1049,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const killed = victim.actor.health <= 0;
     if (killed && victim.actor.alive) {
       delete victim.actor.bailoutAt;
-      victim.parachute = undefined; delete victim.actor.parachuting; victim.actor.alive = false; victim.actor.deaths++; victim.actor.respawnIn = ARENA_RESPAWN_SECONDS; releaseSeat(victim.actor.id);
+      victim.parachute = undefined; delete victim.actor.parachuting; victim.actor.alive = false; victim.actor.deaths++; victim.actor.respawnIn = victim.actor.bot ? ARENA_RESPAWN_SECONDS : playerRespawnSeconds; releaseSeat(victim.actor.id);
       victim.heal = undefined; delete victim.actor.conditions; delete victim.actor.markedBy; delete victim.actor.healing; victim.meals = undefined; delete victim.actor.food;
       if (attacker && attacker !== victim) attacker.actor.kills++;
       if (factionHeat && isSquad(victim.actor.faction)) factionHeat.casualty(victim.actor.faction, factionHeat.sectorAt(victim.actor.x, victim.actor.z)?.id ?? null, heatShare(victim, attacker));
-      announce(cause && !attacker ? `${cause} killed ${victim.actor.name}` : `${attacker?.actor.name ?? 'Vehicle'} eliminated ${victim.actor.name}`, attacker?.actor.id, victim.actor.id);
+      announce(cause && !attacker ? `${cause} killed ${victim.actor.name}` : `${attacker?.actor.name ?? 'Vehicle'} eliminated ${victim.actor.name}`, attacker?.actor.id, victim.actor.id, undefined, cause ?? (attacker ? undefined : 'Vehicle'));
       if (attacker && attacker !== victim) bark(attacker, 'kill');
       // The nearest of their own side who saw it go down says so.
       const witness = [...members.values()].filter(m => m !== victim && m.actor.bot && m.actor.alive && !m.reserve && m.actor.faction === victim.actor.faction && distance(m.actor, victim.actor) <= 30)
@@ -3917,7 +3920,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const navigationStatus = () => [...members.values()].filter(m=>m.actor.bot && m.actor.alive && m.actor.squad).map(m=>({id:m.actor.id,objective:m.actor.objective,duty:m.actor.duty,sector:m.actor.patrolSector,pending:!!m.navigation?.pending,path:m.navigation?.path.length??0,x:m.actor.x,z:m.actor.z,goal:m.navigation?.target,via:m.assignment?.via,mission:m.mission}));
   const patrolStatus = () => sectorPatrols?.status(elapsed)??[];
   const boatStatus=()=>[...boatSorties].map(([kind,s])=>({kind,pilot:s.pilot,phase:s.phase,returning:s.returning,berth:s.route?.berth.id,index:s.index,points:s.route?.points,crew:[...s.crew]}));
-  return { navigationGraphStatus: () => navigator?.status() ?? null, boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerDeployments, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerEquipmentRentals, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  return { setPlayerRespawnSeconds: (seconds: number) => { playerRespawnSeconds = seconds; }, navigationGraphStatus: () => navigator?.status() ?? null, boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerDeployments, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerEquipmentRentals, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

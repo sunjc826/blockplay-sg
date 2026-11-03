@@ -6426,3 +6426,40 @@ destroyed a falling helicopter and a mounted car at 15 m/s (coasted 26 m, phase
 defeated, no exceptions); it boarded via an injected interact call because the E key
 did not mount in that headless run. Not run: LAN play in a browser (adoptShared is
 unit-tested only), test:vehicles, and the transport crash visuals in a browser.
+
+## 2026-11-04: scene of death before respawn
+Falling now plays a death window instead of cutting straight to the respawn map
+or a bare countdown. src/game/death-recap.ts holds the stats tracker and the
+camera path (both pure and unit-tested); src/components/DeathRecap.tsx is the
+panel; fps-engine's placeDeathCamera drives the shot.
+
+Camera: the first-person view falls and rolls, then lifts to a vantage behind
+the body with the killer beyond it. The side is fixed at the moment of death;
+only the look follows the killer, who also wears a live name/HP tag. The lift
+raycasts against scenery. Reduced motion holds the vantage from the first frame.
+The player now has a real corpse (arena-runtime ownCorpse): hidden until the view
+leaves the body, and never created when loading in already dead.
+
+Stats, all from what the arena publishes so guests match hosts: killer, rank,
+faction, weapon, range, HP they had left, damage you dealt them, top three damage
+sources; this life's time, kills, damage, accuracy, distance, longest kill and
+pay; session K/D; and notes such as nemesis, close call and personal bests.
+hurtFrom gained by/cause (players only, to keep snapshots small) and ArenaFeed
+gained cause; both are validated for guests.
+
+Timing: expeditions hold the window for DEATH_WINDOW_SECONDS (4), skippable with
+Space, Enter or the button, then show the respawn map. Arena matches hold it until
+the respawn. The played game now keeps players down 6 s, not 3
+(ARENA_PLAYER_RESPAWN_SECONDS, set by arena-runtime through
+setPlayerRespawnSeconds). Bots stay at 3 s and createArena's own default stays 3 s,
+which is what most simulation tests assume. Skipping never shortens the timer.
+
+Validation: full vitest 3069 pass, 2 fail (RespawnLoadoutSelector 'Unlock the extra
+main slot' and vehicle-rules wrap credits). Both also fail on a clean checkout
+without this work. Under load many world tests exceed the 5 s timeout; the run above
+used --testTimeout=120000. scripts/death-recap-smoke.mjs passes on swiftshader
+(arena kill by a real bot, expedition hand-over, Space skip, auto-respawn, 390x844
+and 844x390 fit), with screenshots in .cache/death-recap/. It slows the page clock
+because a software renderer screenshots slower than the window lasts. Not exercised:
+a two-browser LAN guest (only the validators are covered), or the 'defeated' screen
+of non-arena exercises, which was left as it is. Not pushed or deployed.

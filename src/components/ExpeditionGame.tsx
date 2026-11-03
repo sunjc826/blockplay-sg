@@ -7,6 +7,7 @@ import { BATTLEFIELD_POPULATIONS, DEFAULT_BATTLEFIELD_SIZE } from '../game/battl
 import type { RaiderBounty } from '../game/combat-rewards';
 import DeploymentBriefing from './DeploymentBriefing';
 import ExpeditionRespawn from './ExpeditionRespawn';
+import DeathRecap from './DeathRecap';
 import FpsFacilityHud from './FpsFacilityHud';
 import ExpeditionDeployment from './ExpeditionDeployment';
 import type { ArenaSnapshot } from '../game/arena-rules';
@@ -193,7 +194,8 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         <div className="expedition-prompts" role="status">{hud.npcPrompt && <strong>{showHints ? hud.npcPrompt : hud.npcPrompt.replace(/^E · /, '')}</strong>}{hud.travelPrompt && <strong>{showHints ? hud.travelPrompt : hud.travelPrompt.replace(/^T · /, '')}</strong>}{hud.lootNotice && <span>{hud.lootNotice}</span>}</div>
         <div className="expedition-route-hud">{nextCheckpoint && <strong>ROUTE TO {getWorldZone(destination!).name.toUpperCase()}</strong>}{(nextCheckpoint ? [nextCheckpoint] : touch ? nearestGateways.slice(0, 2) : gateways).map(gateway => <span key={gateway.id}>{getWorldZone(gateway.to).name}{gateway.kind === 'ferry' ? ' · Bumboat' : ''} <b>{distance(gateway.position)}m</b></span>)}</div>
       </>}
-      {playing && !alive && hud.respawn && <ExpeditionRespawn view={hud.respawn} seconds={hud.arenaSelf?.respawnIn ?? 0}
+      {playing && !alive && hud.deathRecap && <DeathRecap recap={hud.deathRecap} respawnIn={hud.arenaSelf?.respawnIn ?? 0} touch={touch} onSkip={() => engine.current?.skipDeathScene()} onMenu={() => engine.current?.pause()} />}
+      {playing && !alive && !hud.deathRecap && hud.respawn && <ExpeditionRespawn view={hud.respawn} seconds={hud.arenaSelf?.respawnIn ?? 0}
           onLoadout={openLoadout} onMenu={() => engine.current?.pause()} onChoose={id => engine.current?.chooseRespawn(id)}
           onZoom={factor => engine.current?.zoomDeployment(factor)} onResetView={() => engine.current?.resetDeploymentView()}
           onAutomatic={checked => { autoRespawn.current = checked; engine.current?.setAutoRespawn(checked); }} />}

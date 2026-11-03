@@ -18,7 +18,7 @@ function trial(role: 'solo' | 'host', difficulty: BotDifficulty, switchTo?: BotD
   try {
     runtime.update(.025, input);
     if (role === 'solo') runtime.setHealthMultiplier(10);
-    for (let tick = 0; tick < 480; tick++) {
+    for (let tick = 0; tick < 600; tick++) {
       if (switchTo && tick === 280) setBotDifficulty(switchTo);
       vi.advanceTimersByTime(25);
       const frame = runtime.update(.025, input);

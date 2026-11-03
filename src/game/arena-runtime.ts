@@ -29,7 +29,7 @@ import type { VehicleKind, VehicleState } from './vehicle-rules';
 import { FPS_WEAPONS, validWeaponIndex } from './fps-rules';
 import { MAX_WEAPON_RANGE, weaponRange } from './weapon-range';
 import * as THREE from 'three';
-import { createArena, MAX_ARENA_ACTORS, MAX_ARENA_BARKS, MAX_ARENA_ROUNDS, SPAWN_SHIELD_SECONDS, type ArenaActor, type ArenaBark, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaRaiderState, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
+import { ARENA_PLAYER_RESPAWN_SECONDS, createArena, MAX_ARENA_ACTORS, MAX_ARENA_BARKS, MAX_ARENA_ROUNDS, SPAWN_SHIELD_SECONDS, type ArenaActor, type ArenaBark, type ArenaEnvironment, type ArenaFeed, type ArenaInput, type ArenaPoint, type ArenaRaiderState, type ArenaShot, type ArenaSnapshot, type ArenaVitals, type ArenaVehicleOptions } from './arena-rules';
 import { spendRentalTime, createProfile, resolveLoadout, restoreProfile, restoreFieldProfile, type ArmoryProfile } from './armory-state';
 import type { LanSession } from './lan-peer';
 import { getArenaRole } from './arena-roles';
@@ -101,7 +101,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.rank !== undefined && !(Number.isInteger(actor.rank) && (actor.rank as number) >= 1 && (actor.rank as number) <= 3)) ||
       (actor.shield !== undefined && !(finite(actor.shield) && actor.shield > 0 && actor.shield <= SPAWN_SHIELD_SECONDS)) ||
       (actor.reinforceIn !== undefined && !(Number.isInteger(actor.reinforceIn) && (actor.reinforceIn as number) > 0 && (actor.reinforceIn as number) <= 600)) ||
-      (actor.hurtFrom !== undefined && !(object(actor.hurtFrom) && finite(actor.hurtFrom.x) && finite(actor.hurtFrom.z) && finite(actor.hurtFrom.serial) && (actor.hurtFrom.blast === undefined || actor.hurtFrom.blast === true))) || (actor.variant !== undefined && (typeof actor.variant !== 'string' || actor.variant.length > 40)) || !validWeaponIndex(actor.weapon) || typeof actor.alive !== 'boolean' || typeof actor.bot !== 'boolean' || typeof actor.faction !== 'string' || !getArenaFaction(actor.faction) || typeof actor.role !== 'string' || actor.role.length > 32 ||
+      (actor.hurtFrom !== undefined && !(object(actor.hurtFrom) && finite(actor.hurtFrom.x) && finite(actor.hurtFrom.z) && finite(actor.hurtFrom.serial) && (actor.hurtFrom.blast === undefined || actor.hurtFrom.blast === true) && (actor.hurtFrom.by === undefined || typeof actor.hurtFrom.by === 'string' && actor.hurtFrom.by.length <= 100) && (actor.hurtFrom.cause === undefined || typeof actor.hurtFrom.cause === 'string' && actor.hurtFrom.cause.length <= 80))) || (actor.variant !== undefined && (typeof actor.variant !== 'string' || actor.variant.length > 40)) || !validWeaponIndex(actor.weapon) || typeof actor.alive !== 'boolean' || typeof actor.bot !== 'boolean' || typeof actor.faction !== 'string' || !getArenaFaction(actor.faction) || typeof actor.role !== 'string' || actor.role.length > 32 ||
       (actor.x as number) < (actor.transport ? -5000 : environment?.bounds.minX ?? -500) || (actor.x as number) > (actor.transport ? 5000 : environment?.bounds.maxX ?? 500) ||
       (actor.z as number) < (actor.transport ? -5000 : environment?.bounds.minZ ?? -500) || (actor.z as number) > (actor.transport ? 5000 : environment?.bounds.maxZ ?? 500) || (actor.y as number) < 0 || (actor.y as number) > (actor.transport ? 405 : 124) ||
       (actor.health as number) < 0 || (actor.health as number) > 300 || (actor.armor as number) < 0 || (actor.armor as number) > 150) return false;
@@ -210,7 +210,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     ((BARK_EVENTS as readonly unknown[]).includes(b.kind) || b.kind === 'callout' && !!getPlayerCallout(b.callout)) && (b.callout === undefined || b.kind === 'callout') && (b.at === undefined || point(b.at)) &&
     (b.order === undefined || object(b.order) && Number.isInteger(b.order.allies) && (b.order.allies as number) >= 0 && (b.order.allies as number) <= 20 && (b.order.note === undefined || typeof b.order.note === 'string' && b.order.note.length <= 100))))) return false;
   return value.feed.every(entry => object(entry) && typeof entry.id === 'string' && entry.id.length <= 100 && typeof entry.text === 'string' && entry.text.length <= 160 &&
-    (entry.killerId === undefined || typeof entry.killerId === 'string') && (entry.victimId === undefined || typeof entry.victimId === 'string') &&
+    (entry.killerId === undefined || typeof entry.killerId === 'string') && (entry.victimId === undefined || typeof entry.victimId === 'string') && (entry.cause === undefined || typeof entry.cause === 'string' && entry.cause.length <= 80) &&
     (entry.bounty === undefined || validRaiderBounty(entry.bounty) && typeof entry.killerId === 'string' && entry.victimId === undefined));
 }
 function point(value: unknown): value is ArenaPoint { return object(value) && finite(value.x) && finite(value.y) && finite(value.z); }
@@ -411,6 +411,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (!point(origin) || !point(direction)) return 0;
     return sceneCover.distance(origin, direction, finite(supplied) ? Math.max(0, Math.min(MAX_WEAPON_RANGE, supplied)) : MAX_WEAPON_RANGE);
   }
+  simulation?.setPlayerRespawnSeconds(ARENA_PLAYER_RESPAWN_SECONDS);
   if (simulation) { simulation.addPlayer(session.id, session.name, initial.armor, initial.absorption, initial.weapons, options.initialVitals, session.role === 'solo', initial.carriedFamilies, initial.insert); simulation.setPlayerEquipmentRentals(session.id, initial.equipmentRentals); simulation.setPlayerGrenades(session.id, initial.supplies); registered.add(session.id); }
   function accept(next: ArenaSnapshot) {
     if (next.tick < lastTick) { seenFeed.clear(); seenBarks.clear(); localAdopted = false; }
@@ -535,6 +536,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     const own = mergeHits(simulation.takeHits(session.id)); if (own) pendingHit = own;
     for (const id of registered) if (id !== session.id) { const hit = mergeHits(simulation.takeHits(id)); if (hit) session.send({ type: 'arena-hit', hit }, id); }
   }
+  let ownCorpse = false, ownCorpseShown = false, selfWasAlive = false;
   let lastTime = performance.now(), broadcastTime = 0;
   const timer = simulation ? setInterval(() => {
     const now = performance.now(); const dt = Math.min(3, (now - lastTime) / 1000); lastTime = now;
@@ -560,7 +562,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     else if (actor.alive && !avatar.alive) { setAvatarDown(avatar, false); avatar.groundTimer = 0; }
     const respawned = actor.alive && !avatar.alive;
     avatar.alive = actor.alive;
-    root.visible = actor.alive || (rig.down && rig.downTime < ARENA_CORPSE_SECONDS && !actor.vehicle && !actor.transport);
+    root.visible = actor.alive || (actor.id === session.id ? ownCorpseShown : rig.down && rig.downTime < ARENA_CORPSE_SECONDS && !actor.vehicle && !actor.transport);
     const viewer = snapshot?.actors.find(a => a.id === session.id);
     root.userData.arenaFriendly = !!viewer && !hostile(viewer,actor);
     avatar.reveal.visible = actor.alive && !!viewer && !!actor.markedBy?.some(id => { const caller = snapshot?.actors.find(a => a.id === id); return caller && (caller.id === viewer.id || !hostile(viewer, caller)); });
@@ -638,12 +640,16 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       else if (self && connected && inputTime >= 1 / 20) { inputTime %= 1 / 20; sendInput(input); }
     }
     const activeIds = new Set<string>();
+    // The player has no figure of their own, except the body the death camera looks at. Loading in dead has none.
+    ownCorpse = !!self && !self.alive && (ownCorpse || selfWasAlive); selfWasAlive = !!self?.alive;
+    if (!ownCorpse) ownCorpseShown = false;
     for (const actor of snapshot?.actors ?? []) {
-      if (actor.id === session.id) continue;
+      if (actor.id === session.id && !ownCorpse) continue;
       activeIds.add(actor.id);
       let avatar = avatars.get(actor.id);
       if (avatar && avatar.key !== avatarKey(actor)) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); avatars.delete(actor.id); avatar = undefined; }
       if (!avatar) { avatar = createAvatar(actor); avatars.set(actor.id, avatar); scene.add(avatar.root); avatar.root.position.set(actor.x, actor.y - 1.75, actor.z); avatar.previous.copy(avatar.root.position); }
+      if (actor.id === session.id && !avatar.rig.down) { setAvatarDown(avatar, true); avatar.root.position.y = actor.swimming ? actor.y - 1.75 : actor.ground ?? groundBelow(actor.x, actor.z, actor.y); avatar.previous.copy(avatar.root.position); }
       animateAvatar(avatar, actor.transport ? actor : presentations.get(actor.id)?.sample(performance.now() / 1000) ?? actor, dt);
     }
     const listener = self ?? (validArenaInput(input) ? { ...input, bot: false, faction: 'armed-forces' } : null), now = performance.now();
@@ -818,6 +824,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       if (accepted) refresh(); // Adopt seats before the renderer restores held crossing controls.
       return accepted;
     },
-    merlionAction, triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getDeployments: () => simulation?.playerDeployments(session.id) ?? [], getRespawn: () => simulation?.playerRespawn(session.id) ?? null, selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { merlion: s.merlion, facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
+    merlionAction, triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getDeployments: () => simulation?.playerDeployments(session.id) ?? [], getRespawn: () => simulation?.playerRespawn(session.id) ?? null, ownCorpseFeet: () => ownCorpse ? avatars.get(session.id)?.root.position.y ?? null : null, showOwnCorpse: (shown: boolean) => { ownCorpseShown = shown; }, selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { merlion: s.merlion, facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;
