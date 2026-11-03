@@ -6364,3 +6364,37 @@ explicit environment proxy. This supersedes the earlier pending/false release
 verification note. Evidence: .cache/freedom-cargo-v2 (release-result.json true).
 Temporary frozen source/private env copies removed; deployment lock released.
 Preserved pre-existing local handoff edits, AGENTS.md and .claude/ unstaged.
+
+
+## Non-utility equipment rentals (2026-11-03)
+
+Local main commit `17570b9` extends the existing 1/2/4-hour active-play rentals
+to all paid non-consumable equipment: armor, rigs, vision, weapon finishes,
+vehicle wraps and the extra main slot. Free issue and consumable stock retain
+their rules. Former permanent non-weapon purchases migrate once to one hour,
+keeping longer leases, equipped selections, wallets, progression and supplies.
+Store/Inventory/carry controls support rent, equip, extend and discard.
+
+At the owner's follow-up, exhausted rentals remain usable for the current life;
+expiry is applied after death or game end, including the match authority's
+weapon stats, insert protection and extra-slot access. District travel and
+field pickups retain current-life access. Respawn also restores expired finishes
+and wraps; vehicle repaint preserves health and model identity.
+
+Validation: 237 focused tests / 16 files and typecheck pass. The isolated release
+also passed typecheck, 236 tests before the final wrap regression, and all 31
+final equipment/vehicle/respawn regressions. Production Chrome checks pass old
+save migration, all gear shelves, 1/2/4-hour terms, extension/discard, mobile
+layout, paused clocks, exhausted current-life gear and issued gear in the next
+game. Zero browser errors or map requests. Cloudflare routing/assets/PWA/API
+checks pass without paid API calls.
+
+Manual `pnpm deploy:cloudflare` succeeded from the frozen local source: version
+`df1a3414-03bf-41d3-a7c3-44f28add810f`. All 3,370 tracked non-handoff files match
+code commit `17570b9`. A concurrent deployment then published the same runtime
+from `.cache/deployment-beams-release/`; comparison differs only in the minimap
+smoke script. Final exact-byte checks on both blockplaysg.fun and workers.dev
+match that release's root/store/inventory HTML, entry JS/CSS and service worker.
+Receipts, source comparisons, browser results, screenshots and all validation /
+deploy logs are in `.cache/equipment-rentals/`. No GitHub push. AGENTS.md remains
+local, unstaged and uncommitted; unrelated handoff and .claude work is preserved.
