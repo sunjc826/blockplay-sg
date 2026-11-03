@@ -22,7 +22,7 @@ import { createRangeResupply, rangeResupplyPoint, rangeResupplyObstacle } from '
 import { combatFeedReward, type RaiderBounty } from './combat-rewards';
 import { WEATHER } from './world-events';
 import { createDeploymentBlur } from './deployment-blur';
-import { createDeploymentOverview, deploymentMarkers, overviewFrame } from './deployment-overview';
+import { createDeploymentOverview, deploymentMarkers, overviewFrame, overviewPanDelta } from './deployment-overview';
 import { createDeploymentIntro } from './deployment-intro';
 import { visionMountPose } from './fps-vision-mount';
 import type { PlayerRespawnView } from './player-respawn';
@@ -414,7 +414,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const overviewHighest = world.obstacles.reduce((height, o) => Math.max(height, o.maxY ?? 12), 80);
   let overviewZoom = 1, overviewPan = { x: 0, z: 0 }, overviewDrag: { id: number; x: number; y: number } | null = null;
   const overviewActive = () => introEligible && ['loading', 'ready'].includes(hud.phase) && !deploymentIntro.begun;
-  const overviewView = () => overviewFrame(world.bounds, canvas.clientWidth, canvas.clientHeight, overviewHighest, overviewZoom, overviewPan);
+  const overviewLook = { x: 0, y: 0 }, overviewCursor = { x: 0, y: 0 };
+  const overviewSurface = host.parentElement ?? host;
+  const leaveOverview = () => { overviewCursor.x = overviewCursor.y = 0; };
+  const overviewView = () => overviewFrame(world.bounds, canvas.clientWidth, canvas.clientHeight, overviewHighest, overviewZoom, overviewPan, overviewLook);
   let deploymentChoice = 'random', deploymentResolved = false, resolvedDeployment: string | null = null;
   if (options.arena?.environment && deploymentPoints.length) options.arena.environment.deployments = deploymentPoints;
   vehicles.omit(checkpoint?.vehicleDepartures?.[region]?.kinds ?? []);
@@ -917,7 +920,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function resetDeploymentView() {
     if (!overviewActive()) return;
-    overviewZoom = 1; overviewPan = { x: 0, z: 0 }; updateCameras(0, false, false); publish();
+    overviewZoom = 1; overviewPan = { x: 0, z: 0 }; overviewLook.x = overviewLook.y = overviewCursor.x = overviewCursor.y = 0; updateCameras(0, false, false); publish();
   }
   function deployInitially() {
     if (deploymentResolved || !deploymentPoints.length) return true;
@@ -1037,7 +1040,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.phase === 'loading' || hud.phase === 'error') return;
     if (options.arena?.session.role === 'guest') return;
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset();
-    deploymentResolved = false; resolvedDeployment = null; deploymentIntro.reset(); deploymentRoof = null; readySound = 0; overviewZoom = 1; overviewPan = { x: 0, z: 0 };
+    deploymentResolved = false; resolvedDeployment = null; deploymentIntro.reset(); deploymentRoof = null; readySound = 0; overviewZoom = 1; overviewPan = { x: 0, z: 0 }; overviewLook.x = overviewLook.y = overviewCursor.x = overviewCursor.y = 0;
     arenaRuntime?.reset();
     hud.objectiveHints = false; hud.objectiveMarkers = [];
     capturePending = false; hud.phase = 'ready'; hud.hits = 0; hud.shots = 0; hud.landed = 0; hud.elapsed = 0; hud.message = '';
@@ -1630,6 +1633,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   };
   const pointerSource = (event: PointerEvent) => {
     lastPointerType = event.pointerType;
+    if (overviewActive() && !overviewDrag) {
+      const rect = canvas.getBoundingClientRect();
+      const inside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+      const follow = inside && event.pointerType === 'mouse' && !motionPreference?.matches;
+      overviewCursor.x = follow ? THREE.MathUtils.clamp((event.clientX - rect.left) / rect.width * 2 - 1, -1, 1) : 0;
+      overviewCursor.y = follow ? THREE.MathUtils.clamp((event.clientY - rect.top) / rect.height * 2 - 1, -1, 1) : 0;
+    }
     if (hud.phase === 'playing' && !hud.mapExpanded && !hud.proxyMenu && inputMode === 'touch' && requiresFpsPointerLock(event.pointerType)) {
       inputMode = 'mouse'; pause();
       hud.message = 'Mouse detected. Click Resume to capture it; Escape opens the menu.'; publish();
@@ -1687,9 +1697,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   };
   const pointermove = (event: PointerEvent) => {
     if (overviewActive() && overviewDrag?.id === event.pointerId) {
-      const scale = overviewView().metresPerPixel;
-      overviewPan.x = THREE.MathUtils.clamp(overviewPan.x - (event.clientX - overviewDrag.x) * scale, -(world.bounds.maxX - world.bounds.minX) / 2, (world.bounds.maxX - world.bounds.minX) / 2);
-      overviewPan.z = THREE.MathUtils.clamp(overviewPan.z - (event.clientY - overviewDrag.y) * scale, -(world.bounds.maxZ - world.bounds.minZ) / 2, (world.bounds.maxZ - world.bounds.minZ) / 2);
+      const rect = canvas.getBoundingClientRect();
+      const delta = overviewPanDelta(camera, rect.width, rect.height,
+        { x: overviewDrag.x - rect.left, y: overviewDrag.y - rect.top }, { x: event.clientX - rect.left, y: event.clientY - rect.top });
+      overviewPan.x = THREE.MathUtils.clamp(overviewPan.x + delta.x, -(world.bounds.maxX - world.bounds.minX) / 2, (world.bounds.maxX - world.bounds.minX) / 2);
+      overviewPan.z = THREE.MathUtils.clamp(overviewPan.z + delta.z, -(world.bounds.maxZ - world.bounds.minZ) / 2, (world.bounds.maxZ - world.bounds.minZ) / 2);
       overviewDrag.x = event.clientX; overviewDrag.y = event.clientY; updateCameras(0, false, false); publish(); return;
     }
     if (document.pointerLockElement === canvas || !drag || event.pointerId !== drag.id) return;
@@ -1740,6 +1752,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   window.addEventListener('pointerdown', pointerSource, true); window.addEventListener('pointermove', pointerSource, true);
   canvas.addEventListener('pointerdown', pointerdown); canvas.addEventListener('pointermove', pointermove);
   window.addEventListener('pointerup', pointerup); canvas.addEventListener('pointercancel', releasePointer); canvas.addEventListener('lostpointercapture', releasePointer);
+  overviewSurface.addEventListener('pointerleave', leaveOverview);
+  window.addEventListener('blur', leaveOverview);
   canvas.addEventListener('contextmenu', contextmenu); document.addEventListener('mousemove', mousemove);
   canvas.addEventListener('mousedown', mousedown); window.addEventListener('mouseup', mouseup); canvas.addEventListener('wheel', scrollWheel, { passive: false });
   document.addEventListener('pointerlockchange', lockchange); document.addEventListener('pointerlockerror', lockerror);
@@ -1955,13 +1969,26 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     playerBody.root.visible = false;
     camera.far = 800; overview.update(overviewActive(), deploymentChoice);
     if (overviewActive()) {
+      // Freeze cursor motion while grabbing the map; touch and reduced motion
+      // always use the composed, neutral angle. Damping uses real frame time.
+      if (motionPreference?.matches || lastPointerType === 'touch') overviewLook.x = overviewLook.y = overviewCursor.x = overviewCursor.y = 0;
+      else if (!overviewDrag) {
+        overviewLook.x = THREE.MathUtils.damp(overviewLook.x, overviewCursor.x, 5, dt);
+        overviewLook.y = THREE.MathUtils.damp(overviewLook.y, overviewCursor.y, 5, dt);
+      }
       const view = overviewView();
-      camera.position.set(view.x, view.y, view.z); camera.rotation.set(-Math.PI / 2, 0, 0, 'YXZ'); camera.fov = 65; camera.far = view.far;
+      camera.position.set(view.x, view.y, view.z); camera.rotation.set(view.pitch, view.yaw, 0, 'YXZ'); camera.fov = view.fov; camera.far = view.far;
       camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
       actualAim = false; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0); grenadeHands.update(null, 0, 0);
       canvas.dataset.weaponVisible = 'false'; canvas.dataset.deploymentIntro = ''; canvas.dataset.readyAction = '';
       canvas.dataset.deploymentOverview = 'true';
-      canvas.dataset.deploymentCamera = JSON.stringify({ x: view.x, y: view.y, z: view.z, pitch: -Math.PI / 2, yaw: 0, fov: 65, ready: null, speed: 0, blur: 0 });
+      canvas.dataset.deploymentCamera = JSON.stringify({ x: view.x, y: view.y, z: view.z, pitch: view.pitch, yaw: view.yaw, fov: view.fov, ready: null, speed: 0, blur: 0 });
+      // Keep pins locked to the world between the slower React HUD snapshots.
+      const pins = overviewSurface.querySelectorAll<HTMLElement>('[data-deployment-id]');
+      if (pins.length) for (const marker of deploymentMarkers(deploymentPoints, camera)) {
+        const pin = Array.from(pins).find(pin => pin.dataset.deploymentId === marker.id);
+        if (pin) { pin.style.left = `${marker.x}%`; pin.style.top = `${marker.y}%`; pin.style.visibility = marker.visible ? 'visible' : 'hidden'; }
+      }
       return;
     }
     canvas.dataset.deploymentOverview = 'false';
@@ -3919,6 +3946,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       window.removeEventListener('pointerdown', pointerSource, true); window.removeEventListener('pointermove', pointerSource, true);
       canvas.removeEventListener('pointerdown', pointerdown); canvas.removeEventListener('pointermove', pointermove);
       window.removeEventListener('pointerup', pointerup); canvas.removeEventListener('pointercancel', releasePointer); canvas.removeEventListener('lostpointercapture', releasePointer);
+      overviewSurface.removeEventListener('pointerleave', leaveOverview);
+      window.removeEventListener('blur', leaveOverview);
       canvas.removeEventListener('contextmenu', contextmenu); document.removeEventListener('mousemove', mousemove);
       canvas.removeEventListener('mousedown', mousedown); window.removeEventListener('mouseup', mouseup); canvas.removeEventListener('wheel', scrollWheel);
       document.removeEventListener('pointerlockchange', lockchange); document.removeEventListener('pointerlockerror', lockerror);

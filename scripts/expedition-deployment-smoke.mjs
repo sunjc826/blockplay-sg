@@ -18,13 +18,38 @@ const game='document.querySelector(".expedition-game")';
 const points=()=>evaluate('[...document.querySelectorAll("[data-deployment-id]")].map(e=>({id:e.dataset.deploymentId,x:Number(e.dataset.worldX),z:Number(e.dataset.worldZ)}))');
 async function screenshot(name){const s=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await fs.writeFile(new URL(name+'.png',output),Buffer.from(s.data,'base64'));}
 try{
- await send('Runtime.enable');await send('Page.enable');await send('Page.bringToFront');await send('Emulation.setFocusEmulationEnabled',{enabled:true});
+ await send('Runtime.enable');await send('Page.enable');await send('Network.enable');await send('Network.setBlockedURLs',{urls:['*api.openai.com/*','*api.elevenlabs.io/*','*/api/adventure/*','*maps.googleapis.com/*']});await send('Page.bringToFront');await send('Emulation.setFocusEmulationEnabled',{enabled:true});
  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});await send('Emulation.setTouchEmulationEnabled',{enabled:true});
+ await send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('blockplay-sg-environment-v1',JSON.stringify({timeOfDay:'noon',weather:'sunny',celebration:'none',reducedEffects:false,shadows:false,occlusion:false}))`});
  await send('Page.navigate',{url}); await wait(`${game}?.dataset.phase==='ready'`);const entries=await points();assert.ok(entries.length>=3);assert.equal(await evaluate(`${game}.dataset.deploymentChoice`),'random');
  assert.equal(await evaluate('document.querySelectorAll(".deployment-pins select,.deployment-pins svg").length'),0);
  const before=await evaluate(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera)`);
- assert.ok(before.y>150 && before.pitch < -1.5);assert.equal(await evaluate(`document.querySelector('canvas').dataset.weaponVisible`),'false');
+ assert.ok(before.y>150 && before.pitch > -1.3 && before.pitch < -1.1 && before.fov===38);assert.equal(await evaluate(`document.querySelector('canvas').dataset.weaponVisible`),'false');
  assert.equal(await evaluate(`${game}.dataset.arenaStarted`),'false');
+ // Cursor orbit stays bounded, preserves the long lens and follows native mouse
+ // motion. Pins must match the rendered camera between React HUD snapshots.
+ await screenshot('desktop-neutral');
+ await send('Emulation.setTouchEmulationEnabled',{enabled:false});
+ await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:150,y:220});
+ await wait(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera).yaw<-.015`);
+ await screenshot('desktop-cursor-left');
+ const left=await evaluate(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera)`);
+ await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:1100,y:560});
+ await wait(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera).yaw>.015`);
+ const right=await evaluate(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera)`);
+ assert.equal(right.fov,38);assert(Math.abs(right.pitch-left.pitch)<.06);assert(Math.abs(right.yaw-left.yaw)<.075);
+ await screenshot('desktop-cursor-right');
+ const pinError=await evaluate(`(async()=>{const THREE=await import('/node_modules/three/build/three.module.js');const el=document.querySelector('canvas'),d=JSON.parse(el.dataset.deploymentCamera),camera=new THREE.PerspectiveCamera(d.fov,el.clientWidth/el.clientHeight,.08,10000);camera.position.set(d.x,d.y,d.z);camera.rotation.set(d.pitch,d.yaw,0,'YXZ');camera.updateMatrixWorld(true);return Math.max(...[...document.querySelectorAll('[data-deployment-id]')].map(pin=>{const p=new THREE.Vector3(Number(pin.dataset.worldX),.4,Number(pin.dataset.worldZ)).project(camera);return Math.hypot((parseFloat(pin.style.left)-(p.x+1)*50)*el.clientWidth/100,(parseFloat(pin.style.top)-(1-p.y)*50)*el.clientHeight/100)}))})()`);
+ assert(pinError<1,`Pins must track the rendered camera: ${pinError}px`);
+ await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+ await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:200,y:250});
+ await wait(`Math.abs(JSON.parse(document.querySelector('canvas').dataset.deploymentCamera).yaw)<.0001`);
+ const reduced=await evaluate(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera)`);
+ await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:1000,y:500});await delay(250);
+ assert.deepEqual(await evaluate(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera)`),reduced);
+ await send('Emulation.setEmulatedMedia',{features:[]});
+ await send('Emulation.setTouchEmulationEnabled',{enabled:true});
+
  await touch(`document.querySelector('[aria-label="Zoom in on district"]')`);
  await wait(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera).y<${before.y}`);
  await touch(button('View all'));await wait(`Math.abs(JSON.parse(document.querySelector('canvas').dataset.deploymentCamera).y-${before.y})<.1`);
@@ -45,7 +70,7 @@ try{
  assert.equal(await evaluate('document.querySelectorAll(".expedition-deployment").length'),0);
  await touch(button('Resume expedition'));await wait(`${game}.dataset.phase==='playing'`);
  assert.equal(await evaluate(`${game}.dataset.deploymentPoint`),chosen.id);
- console.log('PASS: real aerial camera, zoom/reset, world-marker selection, authoritative placement and no redeployment on resume.');
+ console.log('PASS: long-lens cursor orbit, reduced motion, frame-synchronous pins, real aerial camera, zoom/reset, world-marker selection, authoritative placement and no redeployment on resume.');
  await send('Page.navigate',{url});await wait(`${game}?.dataset.phase==='ready'`);const randomEntries=await points();
  await touch(button('Enter district'));await wait(`${game}.dataset.phase==='playing'`);
  const randomId=await evaluate(`${game}.dataset.deploymentPoint`);assert.ok(randomEntries.some(p=>p.id===randomId));
@@ -58,6 +83,6 @@ try{
   const r=await evaluate('(()=>{const r=document.querySelector(".deployment-dock").getBoundingClientRect();return{x:r.x,right:r.right,y:r.y,bottom:r.bottom,w:innerWidth,h:innerHeight}})()');
   assert.ok(r.x>=0&&r.right<=r.w&&r.y>=0&&r.bottom<=r.h,JSON.stringify(r));await screenshot(label);
  }
- assert.deepEqual(errors,[]);await fs.writeFile(new URL('verification.json',output),JSON.stringify({entries,chosen,randomId,errors},null,2));
+ assert.deepEqual(errors,[]);await fs.writeFile(new URL('verification.json',output),JSON.stringify({entries,chosen,randomId,left,right,pinError,reduced,errors},null,2));
  console.log('PASS: portrait/landscape controls fit; no runtime errors.');
 }finally{ws.close();await fetch(`${chrome}/json/close/${tab.id}`).catch(()=>{});}
