@@ -44,12 +44,12 @@ it('expires exactly on exhausting play time and resets an equipped rental withou
   expect(hasItemAccess(expired, id)).toBe(false); expect(expired.guns[0].variant).toBe('sar-issued');
   expect(expired.rentals[id]).toBeUndefined(); expect(expired.tokens).toBe(rented.tokens);
 });
-it('clears old permanent weapon IDs and their equipped selection while preserving other purchases', () => {
+it('clears old permanent weapon IDs and their equipped selection while converting other purchases into one-hour rentals', () => {
   const base = buyer(), saved = { ...base, owned: [...base.owned, id, 'skin-gold', 'plate-ceramic', 'slot-extra'], guns: base.guns.map((gun, family) => family === 0 ? { ...gun, variant: id, skin: 'skin-gold' } : gun), plate: 'plate-ceramic', carry: { main: 0, extra: 1 } };
   const restored = restoreProfile(JSON.stringify(saved));
   expect(restored.owned).not.toContain(id); expect(restored.guns[0]).toMatchObject({ variant: 'sar-issued', skin: 'skin-gold' });
   expect(restored).toMatchObject({ credits: saved.credits, tokens: saved.tokens, xp: saved.xp, plate: saved.plate, carry: saved.carry });
-  for (const nonWeapon of ['skin-gold', 'plate-ceramic', 'slot-extra']) expect(restored.owned).toContain(nonWeapon);
+  for (const nonWeapon of ['skin-gold', 'plate-ceramic', 'slot-extra']) { expect(restored.owned).not.toContain(nonWeapon); expect(restored.rentals[nonWeapon]).toBe(RENTAL_HOUR_MS); }
 });
 it('migrates existing absolute expiry dates once and preserves any valid active lease', () => {
   const now = 1000000, { rentalClock: _clock, ...legacy } = buyer();
@@ -64,7 +64,7 @@ it('trusted field pickups stay usable but cannot create permanent saved weapons'
   expect(restoreFieldProfile(field).guns[0].variant).toBe(id);
   expect(restoreProfile(JSON.stringify(field)).guns[0].variant).toBe('sar-issued');
 });
-it('rejects malformed balances and non-weapon rentals', () => {
+it('rejects malformed balances and consumable rentals', () => {
   const restored = restoreProfile(JSON.stringify({ ...buyer(), rentals: { [id]: 5000, 'kit-ammo': 2000, 'sar-ranger': -5, 'sar-marksman': 'tomorrow', unknown: 1000 } }));
   expect(restored.rentals).toEqual({ [id]: 5000 });
 });

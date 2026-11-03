@@ -8,7 +8,8 @@ export const WEAPON_TERMS = [
 ] as const;
 export type WeaponTerm = typeof WEAPON_TERMS[number]['id'];
 export const isWeaponTerm = (term: unknown): term is WeaponTerm => WEAPON_TERMS.some(option => option.id === term);
-export const canRentWeapon = (item: ShopItem) => item.category === 'weapon' && item.price > 0 && !isEnemyIssue(item);
+export const canRentEquipment = (item: ShopItem) => item.category !== 'consumable' && item.price > 0 && !isEnemyIssue(item);
+export const canRentWeapon = (item: ShopItem) => item.category === 'weapon' && canRentEquipment(item);
 const oneHourPrice = (item: ShopItem) => Math.max(1, Math.ceil(item.price * .10));
 export function weaponTermPrice(item: ShopItem, term: WeaponTerm) {
   const option = WEAPON_TERMS.find(option => option.id === term)!;

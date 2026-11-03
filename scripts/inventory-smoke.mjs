@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const origin = process.env.FPS_APP_ORIGIN || 'http://127.0.0.1:5175';
 const chrome = process.env.FPS_CHROME_ORIGIN || 'http://127.0.0.1:9224';
-const output = new URL('../.cache/hourly-rentals/', import.meta.url); await fs.mkdir(output, { recursive: true });
+const output = new URL('../.cache/equipment-rentals/browser/', import.meta.url); await fs.mkdir(output, { recursive: true });
 const tab = await (await fetch(`${chrome}/json/new?${encodeURIComponent(`${origin}/inventory`)}`, { method: 'PUT' })).json();
 const ws = new WebSocket(tab.webSocketDebuggerUrl); await new Promise((resolve, reject) => { const timer=setTimeout(()=>reject(new Error('Chrome connection timeout')),20000); ws.onopen=()=>{clearTimeout(timer);resolve();};ws.onerror=reject; });
 let id = 0; const pending = new Map(), errors = []; let mapRequests = 0;
@@ -36,6 +36,7 @@ try {
  await wait(`${wallet}.rentalClock==='playtime' && !!document.querySelector('[data-inventory-item="sar-ranger"]')`);
  const migrated=await evaluate(wallet);
  assert(!migrated.owned.includes('sar-vanguard'));assert.equal(migrated.guns[0].variant,'sar-issued');assert.equal(migrated.guns[0].skin,'skin-gold');
+ assert(!migrated.owned.includes('skin-gold'));assert.equal(migrated.rentals['skin-gold'],3600000);assert.equal(migrated.rentals['plate-ceramic'],3600000);
  assert.equal(migrated.credits,50000);assert.equal(migrated.tokens,3000);assert.equal(migrated.plate,'plate-ceramic');
  assert(migrated.rentals['sar-ranger']>590000&&migrated.rentals['sar-ranger']<=600000);
  const held=migrated.rentals['sar-ranger'];await delay(1800);await send('Page.reload');await wait(`!!document.querySelector('.inventory')`);
@@ -76,19 +77,55 @@ try {
  assert.equal(await evaluate(`!!document.querySelector('[data-inventory-item="sar-issued"] [data-discard-rental]')`),false);
  results.push('1/2/4-hour terms, exact rounded bulk savings, paid renewals and uncapped six-hour balance pass');
  results.push('Store and Inventory discard, cancellation, no refunds, equipped issued fallback and issued-weapon protection pass');
+ // Every paid gear shelf shares rental terms, renewal, equip and discard.
+ await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});useTouch=false;
+ await click(`document.querySelector('.inventory-header a[href="/store"]')`);await wait(`!!${action}`);
+ for (const [category,item,selection] of [['armor','rig-lbs','rig'],['armor','plate-soft','plate'],['vision','nvg-gen1','vision'],['skin','skin-jungle','skin'],['vehicleSkin','paint-jungle','paint']]) {
+   await click(`document.querySelector('#shop-tab-${category}')`);
+   await click(`document.querySelector('[data-item="${item}"]')`);
+   assert.deepEqual(await evaluate(`[...document.querySelectorAll('[data-rental-term]')].map(e=>e.dataset.rentalTerm)`),['1h','2h','4h']);
+   await click(term('2h'));await click(action);await wait(`${wallet}.rentals['${item}']===7200000`);
+   await click(action);
+   const selected=selection==='skin'?`${wallet}.guns[0].skin`:selection==='paint'?`${wallet}.vehicleSkins.car`:`${wallet}.${selection}`;
+   await wait(`${selected}==='${item}'`);
+   assert.equal(await evaluate(`${wallet}.owned.includes('${item}')`),false);
+   await click(term('1h'));await click(`document.querySelector('[data-testid="shop-renew"]')`);await wait(`${wallet}.rentals['${item}']===10800000`);
+   await screenshot(`rental-${category}-${item}`);
+   await click(discard);await click(confirm);await wait(`!${wallet}.rentals['${item}']`);
+ }
+ const extra=`document.querySelector('.armory-carry button')`;
+ await click(extra);await wait(`${wallet}.rentals['slot-extra']===3600000`);
+ assert.equal(await evaluate(`${wallet}.owned.includes('slot-extra')`),false);
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});useTouch=true;
+ assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`));await screenshot('rental-extra-slot-mobile');
+ results.push('All gear shelves support rental terms, equip, extension and discard; extra slot rents on mobile without permanent ownership');
  // A short remaining balance exercises the real game's clock, pause and expiry without waiting a day.
- await evaluate(`(()=>{const p=${wallet};p.rentals['sar-ranger']=6000;p.guns[0].variant='sar-ranger';localStorage.setItem('blockplay.armory.v1',JSON.stringify(p));location.href='/training'})()`);
+ await evaluate(`(()=>{const p=${wallet};p.rentals={'sar-ranger':6000,'rig-lbs':6000,'plate-ceramic':6000,'nvg-gen1':6000,'skin-gold':6000,'paint-jungle':6000,'slot-extra':6000};p.guns[0].variant='sar-ranger';p.guns[0].skin='skin-gold';p.rig='rig-lbs';p.plate='plate-ceramic';p.vision='nvg-gen1';p.vehicleSkins.car='paint-jungle';p.carry={main:0,extra:1};localStorage.setItem('blockplay.armory.v1',JSON.stringify(p));location.href='/training'})()`);
  await wait(`!!document.querySelector('.starting-deploy')`);await click(`document.querySelector('.starting-deploy')`);
  await wait(`document.querySelector('.fps-game')?.dataset.phase==='ready'`,60000);
  assert.equal(await evaluate(`${wallet}.rentals['sar-ranger']`),6000);
+ await click(`[...document.querySelectorAll('.range-drill-picker button')].find(e=>e.textContent==='Continuous')`);
  await click(`document.querySelector('.fps-start-card .primary-button')`);await wait(`document.querySelector('.fps-game')?.dataset.phase==='playing'`);
  await wait(`${wallet}.rentals['sar-ranger']<4200 && ${wallet}.rentals['sar-ranger']>0`);
  await click(`document.querySelector('[data-touch-action="menu"]')`);await wait(`document.querySelector('.fps-game')?.dataset.phase==='paused'`);
  const paused=await evaluate(`${wallet}.rentals['sar-ranger']`);await delay(2000);assert.equal(await evaluate(`${wallet}.rentals['sar-ranger']`),paused);
  await click(`document.querySelector('.fps-start-card .primary-button')`);await wait(`document.querySelector('.fps-game')?.dataset.phase==='playing'`);
- await wait(`!${wallet}.rentals['sar-ranger']`,15000);await wait(`document.querySelector('.fps-weapon-hud')?.textContent.includes('BMT')`);
- assert.equal(await evaluate(`${wallet}.credits`),50000);assert.equal(await evaluate(`${wallet}.guns[0].variant`),'sar-issued');
- results.push('Actual training load/ready/pause do not spend time; active play spends it and expiry restores issued weapon');
+ await wait(`!${wallet}.rentals['sar-ranger']`,15000);
+ assert(await evaluate(`document.querySelector('.fps-weapon-hud')?.textContent.includes('Steady Lah')`));
+ const body=`JSON.parse(document.querySelector('canvas[data-body]').dataset.body)`;
+ assert.equal(await evaluate(`${body}.rig`),'rig-lbs');assert.equal(await evaluate(`${body}.plate`),'plate-ceramic');
+ assert.equal(await evaluate(`${wallet}.guns[0].variant`),'sar-issued');
+ await screenshot('exhausted-rentals-current-life');
+ await click(`document.querySelector('[data-touch-action="menu"]')`);
+ await click(`document.querySelector('.range-end-drill')`);
+ await wait(`document.querySelector('.fps-game')?.dataset.phase==='complete'`);
+ await wait(`${body}.rig==='rig-ilbv' && ${body}.plate==='plate-none'`);
+ await screenshot('expired-rentals-summary');
+ await click(`document.querySelector('.fps-start-card .primary-button')`);await wait(`document.querySelector('.fps-game')?.dataset.phase==='ready'`);
+ await click(`document.querySelector('.fps-start-card .primary-button')`);await wait(`document.querySelector('.fps-game')?.dataset.phase==='playing'`);
+ await wait(`document.querySelector('.fps-weapon-hud')?.textContent.includes('BMT')`);
+ await screenshot('expired-rentals-next-game');
+ results.push('Training ready/pause preserve rental time; exhausted rentals stay equipped mid-life; ending the game applies issued weapons, rig and plates');
  assert.deepEqual(errors,[]);assert.equal(mapRequests,0);
  await fs.writeFile(new URL('browser-results.json',output),JSON.stringify({results,errors,mapRequests},null,2));console.log('PASS inventory/playtime:',results.join('; '));
 } catch(error){console.error('Browser exceptions:',errors);console.error(await evaluate(`document.body.innerText.slice(-1800)`));await screenshot('failure');throw error;}finally{ws.close();await fetch(`${chrome}/json/close/${tab.id}`);}

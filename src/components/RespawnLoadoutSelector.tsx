@@ -57,7 +57,7 @@ export default function RespawnLoadoutSelector({ inventory, selected, onSave, on
       <button type="button" aria-label="Close loadout selector" onClick={onClose}>Close</button></header>
       <div className="respawn-loadout-columns">
         {slot('Main weapon', draft.carry.main, 'main')}
-        {ready.owned.includes(EXTRA_SLOT_ID) ? slot('Extra main', draft.carry.extra, 'extra') : <section className="loadout-choice loadout-slot-locked"><h3>Extra main</h3><p>Unlock the extra main slot in the Store to carry a second main weapon.</p></section>}
+        {hasItemAccess(ready, EXTRA_SLOT_ID) ? slot('Extra main', draft.carry.extra, 'extra') : <section className="loadout-choice loadout-slot-locked"><h3>Extra main</h3><p>Rent the extra main slot in the Store to carry a second main weapon.</p></section>}
         {slot('Sidearm', SIDEARM_FAMILY)}
       </div>
       <footer><div><p>{error || (!valid ? 'Select available weapons in each carried slot.' : 'Only issued weapons and active rentals from your locker are shown.')}</p><small>Your Store loadout stays saved. These choices last for this session.</small></div>

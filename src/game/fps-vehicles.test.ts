@@ -311,3 +311,24 @@ it('keeps a moving Humvee occupant seated when every exit is blocked', () => {
     expect(vehicles.states.car.speed).toBe(10);
   } finally { vehicles.dispose(); }
 });
+
+it('changes an expired vehicle wrap once while preserving the vehicle and damage presentation', () => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  const vehicles = createFpsVehicles(new THREE.Scene(), [], { car: 'paint-jungle', helicopter: 'paint-jungle' });
+  try {
+    const model = vehicles.models.car;
+    const paints = new Set<THREE.MeshStandardMaterial>();
+    model.traverse(node => {
+      if (node instanceof THREE.Mesh) for (const material of Array.isArray(node.material) ? node.material : [node.material]) if (material instanceof THREE.MeshStandardMaterial && material.name === 'Vehicle paint') paints.add(material);
+    });
+    const material = [...paints][0], previous = material.map!;
+    const dispose = vi.spyOn(previous, 'dispose');
+    vehicles.damage('car', 100); const health = vehicles.states.car.health;
+    vehicles.setSkins({ car: 'paint-issued', helicopter: 'paint-issued' });
+    expect(vehicles.models.car).toBe(model); expect(vehicles.states.car.health).toBe(health);
+    expect(material.map).not.toBe(previous); expect(dispose).toHaveBeenCalled();
+    const replacement = material.map;
+    vehicles.setSkins({ car: 'paint-issued', helicopter: 'paint-issued' });
+    expect(material.map).toBe(replacement);
+  } finally { vehicles.dispose(); }
+});

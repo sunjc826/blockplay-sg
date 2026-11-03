@@ -15,7 +15,7 @@ export function applyRespawnLoadout(inventory: ArmoryProfile, selection: unknown
   const raw = selection as Partial<RespawnLoadoutSelection>;
   if (!Array.isArray(raw.variants) || raw.variants.length !== FPS_WEAPONS.length || !raw.carry || typeof raw.carry !== 'object') return null;
   const { main, extra } = raw.carry;
-  if (!isMainWeapon(main) || !isShopFamily(main) || (extra !== null && (!isMainWeapon(extra) || !isShopFamily(extra) || extra === main || !inventory.owned.includes(EXTRA_SLOT_ID)))) return null;
+  if (!isMainWeapon(main) || !isShopFamily(main) || (extra !== null && (!isMainWeapon(extra) || !isShopFamily(extra) || extra === main || !hasItemAccess(inventory, EXTRA_SLOT_ID)))) return null;
   const ready = restoreProfile(JSON.stringify(inventory));
   for (const family of [main, ...(extra === null ? [] : [extra]), SIDEARM_FAMILY]) {
     const id = raw.variants[family], item = typeof id === 'string' ? itemById(id) : undefined;

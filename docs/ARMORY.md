@@ -1,6 +1,6 @@
 # Field exchange, progression and FPS equipment
 
-The Armory sidebar offers twenty-six fixed weapon variants across five platforms, five cosmetic finishes, three carrying rigs, four insert choices, five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition, handling hardware and [accessories](#accessories) cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token and +1,000 demo-credit buttons do not charge money. Paid weapons are rental-only; issued weapons are always available. There is no checkout or random purchase. Three further platforms are carried only by the enemy and taken in the field; see [enemy-issue weapons](#enemy-issue-weapons).
+The Armory sidebar offers twenty-six fixed weapon variants across five platforms, five cosmetic finishes, three carrying rigs, four insert choices, five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition, handling hardware and [accessories](#accessories) cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token and +1,000 demo-credit buttons do not charge money. All paid non-consumable equipment is rental-only; free issued equipment is always available. There is no checkout or random purchase. Three further platforms are carried only by the enemy and taken in the field; see [enemy-issue weapons](#enemy-issue-weapons).
 
 ## Play loop
 
@@ -39,9 +39,9 @@ Ranks and XP continue to level 50. Purchases, XP and equipped items persist unde
 
 See [service-inspired classes](SERVICE-WEAPONS.md) for source references, controls, role tradeoffs and the new fixed variants.
 
-## Weapon rentals
+## Equipment rentals
 
-Paid shop weapons default to a **1-hour** rental. Choose **1 hour**, **2 hours** or
+Paid shop weapons, armor, rigs, vision devices, weapon finishes, vehicle wraps and the extra main slot default to a **1-hour** rental. Choose **1 hour**, **2 hours** or
 **4 hours** of active play. One hour costs 10% of the catalog base price, rounded
 up. Two hours receive a 10% bulk discount and four hours a 20% bulk discount
 against buying that many single hours, with final prices rounded up. The Store
@@ -50,26 +50,27 @@ shows exact currency savings. Steady Lah costs 90 / 162 / 288 CR; Garang costs
 
 Rental time is a remaining active-play balance. It decreases only while playing
 a range or a live match; menus, pause, loading, death screens and offline time do
-not count. All rented weapons spend the same active play time, whether carried
+not count. All rented equipment spends the same active play time, whether carried
 or in the locker. Existing longer rental balances are preserved; the new terms
 apply to new purchases. The Inventory, shop and carry slots show remaining time. Buying a rental grants access, then **Equip**
 puts it in the loadout. **Extend** adds the selected duration to remaining time;
 an expired rental starts from the new purchase time. There are no automatic
-renewals or charges. Paid weapons cannot be purchased permanently.
+renewals or charges. Paid non-consumable equipment cannot be purchased permanently.
 
-Expiry replaces the rented variant with the issued variant of the same platform,
-including in a running range, expedition or multiplayer match. Carry slots,
-cosmetic finishes, armour and supplies remain. The match authority also expires
-rental damage and magazine stats. Renew and equip again from the Store.
-Issued weapons always remain available. Other equipment keeps its existing
-permanent ownership or consumable rules; enemy weapons remain field pickups.
+Expiry returns weapons and finishes to issued variants, rigs to ILBV, inserts to
+none, vision to unaided eyes and vehicle wraps to issued paint, after death or when a game ends. Equipment stays usable for the rest of the
+current life even if its active-play balance reaches zero. An expired extra main slot closes and stows the second main.
+The next life uses the issued rig and its magazine capacity. Supplies and unexpired rentals remain. The match authority applies the same expiry rules to
+weapon stats, insert protection and extra-slot access on respawn.
+Food, medical supplies, grenades and ammunition utilities retain their repeatable
+purchase/count rules. Free issued equipment always remains available.
 
-On loading an existing save, paid weapon IDs are removed from permanent ownership.
-Any such equipped weapon returns to its issued variant unless an active rental
-also exists. Active rentals, balances, progression, cosmetic finishes and other
-non-weapon purchases are preserved. Rentals are stored separately as
+Old permanent weapon unlocks retain the earlier migration to issued variants.
+Former permanent non-weapon purchases convert once to one hour of active play,
+keeping any longer existing balance and equipped selections. Wallets, XP and
+supplies are preserved. Paid items leave `owned`; rentals are stored as
 remaining play-time milliseconds in `rentals`, marked by `rentalClock: "playtime"` under the existing local profile key. Restoring
-an older save preserves its wallet, progression and non-weapon ownership; old calendar-based rentals migrate once to their remaining time; exhausted or
+an older save preserves its wallet and progression; old calendar-based rentals migrate once to their remaining time; exhausted or
 invalid entries are discarded. Like the rest of this prototype's inventory,
 rentals are local to this browser profile.
 
@@ -77,14 +78,14 @@ rentals are local to this browser profile.
 
 Use **Inventory** on the main menu or in the Store header to inspect the locker.
 Weapons lists issued weapons and active rentals, showing their remaining play
-hours and equip state. Gear lists owned armour, vision devices, finishes and
+hours and equip state. Gear lists issued equipment and active rentals for armor, vision, finishes and
 slot upgrades. Supplies shows quantities actually held. Equip directly from
 these cards and review carried slots above them. Weapons absent from this
 locker remain available to rent in the Store. The rental clock is paused while
 viewing Inventory, including across reloads and offline time. Use **Discard rental**
 on an active rental in Inventory or the Store to remove its remaining time without a refund. Confirming returns an
-equipped rented variant to its issued counterpart; issued weapons and other
-items cannot be discarded this way.
+equipped rented item to its issued counterpart; issued equipment and supplies
+cannot be discarded this way.
 
 ## Choosing the next respawn loadout
 
@@ -696,10 +697,11 @@ the same selection everything else does; encumbrance weighs what is still on the
 
 ## Weapon slots
 
-Every loadout has one main weapon and one P30 sidearm. A permanent **400 TK**
-unlock adds an optional second main slot, with no level gate. It may be left
+Every loadout has one main weapon and one P30 sidearm. Renting the extra slot
+adds an optional second main, with no level gate: **40 / 72 / 128 TK** for
+**1 / 2 / 4 hours** of active play. It may be left
 empty to travel lighter; main and extra must use different platforms. Premium
-weapon variants can occupy any compatible slot without this unlock.
+weapon variants can occupy any compatible slot without the extra slot.
 
 The Armory slot selectors choose among stored platform configurations. Equipping
 a variant from an uncarried main platform replaces main. Existing ownership,
@@ -1078,7 +1080,7 @@ Real-world naming reference: [CMPB's issued-equipment page](https://www.cmpb.gov
 
 The **Night vision** tab sells head-mounted devices, after the tiers of
 S.T.A.L.K.E.R.'s suit night vision. One is worn at a time (`profile.vision`,
-default `vision-none`); it is a permanent unlock and its weight counts with the
+default `vision-none`); it uses the same active-play rental terms as other equipment and its weight counts with the
 rig and inserts. **N** switches it on, **J** cycles a thermal core's palettes,
 and on a touchscreen one eye button walks off → on → each palette → off and
 carries the device's state as a badge. A device comes up from cold over its

@@ -29,16 +29,16 @@ export default function ArmoryInventory({ store, nav }: { store: ArmoryStore; na
         const slot = item.category === 'weapon' ? item.family! : family, equipped = isEquipped(profile, item, slot, vehicle), remaining = profile.rentals[item.id];
         const supply = item.category === 'consumable', slotUnlock = item.category === 'loadout';
         return <article className={`inventory-item tier-${item.tier.toLowerCase()}`} key={item.id} data-inventory-item={item.id}>
-          <div className="inventory-item-status"><span>{item.category === 'weapon' ? FPS_WEAPONS[slot].name : item.category === 'consumable' ? 'SUPPLY' : 'EQUIPMENT'}</span><small>{supply ? `×${profile.consumables[item.id]} held` : remaining ? 'RENTED' : item.category === 'weapon' ? 'ISSUED' : 'OWNED'}</small></div>
+          <div className="inventory-item-status"><span>{item.category === 'weapon' ? FPS_WEAPONS[slot].name : item.category === 'consumable' ? 'SUPPLY' : 'EQUIPMENT'}</span><small>{supply ? `×${profile.consumables[item.id]} held` : remaining ? 'RENTED' : 'ISSUED'}</small></div>
           {slotUnlock ? <div className="inventory-slot-icon"><Backpack size={55} /></div> : <img src={`${import.meta.env.BASE_URL}images/armory/${armoryThumbnailFile(item, slot, vehicle)}`} alt="" width={480} height={240} loading="lazy" />}
           <h2>{item.name}</h2><p>{item.flavorText || item.description}</p>
-          <div className={`inventory-time ${remaining ? 'rented' : ''}`}><Clock3 size={15} /><strong>{remaining ? rentalTimeLeft(remaining) : supply ? 'Spent when used' : item.category === 'weapon' ? 'Always available' : 'Permanent equipment'}</strong>{remaining && <small>play time remaining</small>}</div>
-          {supply ? <button type="button" aria-pressed={isSupplyCarried(profile, item.id)} onClick={() => store.bringSupply(item.id, !isSupplyCarried(profile, item.id))}>{isSupplyCarried(profile, item.id) ? <><Check size={15} /> Bringing along · Unequip</> : 'In locker · Bring along'}</button> : <button type="button" disabled={equipped || slotUnlock} onClick={() => store.equipItem(item.id, slot, vehicle)}>{equipped ? <><Check size={15} /> Equipped</> : slotUnlock ? 'Extra main slot unlocked' : 'Equip'}</button>}
+          <div className={`inventory-time ${remaining ? 'rented' : ''}`}><Clock3 size={15} /><strong>{remaining ? rentalTimeLeft(remaining) : supply ? 'Spent when used' : 'Always available'}</strong>{remaining && <small>play time remaining</small>}</div>
+          {supply ? <button type="button" aria-pressed={isSupplyCarried(profile, item.id)} onClick={() => store.bringSupply(item.id, !isSupplyCarried(profile, item.id))}>{isSupplyCarried(profile, item.id) ? <><Check size={15} /> Bringing along · Unequip</> : 'In locker · Bring along'}</button> : <button type="button" disabled={equipped || slotUnlock} onClick={() => store.equipItem(item.id, slot, vehicle)}>{equipped ? <><Check size={15} /> Equipped</> : slotUnlock ? 'Extra main slot available' : 'Equip'}</button>}
           {remaining > 0 && <DiscardRental name={item.name} remainingMs={remaining} onDiscard={() => store.discardWeaponRental(item.id)} />}
         </article>;
       })}
       {!items.length && <div className="inventory-empty"><Package size={36} /><h2>{tab === 'supply' ? 'No supplies held' : 'Nothing in this section yet'}</h2><p>Find supplies in the field or visit the Store to stock your locker.</p></div>}
     </div>
-    <footer className="inventory-footer" role="status">{store.saveError ? 'Browser storage is unavailable. Inventory lasts for this session only.' : store.message || 'Choose equipment here. Rent weapons and buy supplies in the Store.'}</footer>
+    <footer className="inventory-footer" role="status">{store.saveError ? 'Browser storage is unavailable. Inventory lasts for this session only.' : store.message || 'Choose equipment here. Rent equipment and buy supplies in the Store.'}</footer>
   </section>;
 }

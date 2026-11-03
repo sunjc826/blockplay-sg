@@ -1,4 +1,5 @@
-import { canRentWeapon, hasItemAccess, isWeaponTerm, RENTAL_HOUR_MS, WEAPON_TERMS, weaponTermPrice, type WeaponTerm } from './weapon-rentals';
+import { canRentEquipment, hasItemAccess, isWeaponTerm, RENTAL_HOUR_MS, WEAPON_TERMS, weaponTermPrice, type WeaponTerm } from './weapon-rentals';
+import { withWeaponModes } from './weapon-modes';
 import { RANGE_DURATION, validRangeDrill, type RangeDrillId } from './range-drills';
 import { RAIDER_BOUNTIES, validRaiderBounty, type RaiderBounty } from './combat-rewards';
 import { carriedFamilies, restoreCarrySlots, isMainWeapon, EXTRA_SLOT_ID, SIDEARM_FAMILY, type CarrySlots } from './armory-slots';
@@ -33,14 +34,21 @@ export const STORAGE_KEY = 'blockplay.armory.v1';
 export function createProfile(): ArmoryProfile { return { carry: { main: 0, extra: null }, version: 1, xp: 0, vehicleSkins: { car: 'paint-issued', helicopter: 'paint-issued' }, credits: 1600, tokens: 300, owned: [...issuedItems], rentalClock: 'playtime', rentals: {}, guns: DEFAULT_VARIANTS.map(variant => ({ variant, skin: 'skin-issued', attachments: {} })), rig: 'rig-ilbv', plate: 'plate-none', rewarded: [], exercises: 0, consumables: {}, stowedSupplies: [], quickItem: '', rankSet: DEFAULT_RANK_SET, encikTone: DEFAULT_ENCIK_TONE, vision: 'vision-none' }; }
 const finiteBalance = (n: unknown, fallback: number) => typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(1000000, Math.floor(n))) : fallback;
 /** Trusted in-memory expedition equipment. Never use this to admit a save or LAN peer. */
-export function restoreFieldProfile(value: ArmoryProfile): ArmoryProfile {
-  const result=restoreProfile(JSON.stringify(value));
-  for (const id of value.owned) if (itemById(id)?.category === 'weapon' && !result.owned.includes(id)) result.owned.push(id);
-  for (const [i, gun] of value.guns.entries()) {
-    const item=itemById(gun.variant);
-    if (item?.category === 'weapon' && item.family===i && result.owned.includes(item.id)) result.guns[i].variant=item.id;
+export function restoreFieldProfile(value: ArmoryProfile, options: { deferRentalExpiry?: boolean } = {}): ArmoryProfile {
+  const result = restoreProfile(JSON.stringify({ ...value, owned: value.owned.filter(id => !!itemById(id) && !canRentEquipment(itemById(id)!)) }));
+  if (options.deferRentalExpiry) for (const [id, remaining] of Object.entries(value.rentals)) {
+    if (itemById(id) && canRentEquipment(itemById(id)!) && remaining === 0) result.rentals[id] = 0;
   }
-  result.carry=restoreCarrySlots(value.carry,result.owned);
+  const available = (id: string) => hasItemAccess(result, id) || (options.deferRentalExpiry && result.rentals[id] === 0);
+  result.owned = [...new Set([...result.owned, ...value.owned.filter(id => !!itemById(id))])];
+  for (const [i, gun] of value.guns.entries()) {
+    const item = itemById(gun.variant);
+    if (item?.category === 'weapon' && item.family === i && available(item.id)) result.guns[i].variant = item.id;
+    if (itemById(gun.skin)?.category === 'skin' && available(gun.skin)) result.guns[i].skin = gun.skin;
+  }
+  for (const category of ['rig', 'plate', 'vision'] as const) if (itemById(value[category])?.category === category && available(value[category])) result[category] = value[category];
+  for (const kind of ['car', 'helicopter'] as const) if (itemById(value.vehicleSkins[kind])?.category === 'vehicleSkin' && available(value.vehicleSkins[kind])) result.vehicleSkins[kind] = value.vehicleSkins[kind];
+  result.carry = restoreCarrySlots(value.carry, options.deferRentalExpiry ? [...result.owned, ...Object.keys(result.rentals)] : result.owned, result.rentals);
   return result;
 }
 
@@ -50,16 +58,22 @@ export function restoreProfile(raw: string | null, now = Date.now()): ArmoryProf
     const value = JSON.parse(raw); if (!value || value.version !== 1) return base;
     base.xp = finiteBalance(value.xp, 0);
     base.credits = finiteBalance(value.credits, base.credits); base.tokens = finiteBalance(value.tokens, base.tokens);
-    // Paid weapons are rental-only. Old permanent unlocks and enemy issue never enter a saved locker.
-    base.owned = [...new Set([...issuedItems, ...(Array.isArray(value.owned) ? value.owned.filter((id: unknown) => typeof id === 'string' && !!itemById(id) && !isEnemyIssue(itemById(id)) && !canRentWeapon(itemById(id)!)) : [])])] as string[];
+    // Paid equipment is rental-only. Enemy issue never enters a saved locker.
+    base.owned = [...new Set([...issuedItems, ...(Array.isArray(value.owned) ? value.owned.filter((id: unknown) => typeof id === 'string' && !!itemById(id) && !isEnemyIssue(itemById(id)) && !canRentEquipment(itemById(id)!)) : [])])] as string[];
     if (value.rentals && typeof value.rentals === 'object' && !Array.isArray(value.rentals)) {
       for (const [id, savedTime] of Object.entries(value.rentals)) {
         const remaining = typeof savedTime === 'number' ? (value.rentalClock === 'playtime' ? savedTime : savedTime - now) : 0;
         const item = itemById(id);
-        if (item && canRentWeapon(item) && !base.owned.includes(id) && Number.isFinite(remaining) && remaining >= 1 && remaining <= Number.MAX_SAFE_INTEGER) base.rentals[id] = Math.floor(remaining);
+        if (item && canRentEquipment(item) && !base.owned.includes(id) && Number.isFinite(remaining) && remaining >= 1 && remaining <= Number.MAX_SAFE_INTEGER) base.rentals[id] = Math.floor(remaining);
       }
     }
-    base.carry = restoreCarrySlots(value.carry, base.owned);
+    // Convert former non-weapon unlocks once, retaining any longer active balance.
+    // Legacy permanent weapons keep their existing migration to issued variants.
+    for (const id of Array.isArray(value.owned) ? value.owned : []) {
+      const item = typeof id === 'string' ? itemById(id) : undefined;
+      if (item && item.category !== 'weapon' && canRentEquipment(item)) base.rentals[id] = Math.max(base.rentals[id] ?? 0, RENTAL_HOUR_MS);
+    }
+    base.carry = restoreCarrySlots(value.carry, base.owned, base.rentals);
     const valid = (id: unknown, category: string) => typeof id === 'string' && hasItemAccess(base, id) && itemById(id)?.category === category;
     for (const i of FPS_WEAPONS.keys()) {
       const gun = value.guns?.[i]; if (!gun) continue;
@@ -89,10 +103,10 @@ export function restoreProfile(raw: string | null, now = Date.now()): ArmoryProf
 export function purchase(profile: ArmoryProfile, id: string, term?: WeaponTerm) {
   const item = itemById(id);
   if (!item) return { profile, message: 'Item unavailable.' };
-  if (term !== undefined && (!isWeaponTerm(term) || !canRentWeapon(item))) return { profile, message: 'Rental term unavailable for this item.' };
+  if (term !== undefined && (!isWeaponTerm(term) || !canRentEquipment(item))) return { profile, message: 'Rental term unavailable for this item.' };
   if (isEnemyIssue(item)) return { profile, message: 'Not sold. Take one from the enemy on an expedition.' };
   const supply = item.category === 'consumable';
-  const rentable = canRentWeapon(item), rentalTerm = term ?? '1h';
+  const rentable = canRentEquipment(item), rentalTerm = term ?? '1h';
   if (!supply && !rentable && profile.owned.includes(id)) return { profile, message: 'Already owned. Equip it below.' };
   if (progression(profile.xp).level < (item.requiredLevel || 1)) return { profile, message: `Unlocks at level ${item.requiredLevel}. Earn XP in the range.` };
   const price = rentable ? weaponTermPrice(item, rentalTerm) : item.price;
@@ -116,27 +130,38 @@ export function purchase(profile: ArmoryProfile, id: string, term?: WeaponTerm) 
   return { profile: { ...profile, [item.currency]: profile[item.currency] - price, rentals, owned: [...profile.owned, id] }, message: `${item.name} unlocked permanently.` };
 }
 
-/** Remove elapsed rentals and restore the issued variant without changing carry slots or skins. */
+/** Remove elapsed rentals and return each equipped item to its free issued choice. */
 export function expireRentals(profile: ArmoryProfile): ArmoryProfile {
-  const expired = Object.entries(profile.rentals ?? {}).filter(([, until]) => until <= 0).map(([id]) => id);
+  const expired = Object.entries(profile.rentals ?? {}).filter(([, remaining]) => remaining <= 0).map(([id]) => id);
   if (!expired.length) return profile;
-  const guns = profile.guns.map((gun, family) => expired.includes(gun.variant) && !profile.owned.includes(gun.variant) ? { ...gun, variant: DEFAULT_VARIANTS[family], attachments: {} } : gun);
+  const lost = (id: string) => expired.includes(id) && !profile.owned.includes(id);
+  const guns = profile.guns.map((gun, family) => lost(gun.variant) || lost(gun.skin) ? {
+    ...gun, variant: lost(gun.variant) ? DEFAULT_VARIANTS[family] : gun.variant,
+    skin: lost(gun.skin) ? 'skin-issued' : gun.skin, attachments: {},
+  } : gun);
   const rentals = { ...profile.rentals };
   for (const id of expired) delete rentals[id];
-  return { ...profile, rentals, guns };
+  return { ...profile, rentals, guns,
+    carry: restoreCarrySlots(profile.carry, profile.owned, rentals),
+    rig: lost(profile.rig) ? 'rig-ilbv' : profile.rig,
+    plate: lost(profile.plate) ? 'plate-none' : profile.plate,
+    vision: lost(profile.vision) ? 'vision-none' : profile.vision,
+    vehicleSkins: Object.fromEntries(Object.entries(profile.vehicleSkins).map(([kind, id]) => [kind, lost(id) ? 'paint-issued' : id])) as ArmoryProfile['vehicleSkins'],
+  };
 }
 
 /** Voluntarily end one paid lease. Wallets and unrelated equipment are untouched. */
 export function discardRental(profile: ArmoryProfile, id: string): ArmoryProfile {
   const item = itemById(id);
-  if (!item || !canRentWeapon(item) || !(profile.rentals[id] > 0)) return profile;
+  if (!item || !canRentEquipment(item) || !(profile.rentals[id] > 0)) return profile;
   return expireRentals({ ...profile, rentals: { ...profile.rentals, [id]: 0 } });
 }
 
 /** Spend only gameplay time reported by a running engine. Menus and offline saves never tick. */
-export function spendRentalTime(profile: ArmoryProfile, elapsedMs: number): ArmoryProfile {
+export function spendRentalTime(profile: ArmoryProfile, elapsedMs: number, options: { deferRentalExpiry?: boolean } = {}): ArmoryProfile {
   if (!Number.isFinite(elapsedMs) || elapsedMs <= 0 || !Object.keys(profile.rentals).length) return profile;
-  return expireRentals({ ...profile, rentals: Object.fromEntries(Object.entries(profile.rentals).map(([id, remaining]) => [id, Math.max(0, remaining - elapsedMs)])) });
+  const next = { ...profile, rentals: Object.fromEntries(Object.entries(profile.rentals).map(([id, remaining]) => [id, Math.max(0, remaining - elapsedMs)])) };
+  return options.deferRentalExpiry ? next : expireRentals(next);
 }
 
 /** Street vendors sell carried supplies only and put the purchase straight in the quick slot. */
@@ -187,8 +212,8 @@ export function chooseRankSet(profile: ArmoryProfile, id: string): ArmoryProfile
 }
 /** Assign an owned configuration to a carry slot; rejected assignments spend nothing. */
 export function selectCarryWeapon(profile: ArmoryProfile, slot: 'main' | 'extra', family: number | null): ArmoryProfile {
-  const carry = restoreCarrySlots(profile.carry, profile.owned);
-  if (slot === 'extra' && !profile.owned.includes(EXTRA_SLOT_ID)) return profile;
+  const carry = restoreCarrySlots(profile.carry, profile.owned, profile.rentals);
+  if (slot === 'extra' && !hasItemAccess(profile, EXTRA_SLOT_ID)) return profile;
   if (family === null) return slot === 'extra' ? { ...profile, carry: { ...carry, extra: null } } : profile;
   if (!isMainWeapon(family) || family === (slot === 'main' ? carry.extra : carry.main) || !hasItemAccess(profile, profile.guns[family]?.variant)) return profile;
   return { ...profile, carry: { ...carry, [slot]: family } };
@@ -292,6 +317,8 @@ export interface WornVision { id: string; name: string; spec: VisionSpec }
 /** `mobility` is armor bulk only; equipmentMovement resolves final player motion.
  * `armorWeightKg` is everything worn: rig, inserts and a head-mounted device. */
 export interface ResolvedLoadout { vision?: WornVision;
+  /** Active-play balances for worn gear, finishes and the extra main slot. */
+  equipmentRentals?: Record<string, number>;
   /** Catalog identities used by the worn first person equipment. */
   rigId: string; plateId: string;
   /** What the inserts are rated for and what else they do (armor-inserts). */
@@ -299,8 +326,8 @@ export interface ResolvedLoadout { vision?: WornVision;
   quickItem?: ShopItem; quickCount: number;
   /** Every supply carried in, by id: the utility belt's contents at the start. */
   supplies: Record<string, number>; stowedSupplies?: readonly string[] }
-export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
-  profile = expireRentals(profile);
+export function resolveLoadout(profile: ArmoryProfile, options: { deferRentalExpiry?: boolean } = {}): ResolvedLoadout {
+  if (!options.deferRentalExpiry) profile = expireRentals(profile);
   const rig = itemById(profile.rig)!, plate = itemById(profile.plate)!;
   const visionItem = itemById(profile.vision), spec = visionSpec(visionItem?.id);
   const vision = visionItem && spec ? { id: visionItem.id, name: visionItem.name, spec } : undefined;
@@ -318,17 +345,45 @@ export function resolveLoadout(profile: ArmoryProfile): ResolvedLoadout {
   });
   const supplies = heldSupplies(Object.fromEntries(Object.entries(profile.consumables).filter(([id]) => isSupplyCarried(profile, id))));
   const quickItem = supplies[profile.quickItem] ? itemById(profile.quickItem) : undefined;
-  return { rigId: rig.id, plateId: plate.id, vision, weapons, carriedFamilies: carriedFamilies(profile), armorWeightKg: (rig.weightKg ?? 0) + (plate.weightKg ?? 0) + (visionItem?.weightKg ?? 0), suppliesWeightKg: beltWeightKg(supplies, supplyWeightKg), supplies, stowedSupplies: [...(profile.stowedSupplies ?? [])], vehicleSkins: { ...profile.vehicleSkins }, quickItem, quickCount: supplies[profile.quickItem] || 0, armor: plate.protection || 0, absorption: plate.absorption || 0, insert: insertTraits(plate), mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };
+  const equippedIds = new Set([profile.rig, profile.plate, profile.vision, ...profile.guns.map(gun => gun.skin), ...Object.values(profile.vehicleSkins), EXTRA_SLOT_ID]);
+  const equipmentRentals = Object.fromEntries(Object.entries(profile.rentals).filter(([id]) => equippedIds.has(id) && !profile.owned.includes(id)));
+  return { equipmentRentals, rigId: rig.id, plateId: plate.id, vision, weapons, carriedFamilies: carriedFamilies(options.deferRentalExpiry ? { ...profile, owned: [...profile.owned, ...Object.keys(profile.rentals)] } : profile), armorWeightKg: (rig.weightKg ?? 0) + (plate.weightKg ?? 0) + (visionItem?.weightKg ?? 0), suppliesWeightKg: beltWeightKg(supplies, supplyWeightKg), supplies, stowedSupplies: [...(profile.stowedSupplies ?? [])], vehicleSkins: { ...profile.vehicleSkins }, quickItem, quickCount: supplies[profile.quickItem] || 0, armor: plate.protection || 0, absorption: plate.absorption || 0, insert: insertTraits(plate), mobility: (rig.mobility || 1) * (plate.mobility || 1), rigName: rig.name, plateName: plate.name };
 }
-/** Replaces elapsed rentals in a running session, preserving armour, supplies and carry slots. */
+/** Tick the session's independent lease balances; menus and pauses never call this. */
+export function tickLoadoutRentals(equipment: ResolvedLoadout, elapsedMs: number): ResolvedLoadout {
+  if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return equipment;
+  return { ...equipment,
+    equipmentRentals: Object.fromEntries(Object.entries(equipment.equipmentRentals ?? {}).map(([id, remaining]) => [id, Math.max(0, remaining - elapsedMs)])),
+    weapons: equipment.weapons.map(weapon => weapon.rentalRemainingMs === undefined ? weapon : { ...weapon, rentalRemainingMs: Math.max(0, weapon.rentalRemainingMs - elapsedMs) }),
+  };
+}
+/** Replaces exhausted equipment without replenishing ammunition or supplies. */
 export function expireLoadoutRentals(equipment: ResolvedLoadout): ResolvedLoadout {
-  if (!equipment.weapons.some(weapon => weapon.rentalRemainingMs !== undefined && weapon.rentalRemainingMs <= 0)) return equipment;
-  const issued = resolveLoadout(createProfile());
-  return { ...equipment, weapons: equipment.weapons.map((weapon, family) => {
-    if (weapon.rentalRemainingMs === undefined || weapon.rentalRemainingMs > 0) return weapon;
-    const fallback = issued.weapons[family];
-    return { ...fallback, rigSlots: weapon.rigSlots, equipment: { ...fallback.equipment, skin: weapon.equipment.skin } };
-  }) };
+  const expired = Object.entries(equipment.equipmentRentals ?? {}).filter(([, remaining]) => remaining <= 0).map(([id]) => id);
+  if (!expired.length && !equipment.weapons.some(weapon => weapon.rentalRemainingMs !== undefined && weapon.rentalRemainingMs <= 0)) return equipment;
+  const issued = resolveLoadout(createProfile()), rigExpired = expired.includes(equipment.rigId), plateExpired = expired.includes(equipment.plateId);
+  const visionExpired = !!equipment.vision && expired.includes(equipment.vision.id);
+  const rig = itemById(rigExpired ? issued.rigId : equipment.rigId)!, plate = itemById(plateExpired ? issued.plateId : equipment.plateId)!;
+  const vision = visionExpired ? undefined : equipment.vision;
+  const equipmentRentals = { ...equipment.equipmentRentals };
+  for (const id of expired) delete equipmentRentals[id];
+  const weapons = equipment.weapons.map((weapon, family) => {
+    const variantExpired = weapon.rentalRemainingMs !== undefined && weapon.rentalRemainingMs <= 0;
+    const skinExpired = expired.includes(weapon.equipment.skin);
+    if (!variantExpired && !skinExpired && !rigExpired) return weapon;
+    const fallback = variantExpired ? issued.weapons[family] : weapon;
+    return { ...fallback, rigSlots: rigExpired ? issued.weapons[family].rigSlots : weapon.rigSlots,
+      equipment: { ...fallback.equipment, skin: skinExpired ? 'skin-issued' : weapon.equipment.skin } };
+  });
+  return { ...equipment, equipmentRentals, weapons,
+    ...(rigExpired ? { rigId: issued.rigId, rigName: issued.rigName } : {}),
+    ...(plateExpired ? { plateId: issued.plateId, plateName: issued.plateName, armor: issued.armor, absorption: issued.absorption, insert: issued.insert } : {}),
+    ...(visionExpired ? { vision: undefined } : {}),
+    armorWeightKg: (rig.weightKg ?? 0) + (plate.weightKg ?? 0) + (itemById(vision?.id ?? '')?.weightKg ?? 0),
+    mobility: (rig.mobility || 1) * (plate.mobility || 1),
+    carriedFamilies: expired.includes(EXTRA_SLOT_ID) ? withWeaponModes([equipment.carriedFamilies[0], SIDEARM_FAMILY]) : equipment.carriedFamilies,
+    vehicleSkins: Object.fromEntries(Object.entries(equipment.vehicleSkins).map(([kind, id]) => [kind, expired.includes(id) ? 'paint-issued' : id])) as ResolvedLoadout['vehicleSkins'],
+  };
 }
 /** Preview may temporarily own the selected item; it never mutates the actual wallet. */
 export function previewLoadout(profile: ArmoryProfile, item: ShopItem, family: number) {

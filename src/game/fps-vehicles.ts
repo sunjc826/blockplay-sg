@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { damageVehicle, fireVehicleWeapon, VEHICLE_COMBAT, vehicleCollisionDamage, vehicleDamageStage, vehicleExitDamage } from './vehicle-combat';
 import { createVehicleEffects, vehicleDamageVisual } from './vehicle-effects';
 import { disposeModel } from './armory-visuals';
-import { buildVehicleModel } from './vehicle-models';
+import { buildVehicleModel, vehiclePaint } from './vehicle-models';
 import { updateHumveeInstruments } from './humvee-cabin';
 import { updateHelicopterDashboard } from './helicopter-dashboard';
 import { VEHICLE_KINDS, vehicleName, paddleVehicle, createVehicle, vehicleSpeed, stopVehicle, driveVehicle, flyVehicle, vehicleBounds, vehicleExit, VEHICLE_SPAWNS, type FlightObstacle, type VehicleKind, type VehicleSpawns, type MotorVehicleKind, type VehicleState, type VehicleWorldBounds, type VehicleExitFloor } from './vehicle-rules';
@@ -28,6 +28,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   const root = new THREE.Group(); scene.add(root);
   const states = keyed(freshState);
   for(const v of Object.values(states))if(!isDragonBoat(v.kind))v.y=(bounds.groundHeight?.(v.x,v.z)??0)+.13;
+  const currentSkins = { ...skins };
   const models = keyed(kind=>buildVehicleModel(kind, isDragonBoat(kind) ? undefined : skins[kind]));
   root.add(...Object.values(models));
   const effects = createVehicleEffects(scene);
@@ -198,6 +199,20 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   sync(0);
   return {
     root, models, states, footObstacles, interact, step, damage, hitKind, aim, fire, nearest,
+    setSkins(next: Record<MotorVehicleKind, string>) {
+      for (const kind of ['car', 'helicopter'] as const) {
+        if (next[kind] === currentSkins[kind]) continue;
+        const fresh = vehiclePaint(next[kind]), updated = new Set<THREE.MeshStandardMaterial>();
+        models[kind].traverse(node => {
+          if (!(node instanceof THREE.Mesh)) return;
+          for (const material of Array.isArray(node.material) ? node.material : [node.material]) {
+            if (!(material instanceof THREE.MeshStandardMaterial) || material.name !== 'Vehicle paint' || updated.has(material)) continue;
+            updated.add(material); material.map?.dispose(); material.map = fresh.map; material.needsUpdate = true;
+          }
+        });
+        fresh.dispose(); currentSkins[kind] = next[kind];
+      }
+    },
     flightObstacles: () => airObstacles(false),
     restoreTravel(state: VehicleState, seatIndex: number) {
       states[state.kind] = structuredClone(state); impacts[state.kind].reset(state.impact?.serial ?? 0); active = state.kind; localSeat = seatIndex; sync(0);

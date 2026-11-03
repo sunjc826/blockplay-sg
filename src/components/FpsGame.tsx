@@ -20,7 +20,7 @@ import { getWorldZone, type WorldZoneId, type ZoneSpawn } from '../game/world-zo
 import { useFpsFullscreen } from '../game/use-fps-fullscreen';
 import { ELIMINATION_CREDITS, progression } from '../game/progression';
 import { rankInsignia } from '../game/rank-insignia';
-import { encikAddress, expireLoadoutRentals, resolveLoadout, type ArmoryProfile, type ExerciseReward } from '../game/armory-state';
+import { encikAddress, resolveLoadout, type ArmoryProfile, type ExerciseReward } from '../game/armory-state';
 import type { LanSession } from '../game/lan-peer';
 import { ARENA_DURATION, ARENA_KILL_LIMIT, type ArenaSnapshot } from '../game/arena-rules';
 import { factionIdOf, listArenaFactions } from '../game/arena-factions';
@@ -71,7 +71,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
   const [startingEquipment] = useState(() => resolveLoadout(profile));
   const loadoutRef = useRef(startingEquipment);
   const [liveEquipment, setLiveEquipment] = useState(startingEquipment);
-  const equipment = expireLoadoutRentals(liveEquipment);
+  const equipment = liveEquipment;
   const [nextProfile, setNextProfile] = useState(profile), [loadoutOpen, setLoadoutOpen] = useState(false);
   const [arenaOptions] = useState(() => arena ? { ...arena, profile } : undefined);
   const [combat, setCombat] = useState(false);
@@ -93,7 +93,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
           setHud(current => ({ ...current, phase: 'loading' }));
           setScene({ region: transition.to, spawn: transition.spawn, checkpoint });
         } },
-        loadout: expireLoadoutRentals(loadoutRef.current), onLoadout: setLiveEquipment, combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onRentalTime: elapsed => rentalCallback.current?.(elapsed), onElimination: (id, bounty) => eliminationCallback.current(id, bounty), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); }, encik: () => speaking.current });
+        loadout: loadoutRef.current, onLoadout: setLiveEquipment, combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onRentalTime: elapsed => rentalCallback.current?.(elapsed), onElimination: (id, bounty) => eliminationCallback.current(id, bounty), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); }, encik: () => speaking.current });
     }
     catch {
       if (document.pointerLockElement === surface.current?.renderer.domElement) document.exitPointerLock();

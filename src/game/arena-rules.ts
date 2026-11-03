@@ -6,7 +6,7 @@ import { createMerlionController, mistBetween, nearMerlion, merlionMouth, MERLIO
 import { createSwimmingMovement, SWIMMING, swimmingCanFire, swimmingShotDirection } from './swimming';
 import { isDragonBoat, canPaddle } from './marina-water';
 import { HELICOPTER_AI, chooseAirMission, createHelicopterMission, helicopterMissionControls, planAirRoute, returnHelicopter, updateBoardingReservations, type HelicopterMission } from './helicopter-autopilot';
-import { OICW_RIFLE, OICW_LAUNCHER, OICW_GRENADE } from './weapon-modes';
+import { OICW_RIFLE, OICW_LAUNCHER, OICW_GRENADE, withWeaponModes } from './weapon-modes';
 import { createProxyOperations, PROXY_IDS, PROXY_RULES, proxyName, type ProxyAction, type ProxyCampaign, type ProxyId, type ProxyOperation, type ProxyParticipant, type ProxyPoint, type ProxySnapshot } from './proxy-operations';
 import { PARATROOPERS, dropPoints, planParatroopers } from './paratroopers';
 import { NAVAL, navalRampPoint, planNavalLanding, validReinforcementClocks, type ReinforcementClocks } from './naval-landings';
@@ -321,6 +321,7 @@ interface InternalActor {
   evacuating?: { x: number; z: number; until: number };
   velocityY?: number;
   navigation?: { path: NavigationPoint[]; target: NavigationPoint; retry: number; stuck?: number; pending?: Generator<undefined, NavigationPoint[]> };
+  equipmentRentals?: Record<string, number>;
   actor: ArenaActor; healthMax: number; armorMax: number; absorption: number; insert: InsertTraits; weapons: ArenaWeapon[]; nextWeapons?: { weapons: ArenaWeapon[]; allowed: number[] }; allowedWeapons: number[]; role?: ArenaRolePlugin;
   /**
    * Per weapon, the same ammunition state and rules as the player's own gun
@@ -641,8 +642,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (entry.nextWeapons && !entry.actor.bot) {
       entry.weapons = entry.nextWeapons.weapons; entry.allowedWeapons = entry.nextWeapons.allowed;
       entry.actor.weapon = entry.allowedWeapons[0]; entry.nextWeapons = undefined;
-      expirePlayerRentals(entry);
     }
+    expirePlayerRentals(entry);
     entry.ammo = entry.weapons.map(hostAmmo);
     entry.burst = 0; entry.burstFired = 0; entry.heal = undefined; entry.lastHurt = -Infinity; delete entry.actor.healing; entry.shieldUntil = elapsed + SPAWN_SHIELD_SECONDS;
     // A respawn starts hungry.
@@ -813,9 +814,27 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.nextWeapons = { weapons: next, allowed: allowedIndexes(next, allowed) };
     return true;
   }
-  /** The authority uses wall time, including when a guest keeps an old loadout open. */
+  /** Admitted gear leases use the same authoritative active-play clock as weapons. */
+  function setPlayerEquipmentRentals(id: string, rentals: Record<string, number> = {}) {
+    const entry = members.get(id); if (!entry || entry.actor.bot) return;
+    entry.equipmentRentals = Object.fromEntries(Object.entries(rentals).filter(([, remaining]) => Number.isFinite(remaining) && remaining >= 0));
+  }
+  /** Expire server-side benefits even when a client retains an older loadout. */
   function expirePlayerRentals(entry: InternalActor) {
     if (entry.actor.bot) return;
+    for (const [id, remaining] of Object.entries(entry.equipmentRentals ?? {})) {
+      if (remaining > 0) continue;
+      if (id.startsWith('plate-')) {
+        entry.armorMax = entry.absorption = entry.actor.armor = 0;
+        wearInsert(entry, insertTraits({}));
+      }
+      if (id === 'slot-extra') {
+        entry.allowedWeapons = withWeaponModes([entry.allowedWeapons[0], 2]);
+        if (entry.nextWeapons) entry.nextWeapons.allowed = withWeaponModes([entry.nextWeapons.allowed[0], 2]);
+        if (!entry.allowedWeapons.includes(entry.actor.weapon)) entry.actor.weapon = entry.allowedWeapons[0];
+      }
+      delete entry.equipmentRentals![id];
+    }
     entry.weapons.forEach((weapon, family) => {
       if (weapon.rentalRemainingMs === undefined || weapon.rentalRemainingMs > 0) return;
       entry.weapons[family] = sanitizeWeapons(FPS_WEAPONS)[family];
@@ -918,7 +937,6 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (!entry || entry.actor.transport && !rifleSeat(entry.actor.aircrew) || (seatOf(vehicles, id)?.seat ?? 2) < 2 || finished || !entry.actor.alive || !entry.playing || !finitePoint(origin) || !finitePoint(direction)) return { ...EMPTY_SHOT };
     if (arenaConditionModifiers(entry.actor.conditions).frozen || entry.actor.bot&&(entry.actor.conditions?.['water-eyes']?.strength??0)>.8 || merlion?.state.operator===id) return { ...EMPTY_SHOT };
     if (!Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return { ...EMPTY_SHOT };
-    expirePlayerRentals(entry);
     if (weapon === OICW_LAUNCHER && !entry.allowedWeapons.includes(OICW_RIFLE)) return { ...EMPTY_SHOT };
     const ammo = entry.ammo[weapon];
     if (distance(origin, entry.actor) > 1.5 || ammo.cooldown > 1e-7 || ammo.reloadRemaining > 0) return { ...EMPTY_SHOT };
@@ -3657,7 +3675,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     for (const entry of members.values()) if (!entry.actor.bot && entry.actor.alive && entry.playing) {
       entry.actor.rentalTimeMs = (entry.actor.rentalTimeMs ?? 0) + dt * 1000;
       for (const weapon of [...entry.weapons, ...(entry.nextWeapons?.weapons ?? [])]) if (weapon.rentalRemainingMs !== undefined) weapon.rentalRemainingMs = Math.max(0, weapon.rentalRemainingMs - dt * 1000);
-      expirePlayerRentals(entry);
+      for (const id of Object.keys(entry.equipmentRentals ?? {})) entry.equipmentRentals![id] = Math.max(0, entry.equipmentRentals![id] - dt * 1000);
     }
      elapsed = environment?.endless ? elapsed + dt : Math.min(ARENA_DURATION, elapsed + dt); tick++;
     stepFacilities(dt); stepSquads(dt);
@@ -3861,7 +3879,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const navigationStatus = () => [...members.values()].filter(m=>m.actor.bot && m.actor.alive && m.actor.squad).map(m=>({id:m.actor.id,objective:m.actor.objective,duty:m.actor.duty,sector:m.actor.patrolSector,pending:!!m.navigation?.pending,path:m.navigation?.path.length??0,x:m.actor.x,z:m.actor.z,goal:m.navigation?.target,via:m.assignment?.via,mission:m.mission}));
   const patrolStatus = () => sectorPatrols?.status(elapsed)??[];
   const boatStatus=()=>[...boatSorties].map(([kind,s])=>({kind,pilot:s.pilot,phase:s.phase,returning:s.returning,berth:s.route?.berth.id,index:s.index,points:s.route?.points,crew:[...s.crew]}));
-  return { navigationGraphStatus: () => navigator?.status() ?? null, boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerDeployments, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  return { navigationGraphStatus: () => navigator?.status() ?? null, boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerDeployments, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerEquipmentRentals, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

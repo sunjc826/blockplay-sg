@@ -13,18 +13,18 @@ describe('main, sidearm and premium extra carry slots', () => {
     expect(saved.carry).toEqual({ main: 0, extra: null }); expect(carriedFamilies(saved)).toEqual([0, 2]);
     expect(saved.owned).not.toContain('cis50-merlion'); expect(saved.credits).toBe(12); expect(saved.tokens).toBe(28);
   });
-  it('requires a one-time token purchase, then permits an optional second main', () => {
+  it('requires an active rental, then permits an optional second main', () => {
     const base = createProfile();
     expect(selectCarryWeapon(base, 'extra', 4)).toBe(base);
-    expect(purchase(base, EXTRA_SLOT_ID).profile).toBe(base); // 300 < 400
+    expect(purchase({ ...base, tokens: 39 }, EXTRA_SLOT_ID).profile.tokens).toBe(39);
     const bought = purchase({ ...base, tokens: 500 }, EXTRA_SLOT_ID).profile;
-    expect(bought.tokens).toBe(100); expect(bought.carry.extra).toBeNull();
-    expect(purchase(bought, EXTRA_SLOT_ID).profile).toBe(bought);
+    expect(bought.tokens).toBe(460); expect(bought.carry.extra).toBeNull();
+    expect(purchase(bought, EXTRA_SLOT_ID).profile.rentals[EXTRA_SLOT_ID]).toBe(7200000);
     const assigned = selectCarryWeapon(bought, 'extra', 4);
     expect(carriedFamilies(assigned)).toEqual([0, 4, 2]);
     expect(restoreProfile(JSON.stringify(assigned))).toEqual(assigned);
     expect(carriedFamilies(selectCarryWeapon(assigned, 'extra', null))).toEqual([0, 2]);
-    expect(assigned.tokens).toBe(100);
+    expect(assigned.tokens).toBe(460);
   });
   it('rejects duplicate weapons, pistols in main slots and forged extra slots', () => {
     const base = createProfile(), paid = { ...base, owned: [...base.owned, EXTRA_SLOT_ID] };

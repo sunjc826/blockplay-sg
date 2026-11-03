@@ -83,7 +83,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       surface.current ??= createFpsSurface(host.current!);
       engine.current = createFpsEngine(host.current!, setHud, {
         surface: surface.current,
-        loadout: resolveLoadout(fieldProfileRef.current),
+        loadout: resolveLoadout(fieldProfileRef.current, { deferRentalExpiry: true }),
         expedition: {
           autoRespawn: autoRespawn.current, zone: scene.zone, spawn: scene.spawn, checkpoint: scene.checkpoint,
           profile: fieldProfileRef.current, startingProfile: nextProfileRef.current, loot, infrastructure, proxyCampaign,
@@ -110,7 +110,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
   const loaded = hud.phase !== 'loading';
   useEffect(() => { if (loaded) onLoaded?.(); }, [loaded, onLoaded]);
 
-  const zone = getWorldZone(scene.zone), equipment = resolveLoadout(fieldProfile);
+  const zone = getWorldZone(scene.zone), equipment = resolveLoadout(fieldProfile, { deferRentalExpiry: true });
   const mounted = hud.vehicle !== 'on-foot';
   const merlionOperating=!!hud.arenaSelf?.alive&&hud.arena?.merlion?.operator===hud.arenaSelf?.id;
   const planning = hud.deployment?.canChoose === true;

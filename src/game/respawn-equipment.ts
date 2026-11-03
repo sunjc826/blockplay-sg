@@ -12,5 +12,6 @@ export function respawnEquipment(current: ArmoryProfile, starting: ArmoryProfile
     rig: starting.rig,
     plate: starting.plate,
     vision: starting.vision,
+    vehicleSkins: { ...starting.vehicleSkins },
   });
 }

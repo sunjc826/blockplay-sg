@@ -28,7 +28,7 @@ export function recoverProxyWeapon(profile: ArmoryProfile, rewardId: string, act
   const next = structuredClone(profile);
   next.owned = [...new Set([...next.owned, item.id])];
   next.guns[family].variant = item.id;
-  const slot = pickupSlot(next, family, active);
+  const slot = pickupSlot({ ...next, owned: [...next.owned, ...Object.keys(next.rentals)] }, family, active);
   if (slot !== 'sidearm') next.carry = { ...next.carry, [slot]: family };
   return next;
 }

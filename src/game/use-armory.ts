@@ -15,7 +15,7 @@ export function useArmory() {
   useEffect(() => {
     const check = () => {
       const next = expireRentals(current.current);
-      if (next !== current.current) { update(next); setMessage('Weapon rental expired. Issued gear is ready; renew in the armory.'); }
+      if (next !== current.current) { update(next); setMessage('Equipment rental expired. Issued gear is ready; renew in the armory.'); }
     };
     const timer = window.setInterval(check, 1000);
     window.addEventListener('focus', check);

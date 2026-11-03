@@ -374,7 +374,7 @@ const wrapAngle = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle)
 /** Host owns bots, damage, spawns and score. The renderer submits only local input. */
 export function createArenaRuntime(options: ArenaRuntimeOptions) {
   const { scene, session } = options;
-  let profile = options.session.role === 'solo' && options.environment?.proxies ? restoreFieldProfile(options.profile ?? createProfile()) : restoreProfile(JSON.stringify(options.profile ?? createProfile()));
+  let profile = options.session.role === 'solo' && options.environment?.proxies ? restoreFieldProfile(options.profile ?? createProfile(), { deferRentalExpiry: true }) : restoreProfile(JSON.stringify(options.profile ?? createProfile()));
   const inventory = profile;
   const peerInventories = new Map<string, ArmoryProfile>();
   let loadoutRequest = 0;
@@ -405,13 +405,13 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   let lastInput: ArenaInput | null = null, vehicleNotice = '';
   let previousSelf: ArenaActor | null = null, lastTick = -1;
   const seenFeed = new Set<string>(), seenBarks = new Set<string>();
-  const initial = resolveLoadout(profile);
+  const initial = resolveLoadout(profile, { deferRentalExpiry: session.role === 'solo' });
   const sceneCover = createSceneCover(scene);
   function coverLimit(origin: ArenaPoint, direction: ArenaPoint, supplied: number) {
     if (!point(origin) || !point(direction)) return 0;
     return sceneCover.distance(origin, direction, finite(supplied) ? Math.max(0, Math.min(MAX_WEAPON_RANGE, supplied)) : MAX_WEAPON_RANGE);
   }
-  if (simulation) { simulation.addPlayer(session.id, session.name, initial.armor, initial.absorption, initial.weapons, options.initialVitals, session.role === 'solo', initial.carriedFamilies, initial.insert); simulation.setPlayerGrenades(session.id, initial.supplies); registered.add(session.id); }
+  if (simulation) { simulation.addPlayer(session.id, session.name, initial.armor, initial.absorption, initial.weapons, options.initialVitals, session.role === 'solo', initial.carriedFamilies, initial.insert); simulation.setPlayerEquipmentRentals(session.id, initial.equipmentRentals); simulation.setPlayerGrenades(session.id, initial.supplies); registered.add(session.id); }
   function accept(next: ArenaSnapshot) {
     if (next.tick < lastTick) { seenFeed.clear(); seenBarks.clear(); localAdopted = false; }
     lastTick = next.tick; snapshot = next; snapshotAt = performance.now();
@@ -464,6 +464,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         const guest = restoreProfile(raw), loadout = resolveLoadout(guest);
         peerInventories.set(from, guest);
         simulation.addPlayer(from, peer.name, loadout.armor, loadout.absorption, loadout.weapons, undefined, false, loadout.carriedFamilies, loadout.insert);
+        simulation.setPlayerEquipmentRentals(from, loadout.equipmentRentals);
         // The host spends a guest's supplies from what they brought, as it already trusts the kit they brought.
         simulation.setPlayerSupplies(from, loadout.supplies); registered.add(from); publish();
       } else if (registered.has(from) && payload.type === 'arena-loadout' && Number.isSafeInteger(payload.request)) {
@@ -752,8 +753,9 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   }
   function updateLoadout(nextProfile: ArmoryProfile) {
     if (disposed || session.role !== 'solo' || !simulation) return false;
-    profile = options.environment?.proxies ? restoreFieldProfile(nextProfile) : restoreProfile(JSON.stringify(nextProfile));
-    const loadout = resolveLoadout(profile);
+    profile = options.environment?.proxies ? restoreFieldProfile(nextProfile, { deferRentalExpiry: true }) : restoreProfile(JSON.stringify(nextProfile));
+    const loadout = resolveLoadout(profile, { deferRentalExpiry: session.role === 'solo' });
+    simulation.setPlayerEquipmentRentals(session.id, loadout.equipmentRentals);
     simulation.setPlayerGrenades(session.id, loadout.supplies);
     simulation.setPlayerLoadout(session.id, loadout.armor, loadout.absorption, loadout.weapons, loadout.carriedFamilies, loadout.insert); publish(); return true;
   }

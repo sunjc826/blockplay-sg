@@ -358,7 +358,7 @@ it('mirrors an interchangeable extended magazine without rejecting its extra sho
   expect(actor(arena, 'one').shots - before).toBe(37);
 });
 
-it('spends rental time only during active play before applying issued damage', () => {
+it('spends rental time only during active play and applies issued damage after death', () => {
   const arena = pair();
   arena.setPlayerLoadout('one', 0, 0, [{ ...weapon, damage: 80, rentalRemainingMs: 100 }]);
   const shooter = actor(arena, 'one');
@@ -367,5 +367,7 @@ it('spends rental time only during active play before applying issued damage', (
   expect(actor(arena, 'one').rentalTimeMs ?? 0).toBe(0);
   arena.setInput('one', { ...actor(arena, 'one'), playing: true });
   arena.step(.1);
+  expect(fireAt(arena).damage).toBe(80);
+  arena.setPlayerVitals('one', { health: 0 }); advance(arena, 3.2);
   expect(fireAt(arena).damage).toBe(FPS_WEAPONS[0].damage);
 });

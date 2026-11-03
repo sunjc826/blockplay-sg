@@ -87,7 +87,7 @@ import { getAimAssist } from './aim-assist-setting';
 import { advanceRecoil, compensateRecoil, createRecoil, recoilPose, recoilView, recordRecoilShot, resetRecoil, takeAimPush } from './fps-recoil';
 import { effectStyleForWeapon, resolveEffectStyle, type EffectStyle } from './fps-effect-styles';
 import type { ImpactProfile } from './fps-impact-profile';
-import { spendRentalTime, expireLoadoutRentals, expireRentals, applyArmorDamage, claimElimination, consumeItem, createProfile, encikAddress, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile, type VendorPurchaseResult } from './armory-state';
+import { spendRentalTime, tickLoadoutRentals, expireLoadoutRentals, expireRentals, applyArmorDamage, claimElimination, consumeItem, createProfile, encikAddress, resolveLoadout, rewardAmount, completionXp, type ResolvedLoadout, type ExerciseReward, type ArmoryProfile, type VendorPurchaseResult } from './armory-state';
 import { registerElimination, ELIMINATION_XP, ELIMINATION_CREDITS, type KillChain } from './progression';
 import { sceneFlightObstacles } from './flight-obstacles';
 import { resolveVehicleCrossing, vehicleArrivalClear } from './vehicle-crossing';
@@ -336,13 +336,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let drillMode: RangeDrillId = practiceRange && validRangeDrill(options.rangeDrill) ? options.rangeDrill : 'classic';
   let rangeDirector = !expedition && !options.arena ? createRangeDirector(drillMode, targetPositions.length, Math.floor(Math.random() * 0xffffffff)) : null;
   let rangeEndedEarly = false;
+  const currentLifeAccess = (profile: ArmoryProfile) => ({ ...profile, owned: [...profile.owned, ...Object.keys(profile.rentals)] });
   const copyProfile = (profile: ArmoryProfile): ArmoryProfile => JSON.parse(JSON.stringify(profile));
   let fieldProfile = copyProfile(expedition?.profile ?? options.arena?.profile ?? createProfile());
   const startingProfile = copyProfile(expedition?.startingProfile ?? fieldProfile);
   // District travel keeps weapon choices, but never reissues the entry-time rental balance.
   startingProfile.rentals = { ...fieldProfile.rentals };
-  let respawnProfile = startingProfile, rentalTimeSpent = 0;
-  let equipment = expedition ? resolveLoadout(fieldProfile) : options.loadout || resolveLoadout(createProfile()), specs = equipment.weapons;
+  let respawnProfile = expireRentals(startingProfile), rentalTimeSpent = 0;
+  let equipment = expedition ? resolveLoadout(fieldProfile, { deferRentalExpiry: true }) : options.loadout || resolveLoadout(createProfile()), specs = equipment.weapons;
   const undress: (() => void)[] = [];
   const fpsSurface = options.surface ?? createFpsSurface(host), { renderer } = fpsSurface;
   // Sun shadows follow the camera (fps-sun-shadows) and stay off on software renderers.
@@ -1042,6 +1043,18 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.phase !== 'playing' || !equipment.carriedFamilies.includes(OICW_RIFLE) || primaryWeaponFamily(hud.weapon) !== OICW_RIFLE || vehicles.active && !vehicles.canUseFirearm || supplyUse || grenadeHeld || loadout[hud.weapon].reloadRemaining > 0 || loadout[hud.weapon].cooldown > 0) return;
     switchWeapon(hud.weapon === OICW_RIFLE ? OICW_LAUNCHER : OICW_RIFLE);
   }
+  /** Rentals run to the end of a life/game; equipment never changes mid-fight. */
+  function settleEquipmentRentals() {
+    const next = expireLoadoutRentals(equipment); if (next === equipment) return;
+    equipment = next; specs = next.weapons; fieldProfile = expireRentals(fieldProfile);
+    hud.weapon = equipment.carriedFamilies.includes(hud.weapon) ? hud.weapon : equipment.carriedFamilies[0];
+    hud.armor = Math.min(hud.armor, equipment.armor); vehicles.setSkins(equipment.vehicleSkins);
+    loadout = createPooledLoadout(specs, equipment.carriedFamilies);
+    undress.splice(0).forEach(dispose => dispose());
+    weapons.forEach((model, family) => { undress.push(dressWeapon(model, specs[family])); model.visible = family === hud.weapon; weaponStyles[family] = effectStyleForWeapon(specs[family]); });
+    effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id)); effects.setStyles(weaponStyles, hud.weapon);
+    expedition?.onEquipment(copyProfile(fieldProfile)); options.onLoadout?.(equipment);
+  }
   function reset() {
     weaponSwitch = null; rig.scale.set(1, 1, 1);
     mapReturnStance = null;
@@ -1051,6 +1064,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     reloadAudio.clear();
     if (hud.phase === 'loading' || hud.phase === 'error') return;
     if (options.arena?.session.role === 'guest') return;
+    settleEquipmentRentals();
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset();
     deploymentResolved = false; resolvedDeployment = null; deploymentIntro.reset(); deploymentRoof = null; readySound = 0; overviewZoom = 1; overviewPan = { x: 0, z: 0 }; overviewLook.x = overviewLook.y = overviewCursor.x = overviewCursor.y = 0;
     arenaRuntime?.reset();
@@ -1160,7 +1174,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const carriedGuns = (): CarriedGun[] => equipment.carriedFamilies.map(family => ({ family, spec: specs[family], reserve: loadout[family].reserve, magazines: spareMagazines(loadout[family]), room: availableMagazineSlots(loadout[family]).length }));
   /** The family a found gun of `family` puts down: the same reading `pickupSlot` gives the pickup, the slot it fills and what is in it now. */
   function putDownFor(family: number) {
-    const slot = pickupSlot(fieldProfile, family, hud.weapon), carry = restoreCarrySlots(fieldProfile.carry, fieldProfile.owned);
+    const slot = pickupSlot(currentLifeAccess(fieldProfile), family, hud.weapon), carry = restoreCarrySlots(fieldProfile.carry, currentLifeAccess(fieldProfile).owned, fieldProfile.rentals);
     return slot === 'sidearm' ? family : slot === 'extra' ? carry.extra ?? family : carry.main;
   }
   /** Whether E would take an item now: rounds need a gun that fires them, supplies room on the belt. */
@@ -1234,9 +1248,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const family = item.family, changed = fieldProfile.guns[family].variant !== item.id, wasCarried = equipment.carriedFamilies.includes(family);
       const previousSpecs = specs, previousCarry = equipment.carriedFamilies;
       const next = copyProfile(fieldProfile); next.owned = [...new Set([...next.owned, item.id])]; next.guns[family].variant = item.id;
-      const slot = pickupSlot(next, family, hud.weapon);
+      const slot = pickupSlot(currentLifeAccess(next), family, hud.weapon);
       if (slot !== 'sidearm') next.carry = { ...next.carry, [slot]: family };
-      fieldProfile = next; equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
+      fieldProfile = next; equipment = resolveLoadout(fieldProfile, { deferRentalExpiry: true }); specs = equipment.weapons;
       if (!changed && wasCarried) addReserveRounds(loadout[family], specs[family].capacity);
       else {
         loadout = replacePooledWeapon(loadout, previousSpecs, previousCarry, specs, equipment.carriedFamilies, family);
@@ -1248,7 +1262,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     } else if (collected.kind === 'armor' && item && armorResult) {
       if (armorResult.equip) {
         const next = copyProfile(fieldProfile); next.owned = [...new Set([...next.owned, item.id])]; next.plate = item.id;
-        fieldProfile = next; equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
+        fieldProfile = next; equipment = resolveLoadout(fieldProfile, { deferRentalExpiry: true }); specs = equipment.weapons;
         arenaRuntime.updateLoadout(fieldProfile);
         expedition.onEquipment(copyProfile(fieldProfile));
       }
@@ -1278,7 +1292,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // wallet, inventory and newly selected quick item from the purchase.
       fieldProfile = { ...fieldProfile, credits: result.profile.credits, tokens: result.profile.tokens,
         consumables: { ...result.profile.consumables }, quickItem: result.profile.quickItem };
-      equipment = resolveLoadout(fieldProfile); supplies = withLooted(equipment.supplies);
+      equipment = resolveLoadout(fieldProfile, { deferRentalExpiry: true }); supplies = withLooted(equipment.supplies);
       beltSelected = utilityKind(itemById(npc.interaction.catalogId)) ?? beltSelected;
       hud.credits = fieldProfile.credits; hud.tokens = fieldProfile.tokens;
       expedition.onEquipment(copyProfile(fieldProfile));
@@ -1517,7 +1531,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const item=itemById(rewardId!)!, family=item.family!;
       const previousSpecs=specs, previousCarry=equipment.carriedFamilies;
       const next=recoverProxyWeapon(fieldProfile,item.id,hud.weapon);
-      fieldProfile=next; equipment=resolveLoadout(next); specs=equipment.weapons;
+      fieldProfile=next; equipment=resolveLoadout(next, { deferRentalExpiry: true }); specs=equipment.weapons;
       loadout=replacePooledWeapon(loadout,previousSpecs,previousCarry,specs,equipment.carriedFamilies,family);
       if (item.id.startsWith('ff-') && supplyProxyMagazines(loadout, family)) { hud.lootNotice = 'Cargo kit: excess rifle spares exchanged for launcher magazines.'; lootNoticeTime = 5; }
       arenaRuntime.updateLoadout(fieldProfile);
@@ -2458,7 +2472,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (!accepted) { grenadeLastAt = previousThrow; missionLastAt = previousMission; hud.message = 'Grenade throw refused; item kept.'; publish(); return; }
       if (supplies[held.id] > 1) supplies[held.id]--; else delete supplies[held.id];
       if (looted[held.id]) { if (looted[held.id] > 1) looted[held.id]--; else delete looted[held.id]; }
-      else if (!practiceRange) { if (expedition) { fieldProfile = consumeItem(fieldProfile, held.id); equipment = resolveLoadout(fieldProfile); expedition.onEquipment(copyProfile(fieldProfile)); } options.onConsume?.(held.id); }
+      else if (!practiceRange) { if (expedition) { fieldProfile = consumeItem(fieldProfile, held.id); equipment = resolveLoadout(fieldProfile, { deferRentalExpiry: true }); expedition.onEquipment(copyProfile(fieldProfile)); } options.onConsume?.(held.id); }
       hud.message = `${itemById(held.id)!.name} thrown.`; publish();
     };
     if (arenaRuntime) arenaRuntime.throwGrenade(input, settled); else settled(localGrenades.throwGrenade('self', input));
@@ -2582,7 +2596,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (recoveryChoice === supply.id && !supplies[supply.id]) hud.message += ' Depleted · hold F to choose another.';
     if (looted[supply.id]) { if (looted[supply.id] > 1) looted[supply.id]--; else delete looted[supply.id]; publish(); return true; }
     if (expedition) {
-      fieldProfile = consumeItem(fieldProfile, supply.id); equipment = resolveLoadout(fieldProfile);
+      fieldProfile = consumeItem(fieldProfile, supply.id); equipment = resolveLoadout(fieldProfile, { deferRentalExpiry: true });
       expedition.onEquipment(copyProfile(fieldProfile));
     }
     if (!practiceRange) options.onConsume?.(supply.id);
@@ -3087,7 +3101,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           // Fallen-kit drops above still see this life's pickups. Prepare the
           // authority now so either manual or automatic respawn uses issued armor.
           fieldProfile = respawnEquipment(fieldProfile, respawnProfile);
-          equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
+          equipment = resolveLoadout(fieldProfile, { deferRentalExpiry: true }); specs = equipment.weapons;
+          vehicles.setSkins(equipment.vehicleSkins);
           looted = {}; supplies = { ...equipment.supplies };
           arenaRuntime.updateLoadout(fieldProfile);
           weaponSwitch = null; reloadAudio.clear(); stopInspect(); grenadeHeld = null; grenadePicker = null;
@@ -3104,7 +3119,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         weaponSwitch = null;
         if (previousSelf && (!previousSelf.alive || frame.self.deaths > previousSelf.deaths) && !checkpointPending) {
           fieldProfile = respawnEquipment(fieldProfile, respawnProfile);
-          equipment = resolveLoadout(fieldProfile); specs = equipment.weapons;
+          equipment = resolveLoadout(fieldProfile, { deferRentalExpiry: true }); specs = equipment.weapons;
+          vehicles.setSkins(equipment.vehicleSkins);
           hud.weapon = equipment.carriedFamilies[0];
           undress.splice(0).forEach(dispose => dispose());
           weapons.forEach((model, family) => { undress.push(dressWeapon(model, specs[family])); model.visible = family === hud.weapon; weaponStyles[family] = effectStyleForWeapon(specs[family]); });
@@ -3537,27 +3553,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.phase === 'playing' && hud.arenaSelf?.alive !== false && !document.hidden) {
       const spent = Math.min(realDt, .25) * 1000;
       rentalTimeSpent += spent;
-      fieldProfile = spendRentalTime(fieldProfile, spent); respawnProfile = spendRentalTime(respawnProfile, spent);
-      // These are session-owned specs; the UI is notified when a variant expires.
-      specs = specs.map(weapon => weapon.rentalRemainingMs === undefined ? weapon : { ...weapon, rentalRemainingMs: Math.max(0, weapon.rentalRemainingMs - spent) });
-      equipment = { ...equipment, weapons: specs }; options.onRentalTime?.(spent);
+      fieldProfile = spendRentalTime(fieldProfile, spent, { deferRentalExpiry: true }); respawnProfile = spendRentalTime(respawnProfile, spent);
+      equipment = tickLoadoutRentals({ ...equipment, weapons: specs }, spent); specs = equipment.weapons;
+      options.onRentalTime?.(spent);
     }
-    if (specs.some(weapon => weapon.rentalRemainingMs !== undefined && weapon.rentalRemainingMs <= 0)) {
-      const previous = specs;
-      const expired = specs.flatMap((weapon, family) => weapon.rentalRemainingMs !== undefined && weapon.rentalRemainingMs <= 0 ? [family] : []);
-      if (expired.includes(hud.weapon)) { clearInput(); stopReload(); reloadAudio.clear(); cantWanted = false; cant = 0; }
-      equipment = expireLoadoutRentals({ ...equipment, weapons: specs }); specs = equipment.weapons;
-      for (const family of expired) {
-        loadout = replacePooledWeapon(loadout, previous, equipment.carriedFamilies, specs, equipment.carriedFamilies, family);
-        weaponStyles[family] = effectStyleForWeapon(specs[family]);
-      }
-      effects.setStyles(weaponStyles, hud.weapon);
-      undress.splice(0).forEach(dispose => dispose()); weapons.forEach((model, family) => undress.push(dressWeapon(model, specs[family])));
-      fieldProfile = expireRentals(fieldProfile);
-      expedition?.onEquipment(copyProfile(fieldProfile)); options.onLoadout?.(equipment);
-      hud.message = 'Weapon rental expired. Switched to issued gear. Renew in the armory.';
-      comms.add('system', 'Armory', hud.message); publish();
-    }
+    if (hud.phase === 'complete' || hud.phase === 'defeated' || hud.arenaSelf?.alive === false) settleEquipmentRentals();
     // Stop controls even if a browser/VM delays or drops pointerlockchange.
     if (['playing', 'deploying'].includes(hud.phase) && !hud.mapExpanded && !hud.proxyMenu && (!expedition || hud.arenaSelf?.alive !== false) && !pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) pause();
 
