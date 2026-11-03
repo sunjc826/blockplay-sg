@@ -420,8 +420,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const respawnPoints = () => (hud.respawn?.zones ?? []).map(p => ({ ...p, yaw: 0, pitch: 0 }));
   const overviewPoints = () => respawnOverviewActive() ? respawnPoints() : hud.deployment?.points ?? deploymentPoints;
   const overviewLook = { x: 0, y: 0 }, overviewCursor = { x: 0, y: 0 };
+  let overviewHovered: string | null = null;
   const overviewSurface = host.parentElement ?? host;
-  const leaveOverview = () => { overviewCursor.x = overviewCursor.y = 0; };
+  const leaveOverview = () => { overviewCursor.x = overviewCursor.y = 0; overviewHovered = null; };
+  const pickOverview = (event: PointerEvent) => {
+    const rect = canvas.getBoundingClientRect();
+    return overview.pick(camera, new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2));
+  };
   const overviewView = () => overviewFrame(world.bounds, canvas.clientWidth, canvas.clientHeight, overviewHighest, overviewZoom, overviewPan, overviewLook);
   let deploymentChoice = 'random', deploymentResolved = false, resolvedDeployment: string | null = null;
   if (options.arena?.environment && deploymentPoints.length) options.arena.environment.deployments = deploymentPoints;
@@ -1669,8 +1674,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (overviewActive() && !overviewDrag) {
       const rect = canvas.getBoundingClientRect();
       const inside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
-      const overPin = event.target instanceof Element && !!event.target.closest('[data-deployment-id]');
-      if (overPin) { overviewCursor.x = overviewLook.x; overviewCursor.y = overviewLook.y; return; }
+      const pin = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-deployment-id]') : null;
+      overviewHovered = inside && event.pointerType === 'mouse' ? pin?.dataset.deploymentId ?? (event.target === canvas ? pickOverview(event) : null) : null;
+      if (overviewHovered) { overviewCursor.x = overviewLook.x; overviewCursor.y = overviewLook.y; return; }
       const follow = inside && event.pointerType === 'mouse' && !motionPreference?.matches;
       overviewCursor.x = follow ? THREE.MathUtils.clamp((event.clientX - rect.left) / rect.width * 2 - 1, -1, 1) : 0;
       overviewCursor.y = follow ? THREE.MathUtils.clamp((event.clientY - rect.top) / rect.height * 2 - 1, -1, 1) : 0;
@@ -1718,6 +1724,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   };
   const pointerdown = (event: PointerEvent) => {
     if (overviewActive() && event.button === 0) {
+      const id = pickOverview(event), point = overviewPoints().find(p => p.id === id);
+      if (point && point.available !== false) {
+        event.preventDefault();
+        if (respawnOverviewActive()) { arenaRuntime?.chooseRespawn(point.id); publish(); }
+        else chooseDeployment(point.id);
+        return;
+      }
       event.preventDefault(); canvas.setPointerCapture(event.pointerId); overviewDrag = { id: event.pointerId, x: event.clientX, y: event.clientY }; return;
     }
     if (pilotEnabled) return;
@@ -2006,7 +2019,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     canvas.dataset.inspectProgress = inspectElapsed === null ? '' : (inspectElapsed / INSPECT_DURATION).toFixed(3);
     playerBody.root.visible = false;
-    camera.near = WORLD_CAMERA_NEAR; camera.far = 800; overview.update(overviewActive(), respawnOverviewActive() ? hud.respawn?.selected ?? '' : deploymentChoice, overviewPoints());
+    camera.near = WORLD_CAMERA_NEAR; camera.far = 800;
+    const highlightedBeam = overviewActive() ? overviewHovered ?? overviewSurface.querySelector<HTMLElement>('[data-deployment-id]:focus-visible')?.dataset.deploymentId ?? null : null;
+    overview.update(overviewActive(), respawnOverviewActive() ? hud.respawn?.selected ?? '' : deploymentChoice, overviewPoints(), highlightedBeam, motionPreference?.matches ? 1 : dt);
+    canvas.dataset.deploymentHover = overviewActive() ? highlightedBeam ?? '' : '';
     if (overviewActive()) {
       // Freeze cursor motion while grabbing the map; touch and reduced motion
       // always use the composed, neutral angle. Damping uses real frame time.
@@ -2026,7 +2042,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const pins = overviewSurface.querySelectorAll<HTMLElement>('[data-deployment-id]');
       if (pins.length) for (const marker of deploymentMarkers(overviewPoints(), camera)) {
         const pin = Array.from(pins).find(pin => pin.dataset.deploymentId === marker.id);
-        if (pin) { pin.style.left = `${marker.x}%`; pin.style.top = `${marker.y}%`; pin.style.visibility = marker.visible ? 'visible' : 'hidden'; }
+        if (pin) { pin.style.left = `${marker.x}%`; pin.style.top = `${marker.y}%`; pin.style.visibility = marker.visible ? 'visible' : 'hidden'; pin.dataset.hovered = String(marker.id === highlightedBeam); }
       }
       return;
     }

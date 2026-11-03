@@ -42,6 +42,23 @@ try{
   if(width===390) await screenshot(`touch-${width}`);
  }
  await click('.respawn-automatic input',true);await wait('window.hud.arenaSelf.alive');assert.equal(await evaluate('window.hud.respawn.automatic'),true);
- assert.deepEqual(errors,[]);await fs.writeFile(new URL('verification.json',output),JSON.stringify({passed:true,camera,checks:['real engine dead checkpoint','aerial camera','grey enemy and neutral beams','authority rejects enemy choice','zoom and reset','manual wait at zero','menu and resume','allied respawn','portrait and landscape','automatic allied respawn'],errors},null,2));console.log('PASS touch: portrait/landscape fit, auto checkbox deploys at an allied zone; zero runtime errors.');
+
+ // The fallback remains usable after every allied structure is lost, manually
+ // and automatically, through the same real engine and beam controls.
+ for(const automatic of [false,true]){
+  await send('Emulation.setDeviceMetricsOverride',{width:automatic?390:1280,height:automatic?844:800,deviceScaleFactor:1,mobile:automatic});
+  await send('Emulation.setTouchEmulationEnabled',{enabled:automatic});
+  await send('Page.navigate',{url:origin+'/scripts/fixtures/player-respawn-panel.html?no-allies=1'});
+  await wait('window.hud?.phase==="ready"',180000);await click('#start',automatic);await wait('!!document.querySelector(".respawn-card")');
+  assert(await evaluate('hud.respawn.zones.filter(z=>z.available).every(z=>z.id==="default-spawn")'));
+  await wait('!!document.querySelector("[data-deployment-id=default-spawn]:not(:disabled)")');
+  const fallback=await evaluate('hud.respawn.zones.find(z=>z.id==="default-spawn")');
+  if(automatic)await click('.respawn-automatic input',true);
+  else{await wait('hud.arenaSelf.respawnIn===0');await screenshot('default-only');await click('[data-deployment-id=default-spawn]');}
+  await wait('hud.arenaSelf.alive');
+  assert(await evaluate(`Math.hypot(hud.arenaSelf.x-(${fallback.x}),hud.arenaSelf.z-(${fallback.z}))<=11`));
+ }
+ console.log('PASS default spawn: manual and automatic return with no allied structures.');
+ assert.deepEqual(errors,[]);await fs.writeFile(new URL('verification.json',output),JSON.stringify({passed:true,camera,checks:['real engine dead checkpoint','aerial camera','grey enemy and neutral beams','authority rejects enemy choice','zoom and reset','manual wait at zero','menu and resume','allied respawn','portrait and landscape','automatic allied respawn','default beam remains available with no allied structures','manual default fallback','automatic default fallback'],errors},null,2));console.log('PASS touch: portrait/landscape fit, auto checkbox deploys at an allied zone; zero runtime errors.');
 }catch(error){console.log(errors,await evaluate('({phase:window.hud?.phase,alive:window.hud?.arenaSelf?.alive,respawn:window.hud?.respawn,message:window.hud?.message,text:document.body.innerText})').catch(()=>null));await screenshot('failure').catch(()=>{});throw error;}
 finally{ws.close();await fetch(`${chrome}/json/close/${tab.id}`);}

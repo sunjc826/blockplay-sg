@@ -7,15 +7,19 @@ import {createFpsEngine} from '/src/game/fps-engine.ts';
 import {createProfile} from '/src/game/armory-state.ts';
 import {createExpeditionLoot} from '/src/game/expedition-loot.ts';
 import ExpeditionRespawn from '/src/components/ExpeditionRespawn.tsx';
+import ExpeditionDeployment from '/src/components/ExpeditionDeployment.tsx';
+import {createFacilities} from '/src/game/facilities.ts';
+const params=new URLSearchParams(location.search), initial=params.has('initial'), infrastructure=new Map();
+if(params.has('no-allies')){const saved=createFacilities([{id:'queenstown-allied-post',name:'Post',kind:'command',initialOwner:'mercenaries',x:0,y:0,z:0,deployment:{x:0,z:0,yaw:0}}]).snapshot();infrastructure.set('queenstown',{facilities:saved});}
 const root=createRoot(document.querySelector('#overlay')),button=document.querySelector('#start');
 window.engine=createFpsEngine(document.querySelector('#world'),hud=>{
- window.hud=hud;button.hidden=hud.phase==='playing';
- root.render(hud.phase==='playing'&&hud.arenaSelf?.alive===false&&hud.respawn?React.createElement(ExpeditionRespawn,{
+ window.hud=hud;button.hidden=initial||hud.phase==='playing';
+ root.render(hud.deployment?.canChoose?React.createElement(ExpeditionDeployment,{zone:'queenstown',deployment:hud.deployment,onChoose:id=>engine.chooseDeployment(id),onZoom:factor=>engine.zoomDeployment(factor),onResetView:()=>engine.resetDeploymentView()}):hud.phase==='playing'&&hud.arenaSelf?.alive===false&&hud.respawn?React.createElement(ExpeditionRespawn,{
   view:hud.respawn,seconds:hud.arenaSelf.respawnIn,
   onChoose:id=>engine.chooseRespawn(id),onAutomatic:value=>engine.setAutoRespawn(value),onMenu:()=>engine.pause(),
   onZoom:factor=>engine.zoomDeployment(factor),onResetView:()=>engine.resetDeploymentView(),
  }):null);
-},{region:'queenstown',expedition:{zone:'queenstown',checkpoint:{health:0,armor:0,weapon:0,ammunition:[]},profile:createProfile(),loot:createExpeditionLoot('aerial-respawn-review'),
+},{region:'queenstown',expedition:{zone:'queenstown',infrastructure,checkpoint:initial?undefined:{health:0,armor:0,weapon:0,ammunition:[]},profile:createProfile(),loot:createExpeditionLoot('aerial-respawn-review'),
  onTravel(){},onEquipment(){},onVendorPurchase(){return{ok:false,message:'Fixture'};}}});
 button.onclick=()=>{engine.configureDebug({combatEvents:false,regeneration:false});engine.start();};
 </script></body></html>

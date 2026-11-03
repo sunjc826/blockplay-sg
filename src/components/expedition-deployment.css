@@ -13,7 +13,11 @@
 .deployment-pin:focus-visible{outline:1px solid #fff1c7;outline-offset:2px;border-radius:6px}
 .deployment-pin-name{position:absolute;top:58px;left:50%;transform:translateX(-50%);font-size:10px;white-space:nowrap;background:#10232bdc;border:1px solid #87dbe850;padding:5px 8px;border-radius:4px;opacity:0;pointer-events:none}
 .deployment-pin-name small{display:block;color:#a4b2b5;font-size:9px;margin-top:3px}
-.deployment-pin:hover .deployment-pin-name,.deployment-pin:focus-visible .deployment-pin-name,.deployment-pin[aria-pressed=true] .deployment-pin-name{opacity:1}
+.deployment-pin:hover .deployment-pin-name,.deployment-pin:focus-visible .deployment-pin-name,.deployment-pin[data-hovered=true] .deployment-pin-name,.deployment-pin[aria-pressed=true] .deployment-pin-name{opacity:1}
+.deployment-pin-target{transition:background .18s,color .18s,border-color .18s,box-shadow .18s}
+.deployment-pin:is(:hover,:focus-visible,[data-hovered=true]) .deployment-pin-target{color:#eaffff;background:#24505bbd;border-color:#c0f7ff;box-shadow:0 0 14px #8fe0ed55}
+.deployment-pin[aria-pressed=true]:is(:hover,:focus-visible,[data-hovered=true]) .deployment-pin-target{color:#11242a;background:#ffe5a8;border-color:#fff3d4;box-shadow:0 0 20px #ffdc8580}
+.deployment-pin:disabled:is(:hover,[data-hovered=true]) .deployment-pin-target{color:#e1e7ea;background:#45545fe6;border-color:#b4c3c9;box-shadow:0 0 12px #acbdc433}
 .deployment-view-controls{position:absolute;top:70px;right:22px;display:flex;gap:5px;pointer-events:auto}
 .expedition-deployment button:not(.deployment-pin),.deployment-settings>summary{min-height:44px;padding:9px 13px;border:1px solid #a2c6ce70;border-radius:5px;color:#eef4ed;background:#14252eea;font:inherit;font-size:12px;cursor:pointer}
 .deployment-view-controls button:first-child,.deployment-view-controls button:nth-child(2){font-size:19px;min-width:44px;padding:4px}

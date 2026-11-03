@@ -65,7 +65,7 @@ import { CONSUMABLE_LIMIT, itemById } from './armory-catalog';
 import { supplyProfile } from './fps-healing';
 import { createFacilities, facilityActionFor, facilityOperational, facilityRayDistance, FACILITY_RULES, type FacilitySite, type FacilitySnapshot, type FacilityState } from './facilities';
 import type { DeploymentPoint } from './expedition-deployment';
-import type { PlayerRespawnView } from './player-respawn';
+import { DEFAULT_RESPAWN_ZONE, type PlayerRespawnView } from './player-respawn';
 
 /** All coordinates use metres; actor y is eye height, not the feet. */
 export interface ArenaActor {
@@ -217,6 +217,8 @@ export interface ArenaEnvironment {
   /** Authority-owned accuracy preference, read live; shared matches use Normal. */
   botDifficulty?: () => BotDifficulty;
   playerSpawn?: { x: number; z: number; yaw?: number; pitch?: number };
+  /** This side's permanent district entry, independent of gateway arrivals. */
+  defaultPlayerSpawn?: { x: number; z: number; yaw?: number; pitch?: number };
   /** Random combat events scheduled by a director, paced by district risk. */
   combatEvents?: { risk: CombatRisk };
   /** Fallen bots wait for a troop transport instead of reappearing at a spawn point. */
@@ -2264,6 +2266,18 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       m === entry || !m.actor.alive || m.reserve || m.actor.transport || Math.abs(floorAt(m.actor) - site.y) >= 2 ||
       Math.hypot(m.actor.x - p.x, m.actor.z - p.z) > (m.actor.faction === entry.actor.faction ? 1.5 : hostileDistance)));
   }
+  function defaultRespawnPoint(entry: InternalActor) {
+    const home = environment?.defaultPlayerSpawn ?? environment?.playerSpawn;
+    if (!home || entry.actor.faction !== PLAYER_FACTION) return undefined;
+    const candidates = [home, ...Array.from({ length: 36 }, (_, i) => ({
+      x: home.x + Math.sin(i * Math.PI / 6) * (3.6 + Math.floor(i / 12) * 3.6),
+      z: home.z + Math.cos(i * Math.PI / 6) * (3.6 + Math.floor(i / 12) * 3.6),
+    }))];
+    const point = candidates.find(p => clearSpawn(p) && (!swimmer?.isWater(p.x, p.z) || patrolGround(p.x, p.z) > .35) && [...members.values()].every(m =>
+      m === entry || !m.actor.alive || m.reserve || m.actor.transport || Math.abs(floorAt(m.actor) - patrolGround(p.x, p.z)) >= 2 ||
+      Math.hypot(m.actor.x - p.x, m.actor.z - p.z) > (m.actor.faction === entry.actor.faction ? 1.5 : 16)));
+    return point ? { x: point.x, z: point.z, y: patrolGround(point.x, point.z), yaw: home.yaw ?? 0 } : undefined;
+  }
   function playerRespawn(id: string): PlayerRespawnView | null {
     const entry = members.get(id);
     if (!facilities || !entry || entry.actor.bot) return null;
@@ -2274,11 +2288,16 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         reason: site.owner !== entry.actor.faction ? site.owner ? 'Enemy controlled' : 'Capture and build to deploy' :
           !site.health ? 'Equipment destroyed' : site.suppressed ? 'Deployment suppressed' : available ? '' : 'Landing zone blocked or unsafe' };
     });
+    const home = environment?.defaultPlayerSpawn ?? environment?.playerSpawn;
+    if (home && entry.actor.faction === PLAYER_FACTION) {
+      const available = !!defaultRespawnPoint(entry);
+      zones.push({ id: DEFAULT_RESPAWN_ZONE, name: 'Default spawn', x: home.x, y: patrolGround(home.x, home.z), z: home.z,
+        available, reason: available ? '' : 'Default spawn blocked or unsafe' });
+    }
     if (!zones.some(z => z.id === choice.selected && z.available)) choice.selected = null;
     return { zones, ...choice };
   }
-  /** The same operational/clearance checks govern both maps. Only initial entry
-   * additionally permits this side's authored district spawn. */
+  /** Allied structures and this side's designated entry are authority-owned. */
   function playerDeployments(id: string): DeploymentPoint[] {
     const entry = members.get(id);
     if (!entry || entry.actor.bot) return [];
@@ -2315,9 +2334,16 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const view = playerRespawn(entry.actor.id);
     if (!view) return;
     const available = view.zones.filter(z => z.available);
+    const structures = available.filter(z => z.id !== DEFAULT_RESPAWN_ZONE);
+    const automaticZones = structures.length ? structures : available;
     const safety = (zone: { x: number; z: number }) => Math.min(1000, ...[...members.values()]
       .filter(m => m.actor.alive && hostile(entry.actor, m.actor)).map(m => Math.hypot(m.actor.x - zone.x, m.actor.z - zone.z)));
-    const selected = available.find(z => z.id === view.selected) ?? (view.automatic ? available.sort((a, b) => safety(b) - safety(a))[0] : undefined);
+    const selected = available.find(z => z.id === view.selected) ?? (view.automatic ? automaticZones.sort((a, b) => safety(b) - safety(a))[0] : undefined);
+    if (selected?.id === DEFAULT_RESPAWN_ZONE) {
+      const point = defaultRespawnPoint(entry);
+      if (point) spawn(entry, point);
+      return;
+    }
     const site = selected && facilities?.sites.find(s => s.id === selected.id);
     const point = site && respawnPoint(entry, site);
     if (site && point) spawn(entry, { ...point, y: site.y, yaw: site.deployment.yaw });

@@ -39,7 +39,7 @@ export function buildDistrictWorld(id: WorldZoneId, arrival?: ZoneSpawn) {
   const heatSectors = id === 'marina-bay'
     ? MARINA_COMBAT_PATROLS.map(s => ({ id:s.id, bounds:s.bounds, weight:1 }))
     : zoneSectors(id).map(s => ({ id:s.id, parent:s.parent, bounds:s.bounds, weight:s.botWeight ?? s.lootWeight, heat:s.heat }));
-  const environment: ArenaEnvironment = { bounds, move, spawns: patrolSpawns(id), endless: true, playerSpawn: arrival ?? zone.spawn,
+  const environment: ArenaEnvironment = { bounds, move, spawns: patrolSpawns(id), endless: true, playerSpawn: arrival ?? zone.spawn, defaultPlayerSpawn: zone.spawn,
     battlefield: { size: DEFAULT_BATTLEFIELD_SIZE }, navigationAnchors, patrolSectors: patrolAreas,
     // The open world is where events happen: random strikes paced by risk, and the dead return on transports.
     // The battlefield fixes the roster. Heat still drives transport pace, kit and event pressure.

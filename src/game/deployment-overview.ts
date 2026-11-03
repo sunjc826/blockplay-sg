@@ -82,9 +82,15 @@ export function createDeploymentOverview(scene: THREE.Scene, initial: readonly D
   const root = new THREE.Group(); root.userData.fpsEffect = true; root.visible = false; scene.add(root);
   const ringGeometry = new THREE.RingGeometry(4.5, 5.1, 48);
   const beamGeometry = new THREE.CylinderGeometry(7, 3, 260, 24, 1, true);
-  const markers = new Map<string, { group: THREE.Group; ring: THREE.MeshBasicMaterial; beam: THREE.ShaderMaterial }>();
+  const markers = new Map<string, { group: THREE.Group; ring: THREE.MeshBasicMaterial; beam: THREE.ShaderMaterial; column: THREE.Mesh; initialized: boolean }>();
+  const ray = new THREE.Raycaster(), tint = new THREE.Color();
   return {
-    update(visible: boolean, choice: string, points: readonly DeploymentPoint[] = initial) {
+    pick(camera: THREE.Camera, pointer: THREE.Vector2) {
+      if (!root.visible) return null;
+      root.updateWorldMatrix(true, true); ray.setFromCamera(pointer, camera);
+      return ray.intersectObjects([...markers.values()].map(marker => marker.column), false)[0]?.object.userData.deploymentId as string | undefined ?? null;
+    },
+    update(visible: boolean, choice: string, points: readonly DeploymentPoint[] = initial, hovered: string | null = null, dt = 1 / 60) {
       root.visible = visible;
       if (!visible) return;
       const ids = new Set(points.map(p => p.id));
@@ -100,15 +106,19 @@ export function createDeploymentOverview(scene: THREE.Scene, initial: readonly D
             vertexShader: 'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
             fragmentShader: 'varying vec2 vUv; uniform vec3 color; uniform float opacity; void main(){float fade=pow(1.-vUv.y,1.5);gl_FragColor=vec4(color,opacity*fade);}',
           });
-          const column = new THREE.Mesh(beamGeometry, beam); column.position.y = 130; group.add(column);
-          marker = { group, ring, beam }; markers.set(point.id, marker);
+          const column = new THREE.Mesh(beamGeometry, beam); column.position.y = 130; column.name = `deployment-beam:${point.id}`;
+          column.userData.deploymentId = point.id; group.add(column);
+          marker = { group, ring, beam, column, initialized: false }; markers.set(point.id, marker);
         }
-        const available = point.available !== false, selected = available && choice === point.id;
-        const color = !available ? '#829298' : selected ? '#ffdc85' : '#8fe0ed';
+        const available = point.available !== false, selected = available && choice === point.id, highlighted = hovered === point.id;
+        const color = !available ? highlighted ? '#adbdc4' : '#829298' : selected ? highlighted ? '#ffeab4' : '#ffdc85' : highlighted ? '#c0f7ff' : '#8fe0ed';
+        const opacity = !available ? highlighted ? .34 : .18 : selected ? highlighted ? .64 : .48 : highlighted ? .48 : .32;
+        const ease = marker.initialized ? 1 - Math.exp(-12 * Math.max(0, dt)) : 1;
+        marker.initialized = true; tint.set(color);
         marker.group.position.set(point.x, point.y ?? 0, point.z);
-        marker.ring.color.set(color); marker.ring.opacity = available ? .9 : .32;
+        marker.ring.color.lerp(tint, ease); marker.ring.opacity = THREE.MathUtils.lerp(marker.ring.opacity, highlighted ? available ? 1 : .62 : available ? .9 : .32, ease);
         marker.beam.blending = available ? THREE.AdditiveBlending : THREE.NormalBlending;
-        marker.beam.uniforms.color.value.set(color); marker.beam.uniforms.opacity.value = selected ? .48 : available ? .32 : .18;
+        marker.beam.uniforms.color.value.lerp(tint, ease); marker.beam.uniforms.opacity.value = THREE.MathUtils.lerp(marker.beam.uniforms.opacity.value, opacity, ease);
       }
     },
     dispose() { root.removeFromParent(); ringGeometry.dispose(); beamGeometry.dispose(); for (const marker of markers.values()) { marker.ring.dispose(); marker.beam.dispose(); } markers.clear(); },
