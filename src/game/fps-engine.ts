@@ -44,6 +44,7 @@ import { OICW_RIFLE, OICW_LAUNCHER, OICW_GRENADE, physicalWeaponFamilies, primar
 import { createWeaponDevices, fittedWeaponDevices, toggleWeaponDevice, toggleWeaponRail } from './weapon-device-state';
 import { createGrenadeSystem, grenadePayloads, grenadeSmokeBetween, type GrenadeBurst, type LiveGrenade, type GrenadeEvent } from './grenade-system';
 import { createGrenadeViewmodel } from './grenade-models';
+import { GRENADE_MIN_WINDUP, GRENADE_READY_SECONDS, GRENADE_RECOVERY_SECONDS, GRENADE_STOW_SECONDS, GRENADE_SWING_SECONDS } from './fps-grenade-motion';
 import { createGrenadeVisuals } from './grenade-visuals';
 import { grenadeDangerRadius, grenadeWhistleLine } from './grenade-catalog';
 import { initialUtilityChoice, utilityGroup, utilityOption, utilityOptions, UTILITY_HOLD_MS, type UtilityGroup, type UtilityOption } from './utility-wheel';
@@ -624,7 +625,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // the gun, damage and healing are the host's, and the copy drives only what
   // the host never sees, the stride, the load and the sights.
   let grenadeChoice = initialUtilityChoice('combat', supplies, equipment.quickItem?.id);
-  let grenadeHeld: { id: string; ready: number; cooked: number; pinned: boolean } | null = null;
+  let grenadeHeld: { id: string; ready: number; cooked: number; pinned: boolean; swingAt: number | null; under: boolean | null } | null = null;
+  // The hands after a grenade has gone or been put away, while the weapon comes back up. View only, apart from holding fire until it is up.
+  let grenadeAfter: { id: string; elapsed: number; thrown: boolean; under: number } | null = null;
+  let grenadeInHands: string | null = null, grenadeUnder = 0, tuckedHandling: ReturnType<typeof createWeaponHandling> | null = null, handsView = { pitch: 0, roll: 0 };
   let conditions: ActiveGrenadeConditions = {};
   let grenadeKeyAt: number | null = null, grenadePicker: { x: number; y: number; slot: number | null; options: UtilityOption[] } | null = null;
   let grenadeFireHeld = false;
@@ -1360,8 +1364,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (grenadeHeld) {
       if (hud.phase !== 'playing' || hud.proxyMenu || arenaConditionModifiers(conditions).frozen) return;
       grenadeFireHeld = held;
-      if (held && grenadeHeld.ready >= .35) grenadeHeld.pinned = true;
-      else if (!held && grenadeHeld.pinned) releaseGrenade();
+      if (held && grenadeHeld.ready >= GRENADE_READY_SECONDS) grenadeHeld.pinned = true;
+      else if (!held && grenadeHeld.pinned) swingGrenade();
       trigger = false; pullBuffer = 0; return;
     }
     if (arenaConditionModifiers(conditions).frozen) return;
@@ -2034,7 +2038,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const view = overviewView();
       camera.position.set(view.x, view.y, view.z); camera.rotation.set(view.pitch, view.yaw, 0, 'YXZ'); camera.fov = view.fov; camera.near = view.near; camera.far = view.far;
       camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
-      actualAim = false; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0); grenadeHands.update(null, 0, 0);
+      actualAim = false; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0); grenadeHands.update(null);
       canvas.dataset.weaponVisible = 'false'; canvas.dataset.deploymentIntro = ''; canvas.dataset.readyAction = '';
       canvas.dataset.deploymentOverview = 'true';
       canvas.dataset.deploymentCamera = JSON.stringify({ x: view.x, y: view.y, z: view.z, pitch: view.pitch, yaw: view.yaw, fov: view.fov, near: camera.near, far: camera.far, ready: null, speed: 0, blur: 0 });
@@ -2065,7 +2069,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       actualAim = ads || touchAim; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0);
       updateVehicleCamera(dt); return;
     }
-    const aiming = !weaponSwitch && !swimming() && !grenadeHeld && arenaConditionModifiers(conditions).aim > 0 && (ads || touchAim) && !sprinting && loadout[hud.weapon].reloadRemaining === 0 && !supplyUse;
+    const aiming = !weaponSwitch && !swimming() && !grenadeHeld && !grenadeAfter && arenaConditionModifiers(conditions).aim > 0 && (ads || touchAim) && !sprinting && loadout[hud.weapon].reloadRemaining === 0 && !supplyUse;
     actualAim = aiming;
     // Heavier carry costs time to settle the sights as well as ground speed.
     aimProgress = THREE.MathUtils.damp(aimProgress, aiming ? 1 : 0, 15 * (aiming ? movement().aimSpeed * aimSpeedScale(foodEffects) * arenaConditionModifiers(conditions).aim : 1), dt);
@@ -2097,7 +2101,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!footMovement.canOccupy(position.x, vertical, position.z, .38, visualEye + .05)) visualEye = Math.min(visualEye, eyeHeight());
     camera.position.set(position.x, vertical + Math.max(swimming()?SWIMMING.eyeHeight-.02:.4, visualEye - landingRoll.eyeDrop), position.z);
     const view = recoilView(kick), pose = recoilPose(kick);
-    camera.rotation.set(pitch + view.pitch + landingRoll.pitch + (conditions.dazed ? Math.sin(hud.elapsed * 8) * .018 : 0), yaw + view.yaw, landingRoll.bank + bodyMotion.lean * motionScale * (1 - aim * .9), 'YXZ');
+    camera.rotation.set(pitch + view.pitch + landingRoll.pitch + handsView.pitch * motionScale + (conditions.dazed ? Math.sin(hud.elapsed * 8) * .018 : 0), yaw + view.yaw, landingRoll.bank + handsView.roll * motionScale + bodyMotion.lean * motionScale * (1 - aim * .9), 'YXZ');
     camera.fov = 65 + bodyMotion.sprint * 6 * (1 - aim) * motionScale;
     if (vehicles.mounted) updateVehicleCamera(dt);
     camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
@@ -2194,9 +2198,24 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.reloadReach = JSON.stringify(handling[hud.weapon]?.reloadReach ?? null);
     canvas.dataset.magazineInventory = JSON.stringify({ slots: state.magazineInventory?.slots, reloadSlot: state.reloadSlot, pending: state.pendingMagazine ?? null, capacity: magazineCapacity(state, specs[hud.weapon]), spares: spareMagazines(state) });
     // A supply in the hands takes the weapon down and out of view while it is used.
-    grenadeHands.update(grenadeHeld?.id ?? null, grenadeHeld?.ready ?? 0, grenadeHeld?.cooked ?? 0);
-    if (grenadeHeld) rig.visible = false;
-    const weaponDown = supplyHands.update(rig.visible && supplyUse ? supplyUse.profile.style : null, supplyUse ? supplyProgress(supplyUse) : 0, supplyUse?.id);
+    if (grenadeHeld) grenadeInHands = grenadeHeld.id;
+    else if (grenadeInHands) { grenadeAfter ??= { id: grenadeInHands, elapsed: 0, thrown: false, under: 0 }; grenadeInHands = null; }
+    if (grenadeAfter && (!rig.visible || supplyUse)) grenadeAfter = null;
+    if (grenadeAfter) { grenadeAfter.elapsed += dt; if (grenadeAfter.elapsed >= (grenadeAfter.thrown ? GRENADE_RECOVERY_SECONDS : GRENADE_STOW_SECONDS)) grenadeAfter = null; }
+    grenadeUnder = THREE.MathUtils.damp(grenadeUnder, (grenadeHeld?.under ?? (ads || touchAim)) ? 1 : 0, 14, dt);
+    const grenadeMotion = grenadeHands.update(grenadeHeld
+      ? { id: grenadeHeld.id, hold: { ready: grenadeHeld.ready, cooked: grenadeHeld.cooked, pinned: grenadeHeld.pinned, swingAt: grenadeHeld.swingAt, under: grenadeUnder, fuseLeft: itemById(grenadeHeld.id)!.grenade!.fuse - grenadeHeld.cooked } }
+      : grenadeAfter ? { id: grenadeAfter.id, release: grenadeAfter } : null);
+    if (grenadeHeld && (grenadeMotion?.weaponDown ?? 1) >= 1) rig.visible = false;
+    const supply = supplyHands.update(rig.visible && supplyUse ? supplyUse.profile.style : null, supplyUse ? supplyProgress(supplyUse) : 0, supplyUse?.id);
+    // Both sets of hands ride the same sway as the weapon.
+    grenadeHands.root.position.set(sway + lookLagX, Math.abs(sway) + bodyFollow + lookLagY, 0); supplyHands.root.position.copy(grenadeHands.root.position);
+    handsView = grenadeMotion?.view ?? supply?.view ?? { pitch: 0, roll: 0 };
+    const tucked = supply && supply.weaponTuck > 0 ? handling[hud.weapon] ?? null : null;
+    if (tuckedHandling !== tucked) { tuckedHandling?.setSupportHand(true); tucked?.setSupportHand(false); tuckedHandling = tucked; }
+    const weaponTuck = supply?.weaponTuck ?? 0;
+    if (weaponTuck > 0) { rig.position.x += weaponTuck * .03; rig.position.y -= weaponTuck * .15; rig.position.z += weaponTuck * .05; rig.rotation.x -= weaponTuck * .36; rig.rotation.y -= weaponTuck * .14; rig.rotation.z -= weaponTuck * .46; }
+    const weaponDown = Math.max(supply?.weaponDown ?? 0, grenadeMotion?.weaponDown ?? 0);
     if (weaponDown > 0) { rig.position.x += weaponDown * .12; rig.position.y -= weaponDown * .62; rig.rotation.x -= weaponDown * .9; rig.rotation.z -= weaponDown * .35; }
     if (switching) {
       const mount = playerBody.weaponMount(heldFamily);
@@ -2474,13 +2493,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!item?.grenade) { hud.message = 'Selected throwable depleted. Hold G to choose another.'; publish(); return; }
     if (item.id === 'grenade-red-smoke' && performance.now() / 1000 - missionLastAt < 60) { hud.message = 'Fire control: one mission every 60 s.'; publish(); return; }
     stopInspect(); stopReload(); endSupply(); trigger = false; pullBuffer = 0; ads = touchAim = false; beltSelected = 'grenade';
-    grenadeHeld = { id: item.id, ready: 0, cooked: 0, pinned: false }; canvas.focus({ preventScroll: true }); publish();
+    grenadeHeld = { id: item.id, ready: 0, cooked: 0, pinned: false, swingAt: null, under: null }; grenadeAfter = null; canvas.focus({ preventScroll: true }); publish();
+  }
+  /** Letting go of fire starts the swing; the grenade leaves the hand at the end of it, still on the fuse clock. */
+  function swingGrenade() {
+    if (!grenadeHeld?.pinned || grenadeHeld.swingAt !== null) return;
+    grenadeHeld.swingAt = Math.max(grenadeHeld.cooked, GRENADE_MIN_WINDUP); grenadeHeld.under = ads || touchAim;
   }
   function releaseGrenade() {
     if (!grenadeHeld?.pinned) return;
     const held = grenadeHeld, spec = itemById(held.id)!.grenade!, cooked = Math.min(spec.fuse, held.cooked);
     const direction = new THREE.Vector3(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
-    const input = { id: held.id, origin: { x: position.x, y: vertical + eyeHeight() - .15, z: position.z }, direction, under: ads || touchAim, cooked };
+    const input = { id: held.id, origin: { x: position.x, y: vertical + eyeHeight() - .15, z: position.z }, direction, under: held.under ?? (ads || touchAim), cooked };
+    grenadeAfter = { id: held.id, elapsed: 0, thrown: true, under: grenadeUnder };
     grenadeHeld = null; grenadeFireHeld = false; trigger = false; pullBuffer = 0; ads = touchAim = false;
     const previousThrow = grenadeLastAt, previousMission = missionLastAt;
     grenadeLastAt = performance.now() / 1000; if (held.id === 'grenade-red-smoke') missionLastAt = grenadeLastAt;
@@ -2526,7 +2551,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function stepGrenadePlayer(dt: number) {
     if (grenadeKeyAt !== null && performance.now() - grenadeKeyAt >= UTILITY_HOLD_MS) { grenadeKeyAt = null; openGrenadePicker(); }
     if (!arenaRuntime && hud.phase === 'playing') { advanceGrenadeConditions(conditions, dt); localGrenades.step(dt); }
-    if (grenadeHeld && hud.phase === 'playing') { grenadeHeld.ready += dt; if (grenadeFireHeld && grenadeHeld.ready >= .35 && !arenaConditionModifiers(conditions).frozen) grenadeHeld.pinned = true; if (grenadeHeld.pinned) { grenadeHeld.cooked += dt; if (grenadeHeld.cooked >= itemById(grenadeHeld.id)!.grenade!.fuse) releaseGrenade(); } }
+    if (grenadeHeld && hud.phase === 'playing') { grenadeHeld.ready += dt; if (grenadeFireHeld && grenadeHeld.ready >= GRENADE_READY_SECONDS && !arenaConditionModifiers(conditions).frozen) grenadeHeld.pinned = true; if (grenadeHeld.pinned) { grenadeHeld.cooked += dt; if (grenadeHeld.cooked >= itemById(grenadeHeld.id)!.grenade!.fuse || grenadeHeld.swingAt !== null && grenadeHeld.cooked >= grenadeHeld.swingAt + GRENADE_SWING_SECONDS) releaseGrenade(); } }
     const snapshotTime = hud.arena?.elapsed ?? 0, now = arenaRuntime ? Math.max(snapshotTime, eventClock) : localGrenades.clock;
     grenadeVisuals.update(activeGrenades(), activeGrenadeEvents(), now, arenaRuntime ? snapshotTime : now);
     hud.grenadeWarnings = activeGrenades().filter(g => { const d = Math.hypot(g.position.x - position.x, g.position.y - vertical - eyeHeight(), g.position.z - position.z); return !conditions.deafened && d <= grenadeDangerRadius(itemById(g.id)!.grenade!) + 2; }).map(g => ({ serial: g.serial, angle: Math.atan2(g.position.x - position.x, -(g.position.z - position.z)) + yaw, remaining: g.remaining }));
@@ -3691,7 +3716,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       stepSupply(realDt);
       stepFood(realDt);
       wasSprinting = sprinting;
-      if ((trigger || pullBuffer > 0) && fireReady && !supplyUse && !grenadeHeld && !arenaConditionModifiers(conditions).frozen && hud.phase === 'playing') { if (vehicles.active && !vehicles.canUseFirearm) shootVehicle(); else shoot(); }
+      if ((trigger || pullBuffer > 0) && fireReady && !supplyUse && !grenadeHeld && !grenadeAfter && !arenaConditionModifiers(conditions).frozen && hud.phase === 'playing') { if (vehicles.active && !vehicles.canUseFirearm) shootVehicle(); else shoot(); }
       pullBuffer = Math.max(0, pullBuffer - realDt);
       if (hud.phase === 'playing' && options.combat && !options.arena) counterFire(realDt);
     } else { advanceRecoil(kick, realDt); applyAimPush(); carry.set(0, 0, 0); updateCameras(dt, false, false); }

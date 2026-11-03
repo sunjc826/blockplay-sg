@@ -28,6 +28,15 @@ below has been checked against that test.
 The first six items are standard kit, some with local names. The rest are
 outlandish.
 
+## The throw
+
+Letting go of fire doesn't launch the grenade outright. The hands in
+`fps-grenade-motion.ts` go hand up, pin out, arm cocked, then a 0.1 s swing, and
+the grenade leaves at the far end of that swing. A tap still pulls the pin and
+cocks the arm first (0.22 s of fuse), so the quickest throw takes about 0.32 s.
+All of it runs on the fuse clock, so the swing cooks like any other held time.
+The weapon then takes 0.46 s to come back up and can't fire or aim until it has.
+
 ## Effects
 
 Each effect is built from a primitive that the combat events already have
