@@ -121,6 +121,42 @@ export function driveVehicle(v: VehicleState, forward: number, steer: number, br
   recordVehicleImpact(state, impactSpeed, impulse);
   return { state, blocked, impactSpeed };
 }
+/** How a dead hull sheds the speed it had: the air hardly slows it, the ground stops it within a few seconds. */
+const WRECK_MOTION = { car: { friction: 8, drag: .12, spinDamp: 3, height: 2.7 }, helicopter: { friction: 13, drag: .25, spinDamp: 3.5, height: 3.7 } } as const;
+const WRECK_MAX_SPEED = 30, WRECK_STEP = .45, WRECK_BOUNCE = .18;
+/** Nothing left to move, so callers can skip building a collider list. */
+export function wreckAtRest(v: VehicleState, bounds: VehicleWorldBounds = MARINA_BOUNDS) {
+  return !vehicleSpeed(v) && !v.yawSpeed && !v.climb && v.y <= Math.max(.13, (bounds.groundHeight?.(v.x, v.z) ?? 0) + .13) + 1e-3;
+}
+/** A destroyed hull coasts on what it was doing, falls, bounces once and skids out; hard contacts leave an impact receipt. */
+export function stepVehicleWreck(v: VehicleState, dt: number, obstacles: readonly Obstacle[], bounds: VehicleWorldBounds = MARINA_BOUNDS): VehicleMovement {
+  dt = clamp(dt, 0, .05);
+  if (dt === 0 || isDragonBoat(v.kind) || wreckAtRest(v, bounds)) return { state: v, blocked: false, impactSpeed: 0 };
+  const tune = WRECK_MOTION[v.kind];
+  const floorAt = (x: number, z: number, y: number) => obstacles.reduce((top, o) => o.maxY !== undefined && o.maxY <= y + WRECK_STEP && overlapsObstacle(o, x, z, 0) ? Math.max(top, o.maxY) : top, Math.max(.13, (bounds.groundHeight?.(x, z) ?? 0) + .13));
+  const grounded = v.climb <= 0 && v.y <= floorAt(v.x, v.z, v.y) + .02;
+  const total = vehicleSpeed(v), kept = grounded ? Math.max(0, total - tune.friction * dt) : total * Math.exp(-tune.drag * dt);
+  const share = total > 1e-3 ? Math.min(kept, WRECK_MAX_SPEED) / total : 0;
+  const yawSpeed = damp(v.yawSpeed ?? 0, 0, grounded ? tune.spinDamp : .2, dt);
+  const clear = (x: number, z: number, heading: number) => {
+    const b = vehicleBounds({ ...v, x, z, yaw: heading }), halfX = (b.maxX - b.minX) / 2, halfZ = (b.maxZ - b.minZ) / 2;
+    return b.minX >= bounds.minX && b.maxX <= bounds.maxX && b.minZ >= bounds.minZ && b.maxZ <= bounds.maxZ && (bounds.groundHeight?.(x, z) ?? 0) + .13 <= v.y + WRECK_STEP &&
+      !obstacles.some(o => v.y + WRECK_STEP < (o.maxY ?? Infinity) && v.y + tune.height > (o.minY ?? 0) && overlapsObstacleRect(o, x, z, halfX, halfZ));
+  };
+  // A spin that would swing the hull into something stops, not the momentum.
+  const turn = clear(v.x, v.z, v.yaw + yawSpeed * dt) ? yawSpeed * dt : 0, yaw = v.yaw + turn;
+  const speed = v.speed * share, lateral = (v.lateralSpeed ?? 0) * share;
+  const along = speed * Math.cos(turn) - lateral * Math.sin(turn), across = lateral * Math.cos(turn) + speed * Math.sin(turn);
+  const { blocked, impactSpeed, impulse, ...next } = horizontalMotion(v, yaw, along, across, turn ? yawSpeed : 0, dt, (x, z) => clear(x, z, yaw));
+  let climb = v.climb - 9.8 * dt, y = Math.min(120, v.y + climb * dt), impactY = 0, impulseY = 0;
+  const floor = floorAt(next.x, next.z, Math.max(v.y, y));
+  if (y <= floor || grounded && y - floor < .25) {
+    impactY = Math.max(0, -climb); climb = impactY > 6 ? impactY * WRECK_BOUNCE : 0; impulseY = climb + impactY; y = floor;
+  }
+  const totalImpact = Math.hypot(impactSpeed, impactY), state = { ...v, ...next, yaw, y, climb };
+  recordVehicleImpact(state, totalImpact, { ...impulse, y: impulseY });
+  return { state, blocked, impactSpeed: totalImpact };
+}
 export function canFly(x: number, y: number, z: number, obstacles: readonly FlightObstacle[], bounds: VehicleWorldBounds = MARINA_BOUNDS) {
   const r = 2.5;
   if (x - r < bounds.minX || x + r > bounds.maxX || z - r < bounds.minZ || z + r > bounds.maxZ || y < (bounds.groundHeight?.(x,z)??0)+.13 || y > 120) return false;

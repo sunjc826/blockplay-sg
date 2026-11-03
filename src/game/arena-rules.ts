@@ -25,7 +25,7 @@ import { createVerticalMovement, MAX_STEP_HEIGHT, type VerticalWorld } from './v
 import { type RegionBounds, footprintRayInterval, overlapsObstacleRect } from './region-collision';
 import { surfaceContains } from './vertical-routes';
 import { validVehicleControls, createSharedVehicle, seatOf, seatPoint, gunnerId, vehicleGunRay, vehicleRayDistance, type SharedVehicle, type VehicleControls } from './vehicle-seats';
-import { VEHICLE_KINDS, paddleVehicle, vehicleName, vehicleSpeed, stopVehicle, driveVehicle, flyVehicle, vehicleBounds, vehicleExit, type VehicleSpawns, type VehicleKind, type VehicleSpawn, type FlightObstacle } from './vehicle-rules';
+import { VEHICLE_KINDS, paddleVehicle, vehicleName, vehicleSpeed, stopVehicle, driveVehicle, flyVehicle, stepVehicleWreck, vehicleBounds, vehicleExit, type VehicleSpawns, type VehicleKind, type VehicleSpawn, type FlightObstacle } from './vehicle-rules';
 import { BAILOUT_ROLL_SECONDS } from './bailout-roll';
 import { damageVehicle, fireVehicleWeapon, vehicleCollisionDamage, vehicleExitDamage, VEHICLE_COMBAT } from './vehicle-combat';
 import { applyArmorDamage } from './armory-state';
@@ -1374,7 +1374,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     securing?: number }
   const events: RunningEvent[] = [];
   const raiders = new Map<string, Raider>();
-  interface Transport extends ArenaTransport { payload: TransportPayload; emergency: boolean; escape: number; nextExit: number; fallSpeed: number; ground: number; sea?: { site: NavalLandingSite; departing?: number; blocked?: number }; }
+  interface Transport extends ArenaTransport { payload: TransportPayload; emergency: boolean; escape: number; nextExit: number; fallSpeed: number; ground: number; driftX: number; driftZ: number; sea?: { site: NavalLandingSite; departing?: number; blocked?: number }; }
   const transports = new Map<string, Transport>();
   /** Where a round falling along `descent` onto `impact` first meets something solid. */
   function landing(payload: MunitionPayload): ArenaPoint {
@@ -1606,7 +1606,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     driver.actor.transport = d.id; if (payload.mode === 'air') driver.actor.aircrew = 'pilot'; driver.temporary = { event: d.id, from: Infinity }; driver.reserve = true;
     const pose = transportPose(payload, 0), ground = payload.mode === 'sea' ? d.altitude! : groundHeight(pose.x, pose.z), health = TRANSPORT_HULL[payload.mode].health;
     const t: Transport = { event: d.id, mode: payload.mode, x: pose.x, y: ground + pose.y, z: pose.z, yaw: pose.yaw, health, maxHealth: health,
-      state: 'inbound', visible: false, driver: driver.actor.id, driverAlive: true, passengers: 0, payload, emergency: false, escape: 0, nextExit: 0, fallSpeed: 0, ground };
+      state: 'inbound', visible: false, driver: driver.actor.id, driverAlive: true, passengers: 0, payload, emergency: false, escape: 0, nextExit: 0, fallSpeed: 0, ground, driftX: 0, driftZ: 0 };
     if (payload.mode === 'sea') { t.ramp = 0; t.sea = { site: environment!.navalSites!.find(s => s.id === d.landing)! }; }
     transports.set(d.id, t); if (payload.mode === 'air') fieldAircrew(d, t, driver.actor.id); syncTransportDriver(t); return true;
   }
@@ -1682,7 +1682,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     if (all) t.driverAlive = false;
     if (!t.emergency) {
-      t.emergency = true; t.ground = groundHeight(t.x, t.z);
+      t.emergency = true; t.ground = groundHeight(t.x, t.z); t.driftX = t.driftZ = 0;
       t.state = t.mode === 'air' && t.y > t.ground + .4 ? 'landing' : 'stopped';
       // Landing stays over the current location; if it cannot unload safely, the passengers stay aboard.
       t.nextExit = elapsed + TRANSPORT_EXIT_SECONDS;
@@ -1732,6 +1732,16 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     for (const member of members.values()) if (member.actor.transport === id) dismiss(member.actor.id);
     transports.delete(id);
   }
+  /** A destroyed hull rides out its speed until friction or something solid stops it; the air barely slows a falling one. */
+  function coastTransportWreck(t: Transport, dt: number) {
+    const speed = Math.hypot(t.driftX, t.driftZ); if (speed < .01) return;
+    const reach = speed * dt, ray = { x: t.driftX / speed, y: 0, z: t.driftZ / speed }, nose = 3.4;
+    const x = t.x + ray.x * reach, z = t.z + ray.z * reach;
+    if (worldWallDistance({ x: t.x, y: t.y + 1.3, z: t.z }, ray, reach + nose) < reach + nose || !inside({ x, z }, bounds)) { t.driftX = t.driftZ = 0; return; }
+    t.x = x; t.z = z; t.ground = groundHeight(x, z);
+    const kept = t.state === 'down' ? Math.exp(-.25 * dt) : Math.max(0, speed - 7 * dt) / speed;
+    t.driftX *= kept; t.driftZ *= kept;
+  }
   function stepTransports(dt: number) {
     for (const t of transports.values()) {
       const event = events.find(e => e.descriptor.id === t.event); if (!event) continue;
@@ -1739,14 +1749,17 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (t.sea) { stepSeaTransport(t, event.descriptor, age); syncTransportDriver(t); if (t.state === 'departed') for (const m of members.values()) if (m.actor.transport === t.event) dismiss(m.actor.id); continue; }
       if (!t.emergency) {
         const pose = transportPose(t.payload, age);
+        // What the route was doing is what a wreck carries on doing.
+        t.driftX = t.visible && dt > 0 ? (pose.x - t.x) / dt : 0; t.driftZ = t.visible && dt > 0 ? (pose.z - t.z) / dt : 0;
         Object.assign(t, { x: pose.x, z: pose.z, yaw: pose.yaw, visible: pose.visible });
         t.ground = groundHeight(t.x, t.z); t.y = t.ground + pose.y;
         t.state = age > t.payload.leave ? 'departed' : age >= t.payload.depart ? 'leaving' : age >= t.payload.arrive ? 'unloading' : 'inbound';
       } else if (t.state === 'landing' || t.state === 'down') {
+        if (t.state === 'down') coastTransportWreck(t, dt);
         t.fallSpeed = t.state === 'down' ? Math.min(24, t.fallSpeed + 9.8 * dt) : 5;
         t.y = Math.max(t.ground, t.y - t.fallSpeed * dt);
         if (t.y <= t.ground + .01) { t.state = t.health > 0 ? 'stopped' : 'wreck'; t.y = t.ground; }
-      }
+      } else if (t.state === 'wreck') { coastTransportWreck(t, dt); t.y = t.ground; }
       t.passengers = transportPassengers(t).length;
       if (t.state === 'stopped' && t.escape > 0 && elapsed >= t.nextExit) {
         t.nextExit = elapsed + TRANSPORT_EXIT_SECONDS;
@@ -3161,8 +3174,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const drive = held(v.occupants[0]);
       if (v.health <= 0) {
         if(isDragonBoat(v.kind)) continue;
-        const support = vehicleCollisions.flight(v, vehicles, vehicleOptions?.flightObstacles).filter(o => o.maxY <= v.y && v.x >= o.minX && v.x <= o.maxX && v.z >= o.minZ && v.z <= o.maxZ).reduce((y, o) => Math.max(y, o.maxY), .13);
-        v.climb -= 9.8 * dt; v.y = Math.max(support, v.y + v.climb * dt); if (v.y === support) v.climb = 0; continue;
+        Object.assign(v, stepVehicleWreck(v, dt, v.kind === 'car' && vehicleSpeed(v) > .01 ? vehicleCollisions.ground(v, vehicles) : vehicleCollisions.flight(v, vehicles, vehicleOptions?.flightObstacles), bounds).state); continue;
       }
       // Substeps keep vehicle physics advancing at wall-clock speed with slow hosts.
       const result = isDragonBoat(v.kind) ? paddleVehicle(v,drive?.forward??0,drive?.steer??0,drive?.brake??!!lifeOf(v).unload,dt,v.occupants.slice(1).filter(Boolean).length,vehicles.filter(other=>!other.despawned&&other!==v).map(vehicleBounds)) : v.kind === 'car' ? driveVehicle(v, drive?.forward ?? 0, drive?.steer ?? 0, drive?.brake ?? !drive, dt, vehicleCollisions.ground(v, vehicles), bounds)

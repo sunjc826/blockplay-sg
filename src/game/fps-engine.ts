@@ -3526,6 +3526,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function updateCombatVisuals(dt: number) {
     const snapshot = hud.arena, events = snapshot?.events ?? [], listener = camera.position;
     const happened = combatVisuals.update(dt, events, eventClock, camera, snapshot?.raiders ?? [], snapshot?.transports ?? []);
+    for (const { at, drift, size } of vehicles.takeHullBlasts()) {
+      const distance = at.distanceTo(listener); combatVisuals.hullBlast(at, size, drift); combatAudio.boom(distance, size); ambientSky.startle(at, size);
+      shake = Math.min(1, shake + Math.max(0, 1 - distance / (70 * size)) * .9 * Math.min(1.2, size));
+    }
+    for (const { at, size, heat } of vehicles.takeHullBurns()) combatVisuals.hullBurn(at, size, heat);
     // The raid helicopter's pilot-controlled chin mount; rifle passengers use regular actor shots.
     happened.shots.slice(0, 2).forEach(at => otherShot(at, 7.62, 60));
     for (const { at, size } of happened.blasts) {

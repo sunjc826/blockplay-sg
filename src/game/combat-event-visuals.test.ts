@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { createCombatEventVisuals } from './combat-event-visuals';
+import type { ArenaRaider } from './arena-rules';
 
 function setup(reduced = false) {
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera();
@@ -9,6 +10,47 @@ function setup(reduced = false) {
   const mesh = (name: string) => scene.getObjectByName(name) as THREE.InstancedMesh;
   return { scene, visuals, step, mesh };
 }
+
+describe('things that blow up when they die', () => {
+  const raider = (kind: ArenaRaider['kind'], state: ArenaRaider['state'], y = 30): ArenaRaider => ({ event: 'e', kind, x: 0, y, z: 0, yaw: 0, health: state === 'cruise' || state === 'orbit' ? 30 : 0, maxHealth: 30, state, shots: 0, aim: null });
+  it('explodes a downed drone where it hits the ground, once', () => {
+    const { visuals } = setup(), camera = new THREE.PerspectiveCamera();
+    const frame = (r: ArenaRaider) => visuals.update(1 / 60, [], 0, camera, [r]).blasts;
+    expect(frame(raider('drone', 'cruise'))).toHaveLength(0);
+    expect(frame(raider('drone', 'down')).map(b => b.size)).toEqual([.2]); // the pop when it is hit
+    expect(frame(raider('drone', 'down'))).toHaveLength(0);
+    expect(frame(raider('drone', 'wreck', .2)).map(b => b.size)).toEqual([.75]);
+    expect(visuals.counts.craters).toBe(1);
+    expect(frame(raider('drone', 'wreck', .2))).toHaveLength(0);
+    visuals.dispose();
+  });
+  it('blows a gunship up when it is hit and again when it lands', () => {
+    const { visuals } = setup(), camera = new THREE.PerspectiveCamera();
+    const frame = (r: ArenaRaider) => visuals.update(1 / 60, [], 0, camera, [r]).blasts;
+    frame(raider('gunship', 'orbit'));
+    expect(frame(raider('gunship', 'down')).map(b => b.size)).toEqual([1]);
+    expect(frame(raider('gunship', 'wreck', .5)).map(b => b.size)).toEqual([1.4]);
+    visuals.dispose();
+  });
+  it('carries a hull blast along on its momentum, with a bigger payload than a shell', () => {
+    const { visuals, mesh } = setup();
+    visuals.blast(new THREE.Vector3(0, .15, 0));
+    const shell = { ...visuals.counts };
+    visuals.reset();
+    visuals.hullBlast(new THREE.Vector3(0, .15, 0), 1, new THREE.Vector3(0, 0, -20));
+    expect(visuals.counts.fire).toBeGreaterThan(shell.fire); expect(visuals.counts.smoke).toBeGreaterThan(shell.smoke); expect(visuals.counts.debris).toBeGreaterThan(shell.debris);
+    visuals.update(1 / 60, [], 0, new THREE.PerspectiveCamera());
+    const m = new THREE.Matrix4(), at = new THREE.Vector3(); let sum = 0;
+    const debris = mesh('combat-debris');
+    for (let i = 0; i < debris.count; i++) { debris.getMatrixAt(i, m); sum += at.setFromMatrixPosition(m).z; }
+    expect(sum / debris.count).toBeLessThan(-.1);
+    // The next explosion is not dragged along by the last one.
+    visuals.reset(); visuals.blast(new THREE.Vector3(0, .15, 0)); visuals.update(1 / 60, [], 0, new THREE.PerspectiveCamera());
+    sum = 0; for (let i = 0; i < debris.count; i++) { debris.getMatrixAt(i, m); sum += at.setFromMatrixPosition(m).z; }
+    expect(Math.abs(sum / debris.count)).toBeLessThan(.1);
+    visuals.dispose();
+  });
+});
 
 describe('explosion particles without arena events', () => {
   it('shows a newly arrived burst even after a long frame', () => {

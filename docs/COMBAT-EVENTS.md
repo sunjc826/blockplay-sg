@@ -431,8 +431,10 @@ landing. Destruction kills occupants still aboard and cancels pending inserts.
   28 m/s, steering until 9 m out and then committing. It detonates on contact,
   within 1.6 m of a player, or at the point it was diving for: radius 6 m,
   damage 130.
-- 30 health and a 0.75 m sphere: a burst of rifle fire brings it down, and it
-  falls harmlessly. Unused after 60 s, it flies home (`withdrawn`).
+- 30 health and a 0.75 m sphere: a burst of rifle fire brings it down. It pops,
+  keeps falling on its momentum and explodes where it hits the ground; that
+  explosion is presentation only and deals no damage. Unused after 60 s, it
+  flies home (`withdrawn`).
 
 **Rooftop sniper** (built)
 

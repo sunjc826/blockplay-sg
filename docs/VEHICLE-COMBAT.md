@@ -17,11 +17,13 @@ Bullets, counter-fire, nearby vehicle blasts, and hard collisions damage hulls. 
 - 75% or lower: dented panels and scorched paint.
 - 50% or lower: heavy damage, smoke and failed lamps.
 - 25% or lower: critical damage with smoke and flames.
-- 0 HP: one explosion, a charred wreck, stopped weapons/drive, and no re-entry.
+- 0 HP: a chain of explosions, a burning charred wreck, stopped weapons/drive, and no re-entry.
 
-Destruction is lethal to the crew. Blasts damage nearby players, targets, and other vehicles with linear falloff and static-cover obstruction. Utility/Falcon blasts reach 9/12 m with 240/320 maximum damage. Destroyed helicopters fall onto the ground or supporting roofs. On the range, wrecks persist until exercise reset; visual flames do not apply ongoing damage.
+Destruction is lethal to the crew. The one damaging blast happens where the hull dies: it damages nearby players, targets, and other vehicles with linear falloff and static-cover obstruction. Utility/Falcon blasts reach 9/12 m with 240/320 maximum damage. On the range, wrecks persist until exercise reset; visual flames do not apply ongoing damage.
 
-All tuning lives in `src/game/vehicle-combat.ts`. Damage visuals preserve the equipped wrap and original transforms for reset. Smoke/fire/explosions use a fixed 96-particle pool and never block gameplay rays. This is arcade balancing, not a real vehicle specification.
+A wreck keeps its momentum (`stepVehicleWreck`): the blast kicks it upward and sets it spinning, the air barely slows it, and ground friction stops a car at 8 m/s² and a helicopter at 13 m/s². It stops against the same obstacles as a live hull and falls onto the ground or supporting roofs. Contacts at 7 m/s or more throw another explosion, and a helicopter that hits the ground that hard loses its rotors. These crash explosions are presentation only: they deal no damage, and neither does a sliding wreck. Troop trucks and troop helicopters coast the same way. Tumble, cook-offs and crash blasts are drawn from replicated hull state, so guests see what the host does; reduced effects drops the tumble and cook-offs.
+
+All tuning lives in `src/game/vehicle-combat.ts`. Damage visuals preserve the equipped wrap and original transforms for reset. Smoke/fire use a fixed 96-particle pool, explosions share the combat renderer's fixed pools, and neither blocks gameplay rays. This is arcade balancing, not a real vehicle specification.
 
 ## Riding together (LAN and solo arenas)
 

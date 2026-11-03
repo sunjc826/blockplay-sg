@@ -6398,3 +6398,31 @@ match that release's root/store/inventory HTML, entry JS/CSS and service worker.
 Receipts, source comparisons, browser results, screenshots and all validation /
 deploy logs are in `.cache/equipment-rentals/`. No GitHub push. AGENTS.md remains
 local, unstaged and uncommitted; unrelated handoff and .claude work is preserved.
+
+
+## 2026-11-04: dramatic vehicle destruction and drone ground explosions
+Destroyed car and helicopter hulls now keep their
+momentum: `damageVehicle` no longer zeroes velocity (boats still stop) and adds an
+upward kick and spin; `stepVehicleWreck` in vehicle-rules.ts coasts, falls, bounces
+once and skids out under friction, for both the local range and arena authority.
+Snapshot validation allows yawSpeed up to 3 only on a dead hull. Land and air troop
+transports coast too (internal driftX/driftZ, not replicated).
+
+Presentation is new vehicle-wreck-motion.ts, read from replicated hull state:
+cook-off blasts, a crash blast on contacts of 7 m/s or more (via the impact serial),
+tumble, rotor spin-down and loss, and burn puffs. The engine drains
+takeHullBlasts/takeHullBurns into combatVisuals.hullBlast/hullBurn. The old low-poly
+explode was removed, and wrecks no longer use that particle pool.
+
+Downed drones pop when hit and explode on ground contact, with a crater. Crash and
+drone-ground explosions are visual only by choice; the one damaging hull blast
+stays at the point of destruction, and "falls harmlessly" still holds.
+
+Validation: typecheck passes. Full vitest 3060/3065; RespawnLoadoutSelector and the
+cosmetic-wrap test also fail on clean HEAD, and arena-network, bot-difficulty-runtime
+and regions queenstown pass when rerun alone under lower load. Review fixture:
+scripts/fixtures/wreck-crash.html. An ad hoc real-engine run in isolated Chrome
+destroyed a falling helicopter and a mounted car at 15 m/s (coasted 26 m, phase
+defeated, no exceptions); it boarded via an injected interact call because the E key
+did not mount in that headless run. Not run: LAN play in a browser (adoptShared is
+unit-tested only), test:vehicles, and the transport crash visuals in a browser.

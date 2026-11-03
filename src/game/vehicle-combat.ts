@@ -8,6 +8,8 @@ export const VEHICLE_COMBAT = {
   'dragon-boat-red': { health: 300, ammo: 0, name: 'Paddles · unarmed', damage: 0, interval: 1, range: 0, blastRadius: 0, blastDamage: 0, caliberMm: 0, ballistics: muzzleBallistics(1) },
   'dragon-boat-gold': { health: 300, ammo: 0, name: 'Paddles · unarmed', damage: 0, interval: 1, range: 0, blastRadius: 0, blastDamage: 0, caliberMm: 0, ballistics: muzzleBallistics(1) },
 } satisfies Record<VehicleKind, { health: number; ammo: number; name: string; damage: number; interval: number; range: number; blastRadius: number; blastDamage: number; caliberMm: number; ballistics: BallisticSpec }>;
+/** Upward shove (m/s) and spin (rad/s) from the hull's own explosion. A helicopter that loses its tail rotor spins hard. */
+const WRECK_KICK = { car: { climb: 5.5, spin: .9 }, helicopter: { climb: 2.5, spin: 2.4 } } as const;
 export type VehicleDamageStage = 'intact' | 'damaged' | 'smoking' | 'critical' | 'destroyed';
 export function vehicleDamageStage(v: Pick<VehicleState, 'kind' | 'health'>): VehicleDamageStage {
   const ratio = v.health / VEHICLE_COMBAT[v.kind].health;
@@ -17,7 +19,12 @@ export function damageVehicle(v: VehicleState, damage: number) {
   if (!Number.isFinite(damage) || damage <= 0 || v.health <= 0) return false;
   v.health = Math.max(0, v.health - damage);
   if (v.health > 0) return false;
-  v.speed = v.climb = v.lateralSpeed = v.yawSpeed = 0;
+  if (VEHICLE_COMBAT[v.kind].blastRadius <= 0) v.speed = v.climb = v.lateralSpeed = v.yawSpeed = 0;
+  else {
+    // The hull keeps its momentum and the blast adds a kick; see stepVehicleWreck.
+    const kick = WRECK_KICK[v.kind as keyof typeof WRECK_KICK], side = Math.sign(v.lateralSpeed || v.yawSpeed || 0) || (Math.sin(v.x * 12.9898 + v.z * 78.233) < 0 ? -1 : 1);
+    v.climb += kick.climb; v.yawSpeed = side * kick.spin;
+  }
   return true; // Exactly one destruction event, even during a chain explosion.
 }
 export function fireVehicleWeapon(v: VehicleState) {

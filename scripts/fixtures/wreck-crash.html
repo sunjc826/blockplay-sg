@@ -1,0 +1,31 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Wreck crash review</title><style>
+body{margin:0;background:#151c24;color:white;font:15px system-ui}header{position:absolute;top:18px;left:22px;text-shadow:0 1px 3px #000}small{display:block;margin-top:5px;color:#e3ecf3}canvas{display:block}
+</style></head><body><header>Vehicle wrecks<small id="status">Loading</small></header><script type="module">
+import * as THREE from 'three';
+import { createFpsVehicles } from '/src/game/fps-vehicles.ts';
+import { createCombatEventVisuals } from '/src/game/combat-event-visuals.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1200,800);renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#b8d9ef');scene.add(new THREE.HemisphereLight('#ecf5ff','#646b4e',2.2));const sun=new THREE.DirectionalLight('#fff5d8',2);sun.position.set(40,80,30);scene.add(sun);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(1000,1000),new THREE.MeshStandardMaterial({color:'#aaa797',roughness:.9}));ground.rotation.x=-Math.PI/2;scene.add(ground);
+const camera=new THREE.PerspectiveCamera(50,1.5,.1,800);
+const cast=(origin,direction,far)=>{if(direction.y>=0)return null;const d=-origin.y/direction.y;return d>=0&&d<=far?origin.clone().addScaledVector(direction,d):null;};
+const visuals=createCombatEventVisuals(scene,cast,{reduced:()=>false});
+const bounds={minX:-400,maxX:400,minZ:-400,maxZ:400};
+const vehicles=createFpsVehicles(scene,[],{car:'',helicopter:''},{spawns:{car:{x:0,z:0,yaw:0},helicopter:{x:30,z:0,yaw:0}},bounds});
+let clock=0;
+function frame(dt,draw){vehicles.step(new Set(),dt);for(const b of vehicles.takeHullBlasts())visuals.hullBlast(b.at,b.size,b.drift);for(const b of vehicles.takeHullBurns())visuals.hullBurn(b.at,b.size,b.heat);clock+=dt;visuals.update(dt,[],clock,camera);scene.updateMatrixWorld(true);if(draw)renderer.render(scene,camera);}
+/** Destroys a hull in motion, then returns where it is `seconds` later, drawn from the given camera. */
+window.reviewWreck=(kind='car',seconds=0,{speed=18,height=0}={})=>{visuals.reset();vehicles.reset();vehicles.root.visible=true;
+ for(const k of ['car','helicopter'])if(k!==kind)vehicles.states[k].x=-300;
+ const v=vehicles.states[kind];v.speed=speed;v.y=height+.13;v.x=0;v.z=0;const from={x:v.x,y:v.y,z:v.z};vehicles.damage(kind,99999);
+ const look=()=>{const w=vehicles.states[kind];camera.position.set(w.x+(kind==='car'?20:42),w.y+(kind==='car'?7:16),w.z+(kind==='car'?16:34));camera.lookAt(w.x,w.y+(kind==='car'?2:3),w.z);};look();
+ for(let t=0;t<seconds-1e-8;t+=1/60){frame(1/60,false);look();}frame(1/60,true);
+ const s=vehicles.states[kind];document.querySelector('#status').textContent=`${kind} ${seconds.toFixed(2)} s after destruction · moved ${Math.hypot(s.x-from.x,s.z-from.z).toFixed(1)} m · y ${s.y.toFixed(1)} · speed ${Math.hypot(s.speed,s.lateralSpeed??0).toFixed(1)}`;
+ return{x:s.x,y:s.y,z:s.z,speed:s.speed,climb:s.climb,counts:visuals.counts,rotor:vehicles.models.helicopter.getObjectByName('main-rotor').visible};};
+/** A downed drone reaching the ground: the raider states the host sends, in order. */
+window.reviewDrone=(seconds=.1)=>{visuals.reset();vehicles.reset();vehicles.root.visible=false;camera.position.set(14,5,16);camera.lookAt(0,2,0);
+ const drone=(state,y)=>({event:'d',kind:'drone',x:0,y,z:0,yaw:0,health:0,maxHealth:30,state,shots:0,aim:null});
+ visuals.update(1/60,[],0,camera,[{...drone('cruise',20),health:30}]);visuals.update(1/60,[],0,camera,[drone('down',4)]);const b=visuals.update(1/60,[],0,camera,[drone('wreck',.2)]);
+ for(let t=0;t<seconds;t+=1/60)visuals.update(1/60,[],t,camera,[drone('wreck',.2)]);scene.updateMatrixWorld(true);renderer.render(scene,camera);document.querySelector('#status').textContent=`drone ${seconds.toFixed(2)} s after ground impact`;return{blasts:b.blasts.length,counts:visuals.counts};};
+document.querySelector('#status').textContent='Ready';window.reviewReady=true;
+</script></body></html>

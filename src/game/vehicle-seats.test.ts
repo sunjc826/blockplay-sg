@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createArena, type ArenaEnvironment, type ArenaSimulation } from './arena-rules';
 import { validArenaInput, validArenaSnapshot } from './arena-runtime';
 import { validVehicleControls, type VehicleControls } from './vehicle-seats';
+import { vehicleSpeed } from './vehicle-rules';
 import { moveInMarina } from './marina-collision';
 import { shootAndLand } from './arena-test-shots';
 
@@ -101,6 +102,27 @@ describe('shared vehicle seats and authority', () => {
     expect(car(arena).health).toBe(0); expect(car(arena).occupants).toEqual([null, null, null, null]);
     for (let i = 0; i < 4; i++) { expect(actor(arena, `p${i}`).alive).toBe(false); expect(actor(arena, `p${i}`).deaths).toBe(1); }
     expect(actor(arena, 'attacker').kills).toBe(4);
+  });
+  it('lets a destroyed hull coast on, kill its crew once and send a snapshot guests accept', () => {
+    const arena = arenaWithPlayers(1);
+    arena.vehicleAction('p0', 'enter', 'car');
+    for (let i = 0; i < 40; i++) { input(arena, 'p0', { forward: 1 }); arena.step(.05); }
+    expect(vehicleSpeed(car(arena))).toBeGreaterThan(10);
+    arena.addPlayer('attacker', 'Attacker', 0, 0, [{ damage: 200, interval: .06, capacity: 100, reload: 1 }]);
+    for (let i = 0; i < 3; i++) {
+      const v = car(arena), shooter = actor(arena, 'attacker'), delta = { x: v.x - shooter.x, y: v.y + 1.3 - shooter.y, z: v.z - shooter.z }, d = Math.hypot(delta.x, delta.y, delta.z);
+      input(arena, 'p0', { forward: 1 }); shootAndLand(arena, 'attacker', shooter, { x: delta.x / d, y: delta.y / d, z: delta.z / d }, 0); arena.step(.1);
+    }
+    const wreck = car(arena);
+    expect(wreck.health).toBe(0);
+    expect(vehicleSpeed(wreck)).toBeGreaterThan(5);
+    expect(actor(arena, 'p0').deaths).toBe(1);
+    const at = { x: wreck.x, z: wreck.z };
+    for (let i = 0; i < 100; i++) { arena.step(.05); expect(validArenaSnapshot(arena.snapshot(), environment)).toBe(true); }
+    const end = car(arena);
+    expect(Math.hypot(end.x - at.x, end.z - at.z)).toBeGreaterThan(3);
+    expect(vehicleSpeed(end)).toBe(0);
+    expect(actor(arena, 'p0').deaths).toBe(1);
   });
   it('rejects forged vehicle controls and inconsistent snapshots', () => {
     expect(validVehicleControls(controls({ forward: 9 }))).toBe(false);

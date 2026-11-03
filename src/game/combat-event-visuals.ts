@@ -246,7 +246,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     return slot;
   }
   /** Last frame's raider states and shot counts, so a change can be drawn once. */
-  const seenTransports = new Map<string, number>();
+  const seenTransports = new Map<string, { health: number; state: string }>();
   const seenRaiders = new Map<string, { state: string; shots: number }>();
   const trail = new THREE.Color('#2f2d2a');
 
@@ -298,11 +298,13 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
   }
 
   function add(list: Particle[], capacity: number, particle: Particle) { if (list.length >= capacity) list.shift(); list.push(particle); }
+  /** Momentum every new particle inherits while a moving hull is blowing up. */
+  const carried = new THREE.Vector3();
   function particle(at: THREE.Vector3, spread: number, up: number, life: number, size: number, grow: number, colour: THREE.Color): Particle {
     const angle = Math.random() * Math.PI * 2, out = Math.random() * spread;
-    return { x: at.x, y: at.y, z: at.z, vx: Math.cos(angle) * out, vy: up * (.5 + Math.random() * .5), vz: Math.sin(angle) * out, age: 0, life: life * (.7 + Math.random() * .6), size, grow, colour, spin: Math.random() * 6, floor: at.y, lift: 0, opacity: .85 };
+    return { x: at.x, y: at.y, z: at.z, vx: Math.cos(angle) * out + carried.x, vy: up * (.5 + Math.random() * .5) + carried.y, vz: Math.sin(angle) * out + carried.z, age: 0, life: life * (.7 + Math.random() * .6), size, grow, colour, spin: Math.random() * 6, floor: at.y, lift: 0, opacity: .85 };
   }
-  const dust = new THREE.Color('#857762'), soot = new THREE.Color('#3a3530'), chunk = new THREE.Color('#2c2620'), wash = new THREE.Color('#a69a80');
+  const dust = new THREE.Color('#857762'), soot = new THREE.Color('#3a3530'), chunk = new THREE.Color('#2c2620'), wash = new THREE.Color('#a69a80'), oilSmoke = new THREE.Color('#141312'), hullChunk = new THREE.Color('#1c1d1b');
   /** A shell landing: fireball, smoke, thrown dirt, a crater and a flash. `size` 1 is an artillery round. */
   function blast(at: THREE.Vector3, size = 1) {
     const scale = options.reduced() ? .45 : 1;
@@ -331,6 +333,33 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
       craters.push({ x: at.x, y: floor, z: at.z, size: 3.2 * size * (.85 + Math.random() * .3), age: 0 }); if (craters.length > CRATERS) craters.shift();
     }
     flash.position.set(at.x, at.y + 2, at.z); flash.intensity = 60 * size; freshFlash = true;
+    return floor;
+  }
+  /**
+   * A hull going up: a shell's blast carried along on the hull's momentum, then
+   * a big rolling fireball, a slow column of black smoke and real chunks of it.
+   */
+  function hullBlast(at: THREE.Vector3, size = 1, drift?: THREE.Vector3) {
+    const share = options.reduced() ? .45 : 1;
+    if (drift) carried.copy(drift);
+    const floor = blast(at, size);
+    // Started past white-hot and thinner, so stacked quads stay orange instead of saturating against daylight.
+    for (let i = 0; i < Math.round(10 * share); i++) {
+      const ball = particle(at, 4.2 * size, 8 * size, 1.15, 2.6 * size, 6.5 * size, fireHot); ball.age = ball.life * .2; ball.opacity = .42; add(fire, FIRE, ball);
+    }
+    for (let i = 0; i < Math.round(10 * share); i++) {
+      const cloud = particle(at, 1.7 * size, 4.5 * size, 7, 1.5 * size, 1.5 * size, oilSmoke); cloud.lift = 1.15; cloud.opacity = .82; add(smoke, SMOKE, cloud);
+    }
+    for (let i = 0; i < Math.round(12 * share); i++) {
+      const p = particle(at, 13 * size, 14 * size, 3.4, (.2 + Math.random() * .4) * size, 0, hullChunk); p.y += .3; p.floor = floor; add(debris, DEBRIS, p);
+    }
+    flash.intensity = 110 * size; carried.set(0, 0, 0);
+  }
+  /** One puff of a burning wreck, trailing behind it while it moves: oily smoke, and flame while it is hot. */
+  function hullBurn(at: THREE.Vector3, size = 1, heat = 1) {
+    if (options.reduced() && Math.random() < .6) return;
+    const cloud = particle(at, .9 * size, 3.4, 4.6, .55 * size, 1.05 * size * (.45 + heat * .55), oilSmoke); cloud.lift = 1.05; cloud.opacity = .32 + heat * .42; add(smoke, SMOKE, cloud);
+    if (heat > .3) add(fire, FIRE, particle(at, .7 * size, 2.2, .62, .7 * size * heat, 1.1 * size * heat, fireMid));
   }
   /** A spotting round: no damage, a column of coloured smoke that lingers. */
   function spot(at: THREE.Vector3, colour: string) {
@@ -385,9 +414,16 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
       if (r.state === 'down' && !options.reduced() && Math.random() < dt * 30) {
         const puff = particle(position.set(r.x, r.y + .6, r.z), .6, .5, 2.2, r.kind === 'gunship' ? 1.6 : .5, 1.4, trail); puff.lift = .6; add(smoke, SMOKE, puff);
       }
-      if (seen.state !== r.state && (r.state === 'exploded' || (r.state === 'wreck' && r.kind === 'gunship'))) {
+      // Shot out of the sky: a gunship's hull goes up where it is hit, a drone only pops until its warhead lands.
+      if (seen.state !== r.state && r.state === 'down') {
+        const at = new THREE.Vector3(r.x, r.y, r.z), size = r.kind === 'gunship' ? 1 : .2;
+        if (r.kind === 'gunship') hullBlast(at, size); else blast(at, size);
+        happened.blasts.push({ at, size });
+      }
+      if (seen.state !== r.state && (r.state === 'exploded' || r.state === 'wreck')) {
         const at = new THREE.Vector3(r.x, r.y, r.z), size = r.kind === 'gunship' ? 1.4 : .75;
-        blast(at, size); happened.blasts.push({ at, size });
+        if (r.kind === 'gunship') hullBlast(at, size); else blast(at, size);
+        happened.blasts.push({ at, size });
         if (r.kind === 'gunship') emitters.push({ x: r.x, y: r.y, z: r.z, colour: trail.clone(), until: clock + 20, next: clock, rate: options.reduced() ? .4 : .12 });
       }
       if (r.kind === 'gunship' && r.shots > seen.shots && r.aim) {
@@ -535,7 +571,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
       const t = p.age / p.life;
       colour.copy(t < .3 ? fireHot : fireMid).lerp(t < .3 ? fireMid : fireCool, t < .3 ? t / .3 : (t - .3) / .7);
       fireMesh.setColorAt(i, colour);
-      fireQuad.opacity.setX(i, (1 - t) * .9);
+      fireQuad.opacity.setX(i, (1 - t) * p.opacity / .85 * .9);
       roll.setFromAxisAngle(zAxis, p.spin).premultiply(quaternion);
       fireMesh.setMatrixAt(i, matrix.compose(position.set(p.x, p.y, p.z), roll, scale.setScalar(p.size + p.grow * t)));
     });
@@ -569,11 +605,16 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     flash.intensity *= Math.exp(-(freshFlash ? Math.min(dt, 1 / 60) : dt) * 14); freshFlash = false; if (flash.intensity < .05) flash.intensity = 0;
     for (const t of transports) {
       const before = seenTransports.get(t.event);
-      if (before !== undefined && before > 0 && t.health === 0) {
+      if (before && before.health > 0 && t.health === 0) {
         const at = new THREE.Vector3(t.x, t.y + 1.3, t.z), size = t.mode === 'air' ? 1.25 : 1;
-        blast(at, size); happened.blasts.push({ at, size });
+        hullBlast(at, size); happened.blasts.push({ at, size });
       }
-      seenTransports.set(t.event, t.health);
+      // A troop helicopter brought down blows up again where it hits the ground.
+      if (before?.state === 'down' && t.state === 'wreck') {
+        const at = new THREE.Vector3(t.x, t.y + 1, t.z), size = 1.3;
+        hullBlast(at, size); happened.blasts.push({ at, size });
+      }
+      seenTransports.set(t.event, { health: t.health, state: t.state });
     }
     const presentTransports = new Set(transports.map(t => t.event));
     for (const id of seenTransports.keys()) if (!presentTransports.has(id)) seenTransports.delete(id);
@@ -624,7 +665,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
     for (const list of Object.values(props)) for (const p of list) { p.owner = ''; p.model.visible = false; p.extra = undefined; }
   }
   return {
-    update, blast, spot, landingOf, reset, prewarm,
+    update, blast, hullBlast, hullBurn, spot, landingOf, reset, prewarm,
     /** Live pool sizes, for smokes and tests. */
     get counts() {
       const shown = (kind: keyof typeof props) => props[kind].filter(p => p.owner).length;

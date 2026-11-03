@@ -332,3 +332,49 @@ it('changes an expired vehicle wrap once while preserving the vehicle and damage
     expect(material.map).toBe(replacement);
   } finally { vehicles.dispose(); }
 });
+
+it('throws chained blasts at the wreck and another when it crashes, once each', () => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  const vehicles = createFpsVehicles(new THREE.Scene(), [], { car: '', helicopter: '' });
+  try {
+    const air = vehicles.states.helicopter; air.y = 30; air.speed = 20;
+    vehicles.damage('helicopter', 9999);
+    const first = vehicles.takeHullBlasts();
+    expect(first).toHaveLength(1); expect(first[0].size).toBe(1.5); expect(first[0].drift.length()).toBeCloseTo(20);
+    expect(vehicles.states.helicopter.speed).toBe(20);
+    const later: number[] = []; let burns = 0;
+    for (let t = 0; t < 8; t += .05) { vehicles.step(new Set(), .05); later.push(...vehicles.takeHullBlasts().map(b => b.size)); burns += vehicles.takeHullBurns().length; }
+    expect(burns).toBeGreaterThan(30); // the trail, puffed closer together while it moves
+    expect(later).toHaveLength(3); // two cook-offs, one crash; the small bounce after it is no crash
+    expect(vehicles.states.helicopter.y).toBeCloseTo(.13);
+    expect(vehicles.states.helicopter.z).toBeLessThan(air.z - 20);
+    expect(vehicles.models.helicopter.getObjectByName('main-rotor')!.visible).toBe(false);
+    vehicles.reset();
+    expect(vehicles.takeHullBlasts()).toHaveLength(0);
+    expect(vehicles.models.helicopter.getObjectByName('main-rotor')!.visible).toBe(true);
+    expect(vehicles.models.helicopter.rotation.z).toBe(0);
+  } finally { vehicles.dispose(); }
+});
+it('sees the same blasts from shared authority, and none for a wreck that was already there', () => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  const vehicles = createFpsVehicles(new THREE.Scene(), [], { car: '', helicopter: '' });
+  try {
+    const car = createSharedVehicle('car', { x: 0, z: 0, yaw: 0 }), air = createSharedVehicle('helicopter', { x: 40, z: 0, yaw: 0 });
+    const old = { ...air, health: 0, impact: { serial: 4, speed: 20, x: 0, y: 1, z: 0 } };
+    vehicles.adoptShared([car, old], 'self'); vehicles.sharedStep(.05);
+    expect(vehicles.takeHullBlasts()).toHaveLength(0);
+    vehicles.adoptShared([{ ...car, health: 0, speed: 12 }, old], 'self');
+    expect(vehicles.takeHullBlasts().map(b => b.size)).toEqual([1.15]);
+    vehicles.adoptShared([{ ...car, health: 0, impact: { serial: 1, speed: 12, x: 0, y: 0, z: 1 } }, old], 'self'); vehicles.sharedStep(.05);
+    expect(vehicles.takeHullBlasts().length).toBeGreaterThan(0);
+  } finally { vehicles.dispose(); }
+});
+it('skips cook-offs and tumble under reduced motion', () => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  const vehicles = createFpsVehicles(new THREE.Scene(), [], { car: '', helicopter: '' }, { reducedMotion: () => true });
+  try {
+    vehicles.damage('car', 9999); expect(vehicles.takeHullBlasts()).toHaveLength(1);
+    for (let t = 0; t < 1; t += .05) vehicles.step(new Set(), .05);
+    expect(vehicles.takeHullBlasts()).toHaveLength(0);
+  } finally { vehicles.dispose(); }
+});

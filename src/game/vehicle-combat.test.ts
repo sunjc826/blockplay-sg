@@ -50,3 +50,13 @@ it('prices bailouts from total speed with a walking tolerance, including reverse
   expect(vehicleExitDamage({ ...v, speed: 20 })).toBeGreaterThan(100);
   expect(vehicleExitDamage({ ...createVehicle('helicopter'), speed: 20 })).toBe(0);
 });
+
+it('keeps a destroyed hull moving and kicks it, but stops a boat', () => {
+  const car = { ...createVehicle('car'), speed: 18, lateralSpeed: 2 };
+  expect(damageVehicle(car, 9999)).toBe(true);
+  expect(car).toMatchObject({ speed: 18, lateralSpeed: 2, climb: 5.5 }); expect(Math.abs(car.yawSpeed!)).toBeGreaterThan(0);
+  const air = { ...createVehicle('helicopter'), speed: 25, climb: -3 };
+  damageVehicle(air, 9999); expect(air.speed).toBe(25); expect(air.climb).toBeCloseTo(-.5); expect(Math.abs(air.yawSpeed!)).toBeLessThanOrEqual(3);
+  const boat = { ...createVehicle('dragon-boat-red'), speed: 3 };
+  damageVehicle(boat, 9999); expect(boat).toMatchObject({ speed: 0, climb: 0 });
+});

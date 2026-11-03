@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildMarinaScene } from './marina-scene';
 import { canOccupy, MARINA_BOUNDS } from './marina-collision';
-import { canFly, createVehicle, driveVehicle, flyVehicle, vehicleBounds, vehicleExit, vehicleSpeed, stopVehicle, type FlightObstacle } from './vehicle-rules';
+import { canFly, createVehicle, driveVehicle, flyVehicle, stepVehicleWreck, vehicleBounds, vehicleExit, vehicleSpeed, wreckAtRest, stopVehicle, type FlightObstacle, type VehicleState } from './vehicle-rules';
+import type { Obstacle } from './region-collision';
 import { createProfile, equip, purchase, resolveLoadout, restoreProfile } from './armory-state';
 const wall: FlightObstacle = { minX: -5, maxX: 5, minZ: -5, maxZ: 5, minY: 0, maxY: 12 };
 describe('vehicle movement and transitions', () => {
@@ -211,5 +212,53 @@ describe('vehicle collision momentum', () => {
     const fall = flyVehicle({ ...v, z: 0, y: 5.05, climb: -100, speed: 0 }, 0, 0, 0, false, dt, [roof]);
     expect(fall.state.y).toBeGreaterThanOrEqual(5.01);
     expect(fall.state.climb).toBeGreaterThan(0);
+  });
+});
+
+describe('wreck motion', () => {
+  const dead = (kind: 'car' | 'helicopter', over: Partial<VehicleState> = {}): VehicleState => ({ ...createVehicle(kind, { x: 0, z: 0, yaw: 0 }), health: 0, ...over });
+  const roam = (v: VehicleState, seconds: number, obstacles: Obstacle[] = []) => {
+    const seen = [v];
+    for (let t = 0; t < seconds; t += .05) { v = stepVehicleWreck(v, .05, obstacles).state; seen.push(v); }
+    return seen;
+  };
+  it('coasts on its speed and stops under ground friction', () => {
+    const path = roam(dead('car', { speed: 20 }), 4), end = path.at(-1)!;
+    expect(path[1].speed).toBeGreaterThan(19); // decelerating, not stopped
+    expect(end.z).toBeLessThan(-20); expect(end.z).toBeGreaterThan(-30);
+    expect(vehicleSpeed(end)).toBe(0); expect(wreckAtRest(end)).toBe(true);
+  });
+  it('keeps world-space momentum while the hull spins under it', () => {
+    const end = stepVehicleWreck(dead('helicopter', { y: 60, speed: 20, yawSpeed: 2.4 }), .05, []).state;
+    expect(-Math.cos(end.yaw) * end.speed - Math.sin(end.yaw) * (end.lateralSpeed ?? 0)).toBeCloseTo(-20 * Math.exp(-.25 * .05), 3);
+    expect(end.yaw).toBeGreaterThan(.1);
+  });
+  it('carries a falling helicopter forward, records one crash and bounces', () => {
+    const path = roam(dead('helicopter', { y: 40, speed: 25 }), 8), landing = path.findIndex(v => v.impact);
+    const end = path.at(-1)!;
+    expect(landing).toBeGreaterThan(0);
+    expect(path[landing].impact).toMatchObject({ y: 1 }); expect(path[landing].impact!.speed).toBeGreaterThan(20);
+    expect(path[landing].climb).toBeGreaterThan(0);
+    expect(path[landing].z).toBeLessThan(-40); // flew on while it fell
+    expect(end.y).toBeCloseTo(.13); expect(vehicleSpeed(end)).toBe(0);
+  });
+  it('stops against walls and rests on a supporting roof', () => {
+    const wall: Obstacle = { minX: -5, maxX: 5, minZ: -13, maxZ: -12 };
+    const stopped = roam(dead('car', { speed: 20 }), 3, [wall]);
+    expect(stopped.at(-1)!.z).toBeGreaterThan(-12);
+    expect(stopped.some(v => (v.impact?.speed ?? 0) >= 7)).toBe(true);
+    const roof: Obstacle = { minX: -20, maxX: 20, minZ: -20, maxZ: 20, minY: 0, maxY: 6 };
+    expect(roam(dead('helicopter', { y: 20 }), 5, [roof]).at(-1)!.y).toBe(6);
+  });
+  it('never exceeds what a snapshot may carry, however fast it died', () => {
+    for (const v of roam(dead('helicopter', { y: 60, speed: 30, lateralSpeed: 15, yawSpeed: 2.4 }), 3)) {
+      expect(Math.abs(v.speed)).toBeLessThanOrEqual(31); expect(Math.abs(v.lateralSpeed ?? 0)).toBeLessThanOrEqual(31);
+    }
+  });
+  it('leaves a resting wreck and dragon boats alone', () => {
+    const rest = dead('car');
+    expect(stepVehicleWreck(rest, .05, []).state).toBe(rest);
+    const boat = { ...createVehicle('dragon-boat-red'), health: 0, speed: 3 };
+    expect(stepVehicleWreck(boat, .05, []).state).toBe(boat);
   });
 });

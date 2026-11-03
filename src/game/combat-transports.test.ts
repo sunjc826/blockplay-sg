@@ -70,6 +70,19 @@ describe('shootable reinforcement transports', () => {
     expect(transport(ctx.a).passengers).toBe(0);
     expect(new Set(ctx.a.snapshot().actors.filter(a => a.bot && !a.transport).map(a => a.id)).size).toBe(8);
   });
+  it('a truck destroyed on the road skids on and then stops', () => {
+    const ctx = setup(); advance(ctx.a, .5);
+    const before = transport(ctx.a); addShooter(ctx, transportPoint(before, 15, 1.75, 0));
+    const earlier = { x: before.x, z: before.z }; advance(ctx.a, .1);
+    const moved = Math.hypot(transport(ctx.a).x - earlier.x, transport(ctx.a).z - earlier.z);
+    shootHull(ctx, 4);
+    const wreck = transport(ctx.a); expect(wreck.state).toBe('wreck');
+    advance(ctx.a, 6);
+    const end = transport(ctx.a), slid = Math.hypot(end.x - wreck.x, end.z - wreck.z);
+    if (moved > .1) expect(slid).toBeGreaterThan(.5);
+    const settled = { x: end.x, z: end.z }; advance(ctx.a, 1);
+    expect(transport(ctx.a)).toMatchObject(settled);
+  });
   it('destroying a loaded hull cancels all later inserts and pays no hull bounty', () => {
     const ctx = setup(); addShooter(ctx, transportPoint(transport(ctx.a), 15, 1.75, 0));
     shootHull(ctx, 4);
