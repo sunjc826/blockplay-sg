@@ -44,7 +44,8 @@ import { OICW_RIFLE, OICW_LAUNCHER, OICW_GRENADE, physicalWeaponFamilies, primar
 import { createWeaponDevices, fittedWeaponDevices, toggleWeaponDevice, toggleWeaponRail } from './weapon-device-state';
 import { createGrenadeSystem, grenadePayloads, grenadeSmokeBetween, type GrenadeBurst, type LiveGrenade, type GrenadeEvent } from './grenade-system';
 import { createGrenadeViewmodel } from './grenade-models';
-import { GRENADE_MIN_WINDUP, GRENADE_READY_SECONDS, GRENADE_RECOVERY_SECONDS, GRENADE_STOW_SECONDS, GRENADE_SWING_SECONDS } from './fps-grenade-motion';
+import { HANDS_MIX, plateCue } from './hands-audio';
+import { GRENADE_MIN_WINDUP, GRENADE_PIN_OUT, GRENADE_READY_SECONDS, GRENADE_RECOVERY_SECONDS, GRENADE_STOW_SECONDS, GRENADE_SWING_SECONDS } from './fps-grenade-motion';
 import { createGrenadeVisuals } from './grenade-visuals';
 import { grenadeDangerRadius, grenadeWhistleLine } from './grenade-catalog';
 import { initialUtilityChoice, utilityGroup, utilityOption, utilityOptions, UTILITY_HOLD_MS, type UtilityGroup, type UtilityOption } from './utility-wheel';
@@ -866,6 +867,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     source.connect(filter).connect(gain).connect(panner).connect(audio.destination); source.start();
     source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); panner.disconnect(); };
     return true;
+  }
+  /** A recorded handling sound from the hands' own side of the view. False when none has loaded, so the caller can fall back. */
+  function handsSound(group: SfxGroup, pan: number, level = 1) {
+    if (!audio || hud.muted || audio.state !== 'running') return false;
+    return playTake(group, level * HANDS_MIX, { pan });
   }
   function handlingSound(stage: string) {
     reloadAudio.play(specs[hud.weapon], stage);
@@ -2449,8 +2455,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function stepSupply(dt: number) {
     if (!supplyUse) return;
-    const use = supplyUse, step = advanceSupplyUse(use, dt);
-    if (step.commit) { supplySound(use.profile.style); if (!use.apply()) { supplyUse = null; publish(); return; } }
+    const use = supplyUse, before = supplyProgress(use), step = advanceSupplyUse(use, dt);
+    // Plates have a sound for each beat of the job, with the seat on the commit point; the rest have the one.
+    const cue = use.profile.style === 'plates' ? plateCue(before, supplyProgress(use)) : null;
+    const heard = !!cue && handsSound(cue.group, cue.pan, cue.level);
+    if (step.commit) { if (!heard) supplySound(use.profile.style); if (!use.apply()) { supplyUse = null; publish(); return; } }
     if (step.done) { supplyUse = null; publish(); }
   }
   const grenadeRay = new THREE.Raycaster();
@@ -2494,12 +2503,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!item?.grenade) { hud.message = 'Selected throwable depleted. Hold G to choose another.'; publish(); return; }
     if (item.id === 'grenade-red-smoke' && performance.now() / 1000 - missionLastAt < 60) { hud.message = 'Fire control: one mission every 60 s.'; publish(); return; }
     stopInspect(); stopReload(); endSupply(); trigger = false; pullBuffer = 0; ads = touchAim = false; beltSelected = 'grenade';
-    grenadeHeld = { id: item.id, ready: 0, cooked: 0, pinned: false, swingAt: null, under: null }; grenadeAfter = null; canvas.focus({ preventScroll: true }); publish();
+    grenadeHeld = { id: item.id, ready: 0, cooked: 0, pinned: false, swingAt: null, under: null }; grenadeAfter = null; handsSound('hands-grenade-draw', .2); canvas.focus({ preventScroll: true }); publish();
   }
   /** Letting go of fire starts the swing; the grenade leaves the hand at the end of it, still on the fuse clock. */
   function swingGrenade() {
     if (!grenadeHeld?.pinned || grenadeHeld.swingAt !== null) return;
     grenadeHeld.swingAt = Math.max(grenadeHeld.cooked, GRENADE_MIN_WINDUP); grenadeHeld.under = ads || touchAim;
+    if (grenadeHeld.swingAt === grenadeHeld.cooked) handsSound('hands-grenade-throw', .25);
   }
   function releaseGrenade() {
     if (!grenadeHeld?.pinned) return;
@@ -2507,6 +2517,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const direction = new THREE.Vector3(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
     const input = { id: held.id, origin: { x: position.x, y: vertical + eyeHeight() - .15, z: position.z }, direction, under: held.under ?? (ads || touchAim), cooked };
     grenadeAfter = { id: held.id, elapsed: 0, thrown: true, under: grenadeUnder };
+    // Run out of fuse or input mid-hold, the arm never swung until now.
+    if (held.swingAt === null) handsSound('hands-grenade-throw', .25);
+    if (grenadeHands.parts(held.id).spoon) handsSound('hands-grenade-spoon', .3);
     grenadeHeld = null; grenadeFireHeld = false; trigger = false; pullBuffer = 0; ads = touchAim = false;
     const previousThrow = grenadeLastAt, previousMission = missionLastAt;
     grenadeLastAt = performance.now() / 1000; if (held.id === 'grenade-red-smoke') missionLastAt = grenadeLastAt;
@@ -2552,7 +2565,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function stepGrenadePlayer(dt: number) {
     if (grenadeKeyAt !== null && performance.now() - grenadeKeyAt >= UTILITY_HOLD_MS) { grenadeKeyAt = null; openGrenadePicker(); }
     if (!arenaRuntime && hud.phase === 'playing') { advanceGrenadeConditions(conditions, dt); localGrenades.step(dt); }
-    if (grenadeHeld && hud.phase === 'playing') { grenadeHeld.ready += dt; if (grenadeFireHeld && grenadeHeld.ready >= GRENADE_READY_SECONDS && !arenaConditionModifiers(conditions).frozen) grenadeHeld.pinned = true; if (grenadeHeld.pinned) { grenadeHeld.cooked += dt; if (grenadeHeld.cooked >= itemById(grenadeHeld.id)!.grenade!.fuse || grenadeHeld.swingAt !== null && grenadeHeld.cooked >= grenadeHeld.swingAt + GRENADE_SWING_SECONDS) releaseGrenade(); } }
+    if (grenadeHeld && hud.phase === 'playing') { grenadeHeld.ready += dt; if (grenadeFireHeld && grenadeHeld.ready >= GRENADE_READY_SECONDS && !arenaConditionModifiers(conditions).frozen) grenadeHeld.pinned = true; if (grenadeHeld.pinned) { const was = grenadeHeld.cooked; grenadeHeld.cooked += dt;
+      if (was < GRENADE_PIN_OUT && grenadeHeld.cooked >= GRENADE_PIN_OUT && grenadeHands.parts(grenadeHeld.id).pin) handsSound('hands-grenade-pin', -.15);
+      if (grenadeHeld.swingAt !== null && was < grenadeHeld.swingAt && grenadeHeld.cooked >= grenadeHeld.swingAt) handsSound('hands-grenade-throw', .25);
+      if (grenadeHeld.cooked >= itemById(grenadeHeld.id)!.grenade!.fuse || grenadeHeld.swingAt !== null && grenadeHeld.cooked >= grenadeHeld.swingAt + GRENADE_SWING_SECONDS) releaseGrenade(); } }
     const snapshotTime = hud.arena?.elapsed ?? 0, now = arenaRuntime ? Math.max(snapshotTime, eventClock) : localGrenades.clock;
     grenadeVisuals.update(activeGrenades(), activeGrenadeEvents(), now, arenaRuntime ? snapshotTime : now);
     hud.grenadeWarnings = activeGrenades().filter(g => { const d = Math.hypot(g.position.x - position.x, g.position.y - vertical - eyeHeight(), g.position.z - position.z); return !conditions.deafened && d <= grenadeDangerRadius(itemById(g.id)!.grenade!) + 2; }).map(g => ({ serial: g.serial, angle: Math.atan2(g.position.x - position.x, -(g.position.z - position.z)) + yaw, remaining: g.remaining }));

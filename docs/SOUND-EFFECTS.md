@@ -115,6 +115,30 @@ drum and belt variants follow their actual feed. Gun assembly uses no new API
 credits. The four-category preview and source receipts are in
 `.cache/store-equip/`. Selection does not start a gameplay reload or spend ammo.
 
+## Grenade and plate handling
+
+`scripts/hands-sfx.mjs` holds a bounded batch of ElevenLabs v3 recordings for the
+hands, published to `public/audio/hands/` and timed to their animations. Takes start
+1 ms before their attack and play at natural speed.
+
+| Beat | Group | When |
+| --- | --- | --- |
+| Grenade comes up | `hands-grenade-draw` | Readying it |
+| Pin out | `hands-grenade-pin` | 0.1 s on the fuse clock, if the item has a ring |
+| Arm swings | `hands-grenade-throw` | Start of the swing |
+| Lever flies | `hands-grenade-spoon` | The release, if the item has a lever |
+| Plate out of the pouch | `hands-plate-draw` | Start of the use |
+| Into the carrier | `hands-plate-feed` | 47% of the use |
+| Seated | `hands-plate-seat` | The commit point, with the view's hit |
+| Palm on the panel, twice | `hands-plate-pat` | 80% and 84% |
+
+`src/game/hands-audio.ts` holds the plate's timeline and the mix level, which sits
+these with the reload handling and the seat a little above it. If a hitch passes
+several plate cues in one step, only the latest plays. The old synthesised clack
+remains the fallback at the commit point until the recordings load. Run the script
+with `--generate` for the cached once-only requests and `--publish` to prepare the
+clips offline. Two takes came back near silent and are listed as rejected there.
+
 ## Generating and publishing
 
 - `pnpm sfx:batch` prints every take without sending requests.

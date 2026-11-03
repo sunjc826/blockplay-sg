@@ -80,6 +80,8 @@ export function createGrenadeViewmodel(parent: THREE.Object3D) {
   const place = (object: THREE.Object3D, p: Pose) => { object.position.set(p.x, p.y, p.z); object.rotation.set(p.rx, p.ry, p.rz); };
   return {
     root,
+    /** Which of the parts that make a sound this item actually has. */
+    parts(id: string) { const model = models.find(m => m.root.name === id); return { pin: !!model?.ring, spoon: !!model?.spoon }; },
     /** Poses the hands for this frame, or hides them with null; the motion tells the engine where the weapon and view should be. */
     update(view: GrenadeView | null): GrenadeMotion | null {
       root.visible = !!view;

@@ -18,7 +18,7 @@ export interface SupplyProfile {
   verb: string;
 }
 /** Where `supplyMotion('plates')` seats the plate: the commit point, so the hit lands with the armour. */
-const PLATE_SEATS = .76;
+export const PLATE_SEATS = .76;
 interface SupplyLike { id?: string; supplyType?: string; medical?: 'dressing' | 'kit'; effect?: { health?: number; armor?: number; reserve?: number; ammoRefill?: true }; eatSeconds?: number; useVerb?: string }
 
 /** How a supply is used, from what it is and how much it does. Bigger meals take longer to eat. */

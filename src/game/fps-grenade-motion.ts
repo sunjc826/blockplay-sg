@@ -20,6 +20,8 @@ export const GRENADE_SWING_SECONDS = .1;
 export const GRENADE_RECOVERY_SECONDS = .46;
 /** Putting an unthrown grenade away. */
 export const GRENADE_STOW_SECONDS = .2;
+/** On the fuse clock, the moment the pin leaves the grenade. */
+export const GRENADE_PIN_OUT = .1;
 /** Fuse left at which the arm starts to shake. */
 const SHAKE_FUSE = 1;
 /** Where the tips of the left thumb and first finger meet, in that hand's own space (see `fps-viewmodel-hand`). */
@@ -108,7 +110,7 @@ export function heldGrenadeMotion({ ready, cooked, pinned, swingAt, under, fuseL
     grip = 1 - between(swing, .68, 1) * .8;
     view = { pitch: view.pitch + (KICK_THROW.pitch - view.pitch) * drive, roll: view.roll + (KICK_THROW.roll - view.roll) * drive };
   }
-  return { right, left, grip, leftGrip: pinned ? .5 : .8, leftPinch: pinned && at > .06 ? 1 : 0, itemVisible: true, pinOut: pinned && at >= .1 && !!ring, spoon: null,
+  return { right, left, grip, leftGrip: pinned ? .5 : .8, leftPinch: pinned && at > .06 ? 1 : 0, itemVisible: true, pinOut: pinned && at >= GRENADE_PIN_OUT && !!ring, spoon: null,
     weaponDown: between(ready, 0, GRENADE_READY_SECONDS * .5), view };
 }
 

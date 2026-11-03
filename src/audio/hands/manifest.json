@@ -1,0 +1,194 @@
+{
+  "version": 1,
+  "provider": "ElevenLabs",
+  "model": "eleven_text_to_sound_v3",
+  "processing": "44100 Hz mono, trimmed to 1 ms before the attack, loudness set per sound, 96 kbps MP3",
+  "groups": {
+    "hands-grenade-pin": [
+      {
+        "file": "hands-grenade-pin-1-310e6b7394.mp3",
+        "seconds": 0.191
+      },
+      {
+        "file": "hands-grenade-pin-2-556e5325ef.mp3",
+        "seconds": 0.156
+      }
+    ],
+    "hands-grenade-throw": [
+      {
+        "file": "hands-grenade-throw-1-f35d8fb421.mp3",
+        "seconds": 0.243
+      },
+      {
+        "file": "hands-grenade-throw-2-3c8fb8cdc0.mp3",
+        "seconds": 0.173
+      }
+    ],
+    "hands-grenade-spoon": [
+      {
+        "file": "hands-grenade-spoon-1-871dc0f5e2.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "hands-grenade-spoon-3-ab627a8072.mp3",
+        "seconds": 0.173
+      }
+    ],
+    "hands-plate-draw": [
+      {
+        "file": "hands-plate-draw-1-50c0c4fb6b.mp3",
+        "seconds": 0.54
+      }
+    ],
+    "hands-plate-feed": [
+      {
+        "file": "hands-plate-feed-1-12ef7fe452.mp3",
+        "seconds": 0.55
+      }
+    ],
+    "hands-plate-seat": [
+      {
+        "file": "hands-plate-seat-1-0978965479.mp3",
+        "seconds": 0.407
+      },
+      {
+        "file": "hands-plate-seat-2-c12bca2005.mp3",
+        "seconds": 0.437
+      }
+    ],
+    "hands-plate-pat": [
+      {
+        "file": "hands-plate-pat-1-06e93d3793.mp3",
+        "seconds": 0.2
+      }
+    ],
+    "hands-grenade-draw": [
+      {
+        "file": "hands-grenade-draw-2-11418a7f5b.mp3",
+        "seconds": 0.481
+      }
+    ]
+  },
+  "sources": [
+    {
+      "id": "hands-grenade-pin-1",
+      "file": "hands-grenade-pin-1-310e6b7394.mp3",
+      "sourceSha256": "7cee8336fb15cb7738ac320195c8915bb0b1b4663ee61496785bfad2693a18dc",
+      "outputSha256": "310e6b7394a006e23d484c8f14615f8feb35b31196cfab90b5433fb74ebe6c54",
+      "seconds": 0.191,
+      "loudestAtMs": 16,
+      "gain": 1.76,
+      "sourcePeak": 0.418
+    },
+    {
+      "id": "hands-grenade-pin-2",
+      "file": "hands-grenade-pin-2-556e5325ef.mp3",
+      "sourceSha256": "107e549b45b88ae578cd7a005b58670fba48f48d8e6e78c631b08dd01a132fba",
+      "outputSha256": "556e5325efed3c75c4ed72c525a31591c7b392909bbaba023e4487c9bd5d29eb",
+      "seconds": 0.156,
+      "loudestAtMs": 6,
+      "gain": 1.458,
+      "sourcePeak": 0.498
+    },
+    {
+      "id": "hands-grenade-throw-1",
+      "file": "hands-grenade-throw-1-f35d8fb421.mp3",
+      "sourceSha256": "9392a6112986317d0ff7d390d47f076e2072965f2bdba2c8d6269d9408644d08",
+      "outputSha256": "f35d8fb4216a03a3aec6f04abd74c2191d060b1928cfb9c3791e37d774c3ab0c",
+      "seconds": 0.243,
+      "loudestAtMs": 35,
+      "gain": 1.609,
+      "sourcePeak": 0.351
+    },
+    {
+      "id": "hands-grenade-throw-2",
+      "file": "hands-grenade-throw-2-3c8fb8cdc0.mp3",
+      "sourceSha256": "9c9611be11388d21a152e9b73d0e5967ae1bda5103143aaf8e8159040275ba76",
+      "outputSha256": "3c8fb8cdc068b471e0058651d9686eefe2fbe6b69981f84ee291ca22f22cbb6a",
+      "seconds": 0.173,
+      "loudestAtMs": 40,
+      "gain": 0.611,
+      "sourcePeak": 0.833
+    },
+    {
+      "id": "hands-grenade-spoon-1",
+      "file": "hands-grenade-spoon-1-871dc0f5e2.mp3",
+      "sourceSha256": "b9ca336543ffcb3729d883b3f56c9af5269fbf6e52b9bd048e479c65c017d49d",
+      "outputSha256": "871dc0f5e24d7688e97219606c11a4990b0f29f287c59d6a5507383be341b863",
+      "seconds": 0.3,
+      "loudestAtMs": 0,
+      "gain": 0.861,
+      "sourcePeak": 0.283
+    },
+    {
+      "id": "hands-plate-draw-1",
+      "file": "hands-plate-draw-1-50c0c4fb6b.mp3",
+      "sourceSha256": "201d04ceb66c9de1b4971619e21f7926b66d88bbd7c695671fcf0f646498ab16",
+      "outputSha256": "50c0c4fb6b95dac296263f280fe64e970439e08d015bf5ad79a6cfdb6190f608",
+      "seconds": 0.54,
+      "loudestAtMs": 203,
+      "gain": 0.971,
+      "sourcePeak": 0.464
+    },
+    {
+      "id": "hands-plate-feed-1",
+      "file": "hands-plate-feed-1-12ef7fe452.mp3",
+      "sourceSha256": "88527dc66ef205a3f34d540b8b65c566c923e419f6f5ea6175c9719ebe7fec3e",
+      "outputSha256": "12ef7fe4528742bfc490753d00a77e2a0de8149f05dd10da58a753678ca0f52d",
+      "seconds": 0.55,
+      "loudestAtMs": 229,
+      "gain": 0.672,
+      "sourcePeak": 0.714
+    },
+    {
+      "id": "hands-plate-seat-1",
+      "file": "hands-plate-seat-1-0978965479.mp3",
+      "sourceSha256": "44c87200de9de3c02f489af1cad25d08afddbd303313f58bb17ce6c58e3abd4a",
+      "outputSha256": "0978965479a8561a529d1153df2c39f37f9c0ed45ba6cd6da0b8b44a2d58cd41",
+      "seconds": 0.407,
+      "loudestAtMs": 1,
+      "gain": 0.583,
+      "sourcePeak": 0.927
+    },
+    {
+      "id": "hands-plate-seat-2",
+      "file": "hands-plate-seat-2-c12bca2005.mp3",
+      "sourceSha256": "87e6231474df2dbe87622a3a3ca78e926da152e501d07f2a701e41504a4a60dc",
+      "outputSha256": "c12bca200502bd184a2d76f4907b9aed00be151490a037ad2df20ea2002b45f6",
+      "seconds": 0.437,
+      "loudestAtMs": 38,
+      "gain": 1.127,
+      "sourcePeak": 0.799
+    },
+    {
+      "id": "hands-plate-pat-1",
+      "file": "hands-plate-pat-1-06e93d3793.mp3",
+      "sourceSha256": "5d872b333b9abeb51529fb4d32f25b23c97a7763de7b1bd686002689560ebdf5",
+      "outputSha256": "06e93d3793819a3093b36561ebc9d52074057ababd73d19d3d7519fe6f78c528",
+      "seconds": 0.2,
+      "loudestAtMs": 0,
+      "gain": 0.542,
+      "sourcePeak": 0.347
+    },
+    {
+      "id": "hands-grenade-draw-2",
+      "file": "hands-grenade-draw-2-11418a7f5b.mp3",
+      "sourceSha256": "34438870091985b13f7df2620449d10d321747184c599249fd0aa8f7bc4a8987",
+      "outputSha256": "11418a7f5b63cd222f13969552a141224be7a5b62ae746f31f0091a1ac099aa6",
+      "seconds": 0.481,
+      "loudestAtMs": 85,
+      "gain": 0.782,
+      "sourcePeak": 0.559
+    },
+    {
+      "id": "hands-grenade-spoon-3",
+      "file": "hands-grenade-spoon-3-ab627a8072.mp3",
+      "sourceSha256": "31a489d3d000cceb74b340b5708848a12b7f7d7e10c40645f4f38ee8d1226b89",
+      "outputSha256": "ab627a807264787787a7580ec1e88f871378da429ce5f0f5e14a129f1fe44c7a",
+      "seconds": 0.173,
+      "loudestAtMs": 7,
+      "gain": 0.545,
+      "sourcePeak": 1.085
+    }
+  ]
+}
