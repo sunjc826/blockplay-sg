@@ -1323,10 +1323,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function jump() {
     if(merlionOperating())return;
-    if (hud.mapExpanded || swimming()) return;
+    if (swimming()) return;
     if (arenaConditionModifiers(conditions).frozen) return; if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) { canvas.focus({ preventScroll: true }); if (!vehicles.active && stance() === 'stand') bufferJump(bodyMotion); } }
   function setInput(key: string, held: boolean) {
-    if ((hud.proxyMenu || hud.mapExpanded) && held) return;
+    if (held && (hud.proxyMenu || hud.mapExpanded && !mapMovementKeys.has(key))) return;
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) return;
     if (key === 'k') { if (held) inspectWeapon(); return; }
     if (key === 'v') { if (held) switchVehicleSeat(); return; }
@@ -1352,7 +1352,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** Analog movement from the left thumb stick; a null or centred stick hands control back to the keys. */
   function setMoveAxis(stick: StickVector | null) {
-    if ((hud.proxyMenu || hud.mapExpanded) && stick) return;
+    if (hud.proxyMenu && stick) return;
     if (resumeCrossing && hud.phase === 'loading') { crossingStick = stick && stick.magnitude > 0 ? { ...stick } : null; return; }
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) { moveStick = null; return; }
     moveStick = stick && stick.magnitude > 0 ? stick : null;
@@ -1389,7 +1389,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.phase !== 'playing') return;
     hud.mapExpanded = !hud.mapExpanded;
     const posture = { prone, crouch: crouchRequested() };
+    const heldMovement = [...keys].filter(key => mapMovementKeys.has(key));
+    const heldStick = moveStick;
     clearInput(); restoreMapStance(posture); wheel = null; hud.calloutWheel = null; hud.proxyMenu = false;
+    if (hud.mapExpanded) {
+      for (const key of heldMovement) keys.add(key);
+      moveStick = heldStick;
+    }
     if (hud.mapExpanded) {
       if (document.pointerLockElement === canvas) document.exitPointerLock();
     } else if (!pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) {
@@ -1563,10 +1569,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     vehicleView = firstPersonVehicle() ? 'third-person' : 'first-person';
     ads = touchAim = false; updateCameras(0, false, false); publish();
   }
+  const mapMovementKeys = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', 'control', ' ']);
   const keyboardKeys = ['[', ']', 'y', 'tab', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'c', 'z', ' ', 'r', 'k', 'q', 'f', 'g', '1', '2', '3', '4', '5', '6', '7', '8', 'e', 'i', 'v', 'l', 'n', 't', 'm', 'h', 'j', 'u', 'b', 'x', 'control', 'escape'];
   const keydown = (event: KeyboardEvent) => {
     const key = fpsControlKey(event);
-    if (hud.mapExpanded) return;
+    if (hud.mapExpanded && (!key || !mapMovementKeys.has(key))) return;
     if (hud.proxyMenu) return;
     if (resumeCrossing && hud.phase === 'loading') {
       if (key === 'escape') pause();
@@ -1752,8 +1759,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   };
   const mapKeydown = (event: KeyboardEvent) => {
     if (!hud.mapExpanded || hud.phase !== 'playing') return;
-    if (event.key.toLowerCase() === 'm' || event.key === 'Escape') {
+    const key = fpsControlKey(event);
+    if (key === 'm' || key === 'escape') {
       event.preventDefault(); event.stopPropagation(); if (!event.repeat) toggleMap();
+    } else if (key && mapMovementKeys.has(key)) {
+      // Map controls hold focus while inspecting; capture movement before button defaults.
+      event.stopPropagation(); keydown(event);
     }
   };
   const lockerror = () => { if (!capturePromisePending) captureFailed(); };

@@ -26,7 +26,13 @@
 .fps-map-inspector nav{display:flex;gap:6px;align-items:center}.fps-map-inspector button{width:32px;min-height:36px;font-size:22px}.fps-map-inspector button:disabled{opacity:.4;cursor:default}
 .fps-map-symbol-guide{font:10px/1.4 sans-serif;color:#c4d3c0;margin-top:5px}.fps-map-symbol-guide summary{cursor:pointer;padding:3px 0}.fps-map-symbol-guide>div{display:flex;flex-wrap:wrap;gap:4px 12px;padding:5px 0}.fps-map-symbol-guide span{display:flex;align-items:center;gap:3px;white-space:nowrap}.fps-map-symbol-guide span svg{width:18px;height:18px;flex:none}.fps-map-symbol-guide p{margin:3px 0}
 .fps-map-jammed{font:700 10px/1.4 sans-serif;color:#efd077;text-align:center;padding:3px}
+/* Keep the left stick usable without covering the map inspector. */
 .fps-game:has(.fps-minimap.is-expanded) .touch-layer{visibility:hidden}
+.fps-game:has(.fps-minimap.is-expanded) .touch-move{visibility:visible}
+.fps-game[data-touch=on] .fps-minimap.is-expanded{top:calc(50% - 80px);height:calc(100% - 184px)}
+@container fps-hud (min-aspect-ratio:1/1){
+ .fps-game[data-touch=on] .fps-minimap.is-expanded{top:50%;left:calc(50% + 76px);width:min(720px,calc(100% - 184px));height:calc(100% - 24px)}
+}
 @media(max-width:700px){.fps-map-location{font-size:8px}.fps-minimap.is-expanded .fps-map-inspector{font-size:11px;padding:6px 8px;min-height:64px}.fps-minimap.is-expanded .fps-map-inspector p{font-size:10px}}
 @container fps-hud (max-height:450px){
  .fps-minimap.is-expanded,.expedition-game .fps-minimap.is-expanded,.fps-game[data-touch=on] .fps-minimap.is-expanded{height:calc(100% - 12px);padding:6px 10px}

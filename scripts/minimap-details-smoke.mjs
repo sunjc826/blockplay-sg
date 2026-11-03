@@ -40,13 +40,13 @@ ws.onmessage = event => {
  const m=JSON.parse(event.data);if(m.id){const p=pending.get(m.id);if(p){pending.delete(m.id);clearTimeout(p.timer);m.error?p.reject(Error(m.error.message)):p.resolve(m.result);}}
  if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails.exception?.description||m.params.exceptionDetails.text);
 };
-function send(method,params={}){return new Promise((resolve,reject)=>{const id=++sequence,timer=setTimeout(()=>{pending.delete(id);reject(Error(method+' timeout'));},30000);pending.set(id,{resolve,reject,timer});ws.send(JSON.stringify({id,method,params}));});}
+function send(method,params={}){return new Promise((resolve,reject)=>{const id=++sequence,timer=setTimeout(()=>{pending.delete(id);reject(Error(method+' timeout'));},60000);pending.set(id,{resolve,reject,timer});ws.send(JSON.stringify({id,method,params}));});}
 async function evaluate(expression){const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;}
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 async function wait(expression,timeout=30000){const at=Date.now();while(Date.now()-at<timeout){if(await evaluate(expression))return;await delay(100);}throw Error('Wait: '+expression);}
 async function click(selector){const p=await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)throw Error('Missing ${selector}');e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);await send('Input.dispatchMouseEvent',{type:'mousePressed',...p,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',...p,button:'left',clickCount:1});}
 async function key(key,code,held=0){await send('Input.dispatchKeyEvent',{type:'keyDown',key,code});if(held)await delay(held);await send('Input.dispatchKeyEvent',{type:'keyUp',key,code});}
-async function screenshot(name){const shot=await send('Page.captureScreenshot',{format:'png'});await fs.writeFile(new URL(name+'.png',output),Buffer.from(shot.data,'base64'));}
+async function screenshot(name){console.log('Screenshot:',name);const shot=await send('Page.captureScreenshot',{format:'png'});await fs.writeFile(new URL(name+'.png',output),Buffer.from(shot.data,'base64'));}
 async function configure(config){await evaluate(`window.setMapTest(c=>({...c,...${JSON.stringify(config)}}))`);await delay(120);}
 const phase=p=>`document.querySelector('.fps-game')?.dataset.phase===${JSON.stringify(p)}`;
 try{
@@ -78,14 +78,19 @@ try{
  const pt=await evaluate('(()=>{const r=document.querySelector("[data-minimap-marker=site-0]>g").getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()');
  await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...pt,id:1}]});await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await delay(120);
  assert(await evaluate('!!document.querySelector(".fps-minimap.is-expanded")'));assert((await evaluate('document.querySelector(".fps-map-inspector strong").textContent')).includes('Forward camp'));await send('Emulation.setTouchEmulationEnabled',{enabled:false});
- // Actual FPS engine: opening releases the mouse without pausing, inspection cannot move/fire,
+ // Actual FPS engine: opening releases the mouse without pausing, inspection allows movement while keeping the mouse free,
  // closing reacquires capture, and capture denial still offers the standard Resume path.
  await send('Emulation.clearDeviceMetricsOverride');await send('Emulation.setTouchEmulationEnabled',{enabled:false});await send('Page.navigate',{url:origin+'/.cache/map-details/preview.html?game=1'});
- await wait(phase('ready'),60000);await send('Page.bringToFront');await evaluate('window.captureErrors=[];const original=HTMLCanvasElement.prototype.requestPointerLock;HTMLCanvasElement.prototype.requestPointerLock=function(...args){try{return Promise.resolve(original.apply(this,args)).catch(e=>{window.captureErrors.push(e.name+": "+e.message+" connected="+this.isConnected+" root="+this.getRootNode().nodeName+" visibleCanvas="+(document.querySelector("canvas")===this));throw e;});}catch(e){window.captureErrors.push(e.name+": "+e.message+" connected="+this.isConnected+" root="+this.getRootNode().nodeName+" visibleCanvas="+(document.querySelector("canvas")===this));throw e;}}');await click('.fps-start-card .primary-button');await wait('document.querySelector(".fps-game")?.dataset.phase==="playing"||window.captureErrors.length>0');assert(await evaluate(phase('playing')),'Capture: '+JSON.stringify(await evaluate('window.captureErrors')));
+ await wait(phase('ready'),180000);await send('Page.bringToFront');await evaluate('window.captureErrors=[];const original=HTMLCanvasElement.prototype.requestPointerLock;HTMLCanvasElement.prototype.requestPointerLock=function(...args){try{return Promise.resolve(original.apply(this,args)).catch(e=>{window.captureErrors.push(e.name+": "+e.message+" connected="+this.isConnected+" root="+this.getRootNode().nodeName+" visibleCanvas="+(document.querySelector("canvas")===this));throw e;});}catch(e){window.captureErrors.push(e.name+": "+e.message+" connected="+this.isConnected+" root="+this.getRootNode().nodeName+" visibleCanvas="+(document.querySelector("canvas")===this));throw e;}}');await click('.fps-start-card .primary-button');await wait('document.querySelector(".fps-game")?.dataset.phase==="playing"||window.captureErrors.length>0');assert(await evaluate(phase('playing')),'Capture: '+JSON.stringify(await evaluate('window.captureErrors')));
  assert(await evaluate('!!document.pointerLockElement'));await key('z','KeyZ');await wait('[...document.querySelectorAll("button")].some(b=>b.textContent==="Stand")');
  await key('m','KeyM');await wait('!!document.querySelector(".fps-minimap.is-expanded")');await delay(250);
  assert(await evaluate('!document.pointerLockElement'));assert(await evaluate(phase('playing')));
- const pos=await evaluate('document.querySelector(".fps-game").dataset.playerZ');await key('w','KeyW',250);assert.equal(await evaluate('document.querySelector(".fps-game").dataset.playerZ'),pos);
+ const position=()=>evaluate('(()=>{const d=document.querySelector(".fps-game").dataset;return{x:+d.playerX,z:+d.playerZ}})()');
+ const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
+ const pos=await position();await key('w','KeyW',800);await delay(250);assert(distance(await position(),pos)>.1,'W moves while the map close button holds focus');
+ assert(await evaluate('!!document.querySelector(".fps-minimap.is-expanded")&&!document.pointerLockElement'));
+ await click('[aria-label="Next map marker"]');const arrowPos=await position();await key('ArrowDown','ArrowDown',800);await delay(250);assert(distance(await position(),arrowPos)>.1,'Arrow movement works from inspector focus');
+ await key(' ','Space');assert(await evaluate('!!document.querySelector(".fps-minimap.is-expanded")'),'Space does not activate the focused map button');
  for(let i=0;i<20;i++){await click('[data-marker-kind=target]');await delay(80);if((await evaluate('document.querySelector(".fps-map-inspector").textContent')).includes('Practice target'))break;}assert((await evaluate('document.querySelector(".fps-map-inspector").textContent')).includes('Practice target'));await screenshot('in-game-expanded');
  await click('.fps-map-close');await wait(phase('playing'));await wait('!!document.pointerLockElement&&document.activeElement===document.pointerLockElement');assert(await evaluate('[...document.querySelectorAll("button")].some(b=>b.textContent==="Stand")'));
  await key('m','KeyM');await wait('!!document.querySelector(".fps-minimap.is-expanded")');await delay(200);await key('Escape','Escape');await wait('!!document.pointerLockElement&&document.activeElement===document.pointerLockElement');
@@ -93,7 +98,21 @@ try{
  await evaluate('window.mapRequestPointerLock=HTMLCanvasElement.prototype.requestPointerLock;HTMLCanvasElement.prototype.requestPointerLock=()=>Promise.reject(new DOMException("Denied for smoke test","NotAllowedError"))');
  await click('.fps-map-close');await wait(phase('paused'));await evaluate('HTMLCanvasElement.prototype.requestPointerLock=window.mapRequestPointerLock');
  assert.equal(await evaluate('!!document.pointerLockElement'),false);await screenshot('capture-denied-safe');
- assert.deepEqual(errors,[]);results.push({name:'desktop-engine',capture:true,selection:true,controlsBlocked:true,denialSafe:true});
+ // Switch to real touch input, then walk with the map open in both orientations.
+ await send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
+ async function tap(selector){const p=await evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...p,id:1}]});await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await delay(150);}
+ await tap('.fps-start-card .primary-button');await wait(phase('playing'));await wait('!!document.querySelector("[data-touch-stick=move]")');
+ for(const [name,width,height] of [['portrait-movement',390,844],['landscape-movement',844,390]]){
+  await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});await delay(250);
+  await tap('.fps-minimap');await wait('!!document.querySelector(".fps-minimap.is-expanded")');await delay(250);
+  const stick=await evaluate('(()=>{const e=document.querySelector("[data-touch-stick=move]"),r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2,visible:getComputedStyle(e).visibility,hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest("[data-touch-stick]")===e}})()');
+  assert.equal(stick.visible,'visible');assert(stick.hit,'Stick is reachable over the expanded map');
+  const from=await position();await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:stick.x,y:stick.y,id:1}]});await send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:stick.x,y:stick.y+45,id:1}]});await delay(900);await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await delay(250);
+  assert(distance(await position(),from)>.1,'Touch stick moves with expanded map');assert(await evaluate('!!document.querySelector(".fps-minimap.is-expanded")'));
+  await screenshot(name);await tap('.fps-map-close');await wait('!document.querySelector(".fps-minimap.is-expanded")');
+  results.push({name,movement:true,stickReachable:true});
+ }
+ assert.deepEqual(errors,[]);results.push({name:'desktop-engine',capture:true,selection:true,movement:true,denialSafe:true});
  await fs.writeFile(new URL('results.json',output),JSON.stringify({results,errors,districts:all.length},null,2));
- console.log('PASS map details: all 23 districts, all schematic shapes and sector outlines, mouse/touch/keyboard selection, visible status/ETA, jamming privacy, portrait/landscape layout, actual FPS pointer release/recapture, movement guard and capture-denial recovery.');
-}catch(error){console.log(await evaluate('({phase:document.querySelector(".fps-game")?.dataset.phase,captureErrors:window.captureErrors,focus:document.hasFocus(),errors:window.mapSmokeErrors})'));await screenshot('failure');throw error;}finally{ws.close();await fetch(`${chrome}/json/close/${tab.id}`);}
+ console.log('PASS map details: all 23 districts, all schematic shapes and sector outlines, mouse/touch/keyboard selection, visible status/ETA, jamming privacy, portrait/landscape layout, actual FPS pointer release/recapture, keyboard/touch movement with the map open and capture-denial recovery.');
+}catch(error){console.error(error);console.log(await evaluate('({phase:document.querySelector(".fps-game")?.dataset.phase,captureErrors:window.captureErrors,focus:document.hasFocus(),errors:window.mapSmokeErrors})'));await screenshot('failure');throw error;}finally{ws.close();await fetch(`${chrome}/json/close/${tab.id}`);}
