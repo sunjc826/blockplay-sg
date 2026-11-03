@@ -1,34 +1,30 @@
 import { useEffect, useRef } from 'react';
 import type { PlayerRespawnView } from '../game/player-respawn';
+import { DeploymentCameraControls, DeploymentPins } from './ExpeditionDeployment';
 import './expedition-respawn.css';
 
-export default function ExpeditionRespawn({ view, seconds, onChoose, onAutomatic, onMenu, onLoadout }: {
+export default function ExpeditionRespawn({ view, seconds, onChoose, onAutomatic, onMenu, onLoadout, onZoom, onResetView }: {
   view: PlayerRespawnView; seconds: number;
   onChoose: (id: string) => void; onAutomatic: (checked: boolean) => void; onMenu: () => void; onLoadout?: () => void;
+  onZoom?: (factor: number) => void; onResetView?: () => void;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
   const selected = view.zones.find(zone => zone.id === view.selected);
   const ready = seconds <= 0;
-  return <div className="expedition-respawn-picker" role="dialog" aria-modal="true" aria-labelledby="respawn-title" onKeyDown={event => { if (event.key === 'Escape') onMenu(); }}>
-    <section className="respawn-card">
-      <header><span>OPERATOR DOWN</span><h2 id="respawn-title" tabIndex={-1} ref={heading}>Choose where to respawn</h2>
-        <p role="status">{ready ? 'Ready to redeploy' : `Respawn ready in ${Math.ceil(seconds)}s`}</p></header>
-      <div className="respawn-zones" role="group" aria-label="Allied control zones">
-        {view.zones.map(zone => <button key={zone.id} type="button" disabled={!zone.available}
-          aria-pressed={view.selected === zone.id} onClick={() => onChoose(zone.id)}>
-          <span className="respawn-zone-icon" aria-hidden="true">◇</span>
-          <span><strong>{zone.name}</strong><small>{zone.available ? `Allied control · X ${Math.round(zone.x)}, Z ${Math.round(zone.z)}` : zone.reason}</small></span>
-          <span className="respawn-zone-action">{view.selected === zone.id ? 'SELECTED' : zone.available ? ready ? 'RESPAWN' : 'SELECT' : 'UNAVAILABLE'}</span>
-        </button>)}
+  return <section className="expedition-deployment expedition-respawn-picker" role="dialog" aria-modal="true" aria-labelledby="respawn-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); onMenu(); } }}>
+    <header><span>OPERATOR DOWN / REDEPLOYMENT</span><h2 id="respawn-title" tabIndex={-1} ref={heading}>Choose where to respawn</h2>
+      <p>Allied beams · Drag to pan · Zoom to inspect</p></header>
+    <DeploymentPins points={view.zones.map(zone => ({...zone, yaw:0, pitch:0}))} markers={view.markers} choice={view.selected} onChoose={onChoose} />
+    <DeploymentCameraControls zoom={view.zoom} onZoom={onZoom} onResetView={onResetView} />
+    <footer className="deployment-dock respawn-card">
+      <div className="deployment-choice"><span>{ready ? 'READY TO REDEPLOY' : `RESPAWN IN ${Math.ceil(seconds)}s`}</span><strong>{selected?.name ?? 'Choose an allied zone'}</strong>
+        <small role="status">{!view.zones.some(zone => zone.available) ? 'Waiting for an allied zone to become operational and clear.' : selected ? ready ? 'Deploying…' : 'Selected. You will respawn here when the timer ends.' : view.automatic ? 'An available allied zone will be chosen automatically.' : 'Select a cyan beam to return to the fight.'}</small></div>
+      <div className="deployment-actions">
+        <label className="respawn-automatic"><input type="checkbox" checked={view.automatic} onChange={event => onAutomatic(event.target.checked)} />Auto-respawn</label>
+        {onLoadout && <button type="button" className="respawn-loadout-trigger" onClick={onLoadout}>Respawn loadout</button>}
+        <button className="respawn-menu" type="button" onClick={onMenu}>Menu</button>
       </div>
-      {!view.zones.some(zone => zone.available) && <p className="respawn-empty" role="status">No allied control zone is available. Waiting for an allied zone to become operational and clear.</p>}
-      <label className="respawn-automatic"><input type="checkbox" checked={view.automatic} onChange={event => onAutomatic(event.target.checked)} />
-        <span>Auto-respawn<small>Automatically choose an available allied zone when the timer ends.</small></span>
-      </label>
-      <p className="respawn-selection" role="status">{selected ? `${selected.name} selected. ${ready ? 'Deploying…' : 'You will respawn here when the timer ends.'}` : view.automatic ? 'An available allied zone will be chosen for you.' : 'Select an allied zone to return to the fight.'}</p>
-      {onLoadout && <button type="button" className="respawn-loadout-trigger" onClick={onLoadout}>Choose next respawn loadout</button>}
-      <button className="respawn-menu" type="button" onClick={onMenu}>Menu</button>
-    </section>
-  </div>;
+    </footer>
+  </section>;
 }

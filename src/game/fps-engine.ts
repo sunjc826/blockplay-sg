@@ -413,7 +413,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const overview = createDeploymentOverview(world.scene, deploymentPoints);
   const overviewHighest = world.obstacles.reduce((height, o) => Math.max(height, o.maxY ?? 12), 80);
   let overviewZoom = 1, overviewPan = { x: 0, z: 0 }, overviewDrag: { id: number; x: number; y: number } | null = null;
-  const overviewActive = () => introEligible && ['loading', 'ready'].includes(hud.phase) && !deploymentIntro.begun;
+  const initialOverviewActive = () => introEligible && ['loading', 'ready'].includes(hud.phase) && !deploymentIntro.begun;
+  const respawnOverviewActive = () => !!expedition && hud.phase === 'playing' && hud.arenaSelf?.alive === false && !!hud.respawn;
+  const overviewActive = () => initialOverviewActive() || respawnOverviewActive();
+  const respawnPoints = () => (hud.respawn?.zones ?? []).map(p => ({ ...p, yaw: 0, pitch: 0 }));
+  const overviewPoints = () => respawnOverviewActive() ? respawnPoints() : hud.deployment?.points ?? deploymentPoints;
   const overviewLook = { x: 0, y: 0 }, overviewCursor = { x: 0, y: 0 };
   const overviewSurface = host.parentElement ?? host;
   const leaveOverview = () => { overviewCursor.x = overviewCursor.y = 0; };
@@ -701,8 +705,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const introFrame = deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof);
     hud.deploymentIntro = hud.phase === 'deploying' ? { stage: introFrame.stage, fade: introFrame.fade, elapsed: introFrame.elapsed, reduced: introFrame.reduced, ...deploymentConditions } : null;
     hud.respawn = arenaRuntime?.getRespawn() ?? null;
+    if (hud.respawn) hud.respawn = { ...hud.respawn, markers: respawnOverviewActive() ? deploymentMarkers(respawnPoints(), camera) : [], zoom: overviewZoom };
     hud.objectiveMarkers = expedition && hud.objectiveHints && hud.phase === 'playing' && hud.arenaSelf?.alive !== false ? captureObjectives(hud.arena?.facilities?.sites ?? [], position).map(site => objectiveHint(site, camera, position)) : [];
-    hud.deployment = deploymentPoints.length ? { points: deploymentPoints, choice: deploymentChoice, resolved: resolvedDeployment, canChoose: hud.phase === 'ready' && !deploymentResolved && !hud.arenaStarted, markers: overviewActive() ? deploymentMarkers(deploymentPoints, camera) : [], zoom: overviewZoom } : null;
+    const initialPoints = initialOverviewActive() ? arenaRuntime?.getDeployments() ?? deploymentPoints.map(p => ({ ...p, available: false })) : hud.deployment?.points ?? [];
+    hud.deployment = deploymentPoints.length ? { points: initialPoints, choice: deploymentChoice, resolved: resolvedDeployment, canChoose: hud.phase === 'ready' && !deploymentResolved && !hud.arenaStarted, markers: initialOverviewActive() ? deploymentMarkers(initialPoints, camera) : [], zoom: overviewZoom } : null;
     const nearby = !vehicles.active && hud.arenaSelf?.alive ? hud.arena?.facilities?.sites.filter(s => Math.abs(s.y - vertical) < 2 && Math.hypot(s.x - position.x, s.z - position.z) <= 18).sort((a, b) => Math.hypot(a.x - position.x, a.z - position.z) - Math.hypot(b.x - position.x, b.z - position.z))[0] : null;
     hud.facility = nearby ?? null;
     let canWork = false;
@@ -908,8 +914,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function chooseDeployment(choice: string) {
     if (disposed || hud.phase !== 'ready' || deploymentResolved || hud.arenaStarted || !deploymentPoints.length) return false;
     if (choice === 'random') { deploymentChoice = choice; resolvedDeployment = null; hud.message = ''; publish(); return true; }
-    const point = deploymentPoints.find(p => p.id === choice);
-    if (!point || !arenaRuntime?.selectDeployment(point.id)) { hud.message = 'That entry point is blocked. Choose another location.'; publish(); return false; }
+    const point = arenaRuntime?.getDeployments().find(p => p.id === choice && p.available !== false);
+    if (!point || !arenaRuntime?.selectDeployment(point.id)) { hud.message = 'Choose an available allied zone or your designated district entry.'; publish(); return false; }
     deploymentChoice = choice; resolvedDeployment = point.id;
     position = { x: point.x, z: point.z }; yaw = point.yaw; pitch = point.pitch; vertical = velocityY = 0;
     hud.message = ''; updateCameras(0, false, false); publish(); return true;
@@ -924,7 +930,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function deployInitially() {
     if (deploymentResolved || !deploymentPoints.length) return true;
-    for (const point of deploymentOrder(deploymentPoints, deploymentChoice)) if (arenaRuntime?.selectDeployment(point.id)) {
+    for (const point of deploymentOrder(arenaRuntime?.getDeployments() ?? [], deploymentChoice)) if (arenaRuntime?.selectDeployment(point.id)) {
       position = { x: point.x, z: point.z }; yaw = point.yaw; pitch = point.pitch; vertical = velocityY = 0;
       deploymentResolved = true; resolvedDeployment = point.id; updateCameras(0, false, false); return true;
     }
@@ -967,6 +973,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (disposed || capturePending || !['ready', 'paused'].includes(hud.phase)) return;
     initAudio();
     inputMode = requiresFpsPointerLock(lastPointerType) ? 'mouse' : 'touch';
+    // Returning to the respawn map needs a free cursor. Capturing it here can
+    // race the death handler releasing it before pointerlockchange arrives.
+    if (expedition && hud.arenaSelf?.alive === false) {
+      capturePending = false; hud.phase = 'playing'; hud.message = ''; clearInput();
+      updateCameras(0, false, false); publish(); return;
+    }
     if (inputMode === 'touch') { enterPlay(); return; }
     if (document.pointerLockElement === canvas) { enterPlay(); return; }
     if (!canvas.requestPointerLock) { captureFailed(); return; }
@@ -1636,11 +1648,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (overviewActive() && !overviewDrag) {
       const rect = canvas.getBoundingClientRect();
       const inside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+      const overPin = event.target instanceof Element && !!event.target.closest('[data-deployment-id]');
+      if (overPin) { overviewCursor.x = overviewLook.x; overviewCursor.y = overviewLook.y; return; }
       const follow = inside && event.pointerType === 'mouse' && !motionPreference?.matches;
       overviewCursor.x = follow ? THREE.MathUtils.clamp((event.clientX - rect.left) / rect.width * 2 - 1, -1, 1) : 0;
       overviewCursor.y = follow ? THREE.MathUtils.clamp((event.clientY - rect.top) / rect.height * 2 - 1, -1, 1) : 0;
     }
-    if (hud.phase === 'playing' && !hud.mapExpanded && !hud.proxyMenu && inputMode === 'touch' && requiresFpsPointerLock(event.pointerType)) {
+    if (hud.phase === 'playing' && hud.arenaSelf?.alive !== false && !hud.mapExpanded && !hud.proxyMenu && inputMode === 'touch' && requiresFpsPointerLock(event.pointerType)) {
       inputMode = 'mouse'; pause();
       hud.message = 'Mouse detected. Click Resume to capture it; Escape opens the menu.'; publish();
     }
@@ -1967,7 +1981,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     canvas.dataset.inspectProgress = inspectElapsed === null ? '' : (inspectElapsed / INSPECT_DURATION).toFixed(3);
     playerBody.root.visible = false;
-    camera.far = 800; overview.update(overviewActive(), deploymentChoice);
+    camera.far = 800; overview.update(overviewActive(), respawnOverviewActive() ? hud.respawn?.selected ?? '' : deploymentChoice, overviewPoints());
     if (overviewActive()) {
       // Freeze cursor motion while grabbing the map; touch and reduced motion
       // always use the composed, neutral angle. Damping uses real frame time.
@@ -1985,7 +1999,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       canvas.dataset.deploymentCamera = JSON.stringify({ x: view.x, y: view.y, z: view.z, pitch: view.pitch, yaw: view.yaw, fov: view.fov, ready: null, speed: 0, blur: 0 });
       // Keep pins locked to the world between the slower React HUD snapshots.
       const pins = overviewSurface.querySelectorAll<HTMLElement>('[data-deployment-id]');
-      if (pins.length) for (const marker of deploymentMarkers(deploymentPoints, camera)) {
+      if (pins.length) for (const marker of deploymentMarkers(overviewPoints(), camera)) {
         const pin = Array.from(pins).find(pin => pin.dataset.deploymentId === marker.id);
         if (pin) { pin.style.left = `${marker.x}%`; pin.style.top = `${marker.y}%`; pin.style.visibility = marker.visible ? 'visible' : 'hidden'; }
       }
@@ -3058,6 +3072,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (!frame.self.alive && previousSelf?.alive) {
         supplyUse = null; radioCall('death'); clearInput(); killChain = { count: 0, lastAt: -Infinity }; hud.chain = 0; hud.callout = ''; calloutTime = 0;
         if (expedition) {
+          resetDeploymentView();
           // Fallen-kit drops above still see this life's pickups. Prepare the
           // authority now so either manual or automatic respawn uses issued armor.
           fieldProfile = respawnEquipment(fieldProfile, respawnProfile);

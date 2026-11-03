@@ -696,10 +696,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   /** Initial deployment only: the caller submits an approved id, never coordinates. */
   function setPlayerDeployment(id: string, pointId: string) {
-    const entry = members.get(id), point = environment?.deployments?.find(p => p.id === pointId);
+    const entry = members.get(id), point = playerDeployments(id).find(p => p.id === pointId && p.available !== false);
     if (!entry || entry.actor.bot || !entry.actor.alive || entry.actor.deaths !== 0 || elapsed !== 0 || finished || seatOf(vehicles, id) || !point || !clearSpawn(point)) return false;
     if ([...members.values()].some(m => m !== entry && m.actor.alive && Math.hypot(m.actor.x - point.x, m.actor.z - point.z) < (m.actor.faction === entry.actor.faction ? 1.5 : 30))) return false;
-    Object.assign(entry.actor, { x: point.x, y: (bounds.groundHeight?.(point.x,point.z)??0)+1.75, z: point.z, yaw: point.yaw, pitch: point.pitch, prone: false });
+    Object.assign(entry.actor, { x: point.x, y: (point.y ?? bounds.groundHeight?.(point.x,point.z) ?? 0)+1.75, z: point.z, yaw: point.yaw, pitch: point.pitch, prone: false });
     entry.lastAt = undefined; entry.velocity = undefined; entry.speed = 0; entry.navigation = undefined; entry.velocityY = 0;
     return true;
   }
@@ -2240,23 +2240,49 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (!choice) { choice = { selected: null, automatic: false }; respawnChoices.set(id, choice); }
     return choice;
   }
-  function respawnPoint(entry: InternalActor, site: FacilityState) {
+  function respawnPoint(entry: InternalActor, site: FacilityState, hostileDistance = 16) {
     if (!facilityOperational(site, entry.actor.faction)) return undefined;
     return deploymentPoints(site).find(p => clearSpawn(p) && [...members.values()].every(m =>
       m === entry || !m.actor.alive || m.reserve || m.actor.transport || Math.abs(floorAt(m.actor) - site.y) >= 2 ||
-      Math.hypot(m.actor.x - p.x, m.actor.z - p.z) > (m.actor.faction === entry.actor.faction ? 1.5 : 16)));
+      Math.hypot(m.actor.x - p.x, m.actor.z - p.z) > (m.actor.faction === entry.actor.faction ? 1.5 : hostileDistance)));
   }
   function playerRespawn(id: string): PlayerRespawnView | null {
     const entry = members.get(id);
     if (!facilities || !entry || entry.actor.bot) return null;
     const choice = respawnChoice(id);
-    const zones = facilities.sites.filter(s => s.owner === entry.actor.faction && s.kind !== 'supply').map(site => {
+    const zones = facilities.sites.filter(s => s.kind !== 'supply').map(site => {
       const available = !!respawnPoint(entry, site);
-      return { id: site.id, name: site.name, x: site.deployment.x, z: site.deployment.z, available,
-        reason: !site.health ? 'Equipment destroyed' : site.suppressed ? 'Deployment suppressed' : available ? '' : 'Landing zone blocked or unsafe' };
+      return { id: site.id, name: site.name, x: site.deployment.x, y: site.y, z: site.deployment.z, available,
+        reason: site.owner !== entry.actor.faction ? site.owner ? 'Enemy controlled' : 'Capture and build to deploy' :
+          !site.health ? 'Equipment destroyed' : site.suppressed ? 'Deployment suppressed' : available ? '' : 'Landing zone blocked or unsafe' };
     });
     if (!zones.some(z => z.id === choice.selected && z.available)) choice.selected = null;
     return { zones, ...choice };
+  }
+  /** The same operational/clearance checks govern both maps. Only initial entry
+   * additionally permits this side's authored district spawn. */
+  function playerDeployments(id: string): DeploymentPoint[] {
+    const entry = members.get(id);
+    if (!entry || entry.actor.bot) return [];
+    const authored = environment?.deployments ?? [];
+    if (!facilities) return authored.map(p => ({ ...p, available: clearSpawn(p) }));
+    const sites = facilities.sites;
+    const defaults = environment?.playerSpawn;
+    const points = authored.map(p => {
+      const designated = !!defaults && p.id === 'entry' && Math.hypot(p.x - defaults.x, p.z - defaults.z) < .1;
+      const allied = sites.some(site => site.kind !== 'supply' && facilityOperational(site, entry.actor.faction) && Math.hypot(p.x - site.deployment.x, p.z - site.deployment.z) <= FACILITY_RULES.presenceRadius);
+      const available = (designated || allied) && clearSpawn(p) && [...members.values()].every(m =>
+        m === entry || !m.actor.alive || m.reserve || m.actor.transport || Math.hypot(m.actor.x - p.x, m.actor.z - p.z) >= (m.actor.faction === entry.actor.faction ? 1.5 : 30));
+      return { ...p, available, reason: available ? '' : designated || allied ? 'Landing zone blocked or unsafe' : 'Outside allied deployment zones' };
+    });
+    const zones = playerRespawn(id)!.zones;
+    for (const site of sites.filter(s => s.kind !== 'supply')) {
+      const zone = zones.find(z => z.id === site.id)!;
+      const point = respawnPoint(entry, site, 30);
+      points.push({ id: `facility:${site.id}`, name: site.name, x: point?.x ?? zone.x, y: site.y, z: point?.z ?? zone.z,
+        yaw: site.deployment.yaw, pitch: 0, available: zone.available && !!point, reason: zone.available && !point ? 'Landing zone blocked or unsafe' : zone.reason });
+    }
+    return points;
   }
   function choosePlayerRespawn(id: string, zone: string) {
     const entry = members.get(id), view = playerRespawn(id);
@@ -3835,7 +3861,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const navigationStatus = () => [...members.values()].filter(m=>m.actor.bot && m.actor.alive && m.actor.squad).map(m=>({id:m.actor.id,objective:m.actor.objective,duty:m.actor.duty,sector:m.actor.patrolSector,pending:!!m.navigation?.pending,path:m.navigation?.path.length??0,x:m.actor.x,z:m.actor.z,goal:m.navigation?.target,via:m.assignment?.via,mission:m.mission}));
   const patrolStatus = () => sectorPatrols?.status(elapsed)??[];
   const boatStatus=()=>[...boatSorties].map(([kind,s])=>({kind,pilot:s.pilot,phase:s.phase,returning:s.returning,berth:s.route?.berth.id,index:s.index,points:s.route?.points,crew:[...s.crew]}));
-  return { navigationGraphStatus: () => navigator?.status() ?? null, boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  return { navigationGraphStatus: () => navigator?.status() ?? null, boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerDeployments, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

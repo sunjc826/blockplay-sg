@@ -144,7 +144,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
     onLostPointerCapture: () => engine.current?.setInput(key, false),
   });
   return <div className={`fps-game expedition-game ${fullscreen.immersive ? 'is-immersive' : ''}`} ref={stage} data-touch={touch ? 'on' : undefined} data-hud-hints={hudHints ? 'on' : 'off'}
-    data-deployment-planning={planning} data-arena-started={hud.arenaStarted} data-deployment-choice={hud.deployment?.choice} data-deployment-point={hud.deployment?.resolved ?? undefined}
+    data-deployment-planning={planning || playing && !alive} data-arena-started={hud.arenaStarted} data-deployment-choice={hud.deployment?.choice} data-deployment-point={hud.deployment?.resolved ?? undefined}
     data-vehicle-view={hud.vehicleView} data-vehicle-personal-weapon={hud.vehiclePersonalWeapon} data-vehicle={hud.vehicle} data-vehicle-health={hud.vehicleHealth} data-vehicle-ammo={hud.vehicleAmmo} data-speed={hud.vehicleSpeed.toFixed(2)} data-altitude={hud.altitude.toFixed(2)} data-phase={hud.phase} data-pilot={hud.pilotEnabled || undefined} data-pointer-locked={hud.locked} data-zone={scene.zone} data-player-x={hud.x.toFixed(3)} data-player-z={hud.z.toFixed(3)}
     data-objective-hints={hud.objectiveHints} data-facility-count={hud.arena?.facilities?.sites.length ?? 0} data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-alive={alive} data-loot-count={hud.fieldLoot?.length ?? 0} data-npc-count={hud.npcs?.length ?? 0} data-bot-count={hud.arena?.actors.filter(actor => actor.bot).length ?? 0} data-friendly-count={hud.arena?.actors.filter(actor => actor.bot && actor.faction === PLAYER_FACTION).length ?? 0}>
     <div className="viewport fps-viewport">
@@ -155,7 +155,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       {fullscreen.immersive && <div className="fps-immersive-hint">ESC · MENU & RELEASE MOUSE</div>}
       {fullscreen.immersive && !playing && <button className="fps-leave-screen" onClick={() => { void fullscreen.toggle(); }}><Minimize size={14} /> Exit fullscreen</button>}
       <FpsHudLayout hud={hud} history={debug && fullscreen.immersive}>
-        {playing && <>
+        {playing && alive && <>
           {(hud.sector || hud.sectorHeat) && <div className="expedition-sector" role="status"><span>LOCATION</span><strong>{hud.sector || zone.name}</strong>
             {hud.sectorHeat && <div className="expedition-heat" aria-label="Faction heat here">{[...SQUAD_FACTIONS].reverse().map(id =>
               <div key={id} data-faction={id}><small>{getArenaFaction(id)!.short}</small><i style={{ width: `${Math.round(hud.sectorHeat![id] * 100)}%`, background: getArenaFaction(id)!.accent }} /></div>)}</div>}</div>}
@@ -166,7 +166,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       <FpsCalloutWheel hud={hud} engine={engine.current} />
       <FpsUtilityPicker hud={hud} engine={engine.current} />
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus}<span className="fps-hud-hint"> · ESC TO STOP</span></div>}
-      {playing && <>
+      {playing && alive && <>
         {alive && <button type="button" className="expedition-objective-toggle" aria-pressed={hud.objectiveHints} onClick={() => engine.current?.toggleObjectiveHints()}>{!touch && <kbd>H</kbd>} {hud.objectiveHints ? 'Hide objectives' : 'Show objectives'}</button>}
         {alive && hud.objectiveHints && !hud.mapExpanded && <div className="expedition-objective-markers" aria-label="Enemy facility directions">{hud.objectiveMarkers.map(marker => <div key={marker.id} className="expedition-objective-marker" data-objective-id={marker.id} data-edge={marker.edge} style={{ left: `${marker.x}%`, top: `${marker.y}%` }}>
           <span className="expedition-objective-arrow" style={marker.edge ? { transform: `rotate(${marker.bearing}deg)` } : undefined}>{marker.edge ? '↑' : '◆'}</span><strong>{marker.name}</strong><small>{marker.distance}m · CAPTURE / DESTROY</small>
@@ -181,9 +181,6 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         {hud.combatBanner && <div className={`fps-combat-banner ${hud.combatBanner.tone}`} role="status">{hud.combatBanner.text}</div>}
         {hud.hit && <div className="fps-hit-label">HIT −{hud.lastDamage}</div>}
         {hud.callout && <div className="fps-kill-callout" role="status"><span>ELIMINATION CHAIN ×{hud.chain}</span><strong>{hud.callout}</strong></div>}
-        {!alive && hud.respawn && <ExpeditionRespawn view={hud.respawn} seconds={hud.arenaSelf?.respawnIn ?? 0}
-          onLoadout={openLoadout} onMenu={() => engine.current?.pause()} onChoose={id => engine.current?.chooseRespawn(id)}
-          onAutomatic={checked => { autoRespawn.current = checked; engine.current?.setAutoRespawn(checked); }} />}
         {!merlionOperating && (!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />}
         {!merlionOperating && (!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useSelectedUtility(kind)} onPickRecovery={() => engine.current?.toggleRecoveryPicker()} onPickGrenade={() => engine.current?.toggleGrenadePicker()} onInspect={() => engine.current?.inspectWeapon()} onScopeZoom={direction => engine.current?.adjustScopeZoom(direction)} touch={touch} />}
         <FpsVehicleHud hud={hud} />
@@ -196,7 +193,11 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         <div className="expedition-prompts" role="status">{hud.npcPrompt && <strong>{showHints ? hud.npcPrompt : hud.npcPrompt.replace(/^E · /, '')}</strong>}{hud.travelPrompt && <strong>{showHints ? hud.travelPrompt : hud.travelPrompt.replace(/^T · /, '')}</strong>}{hud.lootNotice && <span>{hud.lootNotice}</span>}</div>
         <div className="expedition-route-hud">{nextCheckpoint && <strong>ROUTE TO {getWorldZone(destination!).name.toUpperCase()}</strong>}{(nextCheckpoint ? [nextCheckpoint] : touch ? nearestGateways.slice(0, 2) : gateways).map(gateway => <span key={gateway.id}>{getWorldZone(gateway.to).name}{gateway.kind === 'ferry' ? ' · Bumboat' : ''} <b>{distance(gateway.position)}m</b></span>)}</div>
       </>}
-      {touch && !hud.pilotEnabled && (playing || physicalCrossing && hud.phase === 'loading') && <TouchControls hud={hud} engine={engine.current} mode="expedition" crossing={physicalCrossing && hud.phase === 'loading'} onMenu={() => engine.current?.pause()} />}
+      {playing && !alive && hud.respawn && <ExpeditionRespawn view={hud.respawn} seconds={hud.arenaSelf?.respawnIn ?? 0}
+          onLoadout={openLoadout} onMenu={() => engine.current?.pause()} onChoose={id => engine.current?.chooseRespawn(id)}
+          onZoom={factor => engine.current?.zoomDeployment(factor)} onResetView={() => engine.current?.resetDeploymentView()}
+          onAutomatic={checked => { autoRespawn.current = checked; engine.current?.setAutoRespawn(checked); }} />}
+      {touch && !hud.pilotEnabled && (playing && alive || physicalCrossing && hud.phase === 'loading') && <TouchControls hud={hud} engine={engine.current} mode="expedition" crossing={physicalCrossing && hud.phase === 'loading'} onMenu={() => engine.current?.pause()} />}
       {deploying && <div className="expedition-intro" data-stage={hud.deploymentIntro?.stage}>
         <div className="expedition-intro-fade" style={{ opacity: hud.deploymentIntro?.fade ?? 0 }} />
         <div className="expedition-intro-caption"><span>EXPEDITION / INSERTION</span>

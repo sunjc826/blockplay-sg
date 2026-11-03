@@ -13,17 +13,24 @@ async function wait(expression,timeout=30000){const start=Date.now();while(Date.
 async function click(selector,touch=false){const p=await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);if(touch){await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...p,id:1}]});await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}else{await send('Input.dispatchMouseEvent',{type:'mousePressed',...p,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',...p,button:'left',clickCount:1});}}
 async function screenshot(name){const shot=await send('Page.captureScreenshot',{format:'png'});await fs.writeFile(new URL(name+'.png',output),Buffer.from(shot.data,'base64'));}
 try{
- await send('Runtime.enable');await send('Page.enable');
+ await send('Runtime.enable');await send('Page.enable');await send('Network.enable');await send('Network.setBlockedURLs',{urls:['*api.openai.com/*','*api.elevenlabs.io/*','*/api/adventure/*','*maps.googleapis.com/*']});await send('Page.bringToFront');await send('Browser.setPermission',{permission:{name:'pointer-lock'},setting:'granted',origin});await send('Emulation.setFocusEmulationEnabled',{enabled:true});
+ await send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('blockplay-sg-environment-v1',JSON.stringify({timeOfDay:'noon',weather:'sunny',celebration:'none',reducedEffects:false,shadows:false,occlusion:false}))`});
+ await send('Page.navigate',{url:origin+'/scripts/fixtures/player-respawn-panel.html'});
  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});
  await wait('window.hud?.phase==="ready"',180000);await click('#start');await wait('!!document.querySelector(".respawn-card")');
  await wait('window.hud.arenaSelf.respawnIn===0');await delay(500);
+ assert.equal(await evaluate('document.querySelector("canvas").dataset.deploymentOverview'),'true');
+ assert(await evaluate('document.querySelectorAll("[data-deployment-id]:disabled").length>0'));
+ assert.equal(await evaluate('engine.chooseRespawn(hud.respawn.zones.find(z=>!z.available).id)'),false);
+ const camera=await evaluate('JSON.parse(document.querySelector("canvas").dataset.deploymentCamera)');assert.equal(camera.fov,38);
+ await click('[aria-label="Zoom in on district"]');await wait('hud.respawn.zoom>1');await click('.deployment-view-controls button:last-child');await wait('hud.respawn.zoom===1');
  assert.equal(await evaluate('window.hud.arenaSelf.alive'),false);assert.equal(await evaluate('!!document.pointerLockElement'),false);
  assert.equal(await evaluate('document.querySelector(".respawn-automatic input").checked'),false);
- assert(await evaluate('document.querySelectorAll(".respawn-zones button:not(:disabled)").length>0'));
+ assert(await evaluate('document.querySelectorAll("[data-deployment-id]:not(:disabled)").length>0'));
  await screenshot('desktop-manual');
- await click('.respawn-menu');await wait('window.hud.phase==="paused"');await click('#start');await wait('!!document.querySelector(".respawn-card")');
+ await click('.respawn-menu');await wait('window.hud.phase==="paused"');await delay(1200);await click('#start');await wait('!!document.querySelector(".respawn-card")');
  const target=await evaluate('window.hud.respawn.zones.find(z=>z.available)');
- await click('.respawn-zones button:not(:disabled)');await wait('window.hud.arenaSelf.alive');
+ await click('[data-deployment-id]:not(:disabled)');await wait('window.hud.arenaSelf.alive');
  assert(await evaluate(`Math.hypot(window.hud.arenaSelf.x-(${target.x}),window.hud.arenaSelf.z-(${target.z}))<5`));
  console.log('PASS desktop authority/UI: manual wait at zero, menu/resume, selected allied respawn.');
  // A fresh authority starts dead for portrait/landscape and the auto checkbox.
@@ -35,6 +42,6 @@ try{
   if(width===390) await screenshot(`touch-${width}`);
  }
  await click('.respawn-automatic input',true);await wait('window.hud.arenaSelf.alive');assert.equal(await evaluate('window.hud.respawn.automatic'),true);
- assert.deepEqual(errors,[]);console.log('PASS touch: portrait/landscape fit, auto checkbox deploys at an allied zone; zero runtime errors.');
-}catch(error){console.log(errors,await evaluate('({phase:window.hud?.phase,alive:window.hud?.arenaSelf?.alive,respawn:window.hud?.respawn,text:document.body.innerText})').catch(()=>null));await screenshot('failure').catch(()=>{});throw error;}
+ assert.deepEqual(errors,[]);await fs.writeFile(new URL('verification.json',output),JSON.stringify({passed:true,camera,checks:['real engine dead checkpoint','aerial camera','grey enemy and neutral beams','authority rejects enemy choice','zoom and reset','manual wait at zero','menu and resume','allied respawn','portrait and landscape','automatic allied respawn'],errors},null,2));console.log('PASS touch: portrait/landscape fit, auto checkbox deploys at an allied zone; zero runtime errors.');
+}catch(error){console.log(errors,await evaluate('({phase:window.hud?.phase,alive:window.hud?.arenaSelf?.alive,respawn:window.hud?.respawn,message:window.hud?.message,text:document.body.innerText})').catch(()=>null));await screenshot('failure').catch(()=>{});throw error;}
 finally{ws.close();await fetch(`${chrome}/json/close/${tab.id}`);}

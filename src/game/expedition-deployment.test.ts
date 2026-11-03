@@ -74,3 +74,31 @@ it('adopts the selected point without movement reconciliation pulling the player
     expect(runtime.selectDeployment('market')).toBe(false);
   } finally { runtime.dispose(); session.close(); vi.useRealTimers(); }
 });
+
+it('limits facility expeditions to the designated default and operational allied zones', () => {
+  const env = environment();
+  env.facilities = { sites: [
+    {id:'ally',name:'Allied post',kind:'command',x:100,y:0,z:0,initialOwner:'armed-forces',deployment:{x:100,z:0,yaw:1}},
+    {id:'enemy',name:'Enemy post',kind:'command',x:-100,y:0,z:0,initialOwner:'mercenaries',deployment:{x:-100,z:0,yaw:1}},
+    {id:'neutral',name:'Neutral post',kind:'garage',x:0,y:0,z:-100,initialOwner:null,deployment:{x:0,z:-100,yaw:1}},
+  ] };
+  const a = createArena([],0,'mixed',env); a.addPlayer('p','Player');
+  const view = a.playerDeployments('p');
+  expect(view.find(p=>p.id==='entry')!.available).toBe(true);
+  expect(view.find(p=>p.id==='park')!.available).toBe(false);
+  expect(view.find(p=>p.id==='facility:ally')!.available).toBe(true);
+  expect(view.find(p=>p.id==='facility:enemy')).toMatchObject({available:false,reason:'Enemy controlled'});
+  expect(view.find(p=>p.id==='facility:neutral')!.available).toBe(false);
+  for (const id of ['park','market','facility:enemy','facility:neutral']) expect(a.setPlayerDeployment('p',id)).toBe(false);
+  expect(a.setPlayerDeployment('p','facility:ally')).toBe(true);
+  expect(a.snapshot().actors.find(p=>p.id==='p')!.x).toBeGreaterThan(90);
+  for (let i=0;i<10;i++) expect(deploymentOrder(view,'random',()=>i/10).every(p=>p.available)).toBe(true);
+});
+
+it('rejects an allied facility that is destroyed and a forged default entry', () => {
+  const env = environment();env.deployments = [{...points[1],id:'entry'}];
+  env.facilities = {sites:[{id:'broken',name:'Broken',kind:'garage',x:100,y:0,z:0,initialOwner:null,deployment:{x:100,z:0,yaw:0}}]};
+  const a=createArena([],0,'mixed',env);a.addPlayer('p','Player');
+  expect(a.setPlayerDeployment('p','entry')).toBe(false);
+  expect(a.setPlayerDeployment('p','facility:broken')).toBe(false);
+});

@@ -3,7 +3,7 @@ import { zoneSectors } from './zone-sectors';
 import { MARINA_COMBAT_PATROLS, MARINA_COMBAT_ANCHORS } from './marina-combat';
 import type { DeploymentMarker } from './deployment-overview';
 
-export interface DeploymentPoint extends ZoneSpawn { id: string; name: string }
+export interface DeploymentPoint extends ZoneSpawn { id: string; name: string; y?: number; available?: boolean; reason?: string }
 export interface DeploymentView {
   points: readonly DeploymentPoint[];
   choice: string;
@@ -37,7 +37,8 @@ export function districtDeploymentPoints(zone: WorldZoneId, clear: (x: number, z
 
 /** Random is resolved once at deployment, with other approved points as fallbacks. */
 export function deploymentOrder(points: readonly DeploymentPoint[], choice: string, random: () => number = Math.random): readonly DeploymentPoint[] {
-  if (choice !== 'random') return points.filter(p => p.id === choice);
+  if (choice !== 'random') return points.filter(p => p.id === choice && p.available !== false);
+  points = points.filter(p => p.available !== false);
   if (!points.length) return [];
   const value = random(), index = Math.floor((Number.isFinite(value) ? Math.max(0, Math.min(.999999999, value)) : 0) * points.length);
   return [...points.slice(index), ...points.slice(0, index)];

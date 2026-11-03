@@ -19,7 +19,7 @@ const down = (a: ArenaSimulation) => a.setPlayerVitals('p', { health: 0 });
 it('waits for a manual allied-zone choice even after the countdown has finished', () => {
   const a = setup(); down(a); tick(a, 4);
   expect(self(a)).toMatchObject({ alive: false, respawnIn: 0 });
-  expect(a.playerRespawn('p')!.zones.map(z => z.id)).toEqual(['West post', 'East garage']);
+  expect(a.playerRespawn('p')!.zones.filter(z => z.available).map(z => z.id)).toEqual(['West post', 'East garage']);
   expect(a.choosePlayerRespawn('p', 'East garage')).toBe(true); tick(a, .05);
   expect(self(a)).toMatchObject({ alive: true, health: 100, armor: 80, yaw: .7 });
   expect(Math.hypot(self(a).x - 70, self(a).z)).toBeCloseTo(3.6);
@@ -55,13 +55,13 @@ it('automatically chooses an allied destination after the timeout and preserves 
 it('holds auto-respawn when no allied zone exists, rather than deploying at an arbitrary point', () => {
   const a = setup(environment([zone('Enemy', 130, 'mercenaries'), zone('Neutral', 160, null)]));
   a.setPlayerAutoRespawn('p', true); down(a); tick(a, 4);
-  expect(self(a)).toMatchObject({ alive: false, respawnIn: 0 }); expect(a.playerRespawn('p')!.zones).toEqual([]);
+  expect(self(a)).toMatchObject({ alive: false, respawnIn: 0 }); expect(a.playerRespawn('p')!.zones.every(z => !z.available)).toBe(true);
 });
 
 it('disables destroyed and blocked allied sites and refuses them as destinations', () => {
   const env = environment(); env.facilities!.saved = createFacilities(env.facilities!.sites).snapshot(); env.facilities!.saved.sites[0].health = 0;
   const a = setup(env, [{ minX: 65, maxX: 75, minZ: -5, maxZ: 5 }]); down(a);
-  expect(a.playerRespawn('p')!.zones).toMatchObject([{ available: false, reason: 'Equipment destroyed' }, { available: false, reason: 'Landing zone blocked or unsafe' }]);
+  expect(a.playerRespawn('p')!.zones).toMatchObject([{ available: false, reason: 'Equipment destroyed' }, { available: false, reason: 'Landing zone blocked or unsafe' }, { available: false, reason: 'Enemy controlled' }, { available: false, reason: 'Capture and build to deploy' }]);
   expect(a.choosePlayerRespawn('p', 'West post')).toBe(false); expect(a.choosePlayerRespawn('p', 'East garage')).toBe(false);
   a.setPlayerAutoRespawn('p', true); tick(a, 4); expect(self(a).alive).toBe(false);
 });
@@ -85,8 +85,9 @@ it('rechecks occupancy after selection and cancels an unsafe choice at timeout',
 
 it('resumes auto-respawn when an ally captures a control zone after the timer', () => {
   const env = environment([zone('Garage', 70, 'mercenaries', 'garage')]);
-  env.deployments = [{ id: 'work', name: 'Work', x: 73, z: 0, yaw: 0, pitch: 0 }];
-  const a = setup(env); a.addPlayer('helper', 'Helper'); expect(a.setPlayerDeployment('helper', 'work')).toBe(true);
+  env.playerSpawn = {x:73,z:0};
+  env.deployments = [{ id: 'entry', name: 'Work', x: 73, z: 0, yaw: 0, pitch: 0 }];
+  const a = setup(env); down(a); a.addPlayer('helper', 'Helper'); expect(a.setPlayerDeployment('helper', 'entry')).toBe(true);
   a.setPlayerAutoRespawn('p', true); down(a); tick(a, 4); expect(self(a).alive).toBe(false);
   expect(a.facilityAction('helper', 'Garage')).toBe(true); tick(a, 25);
   expect(self(a).alive).toBe(true); expect(self(a).x).toBeGreaterThan(60);
@@ -114,4 +115,12 @@ for (const automatic of [false, true]) it(`respawns with starting equipment afte
   expect(self(a)).toMatchObject({ alive: true, armor: original.armor, weapon: original.carriedFamilies[0] });
   down(a); if (!automatic) a.choosePlayerRespawn('p', 'West post'); tick(a, 3.1);
   expect(self(a)).toMatchObject({ alive: true, armor: original.armor, weapon: original.carriedFamilies[0] });
+});
+
+it('keeps hostile and neutral facilities on the map as unavailable locations', () => {
+  const a = setup(); down(a);
+  expect(a.playerRespawn('p')!.zones).toEqual(expect.arrayContaining([
+    expect.objectContaining({id:'Enemy',available:false,reason:'Enemy controlled'}),
+    expect.objectContaining({id:'Unbuilt',available:false,reason:'Capture and build to deploy'}),
+  ]));
 });

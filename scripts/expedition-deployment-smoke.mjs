@@ -15,17 +15,18 @@ async function wait(expression,timeout=240000){const t=Date.now();while(Date.now
 async function touch(expression){const p=await evaluate(`(()=>{const e=${expression};if(!e)throw Error('Missing control');e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`);await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...p,radiusX:2,radiusY:2,force:1,id:1}]});await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}
 const button=text=>`[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(text)})`;
 const game='document.querySelector(".expedition-game")';
-const points=()=>evaluate('[...document.querySelectorAll("[data-deployment-id]")].map(e=>({id:e.dataset.deploymentId,x:Number(e.dataset.worldX),z:Number(e.dataset.worldZ)}))');
+const points=()=>evaluate('[...document.querySelectorAll("[data-deployment-id]:not(:disabled)")].map(e=>({id:e.dataset.deploymentId,x:Number(e.dataset.worldX),z:Number(e.dataset.worldZ)}))');
 async function screenshot(name){const s=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await fs.writeFile(new URL(name+'.png',output),Buffer.from(s.data,'base64'));}
 try{
  await send('Runtime.enable');await send('Page.enable');await send('Network.enable');await send('Network.setBlockedURLs',{urls:['*api.openai.com/*','*api.elevenlabs.io/*','*/api/adventure/*','*maps.googleapis.com/*']});await send('Page.bringToFront');await send('Emulation.setFocusEmulationEnabled',{enabled:true});
  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});await send('Emulation.setTouchEmulationEnabled',{enabled:true});
  await send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('blockplay-sg-environment-v1',JSON.stringify({timeOfDay:'noon',weather:'sunny',celebration:'none',reducedEffects:false,shadows:false,occlusion:false}))`});
- await send('Page.navigate',{url}); await wait(`${game}?.dataset.phase==='ready'`);const entries=await points();assert.ok(entries.length>=3);assert.equal(await evaluate(`${game}.dataset.deploymentChoice`),'random');
+ await send('Page.navigate',{url}); await wait(`${game}?.dataset.phase==='ready'`);const entries=await points();assert.ok(entries.length>=1);assert.equal(await evaluate(`${game}.dataset.deploymentChoice`),'random');
  assert.equal(await evaluate('document.querySelectorAll(".deployment-pins select,.deployment-pins svg").length'),0);
  const before=await evaluate(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera)`);
  assert.ok(before.y>150 && before.pitch > -1.3 && before.pitch < -1.1 && before.fov===38);assert.equal(await evaluate(`document.querySelector('canvas').dataset.weaponVisible`),'false');
  assert.equal(await evaluate(`${game}.dataset.arenaStarted`),'false');
+ assert(await evaluate('document.querySelectorAll("[data-deployment-id]:disabled").length>0'),'Non-allied locations remain visible and unavailable');
  // Cursor orbit stays bounded, preserves the long lens and follows native mouse
  // motion. Pins must match the rendered camera between React HUD snapshots.
  await screenshot('desktop-neutral');
@@ -39,7 +40,7 @@ try{
  const right=await evaluate(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera)`);
  assert.equal(right.fov,38);assert(Math.abs(right.pitch-left.pitch)<.06);assert(Math.abs(right.yaw-left.yaw)<.075);
  await screenshot('desktop-cursor-right');
- const pinError=await evaluate(`(async()=>{const THREE=await import('/node_modules/three/build/three.module.js');const el=document.querySelector('canvas'),d=JSON.parse(el.dataset.deploymentCamera),camera=new THREE.PerspectiveCamera(d.fov,el.clientWidth/el.clientHeight,.08,10000);camera.position.set(d.x,d.y,d.z);camera.rotation.set(d.pitch,d.yaw,0,'YXZ');camera.updateMatrixWorld(true);return Math.max(...[...document.querySelectorAll('[data-deployment-id]')].map(pin=>{const p=new THREE.Vector3(Number(pin.dataset.worldX),.4,Number(pin.dataset.worldZ)).project(camera);return Math.hypot((parseFloat(pin.style.left)-(p.x+1)*50)*el.clientWidth/100,(parseFloat(pin.style.top)-(1-p.y)*50)*el.clientHeight/100)}))})()`);
+ const pinError=await evaluate(`(async()=>{const THREE=await import('/node_modules/three/build/three.module.js');const el=document.querySelector('canvas'),d=JSON.parse(el.dataset.deploymentCamera),camera=new THREE.PerspectiveCamera(d.fov,el.clientWidth/el.clientHeight,.08,10000);camera.position.set(d.x,d.y,d.z);camera.rotation.set(d.pitch,d.yaw,0,'YXZ');camera.updateMatrixWorld(true);return Math.max(...[...document.querySelectorAll('[data-deployment-id]')].map(pin=>{const p=new THREE.Vector3(Number(pin.dataset.worldX),Number(pin.dataset.worldY)+.4,Number(pin.dataset.worldZ)).project(camera);return Math.hypot((parseFloat(pin.style.left)-(p.x+1)*50)*el.clientWidth/100,(parseFloat(pin.style.top)-(1-p.y)*50)*el.clientHeight/100)}))})()`);
  assert(pinError<1,`Pins must track the rendered camera: ${pinError}px`);
  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
  await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:200,y:250});
@@ -60,6 +61,18 @@ try{
  await wait(`Math.abs(JSON.parse(document.querySelector('canvas').dataset.deploymentCamera).x-${before.x})>1`);
  await touch(button('View all'));await wait(`Math.abs(JSON.parse(document.querySelector('canvas').dataset.deploymentCamera).x-${before.x})<.1`);
  const chosen=entries.at(-1);
+ // A press selects immediately, even if release happens away from the marker.
+ await send('Emulation.setTouchEmulationEnabled',{enabled:false});
+ const hit=await evaluate(`(()=>{const r=document.querySelector('[data-deployment-id="${chosen.id}"]').getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+ await send('Input.dispatchMouseEvent',{type:'mouseMoved',...hit});
+ const beforePress=await evaluate(`(()=>{const r=document.querySelector('[data-deployment-id="${chosen.id}"]').getBoundingClientRect();return{x:r.x,y:r.y}})()`);
+ await send('Input.dispatchMouseEvent',{type:'mousePressed',...hit,button:'left',clickCount:1});
+ assert.equal(await evaluate(`${game}.dataset.deploymentChoice`),chosen.id,'First press selects before mouse release');
+ const duringPress=await evaluate(`(()=>{const r=document.querySelector('[data-deployment-id="${chosen.id}"]').getBoundingClientRect();return{x:r.x,y:r.y}})()`);
+ assert(Math.hypot(duringPress.x-beforePress.x,duringPress.y-beforePress.y)<1,'Pressed-button styling must preserve the world anchor');
+ await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:20,y:200,button:'left',clickCount:1});
+ await send('Emulation.setTouchEmulationEnabled',{enabled:true});
+
  await touch(`document.querySelector('[data-deployment-id="${chosen.id}"]')`);
  await wait(`${game}.dataset.deploymentChoice===${JSON.stringify(chosen.id)}`);
  await wait(`Math.hypot(Number(${game}.dataset.playerX)-(${chosen.x}),Number(${game}.dataset.playerZ)-(${chosen.z}))<.1`);
