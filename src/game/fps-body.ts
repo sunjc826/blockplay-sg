@@ -28,10 +28,11 @@ const PLATE_COLORS: Record<string, string> = {
 };
 
 type ReserveContainer = 'magazine' | 'sniper-magazine' | 'pistol-magazine' | 'drum' | 'ammo-box';
+const SNIPER_POUCH_DEPTH = 1.25;
 const containerKind = (mag: RigMagazine): ReserveContainer => doubleStackMagazine(mag) ? 'sniper-magazine' : mag.feed === 'belt' ? 'ammo-box' : mag.feed === 'drum' ? 'drum' : mag.caliberMm === 9 ? 'pistol-magazine' : 'magazine';
 function positionMagazine(model: THREE.Group, kind: ReserveContainer, mag: RigMagazine, rear: boolean) {
   // Grow the pouch outward: its second magazine must not sink into the vest.
-  model.position.set(0, rear ? .012 : 0, kind === 'sniper-magazine' ? (rear ? -.04 : -.094) : 0);
+  model.position.set(0, rear ? .012 : 0, kind === 'sniper-magazine' ? (rear ? -.03 : -.062) : 0);
   model.scale.y = kind === 'sniper-magazine' ? 1 : (kind === 'pistol-magazine' ? .75 : 1) * Math.min(1.35, Math.max(.8, mag.capacity / (kind === 'pistol-magazine' ? 15 : kind === 'magazine' ? 30 : 100)));
 }
 interface ReserveSlot {
@@ -179,10 +180,10 @@ export function createFpsBody(scene: THREE.Scene) {
         rim.position.set(0, .04, -.043); model.add(rim);
         box(model, 'drum-feed-tower', .033, .039, .031, 0, .095, -.012, metal);
       } else if (kind === 'sniper-magazine') {
-        box(model, 'sniper-magazine-body', .062, .11, .042, 0, .035, 0, metal);
-        box(model, 'sniper-floorplate', .067, .009, .046, 0, -.024, 0, trim);
-        box(model, 'sniper-feed-lips', .055, .012, .044, 0, .095, 0, trim);
-        for (const x of [-.019, .019]) box(model, 'sniper-magazine-rib', .004, .075, .003, x, .035, -.022, trim);
+        box(model, 'sniper-magazine-body', .045, .11, .024, 0, .035, 0, metal);
+        box(model, 'sniper-floorplate', .049, .007, .028, 0, -.024, 0, trim);
+        box(model, 'sniper-feed-lips', .041, .01, .026, 0, .095, 0, trim);
+        for (const x of [-.014, .014]) box(model, 'sniper-magazine-rib', .003, .075, .002, x, .035, -.013, trim);
       } else {
         box(model, 'magazine-body', .065, .14, .038, 0, .035, 0, metal);
         box(model, 'feed-lips', .06, .013, .04, 0, .11, 0, trim);
@@ -266,20 +267,21 @@ export function createFpsBody(scene: THREE.Scene) {
         const bulky = kind === 'ammo-box' || kind === 'drum';
         // Only the fabric collapses. Magazine models and pouch roots stay put,
         // so the hand's source pose remains continuous during extraction.
-        if (mag) slot.fullDepth = kind === 'sniper-magazine' ? 1.9 : bulky ? 1.4 : 1;
+        if (mag) slot.fullDepth = kind === 'sniper-magazine' ? SNIPER_POUCH_DEPTH : bulky ? 1.4 : 1;
         const target = mag ? 1 : 0;
         slot.fullness = slot.fullness === undefined ? target : THREE.MathUtils.damp(slot.fullness, target, 22, Math.max(0, dt));
         if (Math.abs(slot.fullness - target) < .001) slot.fullness = target;
         const depth = THREE.MathUtils.lerp(.18, slot.fullDepth, slot.fullness);
         const height = THREE.MathUtils.lerp(.82, 1, slot.fullness);
-        slot.sleeve.scale.set(1, height, depth);
+        const width = slot.fullDepth === SNIPER_POUCH_DEPTH ? .76 : 1;
+        slot.sleeve.scale.set(width, height, depth);
         // Fold cloth back against the vest while its bottom edge stays anchored.
         slot.sleeve.position.z = THREE.MathUtils.lerp(.06, .03 * slot.fullDepth, slot.fullness) - .03 * depth;
-        if (slot.fullDepth === 1.9) slot.sleeve.position.z -= .067 * slot.fullness;
+        if (slot.fullDepth === SNIPER_POUCH_DEPTH) slot.sleeve.position.z -= .046 * slot.fullness;
         slot.sleeve.position.y = -.025 - .105 * (1 - height) / 2;
-        slot.band.scale.set(1, THREE.MathUtils.lerp(.6, 1, slot.fullness), depth);
+        slot.band.scale.set(width, THREE.MathUtils.lerp(.6, 1, slot.fullness), depth);
         slot.band.position.z = THREE.MathUtils.lerp(.06, -.003 + .033 * slot.fullDepth, slot.fullness) - .033 * depth;
-        if (slot.fullDepth === 1.9) slot.band.position.z -= .067 * slot.fullness;
+        if (slot.fullDepth === SNIPER_POUCH_DEPTH) slot.band.position.z -= .046 * slot.fullness;
         slot.band.position.y = .015 - .01 * (1 - slot.fullness);
         slot.band.rotation.x = .20 * (1 - slot.fullness);
         slot.root.userData.fullness = slot.fullness;
