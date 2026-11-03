@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { boundedRaycast } from './ray-bounds-tree';
 
 interface TriangleNode { box: THREE.Box3; left?: TriangleNode; right?: TriangleNode; mesh?: THREE.Mesh; faces?: number[] }
 /** Exact native Three hits, with a static triangle broadphase for dense ground meshes. */
@@ -27,8 +28,10 @@ export function accelerateMeshRaycast(mesh: THREE.Mesh) {
     return {box,left:build(faces.slice(0,half)),right:build(faces.slice(half))};
   };
   const root=build(boxes.map((_,i)=>i)),inverse=new THREE.Matrix4(),local=new THREE.Ray();
+  const indexedGeometry = mesh.geometry, indexedPosition = mesh.geometry.getAttribute('position');
+  const indexedVersion = 'version' in indexedPosition ? indexedPosition.version : indexedPosition.data.version;
   const previous=mesh.raycast;
-  mesh.raycast=(ray,hits)=>{
+  mesh.raycast=boundedRaycast((ray,hits)=>{
     inverse.copy(mesh.matrixWorld).invert();local.copy(ray.ray).applyMatrix4(inverse);
     const visit=(node:TriangleNode)=>{
       if(!local.intersectsBox(node.box))return;
@@ -39,6 +42,6 @@ export function accelerateMeshRaycast(mesh: THREE.Mesh) {
       } else {visit(node.left!);visit(node.right!);}
     };
     visit(root);
-  };
+  }, () => mesh.geometry === indexedGeometry && mesh.geometry.getAttribute('position') === indexedPosition && ('version' in indexedPosition ? indexedPosition.version : indexedPosition.data.version) === indexedVersion);
   return ()=>{mesh.raycast=previous;geometries.forEach(g=>g.dispose());};
 }

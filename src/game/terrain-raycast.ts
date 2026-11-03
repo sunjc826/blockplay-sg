@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { boundedRaycast, createRayBoundsTree, padRayBounds } from './ray-bounds-tree';
 
 /** Keep one rendered heightfield, but test rays against small exact triangle tiles. */
 export function accelerateTerrainRaycast(mesh: THREE.Mesh, columns: number, rows: number, tile = 16) {
@@ -37,9 +38,18 @@ export function accelerateTerrainRaycast(mesh: THREE.Mesh, columns: number, rows
     geometry.computeBoundingBox(); geometry.computeBoundingSphere();
     proxies.push({mesh:new THREE.Mesh(geometry,mesh.material),faces,vertex:local=>(z+Math.floor(local/width))*columns+x+local%width});
   }
+  const entries = proxies.map((proxy, order) => ({ proxy, order, box: padRayBounds(proxy.mesh.geometry.boundingBox!.clone()) }));
+  const tree = createRayBoundsTree(entries, 4), candidates: typeof entries = [];
+  const inverse = new THREE.Matrix4(), local = new THREE.Ray();
+  const indexedGeometry = mesh.geometry, indexedPosition = mesh.geometry.getAttribute('position');
+  const indexedVersion = 'version' in indexedPosition ? indexedPosition.version : indexedPosition.data.version;
   const previous = mesh.raycast;
-  mesh.raycast = (ray, hits) => {
-    for (const proxy of proxies) {
+  mesh.raycast = boundedRaycast((ray, hits) => {
+    inverse.copy(mesh.matrixWorld).invert(); local.copy(ray.ray).applyMatrix4(inverse);
+    candidates.length = 0; tree.query(local, candidates);
+    // Preserve equal-distance tile/triangle ordering, including boundary hits.
+    candidates.sort((a, b) => a.order - b.order);
+    for (const { proxy } of candidates) {
       proxy.mesh.matrixWorld.copy(mesh.matrixWorld);
       const first = hits.length;
       proxy.mesh.raycast(ray, hits);
@@ -48,6 +58,6 @@ export function accelerateTerrainRaycast(mesh: THREE.Mesh, columns: number, rows
         if(hit.face){hit.face.a=proxy.vertex(hit.face.a);hit.face.b=proxy.vertex(hit.face.b);hit.face.c=proxy.vertex(hit.face.c);}
       }
     }
-  };
+  }, () => mesh.geometry === indexedGeometry && mesh.geometry.getAttribute('position') === indexedPosition && ('version' in indexedPosition ? indexedPosition.version : indexedPosition.data.version) === indexedVersion);
   return () => { mesh.raycast = previous; proxies.forEach(p => p.mesh.geometry.dispose()); };
 }

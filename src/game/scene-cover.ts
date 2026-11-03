@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { firstVisibleHit } from './fps-raycast';
+import { createSceneRayIndex } from './scene-ray-index';
 
 /** Shared rendered cover for authority, sight, blasts and map audits. Movement
  * guard volumes deliberately do not participate: rays can pass between bars. */
 export function createSceneCover(scene: THREE.Scene, ignore?: (node: THREE.Object3D) => boolean) {
-  const ray = new THREE.Raycaster();
+  const ray = new THREE.Raycaster(), index = createSceneRayIndex();
   const origin = new THREE.Vector3(), direction = new THREE.Vector3();
   const surfaces: THREE.Mesh[] = [];
   let refreshedAt = -Infinity;
@@ -24,10 +25,11 @@ export function createSceneCover(scene: THREE.Scene, ignore?: (node: THREE.Objec
         node.children.forEach(collect);
       };
       scene.children.forEach(collect);
+      index.setObjects(surfaces);
     }
     ray.set(origin.set(from.x, from.y, from.z), direction.normalize()); ray.near = 0; ray.far = range;
     // Detached meshes can remain in the short-lived cache; never let them block.
-    return firstVisibleHit(ray, surfaces.filter(mesh => {
+    return firstVisibleHit(ray, index.candidates(ray).filter(mesh => {
       for (let node: THREE.Object3D | null = mesh; node; node = node.parent) {
         if (!node.visible) return false;
         if (node === scene) return true;

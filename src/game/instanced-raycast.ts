@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { boundedRaycast } from './ray-bounds-tree';
 
 /**
  * Faster rays through large instanced scenery. Three tests every instance of
@@ -136,7 +137,7 @@ export function accelerateInstancedRaycasts(root: THREE.Object3D) {
     const mesh = object as THREE.InstancedMesh;
     if (!mesh.isInstancedMesh || mesh.count < MIN_INSTANCES || mesh.userData.fpsEffect) return;
     if (mesh.instanceMatrix.usage !== THREE.StaticDrawUsage || mesh.raycast !== THREE.InstancedMesh.prototype.raycast) return;
-    mesh.raycast = raycastInstances; treeOf(mesh); accelerated++;
+    mesh.raycast = boundedRaycast(raycastInstances); treeOf(mesh); accelerated++;
   });
   return accelerated;
 }

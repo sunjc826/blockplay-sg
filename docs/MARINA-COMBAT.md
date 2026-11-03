@@ -279,6 +279,40 @@ not shipped. Tests cover constant query count across different infantry counts,
 reset, and rebuilding at the vehicle's newly moved position within the tick.
 
 
+### Scene and terrain ray indexing
+
+Shared simulation sight, cover and blast traces now use a scene-level bounds
+index before the existing mesh/instance raycasts. `scene-ray-index.ts` maintains
+private bounds and refits changed world transforms, geometry attributes and
+instance matrices/counts before each query. The existing 250 ms scene-membership
+refresh remains; visibility and detachment are checked per query. Candidate
+order is retained so equal-distance hits, glass and foliage rules stay the same.
+Unknown custom raycasts, recursive mesh roots, skinned/morphed meshes and dynamic
+vertex buffers use the original path. Static geometry accelerators explicitly
+opt into bounds pruning, and fall back if their source geometry changes.
+
+Terrain rays traverse a hierarchy of the existing exact triangle tiles rather
+than visiting every tile. Bounds are padded outward for transformed grazing
+rays; detailed tile raycasts still decide hits, near/far clipping, holes and
+original face identities. No new simplified collision surface is introduced.
+
+An unprofiled browser comparison of the production implementation, including
+its mutation checks, tested 6,847 identical live Queenstown queries and found **10.25% less query CPU with both indexes** (125.37
+→ 112.52 microseconds), with zero hit differences. Scene-only was 3.70% lower;
+terrain-only was 6.85% lower. Each query ran all four methods in rotating order,
+so these are controlled ray-cost measurements under extra validation load, not
+standalone frame-time or phone benchmarks. Query timing is test-only code.
+
+The preceding local Queenstown prototype compared 2,880 identical live queries
+in balanced order: scene indexing reduced query CPU about 11%, terrain indexing
+about 9%, and both about 17%. Two 32-bot rendered sessions stayed near 60 FPS;
+these results indicate CPU headroom, not an established FPS gain or mobile-device
+measurement. Whole-tick timings vary with battle activity. Production validation
+includes 51,750 exact hit comparisons over all 23 districts at three animation
+times, 432 old/new terrain edge cases, and regressions for moving bounds, instance
+updates, custom rays, hit order, visibility, glass, foliage and terrain holes.
+
+
 ### Merlion sculpture
 
 The central Merlion uses a dedicated procedural sculpture: a carved lion face
