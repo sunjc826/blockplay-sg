@@ -48,3 +48,35 @@ it('uses current polygon vertices when a dynamic footprint changes in place', ()
   for (const p of obstacle.footprint) p.x += 1;
   expect(overlapsObstacle(obstacle, 1.5, 0, .2)).toBe(true);
 });
+
+it('does not retain movement answers or returned states across calls and standalone queries', () => {
+  let ground = 0;
+  const movement = createVerticalMovement({ ...empty, bounds: { ...empty.bounds, groundHeight: () => ground } });
+  const state = { x: 0, y: 1, z: 0, velocityY: 0 }, extras: Obstacle[] = [];
+  const first = movement.move(state, .2, 0, .05, .38, 1.8, extras), saved = { ...first };
+  ground = 1;
+  expect(movement.supportHeight(0, 0, 1.1)).toBe(1);
+  const second = movement.move(state, .2, 0, .05, .38, 1.8, extras);
+  expect(second.grounded).toBe(true); expect(second).not.toBe(first); expect(first).toEqual(saved);
+  extras.push({ minX: -.5, maxX: .5, minZ: -.5, maxZ: .5, minY: 1, maxY: 3 });
+  expect(movement.canOccupy(0, 1, 0, .38, 1.8, extras)).toBe(false);
+  extras.length = 0;
+  expect(movement.canOccupy(0, 1, 0, .38, 1.8, extras)).toBe(true);
+});
+
+it('clears its query scope after exceptions and nested movement calls', () => {
+  let fail = true, nested = false, invokeNested = false;
+  let movement: ReturnType<typeof createVerticalMovement>;
+  const world = { ...empty, bounds: { ...empty.bounds, groundHeight: () => {
+    if (fail) throw Error('sampler failed');
+    if (invokeNested && !nested) { nested = true; movement.move({ x: 20, y: 0, z: 20, velocityY: 0 }, .1, 0, .05); nested = false; }
+    return 0;
+  } } };
+  movement = createVerticalMovement(world);
+  const state = { x: 0, y: 0, z: 0, velocityY: 0 };
+  expect(() => movement.move(state, .2, 0, .05)).toThrow('sampler failed');
+  fail = false;
+  const expected = movement.move(state, .2, 0, .05);
+  invokeNested = true; expect(movement.move(state, .2, 0, .05)).toEqual(expected);
+  invokeNested = false; expect(movement.move(state, .2, 0, .05)).toEqual(expected);
+});

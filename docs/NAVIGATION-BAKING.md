@@ -134,3 +134,28 @@ changing platform/headroom, and polygon vertices changed in place.
 A separate mixed-radius Queenstown movement-query benchmark (six alternating
 batches per version, 9,600 calls per batch) averaged 4,054 ms before and 3,752 ms after,
 about 7.5% less time. This is not a whole-game or mobile FPS measurement.
+
+
+### Reuse inside one movement call
+
+`canOccupy` and `supportHeight` reuse their most recent identical query during
+one synchronous `move` call. The key includes position, height limit/body size
+and dynamic-obstacle list. Terrain sampling and geometry stay stable during the
+call; the cache is invalidated at both boundaries, including exceptions and
+nested calls. Standalone queries and later movement calls read current geometry.
+Movement results remain newly owned objects, so paused route generators cannot
+have their saved state overwritten by another actor.
+
+Vehicle physics constructs ground lists only for driving, and flight lists only
+for flying or wreck support. Per-vehicle buffers retain authored static entries
+and refresh other vehicles in simulation order. Authored source lists keep stable
+membership (replace the list to replace geometry); changes to objects remain live.
+Fallback flight obstacles are copied from current source fields on each query.
+Infantry also shares its combined vehicle/lift list for the existing tick lifetime.
+
+The preceding four-seed Queenstown experiments found roughly 2% lower simulation
+CPU for movement-query/list reuse and 3.6% for vehicle buffer reuse plus skipping
+unused lists. These are separate measurements and should not be added together.
+The focused identical movement corpus improved about 40%; neither figure is an
+FPS or physical-mobile claim. Small scratch-array pooling showed no meaningful
+benefit and is not included.

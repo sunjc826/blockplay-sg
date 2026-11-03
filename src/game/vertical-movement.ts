@@ -35,14 +35,14 @@ export function createVerticalMovement(world: VerticalWorld) {
   const topsAt = bucket([...world.obstacles, ...world.traversalObstacles].filter(o => o.supportsTop && !o.water && Number.isFinite(o.maxY)));
   const overlap = (o: Obstacle, x: number, z: number, r: number) => overlapsObstacle(o, x, z, r, EPS);
   const contains = surfaceContains;
-  const canOccupy = (x: number, y: number, z: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = EMPTY_OBSTACLES) => {
+  const rawCanOccupy = (x: number, y: number, z: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = EMPTY_OBSTACLES) => {
     if (!withinBounds(world.bounds, x, z, radius) || y < (world.bounds.groundHeight?.(x,z) ?? 0) - EPS) return false;
     const blocks = (o: Obstacle) => overlap(o, x, z, radius) && y < (o.maxY ?? Infinity) - EPS && y + height > (o.minY ?? 0) + EPS;
     if (baseAt(x, z, radius).some(blocks) || extra.some(blocks)) return false;
     if (surfacesAt(x, z, radius).some(s => { const roof = surfaceHeight(s, x, z); return contains(s, x, z) && roof > y + EPS && (s.solidBelow || roof < y + height - EPS); })) return false;
     return !traversalAt(x, z, radius).some(o => overlap(o, x, z, radius) && y < o.maxY - EPS && y + height > o.minY + EPS);
   };
-  const supportHeight = (x: number, z: number, maxY: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = EMPTY_OBSTACLES): number | null => {
+  const rawSupportHeight = (x: number, z: number, maxY: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = EMPTY_OBSTACLES): number | null => {
     const ground = world.bounds.groundHeight?.(x,z) ?? 0;
     let best: number | null = maxY >= ground-EPS && canOccupy(x, ground, z, radius, height, extra) ? ground : null;
     for (const s of surfacesAt(x, z, radius)) {
@@ -62,7 +62,37 @@ export function createVerticalMovement(world: VerticalWorld) {
     }
     return best;
   };
+
+  // One-entry caches exist only inside a synchronous move. Static geometry and
+  // terrain samplers are stable during that call; changing extras are re-read on
+  // the next call. Standalone queries never reuse an earlier movement answer.
+  let queryEpoch = 0, moveDepth = 0;
+  let occupyEpoch = -1, occupyX = 0, occupyY = 0, occupyZ = 0, occupyRadius = 0, occupyHeight = 0;
+  let occupyExtra: readonly Obstacle[] = EMPTY_OBSTACLES, occupied = false;
+  const canOccupy = (x: number, y: number, z: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = EMPTY_OBSTACLES) => {
+    if (moveDepth === 1 && occupyEpoch === queryEpoch && x === occupyX && y === occupyY && z === occupyZ && radius === occupyRadius && height === occupyHeight && extra === occupyExtra) return occupied;
+    const value = rawCanOccupy(x, y, z, radius, height, extra);
+    if (moveDepth === 1) { occupyEpoch = queryEpoch; occupyX = x; occupyY = y; occupyZ = z; occupyRadius = radius; occupyHeight = height; occupyExtra = extra; occupied = value; }
+    return value;
+  };
+  let supportEpoch = -1, supportX = 0, supportZ = 0, supportMaxY = 0, supportRadius = 0, supportBodyHeight = 0;
+  let supportExtra: readonly Obstacle[] = EMPTY_OBSTACLES, supported: number | null = null;
+  const supportHeight = (x: number, z: number, maxY: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = EMPTY_OBSTACLES) => {
+    if (moveDepth === 1 && supportEpoch === queryEpoch && x === supportX && z === supportZ && maxY === supportMaxY && radius === supportRadius && height === supportBodyHeight && extra === supportExtra) return supported;
+    const value = rawSupportHeight(x, z, maxY, radius, height, extra);
+    if (moveDepth === 1) { supportEpoch = queryEpoch; supportX = x; supportZ = z; supportMaxY = maxY; supportRadius = radius; supportBodyHeight = height; supportExtra = extra; supported = value; }
+    return value;
+  };
   function move(state: VerticalState, dx: number, dz: number, dt: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = EMPTY_OBSTACLES, gravity = DEFAULT_GRAVITY) {
+    queryEpoch++; moveDepth++;
+    try { return rawMove(state, dx, dz, dt, radius, height, extra, gravity); }
+    finally {
+      // Invalidate on exceptions and nested calls too. Returned states are owned
+      // by the caller (navigation generators can retain them between frames).
+      moveDepth--; queryEpoch++; occupyExtra = supportExtra = EMPTY_OBSTACLES;
+    }
+  }
+  function rawMove(state: VerticalState, dx: number, dz: number, dt: number, radius = .38, height = 1.8, extra: readonly Obstacle[] = EMPTY_OBSTACLES, gravity = DEFAULT_GRAVITY) {
     let { x, y, z, velocityY } = state;
     // A grounded waiting soldier does not need six identical gravity/collision
     // substeps per host tick. Recheck support so moving cover is still respected.

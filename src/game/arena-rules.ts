@@ -1,3 +1,4 @@
+import { createVehicleCollisionBuffers } from './vehicle-collision-buffers';
 import { refillAmmo } from './ammo-refill';
 import { insideLift, liftBodies, liftDeparture, liftSample } from './building-lifts';
 import { BOAT_AI, BOAT_BERTHS, BOAT_FOOT_ANCHORS, boatAutopilot, planBoatRoute, type BoatRoute, type BoatPoint } from './dragon-boat-autopilot';
@@ -3027,22 +3028,21 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       }
     }
   }
+  const vehicleCollisions = createVehicleCollisionBuffers(vehicleGround, obstacles);
   function stepVehicles(dt: number) {
     for (const v of vehicles) {
       if (v.despawned) continue;
       v.weaponCooldown = Math.max(0, v.weaponCooldown - dt);
       const held = (id: string | null) => id && (controls.get(id)?.expires ?? 0) > elapsed ? controls.get(id)!.input : undefined;
       const drive = held(v.occupants[0]);
-      const ground = [...vehicleGround, ...vehicles.filter(other => !other.despawned && other !== v && other.y < 2).map(vehicleBounds)];
-      const flight = [...(vehicleOptions?.flightObstacles ?? obstacles.map(o => ({ ...o, minY: 0, maxY: o.maxY ?? 2.5 }))), ...vehicles.filter(other => !other.despawned && other !== v).map(other => ({ ...vehicleBounds(other), minY: other.y, maxY: other.y + 2.7 }))];
       if (v.health <= 0) {
         if(isDragonBoat(v.kind)) continue;
-        const support = flight.filter(o => o.maxY <= v.y && v.x >= o.minX && v.x <= o.maxX && v.z >= o.minZ && v.z <= o.maxZ).reduce((y, o) => Math.max(y, o.maxY), .13);
+        const support = vehicleCollisions.flight(v, vehicles, vehicleOptions?.flightObstacles).filter(o => o.maxY <= v.y && v.x >= o.minX && v.x <= o.maxX && v.z >= o.minZ && v.z <= o.maxZ).reduce((y, o) => Math.max(y, o.maxY), .13);
         v.climb -= 9.8 * dt; v.y = Math.max(support, v.y + v.climb * dt); if (v.y === support) v.climb = 0; continue;
       }
       // Substeps keep vehicle physics advancing at wall-clock speed with slow hosts.
-      const result = isDragonBoat(v.kind) ? paddleVehicle(v,drive?.forward??0,drive?.steer??0,drive?.brake??!!lifeOf(v).unload,dt,v.occupants.slice(1).filter(Boolean).length,vehicles.filter(other=>!other.despawned&&other!==v).map(vehicleBounds)) : v.kind === 'car' ? driveVehicle(v, drive?.forward ?? 0, drive?.steer ?? 0, drive?.brake ?? !drive, dt, ground, bounds)
-        : flyVehicle(v, drive?.forward ?? 0, drive?.steer ?? 0, drive?.lift ?? (vehicleOptions?.openWorld && lifeOf(v).unload && v.y > .13 ? -1 : 0), drive?.boost ?? false, dt, flight, bounds);
+      const result = isDragonBoat(v.kind) ? paddleVehicle(v,drive?.forward??0,drive?.steer??0,drive?.brake??!!lifeOf(v).unload,dt,v.occupants.slice(1).filter(Boolean).length,vehicles.filter(other=>!other.despawned&&other!==v).map(vehicleBounds)) : v.kind === 'car' ? driveVehicle(v, drive?.forward ?? 0, drive?.steer ?? 0, drive?.brake ?? !drive, dt, vehicleCollisions.ground(v, vehicles), bounds)
+        : flyVehicle(v, drive?.forward ?? 0, drive?.steer ?? 0, drive?.lift ?? (vehicleOptions?.openWorld && lifeOf(v).unload && v.y > .13 ? -1 : 0), drive?.boost ?? false, dt, vehicleCollisions.flight(v, vehicles, vehicleOptions?.flightObstacles), bounds);
       Object.assign(v, result.state);
       const collisionDamage = vehicleCollisionDamage(result.impactSpeed);
       if (collisionDamage > 0) damageHull(v, collisionDamage);
@@ -3090,7 +3090,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   // Vehicles finish moving before infantry is stepped. Every bot observes the
   // same hulls for this tick; casting down through the district per bot repeats
   // identical terrain/roof queries thousands of times a second at larger rosters.
-  let botVehicleGeometry: { movement: Obstacle[]; navigation: Obstacle[] } | undefined;
+  let botVehicleGeometry: { movement: Obstacle[]; navigation: Obstacle[]; walking?: Obstacle[]; lifts?: readonly Obstacle[] } | undefined;
   function botVehicleObstacles() {
     if (!botVehicleGeometry) {
       const grounded=vehicles.filter(v=>!v.despawned && v.y-groundHeight(v.x,v.z)<2);
@@ -3098,6 +3098,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         navigation:grounded.map(v=>({...vehicleBounds(v),minY:v.y,maxY:v.y+3}))};
     }
     return botVehicleGeometry;
+  }
+  // Hulls and lift bodies already have a tick lifetime. Share their combined
+  // infantry list too; it is discarded with the hull snapshot or changed lifts.
+  function botMovementObstacles() {
+    const geometry = botVehicleObstacles(), lifts = liveLiftBodies();
+    if (!geometry.walking || geometry.lifts !== lifts) { geometry.walking = [...geometry.movement, ...lifts]; geometry.lifts = lifts; }
+    return geometry.walking;
   }
   interface AircraftTarget { id: string; point: ArenaPoint; velocity: ArenaPoint }
   /** Heavy gunners identify the hull itself, including raids with no exposed target soldier. */
@@ -3340,7 +3347,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (exit) { dxStep = exit.x * role.speed * 1.3 * dt; dzStep = exit.z * role.speed * 1.3 * dt; }
     if (exit && !entry.barkFleeing) bark(entry, 'incoming');
     entry.barkFleeing = !!exit;
-    const vehicleSolids = [...botVehicleObstacles().movement,...liveLiftBodies()];
+    const vehicleSolids = botMovementObstacles();
     const beforeMove={x:actor.x,z:actor.z};
     if (riding) { dxStep=0; dzStep=0; }
     else if (entry.anchor) Object.assign(actor, { x: entry.anchor.x, z: entry.anchor.z });
