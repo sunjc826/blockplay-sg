@@ -26,9 +26,13 @@ export function overlapsObstacleRect(o: Obstacle, x: number, z: number, halfX: n
   for (let i = 0; i < o.footprint.length; i++) {
     const a = o.footprint[i], b = o.footprint[(i+1)%o.footprint.length];
     const nx = a.z-b.z, nz = b.x-a.x, norm = Math.hypot(nx,nz);
-    const projections = o.footprint.map(p => p.x*nx+p.z*nz);
+    let low = Infinity, high = -Infinity;
+    for (const p of o.footprint) {
+      const projection = p.x*nx+p.z*nz;
+      low = Math.min(low, projection); high = Math.max(high, projection);
+    }
     const center = x*nx+z*nz, extent = halfX*Math.abs(nx)+halfZ*Math.abs(nz);
-    if (center+extent <= Math.min(...projections)+epsilon*norm || center-extent >= Math.max(...projections)-epsilon*norm) return false;
+    if (center+extent <= low+epsilon*norm || center-extent >= high-epsilon*norm) return false;
   }
   return true;
 }

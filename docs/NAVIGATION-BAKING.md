@@ -108,3 +108,29 @@ with its own lazy fallback; do not combine percentages with the earlier audit.
 All baked trials used 3,616 cached nodes and performed zero static connection
 validations. Combat trajectories can differ because planning is scheduled by
 wall-clock budget. This does not establish a browser or mobile FPS gain.
+
+
+## Repeated movement checks
+
+The follow-up movement optimization reuses the last padded static grid cell's
+candidate list, avoiding repeated string-key creation and map lookups. Crossing
+a cell boundary refreshes the list; oversized bodies still use the full static
+list. It does not cache collision or floor-support answers. Dynamic vehicle and
+lift bodies remain inputs to each query, including when the actor is stationary.
+Static movement data is still rebuilt when authored geometry is installed, as
+before (for example, after range props load).
+
+Support and jumping checks iterate static/dynamic lists in their original order
+without concatenating them. Polygon overlap computes projection extrema directly
+without allocating an array for each separating axis. Step sizes, tolerances,
+axis order, gravity and overlap mathematics are unchanged.
+
+A differential harness ran 132,480 old/new occupancy, support and movement
+comparisons across 23 districts, including changing dynamic bodies, multiple body
+radii and tick sizes: every result matched exactly. All 23 rebaked navigation
+graphs, including their keys, also matched the previous outputs exactly.
+Four regression cases cover grid boundaries/oversized bodies, a moving vehicle,
+changing platform/headroom, and polygon vertices changed in place.
+A separate mixed-radius Queenstown movement-query benchmark (six alternating
+batches per version, 9,600 calls per batch) averaged 4,054 ms before and 3,752 ms after,
+about 7.5% less time. This is not a whole-game or mobile FPS measurement.
