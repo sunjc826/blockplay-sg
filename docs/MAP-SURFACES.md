@@ -59,3 +59,26 @@ district plus glancing views in Sentosa, Yishun, Changi and Queenstown), browser
 reports and validation logs. Both render runs had no JavaScript errors or Google
 requests. Night-window, ground/rain/vehicle support, actual mesh ownership and
 batching regressions are covered by the relevant test suites.
+
+## Aerial camera depth precision
+
+The deployment/respawn overview originally retained the walking camera's 0.08 m
+near plane while viewing the district from roughly 1–2.5 km away. Perspective
+depth precision falls with the square of view distance: millimetre-scale paving
+and paint layers could collapse onto the same depth value despite having distinct
+geometry. The older district-review fixture used a 5 m aerial near plane and
+therefore did not reproduce the game's much worse precision.
+
+`overviewFrame` now supplies a near plane at half the camera's clearance above
+the highest district obstacle. The descent uses the same calculation, returning
+to 0.08 m below the roof envelope; regular play resets to 0.08 m on every camera
+update. The foreground weapon has its own camera. Roof clearance tests cover
+all 23 districts, viewport shapes, zoom levels, cursor angles and pan limits.
+
+`scripts/fixtures/aerial-depth.html` compares the same actual district geometry
+with either near plane and includes a GPU calibration: a 5 mm blue layer above
+a red substrate at the portrait overview's distance. Run
+`node scripts/aerial-depth-smoke.mjs` with Vite on 5282 and isolated Chrome remote
+debugging on 9442 (override with `DEPTH_APP_ORIGIN` / `DEPTH_CHROME_ORIGIN`).
+This checks the depth failure and correction independently of the coplanar
+geometry audit.

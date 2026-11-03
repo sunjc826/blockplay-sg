@@ -6,6 +6,13 @@ export interface DeploymentMarker { id: string; x: number; y: number; visible: b
 
 // A long lens keeps towers composed; a small oblique angle reveals their sides.
 export const OVERVIEW_FOV = 38;
+export const WORLD_CAMERA_NEAR = .08;
+/** Spend depth precision on the district, rather than the empty air ahead of
+ * an aerial camera. Half the clearance leaves roofs safely beyond the near
+ * plane, including the oblique frustum; return to close detail below the roofs. */
+export function aerialNearPlane(height: number, highest: number) {
+  return Math.max(WORLD_CAMERA_NEAR, (height - highest) / 2);
+}
 export interface OverviewLook { x: number; y: number }
 const neutral = { x: 0, y: 0 };
 const angles = (look: OverviewLook) => ({ tilt: THREE.MathUtils.degToRad(22 + look.y * 1.5), yaw: THREE.MathUtils.degToRad(look.x * 2) });
@@ -39,11 +46,13 @@ export function overviewFrame(bounds: RegionBounds, width: number, height: numbe
   distance = Math.max(highest + 100, distance / zoom);
   const { tilt, yaw } = angles(look), st = Math.sin(tilt), ct = Math.cos(tilt), sy = Math.sin(yaw), cy = Math.cos(yaw);
   const metresPerPixel = distance * pixel;
+  const cameraHeight = distance * (ct + shiftUp * st);
   return {
     x: (bounds.minX + bounds.maxX) / 2 + pan.x + distance * (sy * st + shiftX * cy - shiftUp * sy * ct),
-    y: distance * (ct + shiftUp * st),
+    y: cameraHeight,
     z: (bounds.minZ + bounds.maxZ) / 2 + pan.z + distance * (cy * st - shiftX * sy - shiftUp * cy * ct),
     pitch: -Math.PI / 2 + tilt, yaw, fov: OVERVIEW_FOV,
+    near: aerialNearPlane(cameraHeight, highest),
     far: distance + highest + Math.hypot(halfX, halfZ) + 800, metresPerPixel,
   };
 }

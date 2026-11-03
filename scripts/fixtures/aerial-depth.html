@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Aerial depth precision review</title><style>html,body{margin:0;overflow:hidden}</style></head><body><script type="module">
+import * as THREE from 'three';
+import { getRegion } from '/src/game/regions.ts';
+import { overviewFrame } from '/src/game/deployment-overview.ts';
+const renderer = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
+renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.append(renderer.domElement);
+let world, region;
+const camera = new THREE.PerspectiveCamera();
+function pose(frame, near, width = innerWidth, height = innerHeight) {
+  camera.aspect = width / height; camera.fov = frame.fov; camera.near = near; camera.far = frame.far;
+  camera.position.set(frame.x,frame.y,frame.z); camera.rotation.set(frame.pitch,frame.yaw,0,'YXZ');
+  camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
+}
+window.review = {
+  render(id, near, zoom = 1) {
+    if (region?.id !== id) {world?.dispose();renderer.renderLists.dispose();region=getRegion(id);world=region.build();}
+    const highest=world.obstacles.reduce((h,o)=>Math.max(h,o.maxY??12),80);
+    const frame=overviewFrame(region.bounds,innerWidth,innerHeight,highest,zoom);
+    pose(frame,near ?? frame.near);
+    world.scene.fog=null;world.car.visible=false;world.stamps.forEach(s=>s.visible=false);world.animate(0);
+    renderer.render(world.scene,camera);
+    return {frame, near:camera.near, highest, depthBits:renderer.getContext().getParameter(renderer.getContext().DEPTH_BITS)};
+  },
+  // A 5 mm paint layer over a different colour substrate, at the real aerial
+  // distance. Every pixel should belong to the upper (blue) surface.
+  calibration(near) {
+    const scene=new THREE.Scene(), geometry=new THREE.PlaneGeometry(20000,20000);
+    const topMaterial=new THREE.MeshBasicMaterial({color:0x0000ff}),baseMaterial=new THREE.MeshBasicMaterial({color:0xff0000});
+    for (const [y,material] of [[.005,topMaterial],[0,baseMaterial]]) {
+      const mesh=new THREE.Mesh(geometry,material);mesh.rotation.x=-Math.PI/2;mesh.position.y=y;scene.add(mesh);
+    }
+    const frame=overviewFrame({minX:-260,maxX:260,minZ:-212,maxZ:212},390,844,180);
+    pose(frame,near ?? frame.near,390,844);
+    const target=new THREE.WebGLRenderTarget(192,256),pixels=new Uint8Array(192*256*4);
+    renderer.setRenderTarget(target);renderer.render(scene,camera);renderer.readRenderTargetPixels(target,0,0,192,256,pixels);renderer.setRenderTarget(null);
+    let wrong=0;for(let i=0;i<pixels.length;i+=4)if(pixels[i]>pixels[i+2])wrong++;
+    target.dispose();geometry.dispose();topMaterial.dispose();baseMaterial.dispose();
+    return {near:camera.near,wrong,total:pixels.length/4,height:frame.y};
+  },
+};
+window.ready=true;
+</script></body></html>

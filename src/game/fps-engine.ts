@@ -22,7 +22,7 @@ import { createRangeResupply, rangeResupplyPoint, rangeResupplyObstacle } from '
 import { combatFeedReward, type RaiderBounty } from './combat-rewards';
 import { WEATHER } from './world-events';
 import { createDeploymentBlur } from './deployment-blur';
-import { createDeploymentOverview, deploymentMarkers, overviewFrame, overviewPanDelta } from './deployment-overview';
+import { aerialNearPlane, createDeploymentOverview, deploymentMarkers, overviewFrame, overviewPanDelta, WORLD_CAMERA_NEAR } from './deployment-overview';
 import { createDeploymentIntro } from './deployment-intro';
 import { visionMountPose } from './fps-vision-mount';
 import type { PlayerRespawnView } from './player-respawn';
@@ -432,7 +432,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let vehicleView: 'first-person' | 'third-person' = checkpoint?.vehicleTravel?.view ?? 'third-person';
   let restoreVehicleLook = !!checkpoint?.vehicleTravel?.crew;
   const firstPersonVehicle = () => vehicleView === 'first-person' || ads || touchAim;
-  const camera = new THREE.PerspectiveCamera(65, 1, 0.08, 800); camera.rotation.order = 'YXZ';
+  const camera = new THREE.PerspectiveCamera(65, 1, WORLD_CAMERA_NEAR, 800); camera.rotation.order = 'YXZ';
   const occlusion = createWorldOcclusion(renderer, world.scene, camera);
   const viewScene = new THREE.Scene(), viewCamera = new THREE.PerspectiveCamera(65, 1, 0.01, 3);
   // Night vision and thermal (N, J for the palette): it draws over every pass below.
@@ -2006,7 +2006,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     canvas.dataset.inspectProgress = inspectElapsed === null ? '' : (inspectElapsed / INSPECT_DURATION).toFixed(3);
     playerBody.root.visible = false;
-    camera.far = 800; overview.update(overviewActive(), respawnOverviewActive() ? hud.respawn?.selected ?? '' : deploymentChoice, overviewPoints());
+    camera.near = WORLD_CAMERA_NEAR; camera.far = 800; overview.update(overviewActive(), respawnOverviewActive() ? hud.respawn?.selected ?? '' : deploymentChoice, overviewPoints());
     if (overviewActive()) {
       // Freeze cursor motion while grabbing the map; touch and reduced motion
       // always use the composed, neutral angle. Damping uses real frame time.
@@ -2016,12 +2016,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         overviewLook.y = THREE.MathUtils.damp(overviewLook.y, overviewCursor.y, 5, dt);
       }
       const view = overviewView();
-      camera.position.set(view.x, view.y, view.z); camera.rotation.set(view.pitch, view.yaw, 0, 'YXZ'); camera.fov = view.fov; camera.far = view.far;
+      camera.position.set(view.x, view.y, view.z); camera.rotation.set(view.pitch, view.yaw, 0, 'YXZ'); camera.fov = view.fov; camera.near = view.near; camera.far = view.far;
       camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
       actualAim = false; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0); grenadeHands.update(null, 0, 0);
       canvas.dataset.weaponVisible = 'false'; canvas.dataset.deploymentIntro = ''; canvas.dataset.readyAction = '';
       canvas.dataset.deploymentOverview = 'true';
-      canvas.dataset.deploymentCamera = JSON.stringify({ x: view.x, y: view.y, z: view.z, pitch: view.pitch, yaw: view.yaw, fov: view.fov, ready: null, speed: 0, blur: 0 });
+      canvas.dataset.deploymentCamera = JSON.stringify({ x: view.x, y: view.y, z: view.z, pitch: view.pitch, yaw: view.yaw, fov: view.fov, near: camera.near, far: camera.far, ready: null, speed: 0, blur: 0 });
       // Keep pins locked to the world between the slower React HUD snapshots.
       const pins = overviewSurface.querySelectorAll<HTMLElement>('[data-deployment-id]');
       if (pins.length) for (const marker of deploymentMarkers(overviewPoints(), camera)) {
@@ -2099,6 +2099,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const readyProgress = intro?.weaponVisible ? intro.ready : undefined;
     if (intro) {
       camera.position.set(position.x + intro.x, intro.height, position.z + intro.z); camera.rotation.set(intro.pitch, yaw + intro.yaw, 0, 'YXZ'); camera.fov = intro.fov; camera.far = Math.max(800, intro.height + 400);
+      camera.near = aerialNearPlane(intro.height, overviewHighest);
       camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
       rig.visible = intro.weaponVisible; playerBody.root.visible = false;
       if (hud.phase === 'deploying' && readyProgress !== undefined) {
@@ -2107,7 +2108,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       }
     }
     canvas.dataset.deploymentIntro = hud.phase === 'deploying' ? intro?.stage ?? '' : '';
-    canvas.dataset.deploymentCamera = JSON.stringify({ x: camera.position.x, y: camera.position.y, z: camera.position.z, pitch: camera.rotation.x, yaw: camera.rotation.y, fov: camera.fov, ready: readyProgress ?? null, speed: intro?.speed ?? 0, blur: intro?.blur ?? 0 });
+    canvas.dataset.deploymentCamera = JSON.stringify({ x: camera.position.x, y: camera.position.y, z: camera.position.z, pitch: camera.rotation.x, yaw: camera.rotation.y, fov: camera.fov, near: camera.near, far: camera.far, ready: readyProgress ?? null, speed: intro?.speed ?? 0, blur: intro?.blur ?? 0 });
     const progress = remaining > 0 ? 1 - remaining : null;
     const beltProgress = progress ?? (specs[hud.weapon].feed === 'belt' ? state.reloadSaved ?? 0 : 0);
     const motion = readyProgress === undefined
