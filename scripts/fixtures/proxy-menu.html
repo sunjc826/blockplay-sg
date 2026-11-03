@@ -1,0 +1,36 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Crate mouse controls</title>
+<style>html,body,#stage{margin:0;width:100%;height:100%;overflow:hidden}#world,#overlay{position:absolute;inset:0}#overlay{pointer-events:none}#enter{position:absolute;right:16px;bottom:16px;z-index:30;padding:16px}#overlay>.fps-overlay{pointer-events:auto;z-index:50}</style>
+<div id="stage" class="fps-game expedition-game"><div id="world"></div><div id="overlay"></div><button id="enter">Enter expedition</button></div>
+<script type="module">
+import React from 'react';import {createRoot} from 'react-dom/client';
+import '/src/styles.css';import '/src/components/expedition.css';
+import ProxyOperationHud from '/src/components/ProxyOperationHud.tsx';
+import FpsHudLayout from '/src/components/FpsHudLayout.tsx';
+import {createFpsEngine} from '/src/game/fps-engine.ts';
+import {createProfile} from '/src/game/armory-state.ts';
+import {createExpeditionLoot} from '/src/game/expedition-loot.ts';
+import {buildDistrictWorld} from '/src/game/district-world.ts';
+import {getPhysicalWalkSurfaces,getTraversalObstacles} from '/src/game/vertical-routes.ts';
+import {createVerticalNavigator} from '/src/game/vertical-navigation.ts';
+const root=createRoot(document.querySelector('#overlay')),world=buildDistrictWorld('queenstown');
+const navigator=createVerticalNavigator({bounds:world.bounds,obstacles:world.obstacles,surfaces:getPhysicalWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene)},world.environment.navigationAnchors);
+const button=document.querySelector('#enter');
+window.engine=createFpsEngine(document.querySelector('#world'),hud=>{
+ window.hud=hud;button.hidden=hud.phase==='playing';button.textContent=hud.phase==='paused'?'Resume expedition':'Enter expedition';
+ root.render(React.createElement(FpsHudLayout,{hud},React.createElement(ProxyOperationHud,{hud,engine:window.engine??null})));
+},{region:'queenstown',expedition:{zone:'queenstown',spawn:{x:-18,z:83,yaw:0,pitch:0},profile:createProfile(),loot:createExpeditionLoot('crate-menu-review'),onTravel(){},onEquipment(){},onVendorPurchase(){return{ok:false,message:'Fixture'};}}});
+button.onclick=()=>{engine.configureDebug({combatEvents:false,healthMultiplier:10,regeneration:true});engine.start();};
+window.walkToCargo=()=>{
+ const op=hud.arena?.proxies?.operation;if(!op)throw Error('No crate');
+ const from={x:hud.x,y:hud.arenaSelf.y-1.75,z:hud.z};
+ const route=navigator.route(from,op.at);if(!route.length)throw Error('No walking route to crate');
+ window.walkRoute=route;
+ const timer=setInterval(()=>{
+  while(route.length&&Math.hypot(route[0].x-hud.x,route[0].z-hud.z)<.65)route.shift();
+  if(Math.hypot(op.at.x-hud.x,op.at.z-hud.z)<2.7){clearInterval(timer);engine.setMoveAxis(null);window.arrived=true;return;}
+  const goal=route[0]??op.at,dx=goal.x-hud.x,dz=goal.z-hud.z,d=Math.max(.001,Math.hypot(dx,dz));
+  const heading=Math.atan2(-dx,-dz),turn=Math.atan2(Math.sin(hud.yaw-heading),Math.cos(hud.yaw-heading));
+  engine.lookBy(turn/(.0023*2.6),0);engine.setMoveAxis({x:0,y:1,magnitude:1});
+ },40);
+};
+</script>

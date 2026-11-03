@@ -15,6 +15,7 @@ it('discloses all tradeoffs before the cargo decision, including tracker attribu
  expect(html).toContain('Choose the prototype&#x27;s fate');expect(html).toContain('Return to Freedom Force');expect(html).toContain('Hand over to Collective Corps');
  expect(html).toMatch(/Soft Power|Hard Power|Smart Power|Peace Offering|M200 Intervention/); expect(html).not.toContain('SAR 21');
  expect(html).toContain('Keep the Mythic upgrade');expect(html).toContain('Carry to the Armed Forces');expect(html).toContain('for this life');expect(html).toContain('The tracker identifies');expect(html).toContain('battle continues');
+ expect(html).toContain('Leave crate untouched');expect(html).toContain('without taking anything or changing favor');
 });
 it('cannot offer a dead cell as a handover recipient',()=>{
  const h=hud();for(const a of h.arena.actors)if(a.faction==='collective-cops')a.alive=false;

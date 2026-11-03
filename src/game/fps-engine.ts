@@ -722,7 +722,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     const proxy = hud.arena?.proxies?.operation;
     hud.proxyReach = !!proxy && proxy.phase === 'contested' && proxy.cargo === 'sealed' && !proxy.decision && !vehicles.active && hud.arenaSelf?.alive === true && Math.hypot(proxy.at.x-position.x,proxy.at.z-position.z)<=4 && Math.abs(proxy.at.y-vertical)<2;
-    if (!hud.proxyReach || hud.phase !== 'playing') hud.proxyMenu=false;
+    if (hud.proxyMenu && (!hud.proxyReach || hud.phase !== 'playing')) { closeProxyMenu(false); return; }
     onHud({ ...hud, swimming:swimming(),swimCanFire:!swimming()||swimmingCanFire(hud.weapon,carry.length()), ...(options.tutorial ? { tutorial: { feet: vertical, grounded: grounded(), stance: stance(), sprinting: wasSprinting } } : {}), vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: physicalWeaponFamilies(equipment.carriedFamilies), carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(liftNotice()?{vehicleNotice:liftNotice()}:{}), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, spareMagazines: spareMagazines(state), magazineCapacity: magazineCapacity(state, specs[hud.weapon]), reloadCapacity: state.pendingMagazine?.capacity ?? state.magazineInventory?.slots[state.reloadSlot ?? nextMagazineSlot(state)]?.capacity ?? magazineCapacity(state, specs[hud.weapon]), reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapContactRange, mapMarkers: [
         ...(rangeTravel ? WORLD_GATEWAYS.filter(g => g.from === region && g.border).map(g => ({ id: g.id, ...g.position, kind: 'checkpoint' as const, label: g.name })) : []),
@@ -1470,14 +1470,28 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function openProxyMenu() {
     if (!hud.proxyReach || hud.phase!=='playing' || grenadeHeld?.pinned) return;
+    if (hud.proxyMenu) { closeProxyMenu(); return; }
+    const posture={prone,crouch:crouchRequested()};
     clearInput(); wheel=null; hud.calloutWheel=null; recoveryPicker=null; hud.recoveryPicker=null;
-    hud.proxyMenu=!hud.proxyMenu; canvas.focus({preventScroll:true}); publish();
+    restoreMapStance(posture); hud.proxyMenu=true;
+    if (document.pointerLockElement===canvas) document.exitPointerLock();
+    publish();
+  }
+  function closeProxyMenu(resumeCapture=true) {
+    if (!hud.proxyMenu) return;
+    hud.proxyMenu=false;
+    if (hud.phase==='playing' && hud.arenaSelf?.alive && !pilotEnabled && inputMode==='mouse' && document.pointerLockElement!==canvas) {
+      // Capture needs the close/choice gesture. If denied, the normal Resume button remains usable.
+      mapReturnStance={prone,crouch:crouchRequested()};
+      pause(); if (resumeCapture) start(); return;
+    }
+    canvas.focus({preventScroll:true}); publish();
   }
   function chooseProxyAction(action: ProxyAction) {
     if (!expedition || !arenaRuntime || hud.phase!=='playing' || hud.arenaSelf?.alive!==true) return false;
     const rewardId = hud.arena?.proxies?.operation?.weaponId;
     if (!arenaRuntime.proxyAction(action)) { hud.lootNotice='Unable to transfer: approach the cargo or an operational friendly facility with room for support.'; lootNoticeTime=4; publish(); return false; }
-    hud.proxyMenu=false;
+    const menuWasOpen=hud.proxyMenu;
     if (action==='keep') {
       const item=itemById(rewardId!)!, family=item.family!;
       const previousSpecs=specs, previousCarry=equipment.carriedFamilies;
@@ -1490,7 +1504,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       weaponStyles[family] = effectStyleForWeapon(specs[family]);
       switchWeapon(family); expedition.onEquipment(copyProfile(fieldProfile));
     }
-    canvas.focus({preventScroll:true}); publish(); return true;
+    if (menuWasOpen) closeProxyMenu();
+    else { canvas.focus({preventScroll:true}); publish(); }
+    return true;
   }
   function merlionOperating() { return !!hud.arenaSelf?.alive && hud.arena?.merlion?.operator===hud.arenaSelf?.id; }
   function merlionAction(action: MerlionAction) {
@@ -1536,12 +1552,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const keydown = (event: KeyboardEvent) => {
     const key = fpsControlKey(event);
     if (hud.mapExpanded) return;
-    if (hud.proxyMenu && hud.phase==='playing') {
-      event.preventDefault();
-      if (!event.repeat && key && /^[1-4]$/.test(key)) chooseProxyAction((['return','rival','keep','carry'] as const)[Number(key)-1]);
-      else if (key==='e' || key==='escape') { hud.proxyMenu=false; publish(); }
-      return;
-    }
+    if (hud.proxyMenu) return;
     if (resumeCrossing && hud.phase === 'loading') {
       if (key === 'escape') pause();
       else if (key && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', ' ', 'c', 'control'].includes(key)) crossingKeys.add(key);
@@ -1619,7 +1630,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   };
   const pointerSource = (event: PointerEvent) => {
     lastPointerType = event.pointerType;
-    if (hud.phase === 'playing' && !hud.mapExpanded && inputMode === 'touch' && requiresFpsPointerLock(event.pointerType)) {
+    if (hud.phase === 'playing' && !hud.mapExpanded && !hud.proxyMenu && inputMode === 'touch' && requiresFpsPointerLock(event.pointerType)) {
       inputMode = 'mouse'; pause();
       hud.message = 'Mouse detected. Click Resume to capture it; Escape opens the menu.'; publish();
     }
@@ -1665,7 +1676,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       event.preventDefault(); canvas.setPointerCapture(event.pointerId); overviewDrag = { id: event.pointerId, x: event.clientX, y: event.clientY }; return;
     }
     if (pilotEnabled) return;
-    if (hud.phase !== 'playing' || hud.mapExpanded) return;
+    if (hud.phase !== 'playing' || hud.mapExpanded || hud.proxyMenu) return;
     canvas.focus();
     if (document.pointerLockElement === canvas) return;
     if (inputMode === 'touch' && !requiresFpsPointerLock(event.pointerType)) {
@@ -1702,7 +1713,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const locked = document.pointerLockElement === canvas;
     if (locked && capturePending) enterPlay();
     else if (locked && !['playing', 'deploying'].includes(hud.phase)) document.exitPointerLock();
-    if (!locked && !hud.mapExpanded && !pilotEnabled && (!expedition || hud.arenaSelf?.alive !== false) && ['playing', 'deploying'].includes(hud.phase) && (wasLocked || inputMode === 'mouse')) pause(); wasLocked = locked; publish();
+    if (!locked && !hud.mapExpanded && !hud.proxyMenu && !pilotEnabled && (!expedition || hud.arenaSelf?.alive !== false) && ['playing', 'deploying'].includes(hud.phase) && (wasLocked || inputMode === 'mouse')) pause(); wasLocked = locked; publish();
+  };
+  const proxyKeydown = (event: KeyboardEvent) => {
+    if (!hud.proxyMenu || hud.phase!=='playing' || event.altKey || event.ctrlKey || event.metaKey) return;
+    const key=fpsControlKey(event);
+    if (!key || !['escape','e','1','2','3','4'].includes(key)) return;
+    event.preventDefault(); event.stopPropagation();
+    if (event.repeat) return;
+    if (key==='escape'||key==='e') closeProxyMenu();
+    else chooseProxyAction((['return','rival','keep','carry'] as const)[Number(key)-1]);
   };
   const mapKeydown = (event: KeyboardEvent) => {
     if (!hud.mapExpanded || hud.phase !== 'playing') return;
@@ -1715,6 +1735,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const visibility = () => { if (document.hidden) pause(); };
   window.addEventListener('keydown', pilotEscape, true);
   window.addEventListener('keydown', mapKeydown, true);
+  window.addEventListener('keydown', proxyKeydown, true);
   canvas.addEventListener('keydown', keydown); window.addEventListener('keyup', keyup);
   window.addEventListener('pointerdown', pointerSource, true); window.addEventListener('pointermove', pointerSource, true);
   canvas.addEventListener('pointerdown', pointerdown); canvas.addEventListener('pointermove', pointermove);
@@ -3485,7 +3506,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       comms.add('system', 'Armory', hud.message); publish();
     }
     // Stop controls even if a browser/VM delays or drops pointerlockchange.
-    if (['playing', 'deploying'].includes(hud.phase) && !hud.mapExpanded && (!expedition || hud.arenaSelf?.alive !== false) && !pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) pause();
+    if (['playing', 'deploying'].includes(hud.phase) && !hud.mapExpanded && !hud.proxyMenu && (!expedition || hud.arenaSelf?.alive !== false) && !pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) pause();
 
     if (pilotEnabled && ['complete', 'defeated', 'error'].includes(hud.phase)) { pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); }
     if (hud.phase === 'deploying') {
@@ -3864,7 +3885,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       respawnProfile = next;
       hud.message = 'Weapon loadout queued for your next respawn.'; publish(); return true;
     },
-    openProxyMenu, chooseProxyAction, closeProxyMenu() { hud.proxyMenu=false; canvas.focus({preventScroll:true}); publish(); },
+    openProxyMenu, chooseProxyAction, closeProxyMenu,
     setRangeDrill, endDrill, resupplyRange,
     chooseRespawn: (zone: string) => { const accepted = arenaRuntime?.chooseRespawn(zone) ?? false; publish(); return accepted; },
     setAutoRespawn: (automatic: boolean) => { arenaRuntime?.setAutoRespawn(automatic); publish(); },
@@ -3902,6 +3923,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       canvas.removeEventListener('mousedown', mousedown); window.removeEventListener('mouseup', mouseup); canvas.removeEventListener('wheel', scrollWheel);
       document.removeEventListener('pointerlockchange', lockchange); document.removeEventListener('pointerlockerror', lockerror);
       window.removeEventListener('keydown', mapKeydown, true);
+      window.removeEventListener('keydown', proxyKeydown, true);
       window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility);
       // First, so every mesh has its own material back before anything else restores or disposes them.
       vision.dispose(); lens.dispose(); deploymentBlur.dispose(); overview.dispose();

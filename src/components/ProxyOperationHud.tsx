@@ -1,9 +1,19 @@
+import { useEffect, useRef, type KeyboardEvent } from 'react';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
 import { proxyName, proxyRival, proxyWeaponName, type ProxyAction } from '../game/proxy-operations';
 import { facilityOperational } from '../game/facilities';
 import './proxy-operations.css';
 
 export default function ProxyOperationHud({ hud, engine }: { hud: FpsHud; engine: FpsEngine | null }) {
+  const card=useRef<HTMLDivElement>(null), close=useRef<HTMLButtonElement>(null);
+  useEffect(()=>{if(hud.proxyMenu)close.current?.focus({preventScroll:true});},[hud.proxyMenu]);
+  function keepFocus(event: KeyboardEvent<HTMLDivElement>) {
+    if(event.key!=='Tab')return;
+    const buttons=[...card.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')??[]];
+    const first=buttons[0],last=buttons[buttons.length-1];
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+  }
   const state=hud.arena?.proxies, op=state?.operation;
   if (!state || !op || hud.mapExpanded || !hud.arenaSelf?.alive || op.phase==='complete' && op.cargo!=='carried') return null;
   const owner=proxyName(op.owner), rival=proxyName(proxyRival(op.owner));
@@ -27,14 +37,17 @@ export default function ProxyOperationHud({ hud, engine }: { hud: FpsHud; engine
       {carrying && <small>Death or leaving this district forfeits the cargo.</small>}
       {op.phase==='contested' && <small>Cells secure unattended cargo. Interfering is optional.</small>}
     </aside>
-    {hud.proxyMenu && <div className="proxy-choice-overlay" role="dialog" aria-modal="true" aria-label="Choose the prototype's fate" onPointerDown={e=>e.stopPropagation()}>
-      <div className="proxy-choice-card">
-        <div className="proxy-choice-heading"><div><small>{proxyWeaponName(op.weaponId)}</small><h2>Who gets the prototype?</h2></div><button aria-label="Close cargo choices" onClick={()=>engine?.closeProxyMenu()}>×</button></div>
+    {hud.proxyMenu && <div className="proxy-choice-overlay" role="dialog" aria-modal="true" aria-label="Choose the prototype's fate" onPointerDown={e=>e.stopPropagation()} onKeyDown={keepFocus} onClick={e=>{if(e.target===e.currentTarget)engine?.closeProxyMenu();}}>
+      <div className="proxy-choice-card" ref={card}>
+        <div className="proxy-choice-heading"><div><small>TRACKED PROTOTYPE</small><h2>Who gets the prototype?</h2><span>{proxyWeaponName(op.weaponId)}</span></div><button ref={close} type="button" aria-label="Close cargo choices" onClick={()=>engine?.closeProxyMenu()}>×</button></div>
+        <div className="proxy-choice-scroll">
         <p>The tracker identifies anyone taking this cargo. Favor is personal; nearby friendly soldiers may defend you. The battle continues while you choose.</p>
+        <small className="proxy-choice-prompt">Choose an option with the mouse, touch, or keys 1–4.</small>
         <div className="proxy-choice-list">{choices.map((choice,i)=><button key={choice.action} disabled={choice.disabled} onClick={()=>engine?.chooseProxyAction(choice.action)}>
           <kbd>{i+1}</kbd><span><strong>{choice.title}</strong><small>{choice.disabled?'Recovery cell eliminated; handover unavailable.':choice.detail}</small></span>
         </button>)}</div>
-        <small>{hud.locked?'Press 1–4 to choose · E to close':'Select an option, or close to leave it untouched'}</small>
+        </div>
+        <footer className="proxy-choice-footer"><button type="button" onClick={()=>engine?.closeProxyMenu()}>Leave crate untouched <kbd>Esc</kbd></button><small>Close without taking anything or changing favor. E also closes this menu.</small></footer>
       </div>
     </div>}
   </>;

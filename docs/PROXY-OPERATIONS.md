@@ -18,7 +18,12 @@ also disables automatic proxy operations.
 
 Approach the landed cargo within 4 m and press E (or tap Inspect cargo / choose).
 The choice panel shows consequences before acting. Desktop uses keys 1–4; touch
-uses buttons. Movement/fire stop while choosing, but the world continues.
+uses buttons. Opening the panel releases mouse capture so its options can also
+be clicked normally. Tab stays within the dialog. **Leave crate untouched**, the
+close button, Escape, E, or clicking the backdrop dismisses it without taking
+cargo or changing favor. Closing or choosing restores gameplay controls; if the
+browser denies mouse capture, the normal Resume button remains available.
+Movement/fire stop while choosing, but the world continues.
 
 | Choice | Favor | Benefit / cost |
 | --- | --- | --- |
