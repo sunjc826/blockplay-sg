@@ -51,3 +51,30 @@ it.each(PROXY_REWARDS['freedom-force'])('%s can fire, reload and retain physical
   expect(magazineGroup(spec)).toBe(id==='ff-intervention'?'10.36:magazine':id==='ff-scar-l'||id==='ff-oicw'?'5.56:magazine':'7.62:magazine');
   expect(magazineGroup(spec)).not.toBe('7.62:belt');
 });
+
+it('gives both precision rifles a larger clear sight picture than the assault rifle scope', () => {
+  const assault = buildProxyWeapon('ff-oicw', true), reference = assault.root.userData.proxyOptic;
+  const angularRadius = (optic: typeof reference) => optic.radius / -(optic.aimDepth + optic.lens);
+  for (const id of ['ff-longwatch', 'ff-intervention'] as const) {
+    const model = buildProxyWeapon(id, true), optic = model.root.userData.proxyOptic;
+    // At least 50% wider on screen, with more than twice the visible area.
+    expect(angularRadius(optic)).toBeGreaterThan(angularRadius(reference) * 1.5);
+    model.root.updateMatrixWorld(true);
+    const eye = new THREE.Vector3(0, optic.height, -optic.aimDepth);
+    // Test the complete enlarged aperture from the actual aiming position.
+    // Stop at the image plane: the objective behind it intentionally has glass.
+    for (const fraction of [0, .5, .95]) for (let step = 0; step < 16; step++) {
+      const angle = step * Math.PI / 8;
+      const point = new THREE.Vector3(Math.cos(angle) * optic.radius * fraction, optic.height + Math.sin(angle) * optic.radius * fraction, optic.lens);
+      const direction = point.clone().sub(eye);
+      const ray = new THREE.Raycaster(eye, direction.clone().normalize(), 0, direction.length() - .0001);
+      expect(ray.intersectObject(model.root, true), `${id} aperture ${fraction}/${step}`).toHaveLength(0);
+    }
+    const spec = resolveLoadout(recoverProxyWeapon(createProfile(), id, 0)).weapons[itemById(id)!.family!];
+    const remove = fitWeaponOptic(model.root, spec), sight = getWeaponSight(model.root)!;
+    expect(sight.radius).toBe(optic.radius);
+    expect(sight.magnification).toBeCloseTo(id === 'ff-longwatch' ? 4 : 6);
+    remove();model.dispose();
+  }
+  assault.dispose();
+});

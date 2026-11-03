@@ -8,7 +8,8 @@ import { recoverProxyWeapon } from '/src/game/proxy-equipment.ts';
 import FpsWeaponHud from '/src/components/FpsWeaponHud.tsx';
 import TouchControls from '/src/components/TouchControls.tsx';
 const root=createRoot(document.getElementById('overlay'));
-const reward=new URLSearchParams(location.search).get('weapon')==='ff-longwatch'?'ff-longwatch':'ff-intervention';
+const requested=new URLSearchParams(location.search).get('weapon');
+const reward=['ff-longwatch','ff-oicw'].includes(requested)?requested:'ff-intervention';
 const equipment=resolveLoadout(recoverProxyWeapon(createProfile(),reward,0));
 window.engine=createFpsEngine(document.getElementById('world'),hud=>{
   window.hud=structuredClone(hud);

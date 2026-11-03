@@ -32,6 +32,10 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
   if (!study) throw new Error('Unknown proxy weapon study.');
   const root = new THREE.Group(); root.name = id; root.userData.artStudy = true; root.userData.heat = 'none';
   const western = study.faction === 'freedom-force';
+  // Wider precision eyepieces and a consistent eye relief give snipers more
+  // usable sight picture than compact rifle optics at the same magnification.
+  const precisionScope = id === 'ff-longwatch' ? { radius: .032, objective: .045 }
+    : id === 'ff-intervention' ? { radius: .035, objective: .048 } : undefined;
   const material = (name: string, color: string, roughness: number, metalness: number) => {
     const result = new THREE.MeshStandardMaterial({ color, roughness, metalness }); result.name = name; return result;
   };
@@ -98,26 +102,28 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
   const optic = (kind: 'reflex' | 'scope' | 'prism', z: number) => {
     box(.038, .035, .105, 0, .152, z, dark);
     if (kind === 'scope') {
-      if (id === 'ff-longwatch' || id === 'ff-intervention') {
+      if (precisionScope) {
+        const eyeOuter = precisionScope.radius + .009, eyeInner = precisionScope.radius + .0005;
+        const objective = precisionScope.objective;
         // Continuous outer AND inner walls: the old disconnected open rings
         // exposed the scenery through the objective and eyepiece shoulders.
-        const outside = [[.039, -.17], [.039, -.135], [.024, -.10], [.024, .10], [.030, .125], [.030, .166]];
-        const inside = [[.0195, .166], [.0195, .125], [.019, .10], [.019, -.10], [.034, -.135], [.034, -.17], [.039, -.17]];
+        const outside = [[objective, -.17], [objective, -.135], [.024, -.10], [.024, .10], [eyeOuter, .125], [eyeOuter, .166]];
+        const inside = [[eyeInner, .166], [eyeInner, .125], [.019, .10], [.019, -.10], [objective - .005, -.135], [objective - .005, -.17], [objective, -.17]];
         add(new THREE.LatheGeometry([...outside, ...inside].map(([r, v]) => new THREE.Vector2(r, v)), 40), dark, 0, .22, z, Math.PI / 2);
         const collar = (outer: number, inner: number, length: number, at: number, m = dark) => {
           const h = length / 2;
           add(new THREE.LatheGeometry([[inner, -h], [outer, -h], [outer, h], [inner, h], [inner, -h]].map(([r, v]) => new THREE.Vector2(r, v)), 40), m, 0, .22, z + at, Math.PI / 2);
         };
-        collar(.041, .039, .014, -.158, furniture);
-        collar(.032, .030, .022, .133);
-        collar(.032, .0195, .006, .165);
+        collar(objective + .002, objective, .014, -.158, furniture);
+        collar(eyeOuter + .002, eyeOuter, .022, .133);
+        collar(eyeOuter + .002, eyeInner, .006, .165);
         for (let i = 0; i < 24; i++) {
           const angle = i * Math.PI / 12;
-          box(.0025, .0025, .019, Math.sin(angle) * .032, .22 + Math.cos(angle) * .032, z + .133, dark, 0, 0, -angle);
+          box(.0025, .0025, .019, Math.sin(angle) * (eyeOuter + .002), .22 + Math.cos(angle) * (eyeOuter + .002), z + .133, dark, 0, 0, -angle);
         }
         // Recess the objective inside its rim; the live image is at the rear.
-        cylinder(.034, .003, 0, .22, z - .161, glass);
-        if (!playable) cylinder(.019, .003, 0, .22, z + .156, glass);
+        cylinder(objective - .005, .003, 0, .22, z - .161, glass);
+        if (!playable) cylinder(precisionScope.radius, .003, 0, .22, z + .156, glass);
       } else if (playable) {
         for (const [radius, length, at, m] of [[.024, .26, z, dark], [.039, .07, z - .135, furniture], [.03, .035, z + .14, dark]] as const) {
           const wall = [new THREE.Vector2(radius - .005, -length / 2), new THREE.Vector2(radius, -length / 2), new THREE.Vector2(radius, length / 2), new THREE.Vector2(radius - .005, length / 2)];
@@ -354,8 +360,9 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
     root.userData.artStudy = false;
     root.userData.proxyHands = { right: [.027, .105, gripZ + .02], support: [-.033, .15, foreZ], magazine: [-.025, .095, magZ] };
     const long = id === 'ff-longwatch' || id === 'ff-intervention', heavy = id === 'ff-scar-h', oicw = id === 'ff-oicw';
+    const lens = id === 'ff-intervention' ? .114 : long ? .039 : oicw ? .099 : heavy ? -.004 : -.039;
     root.userData.proxyOptic = { ...(id === 'ff-longwatch' ? { reticle: 'tmr' } : id === 'ff-intervention' ? { reticle: 'mil-dot' } : {}), kind: long || heavy || oicw ? 'scope' : 'reflex', height: (long ? .22 : oicw ? .302 : heavy ? .2075 : .2025) + lift,
-      lens: id === 'ff-intervention' ? .114 : long ? .039 : oicw ? .099 : heavy ? -.004 : -.039, radius: long ? .019 : heavy || oicw ? .024 : .022, aimDepth: -.28 };
+      lens, radius: precisionScope?.radius ?? (heavy || oicw ? .024 : .022), aimDepth: precisionScope ? -(lens + .15) : -.28 };
   }
   if (animatingLauncher) root.traverse(node => { node.name = node.name.replace(/^ff-oicw/, 'ff-oicw-launcher'); });
   let disposed = false;

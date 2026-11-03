@@ -86,6 +86,13 @@ visual only. The rifle still takes two body hits against a fresh Freedom Force
 operator (110 HP, 65 armor), so its magazine and handling improvements matter in
 the encounter that awards it.
 
+Smart Power and the M200 use wider precision eyepieces with 0.15-unit eye relief.
+At full aim, their clear lens diameters occupy approximately 42% and 46% of the
+viewport height, respectively, versus 26% for Peace Offering. The larger window
+shows more surrounding detail at the existing zoom power; magnification, damage
+and spread are unchanged. The modelled housings, glass and live scope image share
+the same enlarged aperture.
+
 ## Collective Corps family and signature names
 
 | Reference / specialist | Family label | Signature variant | Stable study ID |
