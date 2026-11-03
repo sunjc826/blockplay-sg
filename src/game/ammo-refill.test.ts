@@ -1,3 +1,4 @@
+import { reserveRoom } from './magazine-inventory';
 import { describe, expect, it } from 'vitest';
 import { needsAmmoRefill, refillAmmo } from './ammo-refill';
 import { createPooledLoadout } from './ammo-pools';
@@ -34,7 +35,7 @@ describe('premium Ammo Refill', () => {
     expect(refillAmmo(state, FPS_WEAPONS[family])).toBe(true);
     expect(state.magazine).toBe(fullLoad(FPS_WEAPONS[family])); expect(roundReady(state, FPS_WEAPONS[family])).toBe(true);
     expect(inv.slots.at(0)?.group).toBe(state.magazineGroup); occupied.forEach((mag, slot) => { if (slot && mag) expect(inv.slots[slot]).toEqual(mag); });
-    expect(inv.slots.every(Boolean)).toBe(true);
+    expect(reserveRoom(state)).toBe(false);
     expect(states[carried.find(i => i !== family)!].magazine).toBe(other);
     expect(needsAmmoRefill(state, FPS_WEAPONS[family])).toBe(false); expect(refillAmmo(state, FPS_WEAPONS[family])).toBe(false);
   });

@@ -61,3 +61,24 @@ describe('first person worn equipment', () => {
     body.update(0, kit, states, { ...pose, visible: false }); expect(body.root.visible).toBe(false); body.dispose();
   });
 });
+
+it('renders two distinct sniper magazines in one pouch and collapses it only after the rear is drawn', () => {
+  const kit = resolveLoadout(createProfile()); kit.carriedFamilies = [12, 2];
+  const states = createPooledLoadout(kit.weapons, kit.carriedFamilies), state = states[12], body = createFpsBody(new THREE.Scene());
+  body.update(0, kit, states, { ...pose, activeFamily: 12 });
+  const pouch = body.root.getObjectByName('magazine-slot-0')!;
+  const front = body.magazineSource(0, state.reserveMagazine!)!.model, rear = body.magazineSource(9, state.reserveMagazine!)!.model;
+  expect(front).not.toBe(rear); expect(front.visible && rear.visible).toBe(true);
+  const frontBounds = new THREE.Box3().setFromObject(front), rearBounds = new THREE.Box3().setFromObject(rear);
+  expect(frontBounds.intersectsBox(rearBounds)).toBe(false);
+  const rearPosition = rear.getWorldPosition(new THREE.Vector3());
+  expect(pouch.userData.magazineCount).toBe(2); expect(body.root.userData.magazines).toBe(10);
+  state.magazine = 2; beginReload(state, 12, kit.weapons); advanceWeapon(state, 12, 10, kit.weapons);
+  body.update(1, kit, states, { ...pose, activeFamily: 12 });
+  expect(front.visible).toBe(false); expect(rear.visible).toBe(true); expect(pouch.userData.fullness).toBe(1);
+  expect(rear.getWorldPosition(new THREE.Vector3()).distanceTo(rearPosition)).toBeCloseTo(0);
+  state.magazine = 2; beginReload(state, 12, kit.weapons); expect(state.reloadSlot).toBe(9); advanceWeapon(state, 12, 10, kit.weapons);
+  body.update(1, kit, states, { ...pose, activeFamily: 12 });
+  expect(rear.visible).toBe(false); expect(pouch.userData.fullness).toBe(0); expect(pouch.userData.magazineCount).toBe(0);
+  body.dispose();
+});

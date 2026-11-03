@@ -74,7 +74,7 @@ import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook, clampFpsPit
 import { dragLook, resolveMovement, stickKeys, type StickVector } from './touch-controls';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { advanceWeapon, beginReload, chamberRound, magazineRounds, findTrait, fireWeapon, interruptReload, reloadDuration, roundReady, validWeaponIndex, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponSpec, type WeaponState } from './fps-rules';
-import { addReserveMagazines, magazineCapacity, nextMagazineSlot, reserveRoom, spareMagazines, type MagazineInventory } from './magazine-inventory';
+import { availableMagazineSlots, addReserveMagazines, magazineCapacity, nextMagazineSlot, reserveRoom, spareMagazines, type MagazineInventory } from './magazine-inventory';
 import { addReserveRounds, createPooledLoadout, replacePooledWeapon, type AmmoPools } from './ammo-pools';
 import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { sectorAt, zoneSectors } from './zone-sectors';
@@ -1142,7 +1142,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
   }
   /** Compatible spares and free physical positions for pickups. */
-  const carriedGuns = (): CarriedGun[] => equipment.carriedFamilies.map(family => ({ family, spec: specs[family], reserve: loadout[family].reserve, magazines: spareMagazines(loadout[family]), room: loadout[family].magazineInventory?.slots.filter((mag, slot) => mag === null && !loadout[family].magazineInventory?.heldSlots?.includes(slot)).length }));
+  const carriedGuns = (): CarriedGun[] => equipment.carriedFamilies.map(family => ({ family, spec: specs[family], reserve: loadout[family].reserve, magazines: spareMagazines(loadout[family]), room: availableMagazineSlots(loadout[family]).length }));
   /** The family a found gun of `family` puts down: the same reading `pickupSlot` gives the pickup, the slot it fills and what is in it now. */
   function putDownFor(family: number) {
     const slot = pickupSlot(fieldProfile, family, hud.weapon), carry = restoreCarrySlots(fieldProfile.carry, fieldProfile.owned);

@@ -1,5 +1,5 @@
 import { createLoadout, type AmmoSpec, type WeaponSpec, type WeaponState } from './fps-rules';
-import { addReserveMagazines, magazineGroup, magazineOf, restoreMagazine, rigSlotCount, type MagazineInventory, type MagazineSpec } from './magazine-inventory';
+import { addReserveMagazines, doubleStackMagazine, magazineGroup, magazineOf, magazineSlotFits, REAR_MAGAZINE_OFFSET, restoreMagazine, rigSlotCount, type MagazineInventory, type MagazineSpec } from './magazine-inventory';
 import { OICW_RIFLE, OICW_LAUNCHER } from './weapon-modes';
 
 /** Legacy checkpoint/pickup API. Live reserves are whole magazines in rig slots. */
@@ -9,10 +9,14 @@ export type AmmoPools = Record<string, number>;
 export const ammoCalibre = (mm: number) => mm.toFixed(2);
 export const reservePoolOf = (state: WeaponState) => state.magazineInventory;
 const rounds = (value: number | undefined, fallback = 0) => Number.isFinite(value) ? Math.max(0, Math.floor(value!)) : fallback;
+function emptyInventory(specs: readonly PoolSpec[], carried: readonly number[]): MagazineInventory {
+  const pouchCount = rigSlotCount(specs), stacked = carried.some(i => doubleStackMagazine(magazineOf(specs[i], i)));
+  return { pouchCount, slots: Array.from({ length: stacked ? REAR_MAGAZINE_OFFSET + pouchCount : pouchCount }, () => null) };
+}
 
 /** One physical carrying budget, including when two weapons share magazines. */
 export function startingMagazineInventory(specs: readonly PoolSpec[], carried: readonly number[]): MagazineInventory {
-  const limit = rigSlotCount(specs), slots: MagazineInventory['slots'] = Array.from({ length: limit }, () => null);
+  const inventory = emptyInventory(specs, carried), limit = rigSlotCount(specs), { slots } = inventory;
   const pistol = carried.find(i => specs[i].caliberMm === 9), mains = carried.filter(i => i !== pistol);
   const mainPositions = limit - (pistol === undefined ? 0 : 2);
   // Bulkier feeds start with three containers; rifles start with four. Extra
@@ -21,7 +25,8 @@ export function startingMagazineInventory(specs: readonly PoolSpec[], carried: r
   let cursor = 0;
   for (; cursor < budget && mains.length; cursor++) slots[cursor] = magazineOf(specs[mains[cursor % mains.length]], mains[cursor % mains.length]);
   if (pistol !== undefined) for (let i = 0; i < 2 && cursor < limit; i++) slots[cursor++] = magazineOf(specs[pistol], pistol);
-  return { slots };
+  for (let i = 0; i < limit; i++) if (doubleStackMagazine(slots[i])) slots[i + REAR_MAGAZINE_OFFSET] = { ...slots[i]! };
+  return inventory;
 }
 export function startingAmmoPools(specs: readonly PoolSpec[], carried: readonly number[]): AmmoPools {
   const result: AmmoPools = {};
@@ -75,9 +80,13 @@ export function createPooledLoadout(specs: readonly PoolSpec[], carried: readonl
   const savedInventory = checkpoint?.magazineInventory ?? checkpoint?.ammunition.find(s => s.magazineInventory)?.magazineInventory;
   let inventory: MagazineInventory;
   if (savedInventory && Array.isArray(savedInventory.slots)) {
-    inventory = { slots: Array.from({ length: rigSlotCount(specs) }, (_, i) => restoreMagazine(savedInventory.slots[i])) };
+    inventory = emptyInventory(specs, carried);
+    for (let i = 0; i < inventory.slots.length; i++) {
+      const mag = restoreMagazine(savedInventory.slots[i]);
+      if (mag && magazineSlotFits(inventory, i, mag)) inventory.slots[i] = mag;
+    }
   } else if (checkpoint) {
-    inventory = { slots: Array.from({ length: rigSlotCount(specs) }, () => null) };
+    inventory = emptyInventory(specs, carried);
     const linked = linkReserves(states, specs, carried, inventory), seen = new Set<string>();
     const legacyPools = { ...checkpoint.ammoPools };
     for (const i of carried) {
@@ -95,7 +104,7 @@ export function createPooledLoadout(specs: readonly PoolSpec[], carried: readonl
   for (const i of carried) {
     const state = states[i], slot = state.reloadSlot;
     if (!state.pendingMagazine) continue;
-    if (!Number.isInteger(slot) || slot! < 0 || slot! >= inventory.slots.length || inventory.heldSlots.includes(slot!)) { delete state.pendingMagazine; continue; }
+    if (!Number.isInteger(slot) || slot! < 0 || !magazineSlotFits(inventory, slot!, state.pendingMagazine) || inventory.heldSlots.includes(slot!)) { delete state.pendingMagazine; continue; }
     inventory.slots[slot!] = null; inventory.heldSlots.push(slot!);
   }
   return linkReserves(states, specs, carried, inventory);
@@ -106,7 +115,12 @@ export function replacePooledWeapon(states: WeaponState[], previous: readonly Po
   specs: readonly PoolSpec[], carried: readonly number[], family: number) {
   const inventory = states[previousCarry[0]]?.magazineInventory ?? startingMagazineInventory(previous, previousCarry);
   const groups = new Set(carried.map(i => magazineGroup(specs[i])));
-  inventory.slots = inventory.slots.map(mag => mag && groups.has(mag.group) ? mag : null);
+  const layout = emptyInventory(specs, carried);
+  for (let i = 0; i < layout.slots.length; i++) {
+    const mag = inventory.slots[i];
+    if (mag && groups.has(mag.group) && magazineSlotFits(layout, i, mag)) layout.slots[i] = mag;
+  }
+  inventory.slots = layout.slots; inventory.pouchCount = layout.pouchCount;
   states[family] = { ...createLoadout(specs)[family], loadedCapacity: specs[family].capacity };
   if (family === OICW_RIFLE && carried.includes(OICW_LAUNCHER)) states[OICW_LAUNCHER] = { ...createLoadout(specs)[OICW_LAUNCHER], loadedCapacity: specs[OICW_LAUNCHER].capacity };
   inventory.heldSlots = carried.flatMap(i => states[i].pendingMagazine && states[i].reloadSlot !== undefined ? [states[i].reloadSlot!] : []);

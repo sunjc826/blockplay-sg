@@ -3,19 +3,19 @@ import { itemById } from './armory-catalog';
 import { pickupSlot } from './armory-slots';
 import { PROXY_REWARDS } from './proxy-operations';
 import type { WeaponState } from './fps-rules';
-import { addReserveMagazines } from './magazine-inventory';
+import { addReserveMagazines, availableMagazineSlots } from './magazine-inventory';
 import { OICW_RIFLE, OICW_LAUNCHER } from './weapon-modes';
 
 /** Cargo includes its magazine kit. Retain two compatible rifle spares; make
  * room for launcher spares by exchanging excess rifle spares, never other gear. */
 export function supplyProxyMagazines(states: WeaponState[], family: number) {
-  if (family !== OICW_RIFLE) { addReserveMagazines(states[family], 4); return 0; }
+  if (family !== OICW_RIFLE) { addReserveMagazines(states[family], family === 12 ? 8 : 4); return 0; }
   const rifle = states[family], launcher = states[OICW_LAUNCHER], slots = rifle.magazineInventory!.slots;
   addReserveMagazines(rifle, 2);
-  let free = slots.filter(m => m === null).length, rifles = slots.filter(m => m?.group === rifle.magazineGroup).length, exchanged = 0;
+  let free = availableMagazineSlots(launcher).length, rifles = slots.filter(m => m?.group === rifle.magazineGroup).length, exchanged = 0;
   const needed = Math.max(0, 2 - slots.filter(m => m?.group === launcher.magazineGroup).length);
   for (let i = slots.length - 1; i >= 0 && free < needed && rifles > 2; i--) if (slots[i]?.group === rifle.magazineGroup) {
-    slots[i] = null; free++; rifles--; exchanged++;
+    slots[i] = null; free = availableMagazineSlots(launcher).length; rifles--; exchanged++;
   }
   addReserveMagazines(launcher, needed);
   return exchanged;

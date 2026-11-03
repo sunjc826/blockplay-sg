@@ -105,6 +105,14 @@ penalty and initial hip cone remain; the seven-round magazine and 160-damage
 cargo build preserve its deliberate one-shot role. Bolt animation and action
 sound onsets follow cycle progress; existing audio plays at its natural speed.
 
+Intervention pouches carry two seven-round magazines, front then rear, without
+adding vest positions. The basic rig starts with eight spares (56 reserve rounds)
+plus its two pistol magazines. Each .408 magazine is visible; drawing the front
+leaves the rear in place, and the fabric collapses only when both are gone.
+Other magazines, drums and belt boxes retain one container per pouch. Saves,
+pickups, resupply and carry weight account for both layers; existing saves gain
+space without receiving free ammunition.
+
 ## Collective Corps family and signature names
 
 | Reference / specialist | Family label | Signature variant | Stable study ID |

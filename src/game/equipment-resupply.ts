@@ -1,6 +1,7 @@
 import { startingMagazineInventory } from './ammo-pools';
 import { consumableLimit, itemById } from './armory-catalog';
 import type { WeaponSpec, WeaponState } from './fps-rules';
+import { availableMagazineSlots } from './magazine-inventory';
 
 /** A reusable station definition: other modes can provide different stock. */
 export interface EquipmentStock { ammunition: boolean; supplies: Readonly<Record<string, number>> }
@@ -23,6 +24,8 @@ export function resupplyEquipment(states: WeaponState[], specs: readonly WeaponS
     for (let slot = 0; slot < inventory.slots.length; slot++) {
       if (inventory.slots[slot] || !goal.slots[slot]) continue;
       const mag = goal.slots[slot]!;
+      const state = states[mag.family];
+      if (!state || !availableMagazineSlots(state, mag).includes(slot)) continue;
       // A grabbed magazine still belongs to this pouch until it is seated.
       if (carried.some(i => states[i].pendingMagazine && states[i].reloadSlot === slot)) continue;
       inventory.slots[slot] = { ...mag }; rounds += mag.capacity;

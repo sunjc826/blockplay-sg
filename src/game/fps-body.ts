@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { itemById } from './armory-catalog';
 import type { ResolvedLoadout } from './armory-state';
 import type { WeaponState } from './fps-rules';
-import type { RigMagazine } from './magazine-inventory';
+import { doubleStackMagazine, magazinePouch, REAR_MAGAZINE_OFFSET, type RigMagazine } from './magazine-inventory';
 import { startingMagazineInventory } from './ammo-pools';
 import { arenaCharacterLook } from './character-looks';
 import { createCharacterRig, type CharacterDrive } from './character-rig';
@@ -27,10 +27,17 @@ const PLATE_COLORS: Record<string, string> = {
   'plate-pineapple': '#a58d36', 'plate-durian': '#707c32',
 };
 
-type ReserveContainer = 'magazine' | 'pistol-magazine' | 'drum' | 'ammo-box';
+type ReserveContainer = 'magazine' | 'sniper-magazine' | 'pistol-magazine' | 'drum' | 'ammo-box';
+const containerKind = (mag: RigMagazine): ReserveContainer => doubleStackMagazine(mag) ? 'sniper-magazine' : mag.feed === 'belt' ? 'ammo-box' : mag.feed === 'drum' ? 'drum' : mag.caliberMm === 9 ? 'pistol-magazine' : 'magazine';
+function positionMagazine(model: THREE.Group, kind: ReserveContainer, mag: RigMagazine, rear: boolean) {
+  // Grow the pouch outward: its second magazine must not sink into the vest.
+  model.position.set(0, rear ? .012 : 0, kind === 'sniper-magazine' ? (rear ? -.04 : -.094) : 0);
+  model.scale.y = kind === 'sniper-magazine' ? 1 : (kind === 'pistol-magazine' ? .75 : 1) * Math.min(1.35, Math.max(.8, mag.capacity / (kind === 'pistol-magazine' ? 15 : kind === 'magazine' ? 30 : 100)));
+}
 interface ReserveSlot {
   root: THREE.Group; sleeve: THREE.Mesh; band: THREE.Mesh;
   models: Partial<Record<ReserveContainer, THREE.Group>>;
+  rearModels: Partial<Record<ReserveContainer, THREE.Group>>;
   fullness?: number; fullDepth: number;
 }
 
@@ -171,6 +178,11 @@ export function createFpsBody(scene: THREE.Scene) {
         const rim = new THREE.Mesh(new THREE.TorusGeometry(.039, .003, 5, 20), trim);
         rim.position.set(0, .04, -.043); model.add(rim);
         box(model, 'drum-feed-tower', .033, .039, .031, 0, .095, -.012, metal);
+      } else if (kind === 'sniper-magazine') {
+        box(model, 'sniper-magazine-body', .062, .11, .042, 0, .035, 0, metal);
+        box(model, 'sniper-floorplate', .067, .009, .046, 0, -.024, 0, trim);
+        box(model, 'sniper-feed-lips', .055, .012, .044, 0, .095, 0, trim);
+        for (const x of [-.019, .019]) box(model, 'sniper-magazine-rib', .004, .075, .003, x, .035, -.022, trim);
       } else {
         box(model, 'magazine-body', .065, .14, .038, 0, .035, 0, metal);
         box(model, 'feed-lips', .06, .013, .04, 0, .11, 0, trim);
@@ -205,7 +217,7 @@ export function createFpsBody(scene: THREE.Scene) {
       const sleeve = box(pouch, 'pouch', .094, .105, .06, 0, -.025, 0);
       const band = box(pouch, 'retention-band', .098, .018, .066, 0, .015, -.003, trim);
       const magazine = buildContainer('magazine'); pouch.add(magazine); magazine.visible = false;
-      magazines.push({ root: pouch, sleeve, band, models: { magazine }, fullDepth: 1 });
+      magazines.push({ root: pouch, sleeve, band, models: { magazine }, rearModels: {}, fullDepth: 1 });
     }
     identity = `${equipment.rigId}|${equipment.plateId}`;
   }
@@ -214,16 +226,16 @@ export function createFpsBody(scene: THREE.Scene) {
     setWeaponModels(models: readonly THREE.Group[]) { weaponModels = models; weaponIdentity = ''; },
     weaponMount(family: number) { return mounts.get(primaryWeaponFamily(family)); },
     magazinePosition(slot: number, target = new THREE.Vector3()) {
-      const pouch = magazines[slot]?.root;
+      const pouch = magazines[magazinePouch(slot)]?.root;
       if (!pouch) return null;
-      return pouch.localToWorld(target.set(0, .04, 0));
+      return pouch.localToWorld(target.set(0, slot >= REAR_MAGAZINE_OFFSET ? .052 : .04, 0));
     },
     magazineSource(slot: number, mag: RigMagazine) {
-      const pouch = magazines[slot]; if (!pouch) return null;
-      const kind: ReserveContainer = mag.feed === 'belt' ? 'ammo-box' : mag.feed === 'drum' ? 'drum' : mag.caliberMm === 9 ? 'pistol-magazine' : 'magazine';
-      let model = pouch.models[kind];
-      if (!model) { model = buildContainer(kind); model.visible = false; pouch.models[kind] = model; pouch.root.add(model); }
-      model.scale.y = (kind === 'pistol-magazine' ? .75 : 1) * Math.min(1.35, Math.max(.8, mag.capacity / (kind === 'pistol-magazine' ? 15 : kind === 'magazine' ? 30 : 100)));
+      const pouch = magazines[magazinePouch(slot)]; if (!pouch) return null;
+      const rear = slot >= REAR_MAGAZINE_OFFSET, kind = containerKind(mag), models = rear ? pouch.rearModels : pouch.models;
+      let model = models[kind];
+      if (!model) { model = buildContainer(kind); model.visible = false; models[kind] = model; pouch.root.add(model); }
+      positionMagazine(model, kind, mag, rear);
       return { model, shoulder: character.joints.upperArmL.getWorldPosition(new THREE.Vector3()) };
     },
     update(dt: number, equipment: ResolvedLoadout, states: readonly WeaponState[], pose: CharacterDrive & { x: number; y: number; z: number; yaw: number; visible: boolean; activeFamily?: number }) {
@@ -248,16 +260,14 @@ export function createFpsBody(scene: THREE.Scene) {
       const inventory = states[equipment.carriedFamilies[0]]?.magazineInventory ?? startingMagazineInventory(equipment.weapons, equipment.carriedFamilies);
       const carried = bodyMagazines(equipment, states, pose.activeFamily);
       magazines.forEach((slot, index) => {
-        Object.values(slot.models).forEach(model => { model.visible = false; });
-        const family = carried[index];
-        const spec = family !== undefined ? equipment.weapons[family] : undefined;
-        const mag = inventory.slots[index];
-        const kind: ReserveContainer = mag?.feed === 'belt' ? 'ammo-box' : mag?.feed === 'drum' ? 'drum' : mag?.caliberMm === 9 ? 'pistol-magazine' : 'magazine';
+        [...Object.values(slot.models), ...Object.values(slot.rearModels)].forEach(model => { model.visible = false; });
+        const front = inventory.slots[index], rear = inventory.slots[index + REAR_MAGAZINE_OFFSET], mag = front ?? rear;
+        const kind = mag ? containerKind(mag) : 'magazine';
         const bulky = kind === 'ammo-box' || kind === 'drum';
         // Only the fabric collapses. Magazine models and pouch roots stay put,
         // so the hand's source pose remains continuous during extraction.
-        if (spec) slot.fullDepth = bulky ? 1.4 : 1;
-        const target = spec ? 1 : 0;
+        if (mag) slot.fullDepth = kind === 'sniper-magazine' ? 1.9 : bulky ? 1.4 : 1;
+        const target = mag ? 1 : 0;
         slot.fullness = slot.fullness === undefined ? target : THREE.MathUtils.damp(slot.fullness, target, 22, Math.max(0, dt));
         if (Math.abs(slot.fullness - target) < .001) slot.fullness = target;
         const depth = THREE.MathUtils.lerp(.18, slot.fullDepth, slot.fullness);
@@ -265,18 +275,24 @@ export function createFpsBody(scene: THREE.Scene) {
         slot.sleeve.scale.set(1, height, depth);
         // Fold cloth back against the vest while its bottom edge stays anchored.
         slot.sleeve.position.z = THREE.MathUtils.lerp(.06, .03 * slot.fullDepth, slot.fullness) - .03 * depth;
+        if (slot.fullDepth === 1.9) slot.sleeve.position.z -= .067 * slot.fullness;
         slot.sleeve.position.y = -.025 - .105 * (1 - height) / 2;
         slot.band.scale.set(1, THREE.MathUtils.lerp(.6, 1, slot.fullness), depth);
         slot.band.position.z = THREE.MathUtils.lerp(.06, -.003 + .033 * slot.fullDepth, slot.fullness) - .033 * depth;
+        if (slot.fullDepth === 1.9) slot.band.position.z -= .067 * slot.fullness;
         slot.band.position.y = .015 - .01 * (1 - slot.fullness);
         slot.band.rotation.x = .20 * (1 - slot.fullness);
         slot.root.userData.fullness = slot.fullness;
-        slot.root.userData.container = family !== undefined ? kind : null;
-        if (!spec) return;
-        let model = slot.models[kind];
-        if (!model) { model = buildContainer(kind); slot.models[kind] = model; slot.root.add(model); }
-        model.visible = true; model.userData.family = family; model.userData.capacity = mag?.capacity;
-        model.scale.y = (kind === 'pistol-magazine' ? .75 : 1) * Math.min(1.35, Math.max(.8, (mag?.capacity ?? 30) / (kind === 'pistol-magazine' ? 15 : kind === 'magazine' ? 30 : 100)));
+        slot.root.userData.container = mag ? kind : null;
+        slot.root.userData.magazineCount = Number(!!front) + Number(!!rear);
+        for (const [magazine, back] of [[front, false], [rear, true]] as const) {
+          if (!magazine) continue;
+          const models = back ? slot.rearModels : slot.models, kind = containerKind(magazine);
+          let model = models[kind];
+          if (!model) { model = buildContainer(kind); models[kind] = model; slot.root.add(model); }
+          model.visible = true; model.userData.family = magazine.family; model.userData.capacity = magazine.capacity;
+          positionMagazine(model, kind, magazine, back);
+        }
       });
       root.userData.magazineSlots = magazines.length;
       root.userData.magazines = carried.filter(family => family !== undefined).length;
