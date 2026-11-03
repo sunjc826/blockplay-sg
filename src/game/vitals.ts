@@ -14,8 +14,8 @@ export function healthBand(health: number, maxHealth: number): HealthBand {
 }
 
 /**
- * Armor is a two-state reading rather than a third band: the plate's capacity
- * lives on the loadout, not the HUD, and what a player needs to know is only
- * whether anything is still absorbing hits.
+ * Armor is a two-state reading rather than a third band: the chip's fill already
+ * shows how much is left, and what its state needs to say is only whether
+ * anything is still absorbing hits.
  */
 export const armorState = (armor: number) => armor > 0 ? 'holding' : 'depleted';

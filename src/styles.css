@@ -127,29 +127,33 @@
    read. The band comes from `healthBand`, so the thresholds move with the
    debug health multiplier, and the frame — not the whole screen — is what
    pulses, because the damage vignette already owns the screen on each hit. */
-.fps-vitals[data-health-band=low] .is-health { border-color:#e0bb7280; color:var(--hud-gold); }
-.fps-vitals[data-health-band=low] .is-health b { color:var(--hud-gold-soft); }
-.fps-vitals[data-health-band=critical] .is-health { border-color:var(--hud-alert); background:var(--hud-alert-bg); color:var(--hud-alert-ink); animation:fps-vital-pulse 1.1s ease-in-out infinite; }
+.fps-vitals[data-health-band=low] .is-health { --vital-fill:#d6a13e8c; border-color:#e0bb7280; color:#ffefcb; }
+.fps-vitals[data-health-band=low] .is-health b { color:#fff6e3; }
+.fps-vitals[data-health-band=critical] .is-health { --vital-fill:#d9472f99; border-color:var(--hud-alert); color:var(--hud-alert-ink); animation:fps-vital-pulse 1.1s ease-in-out infinite; }
 .fps-vitals[data-health-band=critical] .is-health b { color:#fff1e8; }
 /* Spent armor is a ghost of itself rather than a chip shouting a zero. */
 .fps-vitals[data-armor-state=depleted] .is-armor { opacity:.55; border-style:dashed; }
 .fps-vitals[data-armor-state=depleted] .is-armor b { color:var(--hud-dim); }
 @keyframes fps-vital-pulse { 50% { border-color:#ffb9a2; box-shadow:0 0 12px #e9826555; } }
-/* The bar under the digits is what moves. Two layers: the fill tracks health
-   at once, and the ghost behind it leaves for a beat before following, so a
-   burst shows what it cost as a red sliver that then closes. Both are scaled
-   with a transform rather than a width — these restyle on every engine frame,
-   and a width would lay out the chip each time. The fill takes the chip's own
-   colour, so it turns gold and then alert with the band, for free. */
-.fps-vital { position:relative; overflow:hidden; }
-.fps-vital-ghost,.fps-vital-fill { position:absolute; left:0; right:0; bottom:0; height:2px; transform-origin:left; pointer-events:none; }
-.fps-vital-ghost { background:var(--hud-alert); transition:transform .5s ease-out .15s; }
-.fps-vital-fill { background:currentColor; opacity:.85; transition:transform .14s ease-out; }
+/* The chip is its own gauge: the fill spans its full height behind the digits.
+   Two layers: the fill tracks the value at once, and the ghost leaves for a
+   beat before following, so a burst shows what it cost as a red band that then
+   closes. Both are scaled with a transform rather than a width — these restyle
+   on every engine frame, and a width would lay out the chip each time. The fill
+   is translucent, so a ghost lying under it would tint the whole gauge red; its
+   clip stops the ghost at the fill's edge, on the fill's own timing. */
+.fps-vital { position:relative; overflow:hidden; isolation:isolate; }
+.fps-vital-ghost-clip,.fps-vital-ghost,.fps-vital-fill { position:absolute; inset:0; pointer-events:none; }
+.fps-vital-ghost-clip,.fps-vital-fill { z-index:-1; transition-duration:.14s; transition-timing-function:ease-out; }
+.fps-vital-ghost-clip { transition-property:clip-path; }
+.fps-vital-ghost,.fps-vital-fill { transform-origin:left; }
+.fps-vital-ghost { background:#e9826573; transition:transform .5s ease-out .15s; }
+.fps-vital-fill { background:var(--vital-fill); transition-property:transform; }
 /* A hit flashes the chip itself; re-adding the attribute on the next hit is
    what replays it, so a burst reads as a burst rather than one long smear. */
 .fps-vitals .is-health[data-hurt] { animation:fps-vital-hit .3s ease-out; }
-@keyframes fps-vital-hit { from { background:#c0402ee0; border-color:#ffb9a2; color:#fff; } }
-@media(prefers-reduced-motion:reduce) { .fps-vitals .is-health { animation:none; }.fps-vital-ghost,.fps-vital-fill { transition:none; } }
+@keyframes fps-vital-hit { from { background:#c0402ea6; border-color:#ffb9a2; color:#fff; } }
+@media(prefers-reduced-motion:reduce) { .fps-vitals .is-health { animation:none; }.fps-vital-ghost-clip,.fps-vital-ghost,.fps-vital-fill { transition:none; } }
 .fps-damage-overlay { position:absolute; inset:0; box-shadow:inset 0 0 100px #c3403080; pointer-events:none; }.fps-incoming { position:absolute; top:111px; left:24px; padding:6px 9px; font-size:10px; letter-spacing:1px; background:var(--hud-alert-bg); border-color:var(--hud-alert); color:var(--hud-alert-ink); }.fps-drill-choice { display:flex; justify-content:center; gap:8px; margin:14px 0; }.fps-drill-choice button { border:1px solid #ffffff40; background:#ffffff0c; color:#e5e4d6; padding:9px 12px; border-radius:4px; font:inherit; font-size:11px; cursor:pointer; }.fps-drill-choice button[aria-pressed=true] { background:#b5c692; color:#213124; border-color:#b5c692; }.fps-shop-link { background:none; border:0; color:#e1d0a4; padding:13px; font:inherit; font-size:12px; cursor:pointer; }.fps-reward { color:#d5e9ac; font-weight:600; margin:12px 0; }.fps-start-card .fps-armor-note { color:#b9c7ad; font-size:11px; margin:8px 0 16px; }.fps-health-summary { font-size:10px; color:#6b7b67; padding:0 4px 8px; }
 @media(max-width:1100px) { .armory-body { grid-template-columns:minmax(0,1fr) 215px; padding:17px; gap:16px; }.armory-details { padding-left:15px; }.armory-preview { height:215px; }.armory-section-heading { flex-wrap:wrap; }.armory-footer { padding:16px; gap:12px; } }
 @media(max-width:700px) { .armory-body { grid-template-columns:1fr; }.armory-details { border-left:0; padding:20px 0 0; border-top:1px solid var(--armory-line); }.armory-header { flex-wrap:wrap; padding:8px 12px; gap:8px 10px; }.armory-title { display:none; }.armory-header .armory-progression { order:3; flex-basis:100%; gap:10px; }.armory-wallet { margin-left:auto; gap:5px; }.armory-wallet>span { padding:6px 7px; }.armory-wallet>span small, .armory-wallet .armory-demo span { display:none; }.armory-xp>small { display:none; }.armory-navigation { padding:0 17px; }.armory-navigation [role=tablist] { gap:22px; }.armory-footer { flex-direction:column; align-items:stretch; }.armory-preview { height:260px; }.armory-item>strong { font-size:12px; }.armory-section-heading { flex-wrap:nowrap; }.fps-vitals { left:12px; top:56px; gap:5px; font-size:9px; }.fps-vitals span { padding:5px 7px; }.fps-vitals b { font-size:13px; }.fps-incoming { left:12px; top:95px; }.fps-drill-choice { margin:8px 0; }.fps-start-card .fps-armor-note { font-size:9px; margin:5px 0; } }
