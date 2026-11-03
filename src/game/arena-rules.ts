@@ -2869,18 +2869,25 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       (v.occupants[0] || ![...members.values()].some(m => !m.actor.bot && m.actor.alive && distance(m.actor, v) < 12)))
       .sort((a, b) => distance(entry.actor, a) - distance(entry.actor, b))
       .find(v => {
+        // Even recruited crew cannot use a hull beyond this range; avoid its cover rays.
+        const boardingDistance = distance(entry.actor, v);
+        if (boardingDistance >= Math.max(WORLD_VEHICLES.boardRange, WORLD_VEHICLES.crewRange)) return false;
         const driver = v.occupants[0] ? members.get(v.occupants[0]) : undefined;
         const pickup = driver && !driver.actor.bot && driver.actor.alive && driver.playing &&
           lifeOf(v).pickupDriver === driver.actor.id && lifeOf(v).pickupStopped >= WORLD_VEHICLES.pickupSeconds;
         if (driver && !driver.actor.bot && !pickup) return false;
         // Follow the caller into their vehicle; explicit positioning orders still win.
         if (order && (!pickup || order.by !== driver?.actor.id)) return false;
-        const threat = vehicleEnemy(entry, v);
-        // Distant firefights should not stop a squad assembling its patrol.
-        if (!pickup && (v.ammo <= 0 || threat && distance(threat.actor, v) < WORLD_VEHICLES.boardThreatRange)) return false;
+        // Player pickups allow extraction under fire, so they need no threat scan.
+        if (!pickup) {
+          if (v.ammo <= 0) return false;
+          const threat = vehicleEnemy(entry, v);
+          // Distant firefights should not stop a squad assembling its patrol.
+          if (threat && distance(threat.actor, v) < WORLD_VEHICLES.boardThreatRange) return false;
+        }
         if (v.kind === 'helicopter' && (!driver || driver.actor.bot) && !wantsHelicopter(entry, v)) return false;
         const recruited = driver?.actor.bot && (v.kind === 'helicopter' ? airSortie?.mission.reservations.some(r=>r.id===entry.actor.id) : !lifeOf(v).departed && lifeOf(v).crew.includes(entry.actor.id));
-        return distance(entry.actor, v) < (recruited ? WORLD_VEHICLES.crewRange : WORLD_VEHICLES.boardRange);
+        return boardingDistance < (recruited ? WORLD_VEHICLES.crewRange : WORLD_VEHICLES.boardRange);
       });
     if (!v) return false;
     if (vehicleAction(entry.actor.id, 'enter', v.kind)) return true;

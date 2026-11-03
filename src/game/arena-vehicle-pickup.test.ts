@@ -25,8 +25,9 @@ function input(a: ArenaSimulation, controls: Partial<VehicleControls>, seconds: 
     a.setInput('p', { ...actor(a, 'p'), playing: true, vehicleControls: { ...neutral, ...controls } }); a.step(.05);
   }
 }
-function setup({ kind = 'car', gather = true, walls = [] as Obstacle[], enemy = false, ammo = 240, botX, elevation = 0 }: {
+function setup({ kind = 'car', gather = true, walls = [] as Obstacle[], enemy = false, ammo = 240, botX, elevation = 0, cover }: {
   kind?: MotorVehicleKind; gather?: boolean; walls?: Obstacle[]; enemy?: boolean; ammo?: number; botX?: number; elevation?: number;
+  cover?: Parameters<typeof createArena>[6];
 } = {}) {
   const x = spawns[kind].x;
   const sites: FacilitySite[] = [
@@ -40,7 +41,7 @@ function setup({ kind = 'car', gather = true, walls = [] as Obstacle[], enemy = 
   const environment: ArenaEnvironment = { bounds: elevation ? { ...bounds, groundHeight: () => elevation } : bounds, move: movement.move, spawns: [{ x: x + 10, z: 0 }], playerSpawn: { x: x + 3.5, z: 0 }, endless: true,
     facilities: { sites, savedVehicles: fleet } };
   const arena = createArena(walls, enemy ? 1 : 0, 'assault', environment, { spawns, openWorld: true },
-    elevation ? { bounds: environment.bounds, obstacles: walls, surfaces: [], traversalObstacles: [] } : undefined);
+    elevation ? { bounds: environment.bounds, obstacles: walls, surfaces: [], traversalObstacles: [] } : undefined, cover);
   arena.addPlayer('p', 'Player', 0, 0, [], undefined, true);
   if (gather) expect(arena.callout('p', 'gather')?.order?.allies).toBe(4);
   expect(arena.vehicleAction('p', 'enter', kind)).toBe(true);
@@ -166,6 +167,20 @@ describe('player vehicle pickups', () => {
     expect(crew.every(id => actor(arena, id).vehicle === 'car')).toBe(true);
     expect(vehicle(arena).shots).toBeGreaterThan(0);
     expect(arena.snapshot().actors.filter(m => m.bot && m.faction === 'mercenaries').every(m => !m.vehicle)).toBe(true);
+  });
+
+  it('does not raycast boarding danger while allies approach a player pickup under fire', () => {
+    let dangerRays = 0;
+    const { arena } = setup({ enemy: true, botX: 20, cover: (from, ray, range) => {
+      if (from.y === 160 && ray.y === -1 && range === 170) return 160;
+      if (from.x === 0 && from.z === 0 && from.y > 2.5 && from.y < 3) dangerRays++;
+      return range;
+    } });
+    const before = allies(arena).map(m => Math.hypot(m.x, m.z));
+    tick(arena, WORLD_VEHICLES.pickupSeconds + .2);
+    expect(vehicle(arena).occupants).toEqual(['p', null, null, null]);
+    expect(allies(arena).some((m, i) => Math.hypot(m.x, m.z) < before[i])).toBe(true);
+    expect(dangerRays).toBe(0);
   });
 
   it('keeps approaching allies on their side of a wall', () => {

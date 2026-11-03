@@ -157,6 +157,28 @@ it('assembles a vehicle crew despite a distant visible enemy', () => {
   expect(car(arena).occupants.slice(0, 2).every(Boolean)).toBe(true);
 });
 
+it.each([
+  { botX: -60, blocked: false, scans: false, boards: false },
+  { botX: 3.5, blocked: false, scans: true, boards: false },
+  { botX: 3.5, blocked: true, scans: true, boards: true },
+])('checks boarding danger only in range and respects cover ($botX, blocked=$blocked)', ({ botX, blocked, scans, boards }) => {
+  let dangerRays = 0;
+  const cover = (from: { x: number; y: number; z: number }, ray: { y: number }, range: number) => {
+    if (from.y === 160 && ray.y === -1 && range === 170) return 160;
+    if (from.y > 2.5 && from.y < 3 && from.z === 0 && (from.x === 0 || from.x === 40)) {
+      dangerRays++;
+      return blocked ? 0 : range;
+    }
+    return range;
+  };
+  const arena = createArena([], 1, 'mixed', { ...environment,
+    spawns: [{ x: botX, z: 0 }], playerSpawn: { x: 20, z: 0 } }, options, undefined, cover);
+  player(arena, 'enemy');
+  arena.step(.05);
+  expect(dangerRays > 0).toBe(scans);
+  expect(car(arena).occupants.some(Boolean)).toBe(boards);
+});
+
 it('refuses boarding a hostile crew while allowing the driver’s allies', () => {
   const arena = createArena([], 1, 'mixed', environment, options);
   const bot = arena.snapshot().actors.find(a => a.bot)!;
