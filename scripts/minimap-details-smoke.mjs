@@ -98,9 +98,10 @@ try{
  await evaluate('window.mapRequestPointerLock=HTMLCanvasElement.prototype.requestPointerLock;HTMLCanvasElement.prototype.requestPointerLock=()=>Promise.reject(new DOMException("Denied for smoke test","NotAllowedError"))');
  await click('.fps-map-close');await wait(phase('paused'));await evaluate('HTMLCanvasElement.prototype.requestPointerLock=window.mapRequestPointerLock');
  assert.equal(await evaluate('!!document.pointerLockElement'),false);await screenshot('capture-denied-safe');
- // Switch to real touch input, then walk with the map open in both orientations.
+ // Start a fresh touch session, then walk with the map open in both orientations.
  await send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
- async function tap(selector){const p=await evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...p,id:1}]});await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await delay(150);}
+ async function tap(selector){const p=await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...p,id:1}]});await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await delay(150);}
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await send('Page.reload');await wait(phase('ready'),180000);
  await tap('.fps-start-card .primary-button');await wait(phase('playing'));await wait('!!document.querySelector("[data-touch-stick=move]")');
  for(const [name,width,height] of [['portrait-movement',390,844],['landscape-movement',844,390]]){
   await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});await delay(250);
