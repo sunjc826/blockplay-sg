@@ -6,8 +6,11 @@ in training, solo arena or LAN. No global alliance changes are introduced.
 After 60 seconds of simulation time, the director searches for clear ground
 45–65 m from a living, playing human, with two clear approach corridors. A failed
 search waits 20 seconds before trying again. A successful operation has an 18 s
-cargo descent/warning, then two Freedom Force and two Collective Corps operators
-walk in from the announced approaches. They fight each other and seek the crate;
+cargo descent/warning. Six seconds into the warning, two Freedom Force and two
+Collective Corps operators descend from 60 m under sand and jade parachutes,
+touching down around the crate's landing. Both landing zones are marked on the
+minimap. Full canopy columns are checked against the scene before insertion and
+again at touchdown; operators cannot fire during descent. They fight each other and seek the crate;
 they initially leave the player and both local factions alone. Owners alternate
 between operations. The next operation waits seven minutes after the previous
 one finishes. The debug menu can request an operation; disabling random events
@@ -49,11 +52,15 @@ friendly soldiers and facilities retain their normal relationships. The actor
 relationship is symmetric so defenders can return fire. Neutral proxies are
 labelled neutral on the minimap and excluded from AI-pilot targeting.
 
-The existing cells conduct a single 65 s recovery operation, then have 18 s to
-withdraw. They do not summon an endless pursuit army. Dead operators do not
-respawn or drop repeatable prototype rewards. Teams can retreat earlier by
-reaching their approach point; all remaining encounter actors are removed at the
-end. Personal favor remains, but encounter targets are cleared.
+The existing cells conduct a single 65 s recovery operation, then retreat on foot
+past their landing zones along clear ground routes. Encounter hostility ends
+after 18 s; surviving operators keep walking instead of disappearing at the
+deadline. Cleanup requires at least 25 m from the crate, at least 20 m from every
+living player, and a full second outside every player's view or behind cover.
+Visible survivors can remain after the recovery window closes; the next event
+waits until those operators are gone. They do not summon an endless pursuit army.
+Dead operators do not respawn or drop repeatable prototype rewards. Personal
+favor remains, but encounter targets are cleared.
 
 Unattended cargo can be secured by either proxy after an uninterrupted eight
 seconds within 3 m, with no rival within 8 m and a clear line to the crate. A

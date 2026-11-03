@@ -7,7 +7,7 @@ import { createFacilities, type FacilitySite } from './facilities';
 import { shootAndLand } from './arena-test-shots';
 
 const tick=(sim:ArenaSimulation,n:number)=>{for(let t=0;t<n-.00001;t+=.05)sim.step(Math.min(.05,n-t));};
-function setup(facility=false, cover?:()=>number){
+function setup(facility=false, cover?:Parameters<typeof createArena>[6]){
  const site:FacilitySite={id:'friendly-depot',name:'Friendly depot',kind:'supply',x:82,y:0,z:0,initialOwner:'armed-forces',deployment:{x:100,z:0,yaw:0}};
  const saved=createFacilities([site]).snapshot(); saved.supplies['armed-forces']=0;saved.sites[0].health=100;
  const env:ArenaEnvironment={bounds:{minX:-200,maxX:200,minZ:-200,maxZ:200},move:(p,dx,dz)=>({x:p.x+dx,z:p.z+dz}),spawns:[{x:0,z:0}],playerSpawn:{x:0,z:0},endless:true,proxies:createProxyCampaign(),...(facility?{facilities:{sites:[site],saved}}:{})};
@@ -50,16 +50,51 @@ it('applies a stolen prototype to real friendly infrastructure without rewarding
 });
 it('lets a deliberate first shot provoke a neutral proxy, without implicating distant friendly soldiers',()=>{
  const {sim}=setup();start(sim);const proxy=sim.snapshot().actors.find(a=>a.faction==='freedom-force')!;
- movePlayer(sim,proxy.x,proxy.z+8);const p=sim.snapshot().actors.find(a=>a.id==='p')!,victim=sim.snapshot().actors.find(a=>a.id===proxy.id)!;
+ movePlayer(sim,proxy.x+8,proxy.z);const p=sim.snapshot().actors.find(a=>a.id==='p')!,victim=sim.snapshot().actors.find(a=>a.id===proxy.id)!;
  const d={x:victim.x-p.x,y:victim.y-.6-p.y,z:victim.z-p.z},len=Math.hypot(d.x,d.y,d.z);
  const shot=shootAndLand(sim,'p',p,{x:d.x/len,y:d.y/len,z:d.z/len},0);
- expect(shot.hitId).toBe(proxy.id);expect(shot.damage).toBeGreaterThan(0);expect(sim.snapshot().proxies!.favor['freedom-force']).toBe(-10);
+ expect(sim.snapshot().actors.find(a=>a.id===shot.hitId)?.faction).toBe('freedom-force');expect(shot.damage).toBeGreaterThan(0);expect(sim.snapshot().proxies!.favor['freedom-force']).toBe(-10);
  expect(sim.snapshot().proxies!.favor['collective-cops']).toBe(0);
 });
-it('removes the finite cells after the operation and does not respawn them',()=>{
- const {sim}=setup();start(sim);movePlayer(sim,80);expect(sim.proxyAction('p','return')).toBe(true);tick(sim,20);
- expect(sim.snapshot().actors.some(a=>a.proxyOperation)).toBe(false);expect(sim.snapshot().proxies!.operation!.phase).toBe('complete');
+it('keeps visible retreating operators past the deadline, then removes them behind cover without respawning',()=>{
+ let hidden=false,onlySecondObserver=false;
+ const {sim,env}=setup(false,origin=>hidden?0:onlySecondObserver&&Math.abs(origin.x-82)>.01?0:Infinity);
+ start(sim);movePlayer(sim,80);expect(sim.proxyAction('p','return')).toBe(true);
+ env.playerSpawn={x:82,z:0};sim.addPlayer('observer','Observer',0,0,undefined,undefined,true);
+ const before=sim.snapshot().actors.filter(a=>a.proxyOperation);
+ tick(sim,20);
+ const after=sim.snapshot(),survivors=after.actors.filter(a=>a.proxyOperation);
+ expect(after.proxies!.operation!.phase).toBe('complete');expect(survivors.length).toBeGreaterThan(0);
+ expect(survivors.every(a=>a.alive && a.objective==='Withdraw' && Math.hypot(a.x-80,a.z)>Math.hypot(before.find(b=>b.id===a.id)!.x-80,before.find(b=>b.id===a.id)!.z))).toBe(true);
+ expect(validArenaSnapshot(after,env)).toBe(true);expect(sim.triggerProxyOperation({x:80,z:0})).toBe(false);
+ onlySecondObserver=true;tick(sim,2);expect(sim.snapshot().actors.filter(a=>a.proxyOperation)).toHaveLength(survivors.length);
+ hidden=true;tick(sim,.5);expect(sim.snapshot().actors.filter(a=>a.proxyOperation)).toHaveLength(survivors.length);
+ hidden=false;tick(sim,.1);hidden=true;tick(sim,.6);expect(sim.snapshot().actors.filter(a=>a.proxyOperation)).toHaveLength(survivors.length);
+ tick(sim,.7);expect(sim.snapshot().actors.some(a=>a.proxyOperation)).toBe(false);
  tick(sim,10);expect(sim.snapshot().actors.some(a=>a.proxyOperation)).toBe(false);
+});
+it('shows separated, non-firing parachute cells during the warning and lands them before recovery',()=>{
+ const {sim,env}=setup();expect(sim.triggerProxyOperation({x:80,z:0})).toBe(true);
+ tick(sim,5.9);expect(sim.snapshot().actors.filter(a=>a.proxyOperation)).toHaveLength(0);
+ tick(sim,2);const airborne=sim.snapshot(),cells=airborne.actors.filter(a=>a.proxyOperation);
+ expect(airborne.proxies!.operation!.phase).toBe('incoming');expect(cells).toHaveLength(4);
+ expect(cells.every(a=>a.parachuting && a.y>40 && a.shots===0 && a.objective==='Parachute insertion')).toBe(true);
+ expect(validArenaSnapshot(airborne,env)).toBe(true);
+ for(const faction of ['freedom-force','collective-cops']){const [a,b]=cells.filter(a=>a.faction===faction);expect(Math.hypot(a.x-b.x,a.z-b.z)).toBeCloseTo(7);}
+ tick(sim,4);expect(sim.snapshot().actors.filter(a=>a.proxyOperation).every(a=>a.y<cells.find(b=>a.id===b.id)!.y && a.shots===0)).toBe(true);
+ tick(sim,6.3);const landed=sim.snapshot();expect(landed.proxies!.operation!.phase).toBe('contested');
+ expect(landed.actors.filter(a=>a.proxyOperation).every(a=>!a.parachuting && a.y<2)).toBe(true);
+ expect(validArenaSnapshot(landed,env)).toBe(true);
+});
+it('rechecks every drop column before insertion and aborts the whole cell when one is compromised',()=>{
+ const {sim,env}=setup();let calls=0,blocked=false;
+ env.dropColumnClear=()=>{calls++;return !blocked || calls%4!==0;};
+ expect(sim.triggerProxyOperation({x:80,z:0})).toBe(true);calls=0;blocked=true;tick(sim,6.1);
+ expect(sim.snapshot().proxies!.operation!.phase).toBe('withdrawing');expect(sim.snapshot().actors.filter(a=>a.proxyOperation)).toHaveLength(0);
+});
+it('never inserts operators through a blocked canopy column',()=>{
+ const {sim,env}=setup();env.dropColumnClear=()=>false;
+ expect(sim.triggerProxyOperation({x:80,z:0})).toBe(false);expect(sim.snapshot().actors.some(a=>a.proxyOperation)).toBe(false);
 });
 it('autonomously schedules the first operation and reset removes all encounter hostility',()=>{
  const {sim}=setup();tick(sim,61);expect(sim.snapshot().proxies!.operation).not.toBeNull();sim.reset();

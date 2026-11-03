@@ -7,7 +7,7 @@ import { createSwimmingMovement, SWIMMING, swimmingCanFire, swimmingShotDirectio
 import { isDragonBoat, canPaddle } from './marina-water';
 import { HELICOPTER_AI, chooseAirMission, createHelicopterMission, helicopterMissionControls, planAirRoute, returnHelicopter, updateBoardingReservations, type HelicopterMission } from './helicopter-autopilot';
 import { OICW_RIFLE, OICW_LAUNCHER, OICW_GRENADE } from './weapon-modes';
-import { createProxyOperations, PROXY_IDS, PROXY_RULES, proxyName, type ProxyAction, type ProxyCampaign, type ProxyId, type ProxyParticipant, type ProxyPoint, type ProxySnapshot } from './proxy-operations';
+import { createProxyOperations, PROXY_IDS, PROXY_RULES, proxyName, type ProxyAction, type ProxyCampaign, type ProxyId, type ProxyOperation, type ProxyParticipant, type ProxyPoint, type ProxySnapshot } from './proxy-operations';
 import { PARATROOPERS, dropPoints, planParatroopers } from './paratroopers';
 import { NAVAL, navalRampPoint, planNavalLanding, validReinforcementClocks, type ReinforcementClocks } from './naval-landings';
 import type { NavalLandingSite } from './naval-landing-sites';
@@ -334,6 +334,8 @@ interface InternalActor {
   /** Reinforcements: when this fallen bot started waiting for a ride, and the seat it was given. */
   waiting?: number; ride?: { event: string; slot: number };
   parachute?: { event: string; since: number; floor: number };
+  proxyExit?: ProxyPoint;
+  proxyUnseenSince?: number;
   navalTransit?: { site: NavalLandingSite; event: string; since: number };
   /**
    * Bots: the drawn variant's own figures, so a G36 hits, cycles, falls off and
@@ -1765,7 +1767,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     for (const m of members.values()) if (m.actor.proxyOperation) m.actor.proxyTargets = op ? [...op.targets[m.actor.faction as ProxyId]] : [];
   }
   function startProxyOperation(target?: CombatPlane) {
-    if (!proxies || !environment?.proxies || members.size + 4 > MAX_ARENA_ACTORS || proxies.current() && proxies.current()!.phase !== 'complete') return false;
+    if (!proxies || !environment?.proxies || members.size + 4 > MAX_ARENA_ACTORS || [...members.values()].some(m => m.actor.proxyOperation) || proxies.current() && proxies.current()!.phase !== 'complete') return false;
     const human = humansAlive().find(m => m.playing)?.actor;
     if (!human) return false;
     const candidates = target ? [target] : Array.from({ length: 24 }, (_, i) => {
@@ -1773,7 +1775,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       return { x: human.x + Math.cos(a) * r, z: human.z + Math.sin(a) * r };
     });
     for (const at of candidates) {
-      if (!clearSpawn(at)) continue;
+      if (!proxyDropClear(at)) continue;
       const y = patrolGround(at.x, at.z);
       for (let heading = 0; heading < 8; heading++) {
         const angle = heading * Math.PI / 4;
@@ -1781,35 +1783,84 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
           const sign = i ? -1 : 1, x = at.x + Math.cos(angle) * 28 * sign, z = at.z + Math.sin(angle) * 28 * sign;
           return [f, { x, y: patrolGround(x,z), z }];
         })) as Record<ProxyId, ProxyPoint>;
-        const safe = Object.values(entries).every(p => clearSpawn(p) && clearSpawn({ x: p.x + 1.5, z: p.z + 1.5 }) &&
+        const safe = Object.values(entries).every(p => proxyCellPoints(at, p).every(proxyDropClear) &&
           humansAlive().every(h => Math.hypot(h.actor.x-p.x,h.actor.z-p.z) >= 20) &&
           Array.from({length:15},(_,i) => ({x:at.x+(p.x-at.x)*i/14,z:at.z+(p.z-at.z)*i/14})).every(q => clearSpawn(q) && Math.abs(patrolGround(q.x,q.z)-y)<.6));
         if (!safe) continue;
         if (!proxies.start({ ...at, y }, entries)) return false;
-        announce(`${proxyName(proxies.current()!.owner)} prototype cargo down. Two recovery cells inbound. Cargo tracker is broadcasting.`);
+        announce(`${proxyName(proxies.current()!.owner)} prototype cargo descending. Freedom Force and Collective Corps parachute cells inbound. Cargo tracker is broadcasting.`);
         return true;
       }
     }
     environment.proxies.nextIn = 20; return false;
   }
+  /** Separate full canopies, with both operators approaching from the same side. */
+  function proxyCellPoints(at: CombatPlane, p: ProxyPoint) {
+    const length = Math.max(1, Math.hypot(p.x-at.x,p.z-at.z));
+    return [-3.5,3.5].map(offset => {
+      const x=p.x-(p.z-at.z)/length*offset, z=p.z+(p.x-at.x)/length*offset;
+      return {x,y:patrolGround(x,z),z};
+    });
+  }
+  function proxyDropClear(p: CombatPlane) {
+    const floor=patrolGround(p.x,p.z);
+    return clearSpawn(p) && (!environment?.dropColumnClear || environment.dropColumnClear(p,floor)) &&
+      [[0,0],[2.6,0],[-2.6,0],[0,2.6],[0,-2.6]].every(([dx,dz]) => {
+        const q={x:p.x+dx,z:p.z+dz};
+        return clearSpawn(q) && Math.abs(patrolGround(q.x,q.z)-floor)<.45 &&
+          !obstacles.some(o => q.x>=o.minX && q.x<=o.maxX && q.z>=o.minZ && q.z<=o.maxZ && (o.maxY??200)>floor+.5 && (o.minY??0)<floor+PARATROOPERS.height+8);
+      });
+  }
+  let proxyFielded: string | undefined;
   function fieldProxyCells() {
     const op = proxies?.current(); if (!op || members.size + 4 > MAX_ARENA_ACTORS) return false;
-    if (Object.values(op.entries).some(p => humansAlive().some(m => Math.hypot(m.actor.x-p.x,m.actor.z-p.z)<12))) return false;
+    // Validate the entire insertion before adding anyone; never leave a partial cell behind.
+    const points=PROXY_IDS.flatMap(faction=>proxyCellPoints(op.at,op.entries[faction]));
+    if (points.some(p=>!proxyDropClear(p) || [...members.values()].some(m=>m.actor.alive && !m.reserve && Math.hypot(m.actor.x-p.x,m.actor.z-p.z)<2))) return false;
     for (const faction of PROXY_IDS) for (let slot=0;slot<2;slot++) {
       const roleId = faction === 'freedom-force' ? slot ? 'sniper' : 'assault' : slot ? 'assault' : 'tank';
       const role = getArenaRole(roleId)!;
-      const p = op.entries[faction], at = {x:p.x+slot*1.5,z:p.z+slot*1.5};
-      if (!clearSpawn(at)) return false;
+      const at = proxyCellPoints(op.at,op.entries[faction])[slot];
       const entry = addMember(`${op.id}-${faction}-${slot}`, 'Proxy operator', 65, .45, FPS_WEAPONS, false, undefined, role)!;
       entry.role = role; entry.healthMax = 110;
       Object.assign(entry.actor, { bot:true, role:roleId, faction, proxyOperation:op.id });
       spawn(entry, {...at,y:patrolGround(at.x,at.z),yaw:Math.atan2(at.x-op.at.x,at.z-op.at.z)});
+      entry.actor.y=at.y+PARATROOPERS.height+1.75; entry.actor.parachuting=true;
+      entry.parachute={event:op.id,since:elapsed,floor:at.y};
       entry.actor.health=110; entry.actor.armor=65; entry.actor.rank=3;
       entry.actor.name = faction === 'freedom-force' ? slot ? 'FF Wayfinder' : 'FF Lancer' : slot ? 'CC Conductor' : 'CC Bastion';
       entry.temporary={event:op.id,from:elapsed}; entry.shieldUntil=0;
-      entry.mission={x:op.at.x,z:op.at.z}; entry.actor.objective='Recover prototype';
+      entry.mission={x:op.at.x,z:op.at.z}; entry.actor.objective='Parachute insertion';
     }
+    proxyFielded=op.id;
     return true;
+  }
+  /** Continue beyond the landing zone along a clear ground route, rather than vanishing there. */
+  function proxyExitPoint(m: InternalActor, op: ProxyOperation) {
+    const p=op.entries[m.actor.faction as ProxyId], heading=Math.atan2(p.z-op.at.z,p.x-op.at.x);
+    for (const turn of [0,Math.PI/4,-Math.PI/4,Math.PI/2,-Math.PI/2]) {
+      for (const radius of [90,65,40,20]) {
+        const goal={x:p.x+Math.cos(heading+turn)*radius,z:p.z+Math.sin(heading+turn)*radius};
+        const steps=Math.ceil(Math.hypot(goal.x-m.actor.x,goal.z-m.actor.z)/1.5);
+        if (Array.from({length:steps+1},(_,i)=>({x:m.actor.x+(goal.x-m.actor.x)*i/steps,z:m.actor.z+(goal.z-m.actor.z)*i/steps})).every(q=>clearSpawn(q) && Math.abs(patrolGround(q.x,q.z)-p.y)<.6))
+          return {...goal,y:patrolGround(goal.x,goal.z)};
+      }
+    }
+    return {...p};
+  }
+  /** All players must lose sight of the whole body for a full second before cleanup. */
+  function proxyOutOfSight(m: InternalActor) {
+    const feet=m.heal?.feet ?? m.actor.y-(m.actor.prone?PRONE_EYE_HEIGHT:1.75);
+    const seen=humansAlive().some(h=>{
+      const dx=m.actor.x-h.actor.x,dz=m.actor.z-h.actor.z,d=Math.hypot(dx,dz);
+      if (d<20) return true;
+      // A generous 270-degree view also protects wide screens and peripheral glances.
+      if (!h.actor.vehicle && (-Math.sin(h.actor.yaw)*dx-Math.cos(h.actor.yaw)*dz)/d<-.707) return false;
+      return [0,.8,1.6].some(height=>lineClear(h.actor,{x:m.actor.x,y:feet+height,z:m.actor.z}));
+    });
+    if (seen) { m.proxyUnseenSince=undefined; return false; }
+    m.proxyUnseenSince??=elapsed;
+    return elapsed-m.proxyUnseenSince>=1;
   }
   function proxyAction(id: string, action: ProxyAction) {
     const entry = members.get(id), op = proxies?.current();
@@ -1829,25 +1880,28 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function stepProxies(dt: number) {
     if (!proxies) return;
-    const before = proxies.current()?.phase, oldOutcome = proxies.current()?.outcome;
+    const oldOutcome = proxies.current()?.outcome;
     proxies.step(dt,proxyParticipants(),lineClear);
     let op = proxies.current();
     if (proxyAutomatic && (!op || op.phase === 'complete' && op.cargo!=='carried') && environment!.proxies!.nextIn<=0) startProxyOperation();
     op=proxies.current(); if (!op) return;
-    if (before==='incoming' && op.phase==='contested') {
+    if (proxyFielded!==op.id && (op.phase==='incoming' && op.remaining<=PARATROOPERS.descent || op.phase==='contested')) {
       if (!fieldProxyCells()) { op.cargo='resolved'; proxies.withdraw('Recovery insertion aborted: approach compromised.'); }
-      else announce('Proxy cells deployed. Stay clear, or approach the prototype to choose its fate.');
+      else announce('Freedom Force and Collective Corps canopies sighted. Cells are descending to their marked landing zones.');
     }
     const local = [...members.values()].filter(m => m.actor.proxyOperation===op.id);
     for (const m of local) {
       const faction=m.actor.faction as ProxyId;
-      if (op.phase==='complete') { dismiss(m.actor.id); continue; }
+      const withdrawing=op.phase==='withdrawing'||op.phase==='complete';
       const hunted = [...members.values()].find(p => !p.actor.bot && p.actor.alive && op.targets[faction].includes(p.actor.id));
-      const goal = op.phase==='withdrawing' ? op.entries[faction] : hunted ? hunted.actor : op.at;
-      m.mission={x:goal.x,z:goal.z,y:op.phase==='withdrawing'?goal.y+1.75:hunted?goal.y:op.at.y+1.75}; m.actor.objective=op.phase==='withdrawing'?'Withdraw':hunted?'Recover tracked cargo':'Recover prototype';
-      if (op.phase==='withdrawing' && Math.hypot(m.actor.x-goal.x,m.actor.z-goal.z)<2) { dismiss(m.actor.id); continue; }
+      if (withdrawing) m.proxyExit??=proxyExitPoint(m,op);
+      const goal = withdrawing ? m.proxyExit! : hunted ? hunted.actor : op.at;
+      m.mission={x:goal.x,z:goal.z,y:withdrawing?goal.y+1.75:hunted?goal.y:op.at.y+1.75};
+      m.actor.objective=m.parachute?'Parachute insertion':withdrawing?'Withdraw':hunted?'Recover tracked cargo':'Recover prototype';
+      if (Math.hypot(m.actor.x-op.at.x,m.actor.z-op.at.z)<25) m.proxyUnseenSince=undefined;
+      if (withdrawing && m.actor.alive && !m.parachute && Math.hypot(m.actor.x-op.at.x,m.actor.z-op.at.z)>=25 && proxyOutOfSight(m)) { dismiss(m.actor.id); continue; }
       // Only soldiers who can see a nearby threatened player join this local dispute.
-      if (hunted && op.phase!=='withdrawing' && Math.hypot(m.actor.x-hunted.actor.x,m.actor.z-hunted.actor.z)<45) {
+      if (hunted && !withdrawing && Math.hypot(m.actor.x-hunted.actor.x,m.actor.z-hunted.actor.z)<45) {
         for (const ally of members.values()) if (ally.actor.bot && ally.actor.alive && ally.actor.faction===PLAYER_FACTION &&
           Math.hypot(ally.actor.x-hunted.actor.x,ally.actor.z-hunted.actor.z)<18 && lineClear(ally.actor,m.actor)) proxies.target(faction,ally.actor.id);
       }
@@ -2489,7 +2543,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     m.actor.y = drop.floor + PARATROOPERS.height * (1 - k) + 1.75;
     if (k < 1) return;
     m.parachute = undefined; delete m.actor.parachuting;
-    if (!clearDrop(m.actor) || [...members.values()].some(other => other !== m && other.actor.alive && !other.reserve && Math.abs(other.actor.y - m.actor.y) < 2 && Math.hypot(other.actor.x - m.actor.x, other.actor.z - m.actor.z) < 1)) {
+    if (!(m.actor.proxyOperation ? proxyDropClear(m.actor) : clearDrop(m.actor)) || [...members.values()].some(other => other !== m && other.actor.alive && !other.reserve && Math.abs(other.actor.y - m.actor.y) < 2 && Math.hypot(other.actor.x - m.actor.x, other.actor.z - m.actor.z) < 1)) {
       hurtActor(m, 1000, undefined, 'Blocked parachute landing', m.actor, true, true); return;
     }
     reportIn(m, 0, 1);

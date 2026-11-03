@@ -11,7 +11,7 @@ import { createFirearmCameraShake } from './firearm-camera-shake';
 import { bailoutRoll, BAILOUT_ROLL_SECONDS } from './bailout-roll';
 import { applyVehicleImpactCamera } from './vehicle-impact';
 import { recoverProxyWeapon, supplyProxyMagazines } from './proxy-equipment';
-import { createProxyCampaign, type ProxyAction, type ProxyCampaign } from './proxy-operations';
+import { createProxyCampaign, PROXY_IDS, proxyName, type ProxyAction, type ProxyCampaign } from './proxy-operations';
 import { createProxyOperationVisuals } from './proxy-operation-visuals';
 import { applyRespawnLoadout, type RespawnLoadoutSelection } from './respawn-loadout';
 import { createDropColumnCheck } from './paratrooper-route-validation';
@@ -397,7 +397,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const facilityVisuals = createFacilityVisuals(world.scene, facilitySites);
   const objectiveBeacons = expedition ? createObjectiveBeacons(world.scene, facilitySites) : null;
   const facilityCover = createSceneCover(world.scene);
-  if (options.arena?.environment?.paratroopers) options.arena.environment.dropColumnClear = createDropColumnCheck(facilityCover);
+  if (options.arena?.environment && (options.arena.environment.paratroopers || options.arena.environment.proxies)) options.arena.environment.dropColumnClear = createDropColumnCheck(facilityCover);
   const motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { spawns: fleetSpawns, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay', reducedMotion: () => !!motionPreference?.matches, exitFloor: (x, z) => footMovement.supportHeight(x, z, (world.bounds.groundHeight?.(x,z)??0)+MAX_STEP_HEIGHT, .38, 1.8) });
   const deploymentPoints = expedition && !expedition.checkpoint && !expedition.spawn ? districtDeploymentPoints(expedition.zone, (x, z) =>
@@ -741,6 +741,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         }),
         ...(hud.arena?.facilities?.sites ?? []).map((s): MinimapMarker => ({ id: s.id, x: s.x, z: s.z, kind: 'facility', facilityType: s.kind, label: `${s.name} · ${facilityStatus(s)}`, side: s.owner === PLAYER_FACTION ? 'ally' : s.owner ? 'enemy' : 'neutral', inactive: s.health === 0, active: !!s.action })),
         ...(proxy && proxy.cargo==='sealed' && ['incoming','contested'].includes(proxy.phase) ? [{ id:proxy.id, x:proxy.at.x,z:proxy.at.z,kind:'checkpoint' as const,label:'Tracked prototype cargo',side:'neutral' as const }] : []),
+        ...(proxy?.phase==='incoming' ? PROXY_IDS.map((faction): MinimapMarker=>({id:`${proxy.id}-${faction}-landing`,x:proxy.entries[faction].x,z:proxy.entries[faction].z,kind:'parachute',side:'neutral',label:`${proxyName(faction)} landing zone · touchdown in ${Math.ceil(proxy.remaining)}s`})) : []),
         ...contactMarkers(mapContactRange),
       ],
     });

@@ -1,0 +1,47 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Proxy cargo arrivals</title>
+<style>body{margin:0;font:15px system-ui}canvas{display:block}header{position:absolute;left:16px;top:16px;color:white;text-shadow:0 1px 4px #000}</style><header id="status">Loading</header>
+<script type="module">
+import * as THREE from 'three';
+import { buildDistrictWorld } from '/src/game/district-world.ts';
+import { createArena } from '/src/game/arena-rules.ts';
+import { createArenaRuntime, validArenaSnapshot } from '/src/game/arena-runtime.ts';
+import { createProxyCampaign } from '/src/game/proxy-operations.ts';
+import { createProxyOperationVisuals } from '/src/game/proxy-operation-visuals.ts';
+import { createSceneCover } from '/src/game/scene-cover.ts';
+import { createDropColumnCheck } from '/src/game/paratrooper-route-validation.ts';
+import { getWalkSurfaces, getTraversalObstacles } from '/src/game/vertical-routes.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.append(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(58,1.5,.1,1500);
+let world,runtime,visuals;
+window.reviewProxyOperation=(district='queenstown',phase='descent')=>{
+ runtime?.dispose();visuals?.dispose();world?.dispose?.();
+ world=buildDistrictWorld(district);const scene=world.scene,cover=createSceneCover(scene);
+ const env={...world.environment,combatEvents:undefined,heat:undefined,battlefield:undefined,reinforcements:false,proxies:createProxyCampaign(),dropColumnClear:createDropColumnCheck(cover)};
+ const traversal={bounds:world.bounds,obstacles:world.obstacles,surfaces:getWalkSurfaces(scene),traversalObstacles:getTraversalObstacles(scene)};
+ const arena=createArena(world.obstacles,0,'mixed',env,undefined,traversal,cover.distance);
+ arena.addPlayer('observer','Observer',0,0,undefined,undefined,true);arena.setCombatEvents(false);
+ if(!arena.triggerProxyOperation())throw Error('No clear proxy insertion in '+district);
+ let deliver;
+ runtime=createArenaRuntime({scene,obstacles:world.obstacles,environment:env,botCount:0,session:{id:'observer',name:'Observer',role:'guest',send(){},subscribe(cb){deliver=cb;return()=>{}},getPeers:()=>[{id:'host',name:'Host'}],onPeers:()=>()=>{},close(){}}});
+ visuals=createProxyOperationVisuals(scene);
+ function present(){const s=arena.snapshot();if(!validArenaSnapshot(s,env))throw Error('Invalid host snapshot');
+  deliver('host',{type:'arena-state',snapshot:s,started:true,matchId:'proxy-review'});
+  const frame=runtime.update(.05,{x:0,y:1.75,z:0,yaw:0,pitch:0,weapon:0,playing:false});
+  if(frame.snapshot?.tick!==s.tick)throw Error('Guest rejected snapshot');visuals.update(s.proxies);return s;}
+ function advance(seconds){for(let t=0;t<seconds-.00001;t+=.05){arena.step(.05);present();}}
+ advance(phase==='warning'?3:phase==='descent'?12:18.3);
+ if(phase==='withdrawal'){
+  const op=arena.snapshot().proxies.operation;env.playerSpawn={...op.at,yaw:0};
+  arena.addPlayer('courier','Courier',0,0,undefined,undefined,true);
+  if(!arena.proxyAction('courier','return'))throw Error('Cargo return failed');
+  arena.removePlayer('courier');advance(4);
+ }
+ const s=present(),op=s.proxies.operation;
+ camera.position.set(op.at.x,110*Math.max(1,innerHeight/innerWidth),op.at.z+22);camera.lookAt(op.at.x,phase==='descent'?25:3,op.at.z);
+ renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();camera.updateMatrixWorld(true);renderer.render(scene,camera);
+ const canopies=[];scene.traverse(o=>{if(o.name==='infantry-parachute'&&o.parent?.name!=='proxy-prototype-cargo'&&o.visible)canopies.push('#'+o.children[0].material.color.getHexString());});
+ document.querySelector('#status').textContent=`${district} · ${phase} · ${canopies.length} canopies · ${op.phase}`;
+ return{district,phase,operation:op.phase,time:s.elapsed,accepted:true,canopies,actors:s.actors.filter(a=>a.proxyOperation).map(a=>({id:a.id,faction:a.faction,alive:a.alive,x:a.x,y:a.y,z:a.z,parachuting:!!a.parachuting,shots:a.shots,objective:a.objective})),glError:renderer.getContext().getError()};
+};
+</script>

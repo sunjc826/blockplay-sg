@@ -20,7 +20,7 @@ export default function ProxyOperationHud({ hud, engine }: { hud: FpsHud; engine
   return <>
     <aside className="proxy-status" aria-label="Proxy operation" data-proxy-phase={op.phase}>
       <strong>{carrying?'TRACKED CARGO':hunted?'PROXY RECOVERY TEAM':'CONTESTED PROTOTYPE'}</strong>
-      <span>{op.phase==='incoming'?`${owner} cargo descending · cells arrive in ${Math.ceil(op.remaining)}s`:carrying?'Deliver at an operational friendly facility in this district':op.phase==='contested'?`${owner} property · ${distance}m · ${Math.ceil(op.remaining)}s remaining`:op.phase==='complete'?'Recovery teams departed':`${op.phase==='withdrawing'?'Withdrawal':'Recovery'} · ${Math.ceil(op.remaining)}s`}</span>
+      <span>{op.phase==='incoming'?`${owner} cargo descending · parachute touchdown in ${Math.ceil(op.remaining)}s`:carrying?'Deliver at an operational friendly facility in this district':op.phase==='contested'?`${owner} property · ${distance}m · ${Math.ceil(op.remaining)}s remaining`:op.phase==='complete'?'Recovery window closed':`${op.phase==='withdrawing'?'Teams retreating on foot':'Recovery'} · ${Math.ceil(op.remaining)}s`}</span>
       <small>Favor · Freedom {state.favor['freedom-force']} · Collective {state.favor['collective-cops']}</small>
       {hud.proxyReach && <button onClick={()=>engine?.openProxyMenu()}>{hud.inputMode==='mouse'?'E · ':''}Inspect cargo / choose</button>}
       {delivery && <button onClick={()=>engine?.chooseProxyAction('deliver')}>{hud.inputMode==='mouse'?'E · ':''}Deliver prototype</button>}

@@ -317,7 +317,7 @@ function createAvatar(actor: ArenaActor): Avatar {
   // A friendly squad's uniform is plain to see, so the AI pilot may read it off the figure.
   root.userData.arenaFriendly = actor.bot && actor.faction === PLAYER_FACTION;
   const color = arenaRoleColor(actor);
-  const parachute = createParachute(actor.faction === PLAYER_FACTION ? '#718862' : '#a48d60'); root.add(parachute.root);
+  const parachute = createParachute(actor.faction === 'freedom-force' ? '#d7c8a0' : actor.faction === 'collective-cops' ? '#75968a' : actor.faction === PLAYER_FACTION ? '#718862' : '#a48d60'); root.add(parachute.root);
   const resources: { dispose(): void }[] = [...rig.resources, ...parachute.resources];
   let muzzle: THREE.Mesh | null = null;
   if (rig.muzzle) {
