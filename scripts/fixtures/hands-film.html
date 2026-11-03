@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- The throw and the plate as a contact sheet through the viewmodel camera, for checking poses by eye:
-     ?film=throw | lob | plates (default throw) &item=grenade-frag &cols=6 &only=4,9 (just those frames). Cut straight from the real motion. -->
+     ?film=throw | lob | plates | eat | bandage | medkit | ammo (default throw) &item=grenade-frag &cols=6 &only=4,9 (just those frames). Cut straight from the real motion. -->
 <html><body style="margin:0;background:#111"><script type="module">
 import * as THREE from '/node_modules/three/build/three.module.js';
 import {createGrenadeViewmodel} from '/src/game/grenade-models.ts';
@@ -12,8 +12,8 @@ const sun=new THREE.DirectionalLight('#fff4dd',2.5);sun.position.set(1,2,1);scen
 const grenade=createGrenadeViewmodel(scene),supply=createSupplyViewmodel(scene);
 const hold=(ready,cooked,swingAt=null,under=0,pinned=true)=>({id,hold:{ready,cooked,pinned,swingAt,under,fuseLeft:3}});
 const under=film==='lob'?1:0;
-const only=params.get('only')?.split(',').map(Number),all=film==='plates'
-  ?[.05,.1,.14,.2,.3,.38,.44,.5,.56,.62,.68,.72,.74,.76,.78,.82,.86,.9,.94,.98].map(p=>({label:'p'+p,draw:()=>supply.update('plates',p)}))
+const only=params.get('only')?.split(',').map(Number),all=film!=='throw'&&film!=='lob'
+  ?[.05,.1,.14,.2,.3,.38,.44,.5,.56,.62,.68,.72,.74,.76,.78,.82,.86,.9,.94,.98].map(p=>({label:'p'+p,draw:()=>supply.update(film,p)}))
   :[[.08,0,null,0,false],[.2,0,null,0,false],[.35,0,null,0,false],[.35,.05],[.35,.085],[.35,.12],[.35,.16],[.35,.2],[.35,W0],[.35,.3],[.35,1],[.35,1+S*.3,1],[.35,1+S*.6,1],[.35,1+S*.85,1],[.35,1+S,1]]
     .map(([r,c,s=null,,p=true])=>({label:`r${r} c${c}`,draw:()=>grenade.update(hold(r,c,s,under,p))}))
     .concat([.03,.07,.12,.18,.26,.34,.42].map(t=>({label:`t+${t}`,draw:()=>grenade.update({id,release:{thrown:true,elapsed:t,under}})})));
