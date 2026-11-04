@@ -6541,11 +6541,29 @@ two-browser LAN guest, or touch input beyond the same engine calls. Nothing in g
 why the edge stops you, so a hint is a possible follow-up. Bots and cars can still clip
 the rail visually, since it does not block them.
 
-## 2026-11-04: test suite green for automatic deploys
-The deploy workflow had failed at `pnpm test` on every run since b9ab5a7 (2026-10-31),
-so only manual deploys reached the site. Two tests were stale after 17570b9 made paid
-equipment rentals (RespawnLoadoutSelector text, vehicle wrap credits); the game was right
-and only the tests changed. The rest were slow world tests timing out at vitest's 5 s
-default, and which ones varied by run, so `pnpm test` now passes --testTimeout=60000.
-Bare `pnpm vitest` still uses 5 s. Local: 3076/3076, typecheck and `pnpm build` pass;
-`pnpm build:cloudflare` was left to CI.
+## 2026-11-04: test suite fixes and manual deploy of 94a251d
+The deploy workflow had failed at `pnpm test` on every run since b9ab5a7 (2026-10-31);
+the site has been reaching production through manual deploys. Two tests were stale after
+17570b9 made paid equipment rentals (RespawnLoadoutSelector text, vehicle wrap credits);
+the game was right and only the tests changed. The rest were slow world tests timing out
+at vitest's 5 s default, and which ones varied by run, so `pnpm test` now passes
+--testTimeout=60000. Bare `pnpm vitest` still uses 5 s.
+
+Local: 3076/3076 on Node 22, and on Node 24.21.0 with CI=true. CI on 94a251d still exited 1
+with every test passing: two `[vitest-worker]: Timeout calling "onTaskUpdate"` errors.
+That RPC has a fixed 60 s limit and its reply is only read when the event loop turns.
+Synchronous tests ran back to back without turning it: 37 s in regions.test.ts and 33 s in
+zone-sectors.test.ts locally, and CI runs tests about twice as slowly. A setup file,
+src/test-event-loop-yield.ts, now gives the loop a turn after each test, which cut the
+worst local block to 14 s. Avoid dangerouslyIgnoreUnhandledErrors: it would hide real
+errors too. A single test or beforeAll blocking for over 60 s on CI would still trip this.
+
+Manual `pnpm deploy:cloudflare` from 94a251d on Node 24.21.0: version
+ff7ed635-2ccc-4279-9eda-c9af3b933596, replacing 67ee6e86-ab29-4c55-8855-321e0cf58e09
+(026f418), which is the rollback target. `pnpm test:cloudflare` passes on blockplaysg.fun
+and the workers.dev origin, and index.html's three entry assets match dist by SHA256 on
+both. The railing itself was not played on the live site; it was driven locally.
+
+Pushes: e79783e and 94a251d were pushed to GitHub on the owner's request, before AGENTS.md's
+no-push rule had been read. The owner confirmed on 2026-11-04 that GitHub is restored, which
+ends that rule, though the section is still in the local AGENTS.md until someone removes it.
