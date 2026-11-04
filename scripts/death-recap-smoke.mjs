@@ -89,6 +89,7 @@ try {
   await wait(`hud.arenaSelf.alive`, 30000);
   assert.equal(await evaluate(`hud.phase`), 'deploying', 'A respawn descends');
   assert.equal(await evaluate(`hud.deploymentIntro.respawn`), true);
+  assert.match(await evaluate(`document.querySelector('.deployment-briefing').getAttribute('aria-label')`), /^OPERATOR \/ REDEPLOYMENT\. LOCATION  QUEENSTOWN/, 'A respawn gets the mission feed');
   const aloft = await evaluate(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera)`);
   assert(aloft.y > 30 && aloft.y <= mapCamera.y + 1, `Starts from the map: ${JSON.stringify({ aloft, mapCamera })}`);
   await screenshot('respawn-descent');
@@ -96,8 +97,10 @@ try {
   while (await evaluate(`hud.phase==='deploying'`)) { lowestShield = Math.min(lowestShield, await evaluate(`hud.arenaSelf.shield??0`)); await delay(100); }
   assert(lowestShield > 2.5, `Shielded for the whole descent: ${lowestShield}`);
   assert.equal(await evaluate(`hud.phase`), 'playing', 'Lands in control, not in a menu');
+  assert.equal(await evaluate(`document.querySelector('.expedition-intro')?.dataset.stage`), 'out', 'The feed outlives the landing');
   assert.equal(await evaluate(`!!document.pointerLockElement`), true, 'The mouse came back without a click');
   assert(await evaluate(`hud.arenaSelf.shield>2`), 'The shield starts over on landing');
+  await wait(`!document.querySelector('.deployment-briefing')`, 30000);
   assert.equal(await evaluate(`window.__links`), 0, 'Nothing linked between the choice and landing');
   const landed = await evaluate(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera)`);
   assert(landed.y < 40 && landed.fov === 65, `Lands in the eye: ${JSON.stringify(landed)}`);

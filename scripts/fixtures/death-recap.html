@@ -10,13 +10,15 @@ import {createProfile} from '/src/game/armory-state.ts';
 import {createExpeditionLoot} from '/src/game/expedition-loot.ts';
 import ExpeditionRespawn from '/src/components/ExpeditionRespawn.tsx';
 import DeathRecap from '/src/components/DeathRecap.tsx';
+import {DeploymentOverlay} from '/src/components/DeploymentBriefing.tsx';
 const root=createRoot(document.querySelector('#overlay')),button=document.querySelector('#start');
 const el=React.createElement;
 window.engine=createFpsEngine(document.querySelector('#world'),hud=>{
  window.hud=hud;button.hidden=hud.phase==='playing';
  const dead=hud.phase==='playing'&&hud.arenaSelf?.alive===false;
  root.render(dead&&hud.deathRecap?el(DeathRecap,{recap:hud.deathRecap,respawnIn:hud.arenaSelf.respawnIn,onSkip:()=>engine.skipDeathScene(),onMenu:()=>engine.pause()})
-  :dead&&hud.respawn?el(ExpeditionRespawn,{view:hud.respawn,seconds:hud.arenaSelf.respawnIn,onChoose:id=>engine.chooseRespawn(id),onAutomatic:value=>engine.setAutoRespawn(value),onMenu:()=>engine.pause()}):null);
+  :dead&&hud.respawn?el(ExpeditionRespawn,{view:hud.respawn,seconds:hud.arenaSelf.respawnIn,onChoose:id=>engine.chooseRespawn(id),onAutomatic:value=>engine.setAutoRespawn(value),onMenu:()=>engine.pause()})
+  :hud.deploymentBriefing?el(DeploymentOverlay,{location:'Queenstown',intro:hud.deploymentIntro,briefing:hud.deploymentBriefing,clock:()=>engine.deploymentBriefingTime()}):null);
 },{region:'queenstown',expedition:{zone:'queenstown',infrastructure:new Map(),checkpoint:{health:4,armor:0,weapon:0,ammunition:[]},profile:createProfile(),loot:createExpeditionLoot('death-recap-review'),
  onTravel(){},onEquipment(){},onVendorPurchase(){return{ok:false,message:'Fixture'};}}});
 button.onclick=()=>{engine.configureDebug({combatEvents:true,regeneration:false});engine.start();};

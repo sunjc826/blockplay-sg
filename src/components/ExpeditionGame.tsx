@@ -5,7 +5,7 @@ import RespawnLoadoutSelector from './RespawnLoadoutSelector';
 import { applyRespawnLoadout, type RespawnLoadoutSelection } from '../game/respawn-loadout';
 import { BATTLEFIELD_POPULATIONS, DEFAULT_BATTLEFIELD_SIZE } from '../game/battlefield';
 import type { RaiderBounty } from '../game/combat-rewards';
-import DeploymentBriefing from './DeploymentBriefing';
+import { DeploymentOverlay } from './DeploymentBriefing';
 import ExpeditionRespawn from './ExpeditionRespawn';
 import DeathRecap from './DeathRecap';
 import FpsFacilityHud from './FpsFacilityHud';
@@ -200,14 +200,9 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
           onZoom={factor => engine.current?.zoomDeployment(factor)} onResetView={() => engine.current?.resetDeploymentView()}
           onAutomatic={checked => { autoRespawn.current = checked; engine.current?.setAutoRespawn(checked); }} />}
       {touch && !hud.pilotEnabled && (playing && alive || physicalCrossing && hud.phase === 'loading') && <TouchControls hud={hud} engine={engine.current} mode="expedition" crossing={physicalCrossing && hud.phase === 'loading'} onMenu={() => engine.current?.pause()} />}
-      {deploying && <div className="expedition-intro" data-stage={hud.deploymentIntro?.stage}>
-        <div className="expedition-intro-fade" style={{ opacity: hud.deploymentIntro?.fade ?? 0 }} />
-        <div className="expedition-intro-caption"><span>{hud.deploymentIntro?.respawn ? 'OPERATOR / REDEPLOYMENT' : 'EXPEDITION / INSERTION'}</span>
-          {hud.deploymentIntro && <DeploymentBriefing location={zone.name} {...hud.deploymentIntro} />}
-          <strong>{hud.deploymentIntro?.stage === 'descent' ? 'Closing on entry point' : 'Ready your weapon'}</strong>
-        </div>
-        <div className="expedition-intro-actions"><button onClick={() => engine.current?.pause()}>Menu</button><button onClick={() => engine.current?.skipDeployment()}>Skip intro{!touch && <kbd>SPACE</kbd>}</button></div>
-      </div>}
+      {(deploying || playing && alive && hud.deploymentBriefing) && <DeploymentOverlay location={zone.name} intro={hud.deploymentIntro} briefing={hud.deploymentBriefing} clock={() => engine.current?.deploymentBriefingTime() ?? null}>
+        {deploying && <div className="expedition-intro-actions"><button onClick={() => engine.current?.pause()}>Menu</button><button onClick={() => engine.current?.skipDeployment()}>Skip intro{!touch && <kbd>SPACE</kbd>}</button></div>}
+      </DeploymentOverlay>}
       {planning && <ExpeditionDeployment zone={scene.zone} deployment={hud.deployment} disabled={suspended} onChoose={id => engine.current?.chooseDeployment(id)} onZoom={factor => engine.current?.zoomDeployment(factor)} onResetView={() => engine.current?.resetDeploymentView()}>
         <button className="primary-button" disabled={suspended} onClick={() => { if (touch) fullscreen.enter(); engine.current?.start(); }}><Play size={16} />Enter district<ArrowRight size={16} /></button>
         <details className="deployment-settings"><summary>Briefing &amp; settings</summary><div className="deployment-settings-panel">{nav}<p>{zone.description}</p><p>Capture enemy equipment intact, destroy it, or rebuild ruined sites. Command posts reinforce infantry; garages and helipads replace vehicles.</p><EnvironmentControls />

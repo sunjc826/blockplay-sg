@@ -52,7 +52,15 @@ try {
  await wait(`Number(document.querySelector('canvas').dataset.readyAction)>.8`);
  await screenshot('weapon-rack');
  assert.equal(await evaluate(`${game}.dataset.arenaStarted`),'false');
- await wait(`${game}.dataset.phase==='playing'`); await wait(`${game}.dataset.arenaStarted==='true'`);
+ await wait(`${game}.dataset.phase==='playing'`);
+ // The gun is up: the feed stays, its letters encrypt and fade, and the letterbox leaves with it.
+ assert.equal(await evaluate(`document.querySelector('.expedition-intro').dataset.stage`),'out');
+ assert.equal(await evaluate(`!!document.querySelector('.expedition-intro-actions')`),false);
+ const feedLetters=`[...document.querySelectorAll('.deployment-briefing span')]`;
+ await wait(`(()=>{const label=document.querySelector('.deployment-briefing').getAttribute('aria-label').replace(/\\. /g,'');return ${feedLetters}.map(s=>s.textContent).join('')!==label})()`,5000);
+ await screenshot('feed-encrypting');
+ await wait(`!document.querySelector('.expedition-intro')`,12000);
+ await wait(`${game}.dataset.arenaStarted==='true'`);
  assert.deepEqual(await evaluate('window.__links'),[],'Every shader was built before the click');
  const finish=await evaluate(`({x:${game}.dataset.playerX,z:${game}.dataset.playerZ,health:${game}.dataset.health,point:${game}.dataset.deploymentPoint})`);
  assert.deepEqual(finish,start);
@@ -62,6 +70,18 @@ try {
  await wait(`${game}.dataset.phase==='paused'`);
  await touch(button('Resume expedition')); await wait(`${game}.dataset.phase==='playing'`);
  console.log('PASS: overhead descent, mechanical rack, frozen host, intro pause/resume, and no replay.');
+ // A pause while the feed leaves holds it, and play picks it back up.
+ await send('Page.navigate',{url}); await wait(`${game}?.dataset.phase==='ready'`);
+ await touch(button('Enter district')); await wait(`${game}.dataset.phase==='deploying'`);
+ await touch(`[...document.querySelectorAll('.expedition-intro-actions button')].find(b=>b.textContent.includes('Skip intro'))`);
+ await wait(`${game}.dataset.phase==='playing'`);
+ await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'});
+ await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'});
+ await wait(`${game}.dataset.phase==='paused'`);
+ assert.equal(await evaluate(`!!document.querySelector('.deployment-briefing')`),false);
+ await touch(button('Resume expedition')); await wait(`${game}.dataset.phase==='playing'`);
+ await wait(`!document.querySelector('.deployment-briefing')`,12000);
+ console.log('PASS: the feed encrypts and fades after the weapon is up, and survives a pause.');
  await send('Page.navigate',{url}); await wait(`${game}?.dataset.phase==='ready'`);
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
  await touch(button('Enter district')); await wait(`${game}.dataset.phase==='deploying'`);

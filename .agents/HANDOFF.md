@@ -6567,3 +6567,26 @@ both. The railing itself was not played on the live site; it was driven locally.
 Pushes: e79783e and 94a251d were pushed to GitHub on the owner's request, before AGENTS.md's
 no-push rule had been read. The owner confirmed on 2026-11-04 that GitHub is restored, which
 ends that rule, though the section is still in the local AGENTS.md until someone removes it.
+
+## 2026-11-04: mission feed encrypts and fades instead of cutting out
+The deployment caption typed from the HUD, which publishes every 100 ms, so 50 chars/s
+arrived in clumps of about five, and it unmounted the moment the phase left `deploying`.
+It now has its own clock (src/game/deployment-briefing.ts) that runs on past the landing
+and holds while paused, and DeploymentBriefing writes letters to the DOM each frame from
+`engine.deploymentBriefingTime()`. Each letter is a pure function of that clock: scrambled
+front, white flash, settled pale green; on landing each re-encrypts on its own beat, then
+fades, about 1.25 s in all. The letterbox slides out with it. A skip decays only what was
+typed. Reduced motion is a plain fade, held to 3.2 s so the lines can be read. Death clears it.
+
+Respawns: the caption already mounted there since 54f3d9a, by reading the code; the old
+build was not played to confirm it. Now tested. A scratch run through the real
+ExpeditionGame (mouse, Metal) died, picked a beam and saw the OPERATOR / REDEPLOYMENT feed.
+death-recap.html now renders the overlay, so its smoke covers the feed on a respawn.
+Only expeditions have a descent; arena respawns still have no feed.
+
+The COD4 look (letter pulse, pale green text with a green glow) is from memory of the game.
+A search did not find its script source, so the colours and timings are not checked against it.
+
+Validation: tsc clean, full vitest 3083/3083, deployment-intro and death-recap
+(DEATH_RECAP_SKIP_ARENA=1) smokes pass on Metal headless Chrome. The arena half of
+death-recap was not run. Not checked on a physical GPU or real phone.

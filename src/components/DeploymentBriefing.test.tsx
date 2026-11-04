@@ -1,19 +1,25 @@
 import { expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import DeploymentBriefing, { deploymentText } from './DeploymentBriefing';
+import DeploymentBriefing, { briefingLines, DeploymentOverlay } from './DeploymentBriefing';
 
-it('reveals lines in sequence from the cinematic clock and restores the same text after pause', () => {
-  expect(deploymentText('LOCATION', .1, .15, false)).toBe('');
-  expect(deploymentText('LOCATION', .21, .15, false)).toBe('LOC');
-  expect(deploymentText('WEATHER', .9, 1.25, false)).toBe('');
-  expect(deploymentText('WEATHER', 2, 1.25, false)).toBe('WEATHER');
-  expect(deploymentText('LOCATION', .21, .15, false)).toBe('LOC');
-  expect(deploymentText('WEATHER', 0, 1.25, true)).toBe('WEATHER');
-});
+const props = { location: 'Queenstown', time: '06:30', weather: 'Passing showers', reduced: false };
+const clock = () => ({ elapsed: .21, decayAt: null });
 
 it('announces the complete briefing once, including real world time and weather', () => {
-  const html = renderToStaticMarkup(<DeploymentBriefing location="Queenstown" time="06:30" weather="Passing showers" elapsed={.21} reduced={false} />);
-  expect(html).toContain('aria-label="LOCATION  QUEENSTOWN, SINGAPORE. TIME      06:30 SGT. WEATHER   PASSING SHOWERS"');
-  expect(html).toContain('data-line="location" aria-hidden="true">LOC');
-  expect(html).toContain('data-line="weather" aria-hidden="true"></div>');
+  const html = renderToStaticMarkup(<DeploymentBriefing {...props} respawn={false} clock={clock} />);
+  expect(html).toContain('aria-label="EXPEDITION / INSERTION. LOCATION  QUEENSTOWN, SINGAPORE. TIME      06:30 SGT. WEATHER   PASSING SHOWERS"');
+  expect(html).toContain('data-line="weather" aria-hidden="true"><span data-i="0">W</span>');
+});
+
+it('heads the feed differently for a respawn', () => {
+  expect(briefingLines({ ...props, respawn: false })[0]).toBe('EXPEDITION / INSERTION');
+  expect(briefingLines({ ...props, respawn: true })[0]).toBe('OPERATOR / REDEPLOYMENT');
+  expect(renderToStaticMarkup(<DeploymentBriefing {...props} respawn clock={clock} />)).toContain('aria-label="OPERATOR / REDEPLOYMENT. LOCATION');
+});
+
+it('keeps the feed up after the descent ends, with the letterbox on its way out', () => {
+  const html = renderToStaticMarkup(<DeploymentOverlay location="Queenstown" intro={null} briefing={{ ...props, respawn: true, time: '06:30', weather: 'Rain' }} clock={clock} />);
+  expect(html).toContain('data-stage="out"');
+  expect(html).toContain('deployment-briefing');
+  expect(renderToStaticMarkup(<DeploymentOverlay location="Queenstown" intro={null} briefing={null} clock={clock} />)).not.toContain('deployment-briefing');
 });
