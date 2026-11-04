@@ -32,6 +32,13 @@ export const MARINA_SWIM_EXITS = [
   {x:0,z:-3.6,dx:0,dz:1},{x:0,z:-20.4,dx:0,dz:-1},{x:8.4,z:-12,dx:1,dz:0},
   {x:-21.4,z:24,dx:-1,dz:0},{x:21.4,z:-48,dx:1,dz:0},
 ];
+const railLine = (minX: number, maxX: number, minZ: number, maxZ: number): Obstacle => ({ minX, maxX, minZ, maxZ, maxY: 2 });
+/** The rendered quay railing, open only where a jetty meets the promenade. Taller than a jump. */
+export const MARINA_QUAY_RAILS: readonly Obstacle[] = [
+  railLine(-48.36, -22, 30.34, 30.38), railLine(-19, 48.36, 30.34, 30.38),
+  railLine(-48.36, 19, -54.38, -54.34), railLine(22, 48.36, -54.38, -54.34),
+  railLine(-48.38, -48.34, -54.38, 30.38), railLine(48.34, 48.38, -54.38, 30.38),
+];
 const overlaps = (a: Obstacle, b: Obstacle) => a.minX < b.maxX && a.maxX > b.minX && a.minZ < b.maxZ && a.maxZ > b.minZ;
 /** Remove walkable deck rectangles from the water blocker, preserving every remaining patch. */
 export function marinaWaterObstacles(): Obstacle[] {

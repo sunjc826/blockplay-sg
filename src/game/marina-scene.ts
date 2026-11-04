@@ -170,10 +170,13 @@ export function buildMarinaScene() {
   for (const y of [0.25, 0.45, 0.65, 0.85, 1.1]) {
     box(-58.58, y, 50.6, 43.83, 0.035, 0.035, steel);
     box(24.42, y, 50.6, 112.17, 0.035, 0.035, steel);
+    box(58.58, y, -90.6, 43.83, 0.035, 0.035, steel);
+    box(-24.42, y, -90.6, 112.17, 0.035, 0.035, steel);
     box(-80.6, y, -20, 0.035, 0.035, 141, steel);
     box(80.6, y, -20, 0.035, 0.035, 141, steel);
   }
   for (let x = -80; x <= 80; x += 3) { if(x*S>-22 && x*S<-19) continue; const post = box(x, 0.58, 50.6, 0.08, 1.16, 0.1, steel); post.rotation.x = -0.12; }
+  for (let x = -80; x <= 80; x += 3) { if(x*S>19 && x*S<22) continue; box(x, 0.58, -90.6, 0.08, 1.16, 0.1, steel); }
   for (let z = -90; z <= 50; z += 3) for (const x of [-80.6, 80.6]) box(x, 0.58, z, 0.1, 1.16, 0.1, steel);
   // Bent, tapered fronds with individual leaflets instead of star-shaped cones.
   const frondVertices: number[] = [];

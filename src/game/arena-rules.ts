@@ -881,7 +881,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if(swimmer && (swimmer.touchesWater(actor.x,actor.z)||swimmer.touchesWater(input.x,input.z)) && (actor.swimming || actor.y<2 && input.y<2)){
       const dt=Math.max(0,Math.min(.25,elapsed-(entry.lastSwimInput??elapsed-.05)));entry.lastSwimInput=elapsed;
       const dx=input.x-actor.x,dz=input.z-actor.z,d=Math.hypot(dx,dz),budget=entry.swimBudget??.08,scale=d>0?Math.min(1,budget/d):1;
-      const next=swimmer.move({x:actor.x,y:0,z:actor.z,velocityY:0},dx*scale,dz*scale,dt,.35,1.8,vehicles.filter(v=>!v.despawned&&v.y<2).map(vehicleBounds));
+      const next=swimmer.move({x:actor.x,y:0,z:actor.z,velocityY:0},dx*scale,dz*scale,dt,.35,1.8,vehicles.filter(v=>!v.despawned&&v.y<2).map(vehicleBounds),undefined,input.y>1.85||input.y<=SWIMMING.eyeHeight+.01);
       const moved=Math.hypot(next.x-actor.x,next.z-actor.z);entry.swimBudget=Math.max(0,budget-moved);
       if(moved>SWIMMING.stillSpeed*dt)entry.swimmingUntil=elapsed+SWIMMING.settleSeconds;
       Object.assign(actor,{x:next.x,z:next.z,y:next.y+(next.swimming?SWIMMING.eyeHeight:actor.swimming?1.75:clamp(input.y,PRONE_EYE_HEIGHT,1.75)),yaw:input.yaw%(Math.PI*2),pitch:clamp(input.pitch,-1.5,1.5),prone:!next.swimming && input.prone===true && input.y<=PRONE_EYE_HEIGHT+.02});

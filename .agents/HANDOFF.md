@@ -6511,3 +6511,32 @@ and vehicle-rules failures as a clean checkout). death-recap, player-respawn and
 deployment-intro smokes pass on swiftshader; the last needs DEPLOYMENT_SMOKE_PACE=12
 there, or its short windows pass during a screenshot, and now fails on any shader link
 between the click and landing. Not pushed or deployed.
+
+## 2026-11-04: Marina quay rail and deliberate water entry
+The quay rail had no collision and walking off any dry edge counted as entering the
+water, so players walked straight through it. Fixed in src/game/swimming.ts, which is
+player movement only: bots, vehicles, line of sight and the navigation bake never see
+the rail, so the bake needs no rebuild.
+
+Rails: MARINA_QUAY_RAILS (marina-water.ts) follow the rendered rail on all four sides,
+are taller than a jump, and open only at the two jetties. The north quay had no rail
+at all, so marina-scene.ts now builds one. A body stops at 0.38 m from the rail, which
+is 0.76 m from the water and outside the host's 0.5 m touchesWater slow zone.
+
+Decks: walking stops a body's width short of any deck edge. The ways in are a jump, or
+walking through a ladder gate. Reaching the last body's width of a deck takes a jump or
+a climb out, so a body there may step off. It could not jump from there because
+grounded() is false, so blocking it would have stranded the player. marina-camp.ts adds
+a kerb and rope along those edges, with a gate at each ladder. The rope is visual only.
+
+Authority: arena-rules passes swimmer.move a `leaping` flag taken from the input's eye
+height (above standing, or the swim pose), since that branch flattens y to 0. A hacked
+guest can use it to leave a deck but not to pass a rail.
+
+Validation: full vitest, swimming.test.ts gained three cases. A throwaway CDP drive in
+the real engine on Metal (scratchpad, not in scripts/) confirmed the edge stop, jump in,
+ladder in, the rail stop at z=30.76 with four jumps against it, and the host actor
+following a jump to within a millimetre. dragon-boats-smoke passes. Not exercised: a
+two-browser LAN guest, or touch input beyond the same engine calls. Nothing in game says
+why the edge stops you, so a hint is a possible follow-up. Bots and cars can still clip
+the rail visually, since it does not block them.

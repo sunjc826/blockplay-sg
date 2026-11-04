@@ -38,6 +38,29 @@ export function buildMarinaCamp() {
     for(const y of [-.38,-.1,.18])box(p.x,y,p.z,p.dz?1.05:.08,.07,p.dx?1.05:.08,gold);
     box(p.x-p.dx*.35,.015,p.z-p.dz*.35,p.dz?1.3:.4,.03,p.dx?1.3:.4,gold);
   }
+  // Kerb and rope mark each deck edge a walker cannot step off; a jump clears them,
+  // and each ladder leaves its own gate open.
+  const guard=(x0:number,z0:number,x1:number,z1:number)=>{
+    const length=Math.hypot(x1-x0,z1-z0),yaw=Math.atan2(z0-z1,x1-x0),x=(x0+x1)/2,z=(z0+z1)/2;
+    box(x,.05,z,length,.1,.1,wood).rotation.y=yaw;
+    for(const y of [.42,.7])box(x,y,z,length,.025,.025,gold).rotation.y=yaw;
+    const posts=Math.max(1,Math.round(length/1.6));
+    for(let i=0;i<=posts;i++)box(x0+(x1-x0)*i/posts,.38,z0+(z1-z0)*i/posts,.08,.76,.08,metal);
+  };
+  const gate=.6,edge=MARINA_ISLET.radius-.15,corners=edge*(Math.SQRT2-1),cz=MARINA_ISLET.z;
+  for(const [x0,z0,x1,z1,gateAt] of [
+    [-21.85,18.15,-21.85,30,24],[-19.15,18.15,-19.15,30],[-21.85,18.15,-19.15,18.15],
+    [19.15,-54,19.15,-42.15],[21.85,-54,21.85,-42.15,-48],[19.15,-42.15,21.85,-42.15],
+    [-2.25,-6,-2.25,-3.15],[2.25,-6,2.25,-3.15],[-2.25,-3.15,2.25,-3.15,0],
+    [-2.25,-20.85,-2.25,-18],[2.25,-20.85,2.25,-18],[-2.25,-20.85,2.25,-20.85,0],
+    [6,-9.75,8.85,-9.75],[6,-14.25,8.85,-14.25],[8.85,-14.25,8.85,-9.75,-12],
+  ] as const){
+    if(gateAt===undefined){guard(x0,z0,x1,z1);continue;}
+    if(z0===z1){guard(x0,z0,gateAt-gate,z0);guard(gateAt+gate,z0,x1,z0);}
+    else{guard(x0,z0,x0,gateAt-gate);guard(x0,gateAt+gate,x0,z1);}
+  }
+  guard(-edge,cz-corners,-edge,cz+corners);
+  for(const [sx,sz] of [[-1,-1],[-1,1],[1,-1],[1,1]])guard(sx*edge,cz+sz*corners,sx*corners,cz+sz*edge);
   // Planks and repeated campsite props share six draws rather than one per plank.
   const batches=new Map<THREE.Material,THREE.Mesh[]>(),instances:THREE.InstancedMesh[]=[];
   for(const child of [...root.children]){
