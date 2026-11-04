@@ -11,8 +11,8 @@ a visual approximation for a monitor, not a complete optical simulation.
 | Illumination can appear fuzzy when too bright or viewed with the wrong focus | Restrained scatter follows the ring, ticks and dot. Removed broad center haze and the orange hot center. This represents a target-focused view at a moderate brightness. |
 | Apparent angular size stays steady as eye relief changes | Ring size comes from the eye ray, independently of window UVs and eye distance. Camera zoom increases its pixel size. |
 
-At 800 pixels high and a 65° world field of view, 68 MOA spans approximately
-12.4 pixels. A 1 MOA dot is only about 0.18 pixels, so the renderer deliberately
+At 800 pixels high and the 60° aimed world field of view, 68 MOA spans approximately
+13.7 pixels. A 1 MOA dot is only about 0.2 pixels, so the renderer deliberately
 uses a small pixel-sized footprint for readability. Laser grain is mostly
 unresolved at this scale; it becomes visible in a zoomed inspection. The
 existing conversion compensates for the 54° weapon-camera field of view.

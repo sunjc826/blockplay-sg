@@ -21,7 +21,7 @@ try{
   assert(ready,'fixture loads');
   const centred=await draw();assert(centred.centre>55,'subpixel centre dot remains readable');
   // Include outward ticks: their span is 1.2 times the 68 MOA ring diameter.
-  const expected=800*Math.tan(68/120*Math.PI/180)/Math.tan(65/2*Math.PI/180)*1.2;
+  const expected=800*Math.tan(68/120*Math.PI/180)/Math.tan(60/2*Math.PI/180)*1.2;
   assert(Math.abs(centred.maxX-centred.minX+1-expected)<3,'68 MOA angular scale');
   for(const options of [{x:.012},{y:-.008},{distance:.15},{distance:.5}]){
     const moved=await draw(options);

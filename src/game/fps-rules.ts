@@ -7,6 +7,12 @@ import { ENEMY_WEAPON_LAYOUT } from './enemy-weapon-layout';
 import { falloffScale, muzzleBallistics, type BallisticSpec } from './fps-ballistics';
 export type WeaponOptic = 'integrated' | 'reflex' | 'precision' | 'iron';
 export const HIP_FOV = 65;
+/** The world's field of view at full aim: a small push-in, not a magnified sight. Optic powers stay measured against HIP_FOV. */
+export const ADS_WORLD_FOV = 60;
+/** The held weapon's own camera at full aim. */
+export const ADS_VIEW_FOV = 54;
+/** World field of view for an eased aim amount from 0 (hip) to 1 (aimed). */
+export const aimWorldFov = (aim: number) => HIP_FOV + (ADS_WORLD_FOV - HIP_FOV) * aim;
 export const magnifiedFov = (zoom: number) => 2 * Math.atan(Math.tan(HIP_FOV * Math.PI / 360) / zoom) * 180 / Math.PI;
 export const opticMagnification = (weapon: WeaponSpec) => Math.tan(HIP_FOV * Math.PI / 360) / Math.tan(weapon.aimFov * Math.PI / 360);
 /**

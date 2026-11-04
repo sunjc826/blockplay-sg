@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { createScopeRenderer, fitWeaponOptic, getWeaponSight, scopeFov, setSightNightVision } from './weapon-optics';
-import { FPS_WEAPONS, HIP_FOV, magnifiedFov, opticMagnification } from './fps-rules';
+import { createScopeRenderer, fitWeaponOptic, getWeaponSight, scopeFov, scopeScreenScale, setSightNightVision } from './weapon-optics';
+import { ADS_VIEW_FOV, ADS_WORLD_FOV, FPS_WEAPONS, HIP_FOV, aimWorldFov, magnifiedFov, opticMagnification } from './fps-rules';
 import { createProfile, equip, purchase, resolveLoadout, restoreProfile } from './armory-state';
 
 describe('fixed weapon optics', () => {
@@ -35,6 +35,40 @@ describe('fixed weapon optics', () => {
       const measuredZoom = fraction * Math.tan(HIP_FOV * Math.PI / 360) / Math.tan(fov * Math.PI / 360);
       expect(measuredZoom).toBeCloseTo(1.5);
     }
+  });
+});
+
+describe('world field of view while aiming', () => {
+  it('pushes in from the hip view to a small zoom and no further', () => {
+    expect(aimWorldFov(0)).toBe(HIP_FOV);
+    expect(aimWorldFov(1)).toBe(ADS_WORLD_FOV);
+    expect(aimWorldFov(.5)).toBeCloseTo((HIP_FOV + ADS_WORLD_FOV) / 2);
+    expect(opticMagnification({ ...FPS_WEAPONS[0], aimFov: ADS_WORLD_FOV })).toBeLessThan(1.15);
+  });
+
+  it('keeps a scope at its true power whatever the world camera is doing', () => {
+    const root = new THREE.Group(), native = new THREE.Group(); native.name = 'sar21-inspired__optic'; root.add(native);
+    const remove = fitWeaponOptic(root, FPS_WEAPONS[0]);
+    const sight = getWeaponSight(root)!;
+    const renderer = { getDrawingBufferSize: (size: THREE.Vector2) => size.set(1600, 900), getRenderTarget: vi.fn(() => null), setRenderTarget: vi.fn(), clear: vi.fn(), render: vi.fn() };
+    const scope = createScopeRenderer(renderer as unknown as THREE.WebGLRenderer);
+    const view = new THREE.PerspectiveCamera(ADS_VIEW_FOV, 1, .01, 800), world = new THREE.Scene();
+    root.position.set(0, -sight.aimHeight, sight.aimDepth); root.updateMatrixWorld(true);
+    const pipFov = (worldFov: number) => {
+      const camera = new THREE.PerspectiveCamera(worldFov, 1, .01, 800);
+      expect(scope.render(world, camera, view, sight, true, 1)).toBe(true);
+      return (renderer.render.mock.lastCall![1] as THREE.PerspectiveCamera).fov;
+    };
+    const hip = pipFov(HIP_FOV);
+    expect(pipFov(ADS_WORLD_FOV)).toBeCloseTo(hip);
+    expect(pipFov(HIP_FOV + 6)).toBeCloseTo(hip);
+    remove(); scope.dispose();
+  });
+
+  it('maps a world screen point onto the lens by what the scope adds beyond the push-in', () => {
+    expect(scopeScreenScale(HIP_FOV, 4)).toBeCloseTo(4);
+    const pushIn = Math.tan(HIP_FOV * Math.PI / 360) / Math.tan(ADS_WORLD_FOV * Math.PI / 360);
+    expect(scopeScreenScale(ADS_WORLD_FOV, 4)).toBeCloseTo(4 / pushIn);
   });
 });
 

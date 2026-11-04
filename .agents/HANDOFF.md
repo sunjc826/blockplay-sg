@@ -1,5 +1,17 @@
 # Blockplay: portable agent handoff
 
+## World push-in while aiming (2026-11-04)
+
+Aiming on foot now narrows the world camera from 65° to `ADS_WORLD_FOV` (60°,
+about 1.1x), following the aim curve and off under reduced motion. Scopes are
+pinned to their true power against `HIP_FOV`, so the PiP picture is unchanged and
+sprint no longer alters it; the holo ring is converted for 60°/54°, and the
+pilot's lens check uses `scopeScreenScale`. With reduced motion the ring stays
+sized for 60°, about 10% wide of 68 MOA. Unit tests, typecheck and the holo, reflex,
+scope-glass and sniper-scope smokes pass on Metal. `fps-optics` (stale token
+total, line 63) and `fps-scope-zoom` (wheel never reaches 9x, line 51) fail
+identically on the previous HEAD.
+
 ## Body-mounted weapons and physical switching (2026-11-02)
 
 The first-person body now displays the carried, inactive weapon silhouettes

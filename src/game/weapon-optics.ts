@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { WeaponSpec } from './fps-rules';
-import { opticMagnification } from './fps-rules';
+import { ADS_VIEW_FOV, ADS_WORLD_FOV, HIP_FOV, opticMagnification } from './fps-rules';
 import { buildReflexHousing } from './weapon-reflex';
 import { buildSightHousing, roundedRect, type SightWindow } from './weapon-sight-housings';
 import { createOpticGlass, createScopeBacking, type OpticGlass } from './weapon-glass';
@@ -23,9 +23,9 @@ export interface WeaponSight {
   offset?: WeaponSight;
 }
 const sights = new WeakMap<THREE.Object3D, WeaponSight>();
-// EOTECH 0-reticle: 68 MOA ring and 1 MOA centre dot. Convert world angles
-// (65° FOV) to the viewmodel's 54° FOV, keeping the reticle target-relative.
-const HOLO_RING = (Math.tan(THREE.MathUtils.degToRad(68 / 120)) * Math.tan(THREE.MathUtils.degToRad(27)) / Math.tan(THREE.MathUtils.degToRad(32.5))).toFixed(7);
+// EOTECH 0-reticle: 68 MOA ring and 1 MOA centre dot. Convert world angles at
+// full aim to the viewmodel's field of view, keeping the reticle target-relative.
+const HOLO_RING = (Math.tan(THREE.MathUtils.degToRad(68 / 120)) * Math.tan(THREE.MathUtils.degToRad(ADS_VIEW_FOV / 2)) / Math.tan(THREE.MathUtils.degToRad(ADS_WORLD_FOV / 2))).toFixed(7);
 export const getWeaponSight = (root: THREE.Object3D) => sights.get(root);
 
 /**
@@ -301,6 +301,11 @@ export function scopeFov(worldFov: number, lensFraction: number, magnification: 
   return THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(worldFov / 2)) * lensFraction / magnification));
 }
 
+/** How much larger a world screen point appears through the lens, given the world's live field of view. */
+export function scopeScreenScale(worldFov: number, magnification: number) {
+  return magnification * Math.tan(THREE.MathUtils.degToRad(worldFov / 2)) / Math.tan(THREE.MathUtils.degToRad(HIP_FOV / 2));
+}
+
 export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
   // One reusable PiP target, sized to the lens's on-screen pixels so the image
   // is not upscaled in fullscreen or at high DPI. Lens reflections have their own pass.
@@ -326,7 +331,8 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
       const depth = -lensPosition.applyMatrix4(viewCamera.matrixWorldInverse).z;
       const fraction = sight.radius / (Math.max(.01, depth) * Math.tan(THREE.MathUtils.degToRad(viewCamera.fov / 2)));
       camera.copy(worldCamera); camera.aspect = 1;
-      camera.fov = scopeFov(worldCamera.fov, fraction, sight.magnification); camera.updateProjectionMatrix();
+      // Power is measured against the hip view, so the aim push-in and the sprint kick never change it.
+      camera.fov = scopeFov(HIP_FOV, fraction, sight.magnification); camera.updateProjectionMatrix();
       // `fraction` is the lens radius over half the view height, so this is its
       // diameter in drawing-buffer pixels, in 128px steps to avoid reallocating.
       const size = THREE.MathUtils.clamp(Math.ceil(fraction * renderer.getDrawingBufferSize(buffer).y / 128) * 128, 384, 1024);

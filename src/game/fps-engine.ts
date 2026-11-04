@@ -77,7 +77,7 @@ import * as THREE from 'three';
 import { requestFpsPointerLock, requiresFpsPointerLock, turnFpsLook, clampFpsPitch } from './fps-pointer';
 import { dragLook, resolveMovement, stickKeys, type StickVector } from './touch-controls';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { advanceWeapon, beginReload, chamberRound, magazineRounds, findTrait, fireWeapon, interruptReload, reloadDuration, roundReady, validWeaponIndex, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponSpec, type WeaponState } from './fps-rules';
+import { ADS_VIEW_FOV, HIP_FOV, aimWorldFov, advanceWeapon, beginReload, chamberRound, magazineRounds, findTrait, fireWeapon, interruptReload, reloadDuration, roundReady, validWeaponIndex, FPS_SPAWN, FPS_WEAPONS, hitDamage, movementInput, splashScale, type WeaponSpec, type WeaponState } from './fps-rules';
 import { availableMagazineSlots, addReserveMagazines, magazineCapacity, nextMagazineSlot, reserveRoom, spareMagazines, type MagazineInventory } from './magazine-inventory';
 import { addReserveRounds, createPooledLoadout, replacePooledWeapon, type AmmoPools } from './ammo-pools';
 import { firstVisibleHit, visibleHits } from './fps-raycast';
@@ -127,7 +127,7 @@ import { pouchWeaponOffset } from './fps-pouch-reload';
 import { reloadEnergy } from './fps-reload-energy';
 import { createWeaponHandling } from './fps-viewmodel';
 import { magazineAmmoState } from './magazine-ammo';
-import { createScopeRenderer, getWeaponSight, setSightNightVision } from './weapon-optics';
+import { createScopeRenderer, getWeaponSight, scopeScreenScale, setSightNightVision } from './weapon-optics';
 import { DEFLECT_LINE, sightRangeAgainst } from './armor-inserts';
 import { muzzleSocket, railEmitters } from './weapon-accessory-models';
 import { accessorySpreadScale, hasLight, type MuzzleDevice, type RailDevice } from './weapon-accessories';
@@ -1897,7 +1897,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         const centre = sight.lens.getWorldPosition(new THREE.Vector3());
         const radiusY = sight.radius / (-centre.z * Math.tan(THREE.MathUtils.degToRad(viewCamera.fov / 2)));
         centre.project(viewCamera);
-        if (Math.hypot((point.x * sight.magnification - centre.x) / (radiusY / viewCamera.aspect), (point.y * sight.magnification - centre.y) / radiusY) < .9) return false;
+        // A scope's picture is fixed to its true power; a 1x window just shows the screen point where it is.
+        const lensScale = sight.magnification > 1.01 ? scopeScreenScale(camera.fov, sight.magnification) : 1;
+        if (Math.hypot((point.x * lensScale - centre.x) / (radiusY / viewCamera.aspect), (point.y * lensScale - centre.y) / radiusY) < .9) return false;
       }
       weaponRay.setFromCamera(point, viewCamera);
       return !!weaponRay.intersectObjects(weaponMeshes, false)[0];
@@ -2182,10 +2184,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     camera.position.set(position.x, vertical + Math.max(swimming()?SWIMMING.eyeHeight-.02:.4, visualEye - landingRoll.eyeDrop), position.z);
     const view = recoilView(kick), pose = recoilPose(kick);
     camera.rotation.set(pitch + view.pitch + landingRoll.pitch + handsView.pitch * motionScale + (conditions.dazed ? Math.sin(hud.elapsed * 8) * .018 : 0), yaw + view.yaw, landingRoll.bank + handsView.roll * motionScale + bodyMotion.lean * motionScale * (1 - aim * .9), 'YXZ');
-    camera.fov = 65 + bodyMotion.sprint * 6 * (1 - aim) * motionScale;
+    camera.fov = aimWorldFov(aim * motionScale) + bodyMotion.sprint * 6 * (1 - aim) * motionScale;
     if (vehicles.mounted) updateVehicleCamera(dt);
     camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
-    viewCamera.fov = THREE.MathUtils.lerp(65, 54, aim); viewCamera.updateProjectionMatrix();
+    viewCamera.fov = THREE.MathUtils.lerp(HIP_FOV, ADS_VIEW_FOV, aim); viewCamera.updateProjectionMatrix();
     const sway = Math.sin(gait) * (poseStance === 'prone' ? .025 : .014) * gaitWeight * (1 - aim * .94);
     const bodyFollow = (bodyMotion.compression * .35 + bodyMotion.eyeVelocity * -.012) * motionScale * (1 - aim * .8);
     // A laser that is switched off still weighs the gun down, but it no longer shows where the round goes.
