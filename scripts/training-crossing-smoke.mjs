@@ -12,7 +12,7 @@ source = source.replace('({ region: initialRegion })', '({ region: initialRegion
 source = source.replace('  const region = scene.region;', '  const region = scene.region; useEffect(() => { window.trainingMounts++; }, []);');
 source = source.replace('useState(initialFpsHud), [epoch, setEpoch] = useState(0);', 'useState(initialFpsHud), [epoch, setEpoch] = useState(0); window.trainingHud = hud;');
 source = source.replace('onTravel: (transition, checkpoint) => {', 'onTravel: (transition, checkpoint) => { window.trainingCrossings.push({transition, checkpoint});');
-source = source.replace('encik: () => speaking.current });', 'encik: () => speaking.current }); window.trainingEngine = engine.current;');
+source = source.replace('encik: () => speaking.current });', 'encik: () => speaking.current }); window.trainingEngine = engine.current; window.loadScreen = loadScreen;');
 await fs.writeFile(new URL('FpsGame.tsx', output), source);
 let menu = absoluteImports(await fs.readFile(new URL('../src/components/GameMenu.tsx', import.meta.url), 'utf8'));
 assert(menu.includes("from '/src/components/FpsGame'"));
@@ -23,6 +23,7 @@ await fs.writeFile(new URL('fixture.html', output), `<!doctype html><html><head>
 <script type="module">
 import React from 'react';import {createRoot} from 'react-dom/client';import GameMenu from './GameMenu.tsx';
 import {createProfile,STORAGE_KEY} from '/src/game/armory-state.ts';import {setEnvironmentSettings} from '/src/game/environment-settings.ts';import '/src/styles.css';
+const counted=WebGL2RenderingContext.prototype;window.draws=0;for(const name of ['drawArrays','drawElements','drawArraysInstanced','drawElementsInstanced']){const draw=counted[name];counted[name]=function(...args){window.draws++;return draw.apply(this,args);};}
 setEnvironmentSettings({weather:'sunny',celebration:'none',timeOfDay:'noon'});
 const root=createRoot(document.querySelector('#root'));let revision=0;window.trainingMounts=0;window.trainingCrossings=[];
 window.mountTraining=(zone='harbourfront',entry={})=>{
@@ -53,20 +54,26 @@ async function click(selector, touch = false) {
   else { await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...p, button: 'left', clickCount: 1 }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...p, button: 'left', clickCount: 1 }); }
 }
 const button = text => `[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(text)})`;
+// Every play visit starts at the district map.
+async function deploy(touch = false) { await wait(`!!document.querySelector('.starting-deploy')`); await click(`document.querySelector('.starting-deploy')`, touch); }
+const settled = `trainingHud.phase==='ready' && !document.querySelector('.play-loading')`;
+async function drawing(label) { const before = await evaluate('draws'); await delay(400); assert(await evaluate('draws') > before, label + ': the world is being drawn'); }
 const zone = value => `document.querySelector('.fps-game')?.dataset.mapZone==='${value}'`;
 async function blockLoading() { await send('Network.setCacheDisabled', { cacheDisabled: true }); await send('Fetch.enable', { patterns: [{ urlPattern: '*models/field-kit/*.glb', requestStage: 'Response' }] }); }
 async function releaseLoading() { for (const requestId of blocked.splice(0)) await send('Fetch.continueRequest', { requestId }); await send('Fetch.disable'); }
 async function record(label) { evidence.push({ label, ...await evaluate(`({zone:document.querySelector('.fps-game').dataset.mapZone,phase:trainingHud.phase,x:trainingHud.x,z:trainingHud.z,yaw:trainingHud.yaw,pitch:trainingHud.pitch,health:trainingHud.health,armor:trainingHud.armor,magazine:trainingHud.magazine,reserve:trainingHud.reserve,drill:document.querySelector('.fps-game').dataset.rangeDrill,mounts:trainingMounts,input:trainingHud.inputMode,locked:!!document.pointerLockElement,canvases:document.querySelectorAll('canvas').length})`) }); }
 try {
   await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable'); await send('Emulation.setFocusEmulationEnabled', { enabled: true });
-  await wait(`window.trainingHud?.phase==='ready' && !document.querySelector('.play-loading')`, 180000);
+  await send('Page.bringToFront'); // Headless Chrome refuses pointer lock to a background tab.
+  await deploy(); await wait(`window.trainingHud && ${settled}`, 180000);
   await click(button('Continuous')); await click(button('Counter-fire'));
   await wait(`trainingHud.phase==='ready'`); await click(`document.querySelector('.fps-start-card .primary-button')`); await wait(`trainingHud.phase==='playing'`);
   await evaluate(`window.firstCanvas=document.querySelector('canvas')`);
-  await key('5'); await key('5', false); await wait(`trainingHud.health>64 && !trainingHud.supplyUse`);
+  await key('f'); await key('f', false); await wait(`trainingHud.health>64 && !trainingHud.supplyUse`);
   assert.equal(await evaluate(`JSON.parse(localStorage.getItem('blockplay.armory.v1')).consumables['kit-bandage']`), 1, 'Practice does not debit the permanent inventory');
   const initial = await evaluate(`({health:trainingHud.health,armor:trainingHud.armor,magazine:trainingHud.magazine,reserve:trainingHud.reserve,mounts:trainingMounts})`);
   await screenshot('training-approach');
+  assert.equal(await evaluate('loadScreen.covering()'), false, 'The first load is over, so a crossing is not treated as one');
   await blockLoading(); await key('w'); await wait(`${zone('sentosa')} && trainingHud.phase==='loading'`); await key('w', false);
   assert(await evaluate(`document.pointerLockElement===firstCanvas && !!document.querySelector('.fps-district-crossing') && !document.querySelector('.fps-start-card')`));
   await screenshot('training-crossing'); await releaseLoading(); await wait(`${zone('sentosa')} && trainingHud.phase==='playing'`);
@@ -77,24 +84,30 @@ try {
   assert.equal(await evaluate('trainingHud.arena'), null, 'Training never becomes expedition combat');
   assert.equal(await evaluate(`JSON.parse(localStorage.getItem('blockplay.armory.v1')).exercises`), 0, 'Crossing does not award completion');
   assert(Math.abs(await evaluate('trainingHud.pitch') + .12) < .01);
+  await drawing('Sentosa arrival');
   await record('training-sentosa'); await screenshot('training-sentosa');
   await key('Escape'); await key('Escape', false); await wait(`trainingHud.phase==='paused'`);
-  assert.equal(await evaluate(`document.querySelector('select[aria-label="District"]').value`), 'sentosa', 'Actual GameMenu picker follows arrival without remounting');
+  assert.match(await evaluate(`document.querySelector('.play-nav-district').textContent`), /Sentosa/, 'Actual GameMenu district follows arrival without remounting');
   assert.match(await evaluate(`document.querySelector('.fps-armor-note').textContent`), /Targets return simulated fire/);
   await click(`document.querySelector('.fps-start-card .primary-button')`); await wait(`trainingHud.phase==='playing'`);
-  await key('s'); await wait(`${zone('harbourfront')} && trainingHud.phase==='playing'`); await key('s', false);
+  await key('s'); await wait(`${zone('harbourfront')} && trainingHud.phase==='playing'`);
+  // Crossing with the key held: the player arrives walking, without pressing it again.
+  const heldKey = await evaluate('trainingHud.z'); await wait(`Math.abs(trainingHud.z-(${heldKey}))>.7`, 5000); await key('s', false);
+  await drawing('HarbourFront return');
   assert.equal(await evaluate('trainingMounts'), initial.mounts); assert(await evaluate(`document.pointerLockElement===firstCanvas`));
   await blockLoading(); await key('w'); await wait(`${zone('sentosa')} && trainingHud.phase==='loading'`); await key('w', false); await key('Escape'); await key('Escape', false);
   await releaseLoading(); await wait(`trainingHud.phase==='ready'`); assert.equal(await evaluate('!!document.pointerLockElement'), false);
   await record('escape-cancels-training-resume');
-  await evaluate(`(()=>{const s=document.querySelector('select[aria-label="District"]');s.value='orchard';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
-  await wait(`${zone('orchard')} && trainingHud.phase==='ready' && !document.querySelector('.play-loading')`);
+  await evaluate('window.fixtureEntry={}'); await click(`document.querySelector('.play-nav-district')`);
+  await wait(`document.querySelector('[data-start-region][aria-pressed=true]')?.dataset.startRegion==='sentosa'`);
+  await click(`document.querySelector('[data-start-region="orchard"] circle')`); await deploy();
+  await wait(`${zone('orchard')} && ${settled}`);
   assert.equal(await evaluate('trainingMounts'), initial.mounts + 1, 'Manual district selection still starts a fresh training session');
   // Keep a real thumb captured while the training scene changes.
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   await send('Emulation.setTouchEmulationEnabled', { enabled: true });
   await evaluate(`mountTraining('sentosa',{spawn:{x:109.5,z:-203.5,yaw:0,pitch:-.12}})`);
-  await wait(`${zone('sentosa')} && trainingHud.phase==='ready' && !document.querySelector('.play-loading')`);
+  await deploy(true); await wait(`${zone('sentosa')} && ${settled}`);
   await click(button('90-second challenge'), true); await click(`document.querySelector('.fps-start-card .primary-button')`, true);
   await wait(`trainingHud.phase==='playing' && trainingHud.inputMode==='touch'`);
   const stick = await evaluate(`(()=>{const r=document.querySelector('[data-touch-stick="move"]').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
@@ -111,6 +124,6 @@ try {
   await evaluate('unmountTraining()'); assert.equal(await evaluate(`document.querySelectorAll('canvas').length`), 0);
   assert.deepEqual(errors, []);
   await fs.writeFile(new URL('browser-results.json', output), JSON.stringify({ evidence, errors, ok: true }, null, 2));
-  console.log('PASS actual Training/GameMenu: both directions, no parent remount, picker sync/manual selection, retained canvas/capture/view/vitals/ammo/spent supplies, no completion bonus, counter-fire/drill preservation, release/Escape during loading, held/released mobile thumb and cleanup.');
-} catch (error) { console.log(await evaluate('({hud:window.trainingHud,crossings:window.trainingCrossings,mounts:window.trainingMounts})').catch(() => null)); console.log(errors); await screenshot('failure'); throw error; }
+  console.log('PASS actual Training/GameMenu under the real loading screen: both directions, walking on through a crossing with the key held, world drawn on arrival, no parent remount, picker sync/manual selection, retained canvas/capture/view/vitals/ammo/spent supplies, no completion bonus, counter-fire/drill preservation, release/Escape during loading, held/released mobile thumb and cleanup.');
+} catch (error) { console.log(await evaluate('({phase:window.trainingHud?.phase,message:window.trainingHud?.message,x:window.trainingHud?.x,z:window.trainingHud?.z,health:window.trainingHud?.health,locked:!!document.pointerLockElement,mapZone:document.querySelector(".fps-game")?.dataset.mapZone,crossings:window.trainingCrossings?.length,mounts:window.trainingMounts})').catch(() => null)); console.log(errors); await screenshot('failure'); throw error; }
 finally { await releaseLoading().catch(() => {}); await evaluate('window.unmountTraining?.()').catch(() => {}); ws.close(); await fetch(`${chrome}/json/close/${tab.id}`); }

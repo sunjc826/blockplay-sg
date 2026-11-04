@@ -18,16 +18,17 @@ await fs.writeFile(new URL('fixture.html', output), `<!doctype html><html><head>
 <script type="module">import R from '/@react-refresh';R.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;</script>
 <script type="module">
 import React from 'react';import {createRoot} from 'react-dom/client';
-import Expedition from './ExpeditionGame.tsx';import {createProfile} from '/src/game/armory-state.ts';
+import Expedition from './ExpeditionGame.tsx';import PlayLoading from '/src/components/PlayLoading.tsx';import {createProfile} from '/src/game/armory-state.ts';
 import {DebugMode} from '/src/lib/debug-mode.ts';
 import {setEnvironmentSettings} from '/src/game/environment-settings.ts';import '/src/styles.css';
+const counted=WebGL2RenderingContext.prototype;window.draws=0;for(const name of ['drawArrays','drawElements','drawArraysInstanced','drawElementsInstanced']){const draw=counted[name];counted[name]=function(...args){window.draws++;return draw.apply(this,args);};}
 setEnvironmentSettings({weather:'sunny',celebration:'none',timeOfDay:'noon'});
 const profile=createProfile(),root=createRoot(document.querySelector('#root'));profile.owned.push('plate-ceramic');profile.plate='plate-ceramic';let revision=0;
 const noop=()=>{},vendor=()=>({purchased:false,profile,message:'Fixture vendor'});
 window.crossings=[];
 window.mountBoardwalk=(zone='harbourfront',entry={})=>{
  window.fixtureEntry={spawn:{x:110.5,z:208.5,yaw:Math.PI,pitch:-.12},checkpoint:{health:64,armor:21,weapon:0,ammunition:[{magazine:7,reserve:40,cooldown:0,reloadRemaining:0},{magazine:11,reserve:60,cooldown:0,reloadRemaining:0}]},...entry};
- root.render(React.createElement(DebugMode.Provider,{value:false},React.createElement(Expedition,{key:++revision,initialZone:zone,profile,onExit:noop,onVendorPurchase:vendor,onConsume:noop})));
+ root.render(React.createElement(DebugMode.Provider,{value:false},React.createElement(PlayLoading,{key:++revision,mode:'world',district:zone,back:null},(onLoaded,loadScreen)=>{window.loadScreen=loadScreen;return React.createElement(Expedition,{initialZone:zone,profile,onExit:noop,onVendorPurchase:vendor,onConsume:noop,onLoaded,loadScreen});})));
 };window.unmountBoardwalk=()=>root.unmount();window.mountBoardwalk();
 </script></body></html>`);
 const tab = await (await fetch(`${chrome}/json/new?${encodeURIComponent(origin + '/.cache/boardwalk/fixture.html')}`, { method: 'PUT' })).json();
@@ -45,8 +46,12 @@ const delay = ms => new Promise(r => setTimeout(r, ms));
 async function wait(expression, timeout = 90000) { const start = Date.now(); while (Date.now() - start < timeout) { if (await evaluate(expression)) return; await delay(100); } throw Error('Waiting for ' + expression); }
 async function key(key, down = true) { await send('Input.dispatchKeyEvent', { type: down ? 'keyDown' : 'keyUp', key, code: key === 'Escape' ? 'Escape' : 'Key' + key.toUpperCase() }); }
 async function screenshot(name) { const r = await send('Page.captureScreenshot', { format: 'png' }); await fs.writeFile(new URL(name + '.png', output), Buffer.from(r.data, 'base64')); }
+// The real loading screen sits over the card until it has faded out.
+const covered = `!!document.querySelector('.play-loading')`;
+async function drawing(label) { const before = await evaluate('draws'); await delay(400); assert(await evaluate('draws') > before, label + ': the world is being drawn'); }
 async function enter() {
-  const p = await evaluate(`(()=>{const r=document.querySelector('.fps-start-card .primary-button').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+  await wait('!' + covered);
+  const p = await evaluate(`(()=>{const e=document.querySelector('.fps-start-card .primary-button');e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...p, button: 'left', clickCount: 1 });
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...p, button: 'left', clickCount: 1 });
   await wait(`boardwalkHud.phase==='playing' && boardwalkHud.arenaSelf?.alive`);
@@ -56,9 +61,11 @@ async function releaseLoading() { for (const requestId of blocked.splice(0)) awa
 async function record(label) { evidence.push({ label, ...await evaluate(`({zone:boardwalkHud.expeditionZone,phase:boardwalkHud.phase,x:boardwalkHud.x,z:boardwalkHud.z,yaw:boardwalkHud.yaw,pitch:boardwalkHud.pitch,health:boardwalkHud.health,armor:boardwalkHud.armor,magazine:boardwalkHud.magazine,reserve:boardwalkHud.reserve,input:boardwalkHud.inputMode,locked:!!document.pointerLockElement,canvases:document.querySelectorAll('canvas').length})`) }); }
 try {
   await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable');
+  await send('Page.bringToFront'); // Headless Chrome refuses pointer lock to a background tab.
   await send('Emulation.setFocusEmulationEnabled', { enabled: true });
   await wait(`window.boardwalkHud?.phase==='ready' && boardwalkHud.arenaSelf`, 180000);
   await enter(); await screenshot('harbourfront-approach');
+  assert.equal(await evaluate('loadScreen.covering()'), false, 'The first load is over, so a crossing is not treated as one');
   await evaluate(`window.originalCanvas=document.querySelector('canvas')`);
   assert.equal(await evaluate('boardwalkHud.magazine'), 7);
   assert.equal(await evaluate('boardwalkHud.health'), 64);
@@ -79,8 +86,14 @@ try {
   assert.equal(await evaluate('boardwalkHud.magazine'), 7); assert.equal(await evaluate('boardwalkHud.reserve'), initialReserve);
   assert(Math.abs(await evaluate('boardwalkHud.pitch') + .12) < .01);
   assert(await evaluate('document.pointerLockElement===originalCanvas'));
+  await drawing('Sentosa arrival');
   await record('sentosa-arrival'); await screenshot('sentosa-arrival');
-  await key('s'); await wait(`crossings.length===2 && boardwalkHud.phase==='playing' && boardwalkHud.expeditionZone==='harbourfront'`); await key('s', false);
+  await key('s'); await wait(`crossings.length===2`); const crossed = Date.now();
+  await wait(`boardwalkHud.phase==='playing' && boardwalkHud.expeditionZone==='harbourfront'`);
+  evidence.push({ label: 'return-crossing-load', ms: Date.now() - crossed });
+  // Crossing with the key held: the player arrives walking, without pressing it again.
+  const heldKey = await evaluate('boardwalkHud.z'); await wait(`Math.abs(boardwalkHud.z-(${heldKey}))>.7`, 5000); await key('s', false);
+  await drawing('HarbourFront return');
   await delay(250); assert.equal(await evaluate('crossings.length'), 2, 'Return does not bounce');
   assert(await evaluate(`document.querySelector('canvas')===originalCanvas && document.pointerLockElement===originalCanvas`));
   await record('harbourfront-return'); await screenshot('harbourfront-return');
@@ -111,7 +124,7 @@ try {
   await send('Emulation.setTouchEmulationEnabled', { enabled: true });
   await evaluate(`document.exitPointerLock();mountBoardwalk('sentosa',{spawn:{x:109.5,z:-203.5,yaw:0,pitch:-.12}})`);
   await wait(`boardwalkHud.phase==='ready' && boardwalkHud.expeditionZone==='sentosa'`);
-  const button = await evaluate(`(()=>{const r=document.querySelector('.fps-start-card .primary-button').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+  const button = await evaluate(`(()=>{const e=document.querySelector('.fps-start-card .primary-button');e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...button, id: 1 }] });
   await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await wait(`boardwalkHud.phase==='playing' && boardwalkHud.inputMode==='touch'`);
@@ -131,9 +144,9 @@ try {
   await evaluate('unmountBoardwalk()'); assert.equal(await evaluate(`document.querySelectorAll('canvas').length`), 0);
   assert.deepEqual(errors, []);
   await fs.writeFile(new URL('browser-results.json', output), JSON.stringify({ evidence, errors, ok: true }, null, 2));
-  console.log('PASS: actual expedition UI; directional walk/return, retained canvas and pointer capture, view/vitals/ammo, release/Escape during loading, legacy checkpoint, local pilot, held/released mobile thumb, layout and cleanup.');
+  console.log('PASS: actual expedition UI under the real loading screen; directional walk/return, walking on through a crossing with the key held, world drawn on arrival, retained canvas and pointer capture, view/vitals/ammo, release/Escape during loading, legacy checkpoint, local pilot, held/released mobile thumb, layout and cleanup.');
 } catch (error) {
-  console.log(await evaluate('({hud:window.boardwalkHud,crossings:window.crossings,errors:document.querySelector("vite-error-overlay")?.shadowRoot?.textContent})').catch(() => null));
+  console.log(await evaluate('({phase:window.boardwalkHud?.phase,message:window.boardwalkHud?.message,zone:window.boardwalkHud?.expeditionZone,x:window.boardwalkHud?.x,z:window.boardwalkHud?.z,locked:!!document.pointerLockElement,crossings:window.crossings,errors:document.querySelector("vite-error-overlay")?.shadowRoot?.textContent})').catch(() => null));
   console.log(errors); await screenshot('failure'); throw error;
 } finally {
   await releaseLoading().catch(() => {}); await evaluate('window.unmountBoardwalk?.()').catch(() => {});

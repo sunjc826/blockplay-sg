@@ -11,18 +11,26 @@ import {createFpsEngine} from '/src/game/fps-engine.ts';
 import {createProfile,resolveLoadout} from '/src/game/armory-state.ts';
 import {createExpeditionLoot} from '/src/game/expedition-loot.ts';
 import {buildExpeditionWorld} from '/src/game/expedition-world.ts';
+import {WORLD_GATEWAYS} from '/src/game/world-zones.ts';
+import {ZONE_LOOT_RULES} from '/src/game/expedition-loot.ts';
+import {BATTLEFIELD_POPULATIONS,DEFAULT_BATTLEFIELD_SIZE} from '/src/game/battlefield.ts';
+// A district's crates, plus the rounds set out beside each weapon.
+window.lootIn=zone=>{const r=ZONE_LOOT_RULES[zone];return 2*r.weaponCount+r.ammoCount+r.medicalCount+r.armorCount;};
+const population=BATTLEFIELD_POPULATIONS[DEFAULT_BATTLEFIELD_SIZE];window.troops=population.mercenaries+population['armed-forces'];
+const gate=WORLD_GATEWAYS.find(g=>g.id==='marina-to-raffles').position;
 const original=createProfile();original.owned.push('plate-ceramic');original.plate='plate-ceramic';
 window.original=JSON.stringify(original);localStorage.setItem('expedition-test-permanent',window.original);
 let profile=structuredClone(original);const geometry=buildExpeditionWorld('marina-bay');
 let loot,items;
-for(let seed=0;seed<1000;seed++){loot=createExpeditionLoot('travel-'+seed);items=loot.enterZone({id:'marina-bay',spawn:geometry.zone.spawn,bounds:geometry.bounds,obstacles:geometry.obstacles,anchors:[{x:-103,z:94}]});if(items[0].catalogId==='sar-vanguard')break;}
+for(let seed=0;seed<1000;seed++){loot=createExpeditionLoot('travel-'+seed);items=loot.enterZone({id:'marina-bay',spawn:geometry.zone.spawn,bounds:geometry.bounds,obstacles:geometry.obstacles,anchors:[{x:gate.x,z:gate.z}]});if(items[0].catalogId==='sar-vanguard')break;}
 geometry.dispose();window.firstLoot=items[0];window.loot=loot;window.transfers=[];
 function mount(zone,spawn,checkpoint){
 window.engine?.dispose();window.zone=zone;
 window.engine=createFpsEngine(document.querySelector('#world'),hud=>{window.hud=hud;}, {loadout:resolveLoadout(profile),expedition:{zone,spawn,checkpoint,profile,loot,onEquipment(next){profile=next;window.fieldProfile=profile;},onTravel(transition,state){window.transfers.push({transition,state});mount(transition.to,transition.spawn,state);}}});
 }
 window.mountFixture=mount;
-mount('marina-bay',{x:-103,z:95.5,yaw:0,pitch:0},{health:64,armor:21,weapon:1,ammunition:[{magazine:7,reserve:40,cooldown:0,reloadRemaining:0},{magazine:11,reserve:60,cooldown:0,reloadRemaining:0}]});
+// Facing the crate on the checkpoint: pickup goes to what the crosshair is on.
+mount('marina-bay',{x:gate.x,z:gate.z+1.5,yaw:0,pitch:-.7},{health:64,armor:21,weapon:2,ammunition:[{magazine:7,reserve:40,cooldown:0,reloadRemaining:0},{magazine:9,reserve:60,cooldown:0,reloadRemaining:0},{magazine:11,reserve:24,cooldown:0,reloadRemaining:0}]});
 document.querySelector('#enter').onclick=()=>window.engine.start();document.querySelector('#take').onclick=()=>window.engine.interactLoot();document.querySelector('#travel').onclick=()=>window.engine.travelZone();
 </script>`);
 const fixtureUrl = origin + '/@fs' + decodeURIComponent(fixturePath.pathname);
@@ -50,30 +58,33 @@ async function screenshot(name) { const shot = await send('Page.captureScreensho
 const phase = value => `document.querySelector('.fps-game')?.dataset.phase===${JSON.stringify(value)}`;
 const ammo = `Number(document.querySelector('.fps-ammo strong')?.firstChild.textContent)`;
 try {
-  await send('Runtime.enable');await send('Page.enable');await send('Emulation.setFocusEmulationEnabled',{enabled:true});
-  await wait(`window.hud?.phase==='ready' && window.hud.arenaSelf && window.hud.weapon===1`);
+  await send('Runtime.enable');await send('Page.enable');await send('Page.bringToFront');await send('Emulation.setFocusEmulationEnabled',{enabled:true});
+  await wait(`window.hud?.phase==='ready' && window.hud.arenaSelf && window.hud.weapon===2`);
   assert.equal(await evaluate('hud.health'),64);assert.equal(await evaluate('hud.armor'),21);assert.equal(await evaluate('hud.magazine'),11);
   await click(`document.querySelector('#enter')`);await wait(`hud.phase==='playing'`);
   assert(await evaluate('!!document.pointerLockElement'));
-  assert(await evaluate('hud.lootPrompt.includes("Vanguard")'),'Fixture generated a real elite weapon at the checkpoint');
-  await key('e','KeyE');await wait(`hud.fieldLoot.length===7 && hud.weapon===0`);
-  assert.equal(await evaluate('hud.magazine'),36,'Pickup applies catalog extended magazine');
+  assert(await evaluate('hud.lootPrompt.includes(firstLoot.name) && firstLoot.tier==="Elite"'),'Fixture generated a real elite weapon at the checkpoint');
+  await key('e','KeyE');await wait(`hud.fieldLoot.length===lootIn('marina-bay')-1 && hud.weapon===0`);
+  assert.equal(await evaluate('hud.magazine'),37,'Pickup applies catalog extended magazine, 36 plus one chambered');
   assert.equal(await evaluate('fieldProfile.guns[0].variant'),'sar-vanguard');
   assert.equal(await evaluate('localStorage.getItem("expedition-test-permanent")'),await evaluate('original'),'Field pickup does not mutate saved profile');
   // A real mouse press proves live pickup stats do not break firing or marker raycasts.
+  // Taking the rifle swaps it in from the sidearm, and a shot can't start until that ends.
+  await wait(`!document.querySelector('canvas').dataset.weaponSwitch`);
   await send('Input.dispatchMouseEvent',{type:'mousePressed',x:700,y:300,button:'left',clickCount:1});await delay(90);await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:700,y:300,button:'left',clickCount:1});
-  await wait('hud.magazine<36');const ammunition=await evaluate('hud.magazine');
+  await wait('hud.magazine<37');const ammunition=await evaluate('hud.magazine');
   await key('t','KeyT');await wait(`zone==='raffles-place' && hud.phase==='ready' && hud.arenaSelf`);
   assert.equal(await evaluate('hud.health'),64);assert.equal(await evaluate('hud.armor'),21);assert.equal(await evaluate('hud.magazine'),ammunition);
-  assert.equal(await evaluate('hud.fieldLoot.length'),10,'CBD loads its richer loot table');
-  assert.equal(await evaluate('hud.arena.actors.filter(a=>a.bot).length'),6,'CBD is more contested');
+  assert.equal(await evaluate('hud.fieldLoot.length'),await evaluate(`lootIn('raffles-place')`),'CBD loads its own, richer loot table');
+  assert(await evaluate(`lootIn('raffles-place')>lootIn('marina-bay')`));
+  assert.equal(await evaluate('hud.arena.actors.filter(a=>a.bot).length'),await evaluate('troops'),'The destination starts its own full battle');
   assert.equal(await evaluate('document.querySelectorAll("canvas").length'),1,'Outgoing district renderer was disposed');
   assert.equal(await evaluate('!!document.pointerLockElement'),false,'Transition releases capture until the next user gesture');
   await screenshot('cbd-arrival');
   await click(`document.querySelector('#enter')`);await wait(`hud.phase==='playing'`);
   await key('s','KeyS',2500*pace);await wait(`!!hud.travelPrompt`);await key('t','KeyT');
   await wait(`zone==='marina-bay' && hud.phase==='ready' && hud.arenaSelf`);
-  assert.equal(await evaluate('hud.fieldLoot.length'),7,'Re-entry does not reroll collected crates');
+  assert.equal(await evaluate('hud.fieldLoot.length'),await evaluate(`lootIn('marina-bay')-1`),'Re-entry does not reroll collected crates');
   assert(await evaluate('!hud.fieldLoot.some(item=>item.id===firstLoot.id)'));
   assert.equal(await evaluate('fieldProfile.guns[0].variant'),'sar-vanguard');
   assert.equal(await evaluate('hud.magazine'),ammunition,'Returning does not refill the magazine');
@@ -84,16 +95,16 @@ try {
   await wait(`zone==='raffles-place' && hud.phase==='ready' && hud.arenaSelf`);
   await click(`document.querySelector('#enter')`);await wait(`hud.phase==='playing'`);await key('t','KeyT');
   await wait(`zone==='queenstown' && hud.phase==='ready' && hud.arenaSelf`);
-  assert.equal(await evaluate('hud.fieldLoot.length'),6);assert.equal(await evaluate('hud.arena.actors.filter(a=>a.bot).length'),3);
+  assert.equal(await evaluate('hud.fieldLoot.length'),await evaluate(`lootIn('queenstown')`));assert.equal(await evaluate('hud.arena.actors.filter(a=>a.bot).length'),await evaluate('troops'));
   assert(await evaluate('hud.arena.actors.filter(a=>a.bot).every(a=>a.role==="assault")'));
   assert.equal(await evaluate('hud.magazine'),ammunition);assert.equal(await evaluate('document.querySelectorAll("canvas").length'),1);
   await screenshot('queenstown-arrival');
   await click(`document.querySelector('#enter')`);await wait(`hud.phase==='playing'`);await key('s','KeyS',2500*pace);await wait('!!hud.travelPrompt');await key('t','KeyT');
   await wait(`zone==='raffles-place' && hud.phase==='ready' && hud.arenaSelf`);
-  assert.equal(await evaluate('transfers.length'),4);assert.equal(await evaluate('hud.fieldLoot.length'),10);
+  assert.equal(await evaluate('transfers.length'),4);assert.equal(await evaluate('hud.fieldLoot.length'),await evaluate(`lootIn('raffles-place')`));
   assert.equal(await evaluate('localStorage.getItem("expedition-test-permanent")'),await evaluate('original'));
   await evaluate('engine.dispose()');assert.equal(await evaluate('document.querySelectorAll("canvas").length'),0);
   assert.deepEqual(errors,[]);
-  console.log('PASS: real engine fixture with declared starting position/vitals; seeded elite pickup, live firing, all four checkpoint directions, health/armor/ammo/loadout carry, CBD threats/loot, persistent collected crate, pointer recapture and renderer cleanup.');
-} catch(error){console.log(errors);await screenshot('failure');throw error;}
+  console.log('PASS: real engine fixture with declared starting position/vitals; seeded elite pickup, live firing, all four checkpoint directions, health/armor/ammo/loadout carry, troops and loot per district, persistent collected crate, pointer recapture and renderer cleanup.');
+} catch(error){console.log(errors,await evaluate('({phase:window.hud?.phase,message:window.hud?.message,weapon:window.hud?.weapon,zone:window.zone,fieldLoot:window.hud?.fieldLoot?.length,travelPrompt:window.hud?.travelPrompt,lootPrompt:window.hud?.lootPrompt,locked:!!document.pointerLockElement,transfers:window.transfers?.length})').catch(()=>null));await screenshot('failure');throw error;}
 finally{await evaluate('window.engine?.dispose();localStorage.removeItem("expedition-test-permanent")').catch(()=>{});ws.close();await fetch(`${chrome}/json/close/${tab.id}`);await fs.rm(fixturePath,{force:true});}

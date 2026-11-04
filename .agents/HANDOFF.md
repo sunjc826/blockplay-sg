@@ -6669,3 +6669,12 @@ Deploy, which had no transition, now pushes the map in on the chosen district fo
 Validation: tsc, starting-point smoke, plus route order, reversal, Back and Deploy runs in the browser pane at 1024x768 and 375x812. Vitest 3143/3143 and pnpm build
 ran before the final picker fix (push point taken from map coordinates, as narrow maps hide their pins), which got tsc and the smoke again. The pane was hidden, so
 timings are approximate, and how it feels has not been judged on a real screen. Safari and real phones are untested.
+
+## 2026-11-04: crossing smokes passing again; crossings confirmed after the loading bar
+expedition-travel, boardwalk-crossing and training-crossing pass on Metal headless Chrome at 56e96ed, from a fresh profile with no shader disk cache. All the failures were stale scripts, no product bug.
+What had gone stale: no Page.bringToFront, so pointer lock was refused; Enter now below the fold of the start card; training has to deploy through the picker, and the district is the nav button, not a select;
+supplies are on F, not 5; the default carry is families 0 and 2, so a checkpoint on weapon 1 falls back; marina's gateway moved with the layout scale; pickup goes to what the crosshair is on, and every weapon crate has rounds beside it;
+magazines count the chambered round; a shot has to wait for the swap; every district now fields 32 troops.
+boardwalk now mounts the real PlayLoading (training already did), and both assert covering() is false before crossing, that the world keeps drawing on arrival, and that a held key keeps walking through a crossing. Return crossing load 1.0-2.1 s.
+Not covered: no baseline from before 84ae8b2, so whether the GPU fence lengthened crossings is unmeasured. Dev server only, not a production build, physical GPU or real phone; the mobile runs use emulated touch. Crossing spawns are injected beside the border.
+Noticed and left: Enter needs scrolling to on the start card at 1280x713; Raffles Place and Queenstown describe heavy and lighter patrols but field the same 32; utilitySlotForKey (keys 4-9) is only used by its tests.
