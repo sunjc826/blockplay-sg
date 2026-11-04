@@ -1,4 +1,5 @@
 import MerlionHud from './MerlionHud';
+import type { PlayLoadScreen } from '../game/play-load-stages';
 import { createProxyCampaign } from '../game/proxy-operations';
 import ProxyOperationHud from './ProxyOperationHud';
 import RespawnLoadoutSelector from './RespawnLoadoutSelector';
@@ -52,7 +53,7 @@ import { getArenaFaction, PLAYER_FACTION, SQUAD_FACTIONS } from '../game/arena-f
 
 interface ExpeditionScene { zone: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: FpsCheckpoint; revision: number }
 
-export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase, onConsume, onElimination, onRentalTime, suspended = false, initialZone = 'marina-bay', destination, onZoneChange, onLoaded }: { profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; onExit: () => void; onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult; onConsume: (catalogId: string) => void; onRentalTime?: (elapsedMs: number) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; suspended?: boolean; initialZone?: WorldZoneId; destination?: WorldZoneId; onZoneChange?: (zone: WorldZoneId) => void }) {
+export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase, onConsume, onElimination, onRentalTime, suspended = false, initialZone = 'marina-bay', destination, onZoneChange, onLoaded, loadScreen }: { profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; loadScreen?: PlayLoadScreen; onExit: () => void; onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult; onConsume: (catalogId: string) => void; onRentalTime?: (elapsedMs: number) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; suspended?: boolean; initialZone?: WorldZoneId; destination?: WorldZoneId; onZoneChange?: (zone: WorldZoneId) => void }) {
   const [fieldProfile, setFieldProfile] = useState<ArmoryProfile>(() => structuredClone(profile));
   const fieldProfileRef = useRef(fieldProfile);
   const [startingProfile] = useState(() => structuredClone(fieldProfile));
@@ -85,6 +86,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       surface.current ??= createFpsSurface(host.current!);
       engine.current = createFpsEngine(host.current!, setHud, {
         surface: surface.current,
+        loadScreen,
         loadout: resolveLoadout(fieldProfileRef.current, { deferRentalExpiry: true }),
         expedition: {
           autoRespawn: autoRespawn.current, zone: scene.zone, spawn: scene.spawn, checkpoint: scene.checkpoint,

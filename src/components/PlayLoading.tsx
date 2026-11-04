@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createPlayLoadTracker, stageKeyframes, stageLabel, timeLeftLabel, type PlayLoadScreen, type PlayLoadTracker } from '../game/play-load-stages';
 
 type Mode = 'training' | 'world';
 type Stage = 'waiting' | 'building' | 'assets' | 'leaving' | 'done';
@@ -30,9 +31,10 @@ const FADE_MS = 360;
  * Covers a play screen while its district builds. Building the world blocks
  * the main thread for a moment, so the game mounts only after this screen
  * has painted (otherwise the menu freezes on the click), and the bar runs on
- * the compositor so it keeps moving through the stall.
+ * the compositor so it keeps moving through the stall. The bar is divided by
+ * the stages the engine reports, sized by how long they took here last time.
  */
-export default function PlayLoading({ mode, district, back, children }: { mode: Mode; district: string; back: ReactNode; children: (onLoaded: () => void) => ReactNode }) {
+export default function PlayLoading({ mode, district, back, children }: { mode: Mode; district: string; back: ReactNode; children: (onLoaded: () => void, loadScreen: PlayLoadScreen) => ReactNode }) {
   const [stage, setStage] = useState<Stage>('waiting');
   const [tip] = useState(() => { const tips = [...TIPS.any, ...TIPS[mode]]; return tips[Math.floor(Math.random() * tips.length)]; });
   useEffect(() => {
@@ -48,21 +50,64 @@ export default function PlayLoading({ mode, district, back, children }: { mode: 
     const timer = window.setTimeout(() => setStage('leaving'), GIVE_UP_MS);
     return () => clearTimeout(timer);
   }, [stage]);
-  const onLoaded = useCallback(() => setStage(current => current === 'leaving' || current === 'done' ? current : 'leaving'), []);
+  const [tracker] = useState(() => createPlayLoadTracker(mode, district));
+  const onLoaded = useCallback(() => { tracker.finish(); setStage(current => current === 'leaving' || current === 'done' ? current : 'leaving'); }, [tracker]);
 
   return <>
-    {stage !== 'waiting' && children(onLoaded)}
+    {stage !== 'waiting' && children(onLoaded, tracker)}
     {stage !== 'done' && <div className={`play-loading${stage === 'leaving' ? ' is-leaving' : ''}`} role="status" aria-live="polite" aria-busy={stage !== 'leaving'}>
       <Skyline />
       <div className="play-loading-back">{back}</div>
       <div className="play-loading-body">
         <span className="play-loading-kicker">{mode === 'training' ? 'TRAINING · LIVE-FIRE RANGE' : 'OPEN WORLD · DEPLOYMENT'}</span>
         <h1>{district}</h1>
-        <div className="play-loading-bar" aria-hidden="true"><i /></div>
-        <p className="play-loading-stage">{stage === 'assets' || stage === 'leaving' ? mode === 'training' ? 'Setting up targets and your gear…' : 'Placing patrols, supplies and your gear…' : `Building ${district}…`}</p>
+        <LoadMeter tracker={tracker} mode={mode} district={district} />
       </div>
       <p className="play-loading-tip"><span>TIP</span>{tip}</p>
     </div>}
+  </>;
+}
+
+/**
+ * Its own component because it redraws for the countdown, which must not
+ * re-render the game mounted beside it.
+ */
+function LoadMeter({ tracker, mode, district }: { tracker: PlayLoadTracker; mode: Mode; district: string }) {
+  const { plan } = tracker;
+  const { index, done, finished } = useSyncExternalStore(tracker.subscribe, tracker.getSnapshot);
+  const fill = useRef<HTMLElement>(null), running = useRef<Animation | null>(null);
+  const [left, setLeft] = useState(() => tracker.msLeft());
+  const segment = plan[index];
+  useLayoutEffect(() => {
+    const element = fill.current;
+    if (!element) return;
+    const place = segment.start + (segment.end - segment.start) * done;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { element.style.transform = `scaleX(${finished ? 1 : place})`; return; }
+    const from = Math.max(new DOMMatrix(getComputedStyle(element).transform).a, 0);
+    element.style.transform = `scaleX(${from})`;
+    running.current?.cancel();
+    if (finished) running.current = element.animate?.([{ transform: `scaleX(${from})` }, { transform: 'scaleX(1)' }], { duration: 220, easing: 'ease-out', fill: 'forwards' }) ?? null;
+    else {
+      const { duration, keyframes } = stageKeyframes(Math.max(from, place), segment.end, segment.ms * (1 - done) * tracker.pace());
+      running.current = element.animate?.(keyframes, { duration, fill: 'forwards' }) ?? null;
+    }
+  }, [index, done, finished, segment, tracker]);
+  useEffect(() => {
+    setLeft(tracker.msLeft());
+    if (finished) return;
+    const timer = window.setInterval(() => setLeft(tracker.msLeft()), 250);
+    return () => clearInterval(timer);
+  }, [tracker, index, finished]);
+  const label = stageLabel(segment.stage, mode, district);
+  return <>
+    <div className="play-loading-bar" role="progressbar" aria-label="Loading" aria-valuemin={0} aria-valuemax={100} aria-valuenow={finished ? 100 : Math.round(segment.start * 100)} aria-valuetext={label}>
+      <i ref={fill} />
+      {plan.slice(1).map(({ stage, start }) => <b key={stage} style={{ left: `${start * 100}%` }} />)}
+    </div>
+    <p className="play-loading-stage" data-stage={segment.stage}>
+      <span>{label}…</span>
+      <small aria-hidden="true">{index + 1} of {plan.length} · {finished ? 'Ready' : timeLeftLabel(left)}</small>
+    </p>
   </>;
 }
 

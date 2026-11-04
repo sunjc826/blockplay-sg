@@ -6643,3 +6643,19 @@ Checked in fresh headless Chrome with Metal, Queenstown: title, menu, map, loadi
 stand-in for pointer lock because headless Chrome denies it. Store and lobby were in the same run before it. The win
 and lose stingers are unit tested only: no full match was played. Safari and real phones are untested, and that
 includes holding a decoded 60 s track through a district's load on a phone.
+
+## 2026-11-04: stage-based loading bar
+PlayLoading's sliding bar is now a real one, split into Building / Loading models / Preparing graphics, with "2 of 3 · About 4 s left".
+src/game/play-load-stages.ts sizes each stage by how long it took on this device (localStorage, per mode and district, else the last place
+loaded, else defaults), and corrects its pace mid-load. The engine reports stages through a `loadScreen` option. The fill is a WAAPI
+transform so it moves through main-thread stalls; the text cannot update during them.
+Two engine changes came out of measuring. While the screen covers a first load, the loop no longer draws the world, as those draws forced
+shaders to link synchronously: the longest frozen stretch went from 3.3 s to 1.4 s or less. World loads are equal or slightly faster, a training
+load about 0.5 s slower (2.5 to 3 s). And `ready` now waits for one drawn frame plus a GPU fence, because compileAsync could resolve early and
+leave up to 1.8 s of frozen game behind a finished bar. Measure on a production build: dev StrictMode builds the world twice.
+Measured on production builds, Metal headless Chrome, 1280x800: estimates within 1-2 s, closer on repeat visits. Queenstown 5.1 s from "About 6 s",
+Marina Bay 7.0 s from "About 7-8 s". Not checked on a physical GPU, real phone or slow network. Crossings and arenas still have no bar.
+Validation: tsc, vitest 3137/3137, starting-point and deployment-intro smokes, plus a scratch run through the real app that rebuilds the engine
+after the screen finishes and enters play in both modes. expedition-travel, boardwalk-crossing and training-crossing smokes fail. expedition-travel and
+training-crossing fail the same way on an untouched HEAD (the training fixture stops at the district picker). boardwalk-crossing was inconclusive:
+my build reaches ready and stalls on entering play, while the HEAD worktree did not reach ready. So a real district crossing was not exercised.

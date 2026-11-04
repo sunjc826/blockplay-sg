@@ -87,9 +87,9 @@ function PlaySession({ mode, initial, armory, suspended, onChoose }: { mode: 'tr
   return <div className={`game-screen game-screen-play game-screen-${mode}`}>
     <main className="game-screen-body"><DebugMode.Provider value={false}>
       <PlayLoading mode={mode} district={locationName(start)} back={back}>
-        {onLoaded => mode === 'training'
-          ? <FpsGame suspended={suspended} region={start} onRegionChange={setZone} profile={armory.profile} nav={nav} onLoaded={onLoaded} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onOpenShop={() => transitionTo('store', 'Store')} />
-          : <ExpeditionGame suspended={suspended} initialZone={start} onZoneChange={setZone} nav={nav} onLoaded={onLoaded} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onElimination={armory.awardElimination} onExit={() => transitionTo('menu', 'Menu')} />}
+        {(onLoaded, loadScreen) => mode === 'training'
+          ? <FpsGame suspended={suspended} region={start} onRegionChange={setZone} profile={armory.profile} nav={nav} onLoaded={onLoaded} loadScreen={loadScreen} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onOpenShop={() => transitionTo('store', 'Store')} />
+          : <ExpeditionGame suspended={suspended} initialZone={start} onZoneChange={setZone} nav={nav} onLoaded={onLoaded} loadScreen={loadScreen} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onElimination={armory.awardElimination} onExit={() => transitionTo('menu', 'Menu')} />}
       </PlayLoading>
     </DebugMode.Provider></main>
   </div>;

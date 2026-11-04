@@ -114,6 +114,7 @@ import { createSoloSession, type LanSession } from './lan-peer';
 import { buildDistrictWorld } from './district-world';
 import { districtInfrastructure } from './district-infrastructure';
 import { loadNavigationBake } from './navigation-bake-loader';
+import { gpuCaughtUp, yieldToPaint, type PlayLoadScreen } from './play-load-stages';
 import { getFpsDistrict } from './fps-districts';
 import { createExpeditionMarkers } from './expedition-visuals';
 import { createLootGround } from './expedition-ground';
@@ -333,7 +334,7 @@ function disposeAssets(roots: THREE.Object3D[]) {
   textures.forEach(t => { t.dispose(); if (typeof ImageBitmap !== 'undefined' && t.source.data instanceof ImageBitmap) t.source.data.close(); });
 }
 
-export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { surface?: FpsSurface; rangeTravel?: FpsRangeTravelOptions; rangeDrill?: RangeDrillId; tutorial?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; onLoadout?: (equipment: ResolvedLoadout) => void; onRentalTime?: (elapsedMs: number) => void; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; onConsume?: (id: string) => void; onFullscreen?: () => void;
+export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { surface?: FpsSurface; rangeTravel?: FpsRangeTravelOptions; rangeDrill?: RangeDrillId; tutorial?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; onLoadout?: (equipment: ResolvedLoadout) => void; onRentalTime?: (elapsedMs: number) => void; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; onConsume?: (id: string) => void; onFullscreen?: () => void; loadScreen?: PlayLoadScreen;
   /** Read per callout, so a level-up mid-exercise is heard immediately. */
   encik?: () => EncikAddress } = {}) {
   const expedition = options.expedition;
@@ -565,6 +566,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const lootGround = expedition ? createLootGround(world.scene) : undefined;
   let checkpointPending = expedition?.checkpoint;
   let resumeCrossing = !!checkpoint?.continuation;
+  // Behind the loading screen a draw would only force each shader to link on the main thread,
+  // freezing the page and the bar for seconds, when warmShaders can compile them in the background.
+  let drawWorld = !options.loadScreen?.covering();
   let resumePilot = !!checkpoint?.pilot;
   const crossingKeys = new Set(checkpoint?.continuation?.keys ?? []);
   let crossingStick = checkpoint?.continuation?.stick ?? null;
@@ -3918,7 +3922,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const shoulderPose = shoulderMotion.sample(aimProgress, sightMagnification, handling[hud.weapon]?.bipodDeployment ?? 0,
       !!motionPreference?.matches || hud.phase !== 'playing' || !rig.visible || loadout[hud.weapon].reloadRemaining > 0 || inspectElapsed !== null || weaponSwitch !== null);
     canvas.dataset.shoulderMotion = JSON.stringify(shoulderPose);
-    shoulderMotion.render(rig, shoulderPose, () => firearmShake.render(camera, viewCamera, firingVibration, () => {
+    if (drawWorld) shoulderMotion.render(rig, shoulderPose, () => firearmShake.render(camera, viewCamera, firingVibration, () => {
       // Before anything draws the world: the tube's gain goes into exposure, or the scene turns to temperature.
       const visionSpec = equipment.vision?.spec;
       advanceVision(visionState, visionSpec, realDt, !!motionPreference?.matches);
@@ -4011,9 +4015,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     for (const program of renderer.info.programs ?? []) if (!heldPrograms.has(program)) { heldPrograms.add(program); program.usedTimes++; }
   }
   const assetIds = expedition ? ['sar21-inspired', 'ultimax-inspired'] : ['sar21-inspired', 'ultimax-inspired', 'range-target', 'supply-crate', 'sandbag-wall', 'traffic-cone'];
+  // The world above was built in one blocking task, so this is the first the loading screen hears of it.
+  options.loadScreen?.report('models', 0);
+  let modelsLoaded = 0;
   void Promise.all(assetIds.map(async id => {
     const gltf = await loader.loadAsync(`${import.meta.env.BASE_URL}models/field-kit/${id}.glb`);
     if (disposed) disposeAssets([gltf.scene]); else templates.push(gltf.scene);
+    if (!disposed) options.loadScreen?.report('models', ++modelsLoaded / assetIds.length);
     return gltf.scene;
   })).then(async loaded => {
     if (disposed) return;
@@ -4069,7 +4077,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     // Bullets, bots' sight lines and event landings all cast through the district's instanced scenery.
     canvas.dataset.raycastTrees = String(accelerateInstancedRaycasts(world.scene));
+    // Painted first, so the bar is already on the compositor when compiling blocks the page.
+    options.loadScreen?.report('shaders');
+    await yieldToPaint();
+    if (disposed) return;
     await warmShaders();
+    if (disposed) return;
+    // A real frame before calling it ready: it uploads the world, and the GPU may need a second
+    // or more to get through it, which belongs behind the bar and not on a frozen game.
+    drawWorld = true;
+    await yieldToPaint();
+    await gpuCaughtUp(renderer.getContext() as WebGL2RenderingContext);
     if (disposed) return;
     hud.phase = 'ready'; updateCameras(0, false, false); publish();
     if (resumeCrossing) {

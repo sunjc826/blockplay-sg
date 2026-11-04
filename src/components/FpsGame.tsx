@@ -1,5 +1,6 @@
 import MerlionHud from './MerlionHud';
 import { playMusicStinger, setMusicCue, stopMusicStinger } from '../lib/music';
+import type { PlayLoadScreen } from '../game/play-load-stages';
 import { physicalWeaponFamilies, primaryWeaponFamily } from '../game/weapon-modes';
 import RespawnLoadoutSelector from './RespawnLoadoutSelector';
 import DeathRecap from './DeathRecap';
@@ -54,7 +55,7 @@ function Scoreboard({ snapshot, selfId }: { snapshot: ArenaSnapshot; selfId: str
   return <div className="arena-scoreboard"><table><caption>MATCH STANDINGS <span>{listArenaFactions().map(faction => [faction, actors.filter(actor => factionIdOf(actor) === faction.id).length] as const).filter(([, n]) => n).map(([faction, n]) => `${n} ${faction.short}`).join(' · ')}</span></caption><thead><tr><th scope="col">OPERATOR</th><th scope="col">ROLE</th><th scope="col">K</th><th scope="col">D</th></tr></thead><tbody>{actors.map((actor, index) => <tr key={actor.id} className={actor.id === selfId ? 'is-self' : ''}><td><span className="arena-place">{index + 1}</span>{actor.name}{actor.id === selfId && <small>YOU</small>}{actor.bot && <small>BOT</small>}</td><td>{actor.role === 'player' ? 'Operator' : actor.role}</td><td>{actor.kills}</td><td>{actor.deaths}</td></tr>)}</tbody></table></div>;
 }
 
-export default function FpsGame({ region: initialRegion = 'marina-bay', suspended = false, profile, nav, onReward, onElimination, onRentalTime, onConsume, onOpenShop, arena, onLeaveArena, onLoaded, onRegionChange }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; onRegionChange?: (region: WorldZoneId) => void; onReward: (result: ExerciseReward) => void; onElimination: (id: string, bounty?: RaiderBounty) => void; onConsume: (id: string) => void; onRentalTime?: (elapsedMs: number) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
+export default function FpsGame({ region: initialRegion = 'marina-bay', suspended = false, profile, nav, onReward, onElimination, onRentalTime, onConsume, onOpenShop, arena, onLeaveArena, onLoaded, onRegionChange, loadScreen }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; loadScreen?: PlayLoadScreen; onRegionChange?: (region: WorldZoneId) => void; onReward: (result: ExerciseReward) => void; onElimination: (id: string, bounty?: RaiderBounty) => void; onConsume: (id: string) => void; onRentalTime?: (elapsedMs: number) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
   const [scene, setScene] = useState<RangeScene>(() => ({ region: initialRegion }));
   const region = scene.region;
   const regionChanged = useRef(onRegionChange); regionChanged.current = onRegionChange;
@@ -89,7 +90,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
     setHud({ ...initialFpsHud, inputMode: scene.checkpoint?.continuation?.inputMode ?? 'mouse' });
     try {
       if (!arenaOptions) surface.current ??= createFpsSurface(host.current!);
-      engine.current = createFpsEngine(host.current!, setHud, { surface: surface.current ?? undefined, region, rangeDrill: drill,
+      engine.current = createFpsEngine(host.current!, setHud, { surface: surface.current ?? undefined, region, rangeDrill: drill, loadScreen,
         rangeTravel: arenaOptions ? undefined : { spawn: scene.spawn, checkpoint: scene.checkpoint, onTravel: (transition, checkpoint) => {
           startingLevel.current = rank.level;
           setHud(current => ({ ...current, phase: 'loading' }));
