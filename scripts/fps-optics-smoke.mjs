@@ -60,7 +60,9 @@ try {
   const action = `document.querySelector('[data-testid="shop-action"]')`;
   await click(action); await delay(200); await click(action);
   await wait(`JSON.parse(localStorage.getItem('blockplay.armory.v1')).guns[0].variant==='sar-marksman'`);
-  assert.equal(await evaluate(`JSON.parse(localStorage.getItem('blockplay.armory.v1')).tokens`), 680);
+  // The first shop action rents; its exact price belongs to the rental unit tests.
+  const paid = await evaluate(`(()=>{const p=JSON.parse(localStorage.getItem('blockplay.armory.v1'));return {tokens:p.tokens,rental:p.rentals['sar-marksman']}})()`);
+  assert(paid.tokens < 1000 && paid.rental > 0, `Rents the rifle: ${JSON.stringify(paid)}`);
   await screenshot('sar-marksman-shop');
   await click(button('Deploy to Marina FPS')); await wait(phase('ready'));
   await click(button('Enter range')); await wait(phase('playing')); await screenshot('sar-marksman-hip');

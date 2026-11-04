@@ -48,7 +48,9 @@ try {
  await key(']','BracketRight');await wait(zoom(6));await key(']','BracketRight');await wait(zoom(9));
  await evaluate('window.engine.switchWeapon(2)');await wait('window.hud.weapon===2 && window.hud.scopeZoom===null');
  await key(']','BracketRight');assert.equal(await evaluate('window.hud.scopeZoom'),null);
- await evaluate('window.engine.switchWeapon(12)');await wait(zoom(9));
+ // A switch request is ignored until the stow and draw have finished, so keep asking.
+ await wait(`window.hud.weapon===12||(window.engine.switchWeapon(12),false)`);await wait(zoom(9));
+ await wait(`${canvas}.dataset.weaponSwitch!==''`);await wait(`${canvas}.dataset.weaponSwitch===''`);
  // Reload and pause gate every path, including the direct engine method used by touch.
  await evaluate("window.engine.setInput('fire',true)");await delay(80);await evaluate("window.engine.setInput('fire',false);window.engine.reload()");
  await wait('window.hud.reloading>0');await key(']','BracketRight');await evaluate('window.engine.adjustScopeZoom(1)');assert(await evaluate(zoom(9)));

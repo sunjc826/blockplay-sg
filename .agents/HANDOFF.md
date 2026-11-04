@@ -8,9 +8,9 @@ pinned to their true power against `HIP_FOV`, so the PiP picture is unchanged an
 sprint no longer alters it; the holo ring is converted for 60°/54°, and the
 pilot's lens check uses `scopeScreenScale`. With reduced motion the ring stays
 sized for 60°, about 10% wide of 68 MOA. Unit tests, typecheck and the holo, reflex,
-scope-glass and sniper-scope smokes pass on Metal. `fps-optics` (stale token
-total, line 63) and `fps-scope-zoom` (wheel never reaches 9x, line 51) fail
-identically on the previous HEAD.
+scope-glass and sniper-scope smokes pass on Metal. `fps-optics` and
+`fps-scope-zoom` were stale and are fixed: the shop's first action now rents, and
+`switchWeapon` ignores requests during the stow and draw, so a smoke has to wait.
 
 ## Body-mounted weapons and physical switching (2026-11-02)
 
