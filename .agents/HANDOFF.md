@@ -6590,3 +6590,23 @@ A search did not find its script source, so the colours and timings are not chec
 Validation: tsc clean, full vitest 3083/3083, deployment-intro and death-recap
 (DEATH_RECAP_SKIP_ARENA=1) smokes pass on Metal headless Chrome. The arena half of
 death-recap was not run. Not checked on a physical GPU or real phone.
+
+## 2026-11-04: main menu music
+Hybrid Ops, a 60 s ElevenLabs Music v2.5 take, loops over the menu, Inventory and Settings via
+src/lib/menu-music.ts, with a Menu music slider in Settings (default 40%). scripts/music-menu.mjs generates and
+publishes; docs/SOUND-EFFECTS.md has the details and the licence limits. Three 60 s auditions were generated. The
+subscription counter read 1,540 before and after, so the music minutes they used are unconfirmed.
+Browser-checked in the desktop pane: real output signal, fade, Settings keeps playing, Store and Training release the
+context, return restarts it, and no gap across the jump in Chromium's decoder. The first-gesture wait is unit tested
+only, because that pane reports the page as already activated. The owner tried it and approved it.
+The owner holds BlockPlay personally, which fits the Starter plan's individual-use rule for music.
+Store and lobby music are next, then the map and spawn tracks.
+
+## 2026-11-04: title screen so the menu music is heard
+Browsers block sound until a gesture, so a fresh page now opens on a centred logo over "PRESS ANY KEY" ("TAP TO START"
+on coarse pointers). Any ordinary key or click slides the logo to its header place, measured so it lands exactly there,
+as the menu enters and the music fades in. Shortcuts, modifiers, F-keys, Esc, Tab and held keys do not dismiss it. It
+stays in MainMenu with the menu still in the DOM, hidden, so scripts that wait on .game-menu-item keep working.
+The desktop app's browser pane reports pages as already activated and never shows it: test in a fresh Chrome.
+Checked in fresh headless Chrome over http://192.168.65.2:5173 at 1280x800, 390x844 touch and 844x390.
+Not tested in Safari or on a real phone.

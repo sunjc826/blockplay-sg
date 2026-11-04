@@ -1,6 +1,6 @@
 import ArmoryInventory from './ArmoryInventory';
 import TutorialGame from './TutorialGame';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Backpack, ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, GraduationCap, Map as MapIcon, MapPin, Settings, ShoppingBag, Users, Wrench } from 'lucide-react';
 import MultiplayerGame from './MultiplayerGame';
 import FpsGame from './FpsGame';
@@ -22,6 +22,8 @@ import { transitionTo, useWipe } from '../lib/route-transition';
 import { DebugMode } from '../lib/debug-mode';
 import { pwa, usePwa } from '../lib/pwa';
 import { playMenuSound, prepareMenuAudio, stopMenuHover } from '../lib/menu-audio';
+import { hasMenuMusic, setMenuMusicWanted } from '../lib/menu-music';
+import { markTitleScreenSeen, needsTitleScreen, startsFromTitleScreen, titleLogoPlacement } from '../lib/title-screen';
 import './game-menu.css';
 
 type Screen = Exclude<Route, 'debug' | 'faction-designs'>;
@@ -97,6 +99,8 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   const [training, setTraining] = useDistrict('blockplay.menu.training', TRAINING_DISTRICTS.map(place => place.id));
   const [worldStart, setWorldStart] = useDistrict('blockplay.menu.world', locations.map(place => place.id));
   const level = progression(armory.profile.xp), insignia = rankInsignia(level.level, armory.profile.rankSet);
+  useEffect(() => setMenuMusicWanted(hasMenuMusic(screen)), [screen]);
+  useEffect(() => () => setMenuMusicWanted(false), []);
 
   const profile = <div className="game-profile" aria-label="Your profile">
     <span className="game-rank" style={{ color: insignia.accent }}><RankBadge insignia={insignia} size={30} /></span>
@@ -147,6 +151,9 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   return <MainMenu profile={profile} install={install.canInstall} />;
 }
 
+/** Matches the logo's slide in game-menu.css. */
+const TITLE_LEAVE_MS = 900;
+
 function MainMenu({ profile, install }: { profile: React.ReactNode; install: boolean }) {
   const items = useRef<(HTMLAnchorElement | null)[]>([]);
   const [chosen, setChosen] = useState<number | null>(null);
@@ -154,6 +161,50 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: boo
   const wipe = useWipe();
   const [arriving] = useState(() => wipe?.phase === 'reveal');
   const [ripple, setRipple] = useState<{ index: number; x: number; y: number; key: number } | null>(null);
+  const [title, setTitle] = useState<'shown' | 'leaving' | 'gone'>(() => needsTitleScreen() ? 'shown' : 'gone');
+  const brand = useRef<HTMLSpanElement>(null);
+  const [titleTap] = useState(() => window.matchMedia?.('(pointer: coarse)').matches ?? false);
+  // Measured with the logo at its natural place, so the slide ends exactly where the header puts it.
+  useLayoutEffect(() => {
+    if (title !== 'shown') return;
+    const node = brand.current;
+    const place = () => {
+      if (!node) return;
+      node.style.transform = 'none';
+      const { left, top, width, height } = node.getBoundingClientRect();
+      node.style.removeProperty('transform');
+      const { x, y, scale } = titleLogoPlacement({ left, top, width, height }, { width: window.innerWidth, height: window.innerHeight });
+      node.style.setProperty('--title-x', `${x}px`);
+      node.style.setProperty('--title-y', `${y}px`);
+      node.style.setProperty('--title-scale', String(scale));
+    };
+    place();
+    // The display font can arrive after the first measure and change the logo's width.
+    void document.fonts?.ready.then(place);
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [title]);
+  useEffect(() => { if (title !== 'shown') markTitleScreenSeen(); }, [title]);
+  useEffect(() => {
+    if (title === 'gone') return;
+    if (title === 'leaving') {
+      const timer = setTimeout(() => setTitle('gone'), TITLE_LEAVE_MS);
+      return () => clearTimeout(timer);
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!startsFromTitleScreen(event)) return;
+      // Later listeners on the window still run, so this gesture starts the music, but the menu's arrow keys do not.
+      event.stopPropagation();
+      event.preventDefault();
+      leaveTitle();
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [title]);
+  const leaveTitle = () => {
+    playMenuSound('click');
+    setTitle(current => current === 'shown' ? 'leaving' : current);
+  };
   useEffect(() => {
     prepareMenuAudio();
     document.addEventListener('visibilitychange', stopMenuHover);
@@ -190,6 +241,7 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: boo
     const entry = ENTRIES[index];
     if (!transitionTo(entry.route, entry.title, entry.route === 'training' || entry.route === 'world' ? 'CHOOSE STARTING POINT' : undefined)) return;
     playMenuSound('click');
+    if (!hasMenuMusic(entry.route)) setMenuMusicWanted(false);
     setChosen(index);
     try { navigator.vibrate?.(12); } catch { /* not allowed here */ }
   };
@@ -208,10 +260,13 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: boo
     </a>;
   };
 
-  return <div className={`game-menu${chosen === null ? '' : ' is-leaving'}${arriving ? ' is-arriving' : ''}`}>
+  return <div className={`game-menu${chosen === null ? '' : ' is-leaving'}${arriving ? ' is-arriving' : ''}${title === 'gone' ? '' : ` is-title-${title}`}`}>
     <Skyline />
+    {title !== 'gone' && <button type="button" className="game-title" autoFocus aria-label={titleTap ? 'Tap to start' : 'Press any key to start'} onClick={leaveTitle}>
+      <span className="game-title-prompt" aria-hidden="true">{titleTap ? 'TAP TO START' : 'PRESS ANY KEY'}</span>
+    </button>}
     <header className="game-menu-top">
-      <span className="brand game-brand"><span className="brand-mark"><span /><span /><span /></span>blockplaySG<span className="brand-dot">.</span></span>
+      <span ref={brand} className="brand game-brand"><span className="brand-mark"><span /><span /><span /></span>blockplaySG<span className="brand-dot">.</span></span>
       {profile}
     </header>
 

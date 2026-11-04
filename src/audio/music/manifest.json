@@ -1,0 +1,15 @@
+{
+  "provider": "ElevenLabs",
+  "model": "music_v2_5",
+  "processing": "32 bars at 128 BPM, 29 ms fold at the loop, 0.25 s repeated margins, -4.6 dB to -20 LUFS, 160 kbps stereo MP3",
+  "tracks": {
+    "menu": {
+      "file": "menu-hybrid-ops-60391aed04.mp3",
+      "sha256": "60391aed04acab5c8b177ff53e13ce147557789e7a8b299b0658ad4c3cf18a45",
+      "source": "hybrid-ops-1",
+      "sourceSha256": "9cab2aa9a4ca76ed300c302556ec27e28fcf4c7d2cfc010b5356ea52875cd629",
+      "loopStart": 0.25,
+      "loopEnd": 60.25
+    }
+  }
+}

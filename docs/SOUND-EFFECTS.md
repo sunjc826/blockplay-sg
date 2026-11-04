@@ -66,6 +66,37 @@ while allowing the short click to finish over the transition. Browser autoplay
 restrictions can keep hover silent until the first click or keypress. Audio
 failure never delays navigation. The private API key is never used in gameplay.
 
+### Menu music
+
+The menu, Inventory and Settings play a 60-second loop: Hybrid Ops, one of three
+ElevenLabs Music v2.5 auditions in a 2000s action shooter style, chosen by the
+owner. `src/lib/menu-music.ts` decodes it with Web Audio, so the loop has no gap.
+Browsers hold sound until a gesture, so a page that has had none opens on a
+"press any key" title screen (`src/lib/title-screen.ts`, "tap to start" on touch).
+Later visits to the menu and direct links to other screens skip it. Nothing is
+fetched until that first gesture.
+It fades over 0.5 s on the way in and during the wipe on the way out, and leaving
+for any other screen drops the decoded track (about 20 MB) rather than holding it
+under a 3D game. It suspends while the page is hidden and stays silent if it
+cannot load. The Menu music slider in Settings defaults to 40%, because the
+track's average level would otherwise cover the quiet glass sounds.
+
+`node --experimental-strip-types --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/music-menu.mjs`
+lists the auditions; `--generate` needs an API key with the `music_generation`
+permission and spends the plan's monthly music minutes. `--publish` is free and
+offline: it cuts on the bar line at 32 bars of 128 BPM, because the take does not
+repeat literally and a long crossfade would smear the drums. It folds the last
+29 ms over the start, and repeats 0.25 s of the loop on each side of the file so
+a decoder's start offset cannot open a gap. `--publish` also writes
+`.cache/music-menu/menu-loop-seam-preview.mp3`, ten seconds either side of the cut.
+
+Rights follow [ElevenLabs' Music Terms](https://elevenlabs.io/music-terms), not
+the Sound Effects terms: every plan short of Enterprise Music excludes Studio
+Games, which a game only becomes when it is monetised and outside the Indie Game
+revenue limits. Starter is for individual use and excludes music streaming
+services, and no plan short of Enterprise allows offering the tracks for others
+to reuse. Recheck this before adding monetisation or an open-source licence.
+
 ## Store UI
 
 The store keeps the softened glass hover and selection sounds for tabs, platform
