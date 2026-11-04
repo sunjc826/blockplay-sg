@@ -1,15 +1,56 @@
 {
   "provider": "ElevenLabs",
   "model": "music_v2_5",
-  "processing": "32 bars at 128 BPM, 29 ms fold at the loop, 0.25 s repeated margins, -4.6 dB to -20 LUFS, 160 kbps stereo MP3",
+  "processing": "Loops are 32 bars at 128 BPM with a fold at the cut and 0.25 s repeated margins. All are set to -20 LUFS as 160 kbps stereo MP3",
   "tracks": {
     "menu": {
-      "file": "menu-hybrid-ops-60391aed04.mp3",
+      "file": "menu-hybrid-ops-1-60391aed04.mp3",
       "sha256": "60391aed04acab5c8b177ff53e13ce147557789e7a8b299b0658ad4c3cf18a45",
       "source": "hybrid-ops-1",
       "sourceSha256": "9cab2aa9a4ca76ed300c302556ec27e28fcf4c7d2cfc010b5356ea52875cd629",
+      "gainDb": -4.6,
       "loopStart": 0.25,
       "loopEnd": 60.25
+    },
+    "map": {
+      "file": "map-map-select-1-2f4842c9db.mp3",
+      "sha256": "2f4842c9db0a243ecbff97249d0d6f4f585c07e7fe9b5204ce130eddbd2177cf",
+      "source": "map-select-1",
+      "sourceSha256": "ebff0b1fa14ddb64e77b5f19fc8e64f43fff05b9b0e3b5171826b979f9da07a6",
+      "gainDb": -7.1,
+      "loopStart": 0.25,
+      "loopEnd": 60.25
+    },
+    "spawn": {
+      "file": "spawn-spawn-select-1-45ae21765b.mp3",
+      "sha256": "45ae21765b21fc1a5f17b32985a39ce1f41c90a9f16f74c0a5be0e156604ab52",
+      "source": "spawn-select-1",
+      "sourceSha256": "f644f0414574d6f001cec2278ceb04dbe474158f36b40c2f5f8e2fcd987f8619",
+      "gainDb": -5.8,
+      "loopStart": 0.25,
+      "loopEnd": 60.25
+    },
+    "descent": {
+      "file": "descent-descent-2-babb4c8a23.mp3",
+      "sha256": "babb4c8a2384df93b0c361fa6f2df7ce92af58b7070be2afcba6984f67dcb49a",
+      "source": "descent-2",
+      "sourceSha256": "9e45ca0be66bfcb91c9f8983768a3cb3e45a4dc33340d9499fca64a165c7dea0",
+      "gainDb": -5,
+      "from": 7.8
+    },
+    "win": {
+      "file": "win-match-win-2-049b268ce9.mp3",
+      "sha256": "049b268ce96bfa8ef9501369640d62a9b1bf9cde020f1ba747a58c7b3692683e",
+      "source": "match-win-2",
+      "sourceSha256": "25137edfc05f1a150b72ac19811091b59c6ba7e8efdd642cde2a6899eb99b1e2",
+      "gainDb": -6.6
+    },
+    "lose": {
+      "file": "lose-match-lose-1-d093416c48.mp3",
+      "sha256": "d093416c4860a130989463076db15e11a1776c35d5bdca5d9a92114dab158f4f",
+      "source": "match-lose-1",
+      "sourceSha256": "4b12cb04bd1beef72e2243c3cdfd368bc998a3850903580e3f7f11efcb212db7",
+      "gainDb": -1.2
     }
   }
 }

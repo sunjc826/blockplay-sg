@@ -6,6 +6,7 @@ import { applyRespawnLoadout, type RespawnLoadoutSelection } from '../game/respa
 import { BATTLEFIELD_POPULATIONS, DEFAULT_BATTLEFIELD_SIZE } from '../game/battlefield';
 import type { RaiderBounty } from '../game/combat-rewards';
 import { DeploymentOverlay } from './DeploymentBriefing';
+import { playMusicStinger, prepareMusicStinger, setMusicCue, stopMusicStinger } from '../lib/music';
 import ExpeditionRespawn from './ExpeditionRespawn';
 import DeathRecap from './DeathRecap';
 import FpsFacilityHud from './FpsFacilityHud';
@@ -117,6 +118,19 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
   const planning = hud.deployment?.canChoose === true;
   const deploying = hud.phase === 'deploying';
   const playing = hud.phase === 'playing', alive = hud.arenaSelf?.alive !== false, canFight = playing && alive;
+  // Before landing the deployment has the spawn track, then a cue timed so its impact meets the ground.
+  const descentPlayed = useRef(false);
+  // With reduced motion there is no descent for the cue to land on.
+  const firstDescent = deploying && !hud.deploymentIntro?.respawn && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  useEffect(() => {
+    if (debug) return;
+    if (hud.muted) { setMusicCue(null); stopMusicStinger(); return; }
+    if (planning && !deploying && hud.phase !== 'playing') { setMusicCue('spawn'); prepareMusicStinger('descent'); }
+    if (deploying || hud.phase === 'playing') setMusicCue(null);
+    if (firstDescent && !descentPlayed.current) { descentPlayed.current = true; void playMusicStinger('descent'); }
+    if (hud.phase === 'paused') stopMusicStinger();
+  }, [debug, planning, deploying, firstDescent, hud.phase, hud.muted]);
+  useEffect(() => () => { if (!debug) stopMusicStinger(); }, [debug]);
   const physicalCrossing = !!scene.checkpoint?.continuation;
   const weapon = equipment.weapons[hud.weapon] ?? equipment.weapons[0];
   const gateways = WORLD_GATEWAYS.filter(gateway => gateway.from === scene.zone);

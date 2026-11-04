@@ -1,4 +1,5 @@
 import MerlionHud from './MerlionHud';
+import { playMusicStinger, setMusicCue, stopMusicStinger } from '../lib/music';
 import { physicalWeaponFamilies, primaryWeaponFamily } from '../game/weapon-modes';
 import RespawnLoadoutSelector from './RespawnLoadoutSelector';
 import DeathRecap from './DeathRecap';
@@ -104,6 +105,16 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
   }, [epoch, combat, startingEquipment, arenaOptions, scene]);
   useEffect(() => () => { surface.current?.dispose(); surface.current = null; }, []);
   useEffect(() => { if (suspended) engine.current?.pause(); }, [suspended]);
+  // The map's track runs on through loading, then the range is quiet.
+  useEffect(() => { if (hud.phase !== 'loading') setMusicCue(null); }, [hud.phase]);
+  // A short sting for how the match went. A draw has none.
+  const matchWinner = arena && hud.phase === 'complete' && !hud.muted ? hud.arena?.winner : undefined;
+  useEffect(() => {
+    if (!matchWinner || matchWinner === 'Draw') return;
+    const self = hud.arena?.actors.find(actor => actor.id === arena?.session.id);
+    if (self) void playMusicStinger(matchWinner === self.name ? 'win' : 'lose');
+    return stopMusicStinger;
+  }, [matchWinner]);
   const loaded = hud.phase !== 'loading';
   useEffect(() => { if (loaded) onLoaded?.(); }, [loaded, onLoaded]);
   const openLoadout = () => { engine.current?.pause(); setLoadoutOpen(true); };

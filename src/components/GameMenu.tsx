@@ -22,7 +22,7 @@ import { transitionTo, useWipe } from '../lib/route-transition';
 import { DebugMode } from '../lib/debug-mode';
 import { pwa, usePwa } from '../lib/pwa';
 import { playMenuSound, prepareMenuAudio, stopMenuHover } from '../lib/menu-audio';
-import { hasMenuMusic, setMenuMusicWanted } from '../lib/menu-music';
+import { hasMenuTheme, setMusicCue } from '../lib/music';
 import { markTitleScreenSeen, needsTitleScreen, startsFromTitleScreen, titleLogoPlacement } from '../lib/title-screen';
 import './game-menu.css';
 
@@ -78,6 +78,9 @@ function PlayNav({ value, onChoose }: { value: WorldZoneId; onChoose: () => void
 function PlaySession({ mode, initial, armory, suspended, onChoose }: { mode: 'training' | 'world'; initial: WorldZoneId; armory: ReturnType<typeof useArmory>; suspended: boolean; onChoose: (id: WorldZoneId) => void }) {
   const [start, setStart] = useState<WorldZoneId | null>(null);
   const [zone, setZone] = useState(initial);
+  // The map's track runs on through loading, until the game takes over the music.
+  useEffect(() => { if (!start) setMusicCue('map'); }, [start]);
+  useEffect(() => () => setMusicCue(null), []);
   const back = <a className="play-nav-back" {...link('menu', 'Menu')}><ArrowLeft size={16} /><span>Menu</span></a>;
   if (!start) return <StartingPointPicker mode={mode} initial={zone} options={mode === 'training' ? TRAINING_DISTRICTS : locations} back={back} onDeploy={id => { onChoose(id); setZone(id); setStart(id); }} />;
   const nav = <PlayNav value={zone} onChoose={() => setStart(null)} />;
@@ -99,8 +102,12 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   const [training, setTraining] = useDistrict('blockplay.menu.training', TRAINING_DISTRICTS.map(place => place.id));
   const [worldStart, setWorldStart] = useDistrict('blockplay.menu.world', locations.map(place => place.id));
   const level = progression(armory.profile.xp), insignia = rankInsignia(level.level, armory.profile.rankSet);
-  useEffect(() => setMenuMusicWanted(hasMenuMusic(screen)), [screen]);
-  useEffect(() => () => setMenuMusicWanted(false), []);
+  // Play screens set their own cues below; their effects run first, so this only speaks for the rest.
+  useEffect(() => {
+    if (hasMenuTheme(screen)) setMusicCue('menu');
+    else if (screen === 'tutorial') setMusicCue(null);
+  }, [screen]);
+  useEffect(() => () => setMusicCue(null), []);
 
   const profile = <div className="game-profile" aria-label="Your profile">
     <span className="game-rank" style={{ color: insignia.accent }}><RankBadge insignia={insignia} size={30} /></span>
@@ -241,7 +248,7 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: boo
     const entry = ENTRIES[index];
     if (!transitionTo(entry.route, entry.title, entry.route === 'training' || entry.route === 'world' ? 'CHOOSE STARTING POINT' : undefined)) return;
     playMenuSound('click');
-    if (!hasMenuMusic(entry.route)) setMenuMusicWanted(false);
+    if (entry.route === 'tutorial') setMusicCue(null);
     setChosen(index);
     try { navigator.vibrate?.(12); } catch { /* not allowed here */ }
   };

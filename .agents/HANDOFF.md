@@ -6622,3 +6622,14 @@ stays in MainMenu with the menu still in the DOM, hidden, so scripts that wait o
 The desktop app's browser pane reports pages as already activated and never shows it: test in a fresh Chrome.
 Checked in fresh headless Chrome over http://192.168.65.2:5173 at 1280x800, 390x844 touch and 844x390.
 Not tested in Safari or on a real phone.
+
+## 2026-11-04: music for the Store, lobbies, map select, spawn select, descent and match end
+src/lib/menu-music.ts became src/lib/music.ts: screens call setMusicCue('menu'|'map'|'spawn'|null), which crossfades, and
+playMusicStinger('descent'|'win'|'lose'). The table is in docs/SOUND-EFFECTS.md. Ten more takes cost 3,562 credits;
+music has used about 7.8 of Starter's 17 minutes this month. Takes were chosen by measurement, not by ear: the owner
+asked to ship them while audio is unavailable in the VM. To swap one, change `chosen` in scripts/music-menu.mjs and publish.
+The camera's descent is 3 s, so the 15 s descent take is cut from 7.8 s to land its 10.8 s impact on the ground.
+Checked in fresh headless Chrome with Metal, Queenstown: title, menu, map, loading, spawn, descent, landing, with a
+stand-in for pointer lock because headless Chrome denies it. Store and lobby were in the same run before it. The win
+and lose stingers are unit tested only: no full match was played. Safari and real phones are untested, and that
+includes holding a decoded 60 s track through a district's load on a phone.

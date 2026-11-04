@@ -66,29 +66,43 @@ while allowing the short click to finish over the transition. Browser autoplay
 restrictions can keep hover silent until the first click or keypress. Audio
 failure never delays navigation. The private API key is never used in gameplay.
 
-### Menu music
+### Music
 
-The menu, Inventory and Settings play a 60-second loop: Hybrid Ops, one of three
-ElevenLabs Music v2.5 auditions in a 2000s action shooter style, chosen by the
-owner. `src/lib/menu-music.ts` decodes it with Web Audio, so the loop has no gap.
+`src/lib/music.ts` plays ElevenLabs Music v2.5 tracks in a 2000s action shooter
+style, all 128 BPM, through Web Audio so the loops have no gap. Each screen asks
+for a cue, and a change of cue crossfades over 0.5 s:
+
+| Where | Track |
+| --- | --- |
+| Menu, Inventory, Settings, Store, Multiplayer lobbies | `menu`: Hybrid Ops |
+| Map select and the loading screen after it | `map` |
+| Open World landing zone choice | `spawn` |
+| First descent in Open World | `descent`, a one-shot cut so its impact lands with the camera at 3 s |
+| Arena match end | `win` or `lose`, a one-shot. A draw has none |
+
+Combat, the tutorial, pause menus, the respawn map and the death recap have no
+music, so footsteps and callouts stay readable. Going quiet drops the decoded
+tracks (about 20 MB per loop) rather than holding them under a 3D game. Music
+suspends while the page is hidden, stays silent if a file cannot load, and
+follows the game's mute button in play. The Music slider in Settings defaults to
+40%, because the tracks' average level would otherwise cover the quiet glass
+sounds.
+
 Browsers hold sound until a gesture, so a page that has had none opens on a
 "press any key" title screen (`src/lib/title-screen.ts`, "tap to start" on touch).
 Later visits to the menu and direct links to other screens skip it. Nothing is
 fetched until that first gesture.
-It fades over 0.5 s on the way in and during the wipe on the way out, and leaving
-for any other screen drops the decoded track (about 20 MB) rather than holding it
-under a 3D game. It suspends while the page is hidden and stays silent if it
-cannot load. The Menu music slider in Settings defaults to 40%, because the
-track's average level would otherwise cover the quiet glass sounds.
 
 `node --experimental-strip-types --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/music-menu.mjs`
 lists the auditions; `--generate` needs an API key with the `music_generation`
-permission and spends the plan's monthly music minutes. `--publish` is free and
-offline: it cuts on the bar line at 32 bars of 128 BPM, because the take does not
-repeat literally and a long crossfade would smear the drums. It folds the last
-29 ms over the start, and repeats 0.25 s of the loop on each side of the file so
-a decoder's start offset cannot open a gap. `--publish` also writes
-`.cache/music-menu/menu-loop-seam-preview.mp3`, ten seconds either side of the cut.
+permission and spends the plan's monthly music minutes (about 750 credits a
+minute on Starter). `--publish` is free and offline, and `chosen` in that script
+picks the take for each cue. A loop is cut on the bar line at 32 bars, because the
+takes do not repeat literally and a long crossfade would smear the drums. It
+folds the last 29 ms over the start and repeats 0.25 s of the loop on each side
+of the file, so a decoder's start offset cannot open a gap. `--publish` also
+writes `.cache/music-menu/<cue>-loop-seam-preview.mp3`, ten seconds either side
+of each cut.
 
 Rights follow [ElevenLabs' Music Terms](https://elevenlabs.io/music-terms), not
 the Sound Effects terms: every plan short of Enterprise Music excludes Studio
