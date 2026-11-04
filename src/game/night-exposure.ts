@@ -231,7 +231,7 @@ export function createNightExposure(scene: THREE.Scene) {
   }
   scan();
   return {
-    field, blockerCount: blockers.length,
+    field, blockerCount: blockers.length, scanMaterials: scan,
     update(amount: number, moon: Direction, dt: number) {
       uniforms.nightExposureAmount.value = amount;
       if (amount > 0 && !lastMoon) {

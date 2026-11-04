@@ -19,16 +19,21 @@ const points=()=>evaluate('[...document.querySelectorAll("[data-deployment-id]")
 async function screenshot(name){const s=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await fs.writeFile(new URL(name+'.png',output),Buffer.from(s.data,'base64'));}
 try {
  await send('Runtime.enable'); await send('Page.enable'); await send('Page.bringToFront');
+ // A software renderer's slow frames can spend most of the 3.8s descent before anything reads it.
+ const pace=Number(process.env.DEPLOYMENT_SMOKE_PACE||1);
+ if(pace!==1)await send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{const real=performance.now.bind(performance),raf=window.requestAnimationFrame.bind(window);performance.now=()=>real()/${pace};window.requestAnimationFrame=f=>raf(()=>f(performance.now()));})()`});
  await send('Emulation.setFocusEmulationEnabled',{enabled:true});
  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});
  await send('Emulation.setTouchEmulationEnabled',{enabled:true});
  await wait(`${game}?.dataset.phase==='ready'`);
  await evaluate(`localStorage.setItem('blockplay-sg-environment-v1',JSON.stringify({timeOfDay:'noon',weather:'sunny',celebration:'none',reducedEffects:false,shadows:false,occlusion:false}))`);
  await send('Page.navigate',{url}); await wait(`${game}?.dataset.phase==='ready'`);
+ await evaluate(`(()=>{window.__links=[];const link=WebGL2RenderingContext.prototype.linkProgram;WebGL2RenderingContext.prototype.linkProgram=function(p){const text=this.getAttachedShaders(p).map(x=>this.getShaderSource(x)).join('');window.__links.push(document.querySelector('.expedition-game').dataset.phase+':'+(/SHADER_TYPE (\\w+)/.exec(text)?.[1]||/SHADER_NAME (\\w+)/.exec(text)?.[1]||'custom')+':'+[...new Set(text.match(/\\b(USE_SHADOWMAP|USE_INSTANCING|USE_MAP|USE_ENVMAP|USE_FOG|vFabric|vExposureWorld|vNightWorld)\\b/g))].join(','));return link.call(this,p);};})()`);
  await touch(button('Enter district')); await wait(`${game}.dataset.phase==='deploying'`);
  const start = await evaluate(`({x:${game}.dataset.playerX,z:${game}.dataset.playerZ,health:${game}.dataset.health,point:${game}.dataset.deploymentPoint})`);
  const aerial = await evaluate(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera)`);
- assert.ok(aerial.y>60 && aerial.pitch < -1.3,JSON.stringify(aerial));
+ // Leaves from the map camera's own tilt, then eases to straight down.
+ assert.ok(aerial.y>60 && aerial.pitch < -1.1,JSON.stringify(aerial));
  assert.equal(await evaluate(`${game}.dataset.arenaStarted`),'false');
  assert.match(await evaluate(`document.querySelector('.deployment-briefing').getAttribute('aria-label')`),/TIME      13:00 SGT. WEATHER   SUNNY & HUMID/);
  await screenshot('overhead');
@@ -48,6 +53,7 @@ try {
  await screenshot('weapon-rack');
  assert.equal(await evaluate(`${game}.dataset.arenaStarted`),'false');
  await wait(`${game}.dataset.phase==='playing'`); await wait(`${game}.dataset.arenaStarted==='true'`);
+ assert.deepEqual(await evaluate('window.__links'),[],'Every shader was built before the click');
  const finish=await evaluate(`({x:${game}.dataset.playerX,z:${game}.dataset.playerZ,health:${game}.dataset.health,point:${game}.dataset.deploymentPoint})`);
  assert.deepEqual(finish,start);
  await screenshot('control');

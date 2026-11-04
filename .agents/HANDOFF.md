@@ -6463,3 +6463,51 @@ and 844x390 fit), with screenshots in .cache/death-recap/. It slows the page clo
 because a software renderer screenshots slower than the window lasts. Not exercised:
 a two-browser LAN guest (only the validators are covered), or the 'defeated' screen
 of non-arena exercises, which was left as it is. Not pushed or deployed.
+
+
+## 2026-11-04: respawn descent, and shaders built before the click
+Choosing a beam on an expedition's respawn map now flies from the map camera down
+into the eye, as the first entry does. deployment-intro takes the camera's current
+pitch so nothing jumps, which means the first entry also leaves from the map's tilt
+(about -1.28 rad) rather than snapping straight down. The shield is held for the
+descent plus SPAWN_SHIELD_SECONDS and restarted on landing, and shieldOf caps what a
+snapshot reports at SPAWN_SHIELD_SECONDS: guests' validArenaSnapshot rejects anything
+higher, and would otherwise drop the host's whole snapshot for the whole descent.
+Arena matches have no aerial map and get no descent. The AI pilot skips it.
+
+The "freeze" was three things. Measured in headless Chrome on the real GPU with the
+shader disk cache off, dev build (see the profile-hitches note in the session memory;
+software renderers disable shadows and occlusion, which hides all of this):
+- Picking a respawn beam dropped the game to `paused` with the mouse released, which
+  looks like a freeze. The pause rules now exempt respawnDescent.
+- Disposing weapon dress let three delete programs that the next dress wanted back,
+  on the landing frame. keepShadersLinked holds them.
+- Entering a district linked GTAO passes and figure shaders on the first frames.
+  warmShaders now draws a real frame with occlusion and a stand-in for each faction
+  and a player (arena-runtime standInFigures), then removes them in the same task.
+
+The non-obvious part: night-exposure and world-night-lights each patch materials on
+their own rescan timer (.5 s and 1.5 s), and every partial state and order of those
+patches is a separate program. A figure could be drawn half-patched and link again
+later. A wait on the map hid this; only a slow clock on a software renderer showed it.
+Figures now take both patches on arrival via onFiguresAdded, in one fixed order.
+
+Results, entering a district: links after the click 9 -> 0, worst frame 505 ms -> 41 ms,
+long tasks none, 186 programs linked before the map, ready in about 3.6 s. Respawn pick:
+0 links, worst frame 26 ms (measured before the warm-up and patching changes; the
+smoke's link check on swiftshader still passes). Watched 25 s of play after landing
+with 0 links on an earlier build of this warm-up; not re-run for that length on the
+final patching. The earlier build's 68-76 ms frame just after the click was mostly
+native browser work, and did not reappear in the final fast-click run.
+
+Not covered: other late arrivals (vehicles and so on) still go through the timed
+rescans and can link when first seen. Not measured on a production build or a
+physical GPU; this machine is a VM with a paravirtual GPU. The OPERATOR / REDEPLOYMENT
+caption is not exercised by a smoke, since death-recap.html uses the engine without
+ExpeditionGame.
+
+Validation: tsc clean. Full vitest 3074 pass, 2 fail (the same RespawnLoadoutSelector
+and vehicle-rules failures as a clean checkout). death-recap, player-respawn and
+deployment-intro smokes pass on swiftshader; the last needs DEPLOYMENT_SMOKE_PACE=12
+there, or its short windows pass during a screenshot, and now fails on any shader link
+between the click and landing. Not pushed or deployed.

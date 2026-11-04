@@ -202,7 +202,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       {touch && !hud.pilotEnabled && (playing && alive || physicalCrossing && hud.phase === 'loading') && <TouchControls hud={hud} engine={engine.current} mode="expedition" crossing={physicalCrossing && hud.phase === 'loading'} onMenu={() => engine.current?.pause()} />}
       {deploying && <div className="expedition-intro" data-stage={hud.deploymentIntro?.stage}>
         <div className="expedition-intro-fade" style={{ opacity: hud.deploymentIntro?.fade ?? 0 }} />
-        <div className="expedition-intro-caption"><span>EXPEDITION / INSERTION</span>
+        <div className="expedition-intro-caption"><span>{hud.deploymentIntro?.respawn ? 'OPERATOR / REDEPLOYMENT' : 'EXPEDITION / INSERTION'}</span>
           {hud.deploymentIntro && <DeploymentBriefing location={zone.name} {...hud.deploymentIntro} />}
           <strong>{hud.deploymentIntro?.stage === 'descent' ? 'Closing on entry point' : 'Ready your weapon'}</strong>
         </div>

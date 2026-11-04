@@ -454,6 +454,7 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
   return {
     root,
     lamps,
+    scanMaterials: () => scan(false),
     /** How lit the city is this frame, 0–1. */
     get level() { return Math.max(0, level); },
     /**

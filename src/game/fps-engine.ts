@@ -23,7 +23,8 @@ import { combatFeedReward, type RaiderBounty } from './combat-rewards';
 import { WEATHER } from './world-events';
 import { createDeploymentBlur } from './deployment-blur';
 import { aerialNearPlane, createDeploymentOverview, deploymentMarkers, overviewFrame, overviewPanDelta, WORLD_CAMERA_NEAR } from './deployment-overview';
-import { createDeploymentIntro } from './deployment-intro';
+import { createDeploymentIntro, DEPLOYMENT_SECONDS } from './deployment-intro';
+import { SPAWN_SHIELD_SECONDS } from './arena-rules';
 import { visionMountPose } from './fps-vision-mount';
 import type { PlayerRespawnView } from './player-respawn';
 import { DEATH_CAM_LEAVES_BODY, DEATH_WINDOW_SECONDS, createDeathCam, createDeathRecapTracker, type DeathRecap, type DeathRecapView } from './death-recap';
@@ -102,7 +103,7 @@ import { combatMinimapMarkers, type MinimapCloud } from './fps-minimap-contacts'
 import type { VehicleKind } from './vehicle-rules';
 import { VEHICLE_COMBAT, vehicleBlastDamage, type VehicleDamageStage } from './vehicle-combat';
 import { dressWeapon } from './armory-visuals';
-import { createArenaRuntime } from './arena-runtime';
+import { createArenaRuntime, standInFigures } from './arena-runtime';
 import type { ArenaActor, ArenaBark, ArenaEnvironment, ArenaHeat, ArenaSnapshot, ArenaVitals } from './arena-rules';
 import { CALLOUT_COOLDOWN, CALLOUT_PAGES, getPlayerCallout, wheelSlot } from './player-callouts';
 import { BARK_RANGE } from './npc-barks';
@@ -283,7 +284,7 @@ export interface FpsHud {
   /** The scene of death, shown before the respawn map or the respawn. */
   deathRecap: DeathRecapView | null;
   deployment: DeploymentView | null;
-  deploymentIntro: { stage: 'descent' | 'ready'; fade: number; elapsed: number; reduced: boolean; time: string; weather: string } | null;
+  deploymentIntro: { stage: 'descent' | 'ready'; fade: number; elapsed: number; reduced: boolean; time: string; weather: string; /** Coming back from the respawn map, not arriving. */ respawn: boolean } | null;
   proxyMenu: boolean; proxyReach: boolean;
   expeditionZone: WorldZoneId | null; facility: FacilityState | null; facilityPrompt: string; lootPrompt: string;
   /** The item being looked at within reach, as its card shows it. */
@@ -414,7 +415,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   if (options.arena?.environment?.navalSites?.length) options.arena.environment.navalSites = validatedNavalSites(world.scene, options.arena.environment.navalSites, world.bounds, footMovement);
   const deploymentIntro = createDeploymentIntro();
   let deploymentRoof: number | null = null, readySound = 0;
-  let deploymentConditions = { time: '', weather: '' };
+  let deploymentConditions = { time: '', weather: '' }, respawnDescent = false;
   const introEligible = !!expedition && !expedition.checkpoint && !expedition.spawn;
   const overview = createDeploymentOverview(world.scene, deploymentPoints);
   const overviewHighest = world.obstacles.reduce((height, o) => Math.max(height, o.maxY ?? 12), 80);
@@ -720,7 +721,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const mapContactRange = minimapContactRange(atmosphere.light.lighting.shift, atmosphere.conditions.weather);
     syncBelt();
     const introFrame = deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof);
-    hud.deploymentIntro = hud.phase === 'deploying' ? { stage: introFrame.stage, fade: introFrame.fade, elapsed: introFrame.elapsed, reduced: introFrame.reduced, ...deploymentConditions } : null;
+    hud.deploymentIntro = hud.phase === 'deploying' ? { stage: introFrame.stage, fade: introFrame.fade, elapsed: introFrame.elapsed, reduced: introFrame.reduced, respawn: respawnDescent, ...deploymentConditions } : null;
     hud.respawn = arenaRuntime?.getRespawn() ?? null;
     hud.deathRecap = deathScene ? { ...deathScene.recap, windowLeft: expedition ? Math.max(0, DEATH_WINDOW_SECONDS - deathScene.age) : null } : null;
     if (hud.respawn) hud.respawn = { ...hud.respawn, markers: respawnOverviewActive() ? deploymentMarkers(respawnPoints(), camera) : [], zoom: overviewZoom };
@@ -961,6 +962,29 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (document.pointerLockElement === canvas) document.exitPointerLock();
     publish(); return false;
   }
+  /** Down from wherever the camera is now into the player's eye, once `position` and `yaw` say where that is. */
+  function beginDescent() {
+    deploymentIntro.begin(!!motionPreference?.matches, {
+      height: camera.position.y - (vertical + eyeHeight()), x: camera.position.x - position.x, z: camera.position.z - position.z,
+      yaw: Math.atan2(Math.sin(camera.rotation.y - yaw), Math.cos(camera.rotation.y - yaw)), pitch: camera.rotation.x, fov: camera.fov,
+    });
+    const conditions = atmosphere.conditions, minutes = Math.floor(conditions.hour * 60) % 1440;
+    deploymentConditions = { time: `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`, weather: WEATHER[conditions.weather].name };
+    // Cast down onto roof faces, excluding the local body/effects and ground below the eye.
+    const roofRay = new THREE.Raycaster(new THREE.Vector3(position.x, vertical + eyeHeight() + 180, position.z), new THREE.Vector3(0, -1, 0), .1, 179.6);
+    deploymentRoof = firstVisibleHit(roofRay, gameplayCandidates())?.point.y ?? null;
+  }
+  /**
+   * Leaves the respawn map the way the first entry does, rather than cutting to
+   * the ground. The player cannot act until it lands, so their shield waits too.
+   */
+  function beginRespawnDescent() {
+    deploymentIntro.reset(); readySound = 0; beginDescent();
+    respawnDescent = true; hud.phase = 'deploying';
+    arenaRuntime?.holdSpawnShield(DEPLOYMENT_SECONDS + SPAWN_SHIELD_SECONDS);
+    // The death handler released the mouse itself, so browsers let it back without a click. A refusal falls back to Resume on landing.
+    if (inputMode === 'mouse' && document.pointerLockElement !== canvas) void requestFpsPointerLock(canvas, () => !disposed).catch(() => {});
+  }
   function enterPlay() {
     if (disposed || !['ready', 'paused'].includes(hud.phase)) return;
     if (!pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) { captureFailed(); return; }
@@ -968,17 +992,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     capturePending = false; hud.message = ''; lastTime = performance.now(); clearInput();
     if (mapReturnStance) { restoreMapStance(mapReturnStance); mapReturnStance = null; }
     canvas.focus(); initAudio();
-    if (introEligible && !deploymentIntro.begun) {
-      deploymentIntro.begin(!!motionPreference?.matches, {
-        height: camera.position.y - (vertical + eyeHeight()), x: camera.position.x - position.x, z: camera.position.z - position.z,
-        yaw: Math.atan2(Math.sin(-yaw), Math.cos(-yaw)), fov: camera.fov,
-      });
-      const conditions = atmosphere.conditions, minutes = Math.floor(conditions.hour * 60) % 1440;
-      deploymentConditions = { time: `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`, weather: WEATHER[conditions.weather].name };
-      // Cast down onto roof faces, excluding the local body/effects and ground below the eye.
-      const roofRay = new THREE.Raycaster(new THREE.Vector3(position.x, vertical + eyeHeight() + 180, position.z), new THREE.Vector3(0, -1, 0), .1, 179.6);
-      deploymentRoof = firstVisibleHit(roofRay, gameplayCandidates())?.point.y ?? null;
-    }
+    if (introEligible && !deploymentIntro.begun) beginDescent();
     hud.phase = deploymentIntro.active ? 'deploying' : 'playing';
     if (hud.phase === 'playing' && !checkpoint?.continuation) radioCall('start');
     updateCameras(0, false, false); publish();
@@ -986,7 +1000,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function finishDeployment() {
     if (hud.phase !== 'deploying') return;
     deploymentIntro.skip(); clearInput(); hud.phase = 'playing';
-    updateCameras(0, false, false); canvas.focus({ preventScroll: true }); radioCall('start'); publish();
+    updateCameras(0, false, false); canvas.focus({ preventScroll: true });
+    if (respawnDescent) { respawnDescent = false; arenaRuntime?.holdSpawnShield(SPAWN_SHIELD_SECONDS); } else radioCall('start');
+    publish();
   }
   function captureFailed() {
     if (disposed) return;
@@ -1790,7 +1806,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const locked = document.pointerLockElement === canvas;
     if (locked && capturePending) enterPlay();
     else if (locked && !['playing', 'deploying'].includes(hud.phase)) document.exitPointerLock();
-    if (!locked && !hud.mapExpanded && !hud.proxyMenu && !pilotEnabled && (!expedition || hud.arenaSelf?.alive !== false) && ['playing', 'deploying'].includes(hud.phase) && (wasLocked || inputMode === 'mouse')) pause(); wasLocked = locked; publish();
+    if (!locked && !hud.mapExpanded && !hud.proxyMenu && !pilotEnabled && (!expedition || hud.arenaSelf?.alive !== false) && ['playing', 'deploying'].includes(hud.phase) && (wasLocked || inputMode === 'mouse' && !respawnDescent)) pause(); wasLocked = locked; publish();
   };
   const proxyKeydown = (event: KeyboardEvent) => {
     if (!hud.proxyMenu || hud.phase!=='playing' || event.altKey || event.ctrlKey || event.metaKey) return;
@@ -3210,6 +3226,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (!frame.self.alive && previousSelf?.alive) {
         supplyUse = null; radioCall('death'); clearInput(); killChain = { count: 0, lastAt: -Infinity }; hud.chain = 0; hud.callout = ''; calloutTime = 0;
         ads = touchAim = false;
+        if (respawnDescent) { respawnDescent = false; deploymentIntro.skip(); hud.phase = 'playing'; }
         const recap = deathTracker.die(frame.self, deathFrame), body = { x: frame.self.x, z: frame.self.z }, feet = arenaRuntime.ownCorpseFeet() ?? Math.max(0, frame.self.y - 1.75);
         const killer = recap.killer && frame.snapshot?.actors.find(actor => actor.id === recap.killer!.id);
         const killerAt = killer ? { x: killer.x, y: killer.y, z: killer.z } : null;
@@ -3226,7 +3243,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           weaponSwitch = null; reloadAudio.clear(); stopInspect(); grenadeHeld = null; grenadePicker = null;
           hud.weapon = equipment.carriedFamilies[0];
           loadout = createPooledLoadout(specs, equipment.carriedFamilies);
-          undress.splice(0).forEach(dispose => dispose());
+          keepShadersLinked(); undress.splice(0).forEach(dispose => dispose());
           weapons.forEach((weapon, index) => { undress.push(dressWeapon(weapon, specs[index])); weapon.visible = index === hud.weapon; });
           effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id));
           effects.setStyles(weaponStyles, hud.weapon);
@@ -3240,7 +3257,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           equipment = resolveLoadout(fieldProfile, { deferRentalExpiry: true }); specs = equipment.weapons;
           vehicles.setSkins(equipment.vehicleSkins);
           hud.weapon = equipment.carriedFamilies[0];
-          undress.splice(0).forEach(dispose => dispose());
+          keepShadersLinked(); undress.splice(0).forEach(dispose => dispose());
           weapons.forEach((model, family) => { undress.push(dressWeapon(model, specs[family])); model.visible = family === hud.weapon; weaponStyles[family] = effectStyleForWeapon(specs[family]); });
           effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id)); effects.setStyles(weaponStyles, hud.weapon);
           expedition?.onEquipment(copyProfile(fieldProfile)); options.onLoadout?.(equipment);
@@ -3256,7 +3273,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id));
           effects.setStyles(weaponStyles, hud.weapon);
         }
-        resetWeaponRecoil(); effects.reset(); hitTime = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; }); updateCameras(0, false, false);
+        resetWeaponRecoil(); effects.reset(); hitTime = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; });
+        if (expedition && previousSelf && !previousSelf.alive && !pilotEnabled && hud.phase === 'playing') beginRespawnDescent();
+        updateCameras(0, false, false);
       } else if (frame.correction && !vehicles.active) {
         position = { x: frame.correction.x, z: frame.correction.z };
         if(!localLift || !insideLift(localLift,position))vertical = Math.max(0, frame.correction.y - eyeHeight());
@@ -3682,7 +3701,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     if (hud.phase === 'complete' || hud.phase === 'defeated' || hud.arenaSelf?.alive === false) settleEquipmentRentals();
     // Stop controls even if a browser/VM delays or drops pointerlockchange.
-    if (['playing', 'deploying'].includes(hud.phase) && !hud.mapExpanded && !hud.proxyMenu && (!expedition || hud.arenaSelf?.alive !== false) && !pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) pause();
+    if (['playing', 'deploying'].includes(hud.phase) && !respawnDescent && !hud.mapExpanded && !hud.proxyMenu && (!expedition || hud.arenaSelf?.alive !== false) && !pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) pause();
 
     if (pilotEnabled && ['complete', 'defeated', 'error'].includes(hud.phase)) { pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); }
     if (hud.phase === 'deploying') {
@@ -3944,6 +3963,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   async function warmShaders() {
     weapons.forEach(weapon => { const sight = getWeaponSight(weapon); if (sight) scopeRenderer.prepare(sight); });
     if (options.arena) combatVisuals.prewarm();
+    lightView(0);
+    // The real figures only arrive after this.
+    const removeFigures = options.arena ? standInFigures(world.scene, camera.getWorldPosition(new THREE.Vector3()).addScaledVector(camera.getWorldDirection(new THREE.Vector3()), 6)) : null;
+    patchMaterials();
     const targetVisibility = targets.map(t => t.root.visible); targets.forEach(t => t.root.visible = true);
     const previous = renderer.getRenderTarget(), offscreen = new THREE.WebGLRenderTarget(1, 1), compiling: Promise<unknown>[] = [];
     for (const target of [null, offscreen]) {
@@ -3953,9 +3976,29 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     renderer.setRenderTarget(previous);
     compiling.push(vision.warm(), deploymentBlur.warm());
     try { await Promise.all(compiling); } finally { targets.forEach((t, i) => t.root.visible = targetVisibility[i]); offscreen.dispose(); }
-    if (disposed) return;
+    if (disposed) { removeFigures?.(); return; }
     // A compiled shader still needs a pipeline per target format, built on first draw there.
     scopeRenderer.warm(world.scene, camera); opticReflections.warm(world.scene, camera);
+    // Occlusion builds its passes and links them on first use, which would otherwise be the first frame of the descent.
+    occlusion.render(atmosphere.light.occlusion);
+    keepShadersLinked();
+    // Redrawn in the same task, so the stand-ins are never on screen.
+    if (removeFigures) { removeFigures(); occlusion.render(atmosphere.light.occlusion); }
+  }
+  /**
+   * Each patch rebuilds a material's program, and each order of them is a program
+   * of its own. A figure takes both at once, in this order, before it is first
+   * drawn, rather than whenever each patch's periodic rescan comes round.
+   */
+  function patchMaterials() { atmosphere.scanMaterials(); nightLights.scanMaterials(); }
+  /**
+   * Three deletes a program when its last material goes, and changing a weapon's
+   * dress disposes of every one of its materials. Its next dress wants the same
+   * programs back, on the frame a respawn lands. The context owns them either way.
+   */
+  const heldPrograms = new WeakSet<object>();
+  function keepShadersLinked() {
+    for (const program of renderer.info.programs ?? []) if (!heldPrograms.has(program)) { heldPrograms.add(program); program.usedTimes++; }
   }
   const assetIds = expedition ? ['sar21-inspired', 'ultimax-inspired'] : ['sar21-inspired', 'ultimax-inspired', 'range-target', 'supply-crate', 'sandbag-wall', 'traffic-cone'];
   void Promise.all(assetIds.map(async id => {
@@ -4003,7 +4046,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (disposed) return;
     if (options.arena) {
       if (options.arena.environment) options.arena.environment.bakedNavigation = bakedNavigation;
-      arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, vehicles: { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition } });
+      arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, onFiguresAdded: patchMaterials, vehicles: { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition } });
       canvas.dataset.navigationGraph = JSON.stringify(arenaRuntime.navigationGraphStatus());
       if (checkpoint?.vehicleTravel?.crew && !arenaRuntime.restoreVehicleTravel(checkpoint.vehicleTravel.crew)) throw new Error('Vehicle crew could not enter the destination district');
       if (expedition) arenaRuntime.setAutoRespawn(expedition.autoRespawn === true);

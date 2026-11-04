@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import { createArena, type ArenaEnvironment, type ArenaSimulation } from './arena-rules';
+import { validArenaSnapshot } from './arena-runtime';
 import { createFacilities, type FacilitySite } from './facilities';
 import { moveInMarina } from './marina-collision';
 import { createProfile, resolveLoadout } from './armory-state';
@@ -159,6 +160,16 @@ it('finds a nearby clear point within the default zone when its centre is occupi
   const a=setup(env);down(a);a.addPlayer('other','Friendly');
   expect(a.choosePlayerRespawn('p',DEFAULT_RESPAWN_ZONE)).toBe(true);tick(a,3.1);
   expect(self(a).alive).toBe(true);expect(Math.hypot(self(a).x,self(a).z-100)).toBeCloseTo(3.6);
+});
+
+it('holds a shield through a respawn descent, and only for a living player', () => {
+  const a = createArena([], 1, 'mixed'); a.addPlayer('p', 'Operator', 80, .5);
+  a.holdPlayerShield('p', 7);
+  tick(a, 5); expect(self(a).shield).toBeCloseTo(2);
+  a.holdPlayerShield('p', 7); expect(validArenaSnapshot(a.snapshot())).toBe(true); expect(self(a).shield).toBe(3);
+  a.holdPlayerShield('p', 3); expect(self(a).shield).toBe(3);
+  a.holdPlayerShield('p', Number.NaN); expect(self(a).shield).toBe(3);
+  a.setPlayerVitals('p', { health: 0 }); a.holdPlayerShield('p', 9); expect(self(a).shield).toBeUndefined();
 });
 
 it('holds players down for the delay the game asks for, without slowing bots', () => {

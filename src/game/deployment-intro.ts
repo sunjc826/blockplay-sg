@@ -4,8 +4,10 @@ export const DEPLOYMENT_DESCENT = 3;
 export const DEPLOYMENT_READY = 1.65;
 /** The weapon starts rising during the last part of the camera's approach. */
 export const DEPLOYMENT_OVERLAP = .85;
+/** From the first frame of the descent to full control of the weapon. */
+export const DEPLOYMENT_SECONDS = DEPLOYMENT_DESCENT - DEPLOYMENT_OVERLAP + DEPLOYMENT_READY;
 const ZOOM = 3.2;
-interface DeploymentOrigin { height: number; x: number; z: number; yaw: number; fov: number }
+interface DeploymentOrigin { height: number; x: number; z: number; yaw: number; fov: number; /** Where the view is already pointing, eased into the straight-down start. */ pitch?: number }
 
 /** Local presentation clock. The host stays unstarted until this finishes. */
 export function createDeploymentIntro() {
@@ -22,7 +24,7 @@ export function createDeploymentIntro() {
     advance(dt: number) {
       if (!begun || finished) return;
       elapsed += Number.isFinite(dt) ? Math.max(0, dt) : 0;
-      finished = elapsed >= (reduced ? 0 : DEPLOYMENT_DESCENT - DEPLOYMENT_OVERLAP) + DEPLOYMENT_READY;
+      finished = elapsed >= (reduced ? DEPLOYMENT_READY : DEPLOYMENT_SECONDS);
     },
     skip() { if (begun) finished = true; },
     reset() { elapsed = 0; reduced = begun = finished = false; },
@@ -36,6 +38,7 @@ export function createDeploymentIntro() {
       const height = eye + origin.height * Math.expm1(ZOOM * (1 - travel)) / Math.expm1(ZOOM);
       const speed = aerial ? origin.height * ZOOM * Math.exp(ZOOM * (1 - travel)) * 30 * t * t * (1 - t) ** 2 / (Math.expm1(ZOOM) * DEPLOYMENT_DESCENT) : 0;
       const covered = roof !== null && roof > eye + .4;
+      const overhead = -Math.PI / 2 + ((origin.pitch ?? -Math.PI / 2) + Math.PI / 2) * (1 - smoothStep(t / .2));
       // A sheltered entry cuts under its roof at black rather than clipping through it.
       const cut = covered && t >= .88;
       const ready = finished ? 1 : Math.max(0, Math.min(1, (elapsed - (reduced ? 0 : descent - DEPLOYMENT_OVERLAP)) / DEPLOYMENT_READY));
@@ -47,7 +50,7 @@ export function createDeploymentIntro() {
         x: aerial && !cut ? origin.x * (1 - smoothStep(t / .15)) : 0,
         z: aerial && !cut ? origin.z * (1 - smoothStep(t / .15)) : 0,
         yaw: aerial && !cut ? origin.yaw * (1 - smoothStep(t / .8)) : 0,
-        pitch: aerial && !cut ? -Math.PI / 2 + (pitch + Math.PI / 2) * smoothStep((t - .50) / .45) : pitch,
+        pitch: aerial && !cut ? overhead + (pitch - overhead) * smoothStep((t - .50) / .45) : pitch,
         fov: aerial && !cut ? 65 + (origin.fov - 65) * (1 - smoothStep(t)) + 4 * Math.min(1, speed / 140) : 65,
         blur: aerial && !cut ? .085 * Math.min(1, speed / 110) * (1 - smoothStep((t - .72) / .23)) : 0,
         weaponVisible: ready > 0 && (!aerial || t >= .72) && (!covered || cut || !aerial),

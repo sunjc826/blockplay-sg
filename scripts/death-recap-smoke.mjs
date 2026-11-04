@@ -81,6 +81,29 @@ try {
   await screenshot('expedition-respawn-map');
   console.log('PASS expedition: window hands over to the respawn map by itself.');
 
+  // Choosing a beam descends from the map into the eye, without a menu in the way or a shader to link.
+  await wait(`hud.arenaSelf.respawnIn===0`, 60000);
+  const mapCamera = await evaluate(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera)`);
+  await evaluate(`(()=>{window.__links=0;const link=WebGL2RenderingContext.prototype.linkProgram;WebGL2RenderingContext.prototype.linkProgram=function(p){window.__links++;return link.call(this,p);};})()`);
+  await click(`document.querySelector('[data-deployment-id=default-spawn]')`);
+  await wait(`hud.arenaSelf.alive`, 30000);
+  assert.equal(await evaluate(`hud.phase`), 'deploying', 'A respawn descends');
+  assert.equal(await evaluate(`hud.deploymentIntro.respawn`), true);
+  const aloft = await evaluate(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera)`);
+  assert(aloft.y > 30 && aloft.y <= mapCamera.y + 1, `Starts from the map: ${JSON.stringify({ aloft, mapCamera })}`);
+  await screenshot('respawn-descent');
+  let lowestShield = Infinity;
+  while (await evaluate(`hud.phase==='deploying'`)) { lowestShield = Math.min(lowestShield, await evaluate(`hud.arenaSelf.shield??0`)); await delay(100); }
+  assert(lowestShield > 2.5, `Shielded for the whole descent: ${lowestShield}`);
+  assert.equal(await evaluate(`hud.phase`), 'playing', 'Lands in control, not in a menu');
+  assert.equal(await evaluate(`!!document.pointerLockElement`), true, 'The mouse came back without a click');
+  assert(await evaluate(`hud.arenaSelf.shield>2`), 'The shield starts over on landing');
+  assert.equal(await evaluate(`window.__links`), 0, 'Nothing linked between the choice and landing');
+  const landed = await evaluate(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera)`);
+  assert(landed.y < 40 && landed.fov === 65, `Lands in the eye: ${JSON.stringify(landed)}`);
+  await screenshot('respawn-landed');
+  console.log('PASS respawn descent: map to eye, shielded, recaptured, no shader work.');
+
   // Space skips, and the respawn timer is not shortened by it.
   await fallOnce();
   await send('Input.dispatchKeyEvent', { type: 'keyDown', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });

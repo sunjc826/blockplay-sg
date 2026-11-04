@@ -51,6 +51,8 @@ export interface ArenaRuntimeFrame {
   barks: ArenaBark[];
 }
 export interface ArenaRuntimeOptions {
+  /** New figures stood in the scene this frame, before they are first drawn. */
+  onFiguresAdded?: () => void;
   scene: THREE.Scene; obstacles: readonly Obstacle[]; session: LanSession;
   profile?: ArmoryProfile; botCount: number; composition?: string;
   environment?: ArenaEnvironment; vehicles?: ArenaVehicleOptions; initialVitals?: Partial<ArenaVitals>;
@@ -351,6 +353,22 @@ function createAvatar(actor: ArenaActor): Avatar {
   return { key: avatarKey(actor), parachute: parachute.root, reveal, rig, root, health, label, muzzle, glint, halo, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources,
     alive: actor.alive, lastHealth: actor.health, yaw: actor.yaw, fireTimer: 0, ground: 0, groundTimer: 0, previous: new THREE.Vector3(), velocity: new THREE.Vector3(), bubble: null };
 }
+/**
+ * Stands one figure of each kind at `at`, for building their shaders before the
+ * first real one arrives. Returns what takes them away again.
+ */
+export function standInFigures(scene: THREE.Scene, at: THREE.Vector3) {
+  const actor = { name: '', x: at.x, y: at.y, z: at.z, yaw: 0, pitch: 0, health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: 0, shots: 0 };
+  const figures = [
+    ...(['armed-forces', 'mercenaries', 'freedom-force', 'collective-cops'] as const).map(faction => createAvatar({ ...actor, id: faction, bot: true, role: 'overwatch', faction })),
+    createAvatar({ ...actor, id: 'player', bot: false, role: 'player', faction: PLAYER_FACTION }),
+  ];
+  for (const { root } of figures) {
+    root.position.copy(at); scene.add(root);
+    root.traverse(node => { if (node instanceof THREE.Mesh) node.castShadow = true; });
+  }
+  return () => { for (const { root, resources } of figures) { scene.remove(root); resources.forEach(resource => resource.dispose()); } };
+}
 /** A soft star for scope glint, shared by every sniper and never disposed with one. */
 let glintMap: THREE.DataTexture | null = null;
 function glintTexture() {
@@ -643,15 +661,17 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     // The player has no figure of their own, except the body the death camera looks at. Loading in dead has none.
     ownCorpse = !!self && !self.alive && (ownCorpse || selfWasAlive); selfWasAlive = !!self?.alive;
     if (!ownCorpse) ownCorpseShown = false;
+    let figuresAdded = false;
     for (const actor of snapshot?.actors ?? []) {
       if (actor.id === session.id && !ownCorpse) continue;
       activeIds.add(actor.id);
       let avatar = avatars.get(actor.id);
       if (avatar && avatar.key !== avatarKey(actor)) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); avatars.delete(actor.id); avatar = undefined; }
-      if (!avatar) { avatar = createAvatar(actor); avatars.set(actor.id, avatar); scene.add(avatar.root); avatar.root.position.set(actor.x, actor.y - 1.75, actor.z); avatar.previous.copy(avatar.root.position); }
+      if (!avatar) { avatar = createAvatar(actor); avatars.set(actor.id, avatar); scene.add(avatar.root); avatar.root.position.set(actor.x, actor.y - 1.75, actor.z); avatar.previous.copy(avatar.root.position); figuresAdded = true; }
       if (actor.id === session.id && !avatar.rig.down) { setAvatarDown(avatar, true); avatar.root.position.y = actor.swimming ? actor.y - 1.75 : actor.ground ?? groundBelow(actor.x, actor.z, actor.y); avatar.previous.copy(avatar.root.position); }
       animateAvatar(avatar, actor.transport ? actor : presentations.get(actor.id)?.sample(performance.now() / 1000) ?? actor, dt);
     }
+    if (figuresAdded) options.onFiguresAdded?.();
     const listener = self ?? (validArenaInput(input) ? { ...input, bot: false, faction: 'armed-forces' } : null), now = performance.now();
     for (const said of pendingBarks) {
       const speaker = snapshot?.actors.find(actor => actor.id === said.actor), avatar = avatars.get(said.actor);
@@ -824,6 +844,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       if (accepted) refresh(); // Adopt seats before the renderer restores held crossing controls.
       return accepted;
     },
-    merlionAction, triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getDeployments: () => simulation?.playerDeployments(session.id) ?? [], getRespawn: () => simulation?.playerRespawn(session.id) ?? null, ownCorpseFeet: () => ownCorpse ? avatars.get(session.id)?.root.position.y ?? null : null, showOwnCorpse: (shown: boolean) => { ownCorpseShown = shown; }, selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { merlion: s.merlion, facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
+    merlionAction, triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getDeployments: () => simulation?.playerDeployments(session.id) ?? [], getRespawn: () => simulation?.playerRespawn(session.id) ?? null, ownCorpseFeet: () => ownCorpse ? avatars.get(session.id)?.root.position.y ?? null : null, showOwnCorpse: (shown: boolean) => { ownCorpseShown = shown; }, holdSpawnShield: (seconds: number) => simulation?.holdPlayerShield(session.id, seconds), selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { merlion: s.merlion, facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

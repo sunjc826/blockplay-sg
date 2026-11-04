@@ -3544,7 +3544,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return !m.actor.bot && wait > 0 ? { reinforceIn: Math.ceil(wait) } : {};
   };
   const shieldOf = (m: InternalActor) => {
-    const shield = Math.round(Math.max(0, (m.shieldUntil ?? 0) - elapsed) * 100) / 100;
+    // A respawn descent holds it for longer, but it only starts to count down on landing.
+    const shield = Math.round(Math.min(SPAWN_SHIELD_SECONDS, Math.max(0, (m.shieldUntil ?? 0) - elapsed)) * 100) / 100;
     return !m.actor.bot && m.actor.alive && shield > 0 ? { shield } : {};
   };
   /**
@@ -3920,7 +3921,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const navigationStatus = () => [...members.values()].filter(m=>m.actor.bot && m.actor.alive && m.actor.squad).map(m=>({id:m.actor.id,objective:m.actor.objective,duty:m.actor.duty,sector:m.actor.patrolSector,pending:!!m.navigation?.pending,path:m.navigation?.path.length??0,x:m.actor.x,z:m.actor.z,goal:m.navigation?.target,via:m.assignment?.via,mission:m.mission}));
   const patrolStatus = () => sectorPatrols?.status(elapsed)??[];
   const boatStatus=()=>[...boatSorties].map(([kind,s])=>({kind,pilot:s.pilot,phase:s.phase,returning:s.returning,berth:s.route?.berth.id,index:s.index,points:s.route?.points,crew:[...s.crew]}));
-  return { setPlayerRespawnSeconds: (seconds: number) => { playerRespawnSeconds = seconds; }, navigationGraphStatus: () => navigator?.status() ?? null, boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerDeployments, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerEquipmentRentals, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  /** A respawn descent spends the spawn shield before the player has control, so it holds until they do. */
+  function holdPlayerShield(id: string, seconds: number) {
+    const entry = members.get(id);
+    if (entry && !entry.actor.bot && entry.actor.alive && Number.isFinite(seconds) && seconds >= 0) entry.shieldUntil = elapsed + seconds;
+  }
+  return { holdPlayerShield, setPlayerRespawnSeconds: (seconds: number) => { playerRespawnSeconds = seconds; }, navigationGraphStatus: () => navigator?.status() ?? null, boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerDeployments, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerEquipmentRentals, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

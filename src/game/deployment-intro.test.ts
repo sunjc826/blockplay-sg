@@ -1,6 +1,16 @@
 import { expect, it } from 'vitest';
-import { createDeploymentIntro, DEPLOYMENT_DESCENT, DEPLOYMENT_READY, DEPLOYMENT_OVERLAP } from './deployment-intro';
+import { createDeploymentIntro, DEPLOYMENT_DESCENT, DEPLOYMENT_READY, DEPLOYMENT_OVERLAP, DEPLOYMENT_SECONDS } from './deployment-intro';
 import { readyMotion, reloadMotion } from './fps-weapon-motion';
+
+it('can be run again from wherever the view already is, without a jump', () => {
+  const intro = createDeploymentIntro(); intro.begin(false);
+  intro.advance(DEPLOYMENT_SECONDS); expect(intro.active).toBe(false);
+  intro.reset(); intro.begin(false, { height: 220, x: 12, z: -30, yaw: .4, fov: 38, pitch: -1.2 });
+  expect(intro.active).toBe(true);
+  expect(intro.frame(1.75, 0)).toMatchObject({ height: 221.75, x: 12, z: -30, yaw: .4, fov: 38 });
+  expect(intro.frame(1.75, 0).pitch).toBeCloseTo(-1.2);
+  intro.advance(DEPLOYMENT_DESCENT * .3); expect(intro.frame(1.75, 0).pitch).toBeCloseTo(-Math.PI / 2);
+});
 
 it('descends into the original eye and aim with the weapon already in motion', () => {
   const intro = createDeploymentIntro(); intro.begin(false);
