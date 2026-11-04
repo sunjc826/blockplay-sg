@@ -34,7 +34,7 @@ export function playMenuSound(sound: MenuSound) {
   void audio.play().catch(() => {});
 }
 
-/** Leaving the menu cancels hover; the short confirmation may finish over the wipe. */
+/** Leaving the menu cancels hover; the short confirmation may finish over the next screen. */
 export function stopMenuHover() {
   tracks?.hover.pause();
 }

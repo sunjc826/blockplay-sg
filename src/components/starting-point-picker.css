@@ -92,3 +92,12 @@
 @media(max-height:560px) { .starting-header { padding-top:max(8px,env(safe-area-inset-top)); padding-bottom:8px; } .starting-main { padding-top:10px; gap:10px; } .starting-foot,.starting-tags,.starting-brief p { display:none; } .starting-title h1 { font-size:24px; } .starting-brief { border:0; padding-top:12px; } .starting-launch { padding-top:12px; } }
 @media(max-height:450px) and (orientation:landscape) { .starting-layout { grid-template-columns:minmax(0,1fr) 220px; } .starting-header { gap:16px; font-size:8px; } .starting-step { display:none; } .starting-main { padding-left:12px; padding-right:12px; } .starting-details { padding:12px; } .starting-detail-label { display:none; } .starting-detail-top { justify-content:flex-end; margin-bottom:8px; } .starting-browse button { width:40px; height:36px; } .starting-details h2 { font-size:22px; } .starting-place > .starting-eyebrow { font-size:8px; letter-spacing:1px; } .starting-map-heading,.starting-map-footer { padding:8px 10px; font-size:7px; letter-spacing:.5px; } }
 @media(prefers-reduced-motion:reduce) { .starting-region > path { transition:none; } }
+
+/* Deploy: the map pushes in on the chosen district and burns out to the
+   loading screen. StartingPointPicker sets the origin to the district's pin;
+   DEPLOY_MS there matches the push. Transforms and opacity only. */
+.starting-picker.is-deploying { pointer-events:none; }
+.starting-picker.is-deploying .starting-main { animation:starting-deploy-push 300ms cubic-bezier(.55,0,.9,.45) forwards; }
+.starting-picker.is-deploying .starting-header { animation:starting-deploy-fade 120ms ease-out forwards; }
+@keyframes starting-deploy-push { 60% { opacity:1; } to { opacity:0; transform:scale(3.4); } }
+@keyframes starting-deploy-fade { to { opacity:0; } }

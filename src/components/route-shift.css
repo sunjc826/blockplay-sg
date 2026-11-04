@@ -1,0 +1,17 @@
+/* Screen change (lib/route-transition). The whole screen moves a short way and
+   fades, forward to the left and back to the right, while a thin line crosses
+   the top the same way. Transforms and opacity only. LEAVE_MS and ENTER_MS
+   match the two animations; the line runs for both. */
+html[data-route-shift] { background:#0b1211; }
+html[data-route-shift] body { overflow-x:clip; }
+html[data-route-shift^='leaving'] :is(.game-menu,.game-screen) { pointer-events:none; animation:route-shift-leave 80ms cubic-bezier(.4,0,1,1) forwards; }
+html[data-route-shift^='entering'] :is(.game-menu,.game-screen) { animation:route-shift-enter 170ms cubic-bezier(.16,1,.3,1) backwards; }
+html[data-route-shift$='forward'] { --shift-leave:-28px; --shift-enter:44px; }
+html[data-route-shift$='back'] { --shift-leave:28px; --shift-enter:-44px; }
+@keyframes route-shift-leave { to { opacity:0; transform:translateX(var(--shift-leave)); } }
+@keyframes route-shift-enter { from { opacity:0; transform:translateX(var(--shift-enter)); } }
+
+.route-shift-line { position:fixed; top:0; left:0; z-index:2000; width:22vw; height:2px; background:#ee794b; pointer-events:none; animation:route-shift-line-forward 250ms cubic-bezier(.3,0,.3,1) both; }
+.route-shift-line.is-back { animation-name:route-shift-line-back; }
+@keyframes route-shift-line-forward { from { transform:translateX(100vw); } to { transform:translateX(-22vw); } }
+@keyframes route-shift-line-back { from { transform:translateX(-22vw); } to { transform:translateX(100vw); } }

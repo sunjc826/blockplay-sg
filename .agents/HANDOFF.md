@@ -6659,3 +6659,13 @@ Validation: tsc, vitest 3137/3137, starting-point and deployment-intro smokes, p
 after the screen finishes and enters play in both modes. expedition-travel, boardwalk-crossing and training-crossing smokes fail. expedition-travel and
 training-crossing fail the same way on an untouched HEAD (the training fixture stops at the district picker). boardwalk-crossing was inconclusive:
 my build reaches ready and stalls on entering play, while the HEAD worktree did not reach ready. So a real district crossing was not exercised.
+
+## 2026-11-04: quick menu shift and Deploy push-in
+The screen-change wipe (RouteWipe, its stripes and the big destination word) is gone. Menu screens now shift: lib/route-transition.ts sets
+`data-route-shift` on the page, route-shift.css moves the screen root 80 ms out and 170 ms in, and RouteShift draws a thin line across the top. Direction
+comes from a fixed screen order (`directionBetween`), so every pair reverses, including Store and Inventory and browser Back and Forward, which all used to
+play forward unless the destination was the menu. Forward moves content left, as the wipe did. The menu skips its staggered entrance when returning.
+Deploy, which had no transition, now pushes the map in on the chosen district for 300 ms before PlayLoading mounts (StartingPointPicker, DEPLOY_MS).
+Validation: tsc, starting-point smoke, plus route order, reversal, Back and Deploy runs in the browser pane at 1024x768 and 375x812. Vitest 3143/3143 and pnpm build
+ran before the final picker fix (push point taken from map coordinates, as narrow maps hide their pins), which got tsc and the smoke again. The pane was hidden, so
+timings are approximate, and how it feels has not been judged on a real screen. Safari and real phones are untested.

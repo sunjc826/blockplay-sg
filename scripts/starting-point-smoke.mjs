@@ -37,7 +37,7 @@ async function wait(expression, timeout = 60000) {
   throw Error(`Timed out: ${expression}`);
 }
 async function click(selector) {
-  await wait(`!document.querySelector('.route-wipe')`);
+  await wait(`!document.documentElement.dataset.routeShift`);
   const point = await evaluate(`(()=>{let e=document.querySelector(${JSON.stringify(selector)});if(!e)throw Error('Missing ${selector}');if(getComputedStyle(e).display==='none')e=e.parentElement.querySelector('.starting-region-number');if(!e.closest('.starting-picker'))e.scrollIntoView({block:'center',inline:'center'});const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', clickCount: 1 });
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', clickCount: 1 });

@@ -18,7 +18,7 @@ import { REGIONS } from '../game/regions';
 import type { WorldZoneId } from '../game/world-zones';
 import { locations } from '../data/locations';
 import { navigate, ROUTE_PATHS, type Route } from '../lib/routes';
-import { transitionTo, useWipe } from '../lib/route-transition';
+import { transitionTo, useShift } from '../lib/route-transition';
 import { DebugMode } from '../lib/debug-mode';
 import { pwa, usePwa } from '../lib/pwa';
 import { playMenuSound, prepareMenuAudio, stopMenuHover } from '../lib/menu-audio';
@@ -54,12 +54,12 @@ function useDistrict(key: string, allowed: readonly string[]) {
 
 const locationName = (id: WorldZoneId) => locations.find(place => place.id === id)?.name ?? id;
 
-/** A link that changes screen in place; with a label it goes behind the wipe. */
-function link(route: Route, label?: string) {
+/** A link that changes screen in place, with a shift unless it is plain. */
+function link(route: Route, plain = false) {
   return { href: ROUTE_PATHS[route], onClick: (event: React.MouseEvent) => {
     if (event.metaKey || event.ctrlKey || event.shiftKey) return;
     event.preventDefault();
-    if (label) transitionTo(route, label); else navigate(route);
+    if (plain) navigate(route); else transitionTo(route);
   } };
 }
 
@@ -69,7 +69,7 @@ function link(route: Route, label?: string) {
  */
 function PlayNav({ value, onChoose }: { value: WorldZoneId; onChoose: () => void }) {
   return <nav className="play-nav" aria-label="Game">
-    <a className="play-nav-back" {...link('menu', 'Menu')}><ArrowLeft size={16} /><span>Menu</span></a>
+    <a className="play-nav-back" {...link('menu')}><ArrowLeft size={16} /><span>Menu</span></a>
     <button className="play-nav-district" onClick={onChoose} aria-label="Change starting district"><MapPin size={14} aria-hidden="true" /><span>{locationName(value)}</span><MapIcon size={14} aria-hidden="true" /></button>
   </nav>;
 }
@@ -81,15 +81,15 @@ function PlaySession({ mode, initial, armory, suspended, onChoose }: { mode: 'tr
   // The map's track runs on through loading, until the game takes over the music.
   useEffect(() => { if (!start) setMusicCue('map'); }, [start]);
   useEffect(() => () => setMusicCue(null), []);
-  const back = <a className="play-nav-back" {...link('menu', 'Menu')}><ArrowLeft size={16} /><span>Menu</span></a>;
+  const back = <a className="play-nav-back" {...link('menu')}><ArrowLeft size={16} /><span>Menu</span></a>;
   if (!start) return <StartingPointPicker mode={mode} initial={zone} options={mode === 'training' ? TRAINING_DISTRICTS : locations} back={back} onDeploy={id => { onChoose(id); setZone(id); setStart(id); }} />;
   const nav = <PlayNav value={zone} onChoose={() => setStart(null)} />;
   return <div className={`game-screen game-screen-play game-screen-${mode}`}>
     <main className="game-screen-body"><DebugMode.Provider value={false}>
       <PlayLoading mode={mode} district={locationName(start)} back={back}>
         {(onLoaded, loadScreen) => mode === 'training'
-          ? <FpsGame suspended={suspended} region={start} onRegionChange={setZone} profile={armory.profile} nav={nav} onLoaded={onLoaded} loadScreen={loadScreen} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onOpenShop={() => transitionTo('store', 'Store')} />
-          : <ExpeditionGame suspended={suspended} initialZone={start} onZoneChange={setZone} nav={nav} onLoaded={onLoaded} loadScreen={loadScreen} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onElimination={armory.awardElimination} onExit={() => transitionTo('menu', 'Menu')} />}
+          ? <FpsGame suspended={suspended} region={start} onRegionChange={setZone} profile={armory.profile} nav={nav} onLoaded={onLoaded} loadScreen={loadScreen} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onOpenShop={() => transitionTo('store')} />
+          : <ExpeditionGame suspended={suspended} initialZone={start} onZoneChange={setZone} nav={nav} onLoaded={onLoaded} loadScreen={loadScreen} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onElimination={armory.awardElimination} onExit={() => transitionTo('menu')} />}
       </PlayLoading>
     </DebugMode.Provider></main>
   </div>;
@@ -116,7 +116,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     <span className="game-wallet" title="Tokens"><Gem size={14} /><b>{armory.profile.tokens.toLocaleString()}</b><small>TK</small></span>
   </div>;
 
-  if (screen === 'tutorial') return <div className="game-screen game-screen-play"><main className="game-screen-body"><TutorialGame suspended={install.updateReady} onStore={() => { setStoreTour(true); transitionTo('store', 'Store'); }} /></main></div>;
+  if (screen === 'tutorial') return <div className="game-screen game-screen-play"><main className="game-screen-body"><TutorialGame suspended={install.updateReady} onStore={() => { setStoreTour(true); transitionTo('store'); }} /></main></div>;
 
   if (screen === 'multiplayer') return <MultiplayerGame armory={armory} suspended={install.updateReady} />;
 
@@ -129,25 +129,25 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     return <div className="game-screen game-screen-store">
       <main className="game-screen-body"><DebugMode.Provider value={false}>
         <ArmoryShop store={armory} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined} nav={<nav className="store-nav" aria-label="Store">
-          <a className="game-back" {...link('menu', 'Menu')} aria-label="Menu"><ArrowLeft size={16} /><span>Menu</span></a>
+          <a className="game-back" {...link('menu')} aria-label="Menu"><ArrowLeft size={16} /><span>Menu</span></a>
           <h1>Store</h1>
-          <a className="game-back" {...link('inventory', 'Inventory')}>Inventory</a>
+          <a className="game-back" {...link('inventory')}>Inventory</a>
           <button className="store-tour-trigger" aria-pressed={storeTour} onClick={() => setStoreTour(true)}>Tour store</button>
-          <a className="game-back store-settings" {...link('settings', 'Settings')} aria-label="Settings" title="Settings"><Settings size={15} /></a>
+          <a className="game-back store-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={15} /></a>
         </nav>} deployments={[
-          { id: 'training', label: 'Training', detail: 'Choose starting point', onDeploy: () => transitionTo('training', 'Choose starting point', 'TRAINING') },
-          { id: 'world', label: 'Open World', detail: 'Choose starting point', onDeploy: () => transitionTo('world', 'Choose starting point', 'OPEN WORLD') },
+          { id: 'training', label: 'Training', detail: 'Choose starting point', onDeploy: () => transitionTo('training') },
+          { id: 'world', label: 'Open World', detail: 'Choose starting point', onDeploy: () => transitionTo('world') },
         ]} />
       </DebugMode.Provider></main>
     </div>;
   }
 
-  if (screen === 'inventory') return <div className="game-screen game-screen-inventory"><main className="game-screen-body"><ArmoryInventory store={armory} nav={<nav className="store-nav" aria-label="Inventory"><a className="game-back" {...link('menu', 'Menu')}><ArrowLeft size={16} /> Menu</a><h1>Inventory</h1><a className="game-back" {...link('store', 'Store')}><ShoppingBag size={16} /> Store</a></nav>} /></main></div>;
+  if (screen === 'inventory') return <div className="game-screen game-screen-inventory"><main className="game-screen-body"><ArmoryInventory store={armory} nav={<nav className="store-nav" aria-label="Inventory"><a className="game-back" {...link('menu')}><ArrowLeft size={16} /> Menu</a><h1>Inventory</h1><a className="game-back" {...link('store')}><ShoppingBag size={16} /> Store</a></nav>} /></main></div>;
 
   if (screen === 'settings') {
     return <div className="game-screen game-screen-settings">
       <header className="game-screen-bar">
-        <a className="game-back" {...link('menu', 'Menu')}><ArrowLeft size={16} /><span>Menu</span></a>
+        <a className="game-back" {...link('menu')}><ArrowLeft size={16} /><span>Menu</span></a>
         <h1>Settings</h1>
         {profile}
       </header>
@@ -164,9 +164,9 @@ const TITLE_LEAVE_MS = 900;
 function MainMenu({ profile, install }: { profile: React.ReactNode; install: boolean }) {
   const items = useRef<(HTMLAnchorElement | null)[]>([]);
   const [chosen, setChosen] = useState<number | null>(null);
-  // Back from another screen, the wipe is still clearing: hold the entrance for it.
-  const wipe = useWipe();
-  const [arriving] = useState(() => wipe?.phase === 'reveal');
+  // Back from another screen the whole menu shifts in, so its entries do not rise in as well.
+  const shift = useShift();
+  const [arriving] = useState(() => shift?.phase === 'entering');
   const [ripple, setRipple] = useState<{ index: number; x: number; y: number; key: number } | null>(null);
   const [title, setTitle] = useState<'shown' | 'leaving' | 'gone'>(() => needsTitleScreen() ? 'shown' : 'gone');
   const brand = useRef<HTMLSpanElement>(null);
@@ -218,10 +218,10 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: boo
     return () => { stopMenuHover(); document.removeEventListener('visibilitychange', stopMenuHover); };
   }, []);
   const hover = (event: React.PointerEvent<HTMLElement>) => {
-    if (event.pointerType === 'mouse' && chosen === null && !wipe) playMenuSound('hover');
+    if (event.pointerType === 'mouse' && chosen === null && !shift) playMenuSound('hover');
   };
   const focus = (event: React.FocusEvent<HTMLElement>) => {
-    if (event.currentTarget.matches(':focus-visible') && chosen === null && !wipe) playMenuSound('hover');
+    if (event.currentTarget.matches(':focus-visible') && chosen === null && !shift) playMenuSound('hover');
   };
   // Nothing is chosen until the player picks; the arrow keys then move through
   // the entries the way a console menu would, starting from either end
@@ -246,7 +246,7 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: boo
     if (event.metaKey || event.ctrlKey || event.shiftKey) return;
     event.preventDefault();
     const entry = ENTRIES[index];
-    if (!transitionTo(entry.route, entry.title, entry.route === 'training' || entry.route === 'world' ? 'CHOOSE STARTING POINT' : undefined)) return;
+    if (!transitionTo(entry.route)) return;
     playMenuSound('click');
     if (entry.route === 'tutorial') setMusicCue(null);
     setChosen(index);
@@ -267,7 +267,7 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: boo
     </a>;
   };
 
-  return <div className={`game-menu${chosen === null ? '' : ' is-leaving'}${arriving ? ' is-arriving' : ''}${title === 'gone' ? '' : ` is-title-${title}`}`}>
+  return <div className={`game-menu${arriving ? ' is-arriving' : ''}${title === 'gone' ? '' : ` is-title-${title}`}`}>
     <Skyline />
     {title !== 'gone' && <button type="button" className="game-title" autoFocus aria-label={titleTap ? 'Tap to start' : 'Press any key to start'} onClick={leaveTitle}>
       <span className="game-title-prompt" aria-hidden="true">{titleTap ? 'TAP TO START' : 'PRESS ANY KEY'}</span>
@@ -286,9 +286,9 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: boo
     </main>
 
     <footer className="game-menu-foot">
-      <a className="game-debug-link" {...link('debug')} onPointerEnter={hover} onFocus={focus} onClick={event => {
+      <a className="game-debug-link" {...link('debug', true)} onPointerEnter={hover} onFocus={focus} onClick={event => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-        playMenuSound('click'); link('debug').onClick(event);
+        playMenuSound('click'); link('debug', true).onClick(event);
       }}><Wrench size={13} /> Debug</a>
       <span className="game-menu-hint"><kbd>↑</kbd><kbd>↓</kbd> choose · <kbd>Enter</kbd> select</span>
       <span className="game-menu-edition">

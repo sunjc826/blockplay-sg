@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Crosshair, MapPin } f
 import { locations, type Location } from '../data/locations';
 import { getWorldZone, type WorldZoneId } from '../game/world-zones';
 import { playMenuSound, prepareMenuAudio, stopMenuHover } from '../lib/menu-audio';
+import { reducedMotion } from '../lib/route-transition';
 import './starting-point-picker.css';
 
 // A schematic island: downtown is expanded so its districts have useful hit
@@ -54,6 +55,9 @@ const LABELS: Partial<Record<WorldZoneId, string[]>> = {
   'raffles-place': ['Raffles', 'Place'], 'marina-bay': ['Marina', 'Bay'],
 };
 
+/** Matches the push-in in starting-point-picker.css. */
+const DEPLOY_MS = 300;
+
 type Props = {
   mode: 'training' | 'world';
   initial: WorldZoneId;
@@ -66,6 +70,10 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
   const [selected, setSelected] = useState(initial);
   const clip = useId();
   const viewport = useRef<HTMLDivElement>(null);
+  const main = useRef<HTMLElement>(null);
+  const [deploying, setDeploying] = useState(false);
+  const deployTimer = useRef(0);
+  useEffect(() => () => clearTimeout(deployTimer.current), []);
   const place = options.find(option => option.id === selected) ?? options[0];
   const zone = getWorldZone(place.id);
   const training = mode === 'training';
@@ -77,6 +85,23 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
     document.addEventListener('visibilitychange', stopMenuHover);
     return () => { stopMenuHover(); document.removeEventListener('visibilitychange', stopMenuHover); };
   }, []);
+
+  // The map pushes in on the chosen district, then hands over to the loading screen.
+  const deploy = () => {
+    if (deploying) return;
+    if (reducedMotion()) { onDeploy(place.id); return; }
+    // From the map's own coordinates, as a narrow map hides its pins.
+    const toScreen = viewport.current?.querySelector('svg')?.getScreenCTM();
+    const box = main.current?.getBoundingClientRect();
+    if (toScreen && box && main.current) {
+      const [x, y] = CENTRES[place.id];
+      const screenX = toScreen.a * x + toScreen.e, screenY = toScreen.d * y + toScreen.f;
+      // On a phone the map can be scrolled away from the button: head for the nearest point on screen.
+      main.current.style.transformOrigin = `${Math.min(Math.max(screenX, 0), window.innerWidth) - box.left}px ${Math.min(Math.max(screenY, 0), window.innerHeight) - box.top}px`;
+    }
+    setDeploying(true);
+    deployTimer.current = window.setTimeout(() => onDeploy(place.id), DEPLOY_MS);
+  };
 
   // Delegate feedback so labels and icons do not each trigger another sound.
   const hover = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -101,9 +126,9 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
     viewport.current?.querySelector<SVGGElement>(`[data-start-region="${options[next].id}"]`)?.focus({ preventScroll: true });
   };
 
-  return <div className="game-screen starting-picker" data-mode={mode} onPointerOver={hover} onFocus={focus} onClickCapture={click}>
+  return <div className={`game-screen starting-picker${deploying ? ' is-deploying' : ''}`} data-mode={mode} onPointerOver={hover} onFocus={focus} onClickCapture={click}>
     <header className="starting-header">{back}<span>{training ? 'TRAINING' : 'OPEN WORLD'} <i>/</i> SELECT DISTRICT</span><span className="starting-step">01 — STARTING POINT</span></header>
-    <main className="starting-main">
+    <main className="starting-main" ref={main}>
       <div className="starting-title"><span className="starting-eyebrow">THE ISLAND IS YOURS</span><h1>Where do we start?</h1><p>Pick a region on the map. {training ? 'Set up your range in a familiar neighbourhood.' : 'Choose where your open world journey begins.'}</p></div>
       <div className="starting-layout">
         <section className="starting-map" aria-label="Starting district map">
@@ -140,7 +165,7 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
           <div className="starting-place" aria-live="polite" aria-atomic="true"><span className="starting-eyebrow">{place.district}</span><h2>{place.name}</h2><p className="starting-subtitle">{place.subtitle}</p></div>
           <div className="starting-tags">{place.tags.map(tag => <span key={tag}>{tag}</span>)}</div>
           <div className="starting-brief"><span>{training ? <Crosshair size={16} /> : <MapPin size={16} />}{training ? 'LIVE-FIRE RANGE' : `${zone.risk.toUpperCase()} THREAT`}</span><p>{training ? 'Practice with your equipped loadout. Targets, drills and vehicles will be ready when you arrive.' : zone.description}</p></div>
-          <div className="starting-launch"><p>{training ? 'Your loadout comes with you.' : 'You can travel between districts after deploying.'}</p><button className="starting-deploy" onClick={() => onDeploy(place.id)}>{training ? 'Start training' : 'Deploy here'}<ArrowRight size={18} /></button></div>
+          <div className="starting-launch"><p>{training ? 'Your loadout comes with you.' : 'You can travel between districts after deploying.'}</p><button className="starting-deploy" onClick={deploy}>{training ? 'Start training' : 'Deploy here'}<ArrowRight size={18} /></button></div>
         </aside>
       </div>
       <footer className="starting-foot"><span><ArrowLeft size={13} /> <ArrowRight size={13} /> Browse regions <kbd>Enter</kbd> Select</span><span>CHOOSE A DISTRICT · THEN DEPLOY</span></footer>

@@ -1,69 +1,76 @@
 import { useSyncExternalStore } from 'react';
+import { flushSync } from 'react-dom';
 import { navigate, routeFromPath, type Route } from './routes';
 
 /**
- * A wipe between screens: stripes sweep the screen shut, the route changes
- * under cover, then they sweep on and off the other side. Going forward they
- * travel right to left; heading back to the menu, left to right. RouteWipe
- * draws it; this holds which phase it is in, so any screen can start one.
+ * A quick shift between screens: the old one slips away, the route changes,
+ * and the new one slides in from the other side. Going forward the content
+ * moves left; the same pair of screens the other way round moves it right.
+ * RouteShift and route-shift.css draw it; this holds which phase it is in, so
+ * any screen can start one.
  */
-export type WipeDirection = 'forward' | 'back';
-export type Wipe = { id: number; phase: 'cover' | 'reveal'; direction: WipeDirection; label: string; kicker: string };
+export type ShiftDirection = 'forward' | 'back';
+export type Shift = { id: number; phase: 'leaving' | 'entering'; direction: ShiftDirection };
 
-/** Matches the stripe timings in route-wipe.css. */
-export const COVER_MS = 470;
-export const REVEAL_MS = 520;
+/** Match the timings in route-shift.css. */
+export const LEAVE_MS = 80;
+export const ENTER_MS = 170;
 
-let current: Wipe | null = null;
+/** Where each screen sits, left to right. Every pair of screens gets opposite directions from this. */
+const ORDER: readonly Route[] = ['menu', 'tutorial', 'training', 'world', 'multiplayer', 'store', 'inventory', 'settings', 'debug', 'faction-designs'];
+
+export const directionBetween = (from: Route, to: Route): ShiftDirection => ORDER.indexOf(to) < ORDER.indexOf(from) ? 'back' : 'forward';
+
+let current: Shift | null = null;
 let serial = 0;
 const listeners = new Set<() => void>();
-const set = (next: Wipe | null) => { current = next; listeners.forEach(listener => listener()); };
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
 
-function reducedMotion() {
+function set(next: Shift | null) {
+  current = next;
+  // On the page rather than a wrapper: a wrapper would change the layout of every screen.
+  if (next) document.documentElement.dataset.routeShift = `${next.phase}-${next.direction}`;
+  else delete document.documentElement.dataset.routeShift;
+  listeners.forEach(listener => listener());
+}
+
+export function reducedMotion() {
   try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
 }
 
-const LABELS: Record<Route, string> = {
-  menu: 'Menu', tutorial: 'Tutorial', training: 'Training', world: 'Open World', multiplayer: 'Multiplayer', store: 'Store', inventory: 'Inventory', settings: 'Settings', debug: 'Debug',
-  'faction-designs': 'Faction studies',
-};
+// A tall screen leaves the page scrolled; the next starts at its top.
+const toTop = () => window.scrollTo(0, 0);
 
-const directionTo = (route: Route): WipeDirection => route === 'menu' ? 'back' : 'forward';
-
-// A tall screen like the menu leaves the page scrolled; the next starts at its top.
-function go(route: Route) {
-  navigate(route);
-  window.scrollTo(0, 0);
+function settle(id: number) {
+  window.setTimeout(() => { if (current?.id === id) set(null); }, ENTER_MS);
 }
 
-function reveal(wipe: Omit<Wipe, 'phase'>) {
-  set({ ...wipe, phase: 'reveal' });
-  window.setTimeout(() => { if (current?.id === wipe.id) set(null); }, REVEAL_MS);
-}
-
-/** Goes to a route behind the wipe; returns false if one is already running. */
-export function transitionTo(route: Route, label: string, kicker = 'BLOCKPLAY SG', direction = directionTo(route)) {
-  if (current) return false;
-  if (reducedMotion()) { go(route); return true; }
-  const wipe = { id: ++serial, direction, label, kicker };
-  set({ ...wipe, phase: 'cover' });
-  window.setTimeout(() => { go(route); reveal(wipe); }, COVER_MS);
+/** Goes to a route with a shift; returns false if the screen is already on its way out. */
+export function transitionTo(route: Route) {
+  if (current?.phase === 'leaving') return false;
+  if (reducedMotion()) { navigate(route); toTop(); return true; }
+  const id = ++serial, direction = directionBetween(routeFromPath(window.location.pathname), route);
+  set({ id, phase: 'leaving', direction });
+  window.setTimeout(() => {
+    if (current?.id !== id) return;
+    // Committed before the browser paints again, so the old screen never shows the new one's entrance.
+    flushSync(() => { set({ id, phase: 'entering', direction }); navigate(route); });
+    toTop();
+    settle(id);
+  }, LEAVE_MS);
   return true;
 }
 
-/**
- * The browser's own Back and Forward have already switched screens by the time
- * they tell us, so there is nothing to cover: the stripes start closed over
- * the new screen and sweep off it, which hides the cut just the same.
- */
-export function revealAfterHistory() {
-  if (current || reducedMotion()) return;
+/** The browser's own Back and Forward have already changed the route, so only the entrance is left to play. */
+export function shiftAfterHistory(from: Route) {
+  if (reducedMotion()) return;
   const route = routeFromPath(window.location.pathname);
-  if (route === 'debug') return;
-  reveal({ id: ++serial, direction: directionTo(route), label: LABELS[route], kicker: 'BLOCKPLAY SG' });
+  if (route === 'debug' || route === from) return;
+  const id = ++serial;
+  set({ id, phase: 'entering', direction: directionBetween(from, route) });
+  settle(id);
 }
 
-export function useWipe() {
+export function useShift() {
   return useSyncExternalStore(subscribe, () => current, () => null);
 }
