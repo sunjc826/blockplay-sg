@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDownToLine, ChevronsDown, ChevronsUp, Crosshair, Eye, Flashlight, Footprints, Menu, MessageCircle, Move3d, PackageOpen, RefreshCw, Rocket, Repeat2, RotateCcw } from 'lucide-react';
+import { ArrowDownToLine, ChevronsDown, ChevronsUp, Crosshair, Eye, Flashlight, Footprints, Menu, MessageCircle, Minus, Move3d, PackageOpen, Plus, RefreshCw, Rocket, Repeat2, RotateCcw } from 'lucide-react';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
 import { padSlot, promptLabel, type StickVector } from '../game/touch-controls';
 import { visionStatus } from './FpsVisionChip';
@@ -46,6 +46,8 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
   const merlion=!!hud.arenaSelf?.alive&&hud.arena?.merlion?.operator===hud.arenaSelf?.id;
   const flying = hud.vehicle === 'helicopter';
   const aimPressed = hud.grenadeHeld ? hud.grenadeHeld.under : hud.aiming;
+  // Above aim on the edge, and only through the scope: the picture is the only place a change of power shows.
+  const zoom = hud.aiming && !merlion ? hud.scopeZoom : null;
 
   // The engine drops every held key when it pauses or the player dies, so the
   // crouch latch has to let go too or the button would lie about the stance.
@@ -156,6 +158,11 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
         title={item.label}
         {...item.props}
       >{item.icon}</button>)}
+      {zoom && <div className="touch-zoom" role="group" aria-label="Scope magnification" data-scope-zoom={zoom.value}>
+        <button type="button" aria-label="Increase scope magnification" disabled={zoom.value >= zoom.max} {...tapProps(() => engine?.adjustScopeZoom(1))}><Plus size={17} /></button>
+        <b aria-live="polite">{zoom.value}×</b>
+        <button type="button" aria-label="Decrease scope magnification" disabled={zoom.value <= zoom.min} {...tapProps(() => engine?.adjustScopeZoom(-1))}><Minus size={17} /></button>
+      </div>}
       <button type="button" className="touch-fire" data-touch-action="fire" aria-label="Fire" disabled={hud.swimming && !hud.swimCanFire || mounted && !hud.vehiclePersonalWeapon && (!hud.vehicleCanFire || hud.vehicleAmmo === 0)} {...fire}>FIRE</button>
     </div>
   </div>;

@@ -62,7 +62,7 @@ try {
  await send('Page.navigate',{url:origin+'/scripts/fixtures/scope-zoom.html'});await wait("window.hud?.phase==='ready'",60000);
  const start=await point(`document.querySelector('#start')`);
  await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...start,id:1}]});await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
- await wait("window.hud?.phase==='playing' && window.hud.inputMode==='touch'");await evaluate('window.engine.switchWeapon(12);window.engine.toggleAim()');await wait(zoom(6));
+ await wait("window.hud?.phase==='playing' && window.hud.inputMode==='touch'");await evaluate('window.engine.switchWeapon(12);window.engine.toggleAim()');await wait(zoom(6));await wait('window.hud.aiming');
  const aim=await point(plus),stick=await point(`document.querySelector('.touch-move')`);
  const shots=await evaluate('window.hud.shots');
  await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...stick,id:1}]});

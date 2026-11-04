@@ -70,6 +70,16 @@
   --fire-at:calc(var(--pad-size) + var(--pad-gap) * 1.5);
   width:calc(var(--fire-at) + var(--fire-size) + var(--pad-gap) + var(--pad-size));height:var(--touch-reserve)}
 
+/* The scope's power, stacked like a phone's volume buttons on the edge above
+   aim. Tall tap targets even on a short screen: this one is pressed mid-aim. */
+.touch-zoom{position:absolute;right:0;bottom:calc((var(--pad-size) + var(--pad-gap)) * 3);box-sizing:border-box;width:46px;display:grid;justify-items:stretch;
+  border:1px solid #c7d1bb44;border-radius:22px;background:#16271ecc;backdrop-filter:blur(3px);overflow:hidden}
+.touch-zoom button{pointer-events:auto;touch-action:none;display:flex;align-items:center;justify-content:center;height:44px;padding:0;border:0;background:none;color:#f4f4e9}
+.touch-zoom button:active{background:#e0bb72e6;color:#17231d}
+.touch-zoom button:disabled{opacity:.35}
+.touch-zoom button:focus-visible{outline:2px solid #d79545;outline-offset:-2px}
+.touch-zoom b{padding:1px 0;text-align:center;font:600 12px monospace;font-variant-numeric:tabular-nums;color:#ffd489}
+
 .touch-fire{pointer-events:auto;touch-action:none;width:86px;height:86px;border-radius:50%;border:2px solid #ffffff38;
   background:#c56e37e0;color:#fff8e5;font:11px monospace;letter-spacing:2.5px;box-shadow:0 6px 18px #0a140d55;flex:none}
 .touch-combat .touch-fire{position:absolute;right:var(--fire-at);bottom:var(--fire-at);width:var(--fire-size);height:var(--fire-size)}
@@ -171,6 +181,19 @@
    would only be saying it twice. A keyboard still gets both. */
 .fps-game[data-touch=on][data-phase=playing]:not([data-pilot]) .fps-interact-prompt,
 .fps-game[data-touch=on][data-phase=playing]:not([data-pilot]) .expedition-prompts strong{display:none}
+/* Through a scope the picture is the point. The readout drops to its count and
+   steps clear of the rocker; the belt returns as soon as the sight comes down. */
+.fps-game[data-touch=on] .fps-weapon-hud[data-sight=scope][data-aiming=true] .fps-belt,
+.fps-game[data-touch=on] .fps-weapon-hud[data-sight=scope][data-aiming=true] .fps-ammo>span,
+.fps-game[data-touch=on] .fps-weapon-hud[data-sight=scope][data-aiming=true] .fps-ammo-detail,
+.fps-game[data-touch=on] .fps-weapon-hud[data-sight=scope][data-aiming=true] .fps-inspect-button,
+.fps-game[data-touch=on] .fps-weapon-hud[data-sight=scope][data-aiming=true] .fps-magazine-bar{display:none}
+@media(max-height:560px){.fps-game[data-touch=on] .fps-weapon-hud[data-sight=scope][data-aiming=true] .fps-combat-hud{right:calc(max(12px,env(safe-area-inset-right)) + 52px)}}
+/* In portrait the lens fills the width, so the map and the log would sit on it. */
+@media(max-width:520px){
+  .fps-game[data-touch=on]:has(.fps-weapon-hud[data-sight=scope][data-aiming=true]) .fps-minimap:not(.is-expanded),
+  .fps-game[data-touch=on]:has(.fps-weapon-hud[data-sight=scope][data-aiming=true]) .fps-comms{display:none}
+}
 /* Lifting the map instead of moving it would push it off a short screen. */
 [data-touch=on].marina-reconstruction .marina-map{top:56px;bottom:auto}
 [data-touch=on].marina-reconstruction .marina-objective{bottom:calc(12px + var(--touch-inset));max-width:calc(100% - 175px)}

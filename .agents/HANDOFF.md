@@ -1,5 +1,15 @@
 # Blockplay: portable agent handoff
 
+## Touch scope rocker (2026-11-04)
+
+Variable scopes on touch now zoom from a vertical +/− rocker above aim
+(`TouchControls`), shown only while aiming; the weapon panel keeps its buttons for
+desktop only. Through any magnified scope on touch the panel drops to its count and
+the belt hides, in landscape the readout steps clear of the rocker, and in portrait
+the minimap and comms log hide because the lens fills the width. Scope-zoom and
+Smart Power smokes pass. `touch-controls-smoke` fails at its half-push stick check
+(line 96) on the previous HEAD as well, at `TOUCH_SMOKE_PACE=4` on Metal under load.
+
 ## World push-in while aiming (2026-11-04)
 
 Aiming on foot now narrows the world camera from 65° to `ADS_WORLD_FOV` (60°,

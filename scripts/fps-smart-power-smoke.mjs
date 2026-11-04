@@ -56,7 +56,7 @@ try {
  await send('Page.navigate',{url:origin+'/scripts/fixtures/scope-zoom.html?weapon=ff-longwatch'});await wait("window.hud?.phase==='ready'",60000);
  const start=await point("document.querySelector('#start')");
  await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...start,id:1}]});await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
- await wait("window.hud?.phase==='playing' && window.hud.inputMode==='touch'");await evaluate('window.engine.toggleAim()');await wait(zoom(4));
+ await wait("window.hud?.phase==='playing' && window.hud.inputMode==='touch'");await evaluate('window.engine.toggleAim()');await wait(zoom(4));await wait('window.hud.aiming');
  const down=await point(minus),shots=await evaluate('window.hud.shots');
  await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...down,id:1}]});await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  await wait(zoom(2));await settled(2);await screenshot('touch-landscape-2x');

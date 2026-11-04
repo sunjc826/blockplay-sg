@@ -143,3 +143,16 @@ it('offers the same contextual range resupply action on touch', () => {
   expect(control(html, 'resupply')).toBeTruthy();
   expect(layer(playing())).not.toContain('data-touch-action="resupply"');
 });
+
+it('offers the scope rocker only through a scope that has more than one power', () => {
+  const rocker = (extra: Partial<FpsHud>) => layer(playing({ aiming: true, scopeZoom: { value: 6, min: 3, max: 12 }, ...extra }));
+  const button = (html: string, name: string) => html.match(new RegExp(`<button[^>]*aria-label="${name} scope magnification"[^>]*>`))?.[0] ?? '';
+  expect(rocker({})).toContain('data-scope-zoom="6"');
+  expect(rocker({})).toContain('>6×<');
+  expect(rocker({ aiming: false })).not.toContain('scope magnification');
+  expect(rocker({ scopeZoom: null })).not.toContain('scope magnification');
+  expect(button(rocker({}), 'Increase')).not.toContain('disabled');
+  expect(button(rocker({}), 'Decrease')).not.toContain('disabled');
+  expect(button(rocker({ scopeZoom: { value: 12, min: 3, max: 12 } }), 'Increase')).toContain('disabled');
+  expect(button(rocker({ scopeZoom: { value: 3, min: 3, max: 12 } }), 'Decrease')).toContain('disabled');
+});

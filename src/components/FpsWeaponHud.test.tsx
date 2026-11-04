@@ -11,7 +11,8 @@ it('shows selected magnification and hides variable controls on fixed scopes', (
   expect(render(9)).toContain('data-scope-zoom="9"');
   expect(render(9)).toContain('9×');
   expect(render(null)).not.toContain('aria-label="Scope magnification"');
-  expect(render(6, {}, true)).not.toContain('AIM + SCROLL');
+  // A thumb zooms from the rocker on its pad instead.
+  expect(render(6, {}, true)).not.toContain('aria-label="Scope magnification"');
 });
 it('disables only the unavailable direction at each end and both while reloading', () => {
   expect(button(render(3), 'Decrease')).toContain('disabled');

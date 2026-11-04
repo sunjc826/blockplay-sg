@@ -91,9 +91,10 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickR
           {touch && onInspect && hud.vehicle === 'on-foot' && <button type="button" className="fps-inspect-button" aria-label={hud.inspecting ? 'Stop inspecting weapon' : 'Inspect weapon'} aria-pressed={hud.inspecting}
             disabled={!canFight || hud.pilotEnabled || reloading || !!using || !!grenade || hud.aiming} title="Inspect weapon (K)"
             {...tapProps(onInspect)}><Rotate3d size={13} /><span>{hud.inspecting ? 'Inspecting' : 'Inspect'}</span></button>}
-          {zoom && onScopeZoom && <div className="fps-scope-zoom" role="group" aria-label="Scope magnification" data-scope-zoom={zoom.value}>
+          {/* A thumb has the rocker on its pad (TouchControls). */}
+          {zoom && onScopeZoom && !touch && <div className="fps-scope-zoom" role="group" aria-label="Scope magnification" data-scope-zoom={zoom.value}>
             <button type="button" aria-label="Decrease scope magnification" disabled={zoomDisabled || zoom.value <= zoom.min} {...tapProps(() => onScopeZoom(-1))}>−</button>
-            <span><b aria-live="polite">{zoom.value}×</b><small>{touch ? 'SCOPE' : '[ / ] · AIM + SCROLL'}</small></span>
+            <span><b aria-live="polite">{zoom.value}×</b><small>[ / ] · AIM + SCROLL</small></span>
             <button type="button" aria-label="Increase scope magnification" disabled={zoomDisabled || zoom.value >= zoom.max} {...tapProps(() => onScopeZoom(1))}>+</button>
           </div>}
           {weapon.requiresMount && <p>{hud.braced ? <>PRONE MOUNT DEPLOYED{hint(' · Z / STAND TO MOVE')}</> : <>{hint('Z / PRONE: SAFE · ')}STAND 20 / CROUCH 10 BEFORE ARMOR</>}</p>}
