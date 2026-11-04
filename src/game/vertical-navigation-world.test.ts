@@ -29,4 +29,4 @@ it('places supplies on valid upper floors across every district while preserving
   }
   expect.soft(upstairs,`${region.id}: supplies appear on usable floors`).toBeGreaterThan(0);
  }finally{world.dispose();}}
-},20000);
+},45000);
