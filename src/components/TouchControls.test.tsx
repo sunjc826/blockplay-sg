@@ -139,6 +139,8 @@ it('offers prone deployment and a way to stand again in every combat mode', () =
 });
 
 it('offers the same contextual range resupply action on touch', () => {
+  const rack = layer(playing({ lootPrompt: 'E · Swap G36K', lootCard: { id: 'g36k', name: 'G36K', tier: 'Elite', kind: 'weapon', type: 'Rifle', description: '', stats: [], action: 'Swap', detail: '' } }));
+  expect(control(rack, 'armory')).toBeTruthy();
   const html = layer(playing({ rangeSupplyPrompt: 'E · Resupply ammo, grenades & utilities' }));
   expect(control(html, 'resupply')).toBeTruthy();
   expect(layer(playing())).not.toContain('data-touch-action="resupply"');

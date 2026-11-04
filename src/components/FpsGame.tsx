@@ -10,6 +10,8 @@ import './range-drills.css';
 import type { RaiderBounty } from '../game/combat-rewards';
 import FpsVehicleHud from './FpsVehicleHud';
 import FpsDistrictCrossing from './FpsDistrictCrossing';
+import FpsLootCard from './FpsLootCard';
+import './expedition.css';
 import { hasLaser, hasLight } from '../game/weapon-accessories';
 import EnvironmentControls from './EnvironmentControls';
 import FpsVisionChip from './FpsVisionChip';
@@ -80,6 +82,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
   const [combat, setCombat] = useState(false);
   const [drill, setDrill] = useState<RangeDrillId>('classic');
   const rewardCallback = useRef(onReward); rewardCallback.current = onReward;
+  const armoryProfileRef = useRef(profile); armoryProfileRef.current = profile;
   const host = useRef<HTMLDivElement>(null), stage = useRef<HTMLDivElement>(null), engine = useRef<FpsEngine | null>(null);
   const surface = useRef<FpsSurface | null>(null);
   const fullscreen = useFpsFullscreen(stage, () => engine.current?.pause());
@@ -90,7 +93,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
     setHud({ ...initialFpsHud, inputMode: scene.checkpoint?.continuation?.inputMode ?? 'mouse' });
     try {
       if (!arenaOptions) surface.current ??= createFpsSurface(host.current!);
-      engine.current = createFpsEngine(host.current!, setHud, { surface: surface.current ?? undefined, region, rangeDrill: drill, loadScreen,
+      engine.current = createFpsEngine(host.current!, setHud, { armoryProfile: () => armoryProfileRef.current, surface: surface.current ?? undefined, region, rangeDrill: drill, loadScreen,
         rangeTravel: arenaOptions ? undefined : { spawn: scene.spawn, checkpoint: scene.checkpoint, onTravel: (transition, checkpoint) => {
           startingLevel.current = rank.level;
           setHud(current => ({ ...current, phase: 'loading' }));
@@ -182,8 +185,9 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
         {!merlionOperating && (!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useSelectedUtility(kind)} onPickRecovery={() => engine.current?.toggleRecoveryPicker()} onPickGrenade={() => engine.current?.toggleGrenadePicker()} onInspect={() => engine.current?.inspectWeapon()} onScopeZoom={direction => engine.current?.adjustScopeZoom(direction)} onToggleMode={() => engine.current?.toggleWeaponMode()} touch={touch} />}
         <div className={`fps-objective${mounted ? ' fps-hud-hint' : ''}`}>{mounted && hud.vehicleSeat !== 0 ? hud.vehicle === 'car' ? 'V switch seat · E bail out · Speed risks injury' : 'Ride together · V switch seat · E exit when landed' : isArena && !mounted ? `FREE FOR ALL · First to ${ARENA_KILL_LIMIT} eliminations` : mounted ? hud.vehicle === 'car' ? 'W / S throttle · A / D steer · Space brake' : 'W / S cruise · A / D yaw · Space climb · Ctrl descend' : rangeObjective}<small>{hud.locked ? isArena ? 'ESC opens menu · Match keeps running' : 'ESC pauses and releases the mouse' : touch ? 'Left stick moves · Drag the scene to look · Hold FIRE and slide to aim' : 'Drag to look · On-screen controls available'}</small></div>
         {!isArena && <div className="fps-vehicle-locator">CAR {Math.round(hud.carDistance)}m <span>·</span> HELI {Math.round(hud.helicopterDistance)}m</div>}
+        <FpsLootCard hud={hud} touch={touch} />
         {hud.rangeSupplyPrompt && <div className="fps-interact-prompt">{showHints ? hud.rangeSupplyPrompt : 'Resupply ammo, grenades & utilities'}</div>}
-        {!hud.rangeSupplyPrompt && (hud.interact || hud.travelPrompt) && <div className="fps-interact-prompt">{hud.travelPrompt || (showHints ? hud.interact : hud.interact.replace(/^E · /, ''))}</div>}
+        {!hud.rangeSupplyPrompt && !hud.lootCard && (hud.interact || hud.travelPrompt) && <div className="fps-interact-prompt">{hud.travelPrompt || (showHints ? hud.interact : hud.interact.replace(/^E · /, ''))}</div>}
         {hud.vehicleNotice && <div className="fps-vehicle-notice" role="status">{hud.vehicleNotice}</div>}
         <FpsVehicleHud hud={hud} />
       </>}
@@ -228,6 +232,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
           <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
         </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} touch={touch} onFullscreen={() => { void fullscreen.toggle(); }} />}
         {hud.phase !== 'loading' && hud.phase !== 'error' && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP<br />{combat ? 'Targets return simulated fire. Move when warned to dodge.' : 'Practice mode: targets do not return fire.'}</p>}
+        {hud.phase === 'ready' && engine.current?.rangeArmoryState() && <p className="fps-armor-note">Gallery wall nearby, marked on the map: try issued, captured and your own weapons. Swaps last for this session.</p>}
         {hud.phase === 'complete' && <div className="fps-reward">+{hud.earned} CR · +{hud.earnedXp} XP earned{rank.level > startingLevel.current && <strong className="fps-level-up">{insignia.promoted ? 'PROMOTED' : 'LEVEL UP'} · LV {rank.level} {insignia.label.toUpperCase()}</strong>}{hud.callout && <span className="fps-final-callout">{hud.callout}</span>}</div>}
         <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') setEpoch(n => n + 1); else if (hud.phase === 'complete' || hud.phase === 'defeated') resetExercise(); else { if (touch) fullscreen.enter(); engine.current?.start(); } }}>
           {hud.phase === 'complete' || hud.phase === 'defeated' || hud.phase === 'error' ? <RotateCcw size={16} /> : <Play size={16} />} {hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry' : hud.phase === 'complete' || hud.phase === 'defeated' ? 'Reset exercise' : hud.phase === 'paused' ? 'Resume exercise' : 'Enter range'} <ArrowRight size={17} />

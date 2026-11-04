@@ -126,6 +126,7 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
       if (hud.npcPrompt) prompts.push(act('npc', promptLabel(hud.npcPrompt), <MessageCircle size={16} />, { onClick: () => engine?.interactNpc() }));
       if (hud.travelPrompt.startsWith('T · ')) prompts.push(act('travel', promptLabel(hud.travelPrompt), <Move3d size={16} />, { onClick: () => engine?.travelZone() }));
     }
+    if (mode === 'range' && hud.lootCard) prompts.push(act('armory', promptLabel(hud.lootPrompt), <PackageOpen size={16} />, { onClick: () => engine?.takeRangeWeapon() }));
     if (hud.rangeSupplyPrompt) prompts.push(act('resupply', 'Resupply', <PackageOpen size={16} />, { onClick: () => engine?.resupplyRange() }));
     if (hud.interact) {
       prompts.push(act('vehicle', promptLabel(hud.interact), <Move3d size={16} />, { onClick: () => engine?.interactVehicle() }));

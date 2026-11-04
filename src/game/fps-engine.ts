@@ -19,6 +19,8 @@ import { createRangeDirector, rangeTargetRise, rangeTargetHeight, validRangeDril
 import { resupplyEquipment, rangeEquipmentStock } from './equipment-resupply';
 import { respawnEquipment } from './respawn-equipment';
 import { createRangeResupply, rangeResupplyPoint, rangeResupplyObstacle } from './range-resupply';
+import { carriedVariants, findRangeArmoryPlot, focusRack, rangeArmoryObstacles, rangeArmoryPlan, rangeArmoryPutDown, rangeTableWeapons, takeRangeArmoryWeapon } from './range-armory';
+import { createRangeArmory, type RangeArmoryEntry } from './range-armory-visuals';
 import { combatFeedReward, type RaiderBounty } from './combat-rewards';
 import { WEATHER } from './world-events';
 import { createDeploymentBlur } from './deployment-blur';
@@ -334,7 +336,7 @@ function disposeAssets(roots: THREE.Object3D[]) {
   textures.forEach(t => { t.dispose(); if (typeof ImageBitmap !== 'undefined' && t.source.data instanceof ImageBitmap) t.source.data.close(); });
 }
 
-export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { surface?: FpsSurface; rangeTravel?: FpsRangeTravelOptions; rangeDrill?: RangeDrillId; tutorial?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; onLoadout?: (equipment: ResolvedLoadout) => void; onRentalTime?: (elapsedMs: number) => void; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; onConsume?: (id: string) => void; onFullscreen?: () => void; loadScreen?: PlayLoadScreen;
+export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { armoryProfile?: () => ArmoryProfile; surface?: FpsSurface; rangeTravel?: FpsRangeTravelOptions; rangeDrill?: RangeDrillId; tutorial?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; onLoadout?: (equipment: ResolvedLoadout) => void; onRentalTime?: (elapsedMs: number) => void; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; onConsume?: (id: string) => void; onFullscreen?: () => void; loadScreen?: PlayLoadScreen;
   /** Read per callout, so a level-up mid-exercise is heard immediately. */
   encik?: () => EncikAddress } = {}) {
   const expedition = options.expedition;
@@ -404,6 +406,23 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getPhysicalWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
     playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getPhysicalWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
   }
+  // The gallery wall and the bought-weapons table stand near the spawn, in training only.
+  const armoryProfile = practiceRange ? options.armoryProfile : undefined;
+  const armoryTable = armoryProfile ? rangeTableWeapons(armoryProfile()) : [], armoryPlan = rangeArmoryPlan(armoryTable.length);
+  const armoryPlot = armoryProfile ? findRangeArmoryPlot(armoryPlan, { spawn: district.spawn, bounds: world.bounds,
+    blocks: [...world.obstacles, ...district.props.map(([, x, z, w, d]) => ({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 }))],
+    vehicles: Object.values(fleetSpawns), targets: targetPositions,
+    floor: (x, z) => footMovement.supportHeight(x, z, (world.bounds.groundHeight?.(x, z) ?? 0) + MAX_STEP_HEIGHT, .4, 1.8),
+    canStand: (x, y, z) => footMovement.canOccupy(x, y, z, .5, 1.8) }) : null;
+  const armoryFloor = armoryPlot ? footMovement.supportHeight(armoryPlot.x, armoryPlot.z, (world.bounds.groundHeight?.(armoryPlot.x, armoryPlot.z) ?? 0) + MAX_STEP_HEIGHT, .4, 1.8) ?? 0 : 0;
+  const rangeArmory = armoryPlot ? createRangeArmory(world.scene, armoryPlot, armoryPlan, armoryFloor, armoryTable) : null;
+  if (armoryPlot) {
+    world.obstacles.push(...rangeArmoryObstacles(armoryPlot, armoryPlan, armoryFloor));
+    footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getPhysicalWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
+    playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getPhysicalWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
+  }
+  let focusedRack: RangeArmoryEntry | null = null, rackCardKey = '', rackCard: LootCard | null = null;
+  const rackLook = new THREE.Vector3();
   const proxyVisuals = createProxyOperationVisuals(world.scene);
   const facilityVisuals = createFacilityVisuals(world.scene, facilitySites);
   const objectiveBeacons = expedition ? createObjectiveBeacons(world.scene, facilitySites) : null;
@@ -746,7 +765,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     hud.facilityPrompt = canWork && nearby ? `E · ${facilityPrompt(nearby)}` : '';
     hud.rangeDrill = practiceRange ? rangeDirector!.view(hud.elapsed, rangeEndedEarly) : null;
-    hud.rangeSupplyPrompt = canResupply() ? 'E · Resupply ammo, grenades & utilities' : '';
+    updateRackFocus();
+    hud.rangeSupplyPrompt = !focusedRack && canResupply() ? 'E · Resupply ammo, grenades & utilities' : '';
     if (rangeTravel) {
       const gateway = !vehicles.active && hud.health > 0 ? findWorldGateway(region, position) : null;
       hud.travelPrompt = gateway?.border ? worldGatewayAction(gateway) : '';
@@ -764,6 +784,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       mapContactRange, mapMarkers: [
         ...(rangeTravel ? WORLD_GATEWAYS.filter(g => g.from === region && g.border).map(g => ({ id: g.id, ...g.position, kind: 'checkpoint' as const, label: g.name })) : []),
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}-${targets[index].activation}`, kind: 'target', label: `Target ${index + 1}` }] : []),
+        ...(rangeArmory ? [{ id: 'range-armory', x: rangeArmory.plot.x, z: rangeArmory.plot.z, kind: 'loot' as const, lootType: 'weapon' as const, label: 'Gallery wall · try issued, captured and bought weapons' }] : []),
         ...(rangeStation ? [{ id: 'range-resupply', x: rangeStation.point.x, z: rangeStation.point.z, kind: 'loot' as const, lootType: 'resupply' as const, label: 'Range resupply · ammo, grenades & utilities' }] : []),
         ...(region==='marina-bay'?[{id:'merlion-islet',kind:'landmark' as const,label:'Merlion islet',x:0,z:-12},...MARINA_SWIM_EXITS.map((p,i)=>({id:`swim-exit-${i}`,kind:'checkpoint' as const,label:'Swim ladder',x:p.x,z:p.z}))]:[]),
         ...VEHICLE_KINDS.filter(kind => kind !== vehicles.active && !vehicles.states[kind].despawned && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind: isDragonBoat(kind) ? 'boat' : kind, label: vehicleName(kind), x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
@@ -1607,6 +1628,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     if (hud.proxyReach) { openProxyMenu(); return; }
     if (hud.arena?.proxies?.operation?.cargo==='carried' && hud.facility && hud.facility.owner===PLAYER_FACTION && Math.hypot(hud.facility.x-position.x,hud.facility.z-position.z)<=4) { chooseProxyAction('deliver'); return; }
+    if (focusedRack) { takeRangeWeapon(); return; }
     if (canResupply()) { resupplyRange(); return; }
     if (!vehicles.active && hud.facilityPrompt && !focusedLoot) { interactFacility(); return; }
     const npc = !!expedition && !vehicles.active && vertical <= .35 && !!nearestNpc(npcs, position);
@@ -2792,6 +2814,52 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const refill = resupplyEquipment(loadout, specs, equipment.carriedFamilies, supplies, rangeStock);
     hud.message = refill.rounds || refill.items ? `Range resupply · +${refill.rounds} rounds in rig magazines · +${refill.items} grenades / utilities. Free practice stock; reload to load ammunition.` : 'Range equipment already stocked. Reload to load ammunition.';
     comms.add('system', 'Range', hud.message); publish(); canvas.focus({ preventScroll: true });
+  }
+  /** The rack gun under the crosshair, its card, and what E would do with it. */
+  function updateRackFocus() {
+    if (!rangeArmory || !armoryProfile) return;
+    const carried = carriedVariants(equipment);
+    const able = hud.phase === 'playing' && hud.health > 0 && !vehicles.active && !grenadeHeld && !supplyUse;
+    const next = able ? focusRack(rangeArmory.available(carried), { ...position, y: vertical }, camera.position, camera.getWorldDirection(rackLook)) : null;
+    if (next !== focusedRack) rangeArmory.focus(next);
+    focusedRack = next;
+    if (!next) { hud.lootCard = null; hud.lootPrompt = ''; rackCardKey = ''; return; }
+    const profile = armoryProfile(), family = next.item.family!;
+    const key = `${next.id}|${hud.weapon}|${specs.map(spec => spec.equipment.variant).join()}|${equipment.carriedFamilies.join()}`;
+    if (key !== rackCardKey || !rackCard) {
+      rackCardKey = key;
+      const guns = equipment.carriedFamilies.map(index => ({ family: index, spec: specs[index], reserve: loadout[index].reserve, magazines: spareMagazines(loadout[index]), room: availableMagazineSlots(loadout[index]).length }));
+      const card = lootCard({ id: next.id, kind: 'weapon', name: next.item.name, tier: next.item.tier, x: next.x, z: next.z, y: next.y, catalogId: next.id, amount: 1 } as FieldLoot, {
+        weapons: specs, belt: supplies, carried: guns, inHand: hud.weapon, armor: hud.armor,
+        variantOf: index => specs[index]?.equipment.variant ?? '',
+        replaces: index => rangeArmoryPutDown(profile, equipment, index, hud.weapon),
+        variantSpec: () => takeRangeArmoryWeapon(profile, equipment, next.id, hud.weapon)?.weapons[family] ?? null,
+      });
+      rackCard = { ...card, note: 'Training only · comes with full spare magazines · does not change your saved loadout' };
+    }
+    hud.lootCard = rackCard;
+    hud.lootPrompt = `E · ${rackCard.action} ${rackCard.name}`;
+  }
+  function takeRangeWeapon() {
+    if (!rangeArmory || !armoryProfile || !focusedRack || weaponSwitch || hud.phase !== 'playing' || hud.health <= 0 || vehicles.active || grenadeHeld || supplyUse) return;
+    const item = focusedRack.item, family = item.family!, previous = equipment.weapons[family].name;
+    const next = takeRangeArmoryWeapon(armoryProfile(), equipment, item.id, hud.weapon); if (!next) return;
+    stopInspect(); stopReload(); endSupply();
+    const previousSpecs = specs, previousCarry = equipment.carriedFamilies, sameHand = family === hud.weapon;
+    equipment = next; specs = next.weapons;
+    loadout = replacePooledWeapon(loadout, previousSpecs, previousCarry, specs, equipment.carriedFamilies, family);
+    resupplyEquipment(loadout, specs, equipment.carriedFamilies, supplies, { ammunition: true, supplies: {} });
+    if (item.id.startsWith('ff-')) supplyProxyMagazines(loadout, family);
+    keepShadersLinked(); undress.splice(0).forEach(dispose => dispose());
+    weapons.forEach((model, index) => { undress.push(dressWeapon(model, specs[index])); weaponStyles[index] = effectStyleForWeapon(specs[index]); });
+    if (sameHand) {
+      ads = false; touchAim = false; cantWanted = false; cant = 0; resetWeaponRecoil();
+      effects.attachMuzzle(muzzleSocket(weapons[family], FPS_WEAPONS[family].id)); effects.setStyles(weaponStyles, family);
+    } else switchWeapon(family);
+    rangeArmory.setCarried(carriedVariants(equipment));
+    options.onLoadout?.(equipment);
+    hud.message = previous === item.name ? `${item.name} taken from the rack.` : `${item.name} taken from the rack. ${previous} is back in its place.`;
+    comms.add('system', 'Range', hud.message); canvas.focus({ preventScroll: true }); publish();
   }
   /** Host rounds already drawn here, by id. */
   const seenRounds = new Set<number>();
@@ -4025,6 +4093,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     return gltf.scene;
   })).then(async loaded => {
     if (disposed) return;
+    // Before the hands dress these two: the rack copies them undressed.
+    rangeArmory?.fill([loaded[0], loaded[1]]);
+    rangeArmory?.setCarried(carriedVariants(equipment));
     weapons.push(loaded[0], loaded[1], ...FPS_WEAPONS.slice(2).map(spec => {
       const model = buildServiceWeapon(spec.id)!; templates.push(model); return model;
     })); weapons.forEach((w, i) => { undress.push(dressWeapon(w, specs[i])); handling.push(createWeaponHandling(w, i)); rig.add(w); w.visible = i === hud.weapon; });
@@ -4134,7 +4205,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       hud.message = 'Weapon loadout queued for your next respawn.'; publish(); return true;
     },
     openProxyMenu, chooseProxyAction, closeProxyMenu,
-    setRangeDrill, endDrill, resupplyRange,
+    setRangeDrill, endDrill, resupplyRange, takeRangeWeapon,
+    /** For smokes: where the bay stands and what is on it. */
+    rangeArmoryState: () => rangeArmory && { plot: rangeArmory.plot, focused: focusedRack?.id ?? null, carried: [...carriedVariants(equipment)], items: rangeArmory.entries.map(({ id, x, y, z }) => ({ id, x, y, z })) },
     skipDeathScene,
     chooseRespawn: (zone: string) => { const accepted = arenaRuntime?.chooseRespawn(zone) ?? false; publish(); return accepted; },
     setAutoRespawn: (automatic: boolean) => { arenaRuntime?.setAutoRespawn(automatic); publish(); },
@@ -4184,7 +4257,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); gunshotSpaces.clear(); emptyFireAudio.dispose(); impactAudio.dispose(); bulletFlybys.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       disposeCombatOutput(audio);
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
-      rangeStation?.dispose();
+      rangeStation?.dispose(); rangeArmory?.dispose();
       scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); grenadeHands.dispose(); grenadeVisuals.dispose(); sunShadows.dispose(); occlusion.dispose();
       renderer.setRenderTarget(null); renderer.renderLists.dispose();
       if (!options.surface) fpsSurface.dispose();
