@@ -45,10 +45,10 @@ describe('vehicle movement and transitions', () => {
     const exit = vehicleExit(v, [])!; expect(canOccupy(exit.x, exit.z, .38, [vehicleBounds(v)])).toBe(true);
     expect(vehicleExit(v, [{ minX: -100, maxX: 100, minZ: -100, maxZ: 100 }])).toBeNull();
   });
-  it('purchases one cosmetic wrap and equips it independently for each vehicle', () => {
+  it('rents one cosmetic wrap and equips it independently for each vehicle', () => {
     const base = { ...createProfile(), xp: 800 }, unlocked = purchase(base, 'paint-jungle').profile;
     const car = equip(unlocked, 'paint-jungle', 0, 'car'); expect(car.vehicleSkins).toEqual({ car: 'paint-jungle', helicopter: 'paint-issued' });
-    const both = equip(car, 'paint-jungle', 0, 'helicopter'); expect(both.credits).toBe(950); expect(restoreProfile(JSON.stringify(both))).toEqual(both);
+    const both = equip(car, 'paint-jungle', 0, 'helicopter'); expect(both.credits).toBe(1535); expect(restoreProfile(JSON.stringify(both))).toEqual(both);
     expect(resolveLoadout(both).weapons[0].damage).toBe(resolveLoadout(base).weapons[0].damage);
     expect(restoreProfile(JSON.stringify({ ...base, vehicleSkins: { car: 'paint-arctic' } })).vehicleSkins.car).toBe('paint-issued');
   });

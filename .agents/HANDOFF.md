@@ -6540,3 +6540,12 @@ following a jump to within a millimetre. dragon-boats-smoke passes. Not exercise
 two-browser LAN guest, or touch input beyond the same engine calls. Nothing in game says
 why the edge stops you, so a hint is a possible follow-up. Bots and cars can still clip
 the rail visually, since it does not block them.
+
+## 2026-11-04: test suite green for automatic deploys
+The deploy workflow had failed at `pnpm test` on every run since b9ab5a7 (2026-10-31),
+so only manual deploys reached the site. Two tests were stale after 17570b9 made paid
+equipment rentals (RespawnLoadoutSelector text, vehicle wrap credits); the game was right
+and only the tests changed. The rest were slow world tests timing out at vitest's 5 s
+default, and which ones varied by run, so `pnpm test` now passes --testTimeout=60000.
+Bare `pnpm vitest` still uses 5 s. Local: 3076/3076, typecheck and `pnpm build` pass;
+`pnpm build:cloudflare` was left to CI.

@@ -8,7 +8,7 @@ it('offers the locker on a dedicated screen and distinguishes next life from cur
   const html = renderToStaticMarkup(<RespawnLoadoutSelector inventory={p} selected={p} onSave={async () => true} onClose={() => {}} />);
   expect(html).toContain('Choose your next loadout'); expect(html).toContain('Your current life keeps its gear');
   expect(html).toContain('Main weapon platform'); expect(html).toContain('Sidearm variant');
-  expect(html).toContain('Unlock the extra main slot'); expect(html).not.toContain('data-loadout-variant="sar-vanguard"');
+  expect(html).toContain('Rent the extra main slot'); expect(html).not.toContain('data-loadout-variant="sar-vanguard"');
   expect(html).toContain('Use on next respawn'); expect(html).toContain('aria-modal="true"');
 });
 
