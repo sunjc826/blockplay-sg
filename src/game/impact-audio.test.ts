@@ -5,6 +5,9 @@ import { sfxUrls } from './sfx-bank';
 import { gunshotTone } from './gunshot-audio';
 import { impactProfile } from './fps-impact-profile';
 
+// These fakes count every node a sound makes; the shared output outlives the sound.
+vi.mock('../lib/effects-volume', () => ({ effectsOutput: (context: BaseAudioContext) => context.destination }));
+
 function makeNode() {
   const n = { buffer: null as unknown, gain: { value: 0 }, pan: { value: 0 }, frequency: { value: 0 }, Q: { value: 0 }, playbackRate: { value: 1 }, type: '',
     onended: null as (() => void) | null, connect: vi.fn(), disconnect: vi.fn(), start: vi.fn(), stop: vi.fn() };

@@ -1,3 +1,4 @@
+import { effectsOutput } from '../lib/effects-volume';
 import { SPEED_OF_SOUND } from './ambient-sky';
 
 /**
@@ -30,7 +31,7 @@ export function createAmbientSkyAudio(getContext: () => AudioContext | null, mut
     gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(level, at + attack); gain.gain.exponentialRampToValueAtTime(.0001, at + attack + decay);
     panner.pan.value = Math.max(-1, Math.min(1, pan));
     // Start somewhere random in the buffer so repeats do not sound identical.
-    source.connect(filter).connect(gain).connect(panner).connect(context.destination); source.start(at, Math.random() * 2); source.stop(at + attack + decay + .05);
+    source.connect(filter).connect(gain).connect(panner).connect(effectsOutput(context)); source.start(at, Math.random() * 2); source.stop(at + attack + decay + .05);
     source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); panner.disconnect(); };
   }
   return {
@@ -54,7 +55,7 @@ export function createAmbientSkyAudio(getContext: () => AudioContext | null, mut
       // Wingbeats: a square wave a little under 15 Hz swings the level, slowing as they get away.
       beat.type = 'square'; beat.frequency.setValueAtTime(15, at); beat.frequency.linearRampToValueAtTime(9, at + 1.1); depth.gain.value = level * .8;
       beat.connect(depth).connect(gain.gain); panner.pan.value = Math.max(-1, Math.min(1, pan * .7));
-      source.connect(filter).connect(gain).connect(panner).connect(context.destination);
+      source.connect(filter).connect(gain).connect(panner).connect(effectsOutput(context));
       source.start(at, Math.random() * 2); source.stop(at + 1.15); beat.start(at); beat.stop(at + 1.15);
       source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); beat.disconnect(); depth.disconnect(); panner.disconnect(); };
     },
@@ -65,7 +66,7 @@ export function createAmbientSkyAudio(getContext: () => AudioContext | null, mut
         const at = context.currentTime + farDelay(distance) + i * .32, tone = context.createOscillator(), gain = context.createGain(), panner = context.createStereoPanner();
         tone.type = 'sine'; tone.frequency.value = pitch; panner.pan.value = Math.max(-1, Math.min(1, pan * .6));
         gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(level, at + .02); gain.gain.exponentialRampToValueAtTime(.0001, at + .55);
-        tone.connect(gain).connect(panner).connect(context.destination); tone.start(at); tone.stop(at + .6);
+        tone.connect(gain).connect(panner).connect(effectsOutput(context)); tone.start(at); tone.stop(at + .6);
         tone.onended = () => { tone.disconnect(); gain.disconnect(); panner.disconnect(); };
       });
     },
@@ -80,7 +81,7 @@ export function createAmbientSkyAudio(getContext: () => AudioContext | null, mut
         const at = context.currentTime + farDelay(distance) + offset, filter = context.createBiquadFilter(), gain = context.createGain(), panner = context.createStereoPanner();
         filter.type = 'lowpass'; filter.frequency.value = train ? 1600 : 650; panner.pan.value = Math.max(-1, Math.min(1, pan * .6));
         gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(level, at + .08); gain.gain.setValueAtTime(level, at + length - .15); gain.gain.exponentialRampToValueAtTime(.0001, at + length);
-        filter.connect(gain).connect(panner).connect(context.destination);
+        filter.connect(gain).connect(panner).connect(effectsOutput(context));
         const tones = pitches.map(pitch => { const tone = context.createOscillator(); tone.type = 'sawtooth'; tone.frequency.value = pitch; tone.connect(filter); tone.start(at); tone.stop(at + length + .05); return tone; });
         tones[0].onended = () => { tones.forEach(t => t.disconnect()); filter.disconnect(); gain.disconnect(); panner.disconnect(); };
       }
@@ -93,7 +94,7 @@ export function createAmbientSkyAudio(getContext: () => AudioContext | null, mut
       filter.frequency.setValueAtTime(300, at); filter.frequency.linearRampToValueAtTime(900, at + seconds / 2); filter.frequency.linearRampToValueAtTime(250, at + seconds);
       gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(level, at + seconds / 2); gain.gain.exponentialRampToValueAtTime(.0001, at + seconds);
       panner.pan.value = Math.max(-1, Math.min(1, pan * .6));
-      source.connect(filter).connect(gain).connect(panner).connect(context.destination); source.start(at); source.stop(at + seconds + .05);
+      source.connect(filter).connect(gain).connect(panner).connect(effectsOutput(context)); source.start(at); source.stop(at + seconds + .05);
       source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); panner.disconnect(); };
     },
     /** A rocket leaving its rail: a rising roar that tails off. */

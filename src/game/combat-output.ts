@@ -1,3 +1,4 @@
+import { effectsOutput } from '../lib/effects-volume';
 /** One final combat mix per context. Room reflections, gunfire and impacts can
  * coincide; a shared limiter preserves their balance instead of clipping at
  * the speakers. Quiet signals remain linear through the soft ceiling. */
@@ -13,7 +14,7 @@ export function combatOutput(context: BaseAudioContext): AudioNode {
     curve[i] = Math.sign(x) * (a <= .78 ? a : .78 + .18 * (1 - Math.exp(-(a - .78) / .18)));
   }
   ceiling.curve = curve; ceiling.oversample = '2x';
-  input.connect(compressor).connect(ceiling).connect(context.destination);
+  input.connect(compressor).connect(ceiling).connect(effectsOutput(context));
   outputs.set(context, { input, nodes: [input, compressor, ceiling] }); return input;
 }
 export function disposeCombatOutput(context: BaseAudioContext | null) {

@@ -1,3 +1,4 @@
+import { effectsOutput } from '../lib/effects-volume';
 import type { WeaponSpec } from './fps-rules';
 import type { SfxBank, SfxGroup } from './sfx-bank';
 
@@ -141,7 +142,7 @@ export function createReloadAudio(getContext: () => AudioContext | null, muted: 
       }
       const source = context.createBufferSource(), gain = context.createGain();
       source.buffer = buffer; source.playbackRate.value = 1; gain.gain.value = material.level;
-      source.connect(gain).connect(context.destination);
+      source.connect(gain).connect(effectsOutput(context));
       const release = () => { active.delete(stop); source.onended = null; source.disconnect(); gain.disconnect(); };
       const stop = () => { source.stop(); release(); };
       active.add(stop);

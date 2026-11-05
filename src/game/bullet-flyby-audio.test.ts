@@ -5,6 +5,9 @@ import { sfxUrls } from './sfx-bank';
 import { impactProfile } from './fps-impact-profile';
 import manifest from '../audio/sfx/manifest.json';
 
+// These fakes count every node a sound makes; the shared output outlives the sound.
+vi.mock('../lib/effects-volume', () => ({ effectsOutput: (context: BaseAudioContext) => context.destination }));
+
 const ear = { x: 0, y: 1.75, z: 0 };
 const start = (x = 1) => ({ x, y: 1.75, z: -10 });
 const end = (x = 1) => ({ x, y: 1.75, z: 10 });

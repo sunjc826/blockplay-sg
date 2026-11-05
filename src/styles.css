@@ -165,9 +165,9 @@
 .armory-settings-group { padding:18px; border:1px solid #ffffff18; border-radius:10px; background:#131c1d; }
 .armory-settings-group>h2 { margin:0; font:700 16px 'Manrope',sans-serif; letter-spacing:-.3px; color:#f2f0e4; }
 .armory-settings-group>p { margin:4px 0 14px; font-size:12px; color:#9aa9a4; }
-.armory-music label { display:flex; align-items:center; gap:12px; font-size:13px; color:#f2f0e4; }
-.armory-music input { flex:1; min-width:0; accent-color:#ee794b; }
-.armory-music output { min-width:36px; text-align:right; font-variant-numeric:tabular-nums; color:#9aa9a4; }
+.armory-volume { display:flex; align-items:center; gap:12px; font-size:13px; color:#f2f0e4; }
+.armory-volume input { flex:1; min-width:0; accent-color:#ee794b; }
+.armory-volume output { min-width:36px; text-align:right; font-variant-numeric:tabular-nums; color:#9aa9a4; }
 .armory-settings [role=group] { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; }
 .armory-settings button { display:flex; align-items:center; gap:10px; min-height:52px; text-align:left; font:inherit; cursor:pointer; background:none; border:1px solid #ffffff1c; border-radius:6px; color:#a9b5a9; padding:8px 12px 8px 10px; }
 .armory-settings button:hover { background:#ffffff08; }

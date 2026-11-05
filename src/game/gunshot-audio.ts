@@ -1,3 +1,4 @@
+import { effectsOutput } from '../lib/effects-volume';
 import { distanceGain, soundDelay } from './combat-event-audio';
 import type { SfxBank, SfxGroup } from './sfx-bank';
 import { muzzleSignature, type MuzzleDevice } from './weapon-accessories';
@@ -82,7 +83,7 @@ export function gunshotTone(calibre: number, power: number, distance = 0, own = 
 }
 
 /** The bus every shot plays into: soft saturation for weight, then a compressor so bursts don't clip. */
-export function createGunBus(context: BaseAudioContext, destination: AudioNode = context.destination) {
+export function createGunBus(context: BaseAudioContext, destination: AudioNode = effectsOutput(context)) {
   const input = context.createGain(), shaper = context.createWaveShaper(), compressor = context.createDynamicsCompressor(), output = context.createGain();
   const curve = new Float32Array(1024);
   for (let i = 0; i < curve.length; i++) { const x = i / (curve.length - 1) * 2 - 1; curve[i] = Math.tanh(1.25 * x) / Math.tanh(1.25); }

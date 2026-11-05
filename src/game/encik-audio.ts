@@ -1,3 +1,4 @@
+import { effectsOutput } from '../lib/effects-volume';
 /** One interruptible radio channel with a small decoded-audio cache. */
 export function createEncikAudio(getContext: () => AudioContext | null, fetcher: typeof fetch = fetch) {
   const cache = new Map<string, AudioBuffer>();
@@ -32,7 +33,7 @@ export function createEncikAudio(getContext: () => AudioContext | null, fetcher:
         if (cache.size > 8) cache.delete(cache.keys().next().value!);
         const source = context.createBufferSource(), gain = context.createGain();
         source.buffer = buffer; gain.gain.value = .7;
-        source.connect(gain).connect(context.destination);
+        source.connect(gain).connect(effectsOutput(context));
         active = { source, gain };
         source.onended = () => {
           source.disconnect(); gain.disconnect();

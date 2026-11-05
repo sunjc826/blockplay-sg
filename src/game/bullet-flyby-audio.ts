@@ -1,3 +1,4 @@
+import { effectsOutput } from '../lib/effects-volume';
 import { BALLISTIC_SCALE, type BallisticPoint } from './fps-ballistics';
 import { SPEED_OF_SOUND, soundDelay } from './combat-event-audio';
 import type { SfxBank } from './sfx-bank';
@@ -67,7 +68,7 @@ export function createBulletFlybyAudio(getContext: () => AudioContext | null, mu
         filter.type = 'lowpass'; filter.frequency.value = echo ? Math.min(2000, pass.cutoff) : pass.cutoff; filter.Q.value = .5;
         gain.gain.value = pass.level * (echo ? .08 : 1);
         panner.pan.value = Number.isFinite(pan) ? Math.max(-1, Math.min(1, pan)) : 0;
-        source.connect(filter).connect(gain).connect(panner).connect(destination?.(context) ?? context.destination);
+        source.connect(filter).connect(gain).connect(panner).connect(destination?.(context) ?? effectsOutput(context));
         nodes.push(source, filter, gain, panner); sources.push(source);
         const after = echo ? .035 : 0;
         source.start(at + after); ends.push({ source, after: after + buffer.duration });
@@ -78,7 +79,7 @@ export function createBulletFlybyAudio(getContext: () => AudioContext | null, mu
         source.buffer = air; highpass.type = 'highpass'; highpass.frequency.value = 1200; highpass.Q.value = .5;
         lowpass.type = 'lowpass'; lowpass.frequency.value = pass.cutoff; lowpass.Q.value = .5;
         gain.gain.value = pass.level * .1; panner.pan.value = Number.isFinite(pan) ? Math.max(-1, Math.min(1, pan)) : 0;
-        source.connect(highpass).connect(lowpass).connect(gain).connect(panner).connect(destination?.(context) ?? context.destination);
+        source.connect(highpass).connect(lowpass).connect(gain).connect(panner).connect(destination?.(context) ?? effectsOutput(context));
         nodes.push(source, highpass, lowpass, gain, panner); sources.push(source);
         source.start(at + .003); ends.push({ source, after: .003 + air.duration });
       }

@@ -1,3 +1,4 @@
+import { effectsOutput } from '../lib/effects-volume';
 import { soundDelay } from './combat-event-audio';
 import type { SurfaceKind } from './fps-surfaces';
 import type { SfxBank, SfxGroup } from './sfx-bank';
@@ -82,7 +83,7 @@ export function createImpactAudio(getContext: () => AudioContext | null, muted: 
       source.buffer = buffer; source.playbackRate.value = tone.rate * (.96 + Math.random() * .08);
       filter.type = 'lowpass'; filter.frequency.value = tone.cutoff; filter.Q.value = .5;
       gain.gain.value = tone.level; panner.pan.value = Number.isFinite(pan) ? Math.max(-1, Math.min(1, pan)) : 0;
-      source.connect(filter).connect(gain).connect(panner).connect(destination?.(context) ?? context.destination);
+      source.connect(filter).connect(gain).connect(panner).connect(destination?.(context) ?? effectsOutput(context));
       const release = () => { active.delete(stop); source.onended = null; [source, filter, gain, panner].forEach(node => node.disconnect()); };
       const stop = () => { source.stop(); release(); };
       active.add(stop); source.onended = release;

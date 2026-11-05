@@ -1,3 +1,4 @@
+import { effectsOutput } from '../lib/effects-volume';
 /**
  * Combat event sound, synthesised in the engine's own AudioContext: no files
  * to load. Far blasts are heard after they are seen, and everything fades
@@ -26,7 +27,7 @@ export function createCombatAudio(getContext: () => AudioContext | null, muted: 
     gain.gain.value = 0;
     if (name === 'jet') {
       const source = context.createBufferSource(); source.buffer = noiseBuffer(context); source.loop = true;
-      filter.type = 'lowpass'; filter.frequency.value = 700; source.connect(filter).connect(gain).connect(context.destination); source.start();
+      filter.type = 'lowpass'; filter.frequency.value = 700; source.connect(filter).connect(gain).connect(effectsOutput(context)); source.start();
       entry = { source, filter, gain, extra };
     } else {
       const tone = context.createOscillator();
@@ -39,7 +40,7 @@ export function createCombatAudio(getContext: () => AudioContext | null, muted: 
         wobble.frequency.value = .22; depth.gain.value = 200; tone.frequency.value = 650;
         wobble.connect(depth).connect(tone.frequency); wobble.start(); extra.push(wobble, depth);
       }
-      tone.connect(filter).connect(gain).connect(context.destination); tone.start();
+      tone.connect(filter).connect(gain).connect(effectsOutput(context)); tone.start();
       entry = { source: tone, tone, filter, gain, extra };
     }
     loops.set(name, entry);
@@ -61,7 +62,7 @@ export function createCombatAudio(getContext: () => AudioContext | null, muted: 
       const tone = context.createOscillator(), gain = context.createGain(), at = context.currentTime;
       tone.type = 'sine'; tone.frequency.setValueAtTime(1500, at); tone.frequency.exponentialRampToValueAtTime(420, at + lead);
       gain.gain.setValueAtTime(.0001, at); gain.gain.exponentialRampToValueAtTime(level, at + lead * .85); gain.gain.exponentialRampToValueAtTime(.0001, at + lead);
-      tone.connect(gain).connect(context.destination); tone.start(at); tone.stop(at + lead + .02); disconnectAfter(tone, gain);
+      tone.connect(gain).connect(effectsOutput(context)); tone.start(at); tone.stop(at + lead + .02); disconnectAfter(tone, gain);
     },
     /** A blast `distance` away: a low thump with a crack on top when close. */
     boom(distance: number, size = 1) {
@@ -71,7 +72,7 @@ export function createCombatAudio(getContext: () => AudioContext | null, muted: 
       // Distance takes the top off a blast first.
       filter.frequency.setValueAtTime(Math.max(160, 1400 - distance * 6), at); filter.frequency.exponentialRampToValueAtTime(70, at + 1.6);
       gain.gain.setValueAtTime(level, at); gain.gain.exponentialRampToValueAtTime(.0001, at + 2.2);
-      source.connect(filter).connect(gain).connect(context.destination); source.start(at); source.stop(at + 2.3); disconnectAfter(source, filter, gain);
+      source.connect(filter).connect(gain).connect(effectsOutput(context)); source.start(at); source.stop(at + 2.3); disconnectAfter(source, filter, gain);
     },
     /** Two short tones when a hazard is announced. */
     alert() {
@@ -80,7 +81,7 @@ export function createCombatAudio(getContext: () => AudioContext | null, muted: 
         const tone = context.createOscillator(), gain = context.createGain(), at = context.currentTime + offset;
         tone.type = 'square'; tone.frequency.value = i ? 660 : 880;
         gain.gain.setValueAtTime(.05, at); gain.gain.exponentialRampToValueAtTime(.0005, at + .18);
-        tone.connect(gain).connect(context.destination); tone.start(at); tone.stop(at + .2); disconnectAfter(tone, gain);
+        tone.connect(gain).connect(effectsOutput(context)); tone.start(at); tone.stop(at + .2); disconnectAfter(tone, gain);
       });
     },
     /** The nearest transport's engine or rotor; `distance` Infinity silences it. */
@@ -113,7 +114,7 @@ export function createCombatAudio(getContext: () => AudioContext | null, muted: 
       const at = context.currentTime + soundDelay(distance), tone = context.createOscillator(), gain = context.createGain();
       tone.type = 'sine'; tone.frequency.setValueAtTime(120, at); tone.frequency.exponentialRampToValueAtTime(45, at + .25);
       gain.gain.setValueAtTime(level, at); gain.gain.exponentialRampToValueAtTime(.0001, at + .32);
-      tone.connect(gain).connect(context.destination); tone.start(at); tone.stop(at + .34); disconnectAfter(tone, gain);
+      tone.connect(gain).connect(effectsOutput(context)); tone.start(at); tone.stop(at + .34); disconnectAfter(tone, gain);
     },
     /** One short high tone: a drone has locked on to you. */
     beep() {
@@ -121,7 +122,7 @@ export function createCombatAudio(getContext: () => AudioContext | null, muted: 
       const tone = context.createOscillator(), gain = context.createGain(), at = context.currentTime;
       tone.type = 'square'; tone.frequency.value = 1450;
       gain.gain.setValueAtTime(.035, at); gain.gain.exponentialRampToValueAtTime(.0005, at + .07);
-      tone.connect(gain).connect(context.destination); tone.start(at); tone.stop(at + .08); disconnectAfter(tone, gain);
+      tone.connect(gain).connect(effectsOutput(context)); tone.start(at); tone.stop(at + .08); disconnectAfter(tone, gain);
     },
     dispose() {
       for (const sound of loops.values()) {

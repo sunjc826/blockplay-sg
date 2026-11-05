@@ -2,12 +2,14 @@ import type { FocusEvent, MouseEvent, PointerEvent } from 'react';
 import type { ArmoryStore } from '../game/use-armory';
 import menu from '../audio/menu/manifest.json';
 import manifest from '../audio/store/manifest.json';
+import { getEffectsVolume } from './effects-volume';
 import { storeEquipSound } from './store-equip-sound';
 
 export type StoreSound = 'hover' | 'select' | keyof typeof manifest.clips;
 let tracks: Record<StoreSound, HTMLAudioElement> | null = null;
 let foreground: HTMLAudioElement | null = null;
 let lastHover = -Infinity;
+const levels = new Map<HTMLAudioElement, number>();
 
 /** Only mounted stores preload these clips; navigation reuses the approved glass pair. */
 export function prepareStoreAudio() {
@@ -15,6 +17,7 @@ export function prepareStoreAudio() {
   const make = (directory: string, file: string, volume: number) => {
     const audio = new Audio(`${import.meta.env.BASE_URL}audio/${directory}/${file}`);
     audio.preload = 'auto'; audio.volume = volume; audio.load();
+    levels.set(audio, volume);
     return audio;
   };
   tracks = {
@@ -33,7 +36,9 @@ export function stopStoreAudio() {
 
 /** One voice at a time. Missing/blocked audio never holds up the store action. */
 export function playStoreSound(sound: StoreSound) {
-  if (document.hidden) return;
+  const volume = getEffectsVolume();
+  // Checked here as well as set below, as iOS Safari ignores an element's volume.
+  if (document.hidden || volume === 0) return;
   prepareStoreAudio();
   if (!tracks) return;
   const audio = tracks[sound], now = performance.now();
@@ -43,6 +48,7 @@ export function playStoreSound(sound: StoreSound) {
   stopStoreAudio();
   if (sound !== 'hover') foreground = audio;
   audio.currentTime = 0;
+  audio.volume = (levels.get(audio) ?? 1) * volume;
   void audio.play().catch(() => {});
 }
 

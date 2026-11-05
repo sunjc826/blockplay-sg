@@ -1,8 +1,10 @@
 import manifest from '../audio/menu/manifest.json';
+import { getEffectsVolume } from './effects-volume';
 
 type MenuSound = 'hover' | 'click';
 let tracks: Record<MenuSound, HTMLAudioElement> | null = null;
 let lastHover = -Infinity;
+const LEVEL = .65;
 
 /** Two small recordings shared across menu visits; no game engine or API calls. */
 export function prepareMenuAudio() {
@@ -10,7 +12,7 @@ export function prepareMenuAudio() {
   const make = (sound: MenuSound) => {
     const audio = new Audio(`${import.meta.env.BASE_URL}audio/menu/${manifest.clips[sound].file}`);
     audio.preload = 'auto';
-    audio.volume = .65;
+    audio.volume = LEVEL;
     audio.load();
     return audio;
   };
@@ -19,7 +21,9 @@ export function prepareMenuAudio() {
 
 /** Never queue an unloaded hover or stack ticks when the pointer crosses items quickly. */
 export function playMenuSound(sound: MenuSound) {
-  if (document.hidden) return;
+  const volume = getEffectsVolume();
+  // Checked here as well as set below, as iOS Safari ignores an element's volume.
+  if (document.hidden || volume === 0) return;
   prepareMenuAudio();
   if (!tracks) return;
   const now = performance.now();
@@ -29,6 +33,7 @@ export function playMenuSound(sound: MenuSound) {
   const audio = tracks[sound];
   audio.pause();
   audio.currentTime = 0;
+  audio.volume = LEVEL * volume;
   // Browsers can require a click or keypress before the first hover is audible.
   // A blocked attempt stays silent; navigation never waits for audio permission.
   void audio.play().catch(() => {});

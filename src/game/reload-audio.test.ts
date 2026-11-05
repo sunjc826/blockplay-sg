@@ -6,6 +6,9 @@ import manifest from '../audio/reload/manifest.json';
 import { ARMORY_CATALOG, itemById } from './armory-catalog';
 import { createProfile, resolveLoadout, variantSpec } from './armory-state';
 
+// These fakes count every node a sound makes; the shared output outlives the sound.
+vi.mock('../lib/effects-volume', () => ({ effectsOutput: (context: BaseAudioContext) => context.destination }));
+
 const stages = ['MAG OUT', 'MAG IN', 'SEAT MAG', 'BOLT BACK', 'CHAMBER'] as const;
 function fixture(loaded = true) {
   const sources: { buffer: AudioBuffer | null; playbackRate: { value: number }; start: ReturnType<typeof vi.fn>; stop: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn>; onended: (() => void) | null }[] = [];

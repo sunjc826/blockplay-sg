@@ -1,3 +1,4 @@
+import { effectsOutput } from '../lib/effects-volume';
 import { roundReady, type WeaponSpec, type WeaponState } from './fps-rules';
 import { reloadSample } from './reload-audio';
 import type { SfxBank, SfxGroup } from './sfx-bank';
@@ -24,7 +25,7 @@ export function createEmptyFireAudio(getContext: () => AudioContext | null, mute
       clear();
       const source = context.createBufferSource(), gain = context.createGain();
       source.buffer = buffer; source.playbackRate.value = 1; gain.gain.value = .65;
-      source.connect(gain).connect(context.destination);
+      source.connect(gain).connect(effectsOutput(context));
       const release = () => { stop = null; source.onended = null; source.disconnect(); gain.disconnect(); };
       stop = () => { source.stop(); release(); };
       source.onended = release;

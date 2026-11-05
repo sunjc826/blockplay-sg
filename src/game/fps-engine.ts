@@ -1,3 +1,4 @@
+import { effectsOutput } from '../lib/effects-volume';
 import { needsAmmoRefill, refillAmmo } from './ammo-refill';
 import { createScopeZoom, createScopeZoomWheel, scopeZoomLookScale, type ScopeZoom } from './scope-zoom';
 import { getBuildingLifts, liftBodies, insideLift, liftDeparture, liftPassenger, liftSample } from './building-lifts';
@@ -851,7 +852,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     try {
       if (!audio) {
         audio = new AudioContext();
-        motor = audio.createOscillator(); motor.type = 'triangle'; motorGain = audio.createGain(); motorGain.gain.value = 0; motor.connect(motorGain).connect(audio.destination); motor.start();
+        motor = audio.createOscillator(); motor.type = 'triangle'; motorGain = audio.createGain(); motorGain.gain.value = 0; motor.connect(motorGain).connect(effectsOutput(audio)); motor.start();
         soundBuffer = audio.createBuffer(1, Math.floor(audio.sampleRate * 0.07), audio.sampleRate);
         const samples = soundBuffer.getChannelData(0);
         for (let i = 0; i < samples.length; i++) samples[i] = (Math.random() * 2 - 1) * Math.exp(-i / (samples.length * 0.16));
@@ -892,7 +893,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     source.buffer = soundBuffer; source.playbackRate.value = style === 'eat' ? .45 : style === 'bandage' ? 1.8 : style === 'plates' ? .7 : 1.1;
     filter.type = style === 'eat' ? 'lowpass' : 'bandpass'; filter.frequency.value = style === 'eat' ? 700 : style === 'bandage' ? 3200 : 1400; filter.Q.value = .8;
     gain.gain.value = style === 'plates' ? .14 : .08;
-    source.connect(filter).connect(gain).connect(audio.destination); source.start();
+    source.connect(filter).connect(gain).connect(effectsOutput(audio)); source.start();
     source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
   }
   /** One recorded take straight to the speakers, a hair off pitch and level so repeats don't sound looped. Null when none has loaded. */
@@ -901,7 +902,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const source = audio.createBufferSource(), filter = audio.createBiquadFilter(), gain = audio.createGain(), panner = audio.createStereoPanner();
     source.buffer = take; source.playbackRate.value = (options.rate ?? 1) * (.95 + Math.random() * .1);
     filter.type = 'lowpass'; filter.frequency.value = options.cutoff ?? 16000; gain.gain.value = level * (.88 + Math.random() * .24); panner.pan.value = options.pan ?? 0;
-    source.connect(filter).connect(gain).connect(panner).connect(audio.destination); source.start();
+    source.connect(filter).connect(gain).connect(panner).connect(effectsOutput(audio)); source.start();
     source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); panner.disconnect(); };
     return true;
   }
@@ -919,13 +920,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const context = audio, source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain();
     source.buffer = soundBuffer; source.playbackRate.value = step === 'palette' ? 2.4 : 1.9;
     filter.type = 'highpass'; filter.frequency.value = 2400; gain.gain.value = step === 'off' ? .05 : .07;
-    source.connect(filter).connect(gain).connect(context.destination); source.start();
+    source.connect(filter).connect(gain).connect(effectsOutput(context)); source.start();
     source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
     if (step !== 'on' || kind !== 'nvg') return;
     const whine = context.createOscillator(), level = context.createGain(), at = context.currentTime;
     whine.type = 'sine'; whine.frequency.setValueAtTime(5200, at); whine.frequency.exponentialRampToValueAtTime(11500, at + .9);
     level.gain.setValueAtTime(.0001, at); level.gain.exponentialRampToValueAtTime(.012, at + .25); level.gain.exponentialRampToValueAtTime(.0001, at + 1.4);
-    whine.connect(level).connect(context.destination); whine.start(at); whine.stop(at + 1.45);
+    whine.connect(level).connect(effectsOutput(context)); whine.start(at); whine.stop(at + 1.45);
     whine.onended = () => { whine.disconnect(); level.disconnect(); };
   }
   let stepSide = 1;
@@ -938,7 +939,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     source.buffer = soundBuffer; source.playbackRate.value = landing ? .32 : .5;
     filter.type = 'lowpass'; filter.frequency.value = landing ? 240 : 420;
     gain.gain.value = strength * (landing ? .28 : .17);
-    source.connect(filter).connect(gain).connect(audio.destination); source.start();
+    source.connect(filter).connect(gain).connect(effectsOutput(audio)); source.start();
     source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
   }
   const encikAudio = createEncikAudio(() => audio);
@@ -961,7 +962,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const tone = context.createOscillator(), gain = context.createGain(); tone.type = 'triangle';
       tone.frequency.value = 330 + count * 35 + i * 110;
       gain.gain.setValueAtTime(.075, context.currentTime + offset); gain.gain.exponentialRampToValueAtTime(.001, context.currentTime + offset + .20);
-      tone.connect(gain).connect(context.destination); tone.start(context.currentTime + offset); tone.stop(context.currentTime + offset + .22);
+      tone.connect(gain).connect(effectsOutput(context)); tone.start(context.currentTime + offset); tone.stop(context.currentTime + offset + .22);
       tone.onended = () => { tone.disconnect(); gain.disconnect(); };
     });
   }
@@ -3029,7 +3030,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         };
         if (audio && soundBuffer && !hud.muted && audio.state === 'running') {
           const sound = audio.createBufferSource(), gain = audio.createGain(); sound.buffer = soundBuffer;
-          sound.playbackRate.value = .16; gain.gain.value = .55; sound.connect(gain).connect(audio.destination); sound.start();
+          sound.playbackRate.value = .16; gain.gain.value = .55; sound.connect(gain).connect(effectsOutput(audio)); sound.start();
           sound.onended = () => { sound.disconnect(); gain.disconnect(); };
         }
         // Destruction is lethal to the crew, including while airborne.
