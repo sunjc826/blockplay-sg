@@ -10,6 +10,7 @@
     "profile:navigation": "node scripts/profile-navigation.mjs",
     "test:navigation:browser": "node scripts/navigation-bake-smoke.mjs",
     "analyse:battlefield": "node scripts/battlefield-benchmark.mjs",
+    "test:fps:slide": "node scripts/fps-slide-smoke.mjs",
     "test:fps:battlefield": "node scripts/fps-battlefield-smoke.mjs",
     "test:fps:districts": "node scripts/fps-district-smoke.mjs",
     "test:fps:voice": "node scripts/encik-playback-smoke.mjs",

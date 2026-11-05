@@ -43,6 +43,40 @@ export function lowHealthPulse(health: number, maxHealth: number) {
   return { beat: critical ? .68 : 1.02, level: critical ? 1 : .6, breath: critical ? 3.1 : null };
 }
 
+/** Grit under a slide: filtered noise, brightest on hard ground, fading with the speed. Nothing runs between slides. */
+const SCRAPE_PITCH: Partial<Record<SurfaceKind, number>> = { metal: 3100, glass: 2800, wood: 1800, dirt: 950, foliage: 850 };
+export const SLIDE_SCRAPE_LEVEL = .075;
+export function createSlideScrape(getContext: () => AudioContext | null, muted: () => boolean) {
+  let voice: { context: AudioContext; source: AudioBufferSourceNode; filter: BiquadFilterNode; gain: GainNode } | null = null;
+  const release = (fade: number) => {
+    if (!voice) return;
+    const { context, source, filter, gain } = voice; voice = null;
+    gain.gain.setTargetAtTime(0, context.currentTime, fade);
+    source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
+    source.stop(context.currentTime + fade * 5);
+  };
+  return {
+    /** `share` is how much of the slide's speed is left; 0 is no slide. */
+    update(share: number, surface: SurfaceKind) {
+      const context = getContext(); if (!context) return;
+      if (voice && voice.context !== context) release(.01);
+      if (share <= 0 || muted() || context.state !== 'running') { release(.07); return; }
+      if (!voice) {
+        const noise = context.createBuffer(1, context.sampleRate, context.sampleRate), data = noise.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+        const source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain();
+        source.buffer = noise; source.loop = true;
+        filter.type = 'bandpass'; filter.Q.value = .7; filter.frequency.value = SCRAPE_PITCH[surface] ?? 1500;
+        gain.gain.value = 0;
+        source.connect(filter).connect(gain).connect(effectsOutput(context)); source.start();
+        voice = { context, source, filter, gain };
+      }
+      voice.gain.gain.setTargetAtTime(SLIDE_SCRAPE_LEVEL * Math.min(1, share), context.currentTime, .025);
+    },
+    dispose() { release(.01); },
+  };
+}
+
 /** Falling this fast and then not: slower than that is rolling, not a bounce you would hear. */
 const BOUNCE_SPEED = 1.5;
 /**

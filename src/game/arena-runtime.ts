@@ -1,3 +1,4 @@
+import { looksLikeSlide } from './fps-slide';
 import { getBuildingLifts } from './building-lifts';
 import { validMerlionState, validMerlionAction, type MerlionAction } from './merlion-gameplay';
 import { SWIMMING } from './swimming';
@@ -628,7 +629,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     rig.update(dt, {
       velocity: actor.transport || actor.vehicle ? { x: 0, z: 0 } : local, turn: actor.transport || actor.vehicle ? 0 : turnStep / Math.max(dt, 1e-3), pitch: actor.pitch,
       swimming:actor.swimming && !(actor.weapon===2 && speed<.12),
-      crouch, prone: !!actor.prone, seated, driving: seated && (actor.seat === 0 || !!actor.transport && !rifleSeat(actor.aircrew)), airborne,
+      crouch, prone: !!actor.prone, slide: !actor.bot && !seated && looksLikeSlide(crouch, speed) ? 1 : 0, seated, driving: seated && (actor.seat === 0 || !!actor.transport && !rifleSeat(actor.aircrew)), airborne,
       aim: actor.healing !== undefined ? 0 : avatar.fireTimer > 0 || speed < 1.2 || actor.prone ? 1 : .15,
       ...(actor.healing !== undefined ? { healing: actor.healing } : {}),
       bailoutAge: actor.bailoutAt === undefined ? undefined : Math.min(BAILOUT_ROLL_SECONDS, (snapshot?.elapsed ?? 0) - actor.bailoutAt + (performance.now() - snapshotAt) / 1000),

@@ -219,6 +219,7 @@ state, so all the mixing rules are in one tested function. The batch cost 940 cr
 | Merlion, lifts, parachutes | `world-merlion-jet`, `world-lift-motor`, `world-lift-ding`, `world-chute-*` | While each is running |
 | Aim, scope, light and laser, cant, inspect | `world-aim`, `world-scope-click`, `world-switch-click`, `world-inspect` | |
 | Stance, jump, brass | `world-cloth-*`, `world-jump`, `world-brass` | Brass at most every 0.2 s |
+| Combat slide | `world-cloth-*` at each end, plus `createSlideScrape` | The scrape is synthesised, not a recording: filtered noise, brighter on metal than dirt, following the slide's speed |
 | Milestones | `world-match-start`, `world-objective`, `world-streak`, `world-rank-up` | |
 
 Inventory, Settings and multiplayer lobbies now play the menu's hover and click on any button

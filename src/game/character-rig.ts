@@ -50,6 +50,8 @@ export interface CharacterDrive {
   /** Aim pitch, positive up. */
   pitch?: number;
   crouch?: number; prone?: boolean; seated?: boolean; airborne?: boolean;
+  /** Combat slide: seated low on the back hip, the left leg out in front and the right folded under it. */
+  slide?: number;
   /** Unarmed surface stroke; the caller positions the body below the waterline. */
   swimming?: boolean;
   /** Seated with hands on the controls rather than the weapon. */
@@ -555,7 +557,7 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
 
   // Animation state.
   let time = hashString(name) % 1000 / 37, phase = 0, moveWeight = 0, speedSmoothed = 0, runWeight = 0;
-  let crouch = 0, prone = 0, seated = 0, air = 0, aim = 1, driving = 0, kick = 0, flinch = 0, flinchSide = 1;
+  let crouch = 0, prone = 0, seated = 0, slide = 0, air = 0, aim = 1, driving = 0, kick = 0, flinch = 0, flinchSide = 1;
   let heal = 0, healTime = 0;
   let down = false, downTime = 0, gestureTime = 0, gesture: CharacterGesture = 'idle', gestureBlend = 0, lookYaw = 0, lookPitch = 0;
   const moveDirection = new THREE.Vector2(0, -1), wanted = new THREE.Vector2();
@@ -614,6 +616,7 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     else if (turnSpeed > .05) moveDirection.lerp(wanted.set(1, 0), 1 - Math.exp(-6 * dt)).normalize();
     crouch = smooth(crouch, down ? Math.min(1, downTime * 4) : clamp01(drive.crouch ?? 0), 10, dt);
     prone = smooth(prone, drive.prone && !down ? 1 : 0, 6, dt);
+    slide = smooth(slide, down ? 0 : clamp01(drive.slide ?? 0), 14, dt);
     seated = smooth(seated, drive.seated && !down ? 1 : 0, 10, dt);
     driving = smooth(driving, drive.driving ? 1 : 0, 10, dt);
     air = smooth(air, drive.airborne && !down ? 1 : 0, 9, dt);
@@ -631,7 +634,7 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     gestureBlend = smooth(gestureBlend, gesturing ? 1 : 0, 7, dt);
     if (!gesturing && gestureBlend < .02) gesture = 'idle';
 
-    const walking = speedSmoothed * (1 - seated) * (1 - air);
+    const walking = speedSmoothed * (1 - seated) * (1 - air) * (1 - slide);
     moveWeight = smooth(moveWeight, clamp01((walking - .12) / .9), 10, dt);
     runWeight = smooth(runWeight, clamp01((walking - 3.2) / 2.4), 6, dt);
     const crawling = prone > .5;
@@ -653,13 +656,14 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     const sway = Math.sin(time * .45) * .018 * (1 - moveWeight) * (1 - crouch) * (1 - seated);
     const crouchDrop = crouch * (.4 - seated * .4);
     const hipHeight = seated > .01 ? THREE.MathUtils.lerp(D.standingHips, D.seatedHips, seated) : D.standingHips;
-    hips.position.set(sway + Math.sin(phase) * .02 * moveWeight, hipHeight - crouchDrop - bob + air * .06, crouch * .08 * (1 - seated) + seated * .02);
+    hips.position.set(sway + Math.sin(phase) * .02 * moveWeight, hipHeight - crouchDrop - bob + air * .06 - slide * .16, crouch * .08 * (1 - seated) + seated * .02 + slide * .1);
     const lean = runWeight * .22 + moveWeight * .05 * -moveDirection.y;
-    hips.rotation.set(-(crouch * .35 * (1 - seated)) - lean * .4, Math.sin(phase) * .14 * moveWeight * (1 - prone), sway * 1.4 + flinch * .06 * flinchSide, 'YXZ');
+    hips.rotation.set(-(crouch * .35 * (1 - seated)) - lean * .4 + slide * .75, Math.sin(phase) * .14 * moveWeight * (1 - prone), sway * 1.4 + flinch * .06 * flinchSide, 'YXZ');
     const pitchAim = (drive.pitch ?? 0) * (1 - prone * .3);
     const gestureLean = gesture === 'wipe' ? .22 * gestureBlend : gesture === 'offer' ? .1 * gestureBlend : 0;
-    spine.rotation.set(-crouch * .05 * (1 - seated) - lean * .35 - gestureLean * .5 + breathe * .012 + flinch * .18 + seated * .05, -hips.rotation.y * .6, 0);
-    chest.rotation.set(-(pitchAim * .35 * aim) - lean * .25 - gestureLean * .5 + breathe * .02 + flinch * .2 + crouch * .25 * (1 - seated) + fall * .3, -hips.rotation.y * .5 + lookYaw * .3, flinch * -.08 * flinchSide);
+    // The hips roll back into a slide; the spine curls forward again so the head and gun stay level.
+    spine.rotation.set(-crouch * .05 * (1 - seated) - lean * .35 - gestureLean * .5 + breathe * .012 + flinch * .18 + seated * .05 - slide * .3, -hips.rotation.y * .6, 0);
+    chest.rotation.set(-(pitchAim * .35 * aim) - lean * .25 - gestureLean * .5 + breathe * .02 + flinch * .2 + crouch * .25 * (1 - seated) + fall * .3 - slide * .4, -hips.rotation.y * .5 + lookYaw * .3, flinch * -.08 * flinchSide);
     chest.scale.set(1, 1 + breathe * .006, 1 + breathe * .012);
 
     // Head look and aim.
@@ -715,7 +719,8 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
       }
       // Lying on the back, body-space +z is down: keep the heels on the ground.
       if (fall > .01) target.lerp(tmpB.set(side * .19, hips.position.y - .87 + (side > 0 ? .14 : 0), .03), fall);
-      pole.set(side * (.15 + prone * .9), 0, -1).normalize();
+      if (slide > .01) target.lerp(tmpB.set(side * .15, D.ankle, side < 0 ? -.68 : -.14), slide);
+      pole.set(side * (.15 + prone * .9 + slide * .5), 0, -1).normalize();
       // The pole is a direction in the thigh parent's frame (hips).
       solveFoot(thigh, shin, foot, target, pole, -.04 + up * 1.5 * (1 - prone) + prone * .9);
     }

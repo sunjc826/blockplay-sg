@@ -52,6 +52,8 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
   // The engine drops every held key when it pauses or the player dies, so the
   // crouch latch has to let go too or the button would lie about the stance.
   useEffect(() => { if (!playing) setCrouched(false); }, [playing]);
+  // A slide that comes up into a run lets the latch go in the engine.
+  useEffect(() => { if (hud.crouchLatched === false) setCrouched(false); }, [hud.crouchLatched]);
   useEffect(() => { if (!playing) engine?.setMoveAxis(null); }, [playing, engine]);
 
   const hold = (key: string) => ({

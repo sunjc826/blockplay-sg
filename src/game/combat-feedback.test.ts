@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import manifest from '../audio/combat/manifest.json';
-import { HIT_CONFIRM_GAP, createEarRing, damageCues, grenadeBounces, hitConfirmGroups, lowHealthPulse, stepGroup } from './combat-feedback';
+import { HIT_CONFIRM_GAP, createEarRing, createSlideScrape, damageCues, grenadeBounces, hitConfirmGroups, lowHealthPulse, stepGroup } from './combat-feedback';
 import type { LiveGrenade } from './grenade-system';
 import { SFX_GROUPS, sfxUrls, type SfxGroup } from './sfx-bank';
 
@@ -13,6 +13,35 @@ describe('hit confirmation', () => {
     expect(hitConfirmGroups('kill', false)).toEqual(['combat-kill']);
     expect(hitConfirmGroups('kill', true)).toEqual(['combat-kill', 'combat-headshot']);
     expect(HIT_CONFIRM_GAP).toBeLessThan(.08); // a 750 rpm gun lands one every 80 ms.
+  });
+});
+describe('the slide scrape', () => {
+  function fixture(state = 'running') {
+    const param = () => ({ value: 0, setTargetAtTime: vi.fn() }), node = () => ({ connect: vi.fn(function (to) { return to; }), disconnect: vi.fn(), start: vi.fn(), stop: vi.fn(), gain: param(), frequency: param(), Q: param(), buffer: null, loop: false, type: '', onended: null });
+    const sources: ReturnType<typeof node>[] = [], gains: ReturnType<typeof node>[] = [], filters: ReturnType<typeof node>[] = [];
+    const context = { state, currentTime: 0, sampleRate: 100, createBuffer: () => ({ getChannelData: () => new Float32Array(100) }), createBufferSource: () => { const n = node(); sources.push(n); return n; }, createBiquadFilter: () => { const n = node(); filters.push(n); return n; }, createGain: () => { const n = node(); gains.push(n); return n; }, destination: {} };
+    return { context: context as unknown as AudioContext, sources, gains, filters };
+  }
+  it('costs nothing between slides, follows the speed and stops its source afterwards', () => {
+    const f = fixture(), scrape = createSlideScrape(() => f.context, () => false);
+    scrape.update(0, 'concrete'); expect(f.sources).toHaveLength(0);
+    scrape.update(1, 'concrete'); scrape.update(.5, 'concrete');
+    expect(f.sources).toHaveLength(1);
+    const levels = f.gains[0].gain.setTargetAtTime.mock.calls.map(call => call[0]);
+    expect(levels[1]).toBeLessThan(levels[0]);
+    scrape.update(0, 'concrete');
+    expect(f.gains[0].gain.setTargetAtTime.mock.calls.at(-1)?.[0]).toBe(0);
+    expect(f.sources[0].stop).toHaveBeenCalledOnce();
+  });
+  it('sounds brighter on metal than on dirt', () => {
+    const metal = fixture(), dirt = fixture();
+    createSlideScrape(() => metal.context, () => false).update(1, 'metal');
+    createSlideScrape(() => dirt.context, () => false).update(1, 'dirt');
+    expect(metal.filters[0].frequency.value).toBeGreaterThan(dirt.filters[0].frequency.value);
+  });
+  it('is silent when muted', () => {
+    const f = fixture(), scrape = createSlideScrape(() => f.context, () => true);
+    scrape.update(1, 'concrete'); expect(f.sources).toHaveLength(0);
   });
 });
 describe('taking damage', () => {
