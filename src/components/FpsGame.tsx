@@ -43,6 +43,7 @@ import FpsCalloutWheel from './FpsCalloutWheel';
 import FpsUtilityPicker from './FpsUtilityPicker';
 import TouchControls from './TouchControls';
 import { FpsControlGuide, FpsPlayerTools } from './FpsPlayerTools';
+import ReloadStyleToggle from './ReloadStyleToggle';
 import { useDebugMode } from '../lib/debug-mode';
 import { useTouchControls } from '../game/use-touch-controls';
 import { useHudHints } from '../game/hud-hints-setting';
@@ -212,7 +213,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
           <details className="arena-menu-section"><summary>Your loadout</summary><button type="button" className="respawn-loadout-trigger" onClick={openLoadout}>Choose next respawn loadout</button><p>{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP</p><p>{guest ? 'Your equipped Armory gear is ready.' : `${arenaOptions.botCount} bots · ${arenaOptions.composition} squad`}</p><button className="fps-shop-link arena-armory-link" onClick={onOpenShop}>Leave match · open armory →</button></details>
           {!guest && hud.phase === 'paused' && <button className="arena-reset-button" aria-label="Reset arena match" onClick={resetExercise}><RotateCcw size={14} /> Restart match</button>}
         </>}
-        {debug && <><FpsDebugPanel hud={hud} engine={engine.current} /><FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} /></>}
+        {debug && <><FpsDebugPanel hud={hud} engine={engine.current} /><div className="fps-player-tools"><ReloadStyleToggle /></div><FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} /></>}
         <button className="fps-shop-link" onClick={onLeaveArena}>Leave match · return to lobby →</button>
         {!['complete', 'loading', 'error'].includes(hud.phase) && !disconnected && !touch && <FpsControlGuide debug={debug}><span><kbd>WASD</kbd> Move</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>K</kbd> Inspect weapon</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>Ctrl / C</kbd> Hold / toggle crouch</span><span><kbd>Z</kbd> Prone / mount</span><span><kbd>Space</kbd> Jump</span><span><kbd>1–3</kbd> Switch</span><span><kbd>F / G</kbd> Recovery / combat · tap to use, hold to choose</span><span><kbd>M</kbd> Map</span><span><kbd>Y</kbd> Callouts</span>{equipment.vision && <span><kbd>N</kbd> {visionKeyLabel(equipment.vision.spec)}</span>}{equipment.weapons.some(weapon => hasLaser(weapon.accessories)) && <span><kbd>B</kbd> Laser</span>}{equipment.weapons.some(weapon => hasLight(weapon.accessories)) && <span><kbd>L</kbd> Weapon light</span>}{equipment.weapons.some(weapon => weapon.accessories?.offsetDot) && <span><kbd>X</kbd> Offset dot</span>}<span><kbd>ESC</kbd> Menu</span></FpsControlGuide>}
 
@@ -227,7 +228,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
         {hud.message && hud.phase !== 'error' && <p className="fps-capture-error" role="alert">{hud.message}</p>}
         <EnvironmentControls />
         {debug ? <>
-          <FpsDebugPanel hud={hud} engine={engine.current} />
+          <FpsDebugPanel hud={hud} engine={engine.current} /><div className="fps-player-tools"><ReloadStyleToggle /></div>
           <FpsRadioVoice hud={hud} engine={engine.current} />
           <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
         </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} touch={touch} onFullscreen={() => { void fullscreen.toggle(); }} />}

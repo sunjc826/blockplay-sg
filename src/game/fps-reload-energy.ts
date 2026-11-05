@@ -1,5 +1,5 @@
 import { reloadLength, type WeaponSpec } from './fps-rules';
-import { MAGAZINE_THROW, READY_BEATS, READY_SECONDS, smoothStep } from './fps-weapon-motion';
+import { MAGAZINE_THROW, READY_BEATS, READY_SECONDS, smoothStep, type ReloadStyle } from './fps-weapon-motion';
 
 /** Accelerate into contact; the endpoints stay still for a clean physical handoff. */
 export const reloadDrive = (progress: number) => {
@@ -23,7 +23,7 @@ function handlingWeight(weapon: Pick<WeaponSpec, 'id' | 'weightKg'>) {
 /** Cosmetic impulses on the weapon, never the camera or gameplay clock. Sampling
  * absolute progress keeps pause/resume, low frame rates and shop speed modifiers
  * deterministic. Mechanical contacts retain their existing animation/audio times. */
-export function reloadEnergy(progress: number, empty: boolean, weapon: Pick<WeaponSpec, 'id' | 'weightKg' | 'feed' | 'action'>) {
+export function reloadEnergy(progress: number, empty: boolean, weapon: Pick<WeaponSpec, 'id' | 'weightKg' | 'feed' | 'action'>, style: ReloadStyle = 'improved') {
   const time = Math.max(0, Math.min(1, progress)) * reloadLength(empty);
   const belt = weapon.feed === 'belt';
   const { agility, heft } = handlingWeight(weapon);
@@ -33,7 +33,7 @@ export function reloadEnergy(progress: number, empty: boolean, weapon: Pick<Weap
   const pull = accent(time, belt ? .315 : .205, belt ? .35 : .265, .39);
   const pullRecover = accent(time, belt ? .35 : .265, belt ? .38 : .31, .43);
   // Slinging the magazine away shoves the gun the other way, once the hand is off it.
-  const fling = belt ? 0 : accent(time, MAGAZINE_THROW.release, MAGAZINE_THROW.release + .015, MAGAZINE_THROW.gone);
+  const fling = belt || style === 'original' ? 0 : accent(time, MAGAZINE_THROW.release, MAGAZINE_THROW.release + .015, MAGAZINE_THROW.gone);
   const seatTime = belt ? .64 : .74;
   const brace = accent(time, seatTime - .065, seatTime - .018, seatTime);
   const seat = accent(time, seatTime, seatTime + .014, seatTime + .075);

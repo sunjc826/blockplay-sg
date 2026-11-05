@@ -3,6 +3,7 @@ import HudHintsToggle from './HudHintsToggle';
 import BotDifficultySettings from './BotDifficultySettings';
 import MusicSettings from './MusicSettings';
 import EffectsSettings from './EffectsSettings';
+import { RELOAD_STYLES, setReloadStyle, useReloadStyle } from '../game/reload-style-setting';
 import { progression } from '../game/progression';
 import { rankInsignia, rankSets } from '../game/rank-insignia';
 import { addressLine, encikLines, encikRegister, type EncikTone } from '../game/encik-registers';
@@ -12,7 +13,7 @@ const TONES = [{ id: 'rank', name: 'Follows your rank' }, { id: 'recruit', name:
 
 /** Profile preferences that cost nothing: how your rank is drawn and how the Encik talks to you. */
 export default function ArmorySettings({ store }: { store: Pick<ArmoryStore, 'profile' | 'wearRankSet' | 'setEncikTone'> }) {
-  const { profile } = store;
+  const { profile } = store, reloadStyle = useReloadStyle();
   const level = progression(profile.xp), insignia = rankInsignia(level.level, profile.rankSet);
   // A sample in the player's own rank, so the setting shows the joke rather
   // than describing it. `kill` is short and every register rewrites it.
@@ -25,6 +26,10 @@ export default function ArmorySettings({ store }: { store: Pick<ArmoryStore, 'pr
     <div className="armory-settings-group">
       <h2>PC display</h2><p>Show HUD instructions and key reminders. Turn them off to keep combat information, objectives and warnings. Touch controls stay visible.</p>
       <HudHintsToggle />
+    </div>
+    <div className="armory-settings-group">
+      <h2>Reload animation</h2><p>How your hands change a magazine. Only the look differs: every gun reloads in the same time either way.</p>
+      <div role="group" aria-label="Reload animation">{RELOAD_STYLES.map(style => <button key={style.id} data-reload-style={style.id} aria-pressed={reloadStyle === style.id} onClick={() => setReloadStyle(style.id)}><span><strong>{style.name}{style.id === 'improved' ? ' · Default' : ''}</strong><small>{style.description}</small></span></button>)}</div>
     </div>
     <div className="armory-settings-group">
       <h2>Rank insignia</h2><p>The badge your rank is drawn with, previewed at your level.</p>

@@ -42,6 +42,7 @@ import FpsCalloutWheel from './FpsCalloutWheel';
 import FpsUtilityPicker from './FpsUtilityPicker';
 import TouchControls from './TouchControls';
 import { FpsControlGuide, FpsPlayerTools } from './FpsPlayerTools';
+import ReloadStyleToggle from './ReloadStyleToggle';
 import { useDebugMode } from '../lib/debug-mode';
 import { useTouchControls } from '../game/use-touch-controls';
 import { useHudHints } from '../game/hud-hints-setting';
@@ -222,7 +223,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       {planning && <ExpeditionDeployment zone={scene.zone} deployment={hud.deployment} disabled={suspended} onChoose={id => engine.current?.chooseDeployment(id)} onZoom={factor => engine.current?.zoomDeployment(factor)} onResetView={() => engine.current?.resetDeploymentView()}>
         <button className="primary-button" disabled={suspended} onClick={() => { if (touch) fullscreen.enter(); engine.current?.start(); }}><Play size={16} />Enter district<ArrowRight size={16} /></button>
         <details className="deployment-settings"><summary>Briefing &amp; settings</summary><div className="deployment-settings-panel">{nav}<p>{zone.description}</p><p>Capture enemy equipment intact, destroy it, or rebuild ruined sites. Command posts reinforce infantry; garages and helipads replace vehicles.</p><EnvironmentControls />
-          {debug ? <><FpsDebugPanel hud={hud} engine={engine.current} /><FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} /></> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} touch={touch} onFullscreen={() => { void fullscreen.toggle(); }} />}
+          {debug ? <><FpsDebugPanel hud={hud} engine={engine.current} /><div className="fps-player-tools"><ReloadStyleToggle /></div><FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} /></> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} touch={touch} onFullscreen={() => { void fullscreen.toggle(); }} />}
         </div></details>
         <button className="deployment-leave" onClick={onExit}>Leave</button>
         {hud.message && <p className="fps-capture-error" role="alert">{hud.message}</p>}
@@ -239,7 +240,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
         <button type="button" className="respawn-loadout-trigger" onClick={openLoadout}>Choose next respawn loadout</button>
         <EnvironmentControls />
         {debug ? <>
-          <FpsDebugPanel hud={hud} engine={engine.current} />
+          <FpsDebugPanel hud={hud} engine={engine.current} /><div className="fps-player-tools"><ReloadStyleToggle /></div>
           <FpsRadioVoice hud={hud} engine={engine.current} />
           <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
         </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} touch={touch} onFullscreen={() => { void fullscreen.toggle(); }} />}

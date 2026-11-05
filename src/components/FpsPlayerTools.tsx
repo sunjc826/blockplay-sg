@@ -4,6 +4,7 @@ import type { FpsEngine, FpsHud } from '../game/fps-engine';
 import { getAimAssist, setAimAssist, subscribeAimAssist } from '../game/aim-assist-setting';
 import { FpsRadioVoice } from './FpsRadio';
 import HudHintsToggle from './HudHintsToggle';
+import ReloadStyleToggle from './ReloadStyleToggle';
 import './fps-hints.css';
 
 /** The start card's settings for players: the toggles they reach for, nothing more. */
@@ -13,6 +14,7 @@ export function FpsPlayerTools({ hud, engine, immersive, touch, onFullscreen }: 
     <FpsRadioVoice hud={hud} engine={engine} />
     {touch && <AimAssistToggle />}
     {!touch && <HudHintsToggle />}
+    <ReloadStyleToggle />
     <button className="session-button" onClick={onFullscreen}>{immersive ? <Minimize size={14} /> : <Maximize size={14} />} {immersive ? 'Windowed' : 'Fullscreen'}</button>
   </div>;
 }

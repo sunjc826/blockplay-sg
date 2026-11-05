@@ -92,6 +92,7 @@ import { isWaterObject, rippleWater } from './water';
 import { createFpsEffects, type ImpactKind } from './fps-effects';
 import { assistCone, assistLook, ASSIST_RANGE } from './aim-assist';
 import { getAimAssist } from './aim-assist-setting';
+import { getReloadStyle } from './reload-style-setting';
 import { advanceRecoil, compensateRecoil, createRecoil, recoilPose, recoilView, recordRecoilShot, resetRecoil, takeAimPush } from './fps-recoil';
 import { effectStyleForWeapon, resolveEffectStyle, type EffectStyle } from './fps-effect-styles';
 import type { ImpactProfile } from './fps-impact-profile';
@@ -2242,11 +2243,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.deploymentCamera = JSON.stringify({ x: camera.position.x, y: camera.position.y, z: camera.position.z, pitch: camera.rotation.x, yaw: camera.rotation.y, fov: camera.fov, near: camera.near, far: camera.far, ready: readyProgress ?? null, speed: intro?.speed ?? 0, blur: intro?.blur ?? 0 });
     const progress = remaining > 0 ? 1 - remaining : null;
     const beltProgress = progress ?? (specs[hud.weapon].feed === 'belt' ? state.reloadSaved ?? 0 : 0);
+    const reloadStyle = getReloadStyle();
+    canvas.dataset.reloadStyle = reloadStyle;
     const motion = readyProgress === undefined
-      ? weaponReloadMotion(specs[hud.weapon].feed === 'belt' ? beltProgress : progress ?? 0, emptyReload[hud.weapon], specs[hud.weapon])
+      ? weaponReloadMotion(specs[hud.weapon].feed === 'belt' ? beltProgress : progress ?? 0, emptyReload[hud.weapon], specs[hud.weapon], reloadStyle)
       : readyMotion(readyProgress, handleSide(specs[hud.weapon].id));
     const energy = readyProgress === undefined
-      ? reloadEnergy(specs[hud.weapon].feed === 'belt' ? beltProgress : progress ?? 0, emptyReload[hud.weapon], specs[hud.weapon])
+      ? reloadEnergy(specs[hud.weapon].feed === 'belt' ? beltProgress : progress ?? 0, emptyReload[hud.weapon], specs[hud.weapon], reloadStyle)
       : readyEnergy(readyProgress, specs[hud.weapon]);
     const energyScale = motionPreference?.matches ? .25 : 1;
     for (const axis of ['x', 'y', 'z', 'pitch', 'yaw', 'roll'] as const) motion[axis] += energy[axis] * energyScale;
@@ -2297,7 +2300,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       i === hud.weapon ? { source: source && worldToView ? { ...source, worldToView } : undefined, magazineOut: state.magazineOut === true, pending: !!state.pendingMagazine, capacity: state.pendingMagazine?.capacity ?? magazineCapacity(state, specs[i]), baseCapacity: specs[i].capacity, saved: state.reloadSaved ?? 0 } : undefined,
       { rounds: magazineRounds(loadout[i], specs[i]), capacity: magazineCapacity(loadout[i], specs[i]),
         ...(i === hud.weapon && specs[i].action === 'bolt' && loadout[i].cooldown > 0 && !loadout[i].reloadRemaining && !loadout[i].magazineOut
-          ? { cycle: 1 - loadout[i].cooldown / specs[i].interval } : {}) }));
+          ? { cycle: 1 - loadout[i].cooldown / specs[i].interval } : {}) }, reloadStyle));
     if (switching?.phase === 'stow' && loadout[heldFamily].magazineOut) {
       const magazine = weapons[heldFamily].getObjectByName(`${FPS_WEAPONS[heldFamily].id}__magazine`);
       if (magazine) magazine.visible = false;

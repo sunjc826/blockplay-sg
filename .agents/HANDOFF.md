@@ -6707,3 +6707,10 @@ On request: the magazine should come out and be thrown with more force. On the S
 Belt-fed boxes are unchanged and `reloadMotion.magazineDrop` still drives them. The throw only runs during a live reload, never on a spawn rack. The rules already discard the old magazine's rounds, so throwing it does not contradict them.
 Not covered: seen only in the reload fixture at 16:9 (SAR 21 frame by frame; Ultimax, P30, XM8 and M200 on contact sheets from before gravity went from 200 to 260), never in a real district. No throw sound was added and none was heard. Reduced motion does not soften it; a fast tumbling magazine there may want a look.
 Validation: tsc, vitest, reload-energy and pouch-reload smokes on Metal headless Chrome.
+
+## 2026-11-05: reload animation is a player setting
+On request, the reload before this work and the improved one are both selectable: `reload-style-setting.ts` (saved on the device, default improved), offered in Settings, on the start and pause card (`ReloadStyleToggle`) and in the debug shell. The engine reads it each frame, so a pause-card change applies on resume; `canvas.dataset.reloadStyle` exposes it to smokes.
+`style` threads through `reloadMotion`, `weaponReloadMotion`, `beltWeaponMotion`, `cockingHandRelease`, `reloadEnergy` and the viewmodel's `update`. Original restores the straight magazine drop, the SAR 21's left-side-up rack, the eased handle draw and the old hand release. Gameplay timing, stages and sounds are shared.
+A one-off test (not kept) ran every gun, tactical and empty, through the last commit's code beside `original`: poses, energy and every named part matched to 1e-9.
+The spawn rack has only the new form, whichever is chosen, because its length sets when control and the spawn shield arrive. The wrist cuff fix also stays in both, so original is not pixel-identical there.
+Checked in the real game at Marina Bay at 1/8 speed on Metal: Settings remembers the choice, the pause card reaches the engine, and both reloads were filmed with no page errors.

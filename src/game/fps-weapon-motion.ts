@@ -1,5 +1,8 @@
 import { EMPTY_RELOAD, RELOAD_POINTS, reloadLength, type WeaponSpec } from './fps-rules';
 
+/** Which reload the player has chosen: `original` is the slower one from before the thrown magazine. The spawn rack has only the one form. */
+export type ReloadStyle = 'improved' | 'original';
+
 export const smoothStep = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };
 
 /** One manual cycle occupies the shot cooldown: lift, pull, push and lock. */
@@ -15,10 +18,12 @@ export function boltCycleMotion(progress: number) {
 /** At the release the hand jerks back and the palm opens in one move: fastest
  * at the first instant, then it hangs there. It only returns, on a separate arc,
  * well after the action has snapped home. */
-export function cockingHandRelease(time: number) {
-  const clear = 1 - (1 - Math.max(0, Math.min(1, (time - 1.16) / .04))) ** 3;
+export function cockingHandRelease(time: number, style: ReloadStyle = 'improved') {
+  // The original reload opens the hand just ahead of the release, and eases it clear.
+  const start = style === 'original' ? 1.15 : 1.16;
+  const clear = style === 'original' ? smoothStep((time - start) / .04) : 1 - (1 - Math.max(0, Math.min(1, (time - start) / .04))) ** 3;
   const returnToGrip = smoothStep((time - 1.24) / .18);
-  return { active: time > 1.16 && time < 1.42, clear, returnToGrip, open: clear * (1 - returnToGrip) };
+  return { active: time > start && time < 1.42, clear, returnToGrip, open: clear * (1 - returnToGrip) };
 }
 
 export const INSPECT_DURATION = 3.6;
@@ -85,18 +90,28 @@ const topKeys: readonly Key[] = [...magazineChange,
   [1.30, -.03, .04, -.02, -.03, .02, -.04, 0],
   [EMPTY_RELOAD.length, 0, 0, 0, 0, 0, 0, 0],
 ];
+// The original top handle: the gun keeps the magazine change's cant and turns its
+// muzzle in, laying the receiver top and the left side open to the reaching hand.
+const originalTopKeys: readonly Key[] = [...magazineChange,
+  [CHARGE.reach, -.05, .10, -.01, .06, .30, -.50, 0],
+  [CHARGE.back, -.055, .09, .03, .08, .34, -.56, 0],
+  [CHARGE.release, -.053, .095, .035, .09, .33, -.55, 0],
+  [1.20, -.04, .07, -.045, -.03, .22, -.40, 0],
+  [1.30, -.03, .05, -.02, -.03, .05, -.14, 0],
+  [EMPTY_RELOAD.length, 0, 0, 0, 0, 0, 0, 0],
+];
 /** How far the charging handle is drawn back, 0..1: racked, held, then let fly. */
-function handleTravel(t: number) {
+function handleTravel(t: number, style: ReloadStyle) {
   if (t <= CHARGE.reach || t >= CHARGE.home) return 0;
   // Take up tension, then a firm draw that is still gaining speed at the rear stop.
   if (t < .97) return .08 * smoothStep((t - CHARGE.reach) / .03);
-  if (t < 1.015) return .08 + .92 * ((t - .97) / .045) ** 1.5;
+  if (t < 1.015) return .08 + .92 * (style === 'original' ? smoothStep((t - .97) / .045) : ((t - .97) / .045) ** 1.5);
   if (t < CHARGE.release) return 1;
   const run = (t - CHARGE.release) / (CHARGE.home - CHARGE.release);
   return (1 - run) ** 3;
 }
-export function reloadMotion(progress: number, empty = false, side: HandleSide = 'right') {
-  const p = Math.max(0, Math.min(1, progress)), t = p * reloadLength(empty), keys = !empty ? tacticalKeys : side === 'top' ? topKeys : rightKeys;
+export function reloadMotion(progress: number, empty = false, side: HandleSide = 'right', style: ReloadStyle = 'improved') {
+  const p = Math.max(0, Math.min(1, progress)), t = p * reloadLength(empty), keys = !empty ? tacticalKeys : side !== 'top' ? rightKeys : style === 'original' ? originalTopKeys : topKeys;
   const index = Math.min(keys.length - 2, Math.max(0, keys.findIndex((_, i) => i < keys.length - 1 && t <= keys[i + 1][0])));
   const a = keys[index], b = keys[index + 1], s = smoothStep((t - a[0]) / (b[0] - a[0]));
   const v = a.slice(1).map((value, i) => value + (b[i + 1] - value) * s);
@@ -108,13 +123,13 @@ export function reloadMotion(progress: number, empty = false, side: HandleSide =
     // A belt lies in the feed tray (1) or hangs free from its box (0): peeled
     // out as the box comes off, laid back in before the cover closes.
     beltSeated: t < MAG_IN_START ? 1 - smoothStep((t - .16) / .12) : smoothStep((t - .58) / .12),
-    action: empty ? handleTravel(t) : 0,
+    action: empty ? handleTravel(t, style) : 0,
   };
 }
 /** A small, steady cant exposes the feed tray while the other hand works.
  * From empty, join the existing charging stroke after the cover is closed. */
-export function beltWeaponMotion(progress: number, empty = false) {
-  const motion = reloadMotion(progress, empty), time = Math.max(0, Math.min(1, progress)) * reloadLength(empty);
+export function beltWeaponMotion(progress: number, empty = false, style: ReloadStyle = 'improved') {
+  const motion = reloadMotion(progress, empty, 'right', style), time = Math.max(0, Math.min(1, progress)) * reloadLength(empty);
   const hold = smoothStep(time / .15) * (1 - smoothStep((time - .74) / .26));
   const charge = empty ? smoothStep((time - .82) / .12) : 0;
   return { ...motion, x: -.025 * hold * (1 - charge) + motion.x * charge,
@@ -126,9 +141,9 @@ export function beltWeaponMotion(progress: number, empty = false) {
 /** Rifle reloads keep the butt low at the shoulder while the muzzle tilts up.
  * The receiver still rolls to expose the magazine/action; mechanical timing and
  * the additive contact impulses remain independent of this presentation pose. */
-export function weaponReloadMotion(progress: number, empty: boolean, weapon: Pick<WeaponSpec, 'id' | 'feed'>) {
-  if (weapon.feed === 'belt') return beltWeaponMotion(progress, empty);
-  const motion = reloadMotion(progress, empty, handleSide(weapon.id));
+export function weaponReloadMotion(progress: number, empty: boolean, weapon: Pick<WeaponSpec, 'id' | 'feed'>, style: ReloadStyle = 'improved') {
+  if (weapon.feed === 'belt') return beltWeaponMotion(progress, empty, style);
+  const motion = reloadMotion(progress, empty, handleSide(weapon.id), style);
   if (weapon.id === 'p30-inspired' || weapon.feed === 'drum') return motion;
   const time = Math.max(0, Math.min(1, progress)) * reloadLength(empty);
   const shoulder = smoothStep(time / .16) * (1 - smoothStep((time - (empty ? 1.24 : .80)) / (empty ? .26 : .20)));

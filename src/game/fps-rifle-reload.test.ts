@@ -122,3 +122,51 @@ describe('throwing the spent magazine', () => {
     handling.dispose();
   });
 });
+
+describe('the original reload style', () => {
+  const sar = FPS_WEAPONS[0], rack = (time: number) => time / reloadLength(true);
+
+  it('only ever differs from the improved one in how it looks, on the same clock', () => {
+    for (const spec of FPS_WEAPONS) for (const empty of [false, true]) for (let step = 0; step <= 100; step++) {
+      const a = weaponReloadMotion(step / 100, empty, spec, 'original'), b = weaponReloadMotion(step / 100, empty, spec);
+      expect(a.magazineVisible).toBe(b.magazineVisible);
+      expect(a.handToMagazine).toBe(b.handToMagazine);
+      expect(a.handToHandle).toBe(b.handToHandle);
+      expect(a.beltSeated).toBe(b.beltSeated);
+    }
+  });
+
+  it('keeps the SAR 21 turned to show its left side while racking', () => {
+    expect(reloadMotion(rack(1.04), true, 'top', 'original').yaw).toBeCloseTo(.34);
+    expect(reloadMotion(rack(1.04), true, 'top').yaw).toBeCloseTo(.05);
+  });
+
+  it('adds no shove from a thrown magazine', () => {
+    const after = MAGAZINE_THROW.release + .015;
+    expect(reloadEnergy(after, false, sar, 'original').x).toBeLessThan(reloadEnergy(after, false, sar).x);
+  });
+
+  it('pulls the magazine straight down instead of throwing it, on the same hand', () => {
+    const model = serviceOrAuthored(sar.id), handling = createWeaponHandling(model, 0), magazine = model.getObjectByName(`${sar.id}__magazine`)!;
+    const home = magazine.position.clone(), time = MAGAZINE_THROW.release + .05;
+    handling.update(time, false, undefined, undefined, undefined, undefined, 'original');
+    expect(magazine.position.x).toBe(home.x);
+    expect(magazine.position.z).toBe(home.z);
+    expect(home.y - magazine.position.y).toBeCloseTo(reloadMotion(time).magazineDrop);
+    handling.update(time, false);
+    expect(magazine.position.x).toBeLessThan(home.x - .1);
+    handling.dispose();
+  });
+
+  it('leaves the spawn rack as it is, whichever reload is chosen', () => {
+    const model = serviceOrAuthored(sar.id), handling = createWeaponHandling(model, 0), hand = model.getObjectByName('reload-hand-left')!;
+    for (const ready of [.3, .58, .62, .7]) {
+      handling.update(null, false, undefined, ready);
+      const improved = hand.position.clone(), turn = hand.quaternion.clone();
+      handling.update(null, false, undefined, ready, undefined, undefined, 'original');
+      expect(hand.position.distanceTo(improved)).toBe(0);
+      expect(hand.quaternion.angleTo(turn)).toBeLessThan(1e-6);
+    }
+    handling.dispose();
+  });
+});
